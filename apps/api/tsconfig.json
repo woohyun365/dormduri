@@ -1,0 +1,32 @@
+{
+  "extends": "@repo/tsconfig/base.json",
+  "compilerOptions": {
+    /* ESM(NodeNext) */
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "resolvePackageJsonExports": true,
+
+    /* Nest(데코레이터) */
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+
+    /* 상호운용성 / 타입스크립트 사용 편의성(개발자 경험) */
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+
+    /* Runtime types */
+    "types": ["jest", "node"],
+
+    /* Output */
+    "target": "ES2023",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "removeComments": true,
+    "declaration": true,
+
+    "baseUrl": "./"
+  }
+}

@@ -1,0 +1,45 @@
+## 의존성/패키지 관리자
+# 모든 패키지의 의존성 디렉터리 무시
+node_modules
+
+# Yarn Plug'n'Play 및 Yarn 메타 데이터
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+## 환경변수/비밀키
+# 로컬 환경 변수 파일 무시(필요 시 개별 opt-in 커밋)
+.env
+.env.*
+
+## 로그/디버그
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+## 빌드/산출물(재생성 가능)
+dist
+build
+out
+
+## 테스트/커버리지 산출물
+coverage
+
+## Next.js 캐시/출력
+.next/
+
+## 배포/호스팅 메타(예: Vercel)
+.vercel
+
+## TypeScript
+# 증분 빌드 캐시 파일
+*.tsbuildinfo
+# 참고: next-env.d.ts는 타입 선언 파일이므로 버전 관리 포함 권장
+
+## OS/기타
+.DS_Store
