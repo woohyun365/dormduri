@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'KNU 룸메',
   description: '강원대학교 기숙사 룸메이트 매칭 서비스',
+  icons: { icon: '/knu_logo.svg' },
 };
 
 export default function RootLayout({
@@ -25,9 +26,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <head>
-        <link rel="icon" href="/knu_logo.svg" type="image/svg+xml" />
-      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
     </html>
   );
