@@ -41,5 +41,9 @@ coverage
 *.tsbuildinfo
 # 참고: next-env.d.ts는 타입 선언 파일이므로 버전 관리 포함 권장
 
+## Claude Code / OMC (AI 도구 관련)
+.claude/
+.omc/
+
 ## OS/기타
 .DS_Store
