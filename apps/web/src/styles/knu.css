@@ -1,0 +1,16 @@
+/* KNU Landing Color System */
+:root {
+  --knu-primary: #1e40af;
+  --knu-primary-hover: #1e3a8a;
+  --knu-primary-light: #dbeafe;
+  --knu-secondary: #475569;
+  --knu-secondary-hover: #334155;
+  --knu-accent: #0ea5e9;
+  --knu-background: #ffffff;
+  --knu-background-alt: #f8fafc;
+  --knu-surface: #ffffff;
+  --knu-border: #e2e8f0;
+  --knu-text-primary: #0f172a;
+  --knu-text-secondary: #475569;
+  --knu-text-tertiary: #94a3b8;
+}
