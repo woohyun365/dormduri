@@ -206,10 +206,76 @@ export default function Landing() {
             description="프로필에 기본 정보와 생활 패턴을 명확하게 제공해요."
           />
         </div>
+        <div className="mt-8 bg-[var(--knu-background-alt)] border-2 border-[var(--knu-border)] rounded-2xl p-6 text-center">
+          <Info className="w-6 h-6 text-[var(--knu-text-tertiary)] mx-auto mb-2" />
+          <p className="text-sm text-[var(--knu-text-secondary)]">
+            <strong>MVP 단계:</strong> 채팅 기능은 제외되어 있으며, 매칭 후 연락처 교환은 개인적으로
+            진행해주세요.
+          </p>
+        </div>
+      </Section>
+
+      {/* Season Policy Section */}
+      <Section background="alt" className="py-16 md:py-24">
+        <div className="text-center mb-8">
+          <Calendar className="w-12 h-12 text-[var(--knu-primary)] mx-auto mb-4" />
+          <h2 className="text-3xl md:text-4xl font-bold text-[var(--knu-text-primary)] mb-4">
+            시즌 정책
+          </h2>
+          <p className="text-lg text-[var(--knu-text-secondary)]">매칭 시즌과 비시즌 운영 안내</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          <div className="bg-white border-2 border-[var(--knu-primary)] rounded-2xl p-6">
+            <div className="w-12 h-12 bg-[var(--knu-primary)] rounded-xl flex items-center justify-center mb-4">
+              <CheckCircle className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-[var(--knu-text-primary)] mb-3">매칭 시즌</h3>
+            <p className="text-[var(--knu-text-secondary)] mb-4">
+              1~2월 (봄학기) / 7~8월 (가을학기)
+            </p>
+            <ul className="space-y-2 text-sm text-[var(--knu-text-secondary)]">
+              <li className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-[var(--knu-primary)] flex-shrink-0 mt-0.5" />
+                <span>프로필 작성·수정 가능</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-[var(--knu-primary)] flex-shrink-0 mt-0.5" />
+                <span>후보 리스트 열람 가능</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-[var(--knu-primary)] flex-shrink-0 mt-0.5" />
+                <span>매칭 요청·수락 활성</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-white border-2 border-[var(--knu-border)] rounded-2xl p-6">
+            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-4">
+              <Clock className="w-6 h-6 text-gray-500" />
+            </div>
+            <h3 className="text-xl font-bold text-[var(--knu-text-primary)] mb-3">비시즌</h3>
+            <p className="text-[var(--knu-text-secondary)] mb-4">3~6월 / 9~12월</p>
+            <ul className="space-y-2 text-sm text-[var(--knu-text-secondary)]">
+              <li className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                <span>프로필 작성·수정 가능</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                <span>후보 리스트 열람 가능</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                <span className="line-through">매칭 요청·수락 비활성</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </Section>
 
       {/* FAQ Section */}
-      <Section background="alt" className="py-16 md:py-24">
+      <Section className="py-16 md:py-24">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-[var(--knu-text-primary)] mb-6 text-center">
             자주 묻는 질문
@@ -228,6 +294,24 @@ export default function Landing() {
               answer="학교 인증을 통해 신원 확인 후 최소한의 정보만 노출되도록 설계되어 있습니다."
             />
           </div>
+        </div>
+      </Section>
+
+      {/* CTA Section */}
+      <Section className="py-16 md:py-24">
+        <div className="text-center max-w-2xl mx-auto">
+          <h2 className="text-3xl md:text-4xl font-bold text-[var(--knu-text-primary)] mb-4">
+            지금 바로 시작하세요
+          </h2>
+          <p className="text-lg text-[var(--knu-text-secondary)] mb-8">
+            학교 이메일로 간편하게 가입하고
+            <br />
+            나에게 맞는 룸메를 찾아보세요
+          </p>
+          <LandingButton variant="primary" size="lg" onClick={() => router.push('/signup')}>
+            <Mail className="w-5 h-5" />
+            이메일로 시작하기
+          </LandingButton>
         </div>
       </Section>
 
