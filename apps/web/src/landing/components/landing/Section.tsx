@@ -21,7 +21,7 @@ export function Section({
   const containerStyles = {
     default: 'max-w-7xl',
     narrow: 'max-w-4xl',
-    wide: 'max-w-[1200px]',
+    wide: 'max-w-screen-2xl',
   } as const;
 
   return (
