@@ -171,16 +171,26 @@ export function StepTermsAgreement({
         <div
           className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
           onClick={() => setViewingTerm(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setViewingTerm(null);
+          }}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="terms-modal-title"
             className="bg-white w-full max-w-lg max-h-[80vh] rounded-t-2xl sm:rounded-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between p-4 border-b border-[var(--knu-border)]">
-              <h3 className="font-bold text-lg text-[var(--knu-text-primary)]">
+              <h3
+                id="terms-modal-title"
+                className="font-bold text-lg text-[var(--knu-text-primary)]"
+              >
                 {TERMS_CONTENT[viewingTerm].title}
               </h3>
               <button
+                aria-label="닫기"
                 onClick={() => setViewingTerm(null)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
               >
