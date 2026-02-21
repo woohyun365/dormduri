@@ -27,9 +27,7 @@ export function LandingHeader({ onLoginClick, onStartClick }: LandingHeaderProps
                 height={36}
                 className="rounded-xl"
               />
-              <span className="text-xl font-bold text-[var(--knu-text-primary)] hidden sm:inline">
-                KNU 룸메
-              </span>
+              <span className="text-xl font-bold text-[var(--knu-text-primary)]">KNU 룸메</span>
             </Link>
           </div>
 
@@ -38,7 +36,7 @@ export function LandingHeader({ onLoginClick, onStartClick }: LandingHeaderProps
             <button
               type="button"
               onClick={onLoginClick}
-              className="h-11 px-6 text-[var(--knu-text-secondary)] hover:text-[var(--knu-text-primary)] font-semibold transition-colors"
+              className="h-11 px-6 border-2 border-[var(--knu-border)] hover:border-[var(--knu-primary)] hover:text-[var(--knu-primary)] rounded-xl text-[var(--knu-text-secondary)] font-semibold transition-all"
             >
               로그인
             </button>
@@ -73,7 +71,7 @@ export function LandingHeader({ onLoginClick, onStartClick }: LandingHeaderProps
               <button
                 type="button"
                 onClick={onLoginClick}
-                className="h-12 px-4 text-left text-[var(--knu-text-secondary)] hover:bg-[var(--knu-background-alt)] rounded-xl font-semibold transition-colors"
+                className="h-12 px-4 text-center border-2 border-[var(--knu-border)] text-[var(--knu-text-secondary)] hover:border-[var(--knu-primary)] hover:text-[var(--knu-primary)] rounded-xl font-semibold transition-all"
               >
                 로그인
               </button>
