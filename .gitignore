@@ -45,5 +45,8 @@ coverage
 .claude/
 .omc/
 
+## Figma 참조 (코드 이식 후 불필요)
+figma_references/
+
 ## OS/기타
 .DS_Store

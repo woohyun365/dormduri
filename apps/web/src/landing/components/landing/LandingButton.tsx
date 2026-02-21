@@ -14,7 +14,7 @@ export function LandingButton({
   ...rest
 }: LandingButtonProps) {
   const baseStyles =
-    'font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2';
+    'font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed';
 
   const variantStyles = {
     primary:
