@@ -56,14 +56,13 @@ export default function Login() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleLogin();
-    }
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleLogin();
   };
 
   return (
-    <div className="min-h-screen bg-[var(--knu-background-alt)]" onKeyDown={handleKeyPress}>
+    <div className="min-h-screen bg-[var(--knu-background-alt)]">
       <AuthHeader showBack={false} />
 
       <div className="mx-auto max-w-md px-5 py-12 md:py-20">
@@ -83,7 +82,10 @@ export default function Login() {
         </div>
 
         {/* Login Form */}
-        <div className="bg-white rounded-2xl shadow-sm border-2 border-[var(--knu-border)] p-6 md:p-8 mb-6">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white rounded-2xl shadow-sm border-2 border-[var(--knu-border)] p-6 md:p-8 mb-6"
+        >
           {loginError && (
             <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -121,6 +123,7 @@ export default function Login() {
             <div className="flex items-center justify-between">
               <Checkbox label="로그인 유지" checked={rememberMe} onChange={setRememberMe} />
               <button
+                type="button"
                 onClick={() => router.push('/password-reset')}
                 className="text-sm font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
               >
@@ -129,13 +132,13 @@ export default function Login() {
             </div>
 
             <div className="pt-2">
-              <LandingButton variant="primary" size="lg" fullWidth onClick={handleLogin}>
+              <LandingButton variant="primary" size="lg" fullWidth type="submit">
                 <Lock className="w-5 h-5" />
                 로그인
               </LandingButton>
             </div>
           </div>
-        </div>
+        </form>
 
         {/* Test Credentials Info - Dev only */}
         {process.env.NODE_ENV === 'development' && (

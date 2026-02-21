@@ -26,10 +26,12 @@ export default function PasswordReset() {
   const [confirmError, setConfirmError] = useState('');
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
@@ -69,7 +71,7 @@ export default function PasswordReset() {
     startCountdown();
 
     // Move to verification step automatically after showing success
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       setCurrentStep('verification');
     }, 500);
   };
@@ -82,6 +84,10 @@ export default function PasswordReset() {
 
     if (verificationCode === '123456') {
       setCodeError('');
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       setCurrentStep('newPassword');
     } else {
       setCodeError('인증 코드가 올바르지 않습니다.');
