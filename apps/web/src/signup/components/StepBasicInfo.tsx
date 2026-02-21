@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { InputField } from './InputField';
+import { InputField } from '@/components/form/InputField';
+import { Button } from '@/components/Button';
+import { StepHeader } from '@/components/StepHeader';
+import { FieldError } from '@/components/form/FieldError';
 import { Chip } from '@/components/Chip';
-import { LandingButton } from '@/landing/components/landing/LandingButton';
+import { validatePassword, validatePasswordConfirm } from '@/utils/validation';
 import { User } from 'lucide-react';
 
 export interface BasicInfoData {
@@ -40,25 +43,14 @@ export function StepBasicInfo({
     return '';
   };
 
-  const validatePassword = (value: string) => {
-    if (!value) return '비밀번호를 입력해주세요.';
-    if (value.length < 8) return '비밀번호는 8자 이상이어야 합니다.';
-    if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(value)) return '비밀번호는 영문과 숫자를 포함해야 합니다.';
-    return '';
-  };
-
   const handleNext = () => {
     const nicknameErr = validateNickname(basicInfo.nickname);
     const passwordErr = validatePassword(basicInfo.password);
-    let passwordConfirmErr = '';
-    let genderErr = '';
-
-    if (basicInfo.password !== basicInfo.passwordConfirm) {
-      passwordConfirmErr = '비밀번호가 일치하지 않습니다.';
-    }
-    if (!basicInfo.gender) {
-      genderErr = '성별을 선택해주세요.';
-    }
+    const passwordConfirmErr = validatePasswordConfirm(
+      basicInfo.password,
+      basicInfo.passwordConfirm,
+    );
+    const genderErr = basicInfo.gender ? '' : '성별을 선택해주세요.';
 
     setNicknameError(nicknameErr);
     setPasswordError(passwordErr);
@@ -72,17 +64,11 @@ export function StepBasicInfo({
 
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-[var(--knu-primary-light)] rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <User className="w-8 h-8 text-[var(--knu-primary)]" />
-        </div>
-        <h2 className="text-2xl md:text-3xl font-bold text-[var(--knu-text-primary)] mb-2">
-          기본 정보 입력
-        </h2>
-        <p className="text-[var(--knu-text-secondary)]">
-          서비스 이용을 위한 기본 정보를 입력해주세요
-        </p>
-      </div>
+      <StepHeader
+        icon={<User className="w-8 h-8 text-[var(--knu-primary)]" />}
+        title="기본 정보 입력"
+        description="서비스 이용을 위한 기본 정보를 입력해주세요"
+      />
 
       <div className="bg-[var(--knu-background-alt)] rounded-xl p-4">
         <p className="text-sm text-[var(--knu-text-secondary)]">
@@ -113,12 +99,7 @@ export function StepBasicInfo({
               }}
             />
           </div>
-          {genderError && (
-            <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
-              <span className="w-1 h-1 bg-red-600 rounded-full"></span>
-              {genderError}
-            </p>
-          )}
+          <FieldError message={genderError} />
         </div>
 
         <InputField
@@ -161,12 +142,12 @@ export function StepBasicInfo({
       </div>
 
       <div className="flex gap-3 pt-4">
-        <LandingButton variant="outline" size="lg" fullWidth onClick={onBack}>
+        <Button variant="outline" size="lg" fullWidth onClick={onBack}>
           이전
-        </LandingButton>
-        <LandingButton variant="primary" size="lg" fullWidth onClick={handleNext}>
+        </Button>
+        <Button variant="primary" size="lg" fullWidth onClick={handleNext}>
           다음 단계
-        </LandingButton>
+        </Button>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { LandingButton } from '@/landing/components/landing/LandingButton';
+import { Button } from '@/components/Button';
 import { CheckCircle } from 'lucide-react';
 
 interface StepCompleteProps {
@@ -61,9 +61,9 @@ export function StepComplete({ nickname, onGoToHome }: StepCompleteProps) {
       </div>
 
       <div className="pt-4">
-        <LandingButton variant="primary" size="lg" fullWidth onClick={onGoToHome}>
+        <Button variant="primary" size="lg" fullWidth onClick={onGoToHome}>
           룸메 찾으러 가기
-        </LandingButton>
+        </Button>
       </div>
     </div>
   );

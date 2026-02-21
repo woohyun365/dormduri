@@ -1,7 +1,9 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { LandingButton } from '@/landing/components/landing/LandingButton';
+import { Button } from '@/components/Button';
+import { StepHeader } from '@/components/StepHeader';
+import { FieldError } from '@/components/form/FieldError';
 import { Chip } from '@/components/Chip';
 import { Sparkles } from 'lucide-react';
 
@@ -88,25 +90,13 @@ export function StepLifestyleProfile({
     });
   };
 
-  const renderError = (field: FieldKey) =>
-    errors[field] ? (
-      <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
-        <span className="w-1 h-1 bg-red-600 rounded-full"></span>
-        {errors[field]}
-      </p>
-    ) : null;
-
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-[var(--knu-primary-light)] rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Sparkles className="w-8 h-8 text-[var(--knu-primary)]" />
-        </div>
-        <h2 className="text-2xl md:text-3xl font-bold text-[var(--knu-text-primary)] mb-2">
-          생활 패턴 프로필
-        </h2>
-        <p className="text-[var(--knu-text-secondary)]">나와 맞는 룸메를 찾기 위한 정보예요</p>
-      </div>
+      <StepHeader
+        icon={<Sparkles className="w-8 h-8 text-[var(--knu-primary)]" />}
+        title="생활 패턴 프로필"
+        description="나와 맞는 룸메를 찾기 위한 정보예요"
+      />
 
       <div className="space-y-8">
         {/* Smoker */}
@@ -135,7 +125,7 @@ export function StepLifestyleProfile({
               onClick={() => update('smoker', 'OK')}
             />
           </div>
-          {renderError('smoker')}
+          <FieldError message={errors.smoker} />
         </div>
 
         {/* Sleep Habit */}
@@ -169,7 +159,7 @@ export function StepLifestyleProfile({
               onClick={() => update('sleepHabit', 'GRINDING')}
             />
           </div>
-          {renderError('sleepHabit')}
+          <FieldError message={errors.sleepHabit} />
         </div>
 
         {/* Indoor Eating */}
@@ -198,7 +188,7 @@ export function StepLifestyleProfile({
               onClick={() => update('indoorEating', 'VENTILATE')}
             />
           </div>
-          {renderError('indoorEating')}
+          <FieldError message={errors.indoorEating} />
         </div>
 
         {/* Bedtime */}
@@ -232,7 +222,7 @@ export function StepLifestyleProfile({
               onClick={() => update('bedtime', 'AFTER_02')}
             />
           </div>
-          {renderError('bedtime')}
+          <FieldError message={errors.bedtime} />
         </div>
 
         {/* Wake Time */}
@@ -266,7 +256,7 @@ export function StepLifestyleProfile({
               onClick={() => update('wakeTime', 'AFTER_10')}
             />
           </div>
-          {renderError('wakeTime')}
+          <FieldError message={errors.wakeTime} />
         </div>
 
         {/* Noise Sensitivity */}
@@ -295,7 +285,7 @@ export function StepLifestyleProfile({
               onClick={() => update('noiseSensitivity', 'HIGH')}
             />
           </div>
-          {renderError('noiseSensitivity')}
+          <FieldError message={errors.noiseSensitivity} />
         </div>
 
         {/* Cleanliness */}
@@ -324,7 +314,7 @@ export function StepLifestyleProfile({
               onClick={() => update('cleanliness', 'HIGH')}
             />
           </div>
-          {renderError('cleanliness')}
+          <FieldError message={errors.cleanliness} />
         </div>
 
         {/* Relationship Style */}
@@ -348,7 +338,7 @@ export function StepLifestyleProfile({
               onClick={() => update('relationshipStyle', 'CASUAL')}
             />
           </div>
-          {renderError('relationshipStyle')}
+          <FieldError message={errors.relationshipStyle} />
         </div>
       </div>
 
@@ -359,12 +349,12 @@ export function StepLifestyleProfile({
       </div>
 
       <div className="flex gap-3 pt-4">
-        <LandingButton variant="outline" size="lg" fullWidth onClick={onBack}>
+        <Button variant="outline" size="lg" fullWidth onClick={onBack}>
           이전
-        </LandingButton>
-        <LandingButton variant="primary" size="lg" fullWidth onClick={handleNext}>
+        </Button>
+        <Button variant="primary" size="lg" fullWidth onClick={handleNext}>
           완료
-        </LandingButton>
+        </Button>
       </div>
     </div>
   );

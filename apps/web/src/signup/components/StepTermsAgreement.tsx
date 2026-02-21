@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { Checkbox } from './Checkbox';
-import { LandingButton } from '@/landing/components/landing/LandingButton';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Checkbox } from '@/components/form/Checkbox';
+import { Button } from '@/components/Button';
+import { StepHeader } from '@/components/StepHeader';
+import { FieldError } from '@/components/form/FieldError';
 import { TERMS_CONTENT } from '@/constants/legal';
 import { FileText, X } from 'lucide-react';
 
@@ -27,6 +29,8 @@ export function StepTermsAgreement({
 }: StepTermsAgreementProps) {
   const [error, setError] = useState('');
   const [viewingTerm, setViewingTerm] = useState<'terms' | 'privacy' | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const allAgreed = terms.agreeAge && terms.agreeTerms && terms.agreePrivacy;
 
@@ -47,17 +51,59 @@ export function StepTermsAgreement({
     onNext();
   };
 
+  const handleCloseModal = useCallback(() => {
+    setViewingTerm(null);
+  }, []);
+
+  // Focus trapping for modal
+  useEffect(() => {
+    if (!viewingTerm || !modalRef.current) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement;
+
+    const modal = modalRef.current;
+    const focusableSelector =
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const focusableElements = modal.querySelectorAll<HTMLElement>(focusableSelector);
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+
+    firstFocusable?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleCloseModal();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+
+      if (e.shiftKey) {
+        if (document.activeElement === firstFocusable) {
+          e.preventDefault();
+          lastFocusable?.focus();
+        }
+      } else {
+        if (document.activeElement === lastFocusable) {
+          e.preventDefault();
+          firstFocusable?.focus();
+        }
+      }
+    };
+
+    modal.addEventListener('keydown', handleKeyDown);
+    return () => {
+      modal.removeEventListener('keydown', handleKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [viewingTerm, handleCloseModal]);
+
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-[var(--knu-primary-light)] rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <FileText className="w-8 h-8 text-[var(--knu-primary)]" />
-        </div>
-        <h2 className="text-2xl md:text-3xl font-bold text-[var(--knu-text-primary)] mb-2">
-          약관 동의
-        </h2>
-        <p className="text-[var(--knu-text-secondary)]">서비스 이용을 위한 약관에 동의해주세요</p>
-      </div>
+      <StepHeader
+        icon={<FileText className="w-8 h-8 text-[var(--knu-primary)]" />}
+        title="약관 동의"
+        description="서비스 이용을 위한 약관에 동의해주세요"
+      />
 
       <div className="space-y-4">
         <div className="bg-[var(--knu-background-alt)] rounded-xl p-4">
@@ -116,32 +162,25 @@ export function StepTermsAgreement({
           </div>
         </div>
 
-        {error && (
-          <p className="text-sm text-red-600 flex items-center gap-1">
-            <span className="w-1 h-1 bg-red-600 rounded-full"></span>
-            {error}
-          </p>
-        )}
+        <FieldError message={error} />
       </div>
 
       <div className="flex gap-3 pt-4">
-        <LandingButton variant="outline" size="lg" fullWidth onClick={onBack}>
+        <Button variant="outline" size="lg" fullWidth onClick={onBack}>
           이전
-        </LandingButton>
-        <LandingButton variant="primary" size="lg" fullWidth onClick={handleNext}>
+        </Button>
+        <Button variant="primary" size="lg" fullWidth onClick={handleNext}>
           다음 단계
-        </LandingButton>
+        </Button>
       </div>
 
       {viewingTerm && TERMS_CONTENT[viewingTerm] && (
         <div
           className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center"
-          onClick={() => setViewingTerm(null)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') setViewingTerm(null);
-          }}
+          onClick={handleCloseModal}
         >
           <div
+            ref={modalRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="terms-modal-title"
@@ -157,7 +196,7 @@ export function StepTermsAgreement({
               </h3>
               <button
                 aria-label="닫기"
-                onClick={() => setViewingTerm(null)}
+                onClick={handleCloseModal}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
               >
                 <X className="w-5 h-5 text-[var(--knu-text-secondary)]" />

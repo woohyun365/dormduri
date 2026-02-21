@@ -1,7 +1,6 @@
-'use client';
-
-import { useRouter } from 'next/navigation';
-import { AuthHeader } from '@/components/AuthHeader';
+import Image from 'next/image';
+import Link from 'next/link';
+import { BackButton } from '@/components/BackButton';
 
 interface LegalPageProps {
   title: string;
@@ -9,11 +8,25 @@ interface LegalPageProps {
 }
 
 export function LegalPage({ title, content }: LegalPageProps) {
-  const router = useRouter();
-
   return (
     <div className="min-h-screen bg-[var(--knu-background-alt)]">
-      <AuthHeader showBack onBack={() => router.back()} />
+      <header className="sticky top-0 z-10 bg-white border-b border-[var(--knu-border)]">
+        <div className="mx-auto max-w-2xl px-5">
+          <div className="flex items-center h-16">
+            <BackButton />
+            <Link href="/" className="flex items-center gap-2">
+              <Image
+                src="/knu_logo.svg"
+                alt="KNU 로고"
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
+              <span className="text-lg font-bold text-[var(--knu-text-primary)]">KNU 룸메</span>
+            </Link>
+          </div>
+        </div>
+      </header>
 
       <div className="mx-auto max-w-2xl px-5 py-12">
         <h1 className="text-2xl md:text-3xl font-bold text-[var(--knu-text-primary)] mb-6">

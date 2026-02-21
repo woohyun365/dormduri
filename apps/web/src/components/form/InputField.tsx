@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { FieldError } from './FieldError';
 
 interface InputFieldProps {
   label: string;
@@ -63,12 +64,7 @@ export function InputField({
           </button>
         )}
       </div>
-      {error && (
-        <p className="text-sm text-red-600 mt-2 flex items-center gap-1">
-          <span className="w-1 h-1 bg-red-600 rounded-full"></span>
-          {error}
-        </p>
-      )}
+      <FieldError message={error} />
       {helper && !error && <p className="text-sm text-[var(--knu-text-tertiary)] mt-2">{helper}</p>}
     </div>
   );
