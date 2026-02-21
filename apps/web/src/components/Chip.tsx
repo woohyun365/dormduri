@@ -16,6 +16,7 @@ export function Chip({ label, selected = false, onClick, variant = 'default' }: 
 
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`px-5 h-11 rounded-full font-medium text-sm transition-all ${
         selected
