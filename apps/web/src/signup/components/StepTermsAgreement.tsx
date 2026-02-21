@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Checkbox } from './Checkbox';
 import { LandingButton } from '@/landing/components/landing/LandingButton';
+import { TERMS_CONTENT } from '@/constants/legal';
 import { FileText, X } from 'lucide-react';
 
 export interface TermsData {
@@ -18,41 +19,6 @@ interface StepTermsAgreementProps {
   onBack: () => void;
 }
 
-const TERMS_CONTENT: Record<string, { title: string; content: string }> = {
-  terms: {
-    title: '이용약관',
-    content: `제1조 (목적)
-이 약관은 KNU 룸메 서비스(이하 "서비스")의 이용 조건 및 절차, 회원과 서비스 제공자의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
-
-제2조 (정의)
-1. "서비스"란 강원대학교 재학생을 위한 룸메이트 매칭 플랫폼을 의미합니다.
-2. "회원"이란 서비스에 가입하여 이용하는 자를 의미합니다.
-
-제3조 (서비스 이용)
-1. 서비스는 강원대학교 이메일 인증을 완료한 회원에 한해 제공됩니다.
-2. 회원은 타인의 개인정보를 도용하거나 허위 정보를 등록해서는 안 됩니다.
-
-(이용약관 전체 내용은 추후 업데이트됩니다.)`,
-  },
-  privacy: {
-    title: '개인정보 처리방침',
-    content: `1. 수집하는 개인정보 항목
-- 이메일 주소 (강원대학교 이메일)
-- 닉네임, 비밀번호
-- 생활 패턴 정보 (수면시간, 흡연여부, 청결도, 소음민감도)
-
-2. 개인정보의 수집 및 이용 목적
-- 회원 식별 및 가입의사 확인
-- 룸메이트 매칭 서비스 제공
-- 서비스 관련 공지사항 전달
-
-3. 개인정보의 보유 및 이용 기간
-- 회원 탈퇴 시까지 보유하며, 탈퇴 즉시 파기합니다.
-
-(개인정보 처리방침 전체 내용은 추후 업데이트됩니다.)`,
-  },
-};
-
 export function StepTermsAgreement({
   terms,
   onTermsChange,
@@ -60,7 +26,7 @@ export function StepTermsAgreement({
   onBack,
 }: StepTermsAgreementProps) {
   const [error, setError] = useState('');
-  const [viewingTerm, setViewingTerm] = useState<string | null>(null);
+  const [viewingTerm, setViewingTerm] = useState<'terms' | 'privacy' | null>(null);
 
   const allAgreed = terms.agreeAge && terms.agreeTerms && terms.agreePrivacy;
 

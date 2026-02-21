@@ -7,6 +7,7 @@ import { InputField } from '@/signup/components/InputField';
 import { Checkbox } from '@/signup/components/Checkbox';
 import { LandingButton } from '@/landing/components/landing/LandingButton';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 
 export default function Login() {
@@ -171,19 +172,19 @@ export default function Login() {
         {/* Additional Links */}
         <div className="mt-12 pt-8 border-t border-[var(--knu-border)] text-center">
           <div className="flex justify-center gap-6 text-sm">
-            <a
-              href="#"
+            <Link
+              href="/terms"
               className="text-[var(--knu-text-tertiary)] hover:text-[var(--knu-primary)] transition-colors"
             >
               이용약관
-            </a>
+            </Link>
             <span className="text-[var(--knu-text-tertiary)]">|</span>
-            <a
-              href="#"
+            <Link
+              href="/privacy"
               className="text-[var(--knu-text-tertiary)] hover:text-[var(--knu-primary)] transition-colors"
             >
               개인정보처리방침
-            </a>
+            </Link>
             <span className="text-[var(--knu-text-tertiary)]">|</span>
             <a
               href="#"
