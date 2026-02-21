@@ -22,7 +22,7 @@ export default function Login() {
     if (!email) {
       return '이메일을 입력해주세요.';
     }
-    if (!email.endsWith('@kangwon.ac.kr')) {
+    if (!/^[a-zA-Z0-9._%+-]+@kangwon\.ac\.kr$/.test(email)) {
       return '강원대학교 이메일(@kangwon.ac.kr)을 입력해주세요.';
     }
     return '';
