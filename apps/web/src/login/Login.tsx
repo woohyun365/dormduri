@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
-import { InputField } from '@/signup/components/InputField';
-import { Checkbox } from '@/signup/components/Checkbox';
-import { LandingButton } from '@/landing/components/landing/LandingButton';
+import { InputField } from '@/components/form/InputField';
+import { Checkbox } from '@/components/form/Checkbox';
+import { Button } from '@/components/Button';
+import { DevOnly } from '@/components/DevOnly';
+import { validateKnuEmail } from '@/utils/validation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
@@ -19,26 +21,9 @@ export default function Login() {
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  const validateEmail = (email: string) => {
-    if (!email) {
-      return '이메일을 입력해주세요.';
-    }
-    if (!/^[a-zA-Z0-9._%+-]+@kangwon\.ac\.kr$/.test(email)) {
-      return '강원대학교 이메일(@kangwon.ac.kr)을 입력해주세요.';
-    }
-    return '';
-  };
-
-  const validatePassword = (password: string) => {
-    if (!password) {
-      return '비밀번호를 입력해주세요.';
-    }
-    return '';
-  };
-
   const handleLogin = () => {
-    const emailErr = validateEmail(email);
-    const passwordErr = validatePassword(password);
+    const emailErr = validateKnuEmail(email);
+    const passwordErr = password ? '' : '비밀번호를 입력해주세요.';
 
     setEmailError(emailErr);
     setPasswordError(passwordErr);
@@ -133,40 +118,33 @@ export default function Login() {
             </div>
 
             <div className="pt-2">
-              <LandingButton variant="primary" size="lg" fullWidth type="submit">
+              <Button variant="primary" size="lg" fullWidth type="submit">
                 <Lock className="w-5 h-5" />
                 로그인
-              </LandingButton>
+              </Button>
             </div>
           </div>
         </form>
 
         {/* Test Credentials Info - Dev only */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4 mb-6">
-            <p className="text-sm text-blue-900 mb-2">
-              <strong>테스트 계정</strong>
-            </p>
-            <p className="text-sm text-blue-800 font-mono">
-              이메일: test@kangwon.ac.kr
-              <br />
-              비밀번호: password123
-            </p>
-          </div>
-        )}
+        <DevOnly>
+          <p className="text-sm text-blue-900 mb-2">
+            <strong>테스트 계정</strong>
+          </p>
+          <p className="text-sm text-blue-800 font-mono">
+            이메일: test@kangwon.ac.kr
+            <br />
+            비밀번호: password123
+          </p>
+        </DevOnly>
 
         {/* Signup Link */}
-        <div className="text-center">
+        <div className="text-center mt-6">
           <p className="text-[var(--knu-text-secondary)] mb-4">아직 계정이 없으신가요?</p>
-          <LandingButton
-            variant="outline"
-            size="lg"
-            fullWidth
-            onClick={() => router.push('/signup')}
-          >
+          <Button variant="outline" size="lg" fullWidth onClick={() => router.push('/signup')}>
             <Mail className="w-5 h-5" />
             이메일로 회원가입
-          </LandingButton>
+          </Button>
         </div>
 
         {/* Additional Links */}

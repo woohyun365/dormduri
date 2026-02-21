@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
-import { ProgressBar } from './components/ProgressBar';
+import { ProgressBar } from '@/components/form/ProgressBar';
 import { StepEmailVerification } from './components/StepEmailVerification';
 import { StepTermsAgreement, type TermsData } from './components/StepTermsAgreement';
 import { StepBasicInfo, type BasicInfoData } from './components/StepBasicInfo';

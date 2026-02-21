@@ -1,13 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { LandingHeader } from './components/landing/LandingHeader';
-import { LandingButton } from './components/landing/LandingButton';
-import { Section } from './components/landing/Section';
-import { FeatureCard } from './components/landing/FeatureCard';
-import { FAQItem } from './components/landing/FAQItem';
-import { LandingFooter } from './components/landing/LandingFooter';
-import { MockupCard } from './components/landing/MockupCard';
+import { LandingHeader } from './components/LandingHeader';
+import { Button } from '@/components/Button';
+import { Section } from './components/Section';
+import { FeatureCard } from './components/FeatureCard';
+import { FAQItem } from './components/FAQItem';
+import { LandingFooter } from './components/LandingFooter';
+import { MockupCard } from './components/MockupCard';
 import {
   Mail,
   Cigarette,
@@ -60,11 +60,11 @@ export default function Landing() {
               비시즌 열람 가능
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <LandingButton variant="primary" size="lg" onClick={() => router.push('/signup')}>
+              <Button variant="primary" size="lg" onClick={() => router.push('/signup')}>
                 <Mail className="w-5 h-5" />
                 이메일로 시작하기
-              </LandingButton>
-              <LandingButton
+              </Button>
+              <Button
                 variant="outline"
                 size="lg"
                 onClick={() =>
@@ -72,7 +72,7 @@ export default function Landing() {
                 }
               >
                 서비스 소개 보기
-              </LandingButton>
+              </Button>
             </div>
           </div>
 
@@ -308,10 +308,10 @@ export default function Landing() {
             <br />
             나에게 맞는 룸메를 찾아보세요
           </p>
-          <LandingButton variant="primary" size="lg" onClick={() => router.push('/signup')}>
+          <Button variant="primary" size="lg" onClick={() => router.push('/signup')}>
             <Mail className="w-5 h-5" />
             이메일로 시작하기
-          </LandingButton>
+          </Button>
         </div>
       </Section>
 

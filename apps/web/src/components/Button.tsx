@@ -1,10 +1,10 @@
-interface LandingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
 }
 
-export function LandingButton({
+export function Button({
   children,
   variant = 'primary',
   size = 'md',
@@ -12,7 +12,7 @@ export function LandingButton({
   className,
   type = 'button',
   ...rest
-}: LandingButtonProps) {
+}: ButtonProps) {
   const baseStyles =
     'font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed';
 

@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { InputField } from './InputField';
-import { LandingButton } from '@/landing/components/landing/LandingButton';
+import { useState } from 'react';
+import { InputField } from '@/components/form/InputField';
+import { Button } from '@/components/Button';
+import { StepHeader } from '@/components/StepHeader';
+import { DevOnly } from '@/components/DevOnly';
+import { useCountdown } from '@/hooks/useCountdown';
+import { validateKnuEmail } from '@/utils/validation';
+import { VERIFICATION_CODE_TTL, TEST_VERIFICATION_CODE } from '@/constants/auth';
 import { Mail, CheckCircle } from 'lucide-react';
 
 interface StepEmailVerificationProps {
@@ -24,41 +29,17 @@ export function StepEmailVerification({
   const [emailError, setEmailError] = useState('');
   const [codeError, setCodeError] = useState('');
   const [isCodeSent, setIsCodeSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
   const [isSending, setIsSending] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
-  const validateEmail = (value: string) => {
-    if (!value) return '이메일을 입력해주세요.';
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@kangwon\.ac\.kr$/;
-    if (!emailRegex.test(value)) {
-      return '올바른 강원대학교 이메일(@kangwon.ac.kr)을 입력해주세요.';
-    }
-    return '';
-  };
-
-  const startCountdown = () => {
-    setCountdown(180);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          if (intervalRef.current) clearInterval(intervalRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
+  const {
+    countdown,
+    isActive,
+    start: startCountdown,
+    stop: stopCountdown,
+    formatTime,
+  } = useCountdown(VERIFICATION_CODE_TTL);
 
   const handleSendCode = () => {
-    const error = validateEmail(email);
+    const error = validateKnuEmail(email);
     if (error) {
       setEmailError(error);
       return;
@@ -79,32 +60,22 @@ export function StepEmailVerification({
       setCodeError('인증 코드를 입력해주세요.');
       return;
     }
-    if (verificationCode === '123456') {
+    if (verificationCode === TEST_VERIFICATION_CODE) {
       setCodeError('');
       onVerified();
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      stopCountdown();
     } else {
       setCodeError('인증 코드가 올바르지 않습니다.');
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-[var(--knu-primary-light)] rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Mail className="w-8 h-8 text-[var(--knu-primary)]" />
-        </div>
-        <h2 className="text-2xl md:text-3xl font-bold text-[var(--knu-text-primary)] mb-2">
-          이메일 인증
-        </h2>
-        <p className="text-[var(--knu-text-secondary)]">강원대학교 이메일로 인증해주세요</p>
-      </div>
+      <StepHeader
+        icon={<Mail className="w-8 h-8 text-[var(--knu-primary)]" />}
+        title="이메일 인증"
+        description="강원대학교 이메일로 인증해주세요"
+      />
 
       <div className="space-y-4">
         <div className="relative">
@@ -129,7 +100,7 @@ export function StepEmailVerification({
         </div>
 
         {!isCodeSent && !isVerified && (
-          <LandingButton
+          <Button
             variant="primary"
             size="lg"
             fullWidth
@@ -137,7 +108,7 @@ export function StepEmailVerification({
             disabled={isSending}
           >
             {isSending ? '전송 중...' : '인증 코드 전송'}
-          </LandingButton>
+          </Button>
         )}
 
         {isCodeSent && !isVerified && (
@@ -155,41 +126,45 @@ export function StepEmailVerification({
                 error={codeError}
                 maxLength={6}
               />
-              {countdown > 0 && (
-                <div className="absolute right-4 top-11 text-sm font-semibold text-red-500">
-                  {formatTime(countdown)}
+              {isActive && (
+                <div
+                  className="absolute right-4 top-11 text-sm font-semibold text-red-500"
+                  role="timer"
+                  aria-live="polite"
+                >
+                  {formatTime()}
                 </div>
               )}
             </div>
 
-            <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
+            <DevOnly>
               <p className="text-sm text-blue-900">
-                <strong>테스트용 인증 코드:</strong> 123456
+                <strong>테스트용 인증 코드:</strong> {TEST_VERIFICATION_CODE}
               </p>
-            </div>
+            </DevOnly>
 
             <div className="flex gap-3">
-              <LandingButton
+              <Button
                 variant="outline"
                 size="lg"
                 fullWidth
                 onClick={handleSendCode}
-                disabled={isSending || countdown > 0}
+                disabled={isSending || isActive}
               >
-                재전송{countdown > 0 ? ` (${formatTime(countdown)})` : ''}
-              </LandingButton>
-              <LandingButton variant="primary" size="lg" fullWidth onClick={handleVerifyCode}>
+                재전송{isActive ? ` (${formatTime()})` : ''}
+              </Button>
+              <Button variant="primary" size="lg" fullWidth onClick={handleVerifyCode}>
                 인증 확인
-              </LandingButton>
+              </Button>
             </div>
           </>
         )}
       </div>
 
       {isVerified && (
-        <LandingButton variant="primary" size="lg" fullWidth onClick={onNext}>
+        <Button variant="primary" size="lg" fullWidth onClick={onNext}>
           다음 단계
-        </LandingButton>
+        </Button>
       )}
     </div>
   );
