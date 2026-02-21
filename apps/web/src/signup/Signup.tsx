@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { SignupHeader } from './components/SignupHeader';
+import { AuthHeader } from '@/components/AuthHeader';
 import { ProgressBar } from './components/ProgressBar';
 import { StepEmailVerification } from './components/StepEmailVerification';
 import { StepTermsAgreement, type TermsData } from './components/StepTermsAgreement';
@@ -46,7 +46,7 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen bg-white">
-      <SignupHeader showBack={currentStep > 1 && currentStep < TOTAL_STEPS} onBack={handleBack} />
+      <AuthHeader showBack={currentStep > 1 && currentStep < TOTAL_STEPS} onBack={handleBack} />
 
       <main className="mx-auto max-w-2xl px-5 py-8">
         {currentStep < TOTAL_STEPS && (

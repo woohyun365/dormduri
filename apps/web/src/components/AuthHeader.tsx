@@ -2,12 +2,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 
-interface SignupHeaderProps {
+interface AuthHeaderProps {
   onBack?: () => void;
   showBack?: boolean;
 }
 
-export function SignupHeader({ onBack, showBack = false }: SignupHeaderProps) {
+export function AuthHeader({ onBack, showBack = false }: AuthHeaderProps) {
   return (
     <header className="sticky top-0 z-10 bg-white border-b border-[var(--knu-border)]">
       <div className="mx-auto max-w-2xl px-5">
