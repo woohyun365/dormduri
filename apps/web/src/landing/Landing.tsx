@@ -1,6 +1,4 @@
-'use client';
-
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { LandingHeader } from './components/LandingHeader';
 import { Button } from '@/components/Button';
 import { Section } from './components/Section';
@@ -8,6 +6,7 @@ import { FeatureCard } from './components/FeatureCard';
 import { FAQItem } from './components/FAQItem';
 import { LandingFooter } from './components/LandingFooter';
 import { MockupCard } from './components/MockupCard';
+import { ScrollToButton } from './components/ScrollToButton';
 import {
   Mail,
   Cigarette,
@@ -27,15 +26,10 @@ import {
 } from 'lucide-react';
 
 export default function Landing() {
-  const router = useRouter();
-
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <LandingHeader
-        onLoginClick={() => router.push('/login')}
-        onStartClick={() => router.push('/signup')}
-      />
+      <LandingHeader />
 
       {/* Hero Section */}
       <Section className="pt-16 md:pt-24 pb-16 md:pb-24">
@@ -60,19 +54,17 @@ export default function Landing() {
               비시즌 열람 가능
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button variant="primary" size="lg" onClick={() => router.push('/signup')}>
-                <Mail className="w-5 h-5" />
-                이메일로 시작하기
-              </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() =>
-                  document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })
-                }
-              >
-                서비스 소개 보기
-              </Button>
+              <Link href="/signup">
+                <Button variant="primary" size="lg">
+                  <Mail className="w-5 h-5" />
+                  이메일로 시작하기
+                </Button>
+              </Link>
+              <ScrollToButton targetId="features">
+                <Button variant="outline" size="lg" type="button">
+                  서비스 소개 보기
+                </Button>
+              </ScrollToButton>
             </div>
           </div>
 
@@ -308,10 +300,12 @@ export default function Landing() {
             <br />
             나에게 맞는 룸메를 찾아보세요
           </p>
-          <Button variant="primary" size="lg" onClick={() => router.push('/signup')}>
-            <Mail className="w-5 h-5" />
-            이메일로 시작하기
-          </Button>
+          <Link href="/signup">
+            <Button variant="primary" size="lg">
+              <Mail className="w-5 h-5" />
+              이메일로 시작하기
+            </Button>
+          </Link>
         </div>
       </Section>
 
