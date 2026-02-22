@@ -29,9 +29,7 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
   const [selectedProfile, setSelectedProfile] = useState<RoommateProfile | null>(null);
   const [displayCount, setDisplayCount] = useState(20);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  // 스크롤 초기화는 Main.tsx에서 탭 전환 시 처리
 
   // Build profiles with calculated match scores
   const profiles = useMemo<RoommateProfile[]>(
