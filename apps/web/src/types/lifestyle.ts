@@ -1,5 +1,5 @@
 export interface LifestyleData {
-  smoker: 'NO' | 'YES' | 'OK' | null;
+  smoker: 'NO' | 'YES' | null;
   sleepHabit: 'NONE' | 'TALKING' | 'SNORING' | 'GRINDING' | null;
   indoorEating: 'NO' | 'OK' | 'VENTILATE' | null;
   bedtime: 'BEFORE_22' | '22_24' | '24_02' | 'AFTER_02' | null;

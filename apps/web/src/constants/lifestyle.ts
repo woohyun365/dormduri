@@ -12,7 +12,7 @@ export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
 };
 
 export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string>> = {
-  smoker: { NO: '비흡연', YES: '흡연', OK: '무관' },
+  smoker: { NO: '비흡연', YES: '흡연' },
   sleepHabit: { NONE: '없음', TALKING: '잠꼬대', SNORING: '코골이', GRINDING: '이갈이' },
   indoorEating: { NO: '싫어요', OK: '상관없어요', VENTILATE: '환기하면 OK' },
   bedtime: {
