@@ -1,0 +1,212 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import {
+  Shield,
+  HelpCircle,
+  FileText,
+  Mail,
+  ChevronRight,
+  Trash2,
+  AlertCircle,
+  Building2,
+  ExternalLink,
+  LogOut,
+} from 'lucide-react';
+import { DORM_HOMEPAGE_URL } from '@/constants/dormitory-guide';
+import Link from 'next/link';
+
+interface SettingsTabProps {
+  onShowGuide: () => void;
+}
+
+export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
+  const router = useRouter();
+
+  const handleDeleteAccount = () => {
+    if (
+      confirm(
+        '정말로 계정을 삭제하시겠습니까?\n\n모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.',
+      )
+    ) {
+      alert('계정이 삭제되었습니다.');
+    }
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <header className="bg-white border-b-2 border-[var(--knu-border)] px-5 py-6">
+        <h1 className="text-2xl font-bold text-[var(--knu-text-primary)]">설정</h1>
+      </header>
+
+      <div className="max-w-md mx-auto px-5 py-6 space-y-6">
+        {/* Account */}
+        <section>
+          <h2 className="font-bold text-[var(--knu-text-primary)] mb-3 flex items-center gap-2">
+            <Shield className="w-5 h-5 text-[var(--knu-primary)]" />
+            계정
+          </h2>
+          <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] divide-y-2 divide-[var(--knu-border)]">
+            <div className="relative p-4 flex items-center justify-between opacity-60">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  비밀번호 변경
+                </span>
+              </div>
+              <span className="px-2 py-0.5 bg-gray-200 text-[var(--knu-text-tertiary)] text-[10px] font-semibold rounded-full">
+                준비 중
+              </span>
+            </div>
+            <div className="relative p-4 flex items-center justify-between opacity-60">
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  내 정보 다운로드
+                </span>
+              </div>
+              <span className="px-2 py-0.5 bg-gray-200 text-[var(--knu-text-tertiary)] text-[10px] font-semibold rounded-full">
+                준비 중
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                if (confirm('로그아웃 하시겠습니까?')) {
+                  router.push('/login');
+                }
+              }}
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <LogOut className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  로그아웃
+                </span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+            </button>
+          </div>
+        </section>
+
+        {/* 안내 및 지원 (고객지원 + 기숙사 정보 병합) */}
+        <section>
+          <h2 className="font-bold text-[var(--knu-text-primary)] mb-3 flex items-center gap-2">
+            <HelpCircle className="w-5 h-5 text-[var(--knu-primary)]" />
+            안내 및 지원
+          </h2>
+          <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] divide-y-2 divide-[var(--knu-border)]">
+            <button
+              onClick={onShowGuide}
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Building2 className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  기숙사 안내 다시 보기
+                </span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+            </button>
+            <a
+              href={DORM_HOMEPAGE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <ExternalLink className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  학생생활관 홈페이지
+                </span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+            </a>
+            <Link
+              href="/terms"
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  이용약관
+                </span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+            </Link>
+            <Link
+              href="/privacy"
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  개인정보처리방침
+                </span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+            </Link>
+            <div className="relative p-4 flex items-center justify-between opacity-60">
+              <div className="flex items-center gap-3">
+                <Mail className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  문의하기
+                </span>
+              </div>
+              <span className="px-2 py-0.5 bg-gray-200 text-[var(--knu-text-tertiary)] text-[10px] font-semibold rounded-full">
+                준비 중
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* App Info */}
+        <section>
+          <h2 className="font-bold text-[var(--knu-text-primary)] mb-3">앱 정보</h2>
+          <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-[var(--knu-text-tertiary)]">버전</span>
+              <span className="text-sm font-semibold text-[var(--knu-text-primary)]">1.0.0</span>
+            </div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-[var(--knu-text-tertiary)]">최근 업데이트</span>
+              <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                2026.02.21
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[var(--knu-text-tertiary)]">개발자</span>
+              <span className="text-sm font-semibold text-[var(--knu-text-primary)]">KNU Team</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Danger Zone */}
+        <section>
+          <h2 className="font-bold text-red-600 mb-3 flex items-center gap-2">
+            <AlertCircle className="w-5 h-5" />
+            위험 영역
+          </h2>
+          <div className="bg-white rounded-2xl border-2 border-red-200 p-5">
+            <div className="mb-4">
+              <h3 className="font-bold text-[var(--knu-text-primary)] mb-2">계정 삭제</h3>
+              <p className="text-sm text-[var(--knu-text-secondary)] mb-4">
+                계정을 삭제하면 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.
+              </p>
+            </div>
+            <button
+              onClick={handleDeleteAccount}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-red-50 border-2 border-red-200 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors"
+            >
+              <Trash2 className="w-5 h-5" />
+              계정 삭제하기
+            </button>
+          </div>
+        </section>
+
+        {/* Footer Spacing */}
+        <div className="h-8" />
+      </div>
+    </div>
+  );
+}
