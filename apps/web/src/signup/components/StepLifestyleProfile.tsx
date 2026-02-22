@@ -21,6 +21,8 @@ export interface LifestyleData {
 interface StepLifestyleProfileProps {
   lifestyle: LifestyleData;
   onLifestyleChange: (data: LifestyleData) => void;
+  intro: string;
+  onIntroChange: (intro: string) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -52,14 +54,16 @@ const FIELD_ORDER: FieldKey[] = [
 export function StepLifestyleProfile({
   lifestyle,
   onLifestyleChange,
+  intro,
+  onIntroChange,
   onNext,
   onBack,
 }: StepLifestyleProfileProps) {
-  const [errors, setErrors] = useState<Partial<Record<FieldKey, string>>>({});
-  const fieldRefs = useRef<Partial<Record<FieldKey, HTMLDivElement | null>>>({});
+  const [errors, setErrors] = useState<Partial<Record<FieldKey | 'intro', string>>>({});
+  const fieldRefs = useRef<Partial<Record<FieldKey | 'intro', HTMLDivElement | null>>>({});
 
   const handleNext = () => {
-    const newErrors: Partial<Record<FieldKey, string>> = {};
+    const newErrors: Partial<Record<FieldKey | 'intro', string>> = {};
 
     for (const field of FIELD_ORDER) {
       if (!lifestyle[field]) {
@@ -67,11 +71,22 @@ export function StepLifestyleProfile({
       }
     }
 
+    if (!intro.trim()) {
+      newErrors.intro = '자기소개를 입력해주세요.';
+    }
+
     setErrors(newErrors);
 
-    const firstErrorField = FIELD_ORDER.find((f) => newErrors[f]);
-    if (firstErrorField) {
-      fieldRefs.current[firstErrorField]?.scrollIntoView({
+    const firstLifestyleError = FIELD_ORDER.find((f) => newErrors[f]);
+    if (firstLifestyleError) {
+      fieldRefs.current[firstLifestyleError]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+      return;
+    }
+    if (newErrors.intro) {
+      fieldRefs.current.intro?.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
       });
@@ -339,6 +354,36 @@ export function StepLifestyleProfile({
             />
           </div>
           <FieldError message={errors.relationshipStyle} />
+        </div>
+      </div>
+
+      {/* Intro */}
+      <div
+        ref={(el) => {
+          fieldRefs.current.intro = el;
+        }}
+      >
+        <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
+          자기소개 <span className="text-red-500">*</span>
+        </label>
+        <textarea
+          value={intro}
+          onChange={(e) => {
+            onIntroChange(e.target.value);
+            setErrors((prev) => {
+              const next = { ...prev };
+              delete next.intro;
+              return next;
+            });
+          }}
+          placeholder="예) 도서관 자주 가고, 방에선 조용히 지내는 편이에요. 배려하며 지낼 룸메 찾습니다!"
+          maxLength={200}
+          rows={3}
+          className="w-full px-4 py-3 border-2 border-[var(--knu-border)] rounded-xl text-sm text-[var(--knu-text-primary)] placeholder:text-[var(--knu-text-tertiary)] focus:outline-none focus:border-[var(--knu-primary)] transition-colors resize-none"
+        />
+        <div className="flex justify-between mt-1">
+          <FieldError message={errors.intro} />
+          <span className="text-xs text-[var(--knu-text-tertiary)]">{intro.length}/200</span>
         </div>
       </div>
 
