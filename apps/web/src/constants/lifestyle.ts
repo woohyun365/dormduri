@@ -1,4 +1,4 @@
-import type { LifestyleData } from '@/signup/components/StepLifestyleProfile';
+import type { LifestyleData } from '@/types/lifestyle';
 
 export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
   smoker: '흡연 여부',

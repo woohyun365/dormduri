@@ -1,4 +1,5 @@
 import { KNU_EMAIL_REGEX, PASSWORD_MIN_LENGTH, PASSWORD_REGEX } from '@/constants/auth';
+import { NICKNAME_MIN, NICKNAME_MAX } from '@/constants/ui';
 
 export function validateKnuEmail(email: string): string {
   if (!email) return '이메일을 입력해주세요.';
@@ -15,5 +16,12 @@ export function validatePassword(password: string): string {
 
 export function validatePasswordConfirm(password: string, confirm: string): string {
   if (password !== confirm) return '비밀번호가 일치하지 않습니다.';
+  return '';
+}
+
+export function validateNickname(value: string): string {
+  if (!value) return '닉네임을 입력해주세요.';
+  if (value.length < NICKNAME_MIN) return `닉네임은 ${NICKNAME_MIN}자 이상이어야 합니다.`;
+  if (value.length > NICKNAME_MAX) return `닉네임은 ${NICKNAME_MAX}자 이하여야 합니다.`;
   return '';
 }

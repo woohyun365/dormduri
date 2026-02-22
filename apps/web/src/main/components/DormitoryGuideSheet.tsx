@@ -52,7 +52,7 @@ export function DormitoryGuideSheet({ dormitoryId, onClose }: DormitoryGuideShee
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory"
+          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
           style={{
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
@@ -254,7 +254,7 @@ export function DormitoryGuideSheet({ dormitoryId, onClose }: DormitoryGuideShee
 
         {/* Hide scrollbar for webkit */}
         <style>{`
-          [data-guide-scroll]::-webkit-scrollbar { display: none; }
+          .scrollbar-hide::-webkit-scrollbar { display: none; }
         `}</style>
 
         {/* Dot Indicators */}

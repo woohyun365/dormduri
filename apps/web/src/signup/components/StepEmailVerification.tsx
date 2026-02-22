@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { InputField } from '@/components/form/InputField';
 import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
-import { DevOnly } from '@/components/DevOnly';
+
 import { useCountdown } from '@/hooks/useCountdown';
 import { validateKnuEmail } from '@/utils/validation';
 import { VERIFICATION_CODE_TTL, TEST_VERIFICATION_CODE } from '@/constants/auth';
@@ -30,6 +30,14 @@ export function StepEmailVerification({
   const [codeError, setCodeError] = useState('');
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const sendTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  useEffect(() => {
+    return () => {
+      if (sendTimerRef.current) clearTimeout(sendTimerRef.current);
+    };
+  }, []);
+
   const {
     countdown,
     isActive,
@@ -48,7 +56,7 @@ export function StepEmailVerification({
     setEmailError('');
     setIsSending(true);
 
-    setTimeout(() => {
+    sendTimerRef.current = setTimeout(() => {
       setIsSending(false);
       setIsCodeSent(true);
       startCountdown();
@@ -130,18 +138,25 @@ export function StepEmailVerification({
                 <div
                   className="absolute right-4 top-11 text-sm font-semibold text-red-500"
                   role="timer"
-                  aria-live="polite"
+                  aria-live={countdown % 30 === 0 ? 'polite' : 'off'}
                 >
                   {formatTime()}
                 </div>
               )}
+              {!isActive && isCodeSent && !isVerified && (
+                <p className="text-sm text-red-500 font-semibold mt-1" aria-live="assertive">
+                  인증 시간이 만료되었어요. 재전송 버튼을 눌러주세요.
+                </p>
+              )}
             </div>
 
-            <DevOnly>
-              <p className="text-sm text-blue-900">
-                <strong>테스트용 인증 코드:</strong> {TEST_VERIFICATION_CODE}
-              </p>
-            </DevOnly>
+            {process.env.NODE_ENV === 'development' && (
+              <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
+                <p className="text-sm text-blue-900">
+                  <strong>테스트용 인증 코드:</strong> {TEST_VERIFICATION_CODE}
+                </p>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <Button

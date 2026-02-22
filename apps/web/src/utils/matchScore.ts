@@ -1,4 +1,4 @@
-import type { LifestyleData } from '@/signup/components/StepLifestyleProfile';
+import type { LifestyleData } from '@/types/lifestyle';
 
 const POINTS_PER_FIELD = 12.5;
 

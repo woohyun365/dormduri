@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Shield,
@@ -14,6 +15,9 @@ import {
   LogOut,
 } from 'lucide-react';
 import { DORM_HOMEPAGE_URL } from '@/constants/dormitory-guide';
+import { ComingSoonBadge } from '@/components/ComingSoonBadge';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { SectionHeading } from '@/components/SectionHeading';
 import Link from 'next/link';
 
 interface SettingsTabProps {
@@ -22,31 +26,23 @@ interface SettingsTabProps {
 
 export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
   const router = useRouter();
-
-  const handleDeleteAccount = () => {
-    if (
-      confirm(
-        '정말로 계정을 삭제하시겠습니까?\n\n모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.',
-      )
-    ) {
-      alert('계정이 삭제되었습니다.');
-    }
-  };
+  const [logoutDialog, setLogoutDialog] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState(false);
 
   return (
     <div>
       {/* Header */}
-      <header className="bg-white border-b-2 border-[var(--knu-border)] px-5 py-6">
+      <div className="bg-white border-b-2 border-[var(--knu-border)] px-5 py-6">
         <h1 className="text-2xl font-bold text-[var(--knu-text-primary)]">설정</h1>
-      </header>
+      </div>
 
       <div className="max-w-md mx-auto px-5 py-6 space-y-6">
         {/* Account */}
         <section>
-          <h2 className="font-bold text-[var(--knu-text-primary)] mb-3 flex items-center gap-2">
-            <Shield className="w-5 h-5 text-[var(--knu-primary)]" />
-            계정
-          </h2>
+          <SectionHeading
+            icon={<Shield className="w-5 h-5 text-[var(--knu-primary)]" />}
+            title="계정"
+          />
           <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] divide-y-2 divide-[var(--knu-border)]">
             <div className="relative p-4 flex items-center justify-between opacity-60">
               <div className="flex items-center gap-3">
@@ -55,9 +51,7 @@ export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
                   비밀번호 변경
                 </span>
               </div>
-              <span className="px-2 py-0.5 bg-gray-200 text-[var(--knu-text-tertiary)] text-[10px] font-semibold rounded-full">
-                준비 중
-              </span>
+              <ComingSoonBadge />
             </div>
             <div className="relative p-4 flex items-center justify-between opacity-60">
               <div className="flex items-center gap-3">
@@ -66,16 +60,10 @@ export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
                   내 정보 다운로드
                 </span>
               </div>
-              <span className="px-2 py-0.5 bg-gray-200 text-[var(--knu-text-tertiary)] text-[10px] font-semibold rounded-full">
-                준비 중
-              </span>
+              <ComingSoonBadge />
             </div>
             <button
-              onClick={() => {
-                if (confirm('로그아웃 하시겠습니까?')) {
-                  router.push('/login');
-                }
-              }}
+              onClick={() => setLogoutDialog(true)}
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -89,12 +77,12 @@ export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
           </div>
         </section>
 
-        {/* 안내 및 지원 (고객지원 + 기숙사 정보 병합) */}
+        {/* 안내 및 지원 */}
         <section>
-          <h2 className="font-bold text-[var(--knu-text-primary)] mb-3 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-[var(--knu-primary)]" />
-            안내 및 지원
-          </h2>
+          <SectionHeading
+            icon={<HelpCircle className="w-5 h-5 text-[var(--knu-primary)]" />}
+            title="안내 및 지원"
+          />
           <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] divide-y-2 divide-[var(--knu-border)]">
             <button
               onClick={onShowGuide}
@@ -146,17 +134,18 @@ export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
               </div>
               <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
             </Link>
-            <div className="relative p-4 flex items-center justify-between opacity-60">
+            <a
+              href="mailto:knu-roommate@kangwon.ac.kr"
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
                 <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
                   문의하기
                 </span>
               </div>
-              <span className="px-2 py-0.5 bg-gray-200 text-[var(--knu-text-tertiary)] text-[10px] font-semibold rounded-full">
-                준비 중
-              </span>
-            </div>
+              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+            </a>
           </div>
         </section>
 
@@ -183,10 +172,11 @@ export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
 
         {/* Danger Zone */}
         <section>
-          <h2 className="font-bold text-red-600 mb-3 flex items-center gap-2">
-            <AlertCircle className="w-5 h-5" />
-            위험 영역
-          </h2>
+          <SectionHeading
+            icon={<AlertCircle className="w-5 h-5" />}
+            title="위험 영역"
+            variant="danger"
+          />
           <div className="bg-white rounded-2xl border-2 border-red-200 p-5">
             <div className="mb-4">
               <h3 className="font-bold text-[var(--knu-text-primary)] mb-2">계정 삭제</h3>
@@ -195,7 +185,7 @@ export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
               </p>
             </div>
             <button
-              onClick={handleDeleteAccount}
+              onClick={() => setDeleteDialog(true)}
               className="w-full flex items-center justify-center gap-2 py-3 bg-red-50 border-2 border-red-200 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors"
             >
               <Trash2 className="w-5 h-5" />
@@ -207,6 +197,33 @@ export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
         {/* Footer Spacing */}
         <div className="h-8" />
       </div>
+
+      {/* Logout Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={logoutDialog}
+        onClose={() => setLogoutDialog(false)}
+        onConfirm={() => {
+          // TODO: clear auth state
+          router.push('/login');
+        }}
+        title="로그아웃"
+        message="로그아웃 하시겠습니까?"
+        confirmLabel="로그아웃"
+      />
+
+      {/* Delete Account Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={deleteDialog}
+        onClose={() => setDeleteDialog(false)}
+        onConfirm={() => {
+          // TODO: API call to delete account
+          router.push('/login');
+        }}
+        title="계정 삭제"
+        message="정말로 계정을 삭제하시겠습니까?\n\n모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다."
+        confirmLabel="삭제하기"
+        variant="danger"
+      />
     </div>
   );
 }

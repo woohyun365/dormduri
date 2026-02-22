@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Building2,
   Calendar,
@@ -12,9 +12,13 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { Chip } from '@/components/Chip';
+import { ComingSoonBadge } from '@/components/ComingSoonBadge';
+import { EmptyState } from '@/components/EmptyState';
 import { getDormitoryById, getMatchGroupSize, UNASSIGNED_ID } from '@/constants/dormitory';
 import { CURRENT_SEASON } from '@/constants/season';
-import type { TabId, UserProfile } from '../Main';
+import type { TabId, UserProfile } from '@/types/profile';
+import { MATCHING } from '@/__fixtures__/matching';
+import { PROFILE_COMPLETION } from '@/constants/ui';
 
 interface HomeTabProps {
   user: UserProfile;
@@ -22,22 +26,9 @@ interface HomeTabProps {
   onShowGuide?: () => void;
 }
 
-// Mock matching data
-type MatchingStatus = 'none' | 'pending' | 'matched';
-
-const MATCHING: {
-  status: MatchingStatus;
-  sentCount: number;
-  receivedCount: number;
-  matchedNickname: string | null;
-} = {
-  status: 'none',
-  sentCount: 0,
-  receivedCount: 0,
-  matchedNickname: null,
-};
-
-function formatDateRange(start: Date, end: Date): string {
+function formatDateRange(startStr: string, endStr: string): string {
+  const start = new Date(startStr);
+  const end = new Date(endStr);
   const sm = start.getMonth() + 1;
   const em = end.getMonth() + 1;
   if (sm === em) {
@@ -50,11 +41,21 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
   const isUnassigned = user.dormitoryId === UNASSIGNED_ID;
   const dormitory = user.dormitoryId && !isUnassigned ? getDormitoryById(user.dormitoryId) : null;
 
-  // D-day & date formatting (stable across re-renders)
+  // Refresh D-day at midnight so it stays accurate across date boundaries
+  const [dateKey, setDateKey] = useState(() => new Date().toDateString());
+
+  useEffect(() => {
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const msUntilMidnight = tomorrow.getTime() - now.getTime();
+    const timer = setTimeout(() => setDateKey(new Date().toDateString()), msUntilMidnight);
+    return () => clearTimeout(timer);
+  }, [dateKey]);
+
   const { dDay, roomSelectionDateStr } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const target = new Date(CURRENT_SEASON.roomSelectionStart);
+    const target = new Date(CURRENT_SEASON.roomSelectionStart + 'T00:00:00');
     target.setHours(0, 0, 0, 0);
     const diffMs = target.getTime() - today.getTime();
     return {
@@ -64,7 +65,7 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
         CURRENT_SEASON.roomSelectionEnd,
       ),
     };
-  }, []);
+  }, [dateKey]);
 
   // Profile completeness: lifestyle + intro always filled (required at signup)
   // Optional: messageToRoommate + 4 additional fields = 5 optional fields
@@ -77,7 +78,9 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
   ];
   const filledOptional = optionalFields.filter(Boolean).length;
   const totalOptional = optionalFields.length;
-  const completionPercent = Math.round(70 + (filledOptional / totalOptional) * 30);
+  const completionPercent = Math.round(
+    PROFILE_COMPLETION.base + (filledOptional / totalOptional) * PROFILE_COMPLETION.optional,
+  );
   const hasAllOptional = filledOptional === totalOptional;
 
   // Mock building stats
@@ -86,7 +89,7 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
   return (
     <div>
       {/* Header */}
-      <header className="bg-[var(--knu-primary)] text-white px-5 py-6">
+      <div className="bg-[var(--knu-primary)] text-white px-5 py-6">
         <div className="max-w-md mx-auto">
           <p className="text-sm opacity-90 mb-1">안녕하세요,</p>
           <div className="flex items-center gap-2">
@@ -109,7 +112,7 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
             </div>
           ) : null}
         </div>
-      </header>
+      </div>
 
       <div className="max-w-md mx-auto px-5 py-6 space-y-6">
         {/* ① Season Banner */}
@@ -166,13 +169,7 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
             )}
           </div>
           {MATCHING.status === 'none' && (
-            <div className="text-center py-4">
-              <p className="text-sm text-[var(--knu-text-secondary)]">
-                아직 매칭 요청이 없어요.
-                <br />
-                아래 빠른 메뉴에서 룸메이트를 찾아보세요!
-              </p>
-            </div>
+            <EmptyState message="아직 매칭 요청이 없어요. 아래 빠른 메뉴에서 룸메이트를 찾아보세요!" />
           )}
           {MATCHING.status === 'pending' && (
             <div className="flex gap-4">
@@ -222,8 +219,8 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
               </div>
               <h3 className="font-bold text-[var(--knu-text-primary)] mb-1">받은 요청</h3>
               <p className="text-xs text-[var(--knu-text-tertiary)]">매칭 요청 확인</p>
-              <span className="absolute top-3 right-3 px-2 py-0.5 bg-gray-200 text-[var(--knu-text-tertiary)] text-[10px] font-semibold rounded-full">
-                준비 중
+              <span className="absolute top-3 right-3">
+                <ComingSoonBadge />
               </span>
             </div>
           </div>

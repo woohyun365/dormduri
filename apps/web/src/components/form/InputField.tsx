@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { FieldError } from './FieldError';
 
@@ -27,16 +27,21 @@ export function InputField({
   disabled = false,
   maxLength,
 }: InputFieldProps) {
+  const id = useId();
   const [showPassword, setShowPassword] = useState(false);
   const inputType = type === 'password' && showPassword ? 'text' : type;
 
   return (
     <div className="w-full">
-      <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
+      <label
+        htmlFor={id}
+        className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-2"
+      >
         {label}
       </label>
       <div className="relative">
         <input
+          id={id}
           type={inputType}
           placeholder={placeholder}
           value={value}

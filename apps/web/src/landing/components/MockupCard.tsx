@@ -1,11 +1,26 @@
 import { MessageCircle } from 'lucide-react';
+import { Chip } from '@/components/Chip';
+import { getMatchScoreColor } from '@/utils/matchScoreColor';
 
 interface MockupCardProps {
   variant: 'profile' | 'banner';
   profileIndex?: number;
 }
 
-const MOCK_PROFILES = [
+interface MockProfile {
+  nickname: string;
+  dorm: string;
+  matchScore: number;
+  smoker: string;
+  bedtime: string;
+  cleanliness: string;
+  intro: string;
+  message: string | null;
+  avatarBg: `bg-${string}`;
+  avatarText: `text-${string}`;
+}
+
+const MOCK_PROFILES: MockProfile[] = [
   {
     nickname: '조용한하루',
     dorm: '다산관 2인실',
@@ -31,12 +46,6 @@ const MOCK_PROFILES = [
     avatarText: 'text-cyan-600',
   },
 ];
-
-function getMatchScoreColor(score: number) {
-  if (score >= 90) return 'text-green-600 bg-green-100';
-  if (score >= 80) return 'text-blue-600 bg-blue-100';
-  return 'text-orange-600 bg-orange-100';
-}
 
 export function MockupCard({ variant, profileIndex = 0 }: MockupCardProps) {
   if (variant === 'banner') {
@@ -76,15 +85,9 @@ export function MockupCard({ variant, profileIndex = 0 }: MockupCardProps) {
 
       {/* Lifestyle Chips */}
       <div className="flex flex-wrap gap-1.5 mb-3">
-        <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
-          🚬 {profile.smoker}
-        </span>
-        <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
-          🕐 취침 {profile.bedtime}
-        </span>
-        <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
-          ✨ {profile.cleanliness}
-        </span>
+        <Chip label={`🚬 ${profile.smoker}`} variant="badge" />
+        <Chip label={`🕐 취침 ${profile.bedtime}`} variant="badge" />
+        <Chip label={`✨ ${profile.cleanliness}`} variant="badge" />
       </div>
 
       {/* Intro */}

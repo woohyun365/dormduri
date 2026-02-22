@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Checkbox } from '@/components/form/Checkbox';
-import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
+import { StepNavigation } from '@/components/form/StepNavigation';
 import { FieldError } from '@/components/form/FieldError';
 import { TERMS_CONTENT } from '@/constants/legal';
 import { FileText, X } from 'lucide-react';
@@ -165,14 +165,7 @@ export function StepTermsAgreement({
         <FieldError message={error} />
       </div>
 
-      <div className="flex gap-3 pt-4">
-        <Button variant="outline" size="lg" fullWidth onClick={onBack}>
-          이전
-        </Button>
-        <Button variant="primary" size="lg" fullWidth onClick={handleNext}>
-          다음 단계
-        </Button>
-      </div>
+      <StepNavigation onBack={onBack} onNext={handleNext} />
 
       {viewingTerm && TERMS_CONTENT[viewingTerm] && (
         <div

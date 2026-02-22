@@ -7,7 +7,8 @@ import { ProgressBar } from '@/components/form/ProgressBar';
 import { StepEmailVerification } from './components/StepEmailVerification';
 import { StepTermsAgreement, type TermsData } from './components/StepTermsAgreement';
 import { StepBasicInfo, type BasicInfoData } from './components/StepBasicInfo';
-import { StepLifestyleProfile, type LifestyleData } from './components/StepLifestyleProfile';
+import { StepLifestyleProfile } from './components/StepLifestyleProfile';
+import type { LifestyleData } from '@/types/lifestyle';
 import { StepComplete } from './components/StepComplete';
 
 const TOTAL_STEPS = 5;
@@ -43,7 +44,7 @@ export default function Signup() {
 
   const handleNext = () => setCurrentStep((prev) => prev + 1);
   const handleBack = () => setCurrentStep((prev) => Math.max(1, prev - 1));
-  const handleGoToHome = () => router.push('/');
+  const handleGoToHome = () => router.push('/main');
 
   return (
     <div className="min-h-screen bg-white">
