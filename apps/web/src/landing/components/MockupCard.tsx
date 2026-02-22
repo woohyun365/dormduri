@@ -1,10 +1,44 @@
-import { Badge } from './Badge';
+import { MessageCircle } from 'lucide-react';
 
 interface MockupCardProps {
   variant: 'profile' | 'banner';
+  profileIndex?: number;
 }
 
-export function MockupCard({ variant }: MockupCardProps) {
+const MOCK_PROFILES = [
+  {
+    nickname: '조용한하루',
+    dorm: '다산관 2인실',
+    matchScore: 95,
+    smoker: '비흡연',
+    bedtime: '22~24시',
+    cleanliness: '깔끔한 편',
+    intro: '조용하고 규칙적인 생활을 선호합니다.',
+    message: '쓰레기통, 청소도구 제가 가져갑니다!',
+    avatarBg: 'bg-emerald-100',
+    avatarText: 'text-emerald-600',
+  },
+  {
+    nickname: '새벽러너',
+    dorm: '퇴계관 3인실',
+    matchScore: 88,
+    smoker: '비흡연',
+    bedtime: '22시 이전',
+    cleanliness: '깔끔한 편',
+    intro: '새벽 운동을 즐기고, 청결을 중요하게 생각합니다.',
+    message: null,
+    avatarBg: 'bg-cyan-100',
+    avatarText: 'text-cyan-600',
+  },
+];
+
+function getMatchScoreColor(score: number) {
+  if (score >= 90) return 'text-green-600 bg-green-100';
+  if (score >= 80) return 'text-blue-600 bg-blue-100';
+  return 'text-orange-600 bg-orange-100';
+}
+
+export function MockupCard({ variant, profileIndex = 0 }: MockupCardProps) {
   if (variant === 'banner') {
     return (
       <div className="bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 shadow-sm">
@@ -16,39 +50,55 @@ export function MockupCard({ variant }: MockupCardProps) {
     );
   }
 
+  const profile = MOCK_PROFILES[profileIndex % MOCK_PROFILES.length]!;
+
   return (
-    <div className="bg-white border-2 border-[var(--knu-border)] rounded-2xl p-5 shadow-md hover:shadow-xl transition-all">
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <h4 className="font-bold text-[var(--knu-text-primary)] mb-2">조용한밤하늘</h4>
-          <div className="flex gap-2">
-            <Badge variant="default">비흡연</Badge>
-            <Badge variant="default">2인실</Badge>
+    <div className="bg-white border-2 border-[var(--knu-border)] rounded-2xl p-4 shadow-md hover:shadow-xl transition-all">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-10 h-10 ${profile.avatarBg} rounded-full flex items-center justify-center text-sm font-bold ${profile.avatarText}`}
+          >
+            {profile.nickname.charAt(0)}
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-[var(--knu-text-primary)]">{profile.nickname}</h4>
+            <p className="text-xs text-[var(--knu-text-tertiary)]">{profile.dorm}</p>
           </div>
         </div>
-        <div className="w-5 h-5 rounded-full bg-gray-200"></div>
+        <span
+          className={`px-2.5 py-1 rounded-full text-xs font-bold ${getMatchScoreColor(profile.matchScore)}`}
+        >
+          매칭 {profile.matchScore}%
+        </span>
       </div>
 
-      <div className="space-y-2 text-sm mb-3">
-        <div className="flex items-center">
-          <span className="text-[var(--knu-text-secondary)] w-20">수면시간</span>
-          <span className="text-[var(--knu-text-primary)] font-semibold">23:00 ~ 07:00</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center">
-            <span className="text-[var(--knu-text-secondary)] mr-2">소음</span>
-            <Badge variant="secondary">4</Badge>
-          </div>
-          <div className="flex items-center">
-            <span className="text-[var(--knu-text-secondary)] mr-2">청결</span>
-            <Badge variant="secondary">5</Badge>
-          </div>
-        </div>
+      {/* Lifestyle Chips */}
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+          🚬 {profile.smoker}
+        </span>
+        <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+          🕐 취침 {profile.bedtime}
+        </span>
+        <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+          ✨ {profile.cleanliness}
+        </span>
       </div>
 
-      <div className="pt-3 border-t border-[var(--knu-border)]">
-        <span className="text-xs text-[var(--knu-text-tertiary)]">프로필 보기</span>
-      </div>
+      {/* Intro */}
+      <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed line-clamp-1 mb-3">
+        {profile.intro}
+      </p>
+
+      {/* Message to Roommate */}
+      {profile.message && (
+        <div className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 rounded-xl">
+          <MessageCircle className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+          <p className="text-xs text-blue-700 font-medium line-clamp-1">{profile.message}</p>
+        </div>
+      )}
     </div>
   );
 }

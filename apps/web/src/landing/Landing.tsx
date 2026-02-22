@@ -80,8 +80,8 @@ export default function Landing() {
           <div className="space-y-4">
             <MockupCard variant="banner" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <MockupCard variant="profile" />
-              <MockupCard variant="profile" />
+              <MockupCard variant="profile" profileIndex={0} />
+              <MockupCard variant="profile" profileIndex={1} />
             </div>
           </div>
         </div>
