@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
@@ -9,20 +9,10 @@ import RoommateListTab from './tabs/RoommateListTab';
 import ProfileTab from './tabs/ProfileTab';
 import SettingsTab from './tabs/SettingsTab';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
-import type { LifestyleData } from '@/signup/components/StepLifestyleProfile';
-import type { AdditionalProfile } from '@/constants/additional-profile';
+import { TOAST_DURATION, GUIDE_DELAY } from '@/constants/ui';
+import type { TabId, UserProfile } from '@/types/profile';
 
-export type TabId = 'home' | 'list' | 'profile' | 'settings';
-
-export interface UserProfile {
-  nickname: string;
-  gender: 'M' | 'F';
-  dormitoryId: string | null;
-  lifestyle: LifestyleData;
-  intro: string;
-  messageToRoommate: string | null;
-  additional: AdditionalProfile;
-}
+export type { TabId, UserProfile } from '@/types/profile';
 
 export default function Main() {
   const [activeTab, setActiveTab] = useState<TabId>('home');
@@ -53,63 +43,85 @@ export default function Main() {
     },
   });
 
-  const handleSelectDormitory = (dormitoryId: string) => {
-    setUser((prev) => ({ ...prev, dormitoryId }));
-    if (dormitoryId === UNASSIGNED_ID) {
-      setToast('건물 미배정으로 설정했어요');
-    } else {
-      const dorm = getDormitoryById(dormitoryId);
-      setToast(dorm ? `${dorm.name}(으)로 설정했어요` : '건물이 설정되었어요');
-    }
-    if (!hasSeenGuide) {
-      setTimeout(() => setShowGuide(true), 600);
-    }
-  };
+  const handleSelectDormitory = useCallback(
+    (dormitoryId: string) => {
+      setUser((prev) => ({ ...prev, dormitoryId }));
+      if (dormitoryId === UNASSIGNED_ID) {
+        setToast('건물 미배정으로 설정했어요');
+      } else {
+        const dorm = getDormitoryById(dormitoryId);
+        setToast(dorm ? `${dorm.name}(으)로 설정했어요` : '건물이 설정되었어요');
+      }
+      if (!hasSeenGuide) {
+        setTimeout(() => setShowGuide(true), GUIDE_DELAY);
+      }
+    },
+    [hasSeenGuide],
+  );
 
-  const handleCloseGuide = () => {
+  const handleCloseGuide = useCallback(() => {
     setShowGuide(false);
     setHasSeenGuide(true);
-  };
+  }, []);
 
-  const handleShowGuide = () => {
+  const handleShowGuide = useCallback(() => {
     setShowGuide(true);
-  };
+  }, []);
+
+  const handleIntroChange = useCallback((intro: string) => {
+    setUser((prev) => ({ ...prev, intro }));
+    setToast('자기소개가 저장되었어요');
+  }, []);
+
+  const handleMessageChange = useCallback((msg: string | null) => {
+    setUser((prev) => ({ ...prev, messageToRoommate: msg }));
+    setToast('룸메에게 한마디가 저장되었어요');
+  }, []);
+
+  const handleLifestyleChange = useCallback((lifestyle: UserProfile['lifestyle']) => {
+    setUser((prev) => ({ ...prev, lifestyle }));
+    setToast('생활패턴이 저장되었어요');
+  }, []);
+
+  const handleAdditionalChange = useCallback((additional: UserProfile['additional']) => {
+    setUser((prev) => ({ ...prev, additional }));
+  }, []);
 
   useEffect(() => {
     if (toast) {
-      const timer = setTimeout(() => setToast(null), 2500);
+      const timer = setTimeout(() => setToast(null), TOAST_DURATION);
       return () => clearTimeout(timer);
     }
   }, [toast]);
-
-  const renderTab = () => {
-    switch (activeTab) {
-      case 'home':
-        return <HomeTab user={user} onNavigate={setActiveTab} onShowGuide={handleShowGuide} />;
-      case 'list':
-        return <RoommateListTab user={user} onNavigate={setActiveTab} />;
-      case 'profile':
-        return (
-          <ProfileTab
-            user={user}
-            onDormitoryChange={handleSelectDormitory}
-            onIntroChange={(intro) => setUser((prev) => ({ ...prev, intro }))}
-            onMessageChange={(msg) => setUser((prev) => ({ ...prev, messageToRoommate: msg }))}
-            onLifestyleChange={(lifestyle) => setUser((prev) => ({ ...prev, lifestyle }))}
-            onAdditionalChange={(additional) => setUser((prev) => ({ ...prev, additional }))}
-          />
-        );
-      case 'settings':
-        return <SettingsTab onShowGuide={handleShowGuide} />;
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
       {user.dormitoryId === null && (
         <BuildingSelectModal gender={user.gender} onSelect={handleSelectDormitory} />
       )}
-      {renderTab()}
+      {/* CSS hidden-based tab switching for state preservation */}
+      <main>
+        <div className={activeTab !== 'home' ? 'hidden' : undefined}>
+          <HomeTab user={user} onNavigate={setActiveTab} onShowGuide={handleShowGuide} />
+        </div>
+        <div className={activeTab !== 'list' ? 'hidden' : undefined}>
+          <RoommateListTab user={user} onNavigate={setActiveTab} />
+        </div>
+        <div className={activeTab !== 'profile' ? 'hidden' : undefined}>
+          <ProfileTab
+            user={user}
+            onDormitoryChange={handleSelectDormitory}
+            onIntroChange={handleIntroChange}
+            onMessageChange={handleMessageChange}
+            onLifestyleChange={handleLifestyleChange}
+            onAdditionalChange={handleAdditionalChange}
+          />
+        </div>
+        <div className={activeTab !== 'settings' ? 'hidden' : undefined}>
+          <SettingsTab onShowGuide={handleShowGuide} />
+        </div>
+      </main>
+
       <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Dormitory Guide Sheet */}
@@ -119,7 +131,11 @@ export default function Main() {
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-5 py-3 bg-gray-900 text-white text-sm font-medium rounded-xl shadow-lg">
+        <div
+          role="alert"
+          aria-live="polite"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-5 py-3 bg-gray-900 text-white text-sm font-medium rounded-xl shadow-lg"
+        >
           {toast}
         </div>
       )}

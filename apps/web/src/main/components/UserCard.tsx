@@ -1,38 +1,21 @@
 'use client';
 
 import { ChevronRight, MessageCircle } from 'lucide-react';
-import { Chip } from '@/components/Chip';
-import { getLifestyleLabel } from '@/constants/lifestyle';
-import { getDormitoryById } from '@/constants/dormitory';
-import { getAvatarColor } from '../utils/avatarColor';
-import type { LifestyleData } from '@/signup/components/StepLifestyleProfile';
-import type { AdditionalProfile } from '@/constants/additional-profile';
+import { getAvatarColor } from '@/utils/avatarColor';
+import { LifestyleChipSummary } from './LifestyleChipSummary';
+import { getMatchScoreColor } from '@/utils/matchScoreColor';
+import { getDormitoryLabel } from '@/utils/dormitoryLabel';
+import type { RoommateProfile } from '@/types/profile';
 
-export interface RoommateProfile {
-  id: string;
-  nickname: string;
-  gender: 'M' | 'F';
-  dormitoryId: string;
-  lifestyle: LifestyleData;
-  intro: string;
-  messageToRoommate: string | null;
-  additional: AdditionalProfile;
-  matchScore: number;
-}
+export type { RoommateProfile } from '@/types/profile';
 
 interface UserCardProps {
   profile: RoommateProfile;
-  onRequestMatch: () => void;
+  onRequestMatch?: () => void;
   onClick?: () => void;
   disabled?: boolean;
   onDisabledClick?: () => void;
-}
-
-function getMatchScoreColor(score: number) {
-  if (score >= 90) return 'text-green-600 bg-green-100';
-  if (score >= 80) return 'text-blue-600 bg-blue-100';
-  if (score >= 70) return 'text-orange-600 bg-orange-100';
-  return 'text-[var(--knu-text-secondary)] bg-[var(--knu-background-alt)]';
+  preview?: boolean;
 }
 
 export function UserCard({
@@ -41,9 +24,9 @@ export function UserCard({
   onClick,
   disabled,
   onDisabledClick,
+  preview = false,
 }: UserCardProps) {
-  const dorm = getDormitoryById(profile.dormitoryId);
-  const dormLabel = dorm ? `${dorm.name} ${dorm.roomType}인실` : '';
+  const dormLabel = getDormitoryLabel(profile.dormitoryId);
   const avatarColor = getAvatarColor(profile.nickname);
 
   const handleMatchClick = (e: React.MouseEvent) => {
@@ -51,14 +34,27 @@ export function UserCard({
     if (disabled) {
       onDisabledClick?.();
     } else {
-      onRequestMatch();
+      onRequestMatch?.();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (preview) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick?.();
     }
   };
 
   return (
     <div
-      className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-4 hover:shadow-md transition-all cursor-pointer"
-      onClick={onClick}
+      className={`bg-white rounded-2xl border-2 border-[var(--knu-border)] p-4 transition-all ${
+        preview ? '' : 'hover:shadow-md cursor-pointer'
+      }`}
+      onClick={preview ? undefined : onClick}
+      onKeyDown={preview ? undefined : handleKeyDown}
+      role={preview ? undefined : 'button'}
+      tabIndex={preview ? undefined : 0}
     >
       {/* Header: avatar + nickname + dorm badge + match score */}
       <div className="flex items-center justify-between mb-3">
@@ -82,22 +78,8 @@ export function UserCard({
       </div>
 
       {/* Key lifestyle chips (3 items) with context icons */}
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        <Chip
-          label={`🚬 ${getLifestyleLabel('smoker', profile.lifestyle.smoker)}`}
-          variant="badge"
-        />
-        <Chip
-          label={`🕐 취침 ${getLifestyleLabel('bedtime', profile.lifestyle.bedtime)}`}
-          variant="badge"
-        />
-        <Chip
-          label={`✨ ${getLifestyleLabel('cleanliness', profile.lifestyle.cleanliness)}`}
-          variant="badge"
-        />
-        {profile.additional.mbti && (
-          <Chip label={`🧠 ${profile.additional.mbti}`} variant="badge" />
-        )}
+      <div className="mb-3">
+        <LifestyleChipSummary lifestyle={profile.lifestyle} mbti={profile.additional.mbti} />
       </div>
 
       {/* Intro (1-line truncate) */}
@@ -116,19 +98,21 @@ export function UserCard({
       )}
 
       {/* Match request button */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleMatchClick}
-          className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-            disabled
-              ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
-              : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
-          }`}
-        >
-          매칭 요청
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
+      {!preview && (
+        <div className="flex justify-end">
+          <button
+            onClick={handleMatchClick}
+            className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              disabled
+                ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
+                : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+            }`}
+          >
+            매칭 요청
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
