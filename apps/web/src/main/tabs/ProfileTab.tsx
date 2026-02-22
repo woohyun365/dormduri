@@ -392,7 +392,7 @@ export default function ProfileTab({
                 <span
                   className={`ml-2 font-normal ${user.additional.grade ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
                 >
-                  {user.additional.grade ? `${user.additional.grade}학년` : '-'}
+                  {GRADES.find((g) => g.value === user.additional.grade)?.label ?? '-'}
                 </span>
               </p>
               <div className="flex flex-wrap gap-2">
