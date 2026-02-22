@@ -49,7 +49,7 @@ export function BottomSheet({
     <BaseBottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="필터"
+      title="원하는 룸메 조건"
       footer={
         <div className="flex gap-3">
           <div className="flex-1">
@@ -67,7 +67,8 @@ export function BottomSheet({
     >
       <div className="p-5 space-y-6 pb-5">
         {FILTER_FIELDS.map((field) => {
-          const labels = LIFESTYLE_LABELS[field];
+          const labels =
+            field === 'sleepHabit' ? { NONE: '없음', HAS: '있음' } : LIFESTYLE_LABELS[field];
           return (
             <div key={field}>
               <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">

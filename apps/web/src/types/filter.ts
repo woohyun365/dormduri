@@ -6,7 +6,7 @@ export interface FilterState {
   wakeTime: LifestyleData['wakeTime'];
   noiseSensitivity: LifestyleData['noiseSensitivity'];
   cleanliness: LifestyleData['cleanliness'];
-  sleepHabit: LifestyleData['sleepHabit'];
+  sleepHabit: LifestyleData['sleepHabit'] | 'HAS';
   indoorEating: LifestyleData['indoorEating'];
   relationshipStyle: LifestyleData['relationshipStyle'];
 }
