@@ -20,8 +20,8 @@ export function Chip({ label, selected = false, onClick, variant = 'default' }: 
       onClick={onClick}
       className={`px-5 h-11 rounded-full font-medium text-sm transition-all ${
         selected
-          ? 'bg-blue-500 text-white shadow-sm'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 active:bg-gray-300'
+          ? 'bg-[var(--knu-primary)] text-white shadow-sm'
+          : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200 active:bg-gray-300'
       }`}
     >
       {label}

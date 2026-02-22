@@ -36,7 +36,7 @@ export default function Login() {
     // Simulate API call
     // Test credentials: test@kangwon.ac.kr / password123
     if (email === 'test@kangwon.ac.kr' && password === 'password123') {
-      router.push('/');
+      router.push('/main');
     } else {
       setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.');
     }
