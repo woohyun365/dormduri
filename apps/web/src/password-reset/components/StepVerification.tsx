@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { InputField } from '@/components/form/InputField';
 import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
-import { DevOnly } from '@/components/DevOnly';
+
 import { TEST_VERIFICATION_CODE } from '@/constants/auth';
 import { Mail } from 'lucide-react';
 
@@ -72,11 +72,13 @@ export function StepVerification({
         )}
       </div>
 
-      <DevOnly>
-        <p className="text-sm text-blue-900">
-          <strong>테스트용 인증 코드:</strong> {TEST_VERIFICATION_CODE}
-        </p>
-      </DevOnly>
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
+          <p className="text-sm text-blue-900">
+            <strong>테스트용 인증 코드:</strong> {TEST_VERIFICATION_CODE}
+          </p>
+        </div>
+      )}
 
       <div className="flex gap-3">
         <Button variant="outline" size="lg" fullWidth type="button" onClick={onResendCode}>

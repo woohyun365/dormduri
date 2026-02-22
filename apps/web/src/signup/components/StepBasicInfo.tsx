@@ -2,18 +2,20 @@
 
 import { useState } from 'react';
 import { InputField } from '@/components/form/InputField';
-import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
+import { StepNavigation } from '@/components/form/StepNavigation';
 import { FieldError } from '@/components/form/FieldError';
 import { Chip } from '@/components/Chip';
-import { validatePassword, validatePasswordConfirm } from '@/utils/validation';
+import { validatePassword, validatePasswordConfirm, validateNickname } from '@/utils/validation';
+import { PASSWORD_MIN_LENGTH } from '@/constants/auth';
+import { NICKNAME_MAX } from '@/constants/ui';
 import { User } from 'lucide-react';
 
 export interface BasicInfoData {
   nickname: string;
   password: string;
   passwordConfirm: string;
-  gender: 'MALE' | 'FEMALE' | null;
+  gender: 'M' | 'F' | null;
 }
 
 interface StepBasicInfoProps {
@@ -35,13 +37,6 @@ export function StepBasicInfo({
   const [passwordError, setPasswordError] = useState('');
   const [passwordConfirmError, setPasswordConfirmError] = useState('');
   const [genderError, setGenderError] = useState('');
-
-  const validateNickname = (value: string) => {
-    if (!value) return '닉네임을 입력해주세요.';
-    if (value.length < 2) return '닉네임은 2자 이상이어야 합니다.';
-    if (value.length > 12) return '닉네임은 12자 이하여야 합니다.';
-    return '';
-  };
 
   const handleNext = () => {
     const nicknameErr = validateNickname(basicInfo.nickname);
@@ -81,22 +76,26 @@ export function StepBasicInfo({
           <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
             성별 <span className="text-red-500">*</span>
           </label>
-          <div className="flex gap-2">
+          <div className="flex gap-2" role="radiogroup" aria-label="성별 선택">
             <Chip
               label="남성"
-              selected={basicInfo.gender === 'MALE'}
+              selected={basicInfo.gender === 'M'}
               onClick={() => {
-                onBasicInfoChange({ ...basicInfo, gender: 'MALE' });
+                onBasicInfoChange({ ...basicInfo, gender: 'M' });
                 setGenderError('');
               }}
+              role="radio"
+              aria-checked={basicInfo.gender === 'M'}
             />
             <Chip
               label="여성"
-              selected={basicInfo.gender === 'FEMALE'}
+              selected={basicInfo.gender === 'F'}
               onClick={() => {
-                onBasicInfoChange({ ...basicInfo, gender: 'FEMALE' });
+                onBasicInfoChange({ ...basicInfo, gender: 'F' });
                 setGenderError('');
               }}
+              role="radio"
+              aria-checked={basicInfo.gender === 'F'}
             />
           </div>
           <FieldError message={genderError} />
@@ -113,20 +112,54 @@ export function StepBasicInfo({
           }}
           error={nicknameError}
           helper="다른 사용자에게 보여지는 이름입니다."
-          maxLength={12}
+          maxLength={NICKNAME_MAX}
         />
 
-        <InputField
-          label="비밀번호"
-          type="password"
-          placeholder="영문, 숫자 포함 8자 이상"
-          value={basicInfo.password}
-          onChange={(value) => {
-            onBasicInfoChange({ ...basicInfo, password: value });
-            setPasswordError('');
-          }}
-          error={passwordError}
-        />
+        <div>
+          <InputField
+            label="비밀번호"
+            type="password"
+            placeholder="영문, 숫자 포함 8자 이상"
+            value={basicInfo.password}
+            onChange={(value) => {
+              onBasicInfoChange({ ...basicInfo, password: value });
+              setPasswordError('');
+            }}
+            error={passwordError}
+          />
+          {basicInfo.password.length > 0 && (
+            <ul className="mt-2 space-y-1 text-xs">
+              <li
+                className={
+                  basicInfo.password.length >= PASSWORD_MIN_LENGTH
+                    ? 'text-green-600'
+                    : 'text-[var(--knu-text-tertiary)]'
+                }
+              >
+                {basicInfo.password.length >= PASSWORD_MIN_LENGTH ? '✓' : '○'} {PASSWORD_MIN_LENGTH}
+                자 이상
+              </li>
+              <li
+                className={
+                  /[a-zA-Z]/.test(basicInfo.password)
+                    ? 'text-green-600'
+                    : 'text-[var(--knu-text-tertiary)]'
+                }
+              >
+                {/[a-zA-Z]/.test(basicInfo.password) ? '✓' : '○'} 영문 포함
+              </li>
+              <li
+                className={
+                  /\d/.test(basicInfo.password)
+                    ? 'text-green-600'
+                    : 'text-[var(--knu-text-tertiary)]'
+                }
+              >
+                {/\d/.test(basicInfo.password) ? '✓' : '○'} 숫자 포함
+              </li>
+            </ul>
+          )}
+        </div>
 
         <InputField
           label="비밀번호 확인"
@@ -141,14 +174,7 @@ export function StepBasicInfo({
         />
       </div>
 
-      <div className="flex gap-3 pt-4">
-        <Button variant="outline" size="lg" fullWidth onClick={onBack}>
-          이전
-        </Button>
-        <Button variant="primary" size="lg" fullWidth onClick={handleNext}>
-          다음 단계
-        </Button>
-      </div>
+      <StepNavigation onBack={onBack} onNext={handleNext} />
     </div>
   );
 }

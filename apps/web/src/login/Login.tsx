@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
 import { InputField } from '@/components/form/InputField';
 import { Checkbox } from '@/components/form/Checkbox';
 import { Button } from '@/components/Button';
-import { DevOnly } from '@/components/DevOnly';
+
 import { validateKnuEmail } from '@/utils/validation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -20,6 +20,18 @@ export default function Login() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
+
+  const handleEmailChange = useCallback((value: string) => {
+    setEmail(value);
+    setEmailError('');
+    setLoginError('');
+  }, []);
+
+  const handlePasswordChange = useCallback((value: string) => {
+    setPassword(value);
+    setPasswordError('');
+    setLoginError('');
+  }, []);
 
   const handleLogin = () => {
     const emailErr = validateKnuEmail(email);
@@ -85,11 +97,7 @@ export default function Login() {
               type="email"
               placeholder="example@kangwon.ac.kr"
               value={email}
-              onChange={(value) => {
-                setEmail(value);
-                setEmailError('');
-                setLoginError('');
-              }}
+              onChange={handleEmailChange}
               error={emailError}
             />
 
@@ -98,11 +106,7 @@ export default function Login() {
               type="password"
               placeholder="비밀번호를 입력해주세요"
               value={password}
-              onChange={(value) => {
-                setPassword(value);
-                setPasswordError('');
-                setLoginError('');
-              }}
+              onChange={handlePasswordChange}
               error={passwordError}
             />
 
@@ -127,16 +131,18 @@ export default function Login() {
         </form>
 
         {/* Test Credentials Info - Dev only */}
-        <DevOnly>
-          <p className="text-sm text-blue-900 mb-2">
-            <strong>테스트 계정</strong>
-          </p>
-          <p className="text-sm text-blue-800 font-mono">
-            이메일: test@kangwon.ac.kr
-            <br />
-            비밀번호: password123
-          </p>
-        </DevOnly>
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
+            <p className="text-sm text-blue-900 mb-2">
+              <strong>테스트 계정</strong>
+            </p>
+            <p className="text-sm text-blue-800 font-mono">
+              이메일: test@kangwon.ac.kr
+              <br />
+              비밀번호: password123
+            </p>
+          </div>
+        )}
 
         {/* Signup Link */}
         <div className="text-center mt-6">
@@ -165,7 +171,7 @@ export default function Login() {
             </Link>
             <span className="text-[var(--knu-text-tertiary)]">|</span>
             <a
-              href="#"
+              href="mailto:knu-roommate@kangwon.ac.kr"
               className="text-[var(--knu-text-tertiary)] hover:text-[var(--knu-primary)] transition-colors"
             >
               문의하기
