@@ -4,10 +4,9 @@ import type { LifestyleData } from '@/types/lifestyle';
 
 interface LifestyleChipSummaryProps {
   lifestyle: LifestyleData;
-  mbti?: string | null;
 }
 
-export function LifestyleChipSummary({ lifestyle, mbti }: LifestyleChipSummaryProps) {
+export function LifestyleChipSummary({ lifestyle }: LifestyleChipSummaryProps) {
   return (
     <div className="flex flex-wrap gap-1.5">
       <Chip label={`🚬\u00A0${getLifestyleLabel('smoker', lifestyle.smoker)}`} variant="badge" />
@@ -19,7 +18,10 @@ export function LifestyleChipSummary({ lifestyle, mbti }: LifestyleChipSummaryPr
         label={`✨\u00A0${getLifestyleLabel('cleanliness', lifestyle.cleanliness)}`}
         variant="badge"
       />
-      {mbti && <Chip label={`🧠\u00A0${mbti}`} variant="badge" />}
+      <Chip
+        label={`🔊\u00A0${getLifestyleLabel('noiseSensitivity', lifestyle.noiseSensitivity)}`}
+        variant="badge"
+      />
     </div>
   );
 }

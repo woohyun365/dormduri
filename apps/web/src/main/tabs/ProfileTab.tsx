@@ -267,7 +267,7 @@ export default function ProfileTab({
                 </span>
               </div>
               <div className="mb-3">
-                <LifestyleChipSummary lifestyle={user.lifestyle} mbti={user.additional.mbti} />
+                <LifestyleChipSummary lifestyle={user.lifestyle} />
               </div>
               <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed line-clamp-1 mb-3">
                 {user.intro}
