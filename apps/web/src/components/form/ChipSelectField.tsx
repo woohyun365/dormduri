@@ -7,7 +7,7 @@ interface ChipSelectFieldProps {
   label: string;
   options: Record<string, string>;
   value: string | null;
-  onChange: (value: string) => void;
+  onChange: (value: string | null) => void;
   error?: string;
   required?: boolean;
   allowDeselect?: boolean;
@@ -24,7 +24,7 @@ export function ChipSelectField({
 }: ChipSelectFieldProps) {
   const handleClick = (optionValue: string) => {
     if (allowDeselect && value === optionValue) {
-      onChange(null as unknown as string);
+      onChange(null);
     } else {
       onChange(optionValue);
     }

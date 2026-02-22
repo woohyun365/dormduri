@@ -97,7 +97,8 @@ export function StepLifestyleProfile({
     onNext();
   };
 
-  const update = (field: FieldKey, value: string) => {
+  const update = (field: FieldKey, value: string | null) => {
+    if (value === null) return;
     onLifestyleChange({ ...lifestyle, [field]: value });
     setErrors((prev) => {
       const next = { ...prev };

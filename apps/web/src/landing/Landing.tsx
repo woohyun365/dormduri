@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { LandingHeader } from './components/LandingHeader';
-import { Button } from '@/components/Button';
+
 import { Section } from './components/Section';
 import { FeatureCard } from './components/FeatureCard';
 import { FAQItem } from './components/FAQItem';
@@ -54,16 +54,18 @@ export default function Landing() {
               비시즌 열람 가능
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link href="/signup">
-                <Button variant="primary" size="lg">
-                  <Mail className="w-5 h-5" />
-                  이메일로 시작하기
-                </Button>
+              <Link
+                href="/signup"
+                className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white shadow-sm hover:shadow-md h-14 px-8 text-lg"
+              >
+                <Mail className="w-5 h-5" />
+                이메일로 시작하기
               </Link>
-              <ScrollToButton targetId="features">
-                <Button variant="outline" size="lg" type="button">
-                  서비스 소개 보기
-                </Button>
+              <ScrollToButton
+                targetId="features"
+                className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 border-2 border-[var(--knu-border)] hover:border-[var(--knu-primary)] hover:bg-[var(--knu-primary-light)] text-[var(--knu-text-primary)] h-14 px-8 text-lg"
+              >
+                서비스 소개 보기
               </ScrollToButton>
             </div>
           </div>
@@ -300,11 +302,12 @@ export default function Landing() {
             <br />
             나에게 맞는 룸메를 찾아보세요
           </p>
-          <Link href="/signup">
-            <Button variant="primary" size="lg">
-              <Mail className="w-5 h-5" />
-              이메일로 시작하기
-            </Button>
+          <Link
+            href="/signup"
+            className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white shadow-sm hover:shadow-md h-14 px-8 text-lg"
+          >
+            <Mail className="w-5 h-5" />
+            이메일로 시작하기
           </Link>
         </div>
       </Section>

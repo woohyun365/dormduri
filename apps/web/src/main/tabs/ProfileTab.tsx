@@ -222,7 +222,11 @@ export default function ProfileTab({
             icon={<Eye className="w-5 h-5 text-[var(--knu-primary)]" />}
             title="다른 사람에게 보이는 내 카드"
           />
-          <div onClick={() => setShowDetailSheet(true)} className="cursor-pointer">
+          <button
+            type="button"
+            onClick={() => setShowDetailSheet(true)}
+            className="cursor-pointer w-full text-left"
+          >
             <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-4 hover:shadow-md transition-all">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
@@ -261,7 +265,7 @@ export default function ProfileTab({
                 </div>
               )}
             </div>
-          </div>
+          </button>
         </section>
 
         {/* 생활패턴 */}

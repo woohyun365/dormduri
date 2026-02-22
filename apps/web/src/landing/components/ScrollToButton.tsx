@@ -2,11 +2,11 @@
 
 interface ScrollToButtonProps {
   targetId: string;
-  children: React.ReactNode;
   className?: string;
+  children: string;
 }
 
-export function ScrollToButton({ targetId, children, className }: ScrollToButtonProps) {
+export function ScrollToButton({ targetId, className, children }: ScrollToButtonProps) {
   const handleClick = () => {
     const el = document.getElementById(targetId);
     if (el) {
@@ -15,16 +15,18 @@ export function ScrollToButton({ targetId, children, className }: ScrollToButton
   };
 
   return (
-    <span
+    <button
+      type="button"
       onClick={handleClick}
-      className={className}
-      role="button"
-      tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') handleClick();
+        if (e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
       }}
+      className={className}
     >
       {children}
-    </span>
+    </button>
   );
 }
