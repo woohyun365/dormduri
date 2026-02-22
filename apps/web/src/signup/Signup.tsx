@@ -29,6 +29,7 @@ export default function Signup() {
     passwordConfirm: '',
     gender: null,
   });
+  const [intro, setIntro] = useState('');
   const [lifestyle, setLifestyle] = useState<LifestyleData>({
     smoker: null,
     sleepHabit: null,
@@ -85,6 +86,8 @@ export default function Signup() {
           <StepLifestyleProfile
             lifestyle={lifestyle}
             onLifestyleChange={setLifestyle}
+            intro={intro}
+            onIntroChange={setIntro}
             onNext={handleNext}
             onBack={handleBack}
           />
