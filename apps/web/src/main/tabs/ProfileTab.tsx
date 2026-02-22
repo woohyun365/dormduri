@@ -365,6 +365,11 @@ export default function ProfileTab({
             <div>
               <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
                 {ADDITIONAL_FIELD_NAMES.college}
+                <span
+                  className={`ml-2 font-normal ${user.additional.college ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+                >
+                  {user.additional.college ?? '-'}
+                </span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {COLLEGES.map((c) => (
@@ -384,6 +389,11 @@ export default function ProfileTab({
             <div>
               <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
                 {ADDITIONAL_FIELD_NAMES.grade}
+                <span
+                  className={`ml-2 font-normal ${user.additional.grade ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+                >
+                  {user.additional.grade ? `${user.additional.grade}학년` : '-'}
+                </span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {GRADES.map((g) => (
@@ -413,6 +423,13 @@ export default function ProfileTab({
               <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2 flex items-center gap-1.5">
                 <Thermometer className="w-4 h-4 text-[var(--knu-text-tertiary)]" />
                 {ADDITIONAL_FIELD_NAMES.temperatureSensitivity}
+                <span
+                  className={`font-normal ${user.additional.temperatureSensitivity ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+                >
+                  {TEMPERATURE_SENSITIVITY.find(
+                    (t) => t.value === user.additional.temperatureSensitivity,
+                  )?.label ?? '-'}
+                </span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {TEMPERATURE_SENSITIVITY.map((t) => (
