@@ -13,15 +13,25 @@ import { mockRawProfiles } from '@/__fixtures__/profiles';
 import type { RoommateProfile } from '@/types/profile';
 import type { FilterState } from '@/types/filter';
 import type { TabId, UserProfile } from '@/types/profile';
+import type { ReportReason } from '@/types/report';
 
 interface RoommateListTabProps {
   user: UserProfile;
   onNavigate: (tab: TabId) => void;
+  blockedUserIds?: Set<string>;
+  onBlock?: (userId: string, nickname: string) => void;
+  onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
 }
 
 type SortMode = 'match' | 'recent';
 
-export default function RoommateListTab({ user, onNavigate }: RoommateListTabProps) {
+export default function RoommateListTab({
+  user,
+  onNavigate,
+  blockedUserIds,
+  onBlock,
+  onReport,
+}: RoommateListTabProps) {
   const isUnassigned = !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
 
   const [showFilters, setShowFilters] = useState(false);
@@ -49,6 +59,11 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
   const filteredProfiles = useMemo(() => {
     let list = profiles;
 
+    // Blocked user filter
+    if (blockedUserIds && blockedUserIds.size > 0) {
+      list = list.filter((p) => !blockedUserIds.has(p.id));
+    }
+
     // Dormitory filter
     if (effectiveDormId) {
       list = list.filter((p) => p.dormitoryId === effectiveDormId);
@@ -75,7 +90,7 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
     }
 
     return list;
-  }, [profiles, effectiveDormId, filters, sortMode]);
+  }, [profiles, effectiveDormId, filters, sortMode, blockedUserIds]);
 
   const dormName = effectiveDormId ? getDormitoryById(effectiveDormId)?.name : null;
 
@@ -258,6 +273,14 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
         onClose={() => setSelectedProfile(null)}
         onRequestMatch={() => {}}
         disabled={isUnassigned}
+        onBlock={(userId, nickname) => {
+          onBlock?.(userId, nickname);
+          setSelectedProfile(null);
+        }}
+        onReport={(userId, reason, detail) => {
+          onReport?.(userId, reason, detail);
+          setSelectedProfile(null);
+        }}
       />
     </div>
   );
