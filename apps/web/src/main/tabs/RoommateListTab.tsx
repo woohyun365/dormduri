@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Filter, Building2, ChevronRight, Search, X } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { UserCard } from '../components/UserCard';
