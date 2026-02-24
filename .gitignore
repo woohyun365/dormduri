@@ -15,6 +15,7 @@ node_modules
 # 로컬 환경 변수 파일 무시(필요 시 개별 opt-in 커밋)
 .env
 .env.*
+!.env.example
 
 ## 로그/디버그
 npm-debug.log*
@@ -47,6 +48,9 @@ coverage
 
 ## Figma 참조 (코드 이식 후 불필요)
 figma_references/
+
+## 문서 (위키로 관리)
+docs/
 
 ## OS/기타
 .DS_Store
