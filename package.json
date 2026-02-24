@@ -1,5 +1,5 @@
 {
-  "name": "financial_book",
+  "name": "knu-roommate",
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel dev",
