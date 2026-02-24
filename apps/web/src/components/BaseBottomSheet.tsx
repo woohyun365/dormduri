@@ -11,6 +11,7 @@ interface BaseBottomSheetProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  headerRight?: React.ReactNode;
 }
 
 export function BaseBottomSheet({
@@ -19,6 +20,7 @@ export function BaseBottomSheet({
   title,
   children,
   footer,
+  headerRight,
 }: BaseBottomSheetProps) {
   useBodyScrollLock(isOpen);
   const containerRef = useFocusTrap(isOpen, onClose);
@@ -41,13 +43,16 @@ export function BaseBottomSheet({
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-[var(--knu-border)] px-5 py-4 flex items-center justify-between rounded-t-3xl flex-shrink-0">
           <h2 className="text-xl font-bold text-[var(--knu-text-primary)]">{title}</h2>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
-            aria-label="닫기"
-          >
-            <X className="w-6 h-6 text-[var(--knu-text-secondary)]" />
-          </button>
+          <div className="flex items-center gap-1">
+            {headerRight}
+            <button
+              onClick={onClose}
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+              aria-label="닫기"
+            >
+              <X className="w-6 h-6 text-[var(--knu-text-secondary)]" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}

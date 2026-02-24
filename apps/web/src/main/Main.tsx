@@ -11,6 +11,7 @@ import SettingsTab from './tabs/SettingsTab';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
 import { TOAST_DURATION, GUIDE_DELAY } from '@/constants/ui';
 import type { TabId, UserProfile } from '@/types/profile';
+import type { BlockedUser, ReportReason } from '@/types/report';
 
 export type { TabId, UserProfile } from '@/types/profile';
 
@@ -87,6 +88,55 @@ export default function Main() {
     setUser((prev) => ({ ...prev, additional }));
   }, []);
 
+  // --- Block / Report state ---
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
+  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+  const [reportedUserIds, setReportedUserIds] = useState<Set<string>>(new Set());
+
+  const handleBlockUser = useCallback((userId: string, nickname: string) => {
+    setBlockedUsers((prev) => {
+      if (prev.some((u) => u.userId === userId)) return prev;
+      return [...prev, { userId, nickname, blockedAt: new Date().toISOString() }];
+    });
+    setBlockedUserIds((prev) => {
+      const next = new Set(prev);
+      next.add(userId);
+      return next;
+    });
+    setToast(`${nickname}님을 차단했어요`);
+  }, []);
+
+  const handleUnblockUser = useCallback((userId: string) => {
+    setBlockedUsers((prev) => {
+      const user = prev.find((u) => u.userId === userId);
+      if (user) {
+        setTimeout(() => setToast(`${user.nickname}님의 차단을 해제했어요`), 0);
+      }
+      return prev.filter((u) => u.userId !== userId);
+    });
+    setBlockedUserIds((prev) => {
+      const next = new Set(prev);
+      next.delete(userId);
+      return next;
+    });
+  }, []);
+
+  const handleReportUser = useCallback(
+    (userId: string, _reason: ReportReason, _detail: string | null) => {
+      if (reportedUserIds.has(userId)) {
+        setToast('이미 신고한 사용자예요');
+        return;
+      }
+      setReportedUserIds((prev) => {
+        const next = new Set(prev);
+        next.add(userId);
+        return next;
+      });
+      setToast('신고가 접수되었어요');
+    },
+    [reportedUserIds],
+  );
+
   // 탭 전환 시 스크롤 최상단으로 이동
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -110,7 +160,13 @@ export default function Main() {
           <HomeTab user={user} onNavigate={setActiveTab} onShowGuide={handleShowGuide} />
         </div>
         <div className={activeTab !== 'list' ? 'hidden' : undefined}>
-          <RoommateListTab user={user} onNavigate={setActiveTab} />
+          <RoommateListTab
+            user={user}
+            onNavigate={setActiveTab}
+            blockedUserIds={blockedUserIds}
+            onBlock={handleBlockUser}
+            onReport={handleReportUser}
+          />
         </div>
         <div className={activeTab !== 'profile' ? 'hidden' : undefined}>
           <ProfileTab
@@ -123,7 +179,11 @@ export default function Main() {
           />
         </div>
         <div className={activeTab !== 'settings' ? 'hidden' : undefined}>
-          <SettingsTab onShowGuide={handleShowGuide} />
+          <SettingsTab
+            onShowGuide={handleShowGuide}
+            blockedUsers={blockedUsers}
+            onUnblock={handleUnblockUser}
+          />
         </div>
       </main>
 

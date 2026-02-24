@@ -13,21 +13,31 @@ import {
   Building2,
   ExternalLink,
   LogOut,
+  Ban,
 } from 'lucide-react';
 import { DORM_HOMEPAGE_URL } from '@/constants/dormitory-guide';
 import { ComingSoonBadge } from '@/components/ComingSoonBadge';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SectionHeading } from '@/components/SectionHeading';
+import { BlockManageSheet } from '../components/BlockManageSheet';
 import Link from 'next/link';
+import type { BlockedUser } from '@/types/report';
 
 interface SettingsTabProps {
   onShowGuide: () => void;
+  blockedUsers?: BlockedUser[];
+  onUnblock?: (userId: string) => void;
 }
 
-export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
+export default function SettingsTab({
+  onShowGuide,
+  blockedUsers = [],
+  onUnblock,
+}: SettingsTabProps) {
   const router = useRouter();
   const [logoutDialog, setLogoutDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [showBlockManage, setShowBlockManage] = useState(false);
 
   return (
     <div>
@@ -62,6 +72,25 @@ export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
               </div>
               <ComingSoonBadge />
             </div>
+            <button
+              onClick={() => setShowBlockManage(true)}
+              className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Ban className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  차단 관리
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {blockedUsers.length > 0 && (
+                  <span className="text-xs font-semibold text-[var(--knu-text-tertiary)]">
+                    {blockedUsers.length}명
+                  </span>
+                )}
+                <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              </div>
+            </button>
             <button
               onClick={() => setLogoutDialog(true)}
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
@@ -223,6 +252,14 @@ export default function SettingsTab({ onShowGuide }: SettingsTabProps) {
         message="정말로 계정을 삭제하시겠습니까?\n\n모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다."
         confirmLabel="삭제하기"
         variant="danger"
+      />
+
+      {/* Block Manage Sheet */}
+      <BlockManageSheet
+        isOpen={showBlockManage}
+        onClose={() => setShowBlockManage(false)}
+        blockedUsers={blockedUsers}
+        onUnblock={(userId) => onUnblock?.(userId)}
       />
     </div>
   );

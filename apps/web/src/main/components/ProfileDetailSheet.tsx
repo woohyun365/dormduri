@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronRight, MessageCircle } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronRight, MessageCircle, MoreHorizontal } from 'lucide-react';
 import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
 import {
   ADDITIONAL_FIELD_NAMES,
@@ -11,8 +12,12 @@ import { getAvatarColor } from '@/utils/avatarColor';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ProfileMoreMenu } from './ProfileMoreMenu';
+import { ReportSheet } from './ReportSheet';
 import type { RoommateProfile } from '@/types/profile';
 import type { LifestyleData } from '@/types/lifestyle';
+import type { ReportReason } from '@/types/report';
 
 interface ProfileDetailSheetProps {
   profile: RoommateProfile | null;
@@ -22,6 +27,8 @@ interface ProfileDetailSheetProps {
   disabled?: boolean;
   onDisabledClick?: () => void;
   hideMatchButton?: boolean;
+  onBlock?: (userId: string, nickname: string) => void;
+  onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
 }
 
 const LIFESTYLE_FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
@@ -34,7 +41,13 @@ export function ProfileDetailSheet({
   disabled,
   onDisabledClick,
   hideMatchButton,
+  onBlock,
+  onReport,
 }: ProfileDetailSheetProps) {
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showReportSheet, setShowReportSheet] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+
   if (!profile) return null;
 
   const dormLabel = getDormitoryLabel(profile.dormitoryId);
@@ -48,11 +61,25 @@ export function ProfileDetailSheet({
     }
   };
 
+  const handleClose = () => {
+    setShowMoreMenu(false);
+    onClose();
+  };
+
   return (
     <BaseBottomSheet
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="프로필"
+      headerRight={
+        <button
+          onClick={() => setShowMoreMenu((prev) => !prev)}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+          aria-label="더보기"
+        >
+          <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
+        </button>
+      }
       footer={
         !hideMatchButton ? (
           <button
@@ -179,6 +206,39 @@ export function ProfileDetailSheet({
           </div>
         )}
       </div>
+
+      {/* More Menu */}
+      <ProfileMoreMenu
+        isOpen={showMoreMenu}
+        onClose={() => setShowMoreMenu(false)}
+        onBlock={() => setShowBlockConfirm(true)}
+        onReport={() => setShowReportSheet(true)}
+      />
+
+      {/* Block Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={showBlockConfirm}
+        onClose={() => setShowBlockConfirm(false)}
+        onConfirm={() => {
+          onBlock?.(profile.id, profile.nickname);
+          handleClose();
+        }}
+        title="사용자 차단"
+        message={`${profile.nickname}님을 차단하시겠습니까?\n\n차단하면 해당 사용자가 목록에서 제거됩니다.`}
+        confirmLabel="차단하기"
+        variant="danger"
+      />
+
+      {/* Report Sheet */}
+      <ReportSheet
+        isOpen={showReportSheet}
+        onClose={() => setShowReportSheet(false)}
+        onSubmit={(reason, detail) => {
+          onReport?.(profile.id, reason, detail);
+          setShowReportSheet(false);
+          handleClose();
+        }}
+      />
     </BaseBottomSheet>
   );
 }
