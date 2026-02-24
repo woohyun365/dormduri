@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
@@ -90,7 +90,7 @@ export default function Main() {
 
   // --- Block / Report state ---
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
-  const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+  const blockedUserIds = useMemo(() => new Set(blockedUsers.map((u) => u.userId)), [blockedUsers]);
   const [reportedUserIds, setReportedUserIds] = useState<Set<string>>(new Set());
 
   const handleBlockUser = useCallback((userId: string, nickname: string) => {
@@ -98,27 +98,12 @@ export default function Main() {
       if (prev.some((u) => u.userId === userId)) return prev;
       return [...prev, { userId, nickname, blockedAt: new Date().toISOString() }];
     });
-    setBlockedUserIds((prev) => {
-      const next = new Set(prev);
-      next.add(userId);
-      return next;
-    });
     setToast(`${nickname}님을 차단했어요`);
   }, []);
 
-  const handleUnblockUser = useCallback((userId: string) => {
-    setBlockedUsers((prev) => {
-      const user = prev.find((u) => u.userId === userId);
-      if (user) {
-        setTimeout(() => setToast(`${user.nickname}님의 차단을 해제했어요`), 0);
-      }
-      return prev.filter((u) => u.userId !== userId);
-    });
-    setBlockedUserIds((prev) => {
-      const next = new Set(prev);
-      next.delete(userId);
-      return next;
-    });
+  const handleUnblockUser = useCallback((userId: string, nickname: string) => {
+    setToast(`${nickname}님의 차단을 해제했어요`);
+    setBlockedUsers((prev) => prev.filter((u) => u.userId !== userId));
   }, []);
 
   const handleReportUser = useCallback(

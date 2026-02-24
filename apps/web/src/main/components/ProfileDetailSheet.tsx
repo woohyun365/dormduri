@@ -77,6 +77,8 @@ export function ProfileDetailSheet({
             onClick={() => setShowMoreMenu((prev) => !prev)}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
             aria-label="더보기"
+            aria-haspopup="menu"
+            aria-expanded={showMoreMenu}
           >
             <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
           </button>

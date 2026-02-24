@@ -10,7 +10,7 @@ interface BlockManageSheetProps {
   isOpen: boolean;
   onClose: () => void;
   blockedUsers: BlockedUser[];
-  onUnblock: (userId: string) => void;
+  onUnblock: (userId: string, nickname: string) => void;
 }
 
 export function BlockManageSheet({
@@ -50,7 +50,7 @@ export function BlockManageSheet({
                     </p>
                   </div>
                   <button
-                    onClick={() => onUnblock(user.userId)}
+                    onClick={() => onUnblock(user.userId, user.nickname)}
                     className="px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
                   >
                     해제

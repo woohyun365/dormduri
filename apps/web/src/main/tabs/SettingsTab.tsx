@@ -26,7 +26,7 @@ import type { BlockedUser } from '@/types/report';
 interface SettingsTabProps {
   onShowGuide: () => void;
   blockedUsers?: BlockedUser[];
-  onUnblock?: (userId: string) => void;
+  onUnblock?: (userId: string, nickname: string) => void;
 }
 
 export default function SettingsTab({
@@ -259,7 +259,7 @@ export default function SettingsTab({
         isOpen={showBlockManage}
         onClose={() => setShowBlockManage(false)}
         blockedUsers={blockedUsers}
-        onUnblock={(userId) => onUnblock?.(userId)}
+        onUnblock={(userId, nickname) => onUnblock?.(userId, nickname)}
       />
     </div>
   );

@@ -32,10 +32,13 @@ export function ProfileMoreMenu({ isOpen, onClose, onReport, onBlock }: ProfileM
   return (
     <div
       ref={menuRef}
+      role="menu"
+      aria-label="프로필 메뉴"
       className="absolute right-14 top-3 bg-white rounded-xl shadow-lg border border-[var(--knu-border)] overflow-hidden"
       style={{ zIndex: Z_INDEX.bottomSheet + 1 }}
     >
       <button
+        role="menuitem"
         onClick={() => {
           onBlock();
           onClose();
@@ -46,6 +49,7 @@ export function ProfileMoreMenu({ isOpen, onClose, onReport, onBlock }: ProfileM
         차단하기
       </button>
       <button
+        role="menuitem"
         onClick={() => {
           onReport();
           onClose();
