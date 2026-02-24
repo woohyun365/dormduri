@@ -67,153 +67,159 @@ export function ProfileDetailSheet({
   };
 
   return (
-    <BaseBottomSheet
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="프로필"
-      headerRight={
-        <button
-          onClick={() => setShowMoreMenu((prev) => !prev)}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
-          aria-label="더보기"
-        >
-          <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
-        </button>
-      }
-      footer={
-        !hideMatchButton ? (
+    <>
+      <BaseBottomSheet
+        isOpen={isOpen}
+        onClose={handleClose}
+        title="프로필"
+        headerRight={
           <button
-            onClick={handleMatchClick}
-            className={`w-full flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
-              disabled
-                ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
-                : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
-            }`}
+            onClick={() => setShowMoreMenu((prev) => !prev)}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+            aria-label="더보기"
           >
-            매칭 요청
-            <ChevronRight className="w-5 h-5" />
+            <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
           </button>
-        ) : undefined
-      }
-    >
-      <div className="p-5 pb-5 space-y-5">
-        {/* Avatar + Nickname + Dorm + Match */}
-        <div className="flex items-center gap-4">
-          <div
-            className={`w-16 h-16 ${avatarColor.bg} rounded-full flex items-center justify-center text-2xl font-bold ${avatarColor.text}`}
-          >
-            {profile.nickname.charAt(0)}
+        }
+        footer={
+          !hideMatchButton ? (
+            <button
+              onClick={handleMatchClick}
+              className={`w-full flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
+                disabled
+                  ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
+                  : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+              }`}
+            >
+              매칭 요청
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          ) : undefined
+        }
+      >
+        <div className="p-5 pb-5 space-y-5">
+          {/* Avatar + Nickname + Dorm + Match */}
+          <div className="flex items-center gap-4">
+            <div
+              className={`w-16 h-16 ${avatarColor.bg} rounded-full flex items-center justify-center text-2xl font-bold ${avatarColor.text}`}
+            >
+              {profile.nickname.charAt(0)}
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-[var(--knu-text-primary)]">
+                {profile.nickname}
+              </h3>
+              {dormLabel && <p className="text-sm text-[var(--knu-text-tertiary)]">{dormLabel}</p>}
+            </div>
+            <span
+              className={`px-3 py-1.5 rounded-full text-sm font-bold ${getMatchScoreColor(profile.matchScore)}`}
+            >
+              매칭 {profile.matchScore}%
+            </span>
           </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-[var(--knu-text-primary)]">{profile.nickname}</h3>
-            {dormLabel && <p className="text-sm text-[var(--knu-text-tertiary)]">{dormLabel}</p>}
-          </div>
-          <span
-            className={`px-3 py-1.5 rounded-full text-sm font-bold ${getMatchScoreColor(profile.matchScore)}`}
-          >
-            매칭 {profile.matchScore}%
-          </span>
-        </div>
 
-        {/* Lifestyle Grid */}
-        <div className="bg-[var(--knu-background-alt)] rounded-2xl p-4">
-          <div className="grid grid-cols-2 gap-3">
-            {LIFESTYLE_FIELDS.map((field) => (
-              <div key={field}>
-                <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
-                  {LIFESTYLE_FIELD_NAMES[field]}
-                </p>
-                <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                  {getLifestyleLabel(field, profile.lifestyle[field])}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Additional Info */}
-        {(profile.additional.college ||
-          profile.additional.grade ||
-          profile.additional.mbti ||
-          profile.additional.temperatureSensitivity) && (
+          {/* Lifestyle Grid */}
           <div className="bg-[var(--knu-background-alt)] rounded-2xl p-4">
             <div className="grid grid-cols-2 gap-3">
-              {profile.additional.college && (
-                <div>
+              {LIFESTYLE_FIELDS.map((field) => (
+                <div key={field}>
                   <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
-                    {ADDITIONAL_FIELD_NAMES.college}
+                    {LIFESTYLE_FIELD_NAMES[field]}
                   </p>
                   <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                    {profile.additional.college}
+                    {getLifestyleLabel(field, profile.lifestyle[field])}
                   </p>
                 </div>
-              )}
-              {profile.additional.grade && (
-                <div>
-                  <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
-                    {ADDITIONAL_FIELD_NAMES.grade}
-                  </p>
-                  <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                    {GRADES.find((g) => g.value === profile.additional.grade)?.label ??
-                      profile.additional.grade}
-                  </p>
-                </div>
-              )}
-              {profile.additional.mbti && (
-                <div>
-                  <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
-                    {ADDITIONAL_FIELD_NAMES.mbti}
-                  </p>
-                  <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                    {profile.additional.mbti}
-                  </p>
-                </div>
-              )}
-              {profile.additional.temperatureSensitivity && (
-                <div>
-                  <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
-                    {ADDITIONAL_FIELD_NAMES.temperatureSensitivity}
-                  </p>
-                  <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                    {
-                      TEMPERATURE_SENSITIVITY.find(
-                        (t) => t.value === profile.additional.temperatureSensitivity,
-                      )?.label
-                    }
-                  </p>
-                </div>
-              )}
+              ))}
             </div>
           </div>
-        )}
 
-        {/* Intro */}
-        <div>
-          <p className="text-xs text-[var(--knu-text-tertiary)] mb-1.5">자기소개</p>
-          <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed">
-            {profile.intro}
-          </p>
+          {/* Additional Info */}
+          {(profile.additional.college ||
+            profile.additional.grade ||
+            profile.additional.mbti ||
+            profile.additional.temperatureSensitivity) && (
+            <div className="bg-[var(--knu-background-alt)] rounded-2xl p-4">
+              <div className="grid grid-cols-2 gap-3">
+                {profile.additional.college && (
+                  <div>
+                    <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
+                      {ADDITIONAL_FIELD_NAMES.college}
+                    </p>
+                    <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                      {profile.additional.college}
+                    </p>
+                  </div>
+                )}
+                {profile.additional.grade && (
+                  <div>
+                    <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
+                      {ADDITIONAL_FIELD_NAMES.grade}
+                    </p>
+                    <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                      {GRADES.find((g) => g.value === profile.additional.grade)?.label ??
+                        profile.additional.grade}
+                    </p>
+                  </div>
+                )}
+                {profile.additional.mbti && (
+                  <div>
+                    <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
+                      {ADDITIONAL_FIELD_NAMES.mbti}
+                    </p>
+                    <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                      {profile.additional.mbti}
+                    </p>
+                  </div>
+                )}
+                {profile.additional.temperatureSensitivity && (
+                  <div>
+                    <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
+                      {ADDITIONAL_FIELD_NAMES.temperatureSensitivity}
+                    </p>
+                    <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                      {
+                        TEMPERATURE_SENSITIVITY.find(
+                          (t) => t.value === profile.additional.temperatureSensitivity,
+                        )?.label
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Intro */}
+          <div>
+            <p className="text-xs text-[var(--knu-text-tertiary)] mb-1.5">자기소개</p>
+            <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed">
+              {profile.intro}
+            </p>
+          </div>
+
+          {/* Message to Roommate */}
+          {profile.messageToRoommate && (
+            <div className="bg-blue-50 rounded-2xl p-4">
+              <div className="flex items-center gap-1.5 mb-2">
+                <MessageCircle className="w-4 h-4 text-blue-500" />
+                <p className="text-xs font-semibold text-blue-700">룸메에게 한마디</p>
+              </div>
+              <p className="text-sm text-blue-800 leading-relaxed">{profile.messageToRoommate}</p>
+            </div>
+          )}
         </div>
 
-        {/* Message to Roommate */}
-        {profile.messageToRoommate && (
-          <div className="bg-blue-50 rounded-2xl p-4">
-            <div className="flex items-center gap-1.5 mb-2">
-              <MessageCircle className="w-4 h-4 text-blue-500" />
-              <p className="text-xs font-semibold text-blue-700">룸메에게 한마디</p>
-            </div>
-            <p className="text-sm text-blue-800 leading-relaxed">{profile.messageToRoommate}</p>
-          </div>
-        )}
-      </div>
+        {/* More Menu — absolute 위치이므로 BaseBottomSheet 내부 유지 */}
+        <ProfileMoreMenu
+          isOpen={showMoreMenu}
+          onClose={() => setShowMoreMenu(false)}
+          onBlock={() => setShowBlockConfirm(true)}
+          onReport={() => setShowReportSheet(true)}
+        />
+      </BaseBottomSheet>
 
-      {/* More Menu */}
-      <ProfileMoreMenu
-        isOpen={showMoreMenu}
-        onClose={() => setShowMoreMenu(false)}
-        onBlock={() => setShowBlockConfirm(true)}
-        onReport={() => setShowReportSheet(true)}
-      />
+      {/* 자체 overlay를 가진 컴포넌트는 BaseBottomSheet 바깥에 렌더 (중첩 focus trap 방지) */}
 
       {/* Block Confirm Dialog */}
       <ConfirmDialog
@@ -239,6 +245,6 @@ export function ProfileDetailSheet({
           handleClose();
         }}
       />
-    </BaseBottomSheet>
+    </>
   );
 }
