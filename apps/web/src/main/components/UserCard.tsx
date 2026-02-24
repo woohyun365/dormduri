@@ -77,9 +77,9 @@ export function UserCard({
         </span>
       </div>
 
-      {/* Key lifestyle chips (3 items) with context icons */}
+      {/* Key lifestyle chips with context icons */}
       <div className="mb-3">
-        <LifestyleChipSummary lifestyle={profile.lifestyle} mbti={profile.additional.mbti} />
+        <LifestyleChipSummary lifestyle={profile.lifestyle} />
       </div>
 
       {/* Intro (1-line truncate) */}

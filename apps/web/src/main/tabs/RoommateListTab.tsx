@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { Filter, Building2, ChevronRight, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Filter, Building2, ChevronRight, Search, X } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { UserCard } from '../components/UserCard';
 import { BottomSheet, DEFAULT_FILTERS } from '../components/BottomSheet';
 import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
 import { UNASSIGNED_ID, getDormitoryById } from '@/constants/dormitory';
+import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
 import { calcMatchScore } from '@/utils/matchScore';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
 import type { RoommateProfile } from '@/types/profile';
@@ -29,9 +30,7 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
   const [selectedProfile, setSelectedProfile] = useState<RoommateProfile | null>(null);
   const [displayCount, setDisplayCount] = useState(20);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  // 스크롤 초기화는 Main.tsx에서 탭 전환 시 처리
 
   // Build profiles with calculated match scores
   const profiles = useMemo<RoommateProfile[]>(
@@ -59,7 +58,11 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
     list = list.filter((p) => {
       for (const key of Object.keys(filters) as (keyof FilterState)[]) {
         const filterVal = filters[key];
-        if (filterVal !== null && p.lifestyle[key] !== filterVal) {
+        if (filterVal === null) continue;
+        // 잠버릇 "있음" 필터: NONE이 아닌 모든 값 매칭
+        if (key === 'sleepHabit' && filterVal === 'HAS') {
+          if (p.lifestyle.sleepHabit === 'NONE' || p.lifestyle.sleepHabit === null) return false;
+        } else if (p.lifestyle[key] !== filterVal) {
           return false;
         }
       }
@@ -76,7 +79,19 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
 
   const dormName = effectiveDormId ? getDormitoryById(effectiveDormId)?.name : null;
 
-  const activeFilterCount = Object.values(filters).filter((v) => v !== null).length;
+  const activeFilters = (Object.entries(filters) as [keyof FilterState, string | null][]).filter(
+    ([, v]) => v !== null,
+  );
+  const activeFilterCount = activeFilters.length;
+
+  const getFilterLabel = (field: keyof FilterState, value: string): string => {
+    if (field === 'sleepHabit' && value === 'HAS') return '있음';
+    return LIFESTYLE_LABELS[field][value] ?? value;
+  };
+
+  const removeFilter = (field: keyof FilterState) => {
+    setFilters((prev) => ({ ...prev, [field]: null }));
+  };
 
   const headerTitle = isUnassigned ? '룸메이트 찾기' : `${dormName ?? ''} 룸메이트`;
 
@@ -129,6 +144,30 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
             최근 가입순
           </button>
         </div>
+
+        {/* Active Filter Chips */}
+        {activeFilterCount > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {activeFilters.map(([field, value]) => (
+              <button
+                key={field}
+                type="button"
+                onClick={() => removeFilter(field)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 bg-[var(--knu-primary-light)] text-[var(--knu-primary)] text-xs font-semibold rounded-full hover:bg-[var(--knu-primary)] hover:text-white transition-colors"
+              >
+                {LIFESTYLE_FIELD_NAMES[field]}: {getFilterLabel(field, value!)}
+                <X className="w-3 h-3" />
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setFilters(DEFAULT_FILTERS)}
+              className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-[var(--knu-text-tertiary)] hover:text-red-500 transition-colors"
+            >
+              전체 해제
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Unassigned Banner */}
@@ -156,6 +195,13 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
 
       {/* Profile List */}
       <div className="max-w-md mx-auto px-5 py-5 space-y-3">
+        {filteredProfiles.length > 0 && (
+          <p className="text-sm text-[var(--knu-text-tertiary)] font-medium">
+            {filteredProfiles.length}명의 룸메이트
+          </p>
+        )}
+      </div>
+      <div className="max-w-md mx-auto px-5 pb-5 space-y-3">
         {filteredProfiles.length === 0 ? (
           <EmptyState
             icon={<Search className="w-8 h-8 text-[var(--knu-text-tertiary)]" />}

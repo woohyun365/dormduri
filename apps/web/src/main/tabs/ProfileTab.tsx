@@ -57,49 +57,53 @@ function MBTISelector({
   value: string | null;
   onChange: (mbti: string | null) => void;
 }) {
-  // Each dimension tracked independently: [E/I, S/N, T/F, J/P]
-  const current = value ?? '';
+  // 로컬 draft로 중간 상태(1~3글자) 유지 — 부모에는 4글자 완성 시에만 전달
+  const [draft, setDraft] = useState(value ?? '');
+  const [prevValue, setPrevValue] = useState(value);
+
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setDraft(value ?? '');
+  }
+
+  const sortMBTI = (s: string) => {
+    const order = 'EISNTFJP';
+    return s
+      .split('')
+      .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+      .join('');
+  };
 
   const handleToggle = (dim: (typeof MBTI_DIMENSIONS)[number], opt: string) => {
     const other = dim.options.find((o) => o !== opt)!;
-    let next = current;
-    if (current.includes(opt)) {
-      next = next.replace(opt, '');
+    let next = draft;
+    if (draft.includes(opt)) {
+      // 이미 선택된 글자 클릭 → 같은 차원의 반대 옵션으로 전환
+      next = next.replace(opt, other);
     } else {
       next = next.replace(other, '') + opt;
     }
-    const order = 'EISNTFJP';
-    const sorted = next
-      .split('')
-      .sort((a, b) => order.indexOf(a) - order.indexOf(b))
-      .join('');
+    const sorted = sortMBTI(next);
+    setDraft(sorted);
     onChange(sorted.length === 4 ? sorted : null);
   };
-
-  const display = (() => {
-    const order = 'EISNTFJP';
-    return current
-      .split('')
-      .sort((a, b) => order.indexOf(a) - order.indexOf(b))
-      .join('');
-  })();
 
   return (
     <div>
       <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
         {ADDITIONAL_FIELD_NAMES.mbti}
       </p>
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         {MBTI_DIMENSIONS.map((dim) => (
-          <div key={dim.key} className="flex gap-1">
+          <div key={dim.key} className="flex flex-1 gap-1">
             {dim.options.map((opt) => {
-              const isSelected = current.includes(opt);
+              const isSelected = draft.includes(opt);
               return (
                 <button
                   key={opt}
                   type="button"
                   onClick={() => handleToggle(dim, opt)}
-                  className={`w-10 h-10 rounded-xl text-sm font-bold transition-all ${
+                  className={`flex-1 h-9 sm:h-10 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all ${
                     isSelected
                       ? 'bg-[var(--knu-primary)] text-white'
                       : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
@@ -112,13 +116,25 @@ function MBTISelector({
           </div>
         ))}
       </div>
-      {display.length > 0 && (
-        <p
-          className={`mt-2 text-sm font-semibold ${display.length === 4 ? 'text-[var(--knu-primary)]' : 'text-orange-600'}`}
-        >
-          {display}
-          {display.length < 4 && ` · ${4 - display.length}개 더 선택해주세요`}
-        </p>
+      {draft.length > 0 && (
+        <div className="flex items-center justify-between mt-2">
+          <p
+            className={`text-sm font-semibold ${draft.length === 4 ? 'text-[var(--knu-primary)]' : 'text-orange-600'}`}
+          >
+            {draft}
+            {draft.length < 4 && ` · ${4 - draft.length}개 더 선택해주세요`}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft('');
+              onChange(null);
+            }}
+            className="text-xs text-[var(--knu-text-tertiary)] hover:text-red-500 transition-colors"
+          >
+            초기화
+          </button>
+        </div>
       )}
     </div>
   );
@@ -251,7 +267,7 @@ export default function ProfileTab({
                 </span>
               </div>
               <div className="mb-3">
-                <LifestyleChipSummary lifestyle={user.lifestyle} mbti={user.additional.mbti} />
+                <LifestyleChipSummary lifestyle={user.lifestyle} />
               </div>
               <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed line-clamp-1 mb-3">
                 {user.intro}
@@ -349,6 +365,11 @@ export default function ProfileTab({
             <div>
               <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
                 {ADDITIONAL_FIELD_NAMES.college}
+                <span
+                  className={`ml-2 font-normal ${user.additional.college ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+                >
+                  {user.additional.college ?? '-'}
+                </span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {COLLEGES.map((c) => (
@@ -368,6 +389,11 @@ export default function ProfileTab({
             <div>
               <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
                 {ADDITIONAL_FIELD_NAMES.grade}
+                <span
+                  className={`ml-2 font-normal ${user.additional.grade ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+                >
+                  {GRADES.find((g) => g.value === user.additional.grade)?.label ?? '-'}
+                </span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {GRADES.map((g) => (
@@ -397,6 +423,13 @@ export default function ProfileTab({
               <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2 flex items-center gap-1.5">
                 <Thermometer className="w-4 h-4 text-[var(--knu-text-tertiary)]" />
                 {ADDITIONAL_FIELD_NAMES.temperatureSensitivity}
+                <span
+                  className={`font-normal ${user.additional.temperatureSensitivity ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+                >
+                  {TEMPERATURE_SENSITIVITY.find(
+                    (t) => t.value === user.additional.temperatureSensitivity,
+                  )?.label ?? '-'}
+                </span>
               </p>
               <div className="flex flex-wrap gap-2">
                 {TEMPERATURE_SENSITIVITY.map((t) => (

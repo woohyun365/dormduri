@@ -87,6 +87,11 @@ export default function Main() {
     setUser((prev) => ({ ...prev, additional }));
   }, []);
 
+  // 탭 전환 시 스크롤 최상단으로 이동
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [activeTab]);
+
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), TOAST_DURATION);

@@ -102,7 +102,7 @@ export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     gender: 'M',
     dormitoryId: 'saerom',
     lifestyle: {
-      smoker: 'OK',
+      smoker: 'NO',
       sleepHabit: 'GRINDING',
       indoorEating: 'VENTILATE',
       bedtime: '24_02',

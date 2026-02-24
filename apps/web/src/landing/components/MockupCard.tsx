@@ -14,6 +14,7 @@ interface MockProfile {
   smoker: string;
   bedtime: string;
   cleanliness: string;
+  noiseSensitivity: string;
   intro: string;
   message: string | null;
   avatarBg: `bg-${string}`;
@@ -28,6 +29,7 @@ const MOCK_PROFILES: MockProfile[] = [
     smoker: '비흡연',
     bedtime: '22~24시',
     cleanliness: '깔끔한 편',
+    noiseSensitivity: '민감한 편',
     intro: '조용하고 규칙적인 생활을 선호합니다.',
     message: '쓰레기통, 청소도구 제가 가져갑니다!',
     avatarBg: 'bg-emerald-100',
@@ -40,6 +42,7 @@ const MOCK_PROFILES: MockProfile[] = [
     smoker: '비흡연',
     bedtime: '22시 이전',
     cleanliness: '깔끔한 편',
+    noiseSensitivity: '보통',
     intro: '새벽 운동을 즐기고, 청결을 중요하게 생각합니다.',
     message: null,
     avatarBg: 'bg-cyan-100',
@@ -85,9 +88,10 @@ export function MockupCard({ variant, profileIndex = 0 }: MockupCardProps) {
 
       {/* Lifestyle Chips */}
       <div className="flex flex-wrap gap-1.5 mb-3">
-        <Chip label={`🚬 ${profile.smoker}`} variant="badge" />
-        <Chip label={`🕐 취침 ${profile.bedtime}`} variant="badge" />
-        <Chip label={`✨ ${profile.cleanliness}`} variant="badge" />
+        <Chip label={`🚬\u00A0${profile.smoker}`} variant="badge" />
+        <Chip label={`🕐\u00A0취침 ${profile.bedtime}`} variant="badge" />
+        <Chip label={`✨\u00A0${profile.cleanliness}`} variant="badge" />
+        <Chip label={`🔊\u00A0${profile.noiseSensitivity}`} variant="badge" />
       </div>
 
       {/* Intro */}

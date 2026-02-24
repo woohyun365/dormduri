@@ -49,9 +49,10 @@ export default function Landing() {
               룸메를 미리 찾기
             </h1>
             <p className="text-lg md:text-xl text-[var(--knu-text-secondary)] mb-8 leading-relaxed">
-              @kangwon.ac.kr 인증 필수 · 시즌(1~2월/7~8월) 매칭 활성
+              @kangwon.ac.kr 인증 필수
               <br className="hidden md:block" />
-              비시즌 열람 가능
+              <span className="md:hidden"> · </span>
+              시즌(1~2월/7~8월) 매칭 활성 · 비시즌 열람 가능
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
