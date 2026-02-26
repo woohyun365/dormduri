@@ -73,7 +73,7 @@ describe('getRejectionCooldownEnd', () => {
     vi.setSystemTime(NOW);
     const req = makeRequest({ rejectedAt: null });
     const result = new Date(getRejectionCooldownEnd(req));
-    expect(result.getTime()).toBeCloseTo(NOW, -100);
+    expect(result.getTime()).toBe(NOW);
   });
 });
 

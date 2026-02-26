@@ -77,9 +77,13 @@ export function getMatchButtonState({
   }
 
   // 6. 거절당한 뒤 7일 미경과
-  const rejectedByTarget = requests.find(
-    (r) => r.toUserId === targetUserId && r.status === 'REJECTED' && r.rejectedAt !== null,
-  );
+  const rejectedByTarget =
+    requests
+      .filter(
+        (r) => r.toUserId === targetUserId && r.status === 'REJECTED' && r.rejectedAt !== null,
+      )
+      .sort((a, b) => new Date(b.rejectedAt!).getTime() - new Date(a.rejectedAt!).getTime())[0] ??
+    null;
   if (rejectedByTarget) {
     const cooldownEnd = getRejectionCooldownEnd(rejectedByTarget);
     if (new Date(cooldownEnd).getTime() > Date.now()) {
