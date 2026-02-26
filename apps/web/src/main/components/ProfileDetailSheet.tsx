@@ -61,6 +61,8 @@ export function ProfileDetailSheet({
     }
   };
 
+  const showActions = !!(onBlock || onReport);
+
   const handleClose = () => {
     setShowMoreMenu(false);
     onClose();
@@ -73,15 +75,17 @@ export function ProfileDetailSheet({
         onClose={handleClose}
         title="프로필"
         headerRight={
-          <button
-            onClick={() => setShowMoreMenu((prev) => !prev)}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
-            aria-label="더보기"
-            aria-haspopup="menu"
-            aria-expanded={showMoreMenu}
-          >
-            <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
-          </button>
+          showActions ? (
+            <button
+              onClick={() => setShowMoreMenu((prev) => !prev)}
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+              aria-label="더보기"
+              aria-haspopup="menu"
+              aria-expanded={showMoreMenu}
+            >
+              <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
+            </button>
+          ) : undefined
         }
         footer={
           !hideMatchButton ? (
