@@ -26,3 +26,4 @@ export {
   ADDITIONAL_FIELD_NAMES,
 } from './additional-profile';
 export { REPORT_REASONS, REPORT_DETAIL_MAX_LENGTH } from './report';
+export { MATCH_POLICY, MATCH_STATUS_LABELS } from './match';
