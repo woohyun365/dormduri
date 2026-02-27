@@ -14,7 +14,7 @@ import { TOAST_DURATION, GUIDE_DELAY } from '@/constants/ui';
 import { MATCH_POLICY } from '@/constants/match';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
-import { createMockMatchRequests, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
+import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import type { TabId, UserProfile } from '@/types/profile';
 import type { BlockedUser, ReportReason } from '@/types/report';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
@@ -129,9 +129,7 @@ export default function Main() {
   );
 
   // --- Matching state ---
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(() =>
-    createMockMatchRequests(),
-  );
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(MOCK_REQUESTS);
   const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(MOCK_ACTIVE_MATCH);
   const [showCelebration, setShowCelebration] = useState<{
     nickname: string;

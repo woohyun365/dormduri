@@ -5,6 +5,7 @@ import { getAvatarColor } from '@/utils/avatarColor';
 import { LifestyleChipSummary } from './LifestyleChipSummary';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
+import { getMatchButtonStyle } from '@/utils/matchButtonStyle';
 import type { RoommateProfile } from '@/types/profile';
 import type { MatchButtonState } from '@/types/match';
 
@@ -18,63 +19,6 @@ interface UserCardProps {
   onDisabledClick?: () => void;
   preview?: boolean;
   matchButtonState?: MatchButtonState;
-}
-
-function getMatchButtonStyle(state: MatchButtonState): {
-  label: string;
-  className: string;
-  clickable: boolean;
-} {
-  switch (state.type) {
-    case 'REQUEST':
-      return {
-        label: state.label,
-        className: 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]',
-        clickable: true,
-      };
-    case 'PENDING_SENT':
-      return {
-        label: '요청됨',
-        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
-        clickable: false,
-      };
-    case 'PENDING_RECEIVED':
-      return {
-        label: '수락 대기',
-        className: 'bg-orange-100 text-orange-700',
-        clickable: false,
-      };
-    case 'MATCHED':
-      return {
-        label: state.label,
-        className: 'bg-green-100 text-green-700 cursor-not-allowed',
-        clickable: false,
-      };
-    case 'REJECTED_COOLDOWN':
-      return {
-        label: state.label,
-        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
-        clickable: false,
-      };
-    case 'OFF_SEASON':
-      return {
-        label: state.label,
-        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
-        clickable: false,
-      };
-    case 'SLOT_FULL':
-      return {
-        label: state.label,
-        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
-        clickable: false,
-      };
-    case 'BLOCKED':
-      return {
-        label: state.label,
-        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
-        clickable: false,
-      };
-  }
 }
 
 export function UserCard({

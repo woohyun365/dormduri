@@ -136,7 +136,6 @@ export default function RoommateListTab({
     if (confirmTarget && onSendRequest) {
       onSendRequest(confirmTarget.id);
     }
-    setConfirmTarget(null);
   };
 
   return (
