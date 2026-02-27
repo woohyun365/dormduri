@@ -6,6 +6,7 @@ import { LifestyleChipSummary } from './LifestyleChipSummary';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import type { RoommateProfile } from '@/types/profile';
+import type { MatchButtonState } from '@/types/match';
 
 export type { RoommateProfile } from '@/types/profile';
 
@@ -16,6 +17,64 @@ interface UserCardProps {
   disabled?: boolean;
   onDisabledClick?: () => void;
   preview?: boolean;
+  matchButtonState?: MatchButtonState;
+}
+
+function getMatchButtonStyle(state: MatchButtonState): {
+  label: string;
+  className: string;
+  clickable: boolean;
+} {
+  switch (state.type) {
+    case 'REQUEST':
+      return {
+        label: state.label,
+        className: 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]',
+        clickable: true,
+      };
+    case 'PENDING_SENT':
+      return {
+        label: '요청됨',
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'PENDING_RECEIVED':
+      return {
+        label: '수락 대기',
+        className: 'bg-orange-100 text-orange-700',
+        clickable: false,
+      };
+    case 'MATCHED':
+      return {
+        label: state.label,
+        className: 'bg-green-100 text-green-700 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'REJECTED_COOLDOWN':
+      return {
+        label: state.label,
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'OFF_SEASON':
+      return {
+        label: state.label,
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'SLOT_FULL':
+      return {
+        label: state.label,
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'BLOCKED':
+      return {
+        label: state.label,
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+  }
 }
 
 export function UserCard({
@@ -25,6 +84,7 @@ export function UserCard({
   disabled,
   onDisabledClick,
   preview = false,
+  matchButtonState,
 }: UserCardProps) {
   const dormLabel = getDormitoryLabel(profile.dormitoryId);
   const avatarColor = getAvatarColor(profile.nickname);
@@ -100,17 +160,36 @@ export function UserCard({
       {/* Match request button */}
       {!preview && (
         <div className="flex justify-end">
-          <button
-            onClick={handleMatchClick}
-            className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
-              disabled
-                ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
-                : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
-            }`}
-          >
-            매칭 요청
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {matchButtonState ? (
+            (() => {
+              const style = getMatchButtonStyle(matchButtonState);
+              return (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (style.clickable) onRequestMatch?.();
+                  }}
+                  disabled={!style.clickable}
+                  className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${style.className}`}
+                >
+                  {style.label}
+                  {style.clickable && <ChevronRight className="w-4 h-4" />}
+                </button>
+              );
+            })()
+          ) : (
+            <button
+              onClick={handleMatchClick}
+              className={`flex items-center gap-1 px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                disabled
+                  ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
+                  : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+              }`}
+            >
+              매칭 요청
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
       )}
     </div>

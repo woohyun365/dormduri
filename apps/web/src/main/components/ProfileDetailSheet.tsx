@@ -18,6 +18,7 @@ import { ReportSheet } from './ReportSheet';
 import type { RoommateProfile } from '@/types/profile';
 import type { LifestyleData } from '@/types/lifestyle';
 import type { ReportReason } from '@/types/report';
+import type { MatchButtonState } from '@/types/match';
 
 interface ProfileDetailSheetProps {
   profile: RoommateProfile | null;
@@ -27,11 +28,69 @@ interface ProfileDetailSheetProps {
   disabled?: boolean;
   onDisabledClick?: () => void;
   hideMatchButton?: boolean;
+  matchButtonState?: MatchButtonState;
   onBlock?: (userId: string, nickname: string) => void;
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
 }
 
 const LIFESTYLE_FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
+
+function getFooterButtonStyle(state: MatchButtonState): {
+  label: string;
+  className: string;
+  clickable: boolean;
+} {
+  switch (state.type) {
+    case 'REQUEST':
+      return {
+        label: state.label,
+        className: 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]',
+        clickable: true,
+      };
+    case 'PENDING_SENT':
+      return {
+        label: '요청됨',
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'PENDING_RECEIVED':
+      return {
+        label: '수락 대기',
+        className: 'bg-orange-100 text-orange-700 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'MATCHED':
+      return {
+        label: state.label,
+        className: 'bg-green-100 text-green-700 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'REJECTED_COOLDOWN':
+      return {
+        label: state.label,
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'OFF_SEASON':
+      return {
+        label: state.label,
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'SLOT_FULL':
+      return {
+        label: state.label,
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+    case 'BLOCKED':
+      return {
+        label: state.label,
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
+  }
+}
 
 export function ProfileDetailSheet({
   profile,
@@ -41,6 +100,7 @@ export function ProfileDetailSheet({
   disabled,
   onDisabledClick,
   hideMatchButton,
+  matchButtonState,
   onBlock,
   onReport,
 }: ProfileDetailSheetProps) {
@@ -89,17 +149,35 @@ export function ProfileDetailSheet({
         }
         footer={
           !hideMatchButton ? (
-            <button
-              onClick={handleMatchClick}
-              className={`w-full flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
-                disabled
-                  ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
-                  : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
-              }`}
-            >
-              매칭 요청
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            matchButtonState ? (
+              (() => {
+                const style = getFooterButtonStyle(matchButtonState);
+                return (
+                  <button
+                    onClick={() => {
+                      if (style.clickable) onRequestMatch();
+                    }}
+                    disabled={!style.clickable}
+                    className={`w-full flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${style.className}`}
+                  >
+                    {style.label}
+                    {style.clickable && <ChevronRight className="w-5 h-5" />}
+                  </button>
+                );
+              })()
+            ) : (
+              <button
+                onClick={handleMatchClick}
+                className={`w-full flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
+                  disabled
+                    ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
+                    : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+                }`}
+              >
+                매칭 요청
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )
           ) : undefined
         }
       >
