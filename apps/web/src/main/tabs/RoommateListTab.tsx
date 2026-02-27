@@ -3,17 +3,21 @@
 import { useState, useMemo } from 'react';
 import { Filter, Building2, ChevronRight, Search, X } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { UserCard } from '../components/UserCard';
 import { BottomSheet, DEFAULT_FILTERS } from '../components/BottomSheet';
 import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
 import { UNASSIGNED_ID, getDormitoryById } from '@/constants/dormitory';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
+import { CURRENT_SEASON } from '@/constants/season';
 import { calcMatchScore } from '@/utils/matchScore';
+import { getMatchButtonState } from '@/utils/matchRequest';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
 import type { RoommateProfile } from '@/types/profile';
 import type { FilterState } from '@/types/filter';
 import type { TabId, UserProfile } from '@/types/profile';
 import type { ReportReason } from '@/types/report';
+import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 interface RoommateListTabProps {
   user: UserProfile;
@@ -21,6 +25,9 @@ interface RoommateListTabProps {
   blockedUserIds?: Set<string>;
   onBlock?: (userId: string, nickname: string) => void;
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
+  matchRequests?: MatchRequest[];
+  activeMatch?: ActiveMatch | null;
+  onSendRequest?: (targetUserId: string) => void;
 }
 
 type SortMode = 'match' | 'recent';
@@ -31,6 +38,9 @@ export default function RoommateListTab({
   blockedUserIds,
   onBlock,
   onReport,
+  matchRequests = [],
+  activeMatch = null,
+  onSendRequest,
 }: RoommateListTabProps) {
   const isUnassigned = !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
 
@@ -39,8 +49,7 @@ export default function RoommateListTab({
   const [sortMode, setSortMode] = useState<SortMode>('match');
   const [selectedProfile, setSelectedProfile] = useState<RoommateProfile | null>(null);
   const [displayCount, setDisplayCount] = useState(20);
-
-  // 스크롤 초기화는 Main.tsx에서 탭 전환 시 처리
+  const [confirmTarget, setConfirmTarget] = useState<RoommateProfile | null>(null);
 
   // Build profiles with calculated match scores
   const profiles = useMemo<RoommateProfile[]>(
@@ -74,7 +83,6 @@ export default function RoommateListTab({
       for (const key of Object.keys(filters) as (keyof FilterState)[]) {
         const filterVal = filters[key];
         if (filterVal === null) continue;
-        // 잠버릇 "있음" 필터: NONE이 아닌 모든 값 매칭
         if (key === 'sleepHabit' && filterVal === 'HAS') {
           if (p.lifestyle.sleepHabit === 'NONE' || p.lifestyle.sleepHabit === null) return false;
         } else if (p.lifestyle[key] !== filterVal) {
@@ -110,6 +118,26 @@ export default function RoommateListTab({
 
   const headerTitle = isUnassigned ? '룸메이트 찾기' : `${dormName ?? ''} 룸메이트`;
 
+  // Match button state for a given profile
+  const getButtonState = (profileId: string) =>
+    getMatchButtonState({
+      targetUserId: profileId,
+      requests: matchRequests,
+      activeMatch,
+      blockedUserIds: blockedUserIds ?? new Set(),
+      isSeasonActive: CURRENT_SEASON.isActive,
+    });
+
+  const handleRequestMatch = (profile: RoommateProfile) => {
+    setConfirmTarget(profile);
+  };
+
+  const handleConfirmSend = () => {
+    if (confirmTarget && onSendRequest) {
+      onSendRequest(confirmTarget.id);
+    }
+  };
+
   return (
     <div>
       {/* Header */}
@@ -121,7 +149,7 @@ export default function RoommateListTab({
           <h1 className="text-2xl font-bold text-[var(--knu-text-primary)]">{headerTitle}</h1>
         </div>
 
-        {/* Filter button only (dormitory chips removed) */}
+        {/* Filter button */}
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowFilters(true)}
@@ -228,15 +256,19 @@ export default function RoommateListTab({
           />
         ) : (
           <>
-            {filteredProfiles.slice(0, displayCount).map((profile) => (
-              <UserCard
-                key={profile.id}
-                profile={profile}
-                onClick={() => setSelectedProfile(profile)}
-                onRequestMatch={() => {}}
-                disabled={isUnassigned}
-              />
-            ))}
+            {filteredProfiles.slice(0, displayCount).map((profile) => {
+              const btnState = getButtonState(profile.id);
+              return (
+                <UserCard
+                  key={profile.id}
+                  profile={profile}
+                  onClick={() => setSelectedProfile(profile)}
+                  onRequestMatch={() => handleRequestMatch(profile)}
+                  disabled={isUnassigned}
+                  matchButtonState={isUnassigned ? undefined : btnState}
+                />
+              );
+            })}
             {filteredProfiles.length > displayCount && (
               <button
                 onClick={() => setDisplayCount((prev) => prev + 20)}
@@ -271,8 +303,13 @@ export default function RoommateListTab({
         profile={selectedProfile}
         isOpen={selectedProfile !== null}
         onClose={() => setSelectedProfile(null)}
-        onRequestMatch={() => {}}
+        onRequestMatch={() => {
+          if (selectedProfile) handleRequestMatch(selectedProfile);
+        }}
         disabled={isUnassigned}
+        matchButtonState={
+          selectedProfile && !isUnassigned ? getButtonState(selectedProfile.id) : undefined
+        }
         onBlock={(userId, nickname) => {
           onBlock?.(userId, nickname);
           setSelectedProfile(null);
@@ -281,6 +318,16 @@ export default function RoommateListTab({
           onReport?.(userId, reason, detail);
           setSelectedProfile(null);
         }}
+      />
+
+      {/* Match Request Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        onConfirm={handleConfirmSend}
+        title="매칭 요청"
+        message={`${confirmTarget?.nickname ?? ''}님에게 매칭 요청을 보내시겠습니까?\n\n요청은 48시간 후 자동 만료됩니다.`}
+        confirmLabel="요청 보내기"
       />
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Building2,
   Calendar,
@@ -10,20 +10,32 @@ import {
   ChevronRight,
   AlertTriangle,
   BookOpen,
+  UserCheck,
 } from 'lucide-react';
 import { Chip } from '@/components/Chip';
-import { ComingSoonBadge } from '@/components/ComingSoonBadge';
 import { EmptyState } from '@/components/EmptyState';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getDormitoryById, getMatchGroupSize, UNASSIGNED_ID } from '@/constants/dormitory';
 import { CURRENT_SEASON } from '@/constants/season';
-import type { TabId, UserProfile } from '@/types/profile';
-import { MATCHING } from '@/__fixtures__/matching';
 import { PROFILE_COMPLETION } from '@/constants/ui';
+import { getAvatarColor } from '@/utils/avatarColor';
+import { getDormitoryLabel } from '@/utils/dormitoryLabel';
+import { isRequestExpired } from '@/utils/matchRequest';
+import { MatchRequestCard } from '../components/MatchRequestCard';
+import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
+import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 interface HomeTabProps {
   user: UserProfile;
   onNavigate: (tab: TabId) => void;
   onShowGuide?: () => void;
+  matchRequests: MatchRequest[];
+  activeMatch: ActiveMatch | null;
+  onCancelRequest?: (requestId: string) => void;
+  onAcceptRequest?: (requestId: string) => void;
+  onRejectRequest?: (requestId: string) => void;
+  onEndMatch?: () => void;
+  profiles: Omit<RoommateProfile, 'matchScore'>[];
 }
 
 function formatDateRange(startStr: string, endStr: string): string {
@@ -37,11 +49,26 @@ function formatDateRange(startStr: string, endStr: string): string {
   return `${sm}월 ${start.getDate()}일 ~ ${em}월 ${end.getDate()}일`;
 }
 
-export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps) {
+type RequestTab = 'sent' | 'received';
+
+export default function HomeTab({
+  user,
+  onNavigate,
+  onShowGuide,
+  matchRequests,
+  activeMatch,
+  onCancelRequest,
+  onAcceptRequest,
+  onRejectRequest,
+  onEndMatch,
+  profiles,
+}: HomeTabProps) {
   const isUnassigned = user.dormitoryId === UNASSIGNED_ID;
   const dormitory = user.dormitoryId && !isUnassigned ? getDormitoryById(user.dormitoryId) : null;
 
-  // Refresh D-day at midnight so it stays accurate across date boundaries
+  const matchSectionRef = useRef<HTMLDivElement>(null);
+
+  // Refresh D-day at midnight
   const [dateKey, setDateKey] = useState(() => new Date().toDateString());
 
   useEffect(() => {
@@ -67,8 +94,7 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
     };
   }, [dateKey]);
 
-  // Profile completeness: lifestyle + intro always filled (required at signup)
-  // Optional: messageToRoommate + 4 additional fields = 5 optional fields
+  // Profile completeness
   const optionalFields = [
     user.messageToRoommate,
     user.additional.college,
@@ -85,6 +111,58 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
 
   // Mock building stats
   const buildingActiveUsers = 47;
+
+  // --- Matching state derived ---
+  const sentPending = useMemo(
+    () =>
+      matchRequests.filter(
+        (r) => r.fromUserId === 'me' && r.status === 'PENDING' && !isRequestExpired(r),
+      ),
+    [matchRequests],
+  );
+  const receivedPending = useMemo(
+    () =>
+      matchRequests.filter(
+        (r) => r.toUserId === 'me' && r.status === 'PENDING' && !isRequestExpired(r),
+      ),
+    [matchRequests],
+  );
+  const hasPendingRequests = sentPending.length > 0 || receivedPending.length > 0;
+
+  const [requestTab, setRequestTab] = useState<RequestTab>('sent');
+
+  // Profile lookup helper
+  const profileMap = useMemo(() => {
+    const map = new Map<string, Omit<RoommateProfile, 'matchScore'>>();
+    for (const p of profiles) {
+      map.set(p.id, p);
+    }
+    return map;
+  }, [profiles]);
+
+  const getPartnerProfile = (request: MatchRequest) => {
+    const partnerId = request.fromUserId === 'me' ? request.toUserId : request.fromUserId;
+    const p = profileMap.get(partnerId);
+    if (p) return { ...p, matchScore: 0 };
+    return {
+      id: partnerId,
+      nickname: partnerId,
+      gender: 'M' as const,
+      dormitoryId: null,
+      lifestyle: {} as RoommateProfile['lifestyle'],
+      intro: '',
+      messageToRoommate: null,
+      additional: { college: null, grade: null, mbti: null, temperatureSensitivity: null },
+      matchScore: 0,
+    };
+  };
+
+  // End match confirm dialog
+  const [showEndMatchConfirm, setShowEndMatchConfirm] = useState(false);
+
+  const scrollToMatchSection = () => {
+    matchSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   return (
     <div>
@@ -159,7 +237,10 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
         </div>
 
         {/* ② Matching Status */}
-        <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
+        <div
+          ref={matchSectionRef}
+          className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5"
+        >
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-[var(--knu-text-primary)]">매칭 현황</h3>
             {dormitory && (
@@ -168,33 +249,125 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
               </span>
             )}
           </div>
-          {MATCHING.status === 'none' && (
+
+          {/* Case 1: Active match */}
+          {activeMatch && (
+            <div>
+              <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200 mb-3">
+                <div
+                  className={`w-10 h-10 ${getAvatarColor(activeMatch.partnerNickname).bg} rounded-full flex items-center justify-center text-lg font-bold ${getAvatarColor(activeMatch.partnerNickname).text}`}
+                >
+                  {activeMatch.partnerNickname.charAt(0)}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-[var(--knu-text-primary)]">
+                    {activeMatch.partnerNickname}님과 매칭!
+                  </p>
+                  <p className="text-xs text-green-700">
+                    매칭도 {activeMatch.matchScore}%
+                    {activeMatch.partnerDormitoryId &&
+                      ` · ${getDormitoryLabel(activeMatch.partnerDormitoryId)}`}
+                  </p>
+                </div>
+                <UserCheck className="w-5 h-5 text-green-600" />
+              </div>
+              <button
+                onClick={() => setShowEndMatchConfirm(true)}
+                className="w-full py-2.5 text-sm font-semibold text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
+              >
+                매칭 해제
+              </button>
+            </div>
+          )}
+
+          {/* Case 2: Pending requests */}
+          {!activeMatch && hasPendingRequests && (
+            <div>
+              {/* Counts */}
+              <div className="flex gap-4 mb-4">
+                <div className="flex-1 text-center p-3 bg-[var(--knu-background-alt)] rounded-xl">
+                  <p className="text-2xl font-bold text-[var(--knu-primary)]">
+                    {sentPending.length}
+                  </p>
+                  <p className="text-xs text-[var(--knu-text-tertiary)] mt-1">보낸 요청</p>
+                </div>
+                <div className="flex-1 text-center p-3 bg-[var(--knu-background-alt)] rounded-xl">
+                  <p className="text-2xl font-bold text-orange-600">{receivedPending.length}</p>
+                  <p className="text-xs text-[var(--knu-text-tertiary)] mt-1">받은 요청</p>
+                </div>
+              </div>
+
+              {/* Segment tabs */}
+              <div className="flex bg-[var(--knu-background-alt)] rounded-xl p-1 mb-4">
+                <button
+                  onClick={() => setRequestTab('sent')}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    requestTab === 'sent'
+                      ? 'bg-white text-[var(--knu-primary)] shadow-sm'
+                      : 'text-[var(--knu-text-tertiary)]'
+                  }`}
+                >
+                  보낸 요청
+                </button>
+                <button
+                  onClick={() => setRequestTab('received')}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors relative ${
+                    requestTab === 'received'
+                      ? 'bg-white text-orange-600 shadow-sm'
+                      : 'text-[var(--knu-text-tertiary)]'
+                  }`}
+                >
+                  받은 요청
+                  {receivedPending.length > 0 && requestTab !== 'received' && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
+                      {receivedPending.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Request list */}
+              <div className="space-y-3">
+                {requestTab === 'sent' &&
+                  (sentPending.length > 0 ? (
+                    sentPending.map((req) => (
+                      <MatchRequestCard
+                        key={req.id}
+                        request={req}
+                        direction="sent"
+                        partnerProfile={getPartnerProfile(req)}
+                        onCancel={onCancelRequest}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-sm text-center text-[var(--knu-text-tertiary)] py-4">
+                      보낸 요청이 없어요
+                    </p>
+                  ))}
+                {requestTab === 'received' &&
+                  (receivedPending.length > 0 ? (
+                    receivedPending.map((req) => (
+                      <MatchRequestCard
+                        key={req.id}
+                        request={req}
+                        direction="received"
+                        partnerProfile={getPartnerProfile(req)}
+                        onAccept={onAcceptRequest}
+                        onReject={onRejectRequest}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-sm text-center text-[var(--knu-text-tertiary)] py-4">
+                      받은 요청이 없어요
+                    </p>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Case 3: No match, no pending */}
+          {!activeMatch && !hasPendingRequests && (
             <EmptyState message="아직 매칭 요청이 없어요. 아래 빠른 메뉴에서 룸메이트를 찾아보세요!" />
-          )}
-          {MATCHING.status === 'pending' && (
-            <div className="flex gap-4">
-              <div className="flex-1 text-center p-3 bg-[var(--knu-background-alt)] rounded-xl">
-                <p className="text-2xl font-bold text-[var(--knu-primary)]">{MATCHING.sentCount}</p>
-                <p className="text-xs text-[var(--knu-text-tertiary)] mt-1">보낸 요청</p>
-              </div>
-              <div className="flex-1 text-center p-3 bg-[var(--knu-background-alt)] rounded-xl">
-                <p className="text-2xl font-bold text-orange-600">{MATCHING.receivedCount}</p>
-                <p className="text-xs text-[var(--knu-text-tertiary)] mt-1">받은 요청</p>
-              </div>
-            </div>
-          )}
-          {MATCHING.status === 'matched' && MATCHING.matchedNickname && (
-            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-200">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-lg font-bold text-green-700">
-                {MATCHING.matchedNickname.charAt(0)}
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-[var(--knu-text-primary)]">
-                  {MATCHING.matchedNickname}님과 매칭!
-                </p>
-                <p className="text-xs text-green-700">매칭이 성사되었어요</p>
-              </div>
-            </div>
           )}
         </div>
 
@@ -213,16 +386,21 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
               <p className="text-xs text-[var(--knu-text-tertiary)]">프로필 탐색하기</p>
             </button>
 
-            <div className="relative bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5 opacity-60 cursor-not-allowed">
+            <button
+              onClick={scrollToMatchSection}
+              className="relative bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5 hover:border-orange-400 hover:shadow-sm transition-all text-left"
+            >
               <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mb-3">
                 <Inbox className="w-6 h-6 text-orange-600" />
               </div>
               <h3 className="font-bold text-[var(--knu-text-primary)] mb-1">받은 요청</h3>
               <p className="text-xs text-[var(--knu-text-tertiary)]">매칭 요청 확인</p>
-              <span className="absolute top-3 right-3">
-                <ComingSoonBadge />
-              </span>
-            </div>
+              {receivedPending.length > 0 && (
+                <span className="absolute top-3 right-3 min-w-[22px] h-[22px] flex items-center justify-center px-1.5 bg-red-500 text-white text-xs font-bold rounded-full">
+                  {receivedPending.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -386,6 +564,17 @@ export default function HomeTab({ user, onNavigate, onShowGuide }: HomeTabProps)
           )}
         </div>
       </div>
+
+      {/* End Match Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={showEndMatchConfirm}
+        onClose={() => setShowEndMatchConfirm(false)}
+        onConfirm={() => onEndMatch?.()}
+        title="매칭 해제"
+        message={`${activeMatch?.partnerNickname ?? '상대방'}님과의 매칭을 해제하시겠습니까?\n\n해제 후 다시 룸메이트를 찾을 수 있어요.`}
+        confirmLabel="해제하기"
+        variant="danger"
+      />
     </div>
   );
 }

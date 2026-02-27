@@ -4,14 +4,20 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
+import { MatchCelebrationModal } from './components/MatchCelebrationModal';
 import HomeTab from './tabs/HomeTab';
 import RoommateListTab from './tabs/RoommateListTab';
 import ProfileTab from './tabs/ProfileTab';
 import SettingsTab from './tabs/SettingsTab';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
 import { TOAST_DURATION, GUIDE_DELAY } from '@/constants/ui';
+import { MATCH_POLICY } from '@/constants/match';
+import { isRequestExpired } from '@/utils/matchRequest';
+import { mockRawProfiles } from '@/__fixtures__/profiles';
+import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import type { TabId, UserProfile } from '@/types/profile';
 import type { BlockedUser, ReportReason } from '@/types/report';
+import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export type { TabId, UserProfile } from '@/types/profile';
 
@@ -122,6 +128,103 @@ export default function Main() {
     [reportedUserIds],
   );
 
+  // --- Matching state ---
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(MOCK_REQUESTS);
+  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(MOCK_ACTIVE_MATCH);
+  const [showCelebration, setShowCelebration] = useState<{
+    nickname: string;
+    score: number;
+  } | null>(null);
+
+  const handleSendRequest = useCallback((targetUserId: string) => {
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setHours(expiresAt.getHours() + MATCH_POLICY.REQUEST_TTL_HOURS);
+
+    const newRequest: MatchRequest = {
+      id: `req-${Date.now()}`,
+      fromUserId: 'me',
+      toUserId: targetUserId,
+      status: 'PENDING',
+      message: null,
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      rejectedAt: null,
+    };
+    setMatchRequests((prev) => [...prev, newRequest]);
+    setToast('매칭 요청을 보냈어요');
+  }, []);
+
+  const handleCancelRequest = useCallback((requestId: string) => {
+    setMatchRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: 'CANCELED' as const } : r)),
+    );
+    setToast('매칭 요청을 취소했어요');
+  }, []);
+
+  const handleAcceptRequest = useCallback(
+    (requestId: string) => {
+      const request = matchRequests.find((r) => r.id === requestId);
+      if (!request) return;
+
+      const partnerId = request.fromUserId;
+      const partnerProfile = mockRawProfiles.find((p) => p.id === partnerId);
+
+      // Set match as active
+      const match: ActiveMatch = {
+        matchId: `match-${Date.now()}`,
+        partnerUserId: partnerId,
+        partnerNickname: partnerProfile?.nickname ?? partnerId,
+        partnerDormitoryId: partnerProfile?.dormitoryId ?? null,
+        matchScore: 0,
+        matchedAt: new Date().toISOString(),
+      };
+      setActiveMatch(match);
+
+      // Update request statuses: accepted → ACTIVE, other PENDING → CANCELED
+      setMatchRequests((prev) =>
+        prev.map((r) => {
+          if (r.id === requestId) return { ...r, status: 'ACTIVE' as const };
+          if (r.status === 'PENDING' && !isRequestExpired(r))
+            return { ...r, status: 'CANCELED' as const };
+          return r;
+        }),
+      );
+
+      // Show celebration
+      setShowCelebration({
+        nickname: match.partnerNickname,
+        score: match.matchScore,
+      });
+    },
+    [matchRequests],
+  );
+
+  const handleRejectRequest = useCallback((requestId: string) => {
+    setMatchRequests((prev) =>
+      prev.map((r) =>
+        r.id === requestId
+          ? { ...r, status: 'REJECTED' as const, rejectedAt: new Date().toISOString() }
+          : r,
+      ),
+    );
+    setToast('매칭 요청을 거절했어요');
+  }, []);
+
+  const handleEndMatch = useCallback(() => {
+    setActiveMatch(null);
+    setToast('매칭이 해제되었어요');
+  }, []);
+
+  // Derived counts
+  const receivedPendingCount = useMemo(
+    () =>
+      matchRequests.filter(
+        (r) => r.toUserId === 'me' && r.status === 'PENDING' && !isRequestExpired(r),
+      ).length,
+    [matchRequests],
+  );
+
   // 탭 전환 시 스크롤 최상단으로 이동
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -142,7 +245,18 @@ export default function Main() {
       {/* CSS hidden-based tab switching for state preservation */}
       <main>
         <div className={activeTab !== 'home' ? 'hidden' : undefined}>
-          <HomeTab user={user} onNavigate={setActiveTab} onShowGuide={handleShowGuide} />
+          <HomeTab
+            user={user}
+            onNavigate={setActiveTab}
+            onShowGuide={handleShowGuide}
+            matchRequests={matchRequests}
+            activeMatch={activeMatch}
+            onCancelRequest={handleCancelRequest}
+            onAcceptRequest={handleAcceptRequest}
+            onRejectRequest={handleRejectRequest}
+            onEndMatch={handleEndMatch}
+            profiles={mockRawProfiles}
+          />
         </div>
         <div className={activeTab !== 'list' ? 'hidden' : undefined}>
           <RoommateListTab
@@ -151,6 +265,9 @@ export default function Main() {
             blockedUserIds={blockedUserIds}
             onBlock={handleBlockUser}
             onReport={handleReportUser}
+            matchRequests={matchRequests}
+            activeMatch={activeMatch}
+            onSendRequest={handleSendRequest}
           />
         </div>
         <div className={activeTab !== 'profile' ? 'hidden' : undefined}>
@@ -172,12 +289,24 @@ export default function Main() {
         </div>
       </main>
 
-      <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomTabBar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        badges={receivedPendingCount > 0 ? { home: receivedPendingCount } : undefined}
+      />
 
       {/* Dormitory Guide Sheet */}
       {showGuide && user.dormitoryId && (
         <DormitoryGuideSheet dormitoryId={user.dormitoryId} onClose={handleCloseGuide} />
       )}
+
+      {/* Match Celebration Modal */}
+      <MatchCelebrationModal
+        isOpen={showCelebration !== null}
+        onClose={() => setShowCelebration(null)}
+        partnerNickname={showCelebration?.nickname ?? ''}
+        matchScore={showCelebration?.score ?? 0}
+      />
 
       {/* Toast */}
       {toast && (

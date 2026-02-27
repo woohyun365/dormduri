@@ -15,9 +15,11 @@ import { BaseBottomSheet } from '@/components/BaseBottomSheet';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ProfileMoreMenu } from './ProfileMoreMenu';
 import { ReportSheet } from './ReportSheet';
+import { getMatchButtonStyle } from '@/utils/matchButtonStyle';
 import type { RoommateProfile } from '@/types/profile';
 import type { LifestyleData } from '@/types/lifestyle';
 import type { ReportReason } from '@/types/report';
+import type { MatchButtonState } from '@/types/match';
 
 interface ProfileDetailSheetProps {
   profile: RoommateProfile | null;
@@ -27,6 +29,7 @@ interface ProfileDetailSheetProps {
   disabled?: boolean;
   onDisabledClick?: () => void;
   hideMatchButton?: boolean;
+  matchButtonState?: MatchButtonState;
   onBlock?: (userId: string, nickname: string) => void;
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
 }
@@ -41,6 +44,7 @@ export function ProfileDetailSheet({
   disabled,
   onDisabledClick,
   hideMatchButton,
+  matchButtonState,
   onBlock,
   onReport,
 }: ProfileDetailSheetProps) {
@@ -89,17 +93,35 @@ export function ProfileDetailSheet({
         }
         footer={
           !hideMatchButton ? (
-            <button
-              onClick={handleMatchClick}
-              className={`w-full flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
-                disabled
-                  ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
-                  : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
-              }`}
-            >
-              매칭 요청
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            matchButtonState ? (
+              (() => {
+                const style = getMatchButtonStyle(matchButtonState);
+                return (
+                  <button
+                    onClick={() => {
+                      if (style.clickable) onRequestMatch();
+                    }}
+                    disabled={!style.clickable}
+                    className={`w-full flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${style.className}`}
+                  >
+                    {style.label}
+                    {style.clickable && <ChevronRight className="w-5 h-5" />}
+                  </button>
+                );
+              })()
+            ) : (
+              <button
+                onClick={handleMatchClick}
+                className={`w-full flex items-center justify-center gap-1 px-4 py-3 rounded-xl text-base font-semibold transition-colors ${
+                  disabled
+                    ? 'bg-[var(--knu-primary)] text-white opacity-40 cursor-not-allowed'
+                    : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+                }`}
+              >
+                매칭 요청
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )
           ) : undefined
         }
       >
