@@ -81,17 +81,12 @@ export function UserCard({
 
         <div className="flex items-center gap-1.5">
           {!preview && onToggleBookmark && (
-            <span
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
-              role="presentation"
-            >
-              <BookmarkToggleButton
-                isBookmarked={isBookmarked}
-                onClick={onToggleBookmark}
-                size="sm"
-              />
-            </span>
+            <BookmarkToggleButton
+              isBookmarked={isBookmarked}
+              onClick={onToggleBookmark}
+              size="sm"
+              stopPropagation
+            />
           )}
           <span
             className={`px-2.5 py-1 rounded-full text-xs font-bold ${getMatchScoreColor(profile.matchScore)}`}
