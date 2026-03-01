@@ -129,12 +129,15 @@ export default function RoommateListTab({
 
   const headerTitle = isUnassigned ? '룸메이트 찾기' : `${dormName ?? ''} 룸메이트`;
 
+  // Normalize UNASSIGNED_ID to null for dormitory comparison
+  const normalizeDormId = (id: string | null) => (!id || id === UNASSIGNED_ID ? null : id);
+
   // Match button state for a given profile
   const getButtonState = (profile: RoommateProfile) =>
     getMatchButtonState({
       targetUserId: profile.id,
-      targetDormitoryId: profile.dormitoryId,
-      userDormitoryId: user.dormitoryId,
+      targetDormitoryId: normalizeDormId(profile.dormitoryId),
+      userDormitoryId: normalizeDormId(user.dormitoryId),
       requests: matchRequests,
       activeMatch,
       blockedUserIds: blockedUserIds ?? new Set(),

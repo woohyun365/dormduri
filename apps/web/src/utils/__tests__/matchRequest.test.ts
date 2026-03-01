@@ -116,9 +116,23 @@ describe('getMatchButtonState', () => {
     expect(getMatchButtonState(params)).toEqual({ type: 'DIFFERENT_BUILDING', label: '다른 건물' });
   });
 
-  it('3-b. 건물 미배정(유저) → DIFFERENT_BUILDING 아님', () => {
+  it('3-b. 건물 미배정(유저 null) → DIFFERENT_BUILDING 아님', () => {
     const params = { ...defaultParams(), userDormitoryId: null, targetDormitoryId: 'dorm-B' };
     expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  it('3-c. unassigned는 truthy이므로 호출부에서 null 정규화 필요', () => {
+    const params = {
+      ...defaultParams(),
+      userDormitoryId: 'unassigned',
+      targetDormitoryId: 'dorm-B',
+    };
+    expect(getMatchButtonState(params)).toEqual({ type: 'DIFFERENT_BUILDING', label: '다른 건물' });
+  });
+
+  it('3-d. 상대가 unassigned여도 동일하게 DIFFERENT_BUILDING 판정', () => {
+    const params = { ...defaultParams(), targetDormitoryId: 'unassigned' };
+    expect(getMatchButtonState(params)).toEqual({ type: 'DIFFERENT_BUILDING', label: '다른 건물' });
   });
 
   it('4. 이미 매칭 중 → MATCHED', () => {
