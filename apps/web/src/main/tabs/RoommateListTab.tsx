@@ -167,8 +167,10 @@ export default function RoommateListTab({
 
         {/* Segment tabs: 전체 / 관심목록 */}
         {onToggleBookmark && (
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3" role="tablist" aria-label="목록 보기 모드">
             <button
+              role="tab"
+              aria-selected={viewMode === 'all'}
               onClick={() => setViewMode('all')}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 viewMode === 'all'
@@ -179,6 +181,8 @@ export default function RoommateListTab({
               전체
             </button>
             <button
+              role="tab"
+              aria-selected={viewMode === 'bookmarked'}
               onClick={() => setViewMode('bookmarked')}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 viewMode === 'bookmarked'
