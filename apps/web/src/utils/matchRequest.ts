@@ -3,6 +3,8 @@ import { MATCH_POLICY } from '@/constants/match';
 
 interface GetMatchButtonStateParams {
   targetUserId: string;
+  targetDormitoryId: string | null;
+  userDormitoryId: string | null;
   requests: MatchRequest[];
   activeMatch: ActiveMatch | null;
   blockedUserIds: Set<string>;
@@ -30,6 +32,8 @@ export function getPendingCount(requests: MatchRequest[]): number {
 /** 상대 유저에 대한 버튼 상태를 판단 */
 export function getMatchButtonState({
   targetUserId,
+  targetDormitoryId,
+  userDormitoryId,
   requests,
   activeMatch,
   blockedUserIds,
@@ -45,7 +49,12 @@ export function getMatchButtonState({
     return { type: 'OFF_SEASON', label: '시즌 종료' };
   }
 
-  // 3. 이미 매칭 중
+  // 3. 다른 건물
+  if (userDormitoryId && targetDormitoryId && userDormitoryId !== targetDormitoryId) {
+    return { type: 'DIFFERENT_BUILDING', label: '다른 건물' };
+  }
+
+  // 4. 이미 매칭 중
   if (activeMatch) {
     return { type: 'MATCHED', label: '매칭됨' };
   }

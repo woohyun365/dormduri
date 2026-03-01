@@ -84,8 +84,8 @@ export default function RoommateListTab({
       list = list.filter((p) => bookmarkedUserIds.has(p.id));
     }
 
-    // Dormitory filter
-    if (effectiveDormId) {
+    // Dormitory filter (관심목록 모드에서는 건물 무관하게 표시)
+    if (effectiveDormId && viewMode !== 'bookmarked') {
       list = list.filter((p) => p.dormitoryId === effectiveDormId);
     }
 
@@ -130,9 +130,11 @@ export default function RoommateListTab({
   const headerTitle = isUnassigned ? '룸메이트 찾기' : `${dormName ?? ''} 룸메이트`;
 
   // Match button state for a given profile
-  const getButtonState = (profileId: string) =>
+  const getButtonState = (profile: RoommateProfile) =>
     getMatchButtonState({
-      targetUserId: profileId,
+      targetUserId: profile.id,
+      targetDormitoryId: profile.dormitoryId,
+      userDormitoryId: user.dormitoryId,
       requests: matchRequests,
       activeMatch,
       blockedUserIds: blockedUserIds ?? new Set(),
@@ -303,7 +305,7 @@ export default function RoommateListTab({
         ) : (
           <>
             {filteredProfiles.slice(0, displayCount).map((profile) => {
-              const btnState = getButtonState(profile.id);
+              const btnState = getButtonState(profile);
               return (
                 <UserCard
                   key={profile.id}
@@ -358,7 +360,7 @@ export default function RoommateListTab({
         }}
         disabled={isUnassigned}
         matchButtonState={
-          selectedProfile && !isUnassigned ? getButtonState(selectedProfile.id) : undefined
+          selectedProfile && !isUnassigned ? getButtonState(selectedProfile) : undefined
         }
         onBlock={(userId, nickname) => {
           onBlock?.(userId, nickname);

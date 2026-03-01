@@ -44,6 +44,12 @@ export function getMatchButtonStyle(state: MatchButtonState): MatchButtonStyle {
         className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
         clickable: false,
       };
+    case 'DIFFERENT_BUILDING':
+      return {
+        label: state.label,
+        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
+        clickable: false,
+      };
     case 'SLOT_FULL':
       return {
         label: state.label,

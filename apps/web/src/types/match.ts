@@ -35,4 +35,5 @@ export type MatchButtonState =
   | { type: 'REJECTED_COOLDOWN'; label: string; availableAt: string }
   | { type: 'BLOCKED'; label: '차단됨' }
   | { type: 'OFF_SEASON'; label: '시즌 종료' }
+  | { type: 'DIFFERENT_BUILDING'; label: '다른 건물' }
   | { type: 'SLOT_FULL'; label: '요청 한도 초과' };
