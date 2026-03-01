@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, MessageCircle } from 'lucide-react';
+import { Bookmark, BookmarkCheck, ChevronRight, MessageCircle } from 'lucide-react';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { LifestyleChipSummary } from './LifestyleChipSummary';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
@@ -19,6 +19,8 @@ interface UserCardProps {
   onDisabledClick?: () => void;
   preview?: boolean;
   matchButtonState?: MatchButtonState;
+  isBookmarked?: boolean;
+  onToggleBookmark?: () => void;
 }
 
 export function UserCard({
@@ -29,6 +31,8 @@ export function UserCard({
   onDisabledClick,
   preview = false,
   matchButtonState,
+  isBookmarked,
+  onToggleBookmark,
 }: UserCardProps) {
   const dormLabel = getDormitoryLabel(profile.dormitoryId);
   const avatarColor = getAvatarColor(profile.nickname);
@@ -74,11 +78,29 @@ export function UserCard({
           </div>
         </div>
 
-        <span
-          className={`px-2.5 py-1 rounded-full text-xs font-bold ${getMatchScoreColor(profile.matchScore)}`}
-        >
-          매칭 {profile.matchScore}%
-        </span>
+        <div className="flex items-center gap-1.5">
+          {!preview && onToggleBookmark && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleBookmark();
+              }}
+              className="w-6 h-6 flex items-center justify-center"
+              aria-label={isBookmarked ? '관심목록에서 제거' : '관심목록에 추가'}
+            >
+              {isBookmarked ? (
+                <BookmarkCheck className="w-5 h-5 text-[var(--knu-primary)]" />
+              ) : (
+                <Bookmark className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              )}
+            </button>
+          )}
+          <span
+            className={`px-2.5 py-1 rounded-full text-xs font-bold ${getMatchScoreColor(profile.matchScore)}`}
+          >
+            매칭 {profile.matchScore}%
+          </span>
+        </div>
       </div>
 
       {/* Key lifestyle chips with context icons */}

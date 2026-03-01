@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, MessageCircle, MoreHorizontal } from 'lucide-react';
+import { Bookmark, BookmarkCheck, ChevronRight, MessageCircle, MoreHorizontal } from 'lucide-react';
 import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
 import {
   ADDITIONAL_FIELD_NAMES,
@@ -32,6 +32,8 @@ interface ProfileDetailSheetProps {
   matchButtonState?: MatchButtonState;
   onBlock?: (userId: string, nickname: string) => void;
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
+  isBookmarked?: boolean;
+  onToggleBookmark?: () => void;
 }
 
 const LIFESTYLE_FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
@@ -47,6 +49,8 @@ export function ProfileDetailSheet({
   matchButtonState,
   onBlock,
   onReport,
+  isBookmarked,
+  onToggleBookmark,
 }: ProfileDetailSheetProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
@@ -79,17 +83,32 @@ export function ProfileDetailSheet({
         onClose={handleClose}
         title="프로필"
         headerRight={
-          showActions ? (
-            <button
-              onClick={() => setShowMoreMenu((prev) => !prev)}
-              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
-              aria-label="더보기"
-              aria-haspopup="menu"
-              aria-expanded={showMoreMenu}
-            >
-              <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
-            </button>
-          ) : undefined
+          <div className="flex items-center gap-1">
+            {onToggleBookmark && (
+              <button
+                onClick={onToggleBookmark}
+                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+                aria-label={isBookmarked ? '관심목록에서 제거' : '관심목록에 추가'}
+              >
+                {isBookmarked ? (
+                  <BookmarkCheck className="w-5 h-5 text-[var(--knu-primary)]" />
+                ) : (
+                  <Bookmark className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                )}
+              </button>
+            )}
+            {showActions && (
+              <button
+                onClick={() => setShowMoreMenu((prev) => !prev)}
+                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+                aria-label="더보기"
+                aria-haspopup="menu"
+                aria-expanded={showMoreMenu}
+              >
+                <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
+              </button>
+            )}
+          </div>
         }
         footer={
           !hideMatchButton ? (
