@@ -1,6 +1,7 @@
 'use client';
 
-import { Bookmark, BookmarkCheck, ChevronRight, MessageCircle } from 'lucide-react';
+import { ChevronRight, MessageCircle } from 'lucide-react';
+import { BookmarkToggleButton } from '@/components/BookmarkToggleButton';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { LifestyleChipSummary } from './LifestyleChipSummary';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
@@ -80,20 +81,17 @@ export function UserCard({
 
         <div className="flex items-center gap-1.5">
           {!preview && onToggleBookmark && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleBookmark();
-              }}
-              className="w-6 h-6 flex items-center justify-center"
-              aria-label={isBookmarked ? '관심목록에서 제거' : '관심목록에 추가'}
+            <span
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              role="presentation"
             >
-              {isBookmarked ? (
-                <BookmarkCheck className="w-5 h-5 text-[var(--knu-primary)]" />
-              ) : (
-                <Bookmark className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-              )}
-            </button>
+              <BookmarkToggleButton
+                isBookmarked={isBookmarked}
+                onClick={onToggleBookmark}
+                size="sm"
+              />
+            </span>
           )}
           <span
             className={`px-2.5 py-1 rounded-full text-xs font-bold ${getMatchScoreColor(profile.matchScore)}`}

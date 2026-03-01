@@ -59,7 +59,7 @@ export function getMatchButtonState({
     return { type: 'MATCHED', label: '매칭됨' };
   }
 
-  // 4. 상대에게 보낸 PENDING 요청
+  // 5. 상대에게 보낸 PENDING 요청
   const sentPending = requests.find(
     (r) => r.toUserId === targetUserId && r.status === 'PENDING' && !isRequestExpired(r),
   );
@@ -72,7 +72,7 @@ export function getMatchButtonState({
     };
   }
 
-  // 5. 상대에게서 받은 PENDING 요청
+  // 6. 상대에게서 받은 PENDING 요청
   const receivedPending = requests.find(
     (r) => r.fromUserId === targetUserId && r.status === 'PENDING' && !isRequestExpired(r),
   );
@@ -85,7 +85,7 @@ export function getMatchButtonState({
     };
   }
 
-  // 6. 거절당한 뒤 7일 미경과
+  // 7. 거절당한 뒤 7일 미경과
   const rejectedByTarget =
     requests
       .filter(
@@ -107,11 +107,11 @@ export function getMatchButtonState({
     }
   }
 
-  // 7. PENDING 5개 이상
+  // 8. PENDING 5개 이상
   if (getPendingCount(requests) >= MATCH_POLICY.MAX_PENDING_REQUESTS) {
     return { type: 'SLOT_FULL', label: '요청 한도 초과' };
   }
 
-  // 8. 그 외
+  // 9. 그 외
   return { type: 'REQUEST', label: '매칭 요청' };
 }

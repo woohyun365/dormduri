@@ -25,3 +25,5 @@ export const PROFILE_COMPLETION = {
   base: 70,
   optional: 30,
 } as const;
+
+export const PAGE_SIZE = 20;

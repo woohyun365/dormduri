@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Bookmark, BookmarkCheck, ChevronRight, MessageCircle, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, MessageCircle, MoreHorizontal } from 'lucide-react';
+import { BookmarkToggleButton } from '@/components/BookmarkToggleButton';
 import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
 import {
   ADDITIONAL_FIELD_NAMES,
@@ -83,32 +84,24 @@ export function ProfileDetailSheet({
         onClose={handleClose}
         title="프로필"
         headerRight={
-          <div className="flex items-center gap-1">
-            {onToggleBookmark && (
-              <button
-                onClick={onToggleBookmark}
-                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
-                aria-label={isBookmarked ? '관심목록에서 제거' : '관심목록에 추가'}
-              >
-                {isBookmarked ? (
-                  <BookmarkCheck className="w-5 h-5 text-[var(--knu-primary)]" />
-                ) : (
-                  <Bookmark className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                )}
-              </button>
-            )}
-            {showActions && (
-              <button
-                onClick={() => setShowMoreMenu((prev) => !prev)}
-                className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
-                aria-label="더보기"
-                aria-haspopup="menu"
-                aria-expanded={showMoreMenu}
-              >
-                <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
-              </button>
-            )}
-          </div>
+          onToggleBookmark || showActions ? (
+            <div className="flex items-center gap-1">
+              {onToggleBookmark && (
+                <BookmarkToggleButton isBookmarked={isBookmarked} onClick={onToggleBookmark} />
+              )}
+              {showActions && (
+                <button
+                  onClick={() => setShowMoreMenu((prev) => !prev)}
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+                  aria-label="더보기"
+                  aria-haspopup="menu"
+                  aria-expanded={showMoreMenu}
+                >
+                  <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
+                </button>
+              )}
+            </div>
+          ) : undefined
         }
         footer={
           !hideMatchButton ? (

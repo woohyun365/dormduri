@@ -8,6 +8,7 @@ import { UserCard } from '../components/UserCard';
 import { BottomSheet, DEFAULT_FILTERS } from '../components/BottomSheet';
 import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
 import { UNASSIGNED_ID, getDormitoryById } from '@/constants/dormitory';
+import { PAGE_SIZE } from '@/constants/ui';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
 import { CURRENT_SEASON } from '@/constants/season';
 import { calcMatchScore } from '@/utils/matchScore';
@@ -54,7 +55,7 @@ export default function RoommateListTab({
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [sortMode, setSortMode] = useState<SortMode>('match');
   const [selectedProfile, setSelectedProfile] = useState<RoommateProfile | null>(null);
-  const [displayCount, setDisplayCount] = useState(20);
+  const [displayCount, setDisplayCount] = useState(PAGE_SIZE);
   const [confirmTarget, setConfirmTarget] = useState<RoommateProfile | null>(null);
 
   // Build profiles with calculated match scores
@@ -164,8 +165,10 @@ export default function RoommateListTab({
 
         {/* Segment tabs: 전체 / 관심목록 */}
         {onToggleBookmark && (
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-3" role="tablist" aria-label="목록 보기 모드">
             <button
+              role="tab"
+              aria-selected={viewMode === 'all'}
               onClick={() => setViewMode('all')}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 viewMode === 'all'
@@ -176,6 +179,8 @@ export default function RoommateListTab({
               전체
             </button>
             <button
+              role="tab"
+              aria-selected={viewMode === 'bookmarked'}
               onClick={() => setViewMode('bookmarked')}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 viewMode === 'bookmarked'
@@ -323,7 +328,7 @@ export default function RoommateListTab({
             })}
             {filteredProfiles.length > displayCount && (
               <button
-                onClick={() => setDisplayCount((prev) => prev + 20)}
+                onClick={() => setDisplayCount((prev) => prev + PAGE_SIZE)}
                 className="w-full py-3 text-sm font-semibold text-[var(--knu-primary)] bg-white border-2 border-[var(--knu-border)] rounded-2xl hover:border-[var(--knu-primary)] transition-all"
               >
                 더 보기 ({filteredProfiles.length - displayCount}명 남음)
