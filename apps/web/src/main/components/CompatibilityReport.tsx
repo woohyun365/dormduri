@@ -60,11 +60,11 @@ function getFieldMatchLevel(
   return 'mismatch';
 }
 
-const MATCH_LEVEL_CONFIG: Record<MatchLevel, { icon: string; color: string; bg: string }> = {
-  match: { icon: '✅', color: 'text-green-700', bg: 'bg-green-50' },
-  similar: { icon: '⚠️', color: 'text-amber-700', bg: 'bg-amber-50' },
-  mismatch: { icon: '❌', color: 'text-red-700', bg: 'bg-red-50' },
-  unknown: { icon: '➖', color: 'text-gray-500', bg: 'bg-gray-50' },
+const MATCH_LEVEL_CONFIG: Record<MatchLevel, { color: string; bg: string }> = {
+  match: { color: 'text-green-700', bg: 'bg-green-50' },
+  similar: { color: 'text-amber-700', bg: 'bg-amber-50' },
+  mismatch: { color: 'text-red-700', bg: 'bg-red-50' },
+  unknown: { color: 'text-gray-500', bg: 'bg-gray-50' },
 };
 
 const FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
@@ -120,7 +120,6 @@ export function CompatibilityReport({ userLifestyle, profileLifestyle }: Compati
                     상대: {getLifestyleLabel(field, profileLifestyle[field])}
                   </span>
                 </div>
-                <span className="text-base flex-shrink-0">{config.icon}</span>
               </div>
             );
           })}
