@@ -21,6 +21,7 @@ import { getAvatarColor } from '@/utils/avatarColor';
 import { getProfileCompletion } from '@/utils/profileCompletion';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { isRequestExpired } from '@/utils/matchRequest';
+import { BuildingStatusSheet } from '../components/BuildingStatusSheet';
 import { MatchRequestCard } from '../components/MatchRequestCard';
 import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
 import { Button } from '@/components/Button';
@@ -125,6 +126,16 @@ export default function HomeTab({
   const buildingActiveUsers = 47;
   const seasonPopularCondition = '비흡연 + 24시 이전 취침';
   const todayNewUsers = 3;
+  const buildingMatchableUsers = 35;
+
+  // Building status sheet
+  const [showBuildingStatus, setShowBuildingStatus] = useState(false);
+
+  // Filter profiles for same building (for distribution stats)
+  const buildingProfiles = useMemo(
+    () => (dormitory ? profiles.filter((p) => p.dormitoryId === dormitory.id) : []),
+    [profiles, dormitory],
+  );
 
   // --- Matching state derived ---
   const sentPending = useMemo(
@@ -501,7 +512,7 @@ export default function HomeTab({
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-[var(--knu-primary)]">
-                    {buildingActiveUsers}
+                    {buildingActiveUsers}명
                   </p>
                   <p className="text-xs text-[var(--knu-text-tertiary)]">같은 건물 활동 중</p>
                 </div>
@@ -524,6 +535,17 @@ export default function HomeTab({
                     {todayNewUsers}명
                   </p>
                 </div>
+              </div>
+
+              {/* Detail trigger */}
+              <div className="mt-3 pt-3 border-t border-[var(--knu-border)]">
+                <button
+                  onClick={() => setShowBuildingStatus(true)}
+                  className="flex items-center gap-1 text-sm font-semibold text-[var(--knu-primary)]"
+                >
+                  자세히 보기
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ) : (
@@ -745,6 +767,20 @@ export default function HomeTab({
         confirmLabel="해제하기"
         variant="danger"
       />
+
+      {/* Building Status Sheet */}
+      {showBuildingStatus && dormitory && (
+        <BuildingStatusSheet
+          dormitoryName={dormitory.name}
+          roomType={dormitory.roomType}
+          activeUsers={buildingActiveUsers}
+          matchableUsers={buildingMatchableUsers}
+          todayNewUsers={todayNewUsers}
+          profiles={buildingProfiles}
+          onClose={() => setShowBuildingStatus(false)}
+          onNavigateList={() => onNavigate('list')}
+        />
+      )}
     </div>
   );
 }
