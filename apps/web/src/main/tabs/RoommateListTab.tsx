@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Filter, Building2, ChevronRight, Search, X } from 'lucide-react';
+import { Bookmark, Filter, Building2, ChevronRight, Search, X } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { UserCard } from '../components/UserCard';
@@ -28,9 +28,12 @@ interface RoommateListTabProps {
   matchRequests?: MatchRequest[];
   activeMatch?: ActiveMatch | null;
   onSendRequest?: (targetUserId: string) => void;
+  bookmarkedUserIds?: Set<string>;
+  onToggleBookmark?: (userId: string) => void;
 }
 
 type SortMode = 'match' | 'recent';
+type ViewMode = 'all' | 'bookmarked';
 
 export default function RoommateListTab({
   user,
@@ -41,9 +44,12 @@ export default function RoommateListTab({
   matchRequests = [],
   activeMatch = null,
   onSendRequest,
+  bookmarkedUserIds,
+  onToggleBookmark,
 }: RoommateListTabProps) {
   const isUnassigned = !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
 
+  const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [sortMode, setSortMode] = useState<SortMode>('match');
@@ -73,8 +79,13 @@ export default function RoommateListTab({
       list = list.filter((p) => !blockedUserIds.has(p.id));
     }
 
-    // Dormitory filter
-    if (effectiveDormId) {
+    // Bookmark filter
+    if (viewMode === 'bookmarked' && bookmarkedUserIds) {
+      list = list.filter((p) => bookmarkedUserIds.has(p.id));
+    }
+
+    // Dormitory filter (관심목록 모드에서는 건물 무관하게 표시)
+    if (effectiveDormId && viewMode !== 'bookmarked') {
       list = list.filter((p) => p.dormitoryId === effectiveDormId);
     }
 
@@ -98,7 +109,7 @@ export default function RoommateListTab({
     }
 
     return list;
-  }, [profiles, effectiveDormId, filters, sortMode, blockedUserIds]);
+  }, [profiles, effectiveDormId, filters, sortMode, blockedUserIds, viewMode, bookmarkedUserIds]);
 
   const dormName = effectiveDormId ? getDormitoryById(effectiveDormId)?.name : null;
 
@@ -118,10 +129,15 @@ export default function RoommateListTab({
 
   const headerTitle = isUnassigned ? '룸메이트 찾기' : `${dormName ?? ''} 룸메이트`;
 
+  // Normalize UNASSIGNED_ID to null for dormitory comparison
+  const normalizeDormId = (id: string | null) => (!id || id === UNASSIGNED_ID ? null : id);
+
   // Match button state for a given profile
-  const getButtonState = (profileId: string) =>
+  const getButtonState = (profile: RoommateProfile) =>
     getMatchButtonState({
-      targetUserId: profileId,
+      targetUserId: profile.id,
+      targetDormitoryId: normalizeDormId(profile.dormitoryId),
+      userDormitoryId: normalizeDormId(user.dormitoryId),
       requests: matchRequests,
       activeMatch,
       blockedUserIds: blockedUserIds ?? new Set(),
@@ -148,6 +164,37 @@ export default function RoommateListTab({
         <div className="mb-3">
           <h1 className="text-2xl font-bold text-[var(--knu-text-primary)]">{headerTitle}</h1>
         </div>
+
+        {/* Segment tabs: 전체 / 관심목록 */}
+        {onToggleBookmark && (
+          <div className="flex items-center gap-2 mb-3" role="tablist" aria-label="목록 보기 모드">
+            <button
+              role="tab"
+              aria-selected={viewMode === 'all'}
+              onClick={() => setViewMode('all')}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                viewMode === 'all'
+                  ? 'bg-[var(--knu-primary)] text-white'
+                  : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)]'
+              }`}
+            >
+              전체
+            </button>
+            <button
+              role="tab"
+              aria-selected={viewMode === 'bookmarked'}
+              onClick={() => setViewMode('bookmarked')}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
+                viewMode === 'bookmarked'
+                  ? 'bg-[var(--knu-primary)] text-white'
+                  : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)]'
+              }`}
+            >
+              관심목록
+              {bookmarkedUserIds && bookmarkedUserIds.size > 0 ? ` ${bookmarkedUserIds.size}` : ''}
+            </button>
+          </div>
+        )}
 
         {/* Filter button */}
         <div className="flex items-center gap-2">
@@ -247,17 +294,25 @@ export default function RoommateListTab({
       <div className="max-w-md mx-auto px-5 pb-5 space-y-3">
         {filteredProfiles.length === 0 ? (
           <EmptyState
-            icon={<Search className="w-8 h-8 text-[var(--knu-text-tertiary)]" />}
+            icon={
+              viewMode === 'bookmarked' ? (
+                <Bookmark className="w-8 h-8 text-[var(--knu-text-tertiary)]" />
+              ) : (
+                <Search className="w-8 h-8 text-[var(--knu-text-tertiary)]" />
+              )
+            }
             message={
-              dormName
-                ? `${dormName}에 아직 등록한 사용자가 없어요`
-                : '조건에 맞는 사용자가 없어요. 필터를 조정해보세요'
+              viewMode === 'bookmarked'
+                ? '관심 목록이 비어있어요'
+                : dormName
+                  ? `${dormName}에 아직 등록한 사용자가 없어요`
+                  : '조건에 맞는 사용자가 없어요. 필터를 조정해보세요'
             }
           />
         ) : (
           <>
             {filteredProfiles.slice(0, displayCount).map((profile) => {
-              const btnState = getButtonState(profile.id);
+              const btnState = getButtonState(profile);
               return (
                 <UserCard
                   key={profile.id}
@@ -266,6 +321,10 @@ export default function RoommateListTab({
                   onRequestMatch={() => handleRequestMatch(profile)}
                   disabled={isUnassigned}
                   matchButtonState={isUnassigned ? undefined : btnState}
+                  isBookmarked={bookmarkedUserIds?.has(profile.id)}
+                  onToggleBookmark={
+                    onToggleBookmark ? () => onToggleBookmark(profile.id) : undefined
+                  }
                 />
               );
             })}
@@ -308,7 +367,7 @@ export default function RoommateListTab({
         }}
         disabled={isUnassigned}
         matchButtonState={
-          selectedProfile && !isUnassigned ? getButtonState(selectedProfile.id) : undefined
+          selectedProfile && !isUnassigned ? getButtonState(selectedProfile) : undefined
         }
         onBlock={(userId, nickname) => {
           onBlock?.(userId, nickname);
@@ -318,6 +377,12 @@ export default function RoommateListTab({
           onReport?.(userId, reason, detail);
           setSelectedProfile(null);
         }}
+        isBookmarked={selectedProfile ? bookmarkedUserIds?.has(selectedProfile.id) : undefined}
+        onToggleBookmark={
+          selectedProfile && onToggleBookmark
+            ? () => onToggleBookmark(selectedProfile.id)
+            : undefined
+        }
       />
 
       {/* Match Request Confirm Dialog */}

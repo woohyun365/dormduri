@@ -3,6 +3,8 @@ import { MATCH_POLICY } from '@/constants/match';
 
 interface GetMatchButtonStateParams {
   targetUserId: string;
+  targetDormitoryId: string | null;
+  userDormitoryId: string | null;
   requests: MatchRequest[];
   activeMatch: ActiveMatch | null;
   blockedUserIds: Set<string>;
@@ -30,6 +32,8 @@ export function getPendingCount(requests: MatchRequest[]): number {
 /** 상대 유저에 대한 버튼 상태를 판단 */
 export function getMatchButtonState({
   targetUserId,
+  targetDormitoryId,
+  userDormitoryId,
   requests,
   activeMatch,
   blockedUserIds,
@@ -45,12 +49,17 @@ export function getMatchButtonState({
     return { type: 'OFF_SEASON', label: '시즌 종료' };
   }
 
-  // 3. 이미 매칭 중
+  // 3. 다른 건물
+  if (userDormitoryId && targetDormitoryId && userDormitoryId !== targetDormitoryId) {
+    return { type: 'DIFFERENT_BUILDING', label: '다른 건물' };
+  }
+
+  // 4. 이미 매칭 중 (MATCHED)
   if (activeMatch) {
     return { type: 'MATCHED', label: '매칭됨' };
   }
 
-  // 4. 상대에게 보낸 PENDING 요청
+  // 5. 상대에게 보낸 PENDING 요청
   const sentPending = requests.find(
     (r) => r.toUserId === targetUserId && r.status === 'PENDING' && !isRequestExpired(r),
   );
@@ -63,7 +72,7 @@ export function getMatchButtonState({
     };
   }
 
-  // 5. 상대에게서 받은 PENDING 요청
+  // 6. 상대에게서 받은 PENDING 요청
   const receivedPending = requests.find(
     (r) => r.fromUserId === targetUserId && r.status === 'PENDING' && !isRequestExpired(r),
   );
@@ -76,7 +85,7 @@ export function getMatchButtonState({
     };
   }
 
-  // 6. 거절당한 뒤 7일 미경과
+  // 7. 거절당한 뒤 7일 미경과
   const rejectedByTarget =
     requests
       .filter(
@@ -98,11 +107,11 @@ export function getMatchButtonState({
     }
   }
 
-  // 7. PENDING 5개 이상
+  // 8. PENDING 5개 이상
   if (getPendingCount(requests) >= MATCH_POLICY.MAX_PENDING_REQUESTS) {
     return { type: 'SLOT_FULL', label: '요청 한도 초과' };
   }
 
-  // 8. 그 외
+  // 9. 그 외
   return { type: 'REQUEST', label: '매칭 요청' };
 }

@@ -33,23 +33,9 @@ export function getMatchButtonStyle(state: MatchButtonState): MatchButtonStyle {
         clickable: false,
       };
     case 'REJECTED_COOLDOWN':
-      return {
-        label: state.label,
-        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
-        clickable: false,
-      };
     case 'OFF_SEASON':
-      return {
-        label: state.label,
-        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
-        clickable: false,
-      };
+    case 'DIFFERENT_BUILDING':
     case 'SLOT_FULL':
-      return {
-        label: state.label,
-        className: 'bg-gray-200 text-gray-500 cursor-not-allowed',
-        clickable: false,
-      };
     case 'BLOCKED':
       return {
         label: state.label,

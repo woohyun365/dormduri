@@ -94,6 +94,21 @@ export default function Main() {
     setUser((prev) => ({ ...prev, additional }));
   }, []);
 
+  // --- Bookmark state ---
+  const [bookmarkedUserIds, setBookmarkedUserIds] = useState<Set<string>>(new Set());
+
+  const handleToggleBookmark = useCallback((userId: string) => {
+    setBookmarkedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  }, []);
+
   // --- Block / Report state ---
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const blockedUserIds = useMemo(() => new Set(blockedUsers.map((u) => u.userId)), [blockedUsers]);
@@ -103,6 +118,12 @@ export default function Main() {
     setBlockedUsers((prev) => {
       if (prev.some((u) => u.userId === userId)) return prev;
       return [...prev, { userId, nickname, blockedAt: new Date().toISOString() }];
+    });
+    setBookmarkedUserIds((prev) => {
+      if (!prev.has(userId)) return prev;
+      const next = new Set(prev);
+      next.delete(userId);
+      return next;
     });
     setToast(`${nickname}님을 차단했어요`);
   }, []);
@@ -268,6 +289,8 @@ export default function Main() {
             matchRequests={matchRequests}
             activeMatch={activeMatch}
             onSendRequest={handleSendRequest}
+            bookmarkedUserIds={bookmarkedUserIds}
+            onToggleBookmark={handleToggleBookmark}
           />
         </div>
         <div className={activeTab !== 'profile' ? 'hidden' : undefined}>

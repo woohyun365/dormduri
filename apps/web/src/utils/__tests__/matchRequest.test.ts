@@ -27,6 +27,8 @@ function makeRequest(overrides: Partial<MatchRequest> = {}): MatchRequest {
 
 const defaultParams = () => ({
   targetUserId: 'target',
+  targetDormitoryId: 'dorm-A' as string | null,
+  userDormitoryId: 'dorm-A' as string | null,
   requests: [] as MatchRequest[],
   activeMatch: null as ActiveMatch | null,
   blockedUserIds: new Set<string>(),
@@ -109,7 +111,31 @@ describe('getMatchButtonState', () => {
     expect(getMatchButtonState(params)).toEqual({ type: 'OFF_SEASON', label: '시즌 종료' });
   });
 
-  it('3. 이미 매칭 중 → MATCHED', () => {
+  it('3. 다른 건물 → DIFFERENT_BUILDING', () => {
+    const params = { ...defaultParams(), targetDormitoryId: 'dorm-B' };
+    expect(getMatchButtonState(params)).toEqual({ type: 'DIFFERENT_BUILDING', label: '다른 건물' });
+  });
+
+  it('3-b. 건물 미배정(유저 null) → DIFFERENT_BUILDING 아님', () => {
+    const params = { ...defaultParams(), userDormitoryId: null, targetDormitoryId: 'dorm-B' };
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  it('3-c. unassigned는 truthy이므로 호출부에서 null 정규화 필요', () => {
+    const params = {
+      ...defaultParams(),
+      userDormitoryId: 'unassigned',
+      targetDormitoryId: 'dorm-B',
+    };
+    expect(getMatchButtonState(params)).toEqual({ type: 'DIFFERENT_BUILDING', label: '다른 건물' });
+  });
+
+  it('3-d. 상대가 unassigned여도 동일하게 DIFFERENT_BUILDING 판정', () => {
+    const params = { ...defaultParams(), targetDormitoryId: 'unassigned' };
+    expect(getMatchButtonState(params)).toEqual({ type: 'DIFFERENT_BUILDING', label: '다른 건물' });
+  });
+
+  it('4. 이미 매칭 중 → MATCHED', () => {
     const activeMatch: ActiveMatch = {
       matchId: 'm-1',
       partnerUserId: 'someone',
@@ -122,7 +148,7 @@ describe('getMatchButtonState', () => {
     expect(getMatchButtonState(params)).toEqual({ type: 'MATCHED', label: '매칭됨' });
   });
 
-  it('4. 보낸 PENDING 요청 → PENDING_SENT', () => {
+  it('5. 보낸 PENDING 요청 → PENDING_SENT', () => {
     vi.setSystemTime(NOW);
     const req = makeRequest({ id: 'r-sent', fromUserId: 'me', toUserId: 'target' });
     const params = { ...defaultParams(), requests: [req] };
@@ -133,7 +159,7 @@ describe('getMatchButtonState', () => {
     }
   });
 
-  it('5. 받은 PENDING 요청 → PENDING_RECEIVED', () => {
+  it('6. 받은 PENDING 요청 → PENDING_RECEIVED', () => {
     vi.setSystemTime(NOW);
     const req = makeRequest({ id: 'r-recv', fromUserId: 'target', toUserId: 'me' });
     const params = { ...defaultParams(), requests: [req] };
@@ -144,7 +170,7 @@ describe('getMatchButtonState', () => {
     }
   });
 
-  it('6. 거절 쿨다운 중 → REJECTED_COOLDOWN', () => {
+  it('7. 거절 쿨다운 중 → REJECTED_COOLDOWN', () => {
     vi.setSystemTime(NOW);
     const req = makeRequest({
       status: 'REJECTED',
@@ -159,7 +185,7 @@ describe('getMatchButtonState', () => {
     }
   });
 
-  it('6-b. 거절 쿨다운 만료 → REQUEST', () => {
+  it('7-b. 거절 쿨다운 만료 → REQUEST', () => {
     vi.setSystemTime(NOW);
     const req = makeRequest({
       status: 'REJECTED',
@@ -170,7 +196,7 @@ describe('getMatchButtonState', () => {
     expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
   });
 
-  it('7. PENDING 5개 이상 → SLOT_FULL', () => {
+  it('8. PENDING 5개 이상 → SLOT_FULL', () => {
     vi.setSystemTime(NOW);
     const requests = Array.from({ length: 5 }, (_, i) =>
       makeRequest({
@@ -183,7 +209,7 @@ describe('getMatchButtonState', () => {
     expect(getMatchButtonState(params)).toEqual({ type: 'SLOT_FULL', label: '요청 한도 초과' });
   });
 
-  it('8. 그 외 → REQUEST', () => {
+  it('9. 그 외 → REQUEST', () => {
     const params = defaultParams();
     expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
   });
