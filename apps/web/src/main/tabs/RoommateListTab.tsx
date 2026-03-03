@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Bookmark, Filter, Building2, ChevronRight, Search, X } from 'lucide-react';
+import { Bookmark, Filter, Building2, ChevronRight, Search, Sparkles, X } from 'lucide-react';
+import { getProfileCompletion } from '@/utils/profileCompletion';
 import { EmptyState } from '@/components/EmptyState';
 import { MatchRequestDialog } from '../components/MatchRequestDialog';
 import { UserCard } from '../components/UserCard';
@@ -56,6 +57,10 @@ export default function RoommateListTab({
   const [selectedProfile, setSelectedProfile] = useState<RoommateProfile | null>(null);
   const [displayCount, setDisplayCount] = useState(20);
   const [confirmTarget, setConfirmTarget] = useState<RoommateProfile | null>(null);
+  const [showProfileBanner, setShowProfileBanner] = useState(true);
+
+  // Profile completion
+  const { percent: completionPercent, isComplete: profileComplete } = getProfileCompletion(user);
 
   // Build profiles with calculated match scores
   const profiles = useMemo<RoommateProfile[]>(
@@ -278,6 +283,39 @@ export default function RoommateListTab({
                 배정 건물 등록하기
                 <ChevronRight className="w-4 h-4" />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Profile Completion Banner */}
+      {showProfileBanner && !profileComplete && (
+        <div className="max-w-md mx-auto px-5 pt-5">
+          <div className="relative bg-[var(--knu-primary-light)] border-2 border-[var(--knu-primary)]/20 rounded-2xl p-4">
+            <button
+              onClick={() => setShowProfileBanner(false)}
+              className="absolute top-3 right-3 p-1 text-[var(--knu-primary)] hover:bg-white/50 rounded-lg transition-colors"
+              aria-label="배너 닫기"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-start gap-3 pr-6">
+              <Sparkles className="w-5 h-5 text-[var(--knu-primary)] flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-bold text-[var(--knu-primary)] mb-1">
+                  프로필 완성도 {completionPercent}%
+                </p>
+                <p className="text-xs text-[var(--knu-text-secondary)] leading-relaxed mb-2">
+                  프로필을 완성하면 더 정확한 매칭을 받을 수 있어요
+                </p>
+                <button
+                  onClick={() => onNavigate('profile')}
+                  className="flex items-center gap-1 text-sm font-semibold text-[var(--knu-primary)]"
+                >
+                  프로필 완성하기
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

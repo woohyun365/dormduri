@@ -17,8 +17,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getDormitoryById, getMatchGroupSize, UNASSIGNED_ID } from '@/constants/dormitory';
 import { CURRENT_SEASON } from '@/constants/season';
-import { PROFILE_COMPLETION } from '@/constants/ui';
 import { getAvatarColor } from '@/utils/avatarColor';
+import { getProfileCompletion } from '@/utils/profileCompletion';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { MatchRequestCard } from '../components/MatchRequestCard';
@@ -114,22 +114,17 @@ export default function HomeTab({
   }, [dateKey]);
 
   // Profile completeness
-  const optionalFields = [
-    user.messageToRoommate,
-    user.additional.college,
-    user.additional.grade,
-    user.additional.mbti,
-    user.additional.temperatureSensitivity,
-  ];
-  const filledOptional = optionalFields.filter(Boolean).length;
-  const totalOptional = optionalFields.length;
-  const completionPercent = Math.round(
-    PROFILE_COMPLETION.base + (filledOptional / totalOptional) * PROFILE_COMPLETION.optional,
-  );
-  const hasAllOptional = filledOptional === totalOptional;
+  const {
+    percent: completionPercent,
+    filledOptional,
+    totalOptional,
+    isComplete: hasAllOptional,
+  } = getProfileCompletion(user);
 
   // Mock building stats
   const buildingActiveUsers = 47;
+  const seasonPopularCondition = '비흡연 + 24시 이전 취침';
+  const todayNewUsers = 3;
 
   // --- Matching state derived ---
   const sentPending = useMemo(
@@ -509,6 +504,25 @@ export default function HomeTab({
                     {buildingActiveUsers}
                   </p>
                   <p className="text-xs text-[var(--knu-text-tertiary)]">같은 건물 활동 중</p>
+                </div>
+              </div>
+
+              {/* Season Stats */}
+              <div className="mt-4 pt-4 border-t border-[var(--knu-border)]">
+                <p className="text-xs font-semibold text-[var(--knu-text-secondary)] mb-2">
+                  시즌 통계
+                </p>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-[var(--knu-text-tertiary)]">
+                    <span className="font-medium text-[var(--knu-text-secondary)]">인기 조건:</span>{' '}
+                    {seasonPopularCondition}
+                  </p>
+                  <p className="text-xs text-[var(--knu-text-tertiary)]">
+                    <span className="font-medium text-[var(--knu-text-secondary)]">
+                      오늘 신규 가입:
+                    </span>{' '}
+                    {todayNewUsers}명
+                  </p>
                 </div>
               </div>
             </div>

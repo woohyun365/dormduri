@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { getProfileCompletion } from '@/utils/profileCompletion';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
@@ -93,6 +94,20 @@ export default function Main() {
   const handleAdditionalChange = useCallback((additional: UserProfile['additional']) => {
     setUser((prev) => ({ ...prev, additional }));
   }, []);
+
+  // --- Profile 100% completion toast ---
+  const hasShownCompletionToast = useRef(false);
+  const wasCompleteOnMount = useRef(getProfileCompletion(user).isComplete);
+
+  useEffect(() => {
+    if (hasShownCompletionToast.current) return;
+    if (wasCompleteOnMount.current) return;
+    const { isComplete } = getProfileCompletion(user);
+    if (isComplete) {
+      setToast('프로필이 완성되었어요! \uD83C\uDF89');
+      hasShownCompletionToast.current = true;
+    }
+  }, [user]);
 
   // --- Bookmark state ---
   const [bookmarkedUserIds, setBookmarkedUserIds] = useState<Set<string>>(new Set());
