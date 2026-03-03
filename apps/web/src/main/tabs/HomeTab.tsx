@@ -16,7 +16,7 @@ import { Chip } from '@/components/Chip';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getDormitoryById, getMatchGroupSize, UNASSIGNED_ID } from '@/constants/dormitory';
-import { CURRENT_SEASON } from '@/constants/season';
+import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { getProfileCompletion } from '@/utils/profileCompletion';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
@@ -85,6 +85,7 @@ export default function HomeTab({
 }: HomeTabProps) {
   const isUnassigned = user.dormitoryId === UNASSIGNED_ID;
   const dormitory = user.dormitoryId && !isUnassigned ? getDormitoryById(user.dormitoryId) : null;
+  const seasonActive = isSeasonActive(CURRENT_SEASON);
 
   const matchSectionRef = useRef<HTMLDivElement>(null);
 
@@ -267,16 +268,16 @@ export default function HomeTab({
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-2">
               <div
-                className={`w-3 h-3 rounded-full ${CURRENT_SEASON.isActive ? 'bg-green-500' : 'bg-gray-400'}`}
+                className={`w-3 h-3 rounded-full ${seasonActive ? 'bg-green-500' : 'bg-gray-400'}`}
               />
               <h3 className="font-bold text-[var(--knu-text-primary)]">
-                {CURRENT_SEASON.isActive ? '매칭 시즌 진행중' : '비시즌'}
+                {seasonActive ? '매칭 시즌 진행중' : '비시즌'}
               </h3>
             </div>
             <Calendar className="w-5 h-5 text-[var(--knu-primary)]" />
           </div>
           <p className="text-sm text-[var(--knu-text-secondary)] mb-3">{CURRENT_SEASON.name}</p>
-          {CURRENT_SEASON.isActive ? (
+          {seasonActive ? (
             <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
               <div>
                 <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
@@ -648,12 +649,12 @@ export default function HomeTab({
               <TrendingUp className="w-6 h-6 flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-bold mb-2">
-                  {CURRENT_SEASON.isActive
+                  {seasonActive
                     ? '시즌 중에 적극적으로 활동하세요'
                     : '비시즌에도 프로필을 완성해두세요'}
                 </h3>
                 <p className="text-sm opacity-90">
-                  {CURRENT_SEASON.isActive
+                  {seasonActive
                     ? '호실 선택일 전에 룸메이트를 확정하면 함께 같은 방을 선택할 수 있어요. 생활패턴이 비슷한 룸메를 찾아보세요!'
                     : '시즌이 시작되면 바로 매칭을 시작할 수 있도록 미리 프로필을 완성해두세요.'}
                 </p>

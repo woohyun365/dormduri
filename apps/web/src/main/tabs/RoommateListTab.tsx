@@ -10,7 +10,7 @@ import { BottomSheet, DEFAULT_FILTERS } from '../components/BottomSheet';
 import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
 import { UNASSIGNED_ID, getDormitoryById } from '@/constants/dormitory';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
-import { CURRENT_SEASON } from '@/constants/season';
+import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { calcMatchScore } from '@/utils/matchScore';
 import { getMatchButtonState } from '@/utils/matchRequest';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
@@ -146,7 +146,7 @@ export default function RoommateListTab({
       requests: matchRequests,
       activeMatch,
       blockedUserIds: blockedUserIds ?? new Set(),
-      isSeasonActive: CURRENT_SEASON.isActive,
+      isSeasonActive: isSeasonActive(CURRENT_SEASON),
     });
 
   const handleRequestMatch = (profile: RoommateProfile) => {
