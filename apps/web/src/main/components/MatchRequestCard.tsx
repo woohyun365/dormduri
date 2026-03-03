@@ -15,6 +15,7 @@ interface MatchRequestCardProps {
   onCancel?: (requestId: string) => void;
   onAccept?: (requestId: string) => void;
   onReject?: (requestId: string) => void;
+  onClick?: () => void;
 }
 
 export function MatchRequestCard({
@@ -24,13 +25,29 @@ export function MatchRequestCard({
   onCancel,
   onAccept,
   onReject,
+  onClick,
 }: MatchRequestCardProps) {
   const { timeLeft, isExpired } = useExpiryCountdown(request.expiresAt);
   const avatarColor = getAvatarColor(partnerProfile.nickname);
   const dormLabel = getDormitoryLabel(partnerProfile.dormitoryId);
 
   return (
-    <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-4">
+    <div
+      className={`bg-white rounded-2xl border-2 border-[var(--knu-border)] p-4${onClick ? ' cursor-pointer hover:border-[var(--knu-primary)] transition-colors' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
       {/* Header: avatar + info + match score */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -74,7 +91,7 @@ export function MatchRequestCard({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
         {direction === 'sent' && (
           <button
             onClick={() => onCancel?.(request.id)}

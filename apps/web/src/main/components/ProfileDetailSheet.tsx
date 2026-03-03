@@ -36,6 +36,7 @@ interface ProfileDetailSheetProps {
   isBookmarked?: boolean;
   onToggleBookmark?: () => void;
   userLifestyle?: LifestyleData;
+  customFooter?: React.ReactNode;
 }
 
 const LIFESTYLE_FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
@@ -54,6 +55,7 @@ export function ProfileDetailSheet({
   isBookmarked,
   onToggleBookmark,
   userLifestyle,
+  customFooter,
 }: ProfileDetailSheetProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
@@ -116,7 +118,9 @@ export function ProfileDetailSheet({
           ) : undefined
         }
         footer={
-          !hideMatchButton ? (
+          customFooter !== undefined ? (
+            customFooter
+          ) : !hideMatchButton ? (
             matchButtonState ? (
               (() => {
                 const style = getMatchButtonStyle(matchButtonState);

@@ -22,6 +22,9 @@ import { getAvatarColor } from '@/utils/avatarColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { MatchRequestCard } from '../components/MatchRequestCard';
+import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
+import { Button } from '@/components/Button';
+import { calcMatchScore } from '@/utils/matchScore';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 
@@ -156,6 +159,26 @@ export default function HomeTab({
       matchScore: 0,
     };
   };
+
+  // Profile detail sheet for match requests
+  const [selectedRequest, setSelectedRequest] = useState<{
+    request: MatchRequest;
+    direction: 'sent' | 'received';
+  } | null>(null);
+
+  const selectedProfile = useMemo<RoommateProfile | null>(() => {
+    if (!selectedRequest) return null;
+    const partnerId =
+      selectedRequest.request.fromUserId === 'me'
+        ? selectedRequest.request.toUserId
+        : selectedRequest.request.fromUserId;
+    const p = profileMap.get(partnerId);
+    if (!p) return null;
+    return {
+      ...p,
+      matchScore: calcMatchScore(user.lifestyle, p.lifestyle),
+    };
+  }, [selectedRequest, profileMap, user.lifestyle]);
 
   // End match confirm dialog
   const [showEndMatchConfirm, setShowEndMatchConfirm] = useState(false);
@@ -337,6 +360,7 @@ export default function HomeTab({
                         direction="sent"
                         partnerProfile={getPartnerProfile(req)}
                         onCancel={onCancelRequest}
+                        onClick={() => setSelectedRequest({ request: req, direction: 'sent' })}
                       />
                     ))
                   ) : (
@@ -354,6 +378,7 @@ export default function HomeTab({
                         partnerProfile={getPartnerProfile(req)}
                         onAccept={onAcceptRequest}
                         onReject={onRejectRequest}
+                        onClick={() => setSelectedRequest({ request: req, direction: 'received' })}
                       />
                     ))
                   ) : (
@@ -564,6 +589,59 @@ export default function HomeTab({
           )}
         </div>
       </div>
+
+      {/* Profile Detail Sheet for Match Requests */}
+      <ProfileDetailSheet
+        profile={selectedProfile}
+        isOpen={selectedProfile !== null}
+        onClose={() => setSelectedRequest(null)}
+        onRequestMatch={() => {}}
+        hideMatchButton
+        userLifestyle={user.lifestyle}
+        customFooter={
+          selectedRequest ? (
+            selectedRequest.direction === 'sent' ? (
+              <Button
+                variant="outline"
+                fullWidth
+                onClick={() => {
+                  onCancelRequest?.(selectedRequest.request.id);
+                  setSelectedRequest(null);
+                }}
+              >
+                요청 취소
+              </Button>
+            ) : (
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    onClick={() => {
+                      onRejectRequest?.(selectedRequest.request.id);
+                      setSelectedRequest(null);
+                    }}
+                  >
+                    거절
+                  </Button>
+                </div>
+                <div className="flex-1">
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    onClick={() => {
+                      onAcceptRequest?.(selectedRequest.request.id);
+                      setSelectedRequest(null);
+                    }}
+                  >
+                    수락
+                  </Button>
+                </div>
+              </div>
+            )
+          ) : undefined
+        }
+      />
 
       {/* End Match Confirm Dialog */}
       <ConfirmDialog

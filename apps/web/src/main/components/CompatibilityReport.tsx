@@ -78,18 +78,27 @@ const FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
 export function CompatibilityReport({ userLifestyle, profileLifestyle }: CompatibilityReportProps) {
   const [expanded, setExpanded] = useState(false);
 
+  const matchCount = FIELDS.filter(
+    (field) => getFieldMatchLevel(field, userLifestyle[field], profileLifestyle[field]) === 'match',
+  ).length;
+
   return (
-    <div className="bg-[var(--knu-background-alt)] rounded-2xl">
+    <div className="bg-blue-50 border border-blue-200 rounded-2xl">
       <button
         onClick={() => setExpanded((prev) => !prev)}
         className="w-full flex items-center justify-between p-4"
         aria-expanded={expanded}
       >
-        <span className="text-sm font-bold text-[var(--knu-text-primary)]">호환성 상세</span>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-[var(--knu-text-primary)]">호환성 상세</span>
+          <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
+            {matchCount}/{FIELDS.length} 일치
+          </span>
+        </div>
         {expanded ? (
-          <ChevronUp className="w-4 h-4 text-[var(--knu-text-tertiary)]" />
+          <ChevronUp className="w-4 h-4 text-blue-400" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-[var(--knu-text-tertiary)]" />
+          <ChevronDown className="w-4 h-4 text-blue-400" />
         )}
       </button>
 
