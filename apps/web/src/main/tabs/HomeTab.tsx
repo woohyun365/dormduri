@@ -16,11 +16,12 @@ import { Chip } from '@/components/Chip';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { getDormitoryById, getMatchGroupSize, UNASSIGNED_ID } from '@/constants/dormitory';
-import { CURRENT_SEASON } from '@/constants/season';
-import { PROFILE_COMPLETION } from '@/constants/ui';
+import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { getAvatarColor } from '@/utils/avatarColor';
+import { getProfileCompletion } from '@/utils/profileCompletion';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { isRequestExpired } from '@/utils/matchRequest';
+import { BuildingStatusSheet } from '../components/BuildingStatusSheet';
 import { MatchRequestCard } from '../components/MatchRequestCard';
 import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
 import { Button } from '@/components/Button';
@@ -84,6 +85,7 @@ export default function HomeTab({
 }: HomeTabProps) {
   const isUnassigned = user.dormitoryId === UNASSIGNED_ID;
   const dormitory = user.dormitoryId && !isUnassigned ? getDormitoryById(user.dormitoryId) : null;
+  const seasonActive = isSeasonActive(CURRENT_SEASON);
 
   const matchSectionRef = useRef<HTMLDivElement>(null);
 
@@ -114,22 +116,27 @@ export default function HomeTab({
   }, [dateKey]);
 
   // Profile completeness
-  const optionalFields = [
-    user.messageToRoommate,
-    user.additional.college,
-    user.additional.grade,
-    user.additional.mbti,
-    user.additional.temperatureSensitivity,
-  ];
-  const filledOptional = optionalFields.filter(Boolean).length;
-  const totalOptional = optionalFields.length;
-  const completionPercent = Math.round(
-    PROFILE_COMPLETION.base + (filledOptional / totalOptional) * PROFILE_COMPLETION.optional,
-  );
-  const hasAllOptional = filledOptional === totalOptional;
+  const {
+    percent: completionPercent,
+    filledOptional,
+    totalOptional,
+    isComplete: hasAllOptional,
+  } = getProfileCompletion(user);
 
-  // Mock building stats
+  // Mock building stats (추후 API 연동)
   const buildingActiveUsers = 47;
+  const seasonPopularCondition = '비흡연 + 24시 이전 취침';
+  const todayNewUsers = 3;
+  const buildingMatchableUsers = 35;
+
+  // Building status sheet
+  const [showBuildingStatus, setShowBuildingStatus] = useState(false);
+
+  // Filter profiles for same building (for distribution stats)
+  const buildingProfiles = useMemo(
+    () => (dormitory ? profiles.filter((p) => p.dormitoryId === dormitory.id) : []),
+    [profiles, dormitory],
+  );
 
   // --- Matching state derived ---
   const sentPending = useMemo(
@@ -261,16 +268,16 @@ export default function HomeTab({
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-2">
               <div
-                className={`w-3 h-3 rounded-full ${CURRENT_SEASON.isActive ? 'bg-green-500' : 'bg-gray-400'}`}
+                className={`w-3 h-3 rounded-full ${seasonActive ? 'bg-green-500' : 'bg-gray-400'}`}
               />
               <h3 className="font-bold text-[var(--knu-text-primary)]">
-                {CURRENT_SEASON.isActive ? '매칭 시즌 진행중' : '비시즌'}
+                {seasonActive ? '매칭 시즌 진행중' : '비시즌'}
               </h3>
             </div>
             <Calendar className="w-5 h-5 text-[var(--knu-primary)]" />
           </div>
           <p className="text-sm text-[var(--knu-text-secondary)] mb-3">{CURRENT_SEASON.name}</p>
-          {CURRENT_SEASON.isActive ? (
+          {seasonActive ? (
             <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
               <div>
                 <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
@@ -506,10 +513,40 @@ export default function HomeTab({
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-[var(--knu-primary)]">
-                    {buildingActiveUsers}
+                    {buildingActiveUsers}명
                   </p>
                   <p className="text-xs text-[var(--knu-text-tertiary)]">같은 건물 활동 중</p>
                 </div>
+              </div>
+
+              {/* Season Stats */}
+              <div className="mt-4 pt-4 border-t border-[var(--knu-border)]">
+                <p className="text-xs font-semibold text-[var(--knu-text-secondary)] mb-2">
+                  시즌 통계
+                </p>
+                <div className="space-y-1.5">
+                  <p className="text-xs text-[var(--knu-text-tertiary)]">
+                    <span className="font-medium text-[var(--knu-text-secondary)]">인기 조건:</span>{' '}
+                    {seasonPopularCondition}
+                  </p>
+                  <p className="text-xs text-[var(--knu-text-tertiary)]">
+                    <span className="font-medium text-[var(--knu-text-secondary)]">
+                      오늘 신규 가입:
+                    </span>{' '}
+                    {todayNewUsers}명
+                  </p>
+                </div>
+              </div>
+
+              {/* Detail trigger */}
+              <div className="mt-3 pt-3 border-t border-[var(--knu-border)]">
+                <button
+                  onClick={() => setShowBuildingStatus(true)}
+                  className="flex items-center gap-1 text-sm font-semibold text-[var(--knu-primary)]"
+                >
+                  자세히 보기
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
           ) : (
@@ -612,12 +649,12 @@ export default function HomeTab({
               <TrendingUp className="w-6 h-6 flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-bold mb-2">
-                  {CURRENT_SEASON.isActive
+                  {seasonActive
                     ? '시즌 중에 적극적으로 활동하세요'
                     : '비시즌에도 프로필을 완성해두세요'}
                 </h3>
                 <p className="text-sm opacity-90">
-                  {CURRENT_SEASON.isActive
+                  {seasonActive
                     ? '호실 선택일 전에 룸메이트를 확정하면 함께 같은 방을 선택할 수 있어요. 생활패턴이 비슷한 룸메를 찾아보세요!'
                     : '시즌이 시작되면 바로 매칭을 시작할 수 있도록 미리 프로필을 완성해두세요.'}
                 </p>
@@ -731,6 +768,20 @@ export default function HomeTab({
         confirmLabel="해제하기"
         variant="danger"
       />
+
+      {/* Building Status Sheet */}
+      {showBuildingStatus && dormitory && (
+        <BuildingStatusSheet
+          dormitoryName={dormitory.name}
+          roomType={dormitory.roomType}
+          activeUsers={buildingActiveUsers}
+          matchableUsers={buildingMatchableUsers}
+          todayNewUsers={todayNewUsers}
+          profiles={buildingProfiles}
+          onClose={() => setShowBuildingStatus(false)}
+          onNavigateList={() => onNavigate('list')}
+        />
+      )}
     </div>
   );
 }

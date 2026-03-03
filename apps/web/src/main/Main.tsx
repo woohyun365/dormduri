@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { getProfileCompletion } from '@/utils/profileCompletion';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
@@ -11,8 +12,10 @@ import ProfileTab from './tabs/ProfileTab';
 import SettingsTab from './tabs/SettingsTab';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
 import { TOAST_DURATION, GUIDE_DELAY } from '@/constants/ui';
+import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { MATCH_POLICY } from '@/constants/match';
 import { isRequestExpired } from '@/utils/matchRequest';
+import { calcMatchScore } from '@/utils/matchScore';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
 import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import type { TabId, UserProfile } from '@/types/profile';
@@ -94,6 +97,21 @@ export default function Main() {
     setUser((prev) => ({ ...prev, additional }));
   }, []);
 
+  // --- Profile 100% completion toast ---
+  const hasShownCompletionToast = useRef(false);
+  // NOTE: mock 기준. API 연동 시 초기 로딩 완료 후 wasCompleteOnMount를 재평가해야 함
+  const wasCompleteOnMount = useRef(getProfileCompletion(user).isComplete);
+
+  useEffect(() => {
+    if (hasShownCompletionToast.current) return;
+    if (wasCompleteOnMount.current) return;
+    const { isComplete } = getProfileCompletion(user);
+    if (isComplete) {
+      setToast('프로필이 완성되었어요! \uD83C\uDF89');
+      hasShownCompletionToast.current = true;
+    }
+  }, [user]);
+
   // --- Bookmark state ---
   const [bookmarkedUserIds, setBookmarkedUserIds] = useState<Set<string>>(new Set());
 
@@ -150,8 +168,13 @@ export default function Main() {
   );
 
   // --- Matching state ---
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(MOCK_REQUESTS);
-  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(MOCK_ACTIVE_MATCH);
+  const seasonActive = isSeasonActive(CURRENT_SEASON);
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(
+    seasonActive ? MOCK_REQUESTS : [],
+  );
+  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(
+    seasonActive ? MOCK_ACTIVE_MATCH : null,
+  );
   const [showCelebration, setShowCelebration] = useState<{
     nickname: string;
     score: number;
@@ -197,7 +220,7 @@ export default function Main() {
         partnerUserId: partnerId,
         partnerNickname: partnerProfile?.nickname ?? partnerId,
         partnerDormitoryId: partnerProfile?.dormitoryId ?? null,
-        matchScore: 0,
+        matchScore: partnerProfile ? calcMatchScore(user.lifestyle, partnerProfile.lifestyle) : 0,
         matchedAt: new Date().toISOString(),
       };
       setActiveMatch(match);
@@ -218,7 +241,7 @@ export default function Main() {
         score: match.matchScore,
       });
     },
-    [matchRequests],
+    [matchRequests, user.lifestyle],
   );
 
   const handleRejectRequest = useCallback((requestId: string) => {
