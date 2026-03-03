@@ -2,12 +2,12 @@ import type { LifestyleData } from '@/types/lifestyle';
 
 const POINTS_PER_FIELD = 12.5;
 
-const BEDTIME_ORDER = ['BEFORE_22', '22_24', '24_02', 'AFTER_02'] as const;
-const WAKE_ORDER = ['BEFORE_06', '06_08', '08_10', 'AFTER_10'] as const;
-const NOISE_ORDER = ['LOW', 'MID', 'HIGH'] as const;
-const CLEAN_ORDER = ['LOW', 'MID', 'HIGH'] as const;
+export const BEDTIME_ORDER = ['BEFORE_22', '22_24', '24_02', 'AFTER_02'] as const;
+export const WAKE_ORDER = ['BEFORE_06', '06_08', '08_10', 'AFTER_10'] as const;
+export const NOISE_ORDER = ['LOW', 'MID', 'HIGH'] as const;
+export const CLEAN_ORDER = ['LOW', 'MID', 'HIGH'] as const;
 
-function indexDistance(order: readonly string[], a: string, b: string): number {
+export function indexDistance(order: readonly string[], a: string, b: string): number {
   const ia = order.indexOf(a);
   const ib = order.indexOf(b);
   if (ia === -1 || ib === -1) return -1;

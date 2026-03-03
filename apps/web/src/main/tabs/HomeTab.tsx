@@ -22,6 +22,9 @@ import { getAvatarColor } from '@/utils/avatarColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { MatchRequestCard } from '../components/MatchRequestCard';
+import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
+import { Button } from '@/components/Button';
+import { calcMatchScore } from '@/utils/matchScore';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 
@@ -50,6 +53,22 @@ function formatDateRange(startStr: string, endStr: string): string {
 }
 
 type RequestTab = 'sent' | 'received';
+
+const CONFIRM_CONFIG = {
+  cancel: { title: '요청 취소', confirmLabel: '취소하기', variant: 'default' as const },
+  reject: { title: '요청 거절', confirmLabel: '거절하기', variant: 'danger' as const },
+  accept: { title: '요청 수락', confirmLabel: '수락하기', variant: 'default' as const },
+};
+const CONFIRM_MESSAGE = {
+  cancel: (name: string) => `${name}님에게 보낸 매칭 요청을 취소하시겠습니까?`,
+  reject: (name: string) => `${name}님의 매칭 요청을 거절하시겠습니까?`,
+  accept: (name: string) => `${name}님의 매칭 요청을 수락하시겠습니까?`,
+};
+
+const noop = () => {};
+
+const getPartnerId = (request: MatchRequest) =>
+  request.fromUserId === 'me' ? request.toUserId : request.fromUserId;
 
 export default function HomeTab({
   user,
@@ -141,7 +160,7 @@ export default function HomeTab({
   }, [profiles]);
 
   const getPartnerProfile = (request: MatchRequest) => {
-    const partnerId = request.fromUserId === 'me' ? request.toUserId : request.fromUserId;
+    const partnerId = getPartnerId(request);
     const p = profileMap.get(partnerId);
     if (p) return { ...p, matchScore: 0 };
     return {
@@ -155,6 +174,50 @@ export default function HomeTab({
       additional: { college: null, grade: null, mbti: null, temperatureSensitivity: null },
       matchScore: 0,
     };
+  };
+
+  // Profile detail sheet for match requests
+  const [selectedRequest, setSelectedRequest] = useState<{
+    request: MatchRequest;
+    direction: 'sent' | 'received';
+  } | null>(null);
+
+  const selectedProfile = useMemo<RoommateProfile | null>(() => {
+    if (!selectedRequest) return null;
+    const partnerId = getPartnerId(selectedRequest.request);
+    const p = profileMap.get(partnerId);
+    if (!p) return null;
+    return {
+      ...p,
+      matchScore: calcMatchScore(user.lifestyle, p.lifestyle),
+    };
+  }, [selectedRequest, profileMap, user.lifestyle]);
+
+  // Confirm dialog for match request actions
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'cancel' | 'reject' | 'accept';
+    requestId: string;
+    nickname: string;
+  } | null>(null);
+
+  const getPartnerNickname = (request: MatchRequest) =>
+    profileMap.get(getPartnerId(request))?.nickname ?? getPartnerId(request);
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+    switch (confirmAction.type) {
+      case 'cancel':
+        onCancelRequest?.(confirmAction.requestId);
+        break;
+      case 'reject':
+        onRejectRequest?.(confirmAction.requestId);
+        break;
+      case 'accept':
+        onAcceptRequest?.(confirmAction.requestId);
+        break;
+    }
+    setSelectedRequest(null);
+    setConfirmAction(null);
   };
 
   // End match confirm dialog
@@ -336,7 +399,14 @@ export default function HomeTab({
                         request={req}
                         direction="sent"
                         partnerProfile={getPartnerProfile(req)}
-                        onCancel={onCancelRequest}
+                        onCancel={(id) =>
+                          setConfirmAction({
+                            type: 'cancel',
+                            requestId: id,
+                            nickname: getPartnerNickname(req),
+                          })
+                        }
+                        onClick={() => setSelectedRequest({ request: req, direction: 'sent' })}
                       />
                     ))
                   ) : (
@@ -352,8 +422,21 @@ export default function HomeTab({
                         request={req}
                         direction="received"
                         partnerProfile={getPartnerProfile(req)}
-                        onAccept={onAcceptRequest}
-                        onReject={onRejectRequest}
+                        onAccept={(id) =>
+                          setConfirmAction({
+                            type: 'accept',
+                            requestId: id,
+                            nickname: getPartnerNickname(req),
+                          })
+                        }
+                        onReject={(id) =>
+                          setConfirmAction({
+                            type: 'reject',
+                            requestId: id,
+                            nickname: getPartnerNickname(req),
+                          })
+                        }
+                        onClick={() => setSelectedRequest({ request: req, direction: 'received' })}
                       />
                     ))
                   ) : (
@@ -564,6 +647,79 @@ export default function HomeTab({
           )}
         </div>
       </div>
+
+      {/* Profile Detail Sheet for Match Requests */}
+      <ProfileDetailSheet
+        profile={selectedProfile}
+        isOpen={selectedProfile !== null}
+        onClose={() => setSelectedRequest(null)}
+        onRequestMatch={noop}
+        hideMatchButton
+        userLifestyle={user.lifestyle}
+        customFooter={
+          selectedRequest ? (
+            selectedRequest.direction === 'sent' ? (
+              <Button
+                variant="outline"
+                fullWidth
+                onClick={() =>
+                  setConfirmAction({
+                    type: 'cancel',
+                    requestId: selectedRequest.request.id,
+                    nickname: getPartnerNickname(selectedRequest.request),
+                  })
+                }
+              >
+                요청 취소
+              </Button>
+            ) : (
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    onClick={() =>
+                      setConfirmAction({
+                        type: 'reject',
+                        requestId: selectedRequest.request.id,
+                        nickname: getPartnerNickname(selectedRequest.request),
+                      })
+                    }
+                  >
+                    거절
+                  </Button>
+                </div>
+                <div className="flex-1">
+                  <Button
+                    variant="primary"
+                    fullWidth
+                    onClick={() =>
+                      setConfirmAction({
+                        type: 'accept',
+                        requestId: selectedRequest.request.id,
+                        nickname: getPartnerNickname(selectedRequest.request),
+                      })
+                    }
+                  >
+                    수락
+                  </Button>
+                </div>
+              </div>
+            )
+          ) : undefined
+        }
+      />
+
+      {/* Match Action Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmAction !== null}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleConfirmAction}
+        title={confirmAction ? CONFIRM_CONFIG[confirmAction.type].title : ''}
+        message={confirmAction ? CONFIRM_MESSAGE[confirmAction.type](confirmAction.nickname) : ''}
+        confirmLabel={confirmAction ? CONFIRM_CONFIG[confirmAction.type].confirmLabel : ''}
+        variant={confirmAction ? CONFIRM_CONFIG[confirmAction.type].variant : 'default'}
+      />
 
       {/* End Match Confirm Dialog */}
       <ConfirmDialog

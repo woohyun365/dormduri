@@ -15,6 +15,7 @@ import { BaseBottomSheet } from '@/components/BaseBottomSheet';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ProfileMoreMenu } from './ProfileMoreMenu';
 import { ReportSheet } from './ReportSheet';
+import { CompatibilityReport } from './CompatibilityReport';
 import { getMatchButtonStyle } from '@/utils/matchButtonStyle';
 import type { RoommateProfile } from '@/types/profile';
 import type { LifestyleData } from '@/types/lifestyle';
@@ -34,6 +35,8 @@ interface ProfileDetailSheetProps {
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
   isBookmarked?: boolean;
   onToggleBookmark?: () => void;
+  userLifestyle?: LifestyleData;
+  customFooter?: React.ReactNode;
 }
 
 const LIFESTYLE_FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
@@ -51,6 +54,8 @@ export function ProfileDetailSheet({
   onReport,
   isBookmarked,
   onToggleBookmark,
+  userLifestyle,
+  customFooter,
 }: ProfileDetailSheetProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
@@ -113,7 +118,9 @@ export function ProfileDetailSheet({
           ) : undefined
         }
         footer={
-          !hideMatchButton ? (
+          customFooter !== undefined ? (
+            customFooter
+          ) : !hideMatchButton ? (
             matchButtonState ? (
               (() => {
                 const style = getMatchButtonStyle(matchButtonState);
@@ -182,6 +189,14 @@ export function ProfileDetailSheet({
               ))}
             </div>
           </div>
+
+          {/* Compatibility Report */}
+          {userLifestyle && (
+            <CompatibilityReport
+              userLifestyle={userLifestyle}
+              profileLifestyle={profile.lifestyle}
+            />
+          )}
 
           {/* Additional Info */}
           {(profile.additional.college ||
