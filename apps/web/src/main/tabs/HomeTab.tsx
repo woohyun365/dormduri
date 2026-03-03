@@ -54,6 +54,22 @@ function formatDateRange(startStr: string, endStr: string): string {
 
 type RequestTab = 'sent' | 'received';
 
+const CONFIRM_CONFIG = {
+  cancel: { title: '요청 취소', confirmLabel: '취소하기', variant: 'default' as const },
+  reject: { title: '요청 거절', confirmLabel: '거절하기', variant: 'danger' as const },
+  accept: { title: '요청 수락', confirmLabel: '수락하기', variant: 'default' as const },
+};
+const CONFIRM_MESSAGE = {
+  cancel: (name: string) => `${name}님에게 보낸 매칭 요청을 취소하시겠습니까?`,
+  reject: (name: string) => `${name}님의 매칭 요청을 거절하시겠습니까?`,
+  accept: (name: string) => `${name}님의 매칭 요청을 수락하시겠습니까?`,
+};
+
+const noop = () => {};
+
+const getPartnerId = (request: MatchRequest) =>
+  request.fromUserId === 'me' ? request.toUserId : request.fromUserId;
+
 export default function HomeTab({
   user,
   onNavigate,
@@ -144,7 +160,7 @@ export default function HomeTab({
   }, [profiles]);
 
   const getPartnerProfile = (request: MatchRequest) => {
-    const partnerId = request.fromUserId === 'me' ? request.toUserId : request.fromUserId;
+    const partnerId = getPartnerId(request);
     const p = profileMap.get(partnerId);
     if (p) return { ...p, matchScore: 0 };
     return {
@@ -168,10 +184,7 @@ export default function HomeTab({
 
   const selectedProfile = useMemo<RoommateProfile | null>(() => {
     if (!selectedRequest) return null;
-    const partnerId =
-      selectedRequest.request.fromUserId === 'me'
-        ? selectedRequest.request.toUserId
-        : selectedRequest.request.fromUserId;
+    const partnerId = getPartnerId(selectedRequest.request);
     const p = profileMap.get(partnerId);
     if (!p) return null;
     return {
@@ -187,10 +200,8 @@ export default function HomeTab({
     nickname: string;
   } | null>(null);
 
-  const getPartnerNickname = (request: MatchRequest) => {
-    const partnerId = request.fromUserId === 'me' ? request.toUserId : request.fromUserId;
-    return profileMap.get(partnerId)?.nickname ?? partnerId;
-  };
+  const getPartnerNickname = (request: MatchRequest) =>
+    profileMap.get(getPartnerId(request))?.nickname ?? getPartnerId(request);
 
   const handleConfirmAction = () => {
     if (!confirmAction) return;
@@ -206,17 +217,7 @@ export default function HomeTab({
         break;
     }
     setSelectedRequest(null);
-  };
-
-  const CONFIRM_CONFIG = {
-    cancel: { title: '요청 취소', confirmLabel: '취소하기', variant: 'default' as const },
-    reject: { title: '요청 거절', confirmLabel: '거절하기', variant: 'danger' as const },
-    accept: { title: '요청 수락', confirmLabel: '수락하기', variant: 'default' as const },
-  };
-  const CONFIRM_MESSAGE = {
-    cancel: (name: string) => `${name}님에게 보낸 매칭 요청을 취소하시겠습니까?`,
-    reject: (name: string) => `${name}님의 매칭 요청을 거절하시겠습니까?`,
-    accept: (name: string) => `${name}님의 매칭 요청을 수락하시겠습니까?`,
+    setConfirmAction(null);
   };
 
   // End match confirm dialog
@@ -652,7 +653,7 @@ export default function HomeTab({
         profile={selectedProfile}
         isOpen={selectedProfile !== null}
         onClose={() => setSelectedRequest(null)}
-        onRequestMatch={() => {}}
+        onRequestMatch={noop}
         hideMatchButton
         userLifestyle={user.lifestyle}
         customFooter={

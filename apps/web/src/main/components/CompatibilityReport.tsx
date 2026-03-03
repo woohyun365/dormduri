@@ -3,6 +3,13 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
+import {
+  BEDTIME_ORDER,
+  WAKE_ORDER,
+  NOISE_ORDER,
+  CLEAN_ORDER,
+  indexDistance,
+} from '@/utils/matchScore';
 import type { LifestyleData } from '@/types/lifestyle';
 
 interface CompatibilityReportProps {
@@ -21,32 +28,18 @@ const FIELD_EMOJI: Record<keyof LifestyleData, string> = {
   relationshipStyle: '🤝',
 };
 
-const POINTS_PER_FIELD = 12.5;
-
-const BEDTIME_ORDER = ['BEFORE_22', '22_24', '24_02', 'AFTER_02'] as const;
-const WAKE_ORDER = ['BEFORE_06', '06_08', '08_10', 'AFTER_10'] as const;
-const NOISE_ORDER = ['LOW', 'MID', 'HIGH'] as const;
-const CLEAN_ORDER = ['LOW', 'MID', 'HIGH'] as const;
-
-type MatchLevel = 'match' | 'similar' | 'mismatch';
-
-function indexDistance(order: readonly string[], a: string, b: string): number {
-  const ia = order.indexOf(a);
-  const ib = order.indexOf(b);
-  if (ia === -1 || ib === -1) return -1;
-  return Math.abs(ia - ib);
-}
+type MatchLevel = 'match' | 'similar' | 'mismatch' | 'unknown';
 
 function getFieldMatchLevel(
   field: keyof LifestyleData,
   mine: string | null,
   theirs: string | null,
 ): MatchLevel {
-  if (mine === null || theirs === null) return 'match';
+  if (mine === null || theirs === null) return 'unknown';
   if (mine === theirs) return 'match';
 
   // indoorEating: OK counts as match
-  if (field === 'indoorEating' || field === 'smoker') {
+  if (field === 'indoorEating') {
     if (mine === 'OK' || theirs === 'OK') return 'match';
   }
 
@@ -71,6 +64,7 @@ const MATCH_LEVEL_CONFIG: Record<MatchLevel, { icon: string; color: string; bg: 
   match: { icon: '✅', color: 'text-green-700', bg: 'bg-green-50' },
   similar: { icon: '⚠️', color: 'text-amber-700', bg: 'bg-amber-50' },
   mismatch: { icon: '❌', color: 'text-red-700', bg: 'bg-red-50' },
+  unknown: { icon: '➖', color: 'text-gray-500', bg: 'bg-gray-50' },
 };
 
 const FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
