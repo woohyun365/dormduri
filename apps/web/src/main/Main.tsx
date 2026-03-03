@@ -157,7 +157,7 @@ export default function Main() {
     score: number;
   } | null>(null);
 
-  const handleSendRequest = useCallback((targetUserId: string) => {
+  const handleSendRequest = useCallback((targetUserId: string, message?: string | null) => {
     const now = new Date();
     const expiresAt = new Date(now);
     expiresAt.setHours(expiresAt.getHours() + MATCH_POLICY.REQUEST_TTL_HOURS);
@@ -167,7 +167,7 @@ export default function Main() {
       fromUserId: 'me',
       toUserId: targetUserId,
       status: 'PENDING',
-      message: null,
+      message: message ?? null,
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
       rejectedAt: null,

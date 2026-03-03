@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Bookmark, Filter, Building2, ChevronRight, Search, X } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { MatchRequestDialog } from '../components/MatchRequestDialog';
 import { UserCard } from '../components/UserCard';
 import { BottomSheet, DEFAULT_FILTERS } from '../components/BottomSheet';
 import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
@@ -27,7 +27,7 @@ interface RoommateListTabProps {
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
   matchRequests?: MatchRequest[];
   activeMatch?: ActiveMatch | null;
-  onSendRequest?: (targetUserId: string) => void;
+  onSendRequest?: (targetUserId: string, message?: string | null) => void;
   bookmarkedUserIds?: Set<string>;
   onToggleBookmark?: (userId: string) => void;
 }
@@ -148,9 +148,9 @@ export default function RoommateListTab({
     setConfirmTarget(profile);
   };
 
-  const handleConfirmSend = () => {
+  const handleConfirmSend = (message: string | null) => {
     if (confirmTarget && onSendRequest) {
-      onSendRequest(confirmTarget.id);
+      onSendRequest(confirmTarget.id, message);
     }
   };
 
@@ -383,16 +383,15 @@ export default function RoommateListTab({
             ? () => onToggleBookmark(selectedProfile.id)
             : undefined
         }
+        userLifestyle={user.lifestyle}
       />
 
-      {/* Match Request Confirm Dialog */}
-      <ConfirmDialog
+      {/* Match Request Dialog */}
+      <MatchRequestDialog
         isOpen={confirmTarget !== null}
         onClose={() => setConfirmTarget(null)}
         onConfirm={handleConfirmSend}
-        title="매칭 요청"
-        message={`${confirmTarget?.nickname ?? ''}님에게 매칭 요청을 보내시겠습니까?\n\n요청은 48시간 후 자동 만료됩니다.`}
-        confirmLabel="요청 보내기"
+        targetNickname={confirmTarget?.nickname ?? ''}
       />
     </div>
   );
