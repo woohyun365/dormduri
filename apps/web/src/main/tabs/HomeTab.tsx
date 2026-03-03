@@ -180,6 +180,45 @@ export default function HomeTab({
     };
   }, [selectedRequest, profileMap, user.lifestyle]);
 
+  // Confirm dialog for match request actions
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'cancel' | 'reject' | 'accept';
+    requestId: string;
+    nickname: string;
+  } | null>(null);
+
+  const getPartnerNickname = (request: MatchRequest) => {
+    const partnerId = request.fromUserId === 'me' ? request.toUserId : request.fromUserId;
+    return profileMap.get(partnerId)?.nickname ?? partnerId;
+  };
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return;
+    switch (confirmAction.type) {
+      case 'cancel':
+        onCancelRequest?.(confirmAction.requestId);
+        break;
+      case 'reject':
+        onRejectRequest?.(confirmAction.requestId);
+        break;
+      case 'accept':
+        onAcceptRequest?.(confirmAction.requestId);
+        break;
+    }
+    setSelectedRequest(null);
+  };
+
+  const CONFIRM_CONFIG = {
+    cancel: { title: '요청 취소', confirmLabel: '취소하기', variant: 'default' as const },
+    reject: { title: '요청 거절', confirmLabel: '거절하기', variant: 'danger' as const },
+    accept: { title: '요청 수락', confirmLabel: '수락하기', variant: 'default' as const },
+  };
+  const CONFIRM_MESSAGE = {
+    cancel: (name: string) => `${name}님에게 보낸 매칭 요청을 취소하시겠습니까?`,
+    reject: (name: string) => `${name}님의 매칭 요청을 거절하시겠습니까?`,
+    accept: (name: string) => `${name}님의 매칭 요청을 수락하시겠습니까?`,
+  };
+
   // End match confirm dialog
   const [showEndMatchConfirm, setShowEndMatchConfirm] = useState(false);
 
@@ -359,7 +398,13 @@ export default function HomeTab({
                         request={req}
                         direction="sent"
                         partnerProfile={getPartnerProfile(req)}
-                        onCancel={onCancelRequest}
+                        onCancel={(id) =>
+                          setConfirmAction({
+                            type: 'cancel',
+                            requestId: id,
+                            nickname: getPartnerNickname(req),
+                          })
+                        }
                         onClick={() => setSelectedRequest({ request: req, direction: 'sent' })}
                       />
                     ))
@@ -376,8 +421,20 @@ export default function HomeTab({
                         request={req}
                         direction="received"
                         partnerProfile={getPartnerProfile(req)}
-                        onAccept={onAcceptRequest}
-                        onReject={onRejectRequest}
+                        onAccept={(id) =>
+                          setConfirmAction({
+                            type: 'accept',
+                            requestId: id,
+                            nickname: getPartnerNickname(req),
+                          })
+                        }
+                        onReject={(id) =>
+                          setConfirmAction({
+                            type: 'reject',
+                            requestId: id,
+                            nickname: getPartnerNickname(req),
+                          })
+                        }
                         onClick={() => setSelectedRequest({ request: req, direction: 'received' })}
                       />
                     ))
@@ -604,10 +661,13 @@ export default function HomeTab({
               <Button
                 variant="outline"
                 fullWidth
-                onClick={() => {
-                  onCancelRequest?.(selectedRequest.request.id);
-                  setSelectedRequest(null);
-                }}
+                onClick={() =>
+                  setConfirmAction({
+                    type: 'cancel',
+                    requestId: selectedRequest.request.id,
+                    nickname: getPartnerNickname(selectedRequest.request),
+                  })
+                }
               >
                 요청 취소
               </Button>
@@ -617,10 +677,13 @@ export default function HomeTab({
                   <Button
                     variant="outline"
                     fullWidth
-                    onClick={() => {
-                      onRejectRequest?.(selectedRequest.request.id);
-                      setSelectedRequest(null);
-                    }}
+                    onClick={() =>
+                      setConfirmAction({
+                        type: 'reject',
+                        requestId: selectedRequest.request.id,
+                        nickname: getPartnerNickname(selectedRequest.request),
+                      })
+                    }
                   >
                     거절
                   </Button>
@@ -629,10 +692,13 @@ export default function HomeTab({
                   <Button
                     variant="primary"
                     fullWidth
-                    onClick={() => {
-                      onAcceptRequest?.(selectedRequest.request.id);
-                      setSelectedRequest(null);
-                    }}
+                    onClick={() =>
+                      setConfirmAction({
+                        type: 'accept',
+                        requestId: selectedRequest.request.id,
+                        nickname: getPartnerNickname(selectedRequest.request),
+                      })
+                    }
                   >
                     수락
                   </Button>
@@ -641,6 +707,17 @@ export default function HomeTab({
             )
           ) : undefined
         }
+      />
+
+      {/* Match Action Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmAction !== null}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleConfirmAction}
+        title={confirmAction ? CONFIRM_CONFIG[confirmAction.type].title : ''}
+        message={confirmAction ? CONFIRM_MESSAGE[confirmAction.type](confirmAction.nickname) : ''}
+        confirmLabel={confirmAction ? CONFIRM_CONFIG[confirmAction.type].confirmLabel : ''}
+        variant={confirmAction ? CONFIRM_CONFIG[confirmAction.type].variant : 'default'}
       />
 
       {/* End Match Confirm Dialog */}
