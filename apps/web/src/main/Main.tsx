@@ -99,6 +99,7 @@ export default function Main() {
 
   // --- Profile 100% completion toast ---
   const hasShownCompletionToast = useRef(false);
+  // NOTE: mock 기준. API 연동 시 초기 로딩 완료 후 wasCompleteOnMount를 재평가해야 함
   const wasCompleteOnMount = useRef(getProfileCompletion(user).isComplete);
 
   useEffect(() => {
@@ -240,7 +241,7 @@ export default function Main() {
         score: match.matchScore,
       });
     },
-    [matchRequests],
+    [matchRequests, user.lifestyle],
   );
 
   const handleRejectRequest = useCallback((requestId: string) => {

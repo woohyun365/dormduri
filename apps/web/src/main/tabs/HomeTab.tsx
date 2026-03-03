@@ -123,7 +123,7 @@ export default function HomeTab({
     isComplete: hasAllOptional,
   } = getProfileCompletion(user);
 
-  // Mock building stats
+  // Mock building stats (추후 API 연동)
   const buildingActiveUsers = 47;
   const seasonPopularCondition = '비흡연 + 24시 이전 취침';
   const todayNewUsers = 3;
