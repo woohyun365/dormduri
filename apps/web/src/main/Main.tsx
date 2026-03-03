@@ -12,8 +12,10 @@ import ProfileTab from './tabs/ProfileTab';
 import SettingsTab from './tabs/SettingsTab';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
 import { TOAST_DURATION, GUIDE_DELAY } from '@/constants/ui';
+import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { MATCH_POLICY } from '@/constants/match';
 import { isRequestExpired } from '@/utils/matchRequest';
+import { calcMatchScore } from '@/utils/matchScore';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
 import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import type { TabId, UserProfile } from '@/types/profile';
@@ -165,8 +167,13 @@ export default function Main() {
   );
 
   // --- Matching state ---
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(MOCK_REQUESTS);
-  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(MOCK_ACTIVE_MATCH);
+  const seasonActive = isSeasonActive(CURRENT_SEASON);
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(
+    seasonActive ? MOCK_REQUESTS : [],
+  );
+  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(
+    seasonActive ? MOCK_ACTIVE_MATCH : null,
+  );
   const [showCelebration, setShowCelebration] = useState<{
     nickname: string;
     score: number;
@@ -212,7 +219,7 @@ export default function Main() {
         partnerUserId: partnerId,
         partnerNickname: partnerProfile?.nickname ?? partnerId,
         partnerDormitoryId: partnerProfile?.dormitoryId ?? null,
-        matchScore: 0,
+        matchScore: partnerProfile ? calcMatchScore(user.lifestyle, partnerProfile.lifestyle) : 0,
         matchedAt: new Date().toISOString(),
       };
       setActiveMatch(match);
