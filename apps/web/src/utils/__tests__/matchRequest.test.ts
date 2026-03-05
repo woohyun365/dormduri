@@ -59,6 +59,16 @@ describe('isRequestExpired', () => {
     const req = makeRequest({ expiresAt: new Date(NOW).toISOString() });
     expect(isRequestExpired(req)).toBe(true);
   });
+
+  it('expiresAt이 빈 문자열이면 만료 처리 (fail-close)', () => {
+    const req = makeRequest({ expiresAt: '' });
+    expect(isRequestExpired(req)).toBe(true);
+  });
+
+  it('expiresAt이 invalid date 문자열이면 만료 처리 (fail-close)', () => {
+    const req = makeRequest({ expiresAt: 'not-a-date' });
+    expect(isRequestExpired(req)).toBe(true);
+  });
 });
 
 // ── getRejectionCooldownEnd ───────────────────────────────────────

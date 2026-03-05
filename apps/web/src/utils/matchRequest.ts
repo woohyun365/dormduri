@@ -11,9 +11,12 @@ interface GetMatchButtonStateParams {
   isSeasonActive: boolean;
 }
 
-/** 48h 경과 여부 */
+/** 48h 경과 여부 (fail-close: invalid/empty expiresAt → 만료 처리) */
 export function isRequestExpired(request: MatchRequest): boolean {
-  return new Date(request.expiresAt).getTime() <= Date.now();
+  if (!request.expiresAt) return true;
+  const date = new Date(request.expiresAt);
+  if (!Number.isFinite(date.getTime())) return true;
+  return date.getTime() <= Date.now();
 }
 
 /** 거절 쿨다운 종료 일시 (rejectedAt + 7일) */
