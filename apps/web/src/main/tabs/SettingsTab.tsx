@@ -231,8 +231,9 @@ export default function SettingsTab({
       <ConfirmDialog
         isOpen={logoutDialog}
         onClose={() => setLogoutDialog(false)}
-        onConfirm={() => {
-          // TODO: clear auth state
+        onConfirm={async () => {
+          const { authApi } = await import('@/api/auth');
+          await authApi.logout();
           router.push('/login');
         }}
         title="로그아웃"

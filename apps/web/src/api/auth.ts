@@ -73,7 +73,9 @@ export const authApi = {
       if (db.findByEmail(data.email)) {
         return { success: false, error: '이미 가입된 이메일입니다.' };
       }
-      db.createUser({ ...data, dormitoryId: null });
+      const newUser = { ...data, dormitoryId: null };
+      db.createUser(newUser);
+      db.setCurrentUser(newUser);
       return { success: true };
     }
     // TODO: POST /api/auth/signup
@@ -102,6 +104,14 @@ export const authApi = {
     }
     // TODO: POST /api/auth/verify-reset-code
     return { success: false, error: '서버 연동 준비 중입니다.' };
+  },
+
+  logout: async (): Promise<void> => {
+    const db = await getMockDb();
+    if (db) {
+      db.setCurrentUser(null);
+    }
+    document.cookie = 'auth-token=; path=/; max-age=0';
   },
 
   /** development 전용: 인증 코드 발급 (콘솔에 출력) */
