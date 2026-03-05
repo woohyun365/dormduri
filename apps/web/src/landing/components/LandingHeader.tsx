@@ -66,7 +66,7 @@ export function LandingHeader() {
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <div className="flex items-center">
-            <a href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <Image
                 src="/knu_logo.svg"
                 alt="KNU 룸메 로고"
@@ -75,7 +75,7 @@ export function LandingHeader() {
                 className="rounded-xl"
               />
               <span className="text-xl font-bold text-[var(--knu-text-primary)]">KNU 룸메</span>
-            </a>
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
