@@ -47,10 +47,12 @@ export function ProfileMoreMenu({
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKeyDown);
 
+    const trigger = triggerRef?.current;
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
-      const restoreTarget = triggerRef?.current ?? previousFocusRef.current;
+      const restoreTarget = trigger ?? previousFocusRef.current;
       restoreTarget?.focus();
     };
   }, [isOpen, triggerRef]);
