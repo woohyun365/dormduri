@@ -10,6 +10,7 @@ import { StepEmail } from './components/StepEmail';
 import { StepVerification } from './components/StepVerification';
 import { StepNewPassword } from './components/StepNewPassword';
 import { StepResetComplete } from './components/StepResetComplete';
+import { authApi } from '@/api/auth';
 
 type ResetStep = 'email' | 'verification' | 'newPassword' | 'complete';
 
@@ -31,11 +32,14 @@ export default function PasswordReset() {
     };
   }, []);
 
-  const handleSendCode = () => {
-    startCountdown();
-    timeoutRef.current = setTimeout(() => {
-      setCurrentStep('verification');
-    }, 500);
+  const handleSendCode = async () => {
+    const result = await authApi.sendVerificationCode(email);
+    if (result.success) {
+      startCountdown();
+      timeoutRef.current = setTimeout(() => {
+        setCurrentStep('verification');
+      }, 500);
+    }
   };
 
   const handleVerified = () => {

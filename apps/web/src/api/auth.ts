@@ -23,19 +23,43 @@ interface ResetPasswordResponse {
   error?: string;
 }
 
+// development 전용 mockDb (dynamic import로 production 번들 제외)
+async function getMockDb() {
+  if (process.env.NODE_ENV === 'development') {
+    const { mockDb } = await import('@/__fixtures__/mock-db');
+    return mockDb;
+  }
+  return null;
+}
+
 export const authApi = {
-  login: async (_email: string, _password: string): Promise<LoginResponse> => {
+  login: async (email: string, password: string): Promise<LoginResponse> => {
+    const db = await getMockDb();
+    if (db) {
+      const user = db.findUser(email, password);
+      if (user) {
+        document.cookie = 'auth-token=mock-dev-token; path=/';
+        return { success: true, token: 'mock-dev-token' };
+      }
+      return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
+    }
     // TODO: POST /api/auth/login
-    // 현재 BE API 미존재 — mock으로 항상 실패 반환
     return { success: false, error: '서버 연동 준비 중입니다.' };
   },
 
-  verifyEmailCode: async (_email: string, _code: string): Promise<VerifyCodeResponse> => {
+  verifyEmailCode: async (email: string, code: string): Promise<VerifyCodeResponse> => {
+    const db = await getMockDb();
+    if (db) {
+      if (db.verifyCode(email, code)) {
+        return { success: true };
+      }
+      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
+    }
     // TODO: POST /api/auth/verify-email-code
     return { success: false, error: '서버 연동 준비 중입니다.' };
   },
 
-  signup: async (_data: {
+  signup: async (data: {
     email: string;
     password: string;
     nickname: string;
@@ -43,17 +67,50 @@ export const authApi = {
     lifestyle: LifestyleData;
     intro: string;
   }): Promise<SignupResponse> => {
+    const db = await getMockDb();
+    if (db) {
+      if (db.findByEmail(data.email)) {
+        return { success: false, error: '이미 가입된 이메일입니다.' };
+      }
+      db.createUser(data);
+      return { success: true };
+    }
     // TODO: POST /api/auth/signup
     return { success: false, error: '서버 연동 준비 중입니다.' };
   },
 
-  resetPassword: async (_email: string, _newPassword: string): Promise<ResetPasswordResponse> => {
+  resetPassword: async (email: string, newPassword: string): Promise<ResetPasswordResponse> => {
+    const db = await getMockDb();
+    if (db) {
+      if (db.resetPassword(email, newPassword)) {
+        return { success: true };
+      }
+      return { success: false, error: '등록되지 않은 이메일입니다.' };
+    }
     // TODO: POST /api/auth/reset-password
     return { success: false, error: '서버 연동 준비 중입니다.' };
   },
 
-  verifyResetCode: async (_email: string, _code: string): Promise<VerifyCodeResponse> => {
+  verifyResetCode: async (email: string, code: string): Promise<VerifyCodeResponse> => {
+    const db = await getMockDb();
+    if (db) {
+      if (db.verifyCode(email, code)) {
+        return { success: true };
+      }
+      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
+    }
     // TODO: POST /api/auth/verify-reset-code
+    return { success: false, error: '서버 연동 준비 중입니다.' };
+  },
+
+  /** development 전용: 인증 코드 발급 (콘솔에 출력) */
+  sendVerificationCode: async (email: string): Promise<{ success: boolean; error?: string }> => {
+    const db = await getMockDb();
+    if (db) {
+      db.issueCode(email);
+      return { success: true };
+    }
+    // TODO: POST /api/auth/send-code
     return { success: false, error: '서버 연동 준비 중입니다.' };
   },
 };
