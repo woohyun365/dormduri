@@ -28,7 +28,10 @@ export function useExpiryCountdown(expiresAt: string): ExpiryCountdown {
   const [totalSeconds, setTotalSeconds] = useState(() => (isValid ? calcRemaining(expiresAt) : 0));
 
   useEffect(() => {
-    if (!isValid) return;
+    if (!isValid) {
+      setTotalSeconds(0);
+      return;
+    }
     const id = setInterval(() => {
       const remaining = calcRemaining(expiresAt);
       setTotalSeconds(remaining);
