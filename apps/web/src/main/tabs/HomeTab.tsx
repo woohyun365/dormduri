@@ -101,7 +101,7 @@ export default function HomeTab({
   }, [dateKey]);
 
   const { dDay, roomSelectionDateStr } = useMemo(() => {
-    const today = new Date();
+    const today = new Date(dateKey);
     today.setHours(0, 0, 0, 0);
     const target = new Date(CURRENT_SEASON.roomSelectionStart + 'T00:00:00');
     target.setHours(0, 0, 0, 0);

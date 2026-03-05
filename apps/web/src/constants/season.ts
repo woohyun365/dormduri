@@ -6,9 +6,14 @@ export interface Season {
   roomSelectionEnd: string;
 }
 
-/** 현재 날짜 기준 시즌 활성 여부 계산 */
+/** Asia/Seoul 기준 현재 날짜를 반환 (환경 시간대 의존 제거) */
+function nowInKST(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+}
+
+/** 현재 날짜 기준 시즌 활성 여부 계산 (Asia/Seoul 시간대 고정) */
 export function isSeasonActive(season: Season): boolean {
-  const today = new Date();
+  const today = nowInKST();
   today.setHours(0, 0, 0, 0);
   const start = new Date(season.matchingStart + 'T00:00:00');
   const end = new Date(season.matchingEnd + 'T23:59:59');

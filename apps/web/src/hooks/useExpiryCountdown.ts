@@ -23,16 +23,19 @@ function formatHMS(totalSeconds: number): string {
 // 카운트다운 텍스트는 클라이언트 시각 기반이므로 SSR과 불가피하게 다를 수 있음.
 // 사용처에서 suppressHydrationWarning 적용 필요.
 export function useExpiryCountdown(expiresAt: string): ExpiryCountdown {
-  const [totalSeconds, setTotalSeconds] = useState(() => calcRemaining(expiresAt));
+  const isValid = Number.isFinite(new Date(expiresAt).getTime());
+
+  const [totalSeconds, setTotalSeconds] = useState(() => (isValid ? calcRemaining(expiresAt) : 0));
 
   useEffect(() => {
+    if (!isValid) return;
     const id = setInterval(() => {
       const remaining = calcRemaining(expiresAt);
       setTotalSeconds(remaining);
       if (remaining <= 0) clearInterval(id);
     }, 1000);
     return () => clearInterval(id);
-  }, [expiresAt]);
+  }, [expiresAt, isValid]);
 
   return {
     timeLeft: formatHMS(totalSeconds),
