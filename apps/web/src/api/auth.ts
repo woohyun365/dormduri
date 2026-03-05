@@ -24,12 +24,17 @@ interface ResetPasswordResponse {
 }
 
 // development 전용 mockDb (dynamic import로 production 번들 제외)
-const getMockDb = () =>
-  process.env.NODE_ENV === 'development' ? require('@/__fixtures__/mock-db').mockDb : null;
+async function getMockDb() {
+  if (process.env.NODE_ENV === 'development') {
+    const { mockDb } = await import('@/__fixtures__/mock-db');
+    return mockDb;
+  }
+  return null;
+}
 
 export const authApi = {
   login: async (email: string, password: string): Promise<LoginResponse> => {
-    const db = getMockDb();
+    const db = await getMockDb();
     if (db) {
       const user = db.findUser(email, password);
       if (user) {
@@ -43,7 +48,7 @@ export const authApi = {
   },
 
   verifyEmailCode: async (email: string, code: string): Promise<VerifyCodeResponse> => {
-    const db = getMockDb();
+    const db = await getMockDb();
     if (db) {
       if (db.verifyCode(email, code)) {
         return { success: true };
@@ -62,7 +67,7 @@ export const authApi = {
     lifestyle: LifestyleData;
     intro: string;
   }): Promise<SignupResponse> => {
-    const db = getMockDb();
+    const db = await getMockDb();
     if (db) {
       if (db.findByEmail(data.email)) {
         return { success: false, error: '이미 가입된 이메일입니다.' };
@@ -75,7 +80,7 @@ export const authApi = {
   },
 
   resetPassword: async (email: string, newPassword: string): Promise<ResetPasswordResponse> => {
-    const db = getMockDb();
+    const db = await getMockDb();
     if (db) {
       if (db.resetPassword(email, newPassword)) {
         return { success: true };
@@ -87,7 +92,7 @@ export const authApi = {
   },
 
   verifyResetCode: async (email: string, code: string): Promise<VerifyCodeResponse> => {
-    const db = getMockDb();
+    const db = await getMockDb();
     if (db) {
       if (db.verifyCode(email, code)) {
         return { success: true };
@@ -100,7 +105,7 @@ export const authApi = {
 
   /** development 전용: 인증 코드 발급 (콘솔에 출력) */
   sendVerificationCode: async (email: string): Promise<{ success: boolean; error?: string }> => {
-    const db = getMockDb();
+    const db = await getMockDb();
     if (db) {
       db.issueCode(email);
       return { success: true };

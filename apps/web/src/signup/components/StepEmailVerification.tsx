@@ -48,7 +48,7 @@ export function StepEmailVerification({
     formatTime,
   } = useCountdown(VERIFICATION_CODE_TTL);
 
-  const handleSendCode = () => {
+  const handleSendCode = async () => {
     const error = validateKnuEmail(email);
     if (error) {
       setEmailError(error);
@@ -58,13 +58,22 @@ export function StepEmailVerification({
     setEmailError('');
     setIsSending(true);
 
-    authApi.sendVerificationCode(email).finally(() => {
-      sendTimerRef.current = setTimeout(() => {
+    try {
+      const result = await authApi.sendVerificationCode(email);
+      if (result.success) {
+        sendTimerRef.current = setTimeout(() => {
+          setIsSending(false);
+          setIsCodeSent(true);
+          startCountdown();
+        }, 1000);
+      } else {
+        setEmailError(result.error ?? '인증 코드 전송에 실패했습니다.');
         setIsSending(false);
-        setIsCodeSent(true);
-        startCountdown();
-      }, 1000);
-    });
+      }
+    } catch {
+      setEmailError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      setIsSending(false);
+    }
   };
 
   const handleVerifyCode = async () => {

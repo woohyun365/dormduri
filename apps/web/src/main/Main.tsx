@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { getProfileCompletion } from '@/utils/profileCompletion';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { BottomTabBar } from './components/BottomTabBar';
@@ -365,7 +366,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 }
 
 export default function Main() {
+  const router = useRouter();
   const { user, isLoading } = useCurrentUser();
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [isLoading, user, router]);
 
   if (isLoading || !user) {
     return (

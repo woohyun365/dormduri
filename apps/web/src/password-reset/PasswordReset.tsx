@@ -32,12 +32,14 @@ export default function PasswordReset() {
     };
   }, []);
 
-  const handleSendCode = () => {
-    authApi.sendVerificationCode(email);
-    startCountdown();
-    timeoutRef.current = setTimeout(() => {
-      setCurrentStep('verification');
-    }, 500);
+  const handleSendCode = async () => {
+    const result = await authApi.sendVerificationCode(email);
+    if (result.success) {
+      startCountdown();
+      timeoutRef.current = setTimeout(() => {
+        setCurrentStep('verification');
+      }, 500);
+    }
   };
 
   const handleVerified = () => {
