@@ -7,7 +7,8 @@ import { StepHeader } from '@/components/StepHeader';
 
 import { useCountdown } from '@/hooks/useCountdown';
 import { validateKnuEmail } from '@/utils/validation';
-import { VERIFICATION_CODE_TTL, TEST_VERIFICATION_CODE } from '@/constants/auth';
+import { VERIFICATION_CODE_TTL } from '@/constants/auth';
+import { authApi } from '@/api/auth';
 import { Mail, CheckCircle } from 'lucide-react';
 
 interface StepEmailVerificationProps {
@@ -30,6 +31,7 @@ export function StepEmailVerification({
   const [codeError, setCodeError] = useState('');
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const sendTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
@@ -63,17 +65,23 @@ export function StepEmailVerification({
     }, 1000);
   };
 
-  const handleVerifyCode = () => {
+  const handleVerifyCode = async () => {
     if (!verificationCode) {
       setCodeError('인증 코드를 입력해주세요.');
       return;
     }
-    if (verificationCode === TEST_VERIFICATION_CODE) {
-      setCodeError('');
-      onVerified();
-      stopCountdown();
-    } else {
-      setCodeError('인증 코드가 올바르지 않습니다.');
+    setIsVerifying(true);
+    try {
+      const result = await authApi.verifyEmailCode(email, verificationCode);
+      if (result.success) {
+        setCodeError('');
+        onVerified();
+        stopCountdown();
+      } else {
+        setCodeError(result.error ?? '인증 코드가 올바르지 않습니다.');
+      }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -133,6 +141,7 @@ export function StepEmailVerification({
                 }}
                 error={codeError}
                 maxLength={6}
+                disabled={isVerifying}
               />
               {isActive && (
                 <div
@@ -150,26 +159,24 @@ export function StepEmailVerification({
               )}
             </div>
 
-            {process.env.NODE_ENV === 'development' && (
-              <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
-                <p className="text-sm text-blue-900">
-                  <strong>테스트용 인증 코드:</strong> {TEST_VERIFICATION_CODE}
-                </p>
-              </div>
-            )}
-
             <div className="flex gap-3">
               <Button
                 variant="outline"
                 size="lg"
                 fullWidth
                 onClick={handleSendCode}
-                disabled={isSending || isActive}
+                disabled={isSending || isActive || isVerifying}
               >
                 재전송{isActive ? ` (${formatTime()})` : ''}
               </Button>
-              <Button variant="primary" size="lg" fullWidth onClick={handleVerifyCode}>
-                인증 확인
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                onClick={handleVerifyCode}
+                disabled={isVerifying}
+              >
+                {isVerifying ? '확인 중...' : '인증 확인'}
               </Button>
             </div>
           </>

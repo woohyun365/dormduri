@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/form/Checkbox';
 import { Button } from '@/components/Button';
 
 import { validateKnuEmail } from '@/utils/validation';
+import { authApi } from '@/api/auth';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
@@ -20,6 +21,7 @@ export default function Login() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleEmailChange = useCallback((value: string) => {
     setEmail(value);
@@ -33,7 +35,7 @@ export default function Login() {
     setLoginError('');
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     const emailErr = validateKnuEmail(email);
     const passwordErr = password ? '' : '비밀번호를 입력해주세요.';
 
@@ -45,12 +47,16 @@ export default function Login() {
       return;
     }
 
-    // Simulate API call
-    // Test credentials: test@kangwon.ac.kr / password123
-    if (email === 'test@kangwon.ac.kr' && password === 'password123') {
-      router.push('/main');
-    } else {
-      setLoginError('이메일 또는 비밀번호가 올바르지 않습니다.');
+    setIsLoading(true);
+    try {
+      const result = await authApi.login(email, password);
+      if (result.success) {
+        router.push('/main');
+      } else {
+        setLoginError(result.error ?? '이메일 또는 비밀번호가 올바르지 않습니다.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -99,6 +105,7 @@ export default function Login() {
               value={email}
               onChange={handleEmailChange}
               error={emailError}
+              disabled={isLoading}
             />
 
             <InputField
@@ -108,6 +115,7 @@ export default function Login() {
               value={password}
               onChange={handlePasswordChange}
               error={passwordError}
+              disabled={isLoading}
             />
 
             <div className="flex items-center justify-between">
@@ -122,27 +130,13 @@ export default function Login() {
             </div>
 
             <div className="pt-2">
-              <Button variant="primary" size="lg" fullWidth type="submit">
+              <Button variant="primary" size="lg" fullWidth type="submit" disabled={isLoading}>
                 <Lock className="w-5 h-5" />
-                로그인
+                {isLoading ? '로그인 중...' : '로그인'}
               </Button>
             </div>
           </div>
         </form>
-
-        {/* Test Credentials Info - Dev only */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
-            <p className="text-sm text-blue-900 mb-2">
-              <strong>테스트 계정</strong>
-            </p>
-            <p className="text-sm text-blue-800 font-mono">
-              이메일: test@kangwon.ac.kr
-              <br />
-              비밀번호: password123
-            </p>
-          </div>
-        )}
 
         {/* Signup Link */}
         <div className="text-center mt-6">

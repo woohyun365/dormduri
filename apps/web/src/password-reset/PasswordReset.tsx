@@ -81,7 +81,7 @@ export default function PasswordReset() {
             />
           )}
           {currentStep === 'newPassword' && (
-            <StepNewPassword onResetComplete={() => setCurrentStep('complete')} />
+            <StepNewPassword email={email} onResetComplete={() => setCurrentStep('complete')} />
           )}
           {currentStep === 'complete' && (
             <StepResetComplete onGoToLogin={() => router.push('/login')} />

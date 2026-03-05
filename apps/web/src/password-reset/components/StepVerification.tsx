@@ -5,7 +5,7 @@ import { InputField } from '@/components/form/InputField';
 import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
 
-import { TEST_VERIFICATION_CODE } from '@/constants/auth';
+import { authApi } from '@/api/auth';
 import { Mail } from 'lucide-react';
 
 interface StepVerificationProps {
@@ -25,18 +25,25 @@ export function StepVerification({
 }: StepVerificationProps) {
   const [verificationCode, setVerificationCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!verificationCode) {
       setCodeError('인증 코드를 입력해주세요.');
       return;
     }
-    if (verificationCode === TEST_VERIFICATION_CODE) {
-      setCodeError('');
-      onVerified();
-    } else {
-      setCodeError('인증 코드가 올바르지 않습니다.');
+    setIsLoading(true);
+    try {
+      const result = await authApi.verifyResetCode(email, verificationCode);
+      if (result.success) {
+        setCodeError('');
+        onVerified();
+      } else {
+        setCodeError(result.error ?? '인증 코드가 올바르지 않습니다.');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -60,6 +67,7 @@ export function StepVerification({
           }}
           error={codeError}
           maxLength={6}
+          disabled={isLoading}
         />
         {countdown > 0 && (
           <div
@@ -72,20 +80,19 @@ export function StepVerification({
         )}
       </div>
 
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
-          <p className="text-sm text-blue-900">
-            <strong>테스트용 인증 코드:</strong> {TEST_VERIFICATION_CODE}
-          </p>
-        </div>
-      )}
-
       <div className="flex gap-3">
-        <Button variant="outline" size="lg" fullWidth type="button" onClick={onResendCode}>
+        <Button
+          variant="outline"
+          size="lg"
+          fullWidth
+          type="button"
+          onClick={onResendCode}
+          disabled={isLoading}
+        >
           재전송
         </Button>
-        <Button variant="primary" size="lg" fullWidth type="submit">
-          확인
+        <Button variant="primary" size="lg" fullWidth type="submit" disabled={isLoading}>
+          {isLoading ? '확인 중...' : '확인'}
         </Button>
       </div>
     </form>

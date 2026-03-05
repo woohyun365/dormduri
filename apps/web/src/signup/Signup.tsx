@@ -10,6 +10,9 @@ import { StepBasicInfo, type BasicInfoData } from './components/StepBasicInfo';
 import { StepLifestyleProfile } from './components/StepLifestyleProfile';
 import type { LifestyleData } from '@/types/lifestyle';
 import { StepComplete } from './components/StepComplete';
+import { authApi } from '@/api/auth';
+import { AlertCircle } from 'lucide-react';
+import { Button } from '@/components/Button';
 
 const TOTAL_STEPS = 5;
 
@@ -42,9 +45,31 @@ export default function Signup() {
     relationshipStyle: null,
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
   const handleNext = () => setCurrentStep((prev) => prev + 1);
   const handleBack = () => setCurrentStep((prev) => Math.max(1, prev - 1));
   const handleGoToHome = () => router.push('/main');
+
+  const handleLifestyleNext = async () => {
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      const result = await authApi.signup({
+        email,
+        password: basicInfo.password,
+        nickname: basicInfo.nickname,
+      });
+      if (result.success) {
+        setCurrentStep(TOTAL_STEPS);
+      } else {
+        setSubmitError(result.error ?? '회원가입에 실패했습니다. 다시 시도해주세요.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -84,14 +109,32 @@ export default function Signup() {
           />
         )}
         {currentStep === 4 && (
-          <StepLifestyleProfile
-            lifestyle={lifestyle}
-            onLifestyleChange={setLifestyle}
-            intro={intro}
-            onIntroChange={setIntro}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
+          <>
+            {submitError && (
+              <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm text-red-900 font-medium mb-3">{submitError}</p>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={handleLifestyleNext}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? '처리 중...' : '다시 시도'}
+                  </Button>
+                </div>
+              </div>
+            )}
+            <StepLifestyleProfile
+              lifestyle={lifestyle}
+              onLifestyleChange={setLifestyle}
+              intro={intro}
+              onIntroChange={setIntro}
+              onNext={isSubmitting ? () => {} : handleLifestyleNext}
+              onBack={handleBack}
+            />
+          </>
         )}
         {currentStep === 5 && (
           <StepComplete nickname={basicInfo.nickname} onGoToHome={handleGoToHome} />
