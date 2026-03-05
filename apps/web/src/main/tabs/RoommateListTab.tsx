@@ -92,6 +92,9 @@ export default function RoommateListTab({
   const filteredProfiles = useMemo(() => {
     let list = profiles;
 
+    // Gender filter (같은 성별만 — 공용 건물 포함)
+    list = list.filter((p) => p.gender === user.gender);
+
     // Blocked user filter
     if (blockedUserIds && blockedUserIds.size > 0) {
       list = list.filter((p) => !blockedUserIds.has(p.id));
@@ -127,7 +130,16 @@ export default function RoommateListTab({
     }
 
     return list;
-  }, [profiles, effectiveDormId, filters, sortMode, blockedUserIds, viewMode, bookmarkedUserIds]);
+  }, [
+    profiles,
+    user.gender,
+    effectiveDormId,
+    filters,
+    sortMode,
+    blockedUserIds,
+    viewMode,
+    bookmarkedUserIds,
+  ]);
 
   const dormName = effectiveDormId ? getDormitoryById(effectiveDormId)?.name : null;
 
