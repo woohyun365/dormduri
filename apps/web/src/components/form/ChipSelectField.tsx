@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { Chip } from '@/components/Chip';
 import { FieldError } from '@/components/form/FieldError';
 
@@ -22,6 +23,9 @@ export function ChipSelectField({
   required = false,
   allowDeselect = false,
 }: ChipSelectFieldProps) {
+  const id = useId();
+  const errorId = `${id}-error`;
+
   const handleClick = (optionValue: string) => {
     if (allowDeselect && value === optionValue) {
       onChange(null);
@@ -36,7 +40,13 @@ export function ChipSelectField({
         {label}
         {required && <span className="text-red-500"> *</span>}
       </label>
-      <div className="flex flex-wrap gap-2">
+      <div
+        className="flex flex-wrap gap-2"
+        role="group"
+        aria-label={label}
+        aria-invalid={!!error}
+        aria-describedby={error ? errorId : undefined}
+      >
         {Object.entries(options).map(([optValue, optLabel]) => (
           <Chip
             key={optValue}
@@ -46,7 +56,7 @@ export function ChipSelectField({
           />
         ))}
       </div>
-      <FieldError message={error} />
+      <FieldError message={error} id={errorId} />
     </div>
   );
 }
