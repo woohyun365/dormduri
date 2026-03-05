@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Flag, Ban } from 'lucide-react';
 import { Z_INDEX } from '@/constants/ui';
 
@@ -9,36 +9,63 @@ interface ProfileMoreMenuProps {
   onClose: () => void;
   onReport: () => void;
   onBlock: () => void;
+  triggerRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
-export function ProfileMoreMenu({ isOpen, onClose, onReport, onBlock }: ProfileMoreMenuProps) {
+export function ProfileMoreMenu({
+  isOpen,
+  onClose,
+  onReport,
+  onBlock,
+  triggerRef,
+}: ProfileMoreMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!isOpen) return;
 
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
+        onCloseRef.current();
+      }
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        onCloseRef.current();
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onClose]);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+      const restoreTarget = triggerRef?.current ?? previousFocusRef.current;
+      restoreTarget?.focus();
+    };
+  }, [isOpen, triggerRef]);
 
   if (!isOpen) return null;
 
   return (
     <div
       ref={menuRef}
-      role="menu"
       aria-label="프로필 메뉴"
       className="absolute right-14 top-3 bg-white rounded-xl shadow-lg border border-[var(--knu-border)] overflow-hidden"
       style={{ zIndex: Z_INDEX.bottomSheet + 1 }}
     >
       <button
-        role="menuitem"
+        type="button"
         onClick={() => {
           onBlock();
           onClose();
@@ -49,7 +76,7 @@ export function ProfileMoreMenu({ isOpen, onClose, onReport, onBlock }: ProfileM
         차단하기
       </button>
       <button
-        role="menuitem"
+        type="button"
         onClick={() => {
           onReport();
           onClose();

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Building2, Check, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { getAvailableDormitories, UNASSIGNED_ID } from '@/constants/dormitory';
 
 interface BuildingSelectModalProps {
@@ -13,6 +15,9 @@ interface BuildingSelectModalProps {
 }
 
 export function BuildingSelectModal({ gender, onSelect, onClose }: BuildingSelectModalProps) {
+  useBodyScrollLock(true);
+  const containerRef = useFocusTrap(true, onClose ?? (() => {}));
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const dormitories = getAvailableDormitories(gender);
 
@@ -23,13 +28,21 @@ export function BuildingSelectModal({ gender, onSelect, onClose }: BuildingSelec
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col">
+    <div
+      className="fixed inset-0 z-[60] bg-white flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label="배정 건물 선택"
+      ref={containerRef}
+      tabIndex={-1}
+    >
       {onClose && (
         <div className="flex justify-end px-5 pt-4">
           <button
             type="button"
             onClick={onClose}
             className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-gray-100 transition-colors"
+            aria-label="닫기"
           >
             <X className="w-5 h-5 text-[var(--knu-text-secondary)]" />
           </button>

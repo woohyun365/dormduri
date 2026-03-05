@@ -4,6 +4,9 @@ import { useMemo } from 'react';
 import { Building2, Users, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { Z_INDEX } from '@/constants/ui';
 import { LIFESTYLE_LABELS } from '@/constants/lifestyle';
 import type { LifestyleData } from '@/types/lifestyle';
 
@@ -49,6 +52,9 @@ export function BuildingStatusSheet({
   onClose,
   onNavigateList,
 }: BuildingStatusSheetProps) {
+  useBodyScrollLock(true);
+  const containerRef = useFocusTrap(true, onClose);
+
   const stats = useMemo(() => {
     const nonSmoker = getTopValue(profiles, 'smoker', ['NO'], LIFESTYLE_LABELS.smoker);
     const earlyBedtime = getTopValue(
@@ -67,7 +73,15 @@ export function BuildingStatusSheet({
   }, [profiles]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end">
+    <div
+      className="fixed inset-0 flex items-end"
+      style={{ zIndex: Z_INDEX.bottomSheet }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${dormitoryName} 활동 현황`}
+      ref={containerRef}
+      tabIndex={-1}
+    >
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div className="relative w-full bg-white rounded-t-3xl overflow-hidden">

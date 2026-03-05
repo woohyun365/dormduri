@@ -4,6 +4,9 @@ import { useState, useRef, useCallback } from 'react';
 import { Building2, AlertTriangle, Phone, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { Z_INDEX } from '@/constants/ui';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
 import {
   DORMITORY_GUIDE,
@@ -18,6 +21,9 @@ interface DormitoryGuideSheetProps {
 }
 
 export function DormitoryGuideSheet({ dormitoryId, onClose }: DormitoryGuideSheetProps) {
+  useBodyScrollLock(true);
+  const containerRef = useFocusTrap(true, onClose);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -44,7 +50,15 @@ export function DormitoryGuideSheet({ dormitoryId, onClose }: DormitoryGuideShee
   const isLastCard = currentIndex === totalCards - 1;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end">
+    <div
+      className="fixed inset-0 flex items-end"
+      style={{ zIndex: Z_INDEX.bottomSheet }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${dormitory ? dormitory.name : '기숙사'} 안내`}
+      ref={containerRef}
+      tabIndex={-1}
+    >
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div className="relative w-full bg-white rounded-t-3xl overflow-hidden">
