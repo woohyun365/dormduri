@@ -28,6 +28,7 @@ export function InputField({
   maxLength,
 }: InputFieldProps) {
   const id = useId();
+  const errorId = `${id}-error`;
   const [showPassword, setShowPassword] = useState(false);
   const inputType = type === 'password' && showPassword ? 'text' : type;
 
@@ -48,6 +49,8 @@ export function InputField({
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           maxLength={maxLength}
+          aria-invalid={!!error}
+          aria-describedby={error ? errorId : undefined}
           className={`w-full h-12 px-4 rounded-xl border-2 transition-all ${
             error
               ? 'border-red-300 bg-red-50 focus:border-red-500'
@@ -69,7 +72,7 @@ export function InputField({
           </button>
         )}
       </div>
-      <FieldError message={error} />
+      <FieldError message={error} id={errorId} />
       {helper && !error && <p className="text-sm text-[var(--knu-text-tertiary)] mt-2">{helper}</p>}
     </div>
   );

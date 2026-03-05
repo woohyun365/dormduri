@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Bookmark, BookmarkCheck, ChevronRight, MessageCircle, MoreHorizontal } from 'lucide-react';
 import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
 import {
@@ -60,6 +60,7 @@ export function ProfileDetailSheet({
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   if (!profile) return null;
 
@@ -105,10 +106,11 @@ export function ProfileDetailSheet({
               )}
               {showActions && (
                 <button
+                  ref={moreButtonRef}
                   onClick={() => setShowMoreMenu((prev) => !prev)}
                   className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
                   aria-label="더보기"
-                  aria-haspopup="menu"
+                  aria-haspopup="true"
                   aria-expanded={showMoreMenu}
                 >
                   <MoreHorizontal className="w-5 h-5 text-[var(--knu-text-secondary)]" />
@@ -280,6 +282,7 @@ export function ProfileDetailSheet({
           onClose={() => setShowMoreMenu(false)}
           onBlock={() => setShowBlockConfirm(true)}
           onReport={() => setShowReportSheet(true)}
+          triggerRef={moreButtonRef}
         />
       </BaseBottomSheet>
 

@@ -22,7 +22,7 @@ export function BottomTabBar({ activeTab, onTabChange, badges }: BottomTabBarPro
       aria-label="메인 네비게이션"
       className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t-2 border-[var(--knu-border)]"
     >
-      <div className="max-w-md mx-auto flex" role="tablist">
+      <div className="max-w-md mx-auto flex">
         {tabs.map(({ id, label, icon: Icon }) => {
           const isActive = activeTab === id;
           const badge = badges?.[id];
@@ -30,8 +30,7 @@ export function BottomTabBar({ activeTab, onTabChange, badges }: BottomTabBarPro
             <button
               key={id}
               type="button"
-              role="tab"
-              aria-selected={isActive}
+              aria-current={isActive ? 'page' : undefined}
               onClick={() => onTabChange(id)}
               className={`flex-1 flex flex-col items-center gap-1 py-3 transition-colors relative ${
                 isActive ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'
