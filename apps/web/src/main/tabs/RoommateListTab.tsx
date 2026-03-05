@@ -40,6 +40,8 @@ interface RoommateListTabProps {
   onSendRequest?: (targetUserId: string, message?: string | null) => void;
   bookmarkedUserIds?: Set<string>;
   onToggleBookmark?: (userId: string) => void;
+  showProfileBanner?: boolean;
+  onDismissProfileBanner?: () => void;
 }
 
 export default function RoommateListTab({
@@ -60,6 +62,8 @@ export default function RoommateListTab({
   onSendRequest,
   bookmarkedUserIds,
   onToggleBookmark,
+  showProfileBanner = true,
+  onDismissProfileBanner,
 }: RoommateListTabProps) {
   const isUnassigned = !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
 
@@ -67,7 +71,6 @@ export default function RoommateListTab({
   const [selectedProfile, setSelectedProfile] = useState<RoommateProfile | null>(null);
   const [displayCount, setDisplayCount] = useState(20);
   const [confirmTarget, setConfirmTarget] = useState<RoommateProfile | null>(null);
-  const [showProfileBanner, setShowProfileBanner] = useState(true);
 
   // Profile completion
   const { percent: completionPercent, isComplete: profileComplete } = getProfileCompletion(user);
@@ -303,7 +306,7 @@ export default function RoommateListTab({
         <div className="max-w-md mx-auto px-5 pt-5">
           <div className="relative bg-[var(--knu-primary-light)] border-2 border-[var(--knu-primary)]/20 rounded-2xl p-4">
             <button
-              onClick={() => setShowProfileBanner(false)}
+              onClick={() => onDismissProfileBanner?.()}
               className="absolute top-3 right-3 p-1 text-[var(--knu-primary)] hover:bg-white/50 rounded-lg transition-colors"
               aria-label="배너 닫기"
             >
