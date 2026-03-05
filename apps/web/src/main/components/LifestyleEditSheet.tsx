@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Chip } from '@/components/Chip';
 import { Button } from '@/components/Button';
 import { BaseBottomSheet } from '@/components/BaseBottomSheet';
@@ -34,12 +34,14 @@ export function LifestyleEditSheet({
   onSave,
 }: LifestyleEditSheetProps) {
   const [draft, setDraft] = useState<LifestyleData>(lifestyle);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
 
-  useEffect(() => {
+  if (prevIsOpen !== isOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) {
       setDraft(lifestyle);
     }
-  }, [isOpen, lifestyle]);
+  }
 
   const handleToggle = (field: FieldKey, value: string) => {
     setDraft((prev) => ({
