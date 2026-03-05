@@ -39,6 +39,7 @@ export const authApi = {
       const user = db.findUser(email, password);
       if (user) {
         document.cookie = 'auth-token=mock-dev-token; path=/';
+        db.setCurrentUser(user);
         return { success: true, token: 'mock-dev-token' };
       }
       return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
@@ -72,7 +73,7 @@ export const authApi = {
       if (db.findByEmail(data.email)) {
         return { success: false, error: '이미 가입된 이메일입니다.' };
       }
-      db.createUser(data);
+      db.createUser({ ...data, dormitoryId: null });
       return { success: true };
     }
     // TODO: POST /api/auth/signup
