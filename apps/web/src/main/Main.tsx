@@ -8,6 +8,7 @@ import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
 import { MatchCelebrationModal } from './components/MatchCelebrationModal';
 import HomeTab from './tabs/HomeTab';
 import RoommateListTab from './tabs/RoommateListTab';
+import type { SortMode, ViewMode } from './tabs/RoommateListTab';
 import ProfileTab from './tabs/ProfileTab';
 import SettingsTab from './tabs/SettingsTab';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
@@ -18,6 +19,7 @@ import { isRequestExpired } from '@/utils/matchRequest';
 import { calcMatchScore } from '@/utils/matchScore';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
 import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
+import { DEFAULT_FILTERS } from './components/BottomSheet';
 import type { TabId, UserProfile } from '@/types/profile';
 import type { BlockedUser, ReportReason } from '@/types/report';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
@@ -269,6 +271,11 @@ export default function Main() {
     [matchRequests],
   );
 
+  // --- RoommateListTab lifted state (preserved across tab switches) ---
+  const [listSortMode, setListSortMode] = useState<SortMode>('match');
+  const [listFilters, setListFilters] = useState(DEFAULT_FILTERS);
+  const [listViewMode, setListViewMode] = useState<ViewMode>('all');
+
   // 탭 전환 시 스크롤 최상단으로 이동
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -286,9 +293,9 @@ export default function Main() {
       {user.dormitoryId === null && (
         <BuildingSelectModal gender={user.gender} onSelect={handleSelectDormitory} />
       )}
-      {/* CSS hidden-based tab switching for state preservation */}
+      {/* Conditional tab rendering */}
       <main>
-        <div className={activeTab !== 'home' ? 'hidden' : undefined}>
+        {activeTab === 'home' && (
           <HomeTab
             user={user}
             onNavigate={setActiveTab}
@@ -301,11 +308,18 @@ export default function Main() {
             onEndMatch={handleEndMatch}
             profiles={mockRawProfiles}
           />
-        </div>
-        <div className={activeTab !== 'list' ? 'hidden' : undefined}>
+        )}
+        {activeTab === 'list' && (
           <RoommateListTab
             user={user}
             onNavigate={setActiveTab}
+            profiles={mockRawProfiles}
+            sortMode={listSortMode}
+            onSortModeChange={setListSortMode}
+            filters={listFilters}
+            onFiltersChange={setListFilters}
+            viewMode={listViewMode}
+            onViewModeChange={setListViewMode}
             blockedUserIds={blockedUserIds}
             onBlock={handleBlockUser}
             onReport={handleReportUser}
@@ -315,8 +329,8 @@ export default function Main() {
             bookmarkedUserIds={bookmarkedUserIds}
             onToggleBookmark={handleToggleBookmark}
           />
-        </div>
-        <div className={activeTab !== 'profile' ? 'hidden' : undefined}>
+        )}
+        {activeTab === 'profile' && (
           <ProfileTab
             user={user}
             onDormitoryChange={handleSelectDormitory}
@@ -325,14 +339,14 @@ export default function Main() {
             onLifestyleChange={handleLifestyleChange}
             onAdditionalChange={handleAdditionalChange}
           />
-        </div>
-        <div className={activeTab !== 'settings' ? 'hidden' : undefined}>
+        )}
+        {activeTab === 'settings' && (
           <SettingsTab
             onShowGuide={handleShowGuide}
             blockedUsers={blockedUsers}
             onUnblock={handleUnblockUser}
           />
-        </div>
+        )}
       </main>
 
       <BottomTabBar

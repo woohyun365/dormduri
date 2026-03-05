@@ -13,16 +13,25 @@ import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
 import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { calcMatchScore } from '@/utils/matchScore';
 import { getMatchButtonState } from '@/utils/matchRequest';
-import { mockRawProfiles } from '@/__fixtures__/profiles';
 import type { RoommateProfile } from '@/types/profile';
 import type { FilterState } from '@/types/filter';
 import type { TabId, UserProfile } from '@/types/profile';
 import type { ReportReason } from '@/types/report';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 
+export type SortMode = 'match' | 'recent';
+export type ViewMode = 'all' | 'bookmarked';
+
 interface RoommateListTabProps {
   user: UserProfile;
   onNavigate: (tab: TabId) => void;
+  profiles: Omit<RoommateProfile, 'matchScore'>[];
+  sortMode: SortMode;
+  onSortModeChange: (sortMode: SortMode) => void;
+  filters: FilterState;
+  onFiltersChange: (filters: FilterState) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (viewMode: ViewMode) => void;
   blockedUserIds?: Set<string>;
   onBlock?: (userId: string, nickname: string) => void;
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
@@ -33,12 +42,16 @@ interface RoommateListTabProps {
   onToggleBookmark?: (userId: string) => void;
 }
 
-type SortMode = 'match' | 'recent';
-type ViewMode = 'all' | 'bookmarked';
-
 export default function RoommateListTab({
   user,
   onNavigate,
+  profiles: rawProfiles,
+  sortMode,
+  onSortModeChange,
+  filters,
+  onFiltersChange,
+  viewMode,
+  onViewModeChange,
   blockedUserIds,
   onBlock,
   onReport,
@@ -50,10 +63,7 @@ export default function RoommateListTab({
 }: RoommateListTabProps) {
   const isUnassigned = !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
 
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [sortMode, setSortMode] = useState<SortMode>('match');
   const [selectedProfile, setSelectedProfile] = useState<RoommateProfile | null>(null);
   const [displayCount, setDisplayCount] = useState(20);
   const [confirmTarget, setConfirmTarget] = useState<RoommateProfile | null>(null);
@@ -65,11 +75,11 @@ export default function RoommateListTab({
   // Build profiles with calculated match scores
   const profiles = useMemo<RoommateProfile[]>(
     () =>
-      mockRawProfiles.map((p) => ({
+      rawProfiles.map((p) => ({
         ...p,
         matchScore: calcMatchScore(user.lifestyle, p.lifestyle),
       })),
-    [user.lifestyle],
+    [rawProfiles, user.lifestyle],
   );
 
   // Dormitory filter: assigned → own building only, unassigned → all
@@ -129,7 +139,7 @@ export default function RoommateListTab({
   };
 
   const removeFilter = (field: keyof FilterState) => {
-    setFilters((prev) => ({ ...prev, [field]: null }));
+    onFiltersChange({ ...filters, [field]: null });
   };
 
   const headerTitle = isUnassigned ? '룸메이트 찾기' : `${dormName ?? ''} 룸메이트`;
@@ -176,7 +186,7 @@ export default function RoommateListTab({
             <button
               role="tab"
               aria-selected={viewMode === 'all'}
-              onClick={() => setViewMode('all')}
+              onClick={() => onViewModeChange('all')}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 viewMode === 'all'
                   ? 'bg-[var(--knu-primary)] text-white'
@@ -188,7 +198,7 @@ export default function RoommateListTab({
             <button
               role="tab"
               aria-selected={viewMode === 'bookmarked'}
-              onClick={() => setViewMode('bookmarked')}
+              onClick={() => onViewModeChange('bookmarked')}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 viewMode === 'bookmarked'
                   ? 'bg-[var(--knu-primary)] text-white'
@@ -219,7 +229,7 @@ export default function RoommateListTab({
 
           {/* Sort toggle */}
           <button
-            onClick={() => setSortMode('match')}
+            onClick={() => onSortModeChange('match')}
             className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
               sortMode === 'match'
                 ? 'bg-[var(--knu-primary)] text-white'
@@ -229,7 +239,7 @@ export default function RoommateListTab({
             매칭도순
           </button>
           <button
-            onClick={() => setSortMode('recent')}
+            onClick={() => onSortModeChange('recent')}
             className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
               sortMode === 'recent'
                 ? 'bg-[var(--knu-primary)] text-white'
@@ -256,7 +266,7 @@ export default function RoommateListTab({
             ))}
             <button
               type="button"
-              onClick={() => setFilters(DEFAULT_FILTERS)}
+              onClick={() => onFiltersChange(DEFAULT_FILTERS)}
               className="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-[var(--knu-text-tertiary)] hover:text-red-500 transition-colors"
             >
               전체 해제
@@ -390,9 +400,9 @@ export default function RoommateListTab({
         isOpen={showFilters}
         onClose={() => setShowFilters(false)}
         filters={filters}
-        onFilterChange={setFilters}
+        onFilterChange={onFiltersChange}
         onApply={() => setShowFilters(false)}
-        onReset={() => setFilters(DEFAULT_FILTERS)}
+        onReset={() => onFiltersChange(DEFAULT_FILTERS)}
       />
 
       {/* Profile Detail Sheet */}

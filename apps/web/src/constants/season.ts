@@ -6,13 +6,12 @@ export interface Season {
   roomSelectionEnd: string;
 }
 
-/** 현재 날짜 기준 시즌 활성 여부 계산 */
+/** 현재 날짜 기준 시즌 활성 여부 계산 (Asia/Seoul 시간대 고정) */
 export function isSeasonActive(season: Season): boolean {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(season.matchingStart + 'T00:00:00');
-  const end = new Date(season.matchingEnd + 'T23:59:59');
-  return today >= start && today <= end;
+  const now = Date.now();
+  const start = new Date(season.matchingStart + 'T00:00:00+09:00').getTime();
+  const end = new Date(season.matchingEnd + 'T23:59:59+09:00').getTime();
+  return now >= start && now <= end;
 }
 
 // Mock data (추후 API 연동)
