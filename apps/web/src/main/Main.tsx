@@ -275,6 +275,7 @@ export default function Main() {
   const [listSortMode, setListSortMode] = useState<SortMode>('match');
   const [listFilters, setListFilters] = useState(DEFAULT_FILTERS);
   const [listViewMode, setListViewMode] = useState<ViewMode>('all');
+  const [listShowProfileBanner, setListShowProfileBanner] = useState(true);
 
   // 탭 전환 시 스크롤 최상단으로 이동
   useEffect(() => {
@@ -328,6 +329,8 @@ export default function Main() {
             onSendRequest={handleSendRequest}
             bookmarkedUserIds={bookmarkedUserIds}
             onToggleBookmark={handleToggleBookmark}
+            showProfileBanner={listShowProfileBanner}
+            onDismissProfileBanner={() => setListShowProfileBanner(false)}
           />
         )}
         {activeTab === 'profile' && (
