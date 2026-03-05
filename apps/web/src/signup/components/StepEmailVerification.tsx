@@ -58,11 +58,13 @@ export function StepEmailVerification({
     setEmailError('');
     setIsSending(true);
 
-    sendTimerRef.current = setTimeout(() => {
-      setIsSending(false);
-      setIsCodeSent(true);
-      startCountdown();
-    }, 1000);
+    authApi.sendVerificationCode(email).finally(() => {
+      sendTimerRef.current = setTimeout(() => {
+        setIsSending(false);
+        setIsCodeSent(true);
+        startCountdown();
+      }, 1000);
+    });
   };
 
   const handleVerifyCode = async () => {

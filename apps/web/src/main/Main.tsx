@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { getProfileCompletion } from '@/utils/profileCompletion';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
@@ -26,34 +27,12 @@ import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export type { TabId, UserProfile } from '@/types/profile';
 
-export default function Main() {
+function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const [activeTab, setActiveTab] = useState<TabId>('home');
   const [toast, setToast] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [hasSeenGuide, setHasSeenGuide] = useState(false);
-  const [user, setUser] = useState<UserProfile>({
-    nickname: '곰두리',
-    gender: 'M',
-    dormitoryId: null,
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'NONE',
-      indoorEating: 'OK',
-      bedtime: '22_24',
-      wakeTime: '06_08',
-      noiseSensitivity: 'MID',
-      cleanliness: 'HIGH',
-      relationshipStyle: 'CLOSE',
-    },
-    intro: '조용하고 규칙적인 생활을 선호합니다. 서로 존중하며 지낼 룸메이트를 찾습니다.',
-    messageToRoommate: null,
-    additional: {
-      college: null,
-      grade: null,
-      mbti: null,
-      temperatureSensitivity: null,
-    },
-  });
+  const [user, setUser] = useState<UserProfile>(initialUser);
 
   const handleSelectDormitory = useCallback(
     (dormitoryId: string) => {
@@ -382,5 +361,23 @@ export default function Main() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Main() {
+  const { user, isLoading } = useCurrentUser();
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen bg-[var(--knu-background-alt)] flex items-center justify-center">
+        <p className="text-[var(--knu-text-tertiary)]">로딩 중...</p>
+      </div>
+    );
+  }
+
+  return (
+    <Suspense fallback={null}>
+      <MainContent initialUser={user} />
+    </Suspense>
   );
 }
