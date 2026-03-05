@@ -60,12 +60,17 @@ export default function Signup() {
         email,
         password: basicInfo.password,
         nickname: basicInfo.nickname,
+        gender: basicInfo.gender!,
+        lifestyle,
+        intro,
       });
       if (result.success) {
         setCurrentStep(TOTAL_STEPS);
       } else {
         setSubmitError(result.error ?? '회원가입에 실패했습니다. 다시 시도해주세요.');
       }
+    } catch {
+      setSubmitError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsSubmitting(false);
     }
@@ -131,8 +136,9 @@ export default function Signup() {
               onLifestyleChange={setLifestyle}
               intro={intro}
               onIntroChange={setIntro}
-              onNext={isSubmitting ? () => {} : handleLifestyleNext}
+              onNext={handleLifestyleNext}
               onBack={handleBack}
+              disabled={isSubmitting}
             />
           </>
         )}

@@ -19,6 +19,7 @@ interface StepLifestyleProfileProps {
   onIntroChange: (intro: string) => void;
   onNext: () => void;
   onBack: () => void;
+  disabled?: boolean;
 }
 
 type FieldKey = keyof LifestyleData;
@@ -52,6 +53,7 @@ export function StepLifestyleProfile({
   onIntroChange,
   onNext,
   onBack,
+  disabled,
 }: StepLifestyleProfileProps) {
   const [errors, setErrors] = useState<Partial<Record<FieldKey | 'intro', string>>>({});
   const fieldRefs = useRef<Partial<Record<FieldKey | 'intro', HTMLDivElement | null>>>({});
@@ -164,7 +166,12 @@ export function StepLifestyleProfile({
         </p>
       </div>
 
-      <StepNavigation onBack={onBack} onNext={handleNext} nextLabel="완료" />
+      <StepNavigation
+        onBack={onBack}
+        onNext={handleNext}
+        nextLabel={disabled ? '처리 중...' : '완료'}
+        disabled={disabled}
+      />
     </div>
   );
 }

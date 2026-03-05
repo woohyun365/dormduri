@@ -80,6 +80,8 @@ export function StepEmailVerification({
       } else {
         setCodeError(result.error ?? '인증 코드가 올바르지 않습니다.');
       }
+    } catch {
+      setCodeError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsVerifying(false);
     }

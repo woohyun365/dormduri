@@ -1,5 +1,7 @@
 // TODO: BE API 연동 시 실제 endpoint로 교체
 
+import type { LifestyleData } from '@/types/lifestyle';
+
 interface LoginResponse {
   success: boolean;
   token?: string;
@@ -37,6 +39,9 @@ export const authApi = {
     email: string;
     password: string;
     nickname: string;
+    gender: 'M' | 'F';
+    lifestyle: LifestyleData;
+    intro: string;
   }): Promise<SignupResponse> => {
     // TODO: POST /api/auth/signup
     return { success: false, error: '서버 연동 준비 중입니다.' };
