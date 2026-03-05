@@ -8,7 +8,7 @@ import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
 import { MatchCelebrationModal } from './components/MatchCelebrationModal';
-import HomeTab from './tabs/HomeTab';
+import HomeTab, { type BuildingStats } from './tabs/HomeTab';
 import RoommateListTab from './tabs/RoommateListTab';
 import type { SortMode, ViewMode } from './tabs/RoommateListTab';
 import ProfileTab from './tabs/ProfileTab';
@@ -257,6 +257,25 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const [listViewMode, setListViewMode] = useState<ViewMode>('all');
   const [listShowProfileBanner, setListShowProfileBanner] = useState(true);
 
+  // --- Building stats (mockDb 기반) ---
+  const buildingStats = useMemo<BuildingStats | undefined>(() => {
+    if (!user.dormitoryId || user.dormitoryId === UNASSIGNED_ID) return undefined;
+    const sameBuilding = mockRawProfiles.filter((p) => p.dormitoryId === user.dormitoryId);
+    const nonSmokers = sameBuilding.filter((p) => p.lifestyle.smoker === 'NO').length;
+    const earlyBed = sameBuilding.filter(
+      (p) => p.lifestyle.bedtime === 'BEFORE_22' || p.lifestyle.bedtime === '22_24',
+    ).length;
+    const conditions: string[] = [];
+    if (nonSmokers > sameBuilding.length / 2) conditions.push('비흡연');
+    if (earlyBed > sameBuilding.length / 2) conditions.push('24시 이전 취침');
+    return {
+      activeUsers: sameBuilding.length,
+      matchableUsers: sameBuilding.filter((p) => p.gender === user.gender).length,
+      todayNewUsers: 0,
+      popularCondition: conditions.length > 0 ? conditions.join(' + ') : '-',
+    };
+  }, [user.dormitoryId, user.gender]);
+
   // 탭 전환 시 스크롤 최상단으로 이동
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -288,6 +307,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
             onRejectRequest={handleRejectRequest}
             onEndMatch={handleEndMatch}
             profiles={mockRawProfiles}
+            buildingStats={buildingStats}
           />
         )}
         {activeTab === 'list' && (

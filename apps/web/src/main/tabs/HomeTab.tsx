@@ -29,6 +29,13 @@ import { calcMatchScore } from '@/utils/matchScore';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 
+export interface BuildingStats {
+  activeUsers: number;
+  matchableUsers: number;
+  todayNewUsers: number;
+  popularCondition: string;
+}
+
 interface HomeTabProps {
   user: UserProfile;
   onNavigate: (tab: TabId) => void;
@@ -40,6 +47,7 @@ interface HomeTabProps {
   onRejectRequest?: (requestId: string) => void;
   onEndMatch?: () => void;
   profiles: Omit<RoommateProfile, 'matchScore'>[];
+  buildingStats?: BuildingStats;
 }
 
 function formatDateRange(startStr: string, endStr: string): string {
@@ -82,6 +90,7 @@ export default function HomeTab({
   onRejectRequest,
   onEndMatch,
   profiles,
+  buildingStats,
 }: HomeTabProps) {
   const isUnassigned = user.dormitoryId === UNASSIGNED_ID;
   const dormitory = user.dormitoryId && !isUnassigned ? getDormitoryById(user.dormitoryId) : null;
@@ -123,11 +132,11 @@ export default function HomeTab({
     isComplete: hasAllOptional,
   } = getProfileCompletion(user);
 
-  // Mock building stats (추후 API 연동)
-  const buildingActiveUsers = 47;
-  const seasonPopularCondition = '비흡연 + 24시 이전 취침';
-  const todayNewUsers = 3;
-  const buildingMatchableUsers = 35;
+  // Building stats (mockDb 또는 API 기반)
+  const buildingActiveUsers = buildingStats?.activeUsers ?? 0;
+  const seasonPopularCondition = buildingStats?.popularCondition ?? '-';
+  const todayNewUsers = buildingStats?.todayNewUsers ?? 0;
+  const buildingMatchableUsers = buildingStats?.matchableUsers ?? 0;
 
   // Building status sheet
   const [showBuildingStatus, setShowBuildingStatus] = useState(false);
