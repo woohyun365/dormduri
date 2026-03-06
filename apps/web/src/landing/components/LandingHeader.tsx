@@ -37,7 +37,7 @@ export function LandingHeader() {
     },
     {
       href: '/signup',
-      label: '시작하기',
+      label: '회원가입',
       variant: 'primary' as const,
     },
   ];

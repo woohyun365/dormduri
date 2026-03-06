@@ -205,8 +205,8 @@ export default function RoommateListTab({
               onClick={() => onViewModeChange('all')}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 viewMode === 'all'
-                  ? 'bg-[var(--knu-primary)] text-white'
-                  : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)]'
+                  ? 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+                  : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
               }`}
             >
               전체
@@ -217,8 +217,8 @@ export default function RoommateListTab({
               onClick={() => onViewModeChange('bookmarked')}
               className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all ${
                 viewMode === 'bookmarked'
-                  ? 'bg-[var(--knu-primary)] text-white'
-                  : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)]'
+                  ? 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+                  : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
               }`}
             >
               관심목록
@@ -233,8 +233,8 @@ export default function RoommateListTab({
             onClick={() => setShowFilters(true)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border-2 transition-all flex-shrink-0 ${
               activeFilterCount > 0
-                ? 'bg-[var(--knu-primary)] text-white border-[var(--knu-primary)]'
-                : 'bg-white text-[var(--knu-text-secondary)] border-[var(--knu-border)]'
+                ? 'bg-[var(--knu-primary)] text-white border-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)]'
+                : 'bg-white text-[var(--knu-text-secondary)] border-[var(--knu-border)] hover:border-[var(--knu-primary)] hover:bg-[var(--knu-primary-light)]'
             }`}
           >
             <Filter className="w-4 h-4" />
@@ -248,8 +248,8 @@ export default function RoommateListTab({
             onClick={() => onSortModeChange('match')}
             className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
               sortMode === 'match'
-                ? 'bg-[var(--knu-primary)] text-white'
-                : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)]'
+                ? 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+                : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
             }`}
           >
             매칭도순
@@ -258,8 +258,8 @@ export default function RoommateListTab({
             onClick={() => onSortModeChange('recent')}
             className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
               sortMode === 'recent'
-                ? 'bg-[var(--knu-primary)] text-white'
-                : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)]'
+                ? 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
+                : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
             }`}
           >
             최근 가입순
