@@ -189,12 +189,12 @@ export default function SettingsTab({
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm text-[var(--knu-text-tertiary)]">최근 업데이트</span>
               <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                2026.02.21
+                2026.03.06
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--knu-text-tertiary)]">개발자</span>
-              <span className="text-sm font-semibold text-[var(--knu-text-primary)]">KNU Team</span>
+              <span className="text-sm font-semibold text-[var(--knu-text-primary)]">이우현</span>
             </div>
           </div>
         </section>

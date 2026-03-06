@@ -251,26 +251,35 @@ export default function HomeTab({
       {/* Header */}
       <div className="bg-[var(--knu-primary)] text-white px-5 py-6">
         <div className="max-w-md mx-auto">
-          <p className="text-sm opacity-90 mb-1">안녕하세요,</p>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">{user.nickname}님</h1>
-            <span className="px-2 py-0.5 bg-white/20 text-white text-xs font-semibold rounded-full">
-              {user.gender === 'M' ? '남' : '여'}
-            </span>
+          <p className="text-xl font-bold mb-4">안녕하세요,</p>
+          <div className="flex items-center gap-4">
+            <div
+              className={`w-14 h-14 ${getAvatarColor(user.nickname).bg} rounded-2xl flex items-center justify-center text-2xl font-bold ${getAvatarColor(user.nickname).text}`}
+            >
+              {user.nickname.charAt(0)}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold">{user.nickname}님</h1>
+                <span className="px-2 py-0.5 bg-white/20 text-white text-xs font-semibold rounded-full">
+                  {user.gender === 'M' ? '남' : '여'}
+                </span>
+              </div>
+              {dormitory ? (
+                <div className="mt-1 flex items-center gap-2 text-sm opacity-90">
+                  <Building2 className="w-4 h-4" />
+                  <span>
+                    {dormitory.name} · {dormitory.roomType}인실
+                  </span>
+                </div>
+              ) : isUnassigned ? (
+                <div className="mt-1 flex items-center gap-2 text-sm opacity-75">
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>건물 미배정</span>
+                </div>
+              ) : null}
+            </div>
           </div>
-          {dormitory ? (
-            <div className="mt-2 flex items-center gap-2 text-sm opacity-90">
-              <Building2 className="w-4 h-4" />
-              <span>
-                {dormitory.name} · {dormitory.roomType}인실
-              </span>
-            </div>
-          ) : isUnassigned ? (
-            <div className="mt-2 flex items-center gap-2 text-sm opacity-75">
-              <AlertTriangle className="w-4 h-4" />
-              <span>건물 미배정</span>
-            </div>
-          ) : null}
         </div>
       </div>
 
