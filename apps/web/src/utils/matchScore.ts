@@ -1,11 +1,9 @@
 import type { LifestyleData } from '@/types/lifestyle';
+import { BEDTIME_ORDER, WAKE_ORDER, NOISE_ORDER, CLEAN_ORDER } from '@/constants/lifestyle';
+
+export { BEDTIME_ORDER, WAKE_ORDER, NOISE_ORDER, CLEAN_ORDER };
 
 const POINTS_PER_FIELD = 12.5;
-
-export const BEDTIME_ORDER = ['BEFORE_22', '22_24', '24_02', 'AFTER_02'] as const;
-export const WAKE_ORDER = ['BEFORE_06', '06_08', '08_10', 'AFTER_10'] as const;
-export const NOISE_ORDER = ['LOW', 'MID', 'HIGH'] as const;
-export const CLEAN_ORDER = ['LOW', 'MID', 'HIGH'] as const;
 
 export function indexDistance(order: readonly string[], a: string, b: string): number {
   const ia = order.indexOf(a);

@@ -1,3 +1,12 @@
+import type { AdditionalProfile } from '@/types/additional-profile';
+
+export type {
+  College,
+  Grade,
+  TempSensitivity,
+  AdditionalProfile,
+} from '@/types/additional-profile';
+
 export const COLLEGES = [
   'IT대',
   '간호대',
@@ -34,17 +43,6 @@ export const TEMPERATURE_SENSITIVITY = [
   { value: 'NORMAL', label: '보통' },
   { value: 'HOT', label: '더위 타요' },
 ] as const;
-
-export type College = (typeof COLLEGES)[number];
-export type Grade = (typeof GRADES)[number]['value'];
-export type TempSensitivity = (typeof TEMPERATURE_SENSITIVITY)[number]['value'];
-
-export interface AdditionalProfile {
-  college: College | null;
-  grade: Grade | null;
-  mbti: string | null;
-  temperatureSensitivity: TempSensitivity | null;
-}
 
 export const ADDITIONAL_FIELD_NAMES: Record<keyof AdditionalProfile, string> = {
   college: '단대',
