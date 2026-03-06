@@ -8,7 +8,8 @@ import { MatchRequestDialog } from '../components/MatchRequestDialog';
 import { UserCard } from '../components/UserCard';
 import { BottomSheet, DEFAULT_FILTERS } from '../components/BottomSheet';
 import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
-import { UNASSIGNED_ID, getDormitoryById } from '@/constants/dormitory';
+import { getDormitoryById } from '@/constants/dormitory';
+import { isDormitoryAssigned } from '@/utils/dormitory';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
 import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { calcMatchScore } from '@/utils/matchScore';
@@ -65,7 +66,7 @@ export default function RoommateListTab({
   showProfileBanner = true,
   onDismissProfileBanner,
 }: RoommateListTabProps) {
-  const isUnassigned = !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
+  const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
 
   const [showFilters, setShowFilters] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<RoommateProfile | null>(null);
@@ -159,8 +160,8 @@ export default function RoommateListTab({
 
   const headerTitle = isUnassigned ? '룸메이트 찾기' : `${dormName ?? ''} 룸메이트`;
 
-  // Normalize UNASSIGNED_ID to null for dormitory comparison
-  const normalizeDormId = (id: string | null) => (!id || id === UNASSIGNED_ID ? null : id);
+  // Normalize unassigned dormitory to null for comparison
+  const normalizeDormId = (id: string | null) => (isDormitoryAssigned(id) ? id : null);
 
   // Match button state for a given profile
   const getButtonState = (profile: RoommateProfile) =>

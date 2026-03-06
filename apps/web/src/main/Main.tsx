@@ -14,6 +14,7 @@ import type { SortMode, ViewMode } from './tabs/RoommateListTab';
 import ProfileTab from './tabs/ProfileTab';
 import SettingsTab from './tabs/SettingsTab';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
+import { isDormitoryAssigned } from '@/utils/dormitory';
 import { TOAST_DURATION, GUIDE_DELAY } from '@/constants/ui';
 import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { MATCH_POLICY } from '@/constants/match';
@@ -35,6 +36,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const [hasSeenGuide, setHasSeenGuide] = useState(false);
   const [user, setUser] = useState<UserProfile>(initialUser);
 
+  const guideTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  useEffect(() => {
+    return () => {
+      if (guideTimerRef.current) clearTimeout(guideTimerRef.current);
+    };
+  }, []);
+
   const handleSelectDormitory = useCallback(
     (dormitoryId: string) => {
       setUser((prev) => ({ ...prev, dormitoryId }));
@@ -45,7 +54,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         setToast(dorm ? `${dorm.name}(으)로 설정했어요` : '건물이 설정되었어요');
       }
       if (!hasSeenGuide) {
-        setTimeout(() => setShowGuide(true), GUIDE_DELAY);
+        if (guideTimerRef.current) clearTimeout(guideTimerRef.current);
+        guideTimerRef.current = setTimeout(() => setShowGuide(true), GUIDE_DELAY);
       }
     },
     [hasSeenGuide],
@@ -60,39 +70,67 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     setShowGuide(true);
   }, []);
 
-  const handleIntroChange = useCallback((intro: string) => {
-    setUser((prev) => ({ ...prev, intro }));
-    setToast('자기소개가 저장되었어요');
-  }, []);
-
-  const handleMessageChange = useCallback((msg: string | null) => {
-    setUser((prev) => ({ ...prev, messageToRoommate: msg }));
-    setToast('룸메에게 한마디가 저장되었어요');
-  }, []);
-
-  const handleLifestyleChange = useCallback((lifestyle: UserProfile['lifestyle']) => {
-    setUser((prev) => ({ ...prev, lifestyle }));
-    setToast('생활패턴이 저장되었어요');
-  }, []);
-
-  const handleAdditionalChange = useCallback((additional: UserProfile['additional']) => {
-    setUser((prev) => ({ ...prev, additional }));
-  }, []);
-
   // --- Profile 100% completion toast ---
   const hasShownCompletionToast = useRef(false);
   // NOTE: mock 기준. API 연동 시 초기 로딩 완료 후 wasCompleteOnMount를 재평가해야 함
   const wasCompleteOnMount = useRef(getProfileCompletion(user).isComplete);
 
-  useEffect(() => {
+  const checkAndShowCompletionToast = useCallback((updatedUser: UserProfile) => {
     if (hasShownCompletionToast.current) return;
     if (wasCompleteOnMount.current) return;
-    const { isComplete } = getProfileCompletion(user);
+    const { isComplete } = getProfileCompletion(updatedUser);
     if (isComplete) {
       setToast('프로필이 완성되었어요! \uD83C\uDF89');
       hasShownCompletionToast.current = true;
     }
-  }, [user]);
+  }, []);
+
+  const handleIntroChange = useCallback(
+    (intro: string) => {
+      setUser((prev) => {
+        const next = { ...prev, intro };
+        checkAndShowCompletionToast(next);
+        return next;
+      });
+      setToast('자기소개가 저장되었어요');
+    },
+    [checkAndShowCompletionToast],
+  );
+
+  const handleMessageChange = useCallback(
+    (msg: string | null) => {
+      setUser((prev) => {
+        const next = { ...prev, messageToRoommate: msg };
+        checkAndShowCompletionToast(next);
+        return next;
+      });
+      setToast('룸메에게 한마디가 저장되었어요');
+    },
+    [checkAndShowCompletionToast],
+  );
+
+  const handleLifestyleChange = useCallback(
+    (lifestyle: UserProfile['lifestyle']) => {
+      setUser((prev) => {
+        const next = { ...prev, lifestyle };
+        checkAndShowCompletionToast(next);
+        return next;
+      });
+      setToast('생활패턴이 저장되었어요');
+    },
+    [checkAndShowCompletionToast],
+  );
+
+  const handleAdditionalChange = useCallback(
+    (additional: UserProfile['additional']) => {
+      setUser((prev) => {
+        const next = { ...prev, additional };
+        checkAndShowCompletionToast(next);
+        return next;
+      });
+    },
+    [checkAndShowCompletionToast],
+  );
 
   // --- Bookmark state ---
   const [bookmarkedUserIds, setBookmarkedUserIds] = useState<Set<string>>(new Set());
@@ -259,7 +297,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   // --- Building stats (mockDb 기반) ---
   const buildingStats = useMemo<BuildingStats | undefined>(() => {
-    if (!user.dormitoryId || user.dormitoryId === UNASSIGNED_ID) return undefined;
+    if (!isDormitoryAssigned(user.dormitoryId)) return undefined;
     const sameBuilding = mockRawProfiles.filter((p) => p.dormitoryId === user.dormitoryId);
     const nonSmokers = sameBuilding.filter((p) => p.lifestyle.smoker === 'NO').length;
     const earlyBed = sameBuilding.filter(

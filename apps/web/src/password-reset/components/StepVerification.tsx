@@ -11,6 +11,8 @@ import { Mail } from 'lucide-react';
 interface StepVerificationProps {
   email: string;
   countdown: number;
+  isActive: boolean;
+  isSending: boolean;
   formatTime: () => string;
   onResendCode: () => void;
   onVerified: () => void;
@@ -19,6 +21,8 @@ interface StepVerificationProps {
 export function StepVerification({
   email,
   countdown,
+  isActive,
+  isSending,
   formatTime,
   onResendCode,
   onVerified,
@@ -71,14 +75,19 @@ export function StepVerification({
           maxLength={6}
           disabled={isLoading}
         />
-        {countdown > 0 && (
+        {isActive && (
           <div
             className="absolute right-4 top-11 text-sm font-semibold text-red-500"
             role="timer"
-            aria-live="polite"
+            aria-live={countdown % 30 === 0 ? 'polite' : 'off'}
           >
             {formatTime()}
           </div>
+        )}
+        {!isActive && (
+          <p className="text-sm text-red-500 font-semibold mt-1" aria-live="assertive">
+            인증 시간이 만료되었어요. 재전송 버튼을 눌러주세요.
+          </p>
         )}
       </div>
 
@@ -89,9 +98,9 @@ export function StepVerification({
           fullWidth
           type="button"
           onClick={onResendCode}
-          disabled={isLoading}
+          disabled={isSending || isActive || isLoading}
         >
-          재전송
+          {isSending ? '전송 중...' : `재전송${isActive ? ` (${formatTime()})` : ''}`}
         </Button>
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={isLoading}>
           {isLoading ? '확인 중...' : '확인'}
