@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Main from '@/main/Main';
 
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function MainPage() {
-  return <Main />;
+  return (
+    <Suspense>
+      <Main />
+    </Suspense>
+  );
 }
