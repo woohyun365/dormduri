@@ -1,5 +1,5 @@
 import type { LifestyleData } from './lifestyle';
-import type { AdditionalProfile } from '@/constants/additional-profile';
+import type { AdditionalProfile } from '@/types/additional-profile';
 
 export type TabId = 'home' | 'list' | 'profile' | 'settings';
 
