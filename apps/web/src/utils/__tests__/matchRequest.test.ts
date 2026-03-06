@@ -6,6 +6,7 @@ import {
   getPendingCount,
   getMatchButtonState,
 } from '../matchRequest';
+import { MATCH_POLICY } from '@/constants/match';
 
 // ── 헬퍼 ──────────────────────────────────────────────────────────
 
@@ -206,12 +207,38 @@ describe('getMatchButtonState', () => {
     expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
   });
 
-  it('8. PENDING 5개 이상 → SLOT_FULL', () => {
+  it('8-a. PENDING이 한도 미만이면 REQUEST', () => {
     vi.setSystemTime(NOW);
-    const requests = Array.from({ length: 5 }, (_, i) =>
+    const requests = Array.from({ length: MATCH_POLICY.MAX_PENDING_REQUESTS - 1 }, (_, i) =>
       makeRequest({
         id: `r-${i}`,
-        toUserId: `other-${i}`, // target이 아닌 다른 유저에게 보낸 요청
+        toUserId: `other-${i}`,
+        expiresAt: new Date(NOW + 24 * 60 * 60 * 1000).toISOString(),
+      }),
+    );
+    const params = { ...defaultParams(), requests };
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  it('8-b. PENDING이 한도 이상이면 SLOT_FULL', () => {
+    vi.setSystemTime(NOW);
+    const requests = Array.from({ length: MATCH_POLICY.MAX_PENDING_REQUESTS }, (_, i) =>
+      makeRequest({
+        id: `r-${i}`,
+        toUserId: `other-${i}`,
+        expiresAt: new Date(NOW + 24 * 60 * 60 * 1000).toISOString(),
+      }),
+    );
+    const params = { ...defaultParams(), requests };
+    expect(getMatchButtonState(params)).toEqual({ type: 'SLOT_FULL', label: '요청 한도 초과' });
+  });
+
+  it('8-c. PENDING이 한도 초과여도 SLOT_FULL', () => {
+    vi.setSystemTime(NOW);
+    const requests = Array.from({ length: MATCH_POLICY.MAX_PENDING_REQUESTS + 1 }, (_, i) =>
+      makeRequest({
+        id: `r-${i}`,
+        toUserId: `other-${i}`,
         expiresAt: new Date(NOW + 24 * 60 * 60 * 1000).toISOString(),
       }),
     );

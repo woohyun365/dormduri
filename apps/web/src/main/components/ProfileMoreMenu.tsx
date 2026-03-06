@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { Flag, Ban } from 'lucide-react';
 import { Z_INDEX } from '@/constants/ui';
 
