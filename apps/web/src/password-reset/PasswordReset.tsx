@@ -36,12 +36,13 @@ export default function PasswordReset() {
   const [isSending, setIsSending] = useState(false);
 
   const handleSendCode = async () => {
-    if (isSending) return;
+    if (isSending || isActive) return;
     setIsSending(true);
     try {
       const result = await authApi.sendVerificationCode(email);
       if (result.success) {
         startCountdown();
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
         timeoutRef.current = setTimeout(() => {
           setCurrentStep('verification');
         }, 500);
