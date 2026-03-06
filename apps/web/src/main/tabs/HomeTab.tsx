@@ -15,7 +15,8 @@ import {
 import { Chip } from '@/components/Chip';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { getDormitoryById, getMatchGroupSize, UNASSIGNED_ID } from '@/constants/dormitory';
+import { getDormitoryById, getMatchGroupSize } from '@/constants/dormitory';
+import { isDormitoryAssigned } from '@/utils/dormitory';
 import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { getProfileCompletion } from '@/utils/profileCompletion';
@@ -92,8 +93,10 @@ export default function HomeTab({
   profiles,
   buildingStats,
 }: HomeTabProps) {
-  const isUnassigned = user.dormitoryId === UNASSIGNED_ID;
-  const dormitory = user.dormitoryId && !isUnassigned ? getDormitoryById(user.dormitoryId) : null;
+  const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
+  const dormitory = isDormitoryAssigned(user.dormitoryId)
+    ? getDormitoryById(user.dormitoryId)
+    : null;
   const seasonActive = isSeasonActive(CURRENT_SEASON);
 
   const matchSectionRef = useRef<HTMLDivElement>(null);

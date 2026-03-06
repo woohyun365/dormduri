@@ -20,6 +20,7 @@ export default function PasswordReset() {
   const [email, setEmail] = useState('');
   const {
     countdown,
+    isActive,
     start: startCountdown,
     stop: stopCountdown,
     formatTime,
@@ -32,13 +33,21 @@ export default function PasswordReset() {
     };
   }, []);
 
+  const [isSending, setIsSending] = useState(false);
+
   const handleSendCode = async () => {
-    const result = await authApi.sendVerificationCode(email);
-    if (result.success) {
-      startCountdown();
-      timeoutRef.current = setTimeout(() => {
-        setCurrentStep('verification');
-      }, 500);
+    if (isSending) return;
+    setIsSending(true);
+    try {
+      const result = await authApi.sendVerificationCode(email);
+      if (result.success) {
+        startCountdown();
+        timeoutRef.current = setTimeout(() => {
+          setCurrentStep('verification');
+        }, 500);
+      }
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -79,6 +88,8 @@ export default function PasswordReset() {
             <StepVerification
               email={email}
               countdown={countdown}
+              isActive={isActive}
+              isSending={isSending}
               formatTime={formatTime}
               onResendCode={handleSendCode}
               onVerified={handleVerified}
