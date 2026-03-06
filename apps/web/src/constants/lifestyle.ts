@@ -32,8 +32,22 @@ export function getLifestyleLabel(field: keyof LifestyleData, value: string | nu
   return LIFESTYLE_LABELS[field][value] ?? '-';
 }
 
-// 정렬 순서 (matchScore 계산용)
-export const BEDTIME_ORDER = ['BEFORE_22', '22_24', '24_02', 'AFTER_02'] as const;
-export const WAKE_ORDER = ['BEFORE_06', '06_08', '08_10', 'AFTER_10'] as const;
-export const NOISE_ORDER = ['LOW', 'MID', 'HIGH'] as const;
-export const CLEAN_ORDER = ['LOW', 'MID', 'HIGH'] as const;
+// 정렬 순서 (matchScore 계산용) — satisfies로 LifestyleData 값과 타입 연결
+export const BEDTIME_ORDER = [
+  'BEFORE_22',
+  '22_24',
+  '24_02',
+  'AFTER_02',
+] as const satisfies readonly NonNullable<LifestyleData['bedtime']>[];
+export const WAKE_ORDER = [
+  'BEFORE_06',
+  '06_08',
+  '08_10',
+  'AFTER_10',
+] as const satisfies readonly NonNullable<LifestyleData['wakeTime']>[];
+export const NOISE_ORDER = ['LOW', 'MID', 'HIGH'] as const satisfies readonly NonNullable<
+  LifestyleData['noiseSensitivity']
+>[];
+export const CLEAN_ORDER = ['LOW', 'MID', 'HIGH'] as const satisfies readonly NonNullable<
+  LifestyleData['cleanliness']
+>[];
