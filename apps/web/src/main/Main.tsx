@@ -328,7 +328,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   return (
     <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
-      {!isDormitoryAssigned(user.dormitoryId) && (
+      {user.dormitoryId === null && (
         <BuildingSelectModal gender={user.gender} onSelect={handleSelectDormitory} />
       )}
       {/* Conditional tab rendering */}
