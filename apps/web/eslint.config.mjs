@@ -22,6 +22,8 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Test fixtures are dev-only data; exclude from lint
+    'src/__fixtures__/**',
   ]),
 ]);
 

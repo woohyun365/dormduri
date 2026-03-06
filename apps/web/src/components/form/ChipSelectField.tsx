@@ -44,7 +44,6 @@ export function ChipSelectField({
         className="flex flex-wrap gap-2"
         role="group"
         aria-label={label}
-        aria-invalid={!!error}
         aria-describedby={error ? errorId : undefined}
       >
         {Object.entries(options).map(([optValue, optLabel]) => (
