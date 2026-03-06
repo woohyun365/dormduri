@@ -15,12 +15,16 @@ export const COLLEGES = [
   '자유전공',
 ] as const;
 
+export type College = (typeof COLLEGES)[number];
+
 export const GRADES = [
   { value: '1', label: '1학년' },
   { value: '2', label: '2학년' },
   { value: '3', label: '3학년' },
   { value: '4+', label: '4학년 이상' },
 ] as const;
+
+export type Grade = (typeof GRADES)[number]['value'];
 
 export const MBTI_DIMENSIONS = [
   { key: 'EI', options: ['E', 'I'] },
@@ -35,8 +39,6 @@ export const TEMPERATURE_SENSITIVITY = [
   { value: 'HOT', label: '더위 타요' },
 ] as const;
 
-export type College = (typeof COLLEGES)[number];
-export type Grade = (typeof GRADES)[number]['value'];
 export type TempSensitivity = (typeof TEMPERATURE_SENSITIVITY)[number]['value'];
 
 export interface AdditionalProfile {

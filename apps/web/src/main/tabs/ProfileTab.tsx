@@ -36,7 +36,7 @@ import {
   TEMPERATURE_SENSITIVITY,
   ADDITIONAL_FIELD_NAMES,
 } from '@/constants/additional-profile';
-import type { AdditionalProfile } from '@/constants/additional-profile';
+import type { AdditionalProfile } from '@/types/additional-profile';
 import type { LifestyleData } from '@/types/lifestyle';
 import type { UserProfile, RoommateProfile } from '@/types/profile';
 
