@@ -15,6 +15,7 @@ import ProfileTab from './tabs/ProfileTab';
 import SettingsTab from './tabs/SettingsTab';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
 import { isDormitoryAssigned } from '@/utils/dormitory';
+import { useOnboardingState } from '@/hooks/useOnboardingState';
 import { TOAST_DURATION, GUIDE_DELAY } from '@/constants/ui';
 import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { MATCH_POLICY } from '@/constants/match';
@@ -34,8 +35,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const [activeTab, setActiveTab] = useState<TabId>('home');
   const [toast, setToast] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
-  const [hasSeenGuide, setHasSeenGuide] = useState(false);
   const [user, setUser] = useState<UserProfile>(initialUser);
+  const { hasSeenGuide, markGuideSeen } = useOnboardingState();
 
   const guideTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -54,7 +55,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         const dorm = getDormitoryById(dormitoryId);
         setToast(dorm ? `${dorm.name}(으)로 설정했어요` : '건물이 설정되었어요');
       }
-      if (!hasSeenGuide) {
+      if (!hasSeenGuide(dormitoryId)) {
         if (guideTimerRef.current) clearTimeout(guideTimerRef.current);
         guideTimerRef.current = setTimeout(() => setShowGuide(true), GUIDE_DELAY);
       }
@@ -64,8 +65,10 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   const handleCloseGuide = useCallback(() => {
     setShowGuide(false);
-    setHasSeenGuide(true);
-  }, []);
+    if (user.dormitoryId) {
+      markGuideSeen(user.dormitoryId);
+    }
+  }, [user.dormitoryId, markGuideSeen]);
 
   const handleShowGuide = useCallback(() => {
     setShowGuide(true);
