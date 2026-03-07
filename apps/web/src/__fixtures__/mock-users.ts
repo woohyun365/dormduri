@@ -50,10 +50,22 @@ const MOCK_USERS: Record<'male' | 'female', UserProfile> = {
 };
 
 /**
- * development 전용: URL 쿼리 기반 mock 유저 반환
- * /main?gender=F → 여자 프로필, 기본값 남자
+ * development 전용: localStorage 기반 mock 유저 반환
+ *
+ * - dev-gender: 'M' | 'F' (기본 'M')
+ * - dev-dormitory: dormitoryId (빈 문자열이면 null → 건물 선택 모달 표시)
  */
 export function getMockUser(genderParam?: string | null): UserProfile {
   const key = genderParam === 'F' ? 'female' : 'male';
-  return { ...MOCK_USERS[key] };
+  const user = { ...MOCK_USERS[key] };
+
+  // DevPanel에서 설정한 건물 반영
+  if (typeof window !== 'undefined') {
+    const dormitory = localStorage.getItem('dev-dormitory');
+    if (dormitory) {
+      user.dormitoryId = dormitory;
+    }
+  }
+
+  return user;
 }

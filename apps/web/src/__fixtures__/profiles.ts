@@ -1,6 +1,13 @@
 import type { RoommateProfile } from '@/types/profile';
+import { generateProfiles } from './generator';
 
-export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
+/**
+ * 하드코딩 프로필 (15명)
+ * - 엣지 케이스 + 건물 커버리지 + 테스트 참조용
+ * - ID는 문자열 "1"~"23" (기존 호환)
+ */
+const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
+  // --- 남자: dasan (4명) ---
   {
     id: '1',
     nickname: '조용한하루',
@@ -40,6 +47,51 @@ export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     additional: { college: 'IT대', grade: '1', mbti: 'INTP', temperatureSensitivity: null },
   },
   {
+    id: '9',
+    nickname: '음악학도',
+    gender: 'M',
+    dormitoryId: 'dasan',
+    lifestyle: {
+      smoker: 'NO',
+      sleepHabit: 'NONE',
+      indoorEating: 'OK',
+      bedtime: '24_02',
+      wakeTime: '08_10',
+      noiseSensitivity: 'LOW',
+      cleanliness: 'MID',
+      relationshipStyle: 'CLOSE',
+    },
+    intro: '음악 전공이라 이어폰으로 연습합니다. 서로 배려하며 지내요!',
+    messageToRoommate: '블루투스 스피커 가져갈게요 (이어폰 위주로 씁니다)',
+    additional: {
+      college: '문화예술·공대',
+      grade: '2',
+      mbti: 'ENFP',
+      temperatureSensitivity: 'NORMAL',
+    },
+  },
+  {
+    id: '12',
+    nickname: '자취경험자',
+    gender: 'M',
+    dormitoryId: 'dasan',
+    lifestyle: {
+      smoker: 'YES',
+      sleepHabit: 'SNORING',
+      indoorEating: 'OK',
+      bedtime: '24_02',
+      wakeTime: '08_10',
+      noiseSensitivity: 'LOW',
+      cleanliness: 'LOW',
+      relationshipStyle: 'CASUAL',
+    },
+    intro: '자취 2년 했고 기숙사 처음입니다. 적응 중이에요.',
+    messageToRoommate: null,
+    additional: { college: 'IT대', grade: '3', mbti: 'ISTP', temperatureSensitivity: null },
+  },
+
+  // --- 남자: toegye (2명) ---
+  {
     id: '3',
     nickname: '새벽러너',
     gender: 'M',
@@ -77,6 +129,8 @@ export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     messageToRoommate: null,
     additional: { college: '경영대', grade: '2', mbti: null, temperatureSensitivity: 'HOT' },
   },
+
+  // --- 남자: saerom (2명) ---
   {
     id: '5',
     nickname: '운동메이트',
@@ -115,25 +169,8 @@ export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     messageToRoommate: null,
     additional: { college: null, grade: '4+', mbti: 'ISFJ', temperatureSensitivity: null },
   },
-  {
-    id: '7',
-    nickname: '도서관지기',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'NONE',
-      indoorEating: 'NO',
-      bedtime: '22_24',
-      wakeTime: '06_08',
-      noiseSensitivity: 'MID',
-      cleanliness: 'HIGH',
-      relationshipStyle: 'CASUAL',
-    },
-    intro: '도서관 자주 가고 방에선 조용히 지냅니다.',
-    messageToRoommate: '샤워기 필터 제가 준비할게요',
-    additional: { college: '인문대', grade: '2', mbti: 'INFJ', temperatureSensitivity: 'NORMAL' },
-  },
+
+  // --- 남자: irum (1명) ---
   {
     id: '8',
     nickname: '학식러버',
@@ -153,90 +190,11 @@ export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     messageToRoommate: null,
     additional: { college: '자연과학대', grade: '1', mbti: null, temperatureSensitivity: null },
   },
+
+  // --- 남자: dasan (테스트 참조용) ---
   {
-    id: '9',
-    nickname: '음악학도',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'NONE',
-      indoorEating: 'OK',
-      bedtime: '24_02',
-      wakeTime: '08_10',
-      noiseSensitivity: 'LOW',
-      cleanliness: 'MID',
-      relationshipStyle: 'CLOSE',
-    },
-    intro: '음악 전공이라 이어폰으로 연습합니다. 서로 배려하며 지내요!',
-    messageToRoommate: '블루투스 스피커 가져갈게요 (이어폰 위주로 씁니다)',
-    additional: {
-      college: '문화예술·공대',
-      grade: '2',
-      mbti: 'ENFP',
-      temperatureSensitivity: 'NORMAL',
-    },
-  },
-  {
-    id: '10',
-    nickname: '코딩몬스터',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'NONE',
-      indoorEating: 'VENTILATE',
-      bedtime: 'AFTER_02',
-      wakeTime: 'AFTER_10',
-      noiseSensitivity: 'MID',
-      cleanliness: 'MID',
-      relationshipStyle: 'CASUAL',
-    },
-    intro: '밤에 코딩하는 경우가 많아요. 키보드 소리 최소화합니다.',
-    messageToRoommate: null,
-    additional: { college: 'IT대', grade: '3', mbti: 'INTJ', temperatureSensitivity: 'HOT' },
-  },
-  {
-    id: '11',
-    nickname: '아침형인간',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'NONE',
-      indoorEating: 'NO',
-      bedtime: 'BEFORE_22',
-      wakeTime: 'BEFORE_06',
-      noiseSensitivity: 'HIGH',
-      cleanliness: 'HIGH',
-      relationshipStyle: 'CLOSE',
-    },
-    intro: '새벽 5시 기상, 규칙적인 생활합니다. 비슷한 분 찾아요.',
-    messageToRoommate: '알람은 진동으로 설정합니다!',
-    additional: { college: '사범대', grade: '2', mbti: 'ESTJ', temperatureSensitivity: 'COLD' },
-  },
-  {
-    id: '12',
-    nickname: '자취경험자',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'YES',
-      sleepHabit: 'SNORING',
-      indoorEating: 'OK',
-      bedtime: '24_02',
-      wakeTime: '08_10',
-      noiseSensitivity: 'LOW',
-      cleanliness: 'LOW',
-      relationshipStyle: 'CASUAL',
-    },
-    intro: '자취 2년 했고 기숙사 처음입니다. 적응 중이에요.',
-    messageToRoommate: null,
-    additional: { college: 'IT대', grade: '3', mbti: 'ISTP', temperatureSensitivity: null },
-  },
-  {
-    id: '13',
-    nickname: '미니멀리스트',
+    id: '7',
+    nickname: '도서관지기',
     gender: 'M',
     dormitoryId: 'dasan',
     lifestyle: {
@@ -245,125 +203,16 @@ export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
       indoorEating: 'NO',
       bedtime: '22_24',
       wakeTime: '06_08',
-      noiseSensitivity: 'HIGH',
+      noiseSensitivity: 'MID',
       cleanliness: 'HIGH',
       relationshipStyle: 'CASUAL',
     },
-    intro: '짐 적고 조용히 지냅니다.',
-    messageToRoommate: null,
-    additional: { college: null, grade: null, mbti: null, temperatureSensitivity: null },
+    intro: '도서관 자주 가고 방에선 조용히 지냅니다.',
+    messageToRoommate: '샤워기 필터 제가 준비할게요',
+    additional: { college: '인문대', grade: '2', mbti: 'INFJ', temperatureSensitivity: 'NORMAL' },
   },
-  {
-    id: '14',
-    nickname: '요리왕',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'GRINDING',
-      indoorEating: 'VENTILATE',
-      bedtime: '22_24',
-      wakeTime: '06_08',
-      noiseSensitivity: 'MID',
-      cleanliness: 'HIGH',
-      relationshipStyle: 'CLOSE',
-    },
-    intro: '간단한 요리 자주 합니다. 환기 철저히 해요!',
-    messageToRoommate: '전자레인지 가져갑니다',
-    additional: {
-      college: '농업생명대',
-      grade: '1',
-      mbti: 'ESFJ',
-      temperatureSensitivity: 'NORMAL',
-    },
-  },
-  {
-    id: '15',
-    nickname: '고시생',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'NONE',
-      indoorEating: 'NO',
-      bedtime: '24_02',
-      wakeTime: '06_08',
-      noiseSensitivity: 'HIGH',
-      cleanliness: 'HIGH',
-      relationshipStyle: 'CASUAL',
-    },
-    intro: '공부량이 많아서 방에서는 주로 잠만 잡니다. 조용한 환경 선호.',
-    messageToRoommate: '독서등 사용합니다 (빛 차단 커튼 가져갈게요)',
-    additional: {
-      college: '사회과학대',
-      grade: '4+',
-      mbti: 'ISTJ',
-      temperatureSensitivity: 'COLD',
-    },
-  },
-  {
-    id: '16',
-    nickname: '헬스매니아',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'TALKING',
-      indoorEating: 'OK',
-      bedtime: '22_24',
-      wakeTime: 'BEFORE_06',
-      noiseSensitivity: 'LOW',
-      cleanliness: 'MID',
-      relationshipStyle: 'CLOSE',
-    },
-    intro: '매일 아침 헬스 다녀옵니다. 같이 운동할 분 환영!',
-    messageToRoommate: '프로틴 같이 시켜요',
-    additional: { college: '사범대', grade: '2', mbti: 'ESTP', temperatureSensitivity: 'HOT' },
-  },
-  {
-    id: '17',
-    nickname: '낮잠왕',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'SNORING',
-      indoorEating: 'OK',
-      bedtime: 'AFTER_02',
-      wakeTime: 'AFTER_10',
-      noiseSensitivity: 'LOW',
-      cleanliness: 'MID',
-      relationshipStyle: 'CLOSE',
-    },
-    intro: '수업 없으면 낮잠 자는 편이에요. 편하게 지내실 분!',
-    messageToRoommate: null,
-    additional: { college: '사회과학대', grade: '1', mbti: 'INFP', temperatureSensitivity: null },
-  },
-  {
-    id: '18',
-    nickname: '반려식물집사',
-    gender: 'M',
-    dormitoryId: 'dasan',
-    lifestyle: {
-      smoker: 'NO',
-      sleepHabit: 'NONE',
-      indoorEating: 'VENTILATE',
-      bedtime: '22_24',
-      wakeTime: '06_08',
-      noiseSensitivity: 'MID',
-      cleanliness: 'HIGH',
-      relationshipStyle: 'CLOSE',
-    },
-    intro: '작은 화분 몇 개 키우고 있어요. 환기 자주 합니다.',
-    messageToRoommate: '창가 자리 양보해주시면 감사!',
-    additional: {
-      college: '산림환경대',
-      grade: '2',
-      mbti: 'ISFP',
-      temperatureSensitivity: 'NORMAL',
-    },
-  },
-  // --- 여자 프로필 ---
+
+  // --- 여자: yeji (2명) ---
   {
     id: '19',
     nickname: '책벌레',
@@ -402,6 +251,8 @@ export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     messageToRoommate: '요가매트 공간 조금만 양보해주세요!',
     additional: { college: '사범대', grade: '1', mbti: 'ENFJ', temperatureSensitivity: 'NORMAL' },
   },
+
+  // --- 여자: nanji (2명) ---
   {
     id: '21',
     nickname: '카페탐방러',
@@ -445,6 +296,8 @@ export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
       temperatureSensitivity: 'COLD',
     },
   },
+
+  // --- 여자: gukji (1명) ---
   {
     id: '23',
     nickname: '아침산책러',
@@ -464,4 +317,15 @@ export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     messageToRoommate: '같이 산책하실 분 환영!',
     additional: { college: '농업생명대', grade: '1', mbti: 'ISFJ', temperatureSensitivity: 'COLD' },
   },
+];
+
+/**
+ * 전체 mock 프로필: 하드코딩 15명 + 생성기 50명 = 65명
+ *
+ * 생성기 설정은 generator.ts의 DEFAULT_CONFIG 참조.
+ * 시드 고정(42)이므로 항상 동일한 결과를 반환한다.
+ */
+export const mockRawProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
+  ...handcraftedProfiles,
+  ...generateProfiles(),
 ];
