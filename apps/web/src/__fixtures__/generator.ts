@@ -239,6 +239,11 @@ export function generateProfiles(
     }
   }
 
+  // 반올림 누적으로 total 초과 시 캡핑
+  if (slots.length > config.total) {
+    slots.length = config.total;
+  }
+
   // 나머지를 미배정으로 채움
   const remaining = config.total - slots.length;
   for (let i = 0; i < remaining; i++) {

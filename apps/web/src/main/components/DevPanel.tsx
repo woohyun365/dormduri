@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DORMITORIES, UNASSIGNED_ID } from '@/constants/dormitory';
 
 /**
@@ -13,11 +13,15 @@ import { DORMITORIES, UNASSIGNED_ID } from '@/constants/dormitory';
  */
 export function DevPanel() {
   const [isOpen, setIsOpen] = useState(false);
+  const [currentGender, setCurrentGender] = useState('M');
+  const [currentDormitory, setCurrentDormitory] = useState('');
+
+  useEffect(() => {
+    setCurrentGender(localStorage.getItem('dev-gender') ?? 'M');
+    setCurrentDormitory(localStorage.getItem('dev-dormitory') ?? '');
+  }, []);
 
   if (process.env.NODE_ENV !== 'development') return null;
-
-  const currentGender = localStorage.getItem('dev-gender') ?? 'M';
-  const currentDormitory = localStorage.getItem('dev-dormitory') ?? '';
 
   function handleGenderChange(gender: string) {
     localStorage.setItem('dev-gender', gender);
