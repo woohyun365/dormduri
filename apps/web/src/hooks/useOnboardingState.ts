@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 
 /**
  * 온보딩 상태 관리 훅
@@ -22,14 +22,18 @@ const DEFAULT_STATE: OnboardingState = {
   firstVisitAt: null,
 };
 
+function createDefaultState(): OnboardingState {
+  return { ...DEFAULT_STATE, guideSeen: {} };
+}
+
 function loadState(): OnboardingState {
-  if (typeof window === 'undefined') return DEFAULT_STATE;
+  if (typeof window === 'undefined') return createDefaultState();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_STATE;
-    return { ...DEFAULT_STATE, ...JSON.parse(raw) };
+    if (!raw) return createDefaultState();
+    return { ...createDefaultState(), ...JSON.parse(raw) };
   } catch {
-    return DEFAULT_STATE;
+    return createDefaultState();
   }
 }
 
@@ -38,16 +42,14 @@ function saveState(state: OnboardingState) {
 }
 
 export function useOnboardingState() {
-  const [state, setState] = useState<OnboardingState>(DEFAULT_STATE);
-
-  useEffect(() => {
+  const [state, setState] = useState<OnboardingState>(() => {
     const loaded = loadState();
-    if (!loaded.firstVisitAt) {
+    if (!loaded.firstVisitAt && typeof window !== 'undefined') {
       loaded.firstVisitAt = new Date().toISOString();
+      saveState(loaded);
     }
-    setState(loaded);
-    saveState(loaded);
-  }, []);
+    return loaded;
+  });
 
   const hasSeenGuide = useCallback(
     (dormitoryId: string): boolean => {
