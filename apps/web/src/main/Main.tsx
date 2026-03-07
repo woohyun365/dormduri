@@ -23,6 +23,7 @@ import { calcMatchScore } from '@/utils/matchScore';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
 import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import { DEFAULT_FILTERS } from './components/BottomSheet';
+import { DevPanel } from './components/DevPanel';
 import type { TabId, UserProfile } from '@/types/profile';
 import type { BlockedUser, ReportReason } from '@/types/report';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
@@ -419,6 +420,9 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           {toast}
         </div>
       )}
+
+      {/* Dev Panel (개발 환경 전용) */}
+      <DevPanel />
     </div>
   );
 }
