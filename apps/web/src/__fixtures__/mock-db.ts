@@ -10,11 +10,28 @@ export interface MockUser {
   intro: string;
 }
 
-// 모듈 스코프 인메모리 스토어 (새로고침 시 초기화)
-const users: MockUser[] = [];
+const STORAGE_KEYS = {
+  users: 'mockdb-users',
+  currentUser: 'mockdb-current-user',
+} as const;
+
+// 인증 코드는 세션 내에서만 유효하므로 인메모리 유지
 const verificationCodes: Map<string, string> = new Map();
-let currentUser: MockUser | null = null;
-let initialized = false;
+
+function readJson<T>(key: string, fallback: T): T {
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson<T>(key: string, value: T): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(key, JSON.stringify(value));
+}
 
 export const mockDb = {
   issueCode(email: string): string {
@@ -29,59 +46,51 @@ export const mockDb = {
   },
 
   createUser(data: MockUser): void {
+    const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
     users.push(data);
+    writeJson(STORAGE_KEYS.users, users);
     console.log(`[MockDB] 유저 생성: ${data.email} (${data.nickname})`);
   },
 
   findUser(email: string, password: string): MockUser | null {
+    const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
     return users.find((u) => u.email === email && u.password === password) ?? null;
   },
 
   findByEmail(email: string): MockUser | null {
+    const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
     return users.find((u) => u.email === email) ?? null;
   },
 
   resetPassword(email: string, newPassword: string): boolean {
+    const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
     const user = users.find((u) => u.email === email);
     if (!user) return false;
     user.password = newPassword;
+    writeJson(STORAGE_KEYS.users, users);
     console.log(`[MockDB] 비밀번호 재설정: ${email}`);
     return true;
   },
 
   setCurrentUser(user: MockUser | null): void {
-    currentUser = user;
+    writeJson(STORAGE_KEYS.currentUser, user);
   },
 
   getCurrentUser(): MockUser | null {
-    return currentUser;
+    return readJson<MockUser | null>(STORAGE_KEYS.currentUser, null);
   },
 
-  getAllUsers(): MockUser[] {
-    return users;
+  /** 회원가입으로 생성된 유저 목록 반환 (DevPanel용) */
+  getRegisteredUsers(): MockUser[] {
+    return readJson<MockUser[]>(STORAGE_KEYS.users, []);
   },
 
-  getUsersByDormitory(dormitoryId: string): MockUser[] {
-    return users.filter((u) => u.dormitoryId === dormitoryId);
-  },
-
-  /** profiles.ts의 fixture 데이터를 MockUser로 변환하여 초기 등록 */
-  async initFromFixtures(): Promise<void> {
-    if (initialized) return;
-    initialized = true;
-
-    const { mockRawProfiles } = await import('./profiles');
-    for (const p of mockRawProfiles) {
-      users.push({
-        email: `${p.id}@mock.kangwon.ac.kr`,
-        password: 'mock',
-        nickname: p.nickname,
-        gender: p.gender,
-        dormitoryId: p.dormitoryId,
-        lifestyle: p.lifestyle,
-        intro: p.intro,
-      });
-    }
-    console.log(`[MockDB] 초기 데이터 로딩: ${mockRawProfiles.length}명`);
+  /** localStorage의 mockDb 데이터 전체 초기화 (DevPanel용) */
+  clearAll(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(STORAGE_KEYS.users);
+    localStorage.removeItem(STORAGE_KEYS.currentUser);
+    verificationCodes.clear();
+    console.log('[MockDB] 데이터 초기화 완료');
   },
 };
