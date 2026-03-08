@@ -80,6 +80,11 @@ export default function Login() {
     handleLogin();
   };
 
+  // auth 체크 중이거나 이미 로그인 상태면 UI를 렌더링하지 않음 (깜빡임 방지)
+  if (isAuthLoading || user) {
+    return <div className="min-h-screen bg-[var(--knu-background-alt)]" />;
+  }
+
   return (
     <div className="min-h-screen bg-[var(--knu-background-alt)]">
       <AuthHeader showBack={false} />

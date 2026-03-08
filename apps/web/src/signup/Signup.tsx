@@ -86,6 +86,11 @@ export default function Signup() {
     }
   };
 
+  // auth 체크 중이거나 이미 로그인 상태면 UI를 렌더링하지 않음 (깜빡임 방지)
+  if (isAuthLoading || user) {
+    return <div className="min-h-screen bg-white" />;
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <AuthHeader showBack={currentStep > 1 && currentStep < TOTAL_STEPS} onBack={handleBack} />

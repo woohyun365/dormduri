@@ -45,7 +45,19 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   const handleSelectDormitory = useCallback(
     (dormitoryId: string) => {
-      setUser((prev) => ({ ...prev, dormitoryId }));
+      setUser((prev) => {
+        const next = { ...prev, dormitoryId };
+        // mockDb에 건물 선택 영속화 (새로고침에도 유지)
+        if (process.env.NODE_ENV === 'development') {
+          import('@/__fixtures__/mock-db').then(({ mockDb }) => {
+            const current = mockDb.getCurrentUser();
+            if (current) {
+              mockDb.setCurrentUser({ ...current, dormitoryId });
+            }
+          });
+        }
+        return next;
+      });
       if (dormitoryId === UNASSIGNED_ID) {
         setToast('건물 미배정으로 설정했어요');
       } else {
