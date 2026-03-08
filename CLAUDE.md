@@ -32,27 +32,23 @@ Issue #15(해야 할 작업)에서 신규 생성: #81(CI/CD), #82(백오피스)
 docs/
 ├── 00_archive/            ← 과거 문서 보관
 ├── 01_codex-review/       ← Codex 코드 리뷰 결과
+│   ├── 00_archive/        ← Sprint 이전 리뷰
+│   ├── 01_sprint-1/
+│   └── 02_sprint-2/
 ├── 02_review-decisions/   ← 리뷰 적용 여부 결정 문서
+│   ├── 00_archive/
+│   ├── 01_sprint-1/
+│   └── 02_sprint-2/
 ├── 03_planning/
 │   ├── sprint-1/          ← 작업 과정 (결정 배경, 대안 비교, 구현 기록)
-│   │   ├── 68-logo-routing.md
-│   │   ├── 66-bottomsheet-count.md
-│   │   ├── 75-mock-user.md
-│   │   └── 80-fixture-test.md
 │   └── sprint-2/
-│       └── 67-flow-design.md
 └── 04_policy/             ← 최종 정책 정리본 (현재 적용 중인 규칙, 참조용)
-    ├── password.md
-    ├── nickname.md
-    ├── profanity-filter.md
-    ├── building-change.md
-    └── account-deletion.md
 ```
 
+- `docs/01_codex-review/NN_sprint-N/` : Codex 코드 리뷰 결과 (`pr{번호}-{설명}.md`)
+- `docs/02_review-decisions/NN_sprint-N/` : 리뷰 적용 여부 결정 (`pr{번호}-{설명}.md`)
 - `docs/03_planning/sprint-N/` : 이슈별 작업 기록 (결정 과정, 대안 비교, 구현 내용)
 - `docs/04_policy/` : 최종 정책 정리본 (현재 적용 중인 규칙만 유지)
-- `docs/01_codex-review/` : Codex 코드 리뷰 결과 (`pr{번호}.md`)
-- `docs/02_review-decisions/` : 리뷰 적용 여부 결정 (`pr{번호}.md`)
 - 정책 문서에서 상세 맥락이 필요하면 sprint 문서를 링크
 - **주의**: `docs/`는 `.gitignore`에 포함되어 git 커밋 대상이 아님 (위키로 별도 관리)
 
