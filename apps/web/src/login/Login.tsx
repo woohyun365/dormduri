@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
 import { InputField } from '@/components/form/InputField';
@@ -9,14 +9,27 @@ import { Button } from '@/components/Button';
 
 import { validateKnuEmail } from '@/utils/validation';
 import { authApi } from '@/api/auth';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
 
 export default function Login() {
   const router = useRouter();
+  const { user, isLoading: isAuthLoading } = useCurrentUser();
+
+  // 이미 로그인 상태면 게이트웨이(/)로 리다이렉트
+  useEffect(() => {
+    if (!isAuthLoading && user) {
+      router.replace('/');
+    }
+  }, [isAuthLoading, user, router]);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // TODO: 백엔드 연동 시 구현 (#90)
+  // - checked: refresh token 발급 (장기 세션)
+  // - unchecked: session token만 (브라우저 종료 시 만료)
   const [rememberMe, setRememberMe] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -51,7 +64,7 @@ export default function Login() {
     try {
       const result = await authApi.login(email, password);
       if (result.success) {
-        router.push('/main');
+        router.replace('/');
       } else {
         setLoginError(result.error ?? '이메일 또는 비밀번호가 올바르지 않습니다.');
       }

@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
 import { getProfileCompletion } from '@/utils/profileCompletion';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
@@ -24,7 +22,6 @@ import { calcMatchScore } from '@/utils/matchScore';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
 import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import { DEFAULT_FILTERS } from './components/BottomSheet';
-import { DevPanel } from './components/DevPanel';
 import type { TabId, UserProfile } from '@/types/profile';
 import type { BlockedUser, ReportReason } from '@/types/report';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
@@ -423,34 +420,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           {toast}
         </div>
       )}
-
-      {/* Dev Panel (개발 환경 전용) */}
-      <DevPanel />
     </div>
   );
 }
 
-export default function Main() {
-  const router = useRouter();
-  const { user, isLoading } = useCurrentUser();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [isLoading, user, router]);
-
-  if (isLoading || !user) {
-    return (
-      <div className="min-h-screen bg-[var(--knu-background-alt)] flex items-center justify-center">
-        <p className="text-[var(--knu-text-tertiary)]">로딩 중...</p>
-      </div>
-    );
-  }
-
+export default function Main({ initialUser }: { initialUser: UserProfile }) {
   return (
     <Suspense fallback={null}>
-      <MainContent initialUser={user} />
+      <MainContent initialUser={initialUser} />
     </Suspense>
   );
 }
