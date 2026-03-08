@@ -19,7 +19,8 @@ export function validatePassword(password: string, email?: string): string {
   if (password.length > PASSWORD_MAX_LENGTH)
     return `비밀번호는 ${PASSWORD_MAX_LENGTH}자 이하여야 합니다.`;
   if (!PASSWORD_REGEX.test(password)) return '비밀번호는 영문과 숫자를 포함해야 합니다.';
-  if (email && password === email) return '비밀번호는 이메일과 같을 수 없습니다.';
+  if (email && password.toLowerCase() === email.toLowerCase())
+    return '비밀번호는 이메일과 같을 수 없습니다.';
   return '';
 }
 

@@ -93,6 +93,10 @@ describe('validatePassword', () => {
     expect(validatePassword('test1234@kangwon.ac.kr', 'test1234@kangwon.ac.kr')).toBeTruthy();
   });
 
+  it('이메일과 대소문자만 다름 -> 에러', () => {
+    expect(validatePassword('TEST1234@kangwon.ac.kr', 'test1234@kangwon.ac.kr')).toBeTruthy();
+  });
+
   it('이메일과 다름 -> 통과', () => {
     expect(validatePassword('abcd1234', 'test@kangwon.ac.kr')).toBe('');
   });

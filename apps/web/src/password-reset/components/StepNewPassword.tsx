@@ -110,8 +110,14 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
             >
               {/\d/.test(newPassword) ? '✓' : '○'} 숫자 포함
             </li>
-            <li className={newPassword !== email ? 'text-green-600' : 'text-red-600'}>
-              {newPassword !== email ? '✓' : '✗'} 이메일과 다름
+            <li
+              className={
+                newPassword.toLowerCase() !== email.toLowerCase()
+                  ? 'text-green-600'
+                  : 'text-red-600'
+              }
+            >
+              {newPassword.toLowerCase() !== email.toLowerCase() ? '✓' : '✗'} 이메일과 다름
             </li>
           </ul>
         )}

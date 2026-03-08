@@ -167,8 +167,14 @@ export function StepBasicInfo({
               >
                 {/\d/.test(basicInfo.password) ? '✓' : '○'} 숫자 포함
               </li>
-              <li className={basicInfo.password !== email ? 'text-green-600' : 'text-red-600'}>
-                {basicInfo.password !== email ? '✓' : '✗'} 이메일과 다름
+              <li
+                className={
+                  basicInfo.password.toLowerCase() !== email.toLowerCase()
+                    ? 'text-green-600'
+                    : 'text-red-600'
+                }
+              >
+                {basicInfo.password.toLowerCase() !== email.toLowerCase() ? '✓' : '✗'} 이메일과 다름
               </li>
             </ul>
           )}
