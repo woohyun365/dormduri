@@ -1,4 +1,9 @@
-import { KNU_EMAIL_REGEX, PASSWORD_MIN_LENGTH, PASSWORD_REGEX } from '@/constants/auth';
+import {
+  KNU_EMAIL_REGEX,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_REGEX,
+} from '@/constants/auth';
 import { NICKNAME_MIN, NICKNAME_MAX } from '@/constants/ui';
 
 export function validateKnuEmail(email: string): string {
@@ -7,10 +12,14 @@ export function validateKnuEmail(email: string): string {
   return '';
 }
 
-export function validatePassword(password: string): string {
+export function validatePassword(password: string, email?: string): string {
   if (!password) return '비밀번호를 입력해주세요.';
-  if (password.length < PASSWORD_MIN_LENGTH) return '비밀번호는 8자 이상이어야 합니다.';
+  if (password.length < PASSWORD_MIN_LENGTH)
+    return `비밀번호는 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`;
+  if (password.length > PASSWORD_MAX_LENGTH)
+    return `비밀번호는 ${PASSWORD_MAX_LENGTH}자 이하여야 합니다.`;
   if (!PASSWORD_REGEX.test(password)) return '비밀번호는 영문과 숫자를 포함해야 합니다.';
+  if (email && password === email) return '비밀번호는 이메일과 같을 수 없습니다.';
   return '';
 }
 

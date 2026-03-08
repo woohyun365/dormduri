@@ -5,6 +5,7 @@ import { InputField } from '@/components/form/InputField';
 import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
 import { validatePassword, validatePasswordConfirm } from '@/utils/validation';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/constants/auth';
 import { authApi } from '@/api/auth';
 import { AlertCircle, Lock } from 'lucide-react';
 
@@ -23,7 +24,7 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const pwError = validatePassword(newPassword);
+    const pwError = validatePassword(newPassword, email);
     const cfError = validatePasswordConfirm(newPassword, confirmPassword);
 
     setPasswordError(pwError);
@@ -67,7 +68,7 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
       <InputField
         label="새 비밀번호"
         type="password"
-        placeholder="영문, 숫자 포함 8자 이상"
+        placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
         value={newPassword}
         onChange={(value) => {
           setNewPassword(value);

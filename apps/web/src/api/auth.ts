@@ -1,6 +1,7 @@
 // TODO: BE API 연동 시 실제 endpoint로 교체
 
 import type { LifestyleData } from '@/types/lifestyle';
+import { validatePassword } from '@/utils/validation';
 
 interface LoginResponse {
   success: boolean;
@@ -68,6 +69,12 @@ export const authApi = {
     lifestyle: LifestyleData;
     intro: string;
   }): Promise<SignupResponse> => {
+    // 서버 측 비밀번호 정책 검증 (백엔드 연동 시 서버에서 동일 검증 수행)
+    const passwordErr = validatePassword(data.password, data.email);
+    if (passwordErr) {
+      return { success: false, error: passwordErr };
+    }
+
     const db = await getMockDb();
     if (db) {
       if (db.findByEmail(data.email)) {
@@ -84,6 +91,11 @@ export const authApi = {
   },
 
   resetPassword: async (email: string, newPassword: string): Promise<ResetPasswordResponse> => {
+    const passwordErr = validatePassword(newPassword, email);
+    if (passwordErr) {
+      return { success: false, error: passwordErr };
+    }
+
     const db = await getMockDb();
     if (db) {
       if (db.resetPassword(email, newPassword)) {
