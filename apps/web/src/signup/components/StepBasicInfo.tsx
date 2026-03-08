@@ -7,7 +7,7 @@ import { StepNavigation } from '@/components/form/StepNavigation';
 import { FieldError } from '@/components/form/FieldError';
 import { Chip } from '@/components/Chip';
 import { validatePassword, validatePasswordConfirm, validateNickname } from '@/utils/validation';
-import { PASSWORD_MIN_LENGTH } from '@/constants/auth';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/constants/auth';
 import { NICKNAME_MAX } from '@/constants/ui';
 import { User } from 'lucide-react';
 
@@ -40,7 +40,7 @@ export function StepBasicInfo({
 
   const handleNext = () => {
     const nicknameErr = validateNickname(basicInfo.nickname);
-    const passwordErr = validatePassword(basicInfo.password);
+    const passwordErr = validatePassword(basicInfo.password, email);
     const passwordConfirmErr = validatePasswordConfirm(
       basicInfo.password,
       basicInfo.passwordConfirm,
@@ -119,7 +119,7 @@ export function StepBasicInfo({
           <InputField
             label="비밀번호"
             type="password"
-            placeholder="영문, 숫자 포함 8자 이상"
+            placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
             value={basicInfo.password}
             onChange={(value) => {
               onBasicInfoChange({ ...basicInfo, password: value });
@@ -141,6 +141,16 @@ export function StepBasicInfo({
               </li>
               <li
                 className={
+                  basicInfo.password.length <= PASSWORD_MAX_LENGTH
+                    ? 'text-green-600'
+                    : 'text-red-600'
+                }
+              >
+                {basicInfo.password.length <= PASSWORD_MAX_LENGTH ? '✓' : '✗'} {PASSWORD_MAX_LENGTH}
+                자 이하
+              </li>
+              <li
+                className={
                   /[a-zA-Z]/.test(basicInfo.password)
                     ? 'text-green-600'
                     : 'text-[var(--knu-text-tertiary)]'
@@ -156,6 +166,15 @@ export function StepBasicInfo({
                 }
               >
                 {/\d/.test(basicInfo.password) ? '✓' : '○'} 숫자 포함
+              </li>
+              <li
+                className={
+                  basicInfo.password.toLowerCase() !== email.toLowerCase()
+                    ? 'text-green-600'
+                    : 'text-red-600'
+                }
+              >
+                {basicInfo.password.toLowerCase() !== email.toLowerCase() ? '✓' : '✗'} 이메일과 다름
               </li>
             </ul>
           )}

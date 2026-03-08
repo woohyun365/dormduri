@@ -57,6 +57,14 @@ describe('validatePassword', () => {
     expect(validatePassword('abcd1234')).toBe('');
   });
 
+  it('72자 경계값 -> 통과', () => {
+    expect(validatePassword('a1' + 'x'.repeat(70))).toBe('');
+  });
+
+  it('73자 (max 초과) -> 에러', () => {
+    expect(validatePassword('a1' + 'x'.repeat(71))).toBeTruthy();
+  });
+
   it('영문만 -> 에러', () => {
     expect(validatePassword('abcdefgh')).toBeTruthy();
   });
@@ -71,6 +79,30 @@ describe('validatePassword', () => {
 
   it('대문자 포함 -> 통과', () => {
     expect(validatePassword('Abcd1234')).toBe('');
+  });
+
+  it('공백 포함 -> 통과 (패스프레이즈 허용)', () => {
+    expect(validatePassword('my pass 1')).toBe('');
+  });
+
+  it('한글 포함 -> 통과 (영문+숫자 조건 충족 시)', () => {
+    expect(validatePassword('비밀번호abc1')).toBe('');
+  });
+
+  it('이메일과 동일 -> 에러', () => {
+    expect(validatePassword('test1234@kangwon.ac.kr', 'test1234@kangwon.ac.kr')).toBeTruthy();
+  });
+
+  it('이메일과 대소문자만 다름 -> 에러', () => {
+    expect(validatePassword('TEST1234@kangwon.ac.kr', 'test1234@kangwon.ac.kr')).toBeTruthy();
+  });
+
+  it('이메일과 다름 -> 통과', () => {
+    expect(validatePassword('abcd1234', 'test@kangwon.ac.kr')).toBe('');
+  });
+
+  it('email 미전달 시 이메일 비교 스킵', () => {
+    expect(validatePassword('abcd1234')).toBe('');
   });
 });
 
