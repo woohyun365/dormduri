@@ -65,18 +65,57 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
         </div>
       )}
 
-      <InputField
-        label="새 비밀번호"
-        type="password"
-        placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
-        value={newPassword}
-        onChange={(value) => {
-          setNewPassword(value);
-          setPasswordError('');
-        }}
-        error={passwordError}
-        disabled={isLoading}
-      />
+      <div>
+        <InputField
+          label="새 비밀번호"
+          type="password"
+          placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
+          value={newPassword}
+          onChange={(value) => {
+            setNewPassword(value);
+            setPasswordError('');
+          }}
+          error={passwordError}
+          disabled={isLoading}
+        />
+        {newPassword.length > 0 && (
+          <ul className="mt-2 space-y-1 text-xs">
+            <li
+              className={
+                newPassword.length >= PASSWORD_MIN_LENGTH
+                  ? 'text-green-600'
+                  : 'text-[var(--knu-text-tertiary)]'
+              }
+            >
+              {newPassword.length >= PASSWORD_MIN_LENGTH ? '✓' : '○'} {PASSWORD_MIN_LENGTH}자 이상
+            </li>
+            <li
+              className={
+                newPassword.length <= PASSWORD_MAX_LENGTH ? 'text-green-600' : 'text-red-600'
+              }
+            >
+              {newPassword.length <= PASSWORD_MAX_LENGTH ? '✓' : '✗'} {PASSWORD_MAX_LENGTH}자 이하
+            </li>
+            <li
+              className={
+                /[a-zA-Z]/.test(newPassword) ? 'text-green-600' : 'text-[var(--knu-text-tertiary)]'
+              }
+            >
+              {/[a-zA-Z]/.test(newPassword) ? '✓' : '○'} 영문 포함
+            </li>
+            <li
+              className={
+                /\d/.test(newPassword) ? 'text-green-600' : 'text-[var(--knu-text-tertiary)]'
+              }
+            >
+              {/\d/.test(newPassword) ? '✓' : '○'} 숫자 포함
+            </li>
+            <li className={newPassword !== email ? 'text-green-600' : 'text-red-600'}>
+              {newPassword !== email ? '✓' : '✗'} 이메일과 다름
+            </li>
+          </ul>
+        )}
+      </div>
 
       <InputField
         label="비밀번호 확인"
