@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { DORMITORIES, UNASSIGNED_ID } from '@/constants/dormitory';
 
 /**
@@ -13,13 +13,12 @@ import { DORMITORIES, UNASSIGNED_ID } from '@/constants/dormitory';
  */
 export function DevPanel() {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentGender, setCurrentGender] = useState('M');
-  const [currentDormitory, setCurrentDormitory] = useState('');
-
-  useEffect(() => {
-    setCurrentGender(localStorage.getItem('dev-gender') ?? 'M');
-    setCurrentDormitory(localStorage.getItem('dev-dormitory') ?? '');
-  }, []);
+  const [currentGender] = useState(
+    () => (typeof window !== 'undefined' ? localStorage.getItem('dev-gender') : null) ?? 'M',
+  );
+  const [currentDormitory] = useState(
+    () => (typeof window !== 'undefined' ? localStorage.getItem('dev-dormitory') : null) ?? '',
+  );
 
   if (process.env.NODE_ENV !== 'development') return null;
 
