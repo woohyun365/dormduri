@@ -72,6 +72,21 @@ export const mockDb = {
     return true;
   },
 
+  /** currentUser + users 배열을 동시에 갱신 (건물 선택 등 프로필 변경 시 사용) */
+  updateUser(email: string, patch: Partial<MockUser>): void {
+    const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
+    const target = users.find((u) => u.email === email);
+    if (target) {
+      Object.assign(target, patch);
+      writeJson(STORAGE_KEYS.users, users);
+    }
+    const current = readJson<MockUser | null>(STORAGE_KEYS.currentUser, null);
+    if (current && current.email === email) {
+      Object.assign(current, patch);
+      writeJson(STORAGE_KEYS.currentUser, current);
+    }
+  },
+
   setCurrentUser(user: MockUser | null): void {
     writeJson(STORAGE_KEYS.currentUser, user);
   },

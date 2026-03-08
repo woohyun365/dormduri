@@ -21,13 +21,14 @@ export function DevPanel() {
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
+    if (!isOpen) return;
     async function load() {
       const { mockDb } = await import('@/__fixtures__/mock-db');
       setCurrentUser(mockDb.getCurrentUser());
       setRegisteredUsers(mockDb.getRegisteredUsers());
     }
     load();
-  }, []);
+  }, [isOpen]);
 
   if (process.env.NODE_ENV !== 'development') return null;
 
@@ -64,8 +65,7 @@ export function DevPanel() {
   function handleDormitoryChange(dormitoryId: string) {
     if (!currentUser) return;
     import('@/__fixtures__/mock-db').then(({ mockDb }) => {
-      const updated = { ...currentUser, dormitoryId: dormitoryId || null };
-      mockDb.setCurrentUser(updated);
+      mockDb.updateUser(currentUser.email, { dormitoryId: dormitoryId || null });
       window.location.reload();
     });
   }

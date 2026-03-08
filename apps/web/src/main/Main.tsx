@@ -52,7 +52,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           import('@/__fixtures__/mock-db').then(({ mockDb }) => {
             const current = mockDb.getCurrentUser();
             if (current) {
-              mockDb.setCurrentUser({ ...current, dormitoryId });
+              mockDb.updateUser(current.email, { dormitoryId });
             }
           });
         }
