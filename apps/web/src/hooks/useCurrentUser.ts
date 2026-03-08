@@ -4,14 +4,13 @@ import { useState, useEffect } from 'react';
 import type { UserProfile } from '@/types/profile';
 
 /**
- * 개발 환경: localStorage 기반 mock 유저 로딩
+ * 현재 로그인 유저를 반환하는 훅
+ *
+ * 개발 환경: mockDb(localStorage 기반)에서 로드
  * 프로덕션: TODO — fetch('/api/user/me') 로 교체
  *
- * 기존 useSearchParams() 방식에서 localStorage로 전환.
- * 사유: useSearchParams()가 Next.js 빌드 시 prerender 에러를 유발.
- * localStorage는 클라이언트 전용이라 prerender에 안전하다.
- *
- * DevPanel에서 localStorage 값을 변경하면 페이지 새로고침 후 반영.
+ * 미로그인 시 user는 null을 반환한다.
+ * 호출측에서 null 여부로 인증 상태를 판단하여 리다이렉트 처리.
  */
 export function useCurrentUser() {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -21,9 +20,6 @@ export function useCurrentUser() {
     async function loadUser() {
       if (process.env.NODE_ENV === 'development') {
         const { mockDb } = await import('@/__fixtures__/mock-db');
-        await mockDb.initFromFixtures();
-
-        // 로그인한 유저가 있으면 우선 사용
         const loggedIn = mockDb.getCurrentUser();
         if (loggedIn) {
           setUser({
@@ -36,10 +32,7 @@ export function useCurrentUser() {
             additional: { college: null, grade: null, mbti: null, temperatureSensitivity: null },
           });
         } else {
-          // 직접 /main 접속: localStorage에서 성별 읽기
-          const { getMockUser } = await import('@/__fixtures__/mock-users');
-          const gender = localStorage.getItem('dev-gender');
-          setUser(getMockUser(gender));
+          setUser(null);
         }
       } else {
         // TODO: BE 연동 시 fetch('/api/user/me') 로 교체

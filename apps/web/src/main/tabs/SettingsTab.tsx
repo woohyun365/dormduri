@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Shield,
   HelpCircle,
@@ -34,7 +33,6 @@ export default function SettingsTab({
   blockedUsers = [],
   onUnblock,
 }: SettingsTabProps) {
-  const router = useRouter();
   const [logoutDialog, setLogoutDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [showBlockManage, setShowBlockManage] = useState(false);
@@ -234,7 +232,8 @@ export default function SettingsTab({
         onConfirm={async () => {
           const { authApi } = await import('@/api/auth');
           await authApi.logout();
-          router.push('/login');
+          // 풀 리로드로 모든 클라이언트 상태 초기화 (같은 경로 replace로는 리마운트되지 않음)
+          window.location.replace('/');
         }}
         title="로그아웃"
         message="로그아웃 하시겠습니까?"
@@ -247,7 +246,7 @@ export default function SettingsTab({
         onClose={() => setDeleteDialog(false)}
         onConfirm={() => {
           // TODO: API call to delete account
-          router.push('/login');
+          window.location.replace('/');
         }}
         title="계정 삭제"
         message="정말로 계정을 삭제하시겠습니까?\n\n모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다."

@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
 import { getProfileCompletion } from '@/utils/profileCompletion';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
@@ -24,7 +22,6 @@ import { calcMatchScore } from '@/utils/matchScore';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
 import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import { DEFAULT_FILTERS } from './components/BottomSheet';
-import { DevPanel } from './components/DevPanel';
 import type { TabId, UserProfile } from '@/types/profile';
 import type { BlockedUser, ReportReason } from '@/types/report';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
@@ -48,7 +45,19 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   const handleSelectDormitory = useCallback(
     (dormitoryId: string) => {
-      setUser((prev) => ({ ...prev, dormitoryId }));
+      setUser((prev) => {
+        const next = { ...prev, dormitoryId };
+        // mockDb에 건물 선택 영속화 (새로고침에도 유지)
+        if (process.env.NODE_ENV === 'development') {
+          import('@/__fixtures__/mock-db').then(({ mockDb }) => {
+            const current = mockDb.getCurrentUser();
+            if (current) {
+              mockDb.updateUser(current.email, { dormitoryId });
+            }
+          });
+        }
+        return next;
+      });
       if (dormitoryId === UNASSIGNED_ID) {
         setToast('건물 미배정으로 설정했어요');
       } else {
@@ -423,34 +432,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           {toast}
         </div>
       )}
-
-      {/* Dev Panel (개발 환경 전용) */}
-      <DevPanel />
     </div>
   );
 }
 
-export default function Main() {
-  const router = useRouter();
-  const { user, isLoading } = useCurrentUser();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [isLoading, user, router]);
-
-  if (isLoading || !user) {
-    return (
-      <div className="min-h-screen bg-[var(--knu-background-alt)] flex items-center justify-center">
-        <p className="text-[var(--knu-text-tertiary)]">로딩 중...</p>
-      </div>
-    );
-  }
-
+export default function Main({ initialUser }: { initialUser: UserProfile }) {
   return (
     <Suspense fallback={null}>
-      <MainContent initialUser={user} />
+      <MainContent initialUser={initialUser} />
     </Suspense>
   );
 }

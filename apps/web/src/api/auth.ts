@@ -76,6 +76,7 @@ export const authApi = {
       const newUser = { ...data, dormitoryId: null };
       db.createUser(newUser);
       db.setCurrentUser(newUser);
+      document.cookie = 'auth-token=mock-dev-token; path=/';
       return { success: true };
     }
     // TODO: POST /api/auth/signup

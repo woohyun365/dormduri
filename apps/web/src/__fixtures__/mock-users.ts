@@ -1,7 +1,15 @@
-import type { UserProfile } from '@/types/profile';
+import type { MockUser } from './mock-db';
 
-const MOCK_USERS: Record<'male' | 'female', UserProfile> = {
+/**
+ * DevPanel 전용 프리셋 유저
+ *
+ * 룸메 후보 목록(profiles.ts)에는 포함되지 않는다.
+ * DevPanel에서 빠른 로그인 전환용으로만 사용한다.
+ */
+export const PRESET_USERS: Record<'male' | 'female', MockUser> = {
   male: {
+    email: 'gomduri@kangwon.ac.kr',
+    password: 'preset',
     nickname: '곰두리',
     gender: 'M',
     dormitoryId: null,
@@ -16,15 +24,10 @@ const MOCK_USERS: Record<'male' | 'female', UserProfile> = {
       relationshipStyle: 'CLOSE',
     },
     intro: '조용하고 규칙적인 생활을 선호합니다. 서로 존중하며 지낼 룸메이트를 찾습니다.',
-    messageToRoommate: null,
-    additional: {
-      college: null,
-      grade: null,
-      mbti: null,
-      temperatureSensitivity: null,
-    },
   },
   female: {
+    email: 'bomi@kangwon.ac.kr',
+    password: 'preset',
     nickname: '봄이',
     gender: 'F',
     dormitoryId: null,
@@ -39,33 +42,5 @@ const MOCK_USERS: Record<'male' | 'female', UserProfile> = {
       relationshipStyle: 'CASUAL',
     },
     intro: '깔끔하고 밝은 분위기를 좋아해요. 서로 배려하며 편하게 지내고 싶습니다.',
-    messageToRoommate: null,
-    additional: {
-      college: null,
-      grade: null,
-      mbti: null,
-      temperatureSensitivity: null,
-    },
   },
 };
-
-/**
- * development 전용: localStorage 기반 mock 유저 반환
- *
- * - dev-gender: 'M' | 'F' (기본 'M')
- * - dev-dormitory: dormitoryId (빈 문자열이면 null → 건물 선택 모달 표시)
- */
-export function getMockUser(genderParam?: string | null): UserProfile {
-  const key = genderParam === 'F' ? 'female' : 'male';
-  const user = { ...MOCK_USERS[key] };
-
-  // DevPanel에서 설정한 건물 반영
-  if (typeof window !== 'undefined') {
-    const dormitory = localStorage.getItem('dev-dormitory');
-    if (dormitory) {
-      user.dormitoryId = dormitory;
-    }
-  }
-
-  return user;
-}
