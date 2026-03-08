@@ -34,11 +34,13 @@ docs/
 ├── 01_codex-review/       ← Codex 코드 리뷰 결과
 ├── 02_review-decisions/   ← 리뷰 적용 여부 결정 문서
 ├── 03_planning/
-│   └── sprint-1/          ← 작업 과정 (결정 배경, 대안 비교, 구현 기록)
-│       ├── 68-logo-routing.md
-│       ├── 66-bottomsheet-count.md
-│       ├── 75-mock-user.md
-│       └── 80-fixture-test.md
+│   ├── sprint-1/          ← 작업 과정 (결정 배경, 대안 비교, 구현 기록)
+│   │   ├── 68-logo-routing.md
+│   │   ├── 66-bottomsheet-count.md
+│   │   ├── 75-mock-user.md
+│   │   └── 80-fixture-test.md
+│   └── sprint-2/
+│       └── 67-flow-design.md
 └── 04_policy/             ← 최종 정책 정리본 (현재 적용 중인 규칙, 참조용)
     ├── password.md
     ├── nickname.md
@@ -65,10 +67,10 @@ docs/
 - **예외**: `CLAUDE.md`만 수정하는 경우 `dev`에 직접 커밋 허용 (소스 코드 변경은 반드시 이슈 브랜치)
 
 ```
-main ← dev ← issue/80-fixture-test
-              issue/68-logo-routing
-              issue/66-bottomsheet-count
-              issue/75-mock-user
+main ← dev ← issue/67-entry-flow
+              issue/72-password-policy
+              issue/73-nickname-policy
+              issue/74-profanity-filter
 ```
 
 ### 스프린트 단위 흐름
@@ -126,12 +128,12 @@ main ← dev ← issue/80-fixture-test
 
 > 목표: 회원가입~메인 진입 경로 확정, 인증/콘텐츠 정책 일괄 결정
 
-| 이슈 | 제목                             | 산출물                        | 비고                    |
-| ---- | -------------------------------- | ----------------------------- | ----------------------- |
-| #67  | 랜딩->회원가입->메인 플로우 설계 | 설계 + 구현                   | Sprint 3 #64의 전제     |
-| #72  | 비밀번호 복잡도 정책 결정        | 결정 + 프론트 validation 구현 | 서버 검증은 백엔드 범위 |
-| #73  | 닉네임 제한 정책                 | 결정 + 프론트 validation 구현 | 서버 검증은 백엔드 범위 |
-| #74  | 비속어/금지어 필터링 정책        | 결정 + 문서화                 | 구현은 백엔드 의존      |
+| 이슈 | 제목                             | 산출물                        | 비고                                                         |
+| ---- | -------------------------------- | ----------------------------- | ------------------------------------------------------------ |
+| #67  | 랜딩->회원가입->메인 플로우 설계 | 설계 + 구현                   | Sprint 3 #64의 전제. #68 구현 포함. `/` 게이트웨이 패턴 적용 |
+| #72  | 비밀번호 복잡도 정책 결정        | 결정 + 프론트 validation 구현 | 서버 검증은 백엔드 범위                                      |
+| #73  | 닉네임 제한 정책                 | 결정 + 프론트 validation 구현 | 서버 검증은 백엔드 범위                                      |
+| #74  | 비속어/금지어 필터링 정책        | 결정 + 문서화                 | 구현은 백엔드 의존                                           |
 
 ### Sprint 3: 온보딩 + 매칭 정책
 
