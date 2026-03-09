@@ -1,7 +1,7 @@
 // TODO: BE API 연동 시 실제 endpoint로 교체
 
 import type { LifestyleData } from '@/types/lifestyle';
-import { validatePassword } from '@/utils/validation';
+import { validatePassword, validateNickname } from '@/utils/validation';
 
 interface LoginResponse {
   success: boolean;
@@ -75,12 +75,18 @@ export const authApi = {
       return { success: false, error: passwordErr };
     }
 
+    // 서버 측 닉네임 정책 검증
+    const nicknameErr = validateNickname(data.nickname);
+    if (nicknameErr) {
+      return { success: false, error: nicknameErr };
+    }
+
     const db = await getMockDb();
     if (db) {
       if (db.findByEmail(data.email)) {
         return { success: false, error: '이미 가입된 이메일입니다.' };
       }
-      const newUser = { ...data, dormitoryId: null };
+      const newUser = { ...data, nickname: data.nickname.trim(), dormitoryId: null };
       db.createUser(newUser);
       db.setCurrentUser(newUser);
       document.cookie = 'auth-token=mock-dev-token; path=/';

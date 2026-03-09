@@ -54,6 +54,7 @@ export function StepBasicInfo({
 
     if (nicknameErr || passwordErr || passwordConfirmErr || genderErr) return;
 
+    onBasicInfoChange({ ...basicInfo, nickname: basicInfo.nickname.trim() });
     onNext();
   };
 
@@ -104,7 +105,7 @@ export function StepBasicInfo({
         <InputField
           label="닉네임"
           type="text"
-          placeholder="2-12자 닉네임"
+          placeholder="한글, 영문, 숫자 2~8자"
           value={basicInfo.nickname}
           onChange={(value) => {
             onBasicInfoChange({ ...basicInfo, nickname: value });
