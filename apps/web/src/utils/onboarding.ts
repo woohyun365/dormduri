@@ -1,3 +1,4 @@
+import { isDormitoryAssigned } from '@/utils/dormitory';
 import type { UserProfile } from '@/types/profile';
 
 export type ChecklistNavigateTo = 'building' | 'profile' | 'list';
@@ -17,7 +18,7 @@ export function getChecklistItems(
     {
       id: 'building',
       label: '건물 선택하기',
-      completed: user.dormitoryId !== null,
+      completed: isDormitoryAssigned(user.dormitoryId),
       navigateTo: 'building',
     },
     {

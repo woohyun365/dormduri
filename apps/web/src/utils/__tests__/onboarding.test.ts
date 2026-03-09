@@ -52,6 +52,13 @@ describe('getChecklistItems', () => {
     expect(items[0]).toMatchObject({ id: 'building', completed: true });
   });
 
+  it('미배정(UNASSIGNED_ID)은 건물 선택 미완료이다', () => {
+    const user = createUser({ dormitoryId: 'unassigned' });
+    const items = getChecklistItems(user, new Set());
+
+    expect(items[0]).toMatchObject({ id: 'building', completed: false });
+  });
+
   it('생활패턴이 모두 입력되면 생활패턴 항목이 완료된다', () => {
     const user = createUser({
       lifestyle: {
