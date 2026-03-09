@@ -19,7 +19,7 @@ export const INTRO_MAX_LENGTH = 200;
 export const MESSAGE_MAX_LENGTH = 100;
 
 export const NICKNAME_MIN = 2;
-export const NICKNAME_MAX = 12;
+export const NICKNAME_MAX = 8;
 
 export const PROFILE_COMPLETION = {
   base: 70,

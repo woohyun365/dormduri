@@ -1,7 +1,7 @@
 // TODO: BE API 연동 시 실제 endpoint로 교체
 
 import type { LifestyleData } from '@/types/lifestyle';
-import { validatePassword } from '@/utils/validation';
+import { validatePassword, validateNickname } from '@/utils/validation';
 
 interface LoginResponse {
   success: boolean;
@@ -73,6 +73,12 @@ export const authApi = {
     const passwordErr = validatePassword(data.password, data.email);
     if (passwordErr) {
       return { success: false, error: passwordErr };
+    }
+
+    // 서버 측 닉네임 정책 검증
+    const nicknameErr = validateNickname(data.nickname);
+    if (nicknameErr) {
+      return { success: false, error: nicknameErr };
     }
 
     const db = await getMockDb();
