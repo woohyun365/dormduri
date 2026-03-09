@@ -15,10 +15,10 @@ export function Checkbox({ label, checked, onChange, required = false }: Checkbo
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          className="sr-only"
+          className="sr-only peer"
         />
         <div
-          className={`w-6 h-6 rounded-lg border-2 transition-all ${
+          className={`w-6 h-6 rounded-lg border-2 transition-all peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--knu-primary)] peer-focus-visible:ring-offset-1 ${
             checked
               ? 'bg-[var(--knu-primary)] border-[var(--knu-primary)]'
               : 'bg-white border-[var(--knu-border)] group-hover:border-[var(--knu-primary)]'
