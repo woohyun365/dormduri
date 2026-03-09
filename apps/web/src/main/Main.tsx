@@ -420,7 +420,10 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         {activeTab === 'settings' && (
           <SettingsTab
             onShowGuide={handleShowGuide}
-            onResetChecklist={resetChecklist}
+            onResetChecklist={() => {
+              resetChecklist();
+              setToast('홈 탭에서 시작 가이드를 확인하세요');
+            }}
             blockedUsers={blockedUsers}
             onUnblock={handleUnblockUser}
           />
