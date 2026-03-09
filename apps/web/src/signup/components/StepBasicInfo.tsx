@@ -54,6 +54,7 @@ export function StepBasicInfo({
 
     if (nicknameErr || passwordErr || passwordConfirmErr || genderErr) return;
 
+    onBasicInfoChange({ ...basicInfo, nickname: basicInfo.nickname.trim() });
     onNext();
   };
 

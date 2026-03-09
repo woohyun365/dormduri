@@ -86,7 +86,7 @@ export const authApi = {
       if (db.findByEmail(data.email)) {
         return { success: false, error: '이미 가입된 이메일입니다.' };
       }
-      const newUser = { ...data, dormitoryId: null };
+      const newUser = { ...data, nickname: data.nickname.trim(), dormitoryId: null };
       db.createUser(newUser);
       db.setCurrentUser(newUser);
       document.cookie = 'auth-token=mock-dev-token; path=/';
