@@ -37,6 +37,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     hasSeenGuide,
     markGuideSeen,
     isChecklistDismissed,
+    forceShowChecklist,
     dismissChecklist,
     resetChecklist,
     hasSeenTooltip,
@@ -376,6 +377,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
             buildingStats={buildingStats}
             bookmarkedUserIds={bookmarkedUserIds}
             isChecklistDismissed={isChecklistDismissed}
+            forceShowChecklist={forceShowChecklist}
             onDismissChecklist={dismissChecklist}
             onOpenBuildingSelect={() => setShowBuildingSelect(true)}
           />
