@@ -113,6 +113,7 @@ export function StepBasicInfo({
           error={nicknameError}
           helper="다른 사용자에게 보여지는 이름입니다."
           maxLength={NICKNAME_MAX}
+          required
         />
 
         <div>
@@ -126,6 +127,7 @@ export function StepBasicInfo({
               setPasswordError('');
             }}
             error={passwordError}
+            required
           />
           {basicInfo.password.length > 0 && (
             <ul className="mt-2 space-y-1 text-xs">
@@ -185,6 +187,7 @@ export function StepBasicInfo({
           type="password"
           placeholder="비밀번호를 다시 입력해주세요"
           value={basicInfo.passwordConfirm}
+          required
           onChange={(value) => {
             onBasicInfoChange({ ...basicInfo, passwordConfirm: value });
             setPasswordConfirmError('');

@@ -95,7 +95,8 @@ export default function Signup() {
     <div className="min-h-screen bg-white">
       <AuthHeader
         onLogoClick={() => {
-          if (currentStep >= 2 && currentStep < TOTAL_STEPS) {
+          const hasProgress = isEmailVerified || basicInfo.nickname || basicInfo.password;
+          if (hasProgress && currentStep < TOTAL_STEPS) {
             return confirm('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
           }
           return true;

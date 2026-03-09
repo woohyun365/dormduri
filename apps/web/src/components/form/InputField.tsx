@@ -14,6 +14,7 @@ interface InputFieldProps {
   helper?: string;
   disabled?: boolean;
   maxLength?: number;
+  required?: boolean;
 }
 
 export function InputField({
@@ -26,6 +27,7 @@ export function InputField({
   helper,
   disabled = false,
   maxLength,
+  required = false,
 }: InputFieldProps) {
   const id = useId();
   const errorId = `${id}-error`;
@@ -39,6 +41,7 @@ export function InputField({
         className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-2"
       >
         {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
       </label>
       <div className="relative">
         <input
