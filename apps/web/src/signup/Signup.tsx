@@ -93,7 +93,15 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen bg-white">
-      <AuthHeader showBack={currentStep > 1 && currentStep < TOTAL_STEPS} onBack={handleBack} />
+      <AuthHeader
+        onLogoClick={() => {
+          const hasProgress = isEmailVerified || basicInfo.nickname || basicInfo.password;
+          if (hasProgress && currentStep < TOTAL_STEPS) {
+            return confirm('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
+          }
+          return true;
+        }}
+      />
 
       <main className="mx-auto max-w-2xl px-5 py-8">
         {currentStep < TOTAL_STEPS && (
