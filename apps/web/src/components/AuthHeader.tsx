@@ -5,9 +5,17 @@ import { ChevronLeft } from 'lucide-react';
 interface AuthHeaderProps {
   onBack?: () => void;
   showBack?: boolean;
+  /** 로고 클릭 시 커스텀 동작. false를 반환하면 이동을 취소한다. */
+  onLogoClick?: () => boolean;
 }
 
-export function AuthHeader({ onBack, showBack = false }: AuthHeaderProps) {
+export function AuthHeader({ onBack, showBack = false, onLogoClick }: AuthHeaderProps) {
+  const handleLogoClick = (e: React.MouseEvent) => {
+    if (onLogoClick && !onLogoClick()) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <header className="sticky top-0 z-10 bg-white border-b border-[var(--knu-border)]">
       <div className="mx-auto max-w-2xl px-5">
@@ -21,7 +29,7 @@ export function AuthHeader({ onBack, showBack = false }: AuthHeaderProps) {
               <ChevronLeft className="w-6 h-6 text-[var(--knu-text-primary)]" />
             </button>
           )}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" onClick={handleLogoClick} className="flex items-center gap-2">
             <Image
               src="/knu_logo.svg"
               alt="KNU 로고"
