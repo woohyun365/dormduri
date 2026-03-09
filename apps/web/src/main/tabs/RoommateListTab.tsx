@@ -46,6 +46,8 @@ interface RoommateListTabProps {
   onDismissProfileBanner?: () => void;
   showMatchScoreTip?: boolean;
   onDismissMatchScoreTip?: () => void;
+  showMatchRequestTip?: boolean;
+  onDismissMatchRequestTip?: () => void;
 }
 
 export default function RoommateListTab({
@@ -70,6 +72,8 @@ export default function RoommateListTab({
   onDismissProfileBanner,
   showMatchScoreTip,
   onDismissMatchScoreTip,
+  showMatchRequestTip,
+  onDismissMatchRequestTip,
 }: RoommateListTabProps) {
   const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
 
@@ -464,6 +468,8 @@ export default function RoommateListTab({
             : undefined
         }
         userLifestyle={user.lifestyle}
+        showMatchRequestTip={showMatchRequestTip}
+        onDismissMatchRequestTip={onDismissMatchRequestTip}
       />
 
       {/* Match Request Dialog */}

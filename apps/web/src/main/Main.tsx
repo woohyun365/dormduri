@@ -33,8 +33,17 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const [toast, setToast] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [user, setUser] = useState<UserProfile>(initialUser);
-  const { hasSeenGuide, markGuideSeen } = useOnboardingState();
+  const {
+    hasSeenGuide,
+    markGuideSeen,
+    isChecklistDismissed,
+    dismissChecklist,
+    resetChecklist,
+    hasSeenTooltip,
+    markTooltipSeen,
+  } = useOnboardingState(user.nickname);
 
+  const [showBuildingSelect, setShowBuildingSelect] = useState(false);
   const guideTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
@@ -341,8 +350,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   return (
     <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
-      {user.dormitoryId === null && (
-        <BuildingSelectModal gender={user.gender} onSelect={handleSelectDormitory} />
+      {(user.dormitoryId === null || showBuildingSelect) && (
+        <BuildingSelectModal
+          gender={user.gender}
+          onSelect={(dormitoryId) => {
+            handleSelectDormitory(dormitoryId);
+            setShowBuildingSelect(false);
+          }}
+        />
       )}
       {/* Conditional tab rendering */}
       <main>
@@ -359,6 +374,10 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
             onEndMatch={handleEndMatch}
             profiles={mockRawProfiles}
             buildingStats={buildingStats}
+            bookmarkedUserIds={bookmarkedUserIds}
+            isChecklistDismissed={isChecklistDismissed}
+            onDismissChecklist={dismissChecklist}
+            onOpenBuildingSelect={() => setShowBuildingSelect(true)}
           />
         )}
         {activeTab === 'list' && (
@@ -382,6 +401,10 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
             onToggleBookmark={handleToggleBookmark}
             showProfileBanner={listShowProfileBanner}
             onDismissProfileBanner={() => setListShowProfileBanner(false)}
+            showMatchScoreTip={!hasSeenTooltip('matchScore')}
+            onDismissMatchScoreTip={() => markTooltipSeen('matchScore')}
+            showMatchRequestTip={!hasSeenTooltip('matchRequest')}
+            onDismissMatchRequestTip={() => markTooltipSeen('matchRequest')}
           />
         )}
         {activeTab === 'profile' && (
@@ -397,6 +420,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         {activeTab === 'settings' && (
           <SettingsTab
             onShowGuide={handleShowGuide}
+            onResetChecklist={resetChecklist}
             blockedUsers={blockedUsers}
             onUnblock={handleUnblockUser}
           />
