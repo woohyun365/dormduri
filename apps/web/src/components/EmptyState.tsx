@@ -1,9 +1,15 @@
+interface EmptyStateAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface EmptyStateProps {
   icon?: React.ReactNode;
   message: string;
+  action?: EmptyStateAction;
 }
 
-export function EmptyState({ icon, message }: EmptyStateProps) {
+export function EmptyState({ icon, message, action }: EmptyStateProps) {
   return (
     <div className="text-center py-16">
       {icon && (
@@ -12,6 +18,14 @@ export function EmptyState({ icon, message }: EmptyStateProps) {
         </div>
       )}
       <p className="text-[var(--knu-text-secondary)] text-sm">{message}</p>
+      {action && (
+        <button
+          onClick={action.onClick}
+          className="mt-4 px-4 py-2 text-sm font-semibold text-[var(--knu-primary)] bg-[var(--knu-primary-light)] rounded-xl"
+        >
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }

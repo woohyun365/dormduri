@@ -3,33 +3,41 @@ import { useState, useCallback } from 'react';
 /**
  * 온보딩 상태 관리 훅
  *
- * 현재는 localStorage에 저장한다.
+ * 현재는 localStorage에 사용자별로 저장한다.
  * 추후 서버 연동 시 이 훅 내부만 수정하면 된다.
  * (localStorage → GET/PATCH /api/user/onboarding)
  */
 
-const STORAGE_KEY = 'onboarding';
+function storageKey(userId: string): string {
+  return `onboarding:${userId}`;
+}
 
 interface OnboardingState {
   /** 건물별 가이드 표시 여부 */
   guideSeen: Record<string, boolean>;
   /** 최초 메인 페이지 방문 시각 (ISO string) */
   firstVisitAt: string | null;
+  /** 체크리스트 수동 닫기 여부 */
+  checklistDismissed: boolean;
+  /** 툴팁별 표시 여부 */
+  tooltipSeen: Record<string, boolean>;
 }
 
 const DEFAULT_STATE: OnboardingState = {
   guideSeen: {},
   firstVisitAt: null,
+  checklistDismissed: false,
+  tooltipSeen: {},
 };
 
 function createDefaultState(): OnboardingState {
-  return { ...DEFAULT_STATE, guideSeen: {} };
+  return { ...DEFAULT_STATE, guideSeen: {}, tooltipSeen: {} };
 }
 
-function loadState(): OnboardingState {
+function loadState(userId: string): OnboardingState {
   if (typeof window === 'undefined') return createDefaultState();
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey(userId));
     if (!raw) return createDefaultState();
     return { ...createDefaultState(), ...JSON.parse(raw) };
   } catch {
@@ -37,20 +45,34 @@ function loadState(): OnboardingState {
   }
 }
 
-function saveState(state: OnboardingState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+function saveState(userId: string, state: OnboardingState) {
+  localStorage.setItem(storageKey(userId), JSON.stringify(state));
 }
 
-export function useOnboardingState() {
+export function useOnboardingState(userId?: string) {
+  const key = userId ?? '_anonymous';
+
   const [state, setState] = useState<OnboardingState>(() => {
-    const loaded = loadState();
+    const loaded = loadState(key);
     if (!loaded.firstVisitAt && typeof window !== 'undefined') {
       loaded.firstVisitAt = new Date().toISOString();
-      saveState(loaded);
+      saveState(key, loaded);
     }
     return loaded;
   });
 
+  const update = useCallback(
+    (updater: (prev: OnboardingState) => OnboardingState) => {
+      setState((prev) => {
+        const next = updater(prev);
+        saveState(key, next);
+        return next;
+      });
+    },
+    [key],
+  );
+
+  // --- 건물 가이드 ---
   const hasSeenGuide = useCallback(
     (dormitoryId: string): boolean => {
       return state.guideSeen[dormitoryId] === true;
@@ -58,16 +80,52 @@ export function useOnboardingState() {
     [state.guideSeen],
   );
 
-  const markGuideSeen = useCallback((dormitoryId: string) => {
-    setState((prev) => {
-      const next = {
+  const markGuideSeen = useCallback(
+    (dormitoryId: string) => {
+      update((prev) => ({
         ...prev,
         guideSeen: { ...prev.guideSeen, [dormitoryId]: true },
-      };
-      saveState(next);
-      return next;
-    });
-  }, []);
+      }));
+    },
+    [update],
+  );
 
-  return { hasSeenGuide, markGuideSeen };
+  // --- 체크리스트 ---
+  const isChecklistDismissed = state.checklistDismissed;
+
+  const dismissChecklist = useCallback(() => {
+    update((prev) => ({ ...prev, checklistDismissed: true }));
+  }, [update]);
+
+  const resetChecklist = useCallback(() => {
+    update((prev) => ({ ...prev, checklistDismissed: false }));
+  }, [update]);
+
+  // --- 툴팁 ---
+  const hasSeenTooltip = useCallback(
+    (tooltipId: string): boolean => {
+      return state.tooltipSeen[tooltipId] === true;
+    },
+    [state.tooltipSeen],
+  );
+
+  const markTooltipSeen = useCallback(
+    (tooltipId: string) => {
+      update((prev) => ({
+        ...prev,
+        tooltipSeen: { ...prev.tooltipSeen, [tooltipId]: true },
+      }));
+    },
+    [update],
+  );
+
+  return {
+    hasSeenGuide,
+    markGuideSeen,
+    isChecklistDismissed,
+    dismissChecklist,
+    resetChecklist,
+    hasSeenTooltip,
+    markTooltipSeen,
+  };
 }

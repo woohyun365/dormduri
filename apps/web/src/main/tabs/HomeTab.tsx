@@ -27,6 +27,9 @@ import { MatchRequestCard } from '../components/MatchRequestCard';
 import { ProfileDetailSheet } from '../components/ProfileDetailSheet';
 import { Button } from '@/components/Button';
 import { calcMatchScore } from '@/utils/matchScore';
+import { OnboardingChecklist } from '../components/OnboardingChecklist';
+import { getChecklistItems, isChecklistComplete } from '@/utils/onboarding';
+import type { ChecklistNavigateTo } from '@/utils/onboarding';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 
@@ -49,6 +52,10 @@ interface HomeTabProps {
   onEndMatch?: () => void;
   profiles: Omit<RoommateProfile, 'matchScore'>[];
   buildingStats?: BuildingStats;
+  bookmarkedUserIds?: Set<string>;
+  isChecklistDismissed?: boolean;
+  onDismissChecklist?: () => void;
+  onOpenBuildingSelect?: () => void;
 }
 
 function formatDateRange(startStr: string, endStr: string): string {
@@ -92,8 +99,34 @@ export default function HomeTab({
   onEndMatch,
   profiles,
   buildingStats,
+  bookmarkedUserIds,
+  isChecklistDismissed,
+  onDismissChecklist,
+  onOpenBuildingSelect,
 }: HomeTabProps) {
   const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
+
+  // Checklist
+  const checklistItems = useMemo(
+    () => getChecklistItems(user, bookmarkedUserIds ?? new Set()),
+    [user, bookmarkedUserIds],
+  );
+  const checklistComplete = isChecklistComplete(user, bookmarkedUserIds ?? new Set());
+  const showChecklist = !checklistComplete && !isChecklistDismissed;
+
+  const handleChecklistNavigate = (target: ChecklistNavigateTo) => {
+    switch (target) {
+      case 'building':
+        onOpenBuildingSelect?.();
+        break;
+      case 'profile':
+        onNavigate('profile');
+        break;
+      case 'list':
+        onNavigate('list');
+        break;
+    }
+  };
   const dormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
     : null;
@@ -478,7 +511,10 @@ export default function HomeTab({
 
           {/* Case 3: No match, no pending */}
           {!activeMatch && !hasPendingRequests && (
-            <EmptyState message="아직 매칭 요청이 없어요. 아래 빠른 메뉴에서 룸메이트를 찾아보세요!" />
+            <EmptyState
+              message="아직 매칭 요청이 없어요"
+              action={{ label: '룸메이트 둘러보기', onClick: () => onNavigate('list') }}
+            />
           )}
         </div>
 
@@ -596,71 +632,79 @@ export default function HomeTab({
           )}
         </div>
 
-        {/* ⑤ Profile Completeness */}
-        <div>
-          <h2 className="font-bold text-[var(--knu-text-primary)] mb-3">프로필 완성도</h2>
-          <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                {completionPercent}%
-              </span>
-              <span
-                className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                  hasAllOptional ? 'bg-green-100 text-green-700' : 'bg-orange-50 text-orange-700'
-                }`}
-              >
-                {hasAllOptional ? '완성' : `${filledOptional}/${totalOptional} 선택 항목`}
-              </span>
-            </div>
-            <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden mb-3">
-              <div
-                className="h-full bg-[var(--knu-primary)] transition-all duration-300 rounded-full"
-                style={{ width: `${completionPercent}%` }}
-              />
-            </div>
-            {hasAllOptional ? (
-              <p className="text-sm text-green-600 font-semibold">모든 항목이 입력되었어요!</p>
-            ) : (
-              <div>
-                <p className="text-xs text-[var(--knu-text-tertiary)] mb-2">미작성 항목</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {!user.messageToRoommate && (
-                    <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
-                      룸메에게 한마디
-                    </span>
-                  )}
-                  {!user.additional.college && (
-                    <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
-                      단대
-                    </span>
-                  )}
-                  {!user.additional.grade && (
-                    <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
-                      학년
-                    </span>
-                  )}
-                  {!user.additional.mbti && (
-                    <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
-                      MBTI
-                    </span>
-                  )}
-                  {!user.additional.temperatureSensitivity && (
-                    <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
-                      온도 민감도
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => onNavigate('profile')}
-                  className="mt-3 flex items-center gap-1 text-sm font-semibold text-[var(--knu-primary)]"
+        {/* ⑤ Onboarding Checklist / Profile Completeness */}
+        {showChecklist ? (
+          <OnboardingChecklist
+            items={checklistItems}
+            onNavigate={handleChecklistNavigate}
+            onDismiss={() => onDismissChecklist?.()}
+          />
+        ) : (
+          <div>
+            <h2 className="font-bold text-[var(--knu-text-primary)] mb-3">프로필 완성도</h2>
+            <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                  {completionPercent}%
+                </span>
+                <span
+                  className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    hasAllOptional ? 'bg-green-100 text-green-700' : 'bg-orange-50 text-orange-700'
+                  }`}
                 >
-                  프로필 완성하기
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                  {hasAllOptional ? '완성' : `${filledOptional}/${totalOptional} 선택 항목`}
+                </span>
               </div>
-            )}
+              <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden mb-3">
+                <div
+                  className="h-full bg-[var(--knu-primary)] transition-all duration-300 rounded-full"
+                  style={{ width: `${completionPercent}%` }}
+                />
+              </div>
+              {hasAllOptional ? (
+                <p className="text-sm text-green-600 font-semibold">모든 항목이 입력되었어요!</p>
+              ) : (
+                <div>
+                  <p className="text-xs text-[var(--knu-text-tertiary)] mb-2">미작성 항목</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {!user.messageToRoommate && (
+                      <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
+                        룸메에게 한마디
+                      </span>
+                    )}
+                    {!user.additional.college && (
+                      <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
+                        단대
+                      </span>
+                    )}
+                    {!user.additional.grade && (
+                      <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
+                        학년
+                      </span>
+                    )}
+                    {!user.additional.mbti && (
+                      <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
+                        MBTI
+                      </span>
+                    )}
+                    {!user.additional.temperatureSensitivity && (
+                      <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
+                        온도 민감도
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => onNavigate('profile')}
+                    className="mt-3 flex items-center gap-1 text-sm font-semibold text-[var(--knu-primary)]"
+                  >
+                    프로필 완성하기
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ⑥ Usage Tips */}
         <div>

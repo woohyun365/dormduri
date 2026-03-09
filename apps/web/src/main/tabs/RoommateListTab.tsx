@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { Bookmark, Filter, Building2, ChevronRight, Search, Sparkles, X } from 'lucide-react';
 import { getProfileCompletion } from '@/utils/profileCompletion';
 import { EmptyState } from '@/components/EmptyState';
+import { ContextualTip } from '@/components/ContextualTip';
 import { MatchRequestDialog } from '../components/MatchRequestDialog';
 import { UserCard } from '../components/UserCard';
 import { BottomSheet, DEFAULT_FILTERS } from '../components/BottomSheet';
@@ -43,6 +44,8 @@ interface RoommateListTabProps {
   onToggleBookmark?: (userId: string) => void;
   showProfileBanner?: boolean;
   onDismissProfileBanner?: () => void;
+  showMatchScoreTip?: boolean;
+  onDismissMatchScoreTip?: () => void;
 }
 
 export default function RoommateListTab({
@@ -65,6 +68,8 @@ export default function RoommateListTab({
   onToggleBookmark,
   showProfileBanner = true,
   onDismissProfileBanner,
+  showMatchScoreTip,
+  onDismissMatchScoreTip,
 }: RoommateListTabProps) {
   const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
 
@@ -354,6 +359,12 @@ export default function RoommateListTab({
             {filteredProfiles.length}명의 룸메이트
           </p>
         )}
+        {showMatchScoreTip && filteredProfiles.length > 0 && onDismissMatchScoreTip && (
+          <ContextualTip
+            message="생활패턴이 비슷할수록 매칭점수가 높아요"
+            onDismiss={onDismissMatchScoreTip}
+          />
+        )}
       </div>
       <div className="max-w-md mx-auto px-5 pb-5 space-y-3">
         {filteredProfiles.length === 0 ? (
@@ -371,6 +382,11 @@ export default function RoommateListTab({
                 : dormName
                   ? `${dormName}에 아직 등록한 사용자가 없어요`
                   : '조건에 맞는 사용자가 없어요. 필터를 조정해보세요'
+            }
+            action={
+              viewMode === 'bookmarked'
+                ? { label: '룸메이트 둘러보기', onClick: () => onViewModeChange('all') }
+                : undefined
             }
           />
         ) : (
