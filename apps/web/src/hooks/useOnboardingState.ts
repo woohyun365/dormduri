@@ -19,6 +19,8 @@ interface OnboardingState {
   firstVisitAt: string | null;
   /** 체크리스트 수동 닫기 여부 */
   checklistDismissed: boolean;
+  /** 완료 후 강제 재표시 여부 */
+  forceShowChecklist: boolean;
   /** 툴팁별 표시 여부 */
   tooltipSeen: Record<string, boolean>;
 }
@@ -27,6 +29,7 @@ const DEFAULT_STATE: OnboardingState = {
   guideSeen: {},
   firstVisitAt: null,
   checklistDismissed: false,
+  forceShowChecklist: false,
   tooltipSeen: {},
 };
 
@@ -92,13 +95,14 @@ export function useOnboardingState(userId?: string) {
 
   // --- 체크리스트 ---
   const isChecklistDismissed = state.checklistDismissed;
+  const forceShowChecklist = state.forceShowChecklist;
 
   const dismissChecklist = useCallback(() => {
-    update((prev) => ({ ...prev, checklistDismissed: true }));
+    update((prev) => ({ ...prev, checklistDismissed: true, forceShowChecklist: false }));
   }, [update]);
 
   const resetChecklist = useCallback(() => {
-    update((prev) => ({ ...prev, checklistDismissed: false }));
+    update((prev) => ({ ...prev, checklistDismissed: false, forceShowChecklist: true }));
   }, [update]);
 
   // --- 툴팁 ---
@@ -123,6 +127,7 @@ export function useOnboardingState(userId?: string) {
     hasSeenGuide,
     markGuideSeen,
     isChecklistDismissed,
+    forceShowChecklist,
     dismissChecklist,
     resetChecklist,
     hasSeenTooltip,

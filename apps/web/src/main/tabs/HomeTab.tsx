@@ -54,6 +54,7 @@ interface HomeTabProps {
   buildingStats?: BuildingStats;
   bookmarkedUserIds?: Set<string>;
   isChecklistDismissed?: boolean;
+  forceShowChecklist?: boolean;
   onDismissChecklist?: () => void;
   onOpenBuildingSelect?: () => void;
 }
@@ -101,6 +102,7 @@ export default function HomeTab({
   buildingStats,
   bookmarkedUserIds,
   isChecklistDismissed,
+  forceShowChecklist,
   onDismissChecklist,
   onOpenBuildingSelect,
 }: HomeTabProps) {
@@ -112,7 +114,7 @@ export default function HomeTab({
     [user, bookmarkedUserIds],
   );
   const checklistComplete = isChecklistComplete(user, bookmarkedUserIds ?? new Set());
-  const showChecklist = !checklistComplete && !isChecklistDismissed;
+  const showChecklist = forceShowChecklist || (!checklistComplete && !isChecklistDismissed);
 
   const handleChecklistNavigate = (target: ChecklistNavigateTo) => {
     switch (target) {
