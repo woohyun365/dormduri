@@ -13,6 +13,7 @@ import {
   ExternalLink,
   LogOut,
   Ban,
+  RotateCcw,
 } from 'lucide-react';
 import { DORM_HOMEPAGE_URL } from '@/constants/dormitory-guide';
 import { ComingSoonBadge } from '@/components/ComingSoonBadge';
@@ -24,12 +25,14 @@ import type { BlockedUser } from '@/types/report';
 
 interface SettingsTabProps {
   onShowGuide: () => void;
+  onResetChecklist?: () => void;
   blockedUsers?: BlockedUser[];
   onUnblock?: (userId: string, nickname: string) => void;
 }
 
 export default function SettingsTab({
   onShowGuide,
+  onResetChecklist,
   blockedUsers = [],
   onUnblock,
 }: SettingsTabProps) {
@@ -123,6 +126,20 @@ export default function SettingsTab({
               </div>
               <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
             </button>
+            {onResetChecklist && (
+              <button
+                onClick={onResetChecklist}
+                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <RotateCcw className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+                  <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                    시작 가이드 다시 보기
+                  </span>
+                </div>
+                <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              </button>
+            )}
             <a
               href={DORM_HOMEPAGE_URL}
               target="_blank"

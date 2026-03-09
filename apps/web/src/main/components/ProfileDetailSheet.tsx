@@ -12,6 +12,7 @@ import { getAvatarColor } from '@/utils/avatarColor';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { ContextualTip } from '@/components/ContextualTip';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ProfileMoreMenu } from './ProfileMoreMenu';
 import { ReportSheet } from './ReportSheet';
@@ -37,6 +38,8 @@ interface ProfileDetailSheetProps {
   onToggleBookmark?: () => void;
   userLifestyle?: LifestyleData;
   customFooter?: React.ReactNode;
+  showMatchRequestTip?: boolean;
+  onDismissMatchRequestTip?: () => void;
 }
 
 const LIFESTYLE_FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
@@ -56,6 +59,8 @@ export function ProfileDetailSheet({
   onToggleBookmark,
   userLifestyle,
   customFooter,
+  showMatchRequestTip,
+  onDismissMatchRequestTip,
 }: ProfileDetailSheetProps) {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
@@ -273,6 +278,14 @@ export function ProfileDetailSheet({
               </div>
               <p className="text-sm text-blue-800 leading-relaxed">{profile.messageToRoommate}</p>
             </div>
+          )}
+
+          {/* Match Request Tip */}
+          {showMatchRequestTip && onDismissMatchRequestTip && (
+            <ContextualTip
+              message="상대방이 수락하면 매칭이 성사돼요"
+              onDismiss={onDismissMatchRequestTip}
+            />
           )}
         </div>
 
