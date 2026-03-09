@@ -53,6 +53,7 @@ export function InputField({
           disabled={disabled}
           maxLength={maxLength}
           aria-invalid={!!error}
+          aria-required={required || undefined}
           aria-describedby={error ? errorId : undefined}
           className={`w-full h-12 px-4 rounded-xl border-2 transition-all ${
             error
