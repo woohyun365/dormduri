@@ -1,6 +1,5 @@
-import { Bookmark, Filter, X } from 'lucide-react';
+import { Filter, X } from 'lucide-react';
 import { LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
-import { DEFAULT_FILTERS } from '../../components/BottomSheet';
 import type { FilterState } from '@/types/filter';
 import type { SortMode, ViewMode } from './useRoommateListViewModel';
 
