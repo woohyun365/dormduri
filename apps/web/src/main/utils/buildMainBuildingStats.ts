@@ -1,5 +1,5 @@
 import { isDormitoryAssigned } from '@/utils/dormitory';
-import type { BuildingStats } from '../tabs/HomeTab';
+import type { BuildingStats } from '../tabs/home/HomeTab';
 import type { UserProfile } from '@/types/profile';
 import type { RoommateProfile } from '@/types/profile';
 
