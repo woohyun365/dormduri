@@ -8,6 +8,8 @@ import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 import type { UserProfile } from '@/types/profile';
 
+let idCounter = 0;
+
 export function useMainMatchingState(
   showToast: (msg: string) => void,
   userLifestyle: UserProfile['lifestyle'],
@@ -32,7 +34,7 @@ export function useMainMatchingState(
       expiresAt.setHours(expiresAt.getHours() + MATCH_POLICY.REQUEST_TTL_HOURS);
 
       const newRequest: MatchRequest = {
-        id: `req-${Date.now()}`,
+        id: `req-${++idCounter}`,
         fromUserId: 'me',
         toUserId: targetUserId,
         status: 'PENDING',
@@ -66,7 +68,7 @@ export function useMainMatchingState(
       const partnerProfile = mockRawProfiles.find((p) => p.id === partnerId);
 
       const match: ActiveMatch = {
-        matchId: `match-${Date.now()}`,
+        matchId: `match-${++idCounter}`,
         partnerUserId: partnerId,
         partnerNickname: partnerProfile?.nickname ?? partnerId,
         partnerDormitoryId: partnerProfile?.dormitoryId ?? null,

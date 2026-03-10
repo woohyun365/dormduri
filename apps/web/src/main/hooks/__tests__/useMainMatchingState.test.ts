@@ -73,9 +73,10 @@ describe('useMainMatchingState — 요청 전송', () => {
     act(() => hook.result.current.handleSendRequest('target-1', '안녕하세요'));
 
     expect(hook.result.current.matchRequests).toHaveLength(1);
-    expect(hook.result.current.matchRequests[0].toUserId).toBe('target-1');
-    expect(hook.result.current.matchRequests[0].status).toBe('PENDING');
-    expect(hook.result.current.matchRequests[0].message).toBe('안녕하세요');
+    const req = hook.result.current.matchRequests[0]!;
+    expect(req.toUserId).toBe('target-1');
+    expect(req.status).toBe('PENDING');
+    expect(req.message).toBe('안녕하세요');
     expect(toasts).toContain('매칭 요청을 보냈어요');
   });
 
@@ -84,7 +85,7 @@ describe('useMainMatchingState — 요청 전송', () => {
 
     act(() => hook.result.current.handleSendRequest('target-1'));
 
-    expect(hook.result.current.matchRequests[0].message).toBeNull();
+    expect(hook.result.current.matchRequests[0]!.message).toBeNull();
   });
 });
 
@@ -93,11 +94,11 @@ describe('useMainMatchingState — 요청 취소', () => {
     const { hook, toasts } = setup();
 
     act(() => hook.result.current.handleSendRequest('target-1'));
-    const requestId = hook.result.current.matchRequests[0].id;
+    const requestId = hook.result.current.matchRequests[0]!.id;
 
     act(() => hook.result.current.handleCancelRequest(requestId));
 
-    expect(hook.result.current.matchRequests[0].status).toBe('CANCELED');
+    expect(hook.result.current.matchRequests[0]!.status).toBe('CANCELED');
     expect(toasts).toContain('매칭 요청을 취소했어요');
   });
 });
@@ -106,33 +107,24 @@ describe('useMainMatchingState — 요청 수락', () => {
   it('수락 시 activeMatch가 설정되고 축하 모달이 트리거된다', () => {
     const { hook } = setup();
 
-    // 받은 요청 시뮬레이션
-    act(() => hook.result.current.handleSendRequest('me'));
-    // fromUserId를 partner-1로 설정한 요청을 직접 주입 (받은 요청)
-    const receivedRequest = {
-      id: 'req-received',
-      fromUserId: 'partner-1',
-      toUserId: 'me',
-      status: 'PENDING' as const,
-      message: null,
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-      rejectedAt: null,
-    };
+    // ⚠️ 훅 API 한계: handleSendRequest는 fromUserId='me'로 고정되어
+    // "받은 요청(fromUserId=상대)" 시나리오를 재현할 수 없음.
+    // 여기서는 상태 전이(PENDING→ACTIVE, celebration 트리거)를 검증한다.
+    // partner 닉네임/점수 계산은 mockRawProfiles에 'me'가 없어 fallback 경로를 탄다.
+    act(() => hook.result.current.handleSendRequest('target-1'));
 
-    // 직접 handleSendRequest로는 받은 요청을 만들 수 없으므로,
-    // handleAcceptRequest 테스트를 위해 sent 요청을 먼저 만들어 ID로 수락
-    // → handleSendRequest는 fromUserId='me'로 고정이므로 수락 로직의 partnerId='me'가 됨
-    // 이 테스트는 handleAcceptRequest의 상태 전이 로직을 검증
-    act(() => hook.result.current.handleSendRequest('target-2'));
+    const requestId = hook.result.current.matchRequests[0]!.id;
+    act(() => hook.result.current.handleAcceptRequest(requestId));
 
-    const requests = hook.result.current.matchRequests;
-    const firstReqId = requests[0].id;
+    const match = hook.result.current.activeMatch!;
+    expect(match.partnerUserId).toBe('me');
+    expect(match.partnerNickname).toBe('me'); // fallback: profile 미발견 시 partnerId 사용
+    expect(match.matchScore).toBe(0); // fallback: profile 미발견 시 0
+    expect(match.matchedAt).toBeTruthy();
 
-    act(() => hook.result.current.handleAcceptRequest(firstReqId));
-
-    expect(hook.result.current.activeMatch).not.toBeNull();
-    expect(hook.result.current.showCelebration).not.toBeNull();
+    const celebration = hook.result.current.showCelebration!;
+    expect(celebration.nickname).toBe('me');
+    expect(celebration.score).toBe(0);
   });
 
   it('수락 시 다른 PENDING 요청이 CANCELED로 전환된다', () => {
@@ -146,12 +138,12 @@ describe('useMainMatchingState — 요청 수락', () => {
     expect(requests).toHaveLength(3);
 
     // 첫 번째 요청 수락
-    act(() => hook.result.current.handleAcceptRequest(requests[0].id));
+    act(() => hook.result.current.handleAcceptRequest(requests[0]!.id));
 
     const updated = hook.result.current.matchRequests;
-    expect(updated[0].status).toBe('ACTIVE');
-    expect(updated[1].status).toBe('CANCELED');
-    expect(updated[2].status).toBe('CANCELED');
+    expect(updated[0]!.status).toBe('ACTIVE');
+    expect(updated[1]!.status).toBe('CANCELED');
+    expect(updated[2]!.status).toBe('CANCELED');
   });
 });
 
@@ -160,12 +152,13 @@ describe('useMainMatchingState — 요청 거절', () => {
     const { hook, toasts } = setup();
 
     act(() => hook.result.current.handleSendRequest('target-1'));
-    const requestId = hook.result.current.matchRequests[0].id;
+    const requestId = hook.result.current.matchRequests[0]!.id;
 
     act(() => hook.result.current.handleRejectRequest(requestId));
 
-    expect(hook.result.current.matchRequests[0].status).toBe('REJECTED');
-    expect(hook.result.current.matchRequests[0].rejectedAt).not.toBeNull();
+    const req = hook.result.current.matchRequests[0]!;
+    expect(req.status).toBe('REJECTED');
+    expect(req.rejectedAt).not.toBeNull();
     expect(toasts).toContain('매칭 요청을 거절했어요');
   });
 });
@@ -175,7 +168,7 @@ describe('useMainMatchingState — 매칭 해제', () => {
     const { hook, toasts } = setup();
 
     act(() => hook.result.current.handleSendRequest('target-1'));
-    act(() => hook.result.current.handleAcceptRequest(hook.result.current.matchRequests[0].id));
+    act(() => hook.result.current.handleAcceptRequest(hook.result.current.matchRequests[0]!.id));
     expect(hook.result.current.activeMatch).not.toBeNull();
 
     act(() => hook.result.current.handleEndMatch());
@@ -190,7 +183,7 @@ describe('useMainMatchingState — 축하 모달', () => {
     const { hook } = setup();
 
     act(() => hook.result.current.handleSendRequest('target-1'));
-    act(() => hook.result.current.handleAcceptRequest(hook.result.current.matchRequests[0].id));
+    act(() => hook.result.current.handleAcceptRequest(hook.result.current.matchRequests[0]!.id));
     expect(hook.result.current.showCelebration).not.toBeNull();
 
     act(() => hook.result.current.closeCelebration());
