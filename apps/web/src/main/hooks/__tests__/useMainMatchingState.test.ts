@@ -107,20 +107,24 @@ describe('useMainMatchingState — 요청 수락', () => {
   it('수락 시 activeMatch가 설정되고 축하 모달이 트리거된다', () => {
     const { hook } = setup();
 
-    // 받은 요청 시뮬레이션
-    act(() => hook.result.current.handleSendRequest('me'));
-    // fromUserId를 partner-1로 설정한 요청을 직접 주입 (받은 요청)
-    // → handleSendRequest는 fromUserId='me'로 고정이므로 수락 로직의 partnerId='me'가 됨
-    // 이 테스트는 handleAcceptRequest의 상태 전이 로직을 검증
-    act(() => hook.result.current.handleSendRequest('target-2'));
+    // ⚠️ 훅 API 한계: handleSendRequest는 fromUserId='me'로 고정되어
+    // "받은 요청(fromUserId=상대)" 시나리오를 재현할 수 없음.
+    // 여기서는 상태 전이(PENDING→ACTIVE, celebration 트리거)를 검증한다.
+    // partner 닉네임/점수 계산은 mockRawProfiles에 'me'가 없어 fallback 경로를 탄다.
+    act(() => hook.result.current.handleSendRequest('target-1'));
 
-    const requests = hook.result.current.matchRequests;
-    const firstReqId = requests[0]!.id;
+    const requestId = hook.result.current.matchRequests[0]!.id;
+    act(() => hook.result.current.handleAcceptRequest(requestId));
 
-    act(() => hook.result.current.handleAcceptRequest(firstReqId));
+    const match = hook.result.current.activeMatch!;
+    expect(match.partnerUserId).toBe('me');
+    expect(match.partnerNickname).toBe('me'); // fallback: profile 미발견 시 partnerId 사용
+    expect(match.matchScore).toBe(0); // fallback: profile 미발견 시 0
+    expect(match.matchedAt).toBeTruthy();
 
-    expect(hook.result.current.activeMatch).not.toBeNull();
-    expect(hook.result.current.showCelebration).not.toBeNull();
+    const celebration = hook.result.current.showCelebration!;
+    expect(celebration.nickname).toBe('me');
+    expect(celebration.score).toBe(0);
   });
 
   it('수락 시 다른 PENDING 요청이 CANCELED로 전환된다', () => {

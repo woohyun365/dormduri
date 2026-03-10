@@ -5,6 +5,7 @@ import { calcMatchScore } from '@/utils/matchScore';
 import { getMatchButtonState } from '@/utils/matchRequest';
 import type { FilterState } from '@/types/filter';
 import type { UserProfile, RoommateProfile } from '@/types/profile';
+import type { MatchRequest, ActiveMatch } from '@/types/match';
 import type { LifestyleData } from '@/types/lifestyle';
 
 // matchScore mock: bedtime 기준으로 점수 차등 반환
@@ -97,8 +98,8 @@ interface SetupParams {
   viewMode?: 'all' | 'bookmarked';
   blockedUserIds?: Set<string>;
   bookmarkedUserIds?: Set<string>;
-  matchRequests?: never[];
-  activeMatch?: null;
+  matchRequests?: MatchRequest[];
+  activeMatch?: ActiveMatch | null;
 }
 
 function setup(overrides: SetupParams = {}) {
@@ -373,16 +374,19 @@ describe('getFilterLabel', () => {
 describe('getButtonState', () => {
   it('getMatchButtonState에 올바른 인자를 전달한다', () => {
     const profile = { ...makeProfile({ id: 'target' }), matchScore: 70 } as RoommateProfile;
-    const { result } = setup();
+    const blocked = new Set(['x']);
+    const { result } = setup({ blockedUserIds: blocked });
 
     result.current.getButtonState(profile);
 
-    expect(getMatchButtonState).toHaveBeenCalledWith(
-      expect.objectContaining({
-        targetUserId: 'target',
-        targetDormitoryId: 'dasan',
-        userDormitoryId: 'dasan',
-      }),
-    );
+    expect(getMatchButtonState).toHaveBeenCalledWith({
+      targetUserId: 'target',
+      targetDormitoryId: 'dasan',
+      userDormitoryId: 'dasan',
+      requests: [],
+      activeMatch: null,
+      blockedUserIds: blocked,
+      isSeasonActive: true,
+    });
   });
 });
