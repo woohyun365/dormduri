@@ -1,38 +1,33 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
-import { getProfileCompletion } from '@/utils/profileCompletion';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
 import { MatchCelebrationModal } from './components/MatchCelebrationModal';
-import HomeTab, { type BuildingStats } from './tabs/HomeTab';
+import HomeTab from './tabs/HomeTab';
 import RoommateListTab from './tabs/RoommateListTab';
-import type { SortMode, ViewMode } from './tabs/RoommateListTab';
 import ProfileTab from './tabs/ProfileTab';
 import SettingsTab from './tabs/SettingsTab';
-import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
-import { isDormitoryAssigned } from '@/utils/dormitory';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
-import { TOAST_DURATION, GUIDE_DELAY } from '@/constants/ui';
-import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
-import { MATCH_POLICY } from '@/constants/match';
-import { isRequestExpired } from '@/utils/matchRequest';
-import { calcMatchScore } from '@/utils/matchScore';
+import { useMainProfileState } from './hooks/useMainProfileState';
+import { useMainSocialState } from './hooks/useMainSocialState';
+import { useMainMatchingState } from './hooks/useMainMatchingState';
+import { useMainListViewState } from './hooks/useMainListViewState';
+import { buildMainBuildingStats } from './utils/buildMainBuildingStats';
+import { TOAST_DURATION } from '@/constants/ui';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
-import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
-import { DEFAULT_FILTERS } from './components/BottomSheet';
 import type { TabId, UserProfile } from '@/types/profile';
-import type { BlockedUser, ReportReason } from '@/types/report';
-import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export type { TabId, UserProfile } from '@/types/profile';
 
 function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const [activeTab, setActiveTab] = useState<TabId>('home');
   const [toast, setToast] = useState<string | null>(null);
-  const [showGuide, setShowGuide] = useState(false);
-  const [user, setUser] = useState<UserProfile>(initialUser);
+
+  const showToast = useCallback((msg: string) => setToast(msg), []);
+
+  // --- Onboarding ---
   const {
     hasSeenGuide,
     markGuideSeen,
@@ -42,300 +37,26 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     resetChecklist,
     hasSeenTooltip,
     markTooltipSeen,
-  } = useOnboardingState(user.nickname);
+  } = useOnboardingState(initialUser.nickname);
 
-  const [showBuildingSelect, setShowBuildingSelect] = useState(false);
-  const guideTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  // --- Domain hooks ---
+  const profileState = useMainProfileState(initialUser, {
+    showToast,
+    hasSeenGuide,
+    markGuideSeen,
+  });
 
-  useEffect(() => {
-    return () => {
-      if (guideTimerRef.current) clearTimeout(guideTimerRef.current);
-    };
-  }, []);
+  const socialState = useMainSocialState(showToast);
 
-  const handleSelectDormitory = useCallback(
-    (dormitoryId: string) => {
-      setUser((prev) => {
-        const next = { ...prev, dormitoryId };
-        // mockDb에 건물 선택 영속화 (새로고침에도 유지)
-        if (process.env.NODE_ENV === 'development') {
-          import('@/__fixtures__/mock-db').then(({ mockDb }) => {
-            const current = mockDb.getCurrentUser();
-            if (current) {
-              mockDb.updateUser(current.email, { dormitoryId });
-            }
-          });
-        }
-        return next;
-      });
-      if (dormitoryId === UNASSIGNED_ID) {
-        setToast('건물 미배정으로 설정했어요');
-      } else {
-        const dorm = getDormitoryById(dormitoryId);
-        setToast(dorm ? `${dorm.name}(으)로 설정했어요` : '건물이 설정되었어요');
-      }
-      if (!hasSeenGuide(dormitoryId)) {
-        if (guideTimerRef.current) clearTimeout(guideTimerRef.current);
-        guideTimerRef.current = setTimeout(() => setShowGuide(true), GUIDE_DELAY);
-      }
-    },
-    [hasSeenGuide],
+  const matchingState = useMainMatchingState(showToast, profileState.user.lifestyle);
+
+  const listViewState = useMainListViewState();
+
+  // --- Derived ---
+  const buildingStats = useMemo(
+    () => buildMainBuildingStats(profileState.user, mockRawProfiles),
+    [profileState.user],
   );
-
-  const handleCloseGuide = useCallback(() => {
-    setShowGuide(false);
-    if (user.dormitoryId) {
-      markGuideSeen(user.dormitoryId);
-    }
-  }, [user.dormitoryId, markGuideSeen]);
-
-  const handleShowGuide = useCallback(() => {
-    setShowGuide(true);
-  }, []);
-
-  // --- Profile 100% completion toast ---
-  const hasShownCompletionToast = useRef(false);
-  // NOTE: mock 기준. API 연동 시 초기 로딩 완료 후 wasCompleteOnMount를 재평가해야 함
-  const wasCompleteOnMount = useRef(getProfileCompletion(user).isComplete);
-
-  const checkAndShowCompletionToast = useCallback((updatedUser: UserProfile) => {
-    if (hasShownCompletionToast.current) return;
-    if (wasCompleteOnMount.current) return;
-    const { isComplete } = getProfileCompletion(updatedUser);
-    if (isComplete) {
-      setToast('프로필이 완성되었어요! \uD83C\uDF89');
-      hasShownCompletionToast.current = true;
-    }
-  }, []);
-
-  const handleIntroChange = useCallback(
-    (intro: string) => {
-      setUser((prev) => {
-        const next = { ...prev, intro };
-        checkAndShowCompletionToast(next);
-        return next;
-      });
-      setToast('자기소개가 저장되었어요');
-    },
-    [checkAndShowCompletionToast],
-  );
-
-  const handleMessageChange = useCallback(
-    (msg: string | null) => {
-      setUser((prev) => {
-        const next = { ...prev, messageToRoommate: msg };
-        checkAndShowCompletionToast(next);
-        return next;
-      });
-      setToast('룸메에게 한마디가 저장되었어요');
-    },
-    [checkAndShowCompletionToast],
-  );
-
-  const handleLifestyleChange = useCallback(
-    (lifestyle: UserProfile['lifestyle']) => {
-      setUser((prev) => {
-        const next = { ...prev, lifestyle };
-        checkAndShowCompletionToast(next);
-        return next;
-      });
-      setToast('생활패턴이 저장되었어요');
-    },
-    [checkAndShowCompletionToast],
-  );
-
-  const handleAdditionalChange = useCallback(
-    (additional: UserProfile['additional']) => {
-      setUser((prev) => {
-        const next = { ...prev, additional };
-        checkAndShowCompletionToast(next);
-        return next;
-      });
-    },
-    [checkAndShowCompletionToast],
-  );
-
-  // --- Bookmark state ---
-  const [bookmarkedUserIds, setBookmarkedUserIds] = useState<Set<string>>(new Set());
-
-  const handleToggleBookmark = useCallback((userId: string) => {
-    setBookmarkedUserIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(userId)) {
-        next.delete(userId);
-      } else {
-        next.add(userId);
-      }
-      return next;
-    });
-  }, []);
-
-  // --- Block / Report state ---
-  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
-  const blockedUserIds = useMemo(() => new Set(blockedUsers.map((u) => u.userId)), [blockedUsers]);
-  const [reportedUserIds, setReportedUserIds] = useState<Set<string>>(new Set());
-
-  const handleBlockUser = useCallback((userId: string, nickname: string) => {
-    setBlockedUsers((prev) => {
-      if (prev.some((u) => u.userId === userId)) return prev;
-      return [...prev, { userId, nickname, blockedAt: new Date().toISOString() }];
-    });
-    setBookmarkedUserIds((prev) => {
-      if (!prev.has(userId)) return prev;
-      const next = new Set(prev);
-      next.delete(userId);
-      return next;
-    });
-    setToast(`${nickname}님을 차단했어요`);
-  }, []);
-
-  const handleUnblockUser = useCallback((userId: string, nickname: string) => {
-    setToast(`${nickname}님의 차단을 해제했어요`);
-    setBlockedUsers((prev) => prev.filter((u) => u.userId !== userId));
-  }, []);
-
-  const handleReportUser = useCallback(
-    (userId: string, _reason: ReportReason, _detail: string | null) => {
-      if (reportedUserIds.has(userId)) {
-        setToast('이미 신고한 사용자예요');
-        return;
-      }
-      setReportedUserIds((prev) => {
-        const next = new Set(prev);
-        next.add(userId);
-        return next;
-      });
-      setToast('신고가 접수되었어요');
-    },
-    [reportedUserIds],
-  );
-
-  // --- Matching state ---
-  const seasonActive = isSeasonActive(CURRENT_SEASON);
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(
-    seasonActive ? MOCK_REQUESTS : [],
-  );
-  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(
-    seasonActive ? MOCK_ACTIVE_MATCH : null,
-  );
-  const [showCelebration, setShowCelebration] = useState<{
-    nickname: string;
-    score: number;
-  } | null>(null);
-
-  const handleSendRequest = useCallback((targetUserId: string, message?: string | null) => {
-    const now = new Date();
-    const expiresAt = new Date(now);
-    expiresAt.setHours(expiresAt.getHours() + MATCH_POLICY.REQUEST_TTL_HOURS);
-
-    const newRequest: MatchRequest = {
-      id: `req-${Date.now()}`,
-      fromUserId: 'me',
-      toUserId: targetUserId,
-      status: 'PENDING',
-      message: message ?? null,
-      createdAt: now.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      rejectedAt: null,
-    };
-    setMatchRequests((prev) => [...prev, newRequest]);
-    setToast('매칭 요청을 보냈어요');
-  }, []);
-
-  const handleCancelRequest = useCallback((requestId: string) => {
-    setMatchRequests((prev) =>
-      prev.map((r) => (r.id === requestId ? { ...r, status: 'CANCELED' as const } : r)),
-    );
-    setToast('매칭 요청을 취소했어요');
-  }, []);
-
-  const handleAcceptRequest = useCallback(
-    (requestId: string) => {
-      const request = matchRequests.find((r) => r.id === requestId);
-      if (!request) return;
-
-      const partnerId = request.fromUserId;
-      const partnerProfile = mockRawProfiles.find((p) => p.id === partnerId);
-
-      // Set match as active
-      const match: ActiveMatch = {
-        matchId: `match-${Date.now()}`,
-        partnerUserId: partnerId,
-        partnerNickname: partnerProfile?.nickname ?? partnerId,
-        partnerDormitoryId: partnerProfile?.dormitoryId ?? null,
-        matchScore: partnerProfile ? calcMatchScore(user.lifestyle, partnerProfile.lifestyle) : 0,
-        matchedAt: new Date().toISOString(),
-      };
-      setActiveMatch(match);
-
-      // Update request statuses: accepted → ACTIVE, other PENDING → CANCELED
-      setMatchRequests((prev) =>
-        prev.map((r) => {
-          if (r.id === requestId) return { ...r, status: 'ACTIVE' as const };
-          if (r.status === 'PENDING' && !isRequestExpired(r))
-            return { ...r, status: 'CANCELED' as const };
-          return r;
-        }),
-      );
-
-      // Show celebration
-      setShowCelebration({
-        nickname: match.partnerNickname,
-        score: match.matchScore,
-      });
-    },
-    [matchRequests, user.lifestyle],
-  );
-
-  const handleRejectRequest = useCallback((requestId: string) => {
-    setMatchRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId
-          ? { ...r, status: 'REJECTED' as const, rejectedAt: new Date().toISOString() }
-          : r,
-      ),
-    );
-    setToast('매칭 요청을 거절했어요');
-  }, []);
-
-  const handleEndMatch = useCallback(() => {
-    setActiveMatch(null);
-    setToast('매칭이 해제되었어요');
-  }, []);
-
-  // Derived counts
-  const receivedPendingCount = useMemo(
-    () =>
-      matchRequests.filter(
-        (r) => r.toUserId === 'me' && r.status === 'PENDING' && !isRequestExpired(r),
-      ).length,
-    [matchRequests],
-  );
-
-  // --- RoommateListTab lifted state (preserved across tab switches) ---
-  const [listSortMode, setListSortMode] = useState<SortMode>('match');
-  const [listFilters, setListFilters] = useState(DEFAULT_FILTERS);
-  const [listViewMode, setListViewMode] = useState<ViewMode>('all');
-  const [listShowProfileBanner, setListShowProfileBanner] = useState(true);
-
-  // --- Building stats (mockDb 기반) ---
-  const buildingStats = useMemo<BuildingStats | undefined>(() => {
-    if (!isDormitoryAssigned(user.dormitoryId)) return undefined;
-    const sameBuilding = mockRawProfiles.filter((p) => p.dormitoryId === user.dormitoryId);
-    const nonSmokers = sameBuilding.filter((p) => p.lifestyle.smoker === 'NO').length;
-    const earlyBed = sameBuilding.filter(
-      (p) => p.lifestyle.bedtime === 'BEFORE_22' || p.lifestyle.bedtime === '22_24',
-    ).length;
-    const conditions: string[] = [];
-    if (nonSmokers > sameBuilding.length / 2) conditions.push('비흡연');
-    if (earlyBed > sameBuilding.length / 2) conditions.push('24시 이전 취침');
-    return {
-      activeUsers: sameBuilding.length,
-      matchableUsers: sameBuilding.filter((p) => p.gender === user.gender).length,
-      todayNewUsers: 0,
-      popularCondition: conditions.length > 0 ? conditions.join(' + ') : '-',
-    };
-  }, [user.dormitoryId, user.gender]);
 
   // 탭 전환 시 스크롤 최상단으로 이동
   useEffect(() => {
@@ -351,12 +72,12 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   return (
     <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
-      {(user.dormitoryId === null || showBuildingSelect) && (
+      {(profileState.user.dormitoryId === null || profileState.showBuildingSelect) && (
         <BuildingSelectModal
-          gender={user.gender}
+          gender={profileState.user.gender}
           onSelect={(dormitoryId) => {
-            handleSelectDormitory(dormitoryId);
-            setShowBuildingSelect(false);
+            profileState.handleSelectDormitory(dormitoryId);
+            profileState.setShowBuildingSelect(false);
           }}
         />
       )}
@@ -364,45 +85,45 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       <main>
         {activeTab === 'home' && (
           <HomeTab
-            user={user}
+            user={profileState.user}
             onNavigate={setActiveTab}
-            onShowGuide={handleShowGuide}
-            matchRequests={matchRequests}
-            activeMatch={activeMatch}
-            onCancelRequest={handleCancelRequest}
-            onAcceptRequest={handleAcceptRequest}
-            onRejectRequest={handleRejectRequest}
-            onEndMatch={handleEndMatch}
+            onShowGuide={profileState.handleShowGuide}
+            matchRequests={matchingState.matchRequests}
+            activeMatch={matchingState.activeMatch}
+            onCancelRequest={matchingState.handleCancelRequest}
+            onAcceptRequest={matchingState.handleAcceptRequest}
+            onRejectRequest={matchingState.handleRejectRequest}
+            onEndMatch={matchingState.handleEndMatch}
             profiles={mockRawProfiles}
             buildingStats={buildingStats}
-            bookmarkedUserIds={bookmarkedUserIds}
+            bookmarkedUserIds={socialState.bookmarkedUserIds}
             isChecklistDismissed={isChecklistDismissed}
             forceShowChecklist={forceShowChecklist}
             onDismissChecklist={dismissChecklist}
-            onOpenBuildingSelect={() => setShowBuildingSelect(true)}
+            onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
           />
         )}
         {activeTab === 'list' && (
           <RoommateListTab
-            user={user}
+            user={profileState.user}
             onNavigate={setActiveTab}
             profiles={mockRawProfiles}
-            sortMode={listSortMode}
-            onSortModeChange={setListSortMode}
-            filters={listFilters}
-            onFiltersChange={setListFilters}
-            viewMode={listViewMode}
-            onViewModeChange={setListViewMode}
-            blockedUserIds={blockedUserIds}
-            onBlock={handleBlockUser}
-            onReport={handleReportUser}
-            matchRequests={matchRequests}
-            activeMatch={activeMatch}
-            onSendRequest={handleSendRequest}
-            bookmarkedUserIds={bookmarkedUserIds}
-            onToggleBookmark={handleToggleBookmark}
-            showProfileBanner={listShowProfileBanner}
-            onDismissProfileBanner={() => setListShowProfileBanner(false)}
+            sortMode={listViewState.sortMode}
+            onSortModeChange={listViewState.setSortMode}
+            filters={listViewState.filters}
+            onFiltersChange={listViewState.setFilters}
+            viewMode={listViewState.viewMode}
+            onViewModeChange={listViewState.setViewMode}
+            blockedUserIds={socialState.blockedUserIds}
+            onBlock={socialState.handleBlockUser}
+            onReport={socialState.handleReportUser}
+            matchRequests={matchingState.matchRequests}
+            activeMatch={matchingState.activeMatch}
+            onSendRequest={matchingState.handleSendRequest}
+            bookmarkedUserIds={socialState.bookmarkedUserIds}
+            onToggleBookmark={socialState.handleToggleBookmark}
+            showProfileBanner={listViewState.showProfileBanner}
+            onDismissProfileBanner={listViewState.dismissProfileBanner}
             showMatchScoreTip={!hasSeenTooltip('matchScore')}
             onDismissMatchScoreTip={() => markTooltipSeen('matchScore')}
             showMatchRequestTip={!hasSeenTooltip('matchRequest')}
@@ -411,23 +132,23 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         )}
         {activeTab === 'profile' && (
           <ProfileTab
-            user={user}
-            onDormitoryChange={handleSelectDormitory}
-            onIntroChange={handleIntroChange}
-            onMessageChange={handleMessageChange}
-            onLifestyleChange={handleLifestyleChange}
-            onAdditionalChange={handleAdditionalChange}
+            user={profileState.user}
+            onDormitoryChange={profileState.handleSelectDormitory}
+            onIntroChange={profileState.handleIntroChange}
+            onMessageChange={profileState.handleMessageChange}
+            onLifestyleChange={profileState.handleLifestyleChange}
+            onAdditionalChange={profileState.handleAdditionalChange}
           />
         )}
         {activeTab === 'settings' && (
           <SettingsTab
-            onShowGuide={handleShowGuide}
+            onShowGuide={profileState.handleShowGuide}
             onResetChecklist={() => {
               resetChecklist();
-              setToast('홈 탭에서 시작 가이드를 확인하세요');
+              showToast('홈 탭에서 시작 가이드를 확인하세요');
             }}
-            blockedUsers={blockedUsers}
-            onUnblock={handleUnblockUser}
+            blockedUsers={socialState.blockedUsers}
+            onUnblock={socialState.handleUnblockUser}
           />
         )}
       </main>
@@ -435,20 +156,27 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       <BottomTabBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        badges={receivedPendingCount > 0 ? { home: receivedPendingCount } : undefined}
+        badges={
+          matchingState.receivedPendingCount > 0
+            ? { home: matchingState.receivedPendingCount }
+            : undefined
+        }
       />
 
       {/* Dormitory Guide Sheet */}
-      {showGuide && user.dormitoryId && (
-        <DormitoryGuideSheet dormitoryId={user.dormitoryId} onClose={handleCloseGuide} />
+      {profileState.showGuide && profileState.user.dormitoryId && (
+        <DormitoryGuideSheet
+          dormitoryId={profileState.user.dormitoryId}
+          onClose={profileState.handleCloseGuide}
+        />
       )}
 
       {/* Match Celebration Modal */}
       <MatchCelebrationModal
-        isOpen={showCelebration !== null}
-        onClose={() => setShowCelebration(null)}
-        partnerNickname={showCelebration?.nickname ?? ''}
-        matchScore={showCelebration?.score ?? 0}
+        isOpen={matchingState.showCelebration !== null}
+        onClose={matchingState.closeCelebration}
+        partnerNickname={matchingState.showCelebration?.nickname ?? ''}
+        matchScore={matchingState.showCelebration?.score ?? 0}
       />
 
       {/* Toast */}
