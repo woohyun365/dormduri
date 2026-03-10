@@ -14,9 +14,9 @@ describe('useMainListViewState', () => {
   it('sortMode를 변경할 수 있다', () => {
     const { result } = renderHook(() => useMainListViewState());
 
-    act(() => result.current.setSortMode('latest'));
+    act(() => result.current.setSortMode('recent'));
 
-    expect(result.current.sortMode).toBe('latest');
+    expect(result.current.sortMode).toBe('recent');
   });
 
   it('viewMode를 변경할 수 있다', () => {
@@ -41,9 +41,9 @@ describe('useMainListViewState', () => {
     const { result } = renderHook(() => useMainListViewState());
 
     act(() => result.current.dismissProfileBanner());
-    act(() => result.current.setSortMode('latest'));
+    act(() => result.current.setSortMode('recent'));
 
     expect(result.current.showProfileBanner).toBe(false);
-    expect(result.current.sortMode).toBe('latest');
+    expect(result.current.sortMode).toBe('recent');
   });
 });

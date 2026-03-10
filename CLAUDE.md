@@ -160,6 +160,7 @@ main ← dev ← issue/67-entry-flow
 | #113 | 리팩토링: Main.tsx 도메인 훅 추출              | 구현        | #103 완료 필요 |
 | #114 | 리팩토링: HomeTab + RoommateListTab 섹션 분리  | 구현        | #113 완료 필요 |
 | #115 | 리팩토링: ProfileTab + ProfileDetailSheet 분리 | 구현        | #114 완료 필요 |
+| #118 | 리팩토링 테스트 보강 — 섹션 컴포넌트 + 뷰모델  | 구현        | #115 완료 필요 |
 
 ### Sprint 4: 핵심 정책 결정
 

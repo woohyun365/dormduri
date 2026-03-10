@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DEFAULT_FILTERS } from '../components/BottomSheet';
-import type { SortMode, ViewMode } from '../tabs/RoommateListTab';
+import type { SortMode, ViewMode } from '../tabs/roommate-list/useRoommateListViewModel';
 
 export function useMainListViewState() {
   const [sortMode, setSortMode] = useState<SortMode>('match');
