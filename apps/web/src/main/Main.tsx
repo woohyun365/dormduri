@@ -7,7 +7,7 @@ import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
 import { MatchCelebrationModal } from './components/MatchCelebrationModal';
 import HomeTab from './tabs/home/HomeTab';
 import RoommateListTab from './tabs/roommate-list/RoommateListTab';
-import ProfileTab from './tabs/ProfileTab';
+import ProfileTab from './tabs/profile/ProfileTab';
 import SettingsTab from './tabs/SettingsTab';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
 import { useMainProfileState } from './hooks/useMainProfileState';

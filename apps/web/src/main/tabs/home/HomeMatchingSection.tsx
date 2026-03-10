@@ -9,7 +9,7 @@ import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { calcMatchScore } from '@/utils/matchScore';
 import { MatchRequestCard } from '../../components/MatchRequestCard';
-import { ProfileDetailSheet } from '../../components/ProfileDetailSheet';
+import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
 import type { Dormitory } from '@/constants/dormitory';
 import type { UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';

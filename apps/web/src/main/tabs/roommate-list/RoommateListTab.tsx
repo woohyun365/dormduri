@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { DEFAULT_FILTERS } from '../../components/BottomSheet';
 import { BottomSheet } from '../../components/BottomSheet';
-import { ProfileDetailSheet } from '../../components/ProfileDetailSheet';
+import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
 import { MatchRequestDialog } from '../../components/MatchRequestDialog';
 import { useRoommateListViewModel } from './useRoommateListViewModel';
 import { RoommateListHeader } from './RoommateListHeader';
