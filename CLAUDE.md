@@ -73,10 +73,11 @@ docs/
 
 #### Sprint 시작
 
-1. Milestone 생성: `Sprint N` (due date 설정)
-2. Sprint Backlog 이슈를 Milestone에 배정
-3. 이슈 우선순위 정렬 (의존관계, 선행 작업 확인)
-4. CLAUDE.md "현재 Sprint" 업데이트
+1. Milestone 확인: `gh api repos/:owner/:repo/milestones`로 `Sprint N` 존재 여부 확인
+   - 없으면 Milestone 생성 + Sprint Backlog 이슈를 Milestone에 배정
+   - 있으면 그대로 진행
+2. 이슈 우선순위 정렬 (의존관계, 선행 작업 확인)
+3. CLAUDE.md "현재 Sprint" 업데이트
 
 #### Sprint 진행
 
