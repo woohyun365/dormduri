@@ -38,8 +38,9 @@ docs/
 │   └── sprint-N/          ← 작업 과정 (결정 배경, 대안 비교, 구현 기록)
 ├── 04_policy/
 │   └── official/          ← 공식 정책 (구현 기준 source of truth)
-└── 05_acceptance/         ← QA 인수 테스트 판정 기록
-    └── NN_sprint-N/
+├── 05_acceptance/         ← QA 인수 테스트 판정 기록
+│   └── NN_sprint-N/
+└── 06_trouble-shooting/   ← 트러블슈팅 기록 (증상/원인/해결)
 ```
 
 - `docs/01_codex-review/NN_sprint-N/` : Codex 코드 리뷰 결과 (`pr{번호}-{설명}.md`)
@@ -47,6 +48,7 @@ docs/
 - `docs/03_planning/sprint-N/` : 이슈별 작업 기록 (결정 과정, 대안 비교, 구현 내용). 4번 인수 조건의 source of truth.
 - `docs/04_policy/` : 최종 정책 정리본 (현재 적용 중인 규칙만 유지)
 - `docs/05_acceptance/NN_sprint-N/` : QA 인수 테스트 결과 (`issue{번호}-{slug}.md`). 8번 판정 기록.
+- `docs/06_trouble-shooting/` : 트러블슈팅 기록. `TEMPLATE.md` 형식에 맞춰 작성.
 - 정책 문서에서 상세 맥락이 필요하면 sprint 문서를 링크
 - **주의**: `docs/`는 `.gitignore`에 포함되어 git 커밋 대상이 아님
 
@@ -306,7 +308,18 @@ Sprint 10+: 핵심 기능 완성 후 관리자 도구 + UX 검증.
 
 **재검증 규칙**: 10번(리뷰 적용)에서 인수 조건에 영향을 주는 코드를 수정했다면, 사용자에게 8번 재수행을 요청한다. 공통 로직 수정은 전체 재검증, 국소 수정은 해당 AC만 부분 재검증.
 
+**테스트 실행 방법**: 반드시 `pnpm --filter web test`로 실행. `pnpm --filter web exec vitest run`은 `NODE_OPTIONS=--no-webstorage` 플래그가 적용되지 않아 Node.js v25+ 환경에서 localStorage 관련 테스트가 실패한다.
+
 **리팩토링 시점 원칙**: "Make it work, then make it right" — 도메인 경계가 확정된 후 분리. 초기에 미리 구조를 설계하면 잘못된 추상화 위험.
+
+## 트러블슈팅 기록
+
+구현 중 의미 있는 기술적 문제를 해결했을 때 `docs/06_trouble-shooting/`에 기록한다.
+
+- **작성 기준**: 환경 충돌, 라이브러리 호환성, 빌드/테스트 환경 이슈 등 재발 가능성이 있고 원인 파악에 시간이 소요된 문제
+- **형식**: `docs/06_trouble-shooting/TEMPLATE.md` 참조. 증상 → 원인 → 해결 구조. **원인을 반드시 포함** (구조적 원인까지)
+- **파일명**: `{키워드}-{키워드}.md` (예: `nodejs-v25-webstorage-jsdom-conflict.md`)
+- **단순 오타, 누락 필드 수정 등은 기록하지 않음**
 
 ## Label 체계
 

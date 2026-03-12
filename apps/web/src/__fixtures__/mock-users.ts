@@ -8,10 +8,12 @@ import type { MockUser } from './mock-db';
  */
 export const PRESET_USERS: Record<'male' | 'female', MockUser> = {
   male: {
+    id: 'preset-male-0001',
     email: 'gomduri@kangwon.ac.kr',
     password: 'preset',
     nickname: '곰두리',
     gender: 'M',
+    campus: 'CHUNCHEON',
     dormitoryId: null,
     lifestyle: {
       smoker: 'NO',
@@ -26,10 +28,12 @@ export const PRESET_USERS: Record<'male' | 'female', MockUser> = {
     intro: '조용하고 규칙적인 생활을 선호합니다. 서로 존중하며 지낼 룸메이트를 찾습니다.',
   },
   female: {
+    id: 'preset-female-0001',
     email: 'bomi@kangwon.ac.kr',
     password: 'preset',
     nickname: '봄이',
     gender: 'F',
+    campus: 'CHUNCHEON',
     dormitoryId: null,
     lifestyle: {
       smoker: 'NO',

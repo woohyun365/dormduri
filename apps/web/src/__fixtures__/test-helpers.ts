@@ -35,8 +35,10 @@ export function makeAdditional(overrides: Partial<AdditionalProfile> = {}): Addi
 
 export function makeUser(overrides: Partial<UserProfile> = {}): UserProfile {
   return {
+    id: 'test-user-0001',
     nickname: '테스트유저',
     gender: 'M',
+    campus: 'CHUNCHEON',
     dormitoryId: 'dasan',
     lifestyle: DEFAULT_LIFESTYLE,
     intro: '테스트 자기소개입니다.',
