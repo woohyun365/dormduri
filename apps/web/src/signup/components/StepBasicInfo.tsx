@@ -18,7 +18,7 @@ export interface BasicInfoData {
   password: string;
   passwordConfirm: string;
   gender: 'M' | 'F' | null;
-  campus: Campus | null;
+  campus: Campus;
 }
 
 interface StepBasicInfoProps {

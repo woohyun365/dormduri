@@ -36,6 +36,15 @@ function writeJson<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
+/** 구 스키마(id/campus 누락) 데이터를 현재 스키마로 보정 */
+function patchLegacyUser(user: MockUser): MockUser {
+  return {
+    ...user,
+    id: user.id || crypto.randomUUID(),
+    campus: user.campus || 'CHUNCHEON',
+  };
+}
+
 export const mockDb = {
   issueCode(email: string): string {
     const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -57,7 +66,8 @@ export const mockDb = {
 
   findUser(email: string, password: string): MockUser | null {
     const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
-    return users.find((u) => u.email === email && u.password === password) ?? null;
+    const found = users.find((u) => u.email === email && u.password === password);
+    return found ? patchLegacyUser(found) : null;
   },
 
   findByEmail(email: string): MockUser | null {
@@ -95,7 +105,8 @@ export const mockDb = {
   },
 
   getCurrentUser(): MockUser | null {
-    return readJson<MockUser | null>(STORAGE_KEYS.currentUser, null);
+    const user = readJson<MockUser | null>(STORAGE_KEYS.currentUser, null);
+    return user ? patchLegacyUser(user) : null;
   },
 
   /** 회원가입으로 생성된 유저 목록 반환 (DevPanel용) */
