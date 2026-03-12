@@ -55,8 +55,10 @@ const baseAdditional = {
 } as const;
 
 const baseUser: UserProfile = {
+  id: 'test-user-0001',
   nickname: '테스터',
   gender: 'M',
+  campus: 'CHUNCHEON',
   dormitoryId: 'dasan',
   lifestyle: baseLifestyle,
   intro: '안녕하세요',

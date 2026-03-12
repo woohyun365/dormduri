@@ -23,8 +23,10 @@ export function useCurrentUser() {
         const loggedIn = mockDb.getCurrentUser();
         if (loggedIn) {
           setUser({
+            id: loggedIn.id,
             nickname: loggedIn.nickname,
             gender: loggedIn.gender,
+            campus: loggedIn.campus,
             dormitoryId: loggedIn.dormitoryId,
             lifestyle: loggedIn.lifestyle,
             intro: loggedIn.intro,

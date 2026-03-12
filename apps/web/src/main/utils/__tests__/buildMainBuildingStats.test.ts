@@ -23,8 +23,10 @@ const baseAdditional: UserProfile['additional'] = {
 
 function makeUser(overrides: Partial<UserProfile> = {}): UserProfile {
   return {
+    id: 'test-user-0001',
     nickname: '테스트',
     gender: 'M',
+    campus: 'CHUNCHEON',
     dormitoryId: 'dasan',
     lifestyle: baseLifestyle,
     intro: '',

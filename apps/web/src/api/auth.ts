@@ -1,6 +1,7 @@
 // TODO: BE API 연동 시 실제 endpoint로 교체
 
 import type { LifestyleData } from '@/types/lifestyle';
+import type { Campus } from '@/types/profile';
 import { validatePassword, validateNickname } from '@/utils/validation';
 
 interface LoginResponse {
@@ -66,6 +67,7 @@ export const authApi = {
     password: string;
     nickname: string;
     gender: 'M' | 'F';
+    campus: Campus;
     lifestyle: LifestyleData;
     intro: string;
   }): Promise<SignupResponse> => {
@@ -86,7 +88,12 @@ export const authApi = {
       if (db.findByEmail(data.email)) {
         return { success: false, error: '이미 가입된 이메일입니다.' };
       }
-      const newUser = { ...data, nickname: data.nickname.trim(), dormitoryId: null };
+      const newUser = {
+        ...data,
+        id: crypto.randomUUID(),
+        nickname: data.nickname.trim(),
+        dormitoryId: null,
+      };
       db.createUser(newUser);
       db.setCurrentUser(newUser);
       document.cookie = 'auth-token=mock-dev-token; path=/';

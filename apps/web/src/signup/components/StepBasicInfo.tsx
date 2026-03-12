@@ -11,11 +11,14 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/constants/auth';
 import { NICKNAME_MAX } from '@/constants/ui';
 import { User } from 'lucide-react';
 
+import type { Campus } from '@/types/profile';
+
 export interface BasicInfoData {
   nickname: string;
   password: string;
   passwordConfirm: string;
   gender: 'M' | 'F' | null;
+  campus: Campus | null;
 }
 
 interface StepBasicInfoProps {

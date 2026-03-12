@@ -1,10 +1,13 @@
 import type { LifestyleData } from '@/types/lifestyle';
+import type { Campus } from '@/types/profile';
 
 export interface MockUser {
+  id: string;
   email: string;
   password: string;
   nickname: string;
   gender: 'M' | 'F';
+  campus: Campus;
   dormitoryId: string | null;
   lifestyle: LifestyleData;
   intro: string;

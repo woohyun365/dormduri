@@ -19,8 +19,10 @@ vi.mock('@/components/ContextualTip', () => ({
 }));
 
 const baseUser: UserProfile = {
+  id: 'test-user-0001',
   nickname: '테스터',
   gender: 'M',
+  campus: 'CHUNCHEON',
   dormitoryId: 'dasan',
   lifestyle: {
     smoker: 'NO',
