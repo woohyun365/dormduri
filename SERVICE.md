@@ -1,8 +1,6 @@
-# KNU Roommate Service Overview
+# KNU Roommate — 서비스 설명
 
-## 한 줄 소개
-
-KNU Roommate는 강원대학교 재학생이 기숙사 룸메이트를 더 예측 가능하게 찾을 수 있도록 돕는 생활패턴 기반 시즌형 매칭 서비스다.
+> 프로젝트 개요와 개발 과정은 [README.md](./README.md)를 참고합니다.
 
 ## 어떤 문제를 푸는가
 
@@ -56,16 +54,9 @@ KNU Roommate는 이 문제를 "학교 이메일 인증 + 생활패턴 프로필 
 서비스는 프로필 열람만으로 바로 매칭을 확정시키지 않는다.
 요청, 대화, 확정이라는 단계를 두어 성급한 결정과 오해를 줄이는 방향으로 설계한다.
 
-## 핵심 사용자 경험
+## 정책이 제품 동작을 결정한다
 
-- 생활패턴이 맞는 후보를 구조적으로 탐색할 수 있다.
-- 시즌과 자격 조건에 따라 가능한 행동이 명확하게 나뉜다.
-- 같은 건물 배정 사용자 중심으로 더 현실적인 매칭 풀을 만든다.
-- 신고, 차단, 콘텐츠 가이드로 기본적인 안전 장치를 제공한다.
-
-## 이 서비스의 차별점
-
-이 프로젝트는 단순한 "프로필 리스트 + 좋아요" 서비스가 아니다.
+이 서비스는 단순한 "프로필 리스트 + 좋아요" 서비스가 아니다.
 다음처럼 정책이 제품 동작을 직접 결정한다.
 
 - 시즌과 비시즌에 따라 기능이 달라진다.
@@ -89,21 +80,14 @@ KNU Roommate는 이 문제를 "학교 이메일 인증 + 생활패턴 프로필 
 즉, KNU Roommate는 룸메이트 탐색과 합의 과정을 돕는 서비스이지,
 학교 기숙사 배정 시스템을 대체하는 서비스는 아니다.
 
-## 현재 문서 구조에서의 위치
-
-- [`README.md`](./README.md): 저장소 소개와 빠른 진입용 문서
-- `SERVICE.md`: 현재형 서비스 소개 문서
-- [`docs/04_policy/official/README.md`](./docs/04_policy/official/README.md): 구현 기준 공식 정책 세트
-- [`docs/00_archive/01_development/PRD.md`](./docs/00_archive/01_development/PRD.md): 초기 기획 아카이브
-
-## 자세한 정책 문서
+## 정책 문서
 
 세부 운영 규칙은 아래 문서를 기준으로 본다.
 
-- [`docs/04_policy/official/account-authentication.md`](./docs/04_policy/official/account-authentication.md)
-- [`docs/04_policy/official/access-eligibility.md`](./docs/04_policy/official/access-eligibility.md)
-- [`docs/04_policy/official/season-lifecycle.md`](./docs/04_policy/official/season-lifecycle.md)
-- [`docs/04_policy/official/profile-model.md`](./docs/04_policy/official/profile-model.md)
-- [`docs/04_policy/official/matching-lifecycle.md`](./docs/04_policy/official/matching-lifecycle.md)
-- [`docs/04_policy/official/service-boundary.md`](./docs/04_policy/official/service-boundary.md)
-- [`docs/04_policy/official/community-safety.md`](./docs/04_policy/official/community-safety.md)
+- [`account-authentication.md`](./docs/04_policy/official/account-authentication.md) — 계정/인증
+- [`access-eligibility.md`](./docs/04_policy/official/access-eligibility.md) — 이용 자격
+- [`season-lifecycle.md`](./docs/04_policy/official/season-lifecycle.md) — 시즌 생명주기
+- [`profile-model.md`](./docs/04_policy/official/profile-model.md) — 프로필 모델
+- [`matching-lifecycle.md`](./docs/04_policy/official/matching-lifecycle.md) — 매칭 생명주기
+- [`service-boundary.md`](./docs/04_policy/official/service-boundary.md) — 서비스 책임 범위
+- [`community-safety.md`](./docs/04_policy/official/community-safety.md) — 커뮤니티 안전
