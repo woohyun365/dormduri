@@ -16,10 +16,21 @@ export interface MockUser {
 const STORAGE_KEYS = {
   users: 'mockdb-users',
   currentUser: 'mockdb-current-user',
+  loginAttempts: 'mockdb-login-attempts',
 } as const;
 
 // 인증 코드는 세션 내에서만 유효하므로 인메모리 유지
 const verificationCodes: Map<string, string> = new Map();
+
+type LoginAttemptsMap = Record<string, { failureCount: number; lockedUntil: number | null }>;
+
+function readLoginAttempts(): LoginAttemptsMap {
+  return readJson<LoginAttemptsMap>(STORAGE_KEYS.loginAttempts, {});
+}
+
+function writeLoginAttempts(data: LoginAttemptsMap): void {
+  writeJson(STORAGE_KEYS.loginAttempts, data);
+}
 
 function readJson<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
@@ -64,6 +75,42 @@ export const mockDb = {
     console.log(`[MockDB] 유저 생성: ${data.email} (${data.nickname})`);
   },
 
+  /** 로그인 잠금 상태 확인. 잠금 만료 시 자동 리셋. */
+  getLoginAttempts(email: string): { failureCount: number; lockedUntil: number | null } {
+    const all = readLoginAttempts();
+    const attempts = all[email] ?? { failureCount: 0, lockedUntil: null };
+    // 잠금 만료 시 리셋
+    if (attempts.lockedUntil && Date.now() >= attempts.lockedUntil) {
+      attempts.failureCount = 0;
+      attempts.lockedUntil = null;
+      all[email] = attempts;
+      writeLoginAttempts(all);
+    }
+    return attempts;
+  },
+
+  /** 로그인 실패 기록. 5회 도달 시 잠금 설정. */
+  recordLoginFailure(email: string): { locked: boolean; remainingSeconds: number } {
+    const all = readLoginAttempts();
+    const attempts = all[email] ?? { failureCount: 0, lockedUntil: null };
+    attempts.failureCount += 1;
+    if (attempts.failureCount >= 5) {
+      attempts.lockedUntil = Date.now() + 300_000; // 5분
+    }
+    all[email] = attempts;
+    writeLoginAttempts(all);
+    return attempts.failureCount >= 5
+      ? { locked: true, remainingSeconds: 300 }
+      : { locked: false, remainingSeconds: 0 };
+  },
+
+  /** 로그인 성공 시 실패 카운트 리셋 */
+  resetLoginAttempts(email: string): void {
+    const all = readLoginAttempts();
+    delete all[email];
+    writeLoginAttempts(all);
+  },
+
   findUser(email: string, password: string): MockUser | null {
     const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
     const found = users.find((u) => u.email === email && u.password === password);
@@ -75,14 +122,17 @@ export const mockDb = {
     return users.find((u) => u.email === email) ?? null;
   },
 
-  resetPassword(email: string, newPassword: string): boolean {
+  resetPassword(email: string, newPassword: string): { success: boolean; error?: string } {
     const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
     const user = users.find((u) => u.email === email);
-    if (!user) return false;
+    if (!user) return { success: false, error: '등록되지 않은 이메일입니다.' };
+    if (user.password === newPassword) {
+      return { success: false, error: '현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.' };
+    }
     user.password = newPassword;
     writeJson(STORAGE_KEYS.users, users);
     console.log(`[MockDB] 비밀번호 재설정: ${email}`);
-    return true;
+    return { success: true };
   },
 
   /** currentUser + users 배열을 동시에 갱신 (건물 선택 등 프로필 변경 시 사용) */
@@ -119,6 +169,7 @@ export const mockDb = {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(STORAGE_KEYS.users);
     localStorage.removeItem(STORAGE_KEYS.currentUser);
+    localStorage.removeItem(STORAGE_KEYS.loginAttempts);
     verificationCodes.clear();
     console.log('[MockDB] 데이터 초기화 완료');
   },

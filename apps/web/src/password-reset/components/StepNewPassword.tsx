@@ -55,7 +55,7 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
       <StepHeader
         icon={<Lock className="w-8 h-8 text-[var(--knu-primary)]" />}
         title="새 비밀번호 설정"
-        description="새로운 비밀번호를 입력해주세요"
+        description="기존과 다른 새 비밀번호를 입력해주세요"
       />
 
       {submitError && (

@@ -10,9 +10,11 @@ import { Button } from '@/components/Button';
 import { validateKnuEmail } from '@/utils/validation';
 import { authApi } from '@/api/auth';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useCountdown } from '@/hooks/useCountdown';
+import { LOGIN_LOCKOUT_SECONDS } from '@/constants/auth';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Mail, Lock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, Timer } from 'lucide-react';
 
 export default function Login() {
   const router = useRouter();
@@ -27,14 +29,18 @@ export default function Login() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  // TODO: 백엔드 연동 시 구현 (#90)
-  // - checked: refresh token 발급 (장기 세션)
-  // - unchecked: session token만 (브라우저 종료 시 만료)
   const [rememberMe, setRememberMe] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [lockedEmail, setLockedEmail] = useState('');
+  const {
+    isActive: isCountdownActive,
+    start: startLockout,
+    formatTime: formatLockoutTime,
+  } = useCountdown(LOGIN_LOCKOUT_SECONDS);
+  const isLocked = isCountdownActive && email === lockedEmail;
 
   const handleEmailChange = useCallback((value: string) => {
     setEmail(value);
@@ -62,9 +68,13 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      const result = await authApi.login(email, password);
+      const result = await authApi.login(email, password, rememberMe);
       if (result.success) {
         router.replace('/');
+      } else if (result.locked && result.remainingSeconds) {
+        startLockout(result.remainingSeconds);
+        setLockedEmail(email);
+        setLoginError(result.error ?? '계정이 일시적으로 잠겼습니다.');
       } else {
         setLoginError(result.error ?? '이메일 또는 비밀번호가 올바르지 않습니다.');
       }
@@ -110,7 +120,19 @@ export default function Login() {
           onSubmit={handleSubmit}
           className="bg-white rounded-2xl shadow-sm border-2 border-[var(--knu-border)] p-6 md:p-8 mb-6"
         >
-          {loginError && (
+          {isLocked && (
+            <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-200 rounded-xl flex items-start gap-3">
+              <Timer className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-amber-900 font-medium">{loginError}</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  남은 시간: <strong>{formatLockoutTime()}</strong>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {loginError && !isLocked && (
             <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-900 font-medium">{loginError}</p>
@@ -138,21 +160,34 @@ export default function Login() {
               disabled={isLoading}
             />
 
-            <div className="flex items-center justify-between">
-              <Checkbox label="로그인 유지" checked={rememberMe} onChange={setRememberMe} />
-              <button
-                type="button"
-                onClick={() => router.push('/password-reset')}
-                className="text-sm font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
-              >
-                비밀번호 찾기
-              </button>
+            <div>
+              <div className="flex items-center justify-between">
+                <Checkbox label="로그인 유지" checked={rememberMe} onChange={setRememberMe} />
+                <button
+                  type="button"
+                  onClick={() => router.push('/password-reset')}
+                  className="text-sm font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
+                >
+                  비밀번호 찾기
+                </button>
+              </div>
+              {rememberMe && (
+                <p className="mt-1.5 ml-6 text-xs text-[var(--knu-text-tertiary)]">
+                  브라우저를 닫아도 로그인 상태가 유지됩니다
+                </p>
+              )}
             </div>
 
             <div className="pt-2">
-              <Button variant="primary" size="lg" fullWidth type="submit" disabled={isLoading}>
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                type="submit"
+                disabled={isLoading || isLocked}
+              >
                 <Lock className="w-5 h-5" />
-                {isLoading ? '로그인 중...' : '로그인'}
+                {isLoading ? '로그인 중...' : isLocked ? '계정 잠금 중' : '로그인'}
               </Button>
             </div>
           </div>
