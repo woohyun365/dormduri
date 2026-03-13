@@ -14,6 +14,7 @@ import { authApi } from '@/api/auth';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/Button';
+import Link from 'next/link';
 
 const TOTAL_STEPS = 5;
 
@@ -104,6 +105,17 @@ export default function Signup() {
           return true;
         }}
       />
+
+      {currentStep < TOTAL_STEPS && (
+        <div className="bg-amber-50 border-b border-amber-200 px-5 py-2 text-center">
+          <p className="text-xs text-amber-800">
+            본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.{' '}
+            <Link href="/terms" className="underline font-medium">
+              자세히 보기
+            </Link>
+          </p>
+        </div>
+      )}
 
       <main className="mx-auto max-w-2xl px-5 py-8">
         {currentStep < TOTAL_STEPS && (

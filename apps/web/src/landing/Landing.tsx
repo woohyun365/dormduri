@@ -48,10 +48,13 @@ export default function Landing() {
               <br />
               룸메를 미리 찾기
             </h1>
-            <p className="text-lg md:text-xl text-[var(--knu-text-secondary)] mb-8 leading-relaxed">
+            <p className="text-lg md:text-xl text-[var(--knu-text-secondary)] mb-2 leading-relaxed">
               @kangwon.ac.kr 인증 필수
               <br />
-              시즌(1~2월/7~8월) 매칭 활성 · 비시즌 열람 가능
+              학교 공식 일정 기준 시즌 운영 · 비시즌 열람 가능
+            </p>
+            <p className="text-xs text-[var(--knu-text-tertiary)] mb-6">
+              본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
@@ -138,8 +141,8 @@ export default function Landing() {
           <FeatureCard
             variant="solution"
             icon={<UserCheck className="w-7 h-7 text-[var(--knu-primary)]" />}
-            title="시즌 매칭 시스템"
-            description="요청과 수락 기능으로 안전하게 매칭하고, 1인 1매칭 원칙을 지킵니다."
+            title="대화 후 확정"
+            description="인트로 메시지와 대화를 통해 서로 확인한 후 매칭을 확정합니다."
           />
         </div>
       </Section>
@@ -181,18 +184,18 @@ export default function Landing() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <FeatureCard
             icon={<Volume2 className="w-7 h-7 text-[var(--knu-primary)]" />}
-            title="연결 전 대화"
-            description="매칭 전에도 채팅으로 기본 정보를 확인할 수 있어요."
+            title="대화 후 확정"
+            description="매칭 요청 수락 후 대화를 통해 서로를 확인하고 매칭을 확정합니다."
           />
           <FeatureCard
             icon={<Calendar className="w-7 h-7 text-[var(--knu-primary)]" />}
             title="시즌제 운영"
-            description="매칭 활성 시즌(1~2월/7~8월) 외에는 열람만 가능해요."
+            description="학교 공식 일정 기준으로 시즌이 운영되며, 비시즌에는 열람만 가능합니다."
           />
           <FeatureCard
             icon={<Shield className="w-7 h-7 text-[var(--knu-primary)]" />}
-            title="안전한 매칭"
-            description="학교 이메일 인증과 1인 1매칭으로 안전하게 이용할 수 있어요."
+            title="안전한 환경"
+            description="학교 이메일 인증, 차단·신고 기능, 건물 기반 매칭으로 안전하게 이용할 수 있습니다."
           />
           <FeatureCard
             icon={<Info className="w-7 h-7 text-[var(--knu-primary)]" />}
@@ -203,8 +206,7 @@ export default function Landing() {
         <div className="mt-8 bg-[var(--knu-background-alt)] border-2 border-[var(--knu-border)] rounded-2xl p-6 text-center">
           <Info className="w-6 h-6 text-[var(--knu-text-tertiary)] mx-auto mb-2" />
           <p className="text-sm text-[var(--knu-text-secondary)]">
-            <strong>MVP 단계:</strong> 채팅 기능은 제외되어 있으며, 매칭 후 연락처 교환은 개인적으로
-            진행해주세요.
+            채팅 기능은 순차 제공 예정입니다. 현재는 매칭 확정 후 개인적으로 연락처를 교환해주세요.
           </p>
         </div>
       </Section>
@@ -226,7 +228,7 @@ export default function Landing() {
             </div>
             <h3 className="text-xl font-bold text-[var(--knu-text-primary)] mb-3">매칭 시즌</h3>
             <p className="text-[var(--knu-text-secondary)] mb-4">
-              1~2월 (봄학기) / 7~8월 (가을학기)
+              학교 공식 합격 발표 ~ 호실 선택 마감
             </p>
             <ul className="space-y-2 text-sm text-[var(--knu-text-secondary)]">
               <li className="flex items-start gap-2">
@@ -249,7 +251,7 @@ export default function Landing() {
               <Clock className="w-6 h-6 text-gray-500" />
             </div>
             <h3 className="text-xl font-bold text-[var(--knu-text-primary)] mb-3">비시즌</h3>
-            <p className="text-[var(--knu-text-secondary)] mb-4">3~6월 / 9~12월</p>
+            <p className="text-[var(--knu-text-secondary)] mb-4">시즌 외 기간</p>
             <ul className="space-y-2 text-sm text-[var(--knu-text-secondary)]">
               <li className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
@@ -257,11 +259,15 @@ export default function Landing() {
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                <span>후보 리스트 열람 가능</span>
+                <span>같은 캠퍼스 프로필 열람 가능</span>
               </li>
               <li className="flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
                 <span className="line-through">매칭 요청·수락 비활성</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                <span className="line-through">북마크 비활성</span>
               </li>
             </ul>
           </div>
@@ -277,15 +283,31 @@ export default function Landing() {
           <div className="divide-y divide-[var(--knu-border)]">
             <FAQItem
               question="비시즌에도 매칭이 가능한가요?"
-              answer="비시즌에는 프로필 열람만 가능하며, 매칭 요청은 불가능합니다."
+              answer="비시즌에는 같은 캠퍼스 프로필 열람과 수정만 가능하며, 매칭 요청·북마크는 시즌에만 이용할 수 있습니다."
             />
             <FAQItem
               question="학교 인증은 어떻게 하나요?"
-              answer="@kangwon.ac.kr 이메일로 인증 메일을 받아 인증을 완료해야 이용할 수 있습니다."
+              answer="@kangwon.ac.kr 이메일로 인증 코드를 받아 인증을 완료해야 이용할 수 있습니다."
+            />
+            <FAQItem
+              question="건물 입력은 무엇인가요?"
+              answer="학교 기숙사 배정 결과를 직접 입력(자기 신고)하는 것입니다. 같은 건물 배정자끼리 매칭이 가능하며, 서비스는 입력 정보를 별도로 검증하지 않습니다."
+            />
+            <FAQItem
+              question="매칭은 어떻게 진행되나요?"
+              answer="인트로 메시지와 함께 매칭 요청을 보내고, 상대가 수락하면 대화를 통해 서로를 확인한 후 매칭을 확정합니다. 동시에 최대 3건의 요청을 보낼 수 있습니다."
+            />
+            <FAQItem
+              question="생활패턴 설문은 학교 규정과 관련이 있나요?"
+              answer="아닙니다. 흡연·음주 등 설문 항목은 룸메이트 호환성 비교를 위한 것이며, 학생생활관 생활수칙이나 학교 규정과는 무관합니다. 설문 응답이 학교의 징계나 불이익을 초래하지 않습니다."
+            />
+            <FAQItem
+              question="개인정보(연락처 등)를 프로필에 적어도 되나요?"
+              answer="연락처, SNS 계정 등 민감한 개인정보를 프로필에 포함하는 것은 권장하지 않습니다. 매칭 확정 후 채팅을 통해 교환하는 것이 안전합니다."
             />
             <FAQItem
               question="개인정보는 안전하게 보호되나요?"
-              answer="학교 인증을 통해 신원 확인 후 최소한의 정보만 노출되도록 설계되어 있습니다."
+              answer="학교 이메일 인증을 통해 재학생만 이용하며, 비밀번호는 암호화 저장됩니다. 음주 정보는 매칭 점수에만 반영되고 상대 프로필에는 표시되지 않습니다."
             />
           </div>
         </div>

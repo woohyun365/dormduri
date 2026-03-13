@@ -21,6 +21,9 @@ export function LandingFooter() {
             <p className="text-[var(--knu-text-secondary)] text-sm leading-relaxed">
               강원대학교 춘천캠퍼스 기숙사 룸메이트 매칭 서비스
             </p>
+            <p className="text-[var(--knu-text-tertiary)] text-xs mt-1">
+              본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.
+            </p>
           </div>
 
           {/* Links */}
