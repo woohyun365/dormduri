@@ -6,8 +6,8 @@
 
 사용자 요청이 아래 중 하나에 해당하면, 작업을 시작하기 전에 반드시 [QA.md](./QA.md)를 먼저 읽고 그 규칙을 따른다.
 
-- `CLAUDE.md`의 작업 사이클 중 `4번`, `7번`, `8번`을 언급하는 경우
-- `QA`, `QA Engineer`, `Codex를 QA로`, `인수 조건`, `코드 리뷰`, `인수 테스트`, `acceptance test`를 언급하는 경우
+- `CLAUDE.md`의 작업 사이클 중 `4번`, `7번`, `8번` 또는 `테스트 전략 > 검증 단계`를 언급하는 경우
+- `QA`, `QA Engineer`, `Codex를 QA로`, `인수 조건`, `코드 리뷰`, `인수 테스트`, `acceptance test`, `재검증`, `Mock 기반 검증`, `통합 검증`, `E2E 검증`, `최종 검증`을 언급하는 경우
 - PR 리뷰 문서 작성 요청
 - 정책 기반 이슈의 acceptance 검증 요청
 
@@ -18,7 +18,7 @@ QA 관련 작업에서는 아래 우선순위를 따른다.
 1. 시스템 / 개발자 / 사용자의 현재 지시
 2. [QA.md](./QA.md)
 3. [docs/04_policy/official/](./docs/04_policy/official/README.md)
-4. [CLAUDE.md](./CLAUDE.md)의 현재 Sprint/사이클 설명
+4. [CLAUDE.md](./CLAUDE.md)의 현재 Sprint/사이클 설명과 테스트 전략(특히 `검증 단계`)
 5. 해당 이슈의 planning 문서 (`docs/03_planning/...`)
 
 ## 3. 문서 경로 규칙
