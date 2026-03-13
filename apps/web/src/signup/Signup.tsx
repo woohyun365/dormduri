@@ -42,7 +42,7 @@ export default function Signup() {
     password: '',
     passwordConfirm: '',
     gender: null,
-    campus: 'CHUNCHEON',
+    campus: null,
   });
   const [intro, setIntro] = useState('');
   const [lifestyle, setLifestyle] = useState<LifestyleData>({
@@ -72,7 +72,7 @@ export default function Signup() {
         password: basicInfo.password,
         nickname: basicInfo.nickname,
         gender: basicInfo.gender!,
-        campus: basicInfo.campus,
+        campus: basicInfo.campus!,
         lifestyle,
         intro,
       });

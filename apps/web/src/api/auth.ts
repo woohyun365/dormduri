@@ -8,6 +8,8 @@ interface LoginResponse {
   success: boolean;
   token?: string;
   error?: string;
+  locked?: boolean;
+  remainingSeconds?: number;
 }
 
 interface VerifyCodeResponse {
@@ -35,14 +37,42 @@ async function getMockDb() {
 }
 
 export const authApi = {
-  login: async (email: string, password: string): Promise<LoginResponse> => {
+  login: async (
+    email: string,
+    password: string,
+    rememberMe: boolean = false,
+  ): Promise<LoginResponse> => {
     const db = await getMockDb();
     if (db) {
+      // 잠금 상태 확인
+      const attempts = db.getLoginAttempts(email);
+      if (attempts.lockedUntil && Date.now() < attempts.lockedUntil) {
+        const remainingSeconds = Math.ceil((attempts.lockedUntil - Date.now()) / 1000);
+        return {
+          success: false,
+          locked: true,
+          remainingSeconds,
+          error: '계정이 일시적으로 잠겼습니다. 잠시 후 다시 시도해주세요.',
+        };
+      }
+
       const user = db.findUser(email, password);
       if (user) {
-        document.cookie = 'auth-token=mock-dev-token; path=/';
+        db.resetLoginAttempts(email);
+        document.cookie = `auth-token=mock-dev-token; path=/${rememberMe ? '; max-age=604800' : ''}`;
         db.setCurrentUser(user);
         return { success: true, token: 'mock-dev-token' };
+      }
+
+      // 실패 기록
+      const lockResult = db.recordLoginFailure(email);
+      if (lockResult.locked) {
+        return {
+          success: false,
+          locked: true,
+          remainingSeconds: lockResult.remainingSeconds,
+          error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+        };
       }
       return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
     }
@@ -111,10 +141,8 @@ export const authApi = {
 
     const db = await getMockDb();
     if (db) {
-      if (db.resetPassword(email, newPassword)) {
-        return { success: true };
-      }
-      return { success: false, error: '등록되지 않은 이메일입니다.' };
+      const result = db.resetPassword(email, newPassword);
+      return result;
     }
     // TODO: POST /api/auth/reset-password
     return { success: false, error: '서버 연동 준비 중입니다.' };

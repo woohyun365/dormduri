@@ -10,22 +10,25 @@ export function useCountdown(initialSeconds: number) {
     };
   }, []);
 
-  const start = useCallback(() => {
-    setCountdown(initialSeconds);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
+  const start = useCallback(
+    (seconds?: number) => {
+      setCountdown(seconds ?? initialSeconds);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
+            return 0;
           }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [initialSeconds]);
+          return prev - 1;
+        });
+      }, 1000);
+    },
+    [initialSeconds],
+  );
 
   const stop = useCallback(() => {
     if (intervalRef.current) {

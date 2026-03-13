@@ -21,6 +21,9 @@ const STORAGE_KEYS = {
 // 인증 코드는 세션 내에서만 유효하므로 인메모리 유지
 const verificationCodes: Map<string, string> = new Map();
 
+// 로그인 실패 추적 (인메모리, 서버 저장 상태 시뮬레이션)
+const loginAttempts: Map<string, { failureCount: number; lockedUntil: number | null }> = new Map();
+
 function readJson<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
   try {
@@ -64,6 +67,36 @@ export const mockDb = {
     console.log(`[MockDB] 유저 생성: ${data.email} (${data.nickname})`);
   },
 
+  /** 로그인 잠금 상태 확인. 잠금 만료 시 자동 리셋. */
+  getLoginAttempts(email: string): { failureCount: number; lockedUntil: number | null } {
+    const attempts = loginAttempts.get(email) ?? { failureCount: 0, lockedUntil: null };
+    // 잠금 만료 시 리셋
+    if (attempts.lockedUntil && Date.now() >= attempts.lockedUntil) {
+      attempts.failureCount = 0;
+      attempts.lockedUntil = null;
+      loginAttempts.set(email, attempts);
+    }
+    return attempts;
+  },
+
+  /** 로그인 실패 기록. 5회 도달 시 잠금 설정. */
+  recordLoginFailure(email: string): { locked: boolean; remainingSeconds: number } {
+    const attempts = this.getLoginAttempts(email);
+    attempts.failureCount += 1;
+    if (attempts.failureCount >= 5) {
+      attempts.lockedUntil = Date.now() + 300_000; // 5분
+      loginAttempts.set(email, attempts);
+      return { locked: true, remainingSeconds: 300 };
+    }
+    loginAttempts.set(email, attempts);
+    return { locked: false, remainingSeconds: 0 };
+  },
+
+  /** 로그인 성공 시 실패 카운트 리셋 */
+  resetLoginAttempts(email: string): void {
+    loginAttempts.delete(email);
+  },
+
   findUser(email: string, password: string): MockUser | null {
     const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
     const found = users.find((u) => u.email === email && u.password === password);
@@ -75,14 +108,17 @@ export const mockDb = {
     return users.find((u) => u.email === email) ?? null;
   },
 
-  resetPassword(email: string, newPassword: string): boolean {
+  resetPassword(email: string, newPassword: string): { success: boolean; error?: string } {
     const users = readJson<MockUser[]>(STORAGE_KEYS.users, []);
     const user = users.find((u) => u.email === email);
-    if (!user) return false;
+    if (!user) return { success: false, error: '등록되지 않은 이메일입니다.' };
+    if (user.password === newPassword) {
+      return { success: false, error: '현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.' };
+    }
     user.password = newPassword;
     writeJson(STORAGE_KEYS.users, users);
     console.log(`[MockDB] 비밀번호 재설정: ${email}`);
-    return true;
+    return { success: true };
   },
 
   /** currentUser + users 배열을 동시에 갱신 (건물 선택 등 프로필 변경 시 사용) */
