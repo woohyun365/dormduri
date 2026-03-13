@@ -34,11 +34,13 @@ export default function Login() {
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [lockedEmail, setLockedEmail] = useState('');
   const {
-    isActive: isLocked,
+    isActive: isCountdownActive,
     start: startLockout,
     formatTime: formatLockoutTime,
   } = useCountdown(LOGIN_LOCKOUT_SECONDS);
+  const isLocked = isCountdownActive && email === lockedEmail;
 
   const handleEmailChange = useCallback((value: string) => {
     setEmail(value);
@@ -71,6 +73,7 @@ export default function Login() {
         router.replace('/');
       } else if (result.locked && result.remainingSeconds) {
         startLockout(result.remainingSeconds);
+        setLockedEmail(email);
         setLoginError(result.error ?? '계정이 일시적으로 잠겼습니다.');
       } else {
         setLoginError(result.error ?? '이메일 또는 비밀번호가 올바르지 않습니다.');
