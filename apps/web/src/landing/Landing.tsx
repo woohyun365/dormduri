@@ -51,7 +51,7 @@ export default function Landing() {
             <p className="text-lg md:text-xl text-[var(--knu-text-secondary)] mb-2 leading-relaxed">
               @kangwon.ac.kr 인증 필수
               <br />
-              학교 공식 일정 기준 시즌 운영 · 비시즌 열람 가능
+              현재 춘천캠퍼스 중심 운영 · 학교 공식 일정 기준 시즌제
             </p>
             <p className="text-xs text-[var(--knu-text-tertiary)] mb-6">
               본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.
@@ -141,8 +141,8 @@ export default function Landing() {
           <FeatureCard
             variant="solution"
             icon={<UserCheck className="w-7 h-7 text-[var(--knu-primary)]" />}
-            title="대화 후 확정"
-            description="인트로 메시지와 대화를 통해 서로 확인한 후 매칭을 확정합니다."
+            title="확인 후 확정"
+            description="인트로 메시지를 주고받고 상대 프로필을 확인한 후 매칭을 확정합니다."
           />
         </div>
       </Section>
@@ -184,8 +184,8 @@ export default function Landing() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <FeatureCard
             icon={<Volume2 className="w-7 h-7 text-[var(--knu-primary)]" />}
-            title="대화 후 확정"
-            description="매칭 요청 수락 후 대화를 통해 서로를 확인하고 매칭을 확정합니다."
+            title="확인 후 확정"
+            description="매칭 요청 수락 후 상대 프로필을 확인하고 매칭을 확정합니다."
           />
           <FeatureCard
             icon={<Calendar className="w-7 h-7 text-[var(--knu-primary)]" />}
@@ -295,7 +295,7 @@ export default function Landing() {
             />
             <FAQItem
               question="매칭은 어떻게 진행되나요?"
-              answer="인트로 메시지와 함께 매칭 요청을 보내고, 상대가 수락하면 대화를 통해 서로를 확인한 후 매칭을 확정합니다. 동시에 최대 3건의 요청을 보낼 수 있습니다."
+              answer="인트로 메시지와 함께 매칭 요청을 보내고, 상대가 수락하면 프로필을 확인한 후 매칭을 확정합니다. 동시에 최대 3건의 요청을 보낼 수 있습니다."
             />
             <FAQItem
               question="생활패턴 설문은 학교 규정과 관련이 있나요?"
@@ -303,7 +303,7 @@ export default function Landing() {
             />
             <FAQItem
               question="개인정보(연락처 등)를 프로필에 적어도 되나요?"
-              answer="연락처, SNS 계정 등 민감한 개인정보를 프로필에 포함하는 것은 권장하지 않습니다. 매칭 확정 후 채팅을 통해 교환하는 것이 안전합니다."
+              answer="연락처, SNS 계정 등 민감한 개인정보를 프로필에 포함하는 것은 권장하지 않습니다. 매칭 확정 후 직접 교환해주세요."
             />
             <FAQItem
               question="개인정보는 안전하게 보호되나요?"
