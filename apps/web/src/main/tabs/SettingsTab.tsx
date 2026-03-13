@@ -179,7 +179,7 @@ export default function SettingsTab({
               <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
             </Link>
             <a
-              href="mailto:knu-roommate@kangwon.ac.kr"
+              href="mailto:woohyun365@gmail.com"
               className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
