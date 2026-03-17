@@ -109,6 +109,7 @@ export function useRoommateListViewModel({
 
   const getButtonState = (profile: RoommateProfile) =>
     getMatchButtonState({
+      currentUserId: user.id,
       targetUserId: profile.id,
       targetDormitoryId: normalizeDormId(profile.dormitoryId),
       userDormitoryId: normalizeDormId(user.dormitoryId),

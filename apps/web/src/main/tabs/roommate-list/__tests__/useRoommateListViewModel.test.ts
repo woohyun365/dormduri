@@ -382,6 +382,7 @@ describe('getButtonState', () => {
     result.current.getButtonState(profile);
 
     expect(getMatchButtonState).toHaveBeenCalledWith({
+      currentUserId: 'test-user-0001',
       targetUserId: 'target',
       targetDormitoryId: 'dasan',
       userDormitoryId: 'dasan',

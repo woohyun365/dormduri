@@ -39,7 +39,7 @@ export const MOCK_RECEIVED_PENDING: MatchRequest = {
   rejectedAt: null,
 };
 
-// REJECTED 1건 (쿨다운 진행 중 — 먼 미래 거절이므로 항상 쿨다운 중)
+// REJECTED 1건 (같은 방향 영구 차단 — 거절 이력이 있으므로 재신청 불가)
 export const MOCK_REJECTED: MatchRequest = {
   id: 'req-004',
   fromUserId: 'me',
