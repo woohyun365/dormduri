@@ -33,9 +33,9 @@ export function LegalPage({ title, content, effectiveDate, lastModified }: Legal
       <div className="mx-auto max-w-2xl px-5 py-12">
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
           <p className="text-sm text-amber-800">
-            본 서비스는 강원대학교와 제휴·인가·보증 관계가 없는 독립 운영 서비스입니다. 서비스에
-            대한 책임은 운영자 개인에게 있으며, 강원대학교는 본 서비스의 내용, 운영, 결과에 대해
-            어떠한 책임도 지지 않습니다.
+            본 서비스는 강원대학교와 제휴·인가·보증 관계가 없는 독립 운영 서비스입니다. 학교 공식
+            기숙사 배정·입주 권한은 학교 시스템에만 있으며, 서비스에 대한 책임은 운영자 개인에게
+            있습니다. 강원대학교는 본 서비스의 내용, 운영, 결과에 대해 어떠한 책임도 지지 않습니다.
           </p>
         </div>
 

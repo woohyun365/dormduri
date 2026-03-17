@@ -206,7 +206,8 @@ export default function Landing() {
         <div className="mt-8 bg-[var(--knu-background-alt)] border-2 border-[var(--knu-border)] rounded-2xl p-6 text-center">
           <Info className="w-6 h-6 text-[var(--knu-text-tertiary)] mx-auto mb-2" />
           <p className="text-sm text-[var(--knu-text-secondary)]">
-            채팅 기능은 순차 제공 예정입니다. 현재는 매칭 확정 후 개인적으로 연락처를 교환해주세요.
+            채팅 기능은 순차 제공 예정입니다. 매칭 확정 후 연락 방법은 서비스 밖에서 개별 진행하며,
+            이에 대해 서비스는 관여하지 않습니다.
           </p>
         </div>
       </Section>
@@ -299,15 +300,15 @@ export default function Landing() {
             />
             <FAQItem
               question="생활패턴 설문은 학교 규정과 관련이 있나요?"
-              answer="아닙니다. 흡연·음주 등 설문 항목은 룸메이트 호환성 비교를 위한 것이며, 학생생활관 생활수칙이나 학교 규정과는 무관합니다. 설문 응답이 학교의 징계나 불이익을 초래하지 않습니다."
+              answer="아닙니다. 흡연 여부 등 설문 항목은 룸메이트 호환성 비교를 위한 것이며, 학생생활관 생활수칙이나 학교 규정과는 무관합니다. 설문 응답이 학교의 징계나 불이익을 초래하지 않습니다."
             />
             <FAQItem
               question="개인정보(연락처 등)를 프로필에 적어도 되나요?"
-              answer="연락처, SNS 계정 등 민감한 개인정보를 프로필에 포함하는 것은 권장하지 않습니다. 매칭 확정 후 직접 교환해주세요."
+              answer="연락처, SNS 계정 등 개인정보와 건강, 성적 지향, 장애 여부 등 민감한 정보를 프로필에 포함하는 것은 권장하지 않습니다. 매칭 확정 후 직접 교환해주세요."
             />
             <FAQItem
               question="개인정보는 안전하게 보호되나요?"
-              answer="학교 이메일 인증을 통해 재학생만 이용하며, 비밀번호는 암호화 저장됩니다. 음주 정보는 매칭 점수에만 반영되고 상대 프로필에는 표시되지 않습니다."
+              answer="학교 이메일 인증을 통해 재학생만 이용하며, 비밀번호는 암호화 저장됩니다. 탈퇴 시 계정 정보는 5일 이내에 파기되며, 일부 데이터는 법령·서비스 안전을 위해 별도 보관됩니다. 자세한 내용은 개인정보처리방침을 확인해주세요."
             />
           </div>
         </div>

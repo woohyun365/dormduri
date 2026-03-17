@@ -2,9 +2,9 @@ import type { MatchStatus } from '@/types/match';
 
 // 정책 상수
 export const MATCH_POLICY = {
-  MAX_PENDING_REQUESTS: 5,
-  REQUEST_TTL_HOURS: 48,
-  REJECTION_COOLDOWN_DAYS: 7,
+  MAX_PENDING_REQUESTS: 3,
+  REQUEST_TTL_HOURS: 120,
+  REJECTION_COOLDOWN_DAYS: 7, // TODO: #151에서 영구 차단으로 변경 예정
 } as const;
 
 // 상태별 라벨
