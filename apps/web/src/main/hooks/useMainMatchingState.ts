@@ -47,7 +47,7 @@ export function useMainMatchingState(
       setMatchRequests((prev) => [...prev, newRequest]);
       showToast('매칭 요청을 보냈어요');
     },
-    [showToast],
+    [showToast, currentUserId],
   );
 
   const handleCancelRequest = useCallback(
@@ -119,7 +119,7 @@ export function useMainMatchingState(
       matchRequests.filter(
         (r) => r.toUserId === currentUserId && r.status === 'PENDING' && !isRequestExpired(r),
       ).length,
-    [matchRequests],
+    [matchRequests, currentUserId],
   );
 
   return {
