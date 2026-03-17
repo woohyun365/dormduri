@@ -89,7 +89,10 @@ export function getMatchButtonState({
 
   // 7a. 거절/만료 → 같은 방향 영구 차단
   const hasRejectedOrExpired = sameDirectionRequests.some(
-    (r) => r.status === 'REJECTED' || r.status === 'EXPIRED' || isRequestExpired(r),
+    (r) =>
+      r.status === 'REJECTED' ||
+      r.status === 'EXPIRED' ||
+      (r.status === 'PENDING' && isRequestExpired(r)),
   );
   if (hasRejectedOrExpired) {
     return { type: 'SAME_DIRECTION_BLOCKED', label: '재요청 불가' };

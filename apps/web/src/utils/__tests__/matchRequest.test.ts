@@ -220,6 +220,20 @@ describe('getMatchButtonState', () => {
     expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
   });
 
+  // AC-N1 보강: 취소된 요청은 시간이 지나도 차단되면 안 된다
+  it('7-c2. AC-N1 보강: CANCELED + 시간 만료 → REQUEST (차단 아님)', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-can-expired',
+      fromUserId: 'me',
+      toUserId: 'target',
+      status: 'CANCELED',
+      expiresAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
   // AC-N2: 거절/만료 후 역방향 신청 허용
   it('7-d. AC-N2: 거절 후 역방향 신청 허용', () => {
     vi.setSystemTime(NOW);
