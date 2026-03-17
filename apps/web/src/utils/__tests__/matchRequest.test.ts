@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
-import {
-  isRequestExpired,
-  getRejectionCooldownEnd,
-  getPendingCount,
-  getMatchButtonState,
-} from '../matchRequest';
+import { isRequestExpired, getPendingCount, getMatchButtonState } from '../matchRequest';
 import { MATCH_POLICY } from '@/constants/match';
 
 // ── 헬퍼 ──────────────────────────────────────────────────────────
@@ -27,6 +22,7 @@ function makeRequest(overrides: Partial<MatchRequest> = {}): MatchRequest {
 }
 
 const defaultParams = () => ({
+  currentUserId: 'me',
   targetUserId: 'target',
   targetDormitoryId: 'dorm-A' as string | null,
   userDormitoryId: 'dorm-A' as string | null,
@@ -69,24 +65,6 @@ describe('isRequestExpired', () => {
   it('expiresAt이 invalid date 문자열이면 만료 처리 (fail-close)', () => {
     const req = makeRequest({ expiresAt: 'not-a-date' });
     expect(isRequestExpired(req)).toBe(true);
-  });
-});
-
-// ── getRejectionCooldownEnd ───────────────────────────────────────
-
-describe('getRejectionCooldownEnd', () => {
-  it('rejectedAt + 7일을 반환', () => {
-    const rejectedAt = new Date('2026-03-01T00:00:00Z');
-    const req = makeRequest({ rejectedAt: rejectedAt.toISOString() });
-    const result = new Date(getRejectionCooldownEnd(req));
-    expect(result.toISOString()).toBe('2026-03-08T00:00:00.000Z');
-  });
-
-  it('rejectedAt이 null이면 현재 시각 기준 반환', () => {
-    vi.setSystemTime(NOW);
-    const req = makeRequest({ rejectedAt: null });
-    const result = new Date(getRejectionCooldownEnd(req));
-    expect(result.getTime()).toBe(NOW);
   });
 });
 
@@ -181,30 +159,171 @@ describe('getMatchButtonState', () => {
     }
   });
 
-  it('7. 거절 쿨다운 중 → REJECTED_COOLDOWN', () => {
+  // ── 7. 재신청 차단 (AC 기반 TDD) ──────────────────────────────
+
+  // AC-F1: 거절 후 같은 방향 영구 재신청 차단
+  it('7-a. AC-F1: 거절 후 같은 방향 → SAME_DIRECTION_BLOCKED', () => {
     vi.setSystemTime(NOW);
     const req = makeRequest({
-      status: 'REJECTED',
+      id: 'r-rej',
+      fromUserId: 'me',
       toUserId: 'target',
-      rejectedAt: new Date(NOW - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3일 전 거절
+      status: 'REJECTED',
+      rejectedAt: new Date(NOW - 3 * 24 * 60 * 60 * 1000).toISOString(),
     });
     const params = { ...defaultParams(), requests: [req] };
     const result = getMatchButtonState(params);
-    expect(result.type).toBe('REJECTED_COOLDOWN');
-    if (result.type === 'REJECTED_COOLDOWN') {
-      expect(result.label).toContain('일 후 재요청 가능');
-    }
+    expect(result.type).toBe('SAME_DIRECTION_BLOCKED');
+    expect(result).not.toHaveProperty('availableAt');
   });
 
-  it('7-b. 거절 쿨다운 만료 → REQUEST', () => {
+  // AC-F2: 만료 후 같은 방향 영구 재신청 차단
+  it('7-b. AC-F2: 만료 후 같은 방향 → SAME_DIRECTION_BLOCKED', () => {
     vi.setSystemTime(NOW);
     const req = makeRequest({
-      status: 'REJECTED',
+      id: 'r-exp',
+      fromUserId: 'me',
       toUserId: 'target',
-      rejectedAt: new Date(NOW - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10일 전 거절
+      status: 'EXPIRED',
+      expiresAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    const result = getMatchButtonState(params);
+    expect(result.type).toBe('SAME_DIRECTION_BLOCKED');
+  });
+
+  // AC-F2 보강: status가 PENDING이지만 expiresAt이 과거 → 시간 만료로 간주하여 차단
+  it('7-b2. AC-F2 보강: PENDING + 시간 만료 → SAME_DIRECTION_BLOCKED', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-pending-expired',
+      fromUserId: 'me',
+      toUserId: 'target',
+      status: 'PENDING',
+      expiresAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    const result = getMatchButtonState(params);
+    expect(result.type).toBe('SAME_DIRECTION_BLOCKED');
+  });
+
+  // AC-N1: 취소 후 같은 방향 재신청 허용 (3회 미만)
+  it('7-c. AC-N1: 취소 후 같은 방향 재신청 허용 (시도 < 3)', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-can',
+      fromUserId: 'me',
+      toUserId: 'target',
+      status: 'CANCELED',
     });
     const params = { ...defaultParams(), requests: [req] };
     expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  // AC-N1 보강: 취소된 요청은 시간이 지나도 차단되면 안 된다
+  it('7-c2. AC-N1 보강: CANCELED + 시간 만료 → REQUEST (차단 아님)', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-can-expired',
+      fromUserId: 'me',
+      toUserId: 'target',
+      status: 'CANCELED',
+      expiresAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  // AC-N2: 거절/만료 후 역방향 신청 허용
+  it('7-d. AC-N2: 거절 후 역방향 신청 허용', () => {
+    vi.setSystemTime(NOW);
+    // A→B가 거절됨 → B→A 방향에서 판단 (currentUserId='target', targetUserId='me')
+    const req = makeRequest({
+      id: 'r-rej',
+      fromUserId: 'me',
+      toUserId: 'target',
+      status: 'REJECTED',
+      rejectedAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = {
+      ...defaultParams(),
+      currentUserId: 'target',
+      targetUserId: 'me',
+      requests: [req],
+    };
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  // AC-F3: 같은 방향 4번째 요청 차단 (취소 3회 소진)
+  it('7-e. AC-F3: 취소 3회 소진 → ATTEMPTS_EXHAUSTED', () => {
+    vi.setSystemTime(NOW);
+    const requests = [1, 2, 3].map((i) =>
+      makeRequest({
+        id: `r-can-${i}`,
+        fromUserId: 'me',
+        toUserId: 'target',
+        status: 'CANCELED',
+      }),
+    );
+    const params = { ...defaultParams(), requests };
+    const result = getMatchButtonState(params);
+    expect(result.type).toBe('ATTEMPTS_EXHAUSTED');
+  });
+
+  // AC-B1: 3번째 같은 방향 요청은 허용 (경계)
+  it('7-f. AC-B1: 취소 2회 후 3번째 요청 허용', () => {
+    vi.setSystemTime(NOW);
+    const requests = [1, 2].map((i) =>
+      makeRequest({
+        id: `r-can-${i}`,
+        fromUserId: 'me',
+        toUserId: 'target',
+        status: 'CANCELED',
+      }),
+    );
+    const params = { ...defaultParams(), requests };
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  // AC-B2: 방향별 시도 수 독립 카운팅
+  it('7-g. AC-B2: A→B 3회 소진되어도 B→A는 허용', () => {
+    vi.setSystemTime(NOW);
+    // A(me)→B(target) 방향 3회 소진
+    const forwardRequests = [1, 2, 3].map((i) =>
+      makeRequest({
+        id: `r-fwd-${i}`,
+        fromUserId: 'me',
+        toUserId: 'target',
+        status: 'CANCELED',
+      }),
+    );
+    // B→A 방향에서 판단 (currentUserId='target', targetUserId='me')
+    const params = {
+      ...defaultParams(),
+      currentUserId: 'target',
+      targetUserId: 'me',
+      requests: forwardRequests,
+    };
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  // AC-B3: 취소 누적 후 거절 발생 시 SAME_DIRECTION_BLOCKED 우선
+  it('7-h. AC-B3: 취소 2회 + 거절 1회 → SAME_DIRECTION_BLOCKED 우선', () => {
+    vi.setSystemTime(NOW);
+    const requests = [
+      makeRequest({ id: 'r-can-1', fromUserId: 'me', toUserId: 'target', status: 'CANCELED' }),
+      makeRequest({ id: 'r-can-2', fromUserId: 'me', toUserId: 'target', status: 'CANCELED' }),
+      makeRequest({
+        id: 'r-rej-3',
+        fromUserId: 'me',
+        toUserId: 'target',
+        status: 'REJECTED',
+        rejectedAt: new Date(NOW - 1000).toISOString(),
+      }),
+    ];
+    const params = { ...defaultParams(), requests };
+    const result = getMatchButtonState(params);
+    expect(result.type).toBe('SAME_DIRECTION_BLOCKED');
   });
 
   it('8-a. PENDING이 한도 미만이면 REQUEST', () => {

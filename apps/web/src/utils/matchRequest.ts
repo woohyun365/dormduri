@@ -2,6 +2,7 @@ import type { MatchRequest, ActiveMatch, MatchButtonState } from '@/types/match'
 import { MATCH_POLICY } from '@/constants/match';
 
 interface GetMatchButtonStateParams {
+  currentUserId: string;
   targetUserId: string;
   targetDormitoryId: string | null;
   userDormitoryId: string | null;
@@ -19,14 +20,6 @@ export function isRequestExpired(request: MatchRequest): boolean {
   return date.getTime() <= Date.now();
 }
 
-/** 거절 쿨다운 종료 일시 (rejectedAt + 7일) */
-export function getRejectionCooldownEnd(request: MatchRequest): string {
-  if (!request.rejectedAt) return new Date().toISOString();
-  const end = new Date(request.rejectedAt);
-  end.setDate(end.getDate() + MATCH_POLICY.REJECTION_COOLDOWN_DAYS);
-  return end.toISOString();
-}
-
 /** 현재 PENDING 요청 수 (만료되지 않은 것만) */
 export function getPendingCount(requests: MatchRequest[]): number {
   return requests.filter((r) => r.status === 'PENDING' && !isRequestExpired(r)).length;
@@ -34,6 +27,7 @@ export function getPendingCount(requests: MatchRequest[]): number {
 
 /** 상대 유저에 대한 버튼 상태를 판단 */
 export function getMatchButtonState({
+  currentUserId,
   targetUserId,
   targetDormitoryId,
   userDormitoryId,
@@ -88,29 +82,28 @@ export function getMatchButtonState({
     };
   }
 
-  // 7. 거절당한 뒤 7일 미경과
-  const rejectedByTarget =
-    requests
-      .filter(
-        (r) => r.toUserId === targetUserId && r.status === 'REJECTED' && r.rejectedAt !== null,
-      )
-      .sort((a, b) => new Date(b.rejectedAt!).getTime() - new Date(a.rejectedAt!).getTime())[0] ??
-    null;
-  if (rejectedByTarget) {
-    const cooldownEnd = getRejectionCooldownEnd(rejectedByTarget);
-    if (new Date(cooldownEnd).getTime() > Date.now()) {
-      const daysLeft = Math.ceil(
-        (new Date(cooldownEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-      );
-      return {
-        type: 'REJECTED_COOLDOWN',
-        label: `${daysLeft}일 후 재요청 가능`,
-        availableAt: cooldownEnd,
-      };
-    }
+  // 7. 재신청 차단: 같은 방향 기준
+  const sameDirectionRequests = requests.filter(
+    (r) => r.fromUserId === currentUserId && r.toUserId === targetUserId,
+  );
+
+  // 7a. 거절/만료 → 같은 방향 영구 차단
+  const hasRejectedOrExpired = sameDirectionRequests.some(
+    (r) =>
+      r.status === 'REJECTED' ||
+      r.status === 'EXPIRED' ||
+      (r.status === 'PENDING' && isRequestExpired(r)),
+  );
+  if (hasRejectedOrExpired) {
+    return { type: 'SAME_DIRECTION_BLOCKED', label: '재요청 불가' };
   }
 
-  // 8. PENDING 5개 이상
+  // 7b. 같은 방향 시도 수 3회 이상 → 차단
+  if (sameDirectionRequests.length >= MATCH_POLICY.MAX_DIRECTION_ATTEMPTS) {
+    return { type: 'ATTEMPTS_EXHAUSTED', label: '요청 횟수 초과' };
+  }
+
+  // 8. PENDING 3개 이상
   if (getPendingCount(requests) >= MATCH_POLICY.MAX_PENDING_REQUESTS) {
     return { type: 'SLOT_FULL', label: '요청 한도 초과' };
   }

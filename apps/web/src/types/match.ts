@@ -32,7 +32,8 @@ export type MatchButtonState =
   | { type: 'PENDING_SENT'; label: string; requestId: string; expiresAt: string }
   | { type: 'PENDING_RECEIVED'; label: string; requestId: string; expiresAt: string }
   | { type: 'MATCHED'; label: '매칭됨' }
-  | { type: 'REJECTED_COOLDOWN'; label: string; availableAt: string }
+  | { type: 'SAME_DIRECTION_BLOCKED'; label: string }
+  | { type: 'ATTEMPTS_EXHAUSTED'; label: string }
   | { type: 'BLOCKED'; label: '차단됨' }
   | { type: 'OFF_SEASON'; label: '시즌 종료' }
   | { type: 'DIFFERENT_BUILDING'; label: '다른 건물' }

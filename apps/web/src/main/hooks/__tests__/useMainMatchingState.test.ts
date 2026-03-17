@@ -40,7 +40,7 @@ vi.mock('@/__fixtures__/profiles', () => ({
 }));
 
 vi.mock('@/__fixtures__/matching', () => ({
-  MOCK_REQUESTS: [],
+  createMockRequests: () => [],
   MOCK_ACTIVE_MATCH: null,
 }));
 
@@ -55,10 +55,12 @@ const userLifestyle: UserProfile['lifestyle'] = {
   relationshipStyle: 'CASUAL',
 };
 
+const TEST_USER_ID = 'test-user-0001';
+
 function setup() {
   const toasts: string[] = [];
   const showToast = (msg: string) => toasts.push(msg);
-  const hook = renderHook(() => useMainMatchingState(showToast, userLifestyle));
+  const hook = renderHook(() => useMainMatchingState(showToast, userLifestyle, TEST_USER_ID));
   return { hook, toasts };
 }
 
@@ -107,23 +109,23 @@ describe('useMainMatchingState — 요청 수락', () => {
   it('수락 시 activeMatch가 설정되고 축하 모달이 트리거된다', () => {
     const { hook } = setup();
 
-    // ⚠️ 훅 API 한계: handleSendRequest는 fromUserId='me'로 고정되어
+    // ⚠️ 훅 API 한계: handleSendRequest는 currentUserId를 fromUserId로 사용하므로
     // "받은 요청(fromUserId=상대)" 시나리오를 재현할 수 없음.
     // 여기서는 상태 전이(PENDING→ACTIVE, celebration 트리거)를 검증한다.
-    // partner 닉네임/점수 계산은 mockRawProfiles에 'me'가 없어 fallback 경로를 탄다.
+    // partner 닉네임/점수 계산은 mockRawProfiles에 currentUserId가 없어 fallback 경로를 탄다.
     act(() => hook.result.current.handleSendRequest('target-1'));
 
     const requestId = hook.result.current.matchRequests[0]!.id;
     act(() => hook.result.current.handleAcceptRequest(requestId));
 
     const match = hook.result.current.activeMatch!;
-    expect(match.partnerUserId).toBe('me');
-    expect(match.partnerNickname).toBe('me'); // fallback: profile 미발견 시 partnerId 사용
+    expect(match.partnerUserId).toBe(TEST_USER_ID);
+    expect(match.partnerNickname).toBe(TEST_USER_ID); // fallback: profile 미발견 시 partnerId 사용
     expect(match.matchScore).toBe(0); // fallback: profile 미발견 시 0
     expect(match.matchedAt).toBeTruthy();
 
     const celebration = hook.result.current.showCelebration!;
-    expect(celebration.nickname).toBe('me');
+    expect(celebration.nickname).toBe(TEST_USER_ID);
     expect(celebration.score).toBe(0);
   });
 

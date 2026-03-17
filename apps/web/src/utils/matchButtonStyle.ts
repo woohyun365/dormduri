@@ -32,7 +32,8 @@ export function getMatchButtonStyle(state: MatchButtonState): MatchButtonStyle {
         className: 'bg-green-100 text-green-700 cursor-not-allowed',
         clickable: false,
       };
-    case 'REJECTED_COOLDOWN':
+    case 'SAME_DIRECTION_BLOCKED':
+    case 'ATTEMPTS_EXHAUSTED':
     case 'OFF_SEASON':
     case 'DIFFERENT_BUILDING':
     case 'SLOT_FULL':
