@@ -4,7 +4,7 @@ import { MATCH_POLICY } from '@/constants/match';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { calcMatchScore } from '@/utils/matchScore';
 import { mockRawProfiles } from '@/__fixtures__/profiles';
-import { MOCK_REQUESTS, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
+import { createMockRequests, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 import type { UserProfile } from '@/types/profile';
 
@@ -13,11 +13,12 @@ let idCounter = 0;
 export function useMainMatchingState(
   showToast: (msg: string) => void,
   userLifestyle: UserProfile['lifestyle'],
+  currentUserId: string,
 ) {
   const seasonActive = isSeasonActive(CURRENT_SEASON);
 
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(
-    seasonActive ? MOCK_REQUESTS : [],
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(() =>
+    seasonActive ? createMockRequests(currentUserId) : [],
   );
   const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(
     seasonActive ? MOCK_ACTIVE_MATCH : null,
@@ -35,7 +36,7 @@ export function useMainMatchingState(
 
       const newRequest: MatchRequest = {
         id: `req-${++idCounter}`,
-        fromUserId: 'me',
+        fromUserId: currentUserId,
         toUserId: targetUserId,
         status: 'PENDING',
         message: message ?? null,
@@ -116,7 +117,7 @@ export function useMainMatchingState(
   const receivedPendingCount = useMemo(
     () =>
       matchRequests.filter(
-        (r) => r.toUserId === 'me' && r.status === 'PENDING' && !isRequestExpired(r),
+        (r) => r.toUserId === currentUserId && r.status === 'PENDING' && !isRequestExpired(r),
       ).length,
     [matchRequests],
   );

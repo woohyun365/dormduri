@@ -192,6 +192,21 @@ describe('getMatchButtonState', () => {
     expect(result.type).toBe('SAME_DIRECTION_BLOCKED');
   });
 
+  // AC-F2 보강: status가 PENDING이지만 expiresAt이 과거 → 시간 만료로 간주하여 차단
+  it('7-b2. AC-F2 보강: PENDING + 시간 만료 → SAME_DIRECTION_BLOCKED', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-pending-expired',
+      fromUserId: 'me',
+      toUserId: 'target',
+      status: 'PENDING',
+      expiresAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    const result = getMatchButtonState(params);
+    expect(result.type).toBe('SAME_DIRECTION_BLOCKED');
+  });
+
   // AC-N1: 취소 후 같은 방향 재신청 허용 (3회 미만)
   it('7-c. AC-N1: 취소 후 같은 방향 재신청 허용 (시도 < 3)', () => {
     vi.setSystemTime(NOW);

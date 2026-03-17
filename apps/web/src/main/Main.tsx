@@ -48,7 +48,11 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   const socialState = useMainSocialState(showToast);
 
-  const matchingState = useMainMatchingState(showToast, profileState.user.lifestyle);
+  const matchingState = useMainMatchingState(
+    showToast,
+    profileState.user.lifestyle,
+    profileState.user.id,
+  );
 
   const listViewState = useMainListViewState();
 
