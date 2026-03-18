@@ -13,7 +13,11 @@ vi.mock('@/landing/Landing', () => ({
 }));
 
 vi.mock('@/main/Main', () => ({
-  default: () => <div data-testid="main">Main</div>,
+  default: ({ initialUser }: { initialUser: { id: string; nickname: string } }) => (
+    <div data-testid="main" data-user-id={initialUser.id} data-nickname={initialUser.nickname}>
+      Main
+    </div>
+  ),
 }));
 
 const mockUseCurrentUser = vi.mocked(useCurrentUser);
@@ -44,6 +48,9 @@ describe('GatewayPage', () => {
 
     render(<GatewayPage />);
 
-    expect(screen.getByTestId('main')).toBeInTheDocument();
+    const main = screen.getByTestId('main');
+    expect(main).toBeInTheDocument();
+    expect(main).toHaveAttribute('data-user-id', '1');
+    expect(main).toHaveAttribute('data-nickname', 'tester');
   });
 });

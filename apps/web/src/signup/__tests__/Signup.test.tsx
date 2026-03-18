@@ -38,13 +38,16 @@ vi.mock('../components/email-verification/StepEmailVerification', () => ({
   StepEmailVerification: ({
     onNext,
     onVerified,
+    onEmailChange,
   }: {
     onNext: () => void;
     onVerified: () => void;
+    onEmailChange: (email: string) => void;
   }) => (
     <button
       data-testid="step-1-next"
       onClick={() => {
+        onEmailChange('test@kangwon.ac.kr');
         onVerified();
         onNext();
       }}
@@ -161,7 +164,15 @@ describe('Signup', () => {
       fireEvent.click(screen.getByTestId('step-6-next'));
     });
 
-    expect(mockSignup).toHaveBeenCalled();
+    expect(mockSignup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'test@kangwon.ac.kr',
+        password: 'Test1234',
+        nickname: 'tester',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      }),
+    );
     expect(screen.getByTestId('step-complete')).toBeInTheDocument();
   });
 

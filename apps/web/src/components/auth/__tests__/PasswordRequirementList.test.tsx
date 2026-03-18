@@ -33,7 +33,10 @@ describe('PasswordRequirementList', () => {
   it('유효한 비밀번호는 모든 요구사항을 충족 표시한다', () => {
     render(<PasswordRequirementList password="Test1234" email="test@kangwon.ac.kr" />);
 
-    const items = screen.getAllByText(/✓/);
-    expect(items).toHaveLength(5);
+    expect(screen.getByText(/✓ 8자 이상/)).toBeInTheDocument();
+    expect(screen.getByText(/✓ \d+자 이하/)).toBeInTheDocument();
+    expect(screen.getByText(/✓ 영문 포함/)).toBeInTheDocument();
+    expect(screen.getByText(/✓ 숫자 포함/)).toBeInTheDocument();
+    expect(screen.getByText(/✓ 이메일과 다름/)).toBeInTheDocument();
   });
 });
