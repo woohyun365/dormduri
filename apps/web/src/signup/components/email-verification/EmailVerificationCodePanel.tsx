@@ -69,6 +69,14 @@ export function EmailVerificationCodePanel({
           {isVerifying ? '확인 중...' : '인증 확인'}
         </Button>
       </div>
+
+      <div className="space-y-1 text-xs text-[var(--knu-text-tertiary)]">
+        <p className="font-medium text-[var(--knu-text-secondary)]">메일이 도착하지 않나요?</p>
+        <ul className="space-y-0.5">
+          <li>· 스팸 메일함을 확인해주세요.</li>
+          <li>· 이메일 주소가 잘못됐다면 위에서 수정 후 재전송해주세요.</li>
+        </ul>
+      </div>
     </>
   );
 }
