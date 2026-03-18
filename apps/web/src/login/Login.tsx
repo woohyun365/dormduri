@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
 import { InputField } from '@/components/form/InputField';
@@ -9,7 +9,7 @@ import { Button } from '@/components/Button';
 
 import { validateKnuEmail } from '@/utils/validation';
 import { authApi } from '@/api/auth';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { useCountdown } from '@/hooks/useCountdown';
 import { LOGIN_LOCKOUT_SECONDS } from '@/constants/auth';
 import Image from 'next/image';
@@ -18,14 +18,7 @@ import { Mail, Lock, AlertCircle, Timer } from 'lucide-react';
 
 export default function Login() {
   const router = useRouter();
-  const { user, isLoading: isAuthLoading } = useCurrentUser();
-
-  // 이미 로그인 상태면 게이트웨이(/)로 리다이렉트
-  useEffect(() => {
-    if (!isAuthLoading && user) {
-      router.replace('/');
-    }
-  }, [isAuthLoading, user, router]);
+  const { isReadyToRender } = useRedirectIfAuthenticated();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -90,8 +83,7 @@ export default function Login() {
     handleLogin();
   };
 
-  // auth 체크 중이거나 이미 로그인 상태면 UI를 렌더링하지 않음 (깜빡임 방지)
-  if (isAuthLoading || user) {
+  if (!isReadyToRender) {
     return <div className="min-h-screen bg-[var(--knu-background-alt)]" />;
   }
 
@@ -124,6 +116,7 @@ export default function Login() {
         {/* Login Form */}
         <form
           onSubmit={handleSubmit}
+          noValidate
           className="bg-white rounded-2xl shadow-sm border-2 border-[var(--knu-border)] p-6 md:p-8 mb-6"
         >
           {isLocked && (
