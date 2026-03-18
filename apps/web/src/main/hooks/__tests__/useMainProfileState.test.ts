@@ -12,21 +12,34 @@ vi.mock('@/__fixtures__/mock-db', () => ({
 }));
 
 const baseLifestyle: UserProfile['lifestyle'] = {
-  smoker: 'NO',
-  sleepHabit: 'NONE',
-  indoorEating: 'NO',
   bedtime: '22_24',
-  wakeTime: '06_08',
-  noiseSensitivity: 'MID',
-  cleanliness: 'MID',
+  wakeTime: '07_08',
+  sleepHabit: 'NONE',
+  sleepEnvironment: 'QUIET',
+  nightStudyLight: 'LOW_LIGHT',
+  noiseSensitivity: 'NORMAL',
+  smokingBehavior: 'NO',
+  indoorEating: 'OK',
+  phoneBehavior: 'BRIEF',
+  earphoneUsage: 'STUDY',
+  cleanLevel: 'WEEKLY_1_2',
+  drinkingFrequency: 'SOMETIMES',
   relationshipStyle: 'CASUAL',
+  temperatureSensitivity: 'NORMAL',
+  smokingTolerance: 'E_CIG_OK',
+  phoneTolerance: 'BRIEF_OK',
+  earphoneExpectation: 'STUDY',
+  sleepEnvPreference: 'EARPHONE_OK',
+  cleanExpectation: 'BASIC',
+  drinkingTolerance: 'SOMETIMES_OK',
+  nightLightTolerance: 'LOW_OK',
 };
 
 const baseAdditional: UserProfile['additional'] = {
   college: null,
   grade: null,
   mbti: null,
-  temperatureSensitivity: null,
+  birthYear: null,
 };
 
 function makeUser(overrides: Partial<UserProfile> = {}): UserProfile {
@@ -133,11 +146,11 @@ describe('useMainProfileState — 프로필 편집', () => {
 
   it('생활패턴 변경 시 토스트가 표시된다', () => {
     const { hook, toasts } = setup();
-    const newLifestyle = { ...baseLifestyle, smoker: 'YES' as const };
+    const newLifestyle = { ...baseLifestyle, smokingBehavior: 'YES' as const };
 
     act(() => hook.result.current.handleLifestyleChange(newLifestyle));
 
-    expect(hook.result.current.user.lifestyle.smoker).toBe('YES');
+    expect(hook.result.current.user.lifestyle.smokingBehavior).toBe('YES');
     expect(toasts).toContain('생활패턴이 저장되었어요');
   });
 
@@ -159,7 +172,7 @@ describe('useMainProfileState — 프로필 100% 완성 토스트', () => {
       college: 'IT대',
       grade: '1',
       mbti: 'INTJ',
-      temperatureSensitivity: 'NORMAL',
+      birthYear: 2004,
     };
 
     act(() => hook.result.current.handleMessageChange('메시지'));
@@ -181,7 +194,7 @@ describe('useMainProfileState — 프로필 100% 완성 토스트', () => {
         college: 'IT대',
         grade: '1',
         mbti: 'INTJ',
-        temperatureSensitivity: 'NORMAL',
+        birthYear: 2004,
       },
     });
 

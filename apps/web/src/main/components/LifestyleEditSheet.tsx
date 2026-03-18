@@ -17,15 +17,33 @@ interface LifestyleEditSheetProps {
 type FieldKey = keyof LifestyleData;
 
 const FIELD_ORDER: FieldKey[] = [
-  'smoker',
-  'sleepHabit',
-  'indoorEating',
+  // 수면 패턴
   'bedtime',
   'wakeTime',
+  'sleepHabit',
+  'sleepEnvironment',
+  'nightStudyLight',
   'noiseSensitivity',
-  'cleanliness',
+  // 생활 패턴
+  'smokingBehavior',
+  'indoorEating',
+  'phoneBehavior',
+  'earphoneUsage',
+  'cleanLevel',
+  'drinkingFrequency',
   'relationshipStyle',
+  'temperatureSensitivity',
+  // 원하는 룸메 조건
+  'smokingTolerance',
+  'phoneTolerance',
+  'earphoneExpectation',
+  'sleepEnvPreference',
+  'cleanExpectation',
+  'drinkingTolerance',
+  'nightLightTolerance',
 ];
+
+const DRINKING_FIELDS: FieldKey[] = ['drinkingFrequency', 'drinkingTolerance'];
 
 export function LifestyleEditSheet({
   isOpen,
@@ -85,11 +103,17 @@ export function LifestyleEditSheet({
       <div className="p-5 space-y-6 pb-5">
         {FIELD_ORDER.map((field) => {
           const labels = LIFESTYLE_LABELS[field];
+          const isDrinking = DRINKING_FIELDS.includes(field);
           return (
             <div key={field}>
               <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
                 {LIFESTYLE_FIELD_NAMES[field]}
               </label>
+              {isDrinking && (
+                <p className="text-xs text-[var(--knu-text-tertiary)] mb-2">
+                  매칭 점수에만 반영되며 상대방에게는 표시되지 않아요
+                </p>
+              )}
               <div className="flex flex-wrap gap-2">
                 {Object.entries(labels).map(([value, label]) => (
                   <Chip

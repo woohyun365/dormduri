@@ -20,13 +20,13 @@ interface BottomSheetProps {
 type FilterField = keyof FilterState;
 
 const FILTER_FIELDS: FilterField[] = [
-  'smoker',
+  'smokingBehavior',
   'sleepHabit',
   'indoorEating',
   'bedtime',
   'wakeTime',
   'noiseSensitivity',
-  'cleanliness',
+  'cleanLevel',
   'relationshipStyle',
 ];
 

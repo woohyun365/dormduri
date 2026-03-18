@@ -99,7 +99,7 @@ export const HomeMatchingSection = forwardRef<HTMLDivElement, HomeMatchingSectio
         lifestyle: {} as RoommateProfile['lifestyle'],
         intro: '',
         messageToRoommate: null,
-        additional: { college: null, grade: null, mbti: null, temperatureSensitivity: null },
+        additional: { college: null, grade: null, mbti: null, birthYear: null },
         matchScore: 0,
       };
     };

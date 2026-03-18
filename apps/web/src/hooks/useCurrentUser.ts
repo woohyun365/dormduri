@@ -31,7 +31,7 @@ export function useCurrentUser() {
             lifestyle: loggedIn.lifestyle,
             intro: loggedIn.intro,
             messageToRoommate: null,
-            additional: { college: null, grade: null, mbti: null, temperatureSensitivity: null },
+            additional: { college: null, grade: null, mbti: null, birthYear: null },
           });
         } else {
           setUser(null);

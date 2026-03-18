@@ -1,10 +1,6 @@
 import { MessageCircle } from 'lucide-react';
 import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
-import {
-  ADDITIONAL_FIELD_NAMES,
-  GRADES,
-  TEMPERATURE_SENSITIVITY,
-} from '@/constants/additional-profile';
+import { ADDITIONAL_FIELD_NAMES, GRADES } from '@/constants/additional-profile';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
@@ -13,7 +9,28 @@ import { CompatibilityReport } from '../CompatibilityReport';
 import type { RoommateProfile } from '@/types/profile';
 import type { LifestyleData } from '@/types/lifestyle';
 
-const LIFESTYLE_FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
+// 음주 필드(drinkingFrequency, drinkingTolerance)는 정책(AC-N8)에 따라 표시 제외
+const DISPLAY_LIFESTYLE_FIELDS: (keyof LifestyleData)[] = [
+  'smokingBehavior',
+  'bedtime',
+  'wakeTime',
+  'sleepHabit',
+  'sleepEnvironment',
+  'nightStudyLight',
+  'noiseSensitivity',
+  'indoorEating',
+  'phoneBehavior',
+  'earphoneUsage',
+  'cleanLevel',
+  'relationshipStyle',
+  'temperatureSensitivity',
+  'smokingTolerance',
+  'phoneTolerance',
+  'earphoneExpectation',
+  'sleepEnvPreference',
+  'cleanExpectation',
+  'nightLightTolerance',
+];
 
 interface ProfileDetailBodyProps {
   profile: RoommateProfile;
@@ -54,7 +71,7 @@ export function ProfileDetailBody({
       {/* Lifestyle Grid */}
       <div className="bg-[var(--knu-background-alt)] rounded-2xl p-4">
         <div className="grid grid-cols-2 gap-3">
-          {LIFESTYLE_FIELDS.map((field) => (
+          {DISPLAY_LIFESTYLE_FIELDS.map((field) => (
             <div key={field}>
               <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
                 {LIFESTYLE_FIELD_NAMES[field]}
@@ -76,7 +93,7 @@ export function ProfileDetailBody({
       {(profile.additional.college ||
         profile.additional.grade ||
         profile.additional.mbti ||
-        profile.additional.temperatureSensitivity) && (
+        profile.additional.birthYear) && (
         <div className="bg-[var(--knu-background-alt)] rounded-2xl p-4">
           <div className="grid grid-cols-2 gap-3">
             {profile.additional.college && (
@@ -110,17 +127,13 @@ export function ProfileDetailBody({
                 </p>
               </div>
             )}
-            {profile.additional.temperatureSensitivity && (
+            {profile.additional.birthYear && (
               <div>
                 <p className="text-xs text-[var(--knu-text-tertiary)] mb-0.5">
-                  {ADDITIONAL_FIELD_NAMES.temperatureSensitivity}
+                  {ADDITIONAL_FIELD_NAMES.birthYear}
                 </p>
                 <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                  {
-                    TEMPERATURE_SENSITIVITY.find(
-                      (t) => t.value === profile.additional.temperatureSensitivity,
-                    )?.label
-                  }
+                  {profile.additional.birthYear}년
                 </p>
               </div>
             )}

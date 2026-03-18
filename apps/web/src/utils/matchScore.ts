@@ -1,52 +1,191 @@
 import type { LifestyleData } from '@/types/lifestyle';
-import { BEDTIME_ORDER, WAKE_ORDER, NOISE_ORDER, CLEAN_ORDER } from '@/constants/lifestyle';
+import { BEDTIME_ORDER, WAKE_ORDER, TEMPERATURE_ORDER } from '@/constants/lifestyle';
 
-export { BEDTIME_ORDER, WAKE_ORDER, NOISE_ORDER, CLEAN_ORDER };
+// === 가중치 티어 ===
 
-const POINTS_PER_FIELD = 12.5;
+const T1 = 5;
+const T2 = 3;
+const T3 = 2;
+const T4 = 1;
 
-export function indexDistance(order: readonly string[], a: string, b: string): number {
+// === TYPE A: Threshold (임계값) 행렬 ===
+
+// Pair 1: smokingBehavior × smokingTolerance (T1)
+const SMOKING_MATRIX: Record<string, Record<string, number>> = {
+  NO: { NO_ONLY: 1.0, E_CIG_OK: 1.0, ANY: 1.0 },
+  E_CIG: { NO_ONLY: 0.0, E_CIG_OK: 1.0, ANY: 1.0 },
+  YES: { NO_ONLY: 0.0, E_CIG_OK: 0.0, ANY: 1.0 },
+};
+
+// Pair 2: drinkingFrequency × drinkingTolerance (T3)
+const DRINKING_MATRIX: Record<string, Record<string, number>> = {
+  NONE: { NONE_ONLY: 1.0, SOMETIMES_OK: 1.0, ANY: 1.0 },
+  SOMETIMES: { NONE_ONLY: 0.0, SOMETIMES_OK: 1.0, ANY: 1.0 },
+  OFTEN: { NONE_ONLY: 0.0, SOMETIMES_OK: 0.0, ANY: 1.0 },
+};
+
+// === TYPE B: Matrix (행렬) ===
+
+// Pair 3: sleepHabit × noiseSensitivity (T1)
+const SLEEP_HABIT_MATRIX: Record<string, Record<string, number>> = {
+  NONE: { SENSITIVE: 1.0, NORMAL: 1.0, DEEP: 1.0 },
+  TALKING: { SENSITIVE: 0.3, NORMAL: 0.8, DEEP: 1.0 },
+  SNORING: { SENSITIVE: 0.0, NORMAL: 0.3, DEEP: 0.8 },
+  GRINDING: { SENSITIVE: 0.0, NORMAL: 0.5, DEEP: 1.0 },
+};
+
+// Pair 4: phoneBehavior × phoneTolerance (T2)
+const PHONE_MATRIX: Record<string, Record<string, number>> = {
+  OUTSIDE: { OUTSIDE_ONLY: 1.0, BRIEF_OK: 1.0, ANY: 1.0 },
+  BRIEF: { OUTSIDE_ONLY: 0.3, BRIEF_OK: 1.0, ANY: 1.0 },
+  FREE: { OUTSIDE_ONLY: 0.0, BRIEF_OK: 0.3, ANY: 1.0 },
+};
+
+// Pair 5: earphoneUsage × earphoneExpectation (T2)
+const EARPHONE_MATRIX: Record<string, Record<string, number>> = {
+  ALWAYS: { MUST: 1.0, STUDY: 1.0, ANY: 1.0 },
+  STUDY: { MUST: 0.5, STUDY: 1.0, ANY: 1.0 },
+  QUIET: { MUST: 0.0, STUDY: 0.3, ANY: 1.0 },
+  FREE: { MUST: 0.0, STUDY: 0.0, ANY: 1.0 },
+};
+
+// Pair 6: nightStudyLight × nightLightTolerance (T3)
+const NIGHT_LIGHT_MATRIX: Record<string, Record<string, number>> = {
+  OUTSIDE: { OK: 1.0, LOW_OK: 1.0, PREFER_OUT: 1.0 },
+  LOW_LIGHT: { OK: 1.0, LOW_OK: 1.0, PREFER_OUT: 0.5 },
+  DESK_LAMP: { OK: 1.0, LOW_OK: 0.5, PREFER_OUT: 0.0 },
+};
+
+// Pair 7: sleepEnvironment × sleepEnvPreference (T2)
+const SLEEP_ENV_MATRIX: Record<string, Record<string, number>> = {
+  QUIET: { QUIET_ONLY: 1.0, EARPHONE_OK: 1.0, LOW_SPEAKER_OK: 1.0 },
+  EARPHONE: { QUIET_ONLY: 0.0, EARPHONE_OK: 1.0, LOW_SPEAKER_OK: 1.0 },
+  LOW_SPEAKER: { QUIET_ONLY: 0.0, EARPHONE_OK: 0.0, LOW_SPEAKER_OK: 1.0 },
+};
+
+// Pair 8: cleanLevel × cleanExpectation (T3)
+const CLEAN_MATRIX: Record<string, Record<string, number>> = {
+  WEEKLY_3_UP: { STRICT: 1.0, BASIC: 1.0, FLEXIBLE: 1.0 },
+  WEEKLY_1_2: { STRICT: 0.3, BASIC: 1.0, FLEXIBLE: 1.0 },
+  WHEN_DIRTY: { STRICT: 0.0, BASIC: 0.3, FLEXIBLE: 1.0 },
+};
+
+// === 유틸 ===
+
+function indexDistance(order: readonly string[], a: string, b: string): number {
   const ia = order.indexOf(a);
   const ib = order.indexOf(b);
   if (ia === -1 || ib === -1) return -1;
   return Math.abs(ia - ib);
 }
 
-function scoreExactOrOk(mine: string | null, theirs: string | null): number {
-  if (mine === null || theirs === null) return POINTS_PER_FIELD;
-  if (mine === theirs) return POINTS_PER_FIELD;
-  if (mine === 'OK' || theirs === 'OK') return POINTS_PER_FIELD;
-  return 0;
+// === 쌍 정의 ===
+
+interface PairResult {
+  score: number; // 0.0 ~ 1.0
+  weight: number;
 }
 
-function scoreExact(mine: string | null, theirs: string | null): number {
-  if (mine === null || theirs === null) return POINTS_PER_FIELD;
-  return mine === theirs ? POINTS_PER_FIELD : 0;
+/** 교차 비교 쌍 (Pair 1-8): evaluator 조건 필드 × target 행동 필드 */
+function scoreCrossPair(
+  evaluatorField: string | null,
+  targetField: string | null,
+  matrix: Record<string, Record<string, number>>,
+  weight: number,
+): PairResult | null {
+  if (evaluatorField === null || targetField === null) return null;
+  const row = matrix[targetField];
+  if (!row) return null;
+  const score = row[evaluatorField];
+  if (score === undefined) return null;
+  return { score, weight };
 }
 
-function scoreOrdered(
-  mine: string | null,
-  theirs: string | null,
+/** 유사도 쌍 (Pair 9-11): 순서 배열 기반 거리 */
+function scoreDistancePair(
+  a: string | null,
+  b: string | null,
   order: readonly string[],
-): number {
-  if (mine === null || theirs === null) return POINTS_PER_FIELD;
-  const dist = indexDistance(order, mine, theirs);
-  if (dist === 0) return POINTS_PER_FIELD;
-  if (dist === 1) return POINTS_PER_FIELD / 2;
-  return 0;
+  maxDist: number,
+  weight: number,
+): PairResult | null {
+  if (a === null || b === null) return null;
+  const dist = indexDistance(order, a, b);
+  if (dist === -1) return null;
+  return { score: 1.0 - dist / maxDist, weight };
 }
 
-export function calcMatchScore(mine: LifestyleData, theirs: LifestyleData): number {
-  let score = 0;
+/** 일치 쌍 (Pair 12-13) */
+function scoreMatchPair(a: string | null, b: string | null, weight: number): PairResult | null {
+  if (a === null || b === null) return null;
+  return { score: a === b ? 1.0 : 0.0, weight };
+}
 
-  score += scoreExactOrOk(mine.smoker, theirs.smoker);
-  score += scoreExact(mine.sleepHabit, theirs.sleepHabit);
-  score += scoreExactOrOk(mine.indoorEating, theirs.indoorEating);
-  score += scoreOrdered(mine.bedtime, theirs.bedtime, BEDTIME_ORDER);
-  score += scoreOrdered(mine.wakeTime, theirs.wakeTime, WAKE_ORDER);
-  score += scoreOrdered(mine.noiseSensitivity, theirs.noiseSensitivity, NOISE_ORDER);
-  score += scoreOrdered(mine.cleanliness, theirs.cleanliness, CLEAN_ORDER);
-  score += scoreExact(mine.relationshipStyle, theirs.relationshipStyle);
+// === perspectiveScore: evaluator 관점에서 target 평가 ===
 
-  return Math.round(score);
+function perspectiveScore(evaluator: LifestyleData, target: LifestyleData): number {
+  const pairs: (PairResult | null)[] = [
+    // Pair 1: smokingTolerance(evaluator) × smokingBehavior(target) - T1
+    scoreCrossPair(evaluator.smokingTolerance, target.smokingBehavior, SMOKING_MATRIX, T1),
+    // Pair 2: drinkingTolerance(evaluator) × drinkingFrequency(target) - T3
+    scoreCrossPair(evaluator.drinkingTolerance, target.drinkingFrequency, DRINKING_MATRIX, T3),
+    // Pair 3: noiseSensitivity(evaluator) × sleepHabit(target) - T1
+    scoreCrossPair(evaluator.noiseSensitivity, target.sleepHabit, SLEEP_HABIT_MATRIX, T1),
+    // Pair 4: phoneTolerance(evaluator) × phoneBehavior(target) - T2
+    scoreCrossPair(evaluator.phoneTolerance, target.phoneBehavior, PHONE_MATRIX, T2),
+    // Pair 5: earphoneExpectation(evaluator) × earphoneUsage(target) - T2
+    scoreCrossPair(evaluator.earphoneExpectation, target.earphoneUsage, EARPHONE_MATRIX, T2),
+    // Pair 6: nightLightTolerance(evaluator) × nightStudyLight(target) - T3
+    scoreCrossPair(evaluator.nightLightTolerance, target.nightStudyLight, NIGHT_LIGHT_MATRIX, T3),
+    // Pair 7: sleepEnvPreference(evaluator) × sleepEnvironment(target) - T2
+    scoreCrossPair(evaluator.sleepEnvPreference, target.sleepEnvironment, SLEEP_ENV_MATRIX, T2),
+    // Pair 8: cleanExpectation(evaluator) × cleanLevel(target) - T3
+    scoreCrossPair(evaluator.cleanExpectation, target.cleanLevel, CLEAN_MATRIX, T3),
+    // Pair 9: bedtime (유사도) - T3
+    scoreDistancePair(evaluator.bedtime, target.bedtime, BEDTIME_ORDER, 3, T3),
+    // Pair 10: wakeTime (유사도, FLEXIBLE 제외) - T4
+    scoreWakeTimePair(evaluator.wakeTime, target.wakeTime),
+    // Pair 11: temperatureSensitivity (유사도) - T2
+    scoreDistancePair(
+      evaluator.temperatureSensitivity,
+      target.temperatureSensitivity,
+      TEMPERATURE_ORDER,
+      2,
+      T2,
+    ),
+    // Pair 12: indoorEating (일치) - T4
+    scoreMatchPair(evaluator.indoorEating, target.indoorEating, T4),
+    // Pair 13: relationshipStyle (일치) - T4
+    scoreMatchPair(evaluator.relationshipStyle, target.relationshipStyle, T4),
+  ];
+
+  let weightedSum = 0;
+  let dynamicMax = 0;
+
+  for (const pair of pairs) {
+    if (pair === null) continue;
+    weightedSum += pair.score * pair.weight;
+    dynamicMax += pair.weight;
+  }
+
+  if (dynamicMax === 0) return 100;
+
+  return Math.round((weightedSum / dynamicMax) * 100);
+}
+
+/** Pair 10: wakeTime (T4=1). FLEXIBLE이면 쌍 제외 */
+function scoreWakeTimePair(a: string | null, b: string | null): PairResult | null {
+  if (a === null || b === null) return null;
+  if (a === 'FLEXIBLE' || b === 'FLEXIBLE') return null;
+  const dist = indexDistance(WAKE_ORDER, a, b);
+  if (dist === -1) return null;
+  return { score: 1.0 - dist / 4, weight: T4 };
+}
+
+// === 메인 함수 ===
+
+export function calcMatchScore(a: LifestyleData, b: LifestyleData): number {
+  const aPerspective = perspectiveScore(a, b);
+  const bPerspective = perspectiveScore(b, a);
+  return Math.min(aPerspective, bPerspective);
 }

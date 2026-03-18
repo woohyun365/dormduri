@@ -30,7 +30,7 @@ export function ProfileLifestyleSection({ lifestyle, onEdit }: ProfileLifestyleS
             icon={<Cigarette className="w-4 h-4 text-red-600" />}
             bg="bg-red-100"
             label="흡연 여부"
-            value={getLifestyleLabel('smoker', lifestyle.smoker)}
+            value={getLifestyleLabel('smokingBehavior', lifestyle.smokingBehavior)}
           />
           <GridItem
             icon={<Moon className="w-4 h-4 text-indigo-600" />}
@@ -65,8 +65,8 @@ export function ProfileLifestyleSection({ lifestyle, onEdit }: ProfileLifestyleS
           <GridItem
             icon={<Sparkles className="w-4 h-4 text-green-600" />}
             bg="bg-green-100"
-            label="청결도"
-            value={getLifestyleLabel('cleanliness', lifestyle.cleanliness)}
+            label="청소 빈도"
+            value={getLifestyleLabel('cleanLevel', lifestyle.cleanLevel)}
           />
           <GridItem
             icon={<Heart className="w-4 h-4 text-pink-600" />}

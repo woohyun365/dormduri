@@ -4,21 +4,34 @@ import type { UserProfile } from '@/types/profile';
 import type { RoommateProfile } from '@/types/profile';
 
 const baseLifestyle: UserProfile['lifestyle'] = {
-  smoker: 'NO',
-  sleepHabit: 'NONE',
-  indoorEating: 'NO',
   bedtime: '22_24',
-  wakeTime: '06_08',
-  noiseSensitivity: 'MID',
-  cleanliness: 'MID',
+  wakeTime: '07_08',
+  sleepHabit: 'NONE',
+  sleepEnvironment: 'QUIET',
+  nightStudyLight: 'LOW_LIGHT',
+  noiseSensitivity: 'NORMAL',
+  smokingBehavior: 'NO',
+  indoorEating: 'OK',
+  phoneBehavior: 'BRIEF',
+  earphoneUsage: 'STUDY',
+  cleanLevel: 'WEEKLY_1_2',
+  drinkingFrequency: 'SOMETIMES',
   relationshipStyle: 'CASUAL',
+  temperatureSensitivity: 'NORMAL',
+  smokingTolerance: 'E_CIG_OK',
+  phoneTolerance: 'BRIEF_OK',
+  earphoneExpectation: 'STUDY',
+  sleepEnvPreference: 'EARPHONE_OK',
+  cleanExpectation: 'BASIC',
+  drinkingTolerance: 'SOMETIMES_OK',
+  nightLightTolerance: 'LOW_OK',
 };
 
 const baseAdditional: UserProfile['additional'] = {
   college: null,
   grade: null,
   mbti: null,
-  temperatureSensitivity: null,
+  birthYear: null,
 };
 
 function makeUser(overrides: Partial<UserProfile> = {}): UserProfile {
@@ -89,9 +102,12 @@ describe('buildMainBuildingStats', () => {
   it('비흡연이 과반이면 popularCondition에 포함된다', () => {
     const user = makeUser({ dormitoryId: 'dasan' });
     const profiles = [
-      makeProfile({ dormitoryId: 'dasan', lifestyle: { ...baseLifestyle, smoker: 'NO' } }),
-      makeProfile({ dormitoryId: 'dasan', lifestyle: { ...baseLifestyle, smoker: 'NO' } }),
-      makeProfile({ dormitoryId: 'dasan', lifestyle: { ...baseLifestyle, smoker: 'YES' } }),
+      makeProfile({ dormitoryId: 'dasan', lifestyle: { ...baseLifestyle, smokingBehavior: 'NO' } }),
+      makeProfile({ dormitoryId: 'dasan', lifestyle: { ...baseLifestyle, smokingBehavior: 'NO' } }),
+      makeProfile({
+        dormitoryId: 'dasan',
+        lifestyle: { ...baseLifestyle, smokingBehavior: 'YES' },
+      }),
     ];
     const result = buildMainBuildingStats(user, profiles);
     expect(result?.popularCondition).toContain('비흡연');
@@ -113,11 +129,11 @@ describe('buildMainBuildingStats', () => {
     const profiles = [
       makeProfile({
         dormitoryId: 'dasan',
-        lifestyle: { ...baseLifestyle, smoker: 'YES', bedtime: 'AFTER_02' },
+        lifestyle: { ...baseLifestyle, smokingBehavior: 'YES', bedtime: 'AFTER_02' },
       }),
       makeProfile({
         dormitoryId: 'dasan',
-        lifestyle: { ...baseLifestyle, smoker: 'YES', bedtime: 'AFTER_02' },
+        lifestyle: { ...baseLifestyle, smokingBehavior: 'YES', bedtime: 'AFTER_02' },
       }),
     ];
     const result = buildMainBuildingStats(user, profiles);

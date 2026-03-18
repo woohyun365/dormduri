@@ -37,21 +37,34 @@ vi.mock('@/utils/matchRequest', () => ({
 }));
 
 const baseLifestyle: LifestyleData = {
-  smoker: 'NO',
-  sleepHabit: 'NONE',
-  indoorEating: 'NO',
   bedtime: '22_24',
-  wakeTime: '06_08',
-  noiseSensitivity: 'MID',
-  cleanliness: 'MID',
+  wakeTime: '07_08',
+  sleepHabit: 'NONE',
+  sleepEnvironment: 'QUIET',
+  nightStudyLight: 'LOW_LIGHT',
+  noiseSensitivity: 'NORMAL',
+  smokingBehavior: 'NO',
+  indoorEating: 'OK',
+  phoneBehavior: 'BRIEF',
+  earphoneUsage: 'STUDY',
+  cleanLevel: 'WEEKLY_1_2',
+  drinkingFrequency: 'SOMETIMES',
   relationshipStyle: 'CASUAL',
+  temperatureSensitivity: 'NORMAL',
+  smokingTolerance: 'E_CIG_OK',
+  phoneTolerance: 'BRIEF_OK',
+  earphoneExpectation: 'STUDY',
+  sleepEnvPreference: 'EARPHONE_OK',
+  cleanExpectation: 'BASIC',
+  drinkingTolerance: 'SOMETIMES_OK',
+  nightLightTolerance: 'LOW_OK',
 };
 
 const baseAdditional = {
   college: null,
   grade: null,
   mbti: null,
-  temperatureSensitivity: null,
+  birthYear: null,
 } as const;
 
 const baseUser: UserProfile = {
@@ -82,11 +95,11 @@ function makeProfile(
 }
 
 const defaultFilters: FilterState = {
-  smoker: null,
+  smokingBehavior: null,
   bedtime: null,
   wakeTime: null,
   noiseSensitivity: null,
-  cleanliness: null,
+  cleanLevel: null,
   sleepHabit: null,
   indoorEating: null,
   relationshipStyle: null,
@@ -232,12 +245,12 @@ describe('건물 필터', () => {
 describe('생활패턴 필터', () => {
   it('단일 필터를 적용한다 (smoker)', () => {
     const profiles = [
-      makeProfile({ id: 'nonsmoker', lifestyle: { ...baseLifestyle, smoker: 'NO' } }),
-      makeProfile({ id: 'smoker', lifestyle: { ...baseLifestyle, smoker: 'YES' } }),
+      makeProfile({ id: 'nonsmoker', lifestyle: { ...baseLifestyle, smokingBehavior: 'NO' } }),
+      makeProfile({ id: 'smoker', lifestyle: { ...baseLifestyle, smokingBehavior: 'YES' } }),
     ];
     const { result } = setup({
       rawProfiles: profiles,
-      filters: { ...defaultFilters, smoker: 'NO' },
+      filters: { ...defaultFilters, smokingBehavior: 'NO' },
     });
     expect(result.current.filteredProfiles).toHaveLength(1);
     expect(result.current.filteredProfiles[0]!.id).toBe('nonsmoker');
@@ -247,20 +260,20 @@ describe('생활패턴 필터', () => {
     const profiles = [
       makeProfile({
         id: 'match',
-        lifestyle: { ...baseLifestyle, smoker: 'NO', cleanliness: 'HIGH' },
+        lifestyle: { ...baseLifestyle, smokingBehavior: 'NO', cleanLevel: 'WEEKLY_3_UP' },
       }),
       makeProfile({
         id: 'partial',
-        lifestyle: { ...baseLifestyle, smoker: 'NO', cleanliness: 'LOW' },
+        lifestyle: { ...baseLifestyle, smokingBehavior: 'NO', cleanLevel: 'WHEN_DIRTY' },
       }),
       makeProfile({
         id: 'none',
-        lifestyle: { ...baseLifestyle, smoker: 'YES', cleanliness: 'HIGH' },
+        lifestyle: { ...baseLifestyle, smokingBehavior: 'YES', cleanLevel: 'WEEKLY_3_UP' },
       }),
     ];
     const { result } = setup({
       rawProfiles: profiles,
-      filters: { ...defaultFilters, smoker: 'NO', cleanliness: 'HIGH' },
+      filters: { ...defaultFilters, smokingBehavior: 'NO', cleanLevel: 'WEEKLY_3_UP' },
     });
     expect(result.current.filteredProfiles).toHaveLength(1);
     expect(result.current.filteredProfiles[0]!.id).toBe('match');
@@ -293,10 +306,12 @@ describe('생활패턴 필터', () => {
   });
 
   it('필터가 모든 프로필을 제외하면 빈 배열을 반환한다', () => {
-    const profiles = [makeProfile({ id: 'p1', lifestyle: { ...baseLifestyle, smoker: 'YES' } })];
+    const profiles = [
+      makeProfile({ id: 'p1', lifestyle: { ...baseLifestyle, smokingBehavior: 'YES' } }),
+    ];
     const { result } = setup({
       rawProfiles: profiles,
-      filters: { ...defaultFilters, smoker: 'NO' },
+      filters: { ...defaultFilters, smokingBehavior: 'NO' },
     });
     expect(result.current.filteredProfiles).toHaveLength(0);
   });
@@ -352,7 +367,7 @@ describe('활성 필터', () => {
 
   it('필터가 설정되면 activeFilterCount가 증가한다', () => {
     const { result } = setup({
-      filters: { ...defaultFilters, smoker: 'NO', cleanliness: 'HIGH' },
+      filters: { ...defaultFilters, smokingBehavior: 'NO', cleanLevel: 'WEEKLY_3_UP' },
     });
     expect(result.current.activeFilterCount).toBe(2);
     expect(result.current.activeFilters).toHaveLength(2);
@@ -363,7 +378,7 @@ describe('활성 필터', () => {
 describe('getFilterLabel', () => {
   it('일반 생활패턴 라벨을 반환한다', () => {
     const { result } = setup();
-    expect(result.current.getFilterLabel('smoker', 'NO')).toBe('비흡연');
+    expect(result.current.getFilterLabel('smokingBehavior', 'NO')).toBe('비흡연');
   });
 
   it('sleepHabit HAS는 "있음"을 반환한다', () => {

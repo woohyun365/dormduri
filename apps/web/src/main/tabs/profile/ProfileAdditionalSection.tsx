@@ -1,10 +1,10 @@
-import { GraduationCap, Thermometer } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 import { Chip } from '@/components/Chip';
 import { SectionHeading } from '@/components/SectionHeading';
 import {
   COLLEGES,
   GRADES,
-  TEMPERATURE_SENSITIVITY,
+  BIRTH_YEARS,
   ADDITIONAL_FIELD_NAMES,
 } from '@/constants/additional-profile';
 import { ProfileMbtiSelector } from './ProfileMbtiSelector';
@@ -79,28 +79,26 @@ export function ProfileAdditionalSection({
           onChange={(mbti) => onFieldChange('mbti', mbti)}
         />
 
-        {/* 온도 민감도 */}
+        {/* 출생연도 */}
         <div>
-          <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2 flex items-center gap-1.5">
-            <Thermometer className="w-4 h-4 text-[var(--knu-text-tertiary)]" />
-            {ADDITIONAL_FIELD_NAMES.temperatureSensitivity}
+          <p className="text-sm font-semibold text-[var(--knu-text-primary)] mb-2">
+            {ADDITIONAL_FIELD_NAMES.birthYear}
             <span
-              className={`font-normal ${additional.temperatureSensitivity ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
+              className={`ml-2 font-normal ${additional.birthYear ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
             >
-              {TEMPERATURE_SENSITIVITY.find((t) => t.value === additional.temperatureSensitivity)
-                ?.label ?? '-'}
+              {additional.birthYear != null ? `${additional.birthYear}년` : '-'}
             </span>
           </p>
           <div className="flex flex-wrap gap-2">
-            {TEMPERATURE_SENSITIVITY.map((t) => (
+            {BIRTH_YEARS.map((y) => (
               <Chip
-                key={t.value}
-                label={t.label}
-                selected={additional.temperatureSensitivity === t.value}
+                key={y.value}
+                label={y.label}
+                selected={additional.birthYear === y.value}
                 onClick={() =>
                   onFieldChange(
-                    'temperatureSensitivity',
-                    additional.temperatureSensitivity === t.value ? null : t.value,
+                    'birthYear',
+                    additional.birthYear === y.value ? null : String(y.value),
                   )
                 }
               />
