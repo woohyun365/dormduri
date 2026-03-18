@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { getChecklistItems, isChecklistComplete } from '../onboarding';
 import type { UserProfile } from '@/types/profile';
+import type { LifestyleData } from '@/types/lifestyle';
 
 /** 최소 유저 프로필 생성 헬퍼 */
 function createUser(overrides: Partial<UserProfile> = {}): UserProfile {
@@ -16,17 +17,30 @@ function createUser(overrides: Partial<UserProfile> = {}): UserProfile {
       bedtime: null,
       wakeTime: null,
       sleepHabit: null,
+      sleepEnvironment: null,
+      nightStudyLight: null,
       noiseSensitivity: null,
-      cleanliness: null,
+      smokingBehavior: null,
       indoorEating: null,
-      smoker: null,
+      phoneBehavior: null,
+      earphoneUsage: null,
+      cleanLevel: null,
+      drinkingFrequency: null,
       relationshipStyle: null,
+      temperatureSensitivity: null,
+      smokingTolerance: null,
+      phoneTolerance: null,
+      earphoneExpectation: null,
+      sleepEnvPreference: null,
+      cleanExpectation: null,
+      drinkingTolerance: null,
+      nightLightTolerance: null,
     },
     additional: {
       college: null,
       grade: null,
       mbti: null,
-      temperatureSensitivity: null,
+      birthYear: null,
     },
     createdAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -60,18 +74,30 @@ describe('getChecklistItems', () => {
   });
 
   it('생활패턴이 모두 입력되면 생활패턴 항목이 완료된다', () => {
-    const user = createUser({
-      lifestyle: {
-        bedtime: '22_24',
-        wakeTime: '06_08',
-        sleepHabit: 'NONE',
-        noiseSensitivity: 'MID',
-        cleanliness: 'MID',
-        indoorEating: 'NO',
-        smoker: 'NO',
-        relationshipStyle: 'CASUAL',
-      },
-    });
+    const lifestyle: LifestyleData = {
+      bedtime: '22_24',
+      wakeTime: '07_08',
+      sleepHabit: 'NONE',
+      sleepEnvironment: 'QUIET',
+      nightStudyLight: 'LOW_LIGHT',
+      noiseSensitivity: 'NORMAL',
+      smokingBehavior: 'NO',
+      indoorEating: 'OK',
+      phoneBehavior: 'BRIEF',
+      earphoneUsage: 'STUDY',
+      cleanLevel: 'WEEKLY_1_2',
+      drinkingFrequency: 'SOMETIMES',
+      relationshipStyle: 'CASUAL',
+      temperatureSensitivity: 'NORMAL',
+      smokingTolerance: 'E_CIG_OK',
+      phoneTolerance: 'BRIEF_OK',
+      earphoneExpectation: 'STUDY',
+      sleepEnvPreference: 'EARPHONE_OK',
+      cleanExpectation: 'BASIC',
+      drinkingTolerance: 'SOMETIMES_OK',
+      nightLightTolerance: 'LOW_OK',
+    };
+    const user = createUser({ lifestyle });
     const items = getChecklistItems(user, new Set());
 
     expect(items[1]).toMatchObject({ id: 'lifestyle', completed: true });
@@ -83,11 +109,24 @@ describe('getChecklistItems', () => {
         bedtime: '22_24',
         wakeTime: null,
         sleepHabit: null,
+        sleepEnvironment: null,
+        nightStudyLight: null,
         noiseSensitivity: null,
-        cleanliness: null,
+        smokingBehavior: null,
         indoorEating: null,
-        smoker: null,
+        phoneBehavior: null,
+        earphoneUsage: null,
+        cleanLevel: null,
+        drinkingFrequency: null,
         relationshipStyle: null,
+        temperatureSensitivity: null,
+        smokingTolerance: null,
+        phoneTolerance: null,
+        earphoneExpectation: null,
+        sleepEnvPreference: null,
+        cleanExpectation: null,
+        drinkingTolerance: null,
+        nightLightTolerance: null,
       },
     });
     const items = getChecklistItems(user, new Set());
@@ -139,19 +178,33 @@ describe('isChecklistComplete', () => {
   });
 
   it('모든 항목 완료 시 true를 반환한다', () => {
+    const lifestyle: LifestyleData = {
+      bedtime: '22_24',
+      wakeTime: '07_08',
+      sleepHabit: 'NONE',
+      sleepEnvironment: 'QUIET',
+      nightStudyLight: 'LOW_LIGHT',
+      noiseSensitivity: 'NORMAL',
+      smokingBehavior: 'NO',
+      indoorEating: 'OK',
+      phoneBehavior: 'BRIEF',
+      earphoneUsage: 'STUDY',
+      cleanLevel: 'WEEKLY_1_2',
+      drinkingFrequency: 'SOMETIMES',
+      relationshipStyle: 'CASUAL',
+      temperatureSensitivity: 'NORMAL',
+      smokingTolerance: 'E_CIG_OK',
+      phoneTolerance: 'BRIEF_OK',
+      earphoneExpectation: 'STUDY',
+      sleepEnvPreference: 'EARPHONE_OK',
+      cleanExpectation: 'BASIC',
+      drinkingTolerance: 'SOMETIMES_OK',
+      nightLightTolerance: 'LOW_OK',
+    };
     const user = createUser({
       dormitoryId: 'saerom',
       intro: '안녕하세요',
-      lifestyle: {
-        bedtime: '22_24',
-        wakeTime: '06_08',
-        sleepHabit: 'NONE',
-        noiseSensitivity: 'MID',
-        cleanliness: 'MID',
-        indoorEating: 'NO',
-        smoker: 'NO',
-        relationshipStyle: 'CASUAL',
-      },
+      lifestyle,
     });
     expect(isChecklistComplete(user, new Set(['user-1']))).toBe(true);
   });

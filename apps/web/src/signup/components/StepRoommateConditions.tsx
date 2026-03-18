@@ -1,76 +1,62 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { Heart } from 'lucide-react';
 import { StepHeader } from '@/components/StepHeader';
 import { StepNavigation } from '@/components/form/StepNavigation';
-import { FieldError } from '@/components/form/FieldError';
 import { ChipSelectField } from '@/components/form/ChipSelectField';
-import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES } from '@/constants/lifestyle';
+import { FieldError } from '@/components/form/FieldError';
+import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES, CONDITION_FIELDS } from '@/constants/lifestyle';
 import { INTRO_MAX_LENGTH } from '@/constants/ui';
-import { Sparkles } from 'lucide-react';
-
-export type { LifestyleData } from '@/types/lifestyle';
 import type { LifestyleData } from '@/types/lifestyle';
 
-interface StepLifestyleProfileProps {
+type ConditionField = (typeof CONDITION_FIELDS)[number];
+
+interface StepRoommateConditionsProps {
   lifestyle: LifestyleData;
-  onLifestyleChange: (data: LifestyleData) => void;
-  intro: string;
-  onIntroChange: (intro: string) => void;
+  onUpdate: (field: keyof LifestyleData, value: string) => void;
   onNext: () => void;
   onBack: () => void;
+  intro: string;
+  onIntroChange: (intro: string) => void;
   disabled?: boolean;
 }
 
-type FieldKey = keyof LifestyleData;
-
-const FIELD_LABELS: Record<FieldKey, string> = {
-  smoker: '흡연 여부를 선택해주세요.',
-  sleepHabit: '잠버릇을 선택해주세요.',
-  indoorEating: '실내 취식 여부를 선택해주세요.',
-  bedtime: '취침 시간을 선택해주세요.',
-  wakeTime: '기상 시간을 선택해주세요.',
-  noiseSensitivity: '소음 민감도를 선택해주세요.',
-  cleanliness: '청결도를 선택해주세요.',
-  relationshipStyle: '관계 성향을 선택해주세요.',
+const CONDITION_ERROR_LABELS: Record<string, string> = {
+  smokingTolerance: '상대 흡연 허용을 선택해주세요.',
+  phoneTolerance: '상대 통화 허용을 선택해주세요.',
+  earphoneExpectation: '이어폰 기대를 선택해주세요.',
+  sleepEnvPreference: '취침 소리 허용을 선택해주세요.',
+  cleanExpectation: '청결 기대를 선택해주세요.',
+  drinkingTolerance: '음주 허용을 선택해주세요.',
+  nightLightTolerance: '밤 불빛 허용을 선택해주세요.',
 };
 
-const FIELD_ORDER: FieldKey[] = [
-  'smoker',
-  'sleepHabit',
-  'indoorEating',
-  'bedtime',
-  'wakeTime',
-  'noiseSensitivity',
-  'cleanliness',
-  'relationshipStyle',
-];
-
-export function StepLifestyleProfile({
+export function StepRoommateConditions({
   lifestyle,
-  onLifestyleChange,
-  intro,
-  onIntroChange,
+  onUpdate,
   onNext,
   onBack,
+  intro,
+  onIntroChange,
   disabled,
-}: StepLifestyleProfileProps) {
-  const [errors, setErrors] = useState<Partial<Record<FieldKey | 'intro', string>>>({});
-  const fieldRefs = useRef<Partial<Record<FieldKey | 'intro', HTMLDivElement | null>>>({});
+}: StepRoommateConditionsProps) {
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const setFieldRef = useCallback(
-    (field: FieldKey | 'intro') => (el: HTMLDivElement | null) => {
+    (field: ConditionField | 'intro') => (el: HTMLDivElement | null) => {
       fieldRefs.current[field] = el;
     },
     [],
   );
 
   const handleNext = () => {
-    const newErrors: Partial<Record<FieldKey | 'intro', string>> = {};
+    const newErrors: Record<string, string> = {};
 
-    for (const field of FIELD_ORDER) {
+    for (const field of CONDITION_FIELDS) {
       if (!lifestyle[field]) {
-        newErrors[field] = FIELD_LABELS[field];
+        newErrors[field] = CONDITION_ERROR_LABELS[field] ?? '선택해주세요.';
       }
     }
 
@@ -80,28 +66,25 @@ export function StepLifestyleProfile({
 
     setErrors(newErrors);
 
-    const firstLifestyleError = FIELD_ORDER.find((f) => newErrors[f]);
-    if (firstLifestyleError) {
-      fieldRefs.current[firstLifestyleError]?.scrollIntoView({
+    const firstConditionError = CONDITION_FIELDS.find((f) => newErrors[f]);
+    if (firstConditionError) {
+      fieldRefs.current[firstConditionError]?.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
       });
       return;
     }
     if (newErrors.intro) {
-      fieldRefs.current.intro?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
+      fieldRefs.current.intro?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
     onNext();
   };
 
-  const update = (field: FieldKey, value: string | null) => {
+  const handleChange = (field: ConditionField, value: string | null) => {
     if (value === null) return;
-    onLifestyleChange({ ...lifestyle, [field]: value });
+    onUpdate(field, value);
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field];
@@ -112,22 +95,27 @@ export function StepLifestyleProfile({
   return (
     <div className="space-y-6">
       <StepHeader
-        icon={<Sparkles className="w-8 h-8 text-[var(--knu-primary)]" />}
-        title="생활 패턴 프로필"
-        description="나와 맞는 룸메를 찾기 위한 정보예요"
+        icon={<Heart className="w-8 h-8 text-[var(--knu-primary)]" />}
+        title="원하는 룸메 조건"
+        description="어떤 룸메를 원하는지 알려주세요"
       />
 
       <div className="space-y-8">
-        {FIELD_ORDER.map((field) => (
+        {CONDITION_FIELDS.map((field) => (
           <div key={field} ref={setFieldRef(field)}>
             <ChipSelectField
               label={LIFESTYLE_FIELD_NAMES[field]}
               options={LIFESTYLE_LABELS[field]}
               value={lifestyle[field]}
-              onChange={(value) => update(field, value)}
+              onChange={(value) => handleChange(field, value)}
               error={errors[field]}
               required
             />
+            {field === 'drinkingTolerance' && (
+              <p className="mt-2 text-xs text-[var(--knu-text-tertiary)]">
+                음주 정보는 매칭 점수에만 반영되며, 상대 프로필에 표시되지 않습니다
+              </p>
+            )}
           </div>
         ))}
       </div>
