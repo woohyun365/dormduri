@@ -29,7 +29,7 @@ export function StepEmail({ email, onEmailChange, onSendCode, onGoToLogin }: Ste
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} noValidate className="space-y-6">
       <StepHeader
         icon={<Mail className="w-8 h-8 text-[var(--knu-primary)]" />}
         title="비밀번호 찾기"
