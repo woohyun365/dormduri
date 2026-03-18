@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
 import { ProgressBar } from '@/components/form/ProgressBar';
@@ -19,6 +19,7 @@ import { Button } from '@/components/Button';
 import Link from 'next/link';
 
 const TOTAL_STEPS = 7;
+const STORAGE_KEY = 'signup-draft';
 
 export default function Signup() {
   const router = useRouter();
@@ -66,6 +67,67 @@ export default function Signup() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
+  const [isRestored, setIsRestored] = useState(false);
+
+  // Restore from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        let step = draft.currentStep ?? 1;
+        if (step > 3) step = 3;
+        if (step > 1 && !draft.isEmailVerified) step = 1;
+        setCurrentStep(step);
+        if (draft.email) setEmail(draft.email);
+        if (draft.isEmailVerified) setIsEmailVerified(true);
+        if (draft.terms) setTerms(draft.terms);
+        setBasicInfo((prev) => ({
+          ...prev,
+          nickname: draft.nickname ?? '',
+          gender: draft.gender ?? null,
+          campus: draft.campus ?? null,
+        }));
+        if (draft.intro) setIntro(draft.intro);
+        if (draft.lifestyle) setLifestyle(draft.lifestyle);
+      }
+    } catch {
+      // Corrupted data — ignore
+    }
+    setIsRestored(true);
+  }, []);
+
+  // Save to sessionStorage on state changes
+  useEffect(() => {
+    if (!isRestored) return;
+    if (currentStep >= TOTAL_STEPS) {
+      try {
+        sessionStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    try {
+      sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          currentStep,
+          email,
+          isEmailVerified,
+          terms,
+          nickname: basicInfo.nickname,
+          gender: basicInfo.gender,
+          campus: basicInfo.campus,
+          intro,
+          lifestyle,
+        }),
+      );
+    } catch {
+      // Storage full or unavailable
+    }
+  }, [isRestored, currentStep, email, isEmailVerified, terms, basicInfo, intro, lifestyle]);
+
   const handleNext = () => {
     setCurrentStep((prev) => prev + 1);
     window.scrollTo(0, 0);
@@ -101,17 +163,25 @@ export default function Signup() {
     }
   };
 
-  if (!isReadyToRender) {
+  if (!isReadyToRender || !isRestored) {
     return <div className="min-h-screen bg-white" />;
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overscroll-y-none">
       <AuthHeader
         onLogoClick={() => {
           const hasProgress = isEmailVerified || basicInfo.nickname || basicInfo.password;
           if (hasProgress && currentStep < TOTAL_STEPS) {
-            return confirm('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
+            const confirmed = confirm('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
+            if (confirmed) {
+              try {
+                sessionStorage.removeItem(STORAGE_KEY);
+              } catch {
+                /* ignore */
+              }
+            }
+            return confirmed;
           }
           return true;
         }}

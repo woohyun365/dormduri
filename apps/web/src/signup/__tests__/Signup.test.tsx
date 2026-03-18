@@ -139,6 +139,7 @@ function advanceToStep(step: number) {
 
 describe('Signup', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     mockSignup.mockResolvedValue({ success: true });
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
   });
