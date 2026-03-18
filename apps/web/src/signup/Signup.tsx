@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
 import { ProgressBar } from '@/components/form/ProgressBar';
-import { StepEmailVerification } from './components/StepEmailVerification';
+import { StepEmailVerification } from './components/email-verification/StepEmailVerification';
 import { StepTermsAgreement, type TermsData } from './components/StepTermsAgreement';
 import { StepBasicInfo, type BasicInfoData } from './components/StepBasicInfo';
 import { StepSleepPattern } from './components/StepSleepPattern';
