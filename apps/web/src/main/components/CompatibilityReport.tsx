@@ -2,14 +2,13 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
 import {
+  LIFESTYLE_FIELD_NAMES,
+  getLifestyleLabel,
   BEDTIME_ORDER,
   WAKE_ORDER,
-  NOISE_ORDER,
-  CLEAN_ORDER,
-  indexDistance,
-} from '@/utils/matchScore';
+  TEMPERATURE_ORDER,
+} from '@/constants/lifestyle';
 import type { LifestyleData } from '@/types/lifestyle';
 
 interface CompatibilityReportProps {
@@ -17,18 +16,55 @@ interface CompatibilityReportProps {
   profileLifestyle: LifestyleData;
 }
 
-const FIELD_EMOJI: Record<keyof LifestyleData, string> = {
-  smoker: '🚬',
+// 음주 필드(drinkingFrequency, drinkingTolerance)는 정책(AC-N8)에 따라 표시 제외
+const DISPLAY_FIELDS: (keyof LifestyleData)[] = [
+  'smokingBehavior',
+  'bedtime',
+  'wakeTime',
+  'noiseSensitivity',
+  'cleanLevel',
+  'sleepHabit',
+  'indoorEating',
+  'relationshipStyle',
+  'sleepEnvironment',
+  'phoneBehavior',
+  'earphoneUsage',
+  'temperatureSensitivity',
+  'smokingTolerance',
+  'phoneTolerance',
+  'earphoneExpectation',
+  'sleepEnvPreference',
+  'cleanExpectation',
+];
+
+const FIELD_EMOJI: Partial<Record<keyof LifestyleData, string>> = {
+  smokingBehavior: '🚬',
   bedtime: '🕐',
   wakeTime: '⏰',
   noiseSensitivity: '🔊',
-  cleanliness: '✨',
+  cleanLevel: '✨',
   sleepHabit: '😴',
   indoorEating: '🍜',
   relationshipStyle: '🤝',
+  sleepEnvironment: '🌙',
+  phoneBehavior: '📱',
+  earphoneUsage: '🎧',
+  temperatureSensitivity: '🌡️',
+  smokingTolerance: '🚭',
+  phoneTolerance: '📞',
+  earphoneExpectation: '🎵',
+  sleepEnvPreference: '🔇',
+  cleanExpectation: '🧹',
 };
 
 type MatchLevel = 'match' | 'similar' | 'mismatch' | 'unknown';
+
+function indexDistance(order: readonly string[], a: string, b: string): number {
+  const ia = order.indexOf(a);
+  const ib = order.indexOf(b);
+  if (ia === -1 || ib === -1) return -1;
+  return Math.abs(ia - ib);
+}
 
 function getFieldMatchLevel(
   field: keyof LifestyleData,
@@ -38,17 +74,11 @@ function getFieldMatchLevel(
   if (mine === null || theirs === null) return 'unknown';
   if (mine === theirs) return 'match';
 
-  // indoorEating: OK counts as match
-  if (field === 'indoorEating') {
-    if (mine === 'OK' || theirs === 'OK') return 'match';
-  }
-
   // Ordered fields: distance 1 = similar
   const orderedMap: Partial<Record<keyof LifestyleData, readonly string[]>> = {
     bedtime: BEDTIME_ORDER,
     wakeTime: WAKE_ORDER,
-    noiseSensitivity: NOISE_ORDER,
-    cleanliness: CLEAN_ORDER,
+    temperatureSensitivity: TEMPERATURE_ORDER,
   };
 
   const order = orderedMap[field];
@@ -67,7 +97,7 @@ const MATCH_LEVEL_CONFIG: Record<MatchLevel, { color: string; bg: string }> = {
   unknown: { color: 'text-gray-500', bg: 'bg-gray-50' },
 };
 
-const FIELDS = Object.keys(LIFESTYLE_FIELD_NAMES) as (keyof LifestyleData)[];
+const FIELDS = DISPLAY_FIELDS;
 
 export function CompatibilityReport({ userLifestyle, profileLifestyle }: CompatibilityReportProps) {
   const [expanded, setExpanded] = useState(false);
@@ -107,7 +137,7 @@ export function CompatibilityReport({ userLifestyle, profileLifestyle }: Compati
                 key={field}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${config.bg}`}
               >
-                <span className="text-base flex-shrink-0">{FIELD_EMOJI[field]}</span>
+                <span className="text-base flex-shrink-0">{FIELD_EMOJI[field] ?? '•'}</span>
                 <span className="text-xs font-semibold text-[var(--knu-text-secondary)] w-16 flex-shrink-0">
                   {LIFESTYLE_FIELD_NAMES[field]}
                 </span>

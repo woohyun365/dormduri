@@ -33,24 +33,30 @@ export const MBTI_DIMENSIONS = [
   { key: 'JP', options: ['J', 'P'] },
 ] as const;
 
-export const TEMPERATURE_SENSITIVITY = [
-  { value: 'COLD', label: '추위 타요' },
-  { value: 'NORMAL', label: '보통' },
-  { value: 'HOT', label: '더위 타요' },
+export const BIRTH_YEARS = [
+  { value: 2008, label: '2008년' },
+  { value: 2007, label: '2007년' },
+  { value: 2006, label: '2006년' },
+  { value: 2005, label: '2005년' },
+  { value: 2004, label: '2004년' },
+  { value: 2003, label: '2003년' },
+  { value: 2002, label: '2002년' },
+  { value: 2001, label: '2001년' },
+  { value: 2000, label: '2000년' },
+  { value: 1999, label: '1999년' },
+  { value: 1998, label: '1998년' },
 ] as const;
-
-export type TempSensitivity = (typeof TEMPERATURE_SENSITIVITY)[number]['value'];
 
 export interface AdditionalProfile {
   college: College | null;
   grade: Grade | null;
   mbti: string | null;
-  temperatureSensitivity: TempSensitivity | null;
+  birthYear: number | null;
 }
 
 export const ADDITIONAL_FIELD_NAMES: Record<keyof AdditionalProfile, string> = {
   college: '단대',
   grade: '학년',
   mbti: 'MBTI',
-  temperatureSensitivity: '온도 민감도',
+  birthYear: '출생연도',
 };

@@ -34,18 +34,29 @@ const baseUser: UserProfile = {
   campus: 'CHUNCHEON',
   dormitoryId: 'dasan',
   lifestyle: {
-    smoker: 'NO',
-    sleepHabit: 'NONE',
-    indoorEating: 'NO',
     bedtime: '22_24',
-    wakeTime: '06_08',
-    noiseSensitivity: 'MID',
-    cleanliness: 'MID',
+    wakeTime: '07_08',
+    sleepHabit: 'NONE',
+    sleepEnvironment: 'QUIET',
+    noiseSensitivity: 'NORMAL',
+    smokingBehavior: 'NO',
+    indoorEating: 'OK',
+    phoneBehavior: 'BRIEF',
+    earphoneUsage: 'STUDY',
+    cleanLevel: 'WEEKLY_1_2',
+    drinkingFrequency: 'SOMETIMES',
     relationshipStyle: 'CASUAL',
+    temperatureSensitivity: 'NORMAL',
+    smokingTolerance: 'E_CIG_OK',
+    phoneTolerance: 'BRIEF_OK',
+    earphoneExpectation: 'STUDY',
+    sleepEnvPreference: 'EARPHONE_OK',
+    cleanExpectation: 'BASIC',
+    drinkingTolerance: 'SOMETIMES_OK',
   },
   intro: '안녕하세요',
   messageToRoommate: null,
-  additional: { college: null, grade: null, mbti: null, temperatureSensitivity: null },
+  additional: { college: null, grade: null, mbti: null, birthYear: null },
 };
 
 const defaultProps = {
@@ -98,7 +109,8 @@ describe('HomeProgressSection', () => {
         college: 'IT대' as const,
         grade: '1' as const,
         mbti: 'ENTP',
-        temperatureSensitivity: 'NORMAL' as const,
+        // birthYear로 교체
+        birthYear: 2004,
       },
     };
     render(<HomeProgressSection {...defaultProps} user={completeUser} />);
@@ -108,7 +120,7 @@ describe('HomeProgressSection', () => {
   it('미입력 항목이 있으면 뱃지를 표시한다', () => {
     vi.mocked(isChecklistComplete).mockReturnValue(true);
     render(<HomeProgressSection {...defaultProps} />);
-    // baseUser has null: messageToRoommate, college, grade, mbti, temperatureSensitivity
+    // baseUser has null: messageToRoommate, college, grade, mbti, birthYear
     expect(screen.getByText('룸메에게 한마디')).toBeInTheDocument();
     expect(screen.getByText('단대')).toBeInTheDocument();
     expect(screen.getByText('MBTI')).toBeInTheDocument();

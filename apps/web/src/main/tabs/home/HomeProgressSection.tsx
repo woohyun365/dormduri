@@ -111,9 +111,9 @@ export function HomeProgressSection({
                   MBTI
                 </span>
               )}
-              {!user.additional.temperatureSensitivity && (
+              {!user.additional.birthYear && (
                 <span className="px-2.5 py-1 bg-orange-50 text-orange-700 text-xs font-medium rounded-full">
-                  온도 민감도
+                  출생연도
                 </span>
               )}
             </div>

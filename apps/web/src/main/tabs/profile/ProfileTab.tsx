@@ -56,7 +56,8 @@ export default function ProfileTab({
   };
 
   const handleAdditionalField = (field: keyof AdditionalProfile, value: string | null) => {
-    onAdditionalChange({ ...user.additional, [field]: value });
+    const converted = field === 'birthYear' && value !== null ? Number(value) : value;
+    onAdditionalChange({ ...user.additional, [field]: converted });
   };
 
   return (

@@ -12,6 +12,7 @@ interface ChipSelectFieldProps {
   error?: string;
   required?: boolean;
   allowDeselect?: boolean;
+  helperText?: string;
 }
 
 export function ChipSelectField({
@@ -22,6 +23,7 @@ export function ChipSelectField({
   error,
   required = false,
   allowDeselect = false,
+  helperText,
 }: ChipSelectFieldProps) {
   const id = useId();
   const errorId = `${id}-error`;
@@ -55,6 +57,7 @@ export function ChipSelectField({
           />
         ))}
       </div>
+      {helperText && <p className="text-xs text-[var(--knu-text-tertiary)] mt-1.5">{helperText}</p>}
       <FieldError message={error} id={errorId} />
     </div>
   );

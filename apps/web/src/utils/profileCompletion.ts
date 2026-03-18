@@ -7,7 +7,7 @@ export function getProfileCompletion(user: UserProfile) {
     user.additional.college,
     user.additional.grade,
     user.additional.mbti,
-    user.additional.temperatureSensitivity,
+    user.additional.birthYear,
   ];
   const filledOptional = optionalFields.filter(Boolean).length;
   const totalOptional = optionalFields.length;

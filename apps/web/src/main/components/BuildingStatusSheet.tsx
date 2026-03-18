@@ -56,7 +56,12 @@ export function BuildingStatusSheet({
   const containerRef = useFocusTrap(true, onClose);
 
   const stats = useMemo(() => {
-    const nonSmoker = getTopValue(profiles, 'smoker', ['NO'], LIFESTYLE_LABELS.smoker);
+    const nonSmoker = getTopValue(
+      profiles,
+      'smokingBehavior',
+      ['NO'],
+      LIFESTYLE_LABELS.smokingBehavior,
+    );
     const earlyBedtime = getTopValue(
       profiles,
       'bedtime',
@@ -65,9 +70,9 @@ export function BuildingStatusSheet({
     );
     const highCleanliness = getTopValue(
       profiles,
-      'cleanliness',
-      ['HIGH'],
-      LIFESTYLE_LABELS.cleanliness,
+      'cleanLevel',
+      ['WEEKLY_3_UP'],
+      LIFESTYLE_LABELS.cleanLevel,
     );
     return { nonSmoker, earlyBedtime, highCleanliness };
   }, [profiles]);

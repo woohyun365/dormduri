@@ -7,7 +7,9 @@ import { ProgressBar } from '@/components/form/ProgressBar';
 import { StepEmailVerification } from './components/StepEmailVerification';
 import { StepTermsAgreement, type TermsData } from './components/StepTermsAgreement';
 import { StepBasicInfo, type BasicInfoData } from './components/StepBasicInfo';
-import { StepLifestyleProfile } from './components/StepLifestyleProfile';
+import { StepSleepPattern } from './components/StepSleepPattern';
+import { StepLivingPattern } from './components/StepLivingPattern';
+import { StepRoommateConditions } from './components/StepRoommateConditions';
 import type { LifestyleData } from '@/types/lifestyle';
 import { StepComplete } from './components/StepComplete';
 import { authApi } from '@/api/auth';
@@ -16,7 +18,7 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/Button';
 import Link from 'next/link';
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 7;
 
 export default function Signup() {
   const router = useRouter();
@@ -47,24 +49,41 @@ export default function Signup() {
   });
   const [intro, setIntro] = useState('');
   const [lifestyle, setLifestyle] = useState<LifestyleData>({
-    smoker: null,
-    sleepHabit: null,
-    indoorEating: null,
     bedtime: null,
     wakeTime: null,
+    sleepHabit: null,
+    sleepEnvironment: null,
     noiseSensitivity: null,
-    cleanliness: null,
+    smokingBehavior: null,
+    indoorEating: null,
+    phoneBehavior: null,
+    earphoneUsage: null,
+    cleanLevel: null,
+    drinkingFrequency: null,
     relationshipStyle: null,
+    temperatureSensitivity: null,
+    smokingTolerance: null,
+    phoneTolerance: null,
+    earphoneExpectation: null,
+    sleepEnvPreference: null,
+    cleanExpectation: null,
+    drinkingTolerance: null,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  const handleNext = () => setCurrentStep((prev) => prev + 1);
-  const handleBack = () => setCurrentStep((prev) => Math.max(1, prev - 1));
+  const handleNext = () => {
+    setCurrentStep((prev) => prev + 1);
+    window.scrollTo(0, 0);
+  };
+  const handleBack = () => {
+    setCurrentStep((prev) => Math.max(1, prev - 1));
+    window.scrollTo(0, 0);
+  };
   const handleGoToHome = () => router.replace('/');
 
-  const handleLifestyleNext = async () => {
+  const handleSignupSubmit = async () => {
     setIsSubmitting(true);
     setSubmitError('');
     try {
@@ -78,7 +97,7 @@ export default function Signup() {
         intro,
       });
       if (result.success) {
-        setCurrentStep(TOTAL_STEPS);
+        setCurrentStep(7);
       } else {
         setSubmitError(result.error ?? '회원가입에 실패했습니다. 다시 시도해주세요.');
       }
@@ -151,6 +170,22 @@ export default function Signup() {
           />
         )}
         {currentStep === 4 && (
+          <StepSleepPattern
+            lifestyle={lifestyle}
+            onUpdate={(field, value) => setLifestyle((prev) => ({ ...prev, [field]: value }))}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        )}
+        {currentStep === 5 && (
+          <StepLivingPattern
+            lifestyle={lifestyle}
+            onUpdate={(field, value) => setLifestyle((prev) => ({ ...prev, [field]: value }))}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
+        )}
+        {currentStep === 6 && (
           <>
             {submitError && (
               <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
@@ -160,7 +195,7 @@ export default function Signup() {
                   <Button
                     variant="outline"
                     size="lg"
-                    onClick={handleLifestyleNext}
+                    onClick={handleSignupSubmit}
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? '처리 중...' : '다시 시도'}
@@ -168,18 +203,18 @@ export default function Signup() {
                 </div>
               </div>
             )}
-            <StepLifestyleProfile
+            <StepRoommateConditions
               lifestyle={lifestyle}
-              onLifestyleChange={setLifestyle}
+              onUpdate={(field, value) => setLifestyle((prev) => ({ ...prev, [field]: value }))}
               intro={intro}
               onIntroChange={setIntro}
-              onNext={handleLifestyleNext}
+              onNext={handleSignupSubmit}
               onBack={handleBack}
               disabled={isSubmitting}
             />
           </>
         )}
-        {currentStep === 5 && (
+        {currentStep === 7 && (
           <StepComplete nickname={basicInfo.nickname} onGoToHome={handleGoToHome} />
         )}
       </main>

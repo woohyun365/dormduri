@@ -10,7 +10,7 @@ export function buildMainBuildingStats(
   if (!isDormitoryAssigned(user.dormitoryId)) return undefined;
 
   const sameBuilding = profiles.filter((p) => p.dormitoryId === user.dormitoryId);
-  const nonSmokers = sameBuilding.filter((p) => p.lifestyle.smoker === 'NO').length;
+  const nonSmokers = sameBuilding.filter((p) => p.lifestyle.smokingBehavior === 'NO').length;
   const earlyBed = sameBuilding.filter(
     (p) => p.lifestyle.bedtime === 'BEFORE_22' || p.lifestyle.bedtime === '22_24',
   ).length;

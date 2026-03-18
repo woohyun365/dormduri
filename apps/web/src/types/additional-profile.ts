@@ -1,6 +1,1 @@
-export type {
-  College,
-  Grade,
-  TempSensitivity,
-  AdditionalProfile,
-} from '@/constants/additional-profile';
+export type { College, Grade, AdditionalProfile } from '@/constants/additional-profile';

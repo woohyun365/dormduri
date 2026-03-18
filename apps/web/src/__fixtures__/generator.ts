@@ -75,7 +75,15 @@ const NOUNS = [
 
 // -- Lifestyle value pools --
 
-const SMOKER_VALUES: LifestyleData['smoker'][] = ['NO', 'NO', 'NO', 'NO', 'YES'];
+const BEDTIME_VALUES: LifestyleData['bedtime'][] = ['BEFORE_22', '22_24', '24_02', 'AFTER_02'];
+const WAKE_VALUES: LifestyleData['wakeTime'][] = [
+  'BEFORE_07',
+  '07_08',
+  '08_09',
+  '09_10',
+  'AFTER_10',
+  'FLEXIBLE',
+];
 const SLEEP_HABIT_VALUES: LifestyleData['sleepHabit'][] = [
   'NONE',
   'NONE',
@@ -84,13 +92,32 @@ const SLEEP_HABIT_VALUES: LifestyleData['sleepHabit'][] = [
   'SNORING',
   'GRINDING',
 ];
-const INDOOR_EATING_VALUES: LifestyleData['indoorEating'][] = ['NO', 'OK', 'VENTILATE'];
-const BEDTIME_VALUES: LifestyleData['bedtime'][] = ['BEFORE_22', '22_24', '24_02', 'AFTER_02'];
-const WAKE_VALUES: LifestyleData['wakeTime'][] = ['BEFORE_06', '06_08', '08_10', 'AFTER_10'];
-const NOISE_VALUES: LifestyleData['noiseSensitivity'][] = ['LOW', 'MID', 'HIGH'];
-const CLEAN_VALUES: LifestyleData['cleanliness'][] = ['LOW', 'MID', 'HIGH'];
-const RELATION_VALUES: LifestyleData['relationshipStyle'][] = ['CLOSE', 'CASUAL'];
+const SLEEP_ENV_VALUES: LifestyleData['sleepEnvironment'][] = ['QUIET', 'EARPHONE', 'LOW_SPEAKER'];
+const NOISE_VALUES: LifestyleData['noiseSensitivity'][] = ['SENSITIVE', 'NORMAL', 'DEEP'];
 
+const SMOKING_VALUES: LifestyleData['smokingBehavior'][] = ['NO', 'NO', 'NO', 'NO', 'E_CIG', 'YES'];
+const INDOOR_EATING_VALUES: LifestyleData['indoorEating'][] = ['NO', 'OK', 'VENTILATE'];
+const PHONE_VALUES: LifestyleData['phoneBehavior'][] = ['OUTSIDE', 'BRIEF', 'FREE'];
+const EARPHONE_VALUES: LifestyleData['earphoneUsage'][] = ['ALWAYS', 'STUDY', 'QUIET', 'FREE'];
+const CLEAN_VALUES: LifestyleData['cleanLevel'][] = ['WHEN_DIRTY', 'WEEKLY_1_2', 'WEEKLY_3_UP'];
+const DRINKING_VALUES: LifestyleData['drinkingFrequency'][] = ['NONE', 'SOMETIMES', 'OFTEN'];
+const RELATION_VALUES: LifestyleData['relationshipStyle'][] = ['CLOSE', 'CASUAL'];
+const TEMP_VALUES: LifestyleData['temperatureSensitivity'][] = ['COLD', 'NORMAL', 'HOT'];
+
+const SMOKING_TOL_VALUES: LifestyleData['smokingTolerance'][] = ['NO_ONLY', 'E_CIG_OK', 'ANY'];
+const PHONE_TOL_VALUES: LifestyleData['phoneTolerance'][] = ['OUTSIDE_ONLY', 'BRIEF_OK', 'ANY'];
+const EARPHONE_EXP_VALUES: LifestyleData['earphoneExpectation'][] = ['MUST', 'STUDY', 'ANY'];
+const SLEEP_ENV_PREF_VALUES: LifestyleData['sleepEnvPreference'][] = [
+  'QUIET_ONLY',
+  'EARPHONE_OK',
+  'LOW_SPEAKER_OK',
+];
+const CLEAN_EXP_VALUES: LifestyleData['cleanExpectation'][] = ['STRICT', 'BASIC', 'FLEXIBLE'];
+const DRINKING_TOL_VALUES: LifestyleData['drinkingTolerance'][] = [
+  'NONE_ONLY',
+  'SOMETIMES_OK',
+  'ANY',
+];
 const COLLEGES: AdditionalProfile['college'][] = [
   'IT대',
   '경영대',
@@ -104,7 +131,7 @@ const COLLEGES: AdditionalProfile['college'][] = [
   null,
 ];
 const GRADES: AdditionalProfile['grade'][] = ['1', '2', '3', '4+', null];
-const TEMP_SENS: AdditionalProfile['temperatureSensitivity'][] = ['COLD', 'NORMAL', 'HOT', null];
+const BIRTH_YEARS: AdditionalProfile['birthYear'][] = [2000, 2001, 2002, 2003, 2004, null];
 
 const INTROS = [
   '편하게 지내실 분 구해요.',
@@ -156,14 +183,25 @@ export const DEFAULT_CONFIG: GeneratorConfig = {
 
 function generateLifestyle(rng: () => number): LifestyleData {
   return {
-    smoker: pick(rng, SMOKER_VALUES),
-    sleepHabit: pick(rng, SLEEP_HABIT_VALUES),
-    indoorEating: pick(rng, INDOOR_EATING_VALUES),
     bedtime: pick(rng, BEDTIME_VALUES),
     wakeTime: pick(rng, WAKE_VALUES),
+    sleepHabit: pick(rng, SLEEP_HABIT_VALUES),
+    sleepEnvironment: pick(rng, SLEEP_ENV_VALUES),
     noiseSensitivity: pick(rng, NOISE_VALUES),
-    cleanliness: pick(rng, CLEAN_VALUES),
+    smokingBehavior: pick(rng, SMOKING_VALUES),
+    indoorEating: pick(rng, INDOOR_EATING_VALUES),
+    phoneBehavior: pick(rng, PHONE_VALUES),
+    earphoneUsage: pick(rng, EARPHONE_VALUES),
+    cleanLevel: pick(rng, CLEAN_VALUES),
+    drinkingFrequency: pick(rng, DRINKING_VALUES),
     relationshipStyle: pick(rng, RELATION_VALUES),
+    temperatureSensitivity: pick(rng, TEMP_VALUES),
+    smokingTolerance: pick(rng, SMOKING_TOL_VALUES),
+    phoneTolerance: pick(rng, PHONE_TOL_VALUES),
+    earphoneExpectation: pick(rng, EARPHONE_EXP_VALUES),
+    sleepEnvPreference: pick(rng, SLEEP_ENV_PREF_VALUES),
+    cleanExpectation: pick(rng, CLEAN_EXP_VALUES),
+    drinkingTolerance: pick(rng, DRINKING_TOL_VALUES),
   };
 }
 
@@ -190,7 +228,7 @@ function generateAdditional(rng: () => number): AdditionalProfile {
     college: pick(rng, COLLEGES),
     grade: pick(rng, GRADES),
     mbti: rng() > 0.3 ? pick(rng, mbtis) : null,
-    temperatureSensitivity: pick(rng, TEMP_SENS),
+    birthYear: pick(rng, BIRTH_YEARS),
   };
 }
 

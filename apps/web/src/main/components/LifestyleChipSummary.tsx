@@ -9,13 +9,16 @@ interface LifestyleChipSummaryProps {
 export function LifestyleChipSummary({ lifestyle }: LifestyleChipSummaryProps) {
   return (
     <div className="flex flex-wrap gap-1.5">
-      <Chip label={`🚬\u00A0${getLifestyleLabel('smoker', lifestyle.smoker)}`} variant="badge" />
+      <Chip
+        label={`🚬\u00A0${getLifestyleLabel('smokingBehavior', lifestyle.smokingBehavior)}`}
+        variant="badge"
+      />
       <Chip
         label={`🕐\u00A0취침 ${getLifestyleLabel('bedtime', lifestyle.bedtime)}`}
         variant="badge"
       />
       <Chip
-        label={`✨\u00A0${getLifestyleLabel('cleanliness', lifestyle.cleanliness)}`}
+        label={`✨\u00A0${getLifestyleLabel('cleanLevel', lifestyle.cleanLevel)}`}
         variant="badge"
       />
       <Chip
