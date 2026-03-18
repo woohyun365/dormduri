@@ -22,7 +22,6 @@ const SLEEP_ERROR_LABELS: Record<string, string> = {
   wakeTime: '기상 시간을 선택해주세요.',
   sleepHabit: '잠버릇을 선택해주세요.',
   sleepEnvironment: '수면 환경을 선택해주세요.',
-  nightStudyLight: '밤 공부 시 불빛을 선택해주세요.',
   noiseSensitivity: '잠귀를 선택해주세요.',
 };
 

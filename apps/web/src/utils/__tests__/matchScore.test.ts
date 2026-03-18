@@ -9,7 +9,6 @@ const EMPTY_LIFESTYLE: LifestyleData = {
   wakeTime: null,
   sleepHabit: null,
   sleepEnvironment: null,
-  nightStudyLight: null,
   noiseSensitivity: null,
   smokingBehavior: null,
   indoorEating: null,
@@ -25,7 +24,6 @@ const EMPTY_LIFESTYLE: LifestyleData = {
   sleepEnvPreference: null,
   cleanExpectation: null,
   drinkingTolerance: null,
-  nightLightTolerance: null,
 };
 
 /** 특정 필드만 override하여 LifestyleData 생성 */
@@ -34,7 +32,7 @@ function make(overrides: Partial<LifestyleData> = {}): LifestyleData {
 }
 
 /**
- * 13쌍 전체가 참여하는 "풀 프로필"
+ * 12쌍 전체가 참여하는 "풀 프로필"
  * 모든 쌍에서 1.0 (만점)이 되는 조합
  */
 const FULL_PERFECT_A: LifestyleData = {
@@ -43,7 +41,6 @@ const FULL_PERFECT_A: LifestyleData = {
   wakeTime: '07_08',
   sleepHabit: 'NONE',
   sleepEnvironment: 'QUIET',
-  nightStudyLight: 'OUTSIDE',
   noiseSensitivity: 'SENSITIVE',
   // 생활 패턴
   smokingBehavior: 'NO',
@@ -61,7 +58,6 @@ const FULL_PERFECT_A: LifestyleData = {
   sleepEnvPreference: 'QUIET_ONLY',
   cleanExpectation: 'STRICT',
   drinkingTolerance: 'NONE_ONLY',
-  nightLightTolerance: 'PREFER_OUT',
 };
 
 // B도 A의 조건을 완벽히 만족하고, A도 B의 조건을 완벽히 만족
@@ -69,10 +65,10 @@ const FULL_PERFECT_B: LifestyleData = { ...FULL_PERFECT_A };
 
 describe('calcMatchScore', () => {
   // =========================================================
-  // AC-N4: 13쌍 전체 참여, 가중치 합 33, 모두 1.0이면 100점
+  // AC-N4: 12쌍 전체 참여, 가중치 합 31, 모두 1.0이면 100점
   // =========================================================
   describe('AC-N4: 전체 참여 시 만점', () => {
-    it('13쌍 전체 참여, 모든 쌍 1.0이면 100점', () => {
+    it('12쌍 전체 참여, 모든 쌍 1.0이면 100점', () => {
       expect(calcMatchScore(FULL_PERFECT_A, FULL_PERFECT_B)).toBe(100);
     });
 
@@ -275,52 +271,7 @@ describe('calcMatchScore', () => {
       });
     });
 
-    describe('Pair 6: nightStudyLight × nightLightTolerance (T3=2)', () => {
-      it('DESK_LAMP × PREFER_OUT → 0.0', () => {
-        const a = make({ nightLightTolerance: 'PREFER_OUT', nightStudyLight: 'OUTSIDE' });
-        const b = make({ nightStudyLight: 'DESK_LAMP', nightLightTolerance: 'OK' });
-        // a: PREFER_OUT vs DESK_LAMP → 0.0
-        // b: OK vs OUTSIDE → 1.0
-        // a: (0.0×2)/2 × 100 = 0
-        expect(calcMatchScore(a, b)).toBe(0);
-      });
-
-      it('LOW_LIGHT × PREFER_OUT → 0.5', () => {
-        const a = make({ nightLightTolerance: 'PREFER_OUT', nightStudyLight: 'OUTSIDE' });
-        const b = make({ nightStudyLight: 'LOW_LIGHT', nightLightTolerance: 'OK' });
-        // a: PREFER_OUT vs LOW_LIGHT → 0.5
-        // b: OK vs OUTSIDE → 1.0
-        // a: (0.5×2)/2 × 100 = 50
-        expect(calcMatchScore(a, b)).toBe(50);
-      });
-
-      it('DESK_LAMP × LOW_OK → 0.5', () => {
-        const a = make({ nightLightTolerance: 'LOW_OK', nightStudyLight: 'OUTSIDE' });
-        const b = make({ nightStudyLight: 'DESK_LAMP', nightLightTolerance: 'OK' });
-        // a: LOW_OK vs DESK_LAMP → 0.5
-        expect(calcMatchScore(a, b)).toBe(50);
-      });
-
-      it('OUTSIDE × PREFER_OUT → 1.0', () => {
-        const a = make({ nightLightTolerance: 'PREFER_OUT', nightStudyLight: 'OUTSIDE' });
-        const b = make({ nightStudyLight: 'OUTSIDE', nightLightTolerance: 'PREFER_OUT' });
-        expect(calcMatchScore(a, b)).toBe(100);
-      });
-
-      it('LOW_LIGHT × OK → 1.0', () => {
-        const a = make({ nightLightTolerance: 'OK', nightStudyLight: 'OUTSIDE' });
-        const b = make({ nightStudyLight: 'LOW_LIGHT', nightLightTolerance: 'OK' });
-        expect(calcMatchScore(a, b)).toBe(100);
-      });
-
-      it('DESK_LAMP × OK → 1.0', () => {
-        const a = make({ nightLightTolerance: 'OK', nightStudyLight: 'OUTSIDE' });
-        const b = make({ nightStudyLight: 'DESK_LAMP', nightLightTolerance: 'OK' });
-        expect(calcMatchScore(a, b)).toBe(100);
-      });
-    });
-
-    describe('Pair 7: sleepEnvironment × sleepEnvPreference (T2=3)', () => {
+    describe('Pair 6: sleepEnvironment × sleepEnvPreference (T2=3)', () => {
       it('EARPHONE × QUIET_ONLY → 0.0', () => {
         const a = make({ sleepEnvPreference: 'QUIET_ONLY', sleepEnvironment: 'QUIET' });
         const b = make({ sleepEnvironment: 'EARPHONE', sleepEnvPreference: 'LOW_SPEAKER_OK' });
@@ -340,7 +291,7 @@ describe('calcMatchScore', () => {
       });
     });
 
-    describe('Pair 8: cleanLevel × cleanExpectation (T3=2)', () => {
+    describe('Pair 7: cleanLevel × cleanExpectation (T3=2)', () => {
       it('WEEKLY_1_2 × STRICT → 0.3', () => {
         const a = make({ cleanExpectation: 'STRICT', cleanLevel: 'WEEKLY_3_UP' });
         const b = make({ cleanLevel: 'WEEKLY_1_2', cleanExpectation: 'FLEXIBLE' });
@@ -375,7 +326,7 @@ describe('calcMatchScore', () => {
   // AC-N7: TYPE C 거리 / TYPE D 일치
   // =========================================================
   describe('AC-N7: TYPE C (Distance) / TYPE D (Match)', () => {
-    describe('Pair 9: bedtime (T3=2, 유사도)', () => {
+    describe('Pair 8: bedtime (T3=2, 유사도)', () => {
       it('동일 → 1.0', () => {
         const a = make({ bedtime: '22_24' });
         const b = make({ bedtime: '22_24' });
@@ -407,7 +358,7 @@ describe('calcMatchScore', () => {
       });
     });
 
-    describe('Pair 10: wakeTime (T4=1, 유사도)', () => {
+    describe('Pair 9: wakeTime (T4=1, 유사도)', () => {
       it('동일 → 1.0', () => {
         const a = make({ wakeTime: '08_09' });
         const b = make({ wakeTime: '08_09' });
@@ -428,7 +379,7 @@ describe('calcMatchScore', () => {
       });
     });
 
-    describe('Pair 11: temperatureSensitivity (T2=3, 유사도)', () => {
+    describe('Pair 10: temperatureSensitivity (T2=3, 유사도)', () => {
       it('동일 → 1.0', () => {
         const a = make({ temperatureSensitivity: 'COLD' });
         const b = make({ temperatureSensitivity: 'COLD' });
@@ -450,7 +401,7 @@ describe('calcMatchScore', () => {
       });
     });
 
-    describe('Pair 12: indoorEating (T4=1, 일치)', () => {
+    describe('Pair 11: indoorEating (T4=1, 일치)', () => {
       it('같으면 1.0', () => {
         const a = make({ indoorEating: 'NO' });
         const b = make({ indoorEating: 'NO' });
@@ -464,7 +415,7 @@ describe('calcMatchScore', () => {
       });
     });
 
-    describe('Pair 13: relationshipStyle (T4=1, 일치)', () => {
+    describe('Pair 12: relationshipStyle (T4=1, 일치)', () => {
       it('같으면 1.0', () => {
         const a = make({ relationshipStyle: 'CLOSE' });
         const b = make({ relationshipStyle: 'CLOSE' });
@@ -559,7 +510,7 @@ describe('calcMatchScore', () => {
   // AC-B2: FLEXIBLE 제외 후 나머지 만점 → 100점
   // =========================================================
   describe('AC-B2: FLEXIBLE 제외 후 나머지 만점', () => {
-    it('wakeTime FLEXIBLE, 나머지 12쌍 만점 → dynamicMax=32, 100점', () => {
+    it('wakeTime FLEXIBLE, 나머지 11쌍 만점 → dynamicMax=30, 100점', () => {
       const base: LifestyleData = {
         ...FULL_PERFECT_A,
         wakeTime: 'FLEXIBLE',
@@ -568,8 +519,8 @@ describe('calcMatchScore', () => {
         ...FULL_PERFECT_B,
         wakeTime: 'FLEXIBLE',
       };
-      // wakeTime pair excluded: dynamicMax = 33 - 1 = 32
-      // All 12 remaining pairs score 1.0
+      // wakeTime pair excluded: dynamicMax = 31 - 1 = 30
+      // All 11 remaining pairs score 1.0
       // (32/32) × 100 = 100
       expect(calcMatchScore(base, other)).toBe(100);
     });
@@ -691,13 +642,12 @@ describe('calcMatchScore', () => {
       expect(calcMatchScore(a, b)).toBe(29);
     });
 
-    it('전체 13쌍 참여, 다양한 점수 조합', () => {
+    it('전체 12쌍 참여, 다양한 점수 조합', () => {
       const a: LifestyleData = {
         bedtime: '22_24',
         wakeTime: '07_08',
         sleepHabit: 'NONE',
         sleepEnvironment: 'QUIET',
-        nightStudyLight: 'OUTSIDE',
         noiseSensitivity: 'SENSITIVE',
         smokingBehavior: 'NO',
         indoorEating: 'NO',
@@ -713,7 +663,6 @@ describe('calcMatchScore', () => {
         sleepEnvPreference: 'QUIET_ONLY',
         cleanExpectation: 'STRICT',
         drinkingTolerance: 'NONE_ONLY',
-        nightLightTolerance: 'PREFER_OUT',
       };
 
       const b: LifestyleData = {
@@ -721,7 +670,6 @@ describe('calcMatchScore', () => {
         wakeTime: '08_09', // distance 1 from 07_08 → 0.75
         sleepHabit: 'TALKING', // SENSITIVE vs TALKING → 0.3
         sleepEnvironment: 'QUIET', // QUIET_ONLY vs QUIET → 1.0
-        nightStudyLight: 'LOW_LIGHT', // PREFER_OUT vs LOW_LIGHT → 0.5
         noiseSensitivity: 'DEEP',
         smokingBehavior: 'NO', // NO_ONLY vs NO → 1.0
         indoorEating: 'OK', // NO vs OK → 0.0
@@ -737,7 +685,6 @@ describe('calcMatchScore', () => {
         sleepEnvPreference: 'LOW_SPEAKER_OK',
         cleanExpectation: 'FLEXIBLE',
         drinkingTolerance: 'ANY',
-        nightLightTolerance: 'OK',
       };
 
       // a evaluates b (a is evaluator):
@@ -746,17 +693,16 @@ describe('calcMatchScore', () => {
       // Pair 3: noiseSens=SENSITIVE vs sleepHabit=TALKING → 0.3 × 5 = 1.5
       // Pair 4: phoneTol=OUTSIDE_ONLY vs phoneBeh=BRIEF → 0.3 × 3 = 0.9
       // Pair 5: earphoneExp=MUST vs earphoneUse=STUDY → 0.5 × 3 = 1.5
-      // Pair 6: nightLightTol=PREFER_OUT vs nightStudy=LOW_LIGHT → 0.5 × 2 = 1.0
-      // Pair 7: sleepEnvPref=QUIET_ONLY vs sleepEnv=QUIET → 1.0 × 3 = 3
-      // Pair 8: cleanExp=STRICT vs cleanLvl=WEEKLY_1_2 → 0.3 × 2 = 0.6
-      // Pair 9: bedtime 22_24(1) vs 24_02(2) → 1.0-1/3=0.667 × 2 = 1.333
-      // Pair 10: wakeTime 07_08(1) vs 08_09(2) → 1.0-1/4=0.75 × 1 = 0.75
-      // Pair 11: temp COLD(0) vs NORMAL(1) → 1.0-1/2=0.5 × 3 = 1.5
-      // Pair 12: indoorEating NO vs OK → 0.0 × 1 = 0
-      // Pair 13: relationship CLOSE vs CASUAL → 0.0 × 1 = 0
-      // weightedSum = 5+2+1.5+0.9+1.5+1.0+3+0.6+1.333+0.75+1.5+0+0 = 19.083
-      // dynamicMax = 33
-      // aPerspective = round(19.083/33 × 100) = round(57.83) = 58
+      // Pair 6: sleepEnvPref=QUIET_ONLY vs sleepEnv=QUIET → 1.0 × 3 = 3
+      // Pair 7: cleanExp=STRICT vs cleanLvl=WEEKLY_1_2 → 0.3 × 2 = 0.6
+      // Pair 8: bedtime 22_24(1) vs 24_02(2) → 1.0-1/3=0.667 × 2 = 1.333
+      // Pair 9: wakeTime 07_08(1) vs 08_09(2) → 1.0-1/4=0.75 × 1 = 0.75
+      // Pair 10: temp COLD(0) vs NORMAL(1) → 1.0-1/2=0.5 × 3 = 1.5
+      // Pair 11: indoorEating NO vs OK → 0.0 × 1 = 0
+      // Pair 12: relationship CLOSE vs CASUAL → 0.0 × 1 = 0
+      // weightedSum = 5+2+1.5+0.9+1.5+3+0.6+1.333+0.75+1.5+0+0 = 18.083
+      // dynamicMax = 31
+      // aPerspective = round(18.083/31 × 100) = round(58.33) = 58
 
       // b evaluates a (b is evaluator):
       // Pair 1: smokingTol=ANY vs smokingBeh=NO → 1.0 × 5 = 5
@@ -764,18 +710,17 @@ describe('calcMatchScore', () => {
       // Pair 3: noiseSens=DEEP vs sleepHabit=NONE → 1.0 × 5 = 5
       // Pair 4: phoneTol=ANY vs phoneBeh=OUTSIDE → 1.0 × 3 = 3
       // Pair 5: earphoneExp=ANY vs earphoneUse=ALWAYS → 1.0 × 3 = 3
-      // Pair 6: nightLightTol=OK vs nightStudy=OUTSIDE → 1.0 × 2 = 2
-      // Pair 7: sleepEnvPref=LOW_SPEAKER_OK vs sleepEnv=QUIET → 1.0 × 3 = 3
-      // Pair 8: cleanExp=FLEXIBLE vs cleanLvl=WEEKLY_3_UP → 1.0 × 2 = 2
-      // Pair 9: bedtime 24_02(2) vs 22_24(1) → 0.667 × 2 = 1.333
-      // Pair 10: wakeTime 08_09(2) vs 07_08(1) → 0.75 × 1 = 0.75
-      // Pair 11: temp NORMAL(1) vs COLD(0) → 0.5 × 3 = 1.5
-      // Pair 12: indoorEating OK vs NO → 0.0 × 1 = 0
-      // Pair 13: relationship CASUAL vs CLOSE → 0.0 × 1 = 0
-      // weightedSum = 5+2+5+3+3+2+3+2+1.333+0.75+1.5+0+0 = 28.583
-      // bPerspective = round(28.583/33 × 100) = round(86.62) = 87
+      // Pair 6: sleepEnvPref=LOW_SPEAKER_OK vs sleepEnv=QUIET → 1.0 × 3 = 3
+      // Pair 7: cleanExp=FLEXIBLE vs cleanLvl=WEEKLY_3_UP → 1.0 × 2 = 2
+      // Pair 8: bedtime 24_02(2) vs 22_24(1) → 0.667 × 2 = 1.333
+      // Pair 9: wakeTime 08_09(2) vs 07_08(1) → 0.75 × 1 = 0.75
+      // Pair 10: temp NORMAL(1) vs COLD(0) → 0.5 × 3 = 1.5
+      // Pair 11: indoorEating OK vs NO → 0.0 × 1 = 0
+      // Pair 12: relationship CASUAL vs CLOSE → 0.0 × 1 = 0
+      // weightedSum = 5+2+5+3+3+3+2+1.333+0.75+1.5+0+0 = 26.583
+      // bPerspective = round(26.583/31 × 100) = round(85.75) = 86
 
-      // min(58, 87) = 58
+      // min(58, 86) = 58
       expect(calcMatchScore(a, b)).toBe(58);
     });
   });

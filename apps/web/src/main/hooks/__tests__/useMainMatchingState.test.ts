@@ -27,7 +27,6 @@ vi.mock('@/__fixtures__/profiles', () => ({
         wakeTime: '07_08',
         sleepHabit: 'NONE',
         sleepEnvironment: 'QUIET',
-        nightStudyLight: 'LOW_LIGHT',
         noiseSensitivity: 'NORMAL',
         smokingBehavior: 'NO',
         indoorEating: 'OK',
@@ -43,7 +42,6 @@ vi.mock('@/__fixtures__/profiles', () => ({
         sleepEnvPreference: 'EARPHONE_OK',
         cleanExpectation: 'BASIC',
         drinkingTolerance: 'SOMETIMES_OK',
-        nightLightTolerance: 'LOW_OK',
       },
       intro: '',
       messageToRoommate: null,
@@ -62,7 +60,6 @@ const userLifestyle: UserProfile['lifestyle'] = {
   wakeTime: '07_08',
   sleepHabit: 'NONE',
   sleepEnvironment: 'QUIET',
-  nightStudyLight: 'LOW_LIGHT',
   noiseSensitivity: 'NORMAL',
   smokingBehavior: 'NO',
   indoorEating: 'OK',
@@ -78,7 +75,6 @@ const userLifestyle: UserProfile['lifestyle'] = {
   sleepEnvPreference: 'EARPHONE_OK',
   cleanExpectation: 'BASIC',
   drinkingTolerance: 'SOMETIMES_OK',
-  nightLightTolerance: 'LOW_OK',
 };
 
 const TEST_USER_ID = 'test-user-0001';

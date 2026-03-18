@@ -8,7 +8,6 @@ const baseLifestyle: UserProfile['lifestyle'] = {
   wakeTime: '07_08',
   sleepHabit: 'NONE',
   sleepEnvironment: 'QUIET',
-  nightStudyLight: 'LOW_LIGHT',
   noiseSensitivity: 'NORMAL',
   smokingBehavior: 'NO',
   indoorEating: 'OK',
@@ -24,7 +23,6 @@ const baseLifestyle: UserProfile['lifestyle'] = {
   sleepEnvPreference: 'EARPHONE_OK',
   cleanExpectation: 'BASIC',
   drinkingTolerance: 'SOMETIMES_OK',
-  nightLightTolerance: 'LOW_OK',
 };
 
 const baseAdditional: UserProfile['additional'] = {

@@ -16,7 +16,6 @@ const DISPLAY_LIFESTYLE_FIELDS: (keyof LifestyleData)[] = [
   'wakeTime',
   'sleepHabit',
   'sleepEnvironment',
-  'nightStudyLight',
   'noiseSensitivity',
   'indoorEating',
   'phoneBehavior',
@@ -29,7 +28,6 @@ const DISPLAY_LIFESTYLE_FIELDS: (keyof LifestyleData)[] = [
   'earphoneExpectation',
   'sleepEnvPreference',
   'cleanExpectation',
-  'nightLightTolerance',
 ];
 
 interface ProfileDetailBodyProps {

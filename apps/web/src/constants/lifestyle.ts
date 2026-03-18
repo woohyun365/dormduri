@@ -7,7 +7,6 @@ export const SLEEP_FIELDS: (keyof LifestyleData)[] = [
   'wakeTime',
   'sleepHabit',
   'sleepEnvironment',
-  'nightStudyLight',
   'noiseSensitivity',
 ];
 
@@ -29,10 +28,9 @@ export const CONDITION_FIELDS: (keyof LifestyleData)[] = [
   'sleepEnvPreference',
   'cleanExpectation',
   'drinkingTolerance',
-  'nightLightTolerance',
 ];
 
-// === 필드 이름 (21개) ===
+// === 필드 이름 (19개) ===
 
 export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
   // 수면 패턴
@@ -40,13 +38,12 @@ export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
   wakeTime: '기상 시간',
   sleepHabit: '잠버릇',
   sleepEnvironment: '수면 환경',
-  nightStudyLight: '밤 공부 시 불빛',
   noiseSensitivity: '잠귀',
 
   // 생활 패턴
   smokingBehavior: '흡연 여부',
   indoorEating: '실내 취식',
-  phoneBehavior: '방에서 통화',
+  phoneBehavior: '방에서 통화·게임',
   earphoneUsage: '이어폰 사용',
   cleanLevel: '청소 빈도',
   drinkingFrequency: '음주 빈도',
@@ -55,12 +52,11 @@ export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
 
   // 원하는 룸메 조건
   smokingTolerance: '상대 흡연 허용',
-  phoneTolerance: '상대 통화 허용',
+  phoneTolerance: '상대 통화·게임 허용',
   earphoneExpectation: '이어폰 기대',
   sleepEnvPreference: '취침 소리 허용',
   cleanExpectation: '청결 기대',
   drinkingTolerance: '음주 허용',
-  nightLightTolerance: '밤 불빛 허용',
 };
 
 // === 필드 라벨 (옵션별 표시 텍스트) ===
@@ -79,7 +75,7 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
     '08_09': '8~9시',
     '09_10': '9~10시',
     AFTER_10: '10시 이후',
-    FLEXIBLE: '유동적',
+    FLEXIBLE: '수업에 따라 유동적',
   },
   sleepHabit: {
     NONE: '없음',
@@ -91,11 +87,6 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
     QUIET: '조용히',
     EARPHONE: '이어폰으로',
     LOW_SPEAKER: '작은 소리 스피커',
-  },
-  nightStudyLight: {
-    OUTSIDE: '밖에서 해요',
-    LOW_LIGHT: '노트북·간접광만',
-    DESK_LAMP: '스탠드 켜요',
   },
   noiseSensitivity: {
     SENSITIVE: '민감',
@@ -121,7 +112,7 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
   },
   earphoneUsage: {
     ALWAYS: '항상',
-    STUDY: '공부 시',
+    STUDY: '공부·게임 시',
     QUIET: '작게 틀기',
     FREE: '자유',
   },
@@ -158,7 +149,7 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
   },
   earphoneExpectation: {
     MUST: '꼭 사용',
-    STUDY: '공부 시 사용',
+    STUDY: '공부·게임 시 사용',
     ANY: '상관없음',
   },
   sleepEnvPreference: {
@@ -175,11 +166,6 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
     NONE_ONLY: '안 마시는 사람만',
     SOMETIMES_OK: '가끔까지 OK',
     ANY: '상관없음',
-  },
-  nightLightTolerance: {
-    OK: '상관없음',
-    LOW_OK: '약한 빛까지 OK',
-    PREFER_OUT: '밖에서 했으면',
   },
 };
 

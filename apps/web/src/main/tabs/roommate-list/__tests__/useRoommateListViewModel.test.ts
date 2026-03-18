@@ -41,7 +41,6 @@ const baseLifestyle: LifestyleData = {
   wakeTime: '07_08',
   sleepHabit: 'NONE',
   sleepEnvironment: 'QUIET',
-  nightStudyLight: 'LOW_LIGHT',
   noiseSensitivity: 'NORMAL',
   smokingBehavior: 'NO',
   indoorEating: 'OK',
@@ -57,7 +56,6 @@ const baseLifestyle: LifestyleData = {
   sleepEnvPreference: 'EARPHONE_OK',
   cleanExpectation: 'BASIC',
   drinkingTolerance: 'SOMETIMES_OK',
-  nightLightTolerance: 'LOW_OK',
 };
 
 const baseAdditional = {

@@ -27,7 +27,6 @@ const DISPLAY_FIELDS: (keyof LifestyleData)[] = [
   'indoorEating',
   'relationshipStyle',
   'sleepEnvironment',
-  'nightStudyLight',
   'phoneBehavior',
   'earphoneUsage',
   'temperatureSensitivity',
@@ -36,7 +35,6 @@ const DISPLAY_FIELDS: (keyof LifestyleData)[] = [
   'earphoneExpectation',
   'sleepEnvPreference',
   'cleanExpectation',
-  'nightLightTolerance',
 ];
 
 const FIELD_EMOJI: Partial<Record<keyof LifestyleData, string>> = {
@@ -49,7 +47,6 @@ const FIELD_EMOJI: Partial<Record<keyof LifestyleData, string>> = {
   indoorEating: '🍜',
   relationshipStyle: '🤝',
   sleepEnvironment: '🌙',
-  nightStudyLight: '💡',
   phoneBehavior: '📱',
   earphoneUsage: '🎧',
   temperatureSensitivity: '🌡️',
@@ -58,7 +55,6 @@ const FIELD_EMOJI: Partial<Record<keyof LifestyleData, string>> = {
   earphoneExpectation: '🎵',
   sleepEnvPreference: '🔇',
   cleanExpectation: '🧹',
-  nightLightTolerance: '🌛',
 };
 
 type MatchLevel = 'match' | 'similar' | 'mismatch' | 'unknown';

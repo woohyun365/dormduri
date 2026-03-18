@@ -18,7 +18,6 @@ function createUser(overrides: Partial<UserProfile> = {}): UserProfile {
       wakeTime: null,
       sleepHabit: null,
       sleepEnvironment: null,
-      nightStudyLight: null,
       noiseSensitivity: null,
       smokingBehavior: null,
       indoorEating: null,
@@ -34,7 +33,6 @@ function createUser(overrides: Partial<UserProfile> = {}): UserProfile {
       sleepEnvPreference: null,
       cleanExpectation: null,
       drinkingTolerance: null,
-      nightLightTolerance: null,
     },
     additional: {
       college: null,
@@ -79,7 +77,6 @@ describe('getChecklistItems', () => {
       wakeTime: '07_08',
       sleepHabit: 'NONE',
       sleepEnvironment: 'QUIET',
-      nightStudyLight: 'LOW_LIGHT',
       noiseSensitivity: 'NORMAL',
       smokingBehavior: 'NO',
       indoorEating: 'OK',
@@ -95,7 +92,6 @@ describe('getChecklistItems', () => {
       sleepEnvPreference: 'EARPHONE_OK',
       cleanExpectation: 'BASIC',
       drinkingTolerance: 'SOMETIMES_OK',
-      nightLightTolerance: 'LOW_OK',
     };
     const user = createUser({ lifestyle });
     const items = getChecklistItems(user, new Set());
@@ -110,7 +106,6 @@ describe('getChecklistItems', () => {
         wakeTime: null,
         sleepHabit: null,
         sleepEnvironment: null,
-        nightStudyLight: null,
         noiseSensitivity: null,
         smokingBehavior: null,
         indoorEating: null,
@@ -126,7 +121,6 @@ describe('getChecklistItems', () => {
         sleepEnvPreference: null,
         cleanExpectation: null,
         drinkingTolerance: null,
-        nightLightTolerance: null,
       },
     });
     const items = getChecklistItems(user, new Set());
@@ -183,7 +177,6 @@ describe('isChecklistComplete', () => {
       wakeTime: '07_08',
       sleepHabit: 'NONE',
       sleepEnvironment: 'QUIET',
-      nightStudyLight: 'LOW_LIGHT',
       noiseSensitivity: 'NORMAL',
       smokingBehavior: 'NO',
       indoorEating: 'OK',
@@ -199,7 +192,6 @@ describe('isChecklistComplete', () => {
       sleepEnvPreference: 'EARPHONE_OK',
       cleanExpectation: 'BASIC',
       drinkingTolerance: 'SOMETIMES_OK',
-      nightLightTolerance: 'LOW_OK',
     };
     const user = createUser({
       dormitoryId: 'saerom',

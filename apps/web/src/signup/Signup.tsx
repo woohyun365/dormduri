@@ -53,7 +53,6 @@ export default function Signup() {
     wakeTime: null,
     sleepHabit: null,
     sleepEnvironment: null,
-    nightStudyLight: null,
     noiseSensitivity: null,
     smokingBehavior: null,
     indoorEating: null,
@@ -69,14 +68,19 @@ export default function Signup() {
     sleepEnvPreference: null,
     cleanExpectation: null,
     drinkingTolerance: null,
-    nightLightTolerance: null,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  const handleNext = () => setCurrentStep((prev) => prev + 1);
-  const handleBack = () => setCurrentStep((prev) => Math.max(1, prev - 1));
+  const handleNext = () => {
+    setCurrentStep((prev) => prev + 1);
+    window.scrollTo(0, 0);
+  };
+  const handleBack = () => {
+    setCurrentStep((prev) => Math.max(1, prev - 1));
+    window.scrollTo(0, 0);
+  };
   const handleGoToHome = () => router.replace('/');
 
   const handleSignupSubmit = async () => {

@@ -49,21 +49,14 @@ const EARPHONE_MATRIX: Record<string, Record<string, number>> = {
   FREE: { MUST: 0.0, STUDY: 0.0, ANY: 1.0 },
 };
 
-// Pair 6: nightStudyLight × nightLightTolerance (T3)
-const NIGHT_LIGHT_MATRIX: Record<string, Record<string, number>> = {
-  OUTSIDE: { OK: 1.0, LOW_OK: 1.0, PREFER_OUT: 1.0 },
-  LOW_LIGHT: { OK: 1.0, LOW_OK: 1.0, PREFER_OUT: 0.5 },
-  DESK_LAMP: { OK: 1.0, LOW_OK: 0.5, PREFER_OUT: 0.0 },
-};
-
-// Pair 7: sleepEnvironment × sleepEnvPreference (T2)
+// Pair 6: sleepEnvironment × sleepEnvPreference (T2)
 const SLEEP_ENV_MATRIX: Record<string, Record<string, number>> = {
   QUIET: { QUIET_ONLY: 1.0, EARPHONE_OK: 1.0, LOW_SPEAKER_OK: 1.0 },
   EARPHONE: { QUIET_ONLY: 0.0, EARPHONE_OK: 1.0, LOW_SPEAKER_OK: 1.0 },
   LOW_SPEAKER: { QUIET_ONLY: 0.0, EARPHONE_OK: 0.0, LOW_SPEAKER_OK: 1.0 },
 };
 
-// Pair 8: cleanLevel × cleanExpectation (T3)
+// Pair 7: cleanLevel × cleanExpectation (T3)
 const CLEAN_MATRIX: Record<string, Record<string, number>> = {
   WEEKLY_3_UP: { STRICT: 1.0, BASIC: 1.0, FLEXIBLE: 1.0 },
   WEEKLY_1_2: { STRICT: 0.3, BASIC: 1.0, FLEXIBLE: 1.0 },
@@ -86,7 +79,7 @@ interface PairResult {
   weight: number;
 }
 
-/** 교차 비교 쌍 (Pair 1-8): evaluator 조건 필드 × target 행동 필드 */
+/** 교차 비교 쌍 (Pair 1-7): evaluator 조건 필드 × target 행동 필드 */
 function scoreCrossPair(
   evaluatorField: string | null,
   targetField: string | null,
@@ -101,7 +94,7 @@ function scoreCrossPair(
   return { score, weight };
 }
 
-/** 유사도 쌍 (Pair 9-11): 순서 배열 기반 거리 */
+/** 유사도 쌍 (Pair 8-10): 순서 배열 기반 거리 */
 function scoreDistancePair(
   a: string | null,
   b: string | null,
@@ -115,7 +108,7 @@ function scoreDistancePair(
   return { score: 1.0 - dist / maxDist, weight };
 }
 
-/** 일치 쌍 (Pair 12-13) */
+/** 일치 쌍 (Pair 11-12) */
 function scoreMatchPair(a: string | null, b: string | null, weight: number): PairResult | null {
   if (a === null || b === null) return null;
   return { score: a === b ? 1.0 : 0.0, weight };
@@ -135,17 +128,15 @@ function perspectiveScore(evaluator: LifestyleData, target: LifestyleData): numb
     scoreCrossPair(evaluator.phoneTolerance, target.phoneBehavior, PHONE_MATRIX, T2),
     // Pair 5: earphoneExpectation(evaluator) × earphoneUsage(target) - T2
     scoreCrossPair(evaluator.earphoneExpectation, target.earphoneUsage, EARPHONE_MATRIX, T2),
-    // Pair 6: nightLightTolerance(evaluator) × nightStudyLight(target) - T3
-    scoreCrossPair(evaluator.nightLightTolerance, target.nightStudyLight, NIGHT_LIGHT_MATRIX, T3),
-    // Pair 7: sleepEnvPreference(evaluator) × sleepEnvironment(target) - T2
+    // Pair 6: sleepEnvPreference(evaluator) × sleepEnvironment(target) - T2
     scoreCrossPair(evaluator.sleepEnvPreference, target.sleepEnvironment, SLEEP_ENV_MATRIX, T2),
-    // Pair 8: cleanExpectation(evaluator) × cleanLevel(target) - T3
+    // Pair 7: cleanExpectation(evaluator) × cleanLevel(target) - T3
     scoreCrossPair(evaluator.cleanExpectation, target.cleanLevel, CLEAN_MATRIX, T3),
-    // Pair 9: bedtime (유사도) - T3
+    // Pair 8: bedtime (유사도) - T3
     scoreDistancePair(evaluator.bedtime, target.bedtime, BEDTIME_ORDER, 3, T3),
-    // Pair 10: wakeTime (유사도, FLEXIBLE 제외) - T4
+    // Pair 9: wakeTime (유사도, FLEXIBLE 제외) - T4
     scoreWakeTimePair(evaluator.wakeTime, target.wakeTime),
-    // Pair 11: temperatureSensitivity (유사도) - T2
+    // Pair 10: temperatureSensitivity (유사도) - T2
     scoreDistancePair(
       evaluator.temperatureSensitivity,
       target.temperatureSensitivity,
@@ -153,9 +144,9 @@ function perspectiveScore(evaluator: LifestyleData, target: LifestyleData): numb
       2,
       T2,
     ),
-    // Pair 12: indoorEating (일치) - T4
+    // Pair 11: indoorEating (일치) - T4
     scoreMatchPair(evaluator.indoorEating, target.indoorEating, T4),
-    // Pair 13: relationshipStyle (일치) - T4
+    // Pair 12: relationshipStyle (일치) - T4
     scoreMatchPair(evaluator.relationshipStyle, target.relationshipStyle, T4),
   ];
 
@@ -173,7 +164,7 @@ function perspectiveScore(evaluator: LifestyleData, target: LifestyleData): numb
   return Math.round((weightedSum / dynamicMax) * 100);
 }
 
-/** Pair 10: wakeTime (T4=1). FLEXIBLE이면 쌍 제외 */
+/** Pair 9: wakeTime (T4=1). FLEXIBLE이면 쌍 제외 */
 function scoreWakeTimePair(a: string | null, b: string | null): PairResult | null {
   if (a === null || b === null) return null;
   if (a === 'FLEXIBLE' || b === 'FLEXIBLE') return null;

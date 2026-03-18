@@ -10,7 +10,6 @@ const DEFAULT_LIFESTYLE: LifestyleData = {
   wakeTime: '07_08',
   sleepHabit: 'NONE',
   sleepEnvironment: 'QUIET',
-  nightStudyLight: 'LOW_LIGHT',
   noiseSensitivity: 'NORMAL',
   smokingBehavior: 'NO',
   indoorEating: 'OK',
@@ -26,7 +25,6 @@ const DEFAULT_LIFESTYLE: LifestyleData = {
   sleepEnvPreference: 'EARPHONE_OK',
   cleanExpectation: 'BASIC',
   drinkingTolerance: 'SOMETIMES_OK',
-  nightLightTolerance: 'LOW_OK',
 };
 
 const DEFAULT_ADDITIONAL: AdditionalProfile = {
@@ -130,7 +128,6 @@ export const LIFESTYLE_OPPOSITE = makeLifestyle({
   wakeTime: 'AFTER_10',
   sleepHabit: 'SNORING',
   sleepEnvironment: 'LOW_SPEAKER',
-  nightStudyLight: 'DESK_LAMP',
   noiseSensitivity: 'SENSITIVE',
   smokingBehavior: 'YES',
   indoorEating: 'NO',
@@ -146,7 +143,6 @@ export const LIFESTYLE_OPPOSITE = makeLifestyle({
   sleepEnvPreference: 'QUIET_ONLY',
   cleanExpectation: 'STRICT',
   drinkingTolerance: 'NONE_ONLY',
-  nightLightTolerance: 'PREFER_OUT',
 });
 
 /** 모든 필드가 null (회원가입 직후) */
@@ -155,7 +151,6 @@ export const LIFESTYLE_EMPTY: LifestyleData = {
   wakeTime: null,
   sleepHabit: null,
   sleepEnvironment: null,
-  nightStudyLight: null,
   noiseSensitivity: null,
   smokingBehavior: null,
   indoorEating: null,
@@ -171,5 +166,4 @@ export const LIFESTYLE_EMPTY: LifestyleData = {
   sleepEnvPreference: null,
   cleanExpectation: null,
   drinkingTolerance: null,
-  nightLightTolerance: null,
 };

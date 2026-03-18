@@ -22,7 +22,6 @@ const FIELD_ORDER: FieldKey[] = [
   'wakeTime',
   'sleepHabit',
   'sleepEnvironment',
-  'nightStudyLight',
   'noiseSensitivity',
   // 생활 패턴
   'smokingBehavior',
@@ -40,7 +39,6 @@ const FIELD_ORDER: FieldKey[] = [
   'sleepEnvPreference',
   'cleanExpectation',
   'drinkingTolerance',
-  'nightLightTolerance',
 ];
 
 const DRINKING_FIELDS: FieldKey[] = ['drinkingFrequency', 'drinkingTolerance'];
