@@ -7,6 +7,7 @@ import { StepHeader } from '@/components/StepHeader';
 
 import { authApi } from '@/api/auth';
 import { Mail } from 'lucide-react';
+import Link from 'next/link';
 
 interface StepVerificationProps {
   email: string;
@@ -16,6 +17,7 @@ interface StepVerificationProps {
   formatTime: () => string;
   onResendCode: () => void;
   onVerified: () => void;
+  onBackToEmail: () => void;
 }
 
 export function StepVerification({
@@ -26,6 +28,7 @@ export function StepVerification({
   formatTime,
   onResendCode,
   onVerified,
+  onBackToEmail,
 }: StepVerificationProps) {
   const [verificationCode, setVerificationCode] = useState('');
   const [codeError, setCodeError] = useState('');
@@ -58,7 +61,7 @@ export function StepVerification({
       <StepHeader
         icon={<Mail className="w-8 h-8 text-[var(--knu-primary)]" />}
         title="인증 코드 확인"
-        description={`${email}로 전송된 코드를 입력해주세요`}
+        description="해당 이메일로 가입된 계정이 있다면 인증 코드가 전송됩니다"
       />
 
       <div className="relative">
@@ -105,6 +108,28 @@ export function StepVerification({
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={isLoading}>
           {isLoading ? '확인 중...' : '확인'}
         </Button>
+      </div>
+
+      <div className="pt-2 space-y-2 text-center">
+        <p className="text-xs text-[var(--knu-text-tertiary)]">
+          메일이 도착하지 않나요? 스팸 폴더를 확인하거나 이메일 주소를 다시 확인해주세요.
+        </p>
+        <div className="flex justify-center gap-4 text-sm">
+          <button
+            type="button"
+            onClick={onBackToEmail}
+            className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
+          >
+            이메일 다시 입력
+          </button>
+          <span className="text-[var(--knu-text-tertiary)]">|</span>
+          <Link
+            href="/signup"
+            className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
+          >
+            회원가입
+          </Link>
+        </div>
       </div>
     </form>
   );

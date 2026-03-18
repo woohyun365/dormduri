@@ -94,6 +94,7 @@ export default function PasswordReset() {
               formatTime={formatTime}
               onResendCode={handleSendCode}
               onVerified={handleVerified}
+              onBackToEmail={() => setCurrentStep('email')}
             />
           )}
           {currentStep === 'newPassword' && (

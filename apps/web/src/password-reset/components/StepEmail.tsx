@@ -33,7 +33,7 @@ export function StepEmail({ email, onEmailChange, onSendCode, onGoToLogin }: Ste
       <StepHeader
         icon={<Mail className="w-8 h-8 text-[var(--knu-primary)]" />}
         title="비밀번호 찾기"
-        description="가입한 이메일로 인증 코드를 보내드립니다"
+        description="이메일 주소를 입력하시면 인증 코드를 보내드립니다"
       />
 
       <InputField
