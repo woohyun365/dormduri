@@ -221,4 +221,76 @@ describe('Signup', () => {
       screen.getByText('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'),
     ).toBeInTheDocument();
   });
+
+  describe('sessionStorage persist/restore', () => {
+    it('Step 4 이상에서 새로고침하면 비밀번호가 없으므로 Step 3으로 복원된다', () => {
+      sessionStorage.setItem(
+        'signup-draft',
+        JSON.stringify({
+          currentStep: 5,
+          email: 'test@kangwon.ac.kr',
+          isEmailVerified: true,
+          terms: { agreeAge: true, agreeTerms: true, agreePrivacy: true },
+          nickname: 'tester',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          intro: '',
+          lifestyle: {},
+        }),
+      );
+
+      render(<Signup />);
+
+      // Step 3으로 복원 (비밀번호 미저장 → fallback)
+      expect(screen.getByTestId('step-3-next')).toBeInTheDocument();
+    });
+
+    it('Step 3 이하에서 새로고침하면 해당 Step으로 복원된다', () => {
+      sessionStorage.setItem(
+        'signup-draft',
+        JSON.stringify({
+          currentStep: 2,
+          email: 'test@kangwon.ac.kr',
+          isEmailVerified: true,
+          terms: { agreeAge: false, agreeTerms: false, agreePrivacy: false },
+          nickname: '',
+          gender: null,
+          campus: null,
+          intro: '',
+          lifestyle: {},
+        }),
+      );
+
+      render(<Signup />);
+
+      expect(screen.getByTestId('step-2-next')).toBeInTheDocument();
+    });
+
+    it('회원가입 완료(Step 7) 시 sessionStorage가 삭제된다', async () => {
+      render(<Signup />);
+
+      advanceToStep(6);
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('step-6-next'));
+      });
+
+      expect(screen.getByTestId('step-complete')).toBeInTheDocument();
+      expect(sessionStorage.getItem('signup-draft')).toBeNull();
+    });
+
+    it('로고 클릭 이탈 시 sessionStorage가 삭제된다', () => {
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+      render(<Signup />);
+
+      // Step 2까지 진행 (draft 생성)
+      fireEvent.click(screen.getByTestId('step-1-next'));
+      expect(sessionStorage.getItem('signup-draft')).not.toBeNull();
+
+      // 로고 클릭 이탈 확인
+      fireEvent.click(screen.getByTestId('logo'));
+
+      expect(sessionStorage.getItem('signup-draft')).toBeNull();
+    });
+  });
 });

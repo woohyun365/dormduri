@@ -128,6 +128,14 @@ export default function Signup() {
     }
   }, [isRestored, currentStep, email, isEmailVerified, terms, basicInfo, intro, lifestyle]);
 
+  // Prevent mobile pull-to-refresh on body (scroll container)
+  useEffect(() => {
+    document.body.style.overscrollBehaviorY = 'none';
+    return () => {
+      document.body.style.overscrollBehaviorY = '';
+    };
+  }, []);
+
   const handleNext = () => {
     setCurrentStep((prev) => prev + 1);
     window.scrollTo(0, 0);
@@ -168,20 +176,18 @@ export default function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-white overscroll-y-none">
+    <div className="min-h-screen bg-white">
       <AuthHeader
         onLogoClick={() => {
           const hasProgress = isEmailVerified || basicInfo.nickname || basicInfo.password;
           if (hasProgress && currentStep < TOTAL_STEPS) {
             const confirmed = confirm('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
-            if (confirmed) {
-              try {
-                sessionStorage.removeItem(STORAGE_KEY);
-              } catch {
-                /* ignore */
-              }
-            }
-            return confirmed;
+            if (!confirmed) return false;
+          }
+          try {
+            sessionStorage.removeItem(STORAGE_KEY);
+          } catch {
+            /* ignore */
           }
           return true;
         }}
