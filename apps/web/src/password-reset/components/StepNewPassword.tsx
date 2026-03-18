@@ -6,6 +6,7 @@ import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
 import { validatePassword, validatePasswordConfirm } from '@/utils/validation';
 import { PasswordRequirementList } from '@/components/auth/PasswordRequirementList';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/constants/auth';
 import { authApi } from '@/api/auth';
 import { AlertCircle, Lock } from 'lucide-react';
 
@@ -69,7 +70,7 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
         <InputField
           label="새 비밀번호"
           type="password"
-          placeholder="영문, 숫자 포함 8~64자"
+          placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
           value={newPassword}
           onChange={(value) => {
             setNewPassword(value);

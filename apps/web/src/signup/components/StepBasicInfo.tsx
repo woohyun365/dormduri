@@ -7,7 +7,7 @@ import { StepNavigation } from '@/components/form/StepNavigation';
 import { FieldError } from '@/components/form/FieldError';
 import { Chip } from '@/components/Chip';
 import { validatePassword, validatePasswordConfirm, validateNickname } from '@/utils/validation';
-import { CAMPUS_OPTIONS } from '@/constants/auth';
+import { CAMPUS_OPTIONS, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/constants/auth';
 import { PasswordRequirementList } from '@/components/auth/PasswordRequirementList';
 import { NICKNAME_MAX } from '@/constants/ui';
 import { User } from 'lucide-react';
@@ -156,7 +156,7 @@ export function StepBasicInfo({
           <InputField
             label="비밀번호"
             type="password"
-            placeholder="영문, 숫자 포함 8~64자"
+            placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
             value={basicInfo.password}
             onChange={(value) => {
               onBasicInfoChange({ ...basicInfo, password: value });
