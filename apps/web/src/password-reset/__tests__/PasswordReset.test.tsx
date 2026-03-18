@@ -36,6 +36,7 @@ vi.mock('@/api/auth', () => ({
   authApi: {
     sendVerificationCode: vi.fn(),
     verifyResetCode: vi.fn(),
+    resetPassword: vi.fn(),
   },
 }));
 
