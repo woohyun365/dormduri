@@ -110,26 +110,30 @@ export function StepVerification({
         </Button>
       </div>
 
-      <div className="pt-2 space-y-2 text-center">
-        <p className="text-xs text-[var(--knu-text-tertiary)]">
-          메일이 도착하지 않나요? 스팸 폴더를 확인하거나 이메일 주소를 다시 확인해주세요.
-        </p>
-        <div className="flex justify-center gap-4 text-sm">
-          <button
-            type="button"
-            onClick={onBackToEmail}
-            className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
-          >
-            이메일 다시 입력
-          </button>
-          <span className="text-[var(--knu-text-tertiary)]">|</span>
-          <Link
-            href="/signup"
-            className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
-          >
-            회원가입
-          </Link>
-        </div>
+      <div className="pt-2 space-y-1.5 text-xs text-[var(--knu-text-tertiary)]">
+        <p className="font-medium text-[var(--knu-text-secondary)]">메일이 도착하지 않나요?</p>
+        <ul className="space-y-1">
+          <li>· 스팸 메일함을 확인해주세요.</li>
+          <li>
+            · 이메일 주소가 잘못됐다면{' '}
+            <button
+              type="button"
+              onClick={onBackToEmail}
+              className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
+            >
+              다시 입력하기
+            </button>
+          </li>
+          <li>
+            · 아직 계정이 없다면{' '}
+            <Link
+              href="/signup"
+              className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
+            >
+              회원가입
+            </Link>
+          </li>
+        </ul>
       </div>
     </form>
   );

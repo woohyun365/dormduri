@@ -42,7 +42,7 @@ export function StepEmailVerification({
             value={email}
             onChange={(value) => {
               onEmailChange(value);
-              verification.clearEmailError();
+              verification.handleEmailChange();
             }}
             error={verification.emailError}
             disabled={isVerified}

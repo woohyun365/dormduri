@@ -92,7 +92,15 @@ export function useSignupEmailVerification({
     setCodeError('');
   };
 
-  const clearEmailError = () => setEmailError('');
+  const handleEmailChange = () => {
+    setEmailError('');
+    if (isCodeSent) {
+      stopCountdown();
+      setIsCodeSent(false);
+      setVerificationCode('');
+      setCodeError('');
+    }
+  };
 
   return {
     verificationCode,
@@ -107,6 +115,6 @@ export function useSignupEmailVerification({
     handleSendCode,
     handleVerifyCode,
     handleCodeChange,
-    clearEmailError,
+    handleEmailChange,
   };
 }
