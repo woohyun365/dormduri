@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
 import { ProgressBar } from '@/components/form/ProgressBar';
@@ -13,7 +13,7 @@ import { StepRoommateConditions } from './components/StepRoommateConditions';
 import type { LifestyleData } from '@/types/lifestyle';
 import { StepComplete } from './components/StepComplete';
 import { authApi } from '@/api/auth';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/Button';
 import Link from 'next/link';
@@ -22,14 +22,7 @@ const TOTAL_STEPS = 7;
 
 export default function Signup() {
   const router = useRouter();
-  const { user, isLoading: isAuthLoading } = useCurrentUser();
-
-  // 이미 로그인 상태면 게이트웨이(/)로 리다이렉트
-  useEffect(() => {
-    if (!isAuthLoading && user) {
-      router.replace('/');
-    }
-  }, [isAuthLoading, user, router]);
+  const { isReadyToRender } = useRedirectIfAuthenticated();
 
   const [currentStep, setCurrentStep] = useState(1);
 
@@ -108,8 +101,7 @@ export default function Signup() {
     }
   };
 
-  // auth 체크 중이거나 이미 로그인 상태면 UI를 렌더링하지 않음 (깜빡임 방지)
-  if (isAuthLoading || user) {
+  if (!isReadyToRender) {
     return <div className="min-h-screen bg-white" />;
   }
 

@@ -5,6 +5,7 @@ import { InputField } from '@/components/form/InputField';
 import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
 import { validatePassword, validatePasswordConfirm } from '@/utils/validation';
+import { PasswordRequirementList } from '@/components/auth/PasswordRequirementList';
 import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/constants/auth';
 import { authApi } from '@/api/auth';
 import { AlertCircle, Lock } from 'lucide-react';
@@ -78,49 +79,7 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
           error={passwordError}
           disabled={isLoading}
         />
-        {newPassword.length > 0 && (
-          <ul className="mt-2 space-y-1 text-xs">
-            <li
-              className={
-                newPassword.length >= PASSWORD_MIN_LENGTH
-                  ? 'text-green-600'
-                  : 'text-[var(--knu-text-tertiary)]'
-              }
-            >
-              {newPassword.length >= PASSWORD_MIN_LENGTH ? '✓' : '○'} {PASSWORD_MIN_LENGTH}자 이상
-            </li>
-            <li
-              className={
-                newPassword.length <= PASSWORD_MAX_LENGTH ? 'text-green-600' : 'text-red-600'
-              }
-            >
-              {newPassword.length <= PASSWORD_MAX_LENGTH ? '✓' : '✗'} {PASSWORD_MAX_LENGTH}자 이하
-            </li>
-            <li
-              className={
-                /[a-zA-Z]/.test(newPassword) ? 'text-green-600' : 'text-[var(--knu-text-tertiary)]'
-              }
-            >
-              {/[a-zA-Z]/.test(newPassword) ? '✓' : '○'} 영문 포함
-            </li>
-            <li
-              className={
-                /\d/.test(newPassword) ? 'text-green-600' : 'text-[var(--knu-text-tertiary)]'
-              }
-            >
-              {/\d/.test(newPassword) ? '✓' : '○'} 숫자 포함
-            </li>
-            <li
-              className={
-                newPassword.toLowerCase() !== email.toLowerCase()
-                  ? 'text-green-600'
-                  : 'text-red-600'
-              }
-            >
-              {newPassword.toLowerCase() !== email.toLowerCase() ? '✓' : '✗'} 이메일과 다름
-            </li>
-          </ul>
-        )}
+        <PasswordRequirementList password={newPassword} email={email} />
       </div>
 
       <InputField
