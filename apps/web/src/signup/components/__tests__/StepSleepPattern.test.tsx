@@ -29,6 +29,7 @@ const emptyLifestyle: LifestyleData = {
   earphoneExpectation: null,
   sleepEnvPreference: null,
   screenTolerance: null,
+  indoorEatingTolerance: null,
   cleanExpectation: null,
   drinkingTolerance: null,
 };

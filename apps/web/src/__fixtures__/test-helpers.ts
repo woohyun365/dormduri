@@ -13,9 +13,9 @@ const DEFAULT_LIFESTYLE: LifestyleData = {
   screenUsage: 'NONE',
   noiseSensitivity: 'NORMAL',
   smokingBehavior: 'NO',
-  indoorEating: 'OK',
-  phoneBehavior: 'BRIEF',
-  earphoneUsage: 'STUDY',
+  indoorEating: 'SNACK',
+  phoneBehavior: 'SOMETIMES',
+  earphoneUsage: 'MOSTLY',
   cleanLevel: 'WEEKLY_1_2',
   drinkingFrequency: 'SOMETIMES',
   relationshipStyle: 'CASUAL',
@@ -25,8 +25,9 @@ const DEFAULT_LIFESTYLE: LifestyleData = {
   earphoneExpectation: 'STUDY',
   sleepEnvPreference: 'SPEAKER_OK',
   screenTolerance: 'NO_SCREEN',
+  indoorEatingTolerance: 'CLEAN_OK',
   cleanExpectation: 'BASIC',
-  drinkingTolerance: 'SOMETIMES_OK',
+  drinkingTolerance: 'LOW_ONLY',
 };
 
 const DEFAULT_ADDITIONAL: AdditionalProfile = {
@@ -132,9 +133,9 @@ export const LIFESTYLE_OPPOSITE = makeLifestyle({
   sleepEnvironment: 'LOW_SPEAKER',
   noiseSensitivity: 'SENSITIVE',
   smokingBehavior: 'YES',
-  indoorEating: 'NO',
-  phoneBehavior: 'FREE',
-  earphoneUsage: 'FREE',
+  indoorEating: 'MEAL',
+  phoneBehavior: 'OFTEN',
+  earphoneUsage: 'ALWAYS_SPEAKER',
   cleanLevel: 'WHEN_DIRTY',
   drinkingFrequency: 'OFTEN',
   relationshipStyle: 'CLOSE',
@@ -143,8 +144,9 @@ export const LIFESTYLE_OPPOSITE = makeLifestyle({
   phoneTolerance: 'OUTSIDE_ONLY',
   earphoneExpectation: 'MUST',
   sleepEnvPreference: 'NO_SPEAKER',
+  indoorEatingTolerance: 'NO_SMELL',
   cleanExpectation: 'STRICT',
-  drinkingTolerance: 'NONE_ONLY',
+  drinkingTolerance: 'LOW_ONLY',
 });
 
 /** 모든 필드가 null (회원가입 직후) */
@@ -168,6 +170,7 @@ export const LIFESTYLE_EMPTY: LifestyleData = {
   earphoneExpectation: null,
   sleepEnvPreference: null,
   screenTolerance: null,
+  indoorEatingTolerance: null,
   cleanExpectation: null,
   drinkingTolerance: null,
 };

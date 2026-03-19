@@ -29,14 +29,15 @@ const emptyLifestyle: LifestyleData = {
   earphoneExpectation: null,
   sleepEnvPreference: null,
   screenTolerance: null,
+  indoorEatingTolerance: null,
   cleanExpectation: null,
   drinkingTolerance: null,
 };
 
 const filledLiving: Partial<LifestyleData> = {
   smokingBehavior: 'NO',
-  indoorEating: 'OK',
-  phoneBehavior: 'OUTSIDE',
+  indoorEating: 'SNACK',
+  phoneBehavior: 'RARELY',
   earphoneUsage: 'ALWAYS',
   cleanLevel: 'WEEKLY_1_2',
   drinkingFrequency: 'SOMETIMES',
@@ -94,8 +95,6 @@ describe('StepLivingPattern', () => {
       />,
     );
 
-    expect(
-      screen.getByText(/음주 정보는 매칭 점수에만 반영되며, 상대 프로필에 표시되지 않습니다/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/매칭 점수에만 반영돼요/)).toBeInTheDocument();
   });
 });

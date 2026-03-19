@@ -19,9 +19,9 @@ const baseLifestyle: UserProfile['lifestyle'] = {
   screenUsage: 'NONE',
   noiseSensitivity: 'NORMAL',
   smokingBehavior: 'NO',
-  indoorEating: 'OK',
-  phoneBehavior: 'BRIEF',
-  earphoneUsage: 'STUDY',
+  indoorEating: 'SNACK',
+  phoneBehavior: 'SOMETIMES',
+  earphoneUsage: 'MOSTLY',
   cleanLevel: 'WEEKLY_1_2',
   drinkingFrequency: 'SOMETIMES',
   relationshipStyle: 'CASUAL',
@@ -31,8 +31,9 @@ const baseLifestyle: UserProfile['lifestyle'] = {
   earphoneExpectation: 'STUDY',
   sleepEnvPreference: 'SPEAKER_OK',
   screenTolerance: 'SCREEN_OK',
+  indoorEatingTolerance: 'CLEAN_OK',
   cleanExpectation: 'BASIC',
-  drinkingTolerance: 'SOMETIMES_OK',
+  drinkingTolerance: 'LOW_ONLY',
 };
 
 const baseAdditional: UserProfile['additional'] = {

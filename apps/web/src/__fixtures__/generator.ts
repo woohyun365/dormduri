@@ -97,11 +97,21 @@ const SCREEN_USAGE_VALUES: LifestyleData['screenUsage'][] = ['NONE', 'SCREEN'];
 const NOISE_VALUES: LifestyleData['noiseSensitivity'][] = ['SENSITIVE', 'NORMAL', 'DEEP'];
 
 const SMOKING_VALUES: LifestyleData['smokingBehavior'][] = ['NO', 'NO', 'NO', 'NO', 'E_CIG', 'YES'];
-const INDOOR_EATING_VALUES: LifestyleData['indoorEating'][] = ['NO', 'OK', 'VENTILATE'];
-const PHONE_VALUES: LifestyleData['phoneBehavior'][] = ['OUTSIDE', 'BRIEF', 'FREE'];
-const EARPHONE_VALUES: LifestyleData['earphoneUsage'][] = ['ALWAYS', 'STUDY', 'QUIET', 'FREE'];
+const INDOOR_EATING_VALUES: LifestyleData['indoorEating'][] = ['RARELY', 'SNACK', 'MEAL'];
+const PHONE_VALUES: LifestyleData['phoneBehavior'][] = ['RARELY', 'SOMETIMES', 'OFTEN'];
+const EARPHONE_VALUES: LifestyleData['earphoneUsage'][] = [
+  'ALWAYS',
+  'MOSTLY',
+  'MOSTLY_SPEAKER',
+  'ALWAYS_SPEAKER',
+];
 const CLEAN_VALUES: LifestyleData['cleanLevel'][] = ['WHEN_DIRTY', 'WEEKLY_1_2', 'WEEKLY_3_UP'];
-const DRINKING_VALUES: LifestyleData['drinkingFrequency'][] = ['NONE', 'SOMETIMES', 'OFTEN'];
+const DRINKING_VALUES: LifestyleData['drinkingFrequency'][] = [
+  'NONE',
+  'RARELY',
+  'SOMETIMES',
+  'OFTEN',
+];
 const RELATION_VALUES: LifestyleData['relationshipStyle'][] = ['CLOSE', 'CASUAL'];
 const TEMP_VALUES: LifestyleData['temperatureSensitivity'][] = ['COLD', 'NORMAL', 'HOT'];
 
@@ -109,11 +119,16 @@ const SMOKING_TOL_VALUES: LifestyleData['smokingTolerance'][] = ['NO_ONLY', 'E_C
 const PHONE_TOL_VALUES: LifestyleData['phoneTolerance'][] = ['OUTSIDE_ONLY', 'BRIEF_OK', 'ANY'];
 const EARPHONE_EXP_VALUES: LifestyleData['earphoneExpectation'][] = ['MUST', 'STUDY', 'ANY'];
 const SLEEP_ENV_PREF_VALUES: LifestyleData['sleepEnvPreference'][] = ['NO_SPEAKER', 'SPEAKER_OK'];
-const SCREEN_TOLERANCE_VALUES: LifestyleData['screenTolerance'][] = ['NO_SCREEN', 'SCREEN_OK'];
+const SCREEN_TOLERANCE_VALUES: LifestyleData['screenTolerance'][] = [
+  'NO_SCREEN',
+  'LOW_OK',
+  'SCREEN_OK',
+];
 const CLEAN_EXP_VALUES: LifestyleData['cleanExpectation'][] = ['STRICT', 'BASIC', 'FLEXIBLE'];
-const DRINKING_TOL_VALUES: LifestyleData['drinkingTolerance'][] = [
-  'NONE_ONLY',
-  'SOMETIMES_OK',
+const DRINKING_TOL_VALUES: LifestyleData['drinkingTolerance'][] = ['LOW_ONLY', 'ANY'];
+const INDOOR_EATING_TOL_VALUES: LifestyleData['indoorEatingTolerance'][] = [
+  'NO_SMELL',
+  'CLEAN_OK',
   'ANY',
 ];
 const COLLEGES: AdditionalProfile['college'][] = [
@@ -200,6 +215,7 @@ function generateLifestyle(rng: () => number): LifestyleData {
     earphoneExpectation: pick(rng, EARPHONE_EXP_VALUES),
     sleepEnvPreference: pick(rng, SLEEP_ENV_PREF_VALUES),
     screenTolerance: pick(rng, SCREEN_TOLERANCE_VALUES),
+    indoorEatingTolerance: pick(rng, INDOOR_EATING_TOL_VALUES),
     cleanExpectation: pick(rng, CLEAN_EXP_VALUES),
     drinkingTolerance: pick(rng, DRINKING_TOL_VALUES),
   };

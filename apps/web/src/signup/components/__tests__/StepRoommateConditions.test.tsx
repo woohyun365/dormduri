@@ -29,6 +29,7 @@ const emptyLifestyle: LifestyleData = {
   earphoneExpectation: null,
   sleepEnvPreference: null,
   screenTolerance: null,
+  indoorEatingTolerance: null,
   cleanExpectation: null,
   drinkingTolerance: null,
 };
@@ -39,6 +40,7 @@ const filledConditions: Partial<LifestyleData> = {
   earphoneExpectation: 'ANY',
   sleepEnvPreference: 'NO_SPEAKER',
   screenTolerance: 'SCREEN_OK',
+  indoorEatingTolerance: 'CLEAN_OK',
   cleanExpectation: 'BASIC',
   drinkingTolerance: 'ANY',
 };
@@ -64,7 +66,7 @@ describe('StepRoommateConditions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '완료' }));
 
-    expect(screen.getByText('상대 흡연 허용을 선택해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('음주 허용을 선택해주세요.')).toBeInTheDocument();
     expect(onNext).not.toHaveBeenCalled();
   });
 
