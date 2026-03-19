@@ -14,6 +14,7 @@ const emptyLifestyle: LifestyleData = {
   wakeTime: null,
   sleepHabit: null,
   sleepEnvironment: null,
+  screenUsage: null,
   noiseSensitivity: null,
   smokingBehavior: null,
   indoorEating: null,
@@ -27,6 +28,7 @@ const emptyLifestyle: LifestyleData = {
   phoneTolerance: null,
   earphoneExpectation: null,
   sleepEnvPreference: null,
+  screenTolerance: null,
   cleanExpectation: null,
   drinkingTolerance: null,
 };
@@ -35,7 +37,8 @@ const filledConditions: Partial<LifestyleData> = {
   smokingTolerance: 'NO_ONLY',
   phoneTolerance: 'BRIEF_OK',
   earphoneExpectation: 'ANY',
-  sleepEnvPreference: 'QUIET_ONLY',
+  sleepEnvPreference: 'NO_SPEAKER',
+  screenTolerance: 'SCREEN_OK',
   cleanExpectation: 'BASIC',
   drinkingTolerance: 'ANY',
 };

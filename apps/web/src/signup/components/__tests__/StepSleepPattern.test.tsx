@@ -14,6 +14,7 @@ const emptyLifestyle: LifestyleData = {
   wakeTime: null,
   sleepHabit: null,
   sleepEnvironment: null,
+  screenUsage: null,
   noiseSensitivity: null,
   smokingBehavior: null,
   indoorEating: null,
@@ -27,6 +28,7 @@ const emptyLifestyle: LifestyleData = {
   phoneTolerance: null,
   earphoneExpectation: null,
   sleepEnvPreference: null,
+  screenTolerance: null,
   cleanExpectation: null,
   drinkingTolerance: null,
 };
@@ -36,6 +38,7 @@ const filledSleep: Partial<LifestyleData> = {
   wakeTime: '07_08',
   sleepHabit: 'NONE',
   sleepEnvironment: 'QUIET',
+  screenUsage: 'NONE',
   noiseSensitivity: 'NORMAL',
 };
 

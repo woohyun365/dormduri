@@ -10,6 +10,7 @@ const DEFAULT_LIFESTYLE: LifestyleData = {
   wakeTime: '07_08',
   sleepHabit: 'NONE',
   sleepEnvironment: 'QUIET',
+  screenUsage: 'NONE',
   noiseSensitivity: 'NORMAL',
   smokingBehavior: 'NO',
   indoorEating: 'OK',
@@ -22,7 +23,8 @@ const DEFAULT_LIFESTYLE: LifestyleData = {
   smokingTolerance: 'E_CIG_OK',
   phoneTolerance: 'BRIEF_OK',
   earphoneExpectation: 'STUDY',
-  sleepEnvPreference: 'EARPHONE_OK',
+  sleepEnvPreference: 'SPEAKER_OK',
+  screenTolerance: 'NO_SCREEN',
   cleanExpectation: 'BASIC',
   drinkingTolerance: 'SOMETIMES_OK',
 };
@@ -140,7 +142,7 @@ export const LIFESTYLE_OPPOSITE = makeLifestyle({
   smokingTolerance: 'NO_ONLY',
   phoneTolerance: 'OUTSIDE_ONLY',
   earphoneExpectation: 'MUST',
-  sleepEnvPreference: 'QUIET_ONLY',
+  sleepEnvPreference: 'NO_SPEAKER',
   cleanExpectation: 'STRICT',
   drinkingTolerance: 'NONE_ONLY',
 });
@@ -151,6 +153,7 @@ export const LIFESTYLE_EMPTY: LifestyleData = {
   wakeTime: null,
   sleepHabit: null,
   sleepEnvironment: null,
+  screenUsage: null,
   noiseSensitivity: null,
   smokingBehavior: null,
   indoorEating: null,
@@ -164,6 +167,7 @@ export const LIFESTYLE_EMPTY: LifestyleData = {
   phoneTolerance: null,
   earphoneExpectation: null,
   sleepEnvPreference: null,
+  screenTolerance: null,
   cleanExpectation: null,
   drinkingTolerance: null,
 };

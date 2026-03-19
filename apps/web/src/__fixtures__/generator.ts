@@ -93,6 +93,7 @@ const SLEEP_HABIT_VALUES: LifestyleData['sleepHabit'][] = [
   'GRINDING',
 ];
 const SLEEP_ENV_VALUES: LifestyleData['sleepEnvironment'][] = ['QUIET', 'EARPHONE', 'LOW_SPEAKER'];
+const SCREEN_USAGE_VALUES: LifestyleData['screenUsage'][] = ['NONE', 'SCREEN'];
 const NOISE_VALUES: LifestyleData['noiseSensitivity'][] = ['SENSITIVE', 'NORMAL', 'DEEP'];
 
 const SMOKING_VALUES: LifestyleData['smokingBehavior'][] = ['NO', 'NO', 'NO', 'NO', 'E_CIG', 'YES'];
@@ -107,11 +108,8 @@ const TEMP_VALUES: LifestyleData['temperatureSensitivity'][] = ['COLD', 'NORMAL'
 const SMOKING_TOL_VALUES: LifestyleData['smokingTolerance'][] = ['NO_ONLY', 'E_CIG_OK', 'ANY'];
 const PHONE_TOL_VALUES: LifestyleData['phoneTolerance'][] = ['OUTSIDE_ONLY', 'BRIEF_OK', 'ANY'];
 const EARPHONE_EXP_VALUES: LifestyleData['earphoneExpectation'][] = ['MUST', 'STUDY', 'ANY'];
-const SLEEP_ENV_PREF_VALUES: LifestyleData['sleepEnvPreference'][] = [
-  'QUIET_ONLY',
-  'EARPHONE_OK',
-  'LOW_SPEAKER_OK',
-];
+const SLEEP_ENV_PREF_VALUES: LifestyleData['sleepEnvPreference'][] = ['NO_SPEAKER', 'SPEAKER_OK'];
+const SCREEN_TOLERANCE_VALUES: LifestyleData['screenTolerance'][] = ['NO_SCREEN', 'SCREEN_OK'];
 const CLEAN_EXP_VALUES: LifestyleData['cleanExpectation'][] = ['STRICT', 'BASIC', 'FLEXIBLE'];
 const DRINKING_TOL_VALUES: LifestyleData['drinkingTolerance'][] = [
   'NONE_ONLY',
@@ -187,6 +185,7 @@ function generateLifestyle(rng: () => number): LifestyleData {
     wakeTime: pick(rng, WAKE_VALUES),
     sleepHabit: pick(rng, SLEEP_HABIT_VALUES),
     sleepEnvironment: pick(rng, SLEEP_ENV_VALUES),
+    screenUsage: pick(rng, SCREEN_USAGE_VALUES),
     noiseSensitivity: pick(rng, NOISE_VALUES),
     smokingBehavior: pick(rng, SMOKING_VALUES),
     indoorEating: pick(rng, INDOOR_EATING_VALUES),
@@ -200,6 +199,7 @@ function generateLifestyle(rng: () => number): LifestyleData {
     phoneTolerance: pick(rng, PHONE_TOL_VALUES),
     earphoneExpectation: pick(rng, EARPHONE_EXP_VALUES),
     sleepEnvPreference: pick(rng, SLEEP_ENV_PREF_VALUES),
+    screenTolerance: pick(rng, SCREEN_TOLERANCE_VALUES),
     cleanExpectation: pick(rng, CLEAN_EXP_VALUES),
     drinkingTolerance: pick(rng, DRINKING_TOL_VALUES),
   };
