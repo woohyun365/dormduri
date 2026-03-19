@@ -62,6 +62,7 @@ export default function Signup() {
     earphoneExpectation: null,
     sleepEnvPreference: null,
     screenTolerance: null,
+    indoorEatingTolerance: null,
     cleanExpectation: null,
     drinkingTolerance: null,
   });

@@ -6,6 +6,7 @@ import { StepHeader } from '@/components/StepHeader';
 import { StepNavigation } from '@/components/form/StepNavigation';
 import { ChipSelectField } from '@/components/form/ChipSelectField';
 import { FieldError } from '@/components/form/FieldError';
+import { DrinkingPrivacyNote } from '@/components/form/DrinkingPrivacyNote';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES, CONDITION_FIELDS } from '@/constants/lifestyle';
 import { INTRO_MAX_LENGTH } from '@/constants/ui';
 import type { LifestyleData } from '@/types/lifestyle';
@@ -22,12 +23,24 @@ interface StepRoommateConditionsProps {
   disabled?: boolean;
 }
 
+const CONDITION_HELPER_TEXTS: Record<string, string> = {
+  smokingTolerance: '흡연은 어디까지 괜찮나요?',
+  phoneTolerance: '방에서 통화는 어디까지 괜찮나요?',
+  earphoneExpectation: '이어폰은 꼭 써줬으면 하나요? (영상, 음악, 게임 등)',
+  sleepEnvPreference: '룸메가 잘 때 음악이나 영상을 틀어놓고 자도 괜찮나요?',
+  screenTolerance: '룸메가 잘 때 화면 불빛을 켜도 괜찮나요? (핸드폰, 태블릿 등)',
+  indoorEatingTolerance: '방에서 간식, 배달, 간편식 등 어디까지 괜찮나요?',
+  cleanExpectation: '룸메의 청소, 정리정돈 등 방 관리는 어디까지 괜찮나요?',
+  drinkingTolerance: '룸메의 음주 빈도가 중요하신가요?',
+};
+
 const CONDITION_ERROR_LABELS: Record<string, string> = {
   smokingTolerance: '상대 흡연 허용을 선택해주세요.',
   phoneTolerance: '상대 통화 허용을 선택해주세요.',
   earphoneExpectation: '이어폰 기대를 선택해주세요.',
   sleepEnvPreference: '상대 스피커 허용을 선택해주세요.',
   screenTolerance: '상대 화면 허용을 선택해주세요.',
+  indoorEatingTolerance: '상대 실내 취식 허용을 선택해주세요.',
   cleanExpectation: '청결 기대를 선택해주세요.',
   drinkingTolerance: '음주 허용을 선택해주세요.',
 };
@@ -51,10 +64,12 @@ export function StepRoommateConditions({
     [],
   );
 
+  const REQUIRED_CONDITION_FIELDS = ['drinkingTolerance'] as const;
+
   const handleNext = () => {
     const newErrors: Record<string, string> = {};
 
-    for (const field of CONDITION_FIELDS) {
+    for (const field of REQUIRED_CONDITION_FIELDS) {
       if (!lifestyle[field]) {
         newErrors[field] = CONDITION_ERROR_LABELS[field] ?? '선택해주세요.';
       }
@@ -83,8 +98,7 @@ export function StepRoommateConditions({
   };
 
   const handleChange = (field: ConditionField, value: string | null) => {
-    if (value === null) return;
-    onUpdate(field, value);
+    onUpdate(field, value as string);
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field];
@@ -97,27 +111,32 @@ export function StepRoommateConditions({
       <StepHeader
         icon={<Heart className="w-8 h-8 text-[var(--knu-primary)]" />}
         title="원하는 룸메 조건"
-        description="어떤 룸메를 원하는지 알려주세요"
+        description="나는 이런 룸메가 좋아요"
       />
 
+      <p className="text-xs text-[var(--knu-text-secondary)] keep-all">
+        지금 선택하지 않아도 괜찮아요. 나중에 설정하면 매칭도와 호환성 분석을 볼 수 있어요.
+      </p>
+
       <div className="space-y-8">
-        {CONDITION_FIELDS.map((field) => (
-          <div key={field} ref={setFieldRef(field)}>
-            <ChipSelectField
-              label={LIFESTYLE_FIELD_NAMES[field]}
-              options={LIFESTYLE_LABELS[field]}
-              value={lifestyle[field]}
-              onChange={(value) => handleChange(field, value)}
-              error={errors[field]}
-              required
-            />
-            {field === 'drinkingTolerance' && (
-              <p className="mt-2 text-xs text-[var(--knu-text-tertiary)]">
-                음주 정보는 매칭 점수에만 반영되며, 상대 프로필에 표시되지 않습니다
-              </p>
-            )}
-          </div>
-        ))}
+        {CONDITION_FIELDS.map((field) => {
+          const isRequired = field === 'drinkingTolerance';
+          return (
+            <div key={field} ref={setFieldRef(field)}>
+              <ChipSelectField
+                label={LIFESTYLE_FIELD_NAMES[field]}
+                options={LIFESTYLE_LABELS[field]}
+                value={lifestyle[field]}
+                onChange={(value) => handleChange(field, value)}
+                error={errors[field]}
+                helperText={CONDITION_HELPER_TEXTS[field]}
+                required={isRequired}
+                allowDeselect={!isRequired}
+              />
+              {field === 'drinkingTolerance' && <DrinkingPrivacyNote />}
+            </div>
+          );
+        })}
       </div>
 
       {/* Intro */}
