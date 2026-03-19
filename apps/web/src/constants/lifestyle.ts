@@ -24,15 +24,16 @@ export const LIVING_FIELDS: (keyof LifestyleData)[] = [
 
 export const CONDITION_FIELDS: (keyof LifestyleData)[] = [
   'smokingTolerance',
+  'indoorEatingTolerance',
   'phoneTolerance',
   'earphoneExpectation',
-  'sleepEnvPreference',
-  'screenTolerance',
   'cleanExpectation',
   'drinkingTolerance',
+  'sleepEnvPreference',
+  'screenTolerance',
 ];
 
-// === 필드 이름 (21개) ===
+// === 필드 이름 (23개) ===
 
 export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
   // 수면 패턴
@@ -46,21 +47,22 @@ export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
   // 생활 패턴
   smokingBehavior: '흡연 여부',
   indoorEating: '실내 취식',
-  phoneBehavior: '방에서 통화·게임',
+  phoneBehavior: '실내 통화',
   earphoneUsage: '이어폰 사용',
-  cleanLevel: '청소 빈도',
-  drinkingFrequency: '음주 빈도',
+  cleanLevel: '방 청소',
+  drinkingFrequency: '🔒 음주 빈도',
   relationshipStyle: '관계 스타일',
   temperatureSensitivity: '온도 민감도',
 
   // 원하는 룸메 조건
-  smokingTolerance: '상대 흡연 허용',
-  phoneTolerance: '상대 통화·게임 허용',
-  earphoneExpectation: '이어폰 기대',
-  sleepEnvPreference: '상대 스피커 허용',
-  screenTolerance: '상대 화면 허용',
-  cleanExpectation: '청결 기대',
-  drinkingTolerance: '음주 허용',
+  smokingTolerance: '흡연 여부',
+  phoneTolerance: '실내 통화 여부',
+  earphoneExpectation: '이어폰 사용 여부',
+  sleepEnvPreference: '잘 때 스피커 볼륨',
+  screenTolerance: '잘 때 화면 밝기',
+  indoorEatingTolerance: '실내 취식',
+  cleanExpectation: '방 청소',
+  drinkingTolerance: '🔒 음주',
 };
 
 // === 필드 라벨 (옵션별 표시 텍스트) ===
@@ -93,8 +95,9 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
     LOW_SPEAKER: '스피커로 작게',
   },
   screenUsage: {
-    NO: '안 봐요',
-    YES: '봐요',
+    NONE: '안 봐요',
+    AUDIO: '음악만',
+    SCREEN: '봐요',
   },
   noiseSensitivity: {
     SENSITIVE: '민감',
@@ -105,34 +108,35 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
   // 생활 패턴
   smokingBehavior: {
     NO: '비흡연',
-    E_CIG: '전자담배',
+    E_CIG: '전자담배만',
     YES: '흡연',
   },
   indoorEating: {
-    NO: '싫어요',
-    OK: '상관없어요',
-    VENTILATE: '환기하면 OK',
+    RARELY: '잘 안 먹어요',
+    SNACK: '간식은 먹어요',
+    MEAL: '배달·간편식도 먹어요',
   },
   phoneBehavior: {
-    OUTSIDE: '밖에서',
-    BRIEF: '짧게만',
-    FREE: '자유롭게',
+    RARELY: '잘 안 해요',
+    SOMETIMES: '가끔 해요',
+    OFTEN: '자주 해요',
   },
   earphoneUsage: {
-    ALWAYS: '항상',
-    STUDY: '공부·게임 시',
-    QUIET: '작게 틀기',
-    FREE: '자유',
+    ALWAYS: '항상 이어폰',
+    MOSTLY: '주로 이어폰',
+    MOSTLY_SPEAKER: '주로 스피커',
+    ALWAYS_SPEAKER: '항상 스피커',
   },
   cleanLevel: {
-    WHEN_DIRTY: '더러울 때',
-    WEEKLY_1_2: '1~2회/주',
-    WEEKLY_3_UP: '3회+/주',
+    WHEN_DIRTY: '몰아서 정리하는 편이에요',
+    WEEKLY_1_2: '눈에 띄면 정리해요',
+    WEEKLY_3_UP: '바로 정리하는 편이에요',
   },
   drinkingFrequency: {
-    NONE: '안 함',
-    SOMETIMES: '가끔',
-    OFTEN: '자주',
+    NONE: '아예 안 해요',
+    RARELY: '거의 안 해요',
+    SOMETIMES: '가끔 마셔요',
+    OFTEN: '즐기는 편이에요',
   },
   relationshipStyle: {
     CLOSE: '친하게 지내요',
@@ -146,37 +150,42 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
 
   // 원하는 룸메 조건
   smokingTolerance: {
-    NO_ONLY: '비흡연만',
-    E_CIG_OK: '전담까지 OK',
-    ANY: '상관없음',
+    NO_ONLY: '비흡연자가 좋아요',
+    E_CIG_OK: '전담까지는 OK',
+    ANY: '흡연자도 괜찮아요',
   },
   phoneTolerance: {
-    OUTSIDE_ONLY: '밖에서만',
-    BRIEF_OK: '짧게면 OK',
-    ANY: '상관없음',
+    OUTSIDE_ONLY: '안 했으면 좋겠어요',
+    BRIEF_OK: '가끔·짧게는 괜찮아요',
+    ANY: '상관없어요',
   },
   earphoneExpectation: {
-    MUST: '꼭 사용',
-    STUDY: '공부·게임 시 사용',
-    ANY: '상관없음',
+    MUST: '꼭 써줬으면 좋겠어요',
+    STUDY: '스피커도 크지만 않으면 괜찮아요',
+    ANY: '상관없어요',
   },
   sleepEnvPreference: {
-    NO_SPEAKER: '스피커 싫어요',
-    SPEAKER_OK: '스피커도 OK',
+    NO_SPEAKER: '안 틀었으면 좋겠어요',
+    SPEAKER_OK: '작은 소리는 괜찮아요',
   },
   screenTolerance: {
-    NO_SCREEN: '화면 싫어요',
-    SCREEN_OK: '화면도 OK',
+    NO_SCREEN: '안 켰으면 좋겠어요',
+    LOW_OK: '밝기 낮추면 괜찮아요',
+    SCREEN_OK: '상관없어요',
+  },
+  indoorEatingTolerance: {
+    NO_SMELL: '안 먹었으면 좋겠어요',
+    CLEAN_OK: '환기·정리 잘하면 OK',
+    ANY: '상관없어요',
   },
   cleanExpectation: {
-    STRICT: '주기 맞춤',
-    BASIC: '기본 유지',
-    FLEXIBLE: '유연',
+    STRICT: '바로 정리하는 사람이 좋아요',
+    BASIC: '눈에 띄면 정리하면 괜찮아요',
+    FLEXIBLE: '몰아서 해도 괜찮아요',
   },
   drinkingTolerance: {
-    NONE_ONLY: '안 마시는 사람만',
-    SOMETIMES_OK: '가끔까지 OK',
-    ANY: '상관없음',
+    LOW_ONLY: '아예/거의 안 마시는 사람이 좋아요',
+    ANY: '상관없어요',
   },
 };
 
