@@ -5,6 +5,7 @@ import { Home } from 'lucide-react';
 import { StepHeader } from '@/components/StepHeader';
 import { StepNavigation } from '@/components/form/StepNavigation';
 import { ChipSelectField } from '@/components/form/ChipSelectField';
+import { DrinkingPrivacyNote } from '@/components/form/DrinkingPrivacyNote';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES, LIVING_FIELDS } from '@/constants/lifestyle';
 import type { LifestyleData } from '@/types/lifestyle';
 
@@ -19,13 +20,24 @@ type LivingField = (typeof LIVING_FIELDS)[number];
 
 const LIVING_ERROR_LABELS: Record<string, string> = {
   smokingBehavior: '흡연 여부를 선택해주세요.',
-  indoorEating: '실내 취식 여부를 선택해주세요.',
+  indoorEating: '실내 취식을 선택해주세요.',
   phoneBehavior: '통화 방식을 선택해주세요.',
-  earphoneUsage: '이어폰 사용을 선택해주세요.',
+  earphoneUsage: '소리 출력 방식을 선택해주세요.',
   cleanLevel: '청소 빈도를 선택해주세요.',
   drinkingFrequency: '음주 빈도를 선택해주세요.',
   relationshipStyle: '관계 스타일을 선택해주세요.',
   temperatureSensitivity: '온도 민감도를 선택해주세요.',
+};
+
+const LIVING_HELPER_TEXTS: Record<string, string> = {
+  smokingBehavior: '현재 흡연 상태를 선택해주세요.',
+  indoorEating: '방에서 음식을 먹는 편인가요?',
+  phoneBehavior: '전화, 디스코드 등 음성 대화를 방에서 하나요?',
+  earphoneUsage: '영상, 음악, 강의 등 들을 때 어떻게 듣나요?',
+  cleanLevel: '청소, 정리정돈, 머리카락 치우기 등 얼마나 신경 쓰나요?',
+  drinkingFrequency: '술 약속에 얼마나 참여하시나요?',
+  relationshipStyle: '룸메이트와 어떤 관계를 원하나요?',
+  temperatureSensitivity: '에어컨/난방에 민감한 편인가요?',
 };
 
 export function StepLivingPattern({ lifestyle, onUpdate, onNext, onBack }: StepLivingPatternProps) {
@@ -74,7 +86,7 @@ export function StepLivingPattern({ lifestyle, onUpdate, onNext, onBack }: StepL
       <StepHeader
         icon={<Home className="w-8 h-8 text-[var(--knu-primary)]" />}
         title="생활 패턴"
-        description="생활 습관에 대해 알려주세요"
+        description="나의 생활 습관을 알려주세요"
       />
 
       <div className="space-y-8">
@@ -86,13 +98,10 @@ export function StepLivingPattern({ lifestyle, onUpdate, onNext, onBack }: StepL
               value={lifestyle[field]}
               onChange={(value) => handleChange(field, value)}
               error={errors[field]}
+              helperText={LIVING_HELPER_TEXTS[field]}
               required
             />
-            {field === 'drinkingFrequency' && (
-              <p className="mt-2 text-xs text-[var(--knu-text-tertiary)]">
-                음주 정보는 매칭 점수에만 반영되며, 상대 프로필에 표시되지 않습니다
-              </p>
-            )}
+            {field === 'drinkingFrequency' && <DrinkingPrivacyNote />}
           </div>
         ))}
       </div>
