@@ -3,7 +3,6 @@ import { Chip } from '@/components/Chip';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 
 interface MockupCardProps {
-  variant: 'profile' | 'banner';
   profileIndex?: number;
 }
 
@@ -50,15 +49,7 @@ const MOCK_PROFILES: MockProfile[] = [
   },
 ];
 
-export function MockupCard({ variant, profileIndex = 0 }: MockupCardProps) {
-  if (variant === 'banner') {
-    return (
-      <div className="bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 shadow-sm">
-        <p className="text-sm font-semibold text-blue-900 text-center">매칭 프로필 미리보기</p>
-      </div>
-    );
-  }
-
+export function MockupCard({ profileIndex = 0 }: MockupCardProps) {
   const profile = MOCK_PROFILES[profileIndex % MOCK_PROFILES.length]!;
 
   return (

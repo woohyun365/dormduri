@@ -43,8 +43,8 @@ export function LandingHeroSection() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MockupCard variant="profile" profileIndex={0} />
-          <MockupCard variant="profile" profileIndex={1} />
+          <MockupCard profileIndex={0} />
+          <MockupCard profileIndex={1} />
         </div>
       </div>
     </Section>
