@@ -61,9 +61,6 @@ const SLEEP_HELPER_TEXTS: Record<string, string> = {
 // screenUsage 값에서 활동 타입 파생
 function getActivityFromScreenUsage(value: string | null): 'NONE' | 'AUDIO' | 'SCREEN' | null {
   if (!value) return null;
-  if (value === 'NO') return 'NONE';
-  if (value === 'YES') return 'SCREEN';
-  // 새 값 그대로 사용
   return value as 'NONE' | 'AUDIO' | 'SCREEN';
 }
 
