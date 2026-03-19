@@ -26,7 +26,8 @@ const CONDITION_ERROR_LABELS: Record<string, string> = {
   smokingTolerance: '상대 흡연 허용을 선택해주세요.',
   phoneTolerance: '상대 통화 허용을 선택해주세요.',
   earphoneExpectation: '이어폰 기대를 선택해주세요.',
-  sleepEnvPreference: '취침 소리 허용을 선택해주세요.',
+  sleepEnvPreference: '상대 스피커 허용을 선택해주세요.',
+  screenTolerance: '상대 화면 허용을 선택해주세요.',
   cleanExpectation: '청결 기대를 선택해주세요.',
   drinkingTolerance: '음주 허용을 선택해주세요.',
 };

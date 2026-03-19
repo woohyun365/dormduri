@@ -47,6 +47,7 @@ export default function Signup() {
     wakeTime: null,
     sleepHabit: null,
     sleepEnvironment: null,
+    screenUsage: null,
     noiseSensitivity: null,
     smokingBehavior: null,
     indoorEating: null,
@@ -60,6 +61,7 @@ export default function Signup() {
     phoneTolerance: null,
     earphoneExpectation: null,
     sleepEnvPreference: null,
+    screenTolerance: null,
     cleanExpectation: null,
     drinkingTolerance: null,
   });
