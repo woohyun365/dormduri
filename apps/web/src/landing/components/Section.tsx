@@ -25,7 +25,10 @@ export function Section({
   } as const;
 
   return (
-    <section id={id} className={`${bgStyles[background]} ${className}`}>
+    <section
+      id={id}
+      className={`${bgStyles[background]} ${className} ${id ? 'scroll-mt-16 lg:scroll-mt-20' : ''}`}
+    >
       <div className={`mx-auto ${containerStyles[containerSize]} px-5 lg:px-8`}>{children}</div>
     </section>
   );

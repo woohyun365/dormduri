@@ -14,7 +14,7 @@ export function FeatureCard({ icon, title, description, variant = 'default' }: F
 
   return (
     <div
-      className={`p-6 md:p-8 rounded-2xl border-2 ${variantStyles[variant]} transition-all hover:shadow-lg`}
+      className={`p-6 lg:p-8 rounded-2xl border-2 ${variantStyles[variant]} transition-all hover:shadow-lg`}
     >
       <div className="w-14 h-14 rounded-xl bg-[var(--knu-primary-light)] flex items-center justify-center mb-4">
         {icon}

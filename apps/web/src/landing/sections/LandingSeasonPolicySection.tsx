@@ -3,7 +3,7 @@ import { Calendar, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
 export function LandingSeasonPolicySection() {
   return (
-    <Section background="alt" className="py-16 md:py-24">
+    <Section id="season" background="alt" className="py-16 md:py-24">
       <div className="text-center mb-8">
         <Calendar className="w-12 h-12 text-[var(--knu-primary)] mx-auto mb-4" />
         <h2 className="text-3xl md:text-4xl font-bold text-[var(--knu-text-primary)] mb-4">
@@ -24,15 +24,23 @@ export function LandingSeasonPolicySection() {
           <ul className="space-y-2 text-sm text-[var(--knu-text-secondary)]">
             <li className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-[var(--knu-primary)] flex-shrink-0 mt-0.5" />
-              <span>프로필 작성·수정 가능</span>
+              <span>원하는 조건·자기소개 수정 가능</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+              <span className="line-through">나의 생활패턴 수정 불가</span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-[var(--knu-primary)] flex-shrink-0 mt-0.5" />
-              <span>후보 리스트 열람 가능</span>
+              <span>같은 건물 유저 프로필 열람</span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-[var(--knu-primary)] flex-shrink-0 mt-0.5" />
-              <span>매칭 요청·수락 활성</span>
+              <span>매칭 요청·수락</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle className="w-4 h-4 text-[var(--knu-primary)] flex-shrink-0 mt-0.5" />
+              <span>북마크</span>
             </li>
           </ul>
         </div>
@@ -46,19 +54,19 @@ export function LandingSeasonPolicySection() {
           <ul className="space-y-2 text-sm text-[var(--knu-text-secondary)]">
             <li className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-              <span>프로필 작성·수정 가능</span>
+              <span>프로필 전체 수정 가능</span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-              <span>같은 캠퍼스 프로필 열람 가능</span>
+              <span>같은 캠퍼스 유저 프로필 열람</span>
             </li>
             <li className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-              <span className="line-through">매칭 요청·수락 비활성</span>
+              <span className="line-through">매칭 요청·수락</span>
             </li>
             <li className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-              <span className="line-through">북마크 비활성</span>
+              <span className="line-through">북마크</span>
             </li>
           </ul>
         </div>
