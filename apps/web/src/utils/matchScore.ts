@@ -49,11 +49,18 @@ const EARPHONE_MATRIX: Record<string, Record<string, number>> = {
   FREE: { MUST: 0.0, STUDY: 0.0, ANY: 1.0 },
 };
 
-// Pair 6: sleepEnvironment × sleepEnvPreference (T2)
+// Pair 6: sleepEnvironment × sleepEnvPreference (T2) — 소리 축
 const SLEEP_ENV_MATRIX: Record<string, Record<string, number>> = {
-  QUIET: { QUIET_ONLY: 1.0, EARPHONE_OK: 1.0, LOW_SPEAKER_OK: 1.0 },
-  EARPHONE: { QUIET_ONLY: 0.0, EARPHONE_OK: 1.0, LOW_SPEAKER_OK: 1.0 },
-  LOW_SPEAKER: { QUIET_ONLY: 0.0, EARPHONE_OK: 0.0, LOW_SPEAKER_OK: 1.0 },
+  QUIET: { NO_SPEAKER: 1.0, SPEAKER_OK: 1.0 },
+  EARPHONE: { NO_SPEAKER: 1.0, SPEAKER_OK: 1.0 },
+  LOW_SPEAKER: { NO_SPEAKER: 0.0, SPEAKER_OK: 1.0 },
+};
+
+// Pair 6b: screenUsage × screenTolerance (T2) — 빛 축
+const SCREEN_USAGE_MATRIX: Record<string, Record<string, number>> = {
+  NONE: { NO_SCREEN: 1.0, SCREEN_OK: 1.0 },
+  AUDIO: { NO_SCREEN: 1.0, SCREEN_OK: 1.0 },
+  SCREEN: { NO_SCREEN: 0.0, SCREEN_OK: 1.0 },
 };
 
 // Pair 7: cleanLevel × cleanExpectation (T3)
@@ -128,8 +135,10 @@ function perspectiveScore(evaluator: LifestyleData, target: LifestyleData): numb
     scoreCrossPair(evaluator.phoneTolerance, target.phoneBehavior, PHONE_MATRIX, T2),
     // Pair 5: earphoneExpectation(evaluator) × earphoneUsage(target) - T2
     scoreCrossPair(evaluator.earphoneExpectation, target.earphoneUsage, EARPHONE_MATRIX, T2),
-    // Pair 6: sleepEnvPreference(evaluator) × sleepEnvironment(target) - T2
+    // Pair 6: sleepEnvPreference(evaluator) × sleepEnvironment(target) - T2 (소리)
     scoreCrossPair(evaluator.sleepEnvPreference, target.sleepEnvironment, SLEEP_ENV_MATRIX, T2),
+    // Pair 6b: screenTolerance(evaluator) × screenUsage(target) - T2 (빛)
+    scoreCrossPair(evaluator.screenTolerance, target.screenUsage, SCREEN_USAGE_MATRIX, T2),
     // Pair 7: cleanExpectation(evaluator) × cleanLevel(target) - T3
     scoreCrossPair(evaluator.cleanExpectation, target.cleanLevel, CLEAN_MATRIX, T3),
     // Pair 8: bedtime (유사도) - T3

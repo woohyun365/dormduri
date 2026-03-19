@@ -1,10 +1,11 @@
-// === 수면 패턴 (필수 5개) ===
+// === 수면 패턴 (필수 6개) ===
 
-// 행동 (4개)
+// 행동 (5개)
 export type Bedtime = 'BEFORE_22' | '22_24' | '24_02' | 'AFTER_02';
 export type WakeTime = 'BEFORE_07' | '07_08' | '08_09' | '09_10' | 'AFTER_10' | 'FLEXIBLE';
 export type SleepHabit = 'NONE' | 'TALKING' | 'SNORING' | 'GRINDING';
 export type SleepEnvironment = 'QUIET' | 'EARPHONE' | 'LOW_SPEAKER';
+export type ScreenUsage = 'NONE' | 'AUDIO' | 'SCREEN';
 
 // 특성 (1개)
 export type NoiseSensitivity = 'SENSITIVE' | 'NORMAL' | 'DEEP';
@@ -23,23 +24,25 @@ export type RelationshipStyle = 'CLOSE' | 'CASUAL';
 // 특성 (1개)
 export type TemperatureSensitivity = 'COLD' | 'NORMAL' | 'HOT';
 
-// === 원하는 룸메 조건 (필수 6개) ===
+// === 원하는 룸메 조건 (필수 7개) ===
 
 export type SmokingTolerance = 'NO_ONLY' | 'E_CIG_OK' | 'ANY';
 export type PhoneTolerance = 'OUTSIDE_ONLY' | 'BRIEF_OK' | 'ANY';
 export type EarphoneExpectation = 'MUST' | 'STUDY' | 'ANY';
-export type SleepEnvPreference = 'QUIET_ONLY' | 'EARPHONE_OK' | 'LOW_SPEAKER_OK';
+export type SleepEnvPreference = 'NO_SPEAKER' | 'SPEAKER_OK';
+export type ScreenTolerance = 'NO_SCREEN' | 'SCREEN_OK';
 export type CleanExpectation = 'STRICT' | 'BASIC' | 'FLEXIBLE';
 export type DrinkingTolerance = 'NONE_ONLY' | 'SOMETIMES_OK' | 'ANY';
 
-// === LifestyleData (19필드) ===
+// === LifestyleData (21필드) ===
 
 export interface LifestyleData {
-  // 수면 패턴 (5개)
+  // 수면 패턴 (6개)
   bedtime: Bedtime | null;
   wakeTime: WakeTime | null;
   sleepHabit: SleepHabit | null;
   sleepEnvironment: SleepEnvironment | null;
+  screenUsage: ScreenUsage | null;
   noiseSensitivity: NoiseSensitivity | null;
 
   // 생활 패턴 (8개)
@@ -52,11 +55,12 @@ export interface LifestyleData {
   relationshipStyle: RelationshipStyle | null;
   temperatureSensitivity: TemperatureSensitivity | null;
 
-  // 원하는 룸메 조건 (6개)
+  // 원하는 룸메 조건 (7개)
   smokingTolerance: SmokingTolerance | null;
   phoneTolerance: PhoneTolerance | null;
   earphoneExpectation: EarphoneExpectation | null;
   sleepEnvPreference: SleepEnvPreference | null;
+  screenTolerance: ScreenTolerance | null;
   cleanExpectation: CleanExpectation | null;
   drinkingTolerance: DrinkingTolerance | null;
 }

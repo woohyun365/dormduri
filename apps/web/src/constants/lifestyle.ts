@@ -7,6 +7,7 @@ export const SLEEP_FIELDS: (keyof LifestyleData)[] = [
   'wakeTime',
   'sleepHabit',
   'sleepEnvironment',
+  'screenUsage',
   'noiseSensitivity',
 ];
 
@@ -26,18 +27,20 @@ export const CONDITION_FIELDS: (keyof LifestyleData)[] = [
   'phoneTolerance',
   'earphoneExpectation',
   'sleepEnvPreference',
+  'screenTolerance',
   'cleanExpectation',
   'drinkingTolerance',
 ];
 
-// === 필드 이름 (19개) ===
+// === 필드 이름 (21개) ===
 
 export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
   // 수면 패턴
   bedtime: '취침 시간',
   wakeTime: '기상 시간',
   sleepHabit: '잠버릇',
-  sleepEnvironment: '수면 환경',
+  sleepEnvironment: '잠들 때 소리',
+  screenUsage: '잠들 때 화면',
   noiseSensitivity: '잠귀',
 
   // 생활 패턴
@@ -54,7 +57,8 @@ export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
   smokingTolerance: '상대 흡연 허용',
   phoneTolerance: '상대 통화·게임 허용',
   earphoneExpectation: '이어폰 기대',
-  sleepEnvPreference: '취침 소리 허용',
+  sleepEnvPreference: '상대 스피커 허용',
+  screenTolerance: '상대 화면 허용',
   cleanExpectation: '청결 기대',
   drinkingTolerance: '음주 허용',
 };
@@ -84,9 +88,13 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
     GRINDING: '이갈이',
   },
   sleepEnvironment: {
-    QUIET: '조용히',
+    QUIET: '안 틀어요',
     EARPHONE: '이어폰으로',
-    LOW_SPEAKER: '작은 소리 스피커',
+    LOW_SPEAKER: '스피커로 작게',
+  },
+  screenUsage: {
+    NO: '안 봐요',
+    YES: '봐요',
   },
   noiseSensitivity: {
     SENSITIVE: '민감',
@@ -153,9 +161,12 @@ export const LIFESTYLE_LABELS: Record<keyof LifestyleData, Record<string, string
     ANY: '상관없음',
   },
   sleepEnvPreference: {
-    QUIET_ONLY: '조용히만',
-    EARPHONE_OK: '이어폰까지 OK',
-    LOW_SPEAKER_OK: '작은 소리도 OK',
+    NO_SPEAKER: '스피커 싫어요',
+    SPEAKER_OK: '스피커도 OK',
+  },
+  screenTolerance: {
+    NO_SCREEN: '화면 싫어요',
+    SCREEN_OK: '화면도 OK',
   },
   cleanExpectation: {
     STRICT: '주기 맞춤',
