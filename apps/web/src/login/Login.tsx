@@ -105,7 +105,7 @@ export default function Login() {
             로그인
           </h1>
           <p className="text-[var(--knu-text-secondary)]">KNU 룸메에 오신 것을 환영합니다</p>
-          <p className="text-xs text-[var(--knu-text-tertiary)] mt-2">
+          <p className="text-xs text-[var(--knu-text-tertiary)] mt-2 keep-all">
             본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.{' '}
             <Link href="/terms" className="underline">
               자세히 보기
