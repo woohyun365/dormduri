@@ -54,10 +54,7 @@ export function MockupCard({ variant, profileIndex = 0 }: MockupCardProps) {
   if (variant === 'banner') {
     return (
       <div className="bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-blue-900">비시즌: 열람만 가능</p>
-          <span className="text-sm font-semibold text-blue-600">시즌 안내</span>
-        </div>
+        <p className="text-sm font-semibold text-blue-900 text-center">매칭 프로필 미리보기</p>
       </div>
     );
   }
