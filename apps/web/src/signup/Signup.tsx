@@ -47,6 +47,7 @@ export default function Signup() {
     wakeTime: null,
     sleepHabit: null,
     sleepEnvironment: null,
+    screenUsage: null,
     noiseSensitivity: null,
     smokingBehavior: null,
     indoorEating: null,
@@ -60,6 +61,8 @@ export default function Signup() {
     phoneTolerance: null,
     earphoneExpectation: null,
     sleepEnvPreference: null,
+    screenTolerance: null,
+    indoorEatingTolerance: null,
     cleanExpectation: null,
     drinkingTolerance: null,
   });
@@ -195,7 +198,7 @@ export default function Signup() {
 
       {currentStep < TOTAL_STEPS && (
         <div className="bg-amber-50 border-b border-amber-200 px-5 py-2 text-center">
-          <p className="text-xs text-amber-800">
+          <p className="text-xs text-amber-800 keep-all">
             본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.{' '}
             <Link href="/terms" className="underline font-medium">
               자세히 보기

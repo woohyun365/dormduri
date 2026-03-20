@@ -12,7 +12,7 @@ export function LandingHeroSection() {
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--knu-primary-light)] rounded-full mb-6">
             <Sparkles className="w-4 h-4 text-[var(--knu-primary)]" />
             <span className="text-sm font-semibold text-[var(--knu-primary)]">
-              강원대학교 룸메이트 매칭 서비스
+              강원대학교 춘천캠퍼스 룸메이트 매칭 서비스
             </span>
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[var(--knu-text-primary)] mb-6 leading-tight">
@@ -22,12 +22,7 @@ export function LandingHeroSection() {
             <br />
             룸메를 미리 찾기
           </h1>
-          <p className="text-lg md:text-xl text-[var(--knu-text-secondary)] mb-2 leading-relaxed">
-            @kangwon.ac.kr 인증 필수
-            <br />
-            현재 춘천캠퍼스 중심 운영 · 학교 공식 일정 기준 시즌제
-          </p>
-          <p className="text-xs text-[var(--knu-text-tertiary)] mb-6">
+          <p className="text-sm text-[var(--knu-text-secondary)] mb-6">
             본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
@@ -47,12 +42,9 @@ export function LandingHeroSection() {
           </div>
         </div>
 
-        <div className="space-y-4">
-          <MockupCard variant="banner" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <MockupCard variant="profile" profileIndex={0} />
-            <MockupCard variant="profile" profileIndex={1} />
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MockupCard profileIndex={0} />
+          <MockupCard profileIndex={1} />
         </div>
       </div>
     </Section>

@@ -17,11 +17,14 @@ const SMOKING_MATRIX: Record<string, Record<string, number>> = {
   YES: { NO_ONLY: 0.0, E_CIG_OK: 0.0, ANY: 1.0 },
 };
 
-// Pair 2: drinkingFrequency × drinkingTolerance (T3)
+// Pair 2: drinkingFrequency × drinkingTolerance (T3, TYPE A' 하이브리드)
+// LOW_ONLY: 거리 계산 score = 1.0 - (index / 3), ANY: 무조건 1.0
+const DRINKING_ORDER = ['NONE', 'RARELY', 'SOMETIMES', 'OFTEN'] as const;
 const DRINKING_MATRIX: Record<string, Record<string, number>> = {
-  NONE: { NONE_ONLY: 1.0, SOMETIMES_OK: 1.0, ANY: 1.0 },
-  SOMETIMES: { NONE_ONLY: 0.0, SOMETIMES_OK: 1.0, ANY: 1.0 },
-  OFTEN: { NONE_ONLY: 0.0, SOMETIMES_OK: 0.0, ANY: 1.0 },
+  NONE: { LOW_ONLY: 1.0, ANY: 1.0 },
+  RARELY: { LOW_ONLY: 0.67, ANY: 1.0 },
+  SOMETIMES: { LOW_ONLY: 0.33, ANY: 1.0 },
+  OFTEN: { LOW_ONLY: 0.0, ANY: 1.0 },
 };
 
 // === TYPE B: Matrix (행렬) ===
@@ -36,24 +39,31 @@ const SLEEP_HABIT_MATRIX: Record<string, Record<string, number>> = {
 
 // Pair 4: phoneBehavior × phoneTolerance (T2)
 const PHONE_MATRIX: Record<string, Record<string, number>> = {
-  OUTSIDE: { OUTSIDE_ONLY: 1.0, BRIEF_OK: 1.0, ANY: 1.0 },
-  BRIEF: { OUTSIDE_ONLY: 0.3, BRIEF_OK: 1.0, ANY: 1.0 },
-  FREE: { OUTSIDE_ONLY: 0.0, BRIEF_OK: 0.3, ANY: 1.0 },
+  RARELY: { OUTSIDE_ONLY: 1.0, BRIEF_OK: 1.0, ANY: 1.0 },
+  SOMETIMES: { OUTSIDE_ONLY: 0.0, BRIEF_OK: 1.0, ANY: 1.0 },
+  OFTEN: { OUTSIDE_ONLY: 0.0, BRIEF_OK: 0.3, ANY: 0.7 },
 };
 
 // Pair 5: earphoneUsage × earphoneExpectation (T2)
 const EARPHONE_MATRIX: Record<string, Record<string, number>> = {
   ALWAYS: { MUST: 1.0, STUDY: 1.0, ANY: 1.0 },
-  STUDY: { MUST: 0.5, STUDY: 1.0, ANY: 1.0 },
-  QUIET: { MUST: 0.0, STUDY: 0.3, ANY: 1.0 },
-  FREE: { MUST: 0.0, STUDY: 0.0, ANY: 1.0 },
+  MOSTLY: { MUST: 0.7, STUDY: 1.0, ANY: 1.0 },
+  MOSTLY_SPEAKER: { MUST: 0.0, STUDY: 0.7, ANY: 1.0 },
+  ALWAYS_SPEAKER: { MUST: 0.0, STUDY: 0.3, ANY: 1.0 },
 };
 
-// Pair 6: sleepEnvironment × sleepEnvPreference (T2)
+// Pair 6: sleepEnvironment × sleepEnvPreference (T2) — 소리 축
 const SLEEP_ENV_MATRIX: Record<string, Record<string, number>> = {
-  QUIET: { QUIET_ONLY: 1.0, EARPHONE_OK: 1.0, LOW_SPEAKER_OK: 1.0 },
-  EARPHONE: { QUIET_ONLY: 0.0, EARPHONE_OK: 1.0, LOW_SPEAKER_OK: 1.0 },
-  LOW_SPEAKER: { QUIET_ONLY: 0.0, EARPHONE_OK: 0.0, LOW_SPEAKER_OK: 1.0 },
+  QUIET: { NO_SPEAKER: 1.0, SPEAKER_OK: 1.0 },
+  EARPHONE: { NO_SPEAKER: 1.0, SPEAKER_OK: 1.0 },
+  LOW_SPEAKER: { NO_SPEAKER: 0.0, SPEAKER_OK: 1.0 },
+};
+
+// Pair 6b: screenUsage × screenTolerance (T2) — 빛 축
+const SCREEN_USAGE_MATRIX: Record<string, Record<string, number>> = {
+  NONE: { NO_SCREEN: 1.0, LOW_OK: 1.0, SCREEN_OK: 1.0 },
+  AUDIO: { NO_SCREEN: 1.0, LOW_OK: 1.0, SCREEN_OK: 1.0 },
+  SCREEN: { NO_SCREEN: 0.0, LOW_OK: 0.5, SCREEN_OK: 1.0 },
 };
 
 // Pair 7: cleanLevel × cleanExpectation (T3)
@@ -61,6 +71,13 @@ const CLEAN_MATRIX: Record<string, Record<string, number>> = {
   WEEKLY_3_UP: { STRICT: 1.0, BASIC: 1.0, FLEXIBLE: 1.0 },
   WEEKLY_1_2: { STRICT: 0.3, BASIC: 1.0, FLEXIBLE: 1.0 },
   WHEN_DIRTY: { STRICT: 0.0, BASIC: 0.3, FLEXIBLE: 1.0 },
+};
+
+// Pair 7b: indoorEating × indoorEatingTolerance (T3) — 실내 취식
+const INDOOR_EATING_MATRIX: Record<string, Record<string, number>> = {
+  RARELY: { NO_SMELL: 1.0, CLEAN_OK: 1.0, ANY: 1.0 },
+  SNACK: { NO_SMELL: 1.0, CLEAN_OK: 1.0, ANY: 1.0 },
+  MEAL: { NO_SMELL: 0.0, CLEAN_OK: 0.5, ANY: 1.0 },
 };
 
 // === 유틸 ===
@@ -79,7 +96,7 @@ interface PairResult {
   weight: number;
 }
 
-/** 교차 비교 쌍 (Pair 1-7): evaluator 조건 필드 × target 행동 필드 */
+/** 교차 비교 쌍: evaluator 조건 필드 × target 행동 필드 */
 function scoreCrossPair(
   evaluatorField: string | null,
   targetField: string | null,
@@ -94,7 +111,7 @@ function scoreCrossPair(
   return { score, weight };
 }
 
-/** 유사도 쌍 (Pair 8-10): 순서 배열 기반 거리 */
+/** 유사도 쌍: 순서 배열 기반 거리 */
 function scoreDistancePair(
   a: string | null,
   b: string | null,
@@ -108,7 +125,7 @@ function scoreDistancePair(
   return { score: 1.0 - dist / maxDist, weight };
 }
 
-/** 일치 쌍 (Pair 11-12) */
+/** 일치 쌍 */
 function scoreMatchPair(a: string | null, b: string | null, weight: number): PairResult | null {
   if (a === null || b === null) return null;
   return { score: a === b ? 1.0 : 0.0, weight };
@@ -128,10 +145,14 @@ function perspectiveScore(evaluator: LifestyleData, target: LifestyleData): numb
     scoreCrossPair(evaluator.phoneTolerance, target.phoneBehavior, PHONE_MATRIX, T2),
     // Pair 5: earphoneExpectation(evaluator) × earphoneUsage(target) - T2
     scoreCrossPair(evaluator.earphoneExpectation, target.earphoneUsage, EARPHONE_MATRIX, T2),
-    // Pair 6: sleepEnvPreference(evaluator) × sleepEnvironment(target) - T2
+    // Pair 6: sleepEnvPreference(evaluator) × sleepEnvironment(target) - T2 (소리)
     scoreCrossPair(evaluator.sleepEnvPreference, target.sleepEnvironment, SLEEP_ENV_MATRIX, T2),
+    // Pair 6b: screenTolerance(evaluator) × screenUsage(target) - T2 (빛)
+    scoreCrossPair(evaluator.screenTolerance, target.screenUsage, SCREEN_USAGE_MATRIX, T2),
     // Pair 7: cleanExpectation(evaluator) × cleanLevel(target) - T3
     scoreCrossPair(evaluator.cleanExpectation, target.cleanLevel, CLEAN_MATRIX, T3),
+    // Pair 7b: indoorEatingTolerance(evaluator) × indoorEating(target) - T3
+    scoreCrossPair(evaluator.indoorEatingTolerance, target.indoorEating, INDOOR_EATING_MATRIX, T3),
     // Pair 8: bedtime (유사도) - T3
     scoreDistancePair(evaluator.bedtime, target.bedtime, BEDTIME_ORDER, 3, T3),
     // Pair 9: wakeTime (유사도, FLEXIBLE 제외) - T4
@@ -144,9 +165,7 @@ function perspectiveScore(evaluator: LifestyleData, target: LifestyleData): numb
       2,
       T2,
     ),
-    // Pair 11: indoorEating (일치) - T4
-    scoreMatchPair(evaluator.indoorEating, target.indoorEating, T4),
-    // Pair 12: relationshipStyle (일치) - T4
+    // Pair 11: relationshipStyle (일치) - T4
     scoreMatchPair(evaluator.relationshipStyle, target.relationshipStyle, T4),
   ];
 

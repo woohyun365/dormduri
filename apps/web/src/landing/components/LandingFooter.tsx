@@ -27,7 +27,7 @@ export function LandingFooter() {
           </div>
 
           {/* Links */}
-          <div className="grid grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-8">
             <div>
               <h4 className="font-semibold text-[var(--knu-text-primary)] mb-3">서비스</h4>
               <ul className="space-y-2 text-sm">

@@ -38,12 +38,13 @@ export function ChipSelectField({
 
   return (
     <div>
-      <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
+      <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-1">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </label>
+      {helperText && <p className="text-xs text-[var(--knu-text-secondary)] mb-3">{helperText}</p>}
       <div
-        className="flex flex-wrap gap-2"
+        className={`flex flex-wrap gap-2 ${!helperText ? 'mt-2' : ''}`}
         role="group"
         aria-label={label}
         aria-describedby={error ? errorId : undefined}
@@ -57,7 +58,6 @@ export function ChipSelectField({
           />
         ))}
       </div>
-      {helperText && <p className="text-xs text-[var(--knu-text-tertiary)] mt-1.5">{helperText}</p>}
       <FieldError message={error} id={errorId} />
     </div>
   );

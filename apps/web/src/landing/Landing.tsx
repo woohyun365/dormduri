@@ -9,7 +9,7 @@ import { LandingCtaSection } from './sections/LandingCtaSection';
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white keep-all">
       <LandingHeader />
       <LandingHeroSection />
       <LandingProblemSolutionSection />

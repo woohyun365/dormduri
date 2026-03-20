@@ -2,13 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { calcMatchScore } from '../matchScore';
 import type { LifestyleData } from '@/types/lifestyle';
 
-// -- Helper: 21필드 전부 null인 빈 LifestyleData --
+// -- Helper: 22필드 전부 null인 빈 LifestyleData --
 
 const EMPTY_LIFESTYLE: LifestyleData = {
   bedtime: null,
   wakeTime: null,
   sleepHabit: null,
   sleepEnvironment: null,
+  screenUsage: null,
   noiseSensitivity: null,
   smokingBehavior: null,
   indoorEating: null,
@@ -22,6 +23,8 @@ const EMPTY_LIFESTYLE: LifestyleData = {
   phoneTolerance: null,
   earphoneExpectation: null,
   sleepEnvPreference: null,
+  screenTolerance: null,
+  indoorEatingTolerance: null,
   cleanExpectation: null,
   drinkingTolerance: null,
 };
@@ -32,7 +35,7 @@ function make(overrides: Partial<LifestyleData> = {}): LifestyleData {
 }
 
 /**
- * 12쌍 전체가 참여하는 "풀 프로필"
+ * 13쌍 전체가 참여하는 "풀 프로필"
  * 모든 쌍에서 1.0 (만점)이 되는 조합
  */
 const FULL_PERFECT_A: LifestyleData = {
@@ -41,11 +44,12 @@ const FULL_PERFECT_A: LifestyleData = {
   wakeTime: '07_08',
   sleepHabit: 'NONE',
   sleepEnvironment: 'QUIET',
+  screenUsage: 'NONE',
   noiseSensitivity: 'SENSITIVE',
   // 생활 패턴
   smokingBehavior: 'NO',
-  indoorEating: 'NO',
-  phoneBehavior: 'OUTSIDE',
+  indoorEating: 'RARELY',
+  phoneBehavior: 'RARELY',
   earphoneUsage: 'ALWAYS',
   cleanLevel: 'WEEKLY_3_UP',
   drinkingFrequency: 'NONE',
@@ -55,9 +59,11 @@ const FULL_PERFECT_A: LifestyleData = {
   smokingTolerance: 'NO_ONLY',
   phoneTolerance: 'OUTSIDE_ONLY',
   earphoneExpectation: 'MUST',
-  sleepEnvPreference: 'QUIET_ONLY',
+  sleepEnvPreference: 'NO_SPEAKER',
+  screenTolerance: 'SCREEN_OK',
+  indoorEatingTolerance: 'NO_SMELL',
   cleanExpectation: 'STRICT',
-  drinkingTolerance: 'NONE_ONLY',
+  drinkingTolerance: 'LOW_ONLY',
 };
 
 // B도 A의 조건을 완벽히 만족하고, A도 B의 조건을 완벽히 만족
@@ -65,10 +71,10 @@ const FULL_PERFECT_B: LifestyleData = { ...FULL_PERFECT_A };
 
 describe('calcMatchScore', () => {
   // =========================================================
-  // AC-N4: 12쌍 전체 참여, 가중치 합 31, 모두 1.0이면 100점
+  // AC-N4: 13쌍 전체 참여, 가중치 합 35, 모두 1.0이면 100점
   // =========================================================
   describe('AC-N4: 전체 참여 시 만점', () => {
-    it('12쌍 전체 참여, 모든 쌍 1.0이면 100점', () => {
+    it('13쌍 전체 참여, 모든 쌍 1.0이면 100점', () => {
       expect(calcMatchScore(FULL_PERFECT_A, FULL_PERFECT_B)).toBe(100);
     });
 
@@ -124,22 +130,22 @@ describe('calcMatchScore', () => {
     });
 
     describe('Pair 2: drinkingFrequency × drinkingTolerance (T3=2)', () => {
-      it('SOMETIMES vs SOMETIMES_OK → 1.0', () => {
-        const a = make({ drinkingTolerance: 'SOMETIMES_OK', drinkingFrequency: 'NONE' });
+      it('SOMETIMES vs ANY → 1.0', () => {
+        const a = make({ drinkingTolerance: 'ANY', drinkingFrequency: 'NONE' });
         const b = make({ drinkingFrequency: 'SOMETIMES', drinkingTolerance: 'ANY' });
         expect(calcMatchScore(a, b)).toBe(100);
       });
 
-      it('OFTEN vs SOMETIMES_OK → 0.0', () => {
-        const a = make({ drinkingTolerance: 'SOMETIMES_OK', drinkingFrequency: 'NONE' });
+      it('OFTEN vs LOW_ONLY → 0.0', () => {
+        const a = make({ drinkingTolerance: 'LOW_ONLY', drinkingFrequency: 'NONE' });
         const b = make({ drinkingFrequency: 'OFTEN', drinkingTolerance: 'ANY' });
-        // a evaluates b: SOMETIMES_OK vs OFTEN → 0.0
+        // a evaluates b: LOW_ONLY vs OFTEN → 0.0
         expect(calcMatchScore(a, b)).toBe(0);
       });
 
-      it('NONE vs NONE_ONLY → 1.0', () => {
-        const a = make({ drinkingTolerance: 'NONE_ONLY', drinkingFrequency: 'NONE' });
-        const b = make({ drinkingFrequency: 'NONE', drinkingTolerance: 'NONE_ONLY' });
+      it('NONE vs LOW_ONLY → 1.0', () => {
+        const a = make({ drinkingTolerance: 'LOW_ONLY', drinkingFrequency: 'NONE' });
+        const b = make({ drinkingFrequency: 'NONE', drinkingTolerance: 'LOW_ONLY' });
         expect(calcMatchScore(a, b)).toBe(100);
       });
     });
@@ -211,56 +217,66 @@ describe('calcMatchScore', () => {
     });
 
     describe('Pair 4: phoneBehavior × phoneTolerance (T2=3)', () => {
-      it('BRIEF × OUTSIDE_ONLY → 0.3', () => {
-        const a = make({ phoneTolerance: 'OUTSIDE_ONLY', phoneBehavior: 'OUTSIDE' });
-        const b = make({ phoneBehavior: 'BRIEF', phoneTolerance: 'ANY' });
-        // a: OUTSIDE_ONLY vs BRIEF → 0.3
-        // b: ANY vs OUTSIDE → 1.0
-        // a: (0.3×3)/3 × 100 = 30
-        // min(30, 100) = 30
-        expect(calcMatchScore(a, b)).toBe(30);
-      });
-
-      it('FREE × BRIEF_OK → 0.3', () => {
-        const a = make({ phoneTolerance: 'BRIEF_OK', phoneBehavior: 'OUTSIDE' });
-        const b = make({ phoneBehavior: 'FREE', phoneTolerance: 'ANY' });
-        // a: BRIEF_OK vs FREE → 0.3
-        expect(calcMatchScore(a, b)).toBe(30);
-      });
-
-      it('FREE × OUTSIDE_ONLY → 0.0', () => {
-        const a = make({ phoneTolerance: 'OUTSIDE_ONLY', phoneBehavior: 'OUTSIDE' });
-        const b = make({ phoneBehavior: 'FREE', phoneTolerance: 'ANY' });
+      it('SOMETIMES × OUTSIDE_ONLY → 0.0', () => {
+        const a = make({ phoneTolerance: 'OUTSIDE_ONLY', phoneBehavior: 'RARELY' });
+        const b = make({ phoneBehavior: 'SOMETIMES', phoneTolerance: 'ANY' });
+        // a: OUTSIDE_ONLY vs SOMETIMES → 0.0
+        // b: ANY vs RARELY → 1.0
+        // a: (0.0×3)/3 × 100 = 0
+        // min(0, 100) = 0
         expect(calcMatchScore(a, b)).toBe(0);
+      });
+
+      it('OFTEN × BRIEF_OK → 0.3', () => {
+        const a = make({ phoneTolerance: 'BRIEF_OK', phoneBehavior: 'RARELY' });
+        const b = make({ phoneBehavior: 'OFTEN', phoneTolerance: 'ANY' });
+        // a: BRIEF_OK vs OFTEN → 0.3
+        expect(calcMatchScore(a, b)).toBe(30);
+      });
+
+      it('OFTEN × OUTSIDE_ONLY → 0.0', () => {
+        const a = make({ phoneTolerance: 'OUTSIDE_ONLY', phoneBehavior: 'RARELY' });
+        const b = make({ phoneBehavior: 'OFTEN', phoneTolerance: 'ANY' });
+        expect(calcMatchScore(a, b)).toBe(0);
+      });
+
+      it('OFTEN × ANY → 0.7', () => {
+        const a = make({ phoneTolerance: 'ANY', phoneBehavior: 'RARELY' });
+        const b = make({ phoneBehavior: 'OFTEN', phoneTolerance: 'ANY' });
+        // a: ANY vs OFTEN → 0.7
+        // b: ANY vs RARELY → 1.0
+        // a: (0.7×3)/3 × 100 = 70
+        // min(70, 100) = 70
+        expect(calcMatchScore(a, b)).toBe(70);
       });
     });
 
     describe('Pair 5: earphoneUsage × earphoneExpectation (T2=3)', () => {
-      it('STUDY × MUST → 0.5', () => {
+      it('MOSTLY × MUST → 0.7', () => {
         const a = make({ earphoneExpectation: 'MUST', earphoneUsage: 'ALWAYS' });
-        const b = make({ earphoneUsage: 'STUDY', earphoneExpectation: 'ANY' });
-        // a: MUST vs STUDY → 0.5
+        const b = make({ earphoneUsage: 'MOSTLY', earphoneExpectation: 'ANY' });
+        // a: MUST vs MOSTLY → 0.7
         // b: ANY vs ALWAYS → 1.0
-        // a: (0.5×3)/3 × 100 = 50
-        expect(calcMatchScore(a, b)).toBe(50);
+        // a: (0.7×3)/3 × 100 = 70
+        expect(calcMatchScore(a, b)).toBe(70);
       });
 
-      it('QUIET × STUDY → 0.3', () => {
+      it('MOSTLY_SPEAKER × STUDY → 0.7', () => {
         const a = make({ earphoneExpectation: 'STUDY', earphoneUsage: 'ALWAYS' });
-        const b = make({ earphoneUsage: 'QUIET', earphoneExpectation: 'ANY' });
-        // a: STUDY vs QUIET → 0.3
-        expect(calcMatchScore(a, b)).toBe(30);
+        const b = make({ earphoneUsage: 'MOSTLY_SPEAKER', earphoneExpectation: 'ANY' });
+        // a: STUDY vs MOSTLY_SPEAKER → 0.7
+        expect(calcMatchScore(a, b)).toBe(70);
       });
 
-      it('FREE × MUST → 0.0', () => {
+      it('ALWAYS_SPEAKER × MUST → 0.0', () => {
         const a = make({ earphoneExpectation: 'MUST', earphoneUsage: 'ALWAYS' });
-        const b = make({ earphoneUsage: 'FREE', earphoneExpectation: 'ANY' });
+        const b = make({ earphoneUsage: 'ALWAYS_SPEAKER', earphoneExpectation: 'ANY' });
         expect(calcMatchScore(a, b)).toBe(0);
       });
 
-      it('QUIET × MUST → 0.0', () => {
+      it('MOSTLY_SPEAKER × MUST → 0.0', () => {
         const a = make({ earphoneExpectation: 'MUST', earphoneUsage: 'ALWAYS' });
-        const b = make({ earphoneUsage: 'QUIET', earphoneExpectation: 'ANY' });
+        const b = make({ earphoneUsage: 'MOSTLY_SPEAKER', earphoneExpectation: 'ANY' });
         expect(calcMatchScore(a, b)).toBe(0);
       });
 
@@ -269,24 +285,31 @@ describe('calcMatchScore', () => {
         const b = make({ earphoneUsage: 'ALWAYS', earphoneExpectation: 'MUST' });
         expect(calcMatchScore(a, b)).toBe(100);
       });
+
+      it('ALWAYS_SPEAKER × STUDY → 0.3', () => {
+        const a = make({ earphoneExpectation: 'STUDY', earphoneUsage: 'ALWAYS' });
+        const b = make({ earphoneUsage: 'ALWAYS_SPEAKER', earphoneExpectation: 'ANY' });
+        // a: STUDY vs ALWAYS_SPEAKER → 0.3
+        expect(calcMatchScore(a, b)).toBe(30);
+      });
     });
 
     describe('Pair 6: sleepEnvironment × sleepEnvPreference (T2=3)', () => {
-      it('EARPHONE × QUIET_ONLY → 0.0', () => {
-        const a = make({ sleepEnvPreference: 'QUIET_ONLY', sleepEnvironment: 'QUIET' });
-        const b = make({ sleepEnvironment: 'EARPHONE', sleepEnvPreference: 'LOW_SPEAKER_OK' });
+      it('LOW_SPEAKER × NO_SPEAKER → 0.0', () => {
+        const a = make({ sleepEnvPreference: 'NO_SPEAKER', sleepEnvironment: 'QUIET' });
+        const b = make({ sleepEnvironment: 'LOW_SPEAKER', sleepEnvPreference: 'SPEAKER_OK' });
         expect(calcMatchScore(a, b)).toBe(0);
       });
 
-      it('LOW_SPEAKER × EARPHONE_OK → 0.0', () => {
-        const a = make({ sleepEnvPreference: 'EARPHONE_OK', sleepEnvironment: 'QUIET' });
-        const b = make({ sleepEnvironment: 'LOW_SPEAKER', sleepEnvPreference: 'LOW_SPEAKER_OK' });
-        expect(calcMatchScore(a, b)).toBe(0);
+      it('QUIET × NO_SPEAKER → 1.0', () => {
+        const a = make({ sleepEnvPreference: 'NO_SPEAKER', sleepEnvironment: 'QUIET' });
+        const b = make({ sleepEnvironment: 'QUIET', sleepEnvPreference: 'NO_SPEAKER' });
+        expect(calcMatchScore(a, b)).toBe(100);
       });
 
-      it('QUIET × QUIET_ONLY → 1.0', () => {
-        const a = make({ sleepEnvPreference: 'QUIET_ONLY', sleepEnvironment: 'QUIET' });
-        const b = make({ sleepEnvironment: 'QUIET', sleepEnvPreference: 'QUIET_ONLY' });
+      it('LOW_SPEAKER × SPEAKER_OK → 1.0', () => {
+        const a = make({ sleepEnvPreference: 'SPEAKER_OK', sleepEnvironment: 'LOW_SPEAKER' });
+        const b = make({ sleepEnvironment: 'LOW_SPEAKER', sleepEnvPreference: 'SPEAKER_OK' });
         expect(calcMatchScore(a, b)).toBe(100);
       });
     });
@@ -401,21 +424,38 @@ describe('calcMatchScore', () => {
       });
     });
 
-    describe('Pair 11: indoorEating (T4=1, 일치)', () => {
-      it('같으면 1.0', () => {
-        const a = make({ indoorEating: 'NO' });
-        const b = make({ indoorEating: 'NO' });
+    describe('Pair 7b: indoorEating × indoorEatingTolerance (T3=2)', () => {
+      it('RARELY × NO_SMELL → 1.0', () => {
+        const a = make({ indoorEatingTolerance: 'NO_SMELL', indoorEating: 'RARELY' });
+        const b = make({ indoorEating: 'RARELY', indoorEatingTolerance: 'NO_SMELL' });
         expect(calcMatchScore(a, b)).toBe(100);
       });
 
-      it('다르면 0.0', () => {
-        const a = make({ indoorEating: 'NO' });
-        const b = make({ indoorEating: 'OK' });
+      it('MEAL × NO_SMELL → 0.0', () => {
+        const a = make({ indoorEatingTolerance: 'NO_SMELL', indoorEating: 'RARELY' });
+        const b = make({ indoorEating: 'MEAL', indoorEatingTolerance: 'ANY' });
+        // a: NO_SMELL vs MEAL → 0.0
         expect(calcMatchScore(a, b)).toBe(0);
+      });
+
+      it('MEAL × CLEAN_OK → 0.5', () => {
+        const a = make({ indoorEatingTolerance: 'CLEAN_OK', indoorEating: 'RARELY' });
+        const b = make({ indoorEating: 'MEAL', indoorEatingTolerance: 'ANY' });
+        // a: CLEAN_OK vs MEAL → 0.5
+        // b: ANY vs RARELY → 1.0
+        // a: (0.5×2)/2 × 100 = 50
+        expect(calcMatchScore(a, b)).toBe(50);
+      });
+
+      it('SNACK × NO_SMELL → 1.0', () => {
+        const a = make({ indoorEatingTolerance: 'NO_SMELL', indoorEating: 'RARELY' });
+        const b = make({ indoorEating: 'SNACK', indoorEatingTolerance: 'ANY' });
+        // a: NO_SMELL vs SNACK → 1.0
+        expect(calcMatchScore(a, b)).toBe(100);
       });
     });
 
-    describe('Pair 12: relationshipStyle (T4=1, 일치)', () => {
+    describe('Pair 11: relationshipStyle (T4=1, 일치)', () => {
       it('같으면 1.0', () => {
         const a = make({ relationshipStyle: 'CLOSE' });
         const b = make({ relationshipStyle: 'CLOSE' });
@@ -510,7 +550,7 @@ describe('calcMatchScore', () => {
   // AC-B2: FLEXIBLE 제외 후 나머지 만점 → 100점
   // =========================================================
   describe('AC-B2: FLEXIBLE 제외 후 나머지 만점', () => {
-    it('wakeTime FLEXIBLE, 나머지 11쌍 만점 → dynamicMax=30, 100점', () => {
+    it('wakeTime FLEXIBLE, 나머지 12쌍 만점 → dynamicMax=34, 100점', () => {
       const base: LifestyleData = {
         ...FULL_PERFECT_A,
         wakeTime: 'FLEXIBLE',
@@ -519,9 +559,9 @@ describe('calcMatchScore', () => {
         ...FULL_PERFECT_B,
         wakeTime: 'FLEXIBLE',
       };
-      // wakeTime pair excluded: dynamicMax = 31 - 1 = 30
-      // All 11 remaining pairs score 1.0
-      // (32/32) × 100 = 100
+      // wakeTime pair excluded: dynamicMax = 35 - 1 = 34
+      // All 12 remaining pairs score 1.0
+      // (34/34) × 100 = 100
       expect(calcMatchScore(base, other)).toBe(100);
     });
   });
@@ -606,9 +646,9 @@ describe('calcMatchScore', () => {
       expect(calcMatchScore(a, b)).toBe(100);
     });
 
-    it('일치 비교: 한쪽 indoorEating null → 쌍 제외', () => {
-      const a = make({ indoorEating: null });
-      const b = make({ indoorEating: 'NO' });
+    it('교차 비교: 한쪽 indoorEatingTolerance null → 쌍 제외', () => {
+      const a = make({ indoorEatingTolerance: null, indoorEating: 'RARELY' });
+      const b = make({ indoorEating: 'MEAL', indoorEatingTolerance: null });
       expect(calcMatchScore(a, b)).toBe(100);
     });
   });
@@ -642,16 +682,17 @@ describe('calcMatchScore', () => {
       expect(calcMatchScore(a, b)).toBe(29);
     });
 
-    it('전체 12쌍 참여, 다양한 점수 조합', () => {
+    it('전체 13쌍 참여, 다양한 점수 조합', () => {
       const a: LifestyleData = {
         bedtime: '22_24',
         wakeTime: '07_08',
         sleepHabit: 'NONE',
         sleepEnvironment: 'QUIET',
+        screenUsage: 'NONE',
         noiseSensitivity: 'SENSITIVE',
         smokingBehavior: 'NO',
-        indoorEating: 'NO',
-        phoneBehavior: 'OUTSIDE',
+        indoorEating: 'RARELY',
+        phoneBehavior: 'RARELY',
         earphoneUsage: 'ALWAYS',
         cleanLevel: 'WEEKLY_3_UP',
         drinkingFrequency: 'NONE',
@@ -660,68 +701,76 @@ describe('calcMatchScore', () => {
         smokingTolerance: 'NO_ONLY',
         phoneTolerance: 'OUTSIDE_ONLY',
         earphoneExpectation: 'MUST',
-        sleepEnvPreference: 'QUIET_ONLY',
+        sleepEnvPreference: 'NO_SPEAKER',
+        screenTolerance: 'SCREEN_OK',
+        indoorEatingTolerance: 'NO_SMELL',
         cleanExpectation: 'STRICT',
-        drinkingTolerance: 'NONE_ONLY',
+        drinkingTolerance: 'LOW_ONLY',
       };
 
       const b: LifestyleData = {
         bedtime: '24_02', // distance 1 from 22_24 → 0.667
         wakeTime: '08_09', // distance 1 from 07_08 → 0.75
         sleepHabit: 'TALKING', // SENSITIVE vs TALKING → 0.3
-        sleepEnvironment: 'QUIET', // QUIET_ONLY vs QUIET → 1.0
+        sleepEnvironment: 'QUIET', // NO_SPEAKER vs QUIET → 1.0
+        screenUsage: 'NONE', // SCREEN_OK vs NONE → 1.0
         noiseSensitivity: 'DEEP',
         smokingBehavior: 'NO', // NO_ONLY vs NO → 1.0
-        indoorEating: 'OK', // NO vs OK → 0.0
-        phoneBehavior: 'BRIEF', // OUTSIDE_ONLY vs BRIEF → 0.3
-        earphoneUsage: 'STUDY', // MUST vs STUDY → 0.5
+        indoorEating: 'MEAL', // NO_SMELL vs MEAL → 0.0
+        phoneBehavior: 'SOMETIMES', // OUTSIDE_ONLY vs SOMETIMES → 0.0
+        earphoneUsage: 'MOSTLY', // MUST vs MOSTLY → 0.7
         cleanLevel: 'WEEKLY_1_2', // STRICT vs WEEKLY_1_2 → 0.3
-        drinkingFrequency: 'NONE', // NONE_ONLY vs NONE → 1.0
+        drinkingFrequency: 'NONE', // LOW_ONLY vs NONE → 1.0
         relationshipStyle: 'CASUAL', // CLOSE vs CASUAL → 0.0
         temperatureSensitivity: 'NORMAL', // distance 1 → 0.5
         smokingTolerance: 'ANY',
         phoneTolerance: 'ANY',
         earphoneExpectation: 'ANY',
-        sleepEnvPreference: 'LOW_SPEAKER_OK',
+        sleepEnvPreference: 'SPEAKER_OK',
+        screenTolerance: 'NO_SCREEN',
+        indoorEatingTolerance: 'ANY',
         cleanExpectation: 'FLEXIBLE',
         drinkingTolerance: 'ANY',
       };
 
       // a evaluates b (a is evaluator):
       // Pair 1: smokingTol=NO_ONLY vs smokingBeh=NO → 1.0 × 5 = 5
-      // Pair 2: drinkingTol=NONE_ONLY vs drinkingFreq=NONE → 1.0 × 2 = 2
+      // Pair 2: drinkingTol=LOW_ONLY vs drinkingFreq=NONE → 1.0 × 2 = 2
       // Pair 3: noiseSens=SENSITIVE vs sleepHabit=TALKING → 0.3 × 5 = 1.5
-      // Pair 4: phoneTol=OUTSIDE_ONLY vs phoneBeh=BRIEF → 0.3 × 3 = 0.9
-      // Pair 5: earphoneExp=MUST vs earphoneUse=STUDY → 0.5 × 3 = 1.5
-      // Pair 6: sleepEnvPref=QUIET_ONLY vs sleepEnv=QUIET → 1.0 × 3 = 3
+      // Pair 4: phoneTol=OUTSIDE_ONLY vs phoneBeh=SOMETIMES → 0.0 × 3 = 0
+      // Pair 5: earphoneExp=MUST vs earphoneUse=MOSTLY → 0.7 × 3 = 2.1
+      // Pair 6: sleepEnvPref=NO_SPEAKER vs sleepEnv=QUIET → 1.0 × 3 = 3
+      // Pair 6b: screenTol=SCREEN_OK vs screenUsage=NONE → 1.0 × 3 = 3
       // Pair 7: cleanExp=STRICT vs cleanLvl=WEEKLY_1_2 → 0.3 × 2 = 0.6
+      // Pair 7b: indoorEatingTol=NO_SMELL vs indoorEating=MEAL → 0.0 × 2 = 0
       // Pair 8: bedtime 22_24(1) vs 24_02(2) → 1.0-1/3=0.667 × 2 = 1.333
       // Pair 9: wakeTime 07_08(1) vs 08_09(2) → 1.0-1/4=0.75 × 1 = 0.75
       // Pair 10: temp COLD(0) vs NORMAL(1) → 1.0-1/2=0.5 × 3 = 1.5
-      // Pair 11: indoorEating NO vs OK → 0.0 × 1 = 0
-      // Pair 12: relationship CLOSE vs CASUAL → 0.0 × 1 = 0
-      // weightedSum = 5+2+1.5+0.9+1.5+3+0.6+1.333+0.75+1.5+0+0 = 18.083
-      // dynamicMax = 31
-      // aPerspective = round(18.083/31 × 100) = round(58.33) = 58
+      // Pair 11: relationship CLOSE vs CASUAL → 0.0 × 1 = 0
+      // weightedSum = 5+2+1.5+0+2.1+3+3+0.6+0+1.333+0.75+1.5+0 = 20.783
+      // dynamicMax = 35
+      // aPerspective = round(20.783/35 × 100) = round(59.38) = 59
 
       // b evaluates a (b is evaluator):
       // Pair 1: smokingTol=ANY vs smokingBeh=NO → 1.0 × 5 = 5
       // Pair 2: drinkingTol=ANY vs drinkingFreq=NONE → 1.0 × 2 = 2
       // Pair 3: noiseSens=DEEP vs sleepHabit=NONE → 1.0 × 5 = 5
-      // Pair 4: phoneTol=ANY vs phoneBeh=OUTSIDE → 1.0 × 3 = 3
+      // Pair 4: phoneTol=ANY vs phoneBeh=RARELY → 1.0 × 3 = 3
       // Pair 5: earphoneExp=ANY vs earphoneUse=ALWAYS → 1.0 × 3 = 3
-      // Pair 6: sleepEnvPref=LOW_SPEAKER_OK vs sleepEnv=QUIET → 1.0 × 3 = 3
+      // Pair 6: sleepEnvPref=SPEAKER_OK vs sleepEnv=QUIET → 1.0 × 3 = 3
+      // Pair 6b: screenTol=NO_SCREEN vs screenUsage=NONE → 1.0 × 3 = 3
       // Pair 7: cleanExp=FLEXIBLE vs cleanLvl=WEEKLY_3_UP → 1.0 × 2 = 2
+      // Pair 7b: indoorEatingTol=ANY vs indoorEating=RARELY → 1.0 × 2 = 2
       // Pair 8: bedtime 24_02(2) vs 22_24(1) → 0.667 × 2 = 1.333
       // Pair 9: wakeTime 08_09(2) vs 07_08(1) → 0.75 × 1 = 0.75
       // Pair 10: temp NORMAL(1) vs COLD(0) → 0.5 × 3 = 1.5
-      // Pair 11: indoorEating OK vs NO → 0.0 × 1 = 0
-      // Pair 12: relationship CASUAL vs CLOSE → 0.0 × 1 = 0
-      // weightedSum = 5+2+5+3+3+3+2+1.333+0.75+1.5+0+0 = 26.583
-      // bPerspective = round(26.583/31 × 100) = round(85.75) = 86
+      // Pair 11: relationship CASUAL vs CLOSE → 0.0 × 1 = 0
+      // weightedSum = 5+2+5+3+3+3+3+2+2+1.333+0.75+1.5+0 = 31.583
+      // dynamicMax = 35
+      // bPerspective = round(31.583/35 × 100) = round(90.24) = 90
 
-      // min(58, 86) = 58
-      expect(calcMatchScore(a, b)).toBe(58);
+      // min(59, 90) = 59
+      expect(calcMatchScore(a, b)).toBe(59);
     });
   });
 });

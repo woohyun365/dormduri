@@ -14,6 +14,7 @@ const emptyLifestyle: LifestyleData = {
   wakeTime: null,
   sleepHabit: null,
   sleepEnvironment: null,
+  screenUsage: null,
   noiseSensitivity: null,
   smokingBehavior: null,
   indoorEating: null,
@@ -27,6 +28,8 @@ const emptyLifestyle: LifestyleData = {
   phoneTolerance: null,
   earphoneExpectation: null,
   sleepEnvPreference: null,
+  screenTolerance: null,
+  indoorEatingTolerance: null,
   cleanExpectation: null,
   drinkingTolerance: null,
 };
@@ -35,7 +38,9 @@ const filledConditions: Partial<LifestyleData> = {
   smokingTolerance: 'NO_ONLY',
   phoneTolerance: 'BRIEF_OK',
   earphoneExpectation: 'ANY',
-  sleepEnvPreference: 'QUIET_ONLY',
+  sleepEnvPreference: 'NO_SPEAKER',
+  screenTolerance: 'SCREEN_OK',
+  indoorEatingTolerance: 'CLEAN_OK',
   cleanExpectation: 'BASIC',
   drinkingTolerance: 'ANY',
 };
@@ -61,7 +66,7 @@ describe('StepRoommateConditions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '완료' }));
 
-    expect(screen.getByText('상대 흡연 허용을 선택해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('음주 허용을 선택해주세요.')).toBeInTheDocument();
     expect(onNext).not.toHaveBeenCalled();
   });
 
@@ -102,6 +107,43 @@ describe('StepRoommateConditions', () => {
     fireEvent.click(screen.getByRole('button', { name: '완료' }));
 
     expect(onNext).toHaveBeenCalled();
+  });
+
+  it('drinkingTolerance + 자기소개만 입력하면 선택 조건 7개가 null이어도 onNext가 호출된다', () => {
+    const onNext = vi.fn();
+
+    render(
+      <StepRoommateConditions
+        lifestyle={{ ...emptyLifestyle, drinkingTolerance: 'ANY' }}
+        onUpdate={vi.fn()}
+        intro="테스트 소개입니다."
+        onIntroChange={vi.fn()}
+        onNext={onNext}
+        onBack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '완료' }));
+
+    expect(onNext).toHaveBeenCalled();
+  });
+
+  it('info 카드와 warning 카드가 렌더링된다', () => {
+    render(
+      <StepRoommateConditions
+        lifestyle={emptyLifestyle}
+        onUpdate={vi.fn()}
+        intro=""
+        onIntroChange={vi.fn()}
+        onNext={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('룸메 조건은 나중에 설정해도 돼요')).toBeInTheDocument();
+    expect(
+      screen.getByText(/조건을 모두 입력하면 매칭도와 호환성 분석이 활성화돼요/),
+    ).toBeInTheDocument();
   });
 
   it('자기소개 글자 수가 표시된다', () => {

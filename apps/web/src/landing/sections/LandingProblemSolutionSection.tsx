@@ -15,7 +15,7 @@ export function LandingProblemSolutionSection() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
         {problemCards.map((card) => (
           <FeatureCard
             key={card.title}
@@ -33,7 +33,7 @@ export function LandingProblemSolutionSection() {
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {solutionCards.map((card) => (
           <FeatureCard
             key={card.title}

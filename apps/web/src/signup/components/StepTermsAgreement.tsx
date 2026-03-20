@@ -117,7 +117,7 @@ export function StepTermsAgreement({
 
         <FieldError message={error} />
 
-        <p className="text-xs text-[var(--knu-text-tertiary)] mt-2">
+        <p className="text-xs text-[var(--knu-text-tertiary)] mt-2 keep-all">
           본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다. 약관의 운영 주체는
           강원대학교가 아닌 서비스 운영자 개인입니다.
         </p>
