@@ -109,6 +109,43 @@ describe('StepRoommateConditions', () => {
     expect(onNext).toHaveBeenCalled();
   });
 
+  it('drinkingTolerance + 자기소개만 입력하면 선택 조건 7개가 null이어도 onNext가 호출된다', () => {
+    const onNext = vi.fn();
+
+    render(
+      <StepRoommateConditions
+        lifestyle={{ ...emptyLifestyle, drinkingTolerance: 'ANY' }}
+        onUpdate={vi.fn()}
+        intro="테스트 소개입니다."
+        onIntroChange={vi.fn()}
+        onNext={onNext}
+        onBack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '완료' }));
+
+    expect(onNext).toHaveBeenCalled();
+  });
+
+  it('info 카드와 warning 카드가 렌더링된다', () => {
+    render(
+      <StepRoommateConditions
+        lifestyle={emptyLifestyle}
+        onUpdate={vi.fn()}
+        intro=""
+        onIntroChange={vi.fn()}
+        onNext={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('룸메 조건은 나중에 설정해도 돼요')).toBeInTheDocument();
+    expect(
+      screen.getByText(/조건을 모두 입력하면 매칭도와 호환성 분석이 활성화돼요/),
+    ).toBeInTheDocument();
+  });
+
   it('자기소개 글자 수가 표시된다', () => {
     render(
       <StepRoommateConditions

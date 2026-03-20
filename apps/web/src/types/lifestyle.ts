@@ -24,7 +24,7 @@ export type RelationshipStyle = 'CLOSE' | 'CASUAL';
 // 특성 (1개)
 export type TemperatureSensitivity = 'COLD' | 'NORMAL' | 'HOT';
 
-// === 원하는 룸메 조건 (필수 8개) ===
+// === 원하는 룸메 조건 (8개: 선택 7 + 필수 1) ===
 
 export type SmokingTolerance = 'NO_ONLY' | 'E_CIG_OK' | 'ANY';
 export type PhoneTolerance = 'OUTSIDE_ONLY' | 'BRIEF_OK' | 'ANY';

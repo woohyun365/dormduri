@@ -15,7 +15,7 @@ type ConditionField = (typeof CONDITION_FIELDS)[number];
 
 interface StepRoommateConditionsProps {
   lifestyle: LifestyleData;
-  onUpdate: (field: keyof LifestyleData, value: string) => void;
+  onUpdate: (field: keyof LifestyleData, value: string | null) => void;
   onNext: () => void;
   onBack: () => void;
   intro: string;
@@ -98,7 +98,7 @@ export function StepRoommateConditions({
   };
 
   const handleChange = (field: ConditionField, value: string | null) => {
-    onUpdate(field, value as string);
+    onUpdate(field, value);
     setErrors((prev) => {
       const next = { ...prev };
       delete next[field];
@@ -114,9 +114,20 @@ export function StepRoommateConditions({
         description="나는 이런 룸메가 좋아요"
       />
 
-      <p className="text-xs text-[var(--knu-text-secondary)] keep-all">
-        지금 선택하지 않아도 괜찮아요. 나중에 설정하면 매칭도와 호환성 분석을 볼 수 있어요.
-      </p>
+      <div className="space-y-2">
+        <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4 keep-all">
+          <p className="text-sm text-blue-900">
+            <strong>룸메 조건은 나중에 설정해도 돼요</strong>
+            <br />
+            프로필에서 언제든 수정할 수 있으니 부담 갖지 말고 편하게 입력해보세요!
+          </p>
+        </div>
+        <div className="bg-amber-50 border-2 border-amber-100 rounded-xl p-4 keep-all">
+          <p className="text-sm text-amber-900">
+            <strong>🔓 조건을 모두 입력하면 매칭도와 호환성 분석이 활성화돼요.</strong>
+          </p>
+        </div>
+      </div>
 
       <div className="space-y-8">
         {CONDITION_FIELDS.map((field) => {
@@ -165,12 +176,6 @@ export function StepRoommateConditions({
             {intro.length}/{INTRO_MAX_LENGTH}
           </span>
         </div>
-      </div>
-
-      <div className="bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
-        <p className="text-sm text-blue-900">
-          <strong>프로필 정보는 나중에 수정할 수 있어요</strong>
-        </p>
       </div>
 
       <StepNavigation
