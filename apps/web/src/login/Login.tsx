@@ -203,27 +203,20 @@ export default function Login() {
 
         {/* Additional Links */}
         <div className="mt-12 pt-8 border-t border-[var(--knu-border)] text-center">
-          <div className="flex justify-center gap-6 text-sm">
+          <div className="flex justify-center items-center gap-6 text-sm">
             <Link
               href="/terms"
-              className="text-[var(--knu-text-tertiary)] hover:text-[var(--knu-primary)] transition-colors"
+              className="flex-1 text-right text-[var(--knu-text-tertiary)] hover:text-[var(--knu-primary)] transition-colors"
             >
               이용약관
             </Link>
             <span className="text-[var(--knu-text-tertiary)]">|</span>
             <Link
               href="/privacy"
-              className="text-[var(--knu-text-tertiary)] hover:text-[var(--knu-primary)] transition-colors"
+              className="flex-1 text-left text-[var(--knu-text-tertiary)] hover:text-[var(--knu-primary)] transition-colors"
             >
               개인정보처리방침
             </Link>
-            <span className="text-[var(--knu-text-tertiary)]">|</span>
-            <a
-              href="mailto:woohyun365@gmail.com"
-              className="text-[var(--knu-text-tertiary)] hover:text-[var(--knu-primary)] transition-colors"
-            >
-              문의하기
-            </a>
           </div>
         </div>
       </div>
