@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Button } from '@/components/Button';
 import { CheckCircle } from 'lucide-react';
 
@@ -7,6 +8,10 @@ interface StepCompleteProps {
 }
 
 export function StepComplete({ nickname, onGoToHome }: StepCompleteProps) {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
     <div className="text-center space-y-6 py-8">
       <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
