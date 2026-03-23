@@ -21,6 +21,7 @@ const STORAGE_KEYS = {
 
 // 인증 코드는 세션 내에서만 유효하므로 인메모리 유지
 const verificationCodes: Map<string, string> = new Map();
+let lastIssuedCode: { email: string; code: string } | null = null;
 
 type LoginAttemptsMap = Record<string, { failureCount: number; lockedUntil: number | null }>;
 
@@ -60,12 +61,17 @@ export const mockDb = {
   issueCode(email: string): string {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     verificationCodes.set(email, code);
+    lastIssuedCode = { email, code };
     console.log(`[MockDB] 인증 코드: ${email} → ${code}`);
     return code;
   },
 
   verifyCode(email: string, code: string): boolean {
     return verificationCodes.get(email) === code;
+  },
+
+  getLastCode(): { email: string; code: string } | null {
+    return lastIssuedCode;
   },
 
   createUser(data: MockUser): void {
