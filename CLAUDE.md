@@ -281,6 +281,7 @@ docs/
 
 > 목표: 관리자 도구 구축 + 로그 인프라 구축 + 운영 대시보드. Sprint 7 BE 완료 전제.
 > 계획 문서: `docs/03_planning/sprint-8/issue-plan.md`
+> 백오피스 인프라: 별도 앱 `apps/admin/` + 도메인 분리 `admin.knu-roommate.com` (#176 Q7-a 확정)
 > Tier 1 (7건) + Tier 2 (5건) + Tier 3 (2건). 확장은 Sprint 9+.
 
 #### Tier 1 (핵심)
