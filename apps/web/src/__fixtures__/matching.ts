@@ -3,6 +3,7 @@ import type { MatchRequest, ActiveMatch } from '@/types/match';
 // ── mock 데이터 ────────────────────────────────────────────────────
 // 정적 타임스탬프: SSR 안전 + 시간 경과에 무관하게 동작
 // PENDING → 먼 미래(2099), REJECTED/EXPIRED → 먼 과거(2020)
+// 매칭 요청 만료: 5일(120시간) — matching-lifecycle.md:93
 
 /** 실제 로그인 사용자 ID를 주입하여 mock 요청 목록을 생성한다. */
 export function createMockRequests(currentUserId: string): MatchRequest[] {
