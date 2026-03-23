@@ -7,19 +7,26 @@ import { Chip } from '@/components/Chip';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { getAvailableDormitories, UNASSIGNED_ID } from '@/constants/dormitory';
+import type { Campus } from '@/types/profile';
 
 interface BuildingSelectModalProps {
+  campus: Campus;
   gender: 'M' | 'F';
   onSelect: (dormitoryId: string) => void;
   onClose?: () => void;
 }
 
-export function BuildingSelectModal({ gender, onSelect, onClose }: BuildingSelectModalProps) {
+export function BuildingSelectModal({
+  campus,
+  gender,
+  onSelect,
+  onClose,
+}: BuildingSelectModalProps) {
   useBodyScrollLock(true);
   const containerRef = useFocusTrap(true, onClose ?? (() => {}));
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const dormitories = getAvailableDormitories(gender);
+  const dormitories = getAvailableDormitories(campus, gender);
 
   const handleConfirm = () => {
     if (selectedId) {

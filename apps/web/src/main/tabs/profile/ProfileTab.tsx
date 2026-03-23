@@ -47,6 +47,7 @@ export default function ProfileTab({
     id: 'self',
     nickname: user.nickname,
     gender: user.gender,
+    campus: user.campus,
     dormitoryId: user.dormitoryId,
     lifestyle: user.lifestyle,
     intro: user.intro,
@@ -64,6 +65,7 @@ export default function ProfileTab({
     <div>
       {showBuildingModal && (
         <BuildingSelectModal
+          campus={user.campus}
           gender={user.gender}
           onSelect={(id) => {
             onDormitoryChange(id);

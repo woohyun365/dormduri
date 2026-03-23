@@ -78,6 +78,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
       {(profileState.user.dormitoryId === null || profileState.showBuildingSelect) && (
         <BuildingSelectModal
+          campus={profileState.user.campus}
           gender={profileState.user.gender}
           onSelect={(dormitoryId) => {
             profileState.handleSelectDormitory(dormitoryId);

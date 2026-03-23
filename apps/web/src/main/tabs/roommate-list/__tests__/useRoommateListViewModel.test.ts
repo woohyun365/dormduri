@@ -86,6 +86,7 @@ function makeProfile(
   return {
     nickname: overrides.id,
     gender: 'M',
+    campus: 'CHUNCHEON' as const,
     dormitoryId: 'dasan',
     lifestyle: { ...baseLifestyle },
     intro: '',

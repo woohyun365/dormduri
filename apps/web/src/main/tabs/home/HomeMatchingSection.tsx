@@ -95,6 +95,7 @@ export const HomeMatchingSection = forwardRef<HTMLDivElement, HomeMatchingSectio
         id: partnerId,
         nickname: partnerId,
         gender: 'M' as const,
+        campus: 'CHUNCHEON' as const,
         dormitoryId: null,
         lifestyle: {} as RoommateProfile['lifestyle'],
         intro: '',
