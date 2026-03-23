@@ -137,6 +137,37 @@ describe('getChecklistItems', () => {
     expect(items[1]).toMatchObject({ id: 'lifestyle', completed: false });
   });
 
+  it('선택 조건 7개가 null이어도 필수 15필드 완료 시 생활패턴 완료', () => {
+    const lifestyle: LifestyleData = {
+      bedtime: '22_24',
+      wakeTime: '07_08',
+      sleepHabit: 'NONE',
+      sleepEnvironment: 'QUIET',
+      screenUsage: 'NONE',
+      noiseSensitivity: 'NORMAL',
+      smokingBehavior: 'NO',
+      indoorEating: 'SNACK',
+      phoneBehavior: 'SOMETIMES',
+      earphoneUsage: 'MOSTLY',
+      cleanLevel: 'WEEKLY_1_2',
+      drinkingFrequency: 'SOMETIMES',
+      relationshipStyle: 'CASUAL',
+      temperatureSensitivity: 'NORMAL',
+      smokingTolerance: null,
+      phoneTolerance: null,
+      earphoneExpectation: null,
+      sleepEnvPreference: null,
+      screenTolerance: null,
+      indoorEatingTolerance: null,
+      cleanExpectation: null,
+      drinkingTolerance: 'LOW_ONLY',
+    };
+    const user = createUser({ lifestyle });
+    const items = getChecklistItems(user, new Set());
+
+    expect(items[1]).toMatchObject({ id: 'lifestyle', completed: true });
+  });
+
   it('자기소개가 입력되면 자기소개 항목이 완료된다', () => {
     const user = createUser({ intro: '안녕하세요' });
     const items = getChecklistItems(user, new Set());

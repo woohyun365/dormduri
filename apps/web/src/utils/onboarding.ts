@@ -1,4 +1,5 @@
 import { isDormitoryAssigned } from '@/utils/dormitory';
+import { isLifestyleRequiredComplete } from '@/utils/lifestyle';
 import type { UserProfile } from '@/types/profile';
 
 export type ChecklistNavigateTo = 'building' | 'profile' | 'list';
@@ -24,7 +25,7 @@ export function getChecklistItems(
     {
       id: 'lifestyle',
       label: '생활패턴 입력하기',
-      completed: Object.values(user.lifestyle).every((v) => v !== null),
+      completed: isLifestyleRequiredComplete(user.lifestyle),
       navigateTo: 'profile',
     },
     {
