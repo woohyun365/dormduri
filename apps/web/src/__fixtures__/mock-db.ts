@@ -1,6 +1,14 @@
 import type { LifestyleData } from '@/types/lifestyle';
 import type { Campus } from '@/types/profile';
 
+/** crypto.randomUUID() 폴백 (HTTP+IP 환경에서 Secure Context 미충족 시) */
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 export interface MockUser {
   id: string;
   email: string;
@@ -52,7 +60,7 @@ function writeJson<T>(key: string, value: T): void {
 function patchLegacyUser(user: MockUser): MockUser {
   return {
     ...user,
-    id: user.id || crypto.randomUUID(),
+    id: user.id || generateId(),
     campus: user.campus || 'CHUNCHEON',
   };
 }

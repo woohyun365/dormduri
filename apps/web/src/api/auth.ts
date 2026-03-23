@@ -120,7 +120,10 @@ export const authApi = {
       }
       const newUser = {
         ...data,
-        id: crypto.randomUUID(),
+        id:
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         nickname: data.nickname.trim(),
         dormitoryId: null,
       };
