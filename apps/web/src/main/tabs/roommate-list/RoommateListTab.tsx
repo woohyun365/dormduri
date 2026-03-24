@@ -33,6 +33,7 @@ interface RoommateListTabProps {
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
   matchRequests?: MatchRequest[];
   activeMatch?: ActiveMatch | null;
+  isSeasonActive: boolean;
   onSendRequest?: (targetUserId: string, message?: string | null) => void;
   bookmarkedUserIds?: Set<string>;
   onToggleBookmark?: (userId: string) => void;
@@ -59,6 +60,7 @@ export default function RoommateListTab({
   onReport,
   matchRequests = [],
   activeMatch = null,
+  isSeasonActive,
   onSendRequest,
   bookmarkedUserIds,
   onToggleBookmark,
@@ -88,6 +90,7 @@ export default function RoommateListTab({
     bookmarkedUserIds,
     matchRequests,
     activeMatch,
+    isSeasonActive,
   });
 
   const [showFilters, setShowFilters] = useState(false);

@@ -21,17 +21,6 @@ vi.mock('@/utils/matchScore', () => ({
   }),
 }));
 
-vi.mock('@/constants/season', () => ({
-  CURRENT_SEASON: {
-    name: 'test',
-    matchingStart: '2020-01-01',
-    matchingEnd: '2099-12-31',
-    roomSelectionStart: '2020-01-01',
-    roomSelectionEnd: '2099-12-31',
-  },
-  isSeasonActive: () => true,
-}));
-
 vi.mock('@/utils/matchRequest', () => ({
   getMatchButtonState: vi.fn(() => ({ type: 'REQUEST', label: '매칭 요청' })),
 }));
@@ -131,6 +120,7 @@ function setup(overrides: SetupParams = {}) {
       bookmarkedUserIds: overrides.bookmarkedUserIds,
       matchRequests: overrides.matchRequests ?? [],
       activeMatch: overrides.activeMatch ?? null,
+      isSeasonActive: true,
     }),
   );
 }

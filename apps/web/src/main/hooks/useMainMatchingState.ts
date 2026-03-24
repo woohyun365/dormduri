@@ -1,12 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
-import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { MATCH_POLICY } from '@/constants/match';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { calcMatchScore } from '@/utils/matchScore';
-import { mockRawProfiles } from '@/__fixtures__/profiles';
-import { createMockRequests, MOCK_ACTIVE_MATCH } from '@/__fixtures__/matching';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
-import type { UserProfile } from '@/types/profile';
+import type { RoommateProfile, UserProfile } from '@/types/profile';
 
 let idCounter = 0;
 
@@ -14,15 +11,13 @@ export function useMainMatchingState(
   showToast: (msg: string) => void,
   userLifestyle: UserProfile['lifestyle'],
   currentUserId: string,
+  seasonActive: boolean,
+  profiles: Omit<RoommateProfile, 'matchScore'>[],
+  initialRequests: MatchRequest[],
+  initialActiveMatch: ActiveMatch | null,
 ) {
-  const seasonActive = isSeasonActive(CURRENT_SEASON);
-
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(() =>
-    seasonActive ? createMockRequests(currentUserId) : [],
-  );
-  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(
-    seasonActive ? MOCK_ACTIVE_MATCH : null,
-  );
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(initialRequests);
+  const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(initialActiveMatch);
   const [showCelebration, setShowCelebration] = useState<{
     nickname: string;
     score: number;
@@ -66,7 +61,7 @@ export function useMainMatchingState(
       if (!request) return;
 
       const partnerId = request.fromUserId;
-      const partnerProfile = mockRawProfiles.find((p) => p.id === partnerId);
+      const partnerProfile = profiles.find((p) => p.id === partnerId);
 
       const match: ActiveMatch = {
         matchId: `match-${++idCounter}`,
@@ -92,7 +87,7 @@ export function useMainMatchingState(
         score: match.matchScore,
       });
     },
-    [matchRequests, userLifestyle],
+    [matchRequests, userLifestyle, profiles],
   );
 
   const handleRejectRequest = useCallback(
@@ -123,6 +118,7 @@ export function useMainMatchingState(
   );
 
   return {
+    seasonActive,
     matchRequests,
     activeMatch,
     showCelebration,

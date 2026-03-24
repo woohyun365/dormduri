@@ -36,6 +36,7 @@ export const profileApi = {
     if (mock) {
       return mock.mockRawProfiles.filter((p) => {
         if (p.campus !== campus) return false;
+        if (p.gender !== gender) return false;
         if (dormitoryId && p.dormitoryId !== dormitoryId) return false;
         return true;
       });
