@@ -10,6 +10,7 @@ import { RoommateListHeader } from './RoommateListHeader';
 import { RoommateListBannerGroup } from './RoommateListBannerGroup';
 import { RoommateListResults } from './RoommateListResults';
 import type { RoommateProfile } from '@/types/profile';
+import type { MatchScoreType } from '@/utils/matchScore';
 import type { FilterState } from '@/types/filter';
 import type { TabId, UserProfile } from '@/types/profile';
 import type { ReportReason } from '@/types/report';
@@ -94,7 +95,9 @@ export default function RoommateListTab({
   });
 
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<RoommateProfile | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<
+    (RoommateProfile & { scoreType?: MatchScoreType }) | null
+  >(null);
   const [displayCount, setDisplayCount] = useState(20);
   const [confirmTarget, setConfirmTarget] = useState<RoommateProfile | null>(null);
 
@@ -159,6 +162,7 @@ export default function RoommateListTab({
 
       <ProfileDetailSheet
         profile={selectedProfile}
+        scoreType={selectedProfile?.scoreType}
         isOpen={selectedProfile !== null}
         onClose={() => setSelectedProfile(null)}
         onRequestMatch={() => {
