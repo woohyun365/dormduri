@@ -123,7 +123,7 @@ export const HomeMatchingSection = forwardRef<HTMLDivElement, HomeMatchingSectio
         ...p,
         matchScore: calcMatchScore(user.lifestyle, p.lifestyle),
       };
-    }, [selectedRequest, profileMap, user.lifestyle]);
+    }, [selectedRequest, profileMap, user.id, user.lifestyle]);
 
     // Confirm dialog
     const [confirmAction, setConfirmAction] = useState<{
