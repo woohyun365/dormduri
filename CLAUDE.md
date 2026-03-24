@@ -4,8 +4,8 @@
 
 - **현재 Sprint**: 6 (Main FE 전체)
 - **범위**: 프론트엔드 + 백엔드. 인프라는 Sprint 10에서 구축.
-- **최근 완료**: Sprint 6 ISS-01 #176 FE↔BE 아키텍처 설계 (결정+문서화, close)
-- **다음 작업**: Sprint 6 ISS-02 #177 (Mock DB / fixture 리팩터링)
+- **최근 완료**: Sprint 6 ISS-02 #177 Mock DB / fixture 리팩터링 (서비스 레이어 + campus/시즌 + DevPanel, close)
+- **다음 작업**: Sprint 6 ISS-03 #178 (UI 게이팅 구현)
 
 ## Sprint 설정
 
