@@ -15,17 +15,72 @@ import { useMainSocialState } from './hooks/useMainSocialState';
 import { useMainMatchingState } from './hooks/useMainMatchingState';
 import { useMainListViewState } from './hooks/useMainListViewState';
 import { buildMainBuildingStats } from './utils/buildMainBuildingStats';
+import { profileApi } from '@/api/profile';
+import { seasonApi } from '@/api/season';
+import { matchingApi } from '@/api/matching';
 import { TOAST_DURATION } from '@/constants/ui';
-import { mockRawProfiles } from '@/__fixtures__/profiles';
-import type { TabId, UserProfile } from '@/types/profile';
+import type { Season } from '@/constants/season';
+import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
+import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export type { TabId, UserProfile } from '@/types/profile';
+
+/** 서비스 레이어에서 로드하는 데이터 */
+interface MainData {
+  profiles: Omit<RoommateProfile, 'matchScore'>[];
+  season: Season;
+  isSeasonActive: boolean;
+  initialRequests: MatchRequest[];
+  initialActiveMatch: ActiveMatch | null;
+}
 
 function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const [activeTab, setActiveTab] = useState<TabId>('home');
   const [toast, setToast] = useState<string | null>(null);
+  const [data, setData] = useState<MainData | null>(null);
 
   const showToast = useCallback((msg: string) => setToast(msg), []);
+
+  // --- 서비스 레이어 데이터 로딩 ---
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      const [profileResult, seasonResult, matchRequests, activeMatch] = await Promise.all([
+        profileApi.getProfiles(initialUser.campus, initialUser.gender),
+        seasonApi.getCurrentSeason(),
+        matchingApi.getMatchRequests(),
+        matchingApi.getActiveMatch(),
+      ]);
+
+      if (cancelled) return;
+
+      const season = seasonResult ?? {
+        season: {
+          name: '',
+          matchingStart: '',
+          matchingEnd: '',
+          roomSelectionStart: '',
+          roomSelectionEnd: '',
+        },
+        state: 'OFF_SEASON' as const,
+        isActive: false,
+      };
+
+      setData({
+        profiles: profileResult,
+        season: season.season,
+        isSeasonActive: season.isActive,
+        initialRequests: season.isActive ? matchRequests : [],
+        initialActiveMatch: season.isActive ? activeMatch : null,
+      });
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialUser.campus, initialUser.gender]);
 
   // --- Onboarding ---
   const {
@@ -52,14 +107,18 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     showToast,
     profileState.user.lifestyle,
     profileState.user.id,
+    data?.isSeasonActive ?? false,
+    data?.profiles ?? [],
+    data?.initialRequests ?? [],
+    data?.initialActiveMatch ?? null,
   );
 
   const listViewState = useMainListViewState();
 
   // --- Derived ---
   const buildingStats = useMemo(
-    () => buildMainBuildingStats(profileState.user, mockRawProfiles),
-    [profileState.user],
+    () => (data ? buildMainBuildingStats(profileState.user, data.profiles) : undefined),
+    [profileState.user, data],
   );
 
   // 탭 전환 시 스크롤 최상단으로 이동
@@ -74,10 +133,23 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     }
   }, [toast]);
 
+  // 데이터 로딩 중
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-[var(--knu-background-alt)] flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-3 border-[var(--knu-primary)] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-[var(--knu-text-secondary)]">데이터를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
       {(profileState.user.dormitoryId === null || profileState.showBuildingSelect) && (
         <BuildingSelectModal
+          campus={profileState.user.campus}
           gender={profileState.user.gender}
           onSelect={(dormitoryId) => {
             profileState.handleSelectDormitory(dormitoryId);
@@ -90,6 +162,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         {activeTab === 'home' && (
           <HomeTab
             user={profileState.user}
+            season={data.season}
+            isSeasonActive={data.isSeasonActive}
             onNavigate={setActiveTab}
             onShowGuide={profileState.handleShowGuide}
             matchRequests={matchingState.matchRequests}
@@ -98,7 +172,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
             onAcceptRequest={matchingState.handleAcceptRequest}
             onRejectRequest={matchingState.handleRejectRequest}
             onEndMatch={matchingState.handleEndMatch}
-            profiles={mockRawProfiles}
+            profiles={data.profiles}
             buildingStats={buildingStats}
             bookmarkedUserIds={socialState.bookmarkedUserIds}
             isChecklistDismissed={isChecklistDismissed}
@@ -111,7 +185,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           <RoommateListTab
             user={profileState.user}
             onNavigate={setActiveTab}
-            profiles={mockRawProfiles}
+            profiles={data.profiles}
             sortMode={listViewState.sortMode}
             onSortModeChange={listViewState.setSortMode}
             filters={listViewState.filters}
@@ -123,6 +197,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
             onReport={socialState.handleReportUser}
             matchRequests={matchingState.matchRequests}
             activeMatch={matchingState.activeMatch}
+            isSeasonActive={data.isSeasonActive}
             onSendRequest={matchingState.handleSendRequest}
             bookmarkedUserIds={socialState.bookmarkedUserIds}
             onToggleBookmark={socialState.handleToggleBookmark}

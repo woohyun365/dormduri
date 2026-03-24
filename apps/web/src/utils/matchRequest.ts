@@ -12,7 +12,7 @@ interface GetMatchButtonStateParams {
   isSeasonActive: boolean;
 }
 
-/** 48h 경과 여부 (fail-close: invalid/empty expiresAt → 만료 처리) */
+/** 5일(120시간) 경과 여부 (fail-close: invalid/empty expiresAt → 만료 처리) */
 export function isRequestExpired(request: MatchRequest): boolean {
   if (!request.expiresAt) return true;
   const date = new Date(request.expiresAt);

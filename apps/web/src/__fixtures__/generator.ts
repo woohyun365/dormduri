@@ -93,7 +93,7 @@ const SLEEP_HABIT_VALUES: LifestyleData['sleepHabit'][] = [
   'GRINDING',
 ];
 const SLEEP_ENV_VALUES: LifestyleData['sleepEnvironment'][] = ['QUIET', 'EARPHONE', 'LOW_SPEAKER'];
-const SCREEN_USAGE_VALUES: LifestyleData['screenUsage'][] = ['NONE', 'SCREEN'];
+const SCREEN_USAGE_VALUES: LifestyleData['screenUsage'][] = ['NONE', 'AUDIO', 'SCREEN'];
 const NOISE_VALUES: LifestyleData['noiseSensitivity'][] = ['SENSITIVE', 'NORMAL', 'DEEP'];
 
 const SMOKING_VALUES: LifestyleData['smokingBehavior'][] = ['NO', 'NO', 'NO', 'NO', 'E_CIG', 'YES'];
@@ -308,11 +308,13 @@ export function generateProfiles(
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i]!;
     const hasMessage = rng() > 0.5;
+    const dorm = dormMap.get(slot.dormitoryId);
 
     profiles.push({
       id: `gen-${i + 1}`,
       nickname: generateNickname(rng, usedNames),
       gender: slot.gender,
+      campus: dorm?.campus ?? 'CHUNCHEON',
       dormitoryId: slot.dormitoryId || null,
       lifestyle: generateLifestyle(rng),
       intro: pick(rng, INTROS),

@@ -57,6 +57,7 @@ function makeProfile(
     id: `p-${Math.random().toString(36).slice(2, 6)}`,
     nickname: '프로필',
     gender: 'M',
+    campus: 'CHUNCHEON' as const,
     dormitoryId: 'dasan',
     lifestyle: baseLifestyle,
     intro: '',

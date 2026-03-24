@@ -64,6 +64,7 @@ const mockProfile: RoommateProfile = {
   id: 'user-1',
   nickname: '테스트유저',
   gender: 'M',
+  campus: 'CHUNCHEON',
   dormitoryId: 'dasan',
   lifestyle: {
     bedtime: '22_24',

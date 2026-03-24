@@ -1,3 +1,5 @@
+import type { Campus } from '@/types/profile';
+
 export const UNASSIGNED_ID = 'unassigned';
 
 export interface Dormitory {
@@ -5,21 +7,46 @@ export interface Dormitory {
   name: string;
   roomType: 2 | 3;
   gender: 'M' | 'F' | 'BOTH';
+  campus: Campus;
+  isOperated: boolean;
 }
 
 export const DORMITORIES: Dormitory[] = [
-  { id: 'toegye', name: '퇴계관', roomType: 3, gender: 'M' },
-  { id: 'dasan', name: '다산관', roomType: 2, gender: 'M' },
-  { id: 'yeji', name: '예지원', roomType: 2, gender: 'F' },
-  { id: 'nanji', name: '난지원', roomType: 3, gender: 'F' },
-  { id: 'gukji', name: '국지원', roomType: 3, gender: 'F' },
-  { id: 'saerom', name: '새롬관', roomType: 2, gender: 'BOTH' },
-  { id: 'irum', name: '이룸관', roomType: 2, gender: 'BOTH' },
-  { id: 'daon', name: '다온관', roomType: 2, gender: 'BOTH' },
+  { id: 'toegye', name: '퇴계관', roomType: 3, gender: 'M', campus: 'CHUNCHEON', isOperated: true },
+  { id: 'dasan', name: '다산관', roomType: 2, gender: 'M', campus: 'CHUNCHEON', isOperated: true },
+  { id: 'yeji', name: '예지원', roomType: 2, gender: 'F', campus: 'CHUNCHEON', isOperated: true },
+  { id: 'nanji', name: '난지원', roomType: 3, gender: 'F', campus: 'CHUNCHEON', isOperated: true },
+  { id: 'gukji', name: '국지원', roomType: 3, gender: 'F', campus: 'CHUNCHEON', isOperated: true },
+  {
+    id: 'saerom',
+    name: '새롬관',
+    roomType: 2,
+    gender: 'BOTH',
+    campus: 'CHUNCHEON',
+    isOperated: true,
+  },
+  {
+    id: 'irum',
+    name: '이룸관',
+    roomType: 2,
+    gender: 'BOTH',
+    campus: 'CHUNCHEON',
+    isOperated: true,
+  },
+  {
+    id: 'daon',
+    name: '다온관',
+    roomType: 2,
+    gender: 'BOTH',
+    campus: 'CHUNCHEON',
+    isOperated: true,
+  },
 ];
 
-export function getAvailableDormitories(gender: 'M' | 'F'): Dormitory[] {
-  return DORMITORIES.filter((d) => d.gender === gender || d.gender === 'BOTH');
+export function getAvailableDormitories(campus: Campus, gender: 'M' | 'F'): Dormitory[] {
+  return DORMITORIES.filter(
+    (d) => d.campus === campus && d.isOperated && (d.gender === gender || d.gender === 'BOTH'),
+  );
 }
 
 export function getDormitoryById(id: string): Dormitory | undefined {

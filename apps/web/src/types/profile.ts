@@ -23,6 +23,7 @@ export interface RoommateProfile {
   id: string;
   nickname: string;
   gender: 'M' | 'F';
+  campus: Campus;
   dormitoryId: DormitoryId;
   lifestyle: LifestyleData;
   intro: string;

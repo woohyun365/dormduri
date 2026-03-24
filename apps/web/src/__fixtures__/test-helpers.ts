@@ -75,6 +75,7 @@ export function makeRoommateProfile(
     id,
     nickname: `룸메${id}`,
     gender: 'M',
+    campus: 'CHUNCHEON',
     dormitoryId: 'dasan',
     lifestyle: DEFAULT_LIFESTYLE,
     intro: '테스트 룸메이트입니다.',

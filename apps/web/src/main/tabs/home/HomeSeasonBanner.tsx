@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Calendar } from 'lucide-react';
-import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
+import type { Season } from '@/constants/season';
 
 function formatDateRange(startStr: string, endStr: string): string {
   const start = new Date(startStr);
@@ -15,9 +15,12 @@ function formatDateRange(startStr: string, endStr: string): string {
   return `${sm}월 ${start.getDate()}일 ~ ${em}월 ${end.getDate()}일`;
 }
 
-export function HomeSeasonBanner() {
-  const seasonActive = isSeasonActive(CURRENT_SEASON);
+interface HomeSeasonBannerProps {
+  season: Season;
+  isSeasonActive: boolean;
+}
 
+export function HomeSeasonBanner({ season, isSeasonActive: seasonActive }: HomeSeasonBannerProps) {
   const [dateKey, setDateKey] = useState(() => new Date().toDateString());
 
   useEffect(() => {
@@ -31,17 +34,14 @@ export function HomeSeasonBanner() {
   const { dDay, roomSelectionDateStr } = useMemo(() => {
     const today = new Date(dateKey);
     today.setHours(0, 0, 0, 0);
-    const target = new Date(CURRENT_SEASON.roomSelectionStart + 'T00:00:00');
+    const target = new Date(season.roomSelectionStart + 'T00:00:00');
     target.setHours(0, 0, 0, 0);
     const diffMs = target.getTime() - today.getTime();
     return {
       dDay: Math.ceil(diffMs / (1000 * 60 * 60 * 24)),
-      roomSelectionDateStr: formatDateRange(
-        CURRENT_SEASON.roomSelectionStart,
-        CURRENT_SEASON.roomSelectionEnd,
-      ),
+      roomSelectionDateStr: formatDateRange(season.roomSelectionStart, season.roomSelectionEnd),
     };
-  }, [dateKey]);
+  }, [dateKey, season.roomSelectionStart, season.roomSelectionEnd]);
 
   return (
     <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
@@ -56,7 +56,7 @@ export function HomeSeasonBanner() {
         </div>
         <Calendar className="w-5 h-5 text-[var(--knu-primary)]" />
       </div>
-      <p className="text-sm text-[var(--knu-text-secondary)] mb-3">{CURRENT_SEASON.name}</p>
+      <p className="text-sm text-[var(--knu-text-secondary)] mb-3">{season.name}</p>
       {seasonActive ? (
         <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
           <div>

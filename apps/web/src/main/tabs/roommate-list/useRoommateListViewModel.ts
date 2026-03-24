@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { getDormitoryById } from '@/constants/dormitory';
 import { isDormitoryAssigned } from '@/utils/dormitory';
-import { CURRENT_SEASON, isSeasonActive } from '@/constants/season';
 import { LIFESTYLE_LABELS } from '@/constants/lifestyle';
 import { calcMatchScore } from '@/utils/matchScore';
 import { getMatchButtonState } from '@/utils/matchRequest';
@@ -22,6 +21,7 @@ interface UseRoommateListViewModelParams {
   bookmarkedUserIds?: Set<string>;
   matchRequests: MatchRequest[];
   activeMatch: ActiveMatch | null;
+  isSeasonActive: boolean;
 }
 
 export function useRoommateListViewModel({
@@ -34,6 +34,7 @@ export function useRoommateListViewModel({
   bookmarkedUserIds,
   matchRequests,
   activeMatch,
+  isSeasonActive,
 }: UseRoommateListViewModelParams) {
   const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
   const effectiveDormId = isUnassigned ? null : user.dormitoryId;
@@ -116,7 +117,7 @@ export function useRoommateListViewModel({
       requests: matchRequests,
       activeMatch,
       blockedUserIds: blockedUserIds ?? new Set(),
-      isSeasonActive: isSeasonActive(CURRENT_SEASON),
+      isSeasonActive,
     });
 
   return {
