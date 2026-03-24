@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcMatchScore } from '../matchScore';
+import { calcMatchScore, calcMatchScoreWithGating } from '../matchScore';
 import type { LifestyleData } from '@/types/lifestyle';
 
 // -- Helper: 22필드 전부 null인 빈 LifestyleData --
@@ -771,6 +771,117 @@ describe('calcMatchScore', () => {
 
       // min(59, 90) = 59
       expect(calcMatchScore(a, b)).toBe(59);
+    });
+  });
+});
+
+// =========================================================
+// calcMatchScoreWithGating — 3-state 게이팅
+// =========================================================
+
+describe('calcMatchScoreWithGating', () => {
+  // 조건 완성 프로필: FULL_PERFECT_A (조건 8개 전부 non-null)
+  // 조건 미완성 프로필: 필수 15필드는 있지만 조건 7개 null (drinkingTolerance만 있음)
+  const INCOMPLETE_CONDITIONS: LifestyleData = {
+    bedtime: '22_24',
+    wakeTime: '07_08',
+    sleepHabit: 'NONE',
+    sleepEnvironment: 'QUIET',
+    screenUsage: 'NONE',
+    noiseSensitivity: 'SENSITIVE',
+    smokingBehavior: 'NO',
+    indoorEating: 'RARELY',
+    phoneBehavior: 'RARELY',
+    earphoneUsage: 'ALWAYS',
+    cleanLevel: 'WEEKLY_3_UP',
+    drinkingFrequency: 'NONE',
+    relationshipStyle: 'CLOSE',
+    temperatureSensitivity: 'COLD',
+    smokingTolerance: null,
+    phoneTolerance: null,
+    earphoneExpectation: null,
+    sleepEnvPreference: null,
+    screenTolerance: null,
+    indoorEatingTolerance: null,
+    cleanExpectation: null,
+    drinkingTolerance: 'LOW_ONLY',
+  };
+
+  describe('full: 양쪽 조건 완성', () => {
+    it('type이 full이고 score가 min(A→B, B→A)', () => {
+      const result = calcMatchScoreWithGating(FULL_PERFECT_A, FULL_PERFECT_B);
+      expect(result.type).toBe('full');
+      expect(result.score).toBe(calcMatchScore(FULL_PERFECT_A, FULL_PERFECT_B));
+    });
+
+    it('score가 null이 아님', () => {
+      const result = calcMatchScoreWithGating(FULL_PERFECT_A, FULL_PERFECT_B);
+      expect(result.score).not.toBeNull();
+    });
+  });
+
+  describe('partial: 나만 완성, 상대 미완성', () => {
+    it('type이 partial', () => {
+      const result = calcMatchScoreWithGating(FULL_PERFECT_A, INCOMPLETE_CONDITIONS);
+      expect(result.type).toBe('partial');
+    });
+
+    it('score가 null이 아님 (단방향 점수)', () => {
+      const result = calcMatchScoreWithGating(FULL_PERFECT_A, INCOMPLETE_CONDITIONS);
+      expect(result.score).not.toBeNull();
+      expect(typeof result.score).toBe('number');
+    });
+
+    it('score가 0~100 범위', () => {
+      const result = calcMatchScoreWithGating(FULL_PERFECT_A, INCOMPLETE_CONDITIONS);
+      expect(result.score).toBeGreaterThanOrEqual(0);
+      expect(result.score).toBeLessThanOrEqual(100);
+    });
+
+    it('상대 조건 1개만 null이어도 partial', () => {
+      const oneNull = { ...FULL_PERFECT_A, smokingTolerance: null };
+      const result = calcMatchScoreWithGating(FULL_PERFECT_A, oneNull);
+      expect(result.type).toBe('partial');
+    });
+  });
+
+  describe('gated: 내가 미완성', () => {
+    it('type이 gated이고 score가 null', () => {
+      const result = calcMatchScoreWithGating(INCOMPLETE_CONDITIONS, FULL_PERFECT_A);
+      expect(result.type).toBe('gated');
+      expect(result.score).toBeNull();
+    });
+
+    it('나와 상대 모두 미완성이어도 gated', () => {
+      const result = calcMatchScoreWithGating(INCOMPLETE_CONDITIONS, INCOMPLETE_CONDITIONS);
+      expect(result.type).toBe('gated');
+      expect(result.score).toBeNull();
+    });
+
+    it('내 조건 1개만 null이어도 gated', () => {
+      const oneNull = { ...FULL_PERFECT_A, phoneTolerance: null };
+      const result = calcMatchScoreWithGating(oneNull, FULL_PERFECT_A);
+      expect(result.type).toBe('gated');
+      expect(result.score).toBeNull();
+    });
+  });
+
+  describe('일관성', () => {
+    it('full의 score는 calcMatchScore와 동일', () => {
+      const result = calcMatchScoreWithGating(FULL_PERFECT_A, FULL_PERFECT_B);
+      expect(result.score).toBe(calcMatchScore(FULL_PERFECT_A, FULL_PERFECT_B));
+    });
+
+    it('partial의 score는 full의 score 이상 (min 특성)', () => {
+      // partial = perspectiveScore(A, B), full = min(A→B, B→A)
+      // perspectiveScore(A, B) >= min(A→B, B→A) 항상 성립
+      const completeB = { ...FULL_PERFECT_A, smokingBehavior: 'YES' as const };
+      const full = calcMatchScoreWithGating(FULL_PERFECT_A, completeB);
+      const incompleteB = { ...completeB, smokingTolerance: null };
+      const partial = calcMatchScoreWithGating(FULL_PERFECT_A, incompleteB);
+      if (full.score !== null && partial.score !== null) {
+        expect(partial.score).toBeGreaterThanOrEqual(full.score);
+      }
     });
   });
 });
