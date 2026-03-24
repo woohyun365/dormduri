@@ -3,10 +3,11 @@ import { EmptyState } from '@/components/EmptyState';
 import { UserCard } from '../../components/UserCard';
 import type { RoommateProfile } from '@/types/profile';
 import type { MatchButtonState } from '@/types/match';
+import type { MatchScoreType } from '@/utils/matchScore';
 import type { ViewMode } from './useRoommateListViewModel';
 
 interface RoommateListResultsProps {
-  filteredProfiles: RoommateProfile[];
+  filteredProfiles: (RoommateProfile & { scoreType?: MatchScoreType })[];
   displayCount: number;
   onLoadMore: () => void;
   viewMode: ViewMode;
@@ -67,6 +68,7 @@ export function RoommateListResults({
                 <UserCard
                   key={profile.id}
                   profile={profile}
+                  scoreType={profile.scoreType}
                   onClick={() => onSelectProfile(profile)}
                   onRequestMatch={() => onRequestMatch(profile)}
                   disabled={isUnassigned}

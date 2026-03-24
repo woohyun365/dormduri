@@ -7,7 +7,8 @@ import { getMatchGroupSize } from '@/constants/dormitory';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { isRequestExpired } from '@/utils/matchRequest';
-import { calcMatchScore } from '@/utils/matchScore';
+import { calcMatchScoreWithGating } from '@/utils/matchScore';
+import type { MatchScoreType } from '@/utils/matchScore';
 import { MatchRequestCard } from '../../components/MatchRequestCard';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
 import type { Dormitory } from '@/constants/dormitory';
@@ -114,14 +115,18 @@ export const HomeMatchingSection = forwardRef<HTMLDivElement, HomeMatchingSectio
       direction: 'sent' | 'received';
     } | null>(null);
 
-    const selectedProfile = useMemo<RoommateProfile | null>(() => {
+    const selectedProfile = useMemo<
+      (RoommateProfile & { scoreType: MatchScoreType }) | null
+    >(() => {
       if (!selectedRequest) return null;
       const partnerId = getPartnerId(selectedRequest.request, user.id);
       const p = profileMap.get(partnerId);
       if (!p) return null;
+      const result = calcMatchScoreWithGating(user.lifestyle, p.lifestyle);
       return {
         ...p,
-        matchScore: calcMatchScore(user.lifestyle, p.lifestyle),
+        matchScore: result.score ?? 0,
+        scoreType: result.type,
       };
     }, [selectedRequest, profileMap, user.id, user.lifestyle]);
 
@@ -308,6 +313,7 @@ export const HomeMatchingSection = forwardRef<HTMLDivElement, HomeMatchingSectio
         {/* Profile Detail Sheet */}
         <ProfileDetailSheet
           profile={selectedProfile}
+          scoreType={selectedProfile?.scoreType}
           isOpen={selectedProfile !== null}
           onClose={() => setSelectedRequest(null)}
           onRequestMatch={noop}

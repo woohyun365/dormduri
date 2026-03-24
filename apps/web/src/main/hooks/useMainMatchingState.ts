@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { MATCH_POLICY } from '@/constants/match';
 import { isRequestExpired } from '@/utils/matchRequest';
-import { calcMatchScore } from '@/utils/matchScore';
+import { calcMatchScoreWithGating } from '@/utils/matchScore';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
 
@@ -68,7 +68,9 @@ export function useMainMatchingState(
         partnerUserId: partnerId,
         partnerNickname: partnerProfile?.nickname ?? partnerId,
         partnerDormitoryId: partnerProfile?.dormitoryId ?? null,
-        matchScore: partnerProfile ? calcMatchScore(userLifestyle, partnerProfile.lifestyle) : 0,
+        matchScore: partnerProfile
+          ? (calcMatchScoreWithGating(userLifestyle, partnerProfile.lifestyle).score ?? 0)
+          : 0,
         matchedAt: new Date().toISOString(),
       };
       setActiveMatch(match);

@@ -1,5 +1,13 @@
 import type { LifestyleData } from '@/types/lifestyle';
 import { BEDTIME_ORDER, WAKE_ORDER, TEMPERATURE_ORDER } from '@/constants/lifestyle';
+import { isConditionComplete } from '@/utils/lifestyle';
+
+export type MatchScoreType = 'full' | 'partial' | 'gated';
+
+export interface MatchScoreResult {
+  score: number | null;
+  type: MatchScoreType;
+}
 
 // === 가중치 티어 ===
 
@@ -198,4 +206,18 @@ export function calcMatchScore(a: LifestyleData, b: LifestyleData): number {
   const aPerspective = perspectiveScore(a, b);
   const bPerspective = perspectiveScore(b, a);
   return Math.min(aPerspective, bPerspective);
+}
+
+/** 3-state 게이팅: full(양쪽 완성→min) / partial(나만 완성→단방향) / gated(내가 미완성→잠금) */
+export function calcMatchScoreWithGating(
+  myLifestyle: LifestyleData,
+  targetLifestyle: LifestyleData,
+): MatchScoreResult {
+  if (!isConditionComplete(myLifestyle)) {
+    return { score: null, type: 'gated' };
+  }
+  if (!isConditionComplete(targetLifestyle)) {
+    return { score: perspectiveScore(myLifestyle, targetLifestyle), type: 'partial' };
+  }
+  return { score: calcMatchScore(myLifestyle, targetLifestyle), type: 'full' };
 }

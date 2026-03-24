@@ -7,6 +7,7 @@ import { ProfileDetailBody } from './ProfileDetailBody';
 import { buildProfileDetailFooter } from './ProfileDetailFooter';
 import { ProfileDetailMoreMenu, ProfileDetailDialogs } from './ProfileDetailModeration';
 import type { RoommateProfile } from '@/types/profile';
+import type { MatchScoreType } from '@/utils/matchScore';
 import type { LifestyleData } from '@/types/lifestyle';
 import type { ReportReason } from '@/types/report';
 import type { MatchButtonState } from '@/types/match';
@@ -24,6 +25,7 @@ interface ProfileDetailSheetProps {
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
   isBookmarked?: boolean;
   onToggleBookmark?: () => void;
+  scoreType?: MatchScoreType;
   userLifestyle?: LifestyleData;
   customFooter?: React.ReactNode;
   showMatchRequestTip?: boolean;
@@ -43,6 +45,7 @@ export function ProfileDetailSheet({
   onReport,
   isBookmarked,
   onToggleBookmark,
+  scoreType,
   userLifestyle,
   customFooter,
   showMatchRequestTip,
@@ -114,6 +117,7 @@ export function ProfileDetailSheet({
       >
         <ProfileDetailBody
           profile={profile}
+          scoreType={scoreType}
           userLifestyle={userLifestyle}
           showMatchRequestTip={showMatchRequestTip}
           onDismissMatchRequestTip={onDismissMatchRequestTip}

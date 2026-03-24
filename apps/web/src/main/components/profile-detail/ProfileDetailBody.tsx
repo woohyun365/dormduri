@@ -1,4 +1,4 @@
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, Lock, AlertCircle } from 'lucide-react';
 import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
 import { ADDITIONAL_FIELD_NAMES, GRADES } from '@/constants/additional-profile';
 import { getAvatarColor } from '@/utils/avatarColor';
@@ -7,6 +7,7 @@ import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { ContextualTip } from '@/components/ContextualTip';
 import { CompatibilityReport } from '../CompatibilityReport';
 import type { RoommateProfile } from '@/types/profile';
+import type { MatchScoreType } from '@/utils/matchScore';
 import type { LifestyleData } from '@/types/lifestyle';
 
 // 음주 필드(drinkingFrequency, drinkingTolerance)는 정책(AC-N8)에 따라 표시 제외
@@ -32,6 +33,7 @@ const DISPLAY_LIFESTYLE_FIELDS: (keyof LifestyleData)[] = [
 
 interface ProfileDetailBodyProps {
   profile: RoommateProfile;
+  scoreType?: MatchScoreType;
   userLifestyle?: LifestyleData;
   showMatchRequestTip?: boolean;
   onDismissMatchRequestTip?: () => void;
@@ -39,6 +41,7 @@ interface ProfileDetailBodyProps {
 
 export function ProfileDetailBody({
   profile,
+  scoreType = 'full',
   userLifestyle,
   showMatchRequestTip,
   onDismissMatchRequestTip,
@@ -59,11 +62,18 @@ export function ProfileDetailBody({
           <h3 className="text-lg font-bold text-[var(--knu-text-primary)]">{profile.nickname}</h3>
           {dormLabel && <p className="text-sm text-[var(--knu-text-tertiary)]">{dormLabel}</p>}
         </div>
-        <span
-          className={`px-3 py-1.5 rounded-full text-sm font-bold ${getMatchScoreColor(profile.matchScore)}`}
-        >
-          매칭 {profile.matchScore}%
-        </span>
+        {scoreType === 'gated' ? (
+          <span className="px-3 py-1.5 rounded-full text-sm font-bold text-gray-400 bg-gray-100 flex items-center gap-1">
+            <Lock className="w-3.5 h-3.5" />
+            잠김
+          </span>
+        ) : (
+          <span
+            className={`px-3 py-1.5 rounded-full text-sm font-bold ${getMatchScoreColor(profile.matchScore)}`}
+          >
+            매칭 {profile.matchScore}%{scoreType === 'partial' && ' (!)'}
+          </span>
+        )}
       </div>
 
       {/* Lifestyle Grid */}
@@ -83,7 +93,39 @@ export function ProfileDetailBody({
       </div>
 
       {/* Compatibility Report */}
-      {userLifestyle && (
+      {userLifestyle && scoreType === 'gated' && (
+        <div className="relative rounded-2xl overflow-hidden">
+          <div className="blur-sm pointer-events-none opacity-50">
+            <CompatibilityReport
+              userLifestyle={userLifestyle}
+              profileLifestyle={profile.lifestyle}
+            />
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center bg-white/60">
+            <div className="text-center px-6 py-4">
+              <Lock className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm font-medium text-[var(--knu-text-primary)] mb-1">
+                호환성 분석 잠김
+              </p>
+              <p className="text-xs text-[var(--knu-text-secondary)]">
+                조건을 입력하면 호환성 분석을 볼 수 있어요
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      {userLifestyle && scoreType === 'partial' && (
+        <div>
+          <div className="flex items-center gap-2 px-3 py-2 mb-2 bg-amber-50 rounded-xl">
+            <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+            <p className="text-xs text-amber-700">
+              내 기준 호환성입니다. 상대가 조건을 입력하면 상세 비교를 볼 수 있어요.
+            </p>
+          </div>
+          <CompatibilityReport userLifestyle={userLifestyle} profileLifestyle={profile.lifestyle} />
+        </div>
+      )}
+      {userLifestyle && scoreType === 'full' && (
         <CompatibilityReport userLifestyle={userLifestyle} profileLifestyle={profile.lifestyle} />
       )}
 

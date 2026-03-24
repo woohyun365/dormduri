@@ -3,9 +3,9 @@ export const TOAST_DURATION = 2500;
 export const GUIDE_DELAY = 600;
 
 export const MATCH_SCORE_THRESHOLDS = {
-  excellent: 90,
-  good: 80,
-  fair: 70,
+  excellent: 85,
+  good: 70,
+  fair: 50,
 } as const;
 
 export const Z_INDEX = {
