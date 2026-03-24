@@ -29,8 +29,8 @@ const CONFIRM_MESSAGE = {
 
 const noop = () => {};
 
-const getPartnerId = (request: MatchRequest) =>
-  request.fromUserId === 'me' ? request.toUserId : request.fromUserId;
+const getPartnerId = (request: MatchRequest, currentUserId: string) =>
+  request.fromUserId === currentUserId ? request.toUserId : request.fromUserId;
 
 interface HomeMatchingSectionProps {
   user: UserProfile;
@@ -64,16 +64,16 @@ export const HomeMatchingSection = forwardRef<HTMLDivElement, HomeMatchingSectio
     const sentPending = useMemo(
       () =>
         matchRequests.filter(
-          (r) => r.fromUserId === 'me' && r.status === 'PENDING' && !isRequestExpired(r),
+          (r) => r.fromUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
         ),
-      [matchRequests],
+      [matchRequests, user.id],
     );
     const receivedPending = useMemo(
       () =>
         matchRequests.filter(
-          (r) => r.toUserId === 'me' && r.status === 'PENDING' && !isRequestExpired(r),
+          (r) => r.toUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
         ),
-      [matchRequests],
+      [matchRequests, user.id],
     );
     const hasPendingRequests = sentPending.length > 0 || receivedPending.length > 0;
 
@@ -88,7 +88,7 @@ export const HomeMatchingSection = forwardRef<HTMLDivElement, HomeMatchingSectio
     }, [profiles]);
 
     const getPartnerProfile = (request: MatchRequest) => {
-      const partnerId = getPartnerId(request);
+      const partnerId = getPartnerId(request, user.id);
       const p = profileMap.get(partnerId);
       if (p) return { ...p, matchScore: 0 };
       return {
@@ -106,7 +106,7 @@ export const HomeMatchingSection = forwardRef<HTMLDivElement, HomeMatchingSectio
     };
 
     const getPartnerNickname = (request: MatchRequest) =>
-      profileMap.get(getPartnerId(request))?.nickname ?? getPartnerId(request);
+      profileMap.get(getPartnerId(request, user.id))?.nickname ?? getPartnerId(request, user.id);
 
     // Profile detail sheet
     const [selectedRequest, setSelectedRequest] = useState<{
@@ -116,7 +116,7 @@ export const HomeMatchingSection = forwardRef<HTMLDivElement, HomeMatchingSectio
 
     const selectedProfile = useMemo<RoommateProfile | null>(() => {
       if (!selectedRequest) return null;
-      const partnerId = getPartnerId(selectedRequest.request);
+      const partnerId = getPartnerId(selectedRequest.request, user.id);
       const p = profileMap.get(partnerId);
       if (!p) return null;
       return {

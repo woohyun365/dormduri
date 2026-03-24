@@ -73,9 +73,9 @@ export default function HomeTab({
   const receivedPendingCount = useMemo(
     () =>
       matchRequests.filter(
-        (r) => r.toUserId === 'me' && r.status === 'PENDING' && !isRequestExpired(r),
+        (r) => r.toUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
       ).length,
-    [matchRequests],
+    [matchRequests, user.id],
   );
 
   return (
