@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { getDormitoryById } from '@/constants/dormitory';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { LIFESTYLE_LABELS } from '@/constants/lifestyle';
-import { calcMatchScore } from '@/utils/matchScore';
+import { calcMatchScoreWithGating } from '@/utils/matchScore';
+import type { MatchScoreType } from '@/utils/matchScore';
 import { getMatchButtonState } from '@/utils/matchRequest';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
 import type { FilterState } from '@/types/filter';
@@ -10,6 +11,8 @@ import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export type SortMode = 'match' | 'recent';
 export type ViewMode = 'all' | 'bookmarked';
+
+export type ScoredProfile = RoommateProfile & { scoreType: MatchScoreType };
 
 interface UseRoommateListViewModelParams {
   rawProfiles: Omit<RoommateProfile, 'matchScore'>[];
@@ -24,6 +27,28 @@ interface UseRoommateListViewModelParams {
   isSeasonActive: boolean;
 }
 
+/** 시드 기반 의사 난수 (mulberry32) */
+function mulberry32(seed: number) {
+  let s = seed | 0;
+  return (): number => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** 배열을 시드 기반으로 셔플 (Fisher-Yates) */
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const result = [...arr];
+  const rng = mulberry32(seed);
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [result[i], result[j]] = [result[j]!, result[i]!];
+  }
+  return result;
+}
+
 export function useRoommateListViewModel({
   rawProfiles,
   user,
@@ -36,17 +61,24 @@ export function useRoommateListViewModel({
   activeMatch,
   isSeasonActive,
 }: UseRoommateListViewModelParams) {
+  // 미완성 유저 대체 정렬용 시드 (마운트마다 새 값 → 방문마다 순서 변경)
+  const [shuffleSeed] = useState(() => Date.now());
+
   const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
   const effectiveDormId = isUnassigned ? null : user.dormitoryId;
   const dormName = effectiveDormId ? getDormitoryById(effectiveDormId)?.name : null;
   const headerTitle = isUnassigned ? '룸메이트 찾기' : `${dormName ?? ''} 룸메이트`;
 
-  const profiles = useMemo<RoommateProfile[]>(
+  const profiles = useMemo<ScoredProfile[]>(
     () =>
-      rawProfiles.map((p) => ({
-        ...p,
-        matchScore: calcMatchScore(user.lifestyle, p.lifestyle),
-      })),
+      rawProfiles.map((p) => {
+        const result = calcMatchScoreWithGating(user.lifestyle, p.lifestyle);
+        return {
+          ...p,
+          matchScore: result.score ?? 0,
+          scoreType: result.type,
+        };
+      }),
     [rawProfiles, user.lifestyle],
   );
 
@@ -81,7 +113,18 @@ export function useRoommateListViewModel({
     });
 
     if (sortMode === 'match') {
-      list = [...list].sort((a, b) => b.matchScore - a.matchScore);
+      // 내가 gated → 랜덤 (시간 기반 시드)
+      const isUserGated = profiles.length > 0 && profiles[0]!.scoreType === 'gated';
+      if (isUserGated) {
+        list = seededShuffle(list, shuffleSeed);
+      } else {
+        // 완성 유저: full/partial 점수순, gated 최하위
+        list = [...list].sort((a, b) => {
+          if (a.scoreType === 'gated' && b.scoreType !== 'gated') return 1;
+          if (a.scoreType !== 'gated' && b.scoreType === 'gated') return -1;
+          return b.matchScore - a.matchScore;
+        });
+      }
     }
 
     return list;
@@ -94,6 +137,7 @@ export function useRoommateListViewModel({
     blockedUserIds,
     viewMode,
     bookmarkedUserIds,
+    shuffleSeed,
   ]);
 
   const activeFilters = (Object.entries(filters) as [keyof FilterState, string | null][]).filter(

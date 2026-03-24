@@ -1,23 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useRoommateListViewModel } from '../useRoommateListViewModel';
-import { calcMatchScore } from '@/utils/matchScore';
+import { calcMatchScoreWithGating } from '@/utils/matchScore';
 import { getMatchButtonState } from '@/utils/matchRequest';
 import type { FilterState } from '@/types/filter';
 import type { UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 import type { LifestyleData } from '@/types/lifestyle';
 
-// matchScore mock: bedtime 기준으로 점수 차등 반환
+// matchScore mock: calcMatchScoreWithGating를 bedtime 기준으로 차등 반환
 vi.mock('@/utils/matchScore', () => ({
-  calcMatchScore: vi.fn((_mine: LifestyleData, theirs: LifestyleData) => {
+  calcMatchScoreWithGating: vi.fn((_mine: LifestyleData, theirs: LifestyleData) => {
     const scoreMap: Record<string, number> = {
       BEFORE_22: 90,
       '22_24': 70,
       '24_02': 50,
       AFTER_02: 30,
     };
-    return theirs.bedtime ? (scoreMap[theirs.bedtime] ?? 50) : 50;
+    return {
+      score: theirs.bedtime ? (scoreMap[theirs.bedtime] ?? 50) : 50,
+      type: 'full' as const,
+    };
   }),
 }));
 
@@ -126,7 +129,7 @@ function setup(overrides: SetupParams = {}) {
 }
 
 beforeEach(() => {
-  vi.mocked(calcMatchScore).mockClear();
+  vi.mocked(calcMatchScoreWithGating).mockClear();
   vi.mocked(getMatchButtonState).mockClear();
 });
 
