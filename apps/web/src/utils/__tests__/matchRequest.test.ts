@@ -29,7 +29,7 @@ const defaultParams = () => ({
   requests: [] as MatchRequest[],
   activeMatch: null as ActiveMatch | null,
   blockedUserIds: new Set<string>(),
-  isSeasonActive: true,
+  isSeasonMatching: true,
 });
 
 afterEach(() => {
@@ -96,7 +96,7 @@ describe('getMatchButtonState', () => {
   });
 
   it('2. 비시즌 → OFF_SEASON', () => {
-    const params = { ...defaultParams(), isSeasonActive: false };
+    const params = { ...defaultParams(), isSeasonMatching: false };
     expect(getMatchButtonState(params)).toEqual({ type: 'OFF_SEASON', label: '시즌 종료' });
   });
 
@@ -374,7 +374,7 @@ describe('getMatchButtonState', () => {
     const params = {
       ...defaultParams(),
       blockedUserIds: new Set(['target']),
-      isSeasonActive: false,
+      isSeasonMatching: false,
     };
     expect(getMatchButtonState(params).type).toBe('BLOCKED');
   });

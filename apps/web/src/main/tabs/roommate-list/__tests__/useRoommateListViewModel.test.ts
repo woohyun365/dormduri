@@ -123,7 +123,7 @@ function setup(overrides: SetupParams = {}) {
       bookmarkedUserIds: overrides.bookmarkedUserIds,
       matchRequests: overrides.matchRequests ?? [],
       activeMatch: overrides.activeMatch ?? null,
-      isSeasonActive: true,
+      isSeasonMatching: true,
     }),
   );
 }
@@ -201,14 +201,13 @@ describe('뷰 모드', () => {
     expect(result.current.filteredProfiles).toHaveLength(2);
   });
 
-  it('all 모드에서 같은 건물 프로필만 반환한다', () => {
+  it('all 모드에서 profileApi가 전달한 프로필을 그대로 반환한다 (건물 필터는 profileApi 담당)', () => {
     const profiles = [
       makeProfile({ id: 'same-dorm', dormitoryId: 'dasan' }),
       makeProfile({ id: 'diff-dorm', dormitoryId: 'toegye' }),
     ];
     const { result } = setup({ rawProfiles: profiles, viewMode: 'all' });
-    expect(result.current.filteredProfiles).toHaveLength(1);
-    expect(result.current.filteredProfiles[0]!.id).toBe('same-dorm');
+    expect(result.current.filteredProfiles).toHaveLength(2);
   });
 });
 
@@ -399,7 +398,7 @@ describe('getButtonState', () => {
       requests: [],
       activeMatch: null,
       blockedUserIds: blocked,
-      isSeasonActive: true,
+      isSeasonMatching: true,
     });
   });
 });
