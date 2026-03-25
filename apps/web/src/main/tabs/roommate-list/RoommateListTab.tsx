@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSeasonContext } from '@/contexts/SeasonContext';
 import { DEFAULT_FILTERS } from '../../components/BottomSheet';
 import { BottomSheet } from '../../components/BottomSheet';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
@@ -34,7 +35,6 @@ interface RoommateListTabProps {
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
   matchRequests?: MatchRequest[];
   activeMatch?: ActiveMatch | null;
-  isSeasonActive: boolean;
   onSendRequest?: (targetUserId: string, message?: string | null) => void;
   bookmarkedUserIds?: Set<string>;
   onToggleBookmark?: (userId: string) => void;
@@ -61,7 +61,6 @@ export default function RoommateListTab({
   onReport,
   matchRequests = [],
   activeMatch = null,
-  isSeasonActive,
   onSendRequest,
   bookmarkedUserIds,
   onToggleBookmark,
@@ -72,6 +71,7 @@ export default function RoommateListTab({
   showMatchRequestTip,
   onDismissMatchRequestTip,
 }: RoommateListTabProps) {
+  const { isMatching } = useSeasonContext();
   const {
     filteredProfiles,
     isUnassigned,
@@ -91,7 +91,7 @@ export default function RoommateListTab({
     bookmarkedUserIds,
     matchRequests,
     activeMatch,
-    isSeasonActive,
+    isSeasonMatching: isMatching,
   });
 
   const [showFilters, setShowFilters] = useState(false);

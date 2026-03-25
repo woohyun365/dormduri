@@ -1,86 +1,217 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Calendar } from 'lucide-react';
-import type { Season } from '@/constants/season';
+import { useMemo } from 'react';
+import { Calendar, AlertTriangle, Sparkles } from 'lucide-react';
+import { useSeasonContext } from '@/contexts/SeasonContext';
+import { calcSeasonDates } from '@/constants/season';
 
-function formatDateRange(startStr: string, endStr: string): string {
-  const start = new Date(startStr);
-  const end = new Date(endStr);
-  const sm = start.getMonth() + 1;
-  const em = end.getMonth() + 1;
-  if (sm === em) {
-    return `${sm}월 ${start.getDate()}일 ~ ${end.getDate()}일`;
-  }
-  return `${sm}월 ${start.getDate()}일 ~ ${em}월 ${end.getDate()}일`;
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
 interface HomeSeasonBannerProps {
-  season: Season;
-  isSeasonActive: boolean;
+  isUnassigned?: boolean;
 }
 
-export function HomeSeasonBanner({ season, isSeasonActive: seasonActive }: HomeSeasonBannerProps) {
-  const [dateKey, setDateKey] = useState(() => new Date().toDateString());
+export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps) {
+  const { season, state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
 
-  useEffect(() => {
-    const now = new Date();
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const msUntilMidnight = tomorrow.getTime() - now.getTime();
-    const timer = setTimeout(() => setDateKey(new Date().toDateString()), msUntilMidnight);
-    return () => clearTimeout(timer);
-  }, [dateKey]);
+  const roomSelectionDateStr = useMemo(
+    () => formatDate(season.roomSelectionDate),
+    [season.roomSelectionDate],
+  );
 
-  const { dDay, roomSelectionDateStr } = useMemo(() => {
-    const today = new Date(dateKey);
-    today.setHours(0, 0, 0, 0);
-    const target = new Date(season.roomSelectionStart + 'T00:00:00');
-    target.setHours(0, 0, 0, 0);
-    const diffMs = target.getTime() - today.getTime();
-    return {
-      dDay: Math.ceil(diffMs / (1000 * 60 * 60 * 24)),
-      roomSelectionDateStr: formatDateRange(season.roomSelectionStart, season.roomSelectionEnd),
-    };
-  }, [dateKey, season.roomSelectionStart, season.roomSelectionEnd]);
+  // 시즌 매칭 진행률 (0~100)
+  const progressPercent = useMemo(() => {
+    if (!isMatching) return 0;
+    const { matchStart, matchEnd } = calcSeasonDates(season.roomSelectionDate);
+    const start = new Date(matchStart + 'T00:00:00+09:00').getTime();
+    const end = new Date(matchEnd + 'T23:59:59+09:00').getTime();
+    const total = end - start;
+    if (total <= 0) return 100;
+    // daysUntilEnd는 서버/context에서 제공되므로 이를 기반으로 역산
+    const elapsed = total - daysUntilEnd * 24 * 60 * 60 * 1000;
+    return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+  }, [isMatching, season.roomSelectionDate, daysUntilEnd]);
+
+  const title =
+    seasonState === 'SEASON_MATCHING'
+      ? daysUntilEnd <= 3
+        ? '매칭 시즌 마감 임박'
+        : '매칭 시즌 진행중'
+      : seasonState === 'SEASON_OPEN'
+        ? '시즌 오픈'
+        : '비시즌';
+
+  const dotColor =
+    seasonState === 'SEASON_MATCHING'
+      ? 'bg-green-500'
+      : seasonState === 'SEASON_OPEN'
+        ? 'bg-blue-500'
+        : 'bg-gray-400';
 
   return (
     <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div
-            className={`w-3 h-3 rounded-full ${seasonActive ? 'bg-green-500' : 'bg-gray-400'}`}
-          />
-          <h3 className="font-bold text-[var(--knu-text-primary)]">
-            {seasonActive ? '매칭 시즌 진행중' : '비시즌'}
-          </h3>
+          <div className={`w-3 h-3 rounded-full ${dotColor}`} />
+          <h3 className="font-bold text-[var(--knu-text-primary)]">{title}</h3>
         </div>
         <Calendar className="w-5 h-5 text-[var(--knu-primary)]" />
       </div>
       <p className="text-sm text-[var(--knu-text-secondary)] mb-3">{season.name}</p>
-      {seasonActive ? (
-        <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
-            <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-              {roomSelectionDateStr}
-            </p>
+
+      {seasonState === 'SEASON_MATCHING' && isUnassigned ? (
+        <div className="space-y-3">
+          <div className="bg-orange-50 rounded-xl p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-orange-900 mb-1">
+                  건물을 선택하면 매칭을 시작할 수 있어요
+                </p>
+                <p className="text-xs text-orange-700">
+                  프로필 탭에서 배정 건물을 설정해주세요.
+                  <br />
+                  건물 선택 후에는 프로필 수정이 제한됩니다.
+                </p>
+              </div>
+            </div>
           </div>
-          <div
-            className={`px-3 py-1.5 rounded-lg font-bold text-sm ${
-              dDay > 0
-                ? 'bg-[var(--knu-primary-light)] text-[var(--knu-primary)]'
-                : dDay === 0
-                  ? 'bg-red-100 text-red-600'
-                  : 'bg-gray-100 text-[var(--knu-text-tertiary)]'
-            }`}
-          >
-            {dDay > 0 ? `D-${dDay}` : dDay === 0 ? 'D-Day' : '종료'}
+          <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
+              <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                {roomSelectionDateStr}
+              </p>
+            </div>
+            <div
+              className={`px-3 py-1.5 rounded-lg font-bold text-sm ${
+                daysUntilEnd > 7
+                  ? 'bg-[var(--knu-primary-light)] text-[var(--knu-primary)]'
+                  : daysUntilEnd > 3
+                    ? 'bg-amber-100 text-amber-600'
+                    : 'bg-red-100 text-red-600'
+              }`}
+            >
+              D-{daysUntilEnd}
+            </div>
+          </div>
+        </div>
+      ) : seasonState === 'SEASON_MATCHING' ? (
+        <div className="space-y-3">
+          {/* 진행 바 */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs text-[var(--knu-text-tertiary)]">시즌 진행률</span>
+              <span className="text-xs font-semibold text-[var(--knu-text-secondary)]">
+                {progressPercent}%
+              </span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  daysUntilEnd <= 3
+                    ? 'bg-red-500'
+                    : daysUntilEnd <= 7
+                      ? 'bg-amber-500'
+                      : 'bg-[var(--knu-primary)]'
+                }`}
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
+          </div>
+
+          {/* 호실 선택일 + D-Day */}
+          <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
+              <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                {roomSelectionDateStr}
+              </p>
+            </div>
+            <div
+              className={`px-3 py-1.5 rounded-lg font-bold text-sm ${
+                daysUntilEnd > 7
+                  ? 'bg-[var(--knu-primary-light)] text-[var(--knu-primary)]'
+                  : daysUntilEnd > 3
+                    ? 'bg-amber-100 text-amber-600'
+                    : 'bg-red-100 text-red-600'
+              }`}
+            >
+              D-{daysUntilEnd}
+            </div>
+          </div>
+
+          {/* D-3 종료 임박 안내 */}
+          {daysUntilEnd <= 3 && (
+            <div className="flex items-start gap-2 p-3 bg-red-50 rounded-xl">
+              <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-semibold text-red-800 mb-0.5">시즌 종료 임박</p>
+                <p className="text-xs text-red-700">
+                  미확정 매칭 신청은 시즌 종료 시 자동 취소됩니다. 확정된 매칭도 초기화됩니다.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* D-7 종료 예정 안내 (D-3 아닐 때) */}
+          {daysUntilEnd > 3 && daysUntilEnd <= 7 && (
+            <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-xl">
+              <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">
+                시즌 종료가 {daysUntilEnd}일 남았습니다. 매칭을 서둘러 확정하세요.
+              </p>
+            </div>
+          )}
+        </div>
+      ) : seasonState === 'SEASON_OPEN' ? (
+        <div className="space-y-3">
+          {isUnassigned ? (
+            <div className="bg-orange-50 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-orange-900 mb-1">
+                    건물을 선택하면 룸메 탐색을 시작할 수 있어요
+                  </p>
+                  <p className="text-xs text-orange-700">프로필 탭에서 배정 건물을 설정해주세요.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-blue-50 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900 mb-1">매칭 준비 기간이에요</p>
+                  <p className="text-xs text-blue-700">
+                    프로필을 완성하고 룸메 후보를 탐색·북마크해두세요.
+                    <br />
+                    매칭 시작 후에는 프로필 수정이 제한됩니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
+              <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                {roomSelectionDateStr}
+              </p>
+            </div>
           </div>
         </div>
       ) : (
-        <div className="bg-[var(--knu-background-alt)] rounded-xl p-3">
-          <p className="text-sm text-[var(--knu-text-secondary)]">
-            다음 시즌 일정이 공지되면 알려드릴게요.
+        <div className="bg-[var(--knu-background-alt)] rounded-xl p-4 text-center">
+          <p className="text-sm font-medium text-[var(--knu-text-primary)] mb-1">
+            지금은 비시즌이에요
+          </p>
+          <p className="text-xs text-[var(--knu-text-secondary)]">
+            프로필을 미리 완성해두면 다음 시즌에 바로 매칭을 시작할 수 있어요.
           </p>
         </div>
       )}

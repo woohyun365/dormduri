@@ -12,7 +12,6 @@ import { HomeQuickMenuSection } from './HomeQuickMenuSection';
 import { HomeBuildingSection } from './HomeBuildingSection';
 import { HomeProgressSection } from './HomeProgressSection';
 import { HomeUsageTipsSection } from './HomeUsageTipsSection';
-import type { Season } from '@/constants/season';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 
@@ -25,8 +24,6 @@ export interface BuildingStats {
 
 interface HomeTabProps {
   user: UserProfile;
-  season: Season;
-  isSeasonActive: boolean;
   onNavigate: (tab: TabId) => void;
   onShowGuide?: () => void;
   matchRequests: MatchRequest[];
@@ -46,8 +43,6 @@ interface HomeTabProps {
 
 export default function HomeTab({
   user,
-  season,
-  isSeasonActive,
   onNavigate,
   onShowGuide,
   matchRequests,
@@ -116,7 +111,7 @@ export default function HomeTab({
       </div>
 
       <div className="max-w-md mx-auto px-5 py-6 space-y-6">
-        <HomeSeasonBanner season={season} isSeasonActive={isSeasonActive} />
+        <HomeSeasonBanner isUnassigned={isUnassigned} />
 
         <HomeMatchingSection
           ref={matchSectionRef}
@@ -156,7 +151,7 @@ export default function HomeTab({
           onOpenBuildingSelect={onOpenBuildingSelect}
         />
 
-        <HomeUsageTipsSection isSeasonActive={isSeasonActive} onShowGuide={onShowGuide} />
+        <HomeUsageTipsSection onShowGuide={onShowGuide} />
       </div>
     </div>
   );

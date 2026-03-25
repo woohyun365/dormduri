@@ -36,7 +36,7 @@ export function FAQItem({ question, answer }: FAQItemProps) {
           id={answerId}
           role="region"
           aria-labelledby={buttonId}
-          className="pb-5 text-[var(--knu-text-secondary)] leading-relaxed"
+          className="pb-5 text-[var(--knu-text-secondary)] leading-relaxed whitespace-pre-line"
         >
           {answer}
         </div>

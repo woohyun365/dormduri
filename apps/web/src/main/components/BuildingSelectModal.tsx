@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { Building2, Check, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { getAvailableDormitories, UNASSIGNED_ID } from '@/constants/dormitory';
+import { getAvailableDormitories, getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
+import { useSeasonContext } from '@/contexts/SeasonContext';
 import type { Campus } from '@/types/profile';
 
 interface BuildingSelectModalProps {
@@ -22,16 +24,32 @@ export function BuildingSelectModal({
   onSelect,
   onClose,
 }: BuildingSelectModalProps) {
+  const { isOpen, isMatching } = useSeasonContext();
   useBodyScrollLock(true);
   const containerRef = useFocusTrap(true, onClose ?? (() => {}));
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   const dormitories = getAvailableDormitories(campus, gender);
 
+  const selectedDorm =
+    selectedId && selectedId !== UNASSIGNED_ID ? getDormitoryById(selectedId) : null;
+
   const handleConfirm = () => {
+    if (!selectedId) return;
+    // 시즌 중 건물 선택 (UNASSIGNED 제외)은 ConfirmDialog로 최종 확인
+    if ((isOpen || isMatching) && selectedId !== UNASSIGNED_ID) {
+      setShowConfirm(true);
+    } else {
+      onSelect(selectedId);
+    }
+  };
+
+  const handleFinalConfirm = () => {
     if (selectedId) {
       onSelect(selectedId);
     }
+    setShowConfirm(false);
   };
 
   return (
@@ -83,8 +101,8 @@ export function BuildingSelectModal({
                   : 'border-dashed border-[var(--knu-border)] bg-[var(--knu-background-alt)] hover:border-gray-300'
               }`}
             >
-              <span className="font-semibold text-[var(--knu-text-secondary)]">
-                아직 배정받지 않았어요
+              <span className="font-semibold text-[var(--knu-text-secondary)] keep-all">
+                아직 배정 결과를 확인하지 못했어요
               </span>
               {selectedId === UNASSIGNED_ID && (
                 <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
@@ -98,10 +116,11 @@ export function BuildingSelectModal({
               <div className="flex items-start gap-3 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
                 <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-orange-800 mb-1">일부 기능이 제한돼요</p>
-                  <p className="text-xs text-orange-700 leading-relaxed">
-                    건물이 정해지지 않으면 같은 건물 룸메이트 매칭이 어려워요. 배정 후 언제든 변경할
-                    수 있어요.
+                  <p className="text-sm font-semibold text-orange-800 mb-1">
+                    건물을 선택하면 룸메 탐색을 시작할 수 있어요
+                  </p>
+                  <p className="text-xs text-orange-700 leading-relaxed keep-all">
+                    배정 결과가 나오면, 프로필 탭에서 배정 건물을 설정하고 매칭을 시작해보세요.
                   </p>
                 </div>
               </div>
@@ -132,11 +151,20 @@ export function BuildingSelectModal({
             ))}
           </div>
 
-          <div className="mt-6 bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
-            <p className="text-sm text-blue-900">
-              나중에 <strong>프로필 설정</strong>에서 변경할 수 있어요.
-            </p>
-          </div>
+          {/* 시즌 경고 (C 파트) */}
+          {(isOpen || isMatching) && selectedId && selectedId !== UNASSIGNED_ID && (
+            <div className="mt-4 flex items-start gap-3 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
+              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-red-800 mb-1">
+                  시즌 중에는 건물을 변경할 수 없습니다
+                </p>
+                <p className="text-xs text-red-700 leading-relaxed">
+                  건물 오입력 시 관리자에게 문의해주세요.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -149,10 +177,25 @@ export function BuildingSelectModal({
             disabled={!selectedId}
             onClick={handleConfirm}
           >
-            선택 완료
+            {selectedDorm
+              ? `${selectedDorm.name} 선택 완료`
+              : selectedId === UNASSIGNED_ID
+                ? '미배정으로 진행'
+                : '선택 완료'}
           </Button>
         </div>
       </div>
+
+      {/* ConfirmDialog (A 파트) — 시즌 중 건물 선택 최종 확인 */}
+      <ConfirmDialog
+        isOpen={showConfirm}
+        title={`${selectedDorm?.name ?? ''}(${selectedDorm?.roomType ?? 2}인실)을 선택합니다`}
+        message={'시즌 중에는 건물을 변경할 수 없습니다.\n건물 오입력 시 관리자에게 문의해주세요.'}
+        confirmLabel="확인"
+        cancelLabel="취소"
+        onConfirm={handleFinalConfirm}
+        onClose={() => setShowConfirm(false)}
+      />
     </div>
   );
 }

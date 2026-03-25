@@ -1,14 +1,19 @@
-import { Cigarette, Moon, Sun, Coffee, Volume2, Sparkles, Heart, Edit2 } from 'lucide-react';
+import { Cigarette, Moon, Sun, Coffee, Volume2, Sparkles, Heart, Edit2, Lock } from 'lucide-react';
 import { SectionHeading } from '@/components/SectionHeading';
 import { getLifestyleLabel } from '@/constants/lifestyle';
 import type { LifestyleData } from '@/types/lifestyle';
 
 interface ProfileLifestyleSectionProps {
   lifestyle: LifestyleData;
+  isLocked: boolean;
   onEdit: () => void;
 }
 
-export function ProfileLifestyleSection({ lifestyle, onEdit }: ProfileLifestyleSectionProps) {
+export function ProfileLifestyleSection({
+  lifestyle,
+  isLocked,
+  onEdit,
+}: ProfileLifestyleSectionProps) {
   return (
     <section>
       <div className="flex items-center justify-between mb-3">
@@ -16,13 +21,21 @@ export function ProfileLifestyleSection({ lifestyle, onEdit }: ProfileLifestyleS
           icon={<Sparkles className="w-5 h-5 text-[var(--knu-primary)]" />}
           title="생활패턴 프로필"
         />
-        <button
-          onClick={onEdit}
-          className="flex items-center gap-1 text-sm font-semibold text-[var(--knu-primary)]"
-        >
-          <Edit2 className="w-4 h-4" />
-          수정
-        </button>
+        <div className="flex items-center gap-2">
+          {isLocked && (
+            <span className="flex items-center gap-1 text-xs text-gray-400">
+              <Lock className="w-3 h-3" />
+              일부 잠금
+            </span>
+          )}
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1 text-sm font-semibold text-[var(--knu-primary)]"
+          >
+            <Edit2 className="w-4 h-4" />
+            수정
+          </button>
+        </div>
       </div>
       <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
         <div className="grid grid-cols-2 gap-4">

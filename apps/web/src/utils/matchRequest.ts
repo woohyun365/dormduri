@@ -9,7 +9,7 @@ interface GetMatchButtonStateParams {
   requests: MatchRequest[];
   activeMatch: ActiveMatch | null;
   blockedUserIds: Set<string>;
-  isSeasonActive: boolean;
+  isSeasonMatching: boolean;
 }
 
 /** 5일(120시간) 경과 여부 (fail-close: invalid/empty expiresAt → 만료 처리) */
@@ -34,16 +34,16 @@ export function getMatchButtonState({
   requests,
   activeMatch,
   blockedUserIds,
-  isSeasonActive,
+  isSeasonMatching,
 }: GetMatchButtonStateParams): MatchButtonState {
   // 1. 차단된 유저
   if (blockedUserIds.has(targetUserId)) {
     return { type: 'BLOCKED', label: '차단됨' };
   }
 
-  // 2. 비시즌
-  if (!isSeasonActive) {
-    return { type: 'OFF_SEASON', label: '시즌 종료' };
+  // 2. 비시즌 또는 시즌 오픈 (매칭 비활성)
+  if (!isSeasonMatching) {
+    return { type: 'OFF_SEASON', label: '매칭 준비 중' };
   }
 
   // 3. 다른 건물

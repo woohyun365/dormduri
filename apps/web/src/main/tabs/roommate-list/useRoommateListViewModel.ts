@@ -24,7 +24,7 @@ interface UseRoommateListViewModelParams {
   bookmarkedUserIds?: Set<string>;
   matchRequests: MatchRequest[];
   activeMatch: ActiveMatch | null;
-  isSeasonActive: boolean;
+  isSeasonMatching: boolean;
 }
 
 /** 시드 기반 의사 난수 (mulberry32) */
@@ -59,7 +59,7 @@ export function useRoommateListViewModel({
   bookmarkedUserIds,
   matchRequests,
   activeMatch,
-  isSeasonActive,
+  isSeasonMatching,
 }: UseRoommateListViewModelParams) {
   // 미완성 유저 대체 정렬용 시드 (마운트마다 새 값 → 방문마다 순서 변경)
   const [shuffleSeed] = useState(() => Date.now());
@@ -95,9 +95,8 @@ export function useRoommateListViewModel({
       list = list.filter((p) => bookmarkedUserIds.has(p.id));
     }
 
-    if (effectiveDormId && viewMode !== 'bookmarked') {
-      list = list.filter((p) => p.dormitoryId === effectiveDormId);
-    }
+    // 건물 필터는 profileApi가 시즌 기반으로 처리 (D-2 결정)
+    // ViewModel에서 별도 건물 필터 불필요
 
     list = list.filter((p) => {
       for (const key of Object.keys(filters) as (keyof FilterState)[]) {
@@ -161,7 +160,7 @@ export function useRoommateListViewModel({
       requests: matchRequests,
       activeMatch,
       blockedUserIds: blockedUserIds ?? new Set(),
-      isSeasonActive,
+      isSeasonMatching,
     });
 
   return {
