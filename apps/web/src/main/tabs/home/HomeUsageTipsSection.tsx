@@ -1,14 +1,13 @@
 import { TrendingUp, BookOpen, ChevronRight } from 'lucide-react';
+import { useSeasonContext } from '@/contexts/SeasonContext';
 
 interface HomeUsageTipsSectionProps {
-  isSeasonActive: boolean;
   onShowGuide?: () => void;
 }
 
-export function HomeUsageTipsSection({
-  isSeasonActive: seasonActive,
-  onShowGuide,
-}: HomeUsageTipsSectionProps) {
+export function HomeUsageTipsSection({ onShowGuide }: HomeUsageTipsSectionProps) {
+  const { isOpen, isMatching } = useSeasonContext();
+  const seasonActive = isOpen || isMatching;
   return (
     <div>
       <h2 className="font-bold text-[var(--knu-text-primary)] mb-3">이용 팁</h2>

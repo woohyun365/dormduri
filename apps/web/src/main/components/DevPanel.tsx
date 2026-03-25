@@ -8,9 +8,9 @@ import type { SeasonState } from '@/types/season';
 const SEASON_OVERRIDE_KEY = 'devpanel-season-override';
 const SEASON_OPTIONS: { value: SeasonState | 'auto'; label: string }[] = [
   { value: 'auto', label: '자동 (날짜 기반)' },
-  { value: 'ACTIVE', label: 'ACTIVE (시즌 중)' },
-  { value: 'APPROACHING_END', label: 'APPROACHING_END (D-7)' },
   { value: 'OFF_SEASON', label: 'OFF_SEASON (비시즌)' },
+  { value: 'SEASON_OPEN', label: 'SEASON_OPEN (시즌 오픈)' },
+  { value: 'SEASON_MATCHING', label: 'SEASON_MATCHING (시즌 매칭)' },
 ];
 
 /**

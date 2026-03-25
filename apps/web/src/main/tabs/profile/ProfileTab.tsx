@@ -15,6 +15,7 @@ import { ProfileLifestyleSection } from './ProfileLifestyleSection';
 import { ProfileAdditionalSection } from './ProfileAdditionalSection';
 import type { AdditionalProfile } from '@/types/additional-profile';
 import type { LifestyleData } from '@/types/lifestyle';
+import { useSeasonContext } from '@/contexts/SeasonContext';
 import type { UserProfile, RoommateProfile } from '@/types/profile';
 
 interface ProfileTabProps {
@@ -34,6 +35,8 @@ export default function ProfileTab({
   onLifestyleChange,
   onAdditionalChange,
 }: ProfileTabProps) {
+  const { isOpen, isMatching } = useSeasonContext();
+  const canChangeDormitory = !isMatching || !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
   const [showBuildingModal, setShowBuildingModal] = useState(false);
   const [showDetailSheet, setShowDetailSheet] = useState(false);
   const [showLifestyleEdit, setShowLifestyleEdit] = useState(false);
@@ -98,21 +101,27 @@ export default function ProfileTab({
                   <span className="text-sm opacity-90">
                     {dormitory.name} · {dormitory.roomType}인실
                   </span>
-                  <button
-                    onClick={() => setShowBuildingModal(true)}
-                    className="text-xs opacity-75 hover:opacity-100 underline transition-opacity"
-                  >
-                    변경
-                  </button>
+                  {canChangeDormitory && (
+                    <button
+                      onClick={() => setShowBuildingModal(true)}
+                      className="text-xs opacity-75 hover:opacity-100 underline transition-opacity"
+                    >
+                      변경
+                    </button>
+                  )}
                 </div>
               ) : isUnassigned ? (
                 <button
-                  onClick={() => setShowBuildingModal(true)}
-                  className="flex items-center gap-1 text-sm opacity-75 hover:opacity-100 transition-opacity"
+                  onClick={canChangeDormitory ? () => setShowBuildingModal(true) : undefined}
+                  className={`flex items-center gap-1 text-sm transition-opacity ${
+                    canChangeDormitory
+                      ? 'opacity-75 hover:opacity-100'
+                      : 'opacity-50 cursor-not-allowed'
+                  }`}
                 >
                   <Building2 className="w-4 h-4" />
                   건물 미배정
-                  <ChevronRight className="w-4 h-4" />
+                  {canChangeDormitory && <ChevronRight className="w-4 h-4" />}
                 </button>
               ) : null}
             </div>
