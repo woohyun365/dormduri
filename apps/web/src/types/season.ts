@@ -1,1 +1,1 @@
-export type SeasonState = 'ACTIVE' | 'APPROACHING_END' | 'OFF_SEASON';
+export type SeasonState = 'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING';
