@@ -4,8 +4,8 @@
 
 - **현재 Sprint**: 6 (Main FE 전체)
 - **범위**: 프론트엔드 + 백엔드. 인프라는 Sprint 10에서 구축.
-- **최근 완료**: Sprint 6 ISS-03 #178 UI 게이팅 구현 (3-state full/partial/gated + 뱃지 85/70/50, close)
-- **다음 작업**: Sprint 6 ISS-04 #112 (시즌 UI 재설계)
+- **최근 완료**: Sprint 6 ISS-04 #112 시즌 UI 재설계 (3-state OFF_SEASON/SEASON_OPEN/SEASON_MATCHING, 호실선택일 자동화, 이용약관 12곳, Landing 3카드+FAQ 4건, 프로필 잠금=MATCHING+건물 배정, close)
+- **다음 작업**: Sprint 6 ISS-05 (매칭 탭 신규 구현)
 
 ## Sprint 설정
 
