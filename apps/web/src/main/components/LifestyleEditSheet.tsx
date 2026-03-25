@@ -5,7 +5,6 @@ import { Lock } from 'lucide-react';
 import { Chip } from '@/components/Chip';
 import { Button } from '@/components/Button';
 import { BaseBottomSheet } from '@/components/BaseBottomSheet';
-import { useSeasonContext } from '@/contexts/SeasonContext';
 import {
   LIFESTYLE_LABELS,
   LIFESTYLE_FIELD_NAMES,
@@ -20,6 +19,7 @@ interface LifestyleEditSheetProps {
   onClose: () => void;
   lifestyle: LifestyleData;
   onSave: (lifestyle: LifestyleData) => void;
+  isLocked?: boolean;
 }
 
 type FieldKey = keyof LifestyleData;
@@ -84,8 +84,8 @@ export function LifestyleEditSheet({
   onClose,
   lifestyle,
   onSave,
+  isLocked: isSeasonLocked = false,
 }: LifestyleEditSheetProps) {
-  const { isMatching: isSeasonLocked } = useSeasonContext();
   const [draft, setDraft] = useState<LifestyleData>(lifestyle);
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
 

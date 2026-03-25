@@ -114,7 +114,7 @@ export default function HomeTab({
       </div>
 
       <div className="max-w-md mx-auto px-5 py-6 space-y-6">
-        <HomeSeasonBanner />
+        <HomeSeasonBanner isUnassigned={isUnassigned} />
 
         <HomeMatchingSection
           ref={matchSectionRef}

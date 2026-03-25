@@ -10,7 +10,11 @@ function formatDate(dateStr: string): string {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
-export function HomeSeasonBanner() {
+interface HomeSeasonBannerProps {
+  isUnassigned?: boolean;
+}
+
+export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps) {
   const { season, state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
 
   const roomSelectionDateStr = useMemo(
@@ -57,7 +61,43 @@ export function HomeSeasonBanner() {
       </div>
       <p className="text-sm text-[var(--knu-text-secondary)] mb-3">{season.name}</p>
 
-      {seasonState === 'SEASON_MATCHING' ? (
+      {seasonState === 'SEASON_MATCHING' && isUnassigned ? (
+        <div className="space-y-3">
+          <div className="bg-orange-50 rounded-xl p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-orange-900 mb-1">
+                  건물을 선택하면 매칭을 시작할 수 있어요
+                </p>
+                <p className="text-xs text-orange-700">
+                  프로필 탭에서 배정 건물을 설정해주세요.
+                  {'\n'}건물 선택 후에는 프로필 수정이 제한됩니다.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
+              <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
+                {roomSelectionDateStr}
+              </p>
+            </div>
+            <div
+              className={`px-3 py-1.5 rounded-lg font-bold text-sm ${
+                daysUntilEnd > 7
+                  ? 'bg-[var(--knu-primary-light)] text-[var(--knu-primary)]'
+                  : daysUntilEnd > 3
+                    ? 'bg-amber-100 text-amber-600'
+                    : 'bg-red-100 text-red-600'
+              }`}
+            >
+              D-{daysUntilEnd}
+            </div>
+          </div>
+        </div>
+      ) : seasonState === 'SEASON_MATCHING' ? (
         <div className="space-y-3">
           {/* 진행 바 */}
           <div>

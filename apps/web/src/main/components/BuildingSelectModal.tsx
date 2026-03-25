@@ -116,11 +116,11 @@ export function BuildingSelectModal({
               <div className="flex items-start gap-3 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
                 <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-semibold text-orange-800 mb-1">일부 기능이 제한돼요</p>
+                  <p className="text-sm font-semibold text-orange-800 mb-1">
+                    건물을 선택하면 룸메 탐색을 시작할 수 있어요
+                  </p>
                   <p className="text-xs text-orange-700 leading-relaxed keep-all">
-                    건물을 선택해야 같은 건물 룸메이트를 찾을 수 있어요.
-                    <br />
-                    배정 결과가 나오면, 프로필 탭에서 건물을 선택하고 매칭을 시작해보세요.
+                    배정 결과가 나오면, 프로필 탭에서 배정 건물을 설정하고 매칭을 시작해보세요.
                   </p>
                 </div>
               </div>

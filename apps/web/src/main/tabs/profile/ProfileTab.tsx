@@ -36,7 +36,9 @@ export default function ProfileTab({
   onAdditionalChange,
 }: ProfileTabProps) {
   const { isMatching } = useSeasonContext();
-  const canChangeDormitory = !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
+  const hasRealBuilding = !!user.dormitoryId && user.dormitoryId !== UNASSIGNED_ID;
+  const canChangeDormitory = !hasRealBuilding;
+  const isProfileLocked = isMatching && hasRealBuilding;
   const [showBuildingModal, setShowBuildingModal] = useState(false);
   const [showDetailSheet, setShowDetailSheet] = useState(false);
   const [showLifestyleEdit, setShowLifestyleEdit] = useState(false);
@@ -139,6 +141,7 @@ export default function ProfileTab({
 
         <ProfileLifestyleSection
           lifestyle={user.lifestyle}
+          isLocked={isProfileLocked}
           onEdit={() => setShowLifestyleEdit(true)}
         />
 
@@ -199,6 +202,7 @@ export default function ProfileTab({
         onClose={() => setShowLifestyleEdit(false)}
         lifestyle={user.lifestyle}
         onSave={onLifestyleChange}
+        isLocked={isProfileLocked}
       />
     </div>
   );
