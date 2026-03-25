@@ -227,7 +227,7 @@ docs/
 | 2    | ISS-02 | #177      | Mock DB / fixture 리팩터링 | 구현        | FE   | 캠퍼스/시즌/프로필 데이터, isConditionComplete 유틸                           |
 | 3    | ISS-03 | #178      | UI 게이팅 구현             | 구현        | FE   | 조건 미완성 시 점수 비노출, 🔓 잠김, 대체 정렬                                |
 | 4    | ISS-04 | #112      | 시즌 UI 재설계             | 구현        | FE   | SeasonState, 시즌 잠금, 음주 비시즌당 1회, 동일 건물 격리                     |
-| 5    | ISS-05 | TBD       | 매칭 탭 신규 구현          | 구현        | FE   | 5탭 구조(Handshake), 요청/대화/확정/이력                                      |
+| 5    | ISS-05 | #182      | 매칭 탭 신규 구현          | 구현        | FE   | 5탭 구조(Handshake), 요청/대화/확정/이력                                      |
 | 6    | ISS-10 | #78       | 내 건물 현황 정보 개선     | 구현        | FE   | 매칭 가능 유저 수, 캠퍼스 필터링                                              |
 | 7    | ISS-13 | #102      | 유저 0명 Empty State       | 구현        | FE   | Empty State + 공유하기 CTA                                                    |
 | 8    | ISS-09 | #149      | 비운영 캠퍼스 Block UI     | 구현        | FE   | UI 동일 + 매칭·북마크 Block, 신고·차단 허용, 배너                             |
