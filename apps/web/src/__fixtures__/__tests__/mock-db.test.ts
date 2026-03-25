@@ -137,6 +137,7 @@ describe('mockDb 비밀번호 재설정', () => {
       dormitoryId: null,
       lifestyle: {} as any,
       intro: '',
+      lastDrinkingChangeSeasonId: null,
     });
   });
 

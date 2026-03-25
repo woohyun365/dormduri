@@ -19,6 +19,7 @@ export interface MockUser {
   dormitoryId: string | null;
   lifestyle: LifestyleData;
   intro: string;
+  lastDrinkingChangeSeasonId: string | null;
 }
 
 const STORAGE_KEYS = {

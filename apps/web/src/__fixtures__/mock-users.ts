@@ -46,6 +46,7 @@ export const PRESET_USERS: Record<string, MockUser> = {
       cleanExpectation: 'BASIC',
       drinkingTolerance: 'LOW_ONLY',
     },
+    lastDrinkingChangeSeasonId: null,
     intro: '조용하고 규칙적인 생활을 선호합니다. 서로 존중하며 지낼 룸메이트를 찾습니다.',
   },
   'chuncheon-F': {
@@ -80,6 +81,7 @@ export const PRESET_USERS: Record<string, MockUser> = {
       cleanExpectation: 'STRICT',
       drinkingTolerance: 'LOW_ONLY',
     },
+    lastDrinkingChangeSeasonId: null,
     intro: '깔끔하고 밝은 분위기를 좋아해요. 서로 배려하며 편하게 지내고 싶습니다.',
   },
   'samcheok-M': {
@@ -114,6 +116,7 @@ export const PRESET_USERS: Record<string, MockUser> = {
       cleanExpectation: 'BASIC',
       drinkingTolerance: 'LOW_ONLY',
     },
+    lastDrinkingChangeSeasonId: null,
     intro: '삼척캠 공대생입니다.',
   },
   'samcheok-F': {
@@ -148,6 +151,7 @@ export const PRESET_USERS: Record<string, MockUser> = {
       cleanExpectation: 'STRICT',
       drinkingTolerance: 'LOW_ONLY',
     },
+    lastDrinkingChangeSeasonId: null,
     intro: '삼척캠 조용한 환경을 좋아해요.',
   },
   'dogye-M': {
@@ -182,6 +186,7 @@ export const PRESET_USERS: Record<string, MockUser> = {
       cleanExpectation: 'FLEXIBLE',
       drinkingTolerance: 'ANY',
     },
+    lastDrinkingChangeSeasonId: null,
     intro: '도계캠 친하게 지낼 분 구합니다.',
   },
   'dogye-F': {
@@ -216,6 +221,7 @@ export const PRESET_USERS: Record<string, MockUser> = {
       cleanExpectation: 'STRICT',
       drinkingTolerance: 'LOW_ONLY',
     },
+    lastDrinkingChangeSeasonId: null,
     intro: '도계캠 규칙적인 생활 합니다.',
   },
 };

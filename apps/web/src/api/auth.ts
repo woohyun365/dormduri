@@ -126,6 +126,7 @@ export const authApi = {
             : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         nickname: data.nickname.trim(),
         dormitoryId: null,
+        lastDrinkingChangeSeasonId: null,
       };
       db.createUser(newUser);
       db.setCurrentUser(newUser);
