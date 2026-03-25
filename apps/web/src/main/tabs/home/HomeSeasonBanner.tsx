@@ -72,7 +72,8 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
                 </p>
                 <p className="text-xs text-orange-700">
                   프로필 탭에서 배정 건물을 설정해주세요.
-                  {'\n'}건물 선택 후에는 프로필 수정이 제한됩니다.
+                  <br />
+                  건물 선택 후에는 프로필 수정이 제한됩니다.
                 </p>
               </div>
             </div>
