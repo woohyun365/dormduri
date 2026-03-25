@@ -120,7 +120,7 @@ export function BuildingSelectModal({
                   <p className="text-xs text-orange-700 leading-relaxed keep-all">
                     건물을 선택해야 같은 건물 룸메이트를 찾을 수 있어요.
                     <br />
-                    기숙사 배정 결과가 나오면 프로필 탭에서 건물을 선택할 수 있어요.
+                    배정 결과가 나오면, 프로필 탭에서 건물을 선택하고 매칭을 시작해보세요.
                   </p>
                 </div>
               </div>
