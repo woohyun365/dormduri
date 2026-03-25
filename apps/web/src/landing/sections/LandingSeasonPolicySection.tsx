@@ -9,9 +9,7 @@ export function LandingSeasonPolicySection() {
         <h2 className="text-3xl md:text-4xl font-bold text-[var(--knu-text-primary)] mb-4">
           시즌 정책
         </h2>
-        <p className="text-lg text-[var(--knu-text-secondary)]">
-          비시즌 · 시즌 오픈 · 시즌 매칭, 3단계 운영 안내
-        </p>
+        <p className="text-lg text-[var(--knu-text-secondary)]">비시즌 · 시즌 오픈 · 시즌 매칭</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
