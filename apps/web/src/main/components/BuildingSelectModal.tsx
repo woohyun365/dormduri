@@ -165,14 +165,6 @@ export function BuildingSelectModal({
               </div>
             </div>
           )}
-
-          {!isMatching && (
-            <div className="mt-6 bg-blue-50 border-2 border-blue-100 rounded-xl p-4">
-              <p className="text-sm text-blue-900">
-                나중에 <strong>프로필 설정</strong>에서 변경할 수 있어요.
-              </p>
-            </div>
-          )}
         </div>
       </div>
 
