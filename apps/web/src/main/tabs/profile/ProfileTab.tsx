@@ -35,8 +35,8 @@ export default function ProfileTab({
   onLifestyleChange,
   onAdditionalChange,
 }: ProfileTabProps) {
-  const { isOpen, isMatching } = useSeasonContext();
-  const canChangeDormitory = !isMatching || !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
+  const { isMatching } = useSeasonContext();
+  const canChangeDormitory = !user.dormitoryId || user.dormitoryId === UNASSIGNED_ID;
   const [showBuildingModal, setShowBuildingModal] = useState(false);
   const [showDetailSheet, setShowDetailSheet] = useState(false);
   const [showLifestyleEdit, setShowLifestyleEdit] = useState(false);

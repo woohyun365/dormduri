@@ -198,7 +198,7 @@ export function BuildingSelectModal({
       <ConfirmDialog
         isOpen={showConfirm}
         title={`${selectedDorm?.name ?? ''}(${selectedDorm?.roomType ?? 2}인실)을 선택합니다`}
-        message="시즌 중에는 건물을 변경할 수 없습니다. 건물 오입력 시 관리자에게 문의해주세요."
+        message={'시즌 중에는 건물을 변경할 수 없습니다.\n건물 오입력 시 관리자에게 문의해주세요.'}
         confirmLabel="확인"
         cancelLabel="취소"
         onConfirm={handleFinalConfirm}

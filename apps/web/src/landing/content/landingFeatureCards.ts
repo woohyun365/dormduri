@@ -100,7 +100,7 @@ export const featureCards: FeatureCardItem[] = [
     icon: Calendar,
     iconColor: 'text-[var(--knu-primary)]',
     title: '시즌제 운영',
-    description: '학교 호실선택일 기준으로 시즌 오픈(준비)·시즌 매칭(활성) 3단계로 운영돼요.',
+    description: '학교 호실선택일 기준으로\n비시즌·시즌 오픈·시즌 매칭\n3단계로 운영돼요.',
   },
   {
     icon: Shield,
