@@ -35,6 +35,6 @@ export type MatchButtonState =
   | { type: 'SAME_DIRECTION_BLOCKED'; label: string }
   | { type: 'ATTEMPTS_EXHAUSTED'; label: string }
   | { type: 'BLOCKED'; label: '차단됨' }
-  | { type: 'OFF_SEASON'; label: '시즌 종료' }
+  | { type: 'OFF_SEASON'; label: '매칭 준비 중' }
   | { type: 'DIFFERENT_BUILDING'; label: '다른 건물' }
   | { type: 'SLOT_FULL'; label: '요청 한도 초과' };

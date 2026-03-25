@@ -15,6 +15,7 @@ import { useMainSocialState } from './hooks/useMainSocialState';
 import { useMainMatchingState } from './hooks/useMainMatchingState';
 import { useMainListViewState } from './hooks/useMainListViewState';
 import { buildMainBuildingStats } from './utils/buildMainBuildingStats';
+import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
 import { matchingApi } from '@/api/matching';
@@ -46,6 +47,28 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   const showToast = useCallback((msg: string) => setToast(msg), []);
 
+  // --- Onboarding ---
+  const {
+    hasSeenGuide,
+    markGuideSeen,
+    isChecklistDismissed,
+    forceShowChecklist,
+    dismissChecklist,
+    resetChecklist,
+    hasSeenTooltip,
+    markTooltipSeen,
+  } = useOnboardingState(initialUser.nickname);
+
+  // --- Domain hooks ---
+  const profileState = useMainProfileState(initialUser, {
+    showToast,
+    hasSeenGuide,
+    markGuideSeen,
+  });
+
+  // 건물 선택 후 재조회를 위해 현재 dormitoryId 추적
+  const currentDormitoryId = profileState.user.dormitoryId;
+
   // --- 서비스 레이어 데이터 로딩 ---
   useEffect(() => {
     let cancelled = false;
@@ -67,11 +90,15 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       };
 
       // SEASON_OPEN + SEASON_MATCHING → 동일 건물 격리
+      // UNASSIGNED → 빈 배열 (정책: 건물 미선택 유저는 탐색 불가)
+      const isUnassignedId = currentDormitoryId === UNASSIGNED_ID;
       const dormitoryIdForFilter =
-        season.isOpen || season.isMatching ? initialUser.dormitoryId : null;
+        season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
 
       const [profileResult, matchRequests, activeMatch] = await Promise.all([
-        profileApi.getProfiles(initialUser.campus, initialUser.gender, dormitoryIdForFilter),
+        (season.isOpen || season.isMatching) && isUnassignedId
+          ? Promise.resolve([])
+          : profileApi.getProfiles(initialUser.campus, initialUser.gender, dormitoryIdForFilter),
         matchingApi.getMatchRequests(),
         matchingApi.getActiveMatch(),
       ]);
@@ -94,26 +121,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     return () => {
       cancelled = true;
     };
-  }, [initialUser.campus, initialUser.gender, initialUser.dormitoryId]);
-
-  // --- Onboarding ---
-  const {
-    hasSeenGuide,
-    markGuideSeen,
-    isChecklistDismissed,
-    forceShowChecklist,
-    dismissChecklist,
-    resetChecklist,
-    hasSeenTooltip,
-    markTooltipSeen,
-  } = useOnboardingState(initialUser.nickname);
-
-  // --- Domain hooks ---
-  const profileState = useMainProfileState(initialUser, {
-    showToast,
-    hasSeenGuide,
-    markGuideSeen,
-  });
+  }, [initialUser.campus, initialUser.gender, currentDormitoryId]);
 
   const socialState = useMainSocialState(showToast);
 

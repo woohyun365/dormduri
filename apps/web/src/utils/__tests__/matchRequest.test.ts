@@ -97,7 +97,7 @@ describe('getMatchButtonState', () => {
 
   it('2. 비시즌 → OFF_SEASON', () => {
     const params = { ...defaultParams(), isSeasonMatching: false };
-    expect(getMatchButtonState(params)).toEqual({ type: 'OFF_SEASON', label: '시즌 종료' });
+    expect(getMatchButtonState(params)).toEqual({ type: 'OFF_SEASON', label: '매칭 준비 중' });
   });
 
   it('3. 다른 건물 → DIFFERENT_BUILDING', () => {

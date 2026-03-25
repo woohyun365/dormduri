@@ -43,7 +43,7 @@ export function getMatchButtonState({
 
   // 2. 비시즌 또는 시즌 오픈 (매칭 비활성)
   if (!isSeasonMatching) {
-    return { type: 'OFF_SEASON', label: '시즌 종료' };
+    return { type: 'OFF_SEASON', label: '매칭 준비 중' };
   }
 
   // 3. 다른 건물

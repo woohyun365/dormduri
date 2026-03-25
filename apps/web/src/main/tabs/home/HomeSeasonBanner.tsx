@@ -28,11 +28,12 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
     const { matchStart, matchEnd } = calcSeasonDates(season.roomSelectionDate);
     const start = new Date(matchStart + 'T00:00:00+09:00').getTime();
     const end = new Date(matchEnd + 'T23:59:59+09:00').getTime();
-    const now = Date.now();
     const total = end - start;
     if (total <= 0) return 100;
-    return Math.min(100, Math.max(0, Math.round(((now - start) / total) * 100)));
-  }, [isMatching, season.roomSelectionDate]);
+    // daysUntilEnd는 서버/context에서 제공되므로 이를 기반으로 역산
+    const elapsed = total - daysUntilEnd * 24 * 60 * 60 * 1000;
+    return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+  }, [isMatching, season.roomSelectionDate, daysUntilEnd]);
 
   const title =
     seasonState === 'SEASON_MATCHING'
@@ -168,19 +169,33 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
         </div>
       ) : seasonState === 'SEASON_OPEN' ? (
         <div className="space-y-3">
-          <div className="bg-blue-50 rounded-xl p-4">
-            <div className="flex items-start gap-2">
-              <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-blue-900 mb-1">매칭 준비 기간이에요</p>
-                <p className="text-xs text-blue-700">
-                  프로필을 완성하고 룸메 후보를 탐색·북마크해두세요.
-                  <br />
-                  매칭 시작 후에는 프로필 수정이 제한됩니다.
-                </p>
+          {isUnassigned ? (
+            <div className="bg-orange-50 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-orange-900 mb-1">
+                    건물을 선택하면 룸메 탐색을 시작할 수 있어요
+                  </p>
+                  <p className="text-xs text-orange-700">프로필 탭에서 배정 건물을 설정해주세요.</p>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-blue-50 rounded-xl p-4">
+              <div className="flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900 mb-1">매칭 준비 기간이에요</p>
+                  <p className="text-xs text-blue-700">
+                    프로필을 완성하고 룸메 후보를 탐색·북마크해두세요.
+                    <br />
+                    매칭 시작 후에는 프로필 수정이 제한됩니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
             <div>
               <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>

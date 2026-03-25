@@ -152,7 +152,7 @@ export function BuildingSelectModal({
           </div>
 
           {/* 시즌 경고 (C 파트) */}
-          {isMatching && selectedId && selectedId !== UNASSIGNED_ID && (
+          {(isOpen || isMatching) && selectedId && selectedId !== UNASSIGNED_ID && (
             <div className="mt-4 flex items-start gap-3 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div>

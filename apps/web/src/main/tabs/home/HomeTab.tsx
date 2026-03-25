@@ -12,7 +12,6 @@ import { HomeQuickMenuSection } from './HomeQuickMenuSection';
 import { HomeBuildingSection } from './HomeBuildingSection';
 import { HomeProgressSection } from './HomeProgressSection';
 import { HomeUsageTipsSection } from './HomeUsageTipsSection';
-import { useSeasonContext } from '@/contexts/SeasonContext';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 
@@ -60,8 +59,6 @@ export default function HomeTab({
   onDismissChecklist,
   onOpenBuildingSelect,
 }: HomeTabProps) {
-  const { season, state: seasonState, isOpen, isMatching, daysUntilEnd } = useSeasonContext();
-  const isSeasonActive = isOpen || isMatching;
   const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
   const dormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)

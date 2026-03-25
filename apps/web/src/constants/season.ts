@@ -19,11 +19,11 @@ function toKstEndOfDay(dateStr: string): number {
   return new Date(dateStr + 'T23:59:59+09:00').getTime();
 }
 
-/** 호실선택일에서 N주 전 날짜 계산 */
+/** 호실선택일에서 N주 전 날짜 계산 (순수 날짜 산술, 시간대 무관) */
 function weeksBeforeDate(dateStr: string, weeks: number): string {
-  const d = new Date(dateStr + 'T00:00:00+09:00');
-  d.setDate(d.getDate() - weeks * 7);
-  return d.toISOString().slice(0, 10);
+  const parts = dateStr.split('-').map(Number);
+  const date = new Date(parts[0]!, parts[1]! - 1, parts[2]! - weeks * 7);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 /** 시즌 일정 자동 계산 */
