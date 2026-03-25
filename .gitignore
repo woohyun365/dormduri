@@ -54,5 +54,12 @@ figma_references/
 ## 문서 (위키로 관리)
 docs/
 
+## 프로젝트 관리 문서 (README.md 제외)
+CLAUDE.md
+QA.md
+AGENTS.md
+SERVICE.md
+REFACTOR-ANALYZE.md
+
 ## OS/기타
 .DS_Store
