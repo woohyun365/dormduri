@@ -48,7 +48,7 @@ export function LandingSeasonPolicySection() {
             <Sparkles className="w-6 h-6 text-blue-600" />
           </div>
           <h3 className="text-xl font-bold text-[var(--knu-text-primary)] mb-3">시즌 오픈</h3>
-          <p className="text-[var(--knu-text-secondary)] mb-4">합격 발표 후 약 1주</p>
+          <p className="text-[var(--knu-text-secondary)] mb-4">매칭 시작 전 준비 기간</p>
           <ul className="space-y-2 text-sm text-[var(--knu-text-secondary)]">
             <li className="flex items-start gap-2">
               <CheckCircle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />

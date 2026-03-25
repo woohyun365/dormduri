@@ -44,7 +44,7 @@ export function useMainProfileState(initialUser: UserProfile, options: ProfileSt
         const dorm = getDormitoryById(dormitoryId);
         showToast(dorm ? `${dorm.name}(으)로 설정했어요` : '건물이 설정되었어요');
       }
-      if (!hasSeenGuide(dormitoryId)) {
+      if (dormitoryId === UNASSIGNED_ID && !hasSeenGuide(dormitoryId)) {
         if (guideTimerRef.current) clearTimeout(guideTimerRef.current);
         guideTimerRef.current = setTimeout(() => setShowGuide(true), GUIDE_DELAY);
       }

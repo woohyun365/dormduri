@@ -24,7 +24,7 @@ export function BuildingSelectModal({
   onSelect,
   onClose,
 }: BuildingSelectModalProps) {
-  const { isMatching } = useSeasonContext();
+  const { isOpen, isMatching } = useSeasonContext();
   useBodyScrollLock(true);
   const containerRef = useFocusTrap(true, onClose ?? (() => {}));
 
@@ -37,8 +37,8 @@ export function BuildingSelectModal({
 
   const handleConfirm = () => {
     if (!selectedId) return;
-    // 시즌 매칭 중 건물 선택 (UNASSIGNED 제외)은 ConfirmDialog로 최종 확인
-    if (isMatching && selectedId !== UNASSIGNED_ID) {
+    // 시즌 중 건물 선택 (UNASSIGNED 제외)은 ConfirmDialog로 최종 확인
+    if ((isOpen || isMatching) && selectedId !== UNASSIGNED_ID) {
       setShowConfirm(true);
     } else {
       onSelect(selectedId);

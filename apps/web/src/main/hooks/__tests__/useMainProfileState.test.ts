@@ -96,10 +96,18 @@ describe('useMainProfileState — 건물 선택', () => {
     expect(toasts).toContain('건물 미배정으로 설정했어요');
   });
 
-  it('미확인 건물 선택 시 가이드가 자동 표시된다', () => {
+  it('실제 건물 선택 시 가이드가 표시되지 않는다', () => {
     const { hook } = setup();
 
     act(() => hook.result.current.handleSelectDormitory('saerom'));
+    act(() => vi.advanceTimersByTime(700));
+    expect(hook.result.current.showGuide).toBe(false);
+  });
+
+  it('UNASSIGNED 선택 시 가이드가 자동 표시된다', () => {
+    const { hook } = setup();
+
+    act(() => hook.result.current.handleSelectDormitory('unassigned'));
     expect(hook.result.current.showGuide).toBe(false);
 
     act(() => vi.advanceTimersByTime(700));

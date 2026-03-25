@@ -20,7 +20,9 @@ export function FeatureCard({ icon, title, description, variant = 'default' }: F
         {icon}
       </div>
       <h3 className="text-xl font-bold text-[var(--knu-text-primary)] mb-3">{title}</h3>
-      <p className="text-[var(--knu-text-secondary)] leading-relaxed">{description}</p>
+      <p className="text-[var(--knu-text-secondary)] leading-relaxed whitespace-pre-line">
+        {description}
+      </p>
     </div>
   );
 }
