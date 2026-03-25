@@ -119,18 +119,18 @@ describe('useMainMatchingState — 요청 전송', () => {
 });
 
 describe('useMainMatchingState — 요청 취소', () => {
-  it('요청을 취소하면 CANCELED 상태가 된다', () => {
+  it('요청을 취소하면 CANCELLED 상태가 된다', () => {
     const { hook, toasts } = setup();
     act(() => hook.result.current.handleSendRequest('target-1'));
     const reqId = hook.result.current.matchRequests[0]!.id;
     act(() => hook.result.current.handleCancelRequest(reqId));
-    expect(hook.result.current.matchRequests[0]?.status).toBe('CANCELED');
+    expect(hook.result.current.matchRequests[0]?.status).toBe('CANCELLED');
     expect(toasts).toContain('매칭 요청을 취소했어요');
   });
 });
 
 describe('useMainMatchingState — 요청 수락', () => {
-  it('수락 시 activeMatch가 설정되고, 다른 PENDING 요청은 CANCELED 된다', () => {
+  it('수락 시 activeMatch가 설정되고, 다른 PENDING 요청은 CANCELLED 된다', () => {
     const { hook } = setup();
     // 먼저 2개 요청 생성
     act(() => hook.result.current.handleSendRequest('target-1'));
@@ -142,10 +142,10 @@ describe('useMainMatchingState — 요청 수락', () => {
     act(() => hook.result.current.handleAcceptRequest(reqId));
 
     expect(hook.result.current.activeMatch).not.toBeNull();
-    // 나머지 PENDING 요청은 CANCELED
+    // 나머지 PENDING 요청은 CANCELLED
     const otherReqs = hook.result.current.matchRequests.filter((r) => r.id !== reqId);
     for (const r of otherReqs) {
-      if (r.status !== 'CANCELED') {
+      if (r.status !== 'CANCELLED') {
         // 만료된 요청은 그대로
         expect(r.status).not.toBe('PENDING');
       }

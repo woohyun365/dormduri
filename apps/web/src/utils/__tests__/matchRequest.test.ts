@@ -17,6 +17,8 @@ function makeRequest(overrides: Partial<MatchRequest> = {}): MatchRequest {
     createdAt: new Date(NOW - 24 * 60 * 60 * 1000).toISOString(),
     expiresAt: new Date(NOW + 24 * 60 * 60 * 1000).toISOString(),
     rejectedAt: null,
+    acceptedAt: null,
+    resolvedAt: null,
     ...overrides,
   };
 }
@@ -97,7 +99,7 @@ describe('getMatchButtonState', () => {
 
   it('2. 비시즌 → OFF_SEASON', () => {
     const params = { ...defaultParams(), isSeasonMatching: false };
-    expect(getMatchButtonState(params)).toEqual({ type: 'OFF_SEASON', label: '매칭 준비 중' });
+    expect(getMatchButtonState(params)).toEqual({ type: 'OFF_SEASON', label: '비시즌' });
   });
 
   it('3. 다른 건물 → DIFFERENT_BUILDING', () => {
@@ -131,7 +133,10 @@ describe('getMatchButtonState', () => {
       partnerNickname: '룸메',
       partnerDormitoryId: null,
       matchScore: 85,
+      scoreType: 'full',
       matchedAt: new Date().toISOString(),
+      cancelRequestedAt: null,
+      cancelRequestedBy: null,
     };
     const params = { ...defaultParams(), activeMatch };
     expect(getMatchButtonState(params)).toEqual({ type: 'MATCHED', label: '매칭됨' });
@@ -214,20 +219,20 @@ describe('getMatchButtonState', () => {
       id: 'r-can',
       fromUserId: 'me',
       toUserId: 'target',
-      status: 'CANCELED',
+      status: 'CANCELLED',
     });
     const params = { ...defaultParams(), requests: [req] };
     expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
   });
 
   // AC-N1 보강: 취소된 요청은 시간이 지나도 차단되면 안 된다
-  it('7-c2. AC-N1 보강: CANCELED + 시간 만료 → REQUEST (차단 아님)', () => {
+  it('7-c2. AC-N1 보강: CANCELLED + 시간 만료 → REQUEST (차단 아님)', () => {
     vi.setSystemTime(NOW);
     const req = makeRequest({
       id: 'r-can-expired',
       fromUserId: 'me',
       toUserId: 'target',
-      status: 'CANCELED',
+      status: 'CANCELLED',
       expiresAt: new Date(NOW - 1000).toISOString(),
     });
     const params = { ...defaultParams(), requests: [req] };
@@ -262,7 +267,7 @@ describe('getMatchButtonState', () => {
         id: `r-can-${i}`,
         fromUserId: 'me',
         toUserId: 'target',
-        status: 'CANCELED',
+        status: 'CANCELLED',
       }),
     );
     const params = { ...defaultParams(), requests };
@@ -278,7 +283,7 @@ describe('getMatchButtonState', () => {
         id: `r-can-${i}`,
         fromUserId: 'me',
         toUserId: 'target',
-        status: 'CANCELED',
+        status: 'CANCELLED',
       }),
     );
     const params = { ...defaultParams(), requests };
@@ -294,7 +299,7 @@ describe('getMatchButtonState', () => {
         id: `r-fwd-${i}`,
         fromUserId: 'me',
         toUserId: 'target',
-        status: 'CANCELED',
+        status: 'CANCELLED',
       }),
     );
     // B→A 방향에서 판단 (currentUserId='target', targetUserId='me')
@@ -311,8 +316,8 @@ describe('getMatchButtonState', () => {
   it('7-h. AC-B3: 취소 2회 + 거절 1회 → SAME_DIRECTION_BLOCKED 우선', () => {
     vi.setSystemTime(NOW);
     const requests = [
-      makeRequest({ id: 'r-can-1', fromUserId: 'me', toUserId: 'target', status: 'CANCELED' }),
-      makeRequest({ id: 'r-can-2', fromUserId: 'me', toUserId: 'target', status: 'CANCELED' }),
+      makeRequest({ id: 'r-can-1', fromUserId: 'me', toUserId: 'target', status: 'CANCELLED' }),
+      makeRequest({ id: 'r-can-2', fromUserId: 'me', toUserId: 'target', status: 'CANCELLED' }),
       makeRequest({
         id: 'r-rej-3',
         fromUserId: 'me',

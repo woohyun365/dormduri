@@ -38,6 +38,8 @@ export function useMainMatchingState(
         createdAt: now.toISOString(),
         expiresAt: expiresAt.toISOString(),
         rejectedAt: null,
+        acceptedAt: null,
+        resolvedAt: null,
       };
       setMatchRequests((prev) => [...prev, newRequest]);
       showToast('매칭 요청을 보냈어요');
@@ -48,7 +50,7 @@ export function useMainMatchingState(
   const handleCancelRequest = useCallback(
     (requestId: string) => {
       setMatchRequests((prev) =>
-        prev.map((r) => (r.id === requestId ? { ...r, status: 'CANCELED' as const } : r)),
+        prev.map((r) => (r.id === requestId ? { ...r, status: 'CANCELLED' as const } : r)),
       );
       showToast('매칭 요청을 취소했어요');
     },
@@ -63,15 +65,20 @@ export function useMainMatchingState(
       const partnerId = request.fromUserId;
       const partnerProfile = profiles.find((p) => p.id === partnerId);
 
+      const scoreResult = partnerProfile
+        ? calcMatchScoreWithGating(userLifestyle, partnerProfile.lifestyle)
+        : { score: null, type: 'gated' as const };
+
       const match: ActiveMatch = {
         matchId: `match-${++idCounter}`,
         partnerUserId: partnerId,
         partnerNickname: partnerProfile?.nickname ?? partnerId,
         partnerDormitoryId: partnerProfile?.dormitoryId ?? null,
-        matchScore: partnerProfile
-          ? (calcMatchScoreWithGating(userLifestyle, partnerProfile.lifestyle).score ?? 0)
-          : 0,
+        matchScore: scoreResult.score ?? 0,
+        scoreType: scoreResult.type,
         matchedAt: new Date().toISOString(),
+        cancelRequestedAt: null,
+        cancelRequestedBy: null,
       };
       setActiveMatch(match);
 
@@ -79,7 +86,7 @@ export function useMainMatchingState(
         prev.map((r) => {
           if (r.id === requestId) return { ...r, status: 'ACTIVE' as const };
           if (r.status === 'PENDING' && !isRequestExpired(r))
-            return { ...r, status: 'CANCELED' as const };
+            return { ...r, status: 'CANCELLED' as const };
           return r;
         }),
       );
