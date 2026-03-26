@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Handshake, ChevronDown, ChevronRight, MessageCircle } from 'lucide-react';
+import { Handshake, ChevronDown, ChevronRight, MessageCircle, AlertTriangle } from 'lucide-react';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/Button';
 import { MatchRequestCard } from '../../components/MatchRequestCard';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
+import { useSeasonContext } from '@/contexts/SeasonContext';
 import { MATCH_POLICY } from '@/constants/match';
 import { MATCH_STATUS_LABELS } from '@/constants/match';
 import { getAvatarColor } from '@/utils/avatarColor';
@@ -55,7 +56,10 @@ export default function MatchingTab({
   onEndConversation,
   onEndMatch,
 }: MatchingTabProps) {
-  // --- Derived data ---
+  // --- Hooks (must be called unconditionally) ---
+  const { state: seasonState } = useSeasonContext();
+  const isCampusOperated = user.campus === 'CHUNCHEON';
+
   const profileMap = useMemo(() => {
     const map = new Map<string, Omit<RoommateProfile, 'matchScore'>>();
     for (const p of profiles) map.set(p.id, p);
@@ -95,7 +99,6 @@ export default function MatchingTab({
     [matchRequests],
   );
 
-  // --- UI state ---
   const [requestTab, setRequestTab] = useState<RequestTab>('sent');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
@@ -108,6 +111,48 @@ export default function MatchingTab({
     direction: 'sent' | 'received' | 'conversation';
     requestId: string;
   } | null>(null);
+
+  // --- Season / Campus gating (after all hooks) ---
+  if (!isCampusOperated) {
+    return (
+      <div className="px-4 py-6 max-w-md mx-auto">
+        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <p className="text-sm text-amber-800">
+              이 캠퍼스는 현재 매칭 서비스를 운영하지 않습니다
+            </p>
+          </div>
+        </div>
+        <EmptyState
+          icon={<Handshake className="w-12 h-12 text-gray-300" />}
+          message="매칭 서비스 준비 중"
+        />
+      </div>
+    );
+  }
+
+  if (seasonState === 'OFF_SEASON') {
+    return (
+      <div className="px-4 py-6 max-w-md mx-auto">
+        <EmptyState
+          icon={<Handshake className="w-12 h-12 text-gray-300" />}
+          message="현재는 비시즌입니다"
+        />
+      </div>
+    );
+  }
+
+  if (seasonState === 'SEASON_OPEN') {
+    return (
+      <div className="px-4 py-6 max-w-md mx-auto">
+        <EmptyState
+          icon={<Handshake className="w-12 h-12 text-gray-300" />}
+          message="매칭 준비 중입니다"
+        />
+      </div>
+    );
+  }
 
   // --- Helpers ---
   const getPartnerProfile = (

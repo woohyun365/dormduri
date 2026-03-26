@@ -27,7 +27,8 @@ export function MatchRequestCard({
   onReject,
   onClick,
 }: MatchRequestCardProps) {
-  const { timeLeft, isExpired } = useExpiryCountdown(request.expiresAt);
+  const { timeLeft, isExpired, totalSeconds } = useExpiryCountdown(request.expiresAt);
+  const isUrgent = !isExpired && totalSeconds <= 24 * 60 * 60; // 24h 이내 — D-23
   const avatarColor = getAvatarColor(partnerProfile.nickname);
   const dormLabel = getDormitoryLabel(partnerProfile.dormitoryId);
 
@@ -79,14 +80,20 @@ export function MatchRequestCard({
 
       {/* Timer — 카운트다운은 클라이언트 시각 기반이므로 hydration 차이 허용 */}
       <div className="flex items-center gap-1.5 mb-3" suppressHydrationWarning>
-        <Clock className="w-3.5 h-3.5 text-[var(--knu-text-tertiary)]" />
+        <Clock
+          className={`w-3.5 h-3.5 ${isUrgent ? 'text-orange-500' : 'text-[var(--knu-text-tertiary)]'}`}
+        />
         <span
           suppressHydrationWarning
           className={`text-xs font-semibold ${
-            isExpired ? 'text-red-500' : 'text-[var(--knu-text-tertiary)]'
+            isExpired
+              ? 'text-red-500'
+              : isUrgent
+                ? 'text-orange-500'
+                : 'text-[var(--knu-text-tertiary)]'
           }`}
         >
-          {isExpired ? '만료됨' : `남은 시간 ${timeLeft}`}
+          {isExpired ? '만료됨' : isUrgent ? `만료 임박 ${timeLeft}` : `남은 시간 ${timeLeft}`}
         </span>
       </div>
 
