@@ -1,19 +1,15 @@
 'use client';
 
-import { useRef, useMemo } from 'react';
 import { Building2, AlertTriangle } from 'lucide-react';
 import { getDormitoryById } from '@/constants/dormitory';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { getAvatarColor } from '@/utils/avatarColor';
-import { isRequestExpired } from '@/utils/matchRequest';
 import { HomeSeasonBanner } from './HomeSeasonBanner';
-import { HomeMatchingSection } from './HomeMatchingSection';
 import { HomeQuickMenuSection } from './HomeQuickMenuSection';
 import { HomeBuildingSection } from './HomeBuildingSection';
 import { HomeProgressSection } from './HomeProgressSection';
 import { HomeUsageTipsSection } from './HomeUsageTipsSection';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
-import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export interface BuildingStats {
   activeUsers: number;
@@ -26,12 +22,6 @@ interface HomeTabProps {
   user: UserProfile;
   onNavigate: (tab: TabId) => void;
   onShowGuide?: () => void;
-  matchRequests: MatchRequest[];
-  activeMatch: ActiveMatch | null;
-  onCancelRequest?: (requestId: string) => void;
-  onAcceptRequest?: (requestId: string) => void;
-  onRejectRequest?: (requestId: string) => void;
-  onEndMatch?: () => void;
   profiles: Omit<RoommateProfile, 'matchScore'>[];
   buildingStats?: BuildingStats;
   bookmarkedUserIds?: Set<string>;
@@ -45,12 +35,6 @@ export default function HomeTab({
   user,
   onNavigate,
   onShowGuide,
-  matchRequests,
-  activeMatch,
-  onCancelRequest,
-  onAcceptRequest,
-  onRejectRequest,
-  onEndMatch,
   profiles,
   buildingStats,
   bookmarkedUserIds,
@@ -63,15 +47,6 @@ export default function HomeTab({
   const dormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
     : null;
-  const matchSectionRef = useRef<HTMLDivElement>(null);
-
-  const receivedPendingCount = useMemo(
-    () =>
-      matchRequests.filter(
-        (r) => r.toUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
-      ).length,
-    [matchRequests, user.id],
-  );
 
   return (
     <div>
@@ -113,24 +88,9 @@ export default function HomeTab({
       <div className="max-w-md mx-auto px-5 py-6 space-y-6">
         <HomeSeasonBanner isUnassigned={isUnassigned} />
 
-        <HomeMatchingSection
-          ref={matchSectionRef}
-          user={user}
-          matchRequests={matchRequests}
-          activeMatch={activeMatch}
-          profiles={profiles}
-          dormitory={dormitory ?? null}
-          onCancelRequest={onCancelRequest}
-          onAcceptRequest={onAcceptRequest}
-          onRejectRequest={onRejectRequest}
-          onEndMatch={onEndMatch}
-          onNavigateList={() => onNavigate('list')}
-        />
-
         <HomeQuickMenuSection
           onNavigateList={() => onNavigate('list')}
-          onScrollToMatch={() => matchSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
-          receivedPendingCount={receivedPendingCount}
+          onNavigateMatching={() => onNavigate('matching')}
         />
 
         <HomeBuildingSection

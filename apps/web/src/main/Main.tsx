@@ -197,12 +197,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               user={profileState.user}
               onNavigate={setActiveTab}
               onShowGuide={profileState.handleShowGuide}
-              matchRequests={matchingState.matchRequests}
-              activeMatch={matchingState.activeMatch}
-              onCancelRequest={matchingState.handleCancelRequest}
-              onAcceptRequest={matchingState.handleAcceptRequest}
-              onRejectRequest={matchingState.handleRejectRequest}
-              onEndMatch={matchingState.handleEndMatch}
               profiles={data.profiles}
               buildingStats={buildingStats}
               bookmarkedUserIds={socialState.bookmarkedUserIds}
