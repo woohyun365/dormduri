@@ -125,41 +125,50 @@ describe('useMainMatchingState — 요청 취소', () => {
     const reqId = hook.result.current.matchRequests[0]!.id;
     act(() => hook.result.current.handleCancelRequest(reqId));
     expect(hook.result.current.matchRequests[0]?.status).toBe('CANCELLED');
+    expect(hook.result.current.matchRequests[0]?.resolvedAt).toBeTruthy();
     expect(toasts).toContain('매칭 요청을 취소했어요');
   });
 });
 
-describe('useMainMatchingState — 요청 수락', () => {
-  it('수락 시 activeMatch가 설정되고, 다른 PENDING 요청은 CANCELLED 된다', () => {
-    const { hook } = setup();
-    // 먼저 2개 요청 생성
+describe('useMainMatchingState — 요청 수락 (→ IN_CONVERSATION)', () => {
+  it('수락 시 IN_CONVERSATION 상태가 된다 (ACTIVE 아님)', () => {
+    const { hook, toasts } = setup();
     act(() => hook.result.current.handleSendRequest('target-1'));
-    act(() => hook.result.current.handleSendRequest('target-2'));
-    // 받은 요청 추가를 시뮬레이션하기 위해 partner-1이 보낸 요청 추가
-    // 실제로는 서버에서 오지만, mock에서는 직접 테스트
     const reqId = hook.result.current.matchRequests[0]!.id;
-
     act(() => hook.result.current.handleAcceptRequest(reqId));
+    expect(hook.result.current.matchRequests[0]?.status).toBe('IN_CONVERSATION');
+    expect(hook.result.current.matchRequests[0]?.acceptedAt).toBeTruthy();
+    expect(hook.result.current.activeMatch).toBeNull();
+    expect(toasts).toContain('요청을 수락했어요. 대화를 시작하세요!');
+  });
+});
+
+describe('useMainMatchingState — 매칭 확정 (IN_CONVERSATION → ACTIVE)', () => {
+  it('확정 시 activeMatch가 설정되고 다른 PENDING은 CANCELLED 된다', () => {
+    const { hook } = setup();
+    // 요청 2개 생성 + 1개 수락
+    act(() => hook.result.current.handleSendRequest('partner-1'));
+    act(() => hook.result.current.handleSendRequest('target-2'));
+    const reqId = hook.result.current.matchRequests[0]!.id;
+    act(() => hook.result.current.handleAcceptRequest(reqId));
+    act(() => hook.result.current.handleConfirmMatch(reqId));
 
     expect(hook.result.current.activeMatch).not.toBeNull();
-    // 나머지 PENDING 요청은 CANCELLED
-    const otherReqs = hook.result.current.matchRequests.filter((r) => r.id !== reqId);
-    for (const r of otherReqs) {
-      if (r.status !== 'CANCELLED') {
-        // 만료된 요청은 그대로
-        expect(r.status).not.toBe('PENDING');
-      }
+    expect(hook.result.current.matchRequests[0]?.status).toBe('ACTIVE');
+    // 나머지 PENDING은 CANCELLED
+    const others = hook.result.current.matchRequests.filter((r) => r.id !== reqId);
+    for (const r of others) {
+      expect(r.status).not.toBe('PENDING');
     }
   });
 
-  it('수락 시 celebration 모달 데이터가 설정된다', () => {
+  it('확정 시 celebration 모달 데이터가 설정된다', () => {
     const { hook } = setup();
     act(() => hook.result.current.handleSendRequest('partner-1'));
     const reqId = hook.result.current.matchRequests[0]!.id;
     act(() => hook.result.current.handleAcceptRequest(reqId));
-
+    act(() => hook.result.current.handleConfirmMatch(reqId));
     expect(hook.result.current.showCelebration).not.toBeNull();
-    // partner 닉네임/점수 계산은 mockProfiles에서 partner-1을 찾아 사용한다.
     expect(hook.result.current.showCelebration?.nickname).toBeDefined();
   });
 
@@ -168,13 +177,27 @@ describe('useMainMatchingState — 요청 수락', () => {
     act(() => hook.result.current.handleSendRequest('partner-1'));
     const reqId = hook.result.current.matchRequests[0]!.id;
     act(() => hook.result.current.handleAcceptRequest(reqId));
+    act(() => hook.result.current.handleConfirmMatch(reqId));
     act(() => hook.result.current.closeCelebration());
     expect(hook.result.current.showCelebration).toBeNull();
   });
 });
 
+describe('useMainMatchingState — 대화 종료 (IN_CONVERSATION → CONVERSATION_ENDED)', () => {
+  it('대화 종료 시 CONVERSATION_ENDED 상태가 된다', () => {
+    const { hook, toasts } = setup();
+    act(() => hook.result.current.handleSendRequest('target-1'));
+    const reqId = hook.result.current.matchRequests[0]!.id;
+    act(() => hook.result.current.handleAcceptRequest(reqId));
+    act(() => hook.result.current.handleEndConversation(reqId));
+    expect(hook.result.current.matchRequests[0]?.status).toBe('CONVERSATION_ENDED');
+    expect(hook.result.current.matchRequests[0]?.resolvedAt).toBeTruthy();
+    expect(toasts).toContain('대화를 종료했어요');
+  });
+});
+
 describe('useMainMatchingState — 요청 거절', () => {
-  it('거절 시 REJECTED 상태 + rejectedAt 설정', () => {
+  it('거절 시 REJECTED 상태 + rejectedAt + resolvedAt 설정', () => {
     const { hook, toasts } = setup();
     act(() => hook.result.current.handleSendRequest('target-1'));
     const reqId = hook.result.current.matchRequests[0]!.id;
@@ -182,20 +205,24 @@ describe('useMainMatchingState — 요청 거절', () => {
     const req = hook.result.current.matchRequests[0]!;
     expect(req.status).toBe('REJECTED');
     expect(req.rejectedAt).toBeTruthy();
+    expect(req.resolvedAt).toBeTruthy();
     expect(toasts).toContain('매칭 요청을 거절했어요');
   });
 });
 
-describe('useMainMatchingState — 매칭 해제', () => {
-  it('매칭 해제 시 activeMatch가 null이 된다', () => {
+describe('useMainMatchingState — 매칭 해제 (ACTIVE → UNMATCHED)', () => {
+  it('매칭 해제 시 activeMatch가 null이 되고 요청은 UNMATCHED', () => {
     const { hook, toasts } = setup();
     act(() => hook.result.current.handleSendRequest('partner-1'));
     const reqId = hook.result.current.matchRequests[0]!.id;
     act(() => hook.result.current.handleAcceptRequest(reqId));
+    act(() => hook.result.current.handleConfirmMatch(reqId));
     expect(hook.result.current.activeMatch).not.toBeNull();
 
     act(() => hook.result.current.handleEndMatch());
     expect(hook.result.current.activeMatch).toBeNull();
+    expect(hook.result.current.matchRequests[0]?.status).toBe('UNMATCHED');
+    expect(hook.result.current.matchRequests[0]?.resolvedAt).toBeTruthy();
     expect(toasts).toContain('매칭이 해제되었어요');
   });
 });

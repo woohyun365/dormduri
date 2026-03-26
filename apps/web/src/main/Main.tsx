@@ -235,7 +235,20 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onDismissMatchRequestTip={() => markTooltipSeen('matchRequest')}
             />
           )}
-          {activeTab === 'matching' && <MatchingTab />}
+          {activeTab === 'matching' && (
+            <MatchingTab
+              user={profileState.user}
+              matchRequests={matchingState.matchRequests}
+              activeMatch={matchingState.activeMatch}
+              profiles={data.profiles}
+              onCancelRequest={matchingState.handleCancelRequest}
+              onAcceptRequest={matchingState.handleAcceptRequest}
+              onRejectRequest={matchingState.handleRejectRequest}
+              onConfirmMatch={matchingState.handleConfirmMatch}
+              onEndConversation={matchingState.handleEndConversation}
+              onEndMatch={matchingState.handleEndMatch}
+            />
+          )}
           {activeTab === 'profile' && (
             <ProfileTab
               user={profileState.user}

@@ -49,20 +49,39 @@ export function useMainMatchingState(
 
   const handleCancelRequest = useCallback(
     (requestId: string) => {
+      const now = new Date().toISOString();
       setMatchRequests((prev) =>
-        prev.map((r) => (r.id === requestId ? { ...r, status: 'CANCELLED' as const } : r)),
+        prev.map((r) =>
+          r.id === requestId ? { ...r, status: 'CANCELLED' as const, resolvedAt: now } : r,
+        ),
       );
       showToast('매칭 요청을 취소했어요');
     },
     [showToast],
   );
 
+  // PENDING → IN_CONVERSATION (수락 — 아직 매칭 확정 아님)
   const handleAcceptRequest = useCallback(
     (requestId: string) => {
-      const request = matchRequests.find((r) => r.id === requestId);
-      if (!request) return;
+      const now = new Date().toISOString();
+      setMatchRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId ? { ...r, status: 'IN_CONVERSATION' as const, acceptedAt: now } : r,
+        ),
+      );
+      showToast('요청을 수락했어요. 대화를 시작하세요!');
+    },
+    [showToast],
+  );
 
-      const partnerId = request.fromUserId;
+  // IN_CONVERSATION → ACTIVE (매칭 확정)
+  const handleConfirmMatch = useCallback(
+    (requestId: string) => {
+      const request = matchRequests.find((r) => r.id === requestId);
+      if (!request || request.status !== 'IN_CONVERSATION') return;
+
+      const partnerId =
+        request.fromUserId === currentUserId ? request.toUserId : request.fromUserId;
       const partnerProfile = profiles.find((p) => p.id === partnerId);
 
       const scoreResult = partnerProfile
@@ -82,11 +101,18 @@ export function useMainMatchingState(
       };
       setActiveMatch(match);
 
+      // 확정된 요청 → ACTIVE, 나머지 PENDING/IN_CONVERSATION → CANCELLED
       setMatchRequests((prev) =>
         prev.map((r) => {
           if (r.id === requestId) return { ...r, status: 'ACTIVE' as const };
           if (r.status === 'PENDING' && !isRequestExpired(r))
-            return { ...r, status: 'CANCELLED' as const };
+            return { ...r, status: 'CANCELLED' as const, resolvedAt: new Date().toISOString() };
+          if (r.status === 'IN_CONVERSATION' && r.id !== requestId)
+            return {
+              ...r,
+              status: 'CONVERSATION_ENDED' as const,
+              resolvedAt: new Date().toISOString(),
+            };
           return r;
         }),
       );
@@ -96,15 +122,30 @@ export function useMainMatchingState(
         score: match.matchScore,
       });
     },
-    [matchRequests, userLifestyle, profiles],
+    [matchRequests, userLifestyle, profiles, currentUserId],
+  );
+
+  // IN_CONVERSATION → CONVERSATION_ENDED (대화 종료)
+  const handleEndConversation = useCallback(
+    (requestId: string) => {
+      const now = new Date().toISOString();
+      setMatchRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId ? { ...r, status: 'CONVERSATION_ENDED' as const, resolvedAt: now } : r,
+        ),
+      );
+      showToast('대화를 종료했어요');
+    },
+    [showToast],
   );
 
   const handleRejectRequest = useCallback(
     (requestId: string) => {
+      const now = new Date().toISOString();
       setMatchRequests((prev) =>
         prev.map((r) =>
           r.id === requestId
-            ? { ...r, status: 'REJECTED' as const, rejectedAt: new Date().toISOString() }
+            ? { ...r, status: 'REJECTED' as const, rejectedAt: now, resolvedAt: now }
             : r,
         ),
       );
@@ -113,10 +154,20 @@ export function useMainMatchingState(
     [showToast],
   );
 
+  // ACTIVE → UNMATCHED (매칭 해제)
   const handleEndMatch = useCallback(() => {
+    if (!activeMatch) return;
+    const now = new Date().toISOString();
+
+    // ACTIVE 요청을 UNMATCHED로 전이
+    setMatchRequests((prev) =>
+      prev.map((r) =>
+        r.status === 'ACTIVE' ? { ...r, status: 'UNMATCHED' as const, resolvedAt: now } : r,
+      ),
+    );
     setActiveMatch(null);
     showToast('매칭이 해제되었어요');
-  }, [showToast]);
+  }, [showToast, activeMatch]);
 
   const receivedPendingCount = useMemo(
     () =>
@@ -135,6 +186,8 @@ export function useMainMatchingState(
     handleSendRequest,
     handleCancelRequest,
     handleAcceptRequest,
+    handleConfirmMatch,
+    handleEndConversation,
     handleRejectRequest,
     handleEndMatch,
     receivedPendingCount,
