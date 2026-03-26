@@ -141,8 +141,11 @@ export function getMatchButtonState({
     return { type: 'ATTEMPTS_EXHAUSTED', label: '요청 횟수 초과' };
   }
 
-  // 11. PENDING 3개 이상
-  if (getPendingCount(requests) >= MATCH_POLICY.MAX_PENDING_REQUESTS) {
+  // 11. 보낸 PENDING 3개 이상 (동시 발신 3건 제한 — matching-lifecycle.md:131)
+  const sentPendingCount = requests.filter(
+    (r) => r.fromUserId === currentUserId && r.status === 'PENDING' && !isRequestExpired(r),
+  ).length;
+  if (sentPendingCount >= MATCH_POLICY.MAX_PENDING_REQUESTS) {
     return { type: 'SLOT_FULL', label: '요청 한도 초과' };
   }
 

@@ -547,6 +547,33 @@ describe('getMatchButtonState', () => {
 
   // ── 우선순위 조합 테스트 ────────────────────────────────────────
 
+  it('11. 받은 PENDING은 슬롯에 포함되지 않음 (보낸 2 + 받은 1 = SLOT_FULL 아님)', () => {
+    vi.setSystemTime(NOW);
+    const requests = [
+      makeRequest({
+        id: 'r-s1',
+        fromUserId: 'me',
+        toUserId: 'a',
+        expiresAt: new Date(NOW + 86400000).toISOString(),
+      }),
+      makeRequest({
+        id: 'r-s2',
+        fromUserId: 'me',
+        toUserId: 'b',
+        expiresAt: new Date(NOW + 86400000).toISOString(),
+      }),
+      makeRequest({
+        id: 'r-r1',
+        fromUserId: 'c',
+        toUserId: 'me',
+        expiresAt: new Date(NOW + 86400000).toISOString(),
+      }),
+    ];
+    const params = { ...defaultParams(), requests };
+    // 보낸 2건이므로 SLOT_FULL 아님 → REQUEST
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
   it('우선순위: MATCHED > IN_CONVERSATION (activeMatch 있고 IN_CONVERSATION도 존재)', () => {
     vi.setSystemTime(NOW);
     const activeMatch: ActiveMatch = {
