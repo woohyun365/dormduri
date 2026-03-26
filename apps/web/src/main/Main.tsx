@@ -38,7 +38,14 @@ interface MainData {
 }
 
 function MainContent({ initialUser }: { initialUser: UserProfile }) {
-  const [activeTab, setActiveTab] = useState<TabId>('home');
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    if (typeof window === 'undefined') return 'home';
+    const saved = sessionStorage.getItem('activeTab');
+    if (saved && ['home', 'list', 'matching', 'profile', 'settings'].includes(saved)) {
+      return saved as TabId;
+    }
+    return 'home';
+  });
   const [toast, setToast] = useState<string | null>(null);
   const [data, setData] = useState<MainData | null>(null);
 
@@ -136,9 +143,10 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     [profileState.user, data],
   );
 
-  // 탭 전환 시 스크롤 최상단으로 이동
+  // 탭 전환 시 스크롤 최상단 + sessionStorage 저장
   useEffect(() => {
     window.scrollTo(0, 0);
+    sessionStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
 
   useEffect(() => {
@@ -154,7 +162,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       <div className="min-h-screen bg-[var(--knu-background-alt)] flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-8 h-8 border-3 border-[var(--knu-primary)] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-[var(--knu-text-secondary)]">데이터를 불러오는 중...</p>
+          <p className="text-sm text-[var(--knu-text-secondary)]">서비스 데이터를 불러오는 중...</p>
         </div>
       </div>
     );
