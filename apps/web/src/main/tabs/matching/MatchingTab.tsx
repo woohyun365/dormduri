@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/Button';
 import { MatchRequestCard } from '../../components/MatchRequestCard';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
+import { MatchingTabHeader } from './MatchingTabHeader';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { MATCH_POLICY } from '@/constants/match';
 import { MATCH_STATUS_LABELS } from '@/constants/match';
@@ -115,41 +116,50 @@ export default function MatchingTab({
   // --- Season / Campus gating (after all hooks) ---
   if (!isCampusOperated) {
     return (
-      <div className="px-4 py-6 max-w-md mx-auto">
-        <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-6">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-            <p className="text-sm text-amber-800">
-              이 캠퍼스는 현재 매칭 서비스를 운영하지 않습니다
-            </p>
+      <div>
+        <MatchingTabHeader user={user} />
+        <div className="px-4 py-6 max-w-md mx-auto">
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-sm text-amber-800">
+                이 캠퍼스는 현재 매칭 서비스를 운영하지 않습니다
+              </p>
+            </div>
           </div>
+          <EmptyState
+            icon={<Handshake className="w-12 h-12 text-gray-300" />}
+            message="매칭 서비스 준비 중"
+          />
         </div>
-        <EmptyState
-          icon={<Handshake className="w-12 h-12 text-gray-300" />}
-          message="매칭 서비스 준비 중"
-        />
       </div>
     );
   }
 
   if (seasonState === 'OFF_SEASON') {
     return (
-      <div className="px-4 py-6 max-w-md mx-auto">
-        <EmptyState
-          icon={<Handshake className="w-12 h-12 text-gray-300" />}
-          message="현재는 비시즌입니다"
-        />
+      <div>
+        <MatchingTabHeader user={user} />
+        <div className="px-4 py-6 max-w-md mx-auto">
+          <EmptyState
+            icon={<Handshake className="w-12 h-12 text-gray-300" />}
+            message="현재는 비시즌입니다"
+          />
+        </div>
       </div>
     );
   }
 
   if (seasonState === 'SEASON_OPEN') {
     return (
-      <div className="px-4 py-6 max-w-md mx-auto">
-        <EmptyState
-          icon={<Handshake className="w-12 h-12 text-gray-300" />}
-          message="매칭 준비 중입니다"
-        />
+      <div>
+        <MatchingTabHeader user={user} />
+        <div className="px-4 py-6 max-w-md mx-auto">
+          <EmptyState
+            icon={<Handshake className="w-12 h-12 text-gray-300" />}
+            message="매칭 준비 중입니다"
+          />
+        </div>
       </div>
     );
   }
@@ -252,81 +262,395 @@ export default function MatchingTab({
       matchRequests.find((r) => r.status === 'ACTIVE') ?? matchRequests[0]!,
     );
     return (
-      <div className="px-4 py-6 max-w-md mx-auto">
-        <div className="bg-white rounded-2xl border-2 border-green-200 p-5">
-          <div className="text-center mb-4">
-            <span className="inline-block px-3 py-1 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
-              매칭 확정
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 mb-4">
-            <div
-              className={`w-14 h-14 ${getAvatarColor(activeMatch.partnerNickname).bg} rounded-2xl flex items-center justify-center text-2xl font-bold ${getAvatarColor(activeMatch.partnerNickname).text}`}
-            >
-              {activeMatch.partnerNickname.charAt(0)}
+      <div>
+        <MatchingTabHeader user={user} />
+        <div className="px-4 py-6 max-w-md mx-auto">
+          <div className="bg-white rounded-2xl border-2 border-green-200 p-5">
+            <div className="text-center mb-4">
+              <span className="inline-block px-3 py-1 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
+                매칭 확정
+              </span>
             </div>
-            <div className="flex-1">
-              <p className="font-bold text-lg text-[var(--knu-text-primary)]">
-                {activeMatch.partnerNickname}
-              </p>
-              <p className="text-sm text-[var(--knu-text-secondary)]">
-                매칭도 {activeMatch.matchScore}%
-                {activeMatch.partnerDormitoryId &&
-                  ` · ${getDormitoryLabel(activeMatch.partnerDormitoryId)}`}
-              </p>
+
+            <div className="flex items-center gap-4 mb-4">
+              <div
+                className={`w-14 h-14 ${getAvatarColor(activeMatch.partnerNickname).bg} rounded-2xl flex items-center justify-center text-2xl font-bold ${getAvatarColor(activeMatch.partnerNickname).text}`}
+              >
+                {activeMatch.partnerNickname.charAt(0)}
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-lg text-[var(--knu-text-primary)]">
+                  {activeMatch.partnerNickname}
+                </p>
+                <p className="text-sm text-[var(--knu-text-secondary)]">
+                  매칭도 {activeMatch.matchScore}%
+                  {activeMatch.partnerDormitoryId &&
+                    ` · ${getDormitoryLabel(activeMatch.partnerDormitoryId)}`}
+                </p>
+              </div>
             </div>
+
+            <div className="space-y-2">
+              <button
+                disabled
+                className="w-full flex items-center justify-center gap-2 py-3 bg-gray-100 text-gray-400 rounded-xl text-sm font-semibold cursor-not-allowed"
+              >
+                <MessageCircle className="w-4 h-4" />
+                대화 (준비 중)
+              </button>
+              <Button
+                variant="outline"
+                fullWidth
+                onClick={() =>
+                  setSelectedProfile({
+                    profile: partnerProfile,
+                    direction: 'conversation',
+                    requestId: '',
+                  })
+                }
+              >
+                프로필 보기
+              </Button>
+              <button
+                onClick={() =>
+                  setConfirmAction({
+                    type: 'endMatch',
+                    nickname: activeMatch.partnerNickname,
+                  })
+                }
+                className="w-full py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+              >
+                매칭 해제
+              </button>
+            </div>
+
+            <p className="mt-4 text-xs text-center text-[var(--knu-text-tertiary)]">
+              호실 선택은 학교 시스템에서 직접 진행해 주세요
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <button
-              disabled
-              className="w-full flex items-center justify-center gap-2 py-3 bg-gray-100 text-gray-400 rounded-xl text-sm font-semibold cursor-not-allowed"
-            >
-              <MessageCircle className="w-4 h-4" />
-              대화 (준비 중)
-            </button>
-            <Button
-              variant="outline"
-              fullWidth
-              onClick={() =>
-                setSelectedProfile({
-                  profile: partnerProfile,
-                  direction: 'conversation',
-                  requestId: '',
-                })
-              }
-            >
-              프로필 보기
-            </Button>
-            <button
-              onClick={() =>
-                setConfirmAction({
-                  type: 'endMatch',
-                  nickname: activeMatch.partnerNickname,
-                })
-              }
-              className="w-full py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-            >
-              매칭 해제
-            </button>
-          </div>
+          <ProfileDetailSheet
+            profile={selectedProfile?.profile ?? null}
+            scoreType={selectedProfile?.profile.scoreType}
+            isOpen={selectedProfile !== null}
+            onClose={() => setSelectedProfile(null)}
+            onRequestMatch={() => {}}
+            hideMatchButton
+            userLifestyle={user.lifestyle}
+          />
 
-          <p className="mt-4 text-xs text-center text-[var(--knu-text-tertiary)]">
-            호실 선택은 학교 시스템에서 직접 진행해 주세요
-          </p>
+          <ConfirmDialog
+            isOpen={confirmAction !== null}
+            onClose={() => setConfirmAction(null)}
+            onConfirm={handleConfirmAction}
+            title={confirmAction ? confirmMessages[confirmAction.type]!.title : ''}
+            message={confirmAction ? confirmMessages[confirmAction.type]!.message : ''}
+            confirmLabel={confirmAction ? confirmMessages[confirmAction.type]!.label : ''}
+            variant={confirmAction ? confirmMessages[confirmAction.type]!.variant : 'default'}
+          />
         </div>
+      </div>
+    );
+  }
 
+  // --- [2][3][4] No active match ---
+  return (
+    <div>
+      <MatchingTabHeader user={user} />
+      <div className="px-4 py-6 max-w-md mx-auto space-y-6">
+        {/* [2] In Conversation */}
+        {conversations.length > 0 && (
+          <section className="bg-white rounded-2xl border-2 border-blue-200 p-5">
+            <h3 className="font-bold text-[var(--knu-text-primary)] mb-4">
+              대화 중 ({conversations.length})
+            </h3>
+            <div className="space-y-3">
+              {conversations.map((req) => {
+                const partner = getPartnerProfile(req);
+                return (
+                  <div key={req.id} className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
+                    <div
+                      className={`w-10 h-10 ${getAvatarColor(partner.nickname).bg} rounded-full flex items-center justify-center text-lg font-bold ${getAvatarColor(partner.nickname).text}`}
+                    >
+                      {partner.nickname.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-[var(--knu-text-primary)] truncate">
+                        {partner.nickname}
+                      </p>
+                      <p className="text-xs text-[var(--knu-text-tertiary)]">
+                        매칭도 {partner.matchScore}%
+                        {partner.dormitoryId && ` · ${getDormitoryLabel(partner.dormitoryId)}`}
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() =>
+                          setConfirmAction({
+                            type: 'confirmMatch',
+                            requestId: req.id,
+                            nickname: partner.nickname,
+                          })
+                        }
+                        className="px-3 py-1.5 bg-[var(--knu-primary)] text-white text-xs font-semibold rounded-lg"
+                      >
+                        확정
+                      </button>
+                      <button
+                        onClick={() =>
+                          setConfirmAction({
+                            type: 'endConversation',
+                            requestId: req.id,
+                            nickname: partner.nickname,
+                          })
+                        }
+                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg"
+                      >
+                        종료
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* [3] Request Management */}
+        <section className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
+          <h3 className="font-bold text-[var(--knu-text-primary)] mb-4">요청 관리</h3>
+
+          <div className="flex bg-[var(--knu-background-alt)] rounded-xl p-1 mb-4">
+            <button
+              onClick={() => setRequestTab('sent')}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                requestTab === 'sent'
+                  ? 'bg-white text-[var(--knu-primary)] shadow-sm'
+                  : 'text-[var(--knu-text-tertiary)]'
+              }`}
+            >
+              보낸 요청 ({sentPending.length}/{MATCH_POLICY.MAX_PENDING_REQUESTS})
+            </button>
+            <button
+              onClick={() => setRequestTab('received')}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors relative ${
+                requestTab === 'received'
+                  ? 'bg-white text-orange-600 shadow-sm'
+                  : 'text-[var(--knu-text-tertiary)]'
+              }`}
+            >
+              받은 요청
+              {receivedPending.length > 0 && requestTab !== 'received' && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
+                  {receivedPending.length}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {requestTab === 'sent' &&
+              (sentPending.length > 0 ? (
+                sentPending.map((req) => {
+                  const partner = getPartnerProfile(req);
+                  return (
+                    <MatchRequestCard
+                      key={req.id}
+                      request={req}
+                      direction="sent"
+                      partnerProfile={partner}
+                      onCancel={(id) =>
+                        setConfirmAction({
+                          type: 'cancel',
+                          requestId: id,
+                          nickname: partner.nickname,
+                        })
+                      }
+                      onClick={() =>
+                        setSelectedProfile({
+                          profile: partner,
+                          direction: 'sent',
+                          requestId: req.id,
+                        })
+                      }
+                    />
+                  );
+                })
+              ) : (
+                <p className="text-sm text-center text-[var(--knu-text-tertiary)] py-4">
+                  보낸 요청이 없어요
+                </p>
+              ))}
+
+            {requestTab === 'received' &&
+              (receivedPending.length > 0 ? (
+                receivedPending.map((req) => {
+                  const partner = getPartnerProfile(req);
+                  return (
+                    <MatchRequestCard
+                      key={req.id}
+                      request={req}
+                      direction="received"
+                      partnerProfile={partner}
+                      onAccept={(id) =>
+                        setConfirmAction({
+                          type: 'accept',
+                          requestId: id,
+                          nickname: partner.nickname,
+                        })
+                      }
+                      onReject={(id) =>
+                        setConfirmAction({
+                          type: 'reject',
+                          requestId: id,
+                          nickname: partner.nickname,
+                        })
+                      }
+                      onClick={() =>
+                        setSelectedProfile({
+                          profile: partner,
+                          direction: 'received',
+                          requestId: req.id,
+                        })
+                      }
+                    />
+                  );
+                })
+              ) : (
+                <p className="text-sm text-center text-[var(--knu-text-tertiary)] py-4">
+                  받은 요청이 없어요
+                </p>
+              ))}
+          </div>
+        </section>
+
+        {/* [4] History */}
+        {history.length > 0 && (
+          <section className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
+            <button
+              onClick={() => setHistoryOpen(!historyOpen)}
+              className="w-full flex items-center justify-between"
+            >
+              <h3 className="font-bold text-[var(--knu-text-primary)]">이력 ({history.length})</h3>
+              {historyOpen ? (
+                <ChevronDown className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              ) : (
+                <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              )}
+            </button>
+
+            {historyOpen && (
+              <div className="mt-4 space-y-3">
+                {history.map((req) => {
+                  const partnerId = getPartnerId(req, user.id);
+                  const partnerNickname = profileMap.get(partnerId)?.nickname ?? partnerId;
+                  const dormId = profileMap.get(partnerId)?.dormitoryId;
+                  return (
+                    <div
+                      key={req.id}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl opacity-70"
+                    >
+                      <div
+                        className={`w-9 h-9 ${getAvatarColor(partnerNickname).bg} rounded-full flex items-center justify-center text-sm font-bold ${getAvatarColor(partnerNickname).text}`}
+                      >
+                        {partnerNickname.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-[var(--knu-text-secondary)] truncate">
+                          {partnerNickname}
+                        </p>
+                        {dormId && (
+                          <p className="text-xs text-[var(--knu-text-tertiary)]">
+                            {getDormitoryLabel(dormId)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full">
+                        {MATCH_STATUS_LABELS[req.status]}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Empty state: no conversations, no requests, no history */}
+        {conversations.length === 0 &&
+          sentPending.length === 0 &&
+          receivedPending.length === 0 &&
+          history.length === 0 && (
+            <EmptyState
+              icon={<Handshake className="w-12 h-12 text-gray-300" />}
+              message="아직 매칭 활동이 없어요"
+            />
+          )}
+
+        {/* Profile Detail Sheet */}
         <ProfileDetailSheet
           profile={selectedProfile?.profile ?? null}
-          scoreType={selectedProfile?.profile.scoreType}
+          scoreType={selectedProfile?.profile?.scoreType}
           isOpen={selectedProfile !== null}
           onClose={() => setSelectedProfile(null)}
           onRequestMatch={() => {}}
           hideMatchButton
           userLifestyle={user.lifestyle}
+          customFooter={
+            selectedProfile ? (
+              selectedProfile.direction === 'sent' ? (
+                <Button
+                  variant="outline"
+                  fullWidth
+                  onClick={() =>
+                    setConfirmAction({
+                      type: 'cancel',
+                      requestId: selectedProfile.requestId,
+                      nickname: selectedProfile.profile.nickname,
+                    })
+                  }
+                >
+                  요청 취소
+                </Button>
+              ) : selectedProfile.direction === 'received' ? (
+                <div className="flex gap-3">
+                  <div className="flex-1">
+                    <Button
+                      variant="outline"
+                      fullWidth
+                      onClick={() =>
+                        setConfirmAction({
+                          type: 'reject',
+                          requestId: selectedProfile.requestId,
+                          nickname: selectedProfile.profile.nickname,
+                        })
+                      }
+                    >
+                      거절
+                    </Button>
+                  </div>
+                  <div className="flex-1">
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      onClick={() =>
+                        setConfirmAction({
+                          type: 'accept',
+                          requestId: selectedProfile.requestId,
+                          nickname: selectedProfile.profile.nickname,
+                        })
+                      }
+                    >
+                      수락
+                    </Button>
+                  </div>
+                </div>
+              ) : undefined
+            ) : undefined
+          }
         />
 
+        {/* Confirm Dialog */}
         <ConfirmDialog
           isOpen={confirmAction !== null}
           onClose={() => setConfirmAction(null)}
@@ -337,314 +661,6 @@ export default function MatchingTab({
           variant={confirmAction ? confirmMessages[confirmAction.type]!.variant : 'default'}
         />
       </div>
-    );
-  }
-
-  // --- [2][3][4] No active match ---
-  return (
-    <div className="px-4 py-6 max-w-md mx-auto space-y-6">
-      {/* [2] In Conversation */}
-      {conversations.length > 0 && (
-        <section className="bg-white rounded-2xl border-2 border-blue-200 p-5">
-          <h3 className="font-bold text-[var(--knu-text-primary)] mb-4">
-            대화 중 ({conversations.length})
-          </h3>
-          <div className="space-y-3">
-            {conversations.map((req) => {
-              const partner = getPartnerProfile(req);
-              return (
-                <div key={req.id} className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
-                  <div
-                    className={`w-10 h-10 ${getAvatarColor(partner.nickname).bg} rounded-full flex items-center justify-center text-lg font-bold ${getAvatarColor(partner.nickname).text}`}
-                  >
-                    {partner.nickname.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-[var(--knu-text-primary)] truncate">
-                      {partner.nickname}
-                    </p>
-                    <p className="text-xs text-[var(--knu-text-tertiary)]">
-                      매칭도 {partner.matchScore}%
-                      {partner.dormitoryId && ` · ${getDormitoryLabel(partner.dormitoryId)}`}
-                    </p>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={() =>
-                        setConfirmAction({
-                          type: 'confirmMatch',
-                          requestId: req.id,
-                          nickname: partner.nickname,
-                        })
-                      }
-                      className="px-3 py-1.5 bg-[var(--knu-primary)] text-white text-xs font-semibold rounded-lg"
-                    >
-                      확정
-                    </button>
-                    <button
-                      onClick={() =>
-                        setConfirmAction({
-                          type: 'endConversation',
-                          requestId: req.id,
-                          nickname: partner.nickname,
-                        })
-                      }
-                      className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg"
-                    >
-                      종료
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* [3] Request Management */}
-      <section className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
-        <h3 className="font-bold text-[var(--knu-text-primary)] mb-4">요청 관리</h3>
-
-        <div className="flex bg-[var(--knu-background-alt)] rounded-xl p-1 mb-4">
-          <button
-            onClick={() => setRequestTab('sent')}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-              requestTab === 'sent'
-                ? 'bg-white text-[var(--knu-primary)] shadow-sm'
-                : 'text-[var(--knu-text-tertiary)]'
-            }`}
-          >
-            보낸 요청 ({sentPending.length}/{MATCH_POLICY.MAX_PENDING_REQUESTS})
-          </button>
-          <button
-            onClick={() => setRequestTab('received')}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors relative ${
-              requestTab === 'received'
-                ? 'bg-white text-orange-600 shadow-sm'
-                : 'text-[var(--knu-text-tertiary)]'
-            }`}
-          >
-            받은 요청
-            {receivedPending.length > 0 && requestTab !== 'received' && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
-                {receivedPending.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {requestTab === 'sent' &&
-            (sentPending.length > 0 ? (
-              sentPending.map((req) => {
-                const partner = getPartnerProfile(req);
-                return (
-                  <MatchRequestCard
-                    key={req.id}
-                    request={req}
-                    direction="sent"
-                    partnerProfile={partner}
-                    onCancel={(id) =>
-                      setConfirmAction({
-                        type: 'cancel',
-                        requestId: id,
-                        nickname: partner.nickname,
-                      })
-                    }
-                    onClick={() =>
-                      setSelectedProfile({
-                        profile: partner,
-                        direction: 'sent',
-                        requestId: req.id,
-                      })
-                    }
-                  />
-                );
-              })
-            ) : (
-              <p className="text-sm text-center text-[var(--knu-text-tertiary)] py-4">
-                보낸 요청이 없어요
-              </p>
-            ))}
-
-          {requestTab === 'received' &&
-            (receivedPending.length > 0 ? (
-              receivedPending.map((req) => {
-                const partner = getPartnerProfile(req);
-                return (
-                  <MatchRequestCard
-                    key={req.id}
-                    request={req}
-                    direction="received"
-                    partnerProfile={partner}
-                    onAccept={(id) =>
-                      setConfirmAction({
-                        type: 'accept',
-                        requestId: id,
-                        nickname: partner.nickname,
-                      })
-                    }
-                    onReject={(id) =>
-                      setConfirmAction({
-                        type: 'reject',
-                        requestId: id,
-                        nickname: partner.nickname,
-                      })
-                    }
-                    onClick={() =>
-                      setSelectedProfile({
-                        profile: partner,
-                        direction: 'received',
-                        requestId: req.id,
-                      })
-                    }
-                  />
-                );
-              })
-            ) : (
-              <p className="text-sm text-center text-[var(--knu-text-tertiary)] py-4">
-                받은 요청이 없어요
-              </p>
-            ))}
-        </div>
-      </section>
-
-      {/* [4] History */}
-      {history.length > 0 && (
-        <section className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
-          <button
-            onClick={() => setHistoryOpen(!historyOpen)}
-            className="w-full flex items-center justify-between"
-          >
-            <h3 className="font-bold text-[var(--knu-text-primary)]">이력 ({history.length})</h3>
-            {historyOpen ? (
-              <ChevronDown className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-            ) : (
-              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-            )}
-          </button>
-
-          {historyOpen && (
-            <div className="mt-4 space-y-3">
-              {history.map((req) => {
-                const partnerId = getPartnerId(req, user.id);
-                const partnerNickname = profileMap.get(partnerId)?.nickname ?? partnerId;
-                const dormId = profileMap.get(partnerId)?.dormitoryId;
-                return (
-                  <div
-                    key={req.id}
-                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl opacity-70"
-                  >
-                    <div
-                      className={`w-9 h-9 ${getAvatarColor(partnerNickname).bg} rounded-full flex items-center justify-center text-sm font-bold ${getAvatarColor(partnerNickname).text}`}
-                    >
-                      {partnerNickname.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-[var(--knu-text-secondary)] truncate">
-                        {partnerNickname}
-                      </p>
-                      {dormId && (
-                        <p className="text-xs text-[var(--knu-text-tertiary)]">
-                          {getDormitoryLabel(dormId)}
-                        </p>
-                      )}
-                    </div>
-                    <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full">
-                      {MATCH_STATUS_LABELS[req.status]}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Empty state: no conversations, no requests, no history */}
-      {conversations.length === 0 &&
-        sentPending.length === 0 &&
-        receivedPending.length === 0 &&
-        history.length === 0 && (
-          <EmptyState
-            icon={<Handshake className="w-12 h-12 text-gray-300" />}
-            message="아직 매칭 활동이 없어요"
-          />
-        )}
-
-      {/* Profile Detail Sheet */}
-      <ProfileDetailSheet
-        profile={selectedProfile?.profile ?? null}
-        scoreType={selectedProfile?.profile?.scoreType}
-        isOpen={selectedProfile !== null}
-        onClose={() => setSelectedProfile(null)}
-        onRequestMatch={() => {}}
-        hideMatchButton
-        userLifestyle={user.lifestyle}
-        customFooter={
-          selectedProfile ? (
-            selectedProfile.direction === 'sent' ? (
-              <Button
-                variant="outline"
-                fullWidth
-                onClick={() =>
-                  setConfirmAction({
-                    type: 'cancel',
-                    requestId: selectedProfile.requestId,
-                    nickname: selectedProfile.profile.nickname,
-                  })
-                }
-              >
-                요청 취소
-              </Button>
-            ) : selectedProfile.direction === 'received' ? (
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <Button
-                    variant="outline"
-                    fullWidth
-                    onClick={() =>
-                      setConfirmAction({
-                        type: 'reject',
-                        requestId: selectedProfile.requestId,
-                        nickname: selectedProfile.profile.nickname,
-                      })
-                    }
-                  >
-                    거절
-                  </Button>
-                </div>
-                <div className="flex-1">
-                  <Button
-                    variant="primary"
-                    fullWidth
-                    onClick={() =>
-                      setConfirmAction({
-                        type: 'accept',
-                        requestId: selectedProfile.requestId,
-                        nickname: selectedProfile.profile.nickname,
-                      })
-                    }
-                  >
-                    수락
-                  </Button>
-                </div>
-              </div>
-            ) : undefined
-          ) : undefined
-        }
-      />
-
-      {/* Confirm Dialog */}
-      <ConfirmDialog
-        isOpen={confirmAction !== null}
-        onClose={() => setConfirmAction(null)}
-        onConfirm={handleConfirmAction}
-        title={confirmAction ? confirmMessages[confirmAction.type]!.title : ''}
-        message={confirmAction ? confirmMessages[confirmAction.type]!.message : ''}
-        confirmLabel={confirmAction ? confirmMessages[confirmAction.type]!.label : ''}
-        variant={confirmAction ? confirmMessages[confirmAction.type]!.variant : 'default'}
-      />
     </div>
   );
 }
