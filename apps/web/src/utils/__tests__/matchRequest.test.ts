@@ -383,4 +383,165 @@ describe('getMatchButtonState', () => {
     };
     expect(getMatchButtonState(params).type).toBe('BLOCKED');
   });
+
+  // ── D-22: SEASON_OPEN vs OFF_SEASON 분리 ────────────────────────
+
+  it('2-b. 시즌 오픈 → SEASON_OPEN', () => {
+    const params = { ...defaultParams(), isSeasonMatching: false, isSeasonOpen: true };
+    expect(getMatchButtonState(params)).toEqual({ type: 'SEASON_OPEN', label: '매칭 준비 중' });
+  });
+
+  it('2-c. 비시즌 (isSeasonOpen 미제공) → OFF_SEASON', () => {
+    const params = { ...defaultParams(), isSeasonMatching: false };
+    expect(getMatchButtonState(params)).toEqual({ type: 'OFF_SEASON', label: '비시즌' });
+  });
+
+  it('2-d. 비시즌 (isSeasonOpen=false) → OFF_SEASON', () => {
+    const params = { ...defaultParams(), isSeasonMatching: false, isSeasonOpen: false };
+    expect(getMatchButtonState(params)).toEqual({ type: 'OFF_SEASON', label: '비시즌' });
+  });
+
+  // ── AC-N14: IN_CONVERSATION 당사자 vs 제3자 ──────────────────────
+
+  it('7-i. AC-N14: 당사자 간 IN_CONVERSATION → IN_CONVERSATION 반환', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-conv',
+      fromUserId: 'target',
+      toUserId: 'me',
+      status: 'IN_CONVERSATION',
+      acceptedAt: new Date(NOW).toISOString(),
+      resolvedAt: null,
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    expect(getMatchButtonState(params)).toEqual({ type: 'IN_CONVERSATION', label: '대화 중' });
+  });
+
+  it('7-j. AC-N14: 제3자 관점에서 IN_CONVERSATION 비노출 → REQUEST', () => {
+    vi.setSystemTime(NOW);
+    // A(me)와 B(target)가 대화 중이지만, C(other)가 B를 볼 때
+    const req = makeRequest({
+      id: 'r-conv',
+      fromUserId: 'other',
+      toUserId: 'target',
+      status: 'IN_CONVERSATION',
+      acceptedAt: new Date(NOW).toISOString(),
+      resolvedAt: null,
+    });
+    // C(me)가 target을 판정: other↔target 대화는 me와 무관
+    const params = { ...defaultParams(), requests: [req] };
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  // ── AC-F06: CONVERSATION_ENDED 후 재교류 금지 ───────────────────
+
+  it('7-k. AC-F06: CONVERSATION_ENDED 조합 → CONVERSATION_ENDED_PAIR', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-ended',
+      fromUserId: 'me',
+      toUserId: 'target',
+      status: 'CONVERSATION_ENDED',
+      resolvedAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    expect(getMatchButtonState(params)).toEqual({
+      type: 'CONVERSATION_ENDED_PAIR',
+      label: '대화 종료',
+    });
+  });
+
+  it('7-k2. AC-F06: 역방향 CONVERSATION_ENDED도 차단', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-ended',
+      fromUserId: 'target',
+      toUserId: 'me',
+      status: 'CONVERSATION_ENDED',
+      resolvedAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    expect(getMatchButtonState(params)).toEqual({
+      type: 'CONVERSATION_ENDED_PAIR',
+      label: '대화 종료',
+    });
+  });
+
+  // ── AC-F07: UNMATCHED 후 재교류 금지 ────────────────────────────
+
+  it('7-l. AC-F07: UNMATCHED 조합 → UNMATCHED_PAIR', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-unmatched',
+      fromUserId: 'me',
+      toUserId: 'target',
+      status: 'UNMATCHED',
+      resolvedAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    expect(getMatchButtonState(params)).toEqual({ type: 'UNMATCHED_PAIR', label: '매칭 해제됨' });
+  });
+
+  it('7-l2. AC-F07: 역방향 UNMATCHED도 차단', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-unmatched',
+      fromUserId: 'target',
+      toUserId: 'me',
+      status: 'UNMATCHED',
+      resolvedAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    expect(getMatchButtonState(params)).toEqual({ type: 'UNMATCHED_PAIR', label: '매칭 해제됨' });
+  });
+
+  it('7-l3. AC-F07: 제3자의 UNMATCHED는 무관 → REQUEST', () => {
+    vi.setSystemTime(NOW);
+    const req = makeRequest({
+      id: 'r-unmatched',
+      fromUserId: 'other',
+      toUserId: 'target',
+      status: 'UNMATCHED',
+      resolvedAt: new Date(NOW - 1000).toISOString(),
+    });
+    const params = { ...defaultParams(), requests: [req] };
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  // ── AC-B05: 보낸 요청 수 경계 ──────────────────────────────────
+
+  it('8-d. AC-B05: 보낸 요청 0건 → 0/3', () => {
+    vi.setSystemTime(NOW);
+    const params = defaultParams();
+    expect(getPendingCount(params.requests)).toBe(0);
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  it('8-e. AC-B05: 보낸 요청 1건 → 1/3, REQUEST 가능', () => {
+    vi.setSystemTime(NOW);
+    const requests = [
+      makeRequest({
+        id: 'r-1',
+        toUserId: 'other-1',
+        expiresAt: new Date(NOW + 24 * 60 * 60 * 1000).toISOString(),
+      }),
+    ];
+    const params = { ...defaultParams(), requests };
+    expect(getPendingCount(requests)).toBe(1);
+    expect(getMatchButtonState(params)).toEqual({ type: 'REQUEST', label: '매칭 요청' });
+  });
+
+  it('8-f. AC-B05: 보낸 요청 3건 → 3/3, SLOT_FULL', () => {
+    vi.setSystemTime(NOW);
+    const requests = [0, 1, 2].map((i) =>
+      makeRequest({
+        id: `r-${i}`,
+        toUserId: `other-${i}`,
+        expiresAt: new Date(NOW + 24 * 60 * 60 * 1000).toISOString(),
+      }),
+    );
+    const params = { ...defaultParams(), requests };
+    expect(getPendingCount(requests)).toBe(3);
+    expect(getMatchButtonState(params)).toEqual({ type: 'SLOT_FULL', label: '요청 한도 초과' });
+  });
 });
