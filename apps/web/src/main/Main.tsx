@@ -19,13 +19,11 @@ import { buildMainBuildingStats } from './utils/buildMainBuildingStats';
 import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
-import { matchingApi } from '@/api/matching';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import { TOAST_DURATION } from '@/constants/ui';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
-import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export type { TabId, UserProfile } from '@/types/profile';
 
@@ -37,8 +35,6 @@ interface MainData {
   isMatching: boolean;
   daysUntilEnd: number;
   seasonState: SeasonState;
-  initialRequests: MatchRequest[];
-  initialActiveMatch: ActiveMatch | null;
 }
 
 function MainContent({ initialUser }: { initialUser: UserProfile }) {
@@ -96,13 +92,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       const dormitoryIdForFilter =
         season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
 
-      const [profileResult, matchRequests, activeMatch] = await Promise.all([
+      const profileResult =
         (season.isOpen || season.isMatching) && isUnassignedId
-          ? Promise.resolve([])
-          : profileApi.getProfiles(initialUser.campus, initialUser.gender, dormitoryIdForFilter),
-        matchingApi.getMatchRequests(),
-        matchingApi.getActiveMatch(),
-      ]);
+          ? []
+          : await profileApi.getProfiles(
+              initialUser.campus,
+              initialUser.gender,
+              dormitoryIdForFilter,
+            );
 
       if (cancelled) return;
 
@@ -113,8 +110,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         isMatching: season.isMatching,
         daysUntilEnd: season.daysUntilEnd,
         seasonState: season.state,
-        initialRequests: season.isMatching ? matchRequests : [],
-        initialActiveMatch: season.isMatching ? activeMatch : null,
       });
     }
 
@@ -128,12 +123,9 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   const matchingState = useMainMatchingState(
     showToast,
-    profileState.user.lifestyle,
     profileState.user.id,
-    data?.isMatching ?? false,
+    profileState.user.lifestyle,
     data?.profiles ?? [],
-    data?.initialRequests ?? [],
-    data?.initialActiveMatch ?? null,
   );
 
   const listViewState = useMainListViewState();
