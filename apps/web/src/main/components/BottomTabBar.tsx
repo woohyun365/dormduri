@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, Users, User, Settings } from 'lucide-react';
+import { Home, Users, Handshake, User, Settings } from 'lucide-react';
 import type { TabId } from '@/types/profile';
 
 interface BottomTabBarProps {
@@ -12,6 +12,7 @@ interface BottomTabBarProps {
 const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
   { id: 'home', label: '홈', icon: Home },
   { id: 'list', label: '룸메 찾기', icon: Users },
+  { id: 'matching', label: '매칭', icon: Handshake },
   { id: 'profile', label: '프로필', icon: User },
   { id: 'settings', label: '설정', icon: Settings },
 ];

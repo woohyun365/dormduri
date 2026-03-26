@@ -8,6 +8,7 @@ import { MatchCelebrationModal } from './components/MatchCelebrationModal';
 import HomeTab from './tabs/home/HomeTab';
 import RoommateListTab from './tabs/roommate-list/RoommateListTab';
 import ProfileTab from './tabs/profile/ProfileTab';
+import MatchingTab from './tabs/matching/MatchingTab';
 import SettingsTab from './tabs/SettingsTab';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
 import { useMainProfileState } from './hooks/useMainProfileState';
@@ -240,6 +241,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onDismissMatchRequestTip={() => markTooltipSeen('matchRequest')}
             />
           )}
+          {activeTab === 'matching' && <MatchingTab />}
           {activeTab === 'profile' && (
             <ProfileTab
               user={profileState.user}
@@ -268,7 +270,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           onTabChange={setActiveTab}
           badges={
             matchingState.receivedPendingCount > 0
-              ? { home: matchingState.receivedPendingCount }
+              ? { matching: matchingState.receivedPendingCount }
               : undefined
           }
         />
