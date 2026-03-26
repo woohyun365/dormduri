@@ -247,6 +247,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onConfirmMatch={matchingState.handleConfirmMatch}
               onEndConversation={matchingState.handleEndConversation}
               onEndMatch={matchingState.handleEndMatch}
+              onNavigate={setActiveTab}
             />
           )}
           {activeTab === 'profile' && (

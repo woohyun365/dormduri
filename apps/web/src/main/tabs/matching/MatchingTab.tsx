@@ -16,7 +16,7 @@ import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { calcMatchScoreWithGating } from '@/utils/matchScore';
 import type { MatchScoreType } from '@/utils/matchScore';
-import type { UserProfile, RoommateProfile } from '@/types/profile';
+import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch, MatchStatus } from '@/types/match';
 
 type RequestTab = 'sent' | 'received';
@@ -29,6 +29,14 @@ const TERMINAL_STATUSES: MatchStatus[] = [
   'UNMATCHED',
 ];
 
+const HISTORY_BADGE_STYLE: Record<string, string> = {
+  EXPIRED: 'bg-gray-200 text-gray-600',
+  REJECTED: 'bg-gray-200 text-gray-600',
+  CANCELLED: 'bg-gray-200 text-gray-600',
+  CONVERSATION_ENDED: 'bg-slate-200 text-slate-700',
+  UNMATCHED: 'bg-amber-100 text-amber-700',
+};
+
 interface MatchingTabProps {
   user: UserProfile;
   matchRequests: MatchRequest[];
@@ -40,6 +48,7 @@ interface MatchingTabProps {
   onConfirmMatch: (requestId: string) => void;
   onEndConversation: (requestId: string) => void;
   onEndMatch: () => void;
+  onNavigate: (tab: TabId) => void;
 }
 
 const getPartnerId = (request: MatchRequest, currentUserId: string) =>
@@ -56,6 +65,7 @@ export default function MatchingTab({
   onConfirmMatch,
   onEndConversation,
   onEndMatch,
+  onNavigate,
 }: MatchingTabProps) {
   // --- Hooks (must be called unconditionally) ---
   const { state: seasonState } = useSeasonContext();
@@ -145,6 +155,14 @@ export default function MatchingTab({
             icon={<Handshake className="w-12 h-12 text-gray-300" />}
             message="현재는 비시즌입니다"
           />
+          <p className="text-xs text-center text-[var(--knu-text-tertiary)] mt-3">
+            프로필을 미리 완성해두면 시즌이 시작될 때 바로 매칭에 참여할 수 있어요
+          </p>
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" onClick={() => onNavigate('profile')}>
+              프로필 완성하러 가기
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -159,6 +177,14 @@ export default function MatchingTab({
             icon={<Handshake className="w-12 h-12 text-gray-300" />}
             message="매칭 준비 중입니다"
           />
+          <p className="text-xs text-center text-[var(--knu-text-tertiary)] mt-3">
+            프로필을 완성하고 룸메 후보를 탐색해 보세요
+          </p>
+          <div className="mt-4 flex justify-center">
+            <Button variant="outline" onClick={() => onNavigate('list')}>
+              룸메 탐색하러 가기
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -386,6 +412,18 @@ export default function MatchingTab({
                     <div className="flex gap-1.5">
                       <button
                         onClick={() =>
+                          setSelectedProfile({
+                            profile: partner,
+                            direction: 'conversation',
+                            requestId: req.id,
+                          })
+                        }
+                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg"
+                      >
+                        프로필
+                      </button>
+                      <button
+                        onClick={() =>
                           setConfirmAction({
                             type: 'confirmMatch',
                             requestId: req.id,
@@ -477,9 +515,15 @@ export default function MatchingTab({
                   );
                 })
               ) : (
-                <p className="text-sm text-center text-[var(--knu-text-tertiary)] py-4">
-                  보낸 요청이 없어요
-                </p>
+                <div className="text-center py-6">
+                  <p className="text-sm text-[var(--knu-text-tertiary)] mb-3">보낸 요청이 없어요</p>
+                  <p className="text-xs text-[var(--knu-text-tertiary)] mb-4">
+                    룸메 찾기에서 마음에 드는 룸메에게 요청을 보내보세요
+                  </p>
+                  <Button variant="outline" onClick={() => onNavigate('list')}>
+                    룸메 찾기로 이동
+                  </Button>
+                </div>
               ))}
 
             {requestTab === 'received' &&
@@ -517,9 +561,12 @@ export default function MatchingTab({
                   );
                 })
               ) : (
-                <p className="text-sm text-center text-[var(--knu-text-tertiary)] py-4">
-                  받은 요청이 없어요
-                </p>
+                <div className="text-center py-6">
+                  <p className="text-sm text-[var(--knu-text-tertiary)] mb-2">받은 요청이 없어요</p>
+                  <p className="text-xs text-[var(--knu-text-tertiary)]">
+                    다른 룸메가 요청을 보내면 여기에 표시돼요
+                  </p>
+                </div>
               ))}
           </div>
         </section>
@@ -565,7 +612,9 @@ export default function MatchingTab({
                           </p>
                         )}
                       </div>
-                      <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs font-semibold rounded-full">
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded-full ${HISTORY_BADGE_STYLE[req.status] ?? 'bg-gray-200 text-gray-600'}`}
+                      >
                         {MATCH_STATUS_LABELS[req.status]}
                       </span>
                     </div>
@@ -581,10 +630,20 @@ export default function MatchingTab({
           sentPending.length === 0 &&
           receivedPending.length === 0 &&
           history.length === 0 && (
-            <EmptyState
-              icon={<Handshake className="w-12 h-12 text-gray-300" />}
-              message="아직 매칭 활동이 없어요"
-            />
+            <div>
+              <EmptyState
+                icon={<Handshake className="w-12 h-12 text-gray-300" />}
+                message="아직 매칭 활동이 없어요"
+              />
+              <p className="text-xs text-center text-[var(--knu-text-tertiary)] mt-3">
+                룸메 찾기 탭에서 마음에 드는 룸메에게 매칭을 요청해 보세요
+              </p>
+              <div className="mt-4 flex justify-center">
+                <Button variant="outline" onClick={() => onNavigate('list')}>
+                  룸메 찾기로 이동
+                </Button>
+              </div>
+            </div>
           )}
 
         {/* Profile Detail Sheet */}
