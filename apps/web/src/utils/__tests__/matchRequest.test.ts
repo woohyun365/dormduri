@@ -544,4 +544,74 @@ describe('getMatchButtonState', () => {
     expect(getPendingCount(requests)).toBe(3);
     expect(getMatchButtonState(params)).toEqual({ type: 'SLOT_FULL', label: '요청 한도 초과' });
   });
+
+  // ── 우선순위 조합 테스트 ────────────────────────────────────────
+
+  it('우선순위: MATCHED > IN_CONVERSATION (activeMatch 있고 IN_CONVERSATION도 존재)', () => {
+    vi.setSystemTime(NOW);
+    const activeMatch: ActiveMatch = {
+      matchId: 'm-1',
+      partnerUserId: 'someone',
+      partnerNickname: '룸메',
+      partnerDormitoryId: null,
+      matchScore: 85,
+      scoreType: 'full',
+      matchedAt: new Date().toISOString(),
+      cancelRequestedAt: null,
+      cancelRequestedBy: null,
+    };
+    const req = makeRequest({
+      id: 'r-conv',
+      fromUserId: 'target',
+      toUserId: 'me',
+      status: 'IN_CONVERSATION',
+      acceptedAt: new Date(NOW).toISOString(),
+    });
+    const params = { ...defaultParams(), activeMatch, requests: [req] };
+    expect(getMatchButtonState(params).type).toBe('MATCHED');
+  });
+
+  it('우선순위: CONVERSATION_ENDED_PAIR > SAME_DIRECTION_BLOCKED (같은 상대에 둘 다 존재)', () => {
+    vi.setSystemTime(NOW);
+    const requests = [
+      makeRequest({
+        id: 'r-ended',
+        fromUserId: 'me',
+        toUserId: 'target',
+        status: 'CONVERSATION_ENDED',
+        resolvedAt: new Date(NOW - 1000).toISOString(),
+      }),
+      makeRequest({
+        id: 'r-rej',
+        fromUserId: 'me',
+        toUserId: 'target',
+        status: 'REJECTED',
+        rejectedAt: new Date(NOW - 2000).toISOString(),
+      }),
+    ];
+    const params = { ...defaultParams(), requests };
+    expect(getMatchButtonState(params).type).toBe('CONVERSATION_ENDED_PAIR');
+  });
+
+  it('우선순위: UNMATCHED_PAIR > PENDING (해제 후 새 요청 — 정책상 불가지만 방어)', () => {
+    vi.setSystemTime(NOW);
+    const requests = [
+      makeRequest({
+        id: 'r-unmatched',
+        fromUserId: 'me',
+        toUserId: 'target',
+        status: 'UNMATCHED',
+        resolvedAt: new Date(NOW - 1000).toISOString(),
+      }),
+      makeRequest({
+        id: 'r-pending',
+        fromUserId: 'target',
+        toUserId: 'me',
+        status: 'PENDING',
+        expiresAt: new Date(NOW + 24 * 60 * 60 * 1000).toISOString(),
+      }),
+    ];
+    const params = { ...defaultParams(), requests };
+    expect(getMatchButtonState(params).type).toBe('UNMATCHED_PAIR');
+  });
 });

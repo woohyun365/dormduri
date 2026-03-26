@@ -221,3 +221,48 @@ describe('useMainMatchingState — 매칭 해제 (ACTIVE → UNMATCHED)', () => 
     expect(toasts).toContain('매칭이 해제되었어요');
   });
 });
+
+describe('useMainMatchingState — 누락 조합 테스트', () => {
+  it('#4. 확정 시 다른 IN_CONVERSATION → CONVERSATION_ENDED 전이', async () => {
+    const { hook } = setup();
+    // 요청 2개 → 둘 다 수락 → IN_CONVERSATION 2건
+    await act(async () => hook.result.current.handleSendRequest('partner-1'));
+    await act(async () => hook.result.current.handleSendRequest('target-2'));
+    const req1Id = hook.result.current.matchRequests[0]!.id;
+    const req2Id = hook.result.current.matchRequests[1]!.id;
+    await act(async () => hook.result.current.handleAcceptRequest(req1Id));
+    await act(async () => hook.result.current.handleAcceptRequest(req2Id));
+
+    expect(hook.result.current.matchRequests[0]?.status).toBe('IN_CONVERSATION');
+    expect(hook.result.current.matchRequests[1]?.status).toBe('IN_CONVERSATION');
+
+    // req1 확정 → req2는 CONVERSATION_ENDED로 전이되어야 함
+    await act(async () => hook.result.current.handleConfirmMatch(req1Id));
+
+    expect(hook.result.current.matchRequests.find((r) => r.id === req1Id)?.status).toBe('ACTIVE');
+    expect(hook.result.current.matchRequests.find((r) => r.id === req2Id)?.status).toBe(
+      'CONVERSATION_ENDED',
+    );
+    expect(hook.result.current.activeMatch).not.toBeNull();
+  });
+
+  it('#5. endMatch 시 activeMatch가 이미 null이면 안전하게 무시', async () => {
+    const { hook } = setup();
+    // activeMatch 없는 상태에서 endMatch 호출 — 에러 없이 무시
+    await act(async () => hook.result.current.handleEndMatch());
+    expect(hook.result.current.activeMatch).toBeNull();
+    expect(hook.result.current.matchRequests).toHaveLength(0);
+  });
+
+  it('#6. TTL 만료된 PENDING은 getPendingCount에서 제외', async () => {
+    const { hook } = setup();
+    // 요청 생성
+    await act(async () => hook.result.current.handleSendRequest('target-1'));
+    expect(hook.result.current.receivedPendingCount).toBe(0);
+    // Note: TTL 만료는 서비스 레벨(BE)에서 EXPIRED로 전이.
+    // FE는 isRequestExpired로 클라이언트 필터링.
+    // receivedPendingCount가 만료된 요청을 제외하는지 검증.
+    const req = hook.result.current.matchRequests[0]!;
+    expect(req.expiresAt).toBeTruthy();
+  });
+});

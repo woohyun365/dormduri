@@ -61,7 +61,40 @@ export function getMatchButtonState({
     return { type: 'MATCHED', label: '매칭됨' };
   }
 
-  // 5. 상대에게 보낸 PENDING 요청
+  // 5. 대화 중 상대 (당사자 간에서만 — D-25 타인 비노출)
+  const hasConversation = requests.some(
+    (r) =>
+      r.status === 'IN_CONVERSATION' &&
+      ((r.fromUserId === currentUserId && r.toUserId === targetUserId) ||
+        (r.fromUserId === targetUserId && r.toUserId === currentUserId)),
+  );
+  if (hasConversation) {
+    return { type: 'IN_CONVERSATION', label: '대화 중' };
+  }
+
+  // 6. 대화 종료 조합 (조합 1회 — 양방향 재교류 불가)
+  const hasConversationEnded = requests.some(
+    (r) =>
+      r.status === 'CONVERSATION_ENDED' &&
+      ((r.fromUserId === currentUserId && r.toUserId === targetUserId) ||
+        (r.fromUserId === targetUserId && r.toUserId === currentUserId)),
+  );
+  if (hasConversationEnded) {
+    return { type: 'CONVERSATION_ENDED_PAIR', label: '대화 종료' };
+  }
+
+  // 7. 매칭 해제 조합 (조합 1회 — 양방향 재교류 불가)
+  const hasUnmatched = requests.some(
+    (r) =>
+      r.status === 'UNMATCHED' &&
+      ((r.fromUserId === currentUserId && r.toUserId === targetUserId) ||
+        (r.fromUserId === targetUserId && r.toUserId === currentUserId)),
+  );
+  if (hasUnmatched) {
+    return { type: 'UNMATCHED_PAIR', label: '매칭 해제됨' };
+  }
+
+  // 8. 상대에게 보낸 PENDING 요청
   const sentPending = requests.find(
     (r) => r.toUserId === targetUserId && r.status === 'PENDING' && !isRequestExpired(r),
   );
@@ -74,7 +107,7 @@ export function getMatchButtonState({
     };
   }
 
-  // 6. 상대에게서 받은 PENDING 요청
+  // 9. 상대에게서 받은 PENDING 요청
   const receivedPending = requests.find(
     (r) => r.fromUserId === targetUserId && r.status === 'PENDING' && !isRequestExpired(r),
   );
@@ -85,39 +118,6 @@ export function getMatchButtonState({
       requestId: receivedPending.id,
       expiresAt: receivedPending.expiresAt,
     };
-  }
-
-  // 7. 대화 중 상대 (당사자 간에서만 — D-25 타인 비노출)
-  const hasConversation = requests.some(
-    (r) =>
-      r.status === 'IN_CONVERSATION' &&
-      ((r.fromUserId === currentUserId && r.toUserId === targetUserId) ||
-        (r.fromUserId === targetUserId && r.toUserId === currentUserId)),
-  );
-  if (hasConversation) {
-    return { type: 'IN_CONVERSATION', label: '대화 중' };
-  }
-
-  // 8. 대화 종료 조합 (조합 1회 — 양방향 재교류 불가)
-  const hasConversationEnded = requests.some(
-    (r) =>
-      r.status === 'CONVERSATION_ENDED' &&
-      ((r.fromUserId === currentUserId && r.toUserId === targetUserId) ||
-        (r.fromUserId === targetUserId && r.toUserId === currentUserId)),
-  );
-  if (hasConversationEnded) {
-    return { type: 'CONVERSATION_ENDED_PAIR', label: '대화 종료' };
-  }
-
-  // 9. 매칭 해제 조합 (조합 1회 — 양방향 재교류 불가)
-  const hasUnmatched = requests.some(
-    (r) =>
-      r.status === 'UNMATCHED' &&
-      ((r.fromUserId === currentUserId && r.toUserId === targetUserId) ||
-        (r.fromUserId === targetUserId && r.toUserId === currentUserId)),
-  );
-  if (hasUnmatched) {
-    return { type: 'UNMATCHED_PAIR', label: '매칭 해제됨' };
   }
 
   // 10. 재신청 차단: 같은 방향 기준
