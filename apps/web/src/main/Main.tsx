@@ -110,6 +110,12 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
       if (cancelled) return;
 
+      // 시즌 종료 시 매칭 상태 초기화 (AC-B03)
+      if (season.state === 'OFF_SEASON') {
+        const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
+        getMockMatchingService().clearState();
+      }
+
       setData({
         profiles: profileResult,
         season: season.season,

@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Handshake, ChevronDown, ChevronRight, MessageCircle, AlertTriangle } from 'lucide-react';
+import {
+  Handshake,
+  ChevronDown,
+  ChevronRight,
+  MessageCircle,
+  AlertTriangle,
+  Building2,
+} from 'lucide-react';
+import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/Button';
@@ -190,6 +198,25 @@ export default function MatchingTab({
     );
   }
 
+  // UNASSIGNED (건물 미선택) — AC-F09
+  const isUnassigned = user.dormitoryId === UNASSIGNED_ID || user.dormitoryId === null;
+  if (isUnassigned && seasonState === 'SEASON_MATCHING') {
+    return (
+      <div>
+        <MatchingTabHeader user={user} />
+        <div className="px-4 py-6 max-w-md mx-auto">
+          <EmptyState
+            icon={<Building2 className="w-12 h-12 text-gray-300" />}
+            message="건물을 선택하면 룸메를 탐색할 수 있어요"
+          />
+          <p className="text-xs text-center text-[var(--knu-text-tertiary)] mt-3">
+            학교 배정 결과를 입력하면 같은 건물 룸메를 찾을 수 있어요
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // --- Helpers ---
   const getPartnerProfile = (
     request: MatchRequest,
@@ -309,7 +336,11 @@ export default function MatchingTab({
                   {activeMatch.partnerNickname}
                 </p>
                 <p className="text-sm text-[var(--knu-text-secondary)]">
-                  매칭도 {activeMatch.matchScore}%
+                  {activeMatch.scoreType === 'gated'
+                    ? '매칭도 잠금'
+                    : activeMatch.scoreType === 'partial'
+                      ? `매칭도 ${activeMatch.matchScore}% (!)`
+                      : `매칭도 ${activeMatch.matchScore}%`}
                   {activeMatch.partnerDormitoryId &&
                     ` · ${getDormitoryLabel(activeMatch.partnerDormitoryId)}`}
                 </p>
@@ -405,7 +436,11 @@ export default function MatchingTab({
                         {partner.nickname}
                       </p>
                       <p className="text-xs text-[var(--knu-text-tertiary)]">
-                        매칭도 {partner.matchScore}%
+                        {partner.scoreType === 'gated'
+                          ? '매칭도 잠금'
+                          : partner.scoreType === 'partial'
+                            ? `매칭도 ${partner.matchScore}% (!)`
+                            : `매칭도 ${partner.matchScore}%`}
                         {partner.dormitoryId && ` · ${getDormitoryLabel(partner.dormitoryId)}`}
                       </p>
                     </div>
@@ -497,6 +532,7 @@ export default function MatchingTab({
                       request={req}
                       direction="sent"
                       partnerProfile={partner}
+                      scoreType={partner.scoreType}
                       onCancel={(id) =>
                         setConfirmAction({
                           type: 'cancel',
@@ -536,6 +572,7 @@ export default function MatchingTab({
                       request={req}
                       direction="received"
                       partnerProfile={partner}
+                      scoreType={partner.scoreType}
                       onAccept={(id) =>
                         setConfirmAction({
                           type: 'accept',

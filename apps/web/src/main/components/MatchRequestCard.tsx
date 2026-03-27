@@ -1,17 +1,18 @@
 'use client';
 
-import { Clock, X, Check } from 'lucide-react';
+import { Clock, X, Check, Lock } from 'lucide-react';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { useExpiryCountdown } from '@/hooks/useExpiryCountdown';
-import type { MatchRequest } from '@/types/match';
+import type { MatchRequest, MatchScoreType } from '@/types/match';
 import type { RoommateProfile } from '@/types/profile';
 
 interface MatchRequestCardProps {
   request: MatchRequest;
   direction: 'sent' | 'received';
   partnerProfile: Omit<RoommateProfile, 'matchScore'> & { matchScore: number };
+  scoreType?: MatchScoreType;
   onCancel?: (requestId: string) => void;
   onAccept?: (requestId: string) => void;
   onReject?: (requestId: string) => void;
@@ -22,6 +23,7 @@ export function MatchRequestCard({
   request,
   direction,
   partnerProfile,
+  scoreType = 'full',
   onCancel,
   onAccept,
   onReject,
@@ -65,9 +67,18 @@ export function MatchRequestCard({
           </div>
         </div>
         <span
-          className={`px-2.5 py-1 rounded-full text-xs font-bold ${getMatchScoreColor(partnerProfile.matchScore)}`}
+          className={`px-2.5 py-1 rounded-full text-xs font-bold ${scoreType === 'gated' ? 'bg-gray-200 text-gray-500' : getMatchScoreColor(partnerProfile.matchScore)}`}
         >
-          매칭 {partnerProfile.matchScore}%
+          {scoreType === 'gated' ? (
+            <span className="flex items-center gap-1">
+              <Lock className="w-3 h-3" />
+              매칭도
+            </span>
+          ) : scoreType === 'partial' ? (
+            `매칭 ${partnerProfile.matchScore}% (!)`
+          ) : (
+            `매칭 ${partnerProfile.matchScore}%`
+          )}
         </span>
       </div>
 

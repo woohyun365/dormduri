@@ -302,15 +302,37 @@ export class MockMatchingService {
 
   // --- Queries ---
 
+  /** 만료된 PENDING을 EXPIRED로 자동 전이 (AC-F03) */
+  private expireStaleRequests(): void {
+    const now = new Date().toISOString();
+    let changed = false;
+    this.state.requests = this.state.requests.map((r) => {
+      if (r.status === 'PENDING' && isRequestExpired(r)) {
+        changed = true;
+        return { ...r, status: 'EXPIRED' as const, resolvedAt: now };
+      }
+      return r;
+    });
+    if (changed) this.save();
+  }
+
   getRequests(userId: string): MatchRequest[] {
+    this.expireStaleRequests();
     return this.state.requests.filter((r) => r.fromUserId === userId || r.toUserId === userId);
   }
 
-  getActiveMatch(_userId: string): ActiveMatch | null {
-    return this.state.activeMatch;
+  /** 유저별 activeMatch 필터링 (리뷰 이슈 #4) */
+  getActiveMatch(userId: string): ActiveMatch | null {
+    if (!this.state.activeMatch) return null;
+    // activeMatch의 상대가 이 유저의 ACTIVE 요청과 연결되는지 확인
+    const hasActiveRequest = this.state.requests.some(
+      (r) => r.status === 'ACTIVE' && (r.fromUserId === userId || r.toUserId === userId),
+    );
+    return hasActiveRequest ? this.state.activeMatch : null;
   }
 
   getState(userId: string): MatchingResult {
+    this.expireStaleRequests();
     return {
       requests: this.getRequests(userId),
       activeMatch: this.getActiveMatch(userId),
