@@ -203,7 +203,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
             <HomeTab
               user={profileState.user}
               onNavigate={setActiveTab}
-              onShowGuide={profileState.handleShowGuide}
               profiles={data.profiles}
               buildingStats={buildingStats}
               bookmarkedUserIds={socialState.bookmarkedUserIds}
@@ -211,6 +210,9 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               forceShowChecklist={forceShowChecklist}
               onDismissChecklist={dismissChecklist}
               onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
+              matchRequests={matchingState.matchRequests}
+              activeMatch={matchingState.activeMatch}
+              receivedPendingCount={matchingState.receivedPendingCount}
             />
           )}
           {activeTab === 'list' && (

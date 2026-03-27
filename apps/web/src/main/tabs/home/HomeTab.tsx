@@ -1,17 +1,22 @@
 'use client';
 
+import { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Building2, AlertTriangle, Calendar } from 'lucide-react';
 import { getDormitoryById } from '@/constants/dormitory';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { useSeasonContext } from '@/contexts/SeasonContext';
+import { isRequestExpired } from '@/utils/matchRequest';
 import { HomeSeasonBanner } from './HomeSeasonBanner';
+import { UrgentActionBanner } from './UrgentActionBanner';
+import { HomeMatchingSummary } from './HomeMatchingSummary';
 import { HomeQuickMenuSection } from './HomeQuickMenuSection';
 import { HomeBuildingSection } from './HomeBuildingSection';
 import { HomeProgressSection } from './HomeProgressSection';
-import { HomeUsageTipsSection } from './HomeUsageTipsSection';
+import { DynamicTipBanner } from './DynamicTipBanner';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
+import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export interface BuildingStats {
   activeUsers: number;
@@ -23,7 +28,6 @@ export interface BuildingStats {
 interface HomeTabProps {
   user: UserProfile;
   onNavigate: (tab: TabId) => void;
-  onShowGuide?: () => void;
   profiles: Omit<RoommateProfile, 'matchScore'>[];
   buildingStats?: BuildingStats;
   bookmarkedUserIds?: Set<string>;
@@ -31,12 +35,15 @@ interface HomeTabProps {
   forceShowChecklist?: boolean;
   onDismissChecklist?: () => void;
   onOpenBuildingSelect?: () => void;
+  // 매칭 상태 (A-4: Main.tsx에서 전달)
+  matchRequests: MatchRequest[];
+  activeMatch: ActiveMatch | null;
+  receivedPendingCount: number;
 }
 
 export default function HomeTab({
   user,
   onNavigate,
-  onShowGuide,
   profiles,
   buildingStats,
   bookmarkedUserIds,
@@ -44,12 +51,28 @@ export default function HomeTab({
   forceShowChecklist,
   onDismissChecklist,
   onOpenBuildingSelect,
+  matchRequests,
+  activeMatch,
+  receivedPendingCount,
 }: HomeTabProps) {
   const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
   const dormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
     : null;
   const { isMatching, daysUntilEnd } = useSeasonContext();
+  const isCampusOperated = user.campus === 'CHUNCHEON';
+
+  // DynamicTipBanner에 전달할 요약 수치
+  const tipStats = useMemo(() => {
+    const received = matchRequests.filter(
+      (r) => r.toUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
+    ).length;
+    const sent = matchRequests.filter(
+      (r) => r.fromUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
+    ).length;
+    const conversations = matchRequests.filter((r) => r.status === 'IN_CONVERSATION').length;
+    return { received, sent, conversations };
+  }, [matchRequests, user.id]);
 
   return (
     <div>
@@ -99,14 +122,31 @@ export default function HomeTab({
         </div>
       </div>
 
-      <div className="max-w-md mx-auto px-5 py-6 space-y-6">
+      <div className="max-w-md mx-auto px-5 py-5 space-y-5">
         <HomeSeasonBanner isUnassigned={isUnassigned} />
+
+        <UrgentActionBanner
+          matchRequests={matchRequests}
+          userId={user.id}
+          profiles={profiles}
+          onNavigate={onNavigate}
+        />
+
+        <HomeMatchingSummary
+          matchRequests={matchRequests}
+          activeMatch={activeMatch}
+          userId={user.id}
+          isCampusOperated={isCampusOperated}
+          profiles={profiles}
+          onNavigate={onNavigate}
+        />
 
         <HomeQuickMenuSection
           onNavigateList={() => onNavigate('list')}
           onNavigateMatching={() => onNavigate('matching')}
           onNavigateChat={() => {}}
           onNavigateProfile={() => onNavigate('profile')}
+          receivedPendingCount={receivedPendingCount}
         />
 
         <HomeBuildingSection
@@ -127,7 +167,12 @@ export default function HomeTab({
           onOpenBuildingSelect={onOpenBuildingSelect}
         />
 
-        <HomeUsageTipsSection onShowGuide={onShowGuide} />
+        <DynamicTipBanner
+          receivedRequests={tipStats.received}
+          sentRequests={tipStats.sent}
+          conversationCount={tipStats.conversations}
+          hasActiveMatch={activeMatch !== null}
+        />
       </div>
     </div>
   );
