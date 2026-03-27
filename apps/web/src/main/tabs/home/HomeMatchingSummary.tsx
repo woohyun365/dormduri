@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
-import { motion } from 'motion/react';
+import { useMemo, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   CheckCircle,
   Inbox,
@@ -20,24 +20,21 @@ import type { RoommateProfile, TabId } from '@/types/profile';
 
 // --- Types ---
 
-type SummaryCase =
-  | 'active_match'
-  | 'received_and_sent'
-  | 'received_only'
-  | 'sent_only'
-  | 'none'
-  | 'not_operated'
-  | 'off_season'
-  | 'season_open';
+interface ActionItem {
+  icon: React.ElementType;
+  text: string;
+  iconColor: string;
+}
 
 interface SummaryData {
-  case: SummaryCase;
   receivedPending: number;
   sentPending: number;
   conversationCount: number;
   firstReceivedNickname: string | null;
   activeMatchNickname: string | null;
   activeMatchScore: number | null;
+  showStats: boolean;
+  actions: ActionItem[];
 }
 
 export interface HomeMatchingSummaryProps {
@@ -60,6 +57,7 @@ export function HomeMatchingSummary({
   onNavigate,
 }: HomeMatchingSummaryProps) {
   const { state: seasonState } = useSeasonContext();
+  const [actionIndex, setActionIndex] = useState(0);
 
   const summary = useMemo((): SummaryData => {
     const receivedPending = matchRequests.filter(
@@ -84,22 +82,112 @@ export function HomeMatchingSummary({
       activeMatchScore: activeMatch?.matchScore ?? null,
     };
 
-    if (!isCampusOperated) return { ...base, case: 'not_operated' };
-    if (seasonState === 'OFF_SEASON') return { ...base, case: 'off_season' };
-    if (seasonState === 'SEASON_OPEN') return { ...base, case: 'season_open' };
-    if (activeMatch) return { ...base, case: 'active_match' };
-    if (base.receivedPending > 0 && base.sentPending > 0)
-      return { ...base, case: 'received_and_sent' };
-    if (base.receivedPending > 0) return { ...base, case: 'received_only' };
-    if (base.sentPending > 0) return { ...base, case: 'sent_only' };
-    return { ...base, case: 'none' };
+    // 비활성 상태 (통계 숨김, 단일 메시지)
+    if (!isCampusOperated) {
+      return {
+        ...base,
+        showStats: false,
+        actions: [
+          {
+            icon: Info,
+            text: '이 캠퍼스는 매칭 서비스를 운영하지 않습니다',
+            iconColor: 'text-[var(--knu-text-tertiary)]',
+          },
+        ],
+      };
+    }
+    if (seasonState === 'OFF_SEASON') {
+      return {
+        ...base,
+        showStats: false,
+        actions: [
+          {
+            icon: Info,
+            text: '다음 시즌이 시작되면 매칭할 수 있어요',
+            iconColor: 'text-[var(--knu-text-tertiary)]',
+          },
+        ],
+      };
+    }
+    if (seasonState === 'SEASON_OPEN') {
+      return {
+        ...base,
+        showStats: false,
+        actions: [
+          {
+            icon: Info,
+            text: '매칭 시즌이 곧 시작돼요. 프로필을 준비해보세요',
+            iconColor: 'text-[var(--knu-text-tertiary)]',
+          },
+        ],
+      };
+    }
+    if (activeMatch) {
+      return {
+        ...base,
+        showStats: false,
+        actions: [
+          {
+            icon: CheckCircle,
+            text: `${base.activeMatchNickname}님과 매칭 중 · 매칭도 ${base.activeMatchScore}%`,
+            iconColor: 'text-green-600',
+          },
+        ],
+      };
+    }
+
+    // 활성 상태 — 동적 메시지 배열 구성
+    const actions: ActionItem[] = [];
+    if (base.receivedPending > 0) {
+      const extra = base.receivedPending - 1;
+      const suffix = extra > 0 ? ` 외 ${extra}명이` : '님이';
+      actions.push({
+        icon: Inbox,
+        text: `${base.firstReceivedNickname}${suffix} 매칭을 요청했어요`,
+        iconColor: 'text-purple-600',
+      });
+    }
+    if (base.sentPending > 0) {
+      actions.push({
+        icon: Send,
+        text: `보낸 요청 ${base.sentPending}건 대기 중`,
+        iconColor: 'text-blue-600',
+      });
+    }
+    if (base.conversationCount > 0) {
+      actions.push({
+        icon: MessageCircle,
+        text: `대화 ${base.conversationCount}명 진행 중`,
+        iconColor: 'text-green-600',
+      });
+    }
+    if (actions.length === 0) {
+      actions.push({
+        icon: Clock,
+        text: '매칭 요청이 없어요. 룸메를 찾아볼까요?',
+        iconColor: 'text-[var(--knu-text-tertiary)]',
+      });
+    }
+
+    return { ...base, showStats: true, actions };
   }, [matchRequests, activeMatch, userId, isCampusOperated, seasonState, profiles]);
 
-  const showStats =
-    summary.case !== 'active_match' &&
-    summary.case !== 'not_operated' &&
-    summary.case !== 'off_season' &&
-    summary.case !== 'season_open';
+  // 3초 순환 (메시지 2개 이상일 때만)
+  useEffect(() => {
+    if (summary.actions.length <= 1) return;
+    const interval = setInterval(() => {
+      setActionIndex((prev) => (prev + 1) % summary.actions.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [summary.actions.length]);
+
+  // actions 변경 시 인덱스 초기화
+  useEffect(() => {
+    setActionIndex(0);
+  }, [summary.actions.length]);
+
+  const currentAction = summary.actions[actionIndex % summary.actions.length];
+  const CurrentIcon = currentAction?.icon ?? Info;
 
   return (
     <motion.div
@@ -113,20 +201,31 @@ export function HomeMatchingSummary({
         <TrendingUp className="w-5 h-5 text-[var(--knu-primary)]" />
       </div>
 
-      {/* 행동 유도 메시지 */}
+      {/* 행동 유도 메시지 (순환 애니메이션) */}
       <button
         onClick={() => onNavigate('matching')}
-        className="w-full flex items-center gap-3 text-left p-3 bg-[var(--knu-background-alt)] rounded-xl mb-4 hover:bg-gray-100 transition-colors"
+        className="w-full flex items-center gap-3 text-left p-3 bg-[var(--knu-background-alt)] rounded-xl mb-4 hover:bg-gray-100 transition-colors overflow-hidden"
       >
-        <ActionIcon summaryCase={summary.case} />
-        <span className="flex-1 text-sm font-semibold text-[var(--knu-text-primary)]">
-          <ActionMessage summary={summary} />
-        </span>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={actionIndex}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
+            className="flex items-center gap-3 flex-1 min-w-0"
+          >
+            <CurrentIcon className={`w-5 h-5 flex-shrink-0 ${currentAction?.iconColor}`} />
+            <span className="flex-1 text-sm font-semibold text-[var(--knu-text-primary)] truncate">
+              {currentAction?.text}
+            </span>
+          </motion.div>
+        </AnimatePresence>
         <ChevronRight className="w-4 h-4 text-[var(--knu-text-tertiary)] flex-shrink-0" />
       </button>
 
-      {/* 통계 그리드 (Figma MatchingActivitySummary 디자인) */}
-      {showStats && (
+      {/* 통계 그리드 */}
+      {summary.showStats && (
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => onNavigate('matching')}
@@ -169,57 +268,4 @@ export function HomeMatchingSummary({
       )}
     </motion.div>
   );
-}
-
-// --- Sub-components ---
-
-function ActionIcon({ summaryCase }: { summaryCase: SummaryCase }) {
-  const iconClass = 'w-5 h-5 flex-shrink-0';
-  switch (summaryCase) {
-    case 'active_match':
-      return <CheckCircle className={`${iconClass} text-green-600`} />;
-    case 'received_and_sent':
-    case 'received_only':
-      return <Inbox className={`${iconClass} text-purple-600`} />;
-    case 'sent_only':
-      return <Send className={`${iconClass} text-blue-600`} />;
-    case 'none':
-      return <Clock className={`${iconClass} text-[var(--knu-text-tertiary)]`} />;
-    case 'not_operated':
-    case 'off_season':
-    case 'season_open':
-      return <Info className={`${iconClass} text-[var(--knu-text-tertiary)]`} />;
-  }
-}
-
-function ActionMessage({ summary }: { summary: SummaryData }) {
-  switch (summary.case) {
-    case 'active_match':
-      return (
-        <>
-          {summary.activeMatchNickname}님과 매칭 중 · 매칭도 {summary.activeMatchScore}%
-        </>
-      );
-    case 'received_and_sent':
-    case 'received_only': {
-      const extra = summary.receivedPending - 1;
-      const suffix = extra > 0 ? ` 외 ${extra}명이` : '님이';
-      return (
-        <>
-          {summary.firstReceivedNickname}
-          {suffix} 매칭을 요청했어요
-        </>
-      );
-    }
-    case 'sent_only':
-      return <>보낸 요청 {summary.sentPending}건 대기 중</>;
-    case 'none':
-      return <>매칭 요청이 없어요. 룸메를 찾아볼까요?</>;
-    case 'not_operated':
-      return <>이 캠퍼스는 매칭 서비스를 운영하지 않습니다</>;
-    case 'off_season':
-      return <>다음 시즌이 시작되면 매칭할 수 있어요</>;
-    case 'season_open':
-      return <>매칭 시즌이 곧 시작돼요. 프로필을 준비해보세요</>;
-  }
 }

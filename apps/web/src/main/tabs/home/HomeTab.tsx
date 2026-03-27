@@ -138,6 +138,13 @@ export default function HomeTab({
           onNavigate={onNavigate}
         />
 
+        <DynamicTipBanner
+          receivedRequests={tipStats.received}
+          sentRequests={tipStats.sent}
+          conversationCount={tipStats.conversations}
+          hasActiveMatch={activeMatch !== null}
+        />
+
         <HomeQuickMenuSection
           onNavigateList={() => onNavigate('list')}
           onNavigateMatching={() => onNavigate('matching')}
@@ -162,13 +169,6 @@ export default function HomeTab({
           onDismissChecklist={onDismissChecklist}
           onNavigate={onNavigate}
           onOpenBuildingSelect={onOpenBuildingSelect}
-        />
-
-        <DynamicTipBanner
-          receivedRequests={tipStats.received}
-          sentRequests={tipStats.sent}
-          conversationCount={tipStats.conversations}
-          hasActiveMatch={activeMatch !== null}
         />
       </div>
     </div>
