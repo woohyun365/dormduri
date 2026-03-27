@@ -76,11 +76,39 @@ export default function HomeTab({
 
   return (
     <div>
-      {/* Header */}
-      <div className="bg-[var(--knu-primary)] text-white px-5 py-6">
+      {/* Header (Figma 스타일) */}
+      <header className="bg-[var(--knu-primary)] text-white px-5 py-6">
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xl font-bold">안녕하세요,</p>
+            <div>
+              <p className="text-sm opacity-90 mb-1">안녕하세요,</p>
+              <h1 className="text-2xl font-bold">{user.nickname}님</h1>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onNavigate('profile')}
+              className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold cursor-pointer"
+            >
+              {user.nickname.charAt(0)}
+            </motion.button>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm opacity-90">
+              <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold">
+                {user.gender === 'M' ? '남' : '여'}
+              </span>
+              {dormitory ? (
+                <span>
+                  {dormitory.name} · {dormitory.roomType}인실
+                </span>
+              ) : isUnassigned ? (
+                <span className="flex items-center gap-1 opacity-75">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  건물 미배정
+                </span>
+              ) : null}
+            </div>
             {isMatching && daysUntilEnd > 0 && (
               <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
                 <Calendar className="w-3 h-3" />
@@ -88,39 +116,8 @@ export default function HomeTab({
               </div>
             )}
           </div>
-          <div className="flex items-center gap-4">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onNavigate('profile')}
-              className={`w-14 h-14 ${getAvatarColor(user.nickname).bg} rounded-2xl flex items-center justify-center text-2xl font-bold ${getAvatarColor(user.nickname).text} cursor-pointer`}
-            >
-              {user.nickname.charAt(0)}
-            </motion.button>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">{user.nickname}님</h1>
-                <span className="px-2 py-0.5 bg-white/20 text-white text-xs font-semibold rounded-full">
-                  {user.gender === 'M' ? '남' : '여'}
-                </span>
-              </div>
-              {dormitory ? (
-                <div className="mt-1 flex items-center gap-2 text-sm opacity-90">
-                  <Building2 className="w-4 h-4" />
-                  <span>
-                    {dormitory.name} · {dormitory.roomType}인실
-                  </span>
-                </div>
-              ) : isUnassigned ? (
-                <div className="mt-1 flex items-center gap-2 text-sm opacity-75">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>건물 미배정</span>
-                </div>
-              ) : null}
-            </div>
-          </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-md mx-auto px-5 py-5 space-y-5">
         <HomeSeasonBanner isUnassigned={isUnassigned} />

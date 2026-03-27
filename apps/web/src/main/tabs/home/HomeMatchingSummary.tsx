@@ -2,7 +2,16 @@
 
 import { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { CheckCircle, Inbox, Send, MessageCircle, Info, Clock, ChevronRight } from 'lucide-react';
+import {
+  CheckCircle,
+  Inbox,
+  Send,
+  MessageCircle,
+  Info,
+  Clock,
+  ChevronRight,
+  TrendingUp,
+} from 'lucide-react';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { MATCH_POLICY } from '@/constants/match';
@@ -75,7 +84,6 @@ export function HomeMatchingSummary({
       activeMatchScore: activeMatch?.matchScore ?? null,
     };
 
-    // 우선순위: 비운영 → 비시즌 → 시즌오픈 → 활성매칭 → 받은+보낸 → 받은만 → 보낸만 → 없음
     if (!isCampusOperated) return { ...base, case: 'not_operated' };
     if (seasonState === 'OFF_SEASON') return { ...base, case: 'off_season' };
     if (seasonState === 'SEASON_OPEN') return { ...base, case: 'season_open' };
@@ -97,12 +105,18 @@ export function HomeMatchingSummary({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl border-2 border-[var(--knu-border)] overflow-hidden"
+      className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5"
     >
-      {/* 상단: 행동 유도 메시지 */}
+      {/* 헤더 */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-bold text-[var(--knu-text-primary)]">매칭 활동</h2>
+        <TrendingUp className="w-5 h-5 text-[var(--knu-primary)]" />
+      </div>
+
+      {/* 행동 유도 메시지 */}
       <button
         onClick={() => onNavigate('matching')}
-        className="w-full px-5 py-4 flex items-center gap-3 text-left hover:bg-[var(--knu-background-alt)] transition-colors"
+        className="w-full flex items-center gap-3 text-left p-3 bg-[var(--knu-background-alt)] rounded-xl mb-4 hover:bg-gray-100 transition-colors"
       >
         <ActionIcon summaryCase={summary.case} />
         <span className="flex-1 text-sm font-semibold text-[var(--knu-text-primary)]">
@@ -111,35 +125,46 @@ export function HomeMatchingSummary({
         <ChevronRight className="w-4 h-4 text-[var(--knu-text-tertiary)] flex-shrink-0" />
       </button>
 
-      {/* 하단: 통계 그리드 */}
+      {/* 통계 그리드 (Figma MatchingActivitySummary 디자인) */}
       {showStats && (
-        <div className="border-t border-[var(--knu-border)] grid grid-cols-3">
-          <StatCell
-            icon={Send}
-            value={summary.sentPending}
-            suffix={`/${MATCH_POLICY.MAX_PENDING_REQUESTS}`}
-            label="보낸 요청"
-            color="text-blue-600"
-            bgColor="bg-blue-100"
+        <div className="grid grid-cols-3 gap-2">
+          <button
             onClick={() => onNavigate('matching')}
-          />
-          <StatCell
-            icon={Inbox}
-            value={summary.receivedPending}
-            label="받은 요청"
-            color="text-purple-600"
-            bgColor="bg-purple-100"
+            className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-blue-50 rounded-xl transition-colors group"
+          >
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+              <Send className="w-5 h-5 text-blue-600" />
+            </div>
+            <span className="text-xl font-bold text-blue-600">
+              {summary.sentPending}
+              <span className="text-xs font-normal text-[var(--knu-text-tertiary)]">
+                /{MATCH_POLICY.MAX_PENDING_REQUESTS}
+              </span>
+            </span>
+            <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5">보낸 요청</span>
+          </button>
+
+          <button
             onClick={() => onNavigate('matching')}
-            hasBorder
-          />
-          <StatCell
-            icon={MessageCircle}
-            value={summary.conversationCount}
-            label="대화 중"
-            color="text-green-600"
-            bgColor="bg-green-100"
+            className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-purple-50 rounded-xl transition-colors group"
+          >
+            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+              <Inbox className="w-5 h-5 text-purple-600" />
+            </div>
+            <span className="text-xl font-bold text-purple-600">{summary.receivedPending}</span>
+            <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5">받은 요청</span>
+          </button>
+
+          <button
             onClick={() => onNavigate('matching')}
-          />
+            className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-green-50 rounded-xl transition-colors group"
+          >
+            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+              <MessageCircle className="w-5 h-5 text-green-600" />
+            </div>
+            <span className="text-xl font-bold text-green-600">{summary.conversationCount}</span>
+            <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5">대화 중</span>
+          </button>
         </div>
       )}
     </motion.div>
@@ -197,44 +222,4 @@ function ActionMessage({ summary }: { summary: SummaryData }) {
     case 'season_open':
       return <>매칭 시즌이 곧 시작돼요. 프로필을 준비해보세요</>;
   }
-}
-
-function StatCell({
-  icon: Icon,
-  value,
-  suffix,
-  label,
-  color,
-  bgColor,
-  onClick,
-  hasBorder,
-}: {
-  icon: React.ElementType;
-  value: number;
-  suffix?: string;
-  label: string;
-  color: string;
-  bgColor: string;
-  onClick: () => void;
-  hasBorder?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex flex-col items-center py-3 hover:bg-[var(--knu-background-alt)] transition-colors ${
-        hasBorder ? 'border-x border-[var(--knu-border)]' : ''
-      }`}
-    >
-      <div className={`w-8 h-8 ${bgColor} rounded-full flex items-center justify-center mb-1.5`}>
-        <Icon className={`w-4 h-4 ${color}`} />
-      </div>
-      <span className={`text-lg font-bold ${color}`}>
-        {value}
-        {suffix && (
-          <span className="text-xs font-normal text-[var(--knu-text-tertiary)]">{suffix}</span>
-        )}
-      </span>
-      <span className="text-xs text-[var(--knu-text-tertiary)]">{label}</span>
-    </button>
-  );
 }
