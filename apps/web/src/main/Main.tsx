@@ -139,6 +139,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     profileState.user.id,
     profileState.user.lifestyle,
     data?.profiles ?? [],
+    data?.seasonState,
   );
 
   const listViewState = useMainListViewState();
