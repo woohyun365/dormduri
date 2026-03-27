@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { motion } from 'motion/react';
 import { Calendar, AlertTriangle, Sparkles } from 'lucide-react';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { calcSeasonDates } from '@/constants/season';
@@ -51,8 +52,23 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
         ? 'bg-blue-500'
         : 'bg-gray-400';
 
+  const bannerStyle =
+    seasonState === 'SEASON_MATCHING'
+      ? daysUntilEnd <= 3
+        ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
+        : daysUntilEnd <= 7
+          ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-amber-200'
+          : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200'
+      : seasonState === 'SEASON_OPEN'
+        ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200'
+        : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200';
+
   return (
-    <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`rounded-2xl border-2 p-5 ${bannerStyle}`}
+    >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-2">
           <div className={`w-3 h-3 rounded-full ${dotColor}`} />
@@ -215,6 +231,6 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
           </p>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

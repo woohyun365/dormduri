@@ -1,9 +1,11 @@
 'use client';
 
-import { Building2, AlertTriangle } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Building2, AlertTriangle, Calendar } from 'lucide-react';
 import { getDormitoryById } from '@/constants/dormitory';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { getAvatarColor } from '@/utils/avatarColor';
+import { useSeasonContext } from '@/contexts/SeasonContext';
 import { HomeSeasonBanner } from './HomeSeasonBanner';
 import { HomeQuickMenuSection } from './HomeQuickMenuSection';
 import { HomeBuildingSection } from './HomeBuildingSection';
@@ -47,19 +49,31 @@ export default function HomeTab({
   const dormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
     : null;
+  const { isMatching, daysUntilEnd } = useSeasonContext();
 
   return (
     <div>
       {/* Header */}
       <div className="bg-[var(--knu-primary)] text-white px-5 py-6">
         <div className="max-w-md mx-auto">
-          <p className="text-xl font-bold mb-4">안녕하세요,</p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xl font-bold">안녕하세요,</p>
+            {isMatching && daysUntilEnd > 0 && (
+              <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
+                <Calendar className="w-3 h-3" />
+                <span>D-{daysUntilEnd}</span>
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-4">
-            <div
-              className={`w-14 h-14 ${getAvatarColor(user.nickname).bg} rounded-2xl flex items-center justify-center text-2xl font-bold ${getAvatarColor(user.nickname).text}`}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onNavigate('profile')}
+              className={`w-14 h-14 ${getAvatarColor(user.nickname).bg} rounded-2xl flex items-center justify-center text-2xl font-bold ${getAvatarColor(user.nickname).text} cursor-pointer`}
             >
               {user.nickname.charAt(0)}
-            </div>
+            </motion.button>
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold">{user.nickname}님</h1>
@@ -91,6 +105,8 @@ export default function HomeTab({
         <HomeQuickMenuSection
           onNavigateList={() => onNavigate('list')}
           onNavigateMatching={() => onNavigate('matching')}
+          onNavigateChat={() => {}}
+          onNavigateProfile={() => onNavigate('profile')}
         />
 
         <HomeBuildingSection
