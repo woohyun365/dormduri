@@ -95,25 +95,7 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
               </div>
             </div>
           </div>
-          <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
-              <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                {roomSelectionDateStr}
-              </p>
-            </div>
-            <div
-              className={`px-3 py-1.5 rounded-lg font-bold text-sm ${
-                daysUntilEnd > 7
-                  ? 'bg-[var(--knu-primary-light)] text-[var(--knu-primary)]'
-                  : daysUntilEnd > 3
-                    ? 'bg-amber-100 text-amber-600'
-                    : 'bg-red-100 text-red-600'
-              }`}
-            >
-              D-{daysUntilEnd}
-            </div>
-          </div>
+          <DeadlineRow dateStr={roomSelectionDateStr} daysUntilEnd={daysUntilEnd} />
         </div>
       ) : seasonState === 'SEASON_MATCHING' ? (
         <div className="space-y-3">
@@ -140,25 +122,7 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
           </div>
 
           {/* 호실 선택일 + D-Day */}
-          <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
-              <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                {roomSelectionDateStr}
-              </p>
-            </div>
-            <div
-              className={`px-3 py-1.5 rounded-lg font-bold text-sm ${
-                daysUntilEnd > 7
-                  ? 'bg-[var(--knu-primary-light)] text-[var(--knu-primary)]'
-                  : daysUntilEnd > 3
-                    ? 'bg-amber-100 text-amber-600'
-                    : 'bg-red-100 text-red-600'
-              }`}
-            >
-              D-{daysUntilEnd}
-            </div>
-          </div>
+          <DeadlineRow dateStr={roomSelectionDateStr} daysUntilEnd={daysUntilEnd} />
 
           {/* D-3 종료 임박 안내 */}
           {daysUntilEnd <= 3 && (
@@ -212,13 +176,9 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
               </div>
             </div>
           )}
-          <div className="bg-[var(--knu-background-alt)] rounded-xl p-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-[var(--knu-text-tertiary)] mb-1">호실 선택일</p>
-              <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                {roomSelectionDateStr}
-              </p>
-            </div>
+          <div className="flex items-center gap-2 text-xs text-blue-700">
+            <span className="font-semibold">호실 선택일:</span>
+            <span>{roomSelectionDateStr}</span>
           </div>
         </div>
       ) : (
@@ -232,5 +192,27 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
         </div>
       )}
     </motion.div>
+  );
+}
+
+// --- Figma 스타일 마감일 표시 ---
+
+function DeadlineRow({ dateStr, daysUntilEnd }: { dateStr: string; daysUntilEnd: number }) {
+  const isUrgent = daysUntilEnd <= 3;
+  const isWarning = daysUntilEnd > 3 && daysUntilEnd <= 7;
+
+  const textColor = isUrgent ? 'text-red-700' : isWarning ? 'text-amber-700' : 'text-blue-700';
+  const badgeStyle = isUrgent
+    ? 'bg-red-500 text-white'
+    : isWarning
+      ? 'bg-amber-500 text-white'
+      : 'bg-blue-500 text-white';
+
+  return (
+    <div className={`flex items-center gap-2 text-xs ${textColor}`}>
+      <span className="font-semibold">마감일:</span>
+      <span>{dateStr}</span>
+      <span className={`px-2 py-0.5 ${badgeStyle} rounded-full font-bold`}>D-{daysUntilEnd}</span>
+    </div>
   );
 }
