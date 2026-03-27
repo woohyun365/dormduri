@@ -1,17 +1,18 @@
 'use client';
 
-import { Clock, X, Check } from 'lucide-react';
+import { Clock, X, Check, Lock } from 'lucide-react';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
 import { useExpiryCountdown } from '@/hooks/useExpiryCountdown';
-import type { MatchRequest } from '@/types/match';
+import type { MatchRequest, MatchScoreType } from '@/types/match';
 import type { RoommateProfile } from '@/types/profile';
 
 interface MatchRequestCardProps {
   request: MatchRequest;
   direction: 'sent' | 'received';
   partnerProfile: Omit<RoommateProfile, 'matchScore'> & { matchScore: number };
+  scoreType?: MatchScoreType;
   onCancel?: (requestId: string) => void;
   onAccept?: (requestId: string) => void;
   onReject?: (requestId: string) => void;
@@ -22,12 +23,14 @@ export function MatchRequestCard({
   request,
   direction,
   partnerProfile,
+  scoreType = 'full',
   onCancel,
   onAccept,
   onReject,
   onClick,
 }: MatchRequestCardProps) {
-  const { timeLeft, isExpired } = useExpiryCountdown(request.expiresAt);
+  const { timeLeft, isExpired, totalSeconds } = useExpiryCountdown(request.expiresAt);
+  const isUrgent = !isExpired && totalSeconds <= 24 * 60 * 60; // 24h 이내 — D-23
   const avatarColor = getAvatarColor(partnerProfile.nickname);
   const dormLabel = getDormitoryLabel(partnerProfile.dormitoryId);
 
@@ -64,9 +67,18 @@ export function MatchRequestCard({
           </div>
         </div>
         <span
-          className={`px-2.5 py-1 rounded-full text-xs font-bold ${getMatchScoreColor(partnerProfile.matchScore)}`}
+          className={`px-2.5 py-1 rounded-full text-xs font-bold ${scoreType === 'gated' ? 'bg-gray-200 text-gray-500' : getMatchScoreColor(partnerProfile.matchScore)}`}
         >
-          매칭 {partnerProfile.matchScore}%
+          {scoreType === 'gated' ? (
+            <span className="flex items-center gap-1">
+              <Lock className="w-3 h-3" />
+              매칭도
+            </span>
+          ) : scoreType === 'partial' ? (
+            `매칭 ${partnerProfile.matchScore}% (!)`
+          ) : (
+            `매칭 ${partnerProfile.matchScore}%`
+          )}
         </span>
       </div>
 
@@ -79,14 +91,20 @@ export function MatchRequestCard({
 
       {/* Timer — 카운트다운은 클라이언트 시각 기반이므로 hydration 차이 허용 */}
       <div className="flex items-center gap-1.5 mb-3" suppressHydrationWarning>
-        <Clock className="w-3.5 h-3.5 text-[var(--knu-text-tertiary)]" />
+        <Clock
+          className={`w-3.5 h-3.5 ${isUrgent ? 'text-orange-500' : 'text-[var(--knu-text-tertiary)]'}`}
+        />
         <span
           suppressHydrationWarning
           className={`text-xs font-semibold ${
-            isExpired ? 'text-red-500' : 'text-[var(--knu-text-tertiary)]'
+            isExpired
+              ? 'text-red-500'
+              : isUrgent
+                ? 'text-orange-500'
+                : 'text-[var(--knu-text-tertiary)]'
           }`}
         >
-          {isExpired ? '만료됨' : `남은 시간 ${timeLeft}`}
+          {isExpired ? '만료됨' : isUrgent ? `만료 임박 ${timeLeft}` : `남은 시간 ${timeLeft}`}
         </span>
       </div>
 

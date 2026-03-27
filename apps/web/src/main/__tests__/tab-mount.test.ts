@@ -14,6 +14,7 @@ function getTabVisibility(activeTab: TabId): TabVisibility {
   return {
     home: activeTab === 'home',
     list: activeTab === 'list',
+    matching: activeTab === 'matching',
     profile: activeTab === 'profile',
     settings: activeTab === 'settings',
   };
@@ -61,7 +62,7 @@ describe('탭 마운트 전략 (조건부 마운트)', () => {
   });
 
   it('정확히 하나의 탭만 마운트됨 (모든 탭 검증)', () => {
-    const tabs: TabId[] = ['home', 'list', 'profile', 'settings'];
+    const tabs: TabId[] = ['home', 'list', 'matching', 'profile', 'settings'];
     for (const activeTab of tabs) {
       const visibility = getTabVisibility(activeTab);
       const mountedCount = Object.values(visibility).filter(Boolean).length;
@@ -76,7 +77,7 @@ describe('탭 마운트 전략 (조건부 마운트)', () => {
   });
 
   it('같은 탭 재클릭 시 scrollTo 트리거 안 됨', () => {
-    const tabs: TabId[] = ['home', 'list', 'profile', 'settings'];
+    const tabs: TabId[] = ['home', 'list', 'matching', 'profile', 'settings'];
     for (const tab of tabs) {
       expect(shouldScrollToTopOnTabChange(tab, tab)).toBe(false);
     }

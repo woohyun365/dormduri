@@ -20,7 +20,10 @@ export default function GatewayPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--knu-background-alt)] flex items-center justify-center">
-        <p className="text-[var(--knu-text-tertiary)]">로딩 중...</p>
+        <div className="text-center space-y-3">
+          <div className="w-8 h-8 border-3 border-[var(--knu-primary)] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-[var(--knu-text-tertiary)]">인증 확인 중...</p>
+        </div>
       </div>
     );
   }

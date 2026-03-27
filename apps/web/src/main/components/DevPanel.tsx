@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { DORMITORIES, UNASSIGNED_ID } from '@/constants/dormitory';
 import type { MockUser } from '@/__fixtures__/mock-db';
 import type { SeasonState } from '@/types/season';
+import type { MatchPreset } from '@/__fixtures__/mock-matching-service';
 
 const SEASON_OVERRIDE_KEY = 'devpanel-season-override';
 const SEASON_OPTIONS: { value: SeasonState | 'auto'; label: string }[] = [
@@ -31,6 +32,7 @@ export function DevPanel() {
   const [registeredUsers, setRegisteredUsers] = useState<MockUser[]>([]);
   const [lastCode, setLastCode] = useState<{ email: string; code: string } | null>(null);
   const [seasonOverride, setSeasonOverride] = useState<string>('auto');
+  const [matchPreset, setMatchPreset] = useState<string>('auto');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('CHUNCHEON');
 
   useEffect(() => {
@@ -44,6 +46,7 @@ export function DevPanel() {
     }
     load();
     setSeasonOverride(localStorage.getItem(SEASON_OVERRIDE_KEY) ?? 'auto');
+    setMatchPreset(localStorage.getItem('devpanel-match-preset') ?? 'auto');
   }, [isOpen]);
 
   if (process.env.NODE_ENV !== 'development') return null;
@@ -74,7 +77,11 @@ export function DevPanel() {
 
   async function handleClearAll() {
     const { mockDb } = await import('@/__fixtures__/mock-db');
+    const { getMockMatchingService, MockMatchingService } =
+      await import('@/__fixtures__/mock-matching-service');
     mockDb.clearAll();
+    getMockMatchingService().clearState();
+    MockMatchingService.setPresetOverride('auto');
     localStorage.removeItem(SEASON_OVERRIDE_KEY);
     document.cookie = 'auth-token=; path=/; max-age=0';
     window.location.href = '/';
@@ -96,6 +103,14 @@ export function DevPanel() {
       localStorage.setItem(SEASON_OVERRIDE_KEY, value);
     }
     window.location.reload();
+  }
+
+  function handleMatchPresetChange(value: string) {
+    setMatchPreset(value);
+    import('@/__fixtures__/mock-matching-service').then(({ MockMatchingService }) => {
+      MockMatchingService.setPresetOverride(value as MatchPreset | 'auto');
+      window.location.reload();
+    });
   }
 
   async function refreshCode() {
@@ -181,6 +196,23 @@ export function DevPanel() {
               {opt.label}
             </option>
           ))}
+        </select>
+      </div>
+
+      {/* 매칭 프리셋 */}
+      <div>
+        <div className="text-gray-400 mb-1">매칭 프리셋</div>
+        <select
+          value={matchPreset}
+          onChange={(e) => handleMatchPresetChange(e.target.value)}
+          className="w-full bg-gray-700 text-white rounded px-2 py-1"
+        >
+          <option value="auto">자동 (저장된 상태)</option>
+          <option value="empty">빈 상태</option>
+          <option value="requests">요청 있음 (보낸2+받은1)</option>
+          <option value="conversation">대화 중</option>
+          <option value="active">매칭 확정</option>
+          <option value="full">전체 (요청+대화+이력)</option>
         </select>
       </div>
 

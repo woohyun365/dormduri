@@ -1,7 +1,7 @@
 import type { LifestyleData } from './lifestyle';
 import type { AdditionalProfile } from '@/types/additional-profile';
 
-export type TabId = 'home' | 'list' | 'profile' | 'settings';
+export type TabId = 'home' | 'list' | 'matching' | 'profile' | 'settings';
 
 export type DormitoryId = string | null;
 

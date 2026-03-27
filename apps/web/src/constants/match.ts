@@ -10,9 +10,11 @@ export const MATCH_POLICY = {
 // 상태별 라벨
 export const MATCH_STATUS_LABELS: Record<MatchStatus, string> = {
   PENDING: '대기 중',
+  IN_CONVERSATION: '대화 중',
   ACTIVE: '매칭됨',
-  REJECTED: '거절됨',
-  CANCELED: '취소됨',
-  EXPIRED: '만료됨',
-  ENDED: '해제됨',
+  EXPIRED: '만료',
+  REJECTED: '매칭 불발',
+  CANCELLED: '취소됨',
+  CONVERSATION_ENDED: '대화 종료',
+  UNMATCHED: '매칭 해제',
 };

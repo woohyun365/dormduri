@@ -8,6 +8,7 @@ import { MatchCelebrationModal } from './components/MatchCelebrationModal';
 import HomeTab from './tabs/home/HomeTab';
 import RoommateListTab from './tabs/roommate-list/RoommateListTab';
 import ProfileTab from './tabs/profile/ProfileTab';
+import MatchingTab from './tabs/matching/MatchingTab';
 import SettingsTab from './tabs/SettingsTab';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
 import { useMainProfileState } from './hooks/useMainProfileState';
@@ -18,13 +19,11 @@ import { buildMainBuildingStats } from './utils/buildMainBuildingStats';
 import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
-import { matchingApi } from '@/api/matching';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import { TOAST_DURATION } from '@/constants/ui';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
-import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export type { TabId, UserProfile } from '@/types/profile';
 
@@ -36,12 +35,17 @@ interface MainData {
   isMatching: boolean;
   daysUntilEnd: number;
   seasonState: SeasonState;
-  initialRequests: MatchRequest[];
-  initialActiveMatch: ActiveMatch | null;
 }
 
 function MainContent({ initialUser }: { initialUser: UserProfile }) {
-  const [activeTab, setActiveTab] = useState<TabId>('home');
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    if (typeof window === 'undefined') return 'home';
+    const saved = sessionStorage.getItem('activeTab');
+    if (saved && ['home', 'list', 'matching', 'profile', 'settings'].includes(saved)) {
+      return saved as TabId;
+    }
+    return 'home';
+  });
   const [toast, setToast] = useState<string | null>(null);
   const [data, setData] = useState<MainData | null>(null);
 
@@ -95,15 +99,22 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       const dormitoryIdForFilter =
         season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
 
-      const [profileResult, matchRequests, activeMatch] = await Promise.all([
+      const profileResult =
         (season.isOpen || season.isMatching) && isUnassignedId
-          ? Promise.resolve([])
-          : profileApi.getProfiles(initialUser.campus, initialUser.gender, dormitoryIdForFilter),
-        matchingApi.getMatchRequests(),
-        matchingApi.getActiveMatch(),
-      ]);
+          ? []
+          : await profileApi.getProfiles(
+              initialUser.campus,
+              initialUser.gender,
+              dormitoryIdForFilter,
+            );
 
       if (cancelled) return;
+
+      // 시즌 종료 시 매칭 상태 초기화 (AC-B03)
+      if (season.state === 'OFF_SEASON') {
+        const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
+        getMockMatchingService().clearState();
+      }
 
       setData({
         profiles: profileResult,
@@ -112,8 +123,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         isMatching: season.isMatching,
         daysUntilEnd: season.daysUntilEnd,
         seasonState: season.state,
-        initialRequests: season.isMatching ? matchRequests : [],
-        initialActiveMatch: season.isMatching ? activeMatch : null,
       });
     }
 
@@ -127,12 +136,10 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   const matchingState = useMainMatchingState(
     showToast,
-    profileState.user.lifestyle,
     profileState.user.id,
-    data?.isMatching ?? false,
+    profileState.user.lifestyle,
     data?.profiles ?? [],
-    data?.initialRequests ?? [],
-    data?.initialActiveMatch ?? null,
+    data?.seasonState,
   );
 
   const listViewState = useMainListViewState();
@@ -143,9 +150,10 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     [profileState.user, data],
   );
 
-  // 탭 전환 시 스크롤 최상단으로 이동
+  // 탭 전환 시 스크롤 최상단 + sessionStorage 저장
   useEffect(() => {
     window.scrollTo(0, 0);
+    sessionStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
 
   useEffect(() => {
@@ -161,7 +169,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       <div className="min-h-screen bg-[var(--knu-background-alt)] flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-8 h-8 border-3 border-[var(--knu-primary)] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-[var(--knu-text-secondary)]">데이터를 불러오는 중...</p>
+          <p className="text-sm text-[var(--knu-text-secondary)]">서비스 데이터를 불러오는 중...</p>
         </div>
       </div>
     );
@@ -196,12 +204,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               user={profileState.user}
               onNavigate={setActiveTab}
               onShowGuide={profileState.handleShowGuide}
-              matchRequests={matchingState.matchRequests}
-              activeMatch={matchingState.activeMatch}
-              onCancelRequest={matchingState.handleCancelRequest}
-              onAcceptRequest={matchingState.handleAcceptRequest}
-              onRejectRequest={matchingState.handleRejectRequest}
-              onEndMatch={matchingState.handleEndMatch}
               profiles={data.profiles}
               buildingStats={buildingStats}
               bookmarkedUserIds={socialState.bookmarkedUserIds}
@@ -240,6 +242,21 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onDismissMatchRequestTip={() => markTooltipSeen('matchRequest')}
             />
           )}
+          {activeTab === 'matching' && (
+            <MatchingTab
+              user={profileState.user}
+              matchRequests={matchingState.matchRequests}
+              activeMatch={matchingState.activeMatch}
+              profiles={data.profiles}
+              onCancelRequest={matchingState.handleCancelRequest}
+              onAcceptRequest={matchingState.handleAcceptRequest}
+              onRejectRequest={matchingState.handleRejectRequest}
+              onConfirmMatch={matchingState.handleConfirmMatch}
+              onEndConversation={matchingState.handleEndConversation}
+              onEndMatch={matchingState.handleEndMatch}
+              onNavigate={setActiveTab}
+            />
+          )}
           {activeTab === 'profile' && (
             <ProfileTab
               user={profileState.user}
@@ -268,7 +285,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           onTabChange={setActiveTab}
           badges={
             matchingState.receivedPendingCount > 0
-              ? { home: matchingState.receivedPendingCount }
+              ? { matching: matchingState.receivedPendingCount }
               : undefined
           }
         />

@@ -1,60 +1,103 @@
-// TODO: BE API 연동 시 실제 endpoint로 교체
-
+/**
+ * Matching API — Sprint 7 엔드포인트와 1:1 인터페이스.
+ * 현재: mock-matching-service 위임. Sprint 7: HTTP fetch로 교체.
+ */
 import type { MatchRequest, ActiveMatch } from '@/types/match';
+import type { RoommateProfile, UserProfile } from '@/types/profile';
 
-async function getMockData() {
-  if (process.env.NODE_ENV === 'development') {
-    const { createMockRequests, MOCK_ACTIVE_MATCH } = await import('@/__fixtures__/matching');
+export interface MatchingResult {
+  requests: MatchRequest[];
+  activeMatch: ActiveMatch | null;
+}
+
+async function getService() {
+  const { getMockMatchingService, MockMatchingService } =
+    await import('@/__fixtures__/mock-matching-service');
+  const service = getMockMatchingService();
+
+  // DevPanel 프리셋 적용 (초기 로드 시)
+  const preset = MockMatchingService.getPresetOverride();
+  if (preset) {
     const { mockDb } = await import('@/__fixtures__/mock-db');
-    return { createMockRequests, MOCK_ACTIVE_MATCH, mockDb };
+    const user = mockDb.getCurrentUser();
+    if (user) {
+      service.initFromPreset(preset, user.id);
+      MockMatchingService.setPresetOverride('auto'); // 1회 적용 후 auto로 복원
+    }
   }
-  return null;
+
+  return service;
 }
 
 export const matchingApi = {
-  getMatchRequests: async (): Promise<MatchRequest[]> => {
-    const mock = await getMockData();
-    if (mock) {
-      const user = mock.mockDb.getCurrentUser();
-      if (!user) return [];
-      return mock.createMockRequests(user.id);
-    }
-    // TODO: GET /api/matches/requests
-    return [];
+  // GET /api/matches — 전체 상태 조회
+  getState: async (userId: string): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.getState(userId);
   },
 
-  getActiveMatch: async (): Promise<ActiveMatch | null> => {
-    const mock = await getMockData();
-    if (mock) {
-      return mock.MOCK_ACTIVE_MATCH;
-    }
-    // TODO: GET /api/matches/active
-    return null;
+  // GET /api/matches/requests
+  getRequests: async (userId: string): Promise<MatchRequest[]> => {
+    const service = await getService();
+    return service.getRequests(userId);
   },
 
+  // GET /api/matches/active
+  getActiveMatch: async (userId: string): Promise<ActiveMatch | null> => {
+    const service = await getService();
+    return service.getActiveMatch(userId);
+  },
+
+  // POST /api/matches/requests
   sendRequest: async (
-    targetId: string,
+    fromId: string,
+    toId: string,
     message: string | null,
-  ): Promise<{ success: boolean; error?: string }> => {
-    const mock = await getMockData();
-    if (mock) {
-      console.log(`[Mock] 매칭 요청: → ${targetId}, message: ${message}`);
-      return { success: true };
-    }
-    // TODO: POST /api/matches/requests
-    return { success: false, error: '서버 연동 준비 중입니다.' };
+  ): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.sendRequest(fromId, toId, message);
   },
 
-  respondToRequest: async (
+  // POST /api/matches/requests/{id}/cancel
+  cancelRequest: async (requestId: string, userId: string): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.cancelRequest(requestId, userId);
+  },
+
+  // POST /api/matches/requests/{id}/accept
+  acceptRequest: async (requestId: string, userId: string): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.acceptRequest(requestId, userId);
+  },
+
+  // POST /api/matches/requests/{id}/reject
+  rejectRequest: async (requestId: string, userId: string): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.rejectRequest(requestId, userId);
+  },
+
+  // POST /api/matches/active/confirm
+  confirmMatch: async (
     requestId: string,
-    accept: boolean,
-  ): Promise<{ success: boolean; error?: string }> => {
-    const mock = await getMockData();
-    if (mock) {
-      console.log(`[Mock] 매칭 응답: ${requestId} → ${accept ? '수락' : '거절'}`);
-      return { success: true };
-    }
-    // TODO: PATCH /api/matches/requests/{id}
-    return { success: false, error: '서버 연동 준비 중입니다.' };
+    userId: string,
+    context: {
+      profiles: Omit<RoommateProfile, 'matchScore'>[];
+      userLifestyle: UserProfile['lifestyle'];
+    },
+  ): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.confirmMatch(requestId, userId, context);
+  },
+
+  // POST /api/matches/conversations/{id}/end
+  endConversation: async (requestId: string, userId: string): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.endConversation(requestId, userId);
+  },
+
+  // POST /api/matches/active/cancel
+  endMatch: async (userId: string): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.endMatch(userId);
   },
 };

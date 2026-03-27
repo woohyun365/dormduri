@@ -105,6 +105,8 @@ export function makeMatchRequest(overrides: Partial<MatchRequest> = {}): MatchRe
     createdAt: new Date(NOW - 24 * 60 * 60 * 1000).toISOString(),
     expiresAt: new Date(NOW + 24 * 60 * 60 * 1000).toISOString(),
     rejectedAt: null,
+    acceptedAt: null,
+    resolvedAt: null,
     ...overrides,
   };
 }
@@ -116,7 +118,10 @@ export function makeActiveMatch(overrides: Partial<ActiveMatch> = {}): ActiveMat
     partnerNickname: '룸메이트',
     partnerDormitoryId: 'dasan',
     matchScore: 75,
+    scoreType: 'full',
     matchedAt: new Date(NOW).toISOString(),
+    cancelRequestedAt: null,
+    cancelRequestedBy: null,
     ...overrides,
   };
 }
