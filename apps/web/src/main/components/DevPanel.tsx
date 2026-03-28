@@ -3,17 +3,7 @@
 import { useEffect, useState } from 'react';
 import { DORMITORIES, UNASSIGNED_ID } from '@/constants/dormitory';
 import type { MockUser } from '@/__fixtures__/mock-db';
-import type { SeasonState } from '@/types/season';
 import type { MatchPreset } from '@/__fixtures__/mock-matching-service';
-
-const SEASON_OVERRIDE_KEY = 'devpanel-season-override';
-const SEASON_OPTIONS: { value: SeasonState | 'auto'; label: string }[] = [
-  { value: 'auto', label: '자동 (날짜 기반)' },
-  { value: 'OFF_SEASON', label: 'OFF_SEASON (비시즌)' },
-  { value: 'SEASON_OPEN', label: 'SEASON_OPEN (시즌 오픈)' },
-  { value: 'SEASON_MATCHING', label: 'SEASON_MATCHING (시즌 매칭)' },
-];
-
 /**
  * 개발 환경 전용 플로팅 패널
  *
@@ -31,7 +21,6 @@ export function DevPanel() {
   const [currentUser, setCurrentUser] = useState<MockUser | null>(null);
   const [registeredUsers, setRegisteredUsers] = useState<MockUser[]>([]);
   const [lastCode, setLastCode] = useState<{ email: string; code: string } | null>(null);
-  const [seasonOverride, setSeasonOverride] = useState<string>('auto');
   const [matchPreset, setMatchPreset] = useState<string>('auto');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('CHUNCHEON');
 
@@ -45,7 +34,6 @@ export function DevPanel() {
       setLastCode(mockDb.getLastCode());
     }
     load();
-    setSeasonOverride(localStorage.getItem(SEASON_OVERRIDE_KEY) ?? 'auto');
     setMatchPreset(localStorage.getItem('devpanel-match-preset') ?? 'auto');
   }, [isOpen]);
 
@@ -82,7 +70,6 @@ export function DevPanel() {
     mockDb.clearAll();
     getMockMatchingService().clearState();
     MockMatchingService.setPresetOverride('auto');
-    localStorage.removeItem(SEASON_OVERRIDE_KEY);
     document.cookie = 'auth-token=; path=/; max-age=0';
     window.location.href = '/';
   }
@@ -93,16 +80,6 @@ export function DevPanel() {
       mockDb.updateUser(currentUser.email, { dormitoryId: dormitoryId || null });
       window.location.reload();
     });
-  }
-
-  function handleSeasonChange(value: string) {
-    setSeasonOverride(value);
-    if (value === 'auto') {
-      localStorage.removeItem(SEASON_OVERRIDE_KEY);
-    } else {
-      localStorage.setItem(SEASON_OVERRIDE_KEY, value);
-    }
-    window.location.reload();
   }
 
   function handleMatchPresetChange(value: string) {
@@ -181,22 +158,6 @@ export function DevPanel() {
         ) : (
           <span className="text-gray-500">발급된 코드 없음</span>
         )}
-      </div>
-
-      {/* 시즌 토글 */}
-      <div>
-        <div className="text-gray-400 mb-1">시즌 상태</div>
-        <select
-          value={seasonOverride}
-          onChange={(e) => handleSeasonChange(e.target.value)}
-          className="w-full bg-gray-700 text-white rounded px-2 py-1"
-        >
-          {SEASON_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* 매칭 프리셋 */}
