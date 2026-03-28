@@ -93,19 +93,16 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       };
 
       // SEASON_OPEN + SEASON_MATCHING → 동일 건물 격리
-      // UNASSIGNED → 빈 배열 (정책: 건물 미선택 유저는 탐색 불가)
+      // UNASSIGNED → 전체 프로필 로드 (건물 통계용). UI 게이팅이 탐색/요청 차단 담당.
       const isUnassignedId = currentDormitoryId === UNASSIGNED_ID;
       const dormitoryIdForFilter =
         season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
 
-      const profileResult =
-        (season.isOpen || season.isMatching) && isUnassignedId
-          ? []
-          : await profileApi.getProfiles(
-              initialUser.campus,
-              initialUser.gender,
-              dormitoryIdForFilter,
-            );
+      const profileResult = await profileApi.getProfiles(
+        initialUser.campus,
+        initialUser.gender,
+        dormitoryIdForFilter,
+      );
 
       if (cancelled) return;
 

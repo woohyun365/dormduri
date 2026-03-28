@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, AlertTriangle, Info } from 'lucide-react';
+import { Calendar, AlertTriangle, Info, Megaphone } from 'lucide-react';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { calcSeasonDates } from '@/constants/season';
 
@@ -23,9 +23,10 @@ function calcDaysFromNow(dateStr: string): number {
 
 interface HomeSeasonBannerProps {
   isUnassigned?: boolean;
+  children?: React.ReactNode;
 }
 
-export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps) {
+export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonBannerProps) {
   const { season, state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
 
   const dates = useMemo(() => {
@@ -80,7 +81,7 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
             }
       : seasonState === 'SEASON_OPEN'
         ? { gradient: 'from-cyan-50 to-blue-50', border: 'border-cyan-200', dot: 'bg-blue-500' }
-        : { gradient: 'from-gray-50 to-slate-50', border: 'border-gray-200', dot: 'bg-gray-400' };
+        : { gradient: 'from-slate-100 to-blue-50', border: 'border-slate-200', dot: 'bg-gray-400' };
 
   const title =
     seasonState === 'SEASON_MATCHING'
@@ -97,7 +98,7 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
       : seasonState === 'SEASON_OPEN'
         ? `${season.name} 매칭 준비 기간`
         : dates.isNextSeasonRegistered
-          ? `${season.name} 매칭 서비스 제공 준비중`
+          ? `${season.name} 시즌 오픈 준비중`
           : `${season.name} 룸메이트 매칭 시즌 종료`;
 
   return (
@@ -153,14 +154,16 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
         </motion.div>
       )}
 
-      {/* Warning — D-7 / D-3 */}
+      {/* Warning — D-7 / D-3 (glassmorphism) */}
       {seasonState === 'SEASON_MATCHING' && !isUnassigned && daysUntilEnd <= 7 && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className={`${
-            daysUntilEnd <= 3 ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'
-          } border rounded-xl p-3 mb-3 flex items-start gap-2`}
+          className={`backdrop-blur-md shadow-sm rounded-xl p-3 mb-3 flex items-start gap-2 ${
+            daysUntilEnd <= 3
+              ? 'bg-red-100/50 border border-red-300/60'
+              : 'bg-amber-100/50 border border-amber-300/60'
+          }`}
         >
           <AlertTriangle
             className={`w-4 h-4 ${daysUntilEnd <= 3 ? 'text-red-600' : 'text-amber-600'} flex-shrink-0 mt-0.5`}
@@ -172,7 +175,7 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
               {daysUntilEnd <= 3 ? '시즌 종료 임박' : '시즌 종료 예정'}
             </p>
             <p className={`text-xs ${daysUntilEnd <= 3 ? 'text-red-700' : 'text-amber-700'}`}>
-              {daysUntilEnd}일 후 매칭이 종료됩니다. 서둘러 매칭을 완료하세요!
+              {daysUntilEnd}일 후 매칭이 종료됩니다. 매칭을 마무리해보세요.
             </p>
           </div>
         </motion.div>
@@ -211,12 +214,12 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
         </motion.div>
       )}
 
-      {/* Info — OFF_SEASON */}
+      {/* Info — OFF_SEASON (glassmorphism) */}
       {seasonState === 'OFF_SEASON' && (
-        <div className="bg-white/60 border border-gray-200 rounded-xl p-3 mb-3">
+        <div className="backdrop-blur-md bg-blue-100/40 border border-blue-200/60 rounded-xl p-3 mb-3 shadow-sm">
           <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-gray-700 leading-relaxed">
+            <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-800 font-medium leading-relaxed">
               프로필을 미리 완성해두면 다음 시즌에 바로 매칭을 시작할 수 있어요
             </p>
           </div>
@@ -280,11 +283,27 @@ export function HomeSeasonBanner({ isUnassigned = false }: HomeSeasonBannerProps
 
         {/* OFF_SEASON — Not Registered */}
         {seasonState === 'OFF_SEASON' && !dates.isNextSeasonRegistered && (
-          <div className="text-center">
+          <div className="flex items-center justify-center gap-1.5">
+            <Megaphone className="w-3.5 h-3.5 text-gray-500" />
             <p className="text-xs text-gray-600">다음 시즌 일정이 등록되면 안내해드릴게요</p>
           </div>
         )}
       </div>
+
+      {/* BuildingStatsBar (시각적 병합) */}
+      {children && (
+        <>
+          <div className="mx-2 border-t border-black/10 my-3" />
+          <p className="text-xs font-semibold text-[var(--knu-text-tertiary)] mb-2">
+            {seasonState === 'OFF_SEASON'
+              ? '이전 시즌'
+              : seasonState === 'SEASON_OPEN'
+                ? '대기 현황'
+                : '시즌 현황'}
+          </p>
+          {children}
+        </>
+      )}
     </motion.div>
   );
 }

@@ -43,7 +43,7 @@ export function ProfileCompletionCard({
   const getEstimatedTime = () => {
     const remaining = optionalFieldsTotal - optionalFieldsCompleted;
     if (remaining === 0) return null;
-    return `${remaining * 30}초이면 완성!`;
+    return `${remaining * 30}초면 완성!`;
   };
 
   const estimatedTime = getEstimatedTime();

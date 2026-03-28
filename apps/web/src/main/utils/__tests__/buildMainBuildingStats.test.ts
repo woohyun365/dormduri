@@ -68,28 +68,35 @@ function makeProfile(
 }
 
 describe('buildMainBuildingStats', () => {
-  it('건물 미배정(null) 시 undefined를 반환한다', () => {
+  it('건물 미배정(null) 시에도 통계를 반환한다', () => {
     const user = makeUser({ dormitoryId: null });
-    expect(buildMainBuildingStats(user, [])).toBeUndefined();
+    const result = buildMainBuildingStats(user, []);
+    expect(result).toBeDefined();
+    expect(result.buildingTotal).toBe(0);
+    expect(result.buildingMatchable).toBe(0);
+    expect(result.todayNewBuilding).toBe(0);
+    expect(result.buildingMatchSuccess).toBe(0);
   });
 
-  it('건물 미배정(unassigned) 시 undefined를 반환한다', () => {
+  it('건물 미배정(unassigned) 시에도 통계를 반환한다', () => {
     const user = makeUser({ dormitoryId: 'unassigned' });
-    expect(buildMainBuildingStats(user, [])).toBeUndefined();
+    const result = buildMainBuildingStats(user, [makeProfile()]);
+    expect(result).toBeDefined();
+    expect(result.buildingTotal).toBe(0);
   });
 
-  it('같은 건물 프로필만 집계한다', () => {
+  it('같은 건물 프로필을 buildingTotal로 집계한다', () => {
     const user = makeUser({ dormitoryId: 'dasan' });
     const profiles = [
       makeProfile({ dormitoryId: 'dasan', gender: 'M' }),
-      makeProfile({ dormitoryId: 'dasan', gender: 'M' }),
+      makeProfile({ dormitoryId: 'dasan', gender: 'F' }),
       makeProfile({ dormitoryId: 'saerom', gender: 'M' }),
     ];
     const result = buildMainBuildingStats(user, profiles);
-    expect(result?.activeUsers).toBe(2);
+    expect(result.buildingTotal).toBe(2);
   });
 
-  it('같은 성별만 matchableUsers로 집계한다', () => {
+  it('같은 건물 + 같은 성별만 buildingMatchable로 집계한다', () => {
     const user = makeUser({ dormitoryId: 'saerom', gender: 'M' });
     const profiles = [
       makeProfile({ dormitoryId: 'saerom', gender: 'M' }),
@@ -97,8 +104,15 @@ describe('buildMainBuildingStats', () => {
       makeProfile({ dormitoryId: 'saerom', gender: 'M' }),
     ];
     const result = buildMainBuildingStats(user, profiles);
-    expect(result?.activeUsers).toBe(3);
-    expect(result?.matchableUsers).toBe(2);
+    expect(result.buildingTotal).toBe(3);
+    expect(result.buildingMatchable).toBe(2);
+  });
+
+  it('전체 참여/배정 유저 수는 고정 Mock 값이다', () => {
+    const user = makeUser({ dormitoryId: 'dasan' });
+    const result = buildMainBuildingStats(user, [makeProfile()]);
+    expect(result.totalParticipants).toBe(135);
+    expect(result.assignedParticipants).toBe(120);
   });
 
   it('비흡연이 과반이면 popularCondition에 포함된다', () => {
@@ -112,7 +126,7 @@ describe('buildMainBuildingStats', () => {
       }),
     ];
     const result = buildMainBuildingStats(user, profiles);
-    expect(result?.popularCondition).toContain('비흡연');
+    expect(result.popularCondition).toContain('비흡연');
   });
 
   it('24시 이전 취침이 과반이면 popularCondition에 포함된다', () => {
@@ -123,7 +137,7 @@ describe('buildMainBuildingStats', () => {
       makeProfile({ dormitoryId: 'dasan', lifestyle: { ...baseLifestyle, bedtime: 'AFTER_02' } }),
     ];
     const result = buildMainBuildingStats(user, profiles);
-    expect(result?.popularCondition).toContain('24시 이전 취침');
+    expect(result.popularCondition).toContain('24시 이전 취침');
   });
 
   it('조건을 충족하지 않으면 popularCondition이 "-"이다', () => {
@@ -139,13 +153,31 @@ describe('buildMainBuildingStats', () => {
       }),
     ];
     const result = buildMainBuildingStats(user, profiles);
-    expect(result?.popularCondition).toBe('-');
+    expect(result.popularCondition).toBe('-');
   });
 
-  it('같은 건물 프로필이 없으면 activeUsers가 0이다', () => {
+  it('같은 건물 프로필이 없으면 buildingTotal이 0이다', () => {
     const user = makeUser({ dormitoryId: 'dasan' });
     const result = buildMainBuildingStats(user, []);
-    expect(result?.activeUsers).toBe(0);
-    expect(result?.matchableUsers).toBe(0);
+    expect(result.buildingTotal).toBe(0);
+    expect(result.buildingMatchable).toBe(0);
+  });
+
+  it('고정 Mock 값을 반환한다 (건물 배정)', () => {
+    const user = makeUser({ dormitoryId: 'dasan' });
+    const result = buildMainBuildingStats(user, [makeProfile()]);
+    expect(result.todayNewTotal).toBe(5);
+    expect(result.todayNewBuilding).toBe(2);
+    expect(result.totalMatchSuccess).toBe(8);
+    expect(result.buildingMatchSuccess).toBe(3);
+  });
+
+  it('미배정 유저는 건물 관련 Mock 값이 0이다', () => {
+    const user = makeUser({ dormitoryId: null });
+    const result = buildMainBuildingStats(user, []);
+    expect(result.todayNewBuilding).toBe(0);
+    expect(result.buildingMatchSuccess).toBe(0);
+    expect(result.todayNewTotal).toBe(5);
+    expect(result.totalMatchSuccess).toBe(8);
   });
 });

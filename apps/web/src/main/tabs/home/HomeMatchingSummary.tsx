@@ -221,24 +221,26 @@ export function HomeMatchingSummary({
           <h2 className="font-bold text-[var(--knu-text-primary)]">매칭 활동</h2>
           <Lock className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
         </div>
-        <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4">
+        <div className="backdrop-blur-md bg-amber-50/60 border border-amber-200/80 rounded-xl p-4 shadow-md">
           <div className="flex items-start gap-3 mb-3">
-            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-6 h-6 text-orange-600" />
+            <div className="w-12 h-12 bg-amber-100/80 rounded-full flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-6 h-6 text-amber-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-orange-900 mb-1">건물 배정이 필요해요</h3>
-              <p className="text-sm text-orange-700 leading-relaxed">
+              <h3 className="font-bold text-amber-900 mb-1">건물 배정이 필요해요</h3>
+              <p className="text-sm text-amber-700 leading-relaxed">
                 건물을 배정해야 매칭을 시작할 수 있어요
               </p>
             </div>
           </div>
           <motion.button
             onClick={onGatedAction}
-            whileHover={{ scale: 1.02 }}
+            animate={{ scale: [1, 1.015, 1] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             whileTap={{ scale: 0.98 }}
-            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+            className="w-full backdrop-blur-sm bg-amber-600/90 hover:bg-amber-700/90 border border-amber-500/50 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20"
           >
+            <Building2 className="w-4 h-4" />
             <span>건물 배정하기</span>
             <ChevronRight className="w-4 h-4" />
           </motion.button>

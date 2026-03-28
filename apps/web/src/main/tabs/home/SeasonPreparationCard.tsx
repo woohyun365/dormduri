@@ -1,7 +1,18 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { Clock, CheckCircle, ChevronRight, Users, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import { AnimatePresence } from 'motion/react';
+import {
+  Clock,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  CircleDot,
+  SquarePen,
+  Users,
+  TrendingUp,
+} from 'lucide-react';
 import { AnimatedCounter } from '@/components/AnimatedCounter';
 
 interface SeasonPreparationCardProps {
@@ -16,6 +27,8 @@ interface SeasonPreparationCardProps {
   optionalFieldsTotal: number;
   waitingCount: number;
   onPrepare: () => void;
+  onUpdateProfile?: () => void;
+  missingFields?: string[];
 }
 
 export function SeasonPreparationCard({
@@ -30,6 +43,8 @@ export function SeasonPreparationCard({
   optionalFieldsTotal,
   waitingCount,
   onPrepare,
+  onUpdateProfile,
+  missingFields,
 }: SeasonPreparationCardProps) {
   const checklistItems = [
     { label: '생활패턴 입력', completed: hasLifestylePattern, required: true, waiting: false },
@@ -120,33 +135,13 @@ export function SeasonPreparationCard({
           </div>
         </div>
 
-        <div className="space-y-2 mb-4">
-          {checklistItems.map((item, index) => (
-            <div key={index} className="flex items-center gap-2">
-              {item.waiting ? (
-                <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              ) : item.completed ? (
-                <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-              ) : (
-                <div className="w-4 h-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
-              )}
-              <span
-                className={`text-sm ${
-                  item.waiting
-                    ? 'text-gray-500 italic'
-                    : item.completed
-                      ? 'text-green-600 font-medium'
-                      : 'text-[var(--knu-text-secondary)]'
-                }`}
-              >
-                {item.label}
-                {item.required && !item.completed && !item.waiting && (
-                  <span className="text-red-500 ml-1">*</span>
-                )}
-              </span>
-            </div>
-          ))}
-        </div>
+        <ChecklistSection
+          checklistItems={checklistItems}
+          missingFields={missingFields}
+          optionalFieldsCompleted={optionalFieldsCompleted}
+          optionalFieldsTotal={optionalFieldsTotal}
+          onPrepare={onPrepare}
+        />
 
         {!allReady && canSelectBuilding && (
           <motion.button
@@ -160,14 +155,6 @@ export function SeasonPreparationCard({
           </motion.button>
         )}
 
-        {allReady && (
-          <div className="bg-green-100 border border-green-300 rounded-lg p-3 text-center">
-            <p className="text-sm font-bold text-green-700">
-              준비 완료! 시작일에 바로 매칭을 시작할 수 있어요
-            </p>
-          </div>
-        )}
-
         {!canSelectBuilding && (
           <div className="bg-blue-100 border border-blue-300 rounded-lg p-3">
             <p className="text-sm text-blue-800 text-center">
@@ -176,26 +163,155 @@ export function SeasonPreparationCard({
           </div>
         )}
       </div>
-
-      <div className="bg-[var(--knu-background-alt)] rounded-xl p-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-            <Users className="w-5 h-5 text-purple-600" />
-          </div>
-          <div>
-            <div className="flex items-baseline gap-1">
-              <AnimatedCounter
-                value={waitingCount}
-                className="text-xl font-bold text-[var(--knu-text-primary)]"
-              />
-              <span className="text-sm text-[var(--knu-text-secondary)]">명 대기 중</span>
-            </div>
-            <p className="text-xs text-[var(--knu-text-tertiary)] mt-0.5">
-              준비를 완료하면 시작 알림을 받아요
-            </p>
-          </div>
-        </div>
-      </div>
     </motion.div>
+  );
+}
+
+// --- 체크리스트 서브 컴포넌트 ---
+
+interface ChecklistItem {
+  label: string;
+  completed: boolean;
+  required: boolean;
+  waiting: boolean;
+}
+
+const ALL_OPTIONAL_FIELDS = ['룸메에게 한마디', '단대', '학년', 'MBTI', '출생연도'];
+
+function ChecklistSection({
+  checklistItems,
+  missingFields,
+  optionalFieldsCompleted,
+  optionalFieldsTotal,
+  onPrepare,
+}: {
+  checklistItems: ChecklistItem[];
+  missingFields?: string[];
+  optionalFieldsCompleted: number;
+  optionalFieldsTotal: number;
+  onPrepare: () => void;
+}) {
+  const [optionalExpanded, setOptionalExpanded] = useState(false);
+  const missing = missingFields ?? [];
+
+  return (
+    <>
+      <div className="space-y-2 mb-4">
+        {checklistItems.map((item, index) => {
+          const isOptional = item.label.startsWith('선택 정보');
+
+          return (
+            <div key={index}>
+              {/* 선택 정보: 전체 행이 토글 */}
+              {isOptional ? (
+                <button
+                  onClick={() => setOptionalExpanded(!optionalExpanded)}
+                  className="w-full flex items-center gap-2"
+                >
+                  {item.completed ? (
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  ) : (
+                    <CircleDot className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                  )}
+                  <span
+                    className={`text-sm flex-1 text-left ${
+                      item.completed
+                        ? 'text-green-600 font-medium'
+                        : 'text-[var(--knu-text-secondary)]'
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                  <motion.div
+                    animate={{ rotate: optionalExpanded ? -90 : 0 }}
+                    transition={{ duration: 0.2, ease: 'easeInOut' }}
+                    className="text-[var(--knu-text-tertiary)] flex-shrink-0"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </motion.div>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {item.waiting ? (
+                    <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  ) : item.completed ? (
+                    <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                  ) : (
+                    <CircleDot className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                  )}
+                  <span
+                    className={`text-sm flex-1 ${
+                      item.waiting
+                        ? 'text-gray-500 italic'
+                        : item.completed
+                          ? 'text-green-600 font-medium'
+                          : 'text-[var(--knu-text-secondary)]'
+                    }`}
+                  >
+                    {item.label}
+                    {item.required && !item.completed && !item.waiting && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                  </span>
+                  {item.label === '생활패턴 입력' && item.completed && (
+                    <motion.button
+                      onClick={onPrepare}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="text-xs font-medium text-[var(--knu-primary)] hover:underline flex-shrink-0"
+                    >
+                      수정하기
+                    </motion.button>
+                  )}
+                </div>
+              )}
+
+              {/* 선택 정보 필드 목록 (펼치기/접기) */}
+              {isOptional && (
+                <AnimatePresence>
+                  {optionalExpanded && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="ml-6 mt-1.5 text-xs space-y-1">
+                        {ALL_OPTIONAL_FIELDS.map((field, i) => {
+                          const isCompleted = !missing.includes(field);
+                          return (
+                            <div key={i} className="flex items-center gap-1.5">
+                              {isCompleted ? (
+                                <CheckCircle className="w-3 h-3 text-green-600 flex-shrink-0" />
+                              ) : (
+                                <CircleDot className="w-3 h-3 text-gray-300 flex-shrink-0" />
+                              )}
+                              <span
+                                className={
+                                  isCompleted ? 'text-green-600' : 'text-[var(--knu-text-tertiary)]'
+                                }
+                              >
+                                {field}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 헬퍼 텍스트 */}
+      <div className="flex items-start gap-1.5 mb-4 text-xs text-[var(--knu-text-tertiary)]">
+        <SquarePen className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+        <span>새 학기, 달라진 생활패턴이 있다면 미리 수정해두세요!</span>
+      </div>
+    </>
   );
 }

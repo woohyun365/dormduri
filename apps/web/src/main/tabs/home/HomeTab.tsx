@@ -14,6 +14,8 @@ import {
   MATCH_SENT_OVERRIDE_KEY,
   MATCH_RECEIVED_OVERRIDE_KEY,
   MATCH_CHATS_OVERRIDE_KEY,
+  PAST_SEASON_OVERRIDE_KEY,
+  NEXT_SEASON_REGISTERED_KEY,
 } from '../../components/HomeDevTool';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { HomeSeasonBanner } from './HomeSeasonBanner';
@@ -23,19 +25,59 @@ import type { MatchingSummaryStatus } from './HomeMatchingSummary';
 import { SeasonPreparationCard } from './SeasonPreparationCard';
 import { SeasonSummaryCard } from './SeasonSummaryCard';
 import { HomeQuickMenuSection } from './HomeQuickMenuSection';
-import { HomeBuildingSection } from './HomeBuildingSection';
-import { ProfileCompletionCard } from './ProfileCompletionCard';
-import { MatchingReadinessCard } from './MatchingReadinessCard';
+import { BuildingStatsBar } from './BuildingStatsBar';
 import { DynamicTipBanner } from './DynamicTipBanner';
 import type { TipSeasonStatus } from './DynamicTipBanner';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 
 export interface BuildingStats {
-  activeUsers: number;
-  matchableUsers: number;
-  todayNewUsers: number;
+  /** 전체 프로필 수 (남녀, 건물 무관) — 비시즌 "이전 시즌 전체 참여" */
+  totalParticipants: number;
+  /** 건물 배정 유저 수 (미배정 제외) — 시즌 오픈/매칭 "전체 대기/참여" */
+  assignedParticipants: number;
+  /** 같은 건물 + 같은 성별 — 시즌 매칭 "내 건물" */
+  buildingMatchable: number;
+  /** 같은 건물 전체 (남녀) — 시즌 오픈 "00관 대기", 비시즌 "내 건물" */
+  buildingTotal: number;
+  /** 오늘 신규 전체 (고정 Mock) */
+  todayNewTotal: number;
+  /** 오늘 신규 내 건물 (고정 Mock) */
+  todayNewBuilding: number;
+  /** 전체 매칭 성공 (고정 Mock) */
+  totalMatchSuccess: number;
+  /** 내 건물 매칭 성공 (고정 Mock) */
+  buildingMatchSuccess: number;
+  /** 인기 조건 */
   popularCondition: string;
+}
+
+export interface PastSeasonResult {
+  matched: boolean;
+  partnerName?: string;
+  totalRequests: number;
+  sentRequests: number;
+  totalChats: number;
+}
+
+// Mock 지난 시즌 결과 (Sprint 7 BE에서 실제 데이터로 교체)
+function getMockPastSeason(): PastSeasonResult | undefined {
+  const override =
+    typeof window !== 'undefined' ? localStorage.getItem(PAST_SEASON_OVERRIDE_KEY) : null;
+  if (override === 'matched') {
+    return {
+      matched: true,
+      partnerName: '홍길동',
+      totalRequests: 5,
+      sentRequests: 2,
+      totalChats: 3,
+    };
+  }
+  if (override === 'failed') {
+    return { matched: false, totalRequests: 8, sentRequests: 3, totalChats: 2 };
+  }
+  // 'none' 또는 null → 미참여
+  return undefined;
 }
 
 interface HomeTabProps {
@@ -94,15 +136,6 @@ export default function HomeTab({
       return remaining > 0 && remaining <= 48 * 60 * 60 * 1000;
     }).length;
 
-    let status: MatchingSummaryStatus;
-    if (!isCampusOperated) status = 'NOT_OPERATED';
-    else if (seasonState === 'OFF_SEASON') status = 'OFF_SEASON';
-    else if (seasonState === 'SEASON_OPEN') status = 'SEASON_OPEN';
-    else if (activeMatch) status = 'ACTIVE_MATCH';
-    else if (receivedPending.length > 0 || sentPending.length > 0 || conversations.length > 0)
-      status = 'HAS_ACTIVITY';
-    else status = 'NO_ACTIVITY';
-
     const receivedRequesters = receivedPending
       .map((r) => profiles.find((p) => p.id === r.fromUserId)?.nickname)
       .filter((n): n is string => n != null);
@@ -118,6 +151,15 @@ export default function HomeTab({
     const finalSent = devSent !== null ? Number(devSent) : sentPending.length;
     const finalReceived = devReceived !== null ? Number(devReceived) : receivedPending.length;
     const finalChats = devChats !== null ? Number(devChats) : conversations.length;
+
+    // status 판정 (오버라이드 반영 후)
+    let status: MatchingSummaryStatus;
+    if (!isCampusOperated) status = 'NOT_OPERATED';
+    else if (seasonState === 'OFF_SEASON') status = 'OFF_SEASON';
+    else if (seasonState === 'SEASON_OPEN') status = 'SEASON_OPEN';
+    else if (activeMatch) status = 'ACTIVE_MATCH';
+    else if (finalReceived > 0 || finalSent > 0 || finalChats > 0) status = 'HAS_ACTIVITY';
+    else status = 'NO_ACTIVITY';
 
     return {
       status,
@@ -148,17 +190,21 @@ export default function HomeTab({
         ? 'OFF_SEASON'
         : seasonState === 'SEASON_OPEN'
           ? 'SEASON_OPEN'
-          : 'SEASON_MATCHING';
+          : isUnassigned
+            ? 'SEASON_MATCHING_NO_BUILDING'
+            : 'SEASON_MATCHING';
 
-  // --- 시즌 오픈 날짜 ---
+  // --- 시즌 날짜 계산 ---
   const seasonDates = useMemo(() => {
-    const { matchStart } = calcSeasonDates(season.roomSelectionDate);
+    const { openStart, matchStart } = calcSeasonDates(season.roomSelectionDate);
     const now = Date.now();
+    const openStartTs = new Date(openStart + 'T00:00:00+09:00').getTime();
     const matchStartTs = new Date(matchStart + 'T00:00:00+09:00').getTime();
-    const daysUntilMatchStart = Math.max(
-      0,
-      Math.ceil((matchStartTs - now) / (1000 * 60 * 60 * 24)),
-    );
+
+    const formatDate = (dateStr: string) => {
+      const d = new Date(dateStr);
+      return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+    };
 
     // 시즌 오픈용 준비 완료도
     const lifestyleScore = hasLifestyle ? 40 : 0;
@@ -166,8 +212,14 @@ export default function HomeTab({
     const optionalScore = (optionalCompleted / 5) * 30;
 
     return {
-      matchStartFormatted: `${new Date(matchStart).getFullYear()}.${String(new Date(matchStart).getMonth() + 1).padStart(2, '0')}.${String(new Date(matchStart).getDate()).padStart(2, '0')}`,
-      daysUntilMatchStart,
+      matchStartFormatted: formatDate(matchStart),
+      openStartFormatted: formatDate(openStart),
+      daysUntilMatchStart: Math.max(0, Math.ceil((matchStartTs - now) / (1000 * 60 * 60 * 24))),
+      daysUntilOpenStart: Math.max(0, Math.ceil((openStartTs - now) / (1000 * 60 * 60 * 24))),
+      isNextSeasonRegistered:
+        typeof window !== 'undefined' && localStorage.getItem(NEXT_SEASON_REGISTERED_KEY) === 'true'
+          ? true
+          : openStartTs > now,
       profileCompletion: Math.round(lifestyleScore + buildingScore + optionalScore),
     };
   }, [season.roomSelectionDate, hasLifestyle, dormitory, optionalCompleted]);
@@ -226,8 +278,46 @@ export default function HomeTab({
 
       <PullToRefresh onRefresh={handleRefresh}>
         <div className="max-w-md mx-auto px-5 py-5 space-y-5">
-          {/* 시즌 배너 (공통) */}
-          <HomeSeasonBanner isUnassigned={isUnassigned} />
+          {/* 시즌 배너 + 건물 통계 (시각적 병합) */}
+          <HomeSeasonBanner isUnassigned={isUnassigned}>
+            <BuildingStatsBar
+              seasonState={seasonState}
+              hasBuilding={dormitory !== null}
+              buildingName={dormitory?.name}
+              totalCount={
+                seasonState === 'OFF_SEASON'
+                  ? (buildingStats?.totalParticipants ?? 0)
+                  : (buildingStats?.assignedParticipants ?? 0)
+              }
+              buildingCount={
+                seasonState === 'SEASON_MATCHING'
+                  ? (buildingStats?.buildingMatchable ?? 0)
+                  : (buildingStats?.buildingTotal ?? 0)
+              }
+              todayNewTotal={seasonState === 'OFF_SEASON' ? 0 : (buildingStats?.todayNewTotal ?? 0)}
+              todayNewBuilding={
+                seasonState === 'OFF_SEASON' ? 0 : (buildingStats?.todayNewBuilding ?? 0)
+              }
+              matchSuccessCount={
+                seasonState === 'SEASON_MATCHING'
+                  ? (buildingStats?.buildingMatchSuccess ?? 0) ||
+                    (buildingStats?.totalMatchSuccess ?? 0)
+                  : seasonState === 'OFF_SEASON'
+                    ? (buildingStats?.totalMatchSuccess ?? 0)
+                    : 0
+              }
+              urgency={
+                seasonState === 'SEASON_MATCHING'
+                  ? daysUntilEnd <= 3
+                    ? 'critical'
+                    : daysUntilEnd <= 7
+                      ? 'warning'
+                      : 'normal'
+                  : 'normal'
+              }
+              daysLeft={daysUntilEnd}
+            />
+          </HomeSeasonBanner>
 
           {/* 긴급 알림 (MATCHING만) */}
           {seasonState === 'SEASON_MATCHING' && (
@@ -262,76 +352,61 @@ export default function HomeTab({
               hasLifestylePattern={hasLifestyle}
               optionalFieldsCompleted={optionalCompleted}
               optionalFieldsTotal={5}
-              waitingCount={buildingStats?.activeUsers ?? 0}
-              onPrepare={() => onNavigate('profile')}
-            />
-          )}
-
-          {seasonState === 'OFF_SEASON' && (
-            <SeasonSummaryCard
-              pastSeasonName={`${season.name}`}
-              daysUntilNext={0}
-              nextSeasonDate=""
-              nextSeasonName=""
-              hasRegisteredNext={false}
+              waitingCount={buildingStats?.buildingTotal ?? 0}
+              onPrepare={() => (dormitory ? onNavigate('profile') : onOpenBuildingSelect?.())}
               onUpdateProfile={() => onNavigate('profile')}
-              onRegisterNext={() => {}}
+              missingFields={missingFields}
             />
           )}
 
-          {/* 동적 팁 (공통) */}
-          <DynamicTipBanner
-            seasonStatus={tipSeasonStatus}
-            receivedRequests={matchingSummary.stats.receivedRequests}
-            sentRequests={matchingSummary.stats.sentRequests}
-            activeChats={matchingSummary.stats.activeChats}
-            unreadMessages={0}
-          />
+          {seasonState === 'OFF_SEASON' &&
+            (() => {
+              // 다음 시즌 이름 생성 (1학기→2학기, 2학기→다음년도 1학기)
+              const currentName = season.name; // "2026년 1학기"
+              const nextName = currentName.includes('1학기')
+                ? currentName.replace('1학기', '2학기')
+                : `${parseInt(currentName) + 1}년 1학기`;
+              const nextDays = seasonDates.isNextSeasonRegistered
+                ? Math.max(seasonDates.daysUntilOpenStart, 30)
+                : 0;
+              const nextDate = seasonDates.isNextSeasonRegistered
+                ? seasonDates.openStartFormatted
+                : '';
+
+              return (
+                <SeasonSummaryCard
+                  pastSeasonName={currentName}
+                  daysUntilNext={nextDays}
+                  nextSeasonDate={nextDate}
+                  nextSeasonName={seasonDates.isNextSeasonRegistered ? nextName : ''}
+                  pastSeasonResult={getMockPastSeason()}
+                  hasRegisteredNext={false}
+                  onViewHistory={() => onNavigate('matching')}
+                  onUpdateProfile={() => onNavigate('profile')}
+                  missingFields={missingFields}
+                />
+              );
+            })()}
+
+          {/* 동적 팁 (MATCHING만) */}
+          {seasonState === 'SEASON_MATCHING' && (
+            <DynamicTipBanner
+              seasonStatus={tipSeasonStatus}
+              receivedRequests={matchingSummary.stats.receivedRequests}
+              sentRequests={matchingSummary.stats.sentRequests}
+              activeChats={matchingSummary.stats.activeChats}
+              unreadMessages={0}
+            />
+          )}
 
           {/* 퀵메뉴 (공통) */}
           <HomeQuickMenuSection
+            seasonState={seasonState}
             onNavigateList={() => onNavigate('list')}
             onNavigateMatching={() => onNavigate('matching')}
             onNavigateChat={() => {}}
             onNavigateProfile={() => onNavigate('profile')}
-            receivedPendingCount={receivedPendingCount}
           />
-
-          {/* 건물 현황 (공통) */}
-          <HomeBuildingSection
-            hasBuilding={dormitory !== null}
-            buildingName={dormitory?.name}
-            roomType={dormitory ? `${dormitory.roomType}인실` : undefined}
-            totalParticipants={buildingStats?.activeUsers ?? 0}
-            todayNewTotal={buildingStats?.todayNewUsers ?? 0}
-            buildingParticipants={buildingStats?.matchableUsers ?? 0}
-            todayNewBuilding={0}
-            matchSuccessCount={0}
-            onRegisterBuilding={() => onOpenBuildingSelect?.()}
-            onBuildingClick={() => onNavigate('list')}
-          />
-
-          {/* === 프로필 영역 (시즌별 교체) === */}
-          {seasonState === 'SEASON_MATCHING' ? (
-            <MatchingReadinessCard
-              hasLifestylePattern={hasLifestyle}
-              hasBuildingAssigned={dormitory !== null}
-              buildingName={dormitory?.name}
-              roomType={dormitory ? `${dormitory.roomType}인실` : undefined}
-              optionalFieldsCompleted={optionalCompleted}
-              optionalFieldsTotal={5}
-              missingFields={missingFields}
-              onCompleteProfile={() => onNavigate('profile')}
-            />
-          ) : (
-            <ProfileCompletionCard
-              hasLifestylePattern={hasLifestyle}
-              optionalFieldsCompleted={optionalCompleted}
-              optionalFieldsTotal={5}
-              missingFields={missingFields}
-              onCompleteProfile={() => onNavigate('profile')}
-            />
-          )}
         </div>
       </PullToRefresh>
     </div>

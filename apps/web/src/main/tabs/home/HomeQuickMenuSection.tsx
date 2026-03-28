@@ -1,54 +1,110 @@
 'use client';
 
 import { motion } from 'motion/react';
-import { Users, BarChart3, MessageCircle, User as UserIcon } from 'lucide-react';
+import {
+  Users,
+  Eye,
+  BarChart3,
+  History,
+  MessageCircle,
+  Lock,
+  User as UserIcon,
+} from 'lucide-react';
+import type { SeasonState } from '@/types/season';
 
 interface HomeQuickMenuSectionProps {
+  seasonState: SeasonState;
   onNavigateList: () => void;
   onNavigateMatching: () => void;
   onNavigateChat: () => void;
   onNavigateProfile: () => void;
-  receivedPendingCount?: number;
 }
 
 export function HomeQuickMenuSection({
+  seasonState,
   onNavigateList,
   onNavigateMatching,
   onNavigateChat,
   onNavigateProfile,
-  receivedPendingCount = 0,
 }: HomeQuickMenuSectionProps) {
+  const isMatching = seasonState === 'SEASON_MATCHING';
+  const isOff = seasonState === 'OFF_SEASON';
+
   return (
     <div>
       <h2 className="font-bold text-[var(--knu-text-primary)] mb-3">빠른 메뉴</h2>
       <div className="grid grid-cols-2 gap-3">
+        {/* 1. 룸메 찾기 */}
         <QuickActionCard
-          icon={Users}
+          icon={isMatching ? Users : Eye}
           label="룸메 찾기"
-          description="프로필 탐색"
+          description={isMatching ? '룸메 탐색' : '미리보기'}
           color="blue"
           onClick={onNavigateList}
         />
-        <QuickActionCard
-          icon={BarChart3}
-          label="매칭 현황"
-          description="요청 관리"
-          color="purple"
-          badge={receivedPendingCount > 0 ? receivedPendingCount : undefined}
-          onClick={onNavigateMatching}
-        />
-        <QuickActionCard
-          icon={MessageCircle}
-          label="채팅"
-          description="준비 중"
-          color="green"
-          disabled
-          onClick={onNavigateChat}
-        />
+
+        {/* 2. 매칭 현황 / 이전 기록 */}
+        {isOff ? (
+          <QuickActionCard
+            icon={History}
+            label="이전 기록"
+            description="지난 시즌"
+            color="purple"
+            onClick={onNavigateMatching}
+          />
+        ) : isMatching ? (
+          <QuickActionCard
+            icon={BarChart3}
+            label="매칭 현황"
+            description="현황 확인"
+            color="purple"
+            onClick={onNavigateMatching}
+          />
+        ) : (
+          <QuickActionCard
+            icon={History}
+            label="이전 기록"
+            description="지난 시즌"
+            color="purple"
+            onClick={onNavigateMatching}
+          />
+        )}
+
+        {/* 3. 채팅 / 과거 대화 */}
+        {isOff ? (
+          <QuickActionCard
+            icon={MessageCircle}
+            label="과거 대화"
+            description="기록 보기"
+            color="green"
+            disabled
+            onClick={onNavigateChat}
+          />
+        ) : isMatching ? (
+          <QuickActionCard
+            icon={MessageCircle}
+            label="채팅"
+            description="준비 중"
+            color="green"
+            disabled
+            onClick={onNavigateChat}
+          />
+        ) : (
+          <QuickActionCard
+            icon={Lock}
+            label="채팅"
+            description="시즌 중 이용"
+            color="green"
+            disabled
+            onClick={onNavigateChat}
+          />
+        )}
+
+        {/* 4. 내 프로필 */}
         <QuickActionCard
           icon={UserIcon}
           label="내 프로필"
-          description="정보 수정"
+          description="확인·수정"
           color="orange"
           onClick={onNavigateProfile}
         />
@@ -69,7 +125,6 @@ function QuickActionCard({
   label,
   description,
   color,
-  badge,
   disabled,
   onClick,
 }: {
@@ -77,7 +132,6 @@ function QuickActionCard({
   label: string;
   description: string;
   color: keyof typeof COLOR_STYLES;
-  badge?: number;
   disabled?: boolean;
   onClick: () => void;
 }) {
@@ -92,15 +146,6 @@ function QuickActionCard({
           : 'hover:border-[var(--knu-primary)] hover:shadow-sm'
       }`}
     >
-      {badge !== undefined && badge > 0 && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center z-10"
-        >
-          <span className="text-xs font-bold text-white">{badge}</span>
-        </motion.div>
-      )}
       <div
         className={`w-10 h-10 ${COLOR_STYLES[color]} rounded-xl flex items-center justify-center mb-2.5`}
       >

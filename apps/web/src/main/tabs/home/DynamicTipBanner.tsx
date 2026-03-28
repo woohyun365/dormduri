@@ -18,6 +18,7 @@ import {
 
 export type TipSeasonStatus =
   | 'SEASON_MATCHING'
+  | 'SEASON_MATCHING_NO_BUILDING'
   | 'SEASON_OPEN'
   | 'OFF_SEASON'
   | 'NOT_OPERATED'
@@ -93,10 +94,15 @@ function generateTips({
     return tips;
   }
 
+  // #3-b 시즌 매칭 + 건물 미배정 → 숨김 (MatchingSummary 게이팅 UI에서 안내)
+  if (seasonStatus === 'SEASON_MATCHING_NO_BUILDING') {
+    return tips;
+  }
+
   // SEASON_MATCHING — 조건별 동적 팁
 
-  // #4 받은 요청 4개+
-  if (receivedRequests >= 4) {
+  // #4 받은 요청 n개+
+  if (receivedRequests >= 1) {
     tips.push({
       icon: Users,
       text: `${receivedRequests}개의 매칭 요청을 받았어요!\n프로필을 꼼꼼히 확인하고 답변해보세요.`,
@@ -126,7 +132,7 @@ function generateTips({
   if (activeChats >= 1) {
     tips.push({
       icon: MessageCircle,
-      text: `${activeChats}명과 대화 중이에요.\n생활습관을 구체적으로 물어보면 더 잘 맞는 룸메를 찾을 수 있어요!`,
+      text: '서로 대화가 잘 맞으면 매칭을 확정해보세요!',
       iconBg: 'from-teal-100 to-cyan-100',
       iconText: 'text-teal-600',
     });

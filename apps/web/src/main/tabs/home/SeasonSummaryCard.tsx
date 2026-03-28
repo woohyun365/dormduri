@@ -10,10 +10,10 @@ import {
   Inbox,
   MessageCircle,
   ChevronRight,
-  Bell,
   TrendingUp,
+  ListX,
 } from 'lucide-react';
-import type { TabId } from '@/types/profile';
+import { ProfileManagementCard } from './ProfileManagementCard';
 
 interface PastSeasonResult {
   matched: boolean;
@@ -32,7 +32,7 @@ interface SeasonSummaryCardProps {
   hasRegisteredNext: boolean;
   onViewHistory?: () => void;
   onUpdateProfile?: () => void;
-  onRegisterNext?: () => void;
+  missingFields?: string[];
 }
 
 export function SeasonSummaryCard({
@@ -44,9 +44,10 @@ export function SeasonSummaryCard({
   hasRegisteredNext,
   onViewHistory,
   onUpdateProfile,
-  onRegisterNext,
+  missingFields,
 }: SeasonSummaryCardProps) {
   const hasParticipated = !!pastSeasonResult;
+  const hasNextSeason = daysUntilNext > 0 && nextSeasonDate !== '';
 
   return (
     <motion.div
@@ -59,26 +60,34 @@ export function SeasonSummaryCard({
         <TrendingUp className="w-5 h-5 text-[var(--knu-primary)]" />
       </div>
 
-      {/* 다음 시즌 카운트다운 */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-blue-600" />
+      {/* 다음 시즌 카운트다운 (등록된 경우만) */}
+      {hasNextSeason && (
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-xs text-[var(--knu-text-tertiary)]">다음 시즌까지</p>
+              <p className="text-2xl font-bold text-blue-600">{daysUntilNext}일</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs text-[var(--knu-text-tertiary)]">다음 시즌까지</p>
-            <p className="text-2xl font-bold text-blue-600">{daysUntilNext}일</p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+              {nextSeasonName}
+            </span>
+            <p className="text-sm text-[var(--knu-text-secondary)]">{nextSeasonDate}</p>
           </div>
         </div>
-        <p className="text-sm text-[var(--knu-text-secondary)]">
-          {nextSeasonDate} · {nextSeasonName}
-        </p>
-      </div>
+      )}
 
       {/* 지난 시즌 결과 */}
       {hasParticipated && pastSeasonResult && (
         <div className="mb-4">
-          <h3 className="text-sm font-bold text-[var(--knu-text-primary)] mb-3">
+          <h3 className="text-sm font-bold text-[var(--knu-text-primary)] mb-3 flex items-center gap-2">
+            <span className="text-xs font-bold text-[var(--knu-primary)] bg-blue-50 px-2 py-0.5 rounded-full">
+              이전 시즌
+            </span>
             {pastSeasonName} 결과
           </h3>
 
@@ -126,6 +135,7 @@ export function SeasonSummaryCard({
             </div>
           </div>
 
+          {/* 지난 시즌 상세 보기 */}
           {onViewHistory && (
             <motion.button
               onClick={onViewHistory}
@@ -134,7 +144,7 @@ export function SeasonSummaryCard({
               className="w-full bg-[var(--knu-background-alt)] hover:bg-gray-100 border border-[var(--knu-border)] text-[var(--knu-text-primary)] font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               <BarChart3 className="w-4 h-4" />
-              <span>이번 시즌 상세 보기</span>
+              <span>이전 시즌 상세 보기</span>
               <ChevronRight className="w-4 h-4" />
             </motion.button>
           )}
@@ -142,102 +152,13 @@ export function SeasonSummaryCard({
       )}
 
       {!hasParticipated && (
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 text-center">
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 flex items-center gap-3">
+          <ListX className="w-5 h-5 text-gray-400 flex-shrink-0" />
           <p className="text-sm text-[var(--knu-text-secondary)]">
-            지난 시즌에는 참여하지 않으셨어요
+            이전 시즌에는 참여 기록이 없어요.
           </p>
         </div>
       )}
-
-      {/* 다음 시즌 준비 */}
-      <div className="border-t border-[var(--knu-border)] pt-4">
-        <h3 className="text-sm font-bold text-[var(--knu-text-primary)] mb-3">다음 시즌 준비</h3>
-
-        {hasRegisteredNext ? (
-          <div className="space-y-3">
-            <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="font-bold text-green-700">다음 시즌 등록 완료</span>
-              </div>
-              <p className="text-sm text-green-800">
-                시작일에 방문하면 바로 매칭을 시작할 수 있어요
-              </p>
-            </div>
-
-            {hasParticipated &&
-              pastSeasonResult &&
-              !pastSeasonResult.matched &&
-              onUpdateProfile && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="text-sm text-amber-800 mb-3">
-                    달라진 생활패턴을 반영하면 매칭률이 높아져요
-                  </p>
-                  <motion.button
-                    onClick={onUpdateProfile}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <span>프로필 미리 업데이트</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </motion.button>
-                </div>
-              )}
-
-            {(!hasParticipated || (pastSeasonResult && pastSeasonResult.matched)) &&
-              onUpdateProfile && (
-                <motion.button
-                  onClick={onUpdateProfile}
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  className="w-full bg-[var(--knu-background-alt)] hover:bg-gray-100 border border-[var(--knu-border)] text-[var(--knu-text-primary)] font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  <span>프로필 미리 업데이트</span>
-                  <ChevronRight className="w-4 h-4" />
-                </motion.button>
-              )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed">
-              새 학기, 달라진 생활패턴이 있다면 미리 수정해두세요!
-            </p>
-
-            {onUpdateProfile && (
-              <motion.button
-                onClick={onUpdateProfile}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                <span>프로필 수정하기</span>
-                <ChevronRight className="w-4 h-4" />
-              </motion.button>
-            )}
-
-            {hasParticipated &&
-              pastSeasonResult &&
-              !pastSeasonResult.matched &&
-              onUpdateProfile && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="text-sm text-amber-800 mb-3">
-                    프로필을 보완하면 다음 시즌 매칭률이 높아져요
-                  </p>
-                  <motion.button
-                    onClick={onUpdateProfile}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <span>프로필 업데이트</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </motion.button>
-                </div>
-              )}
-          </div>
-        )}
-      </div>
     </motion.div>
   );
 }

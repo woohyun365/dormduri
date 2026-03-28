@@ -11,6 +11,8 @@ export const MATCHABLE_OVERRIDE_KEY = 'devpanel-matchable-count';
 export const MATCH_SENT_OVERRIDE_KEY = 'devpanel-match-sent';
 export const MATCH_RECEIVED_OVERRIDE_KEY = 'devpanel-match-received';
 export const MATCH_CHATS_OVERRIDE_KEY = 'devpanel-match-chats';
+export const PAST_SEASON_OVERRIDE_KEY = 'devpanel-past-season';
+export const NEXT_SEASON_REGISTERED_KEY = 'devpanel-next-season-registered';
 
 type DevSeasonStatus = 'auto' | SeasonState;
 
@@ -51,6 +53,8 @@ export function HomeDevTool() {
   const [sentCount, setSentCount] = useState<number | null>(null);
   const [receivedCount, setReceivedCount] = useState<number | null>(null);
   const [chatsCount, setChatsCount] = useState<number | null>(null);
+  const [pastSeason, setPastSeason] = useState<string>('none');
+  const [nextSeasonRegistered, setNextSeasonRegistered] = useState(false);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
@@ -60,6 +64,8 @@ export function HomeDevTool() {
     setSentCount(readNum(MATCH_SENT_OVERRIDE_KEY));
     setReceivedCount(readNum(MATCH_RECEIVED_OVERRIDE_KEY));
     setChatsCount(readNum(MATCH_CHATS_OVERRIDE_KEY));
+    setPastSeason(localStorage.getItem(PAST_SEASON_OVERRIDE_KEY) ?? 'none');
+    setNextSeasonRegistered(localStorage.getItem(NEXT_SEASON_REGISTERED_KEY) === 'true');
   }, []);
 
   if (process.env.NODE_ENV !== 'development') return null;
@@ -77,6 +83,12 @@ export function HomeDevTool() {
     setOrRemove(MATCH_SENT_OVERRIDE_KEY, sentCount);
     setOrRemove(MATCH_RECEIVED_OVERRIDE_KEY, receivedCount);
     setOrRemove(MATCH_CHATS_OVERRIDE_KEY, chatsCount);
+
+    if (pastSeason === 'none') localStorage.removeItem(PAST_SEASON_OVERRIDE_KEY);
+    else localStorage.setItem(PAST_SEASON_OVERRIDE_KEY, pastSeason);
+
+    if (nextSeasonRegistered) localStorage.setItem(NEXT_SEASON_REGISTERED_KEY, 'true');
+    else localStorage.removeItem(NEXT_SEASON_REGISTERED_KEY);
 
     window.location.reload();
   }
@@ -246,6 +258,47 @@ export function HomeDevTool() {
                       color="text-teal-400"
                     />
                   </div>
+                </div>
+
+                {/* 과거 시즌 결과 */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-1.5 block">
+                    과거 시즌
+                  </label>
+                  <div className="flex gap-1 flex-wrap">
+                    <PresetButton
+                      active={pastSeason === 'none'}
+                      onClick={() => setPastSeason('none')}
+                      label="미참여"
+                    />
+                    <PresetButton
+                      active={pastSeason === 'failed'}
+                      onClick={() => setPastSeason('failed')}
+                      label="미성사"
+                    />
+                    <PresetButton
+                      active={pastSeason === 'matched'}
+                      onClick={() => setPastSeason('matched')}
+                      label="매칭 성공"
+                    />
+                  </div>
+                </div>
+
+                {/* 다음 시즌 등록 */}
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-gray-400">다음 시즌 등록</label>
+                  <button
+                    onClick={() => setNextSeasonRegistered(!nextSeasonRegistered)}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${
+                      nextSeasonRegistered ? 'bg-cyan-500' : 'bg-gray-700'
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                        nextSeasonRegistered ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
                 </div>
 
                 {/* 적용 */}
