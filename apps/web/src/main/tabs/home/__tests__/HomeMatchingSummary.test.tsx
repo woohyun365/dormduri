@@ -48,7 +48,9 @@ describe('HomeMatchingSummary', () => {
         receivedRequesters={['홍길동']}
       />,
     );
-    expect(screen.getByText(/홍길동님이 매칭을 요청했어요/)).toBeDefined();
+    // 닉네임이 truncate span으로 분리되어 있어 개별 확인
+    expect(screen.getByText('홍길동')).toBeDefined();
+    expect(screen.getByText(/매칭을 요청했어요/)).toBeDefined();
   });
 
   it('보낸 요청 건수를 표시한다', () => {

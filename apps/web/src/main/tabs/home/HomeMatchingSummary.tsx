@@ -57,7 +57,7 @@ export interface HomeMatchingSummaryProps {
 interface ActionMessage {
   icon: React.ElementType;
   iconColor: string;
-  text: string;
+  text: React.ReactNode;
 }
 
 function generateMessages(
@@ -81,23 +81,28 @@ function generateMessages(
 
     case 'HAS_ACTIVITY':
       if (stats.receivedRequests > 0) {
-        if (receivedRequesters && receivedRequesters.length > 0 && stats.receivedRequests > 1) {
+        const nickname = receivedRequesters?.[0] ?? '알 수 없음';
+        if (stats.receivedRequests > 1) {
           messages.push({
             icon: Inbox,
             iconColor: 'text-purple-600',
-            text: `${receivedRequesters[0]}님 외 ${stats.receivedRequests - 1}명이 매칭을 요청`,
-          });
-        } else if (receivedRequesters && receivedRequesters.length > 0) {
-          messages.push({
-            icon: Inbox,
-            iconColor: 'text-purple-600',
-            text: `${receivedRequesters[0]}님이 매칭을 요청했어요`,
+            text: (
+              <>
+                <span className="inline-block max-w-[5rem] truncate align-bottom">{nickname}</span>
+                님 외 {stats.receivedRequests - 1}명이 매칭을 요청했어요
+              </>
+            ),
           });
         } else {
           messages.push({
             icon: Inbox,
             iconColor: 'text-purple-600',
-            text: `${stats.receivedRequests}명이 매칭을 요청했어요`,
+            text: (
+              <>
+                <span className="inline-block max-w-[5rem] truncate align-bottom">{nickname}</span>
+                님이 매칭을 요청했어요
+              </>
+            ),
           });
         }
       }
@@ -112,7 +117,7 @@ function generateMessages(
         messages.push({
           icon: MessageCircle,
           iconColor: 'text-green-600',
-          text: `대화 ${stats.activeChats}명 진행 중`,
+          text: `${stats.activeChats}명과 대화가 진행 중이에요`,
         });
       }
       break;
@@ -208,29 +213,29 @@ export function HomeMatchingSummary({
           <Lock className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
         </div>
         <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4">
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3 mb-3">
             <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
               <AlertTriangle className="w-6 h-6 text-orange-600" />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-orange-900 mb-1">건물 배정이 필요해요</h3>
-              <p className="text-sm text-orange-700 mb-3 leading-relaxed">
+              <p className="text-sm text-orange-700 leading-relaxed">
                 건물을 배정해야 매칭을 시작할 수 있어요
               </p>
-              <motion.button
-                onClick={onGatedAction}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                <span>건물 배정하기</span>
-                <ChevronRight className="w-4 h-4" />
-              </motion.button>
             </div>
           </div>
+          <motion.button
+            onClick={onGatedAction}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span>건물 배정하기</span>
+            <ChevronRight className="w-4 h-4" />
+          </motion.button>
         </div>
         <div className="mt-4 text-xs text-[var(--knu-text-tertiary)] text-center">
-          💡 프로필을 완성하면 매칭을 시작할 수 있어요
+          💡 건물 배정 후 바로 매칭을 시작할 수 있어요!
         </div>
       </motion.div>
     );
@@ -316,7 +321,7 @@ export function HomeMatchingSummary({
               <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5 font-medium">
                 보낸 요청
               </span>
-              <span className="text-[10px] text-amber-600 mt-0.5">답변 대기 중</span>
+              <span className="text-[10px] text-amber-600 mt-0.5">수락 대기 중</span>
               {/* 슬롯 도트 */}
               <div className="flex items-center gap-1 mt-1.5">
                 {Array.from({ length: maxPending }).map((_, i) => (

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { DORMITORIES, UNASSIGNED_ID } from '@/constants/dormitory';
 import type { MockUser } from '@/__fixtures__/mock-db';
-import type { MatchPreset } from '@/__fixtures__/mock-matching-service';
 /**
  * 개발 환경 전용 플로팅 패널
  *
@@ -21,7 +20,6 @@ export function DevPanel() {
   const [currentUser, setCurrentUser] = useState<MockUser | null>(null);
   const [registeredUsers, setRegisteredUsers] = useState<MockUser[]>([]);
   const [lastCode, setLastCode] = useState<{ email: string; code: string } | null>(null);
-  const [matchPreset, setMatchPreset] = useState<string>('auto');
   const [expandedGroup, setExpandedGroup] = useState<string | null>('CHUNCHEON');
 
   useEffect(() => {
@@ -34,7 +32,6 @@ export function DevPanel() {
       setLastCode(mockDb.getLastCode());
     }
     load();
-    setMatchPreset(localStorage.getItem('devpanel-match-preset') ?? 'auto');
   }, [isOpen]);
 
   if (process.env.NODE_ENV !== 'development') return null;
@@ -78,14 +75,6 @@ export function DevPanel() {
     if (!currentUser) return;
     import('@/__fixtures__/mock-db').then(({ mockDb }) => {
       mockDb.updateUser(currentUser.email, { dormitoryId: dormitoryId || null });
-      window.location.reload();
-    });
-  }
-
-  function handleMatchPresetChange(value: string) {
-    setMatchPreset(value);
-    import('@/__fixtures__/mock-matching-service').then(({ MockMatchingService }) => {
-      MockMatchingService.setPresetOverride(value as MatchPreset | 'auto');
       window.location.reload();
     });
   }
@@ -158,23 +147,6 @@ export function DevPanel() {
         ) : (
           <span className="text-gray-500">발급된 코드 없음</span>
         )}
-      </div>
-
-      {/* 매칭 프리셋 */}
-      <div>
-        <div className="text-gray-400 mb-1">매칭 프리셋</div>
-        <select
-          value={matchPreset}
-          onChange={(e) => handleMatchPresetChange(e.target.value)}
-          className="w-full bg-gray-700 text-white rounded px-2 py-1"
-        >
-          <option value="auto">자동 (저장된 상태)</option>
-          <option value="empty">빈 상태</option>
-          <option value="requests">요청 있음 (보낸2+받은1)</option>
-          <option value="conversation">대화 중</option>
-          <option value="active">매칭 확정</option>
-          <option value="full">전체 (요청+대화+이력)</option>
-        </select>
       </div>
 
       {/* 프리셋 유저 (캠퍼스별 그룹) */}

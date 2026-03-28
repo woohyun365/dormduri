@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings, ChevronDown, ChevronUp } from 'lucide-react';
-import { UNASSIGNED_ID } from '@/constants/dormitory';
 import type { SeasonState } from '@/types/season';
 
 const SEASON_OVERRIDE_KEY = 'devpanel-season-override';
 const SEASON_DATE_OVERRIDE_KEY = 'devpanel-season-date-override';
 export const MATCHABLE_OVERRIDE_KEY = 'devpanel-matchable-count';
+export const MATCH_SENT_OVERRIDE_KEY = 'devpanel-match-sent';
+export const MATCH_RECEIVED_OVERRIDE_KEY = 'devpanel-match-received';
+export const MATCH_CHATS_OVERRIDE_KEY = 'devpanel-match-chats';
 
 type DevSeasonStatus = 'auto' | SeasonState;
 
@@ -34,56 +36,49 @@ function getIsoDate(daysFromNow: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function readNum(key: string): number | null {
+  if (typeof window === 'undefined') return null;
+  const v = localStorage.getItem(key);
+  return v !== null ? Number(v) : null;
+}
+
 export function HomeDevTool() {
   const [isOpen, setIsOpen] = useState(false);
   const [status, setStatus] = useState<DevSeasonStatus>('auto');
   const [dateMode, setDateMode] = useState<string>('auto');
   const [daysLeft, setDaysLeft] = useState(14);
-  const [forceUnassigned, setForceUnassigned] = useState(false);
   const [matchableCount, setMatchableCount] = useState<number | null>(null);
+  const [sentCount, setSentCount] = useState<number | null>(null);
+  const [receivedCount, setReceivedCount] = useState<number | null>(null);
+  const [chatsCount, setChatsCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
     setStatus((localStorage.getItem(SEASON_OVERRIDE_KEY) as DevSeasonStatus) ?? 'auto');
     setDateMode(localStorage.getItem(SEASON_DATE_OVERRIDE_KEY) ?? 'auto');
-    const saved = localStorage.getItem(MATCHABLE_OVERRIDE_KEY);
-    setMatchableCount(saved !== null ? Number(saved) : null);
+    setMatchableCount(readNum(MATCHABLE_OVERRIDE_KEY));
+    setSentCount(readNum(MATCH_SENT_OVERRIDE_KEY));
+    setReceivedCount(readNum(MATCH_RECEIVED_OVERRIDE_KEY));
+    setChatsCount(readNum(MATCH_CHATS_OVERRIDE_KEY));
   }, []);
 
   if (process.env.NODE_ENV !== 'development') return null;
 
   function applyAndReload() {
-    if (status === 'auto') {
-      localStorage.removeItem(SEASON_OVERRIDE_KEY);
-    } else {
-      localStorage.setItem(SEASON_OVERRIDE_KEY, status);
-    }
+    if (status === 'auto') localStorage.removeItem(SEASON_OVERRIDE_KEY);
+    else localStorage.setItem(SEASON_OVERRIDE_KEY, status);
 
-    if (dateMode === 'auto') {
-      localStorage.removeItem(SEASON_DATE_OVERRIDE_KEY);
-    } else if (dateMode === 'dday') {
+    if (dateMode === 'auto') localStorage.removeItem(SEASON_DATE_OVERRIDE_KEY);
+    else if (dateMode === 'dday')
       localStorage.setItem(SEASON_DATE_OVERRIDE_KEY, getIsoDate(daysLeft));
-    } else {
-      localStorage.setItem(SEASON_DATE_OVERRIDE_KEY, dateMode);
-    }
+    else localStorage.setItem(SEASON_DATE_OVERRIDE_KEY, dateMode);
 
-    if (matchableCount !== null) {
-      localStorage.setItem(MATCHABLE_OVERRIDE_KEY, String(matchableCount));
-    } else {
-      localStorage.removeItem(MATCHABLE_OVERRIDE_KEY);
-    }
+    setOrRemove(MATCHABLE_OVERRIDE_KEY, matchableCount);
+    setOrRemove(MATCH_SENT_OVERRIDE_KEY, sentCount);
+    setOrRemove(MATCH_RECEIVED_OVERRIDE_KEY, receivedCount);
+    setOrRemove(MATCH_CHATS_OVERRIDE_KEY, chatsCount);
 
-    if (forceUnassigned) {
-      import('@/__fixtures__/mock-db').then(({ mockDb }) => {
-        const user = mockDb.getCurrentUser();
-        if (user) {
-          mockDb.updateUser(user.email, { dormitoryId: UNASSIGNED_ID });
-        }
-        window.location.reload();
-      });
-    } else {
-      window.location.reload();
-    }
+    window.location.reload();
   }
 
   const showDDaySlider = status === 'SEASON_MATCHING';
@@ -121,7 +116,7 @@ export function HomeDevTool() {
               className="border-t border-gray-700"
             >
               <div className="p-3 space-y-3">
-                {/* Status */}
+                {/* 시즌 상태 */}
                 <div>
                   <label className="text-xs font-semibold text-gray-400 mb-1.5 block">
                     시즌 상태
@@ -139,19 +134,13 @@ export function HomeDevTool() {
                   </select>
                 </div>
 
-                {/* D-Day Slider */}
+                {/* D-Day 슬라이더 */}
                 {showDDaySlider && (
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-semibold text-gray-400">D-Day</label>
                       <span
-                        className={`text-xs font-bold ${
-                          daysLeft <= 3
-                            ? 'text-red-400'
-                            : daysLeft <= 7
-                              ? 'text-amber-400'
-                              : 'text-cyan-400'
-                        }`}
+                        className={`text-xs font-bold ${daysLeft <= 3 ? 'text-red-400' : daysLeft <= 7 ? 'text-amber-400' : 'text-cyan-400'}`}
                       >
                         D-{daysLeft}
                       </span>
@@ -168,27 +157,23 @@ export function HomeDevTool() {
                       className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                     />
                     <div className="flex gap-1 mt-1.5 flex-wrap">
-                      {DDAY_PRESETS.map((preset) => (
+                      {DDAY_PRESETS.map((p) => (
                         <button
-                          key={preset}
+                          key={p}
                           onClick={() => {
-                            setDaysLeft(preset);
+                            setDaysLeft(p);
                             setDateMode('dday');
                           }}
-                          className={`px-1.5 py-0.5 text-xs rounded ${
-                            dateMode === 'dday' && daysLeft === preset
-                              ? 'bg-cyan-600 text-white'
-                              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                          }`}
+                          className={`px-1.5 py-0.5 text-xs rounded ${dateMode === 'dday' && daysLeft === p ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
                         >
-                          {preset}
+                          {p}
                         </button>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* Date Select — OFF_SEASON */}
+                {/* 시즌 날짜 (OFF_SEASON) */}
                 {showDateSelect && (
                   <div>
                     <label className="text-xs font-semibold text-gray-400 mb-1.5 block">
@@ -208,7 +193,7 @@ export function HomeDevTool() {
                   </div>
                 )}
 
-                {/* Matchable Count */}
+                {/* 매칭 가능 유저 */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-xs font-semibold text-gray-400">매칭 가능 유저</label>
@@ -217,50 +202,53 @@ export function HomeDevTool() {
                     </span>
                   </div>
                   <div className="flex gap-1 flex-wrap">
-                    <button
+                    <PresetButton
+                      active={matchableCount === null}
                       onClick={() => setMatchableCount(null)}
-                      className={`px-1.5 py-0.5 text-xs rounded ${
-                        matchableCount === null
-                          ? 'bg-cyan-600 text-white'
-                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                      }`}
-                    >
-                      자동
-                    </button>
-                    {MATCHABLE_PRESETS.map((preset) => (
-                      <button
-                        key={preset}
-                        onClick={() => setMatchableCount(preset)}
-                        className={`px-1.5 py-0.5 text-xs rounded ${
-                          matchableCount === preset
-                            ? 'bg-cyan-600 text-white'
-                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                        }`}
-                      >
-                        {preset}
-                      </button>
+                      label="자동"
+                    />
+                    {MATCHABLE_PRESETS.map((p) => (
+                      <PresetButton
+                        key={p}
+                        active={matchableCount === p}
+                        onClick={() => setMatchableCount(p)}
+                        label={String(p)}
+                      />
                     ))}
                   </div>
                 </div>
 
-                {/* Building Toggle */}
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-gray-400">건물 미배정</label>
-                  <button
-                    onClick={() => setForceUnassigned(!forceUnassigned)}
-                    className={`relative w-10 h-5 rounded-full transition-colors ${
-                      forceUnassigned ? 'bg-cyan-500' : 'bg-gray-700'
-                    }`}
-                  >
-                    <div
-                      className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-                        forceUnassigned ? 'translate-x-5' : 'translate-x-0.5'
-                      }`}
+                {/* 매칭 통계 오버라이드 */}
+                <div>
+                  <label className="text-xs font-semibold text-gray-400 mb-1.5 block">
+                    매칭 통계
+                  </label>
+                  <div className="space-y-2">
+                    <CountRow
+                      label="보낸 요청"
+                      value={sentCount}
+                      onChange={setSentCount}
+                      max={3}
+                      color="text-amber-400"
                     />
-                  </button>
+                    <CountRow
+                      label="받은 요청"
+                      value={receivedCount}
+                      onChange={setReceivedCount}
+                      max={10}
+                      color="text-purple-400"
+                    />
+                    <CountRow
+                      label="대화 중"
+                      value={chatsCount}
+                      onChange={setChatsCount}
+                      max={5}
+                      color="text-teal-400"
+                    />
+                  </div>
                 </div>
 
-                {/* Apply */}
+                {/* 적용 */}
                 <button
                   onClick={applyAndReload}
                   className="w-full py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition-colors"
@@ -272,6 +260,64 @@ export function HomeDevTool() {
           )}
         </AnimatePresence>
       </motion.div>
+    </div>
+  );
+}
+
+// --- Helpers ---
+
+function setOrRemove(key: string, value: number | null) {
+  if (value !== null) localStorage.setItem(key, String(value));
+  else localStorage.removeItem(key);
+}
+
+function PresetButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-1.5 py-0.5 text-xs rounded ${active ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function CountRow({
+  label,
+  value,
+  onChange,
+  max,
+  color,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (v: number | null) => void;
+  max: number;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-gray-400 w-16">{label}</span>
+      <span className={`text-xs font-bold w-8 text-right ${color}`}>{value ?? '-'}</span>
+      <div className="flex gap-0.5 flex-1">
+        <PresetButton active={value === null} onClick={() => onChange(null)} label="자동" />
+        {Array.from({ length: max + 1 }, (_, i) => (
+          <PresetButton
+            key={i}
+            active={value === i}
+            onClick={() => onChange(i)}
+            label={String(i)}
+          />
+        ))}
+      </div>
     </div>
   );
 }

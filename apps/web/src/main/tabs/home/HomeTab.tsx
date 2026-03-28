@@ -10,6 +10,11 @@ import { useSeasonContext } from '@/contexts/SeasonContext';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { calcSeasonDates } from '@/constants/season';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import {
+  MATCH_SENT_OVERRIDE_KEY,
+  MATCH_RECEIVED_OVERRIDE_KEY,
+  MATCH_CHATS_OVERRIDE_KEY,
+} from '../../components/HomeDevTool';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { HomeSeasonBanner } from './HomeSeasonBanner';
 import { UrgentActionBanner } from './UrgentActionBanner';
@@ -102,12 +107,24 @@ export default function HomeTab({
       .map((r) => profiles.find((p) => p.id === r.fromUserId)?.nickname)
       .filter((n): n is string => n != null);
 
+    // DevTool 오버라이드
+    const devSent =
+      typeof window !== 'undefined' ? localStorage.getItem(MATCH_SENT_OVERRIDE_KEY) : null;
+    const devReceived =
+      typeof window !== 'undefined' ? localStorage.getItem(MATCH_RECEIVED_OVERRIDE_KEY) : null;
+    const devChats =
+      typeof window !== 'undefined' ? localStorage.getItem(MATCH_CHATS_OVERRIDE_KEY) : null;
+
+    const finalSent = devSent !== null ? Number(devSent) : sentPending.length;
+    const finalReceived = devReceived !== null ? Number(devReceived) : receivedPending.length;
+    const finalChats = devChats !== null ? Number(devChats) : conversations.length;
+
     return {
       status,
       stats: {
-        sentRequests: sentPending.length,
-        receivedRequests: receivedPending.length,
-        activeChats: conversations.length,
+        sentRequests: finalSent,
+        receivedRequests: finalReceived,
+        activeChats: finalChats,
         expiringCount,
       },
       activeMatch: activeMatch
