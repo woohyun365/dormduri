@@ -197,10 +197,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onNavigate={setActiveTab}
               profiles={data.profiles}
               buildingStats={buildingStats}
-              bookmarkedUserIds={socialState.bookmarkedUserIds}
-              isChecklistDismissed={isChecklistDismissed}
-              forceShowChecklist={forceShowChecklist}
-              onDismissChecklist={dismissChecklist}
               onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
               matchRequests={matchingState.matchRequests}
               activeMatch={matchingState.activeMatch}
