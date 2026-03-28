@@ -1,271 +1,288 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  CheckCircle,
-  Inbox,
   Send,
+  Inbox,
   MessageCircle,
-  Info,
-  Clock,
-  ChevronRight,
   TrendingUp,
+  ChevronRight,
+  CheckCircle,
+  Info,
 } from 'lucide-react';
-import { useSeasonContext } from '@/contexts/SeasonContext';
-import { isRequestExpired } from '@/utils/matchRequest';
-import { MATCH_POLICY } from '@/constants/match';
-import type { MatchRequest, ActiveMatch } from '@/types/match';
-import type { RoommateProfile, TabId } from '@/types/profile';
+import type { TabId } from '@/types/profile';
 
 // --- Types ---
 
-interface ActionItem {
-  icon: React.ElementType;
-  text: string;
-  iconColor: string;
+export type MatchingSummaryStatus =
+  | 'ACTIVE_MATCH'
+  | 'HAS_ACTIVITY'
+  | 'NO_ACTIVITY'
+  | 'NOT_OPERATED'
+  | 'OFF_SEASON'
+  | 'SEASON_OPEN';
+
+export interface MatchingSummaryStats {
+  sentRequests: number;
+  receivedRequests: number;
+  activeChats: number;
+  maxPending?: number;
 }
 
-interface SummaryData {
-  receivedPending: number;
-  sentPending: number;
-  conversationCount: number;
-  firstReceivedNickname: string | null;
-  activeMatchNickname: string | null;
-  activeMatchScore: number | null;
-  showStats: boolean;
-  actions: ActionItem[];
+export interface MatchingSummaryActiveMatch {
+  nickname: string;
+  matchScore: number;
 }
 
 export interface HomeMatchingSummaryProps {
-  matchRequests: MatchRequest[];
-  activeMatch: ActiveMatch | null;
-  userId: string;
-  isCampusOperated: boolean;
-  profiles: Omit<RoommateProfile, 'matchScore'>[];
+  status: MatchingSummaryStatus;
+  stats: MatchingSummaryStats;
+  activeMatch?: MatchingSummaryActiveMatch;
+  receivedRequesters?: string[];
   onNavigate: (tab: TabId) => void;
+}
+
+// --- Message generation ---
+
+interface ActionMessage {
+  icon: React.ElementType;
+  iconColor: string;
+  text: string;
+}
+
+function generateMessages(
+  status: MatchingSummaryStatus,
+  stats: MatchingSummaryStats,
+  activeMatch?: MatchingSummaryActiveMatch,
+  receivedRequesters?: string[],
+): ActionMessage[] {
+  const messages: ActionMessage[] = [];
+
+  switch (status) {
+    case 'ACTIVE_MATCH':
+      if (activeMatch) {
+        messages.push({
+          icon: CheckCircle,
+          iconColor: 'text-green-600',
+          text: `${activeMatch.nickname}님과 매칭 중 · 매칭도 ${activeMatch.matchScore}%`,
+        });
+      }
+      break;
+
+    case 'HAS_ACTIVITY':
+      if (stats.receivedRequests > 0) {
+        if (receivedRequesters && receivedRequesters.length > 0 && stats.receivedRequests > 1) {
+          messages.push({
+            icon: Inbox,
+            iconColor: 'text-purple-600',
+            text: `${receivedRequesters[0]}님 외 ${stats.receivedRequests - 1}명이 매칭을 요청`,
+          });
+        } else if (receivedRequesters && receivedRequesters.length > 0) {
+          messages.push({
+            icon: Inbox,
+            iconColor: 'text-purple-600',
+            text: `${receivedRequesters[0]}님이 매칭을 요청했어요`,
+          });
+        } else {
+          messages.push({
+            icon: Inbox,
+            iconColor: 'text-purple-600',
+            text: `${stats.receivedRequests}명이 매칭을 요청했어요`,
+          });
+        }
+      }
+      if (stats.sentRequests > 0) {
+        messages.push({
+          icon: Send,
+          iconColor: 'text-blue-600',
+          text: `보낸 요청 ${stats.sentRequests}건 대기 중`,
+        });
+      }
+      if (stats.activeChats > 0) {
+        messages.push({
+          icon: MessageCircle,
+          iconColor: 'text-green-600',
+          text: `대화 ${stats.activeChats}명 진행 중`,
+        });
+      }
+      break;
+
+    case 'NO_ACTIVITY':
+      messages.push({
+        icon: Info,
+        iconColor: 'text-gray-500',
+        text: '매칭 요청이 없어요. 룸메를 찾아볼까요?',
+      });
+      break;
+
+    case 'NOT_OPERATED':
+      messages.push({
+        icon: Info,
+        iconColor: 'text-gray-500',
+        text: '이 캠퍼스는 매칭 서비스를 운영하지 않습니다',
+      });
+      break;
+
+    case 'OFF_SEASON':
+      messages.push({
+        icon: Info,
+        iconColor: 'text-gray-500',
+        text: '다음 시즌이 시작되면 매칭할 수 있어요',
+      });
+      break;
+
+    case 'SEASON_OPEN':
+      messages.push({
+        icon: Info,
+        iconColor: 'text-gray-500',
+        text: '매칭 시즌이 곧 시작돼요. 프로필을 준비해보세요',
+      });
+      break;
+  }
+
+  return messages;
 }
 
 // --- Component ---
 
 export function HomeMatchingSummary({
-  matchRequests,
+  status,
+  stats,
   activeMatch,
-  userId,
-  isCampusOperated,
-  profiles,
+  receivedRequesters,
   onNavigate,
 }: HomeMatchingSummaryProps) {
-  const { state: seasonState } = useSeasonContext();
-  const [actionIndex, setActionIndex] = useState(0);
+  const maxPending = stats.maxPending ?? 3;
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
-  const summary = useMemo((): SummaryData => {
-    const receivedPending = matchRequests.filter(
-      (r) => r.toUserId === userId && r.status === 'PENDING' && !isRequestExpired(r),
-    );
-    const sentPending = matchRequests.filter(
-      (r) => r.fromUserId === userId && r.status === 'PENDING' && !isRequestExpired(r),
-    );
-    const conversations = matchRequests.filter((r) => r.status === 'IN_CONVERSATION');
+  const messages = generateMessages(status, stats, activeMatch, receivedRequesters);
 
-    const firstReceived = receivedPending[0];
-    const firstReceivedProfile = firstReceived
-      ? profiles.find((p) => p.id === firstReceived.fromUserId)
-      : null;
-
-    const base = {
-      receivedPending: receivedPending.length,
-      sentPending: sentPending.length,
-      conversationCount: conversations.length,
-      firstReceivedNickname: firstReceivedProfile?.nickname ?? null,
-      activeMatchNickname: activeMatch?.partnerNickname ?? null,
-      activeMatchScore: activeMatch?.matchScore ?? null,
-    };
-
-    // 비활성 상태 (통계 숨김, 단일 메시지)
-    if (!isCampusOperated) {
-      return {
-        ...base,
-        showStats: false,
-        actions: [
-          {
-            icon: Info,
-            text: '이 캠퍼스는 매칭 서비스를 운영하지 않습니다',
-            iconColor: 'text-[var(--knu-text-tertiary)]',
-          },
-        ],
-      };
-    }
-    if (seasonState === 'OFF_SEASON') {
-      return {
-        ...base,
-        showStats: false,
-        actions: [
-          {
-            icon: Info,
-            text: '다음 시즌이 시작되면 매칭할 수 있어요',
-            iconColor: 'text-[var(--knu-text-tertiary)]',
-          },
-        ],
-      };
-    }
-    if (seasonState === 'SEASON_OPEN') {
-      return {
-        ...base,
-        showStats: false,
-        actions: [
-          {
-            icon: Info,
-            text: '매칭 시즌이 곧 시작돼요. 프로필을 준비해보세요',
-            iconColor: 'text-[var(--knu-text-tertiary)]',
-          },
-        ],
-      };
-    }
-    if (activeMatch) {
-      return {
-        ...base,
-        showStats: false,
-        actions: [
-          {
-            icon: CheckCircle,
-            text: `${base.activeMatchNickname}님과 매칭 중 · 매칭도 ${base.activeMatchScore}%`,
-            iconColor: 'text-green-600',
-          },
-        ],
-      };
-    }
-
-    // 활성 상태 — 동적 메시지 배열 구성
-    const actions: ActionItem[] = [];
-    if (base.receivedPending > 0) {
-      const extra = base.receivedPending - 1;
-      const suffix = extra > 0 ? ` 외 ${extra}명이` : '님이';
-      actions.push({
-        icon: Inbox,
-        text: `${base.firstReceivedNickname}${suffix} 매칭을 요청했어요`,
-        iconColor: 'text-purple-600',
-      });
-    }
-    if (base.sentPending > 0) {
-      actions.push({
-        icon: Send,
-        text: `보낸 요청 ${base.sentPending}건 대기 중`,
-        iconColor: 'text-blue-600',
-      });
-    }
-    if (base.conversationCount > 0) {
-      actions.push({
-        icon: MessageCircle,
-        text: `대화 ${base.conversationCount}명 진행 중`,
-        iconColor: 'text-green-600',
-      });
-    }
-    if (actions.length === 0) {
-      actions.push({
-        icon: Clock,
-        text: '매칭 요청이 없어요. 룸메를 찾아볼까요?',
-        iconColor: 'text-[var(--knu-text-tertiary)]',
-      });
-    }
-
-    return { ...base, showStats: true, actions };
-  }, [matchRequests, activeMatch, userId, isCampusOperated, seasonState, profiles]);
-
-  // 3초 순환 (메시지 2개 이상일 때만)
+  // 3초 순환 (2개 이상)
   useEffect(() => {
-    if (summary.actions.length <= 1) return;
+    if (messages.length <= 1) return;
     const interval = setInterval(() => {
-      setActionIndex((prev) => (prev + 1) % summary.actions.length);
+      setCurrentMessageIndex((prev) => (prev + 1) % messages.length);
     }, 3000);
     return () => clearInterval(interval);
-  }, [summary.actions.length]);
+  }, [messages.length]);
 
-  // actions 변경 시 인덱스 초기화
   useEffect(() => {
-    setActionIndex(0);
-  }, [summary.actions.length]);
+    setCurrentMessageIndex(0);
+  }, [messages.length]);
 
-  const currentAction = summary.actions[actionIndex % summary.actions.length];
-  const CurrentIcon = currentAction?.icon ?? Info;
+  const shouldShowStats = status === 'HAS_ACTIVITY' || status === 'NO_ACTIVITY';
+  const isInactive =
+    status === 'NOT_OPERATED' || status === 'OFF_SEASON' || status === 'SEASON_OPEN';
+  const currentMessage = messages[currentMessageIndex % messages.length];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5"
-    >
+    <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5 keep-all">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-bold text-[var(--knu-text-primary)]">매칭 활동</h2>
         <TrendingUp className="w-5 h-5 text-[var(--knu-primary)]" />
       </div>
 
-      {/* 행동 유도 메시지 (순환 애니메이션) */}
-      <button
-        onClick={() => onNavigate('matching')}
-        className="w-full flex items-center gap-3 text-left p-3 bg-[var(--knu-background-alt)] rounded-xl mb-4 hover:bg-gray-100 transition-colors overflow-hidden"
-      >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={actionIndex}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-            className="flex items-center gap-3 flex-1 min-w-0"
-          >
-            <CurrentIcon className={`w-5 h-5 flex-shrink-0 ${currentAction?.iconColor}`} />
-            <span className="flex-1 text-sm font-semibold text-[var(--knu-text-primary)] truncate">
-              {currentAction?.text}
-            </span>
-          </motion.div>
-        </AnimatePresence>
-        <ChevronRight className="w-4 h-4 text-[var(--knu-text-tertiary)] flex-shrink-0" />
-      </button>
+      {/* 행동 유도 메시지 */}
+      {currentMessage && (
+        <motion.button
+          onClick={isInactive ? undefined : () => onNavigate('matching')}
+          whileHover={isInactive ? undefined : { scale: 1.01 }}
+          whileTap={isInactive ? undefined : { scale: 0.99 }}
+          className={`w-full mb-4 p-3 bg-[var(--knu-background-alt)] rounded-xl transition-colors ${
+            isInactive ? 'cursor-default' : 'hover:bg-gray-100 cursor-pointer'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 h-5">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentMessageIndex}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.3 }}
+                  className="absolute inset-0 flex items-center gap-3"
+                >
+                  <currentMessage.icon
+                    className={`w-5 h-5 flex-shrink-0 ${currentMessage.iconColor}`}
+                  />
+                  <span className="text-sm font-medium text-[var(--knu-text-primary)] truncate">
+                    {currentMessage.text}
+                  </span>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {!isInactive && (
+              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)] flex-shrink-0" />
+            )}
+          </div>
+
+          {/* Indicator dots */}
+          {messages.length > 1 && (
+            <div className="flex items-center justify-center gap-1.5 mt-2 h-2">
+              {messages.map((_, index) => (
+                <div
+                  key={index}
+                  className={`rounded-full transition-all ${
+                    index === currentMessageIndex % messages.length
+                      ? 'w-4 h-1.5 bg-[var(--knu-primary)]'
+                      : 'w-1.5 h-1.5 bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+        </motion.button>
+      )}
 
       {/* 통계 그리드 */}
-      {summary.showStats && (
+      {shouldShowStats && (
         <div className="grid grid-cols-3 gap-2">
-          <button
+          <motion.button
             onClick={() => onNavigate('matching')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-blue-50 rounded-xl transition-colors group"
           >
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
               <Send className="w-5 h-5 text-blue-600" />
             </div>
             <span className="text-xl font-bold text-blue-600">
-              {summary.sentPending}
-              <span className="text-xs font-normal text-[var(--knu-text-tertiary)]">
-                /{MATCH_POLICY.MAX_PENDING_REQUESTS}
-              </span>
+              {stats.sentRequests}/{maxPending}
             </span>
             <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5">보낸 요청</span>
-          </button>
+          </motion.button>
 
-          <button
+          <motion.button
             onClick={() => onNavigate('matching')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-purple-50 rounded-xl transition-colors group"
           >
             <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
               <Inbox className="w-5 h-5 text-purple-600" />
             </div>
-            <span className="text-xl font-bold text-purple-600">{summary.receivedPending}</span>
+            <span className="text-xl font-bold text-purple-600">{stats.receivedRequests}</span>
             <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5">받은 요청</span>
-          </button>
+          </motion.button>
 
-          <button
+          <motion.button
             onClick={() => onNavigate('matching')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-green-50 rounded-xl transition-colors group"
           >
             <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
               <MessageCircle className="w-5 h-5 text-green-600" />
             </div>
-            <span className="text-xl font-bold text-green-600">{summary.conversationCount}</span>
+            <span className="text-xl font-bold text-green-600">{stats.activeChats}</span>
             <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5">대화 중</span>
-          </button>
+          </motion.button>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

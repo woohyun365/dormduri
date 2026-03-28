@@ -11,10 +11,12 @@ import { isRequestExpired } from '@/utils/matchRequest';
 import { HomeSeasonBanner } from './HomeSeasonBanner';
 import { UrgentActionBanner } from './UrgentActionBanner';
 import { HomeMatchingSummary } from './HomeMatchingSummary';
+import type { MatchingSummaryStatus } from './HomeMatchingSummary';
 import { HomeQuickMenuSection } from './HomeQuickMenuSection';
 import { HomeBuildingSection } from './HomeBuildingSection';
 import { HomeProgressSection } from './HomeProgressSection';
 import { DynamicTipBanner } from './DynamicTipBanner';
+import type { TipSeasonStatus } from './DynamicTipBanner';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 
@@ -35,7 +37,6 @@ interface HomeTabProps {
   forceShowChecklist?: boolean;
   onDismissChecklist?: () => void;
   onOpenBuildingSelect?: () => void;
-  // 매칭 상태 (A-4: Main.tsx에서 전달)
   matchRequests: MatchRequest[];
   activeMatch: ActiveMatch | null;
   receivedPendingCount: number;
@@ -59,24 +60,62 @@ export default function HomeTab({
   const dormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
     : null;
-  const { isMatching, daysUntilEnd } = useSeasonContext();
+  const { state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
   const isCampusOperated = user.campus === 'CHUNCHEON';
 
-  // DynamicTipBanner에 전달할 요약 수치
-  const tipStats = useMemo(() => {
-    const received = matchRequests.filter(
+  // HomeMatchingSummary용 계산
+  const matchingSummary = useMemo(() => {
+    const receivedPending = matchRequests.filter(
       (r) => r.toUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
-    ).length;
-    const sent = matchRequests.filter(
+    );
+    const sentPending = matchRequests.filter(
       (r) => r.fromUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
-    ).length;
-    const conversations = matchRequests.filter((r) => r.status === 'IN_CONVERSATION').length;
-    return { received, sent, conversations };
-  }, [matchRequests, user.id]);
+    );
+    const conversations = matchRequests.filter((r) => r.status === 'IN_CONVERSATION');
+
+    // 상태 판정
+    let status: MatchingSummaryStatus;
+    if (!isCampusOperated) status = 'NOT_OPERATED';
+    else if (seasonState === 'OFF_SEASON') status = 'OFF_SEASON';
+    else if (seasonState === 'SEASON_OPEN') status = 'SEASON_OPEN';
+    else if (activeMatch) status = 'ACTIVE_MATCH';
+    else if (receivedPending.length > 0 || sentPending.length > 0 || conversations.length > 0)
+      status = 'HAS_ACTIVITY';
+    else status = 'NO_ACTIVITY';
+
+    // 받은 요청자 닉네임
+    const receivedRequesters = receivedPending
+      .map((r) => profiles.find((p) => p.id === r.fromUserId)?.nickname)
+      .filter((n): n is string => n != null);
+
+    return {
+      status,
+      stats: {
+        sentRequests: sentPending.length,
+        receivedRequests: receivedPending.length,
+        activeChats: conversations.length,
+      },
+      activeMatch: activeMatch
+        ? { nickname: activeMatch.partnerNickname, matchScore: activeMatch.matchScore }
+        : undefined,
+      receivedRequesters,
+    };
+  }, [matchRequests, activeMatch, user.id, isCampusOperated, seasonState, profiles]);
+
+  // DynamicTipBanner용 시즌 상태
+  const tipSeasonStatus: TipSeasonStatus = !isCampusOperated
+    ? 'NOT_OPERATED'
+    : activeMatch
+      ? 'ACTIVE_MATCH'
+      : seasonState === 'OFF_SEASON'
+        ? 'OFF_SEASON'
+        : seasonState === 'SEASON_OPEN'
+          ? 'SEASON_OPEN'
+          : 'SEASON_MATCHING';
 
   return (
     <div>
-      {/* Header (Figma 스타일) */}
+      {/* Header */}
       <header className="bg-[var(--knu-primary)] text-white px-5 py-6">
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-between mb-4">
@@ -88,7 +127,7 @@ export default function HomeTab({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onNavigate('profile')}
-              className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold cursor-pointer"
+              className={`w-14 h-14 ${getAvatarColor(user.nickname).bg} rounded-full flex items-center justify-center text-2xl font-bold ${getAvatarColor(user.nickname).text} cursor-pointer`}
             >
               {user.nickname.charAt(0)}
             </motion.button>
@@ -130,19 +169,18 @@ export default function HomeTab({
         />
 
         <HomeMatchingSummary
-          matchRequests={matchRequests}
-          activeMatch={activeMatch}
-          userId={user.id}
-          isCampusOperated={isCampusOperated}
-          profiles={profiles}
+          status={matchingSummary.status}
+          stats={matchingSummary.stats}
+          activeMatch={matchingSummary.activeMatch}
+          receivedRequesters={matchingSummary.receivedRequesters}
           onNavigate={onNavigate}
         />
 
         <DynamicTipBanner
-          receivedRequests={tipStats.received}
-          sentRequests={tipStats.sent}
-          conversationCount={tipStats.conversations}
-          hasActiveMatch={activeMatch !== null}
+          seasonStatus={tipSeasonStatus}
+          receivedRequests={matchingSummary.stats.receivedRequests}
+          sentRequests={matchingSummary.stats.sentRequests}
+          activeChats={matchingSummary.stats.activeChats}
         />
 
         <HomeQuickMenuSection
@@ -156,7 +194,6 @@ export default function HomeTab({
         <HomeBuildingSection
           dormitory={dormitory ?? null}
           buildingStats={buildingStats}
-          profiles={profiles}
           onNavigateProfile={() => onNavigate('profile')}
           onNavigateList={() => onNavigate('list')}
         />
