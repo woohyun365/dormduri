@@ -195,8 +195,10 @@ export function HomeMatchingSummary({
   // 내부 팁 (복수 시 순환)
   const internalTips: string[] = [];
   if (shouldShowStats) {
-    if (stats.sentRequests >= maxPending) internalTips.push('수락되면 새 요청을 보낼 수 있어요');
-    if (stats.receivedRequests > 0) internalTips.push('응답하면 대화를 시작할 수 있어요');
+    if (stats.sentRequests >= maxPending)
+      internalTips.push('보낸 요청이 수락되면 새 요청을 보낼 수 있어요');
+    if (stats.receivedRequests > 0) internalTips.push('받은 요청을 수락하고 대화를 시작해보세요');
+    if (stats.activeChats > 0) internalTips.push('대화를 통해 서로 잘 맞는지 알아가보세요!');
   }
   const [tipIndex, setTipIndex] = useState(0);
   useEffect(() => {
