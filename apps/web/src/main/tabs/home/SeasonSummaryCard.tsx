@@ -160,7 +160,9 @@ export function SeasonSummaryCard({
                 <CheckCircle className="w-5 h-5 text-green-600" />
                 <span className="font-bold text-green-700">다음 시즌 등록 완료</span>
               </div>
-              <p className="text-sm text-green-800">시즌 시작 1시간 전에 알림을 보내드릴게요</p>
+              <p className="text-sm text-green-800">
+                시작일에 방문하면 바로 매칭을 시작할 수 있어요
+              </p>
             </div>
 
             {hasParticipated &&
@@ -168,7 +170,9 @@ export function SeasonSummaryCard({
               !pastSeasonResult.matched &&
               onUpdateProfile && (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="text-sm text-amber-800 mb-3">프로필을 보완하면 매칭률이 높아져요</p>
+                  <p className="text-sm text-amber-800 mb-3">
+                    달라진 생활패턴을 반영하면 매칭률이 높아져요
+                  </p>
                   <motion.button
                     onClick={onUpdateProfile}
                     whileHover={{ scale: 1.02 }}
@@ -197,18 +201,17 @@ export function SeasonSummaryCard({
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed">
-              다음 시즌에도 참여하시나요? 미리 등록하고 알림을 받아보세요
+              새 학기, 달라진 생활패턴이 있다면 미리 수정해두세요!
             </p>
 
-            {onRegisterNext && (
+            {onUpdateProfile && (
               <motion.button
-                onClick={onRegisterNext}
+                onClick={onUpdateProfile}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className="w-full bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white font-medium py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
               >
-                <Bell className="w-4 h-4" />
-                <span>다음 시즌 알림 받기</span>
+                <span>프로필 수정하기</span>
                 <ChevronRight className="w-4 h-4" />
               </motion.button>
             )}

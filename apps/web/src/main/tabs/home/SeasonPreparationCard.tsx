@@ -54,27 +54,22 @@ export function SeasonPreparationCard({
     completableRequiredItems.every((item) => item.completed) &&
     (canSelectBuilding ? hasBuilding : true);
 
-  const urgency = daysUntilStart <= 3 ? 'critical' : daysUntilStart <= 7 ? 'warning' : 'normal';
-  const colors = {
-    critical: {
-      bg: 'bg-red-50',
-      border: 'border-red-300',
-      text: 'text-red-600',
-      iconBg: 'bg-red-100',
-    },
-    warning: {
-      bg: 'bg-amber-50',
-      border: 'border-amber-300',
-      text: 'text-amber-600',
-      iconBg: 'bg-amber-100',
-    },
-    normal: {
-      bg: 'bg-blue-50',
-      border: 'border-blue-300',
-      text: 'text-blue-600',
-      iconBg: 'bg-blue-100',
-    },
-  }[urgency];
+  // 색상: 건물 배정 여부 기준
+  const colors = hasBuilding
+    ? { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-600', iconBg: 'bg-blue-100' }
+    : {
+        bg: 'bg-amber-50',
+        border: 'border-amber-300',
+        text: 'text-amber-600',
+        iconBg: 'bg-amber-100',
+      };
+
+  // CTA 문구: 미완 항목 기준
+  const ctaLabel = !hasLifestylePattern
+    ? '생활패턴 입력하기'
+    : !hasBuilding
+      ? '배정 건물 입력하기'
+      : '프로필 완성하기';
 
   return (
     <motion.div
@@ -160,7 +155,7 @@ export function SeasonPreparationCard({
             whileTap={{ scale: 0.98 }}
             className="w-full bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
-            <span>준비 완료하기</span>
+            <span>{ctaLabel}</span>
             <ChevronRight className="w-4 h-4" />
           </motion.button>
         )}
@@ -168,7 +163,7 @@ export function SeasonPreparationCard({
         {allReady && (
           <div className="bg-green-100 border border-green-300 rounded-lg p-3 text-center">
             <p className="text-sm font-bold text-green-700">
-              준비 완료! 시작 1시간 전 알림을 보내드릴게요
+              준비 완료! 시작일에 바로 매칭을 시작할 수 있어요
             </p>
           </div>
         )}
