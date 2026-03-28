@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
@@ -20,7 +21,6 @@ import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
 import { SeasonProvider } from '@/contexts/SeasonContext';
-import { TOAST_DURATION } from '@/constants/ui';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
@@ -46,10 +46,9 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     }
     return 'home';
   });
-  const [toast, setToast] = useState<string | null>(null);
   const [data, setData] = useState<MainData | null>(null);
 
-  const showToast = useCallback((msg: string) => setToast(msg), []);
+  const showToast = useCallback((msg: string) => toast(msg), []);
 
   // --- Onboarding ---
   const {
@@ -155,13 +154,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     window.scrollTo(0, 0);
     sessionStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), TOAST_DURATION);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
 
   // 데이터 로딩 중
   if (!data) {
@@ -307,17 +299,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           partnerNickname={matchingState.showCelebration?.nickname ?? ''}
           matchScore={matchingState.showCelebration?.score ?? 0}
         />
-
-        {/* Toast */}
-        {toast && (
-          <div
-            role="alert"
-            aria-live="polite"
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-5 py-3 bg-gray-900 text-white text-sm font-medium rounded-xl shadow-lg"
-          >
-            {toast}
-          </div>
-        )}
       </div>
     </SeasonProvider>
   );
