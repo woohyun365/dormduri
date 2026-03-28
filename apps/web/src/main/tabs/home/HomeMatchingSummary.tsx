@@ -192,13 +192,20 @@ export function HomeMatchingSummary({
     status === 'NOT_OPERATED' || status === 'OFF_SEASON' || status === 'SEASON_OPEN';
   const currentMessage = messages[currentMessageIndex % messages.length];
 
-  // 내부 팁
-  const internalTip =
-    shouldShowStats && stats.sentRequests >= maxPending
-      ? '수락되면 새 요청을 보낼 수 있어요'
-      : shouldShowStats && stats.receivedRequests > 0
-        ? '응답하면 대화를 시작할 수 있어요'
-        : null;
+  // 내부 팁 (복수 시 순환)
+  const internalTips: string[] = [];
+  if (shouldShowStats) {
+    if (stats.sentRequests >= maxPending) internalTips.push('수락되면 새 요청을 보낼 수 있어요');
+    if (stats.receivedRequests > 0) internalTips.push('응답하면 대화를 시작할 수 있어요');
+  }
+  const [tipIndex, setTipIndex] = useState(0);
+  useEffect(() => {
+    if (internalTips.length <= 1) return;
+    const interval = setInterval(() => {
+      setTipIndex((prev) => (prev + 1) % internalTips.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [internalTips.length]);
 
   // 게이팅 상태
   if (gatingReason === 'no_building') {
@@ -392,9 +399,20 @@ export function HomeMatchingSummary({
           </div>
 
           {/* 내부 팁 */}
-          {internalTip && (
-            <div className="mt-3 text-center">
-              <p className="text-xs text-[var(--knu-text-tertiary)]">💡 {internalTip}</p>
+          {internalTips.length > 0 && (
+            <div className="mt-3 text-center relative h-4">
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={tipIndex % internalTips.length}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.25 }}
+                  className="absolute inset-0 text-xs text-[var(--knu-text-tertiary)]"
+                >
+                  💡 {internalTips[tipIndex % internalTips.length]}
+                </motion.p>
+              </AnimatePresence>
             </div>
           )}
         </>
