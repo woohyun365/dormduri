@@ -35,6 +35,7 @@ export interface DynamicTipBannerProps {
   receivedRequests: number;
   sentRequests: number;
   activeChats: number;
+  unreadMessages?: number;
 }
 
 // --- Tip generation ---
@@ -44,6 +45,7 @@ function generateTips({
   receivedRequests,
   sentRequests,
   activeChats,
+  unreadMessages = 0,
 }: DynamicTipBannerProps): Tip[] {
   const tips: Tip[] = [];
 
@@ -127,6 +129,16 @@ function generateTips({
       text: `${activeChats}명과 대화 중이에요.\n생활습관을 구체적으로 물어보면 더 잘 맞는 룸메를 찾을 수 있어요!`,
       iconBg: 'from-teal-100 to-cyan-100',
       iconText: 'text-teal-600',
+    });
+  }
+
+  // #6-b 읽지 않은 메시지
+  if (unreadMessages > 0) {
+    tips.push({
+      icon: MessageCircle,
+      text: `${unreadMessages}개의 읽지 않은 메시지가 있어요!\n빠른 답장이 좋은 인상을 남겨요.`,
+      iconBg: 'from-rose-100 to-pink-100',
+      iconText: 'text-rose-600',
     });
   }
 

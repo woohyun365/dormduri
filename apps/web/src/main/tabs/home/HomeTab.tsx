@@ -192,10 +192,16 @@ export default function HomeTab({
         />
 
         <HomeBuildingSection
-          dormitory={dormitory ?? null}
-          buildingStats={buildingStats}
-          onNavigateProfile={() => onNavigate('profile')}
-          onNavigateList={() => onNavigate('list')}
+          hasBuilding={dormitory !== null}
+          buildingName={dormitory?.name}
+          roomType={dormitory ? `${dormitory.roomType}인실` : undefined}
+          totalParticipants={buildingStats?.activeUsers ?? 0}
+          todayNewTotal={buildingStats?.todayNewUsers ?? 0}
+          buildingParticipants={buildingStats?.matchableUsers ?? 0}
+          todayNewBuilding={0}
+          matchSuccessCount={0}
+          onRegisterBuilding={() => onNavigate('profile')}
+          onBuildingClick={() => onNavigate('list')}
         />
 
         <HomeProgressSection
