@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
+  Send,
+  Inbox,
   Clock,
   Bell,
   MessageCircle,
@@ -10,8 +12,9 @@ import {
   ChevronRight,
   CheckCircle,
   Info,
+  AlertTriangle,
+  Lock,
   Building2,
-  Lightbulb,
 } from 'lucide-react';
 import { AnimatedCounter } from '@/components/AnimatedCounter';
 import type { TabId } from '@/types/profile';
@@ -80,19 +83,19 @@ function generateMessages(
       if (stats.receivedRequests > 0) {
         if (receivedRequesters && receivedRequesters.length > 0 && stats.receivedRequests > 1) {
           messages.push({
-            icon: Bell,
+            icon: Inbox,
             iconColor: 'text-purple-600',
             text: `${receivedRequesters[0]}님 외 ${stats.receivedRequests - 1}명이 매칭을 요청`,
           });
         } else if (receivedRequesters && receivedRequesters.length > 0) {
           messages.push({
-            icon: Bell,
+            icon: Inbox,
             iconColor: 'text-purple-600',
             text: `${receivedRequesters[0]}님이 매칭을 요청했어요`,
           });
         } else {
           messages.push({
-            icon: Bell,
+            icon: Inbox,
             iconColor: 'text-purple-600',
             text: `${stats.receivedRequests}명이 매칭을 요청했어요`,
           });
@@ -100,8 +103,8 @@ function generateMessages(
       }
       if (stats.sentRequests > 0) {
         messages.push({
-          icon: Clock,
-          iconColor: 'text-amber-600',
+          icon: Send,
+          iconColor: 'text-blue-600',
           text: `보낸 요청 ${stats.sentRequests}건 대기 중`,
         });
       }
@@ -202,17 +205,17 @@ export function HomeMatchingSummary({
       >
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-bold text-[var(--knu-text-primary)]">매칭 활동</h2>
-          <TrendingUp className="w-5 h-5 text-[var(--knu-primary)]" />
+          <Lock className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
         </div>
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+        <div className="bg-orange-50 border-2 border-orange-300 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Building2 className="w-5 h-5 text-orange-600" />
+            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-6 h-6 text-orange-600" />
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-bold text-orange-900 mb-1">건물 배정이 필요해요</h3>
-              <p className="text-sm text-orange-700 mb-3">
-                프로필을 완성하면 매칭을 시작할 수 있어요
+              <p className="text-sm text-orange-700 mb-3 leading-relaxed">
+                건물을 배정해야 매칭을 시작할 수 있어요
               </p>
               <motion.button
                 onClick={onGatedAction}
@@ -225,6 +228,9 @@ export function HomeMatchingSummary({
               </motion.button>
             </div>
           </div>
+        </div>
+        <div className="mt-4 text-xs text-[var(--knu-text-tertiary)] text-center">
+          💡 프로필을 완성하면 매칭을 시작할 수 있어요
         </div>
       </motion.div>
     );
@@ -292,96 +298,101 @@ export function HomeMatchingSummary({
 
       {/* 통계 그리드 */}
       {shouldShowStats && (
-        <div className="grid grid-cols-3 gap-2">
-          {/* 보낸 요청 */}
-          <motion.button
-            onClick={() => onNavigate('matching')}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-amber-50 rounded-xl transition-colors group"
-          >
-            <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-              <Clock className="w-5 h-5 text-amber-600" />
-            </div>
-            <span className="text-xl font-bold text-amber-600">
-              {stats.sentRequests}/{maxPending}
-            </span>
-            <span className="text-xs text-[var(--knu-text-primary)] font-medium mt-0.5">
-              보낸 요청
-            </span>
-            <span className="text-xs text-[var(--knu-text-tertiary)]">답변 대기 중</span>
-            {/* 슬롯 도트 */}
-            <div className="flex gap-1 mt-1.5">
-              {Array.from({ length: maxPending }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`w-2 h-2 rounded-full ${
-                    i < stats.sentRequests ? 'bg-amber-600' : 'bg-gray-300'
-                  }`}
-                />
-              ))}
-            </div>
-          </motion.button>
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            {/* 보낸 요청 */}
+            <motion.button
+              onClick={() => onNavigate('matching')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-amber-50 rounded-xl transition-colors group"
+            >
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <Clock className="w-5 h-5 text-amber-600" />
+              </div>
+              <span className="text-xl font-bold text-amber-600">
+                {stats.sentRequests}/{maxPending}
+              </span>
+              <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5 font-medium">
+                보낸 요청
+              </span>
+              <span className="text-[10px] text-amber-600 mt-0.5">답변 대기 중</span>
+              {/* 슬롯 도트 */}
+              <div className="flex items-center gap-1 mt-1.5">
+                {Array.from({ length: maxPending }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${
+                      i < stats.sentRequests ? 'bg-amber-600' : 'bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+            </motion.button>
 
-          {/* 받은 요청 */}
-          <motion.button
-            onClick={() => onNavigate('matching')}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="relative flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-purple-50 rounded-xl transition-colors group"
-          >
-            <div className="relative w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-              <Bell className="w-5 h-5 text-purple-600" />
-              {/* 펄스 */}
+            {/* 받은 요청 */}
+            <motion.button
+              onClick={() => onNavigate('matching')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-purple-50 rounded-xl transition-colors group relative"
+            >
+              {/* 펄스 (셀 전체) */}
               {stats.receivedRequests > 0 && (
                 <motion.div
-                  animate={{ scale: [1, 1.3], opacity: [0.5, 0] }}
+                  className="absolute inset-0 rounded-xl bg-purple-400"
+                  initial={{ opacity: 0.5, scale: 1 }}
+                  animate={{ opacity: 0, scale: 1.1 }}
                   transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute inset-0 bg-purple-400 rounded-full"
                 />
               )}
-            </div>
-            <AnimatedCounter
-              value={stats.receivedRequests}
-              className="text-xl font-bold text-purple-600"
-            />
-            <span className="text-xs text-[var(--knu-text-primary)] font-medium mt-0.5">
-              받은 요청
-            </span>
-            <span className="text-xs text-[var(--knu-text-tertiary)]">응답 필요</span>
-            {/* 만료 임박 */}
-            {expiringCount > 0 && (
-              <div className="mt-1.5 text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">
-                {expiringCount}건 곧 만료
+              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform relative z-10">
+                <Bell className="w-5 h-5 text-purple-600" />
               </div>
-            )}
-          </motion.button>
+              <AnimatedCounter
+                value={stats.receivedRequests}
+                className="text-xl font-bold text-purple-600"
+              />
+              <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5 font-medium">
+                받은 요청
+              </span>
+              <span className="text-[10px] text-purple-600 mt-0.5">응답 필요</span>
+              {/* 만료 임박 */}
+              {expiringCount > 0 && (
+                <div className="flex items-center gap-1 mt-1.5 bg-orange-100 px-2 py-0.5 rounded-full">
+                  <AlertTriangle className="w-2.5 h-2.5 text-orange-600" />
+                  <span className="text-[9px] font-medium text-orange-600">
+                    {expiringCount}건 곧 만료
+                  </span>
+                </div>
+              )}
+            </motion.button>
 
-          {/* 대화 중 */}
-          <motion.button
-            onClick={() => onNavigate('matching')}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-green-50 rounded-xl transition-colors group"
-          >
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
-              <MessageCircle className="w-5 h-5 text-green-600" />
+            {/* 대화 중 */}
+            <motion.button
+              onClick={() => onNavigate('matching')}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-teal-50 rounded-xl transition-colors group"
+            >
+              <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                <MessageCircle className="w-5 h-5 text-teal-600" />
+              </div>
+              <span className="text-xl font-bold text-teal-600">{stats.activeChats}</span>
+              <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5 font-medium">
+                대화 중
+              </span>
+              <span className="text-[10px] text-teal-600 mt-0.5">진행 중</span>
+            </motion.button>
+          </div>
+
+          {/* 내부 팁 */}
+          {internalTip && (
+            <div className="mt-3 text-center">
+              <p className="text-xs text-[var(--knu-text-tertiary)]">💡 {internalTip}</p>
             </div>
-            <span className="text-xl font-bold text-green-600">{stats.activeChats}</span>
-            <span className="text-xs text-[var(--knu-text-primary)] font-medium mt-0.5">
-              대화 중
-            </span>
-            <span className="text-xs text-[var(--knu-text-tertiary)]">진행 중</span>
-          </motion.button>
-        </div>
-      )}
-
-      {/* 내부 팁 */}
-      {internalTip && (
-        <div className="mt-3 flex items-center gap-2 text-xs text-[var(--knu-text-tertiary)]">
-          <Lightbulb className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>{internalTip}</span>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
