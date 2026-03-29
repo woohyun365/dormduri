@@ -40,6 +40,8 @@ function createPresetData(preset: MatchPreset, userId: string): MatchingState {
   const far = '2099-01-01T00:00:00.000Z';
   const farExp = '2099-01-06T00:00:00.000Z';
   const past = '2020-01-01T00:00:00.000Z';
+  // UrgentActionBanner 테스트용: 12시간 후 만료
+  const urgentExp = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
   const base = {
     rejectedAt: null,
     acceptedAt: null,
@@ -81,6 +83,16 @@ function createPresetData(preset: MatchPreset, userId: string): MatchingState {
             message: '생활 패턴이 비슷해서 요청드립니다',
             createdAt: far,
             expiresAt: farExp,
+            ...base,
+          },
+          {
+            id: 'p-req-004',
+            fromUserId: '4',
+            toUserId: userId,
+            status: 'PENDING',
+            message: '수면 시간이 비슷해서 연락드려요!',
+            createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+            expiresAt: urgentExp,
             ...base,
           },
         ],

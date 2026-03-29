@@ -9,6 +9,7 @@ interface GetMatchButtonStateParams {
   requests: MatchRequest[];
   activeMatch: ActiveMatch | null;
   blockedUserIds: Set<string>;
+  isCampusOperated?: boolean;
   isSeasonMatching: boolean;
   isSeasonOpen?: boolean;
 }
@@ -35,6 +36,7 @@ export function getMatchButtonState({
   requests,
   activeMatch,
   blockedUserIds,
+  isCampusOperated = true,
   isSeasonMatching,
   isSeasonOpen,
 }: GetMatchButtonStateParams): MatchButtonState {
@@ -43,7 +45,12 @@ export function getMatchButtonState({
     return { type: 'BLOCKED', label: '차단됨' };
   }
 
-  // 2. 비시즌 또는 시즌 오픈 (매칭 비활성)
+  // 2. 비운영 캠퍼스
+  if (!isCampusOperated) {
+    return { type: 'NOT_OPERATED', label: '서비스 준비 중' };
+  }
+
+  // 3. 비시즌 또는 시즌 오픈 (매칭 비활성)
   if (!isSeasonMatching) {
     if (isSeasonOpen) {
       return { type: 'SEASON_OPEN', label: '매칭 준비 중' };
@@ -51,17 +58,17 @@ export function getMatchButtonState({
     return { type: 'OFF_SEASON', label: '비시즌' };
   }
 
-  // 3. 다른 건물
+  // 4. 다른 건물
   if (userDormitoryId && targetDormitoryId && userDormitoryId !== targetDormitoryId) {
     return { type: 'DIFFERENT_BUILDING', label: '다른 건물' };
   }
 
-  // 4. 이미 매칭 중 (MATCHED)
+  // 5. 이미 매칭 중 (MATCHED)
   if (activeMatch) {
     return { type: 'MATCHED', label: '매칭됨' };
   }
 
-  // 5. 대화 중 상대 (당사자 간에서만 — D-25 타인 비노출)
+  // 6. 대화 중 상대 (당사자 간에서만 — D-25 타인 비노출)
   const hasConversation = requests.some(
     (r) =>
       r.status === 'IN_CONVERSATION' &&
@@ -72,7 +79,7 @@ export function getMatchButtonState({
     return { type: 'IN_CONVERSATION', label: '대화 중' };
   }
 
-  // 6. 대화 종료 조합 (조합 1회 — 양방향 재교류 불가)
+  // 7. 대화 종료 조합 (조합 1회 — 양방향 재교류 불가)
   const hasConversationEnded = requests.some(
     (r) =>
       r.status === 'CONVERSATION_ENDED' &&
@@ -83,7 +90,7 @@ export function getMatchButtonState({
     return { type: 'CONVERSATION_ENDED_PAIR', label: '대화 종료' };
   }
 
-  // 7. 매칭 해제 조합 (조합 1회 — 양방향 재교류 불가)
+  // 8. 매칭 해제 조합 (조합 1회 — 양방향 재교류 불가)
   const hasUnmatched = requests.some(
     (r) =>
       r.status === 'UNMATCHED' &&
@@ -94,7 +101,7 @@ export function getMatchButtonState({
     return { type: 'UNMATCHED_PAIR', label: '매칭 해제됨' };
   }
 
-  // 8. 상대에게 보낸 PENDING 요청
+  // 9. 상대에게 보낸 PENDING 요청
   const sentPending = requests.find(
     (r) => r.toUserId === targetUserId && r.status === 'PENDING' && !isRequestExpired(r),
   );
@@ -107,7 +114,7 @@ export function getMatchButtonState({
     };
   }
 
-  // 9. 상대에게서 받은 PENDING 요청
+  // 10. 상대에게서 받은 PENDING 요청
   const receivedPending = requests.find(
     (r) => r.fromUserId === targetUserId && r.status === 'PENDING' && !isRequestExpired(r),
   );
@@ -120,12 +127,12 @@ export function getMatchButtonState({
     };
   }
 
-  // 10. 재신청 차단: 같은 방향 기준
+  // 11. 재신청 차단: 같은 방향 기준
   const sameDirectionRequests = requests.filter(
     (r) => r.fromUserId === currentUserId && r.toUserId === targetUserId,
   );
 
-  // 10a. 거절/만료 → 같은 방향 영구 차단
+  // 11a. 거절/만료 → 같은 방향 영구 차단
   const hasRejectedOrExpired = sameDirectionRequests.some(
     (r) =>
       r.status === 'REJECTED' ||
@@ -136,12 +143,12 @@ export function getMatchButtonState({
     return { type: 'SAME_DIRECTION_BLOCKED', label: '재요청 불가' };
   }
 
-  // 10b. 같은 방향 시도 수 3회 이상 → 차단
+  // 11b. 같은 방향 시도 수 3회 이상 → 차단
   if (sameDirectionRequests.length >= MATCH_POLICY.MAX_DIRECTION_ATTEMPTS) {
     return { type: 'ATTEMPTS_EXHAUSTED', label: '요청 횟수 초과' };
   }
 
-  // 11. 보낸 PENDING 3개 이상 (동시 발신 3건 제한 — matching-lifecycle.md:131)
+  // 12. 보낸 PENDING 3개 이상 (동시 발신 3건 제한 — matching-lifecycle.md:131)
   const sentPendingCount = requests.filter(
     (r) => r.fromUserId === currentUserId && r.status === 'PENDING' && !isRequestExpired(r),
   ).length;
@@ -149,6 +156,6 @@ export function getMatchButtonState({
     return { type: 'SLOT_FULL', label: '요청 한도 초과' };
   }
 
-  // 12. 그 외
+  // 13. 그 외
   return { type: 'REQUEST', label: '매칭 요청' };
 }

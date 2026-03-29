@@ -20,6 +20,7 @@ interface UseRoommateListViewModelParams {
   filters: FilterState;
   sortMode: SortMode;
   viewMode: ViewMode;
+  isCampusOperated: boolean;
   blockedUserIds?: Set<string>;
   bookmarkedUserIds?: Set<string>;
   matchRequests: MatchRequest[];
@@ -55,6 +56,7 @@ export function useRoommateListViewModel({
   filters,
   sortMode,
   viewMode,
+  isCampusOperated,
   blockedUserIds,
   bookmarkedUserIds,
   matchRequests,
@@ -130,7 +132,6 @@ export function useRoommateListViewModel({
   }, [
     profiles,
     user.gender,
-    effectiveDormId,
     filters,
     sortMode,
     blockedUserIds,
@@ -160,6 +161,7 @@ export function useRoommateListViewModel({
       requests: matchRequests,
       activeMatch,
       blockedUserIds: blockedUserIds ?? new Set(),
+      isCampusOperated,
       isSeasonMatching,
     });
 

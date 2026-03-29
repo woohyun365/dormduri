@@ -31,6 +31,7 @@ const defaultParams = () => ({
   requests: [] as MatchRequest[],
   activeMatch: null as ActiveMatch | null,
   blockedUserIds: new Set<string>(),
+  isCampusOperated: true,
   isSeasonMatching: true,
 });
 
@@ -97,7 +98,12 @@ describe('getMatchButtonState', () => {
     expect(getMatchButtonState(params)).toEqual({ type: 'BLOCKED', label: '차단됨' });
   });
 
-  it('2. 비시즌 → OFF_SEASON', () => {
+  it('2. 비운영 캠퍼스 → NOT_OPERATED', () => {
+    const params = { ...defaultParams(), isCampusOperated: false };
+    expect(getMatchButtonState(params)).toEqual({ type: 'NOT_OPERATED', label: '서비스 준비 중' });
+  });
+
+  it('3. 비시즌 → OFF_SEASON', () => {
     const params = { ...defaultParams(), isSeasonMatching: false };
     expect(getMatchButtonState(params)).toEqual({ type: 'OFF_SEASON', label: '비시즌' });
   });

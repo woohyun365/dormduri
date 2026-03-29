@@ -40,6 +40,7 @@ export function getMatchButtonStyle(state: MatchButtonState): MatchButtonStyle {
       };
     case 'SAME_DIRECTION_BLOCKED':
     case 'ATTEMPTS_EXHAUSTED':
+    case 'NOT_OPERATED':
     case 'OFF_SEASON':
     case 'SEASON_OPEN':
     case 'DIFFERENT_BUILDING':

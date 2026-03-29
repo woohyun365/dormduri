@@ -14,7 +14,6 @@ export function useMainMatchingState(
   currentUserId: string,
   userLifestyle: UserProfile['lifestyle'],
   profiles: Omit<RoommateProfile, 'matchScore'>[],
-  seasonState?: string,
 ) {
   const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
   const [activeMatch, setActiveMatch] = useState<ActiveMatch | null>(null);
@@ -29,7 +28,7 @@ export function useMainMatchingState(
     const result = await matchingApi.getState(currentUserId);
     setMatchRequests(result.requests);
     setActiveMatch(result.activeMatch);
-  }, [currentUserId, seasonState]);
+  }, [currentUserId]);
 
   useEffect(() => {
     let cancelled = false;

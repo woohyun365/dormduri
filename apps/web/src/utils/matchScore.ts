@@ -27,7 +27,6 @@ const SMOKING_MATRIX: Record<string, Record<string, number>> = {
 
 // Pair 2: drinkingFrequency × drinkingTolerance (T3, TYPE A' 하이브리드)
 // LOW_ONLY: 거리 계산 score = 1.0 - (index / 3), ANY: 무조건 1.0
-const DRINKING_ORDER = ['NONE', 'RARELY', 'SOMETIMES', 'OFTEN'] as const;
 const DRINKING_MATRIX: Record<string, Record<string, number>> = {
   NONE: { LOW_ONLY: 1.0, ANY: 1.0 },
   RARELY: { LOW_ONLY: 0.67, ANY: 1.0 },

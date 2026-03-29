@@ -26,12 +26,14 @@ function weeksBeforeDate(dateStr: string, weeks: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-/** 시즌 일정 자동 계산 */
+/** 시즌 일정 자동 계산 (roomSelectionDate 없으면 fallback) */
 export function calcSeasonDates(roomSelectionDate: string) {
+  const fallback = '2099-12-31';
+  const date = roomSelectionDate || fallback;
   return {
-    openStart: weeksBeforeDate(roomSelectionDate, OPEN_OFFSET_WEEKS),
-    matchStart: weeksBeforeDate(roomSelectionDate, MATCH_OFFSET_WEEKS),
-    matchEnd: roomSelectionDate,
+    openStart: weeksBeforeDate(date, OPEN_OFFSET_WEEKS),
+    matchStart: weeksBeforeDate(date, MATCH_OFFSET_WEEKS),
+    matchEnd: date,
   };
 }
 

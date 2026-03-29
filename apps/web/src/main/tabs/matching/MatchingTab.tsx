@@ -9,7 +9,7 @@ import {
   AlertTriangle,
   Building2,
 } from 'lucide-react';
-import { UNASSIGNED_ID } from '@/constants/dormitory';
+import { UNASSIGNED_ID, isCampusOperated } from '@/constants/dormitory';
 import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Button } from '@/components/Button';
@@ -77,7 +77,7 @@ export default function MatchingTab({
 }: MatchingTabProps) {
   // --- Hooks (must be called unconditionally) ---
   const { state: seasonState } = useSeasonContext();
-  const isCampusOperated = user.campus === 'CHUNCHEON';
+  const campusOperated = isCampusOperated(user.campus);
 
   const profileMap = useMemo(() => {
     const map = new Map<string, Omit<RoommateProfile, 'matchScore'>>();
@@ -132,7 +132,7 @@ export default function MatchingTab({
   } | null>(null);
 
   // --- Season / Campus gating (after all hooks) ---
-  if (!isCampusOperated) {
+  if (!campusOperated) {
     return (
       <div>
         <MatchingTabHeader user={user} />

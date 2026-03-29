@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "lucide-react": "^0.456.0",
+    "motion": "^12.38.0",
     "next": "16.1.4",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "sonner": "^2.0.7"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

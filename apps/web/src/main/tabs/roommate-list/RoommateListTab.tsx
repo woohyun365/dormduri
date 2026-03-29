@@ -30,6 +30,7 @@ interface RoommateListTabProps {
   onFiltersChange: (filters: FilterState) => void;
   viewMode: ViewMode;
   onViewModeChange: (viewMode: ViewMode) => void;
+  isCampusOperated: boolean;
   blockedUserIds?: Set<string>;
   onBlock?: (userId: string, nickname: string) => void;
   onReport?: (userId: string, reason: ReportReason, detail: string | null) => void;
@@ -56,6 +57,7 @@ export default function RoommateListTab({
   onFiltersChange,
   viewMode,
   onViewModeChange,
+  isCampusOperated,
   blockedUserIds,
   onBlock,
   onReport,
@@ -87,6 +89,7 @@ export default function RoommateListTab({
     filters,
     sortMode,
     viewMode,
+    isCampusOperated,
     blockedUserIds,
     bookmarkedUserIds,
     matchRequests,

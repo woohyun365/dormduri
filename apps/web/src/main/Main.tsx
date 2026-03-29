@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
 import { DormitoryGuideSheet } from './components/DormitoryGuideSheet';
@@ -15,21 +16,26 @@ import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
 import { useMainMatchingState } from './hooks/useMainMatchingState';
 import { useMainListViewState } from './hooks/useMainListViewState';
-import { buildMainBuildingStats } from './utils/buildMainBuildingStats';
-import { UNASSIGNED_ID } from '@/constants/dormitory';
+import { UNASSIGNED_ID, isCampusOperated } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
+import { homeApi } from '@/api/home';
 import { SeasonProvider } from '@/contexts/SeasonContext';
-import { TOAST_DURATION } from '@/constants/ui';
+import { getMainFeatureFlags } from './utils/mainFeatureFlags';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
+import type { BuildingStats, PastSeasonResult } from './types/home';
 
 export type { TabId, UserProfile } from '@/types/profile';
 
 /** 서비스 레이어에서 로드하는 데이터 */
 interface MainData {
   profiles: Omit<RoommateProfile, 'matchScore'>[];
+  buildingStats: BuildingStats;
+  pastSeasonResult?: PastSeasonResult;
+  isNextSeasonRegistered: boolean;
+  unreadMessages: number;
   season: Season;
   isOpen: boolean;
   isMatching: boolean;
@@ -46,22 +52,13 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     }
     return 'home';
   });
-  const [toast, setToast] = useState<string | null>(null);
   const [data, setData] = useState<MainData | null>(null);
 
-  const showToast = useCallback((msg: string) => setToast(msg), []);
+  const showToast = useCallback((msg: string) => toast(msg), []);
 
   // --- Onboarding ---
-  const {
-    hasSeenGuide,
-    markGuideSeen,
-    isChecklistDismissed,
-    forceShowChecklist,
-    dismissChecklist,
-    resetChecklist,
-    hasSeenTooltip,
-    markTooltipSeen,
-  } = useOnboardingState(initialUser.nickname);
+  const { hasSeenGuide, markGuideSeen, resetChecklist, hasSeenTooltip, markTooltipSeen } =
+    useOnboardingState(initialUser.nickname);
 
   // --- Domain hooks ---
   const profileState = useMainProfileState(initialUser, {
@@ -95,6 +92,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
       // SEASON_OPEN + SEASON_MATCHING → 동일 건물 격리
       // UNASSIGNED → 빈 배열 (정책: 건물 미선택 유저는 탐색 불가)
+      // 건물 통계는 Mock Service Snapshot에서 독립 제공
       const isUnassignedId = currentDormitoryId === UNASSIGNED_ID;
       const dormitoryIdForFilter =
         season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
@@ -108,6 +106,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               dormitoryIdForFilter,
             );
 
+      const [buildingStats, pastSeasonResult, isNextSeasonRegistered, unreadMessages] =
+        await Promise.all([
+          homeApi.getBuildingStats(profileState.user, profileResult),
+          homeApi.getPastSeasonResult(),
+          homeApi.isNextSeasonRegistered(),
+          homeApi.getUnreadMessages(),
+        ]);
+
       if (cancelled) return;
 
       // 시즌 종료 시 매칭 상태 초기화 (AC-B03)
@@ -118,6 +124,10 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
       setData({
         profiles: profileResult,
+        buildingStats,
+        pastSeasonResult,
+        isNextSeasonRegistered,
+        unreadMessages,
         season: season.season,
         isOpen: season.isOpen,
         isMatching: season.isMatching,
@@ -130,7 +140,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     return () => {
       cancelled = true;
     };
-  }, [initialUser.campus, initialUser.gender, currentDormitoryId]);
+  }, [currentDormitoryId, initialUser.campus, initialUser.gender, profileState.user]);
 
   const socialState = useMainSocialState(showToast);
 
@@ -139,29 +149,15 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     profileState.user.id,
     profileState.user.lifestyle,
     data?.profiles ?? [],
-    data?.seasonState,
   );
 
   const listViewState = useMainListViewState();
-
-  // --- Derived ---
-  const buildingStats = useMemo(
-    () => (data ? buildMainBuildingStats(profileState.user, data.profiles) : undefined),
-    [profileState.user, data],
-  );
 
   // 탭 전환 시 스크롤 최상단 + sessionStorage 저장
   useEffect(() => {
     window.scrollTo(0, 0);
     sessionStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
-
-  useEffect(() => {
-    if (toast) {
-      const timer = setTimeout(() => setToast(null), TOAST_DURATION);
-      return () => clearTimeout(timer);
-    }
-  }, [toast]);
 
   // 데이터 로딩 중
   if (!data) {
@@ -182,11 +178,18 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     isMatching: data.isMatching,
     daysUntilEnd: data.daysUntilEnd,
   };
+  const campusOperated = isCampusOperated(profileState.user.campus);
+  const featureFlags = getMainFeatureFlags({
+    campusOperated,
+    isOpen: data.isOpen,
+    isMatching: data.isMatching,
+  });
 
   return (
     <SeasonProvider value={seasonContextValue}>
       <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
-        {(data.isOpen || data.isMatching) &&
+        {campusOperated &&
+          (data.isOpen || data.isMatching) &&
           (profileState.user.dormitoryId === null || profileState.showBuildingSelect) && (
             <BuildingSelectModal
               campus={profileState.user.campus}
@@ -203,14 +206,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
             <HomeTab
               user={profileState.user}
               onNavigate={setActiveTab}
-              onShowGuide={profileState.handleShowGuide}
               profiles={data.profiles}
-              buildingStats={buildingStats}
-              bookmarkedUserIds={socialState.bookmarkedUserIds}
-              isChecklistDismissed={isChecklistDismissed}
-              forceShowChecklist={forceShowChecklist}
-              onDismissChecklist={dismissChecklist}
+              buildingStats={data.buildingStats}
+              pastSeasonResult={data.pastSeasonResult}
+              isNextSeasonRegistered={data.isNextSeasonRegistered}
+              unreadMessages={data.unreadMessages}
               onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
+              matchRequests={matchingState.matchRequests}
+              activeMatch={matchingState.activeMatch}
             />
           )}
           {activeTab === 'list' && (
@@ -224,15 +227,18 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onFiltersChange={listViewState.setFilters}
               viewMode={listViewState.viewMode}
               onViewModeChange={listViewState.setViewMode}
+              isCampusOperated={campusOperated}
               blockedUserIds={socialState.blockedUserIds}
               onBlock={socialState.handleBlockUser}
               onReport={socialState.handleReportUser}
               matchRequests={matchingState.matchRequests}
               activeMatch={matchingState.activeMatch}
-              onSendRequest={data.isMatching ? matchingState.handleSendRequest : undefined}
+              onSendRequest={
+                featureFlags.canSendMatchRequest ? matchingState.handleSendRequest : undefined
+              }
               bookmarkedUserIds={socialState.bookmarkedUserIds}
               onToggleBookmark={
-                data.isOpen || data.isMatching ? socialState.handleToggleBookmark : undefined
+                featureFlags.canToggleBookmark ? socialState.handleToggleBookmark : undefined
               }
               showProfileBanner={listViewState.showProfileBanner}
               onDismissProfileBanner={listViewState.dismissProfileBanner}
@@ -288,6 +294,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               ? { matching: matchingState.receivedPendingCount }
               : undefined
           }
+          disabledTabs={featureFlags.disabledTabs}
         />
 
         {/* Dormitory Guide Sheet */}
@@ -305,17 +312,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           partnerNickname={matchingState.showCelebration?.nickname ?? ''}
           matchScore={matchingState.showCelebration?.score ?? 0}
         />
-
-        {/* Toast */}
-        {toast && (
-          <div
-            role="alert"
-            aria-live="polite"
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[70] px-5 py-3 bg-gray-900 text-white text-sm font-medium rounded-xl shadow-lg"
-          >
-            {toast}
-          </div>
-        )}
       </div>
     </SeasonProvider>
   );
