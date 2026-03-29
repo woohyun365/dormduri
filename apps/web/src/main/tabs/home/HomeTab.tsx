@@ -12,6 +12,7 @@ import { isDormitoryAssigned } from '@/utils/dormitory';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { isRequestExpired } from '@/utils/matchRequest';
+import { isLifestyleRequiredComplete } from '@/utils/lifestyle';
 import { calcSeasonDates } from '@/constants/season';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { OfflineBanner } from '@/components/OfflineBanner';
@@ -37,7 +38,8 @@ interface HomeTabProps {
   profiles: Omit<RoommateProfile, 'matchScore'>[];
   buildingStats: BuildingStats;
   pastSeasonResult?: PastSeasonResult;
-  nextSeasonRegisteredOverride: boolean | null;
+  isNextSeasonRegistered: boolean;
+  unreadMessages: number;
   onOpenBuildingSelect?: () => void;
   matchRequests: MatchRequest[];
   activeMatch: ActiveMatch | null;
@@ -59,7 +61,8 @@ export default function HomeTab({
   profiles,
   buildingStats,
   pastSeasonResult,
-  nextSeasonRegisteredOverride,
+  isNextSeasonRegistered,
+  unreadMessages,
   onOpenBuildingSelect,
   matchRequests,
   activeMatch,
@@ -124,7 +127,7 @@ export default function HomeTab({
 
   const missingFields = getMissingOptionalFields(user);
   const optionalCompleted = 5 - missingFields.length;
-  const hasLifestyle = true;
+  const hasLifestyle = isLifestyleRequiredComplete(user.lifestyle);
 
   const tipSeasonStatus: TipSeasonStatus = !isCampusOperated
     ? 'NOT_OPERATED'
@@ -152,13 +155,13 @@ export default function HomeTab({
       openStartFormatted: formatDateDot(openStart),
       daysUntilMatchStart: calcDaysUntilTimestamp(matchStartTs, renderedAt),
       daysUntilOpenStart: calcDaysUntilTimestamp(openStartTs, renderedAt),
-      isNextSeasonRegistered: nextSeasonRegisteredOverride ?? openStartTs > renderedAt,
+      isNextSeasonRegistered,
       profileCompletion: Math.round(lifestyleScore + buildingScore + optionalScore),
     };
   }, [
     dormitory,
     hasLifestyle,
-    nextSeasonRegisteredOverride,
+    isNextSeasonRegistered,
     optionalCompleted,
     renderedAt,
     season.roomSelectionDate,
@@ -321,7 +324,7 @@ export default function HomeTab({
                   ? currentName.replace('1학기', '2학기')
                   : `${parseInt(currentName) + 1}년 1학기`;
                 const nextDays = seasonDates.isNextSeasonRegistered
-                  ? Math.max(seasonDates.daysUntilOpenStart, 30)
+                  ? seasonDates.daysUntilOpenStart
                   : 0;
                 const nextDate = seasonDates.isNextSeasonRegistered
                   ? seasonDates.openStartFormatted
@@ -345,7 +348,7 @@ export default function HomeTab({
                 receivedRequests={matchingSummary.stats.receivedRequests}
                 sentRequests={matchingSummary.stats.sentRequests}
                 activeChats={matchingSummary.stats.activeChats}
-                unreadMessages={0}
+                unreadMessages={unreadMessages}
               />
             )}
 

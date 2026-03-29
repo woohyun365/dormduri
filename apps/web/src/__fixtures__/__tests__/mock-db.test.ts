@@ -123,19 +123,22 @@ describe('mockDb 홈 대시보드 상태', () => {
     const state = mockDb.getHomeDashboardState();
     expect(state.buildingStats.totalParticipants).toBe(135);
     expect(state.pastSeason).toBe('none');
-    expect(state.nextSeasonRegisteredOverride).toBeNull();
+    expect(state.nextSeasonRegistered).toBe(true);
+    expect(state.unreadMessages).toBe(0);
   });
 
   it('패치한 홈 대시보드 상태를 저장한다', () => {
     mockDb.setHomeDashboardState({
       pastSeason: 'matched',
-      nextSeasonRegisteredOverride: true,
+      nextSeasonRegistered: false,
+      unreadMessages: 5,
       buildingStats: { totalParticipants: 222 },
     });
 
     const state = mockDb.getHomeDashboardState();
     expect(state.pastSeason).toBe('matched');
-    expect(state.nextSeasonRegisteredOverride).toBe(true);
+    expect(state.nextSeasonRegistered).toBe(false);
+    expect(state.unreadMessages).toBe(5);
     expect(state.buildingStats.totalParticipants).toBe(222);
     expect(state.buildingStats.assignedParticipants).toBe(120);
   });

@@ -32,5 +32,6 @@ export type PastSeasonPreset = 'none' | 'failed' | 'matched';
 export interface HomeDashboardState {
   buildingStats: BuildingStatsSnapshot;
   pastSeason: PastSeasonPreset;
-  nextSeasonRegisteredOverride: boolean | null;
+  nextSeasonRegistered: boolean;
+  unreadMessages: number;
 }

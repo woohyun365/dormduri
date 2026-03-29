@@ -34,7 +34,8 @@ interface MainData {
   profiles: Omit<RoommateProfile, 'matchScore'>[];
   buildingStats: BuildingStats;
   pastSeasonResult?: PastSeasonResult;
-  nextSeasonRegisteredOverride: boolean | null;
+  isNextSeasonRegistered: boolean;
+  unreadMessages: number;
   season: Season;
   isOpen: boolean;
   isMatching: boolean;
@@ -90,22 +91,28 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       };
 
       // SEASON_OPEN + SEASON_MATCHING → 동일 건물 격리
-      // UNASSIGNED → 전체 프로필 로드 (건물 통계용). UI 게이팅이 탐색/요청 차단 담당.
+      // UNASSIGNED → 빈 배열 (정책: 건물 미선택 유저는 탐색 불가)
+      // 건물 통계는 Mock Service Snapshot에서 독립 제공
       const isUnassignedId = currentDormitoryId === UNASSIGNED_ID;
       const dormitoryIdForFilter =
         season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
 
-      const profileResult = await profileApi.getProfiles(
-        initialUser.campus,
-        initialUser.gender,
-        dormitoryIdForFilter,
-      );
+      const profileResult =
+        (season.isOpen || season.isMatching) && isUnassignedId
+          ? []
+          : await profileApi.getProfiles(
+              initialUser.campus,
+              initialUser.gender,
+              dormitoryIdForFilter,
+            );
 
-      const [buildingStats, pastSeasonResult, nextSeasonRegisteredOverride] = await Promise.all([
-        homeApi.getBuildingStats(profileState.user, profileResult),
-        homeApi.getPastSeasonResult(),
-        homeApi.getNextSeasonRegisteredOverride(),
-      ]);
+      const [buildingStats, pastSeasonResult, isNextSeasonRegistered, unreadMessages] =
+        await Promise.all([
+          homeApi.getBuildingStats(profileState.user, profileResult),
+          homeApi.getPastSeasonResult(),
+          homeApi.isNextSeasonRegistered(),
+          homeApi.getUnreadMessages(),
+        ]);
 
       if (cancelled) return;
 
@@ -119,7 +126,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         profiles: profileResult,
         buildingStats,
         pastSeasonResult,
-        nextSeasonRegisteredOverride,
+        isNextSeasonRegistered,
+        unreadMessages,
         season: season.season,
         isOpen: season.isOpen,
         isMatching: season.isMatching,
@@ -201,7 +209,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               profiles={data.profiles}
               buildingStats={data.buildingStats}
               pastSeasonResult={data.pastSeasonResult}
-              nextSeasonRegisteredOverride={data.nextSeasonRegisteredOverride}
+              isNextSeasonRegistered={data.isNextSeasonRegistered}
+              unreadMessages={data.unreadMessages}
               onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
               matchRequests={matchingState.matchRequests}
               activeMatch={matchingState.activeMatch}

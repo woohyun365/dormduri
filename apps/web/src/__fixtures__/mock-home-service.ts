@@ -34,8 +34,12 @@ class MockHomeService {
     return undefined;
   }
 
-  getNextSeasonRegisteredOverride(): boolean | null {
-    return mockDb.getHomeDashboardState().nextSeasonRegisteredOverride;
+  isNextSeasonRegistered(): boolean {
+    return mockDb.getHomeDashboardState().nextSeasonRegistered;
+  }
+
+  getUnreadMessages(): number {
+    return mockDb.getHomeDashboardState().unreadMessages;
   }
 }
 

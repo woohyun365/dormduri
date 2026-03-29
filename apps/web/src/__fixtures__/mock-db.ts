@@ -40,7 +40,8 @@ const DEFAULT_HOME_DASHBOARD_STATE: HomeDashboardState = {
     buildingMatchSuccess: 3,
   },
   pastSeason: 'none',
-  nextSeasonRegisteredOverride: null,
+  nextSeasonRegistered: true,
+  unreadMessages: 0,
 };
 
 // 인증 코드는 세션 내에서만 유효하므로 인메모리 유지

@@ -79,7 +79,7 @@ function getInitialPastSeason(): PastSeasonSelection {
 
 function getInitialNextSeasonRegistered(): boolean {
   if (!isDevelopment()) return false;
-  return mockDb.getHomeDashboardState().nextSeasonRegisteredOverride === true;
+  return mockDb.getHomeDashboardState().nextSeasonRegistered;
 }
 
 export function HomeDevTool() {
@@ -116,7 +116,7 @@ export function HomeDevTool() {
 
     mockDb.setHomeDashboardState({
       pastSeason,
-      nextSeasonRegisteredOverride: nextSeasonRegistered ? true : null,
+      nextSeasonRegistered,
     });
 
     window.location.reload();

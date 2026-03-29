@@ -36,8 +36,13 @@ export const homeApi = {
     return mock?.homeService.getPastSeasonResult();
   },
 
-  getNextSeasonRegisteredOverride: async (): Promise<boolean | null> => {
+  isNextSeasonRegistered: async (): Promise<boolean> => {
     const mock = await getMockData();
-    return mock?.homeService.getNextSeasonRegisteredOverride() ?? null;
+    return mock?.homeService.isNextSeasonRegistered() ?? true;
+  },
+
+  getUnreadMessages: async (): Promise<number> => {
+    const mock = await getMockData();
+    return mock?.homeService.getUnreadMessages() ?? 0;
   },
 };

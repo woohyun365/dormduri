@@ -72,8 +72,13 @@ describe('homeApi', () => {
     });
   });
 
-  it('다음 시즌 등록 override를 반환한다', async () => {
-    mockDb.setHomeDashboardState({ nextSeasonRegisteredOverride: true });
-    await expect(homeApi.getNextSeasonRegisteredOverride()).resolves.toBe(true);
+  it('다음 시즌 등록 여부를 반환한다', async () => {
+    mockDb.setHomeDashboardState({ nextSeasonRegistered: false });
+    await expect(homeApi.isNextSeasonRegistered()).resolves.toBe(false);
+  });
+
+  it('읽지 않은 메시지 수를 반환한다', async () => {
+    mockDb.setHomeDashboardState({ unreadMessages: 3 });
+    await expect(homeApi.getUnreadMessages()).resolves.toBe(3);
   });
 });

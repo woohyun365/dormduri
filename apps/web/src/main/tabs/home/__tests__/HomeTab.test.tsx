@@ -51,7 +51,8 @@ describe('HomeTab', () => {
           profiles={baseProfiles}
           buildingStats={buildingStats}
           pastSeasonResult={undefined}
-          nextSeasonRegisteredOverride={null}
+          isNextSeasonRegistered={true}
+          unreadMessages={0}
           matchRequests={[]}
           activeMatch={null}
         />
