@@ -197,9 +197,6 @@ function MatchSuccessText({
           '0 0 8px rgba(147, 51, 234, 0)',
         ];
 
-  const pillBg =
-    urgency === 'critical' ? 'bg-white/60' : urgency === 'warning' ? 'bg-white/50' : 'bg-white/40';
-
   const numberBaseColor = urgency === 'critical' ? 'text-rose-600' : 'text-purple-600';
 
   return (

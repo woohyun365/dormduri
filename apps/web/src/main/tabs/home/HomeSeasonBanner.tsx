@@ -1,32 +1,24 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { Calendar, AlertTriangle, Info, Megaphone } from 'lucide-react';
+import { Calendar, AlertTriangle, Info } from 'lucide-react';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { calcSeasonDates } from '@/constants/season';
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}`;
-}
-
-function formatShortDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  return `${d.getMonth() + 1}. ${d.getDate()}`;
-}
-
-function calcDaysFromNow(dateStr: string): number {
-  const target = new Date(dateStr + 'T00:00:00+09:00').getTime();
-  return Math.max(0, Math.ceil((target - Date.now()) / (1000 * 60 * 60 * 24)));
-}
+import { calcDaysUntilKstDate, formatDateSpaced, formatMonthDay } from '@/utils/date';
 
 interface HomeSeasonBannerProps {
   isUnassigned?: boolean;
+  hasActiveMatch?: boolean;
   children?: React.ReactNode;
 }
 
-export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonBannerProps) {
+export function HomeSeasonBanner({
+  isUnassigned = false,
+  hasActiveMatch = false,
+  children,
+}: HomeSeasonBannerProps) {
+  const [renderedAt] = useState(() => Date.now());
   const { season, state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
 
   const dates = useMemo(() => {
@@ -35,27 +27,26 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
       openStart,
       matchStart,
       matchEnd,
-      openStartFormatted: formatDate(openStart),
-      matchStartFormatted: formatDate(matchStart),
-      matchPeriod: `${formatShortDate(matchStart)} ~ ${formatShortDate(matchEnd)}`,
-      roomSelectionFormatted: formatDate(season.roomSelectionDate),
-      daysUntilOpenStart: calcDaysFromNow(openStart),
-      daysUntilMatchStart: calcDaysFromNow(matchStart),
-      isNextSeasonRegistered: new Date(openStart + 'T00:00:00+09:00').getTime() > Date.now(),
+      openStartFormatted: formatDateSpaced(openStart),
+      matchStartFormatted: formatDateSpaced(matchStart),
+      matchPeriod: `${formatMonthDay(matchStart)} ~ ${formatMonthDay(matchEnd)}`,
+      roomSelectionFormatted: formatDateSpaced(season.roomSelectionDate),
+      daysUntilOpenStart: calcDaysUntilKstDate(openStart, renderedAt),
+      daysUntilMatchStart: calcDaysUntilKstDate(matchStart, renderedAt),
+      isNextSeasonRegistered: new Date(`${openStart}T00:00:00+09:00`).getTime() > renderedAt,
     };
-  }, [season.roomSelectionDate]);
+  }, [renderedAt, season.roomSelectionDate]);
 
   const progressPercent = useMemo(() => {
     if (!isMatching) return 0;
-    const start = new Date(dates.matchStart + 'T00:00:00+09:00').getTime();
-    const end = new Date(dates.matchEnd + 'T23:59:59+09:00').getTime();
+    const start = new Date(`${dates.matchStart}T00:00:00+09:00`).getTime();
+    const end = new Date(`${dates.matchEnd}T23:59:59+09:00`).getTime();
     const total = end - start;
     if (total <= 0) return 100;
     const elapsed = total - daysUntilEnd * 24 * 60 * 60 * 1000;
     return Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
-  }, [isMatching, dates.matchStart, dates.matchEnd, daysUntilEnd]);
+  }, [daysUntilEnd, dates.matchEnd, dates.matchStart, isMatching]);
 
-  // D-Day 색상
   const dayColor =
     daysUntilEnd <= 3
       ? { bg: 'bg-red-500', text: 'text-red-700' }
@@ -63,7 +54,6 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
         ? { bg: 'bg-amber-500', text: 'text-amber-700' }
         : { bg: 'bg-blue-500', text: 'text-blue-700' };
 
-  // 배너 스타일
   const bannerStyle =
     seasonState === 'SEASON_MATCHING'
       ? daysUntilEnd <= 3
@@ -101,13 +91,28 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
           ? `${season.name} 시즌 오픈 준비중`
           : `${season.name} 룸메이트 매칭 시즌 종료`;
 
+  const endWarning =
+    daysUntilEnd <= 3
+      ? hasActiveMatch
+        ? {
+            title: '호실 선택 준비 안내',
+            body: '매칭이 확정되었어요. 호실 선택은 학교 시스템에서 직접 진행해 주세요.',
+          }
+        : {
+            title: '시즌 종료 임박',
+            body: `${daysUntilEnd}일 후 매칭이 종료돼요. 미결 요청은 자동 취소되기 전에 확인해보세요.`,
+          }
+      : {
+          title: '시즌 종료 예정',
+          body: `${daysUntilEnd}일 후 매칭이 종료됩니다. 매칭을 마무리해보세요.`,
+        };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={`bg-gradient-to-r ${bannerStyle.gradient} border-2 ${bannerStyle.border} rounded-2xl p-4 keep-all`}
     >
-      {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${bannerStyle.dot}`} />
@@ -116,10 +121,8 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
         <Calendar className="w-5 h-5 text-[var(--knu-primary)]" />
       </div>
 
-      {/* Subtitle */}
       <p className="text-sm text-[var(--knu-text-secondary)] mb-3">{seasonLabel}</p>
 
-      {/* Progress Bar — SEASON_MATCHING only */}
       {seasonState === 'SEASON_MATCHING' && (
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1.5">
@@ -137,7 +140,6 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
         </div>
       )}
 
-      {/* Warning — No Building */}
       {seasonState === 'SEASON_MATCHING' && isUnassigned && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -154,7 +156,6 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
         </motion.div>
       )}
 
-      {/* Warning — D-7 / D-3 (glassmorphism) */}
       {seasonState === 'SEASON_MATCHING' && !isUnassigned && daysUntilEnd <= 7 && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -172,16 +173,15 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
             <p
               className={`text-xs font-semibold ${daysUntilEnd <= 3 ? 'text-red-900' : 'text-amber-900'}`}
             >
-              {daysUntilEnd <= 3 ? '시즌 종료 임박' : '시즌 종료 예정'}
+              {endWarning.title}
             </p>
             <p className={`text-xs ${daysUntilEnd <= 3 ? 'text-red-700' : 'text-amber-700'}`}>
-              {daysUntilEnd}일 후 매칭이 종료됩니다. 매칭을 마무리해보세요.
+              {endWarning.body}
             </p>
           </div>
         </motion.div>
       )}
 
-      {/* Info — SEASON_OPEN */}
       {seasonState === 'SEASON_OPEN' && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -214,7 +214,6 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
         </motion.div>
       )}
 
-      {/* Info — OFF_SEASON (glassmorphism) */}
       {seasonState === 'OFF_SEASON' && (
         <div className="backdrop-blur-md bg-blue-100/40 border border-blue-200/60 rounded-xl p-3 mb-3 shadow-sm">
           <div className="flex items-start gap-2">
@@ -226,9 +225,7 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
         </div>
       )}
 
-      {/* Date Information */}
       <div className="space-y-1.5">
-        {/* SEASON_MATCHING */}
         {seasonState === 'SEASON_MATCHING' && (
           <>
             <DateRow label="매칭 기간" value={dates.matchPeriod} textColor={dayColor.text} />
@@ -241,7 +238,6 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
           </>
         )}
 
-        {/* SEASON_OPEN */}
         {seasonState === 'SEASON_OPEN' && (
           <>
             <DateRow
@@ -258,57 +254,28 @@ export function HomeSeasonBanner({ isUnassigned = false, children }: HomeSeasonB
           </>
         )}
 
-        {/* OFF_SEASON — Next Registered */}
         {seasonState === 'OFF_SEASON' && dates.isNextSeasonRegistered && (
-          <div className="space-y-1.5">
+          <>
             <DateRow
               label="시즌 오픈"
               value={dates.openStartFormatted}
-              textColor="text-gray-700"
+              textColor="text-blue-700"
               badge={{ label: `D-${dates.daysUntilOpenStart}`, bgColor: 'bg-blue-500' }}
             />
             <DateRow
               label="매칭 시작"
               value={dates.matchStartFormatted}
-              textColor="text-gray-700"
+              textColor="text-blue-700"
               badge={{ label: `D-${dates.daysUntilMatchStart}`, bgColor: 'bg-blue-500' }}
             />
-            <DateRow
-              label="호실 선택일"
-              value={dates.roomSelectionFormatted}
-              textColor="text-gray-700"
-            />
-          </div>
-        )}
-
-        {/* OFF_SEASON — Not Registered */}
-        {seasonState === 'OFF_SEASON' && !dates.isNextSeasonRegistered && (
-          <div className="flex items-center justify-center gap-1.5">
-            <Megaphone className="w-3.5 h-3.5 text-gray-500" />
-            <p className="text-xs text-gray-600">다음 시즌 일정이 등록되면 안내해드릴게요</p>
-          </div>
+          </>
         )}
       </div>
 
-      {/* BuildingStatsBar (시각적 병합) */}
-      {children && (
-        <>
-          <div className="mx-2 border-t border-black/10 my-3" />
-          <p className="text-xs font-semibold text-[var(--knu-text-tertiary)] mb-2">
-            {seasonState === 'OFF_SEASON'
-              ? '이전 시즌'
-              : seasonState === 'SEASON_OPEN'
-                ? '대기 현황'
-                : '시즌 현황'}
-          </p>
-          {children}
-        </>
-      )}
+      {children && <div className="mt-4">{children}</div>}
     </motion.div>
   );
 }
-
-// --- Sub-components ---
 
 function DateRow({
   label,
@@ -322,13 +289,13 @@ function DateRow({
   badge?: { label: string; bgColor: string };
 }) {
   return (
-    <div className={`flex items-center justify-between text-xs ${textColor}`}>
-      <span className="font-semibold">{label}:</span>
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-[var(--knu-text-secondary)]">{label}</span>
       <div className="flex items-center gap-2">
-        <span>{value}</span>
+        <span className={`font-medium ${textColor}`}>{value}</span>
         {badge && (
           <span
-            className={`${badge.bgColor} text-white px-2 py-0.5 rounded-full font-bold text-xs`}
+            className={`px-1.5 py-0.5 ${badge.bgColor} text-white text-[10px] font-bold rounded-full`}
           >
             {badge.label}
           </span>

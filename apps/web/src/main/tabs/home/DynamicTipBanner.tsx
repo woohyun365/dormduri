@@ -164,21 +164,31 @@ function generateTips({
 // --- Component ---
 
 export function DynamicTipBanner(props: DynamicTipBannerProps) {
-  const [currentTipIndex, setCurrentTipIndex] = useState(0);
   const tips = generateTips(props);
+  const tipResetKey = [
+    props.seasonStatus,
+    props.receivedRequests,
+    props.sentRequests,
+    props.activeChats,
+    props.unreadMessages ?? 0,
+  ].join('|');
+  const [tipRotation, setTipRotation] = useState({
+    index: 0,
+    resetKey: tipResetKey,
+  });
+  const currentTipIndex = tipRotation.resetKey === tipResetKey ? tipRotation.index : 0;
 
   // 5초 순환 (2개 이상)
   useEffect(() => {
     if (tips.length <= 1) return;
     const interval = setInterval(() => {
-      setCurrentTipIndex((prev) => (prev + 1) % tips.length);
+      setTipRotation((prev) => ({
+        resetKey: tipResetKey,
+        index: prev.resetKey === tipResetKey ? (prev.index + 1) % tips.length : 1 % tips.length,
+      }));
     }, 5000);
     return () => clearInterval(interval);
-  }, [tips.length]);
-
-  useEffect(() => {
-    setCurrentTipIndex(0);
-  }, [tips.length]);
+  }, [tipResetKey, tips.length]);
 
   const currentTip = tips[currentTipIndex % tips.length];
   if (!currentTip) return null;
@@ -193,6 +203,7 @@ export function DynamicTipBanner(props: DynamicTipBannerProps) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.3 }}
+          data-active-tip-index={currentTipIndex % tips.length}
           className="absolute inset-0 flex items-start gap-2.5"
         >
           {/* 아이콘 */}
@@ -222,7 +233,12 @@ export function DynamicTipBanner(props: DynamicTipBannerProps) {
               {tips.map((_, index) => (
                 <motion.button
                   key={index}
-                  onClick={() => setCurrentTipIndex(index)}
+                  onClick={() =>
+                    setTipRotation({
+                      index,
+                      resetKey: tipResetKey,
+                    })
+                  }
                   className={`rounded-full transition-all ${
                     index === currentTipIndex % tips.length
                       ? 'w-4 h-1.5 bg-[var(--knu-primary)]'

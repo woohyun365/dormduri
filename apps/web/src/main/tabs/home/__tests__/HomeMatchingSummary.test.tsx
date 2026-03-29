@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HomeMatchingSummary } from '../HomeMatchingSummary';
 import type { HomeMatchingSummaryProps } from '../HomeMatchingSummary';
@@ -94,5 +94,38 @@ describe('HomeMatchingSummary', () => {
     const buttons = screen.getAllByRole('button');
     await user.click(buttons[0]!);
     expect(onNavigate).toHaveBeenCalledWith('matching');
+  });
+
+  it('메시지 구성이 바뀌면 순환 인덱스가 첫 메시지로 리셋된다', () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(
+        <HomeMatchingSummary
+          {...defaultProps}
+          status="HAS_ACTIVITY"
+          stats={{ sentRequests: 1, receivedRequests: 1, activeChats: 0 }}
+          receivedRequesters={['홍길동']}
+        />,
+      );
+      const actionButton = screen.getAllByRole('button')[0]!;
+
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(actionButton).toHaveAttribute('data-active-message-index', '1');
+
+      rerender(
+        <HomeMatchingSummary
+          {...defaultProps}
+          status="HAS_ACTIVITY"
+          stats={{ sentRequests: 1, receivedRequests: 1, activeChats: 0 }}
+          receivedRequesters={['김철수']}
+        />,
+      );
+
+      expect(screen.getAllByRole('button')[0]!).toHaveAttribute('data-active-message-index', '0');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import type { SeasonState } from '@/types/season';
+import { mockDb } from '@/__fixtures__/mock-db';
+import {
+  MATCH_SENT_OVERRIDE_KEY,
+  MATCH_RECEIVED_OVERRIDE_KEY,
+  MATCH_CHATS_OVERRIDE_KEY,
+  readOptionalNumber,
+  writeOptionalNumber,
+} from '@/main/utils/homeDevOverrides';
 
 const SEASON_OVERRIDE_KEY = 'devpanel-season-override';
 const SEASON_DATE_OVERRIDE_KEY = 'devpanel-season-date-override';
-export const MATCHABLE_OVERRIDE_KEY = 'devpanel-matchable-count';
-export const MATCH_SENT_OVERRIDE_KEY = 'devpanel-match-sent';
-export const MATCH_RECEIVED_OVERRIDE_KEY = 'devpanel-match-received';
-export const MATCH_CHATS_OVERRIDE_KEY = 'devpanel-match-chats';
-export const PAST_SEASON_OVERRIDE_KEY = 'devpanel-past-season';
-export const NEXT_SEASON_REGISTERED_KEY = 'devpanel-next-season-registered';
 
 type DevSeasonStatus = 'auto' | SeasonState;
 
@@ -30,45 +32,74 @@ const DATE_OPTIONS: { value: string; label: string }[] = [
 ];
 
 const DDAY_PRESETS = [1, 2, 3, 5, 7, 10, 14, 21, 30];
-const MATCHABLE_PRESETS = [0, 1, 2, 3, 5, 10, 20];
 
-function getIsoDate(daysFromNow: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromNow - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+type PastSeasonSelection = 'none' | 'failed' | 'matched';
+
+function isDevelopment() {
+  return process.env.NODE_ENV === 'development';
 }
 
-function readNum(key: string): number | null {
+function getIsoDate(daysFromNow: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysFromNow - 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function readStoredValue(key: string): string | null {
   if (typeof window === 'undefined') return null;
-  const v = localStorage.getItem(key);
-  return v !== null ? Number(v) : null;
+  return localStorage.getItem(key);
+}
+
+function getInitialSeasonStatus(): DevSeasonStatus {
+  if (!isDevelopment()) return 'auto';
+  return (readStoredValue(SEASON_OVERRIDE_KEY) as DevSeasonStatus) ?? 'auto';
+}
+
+function getInitialDateMode(): string {
+  if (!isDevelopment()) return 'auto';
+  return readStoredValue(SEASON_DATE_OVERRIDE_KEY) ?? 'auto';
+}
+
+function getInitialDaysLeft(): number {
+  if (!isDevelopment()) return 14;
+  const stored = readStoredValue(SEASON_DATE_OVERRIDE_KEY);
+  if (stored && /^\d{4}-\d{2}-\d{2}$/.test(stored)) {
+    const target = new Date(`${stored}T00:00:00+09:00`).getTime();
+    const now = Date.now();
+    const days = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+    return Number.isFinite(days) && days > 0 ? Math.min(days, 30) : 14;
+  }
+  return 14;
+}
+
+function getInitialPastSeason(): PastSeasonSelection {
+  if (!isDevelopment()) return 'none';
+  return mockDb.getHomeDashboardState().pastSeason;
+}
+
+function getInitialNextSeasonRegistered(): boolean {
+  if (!isDevelopment()) return false;
+  return mockDb.getHomeDashboardState().nextSeasonRegisteredOverride === true;
 }
 
 export function HomeDevTool() {
   const [isOpen, setIsOpen] = useState(false);
-  const [status, setStatus] = useState<DevSeasonStatus>('auto');
-  const [dateMode, setDateMode] = useState<string>('auto');
-  const [daysLeft, setDaysLeft] = useState(14);
-  const [matchableCount, setMatchableCount] = useState<number | null>(null);
-  const [sentCount, setSentCount] = useState<number | null>(null);
-  const [receivedCount, setReceivedCount] = useState<number | null>(null);
-  const [chatsCount, setChatsCount] = useState<number | null>(null);
-  const [pastSeason, setPastSeason] = useState<string>('none');
-  const [nextSeasonRegistered, setNextSeasonRegistered] = useState(false);
+  const [status, setStatus] = useState<DevSeasonStatus>(getInitialSeasonStatus);
+  const [dateMode, setDateMode] = useState<string>(getInitialDateMode);
+  const [daysLeft, setDaysLeft] = useState(getInitialDaysLeft);
+  const [sentCount, setSentCount] = useState<number | null>(() =>
+    readOptionalNumber(MATCH_SENT_OVERRIDE_KEY),
+  );
+  const [receivedCount, setReceivedCount] = useState<number | null>(() =>
+    readOptionalNumber(MATCH_RECEIVED_OVERRIDE_KEY),
+  );
+  const [chatsCount, setChatsCount] = useState<number | null>(() =>
+    readOptionalNumber(MATCH_CHATS_OVERRIDE_KEY),
+  );
+  const [pastSeason, setPastSeason] = useState<PastSeasonSelection>(getInitialPastSeason);
+  const [nextSeasonRegistered, setNextSeasonRegistered] = useState(getInitialNextSeasonRegistered);
 
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    setStatus((localStorage.getItem(SEASON_OVERRIDE_KEY) as DevSeasonStatus) ?? 'auto');
-    setDateMode(localStorage.getItem(SEASON_DATE_OVERRIDE_KEY) ?? 'auto');
-    setMatchableCount(readNum(MATCHABLE_OVERRIDE_KEY));
-    setSentCount(readNum(MATCH_SENT_OVERRIDE_KEY));
-    setReceivedCount(readNum(MATCH_RECEIVED_OVERRIDE_KEY));
-    setChatsCount(readNum(MATCH_CHATS_OVERRIDE_KEY));
-    setPastSeason(localStorage.getItem(PAST_SEASON_OVERRIDE_KEY) ?? 'none');
-    setNextSeasonRegistered(localStorage.getItem(NEXT_SEASON_REGISTERED_KEY) === 'true');
-  }, []);
-
-  if (process.env.NODE_ENV !== 'development') return null;
+  if (!isDevelopment()) return null;
 
   function applyAndReload() {
     if (status === 'auto') localStorage.removeItem(SEASON_OVERRIDE_KEY);
@@ -79,16 +110,14 @@ export function HomeDevTool() {
       localStorage.setItem(SEASON_DATE_OVERRIDE_KEY, getIsoDate(daysLeft));
     else localStorage.setItem(SEASON_DATE_OVERRIDE_KEY, dateMode);
 
-    setOrRemove(MATCHABLE_OVERRIDE_KEY, matchableCount);
-    setOrRemove(MATCH_SENT_OVERRIDE_KEY, sentCount);
-    setOrRemove(MATCH_RECEIVED_OVERRIDE_KEY, receivedCount);
-    setOrRemove(MATCH_CHATS_OVERRIDE_KEY, chatsCount);
+    writeOptionalNumber(MATCH_SENT_OVERRIDE_KEY, sentCount);
+    writeOptionalNumber(MATCH_RECEIVED_OVERRIDE_KEY, receivedCount);
+    writeOptionalNumber(MATCH_CHATS_OVERRIDE_KEY, chatsCount);
 
-    if (pastSeason === 'none') localStorage.removeItem(PAST_SEASON_OVERRIDE_KEY);
-    else localStorage.setItem(PAST_SEASON_OVERRIDE_KEY, pastSeason);
-
-    if (nextSeasonRegistered) localStorage.setItem(NEXT_SEASON_REGISTERED_KEY, 'true');
-    else localStorage.removeItem(NEXT_SEASON_REGISTERED_KEY);
+    mockDb.setHomeDashboardState({
+      pastSeason,
+      nextSeasonRegisteredOverride: nextSeasonRegistered ? true : null,
+    });
 
     window.location.reload();
   }
@@ -128,31 +157,35 @@ export function HomeDevTool() {
               className="border-t border-gray-700"
             >
               <div className="p-3 space-y-3">
-                {/* 시즌 상태 */}
                 <div>
                   <label className="text-xs font-semibold text-gray-400 mb-1.5 block">
                     시즌 상태
                   </label>
                   <select
                     value={status}
-                    onChange={(e) => setStatus(e.target.value as DevSeasonStatus)}
+                    onChange={(event) => setStatus(event.target.value as DevSeasonStatus)}
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                   >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* D-Day 슬라이더 */}
                 {showDDaySlider && (
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-semibold text-gray-400">D-Day</label>
                       <span
-                        className={`text-xs font-bold ${daysLeft <= 3 ? 'text-red-400' : daysLeft <= 7 ? 'text-amber-400' : 'text-cyan-400'}`}
+                        className={`text-xs font-bold ${
+                          daysLeft <= 3
+                            ? 'text-red-400'
+                            : daysLeft <= 7
+                              ? 'text-amber-400'
+                              : 'text-cyan-400'
+                        }`}
                       >
                         D-{daysLeft}
                       </span>
@@ -162,30 +195,33 @@ export function HomeDevTool() {
                       min="1"
                       max="30"
                       value={daysLeft}
-                      onChange={(e) => {
-                        setDaysLeft(Number(e.target.value));
+                      onChange={(event) => {
+                        setDaysLeft(Number(event.target.value));
                         setDateMode('dday');
                       }}
                       className="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-500"
                     />
                     <div className="flex gap-1 mt-1.5 flex-wrap">
-                      {DDAY_PRESETS.map((p) => (
+                      {DDAY_PRESETS.map((preset) => (
                         <button
-                          key={p}
+                          key={preset}
                           onClick={() => {
-                            setDaysLeft(p);
+                            setDaysLeft(preset);
                             setDateMode('dday');
                           }}
-                          className={`px-1.5 py-0.5 text-xs rounded ${dateMode === 'dday' && daysLeft === p ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}
+                          className={`px-1.5 py-0.5 text-xs rounded ${
+                            dateMode === 'dday' && daysLeft === preset
+                              ? 'bg-cyan-600 text-white'
+                              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                          }`}
                         >
-                          {p}
+                          {preset}
                         </button>
                       ))}
                     </div>
                   </div>
                 )}
 
-                {/* 시즌 날짜 (OFF_SEASON) */}
                 {showDateSelect && (
                   <div>
                     <label className="text-xs font-semibold text-gray-400 mb-1.5 block">
@@ -193,44 +229,18 @@ export function HomeDevTool() {
                     </label>
                     <select
                       value={dateMode}
-                      onChange={(e) => setDateMode(e.target.value)}
+                      onChange={(event) => setDateMode(event.target.value)}
                       className="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
                     >
-                      {DATE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
+                      {DATE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
                   </div>
                 )}
 
-                {/* 매칭 가능 유저 */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-semibold text-gray-400">매칭 가능 유저</label>
-                    <span className="text-xs font-bold text-cyan-400">
-                      {matchableCount !== null ? `${matchableCount}명` : '자동'}
-                    </span>
-                  </div>
-                  <div className="flex gap-1 flex-wrap">
-                    <PresetButton
-                      active={matchableCount === null}
-                      onClick={() => setMatchableCount(null)}
-                      label="자동"
-                    />
-                    {MATCHABLE_PRESETS.map((p) => (
-                      <PresetButton
-                        key={p}
-                        active={matchableCount === p}
-                        onClick={() => setMatchableCount(p)}
-                        label={String(p)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* 매칭 통계 오버라이드 */}
                 <div>
                   <label className="text-xs font-semibold text-gray-400 mb-1.5 block">
                     매칭 통계
@@ -260,7 +270,6 @@ export function HomeDevTool() {
                   </div>
                 </div>
 
-                {/* 과거 시즌 결과 */}
                 <div>
                   <label className="text-xs font-semibold text-gray-400 mb-1.5 block">
                     과거 시즌
@@ -284,7 +293,6 @@ export function HomeDevTool() {
                   </div>
                 </div>
 
-                {/* 다음 시즌 등록 */}
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-gray-400">다음 시즌 등록</label>
                   <button
@@ -301,7 +309,6 @@ export function HomeDevTool() {
                   </button>
                 </div>
 
-                {/* 적용 */}
                 <button
                   onClick={applyAndReload}
                   className="w-full py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg transition-colors"
@@ -315,13 +322,6 @@ export function HomeDevTool() {
       </motion.div>
     </div>
   );
-}
-
-// --- Helpers ---
-
-function setOrRemove(key: string, value: number | null) {
-  if (value !== null) localStorage.setItem(key, String(value));
-  else localStorage.removeItem(key);
 }
 
 function PresetButton({
@@ -352,7 +352,7 @@ function CountRow({
 }: {
   label: string;
   value: number | null;
-  onChange: (v: number | null) => void;
+  onChange: (value: number | null) => void;
   max: number;
   color: string;
 }) {
@@ -362,12 +362,12 @@ function CountRow({
       <span className={`text-xs font-bold w-8 text-right ${color}`}>{value ?? '-'}</span>
       <div className="flex gap-0.5 flex-1">
         <PresetButton active={value === null} onClick={() => onChange(null)} label="자동" />
-        {Array.from({ length: max + 1 }, (_, i) => (
+        {Array.from({ length: max + 1 }, (_, index) => (
           <PresetButton
-            key={i}
-            active={value === i}
-            onClick={() => onChange(i)}
-            label={String(i)}
+            key={index}
+            active={value === index}
+            onClick={() => onChange(index)}
+            label={String(index)}
           />
         ))}
       </div>

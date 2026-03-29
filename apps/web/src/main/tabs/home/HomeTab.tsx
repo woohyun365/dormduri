@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, Calendar, School, ShieldAlert } from 'lucide-react';
 import {
@@ -14,14 +14,9 @@ import { useSeasonContext } from '@/contexts/SeasonContext';
 import { isRequestExpired } from '@/utils/matchRequest';
 import { calcSeasonDates } from '@/constants/season';
 import { PullToRefresh } from '@/components/PullToRefresh';
-import {
-  MATCH_SENT_OVERRIDE_KEY,
-  MATCH_RECEIVED_OVERRIDE_KEY,
-  MATCH_CHATS_OVERRIDE_KEY,
-  PAST_SEASON_OVERRIDE_KEY,
-  NEXT_SEASON_REGISTERED_KEY,
-} from '../../components/HomeDevTool';
 import { OfflineBanner } from '@/components/OfflineBanner';
+import { formatDateDot, calcDaysUntilTimestamp } from '@/utils/date';
+import { readHomeMatchingSummaryOverrides } from '@/main/utils/homeDevOverrides';
 import { HomeSeasonBanner } from './HomeSeasonBanner';
 import { UrgentActionBanner } from './UrgentActionBanner';
 import { HomeMatchingSummary } from './HomeMatchingSummary';
@@ -34,68 +29,20 @@ import { DynamicTipBanner } from './DynamicTipBanner';
 import type { TipSeasonStatus } from './DynamicTipBanner';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
-
-export interface BuildingStats {
-  /** 전체 프로필 수 (남녀, 건물 무관) — 비시즌 "이전 시즌 전체 참여" */
-  totalParticipants: number;
-  /** 건물 배정 유저 수 (미배정 제외) — 시즌 오픈/매칭 "전체 대기/참여" */
-  assignedParticipants: number;
-  /** 같은 건물 + 같은 성별 — 시즌 매칭 "내 건물" */
-  buildingMatchable: number;
-  /** 같은 건물 전체 (남녀) — 시즌 오픈 "00관 대기", 비시즌 "내 건물" */
-  buildingTotal: number;
-  /** 오늘 신규 전체 (고정 Mock) */
-  todayNewTotal: number;
-  /** 오늘 신규 내 건물 (고정 Mock) */
-  todayNewBuilding: number;
-  /** 전체 매칭 성공 (고정 Mock) */
-  totalMatchSuccess: number;
-  /** 내 건물 매칭 성공 (고정 Mock) */
-  buildingMatchSuccess: number;
-  /** 인기 조건 */
-  popularCondition: string;
-}
-
-export interface PastSeasonResult {
-  matched: boolean;
-  partnerName?: string;
-  totalRequests: number;
-  sentRequests: number;
-  totalChats: number;
-}
-
-// Mock 지난 시즌 결과 (Sprint 7 BE에서 실제 데이터로 교체)
-function getMockPastSeason(): PastSeasonResult | undefined {
-  const override =
-    typeof window !== 'undefined' ? localStorage.getItem(PAST_SEASON_OVERRIDE_KEY) : null;
-  if (override === 'matched') {
-    return {
-      matched: true,
-      partnerName: '홍길동',
-      totalRequests: 5,
-      sentRequests: 2,
-      totalChats: 3,
-    };
-  }
-  if (override === 'failed') {
-    return { matched: false, totalRequests: 8, sentRequests: 3, totalChats: 2 };
-  }
-  // 'none' 또는 null → 미참여
-  return undefined;
-}
+import type { BuildingStats, PastSeasonResult } from '@/main/types/home';
 
 interface HomeTabProps {
   user: UserProfile;
   onNavigate: (tab: TabId) => void;
   profiles: Omit<RoommateProfile, 'matchScore'>[];
-  buildingStats?: BuildingStats;
+  buildingStats: BuildingStats;
+  pastSeasonResult?: PastSeasonResult;
+  nextSeasonRegisteredOverride: boolean | null;
   onOpenBuildingSelect?: () => void;
   matchRequests: MatchRequest[];
   activeMatch: ActiveMatch | null;
-  receivedPendingCount: number;
 }
 
-// 선택 항목 미작성 필드 계산
 function getMissingOptionalFields(user: UserProfile): string[] {
   const fields: string[] = [];
   if (!user.messageToRoommate) fields.push('룸메에게 한마디');
@@ -111,11 +58,13 @@ export default function HomeTab({
   onNavigate,
   profiles,
   buildingStats,
+  pastSeasonResult,
+  nextSeasonRegisteredOverride,
   onOpenBuildingSelect,
   matchRequests,
   activeMatch,
-  receivedPendingCount,
 }: HomeTabProps) {
+  const [renderedAt] = useState(() => Date.now());
   const isUnassigned = !isDormitoryAssigned(user.dormitoryId);
   const dormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
@@ -123,40 +72,33 @@ export default function HomeTab({
   const { season, state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
   const isCampusOperated = isCampusOperatedFn(user.campus);
 
-  // --- 매칭 활동 요약 ---
   const matchingSummary = useMemo(() => {
     const receivedPending = matchRequests.filter(
-      (r) => r.toUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
+      (request) =>
+        request.toUserId === user.id && request.status === 'PENDING' && !isRequestExpired(request),
     );
     const sentPending = matchRequests.filter(
-      (r) => r.fromUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
+      (request) =>
+        request.fromUserId === user.id &&
+        request.status === 'PENDING' &&
+        !isRequestExpired(request),
     );
-    const conversations = matchRequests.filter((r) => r.status === 'IN_CONVERSATION');
+    const conversations = matchRequests.filter((request) => request.status === 'IN_CONVERSATION');
 
-    // 만료 임박 (48h 이내)
-    const now = Date.now();
-    const expiringCount = receivedPending.filter((r) => {
-      const remaining = new Date(r.expiresAt).getTime() - now;
+    const expiringCount = receivedPending.filter((request) => {
+      const remaining = new Date(request.expiresAt).getTime() - renderedAt;
       return remaining > 0 && remaining <= 48 * 60 * 60 * 1000;
     }).length;
 
     const receivedRequesters = receivedPending
-      .map((r) => profiles.find((p) => p.id === r.fromUserId)?.nickname)
-      .filter((n): n is string => n != null);
+      .map((request) => profiles.find((profile) => profile.id === request.fromUserId)?.nickname)
+      .filter((nickname): nickname is string => nickname != null);
 
-    // DevTool 오버라이드
-    const devSent =
-      typeof window !== 'undefined' ? localStorage.getItem(MATCH_SENT_OVERRIDE_KEY) : null;
-    const devReceived =
-      typeof window !== 'undefined' ? localStorage.getItem(MATCH_RECEIVED_OVERRIDE_KEY) : null;
-    const devChats =
-      typeof window !== 'undefined' ? localStorage.getItem(MATCH_CHATS_OVERRIDE_KEY) : null;
+    const overrides = readHomeMatchingSummaryOverrides();
+    const finalSent = overrides.sentRequests ?? sentPending.length;
+    const finalReceived = overrides.receivedRequests ?? receivedPending.length;
+    const finalChats = overrides.activeChats ?? conversations.length;
 
-    const finalSent = devSent !== null ? Number(devSent) : sentPending.length;
-    const finalReceived = devReceived !== null ? Number(devReceived) : receivedPending.length;
-    const finalChats = devChats !== null ? Number(devChats) : conversations.length;
-
-    // status 판정 (오버라이드 반영 후)
     let status: MatchingSummaryStatus;
     if (!isCampusOperated) status = 'NOT_OPERATED';
     else if (seasonState === 'OFF_SEASON') status = 'OFF_SEASON';
@@ -178,14 +120,12 @@ export default function HomeTab({
         : undefined,
       receivedRequesters,
     };
-  }, [matchRequests, activeMatch, user.id, isCampusOperated, seasonState, profiles]);
+  }, [activeMatch, isCampusOperated, matchRequests, profiles, renderedAt, seasonState, user.id]);
 
-  // --- 프로필 완성도 ---
   const missingFields = getMissingOptionalFields(user);
   const optionalCompleted = 5 - missingFields.length;
-  const hasLifestyle = true; // 가입 시 필수 입력 완료
+  const hasLifestyle = true;
 
-  // --- 팁 ---
   const tipSeasonStatus: TipSeasonStatus = !isCampusOperated
     ? 'NOT_OPERATED'
     : activeMatch
@@ -198,38 +138,33 @@ export default function HomeTab({
             ? 'SEASON_MATCHING_NO_BUILDING'
             : 'SEASON_MATCHING';
 
-  // --- 시즌 날짜 계산 ---
   const seasonDates = useMemo(() => {
     const { openStart, matchStart } = calcSeasonDates(season.roomSelectionDate);
-    const now = Date.now();
-    const openStartTs = new Date(openStart + 'T00:00:00+09:00').getTime();
-    const matchStartTs = new Date(matchStart + 'T00:00:00+09:00').getTime();
+    const openStartTs = new Date(`${openStart}T00:00:00+09:00`).getTime();
+    const matchStartTs = new Date(`${matchStart}T00:00:00+09:00`).getTime();
 
-    const formatDate = (dateStr: string) => {
-      const d = new Date(dateStr);
-      return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-    };
-
-    // 시즌 오픈용 준비 완료도
     const lifestyleScore = hasLifestyle ? 40 : 0;
     const buildingScore = dormitory ? 30 : 0;
     const optionalScore = (optionalCompleted / 5) * 30;
 
     return {
-      matchStartFormatted: formatDate(matchStart),
-      openStartFormatted: formatDate(openStart),
-      daysUntilMatchStart: Math.max(0, Math.ceil((matchStartTs - now) / (1000 * 60 * 60 * 24))),
-      daysUntilOpenStart: Math.max(0, Math.ceil((openStartTs - now) / (1000 * 60 * 60 * 24))),
-      isNextSeasonRegistered:
-        typeof window !== 'undefined' && localStorage.getItem(NEXT_SEASON_REGISTERED_KEY) === 'true'
-          ? true
-          : openStartTs > now,
+      matchStartFormatted: formatDateDot(matchStart),
+      openStartFormatted: formatDateDot(openStart),
+      daysUntilMatchStart: calcDaysUntilTimestamp(matchStartTs, renderedAt),
+      daysUntilOpenStart: calcDaysUntilTimestamp(openStartTs, renderedAt),
+      isNextSeasonRegistered: nextSeasonRegisteredOverride ?? openStartTs > renderedAt,
       profileCompletion: Math.round(lifestyleScore + buildingScore + optionalScore),
     };
-  }, [season.roomSelectionDate, hasLifestyle, dormitory, optionalCompleted]);
+  }, [
+    dormitory,
+    hasLifestyle,
+    nextSeasonRegisteredOverride,
+    optionalCompleted,
+    renderedAt,
+    season.roomSelectionDate,
+  ]);
 
   const handleRefresh = async () => {
-    // Mock: 실제로는 API 재호출. 현재는 1초 대기
     await new Promise((resolve) => setTimeout(resolve, 1000));
   };
 
@@ -237,7 +172,6 @@ export default function HomeTab({
     <div>
       <OfflineBanner />
 
-      {/* Header */}
       <header className="bg-[var(--knu-primary)] text-white px-5 py-6">
         <div className="max-w-md mx-auto">
           <div className="flex items-center justify-between mb-4">
@@ -263,7 +197,7 @@ export default function HomeTab({
                 <span>
                   {dormitory.name} · {dormitory.roomType}인실
                 </span>
-              ) : seasonState === 'OFF_SEASON' ? (
+              ) : seasonState === 'OFF_SEASON' || !isCampusOperated ? (
                 <span className="flex items-center gap-1">
                   <School className="w-3.5 h-3.5" />
                   {CAMPUS_NAMES[user.campus]}
@@ -286,7 +220,6 @@ export default function HomeTab({
       </header>
 
       <div className="relative">
-        {/* NOT_OPERATED 오버레이 */}
         {!isCampusOperated && (
           <div className="absolute inset-0 z-10 backdrop-blur-[8px] bg-white/60 border border-white/30 flex items-center justify-center">
             <div className="text-center px-8">
@@ -303,36 +236,35 @@ export default function HomeTab({
 
         <PullToRefresh onRefresh={handleRefresh}>
           <div
-            className={`max-w-md mx-auto px-5 py-5 space-y-5 ${!isCampusOperated ? 'pointer-events-none select-none grayscale-[50%]' : ''}`}
+            data-testid="home-content"
+            inert={!isCampusOperated}
+            aria-hidden={!isCampusOperated}
+            className={`max-w-md mx-auto px-5 py-5 space-y-5 ${
+              !isCampusOperated ? 'pointer-events-none select-none grayscale-[50%]' : ''
+            }`}
           >
-            {/* 시즌 배너 + 건물 통계 (시각적 병합) */}
-            <HomeSeasonBanner isUnassigned={isUnassigned}>
+            <HomeSeasonBanner isUnassigned={isUnassigned} hasActiveMatch={activeMatch !== null}>
               <BuildingStatsBar
                 seasonState={seasonState}
                 hasBuilding={dormitory !== null}
                 buildingName={dormitory?.name}
                 totalCount={
                   seasonState === 'OFF_SEASON'
-                    ? (buildingStats?.totalParticipants ?? 0)
-                    : (buildingStats?.assignedParticipants ?? 0)
+                    ? buildingStats.totalParticipants
+                    : buildingStats.assignedParticipants
                 }
                 buildingCount={
                   seasonState === 'SEASON_MATCHING'
-                    ? (buildingStats?.buildingMatchable ?? 0)
-                    : (buildingStats?.buildingTotal ?? 0)
+                    ? buildingStats.buildingMatchable
+                    : buildingStats.buildingTotal
                 }
-                todayNewTotal={
-                  seasonState === 'OFF_SEASON' ? 0 : (buildingStats?.todayNewTotal ?? 0)
-                }
-                todayNewBuilding={
-                  seasonState === 'OFF_SEASON' ? 0 : (buildingStats?.todayNewBuilding ?? 0)
-                }
+                todayNewTotal={seasonState === 'OFF_SEASON' ? 0 : buildingStats.todayNewTotal}
+                todayNewBuilding={seasonState === 'OFF_SEASON' ? 0 : buildingStats.todayNewBuilding}
                 matchSuccessCount={
                   seasonState === 'SEASON_MATCHING'
-                    ? (buildingStats?.buildingMatchSuccess ?? 0) ||
-                      (buildingStats?.totalMatchSuccess ?? 0)
+                    ? buildingStats.buildingMatchSuccess || buildingStats.totalMatchSuccess
                     : seasonState === 'OFF_SEASON'
-                      ? (buildingStats?.totalMatchSuccess ?? 0)
+                      ? buildingStats.totalMatchSuccess
                       : 0
                 }
                 urgency={
@@ -348,7 +280,6 @@ export default function HomeTab({
               />
             </HomeSeasonBanner>
 
-            {/* 긴급 알림 (MATCHING만) */}
             {seasonState === 'SEASON_MATCHING' && (
               <UrgentActionBanner
                 matchRequests={matchRequests}
@@ -358,7 +289,6 @@ export default function HomeTab({
               />
             )}
 
-            {/* === 매칭 활동 영역 (시즌별 교체) === */}
             {seasonState === 'SEASON_MATCHING' && (
               <HomeMatchingSummary
                 status={matchingSummary.status}
@@ -379,19 +309,14 @@ export default function HomeTab({
                 hasBuilding={dormitory !== null}
                 canSelectBuilding={true}
                 hasLifestylePattern={hasLifestyle}
-                optionalFieldsCompleted={optionalCompleted}
-                optionalFieldsTotal={5}
-                waitingCount={buildingStats?.buildingTotal ?? 0}
                 onPrepare={() => (dormitory ? onNavigate('profile') : onOpenBuildingSelect?.())}
-                onUpdateProfile={() => onNavigate('profile')}
                 missingFields={missingFields}
               />
             )}
 
             {seasonState === 'OFF_SEASON' &&
               (() => {
-                // 다음 시즌 이름 생성 (1학기→2학기, 2학기→다음년도 1학기)
-                const currentName = season.name; // "2026년 1학기"
+                const currentName = season.name;
                 const nextName = currentName.includes('1학기')
                   ? currentName.replace('1학기', '2학기')
                   : `${parseInt(currentName) + 1}년 1학기`;
@@ -408,16 +333,12 @@ export default function HomeTab({
                     daysUntilNext={nextDays}
                     nextSeasonDate={nextDate}
                     nextSeasonName={seasonDates.isNextSeasonRegistered ? nextName : ''}
-                    pastSeasonResult={getMockPastSeason()}
-                    hasRegisteredNext={false}
+                    pastSeasonResult={pastSeasonResult}
                     onViewHistory={() => onNavigate('matching')}
-                    onUpdateProfile={() => onNavigate('profile')}
-                    missingFields={missingFields}
                   />
                 );
               })()}
 
-            {/* 동적 팁 (MATCHING만) */}
             {seasonState === 'SEASON_MATCHING' && (
               <DynamicTipBanner
                 seasonStatus={tipSeasonStatus}
@@ -428,7 +349,6 @@ export default function HomeTab({
               />
             )}
 
-            {/* 퀵메뉴 (공통) */}
             <HomeQuickMenuSection
               seasonState={seasonState}
               onNavigateList={() => onNavigate('list')}

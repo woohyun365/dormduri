@@ -13,15 +13,7 @@ import {
   TrendingUp,
   ListX,
 } from 'lucide-react';
-import { ProfileManagementCard } from './ProfileManagementCard';
-
-interface PastSeasonResult {
-  matched: boolean;
-  partnerName?: string;
-  totalRequests: number;
-  sentRequests: number;
-  totalChats: number;
-}
+import type { PastSeasonResult } from '@/main/types/home';
 
 interface SeasonSummaryCardProps {
   pastSeasonName: string;
@@ -29,10 +21,7 @@ interface SeasonSummaryCardProps {
   nextSeasonDate: string;
   nextSeasonName: string;
   pastSeasonResult?: PastSeasonResult;
-  hasRegisteredNext: boolean;
   onViewHistory?: () => void;
-  onUpdateProfile?: () => void;
-  missingFields?: string[];
 }
 
 export function SeasonSummaryCard({
@@ -41,10 +30,7 @@ export function SeasonSummaryCard({
   nextSeasonDate,
   nextSeasonName,
   pastSeasonResult,
-  hasRegisteredNext,
   onViewHistory,
-  onUpdateProfile,
-  missingFields,
 }: SeasonSummaryCardProps) {
   const hasParticipated = !!pastSeasonResult;
   const hasNextSeason = daysUntilNext > 0 && nextSeasonDate !== '';

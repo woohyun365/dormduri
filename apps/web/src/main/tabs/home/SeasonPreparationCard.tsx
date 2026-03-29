@@ -10,10 +10,8 @@ import {
   ChevronRight,
   CircleDot,
   SquarePen,
-  Users,
   TrendingUp,
 } from 'lucide-react';
-import { AnimatedCounter } from '@/components/AnimatedCounter';
 
 interface SeasonPreparationCardProps {
   daysUntilStart: number;
@@ -23,11 +21,7 @@ interface SeasonPreparationCardProps {
   canSelectBuilding: boolean;
   buildingOpenDate?: string;
   hasLifestylePattern: boolean;
-  optionalFieldsCompleted: number;
-  optionalFieldsTotal: number;
-  waitingCount: number;
   onPrepare: () => void;
-  onUpdateProfile?: () => void;
   missingFields?: string[];
 }
 
@@ -39,13 +33,12 @@ export function SeasonPreparationCard({
   canSelectBuilding,
   buildingOpenDate,
   hasLifestylePattern,
-  optionalFieldsCompleted,
-  optionalFieldsTotal,
-  waitingCount,
   onPrepare,
-  onUpdateProfile,
   missingFields,
 }: SeasonPreparationCardProps) {
+  const optionalFieldsTotal = ALL_OPTIONAL_FIELDS.length;
+  const optionalFieldsCompleted =
+    optionalFieldsTotal - (missingFields?.length ?? optionalFieldsTotal);
   const checklistItems = [
     { label: '생활패턴 입력', completed: hasLifestylePattern, required: true, waiting: false },
     {
@@ -138,8 +131,6 @@ export function SeasonPreparationCard({
         <ChecklistSection
           checklistItems={checklistItems}
           missingFields={missingFields}
-          optionalFieldsCompleted={optionalFieldsCompleted}
-          optionalFieldsTotal={optionalFieldsTotal}
           onPrepare={onPrepare}
         />
 
@@ -181,14 +172,10 @@ const ALL_OPTIONAL_FIELDS = ['룸메에게 한마디', '단대', '학년', 'MBTI
 function ChecklistSection({
   checklistItems,
   missingFields,
-  optionalFieldsCompleted,
-  optionalFieldsTotal,
   onPrepare,
 }: {
   checklistItems: ChecklistItem[];
   missingFields?: string[];
-  optionalFieldsCompleted: number;
-  optionalFieldsTotal: number;
   onPrepare: () => void;
 }) {
   const [optionalExpanded, setOptionalExpanded] = useState(false);

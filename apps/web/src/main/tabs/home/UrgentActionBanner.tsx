@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Clock, ChevronRight } from 'lucide-react';
 import { isRequestExpired } from '@/utils/matchRequest';
@@ -22,21 +22,21 @@ export function UrgentActionBanner({
   profiles,
   onNavigate,
 }: UrgentActionBannerProps) {
+  const [renderedAt] = useState(() => Date.now());
   const urgentRequests = useMemo(() => {
-    const now = Date.now();
     return matchRequests
       .filter((r) => {
         if (r.toUserId !== userId) return false;
         if (r.status !== 'PENDING') return false;
         if (isRequestExpired(r)) return false;
-        const remaining = new Date(r.expiresAt).getTime() - now;
+        const remaining = new Date(r.expiresAt).getTime() - renderedAt;
         return remaining > 0 && remaining <= URGENT_THRESHOLD_MS;
       })
       .map((r) => {
         const sender = profiles.find((p) => p.id === r.fromUserId);
         const hoursLeft = Math.max(
           1,
-          Math.ceil((new Date(r.expiresAt).getTime() - now) / (60 * 60 * 1000)),
+          Math.ceil((new Date(r.expiresAt).getTime() - renderedAt) / (60 * 60 * 1000)),
         );
         return {
           id: r.id,
@@ -44,7 +44,7 @@ export function UrgentActionBanner({
           hoursLeft,
         };
       });
-  }, [matchRequests, userId, profiles]);
+  }, [matchRequests, profiles, renderedAt, userId]);
 
   if (urgentRequests.length === 0) return null;
 

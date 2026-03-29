@@ -171,21 +171,36 @@ export function HomeMatchingSummary({
 }: HomeMatchingSummaryProps) {
   const maxPending = stats.maxPending ?? 3;
   const expiringCount = stats.expiringCount ?? 0;
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-
   const messages = generateMessages(status, stats, activeMatch, receivedRequesters);
+  const messageResetKey = [
+    status,
+    stats.sentRequests,
+    stats.receivedRequests,
+    stats.activeChats,
+    activeMatch?.nickname ?? '',
+    activeMatch?.matchScore ?? '',
+    receivedRequesters?.join(',') ?? '',
+  ].join('|');
+  const [messageRotation, setMessageRotation] = useState({
+    index: 0,
+    resetKey: messageResetKey,
+  });
+  const currentMessageIndex =
+    messageRotation.resetKey === messageResetKey ? messageRotation.index : 0;
 
   useEffect(() => {
     if (messages.length <= 1) return;
     const interval = setInterval(() => {
-      setCurrentMessageIndex((prev) => (prev + 1) % messages.length);
+      setMessageRotation((prev) => ({
+        resetKey: messageResetKey,
+        index:
+          prev.resetKey === messageResetKey
+            ? (prev.index + 1) % messages.length
+            : 1 % messages.length,
+      }));
     }, 3000);
     return () => clearInterval(interval);
-  }, [messages.length]);
-
-  useEffect(() => {
-    setCurrentMessageIndex(0);
-  }, [messages.length]);
+  }, [messageResetKey, messages.length]);
 
   const shouldShowStats = status === 'HAS_ACTIVITY' || status === 'NO_ACTIVITY';
   const isInactive =
@@ -266,6 +281,7 @@ export function HomeMatchingSummary({
           onClick={isInactive ? undefined : () => onNavigate('matching')}
           whileHover={isInactive ? undefined : { scale: 1.01 }}
           whileTap={isInactive ? undefined : { scale: 0.99 }}
+          data-active-message-index={currentMessageIndex % messages.length}
           className={`w-full mb-4 p-3 bg-[var(--knu-background-alt)] rounded-xl transition-colors ${
             isInactive ? 'cursor-default' : 'hover:bg-gray-100 cursor-pointer'
           }`}
