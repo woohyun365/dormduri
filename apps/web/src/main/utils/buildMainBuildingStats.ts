@@ -1,10 +1,11 @@
 import { isDormitoryAssigned } from '@/utils/dormitory';
-import type { BuildingStats } from '../tabs/home/HomeTab';
+import type { BuildingStats, BuildingStatsSnapshot } from '../types/home';
 import type { UserProfile, RoommateProfile } from '@/types/profile';
 
 export function buildMainBuildingStats(
   user: UserProfile,
   profiles: Omit<RoommateProfile, 'matchScore'>[],
+  summary: BuildingStatsSnapshot,
 ): BuildingStats {
   const hasBuilding = isDormitoryAssigned(user.dormitoryId);
 
@@ -26,14 +27,12 @@ export function buildMainBuildingStats(
   }
 
   return {
-    // 고정 Mock — Sprint 7 BE에서 실제 전체 집계 API로 교체
-    // profiles가 건물 필터링되어도 전체 통계는 항상 제공
-    totalParticipants: 135,
-    assignedParticipants: 120,
-    todayNewTotal: 5,
-    todayNewBuilding: hasBuilding ? 2 : 0,
-    totalMatchSuccess: 8,
-    buildingMatchSuccess: hasBuilding ? 3 : 0,
+    totalParticipants: summary.totalParticipants,
+    assignedParticipants: summary.assignedParticipants,
+    todayNewTotal: summary.todayNewTotal,
+    todayNewBuilding: hasBuilding ? summary.todayNewBuilding : 0,
+    totalMatchSuccess: summary.totalMatchSuccess,
+    buildingMatchSuccess: hasBuilding ? summary.buildingMatchSuccess : 0,
     // 프로필 기반 계산 (동일 건물)
     buildingMatchable: sameBuildingGender.length,
     buildingTotal: sameBuilding.length,

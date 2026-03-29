@@ -118,6 +118,35 @@ describe('mockDb 로그인 잠금', () => {
   });
 });
 
+describe('mockDb 홈 대시보드 상태', () => {
+  it('기본 홈 대시보드 상태를 반환한다', () => {
+    const state = mockDb.getHomeDashboardState();
+    expect(state.buildingStats.totalParticipants).toBe(135);
+    expect(state.pastSeason).toBe('none');
+    expect(state.nextSeasonRegisteredOverride).toBeNull();
+  });
+
+  it('패치한 홈 대시보드 상태를 저장한다', () => {
+    mockDb.setHomeDashboardState({
+      pastSeason: 'matched',
+      nextSeasonRegisteredOverride: true,
+      buildingStats: { totalParticipants: 222 },
+    });
+
+    const state = mockDb.getHomeDashboardState();
+    expect(state.pastSeason).toBe('matched');
+    expect(state.nextSeasonRegisteredOverride).toBe(true);
+    expect(state.buildingStats.totalParticipants).toBe(222);
+    expect(state.buildingStats.assignedParticipants).toBe(120);
+  });
+
+  it('resetHomeDashboardState로 기본값을 복구한다', () => {
+    mockDb.setHomeDashboardState({ pastSeason: 'failed' });
+    mockDb.resetHomeDashboardState();
+    expect(mockDb.getHomeDashboardState().pastSeason).toBe('none');
+  });
+});
+
 // --- 비밀번호 재설정 (재사용 방지) ---
 
 describe('mockDb 비밀번호 재설정', () => {

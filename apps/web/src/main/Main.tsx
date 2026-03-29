@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
@@ -16,20 +16,25 @@ import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
 import { useMainMatchingState } from './hooks/useMainMatchingState';
 import { useMainListViewState } from './hooks/useMainListViewState';
-import { buildMainBuildingStats } from './utils/buildMainBuildingStats';
 import { UNASSIGNED_ID, isCampusOperated } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
+import { homeApi } from '@/api/home';
 import { SeasonProvider } from '@/contexts/SeasonContext';
+import { getMainFeatureFlags } from './utils/mainFeatureFlags';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
+import type { BuildingStats, PastSeasonResult } from './types/home';
 
 export type { TabId, UserProfile } from '@/types/profile';
 
 /** 서비스 레이어에서 로드하는 데이터 */
 interface MainData {
   profiles: Omit<RoommateProfile, 'matchScore'>[];
+  buildingStats: BuildingStats;
+  pastSeasonResult?: PastSeasonResult;
+  nextSeasonRegisteredOverride: boolean | null;
   season: Season;
   isOpen: boolean;
   isMatching: boolean;
@@ -51,16 +56,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const showToast = useCallback((msg: string) => toast(msg), []);
 
   // --- Onboarding ---
-  const {
-    hasSeenGuide,
-    markGuideSeen,
-    isChecklistDismissed,
-    forceShowChecklist,
-    dismissChecklist,
-    resetChecklist,
-    hasSeenTooltip,
-    markTooltipSeen,
-  } = useOnboardingState(initialUser.nickname);
+  const { hasSeenGuide, markGuideSeen, resetChecklist, hasSeenTooltip, markTooltipSeen } =
+    useOnboardingState(initialUser.nickname);
 
   // --- Domain hooks ---
   const profileState = useMainProfileState(initialUser, {
@@ -104,6 +101,12 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         dormitoryIdForFilter,
       );
 
+      const [buildingStats, pastSeasonResult, nextSeasonRegisteredOverride] = await Promise.all([
+        homeApi.getBuildingStats(profileState.user, profileResult),
+        homeApi.getPastSeasonResult(),
+        homeApi.getNextSeasonRegisteredOverride(),
+      ]);
+
       if (cancelled) return;
 
       // 시즌 종료 시 매칭 상태 초기화 (AC-B03)
@@ -114,6 +117,9 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
       setData({
         profiles: profileResult,
+        buildingStats,
+        pastSeasonResult,
+        nextSeasonRegisteredOverride,
         season: season.season,
         isOpen: season.isOpen,
         isMatching: season.isMatching,
@@ -126,7 +132,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     return () => {
       cancelled = true;
     };
-  }, [initialUser.campus, initialUser.gender, currentDormitoryId]);
+  }, [currentDormitoryId, initialUser.campus, initialUser.gender, profileState.user]);
 
   const socialState = useMainSocialState(showToast);
 
@@ -135,16 +141,9 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     profileState.user.id,
     profileState.user.lifestyle,
     data?.profiles ?? [],
-    data?.seasonState,
   );
 
   const listViewState = useMainListViewState();
-
-  // --- Derived ---
-  const buildingStats = useMemo(
-    () => (data ? buildMainBuildingStats(profileState.user, data.profiles) : undefined),
-    [profileState.user, data],
-  );
 
   // 탭 전환 시 스크롤 최상단 + sessionStorage 저장
   useEffect(() => {
@@ -171,11 +170,17 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     isMatching: data.isMatching,
     daysUntilEnd: data.daysUntilEnd,
   };
+  const campusOperated = isCampusOperated(profileState.user.campus);
+  const featureFlags = getMainFeatureFlags({
+    campusOperated,
+    isOpen: data.isOpen,
+    isMatching: data.isMatching,
+  });
 
   return (
     <SeasonProvider value={seasonContextValue}>
       <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
-        {isCampusOperated(profileState.user.campus) &&
+        {campusOperated &&
           (data.isOpen || data.isMatching) &&
           (profileState.user.dormitoryId === null || profileState.showBuildingSelect) && (
             <BuildingSelectModal
@@ -194,11 +199,12 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               user={profileState.user}
               onNavigate={setActiveTab}
               profiles={data.profiles}
-              buildingStats={buildingStats}
+              buildingStats={data.buildingStats}
+              pastSeasonResult={data.pastSeasonResult}
+              nextSeasonRegisteredOverride={data.nextSeasonRegisteredOverride}
               onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
               matchRequests={matchingState.matchRequests}
               activeMatch={matchingState.activeMatch}
-              receivedPendingCount={matchingState.receivedPendingCount}
             />
           )}
           {activeTab === 'list' && (
@@ -212,15 +218,18 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onFiltersChange={listViewState.setFilters}
               viewMode={listViewState.viewMode}
               onViewModeChange={listViewState.setViewMode}
+              isCampusOperated={campusOperated}
               blockedUserIds={socialState.blockedUserIds}
               onBlock={socialState.handleBlockUser}
               onReport={socialState.handleReportUser}
               matchRequests={matchingState.matchRequests}
               activeMatch={matchingState.activeMatch}
-              onSendRequest={data.isMatching ? matchingState.handleSendRequest : undefined}
+              onSendRequest={
+                featureFlags.canSendMatchRequest ? matchingState.handleSendRequest : undefined
+              }
               bookmarkedUserIds={socialState.bookmarkedUserIds}
               onToggleBookmark={
-                data.isOpen || data.isMatching ? socialState.handleToggleBookmark : undefined
+                featureFlags.canToggleBookmark ? socialState.handleToggleBookmark : undefined
               }
               showProfileBanner={listViewState.showProfileBanner}
               onDismissProfileBanner={listViewState.dismissProfileBanner}
@@ -276,7 +285,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               ? { matching: matchingState.receivedPendingCount }
               : undefined
           }
-          disabledTabs={!isCampusOperated(profileState.user.campus) ? ['matching'] : []}
+          disabledTabs={featureFlags.disabledTabs}
         />
 
         {/* Dormitory Guide Sheet */}

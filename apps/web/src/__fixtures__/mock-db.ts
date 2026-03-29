@@ -1,5 +1,6 @@
 import type { LifestyleData } from '@/types/lifestyle';
 import type { Campus } from '@/types/profile';
+import type { HomeDashboardState } from '@/main/types/home';
 
 /** crypto.randomUUID() 폴백 (HTTP+IP 환경에서 Secure Context 미충족 시) */
 function generateId(): string {
@@ -26,7 +27,21 @@ const STORAGE_KEYS = {
   users: 'mockdb-users',
   currentUser: 'mockdb-current-user',
   loginAttempts: 'mockdb-login-attempts',
+  homeDashboard: 'mockdb-home-dashboard',
 } as const;
+
+const DEFAULT_HOME_DASHBOARD_STATE: HomeDashboardState = {
+  buildingStats: {
+    totalParticipants: 135,
+    assignedParticipants: 120,
+    todayNewTotal: 5,
+    todayNewBuilding: 2,
+    totalMatchSuccess: 8,
+    buildingMatchSuccess: 3,
+  },
+  pastSeason: 'none',
+  nextSeasonRegisteredOverride: null,
+};
 
 // 인증 코드는 세션 내에서만 유효하므로 인메모리 유지
 const verificationCodes: Map<string, string> = new Map();
@@ -179,12 +194,39 @@ export const mockDb = {
     return readJson<MockUser[]>(STORAGE_KEYS.users, []);
   },
 
+  getHomeDashboardState(): HomeDashboardState {
+    return readJson<HomeDashboardState>(STORAGE_KEYS.homeDashboard, DEFAULT_HOME_DASHBOARD_STATE);
+  },
+
+  setHomeDashboardState(
+    patch: Partial<Omit<HomeDashboardState, 'buildingStats'>> & {
+      buildingStats?: Partial<HomeDashboardState['buildingStats']>;
+    },
+  ): HomeDashboardState {
+    const current = this.getHomeDashboardState();
+    const next: HomeDashboardState = {
+      ...current,
+      ...patch,
+      buildingStats: {
+        ...current.buildingStats,
+        ...(patch.buildingStats ?? {}),
+      },
+    };
+    writeJson(STORAGE_KEYS.homeDashboard, next);
+    return next;
+  },
+
+  resetHomeDashboardState(): void {
+    writeJson(STORAGE_KEYS.homeDashboard, DEFAULT_HOME_DASHBOARD_STATE);
+  },
+
   /** localStorage의 mockDb 데이터 전체 초기화 (DevPanel용) */
   clearAll(): void {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(STORAGE_KEYS.users);
     localStorage.removeItem(STORAGE_KEYS.currentUser);
     localStorage.removeItem(STORAGE_KEYS.loginAttempts);
+    localStorage.removeItem(STORAGE_KEYS.homeDashboard);
     verificationCodes.clear();
     console.log('[MockDB] 데이터 초기화 완료');
   },
