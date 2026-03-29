@@ -12,6 +12,7 @@ import {
   SquarePen,
   TrendingUp,
 } from 'lucide-react';
+import { sectionCard, sectionHeader } from '@/main/styles/home';
 
 interface SeasonPreparationCardProps {
   daysUntilStart: number;
@@ -83,9 +84,9 @@ export function SeasonPreparationCard({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5 keep-all"
+      className={sectionCard()}
     >
-      <div className="flex items-center justify-between mb-4">
+      <div className={sectionHeader}>
         <h2 className="font-bold text-[var(--knu-text-primary)]">매칭 활동</h2>
         <TrendingUp className="w-5 h-5 text-[var(--knu-primary)]" />
       </div>

@@ -4,6 +4,15 @@ import { motion } from 'motion/react';
 import { AlertTriangle, Link as LinkIcon, Megaphone, Sparkles, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import type { SeasonState } from '@/types/season';
+import {
+  glassCard,
+  statLabel,
+  statLabelAccent,
+  statValue,
+  statNum,
+  statUnit,
+  todayNewBadge,
+} from '@/main/styles/home';
 
 type Urgency = 'normal' | 'warning' | 'critical';
 
@@ -46,25 +55,25 @@ export function BuildingStatsBar({
     return (
       <>
         <div className="grid grid-cols-2 gap-3 mb-3">
-          <div className="backdrop-blur-md bg-white/40 border border-white/60 rounded-xl p-3 shadow-sm">
-            <div className="flex items-center gap-1 text-xs text-[var(--knu-text-tertiary)] mb-1">
+          <div className={glassCard('white', 'p-3')}>
+            <div className={statLabel}>
               <Users className="w-3 h-3" />
               <span>전체 참여</span>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-[var(--knu-primary)]">{totalCount}</span>
-              <span className="text-sm text-[var(--knu-text-secondary)]">명</span>
+            <div className={statValue}>
+              <span className={statNum('primary')}>{totalCount}</span>
+              <span className={statUnit('primary')}>명</span>
             </div>
           </div>
 
-          <div className="backdrop-blur-md bg-purple-100/40 border border-purple-200/50 rounded-xl p-3 shadow-sm">
-            <div className="flex items-center gap-1 text-xs text-purple-600 font-medium mb-1">
+          <div className={glassCard('purple', 'p-3')}>
+            <div className={statLabelAccent('purple')}>
               <Sparkles className="w-3 h-3" />
               <span>매칭 성공</span>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-purple-600">{matchSuccessCount}</span>
-              <span className="text-sm text-purple-600">명</span>
+            <div className={statValue}>
+              <span className={statNum('purple')}>{matchSuccessCount}</span>
+              <span className={statUnit('purple')}>명</span>
             </div>
           </div>
         </div>
@@ -80,10 +89,8 @@ export function BuildingStatsBar({
 
   // 건물 카드 스타일: critical → glassmorphism
   const buildingCardClass = (() => {
-    if (seasonState === 'SEASON_OPEN')
-      return 'backdrop-blur-md bg-blue-100/50 border border-blue-300/60 shadow-sm';
-    if (urgency === 'critical')
-      return 'backdrop-blur-md bg-white/40 border border-white/60 shadow-sm';
+    if (seasonState === 'SEASON_OPEN') return glassCard('blue');
+    if (urgency === 'critical') return glassCard('white');
     return 'bg-blue-50 border border-blue-200';
   })();
 
@@ -91,19 +98,19 @@ export function BuildingStatsBar({
     <>
       {/* 통계 그리드 */}
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="backdrop-blur-md bg-white/40 border border-white/60 rounded-xl p-3 shadow-sm">
-          <div className="flex items-center gap-1 text-xs text-[var(--knu-text-tertiary)] mb-1">
+        <div className={glassCard('white', 'p-3')}>
+          <div className={statLabel}>
             <Users className="w-3 h-3" />
             <span>전체 {label}</span>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-[var(--knu-text-primary)]">{totalCount}</span>
-            <span className="text-sm text-[var(--knu-text-secondary)]">명</span>
+          <div className={statValue}>
+            <span className={statNum()}>{totalCount}</span>
+            <span className={statUnit()}>명</span>
             {todayNewTotal > 0 && (
               <motion.span
                 animate={{ scale: [1, 1.1, 1] }}
                 transition={{ duration: 1.5, repeat: Infinity }}
-                className="text-xs font-bold text-green-600 ml-1"
+                className={todayNewBadge}
               >
                 (+{todayNewTotal})
               </motion.span>
@@ -113,20 +120,20 @@ export function BuildingStatsBar({
 
         {hasBuilding ? (
           <div className={`rounded-xl p-3 ${buildingCardClass}`}>
-            <div className="flex items-center gap-1 text-xs text-blue-600 font-medium mb-1">
+            <div className={statLabelAccent('blue')}>
               <Users className="w-3 h-3" />
               <span>
                 {buildingName} {label}
               </span>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold text-blue-600">{buildingCount}</span>
-              <span className="text-sm text-blue-600">명</span>
+            <div className={statValue}>
+              <span className={statNum('blue')}>{buildingCount}</span>
+              <span className={statUnit('blue')}>명</span>
               {todayNewBuilding > 0 && (
                 <motion.span
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
-                  className="text-xs font-bold text-green-600 ml-1"
+                  className={todayNewBadge}
                 >
                   (+{todayNewBuilding})
                 </motion.span>
@@ -135,7 +142,7 @@ export function BuildingStatsBar({
           </div>
         ) : (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-            <div className="flex items-center gap-1 text-xs text-amber-700 font-medium mb-1">
+            <div className={statLabelAccent('amber')}>
               <Users className="w-3 h-3" />
               <span>내 건물</span>
             </div>
@@ -168,10 +175,8 @@ function MatchSuccessText({
   urgency: Urgency;
   daysLeft?: number;
 }) {
-  // 속도: normal/warning 2.5s, critical 3s (차분하게)
   const speed = urgency === 'critical' ? 3 : 2.5;
 
-  // 색상 테마
   const textColor =
     urgency === 'critical'
       ? 'text-red-900'
@@ -180,9 +185,7 @@ function MatchSuccessText({
         : 'text-indigo-900/80';
 
   const numberColors =
-    urgency === 'critical'
-      ? ['#e11d48', '#9f1239', '#e11d48'] // rose-600↔rose-800
-      : ['#9333ea', '#6b21a8', '#9333ea']; // purple-600↔purple-800
+    urgency === 'critical' ? ['#e11d48', '#9f1239', '#e11d48'] : ['#9333ea', '#6b21a8', '#9333ea'];
 
   const glowColors =
     urgency === 'critical'
@@ -243,7 +246,7 @@ function MatchSuccessText({
           <motion.span
             animate={{ color: numberColors, textShadow: glowColors }}
             transition={{ duration: speed, repeat: Infinity, ease: 'easeInOut' }}
-            className={`text-base font-extrabold ${numberBaseColor} `}
+            className={`text-base font-extrabold ${numberBaseColor}`}
           >
             {count}명
           </motion.span>

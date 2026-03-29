@@ -6,6 +6,7 @@ import { Calendar, AlertTriangle, Info } from 'lucide-react';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { calcSeasonDates } from '@/constants/season';
 import { calcDaysUntilKstDate, formatDateSpaced, formatMonthDay } from '@/utils/date';
+import { glassCard } from '@/main/styles/home';
 
 interface HomeSeasonBannerProps {
   isUnassigned?: boolean;
@@ -160,11 +161,7 @@ export function HomeSeasonBanner({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className={`backdrop-blur-md shadow-sm rounded-xl p-3 mb-3 flex items-start gap-2 ${
-            daysUntilEnd <= 3
-              ? 'bg-red-100/50 border border-red-300/60'
-              : 'bg-amber-100/50 border border-amber-300/60'
-          }`}
+          className={`${glassCard(daysUntilEnd <= 3 ? 'red' : 'amber', 'p-3 mb-3')} flex items-start gap-2`}
         >
           <AlertTriangle
             className={`w-4 h-4 ${daysUntilEnd <= 3 ? 'text-red-600' : 'text-amber-600'} flex-shrink-0 mt-0.5`}
@@ -215,7 +212,7 @@ export function HomeSeasonBanner({
       )}
 
       {seasonState === 'OFF_SEASON' && (
-        <div className="backdrop-blur-md bg-blue-100/40 border border-blue-200/60 rounded-xl p-3 mb-3 shadow-sm">
+        <div className={glassCard('blue', 'p-3 mb-3')}>
           <div className="flex items-start gap-2">
             <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-blue-800 font-medium leading-relaxed">

@@ -17,6 +17,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { AnimatedCounter } from '@/components/AnimatedCounter';
+import { sectionCard, sectionHeader, glassCard } from '@/main/styles/home';
 import type { TabId } from '@/types/profile';
 
 // --- Types ---
@@ -230,13 +231,13 @@ export function HomeMatchingSummary({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5 keep-all"
+        className={sectionCard()}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className={sectionHeader}>
           <h2 className="font-bold text-[var(--knu-text-primary)]">매칭 활동</h2>
           <Lock className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
         </div>
-        <div className="backdrop-blur-md bg-amber-50/60 border border-amber-200/80 rounded-xl p-4 shadow-md">
+        <div className={glassCard('amber', 'p-4 shadow-md')}>
           <div className="flex items-start gap-3 mb-3">
             <div className="w-12 h-12 bg-amber-100/80 rounded-full flex items-center justify-center flex-shrink-0">
               <AlertTriangle className="w-6 h-6 text-amber-600" />
@@ -268,9 +269,9 @@ export function HomeMatchingSummary({
   }
 
   return (
-    <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5 keep-all">
+    <div className={sectionCard()}>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-4">
+      <div className={sectionHeader}>
         <h2 className="font-bold text-[var(--knu-text-primary)]">매칭 활동</h2>
         <TrendingUp className="w-5 h-5 text-[var(--knu-primary)]" />
       </div>
