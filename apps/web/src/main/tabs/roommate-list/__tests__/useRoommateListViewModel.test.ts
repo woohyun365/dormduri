@@ -105,6 +105,7 @@ interface SetupParams {
   filters?: FilterState;
   sortMode?: 'match' | 'recent';
   viewMode?: 'all' | 'bookmarked';
+  isCampusOperated?: boolean;
   blockedUserIds?: Set<string>;
   bookmarkedUserIds?: Set<string>;
   matchRequests?: MatchRequest[];
@@ -119,6 +120,7 @@ function setup(overrides: SetupParams = {}) {
       filters: overrides.filters ?? defaultFilters,
       sortMode: overrides.sortMode ?? 'match',
       viewMode: overrides.viewMode ?? 'all',
+      isCampusOperated: overrides.isCampusOperated ?? true,
       blockedUserIds: overrides.blockedUserIds,
       bookmarkedUserIds: overrides.bookmarkedUserIds,
       matchRequests: overrides.matchRequests ?? [],
@@ -398,7 +400,21 @@ describe('getButtonState', () => {
       requests: [],
       activeMatch: null,
       blockedUserIds: blocked,
+      isCampusOperated: true,
       isSeasonMatching: true,
     });
+  });
+
+  it('비운영 캠퍼스 여부를 버튼 상태 계산에 전달한다', () => {
+    const profile = { ...makeProfile({ id: 'target' }), matchScore: 70 } as RoommateProfile;
+    const { result } = setup({ isCampusOperated: false });
+
+    result.current.getButtonState(profile);
+
+    expect(getMatchButtonState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isCampusOperated: false,
+      }),
+    );
   });
 });
