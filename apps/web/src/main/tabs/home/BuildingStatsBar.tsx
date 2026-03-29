@@ -78,6 +78,9 @@ export function BuildingStatsBar({
           </div>
         </div>
 
+        <p className="text-xs text-[var(--knu-text-tertiary)] text-center mb-1">
+          주변에 룸메를 구하는 친구가 있다면 서비스를 공유해보세요!
+        </p>
         <CopyLinkButton onClick={handleCopyLink} />
       </>
     );
@@ -154,11 +157,15 @@ export function BuildingStatsBar({
         )}
       </div>
 
-      {/* 매칭 성공 — urgency 기반 (SEASON_MATCHING만) */}
+      {/* 매칭 성공 — 카드와 헬퍼 텍스트 사이 */}
       {isMatching && matchSuccessCount > 0 && (
         <MatchSuccessText count={matchSuccessCount} urgency={urgency} daysLeft={daysLeft} />
       )}
 
+      {/* 헬퍼 텍스트 + 링크 복사 */}
+      <p className="text-xs text-[var(--knu-text-tertiary)] text-center mb-1">
+        주변에 룸메를 구하는 친구가 있다면 서비스를 공유해보세요!
+      </p>
       <CopyLinkButton onClick={handleCopyLink} />
     </>
   );
@@ -211,7 +218,7 @@ function MatchSuccessText({
         y: { duration: 0.5 },
         scale: { duration: speed, repeat: Infinity, ease: 'easeInOut', delay: 0.5 },
       }}
-      className={`text-sm font-medium ${textColor} mb-3 px-1 origin-left`}
+      className={`text-sm font-medium ${textColor} my-5 px-1 origin-left`}
     >
       {urgency === 'critical' ? (
         <>
@@ -261,10 +268,9 @@ function CopyLinkButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-center text-xs text-[var(--knu-text-tertiary)] hover:text-[var(--knu-text-secondary)] py-2 transition-colors"
+      className="w-full flex items-center justify-center gap-1 text-xs font-medium text-[var(--knu-text-tertiary)] hover:text-[var(--knu-text-secondary)] py-2 transition-colors"
     >
-      <p className="mb-1">주변에 룸메를 구하는 친구가 있다면 서비스를 공유해보세요!</p>
-      <span className="inline-flex items-center gap-1 font-medium">
+      <span className="inline-flex items-center gap-1">
         <LinkIcon className="w-3 h-3" />
         링크 복사
       </span>
