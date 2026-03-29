@@ -43,6 +43,17 @@ export const DORMITORIES: Dormitory[] = [
   },
 ];
 
+export const CAMPUS_NAMES: Record<Campus, string> = {
+  CHUNCHEON: '춘천캠퍼스',
+  SAMCHEOK: '삼척캠퍼스',
+  DOGYE: '도계캠퍼스',
+};
+
+/** 캠퍼스에 운영 중인 건물이 있는지 판단 */
+export function isCampusOperated(campus: Campus): boolean {
+  return DORMITORIES.some((d) => d.campus === campus && d.isOperated);
+}
+
 export function getAvailableDormitories(campus: Campus, gender: 'M' | 'F'): Dormitory[] {
   return DORMITORIES.filter(
     (d) => d.campus === campus && d.isOperated && (d.gender === gender || d.gender === 'BOTH'),

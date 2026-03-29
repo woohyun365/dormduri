@@ -17,7 +17,7 @@ import { useMainSocialState } from './hooks/useMainSocialState';
 import { useMainMatchingState } from './hooks/useMainMatchingState';
 import { useMainListViewState } from './hooks/useMainListViewState';
 import { buildMainBuildingStats } from './utils/buildMainBuildingStats';
-import { UNASSIGNED_ID } from '@/constants/dormitory';
+import { UNASSIGNED_ID, isCampusOperated } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
 import { SeasonProvider } from '@/contexts/SeasonContext';
@@ -175,7 +175,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   return (
     <SeasonProvider value={seasonContextValue}>
       <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
-        {(data.isOpen || data.isMatching) &&
+        {isCampusOperated(profileState.user.campus) &&
+          (data.isOpen || data.isMatching) &&
           (profileState.user.dormitoryId === null || profileState.showBuildingSelect) && (
             <BuildingSelectModal
               campus={profileState.user.campus}
@@ -275,6 +276,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               ? { matching: matchingState.receivedPendingCount }
               : undefined
           }
+          disabledTabs={!isCampusOperated(profileState.user.campus) ? ['matching'] : []}
         />
 
         {/* Dormitory Guide Sheet */}

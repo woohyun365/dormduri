@@ -8,6 +8,7 @@ interface BottomTabBarProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
   badges?: Partial<Record<TabId, number>>;
+  disabledTabs?: TabId[];
 }
 
 const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
@@ -18,7 +19,12 @@ const tabs: { id: TabId; label: string; icon: typeof Home }[] = [
   { id: 'settings', label: '설정', icon: Settings },
 ];
 
-export function BottomTabBar({ activeTab, onTabChange, badges }: BottomTabBarProps) {
+export function BottomTabBar({
+  activeTab,
+  onTabChange,
+  badges,
+  disabledTabs = [],
+}: BottomTabBarProps) {
   return (
     <nav
       aria-label="메인 네비게이션"
@@ -27,18 +33,22 @@ export function BottomTabBar({ activeTab, onTabChange, badges }: BottomTabBarPro
       <div className="max-w-md mx-auto flex items-center justify-around">
         {tabs.map(({ id, label, icon: Icon }) => {
           const isActive = activeTab === id;
+          const isDisabled = disabledTabs.includes(id);
           const badge = badges?.[id];
           return (
             <motion.button
               key={id}
               type="button"
               aria-current={isActive ? 'page' : undefined}
-              onClick={() => onTabChange(id)}
-              whileTap={{ scale: 0.95 }}
+              aria-disabled={isDisabled || undefined}
+              onClick={isDisabled ? undefined : () => onTabChange(id)}
+              whileTap={isDisabled ? undefined : { scale: 0.95 }}
               className={`relative flex-1 flex flex-col items-center gap-1 py-3 px-1 transition-all ${
-                isActive
-                  ? 'text-[var(--knu-primary)]'
-                  : 'text-[var(--knu-text-tertiary)] hover:text-[var(--knu-text-secondary)]'
+                isDisabled
+                  ? 'text-[var(--knu-text-tertiary)] opacity-40 cursor-not-allowed'
+                  : isActive
+                    ? 'text-[var(--knu-primary)]'
+                    : 'text-[var(--knu-text-tertiary)] hover:text-[var(--knu-text-secondary)]'
               }`}
             >
               <div className="relative">
