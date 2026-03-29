@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { AnimatedCounter } from '@/components/AnimatedCounter';
 import { sectionCard, sectionHeader, glassCard } from '@/main/styles/home';
-import type { TabId } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/types/profile';
 
 // --- Types ---
 
@@ -50,7 +50,7 @@ export interface HomeMatchingSummaryProps {
   receivedRequesters?: string[];
   gatingReason?: 'no_building' | null;
   onGatedAction?: () => void;
-  onNavigate: (tab: TabId) => void;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
 }
 
 // --- Message generation ---
@@ -335,7 +335,7 @@ export function HomeMatchingSummary({
           <div className="grid grid-cols-3 gap-2">
             {/* 보낸 요청 */}
             <motion.button
-              onClick={() => onNavigate('matching')}
+              onClick={() => onNavigate('matching', { requestTab: 'sent' })}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-amber-50 rounded-xl transition-colors group"
@@ -365,7 +365,7 @@ export function HomeMatchingSummary({
 
             {/* 받은 요청 */}
             <motion.button
-              onClick={() => onNavigate('matching')}
+              onClick={() => onNavigate('matching', { requestTab: 'received' })}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-purple-50 rounded-xl transition-colors group relative"
@@ -403,7 +403,7 @@ export function HomeMatchingSummary({
 
             {/* 대화 중 */}
             <motion.button
-              onClick={() => onNavigate('matching')}
+              onClick={() => onNavigate('matching', { section: 'current' })}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-teal-50 rounded-xl transition-colors group"

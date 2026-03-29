@@ -28,13 +28,13 @@ import { HomeQuickMenuSection } from './HomeQuickMenuSection';
 import { BuildingStatsBar } from './BuildingStatsBar';
 import { DynamicTipBanner } from './DynamicTipBanner';
 import type { TipSeasonStatus } from './DynamicTipBanner';
-import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
+import type { TabId, UserProfile, RoommateProfile, MatchingNavOptions } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 import type { BuildingStats, PastSeasonResult } from '@/main/types/home';
 
 interface HomeTabProps {
   user: UserProfile;
-  onNavigate: (tab: TabId) => void;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   profiles: Omit<RoommateProfile, 'matchScore'>[];
   buildingStats: BuildingStats;
   pastSeasonResult?: PastSeasonResult;
@@ -337,7 +337,7 @@ export default function HomeTab({
                     nextSeasonDate={nextDate}
                     nextSeasonName={seasonDates.isNextSeasonRegistered ? nextName : ''}
                     pastSeasonResult={pastSeasonResult}
-                    onViewHistory={() => onNavigate('matching')}
+                    onViewHistory={() => onNavigate('matching', { section: 'past' })}
                   />
                 );
               })()}
@@ -355,7 +355,8 @@ export default function HomeTab({
             <HomeQuickMenuSection
               seasonState={seasonState}
               onNavigateList={() => onNavigate('list')}
-              onNavigateMatching={() => onNavigate('matching')}
+              onNavigateMatching={() => onNavigate('matching', { section: 'current' })}
+              onNavigateMatchingHistory={() => onNavigate('matching', { section: 'past' })}
               onNavigateChat={() => {}}
               onNavigateProfile={() => onNavigate('profile')}
             />

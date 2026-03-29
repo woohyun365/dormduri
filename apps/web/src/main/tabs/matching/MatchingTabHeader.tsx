@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'motion/react';
 import { Handshake } from 'lucide-react';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { getDormitoryById } from '@/constants/dormitory';
@@ -33,14 +34,19 @@ export function MatchingTabHeader({ user }: MatchingTabHeaderProps) {
   }
 
   return (
-    <div className="bg-white border-b-2 border-[var(--knu-border)] px-5 py-4">
+    <header className="bg-[var(--knu-primary)] text-white px-5 py-4 sticky top-0 z-40">
       <div className="max-w-md mx-auto">
         <div className="flex items-center gap-2 mb-1">
-          <Handshake className="w-5 h-5 text-[var(--knu-primary)]" />
-          <h1 className="text-lg font-bold text-[var(--knu-text-primary)]">매칭 현황</h1>
+          <motion.div
+            animate={{ rotate: [0, 10, -10, 0] }}
+            transition={{ repeat: Infinity, duration: 2, repeatDelay: 3 }}
+          >
+            <Handshake className="w-6 h-6" />
+          </motion.div>
+          <h1 className="text-xl font-bold">매칭 현황</h1>
         </div>
-        <p className="text-xs text-[var(--knu-text-tertiary)]">{parts.join(' · ')}</p>
+        <p className="text-sm opacity-90">{parts.join(' · ')}</p>
       </div>
-    </div>
+    </header>
   );
 }

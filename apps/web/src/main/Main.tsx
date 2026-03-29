@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
@@ -11,6 +11,9 @@ import RoommateListTab from './tabs/roommate-list/RoommateListTab';
 import ProfileTab from './tabs/profile/ProfileTab';
 import MatchingTab from './tabs/matching/MatchingTab';
 import SettingsTab from './tabs/SettingsTab';
+import { HomeTabSkeleton } from '@/components/Skeleton';
+import { AppShellSkeleton } from '@/components/AppShellSkeleton';
+import { MatchingTabSkeleton } from './tabs/matching/MatchingTabSkeleton';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
 import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
@@ -24,8 +27,9 @@ import { SeasonProvider } from '@/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
-import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
+import type { TabId, UserProfile, RoommateProfile, MatchingNavOptions } from '@/types/profile';
 import type { BuildingStats, PastSeasonResult } from './types/home';
+import type { PastSeasonData } from '@/types/match';
 
 export type { TabId, UserProfile } from '@/types/profile';
 
@@ -34,6 +38,7 @@ interface MainData {
   profiles: Omit<RoommateProfile, 'matchScore'>[];
   buildingStats: BuildingStats;
   pastSeasonResult?: PastSeasonResult;
+  pastSeasons: PastSeasonData[];
   isNextSeasonRegistered: boolean;
   unreadMessages: number;
   season: Season;
@@ -55,6 +60,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const [data, setData] = useState<MainData | null>(null);
 
   const showToast = useCallback((msg: string) => toast(msg), []);
+
+  // 매칭 탭 서브탭 네비게이트 옵션
+  const matchingNavRef = useRef<MatchingNavOptions>({});
+
+  const handleNavigate = useCallback((tab: TabId, options?: MatchingNavOptions) => {
+    matchingNavRef.current = tab === 'matching' && options ? options : {};
+    setActiveTab(tab);
+  }, []);
 
   // --- Onboarding ---
   const { hasSeenGuide, markGuideSeen, resetChecklist, hasSeenTooltip, markTooltipSeen } =
@@ -106,10 +119,11 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               dormitoryIdForFilter,
             );
 
-      const [buildingStats, pastSeasonResult, isNextSeasonRegistered, unreadMessages] =
+      const [buildingStats, pastSeasonResult, pastSeasons, isNextSeasonRegistered, unreadMessages] =
         await Promise.all([
           homeApi.getBuildingStats(profileState.user, profileResult),
           homeApi.getPastSeasonResult(),
+          homeApi.getPastSeasons(),
           homeApi.isNextSeasonRegistered(),
           homeApi.getUnreadMessages(),
         ]);
@@ -126,6 +140,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         profiles: profileResult,
         buildingStats,
         pastSeasonResult,
+        pastSeasons,
         isNextSeasonRegistered,
         unreadMessages,
         season: season.season,
@@ -159,14 +174,14 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     sessionStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
 
-  // 데이터 로딩 중
+  // 데이터 로딩 중 — 탭바 먼저 표시 + 탭별 스켈레톤
   if (!data) {
     return (
-      <div className="min-h-screen bg-[var(--knu-background-alt)] flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-3 border-[var(--knu-primary)] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-[var(--knu-text-secondary)]">서비스 데이터를 불러오는 중...</p>
-        </div>
+      <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
+        {activeTab === 'home' && <HomeTabSkeleton />}
+        {activeTab === 'matching' && <MatchingTabSkeleton />}
+        {activeTab !== 'home' && activeTab !== 'matching' && <AppShellSkeleton />}
+        <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
     );
   }
@@ -205,7 +220,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           {activeTab === 'home' && (
             <HomeTab
               user={profileState.user}
-              onNavigate={setActiveTab}
+              onNavigate={handleNavigate}
               profiles={data.profiles}
               buildingStats={data.buildingStats}
               pastSeasonResult={data.pastSeasonResult}
@@ -254,6 +269,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               matchRequests={matchingState.matchRequests}
               activeMatch={matchingState.activeMatch}
               profiles={data.profiles}
+              pastSeasons={data.pastSeasons}
               onCancelRequest={matchingState.handleCancelRequest}
               onAcceptRequest={matchingState.handleAcceptRequest}
               onRejectRequest={matchingState.handleRejectRequest}
@@ -261,6 +277,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onEndConversation={matchingState.handleEndConversation}
               onEndMatch={matchingState.handleEndMatch}
               onNavigate={setActiveTab}
+              initialSection={matchingNavRef.current.section}
+              initialRequestTab={matchingNavRef.current.requestTab}
             />
           )}
           {activeTab === 'profile' && (

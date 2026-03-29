@@ -101,7 +101,7 @@ export function HomeDevTool() {
 
   if (!isDevelopment()) return null;
 
-  function applyAndReload() {
+  async function applyAndReload() {
     if (status === 'auto') localStorage.removeItem(SEASON_OVERRIDE_KEY);
     else localStorage.setItem(SEASON_OVERRIDE_KEY, status);
 
@@ -113,6 +113,19 @@ export function HomeDevTool() {
     writeOptionalNumber(MATCH_SENT_OVERRIDE_KEY, sentCount);
     writeOptionalNumber(MATCH_RECEIVED_OVERRIDE_KEY, receivedCount);
     writeOptionalNumber(MATCH_CHATS_OVERRIDE_KEY, chatsCount);
+
+    // 매칭 통계 오버라이드가 있으면 MockMatchingService에도 동기화
+    if (sentCount !== null || receivedCount !== null || chatsCount !== null) {
+      const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
+      const currentUser = mockDb.getCurrentUser();
+      if (currentUser) {
+        getMockMatchingService().initFromCounts(currentUser.id, {
+          sent: sentCount,
+          received: receivedCount,
+          chats: chatsCount,
+        });
+      }
+    }
 
     mockDb.setHomeDashboardState({
       pastSeason,

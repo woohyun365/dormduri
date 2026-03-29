@@ -43,6 +43,35 @@ export interface ActiveMatch {
   cancelRequestedBy: string | null; // 요청자 ID
 }
 
+// 터미널 상태 (이력 표시용)
+export const TERMINAL_STATUSES: MatchStatus[] = [
+  'EXPIRED',
+  'REJECTED',
+  'CANCELLED',
+  'CONVERSATION_ENDED',
+  'UNMATCHED',
+];
+
+// 이력 카드 데이터 (현재 시즌 + 과거 시즌 공용)
+export interface HistoryItemData {
+  id: string;
+  nickname: string;
+  status: MatchStatus;
+  date: string; // ISO string
+}
+
+// 과거 시즌 이력 데이터
+export interface PastSeasonData {
+  id: string;
+  name: string; // "2025-1학기"
+  matchResult: 'success' | 'no_match';
+  matchedWith?: string; // 매칭 성공 시 상대 닉네임 (스냅샷)
+  receivedCount: number;
+  sentCount: number;
+  chatCount: number;
+  history: HistoryItemData[];
+}
+
 // 버튼 상태 머신 반환 타입 (14종)
 export type MatchButtonState =
   | { type: 'REQUEST'; label: '매칭 요청' }

@@ -294,6 +294,95 @@ export class MockMatchingService {
     if (typeof window !== 'undefined') localStorage.removeItem(STORAGE_KEY);
   }
 
+  /** DevTool 카운트 기반으로 요청 생성 (홈 통계와 매칭 탭 동기화) */
+  initFromCounts(
+    userId: string,
+    counts: { sent?: number | null; received?: number | null; chats?: number | null },
+  ): void {
+    const far = '2099-01-01T00:00:00.000Z';
+    const farExp = '2099-01-06T00:00:00.000Z';
+    const past = '2020-01-01T00:00:00.000Z';
+    const base = { rejectedAt: null, acceptedAt: null, resolvedAt: null };
+    const requests: MatchRequest[] = [];
+    let counter = 1000;
+
+    // 보낸 요청
+    const sentCount = counts.sent ?? 0;
+    for (let i = 0; i < sentCount; i++) {
+      requests.push({
+        id: `dev-sent-${++counter}`,
+        fromUserId: userId,
+        toUserId: String(i + 1),
+        status: 'PENDING',
+        message: `테스트 보낸 요청 ${i + 1}`,
+        createdAt: far,
+        expiresAt: farExp,
+        ...base,
+      });
+    }
+
+    // 받은 요청
+    const receivedCount = counts.received ?? 0;
+    for (let i = 0; i < receivedCount; i++) {
+      // 12시간 후 만료 (만료 임박 테스트용: 첫 번째)
+      const exp = i === 0 ? new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString() : farExp;
+      requests.push({
+        id: `dev-recv-${++counter}`,
+        fromUserId: String(sentCount + i + 1),
+        toUserId: userId,
+        status: 'PENDING',
+        message: `테스트 받은 요청 ${i + 1}`,
+        createdAt: far,
+        expiresAt: exp,
+        ...base,
+      });
+    }
+
+    // 대화 중
+    const chatsCount = counts.chats ?? 0;
+    for (let i = 0; i < chatsCount; i++) {
+      requests.push({
+        id: `dev-conv-${++counter}`,
+        fromUserId: String(sentCount + receivedCount + i + 1),
+        toUserId: userId,
+        status: 'IN_CONVERSATION',
+        message: `테스트 대화 ${i + 1}`,
+        createdAt: far,
+        expiresAt: farExp,
+        ...base,
+        acceptedAt: far,
+      });
+    }
+
+    // 이력 (기본 2건 추가)
+    requests.push({
+      id: `dev-hist-${++counter}`,
+      fromUserId: userId,
+      toUserId: '98',
+      status: 'EXPIRED',
+      message: null,
+      createdAt: past,
+      expiresAt: past,
+      ...base,
+      resolvedAt: past,
+    });
+    requests.push({
+      id: `dev-hist-${++counter}`,
+      fromUserId: '99',
+      toUserId: userId,
+      status: 'REJECTED',
+      message: null,
+      createdAt: past,
+      expiresAt: past,
+      ...base,
+      rejectedAt: past,
+      resolvedAt: past,
+    });
+
+    this.state = { requests, activeMatch: null };
+    this.save();
+  }
+
   static getPresetOverride(): MatchPreset | null {
     if (typeof window === 'undefined') return null;
     const val = localStorage.getItem(PRESET_KEY);

@@ -16,6 +16,7 @@ interface HomeQuickMenuSectionProps {
   seasonState: SeasonState;
   onNavigateList: () => void;
   onNavigateMatching: () => void;
+  onNavigateMatchingHistory: () => void;
   onNavigateChat: () => void;
   onNavigateProfile: () => void;
 }
@@ -24,6 +25,7 @@ export function HomeQuickMenuSection({
   seasonState,
   onNavigateList,
   onNavigateMatching,
+  onNavigateMatchingHistory,
   onNavigateChat,
   onNavigateProfile,
 }: HomeQuickMenuSectionProps) {
@@ -50,7 +52,7 @@ export function HomeQuickMenuSection({
             label="이전 기록"
             description="지난 시즌"
             color="purple"
-            onClick={onNavigateMatching}
+            onClick={onNavigateMatchingHistory}
           />
         ) : isMatching ? (
           <QuickActionCard
@@ -66,7 +68,7 @@ export function HomeQuickMenuSection({
             label="이전 기록"
             description="지난 시즌"
             color="purple"
-            onClick={onNavigateMatching}
+            onClick={onNavigateMatchingHistory}
           />
         )}
 
