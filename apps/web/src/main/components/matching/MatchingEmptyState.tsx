@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
+import { matchingDisplayTitle } from '@/main/styles/matching';
 import type { LucideIcon } from 'lucide-react';
 
 type GatingType = 'not_operated' | 'off_season' | 'season_open' | 'no_building';
@@ -91,7 +92,7 @@ export function MatchingEmptyState({
         </motion.div>
       )}
 
-      <h3 className="text-xl font-bold text-[var(--knu-text-primary)] mb-2">{finalTitle}</h3>
+      <h3 className={`${matchingDisplayTitle} mb-2 text-[1.55rem]`}>{finalTitle}</h3>
 
       {finalDescription && (
         <p className="text-sm text-[var(--knu-text-secondary)] mb-6 leading-relaxed whitespace-pre-line">
@@ -121,7 +122,7 @@ export function MatchingEmptyState({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={action.onClick}
-          className="px-6 py-3 bg-gradient-to-r from-[var(--knu-primary)] to-blue-600 text-white rounded-xl font-bold hover:shadow-lg transition-all"
+          className="px-6 py-3 bg-[var(--knu-primary)] text-white rounded-xl font-bold hover:bg-[var(--knu-primary-hover)] transition-all"
         >
           {action.label}
         </motion.button>

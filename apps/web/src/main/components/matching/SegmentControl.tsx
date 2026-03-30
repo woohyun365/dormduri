@@ -14,7 +14,7 @@ interface SegmentControlProps {
 
 export function SegmentControl({ options, selected, onChange }: SegmentControlProps) {
   return (
-    <div className="bg-[var(--knu-background-alt)] rounded-xl p-1 flex gap-1">
+    <div className="bg-[var(--knu-background-alt)] rounded-xl p-1 flex gap-1 border-2 border-[var(--knu-border)]">
       {options.map((option) => (
         <button
           key={option.id}

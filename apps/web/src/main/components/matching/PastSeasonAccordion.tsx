@@ -4,6 +4,13 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ChevronDown, CheckCircle, XCircle } from 'lucide-react';
 import { HistoryCard } from './HistoryCard';
+import {
+  matchingBorder,
+  matchingCardShell,
+  matchingChip,
+  matchingDisplayTitle,
+  matchingEyebrow,
+} from '@/main/styles/matching';
 import type { PastSeasonData } from '@/types/match';
 
 interface PastSeasonAccordionProps {
@@ -13,26 +20,32 @@ interface PastSeasonAccordionProps {
 
 export function PastSeasonAccordion({ season, defaultExpanded = false }: PastSeasonAccordionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const tone = season.matchResult === 'success' ? 'emerald' : 'slate';
 
   return (
-    <div className="bg-white rounded-2xl border-2 border-[var(--knu-border)] overflow-hidden">
+    <div className={`${matchingCardShell} ${matchingBorder(tone)} overflow-hidden`}>
       {/* 헤더 */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-5 flex items-center justify-between hover:bg-[var(--knu-background-alt)] transition-colors"
+        className="w-full p-5 flex items-center justify-between transition-colors hover:bg-[var(--knu-background-alt)]/80"
       >
         <div className="flex-1 text-left">
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="font-bold text-[var(--knu-text-primary)]">{season.name}</h3>
+          <div className="mb-2 flex items-center gap-2">
+            <div>
+              <p className={matchingEyebrow(tone)}>시즌 이력</p>
+              <h3 className={`${matchingDisplayTitle} mt-1 text-[1.2rem] leading-none`}>
+                {season.name}
+              </h3>
+            </div>
             {season.matchResult === 'success' ? (
-              <div className="flex items-center gap-1 px-2 py-0.5 bg-green-50 border border-green-200 rounded-full">
-                <CheckCircle className="w-3 h-3 text-green-600" />
-                <span className="text-xs font-bold text-green-600">매칭 성공</span>
+              <div className={matchingChip('emerald')}>
+                <CheckCircle className="h-3 w-3" />
+                매칭 성공
               </div>
             ) : (
-              <div className="flex items-center gap-1 px-2 py-0.5 bg-gray-50 border border-gray-200 rounded-full">
-                <XCircle className="w-3 h-3 text-gray-500" />
-                <span className="text-xs font-medium text-gray-500">미성사</span>
+              <div className={matchingChip('slate')}>
+                <XCircle className="h-3 w-3" />
+                미성사
               </div>
             )}
           </div>
@@ -67,7 +80,7 @@ export function PastSeasonAccordion({ season, defaultExpanded = false }: PastSea
             transition={{ duration: 0.3 }}
             className="overflow-hidden"
           >
-            <div className="px-5 pb-5 pt-2 space-y-3 border-t-2 border-[var(--knu-border)]">
+            <div className="space-y-3 border-t border-slate-100 px-5 pb-5 pt-3">
               {season.history.length > 0 ? (
                 season.history.map((item) => (
                   <HistoryCard

@@ -12,16 +12,21 @@ import { MatchingTabHeader } from './MatchingTabHeader';
 import { SubNav } from '../../components/matching/SubNav';
 import { ConversationCard } from '../../components/matching/ConversationCard';
 import { ActiveMatchCard } from '../../components/matching/ActiveMatchCard';
+import { GroupCoreCard } from '../../components/matching/GroupCoreCard';
+import { GroupCandidateCard } from '../../components/matching/GroupCandidateCard';
 import { HistoryCard } from '../../components/matching/HistoryCard';
 import { MatchingEmptyState } from '../../components/matching/MatchingEmptyState';
 import { PastSeasonAccordion } from '../../components/matching/PastSeasonAccordion';
+import { PolicyHintBanner } from '../../components/matching/PolicyHintBanner';
 import { ShowMoreButton } from '../../components/matching/ShowMoreButton';
 import { SegmentControl } from '../../components/matching/SegmentControl';
 import { SortToggle } from '../../components/matching/SortToggle';
+import { getMatchingPolicyHint } from '../../components/matching/policyCopy';
 import type { SortOption } from '../../components/matching/SortToggle';
 import { useSeasonContext } from '@/contexts/SeasonContext';
-import { isRequestExpired } from '@/utils/matchRequest';
+import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import { calcMatchScoreWithGating } from '@/utils/matchScore';
+import { matchingStageBackground } from '@/main/styles/matching';
 import type { MatchScoreType } from '@/utils/matchScore';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch, MatchStatus, PastSeasonData } from '@/types/match';
@@ -50,6 +55,8 @@ interface MatchingTabProps {
   onAcceptRequest: (requestId: string) => void;
   onRejectRequest: (requestId: string) => void;
   onConfirmMatch: (requestId: string) => void;
+  onRevokeConfirmMatch: (requestId: string) => void;
+  onFinalizePairGroup: () => void;
   onEndConversation: (requestId: string) => void;
   onEndMatch: () => void;
   onNavigate: (tab: TabId) => void;
@@ -70,6 +77,8 @@ export default function MatchingTab({
   onAcceptRequest,
   onRejectRequest,
   onConfirmMatch,
+  onRevokeConfirmMatch,
+  onFinalizePairGroup,
   onEndConversation,
   onEndMatch,
   onNavigate,
@@ -97,7 +106,7 @@ export default function MatchingTab({
   const receivedPending = useMemo(
     () =>
       matchRequests.filter(
-        (r) => r.toUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
+        (r) => doesRequestTargetUser(r, user.id) && r.status === 'PENDING' && !isRequestExpired(r),
       ),
     [matchRequests, user.id],
   );
@@ -126,7 +135,14 @@ export default function MatchingTab({
   const [requestTab, setRequestTab] = useState<RequestTab>(initialRequestTab ?? 'sent');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'cancel' | 'reject' | 'accept' | 'confirmMatch' | 'endConversation' | 'endMatch';
+    type:
+      | 'cancel'
+      | 'reject'
+      | 'accept'
+      | 'confirmMatch'
+      | 'revokeConfirm'
+      | 'endConversation'
+      | 'endMatch';
     requestId?: string;
     nickname: string;
   } | null>(null);
@@ -141,6 +157,17 @@ export default function MatchingTab({
   const [showAllReceived, setShowAllReceived] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [receivedSort, setReceivedSort] = useState<SortOption>('matchScore');
+  const isGroupCoreOpen = activeMatch?.kind === 'group' && activeMatch.groupStage === 'PAIR_OPEN';
+  const isGroupForming =
+    activeMatch?.kind === 'group' && activeMatch.groupStage === 'GROUP_FORMING';
+  const isGroupMatch = activeMatch?.kind === 'group';
+  const policyHint = getMatchingPolicyHint({
+    activeMatch,
+    requestTab,
+    sentPendingCount: sentPending.length,
+    receivedPendingCount: receivedPending.length,
+    conversationsCount: conversations.length,
+  });
 
   // --- Helpers ---
   const getPartnerProfile = (
@@ -181,6 +208,9 @@ export default function MatchingTab({
       case 'confirmMatch':
         if (confirmAction.requestId) onConfirmMatch(confirmAction.requestId);
         break;
+      case 'revokeConfirm':
+        if (confirmAction.requestId) onRevokeConfirmMatch(confirmAction.requestId);
+        break;
       case 'endConversation':
         if (confirmAction.requestId) onEndConversation(confirmAction.requestId);
         break;
@@ -209,15 +239,25 @@ export default function MatchingTab({
       variant: 'danger',
     },
     accept: {
-      title: '요청 수락',
-      message: `${confirmAction?.nickname ?? ''}님의 매칭 요청을 수락하시겠습니까?\n수락 후 대화를 시작할 수 있어요.`,
-      label: '수락하기',
+      title: isGroupCoreOpen ? '합류 승인' : '요청 수락',
+      message: isGroupCoreOpen
+        ? `${confirmAction?.nickname ?? ''}님의 합류 요청을 승인하시겠습니까?\n코어 2명이 모두 승인해야 새로운 C 대화가 열립니다.`
+        : `${confirmAction?.nickname ?? ''}님의 매칭 요청을 수락하시겠습니까?\n수락 후 대화를 시작할 수 있어요.`,
+      label: isGroupCoreOpen ? '승인하기' : '수락하기',
       variant: 'default',
     },
     confirmMatch: {
       title: '매칭 확정',
-      message: `${confirmAction?.nickname ?? ''}님과 매칭을 확정하시겠습니까?\n확정 후 다른 매칭 활동이 중단됩니다.`,
-      label: '확정하기',
+      message: isGroupForming
+        ? `${confirmAction?.nickname ?? ''}님과의 3인 그룹 확정을 승인하시겠습니까?\n3명이 모두 눌러야 최종 적용됩니다.`
+        : `${confirmAction?.nickname ?? ''}님과의 매칭 확정을 승인하시겠습니까?\n양쪽이 모두 눌러야 최종 적용됩니다.`,
+      label: '승인하기',
+      variant: 'default',
+    },
+    revokeConfirm: {
+      title: '확정 완료 취소',
+      message: `${confirmAction?.nickname ?? ''}님과의 확정 완료를 취소하시겠습니까?\n다시 대화를 이어가거나 종료할 수 있게 됩니다.`,
+      label: '취소하기',
       variant: 'default',
     },
     endConversation: {
@@ -227,9 +267,11 @@ export default function MatchingTab({
       variant: 'danger',
     },
     endMatch: {
-      title: '매칭 해제',
-      message: `${activeMatch?.partnerNickname ?? ''}님과의 매칭을 해제하시겠습니까?\n\n해제 후 같은 상대와 재매칭할 수 없습니다.`,
-      label: '해제하기',
+      title: activeMatch?.cancelRequestedAt ? '매칭 취소 승인' : '매칭 취소 요청',
+      message: activeMatch?.cancelRequestedAt
+        ? `${activeMatch?.partnerNickname ?? ''}님이 매칭 취소를 요청했어요.\n승인하면 매칭이 해제됩니다.`
+        : `${activeMatch?.partnerNickname ?? ''}님과의 매칭 취소를 요청하시겠습니까?\n상대가 승인하면 매칭이 해제됩니다.`,
+      label: activeMatch?.cancelRequestedAt ? '승인하기' : '취소 요청하기',
       variant: 'danger',
     },
   };
@@ -360,7 +402,7 @@ export default function MatchingTab({
   // --- 게이팅: NOT_OPERATED ---
   if (!campusOperated) {
     return (
-      <div className="min-h-screen bg-[var(--knu-background-alt)]">
+      <div className={`min-h-screen ${matchingStageBackground}`}>
         <MatchingTabHeader user={user} />
         <div className="px-5 py-6 max-w-md mx-auto">
           <MatchingEmptyState type="not_operated" icon={Handshake} />
@@ -372,7 +414,7 @@ export default function MatchingTab({
   // --- 게이팅: SEASON_OPEN ---
   if (seasonState === 'SEASON_OPEN') {
     return (
-      <div className="min-h-screen bg-[var(--knu-background-alt)]">
+      <div className={`min-h-screen ${matchingStageBackground}`}>
         <MatchingTabHeader user={user} />
         <div className="px-5 py-5 max-w-md mx-auto space-y-5">
           <SubNav
@@ -409,7 +451,7 @@ export default function MatchingTab({
   // --- 게이팅: OFF_SEASON ---
   if (seasonState === 'OFF_SEASON') {
     return (
-      <div className="min-h-screen bg-[var(--knu-background-alt)]">
+      <div className={`min-h-screen ${matchingStageBackground}`}>
         <MatchingTabHeader user={user} />
         <div className="px-5 py-5 max-w-md mx-auto space-y-5">
           <SubNav
@@ -447,7 +489,7 @@ export default function MatchingTab({
   const isUnassigned = user.dormitoryId === UNASSIGNED_ID || user.dormitoryId === null;
   if (isUnassigned && seasonState === 'SEASON_MATCHING') {
     return (
-      <div className="min-h-screen bg-[var(--knu-background-alt)]">
+      <div className={`min-h-screen ${matchingStageBackground}`}>
         <MatchingTabHeader user={user} />
         <div className="px-5 py-6 max-w-md mx-auto">
           <MatchingEmptyState type="no_building" icon={Building2} />
@@ -457,19 +499,131 @@ export default function MatchingTab({
   }
 
   // --- [1] Active Match ---
-  if (activeMatch) {
+  if (activeMatch && isGroupMatch && (isGroupForming || activeMatch.groupStage === 'GROUP_FINAL')) {
+    const formingConversation = matchRequests.find(
+      (request) => request.status === 'IN_CONVERSATION',
+    );
+    const conversationPartner = formingConversation ? getPartnerProfile(formingConversation) : null;
+    const groupDisplayMembers =
+      activeMatch.groupMembers && conversationPartner && activeMatch.groupMembers.length >= 3
+        ? [
+            activeMatch.groupMembers[0]!,
+            activeMatch.groupMembers[1]!,
+            { userId: conversationPartner.id, nickname: conversationPartner.nickname },
+          ]
+        : (activeMatch.groupMembers ?? []);
+
+    return (
+      <div className={`min-h-screen ${matchingStageBackground}`}>
+        <MatchingTabHeader user={user} />
+        <div className="px-5 py-5 max-w-md mx-auto">
+          <div className="mb-4">
+            <PolicyHintBanner hint={policyHint} />
+          </div>
+          {activeMatch.groupRole === 'group_candidate' ? (
+            <GroupCandidateCard
+              stage={activeMatch.groupStage ?? undefined}
+              members={groupDisplayMembers}
+              viewerConfirmed={formingConversation?.approvalUserIds?.includes(user.id) === true}
+              cancelPending={activeMatch.cancelRequestedAt !== null}
+              cancelRequestedByCurrentUser={activeMatch.cancelRequestedBy === user.id}
+              cancelRequestKind={activeMatch.cancelRequestKind}
+              onConfirmGroup={() => {
+                if (!formingConversation) return;
+                setConfirmAction({
+                  type: 'confirmMatch',
+                  requestId: formingConversation.id,
+                  nickname: '현재 그룹',
+                });
+              }}
+              onRevokeConfirmGroup={() => {
+                if (!formingConversation) return;
+                setConfirmAction({
+                  type: 'revokeConfirm',
+                  requestId: formingConversation.id,
+                  nickname: '현재 그룹',
+                });
+              }}
+              onLeaveGroup={() =>
+                setConfirmAction({
+                  type: 'endMatch',
+                  nickname: '현재 그룹',
+                })
+              }
+            />
+          ) : (
+            <GroupCoreCard
+              stage={activeMatch.groupStage ?? undefined}
+              role={activeMatch.groupRole}
+              members={groupDisplayMembers}
+              joinRequestCount={0}
+              finalApprovalCount={formingConversation?.approvalUserIds?.length ?? 0}
+              finalApprovalTotal={activeMatch.groupMemberCount ?? 3}
+              viewerConfirmed={formingConversation?.approvalUserIds?.includes(user.id) === true}
+              cancelPending={activeMatch.cancelRequestedAt !== null}
+              cancelRequestedByCurrentUser={activeMatch.cancelRequestedBy === user.id}
+              cancelRequestKind={activeMatch.cancelRequestKind}
+              cancelApprovalCount={activeMatch.cancelApprovalUserIds?.length ?? 0}
+              cancelApprovalTotal={
+                activeMatch.cancelRequestKind === 'CANDIDATE_LEAVE'
+                  ? 2
+                  : (activeMatch.groupMemberCount ?? 3) - 1
+              }
+              onReviewRequests={() => setRequestTab('received')}
+              onFinalizePair={onFinalizePairGroup}
+              onConfirmGroup={() => {
+                if (!formingConversation) return;
+                setConfirmAction({
+                  type: 'confirmMatch',
+                  requestId: formingConversation.id,
+                  nickname: conversationPartner?.nickname ?? activeMatch.partnerNickname,
+                });
+              }}
+              onRevokeConfirmGroup={() => {
+                if (!formingConversation) return;
+                setConfirmAction({
+                  type: 'revokeConfirm',
+                  requestId: formingConversation.id,
+                  nickname: conversationPartner?.nickname ?? activeMatch.partnerNickname,
+                });
+              }}
+              onDissolve={() =>
+                setConfirmAction({
+                  type: 'endMatch',
+                  nickname: activeMatch.partnerNickname,
+                })
+              }
+            />
+          )}
+          {renderDialogs()}
+        </div>
+      </div>
+    );
+  }
+
+  if (activeMatch && !isGroupCoreOpen) {
     const partnerProfile = getPartnerProfile(
       matchRequests.find((r) => r.status === 'ACTIVE') ?? matchRequests[0]!,
     );
     return (
-      <div className="min-h-screen bg-[var(--knu-background-alt)]">
+      <div className={`min-h-screen ${matchingStageBackground}`}>
         <MatchingTabHeader user={user} />
         <div className="px-5 py-5 max-w-md mx-auto">
+          <div className="mb-4">
+            <PolicyHintBanner hint={policyHint} />
+          </div>
           <ActiveMatchCard
             nickname={activeMatch.partnerNickname}
             dormitoryId={activeMatch.partnerDormitoryId}
             matchScore={activeMatch.matchScore}
             scoreType={activeMatch.scoreType}
+            cancelPending={activeMatch.cancelRequestedAt !== null}
+            cancelRequestedByCurrentUser={activeMatch.cancelRequestedBy === user.id}
+            cancelRequestKind={activeMatch.cancelRequestKind}
+            cancelApprovalCount={activeMatch.cancelApprovalUserIds?.length ?? 0}
+            cancelApprovalTotal={
+              activeMatch.kind === 'group' && activeMatch.groupStage === 'GROUP_FINAL' ? 2 : 1
+            }
             onViewProfile={() =>
               setSelectedProfile({
                 profile: partnerProfile,
@@ -492,13 +646,15 @@ export default function MatchingTab({
 
   // --- [2][3][4] SEASON_MATCHING (메인 화면) ---
   const hasActivity =
+    isGroupCoreOpen ||
+    isGroupForming ||
     conversations.length > 0 ||
     sentPending.length > 0 ||
     receivedPending.length > 0 ||
     history.length > 0;
 
   return (
-    <div className="min-h-screen bg-[var(--knu-background-alt)]">
+    <div className={`min-h-screen ${matchingStageBackground}`}>
       <MatchingTabHeader user={user} />
       <div className="px-5 py-5 max-w-md mx-auto space-y-5">
         {/* 서브 네비게이션 */}
@@ -510,6 +666,8 @@ export default function MatchingTab({
           selected={subNavTab}
           onChange={(id) => setSubNavTab(id as SubNavTab)}
         />
+
+        {subNavTab === 'current' && <PolicyHintBanner hint={policyHint} />}
 
         <AnimatePresence mode="wait">
           {subNavTab === 'current' ? (
@@ -533,15 +691,49 @@ export default function MatchingTab({
                 />
               ) : (
                 <>
+                  {isGroupCoreOpen && (
+                    <section>
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-1 h-5 rounded-full bg-blue-500" />
+                        <h2 className="text-lg font-bold text-[var(--knu-text-primary)]">
+                          3인실 그룹
+                        </h2>
+                      </div>
+                      <GroupCoreCard
+                        members={
+                          activeMatch.groupMembers ?? [
+                            { userId: user.id, nickname: user.nickname },
+                            {
+                              userId: activeMatch.partnerUserId,
+                              nickname: activeMatch.partnerNickname,
+                            },
+                          ]
+                        }
+                        joinRequestCount={receivedPending.length}
+                        onReviewRequests={() => setRequestTab('received')}
+                        onFinalizePair={onFinalizePairGroup}
+                        onDissolve={() =>
+                          setConfirmAction({
+                            type: 'endMatch',
+                            nickname: activeMatch.partnerNickname,
+                          })
+                        }
+                      />
+                    </section>
+                  )}
+
                   {/* [2] 대화 중 */}
                   {conversations.length > 0 && (
                     <section>
-                      <h2 className="text-lg font-bold text-[var(--knu-text-primary)] mb-4 flex items-center gap-2">
-                        💬 대화 중
-                        <span className="text-sm font-normal text-[var(--knu-text-tertiary)]">
-                          ({conversations.length})
-                        </span>
-                      </h2>
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-1 h-5 rounded-full bg-blue-500" />
+                        <h2 className="text-lg font-bold text-[var(--knu-text-primary)] flex items-center gap-2">
+                          {isGroupCoreOpen ? '합류 검토 중' : '대화 중'}
+                          <span className="text-sm font-normal text-[var(--knu-text-tertiary)]">
+                            ({conversations.length})
+                          </span>
+                        </h2>
+                      </div>
                       <div className="space-y-3">
                         {displayedConversations.map((req) => {
                           const partner = getPartnerProfile(req);
@@ -552,6 +744,15 @@ export default function MatchingTab({
                               dormitoryId={partner.dormitoryId}
                               matchScore={partner.matchScore}
                               scoreType={partner.scoreType}
+                              confirmApprovalCount={req.approvalUserIds?.length ?? 0}
+                              confirmApprovalTotal={
+                                isGroupForming ? (activeMatch?.groupMemberCount ?? 3) : 2
+                              }
+                              viewerConfirmed={req.approvalUserIds?.includes(user.id) === true}
+                              partnerConfirmed={
+                                req.approvalUserIds?.some((approvalId) => approvalId !== user.id) ??
+                                false
+                              }
                               onViewProfile={() =>
                                 setSelectedProfile({
                                   profile: partner,
@@ -562,6 +763,13 @@ export default function MatchingTab({
                               onConfirm={() =>
                                 setConfirmAction({
                                   type: 'confirmMatch',
+                                  requestId: req.id,
+                                  nickname: partner.nickname,
+                                })
+                              }
+                              onRevokeConfirm={() =>
+                                setConfirmAction({
+                                  type: 'revokeConfirm',
                                   requestId: req.id,
                                   nickname: partner.nickname,
                                 })
@@ -587,26 +795,43 @@ export default function MatchingTab({
 
                   {/* [3] 요청 관리 */}
                   <section>
-                    <h2 className="text-lg font-bold text-[var(--knu-text-primary)] mb-4">
-                      📬 요청 관리
-                    </h2>
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-1 h-5 rounded-full bg-[var(--knu-primary)]" />
+                      <h2 className="text-lg font-bold text-[var(--knu-text-primary)]">
+                        {isGroupCoreOpen ? '그룹 합류 요청' : '요청 관리'}
+                      </h2>
+                    </div>
 
                     <div className="mb-4">
-                      <SegmentControl
-                        options={[
-                          {
-                            id: 'sent',
-                            label: `보낸 요청 (${sentPending.length}/${MATCH_POLICY.MAX_PENDING_REQUESTS})`,
-                          },
-                          { id: 'received', label: '받은 요청', badge: receivedPending.length },
-                        ]}
-                        selected={requestTab}
-                        onChange={(id) => setRequestTab(id as RequestTab)}
-                      />
+                      {isGroupCoreOpen ? (
+                        <SegmentControl
+                          options={[
+                            {
+                              id: 'received',
+                              label: '받은 합류 요청',
+                              badge: receivedPending.length,
+                            },
+                          ]}
+                          selected="received"
+                          onChange={() => setRequestTab('received')}
+                        />
+                      ) : (
+                        <SegmentControl
+                          options={[
+                            {
+                              id: 'sent',
+                              label: `보낸 요청 (${sentPending.length}/${MATCH_POLICY.MAX_PENDING_REQUESTS})`,
+                            },
+                            { id: 'received', label: '받은 요청', badge: receivedPending.length },
+                          ]}
+                          selected={requestTab}
+                          onChange={(id) => setRequestTab(id as RequestTab)}
+                        />
+                      )}
                     </div>
 
                     <AnimatePresence mode="wait">
-                      {requestTab === 'sent' && (
+                      {!isGroupCoreOpen && requestTab === 'sent' && (
                         <motion.div
                           key="sent"
                           initial={{ opacity: 0, x: -20 }}
@@ -624,6 +849,15 @@ export default function MatchingTab({
                                   direction="sent"
                                   partnerProfile={partner}
                                   scoreType={partner.scoreType}
+                                  viewerId={user.id}
+                                  groupTargetNicknames={
+                                    req.requestKind === 'GROUP_JOIN'
+                                      ? req.groupTargetUserIds?.map(
+                                          (targetId) =>
+                                            profileMap.get(targetId)?.nickname ?? targetId,
+                                        )
+                                      : undefined
+                                  }
                                   onCancel={(id) =>
                                     setConfirmAction({
                                       type: 'cancel',
@@ -660,7 +894,7 @@ export default function MatchingTab({
                         </motion.div>
                       )}
 
-                      {requestTab === 'received' && (
+                      {(isGroupCoreOpen || requestTab === 'received') && (
                         <motion.div
                           key="received"
                           initial={{ opacity: 0, x: 20 }}
@@ -680,6 +914,7 @@ export default function MatchingTab({
                                     direction="received"
                                     partnerProfile={partner}
                                     scoreType={partner.scoreType}
+                                    viewerId={user.id}
                                     onAccept={(id) =>
                                       setConfirmAction({
                                         type: 'accept',
@@ -713,10 +948,12 @@ export default function MatchingTab({
                           ) : (
                             <div className="text-center py-6">
                               <p className="text-sm text-[var(--knu-text-tertiary)] mb-2">
-                                받은 요청이 없어요
+                                {isGroupCoreOpen ? '아직 합류 요청이 없어요' : '받은 요청이 없어요'}
                               </p>
                               <p className="text-xs text-[var(--knu-text-tertiary)]">
-                                다른 룸메가 요청을 보내면 여기에 표시돼요
+                                {isGroupCoreOpen
+                                  ? '개인이 그룹에 합류 요청을 보내면 여기에 표시돼요'
+                                  : '다른 룸메가 요청을 보내면 여기에 표시돼요'}
                               </p>
                             </div>
                           )}
@@ -732,9 +969,12 @@ export default function MatchingTab({
                         onClick={() => setHistoryOpen(!historyOpen)}
                         className="w-full flex items-center justify-between mb-4 group"
                       >
-                        <h2 className="text-lg font-bold text-[var(--knu-text-primary)]">
-                          📋 이력 ({history.length})
-                        </h2>
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-5 rounded-full bg-gray-300" />
+                          <h2 className="text-lg font-bold text-[var(--knu-text-primary)]">
+                            이력 ({history.length})
+                          </h2>
+                        </div>
                         {historyOpen ? (
                           <ChevronUp className="w-5 h-5 text-[var(--knu-text-tertiary)] group-hover:text-[var(--knu-text-primary)] transition-colors" />
                         ) : (

@@ -18,7 +18,7 @@ interface SubNavProps {
 
 export function SubNav({ options, selected, onChange, layoutId = 'subNavBg' }: SubNavProps) {
   return (
-    <div className="flex gap-2 p-1 bg-[var(--knu-background-alt)] rounded-xl border-2 border-[var(--knu-border)]">
+    <div className="flex gap-2 rounded-xl border-2 border-[var(--knu-border)] bg-[var(--knu-background-alt)] p-1">
       {options.map((option) => {
         const isSelected = selected === option.id;
 
@@ -26,7 +26,7 @@ export function SubNav({ options, selected, onChange, layoutId = 'subNavBg' }: S
           <button
             key={option.id}
             onClick={() => onChange(option.id)}
-            className={`flex-1 relative py-2.5 px-4 font-bold text-sm rounded-lg transition-colors ${
+            className={`flex-1 relative rounded-lg px-4 py-2.5 text-sm font-bold transition-colors ${
               isSelected
                 ? 'text-[var(--knu-primary)]'
                 : 'text-[var(--knu-text-tertiary)] hover:text-[var(--knu-text-secondary)]'
@@ -35,7 +35,7 @@ export function SubNav({ options, selected, onChange, layoutId = 'subNavBg' }: S
             {isSelected && (
               <motion.div
                 layoutId={layoutId}
-                className="absolute inset-0 bg-white rounded-lg shadow-sm border border-[var(--knu-border)]"
+                className="absolute inset-0 rounded-lg border border-[var(--knu-border)] bg-white shadow-sm"
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
               />
             )}

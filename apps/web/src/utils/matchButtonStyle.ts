@@ -32,6 +32,12 @@ export function getMatchButtonStyle(state: MatchButtonState): MatchButtonStyle {
         className: 'bg-green-100 text-green-700 cursor-not-allowed',
         clickable: false,
       };
+    case 'GROUP_OPEN':
+      return {
+        label: state.label,
+        className: 'bg-blue-100 text-blue-700 cursor-not-allowed',
+        clickable: false,
+      };
     case 'IN_CONVERSATION':
       return {
         label: state.label,

@@ -159,12 +159,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
   const socialState = useMainSocialState(showToast);
 
-  const matchingState = useMainMatchingState(
-    showToast,
-    profileState.user.id,
-    profileState.user.lifestyle,
-    data?.profiles ?? [],
-  );
+  const matchingState = useMainMatchingState(showToast, profileState.user, data?.profiles ?? []);
 
   const listViewState = useMainListViewState();
 
@@ -274,6 +269,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onAcceptRequest={matchingState.handleAcceptRequest}
               onRejectRequest={matchingState.handleRejectRequest}
               onConfirmMatch={matchingState.handleConfirmMatch}
+              onRevokeConfirmMatch={matchingState.handleRevokeConfirmMatch}
+              onFinalizePairGroup={matchingState.handleFinalizePairGroup}
               onEndConversation={matchingState.handleEndConversation}
               onEndMatch={matchingState.handleEndMatch}
               onNavigate={setActiveTab}
@@ -329,6 +326,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
           onClose={matchingState.closeCelebration}
           partnerNickname={matchingState.showCelebration?.nickname ?? ''}
           matchScore={matchingState.showCelebration?.score ?? 0}
+          kind={matchingState.showCelebration?.kind ?? 'pair'}
         />
       </div>
     </SeasonProvider>

@@ -22,6 +22,10 @@ export function isRequestExpired(request: MatchRequest): boolean {
   return date.getTime() <= Date.now();
 }
 
+export function doesRequestTargetUser(request: MatchRequest, userId: string): boolean {
+  return request.toUserId === userId || request.groupTargetUserIds?.includes(userId) === true;
+}
+
 /** 현재 PENDING 요청 수 (만료되지 않은 것만) */
 export function getPendingCount(requests: MatchRequest[]): number {
   return requests.filter((r) => r.status === 'PENDING' && !isRequestExpired(r)).length;
@@ -65,6 +69,9 @@ export function getMatchButtonState({
 
   // 5. 이미 매칭 중 (MATCHED)
   if (activeMatch) {
+    if (activeMatch.kind === 'group' && activeMatch.groupStage === 'PAIR_OPEN') {
+      return { type: 'GROUP_OPEN', label: '그룹 모집 중' };
+    }
     return { type: 'MATCHED', label: '매칭됨' };
   }
 
@@ -116,7 +123,11 @@ export function getMatchButtonState({
 
   // 10. 상대에게서 받은 PENDING 요청
   const receivedPending = requests.find(
-    (r) => r.fromUserId === targetUserId && r.status === 'PENDING' && !isRequestExpired(r),
+    (r) =>
+      r.fromUserId === targetUserId &&
+      doesRequestTargetUser(r, currentUserId) &&
+      r.status === 'PENDING' &&
+      !isRequestExpired(r),
   );
   if (receivedPending) {
     return {

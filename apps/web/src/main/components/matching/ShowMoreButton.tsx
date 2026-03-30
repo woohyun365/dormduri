@@ -15,7 +15,7 @@ export function ShowMoreButton({ remainingCount, isExpanded, onClick }: ShowMore
   return (
     <motion.button
       onClick={onClick}
-      className="w-full mt-2 py-3 px-4 rounded-2xl bg-white/60 backdrop-blur-sm border border-[var(--knu-border)] hover:bg-white/80 transition-all duration-200 flex items-center justify-center gap-2 text-[var(--knu-text-secondary)] hover:text-[var(--knu-text-primary)] group"
+      className="w-full mt-2 py-3 px-4 rounded-2xl bg-white border-2 border-[var(--knu-border)] hover:border-[var(--knu-primary)] transition-all duration-200 flex items-center justify-center gap-2 text-[var(--knu-text-secondary)] hover:text-[var(--knu-text-primary)] group"
       whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
     >

@@ -12,7 +12,7 @@ interface SortToggleProps {
 
 export function SortToggle({ value, onChange }: SortToggleProps) {
   return (
-    <div className="flex items-center gap-2 p-1 rounded-xl bg-white/60 backdrop-blur-sm border border-[var(--knu-border)]">
+    <div className="flex items-center gap-2 p-1 rounded-xl bg-white border-2 border-[var(--knu-border)]">
       <SortButton
         active={value === 'matchScore'}
         onClick={() => onChange('matchScore')}

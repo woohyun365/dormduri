@@ -3,8 +3,9 @@
  * localStorage 영속. Sprint 7에서 matchingApi 내부를 HTTP로 교체하면 이 파일 폐기.
  */
 import { MATCH_POLICY } from '@/constants/match';
+import { getMatchGroupSize } from '@/constants/dormitory';
 import { calcMatchScoreWithGating } from '@/utils/matchScore';
-import { isRequestExpired } from '@/utils/matchRequest';
+import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import type { MatchRequest, ActiveMatch, MatchScoreType } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
 
@@ -21,6 +22,13 @@ export interface MatchingState {
 export interface MatchingResult {
   requests: MatchRequest[];
   activeMatch: ActiveMatch | null;
+}
+
+interface GroupScenarioUser {
+  id: string;
+  nickname: string;
+  dormitoryId: string | null;
+  gender?: 'M' | 'F';
 }
 
 // ── Presets ───────────────────────────────────────────────────────
@@ -152,6 +160,8 @@ function createPresetData(preset: MatchPreset, userId: string): MatchingState {
           matchedAt: far,
           cancelRequestedAt: null,
           cancelRequestedBy: null,
+          cancelApprovalUserIds: [],
+          cancelRequestKind: null,
         },
       };
 
@@ -417,23 +427,58 @@ export class MockMatchingService {
     if (changed) this.save();
   }
 
+  /** 취소 요청 3일 무응답 자동 승인 (MATCH_CANCEL만) */
+  private autoApproveStaleCancelRequests(): void {
+    if (!this.state.activeMatch?.cancelRequestedAt) return;
+    if (this.state.activeMatch.cancelRequestKind !== 'MATCH_CANCEL') return;
+
+    const requestedAt = new Date(this.state.activeMatch.cancelRequestedAt).getTime();
+    if (!Number.isFinite(requestedAt)) return;
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    if (Date.now() - requestedAt < threeDaysMs) return;
+
+    const now = new Date().toISOString();
+    this.state.requests = this.state.requests.map((r) =>
+      r.status === 'ACTIVE' ? { ...r, status: 'UNMATCHED' as const, resolvedAt: now } : r,
+    );
+    this.state.activeMatch = null;
+    this.save();
+  }
+
   getRequests(userId: string): MatchRequest[] {
     this.expireStaleRequests();
-    return this.state.requests.filter((r) => r.fromUserId === userId || r.toUserId === userId);
+    return this.state.requests.filter(
+      (r) => r.fromUserId === userId || doesRequestTargetUser(r, userId),
+    );
   }
 
   /** 유저별 activeMatch 필터링 (리뷰 이슈 #4) */
   getActiveMatch(userId: string): ActiveMatch | null {
     if (!this.state.activeMatch) return null;
+
+    if (this.state.activeMatch.kind === 'group') {
+      const members = this.state.activeMatch.groupMembers ?? [];
+      const isMember = members.some((member) => member.userId === userId);
+      if (!isMember) return null;
+      const isCandidate = members.length >= 3 && members[members.length - 1]?.userId === userId;
+      return {
+        ...this.state.activeMatch,
+        groupRole: isCandidate ? 'group_candidate' : 'group_core',
+      };
+    }
+
     // activeMatch의 상대가 이 유저의 ACTIVE 요청과 연결되는지 확인
     const hasActiveRequest = this.state.requests.some(
-      (r) => r.status === 'ACTIVE' && (r.fromUserId === userId || r.toUserId === userId),
+      (r) => r.status === 'ACTIVE' && (r.fromUserId === userId || doesRequestTargetUser(r, userId)),
     );
-    return hasActiveRequest ? this.state.activeMatch : null;
+    if (!hasActiveRequest) return null;
+
+    return this.state.activeMatch;
   }
 
   getState(userId: string): MatchingResult {
     this.expireStaleRequests();
+    this.autoApproveStaleCancelRequests();
     return {
       requests: this.getRequests(userId),
       activeMatch: this.getActiveMatch(userId),
@@ -443,6 +488,14 @@ export class MockMatchingService {
   // --- Mutations ---
 
   sendRequest(fromId: string, toId: string, message: string | null): MatchingResult {
+    const senderActive = this.getActiveMatch(fromId);
+    if (senderActive?.kind === 'group' && senderActive.groupRole === 'group_core') {
+      return this.getState(fromId);
+    }
+    if (senderActive && senderActive.kind !== 'group') {
+      return this.getState(fromId);
+    }
+
     const now = new Date();
     const expiresAt = new Date(now);
     expiresAt.setHours(expiresAt.getHours() + MATCH_POLICY.REQUEST_TTL_HOURS);
@@ -474,7 +527,47 @@ export class MockMatchingService {
   }
 
   acceptRequest(requestId: string, userId: string): MatchingResult {
+    const request = this.state.requests.find((r) => r.id === requestId);
+    if (!request || request.status !== 'PENDING') return this.getState(userId);
+
     const now = new Date().toISOString();
+
+    if (
+      this.state.activeMatch?.kind === 'group' &&
+      this.state.activeMatch.groupStage === 'PAIR_OPEN'
+    ) {
+      const coreIds = this.state.activeMatch.groupMembers?.map((member) => member.userId) ?? [];
+      const approvals = Array.from(new Set([...(request.approvalUserIds ?? []), userId]));
+      const allApproved = coreIds.length > 0 && approvals.length >= coreIds.length;
+
+      this.state.requests = this.state.requests.map((r) =>
+        r.id === requestId
+          ? {
+              ...r,
+              requestKind: 'GROUP_JOIN',
+              groupTargetUserIds: coreIds,
+              approvalUserIds: allApproved ? [] : approvals,
+              status: allApproved ? ('IN_CONVERSATION' as const) : r.status,
+              acceptedAt: allApproved ? now : r.acceptedAt,
+            }
+          : r,
+      );
+
+      if (allApproved && this.state.activeMatch) {
+        this.state.activeMatch = {
+          ...this.state.activeMatch,
+          groupStage: 'GROUP_FORMING',
+          groupMemberCount: 3,
+          groupMembers: [
+            ...(this.state.activeMatch.groupMembers ?? []),
+            { userId: request.fromUserId, nickname: request.fromUserId },
+          ],
+        };
+      }
+      this.save();
+      return this.getState(userId);
+    }
+
     this.state.requests = this.state.requests.map((r) =>
       r.id === requestId ? { ...r, status: 'IN_CONVERSATION' as const, acceptedAt: now } : r,
     );
@@ -497,6 +590,7 @@ export class MockMatchingService {
     requestId: string,
     userId: string,
     context: {
+      currentUser: Pick<UserProfile, 'id' | 'nickname' | 'dormitoryId'>;
       profiles: Omit<RoommateProfile, 'matchScore'>[];
       userLifestyle: UserProfile['lifestyle'];
     },
@@ -512,21 +606,82 @@ export class MockMatchingService {
       : { score: null, type: 'gated' as const };
 
     const now = new Date().toISOString();
+    const dormitoryId = partnerProfile?.dormitoryId ?? context.currentUser.dormitoryId ?? null;
+    const groupSize = dormitoryId ? getMatchGroupSize(dormitoryId) : 2;
 
-    this.state.activeMatch = {
-      matchId: `match-${++idCounter}`,
-      partnerUserId: partnerId,
-      partnerNickname: partnerProfile?.nickname ?? partnerId,
-      partnerDormitoryId: partnerProfile?.dormitoryId ?? null,
-      matchScore: scoreResult.score ?? 0,
-      scoreType: scoreResult.type,
-      matchedAt: now,
-      cancelRequestedAt: null,
-      cancelRequestedBy: null,
-    };
+    const approvals = Array.from(new Set([...(request.approvalUserIds ?? []), userId]));
+    const approvalTotal =
+      this.state.activeMatch?.kind === 'group' &&
+      this.state.activeMatch.groupStage === 'GROUP_FORMING'
+        ? (this.state.activeMatch.groupMemberCount ?? 3)
+        : 2;
+    const allApproved = approvals.length >= approvalTotal;
+
+    if (!allApproved) {
+      this.state.requests = this.state.requests.map((r) =>
+        r.id === requestId ? { ...r, approvalUserIds: approvals } : r,
+      );
+      this.save();
+      return this.getState(userId);
+    }
+
+    if (
+      this.state.activeMatch?.kind === 'group' &&
+      this.state.activeMatch.groupStage === 'GROUP_FORMING'
+    ) {
+      this.state.activeMatch = {
+        ...this.state.activeMatch,
+        groupStage: 'GROUP_FINAL',
+        cancelRequestedAt: null,
+        cancelRequestedBy: null,
+        cancelApprovalUserIds: [],
+        cancelRequestKind: null,
+      };
+    } else {
+      this.state.activeMatch = {
+        matchId: `match-${++idCounter}`,
+        partnerUserId: partnerId,
+        partnerNickname: partnerProfile?.nickname ?? partnerId,
+        partnerDormitoryId: dormitoryId,
+        matchScore: scoreResult.score ?? 0,
+        scoreType: scoreResult.type,
+        matchedAt: now,
+        cancelRequestedAt: null,
+        cancelRequestedBy: null,
+        cancelApprovalUserIds: [],
+        cancelRequestKind: null,
+        kind: groupSize === 3 ? 'group' : 'pair',
+        groupRole: groupSize === 3 ? 'group_core' : null,
+        groupStage: groupSize === 3 ? 'PAIR_OPEN' : null,
+        groupCapacity: groupSize === 3 ? 3 : 2,
+        groupMemberCount: groupSize === 3 ? 2 : 2,
+        groupMembers:
+          groupSize === 3
+            ? [
+                { userId: context.currentUser.id, nickname: context.currentUser.nickname },
+                { userId: partnerId, nickname: partnerProfile?.nickname ?? partnerId },
+              ]
+            : undefined,
+      };
+    }
 
     this.state.requests = this.state.requests.map((r) => {
-      if (r.id === requestId) return { ...r, status: 'ACTIVE' as const };
+      if (r.id === requestId)
+        return { ...r, status: 'ACTIVE' as const, approvalUserIds: approvals };
+      if (
+        groupSize === 3 &&
+        r.status === 'PENDING' &&
+        !isRequestExpired(r) &&
+        r.fromUserId !== userId
+      ) {
+        return {
+          ...r,
+          requestKind: 'GROUP_JOIN',
+          groupTargetUserIds:
+            this.state.activeMatch?.groupMembers?.map((member) => member.userId) ??
+            r.groupTargetUserIds,
+        };
+      }
       if (r.status === 'PENDING' && !isRequestExpired(r))
         return { ...r, status: 'CANCELLED' as const, resolvedAt: now };
       if (r.status === 'IN_CONVERSATION' && r.id !== requestId)
@@ -534,6 +689,180 @@ export class MockMatchingService {
       return r;
     });
 
+    this.save();
+    return this.getState(userId);
+  }
+
+  seedGroupFinalScenario(
+    coreA: GroupScenarioUser,
+    coreB: GroupScenarioUser,
+    candidate: GroupScenarioUser,
+  ): MatchingResult {
+    const dormitoryId =
+      coreA.dormitoryId && getMatchGroupSize(coreA.dormitoryId) === 3
+        ? coreA.dormitoryId
+        : 'toegye';
+    const now = new Date().toISOString();
+    const expiresAt = new Date(
+      Date.now() + MATCH_POLICY.REQUEST_TTL_HOURS * 60 * 60 * 1000,
+    ).toISOString();
+
+    this.state = {
+      activeMatch: {
+        matchId: `group-final-${++idCounter}`,
+        partnerUserId: coreB.id,
+        partnerNickname: coreB.nickname,
+        partnerDormitoryId: dormitoryId,
+        matchScore: 82,
+        scoreType: 'full',
+        matchedAt: now,
+        cancelRequestedAt: null,
+        cancelRequestedBy: null,
+        cancelApprovalUserIds: [],
+        cancelRequestKind: null,
+        kind: 'group',
+        groupRole: 'group_core',
+        groupStage: 'GROUP_FINAL',
+        groupCapacity: 3,
+        groupMemberCount: 3,
+        groupMembers: [
+          { userId: coreA.id, nickname: coreA.nickname },
+          { userId: coreB.id, nickname: coreB.nickname },
+          { userId: candidate.id, nickname: candidate.nickname },
+        ],
+      },
+      requests: [
+        {
+          id: `group-final-request-${++idCounter}`,
+          fromUserId: candidate.id,
+          toUserId: coreA.id,
+          groupTargetUserIds: [coreA.id, coreB.id],
+          requestKind: 'GROUP_JOIN',
+          approvalUserIds: [coreA.id, coreB.id, candidate.id],
+          status: 'ACTIVE',
+          message: '3인 그룹 확정',
+          createdAt: now,
+          expiresAt,
+          rejectedAt: null,
+          acceptedAt: now,
+          resolvedAt: null,
+        },
+      ],
+    };
+    this.save();
+    return this.getState(coreA.id);
+  }
+
+  finalizePairGroup(userId: string): MatchingResult {
+    if (!this.state.activeMatch) return this.getState(userId);
+    if (
+      this.state.activeMatch.kind !== 'group' ||
+      this.state.activeMatch.groupStage !== 'PAIR_OPEN'
+    ) {
+      return this.getState(userId);
+    }
+
+    const now = new Date().toISOString();
+    this.state.activeMatch = {
+      ...this.state.activeMatch,
+      groupStage: 'PAIR_FINAL',
+    };
+
+    this.state.requests = this.state.requests.map((r) => {
+      if (r.status === 'PENDING' && !isRequestExpired(r) && r.fromUserId !== userId) {
+        return { ...r, status: 'CANCELLED' as const, resolvedAt: now };
+      }
+      return r;
+    });
+
+    this.save();
+    return this.getState(userId);
+  }
+
+  seedGroupCandidateScenario(user: GroupScenarioUser): MatchingResult {
+    const dormitoryId =
+      user.dormitoryId && getMatchGroupSize(user.dormitoryId) === 3
+        ? user.dormitoryId
+        : user.gender === 'F'
+          ? 'nanji'
+          : 'toegye';
+    const now = new Date().toISOString();
+    const expiresAt = new Date(
+      Date.now() + MATCH_POLICY.REQUEST_TTL_HOURS * 60 * 60 * 1000,
+    ).toISOString();
+    const coreA = { id: `${dormitoryId}-core-a`, nickname: '그룹A' };
+    const coreB = { id: `${dormitoryId}-core-b`, nickname: '그룹B' };
+
+    this.state = {
+      activeMatch: null,
+      requests: [
+        {
+          id: `group-join-${++idCounter}`,
+          fromUserId: user.id,
+          toUserId: coreA.id,
+          groupTargetUserIds: [coreA.id, coreB.id],
+          requestKind: 'GROUP_JOIN',
+          approvalUserIds: [],
+          status: 'PENDING',
+          message: '3인실 그룹에 합류하고 싶어요',
+          createdAt: now,
+          expiresAt,
+          rejectedAt: null,
+          acceptedAt: null,
+          resolvedAt: null,
+        },
+      ],
+    };
+    this.save();
+    return this.getState(user.id);
+  }
+
+  revokeConfirmMatch(requestId: string, userId: string): MatchingResult {
+    const request = this.state.requests.find((r) => r.id === requestId);
+    if (!request || request.status !== 'IN_CONVERSATION') return this.getState(userId);
+
+    this.state.requests = this.state.requests.map((r) =>
+      r.id === requestId
+        ? {
+            ...r,
+            approvalUserIds: (r.approvalUserIds ?? []).filter(
+              (approvalId) => approvalId !== userId,
+            ),
+          }
+        : r,
+    );
+    this.save();
+    return this.getState(userId);
+  }
+
+  setConfirmState(userId: string, mode: 'none' | 'self' | 'others' | 'all'): MatchingResult {
+    const request = this.state.requests.find(
+      (r) =>
+        r.status === 'IN_CONVERSATION' &&
+        (r.fromUserId === userId || doesRequestTargetUser(r, userId)),
+    );
+    if (!request) return this.getState(userId);
+
+    const participantIds =
+      this.state.activeMatch?.kind === 'group' &&
+      this.state.activeMatch.groupStage === 'GROUP_FORMING'
+        ? (this.state.activeMatch.groupMembers?.map((member) => member.userId) ?? [userId])
+        : [userId, request.fromUserId === userId ? request.toUserId : request.fromUserId];
+
+    const uniqueParticipants = Array.from(new Set(participantIds.filter(Boolean)));
+    const others = uniqueParticipants.filter((participantId) => participantId !== userId);
+    const nextApprovals =
+      mode === 'none'
+        ? []
+        : mode === 'self'
+          ? [userId]
+          : mode === 'others'
+            ? others
+            : uniqueParticipants;
+
+    this.state.requests = this.state.requests.map((r) =>
+      r.id === request.id ? { ...r, approvalUserIds: nextApprovals } : r,
+    );
     this.save();
     return this.getState(userId);
   }
@@ -548,7 +877,166 @@ export class MockMatchingService {
   }
 
   endMatch(userId: string): MatchingResult {
+    if (!this.state.activeMatch) return this.getState(userId);
+
     const now = new Date().toISOString();
+    const members = this.state.activeMatch.groupMembers ?? [];
+    const coreIds = members.slice(0, 2).map((member) => member.userId);
+    const candidateId = members.length >= 3 ? members[members.length - 1]?.userId : null;
+    const isGroupFinalCandidateLeaveFlow =
+      this.state.activeMatch.kind === 'group' &&
+      this.state.activeMatch.groupStage === 'GROUP_FINAL' &&
+      (this.state.activeMatch.cancelRequestKind === 'CANDIDATE_LEAVE' || candidateId === userId);
+    const isGroupCoreCancel =
+      this.state.activeMatch.kind === 'group' &&
+      coreIds.includes(userId) &&
+      this.state.activeMatch.cancelRequestKind !== 'CANDIDATE_LEAVE' &&
+      (this.state.activeMatch.groupStage === 'GROUP_FORMING' ||
+        this.state.activeMatch.groupStage === 'GROUP_FINAL');
+
+    if (isGroupFinalCandidateLeaveFlow) {
+      if (!this.state.activeMatch.cancelRequestedAt) {
+        this.state.activeMatch = {
+          ...this.state.activeMatch,
+          cancelRequestedAt: now,
+          cancelRequestedBy: userId,
+          cancelApprovalUserIds: [],
+          cancelRequestKind: 'CANDIDATE_LEAVE',
+        };
+        this.save();
+        return this.getState(userId);
+      }
+
+      if (this.state.activeMatch.cancelRequestedBy === userId) {
+        this.state.activeMatch = {
+          ...this.state.activeMatch,
+          cancelRequestedAt: null,
+          cancelRequestedBy: null,
+          cancelApprovalUserIds: [],
+          cancelRequestKind: null,
+        };
+        this.save();
+        return this.getState(userId);
+      }
+
+      if (coreIds.includes(userId)) {
+        const approvals = Array.from(
+          new Set([...(this.state.activeMatch.cancelApprovalUserIds ?? []), userId]),
+        );
+        if (approvals.length >= coreIds.length) {
+          this.state.requests = this.state.requests.map((r) =>
+            r.status === 'ACTIVE' ? { ...r, status: 'UNMATCHED' as const, resolvedAt: now } : r,
+          );
+          this.state.activeMatch = {
+            ...this.state.activeMatch,
+            partnerUserId: coreIds[1] ?? this.state.activeMatch.partnerUserId,
+            partnerNickname: members[1]?.nickname ?? this.state.activeMatch.partnerNickname,
+            groupRole: 'group_core',
+            groupStage: 'PAIR_OPEN',
+            groupMemberCount: 2,
+            groupMembers: members.slice(0, 2),
+            cancelRequestedAt: null,
+            cancelRequestedBy: null,
+            cancelApprovalUserIds: [],
+            cancelRequestKind: null,
+          };
+          this.save();
+          return this.getState(userId);
+        }
+
+        this.state.activeMatch = {
+          ...this.state.activeMatch,
+          cancelApprovalUserIds: approvals,
+        };
+        this.save();
+        return this.getState(userId);
+      }
+
+      return this.getState(userId);
+    }
+
+    if (isGroupCoreCancel) {
+      const memberIds = members.map((member) => member.userId);
+      const otherMemberIds = memberIds.filter((memberId) => memberId !== userId);
+
+      if (!this.state.activeMatch.cancelRequestedAt) {
+        this.state.activeMatch = {
+          ...this.state.activeMatch,
+          cancelRequestedAt: now,
+          cancelRequestedBy: userId,
+          cancelApprovalUserIds: [],
+          cancelRequestKind: 'MATCH_CANCEL',
+        };
+        this.save();
+        return this.getState(userId);
+      }
+
+      if (this.state.activeMatch.cancelRequestedBy === userId) {
+        this.state.activeMatch = {
+          ...this.state.activeMatch,
+          cancelRequestedAt: null,
+          cancelRequestedBy: null,
+          cancelApprovalUserIds: [],
+          cancelRequestKind: null,
+        };
+        this.save();
+        return this.getState(userId);
+      }
+
+      if (otherMemberIds.includes(userId)) {
+        const approvals = Array.from(
+          new Set([...(this.state.activeMatch.cancelApprovalUserIds ?? []), userId]),
+        );
+        if (approvals.length >= otherMemberIds.length) {
+          this.state.requests = this.state.requests.map((r) =>
+            r.status === 'ACTIVE' || r.status === 'IN_CONVERSATION'
+              ? { ...r, status: 'UNMATCHED' as const, resolvedAt: now }
+              : r,
+          );
+          this.state.activeMatch = null;
+          this.save();
+          return this.getState(userId);
+        }
+
+        this.state.activeMatch = {
+          ...this.state.activeMatch,
+          cancelApprovalUserIds: approvals,
+        };
+        this.save();
+        return this.getState(userId);
+      }
+    }
+
+    if (!this.state.activeMatch.cancelRequestedAt) {
+      this.state.activeMatch = {
+        ...this.state.activeMatch,
+        cancelRequestedAt: now,
+        cancelRequestedBy: userId,
+        cancelApprovalUserIds: [],
+        cancelRequestKind: 'MATCH_CANCEL',
+      };
+      this.save();
+      return this.getState(userId);
+    }
+
+    if (this.state.activeMatch.cancelRequestedBy === userId) {
+      this.state.activeMatch = {
+        ...this.state.activeMatch,
+        cancelRequestedAt: null,
+        cancelRequestedBy: null,
+        cancelApprovalUserIds: [],
+        cancelRequestKind: null,
+      };
+      this.save();
+      return this.getState(userId);
+    }
+
+    this.state.activeMatch = {
+      ...this.state.activeMatch,
+      cancelApprovalUserIds: Array.from(
+        new Set([...(this.state.activeMatch.cancelApprovalUserIds ?? []), userId]),
+      ),
+    };
     this.state.requests = this.state.requests.map((r) =>
       r.status === 'ACTIVE' ? { ...r, status: 'UNMATCHED' as const, resolvedAt: now } : r,
     );

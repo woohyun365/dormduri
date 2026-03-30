@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { AlertTriangle, Calendar, School, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Building2, Calendar, School, ShieldAlert } from 'lucide-react';
 import {
   getDormitoryById,
   isCampusOperated as isCampusOperatedFn,
@@ -11,7 +11,7 @@ import {
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { useSeasonContext } from '@/contexts/SeasonContext';
-import { isRequestExpired } from '@/utils/matchRequest';
+import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import { isLifestyleRequiredComplete } from '@/utils/lifestyle';
 import { calcSeasonDates } from '@/constants/season';
 import { PullToRefresh } from '@/components/PullToRefresh';
@@ -78,7 +78,9 @@ export default function HomeTab({
   const matchingSummary = useMemo(() => {
     const receivedPending = matchRequests.filter(
       (request) =>
-        request.toUserId === user.id && request.status === 'PENDING' && !isRequestExpired(request),
+        doesRequestTargetUser(request, user.id) &&
+        request.status === 'PENDING' &&
+        !isRequestExpired(request),
     );
     const sentPending = matchRequests.filter(
       (request) =>
@@ -119,7 +121,13 @@ export default function HomeTab({
         expiringCount,
       },
       activeMatch: activeMatch
-        ? { nickname: activeMatch.partnerNickname, matchScore: activeMatch.matchScore }
+        ? {
+            nickname: activeMatch.partnerNickname,
+            matchScore: activeMatch.matchScore,
+            groupStage: activeMatch.groupStage,
+            groupMemberCount: activeMatch.groupMemberCount,
+            groupCapacity: activeMatch.groupCapacity,
+          }
         : undefined,
       receivedRequesters,
     };
@@ -197,7 +205,8 @@ export default function HomeTab({
                 {user.gender === 'M' ? '남' : '여'}
               </span>
               {dormitory ? (
-                <span>
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold">
+                  <Building2 className="w-3.5 h-3.5" />
                   {dormitory.name} · {dormitory.roomType}인실
                 </span>
               ) : seasonState === 'OFF_SEASON' || !isCampusOperated ? (
