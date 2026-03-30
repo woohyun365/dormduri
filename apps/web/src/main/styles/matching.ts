@@ -71,6 +71,7 @@ const TONE_STYLES: Record<
 export const matchingStageBackground = 'bg-[var(--knu-background-alt)]';
 
 export const matchingCardShell = 'relative overflow-hidden rounded-2xl border-2 bg-white keep-all';
+export const matchingHistoryCardBorder = 'border-gray-200';
 
 export const matchingDisplayTitle = 'font-bold text-[var(--knu-text-primary)]';
 

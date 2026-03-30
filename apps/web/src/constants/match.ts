@@ -14,7 +14,7 @@ export const MATCH_STATUS_LABELS: Record<MatchStatus, string> = {
   ACTIVE: '매칭됨',
   EXPIRED: '만료',
   REJECTED: '매칭 불발',
-  CANCELLED: '취소됨',
+  CANCELLED: '취소함',
   CONVERSATION_ENDED: '대화 종료',
   UNMATCHED: '매칭 해제',
 };

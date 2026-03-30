@@ -1,9 +1,6 @@
 'use client';
 
-import { TrendingUp, Clock } from 'lucide-react';
-import { motion } from 'motion/react';
-
-export type SortOption = 'matchScore' | 'latest';
+export type SortOption = 'matchScore' | 'oldest';
 
 interface SortToggleProps {
   value: SortOption;
@@ -11,57 +8,32 @@ interface SortToggleProps {
 }
 
 export function SortToggle({ value, onChange }: SortToggleProps) {
-  return (
-    <div className="flex items-center gap-2 p-1 rounded-xl bg-white border-2 border-[var(--knu-border)]">
-      <SortButton
-        active={value === 'matchScore'}
-        onClick={() => onChange('matchScore')}
-        icon={<TrendingUp className="w-3.5 h-3.5 relative z-10" />}
-        label="매칭도순"
-        layoutId="sortBg"
-      />
-      <SortButton
-        active={value === 'latest'}
-        onClick={() => onChange('latest')}
-        icon={<Clock className="w-3.5 h-3.5 relative z-10" />}
-        label="최신순"
-        layoutId="sortBg"
-      />
-    </div>
-  );
-}
+  const checked = value === 'matchScore';
 
-function SortButton({
-  active,
-  onClick,
-  icon,
-  label,
-  layoutId,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-  layoutId: string;
-}) {
   return (
     <button
-      onClick={onClick}
-      className={`relative px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1.5 ${
-        active
-          ? 'text-[var(--knu-primary)]'
-          : 'text-[var(--knu-text-tertiary)] hover:text-[var(--knu-text-secondary)]'
-      }`}
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label="받은 요청을 매칭도 우선으로 정렬"
+      onClick={() => onChange(checked ? 'oldest' : 'matchScore')}
+      className="group inline-flex items-center gap-3 rounded-lg px-1 py-1 text-right transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--knu-primary)]/25"
     >
-      {active && (
-        <motion.div
-          layoutId={layoutId}
-          className="absolute inset-0 bg-[var(--knu-primary-light)] rounded-lg"
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      <span className="text-[12px] font-semibold leading-none text-[var(--knu-text-primary)]">
+        {checked ? '매칭도순' : '도착순'}
+      </span>
+      <span
+        aria-hidden="true"
+        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${
+          checked ? 'bg-[var(--knu-primary)]' : 'bg-slate-300'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 size-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+            checked ? 'translate-x-4' : 'translate-x-0.5'
+          }`}
         />
-      )}
-      {icon}
-      <span className="relative z-10">{label}</span>
+      </span>
     </button>
   );
 }

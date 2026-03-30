@@ -15,6 +15,8 @@ export type MatchDirection = 'SENT' | 'RECEIVED';
 
 // 점수 게이팅 타입
 export type MatchScoreType = 'full' | 'partial' | 'gated';
+export type HistoryStage = 'SENT_REQUEST' | 'RECEIVED_REQUEST' | 'CONVERSATION' | 'MATCH';
+export type HistoryResolvedBy = 'self' | 'other' | 'system';
 
 export type ActiveMatchKind = 'pair' | 'group';
 export type ActiveMatchGroupRole = 'group_core' | 'group_candidate';
@@ -38,6 +40,7 @@ export interface MatchRequest {
   rejectedAt: string | null;
   acceptedAt: string | null; // PENDING → IN_CONVERSATION 시점
   resolvedAt: string | null; // 터미널 상태 진입 시점 (이력 정렬)
+  resolvedBy?: string | 'system' | null;
   requestKind?: 'PERSONAL' | 'GROUP_JOIN';
   groupTargetUserIds?: string[];
   approvalUserIds?: string[];
@@ -74,17 +77,30 @@ export const TERMINAL_STATUSES: MatchStatus[] = [
 ];
 
 // 이력 카드 데이터 (현재 시즌 + 과거 시즌 공용)
-export interface HistoryItemData {
-  id: string;
-  nickname: string;
-  status: MatchStatus;
-  date: string; // ISO string
-}
+export type HistoryItemData =
+  | {
+      id: string;
+      nickname: string;
+      status: MatchStatus;
+      date: string; // ISO string
+      stage?: HistoryStage;
+      resolvedBy?: HistoryResolvedBy;
+      preset?: undefined;
+    }
+  | {
+      id: string;
+      nickname: string;
+      preset: 'MATCHED_SUCCESS' | 'MATCH_UNMATCHED' | 'RECEIVED_CANCELLED';
+      date?: string;
+      stage?: 'MATCH' | 'RECEIVED_REQUEST';
+      resolvedBy?: undefined;
+    };
 
 // 과거 시즌 이력 데이터
 export interface PastSeasonData {
   id: string;
   name: string; // "2025-1학기"
+  dormitoryIdSnapshot?: string | null; // 당시 본인 배정 건물 스냅샷 (건물 단위)
   matchResult: 'success' | 'no_match';
   matchedWith?: string; // 매칭 성공 시 상대 닉네임 (스냅샷)
   receivedCount: number;

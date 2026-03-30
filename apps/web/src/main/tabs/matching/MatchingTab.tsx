@@ -1,38 +1,65 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Handshake, ChevronDown, ChevronUp, Building2, Calendar } from 'lucide-react';
+import {
+  Handshake,
+  Ban,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  ChevronRight,
+  Building2,
+  Calendar,
+  Flag,
+  MessageCircle,
+  Archive,
+  List,
+  Sparkles,
+  User,
+  X,
+} from 'lucide-react';
 import { UNASSIGNED_ID, isCampusOperated } from '@/constants/dormitory';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { MATCH_POLICY } from '@/constants/match';
 import { MatchRequestCard } from '../../components/MatchRequestCard';
+import { MatchingCompactCard } from '../../components/matching/MatchingCompactCard';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
 import { MatchingTabHeader } from './MatchingTabHeader';
 import { SubNav } from '../../components/matching/SubNav';
-import { ConversationCard } from '../../components/matching/ConversationCard';
 import { ActiveMatchCard } from '../../components/matching/ActiveMatchCard';
 import { GroupCoreCard } from '../../components/matching/GroupCoreCard';
 import { GroupCandidateCard } from '../../components/matching/GroupCandidateCard';
-import { HistoryCard } from '../../components/matching/HistoryCard';
 import { MatchingEmptyState } from '../../components/matching/MatchingEmptyState';
 import { PastSeasonAccordion } from '../../components/matching/PastSeasonAccordion';
 import { PolicyHintBanner } from '../../components/matching/PolicyHintBanner';
 import { ShowMoreButton } from '../../components/matching/ShowMoreButton';
 import { SegmentControl } from '../../components/matching/SegmentControl';
 import { SortToggle } from '../../components/matching/SortToggle';
-import { getMatchingPolicyHint } from '../../components/matching/policyCopy';
+import {
+  getCurrentHistoryVisualMeta,
+  getRepeatedCancelledVisualMeta,
+} from '../../components/matching/historyDisplay';
+import { getMatchingPolicyHints } from '../../components/matching/policyCopy';
 import type { SortOption } from '../../components/matching/SortToggle';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import { calcMatchScoreWithGating } from '@/utils/matchScore';
-import { matchingStageBackground } from '@/main/styles/matching';
+import { matchingHistoryCardBorder, matchingStageBackground } from '@/main/styles/matching';
 import type { MatchScoreType } from '@/utils/matchScore';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
 import type { MatchRequest, ActiveMatch, MatchStatus, PastSeasonData } from '@/types/match';
 
 type RequestTab = 'sent' | 'received';
 type SubNavTab = 'current' | 'past';
+
+interface CurrentHistoryRow {
+  request: MatchRequest;
+  partnerNickname: string;
+  partnerDormId: string | null;
+  aggregateCount?: number;
+  aggregateContext?: 'SENT_REQUEST' | 'RECEIVED_REQUEST';
+}
 
 const TERMINAL_STATUSES: MatchStatus[] = [
   'EXPIRED',
@@ -86,7 +113,7 @@ export default function MatchingTab({
   initialRequestTab,
 }: MatchingTabProps) {
   // --- Hooks ---
-  const { state: seasonState } = useSeasonContext();
+  const { state: seasonState, daysUntilEnd } = useSeasonContext();
   const campusOperated = isCampusOperated(user.campus);
 
   const profileMap = useMemo(() => {
@@ -152,21 +179,29 @@ export default function MatchingTab({
     requestId: string;
   } | null>(null);
 
-  // 더보기 / 정렬
-  const [showAllConversations, setShowAllConversations] = useState(false);
-  const [showAllReceived, setShowAllReceived] = useState(false);
-  const [showAllHistory, setShowAllHistory] = useState(false);
-  const [receivedSort, setReceivedSort] = useState<SortOption>('matchScore');
+  // 더보기 / 정렬 (점진적 3개씩)
+  const [convShowCount, setConvShowCount] = useState(INITIAL_SHOW);
+  const [recvShowCount, setRecvShowCount] = useState(INITIAL_SHOW);
+  const [histShowCount, setHistShowCount] = useState(HISTORY_INITIAL_SHOW);
+  const [receivedSort, setReceivedSort] = useState<SortOption>('oldest');
+  const [renderedAt] = useState(() => Date.now());
+
+  // 섹션 ref (접기 시 스크롤)
+  const convSectionRef = useRef<HTMLElement>(null);
+  const recvSectionRef = useRef<HTMLElement>(null);
+  const histSectionRef = useRef<HTMLElement>(null);
   const isGroupCoreOpen = activeMatch?.kind === 'group' && activeMatch.groupStage === 'PAIR_OPEN';
   const isGroupForming =
     activeMatch?.kind === 'group' && activeMatch.groupStage === 'GROUP_FORMING';
   const isGroupMatch = activeMatch?.kind === 'group';
-  const policyHint = getMatchingPolicyHint({
+
+  const policyHints = getMatchingPolicyHints({
+    seasonState,
     activeMatch,
-    requestTab,
     sentPendingCount: sentPending.length,
     receivedPendingCount: receivedPending.length,
     conversationsCount: conversations.length,
+    daysUntilEnd,
   });
 
   // --- Helpers ---
@@ -224,7 +259,13 @@ export default function MatchingTab({
 
   const confirmMessages: Record<
     string,
-    { title: string; message: string; label: string; variant: 'default' | 'danger' }
+    {
+      title: string;
+      message: string;
+      warning?: string;
+      label: string;
+      variant: 'default' | 'danger';
+    }
   > = {
     cancel: {
       title: '요청 취소',
@@ -247,10 +288,13 @@ export default function MatchingTab({
       variant: 'default',
     },
     confirmMatch: {
-      title: '매칭 확정',
+      title: '매칭 확정 승인',
       message: isGroupForming
-        ? `${confirmAction?.nickname ?? ''}님과의 3인 그룹 확정을 승인하시겠습니까?\n3명이 모두 눌러야 최종 적용됩니다.`
-        : `${confirmAction?.nickname ?? ''}님과의 매칭 확정을 승인하시겠습니까?\n양쪽이 모두 눌러야 최종 적용됩니다.`,
+        ? `${confirmAction?.nickname ?? ''}님과의 3인 그룹 확정을 승인하시겠습니까?`
+        : `${confirmAction?.nickname ?? ''}님과의 매칭을 확정하시겠습니까?`,
+      warning: isGroupForming
+        ? '3명이 모두 눌러야 최종 매칭이 완료됩니다.'
+        : '두 사람 모두 확정해야 매칭이 완료됩니다.',
       label: '승인하기',
       variant: 'default',
     },
@@ -294,19 +338,84 @@ export default function MatchingTab({
         return (bResult.score ?? 0) - (aResult.score ?? 0);
       });
     } else {
-      sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     }
     return sorted;
   }, [receivedPending, receivedSort, user.id, user.lifestyle, profileMap]);
 
-  // 더보기 슬라이싱
-  const displayedConversations = showAllConversations
-    ? conversations
-    : conversations.slice(0, INITIAL_SHOW);
-  const displayedReceived = showAllReceived
-    ? sortedReceived
-    : sortedReceived.slice(0, INITIAL_SHOW);
-  const displayedHistory = showAllHistory ? history : history.slice(0, HISTORY_INITIAL_SHOW);
+  // 더보기 슬라이싱 (점진적)
+  const displayedConversations = conversations.slice(0, convShowCount);
+  const displayedReceived = sortedReceived.slice(0, recvShowCount);
+  const aggregatedHistory = useMemo<CurrentHistoryRow[]>(() => {
+    const rows: CurrentHistoryRow[] = [];
+    const seen = new Map<string, CurrentHistoryRow>();
+
+    for (const req of history) {
+      const partnerId = getPartnerId(req, user.id);
+      const partnerNickname = profileMap.get(partnerId)?.nickname ?? partnerId;
+      const partnerDormId = profileMap.get(partnerId)?.dormitoryId ?? null;
+      const isRepeatedSentCancelled =
+        req.status === 'CANCELLED' && req.fromUserId === user.id && req.resolvedBy === user.id;
+      const isRepeatedReceivedCancelled =
+        req.status === 'CANCELLED' &&
+        req.fromUserId !== user.id &&
+        req.resolvedBy !== null &&
+        req.resolvedBy !== undefined &&
+        req.resolvedBy !== 'system' &&
+        req.resolvedBy !== user.id;
+
+      if (isRepeatedSentCancelled || isRepeatedReceivedCancelled) {
+        const context = isRepeatedSentCancelled ? 'SENT_REQUEST' : 'RECEIVED_REQUEST';
+        const key = `cancelled:${context}:${partnerId}`;
+        const existing = seen.get(key);
+        if (existing) {
+          existing.aggregateCount = (existing.aggregateCount ?? 1) + 1;
+          continue;
+        }
+        const row: CurrentHistoryRow = {
+          request: req,
+          partnerNickname,
+          partnerDormId,
+          aggregateCount: 1,
+          aggregateContext: context,
+        };
+        seen.set(key, row);
+        rows.push(row);
+        continue;
+      }
+
+      rows.push({ request: req, partnerNickname, partnerDormId });
+    }
+
+    return rows;
+  }, [history, profileMap, user.id]);
+  const displayedHistory = aggregatedHistory.slice(0, histShowCount);
+
+  // 더보기/접기 핸들러
+  const handleToggleMore = useCallback(
+    (
+      total: number,
+      current: number,
+      initial: number,
+      step: number,
+      setter: (n: number) => void,
+      sectionRef: React.RefObject<HTMLElement | null>,
+    ) => {
+      if (current >= total) {
+        // 접기: 초기 개수로 복귀 + DOM 업데이트 후 smooth scroll
+        setter(initial);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+      } else {
+        // 더보기: step만큼 증가
+        setter(Math.min(current + step, total));
+      }
+    },
+    [],
+  );
 
   // --- 공통 UI ---
   const renderDialogs = () => (
@@ -371,6 +480,7 @@ export default function MatchingTab({
         onConfirm={handleConfirmAction}
         title={confirmAction ? confirmMessages[confirmAction.type]!.title : ''}
         message={confirmAction ? confirmMessages[confirmAction.type]!.message : ''}
+        warning={confirmAction ? confirmMessages[confirmAction.type]!.warning : undefined}
         confirmLabel={confirmAction ? confirmMessages[confirmAction.type]!.label : ''}
         variant={confirmAction ? confirmMessages[confirmAction.type]!.variant : 'default'}
       />
@@ -403,7 +513,7 @@ export default function MatchingTab({
   if (!campusOperated) {
     return (
       <div className={`min-h-screen ${matchingStageBackground}`}>
-        <MatchingTabHeader user={user} />
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
         <div className="px-5 py-6 max-w-md mx-auto">
           <MatchingEmptyState type="not_operated" icon={Handshake} />
         </div>
@@ -415,7 +525,7 @@ export default function MatchingTab({
   if (seasonState === 'SEASON_OPEN') {
     return (
       <div className={`min-h-screen ${matchingStageBackground}`}>
-        <MatchingTabHeader user={user} />
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
         <div className="px-5 py-5 max-w-md mx-auto space-y-5">
           <SubNav
             options={[
@@ -425,6 +535,7 @@ export default function MatchingTab({
             selected={subNavTab}
             onChange={(id) => setSubNavTab(id as SubNavTab)}
           />
+          {subNavTab === 'current' && <PolicyHintBanner hints={policyHints} />}
           <AnimatePresence mode="wait">
             {subNavTab === 'current' ? (
               <motion.div
@@ -452,7 +563,7 @@ export default function MatchingTab({
   if (seasonState === 'OFF_SEASON') {
     return (
       <div className={`min-h-screen ${matchingStageBackground}`}>
-        <MatchingTabHeader user={user} />
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
         <div className="px-5 py-5 max-w-md mx-auto space-y-5">
           <SubNav
             options={[
@@ -462,6 +573,7 @@ export default function MatchingTab({
             selected={subNavTab}
             onChange={(id) => setSubNavTab(id as SubNavTab)}
           />
+          {subNavTab === 'current' && <PolicyHintBanner hints={policyHints} />}
           <AnimatePresence mode="wait">
             {subNavTab === 'current' ? (
               <motion.div
@@ -485,18 +597,8 @@ export default function MatchingTab({
     );
   }
 
-  // --- 게이팅: UNASSIGNED ---
+  // --- UNASSIGNED 판정 (게이팅은 "현재 시즌" 내부에서만 적용) ---
   const isUnassigned = user.dormitoryId === UNASSIGNED_ID || user.dormitoryId === null;
-  if (isUnassigned && seasonState === 'SEASON_MATCHING') {
-    return (
-      <div className={`min-h-screen ${matchingStageBackground}`}>
-        <MatchingTabHeader user={user} />
-        <div className="px-5 py-6 max-w-md mx-auto">
-          <MatchingEmptyState type="no_building" icon={Building2} />
-        </div>
-      </div>
-    );
-  }
 
   // --- [1] Active Match ---
   if (activeMatch && isGroupMatch && (isGroupForming || activeMatch.groupStage === 'GROUP_FINAL')) {
@@ -515,10 +617,10 @@ export default function MatchingTab({
 
     return (
       <div className={`min-h-screen ${matchingStageBackground}`}>
-        <MatchingTabHeader user={user} />
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
         <div className="px-5 py-5 max-w-md mx-auto">
           <div className="mb-4">
-            <PolicyHintBanner hint={policyHint} />
+            <PolicyHintBanner hints={policyHints} />
           </div>
           {activeMatch.groupRole === 'group_candidate' ? (
             <GroupCandidateCard
@@ -607,10 +709,10 @@ export default function MatchingTab({
     );
     return (
       <div className={`min-h-screen ${matchingStageBackground}`}>
-        <MatchingTabHeader user={user} />
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
         <div className="px-5 py-5 max-w-md mx-auto">
           <div className="mb-4">
-            <PolicyHintBanner hint={policyHint} />
+            <PolicyHintBanner hints={policyHints} />
           </div>
           <ActiveMatchCard
             nickname={activeMatch.partnerNickname}
@@ -655,7 +757,7 @@ export default function MatchingTab({
 
   return (
     <div className={`min-h-screen ${matchingStageBackground}`}>
-      <MatchingTabHeader user={user} />
+      <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
       <div className="px-5 py-5 max-w-md mx-auto space-y-5">
         {/* 서브 네비게이션 */}
         <SubNav
@@ -667,7 +769,7 @@ export default function MatchingTab({
           onChange={(id) => setSubNavTab(id as SubNavTab)}
         />
 
-        {subNavTab === 'current' && <PolicyHintBanner hint={policyHint} />}
+        {subNavTab === 'current' && <PolicyHintBanner hints={policyHints} />}
 
         <AnimatePresence mode="wait">
           {subNavTab === 'current' ? (
@@ -678,16 +780,14 @@ export default function MatchingTab({
               exit={{ opacity: 0, x: 20 }}
               className="space-y-5"
             >
-              {!hasActivity ? (
+              {isUnassigned && seasonState === 'SEASON_MATCHING' ? (
+                <MatchingEmptyState type="no_building" icon={Building2} />
+              ) : !hasActivity ? (
                 <MatchingEmptyState
                   icon={Handshake}
                   title="아직 매칭 활동이 없어요"
-                  description="룸메이트를 탐색하고 매칭 요청�� 보내보세요!"
+                  description="룸메이트를 탐색하고 매칭 요청을 보내보세요!"
                   action={{ label: '룸메 찾기로 이동', onClick: () => onNavigate('list') }}
-                  suggestions={[
-                    { icon: '🎯', text: '프로필을 80% 이상 작성하면 노출률이 높아져요' },
-                    { icon: '⚡', text: '매칭도가 높은 사용자에게 먼저 연락해보세요' },
-                  ]}
                 />
               ) : (
                 <>
@@ -724,10 +824,11 @@ export default function MatchingTab({
 
                   {/* [2] 대화 중 */}
                   {conversations.length > 0 && (
-                    <section>
+                    <section ref={convSectionRef}>
                       <div className="flex items-center gap-2 mb-4">
-                        <div className="w-1 h-5 rounded-full bg-blue-500" />
+                        <div className="w-1 h-5 rounded-full bg-indigo-500" />
                         <h2 className="text-lg font-bold text-[var(--knu-text-primary)] flex items-center gap-2">
+                          <MessageCircle className="w-4.5 h-4.5 text-indigo-500" />
                           {isGroupCoreOpen ? '합류 검토 중' : '대화 중'}
                           <span className="text-sm font-normal text-[var(--knu-text-tertiary)]">
                             ({conversations.length})
@@ -737,67 +838,126 @@ export default function MatchingTab({
                       <div className="space-y-3">
                         {displayedConversations.map((req) => {
                           const partner = getPartnerProfile(req);
+                          const approvalCount = req.approvalUserIds?.length ?? 0;
+                          const approvalTotal = isGroupForming
+                            ? (activeMatch?.groupMemberCount ?? 3)
+                            : 2;
+                          const viewerConfirmed = req.approvalUserIds?.includes(user.id) === true;
+                          const convExpiresMs = req.acceptedAt
+                            ? new Date(req.acceptedAt).getTime() + 7 * 24 * 3600000 - renderedAt
+                            : 0;
+                          const convHoursLeft = Math.max(0, Math.floor(convExpiresMs / 3600000));
+                          const convExpired = convHoursLeft <= 0;
+                          const convTimeDisplay = convExpired
+                            ? '만료됨'
+                            : convHoursLeft < 24
+                              ? `${convHoursLeft}시간`
+                              : `D-${Math.ceil(convHoursLeft / 24)}`;
+                          const convUrgent = !convExpired && convHoursLeft < 24;
                           return (
-                            <ConversationCard
+                            <MatchingCompactCard
                               key={req.id}
                               nickname={partner.nickname}
                               dormitoryId={partner.dormitoryId}
                               matchScore={partner.matchScore}
                               scoreType={partner.scoreType}
-                              confirmApprovalCount={req.approvalUserIds?.length ?? 0}
-                              confirmApprovalTotal={
-                                isGroupForming ? (activeMatch?.groupMemberCount ?? 3) : 2
+                              borderColor="border-indigo-300"
+                              status={{
+                                label: '대화 중',
+                                color: 'text-emerald-600',
+                                dotColor: 'bg-emerald-500',
+                              }}
+                              statusPills={[
+                                {
+                                  label: `확정 ${approvalCount}/${approvalTotal}`,
+                                  className:
+                                    approvalCount === 0
+                                      ? 'bg-gray-100 text-gray-500'
+                                      : approvalCount >= approvalTotal
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : 'bg-amber-100 text-amber-700',
+                                },
+                              ]}
+                              timer={
+                                req.acceptedAt
+                                  ? {
+                                      text: convExpired ? '만료됨' : `남은 시간 ${convTimeDisplay}`,
+                                      urgent: convUrgent,
+                                      expired: convExpired,
+                                    }
+                                  : undefined
                               }
-                              viewerConfirmed={req.approvalUserIds?.includes(user.id) === true}
-                              partnerConfirmed={
-                                req.approvalUserIds?.some((approvalId) => approvalId !== user.id) ??
-                                false
-                              }
-                              onViewProfile={() =>
-                                setSelectedProfile({
-                                  profile: partner,
-                                  direction: 'conversation',
-                                  requestId: req.id,
-                                })
-                              }
-                              onConfirm={() =>
-                                setConfirmAction({
-                                  type: 'confirmMatch',
-                                  requestId: req.id,
-                                  nickname: partner.nickname,
-                                })
-                              }
-                              onRevokeConfirm={() =>
-                                setConfirmAction({
-                                  type: 'revokeConfirm',
-                                  requestId: req.id,
-                                  nickname: partner.nickname,
-                                })
-                              }
-                              onEnd={() =>
-                                setConfirmAction({
-                                  type: 'endConversation',
-                                  requestId: req.id,
-                                  nickname: partner.nickname,
-                                })
-                              }
+                              actions={[
+                                {
+                                  label: '채팅',
+                                  icon: <MessageCircle className="h-3.5 w-3.5" />,
+                                  variant: 'disabled',
+                                  onClick: () => {},
+                                },
+                                {
+                                  label: viewerConfirmed ? '확정 취소' : '확정하기',
+                                  icon: <Check className="h-3.5 w-3.5" />,
+                                  variant: viewerConfirmed ? 'secondary' : 'primary',
+                                  onClick: () =>
+                                    setConfirmAction({
+                                      type: viewerConfirmed ? 'revokeConfirm' : 'confirmMatch',
+                                      requestId: req.id,
+                                      nickname: partner.nickname,
+                                    }),
+                                },
+                              ]}
+                              menuItems={[
+                                {
+                                  label: '프로필 보기',
+                                  icon: <User className="h-4 w-4" />,
+                                  onClick: () =>
+                                    setSelectedProfile({
+                                      profile: partner,
+                                      direction: 'conversation',
+                                      requestId: req.id,
+                                    }),
+                                },
+                                {
+                                  label: '대화 종료',
+                                  icon: <X className="h-4 w-4" />,
+                                  variant: viewerConfirmed ? 'disabled' : 'danger',
+                                  onClick: () =>
+                                    setConfirmAction({
+                                      type: 'endConversation',
+                                      requestId: req.id,
+                                      nickname: partner.nickname,
+                                    }),
+                                },
+                              ]}
                             />
                           );
                         })}
                         <ShowMoreButton
-                          remainingCount={conversations.length - INITIAL_SHOW}
-                          isExpanded={showAllConversations}
-                          onClick={() => setShowAllConversations(!showAllConversations)}
+                          remainingCount={conversations.length - convShowCount}
+                          isExpanded={convShowCount >= conversations.length}
+                          totalCount={conversations.length}
+                          initialCount={INITIAL_SHOW}
+                          onClick={() =>
+                            handleToggleMore(
+                              conversations.length,
+                              convShowCount,
+                              INITIAL_SHOW,
+                              3,
+                              setConvShowCount,
+                              convSectionRef,
+                            )
+                          }
                         />
                       </div>
                     </section>
                   )}
 
                   {/* [3] 요청 관리 */}
-                  <section>
+                  <section ref={recvSectionRef}>
                     <div className="flex items-center gap-2 mb-4">
-                      <div className="w-1 h-5 rounded-full bg-[var(--knu-primary)]" />
-                      <h2 className="text-lg font-bold text-[var(--knu-text-primary)]">
+                      <div className="w-1 h-5 rounded-full bg-sky-400" />
+                      <h2 className="text-lg font-bold text-[var(--knu-text-primary)] flex items-center gap-2">
+                        <List className="w-4.5 h-4.5 text-sky-500" />
                         {isGroupCoreOpen ? '그룹 합류 요청' : '요청 관리'}
                       </h2>
                     </div>
@@ -830,6 +990,13 @@ export default function MatchingTab({
                       )}
                     </div>
 
+                    {(isGroupCoreOpen || requestTab === 'received') &&
+                      receivedPending.length > 0 && (
+                        <div className="-mt-1 mb-4 flex justify-end">
+                          <SortToggle value={receivedSort} onChange={setReceivedSort} />
+                        </div>
+                      )}
+
                     <AnimatePresence mode="wait">
                       {!isGroupCoreOpen && requestTab === 'sent' && (
                         <motion.div
@@ -842,53 +1009,126 @@ export default function MatchingTab({
                           {sentPending.length > 0 ? (
                             sentPending.map((req) => {
                               const partner = getPartnerProfile(req);
+                              // 3인실 GROUP_JOIN은 기존 MatchRequestCard 사용
+                              if (req.requestKind === 'GROUP_JOIN') {
+                                return (
+                                  <MatchRequestCard
+                                    key={req.id}
+                                    request={req}
+                                    direction="sent"
+                                    partnerProfile={partner}
+                                    scoreType={partner.scoreType}
+                                    viewerId={user.id}
+                                    groupTargetNicknames={req.groupTargetUserIds?.map(
+                                      (targetId) => profileMap.get(targetId)?.nickname ?? targetId,
+                                    )}
+                                    onCancel={(id) =>
+                                      setConfirmAction({
+                                        type: 'cancel',
+                                        requestId: id,
+                                        nickname: partner.nickname,
+                                      })
+                                    }
+                                    onClick={() =>
+                                      setSelectedProfile({
+                                        profile: partner,
+                                        direction: 'sent',
+                                        requestId: req.id,
+                                      })
+                                    }
+                                  />
+                                );
+                              }
+                              const hoursLeft = Math.max(
+                                0,
+                                Math.floor(
+                                  (new Date(req.expiresAt).getTime() - renderedAt) / 3600000,
+                                ),
+                              );
+                              const isExpired = hoursLeft <= 0;
+                              const timeDisplay = isExpired
+                                ? '만료됨'
+                                : hoursLeft < 24
+                                  ? `${hoursLeft}시간`
+                                  : `D-${Math.ceil(hoursLeft / 24)}`;
+                              const isUrgent = !isExpired && hoursLeft < 24;
                               return (
-                                <MatchRequestCard
+                                <MatchingCompactCard
                                   key={req.id}
-                                  request={req}
-                                  direction="sent"
-                                  partnerProfile={partner}
+                                  nickname={partner.nickname}
+                                  dormitoryId={partner.dormitoryId}
+                                  matchScore={partner.matchScore}
                                   scoreType={partner.scoreType}
-                                  viewerId={user.id}
-                                  groupTargetNicknames={
-                                    req.requestKind === 'GROUP_JOIN'
-                                      ? req.groupTargetUserIds?.map(
-                                          (targetId) =>
-                                            profileMap.get(targetId)?.nickname ?? targetId,
-                                        )
-                                      : undefined
-                                  }
-                                  onCancel={(id) =>
-                                    setConfirmAction({
-                                      type: 'cancel',
-                                      requestId: id,
-                                      nickname: partner.nickname,
-                                    })
-                                  }
-                                  onClick={() =>
-                                    setSelectedProfile({
-                                      profile: partner,
-                                      direction: 'sent',
-                                      requestId: req.id,
-                                    })
-                                  }
+                                  borderColor="border-indigo-100"
+                                  status={{
+                                    label: '수락 대기 중',
+                                    color: 'text-amber-600',
+                                    dotColor: 'bg-amber-400',
+                                  }}
+                                  message={req.message}
+                                  timer={{
+                                    text: isExpired ? '만료됨' : `남은 시간 ${timeDisplay}`,
+                                    urgent: isUrgent,
+                                    expired: isExpired,
+                                  }}
+                                  actions={[
+                                    {
+                                      label: '프로필',
+                                      icon: <User className="h-3.5 w-3.5" />,
+                                      variant: 'secondary',
+                                      onClick: () =>
+                                        setSelectedProfile({
+                                          profile: partner,
+                                          direction: 'sent',
+                                          requestId: req.id,
+                                        }),
+                                    },
+                                    {
+                                      label: '취소',
+                                      icon: <X className="h-3.5 w-3.5" />,
+                                      variant: isExpired ? 'disabled' : 'secondary',
+                                      onClick: () =>
+                                        setConfirmAction({
+                                          type: 'cancel',
+                                          requestId: req.id,
+                                          nickname: partner.nickname,
+                                        }),
+                                    },
+                                  ]}
+                                  menuItems={[
+                                    {
+                                      label: '차단하기',
+                                      icon: <Ban className="h-4 w-4" />,
+                                      variant: 'danger',
+                                      onClick: () => {},
+                                    },
+                                    {
+                                      label: '신고하기',
+                                      icon: <Flag className="h-4 w-4" />,
+                                      variant: 'danger',
+                                      onClick: () => {},
+                                    },
+                                  ]}
                                 />
                               );
                             })
                           ) : (
                             <div className="text-center py-6">
-                              <p className="text-sm text-[var(--knu-text-tertiary)] mb-3">
-                                보낸 요청이 없어요
+                              <p className="text-sm text-[var(--knu-text-tertiary)] mb-1">
+                                대기 중인 요청이 없어요
                               </p>
                               <p className="text-xs text-[var(--knu-text-tertiary)] mb-4">
-                                룸메 찾기에서 마음에 드는 룸메에게 요청을 보내보세요
+                                프로필을 둘러보고 마음에 드는 상대에게 요청을 보내보세요
                               </p>
-                              <button
+                              <motion.button
                                 onClick={() => onNavigate('list')}
-                                className="px-4 py-2 text-sm font-semibold text-[var(--knu-primary)] bg-[var(--knu-primary-light)] rounded-xl"
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                className="px-5 py-2.5 bg-gradient-to-r from-[var(--knu-primary)] to-blue-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-blue-200/50 transition-all flex items-center justify-center gap-1.5 mx-auto"
                               >
-                                룸메 찾��로 이동
-                              </button>
+                                매칭 상대 둘러보기
+                                <ChevronRight className="w-4 h-4" />
+                              </motion.button>
                             </div>
                           )}
                         </motion.div>
@@ -904,45 +1144,157 @@ export default function MatchingTab({
                         >
                           {receivedPending.length > 0 ? (
                             <>
-                              <SortToggle value={receivedSort} onChange={setReceivedSort} />
                               {displayedReceived.map((req) => {
                                 const partner = getPartnerProfile(req);
+                                // 3인실 GROUP_JOIN은 기존 MatchRequestCard
+                                if (req.requestKind === 'GROUP_JOIN') {
+                                  return (
+                                    <MatchRequestCard
+                                      key={req.id}
+                                      request={req}
+                                      direction="received"
+                                      partnerProfile={partner}
+                                      scoreType={partner.scoreType}
+                                      viewerId={user.id}
+                                      onAccept={(id) =>
+                                        setConfirmAction({
+                                          type: 'accept',
+                                          requestId: id,
+                                          nickname: partner.nickname,
+                                        })
+                                      }
+                                      onReject={(id) =>
+                                        setConfirmAction({
+                                          type: 'reject',
+                                          requestId: id,
+                                          nickname: partner.nickname,
+                                        })
+                                      }
+                                      onClick={() =>
+                                        setSelectedProfile({
+                                          profile: partner,
+                                          direction: 'received',
+                                          requestId: req.id,
+                                        })
+                                      }
+                                    />
+                                  );
+                                }
+                                const recvHoursLeft = Math.max(
+                                  0,
+                                  Math.floor(
+                                    (new Date(req.expiresAt).getTime() - renderedAt) / 3600000,
+                                  ),
+                                );
+                                const recvExpired = recvHoursLeft <= 0;
+                                const recvTimeDisplay = recvExpired
+                                  ? '만료됨'
+                                  : recvHoursLeft < 24
+                                    ? `${recvHoursLeft}시간`
+                                    : `D-${Math.ceil(recvHoursLeft / 24)}`;
+                                const isRecommended = partner.matchScore >= 85;
+                                const isNew = !req.approvalUserIds?.includes(user.id);
                                 return (
-                                  <MatchRequestCard
+                                  <MatchingCompactCard
                                     key={req.id}
-                                    request={req}
-                                    direction="received"
-                                    partnerProfile={partner}
+                                    nickname={partner.nickname}
+                                    dormitoryId={partner.dormitoryId}
+                                    matchScore={partner.matchScore}
                                     scoreType={partner.scoreType}
-                                    viewerId={user.id}
-                                    onAccept={(id) =>
-                                      setConfirmAction({
-                                        type: 'accept',
-                                        requestId: id,
-                                        nickname: partner.nickname,
-                                      })
+                                    borderColor={
+                                      isRecommended ? 'border-purple-200' : 'border-indigo-100'
                                     }
-                                    onReject={(id) =>
-                                      setConfirmAction({
-                                        type: 'reject',
-                                        requestId: id,
-                                        nickname: partner.nickname,
-                                      })
-                                    }
-                                    onClick={() =>
-                                      setSelectedProfile({
-                                        profile: partner,
-                                        direction: 'received',
-                                        requestId: req.id,
-                                      })
-                                    }
+                                    pills={[
+                                      ...(isRecommended
+                                        ? [
+                                            {
+                                              label: '추천 매칭',
+                                              icon: <Sparkles className="h-3 w-3" />,
+                                              className: 'bg-purple-500 text-white',
+                                            },
+                                          ]
+                                        : []),
+                                      ...(isNew
+                                        ? [{ label: 'New', className: 'bg-red-500 text-white' }]
+                                        : []),
+                                    ]}
+                                    status={{
+                                      label: '응답 필요',
+                                      color: 'text-purple-600',
+                                      dotColor: 'bg-purple-400',
+                                    }}
+                                    message={req.message}
+                                    timer={{
+                                      text: recvExpired ? '만료됨' : `남은 시간 ${recvTimeDisplay}`,
+                                      urgent: !recvExpired && recvHoursLeft < 24,
+                                      expired: recvExpired,
+                                    }}
+                                    actions={[
+                                      {
+                                        label: '거절',
+                                        icon: <X className="h-3.5 w-3.5" />,
+                                        variant: recvExpired ? 'disabled' : 'secondary',
+                                        onClick: () =>
+                                          setConfirmAction({
+                                            type: 'reject',
+                                            requestId: req.id,
+                                            nickname: partner.nickname,
+                                          }),
+                                      },
+                                      {
+                                        label: '수락하기',
+                                        icon: <Check className="h-3.5 w-3.5" />,
+                                        variant: recvExpired ? 'disabled' : 'primary',
+                                        onClick: () =>
+                                          setConfirmAction({
+                                            type: 'accept',
+                                            requestId: req.id,
+                                            nickname: partner.nickname,
+                                          }),
+                                      },
+                                    ]}
+                                    menuItems={[
+                                      {
+                                        label: '프로필 보기',
+                                        icon: <User className="h-4 w-4" />,
+                                        onClick: () =>
+                                          setSelectedProfile({
+                                            profile: partner,
+                                            direction: 'received',
+                                            requestId: req.id,
+                                          }),
+                                      },
+                                      {
+                                        label: '차단하기',
+                                        icon: <Ban className="h-4 w-4" />,
+                                        variant: 'danger',
+                                        onClick: () => {},
+                                      },
+                                      {
+                                        label: '신고하기',
+                                        icon: <Flag className="h-4 w-4" />,
+                                        variant: 'danger',
+                                        onClick: () => {},
+                                      },
+                                    ]}
                                   />
                                 );
                               })}
                               <ShowMoreButton
-                                remainingCount={sortedReceived.length - INITIAL_SHOW}
-                                isExpanded={showAllReceived}
-                                onClick={() => setShowAllReceived(!showAllReceived)}
+                                remainingCount={sortedReceived.length - recvShowCount}
+                                isExpanded={recvShowCount >= sortedReceived.length}
+                                totalCount={sortedReceived.length}
+                                initialCount={INITIAL_SHOW}
+                                onClick={() =>
+                                  handleToggleMore(
+                                    sortedReceived.length,
+                                    recvShowCount,
+                                    INITIAL_SHOW,
+                                    3,
+                                    setRecvShowCount,
+                                    recvSectionRef,
+                                  )
+                                }
                               />
                             </>
                           ) : (
@@ -963,16 +1315,17 @@ export default function MatchingTab({
                   </section>
 
                   {/* [4] 이력 */}
-                  {history.length > 0 && (
-                    <section>
+                  {aggregatedHistory.length > 0 && (
+                    <section ref={histSectionRef}>
                       <button
                         onClick={() => setHistoryOpen(!historyOpen)}
                         className="w-full flex items-center justify-between mb-4 group"
                       >
                         <div className="flex items-center gap-2">
                           <div className="w-1 h-5 rounded-full bg-gray-300" />
-                          <h2 className="text-lg font-bold text-[var(--knu-text-primary)]">
-                            이력 ({history.length})
+                          <h2 className="text-lg font-bold text-[var(--knu-text-primary)] flex items-center gap-2">
+                            <Archive className="w-4.5 h-4.5 text-gray-400" />
+                            이력 ({aggregatedHistory.length})
                           </h2>
                         </div>
                         {historyOpen ? (
@@ -990,23 +1343,50 @@ export default function MatchingTab({
                             exit={{ height: 0, opacity: 0 }}
                             className="space-y-3 overflow-hidden"
                           >
-                            {displayedHistory.map((req) => {
-                              const partnerId = getPartnerId(req, user.id);
-                              const partnerNickname =
-                                profileMap.get(partnerId)?.nickname ?? partnerId;
+                            {displayedHistory.map((row) => {
+                              const historyMeta =
+                                row.aggregateCount &&
+                                row.aggregateCount >= 2 &&
+                                row.aggregateContext
+                                  ? getRepeatedCancelledVisualMeta(
+                                      row.aggregateContext,
+                                      row.aggregateCount,
+                                    )
+                                  : getCurrentHistoryVisualMeta(row.request, user.id);
                               return (
-                                <HistoryCard
-                                  key={req.id}
-                                  nickname={partnerNickname}
-                                  status={req.status}
-                                  date={req.resolvedAt ?? req.createdAt}
+                                <MatchingCompactCard
+                                  key={row.request.id}
+                                  nickname={row.partnerNickname}
+                                  dormitoryId={row.partnerDormId}
+                                  matchScore={0}
+                                  scoreType="gated"
+                                  hideScore
+                                  hoverEffect={false}
+                                  statusPulse={false}
+                                  borderColor={matchingHistoryCardBorder}
+                                  opacity={0.75}
+                                  status={historyMeta.status}
+                                  statusPills={
+                                    historyMeta.stagePill ? [historyMeta.stagePill] : undefined
+                                  }
                                 />
                               );
                             })}
                             <ShowMoreButton
-                              remainingCount={history.length - HISTORY_INITIAL_SHOW}
-                              isExpanded={showAllHistory}
-                              onClick={() => setShowAllHistory(!showAllHistory)}
+                              remainingCount={aggregatedHistory.length - histShowCount}
+                              isExpanded={histShowCount >= aggregatedHistory.length}
+                              totalCount={aggregatedHistory.length}
+                              initialCount={HISTORY_INITIAL_SHOW}
+                              onClick={() =>
+                                handleToggleMore(
+                                  aggregatedHistory.length,
+                                  histShowCount,
+                                  HISTORY_INITIAL_SHOW,
+                                  3,
+                                  setHistShowCount,
+                                  histSectionRef,
+                                )
+                              }
                             />
                           </motion.div>
                         )}

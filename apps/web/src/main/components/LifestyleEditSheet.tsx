@@ -49,8 +49,6 @@ const FIELD_ORDER: FieldKey[] = [
   'drinkingTolerance',
 ];
 
-const DRINKING_FIELDS: FieldKey[] = ['drinkingFrequency', 'drinkingTolerance'];
-
 const SLEEP_FIELD_SET = new Set<FieldKey>(SLEEP_FIELDS);
 const LIVING_FIELD_SET = new Set<FieldKey>(LIVING_FIELDS);
 const CONDITION_FIELD_SET = new Set<FieldKey>(CONDITION_FIELDS);
@@ -66,12 +64,7 @@ function getFieldLockState(
     return { locked: true, reason: '시즌 중에는 변경할 수 없어요' };
   }
 
-  // 시즌 중: 음주 2필드 고정 (조건이지만 별도 잠금)
-  if (DRINKING_FIELDS.includes(field)) {
-    return { locked: true, reason: '시즌 중에는 변경할 수 없어요' };
-  }
-
-  // 시즌 중: 조건 7개 (음주 제외) 수정 가능
+  // 시즌 중: 조건 8개 수정 가능
   if (CONDITION_FIELD_SET.has(field)) {
     return { locked: false };
   }
@@ -141,7 +134,7 @@ export function LifestyleEditSheet({
       <div className="p-5 space-y-6 pb-5">
         {FIELD_ORDER.map((field) => {
           const labels = LIFESTYLE_LABELS[field];
-          const isDrinking = DRINKING_FIELDS.includes(field);
+          const isDrinking = field === 'drinkingFrequency' || field === 'drinkingTolerance';
           const { locked, reason } = getFieldLockState(field, isSeasonLocked);
           return (
             <div key={field}>

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import MatchingTab from '../MatchingTab';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import type { ActiveMatch, MatchRequest } from '@/types/match';
@@ -213,8 +214,117 @@ describe('MatchingTab 3인실 그룹 코어 UI', () => {
       </SeasonProvider>,
     );
 
-    expect(screen.getByText('그룹A · 그룹B 그룹')).toBeInTheDocument();
+    expect(screen.getByText('그룹A · 그룹B')).toBeInTheDocument();
     expect(screen.queryByText('1/2 승인')).not.toBeInTheDocument();
-    expect(screen.getByText(/승인 진행 상황은 개인에게 공개되지 않습니다/)).toBeInTheDocument();
+  });
+
+  it('받은 요청 화면에서는 매칭도 우선 스위치로 정렬 방식을 바꿀 수 있다', async () => {
+    const uiUser = userEvent.setup();
+
+    render(
+      <SeasonProvider
+        value={{
+          season: { name: '2026년 1학기', roomSelectionDate: '2099-04-30' },
+          state: 'SEASON_MATCHING',
+          isOpen: false,
+          isMatching: true,
+          daysUntilEnd: 14,
+        }}
+      >
+        <MatchingTab
+          user={user}
+          matchRequests={requests}
+          activeMatch={null}
+          profiles={profiles}
+          pastSeasons={[]}
+          onCancelRequest={vi.fn()}
+          onAcceptRequest={vi.fn()}
+          onRejectRequest={vi.fn()}
+          onConfirmMatch={vi.fn()}
+          onRevokeConfirmMatch={vi.fn()}
+          onFinalizePairGroup={vi.fn()}
+          onEndConversation={vi.fn()}
+          onEndMatch={vi.fn()}
+          onNavigate={vi.fn()}
+          initialRequestTab="received"
+        />
+      </SeasonProvider>,
+    );
+
+    const sortSwitch = screen.getByRole('switch', { name: '받은 요청을 매칭도 우선으로 정렬' });
+    expect(sortSwitch).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText('도착순')).toBeInTheDocument();
+    expect(screen.getByText('추천 매칭')).toBeInTheDocument();
+
+    await uiUser.click(sortSwitch);
+
+    expect(sortSwitch).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText('매칭도순')).toBeInTheDocument();
+  });
+
+  it('현재 시즌 이력에서 같은 상대의 반복 취소는 2회 이상이면 요약한다', async () => {
+    const uiUser = userEvent.setup();
+    const historyRequests: MatchRequest[] = [
+      {
+        id: 'hist-1',
+        fromUserId: 'partner-1',
+        toUserId: 'user-1',
+        status: 'CANCELLED',
+        message: null,
+        createdAt: '2099-01-01T00:00:00.000Z',
+        expiresAt: '2099-01-02T00:00:00.000Z',
+        rejectedAt: null,
+        acceptedAt: null,
+        resolvedAt: '2099-01-03T00:00:00.000Z',
+        resolvedBy: 'partner-1',
+      },
+      {
+        id: 'hist-2',
+        fromUserId: 'partner-1',
+        toUserId: 'user-1',
+        status: 'CANCELLED',
+        message: null,
+        createdAt: '2099-01-04T00:00:00.000Z',
+        expiresAt: '2099-01-05T00:00:00.000Z',
+        rejectedAt: null,
+        acceptedAt: null,
+        resolvedAt: '2099-01-06T00:00:00.000Z',
+        resolvedBy: 'partner-1',
+      },
+    ];
+
+    render(
+      <SeasonProvider
+        value={{
+          season: { name: '2026년 1학기', roomSelectionDate: '2099-04-30' },
+          state: 'SEASON_MATCHING',
+          isOpen: false,
+          isMatching: true,
+          daysUntilEnd: 14,
+        }}
+      >
+        <MatchingTab
+          user={user}
+          matchRequests={historyRequests}
+          activeMatch={null}
+          profiles={profiles}
+          pastSeasons={[]}
+          onCancelRequest={vi.fn()}
+          onAcceptRequest={vi.fn()}
+          onRejectRequest={vi.fn()}
+          onConfirmMatch={vi.fn()}
+          onRevokeConfirmMatch={vi.fn()}
+          onFinalizePairGroup={vi.fn()}
+          onEndConversation={vi.fn()}
+          onEndMatch={vi.fn()}
+          onNavigate={vi.fn()}
+        />
+      </SeasonProvider>,
+    );
+
+    await uiUser.click(screen.getByRole('button', { name: /이력 \(1\)/ }));
+
+    expect(screen.getByText('상대가 2회 요청을 취소했어요')).toBeInTheDocument();
+    expect(screen.getAllByText('받은 요청').length).toBeGreaterThan(0);
   });
 });

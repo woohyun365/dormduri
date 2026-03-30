@@ -1,5 +1,6 @@
 'use client';
 
+import { AlertTriangle } from 'lucide-react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Button } from '@/components/Button';
@@ -11,6 +12,8 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   title: string;
   message: string;
+  /** 본문 하단에 amber 경고 라인으로 표시 */
+  warning?: string;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'default' | 'danger';
@@ -22,6 +25,7 @@ export function ConfirmDialog({
   onConfirm,
   title,
   message,
+  warning,
   confirmLabel = '확인',
   cancelLabel = '취소',
   variant = 'default',
@@ -45,9 +49,15 @@ export function ConfirmDialog({
 
       <div className="relative bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
         <h3 className="text-lg font-bold text-[var(--knu-text-primary)] mb-2">{title}</h3>
-        <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed whitespace-pre-line mb-6">
+        <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed whitespace-pre-line mb-4">
           {message}
         </p>
+        {warning && (
+          <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 mb-4">
+            <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs font-medium text-amber-800 leading-relaxed">{warning}</p>
+          </div>
+        )}
 
         <div className="flex gap-3">
           <div className="flex-1">

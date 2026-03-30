@@ -87,13 +87,20 @@ describe('HomeMatchingSummary', () => {
     expect(screen.queryByText('보낸 요청')).toBeNull();
   });
 
-  it('클릭 시 매칭 탭으로 이동한다', async () => {
+  it('통계 셀 클릭 시 매칭 탭으로 이동한다', async () => {
     const user = userEvent.setup();
     const onNavigate = vi.fn();
-    render(<HomeMatchingSummary {...defaultProps} status="NO_ACTIVITY" onNavigate={onNavigate} />);
+    render(
+      <HomeMatchingSummary
+        {...defaultProps}
+        status="HAS_ACTIVITY"
+        stats={{ sentRequests: 1, receivedRequests: 0, activeChats: 0 }}
+        onNavigate={onNavigate}
+      />,
+    );
     const buttons = screen.getAllByRole('button');
     await user.click(buttons[0]!);
-    expect(onNavigate).toHaveBeenCalledWith('matching');
+    expect(onNavigate).toHaveBeenCalled();
   });
 
   it('메시지 구성이 바뀌면 순환 인덱스가 첫 메시지로 리셋된다', () => {

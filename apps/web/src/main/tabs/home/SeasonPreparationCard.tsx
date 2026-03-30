@@ -22,7 +22,10 @@ interface SeasonPreparationCardProps {
   canSelectBuilding: boolean;
   buildingOpenDate?: string;
   hasLifestylePattern: boolean;
-  onPrepare: () => void;
+  /** 프로필 탭으로 이동 (생활패턴 입력/수정, 선택 정보 완성) */
+  onNavigateProfile: () => void;
+  /** 건물 선택 모달 열기 */
+  onOpenBuildingSelect: () => void;
   missingFields?: string[];
 }
 
@@ -34,7 +37,8 @@ export function SeasonPreparationCard({
   canSelectBuilding,
   buildingOpenDate,
   hasLifestylePattern,
-  onPrepare,
+  onNavigateProfile,
+  onOpenBuildingSelect,
   missingFields,
 }: SeasonPreparationCardProps) {
   const optionalFieldsTotal = ALL_OPTIONAL_FIELDS.length;
@@ -65,7 +69,12 @@ export function SeasonPreparationCard({
 
   // 색상: 건물 배정 여부 기준
   const colors = hasBuilding
-    ? { bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-600', iconBg: 'bg-blue-100' }
+    ? {
+        bg: 'bg-gradient-to-r from-blue-50 to-purple-50',
+        border: 'border-blue-200',
+        text: 'text-blue-600',
+        iconBg: 'bg-blue-100',
+      }
     : {
         bg: 'bg-amber-50',
         border: 'border-amber-300',
@@ -73,12 +82,12 @@ export function SeasonPreparationCard({
         iconBg: 'bg-amber-100',
       };
 
-  // CTA 문구: 미완 항목 기준
-  const ctaLabel = !hasLifestylePattern
-    ? '생활패턴 입력하기'
+  // CTA 문구 + 동작: 미완 항목 기준
+  const cta = !hasLifestylePattern
+    ? { label: '생활패턴 입력하기', action: onNavigateProfile }
     : !hasBuilding
-      ? '배정 건물 입력하기'
-      : '프로필 완성하기';
+      ? { label: '배정 건물 입력하기', action: onOpenBuildingSelect }
+      : { label: '프로필 완성하기', action: onNavigateProfile };
 
   return (
     <motion.div
@@ -132,17 +141,17 @@ export function SeasonPreparationCard({
         <ChecklistSection
           checklistItems={checklistItems}
           missingFields={missingFields}
-          onPrepare={onPrepare}
+          onEditProfile={onNavigateProfile}
         />
 
         {!allReady && canSelectBuilding && (
           <motion.button
-            onClick={onPrepare}
+            onClick={cta.action}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
-            <span>{ctaLabel}</span>
+            <span>{cta.label}</span>
             <ChevronRight className="w-4 h-4" />
           </motion.button>
         )}
@@ -173,11 +182,11 @@ const ALL_OPTIONAL_FIELDS = ['룸메에게 한마디', '단대', '학년', 'MBTI
 function ChecklistSection({
   checklistItems,
   missingFields,
-  onPrepare,
+  onEditProfile,
 }: {
   checklistItems: ChecklistItem[];
   missingFields?: string[];
-  onPrepare: () => void;
+  onEditProfile: () => void;
 }) {
   const [optionalExpanded, setOptionalExpanded] = useState(false);
   const missing = missingFields ?? [];
@@ -243,7 +252,7 @@ function ChecklistSection({
                   </span>
                   {item.label === '생활패턴 입력' && item.completed && (
                     <motion.button
-                      onClick={onPrepare}
+                      onClick={onEditProfile}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className="text-xs font-medium text-[var(--knu-primary)] hover:underline flex-shrink-0"

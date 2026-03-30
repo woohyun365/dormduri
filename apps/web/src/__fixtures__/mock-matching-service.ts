@@ -8,6 +8,8 @@ import { calcMatchScoreWithGating } from '@/utils/matchScore';
 import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import type { MatchRequest, ActiveMatch, MatchScoreType } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
+import { mockRawProfiles } from './profiles';
+import { mockDb } from './mock-db';
 
 // ── Storage ──────────────────────────────────────────────────────
 
@@ -29,6 +31,37 @@ interface GroupScenarioUser {
   nickname: string;
   dormitoryId: string | null;
   gender?: 'M' | 'F';
+}
+
+function getDevFixtureCandidates(userId: string): Omit<RoommateProfile, 'matchScore'>[] {
+  const currentUser = mockDb.getCurrentUser();
+  const all = mockRawProfiles.filter((profile) => profile.id !== userId);
+
+  if (!currentUser) return all;
+
+  const sameDormitory = currentUser.dormitoryId
+    ? all.filter(
+        (profile) =>
+          profile.dormitoryId === currentUser.dormitoryId &&
+          profile.campus === currentUser.campus &&
+          profile.gender === currentUser.gender,
+      )
+    : [];
+
+  const sameCampus = all.filter(
+    (profile) =>
+      profile.campus === currentUser.campus &&
+      profile.gender === currentUser.gender &&
+      !sameDormitory.some((candidate) => candidate.id === profile.id),
+  );
+
+  const remaining = all.filter(
+    (profile) =>
+      !sameDormitory.some((candidate) => candidate.id === profile.id) &&
+      !sameCampus.some((candidate) => candidate.id === profile.id),
+  );
+
+  return [...sameDormitory, ...sameCampus, ...remaining];
 }
 
 // ── Presets ───────────────────────────────────────────────────────
@@ -210,6 +243,7 @@ function createPresetData(preset: MatchPreset, userId: string): MatchingState {
             ...base,
             rejectedAt: past,
             resolvedAt: past,
+            resolvedBy: '4',
           },
           {
             id: 'p-req-034',
@@ -221,6 +255,7 @@ function createPresetData(preset: MatchPreset, userId: string): MatchingState {
             expiresAt: past,
             ...base,
             resolvedAt: past,
+            resolvedBy: 'system',
           },
           {
             id: 'p-req-035',
@@ -232,6 +267,7 @@ function createPresetData(preset: MatchPreset, userId: string): MatchingState {
             expiresAt: past,
             ...base,
             resolvedAt: past,
+            resolvedBy: userId,
           },
           {
             id: 'p-req-036',
@@ -244,6 +280,7 @@ function createPresetData(preset: MatchPreset, userId: string): MatchingState {
             ...base,
             acceptedAt: past,
             resolvedAt: past,
+            resolvedBy: userId,
           },
           {
             id: 'p-req-037',
@@ -256,6 +293,7 @@ function createPresetData(preset: MatchPreset, userId: string): MatchingState {
             ...base,
             acceptedAt: past,
             resolvedAt: past,
+            resolvedBy: '9',
           },
         ],
         activeMatch: null,
@@ -314,7 +352,21 @@ export class MockMatchingService {
     const past = '2020-01-01T00:00:00.000Z';
     const base = { rejectedAt: null, acceptedAt: null, resolvedAt: null };
     const requests: MatchRequest[] = [];
+    const fixtureCandidates = getDevFixtureCandidates(userId);
+    const usedFixtureIds = new Set<string>();
     let counter = 1000;
+    let fixtureCursor = 0;
+
+    const pickFixtureId = (fallbackId: string) => {
+      while (fixtureCursor < fixtureCandidates.length) {
+        const candidate = fixtureCandidates[fixtureCursor++]!;
+        if (!usedFixtureIds.has(candidate.id)) {
+          usedFixtureIds.add(candidate.id);
+          return candidate.id;
+        }
+      }
+      return fallbackId;
+    };
 
     // 보낸 요청
     const sentCount = counts.sent ?? 0;
@@ -322,7 +374,7 @@ export class MockMatchingService {
       requests.push({
         id: `dev-sent-${++counter}`,
         fromUserId: userId,
-        toUserId: String(i + 1),
+        toUserId: pickFixtureId(String(i + 1)),
         status: 'PENDING',
         message: `테스트 보낸 요청 ${i + 1}`,
         createdAt: far,
@@ -338,7 +390,7 @@ export class MockMatchingService {
       const exp = i === 0 ? new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString() : farExp;
       requests.push({
         id: `dev-recv-${++counter}`,
-        fromUserId: String(sentCount + i + 1),
+        fromUserId: pickFixtureId(String(sentCount + i + 1)),
         toUserId: userId,
         status: 'PENDING',
         message: `테스트 받은 요청 ${i + 1}`,
@@ -353,7 +405,7 @@ export class MockMatchingService {
     for (let i = 0; i < chatsCount; i++) {
       requests.push({
         id: `dev-conv-${++counter}`,
-        fromUserId: String(sentCount + receivedCount + i + 1),
+        fromUserId: pickFixtureId(String(sentCount + receivedCount + i + 1)),
         toUserId: userId,
         status: 'IN_CONVERSATION',
         message: `테스트 대화 ${i + 1}`,
@@ -375,6 +427,7 @@ export class MockMatchingService {
       expiresAt: past,
       ...base,
       resolvedAt: past,
+      resolvedBy: 'system',
     });
     requests.push({
       id: `dev-hist-${++counter}`,
@@ -387,6 +440,7 @@ export class MockMatchingService {
       ...base,
       rejectedAt: past,
       resolvedAt: past,
+      resolvedBy: userId,
     });
 
     this.state = { requests, activeMatch: null };
@@ -420,7 +474,7 @@ export class MockMatchingService {
     this.state.requests = this.state.requests.map((r) => {
       if (r.status === 'PENDING' && isRequestExpired(r)) {
         changed = true;
-        return { ...r, status: 'EXPIRED' as const, resolvedAt: now };
+        return { ...r, status: 'EXPIRED' as const, resolvedAt: now, resolvedBy: 'system' };
       }
       return r;
     });
@@ -439,7 +493,14 @@ export class MockMatchingService {
 
     const now = new Date().toISOString();
     this.state.requests = this.state.requests.map((r) =>
-      r.status === 'ACTIVE' ? { ...r, status: 'UNMATCHED' as const, resolvedAt: now } : r,
+      r.status === 'ACTIVE'
+        ? {
+            ...r,
+            status: 'UNMATCHED' as const,
+            resolvedAt: now,
+            resolvedBy: this.state.activeMatch?.cancelRequestedBy ?? 'system',
+          }
+        : r,
     );
     this.state.activeMatch = null;
     this.save();
@@ -520,7 +581,9 @@ export class MockMatchingService {
   cancelRequest(requestId: string, userId: string): MatchingResult {
     const now = new Date().toISOString();
     this.state.requests = this.state.requests.map((r) =>
-      r.id === requestId ? { ...r, status: 'CANCELLED' as const, resolvedAt: now } : r,
+      r.id === requestId
+        ? { ...r, status: 'CANCELLED' as const, resolvedAt: now, resolvedBy: userId }
+        : r,
     );
     this.save();
     return this.getState(userId);
@@ -579,7 +642,13 @@ export class MockMatchingService {
     const now = new Date().toISOString();
     this.state.requests = this.state.requests.map((r) =>
       r.id === requestId
-        ? { ...r, status: 'REJECTED' as const, rejectedAt: now, resolvedAt: now }
+        ? {
+            ...r,
+            status: 'REJECTED' as const,
+            rejectedAt: now,
+            resolvedAt: now,
+            resolvedBy: userId,
+          }
         : r,
     );
     this.save();
@@ -683,9 +752,19 @@ export class MockMatchingService {
         };
       }
       if (r.status === 'PENDING' && !isRequestExpired(r))
-        return { ...r, status: 'CANCELLED' as const, resolvedAt: now };
+        return {
+          ...r,
+          status: 'CANCELLED' as const,
+          resolvedAt: now,
+          resolvedBy: context.currentUser.id,
+        };
       if (r.status === 'IN_CONVERSATION' && r.id !== requestId)
-        return { ...r, status: 'CONVERSATION_ENDED' as const, resolvedAt: now };
+        return {
+          ...r,
+          status: 'CONVERSATION_ENDED' as const,
+          resolvedAt: now,
+          resolvedBy: context.currentUser.id,
+        };
       return r;
     });
 
@@ -770,7 +849,12 @@ export class MockMatchingService {
 
     this.state.requests = this.state.requests.map((r) => {
       if (r.status === 'PENDING' && !isRequestExpired(r) && r.fromUserId !== userId) {
-        return { ...r, status: 'CANCELLED' as const, resolvedAt: now };
+        return {
+          ...r,
+          status: 'CANCELLED' as const,
+          resolvedAt: now,
+          resolvedBy: userId,
+        };
       }
       return r;
     });
@@ -870,7 +954,14 @@ export class MockMatchingService {
   endConversation(requestId: string, userId: string): MatchingResult {
     const now = new Date().toISOString();
     this.state.requests = this.state.requests.map((r) =>
-      r.id === requestId ? { ...r, status: 'CONVERSATION_ENDED' as const, resolvedAt: now } : r,
+      r.id === requestId
+        ? {
+            ...r,
+            status: 'CONVERSATION_ENDED' as const,
+            resolvedAt: now,
+            resolvedBy: userId,
+          }
+        : r,
     );
     this.save();
     return this.getState(userId);
@@ -925,7 +1016,14 @@ export class MockMatchingService {
         );
         if (approvals.length >= coreIds.length) {
           this.state.requests = this.state.requests.map((r) =>
-            r.status === 'ACTIVE' ? { ...r, status: 'UNMATCHED' as const, resolvedAt: now } : r,
+            r.status === 'ACTIVE'
+              ? {
+                  ...r,
+                  status: 'UNMATCHED' as const,
+                  resolvedAt: now,
+                  resolvedBy: this.state.activeMatch?.cancelRequestedBy ?? userId,
+                }
+              : r,
           );
           this.state.activeMatch = {
             ...this.state.activeMatch,
@@ -990,7 +1088,12 @@ export class MockMatchingService {
         if (approvals.length >= otherMemberIds.length) {
           this.state.requests = this.state.requests.map((r) =>
             r.status === 'ACTIVE' || r.status === 'IN_CONVERSATION'
-              ? { ...r, status: 'UNMATCHED' as const, resolvedAt: now }
+              ? {
+                  ...r,
+                  status: 'UNMATCHED' as const,
+                  resolvedAt: now,
+                  resolvedBy: this.state.activeMatch?.cancelRequestedBy ?? userId,
+                }
               : r,
           );
           this.state.activeMatch = null;
@@ -1038,7 +1141,14 @@ export class MockMatchingService {
       ),
     };
     this.state.requests = this.state.requests.map((r) =>
-      r.status === 'ACTIVE' ? { ...r, status: 'UNMATCHED' as const, resolvedAt: now } : r,
+      r.status === 'ACTIVE'
+        ? {
+            ...r,
+            status: 'UNMATCHED' as const,
+            resolvedAt: now,
+            resolvedBy: this.state.activeMatch?.cancelRequestedBy ?? userId,
+          }
+        : r,
     );
     this.state.activeMatch = null;
     this.save();

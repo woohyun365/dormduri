@@ -133,7 +133,7 @@ function generateMessages(
       messages.push({
         icon: Info,
         iconColor: 'text-gray-500',
-        text: '매칭 요청이 없어요. 룸메를 찾아볼까요?',
+        text: '매칭 요청이 없어요. 룸메를 찾아보세요.',
       });
       break;
 
@@ -211,7 +211,10 @@ export function HomeMatchingSummary({
 
   const shouldShowStats = status === 'HAS_ACTIVITY' || status === 'NO_ACTIVITY';
   const isInactive =
-    status === 'NOT_OPERATED' || status === 'OFF_SEASON' || status === 'SEASON_OPEN';
+    status === 'NOT_OPERATED' ||
+    status === 'OFF_SEASON' ||
+    status === 'SEASON_OPEN' ||
+    status === 'NO_ACTIVITY';
   const currentMessage = messages[currentMessageIndex % messages.length];
 
   // 내부 팁 (복수 시 순환)

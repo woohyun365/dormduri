@@ -14,12 +14,10 @@ import { useSeasonContext } from '@/contexts/SeasonContext';
 import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import { isLifestyleRequiredComplete } from '@/utils/lifestyle';
 import { calcSeasonDates } from '@/constants/season';
-import { PullToRefresh } from '@/components/PullToRefresh';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { formatDateDot, calcDaysUntilTimestamp } from '@/utils/date';
 import { readHomeMatchingSummaryOverrides } from '@/main/utils/homeDevOverrides';
 import { HomeSeasonBanner } from './HomeSeasonBanner';
-import { UrgentActionBanner } from './UrgentActionBanner';
 import { HomeMatchingSummary } from './HomeMatchingSummary';
 import type { MatchingSummaryStatus } from './HomeMatchingSummary';
 import { SeasonPreparationCard } from './SeasonPreparationCard';
@@ -175,10 +173,6 @@ export default function HomeTab({
     season.roomSelectionDate,
   ]);
 
-  const handleRefresh = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  };
-
   return (
     <div>
       <OfflineBanner />
@@ -246,131 +240,121 @@ export default function HomeTab({
           </div>
         )}
 
-        <PullToRefresh onRefresh={handleRefresh}>
-          <div
-            data-testid="home-content"
-            inert={!isCampusOperated}
-            aria-hidden={!isCampusOperated}
-            className={`max-w-md mx-auto px-5 py-5 space-y-5 ${
-              !isCampusOperated ? 'pointer-events-none select-none grayscale-[50%]' : ''
-            }`}
-          >
-            <HomeSeasonBanner isUnassigned={isUnassigned} hasActiveMatch={activeMatch !== null}>
-              <BuildingStatsBar
-                seasonState={seasonState}
-                hasBuilding={dormitory !== null}
-                buildingName={dormitory?.name}
-                totalCount={
-                  seasonState === 'OFF_SEASON'
-                    ? buildingStats.totalParticipants
-                    : buildingStats.assignedParticipants
-                }
-                buildingCount={
-                  seasonState === 'SEASON_MATCHING'
-                    ? buildingStats.buildingMatchable
-                    : buildingStats.buildingTotal
-                }
-                todayNewTotal={seasonState === 'OFF_SEASON' ? 0 : buildingStats.todayNewTotal}
-                todayNewBuilding={seasonState === 'OFF_SEASON' ? 0 : buildingStats.todayNewBuilding}
-                matchSuccessCount={
-                  seasonState === 'SEASON_MATCHING'
-                    ? buildingStats.buildingMatchSuccess || buildingStats.totalMatchSuccess
-                    : seasonState === 'OFF_SEASON'
-                      ? buildingStats.totalMatchSuccess
-                      : 0
-                }
-                urgency={
-                  seasonState === 'SEASON_MATCHING'
-                    ? daysUntilEnd <= 3
-                      ? 'critical'
-                      : daysUntilEnd <= 7
-                        ? 'warning'
-                        : 'normal'
-                    : 'normal'
-                }
-                daysLeft={daysUntilEnd}
-              />
-            </HomeSeasonBanner>
-
-            {seasonState === 'SEASON_MATCHING' && (
-              <UrgentActionBanner
-                matchRequests={matchRequests}
-                userId={user.id}
-                profiles={profiles}
-                onNavigate={onNavigate}
-              />
-            )}
-
-            {seasonState === 'SEASON_MATCHING' && (
-              <HomeMatchingSummary
-                status={matchingSummary.status}
-                stats={matchingSummary.stats}
-                activeMatch={matchingSummary.activeMatch}
-                receivedRequesters={matchingSummary.receivedRequesters}
-                gatingReason={isUnassigned ? 'no_building' : null}
-                onGatedAction={() => onOpenBuildingSelect?.()}
-                onNavigate={onNavigate}
-              />
-            )}
-
-            {seasonState === 'SEASON_OPEN' && (
-              <SeasonPreparationCard
-                daysUntilStart={seasonDates.daysUntilMatchStart}
-                seasonStartDate={seasonDates.matchStartFormatted}
-                profileCompletion={seasonDates.profileCompletion}
-                hasBuilding={dormitory !== null}
-                canSelectBuilding={true}
-                hasLifestylePattern={hasLifestyle}
-                onPrepare={() => (dormitory ? onNavigate('profile') : onOpenBuildingSelect?.())}
-                missingFields={missingFields}
-              />
-            )}
-
-            {seasonState === 'OFF_SEASON' &&
-              (() => {
-                const currentName = season.name;
-                const nextName = currentName.includes('1학기')
-                  ? currentName.replace('1학기', '2학기')
-                  : `${parseInt(currentName) + 1}년 1학기`;
-                const nextDays = seasonDates.isNextSeasonRegistered
-                  ? seasonDates.daysUntilOpenStart
-                  : 0;
-                const nextDate = seasonDates.isNextSeasonRegistered
-                  ? seasonDates.openStartFormatted
-                  : '';
-
-                return (
-                  <SeasonSummaryCard
-                    pastSeasonName={currentName}
-                    daysUntilNext={nextDays}
-                    nextSeasonDate={nextDate}
-                    nextSeasonName={seasonDates.isNextSeasonRegistered ? nextName : ''}
-                    pastSeasonResult={pastSeasonResult}
-                    onViewHistory={() => onNavigate('matching', { section: 'past' })}
-                  />
-                );
-              })()}
-
-            {seasonState === 'SEASON_MATCHING' && (
-              <DynamicTipBanner
-                seasonStatus={tipSeasonStatus}
-                receivedRequests={matchingSummary.stats.receivedRequests}
-                sentRequests={matchingSummary.stats.sentRequests}
-                activeChats={matchingSummary.stats.activeChats}
-                unreadMessages={unreadMessages}
-              />
-            )}
-
-            <HomeQuickMenuSection
+        <div
+          data-testid="home-content"
+          inert={!isCampusOperated}
+          aria-hidden={!isCampusOperated}
+          className={`max-w-md mx-auto px-5 py-5 space-y-5 ${
+            !isCampusOperated ? 'pointer-events-none select-none grayscale-[50%]' : ''
+          }`}
+        >
+          <HomeSeasonBanner isUnassigned={isUnassigned} hasActiveMatch={activeMatch !== null}>
+            <BuildingStatsBar
               seasonState={seasonState}
-              onNavigateList={() => onNavigate('list')}
-              onNavigateMatching={() => onNavigate('matching', { section: 'current' })}
-              onNavigateMatchingHistory={() => onNavigate('matching', { section: 'past' })}
-              onNavigateChat={() => {}}
-              onNavigateProfile={() => onNavigate('profile')}
+              hasBuilding={dormitory !== null}
+              buildingName={dormitory?.name}
+              totalCount={
+                seasonState === 'OFF_SEASON'
+                  ? buildingStats.totalParticipants
+                  : buildingStats.assignedParticipants
+              }
+              buildingCount={
+                seasonState === 'SEASON_MATCHING'
+                  ? buildingStats.buildingMatchable
+                  : buildingStats.buildingTotal
+              }
+              todayNewTotal={seasonState === 'OFF_SEASON' ? 0 : buildingStats.todayNewTotal}
+              todayNewBuilding={seasonState === 'OFF_SEASON' ? 0 : buildingStats.todayNewBuilding}
+              matchSuccessCount={
+                seasonState === 'SEASON_MATCHING'
+                  ? buildingStats.buildingMatchSuccess || buildingStats.totalMatchSuccess
+                  : seasonState === 'OFF_SEASON'
+                    ? buildingStats.totalMatchSuccess
+                    : 0
+              }
+              urgency={
+                seasonState === 'SEASON_MATCHING'
+                  ? daysUntilEnd <= 3
+                    ? 'critical'
+                    : daysUntilEnd <= 7
+                      ? 'warning'
+                      : 'normal'
+                  : 'normal'
+              }
+              daysLeft={daysUntilEnd}
             />
-          </div>
-        </PullToRefresh>
+          </HomeSeasonBanner>
+
+          {seasonState === 'SEASON_MATCHING' && (
+            <HomeMatchingSummary
+              status={matchingSummary.status}
+              stats={matchingSummary.stats}
+              activeMatch={matchingSummary.activeMatch}
+              receivedRequesters={matchingSummary.receivedRequesters}
+              gatingReason={isUnassigned ? 'no_building' : null}
+              onGatedAction={() => onOpenBuildingSelect?.()}
+              onNavigate={onNavigate}
+            />
+          )}
+
+          {seasonState === 'SEASON_OPEN' && (
+            <SeasonPreparationCard
+              daysUntilStart={seasonDates.daysUntilMatchStart}
+              seasonStartDate={seasonDates.matchStartFormatted}
+              profileCompletion={seasonDates.profileCompletion}
+              hasBuilding={dormitory !== null}
+              canSelectBuilding={true}
+              hasLifestylePattern={hasLifestyle}
+              onNavigateProfile={() => onNavigate('profile')}
+              onOpenBuildingSelect={() => onOpenBuildingSelect?.()}
+              missingFields={missingFields}
+            />
+          )}
+
+          {seasonState === 'OFF_SEASON' &&
+            (() => {
+              const currentName = season.name;
+              const nextName = currentName.includes('1학기')
+                ? currentName.replace('1학기', '2학기')
+                : `${parseInt(currentName) + 1}년 1학기`;
+              const nextDays = seasonDates.isNextSeasonRegistered
+                ? seasonDates.daysUntilOpenStart
+                : 0;
+              const nextDate = seasonDates.isNextSeasonRegistered
+                ? seasonDates.openStartFormatted
+                : '';
+
+              return (
+                <SeasonSummaryCard
+                  pastSeasonName={currentName}
+                  daysUntilNext={nextDays}
+                  nextSeasonDate={nextDate}
+                  nextSeasonName={seasonDates.isNextSeasonRegistered ? nextName : ''}
+                  pastSeasonResult={pastSeasonResult}
+                  onViewHistory={() => onNavigate('matching', { section: 'past' })}
+                />
+              );
+            })()}
+
+          {seasonState === 'SEASON_MATCHING' && (
+            <DynamicTipBanner
+              seasonStatus={tipSeasonStatus}
+              receivedRequests={matchingSummary.stats.receivedRequests}
+              sentRequests={matchingSummary.stats.sentRequests}
+              activeChats={matchingSummary.stats.activeChats}
+              unreadMessages={unreadMessages}
+            />
+          )}
+
+          <HomeQuickMenuSection
+            seasonState={seasonState}
+            onNavigateList={() => onNavigate('list')}
+            onNavigateMatching={() => onNavigate('matching', { section: 'current' })}
+            onNavigateMatchingHistory={() => onNavigate('matching', { section: 'past' })}
+            onNavigateChat={() => {}}
+            onNavigateProfile={() => onNavigate('profile')}
+          />
+        </div>
       </div>
     </div>
   );

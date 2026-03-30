@@ -59,7 +59,6 @@ export function MatchingEmptyState({
   title,
   description,
   action,
-  suggestions,
 }: MatchingEmptyStateProps) {
   const preset = type ? GATING_PRESETS[type] : null;
 
@@ -98,23 +97,6 @@ export function MatchingEmptyState({
         <p className="text-sm text-[var(--knu-text-secondary)] mb-6 leading-relaxed whitespace-pre-line">
           {finalDescription}
         </p>
-      )}
-
-      {suggestions && suggestions.length > 0 && (
-        <div className="space-y-3 mb-6">
-          {suggestions.map((suggestion, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-blue-50/80 backdrop-blur-sm border border-blue-200/60 rounded-xl p-3 text-left flex items-start gap-3"
-            >
-              <span className="text-xl flex-shrink-0">{suggestion.icon}</span>
-              <p className="text-sm text-blue-800 leading-relaxed">{suggestion.text}</p>
-            </motion.div>
-          ))}
-        </div>
       )}
 
       {action && (
