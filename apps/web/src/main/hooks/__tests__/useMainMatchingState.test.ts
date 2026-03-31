@@ -405,7 +405,7 @@ describe('useMainMatchingState — 매칭 해제 (ACTIVE → UNMATCHED)', () => 
 
     await act(async () => cHook.hook.result.current.refresh());
     await act(async () => cHook.hook.result.current.handleEndMatch());
-    expect(cHook.hook.result.current.activeMatch?.cancelRequestKind).toBe('CANDIDATE_LEAVE');
+    expect(cHook.hook.result.current.activeMatch?.cancelRequestKind).toBe('MEMBER_LEAVE');
 
     await act(async () => aHook.hook.result.current.refresh());
     await act(async () => aHook.hook.result.current.handleEndMatch());

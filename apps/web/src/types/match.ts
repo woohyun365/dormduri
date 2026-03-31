@@ -21,7 +21,7 @@ export type HistoryResolvedBy = 'self' | 'other' | 'system';
 export type ActiveMatchKind = 'pair' | 'group';
 export type ActiveMatchGroupRole = 'group_core' | 'group_candidate';
 export type ActiveMatchGroupStage = 'PAIR_OPEN' | 'PAIR_FINAL' | 'GROUP_FORMING' | 'GROUP_FINAL';
-export type CancelRequestKind = 'MATCH_CANCEL' | 'CANDIDATE_LEAVE';
+export type CancelRequestKind = 'MATCH_CANCEL' | 'MEMBER_LEAVE';
 
 export interface GroupMemberSnapshot {
   userId: string;
@@ -41,7 +41,7 @@ export interface MatchRequest {
   acceptedAt: string | null; // PENDING → IN_CONVERSATION 시점
   resolvedAt: string | null; // 터미널 상태 진입 시점 (이력 정렬)
   resolvedBy?: string | 'system' | null;
-  requestKind?: 'PERSONAL' | 'GROUP_JOIN';
+  requestKind?: 'PERSONAL' | 'GROUP_CONV_JOIN';
   groupTargetUserIds?: string[];
   approvalUserIds?: string[];
 }
@@ -77,6 +77,8 @@ export const TERMINAL_STATUSES: MatchStatus[] = [
 ];
 
 // 이력 카드 데이터 (현재 시즌 + 과거 시즌 공용)
+export type GroupHistoryType = 'pair_final' | 'group_final' | 'group_conv_join_failed';
+
 export type HistoryItemData =
   | {
       id: string;
@@ -86,6 +88,8 @@ export type HistoryItemData =
       stage?: HistoryStage;
       resolvedBy?: HistoryResolvedBy;
       preset?: undefined;
+      groupType?: GroupHistoryType;
+      groupNicknames?: string[]; // 그룹 멤버 닉네임 (2인=[A,B], 3인=[A,B,C])
     }
   | {
       id: string;
@@ -94,6 +98,8 @@ export type HistoryItemData =
       date?: string;
       stage?: 'MATCH' | 'RECEIVED_REQUEST';
       resolvedBy?: undefined;
+      groupType?: GroupHistoryType;
+      groupNicknames?: string[];
     };
 
 // 과거 시즌 이력 데이터
@@ -102,7 +108,7 @@ export interface PastSeasonData {
   name: string; // "2025-1학기"
   dormitoryIdSnapshot?: string | null; // 당시 본인 배정 건물 스냅샷 (건물 단위)
   matchResult: 'success' | 'no_match';
-  matchedWith?: string; // 매칭 성공 시 상대 닉네임 (스냅샷)
+  matchedWith?: string[]; // 매칭 성공 시 상대 닉네임 배열 (2인=[A], 3인=[A,B])
   receivedCount: number;
   sentCount: number;
   chatCount: number;

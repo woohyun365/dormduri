@@ -8,7 +8,7 @@ const season: PastSeasonData = {
   name: '2025-1학기',
   dormitoryIdSnapshot: 'toegye',
   matchResult: 'success',
-  matchedWith: '별빛여행',
+  matchedWith: ['별빛여행'],
   receivedCount: 7,
   sentCount: 3,
   chatCount: 4,
