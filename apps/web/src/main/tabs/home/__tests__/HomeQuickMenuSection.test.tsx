@@ -7,6 +7,7 @@ const defaultProps = {
   seasonState: 'SEASON_MATCHING' as const,
   onNavigateList: vi.fn(),
   onNavigateMatching: vi.fn(),
+  onNavigateMatchingHistory: vi.fn(),
   onNavigateChat: vi.fn(),
   onNavigateProfile: vi.fn(),
 };

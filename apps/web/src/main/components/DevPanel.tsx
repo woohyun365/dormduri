@@ -21,15 +21,36 @@ export function DevPanel() {
   const [registeredUsers, setRegisteredUsers] = useState<MockUser[]>([]);
   const [lastCode, setLastCode] = useState<{ email: string; code: string } | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>('CHUNCHEON');
+  const [confirmDebug, setConfirmDebug] = useState<{
+    hasConversation: boolean;
+    approvalCount: number;
+    approvalTotal: number;
+  }>({ hasConversation: false, approvalCount: 0, approvalTotal: 2 });
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
     if (!isOpen) return;
     async function load() {
       const { mockDb } = await import('@/__fixtures__/mock-db');
-      setCurrentUser(mockDb.getCurrentUser());
+      const user = mockDb.getCurrentUser();
+      setCurrentUser(user);
       setRegisteredUsers(mockDb.getRegisteredUsers());
       setLastCode(mockDb.getLastCode());
+      if (user) {
+        const { matchingApi } = await import('@/api/matching');
+        const state = await matchingApi.getState(user.id);
+        const conversation = state.requests.find((request) => request.status === 'IN_CONVERSATION');
+        setConfirmDebug({
+          hasConversation: !!conversation,
+          approvalCount: conversation?.approvalUserIds?.length ?? 0,
+          approvalTotal:
+            state.activeMatch?.kind === 'group' && state.activeMatch.groupStage === 'GROUP_FORMING'
+              ? (state.activeMatch.groupMemberCount ?? 3)
+              : 2,
+        });
+      } else {
+        setConfirmDebug({ hasConversation: false, approvalCount: 0, approvalTotal: 2 });
+      }
     }
     load();
   }, [isOpen]);
@@ -82,6 +103,25 @@ export function DevPanel() {
   async function refreshCode() {
     const { mockDb } = await import('@/__fixtures__/mock-db');
     setLastCode(mockDb.getLastCode());
+  }
+
+  async function handleSetConfirmState(mode: 'none' | 'self' | 'others' | 'all') {
+    if (!currentUser) return;
+    const { matchingApi } = await import('@/api/matching');
+    await matchingApi.setConfirmState(currentUser.id, mode);
+    window.location.reload();
+  }
+
+  async function handleSeedGroupCandidateScenario() {
+    if (!currentUser) return;
+    const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
+    getMockMatchingService().seedGroupCandidateScenario({
+      id: currentUser.id,
+      nickname: currentUser.nickname,
+      dormitoryId: currentUser.dormitoryId,
+      gender: currentUser.gender,
+    });
+    window.location.reload();
   }
 
   if (!isOpen) {
@@ -191,6 +231,62 @@ export function DevPanel() {
               </option>
             ))}
           </select>
+        </div>
+      )}
+
+      {currentUser && (
+        <div className="bg-gray-800 rounded-lg p-2 space-y-2">
+          <div className="text-gray-400">확정 완료 테스트</div>
+          {confirmDebug.hasConversation ? (
+            <>
+              <p className="text-gray-300">
+                현재 승인: {confirmDebug.approvalCount}/{confirmDebug.approvalTotal}
+              </p>
+              <div className="grid grid-cols-2 gap-1">
+                <button
+                  onClick={() => handleSetConfirmState('none')}
+                  className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded"
+                >
+                  초기화
+                </button>
+                <button
+                  onClick={() => handleSetConfirmState('self')}
+                  className="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded"
+                >
+                  나만 완료
+                </button>
+                <button
+                  onClick={() => handleSetConfirmState('others')}
+                  className="px-2 py-1 bg-amber-700 hover:bg-amber-600 rounded"
+                >
+                  상대만 완료
+                </button>
+                <button
+                  onClick={() => handleSetConfirmState('all')}
+                  className="px-2 py-1 bg-green-700 hover:bg-green-600 rounded"
+                >
+                  둘 다 완료
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-500">대화 중 상태가 없어 테스트할 수 없습니다.</p>
+          )}
+        </div>
+      )}
+
+      {currentUser && (
+        <div className="bg-gray-800 rounded-lg p-2 space-y-2">
+          <div className="text-gray-400">3인실 그룹 시나리오</div>
+          <button
+            onClick={handleSeedGroupCandidateScenario}
+            className="w-full px-2 py-1.5 bg-indigo-700 hover:bg-indigo-600 rounded text-white"
+          >
+            개인 → 그룹 요청 시나리오
+          </button>
+          <p className="text-[11px] text-gray-500">
+            현재 로그인 사용자를 개인(C)로 두고, 3인실 그룹(A·B)에 요청을 보낸 상태를 만듭니다.
+          </p>
         </div>
       )}
 

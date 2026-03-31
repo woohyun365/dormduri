@@ -50,7 +50,7 @@ export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
   phoneBehavior: '실내 통화',
   earphoneUsage: '이어폰 사용',
   cleanLevel: '방 청소',
-  drinkingFrequency: '🔒 음주 빈도',
+  drinkingFrequency: '음주 빈도',
   relationshipStyle: '관계 스타일',
   temperatureSensitivity: '온도 민감도',
 
@@ -62,7 +62,7 @@ export const LIFESTYLE_FIELD_NAMES: Record<keyof LifestyleData, string> = {
   screenTolerance: '잘 때 화면 밝기',
   indoorEatingTolerance: '실내 취식',
   cleanExpectation: '방 청소',
-  drinkingTolerance: '🔒 음주',
+  drinkingTolerance: '음주',
 };
 
 // === 필드 라벨 (옵션별 표시 텍스트) ===

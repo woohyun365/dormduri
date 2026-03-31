@@ -3,6 +3,7 @@
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import Landing from '@/landing/Landing';
 import Main from '@/main/Main';
+import { AppShellSkeleton } from './AppShellSkeleton';
 
 /**
  * `/` 게이트웨이: 로그인 상태에 따라 Main 또는 Landing을 렌더링한다.
@@ -18,14 +19,7 @@ export default function GatewayPage() {
   const { user, isLoading } = useCurrentUser();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[var(--knu-background-alt)] flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-3 border-[var(--knu-primary)] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-[var(--knu-text-tertiary)]">인증 확인 중...</p>
-        </div>
-      </div>
-    );
+    return <AppShellSkeleton />;
   }
 
   if (!user) {

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { AnimatedCounter } from '@/components/AnimatedCounter';
 import { sectionCard, sectionHeader, glassCard } from '@/main/styles/home';
-import type { TabId } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/types/profile';
 
 // --- Types ---
 
@@ -41,6 +41,9 @@ export interface MatchingSummaryStats {
 export interface MatchingSummaryActiveMatch {
   nickname: string;
   matchScore: number;
+  groupStage?: 'PAIR_OPEN' | 'PAIR_FINAL' | 'GROUP_FORMING' | 'GROUP_FINAL' | null;
+  groupMemberCount?: 2 | 3;
+  groupCapacity?: 2 | 3;
 }
 
 export interface HomeMatchingSummaryProps {
@@ -50,7 +53,7 @@ export interface HomeMatchingSummaryProps {
   receivedRequesters?: string[];
   gatingReason?: 'no_building' | null;
   onGatedAction?: () => void;
-  onNavigate: (tab: TabId) => void;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
 }
 
 // --- Message generation ---
@@ -75,7 +78,10 @@ function generateMessages(
         messages.push({
           icon: CheckCircle,
           iconColor: 'text-green-600',
-          text: `${activeMatch.nickname}님과 매칭 중 · 매칭도 ${activeMatch.matchScore}%`,
+          text:
+            activeMatch.groupStage === 'PAIR_OPEN' && activeMatch.groupCapacity === 3
+              ? `2/3 그룹이 되었어요 · 한 명을 더 받을 수 있어요`
+              : `${activeMatch.nickname}님과 매칭 중 · 매칭도 ${activeMatch.matchScore}%`,
         });
       }
       break;
@@ -127,7 +133,7 @@ function generateMessages(
       messages.push({
         icon: Info,
         iconColor: 'text-gray-500',
-        text: '매칭 요청이 없어요. 룸메를 찾아볼까요?',
+        text: '매칭 요청이 없어요. 룸메를 찾아보세요.',
       });
       break;
 
@@ -205,7 +211,10 @@ export function HomeMatchingSummary({
 
   const shouldShowStats = status === 'HAS_ACTIVITY' || status === 'NO_ACTIVITY';
   const isInactive =
-    status === 'NOT_OPERATED' || status === 'OFF_SEASON' || status === 'SEASON_OPEN';
+    status === 'NOT_OPERATED' ||
+    status === 'OFF_SEASON' ||
+    status === 'SEASON_OPEN' ||
+    status === 'NO_ACTIVITY';
   const currentMessage = messages[currentMessageIndex % messages.length];
 
   // 내부 팁 (복수 시 순환)
@@ -335,7 +344,7 @@ export function HomeMatchingSummary({
           <div className="grid grid-cols-3 gap-2">
             {/* 보낸 요청 */}
             <motion.button
-              onClick={() => onNavigate('matching')}
+              onClick={() => onNavigate('matching', { requestTab: 'sent' })}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-amber-50 rounded-xl transition-colors group"
@@ -365,7 +374,7 @@ export function HomeMatchingSummary({
 
             {/* 받은 요청 */}
             <motion.button
-              onClick={() => onNavigate('matching')}
+              onClick={() => onNavigate('matching', { requestTab: 'received' })}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-purple-50 rounded-xl transition-colors group relative"
@@ -403,7 +412,7 @@ export function HomeMatchingSummary({
 
             {/* 대화 중 */}
             <motion.button
-              onClick={() => onNavigate('matching')}
+              onClick={() => onNavigate('matching', { section: 'current' })}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-teal-50 rounded-xl transition-colors group"

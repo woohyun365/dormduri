@@ -122,6 +122,8 @@ export function makeActiveMatch(overrides: Partial<ActiveMatch> = {}): ActiveMat
     matchedAt: new Date(NOW).toISOString(),
     cancelRequestedAt: null,
     cancelRequestedBy: null,
+    cancelApprovalUserIds: [],
+    cancelRequestKind: null,
     ...overrides,
   };
 }

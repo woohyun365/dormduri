@@ -81,12 +81,34 @@ export const matchingApi = {
     requestId: string,
     userId: string,
     context: {
+      currentUser: Pick<UserProfile, 'id' | 'nickname' | 'dormitoryId'>;
       profiles: Omit<RoommateProfile, 'matchScore'>[];
       userLifestyle: UserProfile['lifestyle'];
     },
   ): Promise<MatchingResult> => {
     const service = await getService();
     return service.confirmMatch(requestId, userId, context);
+  },
+
+  // POST /api/matches/active/confirm/revoke
+  revokeConfirmMatch: async (requestId: string, userId: string): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.revokeConfirmMatch(requestId, userId);
+  },
+
+  // DevTool helper — 현재 대화의 승인 상태 강제 설정
+  setConfirmState: async (
+    userId: string,
+    mode: 'none' | 'self' | 'others' | 'all',
+  ): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.setConfirmState(userId, mode);
+  },
+
+  // POST /api/matches/active/finalize-pair
+  finalizePairGroup: async (userId: string): Promise<MatchingResult> => {
+    const service = await getService();
+    return service.finalizePairGroup(userId);
   },
 
   // POST /api/matches/conversations/{id}/end

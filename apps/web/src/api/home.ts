@@ -1,5 +1,6 @@
 import type { RoommateProfile, UserProfile } from '@/types/profile';
 import type { BuildingStats, PastSeasonResult } from '@/main/types/home';
+import type { PastSeasonData } from '@/types/match';
 
 async function getMockData() {
   if (process.env.NODE_ENV === 'development') {
@@ -44,5 +45,10 @@ export const homeApi = {
   getUnreadMessages: async (): Promise<number> => {
     const mock = await getMockData();
     return mock?.homeService.getUnreadMessages() ?? 0;
+  },
+
+  getPastSeasons: async (): Promise<PastSeasonData[]> => {
+    const mock = await getMockData();
+    return mock?.homeService.getPastSeasons() ?? [];
   },
 };

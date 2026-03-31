@@ -1,33 +1,65 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   Handshake,
+  Ban,
+  Check,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
-  MessageCircle,
-  AlertTriangle,
   Building2,
+  Calendar,
+  Flag,
+  MessageCircle,
+  Archive,
+  List,
+  Sparkles,
+  User,
+  X,
 } from 'lucide-react';
 import { UNASSIGNED_ID, isCampusOperated } from '@/constants/dormitory';
-import { EmptyState } from '@/components/EmptyState';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Button } from '@/components/Button';
+import { MATCH_POLICY } from '@/constants/match';
 import { MatchRequestCard } from '../../components/MatchRequestCard';
+import { MatchingCompactCard } from '../../components/matching/MatchingCompactCard';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
 import { MatchingTabHeader } from './MatchingTabHeader';
+import { SubNav } from '../../components/matching/SubNav';
+import { ActiveMatchCard } from '../../components/matching/ActiveMatchCard';
+import { GroupCoreCard } from '../../components/matching/GroupCoreCard';
+import { GroupCandidateCard } from '../../components/matching/GroupCandidateCard';
+import { MatchingEmptyState } from '../../components/matching/MatchingEmptyState';
+import { PastSeasonAccordion } from '../../components/matching/PastSeasonAccordion';
+import { PolicyHintBanner } from '../../components/matching/PolicyHintBanner';
+import { ShowMoreButton } from '../../components/matching/ShowMoreButton';
+import { SegmentControl } from '../../components/matching/SegmentControl';
+import { SortToggle } from '../../components/matching/SortToggle';
+import {
+  getCurrentHistoryVisualMeta,
+  getRepeatedCancelledVisualMeta,
+} from '../../components/matching/historyDisplay';
+import { getMatchingPolicyHints } from '../../components/matching/policyCopy';
+import type { SortOption } from '../../components/matching/SortToggle';
 import { useSeasonContext } from '@/contexts/SeasonContext';
-import { MATCH_POLICY } from '@/constants/match';
-import { MATCH_STATUS_LABELS } from '@/constants/match';
-import { getAvatarColor } from '@/utils/avatarColor';
-import { getDormitoryLabel } from '@/utils/dormitoryLabel';
-import { isRequestExpired } from '@/utils/matchRequest';
+import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import { calcMatchScoreWithGating } from '@/utils/matchScore';
+import { matchingHistoryCardBorder, matchingStageBackground } from '@/main/styles/matching';
 import type { MatchScoreType } from '@/utils/matchScore';
 import type { TabId, UserProfile, RoommateProfile } from '@/types/profile';
-import type { MatchRequest, ActiveMatch, MatchStatus } from '@/types/match';
+import type { MatchRequest, ActiveMatch, MatchStatus, PastSeasonData } from '@/types/match';
 
 type RequestTab = 'sent' | 'received';
+type SubNavTab = 'current' | 'past';
+
+interface CurrentHistoryRow {
+  request: MatchRequest;
+  partnerNickname: string;
+  partnerDormId: string | null;
+  aggregateCount?: number;
+  aggregateContext?: 'SENT_REQUEST' | 'RECEIVED_REQUEST';
+}
 
 const TERMINAL_STATUSES: MatchStatus[] = [
   'EXPIRED',
@@ -37,26 +69,26 @@ const TERMINAL_STATUSES: MatchStatus[] = [
   'UNMATCHED',
 ];
 
-const HISTORY_BADGE_STYLE: Record<string, string> = {
-  EXPIRED: 'bg-gray-200 text-gray-600',
-  REJECTED: 'bg-gray-200 text-gray-600',
-  CANCELLED: 'bg-gray-200 text-gray-600',
-  CONVERSATION_ENDED: 'bg-slate-200 text-slate-700',
-  UNMATCHED: 'bg-amber-100 text-amber-700',
-};
+const INITIAL_SHOW = 3;
+const HISTORY_INITIAL_SHOW = 5;
 
 interface MatchingTabProps {
   user: UserProfile;
   matchRequests: MatchRequest[];
   activeMatch: ActiveMatch | null;
   profiles: Omit<RoommateProfile, 'matchScore'>[];
+  pastSeasons: PastSeasonData[];
   onCancelRequest: (requestId: string) => void;
   onAcceptRequest: (requestId: string) => void;
   onRejectRequest: (requestId: string) => void;
   onConfirmMatch: (requestId: string) => void;
+  onRevokeConfirmMatch: (requestId: string) => void;
+  onFinalizePairGroup: () => void;
   onEndConversation: (requestId: string) => void;
   onEndMatch: () => void;
   onNavigate: (tab: TabId) => void;
+  initialSection?: SubNavTab;
+  initialRequestTab?: RequestTab;
 }
 
 const getPartnerId = (request: MatchRequest, currentUserId: string) =>
@@ -67,16 +99,21 @@ export default function MatchingTab({
   matchRequests,
   activeMatch,
   profiles,
+  pastSeasons,
   onCancelRequest,
   onAcceptRequest,
   onRejectRequest,
   onConfirmMatch,
+  onRevokeConfirmMatch,
+  onFinalizePairGroup,
   onEndConversation,
   onEndMatch,
   onNavigate,
+  initialSection,
+  initialRequestTab,
 }: MatchingTabProps) {
-  // --- Hooks (must be called unconditionally) ---
-  const { state: seasonState } = useSeasonContext();
+  // --- Hooks ---
+  const { state: seasonState, daysUntilEnd } = useSeasonContext();
   const campusOperated = isCampusOperated(user.campus);
 
   const profileMap = useMemo(() => {
@@ -96,7 +133,7 @@ export default function MatchingTab({
   const receivedPending = useMemo(
     () =>
       matchRequests.filter(
-        (r) => r.toUserId === user.id && r.status === 'PENDING' && !isRequestExpired(r),
+        (r) => doesRequestTargetUser(r, user.id) && r.status === 'PENDING' && !isRequestExpired(r),
       ),
     [matchRequests, user.id],
   );
@@ -118,10 +155,21 @@ export default function MatchingTab({
     [matchRequests],
   );
 
-  const [requestTab, setRequestTab] = useState<RequestTab>('sent');
+  // --- UI State ---
+  const defaultSubNav: SubNavTab =
+    initialSection ?? (seasonState === 'OFF_SEASON' ? 'past' : 'current');
+  const [subNavTab, setSubNavTab] = useState<SubNavTab>(defaultSubNav);
+  const [requestTab, setRequestTab] = useState<RequestTab>(initialRequestTab ?? 'sent');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'cancel' | 'reject' | 'accept' | 'confirmMatch' | 'endConversation' | 'endMatch';
+    type:
+      | 'cancel'
+      | 'reject'
+      | 'accept'
+      | 'confirmMatch'
+      | 'revokeConfirm'
+      | 'endConversation'
+      | 'endMatch';
     requestId?: string;
     nickname: string;
   } | null>(null);
@@ -131,91 +179,30 @@ export default function MatchingTab({
     requestId: string;
   } | null>(null);
 
-  // --- Season / Campus gating (after all hooks) ---
-  if (!campusOperated) {
-    return (
-      <div>
-        <MatchingTabHeader user={user} />
-        <div className="px-4 py-6 max-w-md mx-auto">
-          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-sm text-amber-800">
-                이 캠퍼스는 현재 매칭 서비스를 운영하지 않습니다
-              </p>
-            </div>
-          </div>
-          <EmptyState
-            icon={<Handshake className="w-12 h-12 text-gray-300" />}
-            message="매칭 서비스 준비 중"
-          />
-        </div>
-      </div>
-    );
-  }
+  // 더보기 / 정렬 (점진적 3개씩)
+  const [convShowCount, setConvShowCount] = useState(INITIAL_SHOW);
+  const [recvShowCount, setRecvShowCount] = useState(INITIAL_SHOW);
+  const [histShowCount, setHistShowCount] = useState(HISTORY_INITIAL_SHOW);
+  const [receivedSort, setReceivedSort] = useState<SortOption>('oldest');
+  const [renderedAt] = useState(() => Date.now());
 
-  if (seasonState === 'OFF_SEASON') {
-    return (
-      <div>
-        <MatchingTabHeader user={user} />
-        <div className="px-4 py-6 max-w-md mx-auto">
-          <EmptyState
-            icon={<Handshake className="w-12 h-12 text-gray-300" />}
-            message="현재는 비시즌입니다"
-          />
-          <p className="text-xs text-center text-[var(--knu-text-tertiary)] mt-3">
-            프로필을 미리 완성해두면 시즌이 시작될 때 바로 매칭에 참여할 수 있어요
-          </p>
-          <div className="mt-4 flex justify-center">
-            <Button variant="outline" onClick={() => onNavigate('profile')}>
-              프로필 완성하러 가기
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // 섹션 ref (접기 시 스크롤)
+  const convSectionRef = useRef<HTMLElement>(null);
+  const recvSectionRef = useRef<HTMLElement>(null);
+  const histSectionRef = useRef<HTMLElement>(null);
+  const isGroupCoreOpen = activeMatch?.kind === 'group' && activeMatch.groupStage === 'PAIR_OPEN';
+  const isGroupForming =
+    activeMatch?.kind === 'group' && activeMatch.groupStage === 'GROUP_FORMING';
+  const isGroupMatch = activeMatch?.kind === 'group';
 
-  if (seasonState === 'SEASON_OPEN') {
-    return (
-      <div>
-        <MatchingTabHeader user={user} />
-        <div className="px-4 py-6 max-w-md mx-auto">
-          <EmptyState
-            icon={<Handshake className="w-12 h-12 text-gray-300" />}
-            message="매칭 준비 중입니다"
-          />
-          <p className="text-xs text-center text-[var(--knu-text-tertiary)] mt-3">
-            프로필을 완성하고 룸메 후보를 탐색해 보세요
-          </p>
-          <div className="mt-4 flex justify-center">
-            <Button variant="outline" onClick={() => onNavigate('list')}>
-              룸메 탐색하러 가기
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // UNASSIGNED (건물 미선택) — AC-F09
-  const isUnassigned = user.dormitoryId === UNASSIGNED_ID || user.dormitoryId === null;
-  if (isUnassigned && seasonState === 'SEASON_MATCHING') {
-    return (
-      <div>
-        <MatchingTabHeader user={user} />
-        <div className="px-4 py-6 max-w-md mx-auto">
-          <EmptyState
-            icon={<Building2 className="w-12 h-12 text-gray-300" />}
-            message="건물을 선택하면 룸메를 탐색할 수 있어요"
-          />
-          <p className="text-xs text-center text-[var(--knu-text-tertiary)] mt-3">
-            학교 배정 결과를 입력하면 같은 건물 룸메를 찾을 수 있어요
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const policyHints = getMatchingPolicyHints({
+    seasonState,
+    activeMatch,
+    sentPendingCount: sentPending.length,
+    receivedPendingCount: receivedPending.length,
+    conversationsCount: conversations.length,
+    daysUntilEnd,
+  });
 
   // --- Helpers ---
   const getPartnerProfile = (
@@ -256,6 +243,9 @@ export default function MatchingTab({
       case 'confirmMatch':
         if (confirmAction.requestId) onConfirmMatch(confirmAction.requestId);
         break;
+      case 'revokeConfirm':
+        if (confirmAction.requestId) onRevokeConfirmMatch(confirmAction.requestId);
+        break;
       case 'endConversation':
         if (confirmAction.requestId) onEndConversation(confirmAction.requestId);
         break;
@@ -269,7 +259,13 @@ export default function MatchingTab({
 
   const confirmMessages: Record<
     string,
-    { title: string; message: string; label: string; variant: 'default' | 'danger' }
+    {
+      title: string;
+      message: string;
+      warning?: string;
+      label: string;
+      variant: 'default' | 'danger';
+    }
   > = {
     cancel: {
       title: '요청 취소',
@@ -284,15 +280,28 @@ export default function MatchingTab({
       variant: 'danger',
     },
     accept: {
-      title: '요청 수락',
-      message: `${confirmAction?.nickname ?? ''}님의 매칭 요청을 수락하시겠습니까?\n수락 후 대화를 시작할 수 있어요.`,
-      label: '수락하기',
+      title: isGroupCoreOpen ? '합류 승인' : '요청 수락',
+      message: isGroupCoreOpen
+        ? `${confirmAction?.nickname ?? ''}님의 합류 요청을 승인하시겠습니까?\n코어 2명이 모두 승인해야 새로운 C 대화가 열립니다.`
+        : `${confirmAction?.nickname ?? ''}님의 매칭 요청을 수락하시겠습니까?\n수락 후 대화를 시작할 수 있어요.`,
+      label: isGroupCoreOpen ? '승인하기' : '수락하기',
       variant: 'default',
     },
     confirmMatch: {
-      title: '매칭 확정',
-      message: `${confirmAction?.nickname ?? ''}님과 매칭을 확정하시겠습니까?\n확정 후 다른 매칭 활동이 중단됩니다.`,
-      label: '확정하기',
+      title: '매칭 확정 승인',
+      message: isGroupForming
+        ? `${confirmAction?.nickname ?? ''}님과의 3인 그룹 확정을 승인하시겠습니까?`
+        : `${confirmAction?.nickname ?? ''}님과의 매칭을 확정하시겠습니까?`,
+      warning: isGroupForming
+        ? '3명이 모두 눌러야 최종 매칭이 완료됩니다.'
+        : '두 사람 모두 확정해야 매칭이 완료됩니다.',
+      label: '승인하기',
+      variant: 'default',
+    },
+    revokeConfirm: {
+      title: '확정 완료 취소',
+      message: `${confirmAction?.nickname ?? ''}님과의 확정 완료를 취소하시겠습니까?\n다시 대화를 이어가거나 종료할 수 있게 됩니다.`,
+      label: '취소하기',
       variant: 'default',
     },
     endConversation: {
@@ -302,460 +311,1097 @@ export default function MatchingTab({
       variant: 'danger',
     },
     endMatch: {
-      title: '매칭 해제',
-      message: `${activeMatch?.partnerNickname ?? ''}님과의 매칭을 해제하시겠습니까?\n\n해제 후 같은 상대와 재매칭할 수 없습니다.`,
-      label: '해제하기',
+      title: activeMatch?.cancelRequestedAt ? '매칭 취소 승인' : '매칭 취소 요청',
+      message: activeMatch?.cancelRequestedAt
+        ? `${activeMatch?.partnerNickname ?? ''}님이 매칭 취소를 요청했어요.\n승인하면 매칭이 해제됩니다.`
+        : `${activeMatch?.partnerNickname ?? ''}님과의 매칭 취소를 요청하시겠습니까?\n상대가 승인하면 매칭이 해제됩니다.`,
+      label: activeMatch?.cancelRequestedAt ? '승인하기' : '취소 요청하기',
       variant: 'danger',
     },
   };
 
-  // --- [1] Active Match ---
-  if (activeMatch) {
-    const partnerProfile = getPartnerProfile(
-      matchRequests.find((r) => r.status === 'ACTIVE') ?? matchRequests[0]!,
-    );
-    return (
-      <div>
-        <MatchingTabHeader user={user} />
-        <div className="px-4 py-6 max-w-md mx-auto">
-          <div className="bg-white rounded-2xl border-2 border-green-200 p-5">
-            <div className="text-center mb-4">
-              <span className="inline-block px-3 py-1 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
-                매칭 확정
-              </span>
-            </div>
+  // 정렬된 받은 요청
+  const sortedReceived = useMemo(() => {
+    const sorted = [...receivedPending];
+    if (receivedSort === 'matchScore') {
+      sorted.sort((a, b) => {
+        const partnerId = (r: MatchRequest) =>
+          r.fromUserId === user.id ? r.toUserId : r.fromUserId;
+        const aProfile = profileMap.get(partnerId(a));
+        const bProfile = profileMap.get(partnerId(b));
+        const aResult = aProfile
+          ? calcMatchScoreWithGating(user.lifestyle, aProfile.lifestyle)
+          : { score: 0 };
+        const bResult = bProfile
+          ? calcMatchScoreWithGating(user.lifestyle, bProfile.lifestyle)
+          : { score: 0 };
+        return (bResult.score ?? 0) - (aResult.score ?? 0);
+      });
+    } else {
+      sorted.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    }
+    return sorted;
+  }, [receivedPending, receivedSort, user.id, user.lifestyle, profileMap]);
 
-            <div className="flex items-center gap-4 mb-4">
-              <div
-                className={`w-14 h-14 ${getAvatarColor(activeMatch.partnerNickname).bg} rounded-2xl flex items-center justify-center text-2xl font-bold ${getAvatarColor(activeMatch.partnerNickname).text}`}
-              >
-                {activeMatch.partnerNickname.charAt(0)}
-              </div>
-              <div className="flex-1">
-                <p className="font-bold text-lg text-[var(--knu-text-primary)]">
-                  {activeMatch.partnerNickname}
-                </p>
-                <p className="text-sm text-[var(--knu-text-secondary)]">
-                  {activeMatch.scoreType === 'gated'
-                    ? '매칭도 잠금'
-                    : activeMatch.scoreType === 'partial'
-                      ? `매칭도 ${activeMatch.matchScore}% (!)`
-                      : `매칭도 ${activeMatch.matchScore}%`}
-                  {activeMatch.partnerDormitoryId &&
-                    ` · ${getDormitoryLabel(activeMatch.partnerDormitoryId)}`}
-                </p>
-              </div>
-            </div>
+  // 더보기 슬라이싱 (점진적)
+  const displayedConversations = conversations.slice(0, convShowCount);
+  const displayedReceived = sortedReceived.slice(0, recvShowCount);
+  const aggregatedHistory = useMemo<CurrentHistoryRow[]>(() => {
+    const rows: CurrentHistoryRow[] = [];
+    const seen = new Map<string, CurrentHistoryRow>();
 
-            <div className="space-y-2">
-              <button
-                disabled
-                className="w-full flex items-center justify-center gap-2 py-3 bg-gray-100 text-gray-400 rounded-xl text-sm font-semibold cursor-not-allowed"
-              >
-                <MessageCircle className="w-4 h-4" />
-                대화 (준비 중)
-              </button>
-              <Button
-                variant="outline"
-                fullWidth
-                onClick={() =>
-                  setSelectedProfile({
-                    profile: partnerProfile,
-                    direction: 'conversation',
-                    requestId: '',
-                  })
-                }
-              >
-                프로필 보기
-              </Button>
+    for (const req of history) {
+      const partnerId = getPartnerId(req, user.id);
+      const partnerNickname = profileMap.get(partnerId)?.nickname ?? partnerId;
+      const partnerDormId = profileMap.get(partnerId)?.dormitoryId ?? null;
+      const isRepeatedSentCancelled =
+        req.status === 'CANCELLED' && req.fromUserId === user.id && req.resolvedBy === user.id;
+      const isRepeatedReceivedCancelled =
+        req.status === 'CANCELLED' &&
+        req.fromUserId !== user.id &&
+        req.resolvedBy !== null &&
+        req.resolvedBy !== undefined &&
+        req.resolvedBy !== 'system' &&
+        req.resolvedBy !== user.id;
+
+      if (isRepeatedSentCancelled || isRepeatedReceivedCancelled) {
+        const context = isRepeatedSentCancelled ? 'SENT_REQUEST' : 'RECEIVED_REQUEST';
+        const key = `cancelled:${context}:${partnerId}`;
+        const existing = seen.get(key);
+        if (existing) {
+          existing.aggregateCount = (existing.aggregateCount ?? 1) + 1;
+          continue;
+        }
+        const row: CurrentHistoryRow = {
+          request: req,
+          partnerNickname,
+          partnerDormId,
+          aggregateCount: 1,
+          aggregateContext: context,
+        };
+        seen.set(key, row);
+        rows.push(row);
+        continue;
+      }
+
+      rows.push({ request: req, partnerNickname, partnerDormId });
+    }
+
+    return rows;
+  }, [history, profileMap, user.id]);
+  const displayedHistory = aggregatedHistory.slice(0, histShowCount);
+
+  // 더보기/접기 핸들러
+  const handleToggleMore = useCallback(
+    (
+      total: number,
+      current: number,
+      initial: number,
+      step: number,
+      setter: (n: number) => void,
+      sectionRef: React.RefObject<HTMLElement | null>,
+    ) => {
+      if (current >= total) {
+        // 접기: 초기 개수로 복귀 + DOM 업데이트 후 smooth scroll
+        setter(initial);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+      } else {
+        // 더보기: step만큼 증가
+        setter(Math.min(current + step, total));
+      }
+    },
+    [],
+  );
+
+  // --- 공통 UI ---
+  const renderDialogs = () => (
+    <>
+      <ProfileDetailSheet
+        profile={selectedProfile?.profile ?? null}
+        scoreType={selectedProfile?.profile?.scoreType}
+        isOpen={selectedProfile !== null}
+        onClose={() => setSelectedProfile(null)}
+        onRequestMatch={() => {}}
+        hideMatchButton
+        userLifestyle={user.lifestyle}
+        customFooter={
+          selectedProfile ? (
+            selectedProfile.direction === 'sent' ? (
               <button
                 onClick={() =>
                   setConfirmAction({
-                    type: 'endMatch',
-                    nickname: activeMatch.partnerNickname,
+                    type: 'cancel',
+                    requestId: selectedProfile.requestId,
+                    nickname: selectedProfile.profile.nickname,
                   })
                 }
-                className="w-full py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                className="w-full py-3 border-2 border-[var(--knu-border)] text-[var(--knu-text-primary)] font-medium rounded-xl hover:bg-gray-50 transition-colors"
               >
-                매칭 해제
+                요청 취소
               </button>
-            </div>
+            ) : selectedProfile.direction === 'received' ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={() =>
+                    setConfirmAction({
+                      type: 'reject',
+                      requestId: selectedProfile.requestId,
+                      nickname: selectedProfile.profile.nickname,
+                    })
+                  }
+                  className="flex-1 py-3 border-2 border-[var(--knu-border)] text-[var(--knu-text-primary)] font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  거절
+                </button>
+                <button
+                  onClick={() =>
+                    setConfirmAction({
+                      type: 'accept',
+                      requestId: selectedProfile.requestId,
+                      nickname: selectedProfile.profile.nickname,
+                    })
+                  }
+                  className="flex-1 py-3 bg-[var(--knu-primary)] text-white font-bold rounded-xl hover:bg-[var(--knu-primary-hover)] transition-colors"
+                >
+                  수락
+                </button>
+              </div>
+            ) : undefined
+          ) : undefined
+        }
+      />
+      <ConfirmDialog
+        isOpen={confirmAction !== null}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleConfirmAction}
+        title={confirmAction ? confirmMessages[confirmAction.type]!.title : ''}
+        message={confirmAction ? confirmMessages[confirmAction.type]!.message : ''}
+        warning={confirmAction ? confirmMessages[confirmAction.type]!.warning : undefined}
+        confirmLabel={confirmAction ? confirmMessages[confirmAction.type]!.label : ''}
+        variant={confirmAction ? confirmMessages[confirmAction.type]!.variant : 'default'}
+      />
+    </>
+  );
 
-            <p className="mt-4 text-xs text-center text-[var(--knu-text-tertiary)]">
-              호실 선택은 학교 시스템에서 직접 진행해 주세요
-            </p>
-          </div>
+  const renderPastView = () => (
+    <motion.div
+      key="past"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className="space-y-3"
+    >
+      {pastSeasons.length > 0 ? (
+        pastSeasons.map((season, index) => (
+          <PastSeasonAccordion key={season.id} season={season} defaultExpanded={index === 0} />
+        ))
+      ) : (
+        <MatchingEmptyState
+          icon={Calendar}
+          title="참여한 시즌이 없어요"
+          description="다음 시즌에 참여해서 룸메이트를 찾아보세요!"
+        />
+      )}
+    </motion.div>
+  );
 
-          <ProfileDetailSheet
-            profile={selectedProfile?.profile ?? null}
-            scoreType={selectedProfile?.profile.scoreType}
-            isOpen={selectedProfile !== null}
-            onClose={() => setSelectedProfile(null)}
-            onRequestMatch={() => {}}
-            hideMatchButton
-            userLifestyle={user.lifestyle}
-          />
-
-          <ConfirmDialog
-            isOpen={confirmAction !== null}
-            onClose={() => setConfirmAction(null)}
-            onConfirm={handleConfirmAction}
-            title={confirmAction ? confirmMessages[confirmAction.type]!.title : ''}
-            message={confirmAction ? confirmMessages[confirmAction.type]!.message : ''}
-            confirmLabel={confirmAction ? confirmMessages[confirmAction.type]!.label : ''}
-            variant={confirmAction ? confirmMessages[confirmAction.type]!.variant : 'default'}
-          />
+  // --- 게이팅: NOT_OPERATED ---
+  if (!campusOperated) {
+    return (
+      <div className={`min-h-screen ${matchingStageBackground}`}>
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
+        <div className="px-5 py-6 max-w-md mx-auto">
+          <MatchingEmptyState type="not_operated" icon={Handshake} />
         </div>
       </div>
     );
   }
 
-  // --- [2][3][4] No active match ---
-  return (
-    <div>
-      <MatchingTabHeader user={user} />
-      <div className="px-4 py-6 max-w-md mx-auto space-y-6">
-        {/* [2] In Conversation */}
-        {conversations.length > 0 && (
-          <section className="bg-white rounded-2xl border-2 border-blue-200 p-5">
-            <h3 className="font-bold text-[var(--knu-text-primary)] mb-4">
-              대화 중 ({conversations.length})
-            </h3>
-            <div className="space-y-3">
-              {conversations.map((req) => {
-                const partner = getPartnerProfile(req);
-                return (
-                  <div key={req.id} className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
-                    <div
-                      className={`w-10 h-10 ${getAvatarColor(partner.nickname).bg} rounded-full flex items-center justify-center text-lg font-bold ${getAvatarColor(partner.nickname).text}`}
-                    >
-                      {partner.nickname.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-[var(--knu-text-primary)] truncate">
-                        {partner.nickname}
-                      </p>
-                      <p className="text-xs text-[var(--knu-text-tertiary)]">
-                        {partner.scoreType === 'gated'
-                          ? '매칭도 잠금'
-                          : partner.scoreType === 'partial'
-                            ? `매칭도 ${partner.matchScore}% (!)`
-                            : `매칭도 ${partner.matchScore}%`}
-                        {partner.dormitoryId && ` · ${getDormitoryLabel(partner.dormitoryId)}`}
-                      </p>
-                    </div>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() =>
-                          setSelectedProfile({
-                            profile: partner,
-                            direction: 'conversation',
-                            requestId: req.id,
-                          })
-                        }
-                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg"
-                      >
-                        프로필
-                      </button>
-                      <button
-                        onClick={() =>
-                          setConfirmAction({
-                            type: 'confirmMatch',
-                            requestId: req.id,
-                            nickname: partner.nickname,
-                          })
-                        }
-                        className="px-3 py-1.5 bg-[var(--knu-primary)] text-white text-xs font-semibold rounded-lg"
-                      >
-                        확정
-                      </button>
-                      <button
-                        onClick={() =>
-                          setConfirmAction({
-                            type: 'endConversation',
-                            requestId: req.id,
-                            nickname: partner.nickname,
-                          })
-                        }
-                        className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg"
-                      >
-                        종료
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* [3] Request Management */}
-        <section className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
-          <h3 className="font-bold text-[var(--knu-text-primary)] mb-4">요청 관리</h3>
-
-          <div className="flex bg-[var(--knu-background-alt)] rounded-xl p-1 mb-4">
-            <button
-              onClick={() => setRequestTab('sent')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                requestTab === 'sent'
-                  ? 'bg-white text-[var(--knu-primary)] shadow-sm'
-                  : 'text-[var(--knu-text-tertiary)]'
-              }`}
-            >
-              보낸 요청 ({sentPending.length}/{MATCH_POLICY.MAX_PENDING_REQUESTS})
-            </button>
-            <button
-              onClick={() => setRequestTab('received')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors relative ${
-                requestTab === 'received'
-                  ? 'bg-white text-orange-600 shadow-sm'
-                  : 'text-[var(--knu-text-tertiary)]'
-              }`}
-            >
-              받은 요청
-              {receivedPending.length > 0 && requestTab !== 'received' && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 bg-red-500 text-white text-[10px] font-bold rounded-full">
-                  {receivedPending.length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {requestTab === 'sent' &&
-              (sentPending.length > 0 ? (
-                sentPending.map((req) => {
-                  const partner = getPartnerProfile(req);
-                  return (
-                    <MatchRequestCard
-                      key={req.id}
-                      request={req}
-                      direction="sent"
-                      partnerProfile={partner}
-                      scoreType={partner.scoreType}
-                      onCancel={(id) =>
-                        setConfirmAction({
-                          type: 'cancel',
-                          requestId: id,
-                          nickname: partner.nickname,
-                        })
-                      }
-                      onClick={() =>
-                        setSelectedProfile({
-                          profile: partner,
-                          direction: 'sent',
-                          requestId: req.id,
-                        })
-                      }
-                    />
-                  );
-                })
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-sm text-[var(--knu-text-tertiary)] mb-3">보낸 요청이 없어요</p>
-                  <p className="text-xs text-[var(--knu-text-tertiary)] mb-4">
-                    룸메 찾기에서 마음에 드는 룸메에게 요청을 보내보세요
-                  </p>
-                  <Button variant="outline" onClick={() => onNavigate('list')}>
-                    룸메 찾기로 이동
-                  </Button>
-                </div>
-              ))}
-
-            {requestTab === 'received' &&
-              (receivedPending.length > 0 ? (
-                receivedPending.map((req) => {
-                  const partner = getPartnerProfile(req);
-                  return (
-                    <MatchRequestCard
-                      key={req.id}
-                      request={req}
-                      direction="received"
-                      partnerProfile={partner}
-                      scoreType={partner.scoreType}
-                      onAccept={(id) =>
-                        setConfirmAction({
-                          type: 'accept',
-                          requestId: id,
-                          nickname: partner.nickname,
-                        })
-                      }
-                      onReject={(id) =>
-                        setConfirmAction({
-                          type: 'reject',
-                          requestId: id,
-                          nickname: partner.nickname,
-                        })
-                      }
-                      onClick={() =>
-                        setSelectedProfile({
-                          profile: partner,
-                          direction: 'received',
-                          requestId: req.id,
-                        })
-                      }
-                    />
-                  );
-                })
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-sm text-[var(--knu-text-tertiary)] mb-2">받은 요청이 없어요</p>
-                  <p className="text-xs text-[var(--knu-text-tertiary)]">
-                    다른 룸메가 요청을 보내면 여기에 표시돼요
-                  </p>
-                </div>
-              ))}
-          </div>
-        </section>
-
-        {/* [4] History */}
-        {history.length > 0 && (
-          <section className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-5">
-            <button
-              onClick={() => setHistoryOpen(!historyOpen)}
-              className="w-full flex items-center justify-between"
-            >
-              <h3 className="font-bold text-[var(--knu-text-primary)]">이력 ({history.length})</h3>
-              {historyOpen ? (
-                <ChevronDown className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-              ) : (
-                <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-              )}
-            </button>
-
-            {historyOpen && (
-              <div className="mt-4 space-y-3">
-                {history.map((req) => {
-                  const partnerId = getPartnerId(req, user.id);
-                  const partnerNickname = profileMap.get(partnerId)?.nickname ?? partnerId;
-                  const dormId = profileMap.get(partnerId)?.dormitoryId;
-                  return (
-                    <div
-                      key={req.id}
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl opacity-70"
-                    >
-                      <div
-                        className={`w-9 h-9 ${getAvatarColor(partnerNickname).bg} rounded-full flex items-center justify-center text-sm font-bold ${getAvatarColor(partnerNickname).text}`}
-                      >
-                        {partnerNickname.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-[var(--knu-text-secondary)] truncate">
-                          {partnerNickname}
-                        </p>
-                        {dormId && (
-                          <p className="text-xs text-[var(--knu-text-tertiary)]">
-                            {getDormitoryLabel(dormId)}
-                          </p>
-                        )}
-                      </div>
-                      <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${HISTORY_BADGE_STYLE[req.status] ?? 'bg-gray-200 text-gray-600'}`}
-                      >
-                        {MATCH_STATUS_LABELS[req.status]}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+  // --- 게이팅: SEASON_OPEN ---
+  if (seasonState === 'SEASON_OPEN') {
+    return (
+      <div className={`min-h-screen ${matchingStageBackground}`}>
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
+        <div className="px-5 py-5 max-w-md mx-auto space-y-5">
+          <SubNav
+            options={[
+              { id: 'current', label: '현재 시즌' },
+              { id: 'past', label: '과거 이력' },
+            ]}
+            selected={subNavTab}
+            onChange={(id) => setSubNavTab(id as SubNavTab)}
+          />
+          {subNavTab === 'current' && <PolicyHintBanner hints={policyHints} />}
+          <AnimatePresence mode="wait">
+            {subNavTab === 'current' ? (
+              <motion.div
+                key="current"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <MatchingEmptyState
+                  type="season_open"
+                  icon={Handshake}
+                  action={{ label: '룸메 탐색하러 가기', onClick: () => onNavigate('list') }}
+                />
+              </motion.div>
+            ) : (
+              renderPastView()
             )}
-          </section>
-        )}
+          </AnimatePresence>
+        </div>
+      </div>
+    );
+  }
 
-        {/* Empty state: no conversations, no requests, no history */}
-        {conversations.length === 0 &&
-          sentPending.length === 0 &&
-          receivedPending.length === 0 &&
-          history.length === 0 && (
-            <div>
-              <EmptyState
-                icon={<Handshake className="w-12 h-12 text-gray-300" />}
-                message="아직 매칭 활동이 없어요"
-              />
-              <p className="text-xs text-center text-[var(--knu-text-tertiary)] mt-3">
-                룸메 찾기 탭에서 마음에 드는 룸메에게 매칭을 요청해 보세요
-              </p>
-              <div className="mt-4 flex justify-center">
-                <Button variant="outline" onClick={() => onNavigate('list')}>
-                  룸메 찾기로 이동
-                </Button>
-              </div>
-            </div>
+  // --- 게이팅: OFF_SEASON ---
+  if (seasonState === 'OFF_SEASON') {
+    return (
+      <div className={`min-h-screen ${matchingStageBackground}`}>
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
+        <div className="px-5 py-5 max-w-md mx-auto space-y-5">
+          <SubNav
+            options={[
+              { id: 'current', label: '현재 시즌' },
+              { id: 'past', label: '과거 이력' },
+            ]}
+            selected={subNavTab}
+            onChange={(id) => setSubNavTab(id as SubNavTab)}
+          />
+          {subNavTab === 'current' && <PolicyHintBanner hints={policyHints} />}
+          <AnimatePresence mode="wait">
+            {subNavTab === 'current' ? (
+              <motion.div
+                key="current"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <MatchingEmptyState
+                  type="off_season"
+                  icon={Handshake}
+                  action={{ label: '프로필 완성하러 가기', onClick: () => onNavigate('profile') }}
+                />
+              </motion.div>
+            ) : (
+              renderPastView()
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    );
+  }
+
+  // --- UNASSIGNED 판정 (게이팅은 "현재 시즌" 내부에서만 적용) ---
+  const isUnassigned = user.dormitoryId === UNASSIGNED_ID || user.dormitoryId === null;
+
+  // --- [1] Active Match ---
+  if (activeMatch && isGroupMatch && (isGroupForming || activeMatch.groupStage === 'GROUP_FINAL')) {
+    const formingConversation = matchRequests.find(
+      (request) => request.status === 'IN_CONVERSATION',
+    );
+    const conversationPartner = formingConversation ? getPartnerProfile(formingConversation) : null;
+    const groupDisplayMembers =
+      activeMatch.groupMembers && conversationPartner && activeMatch.groupMembers.length >= 3
+        ? [
+            activeMatch.groupMembers[0]!,
+            activeMatch.groupMembers[1]!,
+            { userId: conversationPartner.id, nickname: conversationPartner.nickname },
+          ]
+        : (activeMatch.groupMembers ?? []);
+
+    return (
+      <div className={`min-h-screen ${matchingStageBackground}`}>
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
+        <div className="px-5 py-5 max-w-md mx-auto">
+          <div className="mb-4">
+            <PolicyHintBanner hints={policyHints} />
+          </div>
+          {activeMatch.groupRole === 'group_candidate' ? (
+            <GroupCandidateCard
+              stage={activeMatch.groupStage ?? undefined}
+              members={groupDisplayMembers}
+              viewerConfirmed={formingConversation?.approvalUserIds?.includes(user.id) === true}
+              cancelPending={activeMatch.cancelRequestedAt !== null}
+              cancelRequestedByCurrentUser={activeMatch.cancelRequestedBy === user.id}
+              cancelRequestKind={activeMatch.cancelRequestKind}
+              onConfirmGroup={() => {
+                if (!formingConversation) return;
+                setConfirmAction({
+                  type: 'confirmMatch',
+                  requestId: formingConversation.id,
+                  nickname: '현재 그룹',
+                });
+              }}
+              onRevokeConfirmGroup={() => {
+                if (!formingConversation) return;
+                setConfirmAction({
+                  type: 'revokeConfirm',
+                  requestId: formingConversation.id,
+                  nickname: '현재 그룹',
+                });
+              }}
+              onLeaveGroup={() =>
+                setConfirmAction({
+                  type: 'endMatch',
+                  nickname: '현재 그룹',
+                })
+              }
+            />
+          ) : (
+            <GroupCoreCard
+              stage={activeMatch.groupStage ?? undefined}
+              role={activeMatch.groupRole}
+              members={groupDisplayMembers}
+              joinRequestCount={0}
+              finalApprovalCount={formingConversation?.approvalUserIds?.length ?? 0}
+              finalApprovalTotal={activeMatch.groupMemberCount ?? 3}
+              viewerConfirmed={formingConversation?.approvalUserIds?.includes(user.id) === true}
+              cancelPending={activeMatch.cancelRequestedAt !== null}
+              cancelRequestedByCurrentUser={activeMatch.cancelRequestedBy === user.id}
+              cancelRequestKind={activeMatch.cancelRequestKind}
+              cancelApprovalCount={activeMatch.cancelApprovalUserIds?.length ?? 0}
+              cancelApprovalTotal={
+                activeMatch.cancelRequestKind === 'CANDIDATE_LEAVE'
+                  ? 2
+                  : (activeMatch.groupMemberCount ?? 3) - 1
+              }
+              onReviewRequests={() => setRequestTab('received')}
+              onFinalizePair={onFinalizePairGroup}
+              onConfirmGroup={() => {
+                if (!formingConversation) return;
+                setConfirmAction({
+                  type: 'confirmMatch',
+                  requestId: formingConversation.id,
+                  nickname: conversationPartner?.nickname ?? activeMatch.partnerNickname,
+                });
+              }}
+              onRevokeConfirmGroup={() => {
+                if (!formingConversation) return;
+                setConfirmAction({
+                  type: 'revokeConfirm',
+                  requestId: formingConversation.id,
+                  nickname: conversationPartner?.nickname ?? activeMatch.partnerNickname,
+                });
+              }}
+              onDissolve={() =>
+                setConfirmAction({
+                  type: 'endMatch',
+                  nickname: activeMatch.partnerNickname,
+                })
+              }
+            />
           )}
+          {renderDialogs()}
+        </div>
+      </div>
+    );
+  }
 
-        {/* Profile Detail Sheet */}
-        <ProfileDetailSheet
-          profile={selectedProfile?.profile ?? null}
-          scoreType={selectedProfile?.profile?.scoreType}
-          isOpen={selectedProfile !== null}
-          onClose={() => setSelectedProfile(null)}
-          onRequestMatch={() => {}}
-          hideMatchButton
-          userLifestyle={user.lifestyle}
-          customFooter={
-            selectedProfile ? (
-              selectedProfile.direction === 'sent' ? (
-                <Button
-                  variant="outline"
-                  fullWidth
-                  onClick={() =>
-                    setConfirmAction({
-                      type: 'cancel',
-                      requestId: selectedProfile.requestId,
-                      nickname: selectedProfile.profile.nickname,
-                    })
-                  }
-                >
-                  요청 취소
-                </Button>
-              ) : selectedProfile.direction === 'received' ? (
-                <div className="flex gap-3">
-                  <div className="flex-1">
-                    <Button
-                      variant="outline"
-                      fullWidth
-                      onClick={() =>
-                        setConfirmAction({
-                          type: 'reject',
-                          requestId: selectedProfile.requestId,
-                          nickname: selectedProfile.profile.nickname,
-                        })
-                      }
-                    >
-                      거절
-                    </Button>
-                  </div>
-                  <div className="flex-1">
-                    <Button
-                      variant="primary"
-                      fullWidth
-                      onClick={() =>
-                        setConfirmAction({
-                          type: 'accept',
-                          requestId: selectedProfile.requestId,
-                          nickname: selectedProfile.profile.nickname,
-                        })
-                      }
-                    >
-                      수락
-                    </Button>
-                  </div>
-                </div>
-              ) : undefined
-            ) : undefined
-          }
+  if (activeMatch && !isGroupCoreOpen) {
+    const partnerProfile = getPartnerProfile(
+      matchRequests.find((r) => r.status === 'ACTIVE') ?? matchRequests[0]!,
+    );
+    return (
+      <div className={`min-h-screen ${matchingStageBackground}`}>
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
+        <div className="px-5 py-5 max-w-md mx-auto">
+          <div className="mb-4">
+            <PolicyHintBanner hints={policyHints} />
+          </div>
+          <ActiveMatchCard
+            nickname={activeMatch.partnerNickname}
+            dormitoryId={activeMatch.partnerDormitoryId}
+            matchScore={activeMatch.matchScore}
+            scoreType={activeMatch.scoreType}
+            cancelPending={activeMatch.cancelRequestedAt !== null}
+            cancelRequestedByCurrentUser={activeMatch.cancelRequestedBy === user.id}
+            cancelRequestKind={activeMatch.cancelRequestKind}
+            cancelApprovalCount={activeMatch.cancelApprovalUserIds?.length ?? 0}
+            cancelApprovalTotal={
+              activeMatch.kind === 'group' && activeMatch.groupStage === 'GROUP_FINAL' ? 2 : 1
+            }
+            onViewProfile={() =>
+              setSelectedProfile({
+                profile: partnerProfile,
+                direction: 'conversation',
+                requestId: '',
+              })
+            }
+            onRelease={() =>
+              setConfirmAction({
+                type: 'endMatch',
+                nickname: activeMatch.partnerNickname,
+              })
+            }
+          />
+          {renderDialogs()}
+        </div>
+      </div>
+    );
+  }
+
+  // --- [2][3][4] SEASON_MATCHING (메인 화면) ---
+  const hasActivity =
+    isGroupCoreOpen ||
+    isGroupForming ||
+    conversations.length > 0 ||
+    sentPending.length > 0 ||
+    receivedPending.length > 0 ||
+    history.length > 0;
+
+  return (
+    <div className={`min-h-screen ${matchingStageBackground}`}>
+      <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
+      <div className="px-5 py-5 max-w-md mx-auto space-y-5">
+        {/* 서브 네비게이션 */}
+        <SubNav
+          options={[
+            { id: 'current', label: '현재 시즌' },
+            { id: 'past', label: '과거 이력' },
+          ]}
+          selected={subNavTab}
+          onChange={(id) => setSubNavTab(id as SubNavTab)}
         />
 
-        {/* Confirm Dialog */}
-        <ConfirmDialog
-          isOpen={confirmAction !== null}
-          onClose={() => setConfirmAction(null)}
-          onConfirm={handleConfirmAction}
-          title={confirmAction ? confirmMessages[confirmAction.type]!.title : ''}
-          message={confirmAction ? confirmMessages[confirmAction.type]!.message : ''}
-          confirmLabel={confirmAction ? confirmMessages[confirmAction.type]!.label : ''}
-          variant={confirmAction ? confirmMessages[confirmAction.type]!.variant : 'default'}
-        />
+        {subNavTab === 'current' && <PolicyHintBanner hints={policyHints} />}
+
+        <AnimatePresence mode="wait">
+          {subNavTab === 'current' ? (
+            <motion.div
+              key="current"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-5"
+            >
+              {isUnassigned && seasonState === 'SEASON_MATCHING' ? (
+                <MatchingEmptyState type="no_building" icon={Building2} />
+              ) : !hasActivity ? (
+                <MatchingEmptyState
+                  icon={Handshake}
+                  title="아직 매칭 활동이 없어요"
+                  description="룸메이트를 탐색하고 매칭 요청을 보내보세요!"
+                  action={{ label: '룸메 찾기로 이동', onClick: () => onNavigate('list') }}
+                />
+              ) : (
+                <>
+                  {isGroupCoreOpen && (
+                    <section>
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-1 h-5 rounded-full bg-blue-500" />
+                        <h2 className="text-lg font-bold text-[var(--knu-text-primary)]">
+                          3인실 그룹
+                        </h2>
+                      </div>
+                      <GroupCoreCard
+                        members={
+                          activeMatch.groupMembers ?? [
+                            { userId: user.id, nickname: user.nickname },
+                            {
+                              userId: activeMatch.partnerUserId,
+                              nickname: activeMatch.partnerNickname,
+                            },
+                          ]
+                        }
+                        joinRequestCount={receivedPending.length}
+                        onReviewRequests={() => setRequestTab('received')}
+                        onFinalizePair={onFinalizePairGroup}
+                        onDissolve={() =>
+                          setConfirmAction({
+                            type: 'endMatch',
+                            nickname: activeMatch.partnerNickname,
+                          })
+                        }
+                      />
+                    </section>
+                  )}
+
+                  {/* [2] 대화 중 */}
+                  {conversations.length > 0 && (
+                    <section ref={convSectionRef}>
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-1 h-5 rounded-full bg-indigo-500" />
+                        <h2 className="text-lg font-bold text-[var(--knu-text-primary)] flex items-center gap-2">
+                          <MessageCircle className="w-4.5 h-4.5 text-indigo-500" />
+                          {isGroupCoreOpen ? '합류 검토 중' : '대화 중'}
+                          <span className="text-sm font-normal text-[var(--knu-text-tertiary)]">
+                            ({conversations.length})
+                          </span>
+                        </h2>
+                      </div>
+                      <div className="space-y-3">
+                        {displayedConversations.map((req) => {
+                          const partner = getPartnerProfile(req);
+                          const approvalCount = req.approvalUserIds?.length ?? 0;
+                          const approvalTotal = isGroupForming
+                            ? (activeMatch?.groupMemberCount ?? 3)
+                            : 2;
+                          const viewerConfirmed = req.approvalUserIds?.includes(user.id) === true;
+                          const convExpiresMs = req.acceptedAt
+                            ? new Date(req.acceptedAt).getTime() + 7 * 24 * 3600000 - renderedAt
+                            : 0;
+                          const convHoursLeft = Math.max(0, Math.floor(convExpiresMs / 3600000));
+                          const convExpired = convHoursLeft <= 0;
+                          const convTimeDisplay = convExpired
+                            ? '만료됨'
+                            : convHoursLeft < 24
+                              ? `${convHoursLeft}시간`
+                              : `D-${Math.ceil(convHoursLeft / 24)}`;
+                          const convUrgent = !convExpired && convHoursLeft < 24;
+                          return (
+                            <MatchingCompactCard
+                              key={req.id}
+                              nickname={partner.nickname}
+                              dormitoryId={partner.dormitoryId}
+                              matchScore={partner.matchScore}
+                              scoreType={partner.scoreType}
+                              borderColor="border-indigo-300"
+                              status={{
+                                label: '대화 중',
+                                color: 'text-emerald-600',
+                                dotColor: 'bg-emerald-500',
+                              }}
+                              statusPills={[
+                                {
+                                  label: `확정 ${approvalCount}/${approvalTotal}`,
+                                  className:
+                                    approvalCount === 0
+                                      ? 'bg-gray-100 text-gray-500'
+                                      : approvalCount >= approvalTotal
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : 'bg-amber-100 text-amber-700',
+                                },
+                              ]}
+                              timer={
+                                req.acceptedAt
+                                  ? {
+                                      text: convExpired ? '만료됨' : `남은 시간 ${convTimeDisplay}`,
+                                      urgent: convUrgent,
+                                      expired: convExpired,
+                                    }
+                                  : undefined
+                              }
+                              actions={[
+                                {
+                                  label: '채팅',
+                                  icon: <MessageCircle className="h-3.5 w-3.5" />,
+                                  variant: 'disabled',
+                                  onClick: () => {},
+                                },
+                                {
+                                  label: viewerConfirmed ? '확정 취소' : '확정하기',
+                                  icon: <Check className="h-3.5 w-3.5" />,
+                                  variant: viewerConfirmed ? 'secondary' : 'primary',
+                                  onClick: () =>
+                                    setConfirmAction({
+                                      type: viewerConfirmed ? 'revokeConfirm' : 'confirmMatch',
+                                      requestId: req.id,
+                                      nickname: partner.nickname,
+                                    }),
+                                },
+                              ]}
+                              menuItems={[
+                                {
+                                  label: '프로필 보기',
+                                  icon: <User className="h-4 w-4" />,
+                                  onClick: () =>
+                                    setSelectedProfile({
+                                      profile: partner,
+                                      direction: 'conversation',
+                                      requestId: req.id,
+                                    }),
+                                },
+                                {
+                                  label: '대화 종료',
+                                  icon: <X className="h-4 w-4" />,
+                                  variant: viewerConfirmed ? 'disabled' : 'danger',
+                                  onClick: () =>
+                                    setConfirmAction({
+                                      type: 'endConversation',
+                                      requestId: req.id,
+                                      nickname: partner.nickname,
+                                    }),
+                                },
+                              ]}
+                            />
+                          );
+                        })}
+                        <ShowMoreButton
+                          remainingCount={conversations.length - convShowCount}
+                          isExpanded={convShowCount >= conversations.length}
+                          totalCount={conversations.length}
+                          initialCount={INITIAL_SHOW}
+                          onClick={() =>
+                            handleToggleMore(
+                              conversations.length,
+                              convShowCount,
+                              INITIAL_SHOW,
+                              3,
+                              setConvShowCount,
+                              convSectionRef,
+                            )
+                          }
+                        />
+                      </div>
+                    </section>
+                  )}
+
+                  {/* [3] 요청 관리 */}
+                  <section ref={recvSectionRef}>
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-1 h-5 rounded-full bg-sky-400" />
+                      <h2 className="text-lg font-bold text-[var(--knu-text-primary)] flex items-center gap-2">
+                        <List className="w-4.5 h-4.5 text-sky-500" />
+                        {isGroupCoreOpen ? '그룹 합류 요청' : '요청 관리'}
+                      </h2>
+                    </div>
+
+                    <div className="mb-4">
+                      {isGroupCoreOpen ? (
+                        <SegmentControl
+                          options={[
+                            {
+                              id: 'received',
+                              label: '받은 합류 요청',
+                              badge: receivedPending.length,
+                            },
+                          ]}
+                          selected="received"
+                          onChange={() => setRequestTab('received')}
+                        />
+                      ) : (
+                        <SegmentControl
+                          options={[
+                            {
+                              id: 'sent',
+                              label: `보낸 요청 (${sentPending.length}/${MATCH_POLICY.MAX_PENDING_REQUESTS})`,
+                            },
+                            { id: 'received', label: '받은 요청', badge: receivedPending.length },
+                          ]}
+                          selected={requestTab}
+                          onChange={(id) => setRequestTab(id as RequestTab)}
+                        />
+                      )}
+                    </div>
+
+                    {(isGroupCoreOpen || requestTab === 'received') &&
+                      receivedPending.length > 0 && (
+                        <div className="-mt-1 mb-4 flex justify-end">
+                          <SortToggle value={receivedSort} onChange={setReceivedSort} />
+                        </div>
+                      )}
+
+                    <AnimatePresence mode="wait">
+                      {!isGroupCoreOpen && requestTab === 'sent' && (
+                        <motion.div
+                          key="sent"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          className="space-y-3"
+                        >
+                          {sentPending.length > 0 ? (
+                            sentPending.map((req) => {
+                              const partner = getPartnerProfile(req);
+                              // 3인실 GROUP_JOIN은 기존 MatchRequestCard 사용
+                              if (req.requestKind === 'GROUP_JOIN') {
+                                return (
+                                  <MatchRequestCard
+                                    key={req.id}
+                                    request={req}
+                                    direction="sent"
+                                    partnerProfile={partner}
+                                    scoreType={partner.scoreType}
+                                    viewerId={user.id}
+                                    groupTargetNicknames={req.groupTargetUserIds?.map(
+                                      (targetId) => profileMap.get(targetId)?.nickname ?? targetId,
+                                    )}
+                                    onCancel={(id) =>
+                                      setConfirmAction({
+                                        type: 'cancel',
+                                        requestId: id,
+                                        nickname: partner.nickname,
+                                      })
+                                    }
+                                    onClick={() =>
+                                      setSelectedProfile({
+                                        profile: partner,
+                                        direction: 'sent',
+                                        requestId: req.id,
+                                      })
+                                    }
+                                  />
+                                );
+                              }
+                              const hoursLeft = Math.max(
+                                0,
+                                Math.floor(
+                                  (new Date(req.expiresAt).getTime() - renderedAt) / 3600000,
+                                ),
+                              );
+                              const isExpired = hoursLeft <= 0;
+                              const timeDisplay = isExpired
+                                ? '만료됨'
+                                : hoursLeft < 24
+                                  ? `${hoursLeft}시간`
+                                  : `D-${Math.ceil(hoursLeft / 24)}`;
+                              const isUrgent = !isExpired && hoursLeft < 24;
+                              return (
+                                <MatchingCompactCard
+                                  key={req.id}
+                                  nickname={partner.nickname}
+                                  dormitoryId={partner.dormitoryId}
+                                  matchScore={partner.matchScore}
+                                  scoreType={partner.scoreType}
+                                  borderColor="border-indigo-100"
+                                  status={{
+                                    label: '수락 대기 중',
+                                    color: 'text-amber-600',
+                                    dotColor: 'bg-amber-400',
+                                  }}
+                                  message={req.message}
+                                  timer={{
+                                    text: isExpired ? '만료됨' : `남은 시간 ${timeDisplay}`,
+                                    urgent: isUrgent,
+                                    expired: isExpired,
+                                  }}
+                                  actions={[
+                                    {
+                                      label: '프로필',
+                                      icon: <User className="h-3.5 w-3.5" />,
+                                      variant: 'secondary',
+                                      onClick: () =>
+                                        setSelectedProfile({
+                                          profile: partner,
+                                          direction: 'sent',
+                                          requestId: req.id,
+                                        }),
+                                    },
+                                    {
+                                      label: '취소',
+                                      icon: <X className="h-3.5 w-3.5" />,
+                                      variant: isExpired ? 'disabled' : 'secondary',
+                                      onClick: () =>
+                                        setConfirmAction({
+                                          type: 'cancel',
+                                          requestId: req.id,
+                                          nickname: partner.nickname,
+                                        }),
+                                    },
+                                  ]}
+                                  menuItems={[
+                                    {
+                                      label: '차단하기',
+                                      icon: <Ban className="h-4 w-4" />,
+                                      variant: 'danger',
+                                      onClick: () => {},
+                                    },
+                                    {
+                                      label: '신고하기',
+                                      icon: <Flag className="h-4 w-4" />,
+                                      variant: 'danger',
+                                      onClick: () => {},
+                                    },
+                                  ]}
+                                />
+                              );
+                            })
+                          ) : (
+                            <div className="text-center py-6">
+                              <p className="text-sm text-[var(--knu-text-tertiary)] mb-1">
+                                대기 중인 요청이 없어요
+                              </p>
+                              <p className="text-xs text-[var(--knu-text-tertiary)] mb-4">
+                                프로필을 둘러보고 마음에 드는 상대에게 요청을 보내보세요
+                              </p>
+                              <motion.button
+                                onClick={() => onNavigate('list')}
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.97 }}
+                                className="px-5 py-2.5 bg-gradient-to-r from-[var(--knu-primary)] to-blue-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-blue-200/50 transition-all flex items-center justify-center gap-1.5 mx-auto"
+                              >
+                                매칭 상대 둘러보기
+                                <ChevronRight className="w-4 h-4" />
+                              </motion.button>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+
+                      {(isGroupCoreOpen || requestTab === 'received') && (
+                        <motion.div
+                          key="received"
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -20 }}
+                          className="space-y-3"
+                        >
+                          {receivedPending.length > 0 ? (
+                            <>
+                              {displayedReceived.map((req) => {
+                                const partner = getPartnerProfile(req);
+                                // 3인실 GROUP_JOIN은 기존 MatchRequestCard
+                                if (req.requestKind === 'GROUP_JOIN') {
+                                  return (
+                                    <MatchRequestCard
+                                      key={req.id}
+                                      request={req}
+                                      direction="received"
+                                      partnerProfile={partner}
+                                      scoreType={partner.scoreType}
+                                      viewerId={user.id}
+                                      onAccept={(id) =>
+                                        setConfirmAction({
+                                          type: 'accept',
+                                          requestId: id,
+                                          nickname: partner.nickname,
+                                        })
+                                      }
+                                      onReject={(id) =>
+                                        setConfirmAction({
+                                          type: 'reject',
+                                          requestId: id,
+                                          nickname: partner.nickname,
+                                        })
+                                      }
+                                      onClick={() =>
+                                        setSelectedProfile({
+                                          profile: partner,
+                                          direction: 'received',
+                                          requestId: req.id,
+                                        })
+                                      }
+                                    />
+                                  );
+                                }
+                                const recvHoursLeft = Math.max(
+                                  0,
+                                  Math.floor(
+                                    (new Date(req.expiresAt).getTime() - renderedAt) / 3600000,
+                                  ),
+                                );
+                                const recvExpired = recvHoursLeft <= 0;
+                                const recvTimeDisplay = recvExpired
+                                  ? '만료됨'
+                                  : recvHoursLeft < 24
+                                    ? `${recvHoursLeft}시간`
+                                    : `D-${Math.ceil(recvHoursLeft / 24)}`;
+                                const isRecommended = partner.matchScore >= 85;
+                                const isNew = !req.approvalUserIds?.includes(user.id);
+                                return (
+                                  <MatchingCompactCard
+                                    key={req.id}
+                                    nickname={partner.nickname}
+                                    dormitoryId={partner.dormitoryId}
+                                    matchScore={partner.matchScore}
+                                    scoreType={partner.scoreType}
+                                    borderColor={
+                                      isRecommended ? 'border-purple-200' : 'border-indigo-100'
+                                    }
+                                    pills={[
+                                      ...(isRecommended
+                                        ? [
+                                            {
+                                              label: '추천 매칭',
+                                              icon: <Sparkles className="h-3 w-3" />,
+                                              className: 'bg-purple-500 text-white',
+                                            },
+                                          ]
+                                        : []),
+                                      ...(isNew
+                                        ? [{ label: 'New', className: 'bg-red-500 text-white' }]
+                                        : []),
+                                    ]}
+                                    status={{
+                                      label: '응답 필요',
+                                      color: 'text-purple-600',
+                                      dotColor: 'bg-purple-400',
+                                    }}
+                                    message={req.message}
+                                    timer={{
+                                      text: recvExpired ? '만료됨' : `남은 시간 ${recvTimeDisplay}`,
+                                      urgent: !recvExpired && recvHoursLeft < 24,
+                                      expired: recvExpired,
+                                    }}
+                                    actions={[
+                                      {
+                                        label: '거절',
+                                        icon: <X className="h-3.5 w-3.5" />,
+                                        variant: recvExpired ? 'disabled' : 'secondary',
+                                        onClick: () =>
+                                          setConfirmAction({
+                                            type: 'reject',
+                                            requestId: req.id,
+                                            nickname: partner.nickname,
+                                          }),
+                                      },
+                                      {
+                                        label: '수락하기',
+                                        icon: <Check className="h-3.5 w-3.5" />,
+                                        variant: recvExpired ? 'disabled' : 'primary',
+                                        onClick: () =>
+                                          setConfirmAction({
+                                            type: 'accept',
+                                            requestId: req.id,
+                                            nickname: partner.nickname,
+                                          }),
+                                      },
+                                    ]}
+                                    menuItems={[
+                                      {
+                                        label: '프로필 보기',
+                                        icon: <User className="h-4 w-4" />,
+                                        onClick: () =>
+                                          setSelectedProfile({
+                                            profile: partner,
+                                            direction: 'received',
+                                            requestId: req.id,
+                                          }),
+                                      },
+                                      {
+                                        label: '차단하기',
+                                        icon: <Ban className="h-4 w-4" />,
+                                        variant: 'danger',
+                                        onClick: () => {},
+                                      },
+                                      {
+                                        label: '신고하기',
+                                        icon: <Flag className="h-4 w-4" />,
+                                        variant: 'danger',
+                                        onClick: () => {},
+                                      },
+                                    ]}
+                                  />
+                                );
+                              })}
+                              <ShowMoreButton
+                                remainingCount={sortedReceived.length - recvShowCount}
+                                isExpanded={recvShowCount >= sortedReceived.length}
+                                totalCount={sortedReceived.length}
+                                initialCount={INITIAL_SHOW}
+                                onClick={() =>
+                                  handleToggleMore(
+                                    sortedReceived.length,
+                                    recvShowCount,
+                                    INITIAL_SHOW,
+                                    3,
+                                    setRecvShowCount,
+                                    recvSectionRef,
+                                  )
+                                }
+                              />
+                            </>
+                          ) : (
+                            <div className="text-center py-6">
+                              <p className="text-sm text-[var(--knu-text-tertiary)] mb-2">
+                                {isGroupCoreOpen ? '아직 합류 요청이 없어요' : '받은 요청이 없어요'}
+                              </p>
+                              <p className="text-xs text-[var(--knu-text-tertiary)]">
+                                {isGroupCoreOpen
+                                  ? '개인이 그룹에 합류 요청을 보내면 여기에 표시돼요'
+                                  : '다른 룸메가 요청을 보내면 여기에 표시돼요'}
+                              </p>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </section>
+
+                  {/* [4] 이력 */}
+                  {aggregatedHistory.length > 0 && (
+                    <section ref={histSectionRef}>
+                      <button
+                        onClick={() => setHistoryOpen(!historyOpen)}
+                        className="w-full flex items-center justify-between mb-4 group"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-5 rounded-full bg-gray-300" />
+                          <h2 className="text-lg font-bold text-[var(--knu-text-primary)] flex items-center gap-2">
+                            <Archive className="w-4.5 h-4.5 text-gray-400" />
+                            이력 ({aggregatedHistory.length})
+                          </h2>
+                        </div>
+                        {historyOpen ? (
+                          <ChevronUp className="w-5 h-5 text-[var(--knu-text-tertiary)] group-hover:text-[var(--knu-text-primary)] transition-colors" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-[var(--knu-text-tertiary)] group-hover:text-[var(--knu-text-primary)] transition-colors" />
+                        )}
+                      </button>
+
+                      <AnimatePresence>
+                        {historyOpen && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="space-y-3 overflow-hidden"
+                          >
+                            {displayedHistory.map((row) => {
+                              const historyMeta =
+                                row.aggregateCount &&
+                                row.aggregateCount >= 2 &&
+                                row.aggregateContext
+                                  ? getRepeatedCancelledVisualMeta(
+                                      row.aggregateContext,
+                                      row.aggregateCount,
+                                    )
+                                  : getCurrentHistoryVisualMeta(row.request, user.id);
+                              return (
+                                <MatchingCompactCard
+                                  key={row.request.id}
+                                  nickname={row.partnerNickname}
+                                  dormitoryId={row.partnerDormId}
+                                  matchScore={0}
+                                  scoreType="gated"
+                                  hideScore
+                                  hoverEffect={false}
+                                  statusPulse={false}
+                                  borderColor={matchingHistoryCardBorder}
+                                  opacity={0.75}
+                                  status={historyMeta.status}
+                                  statusPills={
+                                    historyMeta.stagePill ? [historyMeta.stagePill] : undefined
+                                  }
+                                />
+                              );
+                            })}
+                            <ShowMoreButton
+                              remainingCount={aggregatedHistory.length - histShowCount}
+                              isExpanded={histShowCount >= aggregatedHistory.length}
+                              totalCount={aggregatedHistory.length}
+                              initialCount={HISTORY_INITIAL_SHOW}
+                              onClick={() =>
+                                handleToggleMore(
+                                  aggregatedHistory.length,
+                                  histShowCount,
+                                  HISTORY_INITIAL_SHOW,
+                                  3,
+                                  setHistShowCount,
+                                  histSectionRef,
+                                )
+                              }
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </section>
+                  )}
+                </>
+              )}
+            </motion.div>
+          ) : (
+            renderPastView()
+          )}
+        </AnimatePresence>
+
+        {renderDialogs()}
       </div>
     </div>
   );

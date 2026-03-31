@@ -23,12 +23,12 @@ vi.mock('@/main/Main', () => ({
 const mockUseCurrentUser = vi.mocked(useCurrentUser);
 
 describe('GatewayPage', () => {
-  it('로딩 중이면 인증 확인 화면을 표시한다', () => {
+  it('로딩 중이면 스켈레톤을 표시한다', () => {
     mockUseCurrentUser.mockReturnValue({ user: null, setUser: vi.fn(), isLoading: true });
 
     render(<GatewayPage />);
 
-    expect(screen.getByText('인증 확인 중...')).toBeInTheDocument();
+    expect(screen.getByText('서비스를 준비하고 있어요')).toBeInTheDocument();
   });
 
   it('비로그인 시 Landing을 렌더링한다', () => {

@@ -3,6 +3,12 @@ import type { AdditionalProfile } from '@/types/additional-profile';
 
 export type TabId = 'home' | 'list' | 'matching' | 'profile' | 'settings';
 
+/** 매칭 탭 서브탭 네비게이트 옵션 */
+export interface MatchingNavOptions {
+  section?: 'current' | 'past';
+  requestTab?: 'sent' | 'received';
+}
+
 export type DormitoryId = string | null;
 
 export type Campus = 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';

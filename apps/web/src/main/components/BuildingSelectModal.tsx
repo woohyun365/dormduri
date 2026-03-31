@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Building2, Check, X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Chip } from '@/components/Chip';
@@ -31,6 +31,16 @@ export function BuildingSelectModal({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const dormitories = getAvailableDormitories(campus, gender);
+  const warningRef = useRef<HTMLDivElement>(null);
+
+  // 건물 선택 시 경고 카드로 스크롤
+  useEffect(() => {
+    if (selectedId && selectedId !== UNASSIGNED_ID && (isOpen || isMatching)) {
+      requestAnimationFrame(() => {
+        warningRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
+  }, [selectedId, isOpen, isMatching]);
 
   const selectedDorm =
     selectedId && selectedId !== UNASSIGNED_ID ? getDormitoryById(selectedId) : null;
@@ -126,45 +136,50 @@ export function BuildingSelectModal({
               </div>
             )}
 
-            {/* Dormitory list */}
+            {/* Dormitory list — 선택된 건물 바로 아래에 경고 표시 */}
             {dormitories.map((dorm) => (
-              <button
-                key={dorm.id}
-                type="button"
-                onClick={() => setSelectedId(dorm.id)}
-                className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
-                  selectedId === dorm.id
-                    ? 'border-[var(--knu-primary)] bg-[var(--knu-primary-light)]'
-                    : 'border-[var(--knu-border)] bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold text-[var(--knu-text-primary)]">{dorm.name}</span>
-                  <Chip label={`${dorm.roomType}인실`} variant="badge" />
-                </div>
-                {selectedId === dorm.id && (
-                  <div className="w-6 h-6 bg-[var(--knu-primary)] rounded-full flex items-center justify-center">
-                    <Check className="w-4 h-4 text-white" />
+              <div key={dorm.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(dorm.id)}
+                  className={`w-full flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
+                    selectedId === dorm.id
+                      ? 'border-[var(--knu-primary)] bg-[var(--knu-primary-light)]'
+                      : 'border-[var(--knu-border)] bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-[var(--knu-text-primary)]">
+                      {dorm.name}
+                    </span>
+                    <Chip label={`${dorm.roomType}인실`} variant="badge" />
+                  </div>
+                  {selectedId === dorm.id && (
+                    <div className="w-6 h-6 bg-[var(--knu-primary)] rounded-full flex items-center justify-center">
+                      <Check className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                </button>
+                {/* 시즌 경고 — 선택된 건물 바로 아래 */}
+                {(isOpen || isMatching) && selectedId === dorm.id && (
+                  <div
+                    ref={warningRef}
+                    className="mt-2 flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl"
+                  >
+                    <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-800">
+                        시즌 중에는 건물을 변경할 수 없어요
+                      </p>
+                      <p className="text-xs text-red-600 leading-relaxed mt-0.5">
+                        오입력 시 문의하기를 통해 관리자에게 요청해주세요.
+                      </p>
+                    </div>
                   </div>
                 )}
-              </button>
+              </div>
             ))}
           </div>
-
-          {/* 시즌 경고 (C 파트) */}
-          {(isOpen || isMatching) && selectedId && selectedId !== UNASSIGNED_ID && (
-            <div className="mt-4 flex items-start gap-3 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
-              <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-red-800 mb-1">
-                  시즌 중에는 건물을 변경할 수 없습니다
-                </p>
-                <p className="text-xs text-red-700 leading-relaxed">
-                  건물 오입력 시 관리자에게 문의해주세요.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
