@@ -19,17 +19,16 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { UNASSIGNED_ID, isCampusOperated } from '@/constants/dormitory';
+import { UNASSIGNED_ID, isCampusOperated, getMatchGroupSize } from '@/constants/dormitory';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { MATCH_POLICY } from '@/constants/match';
-import { MatchRequestCard } from '../../components/MatchRequestCard';
+import { OverlappedAvatars } from '../../components/matching/OverlappedAvatars';
 import { MatchingCompactCard } from '../../components/matching/MatchingCompactCard';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';
 import { MatchingTabHeader } from './MatchingTabHeader';
 import { SubNav } from '../../components/matching/SubNav';
 import { ActiveMatchCard } from '../../components/matching/ActiveMatchCard';
-import { GroupCoreCard } from '../../components/matching/GroupCoreCard';
-import { GroupCandidateCard } from '../../components/matching/GroupCandidateCard';
+import { GroupInfoTipCard } from '../../components/matching/GroupInfoTipCard';
 import { MatchingEmptyState } from '../../components/matching/MatchingEmptyState';
 import { PastSeasonAccordion } from '../../components/matching/PastSeasonAccordion';
 import { PolicyHintBanner } from '../../components/matching/PolicyHintBanner';
@@ -600,21 +599,16 @@ export default function MatchingTab({
   // --- UNASSIGNED 판정 (게이팅은 "현재 시즌" 내부에서만 적용) ---
   const isUnassigned = user.dormitoryId === UNASSIGNED_ID || user.dormitoryId === null;
 
-  // --- [1] Active Match ---
-  if (activeMatch && isGroupMatch && (isGroupForming || activeMatch.groupStage === 'GROUP_FINAL')) {
-    const formingConversation = matchRequests.find(
-      (request) => request.status === 'IN_CONVERSATION',
-    );
-    const conversationPartner = formingConversation ? getPartnerProfile(formingConversation) : null;
-    const groupDisplayMembers =
-      activeMatch.groupMembers && conversationPartner && activeMatch.groupMembers.length >= 3
-        ? [
-            activeMatch.groupMembers[0]!,
-            activeMatch.groupMembers[1]!,
-            { userId: conversationPartner.id, nickname: conversationPartner.nickname },
-          ]
-        : (activeMatch.groupMembers ?? []);
+  // --- [1] GROUP_FINAL / PAIR_FINAL: 확정 뷰 (early return) ---
+  const isGroupFinal = isGroupMatch && activeMatch?.groupStage === 'GROUP_FINAL';
+  const isPairFinal = isGroupMatch && activeMatch?.groupStage === 'PAIR_FINAL';
 
+  if (activeMatch && (isGroupFinal || isPairFinal)) {
+    const groupMembers = activeMatch.groupMembers ?? [
+      { userId: user.id, nickname: user.nickname },
+      { userId: activeMatch.partnerUserId, nickname: activeMatch.partnerNickname },
+    ];
+    const memberNicknames = groupMembers.map((m) => m.nickname);
     return (
       <div className={`min-h-screen ${matchingStageBackground}`}>
         <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
@@ -622,74 +616,107 @@ export default function MatchingTab({
           <div className="mb-4">
             <PolicyHintBanner hints={policyHints} />
           </div>
-          {activeMatch.groupRole === 'group_candidate' ? (
-            <GroupCandidateCard
-              stage={activeMatch.groupStage ?? undefined}
-              members={groupDisplayMembers}
-              viewerConfirmed={formingConversation?.approvalUserIds?.includes(user.id) === true}
-              cancelPending={activeMatch.cancelRequestedAt !== null}
-              cancelRequestedByCurrentUser={activeMatch.cancelRequestedBy === user.id}
-              cancelRequestKind={activeMatch.cancelRequestKind}
-              onConfirmGroup={() => {
-                if (!formingConversation) return;
-                setConfirmAction({
-                  type: 'confirmMatch',
-                  requestId: formingConversation.id,
-                  nickname: '현재 그룹',
-                });
-              }}
-              onRevokeConfirmGroup={() => {
-                if (!formingConversation) return;
-                setConfirmAction({
-                  type: 'revokeConfirm',
-                  requestId: formingConversation.id,
-                  nickname: '현재 그룹',
-                });
-              }}
-              onLeaveGroup={() =>
-                setConfirmAction({
-                  type: 'endMatch',
-                  nickname: '현재 그룹',
-                })
+          <MatchingCompactCard
+            nickname={memberNicknames.join(' & ')}
+            dormitoryId={activeMatch.partnerDormitoryId}
+            matchScore={activeMatch.matchScore}
+            scoreType={activeMatch.scoreType}
+            borderColor="border-green-300"
+            avatarSlot={<OverlappedAvatars nicknames={memberNicknames} size="lg" />}
+            pills={[
+              {
+                label: isGroupFinal ? '3인 매칭 확정' : '2인 매칭 확정',
+                className: 'bg-green-600 text-white border border-green-600',
+              },
+            ]}
+            status={{
+              label: '매칭이 확정되었어요',
+              color: 'text-green-700',
+              dotColor: 'bg-green-500',
+            }}
+            actions={[
+              {
+                label: isGroupFinal ? '그룹 떠나기' : '매칭 취소하기',
+                variant: activeMatch.cancelRequestedAt
+                  ? ('disabled' as const)
+                  : ('danger' as const),
+                onClick: () =>
+                  setConfirmAction({ type: 'endMatch', nickname: memberNicknames.join(' & ') }),
+              },
+            ]}
+          />
+          {renderDialogs()}
+        </div>
+      </div>
+    );
+  }
+
+  // --- [1b] 2인실 ACTIVE (early return) ---
+  if (activeMatch && !isGroupCoreOpen && !isGroupForming) {
+    const partnerProfile = getPartnerProfile(
+      matchRequests.find((r) => r.status === 'ACTIVE') ?? matchRequests[0]!,
+    );
+    const isPairFinal = activeMatch.kind === 'group' && activeMatch.groupStage === 'PAIR_FINAL';
+    const pairFinalMembers = activeMatch.groupMembers ?? [
+      { userId: user.id, nickname: user.nickname },
+      { userId: activeMatch.partnerUserId, nickname: activeMatch.partnerNickname },
+    ];
+    return (
+      <div className={`min-h-screen ${matchingStageBackground}`}>
+        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
+        <div className="px-5 py-5 max-w-md mx-auto">
+          <div className="mb-4">
+            <PolicyHintBanner hints={policyHints} />
+          </div>
+          {isPairFinal ? (
+            <MatchingCompactCard
+              nickname={pairFinalMembers.map((m) => m.nickname).join(' & ')}
+              dormitoryId={activeMatch.partnerDormitoryId}
+              matchScore={activeMatch.matchScore}
+              scoreType={activeMatch.scoreType}
+              borderColor="border-green-300"
+              avatarSlot={
+                <OverlappedAvatars nicknames={pairFinalMembers.map((m) => m.nickname)} size="lg" />
               }
+              pills={[
+                {
+                  label: '2인 매칭 확정',
+                  className: 'bg-green-600 text-white border border-green-600',
+                },
+              ]}
+              status={{
+                label: '매칭이 확정되었어요',
+                color: 'text-green-700',
+                dotColor: 'bg-green-500',
+              }}
+              actions={[
+                {
+                  label: '매칭 취소하기',
+                  variant: activeMatch.cancelRequestedAt ? 'disabled' : 'danger',
+                  onClick: () =>
+                    setConfirmAction({ type: 'endMatch', nickname: activeMatch.partnerNickname }),
+                },
+              ]}
             />
           ) : (
-            <GroupCoreCard
-              stage={activeMatch.groupStage ?? undefined}
-              role={activeMatch.groupRole}
-              members={groupDisplayMembers}
-              joinRequestCount={0}
-              finalApprovalCount={formingConversation?.approvalUserIds?.length ?? 0}
-              finalApprovalTotal={activeMatch.groupMemberCount ?? 3}
-              viewerConfirmed={formingConversation?.approvalUserIds?.includes(user.id) === true}
+            <ActiveMatchCard
+              nickname={activeMatch.partnerNickname}
+              dormitoryId={activeMatch.partnerDormitoryId}
+              matchScore={activeMatch.matchScore}
+              scoreType={activeMatch.scoreType}
               cancelPending={activeMatch.cancelRequestedAt !== null}
               cancelRequestedByCurrentUser={activeMatch.cancelRequestedBy === user.id}
               cancelRequestKind={activeMatch.cancelRequestKind}
               cancelApprovalCount={activeMatch.cancelApprovalUserIds?.length ?? 0}
-              cancelApprovalTotal={
-                activeMatch.cancelRequestKind === 'CANDIDATE_LEAVE'
-                  ? 2
-                  : (activeMatch.groupMemberCount ?? 3) - 1
+              cancelApprovalTotal={1}
+              onViewProfile={() =>
+                setSelectedProfile({
+                  profile: partnerProfile,
+                  direction: 'conversation',
+                  requestId: '',
+                })
               }
-              onReviewRequests={() => setRequestTab('received')}
-              onFinalizePair={onFinalizePairGroup}
-              onConfirmGroup={() => {
-                if (!formingConversation) return;
-                setConfirmAction({
-                  type: 'confirmMatch',
-                  requestId: formingConversation.id,
-                  nickname: conversationPartner?.nickname ?? activeMatch.partnerNickname,
-                });
-              }}
-              onRevokeConfirmGroup={() => {
-                if (!formingConversation) return;
-                setConfirmAction({
-                  type: 'revokeConfirm',
-                  requestId: formingConversation.id,
-                  nickname: conversationPartner?.nickname ?? activeMatch.partnerNickname,
-                });
-              }}
-              onDissolve={() =>
+              onRelease={() =>
                 setConfirmAction({
                   type: 'endMatch',
                   nickname: activeMatch.partnerNickname,
@@ -697,49 +724,6 @@ export default function MatchingTab({
               }
             />
           )}
-          {renderDialogs()}
-        </div>
-      </div>
-    );
-  }
-
-  if (activeMatch && !isGroupCoreOpen) {
-    const partnerProfile = getPartnerProfile(
-      matchRequests.find((r) => r.status === 'ACTIVE') ?? matchRequests[0]!,
-    );
-    return (
-      <div className={`min-h-screen ${matchingStageBackground}`}>
-        <MatchingTabHeader user={user} onNavigateProfile={() => onNavigate('profile')} />
-        <div className="px-5 py-5 max-w-md mx-auto">
-          <div className="mb-4">
-            <PolicyHintBanner hints={policyHints} />
-          </div>
-          <ActiveMatchCard
-            nickname={activeMatch.partnerNickname}
-            dormitoryId={activeMatch.partnerDormitoryId}
-            matchScore={activeMatch.matchScore}
-            scoreType={activeMatch.scoreType}
-            cancelPending={activeMatch.cancelRequestedAt !== null}
-            cancelRequestedByCurrentUser={activeMatch.cancelRequestedBy === user.id}
-            cancelRequestKind={activeMatch.cancelRequestKind}
-            cancelApprovalCount={activeMatch.cancelApprovalUserIds?.length ?? 0}
-            cancelApprovalTotal={
-              activeMatch.kind === 'group' && activeMatch.groupStage === 'GROUP_FINAL' ? 2 : 1
-            }
-            onViewProfile={() =>
-              setSelectedProfile({
-                profile: partnerProfile,
-                direction: 'conversation',
-                requestId: '',
-              })
-            }
-            onRelease={() =>
-              setConfirmAction({
-                type: 'endMatch',
-                nickname: activeMatch.partnerNickname,
-              })
-            }
-          />
           {renderDialogs()}
         </div>
       </div>
@@ -791,35 +775,9 @@ export default function MatchingTab({
                 />
               ) : (
                 <>
-                  {isGroupCoreOpen && (
-                    <section>
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-1 h-5 rounded-full bg-blue-500" />
-                        <h2 className="text-lg font-bold text-[var(--knu-text-primary)]">
-                          3인실 그룹
-                        </h2>
-                      </div>
-                      <GroupCoreCard
-                        members={
-                          activeMatch.groupMembers ?? [
-                            { userId: user.id, nickname: user.nickname },
-                            {
-                              userId: activeMatch.partnerUserId,
-                              nickname: activeMatch.partnerNickname,
-                            },
-                          ]
-                        }
-                        joinRequestCount={receivedPending.length}
-                        onReviewRequests={() => setRequestTab('received')}
-                        onFinalizePair={onFinalizePairGroup}
-                        onDissolve={() =>
-                          setConfirmAction({
-                            type: 'endMatch',
-                            nickname: activeMatch.partnerNickname,
-                          })
-                        }
-                      />
-                    </section>
+                  {/* 3인실 TipCard: 건물이 3인실이면 항상 표시 */}
+                  {user.dormitoryId && getMatchGroupSize(user.dormitoryId) === 3 && (
+                    <GroupInfoTipCard />
                   )}
 
                   {/* [2] 대화 중 */}
@@ -1009,26 +967,67 @@ export default function MatchingTab({
                           {sentPending.length > 0 ? (
                             sentPending.map((req) => {
                               const partner = getPartnerProfile(req);
-                              // 3인실 GROUP_JOIN은 기존 MatchRequestCard 사용
-                              if (req.requestKind === 'GROUP_JOIN') {
+                              // 3인실 GROUP_CONV_JOIN → CompactCard
+                              if (req.requestKind === 'GROUP_CONV_JOIN') {
+                                const groupNicknames =
+                                  req.groupTargetUserIds?.map(
+                                    (targetId) => profileMap.get(targetId)?.nickname ?? targetId,
+                                  ) ?? [];
+                                const gjHoursLeft = Math.max(
+                                  0,
+                                  Math.floor(
+                                    (new Date(req.expiresAt).getTime() - renderedAt) / 3600000,
+                                  ),
+                                );
+                                const gjExpired = gjHoursLeft <= 0;
+                                const gjTimeDisplay = gjExpired
+                                  ? '만료됨'
+                                  : gjHoursLeft < 24
+                                    ? `${gjHoursLeft}시간`
+                                    : `D-${Math.ceil(gjHoursLeft / 24)}`;
                                 return (
-                                  <MatchRequestCard
+                                  <MatchingCompactCard
                                     key={req.id}
-                                    request={req}
-                                    direction="sent"
-                                    partnerProfile={partner}
+                                    nickname={groupNicknames.join(' & ')}
+                                    dormitoryId={partner.dormitoryId}
+                                    matchScore={partner.matchScore}
                                     scoreType={partner.scoreType}
-                                    viewerId={user.id}
-                                    groupTargetNicknames={req.groupTargetUserIds?.map(
-                                      (targetId) => profileMap.get(targetId)?.nickname ?? targetId,
-                                    )}
-                                    onCancel={(id) =>
-                                      setConfirmAction({
-                                        type: 'cancel',
-                                        requestId: id,
-                                        nickname: partner.nickname,
-                                      })
+                                    hideScore
+                                    avatarSlot={
+                                      groupNicknames.length > 1 ? (
+                                        <OverlappedAvatars nicknames={groupNicknames} />
+                                      ) : undefined
                                     }
+                                    pills={[
+                                      {
+                                        label: '그룹 합류',
+                                        className:
+                                          'bg-blue-100 text-blue-700 border border-blue-200',
+                                      },
+                                    ]}
+                                    status={{
+                                      label: '수락 대기 중',
+                                      color: 'text-amber-600',
+                                      dotColor: 'bg-amber-400',
+                                    }}
+                                    message={req.message}
+                                    timer={{
+                                      text: gjTimeDisplay,
+                                      urgent: !gjExpired && gjHoursLeft < 24,
+                                      expired: gjExpired,
+                                    }}
+                                    actions={[
+                                      {
+                                        label: '요청 취소',
+                                        variant: gjExpired ? 'disabled' : 'danger',
+                                        onClick: () =>
+                                          setConfirmAction({
+                                            type: 'cancel',
+                                            requestId: req.id,
+                                            nickname: groupNicknames.join(' & '),
+                                          }),
+                                      },
+                                    ]}
                                     onClick={() =>
                                       setSelectedProfile({
                                         profile: partner,
@@ -1146,30 +1145,91 @@ export default function MatchingTab({
                             <>
                               {displayedReceived.map((req) => {
                                 const partner = getPartnerProfile(req);
-                                // 3인실 GROUP_JOIN은 기존 MatchRequestCard
-                                if (req.requestKind === 'GROUP_JOIN') {
+                                // 3인실 GROUP_CONV_JOIN → CompactCard
+                                if (req.requestKind === 'GROUP_CONV_JOIN') {
+                                  const gjrHoursLeft = Math.max(
+                                    0,
+                                    Math.floor(
+                                      (new Date(req.expiresAt).getTime() - renderedAt) / 3600000,
+                                    ),
+                                  );
+                                  const gjrExpired = gjrHoursLeft <= 0;
+                                  const gjrTimeDisplay = gjrExpired
+                                    ? '만료됨'
+                                    : gjrHoursLeft < 24
+                                      ? `${gjrHoursLeft}시간`
+                                      : `D-${Math.ceil(gjrHoursLeft / 24)}`;
+                                  const viewerApproved =
+                                    req.approvalUserIds?.includes(user.id) === true;
                                   return (
-                                    <MatchRequestCard
+                                    <MatchingCompactCard
                                       key={req.id}
-                                      request={req}
-                                      direction="received"
-                                      partnerProfile={partner}
+                                      nickname={partner.nickname}
+                                      dormitoryId={partner.dormitoryId}
+                                      matchScore={partner.matchScore}
                                       scoreType={partner.scoreType}
-                                      viewerId={user.id}
-                                      onAccept={(id) =>
-                                        setConfirmAction({
-                                          type: 'accept',
-                                          requestId: id,
-                                          nickname: partner.nickname,
-                                        })
-                                      }
-                                      onReject={(id) =>
-                                        setConfirmAction({
-                                          type: 'reject',
-                                          requestId: id,
-                                          nickname: partner.nickname,
-                                        })
-                                      }
+                                      pills={[
+                                        {
+                                          label: '그룹 합류 요청',
+                                          className:
+                                            'bg-purple-100 text-purple-700 border border-purple-200',
+                                        },
+                                      ]}
+                                      status={{
+                                        label: '응답 필요',
+                                        color: 'text-purple-600',
+                                        dotColor: 'bg-purple-500',
+                                      }}
+                                      statusPills={[
+                                        {
+                                          label: `${req.approvalUserIds?.length ?? 0}/2 승인`,
+                                          className:
+                                            'bg-amber-100 text-amber-700 border border-amber-200',
+                                        },
+                                      ]}
+                                      message={req.message}
+                                      timer={{
+                                        text: gjrTimeDisplay,
+                                        urgent: !gjrExpired && gjrHoursLeft < 24,
+                                        expired: gjrExpired,
+                                      }}
+                                      actions={[
+                                        {
+                                          label: '거절',
+                                          variant: gjrExpired
+                                            ? ('disabled' as const)
+                                            : ('secondary' as const),
+                                          onClick: () =>
+                                            setConfirmAction({
+                                              type: 'reject',
+                                              requestId: req.id,
+                                              nickname: partner.nickname,
+                                            }),
+                                        },
+                                        viewerApproved
+                                          ? {
+                                              label: '승인 취소',
+                                              variant: 'warning' as const,
+                                              onClick: () =>
+                                                setConfirmAction({
+                                                  type: 'accept',
+                                                  requestId: req.id,
+                                                  nickname: partner.nickname,
+                                                }),
+                                            }
+                                          : {
+                                              label: '합류 승인',
+                                              variant: gjrExpired
+                                                ? ('disabled' as const)
+                                                : ('primary' as const),
+                                              onClick: () =>
+                                                setConfirmAction({
+                                                  type: 'accept',
+                                                  requestId: req.id,
+                                                  nickname: partner.nickname,
+                                                }),
+                                            },
+                                      ]}
                                       onClick={() =>
                                         setSelectedProfile({
                                           profile: partner,
@@ -1202,7 +1262,7 @@ export default function MatchingTab({
                                     matchScore={partner.matchScore}
                                     scoreType={partner.scoreType}
                                     borderColor={
-                                      isRecommended ? 'border-purple-200' : 'border-indigo-100'
+                                      isRecommended ? 'border-pink-300' : 'border-purple-200'
                                     }
                                     pills={[
                                       ...(isRecommended
@@ -1210,7 +1270,8 @@ export default function MatchingTab({
                                             {
                                               label: '추천 매칭',
                                               icon: <Sparkles className="h-3 w-3" />,
-                                              className: 'bg-purple-500 text-white',
+                                              className:
+                                                'bg-gradient-to-r from-pink-500 to-rose-400 text-white',
                                             },
                                           ]
                                         : []),

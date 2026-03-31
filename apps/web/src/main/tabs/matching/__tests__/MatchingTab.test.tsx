@@ -157,10 +157,9 @@ describe('MatchingTab 3인실 그룹 코어 UI', () => {
       </SeasonProvider>,
     );
 
-    expect(screen.getByText('3인실 그룹')).toBeInTheDocument();
-    expect(screen.getByText('2/3 그룹')).toBeInTheDocument();
+    expect(screen.getByText('3인실 매칭 안내')).toBeInTheDocument();
     expect(screen.getByText('그룹 합류 요청')).toBeInTheDocument();
-    expect(screen.getByText('받은 합류 요청')).toBeInTheDocument();
+    expect(screen.getByText('응답 필요')).toBeInTheDocument();
   });
 
   it('개인 C가 보낸 그룹 요청에서는 코어 승인 진행 상황이 노출되지 않는다', () => {
@@ -174,7 +173,7 @@ describe('MatchingTab 3인실 그룹 코어 UI', () => {
       fromUserId: 'candidate-1',
       toUserId: 'toegye-core-a',
       groupTargetUserIds: ['toegye-core-a', 'toegye-core-b'],
-      requestKind: 'GROUP_JOIN',
+      requestKind: 'GROUP_CONV_JOIN',
       approvalUserIds: ['toegye-core-a'],
       status: 'PENDING',
       message: '합류하고 싶어요',
@@ -214,8 +213,9 @@ describe('MatchingTab 3인실 그룹 코어 UI', () => {
       </SeasonProvider>,
     );
 
-    expect(screen.getByText('그룹A · 그룹B')).toBeInTheDocument();
-    expect(screen.queryByText('1/2 승인')).not.toBeInTheDocument();
+    expect(screen.getByText('그룹A & 그룹B')).toBeInTheDocument();
+    // C 시점에서는 코어 승인 진행 상황 비공개 (정책)
+    expect(screen.queryByText(/\/2 승인/)).not.toBeInTheDocument();
   });
 
   it('받은 요청 화면에서는 매칭도 우선 스위치로 정렬 방식을 바꿀 수 있다', async () => {

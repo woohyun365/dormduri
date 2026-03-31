@@ -12,6 +12,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { MatchingCompactCard } from './MatchingCompactCard';
+import { OverlappedAvatars } from './OverlappedAvatars';
 import { getDormitoryById } from '@/constants/dormitory';
 import { sectionCard } from '@/main/styles/home';
 import { matchingHistoryCardBorder } from '@/main/styles/matching';
@@ -78,9 +79,9 @@ export function PastSeasonAccordion({ season, defaultExpanded = false }: PastSea
               <CheckCircle className="h-4 w-4 text-green-600" />
               <span className="text-sm font-bold text-green-700">매칭 성공</span>
             </div>
-            {season.matchedWith && (
+            {season.matchedWith && season.matchedWith.length > 0 && (
               <p className="pl-6 text-xs text-green-800">
-                <span className="font-bold">{season.matchedWith}</span>님과 매칭되었어요
+                <span className="font-bold">{season.matchedWith.join(' & ')}</span>님과 매칭되었어요
               </p>
             )}
           </div>
@@ -145,7 +146,11 @@ export function PastSeasonAccordion({ season, defaultExpanded = false }: PastSea
                   return (
                     <MatchingCompactCard
                       key={item.item.id}
-                      nickname={item.item.nickname}
+                      nickname={
+                        item.item.groupNicknames
+                          ? item.item.groupNicknames.join(' & ')
+                          : item.item.nickname
+                      }
                       dormitoryId={null}
                       matchScore={0}
                       scoreType="gated"
@@ -156,6 +161,11 @@ export function PastSeasonAccordion({ season, defaultExpanded = false }: PastSea
                       opacity={0.75}
                       status={historyMeta.status}
                       statusPills={historyMeta.stagePill ? [historyMeta.stagePill] : undefined}
+                      avatarSlot={
+                        item.item.groupNicknames && item.item.groupNicknames.length > 1 ? (
+                          <OverlappedAvatars nicknames={item.item.groupNicknames} size="lg" />
+                        ) : undefined
+                      }
                     />
                   );
                 })

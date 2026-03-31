@@ -112,15 +112,42 @@ export function DevPanel() {
     window.location.reload();
   }
 
-  async function handleSeedGroupCandidateScenario() {
+  async function handleSeedGroupScenario(
+    method:
+      | 'seedPairOpenScenario'
+      | 'seedGroupFormingScenario'
+      | 'seedGroupCandidateScenario'
+      | 'seedGroupFinalScenario',
+  ) {
     if (!currentUser) return;
     const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
-    getMockMatchingService().seedGroupCandidateScenario({
+    const svc = getMockMatchingService();
+    const userArg = {
       id: currentUser.id,
       nickname: currentUser.nickname,
       dormitoryId: currentUser.dormitoryId,
       gender: currentUser.gender,
-    });
+    };
+    if (method === 'seedGroupFinalScenario') {
+      const dormId = currentUser.dormitoryId ?? 'toegye';
+      svc.seedGroupFinalScenario(
+        userArg,
+        {
+          id: `${dormId}-core-b`,
+          nickname: '파트너B',
+          dormitoryId: dormId,
+          gender: currentUser.gender,
+        },
+        {
+          id: `${dormId}-candidate-c`,
+          nickname: '합류멤버C',
+          dormitoryId: dormId,
+          gender: currentUser.gender,
+        },
+      );
+    } else {
+      svc[method](userArg);
+    }
     window.location.reload();
   }
 
@@ -279,10 +306,28 @@ export function DevPanel() {
         <div className="bg-gray-800 rounded-lg p-2 space-y-2">
           <div className="text-gray-400">3인실 그룹 시나리오</div>
           <button
-            onClick={handleSeedGroupCandidateScenario}
+            onClick={() => handleSeedGroupScenario('seedPairOpenScenario')}
+            className="w-full px-2 py-1.5 bg-sky-700 hover:bg-sky-600 rounded text-white"
+          >
+            PAIR_OPEN (A-B 코어 + C 요청)
+          </button>
+          <button
+            onClick={() => handleSeedGroupScenario('seedGroupFormingScenario')}
+            className="w-full px-2 py-1.5 bg-amber-700 hover:bg-amber-600 rounded text-white"
+          >
+            GROUP_FORMING (3인 대화 중)
+          </button>
+          <button
+            onClick={() => handleSeedGroupScenario('seedGroupCandidateScenario')}
             className="w-full px-2 py-1.5 bg-indigo-700 hover:bg-indigo-600 rounded text-white"
           >
-            개인 → 그룹 요청 시나리오
+            C 시점 (개인 → 그룹 요청)
+          </button>
+          <button
+            onClick={() => handleSeedGroupScenario('seedGroupFinalScenario')}
+            className="w-full px-2 py-1.5 bg-green-700 hover:bg-green-600 rounded text-white"
+          >
+            GROUP_FINAL (3인 확정)
           </button>
           <p className="text-[11px] text-gray-500">
             현재 로그인 사용자를 개인(C)로 두고, 3인실 그룹(A·B)에 요청을 보낸 상태를 만듭니다.

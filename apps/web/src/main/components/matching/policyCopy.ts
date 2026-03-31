@@ -19,10 +19,10 @@ export function getMatchingPolicyHint(params: {
     params;
 
   if (activeMatch?.cancelRequestedAt) {
-    if (activeMatch.cancelRequestKind === 'CANDIDATE_LEAVE') {
+    if (activeMatch.cancelRequestKind === 'MEMBER_LEAVE') {
       return {
         tone: 'amber',
-        title: '후보 이탈은 코어 2명 승인 후 적용돼요',
+        title: '멤버 이탈은 코어 2명 승인 후 적용돼요',
         body: 'C가 그룹을 떠나려면 A와 B가 모두 승인해야 A-B 그룹으로 복원됩니다.',
       };
     }
@@ -273,14 +273,14 @@ export function getMatchingPolicyHints(params: {
 
 export function getMatchRequestHelperCopy(params: {
   direction: 'sent' | 'received';
-  requestKind?: 'PERSONAL' | 'GROUP_JOIN';
+  requestKind?: 'PERSONAL' | 'GROUP_CONV_JOIN';
   isUrgent: boolean;
   approvalCount: number;
   approvalTotal: number;
 }): string {
   const { direction, requestKind, isUrgent, approvalCount, approvalTotal } = params;
 
-  if (direction === 'sent' && requestKind === 'GROUP_JOIN') {
+  if (direction === 'sent' && requestKind === 'GROUP_CONV_JOIN') {
     return '그룹 내부 승인 진행 상황은 개인에게 공개되지 않습니다.';
   }
 
@@ -288,7 +288,7 @@ export function getMatchRequestHelperCopy(params: {
     return '같은 방향 요청은 시즌당 최대 3회까지 보낼 수 있어요.';
   }
 
-  if (requestKind === 'GROUP_JOIN') {
+  if (requestKind === 'GROUP_CONV_JOIN') {
     return `코어 ${approvalTotal}명 모두 승인해야 새로운 C 대화가 열립니다. 현재 ${approvalCount}/${approvalTotal} 승인됐어요.`;
   }
 
@@ -335,10 +335,10 @@ export function getActiveMatchHelperCopy(params: {
       : '추가 요청은 중단되고, 이 조합은 과거 이력으로만 남게 됩니다.';
   }
 
-  if (activeMatch?.cancelRequestKind === 'CANDIDATE_LEAVE') {
+  if (activeMatch?.cancelRequestKind === 'MEMBER_LEAVE') {
     return cancelRequestedByCurrentUser
       ? '그룹 이탈 요청이 기록됐어요. 코어 2명이 모두 승인하면 A-B 그룹으로 복원됩니다.'
-      : '후보 이탈 요청이 도착했어요. 코어 2명이 모두 승인해야 A-B 그룹으로 복원됩니다.';
+      : '멤버 이탈 요청이 도착했어요. 코어 2명이 모두 승인해야 A-B 그룹으로 복원됩니다.';
   }
 
   return cancelRequestedByCurrentUser

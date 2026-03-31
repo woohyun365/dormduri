@@ -49,10 +49,10 @@ export function MatchRequestCard({
   const dormLabel = getDormitoryLabel(partnerProfile.dormitoryId);
   const isRecommended = partnerProfile.matchScore >= 85 && direction === 'received';
   const isSent = direction === 'sent';
-  const isGroupJoinSent = isSent && request.requestKind === 'GROUP_JOIN';
+  const isGroupJoinSent = isSent && request.requestKind === 'GROUP_CONV_JOIN';
   const approvalCount = request.approvalUserIds?.length ?? 0;
   const approvalTotal =
-    request.requestKind === 'GROUP_JOIN' ? (request.groupTargetUserIds?.length ?? 2) : 1;
+    request.requestKind === 'GROUP_CONV_JOIN' ? (request.groupTargetUserIds?.length ?? 2) : 1;
   const viewerApproved = viewerId ? request.approvalUserIds?.includes(viewerId) === true : false;
   const tone: MatchingTone = isSent
     ? 'slate'
@@ -90,7 +90,7 @@ export function MatchRequestCard({
               {isSent ? <Send className="h-3 w-3" /> : <Inbox className="h-3 w-3" />}
               {isGroupJoinSent ? '보낸 그룹 요청' : isSent ? '보낸 요청' : '받은 요청'}
             </span>
-            {request.requestKind === 'GROUP_JOIN' && !isGroupJoinSent && (
+            {request.requestKind === 'GROUP_CONV_JOIN' && !isGroupJoinSent && (
               <span className={matchingChip('cobalt')}>
                 {approvalCount}/{approvalTotal} 승인
               </span>
@@ -230,7 +230,7 @@ export function MatchRequestCard({
                     : 'bg-[var(--knu-primary)] text-white hover:bg-[var(--knu-primary-hover)]'
                 }`}
               >
-                {request.requestKind === 'GROUP_JOIN'
+                {request.requestKind === 'GROUP_CONV_JOIN'
                   ? viewerApproved
                     ? '내 승인 완료'
                     : '합류 승인하기'

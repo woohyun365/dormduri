@@ -607,7 +607,7 @@ export class MockMatchingService {
         r.id === requestId
           ? {
               ...r,
-              requestKind: 'GROUP_JOIN',
+              requestKind: 'GROUP_CONV_JOIN',
               groupTargetUserIds: coreIds,
               approvalUserIds: allApproved ? [] : approvals,
               status: allApproved ? ('IN_CONVERSATION' as const) : r.status,
@@ -737,20 +737,7 @@ export class MockMatchingService {
     this.state.requests = this.state.requests.map((r) => {
       if (r.id === requestId)
         return { ...r, status: 'ACTIVE' as const, approvalUserIds: approvals };
-      if (
-        groupSize === 3 &&
-        r.status === 'PENDING' &&
-        !isRequestExpired(r) &&
-        r.fromUserId !== userId
-      ) {
-        return {
-          ...r,
-          requestKind: 'GROUP_JOIN',
-          groupTargetUserIds:
-            this.state.activeMatch?.groupMembers?.map((member) => member.userId) ??
-            r.groupTargetUserIds,
-        };
-      }
+      // PAIR_OPEN 진입 시 자동 정리: A-B 양측 미결 요청 전부 취소 (GROUP_CONV_JOIN 변환 없음)
       if (r.status === 'PENDING' && !isRequestExpired(r))
         return {
           ...r,
@@ -816,7 +803,7 @@ export class MockMatchingService {
           fromUserId: candidate.id,
           toUserId: coreA.id,
           groupTargetUserIds: [coreA.id, coreB.id],
-          requestKind: 'GROUP_JOIN',
+          requestKind: 'GROUP_CONV_JOIN',
           approvalUserIds: [coreA.id, coreB.id, candidate.id],
           status: 'ACTIVE',
           message: '3인 그룹 확정',
@@ -863,6 +850,162 @@ export class MockMatchingService {
     return this.getState(userId);
   }
 
+  /** PAIR_OPEN: A-B 코어 시점 + C의 합류 요청 PENDING */
+  seedPairOpenScenario(user: GroupScenarioUser): MatchingResult {
+    const dormitoryId =
+      user.dormitoryId && getMatchGroupSize(user.dormitoryId) === 3
+        ? user.dormitoryId
+        : user.gender === 'F'
+          ? 'nanji'
+          : 'toegye';
+    const now = new Date().toISOString();
+    const expiresAt = new Date(
+      Date.now() + MATCH_POLICY.REQUEST_TTL_HOURS * 60 * 60 * 1000,
+    ).toISOString();
+    const coreB = { id: `${dormitoryId}-core-b`, nickname: '파트너B' };
+    const candidateC = { id: `${dormitoryId}-candidate-c`, nickname: '합류희망C' };
+    const candidateD = { id: `${dormitoryId}-candidate-d`, nickname: '합류희망D' };
+    const candidateE = { id: `${dormitoryId}-candidate-e`, nickname: '합류희망E' };
+    const groupTargetIds = [user.id, coreB.id];
+
+    this.state = {
+      activeMatch: {
+        matchId: `pair-open-${++idCounter}`,
+        partnerUserId: coreB.id,
+        partnerNickname: coreB.nickname,
+        partnerDormitoryId: dormitoryId,
+        matchScore: 78,
+        scoreType: 'full',
+        matchedAt: now,
+        cancelRequestedAt: null,
+        cancelRequestedBy: null,
+        cancelApprovalUserIds: [],
+        cancelRequestKind: null,
+        kind: 'group',
+        groupRole: 'group_core',
+        groupStage: 'PAIR_OPEN',
+        groupCapacity: 3,
+        groupMemberCount: 2,
+        groupMembers: [
+          { userId: user.id, nickname: user.nickname },
+          { userId: coreB.id, nickname: coreB.nickname },
+        ],
+      },
+      requests: [
+        {
+          id: `pair-open-req-c-${++idCounter}`,
+          fromUserId: candidateC.id,
+          toUserId: user.id,
+          groupTargetUserIds: groupTargetIds,
+          requestKind: 'GROUP_CONV_JOIN',
+          approvalUserIds: [],
+          status: 'PENDING',
+          message: '3인실 같이 쓰고 싶습니다!',
+          createdAt: now,
+          expiresAt,
+          rejectedAt: null,
+          acceptedAt: null,
+          resolvedAt: null,
+        },
+        {
+          id: `pair-open-req-d-${++idCounter}`,
+          fromUserId: candidateD.id,
+          toUserId: user.id,
+          groupTargetUserIds: groupTargetIds,
+          requestKind: 'GROUP_CONV_JOIN',
+          approvalUserIds: [user.id],
+          status: 'PENDING',
+          message: '저도 3인실 합류 희망합니다',
+          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+          expiresAt,
+          rejectedAt: null,
+          acceptedAt: null,
+          resolvedAt: null,
+        },
+        {
+          id: `pair-open-req-e-${++idCounter}`,
+          fromUserId: candidateE.id,
+          toUserId: user.id,
+          groupTargetUserIds: groupTargetIds,
+          requestKind: 'GROUP_CONV_JOIN',
+          approvalUserIds: [],
+          status: 'PENDING',
+          message: '깔끔한 성격입니다. 합류할게요',
+          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          expiresAt,
+          rejectedAt: null,
+          acceptedAt: null,
+          resolvedAt: null,
+        },
+      ],
+    };
+    this.save();
+    return this.getState(user.id);
+  }
+
+  /** GROUP_FORMING: A-B-C 3인 대화 중 (코어 A 시점) */
+  seedGroupFormingScenario(user: GroupScenarioUser): MatchingResult {
+    const dormitoryId =
+      user.dormitoryId && getMatchGroupSize(user.dormitoryId) === 3
+        ? user.dormitoryId
+        : user.gender === 'F'
+          ? 'nanji'
+          : 'toegye';
+    const now = new Date().toISOString();
+    const acceptedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(
+      new Date(acceptedAt).getTime() + 7 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const coreB = { id: `${dormitoryId}-core-b`, nickname: '파트너B' };
+    const candidateC = { id: `${dormitoryId}-candidate-c`, nickname: '합류멤버C' };
+
+    this.state = {
+      activeMatch: {
+        matchId: `group-forming-${++idCounter}`,
+        partnerUserId: coreB.id,
+        partnerNickname: coreB.nickname,
+        partnerDormitoryId: dormitoryId,
+        matchScore: 75,
+        scoreType: 'full',
+        matchedAt: now,
+        cancelRequestedAt: null,
+        cancelRequestedBy: null,
+        cancelApprovalUserIds: [],
+        cancelRequestKind: null,
+        kind: 'group',
+        groupRole: 'group_core',
+        groupStage: 'GROUP_FORMING',
+        groupCapacity: 3,
+        groupMemberCount: 3,
+        groupMembers: [
+          { userId: user.id, nickname: user.nickname },
+          { userId: coreB.id, nickname: coreB.nickname },
+          { userId: candidateC.id, nickname: candidateC.nickname },
+        ],
+      },
+      requests: [
+        {
+          id: `group-forming-req-${++idCounter}`,
+          fromUserId: candidateC.id,
+          toUserId: user.id,
+          groupTargetUserIds: [user.id, coreB.id],
+          requestKind: 'GROUP_CONV_JOIN',
+          approvalUserIds: [user.id, coreB.id],
+          status: 'IN_CONVERSATION',
+          message: '3인실 같이 쓰고 싶습니다!',
+          createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+          expiresAt,
+          rejectedAt: null,
+          acceptedAt,
+          resolvedAt: null,
+        },
+      ],
+    };
+    this.save();
+    return this.getState(user.id);
+  }
+
+  /** C 시점: 개인이 그룹에 합류 요청 보낸 상태 */
   seedGroupCandidateScenario(user: GroupScenarioUser): MatchingResult {
     const dormitoryId =
       user.dormitoryId && getMatchGroupSize(user.dormitoryId) === 3
@@ -885,7 +1028,7 @@ export class MockMatchingService {
           fromUserId: user.id,
           toUserId: coreA.id,
           groupTargetUserIds: [coreA.id, coreB.id],
-          requestKind: 'GROUP_JOIN',
+          requestKind: 'GROUP_CONV_JOIN',
           approvalUserIds: [],
           status: 'PENDING',
           message: '3인실 그룹에 합류하고 싶어요',
@@ -974,30 +1117,32 @@ export class MockMatchingService {
     const members = this.state.activeMatch.groupMembers ?? [];
     const coreIds = members.slice(0, 2).map((member) => member.userId);
     const candidateId = members.length >= 3 ? members[members.length - 1]?.userId : null;
-    const isGroupFinalCandidateLeaveFlow =
+    // GROUP_FINAL: 전원 동등 Member. 아무나 이탈 가능, 나머지 1명 동의
+    const isGroupFinalMemberLeave =
       this.state.activeMatch.kind === 'group' &&
-      this.state.activeMatch.groupStage === 'GROUP_FINAL' &&
-      (this.state.activeMatch.cancelRequestKind === 'CANDIDATE_LEAVE' || candidateId === userId);
+      this.state.activeMatch.groupStage === 'GROUP_FINAL';
+    // GROUP_FORMING: 코어(A-B) 그룹 해체. 상대 동의 필요
     const isGroupCoreCancel =
       this.state.activeMatch.kind === 'group' &&
       coreIds.includes(userId) &&
-      this.state.activeMatch.cancelRequestKind !== 'CANDIDATE_LEAVE' &&
-      (this.state.activeMatch.groupStage === 'GROUP_FORMING' ||
-        this.state.activeMatch.groupStage === 'GROUP_FINAL');
+      this.state.activeMatch.cancelRequestKind !== 'MEMBER_LEAVE' &&
+      this.state.activeMatch.groupStage === 'GROUP_FORMING';
 
-    if (isGroupFinalCandidateLeaveFlow) {
+    if (isGroupFinalMemberLeave) {
+      // 이탈 요청 시작
       if (!this.state.activeMatch.cancelRequestedAt) {
         this.state.activeMatch = {
           ...this.state.activeMatch,
           cancelRequestedAt: now,
           cancelRequestedBy: userId,
           cancelApprovalUserIds: [],
-          cancelRequestKind: 'CANDIDATE_LEAVE',
+          cancelRequestKind: 'MEMBER_LEAVE',
         };
         this.save();
         return this.getState(userId);
       }
 
+      // 요청자 본인 → 철회
       if (this.state.activeMatch.cancelRequestedBy === userId) {
         this.state.activeMatch = {
           ...this.state.activeMatch,
@@ -1010,29 +1155,36 @@ export class MockMatchingService {
         return this.getState(userId);
       }
 
-      if (coreIds.includes(userId)) {
+      // 나머지 멤버 → 승인 (1명이면 즉시 적용)
+      const leaverId = this.state.activeMatch.cancelRequestedBy;
+      const remainingMembers = members.filter((m) => m.userId !== leaverId);
+      const remainingMemberIds = remainingMembers.map((m) => m.userId);
+
+      if (remainingMemberIds.includes(userId)) {
         const approvals = Array.from(
           new Set([...(this.state.activeMatch.cancelApprovalUserIds ?? []), userId]),
         );
-        if (approvals.length >= coreIds.length) {
+        if (approvals.length >= 1) {
           this.state.requests = this.state.requests.map((r) =>
             r.status === 'ACTIVE'
               ? {
                   ...r,
                   status: 'UNMATCHED' as const,
                   resolvedAt: now,
-                  resolvedBy: this.state.activeMatch?.cancelRequestedBy ?? userId,
+                  resolvedBy: leaverId ?? userId,
                 }
               : r,
           );
+          // 나머지 2명 → PAIR_OPEN
           this.state.activeMatch = {
             ...this.state.activeMatch,
-            partnerUserId: coreIds[1] ?? this.state.activeMatch.partnerUserId,
-            partnerNickname: members[1]?.nickname ?? this.state.activeMatch.partnerNickname,
+            partnerUserId: remainingMembers[1]?.userId ?? this.state.activeMatch.partnerUserId,
+            partnerNickname:
+              remainingMembers[1]?.nickname ?? this.state.activeMatch.partnerNickname,
             groupRole: 'group_core',
             groupStage: 'PAIR_OPEN',
             groupMemberCount: 2,
-            groupMembers: members.slice(0, 2),
+            groupMembers: remainingMembers.slice(0, 2),
             cancelRequestedAt: null,
             cancelRequestedBy: null,
             cancelApprovalUserIds: [],

@@ -82,7 +82,7 @@ export function useMainMatchingState(
       setMatchRequests(result.requests);
       setActiveMatch(result.activeMatch);
       const updated = result.requests.find((request) => request.id === requestId);
-      if (updated?.requestKind === 'GROUP_JOIN' && updated.status === 'PENDING') {
+      if (updated?.requestKind === 'GROUP_CONV_JOIN' && updated.status === 'PENDING') {
         showToast('합류 승인 의사가 기록됐어요. 다른 코어 멤버 승인 후 대화가 열립니다.');
       } else {
         showToast('요청을 수락했어요. 대화를 시작하세요!');
@@ -176,16 +176,16 @@ export function useMainMatchingState(
 
     if (before?.cancelRequestedAt && result.activeMatch && !result.activeMatch.cancelRequestedAt) {
       showToast(
-        before.cancelRequestKind === 'CANDIDATE_LEAVE'
+        before.cancelRequestKind === 'MEMBER_LEAVE'
           ? '이탈 요청을 철회했어요'
           : '취소 요청을 철회했어요',
       );
     } else if (result.activeMatch?.cancelRequestedAt) {
       showToast(
-        result.activeMatch.cancelRequestKind === 'CANDIDATE_LEAVE'
+        result.activeMatch.cancelRequestKind === 'MEMBER_LEAVE'
           ? result.activeMatch.cancelRequestedBy === currentUserId
             ? '그룹 이탈 요청이 기록됐어요. 코어 승인 후 복원됩니다.'
-            : '후보 이탈 승인 의사가 기록됐어요.'
+            : '멤버 이탈 승인 의사가 기록됐어요.'
           : '매칭 취소 요청이 기록됐어요. 상대 승인 후 해제됩니다.',
       );
     } else {

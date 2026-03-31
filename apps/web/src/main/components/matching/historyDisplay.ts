@@ -143,8 +143,29 @@ export function getCurrentHistoryVisualMeta(
 }
 
 export function getPastHistoryVisualMeta(item: HistoryItemData): HistoryVisualMeta {
+  // 그룹 ��류 불발
+  if (item.groupType === 'group_conv_join_failed') {
+    return {
+      status: {
+        label: '그룹 합류가 불발됐어요',
+        color: 'text-slate-600',
+        dotColor: 'bg-slate-400',
+      },
+      stagePill: {
+        label: '합류 불발',
+        className: 'bg-slate-100 text-slate-600 border border-slate-200',
+      },
+    };
+  }
+
   if (!('status' in item)) {
     if (item.preset === 'MATCHED_SUCCESS') {
+      const groupLabel =
+        item.groupType === 'group_final'
+          ? '3인 매칭 성사'
+          : item.groupType === 'pair_final'
+            ? '2인 매칭 성사'
+            : '매칭 성사';
       return {
         status: {
           label: '최종 룸메이트로 정해졌어요',
@@ -152,7 +173,7 @@ export function getPastHistoryVisualMeta(item: HistoryItemData): HistoryVisualMe
           dotColor: 'bg-green-500',
         },
         stagePill: {
-          label: '매칭 성사',
+          label: groupLabel,
           className: 'bg-green-600 text-white border border-green-600',
         },
         borderColor: 'border-green-200',
