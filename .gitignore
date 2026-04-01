@@ -27,6 +27,7 @@ yarn-error.log*
 dist
 build
 out
+apps/api/src/generated/
 
 ## 테스트/커버리지 산출물
 coverage

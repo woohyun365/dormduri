@@ -9,7 +9,7 @@ import shared from '@repo/eslint-config/flat';
 
 export default defineConfig([
   {
-    ignores: ['**/eslint.config.*'],
+    ignores: ['**/eslint.config.*', 'src/generated/**/*', 'dist/**/*'],
   },
 
   // 기본 ESLint 추천
