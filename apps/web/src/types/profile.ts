@@ -1,7 +1,7 @@
 import type { LifestyleData } from './lifestyle';
 import type { AdditionalProfile } from '@/types/additional-profile';
 
-export type TabId = 'home' | 'list' | 'matching' | 'profile' | 'settings';
+export type TabId = 'home' | 'list' | 'matching' | 'chat' | 'profile';
 
 /** 매칭 탭 서브탭 네비게이트 옵션 */
 export interface MatchingNavOptions {

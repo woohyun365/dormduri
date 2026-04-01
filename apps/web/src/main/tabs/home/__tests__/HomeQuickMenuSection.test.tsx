@@ -40,14 +40,14 @@ describe('HomeQuickMenuSection', () => {
     expect(screen.getByText('시즌 중 이용')).toBeDefined();
   });
 
-  it('채팅 버튼은 disabled 상태로 핸들러를 호출하지 않는다', async () => {
+  it('채팅 버튼 클릭 시 핸들러를 호출한다', async () => {
     const user = userEvent.setup();
     const onNavigateChat = vi.fn();
     render(<HomeQuickMenuSection {...defaultProps} onNavigateChat={onNavigateChat} />);
     const buttons = screen.getAllByRole('button');
     const chatButton = buttons.find((b) => b.textContent?.includes('채팅'));
     await user.click(chatButton!);
-    expect(onNavigateChat).not.toHaveBeenCalled();
+    expect(onNavigateChat).toHaveBeenCalledOnce();
   });
 
   it('룸메 찾기 클릭 시 핸들러를 호출한다', async () => {

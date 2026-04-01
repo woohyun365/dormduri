@@ -10,7 +10,7 @@ import HomeTab from './tabs/home/HomeTab';
 import RoommateListTab from './tabs/roommate-list/RoommateListTab';
 import ProfileTab from './tabs/profile/ProfileTab';
 import MatchingTab from './tabs/matching/MatchingTab';
-import SettingsTab from './tabs/SettingsTab';
+import ChatTab from './tabs/chat/ChatTab';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import { AppShellSkeleton } from '@/components/AppShellSkeleton';
 import { MatchingTabSkeleton } from './tabs/matching/MatchingTabSkeleton';
@@ -52,7 +52,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     if (typeof window === 'undefined') return 'home';
     const saved = sessionStorage.getItem('activeTab');
-    if (saved && ['home', 'list', 'matching', 'profile', 'settings'].includes(saved)) {
+    if (saved && ['home', 'list', 'matching', 'chat', 'profile'].includes(saved)) {
       return saved as TabId;
     }
     return 'home';
@@ -286,17 +286,26 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onMessageChange={profileState.handleMessageChange}
               onLifestyleChange={profileState.handleLifestyleChange}
               onAdditionalChange={profileState.handleAdditionalChange}
-            />
-          )}
-          {activeTab === 'settings' && (
-            <SettingsTab
               onShowGuide={profileState.handleShowGuide}
-              onResetChecklist={() => {
-                resetChecklist();
-                showToast('홈 탭에서 시작 가이드를 확인하세요');
-              }}
+              onResetChecklist={resetChecklist}
               blockedUsers={socialState.blockedUsers}
               onUnblock={socialState.handleUnblockUser}
+            />
+          )}
+          {activeTab === 'chat' && (
+            <ChatTab
+              user={profileState.user}
+              profiles={data.profiles}
+              matchRequests={matchingState.matchRequests}
+              activeMatch={matchingState.activeMatch}
+              blockedUserIds={socialState.blockedUserIds}
+              onBlock={socialState.handleBlockUser}
+              onReport={socialState.handleReportUser}
+              onConfirmMatch={matchingState.handleConfirmMatch}
+              onRevokeConfirmMatch={matchingState.handleRevokeConfirmMatch}
+              onEndConversation={matchingState.handleEndConversation}
+              onEndMatch={matchingState.handleEndMatch}
+              onNavigate={handleNavigate}
             />
           )}
         </main>

@@ -86,9 +86,8 @@ export function HomeQuickMenuSection({
           <QuickActionCard
             icon={MessageCircle}
             label="채팅"
-            description="준비 중"
+            description="대화 보기"
             color="green"
-            disabled
             onClick={onNavigateChat}
           />
         ) : (

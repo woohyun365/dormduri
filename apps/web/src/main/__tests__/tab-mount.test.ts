@@ -15,8 +15,8 @@ function getTabVisibility(activeTab: TabId): TabVisibility {
     home: activeTab === 'home',
     list: activeTab === 'list',
     matching: activeTab === 'matching',
+    chat: activeTab === 'chat',
     profile: activeTab === 'profile',
-    settings: activeTab === 'settings',
   };
 }
 
@@ -34,7 +34,7 @@ describe('탭 마운트 전략 (조건부 마운트)', () => {
     expect(visibility.home).toBe(true);
     expect(visibility.list).toBe(false);
     expect(visibility.profile).toBe(false);
-    expect(visibility.settings).toBe(false);
+    expect(visibility.chat).toBe(false);
   });
 
   it('list 탭 전환 시 RoommateListTab만 마운트됨', () => {
@@ -42,7 +42,7 @@ describe('탭 마운트 전략 (조건부 마운트)', () => {
     expect(visibility.list).toBe(true);
     expect(visibility.home).toBe(false);
     expect(visibility.profile).toBe(false);
-    expect(visibility.settings).toBe(false);
+    expect(visibility.chat).toBe(false);
   });
 
   it('profile 탭 전환 시 ProfileTab만 마운트됨', () => {
@@ -50,19 +50,19 @@ describe('탭 마운트 전략 (조건부 마운트)', () => {
     expect(visibility.profile).toBe(true);
     expect(visibility.home).toBe(false);
     expect(visibility.list).toBe(false);
-    expect(visibility.settings).toBe(false);
+    expect(visibility.chat).toBe(false);
   });
 
-  it('settings 탭 전환 시 SettingsTab만 마운트됨', () => {
-    const visibility = getTabVisibility('settings');
-    expect(visibility.settings).toBe(true);
+  it('chat 탭 전환 시 ChatTab만 마운트됨', () => {
+    const visibility = getTabVisibility('chat');
+    expect(visibility.chat).toBe(true);
     expect(visibility.home).toBe(false);
     expect(visibility.list).toBe(false);
     expect(visibility.profile).toBe(false);
   });
 
   it('정확히 하나의 탭만 마운트됨 (모든 탭 검증)', () => {
-    const tabs: TabId[] = ['home', 'list', 'matching', 'profile', 'settings'];
+    const tabs: TabId[] = ['home', 'list', 'matching', 'chat', 'profile'];
     for (const activeTab of tabs) {
       const visibility = getTabVisibility(activeTab);
       const mountedCount = Object.values(visibility).filter(Boolean).length;
@@ -73,11 +73,11 @@ describe('탭 마운트 전략 (조건부 마운트)', () => {
   it('이전 탭과 다른 탭으로 전환 시 scrollTo 트리거', () => {
     expect(shouldScrollToTopOnTabChange('home', 'list')).toBe(true);
     expect(shouldScrollToTopOnTabChange('list', 'profile')).toBe(true);
-    expect(shouldScrollToTopOnTabChange('profile', 'settings')).toBe(true);
+    expect(shouldScrollToTopOnTabChange('profile', 'chat')).toBe(true);
   });
 
   it('같은 탭 재클릭 시 scrollTo 트리거 안 됨', () => {
-    const tabs: TabId[] = ['home', 'list', 'matching', 'profile', 'settings'];
+    const tabs: TabId[] = ['home', 'list', 'matching', 'chat', 'profile'];
     for (const tab of tabs) {
       expect(shouldScrollToTopOnTabChange(tab, tab)).toBe(false);
     }

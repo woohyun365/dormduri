@@ -40,8 +40,7 @@ export function LandingFeaturesSection() {
       <div className="mt-8 bg-[var(--knu-background-alt)] border-2 border-[var(--knu-border)] rounded-2xl p-6 text-center">
         <Info className="w-6 h-6 text-[var(--knu-text-tertiary)] mx-auto mb-2" />
         <p className="text-sm text-[var(--knu-text-secondary)]">
-          채팅 기능은 순차 제공 예정입니다. 매칭 확정 후 연락 방법은 서비스 밖에서 개별 진행하며,
-          이에 대해 서비스는 관여하지 않습니다.
+          매칭 수락 후 서비스 내 1:1 채팅으로 대화할 수 있어요. 호실 선택까지 편리하게 소통하세요.
         </p>
       </div>
     </Section>
