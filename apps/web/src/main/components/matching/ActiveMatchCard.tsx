@@ -119,7 +119,7 @@ export function ActiveMatchCard({
           >
             <span className="flex items-center justify-center gap-2">
               <MessageCircle className="h-4 w-4" />
-              대화 기능 준비 중
+              채팅 탭에서 대화하기
             </span>
           </button>
 

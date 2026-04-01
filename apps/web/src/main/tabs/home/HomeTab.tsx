@@ -351,7 +351,7 @@ export default function HomeTab({
             onNavigateList={() => onNavigate('list')}
             onNavigateMatching={() => onNavigate('matching', { section: 'current' })}
             onNavigateMatchingHistory={() => onNavigate('matching', { section: 'past' })}
-            onNavigateChat={() => {}}
+            onNavigateChat={() => onNavigate('chat')}
             onNavigateProfile={() => onNavigate('profile')}
           />
         </div>
