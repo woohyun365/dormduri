@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm --filter @repo/shared build && next build",
     "start": "next start",
-    "lint": "eslint",
-    "test": "NODE_OPTIONS=--no-webstorage vitest run",
+    "lint": "pnpm --filter @repo/shared build && eslint",
+    "test": "pnpm --filter @repo/shared build && NODE_OPTIONS=--no-webstorage vitest run",
     "test:watch": "NODE_OPTIONS=--no-webstorage vitest"
   },
   "dependencies": {
+    "@repo/shared": "workspace:*",
     "lucide-react": "^0.456.0",
     "motion": "^12.38.0",
     "next": "16.1.4",

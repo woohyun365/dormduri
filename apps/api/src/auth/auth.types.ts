@@ -1,4 +1,5 @@
 import type { Campus, Gender } from '../generated/prisma/enums.js';
+import type { LifestyleData } from './lifestyle.schema.js';
 
 export interface AuthUserView {
   id: string;
@@ -6,10 +7,9 @@ export interface AuthUserView {
   nickname: string;
   gender: Gender;
   campus: Campus;
-  lifestyle: Record<string, unknown>;
+  lifestyle: LifestyleData;
   intro: string;
   dormitoryId: string | null;
-  lastDrinkingChangeSeasonId: string | null;
 }
 
 export interface LoginResult {

@@ -1,7 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
+import { randomUUID } from 'node:crypto';
 import type { Campus, Gender, VerificationCodePurpose } from '../generated/prisma/enums.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
   AUTH_SESSION_REMEMBER_ME_TTL_SECONDS,
@@ -25,6 +27,8 @@ import {
   validateNicknamePolicy,
   validatePasswordPolicy,
 } from './auth.utils.js';
+import { validateLifestyleData, type LifestyleData } from './lifestyle.schema.js';
+import { apiEnv } from '../config/env.js';
 
 interface SignupInput {
   email: string;
@@ -104,6 +108,11 @@ export class AuthService {
       return { success: false, error: nicknameError };
     }
 
+    const lifestyleValidation = validateLifestyleData(input.lifestyle);
+    if (!lifestyleValidation.ok) {
+      return { success: false, error: lifestyleValidation.error };
+    }
+
     const existingUser = await this.prisma.user.findFirst({
       where: {
         OR: [{ emailNormalized }, { nicknameNormalized: normalizeNickname(input.nickname) }],
@@ -141,20 +150,34 @@ export class AuthService {
       outputLen: 32,
     });
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: input.email.trim(),
-        emailNormalized,
-        passwordHash,
-        nickname: input.nickname.trim(),
-        nicknameNormalized: normalizeNickname(input.nickname),
-        gender: input.gender,
-        campus: input.campus,
-        intro: input.intro.trim(),
-        lifestyleJson: JSON.stringify(input.lifestyle),
-        emailVerifiedAt: new Date(),
-      },
-    });
+    let user;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          email: input.email.trim(),
+          emailNormalized,
+          passwordHash,
+          nickname: input.nickname.trim(),
+          nicknameNormalized: normalizeNickname(input.nickname),
+          gender: input.gender,
+          campus: input.campus,
+          intro: input.intro.trim(),
+          lifestyle: lifestyleValidation.value,
+          emailVerifiedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const target = Array.isArray(error.meta?.target) ? error.meta.target.join(',') : '';
+        if (target.includes('emailNormalized')) {
+          return { success: false, error: '이미 가입된 이메일입니다.' };
+        }
+        if (target.includes('nicknameNormalized')) {
+          return { success: false, error: '이미 사용 중인 닉네임입니다.' };
+        }
+      }
+      throw error;
+    }
 
     await this.prisma.verificationCode.update({
       where: { id: verifiedCode.id },
@@ -387,28 +410,46 @@ export class AuthService {
   }
 
   private async recordLoginFailure(emailNormalized: string): Promise<LoginResult> {
-    const current = await this.prisma.loginAttempt.findUnique({
-      where: { emailNormalized },
-    });
+    const [attempt] = await this.prisma.$queryRawUnsafe<
+      { failureCount: number; lockedUntil: Date | null }[]
+    >(
+      `
+        INSERT INTO "LoginAttempt" (
+          id,
+          "emailNormalized",
+          "failureCount",
+          "lockedUntil",
+          "lastFailedAt",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          $1,
+          $2,
+          1,
+          NULL,
+          NOW(),
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT ("emailNormalized")
+        DO UPDATE SET
+          "failureCount" = "LoginAttempt"."failureCount" + 1,
+          "lockedUntil" = CASE
+            WHEN "LoginAttempt"."failureCount" + 1 >= ${LOGIN_LOCKOUT_ATTEMPTS}
+            THEN NOW() + INTERVAL '${LOGIN_LOCKOUT_TTL_SECONDS} seconds'
+            ELSE NULL
+          END,
+          "lastFailedAt" = NOW(),
+          "updatedAt" = NOW()
+        RETURNING "failureCount", "lockedUntil"
+      `,
+      randomUUID(),
+      emailNormalized,
+    );
 
-    const failureCount = (current?.failureCount ?? 0) + 1;
+    const failureCount = attempt?.failureCount ?? 1;
     const locked = failureCount >= LOGIN_LOCKOUT_ATTEMPTS;
-    const lockedUntil = locked ? new Date(Date.now() + LOGIN_LOCKOUT_TTL_SECONDS * 1000) : null;
-
-    await this.prisma.loginAttempt.upsert({
-      where: { emailNormalized },
-      create: {
-        emailNormalized,
-        failureCount,
-        lockedUntil,
-        lastFailedAt: new Date(),
-      },
-      update: {
-        failureCount,
-        lockedUntil,
-        lastFailedAt: new Date(),
-      },
-    });
 
     if (locked) {
       return {
@@ -431,10 +472,9 @@ export class AuthService {
     nickname: string;
     gender: Gender;
     campus: Campus;
-    lifestyleJson: string;
+    lifestyle: Prisma.JsonValue;
     intro: string;
     dormitoryId: string | null;
-    lastDrinkingChangeSeasonId: string | null;
   }): AuthUserView {
     return {
       id: user.id,
@@ -442,14 +482,13 @@ export class AuthService {
       nickname: user.nickname,
       gender: user.gender,
       campus: user.campus,
-      lifestyle: JSON.parse(user.lifestyleJson) as Record<string, unknown>,
+      lifestyle: user.lifestyle as LifestyleData,
       intro: user.intro,
       dormitoryId: user.dormitoryId,
-      lastDrinkingChangeSeasonId: user.lastDrinkingChangeSeasonId,
     };
   }
 
   private getJwtSecret(): string {
-    return process.env.JWT_SECRET || 'dev-jwt-secret';
+    return apiEnv.jwtSecret;
   }
 }

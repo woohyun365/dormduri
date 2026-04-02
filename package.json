@@ -2,7 +2,8 @@
   "name": "knu-roommate",
   "private": true,
   "scripts": {
-    "dev": "pnpm -r --parallel dev",
+    "shared:build": "pnpm --dir packages/shared build",
+    "dev": "pnpm shared:build && pnpm -r --parallel --filter ./apps/** dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "db:up": "docker compose -f docker-compose.dev.yml up -d postgres",
