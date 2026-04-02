@@ -57,12 +57,12 @@ describe('validatePassword', () => {
     expect(validatePassword('abcd1234')).toBe('');
   });
 
-  it('72자 경계값 -> 통과', () => {
-    expect(validatePassword('a1' + 'x'.repeat(70))).toBe('');
+  it('128자 경계값 -> 통과', () => {
+    expect(validatePassword('a1' + 'x'.repeat(126))).toBe('');
   });
 
-  it('73자 (max 초과) -> 에러', () => {
-    expect(validatePassword('a1' + 'x'.repeat(71))).toBeTruthy();
+  it('129자 (max 초과) -> 에러', () => {
+    expect(validatePassword('a1' + 'x'.repeat(127))).toBeTruthy();
   });
 
   it('영문만 -> 에러', () => {

@@ -48,7 +48,7 @@ export function useSignupEmailVerification({
     setIsSending(true);
 
     try {
-      const result = await authApi.sendVerificationCode(email);
+      const result = await authApi.sendSignupCode(email);
       if (result.success) {
         sendTimerRef.current = setTimeout(() => {
           setIsSending(false);

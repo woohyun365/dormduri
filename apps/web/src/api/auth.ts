@@ -1,5 +1,3 @@
-// TODO: BE API 연동 시 실제 endpoint로 교체
-
 import type { LifestyleData } from '@/types/lifestyle';
 import type { Campus } from '@/types/profile';
 import { validatePassword, validateNickname } from '@/utils/validation';
@@ -27,7 +25,18 @@ interface ResetPasswordResponse {
   error?: string;
 }
 
-// development 전용 mockDb (dynamic import로 production 번들 제외)
+interface AuthUserBridge {
+  id: string;
+  email: string;
+  nickname: string;
+  gender: 'M' | 'F';
+  campus: Campus;
+  lifestyle: LifestyleData;
+  intro: string;
+  dormitoryId: string | null;
+  lastDrinkingChangeSeasonId: string | null;
+}
+
 async function getMockDb() {
   if (process.env.NODE_ENV === 'development') {
     const { mockDb } = await import('@/__fixtures__/mock-db');
@@ -36,60 +45,63 @@ async function getMockDb() {
   return null;
 }
 
+async function syncCurrentUser(user: AuthUserBridge | undefined) {
+  const db = await getMockDb();
+  if (!db || !user) return;
+  db.setCurrentUser({
+    id: user.id,
+    email: user.email,
+    password: '',
+    nickname: user.nickname,
+    gender: user.gender,
+    campus: user.campus,
+    dormitoryId: user.dormitoryId,
+    lifestyle: user.lifestyle,
+    intro: user.intro,
+    lastDrinkingChangeSeasonId: user.lastDrinkingChangeSeasonId,
+  });
+}
+
+async function clearCurrentUser() {
+  const db = await getMockDb();
+  if (!db) return;
+  db.setCurrentUser(null);
+}
+
+async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+  });
+
+  return (await response.json()) as T;
+}
+
 export const authApi = {
   login: async (
     email: string,
     password: string,
     rememberMe: boolean = false,
   ): Promise<LoginResponse> => {
-    const db = await getMockDb();
-    if (db) {
-      // 잠금 상태 확인
-      const attempts = db.getLoginAttempts(email);
-      if (attempts.lockedUntil && Date.now() < attempts.lockedUntil) {
-        const remainingSeconds = Math.ceil((attempts.lockedUntil - Date.now()) / 1000);
-        return {
-          success: false,
-          locked: true,
-          remainingSeconds,
-          error: '계정이 일시적으로 잠겼습니다. 잠시 후 다시 시도해주세요.',
-        };
-      }
+    const result = await postJson<LoginResponse & { user?: AuthUserBridge }>('/api/auth/login', {
+      email,
+      password,
+      rememberMe,
+    });
 
-      const user = db.findUser(email, password);
-      if (user) {
-        db.resetLoginAttempts(email);
-        document.cookie = `auth-token=mock-dev-token; path=/${rememberMe ? '; max-age=604800' : ''}`;
-        db.setCurrentUser(user);
-        return { success: true, token: 'mock-dev-token' };
-      }
-
-      // 실패 기록
-      const lockResult = db.recordLoginFailure(email);
-      if (lockResult.locked) {
-        return {
-          success: false,
-          locked: true,
-          remainingSeconds: lockResult.remainingSeconds,
-          error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
-        };
-      }
-      return { success: false, error: '이메일 또는 비밀번호가 올바르지 않습니다.' };
+    if (result.success) {
+      await syncCurrentUser(result.user);
     }
-    // TODO: POST /api/auth/login
-    return { success: false, error: '서버 연동 준비 중입니다.' };
+
+    return result;
   },
 
   verifyEmailCode: async (email: string, code: string): Promise<VerifyCodeResponse> => {
-    const db = await getMockDb();
-    if (db) {
-      if (db.verifyCode(email, code)) {
-        return { success: true };
-      }
-      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
-    }
-    // TODO: POST /api/auth/verify-email-code
-    return { success: false, error: '서버 연동 준비 중입니다.' };
+    return postJson<VerifyCodeResponse>('/api/auth/verify-email-code', { email, code });
   },
 
   signup: async (data: {
@@ -113,28 +125,14 @@ export const authApi = {
       return { success: false, error: nicknameErr };
     }
 
-    const db = await getMockDb();
-    if (db) {
-      if (db.findByEmail(data.email)) {
-        return { success: false, error: '이미 가입된 이메일입니다.' };
-      }
-      const newUser = {
-        ...data,
-        id:
-          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-        nickname: data.nickname.trim(),
-        dormitoryId: null,
-        lastDrinkingChangeSeasonId: null,
-      };
-      db.createUser(newUser);
-      db.setCurrentUser(newUser);
-      document.cookie = 'auth-token=mock-dev-token; path=/';
-      return { success: true };
+    const result = await postJson<SignupResponse & { user?: AuthUserBridge }>(
+      '/api/auth/signup',
+      data,
+    );
+    if (result.success) {
+      await syncCurrentUser(result.user);
     }
-    // TODO: POST /api/auth/signup
-    return { success: false, error: '서버 연동 준비 중입니다.' };
+    return result;
   },
 
   resetPassword: async (email: string, newPassword: string): Promise<ResetPasswordResponse> => {
@@ -143,43 +141,23 @@ export const authApi = {
       return { success: false, error: passwordErr };
     }
 
-    const db = await getMockDb();
-    if (db) {
-      const result = db.resetPassword(email, newPassword);
-      return result;
-    }
-    // TODO: POST /api/auth/reset-password
-    return { success: false, error: '서버 연동 준비 중입니다.' };
+    return postJson<ResetPasswordResponse>('/api/auth/reset-password', { email, newPassword });
   },
 
   verifyResetCode: async (email: string, code: string): Promise<VerifyCodeResponse> => {
-    const db = await getMockDb();
-    if (db) {
-      if (db.verifyCode(email, code)) {
-        return { success: true };
-      }
-      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
-    }
-    // TODO: POST /api/auth/verify-reset-code
-    return { success: false, error: '서버 연동 준비 중입니다.' };
+    return postJson<VerifyCodeResponse>('/api/auth/verify-reset-code', { email, code });
   },
 
   logout: async (): Promise<void> => {
-    const db = await getMockDb();
-    if (db) {
-      db.setCurrentUser(null);
-    }
-    document.cookie = 'auth-token=; path=/; max-age=0';
+    await postJson<{ success: boolean }>('/api/auth/logout', {});
+    await clearCurrentUser();
   },
 
-  /** development 전용: 인증 코드 발급 (콘솔에 출력) */
-  sendVerificationCode: async (email: string): Promise<{ success: boolean; error?: string }> => {
-    const db = await getMockDb();
-    if (db) {
-      db.issueCode(email);
-      return { success: true };
-    }
-    // TODO: POST /api/auth/send-code
-    return { success: false, error: '서버 연동 준비 중입니다.' };
+  sendSignupCode: async (email: string): Promise<{ success: boolean; error?: string }> => {
+    return postJson<{ success: boolean; error?: string }>('/api/auth/send-signup-code', { email });
+  },
+
+  sendResetCode: async (email: string): Promise<{ success: boolean; error?: string }> => {
+    return postJson<{ success: boolean; error?: string }>('/api/auth/send-reset-code', { email });
   },
 };

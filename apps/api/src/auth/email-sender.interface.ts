@@ -1,0 +1,18 @@
+export interface VerificationCodeMailInput {
+  email: string;
+  code: string;
+  expiresInSeconds: number;
+}
+
+export interface PasswordResetMailInput {
+  email: string;
+  code: string;
+  expiresInSeconds: number;
+}
+
+export interface EmailSender {
+  sendVerificationCode(input: VerificationCodeMailInput): Promise<void>;
+  sendPasswordResetCode(input: PasswordResetMailInput): Promise<void>;
+}
+
+export const EMAIL_SENDER = Symbol('EMAIL_SENDER');

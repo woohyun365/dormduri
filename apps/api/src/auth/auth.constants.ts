@@ -1,0 +1,10 @@
+export const AUTH_COOKIE_NAME = 'auth-token';
+export const JWT_ACCESS_TTL_SECONDS = 60 * 15;
+export const LOGIN_LOCKOUT_ATTEMPTS = 5;
+export const LOGIN_LOCKOUT_TTL_SECONDS = 60 * 5;
+export const VERIFICATION_CODE_TTL_SECONDS = 180;
+export const AUTH_SESSION_TTL_SECONDS = 60 * 60 * 24;
+export const AUTH_SESSION_REMEMBER_ME_TTL_SECONDS = 60 * 60 * 24 * 7;
+export const KNU_EMAIL_DOMAIN = '@kangwon.ac.kr';
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;

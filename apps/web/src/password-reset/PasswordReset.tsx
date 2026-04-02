@@ -39,7 +39,7 @@ export default function PasswordReset() {
     if (isSending || isActive) return;
     setIsSending(true);
     try {
-      const result = await authApi.sendVerificationCode(email);
+      const result = await authApi.sendResetCode(email);
       if (result.success) {
         startCountdown();
         if (timeoutRef.current) clearTimeout(timeoutRef.current);

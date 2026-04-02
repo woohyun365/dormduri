@@ -5,12 +5,12 @@ import { authApi } from '@/api/auth';
 
 vi.mock('@/api/auth', () => ({
   authApi: {
-    sendVerificationCode: vi.fn(),
+    sendSignupCode: vi.fn(),
     verifyEmailCode: vi.fn(),
   },
 }));
 
-const mockSendCode = vi.mocked(authApi.sendVerificationCode);
+const mockSendCode = vi.mocked(authApi.sendSignupCode);
 const mockVerifyCode = vi.mocked(authApi.verifyEmailCode);
 
 describe('useSignupEmailVerification', () => {

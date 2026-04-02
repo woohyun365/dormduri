@@ -34,13 +34,13 @@ vi.mock('lucide-react', () => ({
 
 vi.mock('@/api/auth', () => ({
   authApi: {
-    sendVerificationCode: vi.fn(),
+    sendResetCode: vi.fn(),
     verifyResetCode: vi.fn(),
     resetPassword: vi.fn(),
   },
 }));
 
-const mockSendCode = vi.mocked(authApi.sendVerificationCode);
+const mockSendCode = vi.mocked(authApi.sendResetCode);
 
 // --- Helpers ---
 
