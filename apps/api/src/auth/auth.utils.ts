@@ -73,3 +73,10 @@ export function safeTimeEquals(left: string, right: string): boolean {
 export async function delayMs(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export async function ensureMinDuration(startedAt: number, minimumMs: number): Promise<void> {
+  const elapsed = Date.now() - startedAt;
+  if (elapsed < minimumMs) {
+    await delayMs(minimumMs - elapsed);
+  }
+}

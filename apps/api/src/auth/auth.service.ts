@@ -9,13 +9,14 @@ import {
   JWT_ACCESS_TTL_SECONDS,
   LOGIN_LOCKOUT_ATTEMPTS,
   LOGIN_LOCKOUT_TTL_SECONDS,
+  RESET_CODE_MIN_RESPONSE_MS,
   VERIFICATION_CODE_TTL_SECONDS,
 } from './auth.constants.js';
 import { EMAIL_SENDER } from './email-sender.interface.js';
 import type { EmailSender } from './email-sender.interface.js';
 import type { AuthUserView, GenericSuccessResult, LoginResult } from './auth.types.js';
 import {
-  delayMs,
+  ensureMinDuration,
   generateVerificationCode,
   hashVerificationCode,
   isKnuEmail,
@@ -63,6 +64,7 @@ export class AuthService {
   }
 
   async sendResetCode(email: string, requestIp: string | null): Promise<GenericSuccessResult> {
+    const startedAt = Date.now();
     const emailNormalized = normalizeEmail(email);
     const user = await this.prisma.user.findUnique({
       where: { emailNormalized },
@@ -71,9 +73,9 @@ export class AuthService {
 
     if (user) {
       await this.issueVerificationCode(emailNormalized, 'RESET_PASSWORD', requestIp);
-    } else {
-      await delayMs(250);
     }
+
+    await ensureMinDuration(startedAt, RESET_CODE_MIN_RESPONSE_MS);
 
     return { success: true };
   }
