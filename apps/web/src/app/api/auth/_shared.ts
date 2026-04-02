@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { webEnv } from '@/config/env';
 
-const API_URL = process.env.API_URL ?? 'http://localhost:4000';
+// Next.js auth BFF upstream base URL.
+// 각 route가 `/auth/*` path fragment를 붙여 전달하므로 base에는 `/api`를 포함하지 않는다.
+const API_URL = webEnv.apiUpstreamUrl;
 const AUTH_COOKIE_NAME = 'auth-token';
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
-const JSON_CONTENT_TYPE = 'application/json';
 
 export async function forwardAuthRequest(
   path: string,

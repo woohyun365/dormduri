@@ -1,16 +1,13 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client.js';
+import { apiEnv } from '../../config/env.js';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
-    const connectionString =
-      process.env.DATABASE_URL ??
-      'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
-
     super({
-      adapter: new PrismaPg({ connectionString }),
+      adapter: new PrismaPg({ connectionString: apiEnv.databaseUrl }),
     });
   }
 

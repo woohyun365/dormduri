@@ -8,6 +8,8 @@
     "db:up": "docker compose -f docker-compose.dev.yml up -d postgres",
     "db:down": "docker compose -f docker-compose.dev.yml down",
     "db:logs": "docker compose -f docker-compose.dev.yml logs -f postgres",
+    "db:push": "pnpm --dir apps/api exec prisma db push --schema prisma/schema.prisma",
+    "db:seed": "pnpm --dir apps/api exec prisma db seed --schema prisma/schema.prisma",
     "format": "prettier . -w",
     "check": "pnpm lint && prettier . -c",
     "prepare": "husky"
