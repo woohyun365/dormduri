@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 const API_URL = process.env.API_URL ?? 'http://localhost:4000';
 const AUTH_COOKIE_NAME = 'auth-token';
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
+const JSON_CONTENT_TYPE = 'application/json';
 
 export async function forwardAuthRequest(
   path: string,
@@ -24,22 +25,31 @@ export async function forwardAuthRequest(
   return { response, json };
 }
 
-export function buildJsonResponse(json: Record<string, unknown>) {
+export function buildJsonResponse(response: Response, json: Record<string, unknown>) {
   return NextResponse.json(json, {
-    status: typeof json.status === 'number' ? (json.status as number) : 200,
+    status: response.status,
   });
 }
 
-export function setAuthCookie(response: NextResponse, token: string) {
-  response.cookies.set({
+export function setAuthCookie(response: NextResponse, token: string, rememberMe: boolean = false) {
+  const cookieOptions = {
     name: AUTH_COOKIE_NAME,
     value: token,
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: ACCESS_TOKEN_TTL_SECONDS,
-  });
+  } as const;
+
+  if (rememberMe) {
+    response.cookies.set({
+      ...cookieOptions,
+      maxAge: ACCESS_TOKEN_TTL_SECONDS,
+    });
+    return;
+  }
+
+  response.cookies.set(cookieOptions);
 }
 
 export function clearAuthCookie(response: NextResponse) {

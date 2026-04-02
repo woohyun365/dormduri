@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { clearAuthCookie, forwardAuthRequest } from '../_shared';
+import { NextRequest } from 'next/server';
+import { buildJsonResponse, clearAuthCookie, forwardAuthRequest } from '../_shared';
 
 export async function POST(request: NextRequest) {
   const token = request.cookies.get('auth-token')?.value;
-  const { json } = await forwardAuthRequest(
+  const { response, json } = await forwardAuthRequest(
     '/auth/logout',
     {},
     {
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     },
   );
 
-  const response = NextResponse.json(json);
-  clearAuthCookie(response);
-  return response;
+  const nextResponse = buildJsonResponse(response, json);
+  clearAuthCookie(nextResponse);
+  return nextResponse;
 }
