@@ -19,7 +19,6 @@ export function DevPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<MockUser | null>(null);
   const [registeredUsers, setRegisteredUsers] = useState<MockUser[]>([]);
-  const [lastCode, setLastCode] = useState<{ email: string; code: string } | null>(null);
   const [expandedGroup, setExpandedGroup] = useState<string | null>('CHUNCHEON');
   const [confirmDebug, setConfirmDebug] = useState<{
     hasConversation: boolean;
@@ -35,7 +34,6 @@ export function DevPanel() {
       const user = mockDb.getCurrentUser();
       setCurrentUser(user);
       setRegisteredUsers(mockDb.getRegisteredUsers());
-      setLastCode(mockDb.getLastCode());
       if (user) {
         const { matchingApi } = await import('@/api/matching');
         const state = await matchingApi.getState(user.id);
@@ -98,11 +96,6 @@ export function DevPanel() {
       mockDb.updateUser(currentUser.email, { dormitoryId: dormitoryId || null });
       window.location.reload();
     });
-  }
-
-  async function refreshCode() {
-    const { mockDb } = await import('@/__fixtures__/mock-db');
-    setLastCode(mockDb.getLastCode());
   }
 
   async function handleSetConfirmState(mode: 'none' | 'self' | 'others' | 'all') {
@@ -193,26 +186,6 @@ export function DevPanel() {
           </div>
         ) : (
           <span className="text-gray-500">로그인 안됨</span>
-        )}
-      </div>
-
-      {/* 인증 코드 */}
-      <div className="bg-gray-800 rounded-lg p-2">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-gray-400">최근 인증 코드</span>
-          <button onClick={refreshCode} className="text-blue-400 hover:text-blue-300">
-            새로고침
-          </button>
-        </div>
-        {lastCode ? (
-          <div>
-            <span className="text-gray-300">{lastCode.email}</span>
-            <span className="ml-2 text-yellow-400 font-mono font-bold text-sm">
-              {lastCode.code}
-            </span>
-          </div>
-        ) : (
-          <span className="text-gray-500">발급된 코드 없음</span>
         )}
       </div>
 

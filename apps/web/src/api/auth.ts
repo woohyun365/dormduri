@@ -34,7 +34,6 @@ interface AuthUserBridge {
   lifestyle: LifestyleData;
   intro: string;
   dormitoryId: string | null;
-  lastDrinkingChangeSeasonId: string | null;
 }
 
 async function getMockDb() {
@@ -45,21 +44,22 @@ async function getMockDb() {
   return null;
 }
 
-async function syncCurrentUser(user: AuthUserBridge | undefined) {
+async function syncCurrentUser(user: AuthUserBridge | undefined, password: string = '') {
   const db = await getMockDb();
   if (!db || !user) return;
-  db.setCurrentUser({
+  const syncedUser = {
     id: user.id,
     email: user.email,
-    password: '',
+    password,
     nickname: user.nickname,
     gender: user.gender,
     campus: user.campus,
     dormitoryId: user.dormitoryId,
     lifestyle: user.lifestyle,
     intro: user.intro,
-    lastDrinkingChangeSeasonId: user.lastDrinkingChangeSeasonId,
-  });
+  };
+  db.upsertUser(syncedUser);
+  db.setCurrentUser(syncedUser);
 }
 
 async function clearCurrentUser() {
@@ -94,7 +94,7 @@ export const authApi = {
     });
 
     if (result.success) {
-      await syncCurrentUser(result.user);
+      await syncCurrentUser(result.user, password);
     }
 
     return result;
@@ -130,7 +130,7 @@ export const authApi = {
       data,
     );
     if (result.success) {
-      await syncCurrentUser(result.user);
+      await syncCurrentUser(result.user, data.password);
     }
     return result;
   },
