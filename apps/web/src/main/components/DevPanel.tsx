@@ -2,24 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { DORMITORIES, UNASSIGNED_ID } from '@/constants/dormitory';
-import type { MockUser } from '@/__fixtures__/mock-db';
+import type { SessionResponse } from '@repo/shared/auth-response';
+import { authApi } from '@/api/auth';
 /**
  * 개발 환경 전용 플로팅 패널
  *
- * - 캠퍼스별 프리셋 유저 빠른 로그인 (그룹화)
- * - 회원가입으로 생성된 유저 로그인
- * - 로그아웃 / 데이터 초기화
  * - 건물 전환
- * - 최근 인증 코드 표시 (모바일 테스트용)
- * - 시즌 상태 토글
+ * - 매칭 확정/3인실 시나리오 seed
+ * - 데이터 초기화
  *
+ * auth 빠른 로그인/로그아웃은 AuthPanel로 분리했다.
  * production 빌드에서는 렌더링하지 않는다.
  */
 export function DevPanel() {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<MockUser | null>(null);
-  const [registeredUsers, setRegisteredUsers] = useState<MockUser[]>([]);
-  const [expandedGroup, setExpandedGroup] = useState<string | null>('CHUNCHEON');
+  const [sessionStatus, setSessionStatus] = useState<SessionResponse>({ authenticated: false });
   const [confirmDebug, setConfirmDebug] = useState<{
     hasConversation: boolean;
     approvalCount: number;
@@ -30,13 +27,11 @@ export function DevPanel() {
     if (process.env.NODE_ENV !== 'development') return;
     if (!isOpen) return;
     async function load() {
-      const { mockDb } = await import('@/__fixtures__/mock-db');
-      const user = mockDb.getCurrentUser();
-      setCurrentUser(user);
-      setRegisteredUsers(mockDb.getRegisteredUsers());
-      if (user) {
+      const session = await authApi.getSession();
+      setSessionStatus(session);
+      if (session.user) {
         const { matchingApi } = await import('@/api/matching');
-        const state = await matchingApi.getState(user.id);
+        const state = await matchingApi.getState(session.user.id);
         const conversation = state.requests.find((request) => request.status === 'IN_CONVERSATION');
         setConfirmDebug({
           hasConversation: !!conversation,
@@ -50,34 +45,10 @@ export function DevPanel() {
         setConfirmDebug({ hasConversation: false, approvalCount: 0, approvalTotal: 2 });
       }
     }
-    load();
+    void load();
   }, [isOpen]);
 
   if (process.env.NODE_ENV !== 'development') return null;
-
-  async function handlePresetLogin(key: string) {
-    const { PRESET_USERS } = await import('@/__fixtures__/mock-users');
-    const { mockDb } = await import('@/__fixtures__/mock-db');
-    const preset = PRESET_USERS[key];
-    if (!preset) return;
-    mockDb.setCurrentUser(preset);
-    document.cookie = 'auth-token=mock-dev-token; path=/';
-    window.location.href = '/';
-  }
-
-  async function handleUserLogin(user: MockUser) {
-    const { mockDb } = await import('@/__fixtures__/mock-db');
-    mockDb.setCurrentUser(user);
-    document.cookie = 'auth-token=mock-dev-token; path=/';
-    window.location.href = '/';
-  }
-
-  async function handleLogout() {
-    const { mockDb } = await import('@/__fixtures__/mock-db');
-    mockDb.setCurrentUser(null);
-    document.cookie = 'auth-token=; path=/; max-age=0';
-    window.location.href = '/';
-  }
 
   async function handleClearAll() {
     const { mockDb } = await import('@/__fixtures__/mock-db');
@@ -91,17 +62,18 @@ export function DevPanel() {
   }
 
   function handleDormitoryChange(dormitoryId: string) {
-    if (!currentUser) return;
-    import('@/__fixtures__/mock-db').then(({ mockDb }) => {
-      mockDb.updateUser(currentUser.email, { dormitoryId: dormitoryId || null });
-      window.location.reload();
+    if (!sessionStatus.user) return;
+    import('@/api/profile').then(({ profileApi }) => {
+      void profileApi.updateProfile({ dormitoryId: dormitoryId || null }).then(() => {
+        window.location.reload();
+      });
     });
   }
 
   async function handleSetConfirmState(mode: 'none' | 'self' | 'others' | 'all') {
-    if (!currentUser) return;
+    if (!sessionStatus.user) return;
     const { matchingApi } = await import('@/api/matching');
-    await matchingApi.setConfirmState(currentUser.id, mode);
+    await matchingApi.setConfirmState(sessionStatus.user.id, mode);
     window.location.reload();
   }
 
@@ -112,30 +84,30 @@ export function DevPanel() {
       | 'seedGroupCandidateScenario'
       | 'seedGroupFinalScenario',
   ) {
-    if (!currentUser) return;
+    if (!sessionStatus.user) return;
     const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
     const svc = getMockMatchingService();
     const userArg = {
-      id: currentUser.id,
-      nickname: currentUser.nickname,
-      dormitoryId: currentUser.dormitoryId,
-      gender: currentUser.gender,
+      id: sessionStatus.user.id,
+      nickname: sessionStatus.user.nickname,
+      dormitoryId: sessionStatus.user.dormitoryId,
+      gender: sessionStatus.user.gender,
     };
     if (method === 'seedGroupFinalScenario') {
-      const dormId = currentUser.dormitoryId ?? 'toegye';
+      const dormId = sessionStatus.user.dormitoryId ?? 'toegye';
       svc.seedGroupFinalScenario(
         userArg,
         {
           id: `${dormId}-core-b`,
           nickname: '파트너B',
           dormitoryId: dormId,
-          gender: currentUser.gender,
+          gender: sessionStatus.user.gender,
         },
         {
           id: `${dormId}-candidate-c`,
           nickname: '합류멤버C',
           dormitoryId: dormId,
-          gender: currentUser.gender,
+          gender: sessionStatus.user.gender,
         },
       );
     } else {
@@ -169,72 +141,38 @@ export function DevPanel() {
         </button>
       </div>
 
-      {/* 로그인 상태 */}
       <div className="bg-gray-800 rounded-lg p-2">
-        <div className="text-gray-400 mb-1">로그인 상태</div>
-        {currentUser ? (
-          <div className="flex items-center justify-between">
-            <span className="text-green-400 font-medium">
-              {currentUser.nickname} ({currentUser.gender}, {currentUser.campus})
-            </span>
-            <button
-              onClick={handleLogout}
-              className="px-2 py-0.5 bg-red-600 hover:bg-red-500 rounded text-white"
-            >
-              로그아웃
-            </button>
-          </div>
+        <div className="text-gray-400 mb-1">현재 사용자 컨텍스트</div>
+        {sessionStatus.user ? (
+          <span className="text-green-400 font-medium">
+            {sessionStatus.user.nickname} ({sessionStatus.user.gender}, {sessionStatus.user.campus})
+          </span>
         ) : (
-          <span className="text-gray-500">로그인 안됨</span>
+          <span className="text-gray-500">로그인 필요</span>
         )}
       </div>
 
-      {/* 프리셋 유저 (캠퍼스별 그룹) */}
-      <PresetUserGroups
-        expandedGroup={expandedGroup}
-        onToggleGroup={(campus) => setExpandedGroup(expandedGroup === campus ? null : campus)}
-        onLogin={handlePresetLogin}
-      />
-
-      {/* 가입 유저 */}
-      {registeredUsers.length > 0 && (
-        <div>
-          <div className="text-gray-400 mb-1">가입 유저</div>
-          <div className="space-y-1 max-h-24 overflow-y-auto">
-            {registeredUsers.map((u) => (
-              <button
-                key={u.email}
-                onClick={() => handleUserLogin(u)}
-                className="w-full text-left px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded truncate"
-              >
-                {u.nickname} ({u.gender}) — {u.email}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 건물 전환 (로그인 시만) */}
-      {currentUser && (
+      {sessionStatus.user && (
         <div>
           <div className="text-gray-400 mb-1">건물</div>
           <select
-            value={currentUser.dormitoryId ?? ''}
+            value={sessionStatus.user.dormitoryId ?? ''}
             onChange={(e) => handleDormitoryChange(e.target.value)}
             className="w-full bg-gray-700 text-white rounded px-2 py-1"
           >
             <option value="">선택 안함</option>
             <option value={UNASSIGNED_ID}>미배정</option>
-            {DORMITORIES.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name} ({d.roomType}인실, {d.gender === 'BOTH' ? '혼성' : d.gender})
+            {DORMITORIES.map((dormitory) => (
+              <option key={dormitory.id} value={dormitory.id}>
+                {dormitory.name} ({dormitory.roomType}인실,{' '}
+                {dormitory.gender === 'BOTH' ? '혼성' : dormitory.gender})
               </option>
             ))}
           </select>
         </div>
       )}
 
-      {currentUser && (
+      {sessionStatus.user && (
         <div className="bg-gray-800 rounded-lg p-2 space-y-2">
           <div className="text-gray-400">확정 완료 테스트</div>
           {confirmDebug.hasConversation ? (
@@ -275,7 +213,7 @@ export function DevPanel() {
         </div>
       )}
 
-      {currentUser && (
+      {sessionStatus.user && (
         <div className="bg-gray-800 rounded-lg p-2 space-y-2">
           <div className="text-gray-400">3인실 그룹 시나리오</div>
           <button
@@ -308,83 +246,12 @@ export function DevPanel() {
         </div>
       )}
 
-      {/* 데이터 초기화 */}
       <button
         onClick={handleClearAll}
         className="w-full px-2 py-1.5 bg-gray-700 hover:bg-red-800 rounded text-gray-400 hover:text-white transition-colors"
       >
         데이터 초기화
       </button>
-    </div>
-  );
-}
-
-/** 캠퍼스별 프리셋 유저 접기/펼치기 */
-function PresetUserGroups({
-  expandedGroup,
-  onToggleGroup,
-  onLogin,
-}: {
-  expandedGroup: string | null;
-  onToggleGroup: (campus: string) => void;
-  onLogin: (key: string) => void;
-}) {
-  const [groups, setGroups] = useState<
-    { campus: string; label: string; keys: readonly string[] }[]
-  >([]);
-  const [users, setUsers] = useState<Record<string, { nickname: string; gender: string }>>({});
-
-  useEffect(() => {
-    async function load() {
-      const { PRESET_GROUPS, PRESET_USERS } = await import('@/__fixtures__/mock-users');
-      setGroups([...PRESET_GROUPS]);
-      const mapped: Record<string, { nickname: string; gender: string }> = {};
-      for (const [key, user] of Object.entries(PRESET_USERS)) {
-        mapped[key] = { nickname: user.nickname, gender: user.gender };
-      }
-      setUsers(mapped);
-    }
-    load();
-  }, []);
-
-  return (
-    <div>
-      <div className="text-gray-400 mb-1">프리셋 로그인</div>
-      <div className="space-y-1">
-        {groups.map((group) => (
-          <div key={group.campus}>
-            <button
-              onClick={() => onToggleGroup(group.campus)}
-              className="w-full text-left px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded flex items-center justify-between"
-            >
-              <span>
-                {expandedGroup === group.campus ? '▾' : '▸'} {group.label}
-              </span>
-            </button>
-            {expandedGroup === group.campus && (
-              <div className="flex gap-1 mt-1 ml-2">
-                {group.keys.map((key) => {
-                  const u = users[key];
-                  if (!u) return null;
-                  const bg =
-                    u.gender === 'M'
-                      ? 'bg-blue-700 hover:bg-blue-600'
-                      : 'bg-pink-700 hover:bg-pink-600';
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => onLogin(key)}
-                      className={`flex-1 px-2 py-1 ${bg} rounded font-medium`}
-                    >
-                      {u.nickname} ({u.gender})
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
