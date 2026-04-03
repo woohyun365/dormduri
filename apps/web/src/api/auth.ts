@@ -2,51 +2,20 @@ import type {
   EmailRequest,
   LoginRequest,
   ResetPasswordRequest,
+  SignupProfileValidationRequest,
   SignupRequest,
   VerificationCodeRequest,
 } from '@repo/shared/auth-contract';
+import type {
+  LoginResponse,
+  ResetPasswordResponse,
+  SessionResponse,
+  SignupProfileValidationResponse,
+  SignupResponse,
+  VerifyCodeResponse,
+} from '@repo/shared/auth-response';
+import { validateKnuEmailFormat, validatePasswordStructure } from '@repo/shared/auth-policy';
 import type { LifestyleData } from '@/types/lifestyle';
-import type { Campus } from '@/types/profile';
-import { validatePassword, validateNickname } from '@/utils/validation';
-
-interface LoginResponse {
-  success: boolean;
-  token?: string;
-  error?: string;
-  locked?: boolean;
-  remainingSeconds?: number;
-}
-
-interface VerifyCodeResponse {
-  success: boolean;
-  error?: string;
-}
-
-interface SignupResponse {
-  success: boolean;
-  error?: string;
-}
-
-interface ResetPasswordResponse {
-  success: boolean;
-  error?: string;
-}
-
-interface SessionResponse {
-  authenticated: boolean;
-  user?: AuthUserBridge;
-}
-
-interface AuthUserBridge {
-  id: string;
-  email: string;
-  nickname: string;
-  gender: 'M' | 'F';
-  campus: Campus;
-  lifestyle: LifestyleData;
-  intro: string;
-  dormitoryId: string | null;
-}
 
 async function getMockDb() {
   if (process.env.NODE_ENV === 'development') {
@@ -56,7 +25,10 @@ async function getMockDb() {
   return null;
 }
 
-async function syncCurrentUser(user: AuthUserBridge | undefined, password: string = '') {
+async function syncCurrentUser(
+  user: SessionResponse['user'] | LoginResponse['user'] | SignupResponse['user'],
+  password: string = '',
+) {
   const db = await getMockDb();
   if (!db || !user) return;
   const syncedUser = {
@@ -67,7 +39,7 @@ async function syncCurrentUser(user: AuthUserBridge | undefined, password: strin
     gender: user.gender,
     campus: user.campus,
     dormitoryId: user.dormitoryId,
-    lifestyle: user.lifestyle,
+    lifestyle: user.lifestyle as LifestyleData,
     intro: user.intro,
   };
   db.upsertUser(syncedUser);
@@ -133,7 +105,7 @@ export const authApi = {
     password: LoginRequest['password'],
     rememberMe: LoginRequest['rememberMe'] = false,
   ): Promise<LoginResponse> => {
-    const result = await postJson<LoginResponse & { user?: AuthUserBridge }>('/api/auth/login', {
+    const result = await postJson<LoginResponse>('/api/auth/login', {
       email,
       password,
       rememberMe,
@@ -146,30 +118,26 @@ export const authApi = {
     return result;
   },
 
-  verifyEmailCode: async (
+  verifyEmailCode: (
     email: VerificationCodeRequest['email'],
     code: VerificationCodeRequest['code'],
   ): Promise<VerifyCodeResponse> => {
     return postJson<VerifyCodeResponse>('/api/auth/verify-email-code', { email, code });
   },
 
+  validateSignupProfile: (
+    data: SignupProfileValidationRequest,
+  ): Promise<SignupProfileValidationResponse> => {
+    return postJson<SignupProfileValidationResponse>('/api/auth/validate-signup-profile', data);
+  },
+
   signup: async (data: SignupRequest): Promise<SignupResponse> => {
-    // 서버 측 비밀번호 정책 검증 (백엔드 연동 시 서버에서 동일 검증 수행)
-    const passwordErr = validatePassword(data.password, data.email);
+    const passwordErr = validatePasswordStructure(data.password, data.email);
     if (passwordErr) {
       return { success: false, error: passwordErr };
     }
 
-    // 서버 측 닉네임 정책 검증
-    const nicknameErr = validateNickname(data.nickname);
-    if (nicknameErr) {
-      return { success: false, error: nicknameErr };
-    }
-
-    const result = await postJson<SignupResponse & { user?: AuthUserBridge }>(
-      '/api/auth/signup',
-      data,
-    );
+    const result = await postJson<SignupResponse>('/api/auth/signup', data);
     if (result.success) {
       await syncCurrentUser(result.user, data.password);
     }
@@ -180,7 +148,7 @@ export const authApi = {
     email: ResetPasswordRequest['email'],
     newPassword: ResetPasswordRequest['newPassword'],
   ): Promise<ResetPasswordResponse> => {
-    const passwordErr = validatePassword(newPassword, email);
+    const passwordErr = validatePasswordStructure(newPassword, email);
     if (passwordErr) {
       return { success: false, error: passwordErr };
     }
@@ -188,7 +156,7 @@ export const authApi = {
     return postJson<ResetPasswordResponse>('/api/auth/reset-password', { email, newPassword });
   },
 
-  verifyResetCode: async (
+  verifyResetCode: (
     email: VerificationCodeRequest['email'],
     code: VerificationCodeRequest['code'],
   ): Promise<VerifyCodeResponse> => {
@@ -218,6 +186,11 @@ export const authApi = {
   sendSignupCode: async (
     email: EmailRequest['email'],
   ): Promise<{ success: boolean; error?: string }> => {
+    const formatError = validateKnuEmailFormat(email);
+    if (formatError) {
+      return { success: false, error: formatError };
+    }
+
     const { status, data } = await requestJson<{
       success?: boolean;
       error?: string;
@@ -241,6 +214,11 @@ export const authApi = {
   sendResetCode: async (
     email: EmailRequest['email'],
   ): Promise<{ success: boolean; error?: string }> => {
+    const formatError = validateKnuEmailFormat(email);
+    if (formatError) {
+      return { success: false, error: formatError };
+    }
+
     const { status, data } = await requestJson<{
       success?: boolean;
       error?: string;

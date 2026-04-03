@@ -39,21 +39,29 @@ vi.mock('../components/email-verification/StepEmailVerification', () => ({
     onNext,
     onVerified,
     onEmailChange,
+    isVerified,
   }: {
     onNext: () => void;
     onVerified: () => void;
     onEmailChange: (email: string) => void;
+    isVerified: boolean;
   }) => (
-    <button
-      data-testid="step-1-next"
-      onClick={() => {
-        onEmailChange('test@kangwon.ac.kr');
-        onVerified();
-        onNext();
-      }}
-    >
-      next
-    </button>
+    <div>
+      <button
+        data-testid="step-1-verify"
+        onClick={() => {
+          onEmailChange('test@kangwon.ac.kr');
+          onVerified();
+        }}
+      >
+        verify
+      </button>
+      {isVerified && (
+        <button data-testid="step-1-next" onClick={onNext}>
+          next
+        </button>
+      )}
+    </div>
   ),
 }));
 
@@ -130,7 +138,10 @@ vi.mock('@/components/AuthHeader', () => ({
 const mockSignup = vi.mocked(authApi.signup);
 
 function advanceToStep(step: number) {
-  if (step >= 2) fireEvent.click(screen.getByTestId('step-1-next'));
+  if (step >= 2) {
+    fireEvent.click(screen.getByTestId('step-1-verify'));
+    fireEvent.click(screen.getByTestId('step-1-next'));
+  }
   if (step >= 3) fireEvent.click(screen.getByTestId('step-2-next'));
   if (step >= 4) fireEvent.click(screen.getByTestId('step-3-next'));
   if (step >= 5) fireEvent.click(screen.getByTestId('step-4-next'));
@@ -152,7 +163,7 @@ describe('Signup', () => {
   it('Step 1(이메일 인증)부터 시작한다', () => {
     render(<Signup />);
 
-    expect(screen.getByTestId('step-1-next')).toBeInTheDocument();
+    expect(screen.getByTestId('step-1-verify')).toBeInTheDocument();
   });
 
   it('모든 단계를 순서대로 진행하여 가입을 완료할 수 있다', async () => {
@@ -183,6 +194,7 @@ describe('Signup', () => {
     render(<Signup />);
 
     // Step 1 완료 → step 2 (isEmailVerified = true)
+    fireEvent.click(screen.getByTestId('step-1-verify'));
     fireEvent.click(screen.getByTestId('step-1-next'));
 
     fireEvent.click(screen.getByTestId('logo'));
@@ -205,6 +217,32 @@ describe('Signup', () => {
 
     expect(screen.getByText('이미 가입된 이메일입니다.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+  });
+
+  it('이메일 인증 만료 에러가 나면 카드에 포커스하고 다시 인증 흐름으로 복귀시킨다', async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    mockSignup.mockResolvedValueOnce({
+      success: false,
+      error: '이메일 인증을 먼저 완료해주세요.',
+    });
+
+    render(<Signup />);
+    advanceToStep(6);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('step-6-next'));
+    });
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('이메일 인증을 먼저 완료해주세요.');
+    expect(document.activeElement).toBe(alert);
+    expect(screen.getByRole('button', { name: '이메일 다시 인증하기' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '이메일 다시 인증하기' }));
+    expect(screen.getByTestId('step-1-verify')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('step-1-verify'));
+    expect(screen.getByTestId('step-6-next')).toBeInTheDocument();
   });
 
   it('네트워크 오류 시 에러 메시지를 표시한다', async () => {
@@ -284,6 +322,7 @@ describe('Signup', () => {
       render(<Signup />);
 
       // Step 2까지 진행 (draft 생성)
+      fireEvent.click(screen.getByTestId('step-1-verify'));
       fireEvent.click(screen.getByTestId('step-1-next'));
       expect(sessionStorage.getItem('signup-draft')).not.toBeNull();
 

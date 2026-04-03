@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { AuthHeader } from '@/components/AuthHeader';
 import { ProgressBar } from '@/components/form/ProgressBar';
 import { useCountdown } from '@/hooks/useCountdown';
-import { VERIFICATION_CODE_TTL } from '@/constants/auth';
+import { RESET_PASSWORD_VERIFICATION_CODE_TTL } from '@/constants/auth';
 import { StepEmail } from './components/StepEmail';
 import { StepVerification } from './components/StepVerification';
 import { StepNewPassword } from './components/StepNewPassword';
@@ -26,7 +26,7 @@ export default function PasswordReset() {
     start: startCountdown,
     stop: stopCountdown,
     formatTime,
-  } = useCountdown(VERIFICATION_CODE_TTL);
+  } = useCountdown(RESET_PASSWORD_VERIFICATION_CODE_TTL);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendRequestIdRef = useRef(0);
 

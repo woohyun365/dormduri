@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import PasswordReset from '../PasswordReset';
 import { authApi } from '@/api/auth';
-import { VERIFICATION_CODE_TTL } from '@/constants/auth';
+import { RESET_PASSWORD_VERIFICATION_CODE_TTL } from '@/constants/auth';
 
 // --- Mocks ---
 
@@ -108,7 +108,7 @@ describe('PasswordReset', () => {
 
       // 카운트다운 만료
       act(() => {
-        vi.advanceTimersByTime(VERIFICATION_CODE_TTL * 1000);
+        vi.advanceTimersByTime(RESET_PASSWORD_VERIFICATION_CODE_TTL * 1000);
       });
 
       // 만료 메시지 표시 + 타이머 소멸
@@ -137,7 +137,7 @@ describe('PasswordReset', () => {
 
       // 카운트다운 만료
       act(() => {
-        vi.advanceTimersByTime(VERIFICATION_CODE_TTL * 1000);
+        vi.advanceTimersByTime(RESET_PASSWORD_VERIFICATION_CODE_TTL * 1000);
       });
 
       // 지연 응답으로 교체하여 isSending 상태 확인
@@ -184,7 +184,7 @@ describe('PasswordReset', () => {
 
       // 남은 타이머/인터벌 실행 — cleanup에 의해 안전하게 처리되어야 함
       act(() => {
-        vi.advanceTimersByTime(VERIFICATION_CODE_TTL * 1000);
+        vi.advanceTimersByTime(RESET_PASSWORD_VERIFICATION_CODE_TTL * 1000);
       });
 
       // setState 관련 에러 없음

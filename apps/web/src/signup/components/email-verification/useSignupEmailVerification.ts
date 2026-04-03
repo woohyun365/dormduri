@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useCountdown } from '@/hooks/useCountdown';
 import { validateKnuEmail } from '@/utils/validation';
-import { VERIFICATION_CODE_TTL } from '@/constants/auth';
+import { SIGNUP_VERIFICATION_CODE_TTL } from '@/constants/auth';
 import { authApi } from '@/api/auth';
 
 interface UseSignupEmailVerificationParams {
@@ -37,7 +37,7 @@ export function useSignupEmailVerification({
     start: startCountdown,
     stop: stopCountdown,
     formatTime,
-  } = useCountdown(VERIFICATION_CODE_TTL);
+  } = useCountdown(SIGNUP_VERIFICATION_CODE_TTL);
 
   const handleSendCode = async () => {
     if (isSending) return;

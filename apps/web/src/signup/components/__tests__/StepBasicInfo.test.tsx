@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StepBasicInfo, type BasicInfoData } from '../StepBasicInfo';
+import { authApi } from '@/api/auth';
 
 vi.mock('lucide-react', () => ({
   User: () => null,
@@ -9,6 +10,14 @@ vi.mock('lucide-react', () => ({
   Eye: () => null,
   EyeOff: () => null,
 }));
+
+vi.mock('@/api/auth', () => ({
+  authApi: {
+    validateSignupProfile: vi.fn(),
+  },
+}));
+
+const mockValidateSignupProfile = vi.mocked(authApi.validateSignupProfile);
 
 const emptyBasicInfo: BasicInfoData = {
   nickname: '',
@@ -39,7 +48,11 @@ function renderWithState(overrides: { onNext?: () => void } = {}) {
 }
 
 describe('StepBasicInfo', () => {
-  it('빈 필드에서 다음 클릭 시 유효성 검사 에러를 표시한다', () => {
+  beforeEach(() => {
+    mockValidateSignupProfile.mockResolvedValue({ success: true });
+  });
+
+  it('빈 필드에서 다음 클릭 시 유효성 검사 에러를 표시한다', async () => {
     const { onNext } = renderWithState();
 
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
@@ -62,7 +75,7 @@ describe('StepBasicInfo', () => {
     expect(screen.getByRole('radio', { name: '남성' })).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('모든 필드를 채우면 onNext가 호출된다', () => {
+  it('모든 필드를 채우면 onNext가 호출된다', async () => {
     const { onNext } = renderWithState();
 
     fireEvent.click(screen.getByRole('radio', { name: '춘천캠퍼스' }));
@@ -75,7 +88,56 @@ describe('StepBasicInfo', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
-    expect(onNext).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(onNext).toHaveBeenCalled();
+    });
+  });
+
+  it('백엔드 닉네임 정책 오류를 즉시 표시한다', async () => {
+    mockValidateSignupProfile.mockResolvedValue({
+      success: false,
+      error: '입력값을 다시 확인해주세요.',
+      errors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+    });
+
+    const { onNext } = renderWithState();
+
+    fireEvent.click(screen.getByRole('radio', { name: '춘천캠퍼스' }));
+    fireEvent.click(screen.getByRole('radio', { name: '남성' }));
+    fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '섹스' } });
+    fireEvent.change(screen.getAllByLabelText(/^비밀번호(?!.*확인)/)[0]!, {
+      target: { value: 'Test1234' },
+    });
+    fireEvent.change(screen.getByLabelText(/비밀번호 확인/), { target: { value: 'Test1234' } });
+
+    fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('사용할 수 없는 표현이 포함되어 있습니다.')).toBeInTheDocument();
+    });
+    expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('닉네임만 입력한 상태에서 서버 금지어 오류가 있으면 닉네임에 우선 포커스한다', async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    mockValidateSignupProfile.mockResolvedValue({
+      success: false,
+      error: '입력값을 다시 확인해주세요.',
+      errors: {
+        nickname: '사용할 수 없는 표현이 포함되어 있습니다.',
+        password: '비밀번호를 입력해주세요.',
+      },
+    });
+
+    renderWithState();
+
+    fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '섹스' } });
+    fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('사용할 수 없는 표현이 포함되어 있습니다.')).toBeInTheDocument();
+    });
+    expect(document.activeElement).toBe(screen.getByLabelText(/닉네임/));
   });
 
   it('비밀번호 입력 시 PasswordRequirementList가 표시된다', () => {

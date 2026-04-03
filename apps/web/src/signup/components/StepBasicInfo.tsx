@@ -12,6 +12,7 @@ import { PasswordRequirementList } from '@/components/auth/PasswordRequirementLi
 import { NICKNAME_MAX } from '@/constants/ui';
 import { User } from 'lucide-react';
 import { focusAndScroll } from '@/utils/focus';
+import { authApi } from '@/api/auth';
 
 import type { Campus } from '@/types/profile';
 
@@ -43,15 +44,16 @@ export function StepBasicInfo({
   const [passwordError, setPasswordError] = useState('');
   const [passwordConfirmError, setPasswordConfirmError] = useState('');
   const [genderError, setGenderError] = useState('');
+  const [isCheckingPolicy, setIsCheckingPolicy] = useState(false);
   const campusRef = useRef<HTMLDivElement>(null);
   const genderRef = useRef<HTMLDivElement>(null);
   const nicknameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const passwordConfirmRef = useRef<HTMLInputElement>(null);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const campusErr = basicInfo.campus ? '' : '캠퍼스를 선택해주세요.';
-    const nicknameErr = validateNickname(basicInfo.nickname);
+    const nicknameFormatErr = validateNickname(basicInfo.nickname);
     const passwordErr = validatePassword(basicInfo.password, email);
     const passwordConfirmErr = validatePasswordConfirm(
       basicInfo.password,
@@ -60,29 +62,49 @@ export function StepBasicInfo({
     const genderErr = basicInfo.gender ? '' : '성별을 선택해주세요.';
 
     setCampusError(campusErr);
-    setNicknameError(nicknameErr);
     setPasswordError(passwordErr);
     setPasswordConfirmError(passwordConfirmErr);
     setGenderError(genderErr);
 
+    let nextNicknameError = nicknameFormatErr;
+    let nextPasswordError = passwordErr;
+    let nextEmailError = '';
+
+    if (!nicknameFormatErr) {
+      setIsCheckingPolicy(true);
+      const validation = await authApi.validateSignupProfile({
+        email,
+        nickname: basicInfo.nickname,
+        password: basicInfo.password,
+      });
+      setIsCheckingPolicy(false);
+
+      nextNicknameError = validation.errors?.nickname ?? '';
+      nextPasswordError = validation.errors?.password ?? passwordErr;
+      nextEmailError = validation.errors?.email ?? '';
+    }
+
+    setNicknameError(nextNicknameError);
+    setPasswordError(nextPasswordError || nextEmailError);
+
+    if (nextNicknameError) {
+      focusAndScroll(nicknameRef.current);
+      return;
+    }
+    if (nextPasswordError || nextEmailError) {
+      focusAndScroll(passwordRef.current);
+      return;
+    }
+    if (passwordConfirmErr) {
+      focusAndScroll(passwordConfirmRef.current);
+      return;
+    }
     if (campusErr) {
       focusAndScroll(campusRef.current);
       return;
     }
     if (genderErr) {
       focusAndScroll(genderRef.current);
-      return;
-    }
-    if (nicknameErr) {
-      focusAndScroll(nicknameRef.current);
-      return;
-    }
-    if (passwordErr) {
-      focusAndScroll(passwordRef.current);
-      return;
-    }
-    if (passwordConfirmErr) {
-      focusAndScroll(passwordConfirmRef.current);
       return;
     }
 
@@ -210,7 +232,12 @@ export function StepBasicInfo({
         />
       </div>
 
-      <StepNavigation onBack={onBack} onNext={handleNext} />
+      <StepNavigation
+        onBack={onBack}
+        onNext={handleNext}
+        nextLabel={isCheckingPolicy ? '확인 중...' : '다음 단계'}
+        disabled={isCheckingPolicy}
+      />
     </div>
   );
 }
