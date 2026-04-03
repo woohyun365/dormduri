@@ -11,6 +11,14 @@
     "./lifestyle": {
       "types": "./dist/lifestyle.d.ts",
       "default": "./dist/lifestyle.js"
+    },
+    "./auth-policy": {
+      "types": "./dist/auth-policy.d.ts",
+      "default": "./dist/auth-policy.js"
+    },
+    "./auth-response": {
+      "types": "./dist/auth-response.d.ts",
+      "default": "./dist/auth-response.js"
     }
   },
   "scripts": {
