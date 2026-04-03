@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./auth-contract": {
+      "types": "./dist/auth-contract.d.ts",
+      "default": "./dist/auth-contract.js"
+    },
     "./lifestyle": {
       "types": "./dist/lifestyle.d.ts",
       "default": "./dist/lifestyle.js"

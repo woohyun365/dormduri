@@ -1,9 +1,17 @@
 import { NextRequest } from 'next/server';
-import { buildJsonResponse, forwardAuthRequest, setAuthCookie } from '../_shared';
+import type { SignupRequest } from '@repo/shared/auth-contract';
+import {
+  buildJsonResponse,
+  forwardAuthRequest,
+  getForwardHeaders,
+  setAuthCookie,
+} from '../_shared';
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as Record<string, unknown>;
-  const { response, json } = await forwardAuthRequest('/auth/signup', body);
+  const body = (await request.json()) as SignupRequest;
+  const { response, json } = await forwardAuthRequest('POST', '/auth/signup', body, {
+    headers: getForwardHeaders(request),
+  });
 
   const nextResponse = buildJsonResponse(response, {
     success: json.success,

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { webEnv } from '@/config/env';
 
 // Next.js auth BFF upstream base URL.
@@ -8,23 +9,51 @@ const AUTH_COOKIE_NAME = 'auth-token';
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 
 export async function forwardAuthRequest(
+  method: 'GET' | 'POST',
   path: string,
-  body: Record<string, unknown>,
+  body?: Record<string, unknown>,
   init?: RequestInit,
 ) {
+  const { headers: initHeaders, ...restInit } = init ?? {};
+  const headers = {
+    ...(body ? { 'Content-Type': 'application/json' } : {}),
+    ...(initHeaders ?? {}),
+  };
+
   const response = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-    body: JSON.stringify(body),
+    method,
+    headers,
+    ...(body ? { body: JSON.stringify(body) } : {}),
     cache: 'no-store',
-    ...init,
+    ...restInit,
   });
 
-  const json = (await response.json()) as Record<string, unknown>;
+  const json = response.headers.get('content-type')?.includes('application/json')
+    ? ((await response.json()) as Record<string, unknown>)
+    : {};
   return { response, json };
+}
+
+export function getForwardHeaders(
+  request: NextRequest,
+  extraHeaders?: Record<string, string | undefined>,
+) {
+  const headers: Record<string, string> = {};
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const userAgent = request.headers.get('user-agent');
+
+  if (forwardedFor) {
+    headers['x-forwarded-for'] = forwardedFor;
+  }
+  if (userAgent) {
+    headers['user-agent'] = userAgent;
+  }
+
+  for (const [key, value] of Object.entries(extraHeaders ?? {})) {
+    if (value) headers[key] = value;
+  }
+
+  return headers;
 }
 
 export function buildJsonResponse(response: Response, json: Record<string, unknown>) {

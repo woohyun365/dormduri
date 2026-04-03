@@ -1,80 +1,82 @@
-import { Body, Controller, Headers, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
-import type { Campus, Gender } from '../generated/prisma/enums.js';
-
-interface EmailBody {
-  email: string;
-}
-
-interface VerifyCodeBody {
-  email: string;
-  code: string;
-}
-
-interface LoginBody {
-  email: string;
-  password: string;
-  rememberMe?: boolean;
-}
-
-interface SignupBody {
-  email: string;
-  password: string;
-  nickname: string;
-  gender: Gender;
-  campus: Campus;
-  lifestyle: Record<string, unknown>;
-  intro: string;
-}
-
-interface ResetPasswordBody {
-  email: string;
-  newPassword: string;
-}
+import {
+  emailRequestSchema,
+  loginRequestSchema,
+  resetPasswordRequestSchema,
+  signupRequestSchema,
+  verificationCodeRequestSchema,
+} from '@repo/shared/auth-contract';
+import { parseRequestBody } from '../common/http/zod-request.js';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('send-signup-code')
-  @Throttle({ default: { limit: 1, ttl: 60_000 } })
-  async sendSignupCode(@Body() body: EmailBody, @Req() req: Request) {
-    return this.authService.sendSignupCode(body.email, req.ip ?? null);
+  async sendSignupCode(@Body() body: unknown, @Req() req: Request) {
+    const parsed = parseRequestBody(emailRequestSchema, body);
+    if (!parsed.ok) return parsed.error;
+    return this.authService.sendSignupCode(parsed.data.email, req.ip ?? null);
   }
 
   @Post('send-reset-code')
-  @Throttle({ default: { limit: 1, ttl: 60_000 } })
-  async sendResetCode(@Body() body: EmailBody, @Req() req: Request) {
-    return this.authService.sendResetCode(body.email, req.ip ?? null);
+  async sendResetCode(@Body() body: unknown, @Req() req: Request) {
+    const parsed = parseRequestBody(emailRequestSchema, body);
+    if (!parsed.ok) return parsed.error;
+    return this.authService.sendResetCode(parsed.data.email, req.ip ?? null);
   }
 
   @Post('verify-email-code')
-  async verifyEmailCode(@Body() body: VerifyCodeBody) {
-    return this.authService.verifyEmailCode(body.email, body.code);
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async verifyEmailCode(@Body() body: unknown) {
+    const parsed = parseRequestBody(verificationCodeRequestSchema, body);
+    if (!parsed.ok) return parsed.error;
+    return this.authService.verifyEmailCode(parsed.data.email, parsed.data.code);
   }
 
   @Post('verify-reset-code')
-  async verifyResetCode(@Body() body: VerifyCodeBody) {
-    return this.authService.verifyResetCode(body.email, body.code);
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async verifyResetCode(@Body() body: unknown) {
+    const parsed = parseRequestBody(verificationCodeRequestSchema, body);
+    if (!parsed.ok) return parsed.error;
+    return this.authService.verifyResetCode(parsed.data.email, parsed.data.code);
+  }
+
+  @Get('session')
+  @HttpCode(200)
+  async session(@Headers('authorization') authorization?: string) {
+    const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
+    return this.authService.getSession(token);
   }
 
   @Post('signup')
-  async signup(@Body() body: SignupBody) {
-    return this.authService.signup(body);
+  async signup(@Body() body: unknown) {
+    const parsed = parseRequestBody(signupRequestSchema, body);
+    if (!parsed.ok) return parsed.error;
+    return this.authService.signup(parsed.data);
   }
 
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(200)
-  async login(@Body() body: LoginBody) {
-    return this.authService.login(body.email, body.password, body.rememberMe ?? false);
+  async login(@Body() body: unknown) {
+    const parsed = parseRequestBody(loginRequestSchema, body);
+    if (!parsed.ok) return parsed.error;
+    return this.authService.login(
+      parsed.data.email,
+      parsed.data.password,
+      parsed.data.rememberMe ?? false,
+    );
   }
 
   @Post('reset-password')
-  async resetPassword(@Body() body: ResetPasswordBody) {
-    return this.authService.resetPassword(body.email, body.newPassword);
+  async resetPassword(@Body() body: unknown) {
+    const parsed = parseRequestBody(resetPasswordRequestSchema, body);
+    if (!parsed.ok) return parsed.error;
+    return this.authService.resetPassword(parsed.data.email, parsed.data.newPassword);
   }
 
   @Post('logout')
