@@ -12,7 +12,6 @@ import {
   isKnuEmail,
   normalizeEmail,
   normalizeNickname,
-  validateNicknameFormat,
   validatePasswordPolicy,
 } from './auth.utils.js';
 import { validateLifestyleData } from './lifestyle.schema.js';
@@ -21,8 +20,8 @@ import { AuthSessionService } from './auth-session.service.js';
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
 import { toAuthUserView } from './auth-user-view.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
+import { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import type { SignupProfileValidationResponse } from '@repo/shared/auth-response';
-import { validateKnuEmailFormat } from '@repo/shared/auth-policy';
 
 @Injectable()
 export class AuthService {
@@ -32,6 +31,7 @@ export class AuthService {
     private readonly sessionService: AuthSessionService,
     private readonly loginAttemptService: AuthLoginAttemptService,
     private readonly moderationService: ModerationService,
+    private readonly signupValidationService: AuthSignupValidationService,
   ) {}
 
   async sendSignupCode(email: string, requestIp: string | null): Promise<GenericSuccessResult> {
@@ -79,47 +79,7 @@ export class AuthService {
     password: string;
     nickname: string;
   }): Promise<SignupProfileValidationResponse> {
-    const errors: NonNullable<SignupProfileValidationResponse['errors']> = {};
-
-    const emailError = validateKnuEmailFormat(input.email);
-    if (emailError) {
-      errors.email = emailError;
-    }
-
-    const passwordError = validatePasswordPolicy(input.password, input.email);
-    if (passwordError) {
-      errors.password = passwordError;
-    }
-
-    const nicknameFormatError = validateNicknameFormat(input.nickname);
-    if (nicknameFormatError) {
-      errors.nickname = nicknameFormatError;
-    } else {
-      const nicknamePolicyError = await this.moderationService.validateNicknamePolicy(
-        input.nickname,
-      );
-      if (nicknamePolicyError) {
-        errors.nickname = nicknamePolicyError;
-      } else {
-        const existingNickname = await this.prisma.user.findUnique({
-          where: { nicknameNormalized: normalizeNickname(input.nickname) },
-          select: { id: true },
-        });
-        if (existingNickname) {
-          errors.nickname = '이미 사용 중인 닉네임입니다.';
-        }
-      }
-    }
-
-    if (Object.keys(errors).length > 0) {
-      return {
-        success: false,
-        error: '입력값을 다시 확인해주세요.',
-        errors,
-      };
-    }
-
-    return { success: true };
+    return this.signupValidationService.validateDraft(input);
   }
 
   async signup(input: SignupInput): Promise<LoginResult> {
@@ -128,7 +88,7 @@ export class AuthService {
       return { success: false, error: '강원대학교 이메일(@kangwon.ac.kr)을 입력해주세요.' };
     }
 
-    const preflight = await this.validateSignupProfileDraft({
+    const preflight = await this.signupValidationService.validateDraft({
       email: input.email,
       password: input.password,
       nickname: input.nickname,
@@ -272,7 +232,6 @@ export class AuthService {
 
     const verifiedCode =
       await this.verificationService.findLatestVerifiedResetCode(emailNormalized);
-
     if (!verifiedCode) {
       return { success: false, error: '비밀번호 재설정 요청을 다시 진행해주세요.' };
     }

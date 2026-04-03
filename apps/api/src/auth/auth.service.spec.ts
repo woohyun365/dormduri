@@ -35,8 +35,11 @@ describe('AuthService orchestration', () => {
   };
 
   const moderationService = {
-    validateNicknamePolicy: jest.fn(),
     moderatePublicText: jest.fn(),
+  };
+
+  const signupValidationService = {
+    validateDraft: jest.fn(),
   };
 
   const service = new AuthService(
@@ -45,12 +48,13 @@ describe('AuthService orchestration', () => {
     sessionService as never,
     loginAttemptService as never,
     moderationService as never,
+    signupValidationService as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
-    moderationService.validateNicknamePolicy.mockResolvedValue(null);
     moderationService.moderatePublicText.mockResolvedValue({ ok: true });
+    signupValidationService.validateDraft.mockResolvedValue({ success: true });
     prisma.$executeRawUnsafe.mockResolvedValue(undefined);
   });
 
@@ -69,10 +73,12 @@ describe('AuthService orchestration', () => {
     );
   });
 
-  it('금지어 닉네임은 signup draft validation에서 차단한다', async () => {
-    moderationService.validateNicknamePolicy.mockResolvedValue(
-      '사용할 수 없는 표현이 포함되어 있습니다.',
-    );
+  it('signup draft validation은 전용 validation service로 위임한다', async () => {
+    signupValidationService.validateDraft.mockResolvedValue({
+      success: false,
+      error: '입력값을 다시 확인해주세요.',
+      errors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+    });
 
     await expect(
       service.validateSignupProfileDraft({
@@ -104,7 +110,6 @@ describe('AuthService orchestration', () => {
   });
 
   it('signup은 검증 완료된 최신 code를 소비하고 세션 발급 결과를 반환한다', async () => {
-    prisma.user.findUnique.mockResolvedValue(null);
     prisma.user.findFirst.mockResolvedValue(null);
     verificationService.findLatestVerifiedSignupCode.mockResolvedValue({ id: 'code-1' });
     prisma.user.create.mockResolvedValue({

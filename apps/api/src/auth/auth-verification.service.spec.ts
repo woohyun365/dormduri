@@ -1,16 +1,18 @@
 import { AuthVerificationService } from './auth-verification.service.js';
 
 describe('AuthVerificationService', () => {
-  const prisma = {
-    verificationCodeRequestLog: {
-      create: jest.fn(),
-    },
-    moderationTerm: {
-      upsert: jest.fn(),
-      findMany: jest.fn(),
-    },
-    $queryRawUnsafe: jest.fn(),
-    $executeRawUnsafe: jest.fn(),
+  const verificationStore = {
+    findRetryAfterSeconds: jest.fn(),
+    createRequestLog: jest.fn(),
+    findLatestVerifiedSignupCode: jest.fn(),
+    findLatestVerifiedResetCode: jest.fn(),
+    consumeVerificationCode: jest.fn(),
+    invalidateActiveSignupCodes: jest.fn(),
+    insertVerificationCode: jest.fn(),
+    findActiveVerificationRecord: jest.fn(),
+    markVerified: jest.fn(),
+    incrementFailedAttempts: jest.fn(),
+    failAndConsume: jest.fn(),
   };
 
   const emailSender = {
@@ -18,20 +20,21 @@ describe('AuthVerificationService', () => {
     sendPasswordResetCode: jest.fn(),
   };
 
-  const service = new AuthVerificationService(prisma as never, emailSender as never);
+  const service = new AuthVerificationService(verificationStore as never, emailSender as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma.$queryRawUnsafe.mockResolvedValue([]);
-    prisma.$executeRawUnsafe.mockResolvedValue(undefined);
+    verificationStore.findRetryAfterSeconds.mockResolvedValue(null);
   });
 
-  it('signup 완료용 verified code 조회는 verifiedAt proof window를 DB 쿼리로 확인한다', async () => {
+  it('signup 완료용 verified code 조회는 store로 위임한다', async () => {
+    verificationStore.findLatestVerifiedSignupCode.mockResolvedValue(null);
+
     await service.findLatestVerifiedSignupCode('test@kangwon.ac.kr');
 
-    expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
-      expect.stringContaining('"verifiedAt" > CURRENT_TIMESTAMP - INTERVAL'),
+    expect(verificationStore.findLatestVerifiedSignupCode).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
+      expect.any(Number),
     );
   });
 
@@ -40,8 +43,7 @@ describe('AuthVerificationService', () => {
 
     await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
 
-    expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith(
-      expect.stringContaining('UPDATE "VerificationCode"'),
+    expect(verificationStore.invalidateActiveSignupCodes).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
     );
     expect(emailSender.sendVerificationCode).toHaveBeenCalledWith(
@@ -59,11 +61,12 @@ describe('AuthVerificationService', () => {
     );
   });
 
-  it('reset verified code 조회는 expiresAt을 DB 현재 시각 기준으로 확인한다', async () => {
+  it('reset verified code 조회는 store로 위임한다', async () => {
+    verificationStore.findLatestVerifiedResetCode.mockResolvedValue(null);
+
     await service.findLatestVerifiedResetCode('test@kangwon.ac.kr');
 
-    expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
-      expect.stringContaining('"expiresAt" > CURRENT_TIMESTAMP'),
+    expect(verificationStore.findLatestVerifiedResetCode).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
     );
   });

@@ -1,7 +1,6 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { VerificationCodePurpose } from '../generated/prisma/enums.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
   CODE_REQUEST_MIN_RESPONSE_MS,
   RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
@@ -19,21 +18,12 @@ import {
   normalizeEmail,
 } from './auth.utils.js';
 import { apiEnv } from '../config/env.js';
-
-interface VerificationCodeHandle {
-  id: string;
-}
-
-interface VerificationRecord {
-  id: string;
-  codeHash: string;
-  failedAttempts: number;
-}
+import { AuthVerificationStore } from './auth-verification.store.js';
 
 @Injectable()
 export class AuthVerificationService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly verificationStore: AuthVerificationStore,
     @Inject(EMAIL_SENDER) private readonly emailSender: EmailSender,
   ) {}
 
@@ -43,31 +33,22 @@ export class AuthVerificationService {
     requestIp: string | null,
   ): Promise<void> {
     const normalizedIp = this.normalizeRequestIp(requestIp);
-    const [latestRequest] = await this.prisma.$queryRawUnsafe<{ retryAfterSeconds: number }[]>(
-      `
-        SELECT CEIL(EXTRACT(EPOCH FROM ("createdAt" + INTERVAL '${apiEnv.codeRequestCooldownSeconds} seconds' - CURRENT_TIMESTAMP)))::int AS "retryAfterSeconds"
-        FROM "VerificationCodeRequestLog"
-        WHERE "emailNormalized" = $1
-          AND purpose = $2::"VerificationCodePurpose"
-          AND "requestIp" = $3
-          AND "createdAt" > CURRENT_TIMESTAMP - INTERVAL '${apiEnv.codeRequestCooldownSeconds} seconds'
-        ORDER BY "createdAt" DESC
-        LIMIT 1
-      `,
+    const retryAfterSeconds = await this.verificationStore.findRetryAfterSeconds(
       emailNormalized,
       purpose,
       normalizedIp,
+      apiEnv.codeRequestCooldownSeconds,
     );
 
-    if (!latestRequest || latestRequest.retryAfterSeconds <= 0) {
+    if (!retryAfterSeconds || retryAfterSeconds <= 0) {
       return;
     }
 
     throw new HttpException(
       {
         success: false,
-        error: `너무 잦은 요청이에요. ${latestRequest.retryAfterSeconds}초 후 다시 시도해주세요.`,
-        retryAfterSeconds: latestRequest.retryAfterSeconds,
+        error: `너무 잦은 요청이에요. ${retryAfterSeconds}초 후 다시 시도해주세요.`,
+        retryAfterSeconds,
       },
       HttpStatus.TOO_MANY_REQUESTS,
     );
@@ -78,13 +59,11 @@ export class AuthVerificationService {
     purpose: VerificationCodePurpose,
     requestIp: string | null,
   ): Promise<void> {
-    await this.prisma.verificationCodeRequestLog.create({
-      data: {
-        emailNormalized,
-        purpose,
-        requestIp: this.normalizeRequestIp(requestIp),
-      },
-    });
+    await this.verificationStore.createRequestLog(
+      emailNormalized,
+      purpose,
+      this.normalizeRequestIp(requestIp),
+    );
   }
 
   async maybeSendSignupCode(
@@ -129,53 +108,19 @@ export class AuthVerificationService {
     return this.verifyCode(email, 'RESET_PASSWORD', code);
   }
 
-  async findLatestVerifiedSignupCode(
-    emailNormalized: string,
-  ): Promise<VerificationCodeHandle | null> {
-    const [record] = await this.prisma.$queryRawUnsafe<VerificationCodeHandle[]>(
-      `
-        SELECT id
-        FROM "VerificationCode"
-        WHERE "emailNormalized" = $1
-          AND purpose = 'SIGNUP'::"VerificationCodePurpose"
-          AND "verifiedAt" IS NOT NULL
-          AND "verifiedAt" > CURRENT_TIMESTAMP - INTERVAL '${SIGNUP_VERIFIED_PROOF_TTL_SECONDS} seconds'
-          AND "consumedAt" IS NULL
-        ORDER BY "issuedAt" DESC
-        LIMIT 1
-      `,
+  async findLatestVerifiedSignupCode(emailNormalized: string) {
+    return this.verificationStore.findLatestVerifiedSignupCode(
       emailNormalized,
+      SIGNUP_VERIFIED_PROOF_TTL_SECONDS,
     );
-
-    return record ?? null;
   }
 
-  async findLatestVerifiedResetCode(
-    emailNormalized: string,
-  ): Promise<VerificationCodeHandle | null> {
-    const [record] = await this.prisma.$queryRawUnsafe<VerificationCodeHandle[]>(
-      `
-        SELECT id
-        FROM "VerificationCode"
-        WHERE "emailNormalized" = $1
-          AND purpose = 'RESET_PASSWORD'::"VerificationCodePurpose"
-          AND "verifiedAt" IS NOT NULL
-          AND "consumedAt" IS NULL
-          AND "expiresAt" > CURRENT_TIMESTAMP
-        ORDER BY "issuedAt" DESC
-        LIMIT 1
-      `,
-      emailNormalized,
-    );
-
-    return record ?? null;
+  async findLatestVerifiedResetCode(emailNormalized: string) {
+    return this.verificationStore.findLatestVerifiedResetCode(emailNormalized);
   }
 
   async consumeVerificationCode(id: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "VerificationCode" SET "consumedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
-      id,
-    );
+    await this.verificationStore.consumeVerificationCode(id);
   }
 
   private async issueVerificationCode(
@@ -191,43 +136,17 @@ export class AuthVerificationService {
     const codeHash = hashVerificationCode(emailNormalized, purpose, code);
 
     if (purpose === 'SIGNUP') {
-      await this.prisma.$executeRawUnsafe(
-        `
-          UPDATE "VerificationCode"
-          SET "consumedAt" = CURRENT_TIMESTAMP
-          WHERE "emailNormalized" = $1
-            AND purpose = 'SIGNUP'::"VerificationCodePurpose"
-            AND "consumedAt" IS NULL
-        `,
-        emailNormalized,
-      );
+      await this.verificationStore.invalidateActiveSignupCodes(emailNormalized);
     }
 
-    await this.prisma.$executeRawUnsafe(
-      `
-        INSERT INTO "VerificationCode" (
-          id,
-          "emailNormalized",
-          purpose,
-          "codeHash",
-          "expiresAt",
-          "requestIp"
-        )
-        VALUES (
-          $1,
-          $2,
-          $3::"VerificationCodePurpose",
-          $4,
-          CURRENT_TIMESTAMP + INTERVAL '${ttlSeconds} seconds',
-          $5
-        )
-      `,
-      randomUUID(),
+    await this.verificationStore.insertVerificationCode({
+      id: randomUUID(),
       emailNormalized,
       purpose,
       codeHash,
+      ttlSeconds,
       requestIp,
-    );
+    });
 
     if (purpose === 'SIGNUP') {
       await this.emailSender.sendVerificationCode({
@@ -255,18 +174,7 @@ export class AuthVerificationService {
     code: string,
   ): Promise<GenericSuccessResult> {
     const emailNormalized = normalizeEmail(email);
-    const [record] = await this.prisma.$queryRawUnsafe<VerificationRecord[]>(
-      `
-        SELECT id, "codeHash", "failedAttempts"
-        FROM "VerificationCode"
-        WHERE "emailNormalized" = $1
-          AND purpose = $2::"VerificationCodePurpose"
-          AND "consumedAt" IS NULL
-          AND "expiresAt" > CURRENT_TIMESTAMP
-          AND "failedAttempts" < $3
-        ORDER BY "issuedAt" DESC
-        LIMIT 1
-      `,
+    const record = await this.verificationStore.findActiveVerificationRecord(
       emailNormalized,
       purpose,
       VERIFICATION_CODE_MAX_ATTEMPTS,
@@ -278,35 +186,20 @@ export class AuthVerificationService {
 
     const incomingHash = hashVerificationCode(emailNormalized, purpose, code);
     if (incomingHash !== record.codeHash) {
-      await this.handleFailedVerification(record);
+      await this.handleFailedVerification(record.id, record.failedAttempts);
       return { success: false, error: '인증 코드가 올바르지 않습니다.' };
     }
 
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "VerificationCode" SET "verifiedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
-      record.id,
-    );
-
+    await this.verificationStore.markVerified(record.id);
     return { success: true };
   }
 
-  private async handleFailedVerification(record: VerificationRecord): Promise<void> {
-    if (record.failedAttempts + 1 >= VERIFICATION_CODE_MAX_ATTEMPTS) {
-      await this.prisma.$executeRawUnsafe(
-        `
-          UPDATE "VerificationCode"
-          SET "failedAttempts" = "failedAttempts" + 1,
-              "consumedAt" = CURRENT_TIMESTAMP
-          WHERE id = $1
-        `,
-        record.id,
-      );
+  private async handleFailedVerification(id: string, failedAttempts: number): Promise<void> {
+    if (failedAttempts + 1 >= VERIFICATION_CODE_MAX_ATTEMPTS) {
+      await this.verificationStore.failAndConsume(id);
       return;
     }
 
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "VerificationCode" SET "failedAttempts" = "failedAttempts" + 1 WHERE id = $1`,
-      record.id,
-    );
+    await this.verificationStore.incrementFailedAttempts(id);
   }
 }

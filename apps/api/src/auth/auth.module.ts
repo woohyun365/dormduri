@@ -9,7 +9,9 @@ import { AuthController } from './auth.controller.js';
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
 import { AuthService } from './auth.service.js';
 import { AuthSessionService } from './auth-session.service.js';
+import { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import { AuthVerificationService } from './auth-verification.service.js';
+import { AuthVerificationStore } from './auth-verification.store.js';
 import { EMAIL_SENDER } from './email-sender.interface.js';
 import { StubEmailSenderService } from './stub-email-sender.service.js';
 
@@ -29,7 +31,9 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
   providers: [
     AuthService,
     AuthVerificationService,
+    AuthVerificationStore,
     AuthSessionService,
+    AuthSignupValidationService,
     AuthLoginAttemptService,
     StubEmailSenderService,
     {
