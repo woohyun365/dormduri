@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { InputField } from '@/components/form/InputField';
 import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
 import { validateKnuEmail } from '@/utils/validation';
 import { Mail } from 'lucide-react';
+import { focusAndScroll } from '@/utils/focus';
 
 interface StepEmailProps {
   email: string;
@@ -16,12 +17,14 @@ interface StepEmailProps {
 
 export function StepEmail({ email, onEmailChange, onSendCode, onGoToLogin }: StepEmailProps) {
   const [emailError, setEmailError] = useState('');
+  const emailRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const error = validateKnuEmail(email);
     if (error) {
       setEmailError(error);
+      focusAndScroll(emailRef.current);
       return;
     }
     setEmailError('');
@@ -37,6 +40,7 @@ export function StepEmail({ email, onEmailChange, onSendCode, onGoToLogin }: Ste
       />
 
       <InputField
+        ref={emailRef}
         label="이메일"
         type="email"
         placeholder="example@kangwon.ac.kr"

@@ -196,4 +196,38 @@ describe('PasswordReset', () => {
       consoleSpy.mockRestore();
     });
   });
+
+  describe('T-5: 전송 중 이메일 변경 시 이전 요청을 무시한다', () => {
+    it('이메일 변경 후 이전 요청 완료가 verification 진입을 트리거하지 않는다', async () => {
+      let resolveSend!: (v: { success: boolean; error?: string }) => void;
+      mockSendCode.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSend = resolve;
+          }),
+      );
+
+      render(<PasswordReset />);
+
+      const emailInput = screen.getByLabelText('이메일');
+      fireEvent.change(emailInput, { target: { value: 'first@kangwon.ac.kr' } });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '인증 코드 전송' }));
+      });
+
+      fireEvent.change(emailInput, { target: { value: 'test@kangwon.ac.kr' } });
+
+      await act(async () => {
+        resolveSend({ success: true });
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(screen.getByText('비밀번호 찾기')).toBeInTheDocument();
+      expect(screen.queryByText('인증 코드 확인')).not.toBeInTheDocument();
+    });
+  });
 });

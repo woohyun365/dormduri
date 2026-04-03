@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { forwardRef, useId, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { FieldError } from './FieldError';
 
@@ -17,18 +17,21 @@ interface InputFieldProps {
   required?: boolean;
 }
 
-export function InputField({
-  label,
-  type = 'text',
-  placeholder,
-  value,
-  onChange,
-  error,
-  helper,
-  disabled = false,
-  maxLength,
-  required = false,
-}: InputFieldProps) {
+export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function InputField(
+  {
+    label,
+    type = 'text',
+    placeholder,
+    value,
+    onChange,
+    error,
+    helper,
+    disabled = false,
+    maxLength,
+    required = false,
+  },
+  ref,
+) {
   const id = useId();
   const errorId = `${id}-error`;
   const [showPassword, setShowPassword] = useState(false);
@@ -45,6 +48,7 @@ export function InputField({
       </label>
       <div className="relative">
         <input
+          ref={ref}
           id={id}
           type={inputType}
           placeholder={placeholder}
@@ -80,4 +84,4 @@ export function InputField({
       {helper && !error && <p className="text-sm text-[var(--knu-text-tertiary)] mt-2">{helper}</p>}
     </div>
   );
-}
+});

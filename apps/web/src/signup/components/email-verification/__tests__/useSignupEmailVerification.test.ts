@@ -181,6 +181,38 @@ describe('useSignupEmailVerification', () => {
       expect(result.current.verificationCode).toBe('');
       expect(result.current.emailError).toBe('');
     });
+
+    it('전송 중 이메일 변경 시 이전 요청의 완료를 무시한다', async () => {
+      let resolveSend!: (value: { success: boolean }) => void;
+      mockSendCode.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSend = resolve;
+          }),
+      );
+
+      const { result, rerender } = renderEmailVerification('first@kangwon.ac.kr');
+
+      await act(async () => {
+        void result.current.handleSendCode();
+      });
+
+      rerender({ email: 'second@kangwon.ac.kr' });
+      act(() => {
+        result.current.handleEmailChange();
+      });
+
+      await act(async () => {
+        resolveSend({ success: true });
+      });
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(result.current.isCodeSent).toBe(false);
+      expect(result.current.requestedEmail).toBe('');
+      expect(result.current.isSending).toBe(false);
+    });
   });
 
   describe('cleanup', () => {

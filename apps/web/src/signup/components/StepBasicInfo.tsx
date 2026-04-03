@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { InputField } from '@/components/form/InputField';
 import { StepHeader } from '@/components/StepHeader';
 import { StepNavigation } from '@/components/form/StepNavigation';
@@ -11,6 +11,7 @@ import { CAMPUS_OPTIONS, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/cons
 import { PasswordRequirementList } from '@/components/auth/PasswordRequirementList';
 import { NICKNAME_MAX } from '@/constants/ui';
 import { User } from 'lucide-react';
+import { focusAndScroll } from '@/utils/focus';
 
 import type { Campus } from '@/types/profile';
 
@@ -42,6 +43,11 @@ export function StepBasicInfo({
   const [passwordError, setPasswordError] = useState('');
   const [passwordConfirmError, setPasswordConfirmError] = useState('');
   const [genderError, setGenderError] = useState('');
+  const campusRef = useRef<HTMLDivElement>(null);
+  const genderRef = useRef<HTMLDivElement>(null);
+  const nicknameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const passwordConfirmRef = useRef<HTMLInputElement>(null);
 
   const handleNext = () => {
     const campusErr = basicInfo.campus ? '' : '캠퍼스를 선택해주세요.';
@@ -59,7 +65,26 @@ export function StepBasicInfo({
     setPasswordConfirmError(passwordConfirmErr);
     setGenderError(genderErr);
 
-    if (campusErr || nicknameErr || passwordErr || passwordConfirmErr || genderErr) return;
+    if (campusErr) {
+      focusAndScroll(campusRef.current);
+      return;
+    }
+    if (genderErr) {
+      focusAndScroll(genderRef.current);
+      return;
+    }
+    if (nicknameErr) {
+      focusAndScroll(nicknameRef.current);
+      return;
+    }
+    if (passwordErr) {
+      focusAndScroll(passwordRef.current);
+      return;
+    }
+    if (passwordConfirmErr) {
+      focusAndScroll(passwordConfirmRef.current);
+      return;
+    }
 
     onBasicInfoChange({ ...basicInfo, nickname: basicInfo.nickname.trim() });
     onNext();
@@ -80,7 +105,7 @@ export function StepBasicInfo({
       </div>
 
       <div className="space-y-4">
-        <div>
+        <div ref={campusRef} tabIndex={-1}>
           <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
             캠퍼스 <span className="text-red-500">*</span>
           </label>
@@ -108,7 +133,7 @@ export function StepBasicInfo({
           <FieldError message={campusError} />
         </div>
 
-        <div>
+        <div ref={genderRef} tabIndex={-1}>
           <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
             성별 <span className="text-red-500">*</span>
           </label>
@@ -138,6 +163,7 @@ export function StepBasicInfo({
         </div>
 
         <InputField
+          ref={nicknameRef}
           label="닉네임"
           type="text"
           placeholder="한글, 영문, 숫자 2~8자"
@@ -154,6 +180,7 @@ export function StepBasicInfo({
 
         <div>
           <InputField
+            ref={passwordRef}
             label="비밀번호"
             type="password"
             placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
@@ -169,6 +196,7 @@ export function StepBasicInfo({
         </div>
 
         <InputField
+          ref={passwordConfirmRef}
           label="비밀번호 확인"
           type="password"
           placeholder="비밀번호를 다시 입력해주세요"

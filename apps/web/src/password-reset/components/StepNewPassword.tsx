@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { InputField } from '@/components/form/InputField';
 import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
@@ -9,6 +9,7 @@ import { PasswordRequirementList } from '@/components/auth/PasswordRequirementLi
 import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/constants/auth';
 import { authApi } from '@/api/auth';
 import { AlertCircle, Lock } from 'lucide-react';
+import { focusAndScroll } from '@/utils/focus';
 
 interface StepNewPasswordProps {
   email: string;
@@ -22,6 +23,8 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
   const [confirmError, setConfirmError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +35,11 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
     setConfirmError(cfError);
 
     if (pwError || cfError) {
+      if (pwError) {
+        focusAndScroll(passwordRef.current);
+      } else if (cfError) {
+        focusAndScroll(confirmRef.current);
+      }
       return;
     }
 
@@ -70,6 +78,7 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
 
       <div>
         <InputField
+          ref={passwordRef}
           label="새 비밀번호"
           type="password"
           placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
@@ -85,6 +94,7 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
       </div>
 
       <InputField
+        ref={confirmRef}
         label="비밀번호 확인"
         type="password"
         placeholder="비밀번호를 다시 입력해주세요"

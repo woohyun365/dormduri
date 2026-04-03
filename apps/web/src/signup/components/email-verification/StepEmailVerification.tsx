@@ -7,6 +7,7 @@ import { useSignupEmailVerification } from './useSignupEmailVerification';
 import { EmailVerificationRequestPanel } from './EmailVerificationRequestPanel';
 import { EmailVerificationCodePanel } from './EmailVerificationCodePanel';
 import { Mail, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
 
 interface StepEmailVerificationProps {
   email: string;
@@ -62,8 +63,29 @@ export function StepEmailVerification({
           />
         )}
 
+        {!verification.isCodeSent && !isVerified && (
+          <p className="text-xs text-[var(--knu-text-tertiary)]">
+            이미 계정이 있다면{' '}
+            <Link
+              href="/login"
+              className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
+            >
+              로그인
+            </Link>
+            이나{' '}
+            <Link
+              href="/password-reset"
+              className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
+            >
+              비밀번호 찾기
+            </Link>
+            를 이용해주세요.
+          </p>
+        )}
+
         {verification.isCodeSent && !isVerified && (
           <EmailVerificationCodePanel
+            email={verification.requestedEmail || email}
             verificationCode={verification.verificationCode}
             codeError={verification.codeError}
             isVerifying={verification.isVerifying}
