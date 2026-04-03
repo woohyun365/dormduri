@@ -3,8 +3,8 @@
 import { Skeleton, SkeletonCard } from './Skeleton';
 
 /**
- * 앱 초기 로딩 시 표시하는 스켈레톤.
- * GatewayPage (인증 확인) + Main.tsx (데이터 로딩) 양쪽에서 사용.
+ * Main 내부 데이터 로딩 시 표시하는 스켈레톤.
+ * `/` 게이트웨이 초기 진입에는 `GatewaySkeleton`을 사용한다.
  */
 export function AppShellSkeleton() {
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { InputField } from '@/components/form/InputField';
 import { Button } from '@/components/Button';
 import { StepHeader } from '@/components/StepHeader';
@@ -8,6 +8,7 @@ import { StepHeader } from '@/components/StepHeader';
 import { authApi } from '@/api/auth';
 import { Mail } from 'lucide-react';
 import Link from 'next/link';
+import { focusAndScroll } from '@/utils/focus';
 
 interface StepVerificationProps {
   email: string;
@@ -33,11 +34,13 @@ export function StepVerification({
   const [verificationCode, setVerificationCode] = useState('');
   const [codeError, setCodeError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const codeRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!verificationCode) {
       setCodeError('인증 코드를 입력해주세요.');
+      focusAndScroll(codeRef.current);
       return;
     }
     setIsLoading(true);
@@ -66,6 +69,7 @@ export function StepVerification({
 
       <div className="relative">
         <InputField
+          ref={codeRef}
           label="인증 코드"
           type="text"
           placeholder="6자리 인증 코드"

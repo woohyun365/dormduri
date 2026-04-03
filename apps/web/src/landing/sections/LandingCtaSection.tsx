@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { Section } from '../components/Section';
+import { LandingPrimaryCtaLink } from '../components/LandingPrimaryCtaLink';
 import { Mail } from 'lucide-react';
 
 export function LandingCtaSection() {
@@ -14,13 +14,10 @@ export function LandingCtaSection() {
           <br />
           나에게 맞는 룸메를 찾아보세요
         </p>
-        <Link
-          href="/signup"
-          className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white shadow-sm hover:shadow-md h-14 px-8 text-lg"
-        >
+        <LandingPrimaryCtaLink href="/signup">
           <Mail className="w-5 h-5" />
           이메일로 시작하기
-        </Link>
+        </LandingPrimaryCtaLink>
       </div>
     </Section>
   );

@@ -3,7 +3,7 @@
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import Landing from '@/landing/Landing';
 import Main from '@/main/Main';
-import { AppShellSkeleton } from './AppShellSkeleton';
+import { GatewaySkeleton } from './GatewaySkeleton';
 
 /**
  * `/` 게이트웨이: 로그인 상태에 따라 Main 또는 Landing을 렌더링한다.
@@ -19,7 +19,7 @@ export default function GatewayPage() {
   const { user, isLoading } = useCurrentUser();
 
   if (isLoading) {
-    return <AppShellSkeleton />;
+    return <GatewaySkeleton />;
   }
 
   if (!user) {

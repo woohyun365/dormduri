@@ -8,6 +8,7 @@ import { ChipSelectField } from '@/components/form/ChipSelectField';
 import { DrinkingPrivacyNote } from '@/components/form/DrinkingPrivacyNote';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES, LIVING_FIELDS } from '@/constants/lifestyle';
 import type { LifestyleData } from '@/types/lifestyle';
+import { focusAndScroll } from '@/utils/focus';
 
 interface StepLivingPatternProps {
   lifestyle: LifestyleData;
@@ -64,7 +65,7 @@ export function StepLivingPattern({ lifestyle, onUpdate, onNext, onBack }: StepL
 
     const firstError = LIVING_FIELDS.find((f) => newErrors[f]);
     if (firstError) {
-      fieldRefs.current[firstError]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      focusAndScroll(fieldRefs.current[firstError]);
       return;
     }
 
@@ -91,7 +92,7 @@ export function StepLivingPattern({ lifestyle, onUpdate, onNext, onBack }: StepL
 
       <div className="space-y-8">
         {LIVING_FIELDS.map((field) => (
-          <div key={field} ref={setFieldRef(field)}>
+          <div key={field} ref={setFieldRef(field)} tabIndex={-1}>
             <ChipSelectField
               label={LIFESTYLE_FIELD_NAMES[field]}
               options={LIFESTYLE_LABELS[field]}

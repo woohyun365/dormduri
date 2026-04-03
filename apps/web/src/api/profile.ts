@@ -1,7 +1,7 @@
 // TODO: BE API 연동 시 실제 endpoint로 교체
 
 import type { Campus, RoommateProfile, UserProfile } from '@/types/profile';
-import type { MockUser } from '@/__fixtures__/mock-db';
+import { toUserProfile } from '@/auth/to-user-profile';
 
 async function getMockData() {
   if (process.env.NODE_ENV === 'development') {
@@ -10,20 +10,6 @@ async function getMockData() {
     return { mockRawProfiles, mockDb };
   }
   return null;
-}
-
-function toUserProfile(user: MockUser): UserProfile {
-  return {
-    id: user.id,
-    nickname: user.nickname,
-    gender: user.gender,
-    campus: user.campus,
-    dormitoryId: user.dormitoryId,
-    lifestyle: user.lifestyle,
-    intro: user.intro,
-    messageToRoommate: null,
-    additional: { college: null, grade: null, mbti: null, birthYear: null },
-  };
 }
 
 export const profileApi = {

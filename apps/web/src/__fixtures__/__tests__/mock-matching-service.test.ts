@@ -20,7 +20,6 @@ describe('mockMatchingService initFromCounts', () => {
       dormitoryId: 'dasan',
       lifestyle: {} as any,
       intro: '',
-      lastDrinkingChangeSeasonId: null,
     });
 
     const service = getMockMatchingService();

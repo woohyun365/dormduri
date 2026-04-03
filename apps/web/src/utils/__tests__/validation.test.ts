@@ -57,12 +57,12 @@ describe('validatePassword', () => {
     expect(validatePassword('abcd1234')).toBe('');
   });
 
-  it('72자 경계값 -> 통과', () => {
-    expect(validatePassword('a1' + 'x'.repeat(70))).toBe('');
+  it('128자 경계값 -> 통과', () => {
+    expect(validatePassword('a1' + 'x'.repeat(126))).toBe('');
   });
 
-  it('73자 (max 초과) -> 에러', () => {
-    expect(validatePassword('a1' + 'x'.repeat(71))).toBeTruthy();
+  it('129자 (max 초과) -> 에러', () => {
+    expect(validatePassword('a1' + 'x'.repeat(127))).toBeTruthy();
   });
 
   it('영문만 -> 에러', () => {
@@ -121,9 +121,6 @@ describe('validatePasswordConfirm', () => {
 });
 
 describe('validateNickname', () => {
-  // NICKNAME_MIN = 2, NICKNAME_MAX = 8
-
-  // 길이 검증
   it('정상 닉네임 -> 빈 문자열', () => {
     expect(validateNickname('곰두리')).toBe('');
   });
@@ -148,7 +145,6 @@ describe('validateNickname', () => {
     expect(validateNickname('가나다라마바사아자')).toBeTruthy();
   });
 
-  // 허용 문자
   it('영문 닉네임 -> 통과', () => {
     expect(validateNickname('roommate')).toBe('');
   });
@@ -181,7 +177,6 @@ describe('validateNickname', () => {
     expect(validateNickname('곰두리😀')).toBeTruthy();
   });
 
-  // trim
   it('앞뒤 공백 -> trim 후 통과', () => {
     expect(validateNickname('  곰두리  ')).toBe('');
   });
@@ -190,41 +185,8 @@ describe('validateNickname', () => {
     expect(validateNickname('   ')).toBeTruthy();
   });
 
-  // 예약어 — 한글 (포함 검사)
-  it('예약어 "관리자" 정확 일치 -> 에러', () => {
-    expect(validateNickname('관리자')).toBeTruthy();
-  });
-
-  it('예약어 "관리자" 포함 -> 에러', () => {
-    expect(validateNickname('가짜관리자')).toBeTruthy();
-  });
-
-  it('예약어 "테스트" 포함 -> 에러', () => {
-    expect(validateNickname('테스트123')).toBeTruthy();
-  });
-
-  it('예약어 "운영팀" 포함 -> 에러', () => {
-    expect(validateNickname('운영팀원')).toBeTruthy();
-  });
-
-  // 예약어 — 영문 (정확 일치)
-  it('예약어 "admin" 정확 일치 -> 에러', () => {
-    expect(validateNickname('admin')).toBeTruthy();
-  });
-
-  it('예약어 "Admin" 대소문자 무시 -> 에러', () => {
-    expect(validateNickname('Admin')).toBeTruthy();
-  });
-
-  it('영문 예약어 포함하는 일반 단어 -> 통과', () => {
-    expect(validateNickname('greatest')).toBe('');
-  });
-
-  it('예약어 "demo" 정확 일치 -> 에러', () => {
-    expect(validateNickname('demo')).toBeTruthy();
-  });
-
-  it('예약어 "test" 정확 일치 -> 에러', () => {
-    expect(validateNickname('test')).toBeTruthy();
+  it('예약어/금지어는 FE 구조 검증 대상이 아니라 통과한다', () => {
+    expect(validateNickname('관리자')).toBe('');
+    expect(validateNickname('섹스')).toBe('');
   });
 });

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
+import AuthPanelLoader from '@/components/AuthPanelLoader';
 import DevPanelLoader from '@/components/DevPanelLoader';
 import SeasonDevToolLoader from '@/components/SeasonDevToolLoader';
 import './globals.css';
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
         <Toaster position="top-center" richColors closeButton duration={3000} />
+        <AuthPanelLoader />
         <DevPanelLoader />
         <SeasonDevToolLoader />
       </body>

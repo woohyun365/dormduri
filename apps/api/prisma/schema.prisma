@@ -6,3 +6,118 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Gender {
+  M
+  F
+}
+
+enum Campus {
+  CHUNCHEON
+  SAMCHEOK
+  DOGYE
+}
+
+enum VerificationCodePurpose {
+  SIGNUP
+  RESET_PASSWORD
+}
+
+enum ModerationTermCategory {
+  BLOCKED_TEXT
+  RESERVED_NICKNAME
+}
+
+enum ModerationMatchMode {
+  EXACT
+  INCLUDES
+}
+
+enum ModerationSurface {
+  ALL
+  NICKNAME
+  INTRO
+}
+
+model User {
+  id                 String        @id @default(uuid())
+  email              String
+  emailNormalized    String        @unique
+  passwordHash       String
+  nickname           String
+  nicknameNormalized String        @unique
+  gender             Gender
+  campus             Campus
+  lifestyle          Json
+  intro              String        @default("")
+  dormitoryId        String?
+  emailVerifiedAt    DateTime?     @db.Timestamptz(3)
+  createdAt          DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt          DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  authSessions       AuthSession[]
+}
+
+model LoginAttempt {
+  id              String    @id @default(uuid())
+  emailNormalized String    @unique
+  failureCount    Int       @default(0)
+  lockedUntil     DateTime? @db.Timestamptz(3)
+  lastFailedAt    DateTime? @db.Timestamptz(3)
+  createdAt       DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt       DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+}
+
+model VerificationCode {
+  id              String                  @id @default(uuid())
+  emailNormalized String
+  purpose         VerificationCodePurpose
+  codeHash        String
+  failedAttempts  Int                     @default(0)
+  issuedAt        DateTime                @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  expiresAt       DateTime                @db.Timestamptz(3)
+  verifiedAt      DateTime?               @db.Timestamptz(3)
+  consumedAt      DateTime?               @db.Timestamptz(3)
+  requestIp       String?
+
+  @@index([emailNormalized, purpose])
+}
+
+model VerificationCodeRequestLog {
+  id              String                  @id @default(uuid())
+  emailNormalized String
+  purpose         VerificationCodePurpose
+  requestIp       String
+  createdAt       DateTime                @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+
+  @@index([emailNormalized, purpose, requestIp, createdAt])
+  @@index([requestIp, createdAt])
+}
+
+model AuthSession {
+  id               String    @id @default(uuid())
+  userId           String
+  rememberMe       Boolean   @default(false)
+  refreshTokenHash String?
+  expiresAt        DateTime  @db.Timestamptz(3)
+  revokedAt        DateTime? @db.Timestamptz(3)
+  createdAt        DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt        DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ModerationTerm {
+  id             String                 @id @default(uuid())
+  term           String
+  normalizedTerm String
+  category       ModerationTermCategory
+  matchMode      ModerationMatchMode
+  surface        ModerationSurface
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt      DateTime               @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+
+  @@unique([normalizedTerm, category, matchMode, surface])
+  @@index([surface, category, isActive])
+}

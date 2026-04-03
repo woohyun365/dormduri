@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import PasswordReset from '../PasswordReset';
 import { authApi } from '@/api/auth';
-import { VERIFICATION_CODE_TTL } from '@/constants/auth';
+import { RESET_PASSWORD_VERIFICATION_CODE_TTL } from '@/constants/auth';
 
 // --- Mocks ---
 
@@ -34,13 +34,13 @@ vi.mock('lucide-react', () => ({
 
 vi.mock('@/api/auth', () => ({
   authApi: {
-    sendVerificationCode: vi.fn(),
+    sendResetCode: vi.fn(),
     verifyResetCode: vi.fn(),
     resetPassword: vi.fn(),
   },
 }));
 
-const mockSendCode = vi.mocked(authApi.sendVerificationCode);
+const mockSendCode = vi.mocked(authApi.sendResetCode);
 
 // --- Helpers ---
 
@@ -108,7 +108,7 @@ describe('PasswordReset', () => {
 
       // 카운트다운 만료
       act(() => {
-        vi.advanceTimersByTime(VERIFICATION_CODE_TTL * 1000);
+        vi.advanceTimersByTime(RESET_PASSWORD_VERIFICATION_CODE_TTL * 1000);
       });
 
       // 만료 메시지 표시 + 타이머 소멸
@@ -137,7 +137,7 @@ describe('PasswordReset', () => {
 
       // 카운트다운 만료
       act(() => {
-        vi.advanceTimersByTime(VERIFICATION_CODE_TTL * 1000);
+        vi.advanceTimersByTime(RESET_PASSWORD_VERIFICATION_CODE_TTL * 1000);
       });
 
       // 지연 응답으로 교체하여 isSending 상태 확인
@@ -184,7 +184,7 @@ describe('PasswordReset', () => {
 
       // 남은 타이머/인터벌 실행 — cleanup에 의해 안전하게 처리되어야 함
       act(() => {
-        vi.advanceTimersByTime(VERIFICATION_CODE_TTL * 1000);
+        vi.advanceTimersByTime(RESET_PASSWORD_VERIFICATION_CODE_TTL * 1000);
       });
 
       // setState 관련 에러 없음
@@ -194,6 +194,40 @@ describe('PasswordReset', () => {
       expect(stateErrors).toHaveLength(0);
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('T-5: 전송 중 이메일 변경 시 이전 요청을 무시한다', () => {
+    it('이메일 변경 후 이전 요청 완료가 verification 진입을 트리거하지 않는다', async () => {
+      let resolveSend!: (v: { success: boolean; error?: string }) => void;
+      mockSendCode.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveSend = resolve;
+          }),
+      );
+
+      render(<PasswordReset />);
+
+      const emailInput = screen.getByLabelText('이메일');
+      fireEvent.change(emailInput, { target: { value: 'first@kangwon.ac.kr' } });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '인증 코드 전송' }));
+      });
+
+      fireEvent.change(emailInput, { target: { value: 'test@kangwon.ac.kr' } });
+
+      await act(async () => {
+        resolveSend({ success: true });
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(screen.getByText('비밀번호 찾기')).toBeInTheDocument();
+      expect(screen.queryByText('인증 코드 확인')).not.toBeInTheDocument();
     });
   });
 });

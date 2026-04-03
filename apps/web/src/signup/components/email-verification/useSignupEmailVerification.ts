@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useCountdown } from '@/hooks/useCountdown';
 import { validateKnuEmail } from '@/utils/validation';
-import { VERIFICATION_CODE_TTL } from '@/constants/auth';
+import { SIGNUP_VERIFICATION_CODE_TTL } from '@/constants/auth';
 import { authApi } from '@/api/auth';
 
 interface UseSignupEmailVerificationParams {
@@ -21,7 +21,9 @@ export function useSignupEmailVerification({
   const [isCodeSent, setIsCodeSent] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [requestedEmail, setRequestedEmail] = useState('');
   const sendTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const sendRequestIdRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -35,22 +37,30 @@ export function useSignupEmailVerification({
     start: startCountdown,
     stop: stopCountdown,
     formatTime,
-  } = useCountdown(VERIFICATION_CODE_TTL);
+  } = useCountdown(SIGNUP_VERIFICATION_CODE_TTL);
 
   const handleSendCode = async () => {
+    if (isSending) return;
+
     const error = validateKnuEmail(email);
     if (error) {
       setEmailError(error);
       return;
     }
 
+    const requestEmail = email.trim();
+    const requestId = ++sendRequestIdRef.current;
     setEmailError('');
     setIsSending(true);
 
     try {
-      const result = await authApi.sendVerificationCode(email);
+      const result = await authApi.sendSignupCode(requestEmail);
+      if (requestId !== sendRequestIdRef.current) return;
+
       if (result.success) {
+        setRequestedEmail(requestEmail);
         sendTimerRef.current = setTimeout(() => {
+          if (requestId !== sendRequestIdRef.current) return;
           setIsSending(false);
           setIsCodeSent(true);
           startCountdown();
@@ -72,7 +82,7 @@ export function useSignupEmailVerification({
     }
     setIsVerifying(true);
     try {
-      const result = await authApi.verifyEmailCode(email, verificationCode);
+      const result = await authApi.verifyEmailCode(requestedEmail || email, verificationCode);
       if (result.success) {
         setCodeError('');
         onVerified();
@@ -93,13 +103,18 @@ export function useSignupEmailVerification({
   };
 
   const handleEmailChange = () => {
-    setEmailError('');
-    if (isCodeSent) {
-      stopCountdown();
-      setIsCodeSent(false);
-      setVerificationCode('');
-      setCodeError('');
+    sendRequestIdRef.current += 1;
+    if (sendTimerRef.current) {
+      clearTimeout(sendTimerRef.current);
+      sendTimerRef.current = null;
     }
+    setIsSending(false);
+    setRequestedEmail('');
+    setEmailError('');
+    stopCountdown();
+    setIsCodeSent(false);
+    setVerificationCode('');
+    setCodeError('');
   };
 
   return {
@@ -109,6 +124,7 @@ export function useSignupEmailVerification({
     isCodeSent,
     isSending,
     isVerifying,
+    requestedEmail,
     isCountdownActive,
     countdown,
     formatTime,

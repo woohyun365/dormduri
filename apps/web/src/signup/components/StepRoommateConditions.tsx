@@ -10,6 +10,7 @@ import { DrinkingPrivacyNote } from '@/components/form/DrinkingPrivacyNote';
 import { LIFESTYLE_LABELS, LIFESTYLE_FIELD_NAMES, CONDITION_FIELDS } from '@/constants/lifestyle';
 import { INTRO_MAX_LENGTH } from '@/constants/ui';
 import type { LifestyleData } from '@/types/lifestyle';
+import { focusAndScroll } from '@/utils/focus';
 
 type ConditionField = (typeof CONDITION_FIELDS)[number];
 
@@ -83,14 +84,11 @@ export function StepRoommateConditions({
 
     const firstConditionError = CONDITION_FIELDS.find((f) => newErrors[f]);
     if (firstConditionError) {
-      fieldRefs.current[firstConditionError]?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
+      focusAndScroll(fieldRefs.current[firstConditionError]);
       return;
     }
     if (newErrors.intro) {
-      fieldRefs.current.intro?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      focusAndScroll(fieldRefs.current.intro);
       return;
     }
 
@@ -133,7 +131,7 @@ export function StepRoommateConditions({
         {CONDITION_FIELDS.map((field) => {
           const isRequired = field === 'drinkingTolerance';
           return (
-            <div key={field} ref={setFieldRef(field)}>
+            <div key={field} ref={setFieldRef(field)} tabIndex={-1}>
               <ChipSelectField
                 label={LIFESTYLE_FIELD_NAMES[field]}
                 options={LIFESTYLE_LABELS[field]}
@@ -151,7 +149,7 @@ export function StepRoommateConditions({
       </div>
 
       {/* Intro */}
-      <div ref={setFieldRef('intro')}>
+      <div ref={setFieldRef('intro')} tabIndex={-1}>
         <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-3">
           자기소개 <span className="text-red-500">*</span>
         </label>

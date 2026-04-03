@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
 import { ProgressBar } from '@/components/form/ProgressBar';
@@ -17,6 +17,7 @@ import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/Button';
 import Link from 'next/link';
+import { focusAndScroll } from '@/utils/focus';
 
 const TOTAL_STEPS = 7;
 const STORAGE_KEY = 'signup-draft';
@@ -69,8 +70,12 @@ export default function Signup() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [resumeStepAfterVerification, setResumeStepAfterVerification] = useState<number | null>(
+    null,
+  );
 
   const [isRestored, setIsRestored] = useState(false);
+  const submitErrorRef = useRef<HTMLDivElement | null>(null);
 
   // Restore from sessionStorage on mount
   useEffect(() => {
@@ -131,6 +136,11 @@ export default function Signup() {
     }
   }, [isRestored, currentStep, email, isEmailVerified, terms, basicInfo, intro, lifestyle]);
 
+  useEffect(() => {
+    if (!submitError) return;
+    focusAndScroll(submitErrorRef.current);
+  }, [submitError]);
+
   // Prevent mobile pull-to-refresh on body (scroll container)
   useEffect(() => {
     document.body.style.overscrollBehaviorY = 'none';
@@ -138,6 +148,8 @@ export default function Signup() {
       document.body.style.overscrollBehaviorY = '';
     };
   }, []);
+
+  const isVerificationExpiredError = submitError === '이메일 인증을 먼저 완료해주세요.';
 
   const handleNext = () => {
     setCurrentStep((prev) => prev + 1);
@@ -148,6 +160,24 @@ export default function Signup() {
     window.scrollTo(0, 0);
   };
   const handleGoToHome = () => router.replace('/');
+
+  const handleEmailVerified = () => {
+    setIsEmailVerified(true);
+    if (resumeStepAfterVerification) {
+      setSubmitError('');
+      setCurrentStep(resumeStepAfterVerification);
+      setResumeStepAfterVerification(null);
+      window.scrollTo(0, 0);
+    }
+  };
+
+  const handleRestartEmailVerification = () => {
+    setSubmitError('');
+    setIsEmailVerified(false);
+    setResumeStepAfterVerification(6);
+    setCurrentStep(1);
+    window.scrollTo(0, 0);
+  };
 
   const handleSignupSubmit = async () => {
     setIsSubmitting(true);
@@ -217,9 +247,14 @@ export default function Signup() {
         {currentStep === 1 && (
           <StepEmailVerification
             email={email}
-            onEmailChange={setEmail}
+            onEmailChange={(nextEmail) => {
+              setEmail(nextEmail);
+              if (resumeStepAfterVerification !== null) {
+                setResumeStepAfterVerification(null);
+              }
+            }}
             isVerified={isEmailVerified}
-            onVerified={() => setIsEmailVerified(true)}
+            onVerified={handleEmailVerified}
             onNext={handleNext}
           />
         )}
@@ -259,18 +294,29 @@ export default function Signup() {
         {currentStep === 6 && (
           <>
             {submitError && (
-              <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
+              <div
+                ref={submitErrorRef}
+                tabIndex={-1}
+                role="alert"
+                className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3"
+              >
                 <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm text-red-900 font-medium mb-3">{submitError}</p>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={handleSignupSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? '처리 중...' : '다시 시도'}
-                  </Button>
+                  {isVerificationExpiredError ? (
+                    <Button variant="outline" size="lg" onClick={handleRestartEmailVerification}>
+                      이메일 다시 인증하기
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      onClick={handleSignupSubmit}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? '처리 중...' : '다시 시도'}
+                    </Button>
+                  )}
                 </div>
               </div>
             )}

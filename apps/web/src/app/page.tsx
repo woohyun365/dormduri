@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   description: '강원대학교 기숙사 룸메이트 매칭 서비스',
 };
 
-// useCurrentUser가 클라이언트 전용 상태(localStorage)에 의존.
-// 정적 생성 시 "로딩 중..." 만 렌더되어 SSG 이점이 없으므로 dynamic으로 명시.
+// `/` 게이트웨이는 클라이언트에서 `/api/auth/session`을 확인해 Landing/Main을 분기한다.
+// 첫 렌더에서 세션을 확인해야 하므로 동적으로 처리한다.
 export const dynamic = 'force-dynamic';
 
 export default function Home() {

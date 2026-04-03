@@ -32,9 +32,21 @@ export default defineConfig([
       },
       sourceType: 'module',
       parserOptions: {
-        projectService: true,
+        projectService: {
+          allowDefaultProject: ['prisma.config.ts', 'prisma/seed.js'],
+        },
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+
+  {
+    files: ['prisma/seed.js'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
   {

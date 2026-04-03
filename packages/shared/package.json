@@ -1,0 +1,30 @@
+{
+  "name": "@repo/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./auth-contract": {
+      "types": "./dist/auth-contract.d.ts",
+      "default": "./dist/auth-contract.js"
+    },
+    "./lifestyle": {
+      "types": "./dist/lifestyle.d.ts",
+      "default": "./dist/lifestyle.js"
+    },
+    "./auth-policy": {
+      "types": "./dist/auth-policy.d.ts",
+      "default": "./dist/auth-policy.js"
+    },
+    "./auth-response": {
+      "types": "./dist/auth-response.d.ts",
+      "default": "./dist/auth-response.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  }
+}
