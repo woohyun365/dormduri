@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { Section } from '../components/Section';
+import { LandingPrimaryCtaLink } from '../components/LandingPrimaryCtaLink';
 import { MockupCard } from '../components/MockupCard';
 import { ScrollToButton } from '../components/ScrollToButton';
 import { Mail, Sparkles } from 'lucide-react';
@@ -26,13 +26,10 @@ export function LandingHeroSection() {
             본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
-            <Link
-              href="/signup"
-              className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white shadow-sm hover:shadow-md h-14 px-8 text-lg"
-            >
+            <LandingPrimaryCtaLink href="/signup">
               <Mail className="w-5 h-5" />
               이메일로 시작하기
-            </Link>
+            </LandingPrimaryCtaLink>
             <ScrollToButton
               targetId="features"
               className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 border-2 border-[var(--knu-border)] hover:border-[var(--knu-primary)] hover:bg-[var(--knu-primary-light)] text-[var(--knu-text-primary)] h-14 px-8 text-lg"
