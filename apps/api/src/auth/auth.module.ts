@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from '../common/prisma/prisma.module.js';
+import { apiEnv } from '../config/env.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { EMAIL_SENDER } from './email-sender.interface.js';
@@ -15,7 +16,7 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
     ThrottlerModule.forRoot([
       {
         ttl: 60_000,
-        limit: 30,
+        limit: apiEnv.authThrottleLimit,
       },
     ]),
   ],

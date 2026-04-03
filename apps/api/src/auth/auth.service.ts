@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
 import { randomUUID } from 'node:crypto';
@@ -11,12 +11,18 @@ import {
   JWT_ACCESS_TTL_SECONDS,
   LOGIN_LOCKOUT_ATTEMPTS,
   LOGIN_LOCKOUT_TTL_SECONDS,
-  RESET_CODE_MIN_RESPONSE_MS,
+  CODE_REQUEST_MIN_RESPONSE_MS,
   VERIFICATION_CODE_TTL_SECONDS,
+  VERIFICATION_CODE_MAX_ATTEMPTS,
 } from './auth.constants.js';
 import { EMAIL_SENDER } from './email-sender.interface.js';
 import type { EmailSender } from './email-sender.interface.js';
-import type { AuthUserView, GenericSuccessResult, LoginResult } from './auth.types.js';
+import type {
+  AuthUserView,
+  GenericSuccessResult,
+  LoginResult,
+  SessionStatusResult,
+} from './auth.types.js';
 import {
   ensureMinDuration,
   generateVerificationCode,
@@ -29,6 +35,7 @@ import {
 } from './auth.utils.js';
 import { validateLifestyleData, type LifestyleData } from './lifestyle.schema.js';
 import { apiEnv } from '../config/env.js';
+import { moderatePublicText } from '../common/moderation/text-moderation.js';
 
 interface SignupInput {
   email: string;
@@ -49,27 +56,34 @@ export class AuthService {
   ) {}
 
   async sendSignupCode(email: string, requestIp: string | null): Promise<GenericSuccessResult> {
+    const startedAt = Date.now();
     const emailNormalized = normalizeEmail(email);
     if (!isKnuEmail(emailNormalized)) {
       return { success: false, error: '강원대학교 이메일(@kangwon.ac.kr)을 입력해주세요.' };
     }
+
+    await this.assertCodeRequestAllowed(emailNormalized, 'SIGNUP', requestIp);
 
     const existingUser = await this.prisma.user.findUnique({
       where: { emailNormalized },
       select: { id: true },
     });
 
-    if (existingUser) {
-      return { success: false, error: '이미 가입된 이메일입니다.' };
+    if (!existingUser) {
+      await this.issueVerificationCode(emailNormalized, 'SIGNUP', requestIp);
     }
 
-    await this.issueVerificationCode(emailNormalized, 'SIGNUP', requestIp);
+    await this.recordCodeRequest(emailNormalized, 'SIGNUP', requestIp);
+
+    await ensureMinDuration(startedAt, CODE_REQUEST_MIN_RESPONSE_MS);
     return { success: true };
   }
 
   async sendResetCode(email: string, requestIp: string | null): Promise<GenericSuccessResult> {
     const startedAt = Date.now();
     const emailNormalized = normalizeEmail(email);
+    await this.assertCodeRequestAllowed(emailNormalized, 'RESET_PASSWORD', requestIp);
+
     const user = await this.prisma.user.findUnique({
       where: { emailNormalized },
       select: { id: true },
@@ -79,7 +93,9 @@ export class AuthService {
       await this.issueVerificationCode(emailNormalized, 'RESET_PASSWORD', requestIp);
     }
 
-    await ensureMinDuration(startedAt, RESET_CODE_MIN_RESPONSE_MS);
+    await this.recordCodeRequest(emailNormalized, 'RESET_PASSWORD', requestIp);
+
+    await ensureMinDuration(startedAt, CODE_REQUEST_MIN_RESPONSE_MS);
 
     return { success: true };
   }
@@ -90,6 +106,45 @@ export class AuthService {
 
   async verifyResetCode(email: string, code: string): Promise<GenericSuccessResult> {
     return this.verifyCode(email, 'RESET_PASSWORD', code);
+  }
+
+  async getSession(token: string | null): Promise<SessionStatusResult> {
+    if (!token) {
+      return { authenticated: false };
+    }
+
+    try {
+      const payload = await this.jwtService.verifyAsync<{ sid?: string; sub?: string }>(token, {
+        secret: this.getJwtSecret(),
+      });
+
+      if (!payload.sid || !payload.sub) {
+        return { authenticated: false };
+      }
+
+      const session = await this.prisma.authSession.findFirst({
+        where: {
+          id: payload.sid,
+          userId: payload.sub,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!session) {
+        return { authenticated: false };
+      }
+
+      return {
+        authenticated: true,
+        user: this.toAuthUserView(session.user),
+      };
+    } catch {
+      return { authenticated: false };
+    }
   }
 
   async signup(input: SignupInput): Promise<LoginResult> {
@@ -111,6 +166,11 @@ export class AuthService {
     const lifestyleValidation = validateLifestyleData(input.lifestyle);
     if (!lifestyleValidation.ok) {
       return { success: false, error: lifestyleValidation.error };
+    }
+
+    const introModeration = moderatePublicText(input.intro, 'intro');
+    if (!introModeration.ok) {
+      return { success: false, error: introModeration.error };
     }
 
     const existingUser = await this.prisma.user.findFirst({
@@ -350,6 +410,62 @@ export class AuthService {
     });
   }
 
+  private normalizeRequestIp(requestIp: string | null): string {
+    return requestIp?.trim() || 'unknown';
+  }
+
+  private async assertCodeRequestAllowed(
+    emailNormalized: string,
+    purpose: VerificationCodePurpose,
+    requestIp: string | null,
+  ) {
+    const normalizedIp = this.normalizeRequestIp(requestIp);
+    const latestRequest = await this.prisma.verificationCodeRequestLog.findFirst({
+      where: {
+        emailNormalized,
+        purpose,
+        requestIp: normalizedIp,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    if (!latestRequest) {
+      return;
+    }
+
+    const elapsedMs = Date.now() - latestRequest.createdAt.getTime();
+    const remainingMs = apiEnv.codeRequestCooldownSeconds * 1000 - elapsedMs;
+
+    if (remainingMs <= 0) {
+      return;
+    }
+
+    const retryAfterSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
+    throw new HttpException(
+      {
+        success: false,
+        error: `너무 잦은 요청이에요. ${retryAfterSeconds}초 후 다시 시도해주세요.`,
+        retryAfterSeconds,
+      },
+      HttpStatus.TOO_MANY_REQUESTS,
+    );
+  }
+
+  private async recordCodeRequest(
+    emailNormalized: string,
+    purpose: VerificationCodePurpose,
+    requestIp: string | null,
+  ) {
+    await this.prisma.verificationCodeRequestLog.create({
+      data: {
+        emailNormalized,
+        purpose,
+        requestIp: this.normalizeRequestIp(requestIp),
+      },
+    });
+  }
+
   private async verifyCode(
     email: string,
     purpose: VerificationCodePurpose,
@@ -365,18 +481,38 @@ export class AuthService {
       orderBy: { issuedAt: 'desc' },
     });
 
-    if (!record || record.expiresAt.getTime() <= Date.now()) {
+    if (
+      !record ||
+      record.expiresAt.getTime() <= Date.now() ||
+      record.failedAttempts >= VERIFICATION_CODE_MAX_ATTEMPTS
+    ) {
       return { success: false, error: '인증 코드가 올바르지 않습니다.' };
     }
 
     const incomingHash = hashVerificationCode(emailNormalized, purpose, code);
     if (incomingHash !== record.codeHash) {
+      const nextFailedAttempts = Number(record.failedAttempts) + 1;
+      const updateData: { failedAttempts: number; consumedAt?: Date } = {
+        failedAttempts: nextFailedAttempts,
+      };
+
+      if (nextFailedAttempts >= VERIFICATION_CODE_MAX_ATTEMPTS) {
+        updateData.consumedAt = new Date();
+      }
+
+      await this.prisma.verificationCode.update({
+        where: { id: record.id },
+        data: updateData,
+      });
+
       return { success: false, error: '인증 코드가 올바르지 않습니다.' };
     }
 
     await this.prisma.verificationCode.update({
       where: { id: record.id },
-      data: { verifiedAt: new Date() },
+      data: {
+        verifiedAt: new Date(),
+      },
     });
 
     return { success: true };

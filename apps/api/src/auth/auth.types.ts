@@ -24,4 +24,10 @@ export interface LoginResult {
 export interface GenericSuccessResult {
   success: boolean;
   error?: string;
+  retryAfterSeconds?: number;
+}
+
+export interface SessionStatusResult {
+  authenticated: boolean;
+  user?: AuthUserView;
 }

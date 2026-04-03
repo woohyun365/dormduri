@@ -3,10 +3,12 @@ services:
     image: postgres:16-alpine
     container_name: knu-roommate-postgres-dev
     restart: unless-stopped
+    command: ['postgres', '-c', 'timezone=Asia/Seoul']
     environment:
       POSTGRES_DB: knu_roommate
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      TZ: Asia/Seoul
     ports:
       - '5432:5432'
     volumes:

@@ -8,6 +8,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "pnpm --filter @repo/shared build && prisma generate && nest build",
+    "dev": "prisma generate && nest start --watch",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push --schema prisma/schema.prisma",
