@@ -1,11 +1,4 @@
-import { NextRequest } from 'next/server';
 import type { VerificationCodeRequest } from '@repo/shared/auth-contract';
-import { buildJsonResponse, forwardAuthRequest, getForwardHeaders } from '../_shared';
+import { createForwardPostHandler } from '../_post-route';
 
-export async function POST(request: NextRequest) {
-  const body = (await request.json()) as VerificationCodeRequest;
-  const { response, json } = await forwardAuthRequest('POST', '/auth/verify-reset-code', body, {
-    headers: getForwardHeaders(request),
-  });
-  return buildJsonResponse(response, json);
-}
+export const POST = createForwardPostHandler<VerificationCodeRequest>('/auth/verify-reset-code');

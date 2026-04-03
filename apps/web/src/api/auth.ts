@@ -7,6 +7,7 @@ import type {
   VerificationCodeRequest,
 } from '@repo/shared/auth-contract';
 import type {
+  DevAuthUsersResponse,
   LoginResponse,
   ResetPasswordResponse,
   SessionResponse,
@@ -15,42 +16,6 @@ import type {
   VerifyCodeResponse,
 } from '@repo/shared/auth-response';
 import { validateKnuEmailFormat, validatePasswordStructure } from '@repo/shared/auth-policy';
-import type { LifestyleData } from '@/types/lifestyle';
-
-async function getMockDb() {
-  if (process.env.NODE_ENV === 'development') {
-    const { mockDb } = await import('@/__fixtures__/mock-db');
-    return mockDb;
-  }
-  return null;
-}
-
-async function syncCurrentUser(
-  user: SessionResponse['user'] | LoginResponse['user'] | SignupResponse['user'],
-  password: string = '',
-) {
-  const db = await getMockDb();
-  if (!db || !user) return;
-  const syncedUser = {
-    id: user.id,
-    email: user.email,
-    password,
-    nickname: user.nickname,
-    gender: user.gender,
-    campus: user.campus,
-    dormitoryId: user.dormitoryId,
-    lifestyle: user.lifestyle as LifestyleData,
-    intro: user.intro,
-  };
-  db.upsertUser(syncedUser);
-  db.setCurrentUser(syncedUser);
-}
-
-async function clearCurrentUser() {
-  const db = await getMockDb();
-  if (!db) return;
-  db.setCurrentUser(null);
-}
 
 async function requestJson<T>(
   path: string,
@@ -100,22 +65,16 @@ function mapSendCodeError(
 }
 
 export const authApi = {
-  login: async (
+  login: (
     email: LoginRequest['email'],
     password: LoginRequest['password'],
     rememberMe: LoginRequest['rememberMe'] = false,
   ): Promise<LoginResponse> => {
-    const result = await postJson<LoginResponse>('/api/auth/login', {
+    return postJson<LoginResponse>('/api/auth/login', {
       email,
       password,
       rememberMe,
     });
-
-    if (result.success) {
-      await syncCurrentUser(result.user, password);
-    }
-
-    return result;
   },
 
   verifyEmailCode: (
@@ -137,11 +96,7 @@ export const authApi = {
       return { success: false, error: passwordErr };
     }
 
-    const result = await postJson<SignupResponse>('/api/auth/signup', data);
-    if (result.success) {
-      await syncCurrentUser(result.user, data.password);
-    }
-    return result;
+    return postJson<SignupResponse>('/api/auth/signup', data);
   },
 
   resetPassword: async (
@@ -169,18 +124,31 @@ export const authApi = {
       cache: 'no-store',
     });
 
-    if (status === 200 && data.authenticated && data.user) {
-      await syncCurrentUser(data.user);
+    if (status === 200) {
       return data;
     }
 
-    await clearCurrentUser();
     return { authenticated: false };
+  },
+
+  getDevUsers: async (): Promise<DevAuthUsersResponse> => {
+    const { status, data } = await requestJson<DevAuthUsersResponse>('/api/auth/dev-users', {
+      method: 'GET',
+      cache: 'no-store',
+    });
+
+    if (status >= 400 || data.success !== true) {
+      return {
+        success: false,
+        error: data.error ?? '개발용 유저 목록을 불러오지 못했습니다.',
+      };
+    }
+
+    return data;
   },
 
   logout: async (): Promise<void> => {
     await postJson<{ success: boolean }>('/api/auth/logout', {});
-    await clearCurrentUser();
   },
 
   sendSignupCode: async (
