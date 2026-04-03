@@ -22,6 +22,27 @@ export interface AuthUserView {
   dormitoryId: string | null;
 }
 
+export interface AuthDevUserView {
+  id: string;
+  email: string;
+  nickname: string;
+  gender: Gender;
+  campus: Campus;
+  dormitoryId: string | null;
+  createdAt: string;
+}
+
+export interface AuthDevPresetUserView extends AuthDevUserView {
+  presetKey: string;
+  loginPassword: string;
+}
+
+export interface AuthDevPresetGroupView {
+  campus: Campus;
+  label: string;
+  users: AuthDevPresetUserView[];
+}
+
 export interface LoginResult {
   success: boolean;
   accessToken?: string;
@@ -40,4 +61,9 @@ export interface GenericSuccessResult {
 export interface SessionStatusResult {
   authenticated: boolean;
   user?: AuthUserView;
+}
+
+export interface DevAuthUsersResult extends GenericSuccessResult {
+  presetGroups?: AuthDevPresetGroupView[];
+  users?: AuthDevUserView[];
 }

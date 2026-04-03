@@ -7,6 +7,7 @@ describe('AuthController', () => {
     verifyEmailCode: jest.fn(),
     verifyResetCode: jest.fn(),
     getSession: jest.fn(),
+    getDevUsers: jest.fn(),
     validateSignupProfileDraft: jest.fn(),
     signup: jest.fn(),
     login: jest.fn(),

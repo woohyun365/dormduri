@@ -53,6 +53,12 @@ export class AuthController {
     return this.authService.getSession(token);
   }
 
+  @Get('dev/users')
+  @HttpCode(200)
+  async devUsers() {
+    return this.authService.getDevUsers();
+  }
+
   @Post('validate-signup-profile')
   async validateSignupProfile(@Body() body: unknown) {
     const parsed = parseRequestBody(signupProfileValidationRequestSchema, body);
