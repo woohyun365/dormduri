@@ -1,150 +1,125 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { Injectable } from '@nestjs/common';
 import { hash as argonHash, verify as argonVerify } from '@node-rs/argon2';
-import { randomUUID } from 'node:crypto';
-import type { Campus, Gender, VerificationCodePurpose } from '../generated/prisma/enums.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
-import {
-  AUTH_SESSION_REMEMBER_ME_TTL_SECONDS,
-  AUTH_SESSION_TTL_SECONDS,
-  JWT_ACCESS_TTL_SECONDS,
-  LOGIN_LOCKOUT_ATTEMPTS,
-  LOGIN_LOCKOUT_TTL_SECONDS,
-  CODE_REQUEST_MIN_RESPONSE_MS,
-  VERIFICATION_CODE_TTL_SECONDS,
-  VERIFICATION_CODE_MAX_ATTEMPTS,
-} from './auth.constants.js';
-import { EMAIL_SENDER } from './email-sender.interface.js';
-import type { EmailSender } from './email-sender.interface.js';
 import type {
-  AuthUserView,
   GenericSuccessResult,
   LoginResult,
   SessionStatusResult,
+  SignupInput,
 } from './auth.types.js';
 import {
-  ensureMinDuration,
-  generateVerificationCode,
-  hashVerificationCode,
   isKnuEmail,
   normalizeEmail,
   normalizeNickname,
-  validateNicknamePolicy,
+  validateNicknameFormat,
   validatePasswordPolicy,
 } from './auth.utils.js';
-import { validateLifestyleData, type LifestyleData } from './lifestyle.schema.js';
-import { apiEnv } from '../config/env.js';
-import { moderatePublicText } from '../common/moderation/text-moderation.js';
-
-interface SignupInput {
-  email: string;
-  password: string;
-  nickname: string;
-  gender: Gender;
-  campus: Campus;
-  lifestyle: Record<string, unknown>;
-  intro: string;
-}
+import { validateLifestyleData } from './lifestyle.schema.js';
+import { AuthVerificationService } from './auth-verification.service.js';
+import { AuthSessionService } from './auth-session.service.js';
+import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
+import { toAuthUserView } from './auth-user-view.js';
+import { ModerationService } from '../common/moderation/moderation.service.js';
+import type { SignupProfileValidationResponse } from '@repo/shared/auth-response';
+import { validateKnuEmailFormat } from '@repo/shared/auth-policy';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
-    @Inject(EMAIL_SENDER) private readonly emailSender: EmailSender,
+    private readonly verificationService: AuthVerificationService,
+    private readonly sessionService: AuthSessionService,
+    private readonly loginAttemptService: AuthLoginAttemptService,
+    private readonly moderationService: ModerationService,
   ) {}
 
   async sendSignupCode(email: string, requestIp: string | null): Promise<GenericSuccessResult> {
-    const startedAt = Date.now();
     const emailNormalized = normalizeEmail(email);
     if (!isKnuEmail(emailNormalized)) {
       return { success: false, error: '강원대학교 이메일(@kangwon.ac.kr)을 입력해주세요.' };
     }
-
-    await this.assertCodeRequestAllowed(emailNormalized, 'SIGNUP', requestIp);
 
     const existingUser = await this.prisma.user.findUnique({
       where: { emailNormalized },
       select: { id: true },
     });
 
-    if (!existingUser) {
-      await this.issueVerificationCode(emailNormalized, 'SIGNUP', requestIp);
-    }
-
-    await this.recordCodeRequest(emailNormalized, 'SIGNUP', requestIp);
-
-    await ensureMinDuration(startedAt, CODE_REQUEST_MIN_RESPONSE_MS);
-    return { success: true };
+    return this.verificationService.maybeSendSignupCode(
+      emailNormalized,
+      Boolean(existingUser),
+      requestIp,
+    );
   }
 
   async sendResetCode(email: string, requestIp: string | null): Promise<GenericSuccessResult> {
-    const startedAt = Date.now();
     const emailNormalized = normalizeEmail(email);
-    await this.assertCodeRequestAllowed(emailNormalized, 'RESET_PASSWORD', requestIp);
-
     const user = await this.prisma.user.findUnique({
       where: { emailNormalized },
       select: { id: true },
     });
 
-    if (user) {
-      await this.issueVerificationCode(emailNormalized, 'RESET_PASSWORD', requestIp);
-    }
-
-    await this.recordCodeRequest(emailNormalized, 'RESET_PASSWORD', requestIp);
-
-    await ensureMinDuration(startedAt, CODE_REQUEST_MIN_RESPONSE_MS);
-
-    return { success: true };
+    return this.verificationService.maybeSendResetCode(emailNormalized, Boolean(user), requestIp);
   }
 
   async verifyEmailCode(email: string, code: string): Promise<GenericSuccessResult> {
-    return this.verifyCode(email, 'SIGNUP', code);
+    return this.verificationService.verifyEmailCode(email, code);
   }
 
   async verifyResetCode(email: string, code: string): Promise<GenericSuccessResult> {
-    return this.verifyCode(email, 'RESET_PASSWORD', code);
+    return this.verificationService.verifyResetCode(email, code);
   }
 
   async getSession(token: string | null): Promise<SessionStatusResult> {
-    if (!token) {
-      return { authenticated: false };
+    return this.sessionService.getSession(token);
+  }
+
+  async validateSignupProfileDraft(input: {
+    email: string;
+    password: string;
+    nickname: string;
+  }): Promise<SignupProfileValidationResponse> {
+    const errors: NonNullable<SignupProfileValidationResponse['errors']> = {};
+
+    const emailError = validateKnuEmailFormat(input.email);
+    if (emailError) {
+      errors.email = emailError;
     }
 
-    try {
-      const payload = await this.jwtService.verifyAsync<{ sid?: string; sub?: string }>(token, {
-        secret: this.getJwtSecret(),
-      });
+    const passwordError = validatePasswordPolicy(input.password, input.email);
+    if (passwordError) {
+      errors.password = passwordError;
+    }
 
-      if (!payload.sid || !payload.sub) {
-        return { authenticated: false };
+    const nicknameFormatError = validateNicknameFormat(input.nickname);
+    if (nicknameFormatError) {
+      errors.nickname = nicknameFormatError;
+    } else {
+      const nicknamePolicyError = await this.moderationService.validateNicknamePolicy(
+        input.nickname,
+      );
+      if (nicknamePolicyError) {
+        errors.nickname = nicknamePolicyError;
+      } else {
+        const existingNickname = await this.prisma.user.findUnique({
+          where: { nicknameNormalized: normalizeNickname(input.nickname) },
+          select: { id: true },
+        });
+        if (existingNickname) {
+          errors.nickname = '이미 사용 중인 닉네임입니다.';
+        }
       }
+    }
 
-      const session = await this.prisma.authSession.findFirst({
-        where: {
-          id: payload.sid,
-          userId: payload.sub,
-          revokedAt: null,
-          expiresAt: { gt: new Date() },
-        },
-        include: {
-          user: true,
-        },
-      });
-
-      if (!session) {
-        return { authenticated: false };
-      }
-
+    if (Object.keys(errors).length > 0) {
       return {
-        authenticated: true,
-        user: this.toAuthUserView(session.user),
+        success: false,
+        error: '입력값을 다시 확인해주세요.',
+        errors,
       };
-    } catch {
-      return { authenticated: false };
     }
+
+    return { success: true };
   }
 
   async signup(input: SignupInput): Promise<LoginResult> {
@@ -153,14 +128,21 @@ export class AuthService {
       return { success: false, error: '강원대학교 이메일(@kangwon.ac.kr)을 입력해주세요.' };
     }
 
-    const passwordError = validatePasswordPolicy(input.password, input.email);
-    if (passwordError) {
-      return { success: false, error: passwordError };
-    }
+    const preflight = await this.validateSignupProfileDraft({
+      email: input.email,
+      password: input.password,
+      nickname: input.nickname,
+    });
 
-    const nicknameError = validateNicknamePolicy(input.nickname);
-    if (nicknameError) {
-      return { success: false, error: nicknameError };
+    if (!preflight.success) {
+      return {
+        success: false,
+        error:
+          preflight.errors?.nickname ??
+          preflight.errors?.password ??
+          preflight.errors?.email ??
+          preflight.error,
+      };
     }
 
     const lifestyleValidation = validateLifestyleData(input.lifestyle);
@@ -168,14 +150,15 @@ export class AuthService {
       return { success: false, error: lifestyleValidation.error };
     }
 
-    const introModeration = moderatePublicText(input.intro, 'intro');
+    const introModeration = await this.moderationService.moderatePublicText(input.intro, 'intro');
     if (!introModeration.ok) {
       return { success: false, error: introModeration.error };
     }
 
+    const normalizedNickname = normalizeNickname(input.nickname);
     const existingUser = await this.prisma.user.findFirst({
       where: {
-        OR: [{ emailNormalized }, { nicknameNormalized: normalizeNickname(input.nickname) }],
+        OR: [{ emailNormalized }, { nicknameNormalized: normalizedNickname }],
       },
       select: { emailNormalized: true, nicknameNormalized: true },
     });
@@ -183,32 +166,17 @@ export class AuthService {
     if (existingUser?.emailNormalized === emailNormalized) {
       return { success: false, error: '이미 가입된 이메일입니다.' };
     }
-    if (existingUser?.nicknameNormalized === normalizeNickname(input.nickname)) {
+    if (existingUser?.nicknameNormalized === normalizedNickname) {
       return { success: false, error: '이미 사용 중인 닉네임입니다.' };
     }
 
-    const verifiedCode = await this.prisma.verificationCode.findFirst({
-      where: {
-        emailNormalized,
-        purpose: 'SIGNUP',
-        verifiedAt: { not: null },
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { issuedAt: 'desc' },
-    });
-
+    const verifiedCode =
+      await this.verificationService.findLatestVerifiedSignupCode(emailNormalized);
     if (!verifiedCode) {
       return { success: false, error: '이메일 인증을 먼저 완료해주세요.' };
     }
 
-    const passwordHash = await argonHash(input.password, {
-      algorithm: 2,
-      memoryCost: 8192,
-      timeCost: 2,
-      parallelism: 1,
-      outputLen: 32,
-    });
+    const passwordHash = await this.hashPassword(input.password);
 
     let user;
     try {
@@ -218,12 +186,11 @@ export class AuthService {
           emailNormalized,
           passwordHash,
           nickname: input.nickname.trim(),
-          nicknameNormalized: normalizeNickname(input.nickname),
+          nicknameNormalized: normalizedNickname,
           gender: input.gender,
           campus: input.campus,
           intro: input.intro.trim(),
           lifestyle: lifestyleValidation.value,
-          emailVerifiedAt: new Date(),
         },
       });
     } catch (error) {
@@ -239,32 +206,25 @@ export class AuthService {
       throw error;
     }
 
-    await this.prisma.verificationCode.update({
-      where: { id: verifiedCode.id },
-      data: { consumedAt: new Date() },
-    });
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE "User" SET "emailVerifiedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
+      user.id,
+    );
+    await this.verificationService.consumeVerificationCode(verifiedCode.id);
 
-    const authResult = await this.issueAuthResult(user.id, user.email, false);
+    const authResult = await this.sessionService.issueAuthResult(user.id, user.email, false);
     return {
       success: true,
       accessToken: authResult.accessToken,
-      user: this.toAuthUserView(user),
+      user: toAuthUserView(user),
     };
   }
 
   async login(email: string, password: string, rememberMe: boolean): Promise<LoginResult> {
     const emailNormalized = normalizeEmail(email);
-    const attempt = await this.prisma.loginAttempt.findUnique({
-      where: { emailNormalized },
-    });
-
-    if (attempt?.lockedUntil && attempt.lockedUntil.getTime() > Date.now()) {
-      return {
-        success: false,
-        locked: true,
-        remainingSeconds: Math.ceil((attempt.lockedUntil.getTime() - Date.now()) / 1000),
-        error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
-      };
+    const activeLock = await this.loginAttemptService.getActiveLock(emailNormalized);
+    if (activeLock) {
+      return activeLock;
     }
 
     const user = await this.prisma.user.findUnique({
@@ -272,23 +232,21 @@ export class AuthService {
     });
 
     if (!user) {
-      return this.recordLoginFailure(emailNormalized);
+      return this.loginAttemptService.recordLoginFailure(emailNormalized);
     }
 
     const passwordMatches = await argonVerify(user.passwordHash, password);
     if (!passwordMatches) {
-      return this.recordLoginFailure(emailNormalized);
+      return this.loginAttemptService.recordLoginFailure(emailNormalized);
     }
 
-    await this.prisma.loginAttempt.deleteMany({
-      where: { emailNormalized },
-    });
+    await this.loginAttemptService.clearFailures(emailNormalized);
 
-    const authResult = await this.issueAuthResult(user.id, user.email, rememberMe);
+    const authResult = await this.sessionService.issueAuthResult(user.id, user.email, rememberMe);
     return {
       success: true,
       accessToken: authResult.accessToken,
-      user: this.toAuthUserView(user),
+      user: toAuthUserView(user),
     };
   }
 
@@ -312,319 +270,44 @@ export class AuthService {
       return { success: false, error: '현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.' };
     }
 
-    const verifiedCode = await this.prisma.verificationCode.findFirst({
-      where: {
-        emailNormalized,
-        purpose: 'RESET_PASSWORD',
-        verifiedAt: { not: null },
-        consumedAt: null,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { issuedAt: 'desc' },
-    });
+    const verifiedCode =
+      await this.verificationService.findLatestVerifiedResetCode(emailNormalized);
 
     if (!verifiedCode) {
       return { success: false, error: '비밀번호 재설정 요청을 다시 진행해주세요.' };
     }
 
-    const passwordHash = await argonHash(newPassword, {
-      algorithm: 2,
-      memoryCost: 8192,
-      timeCost: 2,
-      parallelism: 1,
-      outputLen: 32,
-    });
+    const passwordHash = await this.hashPassword(newPassword);
 
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: user.id },
         data: { passwordHash },
       }),
-      this.prisma.verificationCode.update({
-        where: { id: verifiedCode.id },
-        data: { consumedAt: new Date() },
-      }),
-      this.prisma.authSession.updateMany({
-        where: { userId: user.id, revokedAt: null },
-        data: { revokedAt: new Date() },
-      }),
+      this.prisma.$executeRawUnsafe(
+        `UPDATE "VerificationCode" SET "consumedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
+        verifiedCode.id,
+      ),
+      this.prisma.$executeRawUnsafe(
+        `UPDATE "AuthSession" SET "revokedAt" = CURRENT_TIMESTAMP WHERE "userId" = $1 AND "revokedAt" IS NULL`,
+        user.id,
+      ),
     ]);
 
     return { success: true };
   }
 
   async logout(token: string | null): Promise<GenericSuccessResult> {
-    if (!token) {
-      return { success: true };
-    }
-
-    try {
-      const payload = await this.jwtService.verifyAsync<{ sid?: string }>(token, {
-        secret: this.getJwtSecret(),
-      });
-      if (payload.sid) {
-        await this.prisma.authSession.updateMany({
-          where: { id: payload.sid, revokedAt: null },
-          data: { revokedAt: new Date() },
-        });
-      }
-    } catch {
-      // clear cookie regardless
-    }
-
-    return { success: true };
+    return this.sessionService.logout(token);
   }
 
-  private async issueVerificationCode(
-    emailNormalized: string,
-    purpose: VerificationCodePurpose,
-    requestIp: string | null,
-  ): Promise<void> {
-    const code = generateVerificationCode();
-    const codeHash = hashVerificationCode(emailNormalized, purpose, code);
-    const expiresAt = new Date(Date.now() + VERIFICATION_CODE_TTL_SECONDS * 1000);
-
-    await this.prisma.verificationCode.create({
-      data: {
-        emailNormalized,
-        purpose,
-        codeHash,
-        expiresAt,
-        requestIp,
-      },
+  private async hashPassword(password: string): Promise<string> {
+    return argonHash(password, {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
     });
-
-    if (purpose === 'SIGNUP') {
-      await this.emailSender.sendVerificationCode({
-        email: emailNormalized,
-        code,
-        expiresInSeconds: VERIFICATION_CODE_TTL_SECONDS,
-      });
-      return;
-    }
-
-    await this.emailSender.sendPasswordResetCode({
-      email: emailNormalized,
-      code,
-      expiresInSeconds: VERIFICATION_CODE_TTL_SECONDS,
-    });
-  }
-
-  private normalizeRequestIp(requestIp: string | null): string {
-    return requestIp?.trim() || 'unknown';
-  }
-
-  private async assertCodeRequestAllowed(
-    emailNormalized: string,
-    purpose: VerificationCodePurpose,
-    requestIp: string | null,
-  ) {
-    const normalizedIp = this.normalizeRequestIp(requestIp);
-    const latestRequest = await this.prisma.verificationCodeRequestLog.findFirst({
-      where: {
-        emailNormalized,
-        purpose,
-        requestIp: normalizedIp,
-      },
-      orderBy: { createdAt: 'desc' },
-      select: { createdAt: true },
-    });
-
-    if (!latestRequest) {
-      return;
-    }
-
-    const elapsedMs = Date.now() - latestRequest.createdAt.getTime();
-    const remainingMs = apiEnv.codeRequestCooldownSeconds * 1000 - elapsedMs;
-
-    if (remainingMs <= 0) {
-      return;
-    }
-
-    const retryAfterSeconds = Math.max(1, Math.ceil(remainingMs / 1000));
-    throw new HttpException(
-      {
-        success: false,
-        error: `너무 잦은 요청이에요. ${retryAfterSeconds}초 후 다시 시도해주세요.`,
-        retryAfterSeconds,
-      },
-      HttpStatus.TOO_MANY_REQUESTS,
-    );
-  }
-
-  private async recordCodeRequest(
-    emailNormalized: string,
-    purpose: VerificationCodePurpose,
-    requestIp: string | null,
-  ) {
-    await this.prisma.verificationCodeRequestLog.create({
-      data: {
-        emailNormalized,
-        purpose,
-        requestIp: this.normalizeRequestIp(requestIp),
-      },
-    });
-  }
-
-  private async verifyCode(
-    email: string,
-    purpose: VerificationCodePurpose,
-    code: string,
-  ): Promise<GenericSuccessResult> {
-    const emailNormalized = normalizeEmail(email);
-    const record = await this.prisma.verificationCode.findFirst({
-      where: {
-        emailNormalized,
-        purpose,
-        consumedAt: null,
-      },
-      orderBy: { issuedAt: 'desc' },
-    });
-
-    if (
-      !record ||
-      record.expiresAt.getTime() <= Date.now() ||
-      record.failedAttempts >= VERIFICATION_CODE_MAX_ATTEMPTS
-    ) {
-      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
-    }
-
-    const incomingHash = hashVerificationCode(emailNormalized, purpose, code);
-    if (incomingHash !== record.codeHash) {
-      const nextFailedAttempts = Number(record.failedAttempts) + 1;
-      const updateData: { failedAttempts: number; consumedAt?: Date } = {
-        failedAttempts: nextFailedAttempts,
-      };
-
-      if (nextFailedAttempts >= VERIFICATION_CODE_MAX_ATTEMPTS) {
-        updateData.consumedAt = new Date();
-      }
-
-      await this.prisma.verificationCode.update({
-        where: { id: record.id },
-        data: updateData,
-      });
-
-      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
-    }
-
-    await this.prisma.verificationCode.update({
-      where: { id: record.id },
-      data: {
-        verifiedAt: new Date(),
-      },
-    });
-
-    return { success: true };
-  }
-
-  private async issueAuthResult(userId: string, email: string, rememberMe: boolean) {
-    const session = await this.prisma.authSession.create({
-      data: {
-        userId,
-        rememberMe,
-        expiresAt: new Date(
-          Date.now() +
-            (rememberMe ? AUTH_SESSION_REMEMBER_ME_TTL_SECONDS : AUTH_SESSION_TTL_SECONDS) * 1000,
-        ),
-      },
-    });
-
-    const accessToken = await this.jwtService.signAsync(
-      {
-        sub: userId,
-        email,
-        sid: session.id,
-      },
-      {
-        secret: this.getJwtSecret(),
-        expiresIn: JWT_ACCESS_TTL_SECONDS,
-      },
-    );
-
-    return { accessToken, sessionId: session.id };
-  }
-
-  private async recordLoginFailure(emailNormalized: string): Promise<LoginResult> {
-    const [attempt] = await this.prisma.$queryRawUnsafe<
-      { failureCount: number; lockedUntil: Date | null }[]
-    >(
-      `
-        INSERT INTO "LoginAttempt" (
-          id,
-          "emailNormalized",
-          "failureCount",
-          "lockedUntil",
-          "lastFailedAt",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES (
-          $1,
-          $2,
-          1,
-          NULL,
-          NOW(),
-          NOW(),
-          NOW()
-        )
-        ON CONFLICT ("emailNormalized")
-        DO UPDATE SET
-          "failureCount" = "LoginAttempt"."failureCount" + 1,
-          "lockedUntil" = CASE
-            WHEN "LoginAttempt"."failureCount" + 1 >= ${LOGIN_LOCKOUT_ATTEMPTS}
-            THEN NOW() + INTERVAL '${LOGIN_LOCKOUT_TTL_SECONDS} seconds'
-            ELSE NULL
-          END,
-          "lastFailedAt" = NOW(),
-          "updatedAt" = NOW()
-        RETURNING "failureCount", "lockedUntil"
-      `,
-      randomUUID(),
-      emailNormalized,
-    );
-
-    const failureCount = attempt?.failureCount ?? 1;
-    const locked = failureCount >= LOGIN_LOCKOUT_ATTEMPTS;
-
-    if (locked) {
-      return {
-        success: false,
-        locked: true,
-        remainingSeconds: LOGIN_LOCKOUT_TTL_SECONDS,
-        error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
-      };
-    }
-
-    return {
-      success: false,
-      error: '이메일 또는 비밀번호가 올바르지 않습니다.',
-    };
-  }
-
-  private toAuthUserView(user: {
-    id: string;
-    email: string;
-    nickname: string;
-    gender: Gender;
-    campus: Campus;
-    lifestyle: Prisma.JsonValue;
-    intro: string;
-    dormitoryId: string | null;
-  }): AuthUserView {
-    return {
-      id: user.id,
-      email: user.email,
-      nickname: user.nickname,
-      gender: user.gender,
-      campus: user.campus,
-      lifestyle: user.lifestyle as LifestyleData,
-      intro: user.intro,
-      dormitoryId: user.dormitoryId,
-    };
-  }
-
-  private getJwtSecret(): string {
-    return apiEnv.jwtSecret;
   }
 }

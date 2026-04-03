@@ -23,6 +23,22 @@ enum VerificationCodePurpose {
   RESET_PASSWORD
 }
 
+enum ModerationTermCategory {
+  BLOCKED_TEXT
+  RESERVED_NICKNAME
+}
+
+enum ModerationMatchMode {
+  EXACT
+  INCLUDES
+}
+
+enum ModerationSurface {
+  ALL
+  NICKNAME
+  INTRO
+}
+
 model User {
   id                 String        @id @default(uuid())
   email              String
@@ -36,8 +52,8 @@ model User {
   intro              String        @default("")
   dormitoryId        String?
   emailVerifiedAt    DateTime?     @db.Timestamptz(3)
-  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
+  createdAt          DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt          DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
   authSessions       AuthSession[]
 }
 
@@ -47,8 +63,8 @@ model LoginAttempt {
   failureCount    Int       @default(0)
   lockedUntil     DateTime? @db.Timestamptz(3)
   lastFailedAt    DateTime? @db.Timestamptz(3)
-  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+  createdAt       DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt       DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
 }
 
 model VerificationCode {
@@ -57,7 +73,7 @@ model VerificationCode {
   purpose         VerificationCodePurpose
   codeHash        String
   failedAttempts  Int                     @default(0)
-  issuedAt        DateTime                @default(now()) @db.Timestamptz(3)
+  issuedAt        DateTime                @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
   expiresAt       DateTime                @db.Timestamptz(3)
   verifiedAt      DateTime?               @db.Timestamptz(3)
   consumedAt      DateTime?               @db.Timestamptz(3)
@@ -71,7 +87,7 @@ model VerificationCodeRequestLog {
   emailNormalized String
   purpose         VerificationCodePurpose
   requestIp       String
-  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
+  createdAt       DateTime                @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
 
   @@index([emailNormalized, purpose, requestIp, createdAt])
   @@index([requestIp, createdAt])
@@ -84,9 +100,24 @@ model AuthSession {
   refreshTokenHash String?
   expiresAt        DateTime  @db.Timestamptz(3)
   revokedAt        DateTime? @db.Timestamptz(3)
-  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+  createdAt        DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt        DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model ModerationTerm {
+  id             String                 @id @default(uuid())
+  term           String
+  normalizedTerm String
+  category       ModerationTermCategory
+  matchMode      ModerationMatchMode
+  surface        ModerationSurface
+  isActive       Boolean                @default(true)
+  createdAt      DateTime               @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt      DateTime               @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+
+  @@unique([normalizedTerm, category, matchMode, surface])
+  @@index([surface, category, isActive])
 }

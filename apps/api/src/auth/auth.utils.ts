@@ -1,18 +1,14 @@
 import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
 import {
   KNU_EMAIL_DOMAIN,
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-  RESERVED_NICKNAME_EN,
-  RESERVED_NICKNAME_KO,
-} from './auth.constants.js';
-import { moderatePublicText } from '../common/moderation/text-moderation.js';
-
-const NICKNAME_REGEX = /^[가-힣a-zA-Z0-9]+$/u;
-const PASSWORD_REGEX = /(?=.*[a-zA-Z])(?=.*\d)/u;
+  normalizeEmail as normalizeEmailShared,
+  normalizeNickname as normalizeNicknameShared,
+  validatePasswordStructure,
+  validateNicknameStructure,
+} from '@repo/shared/auth-policy';
 
 export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
+  return normalizeEmailShared(email);
 }
 
 export function isKnuEmail(email: string): boolean {
@@ -20,51 +16,15 @@ export function isKnuEmail(email: string): boolean {
 }
 
 export function normalizeNickname(nickname: string): string {
-  return nickname.trim().toLowerCase();
+  return normalizeNicknameShared(nickname);
 }
 
 export function validatePasswordPolicy(password: string, email: string): string | null {
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    return `비밀번호는 ${PASSWORD_MIN_LENGTH}자 이상이어야 합니다.`;
-  }
-  if (password.length > PASSWORD_MAX_LENGTH) {
-    return `비밀번호는 ${PASSWORD_MAX_LENGTH}자 이하여야 합니다.`;
-  }
-  if (!PASSWORD_REGEX.test(password)) {
-    return '비밀번호는 영문과 숫자를 포함해야 합니다.';
-  }
-  if (password.toLowerCase() === email.toLowerCase()) {
-    return '비밀번호는 이메일과 같을 수 없습니다.';
-  }
-  return null;
+  return validatePasswordStructure(password, email) || null;
 }
 
-export function validateNicknamePolicy(nickname: string): string | null {
-  const trimmed = nickname.trim();
-  if (!trimmed) {
-    return '닉네임을 입력해주세요.';
-  }
-  if (trimmed.length < 2) {
-    return '닉네임은 2자 이상이어야 합니다.';
-  }
-  if (trimmed.length > 12) {
-    return '닉네임은 12자 이하여야 합니다.';
-  }
-  if (!NICKNAME_REGEX.test(trimmed)) {
-    return '닉네임은 한글, 영문, 숫자만 사용할 수 있습니다.';
-  }
-  const lower = trimmed.toLowerCase();
-  if (RESERVED_NICKNAME_KO.some((word) => lower.includes(word))) {
-    return '사용할 수 없는 단어가 포함되어 있습니다.';
-  }
-  if (RESERVED_NICKNAME_EN.some((word) => lower === word)) {
-    return '사용할 수 없는 단어가 포함되어 있습니다.';
-  }
-  const moderation = moderatePublicText(trimmed, 'nickname');
-  if (!moderation.ok) {
-    return moderation.error;
-  }
-  return null;
+export function validateNicknameFormat(nickname: string): string | null {
+  return validateNicknameStructure(nickname) || null;
 }
 
 export function generateVerificationCode(): string {

@@ -6,6 +6,7 @@ import {
   emailRequestSchema,
   loginRequestSchema,
   resetPasswordRequestSchema,
+  signupProfileValidationRequestSchema,
   signupRequestSchema,
   verificationCodeRequestSchema,
 } from '@repo/shared/auth-contract';
@@ -50,6 +51,13 @@ export class AuthController {
   async session(@Headers('authorization') authorization?: string) {
     const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
     return this.authService.getSession(token);
+  }
+
+  @Post('validate-signup-profile')
+  async validateSignupProfile(@Body() body: unknown) {
+    const parsed = parseRequestBody(signupProfileValidationRequestSchema, body);
+    if (!parsed.ok) return parsed.error;
+    return this.authService.validateSignupProfileDraft(parsed.data);
   }
 
   @Post('signup')

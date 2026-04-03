@@ -1,6 +1,16 @@
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import type { LifestyleData } from './lifestyle.schema.js';
 
+export interface SignupInput {
+  email: string;
+  password: string;
+  nickname: string;
+  gender: Gender;
+  campus: Campus;
+  lifestyle: Record<string, unknown>;
+  intro: string;
+}
+
 export interface AuthUserView {
   id: string;
   email: string;
