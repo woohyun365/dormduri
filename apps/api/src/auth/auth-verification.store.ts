@@ -41,6 +41,39 @@ export class AuthVerificationStore {
     return latestRequest?.retryAfterSeconds ?? null;
   }
 
+  async findBackstopRetryAfterSeconds(
+    emailNormalized: string,
+    purpose: VerificationCodePurpose,
+    cooldownWindowSeconds: number,
+    limit: number,
+  ): Promise<number | null> {
+    const [recentRequests] = await this.prisma.$queryRawUnsafe<
+      { requestCount: number; oldestRequestAt: Date | null }[]
+    >(
+      `
+        SELECT
+          COUNT(*)::int AS "requestCount",
+          MIN("createdAt") AS "oldestRequestAt"
+        FROM "VerificationCodeRequestLog"
+        WHERE "emailNormalized" = $1
+          AND purpose = $2::"VerificationCodePurpose"
+          AND "createdAt" > CURRENT_TIMESTAMP - INTERVAL '${cooldownWindowSeconds} seconds'
+      `,
+      emailNormalized,
+      purpose,
+    );
+
+    if (!recentRequests || recentRequests.requestCount < limit || !recentRequests.oldestRequestAt) {
+      return null;
+    }
+
+    const retryAfterSeconds = Math.ceil(
+      (recentRequests.oldestRequestAt.getTime() + cooldownWindowSeconds * 1000 - Date.now()) / 1000,
+    );
+
+    return retryAfterSeconds > 0 ? retryAfterSeconds : null;
+  }
+
   async createRequestLog(
     emailNormalized: string,
     purpose: VerificationCodePurpose,

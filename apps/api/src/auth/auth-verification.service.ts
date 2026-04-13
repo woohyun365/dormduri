@@ -35,14 +35,25 @@ export class AuthVerificationService {
     requestIp: string | null,
   ): Promise<void> {
     const normalizedIp = this.normalizeRequestIp(requestIp);
-    const retryAfterSeconds = await this.verificationStore.findRetryAfterSeconds(
+    const ipRetryAfterSeconds = await this.verificationStore.findRetryAfterSeconds(
       emailNormalized,
       purpose,
       normalizedIp,
       apiEnv.codeRequestCooldownSeconds,
     );
 
-    if (!retryAfterSeconds || retryAfterSeconds <= 0) {
+    const backstopRetryAfterSeconds = await this.verificationStore.findBackstopRetryAfterSeconds(
+      emailNormalized,
+      purpose,
+      apiEnv.codeRequestBackstopWindowSeconds,
+      apiEnv.codeRequestBackstopLimit,
+    );
+
+    const retryAfterSeconds = [ipRetryAfterSeconds, backstopRetryAfterSeconds]
+      .filter((value): value is number => typeof value === 'number' && value > 0)
+      .reduce<number | null>((max, value) => (max === null ? value : Math.max(max, value)), null);
+
+    if (!retryAfterSeconds) {
       return;
     }
 
