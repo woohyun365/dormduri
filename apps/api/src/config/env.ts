@@ -1,7 +1,7 @@
 const DEFAULT_DATABASE_URL =
   'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
 const DEFAULT_PORT = 4000;
-const DEFAULT_JWT_SECRET = 'dev-jwt-secret';
+const DEFAULT_JWT_SECRET = 'local-jwt-secret';
 const DEFAULT_CODE_REQUEST_COOLDOWN_SECONDS = process.env.NODE_ENV === 'production' ? 30 : 5;
 const DEFAULT_AUTH_THROTTLE_LIMIT = process.env.NODE_ENV === 'production' ? 60 : 300;
 

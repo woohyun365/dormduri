@@ -15,6 +15,9 @@ export interface AuthUserBridge {
 export interface GenericErrorResponse {
   success: boolean;
   error?: string;
+  code?: string;
+  userActionable?: boolean;
+  fieldErrors?: Record<string, string>;
   retryAfterSeconds?: number;
 }
 
@@ -62,12 +65,10 @@ export interface DevAuthUsersResponse extends GenericErrorResponse {
   users?: DevAuthUserSummary[];
 }
 
-export interface SignupProfileValidationErrors {
-  email?: string;
-  nickname?: string;
-  password?: string;
-}
+export type SignupProfileValidationFieldErrors = Partial<
+  Record<'email' | 'nickname' | 'password', string>
+>;
 
 export interface SignupProfileValidationResponse extends GenericErrorResponse {
-  errors?: SignupProfileValidationErrors;
+  fieldErrors?: SignupProfileValidationFieldErrors;
 }

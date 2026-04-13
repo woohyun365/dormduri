@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { VerificationCodePurpose } from '../generated/prisma/enums.js';
 import {
@@ -19,6 +19,8 @@ import {
 } from './auth.utils.js';
 import { apiEnv } from '../config/env.js';
 import { AuthVerificationStore } from './auth-verification.store.js';
+import { authErrors } from './auth.errors.js';
+import { authFailures } from './auth-failures.js';
 
 @Injectable()
 export class AuthVerificationService {
@@ -44,14 +46,7 @@ export class AuthVerificationService {
       return;
     }
 
-    throw new HttpException(
-      {
-        success: false,
-        error: `너무 잦은 요청이에요. ${retryAfterSeconds}초 후 다시 시도해주세요.`,
-        retryAfterSeconds,
-      },
-      HttpStatus.TOO_MANY_REQUESTS,
-    );
+    throw authErrors.codeRequestThrottled(retryAfterSeconds);
   }
 
   async recordCodeRequest(
@@ -181,13 +176,13 @@ export class AuthVerificationService {
     );
 
     if (!record) {
-      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
+      return authFailures.verificationCodeInvalid();
     }
 
     const incomingHash = hashVerificationCode(emailNormalized, purpose, code);
     if (incomingHash !== record.codeHash) {
       await this.handleFailedVerification(record.id, record.failedAttempts);
-      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
+      return authFailures.verificationCodeInvalid();
     }
 
     await this.verificationStore.markVerified(record.id);

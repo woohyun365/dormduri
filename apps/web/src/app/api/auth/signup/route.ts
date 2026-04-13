@@ -16,6 +16,9 @@ export async function POST(request: NextRequest) {
   const nextResponse = buildJsonResponse(response, {
     success: json.success,
     error: json.error,
+    code: json.code,
+    userActionable: json.userActionable,
+    fieldErrors: json.fieldErrors,
     user: json.user,
   });
 

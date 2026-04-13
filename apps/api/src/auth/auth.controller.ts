@@ -19,31 +19,27 @@ export class AuthController {
   @Post('send-signup-code')
   async sendSignupCode(@Body() body: unknown, @Req() req: Request) {
     const parsed = parseRequestBody(emailRequestSchema, body);
-    if (!parsed.ok) return parsed.error;
-    return this.authService.sendSignupCode(parsed.data.email, req.ip ?? null);
+    return this.authService.sendSignupCode(parsed.email, req.ip ?? null);
   }
 
   @Post('send-reset-code')
   async sendResetCode(@Body() body: unknown, @Req() req: Request) {
     const parsed = parseRequestBody(emailRequestSchema, body);
-    if (!parsed.ok) return parsed.error;
-    return this.authService.sendResetCode(parsed.data.email, req.ip ?? null);
+    return this.authService.sendResetCode(parsed.email, req.ip ?? null);
   }
 
   @Post('verify-email-code')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async verifyEmailCode(@Body() body: unknown) {
     const parsed = parseRequestBody(verificationCodeRequestSchema, body);
-    if (!parsed.ok) return parsed.error;
-    return this.authService.verifyEmailCode(parsed.data.email, parsed.data.code);
+    return this.authService.verifyEmailCode(parsed.email, parsed.code);
   }
 
   @Post('verify-reset-code')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async verifyResetCode(@Body() body: unknown) {
     const parsed = parseRequestBody(verificationCodeRequestSchema, body);
-    if (!parsed.ok) return parsed.error;
-    return this.authService.verifyResetCode(parsed.data.email, parsed.data.code);
+    return this.authService.verifyResetCode(parsed.email, parsed.code);
   }
 
   @Get('session')
@@ -53,24 +49,16 @@ export class AuthController {
     return this.authService.getSession(token);
   }
 
-  @Get('dev/users')
-  @HttpCode(200)
-  async devUsers() {
-    return this.authService.getDevUsers();
-  }
-
   @Post('validate-signup-profile')
   async validateSignupProfile(@Body() body: unknown) {
     const parsed = parseRequestBody(signupProfileValidationRequestSchema, body);
-    if (!parsed.ok) return parsed.error;
-    return this.authService.validateSignupProfileDraft(parsed.data);
+    return this.authService.validateSignupProfileDraft(parsed);
   }
 
   @Post('signup')
   async signup(@Body() body: unknown) {
     const parsed = parseRequestBody(signupRequestSchema, body);
-    if (!parsed.ok) return parsed.error;
-    return this.authService.signup(parsed.data);
+    return this.authService.signup(parsed);
   }
 
   @Post('login')
@@ -78,19 +66,13 @@ export class AuthController {
   @HttpCode(200)
   async login(@Body() body: unknown) {
     const parsed = parseRequestBody(loginRequestSchema, body);
-    if (!parsed.ok) return parsed.error;
-    return this.authService.login(
-      parsed.data.email,
-      parsed.data.password,
-      parsed.data.rememberMe ?? false,
-    );
+    return this.authService.login(parsed.email, parsed.password, parsed.rememberMe ?? false);
   }
 
   @Post('reset-password')
   async resetPassword(@Body() body: unknown) {
     const parsed = parseRequestBody(resetPasswordRequestSchema, body);
-    if (!parsed.ok) return parsed.error;
-    return this.authService.resetPassword(parsed.data.email, parsed.data.newPassword);
+    return this.authService.resetPassword(parsed.email, parsed.newPassword);
   }
 
   @Post('logout')

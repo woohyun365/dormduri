@@ -76,8 +76,10 @@ describe('AuthService orchestration', () => {
   it('signup draft validation은 전용 validation service로 위임한다', async () => {
     signupValidationService.validateDraft.mockResolvedValue({
       success: false,
+      code: 'AUTH_SIGNUP_VALIDATION_FAILED',
+      userActionable: true,
       error: '입력값을 다시 확인해주세요.',
-      errors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+      fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
     });
 
     await expect(
@@ -86,10 +88,12 @@ describe('AuthService orchestration', () => {
         password: 'Test1234',
         nickname: '섹스',
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       success: false,
+      code: 'AUTH_SIGNUP_VALIDATION_FAILED',
+      userActionable: true,
       error: '입력값을 다시 확인해주세요.',
-      errors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+      fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
     });
   });
 
@@ -99,11 +103,15 @@ describe('AuthService orchestration', () => {
     loginAttemptService.recordLoginFailure.mockResolvedValue({
       success: false,
       error: '이메일 또는 비밀번호가 올바르지 않습니다.',
+      code: 'AUTH_INVALID_CREDENTIALS',
+      userActionable: true,
     });
 
     await expect(service.login('missing@kangwon.ac.kr', 'pw', false)).resolves.toEqual({
       success: false,
       error: '이메일 또는 비밀번호가 올바르지 않습니다.',
+      code: 'AUTH_INVALID_CREDENTIALS',
+      userActionable: true,
     });
 
     expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('missing@kangwon.ac.kr');

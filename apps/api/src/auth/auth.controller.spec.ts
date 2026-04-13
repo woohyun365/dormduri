@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
 
 describe('AuthController', () => {
@@ -7,7 +8,6 @@ describe('AuthController', () => {
     verifyEmailCode: jest.fn(),
     verifyResetCode: jest.fn(),
     getSession: jest.fn(),
-    getDevUsers: jest.fn(),
     validateSignupProfileDraft: jest.fn(),
     signup: jest.fn(),
     login: jest.fn(),
@@ -21,15 +21,11 @@ describe('AuthController', () => {
     jest.clearAllMocks();
   });
 
-  it('body가 없을 때 500 대신 공통 에러를 반환한다', async () => {
-    await expect(controller.sendResetCode(undefined, { ip: null } as never)).resolves.toEqual({
-      success: false,
-      error: '요청 본문이 올바르지 않습니다.',
-    });
+  it('body가 없을 때 bad request 예외를 던진다', async () => {
+    await expect(controller.sendResetCode(undefined, { ip: null } as never)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
 
-    await expect(controller.login(undefined)).resolves.toEqual({
-      success: false,
-      error: '요청 본문이 올바르지 않습니다.',
-    });
+    await expect(controller.login(undefined)).rejects.toBeInstanceOf(BadRequestException);
   });
 });

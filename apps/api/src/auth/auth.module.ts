@@ -45,6 +45,6 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
       useClass: ThrottlerGuard,
     },
   ],
-  exports: [AuthService],
+  exports: [AuthService, AuthSessionService],
 })
 export class AuthModule {}

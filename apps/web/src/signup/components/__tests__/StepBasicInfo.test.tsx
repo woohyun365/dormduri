@@ -97,7 +97,7 @@ describe('StepBasicInfo', () => {
     mockValidateSignupProfile.mockResolvedValue({
       success: false,
       error: '입력값을 다시 확인해주세요.',
-      errors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+      fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
     });
 
     const { onNext } = renderWithState();
@@ -123,7 +123,7 @@ describe('StepBasicInfo', () => {
     mockValidateSignupProfile.mockResolvedValue({
       success: false,
       error: '입력값을 다시 확인해주세요.',
-      errors: {
+      fieldErrors: {
         nickname: '사용할 수 없는 표현이 포함되어 있습니다.',
         password: '비밀번호를 입력해주세요.',
       },

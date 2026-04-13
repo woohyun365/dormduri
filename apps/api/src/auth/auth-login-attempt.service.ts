@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { LOGIN_LOCKOUT_ATTEMPTS, LOGIN_LOCKOUT_TTL_SECONDS } from './auth.constants.js';
 import type { LoginResult } from './auth.types.js';
+import { authFailures } from './auth-failures.js';
 
 @Injectable()
 export class AuthLoginAttemptService {
@@ -25,12 +26,7 @@ export class AuthLoginAttemptService {
       return null;
     }
 
-    return {
-      success: false,
-      locked: true,
-      remainingSeconds: attempt.remainingSeconds,
-      error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
-    };
+    return authFailures.loginLocked(attempt.remainingSeconds);
   }
 
   async clearFailures(emailNormalized: string): Promise<void> {
@@ -82,17 +78,9 @@ export class AuthLoginAttemptService {
     const locked = failureCount >= LOGIN_LOCKOUT_ATTEMPTS;
 
     if (locked) {
-      return {
-        success: false,
-        locked: true,
-        remainingSeconds: LOGIN_LOCKOUT_TTL_SECONDS,
-        error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
-      };
+      return authFailures.loginLocked(LOGIN_LOCKOUT_TTL_SECONDS);
     }
 
-    return {
-      success: false,
-      error: '이메일 또는 비밀번호가 올바르지 않습니다.',
-    };
+    return authFailures.invalidCredentials();
   }
 }
