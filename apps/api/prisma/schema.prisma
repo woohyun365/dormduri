@@ -39,22 +39,105 @@ enum ModerationSurface {
   INTRO
 }
 
+enum DormitorySelectionState {
+  NOT_SELECTED
+  UNASSIGNED
+  ASSIGNED
+}
+
+enum DormitoryGenderPolicy {
+  M
+  F
+  BOTH
+}
+
+enum DormitoryBathroomType {
+  SHARED
+  PRIVATE
+}
+
+model CampusMaster {
+  code         Campus              @id
+  nameKo       String
+  isOperated   Boolean
+  sortOrder    Int                 @default(0)
+  createdAt    DateTime            @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt    DateTime            @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  dormitories  Dormitory[]
+  guideContent CampusGuideContent?
+}
+
+model CampusGuideContent {
+  campusCode        Campus       @id
+  homepageUrl       String
+  commonRules       Json
+  emergencyContacts Json
+  createdAt         DateTime     @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt         DateTime     @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  campus            CampusMaster @relation(fields: [campusCode], references: [code], onDelete: Cascade)
+}
+
+model Dormitory {
+  id           String                @id
+  campusCode   Campus
+  nameKo       String
+  roomType     Int
+  genderPolicy DormitoryGenderPolicy
+  sortOrder    Int                   @default(0)
+  createdAt    DateTime              @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt    DateTime              @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  campus       CampusMaster          @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  guide        DormitoryGuide?
+  users        User[]
+
+  @@index([campusCode, genderPolicy, sortOrder])
+}
+
+model DormitoryGuide {
+  dormitoryId   String                @id
+  bathroomType  DormitoryBathroomType
+  facilities    Json
+  repairContact String
+  diningContact String?
+  createdAt     DateTime              @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt     DateTime              @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  dormitory     Dormitory             @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+}
+
+model Season {
+  id                String   @id @default(cuid())
+  academicYear      Int
+  semester          Int
+  name              String
+  roomSelectionDate DateTime @db.Date
+  createdAt         DateTime @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt         DateTime @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+
+  @@unique([academicYear, semester])
+  @@index([roomSelectionDate])
+}
+
 model User {
-  id                 String        @id @default(uuid())
-  email              String
-  emailNormalized    String        @unique
-  passwordHash       String
-  nickname           String
-  nicknameNormalized String        @unique
-  gender             Gender
-  campus             Campus
-  lifestyle          Json
-  intro              String        @default("")
-  dormitoryId        String?
-  emailVerifiedAt    DateTime?     @db.Timestamptz(3)
-  createdAt          DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
-  updatedAt          DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
-  authSessions       AuthSession[]
+  id                      String                  @id @default(uuid())
+  email                   String
+  emailNormalized         String                  @unique
+  passwordHash            String
+  nickname                String
+  nicknameNormalized      String                  @unique
+  gender                  Gender
+  campus                  Campus
+  lifestyle               Json
+  intro                   String                  @default("")
+  dormitoryId             String?
+  dormitorySelectionState DormitorySelectionState @default(NOT_SELECTED)
+  emailVerifiedAt         DateTime?               @db.Timestamptz(3)
+  createdAt               DateTime                @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt               DateTime                @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  dormitory               Dormitory?              @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
+  authSessions            AuthSession[]
+
+  @@index([campus, dormitorySelectionState])
+  @@index([dormitoryId])
 }
 
 model LoginAttempt {

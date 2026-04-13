@@ -1,6 +1,6 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { buildDefaultModerationRows, toModerationSurfaceValue } from './moderation.defaults.js';
+import { toModerationSurfaceValue } from './moderation.defaults.js';
 import {
   getErrorMessage,
   matchesModerationTerm,
@@ -17,14 +17,10 @@ interface CachedSurfaceTerms {
 }
 
 @Injectable()
-export class ModerationService implements OnModuleInit {
+export class ModerationService {
   private cache = new Map<string, { expiresAt: number; terms: CachedSurfaceTerms }>();
 
   constructor(private readonly prisma: PrismaService) {}
-
-  async onModuleInit() {
-    await this.ensureDefaultTerms();
-  }
 
   async moderatePublicText(
     value: string,
@@ -66,24 +62,6 @@ export class ModerationService implements OnModuleInit {
     }
 
     return null;
-  }
-
-  private async ensureDefaultTerms() {
-    const defaults = buildDefaultModerationRows();
-    for (const row of defaults) {
-      await this.prisma.moderationTerm.upsert({
-        where: {
-          normalizedTerm_category_matchMode_surface: {
-            normalizedTerm: row.normalizedTerm,
-            category: row.category,
-            matchMode: row.matchMode,
-            surface: row.surface,
-          },
-        },
-        update: {},
-        create: row,
-      });
-    }
   }
 
   private async getTerms(surface: PublicTextSurface): Promise<CachedSurfaceTerms> {

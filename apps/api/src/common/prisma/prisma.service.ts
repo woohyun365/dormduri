@@ -37,6 +37,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       { trigger: 'set_login_attempt_updated_at', table: '"LoginAttempt"' },
       { trigger: 'set_auth_session_updated_at', table: '"AuthSession"' },
       { trigger: 'set_moderation_term_updated_at', table: '"ModerationTerm"' },
+      { trigger: 'set_campus_master_updated_at', table: '"CampusMaster"' },
+      { trigger: 'set_campus_guide_content_updated_at', table: '"CampusGuideContent"' },
+      { trigger: 'set_dormitory_updated_at', table: '"Dormitory"' },
+      { trigger: 'set_dormitory_guide_updated_at', table: '"DormitoryGuide"' },
+      { trigger: 'set_season_updated_at', table: '"Season"' },
     ];
 
     for (const target of triggerTargets) {

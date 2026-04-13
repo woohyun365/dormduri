@@ -3,7 +3,6 @@ import { ModerationService } from './moderation.service.js';
 describe('ModerationService', () => {
   const prisma = {
     moderationTerm: {
-      upsert: jest.fn(),
       findMany: jest.fn(),
     },
   };
