@@ -19,6 +19,22 @@
     "./auth-response": {
       "types": "./dist/auth-response.d.ts",
       "default": "./dist/auth-response.js"
+    },
+    "./campus-contract": {
+      "types": "./dist/campus-contract.d.ts",
+      "default": "./dist/campus-contract.js"
+    },
+    "./dormitory-contract": {
+      "types": "./dist/dormitory-contract.d.ts",
+      "default": "./dist/dormitory-contract.js"
+    },
+    "./date-primitives": {
+      "types": "./dist/date-primitives.d.ts",
+      "default": "./dist/date-primitives.js"
+    },
+    "./season-contract": {
+      "types": "./dist/season-contract.d.ts",
+      "default": "./dist/season-contract.js"
     }
   },
   "scripts": {

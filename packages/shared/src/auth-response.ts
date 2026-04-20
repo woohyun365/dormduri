@@ -39,32 +39,6 @@ export interface SessionResponse {
   user?: AuthUserBridge;
 }
 
-export interface DevAuthUserSummary {
-  id: string;
-  email: string;
-  nickname: string;
-  gender: 'M' | 'F';
-  campus: Campus;
-  dormitoryId: string | null;
-  createdAt: string;
-}
-
-export interface DevAuthPresetUserSummary extends DevAuthUserSummary {
-  presetKey: string;
-  loginPassword: string;
-}
-
-export interface DevAuthPresetGroup {
-  campus: Campus;
-  label: string;
-  users: DevAuthPresetUserSummary[];
-}
-
-export interface DevAuthUsersResponse extends GenericErrorResponse {
-  presetGroups?: DevAuthPresetGroup[];
-  users?: DevAuthUserSummary[];
-}
-
 export type SignupProfileValidationFieldErrors = Partial<
   Record<'email' | 'nickname' | 'password', string>
 >;
