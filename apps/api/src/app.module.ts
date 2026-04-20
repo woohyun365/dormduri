@@ -6,11 +6,10 @@ import { AuthModule } from './auth/auth.module.js';
 import { PrismaModule } from './common/prisma/prisma.module.js';
 import { DormitoriesModule } from './dormitories/dormitories.module.js';
 import { SeasonsModule } from './seasons/seasons.module.js';
-import { HomeModule } from './home/home.module.js';
 import { ApiExceptionFilter } from './common/http/api-exception.filter.js';
 
 @Module({
-  imports: [PrismaModule, AuthModule, DormitoriesModule, SeasonsModule, HomeModule],
+  imports: [PrismaModule, AuthModule, DormitoriesModule, SeasonsModule],
   controllers: [AppController],
   providers: [
     AppService,
