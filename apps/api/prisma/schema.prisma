@@ -56,6 +56,12 @@ enum DormitoryBathroomType {
   PRIVATE
 }
 
+enum SeasonOverrideState {
+  OFF_SEASON
+  SEASON_OPEN
+  SEASON_MATCHING
+}
+
 model CampusMaster {
   code         Campus              @id
   nameKo       String
@@ -110,11 +116,19 @@ model Season {
   semester          Int
   name              String
   roomSelectionDate DateTime @db.Date
+  openStartDate     DateTime? @db.Date
+  matchStartDate    DateTime? @db.Date
+  matchEndDate      DateTime? @db.Date
+  overrideState     SeasonOverrideState?
+  overrideReason    String?
+  overrideStartedAt DateTime? @db.Timestamptz(3)
+  overrideEndsAt    DateTime? @db.Timestamptz(3)
   createdAt         DateTime @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
   updatedAt         DateTime @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
 
   @@unique([academicYear, semester])
   @@index([roomSelectionDate])
+  @@index([matchEndDate])
 }
 
 model User {

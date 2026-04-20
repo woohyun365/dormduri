@@ -29,6 +29,31 @@ function normalizeNickname(nickname) {
   return nickname.trim().toLowerCase();
 }
 
+/**
+ * @param {string} dateStr
+ * @param {number} weeks
+ */
+function weeksBeforeDate(dateStr, weeks) {
+  const [yearPart, monthPart, dayPart] = dateStr.split('-');
+  const year = Number.parseInt(yearPart ?? '0', 10);
+  const month = Number.parseInt(monthPart ?? '1', 10);
+  const day = Number.parseInt(dayPart ?? '1', 10);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() - weeks * 7);
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * @param {string} roomSelectionDate
+ */
+function deriveSeasonSchedule(roomSelectionDate) {
+  return {
+    openStartDate: weeksBeforeDate(roomSelectionDate, 5),
+    matchStartDate: weeksBeforeDate(roomSelectionDate, 4),
+    matchEndDate: roomSelectionDate,
+  };
+}
+
 async function seedCampusAndDormitories(client) {
   for (const campus of CAMPUS_MASTER_DATA) {
     await client.query(
@@ -183,6 +208,10 @@ async function seedModerationTerms(client) {
 
 async function seedSeasons(client) {
   for (const season of SEASON_FIXTURES) {
+    const schedule = deriveSeasonSchedule(season.roomSelectionDate);
+    const openStartDate = season.openStartDate ?? schedule.openStartDate;
+    const matchStartDate = season.matchStartDate ?? schedule.matchStartDate;
+    const matchEndDate = season.matchEndDate ?? schedule.matchEndDate;
     await client.query(
       `
         INSERT INTO "Season" (
@@ -191,17 +220,58 @@ async function seedSeasons(client) {
           semester,
           name,
           "roomSelectionDate",
+          "openStartDate",
+          "matchStartDate",
+          "matchEndDate",
+          "overrideState",
+          "overrideReason",
+          "overrideStartedAt",
+          "overrideEndsAt",
           "createdAt",
           "updatedAt"
         )
-        VALUES (gen_random_uuid()::text, $1, $2, $3, $4::date, NOW(), NOW())
+        VALUES (
+          gen_random_uuid()::text,
+          $1,
+          $2,
+          $3,
+          $4::date,
+          $5::date,
+          $6::date,
+          $7::date,
+          $8::"SeasonOverrideState",
+          $9,
+          $10::timestamptz,
+          $11::timestamptz,
+          NOW(),
+          NOW()
+        )
         ON CONFLICT ("academicYear", semester)
         DO UPDATE SET
           name = EXCLUDED.name,
           "roomSelectionDate" = EXCLUDED."roomSelectionDate",
+          "openStartDate" = EXCLUDED."openStartDate",
+          "matchStartDate" = EXCLUDED."matchStartDate",
+          "matchEndDate" = EXCLUDED."matchEndDate",
+          "overrideState" = EXCLUDED."overrideState",
+          "overrideReason" = EXCLUDED."overrideReason",
+          "overrideStartedAt" = EXCLUDED."overrideStartedAt",
+          "overrideEndsAt" = EXCLUDED."overrideEndsAt",
           "updatedAt" = NOW()
       `,
-      [season.academicYear, season.semester, season.name, season.roomSelectionDate],
+      [
+        season.academicYear,
+        season.semester,
+        season.name,
+        season.roomSelectionDate,
+        openStartDate,
+        matchStartDate,
+        matchEndDate,
+        season.overrideState ?? null,
+        season.overrideReason ?? null,
+        season.overrideStartedAt ?? null,
+        season.overrideEndsAt ?? null,
+      ],
     );
   }
 }
