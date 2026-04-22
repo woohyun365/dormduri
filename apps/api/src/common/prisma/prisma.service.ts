@@ -42,6 +42,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       { trigger: 'set_dormitory_updated_at', table: '"Dormitory"' },
       { trigger: 'set_dormitory_guide_updated_at', table: '"DormitoryGuide"' },
       { trigger: 'set_season_updated_at', table: '"Season"' },
+      { trigger: 'set_season_dormitory_operation_updated_at', table: '"SeasonDormitoryOperation"' },
     ];
 
     for (const target of triggerTargets) {

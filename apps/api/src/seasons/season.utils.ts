@@ -1,60 +1,35 @@
-import type { CurrentSeasonResponse, SeasonState } from '@repo/shared/season-contract';
+import type { SeasonRuntimeOverride, SeasonState } from '@repo/shared/season-contract';
 import { toDateOnlyString, type LocalDateString } from '@repo/shared/date-primitives';
 import type { NormalizedSeasonRuntimeRow } from './season.types.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
-export function formatKstDate(date: Date): string {
+export function formatKstDate(date: Date): LocalDateString {
   return new Date(date.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
-export function weeksBeforeDate(dateStr: string, weeks: number): string {
-  const parts = dateStr.split('-').map(Number);
-  const year = parts[0] ?? 0;
-  const month = parts[1] ?? 1;
-  const day = parts[2] ?? 1;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  date.setUTCDate(date.getUTCDate() - weeks * 7);
+export function endOfMonthDate(year: number, month1Based: number): LocalDateString {
+  const date = new Date(Date.UTC(year, month1Based, 0));
   return date.toISOString().slice(0, 10);
 }
 
-export function calcSeasonSchedule(roomSelectionDate: string) {
-  return {
-    openStart: weeksBeforeDate(roomSelectionDate, 5),
-    matchStart: weeksBeforeDate(roomSelectionDate, 4),
-    matchEnd: roomSelectionDate,
-  };
+export function subtractDays(dateStr: LocalDateString, days: number): LocalDateString {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1));
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
 }
 
-function toKstStartMs(dateStr: string): number {
-  return new Date(`${dateStr}T00:00:00+09:00`).getTime();
-}
-
-function toKstEndMs(dateStr: string): number {
-  return new Date(`${dateStr}T23:59:59+09:00`).getTime();
-}
-
-export function getSeasonState(roomSelectionDate: string, now: Date): SeasonState {
-  const schedule = calcSeasonSchedule(roomSelectionDate);
-  const nowMs = now.getTime();
-
-  if (nowMs >= toKstStartMs(schedule.matchStart) && nowMs <= toKstEndMs(schedule.matchEnd)) {
-    return 'SEASON_MATCHING';
-  }
-
-  if (nowMs >= toKstStartMs(schedule.openStart) && nowMs < toKstStartMs(schedule.matchStart)) {
-    return 'SEASON_OPEN';
-  }
-
-  return 'OFF_SEASON';
-}
-
-export type SeasonScheduleSource = {
-  roomSelectionDate: LocalDateString;
-  openStartDate?: LocalDateString | null;
-  matchStartDate?: LocalDateString | null;
-  matchEndDate?: LocalDateString | null;
+export type SeasonWindowSource = {
+  preparationStartDate: LocalDateString;
+  matchingStartDate: LocalDateString;
+  seasonEndDate: LocalDateString;
+  operatedDormitories: Array<{
+    dormitoryId: string;
+    isOperated: boolean;
+    roomSelectionDate: LocalDateString;
+  }>;
 };
 
 export type SeasonOverrideSource = {
@@ -63,40 +38,33 @@ export type SeasonOverrideSource = {
   overrideEndsAt?: Date | string | null;
 };
 
-export function resolveSeasonSchedule(season: SeasonScheduleSource) {
-  const fallback = calcSeasonSchedule(season.roomSelectionDate);
-
-  return {
-    roomSelectionDate: season.roomSelectionDate,
-    openStart: season.openStartDate ?? fallback.openStart,
-    matchStart: season.matchStartDate ?? fallback.matchStart,
-    matchEnd: season.matchEndDate ?? fallback.matchEnd,
-  };
+function toKstStartMs(dateStr: LocalDateString): number {
+  return new Date(`${dateStr}T00:00:00+09:00`).getTime();
 }
 
-export function normalizeSeasonRuntimeRow(season: {
-  id: string;
-  name: string;
-  roomSelectionDate: Date | string;
-  openStartDate?: Date | string | null;
-  matchStartDate?: Date | string | null;
-  matchEndDate?: Date | string | null;
-  overrideState?: SeasonState | null;
-  overrideReason?: string | null;
-  overrideStartedAt?: Date | null;
-  overrideEndsAt?: Date | null;
-}): NormalizedSeasonRuntimeRow {
+function toKstEndMs(dateStr: LocalDateString): number {
+  return new Date(`${dateStr}T23:59:59+09:00`).getTime();
+}
+
+export function getMatchingEndDate(
+  operatedDormitories: SeasonWindowSource['operatedDormitories'],
+): LocalDateString | null {
+  const dates = operatedDormitories
+    .filter((operation) => operation.isOperated)
+    .map((operation) => operation.roomSelectionDate)
+    .sort();
+
+  return dates.at(-1) ?? null;
+}
+
+export function resolveSeasonSchedule(season: SeasonWindowSource) {
+  const matchingEnd = getMatchingEndDate(season.operatedDormitories) ?? season.seasonEndDate;
+
   return {
-    id: season.id,
-    name: season.name,
-    roomSelectionDate: toDateOnlyString(season.roomSelectionDate),
-    openStartDate: season.openStartDate ? toDateOnlyString(season.openStartDate) : null,
-    matchStartDate: season.matchStartDate ? toDateOnlyString(season.matchStartDate) : null,
-    matchEndDate: season.matchEndDate ? toDateOnlyString(season.matchEndDate) : null,
-    overrideState: season.overrideState ?? null,
-    overrideReason: season.overrideReason ?? null,
-    overrideStartedAt: season.overrideStartedAt ?? null,
-    overrideEndsAt: season.overrideEndsAt ?? null,
+    preparationStart: season.preparationStartDate,
+    matchingStart: season.matchingStartDate,
+    matchingEnd,
+    seasonEnd: season.seasonEndDate,
   };
 }
 
@@ -120,7 +88,7 @@ export function hasActiveSeasonOverride(
 }
 
 export function getEffectiveSeasonState(
-  season: SeasonScheduleSource & SeasonOverrideSource,
+  season: SeasonWindowSource & SeasonOverrideSource,
   now: Date,
 ): SeasonState {
   if (hasActiveSeasonOverride(season, now)) {
@@ -130,53 +98,106 @@ export function getEffectiveSeasonState(
   const schedule = resolveSeasonSchedule(season);
   const nowMs = now.getTime();
 
-  if (nowMs >= toKstStartMs(schedule.matchStart) && nowMs <= toKstEndMs(schedule.matchEnd)) {
+  if (nowMs < toKstStartMs(schedule.preparationStart) || nowMs > toKstEndMs(schedule.seasonEnd)) {
+    return 'OFF_SEASON';
+  }
+
+  if (nowMs < toKstStartMs(schedule.matchingStart)) {
+    return 'SEASON_PREPARATION';
+  }
+
+  if (nowMs <= toKstEndMs(schedule.matchingEnd)) {
     return 'SEASON_MATCHING';
   }
 
-  if (nowMs >= toKstStartMs(schedule.openStart) && nowMs < toKstStartMs(schedule.matchStart)) {
-    return 'SEASON_OPEN';
-  }
-
-  return 'OFF_SEASON';
+  return 'SEASON_POST_MATCH';
 }
 
-export function calcDaysUntilEnd(roomSelectionDate: string, now: Date): number {
-  const diff = toKstEndMs(roomSelectionDate) - now.getTime();
+export function calcDaysUntilDate(dateStr: LocalDateString, now: Date): number {
+  const diff = toKstEndMs(dateStr) - now.getTime();
   return Math.max(0, Math.ceil(diff / DAY_MS));
+}
+
+export function normalizeSeasonRuntimeRow(season: {
+  id: string;
+  campusCode: NormalizedSeasonRuntimeRow['campusCode'];
+  name: string;
+  preparationStartDate: Date | string;
+  matchingStartDate: Date | string;
+  seasonEndDate: Date | string;
+  overrideState?: SeasonState | null;
+  overrideReason?: string | null;
+  overrideStartedAt?: Date | null;
+  overrideEndsAt?: Date | null;
+  dormitoryOperations?: Array<{
+    dormitoryId: string;
+    isOperated: boolean;
+    roomSelectionDate: Date | string;
+  }>;
+}): NormalizedSeasonRuntimeRow {
+  return {
+    id: season.id,
+    campusCode: season.campusCode,
+    name: season.name,
+    preparationStartDate: toDateOnlyString(season.preparationStartDate),
+    matchingStartDate: toDateOnlyString(season.matchingStartDate),
+    seasonEndDate: toDateOnlyString(season.seasonEndDate),
+    overrideState: season.overrideState ?? null,
+    overrideReason: season.overrideReason ?? null,
+    overrideStartedAt: season.overrideStartedAt ?? null,
+    overrideEndsAt: season.overrideEndsAt ?? null,
+    operatedDormitories: (season.dormitoryOperations ?? []).map((operation) => ({
+      dormitoryId: operation.dormitoryId,
+      isOperated: operation.isOperated,
+      roomSelectionDate: toDateOnlyString(operation.roomSelectionDate),
+    })),
+  };
 }
 
 export function toCurrentSeasonResponse(
   season: NormalizedSeasonRuntimeRow,
   now: Date,
-  nextSeason: {
-    id: string;
-    name: string;
-    roomSelectionDate: LocalDateString;
-  } | null = null,
-): CurrentSeasonResponse {
+  nextSeason: NormalizedSeasonRuntimeRow | null = null,
+) {
   const schedule = resolveSeasonSchedule(season);
-  const roomSelectionDate = schedule.roomSelectionDate;
   const state = getEffectiveSeasonState(season, now);
 
+  const override: SeasonRuntimeOverride = {
+    active: hasActiveSeasonOverride(season, now),
+    state: season.overrideState,
+    reason: season.overrideReason,
+    startedAt: season.overrideStartedAt ? season.overrideStartedAt.toISOString() : null,
+    endsAt: season.overrideEndsAt ? season.overrideEndsAt.toISOString() : null,
+  };
+
   return {
+    campusCode: season.campusCode,
     season: {
       id: season.id,
       name: season.name,
-      roomSelectionDate,
+      preparationStartDate: season.preparationStartDate,
+      matchingStartDate: season.matchingStartDate,
+      seasonEndDate: season.seasonEndDate,
     },
     nextSeason: nextSeason
       ? {
           id: nextSeason.id,
           name: nextSeason.name,
-          roomSelectionDate: nextSeason.roomSelectionDate,
+          preparationStartDate: nextSeason.preparationStartDate,
+          matchingStartDate: nextSeason.matchingStartDate,
+          seasonEndDate: nextSeason.seasonEndDate,
         }
       : null,
+    operatedDormitories: season.operatedDormitories,
     state,
     isActive: state !== 'OFF_SEASON',
-    isOpen: state === 'SEASON_OPEN',
+    isPreparation: state === 'SEASON_PREPARATION',
     isMatching: state === 'SEASON_MATCHING',
-    daysUntilEnd: state === 'SEASON_MATCHING' ? calcDaysUntilEnd(schedule.matchEnd, now) : 0,
+    isPostMatch: state === 'SEASON_POST_MATCH',
+    daysUntilMatchingEnd:
+      state === 'SEASON_MATCHING' ? calcDaysUntilDate(schedule.matchingEnd, now) : 0,
+    daysUntilSeasonEnd: state !== 'OFF_SEASON' ? calcDaysUntilDate(schedule.seasonEnd, now) : 0,
     schedule,
+    override,
   };
 }

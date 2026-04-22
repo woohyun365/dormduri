@@ -58,8 +58,9 @@ enum DormitoryBathroomType {
 
 enum SeasonOverrideState {
   OFF_SEASON
-  SEASON_OPEN
+  SEASON_PREPARATION
   SEASON_MATCHING
+  SEASON_POST_MATCH
 }
 
 model CampusMaster {
@@ -70,6 +71,7 @@ model CampusMaster {
   createdAt    DateTime            @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
   updatedAt    DateTime            @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
   dormitories  Dormitory[]
+  seasons      Season[]
   guideContent CampusGuideContent?
 }
 
@@ -94,6 +96,7 @@ model Dormitory {
   updatedAt    DateTime              @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
   campus       CampusMaster          @relation(fields: [campusCode], references: [code], onDelete: Restrict)
   guide        DormitoryGuide?
+  seasonOperations SeasonDormitoryOperation[]
   users        User[]
 
   @@index([campusCode, genderPolicy, sortOrder])
@@ -112,23 +115,40 @@ model DormitoryGuide {
 
 model Season {
   id                String   @id @default(cuid())
+  campusCode        Campus   @default(CHUNCHEON)
   academicYear      Int
   semester          Int
   name              String
-  roomSelectionDate DateTime @db.Date
-  openStartDate     DateTime? @db.Date
-  matchStartDate    DateTime? @db.Date
-  matchEndDate      DateTime? @db.Date
+  preparationStartDate DateTime @db.Date
+  matchingStartDate    DateTime @db.Date
+  seasonEndDate        DateTime @db.Date
   overrideState     SeasonOverrideState?
   overrideReason    String?
   overrideStartedAt DateTime? @db.Timestamptz(3)
   overrideEndsAt    DateTime? @db.Timestamptz(3)
   createdAt         DateTime @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
   updatedAt         DateTime @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  campus            CampusMaster @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  dormitoryOperations SeasonDormitoryOperation[]
 
-  @@unique([academicYear, semester])
-  @@index([roomSelectionDate])
-  @@index([matchEndDate])
+  @@unique([campusCode, academicYear, semester])
+  @@index([campusCode, matchingStartDate])
+  @@index([campusCode, seasonEndDate])
+}
+
+model SeasonDormitoryOperation {
+  seasonId           String
+  dormitoryId        String
+  isOperated         Boolean   @default(true)
+  roomSelectionDate  DateTime  @db.Date
+  createdAt          DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  updatedAt          DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  season             Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  dormitory          Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+
+  @@id([seasonId, dormitoryId])
+  @@index([seasonId, isOperated, roomSelectionDate])
+  @@index([dormitoryId, roomSelectionDate])
 }
 
 model User {

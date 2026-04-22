@@ -43,14 +43,17 @@ function weeksBeforeDate(dateStr, weeks) {
   return date.toISOString().slice(0, 10);
 }
 
-/**
- * @param {string} roomSelectionDate
- */
-function deriveSeasonSchedule(roomSelectionDate) {
+function getSemesterDefaults(academicYear, semester) {
+  if (semester === 1) {
+    return {
+      preparationStartDate: `${academicYear}-01-01`,
+      seasonEndDate: `${academicYear}-02-28`,
+    };
+  }
+
   return {
-    openStartDate: weeksBeforeDate(roomSelectionDate, 5),
-    matchStartDate: weeksBeforeDate(roomSelectionDate, 4),
-    matchEndDate: roomSelectionDate,
+    preparationStartDate: `${academicYear}-07-01`,
+    seasonEndDate: `${academicYear}-08-31`,
   };
 }
 
@@ -208,21 +211,33 @@ async function seedModerationTerms(client) {
 
 async function seedSeasons(client) {
   for (const season of SEASON_FIXTURES) {
-    const schedule = deriveSeasonSchedule(season.roomSelectionDate);
-    const openStartDate = season.openStartDate ?? schedule.openStartDate;
-    const matchStartDate = season.matchStartDate ?? schedule.matchStartDate;
-    const matchEndDate = season.matchEndDate ?? schedule.matchEndDate;
+    const earliestRoomSelectionDate = [...(season.dormitoryOperations ?? [])]
+      .filter((operation) => operation.isOperated !== false)
+      .map((operation) => operation.roomSelectionDate)
+      .sort()[0];
+
+    if (!earliestRoomSelectionDate) {
+      throw new Error(
+        `Season fixture requires at least one operated dormitory: ${season.campusCode} ${season.academicYear}-${season.semester}`,
+      );
+    }
+
+    const defaults = getSemesterDefaults(season.academicYear, season.semester);
+    const preparationStartDate = season.preparationStartDate ?? defaults.preparationStartDate;
+    const matchingStartDate =
+      season.matchingStartDate ?? weeksBeforeDate(earliestRoomSelectionDate, 2);
+    const seasonEndDate = season.seasonEndDate ?? defaults.seasonEndDate;
     await client.query(
       `
         INSERT INTO "Season" (
           id,
+          "campusCode",
           "academicYear",
           semester,
           name,
-          "roomSelectionDate",
-          "openStartDate",
-          "matchStartDate",
-          "matchEndDate",
+          "preparationStartDate",
+          "matchingStartDate",
+          "seasonEndDate",
           "overrideState",
           "overrideReason",
           "overrideStartedAt",
@@ -232,10 +247,10 @@ async function seedSeasons(client) {
         )
         VALUES (
           gen_random_uuid()::text,
-          $1,
+          $1::"Campus",
           $2,
           $3,
-          $4::date,
+          $4,
           $5::date,
           $6::date,
           $7::date,
@@ -246,13 +261,13 @@ async function seedSeasons(client) {
           NOW(),
           NOW()
         )
-        ON CONFLICT ("academicYear", semester)
+        ON CONFLICT ("campusCode", "academicYear", semester)
         DO UPDATE SET
           name = EXCLUDED.name,
-          "roomSelectionDate" = EXCLUDED."roomSelectionDate",
-          "openStartDate" = EXCLUDED."openStartDate",
-          "matchStartDate" = EXCLUDED."matchStartDate",
-          "matchEndDate" = EXCLUDED."matchEndDate",
+          "campusCode" = EXCLUDED."campusCode",
+          "preparationStartDate" = EXCLUDED."preparationStartDate",
+          "matchingStartDate" = EXCLUDED."matchingStartDate",
+          "seasonEndDate" = EXCLUDED."seasonEndDate",
           "overrideState" = EXCLUDED."overrideState",
           "overrideReason" = EXCLUDED."overrideReason",
           "overrideStartedAt" = EXCLUDED."overrideStartedAt",
@@ -260,19 +275,86 @@ async function seedSeasons(client) {
           "updatedAt" = NOW()
       `,
       [
+        season.campusCode,
         season.academicYear,
         season.semester,
         season.name,
-        season.roomSelectionDate,
-        openStartDate,
-        matchStartDate,
-        matchEndDate,
+        preparationStartDate,
+        matchingStartDate,
+        seasonEndDate,
         season.overrideState ?? null,
         season.overrideReason ?? null,
         season.overrideStartedAt ?? null,
         season.overrideEndsAt ?? null,
       ],
     );
+
+    const seasonRow = await client.query(
+      `
+        SELECT id
+        FROM "Season"
+        WHERE "campusCode" = $1::"Campus"
+          AND "academicYear" = $2
+          AND semester = $3
+        LIMIT 1
+      `,
+      [season.campusCode, season.academicYear, season.semester],
+    );
+
+    const seasonId = seasonRow.rows[0]?.id;
+    if (!seasonId) {
+      throw new Error(
+        `Season seed lookup failed: ${season.campusCode} ${season.academicYear}-${season.semester}`,
+      );
+    }
+
+    for (const operation of season.dormitoryOperations ?? []) {
+      await client.query(
+        `
+          INSERT INTO "SeasonDormitoryOperation" (
+            "seasonId",
+            "dormitoryId",
+            "isOperated",
+            "roomSelectionDate",
+            "createdAt",
+            "updatedAt"
+          )
+          VALUES ($1, $2, $3, $4::date, NOW(), NOW())
+          ON CONFLICT ("seasonId", "dormitoryId")
+          DO UPDATE SET
+            "isOperated" = EXCLUDED."isOperated",
+            "roomSelectionDate" = EXCLUDED."roomSelectionDate",
+            "updatedAt" = NOW()
+        `,
+        [
+          seasonId,
+          operation.dormitoryId,
+          operation.isOperated ?? true,
+          operation.roomSelectionDate,
+        ],
+      );
+    }
+
+    const dormitoryOperations = season.dormitoryOperations ?? [];
+    if (dormitoryOperations.length > 0) {
+      const dormitoryIds = dormitoryOperations.map((operation) => operation.dormitoryId);
+      await client.query(
+        `
+          DELETE FROM "SeasonDormitoryOperation"
+          WHERE "seasonId" = $1
+            AND NOT ("dormitoryId" = ANY($2::text[]))
+        `,
+        [seasonId, dormitoryIds],
+      );
+    } else {
+      await client.query(
+        `
+          DELETE FROM "SeasonDormitoryOperation"
+          WHERE "seasonId" = $1
+        `,
+        [seasonId],
+      );
+    }
   }
 }
 
