@@ -107,7 +107,7 @@ export const AUTH_FIXTURE_USERS = [
     nickname: '테스트춘천남',
     gender: 'M',
     campus: 'CHUNCHEON',
-    dormitoryId: 'toegye',
+    dormitoryId: 'dasan',
     dormitorySelectionState: 'ASSIGNED',
     intro: '춘천 운영캠퍼스 남성 시드 계정입니다.',
     note: '기본 로그인/운영캠퍼스 남성 검증',

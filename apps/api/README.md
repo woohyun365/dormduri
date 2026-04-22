@@ -180,7 +180,7 @@ docker exec knu-roommate-postgres-dev \
 서버 실행 후 예시:
 
 ```bash
-curl http://localhost:4000/api/seasons/current
+curl "http://localhost:4000/api/seasons/current?campus=CHUNCHEON"
 curl "http://localhost:4000/api/dormitories?campus=CHUNCHEON&gender=M"
 ```
 
