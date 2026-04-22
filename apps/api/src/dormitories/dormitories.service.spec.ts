@@ -10,8 +10,11 @@ describe('DormitoriesService', () => {
       findUnique: jest.fn(),
     },
   };
+  const seasonsService = {
+    getCurrentSeasonContext: jest.fn(),
+  };
 
-  const service = new DormitoriesService(prisma as never);
+  const service = new DormitoriesService(prisma as never, seasonsService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -23,6 +26,7 @@ describe('DormitoriesService', () => {
       nameKo: '삼척캠퍼스',
       isOperated: false,
     });
+    seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
     prisma.dormitory.findMany.mockResolvedValue([]);
 
     await expect(service.getDormitories('SAMCHEOK', 'M')).resolves.toEqual({
@@ -40,6 +44,12 @@ describe('DormitoriesService', () => {
       code: 'CHUNCHEON',
       nameKo: '춘천캠퍼스',
       isOperated: true,
+    });
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+        { dormitoryId: 'saerom', isOperated: true, roomSelectionDate: '2026-02-11' },
+      ],
     });
     prisma.dormitory.findMany.mockResolvedValue([
       { id: 'dasan', nameKo: '다산관', roomType: 2, genderPolicy: 'M' },
