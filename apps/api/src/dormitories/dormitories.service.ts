@@ -2,13 +2,13 @@ import { Injectable } from '@nestjs/common';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { dormitoriesErrors } from './dormitories.errors.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+import { DormitorySelectableQueryService } from './dormitory-selectable-query.service.js';
 
 @Injectable()
 export class DormitoriesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
+    private readonly dormitorySelectableQueryService: DormitorySelectableQueryService,
   ) {}
 
   async getDormitories(campus: Campus, gender?: Gender) {
@@ -25,23 +25,9 @@ export class DormitoriesService {
       throw dormitoriesErrors.campusNotFound();
     }
 
-    const currentSeason = campusMeta.isOperated
-      ? await this.seasonsService.getCurrentSeasonContext(campus)
-      : null;
-    const operatedDormitoryIds = new Set(
-      currentSeason?.operatedDormitories
-        .filter((operation) => operation.isOperated)
-        .map((operation) => operation.dormitoryId) ?? [],
-    );
-
     const items = await this.prisma.dormitory.findMany({
       where: {
         campusCode: campus,
-        ...(campusMeta.isOperated && currentSeason
-          ? { id: { in: Array.from(operatedDormitoryIds) } }
-          : campusMeta.isOperated
-            ? { id: { in: [] } }
-            : {}),
         ...(gender ? { OR: [{ genderPolicy: gender }, { genderPolicy: 'BOTH' }] } : {}),
       },
       orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
@@ -63,6 +49,10 @@ export class DormitoriesService {
         isOperated: campusMeta.isOperated,
       })),
     };
+  }
+
+  async getSelectableDormitories(campus: Campus, gender?: Gender) {
+    return this.dormitorySelectableQueryService.getSelectableDormitories(campus, gender);
   }
 
   async getDormitoryById(id: string) {

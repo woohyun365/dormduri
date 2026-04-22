@@ -16,14 +16,29 @@ export class SeasonsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getCurrentSeason(campusCode: Campus, now?: Date): Promise<CurrentSeasonResponse | null> {
-    return this.getCurrentSeasonContext(campusCode, now);
+    return this.getSeasonContext(campusCode, now);
   }
 
   async getCurrentSeasonContext(
     campusCode: Campus,
     now?: Date,
   ): Promise<CurrentSeasonContext | null> {
+    return this.getSeasonContext(campusCode, now);
+  }
+
+  private async getSeasonContext(
+    campusCode: Campus,
+    now: Date | undefined,
+  ): Promise<CurrentSeasonContext | null> {
     const referenceNow = await this.resolveReferenceTime(now);
+    const campusMeta = await this.prisma.campusMaster.findUnique({
+      where: { code: campusCode },
+      select: { isOperated: true },
+    });
+
+    if (!campusMeta?.isOperated) {
+      return null;
+    }
 
     const seasons = await this.prisma.season.findMany({
       where: { campusCode },
@@ -67,7 +82,7 @@ export class SeasonsService {
       (season) => resolveSeasonSchedule(season).seasonEnd >= today,
     );
 
-    const selectedSeason = overrideSeason ?? currentOrUpcoming ?? normalizedSeasons.at(-1) ?? null;
+    const selectedSeason = overrideSeason ?? currentOrUpcoming ?? null;
 
     if (!selectedSeason) {
       return null;

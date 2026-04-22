@@ -10,11 +10,11 @@ describe('DormitoriesService', () => {
       findUnique: jest.fn(),
     },
   };
-  const seasonsService = {
-    getCurrentSeasonContext: jest.fn(),
+  const dormitorySelectableQueryService = {
+    getSelectableDormitories: jest.fn(),
   };
 
-  const service = new DormitoriesService(prisma as never, seasonsService as never);
+  const service = new DormitoriesService(prisma as never, dormitorySelectableQueryService as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -26,7 +26,6 @@ describe('DormitoriesService', () => {
       nameKo: '삼척캠퍼스',
       isOperated: false,
     });
-    seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
     prisma.dormitory.findMany.mockResolvedValue([]);
 
     await expect(service.getDormitories('SAMCHEOK', 'M')).resolves.toEqual({
@@ -39,28 +38,48 @@ describe('DormitoriesService', () => {
     });
   });
 
-  it('운영 캠퍼스 목록은 성별과 공용 건물을 함께 반환한다', async () => {
+  it('master directory는 시즌 운영 여부와 무관하게 캠퍼스 기준 건물 master를 반환한다', async () => {
     prisma.campusMaster.findUnique.mockResolvedValue({
       code: 'CHUNCHEON',
       nameKo: '춘천캠퍼스',
       isOperated: true,
     });
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-        { dormitoryId: 'saerom', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-    });
     prisma.dormitory.findMany.mockResolvedValue([
       { id: 'dasan', nameKo: '다산관', roomType: 2, genderPolicy: 'M' },
+      { id: 'toegye', nameKo: '퇴계관', roomType: 3, genderPolicy: 'M' },
       { id: 'saerom', nameKo: '새롬관', roomType: 2, genderPolicy: 'BOTH' },
     ]);
 
     const result = await service.getDormitories('CHUNCHEON', 'M');
     expect(result.items).toEqual([
       { id: 'dasan', name: '다산관', roomType: 2, genderPolicy: 'M', isOperated: true },
+      { id: 'toegye', name: '퇴계관', roomType: 3, genderPolicy: 'M', isOperated: true },
       { id: 'saerom', name: '새롬관', roomType: 2, genderPolicy: 'BOTH', isOperated: true },
     ]);
+  });
+
+  it('selectable 목록 조회는 SeasonDormitoryOperation 중심 query service에 위임한다', async () => {
+    dormitorySelectableQueryService.getSelectableDormitories.mockResolvedValue({
+      campus: {
+        code: 'CHUNCHEON',
+        nameKo: '춘천캠퍼스',
+        isOperated: true,
+      },
+      items: [{ id: 'dasan', name: '다산관', roomType: 2, genderPolicy: 'M', isOperated: true }],
+    });
+
+    await expect(service.getSelectableDormitories('CHUNCHEON', 'M')).resolves.toEqual({
+      campus: {
+        code: 'CHUNCHEON',
+        nameKo: '춘천캠퍼스',
+        isOperated: true,
+      },
+      items: [{ id: 'dasan', name: '다산관', roomType: 2, genderPolicy: 'M', isOperated: true }],
+    });
+    expect(dormitorySelectableQueryService.getSelectableDormitories).toHaveBeenCalledWith(
+      'CHUNCHEON',
+      'M',
+    );
   });
 
   it('건물 guide 응답에 공통 규칙과 연락처를 포함한다', async () => {

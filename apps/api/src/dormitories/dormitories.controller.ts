@@ -28,6 +28,27 @@ export class DormitoriesController {
     return this.dormitoriesService.getDormitories(parsedCampus.data, parsedGender.data);
   }
 
+  @Get('selectable')
+  async getSelectableDormitories(
+    @Query('campus') campus: string | undefined,
+    @Query('gender') gender?: string,
+  ) {
+    const parsedCampus = campusSchema.safeParse(campus);
+    if (!parsedCampus.success) {
+      throw dormitoriesErrors.invalidCampusQuery();
+    }
+
+    const parsedGender =
+      gender == null
+        ? ({ success: true, data: undefined } as const)
+        : genderSchema.safeParse(gender);
+    if (!parsedGender.success) {
+      throw dormitoriesErrors.invalidGenderQuery();
+    }
+
+    return this.dormitoriesService.getSelectableDormitories(parsedCampus.data, parsedGender.data);
+  }
+
   @Get(':id')
   async getDormitoryById(@Param('id') id: string) {
     return this.dormitoriesService.getDormitoryById(id);
