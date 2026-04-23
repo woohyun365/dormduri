@@ -31,6 +31,7 @@
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public"
 PORT=4000
 JWT_SECRET="<generate-with-openssl-rand-base64-32>"
+VERIFICATION_CODE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
 ```
 
 권장:
@@ -42,7 +43,7 @@ cp apps/api/.env.example apps/api/.env
 환경 정책:
 
 - `development / test`: 로컬 fallback 허용
-- `production`: `DATABASE_URL`, `JWT_SECRET` 누락 시 앱 시작 실패
+- `production`: `DATABASE_URL`, `JWT_SECRET`, `VERIFICATION_CODE_HMAC_SECRET` 누락 시 앱 시작 실패
 
 즉, 실제 운영/배포에서는 반드시 환경변수 또는 secret store로 주입해야 한다.
 
@@ -52,7 +53,7 @@ repo root 기준:
 
 ```bash
 pnpm db:up
-pnpm db:push
+pnpm --dir apps/api prisma:migrate
 pnpm db:seed
 pnpm --dir apps/api start:dev
 ```
@@ -91,12 +92,20 @@ pnpm --dir apps/api prisma:generate
 apps/api/src/generated/prisma
 ```
 
-### 4-3. schema 반영
+TypedSQL을 함께 생성하므로 내부적으로 `prisma generate --sql`을 사용한다.
 
-개발 중에는 현재 `db push` 기준으로 정렬한다.
+### 4-3. migration 생성 / 적용
+
+개발 중 schema 변경은 `migrate dev` 기준으로 반영한다.
 
 ```bash
-pnpm db:push
+pnpm --dir apps/api prisma:migrate
+```
+
+필요하면 migration 상태를 먼저 확인한다.
+
+```bash
+pnpm --dir apps/api exec prisma migrate status
 ```
 
 ### 4-4. seed 실행
@@ -130,7 +139,7 @@ pnpm db:seed
 
 ```bash
 pnpm --dir apps/api prisma:validate
-pnpm db:push
+pnpm --dir apps/api prisma:migrate
 pnpm db:seed
 pnpm --dir apps/api start:dev
 ```
