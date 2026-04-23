@@ -16,6 +16,7 @@ import {
   generateVerificationCode,
   hashVerificationCode,
   normalizeEmail,
+  safeTimeEquals,
 } from './auth.utils.js';
 import { apiEnv } from '../config/env.js';
 import { AuthVerificationStore } from './auth-verification.store.js';
@@ -139,7 +140,12 @@ export class AuthVerificationService {
         ? SIGNUP_VERIFICATION_CODE_TTL_SECONDS
         : RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS;
     const code = generateVerificationCode();
-    const codeHash = hashVerificationCode(emailNormalized, purpose, code);
+    const codeHash = hashVerificationCode(
+      emailNormalized,
+      purpose,
+      code,
+      apiEnv.verificationCodeHmacSecret,
+    );
 
     if (purpose === 'SIGNUP') {
       await this.verificationStore.invalidateActiveSignupCodes(emailNormalized);
@@ -190,8 +196,15 @@ export class AuthVerificationService {
       return authFailures.verificationCodeInvalid();
     }
 
-    const incomingHash = hashVerificationCode(emailNormalized, purpose, code);
-    if (incomingHash !== record.codeHash) {
+    const incomingHash = hashVerificationCode(
+      emailNormalized,
+      purpose,
+      code,
+      apiEnv.verificationCodeHmacSecret,
+    );
+    const codeMatches = safeTimeEquals(record.codeHash, incomingHash);
+
+    if (!codeMatches) {
       await this.handleFailedVerification(record.id, record.failedAttempts);
       return authFailures.verificationCodeInvalid();
     }

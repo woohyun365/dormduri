@@ -53,6 +53,18 @@ describe('AuthVerificationService', () => {
     );
   });
 
+  it('새 verification code는 HMAC prefix가 포함된 hash로 저장한다', async () => {
+    emailSender.sendVerificationCode.mockResolvedValue(undefined);
+
+    await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
+
+    const [insertArg] = (verificationStore.insertVerificationCode.mock.calls[0] ?? []) as [
+      { codeHash: string }?,
+    ];
+
+    expect(insertArg?.codeHash).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
+  });
+
   it('reset code는 완화된 600초 TTL을 사용한다', async () => {
     emailSender.sendPasswordResetCode.mockResolvedValue(undefined);
 

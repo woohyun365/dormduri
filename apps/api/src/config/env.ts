@@ -5,6 +5,7 @@ const DEFAULT_DATABASE_URL =
   'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
 const DEFAULT_PORT = 4000;
 const DEFAULT_JWT_SECRET = 'local-jwt-secret';
+const DEFAULT_VERIFICATION_CODE_HMAC_SECRET = 'local-verification-code-hmac-secret';
 const DEFAULT_CODE_REQUEST_COOLDOWN_SECONDS = IS_PRODUCTION ? 30 : 5;
 const DEFAULT_CODE_REQUEST_BACKSTOP_WINDOW_SECONDS = 60 * 10;
 const DEFAULT_CODE_REQUEST_BACKSTOP_LIMIT = IS_PRODUCTION ? 5 : 20;
@@ -56,6 +57,13 @@ export const apiEnv = {
   jwtSecret: readStringEnv('JWT_SECRET', DEFAULT_JWT_SECRET, {
     requiredInProduction: true,
   }),
+  verificationCodeHmacSecret: readStringEnv(
+    'VERIFICATION_CODE_HMAC_SECRET',
+    DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
+    {
+      requiredInProduction: true,
+    },
+  ),
   codeRequestCooldownSeconds: readNumberEnv(
     'CODE_REQUEST_COOLDOWN_SECONDS',
     DEFAULT_CODE_REQUEST_COOLDOWN_SECONDS,
@@ -74,14 +82,4 @@ export const apiEnv = {
   authThrottleLimit: readNumberEnv('AUTH_THROTTLE_LIMIT', DEFAULT_AUTH_THROTTLE_LIMIT, {
     min: 1,
   }),
-} as const;
-
-export const apiEnvDefaults = {
-  databaseUrl: DEFAULT_DATABASE_URL,
-  port: DEFAULT_PORT,
-  jwtSecret: DEFAULT_JWT_SECRET,
-  codeRequestCooldownSeconds: DEFAULT_CODE_REQUEST_COOLDOWN_SECONDS,
-  codeRequestBackstopWindowSeconds: DEFAULT_CODE_REQUEST_BACKSTOP_WINDOW_SECONDS,
-  codeRequestBackstopLimit: DEFAULT_CODE_REQUEST_BACKSTOP_LIMIT,
-  authThrottleLimit: DEFAULT_AUTH_THROTTLE_LIMIT,
 } as const;
