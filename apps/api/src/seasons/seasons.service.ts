@@ -90,9 +90,11 @@ export class SeasonsService {
 
     const selectedSchedule = resolveSeasonSchedule(selectedSeason);
     const nextSeason =
-      selectedSchedule.preparationStart > today
-        ? selectedSeason
-        : (upcomingSeasons.find((season) => season.id !== selectedSeason.id) ?? null);
+      upcomingSeasons.find(
+        (season) =>
+          season.id !== selectedSeason.id &&
+          resolveSeasonSchedule(season).preparationStart > selectedSchedule.preparationStart,
+      ) ?? null;
 
     return toCurrentSeasonResponse(selectedSeason, referenceNow, nextSeason);
   }
@@ -140,9 +142,9 @@ export class SeasonsService {
       return now;
     }
 
-    const [row] = await this.prisma.$queryRawUnsafe<{ now: Date }[]>(`
+    const [row] = await this.prisma.$queryRaw<{ now: Date }[]>`
       SELECT CURRENT_TIMESTAMP AS "now"
-    `);
+    `;
 
     if (!row?.now) {
       return new Date();

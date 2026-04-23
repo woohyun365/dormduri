@@ -1,8 +1,6 @@
 import { z } from 'zod';
-import { campusSchema } from './auth-contract.js';
-
-const localDateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const isoDateTimeStringSchema = z.iso.datetime({ offset: true });
+import { campusSchema } from './identity-contract.js';
+import { isoDateTimeStringSchema, localDateStringSchema } from './date-primitives.js';
 
 export const seasonStateSchema = z.enum([
   'OFF_SEASON',

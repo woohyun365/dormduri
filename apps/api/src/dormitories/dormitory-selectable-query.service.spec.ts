@@ -62,14 +62,14 @@ describe('DormitorySelectableQueryService', () => {
     seasonDormitoryOperation: {
       findMany: jest.fn(),
     },
-    $queryRawUnsafe: jest.fn(),
+    $queryRaw: jest.fn(),
   };
 
   const service = new DormitorySelectableQueryService(prisma as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma.$queryRawUnsafe.mockResolvedValue([{ now: new Date('2026-02-10T03:00:00.000Z') }]);
+    prisma.$queryRaw.mockResolvedValue([{ now: new Date('2026-02-10T03:00:00.000Z') }]);
   });
 
   it('비운영 캠퍼스 selectable 목록은 빈 items를 반환한다', async () => {

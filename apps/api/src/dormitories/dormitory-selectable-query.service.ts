@@ -143,9 +143,9 @@ export class DormitorySelectableQueryService {
       return now;
     }
 
-    const [row] = await this.prisma.$queryRawUnsafe<{ now: Date }[]>(`
+    const [row] = await this.prisma.$queryRaw<{ now: Date }[]>`
       SELECT CURRENT_TIMESTAMP AS "now"
-    `);
+    `;
 
     if (!row?.now) {
       return new Date();

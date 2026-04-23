@@ -22,5 +22,5 @@ export interface NormalizedSeasonRuntimeRow {
   overrideReason: string | null;
   overrideStartedAt: Date | null;
   overrideEndsAt: Date | null;
-  operatedDormitories: DormitorySeasonOperation[];
+  dormitoryOperations: DormitorySeasonOperation[];
 }

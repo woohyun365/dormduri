@@ -25,7 +25,7 @@ export type SeasonWindowSource = {
   preparationStartDate: LocalDateString;
   matchingStartDate: LocalDateString;
   seasonEndDate: LocalDateString;
-  operatedDormitories: Array<{
+  dormitoryOperations: Array<{
     dormitoryId: string;
     isOperated: boolean;
     roomSelectionDate: LocalDateString;
@@ -47,9 +47,9 @@ function toKstEndMs(dateStr: LocalDateString): number {
 }
 
 export function getMatchingEndDate(
-  operatedDormitories: SeasonWindowSource['operatedDormitories'],
+  dormitoryOperations: SeasonWindowSource['dormitoryOperations'],
 ): LocalDateString | null {
-  const dates = operatedDormitories
+  const dates = dormitoryOperations
     .filter((operation) => operation.isOperated)
     .map((operation) => operation.roomSelectionDate)
     .sort();
@@ -58,7 +58,7 @@ export function getMatchingEndDate(
 }
 
 export function resolveSeasonSchedule(season: SeasonWindowSource) {
-  const matchingEnd = getMatchingEndDate(season.operatedDormitories) ?? season.seasonEndDate;
+  const matchingEnd = getMatchingEndDate(season.dormitoryOperations) ?? season.seasonEndDate;
 
   return {
     preparationStart: season.preparationStartDate,
@@ -118,6 +118,12 @@ export function calcDaysUntilDate(dateStr: LocalDateString, now: Date): number {
   return Math.max(0, Math.ceil(diff / DAY_MS));
 }
 
+function getOperatedDormitories(
+  dormitoryOperations: NormalizedSeasonRuntimeRow['dormitoryOperations'],
+) {
+  return dormitoryOperations.filter((operation) => operation.isOperated);
+}
+
 export function normalizeSeasonRuntimeRow(season: {
   id: string;
   campusCode: NormalizedSeasonRuntimeRow['campusCode'];
@@ -146,7 +152,7 @@ export function normalizeSeasonRuntimeRow(season: {
     overrideReason: season.overrideReason ?? null,
     overrideStartedAt: season.overrideStartedAt ?? null,
     overrideEndsAt: season.overrideEndsAt ?? null,
-    operatedDormitories: (season.dormitoryOperations ?? []).map((operation) => ({
+    dormitoryOperations: (season.dormitoryOperations ?? []).map((operation) => ({
       dormitoryId: operation.dormitoryId,
       isOperated: operation.isOperated,
       roomSelectionDate: toDateOnlyString(operation.roomSelectionDate),
@@ -161,6 +167,7 @@ export function toCurrentSeasonResponse(
 ) {
   const schedule = resolveSeasonSchedule(season);
   const state = getEffectiveSeasonState(season, now);
+  const operatedDormitories = getOperatedDormitories(season.dormitoryOperations);
 
   const override: SeasonRuntimeOverride = {
     active: hasActiveSeasonOverride(season, now),
@@ -188,7 +195,7 @@ export function toCurrentSeasonResponse(
           seasonEndDate: nextSeason.seasonEndDate,
         }
       : null,
-    operatedDormitories: season.operatedDormitories,
+    operatedDormitories,
     state,
     isActive: state !== 'OFF_SEASON',
     isPreparation: state === 'SEASON_PREPARATION',
