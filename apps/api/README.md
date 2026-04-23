@@ -94,6 +94,11 @@ apps/api/src/generated/prisma
 
 TypedSQL을 함께 생성하므로 내부적으로 `prisma generate --sql`을 사용한다.
 
+주의:
+
+- TypedSQL generate는 SQL 파일 타입 추론을 위해 DB 연결이 필요하다.
+- `pnpm check:api`, `pnpm build:api`, `pnpm test:api` 실행 전에는 로컬 PostgreSQL이 떠 있고 migration이 적용된 상태여야 한다.
+
 ### 4-3. migration 생성 / 적용
 
 개발 중 schema 변경은 `migrate dev` 기준으로 반영한다.
