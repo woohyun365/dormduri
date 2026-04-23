@@ -61,10 +61,5 @@ QA.md
 AGENTS.md
 REFACTOR-ANALYZE.md
 
-## stale local build artifacts
-apps/api/prisma.config.d.ts
-apps/api/prisma.config.js
-apps/api/prisma.config.js.map
-
 ## OS/기타
 .DS_Store

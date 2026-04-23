@@ -3,6 +3,18 @@
   "private": true,
   "scripts": {
     "shared:build": "pnpm --dir packages/shared build",
+    "shared:lint": "pnpm --dir packages/shared lint",
+    "shared:typecheck": "pnpm --dir packages/shared exec tsc --noEmit",
+    "api:prisma:generate": "pnpm --dir apps/api exec prisma generate",
+    "api:lint": "pnpm --dir apps/api exec eslint",
+    "api:typecheck": "pnpm --dir apps/api exec tsc --noEmit",
+    "api:build": "pnpm --dir apps/api exec nest build",
+    "api:test": "pnpm --dir apps/api exec jest --watchman=false --runInBand",
+    "check:fast": "pnpm lint-staged",
+    "check:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm shared:lint && pnpm api:lint && pnpm shared:typecheck && pnpm api:typecheck",
+    "build:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm api:build",
+    "test:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm api:test",
+    "typecheck": "pnpm shared:build && pnpm shared:typecheck && pnpm api:typecheck",
     "dev": "pnpm shared:build && pnpm -r --parallel --filter './apps/**' dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
@@ -12,7 +24,7 @@
     "db:push": "pnpm --dir apps/api exec prisma db push --schema prisma/schema.prisma",
     "db:seed": "pnpm --dir apps/api exec prisma db seed --schema prisma/schema.prisma",
     "format": "prettier . -w",
-    "check": "pnpm lint && prettier . -c",
+    "check": "pnpm check:api && prettier . -c",
     "prepare": "husky"
   },
   "devDependencies": {
