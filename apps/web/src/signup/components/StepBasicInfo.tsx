@@ -79,9 +79,9 @@ export function StepBasicInfo({
       });
       setIsCheckingPolicy(false);
 
-      nextNicknameError = validation.errors?.nickname ?? '';
-      nextPasswordError = validation.errors?.password ?? passwordErr;
-      nextEmailError = validation.errors?.email ?? '';
+      nextNicknameError = validation.fieldErrors?.nickname ?? '';
+      nextPasswordError = validation.fieldErrors?.password ?? passwordErr;
+      nextEmailError = validation.fieldErrors?.email ?? '';
     }
 
     setNicknameError(nextNicknameError);

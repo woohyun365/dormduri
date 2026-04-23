@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { VerificationCodePurpose } from '../generated/prisma/enums.js';
 import {
@@ -16,9 +16,12 @@ import {
   generateVerificationCode,
   hashVerificationCode,
   normalizeEmail,
+  safeTimeEquals,
 } from './auth.utils.js';
 import { apiEnv } from '../config/env.js';
 import { AuthVerificationStore } from './auth-verification.store.js';
+import { authErrors } from './auth.errors.js';
+import { authFailures } from './auth-failures.js';
 
 @Injectable()
 export class AuthVerificationService {
@@ -33,25 +36,29 @@ export class AuthVerificationService {
     requestIp: string | null,
   ): Promise<void> {
     const normalizedIp = this.normalizeRequestIp(requestIp);
-    const retryAfterSeconds = await this.verificationStore.findRetryAfterSeconds(
+    const ipRetryAfterSeconds = await this.verificationStore.findRetryAfterSeconds(
       emailNormalized,
       purpose,
       normalizedIp,
       apiEnv.codeRequestCooldownSeconds,
     );
 
-    if (!retryAfterSeconds || retryAfterSeconds <= 0) {
+    const backstopRetryAfterSeconds = await this.verificationStore.findBackstopRetryAfterSeconds(
+      emailNormalized,
+      purpose,
+      apiEnv.codeRequestBackstopWindowSeconds,
+      apiEnv.codeRequestBackstopLimit,
+    );
+
+    const retryAfterSeconds = [ipRetryAfterSeconds, backstopRetryAfterSeconds]
+      .filter((value): value is number => typeof value === 'number' && value > 0)
+      .reduce<number | null>((max, value) => (max === null ? value : Math.max(max, value)), null);
+
+    if (!retryAfterSeconds) {
       return;
     }
 
-    throw new HttpException(
-      {
-        success: false,
-        error: `너무 잦은 요청이에요. ${retryAfterSeconds}초 후 다시 시도해주세요.`,
-        retryAfterSeconds,
-      },
-      HttpStatus.TOO_MANY_REQUESTS,
-    );
+    throw authErrors.codeRequestThrottled(retryAfterSeconds);
   }
 
   async recordCodeRequest(
@@ -133,7 +140,12 @@ export class AuthVerificationService {
         ? SIGNUP_VERIFICATION_CODE_TTL_SECONDS
         : RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS;
     const code = generateVerificationCode();
-    const codeHash = hashVerificationCode(emailNormalized, purpose, code);
+    const codeHash = hashVerificationCode(
+      emailNormalized,
+      purpose,
+      code,
+      apiEnv.verificationCodeHmacSecret,
+    );
 
     if (purpose === 'SIGNUP') {
       await this.verificationStore.invalidateActiveSignupCodes(emailNormalized);
@@ -181,13 +193,20 @@ export class AuthVerificationService {
     );
 
     if (!record) {
-      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
+      return authFailures.verificationCodeInvalid();
     }
 
-    const incomingHash = hashVerificationCode(emailNormalized, purpose, code);
-    if (incomingHash !== record.codeHash) {
+    const incomingHash = hashVerificationCode(
+      emailNormalized,
+      purpose,
+      code,
+      apiEnv.verificationCodeHmacSecret,
+    );
+    const codeMatches = safeTimeEquals(record.codeHash, incomingHash);
+
+    if (!codeMatches) {
       await this.handleFailedVerification(record.id, record.failedAttempts);
-      return { success: false, error: '인증 코드가 올바르지 않습니다.' };
+      return authFailures.verificationCodeInvalid();
     }
 
     await this.verificationStore.markVerified(record.id);

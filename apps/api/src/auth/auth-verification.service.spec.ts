@@ -3,6 +3,7 @@ import { AuthVerificationService } from './auth-verification.service.js';
 describe('AuthVerificationService', () => {
   const verificationStore = {
     findRetryAfterSeconds: jest.fn(),
+    findBackstopRetryAfterSeconds: jest.fn(),
     createRequestLog: jest.fn(),
     findLatestVerifiedSignupCode: jest.fn(),
     findLatestVerifiedResetCode: jest.fn(),
@@ -25,6 +26,7 @@ describe('AuthVerificationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     verificationStore.findRetryAfterSeconds.mockResolvedValue(null);
+    verificationStore.findBackstopRetryAfterSeconds.mockResolvedValue(null);
   });
 
   it('signup 완료용 verified code 조회는 store로 위임한다', async () => {
@@ -51,6 +53,18 @@ describe('AuthVerificationService', () => {
     );
   });
 
+  it('새 verification code는 HMAC prefix가 포함된 hash로 저장한다', async () => {
+    emailSender.sendVerificationCode.mockResolvedValue(undefined);
+
+    await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
+
+    const [insertArg] = (verificationStore.insertVerificationCode.mock.calls[0] ?? []) as [
+      { codeHash: string }?,
+    ];
+
+    expect(insertArg?.codeHash).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
+  });
+
   it('reset code는 완화된 600초 TTL을 사용한다', async () => {
     emailSender.sendPasswordResetCode.mockResolvedValue(undefined);
 
@@ -69,5 +83,22 @@ describe('AuthVerificationService', () => {
     expect(verificationStore.findLatestVerifiedResetCode).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
     );
+  });
+
+  it('email+purpose backstop 제한이 걸리면 code 요청을 차단한다', async () => {
+    verificationStore.findBackstopRetryAfterSeconds.mockResolvedValue(120);
+
+    expect.assertions(1);
+
+    try {
+      await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
+    } catch (error) {
+      expect(error).toMatchObject({
+        response: {
+          code: 'AUTH_CODE_REQUEST_THROTTLED',
+          retryAfterSeconds: 120,
+        },
+      });
+    }
   });
 });

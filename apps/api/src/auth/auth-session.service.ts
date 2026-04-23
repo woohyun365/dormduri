@@ -1,14 +1,30 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import type { Campus, DormitorySelectionState, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import { getCurrentSessionUserId } from '../generated/prisma/sql.js';
 import {
   AUTH_SESSION_REMEMBER_ME_TTL_SECONDS,
   AUTH_SESSION_TTL_SECONDS,
   JWT_ACCESS_TTL_SECONDS,
 } from './auth.constants.js';
-import type { GenericSuccessResult, SessionStatusResult } from './auth.types.js';
-import { toAuthUserView } from './auth-user-view.js';
+import type {
+  AuthProfileSnapshot,
+  AuthSessionIssueResult,
+  GenericSuccessResult,
+  SessionStatusResult,
+} from './auth.types.js';
+import { toAuthenticatedSessionResult } from './auth-response.builder.js';
+import { toAuthProfileSnapshot } from './auth-user-view.js';
 import { apiEnv } from '../config/env.js';
+
+export interface AuthenticatedUserContext {
+  id: string;
+  gender: Gender;
+  campus: Campus;
+  dormitoryId: string | null;
+  dormitorySelectionState: DormitorySelectionState;
+}
 
 @Injectable()
 export class AuthSessionService {
@@ -18,56 +34,40 @@ export class AuthSessionService {
   ) {}
 
   async getSession(token: string | null): Promise<SessionStatusResult> {
-    if (!token) {
+    const profile = await this.resolveCurrentSessionProfile(token);
+    if (!profile) {
       return { authenticated: false };
     }
 
-    try {
-      const payload = await this.jwtService.verifyAsync<{ sid?: string; sub?: string }>(token, {
-        secret: this.getJwtSecret(),
-      });
-
-      if (!payload.sid || !payload.sub) {
-        return { authenticated: false };
-      }
-
-      const [session] = await this.prisma.$queryRawUnsafe<{ userId: string }[]>(
-        `
-          SELECT "userId"
-          FROM "AuthSession"
-          WHERE id = $1
-            AND "userId" = $2
-            AND "revokedAt" IS NULL
-            AND "expiresAt" > CURRENT_TIMESTAMP
-          LIMIT 1
-        `,
-        payload.sid,
-        payload.sub,
-      );
-
-      if (!session) {
-        return { authenticated: false };
-      }
-
-      const user = await this.prisma.user.findUnique({ where: { id: session.userId } });
-      if (!user) {
-        return { authenticated: false };
-      }
-
-      return {
-        authenticated: true,
-        user: toAuthUserView(user),
-      };
-    } catch {
-      return { authenticated: false };
-    }
+    return toAuthenticatedSessionResult(profile);
   }
 
-  async issueAuthResult(userId: string, email: string, rememberMe: boolean) {
+  async resolveCurrentUserContext(token: string | null): Promise<AuthenticatedUserContext | null> {
+    const userId = await this.resolveAuthenticatedUserId(token);
+    if (!userId) {
+      return null;
+    }
+
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        gender: true,
+        campus: true,
+        dormitoryId: true,
+        dormitorySelectionState: true,
+      },
+    });
+  }
+
+  async issueAuthResult(
+    userId: string,
+    email: string,
+    rememberMe: boolean,
+  ): Promise<AuthSessionIssueResult> {
     const ttlSeconds = rememberMe ? AUTH_SESSION_REMEMBER_ME_TTL_SECONDS : AUTH_SESSION_TTL_SECONDS;
 
-    const [session] = await this.prisma.$queryRawUnsafe<{ id: string }[]>(
-      `
+    const [session] = await this.prisma.$queryRaw<{ id: string }[]>`
         INSERT INTO "AuthSession" (
           id,
           "userId",
@@ -76,15 +76,12 @@ export class AuthSessionService {
         )
         VALUES (
           gen_random_uuid()::text,
-          $1,
-          $2,
-          CURRENT_TIMESTAMP + INTERVAL '${ttlSeconds} seconds'
+          ${userId},
+          ${rememberMe},
+          CURRENT_TIMESTAMP + (${ttlSeconds} * INTERVAL '1 second')
         )
         RETURNING id
-      `,
-      userId,
-      rememberMe,
-    );
+      `;
 
     if (!session) {
       throw new Error('AuthSession insert failed');
@@ -115,14 +112,17 @@ export class AuthSessionService {
         secret: this.getJwtSecret(),
       });
       if (payload.sid) {
-        await this.prisma.$executeRawUnsafe(
-          `
-            UPDATE "AuthSession"
-            SET "revokedAt" = CURRENT_TIMESTAMP
-            WHERE id = $1 AND "revokedAt" IS NULL
-          `,
-          payload.sid,
-        );
+        const revokedAt = await this.prisma.getDatabaseNow();
+
+        await this.prisma.authSession.updateMany({
+          where: {
+            id: payload.sid,
+            revokedAt: null,
+          },
+          data: {
+            revokedAt,
+          },
+        });
       }
     } catch {
       // clear cookie regardless
@@ -133,5 +133,55 @@ export class AuthSessionService {
 
   private getJwtSecret(): string {
     return apiEnv.jwtSecret;
+  }
+
+  private async resolveCurrentSessionProfile(
+    token: string | null,
+  ): Promise<AuthProfileSnapshot | null> {
+    const userId = await this.resolveAuthenticatedUserId(token);
+    if (!userId) {
+      return null;
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        nickname: true,
+        gender: true,
+        campus: true,
+        lifestyle: true,
+        intro: true,
+        dormitoryId: true,
+        dormitorySelectionState: true,
+      },
+    });
+
+    return user ? toAuthProfileSnapshot(user) : null;
+  }
+
+  private async resolveAuthenticatedUserId(token: string | null): Promise<string | null> {
+    if (!token) {
+      return null;
+    }
+
+    try {
+      const payload = await this.jwtService.verifyAsync<{ sid?: string; sub?: string }>(token, {
+        secret: this.getJwtSecret(),
+      });
+
+      if (!payload.sid || !payload.sub) {
+        return null;
+      }
+
+      const [session] = await this.prisma.$queryRawTyped(
+        getCurrentSessionUserId(payload.sid, payload.sub),
+      );
+
+      return session?.userId ?? null;
+    } catch {
+      return null;
+    }
   }
 }

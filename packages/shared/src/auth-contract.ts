@@ -1,8 +1,8 @@
 import { z } from 'zod';
+export { campusSchema, genderSchema } from './identity-contract.js';
+export type { Campus, Gender } from './identity-contract.js';
 import { lifestyleSchema } from './lifestyle.js';
-
-export const genderSchema = z.enum(['M', 'F']);
-export const campusSchema = z.enum(['CHUNCHEON', 'SAMCHEOK', 'DOGYE']);
+import { campusSchema, genderSchema } from './identity-contract.js';
 
 export const emailRequestSchema = z.strictObject({
   email: z.string(),
@@ -40,8 +40,6 @@ export const resetPasswordRequestSchema = z.strictObject({
   newPassword: z.string(),
 });
 
-export type Gender = z.infer<typeof genderSchema>;
-export type Campus = z.infer<typeof campusSchema>;
 export type EmailRequest = z.infer<typeof emailRequestSchema>;
 export type VerificationCodeRequest = z.infer<typeof verificationCodeRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;

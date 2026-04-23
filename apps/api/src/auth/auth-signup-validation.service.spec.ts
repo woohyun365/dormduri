@@ -32,8 +32,10 @@ describe('AuthSignupValidationService', () => {
       }),
     ).resolves.toEqual({
       success: false,
+      code: 'AUTH_SIGNUP_VALIDATION_FAILED',
+      userActionable: true,
       error: '입력값을 다시 확인해주세요.',
-      errors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+      fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
     });
   });
 });

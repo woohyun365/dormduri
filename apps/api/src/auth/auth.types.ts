@@ -1,5 +1,8 @@
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import type { LifestyleData } from './lifestyle.schema.js';
+import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
+import type { LoginResponse } from '@repo/shared/auth-response';
+import type { SessionResponse } from '@repo/shared/session-contract';
 
 export interface SignupInput {
   email: string;
@@ -11,7 +14,7 @@ export interface SignupInput {
   intro: string;
 }
 
-export interface AuthUserView {
+export interface AuthProfileSnapshot {
   id: string;
   email: string;
   nickname: string;
@@ -20,50 +23,23 @@ export interface AuthUserView {
   lifestyle: LifestyleData;
   intro: string;
   dormitoryId: string | null;
+  dormitorySelectionState: DormitorySelectionState;
 }
 
-export interface AuthDevUserView {
-  id: string;
-  email: string;
-  nickname: string;
-  gender: Gender;
-  campus: Campus;
-  dormitoryId: string | null;
-  createdAt: string;
+export interface AuthSessionIssueResult {
+  accessToken: string;
+  sessionId: string;
 }
 
-export interface AuthDevPresetUserView extends AuthDevUserView {
-  presetKey: string;
-  loginPassword: string;
-}
-
-export interface AuthDevPresetGroupView {
-  campus: Campus;
-  label: string;
-  users: AuthDevPresetUserView[];
-}
-
-export interface LoginResult {
-  success: boolean;
-  accessToken?: string;
-  user?: AuthUserView;
-  error?: string;
-  locked?: boolean;
-  remainingSeconds?: number;
-}
+export type LoginResult = LoginResponse;
 
 export interface GenericSuccessResult {
   success: boolean;
   error?: string;
+  code?: string;
+  userActionable?: boolean;
+  fieldErrors?: Record<string, string>;
   retryAfterSeconds?: number;
 }
 
-export interface SessionStatusResult {
-  authenticated: boolean;
-  user?: AuthUserView;
-}
-
-export interface DevAuthUsersResult extends GenericSuccessResult {
-  presetGroups?: AuthDevPresetGroupView[];
-  users?: AuthDevUserView[];
-}
+export type SessionStatusResult = SessionResponse;

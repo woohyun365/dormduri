@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client"
+  previewFeatures = ["typedSql"]
+  output          = "../src/generated/prisma"
 }
 
 datasource db {
@@ -39,22 +40,139 @@ enum ModerationSurface {
   INTRO
 }
 
+enum DormitorySelectionState {
+  NOT_SELECTED
+  UNASSIGNED
+  ASSIGNED
+}
+
+enum DormitoryGenderPolicy {
+  M
+  F
+  BOTH
+}
+
+enum DormitoryBathroomType {
+  SHARED
+  PRIVATE
+}
+
+enum SeasonOverrideState {
+  OFF_SEASON
+  SEASON_PREPARATION
+  SEASON_MATCHING
+  SEASON_POST_MATCH
+}
+
+model CampusMaster {
+  code         Campus              @id
+  nameKo       String
+  isOperated   Boolean
+  sortOrder    Int                 @default(0)
+  createdAt    DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime            @default(now()) @db.Timestamptz(3)
+  dormitories  Dormitory[]
+  seasons      Season[]
+  guideContent CampusGuideContent?
+}
+
+model CampusGuideContent {
+  campusCode        Campus       @id
+  homepageUrl       String
+  commonRules       Json
+  emergencyContacts Json
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime     @default(now()) @db.Timestamptz(3)
+  campus            CampusMaster @relation(fields: [campusCode], references: [code], onDelete: Cascade)
+}
+
+model Dormitory {
+  id               String                     @id
+  campusCode       Campus
+  nameKo           String
+  roomType         Int
+  genderPolicy     DormitoryGenderPolicy
+  sortOrder        Int                        @default(0)
+  createdAt        DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                   @default(now()) @db.Timestamptz(3)
+  campus           CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  guide            DormitoryGuide?
+  seasonOperations SeasonDormitoryOperation[]
+  users            User[]
+
+  @@index([campusCode, genderPolicy, sortOrder])
+}
+
+model DormitoryGuide {
+  dormitoryId   String                @id
+  bathroomType  DormitoryBathroomType
+  facilities    Json
+  repairContact String
+  diningContact String?
+  createdAt     DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime              @default(now()) @db.Timestamptz(3)
+  dormitory     Dormitory             @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+}
+
+model Season {
+  id                   String                     @id @default(cuid())
+  campusCode           Campus                     @default(CHUNCHEON)
+  academicYear         Int
+  semester             Int
+  name                 String
+  preparationStartDate DateTime                   @db.Date
+  matchingStartDate    DateTime                   @db.Date
+  seasonEndDate        DateTime                   @db.Date
+  overrideState        SeasonOverrideState?
+  overrideReason       String?
+  overrideStartedAt    DateTime?                  @db.Timestamptz(3)
+  overrideEndsAt       DateTime?                  @db.Timestamptz(3)
+  createdAt            DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                   @default(now()) @db.Timestamptz(3)
+  campus               CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  dormitoryOperations  SeasonDormitoryOperation[]
+
+  @@unique([campusCode, academicYear, semester])
+  @@index([campusCode, matchingStartDate])
+  @@index([campusCode, seasonEndDate])
+}
+
+model SeasonDormitoryOperation {
+  seasonId          String
+  dormitoryId       String
+  isOperated        Boolean   @default(true)
+  roomSelectionDate DateTime  @db.Date
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @default(now()) @db.Timestamptz(3)
+  season            Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  dormitory         Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
+
+  @@id([seasonId, dormitoryId])
+  @@index([seasonId, isOperated, roomSelectionDate])
+  @@index([dormitoryId, roomSelectionDate])
+}
+
 model User {
-  id                 String        @id @default(uuid())
-  email              String
-  emailNormalized    String        @unique
-  passwordHash       String
-  nickname           String
-  nicknameNormalized String        @unique
-  gender             Gender
-  campus             Campus
-  lifestyle          Json
-  intro              String        @default("")
-  dormitoryId        String?
-  emailVerifiedAt    DateTime?     @db.Timestamptz(3)
-  createdAt          DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
-  updatedAt          DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
-  authSessions       AuthSession[]
+  id                      String                  @id @default(uuid())
+  email                   String
+  emailNormalized         String                  @unique
+  passwordHash            String
+  nickname                String
+  nicknameNormalized      String                  @unique
+  gender                  Gender
+  campus                  Campus
+  lifestyle               Json
+  intro                   String                  @default("")
+  dormitoryId             String?
+  dormitorySelectionState DormitorySelectionState @default(NOT_SELECTED)
+  emailVerifiedAt         DateTime?               @db.Timestamptz(3)
+  createdAt               DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                @default(now()) @db.Timestamptz(3)
+  dormitory               Dormitory?              @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
+  authSessions            AuthSession[]
+
+  @@index([campus, dormitorySelectionState])
+  @@index([dormitoryId])
 }
 
 model LoginAttempt {
@@ -63,8 +181,8 @@ model LoginAttempt {
   failureCount    Int       @default(0)
   lockedUntil     DateTime? @db.Timestamptz(3)
   lastFailedAt    DateTime? @db.Timestamptz(3)
-  createdAt       DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
-  updatedAt       DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @default(now()) @db.Timestamptz(3)
 }
 
 model VerificationCode {
@@ -73,7 +191,7 @@ model VerificationCode {
   purpose         VerificationCodePurpose
   codeHash        String
   failedAttempts  Int                     @default(0)
-  issuedAt        DateTime                @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  issuedAt        DateTime                @default(now()) @db.Timestamptz(3)
   expiresAt       DateTime                @db.Timestamptz(3)
   verifiedAt      DateTime?               @db.Timestamptz(3)
   consumedAt      DateTime?               @db.Timestamptz(3)
@@ -87,7 +205,7 @@ model VerificationCodeRequestLog {
   emailNormalized String
   purpose         VerificationCodePurpose
   requestIp       String
-  createdAt       DateTime                @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  createdAt       DateTime                @default(now()) @db.Timestamptz(3)
 
   @@index([emailNormalized, purpose, requestIp, createdAt])
   @@index([requestIp, createdAt])
@@ -100,8 +218,8 @@ model AuthSession {
   refreshTokenHash String?
   expiresAt        DateTime  @db.Timestamptz(3)
   revokedAt        DateTime? @db.Timestamptz(3)
-  createdAt        DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
-  updatedAt        DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @db.Timestamptz(3)
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -115,8 +233,8 @@ model ModerationTerm {
   matchMode      ModerationMatchMode
   surface        ModerationSurface
   isActive       Boolean                @default(true)
-  createdAt      DateTime               @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
-  updatedAt      DateTime               @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamptz(3)
+  createdAt      DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime               @default(now()) @db.Timestamptz(3)
 
   @@unique([normalizedTerm, category, matchMode, surface])
   @@index([surface, category, isActive])

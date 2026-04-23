@@ -33,7 +33,12 @@ export default defineConfig([
       sourceType: 'module',
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['prisma.config.ts', 'prisma/seed.js'],
+          allowDefaultProject: [
+            'prisma.config.ts',
+            'prisma/seed.js',
+            'prisma/seed-data/reference/*.js',
+            'prisma/seed-data/fixtures/*.js',
+          ],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -41,7 +46,7 @@ export default defineConfig([
   },
 
   {
-    files: ['prisma/seed.js'],
+    files: ['prisma/seed.js', 'prisma/seed-data/reference/*.js', 'prisma/seed-data/fixtures/*.js'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-call': 'off',

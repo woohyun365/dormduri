@@ -3,7 +3,5 @@
 **/dist/**
 **/build/**
 **/coverage/**
-**/.turbo/**
 **/*.log
 pnpm-lock.yaml
-

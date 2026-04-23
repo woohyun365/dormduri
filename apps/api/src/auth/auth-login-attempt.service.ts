@@ -1,36 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import { getActiveLoginLock } from '../generated/prisma/sql.js';
 import { LOGIN_LOCKOUT_ATTEMPTS, LOGIN_LOCKOUT_TTL_SECONDS } from './auth.constants.js';
 import type { LoginResult } from './auth.types.js';
+import { authFailures } from './auth-failures.js';
 
 @Injectable()
 export class AuthLoginAttemptService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getActiveLock(emailNormalized: string): Promise<LoginResult | null> {
-    const [attempt] = await this.prisma.$queryRawUnsafe<{ remainingSeconds: number }[]>(
-      `
-        SELECT CEIL(EXTRACT(EPOCH FROM ("lockedUntil" - CURRENT_TIMESTAMP)))::int AS "remainingSeconds"
-        FROM "LoginAttempt"
-        WHERE "emailNormalized" = $1
-          AND "lockedUntil" IS NOT NULL
-          AND "lockedUntil" > CURRENT_TIMESTAMP
-        LIMIT 1
-      `,
-      emailNormalized,
-    );
+    const [attempt] = await this.prisma.$queryRawTyped(getActiveLoginLock(emailNormalized));
 
-    if (!attempt) {
+    if (!attempt || attempt.remainingSeconds == null) {
       return null;
     }
 
-    return {
-      success: false,
-      locked: true,
-      remainingSeconds: attempt.remainingSeconds,
-      error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
-    };
+    return authFailures.loginLocked(attempt.remainingSeconds);
   }
 
   async clearFailures(emailNormalized: string): Promise<void> {
@@ -40,10 +27,9 @@ export class AuthLoginAttemptService {
   }
 
   async recordLoginFailure(emailNormalized: string): Promise<LoginResult> {
-    const [attempt] = await this.prisma.$queryRawUnsafe<
+    const [attempt] = await this.prisma.$queryRaw<
       { failureCount: number; lockedUntil: Date | null }[]
-    >(
-      `
+    >`
         INSERT INTO "LoginAttempt" (
           id,
           "emailNormalized",
@@ -54,8 +40,8 @@ export class AuthLoginAttemptService {
           "updatedAt"
         )
         VALUES (
-          $1,
-          $2,
+          ${randomUUID()},
+          ${emailNormalized},
           1,
           NULL,
           NOW(),
@@ -67,32 +53,21 @@ export class AuthLoginAttemptService {
           "failureCount" = "LoginAttempt"."failureCount" + 1,
           "lockedUntil" = CASE
             WHEN "LoginAttempt"."failureCount" + 1 >= ${LOGIN_LOCKOUT_ATTEMPTS}
-            THEN NOW() + INTERVAL '${LOGIN_LOCKOUT_TTL_SECONDS} seconds'
+            THEN NOW() + (${LOGIN_LOCKOUT_TTL_SECONDS} * INTERVAL '1 second')
             ELSE NULL
           END,
           "lastFailedAt" = NOW(),
           "updatedAt" = NOW()
         RETURNING "failureCount", "lockedUntil"
-      `,
-      randomUUID(),
-      emailNormalized,
-    );
+      `;
 
     const failureCount = attempt?.failureCount ?? 1;
     const locked = failureCount >= LOGIN_LOCKOUT_ATTEMPTS;
 
     if (locked) {
-      return {
-        success: false,
-        locked: true,
-        remainingSeconds: LOGIN_LOCKOUT_TTL_SECONDS,
-        error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
-      };
+      return authFailures.loginLocked(LOGIN_LOCKOUT_TTL_SECONDS);
     }
 
-    return {
-      success: false,
-      error: '이메일 또는 비밀번호가 올바르지 않습니다.',
-    };
+    return authFailures.invalidCredentials();
   }
 }

@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { VerificationCodePurpose } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import {
+  getActiveVerificationRecord,
+  getLatestVerifiedResetCode,
+  getLatestVerifiedSignupCode,
+  getVerificationBackstopRetryAfterSeconds,
+  getVerificationRetryAfterSeconds,
+} from '../generated/prisma/sql.js';
 
 export interface VerificationCodeHandle {
   id: string;
@@ -22,23 +29,37 @@ export class AuthVerificationStore {
     requestIp: string,
     cooldownSeconds: number,
   ): Promise<number | null> {
-    const [latestRequest] = await this.prisma.$queryRawUnsafe<{ retryAfterSeconds: number }[]>(
-      `
-        SELECT CEIL(EXTRACT(EPOCH FROM ("createdAt" + INTERVAL '${cooldownSeconds} seconds' - CURRENT_TIMESTAMP)))::int AS "retryAfterSeconds"
-        FROM "VerificationCodeRequestLog"
-        WHERE "emailNormalized" = $1
-          AND purpose = $2::"VerificationCodePurpose"
-          AND "requestIp" = $3
-          AND "createdAt" > CURRENT_TIMESTAMP - INTERVAL '${cooldownSeconds} seconds'
-        ORDER BY "createdAt" DESC
-        LIMIT 1
-      `,
-      emailNormalized,
-      purpose,
-      requestIp,
+    const [latestRequest] = await this.prisma.$queryRawTyped(
+      getVerificationRetryAfterSeconds(emailNormalized, purpose, requestIp, cooldownSeconds),
     );
 
     return latestRequest?.retryAfterSeconds ?? null;
+  }
+
+  async findBackstopRetryAfterSeconds(
+    emailNormalized: string,
+    purpose: VerificationCodePurpose,
+    cooldownWindowSeconds: number,
+    limit: number,
+  ): Promise<number | null> {
+    const [recentRequests] = await this.prisma.$queryRawTyped(
+      getVerificationBackstopRetryAfterSeconds(emailNormalized, purpose, cooldownWindowSeconds),
+    );
+
+    if (
+      !recentRequests ||
+      recentRequests.requestCount == null ||
+      recentRequests.requestCount < limit ||
+      !recentRequests.oldestRequestAt
+    ) {
+      return null;
+    }
+
+    const retryAfterSeconds = Math.ceil(
+      (recentRequests.oldestRequestAt.getTime() + cooldownWindowSeconds * 1000 - Date.now()) / 1000,
+    );
+
+    return retryAfterSeconds > 0 ? retryAfterSeconds : null;
   }
 
   async createRequestLog(
@@ -59,19 +80,8 @@ export class AuthVerificationStore {
     emailNormalized: string,
     proofTtlSeconds: number,
   ): Promise<VerificationCodeHandle | null> {
-    const [record] = await this.prisma.$queryRawUnsafe<VerificationCodeHandle[]>(
-      `
-        SELECT id
-        FROM "VerificationCode"
-        WHERE "emailNormalized" = $1
-          AND purpose = 'SIGNUP'::"VerificationCodePurpose"
-          AND "verifiedAt" IS NOT NULL
-          AND "verifiedAt" > CURRENT_TIMESTAMP - INTERVAL '${proofTtlSeconds} seconds'
-          AND "consumedAt" IS NULL
-        ORDER BY "issuedAt" DESC
-        LIMIT 1
-      `,
-      emailNormalized,
+    const [record] = await this.prisma.$queryRawTyped(
+      getLatestVerifiedSignupCode(emailNormalized, proofTtlSeconds),
     );
 
     return record ?? null;
@@ -80,42 +90,31 @@ export class AuthVerificationStore {
   async findLatestVerifiedResetCode(
     emailNormalized: string,
   ): Promise<VerificationCodeHandle | null> {
-    const [record] = await this.prisma.$queryRawUnsafe<VerificationCodeHandle[]>(
-      `
-        SELECT id
-        FROM "VerificationCode"
-        WHERE "emailNormalized" = $1
-          AND purpose = 'RESET_PASSWORD'::"VerificationCodePurpose"
-          AND "verifiedAt" IS NOT NULL
-          AND "consumedAt" IS NULL
-          AND "expiresAt" > CURRENT_TIMESTAMP
-        ORDER BY "issuedAt" DESC
-        LIMIT 1
-      `,
-      emailNormalized,
-    );
+    const [record] = await this.prisma.$queryRawTyped(getLatestVerifiedResetCode(emailNormalized));
 
     return record ?? null;
   }
 
   async consumeVerificationCode(id: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "VerificationCode" SET "consumedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
-      id,
-    );
+    const consumedAt = await this.prisma.getDatabaseNow();
+
+    await this.prisma.verificationCode.updateMany({
+      where: { id },
+      data: { consumedAt },
+    });
   }
 
   async invalidateActiveSignupCodes(emailNormalized: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `
-        UPDATE "VerificationCode"
-        SET "consumedAt" = CURRENT_TIMESTAMP
-        WHERE "emailNormalized" = $1
-          AND purpose = 'SIGNUP'::"VerificationCodePurpose"
-          AND "consumedAt" IS NULL
-      `,
-      emailNormalized,
-    );
+    const consumedAt = await this.prisma.getDatabaseNow();
+
+    await this.prisma.verificationCode.updateMany({
+      where: {
+        emailNormalized,
+        purpose: 'SIGNUP',
+        consumedAt: null,
+      },
+      data: { consumedAt },
+    });
   }
 
   async insertVerificationCode(input: {
@@ -126,31 +125,18 @@ export class AuthVerificationStore {
     ttlSeconds: number;
     requestIp: string | null;
   }): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `
-        INSERT INTO "VerificationCode" (
-          id,
-          "emailNormalized",
-          purpose,
-          "codeHash",
-          "expiresAt",
-          "requestIp"
-        )
-        VALUES (
-          $1,
-          $2,
-          $3::"VerificationCodePurpose",
-          $4,
-          CURRENT_TIMESTAMP + INTERVAL '${input.ttlSeconds} seconds',
-          $5
-        )
-      `,
-      input.id,
-      input.emailNormalized,
-      input.purpose,
-      input.codeHash,
-      input.requestIp,
-    );
+    const issuedAt = await this.prisma.getDatabaseNow();
+
+    await this.prisma.verificationCode.create({
+      data: {
+        id: input.id,
+        emailNormalized: input.emailNormalized,
+        purpose: input.purpose,
+        codeHash: input.codeHash,
+        expiresAt: new Date(issuedAt.getTime() + input.ttlSeconds * 1000),
+        requestIp: input.requestIp,
+      },
+    });
   }
 
   async findActiveVerificationRecord(
@@ -158,49 +144,38 @@ export class AuthVerificationStore {
     purpose: VerificationCodePurpose,
     maxAttempts: number,
   ): Promise<VerificationRecord | null> {
-    const [record] = await this.prisma.$queryRawUnsafe<VerificationRecord[]>(
-      `
-        SELECT id, "codeHash", "failedAttempts"
-        FROM "VerificationCode"
-        WHERE "emailNormalized" = $1
-          AND purpose = $2::"VerificationCodePurpose"
-          AND "consumedAt" IS NULL
-          AND "expiresAt" > CURRENT_TIMESTAMP
-          AND "failedAttempts" < $3
-        ORDER BY "issuedAt" DESC
-        LIMIT 1
-      `,
-      emailNormalized,
-      purpose,
-      maxAttempts,
+    const [record] = await this.prisma.$queryRawTyped(
+      getActiveVerificationRecord(emailNormalized, purpose, maxAttempts),
     );
 
     return record ?? null;
   }
 
   async markVerified(id: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "VerificationCode" SET "verifiedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
-      id,
-    );
+    const verifiedAt = await this.prisma.getDatabaseNow();
+
+    await this.prisma.verificationCode.updateMany({
+      where: { id },
+      data: { verifiedAt },
+    });
   }
 
   async incrementFailedAttempts(id: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "VerificationCode" SET "failedAttempts" = "failedAttempts" + 1 WHERE id = $1`,
-      id,
-    );
+    await this.prisma.verificationCode.updateMany({
+      where: { id },
+      data: { failedAttempts: { increment: 1 } },
+    });
   }
 
   async failAndConsume(id: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `
-        UPDATE "VerificationCode"
-        SET "failedAttempts" = "failedAttempts" + 1,
-            "consumedAt" = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `,
-      id,
-    );
+    const consumedAt = await this.prisma.getDatabaseNow();
+
+    await this.prisma.verificationCode.updateMany({
+      where: { id },
+      data: {
+        failedAttempts: { increment: 1 },
+        consumedAt,
+      },
+    });
   }
 }
