@@ -5,6 +5,7 @@ describe('AuthLoginAttemptService', () => {
     loginAttempt: {
       deleteMany: jest.fn(),
     },
+    $queryRawTyped: jest.fn(),
     $queryRaw: jest.fn(),
   };
 
@@ -15,13 +16,13 @@ describe('AuthLoginAttemptService', () => {
   });
 
   it('활성 잠금이 없으면 null을 반환한다', async () => {
-    prisma.$queryRaw.mockResolvedValue([]);
+    prisma.$queryRawTyped.mockResolvedValue([]);
 
     await expect(service.getActiveLock('test@kangwon.ac.kr')).resolves.toBeNull();
   });
 
   it('활성 잠금이 있으면 잠금 응답을 반환한다', async () => {
-    prisma.$queryRaw.mockResolvedValue([{ remainingSeconds: 120 }]);
+    prisma.$queryRawTyped.mockResolvedValue([{ remainingSeconds: 120 }]);
 
     await expect(service.getActiveLock('test@kangwon.ac.kr')).resolves.toMatchObject({
       success: false,

@@ -59,7 +59,7 @@ describe('SeasonsService', () => {
     season: {
       findMany: jest.fn(),
     },
-    $queryRaw: jest.fn(),
+    $queryRawTyped: jest.fn(),
   };
 
   const service = new SeasonsService(prisma as never);
@@ -67,7 +67,7 @@ describe('SeasonsService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: true });
-    prisma.$queryRaw.mockResolvedValue([{ now: new Date('2026-02-10T03:00:00.000Z') }]);
+    prisma.$queryRawTyped.mockResolvedValue([{ now: new Date('2026-02-10T03:00:00.000Z') }]);
   });
 
   it('캠퍼스별 현재 시즌과 운영 기숙사 메타를 반환한다', async () => {
@@ -289,6 +289,6 @@ describe('SeasonsService', () => {
     prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
 
     await expect(service.getCurrentSeasonState('CHUNCHEON')).resolves.toBe('SEASON_MATCHING');
-    expect(prisma.$queryRaw).toHaveBeenCalled();
+    expect(prisma.$queryRawTyped).toHaveBeenCalled();
   });
 });

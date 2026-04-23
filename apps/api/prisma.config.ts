@@ -7,6 +7,9 @@ const DEFAULT_DATABASE_URL =
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
+  typedSql: {
+    path: 'prisma/sql',
+  },
   migrations: {
     seed: 'pnpm run prisma:seed:run',
   },

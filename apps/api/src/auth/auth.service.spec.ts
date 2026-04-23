@@ -1,14 +1,21 @@
 import { AuthService } from './auth.service.js';
+import { hash as argonHash } from '@node-rs/argon2';
 
 describe('AuthService orchestration', () => {
   const prisma = {
+    authSession: {
+      updateMany: jest.fn(),
+    },
+    getDatabaseNow: jest.fn(),
     user: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
-    $executeRaw: jest.fn(),
+    verificationCode: {
+      updateMany: jest.fn(),
+    },
     $transaction: jest.fn(),
   };
 
@@ -55,7 +62,10 @@ describe('AuthService orchestration', () => {
     jest.clearAllMocks();
     moderationService.moderatePublicText.mockResolvedValue({ ok: true });
     signupValidationService.validateDraft.mockResolvedValue({ success: true });
-    prisma.$executeRaw.mockResolvedValue(undefined);
+    prisma.getDatabaseNow.mockResolvedValue(new Date('2026-04-23T00:00:00.000Z'));
+    prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
+    prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
+    prisma.$transaction.mockResolvedValue([]);
   });
 
   it('이미 가입된 이메일의 signup code 요청은 중립 응답을 유지한 채 코드 발급만 생략한다', async () => {
@@ -192,7 +202,10 @@ describe('AuthService orchestration', () => {
       intro: '안녕하세요',
     });
 
-    expect(prisma.$executeRaw).toHaveBeenCalled();
+    const [createArg] = (prisma.user.create.mock.calls[0] ?? []) as [
+      { data: { emailVerifiedAt: Date } }?,
+    ];
+    expect(createArg?.data.emailVerifiedAt).toEqual(expect.any(Date));
     expect(verificationService.consumeVerificationCode).toHaveBeenCalledWith('code-1');
     expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
       'user-1',
@@ -200,5 +213,35 @@ describe('AuthService orchestration', () => {
       false,
     );
     expect(result).toMatchObject({ success: true, accessToken: 'token' });
+  });
+
+  it('resetPassword는 verification code consume / session revoke를 Prisma transaction으로 처리한다', async () => {
+    const currentPasswordHash = await argonHash('OldPass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+    });
+    verificationService.findLatestVerifiedResetCode.mockResolvedValue({ id: 'code-1' });
+    prisma.user.update.mockReturnValue('user-update');
+    prisma.verificationCode.updateMany.mockReturnValue('code-update');
+    prisma.authSession.updateMany.mockReturnValue('session-update');
+    prisma.$transaction.mockResolvedValue(['user-update', 'code-update', 'session-update']);
+
+    await expect(service.resetPassword('test@kangwon.ac.kr', 'NewPass1234')).resolves.toEqual({
+      success: true,
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledWith([
+      'user-update',
+      'code-update',
+      'session-update',
+    ]);
   });
 });

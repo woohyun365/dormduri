@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import { getActiveLoginLock } from '../generated/prisma/sql.js';
 import { LOGIN_LOCKOUT_ATTEMPTS, LOGIN_LOCKOUT_TTL_SECONDS } from './auth.constants.js';
 import type { LoginResult } from './auth.types.js';
 import { authFailures } from './auth-failures.js';
@@ -10,16 +11,9 @@ export class AuthLoginAttemptService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getActiveLock(emailNormalized: string): Promise<LoginResult | null> {
-    const [attempt] = await this.prisma.$queryRaw<{ remainingSeconds: number }[]>`
-        SELECT CEIL(EXTRACT(EPOCH FROM ("lockedUntil" - CURRENT_TIMESTAMP)))::int AS "remainingSeconds"
-        FROM "LoginAttempt"
-        WHERE "emailNormalized" = ${emailNormalized}
-          AND "lockedUntil" IS NOT NULL
-          AND "lockedUntil" > CURRENT_TIMESTAMP
-        LIMIT 1
-      `;
+    const [attempt] = await this.prisma.$queryRawTyped(getActiveLoginLock(emailNormalized));
 
-    if (!attempt) {
+    if (!attempt || attempt.remainingSeconds == null) {
       return null;
     }
 

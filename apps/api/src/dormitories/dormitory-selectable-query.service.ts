@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import { getCurrentTimestamp } from '../generated/prisma/sql.js';
 import { dormitoriesErrors } from './dormitories.errors.js';
 import {
   formatKstDate,
@@ -143,9 +144,7 @@ export class DormitorySelectableQueryService {
       return now;
     }
 
-    const [row] = await this.prisma.$queryRaw<{ now: Date }[]>`
-      SELECT CURRENT_TIMESTAMP AS "now"
-    `;
+    const [row] = await this.prisma.$queryRawTyped(getCurrentTimestamp());
 
     if (!row?.now) {
       return new Date();

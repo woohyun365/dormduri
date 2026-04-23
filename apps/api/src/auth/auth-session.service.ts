@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { Campus, DormitorySelectionState, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import { getCurrentSessionUserId } from '../generated/prisma/sql.js';
 import {
   AUTH_SESSION_REMEMBER_ME_TTL_SECONDS,
   AUTH_SESSION_TTL_SECONDS,
@@ -111,11 +112,17 @@ export class AuthSessionService {
         secret: this.getJwtSecret(),
       });
       if (payload.sid) {
-        await this.prisma.$executeRaw`
-            UPDATE "AuthSession"
-            SET "revokedAt" = CURRENT_TIMESTAMP
-            WHERE id = ${payload.sid} AND "revokedAt" IS NULL
-          `;
+        const revokedAt = await this.prisma.getDatabaseNow();
+
+        await this.prisma.authSession.updateMany({
+          where: {
+            id: payload.sid,
+            revokedAt: null,
+          },
+          data: {
+            revokedAt,
+          },
+        });
       }
     } catch {
       // clear cookie regardless
@@ -168,15 +175,9 @@ export class AuthSessionService {
         return null;
       }
 
-      const [session] = await this.prisma.$queryRaw<{ userId: string }[]>`
-          SELECT "userId"
-          FROM "AuthSession"
-          WHERE id = ${payload.sid}
-            AND "userId" = ${payload.sub}
-            AND "revokedAt" IS NULL
-            AND "expiresAt" > CURRENT_TIMESTAMP
-          LIMIT 1
-        `;
+      const [session] = await this.prisma.$queryRawTyped(
+        getCurrentSessionUserId(payload.sid, payload.sub),
+      );
 
       return session?.userId ?? null;
     } catch {

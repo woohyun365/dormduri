@@ -141,6 +141,7 @@ export class AuthService {
     const passwordHash = await this.hashPassword(input.password);
 
     let user;
+    const emailVerifiedAt = await this.prisma.getDatabaseNow();
     try {
       user = await this.prisma.user.create({
         data: {
@@ -153,6 +154,7 @@ export class AuthService {
           campus: input.campus,
           intro: input.intro.trim(),
           lifestyle: lifestyleValidation.value,
+          emailVerifiedAt,
         },
       });
     } catch (error) {
@@ -167,12 +169,6 @@ export class AuthService {
       }
       throw error;
     }
-
-    await this.prisma.$executeRaw`
-      UPDATE "User"
-      SET "emailVerifiedAt" = CURRENT_TIMESTAMP
-      WHERE id = ${user.id}
-    `;
     await this.verificationService.consumeVerificationCode(verifiedCode.id);
 
     const authResult = await this.sessionService.issueAuthResult(user.id, user.email, false);
@@ -232,22 +228,21 @@ export class AuthService {
     }
 
     const passwordHash = await this.hashPassword(newPassword);
+    const databaseNow = await this.prisma.getDatabaseNow();
 
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: user.id },
         data: { passwordHash },
       }),
-      this.prisma.$executeRaw`
-        UPDATE "VerificationCode"
-        SET "consumedAt" = CURRENT_TIMESTAMP
-        WHERE id = ${verifiedCode.id}
-      `,
-      this.prisma.$executeRaw`
-        UPDATE "AuthSession"
-        SET "revokedAt" = CURRENT_TIMESTAMP
-        WHERE "userId" = ${user.id} AND "revokedAt" IS NULL
-      `,
+      this.prisma.verificationCode.updateMany({
+        where: { id: verifiedCode.id },
+        data: { consumedAt: databaseNow },
+      }),
+      this.prisma.authSession.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: databaseNow },
+      }),
     ]);
 
     return { success: true };
