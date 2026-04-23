@@ -13,7 +13,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleInit() {
     await this.$connect();
-    await this.$executeRawUnsafe(`SET TIME ZONE 'Asia/Seoul'`);
+    await this.$executeRaw`SET TIME ZONE 'Asia/Seoul'`;
     await this.ensureUpdatedAtTriggers();
   }
 

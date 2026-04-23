@@ -1,16 +1,5 @@
-import type { Campus } from './auth-contract.js';
-import type { LifestyleData } from './lifestyle.js';
-
-export interface AuthUserBridge {
-  id: string;
-  email: string;
-  nickname: string;
-  gender: 'M' | 'F';
-  campus: Campus;
-  lifestyle: LifestyleData;
-  intro: string;
-  dormitoryId: string | null;
-}
+import type { UserProfileBridge } from './profile-contract.js';
+export type { SessionResponse } from './session-contract.js';
 
 export interface GenericErrorResponse {
   success: boolean;
@@ -23,21 +12,16 @@ export interface GenericErrorResponse {
 
 export interface LoginResponse extends GenericErrorResponse {
   accessToken?: string;
-  user?: AuthUserBridge;
+  user?: UserProfileBridge;
   locked?: boolean;
   remainingSeconds?: number;
 }
 
-export interface VerifyCodeResponse extends GenericErrorResponse {}
+export type VerifyCodeResponse = GenericErrorResponse;
 export interface SignupResponse extends GenericErrorResponse {
-  user?: AuthUserBridge;
+  user?: UserProfileBridge;
 }
-export interface ResetPasswordResponse extends GenericErrorResponse {}
-
-export interface SessionResponse {
-  authenticated: boolean;
-  user?: AuthUserBridge;
-}
+export type ResetPasswordResponse = GenericErrorResponse;
 
 export type SignupProfileValidationFieldErrors = Partial<
   Record<'email' | 'nickname' | 'password', string>

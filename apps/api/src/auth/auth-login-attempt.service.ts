@@ -10,17 +10,14 @@ export class AuthLoginAttemptService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getActiveLock(emailNormalized: string): Promise<LoginResult | null> {
-    const [attempt] = await this.prisma.$queryRawUnsafe<{ remainingSeconds: number }[]>(
-      `
+    const [attempt] = await this.prisma.$queryRaw<{ remainingSeconds: number }[]>`
         SELECT CEIL(EXTRACT(EPOCH FROM ("lockedUntil" - CURRENT_TIMESTAMP)))::int AS "remainingSeconds"
         FROM "LoginAttempt"
-        WHERE "emailNormalized" = $1
+        WHERE "emailNormalized" = ${emailNormalized}
           AND "lockedUntil" IS NOT NULL
           AND "lockedUntil" > CURRENT_TIMESTAMP
         LIMIT 1
-      `,
-      emailNormalized,
-    );
+      `;
 
     if (!attempt) {
       return null;
@@ -36,10 +33,9 @@ export class AuthLoginAttemptService {
   }
 
   async recordLoginFailure(emailNormalized: string): Promise<LoginResult> {
-    const [attempt] = await this.prisma.$queryRawUnsafe<
+    const [attempt] = await this.prisma.$queryRaw<
       { failureCount: number; lockedUntil: Date | null }[]
-    >(
-      `
+    >`
         INSERT INTO "LoginAttempt" (
           id,
           "emailNormalized",
@@ -50,8 +46,8 @@ export class AuthLoginAttemptService {
           "updatedAt"
         )
         VALUES (
-          $1,
-          $2,
+          ${randomUUID()},
+          ${emailNormalized},
           1,
           NULL,
           NOW(),
@@ -63,16 +59,13 @@ export class AuthLoginAttemptService {
           "failureCount" = "LoginAttempt"."failureCount" + 1,
           "lockedUntil" = CASE
             WHEN "LoginAttempt"."failureCount" + 1 >= ${LOGIN_LOCKOUT_ATTEMPTS}
-            THEN NOW() + INTERVAL '${LOGIN_LOCKOUT_TTL_SECONDS} seconds'
+            THEN NOW() + (${LOGIN_LOCKOUT_TTL_SECONDS} * INTERVAL '1 second')
             ELSE NULL
           END,
           "lastFailedAt" = NOW(),
           "updatedAt" = NOW()
         RETURNING "failureCount", "lockedUntil"
-      `,
-      randomUUID(),
-      emailNormalized,
-    );
+      `;
 
     const failureCount = attempt?.failureCount ?? 1;
     const locked = failureCount >= LOGIN_LOCKOUT_ATTEMPTS;

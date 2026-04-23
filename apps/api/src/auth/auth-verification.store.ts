@@ -22,21 +22,16 @@ export class AuthVerificationStore {
     requestIp: string,
     cooldownSeconds: number,
   ): Promise<number | null> {
-    const [latestRequest] = await this.prisma.$queryRawUnsafe<{ retryAfterSeconds: number }[]>(
-      `
-        SELECT CEIL(EXTRACT(EPOCH FROM ("createdAt" + INTERVAL '${cooldownSeconds} seconds' - CURRENT_TIMESTAMP)))::int AS "retryAfterSeconds"
+    const [latestRequest] = await this.prisma.$queryRaw<{ retryAfterSeconds: number }[]>`
+        SELECT CEIL(EXTRACT(EPOCH FROM ("createdAt" + (${cooldownSeconds} * INTERVAL '1 second') - CURRENT_TIMESTAMP)))::int AS "retryAfterSeconds"
         FROM "VerificationCodeRequestLog"
-        WHERE "emailNormalized" = $1
-          AND purpose = $2::"VerificationCodePurpose"
-          AND "requestIp" = $3
-          AND "createdAt" > CURRENT_TIMESTAMP - INTERVAL '${cooldownSeconds} seconds'
+        WHERE "emailNormalized" = ${emailNormalized}
+          AND purpose = CAST(${purpose} AS "VerificationCodePurpose")
+          AND "requestIp" = ${requestIp}
+          AND "createdAt" > CURRENT_TIMESTAMP - (${cooldownSeconds} * INTERVAL '1 second')
         ORDER BY "createdAt" DESC
         LIMIT 1
-      `,
-      emailNormalized,
-      purpose,
-      requestIp,
-    );
+      `;
 
     return latestRequest?.retryAfterSeconds ?? null;
   }
@@ -47,21 +42,17 @@ export class AuthVerificationStore {
     cooldownWindowSeconds: number,
     limit: number,
   ): Promise<number | null> {
-    const [recentRequests] = await this.prisma.$queryRawUnsafe<
+    const [recentRequests] = await this.prisma.$queryRaw<
       { requestCount: number; oldestRequestAt: Date | null }[]
-    >(
-      `
+    >`
         SELECT
           COUNT(*)::int AS "requestCount",
           MIN("createdAt") AS "oldestRequestAt"
         FROM "VerificationCodeRequestLog"
-        WHERE "emailNormalized" = $1
-          AND purpose = $2::"VerificationCodePurpose"
-          AND "createdAt" > CURRENT_TIMESTAMP - INTERVAL '${cooldownWindowSeconds} seconds'
-      `,
-      emailNormalized,
-      purpose,
-    );
+        WHERE "emailNormalized" = ${emailNormalized}
+          AND purpose = CAST(${purpose} AS "VerificationCodePurpose")
+          AND "createdAt" > CURRENT_TIMESTAMP - (${cooldownWindowSeconds} * INTERVAL '1 second')
+      `;
 
     if (!recentRequests || recentRequests.requestCount < limit || !recentRequests.oldestRequestAt) {
       return null;
@@ -92,20 +83,17 @@ export class AuthVerificationStore {
     emailNormalized: string,
     proofTtlSeconds: number,
   ): Promise<VerificationCodeHandle | null> {
-    const [record] = await this.prisma.$queryRawUnsafe<VerificationCodeHandle[]>(
-      `
+    const [record] = await this.prisma.$queryRaw<VerificationCodeHandle[]>`
         SELECT id
         FROM "VerificationCode"
-        WHERE "emailNormalized" = $1
+        WHERE "emailNormalized" = ${emailNormalized}
           AND purpose = 'SIGNUP'::"VerificationCodePurpose"
           AND "verifiedAt" IS NOT NULL
-          AND "verifiedAt" > CURRENT_TIMESTAMP - INTERVAL '${proofTtlSeconds} seconds'
+          AND "verifiedAt" > CURRENT_TIMESTAMP - (${proofTtlSeconds} * INTERVAL '1 second')
           AND "consumedAt" IS NULL
         ORDER BY "issuedAt" DESC
         LIMIT 1
-      `,
-      emailNormalized,
-    );
+      `;
 
     return record ?? null;
   }
@@ -113,42 +101,37 @@ export class AuthVerificationStore {
   async findLatestVerifiedResetCode(
     emailNormalized: string,
   ): Promise<VerificationCodeHandle | null> {
-    const [record] = await this.prisma.$queryRawUnsafe<VerificationCodeHandle[]>(
-      `
+    const [record] = await this.prisma.$queryRaw<VerificationCodeHandle[]>`
         SELECT id
         FROM "VerificationCode"
-        WHERE "emailNormalized" = $1
+        WHERE "emailNormalized" = ${emailNormalized}
           AND purpose = 'RESET_PASSWORD'::"VerificationCodePurpose"
           AND "verifiedAt" IS NOT NULL
           AND "consumedAt" IS NULL
           AND "expiresAt" > CURRENT_TIMESTAMP
         ORDER BY "issuedAt" DESC
         LIMIT 1
-      `,
-      emailNormalized,
-    );
+      `;
 
     return record ?? null;
   }
 
   async consumeVerificationCode(id: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "VerificationCode" SET "consumedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
-      id,
-    );
+    await this.prisma.$executeRaw`
+      UPDATE "VerificationCode"
+      SET "consumedAt" = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+    `;
   }
 
   async invalidateActiveSignupCodes(emailNormalized: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `
+    await this.prisma.$executeRaw`
         UPDATE "VerificationCode"
         SET "consumedAt" = CURRENT_TIMESTAMP
-        WHERE "emailNormalized" = $1
+        WHERE "emailNormalized" = ${emailNormalized}
           AND purpose = 'SIGNUP'::"VerificationCodePurpose"
           AND "consumedAt" IS NULL
-      `,
-      emailNormalized,
-    );
+      `;
   }
 
   async insertVerificationCode(input: {
@@ -159,8 +142,7 @@ export class AuthVerificationStore {
     ttlSeconds: number;
     requestIp: string | null;
   }): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `
+    await this.prisma.$executeRaw`
         INSERT INTO "VerificationCode" (
           id,
           "emailNormalized",
@@ -170,20 +152,14 @@ export class AuthVerificationStore {
           "requestIp"
         )
         VALUES (
-          $1,
-          $2,
-          $3::"VerificationCodePurpose",
-          $4,
-          CURRENT_TIMESTAMP + INTERVAL '${input.ttlSeconds} seconds',
-          $5
+          ${input.id},
+          ${input.emailNormalized},
+          CAST(${input.purpose} AS "VerificationCodePurpose"),
+          ${input.codeHash},
+          CURRENT_TIMESTAMP + (${input.ttlSeconds} * INTERVAL '1 second'),
+          ${input.requestIp}
         )
-      `,
-      input.id,
-      input.emailNormalized,
-      input.purpose,
-      input.codeHash,
-      input.requestIp,
-    );
+      `;
   }
 
   async findActiveVerificationRecord(
@@ -191,49 +167,43 @@ export class AuthVerificationStore {
     purpose: VerificationCodePurpose,
     maxAttempts: number,
   ): Promise<VerificationRecord | null> {
-    const [record] = await this.prisma.$queryRawUnsafe<VerificationRecord[]>(
-      `
+    const [record] = await this.prisma.$queryRaw<VerificationRecord[]>`
         SELECT id, "codeHash", "failedAttempts"
         FROM "VerificationCode"
-        WHERE "emailNormalized" = $1
-          AND purpose = $2::"VerificationCodePurpose"
+        WHERE "emailNormalized" = ${emailNormalized}
+          AND purpose = CAST(${purpose} AS "VerificationCodePurpose")
           AND "consumedAt" IS NULL
           AND "expiresAt" > CURRENT_TIMESTAMP
-          AND "failedAttempts" < $3
+          AND "failedAttempts" < ${maxAttempts}
         ORDER BY "issuedAt" DESC
         LIMIT 1
-      `,
-      emailNormalized,
-      purpose,
-      maxAttempts,
-    );
+      `;
 
     return record ?? null;
   }
 
   async markVerified(id: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "VerificationCode" SET "verifiedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
-      id,
-    );
+    await this.prisma.$executeRaw`
+      UPDATE "VerificationCode"
+      SET "verifiedAt" = CURRENT_TIMESTAMP
+      WHERE id = ${id}
+    `;
   }
 
   async incrementFailedAttempts(id: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "VerificationCode" SET "failedAttempts" = "failedAttempts" + 1 WHERE id = $1`,
-      id,
-    );
+    await this.prisma.$executeRaw`
+      UPDATE "VerificationCode"
+      SET "failedAttempts" = "failedAttempts" + 1
+      WHERE id = ${id}
+    `;
   }
 
   async failAndConsume(id: string): Promise<void> {
-    await this.prisma.$executeRawUnsafe(
-      `
+    await this.prisma.$executeRaw`
         UPDATE "VerificationCode"
         SET "failedAttempts" = "failedAttempts" + 1,
             "consumedAt" = CURRENT_TIMESTAMP
-        WHERE id = $1
-      `,
-      id,
-    );
+        WHERE id = ${id}
+      `;
   }
 }

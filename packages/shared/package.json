@@ -8,6 +8,18 @@
       "types": "./dist/auth-contract.d.ts",
       "default": "./dist/auth-contract.js"
     },
+    "./identity-contract": {
+      "types": "./dist/identity-contract.d.ts",
+      "default": "./dist/identity-contract.js"
+    },
+    "./profile-contract": {
+      "types": "./dist/profile-contract.d.ts",
+      "default": "./dist/profile-contract.js"
+    },
+    "./session-contract": {
+      "types": "./dist/session-contract.d.ts",
+      "default": "./dist/session-contract.js"
+    },
     "./lifestyle": {
       "types": "./dist/lifestyle.d.ts",
       "default": "./dist/lifestyle.js"

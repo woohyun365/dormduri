@@ -18,7 +18,8 @@ import { validateLifestyleData } from './lifestyle.schema.js';
 import { AuthVerificationService } from './auth-verification.service.js';
 import { AuthSessionService } from './auth-session.service.js';
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
-import { toAuthUserView } from './auth-user-view.js';
+import { toLoginSuccessResult } from './auth-response.builder.js';
+import { toAuthProfileSnapshot } from './auth-user-view.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import type { SignupProfileValidationResponse } from '@repo/shared/auth-response';
@@ -167,18 +168,15 @@ export class AuthService {
       throw error;
     }
 
-    await this.prisma.$executeRawUnsafe(
-      `UPDATE "User" SET "emailVerifiedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
-      user.id,
-    );
+    await this.prisma.$executeRaw`
+      UPDATE "User"
+      SET "emailVerifiedAt" = CURRENT_TIMESTAMP
+      WHERE id = ${user.id}
+    `;
     await this.verificationService.consumeVerificationCode(verifiedCode.id);
 
     const authResult = await this.sessionService.issueAuthResult(user.id, user.email, false);
-    return {
-      success: true,
-      accessToken: authResult.accessToken,
-      user: toAuthUserView(user),
-    };
+    return toLoginSuccessResult(authResult.accessToken, toAuthProfileSnapshot(user));
   }
 
   async login(email: string, password: string, rememberMe: boolean): Promise<LoginResult> {
@@ -204,11 +202,7 @@ export class AuthService {
     await this.loginAttemptService.clearFailures(emailNormalized);
 
     const authResult = await this.sessionService.issueAuthResult(user.id, user.email, rememberMe);
-    return {
-      success: true,
-      accessToken: authResult.accessToken,
-      user: toAuthUserView(user),
-    };
+    return toLoginSuccessResult(authResult.accessToken, toAuthProfileSnapshot(user));
   }
 
   async resetPassword(email: string, newPassword: string): Promise<GenericSuccessResult> {
@@ -244,14 +238,16 @@ export class AuthService {
         where: { id: user.id },
         data: { passwordHash },
       }),
-      this.prisma.$executeRawUnsafe(
-        `UPDATE "VerificationCode" SET "consumedAt" = CURRENT_TIMESTAMP WHERE id = $1`,
-        verifiedCode.id,
-      ),
-      this.prisma.$executeRawUnsafe(
-        `UPDATE "AuthSession" SET "revokedAt" = CURRENT_TIMESTAMP WHERE "userId" = $1 AND "revokedAt" IS NULL`,
-        user.id,
-      ),
+      this.prisma.$executeRaw`
+        UPDATE "VerificationCode"
+        SET "consumedAt" = CURRENT_TIMESTAMP
+        WHERE id = ${verifiedCode.id}
+      `,
+      this.prisma.$executeRaw`
+        UPDATE "AuthSession"
+        SET "revokedAt" = CURRENT_TIMESTAMP
+        WHERE "userId" = ${user.id} AND "revokedAt" IS NULL
+      `,
     ]);
 
     return { success: true };

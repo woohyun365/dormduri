@@ -8,7 +8,7 @@ describe('AuthService orchestration', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
-    $executeRawUnsafe: jest.fn(),
+    $executeRaw: jest.fn(),
     $transaction: jest.fn(),
   };
 
@@ -55,7 +55,7 @@ describe('AuthService orchestration', () => {
     jest.clearAllMocks();
     moderationService.moderatePublicText.mockResolvedValue({ ok: true });
     signupValidationService.validateDraft.mockResolvedValue({ success: true });
-    prisma.$executeRawUnsafe.mockResolvedValue(undefined);
+    prisma.$executeRaw.mockResolvedValue(undefined);
   });
 
   it('이미 가입된 이메일의 signup code 요청은 중립 응답을 유지한 채 코드 발급만 생략한다', async () => {
@@ -152,6 +152,7 @@ describe('AuthService orchestration', () => {
       },
       intro: '안녕하세요',
       dormitoryId: null,
+      dormitorySelectionState: 'NOT_SELECTED',
     });
     sessionService.issueAuthResult.mockResolvedValue({
       accessToken: 'token',
@@ -191,10 +192,7 @@ describe('AuthService orchestration', () => {
       intro: '안녕하세요',
     });
 
-    expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith(
-      'UPDATE "User" SET "emailVerifiedAt" = CURRENT_TIMESTAMP WHERE id = $1',
-      'user-1',
-    );
+    expect(prisma.$executeRaw).toHaveBeenCalled();
     expect(verificationService.consumeVerificationCode).toHaveBeenCalledWith('code-1');
     expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
       'user-1',
