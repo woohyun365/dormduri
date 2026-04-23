@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { campusSchema } from '@repo/shared/auth-contract';
+import { campusSchema } from '@repo/shared/identity-contract';
 import { SeasonsService } from './seasons.service.js';
+import { parseQueryValue } from '../common/http/zod-request.js';
 import { seasonsErrors } from './seasons.errors.js';
 
 @Controller('api/seasons')
@@ -9,12 +10,13 @@ export class SeasonsController {
 
   @Get('current')
   async getCurrentSeason(@Query('campus') campus: string | undefined) {
-    const parsedCampus = campusSchema.safeParse(campus);
-    if (!parsedCampus.success) {
-      throw seasonsErrors.invalidCampusQuery();
-    }
+    const parsedCampus = parseQueryValue(campusSchema, campus, {
+      code: 'SEASONS_INVALID_CAMPUS_QUERY',
+      errorMessage: 'campus 쿼리 파라미터 값이 올바르지 않습니다.',
+      fieldName: 'campus',
+    });
 
-    const season = await this.seasonsService.getCurrentSeason(parsedCampus.data);
+    const season = await this.seasonsService.getCurrentSeason(parsedCampus);
     if (!season) {
       throw seasonsErrors.currentSeasonNotFound();
     }
