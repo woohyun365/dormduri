@@ -9,13 +9,13 @@ import {
   JWT_ACCESS_TTL_SECONDS,
 } from './auth.constants.js';
 import type {
-  AuthProfileSnapshot,
+  AuthSessionUserSummary,
   AuthSessionIssueResult,
   GenericSuccessResult,
   SessionStatusResult,
 } from './auth.types.js';
 import { toAuthenticatedSessionResult } from './auth-response.builder.js';
-import { toAuthProfileSnapshot } from './auth-user-view.js';
+import { toAuthSessionUserSummary } from './auth-user-view.js';
 import { apiEnv } from '../config/env.js';
 
 export interface AuthenticatedUserContext {
@@ -34,12 +34,12 @@ export class AuthSessionService {
   ) {}
 
   async getSession(token: string | null): Promise<SessionStatusResult> {
-    const profile = await this.resolveCurrentSessionProfile(token);
-    if (!profile) {
+    const user = await this.resolveCurrentSessionUser(token);
+    if (!user) {
       return { authenticated: false };
     }
 
-    return toAuthenticatedSessionResult(profile);
+    return toAuthenticatedSessionResult(user);
   }
 
   async resolveCurrentUserContext(token: string | null): Promise<AuthenticatedUserContext | null> {
@@ -135,9 +135,9 @@ export class AuthSessionService {
     return apiEnv.jwtSecret;
   }
 
-  private async resolveCurrentSessionProfile(
+  private async resolveCurrentSessionUser(
     token: string | null,
-  ): Promise<AuthProfileSnapshot | null> {
+  ): Promise<AuthSessionUserSummary | null> {
     const userId = await this.resolveAuthenticatedUserId(token);
     if (!userId) {
       return null;
@@ -148,17 +148,27 @@ export class AuthSessionService {
       select: {
         id: true,
         email: true,
-        nickname: true,
         gender: true,
         campus: true,
-        lifestyle: true,
-        intro: true,
-        dormitoryId: true,
-        dormitorySelectionState: true,
+        profile: {
+          select: {
+            nickname: true,
+          },
+        },
       },
     });
 
-    return user ? toAuthProfileSnapshot(user) : null;
+    if (!user?.profile) {
+      return null;
+    }
+
+    return toAuthSessionUserSummary({
+      id: user.id,
+      email: user.email,
+      nickname: user.profile.nickname,
+      gender: user.gender,
+      campus: user.campus,
+    });
   }
 
   private async resolveAuthenticatedUserId(token: string | null): Promise<string | null> {

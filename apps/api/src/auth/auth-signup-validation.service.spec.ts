@@ -2,7 +2,7 @@ import { AuthSignupValidationService } from './auth-signup-validation.service.js
 
 describe('AuthSignupValidationService', () => {
   const prisma = {
-    user: {
+    userProfile: {
       findUnique: jest.fn(),
     },
   };
@@ -16,7 +16,7 @@ describe('AuthSignupValidationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
-    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.userProfile.findUnique.mockResolvedValue(null);
   });
 
   it('금지어 닉네임은 validation 단계에서 차단한다', async () => {

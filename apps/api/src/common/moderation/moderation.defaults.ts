@@ -4,6 +4,7 @@ export function toModerationSurfaceValue(surface: PublicTextSurface): 'NICKNAME'
     case 'nickname':
       return 'NICKNAME';
     case 'intro':
+    case 'messageToRoommate':
       return 'INTRO';
   }
 }

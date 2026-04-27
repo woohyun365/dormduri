@@ -19,7 +19,7 @@ import { AuthVerificationService } from './auth-verification.service.js';
 import { AuthSessionService } from './auth-session.service.js';
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
 import { toLoginSuccessResult } from './auth-response.builder.js';
-import { toAuthProfileSnapshot } from './auth-user-view.js';
+import { toAuthSessionUserSummary } from './auth-user-view.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import type { SignupProfileValidationResponse } from '@repo/shared/auth-response';
@@ -118,17 +118,21 @@ export class AuthService {
     }
 
     const normalizedNickname = normalizeNickname(input.nickname);
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ emailNormalized }, { nicknameNormalized: normalizedNickname }],
-      },
-      select: { emailNormalized: true, nicknameNormalized: true },
-    });
+    const [existingEmailUser, existingNicknameUser] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { emailNormalized },
+        select: { id: true },
+      }),
+      this.prisma.userProfile.findUnique({
+        where: { nicknameNormalized: normalizedNickname },
+        select: { userId: true },
+      }),
+    ]);
 
-    if (existingUser?.emailNormalized === emailNormalized) {
+    if (existingEmailUser) {
       return authFailures.emailAlreadyRegistered();
     }
-    if (existingUser?.nicknameNormalized === normalizedNickname) {
+    if (existingNicknameUser) {
       return authFailures.nicknameAlreadyTaken();
     }
 
@@ -140,23 +144,51 @@ export class AuthService {
 
     const passwordHash = await this.hashPassword(input.password);
 
-    let user;
     const emailVerifiedAt = await this.prisma.getDatabaseNow();
     try {
-      user = await this.prisma.user.create({
+      const user = await this.prisma.user.create({
         data: {
           email: input.email.trim(),
           emailNormalized,
           passwordHash,
-          nickname: input.nickname.trim(),
-          nicknameNormalized: normalizedNickname,
           gender: input.gender,
           campus: input.campus,
-          intro: input.intro.trim(),
-          lifestyle: lifestyleValidation.value,
           emailVerifiedAt,
+          profile: {
+            create: {
+              nickname: input.nickname.trim(),
+              nicknameNormalized: normalizedNickname,
+              lifestyle: lifestyleValidation.value,
+              intro: input.intro.trim(),
+            },
+          },
+        },
+        select: {
+          id: true,
+          email: true,
+          gender: true,
+          campus: true,
+          profile: {
+            select: {
+              nickname: true,
+            },
+          },
         },
       });
+
+      await this.verificationService.consumeVerificationCode(verifiedCode.id);
+
+      const authResult = await this.sessionService.issueAuthResult(user.id, user.email, false);
+      return toLoginSuccessResult(
+        authResult.accessToken,
+        toAuthSessionUserSummary({
+          id: user.id,
+          email: user.email,
+          nickname: user.profile?.nickname ?? input.nickname.trim(),
+          gender: user.gender,
+          campus: user.campus,
+        }),
+      );
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const target = Array.isArray(error.meta?.target) ? error.meta.target.join(',') : '';
@@ -169,10 +201,6 @@ export class AuthService {
       }
       throw error;
     }
-    await this.verificationService.consumeVerificationCode(verifiedCode.id);
-
-    const authResult = await this.sessionService.issueAuthResult(user.id, user.email, false);
-    return toLoginSuccessResult(authResult.accessToken, toAuthProfileSnapshot(user));
   }
 
   async login(email: string, password: string, rememberMe: boolean): Promise<LoginResult> {
@@ -184,6 +212,18 @@ export class AuthService {
 
     const user = await this.prisma.user.findUnique({
       where: { emailNormalized },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        gender: true,
+        campus: true,
+        profile: {
+          select: {
+            nickname: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -198,7 +238,16 @@ export class AuthService {
     await this.loginAttemptService.clearFailures(emailNormalized);
 
     const authResult = await this.sessionService.issueAuthResult(user.id, user.email, rememberMe);
-    return toLoginSuccessResult(authResult.accessToken, toAuthProfileSnapshot(user));
+    return toLoginSuccessResult(
+      authResult.accessToken,
+      toAuthSessionUserSummary({
+        id: user.id,
+        email: user.email,
+        nickname: user.profile?.nickname ?? '',
+        gender: user.gender,
+        campus: user.campus,
+      }),
+    );
   }
 
   async resetPassword(email: string, newPassword: string): Promise<GenericSuccessResult> {

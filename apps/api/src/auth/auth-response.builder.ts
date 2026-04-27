@@ -1,20 +1,19 @@
-import type { LoginResult, SessionStatusResult, AuthProfileSnapshot } from './auth.types.js';
-import { toUserProfileBridge } from './auth-user-view.js';
+import type { LoginResult, SessionStatusResult, AuthSessionUserSummary } from './auth.types.js';
 
 export function toLoginSuccessResult(
   accessToken: string,
-  profile: AuthProfileSnapshot,
+  user: AuthSessionUserSummary,
 ): LoginResult {
   return {
     success: true,
     accessToken,
-    user: toUserProfileBridge(profile),
+    user,
   };
 }
 
-export function toAuthenticatedSessionResult(profile: AuthProfileSnapshot): SessionStatusResult {
+export function toAuthenticatedSessionResult(user: AuthSessionUserSummary): SessionStatusResult {
   return {
     authenticated: true,
-    user: toUserProfileBridge(profile),
+    user,
   };
 }

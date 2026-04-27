@@ -1,5 +1,5 @@
-import { AuthService } from './auth.service.js';
 import { hash as argonHash } from '@node-rs/argon2';
+import { AuthService } from './auth.service.js';
 
 describe('AuthService orchestration', () => {
   const prisma = {
@@ -9,9 +9,11 @@ describe('AuthService orchestration', () => {
     getDatabaseNow: jest.fn(),
     user: {
       findUnique: jest.fn(),
-      findFirst: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
+    },
+    userProfile: {
+      findUnique: jest.fn(),
     },
     verificationCode: {
       updateMany: jest.fn(),
@@ -66,6 +68,7 @@ describe('AuthService orchestration', () => {
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
     prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
     prisma.$transaction.mockResolvedValue([]);
+    prisma.userProfile.findUnique.mockResolvedValue(null);
   });
 
   it('이미 가입된 이메일의 signup code 요청은 중립 응답을 유지한 채 코드 발급만 생략한다', async () => {
@@ -128,41 +131,17 @@ describe('AuthService orchestration', () => {
   });
 
   it('signup은 검증 완료된 최신 code를 소비하고 세션 발급 결과를 반환한다', async () => {
-    prisma.user.findFirst.mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.userProfile.findUnique.mockResolvedValue(null);
     verificationService.findLatestVerifiedSignupCode.mockResolvedValue({ id: 'code-1' });
     prisma.user.create.mockResolvedValue({
       id: 'user-1',
       email: 'test@kangwon.ac.kr',
-      nickname: '테스터',
       gender: 'M',
       campus: 'CHUNCHEON',
-      lifestyle: {
-        bedtime: '22_24',
-        wakeTime: '07_08',
-        sleepHabit: 'NONE',
-        sleepEnvironment: 'QUIET',
-        screenUsage: 'NONE',
-        noiseSensitivity: 'NORMAL',
-        smokingBehavior: 'NO',
-        indoorEating: 'SNACK',
-        phoneBehavior: 'SOMETIMES',
-        earphoneUsage: 'MOSTLY',
-        cleanLevel: 'WEEKLY_3_UP',
-        drinkingFrequency: 'NONE',
-        relationshipStyle: 'CLOSE',
-        temperatureSensitivity: 'NORMAL',
-        smokingTolerance: null,
-        phoneTolerance: null,
-        earphoneExpectation: null,
-        sleepEnvPreference: null,
-        screenTolerance: null,
-        indoorEatingTolerance: null,
-        cleanExpectation: null,
-        drinkingTolerance: 'LOW_ONLY',
+      profile: {
+        nickname: '테스터',
       },
-      intro: '안녕하세요',
-      dormitoryId: null,
-      dormitorySelectionState: 'NOT_SELECTED',
     });
     sessionService.issueAuthResult.mockResolvedValue({
       accessToken: 'token',
@@ -203,16 +182,40 @@ describe('AuthService orchestration', () => {
     });
 
     const [createArg] = (prisma.user.create.mock.calls[0] ?? []) as [
-      { data: { emailVerifiedAt: Date } }?,
+      {
+        data: {
+          emailVerifiedAt: Date;
+          profile: {
+            create: {
+              nickname: string;
+              nicknameNormalized: string;
+            };
+          };
+        };
+      }?,
     ];
     expect(createArg?.data.emailVerifiedAt).toEqual(expect.any(Date));
+    expect(createArg?.data.profile.create).toMatchObject({
+      nickname: '테스터',
+      nicknameNormalized: '테스터',
+    });
     expect(verificationService.consumeVerificationCode).toHaveBeenCalledWith('code-1');
     expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
       'user-1',
       'test@kangwon.ac.kr',
       false,
     );
-    expect(result).toMatchObject({ success: true, accessToken: 'token' });
+    expect(result).toMatchObject({
+      success: true,
+      accessToken: 'token',
+      user: {
+        id: 'user-1',
+        email: 'test@kangwon.ac.kr',
+        nickname: '테스터',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+    });
   });
 
   it('resetPassword는 verification code consume / session revoke를 Prisma transaction으로 처리한다', async () => {

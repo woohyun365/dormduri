@@ -174,3 +174,18 @@ export function parseOptionalQueryValue<T>(
     fieldName: options.fieldName,
   });
 }
+
+export function parseQueryObject<T>(
+  schema: SchemaParser<T>,
+  input: unknown,
+  options: {
+    code: string;
+    errorMessage: string;
+  },
+): T {
+  return parseSchemaInput(schema, input, {
+    code: options.code,
+    errorMessage: options.errorMessage,
+    source: 'query',
+  });
+}

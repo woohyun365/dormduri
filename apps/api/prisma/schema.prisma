@@ -157,12 +157,8 @@ model User {
   email                   String
   emailNormalized         String                  @unique
   passwordHash            String
-  nickname                String
-  nicknameNormalized      String                  @unique
   gender                  Gender
   campus                  Campus
-  lifestyle               Json
-  intro                   String                  @default("")
   dormitoryId             String?
   dormitorySelectionState DormitorySelectionState @default(NOT_SELECTED)
   emailVerifiedAt         DateTime?               @db.Timestamptz(3)
@@ -170,9 +166,29 @@ model User {
   updatedAt               DateTime                @default(now()) @db.Timestamptz(3)
   dormitory               Dormitory?              @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
   authSessions            AuthSession[]
+  profile                 UserProfile?
 
   @@index([campus, dormitorySelectionState])
   @@index([dormitoryId])
+}
+
+model UserProfile {
+  userId              String   @id
+  nickname            String
+  nicknameNormalized  String   @unique
+  nicknameChangedAt   DateTime? @db.Timestamptz(3)
+  lifestyle           Json
+  intro               String   @default("")
+  messageToRoommate   String?
+  college             String?
+  grade               String?
+  mbti                String?
+  birthYear           Int?
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime @default(now()) @db.Timestamptz(3)
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([nickname])
 }
 
 model LoginAttempt {

@@ -61,36 +61,11 @@ describe('AuthSessionService', () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       email: 'test@kangwon.ac.kr',
-      nickname: '테스터',
       gender: 'M',
       campus: 'CHUNCHEON',
-      lifestyle: {
-        bedtime: '22_24',
-        wakeTime: '07_08',
-        sleepHabit: 'NONE',
-        sleepEnvironment: 'QUIET',
-        screenUsage: 'NONE',
-        noiseSensitivity: 'NORMAL',
-        smokingBehavior: 'NO',
-        indoorEating: 'SNACK',
-        phoneBehavior: 'SOMETIMES',
-        earphoneUsage: 'MOSTLY',
-        cleanLevel: 'WEEKLY_3_UP',
-        drinkingFrequency: 'NONE',
-        relationshipStyle: 'CLOSE',
-        temperatureSensitivity: 'NORMAL',
-        smokingTolerance: null,
-        phoneTolerance: null,
-        earphoneExpectation: null,
-        sleepEnvPreference: null,
-        screenTolerance: null,
-        indoorEatingTolerance: null,
-        cleanExpectation: null,
-        drinkingTolerance: 'LOW_ONLY',
+      profile: {
+        nickname: '테스터',
       },
-      intro: '안녕하세요',
-      dormitoryId: null,
-      dormitorySelectionState: 'NOT_SELECTED',
     });
 
     await expect(service.getSession('token')).resolves.toMatchObject({
@@ -98,6 +73,9 @@ describe('AuthSessionService', () => {
       user: {
         id: 'user-1',
         email: 'test@kangwon.ac.kr',
+        nickname: '테스터',
+        gender: 'M',
+        campus: 'CHUNCHEON',
       },
     });
 
