@@ -100,9 +100,6 @@ describe('SeasonsService', () => {
         matchingStartDate: '2026-01-28',
         seasonEndDate: '2026-02-28',
       },
-      nextSeason: {
-        name: '2026년 2학기',
-      },
       operatedDormitories: [
         { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
         { dormitoryId: 'irum', isOperated: true, roomSelectionDate: '2026-02-12' },
@@ -114,9 +111,6 @@ describe('SeasonsService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    expect(prisma.season.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { campusCode: 'CHUNCHEON' } }),
-    );
   });
 
   it('비운영 dormitory row는 operatedDormitories 응답에서 제외한다', async () => {
@@ -148,7 +142,7 @@ describe('SeasonsService', () => {
     expect(result?.schedule.matchingEnd).toBe('2026-02-11');
   });
 
-  it('예정 시즌만 선택된 경우 nextSeason은 동일 시즌이 아닌 다음 예정 시즌만 반환한다', async () => {
+  it('future season row만 있으면 current season은 null을 반환한다', async () => {
     prisma.season.findMany.mockResolvedValue([
       makeSeasonRow({
         id: 'season-2',
@@ -166,15 +160,9 @@ describe('SeasonsService', () => {
       }),
     ]);
 
-    const result = await service.getCurrentSeason(
-      'CHUNCHEON',
-      new Date('2026-06-10T12:00:00+09:00'),
-    );
-
-    expect(result).toMatchObject({
-      season: { id: 'season-2', name: '2026년 2학기' },
-      nextSeason: { id: 'season-3', name: '2027년 1학기' },
-    });
+    await expect(
+      service.getCurrentSeason('CHUNCHEON', new Date('2026-06-10T12:00:00+09:00')),
+    ).resolves.toBeNull();
   });
 
   it('시즌이 없으면 null을 반환한다', async () => {
@@ -224,6 +212,33 @@ describe('SeasonsService', () => {
     });
   });
 
+  it('operated dormitory가 0개면 상태를 최대 SEASON_PREPARATION까지만 허용한다', async () => {
+    prisma.season.findMany.mockResolvedValue([
+      makeSeasonRow({
+        dormitoryOperations: [
+          {
+            dormitoryId: 'dasan',
+            isOperated: false,
+            roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+          },
+        ],
+      }),
+    ]);
+
+    const result = await service.getCurrentSeason(
+      'CHUNCHEON',
+      new Date('2026-02-10T12:00:00+09:00'),
+    );
+
+    expect(result).toMatchObject({
+      state: 'SEASON_PREPARATION',
+      isPreparation: true,
+      isMatching: false,
+      operatedDormitories: [],
+      daysUntilMatchingEnd: 0,
+    });
+  });
+
   it('활성 override가 있으면 저장된 기간 대신 override state를 우선한다', async () => {
     prisma.season.findMany.mockResolvedValue([
       makeSeasonRow({
@@ -264,31 +279,5 @@ describe('SeasonsService', () => {
       matchingEndDate: '2026-02-11',
       canMatch: true,
     });
-  });
-
-  it('현재/예정 시즌이 없으면 current season 컨텍스트를 만들지 않는다', async () => {
-    prisma.season.findMany.mockResolvedValue([
-      makeSeasonRow({
-        seasonEndDate: new Date('2025-02-28T00:00:00.000Z'),
-        dormitoryOperations: [
-          {
-            dormitoryId: 'dasan',
-            isOperated: true,
-            roomSelectionDate: new Date('2025-02-11T00:00:00.000Z'),
-          },
-        ],
-      }),
-    ]);
-
-    await expect(
-      service.getCurrentSeasonContext('CHUNCHEON', new Date('2026-02-10T12:00:00+09:00')),
-    ).resolves.toBeNull();
-  });
-
-  it('기준 시각을 넘기지 않으면 DB current timestamp를 사용한다', async () => {
-    prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
-
-    await expect(service.getCurrentSeasonState('CHUNCHEON')).resolves.toBe('SEASON_MATCHING');
-    expect(prisma.$queryRawTyped).toHaveBeenCalled();
   });
 });

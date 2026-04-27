@@ -90,7 +90,7 @@ describe('DormitorySelectableQueryService', () => {
     expect(prisma.season.findMany).not.toHaveBeenCalled();
   });
 
-  it('현재/예정 시즌의 운영 기숙사만 selectable 목록으로 반환한다', async () => {
+  it('current season의 운영 기숙사만 selectable 목록으로 반환한다', async () => {
     prisma.campusMaster.findUnique.mockResolvedValue({
       code: 'CHUNCHEON',
       nameKo: '춘천캠퍼스',
@@ -152,7 +152,7 @@ describe('DormitorySelectableQueryService', () => {
     });
   });
 
-  it('현재/예정 시즌이 없으면 selectable 목록은 빈 items를 반환한다', async () => {
+  it('future season row만 있으면 selectable 목록은 빈 items를 반환한다', async () => {
     prisma.campusMaster.findUnique.mockResolvedValue({
       code: 'CHUNCHEON',
       nameKo: '춘천캠퍼스',
@@ -160,16 +160,45 @@ describe('DormitorySelectableQueryService', () => {
     });
     prisma.season.findMany.mockResolvedValue([
       makeSeasonRow({
-        seasonEndDate: new Date('2025-02-28T00:00:00.000Z'),
+        id: 'season-2',
+        name: '2026년 2학기',
+        preparationStartDate: new Date('2026-07-01T00:00:00.000Z'),
+        matchingStartDate: new Date('2026-08-18T00:00:00.000Z'),
+        seasonEndDate: new Date('2026-08-31T00:00:00.000Z'),
+      }),
+    ]);
+
+    await expect(
+      service.getSelectableDormitories('CHUNCHEON', 'M', new Date('2026-06-10T12:00:00+09:00')),
+    ).resolves.toEqual({
+      campus: {
+        code: 'CHUNCHEON',
+        nameKo: '춘천캠퍼스',
+        isOperated: true,
+      },
+      items: [],
+    });
+    expect(prisma.seasonDormitoryOperation.findMany).not.toHaveBeenCalled();
+  });
+
+  it('current season row는 있으나 operated dormitory가 0개면 빈 items를 반환한다', async () => {
+    prisma.campusMaster.findUnique.mockResolvedValue({
+      code: 'CHUNCHEON',
+      nameKo: '춘천캠퍼스',
+      isOperated: true,
+    });
+    prisma.season.findMany.mockResolvedValue([
+      makeSeasonRow({
         dormitoryOperations: [
           {
             dormitoryId: 'dasan',
-            isOperated: true,
-            roomSelectionDate: new Date('2025-02-11T00:00:00.000Z'),
+            isOperated: false,
+            roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
           },
         ],
       }),
     ]);
+    prisma.seasonDormitoryOperation.findMany.mockResolvedValue([]);
 
     await expect(service.getSelectableDormitories('CHUNCHEON', 'M')).resolves.toEqual({
       campus: {
@@ -179,6 +208,17 @@ describe('DormitorySelectableQueryService', () => {
       },
       items: [],
     });
-    expect(prisma.seasonDormitoryOperation.findMany).not.toHaveBeenCalled();
+    expect(prisma.seasonDormitoryOperation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          seasonId: 'season-1',
+          isOperated: true,
+          dormitory: {
+            campusCode: 'CHUNCHEON',
+            OR: [{ genderPolicy: 'M' }, { genderPolicy: 'BOTH' }],
+          },
+        },
+      }),
+    );
   });
 });
