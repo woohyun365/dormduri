@@ -1,4 +1,4 @@
-import type { UserProfileBridge } from './profile-contract.js';
+import type { AuthenticatedSessionUser } from './user-contract.js';
 export type { SessionResponse } from './session-contract.js';
 
 export interface GenericErrorResponse {
@@ -12,14 +12,14 @@ export interface GenericErrorResponse {
 
 export interface LoginResponse extends GenericErrorResponse {
   accessToken?: string;
-  user?: UserProfileBridge;
+  user?: AuthenticatedSessionUser;
   locked?: boolean;
   remainingSeconds?: number;
 }
 
 export type VerifyCodeResponse = GenericErrorResponse;
 export interface SignupResponse extends GenericErrorResponse {
-  user?: UserProfileBridge;
+  user?: AuthenticatedSessionUser;
 }
 export type ResetPasswordResponse = GenericErrorResponse;
 

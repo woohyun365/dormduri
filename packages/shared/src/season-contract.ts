@@ -41,7 +41,6 @@ export const seasonRuntimeOverrideSchema = z.strictObject({
 export const currentSeasonResponseSchema = z.strictObject({
   campusCode: campusSchema,
   season: seasonSummarySchema,
-  nextSeason: seasonSummarySchema.nullable(),
   operatedDormitories: z.array(dormitorySeasonOperationSchema),
   state: seasonStateSchema,
   isActive: z.boolean(),

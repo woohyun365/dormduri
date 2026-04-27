@@ -1,6 +1,6 @@
-import type { UserProfileBridge } from './profile-contract.js';
+import type { AuthenticatedSessionUser } from './user-contract.js';
 
 export interface SessionResponse {
   authenticated: boolean;
-  user?: UserProfileBridge;
+  user?: AuthenticatedSessionUser;
 }
