@@ -7,7 +7,6 @@ import {
   formatKstDate,
   hasActiveSeasonOverride,
   normalizeSeasonRuntimeRow,
-  resolveSeasonSchedule,
 } from '../seasons/season.utils.js';
 
 @Injectable()
@@ -129,14 +128,14 @@ export class DormitorySelectableQueryService {
     const normalizedSeasons = seasons.map(normalizeSeasonRuntimeRow);
     const today = formatKstDate(referenceNow);
 
-    const overrideSeason = normalizedSeasons.find((season) =>
+    const currentSeasons = normalizedSeasons.filter(
+      (season) => season.preparationStartDate <= today && season.seasonEndDate >= today,
+    );
+    const overrideSeason = currentSeasons.find((season) =>
       hasActiveSeasonOverride(season, referenceNow),
     );
-    const currentOrUpcomingSeason = normalizedSeasons.find(
-      (season) => resolveSeasonSchedule(season).seasonEnd >= today,
-    );
 
-    return (overrideSeason ?? currentOrUpcomingSeason)?.id ?? null;
+    return (overrideSeason ?? currentSeasons[0])?.id ?? null;
   }
 
   private async resolveReferenceTime(now?: Date) {

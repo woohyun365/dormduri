@@ -7,7 +7,6 @@ import {
   formatKstDate,
   hasActiveSeasonOverride,
   normalizeSeasonRuntimeRow,
-  resolveSeasonSchedule,
   toCurrentSeasonResponse,
 } from './season.utils.js';
 import type { CurrentSeasonContext } from './season.types.js';
@@ -73,31 +72,20 @@ export class SeasonsService {
     const normalizedSeasons = seasons.map(normalizeSeasonRuntimeRow);
     const today = formatKstDate(referenceNow);
 
-    const overrideSeason = normalizedSeasons.find((season) =>
+    const currentSeasons = normalizedSeasons.filter(
+      (season) => season.preparationStartDate <= today && season.seasonEndDate >= today,
+    );
+    const overrideSeason = currentSeasons.find((season) =>
       hasActiveSeasonOverride(season, referenceNow),
     );
-    const currentOrUpcoming = normalizedSeasons.find(
-      (season) => resolveSeasonSchedule(season).seasonEnd >= today,
-    );
-    const upcomingSeasons = normalizedSeasons.filter(
-      (season) => resolveSeasonSchedule(season).seasonEnd >= today,
-    );
 
-    const selectedSeason = overrideSeason ?? currentOrUpcoming ?? null;
+    const selectedSeason = overrideSeason ?? currentSeasons[0] ?? null;
 
     if (!selectedSeason) {
       return null;
     }
 
-    const selectedSchedule = resolveSeasonSchedule(selectedSeason);
-    const nextSeason =
-      upcomingSeasons.find(
-        (season) =>
-          season.id !== selectedSeason.id &&
-          resolveSeasonSchedule(season).preparationStart > selectedSchedule.preparationStart,
-      ) ?? null;
-
-    return toCurrentSeasonResponse(selectedSeason, referenceNow, nextSeason);
+    return toCurrentSeasonResponse(selectedSeason, referenceNow);
   }
 
   async getCurrentSeasonState(campusCode: Campus, now?: Date) {

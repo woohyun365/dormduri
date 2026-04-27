@@ -1,0 +1,49 @@
+import {
+  badRequestError,
+  conflictError,
+  unprocessableEntityError,
+} from '../common/http/api-error.js';
+
+function fieldErrors(field: string, message: string) {
+  return {
+    fieldErrors: {
+      [field]: [message],
+    },
+  };
+}
+
+export const usersErrors = {
+  invalidPatch(message: string, field: string) {
+    return badRequestError('INVALID_USER_PATCH', message, fieldErrors(field, message));
+  },
+
+  dormitoryAlreadyConfirmed() {
+    return conflictError(
+      'DORMITORY_ALREADY_CONFIRMED',
+      '이미 확정된 건물은 사용자 API로 변경할 수 없습니다.',
+    );
+  },
+
+  dormitorySelectionNotAllowed() {
+    return conflictError(
+      'DORMITORY_SELECTION_NOT_ALLOWED',
+      '현재 상태에서는 건물 선택을 변경할 수 없습니다.',
+    );
+  },
+
+  invalidDormitoryForUser(message: string = '현재 사용자 상태에 맞지 않는 기숙사입니다.') {
+    return unprocessableEntityError(
+      'INVALID_DORMITORY_FOR_USER',
+      message,
+      fieldErrors('selection.dormitoryId', message),
+    );
+  },
+
+  textModerationRejected(field: 'intro' | 'messageToRoommate', message: string) {
+    return unprocessableEntityError(
+      'TEXT_MODERATION_REJECTED',
+      message,
+      fieldErrors(field, message),
+    );
+  },
+};
