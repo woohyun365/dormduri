@@ -65,7 +65,7 @@ export class ProfilesService {
     });
 
     const visibleUsers = users
-      .filter((user) => this.isVisibleToViewer(user, scope))
+      .filter((user) => this.isVisibleToViewer(user, viewer, scope))
       .sort((left, right) => {
         const leftNickname = left.profile?.nickname ?? '';
         const rightNickname = right.profile?.nickname ?? '';
@@ -108,7 +108,7 @@ export class ProfilesService {
       select: this.userWithProfileSelect(),
     });
 
-    if (!user || !this.isVisibleToViewer(user, scope)) {
+    if (!user || !this.isVisibleToViewer(user, viewer, scope)) {
       throw profilesErrors.profileNotVisible();
     }
 
@@ -216,6 +216,7 @@ export class ProfilesService {
 
   private isVisibleToViewer(
     user: UserWithProfileRecord,
+    viewer: UserWithProfileRecord,
     scope: ReturnType<typeof resolveProfileVisibilityScope>,
   ) {
     if (!user.profile) {
@@ -223,11 +224,15 @@ export class ProfilesService {
     }
 
     if (scope.type === 'same-campus') {
-      return true;
+      return user.campus === viewer.campus && user.gender === viewer.gender;
     }
 
     if (scope.type === 'same-dormitory') {
-      return user.dormitorySelectionState === 'ASSIGNED' && user.dormitoryId === scope.dormitoryId;
+      return (
+        user.gender === viewer.gender &&
+        user.dormitorySelectionState === 'ASSIGNED' &&
+        user.dormitoryId === scope.dormitoryId
+      );
     }
 
     return false;

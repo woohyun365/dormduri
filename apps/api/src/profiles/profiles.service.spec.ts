@@ -200,6 +200,71 @@ describe('ProfilesService', () => {
     expect(result.items[0]?.lifestyle).not.toHaveProperty('drinkingTolerance');
   });
 
+  it('오프시즌 같은 캠퍼스 타성별 상세는 PROFILE_NOT_VISIBLE로 숨긴다', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
+      makeUser({
+        id: 'peer-female',
+        email: 'peer-female@kangwon.ac.kr',
+        gender: 'F',
+        profile: { nickname: '여성상세' },
+      }),
+    );
+    seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
+
+    await expect(
+      service.getProfileByUserId(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        'peer-female',
+      ),
+    ).rejects.toMatchObject({
+      response: profilesErrors.profileNotVisible().getResponse(),
+    });
+  });
+
+  it('시즌 중 같은 기숙사라도 타성별 상세는 PROFILE_NOT_VISIBLE로 숨긴다', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
+      makeUser({
+        id: 'peer-female',
+        email: 'peer-female@kangwon.ac.kr',
+        gender: 'F',
+        profile: { nickname: '여성상세' },
+      }),
+    );
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      state: 'SEASON_MATCHING',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+      ],
+      schedule: {
+        preparationStart: '2026-01-01',
+        matchingStart: '2026-01-28',
+        matchingEnd: '2026-02-11',
+        seasonEnd: '2026-02-28',
+      },
+    });
+
+    await expect(
+      service.getProfileByUserId(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        'peer-female',
+      ),
+    ).rejects.toMatchObject({
+      response: profilesErrors.profileNotVisible().getResponse(),
+    });
+  });
+
   it('SEASON_MATCHING + ASSIGNED에서는 lifestyle 수정을 잠근다', async () => {
     prisma.user.findUnique.mockResolvedValue(makeUser());
     seasonsService.getCurrentSeasonContext.mockResolvedValue({

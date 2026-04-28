@@ -54,7 +54,7 @@ const relaxedLifestyle = {
   bedtime: '24_02',
   wakeTime: '09_10',
   sleepHabit: 'NONE',
-  sleepEnvironment: 'EARPHONE',
+  sleepEnvironment: 'QUIET',
   screenUsage: 'NONE',
   noiseSensitivity: 'NORMAL',
   smokingBehavior: 'NO',
