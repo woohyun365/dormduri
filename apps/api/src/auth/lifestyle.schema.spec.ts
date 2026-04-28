@@ -1,4 +1,11 @@
 import { validateLifestyleData } from './lifestyle.schema.js';
+// @ts-expect-error -- seed fixture is plain JS and intentionally reused here for schema compatibility regression coverage
+import { AUTH_FIXTURE_USERS } from '../../prisma/seed-data/fixtures/auth-fixture-users.js';
+
+const fixtureUsers = AUTH_FIXTURE_USERS as unknown as ReadonlyArray<{
+  key: string;
+  lifestyle: Record<string, unknown>;
+}>;
 
 const validLifestyle = {
   bedtime: '22_24',
@@ -79,5 +86,13 @@ describe('validateLifestyleData', () => {
       ok: false,
       error: 'screenUsage가 NONE일 때 sleepEnvironment는 QUIET이어야 합니다.',
     });
+  });
+
+  it('문서화된 auth fixture users의 lifestyle은 현재 schema를 모두 통과한다', () => {
+    for (const fixtureUser of fixtureUsers) {
+      const result = validateLifestyleData(fixtureUser.lifestyle);
+
+      expect(result).toEqual({ ok: true, value: fixtureUser.lifestyle });
+    }
   });
 });

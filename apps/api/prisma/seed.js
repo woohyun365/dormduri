@@ -375,25 +375,32 @@ async function seedUsersData(client) {
       `
         SELECT id
         FROM "User"
-        WHERE "emailNormalized" = $1 OR "nicknameNormalized" = $2
-        ORDER BY CASE WHEN "emailNormalized" = $1 THEN 0 ELSE 1 END
+        WHERE "emailNormalized" = $1
         LIMIT 1
       `,
-      [emailNormalized, nicknameNormalized],
+      [emailNormalized],
     );
 
     const values = [
       seedUser.email,
       emailNormalized,
       passwordHash,
-      seedUser.nickname,
-      nicknameNormalized,
       seedUser.gender,
       seedUser.campus,
-      JSON.stringify(seedUser.lifestyle),
-      seedUser.intro,
       seedUser.dormitoryId,
       seedUser.dormitorySelectionState,
+    ];
+
+    const profileValues = [
+      seedUser.nickname,
+      nicknameNormalized,
+      JSON.stringify(seedUser.lifestyle),
+      seedUser.intro,
+      seedUser.messageToRoommate ?? null,
+      seedUser.college ?? null,
+      seedUser.grade ?? null,
+      seedUser.mbti ?? null,
+      seedUser.birthYear ?? null,
     ];
 
     if (existing.rowCount && existing.rows[0]?.id) {
@@ -404,22 +411,54 @@ async function seedUsersData(client) {
             email = $1,
             "emailNormalized" = $2,
             "passwordHash" = $3,
-            nickname = $4,
-            "nicknameNormalized" = $5,
-            gender = $6::"Gender",
-            campus = $7::"Campus",
-            lifestyle = $8::jsonb,
-            intro = $9,
-            "dormitoryId" = $10,
-            "dormitorySelectionState" = $11::"DormitorySelectionState",
+            gender = $4::"Gender",
+            campus = $5::"Campus",
+            "dormitoryId" = $6,
+            "dormitorySelectionState" = $7::"DormitorySelectionState",
             "emailVerifiedAt" = NOW(),
             "updatedAt" = NOW()
-          WHERE id = $12
+          WHERE id = $8
         `,
         [...values, existing.rows[0].id],
       );
+      await client.query(
+        `
+          INSERT INTO "UserProfile" (
+            "userId",
+            nickname,
+            "nicknameNormalized",
+            lifestyle,
+            intro,
+            "messageToRoommate",
+            college,
+            grade,
+            mbti,
+            "birthYear",
+            "createdAt",
+            "updatedAt"
+          )
+          VALUES (
+            $1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, NOW(), NOW()
+          )
+          ON CONFLICT ("userId")
+          DO UPDATE SET
+            nickname = EXCLUDED.nickname,
+            "nicknameNormalized" = EXCLUDED."nicknameNormalized",
+            lifestyle = EXCLUDED.lifestyle,
+            intro = EXCLUDED.intro,
+            "messageToRoommate" = EXCLUDED."messageToRoommate",
+            college = EXCLUDED.college,
+            grade = EXCLUDED.grade,
+            mbti = EXCLUDED.mbti,
+            "birthYear" = EXCLUDED."birthYear",
+            "updatedAt" = NOW()
+        `,
+        [existing.rows[0].id, ...profileValues],
+      );
       continue;
     }
+
+    const userId = randomUUID();
 
     await client.query(
       `
@@ -428,12 +467,8 @@ async function seedUsersData(client) {
           email,
           "emailNormalized",
           "passwordHash",
-          nickname,
-          "nicknameNormalized",
           gender,
           campus,
-          lifestyle,
-          intro,
           "dormitoryId",
           "dormitorySelectionState",
           "emailVerifiedAt",
@@ -441,10 +476,33 @@ async function seedUsersData(client) {
           "updatedAt"
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7::"Gender", $8::"Campus", $9::jsonb, $10, $11, $12::"DormitorySelectionState", NOW(), NOW(), NOW()
+          $1, $2, $3, $4, $5::"Gender", $6::"Campus", $7, $8::"DormitorySelectionState", NOW(), NOW(), NOW()
         )
       `,
-      [randomUUID(), ...values],
+      [userId, ...values],
+    );
+
+    await client.query(
+      `
+        INSERT INTO "UserProfile" (
+          "userId",
+          nickname,
+          "nicknameNormalized",
+          lifestyle,
+          intro,
+          "messageToRoommate",
+          college,
+          grade,
+          mbti,
+          "birthYear",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          $1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, NOW(), NOW()
+        )
+      `,
+      [userId, ...profileValues],
     );
   }
 

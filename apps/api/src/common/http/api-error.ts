@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   HttpException,
   HttpStatus,
   NotFoundException,
+  UnprocessableEntityException,
   UnauthorizedException,
 } from '@nestjs/common';
 
@@ -43,6 +45,14 @@ export function forbiddenError(code: string, error: string, extras?: ApiErrorExt
 
 export function notFoundError(code: string, error: string, extras?: ApiErrorExtras) {
   return new NotFoundException(createApiErrorBody(code, error, extras));
+}
+
+export function conflictError(code: string, error: string, extras?: ApiErrorExtras) {
+  return new ConflictException(createApiErrorBody(code, error, extras));
+}
+
+export function unprocessableEntityError(code: string, error: string, extras?: ApiErrorExtras) {
+  return new UnprocessableEntityException(createApiErrorBody(code, error, extras));
 }
 
 export function tooManyRequestsError(code: string, error: string, extras?: ApiErrorExtras) {

@@ -12,6 +12,7 @@ import { AuthSessionService } from './auth-session.service.js';
 import { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import { AuthVerificationService } from './auth-verification.service.js';
 import { AuthVerificationStore } from './auth-verification.store.js';
+import { AuthenticatedUserGuard } from './authenticated-user.guard.js';
 import { EMAIL_SENDER } from './email-sender.interface.js';
 import { StubEmailSenderService } from './stub-email-sender.service.js';
 
@@ -35,6 +36,7 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
     AuthSessionService,
     AuthSignupValidationService,
     AuthLoginAttemptService,
+    AuthenticatedUserGuard,
     StubEmailSenderService,
     {
       provide: EMAIL_SENDER,
@@ -45,6 +47,6 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
       useClass: ThrottlerGuard,
     },
   ],
-  exports: [AuthService, AuthSessionService],
+  exports: [AuthService, AuthSessionService, AuthenticatedUserGuard],
 })
 export class AuthModule {}

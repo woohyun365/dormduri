@@ -2,8 +2,6 @@ import { z } from 'zod';
 import { campusMetaSchema } from './campus-contract.js';
 import { campusSchema } from './identity-contract.js';
 
-export const UNASSIGNED_DORMITORY_ID = 'unassigned' as const;
-
 export const dormitorySelectionStateSchema = z.enum(['NOT_SELECTED', 'UNASSIGNED', 'ASSIGNED']);
 export const dormitoryGenderPolicySchema = z.enum(['M', 'F', 'BOTH']);
 export const dormitoryBathroomTypeSchema = z.enum(['SHARED', 'PRIVATE']);

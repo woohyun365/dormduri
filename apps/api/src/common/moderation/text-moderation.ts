@@ -1,4 +1,4 @@
-export type PublicTextSurface = 'nickname' | 'intro';
+export type PublicTextSurface = 'nickname' | 'intro' | 'messageToRoommate';
 export type ModerationMatchMode = 'EXACT' | 'INCLUDES';
 
 export interface ModerationTermEntry {
@@ -13,6 +13,8 @@ export function getErrorMessage(surface: PublicTextSurface): string {
       return '사용할 수 없는 표현이 포함되어 있습니다.';
     case 'intro':
       return '자기소개에 사용할 수 없는 표현이 포함되어 있습니다.';
+    case 'messageToRoommate':
+      return '룸메에게 한마디에 사용할 수 없는 표현이 포함되어 있습니다.';
   }
 }
 

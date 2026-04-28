@@ -16,6 +16,10 @@
       "types": "./dist/profile-contract.d.ts",
       "default": "./dist/profile-contract.js"
     },
+    "./user-contract": {
+      "types": "./dist/user-contract.d.ts",
+      "default": "./dist/user-contract.js"
+    },
     "./session-contract": {
       "types": "./dist/session-contract.d.ts",
       "default": "./dist/session-contract.js"

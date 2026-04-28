@@ -13,7 +13,7 @@
     "check:fast": "pnpm lint-staged",
     "check:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm shared:lint && pnpm api:lint && pnpm shared:typecheck && pnpm api:typecheck",
     "build:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm api:build",
-    "test:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm api:test",
+    "test:api": "sh -c 'pnpm shared:build && pnpm api:prisma:generate && pnpm --dir apps/api exec jest --watchman=false --runInBand' --",
     "typecheck": "pnpm shared:build && pnpm shared:typecheck && pnpm api:typecheck",
     "dev": "pnpm shared:build && pnpm -r --parallel --filter './apps/**' dev",
     "build": "pnpm -r build",

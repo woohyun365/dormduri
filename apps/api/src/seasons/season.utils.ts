@@ -91,26 +91,41 @@ export function getEffectiveSeasonState(
   season: SeasonWindowSource & SeasonOverrideSource,
   now: Date,
 ): SeasonState {
-  if (hasActiveSeasonOverride(season, now)) {
-    return season.overrideState;
-  }
+  const resolvedState = hasActiveSeasonOverride(season, now)
+    ? season.overrideState
+    : (() => {
+        const schedule = resolveSeasonSchedule(season);
+        const nowMs = now.getTime();
 
-  const schedule = resolveSeasonSchedule(season);
-  const nowMs = now.getTime();
+        if (
+          nowMs < toKstStartMs(schedule.preparationStart) ||
+          nowMs > toKstEndMs(schedule.seasonEnd)
+        ) {
+          return 'OFF_SEASON' as const;
+        }
 
-  if (nowMs < toKstStartMs(schedule.preparationStart) || nowMs > toKstEndMs(schedule.seasonEnd)) {
-    return 'OFF_SEASON';
-  }
+        if (nowMs < toKstStartMs(schedule.matchingStart)) {
+          return 'SEASON_PREPARATION' as const;
+        }
 
-  if (nowMs < toKstStartMs(schedule.matchingStart)) {
+        if (nowMs <= toKstEndMs(schedule.matchingEnd)) {
+          return 'SEASON_MATCHING' as const;
+        }
+
+        return 'SEASON_POST_MATCH' as const;
+      })();
+
+  const hasOperatedDormitories = season.dormitoryOperations.some(
+    (operation) => operation.isOperated,
+  );
+  if (
+    !hasOperatedDormitories &&
+    (resolvedState === 'SEASON_MATCHING' || resolvedState === 'SEASON_POST_MATCH')
+  ) {
     return 'SEASON_PREPARATION';
   }
 
-  if (nowMs <= toKstEndMs(schedule.matchingEnd)) {
-    return 'SEASON_MATCHING';
-  }
-
-  return 'SEASON_POST_MATCH';
+  return resolvedState;
 }
 
 export function calcDaysUntilDate(dateStr: LocalDateString, now: Date): number {
@@ -160,11 +175,7 @@ export function normalizeSeasonRuntimeRow(season: {
   };
 }
 
-export function toCurrentSeasonResponse(
-  season: NormalizedSeasonRuntimeRow,
-  now: Date,
-  nextSeason: NormalizedSeasonRuntimeRow | null = null,
-) {
+export function toCurrentSeasonResponse(season: NormalizedSeasonRuntimeRow, now: Date) {
   const schedule = resolveSeasonSchedule(season);
   const state = getEffectiveSeasonState(season, now);
   const operatedDormitories = getOperatedDormitories(season.dormitoryOperations);
@@ -186,15 +197,6 @@ export function toCurrentSeasonResponse(
       matchingStartDate: season.matchingStartDate,
       seasonEndDate: season.seasonEndDate,
     },
-    nextSeason: nextSeason
-      ? {
-          id: nextSeason.id,
-          name: nextSeason.name,
-          preparationStartDate: nextSeason.preparationStartDate,
-          matchingStartDate: nextSeason.matchingStartDate,
-          seasonEndDate: nextSeason.seasonEndDate,
-        }
-      : null,
     operatedDormitories,
     state,
     isActive: state !== 'OFF_SEASON',
