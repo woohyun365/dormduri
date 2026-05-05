@@ -4,6 +4,7 @@ import { lifestyleSchema } from './lifestyle.js';
 import { additionalProfileSchema } from './profile-contract.js';
 import { dormitorySelectionStateSchema } from './dormitory-contract.js';
 import { seasonStateSchema } from './season-contract.js';
+import { collegeCodeSchema } from './college-contract.js';
 
 export const authenticatedSessionUserSchema = z.strictObject({
   id: z.string(),
@@ -55,7 +56,7 @@ export const selectionPatchSchema = z.strictObject({
 });
 
 export const additionalProfilePatchSchema = z.strictObject({
-  college: z.string().nullable().optional(),
+  college: collegeCodeSchema.nullable().optional(),
   grade: z.string().nullable().optional(),
   mbti: z.string().nullable().optional(),
   birthYear: z.number().int().nullable().optional(),

@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { campusSchema, genderSchema } from './identity-contract.js';
 import { LIFESTYLE_FIELD_OPTIONS } from './lifestyle.js';
+import { collegeCodeSchema } from './college-contract.js';
 
 const nullableEnum = <const T extends readonly [string, ...string[]]>(values: T) =>
   z.enum(values).nullable();
 
 export const additionalProfileSchema = z.strictObject({
-  college: z.string().nullable(),
+  college: collegeCodeSchema.nullable(),
   grade: z.enum(['1', '2', '3', '4+']).nullable(),
   mbti: z.string().nullable(),
   birthYear: z.number().int().nullable(),

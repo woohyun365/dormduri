@@ -51,6 +51,10 @@
     "./season-contract": {
       "types": "./dist/season-contract.d.ts",
       "default": "./dist/season-contract.js"
+    },
+    "./college-contract": {
+      "types": "./dist/college-contract.d.ts",
+      "default": "./dist/college-contract.js"
     }
   },
   "scripts": {
