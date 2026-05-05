@@ -40,7 +40,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '조용하고 규칙적인 생활을 선호합니다. 서로 존중하며 지낼 룸메이트를 찾습니다.',
     messageToRoommate: '쓰레기통, 청소도구 제가 가져갑니다!',
-    additional: { college: 'IT대', grade: '2', mbti: 'ISTJ', birthYear: 2003 },
+    additional: { college: 'IT', grade: '2', mbti: 'ISTJ', birthYear: 2003 },
   },
   {
     id: '2',
@@ -74,7 +74,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '게임을 좋아하지만 이어폰 사용합니다. 배려하며 지낼 분 구해요!',
     messageToRoommate: null,
-    additional: { college: 'IT대', grade: '1', mbti: 'INTP', birthYear: null },
+    additional: { college: 'IT', grade: '1', mbti: 'INTP', birthYear: null },
   },
   {
     id: '9',
@@ -109,7 +109,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     intro: '음악 전공이라 이어폰으로 연습합니다. 서로 배려하며 지내요!',
     messageToRoommate: '블루투스 스피커 가져갈게요 (이어폰 위주로 씁니다)',
     additional: {
-      college: '문화예술·공대',
+      college: 'ARTS_ENGINEERING',
       grade: '2',
       mbti: 'ENFP',
       birthYear: 2003,
@@ -147,7 +147,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '자취 2년 했고 기숙사 처음입니다. 적응 중이에요.',
     messageToRoommate: null,
-    additional: { college: 'IT대', grade: '3', mbti: 'ISTP', birthYear: null },
+    additional: { college: 'IT', grade: '3', mbti: 'ISTP', birthYear: null },
   },
 
   // --- 남자: toegye (2명) ---
@@ -183,7 +183,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '새벽 운동을 즐기고, 청결을 중요하게 생각합니다.',
     messageToRoommate: '화장실 슬리퍼 같이 쓸 분 구해요',
-    additional: { college: '사범대', grade: '3', mbti: 'ENTJ', birthYear: 2002 },
+    additional: { college: 'EDUCATION', grade: '3', mbti: 'ENTJ', birthYear: 2002 },
   },
   {
     id: '4',
@@ -217,7 +217,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '야행성이라 밤에 활동 많습니다. 이해해주실 분!',
     messageToRoommate: null,
-    additional: { college: '경영대', grade: '2', mbti: null, birthYear: 2003 },
+    additional: { college: 'BUSINESS', grade: '2', mbti: null, birthYear: 2003 },
   },
 
   // --- 남자: saerom (2명) ---
@@ -253,7 +253,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '같이 운동하거나 밥 먹을 룸메 찾습니다.',
     messageToRoommate: '수건 건조대 가져갈게요! 공용물품 같이 사요',
-    additional: { college: '농업생명대', grade: '1', mbti: 'ENFP', birthYear: 2004 },
+    additional: { college: 'AGRICULTURE_LIFE', grade: '1', mbti: 'ENFP', birthYear: 2004 },
   },
   {
     id: '6',
@@ -323,7 +323,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '친하게 지내고 싶어요! 같이 학식 가실 분.',
     messageToRoommate: null,
-    additional: { college: '자연과학대', grade: '1', mbti: null, birthYear: null },
+    additional: { college: 'NATURAL_SCIENCES', grade: '1', mbti: null, birthYear: null },
   },
 
   // --- 남자: dasan (테스트 참조용) ---
@@ -359,7 +359,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '도서관 자주 가고 방에선 조용히 지냅니다.',
     messageToRoommate: '샤워기 필터 제가 준비할게요',
-    additional: { college: '인문대', grade: '2', mbti: 'INFJ', birthYear: 2003 },
+    additional: { college: 'HUMANITIES', grade: '2', mbti: 'INFJ', birthYear: 2003 },
   },
 
   // --- 여자: yeji (2명) ---
@@ -395,7 +395,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '도서관 위주로 생활하고 방에서는 조용히 지내요.',
     messageToRoommate: '독서등만 사용합니다!',
-    additional: { college: '인문대', grade: '2', mbti: 'INFJ', birthYear: 2003 },
+    additional: { college: 'HUMANITIES', grade: '2', mbti: 'INFJ', birthYear: 2003 },
   },
   {
     id: '20',
@@ -429,7 +429,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '아침 요가로 하루를 시작해요. 깔끔하고 밝은 분위기를 좋아합니다.',
     messageToRoommate: '요가매트 공간 조금만 양보해주세요!',
-    additional: { college: '사범대', grade: '1', mbti: 'ENFJ', birthYear: 2004 },
+    additional: { college: 'EDUCATION', grade: '1', mbti: 'ENFJ', birthYear: 2004 },
   },
 
   // --- 여자: nanji (2명) ---
@@ -465,7 +465,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '카페에서 공부하는 걸 좋아해요. 친하게 지낼 룸메 찾아요!',
     messageToRoommate: null,
-    additional: { college: '경영대', grade: '2', mbti: 'ESFP', birthYear: 2003 },
+    additional: { college: 'BUSINESS', grade: '2', mbti: 'ESFP', birthYear: 2003 },
   },
   {
     id: '22',
@@ -500,7 +500,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     intro: '밤에 작업하는 경우가 많아요. 태블릿 위주라 소음은 적습니다.',
     messageToRoommate: '조명 밝기 조절 가능한 스탠드 가져갈게요',
     additional: {
-      college: '문화예술·공대',
+      college: 'ARTS_ENGINEERING',
       grade: '3',
       mbti: 'INFP',
       birthYear: 2002,
@@ -540,7 +540,7 @@ const handcraftedProfiles: Omit<RoommateProfile, 'matchScore'>[] = [
     },
     intro: '매일 아침 캠퍼스 산책합니다. 규칙적인 생활 좋아해요.',
     messageToRoommate: '같이 산책하실 분 환영!',
-    additional: { college: '농업생명대', grade: '1', mbti: 'ISFJ', birthYear: 2004 },
+    additional: { college: 'AGRICULTURE_LIFE', grade: '1', mbti: 'ISFJ', birthYear: 2004 },
   },
 
   // --- 삼척 캠퍼스 (비운영, dormitoryId: null) ---
