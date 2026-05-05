@@ -7,12 +7,14 @@ import {
   DORMITORY_GUIDE_DATA,
   DORMITORY_MASTER_DATA,
 } from './seed-data/reference/dormitory-seed-data.js';
+import { COLLEGE_MASTER_DATA } from './seed-data/reference/college-reference-data.js';
 import { MODERATION_REFERENCE_ROWS } from './seed-data/reference/moderation-seed-data.js';
 import {
   AUTH_FIXTURE_SEED_PASSWORD,
   AUTH_FIXTURE_USERS,
 } from './seed-data/fixtures/auth-fixture-users.js';
 import { SEASON_FIXTURES } from './seed-data/fixtures/season-fixtures.js';
+import { getCollegeLabel } from '@repo/shared/college-contract';
 import pg from 'pg';
 
 const { Client } = pg;
@@ -27,6 +29,19 @@ function normalizeEmail(email) {
 
 function normalizeNickname(nickname) {
   return nickname.trim().toLowerCase();
+}
+
+function normalizeCollegeSeedValue(college) {
+  if (!college) {
+    return null;
+  }
+
+  const collegeLabel = getCollegeLabel(college);
+  if (!collegeLabel) {
+    throw new Error(`Unknown college seed value: ${college}`);
+  }
+
+  return college;
 }
 
 /**
@@ -171,6 +186,33 @@ async function seedCampusAndDormitories(client) {
         guide.repairContact,
         guide.diningContact,
       ],
+    );
+  }
+}
+
+async function seedColleges(client) {
+  for (const college of COLLEGE_MASTER_DATA) {
+    await client.query(
+      `
+        INSERT INTO "CollegeMaster" (
+          code,
+          "campusCode",
+          "nameKo",
+          "sortOrder",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES ($1, $2::"Campus", $3, $4, $5, NOW(), NOW())
+        ON CONFLICT (code)
+        DO UPDATE SET
+          "campusCode" = EXCLUDED."campusCode",
+          "nameKo" = EXCLUDED."nameKo",
+          "sortOrder" = EXCLUDED."sortOrder",
+          "isActive" = EXCLUDED."isActive",
+          "updatedAt" = NOW()
+      `,
+      [college.code, college.campusCode, college.nameKo, college.sortOrder, college.isActive],
     );
   }
 }
@@ -370,6 +412,7 @@ async function seedUsersData(client) {
   for (const seedUser of AUTH_FIXTURE_USERS) {
     const emailNormalized = normalizeEmail(seedUser.email);
     const nicknameNormalized = normalizeNickname(seedUser.nickname);
+    const collegeCode = normalizeCollegeSeedValue(seedUser.college ?? null);
 
     const existing = await client.query(
       `
@@ -397,7 +440,7 @@ async function seedUsersData(client) {
       JSON.stringify(seedUser.lifestyle),
       seedUser.intro,
       seedUser.messageToRoommate ?? null,
-      seedUser.college ?? null,
+      collegeCode,
       seedUser.grade ?? null,
       seedUser.mbti ?? null,
       seedUser.birthYear ?? null,
@@ -430,7 +473,7 @@ async function seedUsersData(client) {
             lifestyle,
             intro,
             "messageToRoommate",
-            college,
+            "collegeCode",
             grade,
             mbti,
             "birthYear",
@@ -447,7 +490,7 @@ async function seedUsersData(client) {
             lifestyle = EXCLUDED.lifestyle,
             intro = EXCLUDED.intro,
             "messageToRoommate" = EXCLUDED."messageToRoommate",
-            college = EXCLUDED.college,
+            "collegeCode" = EXCLUDED."collegeCode",
             grade = EXCLUDED.grade,
             mbti = EXCLUDED.mbti,
             "birthYear" = EXCLUDED."birthYear",
@@ -491,7 +534,7 @@ async function seedUsersData(client) {
           lifestyle,
           intro,
           "messageToRoommate",
-          college,
+          "collegeCode",
           grade,
           mbti,
           "birthYear",
@@ -528,6 +571,7 @@ async function seed() {
 
   try {
     await seedCampusAndDormitories(client);
+    await seedColleges(client);
     await seedModerationTerms(client);
     await seedSeasons(client);
     await seedUsersData(client);

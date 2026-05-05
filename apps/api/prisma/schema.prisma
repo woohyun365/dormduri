@@ -93,6 +93,7 @@ model CampusMaster {
   sortOrder    Int                 @default(0)
   createdAt    DateTime            @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime            @default(now()) @db.Timestamptz(3)
+  colleges     CollegeMaster[]
   dormitories  Dormitory[]
   seasons      Season[]
   guideContent CampusGuideContent?
@@ -106,6 +107,22 @@ model CampusGuideContent {
   createdAt         DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime     @default(now()) @db.Timestamptz(3)
   campus            CampusMaster @relation(fields: [campusCode], references: [code], onDelete: Cascade)
+}
+
+model CollegeMaster {
+  code                      String                     @id
+  campusCode                Campus
+  nameKo                    String
+  sortOrder                 Int                        @default(0)
+  isActive                  Boolean                    @default(true)
+  createdAt                 DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime                   @default(now()) @db.Timestamptz(3)
+  campus                    CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  userProfiles              UserProfile[]
+  seasonParticipantProfiles SeasonParticipantProfile[]
+
+  @@unique([campusCode, nameKo])
+  @@index([campusCode, sortOrder])
 }
 
 model Dormitory {
@@ -211,9 +228,11 @@ model UserProfile {
   birthYear          Int?
   createdAt          DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt          DateTime       @default(now()) @db.Timestamptz(3)
+  collegeRef         CollegeMaster? @relation(fields: [collegeCode], references: [code], onDelete: SetNull)
   user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([nickname])
+  @@index([collegeCode])
 }
 
 model SeasonParticipant {
@@ -264,8 +283,10 @@ model SeasonParticipantProfile {
   templateSourceUserProfileUpdatedAt DateTime?         @db.Timestamptz(3)
   createdAt                          DateTime          @default(now()) @db.Timestamptz(3)
   updatedAt                          DateTime          @default(now()) @db.Timestamptz(3)
+  collegeRef                         CollegeMaster?    @relation(fields: [collegeCode], references: [code], onDelete: SetNull)
   participant                        SeasonParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
+  @@index([collegeCode])
   @@index([nicknameNormalizedSnapshot])
 }
 

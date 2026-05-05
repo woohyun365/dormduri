@@ -19,7 +19,6 @@ import { SeasonParticipantsService } from '../season-participants/season-partici
 
 const MBTI_REGEX = /^[EI][SN][TF][JP]$/;
 const GRADE_VALUES = new Set(['1', '2', '3', '4+']);
-const COLLEGE_MAX_LENGTH = 50;
 
 interface UpdateCurrentUserInput {
   selection?: {
@@ -73,7 +72,19 @@ export class UsersService {
     const profileUpdateData: {
       intro?: string;
       messageToRoommate?: string | null;
-      college?: string | null;
+      collegeCode?: string | null;
+      grade?: string | null;
+      mbti?: string | null;
+      birthYear?: number | null;
+    } = {};
+    const seasonParticipantUpdateData: {
+      dormitoryId?: string | null;
+      dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
+    } = {};
+    const seasonParticipantProfileUpdateData: {
+      intro?: string;
+      messageToRoommate?: string | null;
+      collegeCode?: string | null;
       grade?: string | null;
       mbti?: string | null;
       birthYear?: number | null;
@@ -86,6 +97,9 @@ export class UsersService {
         throw usersErrors.textModerationRejected('intro', moderation.error);
       }
       profileUpdateData.intro = intro;
+      if (currentParticipant?.profile) {
+        seasonParticipantProfileUpdateData.intro = intro;
+      }
     }
 
     if (input.messageToRoommate !== undefined) {
@@ -100,18 +114,21 @@ export class UsersService {
         throw usersErrors.textModerationRejected('messageToRoommate', moderation.error);
       }
       profileUpdateData.messageToRoommate = normalizedMessage;
+      if (currentParticipant?.profile) {
+        seasonParticipantProfileUpdateData.messageToRoommate = normalizedMessage;
+      }
     }
 
     if (input.additional) {
       if (input.additional.college !== undefined) {
-        const college = input.additional.college?.trim() ? input.additional.college.trim() : null;
-        if (college && college.length > COLLEGE_MAX_LENGTH) {
-          throw usersErrors.invalidPatch(
-            `college는 ${COLLEGE_MAX_LENGTH}자 이하여야 합니다.`,
-            'additional.college',
-          );
+        const college = await this.assertCollegeCodeForCampus(
+          user.campus,
+          input.additional.college,
+        );
+        profileUpdateData.collegeCode = college?.code ?? null;
+        if (currentParticipant?.profile) {
+          seasonParticipantProfileUpdateData.collegeCode = college?.code ?? null;
         }
-        profileUpdateData.college = college;
       }
 
       if (input.additional.grade !== undefined) {
@@ -119,6 +136,9 @@ export class UsersService {
           throw usersErrors.invalidPatch('grade 값이 올바르지 않습니다.', 'additional.grade');
         }
         profileUpdateData.grade = input.additional.grade;
+        if (currentParticipant?.profile) {
+          seasonParticipantProfileUpdateData.grade = input.additional.grade;
+        }
       }
 
       if (input.additional.mbti !== undefined) {
@@ -129,6 +149,9 @@ export class UsersService {
           throw usersErrors.invalidPatch('MBTI 형식이 올바르지 않습니다.', 'additional.mbti');
         }
         profileUpdateData.mbti = mbti;
+        if (currentParticipant?.profile) {
+          seasonParticipantProfileUpdateData.mbti = mbti;
+        }
       }
 
       if (input.additional.birthYear !== undefined) {
@@ -143,12 +166,23 @@ export class UsersService {
           }
         }
         profileUpdateData.birthYear = birthYear;
+        if (currentParticipant?.profile) {
+          seasonParticipantProfileUpdateData.birthYear = birthYear;
+        }
       }
     }
 
     if (input.selection) {
       this.assertSelectionPayload(input.selection);
-      await this.applySelectionUpdate(user, serviceState, now, input.selection, userUpdateData);
+      await this.applySelectionUpdate(
+        user,
+        currentParticipant,
+        serviceState,
+        now,
+        input.selection,
+        userUpdateData,
+        seasonParticipantUpdateData,
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -163,6 +197,23 @@ export class UsersService {
         await tx.userProfile.update({
           where: { userId: user.id },
           data: profileUpdateData,
+        });
+      }
+
+      if (currentParticipant && Object.keys(seasonParticipantUpdateData).length > 0) {
+        await tx.seasonParticipant.update({
+          where: { id: currentParticipant.id },
+          data: seasonParticipantUpdateData,
+        });
+      }
+
+      if (
+        currentParticipant?.profile &&
+        Object.keys(seasonParticipantProfileUpdateData).length > 0
+      ) {
+        await tx.seasonParticipantProfile.update({
+          where: { participantId: currentParticipant.id },
+          data: seasonParticipantProfileUpdateData,
         });
       }
     });
@@ -292,10 +343,17 @@ export class UsersService {
 
   private async applySelectionUpdate(
     user: UserWithProfileRecord,
+    currentParticipant: Awaited<
+      ReturnType<SeasonParticipantsService['ensureCurrentSeasonParticipantForUser']>
+    >,
     serviceState: Awaited<ReturnType<typeof resolveCampusServiceState>>,
     now: Date,
     selection: NonNullable<UpdateCurrentUserInput['selection']>,
     userUpdateData: {
+      dormitoryId?: string | null;
+      dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
+    },
+    seasonParticipantUpdateData: {
       dormitoryId?: string | null;
       dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
     },
@@ -376,6 +434,10 @@ export class UsersService {
 
     userUpdateData.dormitorySelectionState = 'ASSIGNED';
     userUpdateData.dormitoryId = dormitory.id;
+    if (currentParticipant) {
+      seasonParticipantUpdateData.dormitorySelectionState = 'ASSIGNED';
+      seasonParticipantUpdateData.dormitoryId = dormitory.id;
+    }
   }
 
   private async getUserWithProfile(userId: string): Promise<UserWithProfileRecord> {
@@ -414,5 +476,37 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  private async assertCollegeCodeForCampus(
+    campus: UserWithProfileRecord['campus'],
+    collegeCode: string | null,
+  ) {
+    if (!collegeCode) {
+      return null;
+    }
+
+    const college = await this.prisma.collegeMaster.findUnique({
+      where: { code: collegeCode },
+      select: {
+        code: true,
+        campusCode: true,
+        nameKo: true,
+        isActive: true,
+      },
+    });
+
+    if (!college || !college.isActive) {
+      throw usersErrors.invalidPatch('college 값이 올바르지 않습니다.', 'additional.college');
+    }
+
+    if (college.campusCode !== campus) {
+      throw usersErrors.invalidPatch(
+        '현재 캠퍼스에서 선택할 수 없는 단과대입니다.',
+        'additional.college',
+      );
+    }
+
+    return college;
   }
 }
