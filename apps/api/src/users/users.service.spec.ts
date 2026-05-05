@@ -463,6 +463,56 @@ describe('UsersService', () => {
     }
   });
 
+  it('현재 연도보다 큰 birthYear는 거부한다', async () => {
+    prisma.user.findUnique.mockResolvedValue(makeUser());
+
+    await expect(
+      service.updateCurrentUser(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: null,
+          dormitorySelectionState: 'NOT_SELECTED',
+        },
+        {
+          additional: {
+            birthYear: 9999,
+          },
+        },
+      ),
+    ).rejects.toMatchObject({
+      response: usersErrors
+        .invalidPatch('birthYear 값이 올바르지 않습니다.', 'additional.birthYear')
+        .getResponse(),
+    });
+  });
+
+  it('1980년 미만 birthYear는 거부한다', async () => {
+    prisma.user.findUnique.mockResolvedValue(makeUser());
+
+    await expect(
+      service.updateCurrentUser(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: null,
+          dormitorySelectionState: 'NOT_SELECTED',
+        },
+        {
+          additional: {
+            birthYear: 1979,
+          },
+        },
+      ),
+    ).rejects.toMatchObject({
+      response: usersErrors
+        .invalidPatch('birthYear 값이 올바르지 않습니다.', 'additional.birthYear')
+        .getResponse(),
+    });
+  });
+
   it('current season participant profile이 있으면 current user profile source로 사용한다', async () => {
     prisma.user.findUnique.mockResolvedValue(makeUser());
     seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue({

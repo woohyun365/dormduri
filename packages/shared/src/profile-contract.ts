@@ -6,11 +6,25 @@ import { collegeCodeSchema } from './college-contract.js';
 const nullableEnum = <const T extends readonly [string, ...string[]]>(values: T) =>
   z.enum(values).nullable();
 
+export const PROFILE_GRADE_VALUES = ['1', '2', '3', '4+'] as const;
+export const profileGradeSchema = z.enum(PROFILE_GRADE_VALUES);
+
+const MBTI_REGEX = /^[EI][SN][TF][JP]$/;
+export const profileMbtiSchema = z.string().regex(MBTI_REGEX);
+export const profileMbtiInputSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.toUpperCase())
+  .pipe(profileMbtiSchema);
+
+export const MIN_PROFILE_BIRTH_YEAR = 1980;
+export const profileBirthYearSchema = z.number().int().min(MIN_PROFILE_BIRTH_YEAR);
+
 export const additionalProfileSchema = z.strictObject({
   college: collegeCodeSchema.nullable(),
-  grade: z.enum(['1', '2', '3', '4+']).nullable(),
-  mbti: z.string().nullable(),
-  birthYear: z.number().int().nullable(),
+  grade: profileGradeSchema.nullable(),
+  mbti: profileMbtiSchema.nullable(),
+  birthYear: profileBirthYearSchema.nullable(),
 });
 
 export const publicLifestyleSchema = z.strictObject({

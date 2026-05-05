@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { campusSchema, genderSchema } from './identity-contract.js';
 import { lifestyleSchema } from './lifestyle.js';
-import { additionalProfileSchema } from './profile-contract.js';
+import {
+  additionalProfileSchema,
+  profileBirthYearSchema,
+  profileGradeSchema,
+  profileMbtiInputSchema,
+} from './profile-contract.js';
 import { dormitorySelectionStateSchema } from './dormitory-contract.js';
 import { seasonStateSchema } from './season-contract.js';
 import { collegeCodeSchema } from './college-contract.js';
@@ -57,9 +62,9 @@ export const selectionPatchSchema = z.strictObject({
 
 export const additionalProfilePatchSchema = z.strictObject({
   college: collegeCodeSchema.nullable().optional(),
-  grade: z.string().nullable().optional(),
-  mbti: z.string().nullable().optional(),
-  birthYear: z.number().int().nullable().optional(),
+  grade: profileGradeSchema.nullable().optional(),
+  mbti: profileMbtiInputSchema.nullable().optional(),
+  birthYear: profileBirthYearSchema.nullable().optional(),
 });
 
 export const updateCurrentUserRequestSchema = z.strictObject({

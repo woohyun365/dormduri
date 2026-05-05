@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import {
+  MIN_PROFILE_BIRTH_YEAR,
+  profileGradeSchema,
+  profileMbtiSchema,
+} from '@repo/shared/profile-contract';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
@@ -16,9 +21,6 @@ import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
-
-const MBTI_REGEX = /^[EI][SN][TF][JP]$/;
-const GRADE_VALUES = new Set(['1', '2', '3', '4+']);
 
 interface UpdateCurrentUserInput {
   selection?: {
@@ -132,7 +134,10 @@ export class UsersService {
       }
 
       if (input.additional.grade !== undefined) {
-        if (input.additional.grade !== null && !GRADE_VALUES.has(input.additional.grade)) {
+        if (
+          input.additional.grade !== null &&
+          !profileGradeSchema.safeParse(input.additional.grade).success
+        ) {
           throw usersErrors.invalidPatch('grade 값이 올바르지 않습니다.', 'additional.grade');
         }
         profileUpdateData.grade = input.additional.grade;
@@ -145,7 +150,7 @@ export class UsersService {
         const mbti = input.additional.mbti?.trim()
           ? input.additional.mbti.trim().toUpperCase()
           : null;
-        if (mbti && !MBTI_REGEX.test(mbti)) {
+        if (mbti && !profileMbtiSchema.safeParse(mbti).success) {
           throw usersErrors.invalidPatch('MBTI 형식이 올바르지 않습니다.', 'additional.mbti');
         }
         profileUpdateData.mbti = mbti;
@@ -158,7 +163,7 @@ export class UsersService {
         const birthYear = input.additional.birthYear;
         if (birthYear !== null) {
           const currentYear = Number.parseInt(formatKstDate(now).slice(0, 4), 10);
-          if (birthYear < 1900 || birthYear > currentYear) {
+          if (birthYear < MIN_PROFILE_BIRTH_YEAR || birthYear > currentYear) {
             throw usersErrors.invalidPatch(
               'birthYear 값이 올바르지 않습니다.',
               'additional.birthYear',
