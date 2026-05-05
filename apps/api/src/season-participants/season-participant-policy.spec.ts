@@ -82,12 +82,14 @@ describe('season-participant-policy', () => {
         seasonState: 'SEASON_MATCHING',
         registered: false,
         matched: false,
+        matchedPartnerParticipantId: null,
         selectionState: 'UNASSIGNED',
         dormitoryId: null,
         hasOperatedAssignedDormitory: false,
         currentDormitoryCanMatch: false,
       },
       {
+        participantId: null,
         visible: false,
         registered: false,
         matched: false,
@@ -106,12 +108,14 @@ describe('season-participant-policy', () => {
         seasonState: 'SEASON_MATCHING',
         registered: true,
         matched: false,
+        matchedPartnerParticipantId: null,
         selectionState: 'UNASSIGNED',
         dormitoryId: null,
         hasOperatedAssignedDormitory: false,
         currentDormitoryCanMatch: false,
       },
       {
+        participantId: 'target-1',
         visible: true,
         registered: true,
         matched: false,
@@ -125,6 +129,7 @@ describe('season-participant-policy', () => {
     expect(limitedTarget).toMatchObject({
       exposureLevel: 'LIMITED',
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+      relationToViewer: 'GENERAL',
       actions: {
         canBookmark: false,
         canRequestMatch: false,
@@ -140,12 +145,14 @@ describe('season-participant-policy', () => {
         seasonState: 'SEASON_MATCHING',
         registered: true,
         matched: false,
+        matchedPartnerParticipantId: null,
         selectionState: 'ASSIGNED',
         dormitoryId: 'dasan',
         hasOperatedAssignedDormitory: true,
         currentDormitoryCanMatch: true,
       },
       {
+        participantId: 'target-1',
         visible: true,
         registered: true,
         matched: false,
@@ -159,10 +166,48 @@ describe('season-participant-policy', () => {
     expect(fullTarget).toEqual({
       exposureLevel: 'FULL',
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+      relationToViewer: 'GENERAL',
       actions: {
         canBookmark: true,
         canRequestMatch: true,
         canStartChat: true,
+      },
+    });
+  });
+
+  it('matched partner는 FULL read-only result baseline을 가진다', () => {
+    const matchedTarget = resolvePublicExposure(
+      {
+        campusOperated: true,
+        seasonState: 'SEASON_POST_MATCH',
+        registered: true,
+        matched: true,
+        matchedPartnerParticipantId: 'partner-1',
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        currentDormitoryCanMatch: false,
+      },
+      {
+        participantId: 'partner-1',
+        visible: true,
+        registered: true,
+        matched: true,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        hasSeasonProfile: true,
+      },
+    );
+
+    expect(matchedTarget).toEqual({
+      exposureLevel: 'FULL',
+      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+      relationToViewer: 'MATCHED_PARTNER',
+      actions: {
+        canBookmark: true,
+        canRequestMatch: false,
+        canStartChat: false,
       },
     });
   });

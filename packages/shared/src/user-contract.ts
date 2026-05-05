@@ -11,6 +11,7 @@ import {
 import { dormitorySelectionStateSchema } from './dormitory-contract.js';
 import { seasonStateSchema } from './season-contract.js';
 import { collegeCodeSchema } from './college-contract.js';
+import { activeMatchSummarySchema } from './match-contract.js';
 
 export const authenticatedSessionUserSchema = z.strictObject({
   id: z.string(),
@@ -43,6 +44,10 @@ export const currentUserResponseSchema = z.strictObject({
     intent: participationIntentSchema.nullable(),
     registered: z.boolean(),
     profileExists: z.boolean(),
+  }),
+  match: z.strictObject({
+    hasActiveMatch: z.boolean(),
+    activeMatch: activeMatchSummarySchema.nullable(),
   }),
   readiness: z.strictObject({
     requiredCompletedCount: z.number().int().nonnegative(),

@@ -1,23 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { normalizeNickname, validateNicknameFormat } from '../auth/auth.utils.js';
-import { validateLifestyleData } from '../auth/lifestyle.schema.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
-import { ModerationService } from '../common/moderation/moderation.service.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
-import { formatKstDate } from '../seasons/season.utils.js';
-import { resolveCampusServiceState } from '../users/service-state.js';
-import { profilesErrors } from './profiles.errors.js';
-import { resolveProfileExposure } from './profile-visibility.js';
-import { toPublicProfile, type UserWithProfileRecord } from './profile.mapper.js';
-import { hasNicknameCooldown } from './nickname-policy.js';
-import { UsersService } from '../users/users.service.js';
 import type { PublicProfileListResponse } from '@repo/shared/profile-contract';
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
-import {
-  SeasonParticipantsService,
-  type CurrentSeasonParticipantRecord,
-} from '../season-participants/season-participants.service.js';
+import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import { normalizeNickname, validateNicknameFormat } from '../auth/auth.utils.js';
+import { validateLifestyleData } from '../auth/lifestyle.schema.js';
+import { ModerationService } from '../common/moderation/moderation.service.js';
+import { PrismaService } from '../common/prisma/prisma.service.js';
+import { MatchesService } from '../matches/matches.service.js';
 import {
   hasParticipantProfile,
   isParticipantMatched,
@@ -25,6 +14,18 @@ import {
   isVisibleRegisteredParticipant,
   resolveCurrentUserProfileSource,
 } from '../season-participants/season-participant-policy.js';
+import {
+  SeasonParticipantsService,
+  type CurrentSeasonParticipantRecord,
+} from '../season-participants/season-participants.service.js';
+import { SeasonsService } from '../seasons/seasons.service.js';
+import { formatKstDate } from '../seasons/season.utils.js';
+import { resolveCampusServiceState } from '../users/service-state.js';
+import { UsersService } from '../users/users.service.js';
+import { toPublicProfile, type UserWithProfileRecord } from './profile.mapper.js';
+import { resolveProfileExposure } from './profile-visibility.js';
+import { hasNicknameCooldown } from './nickname-policy.js';
+import { profilesErrors } from './profiles.errors.js';
 
 type UserWithParticipantProjection = UserWithProfileRecord & {
   seasonParticipants?: CurrentSeasonParticipantRecord[];
@@ -38,6 +39,7 @@ export class ProfilesService {
     private readonly moderationService: ModerationService,
     private readonly usersService: UsersService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    private readonly matchesService: MatchesService,
   ) {}
 
   async getProfiles(
@@ -74,11 +76,34 @@ export class ProfilesService {
       select: this.userWithProfileSelect(serviceState.seasonContext?.season.id ?? null),
     });
 
+    const currentSeasonId = serviceState.seasonContext?.season.id ?? null;
+    const participantIds = [
+      viewerParticipant?.id ?? null,
+      ...users.map(
+        (user) =>
+          this.seasonParticipantsService.pickCurrentSeasonParticipant(user.seasonParticipants)
+            ?.id ?? null,
+      ),
+    ].filter((participantId): participantId is string => participantId !== null);
+    const activeMatchMap = currentSeasonId
+      ? await this.matchesService.getLiveActiveMatchMapForParticipantIds(
+          currentSeasonId,
+          participantIds,
+        )
+      : new Map<
+          string,
+          Awaited<ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>>
+        >();
+    const viewerActiveMatch = viewerParticipant
+      ? (activeMatchMap.get(viewerParticipant.id) ?? null)
+      : null;
+
     const visibleUsers = users
       .map((user) =>
         this.toVisiblePublicProfile(
           user,
           viewerParticipant,
+          viewerActiveMatch,
           viewerSelection,
           serviceState.campusOperated,
           serviceState.seasonState,
@@ -88,6 +113,7 @@ export class ProfilesService {
             viewerSelection.dormitoryId,
             now,
           ),
+          activeMatchMap,
         ),
       )
       .filter((item): item is NonNullable<typeof item> => item !== null)
@@ -95,9 +121,7 @@ export class ProfilesService {
       .slice(query.offset, query.offset + query.limit)
       .map(({ profile }) => profile);
 
-    return {
-      items: visibleUsers,
-    };
+    return { items: visibleUsers };
   }
 
   async getProfileByUserId(authUser: AuthenticatedUserContext, targetUserId: string) {
@@ -127,21 +151,41 @@ export class ProfilesService {
       where: { id: targetUserId },
       select: this.userWithProfileSelect(serviceState.seasonContext?.season.id ?? null),
     });
-
     if (!user) {
       throw profilesErrors.profileNotVisible();
     }
 
+    const targetParticipant = this.seasonParticipantsService.pickCurrentSeasonParticipant(
+      user.seasonParticipants,
+    );
+    const currentSeasonId = serviceState.seasonContext?.season.id ?? null;
+    const participantIds = [viewerParticipant?.id ?? null, targetParticipant?.id ?? null].filter(
+      (participantId): participantId is string => participantId !== null,
+    );
+    const activeMatchMap = currentSeasonId
+      ? await this.matchesService.getLiveActiveMatchMapForParticipantIds(
+          currentSeasonId,
+          participantIds,
+        )
+      : new Map<
+          string,
+          Awaited<ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>>
+        >();
+    const viewerActiveMatch = viewerParticipant
+      ? (activeMatchMap.get(viewerParticipant.id) ?? null)
+      : null;
+
     const visibleProfile = this.toVisiblePublicProfile(
       user,
       viewerParticipant,
+      viewerActiveMatch,
       viewerSelection,
       serviceState.campusOperated,
       serviceState.seasonState,
       operatedDormitoryIds,
       this.canCurrentDormitoryMatch(serviceState.seasonContext, viewerSelection.dormitoryId, now),
+      activeMatchMap,
     );
-
     if (!visibleProfile) {
       throw profilesErrors.profileNotVisible();
     }
@@ -260,11 +304,16 @@ export class ProfilesService {
   private toVisiblePublicProfile(
     user: UserWithParticipantProjection,
     viewerParticipant: CurrentSeasonParticipantRecord | null,
+    viewerActiveMatch: Awaited<ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>>,
     viewerSelection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>,
     campusOperated: boolean,
     seasonState: 'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING' | 'SEASON_POST_MATCH' | null,
     operatedDormitoryIds: Set<string>,
     currentDormitoryCanMatch: boolean,
+    activeMatchMap: Map<
+      string,
+      Awaited<ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>>
+    >,
   ) {
     if (!user.profile) {
       return null;
@@ -277,12 +326,16 @@ export class ProfilesService {
       user,
       targetParticipant,
     );
+    const targetActiveMatch = targetParticipant
+      ? (activeMatchMap.get(targetParticipant.id) ?? null)
+      : null;
     const exposure = resolveProfileExposure({
       viewer: {
         campusOperated,
         seasonState,
         registered: isParticipantRegistered(viewerParticipant),
-        matched: isParticipantMatched(viewerParticipant),
+        matched: viewerActiveMatch !== null || isParticipantMatched(viewerParticipant),
+        matchedPartnerParticipantId: viewerActiveMatch?.counterpartParticipantId ?? null,
         selectionState: viewerSelection.dormitorySelectionState,
         dormitoryId: viewerSelection.dormitoryId,
         hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(
@@ -293,12 +346,13 @@ export class ProfilesService {
         currentDormitoryCanMatch,
       },
       target: {
+        participantId: targetParticipant?.id ?? null,
         visible:
           seasonState === 'OFF_SEASON' || seasonState === null
             ? true
             : isVisibleRegisteredParticipant(targetParticipant),
         registered: isParticipantRegistered(targetParticipant),
-        matched: isParticipantMatched(targetParticipant),
+        matched: targetActiveMatch !== null || isParticipantMatched(targetParticipant),
         selectionState: targetSelection.dormitorySelectionState,
         dormitoryId: targetSelection.dormitoryId,
         hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(

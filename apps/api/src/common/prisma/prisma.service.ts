@@ -1,6 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '../../generated/prisma/client.js';
+import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
 import { apiEnv } from '../../config/env.js';
 
@@ -18,6 +18,30 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleDestroy() {
     await this.$disconnect();
+  }
+
+  async runSerializableTransaction<T>(
+    operation: (tx: Prisma.TransactionClient) => Promise<T>,
+    maxRetries: number = 3,
+  ): Promise<T> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+      try {
+        return await this.$transaction(operation, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+          lastError = error;
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw lastError ?? new Error('[PrismaService] serializable transaction retry exhausted');
   }
 
   async getDatabaseNow(): Promise<Date> {

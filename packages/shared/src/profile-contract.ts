@@ -52,6 +52,7 @@ export const publicLifestyleSchema = z.strictObject({
 
 export const profileSourceSchema = z.enum(['USER_PROFILE', 'SEASON_PARTICIPANT_PROFILE']);
 export const profileExposureLevelSchema = z.enum(['LIMITED', 'FULL']);
+export const profileRelationToViewerSchema = z.enum(['GENERAL', 'MATCHED_PARTNER']);
 
 export const publicProfileActionCapabilitiesSchema = z.strictObject({
   canBookmark: z.boolean(),
@@ -63,6 +64,7 @@ const publicProfileBaseSchema = z.strictObject({
   id: z.string(),
   exposureLevel: profileExposureLevelSchema,
   sourceProfile: profileSourceSchema,
+  relationToViewer: profileRelationToViewerSchema,
   actions: publicProfileActionCapabilitiesSchema,
   nickname: z.string(),
   intro: z.string(),
@@ -102,6 +104,7 @@ export type AdditionalProfile = z.infer<typeof additionalProfileSchema>;
 export type PublicLifestyle = z.infer<typeof publicLifestyleSchema>;
 export type ProfileSource = z.infer<typeof profileSourceSchema>;
 export type ProfileExposureLevel = z.infer<typeof profileExposureLevelSchema>;
+export type ProfileRelationToViewer = z.infer<typeof profileRelationToViewerSchema>;
 export type PublicProfileActionCapabilities = z.infer<typeof publicProfileActionCapabilitiesSchema>;
 export type LimitedPublicProfile = z.infer<typeof limitedPublicProfileSchema>;
 export type FullPublicProfile = z.infer<typeof fullPublicProfileSchema>;

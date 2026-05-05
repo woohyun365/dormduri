@@ -4,6 +4,7 @@ import { lifestyleSchema } from '@repo/shared/lifestyle';
 import {
   type AdditionalProfile,
   type ProfileExposureLevel,
+  type ProfileRelationToViewer,
   type ProfileSource,
   type PublicProfile,
   type PublicProfileActionCapabilities,
@@ -101,12 +102,14 @@ export function toPublicProfile(
   options: {
     exposureLevel: ProfileExposureLevel;
     sourceProfile: ProfileSource;
+    relationToViewer: ProfileRelationToViewer;
     actions: PublicProfileActionCapabilities;
   },
 ): PublicProfile {
   const base = {
     id: user.id,
     sourceProfile: options.sourceProfile,
+    relationToViewer: options.relationToViewer,
     actions: options.actions,
     nickname: profile.nickname,
     intro: profile.intro,

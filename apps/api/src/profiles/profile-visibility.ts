@@ -1,5 +1,6 @@
 import type {
   ProfileExposureLevel,
+  ProfileRelationToViewer,
   ProfileSource,
   PublicProfileActionCapabilities,
 } from '@repo/shared/profile-contract';
@@ -13,6 +14,7 @@ import {
 export interface ProfileExposureResult {
   exposureLevel: ProfileExposureLevel;
   sourceProfile: ProfileSource;
+  relationToViewer: ProfileRelationToViewer;
   actions: PublicProfileActionCapabilities;
 }
 
@@ -29,6 +31,7 @@ export function resolveProfileExposure(input: {
   return {
     exposureLevel: result.exposureLevel,
     sourceProfile: result.sourceProfile,
+    relationToViewer: result.relationToViewer,
     actions: result.actions,
   };
 }

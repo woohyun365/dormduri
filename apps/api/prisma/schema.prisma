@@ -86,6 +86,46 @@ enum ParticipantHiddenReasonCode {
   OTHER
 }
 
+enum MatchRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED_BY_REQUESTER
+  CANCELLED_BY_SYSTEM
+  EXPIRED
+}
+
+enum MatchRequestTerminalReason {
+  ACCEPTED
+  REJECTED_BY_RECEIVER
+  CANCELLED_BY_REQUESTER
+  CANCELLED_BY_SYSTEM_ACTIVE_MATCH
+  EXPIRED
+  WITHDRAWN_PARTICIPANT
+  ADMIN_ACTION
+}
+
+enum MatchRequestChannel {
+  ROOMMATE_TAB
+  PROFILE_DETAIL
+  RECOMMENDATION
+  ADMIN
+}
+
+enum ActiveMatchStatus {
+  ACTIVE
+  UNMATCHED
+  SEASON_ENDED
+  ADMIN_ENDED
+}
+
+enum ActiveMatchEndReason {
+  UNMATCHED_BY_MUTUAL_CONSENT
+  SEASON_ENDED
+  ADMIN_ACTION
+  WITHDRAWN_PARTICIPANT
+}
+
 model CampusMaster {
   code         Campus              @id
   nameKo       String
@@ -172,6 +212,8 @@ model Season {
   campus               CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
   dormitoryOperations  SeasonDormitoryOperation[]
   participants         SeasonParticipant[]
+  matchRequests        MatchRequest[]
+  activeMatches        ActiveMatch[]
 
   @@unique([campusCode, academicYear, semester])
   @@index([campusCode, matchingStartDate])
@@ -262,6 +304,11 @@ model SeasonParticipant {
   season                  Season                       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   user                    User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   profile                 SeasonParticipantProfile?
+  sentMatchRequests       MatchRequest[]               @relation("MatchRequestRequester")
+  receivedMatchRequests   MatchRequest[]               @relation("MatchRequestReceiver")
+  activeMatchesAsA        ActiveMatch[]                @relation("ActiveMatchParticipantA")
+  activeMatchesAsB        ActiveMatch[]                @relation("ActiveMatchParticipantB")
+  cancelRequestedMatches  ActiveMatch[]                @relation("ActiveMatchCancelRequester")
 
   @@unique([seasonId, userId])
   @@index([userId, seasonId])
@@ -288,6 +335,60 @@ model SeasonParticipantProfile {
 
   @@index([collegeCode])
   @@index([nicknameNormalizedSnapshot])
+}
+
+model MatchRequest {
+  id                     String                      @id @default(uuid())
+  seasonId               String
+  pairKey                String
+  pairMinParticipantId   String
+  pairMaxParticipantId   String
+  requesterParticipantId String
+  receiverParticipantId  String
+  note                   String?
+  status                 MatchRequestStatus          @default(PENDING)
+  terminalReason         MatchRequestTerminalReason?
+  createdAt              DateTime                    @default(now()) @db.Timestamptz(3)
+  expiresAt              DateTime                    @db.Timestamptz(3)
+  terminalAt             DateTime?                   @db.Timestamptz(3)
+  acceptedAt             DateTime?                   @db.Timestamptz(3)
+  requestChannel         MatchRequestChannel?
+  season                 Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  requesterParticipant   SeasonParticipant           @relation("MatchRequestRequester", fields: [requesterParticipantId], references: [id], onDelete: Cascade)
+  receiverParticipant    SeasonParticipant           @relation("MatchRequestReceiver", fields: [receiverParticipantId], references: [id], onDelete: Cascade)
+  createdActiveMatch     ActiveMatch?                @relation("ActiveMatchCreatedFromRequest")
+
+  @@index([seasonId, requesterParticipantId, receiverParticipantId, createdAt])
+  @@index([seasonId, receiverParticipantId, status])
+  @@index([expiresAt, status])
+  @@index([seasonId, pairKey, status])
+}
+
+model ActiveMatch {
+  id                             String                @id @default(uuid())
+  seasonId                       String
+  pairKey                        String
+  participantAId                 String
+  participantBId                 String
+  createdFromRequestId           String                @unique
+  status                         ActiveMatchStatus     @default(ACTIVE)
+  startedAt                      DateTime              @default(now()) @db.Timestamptz(3)
+  endedAt                        DateTime?             @db.Timestamptz(3)
+  endReason                      ActiveMatchEndReason?
+  cancelRequestedByParticipantId String?
+  cancelRequestedAt              DateTime?             @db.Timestamptz(3)
+  createdAt                      DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt                      DateTime              @default(now()) @db.Timestamptz(3)
+  season                         Season                @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  participantA                   SeasonParticipant     @relation("ActiveMatchParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantB                   SeasonParticipant     @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+  createdFromRequest             MatchRequest          @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
+  cancelRequestedByParticipant   SeasonParticipant?    @relation("ActiveMatchCancelRequester", fields: [cancelRequestedByParticipantId], references: [id], onDelete: SetNull)
+
+  @@index([seasonId, pairKey, endedAt])
+  @@index([participantAId, endedAt])
+  @@index([participantBId, endedAt])
+  @@index([seasonId, status, endedAt])
 }
 
 model LoginAttempt {

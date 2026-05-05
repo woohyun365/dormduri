@@ -130,11 +130,16 @@ describe('UsersService', () => {
     selectProfileBySource: jest.fn(),
   };
 
+  const matchesService = {
+    getCurrentActiveMatchByParticipantId: jest.fn(),
+  };
+
   const service = new UsersService(
     prisma as never,
     seasonsService as never,
     moderationService as never,
     seasonParticipantsService as never,
+    matchesService as never,
   );
 
   beforeEach(() => {
@@ -159,6 +164,7 @@ describe('UsersService', () => {
     txSeasonParticipantUpdate.mockResolvedValue(undefined);
     txSeasonParticipantProfileUpdate.mockResolvedValue(undefined);
     seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(null);
+    matchesService.getCurrentActiveMatchByParticipantId.mockResolvedValue(null);
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
         user: Pick<UserWithProfileRecord, 'dormitoryId' | 'dormitorySelectionState'>,
@@ -631,6 +637,17 @@ describe('UsersService', () => {
         },
       }),
     );
+    matchesService.getCurrentActiveMatchByParticipantId.mockResolvedValue({
+      id: 'active-1',
+      seasonId: 'season-1',
+      counterpartUserId: 'user-2',
+      counterpartParticipantId: 'participant-2',
+      status: 'ACTIVE',
+      startedAt: new Date('2026-02-10T03:00:00.000Z').toISOString(),
+      endedAt: null,
+      endReason: null,
+      createdFromRequestId: 'request-1',
+    });
 
     const result = await service.getCurrentUser({
       id: 'user-1',
@@ -651,5 +668,8 @@ describe('UsersService', () => {
     });
     expect(result.capabilities.canRequestMatch).toBe(false);
     expect(result.capabilities.canStartChat).toBe(false);
+    expect(result.match.hasActiveMatch).toBe(true);
+    expect(result.match.activeMatch?.id).toBe('active-1');
+    expect(result.match.activeMatch?.counterpartUserId).toBe('user-2');
   });
 });

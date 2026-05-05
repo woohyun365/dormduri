@@ -157,12 +157,17 @@ describe('ProfilesService', () => {
     pickCurrentSeasonParticipant: jest.fn(),
   };
 
+  const matchesService = {
+    getLiveActiveMatchMapForParticipantIds: jest.fn(),
+  };
+
   const service = new ProfilesService(
     prisma as never,
     seasonsService as never,
     moderationService as never,
     usersService as never,
     seasonParticipantsService as never,
+    matchesService as never,
   );
 
   beforeEach(() => {
@@ -173,6 +178,7 @@ describe('ProfilesService', () => {
     usersService.getCurrentUser.mockResolvedValue({ success: true });
     userProfileUpdate.mockResolvedValue(undefined);
     seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(null);
+    matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
         user: Pick<UserWithProfileRecord, 'dormitoryId' | 'dormitorySelectionState'>,
@@ -336,6 +342,7 @@ describe('ProfilesService', () => {
       Object.assign(makeUser({ id: 'peer-1', email: 'peer1@kangwon.ac.kr' }), {
         seasonParticipants: [
           makeParticipant({
+            id: 'participant-target',
             userId: 'peer-1',
             participationIntent: 'REGISTERED',
             registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -416,6 +423,7 @@ describe('ProfilesService', () => {
       Object.assign(makeUser({ id: 'peer-1', email: 'peer1@kangwon.ac.kr' }), {
         seasonParticipants: [
           makeParticipant({
+            id: 'participant-target',
             userId: 'peer-1',
             participationIntent: 'REGISTERED',
             registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -477,6 +485,112 @@ describe('ProfilesService', () => {
       canBookmark: true,
       canRequestMatch: true,
       canStartChat: true,
+    });
+  });
+
+  it('SEASON_POST_MATCH matched partner는 FULL + MATCHED_PARTNER relation baseline으로 노출한다', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
+      Object.assign(makeUser({ id: 'peer-1', email: 'peer1@kangwon.ac.kr' }), {
+        seasonParticipants: [
+          makeParticipant({
+            id: 'participant-target',
+            userId: 'peer-1',
+            participationIntent: 'REGISTERED',
+            registeredAt: new Date('2026-01-05T00:00:00.000Z'),
+            dormitoryId: 'dasan',
+            dormitorySelectionState: 'ASSIGNED',
+            participantStatus: 'MATCHED',
+            profile: {
+              participantId: 'participant-target',
+              nicknameSnapshot: '시즌상대',
+              nicknameNormalizedSnapshot: '시즌상대',
+              lifestyle: makeUser().profile!.lifestyle,
+              intro: '시즌 소개',
+              messageToRoommate: '시즌 메시지',
+              collegeCode: 'HUMANITIES',
+              grade: '4+',
+              mbti: 'ENTP',
+              birthYear: 2001,
+            },
+          }),
+        ],
+      }),
+    );
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-1' },
+      state: 'SEASON_POST_MATCH',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+      ],
+      schedule: {
+        preparationStart: '2026-01-01',
+        matchingStart: '2026-01-28',
+        matchingEnd: '2026-02-11',
+        seasonEnd: '2026-02-28',
+      },
+    });
+    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+      makeParticipant({
+        participationIntent: 'REGISTERED',
+        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'MATCHED',
+        profile: { participantId: 'viewer-profile' },
+      }),
+    );
+    matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(
+      new Map([
+        [
+          'participant-1',
+          {
+            id: 'active-1',
+            seasonId: 'season-1',
+            counterpartUserId: 'peer-1',
+            counterpartParticipantId: 'participant-target',
+            status: 'ACTIVE',
+            startedAt: new Date('2026-02-10T03:00:00.000Z').toISOString(),
+            endedAt: null,
+            endReason: null,
+            createdFromRequestId: 'request-1',
+          },
+        ],
+        [
+          'participant-target',
+          {
+            id: 'active-1',
+            seasonId: 'season-1',
+            counterpartUserId: 'user-1',
+            counterpartParticipantId: 'participant-1',
+            status: 'ACTIVE',
+            startedAt: new Date('2026-02-10T03:00:00.000Z').toISOString(),
+            endedAt: null,
+            endReason: null,
+            createdFromRequestId: 'request-1',
+          },
+        ],
+      ]),
+    );
+
+    const result = await service.getProfileByUserId(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      'peer-1',
+    );
+
+    expect(result).toMatchObject({
+      exposureLevel: 'FULL',
+      relationToViewer: 'MATCHED_PARTNER',
+      actions: {
+        canBookmark: true,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
     });
   });
 

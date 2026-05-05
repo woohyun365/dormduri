@@ -9,6 +9,7 @@ import { ProfilesModule } from './profiles/profiles.module.js';
 import { SeasonsModule } from './seasons/seasons.module.js';
 import { UsersModule } from './users/users.module.js';
 import { ApiExceptionFilter } from './common/http/api-exception.filter.js';
+import { MatchesModule } from './matches/matches.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ApiExceptionFilter } from './common/http/api-exception.filter.js';
     SeasonsModule,
     UsersModule,
     ProfilesModule,
+    MatchesModule,
   ],
   controllers: [AppController],
   providers: [

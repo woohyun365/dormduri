@@ -1,6 +1,7 @@
 import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
 import type {
   ProfileExposureLevel,
+  ProfileRelationToViewer,
   ProfileSource,
   PublicProfileActionCapabilities,
 } from '@repo/shared/profile-contract';
@@ -42,6 +43,7 @@ export interface PublicExposureViewerInput {
   seasonState: SeasonState | null;
   registered: boolean;
   matched: boolean;
+  matchedPartnerParticipantId: string | null;
   selectionState: DormitorySelectionState;
   dormitoryId: string | null;
   hasOperatedAssignedDormitory: boolean;
@@ -49,6 +51,7 @@ export interface PublicExposureViewerInput {
 }
 
 export interface PublicExposureTargetInput {
+  participantId: string | null;
   visible: boolean;
   registered: boolean;
   matched: boolean;
@@ -61,6 +64,7 @@ export interface PublicExposureTargetInput {
 export interface PublicExposureDecision {
   exposureLevel: ProfileExposureLevel | 'NONE';
   sourceProfile: ProfileSource;
+  relationToViewer: ProfileRelationToViewer;
   actions: PublicProfileActionCapabilities;
 }
 
@@ -252,6 +256,7 @@ export function resolvePublicExposure(
     return {
       exposureLevel: 'LIMITED',
       sourceProfile: 'USER_PROFILE',
+      relationToViewer: 'GENERAL',
       actions: noActions,
     };
   }
@@ -260,6 +265,7 @@ export function resolvePublicExposure(
     return {
       exposureLevel: 'NONE',
       sourceProfile: target.hasSeasonProfile ? 'SEASON_PARTICIPANT_PROFILE' : 'USER_PROFILE',
+      relationToViewer: 'GENERAL',
       actions: noActions,
     };
   }
@@ -267,6 +273,9 @@ export function resolvePublicExposure(
   const seasonSource: ProfileSource = target.hasSeasonProfile
     ? 'SEASON_PARTICIPANT_PROFILE'
     : 'USER_PROFILE';
+  const matchedPartnerTarget =
+    viewer.matchedPartnerParticipantId !== null &&
+    target.participantId === viewer.matchedPartnerParticipantId;
   const sameDormitory =
     viewer.hasOperatedAssignedDormitory &&
     target.hasOperatedAssignedDormitory &&
@@ -293,10 +302,27 @@ export function resolvePublicExposure(
     viewer.seasonState === 'SEASON_MATCHING' &&
     viewer.currentDormitoryCanMatch;
 
+  if (
+    matchedPartnerTarget &&
+    (viewer.seasonState === 'SEASON_MATCHING' || viewer.seasonState === 'SEASON_POST_MATCH')
+  ) {
+    return {
+      exposureLevel: 'FULL',
+      sourceProfile: seasonSource,
+      relationToViewer: 'MATCHED_PARTNER',
+      actions: {
+        canBookmark: viewerCanBookmark,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+    };
+  }
+
   if (viewer.seasonState === 'SEASON_POST_MATCH') {
     return {
       exposureLevel: 'LIMITED',
       sourceProfile: seasonSource,
+      relationToViewer: 'GENERAL',
       actions: {
         canBookmark: viewerCanBookmark,
         canRequestMatch: false,
@@ -310,6 +336,7 @@ export function resolvePublicExposure(
   return {
     exposureLevel: fullExposureAllowed ? 'FULL' : 'LIMITED',
     sourceProfile: seasonSource,
+    relationToViewer: 'GENERAL',
     actions: {
       canBookmark: viewerCanBookmark,
       canRequestMatch: viewerCanRequestMatch,

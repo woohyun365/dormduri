@@ -55,6 +55,10 @@
     "./college-contract": {
       "types": "./dist/college-contract.d.ts",
       "default": "./dist/college-contract.js"
+    },
+    "./match-contract": {
+      "types": "./dist/match-contract.d.ts",
+      "default": "./dist/match-contract.js"
     }
   },
   "scripts": {

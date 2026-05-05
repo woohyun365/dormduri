@@ -20,6 +20,7 @@ import { buildUserCapabilities, canBrowseProfiles } from './user-capabilities.js
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
+import { MatchesService } from '../matches/matches.service.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import {
   hasParticipantProfile,
@@ -50,6 +51,7 @@ export class UsersService {
     private readonly seasonsService: SeasonsService,
     private readonly moderationService: ModerationService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    private readonly matchesService: MatchesService,
   ) {}
 
   async getCurrentUser(authUser: AuthenticatedUserContext): Promise<CurrentUserResponse> {
@@ -279,7 +281,14 @@ export class UsersService {
     const currentParticipant =
       await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
     const participantRegistered = isParticipantRegistered(currentParticipant);
-    const participantMatched = isParticipantMatched(currentParticipant);
+    const activeMatch =
+      currentParticipant && serviceState.seasonContext
+        ? await this.matchesService.getCurrentActiveMatchByParticipantId(
+            serviceState.seasonContext.season.id,
+            currentParticipant.id,
+          )
+        : null;
+    const participantMatched = activeMatch !== null || isParticipantMatched(currentParticipant);
     const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
       user,
       currentParticipant,
@@ -343,6 +352,10 @@ export class UsersService {
         intent: currentParticipant?.participationIntent ?? null,
         registered: participantRegistered,
         profileExists: hasParticipantProfile(currentParticipant),
+      },
+      match: {
+        hasActiveMatch: activeMatch !== null,
+        activeMatch,
       },
       readiness: buildUserReadiness({
         lifestyle,
