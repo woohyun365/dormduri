@@ -9,8 +9,19 @@ import type {
   SeasonParticipationIntent,
 } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
-import type { ProfileViewRecord, UserProfileRecord } from '../profiles/profile.mapper.js';
+import type {
+  ProfileViewRecord,
+  UserProfileRecord,
+  UserWithProfileRecord,
+} from '../profiles/profile.mapper.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
+import {
+  isParticipantRegistered,
+  normalizeSelectionState,
+  type ParticipantPolicyRecord,
+} from './season-participant-policy.js';
+import { seasonParticipantsErrors } from './season-participants.errors.js';
+import type { ProfileSource } from '@repo/shared/profile-contract';
 
 const currentSeasonParticipantSelect = {
   id: true,
@@ -79,7 +90,7 @@ export interface CurrentSeasonParticipantProfileRecord {
   updatedAt: Date;
 }
 
-export interface CurrentSeasonParticipantRecord {
+export interface CurrentSeasonParticipantRecord extends ParticipantPolicyRecord {
   id: string;
   seasonId: string;
   userId: string;
@@ -108,11 +119,11 @@ export interface CurrentSeasonParticipantRecord {
 export interface CanonicalSelectionState {
   dormitoryId: string | null;
   dormitorySelectionState: DormitorySelectionState;
-  source: 'user' | 'season-participant';
+  source: 'USER' | 'SEASON_PARTICIPANT';
 }
 
 export interface CanonicalProfileSource extends ProfileViewRecord {
-  source: 'user-profile' | 'season-participant-profile';
+  source: ProfileSource;
 }
 
 export interface ParticipantBackfillResult {
@@ -156,6 +167,91 @@ export class SeasonParticipantsService {
       update: {},
       select: currentSeasonParticipantSelect,
     });
+  }
+
+  async registerCurrentSeasonParticipation(
+    userId: string,
+    now?: Date,
+  ): Promise<CurrentSeasonParticipantRecord> {
+    const referenceNow = now ?? (await this.prisma.getDatabaseNow());
+    const user = await this.getVerifiedUserWithProfile(userId);
+    const seasonContext = await this.seasonsService.getCurrentSeasonContext(
+      user.campus,
+      referenceNow,
+    );
+
+    if (
+      !seasonContext ||
+      (seasonContext.state !== 'SEASON_OPEN' && seasonContext.state !== 'SEASON_MATCHING')
+    ) {
+      throw seasonParticipantsErrors.registrationNotAllowed();
+    }
+
+    const participant = await this.ensureCurrentSeasonParticipantForUser(user, referenceNow);
+    if (!participant) {
+      throw seasonParticipantsErrors.registrationNotAllowed();
+    }
+
+    const normalizedSelection = normalizeSelectionState({
+      registered: true,
+      dormitorySelectionState: participant.dormitorySelectionState,
+      dormitoryId: participant.dormitoryId,
+    });
+    const participantStatus =
+      normalizedSelection.dormitorySelectionState === 'ASSIGNED' ? 'ACTIVE' : 'DRAFT';
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.seasonParticipant.update({
+        where: { id: participant.id },
+        data: {
+          participationIntent: 'REGISTERED',
+          registeredAt: participant.registeredAt ?? referenceNow,
+          declinedAt: null,
+          dormitorySelectionState: normalizedSelection.dormitorySelectionState,
+          dormitoryId: normalizedSelection.dormitoryId,
+          participantStatus,
+          activatedAt:
+            participantStatus === 'ACTIVE'
+              ? (participant.activatedAt ?? referenceNow)
+              : participant.activatedAt,
+        },
+      });
+
+      await tx.seasonParticipantProfile.upsert({
+        where: { participantId: participant.id },
+        create: {
+          participantId: participant.id,
+          ...this.buildParticipantProfileSnapshotData(user.profile),
+        } satisfies Prisma.SeasonParticipantProfileUncheckedCreateInput,
+        update: this.buildParticipantProfileSnapshotData(
+          user.profile,
+        ) satisfies Prisma.SeasonParticipantProfileUncheckedUpdateInput,
+      });
+
+      if (
+        user.dormitorySelectionState !== normalizedSelection.dormitorySelectionState ||
+        user.dormitoryId !== normalizedSelection.dormitoryId
+      ) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            dormitorySelectionState: normalizedSelection.dormitorySelectionState,
+            dormitoryId: normalizedSelection.dormitoryId,
+          },
+        });
+      }
+    });
+
+    const refreshed = await this.prisma.seasonParticipant.findUnique({
+      where: { id: participant.id },
+      select: currentSeasonParticipantSelect,
+    });
+
+    if (!refreshed) {
+      throw new Error('[SeasonParticipantsService] registered participant not found after update');
+    }
+
+    return refreshed;
   }
 
   async backfillCurrentSeasonParticipants(now: Date): Promise<ParticipantBackfillResult[]> {
@@ -224,21 +320,32 @@ export class SeasonParticipantsService {
     user: Pick<ParticipantBackfillSeed, 'dormitoryId' | 'dormitorySelectionState'>,
     participant: Pick<
       CurrentSeasonParticipantRecord,
-      'dormitoryId' | 'dormitorySelectionState'
+      | 'dormitoryId'
+      | 'dormitorySelectionState'
+      | 'participationIntent'
+      | 'registeredAt'
+      | 'declinedAt'
+      | 'participantStatus'
     > | null,
   ): CanonicalSelectionState {
     if (!participant) {
       return {
         dormitoryId: user.dormitoryId,
         dormitorySelectionState: user.dormitorySelectionState,
-        source: 'user',
+        source: 'USER',
       };
     }
 
-    return {
-      dormitoryId: participant.dormitoryId,
+    const selection = normalizeSelectionState({
+      registered: isParticipantRegistered(participant as ParticipantPolicyRecord),
       dormitorySelectionState: participant.dormitorySelectionState,
-      source: 'season-participant',
+      dormitoryId: participant.dormitoryId,
+    });
+
+    return {
+      dormitoryId: selection.dormitoryId,
+      dormitorySelectionState: selection.dormitorySelectionState,
+      source: 'SEASON_PARTICIPANT',
     };
   }
 
@@ -246,32 +353,44 @@ export class SeasonParticipantsService {
     baseProfile: UserProfileRecord,
     participantProfile: CurrentSeasonParticipantProfileRecord | null,
   ): CanonicalProfileSource {
-    if (!participantProfile) {
+    return this.selectProfileBySource(
+      baseProfile,
+      participantProfile,
+      participantProfile ? 'SEASON_PARTICIPANT_PROFILE' : 'USER_PROFILE',
+    );
+  }
+
+  selectProfileBySource(
+    baseProfile: UserProfileRecord,
+    participantProfile: CurrentSeasonParticipantProfileRecord | null,
+    source: ProfileSource,
+  ): CanonicalProfileSource {
+    if (source === 'SEASON_PARTICIPANT_PROFILE' && participantProfile) {
       return {
-        source: 'user-profile',
-        nickname: baseProfile.nickname,
-        nicknameNormalized: baseProfile.nicknameNormalized,
-        lifestyle: baseProfile.lifestyle,
-        intro: baseProfile.intro,
-        messageToRoommate: baseProfile.messageToRoommate,
-        collegeCode: baseProfile.collegeCode,
-        grade: baseProfile.grade,
-        mbti: baseProfile.mbti,
-        birthYear: baseProfile.birthYear,
+        source,
+        nickname: participantProfile.nicknameSnapshot,
+        nicknameNormalized: participantProfile.nicknameNormalizedSnapshot,
+        lifestyle: participantProfile.lifestyle,
+        intro: participantProfile.intro,
+        messageToRoommate: participantProfile.messageToRoommate,
+        collegeCode: participantProfile.collegeCode,
+        grade: participantProfile.grade,
+        mbti: participantProfile.mbti,
+        birthYear: participantProfile.birthYear,
       };
     }
 
     return {
-      source: 'season-participant-profile',
-      nickname: participantProfile.nicknameSnapshot,
-      nicknameNormalized: participantProfile.nicknameNormalizedSnapshot,
-      lifestyle: participantProfile.lifestyle,
-      intro: participantProfile.intro,
-      messageToRoommate: participantProfile.messageToRoommate,
-      collegeCode: participantProfile.collegeCode,
-      grade: participantProfile.grade,
-      mbti: participantProfile.mbti,
-      birthYear: participantProfile.birthYear,
+      source: 'USER_PROFILE',
+      nickname: baseProfile.nickname,
+      nicknameNormalized: baseProfile.nicknameNormalized,
+      lifestyle: baseProfile.lifestyle,
+      intro: baseProfile.intro,
+      messageToRoommate: baseProfile.messageToRoommate,
+      collegeCode: baseProfile.collegeCode,
+      grade: baseProfile.grade,
+      mbti: baseProfile.mbti,
+      birthYear: baseProfile.birthYear,
     };
   }
 
@@ -298,6 +417,65 @@ export class SeasonParticipantsService {
       joinedAt: now,
       createdAt: now,
       updatedAt: now,
+    };
+  }
+
+  private buildParticipantProfileSnapshotData(
+    baseProfile: NonNullable<UserWithProfileRecord['profile']>,
+  ) {
+    return {
+      nicknameSnapshot: baseProfile.nickname,
+      nicknameNormalizedSnapshot: baseProfile.nicknameNormalized,
+      lifestyle: baseProfile.lifestyle as Prisma.InputJsonValue,
+      intro: baseProfile.intro,
+      messageToRoommate: baseProfile.messageToRoommate,
+      collegeCode: baseProfile.collegeCode,
+      grade: baseProfile.grade,
+      mbti: baseProfile.mbti,
+      birthYear: baseProfile.birthYear,
+      templateSourceUserProfileUpdatedAt: baseProfile.updatedAt,
+    };
+  }
+
+  private async getVerifiedUserWithProfile(
+    userId: string,
+  ): Promise<UserWithProfileRecord & { profile: NonNullable<UserWithProfileRecord['profile']> }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        emailVerifiedAt: true,
+        gender: true,
+        campus: true,
+        dormitoryId: true,
+        dormitorySelectionState: true,
+        profile: {
+          select: {
+            userId: true,
+            nickname: true,
+            nicknameNormalized: true,
+            nicknameChangedAt: true,
+            lifestyle: true,
+            intro: true,
+            messageToRoommate: true,
+            collegeCode: true,
+            grade: true,
+            mbti: true,
+            birthYear: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!user || !user.profile || !user.emailVerifiedAt) {
+      throw seasonParticipantsErrors.registrationNotAllowed();
+    }
+
+    return user as UserWithProfileRecord & {
+      profile: NonNullable<UserWithProfileRecord['profile']>;
     };
   }
 }

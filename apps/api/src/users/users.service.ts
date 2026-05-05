@@ -21,6 +21,12 @@ import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import {
+  hasParticipantProfile,
+  isParticipantMatched,
+  isParticipantRegistered,
+  resolveCurrentUserProfileSource,
+} from '../season-participants/season-participant-policy.js';
 
 interface UpdateCurrentUserInput {
   selection?: {
@@ -66,6 +72,23 @@ export class UsersService {
       user.campus,
       now,
     );
+    const participantRegistered = isParticipantRegistered(currentParticipant);
+    const currentProfileSource = resolveCurrentUserProfileSource({
+      campusOperated: serviceState.campusOperated,
+      seasonState: serviceState.seasonState,
+      participantRegistered,
+      participantProfileExists: hasParticipantProfile(currentParticipant),
+    });
+
+    if (
+      participantRegistered &&
+      !hasParticipantProfile(currentParticipant) &&
+      (serviceState.seasonState === 'SEASON_OPEN' || serviceState.seasonState === 'SEASON_MATCHING')
+    ) {
+      throw new Error(
+        '[UsersService] registered participant profile is required during current season',
+      );
+    }
 
     const userUpdateData: {
       dormitoryId?: string | null;
@@ -82,6 +105,8 @@ export class UsersService {
     const seasonParticipantUpdateData: {
       dormitoryId?: string | null;
       dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
+      participantStatus?: 'DRAFT' | 'ACTIVE';
+      activatedAt?: Date | null;
     } = {};
     const seasonParticipantProfileUpdateData: {
       intro?: string;
@@ -98,9 +123,18 @@ export class UsersService {
       if (!moderation.ok) {
         throw usersErrors.textModerationRejected('intro', moderation.error);
       }
-      profileUpdateData.intro = intro;
-      if (currentParticipant?.profile) {
+
+      if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE') {
+        if (serviceState.seasonState !== 'SEASON_OPEN') {
+          throw usersErrors.profileFieldLocked(
+            'intro',
+            '현재 시즌 상태에서는 자기소개를 수정할 수 없습니다.',
+          );
+        }
         seasonParticipantProfileUpdateData.intro = intro;
+        profileUpdateData.intro = intro;
+      } else {
+        profileUpdateData.intro = intro;
       }
     }
 
@@ -115,9 +149,11 @@ export class UsersService {
       if (!moderation.ok) {
         throw usersErrors.textModerationRejected('messageToRoommate', moderation.error);
       }
-      profileUpdateData.messageToRoommate = normalizedMessage;
-      if (currentParticipant?.profile) {
+
+      if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE') {
         seasonParticipantProfileUpdateData.messageToRoommate = normalizedMessage;
+      } else {
+        profileUpdateData.messageToRoommate = normalizedMessage;
       }
     }
 
@@ -127,10 +163,10 @@ export class UsersService {
           user.campus,
           input.additional.college,
         );
-        profileUpdateData.collegeCode = college?.code ?? null;
-        if (currentParticipant?.profile) {
+        if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE') {
           seasonParticipantProfileUpdateData.collegeCode = college?.code ?? null;
         }
+        profileUpdateData.collegeCode = college?.code ?? null;
       }
 
       if (input.additional.grade !== undefined) {
@@ -140,10 +176,10 @@ export class UsersService {
         ) {
           throw usersErrors.invalidPatch('grade 값이 올바르지 않습니다.', 'additional.grade');
         }
-        profileUpdateData.grade = input.additional.grade;
-        if (currentParticipant?.profile) {
+        if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE') {
           seasonParticipantProfileUpdateData.grade = input.additional.grade;
         }
+        profileUpdateData.grade = input.additional.grade;
       }
 
       if (input.additional.mbti !== undefined) {
@@ -153,10 +189,10 @@ export class UsersService {
         if (mbti && !profileMbtiSchema.safeParse(mbti).success) {
           throw usersErrors.invalidPatch('MBTI 형식이 올바르지 않습니다.', 'additional.mbti');
         }
-        profileUpdateData.mbti = mbti;
-        if (currentParticipant?.profile) {
+        if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE') {
           seasonParticipantProfileUpdateData.mbti = mbti;
         }
+        profileUpdateData.mbti = mbti;
       }
 
       if (input.additional.birthYear !== undefined) {
@@ -170,10 +206,10 @@ export class UsersService {
             );
           }
         }
-        profileUpdateData.birthYear = birthYear;
-        if (currentParticipant?.profile) {
+        if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE') {
           seasonParticipantProfileUpdateData.birthYear = birthYear;
         }
+        profileUpdateData.birthYear = birthYear;
       }
     }
 
@@ -242,20 +278,26 @@ export class UsersService {
     );
     const currentParticipant =
       await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
+    const participantRegistered = isParticipantRegistered(currentParticipant);
+    const participantMatched = isParticipantMatched(currentParticipant);
     const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
       user,
       currentParticipant,
     );
-    const canonicalProfile = this.seasonParticipantsService.selectCanonicalProfile(
+    const profileSource = resolveCurrentUserProfileSource({
+      campusOperated: serviceState.campusOperated,
+      seasonState: serviceState.seasonState,
+      participantRegistered,
+      participantProfileExists: hasParticipantProfile(currentParticipant),
+    });
+    const canonicalProfile = this.seasonParticipantsService.selectProfileBySource(
       user.profile,
       currentParticipant?.profile ?? null,
+      profileSource,
     );
     const lifestyle = parseLifestyleOrThrow(canonicalProfile.lifestyle);
     const additional = toAdditionalProfile(canonicalProfile);
-    const nicknameLockedBySeason =
-      serviceState.campusOperated &&
-      serviceState.seasonState !== null &&
-      serviceState.seasonState !== 'OFF_SEASON';
+    const nicknameLockedBySeason = canonicalProfile.source === 'SEASON_PARTICIPANT_PROFILE';
     const nicknameCooldownActive = hasNicknameCooldown(user.profile.nicknameChangedAt, now);
     const currentDormitoryCanMatch = this.canCurrentDormitoryMatch(
       serviceState.seasonContext,
@@ -267,6 +309,13 @@ export class UsersService {
       seasonState: serviceState.seasonState,
       selectionState: canonicalSelection.dormitorySelectionState,
     });
+    const hasSelectableDormitories =
+      (serviceState.seasonContext?.operatedDormitories.length ?? 0) > 0;
+    const hasOperatedAssignedDormitory = this.hasOperatedAssignedDormitory(
+      serviceState.seasonContext,
+      canonicalSelection.dormitorySelectionState,
+      canonicalSelection.dormitoryId,
+    );
 
     return {
       user: {
@@ -279,12 +328,21 @@ export class UsersService {
       selection: {
         state: canonicalSelection.dormitorySelectionState,
         dormitoryId: canonicalSelection.dormitoryId,
+        source: canonicalSelection.source,
       },
       profile: {
+        source: canonicalProfile.source,
         lifestyle,
         intro: canonicalProfile.intro,
         messageToRoommate: canonicalProfile.messageToRoommate,
         additional,
+      },
+      participation: {
+        hasCurrentSeason: Boolean(serviceState.seasonContext),
+        hasParticipantRow: Boolean(currentParticipant),
+        intent: currentParticipant?.participationIntent ?? null,
+        registered: participantRegistered,
+        profileExists: hasParticipantProfile(currentParticipant),
       },
       readiness: buildUserReadiness({
         lifestyle,
@@ -297,10 +355,13 @@ export class UsersService {
       capabilities: buildUserCapabilities({
         campusOperated: serviceState.campusOperated,
         seasonState: serviceState.seasonState,
+        participantRegistered,
+        participantMatched,
         selectionState: canonicalSelection.dormitorySelectionState,
+        hasOperatedAssignedDormitory,
         nicknameLockedBySeason,
         nicknameCooldownActive,
-        hasSelectableDormitories: (serviceState.seasonContext?.operatedDormitories.length ?? 0) > 0,
+        hasSelectableDormitories,
         currentDormitoryCanMatch,
       }),
       serviceState: {
@@ -308,6 +369,22 @@ export class UsersService {
         seasonState: serviceState.seasonState,
       },
     };
+  }
+
+  private hasOperatedAssignedDormitory(
+    seasonContext: Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>,
+    selectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED',
+    dormitoryId: string | null,
+  ) {
+    if (selectionState !== 'ASSIGNED' || !dormitoryId) {
+      return false;
+    }
+
+    if (!seasonContext) {
+      return true;
+    }
+
+    return seasonContext.operatedDormitories.some((item) => item.dormitoryId === dormitoryId);
   }
 
   private canCurrentDormitoryMatch(
@@ -361,6 +438,8 @@ export class UsersService {
     seasonParticipantUpdateData: {
       dormitoryId?: string | null;
       dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
+      participantStatus?: 'DRAFT' | 'ACTIVE';
+      activatedAt?: Date | null;
     },
   ) {
     if (!serviceState.campusOperated || serviceState.seasonState === null) {
@@ -373,6 +452,10 @@ export class UsersService {
       !serviceState.seasonContext
     ) {
       throw usersErrors.dormitorySelectionNotAllowed();
+    }
+
+    if (!currentParticipant || !isParticipantRegistered(currentParticipant)) {
+      throw usersErrors.dormitorySelectionRequiresParticipation();
     }
 
     const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
@@ -398,10 +481,10 @@ export class UsersService {
 
       userUpdateData.dormitorySelectionState = 'UNASSIGNED';
       userUpdateData.dormitoryId = null;
-      if (currentParticipant) {
-        seasonParticipantUpdateData.dormitorySelectionState = 'UNASSIGNED';
-        seasonParticipantUpdateData.dormitoryId = null;
-      }
+      seasonParticipantUpdateData.dormitorySelectionState = 'UNASSIGNED';
+      seasonParticipantUpdateData.dormitoryId = null;
+      seasonParticipantUpdateData.participantStatus = 'DRAFT';
+      seasonParticipantUpdateData.activatedAt = null;
       return;
     }
 
@@ -439,10 +522,10 @@ export class UsersService {
 
     userUpdateData.dormitorySelectionState = 'ASSIGNED';
     userUpdateData.dormitoryId = dormitory.id;
-    if (currentParticipant) {
-      seasonParticipantUpdateData.dormitorySelectionState = 'ASSIGNED';
-      seasonParticipantUpdateData.dormitoryId = dormitory.id;
-    }
+    seasonParticipantUpdateData.dormitorySelectionState = 'ASSIGNED';
+    seasonParticipantUpdateData.dormitoryId = dormitory.id;
+    seasonParticipantUpdateData.participantStatus = 'ACTIVE';
+    seasonParticipantUpdateData.activatedAt = now;
   }
 
   private async getUserWithProfile(userId: string): Promise<UserWithProfileRecord> {

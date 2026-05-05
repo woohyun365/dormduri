@@ -50,16 +50,38 @@ export const publicLifestyleSchema = z.strictObject({
   cleanExpectation: nullableEnum(LIFESTYLE_FIELD_OPTIONS.cleanExpectation),
 });
 
-export const publicProfileSchema = z.strictObject({
+export const profileSourceSchema = z.enum(['USER_PROFILE', 'SEASON_PARTICIPANT_PROFILE']);
+export const profileExposureLevelSchema = z.enum(['LIMITED', 'FULL']);
+
+export const publicProfileActionCapabilitiesSchema = z.strictObject({
+  canBookmark: z.boolean(),
+  canRequestMatch: z.boolean(),
+  canStartChat: z.boolean(),
+});
+
+const publicProfileBaseSchema = z.strictObject({
   id: z.string(),
+  exposureLevel: profileExposureLevelSchema,
+  sourceProfile: profileSourceSchema,
+  actions: publicProfileActionCapabilitiesSchema,
   nickname: z.string(),
-  gender: genderSchema,
-  campus: campusSchema,
-  lifestyle: publicLifestyleSchema,
   intro: z.string(),
   messageToRoommate: z.string().nullable(),
   additional: additionalProfileSchema,
 });
+
+export const limitedPublicProfileSchema = publicProfileBaseSchema.extend({
+  exposureLevel: z.literal('LIMITED'),
+});
+
+export const fullPublicProfileSchema = publicProfileBaseSchema.extend({
+  exposureLevel: z.literal('FULL'),
+  gender: genderSchema,
+  campus: campusSchema,
+  lifestyle: publicLifestyleSchema,
+});
+
+export const publicProfileSchema = z.union([limitedPublicProfileSchema, fullPublicProfileSchema]);
 
 export const publicProfileListResponseSchema = z.strictObject({
   items: z.array(publicProfileSchema),
@@ -78,6 +100,11 @@ export const nicknamePatchRequestSchema = z.strictObject({
 
 export type AdditionalProfile = z.infer<typeof additionalProfileSchema>;
 export type PublicLifestyle = z.infer<typeof publicLifestyleSchema>;
+export type ProfileSource = z.infer<typeof profileSourceSchema>;
+export type ProfileExposureLevel = z.infer<typeof profileExposureLevelSchema>;
+export type PublicProfileActionCapabilities = z.infer<typeof publicProfileActionCapabilitiesSchema>;
+export type LimitedPublicProfile = z.infer<typeof limitedPublicProfileSchema>;
+export type FullPublicProfile = z.infer<typeof fullPublicProfileSchema>;
 export type PublicProfile = z.infer<typeof publicProfileSchema>;
 export type PublicProfileListResponse = z.infer<typeof publicProfileListResponseSchema>;
 export type ProfileListQuery = z.infer<typeof profileListQuerySchema>;

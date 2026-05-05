@@ -2,10 +2,13 @@ import type { Prisma } from '../generated/prisma/client.js';
 import type { LifestyleData } from '../auth/lifestyle.schema.js';
 import { lifestyleSchema } from '@repo/shared/lifestyle';
 import {
-  publicLifestyleSchema,
   type AdditionalProfile,
-  type PublicLifestyle,
+  type ProfileExposureLevel,
+  type ProfileSource,
   type PublicProfile,
+  type PublicProfileActionCapabilities,
+  type PublicLifestyle,
+  publicLifestyleSchema,
 } from '@repo/shared/profile-contract';
 
 export interface UserProfileRecord {
@@ -95,17 +98,36 @@ export function toPublicLifestyle(lifestyle: LifestyleData): PublicLifestyle {
 export function toPublicProfile(
   user: Pick<UserWithProfileRecord, 'id' | 'gender' | 'campus'>,
   profile: ProfileViewRecord,
+  options: {
+    exposureLevel: ProfileExposureLevel;
+    sourceProfile: ProfileSource;
+    actions: PublicProfileActionCapabilities;
+  },
 ): PublicProfile {
-  const lifestyle = parseLifestyleOrThrow(profile.lifestyle);
-
-  return {
+  const base = {
     id: user.id,
+    sourceProfile: options.sourceProfile,
+    actions: options.actions,
     nickname: profile.nickname,
-    gender: user.gender,
-    campus: user.campus,
-    lifestyle: toPublicLifestyle(lifestyle),
     intro: profile.intro,
     messageToRoommate: profile.messageToRoommate,
     additional: toAdditionalProfile(profile),
+  };
+
+  if (options.exposureLevel === 'LIMITED') {
+    return {
+      ...base,
+      exposureLevel: 'LIMITED',
+    };
+  }
+
+  const lifestyle = parseLifestyleOrThrow(profile.lifestyle);
+
+  return {
+    ...base,
+    exposureLevel: 'FULL',
+    gender: user.gender,
+    campus: user.campus,
+    lifestyle: toPublicLifestyle(lifestyle),
   };
 }

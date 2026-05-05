@@ -1,28 +1,34 @@
-import type { SeasonState } from '@repo/shared/season-contract';
-import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
+import type {
+  ProfileExposureLevel,
+  ProfileSource,
+  PublicProfileActionCapabilities,
+} from '@repo/shared/profile-contract';
+import {
+  resolvePublicExposure,
+  type PublicExposureDecision,
+  type PublicExposureTargetInput,
+  type PublicExposureViewerInput,
+} from '../season-participants/season-participant-policy.js';
 
-export type ProfileVisibilityScope =
-  | { type: 'none' }
-  | { type: 'same-campus' }
-  | { type: 'same-dormitory'; dormitoryId: string };
+export interface ProfileExposureResult {
+  exposureLevel: ProfileExposureLevel;
+  sourceProfile: ProfileSource;
+  actions: PublicProfileActionCapabilities;
+}
 
-export function resolveProfileVisibilityScope(input: {
-  campusOperated: boolean;
-  seasonState: SeasonState | null;
-  selectionState: DormitorySelectionState;
-  dormitoryId: string | null;
-}): ProfileVisibilityScope {
-  if (!input.campusOperated) {
-    return { type: 'same-campus' };
+export function resolveProfileExposure(input: {
+  viewer: PublicExposureViewerInput;
+  target: PublicExposureTargetInput;
+}): ProfileExposureResult | null {
+  const result: PublicExposureDecision = resolvePublicExposure(input.viewer, input.target);
+
+  if (result.exposureLevel === 'NONE') {
+    return null;
   }
 
-  if (input.seasonState === 'OFF_SEASON') {
-    return { type: 'same-campus' };
-  }
-
-  if (input.selectionState !== 'ASSIGNED' || !input.dormitoryId) {
-    return { type: 'none' };
-  }
-
-  return { type: 'same-dormitory', dormitoryId: input.dormitoryId };
+  return {
+    exposureLevel: result.exposureLevel,
+    sourceProfile: result.sourceProfile,
+    actions: result.actions,
+  };
 }

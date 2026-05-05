@@ -31,12 +31,23 @@ export const usersErrors = {
     );
   },
 
+  dormitorySelectionRequiresParticipation() {
+    return conflictError(
+      'SEASON_PARTICIPATION_REQUIRED',
+      '시즌 참여자 등록을 완료한 뒤에만 건물 선택을 진행할 수 있습니다.',
+    );
+  },
+
   invalidDormitoryForUser(message: string = '현재 사용자 상태에 맞지 않는 기숙사입니다.') {
     return unprocessableEntityError(
       'INVALID_DORMITORY_FOR_USER',
       message,
       fieldErrors('selection.dormitoryId', message),
     );
+  },
+
+  profileFieldLocked(field: 'intro' | 'messageToRoommate' | 'additional', message: string) {
+    return conflictError('PROFILE_TEXT_EDIT_LOCKED', message, fieldErrors(field, message));
   },
 
   textModerationRejected(field: 'intro' | 'messageToRoommate', message: string) {
