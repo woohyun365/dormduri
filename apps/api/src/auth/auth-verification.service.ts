@@ -148,17 +148,23 @@ export class AuthVerificationService {
     );
 
     if (purpose === 'SIGNUP') {
-      await this.verificationStore.invalidateActiveSignupCodes(emailNormalized);
+      await this.verificationStore.replaceActiveSignupCode({
+        id: randomUUID(),
+        emailNormalized,
+        codeHash,
+        ttlSeconds,
+        requestIp,
+      });
+    } else {
+      await this.verificationStore.insertVerificationCode({
+        id: randomUUID(),
+        emailNormalized,
+        purpose,
+        codeHash,
+        ttlSeconds,
+        requestIp,
+      });
     }
-
-    await this.verificationStore.insertVerificationCode({
-      id: randomUUID(),
-      emailNormalized,
-      purpose,
-      codeHash,
-      ttlSeconds,
-      requestIp,
-    });
 
     if (purpose === 'SIGNUP') {
       await this.emailSender.sendVerificationCode({

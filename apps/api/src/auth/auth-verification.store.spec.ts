@@ -1,6 +1,10 @@
 import { AuthVerificationStore } from './auth-verification.store.js';
 
 describe('AuthVerificationStore', () => {
+  const txQueryRawTyped = jest.fn<Promise<Array<{ lockAcquired: null }>>, [unknown]>();
+  const txVerificationCodeUpdateMany = jest.fn<Promise<{ count: number }>, [unknown]>();
+  const txVerificationCodeCreate = jest.fn<Promise<{ id: string }>, [unknown]>();
+
   const prisma = {
     getDatabaseNow: jest.fn(),
     verificationCodeRequestLog: {
@@ -11,6 +15,7 @@ describe('AuthVerificationStore', () => {
       updateMany: jest.fn(),
     },
     $queryRawTyped: jest.fn(),
+    runSerializableTransaction: jest.fn(),
   };
 
   const store = new AuthVerificationStore(prisma as never);
@@ -18,6 +23,18 @@ describe('AuthVerificationStore', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-04-23T00:00:00.000Z'));
+    txQueryRawTyped.mockResolvedValue([{ lockAcquired: null }]);
+    txVerificationCodeUpdateMany.mockResolvedValue({ count: 1 });
+    txVerificationCodeCreate.mockResolvedValue({ id: 'code-1' });
+    prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
+      callback({
+        $queryRawTyped: txQueryRawTyped,
+        verificationCode: {
+          updateMany: txVerificationCodeUpdateMany,
+          create: txVerificationCodeCreate,
+        },
+      }),
+    );
   });
 
   it('IP cooldown row가 있으면 retryAfterSeconds를 반환한다', async () => {
@@ -87,6 +104,42 @@ describe('AuthVerificationStore', () => {
       id: 'code-1',
       codeHash: 'hash',
       failedAttempts: 2,
+    });
+  });
+
+  it('signup code 교체는 serializable transaction + advisory lock으로 수행한다', async () => {
+    prisma.verificationCode.create.mockResolvedValue({ id: 'code-1' });
+    prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
+
+    await store.replaceActiveSignupCode({
+      id: 'code-1',
+      emailNormalized: 'test@kangwon.ac.kr',
+      codeHash: 'hash',
+      ttlSeconds: 600,
+      requestIp: '127.0.0.1',
+    });
+
+    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
+    expect(txQueryRawTyped).toHaveBeenCalled();
+    expect(txVerificationCodeUpdateMany).toHaveBeenCalledWith({
+      where: {
+        emailNormalized: 'test@kangwon.ac.kr',
+        purpose: 'SIGNUP',
+        consumedAt: null,
+      },
+      data: { consumedAt: new Date('2026-04-23T00:00:00.000Z') },
+    });
+    const [createCall] = txVerificationCodeCreate.mock.calls;
+    expect(createCall).toBeDefined();
+    if (!createCall) {
+      throw new Error('Expected verification code create call');
+    }
+    expect(createCall[0]).toMatchObject({
+      data: {
+        id: 'code-1',
+        emailNormalized: 'test@kangwon.ac.kr',
+        purpose: 'SIGNUP',
+      },
     });
   });
 

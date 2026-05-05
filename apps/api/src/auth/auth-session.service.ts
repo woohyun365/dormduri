@@ -66,26 +66,16 @@ export class AuthSessionService {
     rememberMe: boolean,
   ): Promise<AuthSessionIssueResult> {
     const ttlSeconds = rememberMe ? AUTH_SESSION_REMEMBER_ME_TTL_SECONDS : AUTH_SESSION_TTL_SECONDS;
+    const databaseNow = await this.prisma.getDatabaseNow();
 
-    const [session] = await this.prisma.$queryRaw<{ id: string }[]>`
-        INSERT INTO "AuthSession" (
-          id,
-          "userId",
-          "rememberMe",
-          "expiresAt"
-        )
-        VALUES (
-          gen_random_uuid()::text,
-          ${userId},
-          ${rememberMe},
-          CURRENT_TIMESTAMP + (${ttlSeconds} * INTERVAL '1 second')
-        )
-        RETURNING id
-      `;
-
-    if (!session) {
-      throw new Error('AuthSession insert failed');
-    }
+    const session = await this.prisma.authSession.create({
+      data: {
+        userId,
+        rememberMe,
+        expiresAt: new Date(databaseNow.getTime() + ttlSeconds * 1000),
+      },
+      select: { id: true },
+    });
 
     const accessToken = await this.jwtService.signAsync(
       {

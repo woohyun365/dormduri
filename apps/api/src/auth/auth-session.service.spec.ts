@@ -3,6 +3,7 @@ import { AuthSessionService } from './auth-session.service.js';
 describe('AuthSessionService', () => {
   const prisma = {
     authSession: {
+      create: jest.fn(),
       updateMany: jest.fn(),
     },
     getDatabaseNow: jest.fn(),
@@ -10,7 +11,6 @@ describe('AuthSessionService', () => {
       findUnique: jest.fn(),
     },
     $queryRawTyped: jest.fn(),
-    $queryRaw: jest.fn(),
   };
 
   const jwtService = {
@@ -29,12 +29,12 @@ describe('AuthSessionService', () => {
     await expect(service.getSession(null)).resolves.toEqual({ authenticated: false });
 
     expect(jwtService.verifyAsync).not.toHaveBeenCalled();
-    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(prisma.authSession.create).not.toHaveBeenCalled();
     expect(prisma.$queryRawTyped).not.toHaveBeenCalled();
   });
 
   it('세션 row를 생성하고 access token을 발급한다', async () => {
-    prisma.$queryRaw.mockResolvedValue([{ id: 'session-1' }]);
+    prisma.authSession.create.mockResolvedValue({ id: 'session-1' });
     jwtService.signAsync.mockResolvedValue('access-token');
 
     await expect(service.issueAuthResult('user-1', 'test@kangwon.ac.kr', true)).resolves.toEqual({
@@ -42,7 +42,22 @@ describe('AuthSessionService', () => {
       sessionId: 'session-1',
     });
 
-    expect(prisma.$queryRaw).toHaveBeenCalled();
+    const [createCall] = prisma.authSession.create.mock.calls as Array<
+      [
+        {
+          data: { userId: string; rememberMe: boolean; expiresAt: Date };
+          select: { id: true };
+        },
+      ]
+    >;
+    expect(createCall).toBeDefined();
+    if (!createCall) {
+      throw new Error('Expected authSession.create call');
+    }
+    expect(createCall[0]).toMatchObject({
+      data: { userId: 'user-1', rememberMe: true },
+      select: { id: true },
+    });
     const [payload, options] = jwtService.signAsync.mock.calls[0] as [
       { sub: string; email: string; sid: string },
       { expiresIn: number },

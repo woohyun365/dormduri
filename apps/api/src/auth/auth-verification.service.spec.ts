@@ -9,6 +9,7 @@ describe('AuthVerificationService', () => {
     findLatestVerifiedResetCode: jest.fn(),
     consumeVerificationCode: jest.fn(),
     invalidateActiveSignupCodes: jest.fn(),
+    replaceActiveSignupCode: jest.fn(),
     insertVerificationCode: jest.fn(),
     findActiveVerificationRecord: jest.fn(),
     markVerified: jest.fn(),
@@ -40,13 +41,13 @@ describe('AuthVerificationService', () => {
     );
   });
 
-  it('signup code 재발급 시 기존 unconsumed signup verification row를 먼저 무효화한다', async () => {
+  it('signup code 재발급 시 serializable helper 경로로 active signup code를 교체한다', async () => {
     emailSender.sendVerificationCode.mockResolvedValue(undefined);
 
     await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
 
-    expect(verificationStore.invalidateActiveSignupCodes).toHaveBeenCalledWith(
-      'test@kangwon.ac.kr',
+    expect(verificationStore.replaceActiveSignupCode).toHaveBeenCalledWith(
+      expect.objectContaining({ emailNormalized: 'test@kangwon.ac.kr' }),
     );
     expect(emailSender.sendVerificationCode).toHaveBeenCalledWith(
       expect.objectContaining({ expiresInSeconds: 600 }),
@@ -58,11 +59,11 @@ describe('AuthVerificationService', () => {
 
     await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
 
-    const [insertArg] = (verificationStore.insertVerificationCode.mock.calls[0] ?? []) as [
+    const [replaceArg] = (verificationStore.replaceActiveSignupCode.mock.calls[0] ?? []) as [
       { codeHash: string }?,
     ];
 
-    expect(insertArg?.codeHash).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
+    expect(replaceArg?.codeHash).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
   });
 
   it('reset code는 완화된 600초 TTL을 사용한다', async () => {
