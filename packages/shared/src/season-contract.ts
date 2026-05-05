@@ -4,7 +4,7 @@ import { isoDateTimeStringSchema, localDateStringSchema } from './date-primitive
 
 export const seasonStateSchema = z.enum([
   'OFF_SEASON',
-  'SEASON_PREPARATION',
+  'SEASON_OPEN',
   'SEASON_MATCHING',
   'SEASON_POST_MATCH',
 ]);
@@ -44,7 +44,7 @@ export const currentSeasonResponseSchema = z.strictObject({
   operatedDormitories: z.array(dormitorySeasonOperationSchema),
   state: seasonStateSchema,
   isActive: z.boolean(),
-  isPreparation: z.boolean(),
+  isOpen: z.boolean(),
   isMatching: z.boolean(),
   isPostMatch: z.boolean(),
   daysUntilMatchingEnd: z.number().int().nonnegative(),

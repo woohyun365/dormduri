@@ -1,5 +1,9 @@
 import { UsersService } from './users.service.js';
 import type { UserWithProfileRecord } from '../profiles/profile.mapper.js';
+import type {
+  CanonicalProfileSource,
+  CanonicalSelectionState,
+} from '../season-participants/season-participants.service.js';
 
 type UserOverride = Omit<Partial<UserWithProfileRecord>, 'profile'> & {
   profile?: Partial<NonNullable<UserWithProfileRecord['profile']>>;
@@ -49,6 +53,7 @@ function makeUser(overrides: UserOverride = {}): UserWithProfileRecord {
   return {
     id: 'user-1',
     email: 'test@kangwon.ac.kr',
+    emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
     gender: 'M' as const,
     campus: 'CHUNCHEON' as const,
     dormitoryId: null,
@@ -61,6 +66,8 @@ function makeUser(overrides: UserOverride = {}): UserWithProfileRecord {
 describe('UsersService', () => {
   const txUserUpdate = jest.fn();
   const txUserProfileUpdate = jest.fn();
+  const txSeasonParticipantUpdate = jest.fn();
+  const txSeasonParticipantProfileUpdate = jest.fn();
   const prisma = {
     getDatabaseNow: jest.fn(),
     $transaction: jest.fn(),
@@ -80,11 +87,17 @@ describe('UsersService', () => {
   const moderationService = {
     moderatePublicText: jest.fn(),
   };
+  const seasonParticipantsService = {
+    ensureCurrentSeasonParticipantForUser: jest.fn(),
+    selectCanonicalSelection: jest.fn(),
+    selectCanonicalProfile: jest.fn(),
+  };
 
   const service = new UsersService(
     prisma as never,
     seasonsService as never,
     moderationService as never,
+    seasonParticipantsService as never,
   );
 
   beforeEach(() => {
@@ -172,7 +185,7 @@ describe('UsersService', () => {
       }),
     );
     seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      state: 'SEASON_PREPARATION',
+      state: 'SEASON_OPEN',
       operatedDormitories: [
         { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
       ],

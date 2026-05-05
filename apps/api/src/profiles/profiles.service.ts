@@ -14,11 +14,19 @@ import { validateNicknameFormat } from '../auth/auth.utils.js';
 import { UsersService } from '../users/users.service.js';
 import type { PublicProfileListResponse } from '@repo/shared/profile-contract';
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import {
+  SeasonParticipantsService,
+  type CurrentSeasonParticipantRecord,
+} from '../season-participants/season-participants.service.js';
 
 interface ProfileListQuery {
   offset: number;
   limit: number;
 }
+
+type UserWithParticipantProjection = UserWithProfileRecord & {
+  seasonParticipants?: CurrentSeasonParticipantRecord[];
+};
 
 @Injectable()
 export class ProfilesService {
@@ -27,6 +35,7 @@ export class ProfilesService {
     private readonly seasonsService: SeasonsService,
     private readonly moderationService: ModerationService,
     private readonly usersService: UsersService,
+    private readonly seasonParticipantsService: SeasonParticipantsService,
   ) {}
 
   async getProfiles(
@@ -41,11 +50,17 @@ export class ProfilesService {
       viewer.campus,
       now,
     );
+    const viewerParticipant =
+      await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(viewer, now);
+    const viewerSelection = this.seasonParticipantsService.selectCanonicalSelection(
+      viewer,
+      viewerParticipant,
+    );
     const scope = resolveProfileVisibilityScope({
       campusOperated: serviceState.campusOperated,
       seasonState: serviceState.seasonState,
-      selectionState: viewer.dormitorySelectionState,
-      dormitoryId: viewer.dormitoryId,
+      selectionState: viewerSelection.dormitorySelectionState,
+      dormitoryId: viewerSelection.dormitoryId,
     });
 
     if (scope.type === 'none') {
@@ -61,18 +76,39 @@ export class ProfilesService {
           isNot: null,
         },
       },
-      select: this.userWithProfileSelect(),
+      select: this.userWithProfileSelect(serviceState.seasonContext?.season.id ?? null),
     });
 
     const visibleUsers = users
       .filter((user) => this.isVisibleToViewer(user, viewer, scope))
       .sort((left, right) => {
-        const leftNickname = left.profile?.nickname ?? '';
-        const rightNickname = right.profile?.nickname ?? '';
+        const leftParticipant = this.seasonParticipantsService.pickCurrentSeasonParticipant(
+          left.seasonParticipants,
+        );
+        const rightParticipant = this.seasonParticipantsService.pickCurrentSeasonParticipant(
+          right.seasonParticipants,
+        );
+        const leftNickname = this.seasonParticipantsService.selectCanonicalProfile(
+          left.profile!,
+          leftParticipant?.profile ?? null,
+        ).nickname;
+        const rightNickname = this.seasonParticipantsService.selectCanonicalProfile(
+          right.profile!,
+          rightParticipant?.profile ?? null,
+        ).nickname;
         return leftNickname.localeCompare(rightNickname, 'ko');
       })
       .slice(query.offset, query.offset + query.limit)
-      .map((user) => toPublicProfile(user));
+      .map((user) => {
+        const participant = this.seasonParticipantsService.pickCurrentSeasonParticipant(
+          user.seasonParticipants,
+        );
+        const profile = this.seasonParticipantsService.selectCanonicalProfile(
+          user.profile!,
+          participant?.profile ?? null,
+        );
+        return toPublicProfile(user, profile);
+      });
 
     return {
       items: visibleUsers,
@@ -92,11 +128,17 @@ export class ProfilesService {
       viewer.campus,
       now,
     );
+    const viewerParticipant =
+      await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(viewer, now);
+    const viewerSelection = this.seasonParticipantsService.selectCanonicalSelection(
+      viewer,
+      viewerParticipant,
+    );
     const scope = resolveProfileVisibilityScope({
       campusOperated: serviceState.campusOperated,
       seasonState: serviceState.seasonState,
-      selectionState: viewer.dormitorySelectionState,
-      dormitoryId: viewer.dormitoryId,
+      selectionState: viewerSelection.dormitorySelectionState,
+      dormitoryId: viewerSelection.dormitoryId,
     });
 
     if (scope.type === 'none') {
@@ -105,14 +147,22 @@ export class ProfilesService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: targetUserId },
-      select: this.userWithProfileSelect(),
+      select: this.userWithProfileSelect(serviceState.seasonContext?.season.id ?? null),
     });
 
     if (!user || !this.isVisibleToViewer(user, viewer, scope)) {
       throw profilesErrors.profileNotVisible();
     }
 
-    return toPublicProfile(user);
+    const participant = this.seasonParticipantsService.pickCurrentSeasonParticipant(
+      user.seasonParticipants,
+    );
+    const profile = this.seasonParticipantsService.selectCanonicalProfile(
+      user.profile!,
+      participant?.profile ?? null,
+    );
+
+    return toPublicProfile(user, profile);
   }
 
   async updateLifestyle(
@@ -126,6 +176,12 @@ export class ProfilesService {
 
     const now = await this.prisma.getDatabaseNow();
     const user = await this.getUserWithProfile(authUser.id);
+    const currentParticipant =
+      await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
+    const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
+      user,
+      currentParticipant,
+    );
     const serviceState = await resolveCampusServiceState(
       this.prisma,
       this.seasonsService,
@@ -136,16 +192,27 @@ export class ProfilesService {
     if (
       serviceState.campusOperated &&
       serviceState.seasonState === 'SEASON_MATCHING' &&
-      user.dormitorySelectionState === 'ASSIGNED'
+      canonicalSelection.dormitorySelectionState === 'ASSIGNED'
     ) {
       throw profilesErrors.profileEditLocked();
     }
 
-    await this.prisma.userProfile.update({
-      where: { userId: authUser.id },
-      data: {
-        lifestyle: parsedLifestyle.value,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userProfile.update({
+        where: { userId: authUser.id },
+        data: {
+          lifestyle: parsedLifestyle.value,
+        },
+      });
+
+      if (currentParticipant?.profile) {
+        await tx.seasonParticipantProfile.update({
+          where: { participantId: currentParticipant.id },
+          data: {
+            lifestyle: parsedLifestyle.value,
+          },
+        });
+      }
     });
 
     return this.usersService.getCurrentUser(authUser);
@@ -166,6 +233,8 @@ export class ProfilesService {
     if (!user.profile) {
       throw new Error('[ProfilesService] user profile row is required');
     }
+    const currentParticipant =
+      await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
 
     const serviceState = await resolveCampusServiceState(
       this.prisma,
@@ -202,20 +271,33 @@ export class ProfilesService {
       throw profilesErrors.nicknameAlreadyTaken();
     }
 
-    await this.prisma.userProfile.update({
-      where: { userId: authUser.id },
-      data: {
-        nickname: trimmedNickname,
-        nicknameNormalized,
-        nicknameChangedAt: now,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.userProfile.update({
+        where: { userId: authUser.id },
+        data: {
+          nickname: trimmedNickname,
+          nicknameNormalized,
+          nicknameChangedAt: now,
+        },
+      });
+
+      if (currentParticipant?.profile) {
+        await tx.seasonParticipantProfile.update({
+          where: { participantId: currentParticipant.id },
+          data: {
+            nicknameSnapshot: trimmedNickname,
+            nicknameNormalizedSnapshot: nicknameNormalized,
+            templateSourceUserProfileUpdatedAt: user.profile!.updatedAt,
+          },
+        });
+      }
     });
 
     return this.usersService.getCurrentUser(authUser);
   }
 
   private isVisibleToViewer(
-    user: UserWithProfileRecord,
+    user: UserWithParticipantProjection,
     viewer: UserWithProfileRecord,
     scope: ReturnType<typeof resolveProfileVisibilityScope>,
   ) {
@@ -227,11 +309,16 @@ export class ProfilesService {
       return user.campus === viewer.campus && user.gender === viewer.gender;
     }
 
+    const participant = this.seasonParticipantsService.pickCurrentSeasonParticipant(
+      user.seasonParticipants,
+    );
+    const selection = this.seasonParticipantsService.selectCanonicalSelection(user, participant);
+
     if (scope.type === 'same-dormitory') {
       return (
         user.gender === viewer.gender &&
-        user.dormitorySelectionState === 'ASSIGNED' &&
-        user.dormitoryId === scope.dormitoryId
+        selection.dormitorySelectionState === 'ASSIGNED' &&
+        selection.dormitoryId === scope.dormitoryId
       );
     }
 
@@ -241,7 +328,7 @@ export class ProfilesService {
   private async getUserWithProfile(userId: string): Promise<UserWithProfileRecord> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: this.userWithProfileSelect(),
+      select: this.userWithProfileSelect(null),
     });
 
     if (!user) {
@@ -251,14 +338,62 @@ export class ProfilesService {
     return user;
   }
 
-  private userWithProfileSelect() {
+  private userWithProfileSelect(seasonId: string | null) {
     return {
       id: true,
       email: true,
+      emailVerifiedAt: true,
       gender: true,
       campus: true,
       dormitoryId: true,
       dormitorySelectionState: true,
+      seasonParticipants: seasonId
+        ? {
+            where: { seasonId },
+            take: 1,
+            select: {
+              id: true,
+              seasonId: true,
+              userId: true,
+              participationIntent: true,
+              registeredAt: true,
+              declinedAt: true,
+              dormitoryId: true,
+              dormitorySelectionState: true,
+              participantStatus: true,
+              campusCodeSnapshot: true,
+              genderSnapshot: true,
+              joinedAt: true,
+              activatedAt: true,
+              matchedAt: true,
+              withdrawnAt: true,
+              expiredAt: true,
+              hiddenByAdminAt: true,
+              hiddenReasonCode: true,
+              hiddenReasonDetail: true,
+              deactivatedAt: true,
+              createdAt: true,
+              updatedAt: true,
+              profile: {
+                select: {
+                  participantId: true,
+                  nicknameSnapshot: true,
+                  nicknameNormalizedSnapshot: true,
+                  lifestyle: true,
+                  intro: true,
+                  messageToRoommate: true,
+                  collegeCode: true,
+                  grade: true,
+                  mbti: true,
+                  birthYear: true,
+                  templateSourceUserProfileUpdatedAt: true,
+                  createdAt: true,
+                  updatedAt: true,
+                },
+              },
+            },
+          }
+        : undefined,
       profile: {
         select: {
           userId: true,
@@ -268,7 +403,7 @@ export class ProfilesService {
           lifestyle: true,
           intro: true,
           messageToRoommate: true,
-          college: true,
+          collegeCode: true,
           grade: true,
           mbti: true,
           birthYear: true,

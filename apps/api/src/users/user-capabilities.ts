@@ -35,12 +35,12 @@ export function buildUserCapabilities(input: {
       input.campusOperated &&
       input.hasSelectableDormitories &&
       input.selectionState !== 'ASSIGNED' &&
-      (seasonState === 'SEASON_PREPARATION' || seasonState === 'SEASON_MATCHING'),
+      (seasonState === 'SEASON_OPEN' || seasonState === 'SEASON_MATCHING'),
     canEditLifestyle:
       !input.campusOperated ||
       seasonState === null ||
       seasonState === 'OFF_SEASON' ||
-      seasonState === 'SEASON_PREPARATION' ||
+      seasonState === 'SEASON_OPEN' ||
       seasonState === 'SEASON_POST_MATCH' ||
       (seasonState === 'SEASON_MATCHING' && input.selectionState !== 'ASSIGNED'),
     canEditNickname: !input.nicknameLockedBySeason && !input.nicknameCooldownActive,
@@ -48,7 +48,7 @@ export function buildUserCapabilities(input: {
     canBookmark:
       input.campusOperated &&
       isAssigned &&
-      (seasonState === 'SEASON_PREPARATION' ||
+      (seasonState === 'SEASON_OPEN' ||
         seasonState === 'SEASON_MATCHING' ||
         seasonState === 'SEASON_POST_MATCH'),
     canRequestMatch:

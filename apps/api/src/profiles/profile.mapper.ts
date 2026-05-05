@@ -16,7 +16,7 @@ export interface UserProfileRecord {
   lifestyle: Prisma.JsonValue;
   intro: string;
   messageToRoommate: string | null;
-  college: string | null;
+  collegeCode: string | null;
   grade: string | null;
   mbti: string | null;
   birthYear: number | null;
@@ -24,9 +24,22 @@ export interface UserProfileRecord {
   updatedAt: Date;
 }
 
+export interface ProfileViewRecord {
+  nickname: string;
+  nicknameNormalized: string;
+  lifestyle: Prisma.JsonValue;
+  intro: string;
+  messageToRoommate: string | null;
+  collegeCode: string | null;
+  grade: string | null;
+  mbti: string | null;
+  birthYear: number | null;
+}
+
 export interface UserWithProfileRecord {
   id: string;
   email: string;
+  emailVerifiedAt: Date | null;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   dormitoryId: string | null;
@@ -43,9 +56,11 @@ export function parseLifestyleOrThrow(lifestyle: Prisma.JsonValue): LifestyleDat
   return parsed.data;
 }
 
-export function toAdditionalProfile(profile: UserProfileRecord): AdditionalProfile {
+export function toAdditionalProfile(
+  profile: Pick<ProfileViewRecord, 'collegeCode' | 'grade' | 'mbti' | 'birthYear'>,
+): AdditionalProfile {
   return {
-    college: profile.college,
+    college: profile.collegeCode as AdditionalProfile['college'],
     grade: profile.grade as AdditionalProfile['grade'],
     mbti: profile.mbti,
     birthYear: profile.birthYear,
@@ -77,21 +92,20 @@ export function toPublicLifestyle(lifestyle: LifestyleData): PublicLifestyle {
   });
 }
 
-export function toPublicProfile(user: UserWithProfileRecord): PublicProfile {
-  if (!user.profile) {
-    throw new Error('[profile.mapper] profile row is required');
-  }
-
-  const lifestyle = parseLifestyleOrThrow(user.profile.lifestyle);
+export function toPublicProfile(
+  user: Pick<UserWithProfileRecord, 'id' | 'gender' | 'campus'>,
+  profile: ProfileViewRecord,
+): PublicProfile {
+  const lifestyle = parseLifestyleOrThrow(profile.lifestyle);
 
   return {
     id: user.id,
-    nickname: user.profile.nickname,
+    nickname: profile.nickname,
     gender: user.gender,
     campus: user.campus,
     lifestyle: toPublicLifestyle(lifestyle),
-    intro: user.profile.intro,
-    messageToRoommate: user.profile.messageToRoommate,
-    additional: toAdditionalProfile(user.profile),
+    intro: profile.intro,
+    messageToRoommate: profile.messageToRoommate,
+    additional: toAdditionalProfile(profile),
   };
 }

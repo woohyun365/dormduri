@@ -59,9 +59,31 @@ enum DormitoryBathroomType {
 
 enum SeasonOverrideState {
   OFF_SEASON
-  SEASON_PREPARATION
+  SEASON_OPEN
   SEASON_MATCHING
   SEASON_POST_MATCH
+}
+
+enum SeasonParticipationIntent {
+  UNDECIDED
+  REGISTERED
+  DECLINED
+}
+
+enum ParticipantStatus {
+  NOT_STARTED
+  DRAFT
+  ACTIVE
+  MATCHED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum ParticipantHiddenReasonCode {
+  POLICY_VIOLATION
+  SAFETY_REVIEW
+  ADMIN_REQUEST
+  OTHER
 }
 
 model CampusMaster {
@@ -87,18 +109,19 @@ model CampusGuideContent {
 }
 
 model Dormitory {
-  id               String                     @id
-  campusCode       Campus
-  nameKo           String
-  roomType         Int
-  genderPolicy     DormitoryGenderPolicy
-  sortOrder        Int                        @default(0)
-  createdAt        DateTime                   @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime                   @default(now()) @db.Timestamptz(3)
-  campus           CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
-  guide            DormitoryGuide?
-  seasonOperations SeasonDormitoryOperation[]
-  users            User[]
+  id                 String                     @id
+  campusCode         Campus
+  nameKo             String
+  roomType           Int
+  genderPolicy       DormitoryGenderPolicy
+  sortOrder          Int                        @default(0)
+  createdAt          DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                   @default(now()) @db.Timestamptz(3)
+  campus             CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  guide              DormitoryGuide?
+  seasonOperations   SeasonDormitoryOperation[]
+  seasonParticipants SeasonParticipant[]
+  users              User[]
 
   @@index([campusCode, genderPolicy, sortOrder])
 }
@@ -131,6 +154,7 @@ model Season {
   updatedAt            DateTime                   @default(now()) @db.Timestamptz(3)
   campus               CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
   dormitoryOperations  SeasonDormitoryOperation[]
+  participants         SeasonParticipant[]
 
   @@unique([campusCode, academicYear, semester])
   @@index([campusCode, matchingStartDate])
@@ -167,28 +191,82 @@ model User {
   dormitory               Dormitory?              @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
   authSessions            AuthSession[]
   profile                 UserProfile?
+  seasonParticipants      SeasonParticipant[]
 
   @@index([campus, dormitorySelectionState])
   @@index([dormitoryId])
 }
 
 model UserProfile {
-  userId              String   @id
-  nickname            String
-  nicknameNormalized  String   @unique
-  nicknameChangedAt   DateTime? @db.Timestamptz(3)
-  lifestyle           Json
-  intro               String   @default("")
-  messageToRoommate   String?
-  college             String?
-  grade               String?
-  mbti                String?
-  birthYear           Int?
-  createdAt           DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime @default(now()) @db.Timestamptz(3)
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String         @id
+  nickname           String
+  nicknameNormalized String         @unique
+  nicknameChangedAt  DateTime?      @db.Timestamptz(3)
+  lifestyle          Json
+  intro              String         @default("")
+  messageToRoommate  String?
+  collegeCode        String?
+  grade              String?
+  mbti               String?
+  birthYear          Int?
+  createdAt          DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime       @default(now()) @db.Timestamptz(3)
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([nickname])
+}
+
+model SeasonParticipant {
+  id                      String                       @id @default(uuid())
+  seasonId                String
+  userId                  String
+  participationIntent     SeasonParticipationIntent    @default(UNDECIDED)
+  registeredAt            DateTime?                    @db.Timestamptz(3)
+  declinedAt              DateTime?                    @db.Timestamptz(3)
+  dormitoryId             String?
+  dormitorySelectionState DormitorySelectionState      @default(NOT_SELECTED)
+  participantStatus       ParticipantStatus            @default(NOT_STARTED)
+  campusCodeSnapshot      Campus
+  genderSnapshot          Gender
+  joinedAt                DateTime                     @default(now()) @db.Timestamptz(3)
+  activatedAt             DateTime?                    @db.Timestamptz(3)
+  matchedAt               DateTime?                    @db.Timestamptz(3)
+  withdrawnAt             DateTime?                    @db.Timestamptz(3)
+  expiredAt               DateTime?                    @db.Timestamptz(3)
+  hiddenByAdminAt         DateTime?                    @db.Timestamptz(3)
+  hiddenReasonCode        ParticipantHiddenReasonCode?
+  hiddenReasonDetail      String?
+  deactivatedAt           DateTime?                    @db.Timestamptz(3)
+  createdAt               DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                     @default(now()) @db.Timestamptz(3)
+  dormitory               Dormitory?                   @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
+  season                  Season                       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  user                    User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile                 SeasonParticipantProfile?
+
+  @@unique([seasonId, userId])
+  @@index([userId, seasonId])
+  @@index([seasonId, dormitoryId, dormitorySelectionState])
+  @@index([seasonId, participantStatus])
+}
+
+model SeasonParticipantProfile {
+  participantId                      String            @id
+  nicknameSnapshot                   String
+  nicknameNormalizedSnapshot         String
+  lifestyle                          Json
+  intro                              String            @default("")
+  messageToRoommate                  String?
+  collegeCode                        String?
+  grade                              String?
+  mbti                               String?
+  birthYear                          Int?
+  templateSourceUserProfileUpdatedAt DateTime?         @db.Timestamptz(3)
+  createdAt                          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt                          DateTime          @default(now()) @db.Timestamptz(3)
+  participant                        SeasonParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([nicknameNormalizedSnapshot])
 }
 
 model LoginAttempt {

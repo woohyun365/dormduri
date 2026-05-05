@@ -8,12 +8,7 @@ function makeSeasonRow(
     preparationStartDate: Date;
     matchingStartDate: Date;
     seasonEndDate: Date;
-    overrideState:
-      | 'OFF_SEASON'
-      | 'SEASON_PREPARATION'
-      | 'SEASON_MATCHING'
-      | 'SEASON_POST_MATCH'
-      | null;
+    overrideState: 'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING' | 'SEASON_POST_MATCH' | null;
     overrideReason: string | null;
     overrideStartedAt: Date | null;
     overrideEndsAt: Date | null;
@@ -91,7 +86,7 @@ describe('SeasonsService', () => {
       campusCode: 'CHUNCHEON',
       state: 'SEASON_MATCHING',
       isMatching: true,
-      isPreparation: false,
+      isOpen: false,
       isPostMatch: false,
       daysUntilMatchingEnd: 3,
       daysUntilSeasonEnd: 19,
@@ -178,7 +173,7 @@ describe('SeasonsService', () => {
     expect(prisma.season.findMany).not.toHaveBeenCalled();
   });
 
-  it('준비 기간에는 SEASON_PREPARATION을 반환한다', async () => {
+  it('준비 기간에는 SEASON_OPEN을 반환한다', async () => {
     prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
 
     const result = await service.getCurrentSeason(
@@ -187,8 +182,8 @@ describe('SeasonsService', () => {
     );
 
     expect(result).toMatchObject({
-      state: 'SEASON_PREPARATION',
-      isPreparation: true,
+      state: 'SEASON_OPEN',
+      isOpen: true,
       isMatching: false,
       isPostMatch: false,
     });
@@ -204,7 +199,7 @@ describe('SeasonsService', () => {
 
     expect(result).toMatchObject({
       state: 'SEASON_POST_MATCH',
-      isPreparation: false,
+      isOpen: false,
       isMatching: false,
       isPostMatch: true,
       daysUntilMatchingEnd: 0,
@@ -212,7 +207,7 @@ describe('SeasonsService', () => {
     });
   });
 
-  it('operated dormitory가 0개면 상태를 최대 SEASON_PREPARATION까지만 허용한다', async () => {
+  it('operated dormitory가 0개면 상태를 최대 SEASON_OPEN까지만 허용한다', async () => {
     prisma.season.findMany.mockResolvedValue([
       makeSeasonRow({
         dormitoryOperations: [
@@ -231,8 +226,8 @@ describe('SeasonsService', () => {
     );
 
     expect(result).toMatchObject({
-      state: 'SEASON_PREPARATION',
-      isPreparation: true,
+      state: 'SEASON_OPEN',
+      isOpen: true,
       isMatching: false,
       operatedDormitories: [],
       daysUntilMatchingEnd: 0,

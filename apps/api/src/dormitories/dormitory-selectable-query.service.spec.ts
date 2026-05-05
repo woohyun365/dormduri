@@ -8,12 +8,7 @@ function makeSeasonRow(
     preparationStartDate: Date;
     matchingStartDate: Date;
     seasonEndDate: Date;
-    overrideState:
-      | 'OFF_SEASON'
-      | 'SEASON_PREPARATION'
-      | 'SEASON_MATCHING'
-      | 'SEASON_POST_MATCH'
-      | null;
+    overrideState: 'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING' | 'SEASON_POST_MATCH' | null;
     overrideReason: string | null;
     overrideStartedAt: Date | null;
     overrideEndsAt: Date | null;

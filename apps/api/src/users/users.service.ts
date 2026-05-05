@@ -15,6 +15,7 @@ import { buildUserCapabilities, canBrowseProfiles } from './user-capabilities.js
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
+import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 
 const MBTI_REGEX = /^[EI][SN][TF][JP]$/;
 const GRADE_VALUES = new Set(['1', '2', '3', '4+']);
@@ -41,6 +42,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly seasonsService: SeasonsService,
     private readonly moderationService: ModerationService,
+    private readonly seasonParticipantsService: SeasonParticipantsService,
   ) {}
 
   async getCurrentUser(authUser: AuthenticatedUserContext): Promise<CurrentUserResponse> {
@@ -55,6 +57,8 @@ export class UsersService {
   ): Promise<CurrentUserResponse> {
     const now = await this.prisma.getDatabaseNow();
     const user = await this.getUserWithProfile(authUser.id);
+    const currentParticipant =
+      await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
     const serviceState = await resolveCampusServiceState(
       this.prisma,
       this.seasonsService,
@@ -180,8 +184,18 @@ export class UsersService {
       user.campus,
       now,
     );
-    const lifestyle = parseLifestyleOrThrow(user.profile.lifestyle);
-    const additional = toAdditionalProfile(user.profile);
+    const currentParticipant =
+      await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
+    const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
+      user,
+      currentParticipant,
+    );
+    const canonicalProfile = this.seasonParticipantsService.selectCanonicalProfile(
+      user.profile,
+      currentParticipant?.profile ?? null,
+    );
+    const lifestyle = parseLifestyleOrThrow(canonicalProfile.lifestyle);
+    const additional = toAdditionalProfile(canonicalProfile);
     const nicknameLockedBySeason =
       serviceState.campusOperated &&
       serviceState.seasonState !== null &&
@@ -189,45 +203,45 @@ export class UsersService {
     const nicknameCooldownActive = hasNicknameCooldown(user.profile.nicknameChangedAt, now);
     const currentDormitoryCanMatch = this.canCurrentDormitoryMatch(
       serviceState.seasonContext,
-      user.dormitoryId,
+      canonicalSelection.dormitoryId,
       now,
     );
     const browseProfiles = canBrowseProfiles({
       campusOperated: serviceState.campusOperated,
       seasonState: serviceState.seasonState,
-      selectionState: user.dormitorySelectionState,
+      selectionState: canonicalSelection.dormitorySelectionState,
     });
 
     return {
       user: {
         id: user.id,
         email: user.email,
-        nickname: user.profile.nickname,
+        nickname: canonicalProfile.nickname,
         gender: user.gender,
         campus: user.campus,
       },
       selection: {
-        state: user.dormitorySelectionState,
-        dormitoryId: user.dormitoryId,
+        state: canonicalSelection.dormitorySelectionState,
+        dormitoryId: canonicalSelection.dormitoryId,
       },
       profile: {
         lifestyle,
-        intro: user.profile.intro,
-        messageToRoommate: user.profile.messageToRoommate,
+        intro: canonicalProfile.intro,
+        messageToRoommate: canonicalProfile.messageToRoommate,
         additional,
       },
       readiness: buildUserReadiness({
         lifestyle,
-        intro: user.profile.intro,
-        messageToRoommate: user.profile.messageToRoommate,
+        intro: canonicalProfile.intro,
+        messageToRoommate: canonicalProfile.messageToRoommate,
         additional,
-        selectionState: user.dormitorySelectionState,
+        selectionState: canonicalSelection.dormitorySelectionState,
         canBrowseProfiles: browseProfiles,
       }),
       capabilities: buildUserCapabilities({
         campusOperated: serviceState.campusOperated,
         seasonState: serviceState.seasonState,
-        selectionState: user.dormitorySelectionState,
+        selectionState: canonicalSelection.dormitorySelectionState,
         nicknameLockedBySeason,
         nicknameCooldownActive,
         hasSelectableDormitories: (serviceState.seasonContext?.operatedDormitories.length ?? 0) > 0,
@@ -298,21 +312,33 @@ export class UsersService {
       throw usersErrors.dormitorySelectionNotAllowed();
     }
 
-    if (user.dormitorySelectionState === 'ASSIGNED') {
+    const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
+      user,
+      currentParticipant,
+    );
+
+    if (canonicalSelection.dormitorySelectionState === 'ASSIGNED') {
       throw usersErrors.dormitoryAlreadyConfirmed();
     }
 
     if (selection.state === 'UNASSIGNED') {
-      if (serviceState.seasonState !== 'SEASON_PREPARATION') {
+      if (serviceState.seasonState !== 'SEASON_OPEN') {
         throw usersErrors.dormitorySelectionNotAllowed();
       }
 
-      if (user.dormitorySelectionState === 'UNASSIGNED' && user.dormitoryId === null) {
+      if (
+        canonicalSelection.dormitorySelectionState === 'UNASSIGNED' &&
+        canonicalSelection.dormitoryId === null
+      ) {
         return;
       }
 
       userUpdateData.dormitorySelectionState = 'UNASSIGNED';
       userUpdateData.dormitoryId = null;
+      if (currentParticipant) {
+        seasonParticipantUpdateData.dormitorySelectionState = 'UNASSIGNED';
+        seasonParticipantUpdateData.dormitoryId = null;
+      }
       return;
     }
 
@@ -358,6 +384,7 @@ export class UsersService {
       select: {
         id: true,
         email: true,
+        emailVerifiedAt: true,
         gender: true,
         campus: true,
         dormitoryId: true,
@@ -371,7 +398,7 @@ export class UsersService {
             lifestyle: true,
             intro: true,
             messageToRoommate: true,
-            college: true,
+            collegeCode: true,
             grade: true,
             mbti: true,
             birthYear: true,
