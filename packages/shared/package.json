@@ -59,6 +59,10 @@
     "./match-contract": {
       "types": "./dist/match-contract.d.ts",
       "default": "./dist/match-contract.js"
+    },
+    "./chat-contract": {
+      "types": "./dist/chat-contract.d.ts",
+      "default": "./dist/chat-contract.js"
     }
   },
   "scripts": {

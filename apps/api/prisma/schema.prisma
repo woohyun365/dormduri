@@ -126,6 +126,32 @@ enum ActiveMatchEndReason {
   WITHDRAWN_PARTICIPANT
 }
 
+
+enum ConversationThreadKind {
+  DIRECT
+  MATCHED
+}
+
+enum ConversationThreadStatus {
+  OPEN
+  READ_ONLY
+  ARCHIVED
+}
+
+enum ConversationThreadClosedReason {
+  ACTIVE_MATCH_CREATED
+  ROOM_SELECTION_CUTOFF
+  SEASON_ENDED
+  PARTICIPANT_WITHDRAWN
+  MODERATION
+  ADMIN_ACTION
+}
+
+enum ConversationThreadMemberState {
+  ACTIVE
+  LEFT
+}
+
 model CampusMaster {
   code         Campus              @id
   nameKo       String
@@ -214,6 +240,7 @@ model Season {
   participants         SeasonParticipant[]
   matchRequests        MatchRequest[]
   activeMatches        ActiveMatch[]
+  conversationThreads  ConversationThread[]
 
   @@unique([campusCode, academicYear, semester])
   @@index([campusCode, matchingStartDate])
@@ -309,6 +336,11 @@ model SeasonParticipant {
   activeMatchesAsA        ActiveMatch[]                @relation("ActiveMatchParticipantA")
   activeMatchesAsB        ActiveMatch[]                @relation("ActiveMatchParticipantB")
   cancelRequestedMatches  ActiveMatch[]                @relation("ActiveMatchCancelRequester")
+  openedThreads           ConversationThread[]         @relation("ConversationThreadOpenedBy")
+  threadsAsA              ConversationThread[]         @relation("ConversationThreadParticipantA")
+  threadsAsB              ConversationThread[]         @relation("ConversationThreadParticipantB")
+  threadMembers           ConversationThreadMember[]
+  sentMessages            ConversationMessage[]        @relation("ConversationMessageSender")
 
   @@unique([seasonId, userId])
   @@index([userId, seasonId])
@@ -384,11 +416,72 @@ model ActiveMatch {
   participantB                   SeasonParticipant     @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
   createdFromRequest             MatchRequest          @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
   cancelRequestedByParticipant   SeasonParticipant?    @relation("ActiveMatchCancelRequester", fields: [cancelRequestedByParticipantId], references: [id], onDelete: SetNull)
+  conversationThread             ConversationThread?
 
   @@index([seasonId, pairKey, endedAt])
   @@index([participantAId, endedAt])
   @@index([participantBId, endedAt])
   @@index([seasonId, status, endedAt])
+}
+
+
+model ConversationThread {
+  id                  String                         @id @default(uuid())
+  seasonId            String
+  pairKey             String
+  participantAId      String
+  participantBId      String
+  openedByParticipantId String
+  threadKind          ConversationThreadKind
+  activeMatchId       String?                        @unique
+  status              ConversationThreadStatus       @default(OPEN)
+  closedReason        ConversationThreadClosedReason?
+  closedAt            DateTime?                      @db.Timestamptz(3)
+  lastMessageAt       DateTime?                      @db.Timestamptz(3)
+  createdAt           DateTime                       @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime                       @default(now()) @db.Timestamptz(3)
+  season              Season                         @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  participantA        SeasonParticipant              @relation("ConversationThreadParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantB        SeasonParticipant              @relation("ConversationThreadParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+  openedByParticipant SeasonParticipant              @relation("ConversationThreadOpenedBy", fields: [openedByParticipantId], references: [id], onDelete: Cascade)
+  activeMatch         ActiveMatch?                   @relation(fields: [activeMatchId], references: [id], onDelete: SetNull)
+  members             ConversationThreadMember[]
+  messages            ConversationMessage[]
+
+  @@index([seasonId, pairKey, status])
+  @@index([participantAId])
+  @@index([participantBId])
+}
+
+model ConversationThreadMember {
+  threadId       String
+  participantId  String
+  memberState    ConversationThreadMemberState      @default(ACTIVE)
+  leftAt         DateTime?                          @db.Timestamptz(3)
+  mutedAt        DateTime?                          @db.Timestamptz(3)
+  lastReadAt     DateTime?                          @db.Timestamptz(3)
+  lastVisibleAt  DateTime?                          @db.Timestamptz(3)
+  createdAt      DateTime                           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                           @default(now()) @db.Timestamptz(3)
+  thread         ConversationThread                 @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  participant    SeasonParticipant                  @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@id([threadId, participantId])
+}
+
+model ConversationMessage {
+  id                   String                       @id @default(uuid())
+  threadId             String
+  senderParticipantId  String
+  body                 String
+  sentAt               DateTime                     @default(now()) @db.Timestamptz(3)
+  deletedAt            DateTime?                    @db.Timestamptz(3)
+  createdAt            DateTime                     @default(now()) @db.Timestamptz(3)
+  thread               ConversationThread           @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderParticipant    SeasonParticipant            @relation("ConversationMessageSender", fields: [senderParticipantId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, sentAt])
+  @@index([senderParticipantId, sentAt])
 }
 
 model LoginAttempt {

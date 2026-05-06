@@ -17,6 +17,7 @@ import type {
   MatchRequestTerminalReason,
 } from '../generated/prisma/enums.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import { ChatService } from '../chat/chat.service.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
@@ -93,6 +94,7 @@ export class MatchesService {
     private readonly seasonsService: SeasonsService,
     private readonly moderationService: ModerationService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    private readonly chatService: ChatService,
   ) {}
 
   async getCurrentActiveMatch(authUser: AuthenticatedUserContext): Promise<ActiveMatchResponse> {
@@ -423,6 +425,18 @@ export class MatchesService {
           matchedAt: now,
         },
       });
+
+      await this.chatService.handleActiveMatchCreated(
+        tx,
+        {
+          seasonId: request.seasonId,
+          pairKey: pairIdentity.pairKey,
+          participantAId: pairIdentity.pairMinParticipantId,
+          participantBId: pairIdentity.pairMaxParticipantId,
+          activeMatchId: activeMatchRecord.id,
+        },
+        now,
+      );
 
       await tx.matchRequest.updateMany({
         where: {

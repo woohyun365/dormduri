@@ -96,11 +96,16 @@ describe('MatchesService', () => {
     selectCanonicalSelection: jest.fn(),
   };
 
+  const chatService = {
+    handleActiveMatchCreated: jest.fn(),
+  };
+
   const service = new MatchesService(
     prisma as never,
     seasonsService as never,
     moderationService as never,
     seasonParticipantsService as never,
+    chatService as never,
   );
 
   beforeEach(() => {
@@ -149,6 +154,7 @@ describe('MatchesService', () => {
         ),
     );
     prisma.activeMatch.findMany.mockResolvedValue([]);
+    chatService.handleActiveMatchCreated.mockResolvedValue(undefined);
     prisma.matchRequest.findMany.mockResolvedValue([]);
     prisma.matchRequest.updateMany.mockResolvedValue({ count: 0 });
     txQueryRaw.mockResolvedValue([{ id: 'lock-row' }]);
