@@ -4,6 +4,29 @@ import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
 import { apiEnv } from '../../config/env.js';
 
+function isRetryableTransactionConflict(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
+    return true;
+  }
+
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const cause = error.cause as
+    | {
+        kind?: string;
+        originalCode?: string;
+      }
+    | undefined;
+
+  return (
+    cause?.kind === 'TransactionWriteConflict' ||
+    cause?.originalCode === '40001' ||
+    error.message.includes('TransactionWriteConflict')
+  );
+}
+
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
@@ -36,8 +59,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         });
       } catch (error) {
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
-          lastError = error;
+        if (isRetryableTransactionConflict(error)) {
+          lastError =
+            error instanceof Error
+              ? error
+              : new Error('[PrismaService] retryable transaction conflict');
           continue;
         }
 
