@@ -11,9 +11,13 @@ export default defineConfig({
     path: 'prisma/sql',
   },
   migrations: {
+    path: 'prisma/migrations',
     seed: 'pnpm run prisma:seed:run',
   },
   datasource: {
+    // Prisma v7 docs recommend env() for required vars, but also note that direct
+    // process.env access is preferable when the URL may be absent for commands like
+    // generate/type-check flows. We keep a local fallback for this repo's dev UX.
     url: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
   },
 });

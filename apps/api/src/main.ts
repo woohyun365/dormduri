@@ -10,8 +10,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const expressApp = app.getHttpAdapter().getInstance() as Express;
   expressApp.set('trust proxy', true);
-  app.use(cookieParser());
   app.use(helmet());
+  app.use(cookieParser());
+  app.enableShutdownHooks();
   await app.listen(apiEnv.port);
 }
 await bootstrap();
