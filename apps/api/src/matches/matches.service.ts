@@ -30,10 +30,6 @@ import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
   buildCurrentUserCapabilities,
   canCurrentDormitoryMatch,
-  hasParticipantProfile,
-  hasOperatedAssignedDormitory,
-  isParticipantRegistered,
-  isVisibleRegisteredParticipant,
   resolvePublicExposure,
 } from '../season-participants/season-participant-policy.js';
 import {
@@ -41,6 +37,12 @@ import {
   type CurrentSeasonParticipantRecord,
   type ParticipantBackfillSeed,
 } from '../season-participants/season-participants.service.js';
+import {
+  buildCurrentUserCapabilityInput,
+  buildPublicExposureTargetInput,
+  buildPublicExposureViewerInput,
+  toOperatedDormitoryIdSet,
+} from '../season-participants/season-participant-gate-context.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { formatKstDate } from '../seasons/season.utils.js';
 import { matchesErrors } from './matches.errors.js';
@@ -224,63 +226,43 @@ export class MatchesService {
     const requesterActiveMatch = activeMatchMap.get(requesterContext.participant.id) ?? null;
     const targetActiveMatch = activeMatchMap.get(targetParticipant.id) ?? null;
     const seasonContext = requesterContext.seasonContext;
-    const operatedDormitoryIds = new Set(
-      seasonContext.operatedDormitories.map((item) => item.dormitoryId),
+    const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
+    const requesterCurrentDormitoryCanMatch = canCurrentDormitoryMatch(
+      seasonContext,
+      requesterContext.selection.dormitoryId,
+      now,
     );
-    const requesterCapabilities = buildCurrentUserCapabilities({
-      campusOperated: true,
-      seasonState: seasonContext.state,
-      participantRegistered: isParticipantRegistered(requesterContext.participant),
-      participantMatched: requesterActiveMatch !== null,
-      selectionState: requesterContext.selection.dormitorySelectionState,
-      hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
-        operatedDormitoryIds,
-        requesterContext.selection.dormitorySelectionState,
-        requesterContext.selection.dormitoryId,
-      ),
-      nicknameLockedBySeason: false,
-      nicknameCooldownActive: false,
-      hasSelectableDormitories: seasonContext.operatedDormitories.length > 0,
-      currentDormitoryCanMatch: canCurrentDormitoryMatch(
-        seasonContext,
-        requesterContext.selection.dormitoryId,
-        now,
-      ),
-    });
-    const exposure = resolvePublicExposure(
-      {
+    const requesterCapabilities = buildCurrentUserCapabilities(
+      buildCurrentUserCapabilityInput({
         campusOperated: true,
         seasonState: seasonContext.state,
-        registered: isParticipantRegistered(requesterContext.participant),
+        participant: requesterContext.participant,
+        participantMatched: requesterActiveMatch !== null,
+        selection: requesterContext.selection,
+        operatedDormitoryIds,
+        currentDormitoryCanMatch: requesterCurrentDormitoryCanMatch,
+        nicknameLockedBySeason: false,
+        nicknameCooldownActive: false,
+      }),
+    );
+    const exposure = resolvePublicExposure(
+      buildPublicExposureViewerInput({
+        campusOperated: true,
+        seasonState: seasonContext.state,
+        participant: requesterContext.participant,
         matched: requesterActiveMatch !== null,
         matchedPartnerParticipantId: requesterActiveMatch?.counterpartParticipantId ?? null,
-        selectionState: requesterContext.selection.dormitorySelectionState,
-        dormitoryId: requesterContext.selection.dormitoryId,
-        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
-          operatedDormitoryIds,
-          requesterContext.selection.dormitorySelectionState,
-          requesterContext.selection.dormitoryId,
-        ),
-        currentDormitoryCanMatch: canCurrentDormitoryMatch(
-          seasonContext,
-          requesterContext.selection.dormitoryId,
-          now,
-        ),
-      },
-      {
-        participantId: targetParticipant.id,
-        visible: isVisibleRegisteredParticipant(targetParticipant),
-        registered: isParticipantRegistered(targetParticipant),
+        selection: requesterContext.selection,
+        operatedDormitoryIds,
+        currentDormitoryCanMatch: requesterCurrentDormitoryCanMatch,
+      }),
+      buildPublicExposureTargetInput({
+        seasonState: seasonContext.state,
+        operatedDormitoryIds,
+        participant: targetParticipant,
         matched: targetActiveMatch !== null,
-        selectionState: targetSelection.dormitorySelectionState,
-        dormitoryId: targetSelection.dormitoryId,
-        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
-          operatedDormitoryIds,
-          targetSelection.dormitorySelectionState,
-          targetSelection.dormitoryId,
-        ),
-        hasSeasonProfile: hasParticipantProfile(targetParticipant),
-      },
+        selection: targetSelection,
+      }),
     );
 
     if (!requesterCapabilities.canRequestMatch || exposure.exposureLevel !== 'FULL') {

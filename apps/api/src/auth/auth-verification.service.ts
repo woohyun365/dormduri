@@ -23,6 +23,11 @@ import { AuthVerificationStore } from './auth-verification.store.js';
 import { authErrors } from './auth.errors.js';
 import { authFailures } from './auth-failures.js';
 
+const VERIFICATION_CODE_TTL_BY_PURPOSE = {
+  SIGNUP: SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
+  RESET_PASSWORD: RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
+} as const satisfies Record<VerificationCodePurpose, number>;
+
 @Injectable()
 export class AuthVerificationService {
   constructor(
@@ -78,16 +83,7 @@ export class AuthVerificationService {
     userExists: boolean,
     requestIp: string | null,
   ): Promise<GenericSuccessResult> {
-    const startedAt = Date.now();
-    await this.assertCodeRequestAllowed(emailNormalized, 'SIGNUP', requestIp);
-
-    if (!userExists) {
-      await this.issueVerificationCode(emailNormalized, 'SIGNUP', requestIp);
-    }
-
-    await this.recordCodeRequest(emailNormalized, 'SIGNUP', requestIp);
-    await ensureMinDuration(startedAt, CODE_REQUEST_MIN_RESPONSE_MS);
-    return { success: true };
+    return this.maybeSendCode('SIGNUP', emailNormalized, userExists, requestIp);
   }
 
   async maybeSendResetCode(
@@ -95,14 +91,23 @@ export class AuthVerificationService {
     userExists: boolean,
     requestIp: string | null,
   ): Promise<GenericSuccessResult> {
-    const startedAt = Date.now();
-    await this.assertCodeRequestAllowed(emailNormalized, 'RESET_PASSWORD', requestIp);
+    return this.maybeSendCode('RESET_PASSWORD', emailNormalized, userExists, requestIp);
+  }
 
-    if (userExists) {
-      await this.issueVerificationCode(emailNormalized, 'RESET_PASSWORD', requestIp);
+  private async maybeSendCode(
+    purpose: VerificationCodePurpose,
+    emailNormalized: string,
+    userExists: boolean,
+    requestIp: string | null,
+  ): Promise<GenericSuccessResult> {
+    const startedAt = Date.now();
+    await this.assertCodeRequestAllowed(emailNormalized, purpose, requestIp);
+
+    if (this.shouldIssueVerificationCode(purpose, userExists)) {
+      await this.issueVerificationCode(emailNormalized, purpose, requestIp);
     }
 
-    await this.recordCodeRequest(emailNormalized, 'RESET_PASSWORD', requestIp);
+    await this.recordCodeRequest(emailNormalized, purpose, requestIp);
     await ensureMinDuration(startedAt, CODE_REQUEST_MIN_RESPONSE_MS);
     return { success: true };
   }
@@ -135,10 +140,7 @@ export class AuthVerificationService {
     purpose: VerificationCodePurpose,
     requestIp: string | null,
   ): Promise<void> {
-    const ttlSeconds =
-      purpose === 'SIGNUP'
-        ? SIGNUP_VERIFICATION_CODE_TTL_SECONDS
-        : RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS;
+    const ttlSeconds = VERIFICATION_CODE_TTL_BY_PURPOSE[purpose];
     const code = generateVerificationCode();
     const codeHash = hashVerificationCode(
       emailNormalized,
@@ -147,38 +149,76 @@ export class AuthVerificationService {
       apiEnv.verificationCodeHmacSecret,
     );
 
-    if (purpose === 'SIGNUP') {
+    await this.persistVerificationCode({
+      purpose,
+      emailNormalized,
+      codeHash,
+      ttlSeconds,
+      requestIp,
+    });
+
+    await this.sendVerificationEmail({
+      purpose,
+      email: emailNormalized,
+      code,
+      expiresInSeconds: ttlSeconds,
+    });
+  }
+
+  private shouldIssueVerificationCode(
+    purpose: VerificationCodePurpose,
+    userExists: boolean,
+  ): boolean {
+    return purpose === 'SIGNUP' ? !userExists : userExists;
+  }
+
+  private async persistVerificationCode(input: {
+    purpose: VerificationCodePurpose;
+    emailNormalized: string;
+    codeHash: string;
+    ttlSeconds: number;
+    requestIp: string | null;
+  }) {
+    if (input.purpose === 'SIGNUP') {
       await this.verificationStore.replaceActiveSignupCode({
         id: randomUUID(),
-        emailNormalized,
-        codeHash,
-        ttlSeconds,
-        requestIp,
+        emailNormalized: input.emailNormalized,
+        codeHash: input.codeHash,
+        ttlSeconds: input.ttlSeconds,
+        requestIp: input.requestIp,
       });
-    } else {
-      await this.verificationStore.insertVerificationCode({
-        id: randomUUID(),
-        emailNormalized,
-        purpose,
-        codeHash,
-        ttlSeconds,
-        requestIp,
-      });
+      return;
     }
 
-    if (purpose === 'SIGNUP') {
+    await this.verificationStore.insertVerificationCode({
+      id: randomUUID(),
+      emailNormalized: input.emailNormalized,
+      purpose: input.purpose,
+      codeHash: input.codeHash,
+      ttlSeconds: input.ttlSeconds,
+      requestIp: input.requestIp,
+    });
+  }
+
+  private async sendVerificationEmail(input: {
+    purpose: VerificationCodePurpose;
+    email: string;
+    code: string;
+    expiresInSeconds: number;
+  }) {
+    if (input.purpose === 'SIGNUP') {
       await this.emailSender.sendVerificationCode({
-        email: emailNormalized,
-        code,
-        expiresInSeconds: ttlSeconds,
+        email: input.email,
+        code: input.code,
+        expiresInSeconds: input.expiresInSeconds,
       });
       return;
     }
 
     await this.emailSender.sendPasswordResetCode({
-      email: emailNormalized,
-      code,
-      expiresInSeconds: ttlSeconds,
+      email: input.email,
+      code: input.code,
+      expiresInSeconds: input.expiresInSeconds,
     });
   }
 

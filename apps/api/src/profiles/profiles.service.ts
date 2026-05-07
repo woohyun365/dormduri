@@ -11,14 +11,19 @@ import {
   canCurrentDormitoryMatch,
   hasParticipantProfile,
   isParticipantRegistered,
-  isVisibleRegisteredParticipant,
   resolveCurrentUserProfileSource,
-  hasOperatedAssignedDormitory,
+  resolveCurrentUserProfileEditability,
 } from '../season-participants/season-participant-policy.js';
 import {
   SeasonParticipantsService,
   type CurrentSeasonParticipantRecord,
 } from '../season-participants/season-participants.service.js';
+import {
+  buildCurrentUserCapabilityInput,
+  buildPublicExposureTargetInput,
+  buildPublicExposureViewerInput,
+  toOperatedDormitoryIdSet,
+} from '../season-participants/season-participant-gate-context.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveCampusServiceState } from '../users/service-state.js';
 import { UsersService } from '../users/users.service.js';
@@ -209,14 +214,46 @@ export class ProfilesService {
       now,
     );
     const participantRegistered = isParticipantRegistered(currentParticipant);
+    if (
+      participantRegistered &&
+      !hasParticipantProfile(currentParticipant) &&
+      (serviceState.seasonState === 'SEASON_OPEN' ||
+        serviceState.seasonState === 'SEASON_MATCHING' ||
+        serviceState.seasonState === 'SEASON_POST_MATCH')
+    ) {
+      throw new Error(
+        '[ProfilesService] registered participant profile is required during current season',
+      );
+    }
     const currentProfileSource = resolveCurrentUserProfileSource({
       campusOperated: serviceState.campusOperated,
       seasonState: serviceState.seasonState,
       participantRegistered,
       participantProfileExists: hasParticipantProfile(currentParticipant),
     });
+    const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
+      user,
+      currentParticipant,
+    );
+    const profileEdit = resolveCurrentUserProfileEditability(
+      buildCurrentUserCapabilityInput({
+        campusOperated: serviceState.campusOperated,
+        seasonState: serviceState.seasonState,
+        participant: currentParticipant,
+        participantMatched: false,
+        selection: canonicalSelection,
+        operatedDormitoryIds: toOperatedDormitoryIdSet(serviceState.seasonContext),
+        currentDormitoryCanMatch: canCurrentDormitoryMatch(
+          serviceState.seasonContext,
+          canonicalSelection.dormitoryId,
+          now,
+        ),
+        nicknameLockedBySeason: currentProfileSource === 'SEASON_PARTICIPANT_PROFILE',
+        nicknameCooldownActive: false,
+      }),
+    );
 
-    if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE') {
+    if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE' || !profileEdit.lifestyle) {
       throw profilesErrors.profileEditLocked();
     }
 
@@ -254,14 +291,46 @@ export class ProfilesService {
       now,
     );
     const participantRegistered = isParticipantRegistered(currentParticipant);
+    if (
+      participantRegistered &&
+      !hasParticipantProfile(currentParticipant) &&
+      (serviceState.seasonState === 'SEASON_OPEN' ||
+        serviceState.seasonState === 'SEASON_MATCHING' ||
+        serviceState.seasonState === 'SEASON_POST_MATCH')
+    ) {
+      throw new Error(
+        '[ProfilesService] registered participant profile is required during current season',
+      );
+    }
     const currentProfileSource = resolveCurrentUserProfileSource({
       campusOperated: serviceState.campusOperated,
       seasonState: serviceState.seasonState,
       participantRegistered,
       participantProfileExists: hasParticipantProfile(currentParticipant),
     });
+    const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
+      user,
+      currentParticipant,
+    );
+    const profileEdit = resolveCurrentUserProfileEditability(
+      buildCurrentUserCapabilityInput({
+        campusOperated: serviceState.campusOperated,
+        seasonState: serviceState.seasonState,
+        participant: currentParticipant,
+        participantMatched: false,
+        selection: canonicalSelection,
+        operatedDormitoryIds: toOperatedDormitoryIdSet(serviceState.seasonContext),
+        currentDormitoryCanMatch: canCurrentDormitoryMatch(
+          serviceState.seasonContext,
+          canonicalSelection.dormitoryId,
+          now,
+        ),
+        nicknameLockedBySeason: currentProfileSource === 'SEASON_PARTICIPANT_PROFILE',
+        nicknameCooldownActive: hasNicknameCooldown(user.profile.nicknameChangedAt, now),
+      }),
+    );
 
-    if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE') {
+    if (currentProfileSource === 'SEASON_PARTICIPANT_PROFILE' || !profileEdit.nickname) {
       throw profilesErrors.nicknameEditLocked();
     }
 
@@ -326,38 +395,23 @@ export class ProfilesService {
       ? (activeMatchMap.get(targetParticipant.id) ?? null)
       : null;
     const exposure = resolveProfileExposure({
-      viewer: {
+      viewer: buildPublicExposureViewerInput({
         campusOperated,
         seasonState,
-        registered: isParticipantRegistered(viewerParticipant),
+        participant: viewerParticipant,
         matched: viewerActiveMatch !== null,
         matchedPartnerParticipantId: viewerActiveMatch?.counterpartParticipantId ?? null,
-        selectionState: viewerSelection.dormitorySelectionState,
-        dormitoryId: viewerSelection.dormitoryId,
-        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
-          operatedDormitoryIds,
-          viewerSelection.dormitorySelectionState,
-          viewerSelection.dormitoryId,
-        ),
+        selection: viewerSelection,
+        operatedDormitoryIds,
         currentDormitoryCanMatch,
-      },
-      target: {
-        participantId: targetParticipant?.id ?? null,
-        visible:
-          seasonState === 'OFF_SEASON' || seasonState === null
-            ? true
-            : isVisibleRegisteredParticipant(targetParticipant),
-        registered: isParticipantRegistered(targetParticipant),
+      }),
+      target: buildPublicExposureTargetInput({
+        seasonState,
+        operatedDormitoryIds,
+        participant: targetParticipant,
         matched: targetActiveMatch !== null,
-        selectionState: targetSelection.dormitorySelectionState,
-        dormitoryId: targetSelection.dormitoryId,
-        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
-          operatedDormitoryIds,
-          targetSelection.dormitorySelectionState,
-          targetSelection.dormitoryId,
-        ),
-        hasSeasonProfile: hasParticipantProfile(targetParticipant),
-      },
+        selection: targetSelection,
+      }),
     });
 
     if (!exposure) {

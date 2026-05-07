@@ -156,7 +156,9 @@ export function resolveCurrentUserProfileSource(input: {
   if (
     input.participantRegistered &&
     input.participantProfileExists &&
-    (input.seasonState === 'SEASON_OPEN' || input.seasonState === 'SEASON_MATCHING')
+    (input.seasonState === 'SEASON_OPEN' ||
+      input.seasonState === 'SEASON_MATCHING' ||
+      input.seasonState === 'SEASON_POST_MATCH')
   ) {
     return 'SEASON_PARTICIPANT_PROFILE';
   }
@@ -181,11 +183,11 @@ export function resolveCurrentUserProfileEditability(
 
   if (input.seasonState === 'SEASON_POST_MATCH') {
     return {
-      intro: true,
-      messageToRoommate: true,
-      additional: true,
-      lifestyle: true,
-      nickname: nicknameEditable,
+      intro: false,
+      messageToRoommate: false,
+      additional: false,
+      lifestyle: false,
+      nickname: false,
     };
   }
 

@@ -17,10 +17,6 @@ import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
   buildCurrentUserCapabilities,
   canCurrentDormitoryMatch,
-  hasParticipantProfile,
-  hasOperatedAssignedDormitory,
-  isParticipantRegistered,
-  isVisibleRegisteredParticipant,
   resolvePublicExposure,
 } from '../season-participants/season-participant-policy.js';
 import {
@@ -28,6 +24,12 @@ import {
   type CurrentSeasonParticipantRecord,
   type ParticipantBackfillSeed,
 } from '../season-participants/season-participants.service.js';
+import {
+  buildCurrentUserCapabilityInput,
+  buildPublicExposureTargetInput,
+  buildPublicExposureViewerInput,
+  toOperatedDormitoryIdSet,
+} from '../season-participants/season-participant-gate-context.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import {
   formatKstDate,
@@ -632,63 +634,43 @@ export class ChatService {
         ? viewerPairActiveMatch.participantBId
         : viewerPairActiveMatch.participantAId
       : null;
-    const operatedDormitoryIds = new Set(
-      seasonContext.operatedDormitories.map((item) => item.dormitoryId),
+    const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
+    const viewerCurrentDormitoryCanMatch = canCurrentDormitoryMatch(
+      seasonContext,
+      viewerContext.selection.dormitoryId,
+      now,
     );
-    const canStartChat = buildCurrentUserCapabilities({
-      campusOperated: true,
-      seasonState: seasonContext.state,
-      participantRegistered: isParticipantRegistered(viewerParticipant),
-      participantMatched: viewerPairActiveMatch !== null,
-      selectionState: viewerContext.selection.dormitorySelectionState,
-      hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
-        operatedDormitoryIds,
-        viewerContext.selection.dormitorySelectionState,
-        viewerContext.selection.dormitoryId,
-      ),
-      nicknameLockedBySeason: false,
-      nicknameCooldownActive: false,
-      hasSelectableDormitories: seasonContext.operatedDormitories.length > 0,
-      currentDormitoryCanMatch: canCurrentDormitoryMatch(
-        seasonContext,
-        viewerContext.selection.dormitoryId,
-        now,
-      ),
-    }).canStartChat;
-    const exposure = resolvePublicExposure(
-      {
+    const canStartChat = buildCurrentUserCapabilities(
+      buildCurrentUserCapabilityInput({
         campusOperated: true,
         seasonState: seasonContext.state,
-        registered: isParticipantRegistered(viewerParticipant),
+        participant: viewerParticipant,
+        participantMatched: viewerPairActiveMatch !== null,
+        selection: viewerContext.selection,
+        operatedDormitoryIds,
+        currentDormitoryCanMatch: viewerCurrentDormitoryCanMatch,
+        nicknameLockedBySeason: false,
+        nicknameCooldownActive: false,
+      }),
+    ).canStartChat;
+    const exposure = resolvePublicExposure(
+      buildPublicExposureViewerInput({
+        campusOperated: true,
+        seasonState: seasonContext.state,
+        participant: viewerParticipant,
         matched: viewerPairActiveMatch !== null,
         matchedPartnerParticipantId,
-        selectionState: viewerContext.selection.dormitorySelectionState,
-        dormitoryId: viewerContext.selection.dormitoryId,
-        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
-          operatedDormitoryIds,
-          viewerContext.selection.dormitorySelectionState,
-          viewerContext.selection.dormitoryId,
-        ),
-        currentDormitoryCanMatch: canCurrentDormitoryMatch(
-          seasonContext,
-          viewerContext.selection.dormitoryId,
-          now,
-        ),
-      },
-      {
-        participantId: targetParticipant.id,
-        visible: isVisibleRegisteredParticipant(targetParticipant),
-        registered: isParticipantRegistered(targetParticipant),
+        selection: viewerContext.selection,
+        operatedDormitoryIds,
+        currentDormitoryCanMatch: viewerCurrentDormitoryCanMatch,
+      }),
+      buildPublicExposureTargetInput({
+        seasonState: seasonContext.state,
+        operatedDormitoryIds,
+        participant: targetParticipant,
         matched: targetPairActiveMatch !== null,
-        selectionState: targetSelection.dormitorySelectionState,
-        dormitoryId: targetSelection.dormitoryId,
-        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
-          operatedDormitoryIds,
-          targetSelection.dormitorySelectionState,
-          targetSelection.dormitoryId,
-        ),
-        hasSeasonProfile: hasParticipantProfile(targetParticipant),
-      },
+        selection: targetSelection,
+      }),
     );
 
     return canStartChat && exposure.exposureLevel === 'FULL';
