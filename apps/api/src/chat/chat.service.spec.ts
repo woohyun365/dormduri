@@ -584,6 +584,40 @@ describe('ChatService', () => {
     });
   });
 
+  it('UNMATCHED가 되면 matched thread는 direct thread로 내려가고 roomSelectionDate 전이면 OPEN을 유지한다', async () => {
+    txConversationThreadFindFirst.mockResolvedValue(
+      makeVisibleThread({ threadKind: 'MATCHED', status: 'OPEN' }),
+    );
+
+    await service.handleActiveMatchUnmatched(
+      {
+        conversationThread: {
+          findFirst: txConversationThreadFindFirst,
+          update: txConversationThreadUpdate,
+        },
+      } as never,
+      { activeMatchId: 'active-1' },
+      new Date('2026-02-10T03:00:00.000Z'),
+    );
+
+    const [threadUpdateCall] = txConversationThreadUpdate.mock.calls as Array<
+      [{ data: Record<string, unknown> }]
+    >;
+    expect(threadUpdateCall).toBeDefined();
+    if (!threadUpdateCall) {
+      throw new Error('Expected thread downgrade update call');
+    }
+    expect(threadUpdateCall[0]).toMatchObject({
+      data: {
+        threadKind: 'DIRECT',
+        activeMatchId: null,
+        status: 'OPEN',
+        closedReason: null,
+        closedAt: null,
+      },
+    });
+  });
+
   it('비매칭 thread는 roomSelectionDate 이후 read-only가 된다', async () => {
     prisma.conversationThread.findFirst.mockResolvedValue(
       makeThread({

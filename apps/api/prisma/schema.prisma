@@ -126,6 +126,13 @@ enum ActiveMatchEndReason {
   WITHDRAWN_PARTICIPANT
 }
 
+enum ActiveMatchUnmatchRequestStatus {
+  PENDING
+  CANCELLED_BY_REQUESTER
+  EXPIRED_BY_CUTOFF
+  FULFILLED_BY_MUTUAL_CONSENT
+}
+
 
 enum ConversationThreadKind {
   DIRECT
@@ -335,7 +342,7 @@ model SeasonParticipant {
   receivedMatchRequests   MatchRequest[]               @relation("MatchRequestReceiver")
   activeMatchesAsA        ActiveMatch[]                @relation("ActiveMatchParticipantA")
   activeMatchesAsB        ActiveMatch[]                @relation("ActiveMatchParticipantB")
-  cancelRequestedMatches  ActiveMatch[]                @relation("ActiveMatchCancelRequester")
+  activeMatchUnmatchRequests ActiveMatchUnmatchRequest[]
   openedThreads           ConversationThread[]         @relation("ConversationThreadOpenedBy")
   threadsAsA              ConversationThread[]         @relation("ConversationThreadParticipantA")
   threadsAsB              ConversationThread[]         @relation("ConversationThreadParticipantB")
@@ -397,31 +404,45 @@ model MatchRequest {
 }
 
 model ActiveMatch {
-  id                             String                @id @default(uuid())
-  seasonId                       String
-  pairKey                        String
-  participantAId                 String
-  participantBId                 String
-  createdFromRequestId           String                @unique
-  status                         ActiveMatchStatus     @default(ACTIVE)
-  startedAt                      DateTime              @default(now()) @db.Timestamptz(3)
-  endedAt                        DateTime?             @db.Timestamptz(3)
-  endReason                      ActiveMatchEndReason?
-  cancelRequestedByParticipantId String?
-  cancelRequestedAt              DateTime?             @db.Timestamptz(3)
-  createdAt                      DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt                      DateTime              @default(now()) @db.Timestamptz(3)
-  season                         Season                @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  participantA                   SeasonParticipant     @relation("ActiveMatchParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
-  participantB                   SeasonParticipant     @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
-  createdFromRequest             MatchRequest          @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
-  cancelRequestedByParticipant   SeasonParticipant?    @relation("ActiveMatchCancelRequester", fields: [cancelRequestedByParticipantId], references: [id], onDelete: SetNull)
-  conversationThread             ConversationThread?
+  id                   String                      @id @default(uuid())
+  seasonId             String
+  pairKey              String
+  participantAId       String
+  participantBId       String
+  createdFromRequestId String                      @unique
+  status               ActiveMatchStatus           @default(ACTIVE)
+  startedAt            DateTime                    @default(now()) @db.Timestamptz(3)
+  endedAt              DateTime?                   @db.Timestamptz(3)
+  endReason            ActiveMatchEndReason?
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                    @default(now()) @db.Timestamptz(3)
+  season               Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  participantA         SeasonParticipant           @relation("ActiveMatchParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantB         SeasonParticipant           @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+  createdFromRequest   MatchRequest                @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
+  unmatchRequests      ActiveMatchUnmatchRequest[]
+  conversationThread   ConversationThread?
 
   @@index([seasonId, pairKey, endedAt])
   @@index([participantAId, endedAt])
   @@index([participantBId, endedAt])
   @@index([seasonId, status, endedAt])
+}
+
+model ActiveMatchUnmatchRequest {
+  id            String                         @id @default(uuid())
+  activeMatchId String
+  participantId String
+  status        ActiveMatchUnmatchRequestStatus @default(PENDING)
+  requestedAt   DateTime                       @default(now()) @db.Timestamptz(3)
+  terminalAt    DateTime?                      @db.Timestamptz(3)
+  createdAt     DateTime                       @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime                       @default(now()) @db.Timestamptz(3)
+  activeMatch   ActiveMatch                    @relation(fields: [activeMatchId], references: [id], onDelete: Cascade)
+  participant   SeasonParticipant              @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([activeMatchId, status, requestedAt])
+  @@index([participantId, status, requestedAt])
 }
 
 

@@ -283,9 +283,10 @@ export class UsersService {
     const participantRegistered = isParticipantRegistered(currentParticipant);
     const activeMatch =
       currentParticipant && serviceState.seasonContext
-        ? await this.matchesService.getCurrentActiveMatchByParticipantId(
-            serviceState.seasonContext.season.id,
+        ? await this.matchesService.getCurrentActiveMatchSummaryForParticipant(
+            serviceState.seasonContext,
             currentParticipant.id,
+            now,
           )
         : null;
     const participantMatched = activeMatch !== null || isParticipantMatched(currentParticipant);

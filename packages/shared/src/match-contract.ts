@@ -41,6 +41,24 @@ export const activeMatchEndReasonSchema = z.enum([
   'WITHDRAWN_PARTICIPANT',
 ]);
 
+export const activeMatchUnmatchProgressStateSchema = z.enum([
+  'NONE',
+  'WAITING_FOR_COUNTERPART',
+  'WAITING_FOR_ME',
+  'COMPLETED',
+]);
+
+export const activeMatchUnmatchProgressSchema = z.strictObject({
+  state: activeMatchUnmatchProgressStateSchema,
+  requestedByViewerAt: isoDateTimeStringSchema.nullable(),
+  requestedByCounterpartAt: isoDateTimeStringSchema.nullable(),
+  progressCount: z.number().int().min(0).max(2),
+  requiredCount: z.literal(2),
+  canRequest: z.boolean(),
+  canCancel: z.boolean(),
+  availableUntil: isoDateTimeStringSchema.nullable(),
+});
+
 export const requestDirectionSchema = z.enum(['SENT', 'RECEIVED']);
 
 export const createMatchRequestSchema = z.strictObject({
@@ -79,10 +97,15 @@ export const activeMatchSummarySchema = z.strictObject({
   endedAt: isoDateTimeStringSchema.nullable(),
   endReason: activeMatchEndReasonSchema.nullable(),
   createdFromRequestId: z.string(),
+  unmatchProgress: activeMatchUnmatchProgressSchema,
 });
 
 export const activeMatchResponseSchema = z.strictObject({
   activeMatch: activeMatchSummarySchema.nullable(),
+});
+
+export const activeMatchActionResponseSchema = z.strictObject({
+  activeMatch: activeMatchSummarySchema,
 });
 
 export const matchRequestActionResponseSchema = z.strictObject({
@@ -95,10 +118,13 @@ export type MatchRequestStatus = z.infer<typeof matchRequestStatusSchema>;
 export type MatchRequestTerminalReason = z.infer<typeof matchRequestTerminalReasonSchema>;
 export type ActiveMatchStatus = z.infer<typeof activeMatchStatusSchema>;
 export type ActiveMatchEndReason = z.infer<typeof activeMatchEndReasonSchema>;
+export type ActiveMatchUnmatchProgressState = z.infer<typeof activeMatchUnmatchProgressStateSchema>;
+export type ActiveMatchUnmatchProgress = z.infer<typeof activeMatchUnmatchProgressSchema>;
 export type RequestDirection = z.infer<typeof requestDirectionSchema>;
 export type CreateMatchRequestRequest = z.infer<typeof createMatchRequestSchema>;
 export type MatchRequestSummary = z.infer<typeof matchRequestSummarySchema>;
 export type MatchRequestListResponse = z.infer<typeof matchRequestListResponseSchema>;
 export type ActiveMatchSummary = z.infer<typeof activeMatchSummarySchema>;
 export type ActiveMatchResponse = z.infer<typeof activeMatchResponseSchema>;
+export type ActiveMatchActionResponse = z.infer<typeof activeMatchActionResponseSchema>;
 export type MatchRequestActionResponse = z.infer<typeof matchRequestActionResponseSchema>;

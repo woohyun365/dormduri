@@ -53,4 +53,20 @@ export class MatchesController {
   async getActiveMatch(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
     return this.matchesService.getCurrentActiveMatch(authUser);
   }
+
+  @Post('active/:id/unmatch-request')
+  async requestUnmatch(
+    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @Param('id') activeMatchId: string,
+  ) {
+    return this.matchesService.requestUnmatch(authUser, activeMatchId);
+  }
+
+  @Post('active/:id/unmatch-request/cancel')
+  async cancelUnmatchRequest(
+    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @Param('id') activeMatchId: string,
+  ) {
+    return this.matchesService.cancelUnmatchRequest(authUser, activeMatchId);
+  }
 }

@@ -132,6 +132,7 @@ describe('UsersService', () => {
 
   const matchesService = {
     getCurrentActiveMatchByParticipantId: jest.fn(),
+    getCurrentActiveMatchSummaryForParticipant: jest.fn(),
   };
 
   const service = new UsersService(
@@ -165,6 +166,7 @@ describe('UsersService', () => {
     txSeasonParticipantProfileUpdate.mockResolvedValue(undefined);
     seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(null);
     matchesService.getCurrentActiveMatchByParticipantId.mockResolvedValue(null);
+    matchesService.getCurrentActiveMatchSummaryForParticipant.mockResolvedValue(null);
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
         user: Pick<UserWithProfileRecord, 'dormitoryId' | 'dormitorySelectionState'>,
@@ -637,7 +639,7 @@ describe('UsersService', () => {
         },
       }),
     );
-    matchesService.getCurrentActiveMatchByParticipantId.mockResolvedValue({
+    matchesService.getCurrentActiveMatchSummaryForParticipant.mockResolvedValue({
       id: 'active-1',
       seasonId: 'season-1',
       counterpartUserId: 'user-2',
@@ -647,6 +649,16 @@ describe('UsersService', () => {
       endedAt: null,
       endReason: null,
       createdFromRequestId: 'request-1',
+      unmatchProgress: {
+        state: 'WAITING_FOR_COUNTERPART',
+        requestedByViewerAt: new Date('2026-02-10T03:01:00.000Z').toISOString(),
+        requestedByCounterpartAt: null,
+        progressCount: 1,
+        requiredCount: 2,
+        canRequest: false,
+        canCancel: true,
+        availableUntil: new Date('2026-02-11T14:59:59.000Z').toISOString(),
+      },
     });
 
     const result = await service.getCurrentUser({
@@ -671,5 +683,10 @@ describe('UsersService', () => {
     expect(result.match.hasActiveMatch).toBe(true);
     expect(result.match.activeMatch?.id).toBe('active-1');
     expect(result.match.activeMatch?.counterpartUserId).toBe('user-2');
+    expect(result.match.activeMatch?.unmatchProgress).toMatchObject({
+      state: 'WAITING_FOR_COUNTERPART',
+      progressCount: 1,
+      canCancel: true,
+    });
   });
 });

@@ -476,6 +476,45 @@ export class ChatService {
     });
   }
 
+  async handleActiveMatchUnmatched(
+    tx: Prisma.TransactionClient,
+    input: {
+      activeMatchId: string;
+    },
+    now: Date,
+  ) {
+    const matchedThread = await tx.conversationThread.findFirst({
+      where: {
+        activeMatchId: input.activeMatchId,
+        status: { in: ['OPEN', 'READ_ONLY'] },
+      },
+      select: threadSelect,
+    });
+
+    if (!matchedThread) {
+      return;
+    }
+
+    const roomSelectionDate = this.findThreadRoomSelectionDate(matchedThread);
+    const shouldRemainOpen = roomSelectionDate ? formatKstDate(now) <= roomSelectionDate : false;
+    const nextStatus =
+      matchedThread.status === 'READ_ONLY' ? 'READ_ONLY' : shouldRemainOpen ? 'OPEN' : 'READ_ONLY';
+    const nextClosedReason =
+      nextStatus === 'OPEN' ? null : (matchedThread.closedReason ?? 'ROOM_SELECTION_CUTOFF');
+    const nextClosedAt = nextStatus === 'OPEN' ? null : (matchedThread.closedAt ?? now);
+
+    await tx.conversationThread.update({
+      where: { id: matchedThread.id },
+      data: {
+        threadKind: 'DIRECT',
+        activeMatchId: null,
+        status: nextStatus,
+        closedReason: nextClosedReason,
+        closedAt: nextClosedAt,
+      },
+    });
+  }
+
   private async getCurrentChatContext(userId: string, now: Date) {
     const user = await this.getUserSeed(userId);
     if (!user) {

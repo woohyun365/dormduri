@@ -1,16 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import type {
+  ActiveMatchActionResponse,
   ActiveMatchResponse,
   ActiveMatchSummary,
+  ActiveMatchUnmatchProgress,
   CreateMatchRequestRequest,
   MatchRequestActionResponse,
   MatchRequestListResponse,
   MatchRequestSummary,
 } from '@repo/shared/match-contract';
 import { Prisma } from '../generated/prisma/client.js';
-import { acquireTransactionAdvisoryLock, lockMatchRequestRow } from '../generated/prisma/sql.js';
+import {
+  acquireTransactionAdvisoryLock,
+  lockActiveMatchRow,
+  lockMatchRequestRow,
+} from '../generated/prisma/sql.js';
 import type {
   ActiveMatchStatus,
+  ActiveMatchUnmatchRequestStatus,
   DormitorySelectionState,
   MatchRequestChannel,
   MatchRequestStatus,
@@ -85,6 +92,32 @@ interface ActiveMatchRecord {
   createdFromRequestId: string;
   participantA: { userId: string };
   participantB: { userId: string };
+  unmatchRequests?: Array<{
+    participantId: string;
+    status: ActiveMatchUnmatchRequestStatus;
+    requestedAt: Date;
+    terminalAt: Date | null;
+  }>;
+}
+
+interface ActiveMatchCommandRecord extends ActiveMatchRecord {
+  participantA: {
+    userId: string;
+    dormitoryId: string | null;
+    dormitorySelectionState: DormitorySelectionState;
+  };
+  participantB: {
+    userId: string;
+    dormitoryId: string | null;
+    dormitorySelectionState: DormitorySelectionState;
+  };
+  unmatchRequests: Array<{
+    id: string;
+    participantId: string;
+    status: ActiveMatchUnmatchRequestStatus;
+    requestedAt: Date;
+    terminalAt: Date | null;
+  }>;
 }
 
 @Injectable()
@@ -105,12 +138,13 @@ export class MatchesService {
       return { activeMatch: null };
     }
 
-    const activeMatch = await this.getCurrentActiveMatchByParticipantId(
-      context.seasonContext.season.id,
-      context.participant.id,
-    );
-
-    return { activeMatch };
+    return {
+      activeMatch: await this.getCurrentActiveMatchSummaryForParticipant(
+        context.seasonContext,
+        context.participant.id,
+        now,
+      ),
+    };
   }
 
   async listCurrentSeasonRequests(
@@ -470,10 +504,17 @@ export class MatchesService {
         acceptedAt: now,
         terminalAt: now,
       };
+      const activeMatchSummary = await this.getDetailedActiveMatchSummaryForViewer(
+        tx,
+        activeMatchRecord.id,
+        receiverContext.participant!.id,
+        receiverContext.seasonContext!,
+        now,
+      );
 
       return {
         request: this.toMatchRequestSummary(acceptedRequest, receiverContext.participant!.id),
-        activeMatch: this.toActiveMatchSummary(activeMatchRecord, receiverContext.participant!.id),
+        activeMatch: activeMatchSummary,
       };
     });
   }
@@ -497,6 +538,239 @@ export class MatchesService {
     );
   }
 
+  async requestUnmatch(
+    authUser: AuthenticatedUserContext,
+    activeMatchId: string,
+  ): Promise<ActiveMatchActionResponse> {
+    const now = await this.prisma.getDatabaseNow();
+    const currentContext = await this.getCurrentMatchContext(authUser.id, now);
+
+    if (!currentContext?.seasonContext || !currentContext.participant) {
+      throw matchesErrors.unmatchRequestNotAllowed();
+    }
+
+    return this.prisma.runSerializableTransaction(async (tx) => {
+      await this.acquireActiveMatchLock(tx, activeMatchId);
+      await this.lockActiveMatchRow(tx, activeMatchId);
+
+      const activeMatch = await tx.activeMatch.findUnique({
+        where: { id: activeMatchId },
+        select: this.activeMatchCommandSelect(),
+      });
+
+      if (!activeMatch) {
+        throw matchesErrors.activeMatchNotFound();
+      }
+
+      const synchronizedActiveMatch = await this.synchronizePendingUnmatchRequests(
+        activeMatch,
+        currentContext.seasonContext!,
+        now,
+        tx,
+      );
+
+      this.assertCurrentSeasonActiveMatch(
+        synchronizedActiveMatch,
+        currentContext.seasonContext!.season.id,
+      );
+      this.assertUnmatchActorAllowed(synchronizedActiveMatch, currentContext.participant!.id, () =>
+        matchesErrors.unmatchRequestNotAllowed(),
+      );
+      this.assertUnmatchWindowOpen(synchronizedActiveMatch, currentContext.seasonContext!, now);
+
+      const existingPendingRequest = synchronizedActiveMatch.unmatchRequests?.find(
+        (request) =>
+          request.participantId === currentContext.participant!.id && request.status === 'PENDING',
+      );
+      if (existingPendingRequest) {
+        throw matchesErrors.unmatchRequestAlreadySubmitted();
+      }
+
+      try {
+        await tx.activeMatchUnmatchRequest.create({
+          data: {
+            activeMatchId: synchronizedActiveMatch.id,
+            participantId: currentContext.participant!.id,
+            status: 'PENDING',
+            requestedAt: now,
+          },
+        });
+      } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw matchesErrors.unmatchRequestAlreadySubmitted();
+        }
+        throw error;
+      }
+
+      const pendingUnmatchRequests = await tx.activeMatchUnmatchRequest.findMany({
+        where: {
+          activeMatchId: synchronizedActiveMatch.id,
+          status: 'PENDING',
+        },
+        select: {
+          id: true,
+          participantId: true,
+          requestedAt: true,
+          terminalAt: true,
+          status: true,
+        },
+      });
+
+      if (pendingUnmatchRequests.length < 2) {
+        const refreshedActiveMatch = await tx.activeMatch.findUnique({
+          where: { id: synchronizedActiveMatch.id },
+          select: this.activeMatchCommandSelect(),
+        });
+
+        if (!refreshedActiveMatch) {
+          throw matchesErrors.activeMatchNotFound();
+        }
+
+        return {
+          activeMatch: this.toDetailedActiveMatchSummary(
+            refreshedActiveMatch,
+            currentContext.participant!.id,
+            currentContext.seasonContext!,
+            now,
+          ),
+        };
+      }
+
+      await tx.activeMatchUnmatchRequest.updateMany({
+        where: {
+          activeMatchId: synchronizedActiveMatch.id,
+          status: 'PENDING',
+        },
+        data: {
+          status: 'FULFILLED_BY_MUTUAL_CONSENT',
+          terminalAt: now,
+        },
+      });
+
+      await tx.seasonParticipant.updateMany({
+        where: {
+          id: {
+            in: [synchronizedActiveMatch.participantAId, synchronizedActiveMatch.participantBId],
+          },
+        },
+        data: {
+          participantStatus: 'ACTIVE',
+          matchedAt: null,
+        },
+      });
+
+      await this.chatService.handleActiveMatchUnmatched(
+        tx,
+        { activeMatchId: synchronizedActiveMatch.id },
+        now,
+      );
+
+      const endedActiveMatch = await tx.activeMatch.update({
+        where: { id: synchronizedActiveMatch.id },
+        data: {
+          status: 'UNMATCHED',
+          endedAt: now,
+          endReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
+        },
+        select: this.activeMatchCommandSelect(),
+      });
+
+      return {
+        activeMatch: this.toDetailedActiveMatchSummary(
+          endedActiveMatch,
+          currentContext.participant!.id,
+          currentContext.seasonContext!,
+          now,
+        ),
+      };
+    });
+  }
+
+  async cancelUnmatchRequest(
+    authUser: AuthenticatedUserContext,
+    activeMatchId: string,
+  ): Promise<ActiveMatchActionResponse> {
+    const now = await this.prisma.getDatabaseNow();
+    const currentContext = await this.getCurrentMatchContext(authUser.id, now);
+
+    if (!currentContext?.seasonContext || !currentContext.participant) {
+      throw matchesErrors.unmatchRequestCancelNotAllowed();
+    }
+
+    return this.prisma.runSerializableTransaction(async (tx) => {
+      await this.acquireActiveMatchLock(tx, activeMatchId);
+      await this.lockActiveMatchRow(tx, activeMatchId);
+
+      const activeMatch = await tx.activeMatch.findUnique({
+        where: { id: activeMatchId },
+        select: this.activeMatchCommandSelect(),
+      });
+
+      if (!activeMatch) {
+        throw matchesErrors.activeMatchNotFound();
+      }
+
+      const synchronizedActiveMatch = await this.synchronizePendingUnmatchRequests(
+        activeMatch,
+        currentContext.seasonContext!,
+        now,
+        tx,
+      );
+
+      this.assertCurrentSeasonActiveMatch(
+        synchronizedActiveMatch,
+        currentContext.seasonContext!.season.id,
+      );
+      this.assertUnmatchWindowOpen(synchronizedActiveMatch, currentContext.seasonContext!, now);
+
+      const [viewerPendingRequest] = await tx.activeMatchUnmatchRequest.findMany({
+        where: {
+          activeMatchId: synchronizedActiveMatch.id,
+          participantId: currentContext.participant!.id,
+          status: 'PENDING',
+        },
+        orderBy: [{ requestedAt: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          id: true,
+          participantId: true,
+          status: true,
+          requestedAt: true,
+          terminalAt: true,
+        },
+      });
+
+      if (!viewerPendingRequest) {
+        throw matchesErrors.unmatchRequestCancelNotAllowed();
+      }
+
+      await tx.activeMatchUnmatchRequest.update({
+        where: { id: viewerPendingRequest.id },
+        data: {
+          status: 'CANCELLED_BY_REQUESTER',
+          terminalAt: now,
+        },
+      });
+
+      const refreshedActiveMatch = await tx.activeMatch.findUnique({
+        where: { id: synchronizedActiveMatch.id },
+        select: this.activeMatchCommandSelect(),
+      });
+
+      if (!refreshedActiveMatch) {
+        throw matchesErrors.activeMatchNotFound();
+      }
+
+      return {
+        activeMatch: this.toDetailedActiveMatchSummary(
+          refreshedActiveMatch,
+          currentContext.participant!.id,
+          currentContext.seasonContext!,
+          now,
+        ),
+      };
+    });
+  }
+
   async getCurrentActiveMatchByParticipantId(
     seasonId: string,
     participantId: string,
@@ -505,6 +779,74 @@ export class MatchesService {
       participantId,
     ]);
     return activeMatchMap.get(participantId) ?? null;
+  }
+
+  async getCurrentActiveMatchSummaryForParticipant(
+    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+    participantId: string,
+    now: Date,
+  ): Promise<ActiveMatchSummary | null> {
+    const activeMatch = await this.getCurrentDetailedActiveMatchByParticipantId(
+      seasonContext.season.id,
+      participantId,
+    );
+    if (!activeMatch) return null;
+    const synchronizedActiveMatch = await this.synchronizePendingUnmatchRequests(
+      activeMatch,
+      seasonContext,
+      now,
+    );
+    return this.toDetailedActiveMatchSummary(
+      synchronizedActiveMatch,
+      participantId,
+      seasonContext,
+      now,
+    );
+  }
+
+  private async getCurrentDetailedActiveMatchByParticipantId(
+    seasonId: string,
+    participantId: string,
+  ): Promise<ActiveMatchCommandRecord | null> {
+    return this.prisma.activeMatch.findFirst({
+      where: {
+        seasonId,
+        endedAt: null,
+        OR: [{ participantAId: participantId }, { participantBId: participantId }],
+      },
+      select: this.activeMatchCommandSelect(),
+    });
+  }
+
+  private async getDetailedActiveMatchSummaryForViewer(
+    client: PrismaService | Prisma.TransactionClient,
+    activeMatchId: string,
+    viewerParticipantId: string,
+    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+    now: Date,
+  ): Promise<ActiveMatchSummary> {
+    const activeMatch = await client.activeMatch.findUnique({
+      where: { id: activeMatchId },
+      select: this.activeMatchCommandSelect(),
+    });
+
+    if (!activeMatch) {
+      throw matchesErrors.activeMatchNotFound();
+    }
+
+    const synchronizedActiveMatch = await this.synchronizePendingUnmatchRequests(
+      activeMatch,
+      seasonContext,
+      now,
+      client === this.prisma ? undefined : client,
+    );
+
+    return this.toDetailedActiveMatchSummary(
+      synchronizedActiveMatch,
+      viewerParticipantId,
+      seasonContext,
+      now,
+    );
   }
 
   async getLiveActiveMatchMapForParticipantIds(
@@ -638,7 +980,7 @@ export class MatchesService {
     } as const;
   }
 
-  private activeMatchSummarySelect() {
+  private activeMatchSummarySelect(): Prisma.ActiveMatchSelect {
     return {
       id: true,
       seasonId: true,
@@ -659,7 +1001,55 @@ export class MatchesService {
           userId: true,
         },
       },
-    } as const;
+      unmatchRequests: {
+        orderBy: [{ requestedAt: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          participantId: true,
+          status: true,
+          requestedAt: true,
+          terminalAt: true,
+        },
+      },
+    };
+  }
+
+  private activeMatchCommandSelect(): Prisma.ActiveMatchSelect {
+    return {
+      id: true,
+      seasonId: true,
+      participantAId: true,
+      participantBId: true,
+      status: true,
+      startedAt: true,
+      endedAt: true,
+      endReason: true,
+      createdFromRequestId: true,
+      participantA: {
+        select: {
+          userId: true,
+          dormitoryId: true,
+          dormitorySelectionState: true,
+        },
+      },
+      participantB: {
+        select: {
+          userId: true,
+          dormitoryId: true,
+          dormitorySelectionState: true,
+        },
+      },
+      unmatchRequests: {
+        orderBy: [{ requestedAt: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          id: true,
+          participantId: true,
+          status: true,
+          requestedAt: true,
+          terminalAt: true,
+        },
+      },
+    };
   }
 
   private toMatchRequestSummary(
@@ -709,7 +1099,99 @@ export class MatchesService {
       endedAt: activeMatch.endedAt?.toISOString() ?? null,
       endReason: activeMatch.endReason as ActiveMatchSummary['endReason'],
       createdFromRequestId: activeMatch.createdFromRequestId,
+      unmatchProgress: this.toInactiveUnmatchProgress(),
     };
+  }
+
+  private toDetailedActiveMatchSummary(
+    activeMatch: ActiveMatchCommandRecord,
+    viewerParticipantId: string,
+    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+    now: Date,
+  ): ActiveMatchSummary {
+    const base = this.toActiveMatchSummary(activeMatch, viewerParticipantId);
+    const viewerPendingRequest = activeMatch.unmatchRequests?.find(
+      (request) => request.participantId === viewerParticipantId && request.status === 'PENDING',
+    );
+    const counterpartPendingRequest = activeMatch.unmatchRequests?.find(
+      (request) => request.participantId !== viewerParticipantId && request.status === 'PENDING',
+    );
+    const viewerFulfilledRequest = activeMatch.unmatchRequests?.find(
+      (request) =>
+        request.participantId === viewerParticipantId &&
+        request.status === 'FULFILLED_BY_MUTUAL_CONSENT',
+    );
+    const counterpartFulfilledRequest = activeMatch.unmatchRequests?.find(
+      (request) =>
+        request.participantId !== viewerParticipantId &&
+        request.status === 'FULFILLED_BY_MUTUAL_CONSENT',
+    );
+    const unmatchWindowOpen = this.isUnmatchWindowOpen(activeMatch, seasonContext, now);
+    const progressCount =
+      (viewerPendingRequest ? 1 : 0) +
+      (counterpartPendingRequest ? 1 : 0) +
+      (viewerFulfilledRequest ? 1 : 0) +
+      (counterpartFulfilledRequest ? 1 : 0);
+    const completedByMutualConsent =
+      activeMatch.status === 'UNMATCHED' &&
+      activeMatch.endReason === 'UNMATCHED_BY_MUTUAL_CONSENT' &&
+      progressCount >= 2;
+    const progressState: ActiveMatchUnmatchProgress['state'] = completedByMutualConsent
+      ? 'COMPLETED'
+      : viewerPendingRequest
+        ? 'WAITING_FOR_COUNTERPART'
+        : counterpartPendingRequest
+          ? 'WAITING_FOR_ME'
+          : 'NONE';
+
+    return {
+      ...base,
+      unmatchProgress: {
+        state: progressState,
+        requestedByViewerAt:
+          (
+            viewerPendingRequest?.requestedAt ??
+            viewerFulfilledRequest?.requestedAt ??
+            null
+          )?.toISOString() ?? null,
+        requestedByCounterpartAt:
+          (
+            counterpartPendingRequest?.requestedAt ??
+            counterpartFulfilledRequest?.requestedAt ??
+            null
+          )?.toISOString() ?? null,
+        progressCount: Math.min(progressCount, 2),
+        requiredCount: 2,
+        canRequest: activeMatch.status === 'ACTIVE' && unmatchWindowOpen && !viewerPendingRequest,
+        canCancel:
+          activeMatch.status === 'ACTIVE' && unmatchWindowOpen && Boolean(viewerPendingRequest),
+        availableUntil:
+          activeMatch.status === 'ACTIVE'
+            ? this.toUnmatchAvailableUntilIso(activeMatch, seasonContext)
+            : null,
+      },
+    };
+  }
+
+  private toInactiveUnmatchProgress(): ActiveMatchUnmatchProgress {
+    return {
+      state: 'NONE',
+      requestedByViewerAt: null,
+      requestedByCounterpartAt: null,
+      progressCount: 0,
+      requiredCount: 2,
+      canRequest: false,
+      canCancel: false,
+      availableUntil: null,
+    };
+  }
+
+  private toUnmatchAvailableUntilIso(
+    activeMatch: ActiveMatchCommandRecord,
+    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+  ) {
+    const roomSelectionDate = this.findActiveMatchRoomSelectionDate(activeMatch, seasonContext);
+    return roomSelectionDate ? new Date(`${roomSelectionDate}T23:59:59+09:00`).toISOString() : null;
   }
 
   private async getCurrentMatchContext(
@@ -733,6 +1215,117 @@ export class MatchesService {
       participant,
       selection,
     };
+  }
+
+  private async synchronizePendingUnmatchRequests(
+    activeMatch: ActiveMatchCommandRecord,
+    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+    now: Date,
+    tx?: Prisma.TransactionClient,
+  ): Promise<ActiveMatchCommandRecord> {
+    const client = tx ?? this.prisma;
+    const hasPendingRequests = activeMatch.unmatchRequests.some(
+      (request) => request.status === 'PENDING',
+    );
+
+    if (
+      activeMatch.status !== 'ACTIVE' ||
+      !hasPendingRequests ||
+      this.isUnmatchWindowOpen(activeMatch, seasonContext, now)
+    ) {
+      return activeMatch;
+    }
+
+    await client.activeMatchUnmatchRequest.updateMany({
+      where: {
+        activeMatchId: activeMatch.id,
+        status: 'PENDING',
+      },
+      data: {
+        status: 'EXPIRED_BY_CUTOFF',
+        terminalAt: now,
+      },
+    });
+
+    const refreshed = await client.activeMatch.findUnique({
+      where: { id: activeMatch.id },
+      select: this.activeMatchCommandSelect(),
+    });
+
+    if (!refreshed) {
+      throw matchesErrors.activeMatchNotFound();
+    }
+
+    return refreshed;
+  }
+
+  private assertUnmatchActorAllowed(
+    activeMatch: ActiveMatchCommandRecord,
+    participantId: string,
+    errorFactory: () => Error,
+  ) {
+    if (
+      activeMatch.status !== 'ACTIVE' ||
+      activeMatch.endedAt !== null ||
+      (activeMatch.participantAId !== participantId && activeMatch.participantBId !== participantId)
+    ) {
+      throw errorFactory();
+    }
+  }
+
+  private assertCurrentSeasonActiveMatch(
+    activeMatch: ActiveMatchCommandRecord,
+    currentSeasonId: string,
+  ) {
+    if (activeMatch.seasonId !== currentSeasonId) {
+      throw matchesErrors.unmatchRequestNotAllowed();
+    }
+  }
+
+  private assertUnmatchWindowOpen(
+    activeMatch: ActiveMatchCommandRecord,
+    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+    now: Date,
+  ) {
+    if (!this.isUnmatchWindowOpen(activeMatch, seasonContext, now)) {
+      throw matchesErrors.unmatchRequestNotAllowed(
+        '매칭 취소는 같은 기숙사의 roomSelectionDate 전까지만 요청할 수 있습니다.',
+      );
+    }
+  }
+
+  private isUnmatchWindowOpen(
+    activeMatch: ActiveMatchCommandRecord,
+    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+    now: Date,
+  ) {
+    const roomSelectionDate = this.findActiveMatchRoomSelectionDate(activeMatch, seasonContext);
+    if (!roomSelectionDate || seasonContext.state !== 'SEASON_MATCHING') {
+      return false;
+    }
+
+    return formatKstDate(now) <= roomSelectionDate;
+  }
+
+  private findActiveMatchRoomSelectionDate(
+    activeMatch: ActiveMatchCommandRecord,
+    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+  ) {
+    if (
+      activeMatch.participantA.dormitorySelectionState !== 'ASSIGNED' ||
+      activeMatch.participantB.dormitorySelectionState !== 'ASSIGNED' ||
+      !activeMatch.participantA.dormitoryId ||
+      !activeMatch.participantB.dormitoryId ||
+      activeMatch.participantA.dormitoryId !== activeMatch.participantB.dormitoryId
+    ) {
+      return null;
+    }
+
+    return (
+      seasonContext.operatedDormitories.find(
+        (item) => item.dormitoryId === activeMatch.participantA.dormitoryId,
+      )?.roomSelectionDate ?? null
+    );
   }
 
   private async getUserSeed(userId: string): Promise<MatchUserSeed | null> {
@@ -879,6 +1472,10 @@ export class MatchesService {
     );
   }
 
+  private async acquireActiveMatchLock(tx: Prisma.TransactionClient, activeMatchId: string) {
+    await tx.$queryRawTyped(acquireTransactionAdvisoryLock('active_match_unmatch', activeMatchId));
+  }
+
   private async acquireParticipantLocks(
     tx: Prisma.TransactionClient,
     seasonId: string,
@@ -896,6 +1493,14 @@ export class MatchesService {
 
     if (rows.length === 0) {
       throw matchesErrors.requestNotFound();
+    }
+  }
+
+  private async lockActiveMatchRow(tx: Prisma.TransactionClient, activeMatchId: string) {
+    const rows = await tx.$queryRawTyped(lockActiveMatchRow(activeMatchId));
+
+    if (rows.length === 0) {
+      throw matchesErrors.activeMatchNotFound();
     }
   }
 

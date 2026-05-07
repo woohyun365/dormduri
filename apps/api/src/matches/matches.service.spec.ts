@@ -67,7 +67,13 @@ describe('MatchesService', () => {
   const txMatchRequestUpdate = jest.fn();
   const txMatchRequestUpdateMany = jest.fn();
   const txActiveMatchFindFirst = jest.fn();
+  const txActiveMatchFindUnique = jest.fn();
   const txActiveMatchCreate = jest.fn();
+  const txActiveMatchUpdate = jest.fn();
+  const txActiveMatchUnmatchRequestCreate = jest.fn();
+  const txActiveMatchUnmatchRequestFindMany = jest.fn();
+  const txActiveMatchUnmatchRequestUpdate = jest.fn();
+  const txActiveMatchUnmatchRequestUpdateMany = jest.fn();
   const txSeasonParticipantUpdateMany = jest.fn();
 
   const prisma = {
@@ -82,6 +88,11 @@ describe('MatchesService', () => {
     },
     activeMatch: {
       findMany: jest.fn(),
+      findFirst: jest.fn(),
+      findUnique: jest.fn(),
+    },
+    activeMatchUnmatchRequest: {
+      updateMany: jest.fn(),
     },
     runSerializableTransaction: jest.fn(),
   };
@@ -98,6 +109,7 @@ describe('MatchesService', () => {
 
   const chatService = {
     handleActiveMatchCreated: jest.fn(),
+    handleActiveMatchUnmatched: jest.fn(),
   };
 
   const service = new MatchesService(
@@ -154,7 +166,11 @@ describe('MatchesService', () => {
         ),
     );
     prisma.activeMatch.findMany.mockResolvedValue([]);
+    prisma.activeMatch.findFirst.mockResolvedValue(null);
+    prisma.activeMatch.findUnique.mockResolvedValue(null);
+    prisma.activeMatchUnmatchRequest.updateMany.mockResolvedValue({ count: 0 });
     chatService.handleActiveMatchCreated.mockResolvedValue(undefined);
+    chatService.handleActiveMatchUnmatched.mockResolvedValue(undefined);
     prisma.matchRequest.findMany.mockResolvedValue([]);
     prisma.matchRequest.updateMany.mockResolvedValue({ count: 0 });
     txQueryRaw.mockResolvedValue([{ id: 'lock-row' }]);
@@ -221,6 +237,28 @@ describe('MatchesService', () => {
     );
     txMatchRequestUpdateMany.mockResolvedValue({ count: 1 });
     txActiveMatchFindFirst.mockResolvedValue(null);
+    txActiveMatchFindUnique.mockResolvedValue({
+      id: 'active-1',
+      seasonId: 'season-1',
+      participantAId: 'participant-1',
+      participantBId: 'participant-2',
+      status: 'ACTIVE',
+      startedAt: new Date('2026-02-10T03:00:00.000Z'),
+      endedAt: null,
+      endReason: null,
+      createdFromRequestId: 'request-1',
+      participantA: {
+        userId: 'user-1',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      participantB: {
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      unmatchRequests: [],
+    });
     txActiveMatchCreate.mockResolvedValue({
       id: 'active-1',
       seasonId: 'season-1',
@@ -233,7 +271,64 @@ describe('MatchesService', () => {
       createdFromRequestId: 'request-1',
       participantA: { userId: 'user-1' },
       participantB: { userId: 'user-2' },
+      unmatchRequests: [],
     });
+    txActiveMatchUpdate.mockImplementation(
+      ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
+        Promise.resolve({
+          id: where.id,
+          seasonId: 'season-1',
+          participantAId: 'participant-1',
+          participantBId: 'participant-2',
+          createdFromRequestId: 'request-1',
+          startedAt: new Date('2026-02-10T03:00:00.000Z'),
+          participantA: {
+            userId: 'user-1',
+            dormitoryId: 'dasan',
+            dormitorySelectionState: 'ASSIGNED',
+          },
+          participantB: {
+            userId: 'user-2',
+            dormitoryId: 'dasan',
+            dormitorySelectionState: 'ASSIGNED',
+          },
+          unmatchRequests: [
+            {
+              id: 'unmatch-1',
+              participantId: 'participant-1',
+              status: 'FULFILLED_BY_MUTUAL_CONSENT',
+              requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+              terminalAt: new Date('2026-02-10T03:05:00.000Z'),
+            },
+            {
+              id: 'unmatch-2',
+              participantId: 'participant-2',
+              status: 'FULFILLED_BY_MUTUAL_CONSENT',
+              requestedAt: new Date('2026-02-10T03:05:00.000Z'),
+              terminalAt: new Date('2026-02-10T03:05:00.000Z'),
+            },
+          ],
+          ...data,
+        }),
+    );
+    txActiveMatchUnmatchRequestCreate.mockResolvedValue({
+      id: 'unmatch-1',
+      activeMatchId: 'active-1',
+      participantId: 'participant-1',
+      status: 'PENDING',
+      requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+      terminalAt: null,
+    });
+    txActiveMatchUnmatchRequestFindMany.mockResolvedValue([]);
+    txActiveMatchUnmatchRequestUpdate.mockResolvedValue({
+      id: 'unmatch-1',
+      activeMatchId: 'active-1',
+      participantId: 'participant-1',
+      status: 'CANCELLED_BY_REQUESTER',
+      requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+      terminalAt: new Date('2026-02-10T03:05:00.000Z'),
+    });
+    txActiveMatchUnmatchRequestUpdateMany.mockResolvedValue({ count: 1 });
     txSeasonParticipantUpdateMany.mockResolvedValue({ count: 2 });
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
@@ -249,7 +344,15 @@ describe('MatchesService', () => {
         },
         activeMatch: {
           findFirst: txActiveMatchFindFirst,
+          findUnique: txActiveMatchFindUnique,
           create: txActiveMatchCreate,
+          update: txActiveMatchUpdate,
+        },
+        activeMatchUnmatchRequest: {
+          create: txActiveMatchUnmatchRequestCreate,
+          findMany: txActiveMatchUnmatchRequestFindMany,
+          update: txActiveMatchUnmatchRequestUpdate,
+          updateMany: txActiveMatchUnmatchRequestUpdateMany,
         },
         seasonParticipant: {
           updateMany: txSeasonParticipantUpdateMany,
@@ -483,6 +586,426 @@ describe('MatchesService', () => {
     expect(result.activeMatch).toBeNull();
   });
 
+  it('한쪽만 매칭 취소 요청을 보내면 ACTIVE는 유지되고 pending unmatch request만 남는다', async () => {
+    txActiveMatchUnmatchRequestFindMany.mockResolvedValueOnce([
+      {
+        id: 'unmatch-1',
+        participantId: 'participant-1',
+        status: 'PENDING',
+        requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+        terminalAt: null,
+      },
+    ]);
+    txActiveMatchFindUnique
+      .mockResolvedValueOnce({
+        id: 'active-1',
+        seasonId: 'season-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        status: 'ACTIVE',
+        startedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endedAt: null,
+        endReason: null,
+        createdFromRequestId: 'request-1',
+        participantA: {
+          userId: 'user-1',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        participantB: {
+          userId: 'user-2',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        unmatchRequests: [],
+      })
+      .mockResolvedValueOnce({
+        id: 'active-1',
+        seasonId: 'season-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        status: 'ACTIVE',
+        startedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endedAt: null,
+        endReason: null,
+        createdFromRequestId: 'request-1',
+        participantA: {
+          userId: 'user-1',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        participantB: {
+          userId: 'user-2',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        unmatchRequests: [
+          {
+            id: 'unmatch-1',
+            participantId: 'participant-1',
+            status: 'PENDING',
+            requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+            terminalAt: null,
+          },
+        ],
+      });
+
+    const result = await service.requestUnmatch(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      'active-1',
+    );
+
+    expect(txActiveMatchUpdate).not.toHaveBeenCalled();
+    expect(chatService.handleActiveMatchUnmatched).not.toHaveBeenCalled();
+    expect(result.activeMatch.status).toBe('ACTIVE');
+    expect(result.activeMatch.unmatchProgress).toMatchObject({
+      state: 'WAITING_FOR_COUNTERPART',
+      requestedByViewerAt: new Date('2026-02-10T03:00:00.000Z').toISOString(),
+      requestedByCounterpartAt: null,
+      progressCount: 1,
+      requiredCount: 2,
+      canRequest: false,
+      canCancel: true,
+    });
+  });
+
+  it('양쪽 모두 매칭 취소 요청을 보내면 즉시 UNMATCHED가 되고 participant/chat state도 함께 정리된다', async () => {
+    txActiveMatchFindUnique
+      .mockResolvedValueOnce({
+        id: 'active-1',
+        seasonId: 'season-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        status: 'ACTIVE',
+        startedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endedAt: null,
+        endReason: null,
+        createdFromRequestId: 'request-1',
+        participantA: {
+          userId: 'user-1',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        participantB: {
+          userId: 'user-2',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        unmatchRequests: [
+          {
+            id: 'unmatch-1',
+            participantId: 'participant-1',
+            status: 'PENDING',
+            requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+            terminalAt: null,
+          },
+        ],
+      })
+      .mockResolvedValue({
+        id: 'active-1',
+        seasonId: 'season-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        status: 'UNMATCHED',
+        startedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endedAt: new Date('2026-02-10T03:05:00.000Z'),
+        endReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
+        createdFromRequestId: 'request-1',
+        participantA: {
+          userId: 'user-1',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        participantB: {
+          userId: 'user-2',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        unmatchRequests: [
+          {
+            id: 'unmatch-1',
+            participantId: 'participant-1',
+            status: 'FULFILLED_BY_MUTUAL_CONSENT',
+            requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+            terminalAt: new Date('2026-02-10T03:05:00.000Z'),
+          },
+          {
+            id: 'unmatch-2',
+            participantId: 'participant-2',
+            status: 'FULFILLED_BY_MUTUAL_CONSENT',
+            requestedAt: new Date('2026-02-10T03:05:00.000Z'),
+            terminalAt: new Date('2026-02-10T03:05:00.000Z'),
+          },
+        ],
+      });
+    txActiveMatchUnmatchRequestFindMany.mockResolvedValueOnce([
+      {
+        id: 'unmatch-1',
+        participantId: 'participant-1',
+        status: 'PENDING',
+        requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+        terminalAt: null,
+      },
+      {
+        id: 'unmatch-2',
+        participantId: 'participant-2',
+        status: 'PENDING',
+        requestedAt: new Date('2026-02-10T03:05:00.000Z'),
+        terminalAt: null,
+      },
+    ]);
+
+    const result = await service.requestUnmatch(
+      {
+        id: 'user-2',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      'active-1',
+    );
+
+    expect(txActiveMatchUnmatchRequestUpdateMany).toHaveBeenCalledWith({
+      where: {
+        activeMatchId: 'active-1',
+        status: 'PENDING',
+      },
+      data: {
+        status: 'FULFILLED_BY_MUTUAL_CONSENT',
+        terminalAt: new Date('2026-02-10T03:00:00.000Z'),
+      },
+    });
+    expect(txSeasonParticipantUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['participant-1', 'participant-2'] },
+      },
+      data: {
+        participantStatus: 'ACTIVE',
+        matchedAt: null,
+      },
+    });
+    expect(chatService.handleActiveMatchUnmatched).toHaveBeenCalledWith(
+      expect.anything(),
+      { activeMatchId: 'active-1' },
+      new Date('2026-02-10T03:00:00.000Z'),
+    );
+    expect(result.activeMatch).toMatchObject({
+      status: 'UNMATCHED',
+      endReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
+    });
+  });
+
+  it('본인이 보낸 매칭 취소 요청은 상대가 요청하기 전까지 철회할 수 있다', async () => {
+    txActiveMatchUnmatchRequestFindMany.mockResolvedValueOnce([
+      {
+        id: 'unmatch-1',
+        participantId: 'participant-1',
+        status: 'PENDING',
+        requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+        terminalAt: null,
+      },
+    ]);
+    txActiveMatchFindUnique
+      .mockResolvedValueOnce({
+        id: 'active-1',
+        seasonId: 'season-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        status: 'ACTIVE',
+        startedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endedAt: null,
+        endReason: null,
+        createdFromRequestId: 'request-1',
+        participantA: {
+          userId: 'user-1',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        participantB: {
+          userId: 'user-2',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        unmatchRequests: [
+          {
+            id: 'unmatch-1',
+            participantId: 'participant-1',
+            status: 'PENDING',
+            requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+            terminalAt: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        id: 'active-1',
+        seasonId: 'season-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        status: 'ACTIVE',
+        startedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endedAt: null,
+        endReason: null,
+        createdFromRequestId: 'request-1',
+        participantA: {
+          userId: 'user-1',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        participantB: {
+          userId: 'user-2',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        unmatchRequests: [
+          {
+            id: 'unmatch-1',
+            participantId: 'participant-1',
+            status: 'CANCELLED_BY_REQUESTER',
+            requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+            terminalAt: new Date('2026-02-10T03:00:00.000Z'),
+          },
+        ],
+      });
+
+    const result = await service.cancelUnmatchRequest(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      'active-1',
+    );
+
+    expect(txActiveMatchUnmatchRequestUpdate).toHaveBeenCalledWith({
+      where: { id: 'unmatch-1' },
+      data: {
+        status: 'CANCELLED_BY_REQUESTER',
+        terminalAt: new Date('2026-02-10T03:00:00.000Z'),
+      },
+    });
+    expect(result.activeMatch).toMatchObject({
+      status: 'ACTIVE',
+      unmatchProgress: {
+        state: 'NONE',
+        requestedByViewerAt: null,
+        requestedByCounterpartAt: null,
+        progressCount: 0,
+        requiredCount: 2,
+        canRequest: true,
+        canCancel: false,
+      },
+    });
+  });
+
+  it('roomSelectionDate 이후 또는 SEASON_POST_MATCH에서는 매칭 취소 요청을 받을 수 없다', async () => {
+    seasonsService.getCurrentSeasonContext.mockResolvedValueOnce({
+      season: { id: 'season-1' },
+      state: 'SEASON_POST_MATCH',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+      ],
+      schedule: {
+        preparationStart: '2026-02-01',
+        matchingStart: '2026-02-05',
+        matchingEnd: '2026-02-11',
+        seasonEnd: '2026-02-28',
+      },
+    });
+
+    await expect(
+      service.requestUnmatch(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        'active-1',
+      ),
+    ).rejects.toMatchObject({
+      response: matchesErrors
+        .unmatchRequestNotAllowed(
+          '매칭 취소는 같은 기숙사의 roomSelectionDate 전까지만 요청할 수 있습니다.',
+        )
+        .getResponse(),
+    });
+  });
+
+  it('이미 종료된 active match에는 매칭 취소 요청을 적용하지 않는다', async () => {
+    txActiveMatchFindUnique.mockResolvedValueOnce({
+      id: 'active-1',
+      seasonId: 'season-1',
+      participantAId: 'participant-1',
+      participantBId: 'participant-2',
+      status: 'UNMATCHED',
+      startedAt: new Date('2026-02-10T03:00:00.000Z'),
+      endedAt: new Date('2026-02-10T03:05:00.000Z'),
+      endReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
+      createdFromRequestId: 'request-1',
+      participantA: {
+        userId: 'user-1',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      participantB: {
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      unmatchRequests: [],
+    });
+
+    await expect(
+      service.requestUnmatch(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        'active-1',
+      ),
+    ).rejects.toMatchObject({
+      response: matchesErrors.unmatchRequestNotAllowed().getResponse(),
+    });
+  });
+
+  it('active pair participant가 아닌 다른 auth user는 매칭 취소 요청을 보낼 수 없다', async () => {
+    prisma.user.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve(makeUserSeed({ id: where.id })),
+    );
+    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
+      (user: UserSeed) =>
+        Promise.resolve(makeParticipant({ id: `participant-${user.id}`, userId: user.id })),
+    );
+
+    await expect(
+      service.requestUnmatch(
+        {
+          id: 'user-3',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        'active-1',
+      ),
+    ).rejects.toMatchObject({
+      response: matchesErrors.unmatchRequestNotAllowed().getResponse(),
+    });
+  });
+
   it('만료된 요청 수락은 EXPIRED 처리하고 ACTIVE를 만들지 않는다', async () => {
     txMatchRequestFindUnique.mockResolvedValueOnce({
       id: 'request-1',
@@ -537,6 +1060,29 @@ describe('MatchesService', () => {
     });
   });
 
+  it('UNMATCHED 직후 같은 방향 재요청에도 2일 cooldown을 적용한다', async () => {
+    txMatchRequestCount.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+    txMatchRequestFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    txActiveMatchFindFirst.mockResolvedValueOnce({
+      endedAt: new Date('2026-02-09T12:00:00.000Z'),
+    });
+
+    await expect(
+      service.createMatchRequest(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        { targetUserId: 'user-2', note: null, channel: 'PROFILE_DETAIL' },
+      ),
+    ).rejects.toMatchObject({
+      response: matchesErrors.requestDirectionCooldownActive().getResponse(),
+    });
+  });
+
   it('roomSelectionDate 이후에도 ACTIVE 결과는 seasonEndDate 전까지 조회된다', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(makeUserSeed());
     seasonsService.getCurrentSeasonContext.mockResolvedValueOnce({
@@ -558,21 +1104,28 @@ describe('MatchesService', () => {
         matchedAt: new Date('2026-02-10T03:00:00.000Z'),
       }),
     );
-    prisma.activeMatch.findMany.mockResolvedValueOnce([
-      {
-        id: 'active-1',
-        seasonId: 'season-1',
-        participantAId: 'participant-1',
-        participantBId: 'participant-2',
-        status: 'ACTIVE',
-        startedAt: new Date('2026-02-10T03:00:00.000Z'),
-        endedAt: null,
-        endReason: null,
-        createdFromRequestId: 'request-1',
-        participantA: { userId: 'user-1' },
-        participantB: { userId: 'user-2' },
+    prisma.activeMatch.findFirst.mockResolvedValueOnce({
+      id: 'active-1',
+      seasonId: 'season-1',
+      participantAId: 'participant-1',
+      participantBId: 'participant-2',
+      status: 'ACTIVE',
+      startedAt: new Date('2026-02-10T03:00:00.000Z'),
+      endedAt: null,
+      endReason: null,
+      createdFromRequestId: 'request-1',
+      participantA: {
+        userId: 'user-1',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
       },
-    ]);
+      participantB: {
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      unmatchRequests: [],
+    });
 
     const result = await service.getCurrentActiveMatch({
       id: 'user-1',
@@ -586,6 +1139,11 @@ describe('MatchesService', () => {
       id: 'active-1',
       counterpartUserId: 'user-2',
       status: 'ACTIVE',
+      unmatchProgress: {
+        state: 'NONE',
+        progressCount: 0,
+        canRequest: false,
+      },
     });
   });
 });

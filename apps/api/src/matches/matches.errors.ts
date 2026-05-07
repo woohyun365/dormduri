@@ -100,4 +100,26 @@ export const matchesErrors = {
   activeMatchAlreadyExists() {
     return conflictError('ACTIVE_MATCH_ALREADY_EXISTS', '이미 확정된 매칭 관계가 존재합니다.');
   },
+
+  activeMatchNotFound() {
+    return notFoundError('ACTIVE_MATCH_NOT_FOUND', '현재 활성화된 매칭 관계를 찾을 수 없습니다.');
+  },
+
+  unmatchRequestNotAllowed(message: string = '현재 상태에서는 매칭 취소 요청을 보낼 수 없습니다.') {
+    return conflictError('ACTIVE_MATCH_UNMATCH_REQUEST_NOT_ALLOWED', message);
+  },
+
+  unmatchRequestAlreadySubmitted() {
+    return conflictError(
+      'ACTIVE_MATCH_UNMATCH_REQUEST_ALREADY_SUBMITTED',
+      '이미 매칭 취소 요청을 보냈습니다.',
+    );
+  },
+
+  unmatchRequestCancelNotAllowed() {
+    return conflictError(
+      'ACTIVE_MATCH_UNMATCH_REQUEST_CANCEL_NOT_ALLOWED',
+      '현재 상태에서는 매칭 취소 요청을 철회할 수 없습니다.',
+    );
+  },
 };
