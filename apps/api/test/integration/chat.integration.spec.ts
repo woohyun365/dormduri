@@ -89,4 +89,43 @@ describe('ChatService integration', () => {
       expect.arrayContaining(['첫 번째 메시지', '두 번째 메시지']),
     );
   });
+
+  it('direct thread에서 양쪽 leave race가 걸려도 최종 상태는 ARCHIVED다', async () => {
+    await prisma.conversationThread.create({
+      data: {
+        id: 'direct-chat-race-thread',
+        seasonId: 'season-integration',
+        pairKey: 'participant-a:participant-b',
+        participantAId: 'participant-a',
+        participantBId: 'participant-b',
+        openedByParticipantId: 'participant-a',
+        threadKind: 'DIRECT',
+        status: 'OPEN',
+      },
+    });
+    await prisma.conversationThreadMember.createMany({
+      data: [
+        { threadId: 'direct-chat-race-thread', participantId: 'participant-a' },
+        { threadId: 'direct-chat-race-thread', participantId: 'participant-b' },
+      ],
+    });
+
+    const settled = await Promise.allSettled([
+      service.leaveThread(authContext('user-a'), 'direct-chat-race-thread'),
+      service.leaveThread(authContext('user-b'), 'direct-chat-race-thread'),
+    ]);
+
+    expect(settled.filter((result) => result.status === 'fulfilled')).toHaveLength(2);
+
+    const thread = await prisma.conversationThread.findUnique({
+      where: { id: 'direct-chat-race-thread' },
+    });
+    expect(thread?.threadKind).toBe('DIRECT');
+    expect(thread?.status).toBe('ARCHIVED');
+
+    const members = await prisma.conversationThreadMember.findMany({
+      where: { threadId: 'direct-chat-race-thread' },
+    });
+    expect(members.every((member) => member.memberState === 'LEFT')).toBe(true);
+  });
 });

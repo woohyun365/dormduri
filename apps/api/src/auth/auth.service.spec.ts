@@ -71,8 +71,9 @@ describe('AuthService orchestration', () => {
     prisma.$transaction.mockResolvedValue([]);
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
-        user: { create: prisma.user.create },
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
+        authSession: { updateMany: prisma.authSession.updateMany },
+        user: { ...prisma.user, create: prisma.user.create, update: prisma.user.update },
       }),
     );
     prisma.userProfile.findUnique.mockResolvedValue(null);
@@ -366,7 +367,7 @@ describe('AuthService orchestration', () => {
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
 
-  it('resetPassword는 verification code consume / session revoke를 Prisma transaction으로 처리한다', async () => {
+  it('resetPassword는 verification code consume / session revoke를 serializable transaction으로 처리한다', async () => {
     const currentPasswordHash = await argonHash('OldPass1234', {
       algorithm: 2,
       memoryCost: 8192,
@@ -380,19 +381,84 @@ describe('AuthService orchestration', () => {
       passwordHash: currentPasswordHash,
     });
     verificationService.findLatestVerifiedResetCode.mockResolvedValue({ id: 'code-1' });
-    prisma.user.update.mockReturnValue('user-update');
-    prisma.verificationCode.updateMany.mockReturnValue('code-update');
-    prisma.authSession.updateMany.mockReturnValue('session-update');
-    prisma.$transaction.mockResolvedValue(['user-update', 'code-update', 'session-update']);
+    prisma.user.update.mockResolvedValue(undefined);
+    prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
+    prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
 
     await expect(service.resetPassword('test@kangwon.ac.kr', 'NewPass1234')).resolves.toEqual({
       success: true,
     });
 
-    expect(prisma.$transaction).toHaveBeenCalledWith([
-      'user-update',
-      'code-update',
-      'session-update',
-    ]);
+    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
+    const consumeCalls = prisma.verificationCode.updateMany.mock.calls as Array<
+      [
+        {
+          where: { id: string; consumedAt: null };
+          data: { consumedAt: Date };
+        },
+      ]
+    >;
+    const consumeCall = consumeCalls[0]?.[0];
+    if (!consumeCall) {
+      throw new Error('verificationCode.updateMany call was not captured');
+    }
+    expect(consumeCall.where).toEqual({ id: 'code-1', consumedAt: null });
+    expect(consumeCall.data.consumedAt).toBeInstanceOf(Date);
+
+    const updateUserCalls = prisma.user.update.mock.calls as Array<
+      [
+        {
+          where: { id: string };
+          data: { passwordHash: string };
+        },
+      ]
+    >;
+    const updateUserCall = updateUserCalls[0]?.[0];
+    if (!updateUserCall) {
+      throw new Error('user.update call was not captured');
+    }
+    expect(updateUserCall.where).toEqual({ id: 'user-1' });
+    expect(typeof updateUserCall.data.passwordHash).toBe('string');
+
+    const revokeSessionCalls = prisma.authSession.updateMany.mock.calls as Array<
+      [
+        {
+          where: { userId: string; revokedAt: null };
+          data: { revokedAt: Date };
+        },
+      ]
+    >;
+    const revokeSessionsCall = revokeSessionCalls[0]?.[0];
+    if (!revokeSessionsCall) {
+      throw new Error('authSession.updateMany call was not captured');
+    }
+    expect(revokeSessionsCall.where).toEqual({ userId: 'user-1', revokedAt: null });
+    expect(revokeSessionsCall.data.revokedAt).toBeInstanceOf(Date);
+  });
+
+  it('reset verification proof가 먼저 소비되면 resetRestartRequired를 반환한다', async () => {
+    const currentPasswordHash = await argonHash('OldPass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+    });
+    verificationService.findLatestVerifiedResetCode.mockResolvedValue({ id: 'code-1' });
+    prisma.verificationCode.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.resetPassword('test@kangwon.ac.kr', 'NewPass1234')).resolves.toMatchObject(
+      {
+        success: false,
+        code: 'AUTH_RESET_RESTART_REQUIRED',
+      },
+    );
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });

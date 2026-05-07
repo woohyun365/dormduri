@@ -768,6 +768,10 @@ export class ChatService {
     const viewerParticipantId = this.resolveViewerParticipantId(thread, authUser.id);
 
     return this.prisma.runSerializableTransaction(async (tx) => {
+      await tx.$queryRawTyped(
+        acquireTransactionAdvisoryLock('conversation_thread_leave', thread.id),
+      );
+
       await tx.conversationThreadMember.update({
         where: {
           threadId_participantId: {

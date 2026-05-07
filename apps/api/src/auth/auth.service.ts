@@ -26,6 +26,7 @@ import type { SignupProfileValidationResponse } from '@repo/shared/auth-response
 import { authFailures } from './auth-failures.js';
 
 const SIGNUP_VERIFICATION_PROOF_UNAVAILABLE = '[AuthService] signup verification proof unavailable';
+const RESET_VERIFICATION_PROOF_UNAVAILABLE = '[AuthService] reset verification proof unavailable';
 
 @Injectable()
 export class AuthService {
@@ -300,20 +301,35 @@ export class AuthService {
     const passwordHash = await this.hashPassword(newPassword);
     const databaseNow = await this.prisma.getDatabaseNow();
 
-    await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id: user.id },
-        data: { passwordHash },
-      }),
-      this.prisma.verificationCode.updateMany({
-        where: { id: verifiedCode.id },
-        data: { consumedAt: databaseNow },
-      }),
-      this.prisma.authSession.updateMany({
-        where: { userId: user.id, revokedAt: null },
-        data: { revokedAt: databaseNow },
-      }),
-    ]);
+    try {
+      await this.prisma.runSerializableTransaction(async (tx) => {
+        const consumeResult = await tx.verificationCode.updateMany({
+          where: {
+            id: verifiedCode.id,
+            consumedAt: null,
+          },
+          data: { consumedAt: databaseNow },
+        });
+
+        if (consumeResult.count !== 1) {
+          throw new Error(RESET_VERIFICATION_PROOF_UNAVAILABLE);
+        }
+
+        await tx.user.update({
+          where: { id: user.id },
+          data: { passwordHash },
+        });
+        await tx.authSession.updateMany({
+          where: { userId: user.id, revokedAt: null },
+          data: { revokedAt: databaseNow },
+        });
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === RESET_VERIFICATION_PROOF_UNAVAILABLE) {
+        return authFailures.resetRestartRequired();
+      }
+      throw error;
+    }
 
     return { success: true };
   }

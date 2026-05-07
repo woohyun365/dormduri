@@ -1,3 +1,4 @@
+import { hash as argonHash } from '@node-rs/argon2';
 import { AuthService } from '../../src/auth/auth.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
@@ -99,6 +100,91 @@ describe('AuthService integration', () => {
           emailNormalized,
           purpose: 'SIGNUP',
           consumedAt: null,
+        },
+      }),
+    ).toBe(0);
+  });
+
+  it('동시에 같은 reset verification proof를 소비해도 비밀번호 변경은 한 번만 성공한다', async () => {
+    const email = 'reset-race@kangwon.ac.kr';
+    const emailNormalized = email.toLowerCase();
+    const currentPasswordHash = await argonHash('OldPass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    const databaseNow = await prisma.getDatabaseNow();
+
+    await prisma.user.create({
+      data: {
+        id: 'user-reset',
+        email,
+        emailNormalized,
+        passwordHash: currentPasswordHash,
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        dormitorySelectionState: 'NOT_SELECTED',
+        emailVerifiedAt: databaseNow,
+      },
+    });
+    await prisma.authSession.create({
+      data: {
+        id: 'session-reset',
+        userId: 'user-reset',
+        expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
+      },
+    });
+    await prisma.verificationCode.create({
+      data: {
+        emailNormalized,
+        purpose: 'RESET_PASSWORD',
+        codeHash: 'hmac-sha256:integration-reset-proof',
+        issuedAt: databaseNow,
+        expiresAt: new Date(databaseNow.getTime() + 10 * 60 * 1000),
+        verifiedAt: databaseNow,
+      },
+    });
+
+    const settled = await Promise.allSettled([
+      service.resetPassword(email, 'NewPass1234'),
+      service.resetPassword(email, 'OtherPass1234'),
+    ]);
+
+    const fulfilled = settled.filter((result) => result.status === 'fulfilled');
+    expect(fulfilled).toHaveLength(2);
+
+    const responses = fulfilled.map(
+      (result) => (result as PromiseFulfilledResult<{ success: boolean; code?: string }>).value,
+    );
+    const successResults = responses.filter((value) => value.success);
+    const failureResults = responses.filter((value) => !value.success);
+
+    expect(successResults).toHaveLength(1);
+    expect(failureResults).toHaveLength(1);
+    expect(failureResults[0]?.code).toBe('AUTH_RESET_RESTART_REQUIRED');
+
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: 'user-reset' },
+    });
+    expect(updatedUser?.passwordHash).not.toBe(currentPasswordHash);
+
+    expect(
+      await prisma.verificationCode.count({
+        where: {
+          emailNormalized,
+          purpose: 'RESET_PASSWORD',
+          consumedAt: null,
+        },
+      }),
+    ).toBe(0);
+
+    expect(
+      await prisma.authSession.count({
+        where: {
+          userId: 'user-reset',
+          revokedAt: null,
         },
       }),
     ).toBe(0);
