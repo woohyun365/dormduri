@@ -10,6 +10,7 @@
     "api:typecheck": "pnpm --dir apps/api exec tsc --noEmit",
     "api:build": "pnpm --dir apps/api exec nest build",
     "api:test": "pnpm --dir apps/api exec jest --watchman=false --runInBand",
+    "api:test:integration": "pnpm --dir apps/api test:integration",
     "check:fast": "pnpm lint-staged",
     "check:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm shared:lint && pnpm api:lint && pnpm shared:typecheck && pnpm api:typecheck",
     "build:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm api:build",

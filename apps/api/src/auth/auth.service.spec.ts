@@ -93,6 +93,21 @@ describe('AuthService orchestration', () => {
     );
   });
 
+  it('존재하지 않는 계정의 reset code 요청도 중립 성공 응답을 유지한다', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    verificationService.maybeSendResetCode.mockResolvedValue({ success: true });
+
+    await expect(service.sendResetCode('missing@kangwon.ac.kr', '127.0.0.1')).resolves.toEqual({
+      success: true,
+    });
+
+    expect(verificationService.maybeSendResetCode).toHaveBeenCalledWith(
+      'missing@kangwon.ac.kr',
+      false,
+      '127.0.0.1',
+    );
+  });
+
   it('signup draft validation은 전용 validation service로 위임한다', async () => {
     signupValidationService.validateDraft.mockResolvedValue({
       success: false,
@@ -135,6 +150,68 @@ describe('AuthService orchestration', () => {
     });
 
     expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('missing@kangwon.ac.kr');
+  });
+
+  it('활성 잠금이 있으면 login은 즉시 잠금 응답을 반환한다', async () => {
+    loginAttemptService.getActiveLock.mockResolvedValue({
+      success: false,
+      error: '로그인 시도가 5회 실패하여 계정이 5분간 잠겼습니다.',
+      code: 'AUTH_LOGIN_LOCKED',
+      userActionable: false,
+      locked: true,
+      remainingSeconds: 120,
+    });
+
+    await expect(service.login('test@kangwon.ac.kr', 'pass1234', false)).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_LOGIN_LOCKED',
+      locked: true,
+      remainingSeconds: 120,
+    });
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('정상 login은 failure를 clear하고 세션을 발급한다', async () => {
+    const passwordHash = await argonHash('Pass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    loginAttemptService.getActiveLock.mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      profile: {
+        nickname: '테스터',
+      },
+    });
+    sessionService.issueAuthResult.mockResolvedValue({
+      accessToken: 'token',
+      sessionId: 'session-1',
+    });
+
+    await expect(service.login('test@kangwon.ac.kr', 'Pass1234', true)).resolves.toMatchObject({
+      success: true,
+      accessToken: 'token',
+      user: {
+        id: 'user-1',
+        email: 'test@kangwon.ac.kr',
+        nickname: '테스터',
+      },
+    });
+
+    expect(loginAttemptService.clearFailures).toHaveBeenCalledWith('test@kangwon.ac.kr');
+    expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
+      'user-1',
+      'test@kangwon.ac.kr',
+      true,
+    );
   });
 
   it('signup은 검증 완료된 최신 code를 소비하고 세션 발급 결과를 반환한다', async () => {

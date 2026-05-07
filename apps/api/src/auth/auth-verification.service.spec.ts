@@ -1,4 +1,6 @@
 import { AuthVerificationService } from './auth-verification.service.js';
+import { hashVerificationCode } from './auth.utils.js';
+import { apiEnv } from '../config/env.js';
 
 describe('AuthVerificationService', () => {
   const verificationStore = {
@@ -101,5 +103,84 @@ describe('AuthVerificationService', () => {
         },
       });
     }
+  });
+
+  it('reset code 요청은 user가 없으면 이메일 발송 없이 중립 성공을 유지한다', async () => {
+    emailSender.sendPasswordResetCode.mockResolvedValue(undefined);
+
+    await expect(
+      service.maybeSendResetCode('missing@kangwon.ac.kr', false, '127.0.0.1'),
+    ).resolves.toEqual({
+      success: true,
+    });
+
+    expect(verificationStore.insertVerificationCode).not.toHaveBeenCalled();
+    expect(emailSender.sendPasswordResetCode).not.toHaveBeenCalled();
+    expect(verificationStore.createRequestLog).toHaveBeenCalledWith(
+      'missing@kangwon.ac.kr',
+      'RESET_PASSWORD',
+      '127.0.0.1',
+    );
+  });
+
+  it('올바른 verification code는 verified 처리한다', async () => {
+    verificationStore.findActiveVerificationRecord.mockResolvedValue({
+      id: 'code-1',
+      codeHash: hashVerificationCode(
+        'test@kangwon.ac.kr',
+        'SIGNUP',
+        '123456',
+        apiEnv.verificationCodeHmacSecret,
+      ),
+      failedAttempts: 0,
+    });
+
+    await expect(service.verifyEmailCode('test@kangwon.ac.kr', '123456')).resolves.toEqual({
+      success: true,
+    });
+
+    expect(verificationStore.markVerified).toHaveBeenCalledWith('code-1');
+  });
+
+  it('잘못된 verification code는 failedAttempts를 증가시킨다', async () => {
+    verificationStore.findActiveVerificationRecord.mockResolvedValue({
+      id: 'code-1',
+      codeHash: hashVerificationCode(
+        'test@kangwon.ac.kr',
+        'SIGNUP',
+        '123456',
+        apiEnv.verificationCodeHmacSecret,
+      ),
+      failedAttempts: 0,
+    });
+
+    await expect(service.verifyEmailCode('test@kangwon.ac.kr', '654321')).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_VERIFICATION_CODE_INVALID',
+    });
+
+    expect(verificationStore.incrementFailedAttempts).toHaveBeenCalledWith('code-1');
+    expect(verificationStore.failAndConsume).not.toHaveBeenCalled();
+  });
+
+  it('잘못된 verification code가 최대 시도에 도달하면 즉시 consume한다', async () => {
+    verificationStore.findActiveVerificationRecord.mockResolvedValue({
+      id: 'code-1',
+      codeHash: hashVerificationCode(
+        'test@kangwon.ac.kr',
+        'RESET_PASSWORD',
+        '123456',
+        apiEnv.verificationCodeHmacSecret,
+      ),
+      failedAttempts: 4,
+    });
+
+    await expect(service.verifyResetCode('test@kangwon.ac.kr', '654321')).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_VERIFICATION_CODE_INVALID',
+    });
+
+    expect(verificationStore.failAndConsume).toHaveBeenCalledWith('code-1');
+    expect(verificationStore.incrementFailedAttempts).not.toHaveBeenCalled();
   });
 });

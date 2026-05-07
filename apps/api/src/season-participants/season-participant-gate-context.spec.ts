@@ -1,0 +1,147 @@
+import {
+  buildCurrentUserCapabilityInput,
+  buildPublicExposureTargetInput,
+  buildPublicExposureViewerInput,
+  toOperatedDormitoryIdSet,
+} from './season-participant-gate-context.js';
+import type { CurrentSeasonParticipantRecord } from './season-participants.service.js';
+
+function makeParticipant(
+  overrides: Partial<CurrentSeasonParticipantRecord> = {},
+): CurrentSeasonParticipantRecord {
+  return {
+    id: 'participant-1',
+    seasonId: 'season-1',
+    userId: 'user-1',
+    participationIntent: 'REGISTERED',
+    registeredAt: new Date('2026-02-01T00:00:00.000Z'),
+    declinedAt: null,
+    dormitoryId: 'dasan',
+    dormitorySelectionState: 'ASSIGNED',
+    participantStatus: 'ACTIVE',
+    campusCodeSnapshot: 'CHUNCHEON',
+    genderSnapshot: 'M',
+    joinedAt: new Date('2026-02-01T00:00:00.000Z'),
+    activatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    matchedAt: null,
+    withdrawnAt: null,
+    expiredAt: null,
+    hiddenByAdminAt: null,
+    hiddenReasonCode: null,
+    hiddenReasonDetail: null,
+    deactivatedAt: null,
+    createdAt: new Date('2026-02-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-02-01T00:00:00.000Z'),
+    profile: { participantId: 'participant-1' } as never,
+    ...overrides,
+  };
+}
+
+describe('season-participant-gate-context', () => {
+  const seasonContext = {
+    state: 'SEASON_MATCHING' as const,
+    operatedDormitories: [
+      { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+      { dormitoryId: 'saerom', isOperated: true, roomSelectionDate: '2026-02-12' },
+    ],
+    schedule: {
+      preparationStart: '2026-01-01',
+      matchingStart: '2026-01-28',
+      matchingEnd: '2026-02-12',
+      seasonEnd: '2026-02-28',
+    },
+  };
+
+  it('capability input을 같은 source들에서 일관되게 계산한다', () => {
+    const result = buildCurrentUserCapabilityInput({
+      campusOperated: true,
+      seasonState: 'SEASON_MATCHING',
+      participant: makeParticipant(),
+      participantMatched: false,
+      selection: {
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      operatedDormitoryIds: toOperatedDormitoryIdSet(seasonContext),
+      currentDormitoryCanMatch: true,
+      nicknameLockedBySeason: true,
+      nicknameCooldownActive: false,
+    });
+
+    expect(result).toMatchObject({
+      participantRegistered: true,
+      hasOperatedAssignedDormitory: true,
+      hasSelectableDormitories: true,
+      currentDormitoryCanMatch: true,
+      participantMatched: false,
+    });
+  });
+
+  it('viewer exposure input은 matched partner와 roomSelection window를 분리해 유지한다', () => {
+    const result = buildPublicExposureViewerInput({
+      campusOperated: true,
+      seasonState: 'SEASON_MATCHING',
+      participant: makeParticipant(),
+      matched: true,
+      matchedPartnerParticipantId: 'participant-2',
+      selection: {
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      operatedDormitoryIds: toOperatedDormitoryIdSet(seasonContext),
+      currentDormitoryCanMatch: true,
+    });
+
+    expect(result).toEqual({
+      campusOperated: true,
+      seasonState: 'SEASON_MATCHING',
+      registered: true,
+      matched: true,
+      matchedPartnerParticipantId: 'participant-2',
+      selectionState: 'ASSIGNED',
+      dormitoryId: 'dasan',
+      hasOperatedAssignedDormitory: true,
+      currentDormitoryCanMatch: true,
+    });
+  });
+
+  it('target exposure input은 OFF_SEASON이면 visibility hidden residue를 무시하고 browse를 열 수 있게 만든다', () => {
+    const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
+    const result = buildPublicExposureTargetInput({
+      seasonState: 'OFF_SEASON',
+      operatedDormitoryIds,
+      participant: makeParticipant({
+        hiddenByAdminAt: new Date('2026-02-01T00:00:00.000Z'),
+      }),
+      matched: false,
+      selection: {
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+    });
+
+    expect(result.visible).toBe(true);
+    expect(result.hasOperatedAssignedDormitory).toBe(true);
+    expect(result.hasSeasonProfile).toBe(true);
+  });
+
+  it('current season/post-match에서는 season profile 없는 registered target을 visible로 보지 않는다', () => {
+    const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
+    const result = buildPublicExposureTargetInput({
+      seasonState: 'SEASON_POST_MATCH',
+      operatedDormitoryIds,
+      participant: makeParticipant({
+        profile: null,
+      }),
+      matched: false,
+      selection: {
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+    });
+
+    expect(result.visible).toBe(false);
+    expect(result.registered).toBe(true);
+    expect(result.hasSeasonProfile).toBe(false);
+  });
+});

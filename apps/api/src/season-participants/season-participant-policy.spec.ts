@@ -214,6 +214,43 @@ describe('season-participant-policy', () => {
     });
   });
 
+  it('SEASON_MATCHING에서 live ActiveMatch가 있으면 일반 다른 사용자 노출은 LIMITED지만 bookmark는 유지된다', () => {
+    const generalTarget = resolvePublicExposure(
+      {
+        campusOperated: true,
+        seasonState: 'SEASON_MATCHING',
+        registered: true,
+        matched: true,
+        matchedPartnerParticipantId: 'partner-1',
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        currentDormitoryCanMatch: true,
+      },
+      {
+        participantId: 'other-target',
+        visible: true,
+        registered: true,
+        matched: false,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        hasSeasonProfile: true,
+      },
+    );
+
+    expect(generalTarget).toEqual({
+      exposureLevel: 'LIMITED',
+      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+      relationToViewer: 'GENERAL',
+      actions: {
+        canBookmark: true,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+    });
+  });
+
   it('등록 여부에 따라 current-user profile source가 갈린다', () => {
     expect(
       resolveCurrentUserProfileSource({
@@ -231,7 +268,30 @@ describe('season-participant-policy', () => {
         participantRegistered: true,
         participantProfileExists: true,
       }),
-    ).toBe('USER_PROFILE');
+    ).toBe('SEASON_PARTICIPANT_PROFILE');
+  });
+
+  it('SEASON_POST_MATCH 등록 사용자는 현재 시즌 프로필을 read-only로 유지한다', () => {
+    const result = buildCurrentUserCapabilities({
+      campusOperated: true,
+      seasonState: 'SEASON_POST_MATCH',
+      participantRegistered: true,
+      participantMatched: true,
+      selectionState: 'ASSIGNED',
+      hasOperatedAssignedDormitory: true,
+      nicknameLockedBySeason: true,
+      nicknameCooldownActive: false,
+      hasSelectableDormitories: true,
+      currentDormitoryCanMatch: false,
+    });
+
+    expect(result.profileEdit).toEqual({
+      intro: false,
+      messageToRoommate: false,
+      additional: false,
+      lifestyle: false,
+      nickname: false,
+    });
   });
 
   it('운영 기숙사 배정 여부는 시즌 운영 목록 기준으로 판단한다', () => {

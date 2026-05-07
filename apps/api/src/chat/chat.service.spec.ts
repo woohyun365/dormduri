@@ -456,6 +456,50 @@ describe('ChatService', () => {
     });
   });
 
+  it('SEASON_POST_MATCH에서 live ActiveMatch 사용자는 다른 일반 target과의 새 chat entry를 열 수 없다', async () => {
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-1' },
+      state: 'SEASON_POST_MATCH',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+      ],
+      schedule: {
+        preparationStart: '2026-02-01',
+        matchingStart: '2026-02-05',
+        matchingEnd: '2026-02-11',
+        seasonEnd: '2026-02-28',
+      },
+    });
+    prisma.activeMatch.findFirst
+      .mockResolvedValueOnce({
+        id: 'active-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-3',
+        createdFromRequestId: 'request-1',
+        startedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endedAt: null,
+      })
+      .mockResolvedValueOnce(null);
+
+    const entry = await service.getThreadEntry(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      'user-2',
+    );
+
+    expect(entry).toEqual({
+      targetUserId: 'user-2',
+      thread: null,
+      canEnterChatUi: false,
+      canSendMessage: false,
+    });
+  });
+
   it('상대가 시즌 참여자라도 ASSIGNED가 아니면 같은 캠퍼스/성별이어도 채팅 UI entry와 send가 모두 닫힌다', async () => {
     seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
       (user: UserSeed) =>

@@ -657,7 +657,7 @@ describe('UsersService', () => {
     });
   });
 
-  it('SEASON_POST_MATCH 등록 사용자는 base profile source로 다시 돌아간다', async () => {
+  it('SEASON_POST_MATCH 등록 사용자는 현재 시즌 프로필 source를 유지하고 read-only 상태가 된다', async () => {
     prisma.user.findUnique.mockResolvedValue(makeUser({ profile: { nickname: '베이스닉네임' } }));
     seasonsService.getCurrentSeasonContext.mockResolvedValue({
       season: { id: 'season-1' },
@@ -723,14 +723,15 @@ describe('UsersService', () => {
       dormitorySelectionState: 'ASSIGNED',
     });
 
-    expect(result.profile.source).toBe('USER_PROFILE');
-    expect(result.user.nickname).toBe('베이스닉네임');
+    expect(result.profile.source).toBe('SEASON_PARTICIPANT_PROFILE');
+    expect(result.user.nickname).toBe('시즌닉네임');
     expect(result.participation.profileExists).toBe(true);
     expect(result.capabilities.profileEdit).toMatchObject({
-      intro: true,
-      messageToRoommate: true,
-      additional: true,
-      lifestyle: true,
+      intro: false,
+      messageToRoommate: false,
+      additional: false,
+      lifestyle: false,
+      nickname: false,
     });
     expect(result.capabilities.canRequestMatch).toBe(false);
     expect(result.capabilities.canStartChat).toBe(false);
@@ -741,6 +742,66 @@ describe('UsersService', () => {
       state: 'WAITING_FOR_COUNTERPART',
       progressCount: 1,
       canCancel: true,
+    });
+  });
+
+  it('SEASON_POST_MATCH 등록 사용자의 profile text 수정은 거부한다', async () => {
+    prisma.user.findUnique.mockResolvedValue(makeUser());
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-1' },
+      state: 'SEASON_POST_MATCH',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+      ],
+      schedule: {
+        preparationStart: '2026-01-01',
+        matchingStart: '2026-01-28',
+        matchingEnd: '2026-02-11',
+        seasonEnd: '2026-02-28',
+      },
+    });
+    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+      makeParticipant({
+        participationIntent: 'REGISTERED',
+        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'MATCHED',
+        profile: {
+          participantId: 'participant-1',
+          nicknameSnapshot: '시즌닉네임',
+          nicknameNormalizedSnapshot: '시즌닉네임',
+          lifestyle: makeUser().profile!.lifestyle,
+          intro: '시즌 소개',
+          messageToRoommate: '시즌 메시지',
+          collegeCode: 'HUMANITIES',
+          grade: '4+',
+          mbti: 'ENTP',
+          birthYear: 2001,
+        },
+      }),
+    );
+
+    await expect(
+      service.updateCurrentUser(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        {
+          messageToRoommate: '수정 시도',
+        },
+      ),
+    ).rejects.toMatchObject({
+      response: usersErrors
+        .profileFieldLocked(
+          'messageToRoommate',
+          '현재 시즌 상태에서는 룸메이트에게 남길 말을 수정할 수 없습니다.',
+        )
+        .getResponse(),
     });
   });
 });

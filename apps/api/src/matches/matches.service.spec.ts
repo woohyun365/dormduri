@@ -52,7 +52,7 @@ function makeParticipant(
     deactivatedAt: null,
     createdAt: new Date('2026-02-01T00:00:00.000Z'),
     updatedAt: new Date('2026-02-01T00:00:00.000Z'),
-    profile: null,
+    profile: { participantId: 'participant-1' } as never,
     ...overrides,
   };
 }
