@@ -388,6 +388,60 @@ describe('UsersService', () => {
     });
   });
 
+  it('live ActiveMatch가 없으면 stale MATCHED participantStatus만으로 현재 매칭 상태를 잠그지 않는다', async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      makeUser({ dormitoryId: 'dasan', dormitorySelectionState: 'ASSIGNED' }),
+    );
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-1' },
+      state: 'SEASON_MATCHING',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+      ],
+      schedule: {
+        preparationStart: '2026-01-01',
+        matchingStart: '2026-01-28',
+        matchingEnd: '2026-02-11',
+        seasonEnd: '2026-02-28',
+      },
+    });
+    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+      makeParticipant({
+        participationIntent: 'REGISTERED',
+        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'MATCHED',
+        matchedAt: new Date('2026-02-01T00:00:00.000Z'),
+        profile: {
+          participantId: 'participant-1',
+          nicknameSnapshot: '시즌닉네임',
+          nicknameNormalizedSnapshot: '시즌닉네임',
+          lifestyle: makeUser().profile!.lifestyle,
+          intro: '시즌 소개',
+          messageToRoommate: '시즌 메시지',
+          collegeCode: 'HUMANITIES',
+          grade: '4+',
+          mbti: 'ENTP',
+          birthYear: 2001,
+        },
+      }),
+    );
+    matchesService.getCurrentActiveMatchSummaryForParticipant.mockResolvedValue(null);
+
+    const result = await service.getCurrentUser({
+      id: 'user-1',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      dormitoryId: 'dasan',
+      dormitorySelectionState: 'ASSIGNED',
+    });
+
+    expect(result.match.activeMatch).toBeNull();
+    expect(result.capabilities.canRequestMatch).toBe(true);
+    expect(result.capabilities.canStartChat).toBe(true);
+  });
+
   it('건물 선택은 시즌 참여자 등록 전에는 거부된다', async () => {
     prisma.user.findUnique.mockResolvedValue(makeUser());
     seasonsService.getCurrentSeasonContext.mockResolvedValue({

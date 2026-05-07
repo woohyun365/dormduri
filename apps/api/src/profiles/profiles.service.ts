@@ -8,18 +8,18 @@ import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import {
+  canCurrentDormitoryMatch,
   hasParticipantProfile,
-  isParticipantMatched,
   isParticipantRegistered,
   isVisibleRegisteredParticipant,
   resolveCurrentUserProfileSource,
+  hasOperatedAssignedDormitory,
 } from '../season-participants/season-participant-policy.js';
 import {
   SeasonParticipantsService,
   type CurrentSeasonParticipantRecord,
 } from '../season-participants/season-participants.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
-import { formatKstDate } from '../seasons/season.utils.js';
 import { resolveCampusServiceState } from '../users/service-state.js';
 import { UsersService } from '../users/users.service.js';
 import { toPublicProfile, type UserWithProfileRecord } from './profile.mapper.js';
@@ -108,11 +108,7 @@ export class ProfilesService {
           serviceState.campusOperated,
           serviceState.seasonState,
           operatedDormitoryIds,
-          this.canCurrentDormitoryMatch(
-            serviceState.seasonContext,
-            viewerSelection.dormitoryId,
-            now,
-          ),
+          canCurrentDormitoryMatch(serviceState.seasonContext, viewerSelection.dormitoryId, now),
           activeMatchMap,
         ),
       )
@@ -183,7 +179,7 @@ export class ProfilesService {
       serviceState.campusOperated,
       serviceState.seasonState,
       operatedDormitoryIds,
-      this.canCurrentDormitoryMatch(serviceState.seasonContext, viewerSelection.dormitoryId, now),
+      canCurrentDormitoryMatch(serviceState.seasonContext, viewerSelection.dormitoryId, now),
       activeMatchMap,
     );
     if (!visibleProfile) {
@@ -334,11 +330,11 @@ export class ProfilesService {
         campusOperated,
         seasonState,
         registered: isParticipantRegistered(viewerParticipant),
-        matched: viewerActiveMatch !== null || isParticipantMatched(viewerParticipant),
+        matched: viewerActiveMatch !== null,
         matchedPartnerParticipantId: viewerActiveMatch?.counterpartParticipantId ?? null,
         selectionState: viewerSelection.dormitorySelectionState,
         dormitoryId: viewerSelection.dormitoryId,
-        hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(
+        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
           operatedDormitoryIds,
           viewerSelection.dormitorySelectionState,
           viewerSelection.dormitoryId,
@@ -352,10 +348,10 @@ export class ProfilesService {
             ? true
             : isVisibleRegisteredParticipant(targetParticipant),
         registered: isParticipantRegistered(targetParticipant),
-        matched: targetActiveMatch !== null || isParticipantMatched(targetParticipant),
+        matched: targetActiveMatch !== null,
         selectionState: targetSelection.dormitorySelectionState,
         dormitoryId: targetSelection.dormitoryId,
-        hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(
+        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
           operatedDormitoryIds,
           targetSelection.dormitorySelectionState,
           targetSelection.dormitoryId,
@@ -379,36 +375,6 @@ export class ProfilesService {
       nickname: sourceProfile.nickname,
       profile: publicProfile,
     };
-  }
-
-  private canCurrentDormitoryMatch(
-    seasonContext: Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>,
-    dormitoryId: string | null,
-    now: Date,
-  ) {
-    if (!seasonContext || !dormitoryId || seasonContext.state !== 'SEASON_MATCHING') {
-      return false;
-    }
-
-    const dormitory = seasonContext.operatedDormitories.find(
-      (item) => item.dormitoryId === dormitoryId,
-    );
-    if (!dormitory) {
-      return false;
-    }
-
-    const today = formatKstDate(now);
-    return today >= seasonContext.schedule.matchingStart && today <= dormitory.roomSelectionDate;
-  }
-
-  private hasOperatedAssignedDormitory(
-    operatedDormitoryIds: Set<string>,
-    selectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED',
-    dormitoryId: string | null,
-  ) {
-    return (
-      selectionState === 'ASSIGNED' && dormitoryId !== null && operatedDormitoryIds.has(dormitoryId)
-    );
   }
 
   private async getUserWithProfile(userId: string): Promise<UserWithProfileRecord> {

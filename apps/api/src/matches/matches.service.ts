@@ -29,7 +29,9 @@ import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
   buildCurrentUserCapabilities,
+  canCurrentDormitoryMatch,
   hasParticipantProfile,
+  hasOperatedAssignedDormitory,
   isParticipantRegistered,
   isVisibleRegisteredParticipant,
   resolvePublicExposure,
@@ -222,21 +224,24 @@ export class MatchesService {
     const requesterActiveMatch = activeMatchMap.get(requesterContext.participant.id) ?? null;
     const targetActiveMatch = activeMatchMap.get(targetParticipant.id) ?? null;
     const seasonContext = requesterContext.seasonContext;
+    const operatedDormitoryIds = new Set(
+      seasonContext.operatedDormitories.map((item) => item.dormitoryId),
+    );
     const requesterCapabilities = buildCurrentUserCapabilities({
       campusOperated: true,
       seasonState: seasonContext.state,
       participantRegistered: isParticipantRegistered(requesterContext.participant),
       participantMatched: requesterActiveMatch !== null,
       selectionState: requesterContext.selection.dormitorySelectionState,
-      hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(
-        seasonContext,
+      hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
+        operatedDormitoryIds,
         requesterContext.selection.dormitorySelectionState,
         requesterContext.selection.dormitoryId,
       ),
       nicknameLockedBySeason: false,
       nicknameCooldownActive: false,
       hasSelectableDormitories: seasonContext.operatedDormitories.length > 0,
-      currentDormitoryCanMatch: this.canCurrentDormitoryMatch(
+      currentDormitoryCanMatch: canCurrentDormitoryMatch(
         seasonContext,
         requesterContext.selection.dormitoryId,
         now,
@@ -251,12 +256,12 @@ export class MatchesService {
         matchedPartnerParticipantId: requesterActiveMatch?.counterpartParticipantId ?? null,
         selectionState: requesterContext.selection.dormitorySelectionState,
         dormitoryId: requesterContext.selection.dormitoryId,
-        hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(
-          seasonContext,
+        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
+          operatedDormitoryIds,
           requesterContext.selection.dormitorySelectionState,
           requesterContext.selection.dormitoryId,
         ),
-        currentDormitoryCanMatch: this.canCurrentDormitoryMatch(
+        currentDormitoryCanMatch: canCurrentDormitoryMatch(
           seasonContext,
           requesterContext.selection.dormitoryId,
           now,
@@ -269,8 +274,8 @@ export class MatchesService {
         matched: targetActiveMatch !== null,
         selectionState: targetSelection.dormitorySelectionState,
         dormitoryId: targetSelection.dormitoryId,
-        hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(
-          seasonContext,
+        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
+          operatedDormitoryIds,
           targetSelection.dormitorySelectionState,
           targetSelection.dormitoryId,
         ),
@@ -1502,38 +1507,6 @@ export class MatchesService {
     if (rows.length === 0) {
       throw matchesErrors.activeMatchNotFound();
     }
-  }
-
-  private hasOperatedAssignedDormitory(
-    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
-    selectionState: DormitorySelectionState,
-    dormitoryId: string | null,
-  ) {
-    return (
-      selectionState === 'ASSIGNED' &&
-      dormitoryId !== null &&
-      seasonContext.operatedDormitories.some((item) => item.dormitoryId === dormitoryId)
-    );
-  }
-
-  private canCurrentDormitoryMatch(
-    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
-    dormitoryId: string | null,
-    now: Date,
-  ) {
-    if (!dormitoryId || seasonContext.state !== 'SEASON_MATCHING') {
-      return false;
-    }
-
-    const dormitory = seasonContext.operatedDormitories.find(
-      (item) => item.dormitoryId === dormitoryId,
-    );
-    if (!dormitory) {
-      return false;
-    }
-
-    const today = formatKstDate(now);
-    return today >= seasonContext.schedule.matchingStart && today <= dormitory.roomSelectionDate;
   }
 
   private findRoomSelectionDate(

@@ -488,6 +488,79 @@ describe('ProfilesService', () => {
     });
   });
 
+  it('live ActiveMatch가 없으면 stale MATCHED target도 같은 건물 일반 후보로 유지한다', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
+      Object.assign(makeUser({ id: 'peer-1', email: 'peer1@kangwon.ac.kr' }), {
+        seasonParticipants: [
+          makeParticipant({
+            id: 'participant-target',
+            userId: 'peer-1',
+            participationIntent: 'REGISTERED',
+            registeredAt: new Date('2026-01-05T00:00:00.000Z'),
+            dormitoryId: 'dasan',
+            dormitorySelectionState: 'ASSIGNED',
+            participantStatus: 'MATCHED',
+            matchedAt: new Date('2026-02-01T00:00:00.000Z'),
+            profile: {
+              participantId: 'participant-target',
+              nicknameSnapshot: '시즌상대',
+              nicknameNormalizedSnapshot: '시즌상대',
+              lifestyle: makeUser().profile!.lifestyle,
+              intro: '시즌 소개',
+              messageToRoommate: '시즌 메시지',
+              collegeCode: 'HUMANITIES',
+              grade: '4+',
+              mbti: 'ENTP',
+              birthYear: 2001,
+            },
+          }),
+        ],
+      }),
+    );
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-1' },
+      state: 'SEASON_MATCHING',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+      ],
+      schedule: {
+        preparationStart: '2026-01-01',
+        matchingStart: '2026-01-28',
+        matchingEnd: '2026-02-11',
+        seasonEnd: '2026-02-28',
+      },
+    });
+    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+      makeParticipant({
+        participationIntent: 'REGISTERED',
+        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'ACTIVE',
+        profile: { participantId: 'viewer-profile' },
+      }),
+    );
+    matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
+
+    const result = await service.getProfileByUserId(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      'peer-1',
+    );
+
+    expect(result.exposureLevel).toBe('FULL');
+    expect(result.actions).toEqual({
+      canBookmark: true,
+      canRequestMatch: true,
+      canStartChat: true,
+    });
+  });
+
   it('SEASON_POST_MATCH matched partner는 FULL + MATCHED_PARTNER relation baseline으로 노출한다', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
       Object.assign(makeUser({ id: 'peer-1', email: 'peer1@kangwon.ac.kr' }), {

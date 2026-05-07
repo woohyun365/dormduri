@@ -422,6 +422,40 @@ describe('ChatService', () => {
     });
   });
 
+  it('live ActiveMatch가 없으면 stale MATCHED target도 채팅 후보로 유지한다', async () => {
+    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
+      (user: UserSeed) =>
+        Promise.resolve(
+          user.id === 'user-2'
+            ? makeParticipant({
+                id: 'participant-2',
+                userId: 'user-2',
+                participantStatus: 'MATCHED',
+                matchedAt: new Date('2026-02-01T00:00:00.000Z'),
+              })
+            : makeParticipant({ id: 'participant-1', userId: user.id }),
+        ),
+    );
+
+    const entry = await service.getThreadEntry(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      'user-2',
+    );
+
+    expect(entry).toEqual({
+      targetUserId: 'user-2',
+      thread: null,
+      canEnterChatUi: true,
+      canSendMessage: true,
+    });
+  });
+
   it('상대가 시즌 참여자라도 ASSIGNED가 아니면 같은 캠퍼스/성별이어도 채팅 UI entry와 send가 모두 닫힌다', async () => {
     seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
       (user: UserSeed) =>

@@ -16,15 +16,16 @@ import {
   type UserWithProfileRecord,
 } from '../profiles/profile.mapper.js';
 import { buildUserReadiness } from './user-readiness.js';
-import { buildUserCapabilities, canBrowseProfiles } from './user-capabilities.js';
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import {
+  buildCurrentUserCapabilities,
+  canCurrentDormitoryMatch,
+  hasOperatedAssignedDormitory,
   hasParticipantProfile,
-  isParticipantMatched,
   isParticipantRegistered,
   resolveCurrentUserProfileSource,
 } from '../season-participants/season-participant-policy.js';
@@ -289,7 +290,6 @@ export class UsersService {
             now,
           )
         : null;
-    const participantMatched = activeMatch !== null || isParticipantMatched(currentParticipant);
     const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
       user,
       currentParticipant,
@@ -309,20 +309,18 @@ export class UsersService {
     const additional = toAdditionalProfile(canonicalProfile);
     const nicknameLockedBySeason = canonicalProfile.source === 'SEASON_PARTICIPANT_PROFILE';
     const nicknameCooldownActive = hasNicknameCooldown(user.profile.nicknameChangedAt, now);
-    const currentDormitoryCanMatch = this.canCurrentDormitoryMatch(
+    const currentDormitoryCanMatch = canCurrentDormitoryMatch(
       serviceState.seasonContext,
       canonicalSelection.dormitoryId,
       now,
     );
-    const browseProfiles = canBrowseProfiles({
-      campusOperated: serviceState.campusOperated,
-      seasonState: serviceState.seasonState,
-      selectionState: canonicalSelection.dormitorySelectionState,
-    });
-    const hasSelectableDormitories =
-      (serviceState.seasonContext?.operatedDormitories.length ?? 0) > 0;
-    const hasOperatedAssignedDormitory = this.hasOperatedAssignedDormitory(
-      serviceState.seasonContext,
+    const browseProfiles = true;
+    const operatedDormitoryIds = new Set(
+      serviceState.seasonContext?.operatedDormitories.map((item) => item.dormitoryId) ?? [],
+    );
+    const hasSelectableDormitories = operatedDormitoryIds.size > 0;
+    const selectionInOperatedDormitory = hasOperatedAssignedDormitory(
+      operatedDormitoryIds,
       canonicalSelection.dormitorySelectionState,
       canonicalSelection.dormitoryId,
     );
@@ -366,13 +364,13 @@ export class UsersService {
         selectionState: canonicalSelection.dormitorySelectionState,
         canBrowseProfiles: browseProfiles,
       }),
-      capabilities: buildUserCapabilities({
+      capabilities: buildCurrentUserCapabilities({
         campusOperated: serviceState.campusOperated,
         seasonState: serviceState.seasonState,
         participantRegistered,
-        participantMatched,
+        participantMatched: activeMatch !== null,
         selectionState: canonicalSelection.dormitorySelectionState,
-        hasOperatedAssignedDormitory,
+        hasOperatedAssignedDormitory: selectionInOperatedDormitory,
         nicknameLockedBySeason,
         nicknameCooldownActive,
         hasSelectableDormitories,
@@ -383,42 +381,6 @@ export class UsersService {
         seasonState: serviceState.seasonState,
       },
     };
-  }
-
-  private hasOperatedAssignedDormitory(
-    seasonContext: Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>,
-    selectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED',
-    dormitoryId: string | null,
-  ) {
-    if (selectionState !== 'ASSIGNED' || !dormitoryId) {
-      return false;
-    }
-
-    if (!seasonContext) {
-      return true;
-    }
-
-    return seasonContext.operatedDormitories.some((item) => item.dormitoryId === dormitoryId);
-  }
-
-  private canCurrentDormitoryMatch(
-    seasonContext: Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>,
-    dormitoryId: string | null,
-    now: Date,
-  ) {
-    if (!seasonContext || !dormitoryId || seasonContext.state !== 'SEASON_MATCHING') {
-      return false;
-    }
-
-    const dormitory = seasonContext.operatedDormitories.find(
-      (item) => item.dormitoryId === dormitoryId,
-    );
-    if (!dormitory) {
-      return false;
-    }
-
-    const today = formatKstDate(now);
-    return today >= seasonContext.schedule.matchingStart && today <= dormitory.roomSelectionDate;
   }
 
   private assertSelectionPayload(selection: NonNullable<UpdateCurrentUserInput['selection']>) {

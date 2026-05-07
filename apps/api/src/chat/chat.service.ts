@@ -16,8 +16,9 @@ import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
   buildCurrentUserCapabilities,
+  canCurrentDormitoryMatch,
   hasParticipantProfile,
-  isParticipantMatched,
+  hasOperatedAssignedDormitory,
   isParticipantRegistered,
   isVisibleRegisteredParticipant,
   resolvePublicExposure,
@@ -631,21 +632,24 @@ export class ChatService {
         ? viewerPairActiveMatch.participantBId
         : viewerPairActiveMatch.participantAId
       : null;
+    const operatedDormitoryIds = new Set(
+      seasonContext.operatedDormitories.map((item) => item.dormitoryId),
+    );
     const canStartChat = buildCurrentUserCapabilities({
       campusOperated: true,
       seasonState: seasonContext.state,
       participantRegistered: isParticipantRegistered(viewerParticipant),
       participantMatched: viewerPairActiveMatch !== null,
       selectionState: viewerContext.selection.dormitorySelectionState,
-      hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(
-        seasonContext,
+      hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
+        operatedDormitoryIds,
         viewerContext.selection.dormitorySelectionState,
         viewerContext.selection.dormitoryId,
       ),
       nicknameLockedBySeason: false,
       nicknameCooldownActive: false,
       hasSelectableDormitories: seasonContext.operatedDormitories.length > 0,
-      currentDormitoryCanMatch: this.canCurrentDormitoryMatch(
+      currentDormitoryCanMatch: canCurrentDormitoryMatch(
         seasonContext,
         viewerContext.selection.dormitoryId,
         now,
@@ -656,16 +660,16 @@ export class ChatService {
         campusOperated: true,
         seasonState: seasonContext.state,
         registered: isParticipantRegistered(viewerParticipant),
-        matched: viewerPairActiveMatch !== null || isParticipantMatched(viewerParticipant),
+        matched: viewerPairActiveMatch !== null,
         matchedPartnerParticipantId,
         selectionState: viewerContext.selection.dormitorySelectionState,
         dormitoryId: viewerContext.selection.dormitoryId,
-        hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(
-          seasonContext,
+        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
+          operatedDormitoryIds,
           viewerContext.selection.dormitorySelectionState,
           viewerContext.selection.dormitoryId,
         ),
-        currentDormitoryCanMatch: this.canCurrentDormitoryMatch(
+        currentDormitoryCanMatch: canCurrentDormitoryMatch(
           seasonContext,
           viewerContext.selection.dormitoryId,
           now,
@@ -675,11 +679,11 @@ export class ChatService {
         participantId: targetParticipant.id,
         visible: isVisibleRegisteredParticipant(targetParticipant),
         registered: isParticipantRegistered(targetParticipant),
-        matched: targetPairActiveMatch !== null || isParticipantMatched(targetParticipant),
+        matched: targetPairActiveMatch !== null,
         selectionState: targetSelection.dormitorySelectionState,
         dormitoryId: targetSelection.dormitoryId,
-        hasOperatedAssignedDormitory: this.hasOperatedAssignedDormitory(
-          seasonContext,
+        hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
+          operatedDormitoryIds,
           targetSelection.dormitorySelectionState,
           targetSelection.dormitoryId,
         ),
@@ -918,36 +922,5 @@ export class ChatService {
       },
       select: threadSelect,
     });
-  }
-
-  private hasOperatedAssignedDormitory(
-    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
-    selectionState: DormitorySelectionState,
-    dormitoryId: string | null,
-  ) {
-    return (
-      selectionState === 'ASSIGNED' &&
-      dormitoryId !== null &&
-      seasonContext.operatedDormitories.some((item) => item.dormitoryId === dormitoryId)
-    );
-  }
-
-  private canCurrentDormitoryMatch(
-    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
-    dormitoryId: string | null,
-    now: Date,
-  ) {
-    if (!dormitoryId || seasonContext.state !== 'SEASON_MATCHING') {
-      return false;
-    }
-
-    const dormitory = seasonContext.operatedDormitories.find(
-      (item) => item.dormitoryId === dormitoryId,
-    );
-    if (!dormitory) {
-      return false;
-    }
-
-    return formatKstDate(now) <= dormitory.roomSelectionDate;
   }
 }
