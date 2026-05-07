@@ -8,7 +8,11 @@ import { apiEnv } from '../../config/env.js';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor() {
     super({
-      adapter: new PrismaPg({ connectionString: apiEnv.databaseUrl }),
+      adapter: new PrismaPg({
+        connectionString: apiEnv.databaseUrl,
+        connectionTimeoutMillis: 5_000,
+        idleTimeoutMillis: 300_000,
+      }),
     });
   }
 

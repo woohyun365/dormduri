@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { Client } from 'pg';
 import { PrismaClient } from '../../../src/generated/prisma/client.js';
 import { apiEnv } from '../../../src/config/env.js';
 
@@ -35,8 +35,8 @@ function setRuntimeDatabaseUrl(databaseUrl: string) {
   (apiEnv as { databaseUrl: string }).databaseUrl = databaseUrl;
 }
 
-function runPrismaDbPush(databaseUrl: string) {
-  execFileSync('pnpm', ['exec', 'prisma', 'db', 'push'], {
+function runPrismaMigrateDeploy(databaseUrl: string) {
+  execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
     cwd: API_DIR,
     env: {
       ...process.env,
@@ -46,38 +46,48 @@ function runPrismaDbPush(databaseUrl: string) {
   });
 }
 
+export function runPrismaMigrateStatus(databaseUrl: string) {
+  return execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'status'], {
+    cwd: API_DIR,
+    env: {
+      ...process.env,
+      DATABASE_URL: databaseUrl,
+    },
+    stdio: 'pipe',
+    encoding: 'utf8',
+  });
+}
+
 export async function createIntegrationDatabaseSandbox(
   schemaPrefix: string,
 ): Promise<IntegrationDatabaseSandbox> {
   const baseDatabaseUrl = process.env.DATABASE_URL ?? apiEnv.databaseUrl ?? DEFAULT_DATABASE_URL;
   const schemaName = `${schemaPrefix}_${randomUUID().replaceAll('-', '')}`;
   const databaseUrl = toDatabaseUrlWithSchema(baseDatabaseUrl, schemaName);
-  const adminClient = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: resolveAdminDatabaseUrl(baseDatabaseUrl) }),
-  });
+  const adminClient = new Client({ connectionString: resolveAdminDatabaseUrl(baseDatabaseUrl) });
 
-  await adminClient.$connect();
+  await adminClient.connect();
   try {
-    await adminClient.$executeRawUnsafe(`CREATE SCHEMA "${schemaName}"`);
+    await adminClient.query(`CREATE SCHEMA "${schemaName}"`);
   } finally {
-    await adminClient.$disconnect();
+    await adminClient.end();
   }
 
   setRuntimeDatabaseUrl(databaseUrl);
-  runPrismaDbPush(databaseUrl);
+  runPrismaMigrateDeploy(databaseUrl);
 
   return {
     schemaName,
     databaseUrl,
     cleanup: async () => {
-      const cleanupClient = new PrismaClient({
-        adapter: new PrismaPg({ connectionString: resolveAdminDatabaseUrl(baseDatabaseUrl) }),
+      const cleanupClient = new Client({
+        connectionString: resolveAdminDatabaseUrl(baseDatabaseUrl),
       });
-      await cleanupClient.$connect();
+      await cleanupClient.connect();
       try {
-        await cleanupClient.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
+        await cleanupClient.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
       } finally {
-        await cleanupClient.$disconnect();
+        await cleanupClient.end();
       }
     },
   };
