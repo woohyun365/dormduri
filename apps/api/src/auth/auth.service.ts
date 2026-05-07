@@ -25,6 +25,8 @@ import { AuthSignupValidationService } from './auth-signup-validation.service.js
 import type { SignupProfileValidationResponse } from '@repo/shared/auth-response';
 import { authFailures } from './auth-failures.js';
 
+const SIGNUP_VERIFICATION_PROOF_UNAVAILABLE = '[AuthService] signup verification proof unavailable';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -146,37 +148,53 @@ export class AuthService {
 
     const emailVerifiedAt = await this.prisma.getDatabaseNow();
     try {
-      const user = await this.prisma.user.create({
-        data: {
-          email: input.email.trim(),
-          emailNormalized,
-          passwordHash,
-          gender: input.gender,
-          campus: input.campus,
-          emailVerifiedAt,
-          profile: {
-            create: {
-              nickname: input.nickname.trim(),
-              nicknameNormalized: normalizedNickname,
-              lifestyle: lifestyleValidation.value,
-              intro: input.intro.trim(),
+      const user = await this.prisma.runSerializableTransaction(async (tx) => {
+        const createdUser = await tx.user.create({
+          data: {
+            email: input.email.trim(),
+            emailNormalized,
+            passwordHash,
+            gender: input.gender,
+            campus: input.campus,
+            emailVerifiedAt,
+            profile: {
+              create: {
+                nickname: input.nickname.trim(),
+                nicknameNormalized: normalizedNickname,
+                lifestyle: lifestyleValidation.value,
+                intro: input.intro.trim(),
+              },
             },
           },
-        },
-        select: {
-          id: true,
-          email: true,
-          gender: true,
-          campus: true,
-          profile: {
-            select: {
-              nickname: true,
+          select: {
+            id: true,
+            email: true,
+            gender: true,
+            campus: true,
+            profile: {
+              select: {
+                nickname: true,
+              },
             },
           },
-        },
-      });
+        });
 
-      await this.verificationService.consumeVerificationCode(verifiedCode.id);
+        const consumeResult = await tx.verificationCode.updateMany({
+          where: {
+            id: verifiedCode.id,
+            consumedAt: null,
+          },
+          data: {
+            consumedAt: emailVerifiedAt,
+          },
+        });
+
+        if (consumeResult.count !== 1) {
+          throw new Error(SIGNUP_VERIFICATION_PROOF_UNAVAILABLE);
+        }
+
+        return createdUser;
+      });
 
       const authResult = await this.sessionService.issueAuthResult(user.id, user.email, false);
       return toLoginSuccessResult(
@@ -198,6 +216,9 @@ export class AuthService {
         if (target.includes('nicknameNormalized')) {
           return authFailures.nicknameAlreadyTaken();
         }
+      }
+      if (error instanceof Error && error.message === SIGNUP_VERIFICATION_PROOF_UNAVAILABLE) {
+        return authFailures.signupVerificationRequired();
       }
       throw error;
     }

@@ -1,17 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
-import { getCurrentTimestamp } from '../generated/prisma/sql.js';
+import { SeasonsService } from '../seasons/seasons.service.js';
 import { dormitoriesErrors } from './dormitories.errors.js';
-import {
-  formatKstDate,
-  hasActiveSeasonOverride,
-  normalizeSeasonRuntimeRow,
-} from '../seasons/season.utils.js';
 
 @Injectable()
 export class DormitorySelectableQueryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly seasonsService: SeasonsService,
+  ) {}
 
   async getSelectableDormitories(campus: Campus, gender?: Gender, now?: Date) {
     const campusMeta = await this.prisma.campusMaster.findUnique({
@@ -34,9 +32,8 @@ export class DormitorySelectableQueryService {
       };
     }
 
-    const referenceNow = await this.resolveReferenceTime(now);
-    const selectableSeasonId = await this.resolveSelectableSeasonId(campus, referenceNow);
-    if (!selectableSeasonId) {
+    const seasonContext = await this.seasonsService.getCurrentSeasonContext(campus, now);
+    if (!seasonContext) {
       return {
         campus: campusMeta,
         items: [],
@@ -45,7 +42,7 @@ export class DormitorySelectableQueryService {
 
     const operations = await this.prisma.seasonDormitoryOperation.findMany({
       where: {
-        seasonId: selectableSeasonId,
+        seasonId: seasonContext.season.id,
         isOperated: true,
         dormitory: {
           campusCode: campus,
@@ -94,61 +91,5 @@ export class DormitorySelectableQueryService {
       campus: campusMeta,
       items,
     };
-  }
-
-  private async resolveSelectableSeasonId(campus: Campus, referenceNow: Date) {
-    const seasons = await this.prisma.season.findMany({
-      where: { campusCode: campus },
-      orderBy: [{ seasonEndDate: 'asc' }, { matchingStartDate: 'asc' }, { createdAt: 'asc' }],
-      select: {
-        id: true,
-        campusCode: true,
-        name: true,
-        preparationStartDate: true,
-        matchingStartDate: true,
-        seasonEndDate: true,
-        overrideState: true,
-        overrideReason: true,
-        overrideStartedAt: true,
-        overrideEndsAt: true,
-        dormitoryOperations: {
-          select: {
-            dormitoryId: true,
-            isOperated: true,
-            roomSelectionDate: true,
-          },
-        },
-      },
-    });
-
-    if (seasons.length === 0) {
-      return null;
-    }
-
-    const normalizedSeasons = seasons.map(normalizeSeasonRuntimeRow);
-    const today = formatKstDate(referenceNow);
-
-    const currentSeasons = normalizedSeasons.filter(
-      (season) => season.preparationStartDate <= today && season.seasonEndDate >= today,
-    );
-    const overrideSeason = currentSeasons.find((season) =>
-      hasActiveSeasonOverride(season, referenceNow),
-    );
-
-    return (overrideSeason ?? currentSeasons[0])?.id ?? null;
-  }
-
-  private async resolveReferenceTime(now?: Date) {
-    if (now) {
-      return now;
-    }
-
-    const [row] = await this.prisma.$queryRawTyped(getCurrentTimestamp());
-
-    if (!row?.now) {
-      return new Date();
-    }
-
-    return row.now instanceof Date ? row.now : new Date(row.now);
   }
 }

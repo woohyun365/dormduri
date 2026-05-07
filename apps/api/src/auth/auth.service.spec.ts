@@ -7,6 +7,7 @@ describe('AuthService orchestration', () => {
       updateMany: jest.fn(),
     },
     getDatabaseNow: jest.fn(),
+    runSerializableTransaction: jest.fn(),
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -68,6 +69,12 @@ describe('AuthService orchestration', () => {
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
     prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
     prisma.$transaction.mockResolvedValue([]);
+    prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
+      callback({
+        user: { create: prisma.user.create },
+        verificationCode: { updateMany: prisma.verificationCode.updateMany },
+      }),
+    );
     prisma.userProfile.findUnique.mockResolvedValue(null);
   });
 
@@ -199,7 +206,15 @@ describe('AuthService orchestration', () => {
       nickname: '테스터',
       nicknameNormalized: '테스터',
     });
-    expect(verificationService.consumeVerificationCode).toHaveBeenCalledWith('code-1');
+    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
+    const [verificationUpdateArg] = (prisma.verificationCode.updateMany.mock.calls[0] ?? []) as [
+      {
+        where: { id: string; consumedAt: null };
+        data: { consumedAt: Date };
+      }?,
+    ];
+    expect(verificationUpdateArg?.where).toEqual({ id: 'code-1', consumedAt: null });
+    expect(verificationUpdateArg?.data.consumedAt).toEqual(expect.any(Date));
     expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
       'user-1',
       'test@kangwon.ac.kr',
@@ -216,6 +231,62 @@ describe('AuthService orchestration', () => {
         campus: 'CHUNCHEON',
       },
     });
+  });
+
+  it('signup verification proof가 동시 소모되면 계정 생성 대신 verification required를 반환한다', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.userProfile.findUnique.mockResolvedValue(null);
+    verificationService.findLatestVerifiedSignupCode.mockResolvedValue({ id: 'code-1' });
+    prisma.user.create.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      profile: {
+        nickname: '테스터',
+      },
+    });
+    prisma.verificationCode.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.signup({
+        email: 'test@kangwon.ac.kr',
+        password: 'pass1234',
+        nickname: '테스터',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        lifestyle: {
+          bedtime: '22_24',
+          wakeTime: '07_08',
+          sleepHabit: 'NONE',
+          sleepEnvironment: 'QUIET',
+          screenUsage: 'NONE',
+          noiseSensitivity: 'NORMAL',
+          smokingBehavior: 'NO',
+          indoorEating: 'SNACK',
+          phoneBehavior: 'SOMETIMES',
+          earphoneUsage: 'MOSTLY',
+          cleanLevel: 'WEEKLY_3_UP',
+          drinkingFrequency: 'NONE',
+          relationshipStyle: 'CLOSE',
+          temperatureSensitivity: 'NORMAL',
+          smokingTolerance: null,
+          phoneTolerance: null,
+          earphoneExpectation: null,
+          sleepEnvPreference: null,
+          screenTolerance: null,
+          indoorEatingTolerance: null,
+          cleanExpectation: null,
+          drinkingTolerance: 'LOW_ONLY',
+        },
+        intro: '안녕하세요',
+      }),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
+    });
+
+    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
   });
 
   it('resetPassword는 verification code consume / session revoke를 Prisma transaction으로 처리한다', async () => {

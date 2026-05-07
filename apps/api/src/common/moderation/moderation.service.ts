@@ -31,12 +31,11 @@ export class ModerationService {
     }
 
     const terms = await this.getTerms(surface);
-    const normalizedValue = normalizeForModeration(value);
-
-    if (terms.blocked.some((term) => matchesModerationTerm(normalizedValue, term))) {
+    const blockedError = this.getBlockedTextError(normalizeForModeration(value), surface, terms);
+    if (blockedError) {
       return {
         ok: false,
-        error: getErrorMessage(surface),
+        error: blockedError,
       };
     }
 
@@ -56,12 +55,22 @@ export class ModerationService {
       return '사용할 수 없는 단어가 포함되어 있습니다.';
     }
 
-    const moderation = await this.moderatePublicText(trimmed, 'nickname');
-    if (!moderation.ok) {
-      return moderation.error;
+    const blockedError = this.getBlockedTextError(normalizedValue, 'nickname', terms);
+    if (blockedError) {
+      return blockedError;
     }
 
     return null;
+  }
+
+  private getBlockedTextError(
+    normalizedValue: string,
+    surface: PublicTextSurface,
+    terms: CachedSurfaceTerms,
+  ): string | null {
+    return terms.blocked.some((term) => matchesModerationTerm(normalizedValue, term))
+      ? getErrorMessage(surface)
+      : null;
   }
 
   private async getTerms(surface: PublicTextSurface): Promise<CachedSurfaceTerms> {
