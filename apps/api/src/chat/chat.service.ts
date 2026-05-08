@@ -518,6 +518,36 @@ export class ChatService {
     });
   }
 
+  async sweepThreadLifecycle(now: Date) {
+    const candidateThreads = await this.prisma.conversationThread.findMany({
+      where: {
+        status: { in: ['OPEN', 'READ_ONLY'] },
+      },
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+      select: threadSelect,
+    });
+
+    let updatedCount = 0;
+
+    for (const thread of candidateThreads) {
+      const synchronized = await this.synchronizeThreadLifecycle(thread, now);
+      if (
+        synchronized.status !== thread.status ||
+        synchronized.threadKind !== thread.threadKind ||
+        synchronized.activeMatchId !== thread.activeMatchId ||
+        synchronized.closedReason !== thread.closedReason ||
+        synchronized.closedAt?.getTime() !== thread.closedAt?.getTime()
+      ) {
+        updatedCount += 1;
+      }
+    }
+
+    return {
+      scannedCount: candidateThreads.length,
+      updatedCount,
+    };
+  }
+
   private async getCurrentChatContext(userId: string, now: Date) {
     const user = await this.getUserSeed(userId);
     if (!user) {

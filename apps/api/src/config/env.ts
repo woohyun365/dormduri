@@ -10,6 +10,8 @@ const DEFAULT_CODE_REQUEST_COOLDOWN_SECONDS = IS_PRODUCTION ? 30 : 5;
 const DEFAULT_CODE_REQUEST_BACKSTOP_WINDOW_SECONDS = 60 * 10;
 const DEFAULT_CODE_REQUEST_BACKSTOP_LIMIT = IS_PRODUCTION ? 5 : 20;
 const DEFAULT_AUTH_THROTTLE_LIMIT = IS_PRODUCTION ? 60 : 300;
+const DEFAULT_LIFECYCLE_SWEEP_ENABLED = NODE_ENV !== 'test';
+const DEFAULT_LIFECYCLE_SWEEP_INTERVAL_MS = IS_PRODUCTION ? 5 * 60 * 1000 : 60 * 1000;
 
 function readStringEnv(
   key: string,
@@ -47,6 +49,23 @@ function readNumberEnv(key: string, fallback: number, options?: { min?: number }
   return value;
 }
 
+function readBooleanEnv(key: string, fallback: boolean): boolean {
+  const raw = process.env[key]?.trim().toLowerCase();
+  if (!raw) {
+    return fallback;
+  }
+
+  if (['1', 'true', 'yes', 'on'].includes(raw)) {
+    return true;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(raw)) {
+    return false;
+  }
+
+  throw new Error(`[apiEnv] ${key} must be a boolean-like value.`);
+}
+
 export const apiEnv = {
   nodeEnv: NODE_ENV,
   isProduction: IS_PRODUCTION,
@@ -82,4 +101,10 @@ export const apiEnv = {
   authThrottleLimit: readNumberEnv('AUTH_THROTTLE_LIMIT', DEFAULT_AUTH_THROTTLE_LIMIT, {
     min: 1,
   }),
+  lifecycleSweepEnabled: readBooleanEnv('LIFECYCLE_SWEEP_ENABLED', DEFAULT_LIFECYCLE_SWEEP_ENABLED),
+  lifecycleSweepIntervalMs: readNumberEnv(
+    'LIFECYCLE_SWEEP_INTERVAL_MS',
+    DEFAULT_LIFECYCLE_SWEEP_INTERVAL_MS,
+    { min: 1_000 },
+  ),
 } as const;

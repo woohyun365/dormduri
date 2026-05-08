@@ -791,6 +791,133 @@ export class MatchesService {
     );
   }
 
+  async sweepLifecycleTransitions(now: Date) {
+    const expiredRequests = await this.prisma.matchRequest.updateMany({
+      where: {
+        status: 'PENDING',
+        expiresAt: { lte: now },
+      },
+      data: {
+        status: 'EXPIRED',
+        terminalReason: 'EXPIRED',
+        terminalAt: now,
+      },
+    });
+
+    const activeMatches = await this.prisma.activeMatch.findMany({
+      where: {
+        status: 'ACTIVE',
+        endedAt: null,
+      },
+      orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        seasonId: true,
+        season: {
+          select: {
+            campusCode: true,
+          },
+        },
+      },
+    });
+
+    const seasonContextCache = new Map<
+      string,
+      Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>
+    >();
+    let expiredUnmatchRequests = 0;
+    let seasonEndedActiveMatches = 0;
+
+    for (const activeMatch of activeMatches) {
+      const cachedSeasonContext = seasonContextCache.get(activeMatch.season.campusCode);
+      const seasonContext =
+        cachedSeasonContext ??
+        (await this.seasonsService.getCurrentSeasonContext(activeMatch.season.campusCode, now));
+      if (!seasonContextCache.has(activeMatch.season.campusCode)) {
+        seasonContextCache.set(activeMatch.season.campusCode, seasonContext);
+      }
+
+      const transitionResult = await this.prisma.runSerializableTransaction(async (tx) => {
+        await this.acquireActiveMatchLock(tx, activeMatch.id);
+        await this.lockActiveMatchRow(tx, activeMatch.id);
+
+        const currentActiveMatch = await tx.activeMatch.findUnique({
+          where: { id: activeMatch.id },
+          select: this.activeMatchCommandSelect(),
+        });
+
+        if (!currentActiveMatch || currentActiveMatch.status !== 'ACTIVE') {
+          return { expiredUnmatchRequests: 0, seasonEndedActiveMatch: false };
+        }
+
+        const pendingBefore = currentActiveMatch.unmatchRequests.filter(
+          (request) => request.status === 'PENDING',
+        ).length;
+        const shouldSeasonEnd =
+          !seasonContext || seasonContext.season.id !== currentActiveMatch.seasonId;
+
+        if (shouldSeasonEnd) {
+          const expiredPendingRequests = pendingBefore
+            ? await tx.activeMatchUnmatchRequest.updateMany({
+                where: {
+                  activeMatchId: currentActiveMatch.id,
+                  status: 'PENDING',
+                },
+                data: {
+                  status: 'EXPIRED_BY_CUTOFF',
+                  terminalAt: now,
+                },
+              })
+            : { count: 0 };
+
+          await tx.activeMatch.update({
+            where: { id: currentActiveMatch.id },
+            data: {
+              status: 'SEASON_ENDED',
+              endedAt: now,
+              endReason: 'SEASON_ENDED',
+            },
+          });
+
+          return {
+            expiredUnmatchRequests: expiredPendingRequests.count,
+            seasonEndedActiveMatch: true,
+          };
+        }
+
+        if (pendingBefore === 0) {
+          return { expiredUnmatchRequests: 0, seasonEndedActiveMatch: false };
+        }
+
+        const synchronizedActiveMatch = await this.synchronizePendingUnmatchRequests(
+          currentActiveMatch,
+          seasonContext,
+          now,
+          tx,
+        );
+        const pendingAfter = synchronizedActiveMatch.unmatchRequests.filter(
+          (request) => request.status === 'PENDING',
+        ).length;
+
+        return {
+          expiredUnmatchRequests: pendingBefore - pendingAfter,
+          seasonEndedActiveMatch: false,
+        };
+      });
+
+      expiredUnmatchRequests += transitionResult.expiredUnmatchRequests;
+      if (transitionResult.seasonEndedActiveMatch) {
+        seasonEndedActiveMatches += 1;
+      }
+    }
+
+    return {
+      expiredRequests: expiredRequests.count,
+      expiredUnmatchRequests,
+      seasonEndedActiveMatches,
+    };
+  }
+
   private async getCurrentDetailedActiveMatchByParticipantId(
     seasonId: string,
     participantId: string,
