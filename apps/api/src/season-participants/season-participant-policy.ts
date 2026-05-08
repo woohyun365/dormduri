@@ -85,6 +85,19 @@ export function hasParticipantProfile(participant: ParticipantPolicyRecord | nul
   return Boolean(participant?.profile);
 }
 
+export function requiresCurrentSeasonParticipantProfile(
+  participant: ParticipantPolicyRecord | null | undefined,
+  seasonState: SeasonState | null,
+) {
+  return (
+    isParticipantRegistered(participant) &&
+    !hasParticipantProfile(participant) &&
+    (seasonState === 'SEASON_OPEN' ||
+      seasonState === 'SEASON_MATCHING' ||
+      seasonState === 'SEASON_POST_MATCH')
+  );
+}
+
 export function isVisibleRegisteredParticipant(
   participant: ParticipantPolicyRecord | null | undefined,
 ) {

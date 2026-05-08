@@ -2,12 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
-import { AppController } from './app.controller.js';
-import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ChatModule } from './chat/chat.module.js';
 import { PrismaModule } from './common/prisma/prisma.module.js';
 import { DormitoriesModule } from './dormitories/dormitories.module.js';
+import { HealthModule } from './health/health.module.js';
 import { ProfilesModule } from './profiles/profiles.module.js';
 import { SeasonsModule } from './seasons/seasons.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -38,15 +37,14 @@ import { envValidationSchema } from './config/env.validation.js';
     AuthModule,
     ChatModule,
     DormitoriesModule,
+    HealthModule,
     SeasonsModule,
     SeasonParticipantsModule,
     UsersModule,
     ProfilesModule,
     MatchesModule,
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
     LifecycleSweepService,
     {
       provide: APP_FILTER,

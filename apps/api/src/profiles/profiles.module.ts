@@ -5,7 +5,7 @@ import { MatchesModule } from '../matches/matches.module.js';
 import { PrismaModule } from '../common/prisma/prisma.module.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
-import { UsersModule } from '../users/users.module.js';
+import { CurrentUserViewModule } from '../users/current-user-view.module.js';
 import { ProfilesController } from './profiles.controller.js';
 import { ProfilesService } from './profiles.service.js';
 
@@ -17,7 +17,7 @@ import { ProfilesService } from './profiles.service.js';
     MatchesModule,
     AuthModule,
     ModerationModule,
-    UsersModule,
+    CurrentUserViewModule,
   ],
   controllers: [ProfilesController],
   providers: [ProfilesService],

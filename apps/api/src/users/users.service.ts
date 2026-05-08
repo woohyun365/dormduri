@@ -10,22 +10,16 @@ import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { formatKstDate } from '../seasons/season.utils.js';
 import { usersErrors } from './users.errors.js';
-import {
-  parseLifestyleOrThrow,
-  toAdditionalProfile,
-  type UserWithProfileRecord,
-} from '../profiles/profile.mapper.js';
-import { buildUserReadiness } from './user-readiness.js';
+import { type UserWithProfileRecord } from '../profiles/profile.mapper.js';
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
-import { MatchesService } from '../matches/matches.service.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import {
-  buildCurrentUserCapabilities,
   canCurrentDormitoryMatch,
   hasParticipantProfile,
   isParticipantRegistered,
+  requiresCurrentSeasonParticipantProfile,
   resolveCurrentUserProfileSource,
   resolveCurrentUserProfileEditability,
 } from '../season-participants/season-participant-policy.js';
@@ -33,6 +27,8 @@ import {
   buildCurrentUserCapabilityInput,
   toOperatedDormitoryIdSet,
 } from '../season-participants/season-participant-gate-context.js';
+import { buildUserWithProfileSelect } from './current-user-select.js';
+import { CurrentUserViewService } from './current-user-view.service.js';
 
 interface UpdateCurrentUserInput {
   selection?: {
@@ -56,13 +52,11 @@ export class UsersService {
     private readonly seasonsService: SeasonsService,
     private readonly moderationService: ModerationService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
-    private readonly matchesService: MatchesService,
+    private readonly currentUserViewService: CurrentUserViewService,
   ) {}
 
   async getCurrentUser(authUser: AuthenticatedUserContext): Promise<CurrentUserResponse> {
-    const now = await this.prisma.getDatabaseNow();
-    const user = await this.getUserWithProfile(authUser.id);
-    return this.buildCurrentUserResponse(user, now);
+    return this.currentUserViewService.getCurrentUser(authUser);
   }
 
   async updateCurrentUser(
@@ -91,13 +85,7 @@ export class UsersService {
       participantProfileExists: hasParticipantProfile(currentParticipant),
     });
 
-    if (
-      participantRegistered &&
-      !hasParticipantProfile(currentParticipant) &&
-      (serviceState.seasonState === 'SEASON_OPEN' ||
-        serviceState.seasonState === 'SEASON_MATCHING' ||
-        serviceState.seasonState === 'SEASON_POST_MATCH')
-    ) {
+    if (requiresCurrentSeasonParticipantProfile(currentParticipant, serviceState.seasonState)) {
       throw new Error(
         '[UsersService] registered participant profile is required during current season',
       );
@@ -311,128 +299,10 @@ export class UsersService {
       }
     });
 
-    return this.buildCurrentUserResponse(await this.getUserWithProfile(authUser.id), now);
-  }
-
-  private async buildCurrentUserResponse(
-    user: UserWithProfileRecord,
-    now: Date,
-  ): Promise<CurrentUserResponse> {
-    if (!user.profile) {
-      throw new Error('[UsersService] user profile row is required');
-    }
-
-    const serviceState = await resolveCampusServiceState(
-      this.prisma,
-      this.seasonsService,
-      user.campus,
+    return this.currentUserViewService.buildCurrentUserResponse(
+      await this.getUserWithProfile(authUser.id),
       now,
     );
-    const currentParticipant =
-      await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
-    const participantRegistered = isParticipantRegistered(currentParticipant);
-    if (
-      participantRegistered &&
-      !hasParticipantProfile(currentParticipant) &&
-      (serviceState.seasonState === 'SEASON_OPEN' ||
-        serviceState.seasonState === 'SEASON_MATCHING' ||
-        serviceState.seasonState === 'SEASON_POST_MATCH')
-    ) {
-      throw new Error(
-        '[UsersService] registered participant profile is required during current season',
-      );
-    }
-    const activeMatch =
-      currentParticipant && serviceState.seasonContext
-        ? await this.matchesService.getCurrentActiveMatchSummaryForParticipant(
-            serviceState.seasonContext,
-            currentParticipant.id,
-            now,
-          )
-        : null;
-    const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
-      user,
-      currentParticipant,
-    );
-    const profileSource = resolveCurrentUserProfileSource({
-      campusOperated: serviceState.campusOperated,
-      seasonState: serviceState.seasonState,
-      participantRegistered,
-      participantProfileExists: hasParticipantProfile(currentParticipant),
-    });
-    const canonicalProfile = this.seasonParticipantsService.selectProfileBySource(
-      user.profile,
-      currentParticipant?.profile ?? null,
-      profileSource,
-    );
-    const lifestyle = parseLifestyleOrThrow(canonicalProfile.lifestyle);
-    const additional = toAdditionalProfile(canonicalProfile);
-    const nicknameLockedBySeason = canonicalProfile.source === 'SEASON_PARTICIPANT_PROFILE';
-    const nicknameCooldownActive = hasNicknameCooldown(user.profile.nicknameChangedAt, now);
-    const browseProfiles = true;
-    const operatedDormitoryIds = toOperatedDormitoryIdSet(serviceState.seasonContext);
-    const currentDormitoryCanMatch = canCurrentDormitoryMatch(
-      serviceState.seasonContext,
-      canonicalSelection.dormitoryId,
-      now,
-    );
-    const capabilityInput = buildCurrentUserCapabilityInput({
-      campusOperated: serviceState.campusOperated,
-      seasonState: serviceState.seasonState,
-      participant: currentParticipant,
-      participantMatched: activeMatch !== null,
-      selection: canonicalSelection,
-      operatedDormitoryIds,
-      currentDormitoryCanMatch,
-      nicknameLockedBySeason,
-      nicknameCooldownActive,
-    });
-
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        nickname: canonicalProfile.nickname,
-        gender: user.gender,
-        campus: user.campus,
-      },
-      selection: {
-        state: canonicalSelection.dormitorySelectionState,
-        dormitoryId: canonicalSelection.dormitoryId,
-        source: canonicalSelection.source,
-      },
-      profile: {
-        source: canonicalProfile.source,
-        lifestyle,
-        intro: canonicalProfile.intro,
-        messageToRoommate: canonicalProfile.messageToRoommate,
-        additional,
-      },
-      participation: {
-        hasCurrentSeason: Boolean(serviceState.seasonContext),
-        hasParticipantRow: Boolean(currentParticipant),
-        intent: currentParticipant?.participationIntent ?? null,
-        registered: participantRegistered,
-        profileExists: hasParticipantProfile(currentParticipant),
-      },
-      match: {
-        hasActiveMatch: activeMatch !== null,
-        activeMatch,
-      },
-      readiness: buildUserReadiness({
-        lifestyle,
-        intro: canonicalProfile.intro,
-        messageToRoommate: canonicalProfile.messageToRoommate,
-        additional,
-        selectionState: canonicalSelection.dormitorySelectionState,
-        canBrowseProfiles: browseProfiles,
-      }),
-      capabilities: buildCurrentUserCapabilities(capabilityInput),
-      serviceState: {
-        campusOperated: serviceState.campusOperated,
-        seasonState: serviceState.seasonState,
-      },
-    };
   }
 
   private assertSelectionPayload(selection: NonNullable<UpdateCurrentUserInput['selection']>) {
@@ -559,32 +429,7 @@ export class UsersService {
   private async getUserWithProfile(userId: string): Promise<UserWithProfileRecord> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        emailVerifiedAt: true,
-        gender: true,
-        campus: true,
-        dormitoryId: true,
-        dormitorySelectionState: true,
-        profile: {
-          select: {
-            userId: true,
-            nickname: true,
-            nicknameNormalized: true,
-            nicknameChangedAt: true,
-            lifestyle: true,
-            intro: true,
-            messageToRoommate: true,
-            collegeCode: true,
-            grade: true,
-            mbti: true,
-            birthYear: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-      },
+      select: buildUserWithProfileSelect(null),
     });
 
     if (!user) {

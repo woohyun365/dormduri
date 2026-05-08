@@ -147,9 +147,6 @@ describe('ProfilesService', () => {
   const moderationService = {
     validateNicknamePolicy: jest.fn(),
   };
-  const usersService = {
-    getCurrentUser: jest.fn(),
-  };
   const seasonParticipantsService = {
     ensureCurrentSeasonParticipantForUser: jest.fn(),
     selectCanonicalSelection: jest.fn(),
@@ -160,14 +157,17 @@ describe('ProfilesService', () => {
   const matchesService = {
     getLiveActiveMatchMapForParticipantIds: jest.fn(),
   };
+  const currentUserViewService = {
+    buildCurrentUserResponse: jest.fn(),
+  };
 
   const service = new ProfilesService(
     prisma as never,
     seasonsService as never,
     moderationService as never,
-    usersService as never,
     seasonParticipantsService as never,
     matchesService as never,
+    currentUserViewService as never,
   );
 
   beforeEach(() => {
@@ -175,7 +175,7 @@ describe('ProfilesService', () => {
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-02-10T03:00:00.000Z'));
     prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: true });
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
-    usersService.getCurrentUser.mockResolvedValue({ success: true });
+    currentUserViewService.buildCurrentUserResponse.mockResolvedValue({ success: true });
     userProfileUpdate.mockResolvedValue(undefined);
     seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(null);
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());

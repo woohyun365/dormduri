@@ -1,4 +1,5 @@
 import { UsersService } from './users.service.js';
+import { CurrentUserViewService } from './current-user-view.service.js';
 import type { UserWithProfileRecord } from '../profiles/profile.mapper.js';
 import { usersErrors } from './users.errors.js';
 import type {
@@ -134,13 +135,19 @@ describe('UsersService', () => {
     getCurrentActiveMatchByParticipantId: jest.fn(),
     getCurrentActiveMatchSummaryForParticipant: jest.fn(),
   };
+  const currentUserViewService = new CurrentUserViewService(
+    prisma as never,
+    seasonsService as never,
+    seasonParticipantsService as never,
+    matchesService as never,
+  );
 
   const service = new UsersService(
     prisma as never,
     seasonsService as never,
     moderationService as never,
     seasonParticipantsService as never,
-    matchesService as never,
+    currentUserViewService as never,
   );
 
   beforeEach(() => {
