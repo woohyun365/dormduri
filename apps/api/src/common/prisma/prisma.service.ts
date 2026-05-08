@@ -1,8 +1,10 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
-import { apiEnv } from '../../config/env.js';
+import databaseConfig from '../../config/database.config.js';
 
 function isRetryableTransactionConflict(error: unknown) {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
@@ -29,14 +31,37 @@ function isRetryableTransactionConflict(error: unknown) {
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  constructor() {
+  private readonly pool: Pool;
+
+  constructor(
+    @Inject(databaseConfig.KEY)
+    databaseSettings: ConfigType<typeof databaseConfig>,
+  ) {
+    const loggerLabel = PrismaService.name;
+    const pool = new Pool({
+      connectionString: databaseSettings.runtimeDatabaseUrl,
+      max: databaseSettings.poolMax,
+      min: databaseSettings.poolMin,
+      connectionTimeoutMillis: databaseSettings.adapterConnectionTimeoutMs,
+      idleTimeoutMillis: databaseSettings.adapterIdleTimeoutMs,
+      query_timeout: databaseSettings.queryTimeoutMs,
+      statement_timeout: databaseSettings.statementTimeoutMs,
+      application_name: databaseSettings.applicationName,
+    });
+
     super({
-      adapter: new PrismaPg({
-        connectionString: apiEnv.databaseUrl,
-        connectionTimeoutMillis: 5_000,
-        idleTimeoutMillis: 300_000,
+      adapter: new PrismaPg(pool, {
+        disposeExternalPool: false,
+        onPoolError: (error) => {
+          console.error(`[${loggerLabel}] pg pool error`, error);
+        },
+        onConnectionError: (error) => {
+          console.error(`[${loggerLabel}] pg connection error`, error);
+        },
       }),
     });
+
+    this.pool = pool;
   }
 
   async onModuleInit() {
@@ -45,6 +70,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleDestroy() {
     await this.$disconnect();
+    await this.pool.end();
   }
 
   async runSerializableTransaction<T>(

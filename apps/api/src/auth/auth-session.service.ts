@@ -16,7 +16,6 @@ import type {
 } from './auth.types.js';
 import { toAuthenticatedSessionResult } from './auth-response.builder.js';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
-import { apiEnv } from '../config/env.js';
 
 export interface AuthenticatedUserContext {
   id: string;
@@ -83,10 +82,7 @@ export class AuthSessionService {
         email,
         sid: session.id,
       },
-      {
-        secret: this.getJwtSecret(),
-        expiresIn: JWT_ACCESS_TTL_SECONDS,
-      },
+      { expiresIn: JWT_ACCESS_TTL_SECONDS },
     );
 
     return { accessToken, sessionId: session.id };
@@ -98,9 +94,7 @@ export class AuthSessionService {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<{ sid?: string }>(token, {
-        secret: this.getJwtSecret(),
-      });
+      const payload = await this.jwtService.verifyAsync<{ sid?: string }>(token);
       if (payload.sid) {
         const revokedAt = await this.prisma.getDatabaseNow();
 
@@ -119,10 +113,6 @@ export class AuthSessionService {
     }
 
     return { success: true };
-  }
-
-  private getJwtSecret(): string {
-    return apiEnv.jwtSecret;
   }
 
   private async resolveCurrentSessionUser(
@@ -167,9 +157,7 @@ export class AuthSessionService {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<{ sid?: string; sub?: string }>(token, {
-        secret: this.getJwtSecret(),
-      });
+      const payload = await this.jwtService.verifyAsync<{ sid?: string; sub?: string }>(token);
 
       if (!payload.sid || !payload.sub) {
         return null;

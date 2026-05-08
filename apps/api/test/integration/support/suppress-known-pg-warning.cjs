@@ -3,6 +3,9 @@ const SUPPRESSED_PG_QUERY_DEPRECATION =
 
 const originalEmitWarning = process.emitWarning.bind(process);
 
+// Prisma 7.8 + @prisma/adapter-pg 7.8 still emits this warning under Node 24 LTS
+// during real transaction integration tests. Keep the filter exact so unrelated
+// warnings remain visible while upstream behavior is re-evaluated on future bumps.
 process.emitWarning = (warning, ...args) => {
   const message =
     typeof warning === 'string'

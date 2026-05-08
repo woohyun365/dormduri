@@ -4,6 +4,7 @@ import { defineConfig } from 'prisma/config';
 
 const DEFAULT_DATABASE_URL =
   'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
+const DEFAULT_DIRECT_URL = DEFAULT_DATABASE_URL;
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -15,9 +16,10 @@ export default defineConfig({
     seed: 'pnpm run prisma:seed:run',
   },
   datasource: {
-    // Prisma v7 docs recommend env() for required vars, but also note that direct
-    // process.env access is preferable when the URL may be absent for commands like
-    // generate/type-check flows. We keep a local fallback for this repo's dev UX.
-    url: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
+    // Production-grade split:
+    // - runtime Prisma Client uses DATABASE_URL (pooled / app traffic)
+    // - Prisma CLI uses DIRECT_URL (direct session connection for migrate/admin)
+    // Dev/test can safely fall back to DATABASE_URL when DIRECT_URL is absent.
+    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? DEFAULT_DIRECT_URL,
   },
 });

@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import type { VerificationCodePurpose } from '../generated/prisma/enums.js';
 import {
@@ -18,7 +19,7 @@ import {
   normalizeEmail,
   safeTimeEquals,
 } from './auth.utils.js';
-import { apiEnv } from '../config/env.js';
+import authConfig from '../config/auth.config.js';
 import { AuthVerificationStore } from './auth-verification.store.js';
 import { authErrors } from './auth.errors.js';
 import { authFailures } from './auth-failures.js';
@@ -33,6 +34,8 @@ export class AuthVerificationService {
   constructor(
     private readonly verificationStore: AuthVerificationStore,
     @Inject(EMAIL_SENDER) private readonly emailSender: EmailSender,
+    @Inject(authConfig.KEY)
+    private readonly authSettings: ConfigType<typeof authConfig>,
   ) {}
 
   async assertCodeRequestAllowed(
@@ -45,14 +48,14 @@ export class AuthVerificationService {
       emailNormalized,
       purpose,
       normalizedIp,
-      apiEnv.codeRequestCooldownSeconds,
+      this.authSettings.codeRequestCooldownSeconds,
     );
 
     const backstopRetryAfterSeconds = await this.verificationStore.findBackstopRetryAfterSeconds(
       emailNormalized,
       purpose,
-      apiEnv.codeRequestBackstopWindowSeconds,
-      apiEnv.codeRequestBackstopLimit,
+      this.authSettings.codeRequestBackstopWindowSeconds,
+      this.authSettings.codeRequestBackstopLimit,
     );
 
     const retryAfterSeconds = [ipRetryAfterSeconds, backstopRetryAfterSeconds]
@@ -146,7 +149,7 @@ export class AuthVerificationService {
       emailNormalized,
       purpose,
       code,
-      apiEnv.verificationCodeHmacSecret,
+      this.authSettings.verificationCodeHmacSecret,
     );
 
     await this.persistVerificationCode({
@@ -246,7 +249,7 @@ export class AuthVerificationService {
       emailNormalized,
       purpose,
       code,
-      apiEnv.verificationCodeHmacSecret,
+      this.authSettings.verificationCodeHmacSecret,
     );
     const codeMatches = safeTimeEquals(record.codeHash, incomingHash);
 

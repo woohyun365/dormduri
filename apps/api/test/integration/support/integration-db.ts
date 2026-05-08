@@ -4,7 +4,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from 'pg';
 import { PrismaClient } from '../../../src/generated/prisma/client.js';
-import { apiEnv } from '../../../src/config/env.js';
 
 const DEFAULT_DATABASE_URL =
   'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
@@ -32,7 +31,7 @@ function resolveAdminDatabaseUrl(databaseUrl: string) {
 
 function setRuntimeDatabaseUrl(databaseUrl: string) {
   process.env.DATABASE_URL = databaseUrl;
-  (apiEnv as { databaseUrl: string }).databaseUrl = databaseUrl;
+  process.env.DIRECT_URL = databaseUrl;
 }
 
 function runPrismaMigrateDeploy(databaseUrl: string) {
@@ -61,7 +60,7 @@ export function runPrismaMigrateStatus(databaseUrl: string) {
 export async function createIntegrationDatabaseSandbox(
   schemaPrefix: string,
 ): Promise<IntegrationDatabaseSandbox> {
-  const baseDatabaseUrl = process.env.DATABASE_URL ?? apiEnv.databaseUrl ?? DEFAULT_DATABASE_URL;
+  const baseDatabaseUrl = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
   const schemaName = `${schemaPrefix}_${randomUUID().replaceAll('-', '')}`;
   const databaseUrl = toDatabaseUrlWithSchema(baseDatabaseUrl, schemaName);
   const adminClient = new Client({ connectionString: resolveAdminDatabaseUrl(baseDatabaseUrl) });

@@ -1,6 +1,7 @@
+import type { ConfigType } from '@nestjs/config';
 import { AuthVerificationService } from './auth-verification.service.js';
 import { hashVerificationCode } from './auth.utils.js';
-import { apiEnv } from '../config/env.js';
+import authConfig, { DEFAULT_VERIFICATION_CODE_HMAC_SECRET } from '../config/auth.config.js';
 
 describe('AuthVerificationService', () => {
   const verificationStore = {
@@ -24,7 +25,20 @@ describe('AuthVerificationService', () => {
     sendPasswordResetCode: jest.fn(),
   };
 
-  const service = new AuthVerificationService(verificationStore as never, emailSender as never);
+  const authSettings: ConfigType<typeof authConfig> = {
+    jwtSecret: 'local-jwt-secret',
+    verificationCodeHmacSecret: DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
+    codeRequestCooldownSeconds: 5,
+    codeRequestBackstopWindowSeconds: 600,
+    codeRequestBackstopLimit: 20,
+    authThrottleLimit: 300,
+  };
+
+  const service = new AuthVerificationService(
+    verificationStore as never,
+    emailSender as never,
+    authSettings,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -130,7 +144,7 @@ describe('AuthVerificationService', () => {
         'test@kangwon.ac.kr',
         'SIGNUP',
         '123456',
-        apiEnv.verificationCodeHmacSecret,
+        DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
       ),
       failedAttempts: 0,
     });
@@ -149,7 +163,7 @@ describe('AuthVerificationService', () => {
         'test@kangwon.ac.kr',
         'SIGNUP',
         '123456',
-        apiEnv.verificationCodeHmacSecret,
+        DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
       ),
       failedAttempts: 0,
     });
@@ -170,7 +184,7 @@ describe('AuthVerificationService', () => {
         'test@kangwon.ac.kr',
         'RESET_PASSWORD',
         '123456',
-        apiEnv.verificationCodeHmacSecret,
+        DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
       ),
       failedAttempts: 4,
     });

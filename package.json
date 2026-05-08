@@ -1,6 +1,9 @@
 {
   "name": "knu-roommate",
   "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "shared:build": "pnpm --dir packages/shared build",
     "shared:lint": "pnpm --dir packages/shared lint",
