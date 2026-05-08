@@ -1,32 +1,48 @@
-import type { AuthenticatedSessionUser } from './user-contract.js';
-export type { SessionResponse } from './session-contract.js';
+import { z } from 'zod';
+import { authenticatedSessionUserSchema, type AuthenticatedSessionUser } from './user-contract.js';
+export { sessionResponseSchema, type SessionResponse } from './session-contract.js';
 
-export interface GenericErrorResponse {
-  success: boolean;
-  error?: string;
-  code?: string;
-  userActionable?: boolean;
-  fieldErrors?: Record<string, string>;
-  retryAfterSeconds?: number;
-}
+export const genericErrorResponseSchema = z.strictObject({
+  success: z.boolean(),
+  error: z.string().optional(),
+  code: z.string().optional(),
+  userActionable: z.boolean().optional(),
+  fieldErrors: z.record(z.string(), z.string()).optional(),
+  retryAfterSeconds: z.number().int().positive().optional(),
+});
 
-export interface LoginResponse extends GenericErrorResponse {
-  accessToken?: string;
-  user?: AuthenticatedSessionUser;
-  locked?: boolean;
-  remainingSeconds?: number;
-}
+export const loginResponseSchema = genericErrorResponseSchema.extend({
+  accessToken: z.string().optional(),
+  user: authenticatedSessionUserSchema.optional(),
+  locked: z.boolean().optional(),
+  remainingSeconds: z.number().int().nonnegative().optional(),
+});
 
-export type VerifyCodeResponse = GenericErrorResponse;
-export interface SignupResponse extends GenericErrorResponse {
-  user?: AuthenticatedSessionUser;
-}
-export type ResetPasswordResponse = GenericErrorResponse;
+export const verifyCodeResponseSchema = genericErrorResponseSchema;
+export const signupResponseSchema = genericErrorResponseSchema.extend({
+  user: authenticatedSessionUserSchema.optional(),
+});
+export const resetPasswordResponseSchema = genericErrorResponseSchema;
 
-export type SignupProfileValidationFieldErrors = Partial<
-  Record<'email' | 'nickname' | 'password', string>
+export const signupProfileValidationFieldErrorsSchema = z
+  .strictObject({
+    email: z.string().optional(),
+    nickname: z.string().optional(),
+    password: z.string().optional(),
+  })
+  .partial();
+
+export const signupProfileValidationResponseSchema = genericErrorResponseSchema.extend({
+  fieldErrors: signupProfileValidationFieldErrorsSchema.optional(),
+});
+
+export type GenericErrorResponse = z.infer<typeof genericErrorResponseSchema>;
+export type LoginResponse = z.infer<typeof loginResponseSchema>;
+export type VerifyCodeResponse = z.infer<typeof verifyCodeResponseSchema>;
+export type SignupResponse = z.infer<typeof signupResponseSchema>;
+export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
+export type SignupProfileValidationFieldErrors = z.infer<
+  typeof signupProfileValidationFieldErrorsSchema
 >;
-
-export interface SignupProfileValidationResponse extends GenericErrorResponse {
-  fieldErrors?: SignupProfileValidationFieldErrors;
-}
+export type SignupProfileValidationResponse = z.infer<typeof signupProfileValidationResponseSchema>;
+export type { AuthenticatedSessionUser };

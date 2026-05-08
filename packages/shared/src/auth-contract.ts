@@ -4,40 +4,48 @@ export type { Campus, Gender } from './identity-contract.js';
 import { lifestyleSchema } from './lifestyle.js';
 import { campusSchema, genderSchema } from './identity-contract.js';
 
+const emailSchema = z.email().trim().toLowerCase();
+const verificationCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/);
+const passwordSchema = z.string().min(1);
+const nicknameSchema = z.string().trim().min(1);
+
 export const emailRequestSchema = z.strictObject({
-  email: z.string(),
+  email: emailSchema,
 });
 
 export const verificationCodeRequestSchema = z.strictObject({
-  email: z.string(),
-  code: z.string(),
+  email: emailSchema,
+  code: verificationCodeSchema,
 });
 
 export const loginRequestSchema = z.strictObject({
-  email: z.string(),
-  password: z.string(),
+  email: emailSchema,
+  password: passwordSchema,
   rememberMe: z.boolean().optional(),
 });
 
 export const signupProfileValidationRequestSchema = z.strictObject({
-  email: z.string(),
-  password: z.string(),
-  nickname: z.string(),
+  email: emailSchema,
+  password: passwordSchema,
+  nickname: nicknameSchema,
 });
 
 export const signupRequestSchema = z.strictObject({
-  email: z.string(),
-  password: z.string(),
-  nickname: z.string(),
+  email: emailSchema,
+  password: passwordSchema,
+  nickname: nicknameSchema,
   gender: genderSchema,
   campus: campusSchema,
   lifestyle: lifestyleSchema,
-  intro: z.string(),
+  intro: z.string().trim(),
 });
 
 export const resetPasswordRequestSchema = z.strictObject({
-  email: z.string(),
-  newPassword: z.string(),
+  email: emailSchema,
+  newPassword: passwordSchema,
 });
 
 export type EmailRequest = z.infer<typeof emailRequestSchema>;
