@@ -1083,6 +1083,160 @@ describe('MatchesService', () => {
     });
   });
 
+  it('sweep는 current season이 사라진 ACTIVE match를 season ended로 내리고 pending unmatch를 expire한다', async () => {
+    prisma.activeMatch.findMany.mockResolvedValueOnce([
+      {
+        id: 'active-1',
+        seasonId: 'season-1',
+        season: { campusCode: 'CHUNCHEON' },
+      },
+    ]);
+    seasonsService.getCurrentSeasonContext.mockResolvedValueOnce(null);
+    txActiveMatchFindUnique.mockResolvedValueOnce({
+      id: 'active-1',
+      seasonId: 'season-1',
+      participantAId: 'participant-1',
+      participantBId: 'participant-2',
+      status: 'ACTIVE',
+      startedAt: new Date('2026-02-10T03:00:00.000Z'),
+      endedAt: null,
+      endReason: null,
+      createdFromRequestId: 'request-1',
+      participantA: {
+        userId: 'user-1',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      participantB: {
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      unmatchRequests: [
+        {
+          id: 'unmatch-1',
+          participantId: 'participant-1',
+          status: 'PENDING',
+          requestedAt: new Date('2026-02-10T03:00:00.000Z'),
+          terminalAt: null,
+        },
+      ],
+    });
+    txActiveMatchUnmatchRequestUpdateMany.mockResolvedValueOnce({ count: 1 });
+
+    const result = await service.sweepLifecycleTransitions(new Date('2026-02-10T03:00:00.000Z'));
+
+    expect(txActiveMatchUnmatchRequestUpdateMany).toHaveBeenCalledWith({
+      where: {
+        activeMatchId: 'active-1',
+        status: 'PENDING',
+      },
+      data: {
+        status: 'EXPIRED_BY_CUTOFF',
+        terminalAt: new Date('2026-02-10T03:00:00.000Z'),
+      },
+    });
+    expect(txActiveMatchUpdate).toHaveBeenCalledWith({
+      where: { id: 'active-1' },
+      data: {
+        status: 'SEASON_ENDED',
+        endedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endReason: 'SEASON_ENDED',
+      },
+    });
+    expect(result).toEqual({
+      expiredRequests: 0,
+      expiredUnmatchRequests: 1,
+      seasonEndedActiveMatches: 1,
+    });
+  });
+
+  it('sweep는 같은 시즌에서 roomSelection cutoff가 지난 pending unmatch만 expire한다', async () => {
+    prisma.activeMatch.findMany.mockResolvedValueOnce([
+      {
+        id: 'active-1',
+        seasonId: 'season-1',
+        season: { campusCode: 'CHUNCHEON' },
+      },
+    ]);
+    seasonsService.getCurrentSeasonContext.mockResolvedValueOnce({
+      season: { id: 'season-1' },
+      state: 'SEASON_MATCHING',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-09' },
+      ],
+      schedule: {
+        preparationStart: '2026-02-01',
+        matchingStart: '2026-02-05',
+        matchingEnd: '2026-02-09',
+        seasonEnd: '2026-02-28',
+      },
+    });
+    txActiveMatchFindUnique
+      .mockResolvedValueOnce({
+        id: 'active-1',
+        seasonId: 'season-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        status: 'ACTIVE',
+        startedAt: new Date('2026-02-08T03:00:00.000Z'),
+        endedAt: null,
+        endReason: null,
+        createdFromRequestId: 'request-1',
+        participantA: {
+          userId: 'user-1',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        participantB: {
+          userId: 'user-2',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        unmatchRequests: [
+          {
+            id: 'unmatch-1',
+            participantId: 'participant-1',
+            status: 'PENDING',
+            requestedAt: new Date('2026-02-08T03:00:00.000Z'),
+            terminalAt: null,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        id: 'active-1',
+        seasonId: 'season-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        status: 'ACTIVE',
+        startedAt: new Date('2026-02-08T03:00:00.000Z'),
+        endedAt: null,
+        endReason: null,
+        createdFromRequestId: 'request-1',
+        participantA: {
+          userId: 'user-1',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        participantB: {
+          userId: 'user-2',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        unmatchRequests: [],
+      });
+    txActiveMatchUnmatchRequestUpdateMany.mockResolvedValueOnce({ count: 1 });
+
+    const result = await service.sweepLifecycleTransitions(new Date('2026-02-10T03:00:00.000Z'));
+
+    expect(txActiveMatchUpdate).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      expiredRequests: 0,
+      expiredUnmatchRequests: 1,
+      seasonEndedActiveMatches: 0,
+    });
+  });
+
   it('roomSelectionDate 이후에도 ACTIVE 결과는 seasonEndDate 전까지 조회된다', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(makeUserSeed());
     seasonsService.getCurrentSeasonContext.mockResolvedValueOnce({
