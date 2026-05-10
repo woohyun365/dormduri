@@ -57,7 +57,7 @@ describe('timestamp field integration', () => {
     await seedBaseSeasonFixtures(prisma);
   });
 
-  it('DB trigger는 raw SQL update에서도 User.updatedAt을 갱신한다', async () => {
+  it('Prisma mutation은 User.updatedAt을 갱신한다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-a',
       participantId: 'participant-a',
@@ -67,11 +67,12 @@ describe('timestamp field integration', () => {
 
     const before = await prisma.user.findUniqueOrThrow({ where: { id: 'user-a' } });
     await waitMs(10);
-    await prisma.$executeRawUnsafe(
-      `UPDATE "User" SET "email" = $1 WHERE id = $2`,
-      'raw-update@kangwon.ac.kr',
-      'user-a',
-    );
+    await prisma.user.update({
+      where: { id: 'user-a' },
+      data: {
+        email: 'prisma-update@kangwon.ac.kr',
+      },
+    });
     const after = await prisma.user.findUniqueOrThrow({ where: { id: 'user-a' } });
 
     expect(after.updatedAt.getTime()).toBeGreaterThan(before.updatedAt.getTime());
@@ -177,5 +178,192 @@ describe('timestamp field integration', () => {
       where: { pairKey: 'participant-a:participant-b' },
     });
     expect(thread.lastMessageAt).not.toBeNull();
+  });
+
+  it('legacy DB trigger가 없는 mutable model들도 Prisma @updatedAt으로 updatedAt을 갱신한다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-a',
+      participantId: 'participant-a',
+      email: 'user-a@kangwon.ac.kr',
+      nickname: '유저A',
+    });
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-b',
+      participantId: 'participant-b',
+      email: 'user-b@kangwon.ac.kr',
+      nickname: '유저B',
+    });
+    await seedActiveMatchFixture(prisma, {
+      activeMatchId: 'active-updated-at',
+      participantAId: 'participant-a',
+      participantBId: 'participant-b',
+      withMatchedThread: true,
+    });
+
+    await prisma.activeMatchUnmatchRequest.create({
+      data: {
+        id: 'unmatch-updated-at',
+        activeMatchId: 'active-updated-at',
+        participantId: 'participant-a',
+        status: 'PENDING',
+      },
+    });
+    await prisma.seasonMatchHistoryEntry.create({
+      data: {
+        id: 'history-updated-at',
+        seasonId: 'season-integration',
+        viewerParticipantId: 'participant-a',
+        counterpartParticipantId: 'participant-b',
+        pairKey: 'participant-a:participant-b',
+        entryType: 'MATCH',
+        entryResult: 'MATCHED_SUCCESS',
+        viewerRequested: true,
+        counterpartNicknameSnapshot: '유저B',
+        matchedAt: new Date(),
+        finalizedAt: new Date(),
+        requestTerminalReason: 'ACCEPTED',
+        activeMatchEndReason: 'SEASON_ENDED',
+      },
+    });
+
+    const before = {
+      userProfile: await prisma.userProfile.findUniqueOrThrow({ where: { userId: 'user-a' } }),
+      seasonParticipant: await prisma.seasonParticipant.findUniqueOrThrow({
+        where: { id: 'participant-a' },
+      }),
+      seasonParticipantProfile: await prisma.seasonParticipantProfile.findUniqueOrThrow({
+        where: { participantId: 'participant-a' },
+      }),
+      activeMatch: await prisma.activeMatch.findUniqueOrThrow({
+        where: { id: 'active-updated-at' },
+      }),
+      activeMatchUnmatchRequest: await prisma.activeMatchUnmatchRequest.findUniqueOrThrow({
+        where: { id: 'unmatch-updated-at' },
+      }),
+      conversationThread: await prisma.conversationThread.findUniqueOrThrow({
+        where: { id: 'active-updated-at-thread' },
+      }),
+      conversationThreadMember: await prisma.conversationThreadMember.findUniqueOrThrow({
+        where: {
+          threadId_participantId: {
+            threadId: 'active-updated-at-thread',
+            participantId: 'participant-a',
+          },
+        },
+      }),
+      seasonMatchHistoryEntry: await prisma.seasonMatchHistoryEntry.findUniqueOrThrow({
+        where: { id: 'history-updated-at' },
+      }),
+    };
+
+    await waitMs(10);
+
+    await prisma.userProfile.update({
+      where: { userId: 'user-a' },
+      data: { intro: 'updated intro' },
+    });
+    await prisma.seasonParticipant.updateMany({
+      where: { id: 'participant-a' },
+      data: {
+        hiddenReasonCode: 'OTHER',
+        hiddenReasonDetail: 'updated by test',
+      },
+    });
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-a' },
+      data: { intro: 'updated season intro' },
+    });
+    await prisma.activeMatch.update({
+      where: { id: 'active-updated-at' },
+      data: {
+        status: 'ADMIN_ENDED',
+        endedAt: new Date(),
+        endReason: 'ADMIN_ACTION',
+      },
+    });
+    await prisma.activeMatchUnmatchRequest.updateMany({
+      where: { id: 'unmatch-updated-at' },
+      data: {
+        status: 'CANCELLED_BY_REQUESTER',
+        terminalAt: new Date(),
+      },
+    });
+    await prisma.conversationThread.update({
+      where: { id: 'active-updated-at-thread' },
+      data: {
+        status: 'READ_ONLY',
+        closedReason: 'SEASON_ENDED',
+        closedAt: new Date(),
+      },
+    });
+    await prisma.conversationThreadMember.updateMany({
+      where: {
+        threadId: 'active-updated-at-thread',
+        participantId: 'participant-a',
+      },
+      data: {
+        memberState: 'LEFT',
+        leftAt: new Date(),
+      },
+    });
+    await prisma.seasonMatchHistoryEntry.updateMany({
+      where: { id: 'history-updated-at' },
+      data: { hadConversation: true },
+    });
+
+    const after = {
+      userProfile: await prisma.userProfile.findUniqueOrThrow({ where: { userId: 'user-a' } }),
+      seasonParticipant: await prisma.seasonParticipant.findUniqueOrThrow({
+        where: { id: 'participant-a' },
+      }),
+      seasonParticipantProfile: await prisma.seasonParticipantProfile.findUniqueOrThrow({
+        where: { participantId: 'participant-a' },
+      }),
+      activeMatch: await prisma.activeMatch.findUniqueOrThrow({
+        where: { id: 'active-updated-at' },
+      }),
+      activeMatchUnmatchRequest: await prisma.activeMatchUnmatchRequest.findUniqueOrThrow({
+        where: { id: 'unmatch-updated-at' },
+      }),
+      conversationThread: await prisma.conversationThread.findUniqueOrThrow({
+        where: { id: 'active-updated-at-thread' },
+      }),
+      conversationThreadMember: await prisma.conversationThreadMember.findUniqueOrThrow({
+        where: {
+          threadId_participantId: {
+            threadId: 'active-updated-at-thread',
+            participantId: 'participant-a',
+          },
+        },
+      }),
+      seasonMatchHistoryEntry: await prisma.seasonMatchHistoryEntry.findUniqueOrThrow({
+        where: { id: 'history-updated-at' },
+      }),
+    };
+
+    expect(after.userProfile.updatedAt.getTime()).toBeGreaterThan(
+      before.userProfile.updatedAt.getTime(),
+    );
+    expect(after.seasonParticipant.updatedAt.getTime()).toBeGreaterThan(
+      before.seasonParticipant.updatedAt.getTime(),
+    );
+    expect(after.seasonParticipantProfile.updatedAt.getTime()).toBeGreaterThan(
+      before.seasonParticipantProfile.updatedAt.getTime(),
+    );
+    expect(after.activeMatch.updatedAt.getTime()).toBeGreaterThan(
+      before.activeMatch.updatedAt.getTime(),
+    );
+    expect(after.activeMatchUnmatchRequest.updatedAt.getTime()).toBeGreaterThan(
+      before.activeMatchUnmatchRequest.updatedAt.getTime(),
+    );
+    expect(after.conversationThread.updatedAt.getTime()).toBeGreaterThan(
+      before.conversationThread.updatedAt.getTime(),
+    );
+    expect(after.conversationThreadMember.updatedAt.getTime()).toBeGreaterThan(
+      before.conversationThreadMember.updatedAt.getTime(),
+    );
+    expect(after.seasonMatchHistoryEntry.updatedAt.getTime()).toBeGreaterThan(
+      before.seasonMatchHistoryEntry.updatedAt.getTime(),
+    );
   });
 });

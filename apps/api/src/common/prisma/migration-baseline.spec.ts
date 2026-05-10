@@ -32,10 +32,10 @@ describe('migration baseline coverage', () => {
     );
   });
 
-  it('legacy updatedAt trigger 구성을 누락하지 않는다', () => {
-    expect(sql).toContain('CREATE OR REPLACE FUNCTION set_current_timestamp()');
-    expect(sql).toContain('CREATE TRIGGER set_user_updated_at');
-    expect(sql).toContain('CREATE TRIGGER set_auth_session_updated_at');
-    expect(sql).toContain('CREATE TRIGGER set_season_dormitory_operation_updated_at');
+  it('updatedAt baseline은 legacy trigger 없이도 유지된다', () => {
+    expect(sql).not.toContain('CREATE OR REPLACE FUNCTION set_current_timestamp()');
+    expect(sql).not.toContain('CREATE TRIGGER set_user_updated_at');
+    expect(sql).not.toContain('CREATE TRIGGER set_auth_session_updated_at');
+    expect(sql).not.toContain('CREATE TRIGGER set_season_dormitory_operation_updated_at');
   });
 });

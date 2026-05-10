@@ -177,7 +177,7 @@ model CampusMaster {
   isOperated   Boolean
   sortOrder    Int                 @default(0)
   createdAt    DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime            @default(now()) @updatedAt @db.Timestamptz(3)
   colleges     CollegeMaster[]
   dormitories  Dormitory[]
   seasons      Season[]
@@ -190,7 +190,7 @@ model CampusGuideContent {
   commonRules       Json
   emergencyContacts Json
   createdAt         DateTime     @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime     @default(now()) @updatedAt @db.Timestamptz(3)
   campus            CampusMaster @relation(fields: [campusCode], references: [code], onDelete: Cascade)
 }
 
@@ -201,7 +201,7 @@ model CollegeMaster {
   sortOrder                 Int                        @default(0)
   isActive                  Boolean                    @default(true)
   createdAt                 DateTime                   @default(now()) @db.Timestamptz(3)
-  updatedAt                 DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
   campus                    CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
   userProfiles              UserProfile[]
   seasonParticipantProfiles SeasonParticipantProfile[]
@@ -218,7 +218,7 @@ model Dormitory {
   genderPolicy       DormitoryGenderPolicy
   sortOrder          Int                        @default(0)
   createdAt          DateTime                   @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
   campus             CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
   guide              DormitoryGuide?
   seasonOperations   SeasonDormitoryOperation[]
@@ -235,7 +235,7 @@ model DormitoryGuide {
   repairContact String
   diningContact String?
   createdAt     DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
   dormitory     Dormitory             @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
 }
 
@@ -253,7 +253,7 @@ model Season {
   overrideStartedAt    DateTime?                  @db.Timestamptz(3)
   overrideEndsAt       DateTime?                  @db.Timestamptz(3)
   createdAt            DateTime                   @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
   campus               CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
   dormitoryOperations  SeasonDormitoryOperation[]
   participants         SeasonParticipant[]
@@ -273,7 +273,7 @@ model SeasonDormitoryOperation {
   isOperated        Boolean   @default(true)
   roomSelectionDate DateTime  @db.Date
   createdAt         DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
   season            Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   dormitory         Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
 
@@ -293,7 +293,7 @@ model User {
   dormitorySelectionState DormitorySelectionState @default(NOT_SELECTED)
   emailVerifiedAt         DateTime?               @db.Timestamptz(3)
   createdAt               DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt               DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                @default(now()) @updatedAt @db.Timestamptz(3)
   dormitory               Dormitory?              @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
   authSessions            AuthSession[]
   profile                 UserProfile?
@@ -316,7 +316,7 @@ model UserProfile {
   mbti               String?
   birthYear          Int?
   createdAt          DateTime       @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime       @default(now()) @updatedAt @db.Timestamptz(3)
   collegeRef         CollegeMaster? @relation(fields: [collegeCode], references: [code], onDelete: SetNull)
   user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -346,7 +346,7 @@ model SeasonParticipant {
   hiddenReasonDetail      String?
   deactivatedAt           DateTime?                    @db.Timestamptz(3)
   createdAt               DateTime                     @default(now()) @db.Timestamptz(3)
-  updatedAt               DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                     @default(now()) @updatedAt @db.Timestamptz(3)
   dormitory               Dormitory?                   @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
   season                  Season                       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   user                    User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -383,7 +383,7 @@ model SeasonParticipantProfile {
   birthYear                          Int?
   templateSourceUserProfileUpdatedAt DateTime?         @db.Timestamptz(3)
   createdAt                          DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt                          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt                          DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
   collegeRef                         CollegeMaster?    @relation(fields: [collegeCode], references: [code], onDelete: SetNull)
   participant                        SeasonParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
@@ -430,7 +430,7 @@ model ActiveMatch {
   endedAt              DateTime?                   @db.Timestamptz(3)
   endReason            ActiveMatchEndReason?
   createdAt            DateTime                    @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                    @default(now()) @updatedAt @db.Timestamptz(3)
   season               Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   participantA         SeasonParticipant           @relation("ActiveMatchParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
   participantB         SeasonParticipant           @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
@@ -452,7 +452,7 @@ model ActiveMatchUnmatchRequest {
   requestedAt   DateTime                       @default(now()) @db.Timestamptz(3)
   terminalAt    DateTime?                      @db.Timestamptz(3)
   createdAt     DateTime                       @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime                       @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime                       @default(now()) @updatedAt @db.Timestamptz(3)
   activeMatch   ActiveMatch                    @relation(fields: [activeMatchId], references: [id], onDelete: Cascade)
   participant   SeasonParticipant              @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
@@ -483,7 +483,7 @@ model SeasonMatchHistoryEntry {
   threadClosedReason        ConversationThreadClosedReason?
   threadClosedAt            DateTime?                     @db.Timestamptz(3)
   createdAt                 DateTime                      @default(now()) @db.Timestamptz(3)
-  updatedAt                 DateTime                      @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime                      @default(now()) @updatedAt @db.Timestamptz(3)
   season                    Season                        @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   viewerParticipant         SeasonParticipant             @relation("SeasonMatchHistoryViewer", fields: [viewerParticipantId], references: [id], onDelete: Cascade)
   counterpartParticipant    SeasonParticipant             @relation("SeasonMatchHistoryCounterpart", fields: [counterpartParticipantId], references: [id], onDelete: Cascade)
@@ -508,7 +508,7 @@ model ConversationThread {
   closedAt            DateTime?                      @db.Timestamptz(3)
   lastMessageAt       DateTime?                      @db.Timestamptz(3)
   createdAt           DateTime                       @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime                       @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime                       @default(now()) @updatedAt @db.Timestamptz(3)
   season              Season                         @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   participantA        SeasonParticipant              @relation("ConversationThreadParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
   participantB        SeasonParticipant              @relation("ConversationThreadParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
@@ -531,7 +531,7 @@ model ConversationThreadMember {
   lastReadAt     DateTime?                          @db.Timestamptz(3)
   lastVisibleAt  DateTime?                          @db.Timestamptz(3)
   createdAt      DateTime                           @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime                           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                           @default(now()) @updatedAt @db.Timestamptz(3)
   thread         ConversationThread                 @relation(fields: [threadId], references: [id], onDelete: Cascade)
   participant    SeasonParticipant                  @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
@@ -560,7 +560,7 @@ model LoginAttempt {
   lockedUntil     DateTime? @db.Timestamptz(3)
   lastFailedAt    DateTime? @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
 }
 
 model VerificationCode {
@@ -597,7 +597,7 @@ model AuthSession {
   expiresAt        DateTime  @db.Timestamptz(3)
   revokedAt        DateTime? @db.Timestamptz(3)
   createdAt        DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -612,7 +612,7 @@ model ModerationTerm {
   surface        ModerationSurface
   isActive       Boolean                @default(true)
   createdAt      DateTime               @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime               @default(now()) @updatedAt @db.Timestamptz(3)
 
   @@unique([normalizedTerm, category, matchMode, surface])
   @@index([surface, category, isActive])
