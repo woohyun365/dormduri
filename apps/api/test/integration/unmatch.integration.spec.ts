@@ -1,5 +1,6 @@
 import { MatchesService } from '../../src/matches/matches.service.js';
 import { ChatService } from '../../src/chat/chat.service.js';
+import { LifecycleSweepService } from '../../src/common/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
@@ -19,6 +20,7 @@ describe('MatchesService unmatch integration', () => {
   let prisma: PrismaService;
   let service: MatchesService;
   let chatService: ChatService;
+  let lifecycleSweepService: LifecycleSweepService;
   let closeApp: (() => Promise<void>) | null = null;
   let cleanupDb: (() => Promise<void>) | null = null;
 
@@ -31,6 +33,7 @@ describe('MatchesService unmatch integration', () => {
     prisma = prismaService;
     service = app.get(MatchesService);
     chatService = app.get(ChatService);
+    lifecycleSweepService = app.get(LifecycleSweepService);
   });
 
   afterAll(async () => {
@@ -215,5 +218,65 @@ describe('MatchesService unmatch integration', () => {
       orderBy: [{ sentAt: 'asc' }, { createdAt: 'asc' }],
     });
     expect(messages.at(-1)?.body).toBe('매칭 해제 직전 메시지');
+  });
+
+  it('seasonEnd 이후 history는 unmatched-after-success를 current aggregate와 분리해 보존한다', async () => {
+    const databaseNow = await prisma.getDatabaseNow();
+
+    await chatService.sendMessage(authContext('user-a'), {
+      targetUserId: 'user-b',
+      body: '매칭된 상태에서 남긴 메시지',
+    });
+
+    await service.requestUnmatch(authContext('user-a'), 'active-match-1');
+    await service.requestUnmatch(authContext('user-b'), 'active-match-1');
+
+    await prisma.season.update({
+      where: { id: 'season-integration' },
+      data: {
+        seasonEndDate: new Date(databaseNow.getTime() - 24 * 60 * 60 * 1_000),
+      },
+    });
+    await prisma.seasonDormitoryOperation.update({
+      where: {
+        seasonId_dormitoryId: {
+          seasonId: 'season-integration',
+          dormitoryId: 'dasan',
+        },
+      },
+      data: {
+        roomSelectionDate: new Date(databaseNow.getTime() - 2 * 24 * 60 * 60 * 1_000),
+      },
+    });
+
+    const sweepResult = await lifecycleSweepService.runBoundarySweep(databaseNow);
+    expect(sweepResult.matchHistory.rebuiltEntries).toBeGreaterThanOrEqual(2);
+
+    const history = await service.getMatchHistory(authContext('user-a'));
+    expect(history.items).toHaveLength(1);
+    expect(history.items[0]).toMatchObject({
+      seasonId: 'season-integration',
+      finalResult: 'UNMATCHED_AFTER_SUCCESS',
+      sentRequestCount: 1,
+      receivedRequestCount: 0,
+      conversationCount: 1,
+    });
+    expect(history.items[0]?.history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          counterpartParticipantId: 'participant-b',
+          stage: 'MATCH',
+          result: 'UNMATCHED_AFTER_SUCCESS',
+          activeMatchEndReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
+          hadConversation: true,
+        }),
+      ]),
+    );
+    expect(history.items[0]?.history[0]).not.toHaveProperty('unmatchProgress');
+
+    const thread = await prisma.conversationThread.findUnique({
+      where: { id: 'active-match-1-thread' },
+    });
+    expect(thread?.threadKind).toBe('DIRECT');
   });
 });

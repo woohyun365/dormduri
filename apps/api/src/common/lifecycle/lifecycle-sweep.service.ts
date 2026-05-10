@@ -25,6 +25,7 @@ export interface LifecycleSweepResult {
   ranAt: string;
   matchTransitions: Awaited<ReturnType<MatchesService['sweepLifecycleTransitions']>>;
   threadTransitions: Awaited<ReturnType<ChatService['sweepThreadLifecycle']>>;
+  matchHistory: Awaited<ReturnType<MatchesService['sweepHistoryMaterialization']>>;
   participantBackfill: Awaited<
     ReturnType<SeasonParticipantsService['backfillCurrentSeasonParticipants']>
   >;

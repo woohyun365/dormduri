@@ -1,4 +1,5 @@
 import type { PrismaService } from '../../../src/common/prisma/prisma.service.js';
+import { formatKstDate, subtractDays } from '../../../src/seasons/season.utils.js';
 
 export const DEFAULT_LIFESTYLE = {
   bedtime: '22_24',
@@ -26,6 +27,9 @@ export const DEFAULT_LIFESTYLE = {
 } as const;
 
 export async function seedBaseSeasonFixtures(prisma: PrismaService) {
+  const databaseNow = await prisma.getDatabaseNow();
+  const today = formatKstDate(databaseNow);
+
   await prisma.campusMaster.create({
     data: {
       code: 'CHUNCHEON',
@@ -50,12 +54,12 @@ export async function seedBaseSeasonFixtures(prisma: PrismaService) {
     data: {
       id: 'season-integration',
       campusCode: 'CHUNCHEON',
-      academicYear: 2026,
+      academicYear: databaseNow.getUTCFullYear(),
       semester: 1,
-      name: '2026-1',
-      preparationStartDate: new Date('2026-01-01'),
-      matchingStartDate: new Date('2026-02-01'),
-      seasonEndDate: new Date('2026-12-31'),
+      name: `${databaseNow.getUTCFullYear()}-1`,
+      preparationStartDate: new Date(`${subtractDays(today, 30)}T00:00:00.000Z`),
+      matchingStartDate: new Date(`${subtractDays(today, 5)}T00:00:00.000Z`),
+      seasonEndDate: new Date(`${subtractDays(today, -60)}T00:00:00.000Z`),
     },
   });
 
@@ -64,7 +68,7 @@ export async function seedBaseSeasonFixtures(prisma: PrismaService) {
       seasonId: 'season-integration',
       dormitoryId: 'dasan',
       isOperated: true,
-      roomSelectionDate: new Date('2026-12-31'),
+      roomSelectionDate: new Date(`${subtractDays(today, -30)}T00:00:00.000Z`),
     },
   });
 }
@@ -79,6 +83,9 @@ export async function seedRegisteredAssignedParticipant(
     nickname: string;
   },
 ) {
+  const databaseNow = await prisma.getDatabaseNow();
+  const verifiedAt = new Date(databaseNow.getTime() - 24 * 60 * 60 * 1_000);
+
   await prisma.user.create({
     data: {
       id: input.userId,
@@ -89,7 +96,7 @@ export async function seedRegisteredAssignedParticipant(
       campus: 'CHUNCHEON',
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
-      emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
+      emailVerifiedAt: verifiedAt,
     },
   });
 
@@ -110,14 +117,14 @@ export async function seedRegisteredAssignedParticipant(
       seasonId: input.seasonId ?? 'season-integration',
       userId: input.userId,
       participationIntent: 'REGISTERED',
-      registeredAt: new Date('2026-01-01T00:00:00.000Z'),
+      registeredAt: verifiedAt,
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
       participantStatus: 'ACTIVE',
       campusCodeSnapshot: 'CHUNCHEON',
       genderSnapshot: 'M',
-      joinedAt: new Date('2026-01-01T00:00:00.000Z'),
-      activatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      joinedAt: verifiedAt,
+      activatedAt: verifiedAt,
     },
   });
 
@@ -144,9 +151,13 @@ export async function seedActiveMatchFixture(
     withMatchedThread?: boolean;
   },
 ) {
+  const databaseNow = await prisma.getDatabaseNow();
   const pairKey = [input.participantAId, input.participantBId].sort().join(':');
   const createdFromRequestId = input.createdFromRequestId ?? `${input.activeMatchId}-request`;
   const seasonId = input.seasonId ?? 'season-integration';
+  const requestCreatedAt = new Date(databaseNow.getTime() - 2 * 60 * 60 * 1_000);
+  const requestAcceptedAt = new Date(databaseNow.getTime() - 90 * 60 * 1_000);
+  const activeMatchStartedAt = new Date(databaseNow.getTime() - 60 * 60 * 1_000);
 
   await prisma.matchRequest.create({
     data: {
@@ -159,10 +170,10 @@ export async function seedActiveMatchFixture(
       receiverParticipantId: input.participantBId,
       status: 'ACCEPTED',
       terminalReason: 'ACCEPTED',
-      createdAt: new Date('2026-02-10T03:00:00.000Z'),
-      expiresAt: new Date('2026-12-31T00:00:00.000Z'),
-      terminalAt: new Date('2026-02-10T03:01:00.000Z'),
-      acceptedAt: new Date('2026-02-10T03:01:00.000Z'),
+      createdAt: requestCreatedAt,
+      expiresAt: new Date(databaseNow.getTime() + 30 * 24 * 60 * 60 * 1_000),
+      terminalAt: requestAcceptedAt,
+      acceptedAt: requestAcceptedAt,
       requestChannel: 'PROFILE_DETAIL',
     },
   });
@@ -176,7 +187,7 @@ export async function seedActiveMatchFixture(
       participantBId: [input.participantAId, input.participantBId].sort()[1]!,
       createdFromRequestId,
       status: 'ACTIVE',
-      startedAt: new Date('2026-02-10T03:02:00.000Z'),
+      startedAt: activeMatchStartedAt,
     },
   });
 
@@ -188,7 +199,7 @@ export async function seedActiveMatchFixture(
     },
     data: {
       participantStatus: 'MATCHED',
-      matchedAt: new Date('2026-02-10T03:02:00.000Z'),
+      matchedAt: activeMatchStartedAt,
     },
   });
 

@@ -54,6 +54,11 @@ export class MatchesController {
     return this.matchesService.getCurrentActiveMatch(authUser);
   }
 
+  @Get('history')
+  async getHistory(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+    return this.matchesService.getMatchHistory(authUser);
+  }
+
   @Post('active/:id/unmatch-request')
   async requestUnmatch(
     @AuthenticatedUser() authUser: AuthenticatedUserContext,

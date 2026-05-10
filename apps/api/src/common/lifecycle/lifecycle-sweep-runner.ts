@@ -7,7 +7,7 @@ import type { LifecycleSweepResult } from './lifecycle-sweep.service.js';
 interface LifecycleSweepRunnerDeps {
   prisma: PrismaService;
   chatService: Pick<ChatService, 'sweepThreadLifecycle'>;
-  matchesService: Pick<MatchesService, 'sweepLifecycleTransitions'>;
+  matchesService: Pick<MatchesService, 'sweepHistoryMaterialization' | 'sweepLifecycleTransitions'>;
   seasonParticipantsService: Pick<SeasonParticipantsService, 'backfillCurrentSeasonParticipants'>;
 }
 
@@ -16,6 +16,7 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
     const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
     const matchTransitions = await deps.matchesService.sweepLifecycleTransitions(referenceNow);
     const threadTransitions = await deps.chatService.sweepThreadLifecycle(referenceNow);
+    const matchHistory = await deps.matchesService.sweepHistoryMaterialization(referenceNow);
     const participantBackfill =
       await deps.seasonParticipantsService.backfillCurrentSeasonParticipants(referenceNow);
 
@@ -23,6 +24,7 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
       ranAt: referenceNow.toISOString(),
       matchTransitions,
       threadTransitions,
+      matchHistory,
       participantBackfill,
     };
   }

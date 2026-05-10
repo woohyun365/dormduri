@@ -63,6 +63,12 @@ CREATE TYPE "ActiveMatchEndReason" AS ENUM ('UNMATCHED_BY_MUTUAL_CONSENT', 'SEAS
 CREATE TYPE "ActiveMatchUnmatchRequestStatus" AS ENUM ('PENDING', 'CANCELLED_BY_REQUESTER', 'EXPIRED_BY_CUTOFF', 'FULFILLED_BY_MUTUAL_CONSENT');
 
 -- CreateEnum
+CREATE TYPE "SeasonMatchHistoryEntryType" AS ENUM ('REQUEST', 'MATCH');
+
+-- CreateEnum
+CREATE TYPE "SeasonMatchHistoryEntryResult" AS ENUM ('REQUEST_REJECTED', 'REQUEST_CANCELLED', 'REQUEST_EXPIRED', 'MATCHED_SUCCESS', 'UNMATCHED_AFTER_SUCCESS');
+
+-- CreateEnum
 CREATE TYPE "ConversationThreadKind" AS ENUM ('DIRECT', 'MATCHED');
 
 -- CreateEnum
@@ -307,6 +313,35 @@ CREATE TABLE "ActiveMatchUnmatchRequest" (
 );
 
 -- CreateTable
+CREATE TABLE "SeasonMatchHistoryEntry" (
+    "id" TEXT NOT NULL,
+    "seasonId" TEXT NOT NULL,
+    "viewerParticipantId" TEXT NOT NULL,
+    "counterpartParticipantId" TEXT NOT NULL,
+    "pairKey" TEXT NOT NULL,
+    "entryType" "SeasonMatchHistoryEntryType" NOT NULL,
+    "entryResult" "SeasonMatchHistoryEntryResult" NOT NULL,
+    "viewerRequested" BOOLEAN NOT NULL,
+    "sourceRequestId" TEXT,
+    "sourceActiveMatchId" TEXT,
+    "createdFromRequestId" TEXT,
+    "counterpartNicknameSnapshot" TEXT NOT NULL,
+    "viewerDormitoryIdSnapshot" TEXT,
+    "hadConversation" BOOLEAN NOT NULL DEFAULT false,
+    "matchedAt" TIMESTAMPTZ(3),
+    "unmatchedAt" TIMESTAMPTZ(3),
+    "finalizedAt" TIMESTAMPTZ(3) NOT NULL,
+    "requestTerminalReason" "MatchRequestTerminalReason",
+    "activeMatchEndReason" "ActiveMatchEndReason",
+    "threadClosedReason" "ConversationThreadClosedReason",
+    "threadClosedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SeasonMatchHistoryEntry_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "ConversationThread" (
     "id" TEXT NOT NULL,
     "seasonId" TEXT NOT NULL,
@@ -517,6 +552,15 @@ CREATE INDEX "ActiveMatchUnmatchRequest_activeMatchId_status_requestedAt_idx" ON
 CREATE INDEX "ActiveMatchUnmatchRequest_participantId_status_requestedAt_idx" ON "ActiveMatchUnmatchRequest"("participantId", "status", "requestedAt");
 
 -- CreateIndex
+CREATE INDEX "SeasonMatchHistoryEntry_seasonId_viewerParticipantId_finali_idx" ON "SeasonMatchHistoryEntry"("seasonId", "viewerParticipantId", "finalizedAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonMatchHistoryEntry_viewerParticipantId_counterpartPart_idx" ON "SeasonMatchHistoryEntry"("viewerParticipantId", "counterpartParticipantId", "finalizedAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonMatchHistoryEntry_seasonId_pairKey_finalizedAt_idx" ON "SeasonMatchHistoryEntry"("seasonId", "pairKey", "finalizedAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "ConversationThread_activeMatchId_key" ON "ConversationThread"("activeMatchId");
 
 -- CreateIndex
@@ -554,6 +598,40 @@ CREATE INDEX "ModerationTerm_surface_category_isActive_idx" ON "ModerationTerm"(
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ModerationTerm_normalizedTerm_category_matchMode_surface_key" ON "ModerationTerm"("normalizedTerm", "category", "matchMode", "surface");
+
+-- Custom constraints not expressible in Prisma schema
+ALTER TABLE "UserProfile"
+  ADD CONSTRAINT "UserProfile_grade_check"
+  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
+
+ALTER TABLE "SeasonParticipantProfile"
+  ADD CONSTRAINT "SeasonParticipantProfile_grade_check"
+  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
+
+ALTER TABLE "UserProfile"
+  ADD CONSTRAINT "UserProfile_birthYear_check"
+  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
+
+ALTER TABLE "SeasonParticipantProfile"
+  ADD CONSTRAINT "SeasonParticipantProfile_birthYear_check"
+  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
+
+-- Partial unique indexes for live/current invariants
+CREATE UNIQUE INDEX "MatchRequest_seasonId_pairMinParticipantId_pairMaxParticipantId_pending_key"
+ON "MatchRequest"("seasonId", "pairMinParticipantId", "pairMaxParticipantId")
+WHERE "status" = 'PENDING';
+
+CREATE UNIQUE INDEX "ActiveMatch_seasonId_pairKey_live_key"
+ON "ActiveMatch"("seasonId", "pairKey")
+WHERE "endedAt" IS NULL;
+
+CREATE UNIQUE INDEX "ConversationThread_seasonId_pairKey_live_key"
+ON "ConversationThread"("seasonId", "pairKey")
+WHERE "status" <> 'ARCHIVED';
+
+CREATE UNIQUE INDEX "ActiveMatchUnmatchRequest_activeMatchId_participantId_pending_key"
+ON "ActiveMatchUnmatchRequest"("activeMatchId", "participantId")
+WHERE "status" = 'PENDING';
 
 -- AddForeignKey
 ALTER TABLE "CampusGuideContent" ADD CONSTRAINT "CampusGuideContent_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -628,6 +706,15 @@ ALTER TABLE "ActiveMatchUnmatchRequest" ADD CONSTRAINT "ActiveMatchUnmatchReques
 ALTER TABLE "ActiveMatchUnmatchRequest" ADD CONSTRAINT "ActiveMatchUnmatchRequest_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "SeasonMatchHistoryEntry" ADD CONSTRAINT "SeasonMatchHistoryEntry_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SeasonMatchHistoryEntry" ADD CONSTRAINT "SeasonMatchHistoryEntry_viewerParticipantId_fkey" FOREIGN KEY ("viewerParticipantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SeasonMatchHistoryEntry" ADD CONSTRAINT "SeasonMatchHistoryEntry_counterpartParticipantId_fkey" FOREIGN KEY ("counterpartParticipantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ConversationThread" ADD CONSTRAINT "ConversationThread_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -657,40 +744,6 @@ ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_senderPart
 -- AddForeignKey
 ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-
--- Custom constraints not expressible in Prisma schema
-ALTER TABLE "UserProfile"
-  ADD CONSTRAINT "UserProfile_grade_check"
-  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
-
-ALTER TABLE "SeasonParticipantProfile"
-  ADD CONSTRAINT "SeasonParticipantProfile_grade_check"
-  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
-
-ALTER TABLE "UserProfile"
-  ADD CONSTRAINT "UserProfile_birthYear_check"
-  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
-
-ALTER TABLE "SeasonParticipantProfile"
-  ADD CONSTRAINT "SeasonParticipantProfile_birthYear_check"
-  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
-
--- Partial unique indexes for live/current invariants
-CREATE UNIQUE INDEX "MatchRequest_seasonId_pairMinParticipantId_pairMaxParticipantId_pending_key"
-ON "MatchRequest"("seasonId", "pairMinParticipantId", "pairMaxParticipantId")
-WHERE "status" = 'PENDING';
-
-CREATE UNIQUE INDEX "ActiveMatch_seasonId_pairKey_live_key"
-ON "ActiveMatch"("seasonId", "pairKey")
-WHERE "endedAt" IS NULL;
-
-CREATE UNIQUE INDEX "ConversationThread_seasonId_pairKey_live_key"
-ON "ConversationThread"("seasonId", "pairKey")
-WHERE "status" <> 'ARCHIVED';
-
-CREATE UNIQUE INDEX "ActiveMatchUnmatchRequest_activeMatchId_participantId_pending_key"
-ON "ActiveMatchUnmatchRequest"("activeMatchId", "participantId")
-WHERE "status" = 'PENDING';
 
 -- Legacy updatedAt triggers retained for DB-level writes already relying on them
 CREATE OR REPLACE FUNCTION set_current_timestamp()

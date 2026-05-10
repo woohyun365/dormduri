@@ -20,6 +20,7 @@ export interface IntegrationDatabaseSandbox {
 function toDatabaseUrlWithSchema(databaseUrl: string, schemaName: string) {
   const url = new URL(databaseUrl);
   url.searchParams.set('schema', schemaName);
+  url.searchParams.set('options', `-c search_path=${schemaName}`);
   return url.toString();
 }
 
@@ -92,21 +93,35 @@ export async function createIntegrationDatabaseSandbox(
   };
 }
 
-export async function truncateIntegrationSchema(prisma: PrismaClient) {
-  const tables = await prisma.$queryRawUnsafe<Array<{ tablename: string }>>(
-    `
-      SELECT tablename
-      FROM pg_tables
-      WHERE schemaname = current_schema()
-        AND tablename <> '_prisma_migrations'
-      ORDER BY tablename ASC
-    `,
-  );
-
-  if (tables.length === 0) {
-    return;
+export async function truncateIntegrationSchema(_prisma: PrismaClient) {
+  const databaseUrl = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
+  const targetSchema = new URL(databaseUrl).searchParams.get('schema');
+  if (!targetSchema) {
+    throw new Error('[integration-db] DATABASE_URL schema is required for truncation');
   }
 
-  const tableList = tables.map((row) => `"${row.tablename}"`).join(', ');
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
+
+  try {
+    const { rows: tables } = await client.query<{ tablename: string }>(
+      `
+        SELECT tablename
+        FROM pg_tables
+        WHERE schemaname = $1
+          AND tablename <> '_prisma_migrations'
+        ORDER BY tablename ASC
+      `,
+      [targetSchema],
+    );
+
+    if (tables.length === 0) {
+      return;
+    }
+
+    const tableList = tables.map((row) => `"${targetSchema}"."${row.tablename}"`).join(', ');
+    await client.query(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
+  } finally {
+    await client.end();
+  }
 }

@@ -13,9 +13,11 @@ export const DEFAULT_DATABASE_APPLICATION_NAME = 'knu-roommate-api';
 
 export default registerAs('database', () => {
   const runtimeDatabaseUrl = readStringEnv(process.env, 'DATABASE_URL', DEFAULT_DATABASE_URL);
+  const runtimeSchema = new URL(runtimeDatabaseUrl).searchParams.get('schema');
 
   return {
     runtimeDatabaseUrl,
+    runtimeSchema,
     directDatabaseUrl: readStringEnv(process.env, 'DIRECT_URL', runtimeDatabaseUrl),
     adapterConnectionTimeoutMs: readNumberEnv(
       process.env,

@@ -2,6 +2,7 @@ import request from 'supertest';
 import { ChatService } from '../../src/chat/chat.service.js';
 import { LifecycleSweepService } from '../../src/common/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { MatchesService } from '../../src/matches/matches.service.js';
 import { SeasonsService } from '../../src/seasons/seasons.service.js';
 import { formatKstDate, subtractDays } from '../../src/seasons/season.utils.js';
 import { createIntegrationApp } from './support/integration-app.js';
@@ -22,6 +23,7 @@ describe('Season transition integration', () => {
   let prisma: PrismaService;
   let chatService: ChatService;
   let lifecycleSweepService: LifecycleSweepService;
+  let matchesService: MatchesService;
   let seasonsService: SeasonsService;
   let cleanupDb: (() => Promise<void>) | null = null;
 
@@ -33,6 +35,7 @@ describe('Season transition integration', () => {
     prisma = appContext.prisma;
     chatService = appContext.app.get(ChatService);
     lifecycleSweepService = appContext.app.get(LifecycleSweepService);
+    matchesService = appContext.app.get(MatchesService);
     seasonsService = appContext.app.get(SeasonsService);
   });
 
@@ -239,6 +242,32 @@ describe('Season transition integration', () => {
     });
     expect(offSeasonThread?.status).toBe('READ_ONLY');
 
+    expect(offSeasonSweep.matchHistory.rebuiltEntries).toBeGreaterThanOrEqual(2);
+
+    const offSeasonHistory = await matchesService.getMatchHistory(authContext('user-a'));
+    expect(offSeasonHistory.items).toHaveLength(1);
+    expect(offSeasonHistory.items[0]).toMatchObject({
+      seasonId: 'season-old',
+      seasonName: 'season-old',
+      viewerParticipantId: 'participant-old-a',
+      viewerDormitoryIdSnapshot: 'dasan',
+      finalResult: 'MATCHED_SUCCESS',
+      sentRequestCount: 1,
+      receivedRequestCount: 0,
+      conversationCount: 0,
+    });
+    expect(offSeasonHistory.items[0]?.history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          counterpartParticipantId: 'participant-old-b',
+          counterpartNickname: '유저B',
+          stage: 'MATCH',
+          result: 'MATCHED_SUCCESS',
+          activeMatchEndReason: 'SEASON_ENDED',
+        }),
+      ]),
+    );
+
     await seedSeason({
       id: 'season-new',
       academicYear: 2026,
@@ -289,6 +318,17 @@ describe('Season transition integration', () => {
       where: { id: 'old-active-thread' },
     });
     expect(archivedThread?.status).toBe('ARCHIVED');
+
+    await prisma.userProfile.update({
+      where: { userId: 'user-b' },
+      data: {
+        nickname: '바뀐닉네임',
+        nicknameNormalized: '바뀐닉네임',
+      },
+    });
+
+    const frozenHistory = await matchesService.getMatchHistory(authContext('user-a'));
+    expect(frozenHistory.items[0]?.history[0]?.counterpartNickname).toBe('유저B');
   });
 
   it('SEASON_POST_MATCH 경계에서는 pending request와 pending unmatch request가 각각 terminal state로 정리된다', async () => {
@@ -373,6 +413,111 @@ describe('Season transition integration', () => {
       where: { id: 'active-post-match' },
     });
     expect(activeMatch?.status).toBe('ACTIVE');
+  });
+
+  it('season history summary는 immutable history source에서 sent/received/conversation/result를 일관되게 계산한다', async () => {
+    const databaseNow = await prisma.getDatabaseNow();
+    const today = formatKstDate(databaseNow);
+
+    await seedCampusDormitory();
+    await seedSeason({
+      id: 'season-history-summary',
+      preparationStartDate: subtractDays(today, 40),
+      matchingStartDate: subtractDays(today, 20),
+      seasonEndDate: subtractDays(today, 1),
+      roomSelectionDate: subtractDays(today, 5),
+    });
+
+    await seedRegisteredAssignedParticipant(prisma, {
+      seasonId: 'season-history-summary',
+      userId: 'user-a',
+      participantId: 'participant-a',
+      email: 'user-a@kangwon.ac.kr',
+      nickname: '유저A',
+    });
+    await seedRegisteredAssignedParticipant(prisma, {
+      seasonId: 'season-history-summary',
+      userId: 'user-b',
+      participantId: 'participant-b',
+      email: 'user-b@kangwon.ac.kr',
+      nickname: '유저B',
+    });
+    await seedRegisteredAssignedParticipant(prisma, {
+      seasonId: 'season-history-summary',
+      userId: 'user-c',
+      participantId: 'participant-c',
+      email: 'user-c@kangwon.ac.kr',
+      nickname: '유저C',
+    });
+
+    await seedActiveMatchFixture(prisma, {
+      seasonId: 'season-history-summary',
+      activeMatchId: 'summary-active',
+      participantAId: 'participant-a',
+      participantBId: 'participant-b',
+      withMatchedThread: true,
+    });
+
+    await prisma.conversationMessage.create({
+      data: {
+        threadId: 'summary-active-thread',
+        senderParticipantId: 'participant-a',
+        body: '시즌 종료 전 마지막 인사',
+        sentAt: new Date(databaseNow.getTime() - 30_000),
+      },
+    });
+    await prisma.conversationThread.update({
+      where: { id: 'summary-active-thread' },
+      data: {
+        lastMessageAt: new Date(databaseNow.getTime() - 30_000),
+      },
+    });
+
+    await prisma.matchRequest.create({
+      data: {
+        id: 'received-rejected-request',
+        seasonId: 'season-history-summary',
+        pairKey: 'participant-a:participant-c',
+        pairMinParticipantId: 'participant-a',
+        pairMaxParticipantId: 'participant-c',
+        requesterParticipantId: 'participant-c',
+        receiverParticipantId: 'participant-a',
+        status: 'REJECTED',
+        terminalReason: 'REJECTED_BY_RECEIVER',
+        createdAt: new Date(databaseNow.getTime() - 120_000),
+        expiresAt: new Date(databaseNow.getTime() + 300_000),
+        terminalAt: new Date(databaseNow.getTime() - 60_000),
+        requestChannel: 'PROFILE_DETAIL',
+      },
+    });
+
+    const sweepResult = await lifecycleSweepService.runBoundarySweep(databaseNow);
+    expect(sweepResult.matchHistory.rebuiltEntries).toBeGreaterThanOrEqual(3);
+
+    const history = await matchesService.getMatchHistory(authContext('user-a'));
+    const summary = history.items.find((item) => item.seasonId === 'season-history-summary');
+
+    expect(summary).toMatchObject({
+      finalResult: 'MATCHED_SUCCESS',
+      sentRequestCount: 1,
+      receivedRequestCount: 1,
+      conversationCount: 1,
+    });
+    expect(summary?.history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          counterpartParticipantId: 'participant-b',
+          stage: 'MATCH',
+          result: 'MATCHED_SUCCESS',
+          hadConversation: true,
+        }),
+        expect.objectContaining({
+          counterpartParticipantId: 'participant-c',
+          stage: 'RECEIVED_REQUEST',
+          result: 'REQUEST_REJECTED',
+        }),
+      ]),
+    );
   });
 
   it('sweeper는 roomSelectionDate가 지난 direct thread를 OPEN에서 READ_ONLY로 전이한다', async () => {

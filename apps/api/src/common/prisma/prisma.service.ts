@@ -51,6 +51,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     super({
       adapter: new PrismaPg(pool, {
+        schema: databaseSettings.runtimeSchema ?? undefined,
         disposeExternalPool: false,
         onPoolError: (error) => {
           console.error(`[${loggerLabel}] pg pool error`, error);
