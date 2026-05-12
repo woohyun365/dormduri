@@ -23,7 +23,7 @@ export const LIFESTYLE_FIELD_OPTIONS = {
   drinkingTolerance: ['LOW_ONLY', 'ANY'],
 } as const;
 
-export const REQUIRED_LIFESTYLE_FIELDS = [
+export const CORE_LIFESTYLE_FIELDS = [
   'bedtime',
   'wakeTime',
   'sleepHabit',
@@ -38,5 +38,17 @@ export const REQUIRED_LIFESTYLE_FIELDS = [
   'drinkingFrequency',
   'relationshipStyle',
   'temperatureSensitivity',
-  'drinkingTolerance',
 ] as const;
+
+export const ROOMMATE_CONDITION_FIELDS = [
+  'smokingTolerance',
+  'indoorEatingTolerance',
+  'phoneTolerance',
+  'earphoneExpectation',
+  'cleanExpectation',
+  'drinkingTolerance',
+  'sleepEnvPreference',
+  'screenTolerance',
+] as const;
+
+export const REQUIRED_LIFESTYLE_FIELDS = CORE_LIFESTYLE_FIELDS;

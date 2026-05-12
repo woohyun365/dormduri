@@ -52,12 +52,17 @@ export interface UserWithProfileRecord {
 }
 
 export function parseLifestyleOrThrow(lifestyle: Prisma.JsonValue): LifestyleData {
-  const parsed = lifestyleSchema.safeParse(lifestyle);
-  if (!parsed.success) {
+  const parsed = parseLifestyleOrNull(lifestyle);
+  if (!parsed) {
     throw new Error('[profile.mapper] invalid lifestyle payload from persistence layer');
   }
 
-  return parsed.data;
+  return parsed;
+}
+
+export function parseLifestyleOrNull(lifestyle: Prisma.JsonValue): LifestyleData | null {
+  const parsed = lifestyleSchema.safeParse(lifestyle);
+  return parsed.success ? parsed.data : null;
 }
 
 export function toAdditionalProfile(
@@ -104,6 +109,7 @@ export function toPublicProfile(
     sourceProfile: ProfileSource;
     relationToViewer: ProfileRelationToViewer;
     actions: PublicProfileActionCapabilities;
+    matchScore?: number;
   },
 ): PublicProfile {
   const base = {
@@ -115,6 +121,11 @@ export function toPublicProfile(
     intro: profile.intro,
     messageToRoommate: profile.messageToRoommate,
     additional: toAdditionalProfile(profile),
+    ...(typeof options.matchScore === 'number'
+      ? {
+          matchScore: options.matchScore,
+        }
+      : {}),
   };
 
   if (options.exposureLevel === 'LIMITED') {

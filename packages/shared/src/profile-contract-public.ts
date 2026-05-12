@@ -12,17 +12,25 @@ export const publicProfileActionCapabilitiesSchema = z.strictObject({
   canStartChat: z.boolean(),
 });
 
-const publicProfileBaseSchema = z.strictObject({
-  id: z.string(),
-  exposureLevel: profileExposureLevelSchema,
-  sourceProfile: profileSourceSchema,
-  relationToViewer: profileRelationToViewerSchema,
-  actions: publicProfileActionCapabilitiesSchema,
-  nickname: z.string(),
-  intro: z.string(),
-  messageToRoommate: z.string().nullable(),
-  additional: additionalProfileSchema,
+export const publicProfileMatchScoreSchema = z.strictObject({
+  matchScore: z.number().int().min(0).max(100),
 });
+
+const publicProfileBaseSchema = z
+  .strictObject({
+    id: z.string(),
+    exposureLevel: profileExposureLevelSchema,
+    sourceProfile: profileSourceSchema,
+    relationToViewer: profileRelationToViewerSchema,
+    actions: publicProfileActionCapabilitiesSchema,
+    nickname: z.string(),
+    intro: z.string(),
+    messageToRoommate: z.string().nullable(),
+    additional: additionalProfileSchema,
+  })
+  .extend({
+    matchScore: publicProfileMatchScoreSchema.shape.matchScore.optional(),
+  });
 
 export const limitedPublicProfileSchema = publicProfileBaseSchema.extend({
   exposureLevel: z.literal('LIMITED'),

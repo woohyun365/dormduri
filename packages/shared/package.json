@@ -67,6 +67,14 @@
       "types": "./dist/match-contract.d.ts",
       "default": "./dist/match-contract.js"
     },
+    "./roommate-search-contract": {
+      "types": "./dist/roommate-search-contract.d.ts",
+      "default": "./dist/roommate-search-contract.js"
+    },
+    "./match-score": {
+      "types": "./dist/match-score.d.ts",
+      "default": "./dist/match-score.js"
+    },
     "./chat-contract": {
       "types": "./dist/chat-contract.d.ts",
       "default": "./dist/chat-contract.js"

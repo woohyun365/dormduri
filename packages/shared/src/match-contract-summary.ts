@@ -42,11 +42,13 @@ export const activeMatchSummarySchema = z.strictObject({
   seasonId: z.string(),
   counterpartUserId: z.string(),
   counterpartParticipantId: z.string(),
+  counterpartNickname: z.string().optional(),
   status: activeMatchStatusSchema,
   startedAt: isoDateTimeStringSchema,
   endedAt: isoDateTimeStringSchema.nullable(),
   endReason: activeMatchEndReasonSchema.nullable(),
   createdFromRequestId: z.string(),
+  matchScore: z.number().int().min(0).max(100).optional(),
   unmatchProgress: activeMatchUnmatchProgressSchema,
 });
 
