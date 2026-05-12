@@ -24,13 +24,13 @@ const baseProfile: UserProfileRecord = {
     drinkingFrequency: 'NONE',
     relationshipStyle: 'CLOSE',
     temperatureSensitivity: 'NORMAL',
-    smokingTolerance: null,
-    phoneTolerance: null,
-    earphoneExpectation: null,
-    sleepEnvPreference: null,
-    screenTolerance: null,
-    indoorEatingTolerance: null,
-    cleanExpectation: null,
+    smokingTolerance: 'NO_ONLY',
+    phoneTolerance: 'BRIEF_OK',
+    earphoneExpectation: 'MUST',
+    sleepEnvPreference: 'NO_SPEAKER',
+    screenTolerance: 'LOW_OK',
+    indoorEatingTolerance: 'NO_SMELL',
+    cleanExpectation: 'STRICT',
     drinkingTolerance: 'LOW_ONLY',
   },
   intro: '기본 소개',
@@ -371,6 +371,60 @@ describe('SeasonParticipantsService', () => {
 
     await expect(service.registerCurrentSeasonParticipation('user-1', now)).rejects.toMatchObject({
       response: seasonParticipantsErrors.registrationNotAllowed().getResponse(),
+    });
+  });
+
+  it('원하는 룸메 조건이 하나라도 비어 있으면 register를 거부한다', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      emailVerifiedAt: now,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      dormitoryId: null,
+      dormitorySelectionState: 'NOT_SELECTED',
+      profile: {
+        ...baseProfile,
+        lifestyle: {
+          ...(baseProfile.lifestyle as Record<string, unknown>),
+          drinkingTolerance: null,
+        },
+      },
+    });
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-1' },
+      state: 'SEASON_OPEN',
+    });
+
+    await expect(service.registerCurrentSeasonParticipation('user-1', now)).rejects.toMatchObject({
+      response: seasonParticipantsErrors.registrationSeasonProfileIncomplete().getResponse(),
+    });
+  });
+
+  it('핵심 프로필이 미완성이면 register를 거부한다', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      emailVerifiedAt: now,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      dormitoryId: null,
+      dormitorySelectionState: 'NOT_SELECTED',
+      profile: {
+        ...baseProfile,
+        lifestyle: {
+          ...(baseProfile.lifestyle as Record<string, unknown>),
+          smokingBehavior: null,
+        },
+      },
+    });
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-1' },
+      state: 'SEASON_OPEN',
+    });
+
+    await expect(service.registerCurrentSeasonParticipation('user-1', now)).rejects.toMatchObject({
+      response: seasonParticipantsErrors.registrationSeasonProfileIncomplete().getResponse(),
     });
   });
 

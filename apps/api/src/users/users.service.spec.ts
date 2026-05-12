@@ -32,13 +32,13 @@ function makeUser(overrides: UserOverride = {}): UserWithProfileRecord {
       drinkingFrequency: 'NONE',
       relationshipStyle: 'CLOSE',
       temperatureSensitivity: 'NORMAL',
-      smokingTolerance: null,
-      phoneTolerance: null,
-      earphoneExpectation: null,
-      sleepEnvPreference: null,
-      screenTolerance: null,
-      indoorEatingTolerance: null,
-      cleanExpectation: null,
+      smokingTolerance: 'NO_ONLY',
+      phoneTolerance: 'BRIEF_OK',
+      earphoneExpectation: 'MUST',
+      sleepEnvPreference: 'NO_SPEAKER',
+      screenTolerance: 'LOW_OK',
+      indoorEatingTolerance: 'NO_SMELL',
+      cleanExpectation: 'STRICT',
       drinkingTolerance: 'LOW_ONLY',
     },
     intro: '안녕하세요',
@@ -66,7 +66,11 @@ function makeUser(overrides: UserOverride = {}): UserWithProfileRecord {
   };
 }
 
+const COMPLETE_LIFESTYLE = makeUser().profile!.lifestyle;
+
 function makeParticipant(overrides: Record<string, unknown> = {}) {
+  const { profile: profileOverrides, ...restOverrides } = overrides;
+
   return {
     id: 'participant-1',
     seasonId: 'season-1',
@@ -90,8 +94,14 @@ function makeParticipant(overrides: Record<string, unknown> = {}) {
     deactivatedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    profile: null,
-    ...overrides,
+    profile: {
+      participantId: 'participant-1',
+      lifestyle: COMPLETE_LIFESTYLE,
+      ...(typeof profileOverrides === 'object' && profileOverrides !== null
+        ? profileOverrides
+        : {}),
+    },
+    ...restOverrides,
   };
 }
 
@@ -324,7 +334,7 @@ describe('UsersService', () => {
       intro: true,
       messageToRoommate: true,
       additional: true,
-      lifestyle: false,
+      lifestyle: true,
       nickname: false,
     });
   });

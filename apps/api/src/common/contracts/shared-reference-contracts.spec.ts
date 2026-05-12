@@ -1,6 +1,7 @@
 import {
-  REQUIRED_LIFESTYLE_FIELDS,
+  CORE_LIFESTYLE_FIELDS,
   lifestyleSchema,
+  ROOMMATE_CONDITION_FIELDS,
   type LifestyleData,
 } from '@repo/shared/lifestyle';
 import {
@@ -46,9 +47,9 @@ describe('shared reference contracts', () => {
   it('lifestyle schema는 필수 필드 null과 screen/sleep invariant를 계속 강제한다', () => {
     const missingRequired = lifestyleSchema.safeParse({
       ...VALID_LIFESTYLE,
-      [REQUIRED_LIFESTYLE_FIELDS[0]]: null,
+      [CORE_LIFESTYLE_FIELDS[0]]: null,
     });
-    expect(missingRequired.success).toBe(false);
+    expect(missingRequired.success).toBe(true);
 
     const inconsistentSleep = lifestyleSchema.safeParse({
       ...VALID_LIFESTYLE,
@@ -56,6 +57,14 @@ describe('shared reference contracts', () => {
       sleepEnvironment: 'EARPHONE',
     });
     expect(inconsistentSleep.success).toBe(false);
+
+    for (const field of ROOMMATE_CONDITION_FIELDS) {
+      const optionalCondition = lifestyleSchema.safeParse({
+        ...VALID_LIFESTYLE,
+        [field]: null,
+      });
+      expect(optionalCondition.success).toBe(true);
+    }
   });
 
   it('date primitives는 local/iso normalization과 guard를 유지한다', () => {

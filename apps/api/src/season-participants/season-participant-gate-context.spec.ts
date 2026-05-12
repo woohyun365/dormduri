@@ -6,6 +6,31 @@ import {
 } from './season-participant-gate-context.js';
 import type { CurrentSeasonParticipantRecord } from './season-participants.service.js';
 
+const COMPLETE_LIFESTYLE = {
+  bedtime: '22_24',
+  wakeTime: '07_08',
+  sleepHabit: 'NONE',
+  sleepEnvironment: 'QUIET',
+  screenUsage: 'NONE',
+  noiseSensitivity: 'NORMAL',
+  smokingBehavior: 'NO',
+  indoorEating: 'SNACK',
+  phoneBehavior: 'SOMETIMES',
+  earphoneUsage: 'MOSTLY',
+  cleanLevel: 'WEEKLY_3_UP',
+  drinkingFrequency: 'NONE',
+  relationshipStyle: 'CLOSE',
+  temperatureSensitivity: 'NORMAL',
+  smokingTolerance: 'NO_ONLY',
+  indoorEatingTolerance: 'NO_SMELL',
+  phoneTolerance: 'BRIEF_OK',
+  earphoneExpectation: 'MUST',
+  cleanExpectation: 'STRICT',
+  drinkingTolerance: 'LOW_ONLY',
+  sleepEnvPreference: 'NO_SPEAKER',
+  screenTolerance: 'LOW_OK',
+} as const;
+
 function makeParticipant(
   overrides: Partial<CurrentSeasonParticipantRecord> = {},
 ): CurrentSeasonParticipantRecord {
@@ -32,7 +57,7 @@ function makeParticipant(
     deactivatedAt: null,
     createdAt: new Date('2026-02-01T00:00:00.000Z'),
     updatedAt: new Date('2026-02-01T00:00:00.000Z'),
-    profile: { participantId: 'participant-1' } as never,
+    profile: { participantId: 'participant-1', lifestyle: COMPLETE_LIFESTYLE } as never,
     ...overrides,
   };
 }
@@ -58,6 +83,7 @@ describe('season-participant-gate-context', () => {
       seasonState: 'SEASON_MATCHING',
       participant: makeParticipant(),
       participantMatched: false,
+      seasonProfileComplete: true,
       selection: {
         dormitoryId: 'dasan',
         dormitorySelectionState: 'ASSIGNED',
@@ -83,6 +109,7 @@ describe('season-participant-gate-context', () => {
       seasonState: 'SEASON_MATCHING',
       participant: makeParticipant(),
       matched: true,
+      seasonProfileComplete: false,
       matchedPartnerParticipantId: 'participant-2',
       selection: {
         dormitoryId: 'dasan',
@@ -97,6 +124,7 @@ describe('season-participant-gate-context', () => {
       seasonState: 'SEASON_MATCHING',
       registered: true,
       matched: true,
+      seasonProfileComplete: false,
       matchedPartnerParticipantId: 'participant-2',
       selectionState: 'ASSIGNED',
       dormitoryId: 'dasan',

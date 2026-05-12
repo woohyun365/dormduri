@@ -1,4 +1,4 @@
-import { validateLifestyleData } from './lifestyle.schema.js';
+import { validateLifestyleData, validateSignupLifestyleData } from './lifestyle.schema.js';
 // @ts-expect-error -- seed fixture is plain JS and intentionally reused here for schema compatibility regression coverage
 import { AUTH_FIXTURE_USERS } from '../../prisma/seed-data/fixtures/auth-fixture-users.js';
 
@@ -39,8 +39,23 @@ describe('validateLifestyleData', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('필수 필드가 null이면 거부한다', () => {
+  it('base/off-season profile 관점에서는 핵심 필드 null도 parse 자체는 허용한다', () => {
     const result = validateLifestyleData({
+      ...validLifestyle,
+      bedtime: null,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        ...validLifestyle,
+        bedtime: null,
+      },
+    });
+  });
+
+  it('signup validation은 핵심 필드 null을 거부한다', () => {
+    const result = validateSignupLifestyleData({
       ...validLifestyle,
       bedtime: null,
     });
@@ -48,6 +63,50 @@ describe('validateLifestyleData', () => {
     expect(result).toEqual({
       ok: false,
       error: 'bedtime 필드는 필수입니다.',
+    });
+  });
+
+  it('signup validation은 drinkingTolerance null을 허용한다', () => {
+    const result = validateSignupLifestyleData({
+      ...validLifestyle,
+      drinkingTolerance: null,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        ...validLifestyle,
+        drinkingTolerance: null,
+      },
+    });
+  });
+
+  it('signup validation은 룸메 조건 8개가 모두 null이어도 허용한다', () => {
+    const result = validateSignupLifestyleData({
+      ...validLifestyle,
+      smokingTolerance: null,
+      phoneTolerance: null,
+      earphoneExpectation: null,
+      sleepEnvPreference: null,
+      screenTolerance: null,
+      indoorEatingTolerance: null,
+      cleanExpectation: null,
+      drinkingTolerance: null,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        ...validLifestyle,
+        smokingTolerance: null,
+        phoneTolerance: null,
+        earphoneExpectation: null,
+        sleepEnvPreference: null,
+        screenTolerance: null,
+        indoorEatingTolerance: null,
+        cleanExpectation: null,
+        drinkingTolerance: null,
+      },
     });
   });
 

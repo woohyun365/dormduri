@@ -2,10 +2,8 @@ import { CORE_LIFESTYLE_FIELDS, lifestyleSchema, type LifestyleData } from '@rep
 
 export type { LifestyleData };
 
-const SIGNUP_REQUIRED_LIFESTYLE_FIELDS = [
-  ...CORE_LIFESTYLE_FIELDS,
-  'drinkingTolerance',
-] as const satisfies readonly (keyof LifestyleData)[];
+const SIGNUP_REQUIRED_LIFESTYLE_FIELDS =
+  CORE_LIFESTYLE_FIELDS satisfies readonly (keyof LifestyleData)[];
 
 export function validateLifestyleData(
   input: unknown,

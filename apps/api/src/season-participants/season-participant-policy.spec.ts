@@ -13,6 +13,7 @@ describe('season-participant-policy', () => {
       seasonState: 'SEASON_MATCHING',
       participantRegistered: true,
       participantMatched: false,
+      seasonProfileComplete: true,
       selectionState: 'UNASSIGNED',
       hasOperatedAssignedDormitory: false,
       nicknameLockedBySeason: true,
@@ -44,6 +45,7 @@ describe('season-participant-policy', () => {
       seasonState: 'SEASON_OPEN',
       participantRegistered: true,
       participantMatched: false,
+      seasonProfileComplete: true,
       selectionState: 'ASSIGNED',
       hasOperatedAssignedDormitory: true,
       nicknameLockedBySeason: true,
@@ -57,12 +59,50 @@ describe('season-participant-policy', () => {
     expect(result.canRequestMatch).toBe(false);
   });
 
+  it('미등록 사용자는 시즌이 열려 있어도 season profile complete 전에는 참여 등록 capability를 열지 않는다', () => {
+    const result = buildCurrentUserCapabilities({
+      campusOperated: true,
+      seasonState: 'SEASON_OPEN',
+      participantRegistered: false,
+      participantMatched: false,
+      seasonProfileComplete: false,
+      selectionState: 'NOT_SELECTED',
+      hasOperatedAssignedDormitory: false,
+      nicknameLockedBySeason: false,
+      nicknameCooldownActive: false,
+      hasSelectableDormitories: true,
+      currentDormitoryCanMatch: false,
+    });
+
+    expect(result.canRegisterParticipation).toBe(false);
+  });
+
+  it('viewer 조건이 미완성이면 SEASON_MATCHING에서도 canRequestMatch를 열지 않는다', () => {
+    const result = buildCurrentUserCapabilities({
+      campusOperated: true,
+      seasonState: 'SEASON_MATCHING',
+      participantRegistered: true,
+      participantMatched: false,
+      seasonProfileComplete: false,
+      selectionState: 'ASSIGNED',
+      hasOperatedAssignedDormitory: true,
+      nicknameLockedBySeason: true,
+      nicknameCooldownActive: false,
+      hasSelectableDormitories: true,
+      currentDormitoryCanMatch: true,
+    });
+
+    expect(result.canRequestMatch).toBe(false);
+    expect(result.canStartChat).toBe(false);
+  });
+
   it('operated dormitory가 0개면 SEASON_MATCHING action capability를 열지 않는다', () => {
     const result = buildCurrentUserCapabilities({
       campusOperated: true,
       seasonState: 'SEASON_OPEN',
       participantRegistered: true,
       participantMatched: false,
+      seasonProfileComplete: true,
       selectionState: 'ASSIGNED',
       hasOperatedAssignedDormitory: false,
       nicknameLockedBySeason: true,
@@ -84,6 +124,7 @@ describe('season-participant-policy', () => {
         seasonState: 'SEASON_MATCHING',
         registered: false,
         matched: false,
+        seasonProfileComplete: true,
         matchedPartnerParticipantId: null,
         selectionState: 'UNASSIGNED',
         dormitoryId: null,
@@ -110,6 +151,7 @@ describe('season-participant-policy', () => {
         seasonState: 'SEASON_MATCHING',
         registered: true,
         matched: false,
+        seasonProfileComplete: true,
         matchedPartnerParticipantId: null,
         selectionState: 'UNASSIGNED',
         dormitoryId: null,
@@ -147,6 +189,7 @@ describe('season-participant-policy', () => {
         seasonState: 'SEASON_MATCHING',
         registered: true,
         matched: false,
+        seasonProfileComplete: true,
         matchedPartnerParticipantId: null,
         selectionState: 'ASSIGNED',
         dormitoryId: 'dasan',
@@ -177,6 +220,41 @@ describe('season-participant-policy', () => {
     });
   });
 
+  it('viewer 조건이 미완성이면 같은 건물 FULL이어도 canRequestMatch는 닫힌다', () => {
+    const result = resolvePublicExposure(
+      {
+        campusOperated: true,
+        seasonState: 'SEASON_MATCHING',
+        registered: true,
+        matched: false,
+        seasonProfileComplete: false,
+        matchedPartnerParticipantId: null,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        currentDormitoryCanMatch: true,
+      },
+      {
+        participantId: 'target-1',
+        visible: true,
+        registered: true,
+        matched: false,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        hasSeasonProfile: true,
+      },
+    );
+
+    expect(result).toMatchObject({
+      exposureLevel: 'FULL',
+      actions: {
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+    });
+  });
+
   it('matched partner는 FULL read-only result baseline을 가진다', () => {
     const matchedTarget = resolvePublicExposure(
       {
@@ -184,6 +262,7 @@ describe('season-participant-policy', () => {
         seasonState: 'SEASON_POST_MATCH',
         registered: true,
         matched: true,
+        seasonProfileComplete: true,
         matchedPartnerParticipantId: 'partner-1',
         selectionState: 'ASSIGNED',
         dormitoryId: 'dasan',
@@ -221,6 +300,7 @@ describe('season-participant-policy', () => {
         seasonState: 'SEASON_MATCHING',
         registered: true,
         matched: true,
+        seasonProfileComplete: true,
         matchedPartnerParticipantId: 'partner-1',
         selectionState: 'ASSIGNED',
         dormitoryId: 'dasan',
@@ -277,6 +357,7 @@ describe('season-participant-policy', () => {
       seasonState: 'SEASON_POST_MATCH',
       participantRegistered: true,
       participantMatched: true,
+      seasonProfileComplete: true,
       selectionState: 'ASSIGNED',
       hasOperatedAssignedDormitory: true,
       nicknameLockedBySeason: true,

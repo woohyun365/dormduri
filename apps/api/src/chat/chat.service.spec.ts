@@ -12,7 +12,35 @@ type UserSeed = {
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   dormitoryId: string | null;
   dormitorySelectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
+  profile: {
+    lifestyle: Record<string, unknown>;
+  } | null;
 };
+
+const COMPLETE_LIFESTYLE = {
+  bedtime: '22_24',
+  wakeTime: '07_08',
+  sleepHabit: 'NONE',
+  sleepEnvironment: 'QUIET',
+  screenUsage: 'NONE',
+  noiseSensitivity: 'NORMAL',
+  smokingBehavior: 'NO',
+  indoorEating: 'SNACK',
+  phoneBehavior: 'SOMETIMES',
+  earphoneUsage: 'MOSTLY',
+  cleanLevel: 'WEEKLY_3_UP',
+  drinkingFrequency: 'NONE',
+  relationshipStyle: 'CLOSE',
+  temperatureSensitivity: 'NORMAL',
+  smokingTolerance: 'NO_ONLY',
+  indoorEatingTolerance: 'NO_SMELL',
+  phoneTolerance: 'BRIEF_OK',
+  earphoneExpectation: 'MUST',
+  cleanExpectation: 'STRICT',
+  drinkingTolerance: 'LOW_ONLY',
+  sleepEnvPreference: 'NO_SPEAKER',
+  screenTolerance: 'LOW_OK',
+} as const;
 
 function makeUserSeed(overrides: Partial<UserSeed> = {}): UserSeed {
   return {
@@ -22,6 +50,9 @@ function makeUserSeed(overrides: Partial<UserSeed> = {}): UserSeed {
     campus: 'CHUNCHEON',
     dormitoryId: 'dasan',
     dormitorySelectionState: 'ASSIGNED',
+    profile: {
+      lifestyle: COMPLETE_LIFESTYLE,
+    },
     ...overrides,
   };
 }
@@ -52,7 +83,7 @@ function makeParticipant(
     deactivatedAt: null,
     createdAt: new Date('2026-02-01T00:00:00.000Z'),
     updatedAt: new Date('2026-02-01T00:00:00.000Z'),
-    profile: { participantId: 'participant-1' } as never,
+    profile: { participantId: 'participant-1', lifestyle: COMPLETE_LIFESTYLE } as never,
     ...overrides,
   };
 }
