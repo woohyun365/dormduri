@@ -1,4 +1,5 @@
 import { ProfilesService } from '../../src/profiles/profiles.service.js';
+import { toCompleteLifestyleColumnData } from '../../src/profiles/profile-lifestyle.persistence.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
@@ -23,11 +24,6 @@ const COMPLETE_CONDITION_LIFESTYLE = {
   drinkingTolerance: 'LOW_ONLY',
   sleepEnvPreference: 'NO_SPEAKER',
   screenTolerance: 'LOW_OK',
-} as const;
-
-const INCOMPLETE_CONDITION_LIFESTYLE = {
-  ...DEFAULT_LIFESTYLE,
-  smokingTolerance: null,
 } as const;
 
 describe('ProfilesService match score integration', () => {
@@ -85,7 +81,7 @@ describe('ProfilesService match score integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-viewer' },
       data: {
-        lifestyle: COMPLETE_CONDITION_LIFESTYLE,
+        ...toCompleteLifestyleColumnData(COMPLETE_CONDITION_LIFESTYLE),
       },
     });
 
@@ -98,19 +94,19 @@ describe('ProfilesService match score integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-peer-none' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...sharedVisibleLifestyle,
           drinkingFrequency: 'NONE',
-        },
+        }),
       },
     });
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-peer-often' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...sharedVisibleLifestyle,
           drinkingFrequency: 'OFTEN',
-        },
+        }),
       },
     });
 
@@ -132,37 +128,22 @@ describe('ProfilesService match score integration', () => {
     expect(noneProfile.lifestyle).not.toHaveProperty('drinkingFrequency');
   });
 
-  it('viewer 시즌 프로필이 미완성이면 profile 응답은 점수를 노출하지 않는다', async () => {
+  it('season participant profile complete invariant는 nullable condition update를 허용하지 않는다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'viewer',
       participantId: 'participant-viewer',
       email: 'viewer@kangwon.ac.kr',
       nickname: '뷰어',
     });
-    await seedRegisteredAssignedParticipant(prisma, {
-      userId: 'peer',
-      participantId: 'participant-peer',
-      email: 'peer@kangwon.ac.kr',
-      nickname: '상대',
-    });
 
-    await prisma.seasonParticipantProfile.update({
-      where: { participantId: 'participant-viewer' },
-      data: {
-        lifestyle: INCOMPLETE_CONDITION_LIFESTYLE,
-      },
-    });
-    await prisma.seasonParticipantProfile.update({
-      where: { participantId: 'participant-peer' },
-      data: {
-        lifestyle: COMPLETE_CONDITION_LIFESTYLE,
-      },
-    });
-
-    const result = await service.getProfiles(authContext('viewer'), { offset: 0, limit: 10 });
-    const peer = result.items.find((item) => item.nickname === '상대');
-
-    expect(peer).not.toHaveProperty('matchScore');
+    await expect(
+      prisma.seasonParticipantProfile.update({
+        where: { participantId: 'participant-viewer' },
+        data: {
+          smokingTolerance: null as never,
+        },
+      }),
+    ).rejects.toBeTruthy();
   });
 
   it('같은 사용자 쌍이라도 viewer 기준 점수는 방향에 따라 달라질 수 있다', async () => {
@@ -182,21 +163,21 @@ describe('ProfilesService match score integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-a' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...COMPLETE_CONDITION_LIFESTYLE,
           cleanLevel: 'WEEKLY_3_UP',
           cleanExpectation: 'STRICT',
-        },
+        }),
       },
     });
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-b' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...COMPLETE_CONDITION_LIFESTYLE,
           cleanLevel: 'WHEN_DIRTY',
           cleanExpectation: 'FLEXIBLE',
-        },
+        }),
       },
     });
 

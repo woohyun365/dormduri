@@ -6,14 +6,29 @@ import { isParticipantRegistered } from '../season-participants/season-participa
 import {
   ROOMMATE_CONDITION_FIELDS,
   CORE_LIFESTYLE_FIELDS,
-  lifestyleSchema,
   type LifestyleData,
 } from '@repo/shared/lifestyle';
 import { buildDirectionalMatchScoreProjection } from './match-score-projection.js';
+import {
+  lifestyleColumnSelect,
+  toStoredBedtime,
+  toStoredWakeTime,
+  type LifestyleColumns,
+  toLifestyleFromColumns,
+} from '../profiles/profile-lifestyle.persistence.js';
 
 export interface MatchHistoryMaterializationResult {
   processedSeasons: number;
   rebuiltEntries: number;
+}
+
+interface SeasonHistoryProfileSnapshot extends LifestyleColumns {
+  participantId: string;
+  nicknameSnapshot: string;
+}
+
+interface SeasonHistoryUserProfileSnapshot extends LifestyleColumns {
+  nickname: string;
 }
 
 interface SeasonHistorySource {
@@ -31,16 +46,9 @@ interface SeasonHistorySource {
     dormitorySelectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
     hiddenByAdminAt: Date | null;
     deactivatedAt: Date | null;
-    profile: {
-      participantId: string;
-      nicknameSnapshot: string;
-      lifestyle: Prisma.JsonValue;
-    } | null;
+    profile: SeasonHistoryProfileSnapshot | null;
     user: {
-      profile: {
-        nickname: string;
-        lifestyle: Prisma.JsonValue;
-      } | null;
+      profile: SeasonHistoryUserProfileSnapshot | null;
     };
   }>;
   matchRequests: Array<{
@@ -235,7 +243,7 @@ async function loadSeasonHistorySource(
             select: {
               participantId: true,
               nicknameSnapshot: true,
-              lifestyle: true,
+              ...lifestyleColumnSelect,
             },
           },
           user: {
@@ -243,7 +251,7 @@ async function loadSeasonHistorySource(
               profile: {
                 select: {
                   nickname: true,
-                  lifestyle: true,
+                  ...lifestyleColumnSelect,
                 },
               },
             },
@@ -512,9 +520,7 @@ function buildRequestHistoryRow(input: {
     viewerRequested: input.viewerRequested,
     sourceRequestId: input.sourceRequestId,
     matchScore: scoreSnapshot.matchScore,
-    viewerConditionSnapshot: scoreSnapshot.viewerConditionSnapshot as Prisma.InputJsonValue,
-    counterpartLifestyleSnapshot:
-      scoreSnapshot.counterpartLifestyleSnapshot as Prisma.InputJsonValue,
+    ...toHistorySnapshotColumns(scoreSnapshot),
     counterpartNicknameSnapshot: resolveCounterpartNickname(input.counterpartParticipant),
     viewerDormitoryIdSnapshot: input.viewerParticipant.dormitoryId,
     hadConversation: input.threadSnapshot?.hadConversation ?? false,
@@ -567,9 +573,7 @@ function buildMatchHistoryRow(input: {
     sourceActiveMatchId: input.sourceActiveMatchId,
     createdFromRequestId: input.createdFromRequestId,
     matchScore: scoreSnapshot.matchScore,
-    viewerConditionSnapshot: scoreSnapshot.viewerConditionSnapshot as Prisma.InputJsonValue,
-    counterpartLifestyleSnapshot:
-      scoreSnapshot.counterpartLifestyleSnapshot as Prisma.InputJsonValue,
+    ...toHistorySnapshotColumns(scoreSnapshot),
     counterpartNicknameSnapshot: resolveCounterpartNickname(input.counterpartParticipant),
     viewerDormitoryIdSnapshot: input.viewerParticipant.dormitoryId,
     hadConversation: input.threadSnapshot?.hadConversation ?? false,
@@ -605,6 +609,14 @@ function buildHistoryScoreSnapshot(
     viewerConditionSnapshot: viewerLifestyle
       ? pickLifestyleFields(viewerLifestyle, ROOMMATE_CONDITION_FIELDS)
       : null,
+    viewerSelfSnapshot: viewerLifestyle
+      ? pickLifestyleFields(viewerLifestyle, [
+          'bedtime',
+          'wakeTime',
+          'relationshipStyle',
+          'temperatureSensitivity',
+        ] as const)
+      : null,
     counterpartLifestyleSnapshot: counterpartLifestyle
       ? pickLifestyleFields(counterpartLifestyle, CORE_LIFESTYLE_FIELDS)
       : null,
@@ -614,17 +626,63 @@ function buildHistoryScoreSnapshot(
 function parseParticipantLifestyle(
   participant: SeasonHistorySource['participants'][number],
 ): LifestyleData | null {
-  const rawLifestyle =
-    participant.profile?.lifestyle ?? participant.user.profile?.lifestyle ?? null;
-  const parsed = lifestyleSchema.safeParse(rawLifestyle);
-  return parsed.success ? parsed.data : null;
+  const rawLifestyle = participant.profile ?? participant.user.profile ?? null;
+  return toLifestyleFromColumns(rawLifestyle);
 }
 
 function pickLifestyleFields<const T extends readonly (keyof LifestyleData)[]>(
   lifestyle: LifestyleData,
   fields: T,
 ) {
-  return Object.fromEntries(fields.map((field) => [field, lifestyle[field]]));
+  return Object.fromEntries(fields.map((field) => [field, lifestyle[field]])) as Pick<
+    LifestyleData,
+    T[number]
+  >;
+}
+
+function toHistorySnapshotColumns(input: ReturnType<typeof buildHistoryScoreSnapshot>) {
+  return {
+    viewerSmokingToleranceSnapshot: input.viewerConditionSnapshot?.smokingTolerance ?? null,
+    viewerPhoneToleranceSnapshot: input.viewerConditionSnapshot?.phoneTolerance ?? null,
+    viewerEarphoneExpectationSnapshot: input.viewerConditionSnapshot?.earphoneExpectation ?? null,
+    viewerSleepEnvPreferenceSnapshot: input.viewerConditionSnapshot?.sleepEnvPreference ?? null,
+    viewerScreenToleranceSnapshot: input.viewerConditionSnapshot?.screenTolerance ?? null,
+    viewerIndoorEatingToleranceSnapshot:
+      input.viewerConditionSnapshot?.indoorEatingTolerance ?? null,
+    viewerCleanExpectationSnapshot: input.viewerConditionSnapshot?.cleanExpectation ?? null,
+    viewerDrinkingToleranceSnapshot: input.viewerConditionSnapshot?.drinkingTolerance ?? null,
+    viewerBedtimeSnapshot: input.viewerSelfSnapshot?.bedtime
+      ? toStoredBedtime(input.viewerSelfSnapshot.bedtime)
+      : null,
+    viewerWakeTimeSnapshot: input.viewerSelfSnapshot?.wakeTime
+      ? toStoredWakeTime(input.viewerSelfSnapshot.wakeTime)
+      : null,
+    viewerRelationshipStyleSnapshot: input.viewerSelfSnapshot?.relationshipStyle ?? null,
+    viewerTemperatureSensitivitySnapshot: input.viewerSelfSnapshot?.temperatureSensitivity ?? null,
+    counterpartBedtimeSnapshot: input.counterpartLifestyleSnapshot?.bedtime
+      ? toStoredBedtime(input.counterpartLifestyleSnapshot.bedtime)
+      : null,
+    counterpartWakeTimeSnapshot: input.counterpartLifestyleSnapshot?.wakeTime
+      ? toStoredWakeTime(input.counterpartLifestyleSnapshot.wakeTime)
+      : null,
+    counterpartSleepHabitSnapshot: input.counterpartLifestyleSnapshot?.sleepHabit ?? null,
+    counterpartSleepEnvironmentSnapshot:
+      input.counterpartLifestyleSnapshot?.sleepEnvironment ?? null,
+    counterpartScreenUsageSnapshot: input.counterpartLifestyleSnapshot?.screenUsage ?? null,
+    counterpartNoiseSensitivitySnapshot:
+      input.counterpartLifestyleSnapshot?.noiseSensitivity ?? null,
+    counterpartSmokingBehaviorSnapshot: input.counterpartLifestyleSnapshot?.smokingBehavior ?? null,
+    counterpartIndoorEatingSnapshot: input.counterpartLifestyleSnapshot?.indoorEating ?? null,
+    counterpartPhoneBehaviorSnapshot: input.counterpartLifestyleSnapshot?.phoneBehavior ?? null,
+    counterpartEarphoneUsageSnapshot: input.counterpartLifestyleSnapshot?.earphoneUsage ?? null,
+    counterpartCleanLevelSnapshot: input.counterpartLifestyleSnapshot?.cleanLevel ?? null,
+    counterpartDrinkingFrequencySnapshot:
+      input.counterpartLifestyleSnapshot?.drinkingFrequency ?? null,
+    counterpartRelationshipStyleSnapshot:
+      input.counterpartLifestyleSnapshot?.relationshipStyle ?? null,
+    counterpartTemperatureSensitivitySnapshot:
+      input.counterpartLifestyleSnapshot?.temperatureSensitivity ?? null,
+  };
 }
 
 function toRequestEntryResult(

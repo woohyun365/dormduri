@@ -7,6 +7,7 @@ import {
   type MatchRequestRecord,
 } from './match-read-model.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import { toCompleteLifestyleColumnData } from '../profiles/profile-lifestyle.persistence.js';
 
 const COMPLETE_LIFESTYLE = {
   bedtime: '22_24',
@@ -91,17 +92,13 @@ function makeActiveMatch(
       userId: 'user-1',
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
-      profile: {
-        lifestyle: COMPLETE_LIFESTYLE,
-      },
+      profile: toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
     },
     participantB: {
       userId: 'user-2',
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
-      profile: {
-        lifestyle: COMPLETE_LIFESTYLE,
-      },
+      profile: toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
     },
     unmatchRequests: [],
     ...overrides,
@@ -152,15 +149,14 @@ describe('match read model helpers', () => {
       ],
     });
 
-    expect(
-      toDetailedActiveMatchSummary(
-        activeMatch,
-        'participant-1',
-        makeSeasonContext(),
-        new Date('2026-02-10T12:00:00.000Z'),
-      ),
-    ).toMatchObject({
-      matchScore: expect.any(Number),
+    const summaryForA = toDetailedActiveMatchSummary(
+      activeMatch,
+      'participant-1',
+      makeSeasonContext(),
+      new Date('2026-02-10T12:00:00.000Z'),
+    );
+    expect(summaryForA.matchScore).toEqual(expect.any(Number));
+    expect(summaryForA).toMatchObject({
       unmatchProgress: {
         state: 'WAITING_FOR_COUNTERPART',
         progressCount: 1,
@@ -170,15 +166,14 @@ describe('match read model helpers', () => {
       },
     });
 
-    expect(
-      toDetailedActiveMatchSummary(
-        activeMatch,
-        'participant-2',
-        makeSeasonContext(),
-        new Date('2026-02-10T12:00:00.000Z'),
-      ),
-    ).toMatchObject({
-      matchScore: expect.any(Number),
+    const summaryForB = toDetailedActiveMatchSummary(
+      activeMatch,
+      'participant-2',
+      makeSeasonContext(),
+      new Date('2026-02-10T12:00:00.000Z'),
+    );
+    expect(summaryForB.matchScore).toEqual(expect.any(Number));
+    expect(summaryForB).toMatchObject({
       unmatchProgress: {
         state: 'WAITING_FOR_ME',
         progressCount: 1,
@@ -207,9 +202,7 @@ describe('match read model helpers', () => {
             userId: 'user-2',
             dormitoryId: 'saerom',
             dormitorySelectionState: 'ASSIGNED',
-            profile: {
-              lifestyle: COMPLETE_LIFESTYLE,
-            },
+            profile: toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
           },
         }),
         seasonContext,

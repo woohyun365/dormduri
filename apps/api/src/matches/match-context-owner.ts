@@ -1,4 +1,5 @@
 import type { PrismaService } from '../common/prisma/prisma.service.js';
+import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
 import type { DormitorySelectionState } from '../generated/prisma/enums.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import type {
@@ -12,9 +13,7 @@ export interface MatchUserSeed extends ParticipantBackfillSeed {
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   dormitorySelectionState: DormitorySelectionState;
-  profile: {
-    lifestyle: unknown;
-  } | null;
+  profile: Record<string, unknown> | null;
 }
 
 export interface MatchUserContext {
@@ -65,9 +64,7 @@ export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
           dormitoryId: true,
           dormitorySelectionState: true,
           profile: {
-            select: {
-              lifestyle: true,
-            },
+            select: lifestyleColumnSelect,
           },
         },
       });

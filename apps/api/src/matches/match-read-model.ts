@@ -50,13 +50,13 @@ export function toActiveMatchSummary(
   const viewerIsParticipantA = activeMatch.participantAId === viewerParticipantId;
   const viewerLifestyle = parseLifestyleOrNull(
     viewerIsParticipantA
-      ? (activeMatch.participantA.profile?.lifestyle ?? null)
-      : (activeMatch.participantB.profile?.lifestyle ?? null),
+      ? (activeMatch.participantA.profile ?? null)
+      : (activeMatch.participantB.profile ?? null),
   );
   const counterpartLifestyle = parseLifestyleOrNull(
     viewerIsParticipantA
-      ? (activeMatch.participantB.profile?.lifestyle ?? null)
-      : (activeMatch.participantA.profile?.lifestyle ?? null),
+      ? (activeMatch.participantB.profile ?? null)
+      : (activeMatch.participantA.profile ?? null),
   );
   const matchScore = buildDirectionalMatchScoreProjection(viewerLifestyle, counterpartLifestyle);
 

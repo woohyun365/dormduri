@@ -94,7 +94,5 @@ export type ChatUserSeed = ParticipantBackfillSeed & {
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   dormitorySelectionState: DormitorySelectionState;
-  profile: {
-    lifestyle: unknown;
-  } | null;
+  profile: Record<string, unknown> | null;
 };

@@ -1,5 +1,5 @@
 import type { ConversationMessage, ConversationThreadSummary } from '@repo/shared/chat-contract';
-import { isSeasonProfileComplete, lifestyleSchema } from '@repo/shared/lifestyle';
+import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import {
@@ -22,6 +22,7 @@ import {
 } from '../seasons/season.utils.js';
 import { chatErrors } from './chat.errors.js';
 import type { ChatUserContext } from './chat-context-owner.js';
+import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 import type { ChatUserSeed, ThreadRecord } from './chat-selects.js';
 
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
@@ -133,11 +134,11 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
         return false;
       }
 
-      const viewerLifestyle = lifestyleSchema.safeParse(
+      const viewerLifestyle = parseLifestyleOrNull(
         viewerParticipant.profile?.lifestyle ?? viewerContext.user.profile?.lifestyle ?? null,
       );
       const viewerSeasonProfileComplete =
-        viewerLifestyle.success && isSeasonProfileComplete(viewerLifestyle.data);
+        viewerLifestyle !== null && isSeasonProfileComplete(viewerLifestyle);
       if (!viewerSeasonProfileComplete) {
         return false;
       }

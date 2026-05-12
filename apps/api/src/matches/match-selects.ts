@@ -1,4 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
+import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
 
 export const matchRequestSummarySelect = {
   id: true,
@@ -39,9 +40,7 @@ export const activeMatchSummarySelect = {
     select: {
       userId: true,
       profile: {
-        select: {
-          lifestyle: true,
-        },
+        select: lifestyleColumnSelect,
       },
     },
   },
@@ -49,9 +48,7 @@ export const activeMatchSummarySelect = {
     select: {
       userId: true,
       profile: {
-        select: {
-          lifestyle: true,
-        },
+        select: lifestyleColumnSelect,
       },
     },
   },
@@ -83,9 +80,7 @@ export const activeMatchCommandSelect = {
       dormitoryId: true,
       dormitorySelectionState: true,
       profile: {
-        select: {
-          lifestyle: true,
-        },
+        select: lifestyleColumnSelect,
       },
     },
   },
@@ -95,9 +90,7 @@ export const activeMatchCommandSelect = {
       dormitoryId: true,
       dormitorySelectionState: true,
       profile: {
-        select: {
-          lifestyle: true,
-        },
+        select: lifestyleColumnSelect,
       },
     },
   },

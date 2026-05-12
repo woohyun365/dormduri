@@ -1,4 +1,5 @@
 import type { PrismaService } from '../common/prisma/prisma.service.js';
+import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
 import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
@@ -31,9 +32,7 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
           dormitoryId: true,
           dormitorySelectionState: true,
           profile: {
-            select: {
-              lifestyle: true,
-            },
+            select: lifestyleColumnSelect,
           },
         },
       });

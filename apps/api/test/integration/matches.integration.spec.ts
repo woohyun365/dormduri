@@ -1,5 +1,6 @@
 import { MatchesService } from '../../src/matches/matches.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { toCompleteLifestyleColumnData } from '../../src/profiles/profile-lifestyle.persistence.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -170,28 +171,15 @@ describe('MatchesService integration', () => {
     });
   });
 
-  it('viewer의 원하는 룸메 조건이 미완성이면 match request를 생성할 수 없다', async () => {
-    await prisma.seasonParticipantProfile.update({
-      where: { participantId: 'participant-a' },
-      data: {
-        lifestyle: {
-          ...DEFAULT_LIFESTYLE,
-          smokingTolerance: null,
-        },
-      },
-    });
-
+  it('season participant profile complete invariant는 nullable condition write를 거부한다', async () => {
     await expect(
-      service.createMatchRequest(authContext('user-a'), {
-        targetUserId: 'user-b',
-        note: '조건 미완성 요청',
-        channel: 'PROFILE_DETAIL',
+      prisma.seasonParticipantProfile.update({
+        where: { participantId: 'participant-a' },
+        data: {
+          smokingTolerance: null as never,
+        },
       }),
-    ).rejects.toMatchObject({
-      response: {
-        code: 'MATCH_REQUEST_NOT_ALLOWED',
-      },
-    });
+    ).rejects.toBeTruthy();
   });
 
   it('ACTIVE match summary의 match score는 viewer 기준 단방향으로 계산된다', async () => {
@@ -204,21 +192,21 @@ describe('MatchesService integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-a' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...DEFAULT_LIFESTYLE,
           cleanExpectation: 'STRICT',
           cleanLevel: 'WEEKLY_3_UP',
-        },
+        }),
       },
     });
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-b' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...DEFAULT_LIFESTYLE,
           cleanExpectation: 'FLEXIBLE',
           cleanLevel: 'WHEN_DIRTY',
-        },
+        }),
       },
     });
 

@@ -1,5 +1,5 @@
 import type { CreateMatchRequestRequest } from '@repo/shared/match-contract';
-import { isSeasonProfileComplete, lifestyleSchema } from '@repo/shared/lifestyle';
+import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import type { ModerationService } from '../common/moderation/moderation.service.js';
 import {
   buildCurrentUserCapabilities,
@@ -17,6 +17,7 @@ import { matchesErrors } from './matches.errors.js';
 import { buildParticipantPairIdentity } from './match.utils.js';
 import type { MatchUserContext, MatchUserSeed } from './match-context-owner.js';
 import type { ActiveMatchSummary } from '@repo/shared/match-contract';
+import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 
 export interface PreparedMatchRequestCreation {
   seasonId: string;
@@ -101,13 +102,13 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
         requesterContext.selection.dormitoryId,
         now,
       );
-      const requesterLifestyle = lifestyleSchema.safeParse(
+      const requesterLifestyle = parseLifestyleOrNull(
         requesterContext.participant?.profile?.lifestyle ??
           requesterContext.user.profile?.lifestyle ??
           null,
       );
       const requesterSeasonProfileComplete =
-        requesterLifestyle.success && isSeasonProfileComplete(requesterLifestyle.data);
+        requesterLifestyle !== null && isSeasonProfileComplete(requesterLifestyle);
       const requesterCapabilities = buildCurrentUserCapabilities(
         buildCurrentUserCapabilityInput({
           campusOperated: true,

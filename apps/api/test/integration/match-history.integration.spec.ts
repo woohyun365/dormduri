@@ -1,6 +1,10 @@
 import { MatchesService } from '../../src/matches/matches.service.js';
 import { LifecycleSweepService } from '../../src/common/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import {
+  toCompleteLifestyleColumnData,
+  toLifestyleColumnData,
+} from '../../src/profiles/profile-lifestyle.persistence.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -116,7 +120,7 @@ describe('Match history integration', () => {
         userId: input.userId,
         nickname: input.nickname,
         nicknameNormalized: input.nickname,
-        lifestyle: DEFAULT_LIFESTYLE,
+        ...toLifestyleColumnData(DEFAULT_LIFESTYLE),
         intro: `${input.nickname} 기본 소개`,
         messageToRoommate: `${input.nickname} 기본 메시지`,
       },
@@ -151,7 +155,7 @@ describe('Match history integration', () => {
         participantId: input.participantId,
         nicknameSnapshot: input.nicknameSnapshot,
         nicknameNormalizedSnapshot: input.nicknameSnapshot,
-        lifestyle: DEFAULT_LIFESTYLE,
+        ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
         intro: `${input.nicknameSnapshot} 시즌 소개`,
         messageToRoommate: `${input.nicknameSnapshot} 시즌 메시지`,
       },
@@ -478,19 +482,19 @@ describe('Match history integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-a-2025-01' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...DEFAULT_LIFESTYLE,
           cleanExpectation: 'STRICT',
-        },
+        }),
       },
     });
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-b-2025-01' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...DEFAULT_LIFESTYLE,
           cleanLevel: 'WHEN_DIRTY',
-        },
+        }),
       },
     });
 
@@ -538,12 +542,12 @@ describe('Match history integration', () => {
     });
 
     expect(storedRow).toMatchObject({
-      viewerConditionSnapshot: expect.objectContaining({
-        cleanExpectation: 'STRICT',
-      }),
-      counterpartLifestyleSnapshot: expect.objectContaining({
-        cleanLevel: 'WHEN_DIRTY',
-      }),
+      viewerCleanExpectationSnapshot: 'STRICT',
+      viewerBedtimeSnapshot: 'BETWEEN_22_24',
+      viewerWakeTimeSnapshot: 'BETWEEN_07_08',
+      viewerRelationshipStyleSnapshot: 'CLOSE',
+      viewerTemperatureSensitivitySnapshot: 'NORMAL',
+      counterpartCleanLevelSnapshot: 'WHEN_DIRTY',
     });
     expect(storedRow?.matchScore).not.toBeNull();
 
@@ -581,19 +585,19 @@ describe('Match history integration', () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-a-request' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...DEFAULT_LIFESTYLE,
           cleanExpectation: 'STRICT',
-        },
+        }),
       },
     });
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-b-request' },
       data: {
-        lifestyle: {
+        ...toCompleteLifestyleColumnData({
           ...DEFAULT_LIFESTYLE,
           cleanLevel: 'WHEN_DIRTY',
-        },
+        }),
       },
     });
 
@@ -625,14 +629,14 @@ describe('Match history integration', () => {
       },
     });
 
+    expect(storedRow?.matchScore).toEqual(expect.any(Number));
     expect(storedRow).toMatchObject({
-      matchScore: expect.any(Number),
-      viewerConditionSnapshot: expect.objectContaining({
-        cleanExpectation: 'STRICT',
-      }),
-      counterpartLifestyleSnapshot: expect.objectContaining({
-        cleanLevel: 'WHEN_DIRTY',
-      }),
+      viewerCleanExpectationSnapshot: 'STRICT',
+      viewerBedtimeSnapshot: 'BETWEEN_22_24',
+      viewerWakeTimeSnapshot: 'BETWEEN_07_08',
+      viewerRelationshipStyleSnapshot: 'CLOSE',
+      viewerTemperatureSensitivitySnapshot: 'NORMAL',
+      counterpartCleanLevelSnapshot: 'WHEN_DIRTY',
       requestTerminalReason: 'REJECTED_BY_RECEIVER',
     });
 
