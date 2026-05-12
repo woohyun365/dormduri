@@ -31,6 +31,57 @@ function normalizeNickname(nickname) {
   return nickname.trim().toLowerCase();
 }
 
+function toStoredBedtime(value) {
+  switch (value) {
+    case '22_24':
+      return 'BETWEEN_22_24';
+    case '24_02':
+      return 'BETWEEN_24_02';
+    default:
+      return value;
+  }
+}
+
+function toStoredWakeTime(value) {
+  switch (value) {
+    case '07_08':
+      return 'BETWEEN_07_08';
+    case '08_09':
+      return 'BETWEEN_08_09';
+    case '09_10':
+      return 'BETWEEN_09_10';
+    default:
+      return value;
+  }
+}
+
+function toStoredLifestyleColumns(lifestyle) {
+  return {
+    bedtime: toStoredBedtime(lifestyle.bedtime),
+    wakeTime: toStoredWakeTime(lifestyle.wakeTime),
+    sleepHabit: lifestyle.sleepHabit,
+    sleepEnvironment: lifestyle.sleepEnvironment,
+    screenUsage: lifestyle.screenUsage,
+    noiseSensitivity: lifestyle.noiseSensitivity,
+    smokingBehavior: lifestyle.smokingBehavior,
+    indoorEating: lifestyle.indoorEating,
+    phoneBehavior: lifestyle.phoneBehavior,
+    earphoneUsage: lifestyle.earphoneUsage,
+    cleanLevel: lifestyle.cleanLevel,
+    drinkingFrequency: lifestyle.drinkingFrequency,
+    relationshipStyle: lifestyle.relationshipStyle,
+    temperatureSensitivity: lifestyle.temperatureSensitivity,
+    smokingTolerance: lifestyle.smokingTolerance,
+    phoneTolerance: lifestyle.phoneTolerance,
+    earphoneExpectation: lifestyle.earphoneExpectation,
+    sleepEnvPreference: lifestyle.sleepEnvPreference,
+    screenTolerance: lifestyle.screenTolerance,
+    indoorEatingTolerance: lifestyle.indoorEatingTolerance,
+    cleanExpectation: lifestyle.cleanExpectation,
+    drinkingTolerance: lifestyle.drinkingTolerance,
+  };
+}
+
 function normalizeCollegeSeedValue(college) {
   if (!college) {
     return null;
@@ -434,10 +485,32 @@ async function seedUsersData(client) {
       seedUser.dormitorySelectionState,
     ];
 
+    const storedLifestyle = toStoredLifestyleColumns(seedUser.lifestyle);
     const profileValues = [
       seedUser.nickname,
       nicknameNormalized,
-      JSON.stringify(seedUser.lifestyle),
+      storedLifestyle.bedtime,
+      storedLifestyle.wakeTime,
+      storedLifestyle.sleepHabit,
+      storedLifestyle.sleepEnvironment,
+      storedLifestyle.screenUsage,
+      storedLifestyle.noiseSensitivity,
+      storedLifestyle.smokingBehavior,
+      storedLifestyle.indoorEating,
+      storedLifestyle.phoneBehavior,
+      storedLifestyle.earphoneUsage,
+      storedLifestyle.cleanLevel,
+      storedLifestyle.drinkingFrequency,
+      storedLifestyle.relationshipStyle,
+      storedLifestyle.temperatureSensitivity,
+      storedLifestyle.smokingTolerance,
+      storedLifestyle.phoneTolerance,
+      storedLifestyle.earphoneExpectation,
+      storedLifestyle.sleepEnvPreference,
+      storedLifestyle.screenTolerance,
+      storedLifestyle.indoorEatingTolerance,
+      storedLifestyle.cleanExpectation,
+      storedLifestyle.drinkingTolerance,
       seedUser.intro,
       seedUser.messageToRoommate ?? null,
       collegeCode,
@@ -470,7 +543,28 @@ async function seedUsersData(client) {
             "userId",
             nickname,
             "nicknameNormalized",
-            lifestyle,
+            bedtime,
+            "wakeTime",
+            "sleepHabit",
+            "sleepEnvironment",
+            "screenUsage",
+            "noiseSensitivity",
+            "smokingBehavior",
+            "indoorEating",
+            "phoneBehavior",
+            "earphoneUsage",
+            "cleanLevel",
+            "drinkingFrequency",
+            "relationshipStyle",
+            "temperatureSensitivity",
+            "smokingTolerance",
+            "phoneTolerance",
+            "earphoneExpectation",
+            "sleepEnvPreference",
+            "screenTolerance",
+            "indoorEatingTolerance",
+            "cleanExpectation",
+            "drinkingTolerance",
             intro,
             "messageToRoommate",
             "collegeCode",
@@ -481,13 +575,41 @@ async function seedUsersData(client) {
             "updatedAt"
           )
           VALUES (
-            $1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, NOW(), NOW()
+            $1, $2, $3,
+            $4::"LifestyleBedtime", $5::"LifestyleWakeTime", $6::"LifestyleSleepHabit", $7::"LifestyleSleepEnvironment",
+            $8::"LifestyleScreenUsage", $9::"LifestyleNoiseSensitivity", $10::"LifestyleSmokingBehavior", $11::"LifestyleIndoorEating",
+            $12::"LifestylePhoneBehavior", $13::"LifestyleEarphoneUsage", $14::"LifestyleCleanLevel", $15::"LifestyleDrinkingFrequency",
+            $16::"LifestyleRelationshipStyle", $17::"LifestyleTemperatureSensitivity", $18::"RoommateSmokingTolerance", $19::"RoommatePhoneTolerance",
+            $20::"RoommateEarphoneExpectation", $21::"RoommateSleepEnvPreference", $22::"RoommateScreenTolerance", $23::"RoommateIndoorEatingTolerance",
+            $24::"RoommateCleanExpectation", $25::"RoommateDrinkingTolerance",
+            $26, $27, $28, $29, $30, $31, NOW(), NOW()
           )
           ON CONFLICT ("userId")
           DO UPDATE SET
             nickname = EXCLUDED.nickname,
             "nicknameNormalized" = EXCLUDED."nicknameNormalized",
-            lifestyle = EXCLUDED.lifestyle,
+            bedtime = EXCLUDED.bedtime,
+            "wakeTime" = EXCLUDED."wakeTime",
+            "sleepHabit" = EXCLUDED."sleepHabit",
+            "sleepEnvironment" = EXCLUDED."sleepEnvironment",
+            "screenUsage" = EXCLUDED."screenUsage",
+            "noiseSensitivity" = EXCLUDED."noiseSensitivity",
+            "smokingBehavior" = EXCLUDED."smokingBehavior",
+            "indoorEating" = EXCLUDED."indoorEating",
+            "phoneBehavior" = EXCLUDED."phoneBehavior",
+            "earphoneUsage" = EXCLUDED."earphoneUsage",
+            "cleanLevel" = EXCLUDED."cleanLevel",
+            "drinkingFrequency" = EXCLUDED."drinkingFrequency",
+            "relationshipStyle" = EXCLUDED."relationshipStyle",
+            "temperatureSensitivity" = EXCLUDED."temperatureSensitivity",
+            "smokingTolerance" = EXCLUDED."smokingTolerance",
+            "phoneTolerance" = EXCLUDED."phoneTolerance",
+            "earphoneExpectation" = EXCLUDED."earphoneExpectation",
+            "sleepEnvPreference" = EXCLUDED."sleepEnvPreference",
+            "screenTolerance" = EXCLUDED."screenTolerance",
+            "indoorEatingTolerance" = EXCLUDED."indoorEatingTolerance",
+            "cleanExpectation" = EXCLUDED."cleanExpectation",
+            "drinkingTolerance" = EXCLUDED."drinkingTolerance",
             intro = EXCLUDED.intro,
             "messageToRoommate" = EXCLUDED."messageToRoommate",
             "collegeCode" = EXCLUDED."collegeCode",
@@ -531,7 +653,28 @@ async function seedUsersData(client) {
           "userId",
           nickname,
           "nicknameNormalized",
-          lifestyle,
+          bedtime,
+          "wakeTime",
+          "sleepHabit",
+          "sleepEnvironment",
+          "screenUsage",
+          "noiseSensitivity",
+          "smokingBehavior",
+          "indoorEating",
+          "phoneBehavior",
+          "earphoneUsage",
+          "cleanLevel",
+          "drinkingFrequency",
+          "relationshipStyle",
+          "temperatureSensitivity",
+          "smokingTolerance",
+          "phoneTolerance",
+          "earphoneExpectation",
+          "sleepEnvPreference",
+          "screenTolerance",
+          "indoorEatingTolerance",
+          "cleanExpectation",
+          "drinkingTolerance",
           intro,
           "messageToRoommate",
           "collegeCode",
@@ -542,7 +685,14 @@ async function seedUsersData(client) {
           "updatedAt"
         )
         VALUES (
-          $1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, NOW(), NOW()
+          $1, $2, $3,
+          $4::"LifestyleBedtime", $5::"LifestyleWakeTime", $6::"LifestyleSleepHabit", $7::"LifestyleSleepEnvironment",
+          $8::"LifestyleScreenUsage", $9::"LifestyleNoiseSensitivity", $10::"LifestyleSmokingBehavior", $11::"LifestyleIndoorEating",
+          $12::"LifestylePhoneBehavior", $13::"LifestyleEarphoneUsage", $14::"LifestyleCleanLevel", $15::"LifestyleDrinkingFrequency",
+          $16::"LifestyleRelationshipStyle", $17::"LifestyleTemperatureSensitivity", $18::"RoommateSmokingTolerance", $19::"RoommatePhoneTolerance",
+          $20::"RoommateEarphoneExpectation", $21::"RoommateSleepEnvPreference", $22::"RoommateScreenTolerance", $23::"RoommateIndoorEatingTolerance",
+          $24::"RoommateCleanExpectation", $25::"RoommateDrinkingTolerance",
+          $26, $27, $28, $29, $30, $31, NOW(), NOW()
         )
       `,
       [userId, ...profileValues],

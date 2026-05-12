@@ -1,9 +1,8 @@
--- CreateExtension
-
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
+
+-- Extensions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- CreateEnum
 CREATE TYPE "Gender" AS ENUM ('M', 'F');
@@ -79,6 +78,72 @@ CREATE TYPE "ConversationThreadClosedReason" AS ENUM ('ACTIVE_MATCH_CREATED', 'R
 
 -- CreateEnum
 CREATE TYPE "ConversationThreadMemberState" AS ENUM ('ACTIVE', 'LEFT');
+
+-- CreateEnum
+CREATE TYPE "LifestyleBedtime" AS ENUM ('BEFORE_22', '22_24', '24_02', 'AFTER_02');
+
+-- CreateEnum
+CREATE TYPE "LifestyleWakeTime" AS ENUM ('BEFORE_07', '07_08', '08_09', '09_10', 'AFTER_10', 'FLEXIBLE');
+
+-- CreateEnum
+CREATE TYPE "LifestyleSleepHabit" AS ENUM ('NONE', 'TALKING', 'SNORING', 'GRINDING');
+
+-- CreateEnum
+CREATE TYPE "LifestyleSleepEnvironment" AS ENUM ('QUIET', 'EARPHONE', 'LOW_SPEAKER');
+
+-- CreateEnum
+CREATE TYPE "LifestyleScreenUsage" AS ENUM ('NONE', 'AUDIO', 'SCREEN');
+
+-- CreateEnum
+CREATE TYPE "LifestyleNoiseSensitivity" AS ENUM ('SENSITIVE', 'NORMAL', 'DEEP');
+
+-- CreateEnum
+CREATE TYPE "LifestyleSmokingBehavior" AS ENUM ('NO', 'E_CIG', 'YES');
+
+-- CreateEnum
+CREATE TYPE "LifestyleIndoorEating" AS ENUM ('RARELY', 'SNACK', 'MEAL');
+
+-- CreateEnum
+CREATE TYPE "LifestylePhoneBehavior" AS ENUM ('RARELY', 'SOMETIMES', 'OFTEN');
+
+-- CreateEnum
+CREATE TYPE "LifestyleEarphoneUsage" AS ENUM ('ALWAYS', 'MOSTLY', 'MOSTLY_SPEAKER', 'ALWAYS_SPEAKER');
+
+-- CreateEnum
+CREATE TYPE "LifestyleCleanLevel" AS ENUM ('WHEN_DIRTY', 'WEEKLY_1_2', 'WEEKLY_3_UP');
+
+-- CreateEnum
+CREATE TYPE "LifestyleDrinkingFrequency" AS ENUM ('NONE', 'RARELY', 'SOMETIMES', 'OFTEN');
+
+-- CreateEnum
+CREATE TYPE "LifestyleRelationshipStyle" AS ENUM ('CLOSE', 'CASUAL');
+
+-- CreateEnum
+CREATE TYPE "LifestyleTemperatureSensitivity" AS ENUM ('COLD', 'NORMAL', 'HOT');
+
+-- CreateEnum
+CREATE TYPE "RoommateSmokingTolerance" AS ENUM ('NO_ONLY', 'E_CIG_OK', 'ANY');
+
+-- CreateEnum
+CREATE TYPE "RoommatePhoneTolerance" AS ENUM ('OUTSIDE_ONLY', 'BRIEF_OK', 'ANY');
+
+-- CreateEnum
+CREATE TYPE "RoommateEarphoneExpectation" AS ENUM ('MUST', 'STUDY', 'ANY');
+
+-- CreateEnum
+CREATE TYPE "RoommateSleepEnvPreference" AS ENUM ('NO_SPEAKER', 'SPEAKER_OK');
+
+-- CreateEnum
+CREATE TYPE "RoommateScreenTolerance" AS ENUM ('NO_SCREEN', 'LOW_OK', 'SCREEN_OK');
+
+-- CreateEnum
+CREATE TYPE "RoommateIndoorEatingTolerance" AS ENUM ('NO_SMELL', 'CLEAN_OK', 'ANY');
+
+-- CreateEnum
+CREATE TYPE "RoommateCleanExpectation" AS ENUM ('STRICT', 'BASIC', 'FLEXIBLE');
+
+-- CreateEnum
+CREATE TYPE "RoommateDrinkingTolerance" AS ENUM ('LOW_ONLY', 'ANY');
 
 -- CreateTable
 CREATE TABLE "CampusMaster" (
@@ -199,7 +264,28 @@ CREATE TABLE "UserProfile" (
     "nickname" TEXT NOT NULL,
     "nicknameNormalized" TEXT NOT NULL,
     "nicknameChangedAt" TIMESTAMPTZ(3),
-    "lifestyle" JSONB NOT NULL,
+    "bedtime" "LifestyleBedtime",
+    "wakeTime" "LifestyleWakeTime",
+    "sleepHabit" "LifestyleSleepHabit",
+    "sleepEnvironment" "LifestyleSleepEnvironment",
+    "screenUsage" "LifestyleScreenUsage",
+    "noiseSensitivity" "LifestyleNoiseSensitivity",
+    "smokingBehavior" "LifestyleSmokingBehavior",
+    "indoorEating" "LifestyleIndoorEating",
+    "phoneBehavior" "LifestylePhoneBehavior",
+    "earphoneUsage" "LifestyleEarphoneUsage",
+    "cleanLevel" "LifestyleCleanLevel",
+    "drinkingFrequency" "LifestyleDrinkingFrequency",
+    "relationshipStyle" "LifestyleRelationshipStyle",
+    "temperatureSensitivity" "LifestyleTemperatureSensitivity",
+    "smokingTolerance" "RoommateSmokingTolerance",
+    "phoneTolerance" "RoommatePhoneTolerance",
+    "earphoneExpectation" "RoommateEarphoneExpectation",
+    "sleepEnvPreference" "RoommateSleepEnvPreference",
+    "screenTolerance" "RoommateScreenTolerance",
+    "indoorEatingTolerance" "RoommateIndoorEatingTolerance",
+    "cleanExpectation" "RoommateCleanExpectation",
+    "drinkingTolerance" "RoommateDrinkingTolerance",
     "intro" TEXT NOT NULL DEFAULT '',
     "messageToRoommate" TEXT,
     "collegeCode" TEXT,
@@ -245,7 +331,28 @@ CREATE TABLE "SeasonParticipantProfile" (
     "participantId" TEXT NOT NULL,
     "nicknameSnapshot" TEXT NOT NULL,
     "nicknameNormalizedSnapshot" TEXT NOT NULL,
-    "lifestyle" JSONB NOT NULL,
+    "bedtime" "LifestyleBedtime" NOT NULL,
+    "wakeTime" "LifestyleWakeTime" NOT NULL,
+    "sleepHabit" "LifestyleSleepHabit" NOT NULL,
+    "sleepEnvironment" "LifestyleSleepEnvironment" NOT NULL,
+    "screenUsage" "LifestyleScreenUsage" NOT NULL,
+    "noiseSensitivity" "LifestyleNoiseSensitivity" NOT NULL,
+    "smokingBehavior" "LifestyleSmokingBehavior" NOT NULL,
+    "indoorEating" "LifestyleIndoorEating" NOT NULL,
+    "phoneBehavior" "LifestylePhoneBehavior" NOT NULL,
+    "earphoneUsage" "LifestyleEarphoneUsage" NOT NULL,
+    "cleanLevel" "LifestyleCleanLevel" NOT NULL,
+    "drinkingFrequency" "LifestyleDrinkingFrequency" NOT NULL,
+    "relationshipStyle" "LifestyleRelationshipStyle" NOT NULL,
+    "temperatureSensitivity" "LifestyleTemperatureSensitivity" NOT NULL,
+    "smokingTolerance" "RoommateSmokingTolerance" NOT NULL,
+    "phoneTolerance" "RoommatePhoneTolerance" NOT NULL,
+    "earphoneExpectation" "RoommateEarphoneExpectation" NOT NULL,
+    "sleepEnvPreference" "RoommateSleepEnvPreference" NOT NULL,
+    "screenTolerance" "RoommateScreenTolerance" NOT NULL,
+    "indoorEatingTolerance" "RoommateIndoorEatingTolerance" NOT NULL,
+    "cleanExpectation" "RoommateCleanExpectation" NOT NULL,
+    "drinkingTolerance" "RoommateDrinkingTolerance" NOT NULL,
     "intro" TEXT NOT NULL DEFAULT '',
     "messageToRoommate" TEXT,
     "collegeCode" TEXT,
@@ -326,8 +433,32 @@ CREATE TABLE "SeasonMatchHistoryEntry" (
     "sourceActiveMatchId" TEXT,
     "createdFromRequestId" TEXT,
     "matchScore" INTEGER,
-    "viewerConditionSnapshot" JSONB,
-    "counterpartLifestyleSnapshot" JSONB,
+    "viewerSmokingToleranceSnapshot" "RoommateSmokingTolerance",
+    "viewerPhoneToleranceSnapshot" "RoommatePhoneTolerance",
+    "viewerEarphoneExpectationSnapshot" "RoommateEarphoneExpectation",
+    "viewerSleepEnvPreferenceSnapshot" "RoommateSleepEnvPreference",
+    "viewerScreenToleranceSnapshot" "RoommateScreenTolerance",
+    "viewerIndoorEatingToleranceSnapshot" "RoommateIndoorEatingTolerance",
+    "viewerCleanExpectationSnapshot" "RoommateCleanExpectation",
+    "viewerDrinkingToleranceSnapshot" "RoommateDrinkingTolerance",
+    "viewerBedtimeSnapshot" "LifestyleBedtime",
+    "viewerWakeTimeSnapshot" "LifestyleWakeTime",
+    "viewerRelationshipStyleSnapshot" "LifestyleRelationshipStyle",
+    "viewerTemperatureSensitivitySnapshot" "LifestyleTemperatureSensitivity",
+    "counterpartBedtimeSnapshot" "LifestyleBedtime",
+    "counterpartWakeTimeSnapshot" "LifestyleWakeTime",
+    "counterpartSleepHabitSnapshot" "LifestyleSleepHabit",
+    "counterpartSleepEnvironmentSnapshot" "LifestyleSleepEnvironment",
+    "counterpartScreenUsageSnapshot" "LifestyleScreenUsage",
+    "counterpartNoiseSensitivitySnapshot" "LifestyleNoiseSensitivity",
+    "counterpartSmokingBehaviorSnapshot" "LifestyleSmokingBehavior",
+    "counterpartIndoorEatingSnapshot" "LifestyleIndoorEating",
+    "counterpartPhoneBehaviorSnapshot" "LifestylePhoneBehavior",
+    "counterpartEarphoneUsageSnapshot" "LifestyleEarphoneUsage",
+    "counterpartCleanLevelSnapshot" "LifestyleCleanLevel",
+    "counterpartDrinkingFrequencySnapshot" "LifestyleDrinkingFrequency",
+    "counterpartRelationshipStyleSnapshot" "LifestyleRelationshipStyle",
+    "counterpartTemperatureSensitivitySnapshot" "LifestyleTemperatureSensitivity",
     "counterpartNicknameSnapshot" TEXT NOT NULL,
     "viewerDormitoryIdSnapshot" TEXT,
     "hadConversation" BOOLEAN NOT NULL DEFAULT false,
@@ -746,3 +877,4 @@ ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_senderPart
 
 -- AddForeignKey
 ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
