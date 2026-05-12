@@ -1,6 +1,5 @@
-import type { Prisma } from '../generated/prisma/client.js';
 import type { LifestyleData } from '../auth/lifestyle.schema.js';
-import { lifestyleSchema } from '@repo/shared/lifestyle';
+import { publicLifestyleSchema } from '@repo/shared/profile-contract';
 import {
   type AdditionalProfile,
   type ProfileExposureLevel,
@@ -9,15 +8,15 @@ import {
   type PublicProfile,
   type PublicProfileActionCapabilities,
   type PublicLifestyle,
-  publicLifestyleSchema,
 } from '@repo/shared/profile-contract';
+import { type LifestyleColumns, toLifestyleFromColumns } from './profile-lifestyle.persistence.js';
 
 export interface UserProfileRecord {
   userId: string;
   nickname: string;
   nicknameNormalized: string;
   nicknameChangedAt: Date | null;
-  lifestyle: Prisma.JsonValue;
+  lifestyle: LifestyleData;
   intro: string;
   messageToRoommate: string | null;
   collegeCode: string | null;
@@ -31,13 +30,46 @@ export interface UserProfileRecord {
 export interface ProfileViewRecord {
   nickname: string;
   nicknameNormalized: string;
-  lifestyle: Prisma.JsonValue;
+  lifestyle: LifestyleData;
   intro: string;
   messageToRoommate: string | null;
   collegeCode: string | null;
   grade: string | null;
   mbti: string | null;
   birthYear: number | null;
+}
+
+export type ProfileViewColumns = Omit<ProfileViewRecord, 'lifestyle'> & LifestyleColumns;
+function parseEmbeddedLifestyle(input: unknown): LifestyleData | null {
+  if (!input || typeof input !== 'object' || !('lifestyle' in input)) {
+    return null;
+  }
+
+  return parseLifestyleOrNull((input as { lifestyle: unknown }).lifestyle);
+}
+
+export type UserProfileColumns = Omit<UserProfileRecord, 'lifestyle'> & LifestyleColumns;
+
+export function mapProfileViewRecordFromColumns(
+  profile: ProfileViewColumns | ProfileViewRecord,
+): ProfileViewRecord {
+  const embeddedLifestyle = parseEmbeddedLifestyle(profile);
+
+  return {
+    ...profile,
+    lifestyle: embeddedLifestyle ?? parseLifestyleOrThrow(profile),
+  };
+}
+
+export function mapUserProfileRecordFromColumns(
+  profile: UserProfileColumns | UserProfileRecord,
+): UserProfileRecord {
+  const embeddedLifestyle = parseEmbeddedLifestyle(profile);
+
+  return {
+    ...profile,
+    lifestyle: embeddedLifestyle ?? parseLifestyleOrThrow(profile),
+  };
 }
 
 export interface UserWithProfileRecord {
@@ -51,7 +83,7 @@ export interface UserWithProfileRecord {
   profile: UserProfileRecord | null;
 }
 
-export function parseLifestyleOrThrow(lifestyle: Prisma.JsonValue): LifestyleData {
+export function parseLifestyleOrThrow(lifestyle: unknown): LifestyleData {
   const parsed = parseLifestyleOrNull(lifestyle);
   if (!parsed) {
     throw new Error('[profile.mapper] invalid lifestyle payload from persistence layer');
@@ -60,9 +92,8 @@ export function parseLifestyleOrThrow(lifestyle: Prisma.JsonValue): LifestyleDat
   return parsed;
 }
 
-export function parseLifestyleOrNull(lifestyle: Prisma.JsonValue): LifestyleData | null {
-  const parsed = lifestyleSchema.safeParse(lifestyle);
-  return parsed.success ? parsed.data : null;
+export function parseLifestyleOrNull(lifestyle: unknown): LifestyleData | null {
+  return toLifestyleFromColumns(lifestyle);
 }
 
 export function toAdditionalProfile(

@@ -1,4 +1,8 @@
 import type { PrismaService } from '../../../src/common/prisma/prisma.service.js';
+import {
+  toCompleteLifestyleColumnData,
+  toLifestyleColumnData,
+} from '../../../src/profiles/profile-lifestyle.persistence.js';
 import { formatKstDate, subtractDays } from '../../../src/seasons/season.utils.js';
 
 export const DEFAULT_LIFESTYLE = {
@@ -105,7 +109,7 @@ export async function seedRegisteredAssignedParticipant(
       userId: input.userId,
       nickname: input.nickname,
       nicknameNormalized: input.nickname,
-      lifestyle: DEFAULT_LIFESTYLE,
+      ...toLifestyleColumnData(DEFAULT_LIFESTYLE),
       intro: `${input.nickname} 소개`,
       messageToRoommate: `${input.nickname} 메시지`,
     },
@@ -133,7 +137,7 @@ export async function seedRegisteredAssignedParticipant(
       participantId: input.participantId,
       nicknameSnapshot: input.nickname,
       nicknameNormalizedSnapshot: input.nickname,
-      lifestyle: DEFAULT_LIFESTYLE,
+      ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
       intro: `${input.nickname} 시즌 소개`,
       messageToRoommate: `${input.nickname} 시즌 메시지`,
     },

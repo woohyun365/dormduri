@@ -12,7 +12,7 @@ type UserOverride = Omit<Partial<UserWithProfileRecord>, 'profile'> & {
 };
 
 function makeUser(overrides: UserOverride = {}): UserWithProfileRecord {
-  const baseProfile = {
+  const baseProfile: NonNullable<UserWithProfileRecord['profile']> = {
     userId: 'user-1',
     nickname: '테스터',
     nicknameNormalized: '테스터',

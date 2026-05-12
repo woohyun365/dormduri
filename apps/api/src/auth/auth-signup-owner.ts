@@ -15,6 +15,7 @@ import {
   SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
 } from './auth-verification-proof.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
+import { toLifestyleColumnData } from '../profiles/profile-lifestyle.persistence.js';
 
 interface AuthSignupOwnerDeps {
   prisma: PrismaService;
@@ -98,7 +99,7 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
             create: {
               nickname: input.nickname.trim(),
               nicknameNormalized: normalizedNickname,
-              lifestyle: lifestyleValidation.value,
+              ...toLifestyleColumnData(lifestyleValidation.value),
               intro: input.intro.trim(),
             },
           },
@@ -108,11 +109,6 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
           email: true,
           gender: true,
           campus: true,
-          profile: {
-            select: {
-              nickname: true,
-            },
-          },
         },
       });
 
@@ -132,7 +128,7 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
       toAuthSessionUserSummary({
         id: user.id,
         email: user.email,
-        nickname: user.profile?.nickname ?? input.nickname.trim(),
+        nickname: input.nickname.trim(),
         gender: user.gender,
         campus: user.campus,
       }),

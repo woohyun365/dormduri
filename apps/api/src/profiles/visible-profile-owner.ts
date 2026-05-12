@@ -26,7 +26,10 @@ import {
 } from '../season-participants/season-participant-gate-context.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveCampusServiceState } from '../users/service-state.js';
-import { buildUserWithProfileSelect } from '../users/current-user-select.js';
+import {
+  buildUserWithProfileSelect,
+  mapUserWithParticipantProjection,
+} from '../users/current-user-select.js';
 import { toPublicProfile } from './profile.mapper.js';
 import { resolveProfileExposure } from './profile-visibility.js';
 import {
@@ -206,25 +209,10 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     };
   }
 
-  async function listVisibleProfileEntries(
-    authUser: AuthenticatedUserContext,
-    now: Date,
-  ): Promise<{
-    viewerContext: VisibleProfileViewerContext;
-    entries: VisiblePublicProfileEntry[];
-  }> {
-    const viewerContext = await loadViewerContext(authUser, now);
-
-    const users = (await deps.prisma.user.findMany({
-      where: {
-        id: { not: viewerContext.viewer.id },
-        campus: viewerContext.viewer.campus,
-        gender: viewerContext.viewer.gender,
-        profile: { isNot: null },
-      },
-      select: buildUserWithProfileSelect(viewerContext.currentSeasonId),
-    })) as UserWithParticipantProjection[];
-
+  async function materializeVisibleProfileEntries(
+    viewerContext: VisibleProfileViewerContext,
+    users: UserWithParticipantProjection[],
+  ): Promise<VisiblePublicProfileEntry[]> {
     const participantIds = [
       viewerContext.viewerParticipant?.id ?? null,
       ...users.map(
@@ -247,12 +235,36 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       ? (activeMatchMap.get(viewerContext.viewerParticipant.id) ?? null)
       : null;
 
-    const entries = users
+    return users
       .map((user) =>
         toVisiblePublicProfileEntry(user, viewerContext, viewerActiveMatch, activeMatchMap),
       )
       .filter((entry): entry is VisiblePublicProfileEntry => entry !== null)
       .sort((left, right) => left.nickname.localeCompare(right.nickname, 'ko'));
+  }
+
+  async function listVisibleProfileEntries(
+    authUser: AuthenticatedUserContext,
+    now: Date,
+  ): Promise<{
+    viewerContext: VisibleProfileViewerContext;
+    entries: VisiblePublicProfileEntry[];
+  }> {
+    const viewerContext = await loadViewerContext(authUser, now);
+
+    const users = (
+      await deps.prisma.user.findMany({
+        where: {
+          id: { not: viewerContext.viewer.id },
+          campus: viewerContext.viewer.campus,
+          gender: viewerContext.viewer.gender,
+          profile: { isNot: null },
+        },
+        select: buildUserWithProfileSelect(viewerContext.currentSeasonId),
+      })
+    ).map(mapUserWithParticipantProjection);
+
+    const entries = await materializeVisibleProfileEntries(viewerContext, users);
 
     return {
       viewerContext,
@@ -266,38 +278,23 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     now: Date,
   ): Promise<VisiblePublicProfileEntry | null> {
     const viewerContext = await loadViewerContext(authUser, now);
-    const user = (await deps.prisma.user.findUnique({
+    const rawUser = await deps.prisma.user.findUnique({
       where: { id: targetUserId },
       select: buildUserWithProfileSelect(viewerContext.currentSeasonId),
-    })) as UserWithParticipantProjection | null;
-    if (!user) {
+    });
+    if (!rawUser) {
       return null;
     }
 
-    const targetParticipant = deps.seasonParticipantsService.pickCurrentSeasonParticipant(
-      user.seasonParticipants,
-    );
-    const participantIds = [
-      viewerContext.viewerParticipant?.id ?? null,
-      targetParticipant?.id ?? null,
-    ].filter((participantId): participantId is string => participantId !== null);
-    const activeMatchMap = viewerContext.currentSeasonId
-      ? await deps.matchesService.getLiveActiveMatchMapForParticipantIds(
-          viewerContext.currentSeasonId,
-          participantIds,
-        )
-      : new Map<
-          string,
-          Awaited<ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>>
-        >();
-    const viewerActiveMatch = viewerContext.viewerParticipant
-      ? (activeMatchMap.get(viewerContext.viewerParticipant.id) ?? null)
-      : null;
+    const user = mapUserWithParticipantProjection(rawUser);
 
-    return toVisiblePublicProfileEntry(user, viewerContext, viewerActiveMatch, activeMatchMap);
+    const [entry] = await materializeVisibleProfileEntries(viewerContext, [user]);
+    return entry ?? null;
   }
 
   return {
+    loadViewerContext,
+    materializeVisibleProfileEntries,
     listVisibleProfileEntries,
     getVisibleProfileEntryByUserId,
   };

@@ -1,12 +1,20 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
-import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
+import {
+  lifestyleColumnSelect,
+  toCompleteLifestyleColumnData,
+} from '../profiles/profile-lifestyle.persistence.js';
+import {
+  mapUserProfileRecordFromColumns,
+  parseLifestyleOrNull,
+} from '../profiles/profile.mapper.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { normalizeSelectionState } from './season-participant-policy.js';
 import { seasonParticipantsErrors } from './season-participants.errors.js';
 import {
   currentSeasonParticipantSelect,
+  mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
   type ParticipantBackfillResult,
   type ParticipantBackfillSeed,
@@ -42,11 +50,11 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
 
   function buildParticipantProfileSnapshotData(
     baseProfile: NonNullable<UserWithProfileRecord['profile']>,
-  ) {
+  ): Omit<Prisma.SeasonParticipantProfileUncheckedCreateInput, 'participantId'> {
     return {
       nicknameSnapshot: baseProfile.nickname,
       nicknameNormalizedSnapshot: baseProfile.nicknameNormalized,
-      lifestyle: baseProfile.lifestyle as Prisma.InputJsonValue,
+      ...toCompleteLifestyleColumnData(baseProfile.lifestyle),
       intro: baseProfile.intro,
       messageToRoommate: baseProfile.messageToRoommate,
       collegeCode: baseProfile.collegeCode,
@@ -74,7 +82,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
             nickname: true,
             nicknameNormalized: true,
             nicknameChangedAt: true,
-            lifestyle: true,
+            ...lifestyleColumnSelect,
             intro: true,
             messageToRoommate: true,
             collegeCode: true,
@@ -92,12 +100,17 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
       throw seasonParticipantsErrors.registrationNotAllowed();
     }
 
-    const lifestyle = parseLifestyleOrNull(user.profile.lifestyle);
+    const mappedUser = {
+      ...user,
+      profile: mapUserProfileRecordFromColumns(user.profile),
+    } satisfies VerifiedUserWithProfile;
+
+    const lifestyle = parseLifestyleOrNull(mappedUser.profile.lifestyle);
     if (!lifestyle || !isSeasonProfileComplete(lifestyle)) {
       throw seasonParticipantsErrors.registrationSeasonProfileIncomplete();
     }
 
-    return user as VerifiedUserWithProfile;
+    return mappedUser;
   }
 
   async function ensureCurrentSeasonParticipantForUser(
@@ -115,7 +128,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     }
 
     const client = tx ?? deps.prisma;
-    return client.seasonParticipant.upsert({
+    const participant = await client.seasonParticipant.upsert({
       where: {
         seasonId_userId: {
           seasonId: seasonContext.season.id,
@@ -126,6 +139,8 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
       update: {},
       select: currentSeasonParticipantSelect,
     });
+
+    return mapCurrentSeasonParticipantRecord(participant);
   }
 
   async function registerCurrentSeasonParticipation(
@@ -210,7 +225,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
       throw new Error('[SeasonParticipantsService] registered participant not found after update');
     }
 
-    return refreshed;
+    return mapCurrentSeasonParticipantRecord(refreshed);
   }
 
   async function backfillCurrentSeasonParticipants(

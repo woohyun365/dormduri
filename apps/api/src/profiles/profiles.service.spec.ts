@@ -38,7 +38,7 @@ const COMPLETE_LIFESTYLE: NonNullable<UserWithProfileRecord['profile']>['lifesty
 };
 
 function makeUser(overrides: UserOverride = {}): UserWithProfileRecord {
-  const baseProfile = {
+  const baseProfile: NonNullable<UserWithProfileRecord['profile']> = {
     userId: 'user-1',
     nickname: '테스터',
     nicknameNormalized: '테스터',
@@ -110,6 +110,9 @@ function makeParticipant(overrides: ParticipantOverride = {}): CurrentSeasonPart
       grade: '3',
       mbti: 'INTJ',
       birthYear: 2002,
+      templateSourceUserProfileUpdatedAt: null,
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
       ...(profileOverrides ?? {}),
     },
     ...restOverrides,
@@ -1037,11 +1040,10 @@ describe('ProfilesService', () => {
     const userProfileUpdateCall = userProfileUpdate.mock.calls.at(0)?.[0];
     expect(userProfileUpdateCall).toBeDefined();
     expect(userProfileUpdateCall?.where).toEqual({ userId: 'user-1' });
-    const userLifestyle = userProfileUpdateCall?.data.lifestyle;
-    expect(userLifestyle).toEqual(
+    expect(userProfileUpdateCall?.data).toEqual(
       expect.objectContaining({
         smokingTolerance: 'ANY',
-        bedtime: '22_24',
+        bedtime: 'BETWEEN_22_24',
       }),
     );
 
@@ -1050,11 +1052,10 @@ describe('ProfilesService', () => {
     expect(seasonParticipantProfileUpdateCall?.where).toEqual({
       participantId: 'participant-1',
     });
-    const seasonLifestyle = seasonParticipantProfileUpdateCall?.data.lifestyle;
-    expect(seasonLifestyle).toEqual(
+    expect(seasonParticipantProfileUpdateCall?.data).toEqual(
       expect.objectContaining({
         smokingTolerance: 'ANY',
-        bedtime: '22_24',
+        bedtime: 'BETWEEN_22_24',
       }),
     );
   });

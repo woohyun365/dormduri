@@ -24,7 +24,10 @@ import {
   toOperatedDormitoryIdSet,
 } from '../season-participants/season-participant-gate-context.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
-import { buildUserWithProfileSelect } from './current-user-select.js';
+import {
+  buildUserWithProfileSelect,
+  mapUserWithParticipantProjection,
+} from './current-user-select.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { buildUserReadiness } from './user-readiness.js';
 
@@ -170,6 +173,6 @@ export class CurrentUserViewService {
       throw new Error('[CurrentUserViewService] authenticated user not found');
     }
 
-    return user;
+    return mapUserWithParticipantProjection(user);
   }
 }

@@ -70,11 +70,7 @@ describe('ProfilesService mutation integration', () => {
       where: { participantId: 'participant-a' },
     });
 
-    expect(participantProfile?.lifestyle).toEqual(
-      expect.objectContaining({
-        smokingTolerance: 'ANY',
-      }),
-    );
+    expect(participantProfile?.smokingTolerance).toBe('ANY');
   });
 
   it('SEASON_OPEN 등록 사용자는 season profile에 null을 다시 저장할 수 없다', async () => {

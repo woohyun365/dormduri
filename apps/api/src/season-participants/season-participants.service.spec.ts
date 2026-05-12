@@ -219,7 +219,21 @@ describe('SeasonParticipantsService', () => {
       deactivatedAt: null,
       createdAt: now,
       updatedAt: now,
-      profile: { participantId: 'participant-1' },
+      profile: {
+        participantId: 'participant-1',
+        nicknameSnapshot: '기본닉네임',
+        nicknameNormalizedSnapshot: '기본닉네임',
+        lifestyle: baseProfile.lifestyle,
+        intro: '기본 소개',
+        messageToRoommate: '같이 잘 지내봐요',
+        collegeCode: 'SCIENCE',
+        grade: '2',
+        mbti: 'INTJ',
+        birthYear: 2003,
+        templateSourceUserProfileUpdatedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
     });
 
     const result = await service.registerCurrentSeasonParticipation('user-1', now);
@@ -331,7 +345,21 @@ describe('SeasonParticipantsService', () => {
       deactivatedAt: null,
       createdAt: now,
       updatedAt: now,
-      profile: { participantId: 'participant-1' },
+      profile: {
+        participantId: 'participant-1',
+        nicknameSnapshot: '기본닉네임',
+        nicknameNormalizedSnapshot: '기본닉네임',
+        lifestyle: baseProfile.lifestyle,
+        intro: '기본 소개',
+        messageToRoommate: '같이 잘 지내봐요',
+        collegeCode: 'SCIENCE',
+        grade: '2',
+        mbti: 'INTJ',
+        birthYear: 2003,
+        templateSourceUserProfileUpdatedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      },
     });
 
     await service.registerCurrentSeasonParticipation('user-1', now);

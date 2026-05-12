@@ -1,11 +1,12 @@
 import type { PrismaService } from '../common/prisma/prisma.service.js';
-import { buildUserWithProfileSelect } from '../users/current-user-select.js';
+import {
+  buildUserWithProfileSelect,
+  mapUserWithParticipantProjection,
+  type UserWithParticipantProjectionRecord,
+} from '../users/current-user-select.js';
 import type { UserWithProfileRecord } from './profile.mapper.js';
-import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
 
-export type UserWithParticipantProjection = UserWithProfileRecord & {
-  seasonParticipants?: CurrentSeasonParticipantRecord[];
-};
+export type UserWithParticipantProjection = UserWithParticipantProjectionRecord;
 
 export async function getUserWithProfile(
   prisma: PrismaService,
@@ -20,5 +21,16 @@ export async function getUserWithProfile(
     throw new Error('[ProfilesService] authenticated user not found');
   }
 
-  return user;
+  const mapped = mapUserWithParticipantProjection(user);
+
+  return {
+    id: mapped.id,
+    email: mapped.email,
+    emailVerifiedAt: mapped.emailVerifiedAt,
+    gender: mapped.gender,
+    campus: mapped.campus,
+    dormitoryId: mapped.dormitoryId,
+    dormitorySelectionState: mapped.dormitorySelectionState,
+    profile: mapped.profile,
+  };
 }

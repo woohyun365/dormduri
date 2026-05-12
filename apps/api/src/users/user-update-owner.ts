@@ -19,7 +19,10 @@ import {
   buildCurrentUserCapabilityInput,
   toOperatedDormitoryIdSet,
 } from '../season-participants/season-participant-gate-context.js';
-import { buildUserWithProfileSelect } from './current-user-select.js';
+import {
+  buildUserWithProfileSelect,
+  mapUserWithParticipantProjection,
+} from './current-user-select.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
 import { createUserProfilePatchOwner } from './user-profile-patch-owner.js';
 import { createUserSelectionUpdateOwner } from './user-selection-update-owner.js';
@@ -59,7 +62,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       throw new Error('[UsersService] authenticated user not found');
     }
 
-    return user;
+    return mapUserWithParticipantProjection(user);
   }
 
   async function updateCurrentUser(

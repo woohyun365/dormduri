@@ -27,6 +27,10 @@ import { CurrentUserViewService } from '../users/current-user-view.service.js';
 import { resolveCampusServiceState } from '../users/service-state.js';
 import { hasNicknameCooldown } from './nickname-policy.js';
 import { parseLifestyleOrNull } from './profile.mapper.js';
+import {
+  toCompleteLifestyleColumnData,
+  toLifestyleColumnData,
+} from './profile-lifestyle.persistence.js';
 import { profilesErrors } from './profiles.errors.js';
 import { getUserWithProfile } from './profiles-owner-support.js';
 
@@ -138,9 +142,7 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
     if (context.currentProfileSource !== 'SEASON_PARTICIPANT_PROFILE') {
       await deps.prisma.userProfile.update({
         where: { userId: authUser.id },
-        data: {
-          lifestyle: parsedLifestyle.value,
-        },
+        data: toLifestyleColumnData(parsedLifestyle.value),
       });
     } else {
       if (
@@ -183,16 +185,12 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
       await deps.prisma.$transaction(async (tx) => {
         await tx.userProfile.update({
           where: { userId: authUser.id },
-          data: {
-            lifestyle: nextUserLifestyle,
-          },
+          data: toLifestyleColumnData(nextUserLifestyle),
         });
 
         await tx.seasonParticipantProfile.update({
           where: { participantId: context.currentParticipant!.id },
-          data: {
-            lifestyle: nextSeasonLifestyle,
-          },
+          data: toCompleteLifestyleColumnData(nextSeasonLifestyle),
         });
       });
     }
