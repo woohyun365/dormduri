@@ -3,8 +3,10 @@ import type {
   ActiveMatchUnmatchProgress,
   MatchRequestSummary,
 } from '@repo/shared/match-contract';
+import { buildDirectionalMatchScoreProjection } from './match-score-projection.js';
 import { formatKstDate } from '../seasons/season.utils.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 export type {
   ActiveMatchCommandRecord,
   ActiveMatchRecord,
@@ -46,6 +48,17 @@ export function toActiveMatchSummary(
   viewerParticipantId: string,
 ): ActiveMatchSummary {
   const viewerIsParticipantA = activeMatch.participantAId === viewerParticipantId;
+  const viewerLifestyle = parseLifestyleOrNull(
+    viewerIsParticipantA
+      ? (activeMatch.participantA.profile?.lifestyle ?? null)
+      : (activeMatch.participantB.profile?.lifestyle ?? null),
+  );
+  const counterpartLifestyle = parseLifestyleOrNull(
+    viewerIsParticipantA
+      ? (activeMatch.participantB.profile?.lifestyle ?? null)
+      : (activeMatch.participantA.profile?.lifestyle ?? null),
+  );
+  const matchScore = buildDirectionalMatchScoreProjection(viewerLifestyle, counterpartLifestyle);
 
   return {
     id: activeMatch.id,
@@ -61,6 +74,7 @@ export function toActiveMatchSummary(
     endedAt: activeMatch.endedAt?.toISOString() ?? null,
     endReason: activeMatch.endReason as ActiveMatchSummary['endReason'],
     createdFromRequestId: activeMatch.createdFromRequestId,
+    ...(typeof matchScore === 'number' ? { matchScore } : {}),
     unmatchProgress: toInactiveUnmatchProgress(),
   };
 }

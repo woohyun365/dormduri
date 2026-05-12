@@ -3,6 +3,13 @@ import { buildParticipantPairIdentity } from './match.utils.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
+import {
+  ROOMMATE_CONDITION_FIELDS,
+  CORE_LIFESTYLE_FIELDS,
+  lifestyleSchema,
+  type LifestyleData,
+} from '@repo/shared/lifestyle';
+import { buildDirectionalMatchScoreProjection } from './match-score-projection.js';
 
 export interface MatchHistoryMaterializationResult {
   processedSeasons: number;
@@ -27,10 +34,12 @@ interface SeasonHistorySource {
     profile: {
       participantId: string;
       nicknameSnapshot: string;
+      lifestyle: Prisma.JsonValue;
     } | null;
     user: {
       profile: {
         nickname: string;
+        lifestyle: Prisma.JsonValue;
       } | null;
     };
   }>;
@@ -131,6 +140,20 @@ export function createMatchHistoryMaterializationOwner(prisma: PrismaService) {
         rebuiltEntries,
       };
     },
+
+    async materializeSeasonHistoryById(
+      seasonId: string,
+      now: Date,
+    ): Promise<MatchHistoryMaterializationResult> {
+      const rebuiltEntries = await prisma.runSerializableTransaction(async (tx) =>
+        rebuildSeasonHistoryEntries(tx, seasonId, now),
+      );
+
+      return {
+        processedSeasons: rebuiltEntries > 0 ? 1 : 0,
+        rebuiltEntries,
+      };
+    },
   };
 }
 
@@ -212,6 +235,7 @@ async function loadSeasonHistorySource(
             select: {
               participantId: true,
               nicknameSnapshot: true,
+              lifestyle: true,
             },
           },
           user: {
@@ -219,6 +243,7 @@ async function loadSeasonHistorySource(
               profile: {
                 select: {
                   nickname: true,
+                  lifestyle: true,
                 },
               },
             },
@@ -471,6 +496,11 @@ function buildRequestHistoryRow(input: {
   threadSnapshot: PairThreadSnapshot | undefined;
   sourceRequestId: string;
 }): Prisma.SeasonMatchHistoryEntryCreateManyInput {
+  const scoreSnapshot = buildHistoryScoreSnapshot(
+    input.viewerParticipant,
+    input.counterpartParticipant,
+  );
+
   return {
     id: input.id,
     seasonId: input.seasonId,
@@ -481,6 +511,10 @@ function buildRequestHistoryRow(input: {
     entryResult: input.entryResult,
     viewerRequested: input.viewerRequested,
     sourceRequestId: input.sourceRequestId,
+    matchScore: scoreSnapshot.matchScore,
+    viewerConditionSnapshot: scoreSnapshot.viewerConditionSnapshot as Prisma.InputJsonValue,
+    counterpartLifestyleSnapshot:
+      scoreSnapshot.counterpartLifestyleSnapshot as Prisma.InputJsonValue,
     counterpartNicknameSnapshot: resolveCounterpartNickname(input.counterpartParticipant),
     viewerDormitoryIdSnapshot: input.viewerParticipant.dormitoryId,
     hadConversation: input.threadSnapshot?.hadConversation ?? false,
@@ -515,6 +549,11 @@ function buildMatchHistoryRow(input: {
   finalizedAt: Date;
   threadSnapshot: PairThreadSnapshot | undefined;
 }): Prisma.SeasonMatchHistoryEntryCreateManyInput {
+  const scoreSnapshot = buildHistoryScoreSnapshot(
+    input.viewerParticipant,
+    input.counterpartParticipant,
+  );
+
   return {
     id: input.id,
     seasonId: input.seasonId,
@@ -527,6 +566,10 @@ function buildMatchHistoryRow(input: {
     sourceRequestId: input.createdFromRequestId,
     sourceActiveMatchId: input.sourceActiveMatchId,
     createdFromRequestId: input.createdFromRequestId,
+    matchScore: scoreSnapshot.matchScore,
+    viewerConditionSnapshot: scoreSnapshot.viewerConditionSnapshot as Prisma.InputJsonValue,
+    counterpartLifestyleSnapshot:
+      scoreSnapshot.counterpartLifestyleSnapshot as Prisma.InputJsonValue,
     counterpartNicknameSnapshot: resolveCounterpartNickname(input.counterpartParticipant),
     viewerDormitoryIdSnapshot: input.viewerParticipant.dormitoryId,
     hadConversation: input.threadSnapshot?.hadConversation ?? false,
@@ -544,6 +587,44 @@ function resolveCounterpartNickname(participant: SeasonHistorySource['participan
   return (
     participant.profile?.nicknameSnapshot ?? participant.user.profile?.nickname ?? '알 수 없음'
   );
+}
+
+function buildHistoryScoreSnapshot(
+  viewerParticipant: SeasonHistorySource['participants'][number],
+  counterpartParticipant: SeasonHistorySource['participants'][number],
+) {
+  const viewerLifestyle = parseParticipantLifestyle(viewerParticipant);
+  const counterpartLifestyle = parseParticipantLifestyle(counterpartParticipant);
+  const scoreProjection = buildDirectionalMatchScoreProjection(
+    viewerLifestyle,
+    counterpartLifestyle,
+  );
+
+  return {
+    matchScore: scoreProjection,
+    viewerConditionSnapshot: viewerLifestyle
+      ? pickLifestyleFields(viewerLifestyle, ROOMMATE_CONDITION_FIELDS)
+      : null,
+    counterpartLifestyleSnapshot: counterpartLifestyle
+      ? pickLifestyleFields(counterpartLifestyle, CORE_LIFESTYLE_FIELDS)
+      : null,
+  };
+}
+
+function parseParticipantLifestyle(
+  participant: SeasonHistorySource['participants'][number],
+): LifestyleData | null {
+  const rawLifestyle =
+    participant.profile?.lifestyle ?? participant.user.profile?.lifestyle ?? null;
+  const parsed = lifestyleSchema.safeParse(rawLifestyle);
+  return parsed.success ? parsed.data : null;
+}
+
+function pickLifestyleFields<const T extends readonly (keyof LifestyleData)[]>(
+  lifestyle: LifestyleData,
+  fields: T,
+) {
+  return Object.fromEntries(fields.map((field) => [field, lifestyle[field]]));
 }
 
 function toRequestEntryResult(

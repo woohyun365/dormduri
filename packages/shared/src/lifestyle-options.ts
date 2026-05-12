@@ -50,5 +50,3 @@ export const ROOMMATE_CONDITION_FIELDS = [
   'sleepEnvPreference',
   'screenTolerance',
 ] as const;
-
-export const REQUIRED_LIFESTYLE_FIELDS = CORE_LIFESTYLE_FIELDS;

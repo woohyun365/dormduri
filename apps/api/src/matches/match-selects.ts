@@ -38,11 +38,21 @@ export const activeMatchSummarySelect = {
   participantA: {
     select: {
       userId: true,
+      profile: {
+        select: {
+          lifestyle: true,
+        },
+      },
     },
   },
   participantB: {
     select: {
       userId: true,
+      profile: {
+        select: {
+          lifestyle: true,
+        },
+      },
     },
   },
   unmatchRequests: {
@@ -72,6 +82,11 @@ export const activeMatchCommandSelect = {
       userId: true,
       dormitoryId: true,
       dormitorySelectionState: true,
+      profile: {
+        select: {
+          lifestyle: true,
+        },
+      },
     },
   },
   participantB: {
@@ -79,6 +94,11 @@ export const activeMatchCommandSelect = {
       userId: true,
       dormitoryId: true,
       dormitorySelectionState: true,
+      profile: {
+        select: {
+          lifestyle: true,
+        },
+      },
     },
   },
   unmatchRequests: {

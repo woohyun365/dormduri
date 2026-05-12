@@ -472,6 +472,9 @@ model SeasonMatchHistoryEntry {
   sourceRequestId           String?
   sourceActiveMatchId       String?
   createdFromRequestId      String?
+  matchScore                Int?
+  viewerConditionSnapshot   Json?
+  counterpartLifestyleSnapshot Json?
   counterpartNicknameSnapshot String
   viewerDormitoryIdSnapshot String?
   hadConversation           Boolean                       @default(false)
