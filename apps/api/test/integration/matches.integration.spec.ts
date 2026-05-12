@@ -7,6 +7,8 @@ import {
 } from './support/integration-db.js';
 import {
   authContext,
+  DEFAULT_LIFESTYLE,
+  seedActiveMatchFixture,
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
 } from './support/integration-fixtures.js';
@@ -135,5 +137,96 @@ describe('MatchesService integration', () => {
       },
     });
     expect(acceptedCount).toBe(1);
+  });
+
+  it('수락된 요청 외 같은 receiver의 다른 pending request는 system cancel된다', async () => {
+    const requestA = await service.createMatchRequest(authContext('user-a'), {
+      targetUserId: 'user-b',
+      note: 'request-a',
+      channel: 'PROFILE_DETAIL',
+    });
+    const requestB = await service.createMatchRequest(authContext('user-c'), {
+      targetUserId: 'user-b',
+      note: 'request-b',
+      channel: 'PROFILE_DETAIL',
+    });
+
+    await service.acceptMatchRequest(authContext('user-b'), requestA.request.id);
+
+    const accepted = await prisma.matchRequest.findUnique({
+      where: { id: requestA.request.id },
+    });
+    const cancelled = await prisma.matchRequest.findUnique({
+      where: { id: requestB.request.id },
+    });
+
+    expect(accepted).toMatchObject({
+      status: 'ACCEPTED',
+      terminalReason: 'ACCEPTED',
+    });
+    expect(cancelled).toMatchObject({
+      status: 'CANCELLED_BY_SYSTEM',
+      terminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
+    });
+  });
+
+  it('viewer의 원하는 룸메 조건이 미완성이면 match request를 생성할 수 없다', async () => {
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-a' },
+      data: {
+        lifestyle: {
+          ...DEFAULT_LIFESTYLE,
+          smokingTolerance: null,
+        },
+      },
+    });
+
+    await expect(
+      service.createMatchRequest(authContext('user-a'), {
+        targetUserId: 'user-b',
+        note: '조건 미완성 요청',
+        channel: 'PROFILE_DETAIL',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'MATCH_REQUEST_NOT_ALLOWED',
+      },
+    });
+  });
+
+  it('ACTIVE match summary의 match score는 viewer 기준 단방향으로 계산된다', async () => {
+    await seedActiveMatchFixture(prisma, {
+      activeMatchId: 'active-a-b',
+      participantAId: 'participant-a',
+      participantBId: 'participant-b',
+    });
+
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-a' },
+      data: {
+        lifestyle: {
+          ...DEFAULT_LIFESTYLE,
+          cleanExpectation: 'STRICT',
+          cleanLevel: 'WEEKLY_3_UP',
+        },
+      },
+    });
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-b' },
+      data: {
+        lifestyle: {
+          ...DEFAULT_LIFESTYLE,
+          cleanExpectation: 'FLEXIBLE',
+          cleanLevel: 'WHEN_DIRTY',
+        },
+      },
+    });
+
+    const activeForA = await service.getCurrentActiveMatch(authContext('user-a'));
+    const activeForB = await service.getCurrentActiveMatch(authContext('user-b'));
+
+    expect(activeForA.activeMatch?.matchScore).toEqual(expect.any(Number));
+    expect(activeForB.activeMatch?.matchScore).toEqual(expect.any(Number));
+    expect(activeForA.activeMatch?.matchScore).not.toBe(activeForB.activeMatch?.matchScore);
   });
 });

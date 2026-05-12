@@ -8,6 +8,31 @@ import {
 } from './match-read-model.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 
+const COMPLETE_LIFESTYLE = {
+  bedtime: '22_24',
+  wakeTime: '07_08',
+  sleepHabit: 'NONE',
+  sleepEnvironment: 'QUIET',
+  screenUsage: 'NONE',
+  noiseSensitivity: 'NORMAL',
+  smokingBehavior: 'NO',
+  indoorEating: 'SNACK',
+  phoneBehavior: 'SOMETIMES',
+  earphoneUsage: 'MOSTLY',
+  cleanLevel: 'WEEKLY_3_UP',
+  drinkingFrequency: 'NONE',
+  relationshipStyle: 'CLOSE',
+  temperatureSensitivity: 'NORMAL',
+  smokingTolerance: 'NO_ONLY',
+  indoorEatingTolerance: 'NO_SMELL',
+  phoneTolerance: 'BRIEF_OK',
+  earphoneExpectation: 'MUST',
+  cleanExpectation: 'STRICT',
+  drinkingTolerance: 'LOW_ONLY',
+  sleepEnvPreference: 'NO_SPEAKER',
+  screenTolerance: 'LOW_OK',
+} as const;
+
 function makeSeasonContext(overrides: Partial<CurrentSeasonContext> = {}): CurrentSeasonContext {
   return {
     campusCode: 'CHUNCHEON',
@@ -66,11 +91,17 @@ function makeActiveMatch(
       userId: 'user-1',
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
+      profile: {
+        lifestyle: COMPLETE_LIFESTYLE,
+      },
     },
     participantB: {
       userId: 'user-2',
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
+      profile: {
+        lifestyle: COMPLETE_LIFESTYLE,
+      },
     },
     unmatchRequests: [],
     ...overrides,
@@ -129,6 +160,7 @@ describe('match read model helpers', () => {
         new Date('2026-02-10T12:00:00.000Z'),
       ),
     ).toMatchObject({
+      matchScore: expect.any(Number),
       unmatchProgress: {
         state: 'WAITING_FOR_COUNTERPART',
         progressCount: 1,
@@ -146,6 +178,7 @@ describe('match read model helpers', () => {
         new Date('2026-02-10T12:00:00.000Z'),
       ),
     ).toMatchObject({
+      matchScore: expect.any(Number),
       unmatchProgress: {
         state: 'WAITING_FOR_ME',
         progressCount: 1,
@@ -174,6 +207,9 @@ describe('match read model helpers', () => {
             userId: 'user-2',
             dormitoryId: 'saerom',
             dormitorySelectionState: 'ASSIGNED',
+            profile: {
+              lifestyle: COMPLETE_LIFESTYLE,
+            },
           },
         }),
         seasonContext,

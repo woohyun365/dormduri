@@ -446,4 +446,198 @@ describe('Match history integration', () => {
       conversationCount: 1,
     });
   });
+
+  it('history row에는 viewer 기준 match score snapshot을 저장하고 user DTO에는 숨긴다', async () => {
+    await seedCampusDormitory();
+    await seedSeason({
+      id: 'season-2025-01',
+      academicYear: 2025,
+      semester: 1,
+      name: '2025-01',
+      preparationStartDate: '2025-01-01',
+      matchingStartDate: '2025-01-10',
+      seasonEndDate: '2025-02-28',
+      roomSelectionDate: '2025-02-20',
+    });
+
+    await seedUser({ userId: 'user-a', email: 'user-a@kangwon.ac.kr', nickname: '홍길동' });
+    await seedUser({ userId: 'user-b', email: 'user-b@kangwon.ac.kr', nickname: '좋은날씨' });
+    await seedSeasonParticipant({
+      seasonId: 'season-2025-01',
+      participantId: 'participant-a-2025-01',
+      userId: 'user-a',
+      nicknameSnapshot: '홍길동-2025-01',
+    });
+    await seedSeasonParticipant({
+      seasonId: 'season-2025-01',
+      participantId: 'participant-b-2025-01',
+      userId: 'user-b',
+      nicknameSnapshot: '좋은날씨',
+    });
+
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-a-2025-01' },
+      data: {
+        lifestyle: {
+          ...DEFAULT_LIFESTYLE,
+          cleanExpectation: 'STRICT',
+        },
+      },
+    });
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-b-2025-01' },
+      data: {
+        lifestyle: {
+          ...DEFAULT_LIFESTYLE,
+          cleanLevel: 'WHEN_DIRTY',
+        },
+      },
+    });
+
+    await prisma.matchRequest.create({
+      data: {
+        id: 'request-a-b-accepted',
+        seasonId: 'season-2025-01',
+        pairKey: 'participant-a-2025-01:participant-b-2025-01',
+        pairMinParticipantId: 'participant-a-2025-01',
+        pairMaxParticipantId: 'participant-b-2025-01',
+        requesterParticipantId: 'participant-a-2025-01',
+        receiverParticipantId: 'participant-b-2025-01',
+        status: 'ACCEPTED',
+        terminalReason: 'ACCEPTED',
+        createdAt: new Date('2025-01-20T10:00:00.000Z'),
+        expiresAt: new Date('2025-01-25T10:00:00.000Z'),
+        terminalAt: new Date('2025-01-20T12:00:00.000Z'),
+        acceptedAt: new Date('2025-01-20T12:00:00.000Z'),
+        requestChannel: 'PROFILE_DETAIL',
+      },
+    });
+    await prisma.activeMatch.create({
+      data: {
+        id: 'active-a-b',
+        seasonId: 'season-2025-01',
+        pairKey: 'participant-a-2025-01:participant-b-2025-01',
+        participantAId: 'participant-a-2025-01',
+        participantBId: 'participant-b-2025-01',
+        createdFromRequestId: 'request-a-b-accepted',
+        status: 'SEASON_ENDED',
+        startedAt: new Date('2025-01-20T12:00:00.000Z'),
+        endedAt: new Date('2025-03-01T00:00:00.000Z'),
+        endReason: 'SEASON_ENDED',
+      },
+    });
+
+    const history = await matchesService.getMatchHistory(authContext('user-a'));
+    const storedRow = await prisma.seasonMatchHistoryEntry.findFirst({
+      where: {
+        seasonId: 'season-2025-01',
+        viewerParticipantId: 'participant-a-2025-01',
+        counterpartParticipantId: 'participant-b-2025-01',
+        entryType: 'MATCH',
+      },
+    });
+
+    expect(storedRow).toMatchObject({
+      viewerConditionSnapshot: expect.objectContaining({
+        cleanExpectation: 'STRICT',
+      }),
+      counterpartLifestyleSnapshot: expect.objectContaining({
+        cleanLevel: 'WHEN_DIRTY',
+      }),
+    });
+    expect(storedRow?.matchScore).not.toBeNull();
+
+    expect(history.items[0]?.history[0]).not.toHaveProperty('matchScore');
+  });
+
+  it('terminal request row도 viewer 기준 score snapshot을 저장하고 user DTO에는 숨긴다', async () => {
+    await seedCampusDormitory();
+    await seedSeason({
+      id: 'season-request-snapshot',
+      academicYear: 2025,
+      semester: 1,
+      name: '2025-request-snapshot',
+      preparationStartDate: '2025-01-01',
+      matchingStartDate: '2025-01-10',
+      seasonEndDate: '2025-02-28',
+      roomSelectionDate: '2025-02-20',
+    });
+
+    await seedUser({ userId: 'user-a', email: 'user-a@kangwon.ac.kr', nickname: '홍길동' });
+    await seedUser({ userId: 'user-b', email: 'user-b@kangwon.ac.kr', nickname: '좋은날씨' });
+    await seedSeasonParticipant({
+      seasonId: 'season-request-snapshot',
+      participantId: 'participant-a-request',
+      userId: 'user-a',
+      nicknameSnapshot: '홍길동-request',
+    });
+    await seedSeasonParticipant({
+      seasonId: 'season-request-snapshot',
+      participantId: 'participant-b-request',
+      userId: 'user-b',
+      nicknameSnapshot: '좋은날씨',
+    });
+
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-a-request' },
+      data: {
+        lifestyle: {
+          ...DEFAULT_LIFESTYLE,
+          cleanExpectation: 'STRICT',
+        },
+      },
+    });
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-b-request' },
+      data: {
+        lifestyle: {
+          ...DEFAULT_LIFESTYLE,
+          cleanLevel: 'WHEN_DIRTY',
+        },
+      },
+    });
+
+    await prisma.matchRequest.create({
+      data: {
+        id: 'request-only-terminal',
+        seasonId: 'season-request-snapshot',
+        pairKey: 'participant-a-request:participant-b-request',
+        pairMinParticipantId: 'participant-a-request',
+        pairMaxParticipantId: 'participant-b-request',
+        requesterParticipantId: 'participant-a-request',
+        receiverParticipantId: 'participant-b-request',
+        status: 'REJECTED',
+        terminalReason: 'REJECTED_BY_RECEIVER',
+        createdAt: new Date('2025-01-20T10:00:00.000Z'),
+        expiresAt: new Date('2025-01-25T10:00:00.000Z'),
+        terminalAt: new Date('2025-01-20T12:00:00.000Z'),
+        requestChannel: 'PROFILE_DETAIL',
+      },
+    });
+
+    const history = await matchesService.getMatchHistory(authContext('user-a'));
+    const storedRow = await prisma.seasonMatchHistoryEntry.findFirst({
+      where: {
+        seasonId: 'season-request-snapshot',
+        viewerParticipantId: 'participant-a-request',
+        counterpartParticipantId: 'participant-b-request',
+        entryType: 'REQUEST',
+      },
+    });
+
+    expect(storedRow).toMatchObject({
+      matchScore: expect.any(Number),
+      viewerConditionSnapshot: expect.objectContaining({
+        cleanExpectation: 'STRICT',
+      }),
+      counterpartLifestyleSnapshot: expect.objectContaining({
+        cleanLevel: 'WHEN_DIRTY',
+      }),
+      requestTerminalReason: 'REJECTED_BY_RECEIVER',
+    });
+
+    const requestHistory = history.items[0]?.history.find((row) => row.id === storedRow?.id);
+    expect(requestHistory).toBeDefined();
+    expect(requestHistory).not.toHaveProperty('matchScore');
+  });
 });
