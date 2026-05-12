@@ -1,4 +1,5 @@
 import type { ConversationMessage, ConversationThreadSummary } from '@repo/shared/chat-contract';
+import { isSeasonProfileComplete, lifestyleSchema } from '@repo/shared/lifestyle';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import {
@@ -132,6 +133,15 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
         return false;
       }
 
+      const viewerLifestyle = lifestyleSchema.safeParse(
+        viewerParticipant.profile?.lifestyle ?? viewerContext.user.profile?.lifestyle ?? null,
+      );
+      const viewerSeasonProfileComplete =
+        viewerLifestyle.success && isSeasonProfileComplete(viewerLifestyle.data);
+      if (!viewerSeasonProfileComplete) {
+        return false;
+      }
+
       if (thread) {
         const viewerMember = this.getThreadMember(thread, viewerParticipant.id);
         if (viewerMember?.memberState === 'ACTIVE') {
@@ -188,6 +198,7 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           seasonState: seasonContext.state,
           participant: viewerParticipant,
           participantMatched: viewerPairActiveMatch !== null,
+          seasonProfileComplete: viewerSeasonProfileComplete,
           selection: viewerContext.selection,
           operatedDormitoryIds,
           currentDormitoryCanMatch: viewerCurrentDormitoryCanMatch,
@@ -201,6 +212,7 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           seasonState: seasonContext.state,
           participant: viewerParticipant,
           matched: viewerPairActiveMatch !== null,
+          seasonProfileComplete: viewerSeasonProfileComplete,
           matchedPartnerParticipantId,
           selection: viewerContext.selection,
           operatedDormitoryIds,

@@ -12,6 +12,9 @@ export interface MatchUserSeed extends ParticipantBackfillSeed {
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   dormitorySelectionState: DormitorySelectionState;
+  profile: {
+    lifestyle: unknown;
+  } | null;
 }
 
 export interface MatchUserContext {
@@ -61,6 +64,11 @@ export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
           campus: true,
           dormitoryId: true,
           dormitorySelectionState: true,
+          profile: {
+            select: {
+              lifestyle: true,
+            },
+          },
         },
       });
     },

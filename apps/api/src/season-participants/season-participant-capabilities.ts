@@ -8,6 +8,7 @@ export interface CurrentUserCapabilityInput {
   seasonState: SeasonState | null;
   participantRegistered: boolean;
   participantMatched: boolean;
+  seasonProfileComplete: boolean;
   selectionState: DormitorySelectionState;
   hasOperatedAssignedDormitory: boolean;
   nicknameLockedBySeason: boolean;
@@ -79,7 +80,7 @@ export function resolveCurrentUserProfileEditability(
       intro: true,
       messageToRoommate: true,
       additional: true,
-      lifestyle: false,
+      lifestyle: true,
       nickname: false,
     };
   }
@@ -104,7 +105,10 @@ export function buildCurrentUserCapabilities(
   return {
     canBrowseProfiles,
     canRegisterParticipation:
-      input.campusOperated && activeSeasonPhase && !input.participantRegistered,
+      input.campusOperated &&
+      activeSeasonPhase &&
+      !input.participantRegistered &&
+      input.seasonProfileComplete,
     canSelectDormitory:
       input.campusOperated &&
       input.participantRegistered &&
@@ -127,6 +131,7 @@ export function buildCurrentUserCapabilities(
       input.campusOperated &&
       input.participantRegistered &&
       !input.participantMatched &&
+      input.seasonProfileComplete &&
       input.hasOperatedAssignedDormitory &&
       input.seasonState === 'SEASON_MATCHING' &&
       input.currentDormitoryCanMatch,
@@ -134,6 +139,7 @@ export function buildCurrentUserCapabilities(
       input.campusOperated &&
       input.participantRegistered &&
       !input.participantMatched &&
+      input.seasonProfileComplete &&
       input.hasOperatedAssignedDormitory &&
       (input.seasonState === 'SEASON_OPEN' ||
         (input.seasonState === 'SEASON_MATCHING' && input.currentDormitoryCanMatch)),

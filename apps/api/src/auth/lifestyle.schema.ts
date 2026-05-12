@@ -1,6 +1,11 @@
-import { lifestyleSchema, type LifestyleData } from '@repo/shared/lifestyle';
+import { CORE_LIFESTYLE_FIELDS, lifestyleSchema, type LifestyleData } from '@repo/shared/lifestyle';
 
 export type { LifestyleData };
+
+const SIGNUP_REQUIRED_LIFESTYLE_FIELDS = [
+  ...CORE_LIFESTYLE_FIELDS,
+  'drinkingTolerance',
+] as const satisfies readonly (keyof LifestyleData)[];
 
 export function validateLifestyleData(
   input: unknown,
@@ -29,4 +34,24 @@ export function validateLifestyleData(
   }
 
   return { ok: true, value: result.data };
+}
+
+export function validateSignupLifestyleData(
+  input: unknown,
+): { ok: true; value: LifestyleData } | { ok: false; error: string } {
+  const result = validateLifestyleData(input);
+  if (!result.ok) {
+    return result;
+  }
+
+  for (const field of SIGNUP_REQUIRED_LIFESTYLE_FIELDS) {
+    if (result.value[field] === null) {
+      return {
+        ok: false,
+        error: `${field} 필드는 필수입니다.`,
+      };
+    }
+  }
+
+  return result;
 }

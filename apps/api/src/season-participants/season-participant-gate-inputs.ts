@@ -1,4 +1,5 @@
 import type { SeasonState } from '@repo/shared/season-contract';
+import { isSeasonProfileComplete, lifestyleSchema } from '@repo/shared/lifestyle';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import type {
   CanonicalSelectionState,
@@ -27,6 +28,7 @@ export function buildCurrentUserCapabilityInput(input: {
   seasonState: SeasonState | null;
   participant: CurrentSeasonParticipantRecord | null;
   participantMatched: boolean;
+  seasonProfileComplete: boolean;
   selection: SelectionLike;
   operatedDormitoryIds: ReadonlySet<string>;
   currentDormitoryCanMatch: boolean;
@@ -38,6 +40,7 @@ export function buildCurrentUserCapabilityInput(input: {
     seasonState: input.seasonState,
     participantRegistered: isParticipantRegistered(input.participant),
     participantMatched: input.participantMatched,
+    seasonProfileComplete: input.seasonProfileComplete,
     selectionState: input.selection.dormitorySelectionState,
     hasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
       input.operatedDormitoryIds,
@@ -56,6 +59,7 @@ export function buildPublicExposureViewerInput(input: {
   seasonState: SeasonState | null;
   participant: CurrentSeasonParticipantRecord | null;
   matched: boolean;
+  seasonProfileComplete: boolean;
   matchedPartnerParticipantId: string | null;
   selection: SelectionLike;
   operatedDormitoryIds: ReadonlySet<string>;
@@ -66,6 +70,7 @@ export function buildPublicExposureViewerInput(input: {
     seasonState: input.seasonState,
     registered: isParticipantRegistered(input.participant),
     matched: input.matched,
+    seasonProfileComplete: input.seasonProfileComplete,
     matchedPartnerParticipantId: input.matchedPartnerParticipantId,
     selectionState: input.selection.dormitorySelectionState,
     dormitoryId: input.selection.dormitoryId,
@@ -86,8 +91,14 @@ export function buildPublicExposureTargetInput(input: {
   selection: SelectionLike;
 }): PublicExposureTargetInput {
   const hasSeasonProfile = hasParticipantProfile(input.participant);
+  const parsedSeasonProfileLifestyle = input.participant?.profile
+    ? lifestyleSchema.safeParse(input.participant.profile.lifestyle)
+    : null;
+  const seasonProfileComplete =
+    parsedSeasonProfileLifestyle?.success === true &&
+    isSeasonProfileComplete(parsedSeasonProfileLifestyle.data);
   const currentSeasonExposureVisible =
-    isVisibleRegisteredParticipant(input.participant) && hasSeasonProfile;
+    isVisibleRegisteredParticipant(input.participant) && hasSeasonProfile && seasonProfileComplete;
 
   return {
     participantId: input.participant?.id ?? null,

@@ -1,7 +1,8 @@
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
-import type { UserWithProfileRecord } from '../profiles/profile.mapper.js';
+import { parseLifestyleOrNull, type UserWithProfileRecord } from '../profiles/profile.mapper.js';
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
@@ -94,6 +95,16 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       participantRegistered,
       participantProfileExists: hasParticipantProfile(currentParticipant),
     });
+    const canonicalProfile = user.profile
+      ? deps.seasonParticipantsService.selectProfileBySource(
+          user.profile,
+          currentParticipant?.profile ?? null,
+          currentProfileSource,
+        )
+      : null;
+    const canonicalLifestyle = canonicalProfile
+      ? parseLifestyleOrNull(canonicalProfile.lifestyle)
+      : null;
 
     if (requiresCurrentSeasonParticipantProfile(currentParticipant, serviceState.seasonState)) {
       throw new Error(
@@ -117,6 +128,9 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
         seasonState: serviceState.seasonState,
         participant: currentParticipant,
         participantMatched: false,
+        seasonProfileComplete: canonicalLifestyle
+          ? isSeasonProfileComplete(canonicalLifestyle)
+          : false,
         selection: canonicalSelection,
         operatedDormitoryIds,
         currentDormitoryCanMatch,

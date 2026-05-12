@@ -1,4 +1,9 @@
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import {
+  CORE_LIFESTYLE_FIELDS,
+  ROOMMATE_CONDITION_FIELDS,
+  isSeasonProfileComplete,
+} from '@repo/shared/lifestyle';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { normalizeNickname, validateNicknameFormat } from '../auth/auth.utils.js';
 import { validateLifestyleData } from '../auth/lifestyle.schema.js';
@@ -21,6 +26,7 @@ import { SeasonsService } from '../seasons/seasons.service.js';
 import { CurrentUserViewService } from '../users/current-user-view.service.js';
 import { resolveCampusServiceState } from '../users/service-state.js';
 import { hasNicknameCooldown } from './nickname-policy.js';
+import { parseLifestyleOrNull } from './profile.mapper.js';
 import { profilesErrors } from './profiles.errors.js';
 import { getUserWithProfile } from './profiles-owner-support.js';
 
@@ -32,7 +38,19 @@ interface ProfilesMutationOwnerDeps {
   currentUserViewService: CurrentUserViewService;
 }
 
+type ParsedLifestyle = NonNullable<ReturnType<typeof parseLifestyleOrNull>>;
+
 export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
+  function pickLifestyleSubset<const SelectedFields extends readonly (keyof ParsedLifestyle)[]>(
+    lifestyle: ParsedLifestyle,
+    fields: SelectedFields,
+  ) {
+    return Object.fromEntries(fields.map((field) => [field, lifestyle[field]])) as Pick<
+      ParsedLifestyle,
+      SelectedFields[number]
+    >;
+  }
+
   async function loadEditableProfileContext(authUserId: string, now: Date) {
     const user = await getUserWithProfile(deps.prisma, authUserId);
     const currentParticipant =
@@ -59,18 +77,32 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
       user,
       currentParticipant,
     );
+    const canonicalProfile = user.profile
+      ? deps.seasonParticipantsService.selectProfileBySource(
+          user.profile,
+          currentParticipant?.profile ?? null,
+          currentProfileSource,
+        )
+      : null;
+    const canonicalLifestyle = canonicalProfile
+      ? parseLifestyleOrNull(canonicalProfile.lifestyle)
+      : null;
 
     return {
       user,
       currentParticipant,
       serviceState,
       currentProfileSource,
+      canonicalLifestyle,
       profileEdit: resolveCurrentUserProfileEditability(
         buildCurrentUserCapabilityInput({
           campusOperated: serviceState.campusOperated,
           seasonState: serviceState.seasonState,
           participant: currentParticipant,
           participantMatched: false,
+          seasonProfileComplete: canonicalLifestyle
+            ? isSeasonProfileComplete(canonicalLifestyle)
+            : false,
           selection: canonicalSelection,
           operatedDormitoryIds: toOperatedDormitoryIdSet(serviceState.seasonContext),
           currentDormitoryCanMatch: canCurrentDormitoryMatch(
@@ -99,19 +131,71 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
     const now = await deps.prisma.getDatabaseNow();
     const context = await loadEditableProfileContext(authUser.id, now);
 
-    if (
-      context.currentProfileSource === 'SEASON_PARTICIPANT_PROFILE' ||
-      !context.profileEdit.lifestyle
-    ) {
+    if (!context.profileEdit.lifestyle) {
       throw profilesErrors.profileEditLocked();
     }
 
-    await deps.prisma.userProfile.update({
-      where: { userId: authUser.id },
-      data: {
-        lifestyle: parsedLifestyle.value,
-      },
-    });
+    if (context.currentProfileSource !== 'SEASON_PARTICIPANT_PROFILE') {
+      await deps.prisma.userProfile.update({
+        where: { userId: authUser.id },
+        data: {
+          lifestyle: parsedLifestyle.value,
+        },
+      });
+    } else {
+      if (
+        context.serviceState.seasonState !== 'SEASON_OPEN' ||
+        !context.currentParticipant?.profile ||
+        !context.user.profile
+      ) {
+        throw profilesErrors.profileEditLocked();
+      }
+
+      const currentSeasonLifestyle = parseLifestyleOrNull(
+        context.currentParticipant.profile.lifestyle,
+      );
+      const currentUserLifestyle = parseLifestyleOrNull(context.user.profile.lifestyle);
+      if (!currentSeasonLifestyle || !currentUserLifestyle) {
+        throw profilesErrors.invalidLifestyle('현재 저장된 생활패턴 데이터가 올바르지 않습니다.');
+      }
+
+      const attemptedCoreChange = CORE_LIFESTYLE_FIELDS.some(
+        (field) => parsedLifestyle.value[field] !== currentSeasonLifestyle[field],
+      );
+      if (attemptedCoreChange) {
+        throw profilesErrors.profileEditLocked();
+      }
+      if (!isSeasonProfileComplete(parsedLifestyle.value)) {
+        throw profilesErrors.invalidLifestyle(
+          '시즌 프로필의 생활패턴/룸메 조건은 모두 입력된 상태로만 수정할 수 있습니다.',
+        );
+      }
+
+      const nextSeasonLifestyle = {
+        ...currentSeasonLifestyle,
+        ...pickLifestyleSubset(parsedLifestyle.value, ROOMMATE_CONDITION_FIELDS),
+      };
+      const nextUserLifestyle = {
+        ...currentUserLifestyle,
+        ...pickLifestyleSubset(parsedLifestyle.value, ROOMMATE_CONDITION_FIELDS),
+      };
+
+      await deps.prisma.$transaction(async (tx) => {
+        await tx.userProfile.update({
+          where: { userId: authUser.id },
+          data: {
+            lifestyle: nextUserLifestyle,
+          },
+        });
+
+        await tx.seasonParticipantProfile.update({
+          where: { participantId: context.currentParticipant!.id },
+          data: {
+            lifestyle: nextSeasonLifestyle,
+          },
+        });
+      });
+    }
 
     return deps.currentUserViewService.buildCurrentUserResponse(
       await getUserWithProfile(deps.prisma, authUser.id),

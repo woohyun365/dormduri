@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
@@ -104,6 +105,7 @@ export class CurrentUserViewService {
       seasonState: serviceState.seasonState,
       participant: currentParticipant,
       participantMatched: activeMatch !== null,
+      seasonProfileComplete: isSeasonProfileComplete(lifestyle),
       selection: canonicalSelection,
       operatedDormitoryIds,
       currentDormitoryCanMatch,

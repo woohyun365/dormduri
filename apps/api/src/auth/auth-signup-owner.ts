@@ -1,7 +1,7 @@
 import { Prisma } from '../generated/prisma/client.js';
 import type { LoginResult, SignupInput } from './auth.types.js';
 import { isKnuEmail, normalizeEmail, normalizeNickname } from './auth.utils.js';
-import { validateLifestyleData } from './lifestyle.schema.js';
+import { validateSignupLifestyleData } from './lifestyle.schema.js';
 import type { AuthVerificationService } from './auth-verification.service.js';
 import type { AuthSessionService } from './auth-session.service.js';
 import { toLoginSuccessResult } from './auth-response.builder.js';
@@ -47,7 +47,7 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
     );
   }
 
-  const lifestyleValidation = validateLifestyleData(input.lifestyle);
+  const lifestyleValidation = validateSignupLifestyleData(input.lifestyle);
   if (!lifestyleValidation.ok) {
     return authFailures.invalidLifestyle(lifestyleValidation.error);
   }

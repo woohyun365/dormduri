@@ -12,6 +12,7 @@ export interface PublicExposureViewerInput {
   seasonState: SeasonState | null;
   registered: boolean;
   matched: boolean;
+  seasonProfileComplete: boolean;
   matchedPartnerParticipantId: string | null;
   selectionState: DormitorySelectionState;
   dormitoryId: string | null;
@@ -89,6 +90,7 @@ export function resolvePublicExposure(
   const viewerCanChatCandidate =
     viewer.registered &&
     !viewer.matched &&
+    viewer.seasonProfileComplete &&
     sameDormitory &&
     !target.matched &&
     (viewer.seasonState === 'SEASON_OPEN' ||
@@ -96,6 +98,7 @@ export function resolvePublicExposure(
   const viewerCanRequestMatch =
     viewer.registered &&
     !viewer.matched &&
+    viewer.seasonProfileComplete &&
     sameDormitory &&
     !target.matched &&
     viewer.seasonState === 'SEASON_MATCHING' &&

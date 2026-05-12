@@ -30,6 +30,11 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
           campus: true,
           dormitoryId: true,
           dormitorySelectionState: true,
+          profile: {
+            select: {
+              lifestyle: true,
+            },
+          },
         },
       });
     },

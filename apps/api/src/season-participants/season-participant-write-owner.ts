@@ -1,5 +1,7 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
+import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { normalizeSelectionState } from './season-participant-policy.js';
 import { seasonParticipantsErrors } from './season-participants.errors.js';
@@ -88,6 +90,11 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
 
     if (!user || !user.profile || !user.emailVerifiedAt) {
       throw seasonParticipantsErrors.registrationNotAllowed();
+    }
+
+    const lifestyle = parseLifestyleOrNull(user.profile.lifestyle);
+    if (!lifestyle || !isSeasonProfileComplete(lifestyle)) {
+      throw seasonParticipantsErrors.registrationSeasonProfileIncomplete();
     }
 
     return user as VerifiedUserWithProfile;
