@@ -280,102 +280,6 @@ describe('ProfilesService', () => {
     );
   });
 
-  it('SEASON_MATCHING 등록+미배정 viewer는 등록된 target만 LIMITED로 본다', async () => {
-    prisma.user.findUnique.mockResolvedValue(
-      makeUser({ dormitoryId: null, dormitorySelectionState: 'NOT_SELECTED' }),
-    );
-    prisma.user.findMany.mockResolvedValue([
-      Object.assign(makeUser({ id: 'registered-target' }), {
-        seasonParticipants: [
-          makeParticipant({
-            userId: 'registered-target',
-            participationIntent: 'REGISTERED',
-            registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-            participantStatus: 'DRAFT',
-            profile: {
-              participantId: 'participant-target',
-              nicknameSnapshot: '시즌상대',
-              nicknameNormalizedSnapshot: '시즌상대',
-              lifestyle: COMPLETE_LIFESTYLE,
-              intro: '시즌 소개',
-              messageToRoommate: '시즌 메시지',
-              collegeCode: 'HUMANITIES',
-              grade: '4+',
-              mbti: 'ENTP',
-              birthYear: 2001,
-            },
-          }),
-        ],
-      }),
-      Object.assign(makeUser({ id: 'unregistered-target', profile: { nickname: '베이스상대' } }), {
-        seasonParticipants: [makeParticipant({ userId: 'unregistered-target' })],
-      }),
-    ]);
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_MATCHING',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
-      },
-    });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
-      makeParticipant({
-        participationIntent: 'REGISTERED',
-        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-        participantStatus: 'DRAFT',
-        profile: { participantId: 'viewer-profile' },
-      }),
-    );
-    seasonParticipantsService.selectCanonicalSelection
-      .mockReturnValueOnce({
-        dormitoryId: null,
-        dormitorySelectionState: 'UNASSIGNED',
-        source: 'SEASON_PARTICIPANT',
-      })
-      .mockReturnValueOnce({
-        dormitoryId: null,
-        dormitorySelectionState: 'UNASSIGNED',
-        source: 'SEASON_PARTICIPANT',
-      })
-      .mockReturnValueOnce({
-        dormitoryId: null,
-        dormitorySelectionState: 'NOT_SELECTED',
-        source: 'SEASON_PARTICIPANT',
-      });
-
-    const result = await service.getProfiles(
-      {
-        id: 'user-1',
-        gender: 'M',
-        campus: 'CHUNCHEON',
-        dormitoryId: null,
-        dormitorySelectionState: 'NOT_SELECTED',
-      },
-      { offset: 0, limit: 20 },
-    );
-
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]).toMatchObject({
-      id: 'registered-target',
-      exposureLevel: 'LIMITED',
-      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-      actions: {
-        canBookmark: false,
-        canRequestMatch: false,
-        canStartChat: false,
-      },
-      nickname: '시즌상대',
-    });
-    expect(result.items[0]).not.toHaveProperty('lifestyle');
-    expect(result.items[0]).not.toHaveProperty('gender');
-  });
-
   it('SEASON_OPEN 등록+배정 viewer는 같은 건물 등록 target을 FULL로 보고 chat만 연다', async () => {
     prisma.user.findUnique.mockResolvedValue(makeUser());
     prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
@@ -840,26 +744,19 @@ describe('ProfilesService', () => {
       ]),
     );
 
-    const result = await service.getProfileByUserId(
-      {
-        id: 'user-1',
-        gender: 'M',
-        campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
-      },
-      'peer-1',
-    );
-
-    expect(result).toMatchObject({
-      exposureLevel: 'LIMITED',
-      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-      relationToViewer: 'GENERAL',
-      actions: {
-        canBookmark: true,
-        canRequestMatch: false,
-        canStartChat: false,
-      },
+    await expect(
+      service.getProfileByUserId(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        'peer-1',
+      ),
+    ).rejects.toMatchObject({
+      response: profilesErrors.profileNotVisible().getResponse(),
     });
   });
 
@@ -916,26 +813,19 @@ describe('ProfilesService', () => {
     );
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
 
-    const result = await service.getProfileByUserId(
-      {
-        id: 'user-1',
-        gender: 'M',
-        campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
-      },
-      'peer-1',
-    );
-
-    expect(result).toMatchObject({
-      exposureLevel: 'LIMITED',
-      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-      relationToViewer: 'GENERAL',
-      actions: {
-        canBookmark: true,
-        canRequestMatch: false,
-        canStartChat: false,
-      },
+    await expect(
+      service.getProfileByUserId(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        'peer-1',
+      ),
+    ).rejects.toMatchObject({
+      response: profilesErrors.profileNotVisible().getResponse(),
     });
   });
 

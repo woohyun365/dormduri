@@ -24,7 +24,6 @@ function getBadRequestResponse(error: unknown) {
 
 describe('ProfilesController', () => {
   const profilesService = {
-    getProfiles: jest.fn(),
     getProfileByUserId: jest.fn(),
     updateLifestyle: jest.fn(),
     updateNickname: jest.fn(),
@@ -43,13 +42,13 @@ describe('ProfilesController', () => {
     jest.clearAllMocks();
   });
 
-  it('unsupported query filter는 INVALID_PROFILE_QUERY bad request를 던진다', async () => {
+  it('invalid lifestyle body는 bad request를 던진다', async () => {
     try {
-      await controller.getProfiles(authUser as never, { campus: 'CHUNCHEON' });
-      throw new Error('Expected getProfiles to throw');
+      await controller.updateLifestyle(authUser as never, { bedtime: 'INVALID' });
+      throw new Error('Expected updateLifestyle to throw');
     } catch (error) {
       const response = getBadRequestResponse(error);
-      expect(response.code).toBe('INVALID_PROFILE_QUERY');
+      expect(response.code).toBe('INVALID_REQUEST_BODY');
     }
   });
 });

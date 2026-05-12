@@ -1,4 +1,4 @@
-import type { PublicProfileListResponse } from '@repo/shared/profile-contract';
+import type { FullPublicProfile } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import type { MatchesService } from '../matches/matches.service.js';
@@ -17,38 +17,24 @@ interface ProfilesReadOwnerDeps {
 export function createProfilesReadOwner(deps: ProfilesReadOwnerDeps) {
   const visibleProfileOwner = createVisibleProfileOwner(deps);
 
-  async function getProfiles(
+  async function getProfileByUserId(
     authUser: AuthenticatedUserContext,
-    query: { offset: number; limit: number },
-  ): Promise<PublicProfileListResponse> {
-    const now = await deps.prisma.getDatabaseNow();
-    const { entries } = await visibleProfileOwner.listVisibleProfileEntries(authUser, now);
-
-    return {
-      items: entries.slice(query.offset, query.offset + query.limit).map((entry) => entry.profile),
-    };
-  }
-
-  async function getProfileByUserId(authUser: AuthenticatedUserContext, targetUserId: string) {
+    targetUserId: string,
+  ): Promise<FullPublicProfile> {
     if (authUser.id === targetUserId) {
       throw profilesErrors.profileNotVisible();
     }
 
     const now = await deps.prisma.getDatabaseNow();
-    const entry = await visibleProfileOwner.getVisibleProfileEntryByUserId(
-      authUser,
-      targetUserId,
-      now,
-    );
-    if (!entry) {
+    const profile = await visibleProfileOwner.getFullProfileByUserId(authUser, targetUserId, now);
+    if (!profile) {
       throw profilesErrors.profileNotVisible();
     }
 
-    return entry.profile;
+    return profile;
   }
 
   return {
-    getProfiles,
     getProfileByUserId,
   };
 }

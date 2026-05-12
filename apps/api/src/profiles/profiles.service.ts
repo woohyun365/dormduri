@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { PublicProfileListResponse } from '@repo/shared/profile-contract';
+import type { FullPublicProfile } from '@repo/shared/profile-contract';
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
@@ -39,14 +39,10 @@ export class ProfilesService {
     });
   }
 
-  async getProfiles(
+  async getProfileByUserId(
     authUser: AuthenticatedUserContext,
-    query: { offset: number; limit: number },
-  ): Promise<PublicProfileListResponse> {
-    return this.readOwner.getProfiles(authUser, query);
-  }
-
-  async getProfileByUserId(authUser: AuthenticatedUserContext, targetUserId: string) {
+    targetUserId: string,
+  ): Promise<FullPublicProfile> {
     return this.readOwner.getProfileByUserId(authUser, targetUserId);
   }
 
