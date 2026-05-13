@@ -144,6 +144,14 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
     }
 
     if (context.currentProfileSource !== 'SEASON_PARTICIPANT_PROFILE') {
+      if (
+        !context.user.profile ||
+        !context.canonicalLifestyle ||
+        !hasLifestyleChanges(context.canonicalLifestyle, parsedLifestyle.value)
+      ) {
+        return deps.currentUserViewService.buildCurrentUserResponse(context.user, now);
+      }
+
       await deps.prisma.$transaction(async (tx) => {
         await tx.userProfile.update({
           where: { userId: authUser.id },
@@ -190,24 +198,38 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
         ...pickLifestyleSubset(parsedLifestyle.value, ROOMMATE_CONDITION_FIELDS),
       };
 
+      const userLifestyleChanged = hasLifestyleChanges(currentUserLifestyle, nextUserLifestyle);
+      const seasonLifestyleChanged = hasLifestyleChanges(
+        currentSeasonLifestyle,
+        nextSeasonLifestyle,
+      );
+
+      if (!userLifestyleChanged && !seasonLifestyleChanged) {
+        return deps.currentUserViewService.buildCurrentUserResponse(context.user, now);
+      }
+
       await deps.prisma.$transaction(async (tx) => {
-        await tx.userProfile.update({
-          where: { userId: authUser.id },
-          data: toLifestyleColumnData(nextUserLifestyle),
-        });
+        if (userLifestyleChanged) {
+          await tx.userProfile.update({
+            where: { userId: authUser.id },
+            data: toLifestyleColumnData(nextUserLifestyle),
+          });
 
-        await appendUserProfileHistorySnapshot(tx, authUser.id, 'USER_EDIT');
+          await appendUserProfileHistorySnapshot(tx, authUser.id, 'USER_EDIT');
+        }
 
-        await tx.seasonParticipantProfile.update({
-          where: { participantId: context.currentParticipant!.id },
-          data: toCompleteLifestyleColumnData(nextSeasonLifestyle),
-        });
+        if (seasonLifestyleChanged) {
+          await tx.seasonParticipantProfile.update({
+            where: { participantId: context.currentParticipant!.id },
+            data: toCompleteLifestyleColumnData(nextSeasonLifestyle),
+          });
 
-        await appendSeasonParticipantProfileHistorySnapshot(
-          tx,
-          context.currentParticipant!.id,
-          'SEASON_USER_EDIT',
-        );
+          await appendSeasonParticipantProfileHistorySnapshot(
+            tx,
+            context.currentParticipant!.id,
+            'SEASON_USER_EDIT',
+          );
+        }
       });
     }
 
@@ -257,6 +279,13 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
       throw profilesErrors.nicknameAlreadyTaken();
     }
 
+    if (
+      context.user.profile?.nickname === trimmedNickname &&
+      context.user.profile.nicknameNormalized === nicknameNormalized
+    ) {
+      return deps.currentUserViewService.buildCurrentUserResponse(context.user, now);
+    }
+
     await deps.prisma.$transaction(async (tx) => {
       await tx.userProfile.update({
         where: { userId: authUser.id },
@@ -280,4 +309,31 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
     updateLifestyle,
     updateNickname,
   };
+}
+
+function hasLifestyleChanges(currentLifestyle: ParsedLifestyle, nextLifestyle: ParsedLifestyle) {
+  return (
+    currentLifestyle.bedtime !== nextLifestyle.bedtime ||
+    currentLifestyle.wakeTime !== nextLifestyle.wakeTime ||
+    currentLifestyle.sleepHabit !== nextLifestyle.sleepHabit ||
+    currentLifestyle.sleepEnvironment !== nextLifestyle.sleepEnvironment ||
+    currentLifestyle.screenUsage !== nextLifestyle.screenUsage ||
+    currentLifestyle.noiseSensitivity !== nextLifestyle.noiseSensitivity ||
+    currentLifestyle.smokingBehavior !== nextLifestyle.smokingBehavior ||
+    currentLifestyle.indoorEating !== nextLifestyle.indoorEating ||
+    currentLifestyle.phoneBehavior !== nextLifestyle.phoneBehavior ||
+    currentLifestyle.earphoneUsage !== nextLifestyle.earphoneUsage ||
+    currentLifestyle.cleanLevel !== nextLifestyle.cleanLevel ||
+    currentLifestyle.drinkingFrequency !== nextLifestyle.drinkingFrequency ||
+    currentLifestyle.relationshipStyle !== nextLifestyle.relationshipStyle ||
+    currentLifestyle.temperatureSensitivity !== nextLifestyle.temperatureSensitivity ||
+    currentLifestyle.smokingTolerance !== nextLifestyle.smokingTolerance ||
+    currentLifestyle.phoneTolerance !== nextLifestyle.phoneTolerance ||
+    currentLifestyle.earphoneExpectation !== nextLifestyle.earphoneExpectation ||
+    currentLifestyle.sleepEnvPreference !== nextLifestyle.sleepEnvPreference ||
+    currentLifestyle.screenTolerance !== nextLifestyle.screenTolerance ||
+    currentLifestyle.indoorEatingTolerance !== nextLifestyle.indoorEatingTolerance ||
+    currentLifestyle.cleanExpectation !== nextLifestyle.cleanExpectation ||
+    currentLifestyle.drinkingTolerance !== nextLifestyle.drinkingTolerance
+  );
 }

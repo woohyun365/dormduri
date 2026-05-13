@@ -10,7 +10,10 @@ import {
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
-import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import {
+  SeasonParticipantsService,
+  type CurrentSeasonParticipantRecord,
+} from '../season-participants/season-participants.service.js';
 import {
   canCurrentDormitoryMatch,
   hasParticipantProfile,
@@ -157,18 +160,25 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       activatedAt?: Date | null;
     } = {};
 
-    const { profileUpdateData, seasonParticipantProfileUpdateData } =
-      await profilePatchOwner.buildProfileUpdatePayloads({
-        user,
-        input: {
-          intro: input.intro,
-          messageToRoommate: input.messageToRoommate,
-          additional: input.additional,
-        },
-        now,
-        currentProfileSource,
-        profileEdit,
-      });
+    const profilePatchPayloads = await profilePatchOwner.buildProfileUpdatePayloads({
+      user,
+      input: {
+        intro: input.intro,
+        messageToRoommate: input.messageToRoommate,
+        additional: input.additional,
+      },
+      now,
+      currentProfileSource,
+      profileEdit,
+    });
+    const profileUpdateData = omitUnchangedBaseProfilePatch(
+      user.profile,
+      profilePatchPayloads.profileUpdateData,
+    );
+    const seasonParticipantProfileUpdateData = omitUnchangedSeasonProfilePatch(
+      currentParticipant?.profile ?? null,
+      profilePatchPayloads.seasonParticipantProfileUpdateData,
+    );
 
     if (input.selection) {
       selectionUpdateOwner.assertSelectionPayload(input.selection);
@@ -233,4 +243,48 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
   return {
     updateCurrentUser,
   };
+}
+
+function omitUnchangedBaseProfilePatch(
+  profile: UserWithProfileRecord['profile'],
+  patch: {
+    intro?: string;
+    messageToRoommate?: string | null;
+    collegeCode?: string | null;
+    grade?: string | null;
+    mbti?: string | null;
+    birthYear?: number | null;
+  },
+) {
+  if (!profile) {
+    return patch;
+  }
+
+  return Object.fromEntries(
+    Object.entries(patch).filter(
+      ([field, value]) => profile[field as keyof typeof profile] !== value,
+    ),
+  ) as typeof patch;
+}
+
+function omitUnchangedSeasonProfilePatch(
+  profile: NonNullable<CurrentSeasonParticipantRecord['profile']> | null,
+  patch: {
+    intro?: string;
+    messageToRoommate?: string | null;
+    collegeCode?: string | null;
+    grade?: string | null;
+    mbti?: string | null;
+    birthYear?: number | null;
+  },
+) {
+  if (!profile) {
+    return patch;
+  }
+
+  return Object.fromEntries(
+    Object.entries(patch).filter(
+      ([field, value]) => profile[field as keyof typeof profile] !== value,
+    ),
+  ) as typeof patch;
 }
