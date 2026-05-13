@@ -66,6 +66,13 @@ describe('UsersService integration', () => {
     });
   });
 
+  it('current user 응답에서는 drinking 필드가 lifestyle에 포함되어 self read가 가능하다', async () => {
+    const currentUser = await service.getCurrentUser(authContext('user-a'));
+
+    expect(currentUser.profile.lifestyle.drinkingFrequency).toBe('NONE');
+    expect(currentUser.profile.lifestyle.drinkingTolerance).toBe('LOW_ONLY');
+  });
+
   it('selection ASSIGNED update는 User와 SeasonParticipant를 함께 ACTIVE 상태로 맞춘다', async () => {
     await service.updateCurrentUser(authContext('user-a'), {
       selection: {

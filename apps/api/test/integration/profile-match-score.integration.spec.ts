@@ -1,6 +1,8 @@
-import { ProfilesService } from '../../src/profiles/profiles.service.js';
-import { toCompleteLifestyleColumnData } from '../../src/profiles/profile-lifestyle.persistence.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import type { LifestyleData } from '../../src/auth/lifestyle.schema.js';
+import { ProfilesService } from '../../src/profiles/profiles.service.js';
+import { RoommateSearchService } from '../../src/profiles/roommate-search.service.js';
+import { toCompleteLifestyleColumnData } from '../../src/profiles/profile-lifestyle.persistence.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -30,7 +32,8 @@ describe('ProfilesService match score integration', () => {
   jest.setTimeout(60_000);
 
   let prisma: PrismaService;
-  let service: ProfilesService;
+  let profilesService: ProfilesService;
+  let roommateSearchService: RoommateSearchService;
   let closeApp: (() => Promise<void>) | null = null;
   let cleanupDb: (() => Promise<void>) | null = null;
 
@@ -41,7 +44,8 @@ describe('ProfilesService match score integration', () => {
     const { app, prisma: prismaService } = await createIntegrationApp();
     closeApp = () => app.close();
     prisma = prismaService;
-    service = app.get(ProfilesService);
+    profilesService = app.get(ProfilesService);
+    roommateSearchService = app.get(RoommateSearchService);
   });
 
   afterAll(async () => {
@@ -58,7 +62,7 @@ describe('ProfilesService match score integration', () => {
     await seedBaseSeasonFixtures(prisma);
   });
 
-  it('hidden drinking field 차이도 BE match score에 반영되고 public lifestyle에는 노출되지 않는다', async () => {
+  it('hidden drinking field 차이도 BE match score에 반영되지만 summary/detail public surface에는 노출되지 않는다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'viewer',
       participantId: 'participant-viewer',
@@ -85,47 +89,65 @@ describe('ProfilesService match score integration', () => {
       },
     });
 
-    const sharedVisibleLifestyle = {
+    const sharedVisibleLifestyle: LifestyleData = {
       ...COMPLETE_CONDITION_LIFESTYLE,
       bedtime: '24_02',
       wakeTime: '08_09',
+    };
+    const noneVisibleLifestyle: LifestyleData = {
+      ...sharedVisibleLifestyle,
+      drinkingFrequency: 'NONE',
+    };
+    const oftenVisibleLifestyle: LifestyleData = {
+      ...sharedVisibleLifestyle,
+      drinkingFrequency: 'OFTEN',
     };
 
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-peer-none' },
       data: {
-        ...toCompleteLifestyleColumnData({
-          ...sharedVisibleLifestyle,
-          drinkingFrequency: 'NONE',
-        }),
+        ...toCompleteLifestyleColumnData(noneVisibleLifestyle),
       },
     });
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-peer-often' },
       data: {
-        ...toCompleteLifestyleColumnData({
-          ...sharedVisibleLifestyle,
-          drinkingFrequency: 'OFTEN',
-        }),
+        ...toCompleteLifestyleColumnData(oftenVisibleLifestyle),
       },
     });
 
-    const result = await service.getProfiles(authContext('viewer'), { offset: 0, limit: 10 });
+    const result = await roommateSearchService.search(authContext('viewer'), {
+      scope: 'SAME_BUILDING_ONLY',
+      offset: 0,
+      limit: 10,
+    });
     const noneProfile = result.items.find((item) => item.nickname === 'A동기');
     const oftenProfile = result.items.find((item) => item.nickname === 'B동기');
 
-    expect(noneProfile?.exposureLevel).toBe('FULL');
-    expect(oftenProfile?.exposureLevel).toBe('FULL');
-    expect(noneProfile?.matchScore).toEqual(expect.any(Number));
-    expect(oftenProfile?.matchScore).toEqual(expect.any(Number));
-    expect(noneProfile?.matchScore).toBeGreaterThan(oftenProfile?.matchScore ?? -1);
+    expect(result.appliedSort).toBe('MATCH_SCORE');
+    expect(noneProfile?.canViewFull).toBe(true);
+    expect(oftenProfile?.canViewFull).toBe(true);
+    if (!noneProfile?.canViewFull || !oftenProfile?.canViewFull) {
+      throw new Error('expected same-building peers to allow full detail');
+    }
+    expect(noneProfile.matchScore).toBeGreaterThan(oftenProfile.matchScore);
+    expect(noneProfile).not.toHaveProperty('lifestyle');
+    expect(oftenProfile).not.toHaveProperty('lifestyle');
 
-    if (noneProfile?.exposureLevel !== 'FULL' || oftenProfile?.exposureLevel !== 'FULL') {
-      throw new Error('expected FULL exposure for same-building peers');
+    const noneDetail = await profilesService.getProfileByUserId(authContext('viewer'), 'peer-none');
+    const oftenDetail = await profilesService.getProfileByUserId(
+      authContext('viewer'),
+      'peer-often',
+    );
+
+    if (noneDetail.exposureLevel !== 'FULL' || oftenDetail.exposureLevel !== 'FULL') {
+      throw new Error('expected FULL detail for same-building peers');
     }
 
-    expect(noneProfile.lifestyle).toEqual(oftenProfile.lifestyle);
-    expect(noneProfile.lifestyle).not.toHaveProperty('drinkingFrequency');
+    expect(noneDetail.lifestyle).not.toHaveProperty('drinkingFrequency');
+    expect(noneDetail.lifestyle).not.toHaveProperty('drinkingTolerance');
+    expect(oftenDetail.lifestyle).not.toHaveProperty('drinkingFrequency');
+    expect(oftenDetail.lifestyle).not.toHaveProperty('drinkingTolerance');
   });
 
   it('season participant profile complete invariant는 nullable condition update를 허용하지 않는다', async () => {
@@ -181,8 +203,8 @@ describe('ProfilesService match score integration', () => {
       },
     });
 
-    const profileForA = await service.getProfileByUserId(authContext('user-a'), 'user-b');
-    const profileForB = await service.getProfileByUserId(authContext('user-b'), 'user-a');
+    const profileForA = await profilesService.getProfileByUserId(authContext('user-a'), 'user-b');
+    const profileForB = await profilesService.getProfileByUserId(authContext('user-b'), 'user-a');
 
     expect(profileForA.exposureLevel).toBe('FULL');
     expect(profileForB.exposureLevel).toBe('FULL');
@@ -191,7 +213,7 @@ describe('ProfilesService match score integration', () => {
     expect(profileForA.matchScore).not.toBe(profileForB.matchScore);
   });
 
-  it('OFF_SEASON에서는 FULL profile source가 있어도 점수를 노출하지 않는다', async () => {
+  it('OFF_SEASON에서는 full detail을 열지 않고 merged summary에도 점수를 노출하지 않는다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'viewer',
       participantId: 'participant-viewer',
@@ -215,44 +237,27 @@ describe('ProfilesService match score integration', () => {
       },
     });
 
-    const profile = await service.getProfileByUserId(authContext('viewer'), 'peer');
-
-    expect(profile.exposureLevel).toBe('LIMITED');
-    expect(profile).not.toHaveProperty('matchScore');
-  });
-
-  it('OFF_SEASON에서는 complete profile pair여도 목록 응답에 match score를 포함하지 않는다', async () => {
-    await seedRegisteredAssignedParticipant(prisma, {
-      userId: 'viewer',
-      participantId: 'participant-viewer',
-      email: 'viewer@kangwon.ac.kr',
-      nickname: '뷰어',
-    });
-    await seedRegisteredAssignedParticipant(prisma, {
-      userId: 'peer',
-      participantId: 'participant-peer',
-      email: 'peer@kangwon.ac.kr',
-      nickname: '상대',
-    });
-
-    const now = await prisma.getDatabaseNow();
-    await prisma.season.update({
-      where: { id: 'season-integration' },
-      data: {
-        overrideState: 'OFF_SEASON',
-        overrideStartedAt: now,
-        overrideEndsAt: null,
+    await expect(
+      profilesService.getProfileByUserId(authContext('viewer'), 'peer'),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'PROFILE_NOT_VISIBLE',
       },
     });
 
-    const result = await service.getProfiles(authContext('viewer'), { offset: 0, limit: 10 });
+    const result = await roommateSearchService.search(authContext('viewer'), {
+      offset: 0,
+      limit: 10,
+    });
     const peer = result.items.find((item) => item.nickname === '상대');
 
-    expect(peer?.exposureLevel).toBe('LIMITED');
+    expect(result.scope).toBe('CAMPUS_MERGED');
+    expect(result.appliedSort).toBe('NICKNAME');
+    expect(peer).toMatchObject({ canViewFull: false });
     expect(peer).not.toHaveProperty('matchScore');
   });
 
-  it('SEASON_POST_MATCH에서는 최종 matched partner에만 점수를 노출하고 일반 browse에는 숨긴다', async () => {
+  it('SEASON_POST_MATCH에서는 최종 matched partner만 detail과 score를 유지하고 다른 등록자는 LIMITED summary만 본다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'viewer',
       participantId: 'participant-viewer',
@@ -289,15 +294,35 @@ describe('ProfilesService match score integration', () => {
       },
     });
 
-    const partnerProfile = await service.getProfileByUserId(authContext('viewer'), 'partner');
-    const otherProfile = await service.getProfileByUserId(authContext('viewer'), 'other');
+    const searchResult = await roommateSearchService.search(authContext('viewer'), {
+      scope: 'SAME_BUILDING_ONLY',
+      offset: 0,
+      limit: 10,
+    });
+    const partnerSummary = searchResult.items.find((item) => item.nickname === '최종상대');
+    const otherSummary = searchResult.items.find((item) => item.nickname === '일반상대');
 
+    expect(partnerSummary?.relationToViewer).toBe('MATCHED_PARTNER');
+    expect(partnerSummary?.canViewFull).toBe(true);
+    expect(otherSummary).toMatchObject({
+      relationToViewer: 'GENERAL',
+      canViewFull: false,
+    });
+    expect(otherSummary).not.toHaveProperty('matchScore');
+
+    const partnerProfile = await profilesService.getProfileByUserId(
+      authContext('viewer'),
+      'partner',
+    );
     expect(partnerProfile.exposureLevel).toBe('FULL');
     expect(partnerProfile.relationToViewer).toBe('MATCHED_PARTNER');
-    expect(partnerProfile.matchScore).toEqual(expect.any(Number));
 
-    expect(otherProfile.exposureLevel).toBe('LIMITED');
-    expect(otherProfile.relationToViewer).toBe('GENERAL');
-    expect(otherProfile).not.toHaveProperty('matchScore');
+    await expect(
+      profilesService.getProfileByUserId(authContext('viewer'), 'other'),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'PROFILE_NOT_VISIBLE',
+      },
+    });
   });
 });
