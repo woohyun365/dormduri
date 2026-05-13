@@ -15,6 +15,7 @@ import {
   SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
 } from './auth-verification-proof.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
+import { appendUserProfileHistorySnapshot } from '../profiles/profile-history-owner.js';
 import { toLifestyleColumnData } from '../profiles/profile-lifestyle.persistence.js';
 
 interface AuthSignupOwnerDeps {
@@ -118,6 +119,8 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
         emailVerifiedAt,
         SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
       );
+
+      await appendUserProfileHistorySnapshot(tx, createdUser.id, 'SIGNUP_CREATE');
 
       return createdUser;
     });

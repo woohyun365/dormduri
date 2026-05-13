@@ -1,6 +1,7 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
+import { appendSeasonParticipantProfileHistorySnapshot } from '../profiles/profile-history-owner.js';
 import {
   lifestyleColumnSelect,
   toCompleteLifestyleColumnData,
@@ -201,6 +202,12 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
           user.profile,
         ) satisfies Prisma.SeasonParticipantProfileUncheckedUpdateInput,
       });
+
+      await appendSeasonParticipantProfileHistorySnapshot(
+        tx,
+        participant.id,
+        'SEASON_REGISTRATION',
+      );
 
       if (
         user.dormitorySelectionState !== normalizedSelection.dormitorySelectionState ||

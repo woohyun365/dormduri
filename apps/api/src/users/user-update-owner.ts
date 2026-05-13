@@ -3,6 +3,10 @@ import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { parseLifestyleOrNull, type UserWithProfileRecord } from '../profiles/profile.mapper.js';
+import {
+  appendSeasonParticipantProfileHistorySnapshot,
+  appendUserProfileHistorySnapshot,
+} from '../profiles/profile-history-owner.js';
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
@@ -192,6 +196,8 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
           where: { userId: user.id },
           data: profileUpdateData,
         });
+
+        await appendUserProfileHistorySnapshot(tx, user.id, 'USER_EDIT');
       }
 
       if (currentParticipant && Object.keys(seasonParticipantUpdateData).length > 0) {
@@ -209,6 +215,12 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
           where: { participantId: currentParticipant.id },
           data: seasonParticipantProfileUpdateData,
         });
+
+        await appendSeasonParticipantProfileHistorySnapshot(
+          tx,
+          currentParticipant.id,
+          'SEASON_USER_EDIT',
+        );
       }
     });
 

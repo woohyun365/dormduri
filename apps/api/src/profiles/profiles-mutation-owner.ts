@@ -28,6 +28,10 @@ import { resolveCampusServiceState } from '../users/service-state.js';
 import { hasNicknameCooldown } from './nickname-policy.js';
 import { parseLifestyleOrNull } from './profile.mapper.js';
 import {
+  appendSeasonParticipantProfileHistorySnapshot,
+  appendUserProfileHistorySnapshot,
+} from './profile-history-owner.js';
+import {
   toCompleteLifestyleColumnData,
   toLifestyleColumnData,
 } from './profile-lifestyle.persistence.js';
@@ -140,9 +144,13 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
     }
 
     if (context.currentProfileSource !== 'SEASON_PARTICIPANT_PROFILE') {
-      await deps.prisma.userProfile.update({
-        where: { userId: authUser.id },
-        data: toLifestyleColumnData(parsedLifestyle.value),
+      await deps.prisma.$transaction(async (tx) => {
+        await tx.userProfile.update({
+          where: { userId: authUser.id },
+          data: toLifestyleColumnData(parsedLifestyle.value),
+        });
+
+        await appendUserProfileHistorySnapshot(tx, authUser.id, 'USER_EDIT');
       });
     } else {
       if (
@@ -188,10 +196,18 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
           data: toLifestyleColumnData(nextUserLifestyle),
         });
 
+        await appendUserProfileHistorySnapshot(tx, authUser.id, 'USER_EDIT');
+
         await tx.seasonParticipantProfile.update({
           where: { participantId: context.currentParticipant!.id },
           data: toCompleteLifestyleColumnData(nextSeasonLifestyle),
         });
+
+        await appendSeasonParticipantProfileHistorySnapshot(
+          tx,
+          context.currentParticipant!.id,
+          'SEASON_USER_EDIT',
+        );
       });
     }
 
@@ -241,13 +257,17 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
       throw profilesErrors.nicknameAlreadyTaken();
     }
 
-    await deps.prisma.userProfile.update({
-      where: { userId: authUser.id },
-      data: {
-        nickname: trimmedNickname,
-        nicknameNormalized,
-        nicknameChangedAt: now,
-      },
+    await deps.prisma.$transaction(async (tx) => {
+      await tx.userProfile.update({
+        where: { userId: authUser.id },
+        data: {
+          nickname: trimmedNickname,
+          nicknameNormalized,
+          nicknameChangedAt: now,
+        },
+      });
+
+      await appendUserProfileHistorySnapshot(tx, authUser.id, 'USER_EDIT');
     });
 
     return deps.currentUserViewService.buildCurrentUserResponse(
