@@ -142,8 +142,12 @@ CREATE TYPE "RoommateIndoorEatingTolerance" AS ENUM ('NO_SMELL', 'CLEAN_OK', 'AN
 -- CreateEnum
 CREATE TYPE "RoommateCleanExpectation" AS ENUM ('STRICT', 'BASIC', 'FLEXIBLE');
 
+
 -- CreateEnum
 CREATE TYPE "RoommateDrinkingTolerance" AS ENUM ('LOW_ONLY', 'ANY');
+
+-- CreateEnum
+CREATE TYPE "ProfileHistorySource" AS ENUM ('SIGNUP_CREATE', 'USER_EDIT', 'SEASON_REGISTRATION', 'SEASON_USER_EDIT', 'RETENTION_SNAPSHOT', 'SYSTEM_BACKFILL');
 
 -- CreateTable
 CREATE TABLE "CampusMaster" (
@@ -298,6 +302,49 @@ CREATE TABLE "UserProfile" (
     CONSTRAINT "UserProfile_pkey" PRIMARY KEY ("userId")
 );
 
+
+-- CreateTable
+CREATE TABLE "UserProfileHistory" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "retainedIdentityId" TEXT,
+    "nickname" TEXT NOT NULL,
+    "nicknameNormalized" TEXT NOT NULL,
+    "nicknameChangedAt" TIMESTAMPTZ(3),
+    "bedtime" "LifestyleBedtime",
+    "wakeTime" "LifestyleWakeTime",
+    "sleepHabit" "LifestyleSleepHabit",
+    "sleepEnvironment" "LifestyleSleepEnvironment",
+    "screenUsage" "LifestyleScreenUsage",
+    "noiseSensitivity" "LifestyleNoiseSensitivity",
+    "smokingBehavior" "LifestyleSmokingBehavior",
+    "indoorEating" "LifestyleIndoorEating",
+    "phoneBehavior" "LifestylePhoneBehavior",
+    "earphoneUsage" "LifestyleEarphoneUsage",
+    "cleanLevel" "LifestyleCleanLevel",
+    "drinkingFrequency" "LifestyleDrinkingFrequency",
+    "relationshipStyle" "LifestyleRelationshipStyle",
+    "temperatureSensitivity" "LifestyleTemperatureSensitivity",
+    "smokingTolerance" "RoommateSmokingTolerance",
+    "phoneTolerance" "RoommatePhoneTolerance",
+    "earphoneExpectation" "RoommateEarphoneExpectation",
+    "sleepEnvPreference" "RoommateSleepEnvPreference",
+    "screenTolerance" "RoommateScreenTolerance",
+    "indoorEatingTolerance" "RoommateIndoorEatingTolerance",
+    "cleanExpectation" "RoommateCleanExpectation",
+    "drinkingTolerance" "RoommateDrinkingTolerance",
+    "intro" TEXT NOT NULL,
+    "messageToRoommate" TEXT,
+    "collegeCode" TEXT,
+    "grade" TEXT,
+    "mbti" TEXT,
+    "birthYear" INTEGER,
+    "source" "ProfileHistorySource" NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserProfileHistory_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateTable
 CREATE TABLE "SeasonParticipant" (
     "id" TEXT NOT NULL,
@@ -364,6 +411,50 @@ CREATE TABLE "SeasonParticipantProfile" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SeasonParticipantProfile_pkey" PRIMARY KEY ("participantId")
+);
+
+
+-- CreateTable
+CREATE TABLE "SeasonParticipantProfileHistory" (
+    "id" TEXT NOT NULL,
+    "participantId" TEXT NOT NULL,
+    "seasonId" TEXT NOT NULL,
+    "retainedIdentityId" TEXT,
+    "nicknameSnapshot" TEXT NOT NULL,
+    "nicknameNormalizedSnapshot" TEXT NOT NULL,
+    "bedtime" "LifestyleBedtime" NOT NULL,
+    "wakeTime" "LifestyleWakeTime" NOT NULL,
+    "sleepHabit" "LifestyleSleepHabit" NOT NULL,
+    "sleepEnvironment" "LifestyleSleepEnvironment" NOT NULL,
+    "screenUsage" "LifestyleScreenUsage" NOT NULL,
+    "noiseSensitivity" "LifestyleNoiseSensitivity" NOT NULL,
+    "smokingBehavior" "LifestyleSmokingBehavior" NOT NULL,
+    "indoorEating" "LifestyleIndoorEating" NOT NULL,
+    "phoneBehavior" "LifestylePhoneBehavior" NOT NULL,
+    "earphoneUsage" "LifestyleEarphoneUsage" NOT NULL,
+    "cleanLevel" "LifestyleCleanLevel" NOT NULL,
+    "drinkingFrequency" "LifestyleDrinkingFrequency" NOT NULL,
+    "relationshipStyle" "LifestyleRelationshipStyle" NOT NULL,
+    "temperatureSensitivity" "LifestyleTemperatureSensitivity" NOT NULL,
+    "smokingTolerance" "RoommateSmokingTolerance" NOT NULL,
+    "phoneTolerance" "RoommatePhoneTolerance" NOT NULL,
+    "earphoneExpectation" "RoommateEarphoneExpectation" NOT NULL,
+    "sleepEnvPreference" "RoommateSleepEnvPreference" NOT NULL,
+    "screenTolerance" "RoommateScreenTolerance" NOT NULL,
+    "indoorEatingTolerance" "RoommateIndoorEatingTolerance" NOT NULL,
+    "cleanExpectation" "RoommateCleanExpectation" NOT NULL,
+    "drinkingTolerance" "RoommateDrinkingTolerance" NOT NULL,
+    "intro" TEXT NOT NULL,
+    "messageToRoommate" TEXT,
+    "collegeCode" TEXT,
+    "grade" TEXT,
+    "mbti" TEXT,
+    "birthYear" INTEGER,
+    "templateSourceUserProfileUpdatedAt" TIMESTAMPTZ(3),
+    "source" "ProfileHistorySource" NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SeasonParticipantProfileHistory_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -634,6 +725,22 @@ CREATE INDEX "UserProfile_nickname_idx" ON "UserProfile"("nickname");
 -- CreateIndex
 CREATE INDEX "UserProfile_collegeCode_idx" ON "UserProfile"("collegeCode");
 
+
+-- CreateIndex
+CREATE INDEX "UserProfileHistory_userId_createdAt_idx" ON "UserProfileHistory"("userId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "UserProfileHistory_retainedIdentityId_createdAt_idx" ON "UserProfileHistory"("retainedIdentityId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantProfileHistory_participantId_createdAt_idx" ON "SeasonParticipantProfileHistory"("participantId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantProfileHistory_seasonId_participantId_crea_idx" ON "SeasonParticipantProfileHistory"("seasonId", "participantId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantProfileHistory_retainedIdentityId_createdA_idx" ON "SeasonParticipantProfileHistory"("retainedIdentityId", "createdAt");
+
 -- CreateIndex
 CREATE INDEX "SeasonParticipant_userId_seasonId_idx" ON "SeasonParticipant"("userId", "seasonId");
 
@@ -742,12 +849,30 @@ ALTER TABLE "SeasonParticipantProfile"
   ADD CONSTRAINT "SeasonParticipantProfile_grade_check"
   CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
 
+
+ALTER TABLE "UserProfileHistory"
+  ADD CONSTRAINT "UserProfileHistory_grade_check"
+  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
+
+ALTER TABLE "SeasonParticipantProfileHistory"
+  ADD CONSTRAINT "SeasonParticipantProfileHistory_grade_check"
+  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
+
 ALTER TABLE "UserProfile"
   ADD CONSTRAINT "UserProfile_birthYear_check"
   CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
 
 ALTER TABLE "SeasonParticipantProfile"
   ADD CONSTRAINT "SeasonParticipantProfile_birthYear_check"
+  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
+
+
+ALTER TABLE "UserProfileHistory"
+  ADD CONSTRAINT "UserProfileHistory_birthYear_check"
+  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
+
+ALTER TABLE "SeasonParticipantProfileHistory"
+  ADD CONSTRAINT "SeasonParticipantProfileHistory_birthYear_check"
   CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
 
 -- Partial unique indexes for live/current invariants

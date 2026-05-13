@@ -17,6 +17,8 @@ describe('migration baseline coverage', () => {
       `CREATE TYPE "SeasonOverrideState" AS ENUM ('OFF_SEASON', 'SEASON_OPEN', 'SEASON_MATCHING', 'SEASON_POST_MATCH');`,
     );
     expect(sql).toContain('CREATE TABLE "CollegeMaster"');
+    expect(sql).toContain('CREATE TABLE "UserProfileHistory"');
+    expect(sql).toContain('CREATE TABLE "SeasonParticipantProfileHistory"');
     expect(sql).toContain('CREATE TABLE "ActiveMatchUnmatchRequest"');
     expect(sql).toContain(
       `CREATE TYPE "ConversationThreadStatus" AS ENUM ('OPEN', 'READ_ONLY', 'ARCHIVED');`,
