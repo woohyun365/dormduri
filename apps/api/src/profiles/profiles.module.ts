@@ -8,6 +8,8 @@ import { SeasonsModule } from '../seasons/seasons.module.js';
 import { CurrentUserViewModule } from '../users/current-user-view.module.js';
 import { ProfilesController } from './profiles.controller.js';
 import { ProfilesService } from './profiles.service.js';
+import { RoommateSearchController } from './roommate-search.controller.js';
+import { RoommateSearchService } from './roommate-search.service.js';
 
 @Module({
   imports: [
@@ -19,8 +21,8 @@ import { ProfilesService } from './profiles.service.js';
     ModerationModule,
     CurrentUserViewModule,
   ],
-  controllers: [ProfilesController],
-  providers: [ProfilesService],
+  controllers: [ProfilesController, RoommateSearchController],
+  providers: [ProfilesService, RoommateSearchService],
   exports: [ProfilesService],
 })
 export class ProfilesModule {}

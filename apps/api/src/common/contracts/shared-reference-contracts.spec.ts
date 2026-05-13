@@ -13,6 +13,10 @@ import {
   dormitorySelectionStateSchema,
 } from '@repo/shared/dormitory-contract';
 import {
+  roommateSearchQuerySchema,
+  roommateSearchResponseSchema,
+} from '@repo/shared/roommate-search-contract';
+import {
   isLocalDateString,
   toDateOnlyString,
   toIsoDateTimeString,
@@ -150,6 +154,72 @@ describe('shared reference contracts', () => {
     ).toMatchObject({
       dormitory: { id: 'dasan', roomType: 2 },
       guide: { bathroomType: 'SHARED' },
+    });
+  });
+
+  it('roommate search contract는 summary shape와 appliedSort를 유지한다', () => {
+    expect(
+      roommateSearchQuerySchema.parse({
+        smokingBehavior: 'NO',
+      }),
+    ).toMatchObject({
+      smokingBehavior: 'NO',
+    });
+
+    expect(
+      roommateSearchResponseSchema.parse({
+        scope: 'CAMPUS_MERGED',
+        appliedSort: 'MATCH_SCORE',
+        effectiveVisibility: 'MIXED_VISIBILITY',
+        scopeCapabilities: {
+          campusMerged: true,
+          sameBuildingOnly: true,
+        },
+        filterCapabilities: {
+          smokingBehavior: true,
+          bedtime: true,
+          wakeTime: true,
+          noiseSensitivity: true,
+          cleanLevel: true,
+          sleepHabit: true,
+          indoorEating: true,
+          relationshipStyle: true,
+          college: true,
+          grade: true,
+          mbti: true,
+          birthYear: true,
+        },
+        sortCapabilities: {
+          matchScore: true,
+        },
+        items: [
+          {
+            id: 'user-1',
+            sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+            relationToViewer: 'GENERAL',
+            actions: {
+              canBookmark: true,
+              canRequestMatch: true,
+              canStartChat: true,
+            },
+            canViewFull: true,
+            nickname: '테스터',
+            intro: '소개',
+            messageToRoommate: null,
+            additional: {
+              college: null,
+              grade: null,
+              mbti: null,
+              birthYear: null,
+            },
+            matchScore: 87,
+          },
+        ],
+      }),
+    ).toMatchObject({
+      scope: 'CAMPUS_MERGED',
+      appliedSort: 'MATCH_SCORE',
+      effectiveVisibility: 'MIXED_VISIBILITY',
     });
   });
 });
