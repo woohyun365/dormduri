@@ -133,6 +133,7 @@ export function createUserProfilePatchOwner(deps: UserProfilePatchOwnerDeps) {
 
       if (input.currentProfileSource === 'SEASON_PARTICIPANT_PROFILE') {
         seasonParticipantProfileUpdateData.messageToRoommate = normalizedMessage;
+        profileUpdateData.messageToRoommate = normalizedMessage;
       } else {
         profileUpdateData.messageToRoommate = normalizedMessage;
       }

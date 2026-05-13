@@ -664,7 +664,7 @@ describe('ProfilesService', () => {
     });
   });
 
-  it('SEASON_MATCHING live ActiveMatch 사용자는 일반 다른 등록 target을 LIMITED로만 본다', async () => {
+  it('SEASON_MATCHING live ActiveMatch 사용자는 일반 다른 등록 target의 FULL detail을 열지 못한다', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
       Object.assign(makeUser({ id: 'peer-1', email: 'peer1@kangwon.ac.kr' }), {
         seasonParticipants: [
@@ -760,7 +760,7 @@ describe('ProfilesService', () => {
     });
   });
 
-  it('SEASON_POST_MATCH에서는 등록 완료 target만 SeasonParticipantProfile 기반 LIMITED browse로 노출한다', async () => {
+  it('SEASON_POST_MATCH에서는 등록 완료 target이라도 matched partner가 아니면 FULL detail을 열지 못한다', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
       Object.assign(makeUser({ id: 'peer-1', email: 'peer1@kangwon.ac.kr' }), {
         seasonParticipants: [
@@ -829,7 +829,7 @@ describe('ProfilesService', () => {
     });
   });
 
-  it('SEASON_POST_MATCH에서는 시즌 참여하지 않은 target을 노출하지 않는다', async () => {
+  it('SEASON_POST_MATCH에서는 시즌 참여하지 않은 target의 FULL detail을 열지 않는다', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
       Object.assign(makeUser({ id: 'peer-1', email: 'peer1@kangwon.ac.kr' }), {
         seasonParticipants: [],

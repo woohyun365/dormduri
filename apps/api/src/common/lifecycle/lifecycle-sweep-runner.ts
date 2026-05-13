@@ -8,7 +8,10 @@ interface LifecycleSweepRunnerDeps {
   prisma: PrismaService;
   chatService: Pick<ChatService, 'sweepThreadLifecycle'>;
   matchesService: Pick<MatchesService, 'sweepHistoryMaterialization' | 'sweepLifecycleTransitions'>;
-  seasonParticipantsService: Pick<SeasonParticipantsService, 'backfillCurrentSeasonParticipants'>;
+  seasonParticipantsService: Pick<
+    SeasonParticipantsService,
+    'backfillCurrentSeasonParticipants' | 'syncCurrentSeasonProfileTemplates'
+  >;
 }
 
 export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
@@ -19,6 +22,7 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
     const matchHistory = await deps.matchesService.sweepHistoryMaterialization(referenceNow);
     const participantBackfill =
       await deps.seasonParticipantsService.backfillCurrentSeasonParticipants(referenceNow);
+    await deps.seasonParticipantsService.syncCurrentSeasonProfileTemplates(referenceNow);
 
     return {
       ranAt: referenceNow.toISOString(),

@@ -1,7 +1,10 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
-import { appendSeasonParticipantProfileHistorySnapshot } from '../profiles/profile-history-owner.js';
+import {
+  appendSeasonParticipantProfileHistorySnapshot,
+  appendUserProfileHistorySnapshot,
+} from '../profiles/profile-history-owner.js';
 import {
   lifestyleColumnSelect,
   toCompleteLifestyleColumnData,
@@ -27,6 +30,24 @@ interface SeasonParticipantWriteOwnerDeps {
   prisma: PrismaService;
   seasonsService: SeasonsService;
 }
+
+interface ProfileTemplateSyncFields {
+  intro: string;
+  messageToRoommate: string | null;
+  collegeCode: string | null;
+  grade: string | null;
+  mbti: string | null;
+  birthYear: number | null;
+}
+
+const seasonParticipantTemplateSyncFieldSelect = {
+  intro: true,
+  messageToRoommate: true,
+  collegeCode: true,
+  grade: true,
+  mbti: true,
+  birthYear: true,
+} as const;
 
 export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOwnerDeps) {
   function buildParticipantCreateData(
@@ -175,6 +196,11 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     const participantStatus =
       normalizedSelection.dormitorySelectionState === 'ASSIGNED' ? 'ACTIVE' : 'DRAFT';
 
+    const nextProfileSnapshot = buildParticipantProfileSnapshotData(user.profile);
+    const shouldAppendSeasonProfileHistory =
+      !participant.profile ||
+      hasSeasonParticipantProfileSnapshotChanges(participant.profile, nextProfileSnapshot);
+
     await deps.prisma.$transaction(async (tx) => {
       await tx.seasonParticipant.update({
         where: { id: participant.id },
@@ -196,18 +222,18 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
         where: { participantId: participant.id },
         create: {
           participantId: participant.id,
-          ...buildParticipantProfileSnapshotData(user.profile),
+          ...nextProfileSnapshot,
         } satisfies Prisma.SeasonParticipantProfileUncheckedCreateInput,
-        update: buildParticipantProfileSnapshotData(
-          user.profile,
-        ) satisfies Prisma.SeasonParticipantProfileUncheckedUpdateInput,
+        update: nextProfileSnapshot satisfies Prisma.SeasonParticipantProfileUncheckedUpdateInput,
       });
 
-      await appendSeasonParticipantProfileHistorySnapshot(
-        tx,
-        participant.id,
-        'SEASON_REGISTRATION',
-      );
+      if (shouldAppendSeasonProfileHistory) {
+        await appendSeasonParticipantProfileHistorySnapshot(
+          tx,
+          participant.id,
+          'SEASON_REGISTRATION',
+        );
+      }
 
       if (
         user.dormitorySelectionState !== normalizedSelection.dormitorySelectionState ||
@@ -299,9 +325,154 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     return results;
   }
 
+  async function syncCurrentSeasonProfileTemplates(now: Date): Promise<number> {
+    const operatedCampuses = await deps.prisma.campusMaster.findMany({
+      where: { isOperated: true },
+      select: { code: true },
+      orderBy: { code: 'asc' },
+    });
+
+    let syncedCount = 0;
+
+    for (const campus of operatedCampuses) {
+      const seasonContext = await deps.seasonsService.getCurrentSeasonContext(campus.code, now);
+      if (!seasonContext) {
+        continue;
+      }
+
+      const participants = await deps.prisma.seasonParticipant.findMany({
+        where: {
+          seasonId: seasonContext.season.id,
+          participationIntent: 'REGISTERED',
+          registeredAt: { not: null },
+          profile: { isNot: null },
+          user: {
+            profile: { isNot: null },
+          },
+        },
+        select: {
+          id: true,
+          userId: true,
+          profile: {
+            select: seasonParticipantTemplateSyncFieldSelect,
+          },
+          user: {
+            select: {
+              profile: {
+                select: seasonParticipantTemplateSyncFieldSelect,
+              },
+            },
+          },
+        },
+        orderBy: { id: 'asc' },
+      });
+
+      for (const participant of participants) {
+        if (!participant.profile || !participant.user.profile) {
+          continue;
+        }
+
+        const syncPatch = buildBaseProfileTemplateSyncPatch(
+          participant.user.profile,
+          participant.profile,
+        );
+        if (Object.keys(syncPatch).length === 0) {
+          continue;
+        }
+
+        await deps.prisma.$transaction(async (tx) => {
+          await tx.userProfile.update({
+            where: { userId: participant.userId },
+            data: syncPatch,
+          });
+
+          await appendUserProfileHistorySnapshot(tx, participant.userId, 'SYSTEM_BACKFILL');
+        });
+
+        syncedCount += 1;
+      }
+    }
+
+    return syncedCount;
+  }
+
   return {
     ensureCurrentSeasonParticipantForUser,
     registerCurrentSeasonParticipation,
     backfillCurrentSeasonParticipants,
+    syncCurrentSeasonProfileTemplates,
   };
+}
+
+function hasSeasonParticipantProfileSnapshotChanges(
+  currentProfile: NonNullable<CurrentSeasonParticipantRecord['profile']>,
+  nextSnapshot: Omit<Prisma.SeasonParticipantProfileUncheckedCreateInput, 'participantId'>,
+) {
+  return (
+    currentProfile.nicknameSnapshot !== nextSnapshot.nicknameSnapshot ||
+    currentProfile.nicknameNormalizedSnapshot !== nextSnapshot.nicknameNormalizedSnapshot ||
+    currentProfile.lifestyle.bedtime !== nextSnapshot.bedtime ||
+    currentProfile.lifestyle.wakeTime !== nextSnapshot.wakeTime ||
+    currentProfile.lifestyle.sleepHabit !== nextSnapshot.sleepHabit ||
+    currentProfile.lifestyle.sleepEnvironment !== nextSnapshot.sleepEnvironment ||
+    currentProfile.lifestyle.screenUsage !== nextSnapshot.screenUsage ||
+    currentProfile.lifestyle.noiseSensitivity !== nextSnapshot.noiseSensitivity ||
+    currentProfile.lifestyle.smokingBehavior !== nextSnapshot.smokingBehavior ||
+    currentProfile.lifestyle.indoorEating !== nextSnapshot.indoorEating ||
+    currentProfile.lifestyle.phoneBehavior !== nextSnapshot.phoneBehavior ||
+    currentProfile.lifestyle.earphoneUsage !== nextSnapshot.earphoneUsage ||
+    currentProfile.lifestyle.cleanLevel !== nextSnapshot.cleanLevel ||
+    currentProfile.lifestyle.drinkingFrequency !== nextSnapshot.drinkingFrequency ||
+    currentProfile.lifestyle.relationshipStyle !== nextSnapshot.relationshipStyle ||
+    currentProfile.lifestyle.temperatureSensitivity !== nextSnapshot.temperatureSensitivity ||
+    currentProfile.lifestyle.smokingTolerance !== nextSnapshot.smokingTolerance ||
+    currentProfile.lifestyle.phoneTolerance !== nextSnapshot.phoneTolerance ||
+    currentProfile.lifestyle.earphoneExpectation !== nextSnapshot.earphoneExpectation ||
+    currentProfile.lifestyle.sleepEnvPreference !== nextSnapshot.sleepEnvPreference ||
+    currentProfile.lifestyle.screenTolerance !== nextSnapshot.screenTolerance ||
+    currentProfile.lifestyle.indoorEatingTolerance !== nextSnapshot.indoorEatingTolerance ||
+    currentProfile.lifestyle.cleanExpectation !== nextSnapshot.cleanExpectation ||
+    currentProfile.lifestyle.drinkingTolerance !== nextSnapshot.drinkingTolerance ||
+    currentProfile.intro !== nextSnapshot.intro ||
+    currentProfile.messageToRoommate !== nextSnapshot.messageToRoommate ||
+    currentProfile.collegeCode !== nextSnapshot.collegeCode ||
+    currentProfile.grade !== nextSnapshot.grade ||
+    currentProfile.mbti !== nextSnapshot.mbti ||
+    currentProfile.birthYear !== nextSnapshot.birthYear ||
+    toComparableDateMillis(currentProfile.templateSourceUserProfileUpdatedAt) !==
+      toComparableDateMillis(nextSnapshot.templateSourceUserProfileUpdatedAt)
+  );
+}
+
+function buildBaseProfileTemplateSyncPatch(
+  baseProfile: ProfileTemplateSyncFields,
+  seasonProfile: ProfileTemplateSyncFields,
+) {
+  const patch: Partial<ProfileTemplateSyncFields> = {};
+
+  if (baseProfile.messageToRoommate !== seasonProfile.messageToRoommate) {
+    patch.messageToRoommate = seasonProfile.messageToRoommate;
+  }
+  if (baseProfile.collegeCode !== seasonProfile.collegeCode) {
+    patch.collegeCode = seasonProfile.collegeCode;
+  }
+  if (baseProfile.grade !== seasonProfile.grade) {
+    patch.grade = seasonProfile.grade;
+  }
+  if (baseProfile.mbti !== seasonProfile.mbti) {
+    patch.mbti = seasonProfile.mbti;
+  }
+  if (baseProfile.birthYear !== seasonProfile.birthYear) {
+    patch.birthYear = seasonProfile.birthYear;
+  }
+
+  return patch;
+}
+
+function toComparableDateMillis(value: string | Date | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  return new Date(value).getTime();
 }

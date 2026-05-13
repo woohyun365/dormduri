@@ -617,7 +617,7 @@ describe('UsersService', () => {
     });
   });
 
-  it('SEASON_MATCHING 등록 사용자의 messageToRoommate는 season profile에만 반영한다', async () => {
+  it('SEASON_MATCHING 등록 사용자의 messageToRoommate는 base + season profile에 함께 반영한다', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(makeUser());
     seasonsService.getCurrentSeasonContext.mockResolvedValue({
       season: { id: 'season-1' },
@@ -661,15 +661,20 @@ describe('UsersService', () => {
         dormitorySelectionState: 'NOT_SELECTED',
       },
       {
-        messageToRoommate: '시즌 로컬 메시지',
+        messageToRoommate: '시즌 동기화 메시지',
       },
     );
 
-    expect(txUserProfileUpdate).not.toHaveBeenCalled();
+    expect(txUserProfileUpdate).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      data: {
+        messageToRoommate: '시즌 동기화 메시지',
+      },
+    });
     expect(txSeasonParticipantProfileUpdate).toHaveBeenCalledWith({
       where: { participantId: 'participant-1' },
       data: {
-        messageToRoommate: '시즌 로컬 메시지',
+        messageToRoommate: '시즌 동기화 메시지',
       },
     });
   });

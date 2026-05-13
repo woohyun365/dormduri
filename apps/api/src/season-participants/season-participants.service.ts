@@ -58,6 +58,10 @@ export class SeasonParticipantsService {
     return this.writeOwner.backfillCurrentSeasonParticipants(now);
   }
 
+  async syncCurrentSeasonProfileTemplates(now: Date): Promise<number> {
+    return this.writeOwner.syncCurrentSeasonProfileTemplates(now);
+  }
+
   selectCanonicalSelection(
     user: Pick<ParticipantBackfillSeed, 'dormitoryId' | 'dormitorySelectionState'>,
     participant: Pick<
