@@ -81,10 +81,8 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
       participantRegistered,
       participantProfileExists: hasParticipantProfile(currentParticipant),
     });
-    const canonicalSelection = deps.seasonParticipantsService.selectCanonicalSelection(
-      user,
-      currentParticipant,
-    );
+    const canonicalSelection =
+      deps.seasonParticipantsService.selectCanonicalSelection(currentParticipant);
     const canonicalProfile = user.profile
       ? deps.seasonParticipantsService.selectProfileBySource(
           user.profile,

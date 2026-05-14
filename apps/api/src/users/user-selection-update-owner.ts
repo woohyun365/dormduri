@@ -39,10 +39,6 @@ export function createUserSelectionUpdateOwner(deps: UserSelectionUpdateOwnerDep
     serviceState: Awaited<ReturnType<typeof resolveCampusServiceState>>,
     now: Date,
     selection: { state: 'UNASSIGNED' | 'ASSIGNED'; dormitoryId: string | null },
-    userUpdateData: {
-      dormitoryId?: string | null;
-      dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
-    },
     seasonParticipantUpdateData: {
       dormitoryId?: string | null;
       dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
@@ -66,10 +62,8 @@ export function createUserSelectionUpdateOwner(deps: UserSelectionUpdateOwnerDep
       throw usersErrors.dormitorySelectionRequiresParticipation();
     }
 
-    const canonicalSelection = deps.seasonParticipantsService.selectCanonicalSelection(
-      user,
-      currentParticipant,
-    );
+    const canonicalSelection =
+      deps.seasonParticipantsService.selectCanonicalSelection(currentParticipant);
 
     if (canonicalSelection.dormitorySelectionState === 'ASSIGNED') {
       throw usersErrors.dormitoryAlreadyConfirmed();
@@ -87,8 +81,6 @@ export function createUserSelectionUpdateOwner(deps: UserSelectionUpdateOwnerDep
         return;
       }
 
-      userUpdateData.dormitorySelectionState = 'UNASSIGNED';
-      userUpdateData.dormitoryId = null;
       seasonParticipantUpdateData.dormitorySelectionState = 'UNASSIGNED';
       seasonParticipantUpdateData.dormitoryId = null;
       seasonParticipantUpdateData.participantStatus = 'DRAFT';
@@ -128,8 +120,6 @@ export function createUserSelectionUpdateOwner(deps: UserSelectionUpdateOwnerDep
       throw usersErrors.invalidDormitoryForUser();
     }
 
-    userUpdateData.dormitorySelectionState = 'ASSIGNED';
-    userUpdateData.dormitoryId = dormitory.id;
     seasonParticipantUpdateData.dormitorySelectionState = 'ASSIGNED';
     seasonParticipantUpdateData.dormitoryId = dormitory.id;
     seasonParticipantUpdateData.participantStatus = 'ACTIVE';

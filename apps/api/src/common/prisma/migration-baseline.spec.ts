@@ -32,6 +32,8 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain(
       'CREATE UNIQUE INDEX "ActiveMatchUnmatchRequest_activeMatchId_participantId_pending_key"',
     );
+    expect(sql).not.toContain('CREATE INDEX "User_dormitoryId_idx"');
+    expect(sql).not.toContain('ADD CONSTRAINT "User_dormitoryId_fkey"');
   });
 
   it('updatedAt baseline은 legacy trigger 없이도 유지된다', () => {

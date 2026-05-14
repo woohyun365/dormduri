@@ -23,7 +23,7 @@ import {
 import { chatErrors } from './chat.errors.js';
 import type { ChatUserContext } from './chat-context-owner.js';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
-import type { ChatUserSeed, ThreadRecord } from './chat-selects.js';
+import type { ChatParticipantUserProjection, ThreadRecord } from './chat-selects.js';
 
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
 
@@ -122,7 +122,7 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
 
     async canSendMessageToPair(
       viewerContext: ChatUserContext,
-      targetUser: ChatUserSeed,
+      targetUser: ChatParticipantUserProjection,
       targetParticipant: CurrentSeasonParticipantRecord,
       thread: ThreadRecord | null,
       now: Date,
@@ -154,10 +154,8 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
         }
       }
 
-      const targetSelection = deps.seasonParticipantsService.selectCanonicalSelection(
-        targetUser,
-        targetParticipant,
-      );
+      const targetSelection =
+        deps.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
       const viewerPairActiveMatch = await client.activeMatch.findFirst({
         where: {
           seasonId: seasonContext.season.id,

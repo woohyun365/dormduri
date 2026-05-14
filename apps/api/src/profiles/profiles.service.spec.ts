@@ -62,8 +62,6 @@ function makeUser(overrides: UserOverride = {}): UserWithProfileRecord {
     emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
     gender: 'M',
     campus: 'CHUNCHEON',
-    dormitoryId: 'dasan',
-    dormitorySelectionState: 'ASSIGNED',
     ...userOverrides,
     profile: profileOverrides === null ? null : { ...baseProfile, ...(profileOverrides ?? {}) },
   };
@@ -221,16 +219,14 @@ describe('ProfilesService', () => {
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
-        user: Pick<UserWithProfileRecord, 'dormitoryId' | 'dormitorySelectionState'>,
         participant: Pick<
           CanonicalSelectionState,
           'dormitoryId' | 'dormitorySelectionState'
         > | null,
       ): CanonicalSelectionState => ({
-        dormitoryId: participant?.dormitoryId ?? user.dormitoryId,
-        dormitorySelectionState:
-          participant?.dormitorySelectionState ?? user.dormitorySelectionState,
-        source: participant ? 'SEASON_PARTICIPANT' : 'USER',
+        dormitoryId: participant?.dormitoryId ?? null,
+        dormitorySelectionState: participant?.dormitorySelectionState ?? 'NOT_SELECTED',
+        source: 'SEASON_PARTICIPANT',
       }),
     );
     seasonParticipantsService.selectProfileBySource.mockImplementation(
@@ -349,8 +345,6 @@ describe('ProfilesService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'peer-1',
     );
@@ -441,8 +435,6 @@ describe('ProfilesService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'peer-1',
     );
@@ -524,8 +516,6 @@ describe('ProfilesService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'peer-1',
     );
@@ -647,8 +637,6 @@ describe('ProfilesService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'peer-1',
     );
@@ -750,8 +738,6 @@ describe('ProfilesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         'peer-1',
       ),
@@ -819,8 +805,6 @@ describe('ProfilesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         'peer-1',
       ),
@@ -866,8 +850,6 @@ describe('ProfilesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         'peer-1',
       ),
@@ -917,8 +899,6 @@ describe('ProfilesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         {
           ...lifestylePayload,
@@ -991,8 +971,6 @@ describe('ProfilesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         {
           ...lifestylePayload,
@@ -1036,8 +1014,6 @@ describe('ProfilesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         lifestylePayload,
       ),
@@ -1071,8 +1047,6 @@ describe('ProfilesService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       '새닉네임',
     );

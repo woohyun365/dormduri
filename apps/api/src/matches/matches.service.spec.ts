@@ -10,8 +10,6 @@ type UserSeed = {
   emailVerifiedAt: Date | null;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  dormitoryId: string | null;
-  dormitorySelectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
   profile: {
     lifestyle: Record<string, unknown>;
   } | null;
@@ -48,8 +46,6 @@ function makeUserSeed(overrides: Partial<UserSeed> = {}): UserSeed {
     emailVerifiedAt: new Date('2026-02-01T00:00:00.000Z'),
     gender: 'M',
     campus: 'CHUNCHEON',
-    dormitoryId: 'dasan',
-    dormitorySelectionState: 'ASSIGNED',
     profile: {
       lifestyle: COMPLETE_LIFESTYLE,
     },
@@ -174,16 +170,14 @@ describe('MatchesService', () => {
     moderationService.moderatePublicText.mockResolvedValue({ ok: true });
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
-        user: Pick<UserSeed, 'dormitoryId' | 'dormitorySelectionState'>,
         participant: Pick<
           CanonicalSelectionState,
           'dormitoryId' | 'dormitorySelectionState'
         > | null,
       ): CanonicalSelectionState => ({
-        dormitoryId: participant?.dormitoryId ?? user.dormitoryId,
-        dormitorySelectionState:
-          participant?.dormitorySelectionState ?? user.dormitorySelectionState,
-        source: participant ? 'SEASON_PARTICIPANT' : 'USER',
+        dormitoryId: participant?.dormitoryId ?? null,
+        dormitorySelectionState: participant?.dormitorySelectionState ?? 'NOT_SELECTED',
+        source: 'SEASON_PARTICIPANT',
       }),
     );
     prisma.user.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
@@ -416,8 +410,6 @@ describe('MatchesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         { targetUserId: 'user-2', note: '안녕하세요', channel: 'PROFILE_DETAIL' },
       ),
@@ -435,8 +427,6 @@ describe('MatchesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         { targetUserId: 'user-2', note: '안녕하세요', channel: 'PROFILE_DETAIL' },
       ),
@@ -457,8 +447,6 @@ describe('MatchesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         { targetUserId: 'user-2', note: null, channel: 'PROFILE_DETAIL' },
       ),
@@ -476,8 +464,6 @@ describe('MatchesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         { targetUserId: 'user-2', note: null, channel: 'PROFILE_DETAIL' },
       ),
@@ -492,8 +478,6 @@ describe('MatchesService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       { targetUserId: 'user-2', note: '안녕하세요', channel: 'PROFILE_DETAIL' },
     );
@@ -524,8 +508,6 @@ describe('MatchesService', () => {
         id: 'user-2',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'request-1',
     );
@@ -592,8 +574,6 @@ describe('MatchesService', () => {
         id: 'user-2',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'request-1',
     );
@@ -609,8 +589,6 @@ describe('MatchesService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'request-1',
     );
@@ -689,8 +667,6 @@ describe('MatchesService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'active-1',
     );
@@ -800,8 +776,6 @@ describe('MatchesService', () => {
         id: 'user-2',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'active-1',
     );
@@ -913,8 +887,6 @@ describe('MatchesService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'active-1',
     );
@@ -961,8 +933,6 @@ describe('MatchesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         'active-1',
       ),
@@ -1005,8 +975,6 @@ describe('MatchesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         'active-1',
       ),
@@ -1030,8 +998,6 @@ describe('MatchesService', () => {
           id: 'user-3',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         'active-1',
       ),
@@ -1064,8 +1030,6 @@ describe('MatchesService', () => {
           id: 'user-2',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         'request-1',
       ),
@@ -1084,8 +1048,6 @@ describe('MatchesService', () => {
           id: 'user-2',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         'request-1',
       ),
@@ -1107,8 +1069,6 @@ describe('MatchesService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         { targetUserId: 'user-2', note: null, channel: 'PROFILE_DETAIL' },
       ),
@@ -1319,8 +1279,6 @@ describe('MatchesService', () => {
       id: 'user-1',
       gender: 'M',
       campus: 'CHUNCHEON',
-      dormitoryId: 'dasan',
-      dormitorySelectionState: 'ASSIGNED',
     });
 
     expect(result.activeMatch).toMatchObject({

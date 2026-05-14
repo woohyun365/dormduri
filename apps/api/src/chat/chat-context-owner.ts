@@ -4,10 +4,10 @@ import type { CurrentSeasonParticipantRecord } from '../season-participants/seas
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { chatErrors } from './chat.errors.js';
-import type { ChatUserSeed } from './chat-selects.js';
+import type { ChatParticipantUserProjection } from './chat-selects.js';
 
 export interface ChatUserContext {
-  user: ChatUserSeed;
+  user: ChatParticipantUserProjection;
   seasonContext: Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>;
   participant: CurrentSeasonParticipantRecord | null;
   selection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>;
@@ -21,7 +21,7 @@ interface ChatContextOwnerDeps {
 
 export function createChatContextOwner(deps: ChatContextOwnerDeps) {
   return {
-    async getUserSeed(userId: string): Promise<ChatUserSeed | null> {
+    async getChatUserProjection(userId: string): Promise<ChatParticipantUserProjection | null> {
       return deps.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -29,8 +29,6 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
           emailVerifiedAt: true,
           gender: true,
           campus: true,
-          dormitoryId: true,
-          dormitorySelectionState: true,
           profile: {
             select: lifestyleColumnSelect,
           },
@@ -39,7 +37,7 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
     },
 
     async getCurrentChatContext(userId: string, now: Date): Promise<ChatUserContext | null> {
-      const user = await this.getUserSeed(userId);
+      const user = await this.getChatUserProjection(userId);
       if (!user) {
         throw new Error('[ChatService] authenticated user not found');
       }
@@ -48,7 +46,7 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
       const participant = user.emailVerifiedAt
         ? await deps.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now)
         : null;
-      const selection = deps.seasonParticipantsService.selectCanonicalSelection(user, participant);
+      const selection = deps.seasonParticipantsService.selectCanonicalSelection(participant);
 
       return {
         user,
@@ -60,9 +58,9 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
 
     async getValidatedTargetUser(
       targetUserId: string,
-      viewerUser: ChatUserSeed,
-    ): Promise<ChatUserSeed> {
-      const targetUser = await this.getUserSeed(targetUserId);
+      viewerUser: ChatParticipantUserProjection,
+    ): Promise<ChatParticipantUserProjection> {
+      const targetUser = await this.getChatUserProjection(targetUserId);
       if (!targetUser || targetUser.id === viewerUser.id) {
         throw chatErrors.threadTargetNotFound();
       }
@@ -74,7 +72,7 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
     },
 
     async getRequiredParticipant(
-      targetUser: ChatUserSeed,
+      targetUser: ChatParticipantUserProjection,
       now: Date,
     ): Promise<CurrentSeasonParticipantRecord> {
       const participant =

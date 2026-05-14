@@ -34,8 +34,6 @@ export function buildUserWithProfileSelect(seasonId: string | null) {
     emailVerifiedAt: true,
     gender: true,
     campus: true,
-    dormitoryId: true,
-    dormitorySelectionState: true,
     seasonParticipants: seasonId
       ? {
           where: { seasonId },
@@ -55,8 +53,6 @@ export interface UserWithProfileQueryRecord {
   emailVerifiedAt: Date | null;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  dormitoryId: string | null;
-  dormitorySelectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
   profile:
     | (UserProfileColumns & {
         userId: string;
@@ -89,8 +85,6 @@ export function mapUserWithParticipantProjection(
     emailVerifiedAt: user.emailVerifiedAt,
     gender: user.gender,
     campus: user.campus,
-    dormitoryId: user.dormitoryId,
-    dormitorySelectionState: user.dormitorySelectionState,
     profile: user.profile ? mapUserProfileRecordFromColumns(user.profile) : null,
     seasonParticipants: user.seasonParticipants?.map((participant) =>
       mapCurrentSeasonParticipantRecord(

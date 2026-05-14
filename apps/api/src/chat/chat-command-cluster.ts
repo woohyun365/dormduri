@@ -8,7 +8,7 @@ import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { buildParticipantPairIdentity } from '../matches/match.utils.js';
 import type { ChatUserContext } from './chat-context-owner.js';
 import { chatErrors } from './chat.errors.js';
-import type { ChatUserSeed, ThreadRecord } from './chat-selects.js';
+import type { ChatParticipantUserProjection, ThreadRecord } from './chat-selects.js';
 import { threadSelect } from './chat-selects.js';
 import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
 
@@ -25,9 +25,12 @@ interface ChatCommandClusterDeps {
   getDatabaseNow(): Promise<Date>;
   runSerializableTransaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T>;
   getCurrentChatContext(userId: string, now: Date): Promise<ChatUserContext | null>;
-  getValidatedTargetUser(targetUserId: string, viewerUser: ChatUserSeed): Promise<ChatUserSeed>;
+  getValidatedTargetUser(
+    targetUserId: string,
+    viewerUser: ChatParticipantUserProjection,
+  ): Promise<ChatParticipantUserProjection>;
   getRequiredParticipant(
-    targetUser: ChatUserSeed,
+    targetUser: ChatParticipantUserProjection,
     now: Date,
   ): Promise<CurrentSeasonParticipantRecord>;
   findThreadByPair(
@@ -43,7 +46,7 @@ interface ChatCommandClusterDeps {
   ): Promise<ThreadRecord>;
   canSendMessageToPair(
     viewerContext: ChatUserContext,
-    targetUser: ChatUserSeed,
+    targetUser: ChatParticipantUserProjection,
     targetParticipant: CurrentSeasonParticipantRecord,
     thread: ThreadRecord | null,
     now: Date,

@@ -1,6 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
-import type { DormitorySelectionState } from '../generated/prisma/enums.js';
-import type { ParticipantBackfillSeed } from '../season-participants/season-participants.service.js';
+import type { SeasonParticipantEnsureInput } from '../season-participants/season-participants.service.js';
 
 export const threadSelect = {
   id: true,
@@ -89,10 +88,9 @@ export const threadSelect = {
 
 export type ThreadRecord = Prisma.ConversationThreadGetPayload<{ select: typeof threadSelect }>;
 
-export type ChatUserSeed = ParticipantBackfillSeed & {
+export type ChatParticipantUserProjection = SeasonParticipantEnsureInput & {
   id: string;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  dormitorySelectionState: DormitorySelectionState;
   profile: Record<string, unknown> | null;
 };

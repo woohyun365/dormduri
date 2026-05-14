@@ -9,14 +9,12 @@ import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantProfileRecord,
   CurrentSeasonParticipantRecord,
-  ParticipantBackfillSeed,
   UserProfileRecord,
 } from './season-participant-records.js';
 
 export function createSeasonParticipantSourceOwner() {
   return {
     selectCanonicalSelection(
-      user: Pick<ParticipantBackfillSeed, 'dormitoryId' | 'dormitorySelectionState'>,
       participant: Pick<
         CurrentSeasonParticipantRecord,
         | 'dormitoryId'
@@ -29,9 +27,9 @@ export function createSeasonParticipantSourceOwner() {
     ): CanonicalSelectionState {
       if (!participant) {
         return {
-          dormitoryId: user.dormitoryId,
-          dormitorySelectionState: user.dormitorySelectionState,
-          source: 'USER',
+          dormitoryId: null,
+          dormitorySelectionState: 'NOT_SELECTED',
+          source: 'SEASON_PARTICIPANT',
         };
       }
 

@@ -78,10 +78,8 @@ export class CurrentUserViewService {
           )
         : null;
     const participantRegistered = isParticipantRegistered(currentParticipant);
-    const canonicalSelection = this.seasonParticipantsService.selectCanonicalSelection(
-      user,
-      currentParticipant,
-    );
+    const canonicalSelection =
+      this.seasonParticipantsService.selectCanonicalSelection(currentParticipant);
     const profileSource = resolveCurrentUserProfileSource({
       campusOperated: serviceState.campusOperated,
       seasonState: serviceState.seasonState,

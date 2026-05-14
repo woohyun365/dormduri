@@ -85,10 +85,8 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     );
     const viewerParticipant =
       await deps.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(viewer, now);
-    const viewerSelection = deps.seasonParticipantsService.selectCanonicalSelection(
-      viewer,
-      viewerParticipant,
-    );
+    const viewerSelection =
+      deps.seasonParticipantsService.selectCanonicalSelection(viewerParticipant);
     const operatedDormitoryIds = new Set(
       serviceState.seasonContext?.operatedDormitories.map((item) => item.dormitoryId) ?? [],
     );
@@ -152,10 +150,8 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     const targetParticipant = deps.seasonParticipantsService.pickCurrentSeasonParticipant(
       user.seasonParticipants,
     );
-    const targetSelection = deps.seasonParticipantsService.selectCanonicalSelection(
-      user,
-      targetParticipant,
-    );
+    const targetSelection =
+      deps.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
     const targetActiveMatch = targetParticipant
       ? (activeMatchMap.get(targetParticipant.id) ?? null)
       : null;

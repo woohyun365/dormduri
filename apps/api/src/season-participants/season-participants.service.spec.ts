@@ -137,8 +137,6 @@ describe('SeasonParticipantsService', () => {
         emailVerifiedAt: now,
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       now,
     );
@@ -271,13 +269,7 @@ describe('SeasonParticipantsService', () => {
         intro: '기본 소개',
       },
     });
-    expect(txUserUpdate).toHaveBeenCalledWith({
-      where: { id: 'user-1' },
-      data: {
-        dormitorySelectionState: 'UNASSIGNED',
-        dormitoryId: null,
-      },
-    });
+    expect(txUserUpdate).not.toHaveBeenCalled();
     expect(result.participationIntent).toBe('REGISTERED');
     expect(result.dormitorySelectionState).toBe('UNASSIGNED');
   });

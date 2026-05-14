@@ -86,18 +86,7 @@ describe('RoommateSearchService integration', () => {
     });
   }
 
-  async function moveUserToDormitory(input: {
-    userId: string;
-    participantId: string;
-    dormitoryId: string;
-  }) {
-    await prisma.user.update({
-      where: { id: input.userId },
-      data: {
-        dormitoryId: input.dormitoryId,
-        dormitorySelectionState: 'ASSIGNED',
-      },
-    });
+  async function moveUserToDormitory(input: { participantId: string; dormitoryId: string }) {
     await prisma.seasonParticipant.update({
       where: { id: input.participantId },
       data: {
@@ -131,13 +120,6 @@ describe('RoommateSearchService integration', () => {
         participationIntent: 'UNDECIDED',
         registeredAt: null,
         participantStatus: 'NOT_STARTED',
-        dormitoryId: null,
-        dormitorySelectionState: 'NOT_SELECTED',
-      },
-    });
-    await prisma.user.update({
-      where: { id: 'user-a' },
-      data: {
         dormitoryId: null,
         dormitorySelectionState: 'NOT_SELECTED',
       },
@@ -202,7 +184,6 @@ describe('RoommateSearchService integration', () => {
   it('SEASON_OPEN 등록+배정 사용자는 merged와 same-building scope를 모두 사용할 수 있다', async () => {
     await seedSecondDormitory();
     await moveUserToDormitory({
-      userId: 'user-c',
       participantId: 'participant-c',
       dormitoryId: 'saerom',
     });
@@ -238,7 +219,6 @@ describe('RoommateSearchService integration', () => {
   it('SEASON_OPEN merged에서 lifestyle filter는 FULL 후보만 남기고 LIMITED 후보를 제외한다', async () => {
     await seedSecondDormitory();
     await moveUserToDormitory({
-      userId: 'user-c',
       participantId: 'participant-c',
       dormitoryId: 'saerom',
     });

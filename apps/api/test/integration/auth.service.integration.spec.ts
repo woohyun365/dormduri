@@ -125,7 +125,6 @@ describe('AuthService integration', () => {
         passwordHash: currentPasswordHash,
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitorySelectionState: 'NOT_SELECTED',
         emailVerifiedAt: databaseNow,
       },
     });

@@ -1,23 +1,21 @@
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
-import type { DormitorySelectionState } from '../generated/prisma/enums.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import type {
   CurrentSeasonParticipantRecord,
-  ParticipantBackfillSeed,
+  SeasonParticipantEnsureInput,
 } from '../season-participants/season-participants.service.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 
-export interface MatchUserSeed extends ParticipantBackfillSeed {
+export interface MatchParticipantUserProjection extends SeasonParticipantEnsureInput {
   id: string;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  dormitorySelectionState: DormitorySelectionState;
   profile: Record<string, unknown> | null;
 }
 
 export interface MatchUserContext {
-  user: MatchUserSeed;
+  user: MatchParticipantUserProjection;
   seasonContext: Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>;
   participant: CurrentSeasonParticipantRecord | null;
   selection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>;
@@ -34,7 +32,7 @@ interface MatchContextOwnerDeps {
 export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
   return {
     async getCurrentMatchContext(userId: string, now: Date): Promise<MatchUserContext | null> {
-      const user = await this.getUserSeed(userId);
+      const user = await this.getMatchUserProjection(userId);
       if (!user) {
         throw new Error('[MatchesService] authenticated user not found');
       }
@@ -43,7 +41,7 @@ export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
       const participant = user.emailVerifiedAt
         ? await deps.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now)
         : null;
-      const selection = deps.seasonParticipantsService.selectCanonicalSelection(user, participant);
+      const selection = deps.seasonParticipantsService.selectCanonicalSelection(participant);
 
       return {
         user,
@@ -53,7 +51,7 @@ export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
       };
     },
 
-    async getUserSeed(userId: string): Promise<MatchUserSeed | null> {
+    async getMatchUserProjection(userId: string): Promise<MatchParticipantUserProjection | null> {
       return deps.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -61,8 +59,6 @@ export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
           emailVerifiedAt: true,
           gender: true,
           campus: true,
-          dormitoryId: true,
-          dormitorySelectionState: true,
           profile: {
             select: lifestyleColumnSelect,
           },
@@ -72,9 +68,9 @@ export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
 
     async getValidatedTargetUserForMatchRequest(
       targetUserId: string,
-      requesterUser: MatchUserSeed,
-    ): Promise<MatchUserSeed> {
-      const targetUser = await this.getUserSeed(targetUserId);
+      requesterUser: MatchParticipantUserProjection,
+    ): Promise<MatchParticipantUserProjection> {
+      const targetUser = await this.getMatchUserProjection(targetUserId);
       if (!targetUser) {
         throw deps.requestTargetNotFound();
       }

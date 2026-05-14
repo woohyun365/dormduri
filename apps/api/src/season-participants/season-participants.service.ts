@@ -8,20 +8,20 @@ import type { ProfileSource } from '@repo/shared/profile-contract';
 import type {
   CurrentSeasonParticipantProfileRecord,
   CurrentSeasonParticipantRecord,
-  ParticipantBackfillSeed,
-  ParticipantBackfillResult,
+  SeasonParticipantEnsureInput,
+  SeasonParticipantBackfillResult,
   CanonicalSelectionState,
   CanonicalProfileSource,
   UserProfileRecord,
 } from './season-participant-records.js';
 
 export type {
-  ParticipantBackfillSeed,
+  SeasonParticipantEnsureInput,
   CurrentSeasonParticipantProfileRecord,
   CurrentSeasonParticipantRecord,
   CanonicalSelectionState,
   CanonicalProfileSource,
-  ParticipantBackfillResult,
+  SeasonParticipantBackfillResult,
 };
 
 @Injectable()
@@ -40,7 +40,7 @@ export class SeasonParticipantsService {
   }
 
   async ensureCurrentSeasonParticipantForUser(
-    user: ParticipantBackfillSeed,
+    user: SeasonParticipantEnsureInput,
     now: Date,
     tx?: Prisma.TransactionClient,
   ): Promise<CurrentSeasonParticipantRecord | null> {
@@ -54,7 +54,7 @@ export class SeasonParticipantsService {
     return this.writeOwner.registerCurrentSeasonParticipation(userId, now);
   }
 
-  async backfillCurrentSeasonParticipants(now: Date): Promise<ParticipantBackfillResult[]> {
+  async backfillCurrentSeasonParticipants(now: Date): Promise<SeasonParticipantBackfillResult[]> {
     return this.writeOwner.backfillCurrentSeasonParticipants(now);
   }
 
@@ -63,7 +63,6 @@ export class SeasonParticipantsService {
   }
 
   selectCanonicalSelection(
-    user: Pick<ParticipantBackfillSeed, 'dormitoryId' | 'dormitorySelectionState'>,
     participant: Pick<
       CurrentSeasonParticipantRecord,
       | 'dormitoryId'
@@ -74,7 +73,7 @@ export class SeasonParticipantsService {
       | 'participantStatus'
     > | null,
   ): CanonicalSelectionState {
-    return this.sourceOwner.selectCanonicalSelection(user, participant);
+    return this.sourceOwner.selectCanonicalSelection(participant);
   }
 
   selectCanonicalProfile(

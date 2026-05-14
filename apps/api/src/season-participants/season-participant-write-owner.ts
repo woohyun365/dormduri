@@ -20,8 +20,8 @@ import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
-  type ParticipantBackfillResult,
-  type ParticipantBackfillSeed,
+  type SeasonParticipantBackfillResult,
+  type SeasonParticipantEnsureInput,
   type UserWithProfileRecord,
   type VerifiedUserWithProfile,
 } from './season-participant-records.js';
@@ -51,15 +51,15 @@ const seasonParticipantTemplateSyncFieldSelect = {
 
 export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOwnerDeps) {
   function buildParticipantCreateData(
-    user: ParticipantBackfillSeed,
+    user: SeasonParticipantEnsureInput,
     seasonId: string,
     now: Date,
   ): Prisma.SeasonParticipantCreateManyInput {
     return {
       seasonId,
       userId: user.id,
-      dormitoryId: user.dormitoryId,
-      dormitorySelectionState: user.dormitorySelectionState,
+      dormitoryId: null,
+      dormitorySelectionState: 'NOT_SELECTED',
       participationIntent: 'UNDECIDED',
       participantStatus: 'NOT_STARTED',
       campusCodeSnapshot: user.campus,
@@ -96,8 +96,6 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
         emailVerifiedAt: true,
         gender: true,
         campus: true,
-        dormitoryId: true,
-        dormitorySelectionState: true,
         profile: {
           select: {
             userId: true,
@@ -136,7 +134,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
   }
 
   async function ensureCurrentSeasonParticipantForUser(
-    user: ParticipantBackfillSeed,
+    user: SeasonParticipantEnsureInput,
     now: Date,
     tx?: Prisma.TransactionClient,
   ): Promise<CurrentSeasonParticipantRecord | null> {
@@ -234,19 +232,6 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
           'SEASON_REGISTRATION',
         );
       }
-
-      if (
-        user.dormitorySelectionState !== normalizedSelection.dormitorySelectionState ||
-        user.dormitoryId !== normalizedSelection.dormitoryId
-      ) {
-        await tx.user.update({
-          where: { id: user.id },
-          data: {
-            dormitorySelectionState: normalizedSelection.dormitorySelectionState,
-            dormitoryId: normalizedSelection.dormitoryId,
-          },
-        });
-      }
     });
 
     const refreshed = await deps.prisma.seasonParticipant.findUnique({
@@ -263,14 +248,14 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
 
   async function backfillCurrentSeasonParticipants(
     now: Date,
-  ): Promise<ParticipantBackfillResult[]> {
+  ): Promise<SeasonParticipantBackfillResult[]> {
     const operatedCampuses = await deps.prisma.campusMaster.findMany({
       where: { isOperated: true },
       select: { code: true },
       orderBy: { code: 'asc' },
     });
 
-    const results: ParticipantBackfillResult[] = [];
+    const results: SeasonParticipantBackfillResult[] = [];
 
     for (const campus of operatedCampuses) {
       const seasonContext = await deps.seasonsService.getCurrentSeasonContext(campus.code, now);
@@ -288,8 +273,6 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
           emailVerifiedAt: true,
           gender: true,
           campus: true,
-          dormitoryId: true,
-          dormitorySelectionState: true,
         },
         orderBy: { id: 'asc' },
       });

@@ -15,7 +15,7 @@ import {
 } from '../season-participants/season-participant-gate-context.js';
 import { matchesErrors } from './matches.errors.js';
 import { buildParticipantPairIdentity } from './match.utils.js';
-import type { MatchUserContext, MatchUserSeed } from './match-context-owner.js';
+import type { MatchUserContext, MatchParticipantUserProjection } from './match-context-owner.js';
 import type { ActiveMatchSummary } from '@repo/shared/match-contract';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 
@@ -33,8 +33,8 @@ interface MatchRequestPreparationDeps {
   getCurrentMatchContext(userId: string, now: Date): Promise<MatchUserContext | null>;
   getValidatedTargetUserForMatchRequest(
     targetUserId: string,
-    requesterUser: MatchUserSeed,
-  ): Promise<MatchUserSeed>;
+    requesterUser: MatchParticipantUserProjection,
+  ): Promise<MatchParticipantUserProjection>;
   findRoomSelectionDate(
     seasonContext: NonNullable<MatchUserContext['seasonContext']>,
     dormitoryId: string | null,
@@ -86,10 +86,8 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
         throw matchesErrors.requestTargetNotFound();
       }
 
-      const targetSelection = deps.seasonParticipantsService.selectCanonicalSelection(
-        targetUser,
-        targetParticipant,
-      );
+      const targetSelection =
+        deps.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
       const activeMatchMap = await deps.getLiveActiveMatchMapForParticipantIds(
         requesterContext.seasonContext.season.id,
         [requesterContext.participant.id, targetParticipant.id],

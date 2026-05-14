@@ -370,7 +370,6 @@ model Dormitory {
   guide              DormitoryGuide?
   seasonOperations   SeasonDormitoryOperation[]
   seasonParticipants SeasonParticipant[]
-  users              User[]
 
   @@index([campusCode, genderPolicy, sortOrder])
 }
@@ -436,18 +435,13 @@ model User {
   passwordHash            String
   gender                  Gender
   campus                  Campus
-  dormitoryId             String?
-  dormitorySelectionState DormitorySelectionState @default(NOT_SELECTED)
   emailVerifiedAt         DateTime?               @db.Timestamptz(3)
   createdAt               DateTime                @default(now()) @db.Timestamptz(3)
   updatedAt               DateTime                @default(now()) @updatedAt @db.Timestamptz(3)
-  dormitory               Dormitory?              @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
   authSessions            AuthSession[]
   profile                 UserProfile?
   seasonParticipants      SeasonParticipant[]
 
-  @@index([campus, dormitorySelectionState])
-  @@index([dormitoryId])
 }
 
 model UserProfile {

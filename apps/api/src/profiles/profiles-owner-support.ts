@@ -29,8 +29,6 @@ export async function getUserWithProfile(
     emailVerifiedAt: mapped.emailVerifiedAt,
     gender: mapped.gender,
     campus: mapped.campus,
-    dormitoryId: mapped.dormitoryId,
-    dormitorySelectionState: mapped.dormitorySelectionState,
     profile: mapped.profile,
   };
 }

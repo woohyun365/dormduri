@@ -59,8 +59,6 @@ function makeUser(overrides: UserOverride = {}): UserWithProfileRecord {
     emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
     gender: 'M',
     campus: 'CHUNCHEON',
-    dormitoryId: null,
-    dormitorySelectionState: 'NOT_SELECTED',
     ...userOverrides,
     profile: profileOverrides === null ? null : { ...baseProfile, ...(profileOverrides ?? {}) },
   };
@@ -186,16 +184,14 @@ describe('UsersService', () => {
     matchesService.getCurrentActiveMatchSummaryForParticipant.mockResolvedValue(null);
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
-        user: Pick<UserWithProfileRecord, 'dormitoryId' | 'dormitorySelectionState'>,
         participant: Pick<
           CanonicalSelectionState,
           'dormitoryId' | 'dormitorySelectionState'
         > | null,
       ): CanonicalSelectionState => ({
-        dormitoryId: participant?.dormitoryId ?? user.dormitoryId,
-        dormitorySelectionState:
-          participant?.dormitorySelectionState ?? user.dormitorySelectionState,
-        source: participant ? 'SEASON_PARTICIPANT' : 'USER',
+        dormitoryId: participant?.dormitoryId ?? null,
+        dormitorySelectionState: participant?.dormitorySelectionState ?? 'NOT_SELECTED',
+        source: 'SEASON_PARTICIPANT',
       }),
     );
     seasonParticipantsService.selectProfileBySource.mockImplementation(
@@ -257,8 +253,6 @@ describe('UsersService', () => {
       id: 'user-1',
       gender: 'M',
       campus: 'CHUNCHEON',
-      dormitoryId: null,
-      dormitorySelectionState: 'NOT_SELECTED',
     });
 
     expect(result.serviceState).toEqual({
@@ -278,9 +272,7 @@ describe('UsersService', () => {
   });
 
   it('SEASON_OPEN 등록+배정 사용자는 시즌 프로필을 현재 source로 사용하고 채팅만 열린다', async () => {
-    prisma.user.findUnique.mockResolvedValue(
-      makeUser({ dormitoryId: 'dasan', dormitorySelectionState: 'ASSIGNED' }),
-    );
+    prisma.user.findUnique.mockResolvedValue(makeUser());
     seasonsService.getCurrentSeasonContext.mockResolvedValue({
       season: { id: 'season-1' },
       state: 'SEASON_OPEN',
@@ -320,8 +312,6 @@ describe('UsersService', () => {
       id: 'user-1',
       gender: 'M',
       campus: 'CHUNCHEON',
-      dormitoryId: 'dasan',
-      dormitorySelectionState: 'ASSIGNED',
     });
 
     expect(result.profile.source).toBe('SEASON_PARTICIPANT_PROFILE');
@@ -384,8 +374,6 @@ describe('UsersService', () => {
       id: 'user-1',
       gender: 'M',
       campus: 'CHUNCHEON',
-      dormitoryId: null,
-      dormitorySelectionState: 'NOT_SELECTED',
     });
 
     expect(result.selection).toEqual({
@@ -406,9 +394,7 @@ describe('UsersService', () => {
   });
 
   it('live ActiveMatch가 없으면 stale MATCHED participantStatus만으로 현재 매칭 상태를 잠그지 않는다', async () => {
-    prisma.user.findUnique.mockResolvedValue(
-      makeUser({ dormitoryId: 'dasan', dormitorySelectionState: 'ASSIGNED' }),
-    );
+    prisma.user.findUnique.mockResolvedValue(makeUser());
     seasonsService.getCurrentSeasonContext.mockResolvedValue({
       season: { id: 'season-1' },
       state: 'SEASON_MATCHING',
@@ -450,8 +436,6 @@ describe('UsersService', () => {
       id: 'user-1',
       gender: 'M',
       campus: 'CHUNCHEON',
-      dormitoryId: 'dasan',
-      dormitorySelectionState: 'ASSIGNED',
     });
 
     expect(result.match.activeMatch).toBeNull();
@@ -484,8 +468,6 @@ describe('UsersService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: null,
-          dormitorySelectionState: 'NOT_SELECTED',
         },
         {
           selection: {
@@ -529,8 +511,6 @@ describe('UsersService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: null,
-          dormitorySelectionState: 'NOT_SELECTED',
         },
         { intro: '새 소개' },
       ),
@@ -593,8 +573,6 @@ describe('UsersService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: null,
-        dormitorySelectionState: 'NOT_SELECTED',
       },
       {
         additional: {
@@ -657,8 +635,6 @@ describe('UsersService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: null,
-        dormitorySelectionState: 'NOT_SELECTED',
       },
       {
         messageToRoommate: '시즌 동기화 메시지',
@@ -741,8 +717,6 @@ describe('UsersService', () => {
       id: 'user-1',
       gender: 'M',
       campus: 'CHUNCHEON',
-      dormitoryId: 'dasan',
-      dormitorySelectionState: 'ASSIGNED',
     });
 
     expect(result.profile.source).toBe('SEASON_PARTICIPANT_PROFILE');
@@ -810,8 +784,6 @@ describe('UsersService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         {
           messageToRoommate: '수정 시도',

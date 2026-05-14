@@ -644,7 +644,6 @@ describe('Profile history integration', () => {
         passwordHash: 'integration-password-hash',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitorySelectionState: 'NOT_SELECTED',
         emailVerifiedAt: verifiedAt,
       },
     });
@@ -683,8 +682,6 @@ describe('Profile history integration', () => {
         id: true,
         gender: true,
         campus: true,
-        dormitoryId: true,
-        dormitorySelectionState: true,
       },
     });
   }

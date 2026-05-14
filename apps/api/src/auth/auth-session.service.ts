@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { Campus, DormitorySelectionState, Gender } from '../generated/prisma/enums.js';
+import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { getCurrentSessionUserId } from '../generated/prisma/sql.js';
 import {
@@ -21,8 +21,6 @@ export interface AuthenticatedUserContext {
   id: string;
   gender: Gender;
   campus: Campus;
-  dormitoryId: string | null;
-  dormitorySelectionState: DormitorySelectionState;
 }
 
 @Injectable()
@@ -53,8 +51,6 @@ export class AuthSessionService {
         id: true,
         gender: true,
         campus: true,
-        dormitoryId: true,
-        dormitorySelectionState: true,
       },
     });
   }

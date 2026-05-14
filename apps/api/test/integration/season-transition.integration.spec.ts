@@ -617,8 +617,6 @@ describe('Season transition integration', () => {
         passwordHash: 'integration-password-hash',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
         emailVerifiedAt: databaseNow,
       },
     });

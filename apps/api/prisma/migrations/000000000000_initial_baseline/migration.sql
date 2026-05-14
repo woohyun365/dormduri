@@ -253,8 +253,6 @@ CREATE TABLE "User" (
     "passwordHash" TEXT NOT NULL,
     "gender" "Gender" NOT NULL,
     "campus" "Campus" NOT NULL,
-    "dormitoryId" TEXT,
-    "dormitorySelectionState" "DormitorySelectionState" NOT NULL DEFAULT 'NOT_SELECTED',
     "emailVerifiedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -711,12 +709,6 @@ CREATE INDEX "SeasonDormitoryOperation_dormitoryId_roomSelectionDate_idx" ON "Se
 CREATE UNIQUE INDEX "User_emailNormalized_key" ON "User"("emailNormalized");
 
 -- CreateIndex
-CREATE INDEX "User_campus_dormitorySelectionState_idx" ON "User"("campus", "dormitorySelectionState");
-
--- CreateIndex
-CREATE INDEX "User_dormitoryId_idx" ON "User"("dormitoryId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "UserProfile_nicknameNormalized_key" ON "UserProfile"("nicknameNormalized");
 
 -- CreateIndex
@@ -912,9 +904,6 @@ ALTER TABLE "SeasonDormitoryOperation" ADD CONSTRAINT "SeasonDormitoryOperation_
 
 -- AddForeignKey
 ALTER TABLE "SeasonDormitoryOperation" ADD CONSTRAINT "SeasonDormitoryOperation_dormitoryId_fkey" FOREIGN KEY ("dormitoryId") REFERENCES "Dormitory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "User" ADD CONSTRAINT "User_dormitoryId_fkey" FOREIGN KEY ("dormitoryId") REFERENCES "Dormitory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserProfile" ADD CONSTRAINT "UserProfile_collegeCode_fkey" FOREIGN KEY ("collegeCode") REFERENCES "CollegeMaster"("code") ON DELETE SET NULL ON UPDATE CASCADE;

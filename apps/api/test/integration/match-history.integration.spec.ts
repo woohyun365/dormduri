@@ -109,8 +109,6 @@ describe('Match history integration', () => {
         passwordHash: 'integration-password-hash',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
         emailVerifiedAt: new Date('2025-01-01T00:00:00.000Z'),
       },
     });

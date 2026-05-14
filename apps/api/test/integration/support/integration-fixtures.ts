@@ -98,8 +98,6 @@ export async function seedRegisteredAssignedParticipant(
       passwordHash: 'integration-password-hash',
       gender: 'M',
       campus: 'CHUNCHEON',
-      dormitoryId: 'dasan',
-      dormitorySelectionState: 'ASSIGNED',
       emailVerifiedAt: verifiedAt,
     },
   });
@@ -242,7 +240,5 @@ export function authContext(userId: string) {
     id: userId,
     gender: 'M' as const,
     campus: 'CHUNCHEON' as const,
-    dormitoryId: 'dasan',
-    dormitorySelectionState: 'ASSIGNED' as const,
   };
 }

@@ -116,10 +116,6 @@ describe('timestamp field integration', () => {
       nickname: '유저B',
     });
 
-    await prisma.user.update({
-      where: { id: 'user-a' },
-      data: { dormitoryId: null, dormitorySelectionState: 'NOT_SELECTED' },
-    });
     await prisma.seasonParticipant.update({
       where: { id: 'participant-a' },
       data: {

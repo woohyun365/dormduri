@@ -48,13 +48,6 @@ describe('UsersService integration', () => {
       nickname: '유저A',
     });
 
-    await prisma.user.update({
-      where: { id: 'user-a' },
-      data: {
-        dormitoryId: null,
-        dormitorySelectionState: 'NOT_SELECTED',
-      },
-    });
     await prisma.seasonParticipant.update({
       where: { id: 'participant-a' },
       data: {
@@ -73,7 +66,7 @@ describe('UsersService integration', () => {
     expect(currentUser.profile.lifestyle.drinkingTolerance).toBe('LOW_ONLY');
   });
 
-  it('selection ASSIGNED update는 User와 SeasonParticipant를 함께 ACTIVE 상태로 맞춘다', async () => {
+  it('selection ASSIGNED update는 SeasonParticipant를 ACTIVE 상태로 맞춘다', async () => {
     await service.updateCurrentUser(authContext('user-a'), {
       selection: {
         state: 'ASSIGNED',
@@ -81,15 +74,10 @@ describe('UsersService integration', () => {
       },
     });
 
-    const user = await prisma.user.findUnique({ where: { id: 'user-a' } });
     const participant = await prisma.seasonParticipant.findUnique({
       where: { id: 'participant-a' },
     });
 
-    expect(user).toMatchObject({
-      dormitoryId: 'dasan',
-      dormitorySelectionState: 'ASSIGNED',
-    });
     expect(participant).toMatchObject({
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',

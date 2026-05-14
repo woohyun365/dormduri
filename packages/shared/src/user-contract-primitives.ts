@@ -10,7 +10,7 @@ export const authenticatedSessionUserSchema = z.strictObject({
 });
 
 export const participationIntentSchema = z.enum(['UNDECIDED', 'REGISTERED', 'DECLINED']);
-export const selectionSourceSchema = z.enum(['USER', 'SEASON_PARTICIPANT']);
+export const selectionSourceSchema = z.literal('SEASON_PARTICIPANT');
 
 export type AuthenticatedSessionUser = z.infer<typeof authenticatedSessionUserSchema>;
 export type ParticipationIntent = z.infer<typeof participationIntentSchema>;

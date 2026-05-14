@@ -78,8 +78,6 @@ export interface UserWithProfileRecord {
   emailVerifiedAt: Date | null;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  dormitoryId: string | null;
-  dormitorySelectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
   profile: UserProfileRecord | null;
 }
 

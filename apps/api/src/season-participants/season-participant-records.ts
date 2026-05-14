@@ -62,13 +62,11 @@ export const currentSeasonParticipantSelect = {
   },
 } as const;
 
-export interface ParticipantBackfillSeed {
+export interface SeasonParticipantEnsureInput {
   id: string;
   emailVerifiedAt: Date | null;
   gender: Gender;
   campus: Campus;
-  dormitoryId: string | null;
-  dormitorySelectionState: DormitorySelectionState;
 }
 
 export interface CurrentSeasonParticipantProfileRecord {
@@ -116,14 +114,14 @@ export interface CurrentSeasonParticipantRecord extends ParticipantPolicyRecord 
 export interface CanonicalSelectionState {
   dormitoryId: string | null;
   dormitorySelectionState: DormitorySelectionState;
-  source: 'USER' | 'SEASON_PARTICIPANT';
+  source: 'SEASON_PARTICIPANT';
 }
 
 export interface CanonicalProfileSource extends ProfileViewRecord {
   source: ProfileSource;
 }
 
-export interface ParticipantBackfillResult {
+export interface SeasonParticipantBackfillResult {
   campus: Campus;
   seasonId: string;
   eligibleUserCount: number;

@@ -10,8 +10,6 @@ type UserSeed = {
   emailVerifiedAt: Date | null;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  dormitoryId: string | null;
-  dormitorySelectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
   profile: {
     lifestyle: Record<string, unknown>;
   } | null;
@@ -48,8 +46,6 @@ function makeUserSeed(overrides: Partial<UserSeed> = {}): UserSeed {
     emailVerifiedAt: new Date('2026-02-01T00:00:00.000Z'),
     gender: 'M',
     campus: 'CHUNCHEON',
-    dormitoryId: 'dasan',
-    dormitorySelectionState: 'ASSIGNED',
     profile: {
       lifestyle: COMPLETE_LIFESTYLE,
     },
@@ -243,16 +239,14 @@ describe('ChatService', () => {
     );
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
-        user: Pick<UserSeed, 'dormitoryId' | 'dormitorySelectionState'>,
         participant: Pick<
           CanonicalSelectionState,
           'dormitoryId' | 'dormitorySelectionState'
         > | null,
       ): CanonicalSelectionState => ({
-        dormitoryId: participant?.dormitoryId ?? user.dormitoryId,
-        dormitorySelectionState:
-          participant?.dormitorySelectionState ?? user.dormitorySelectionState,
-        source: participant ? 'SEASON_PARTICIPANT' : 'USER',
+        dormitoryId: participant?.dormitoryId ?? null,
+        dormitorySelectionState: participant?.dormitorySelectionState ?? 'NOT_SELECTED',
+        source: 'SEASON_PARTICIPANT',
       }),
     );
     seasonParticipantsService.pickCurrentSeasonParticipant.mockImplementation(
@@ -314,8 +308,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'user-2',
     );
@@ -356,8 +348,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: null,
-        dormitorySelectionState: 'NOT_SELECTED',
       },
       'user-2',
     );
@@ -374,8 +364,6 @@ describe('ChatService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: null,
-          dormitorySelectionState: 'NOT_SELECTED',
         },
         { targetUserId: 'user-2', body: '안녕하세요' },
       ),
@@ -404,8 +392,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'user-2',
     );
@@ -423,8 +409,6 @@ describe('ChatService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         { targetUserId: 'user-2', body: '다른 건물 사용자에게 보낼 수 없음' },
       ),
@@ -439,8 +423,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'user-2',
     );
@@ -473,8 +455,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'user-2',
     );
@@ -517,8 +497,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'user-2',
     );
@@ -548,16 +526,14 @@ describe('ChatService', () => {
     );
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
-        user: Pick<UserSeed, 'dormitoryId' | 'dormitorySelectionState'>,
         participant: Pick<
           CanonicalSelectionState,
           'dormitoryId' | 'dormitorySelectionState'
         > | null,
       ): CanonicalSelectionState => ({
-        dormitoryId: participant?.dormitoryId ?? user.dormitoryId,
-        dormitorySelectionState:
-          participant?.dormitorySelectionState ?? user.dormitorySelectionState,
-        source: participant ? 'SEASON_PARTICIPANT' : 'USER',
+        dormitoryId: participant?.dormitoryId ?? null,
+        dormitorySelectionState: participant?.dormitorySelectionState ?? 'NOT_SELECTED',
+        source: 'SEASON_PARTICIPANT',
       }),
     );
 
@@ -566,8 +542,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'user-2',
     );
@@ -586,8 +560,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       { targetUserId: 'user-2', body: '안녕하세요' },
     );
@@ -607,8 +579,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       { targetUserId: 'user-2', body: '안녕하세요' },
     );
@@ -636,8 +606,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       { targetUserId: 'user-2', body: '안녕하세요' },
     );
@@ -750,8 +718,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'thread-1',
     );
@@ -771,8 +737,6 @@ describe('ChatService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         { targetUserId: 'user-2', body: '안녕하세요' },
       ),
@@ -803,8 +767,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'thread-1',
     );
@@ -854,8 +816,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'thread-1',
     );
@@ -891,8 +851,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'thread-1',
     );
@@ -949,8 +907,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'thread-1',
     );
@@ -1020,8 +976,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       });
 
       expect(result.items).toHaveLength(1);
@@ -1093,8 +1047,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       });
 
       expect(result.items).toEqual([]);
@@ -1119,8 +1071,6 @@ describe('ChatService', () => {
             id: 'user-1',
             gender: 'M',
             campus: 'CHUNCHEON',
-            dormitoryId: 'dasan',
-            dormitorySelectionState: 'ASSIGNED',
           },
           'thread-1',
         ),
@@ -1208,8 +1158,6 @@ describe('ChatService', () => {
         id: 'user-2',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       { targetUserId: 'user-1', body: '복귀 후 첫 메시지' },
     );
@@ -1267,8 +1215,6 @@ describe('ChatService', () => {
         id: 'user-1',
         gender: 'M',
         campus: 'CHUNCHEON',
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
       },
       'thread-1',
     );
@@ -1292,8 +1238,6 @@ describe('ChatService', () => {
           id: 'user-3',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         'thread-1',
       ),
@@ -1311,8 +1255,6 @@ describe('ChatService', () => {
           id: 'user-1',
           gender: 'M',
           campus: 'CHUNCHEON',
-          dormitoryId: 'dasan',
-          dormitorySelectionState: 'ASSIGNED',
         },
         { targetUserId: 'user-2', body: '새 시즌이 아니어도 새 thread' },
       ),
@@ -1352,8 +1294,6 @@ describe('ChatService', () => {
             id: 'user-1',
             gender: 'M',
             campus: 'CHUNCHEON',
-            dormitoryId: 'dasan',
-            dormitorySelectionState: 'ASSIGNED',
           },
           'thread-1',
         ),

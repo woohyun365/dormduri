@@ -95,10 +95,8 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       now,
     );
     const participantRegistered = isParticipantRegistered(currentParticipant);
-    const canonicalSelection = deps.seasonParticipantsService.selectCanonicalSelection(
-      user,
-      currentParticipant,
-    );
+    const canonicalSelection =
+      deps.seasonParticipantsService.selectCanonicalSelection(currentParticipant);
     const currentProfileSource = resolveCurrentUserProfileSource({
       campusOperated: serviceState.campusOperated,
       seasonState: serviceState.seasonState,
@@ -149,10 +147,6 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       }),
     );
 
-    const userUpdateData: {
-      dormitoryId?: string | null;
-      dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
-    } = {};
     const seasonParticipantUpdateData: {
       dormitoryId?: string | null;
       dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
@@ -188,19 +182,11 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
         serviceState,
         now,
         input.selection,
-        userUpdateData,
         seasonParticipantUpdateData,
       );
     }
 
     await deps.prisma.$transaction(async (tx) => {
-      if (Object.keys(userUpdateData).length > 0) {
-        await tx.user.update({
-          where: { id: user.id },
-          data: userUpdateData,
-        });
-      }
-
       if (Object.keys(profileUpdateData).length > 0) {
         await tx.userProfile.update({
           where: { userId: user.id },
