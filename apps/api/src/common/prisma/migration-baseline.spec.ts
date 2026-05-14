@@ -18,10 +18,16 @@ describe('migration baseline coverage', () => {
     );
     expect(sql).toContain('CREATE TABLE "CollegeMaster"');
     expect(sql).toContain('CREATE TABLE "UserProfileHistory"');
+    expect(sql).toContain('CREATE TABLE "RetainedIdentity"');
+    expect(sql).toContain('CREATE TABLE "RetainedIdentityDataAccessLog"');
+    expect(sql).toContain('CREATE TABLE "ArchiveJob"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfileHistory"');
     expect(sql).toContain('CREATE TABLE "ActiveMatchUnmatchRequest"');
     expect(sql).toContain(
       `CREATE TYPE "ConversationThreadStatus" AS ENUM ('OPEN', 'READ_ONLY', 'ARCHIVED');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "ArchiveJobStatus" AS ENUM ('PENDING', 'WAITING_CONDITION', 'SUCCEEDED', 'RETRY_SCHEDULED', 'FAILED_MANUAL_REVIEW');`,
     );
     expect(sql).toContain('ADD CONSTRAINT "UserProfile_grade_check"');
     expect(sql).toContain('ADD CONSTRAINT "SeasonParticipantProfile_birthYear_check"');
@@ -32,6 +38,11 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain(
       'CREATE UNIQUE INDEX "ActiveMatchUnmatchRequest_activeMatchId_participantId_pending_key"',
     );
+    expect(sql).toContain(
+      'CREATE INDEX "RetainedIdentity_retentionHoldUntil_retentionDisposedAt_idx"',
+    );
+    expect(sql).toContain('CREATE INDEX "RetainedIdentityDataAccessLog_identity_createdAt_idx"');
+    expect(sql).toContain('CREATE INDEX "RetainedIdentityDataAccessLog_logRetention_idx"');
     expect(sql).not.toContain('CREATE INDEX "User_dormitoryId_idx"');
     expect(sql).not.toContain('ADD CONSTRAINT "User_dormitoryId_fkey"');
   });

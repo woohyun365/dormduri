@@ -318,6 +318,56 @@ enum ProfileHistorySource {
   SYSTEM_BACKFILL
 }
 
+enum ArchiveTier {
+  HOT_DB
+}
+
+enum ArchiveJobTarget {
+  RETAINED_IDENTITY
+  USER_PROFILE_HISTORY
+  SEASON_PROFILE_HISTORY
+  MATCH_HISTORY
+  THREAD_RETENTION
+}
+
+enum ArchiveJobStatus {
+  PENDING
+  WAITING_CONDITION
+  SUCCEEDED
+  RETRY_SCHEDULED
+  FAILED_MANUAL_REVIEW
+}
+
+enum RetentionReason {
+  ACCOUNT_DELETION
+  REPORT_REVIEW
+  ENFORCEMENT_RECORD
+  DISPUTE_RESPONSE
+  LEGAL_HOLD
+  ADMIN_MANUAL
+}
+
+enum LegalHoldReason {
+  LAW_ENFORCEMENT_REQUEST
+  INTERNAL_DISPUTE_REVIEW
+  SAFETY_INCIDENT
+  ADMIN_LEGAL_REVIEW
+}
+
+enum RetainedIdentityAccessReason {
+  LAW_ENFORCEMENT_REQUEST
+  REPORT_REVIEW
+  DISPUTE_RESPONSE
+  SECURITY_AUDIT
+  RETENTION_EXPIRY_REVIEW
+}
+
+enum RetainedIdentityAccessResult {
+  DISCLOSED
+  DENIED
+  DISPOSED
+}
+
 model CampusMaster {
   code         Campus              @id
   nameKo       String
@@ -436,6 +486,7 @@ model User {
   gender                  Gender
   campus                  Campus
   emailVerifiedAt         DateTime?               @db.Timestamptz(3)
+  deletedAt               DateTime?               @db.Timestamptz(3)
   createdAt               DateTime                @default(now()) @db.Timestamptz(3)
   updatedAt               DateTime                @default(now()) @updatedAt @db.Timestamptz(3)
   authSessions            AuthSession[]
@@ -527,6 +578,84 @@ model UserProfileHistory {
 
   @@index([userId, createdAt])
   @@index([retainedIdentityId, createdAt])
+}
+
+model RetainedIdentity {
+  id                         String                          @id @default(uuid())
+  originalUserId             String?                         @unique
+  anonymizedActorKey         String                          @unique
+  displayLabel               String
+  deletedAt                  DateTime                        @db.Timestamptz(3)
+  emailHash                  String?
+  retentionReason            RetentionReason
+  retentionHoldUntil         DateTime?                       @db.Timestamptz(3)
+  legalHoldAt                DateTime?                       @db.Timestamptz(3)
+  legalHoldReason            LegalHoldReason?
+  archiveTier                ArchiveTier                     @default(HOT_DB)
+  encryptedIdentifierPayload Json?
+  identifierKeyVersion       String?
+  retentionDisposedAt        DateTime?                       @db.Timestamptz(3)
+  retentionDisposalReason    String?
+  metadata                   Json?
+  createdAt                  DateTime                        @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime                        @default(now()) @updatedAt @db.Timestamptz(3)
+  archiveJobs                ArchiveJob[]
+  dataAccessLogs             RetainedIdentityDataAccessLog[]
+
+  @@index([retentionReason, deletedAt])
+  @@index([legalHoldReason, retentionHoldUntil])
+  @@index([archiveTier, deletedAt])
+  @@index([retentionHoldUntil, retentionDisposedAt])
+}
+
+model RetainedIdentityDataAccessLog {
+  id                         String                       @id @default(uuid())
+  retainedIdentityId         String?
+  accessedBy                 String
+  accessReason               RetainedIdentityAccessReason
+  approvalReference          String
+  purpose                    String
+  result                     RetainedIdentityAccessResult
+  disclosedFields            Json?
+  logRetentionHoldUntil      DateTime?                    @db.Timestamptz(3)
+  logRetentionDisposedAt     DateTime?                    @db.Timestamptz(3)
+  logRetentionDisposalReason String?
+  createdAt                  DateTime                     @default(now()) @db.Timestamptz(3)
+  retainedIdentity           RetainedIdentity?            @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull, map: "RetainedIdentityDataAccessLog_retainedIdentityId_fkey")
+
+  @@index([retainedIdentityId, createdAt], map: "RetainedIdentityDataAccessLog_identity_createdAt_idx")
+  @@index([accessedBy, createdAt], map: "RetainedIdentityDataAccessLog_accessedBy_createdAt_idx")
+  @@index([accessReason, createdAt], map: "RetainedIdentityDataAccessLog_accessReason_createdAt_idx")
+  @@index([logRetentionHoldUntil, logRetentionDisposedAt], map: "RetainedIdentityDataAccessLog_logRetention_idx")
+}
+
+model ArchiveJob {
+  id                   String            @id @default(uuid())
+  target               ArchiveJobTarget
+  status               ArchiveJobStatus  @default(PENDING)
+  archiveTier          ArchiveTier       @default(HOT_DB)
+  retainedIdentityId   String?
+  userId               String?
+  seasonId             String?
+  participantId        String?
+  matchHistoryEntryId  String?
+  threadId             String?
+  attemptCount         Int               @default(0)
+  maxAttempts          Int               @default(5)
+  nextRunAt            DateTime          @default(now()) @db.Timestamptz(3)
+  lastAttemptAt        DateTime?         @db.Timestamptz(3)
+  lastSucceededAt      DateTime?         @db.Timestamptz(3)
+  lastErrorCode        String?
+  manualReviewRequired Boolean           @default(false)
+  payload              Json?
+  createdAt            DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
+  retainedIdentity     RetainedIdentity? @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextRunAt])
+  @@index([retainedIdentityId, target])
+  @@index([target, manualReviewRequired])
+  @@index([userId, target])
 }
 
 model SeasonParticipant {

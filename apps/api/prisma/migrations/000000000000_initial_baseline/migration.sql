@@ -149,6 +149,27 @@ CREATE TYPE "RoommateDrinkingTolerance" AS ENUM ('LOW_ONLY', 'ANY');
 -- CreateEnum
 CREATE TYPE "ProfileHistorySource" AS ENUM ('SIGNUP_CREATE', 'USER_EDIT', 'SEASON_REGISTRATION', 'SEASON_USER_EDIT', 'RETENTION_SNAPSHOT', 'SYSTEM_BACKFILL');
 
+-- CreateEnum
+CREATE TYPE "ArchiveTier" AS ENUM ('HOT_DB');
+
+-- CreateEnum
+CREATE TYPE "ArchiveJobTarget" AS ENUM ('RETAINED_IDENTITY', 'USER_PROFILE_HISTORY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION');
+
+-- CreateEnum
+CREATE TYPE "ArchiveJobStatus" AS ENUM ('PENDING', 'WAITING_CONDITION', 'SUCCEEDED', 'RETRY_SCHEDULED', 'FAILED_MANUAL_REVIEW');
+
+-- CreateEnum
+CREATE TYPE "RetentionReason" AS ENUM ('ACCOUNT_DELETION', 'REPORT_REVIEW', 'ENFORCEMENT_RECORD', 'DISPUTE_RESPONSE', 'LEGAL_HOLD', 'ADMIN_MANUAL');
+
+-- CreateEnum
+CREATE TYPE "LegalHoldReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'INTERNAL_DISPUTE_REVIEW', 'SAFETY_INCIDENT', 'ADMIN_LEGAL_REVIEW');
+
+-- CreateEnum
+CREATE TYPE "RetainedIdentityAccessReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'REPORT_REVIEW', 'DISPUTE_RESPONSE', 'SECURITY_AUDIT', 'RETENTION_EXPIRY_REVIEW');
+
+-- CreateEnum
+CREATE TYPE "RetainedIdentityAccessResult" AS ENUM ('DISCLOSED', 'DENIED', 'DISPOSED');
+
 -- CreateTable
 CREATE TABLE "CampusMaster" (
     "code" "Campus" NOT NULL,
@@ -254,6 +275,7 @@ CREATE TABLE "User" (
     "gender" "Gender" NOT NULL,
     "campus" "Campus" NOT NULL,
     "emailVerifiedAt" TIMESTAMPTZ(3),
+    "deletedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -341,6 +363,74 @@ CREATE TABLE "UserProfileHistory" (
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "UserProfileHistory_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RetainedIdentity" (
+    "id" TEXT NOT NULL,
+    "originalUserId" TEXT,
+    "anonymizedActorKey" TEXT NOT NULL,
+    "displayLabel" TEXT NOT NULL,
+    "deletedAt" TIMESTAMPTZ(3) NOT NULL,
+    "emailHash" TEXT,
+    "retentionReason" "RetentionReason" NOT NULL,
+    "retentionHoldUntil" TIMESTAMPTZ(3),
+    "legalHoldAt" TIMESTAMPTZ(3),
+    "legalHoldReason" "LegalHoldReason",
+    "archiveTier" "ArchiveTier" NOT NULL DEFAULT 'HOT_DB',
+    "encryptedIdentifierPayload" JSONB,
+    "identifierKeyVersion" TEXT,
+    "retentionDisposedAt" TIMESTAMPTZ(3),
+    "retentionDisposalReason" TEXT,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RetainedIdentity_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RetainedIdentityDataAccessLog" (
+    "id" TEXT NOT NULL,
+    "retainedIdentityId" TEXT,
+    "accessedBy" TEXT NOT NULL,
+    "accessReason" "RetainedIdentityAccessReason" NOT NULL,
+    "approvalReference" TEXT NOT NULL,
+    "purpose" TEXT NOT NULL,
+    "result" "RetainedIdentityAccessResult" NOT NULL,
+    "disclosedFields" JSONB,
+    "logRetentionHoldUntil" TIMESTAMPTZ(3),
+    "logRetentionDisposedAt" TIMESTAMPTZ(3),
+    "logRetentionDisposalReason" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RetainedIdentityDataAccessLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ArchiveJob" (
+    "id" TEXT NOT NULL,
+    "target" "ArchiveJobTarget" NOT NULL,
+    "status" "ArchiveJobStatus" NOT NULL DEFAULT 'PENDING',
+    "archiveTier" "ArchiveTier" NOT NULL DEFAULT 'HOT_DB',
+    "retainedIdentityId" TEXT,
+    "userId" TEXT,
+    "seasonId" TEXT,
+    "participantId" TEXT,
+    "matchHistoryEntryId" TEXT,
+    "threadId" TEXT,
+    "attemptCount" INTEGER NOT NULL DEFAULT 0,
+    "maxAttempts" INTEGER NOT NULL DEFAULT 5,
+    "nextRunAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastAttemptAt" TIMESTAMPTZ(3),
+    "lastSucceededAt" TIMESTAMPTZ(3),
+    "lastErrorCode" TEXT,
+    "manualReviewRequired" BOOLEAN NOT NULL DEFAULT false,
+    "payload" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ArchiveJob_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -725,6 +815,48 @@ CREATE INDEX "UserProfileHistory_userId_createdAt_idx" ON "UserProfileHistory"("
 CREATE INDEX "UserProfileHistory_retainedIdentityId_createdAt_idx" ON "UserProfileHistory"("retainedIdentityId", "createdAt");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "RetainedIdentity_originalUserId_key" ON "RetainedIdentity"("originalUserId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RetainedIdentity_anonymizedActorKey_key" ON "RetainedIdentity"("anonymizedActorKey");
+
+-- CreateIndex
+CREATE INDEX "RetainedIdentity_retentionReason_deletedAt_idx" ON "RetainedIdentity"("retentionReason", "deletedAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedIdentity_legalHoldReason_retentionHoldUntil_idx" ON "RetainedIdentity"("legalHoldReason", "retentionHoldUntil");
+
+-- CreateIndex
+CREATE INDEX "RetainedIdentity_archiveTier_deletedAt_idx" ON "RetainedIdentity"("archiveTier", "deletedAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedIdentity_retentionHoldUntil_retentionDisposedAt_idx" ON "RetainedIdentity"("retentionHoldUntil", "retentionDisposedAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedIdentityDataAccessLog_identity_createdAt_idx" ON "RetainedIdentityDataAccessLog"("retainedIdentityId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedIdentityDataAccessLog_accessedBy_createdAt_idx" ON "RetainedIdentityDataAccessLog"("accessedBy", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedIdentityDataAccessLog_accessReason_createdAt_idx" ON "RetainedIdentityDataAccessLog"("accessReason", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedIdentityDataAccessLog_logRetention_idx" ON "RetainedIdentityDataAccessLog"("logRetentionHoldUntil", "logRetentionDisposedAt");
+
+-- CreateIndex
+CREATE INDEX "ArchiveJob_status_nextRunAt_idx" ON "ArchiveJob"("status", "nextRunAt");
+
+-- CreateIndex
+CREATE INDEX "ArchiveJob_retainedIdentityId_target_idx" ON "ArchiveJob"("retainedIdentityId", "target");
+
+-- CreateIndex
+CREATE INDEX "ArchiveJob_target_manualReviewRequired_idx" ON "ArchiveJob"("target", "manualReviewRequired");
+
+-- CreateIndex
+CREATE INDEX "ArchiveJob_userId_target_idx" ON "ArchiveJob"("userId", "target");
+
+-- CreateIndex
 CREATE INDEX "SeasonParticipantProfileHistory_participantId_createdAt_idx" ON "SeasonParticipantProfileHistory"("participantId", "createdAt");
 
 -- CreateIndex
@@ -907,6 +1039,12 @@ ALTER TABLE "SeasonDormitoryOperation" ADD CONSTRAINT "SeasonDormitoryOperation_
 
 -- AddForeignKey
 ALTER TABLE "UserProfile" ADD CONSTRAINT "UserProfile_collegeCode_fkey" FOREIGN KEY ("collegeCode") REFERENCES "CollegeMaster"("code") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ArchiveJob" ADD CONSTRAINT "ArchiveJob_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RetainedIdentityDataAccessLog" ADD CONSTRAINT "RetainedIdentityDataAccessLog_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserProfile" ADD CONSTRAINT "UserProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
