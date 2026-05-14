@@ -7,7 +7,9 @@ describe('archive job owner', () => {
     manualReviewRequired?: boolean;
     attemptCount?: number;
     maxAttempts?: number;
-    target?: 'RETAINED_IDENTITY';
+    target?: 'RETAINED_IDENTITY' | 'THREAD_RETENTION';
+    threadId?: string | null;
+    threadStatus?: 'OPEN' | 'READ_ONLY' | 'ARCHIVED' | null;
   }) {
     const updates: unknown[] = [];
     const dueJob = {
@@ -20,7 +22,7 @@ describe('archive job owner', () => {
       seasonId: null,
       participantId: null,
       matchHistoryEntryId: null,
-      threadId: null,
+      threadId: job.threadId ?? null,
       attemptCount: job.attemptCount ?? 0,
       maxAttempts: job.maxAttempts ?? 5,
       nextRunAt: new Date('2026-05-13T00:00:00.000Z'),
@@ -39,6 +41,18 @@ describe('archive job owner', () => {
             return Promise.resolve(undefined);
           }),
         },
+        conversationThread: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue(
+              job.threadStatus === null
+                ? null
+                : job.threadId
+                  ? { id: job.threadId, status: job.threadStatus ?? 'OPEN' }
+                  : null,
+            ),
+        },
+        runSerializableTransaction: jest.fn(),
       },
     };
   }
@@ -100,6 +114,35 @@ describe('archive job owner', () => {
         lastErrorCode: 'UNSUPPORTED_ARCHIVE_TIER',
       },
     });
+  });
+
+  it('THREAD_RETENTION job은 thread가 archive 전이면 retry를 소비하지 않고 대기 상태로 돌린다', async () => {
+    const now = new Date('2026-05-13T00:00:00.000Z');
+    const store = createArchiveJobStore({
+      id: 'job-thread-waiting',
+      target: 'THREAD_RETENTION',
+      threadId: 'thread-1',
+      threadStatus: 'READ_ONLY',
+    });
+
+    const result = await retryDueArchiveJobs(store.prisma as never, now, new HotDbArchiveAdapter());
+
+    expect(result).toMatchObject({
+      processedCount: 1,
+      waitingConditionCount: 1,
+      succeededCount: 0,
+      retryScheduledCount: 0,
+      manualReviewCount: 0,
+    });
+    expect(store.updates[0]).toMatchObject({
+      where: { id: 'job-thread-waiting' },
+      data: {
+        status: 'WAITING_CONDITION',
+        lastErrorCode: 'THREAD_NOT_ARCHIVED',
+        manualReviewRequired: false,
+      },
+    });
+    expect(store.prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
 
   it('manualReviewRequired job은 재시도하지 않고 수동 검토로 고정한다', async () => {

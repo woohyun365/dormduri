@@ -21,6 +21,8 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE TABLE "RetainedIdentity"');
     expect(sql).toContain('CREATE TABLE "RetainedIdentityDataAccessLog"');
     expect(sql).toContain('CREATE TABLE "ArchiveJob"');
+    expect(sql).toContain('CREATE TABLE "ConversationMessageRetainedBody"');
+    expect(sql).toContain('CREATE TABLE "ConversationMessageRetainedBodyAccessLog"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfileHistory"');
     expect(sql).toContain('CREATE TABLE "ActiveMatchUnmatchRequest"');
     expect(sql).toContain(
@@ -28,6 +30,9 @@ describe('migration baseline coverage', () => {
     );
     expect(sql).toContain(
       `CREATE TYPE "ArchiveJobStatus" AS ENUM ('PENDING', 'WAITING_CONDITION', 'SUCCEEDED', 'RETRY_SCHEDULED', 'FAILED_MANUAL_REVIEW');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISPOSED');`,
     );
     expect(sql).toContain('ADD CONSTRAINT "UserProfile_grade_check"');
     expect(sql).toContain('ADD CONSTRAINT "SeasonParticipantProfile_birthYear_check"');
@@ -43,6 +48,8 @@ describe('migration baseline coverage', () => {
     );
     expect(sql).toContain('CREATE INDEX "RetainedIdentityDataAccessLog_identity_createdAt_idx"');
     expect(sql).toContain('CREATE INDEX "RetainedIdentityDataAccessLog_logRetention_idx"');
+    expect(sql).toContain('CREATE UNIQUE INDEX "ConversationMessageRetainedBody_messageId_key"');
+    expect(sql).toContain('CREATE INDEX "ConversationMessage_bodyState_tombstonedAt_idx"');
     expect(sql).not.toContain('CREATE INDEX "User_dormitoryId_idx"');
     expect(sql).not.toContain('ADD CONSTRAINT "User_dormitoryId_fkey"');
   });

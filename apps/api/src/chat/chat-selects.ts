@@ -76,6 +76,9 @@ export const threadSelect = {
     select: {
       id: true,
       body: true,
+      bodyState: true,
+      tombstoneReason: true,
+      bodyVersion: true,
       sentAt: true,
       senderParticipant: {
         select: {

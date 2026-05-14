@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { isoDateTimeStringSchema } from './date-primitives.js';
 import {
+  conversationMessageBodyStateSchema,
+  conversationMessageTombstoneReasonSchema,
   conversationThreadClosedReasonSchema,
   conversationThreadKindSchema,
   conversationThreadStatusSchema,
@@ -10,6 +12,9 @@ export const conversationMessageSchema = z.strictObject({
   id: z.string(),
   senderUserId: z.string(),
   body: z.string(),
+  bodyState: conversationMessageBodyStateSchema,
+  tombstoneReason: conversationMessageTombstoneReasonSchema.nullable(),
+  bodyVersion: z.number().int().min(1),
   sentAt: isoDateTimeStringSchema,
 });
 

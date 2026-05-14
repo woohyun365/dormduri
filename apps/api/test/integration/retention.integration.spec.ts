@@ -1,8 +1,18 @@
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import {
+  activateThreadRetentionJobsForArchivedThreads,
+  createDeletionArchiveJobsTx,
+  retryDueArchiveJobs,
+} from '../../src/retention/archive-job-owner.js';
+import {
   createRetainedIdentityCipher,
   createRetainedIdentityOwner,
 } from '../../src/retention/retained-identity-owner.js';
+import { createConversationRetainedBodyCipher } from '../../src/retention/conversation-retained-body-owner.js';
+import {
+  appendSeasonParticipantProfileHistorySnapshot,
+  appendUserProfileHistorySnapshot,
+} from '../../src/profiles/profile-history-owner.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -22,6 +32,10 @@ describe('RetainedIdentity integration', () => {
   const identifierCipher = createRetainedIdentityCipher({
     key: Buffer.alloc(32, 11),
     keyVersion: 'integration-v1',
+  });
+  const chatBodyCipher = createConversationRetainedBodyCipher({
+    key: Buffer.alloc(32, 12),
+    keyVersion: 'chat-integration-v1',
   });
 
   beforeAll(async () => {
@@ -266,5 +280,287 @@ describe('RetainedIdentity integration', () => {
         },
       }),
     ).rejects.toThrow('anchor disposed');
+  });
+  it('계정 삭제 archive job 생성은 target별 ArchiveJob row를 만들고, 미archive thread의 THREAD_RETENTION은 대기 상태로 남긴다.', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-b',
+      participantId: 'participant-b',
+      email: 'user-b@kangwon.ac.kr',
+      nickname: '유저B',
+    });
+
+    const deletedAt = new Date('2026-05-12T00:00:00.000Z');
+    const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+    const retainedIdentity = await owner.createRetainedIdentitySnapshot({
+      userId: 'user-a',
+      deletedAt,
+      metadata: {
+        schemaVersion: 1,
+        request: {
+          requestedBy: 'SYSTEM',
+          note: 'archive job 생성 테스트',
+        },
+      },
+    });
+
+    await prisma.runSerializableTransaction(async (tx) => {
+      await appendUserProfileHistorySnapshot(
+        tx,
+        'user-a',
+        'RETENTION_SNAPSHOT',
+        retainedIdentity.id,
+      );
+      await appendSeasonParticipantProfileHistorySnapshot(
+        tx,
+        'participant-a',
+        'RETENTION_SNAPSHOT',
+        retainedIdentity.id,
+      );
+    });
+
+    await prisma.seasonMatchHistoryEntry.create({
+      data: {
+        id: 'history-a-b',
+        seasonId: 'season-integration',
+        viewerParticipantId: 'participant-a',
+        counterpartParticipantId: 'participant-b',
+        pairKey: 'participant-a:participant-b',
+        entryType: 'MATCH',
+        entryResult: 'MATCHED_SUCCESS',
+        viewerRequested: true,
+        counterpartNicknameSnapshot: '유저B',
+        hadConversation: true,
+        matchedAt: new Date('2026-05-01T00:00:00.000Z'),
+        finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
+      },
+    });
+
+    await prisma.conversationThread.create({
+      data: {
+        id: 'thread-a-b',
+        seasonId: 'season-integration',
+        pairKey: 'participant-a:participant-b',
+        participantAId: 'participant-a',
+        participantBId: 'participant-b',
+        openedByParticipantId: 'participant-a',
+        threadKind: 'DIRECT',
+        status: 'OPEN',
+        messages: {
+          create: {
+            id: 'message-a-b',
+            senderParticipantId: 'participant-a',
+            body: '수동 검토가 필요한 대화 본문',
+            sentAt: new Date('2026-05-01T01:00:00.000Z'),
+          },
+        },
+      },
+    });
+
+    const result = await prisma.runSerializableTransaction((tx) =>
+      createDeletionArchiveJobsTx(tx, {
+        retainedIdentityId: retainedIdentity.id,
+        userId: 'user-a',
+        deletedAt,
+      }),
+    );
+
+    expect(result.createdCount).toBe(5);
+
+    const jobs = await prisma.archiveJob.findMany({
+      where: { retainedIdentityId: retainedIdentity.id },
+      orderBy: { target: 'asc' },
+    });
+    expect(jobs.map((job) => job.target)).toEqual(
+      expect.arrayContaining([
+        'MATCH_HISTORY',
+        'RETAINED_IDENTITY',
+        'SEASON_PROFILE_HISTORY',
+        'THREAD_RETENTION',
+        'USER_PROFILE_HISTORY',
+      ]),
+    );
+
+    const jobByTarget = new Map(jobs.map((job) => [job.target, job]));
+    expect(jobByTarget.get('RETAINED_IDENTITY')).toMatchObject({
+      archiveTier: 'HOT_DB',
+      userId: 'user-a',
+      retainedIdentityId: retainedIdentity.id,
+      status: 'PENDING',
+    });
+    expect(jobByTarget.get('USER_PROFILE_HISTORY')).toMatchObject({
+      userId: 'user-a',
+    });
+    expect(jobByTarget.get('USER_PROFILE_HISTORY')?.payload).toEqual(
+      expect.objectContaining({ historyCount: 1 }),
+    );
+    expect(jobByTarget.get('SEASON_PROFILE_HISTORY')).toMatchObject({
+      userId: 'user-a',
+      participantId: 'participant-a',
+      seasonId: 'season-integration',
+    });
+    expect(jobByTarget.get('MATCH_HISTORY')).toMatchObject({
+      userId: 'user-a',
+      matchHistoryEntryId: 'history-a-b',
+      seasonId: 'season-integration',
+    });
+    expect(jobByTarget.get('THREAD_RETENTION')).toMatchObject({
+      userId: 'user-a',
+      threadId: 'thread-a-b',
+      status: 'WAITING_CONDITION',
+      manualReviewRequired: false,
+      lastErrorCode: null,
+    });
+    expect(jobByTarget.get('THREAD_RETENTION')?.payload).toEqual(
+      expect.objectContaining({
+        source: 'ACCOUNT_DELETE',
+        target: 'THREAD_RETENTION',
+        retentionMode: 'INDEFINITE_LOGICAL_ARCHIVE',
+        identityReviewAfter: '2028-05-11T00:00:00.000Z',
+        waitingFor: 'THREAD_ARCHIVED',
+      }),
+    );
+  });
+
+  it('archived THREAD_RETENTION job은 메시지 본문을 retained body vault로 옮기고 tombstone 처리한다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-b',
+      participantId: 'participant-b',
+      email: 'user-b@kangwon.ac.kr',
+      nickname: '유저B',
+    });
+
+    const deletedAt = new Date('2026-05-12T00:00:00.000Z');
+    const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+    const retainedIdentity = await owner.createRetainedIdentitySnapshot({
+      userId: 'user-a',
+      deletedAt,
+      metadata: {
+        schemaVersion: 1,
+        request: {
+          requestedBy: 'SYSTEM',
+          note: 'thread retention 처리 테스트',
+        },
+      },
+    });
+
+    await prisma.conversationThread.create({
+      data: {
+        id: 'thread-a-b-retention',
+        seasonId: 'season-integration',
+        pairKey: 'participant-a:participant-b',
+        participantAId: 'participant-a',
+        participantBId: 'participant-b',
+        openedByParticipantId: 'participant-a',
+        threadKind: 'DIRECT',
+        status: 'OPEN',
+        messages: {
+          create: [
+            {
+              id: 'message-retention-1',
+              senderParticipantId: 'participant-a',
+              body: '원문 메시지 1',
+              sentAt: new Date('2026-05-01T01:00:00.000Z'),
+            },
+            {
+              id: 'message-retention-2',
+              senderParticipantId: 'participant-b',
+              body: '원문 메시지 2',
+              sentAt: new Date('2026-05-01T01:01:00.000Z'),
+            },
+          ],
+        },
+      },
+    });
+
+    await prisma.runSerializableTransaction((tx) =>
+      createDeletionArchiveJobsTx(tx, {
+        retainedIdentityId: retainedIdentity.id,
+        userId: 'user-a',
+        deletedAt,
+      }),
+    );
+
+    const waitingJob = await prisma.archiveJob.findFirstOrThrow({
+      where: {
+        retainedIdentityId: retainedIdentity.id,
+        target: 'THREAD_RETENTION',
+        threadId: 'thread-a-b-retention',
+      },
+    });
+    expect(waitingJob.status).toBe('WAITING_CONDITION');
+
+    await prisma.conversationThread.update({
+      where: { id: 'thread-a-b-retention' },
+      data: {
+        status: 'ARCHIVED',
+        closedReason: 'SEASON_ENDED',
+        closedAt: new Date('2026-05-20T00:00:00.000Z'),
+      },
+    });
+
+    const activation = await activateThreadRetentionJobsForArchivedThreads(
+      prisma,
+      new Date('2026-05-20T00:00:00.000Z'),
+    );
+    expect(activation.activatedCount).toBeGreaterThanOrEqual(1);
+
+    const sweep = await retryDueArchiveJobs(
+      prisma,
+      new Date('2026-05-20T00:00:00.000Z'),
+      undefined,
+      {
+        bodyCipher: chatBodyCipher,
+      },
+    );
+    expect(sweep.succeededCount).toBeGreaterThanOrEqual(1);
+
+    const succeededJob = await prisma.archiveJob.findUniqueOrThrow({
+      where: { id: waitingJob.id },
+    });
+    expect(succeededJob).toMatchObject({
+      status: 'SUCCEEDED',
+      manualReviewRequired: false,
+      lastErrorCode: null,
+    });
+
+    const messages = await prisma.conversationMessage.findMany({
+      where: { threadId: 'thread-a-b-retention' },
+      orderBy: { id: 'asc' },
+    });
+    expect(messages).toHaveLength(2);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'message-retention-1',
+          body: '보존 처리된 메시지입니다.',
+          bodyState: 'TOMBSTONED',
+          tombstoneReason: 'ACCOUNT_DELETION_RETENTION',
+          bodyVersion: 2,
+        }),
+        expect.objectContaining({
+          id: 'message-retention-2',
+          body: '보존 처리된 메시지입니다.',
+          bodyState: 'TOMBSTONED',
+          tombstoneReason: 'ACCOUNT_DELETION_RETENTION',
+          bodyVersion: 2,
+        }),
+      ]),
+    );
+
+    const retainedBodies = await prisma.conversationMessageRetainedBody.findMany({
+      where: { threadId: 'thread-a-b-retention' },
+      orderBy: { messageId: 'asc' },
+    });
+    expect(retainedBodies).toHaveLength(2);
+    expect(retainedBodies[0]).toMatchObject({
+      archiveJobId: waitingJob.id,
+      triggerRetainedIdentityId: retainedIdentity.id,
+      keyVersion: 'chat-integration-v1',
+    });
+    expect(retainedBodies[0]?.encryptedBodyPayload).toMatchObject({
+      schemaVersion: 1,
+      algorithm: 'aes-256-gcm',
+      keyVersion: 'chat-integration-v1',
+    });
   });
 });

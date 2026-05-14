@@ -116,6 +116,9 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
         id: message.id,
         senderUserId: message.senderParticipant.userId,
         body: message.body,
+        bodyState: message.bodyState,
+        tombstoneReason: message.tombstoneReason,
+        bodyVersion: message.bodyVersion,
         sentAt: message.sentAt.toISOString(),
       };
     },

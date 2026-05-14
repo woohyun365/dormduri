@@ -80,6 +80,18 @@ CREATE TYPE "ConversationThreadClosedReason" AS ENUM ('ACTIVE_MATCH_CREATED', 'R
 CREATE TYPE "ConversationThreadMemberState" AS ENUM ('ACTIVE', 'LEFT');
 
 -- CreateEnum
+CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISPOSED');
+
+-- CreateEnum
+CREATE TYPE "ConversationMessageTombstoneReason" AS ENUM ('ACCOUNT_DELETION_RETENTION', 'USER_MESSAGE_DELETED', 'MODERATION_POLICY_VIOLATION', 'ADMIN_ACTION', 'RETENTION_DISPOSED');
+
+-- CreateEnum
+CREATE TYPE "ConversationRetainedBodyAccessReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'REPORT_REVIEW', 'DISPUTE_RESPONSE', 'SECURITY_AUDIT', 'RETENTION_EXPIRY_REVIEW');
+
+-- CreateEnum
+CREATE TYPE "ConversationRetainedBodyAccessResult" AS ENUM ('DISCLOSED', 'DENIED', 'DISPOSED');
+
+-- CreateEnum
 CREATE TYPE "LifestyleBedtime" AS ENUM ('BEFORE_22', '22_24', '24_02', 'AFTER_02');
 
 -- CreateEnum
@@ -695,11 +707,52 @@ CREATE TABLE "ConversationMessage" (
     "threadId" TEXT NOT NULL,
     "senderParticipantId" TEXT NOT NULL,
     "body" TEXT NOT NULL,
+    "bodyState" "ConversationMessageBodyState" NOT NULL DEFAULT 'PLAIN',
+    "tombstoneReason" "ConversationMessageTombstoneReason",
+    "tombstonedAt" TIMESTAMPTZ(3),
+    "bodyRetainedAt" TIMESTAMPTZ(3),
+    "bodyDisposedAt" TIMESTAMPTZ(3),
+    "bodyVersion" INTEGER NOT NULL DEFAULT 1,
     "sentAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deletedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ConversationMessage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ConversationMessageRetainedBody" (
+    "id" TEXT NOT NULL,
+    "messageId" TEXT NOT NULL,
+    "threadId" TEXT NOT NULL,
+    "archiveJobId" TEXT,
+    "triggerRetainedIdentityId" TEXT,
+    "encryptedBodyPayload" JSONB NOT NULL,
+    "bodyDigest" TEXT NOT NULL,
+    "keyVersion" TEXT NOT NULL,
+    "retainedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "disposedAt" TIMESTAMPTZ(3),
+    "disposalReason" TEXT,
+    "metadata" JSONB,
+
+    CONSTRAINT "ConversationMessageRetainedBody_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ConversationMessageRetainedBodyAccessLog" (
+    "id" TEXT NOT NULL,
+    "retainedBodyId" TEXT,
+    "threadId" TEXT,
+    "messageId" TEXT,
+    "accessedBy" TEXT NOT NULL,
+    "accessReason" "ConversationRetainedBodyAccessReason" NOT NULL,
+    "approvalReference" TEXT NOT NULL,
+    "purpose" TEXT NOT NULL,
+    "result" "ConversationRetainedBodyAccessResult" NOT NULL,
+    "disclosedFields" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConversationMessageRetainedBodyAccessLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -944,6 +997,36 @@ CREATE INDEX "ConversationMessage_threadId_sentAt_idx" ON "ConversationMessage"(
 CREATE INDEX "ConversationMessage_senderParticipantId_sentAt_idx" ON "ConversationMessage"("senderParticipantId", "sentAt");
 
 -- CreateIndex
+CREATE INDEX "ConversationMessage_bodyState_tombstonedAt_idx" ON "ConversationMessage"("bodyState", "tombstonedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ConversationMessageRetainedBody_messageId_key" ON "ConversationMessageRetainedBody"("messageId");
+
+-- CreateIndex
+CREATE INDEX "ConversationMessageRetainedBody_threadId_retainedAt_idx" ON "ConversationMessageRetainedBody"("threadId", "retainedAt");
+
+-- CreateIndex
+CREATE INDEX "ConversationMessageRetainedBody_triggerRetainedIdentityId_r_idx" ON "ConversationMessageRetainedBody"("triggerRetainedIdentityId", "retainedAt");
+
+-- CreateIndex
+CREATE INDEX "ConversationMessageRetainedBody_archiveJobId_idx" ON "ConversationMessageRetainedBody"("archiveJobId");
+
+-- CreateIndex
+CREATE INDEX "ConversationMessageRetainedBody_disposedAt_idx" ON "ConversationMessageRetainedBody"("disposedAt");
+
+-- CreateIndex
+CREATE INDEX "ConversationMessageRetainedBodyAccessLog_retainedBodyId_cre_idx" ON "ConversationMessageRetainedBodyAccessLog"("retainedBodyId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "ConversationMessageRetainedBodyAccessLog_threadId_createdAt_idx" ON "ConversationMessageRetainedBodyAccessLog"("threadId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "ConversationMessageRetainedBodyAccessLog_messageId_createdA_idx" ON "ConversationMessageRetainedBodyAccessLog"("messageId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "ConversationMessageRetainedBodyAccessLog_accessReason_creat_idx" ON "ConversationMessageRetainedBodyAccessLog"("accessReason", "createdAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "LoginAttempt_emailNormalized_key" ON "LoginAttempt"("emailNormalized");
 
 -- CreateIndex
@@ -1126,6 +1209,22 @@ ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_threadId_f
 
 -- AddForeignKey
 ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_senderParticipantId_fkey" FOREIGN KEY ("senderParticipantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+
+-- AddForeignKey
+ALTER TABLE "ConversationMessageRetainedBody" ADD CONSTRAINT "ConversationMessageRetainedBody_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "ConversationMessage"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConversationMessageRetainedBody" ADD CONSTRAINT "ConversationMessageRetainedBody_threadId_fkey" FOREIGN KEY ("threadId") REFERENCES "ConversationThread"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConversationMessageRetainedBody" ADD CONSTRAINT "ConversationMessageRetainedBody_archiveJobId_fkey" FOREIGN KEY ("archiveJobId") REFERENCES "ArchiveJob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConversationMessageRetainedBody" ADD CONSTRAINT "ConversationMessageRetainedBody_triggerRetainedIdentityId_fkey" FOREIGN KEY ("triggerRetainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConversationMessageRetainedBodyAccessLog" ADD CONSTRAINT "ConversationMessageRetainedBodyAccessLog_retainedBodyId_fkey" FOREIGN KEY ("retainedBodyId") REFERENCES "ConversationMessageRetainedBody"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

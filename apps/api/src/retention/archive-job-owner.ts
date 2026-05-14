@@ -1,15 +1,21 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import type { ArchiveJobStatus, ArchiveJobTarget, ArchiveTier } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
+import {
+  createConversationRetainedBodyOwner,
+  type ConversationRetainedBodyOwnerOptions,
+} from './conversation-retained-body-owner.js';
 
 const DEFAULT_MAX_ATTEMPTS = 5;
 const RETRY_BASE_DELAY_MS = 60 * 60 * 1_000;
+const CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS = 365 * 2;
 
 const deletionArchiveJobTargets = [
   'RETAINED_IDENTITY',
   'USER_PROFILE_HISTORY',
   'SEASON_PROFILE_HISTORY',
   'MATCH_HISTORY',
+  'THREAD_RETENTION',
 ] satisfies ArchiveJobTarget[];
 
 const archiveJobWorkItemSelect = {
@@ -47,6 +53,7 @@ export interface ArchiveStoragePort {
 
 export interface ArchiveJobOwnerOptions {
   archiveStorage?: ArchiveStoragePort;
+  conversationRetention?: ConversationRetainedBodyOwnerOptions;
 }
 
 export class HotDbArchiveAdapter implements ArchiveStoragePort {
@@ -77,10 +84,24 @@ export interface ArchiveJobSweepResult {
   waitingConditionCount: number;
 }
 
+export interface ArchiveJobActivationResult {
+  activatedCount: number;
+}
+
 export function createArchiveJobOwner(prisma: PrismaService, options: ArchiveJobOwnerOptions = {}) {
   return {
     async retryDueArchiveJobs(now: Date): Promise<ArchiveJobSweepResult> {
-      return retryDueArchiveJobs(prisma, now, options.archiveStorage ?? new HotDbArchiveAdapter());
+      return retryDueArchiveJobs(
+        prisma,
+        now,
+        options.archiveStorage ?? new HotDbArchiveAdapter(),
+        options.conversationRetention,
+      );
+    },
+    async activateThreadRetentionJobsForArchivedThreads(
+      now: Date,
+    ): Promise<ArchiveJobActivationResult> {
+      return activateThreadRetentionJobsForArchivedThreads(prisma, now);
     },
   };
 }
@@ -120,6 +141,24 @@ export async function createDeletionArchiveJobsTx(
             ],
           },
           select: { id: true, seasonId: true },
+          orderBy: { id: 'asc' },
+        })
+      : [];
+
+  const threads =
+    participantIds.length > 0
+      ? await tx.conversationThread.findMany({
+          where: {
+            OR: [
+              { participantAId: { in: participantIds } },
+              { participantBId: { in: participantIds } },
+            ],
+          },
+          select: {
+            id: true,
+            seasonId: true,
+            status: true,
+          },
           orderBy: { id: 'asc' },
         })
       : [];
@@ -171,14 +210,84 @@ export async function createDeletionArchiveJobsTx(
     );
   }
 
+  for (const thread of threads) {
+    jobs.push(
+      buildArchiveJob({
+        target: 'THREAD_RETENTION',
+        retainedIdentityId: input.retainedIdentityId,
+        userId: input.userId,
+        seasonId: thread.seasonId,
+        threadId: thread.id,
+        deletedAt: input.deletedAt,
+        status: thread.status === 'ARCHIVED' ? 'PENDING' : 'WAITING_CONDITION',
+        payload: {
+          retentionMode: 'INDEFINITE_LOGICAL_ARCHIVE',
+          identityReviewAfter: addDays(
+            input.deletedAt,
+            CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS,
+          ).toISOString(),
+          waitingFor: thread.status === 'ARCHIVED' ? undefined : 'THREAD_ARCHIVED',
+        },
+      }),
+    );
+  }
+
   const result = await tx.archiveJob.createMany({ data: jobs });
   return { createdCount: result.count };
+}
+
+export async function activateThreadRetentionJobsForArchivedThreads(
+  prisma: Pick<PrismaService, 'archiveJob' | 'conversationThread'>,
+  now: Date,
+): Promise<ArchiveJobActivationResult> {
+  const waitingJobs = await prisma.archiveJob.findMany({
+    where: {
+      target: 'THREAD_RETENTION',
+      status: 'WAITING_CONDITION',
+      threadId: { not: null },
+    },
+    select: { id: true, threadId: true },
+    orderBy: [{ nextRunAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+  });
+
+  const threadIds = [
+    ...new Set(waitingJobs.flatMap((job) => (job.threadId ? [job.threadId] : []))),
+  ];
+  if (threadIds.length === 0) {
+    return { activatedCount: 0 };
+  }
+
+  const archivedThreads = await prisma.conversationThread.findMany({
+    where: { id: { in: threadIds }, status: 'ARCHIVED' },
+    select: { id: true },
+  });
+  const archivedThreadIds = new Set(archivedThreads.map((thread) => thread.id));
+  const activatedJobIds = waitingJobs
+    .filter((job) => job.threadId && archivedThreadIds.has(job.threadId))
+    .map((job) => job.id);
+
+  if (activatedJobIds.length === 0) {
+    return { activatedCount: 0 };
+  }
+
+  const result = await prisma.archiveJob.updateMany({
+    where: { id: { in: activatedJobIds } },
+    data: {
+      status: 'PENDING',
+      nextRunAt: now,
+      lastErrorCode: null,
+      manualReviewRequired: false,
+    },
+  });
+
+  return { activatedCount: result.count };
 }
 
 export async function retryDueArchiveJobs(
   prisma: PrismaService,
   now: Date,
   archiveStorage: ArchiveStoragePort = new HotDbArchiveAdapter(),
+  conversationRetentionOptions: ConversationRetainedBodyOwnerOptions = {},
 ): Promise<ArchiveJobSweepResult> {
   const dueJobs = await prisma.archiveJob.findMany({
     where: {
@@ -197,6 +306,7 @@ export async function retryDueArchiveJobs(
     manualReviewCount: 0,
     waitingConditionCount: 0,
   };
+  const conversationRetention = createConversationRetainedBodyOwner(conversationRetentionOptions);
 
   for (const job of dueJobs) {
     result.processedCount += 1;
@@ -207,7 +317,25 @@ export async function retryDueArchiveJobs(
       continue;
     }
 
-    const archiveResult = await archiveStorage.archive(job);
+    const archiveResult =
+      job.target === 'THREAD_RETENTION'
+        ? await archiveThreadRetentionJob(prisma, job, now, conversationRetention)
+        : await archiveStorage.archive(job);
+
+    if (archiveResult.waitingCondition) {
+      await prisma.archiveJob.update({
+        where: { id: job.id },
+        data: {
+          status: 'WAITING_CONDITION',
+          nextRunAt: now,
+          lastErrorCode: archiveResult.errorCode ?? 'WAITING_CONDITION',
+          manualReviewRequired: false,
+        },
+      });
+      result.waitingConditionCount += 1;
+      continue;
+    }
+
     const attemptCount = job.attemptCount + 1;
     if (archiveResult.ok) {
       await prisma.archiveJob.update({
@@ -248,6 +376,54 @@ export async function retryDueArchiveJobs(
   return result;
 }
 
+async function archiveThreadRetentionJob(
+  prisma: PrismaService,
+  job: ArchiveJobWorkItem,
+  now: Date,
+  conversationRetention: ReturnType<typeof createConversationRetainedBodyOwner>,
+): Promise<ArchiveStorageResult> {
+  if (!job.threadId) {
+    return { ok: false, errorCode: 'THREAD_RETENTION_THREAD_ID_MISSING' };
+  }
+
+  const thread = await prisma.conversationThread.findUnique({
+    where: { id: job.threadId },
+    select: { id: true, status: true },
+  });
+
+  if (!thread) {
+    return { ok: false, errorCode: 'THREAD_NOT_FOUND' };
+  }
+
+  if (thread.status !== 'ARCHIVED') {
+    return { ok: false, waitingCondition: true, errorCode: 'THREAD_NOT_ARCHIVED' };
+  }
+
+  try {
+    await prisma.runSerializableTransaction((tx) =>
+      conversationRetention.retainAndTombstoneThreadMessagesTx(tx, {
+        threadId: thread.id,
+        archiveJobId: job.id,
+        triggerRetainedIdentityId: job.retainedIdentityId,
+        now,
+        metadata: {
+          archiveJobId: job.id,
+          archiveJobTarget: job.target,
+        },
+      }),
+    );
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      errorCode:
+        error instanceof Error
+          ? normalizeArchiveErrorCode(error.message)
+          : 'THREAD_RETENTION_ARCHIVE_ERROR',
+    };
+  }
+}
+
 function buildArchiveJob(input: {
   target: ArchiveJobTarget;
   retainedIdentityId: string;
@@ -256,6 +432,7 @@ function buildArchiveJob(input: {
   seasonId?: string;
   participantId?: string;
   matchHistoryEntryId?: string;
+  threadId?: string;
   status?: ArchiveJobStatus;
   manualReviewRequired?: boolean;
   payload?: Record<string, unknown>;
@@ -272,6 +449,7 @@ function buildArchiveJob(input: {
     seasonId: input.seasonId,
     participantId: input.participantId,
     matchHistoryEntryId: input.matchHistoryEntryId,
+    threadId: input.threadId,
     attemptCount: 0,
     maxAttempts: DEFAULT_MAX_ATTEMPTS,
     nextRunAt: input.deletedAt,
@@ -316,6 +494,21 @@ async function markArchiveJobForManualReview(
 
 function resolveNextRetryAt(now: Date, attemptCount: number) {
   return new Date(now.getTime() + RETRY_BASE_DELAY_MS * Math.max(1, attemptCount));
+}
+
+function addDays(date: Date, days: number) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1_000);
+}
+
+function normalizeArchiveErrorCode(message: string) {
+  return (
+    message
+      .replace(/^\[[^\]]+\]\s*/, '')
+      .replace(/[^A-Z0-9]+/gi, '_')
+      .replace(/^_+|_+$/g, '')
+      .toUpperCase()
+      .slice(0, 80) || 'THREAD_RETENTION_ARCHIVE_ERROR'
+  );
 }
 
 function removeUndefinedValues(input: Record<string, unknown>) {

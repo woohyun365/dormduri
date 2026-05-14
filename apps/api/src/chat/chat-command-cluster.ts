@@ -15,6 +15,15 @@ import type { CurrentSeasonParticipantRecord } from '../season-participants/seas
 type ConversationMessageResponseRecord = {
   id: string;
   body: string;
+  bodyState: 'PLAIN' | 'TOMBSTONED' | 'DISPOSED';
+  tombstoneReason:
+    | 'ACCOUNT_DELETION_RETENTION'
+    | 'USER_MESSAGE_DELETED'
+    | 'MODERATION_POLICY_VIOLATION'
+    | 'ADMIN_ACTION'
+    | 'RETENTION_DISPOSED'
+    | null;
+  bodyVersion: number;
   sentAt: Date;
   senderParticipant: {
     userId: string;
@@ -199,6 +208,9 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           select: {
             id: true,
             body: true,
+            bodyState: true,
+            tombstoneReason: true,
+            bodyVersion: true,
             sentAt: true,
             senderParticipant: {
               select: {

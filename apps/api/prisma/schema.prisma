@@ -171,6 +171,34 @@ enum ConversationThreadMemberState {
   LEFT
 }
 
+enum ConversationMessageBodyState {
+  PLAIN
+  TOMBSTONED
+  DISPOSED
+}
+
+enum ConversationMessageTombstoneReason {
+  ACCOUNT_DELETION_RETENTION
+  USER_MESSAGE_DELETED
+  MODERATION_POLICY_VIOLATION
+  ADMIN_ACTION
+  RETENTION_DISPOSED
+}
+
+enum ConversationRetainedBodyAccessReason {
+  LAW_ENFORCEMENT_REQUEST
+  REPORT_REVIEW
+  DISPUTE_RESPONSE
+  SECURITY_AUDIT
+  RETENTION_EXPIRY_REVIEW
+}
+
+enum ConversationRetainedBodyAccessResult {
+  DISCLOSED
+  DENIED
+  DISPOSED
+}
+
 
 enum LifestyleBedtime {
   BEFORE_22
@@ -601,6 +629,7 @@ model RetainedIdentity {
   updatedAt                  DateTime                        @default(now()) @updatedAt @db.Timestamptz(3)
   archiveJobs                ArchiveJob[]
   dataAccessLogs             RetainedIdentityDataAccessLog[]
+  retainedConversationBodies ConversationMessageRetainedBody[]
 
   @@index([retentionReason, deletedAt])
   @@index([legalHoldReason, retentionHoldUntil])
@@ -651,6 +680,7 @@ model ArchiveJob {
   createdAt            DateTime          @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
   retainedIdentity     RetainedIdentity? @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  retainedConversationBodies ConversationMessageRetainedBody[]
 
   @@index([status, nextRunAt])
   @@index([retainedIdentityId, target])
@@ -943,6 +973,7 @@ model ConversationThread {
   activeMatch         ActiveMatch?                   @relation(fields: [activeMatchId], references: [id], onDelete: SetNull)
   members             ConversationThreadMember[]
   messages            ConversationMessage[]
+  retainedBodies       ConversationMessageRetainedBody[]
 
   @@index([seasonId, pairKey, status])
   @@index([participantAId])
@@ -966,18 +997,71 @@ model ConversationThreadMember {
 }
 
 model ConversationMessage {
-  id                   String                       @id @default(uuid())
+  id                   String                              @id @default(uuid())
   threadId             String
   senderParticipantId  String
   body                 String
-  sentAt               DateTime                     @default(now()) @db.Timestamptz(3)
-  deletedAt            DateTime?                    @db.Timestamptz(3)
-  createdAt            DateTime                     @default(now()) @db.Timestamptz(3)
-  thread               ConversationThread           @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  senderParticipant    SeasonParticipant            @relation("ConversationMessageSender", fields: [senderParticipantId], references: [id], onDelete: Cascade)
+  bodyState            ConversationMessageBodyState        @default(PLAIN)
+  tombstoneReason      ConversationMessageTombstoneReason?
+  tombstonedAt         DateTime?                           @db.Timestamptz(3)
+  bodyRetainedAt       DateTime?                           @db.Timestamptz(3)
+  bodyDisposedAt       DateTime?                           @db.Timestamptz(3)
+  bodyVersion          Int                                 @default(1)
+  sentAt               DateTime                            @default(now()) @db.Timestamptz(3)
+  deletedAt            DateTime?                           @db.Timestamptz(3)
+  createdAt            DateTime                            @default(now()) @db.Timestamptz(3)
+  thread               ConversationThread                  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderParticipant    SeasonParticipant                   @relation("ConversationMessageSender", fields: [senderParticipantId], references: [id], onDelete: Cascade)
+  retainedBody         ConversationMessageRetainedBody?
 
   @@index([threadId, sentAt])
   @@index([senderParticipantId, sentAt])
+  @@index([bodyState, tombstonedAt])
+}
+
+model ConversationMessageRetainedBody {
+  id                        String                                     @id @default(uuid())
+  messageId                 String                                     @unique
+  threadId                  String
+  archiveJobId              String?
+  triggerRetainedIdentityId String?
+  encryptedBodyPayload      Json
+  bodyDigest                String
+  keyVersion                String
+  retainedAt                DateTime                                   @default(now()) @db.Timestamptz(3)
+  disposedAt                DateTime?                                  @db.Timestamptz(3)
+  disposalReason            String?
+  metadata                  Json?
+  message                   ConversationMessage                        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  thread                    ConversationThread                         @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  archiveJob                ArchiveJob?                                @relation(fields: [archiveJobId], references: [id], onDelete: SetNull)
+  retainedIdentity          RetainedIdentity?                          @relation(fields: [triggerRetainedIdentityId], references: [id], onDelete: SetNull)
+  accessLogs                ConversationMessageRetainedBodyAccessLog[]
+
+  @@index([threadId, retainedAt])
+  @@index([triggerRetainedIdentityId, retainedAt])
+  @@index([archiveJobId])
+  @@index([disposedAt])
+}
+
+model ConversationMessageRetainedBodyAccessLog {
+  id                String                               @id @default(uuid())
+  retainedBodyId    String?
+  threadId          String?
+  messageId         String?
+  accessedBy        String
+  accessReason      ConversationRetainedBodyAccessReason
+  approvalReference String
+  purpose           String
+  result            ConversationRetainedBodyAccessResult
+  disclosedFields   Json?
+  createdAt         DateTime                             @default(now()) @db.Timestamptz(3)
+  retainedBody      ConversationMessageRetainedBody?     @relation(fields: [retainedBodyId], references: [id], onDelete: SetNull)
+
+  @@index([retainedBodyId, createdAt])
+  @@index([threadId, createdAt])
+  @@index([messageId, createdAt])
+  @@index([accessReason, createdAt])
 }
 
 model LoginAttempt {
