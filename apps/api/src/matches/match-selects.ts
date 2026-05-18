@@ -17,11 +17,19 @@ export const matchRequestSummarySelect = {
   requesterParticipant: {
     select: {
       userId: true,
+      participationIntent: true,
+      participantStatus: true,
+      declinedAt: true,
+      withdrawnAt: true,
     },
   },
   receiverParticipant: {
     select: {
       userId: true,
+      participationIntent: true,
+      participantStatus: true,
+      declinedAt: true,
+      withdrawnAt: true,
     },
   },
 } as const satisfies Prisma.MatchRequestSelect;

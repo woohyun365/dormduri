@@ -7,6 +7,7 @@ export interface CurrentUserCapabilityInput {
   campusOperated: boolean;
   seasonState: SeasonState | null;
   participantRegistered: boolean;
+  participantRegistrationLocked?: boolean;
   participantMatched: boolean;
   seasonProfileComplete: boolean;
   selectionState: DormitorySelectionState;
@@ -108,6 +109,7 @@ export function buildCurrentUserCapabilities(
       input.campusOperated &&
       activeSeasonPhase &&
       !input.participantRegistered &&
+      !input.participantRegistrationLocked &&
       input.seasonProfileComplete,
     canSelectDormitory:
       input.campusOperated &&

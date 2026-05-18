@@ -140,6 +140,60 @@ describe('MatchesService integration', () => {
     expect(acceptedCount).toBe(1);
   });
 
+  it('withdrawn requester가 포함된 stale pending request는 accept race에서 active match를 만들지 않고 system cancel한다', async () => {
+    const request = await service.createMatchRequest(authContext('user-a'), {
+      targetUserId: 'user-b',
+      note: 'withdrawn race',
+      channel: 'PROFILE_DETAIL',
+    });
+    const withdrawnAt = new Date('2026-02-10T04:00:00.000Z');
+
+    await prisma.seasonParticipant.update({
+      where: { id: 'participant-a' },
+      data: {
+        participationIntent: 'DECLINED',
+        declinedAt: withdrawnAt,
+        participantStatus: 'WITHDRAWN',
+        withdrawnAt,
+      },
+    });
+
+    const result = await service.acceptMatchRequest(authContext('user-b'), request.request.id);
+    expect(result).toMatchObject({
+      activeMatch: null,
+      request: {
+        id: request.request.id,
+        status: 'CANCELLED_BY_SYSTEM',
+        terminalReason: 'WITHDRAWN_PARTICIPANT',
+      },
+    });
+
+    const staleRequest = await prisma.matchRequest.findUniqueOrThrow({
+      where: { id: request.request.id },
+    });
+    expect(staleRequest).toMatchObject({
+      status: 'CANCELLED_BY_SYSTEM',
+      terminalReason: 'WITHDRAWN_PARTICIPANT',
+    });
+    expect(staleRequest.terminalAt).not.toBeNull();
+
+    await expect(
+      prisma.activeMatch.findFirst({
+        where: {
+          seasonId: 'season-integration',
+          endedAt: null,
+          OR: [{ participantAId: 'participant-a' }, { participantBId: 'participant-a' }],
+        },
+      }),
+    ).resolves.toBeNull();
+
+    const withdrawnParticipant = await prisma.seasonParticipant.findUniqueOrThrow({
+      where: { id: 'participant-a' },
+    });
+    expect(withdrawnParticipant.participantStatus).toBe('WITHDRAWN');
+    expect(withdrawnParticipant.matchedAt).toBeNull();
+  });
+
   it('수락된 요청 외 같은 receiver의 다른 pending request는 system cancel된다', async () => {
     const requestA = await service.createMatchRequest(authContext('user-a'), {
       targetUserId: 'user-b',

@@ -2,7 +2,6 @@ import { formatKstDate, subtractDays } from '../seasons/season.utils.js';
 import { buildParticipantPairIdentity } from './match.utils.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
-import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
 import {
   ROOMMATE_CONDITION_FIELDS,
   CORE_LIFESTYLE_FIELDS,
@@ -316,11 +315,10 @@ function buildHistoryRows(
   season: SeasonHistorySource,
   now: Date,
 ): Prisma.SeasonMatchHistoryEntryCreateManyInput[] {
-  const registeredParticipants = season.participants.filter((participant) =>
-    isParticipantRegistered(participant),
-  );
-  const registeredParticipantIds = new Set(
-    registeredParticipants.map((participant) => participant.id),
+  const historyParticipantIds = new Set(
+    season.participants
+      .filter((participant) => participant.registeredAt !== null)
+      .map((participant) => participant.id),
   );
   const participantMap = new Map(
     season.participants.map((participant) => [participant.id, participant] as const),
@@ -340,7 +338,7 @@ function buildHistoryRows(
       continue;
     }
 
-    if (!registeredParticipantIds.has(requester.id) || !registeredParticipantIds.has(receiver.id)) {
+    if (!historyParticipantIds.has(requester.id) || !historyParticipantIds.has(receiver.id)) {
       continue;
     }
 
@@ -389,8 +387,8 @@ function buildHistoryRows(
     }
 
     if (
-      !registeredParticipantIds.has(participantA.id) ||
-      !registeredParticipantIds.has(participantB.id)
+      !historyParticipantIds.has(participantA.id) ||
+      !historyParticipantIds.has(participantB.id)
     ) {
       continue;
     }

@@ -39,6 +39,9 @@ export function buildCurrentUserCapabilityInput(input: {
     campusOperated: input.campusOperated,
     seasonState: input.seasonState,
     participantRegistered: isParticipantRegistered(input.participant),
+    participantRegistrationLocked:
+      input.participant?.participationIntent === 'DECLINED' ||
+      input.participant?.participantStatus === 'WITHDRAWN',
     participantMatched: input.participantMatched,
     seasonProfileComplete: input.seasonProfileComplete,
     selectionState: input.selection.dormitorySelectionState,

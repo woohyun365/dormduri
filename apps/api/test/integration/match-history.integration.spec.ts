@@ -552,6 +552,107 @@ describe('Match history integration', () => {
     expect(history.items[0]?.history[0]).not.toHaveProperty('matchScore');
   });
 
+  it('withdrawn participant로 system-cancel된 request도 WITHDRAWN_PARTICIPANT history로 남긴다', async () => {
+    await seedCampusDormitory();
+    await seedSeason({
+      id: 'season-withdrawn-history',
+      academicYear: 2025,
+      semester: 1,
+      name: '2025-withdrawn-history',
+      preparationStartDate: '2025-01-01',
+      matchingStartDate: '2025-01-10',
+      seasonEndDate: '2025-02-28',
+      roomSelectionDate: '2025-02-20',
+    });
+
+    await seedUser({ userId: 'user-a', email: 'user-a@kangwon.ac.kr', nickname: '홍길동' });
+    await seedUser({ userId: 'user-b', email: 'user-b@kangwon.ac.kr', nickname: '철회사용자' });
+    await seedSeasonParticipant({
+      seasonId: 'season-withdrawn-history',
+      participantId: 'participant-a-withdrawn-history',
+      userId: 'user-a',
+      nicknameSnapshot: '홍길동-withdrawn-history',
+    });
+    await seedSeasonParticipant({
+      seasonId: 'season-withdrawn-history',
+      participantId: 'participant-b-withdrawn-history',
+      userId: 'user-b',
+      nicknameSnapshot: '철회사용자',
+    });
+
+    await prisma.seasonParticipant.update({
+      where: { id: 'participant-b-withdrawn-history' },
+      data: {
+        participationIntent: 'DECLINED',
+        declinedAt: new Date('2025-01-20T12:00:00.000Z'),
+        participantStatus: 'WITHDRAWN',
+        withdrawnAt: new Date('2025-01-20T12:00:00.000Z'),
+      },
+    });
+    await prisma.matchRequest.create({
+      data: {
+        id: 'request-withdrawn-history',
+        seasonId: 'season-withdrawn-history',
+        pairKey: 'participant-a-withdrawn-history:participant-b-withdrawn-history',
+        pairMinParticipantId: 'participant-a-withdrawn-history',
+        pairMaxParticipantId: 'participant-b-withdrawn-history',
+        requesterParticipantId: 'participant-a-withdrawn-history',
+        receiverParticipantId: 'participant-b-withdrawn-history',
+        status: 'CANCELLED_BY_SYSTEM',
+        terminalReason: 'WITHDRAWN_PARTICIPANT',
+        createdAt: new Date('2025-01-20T10:00:00.000Z'),
+        expiresAt: new Date('2025-01-25T10:00:00.000Z'),
+        terminalAt: new Date('2025-01-20T12:00:00.000Z'),
+        requestChannel: 'PROFILE_DETAIL',
+      },
+    });
+
+    const history = await matchesService.getMatchHistory(authContext('user-a'));
+    const storedRows = await prisma.seasonMatchHistoryEntry.findMany({
+      where: { sourceRequestId: 'request-withdrawn-history' },
+      orderBy: [{ viewerParticipantId: 'asc' }],
+    });
+
+    expect(storedRows).toHaveLength(2);
+    expect(storedRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          viewerParticipantId: 'participant-a-withdrawn-history',
+          counterpartParticipantId: 'participant-b-withdrawn-history',
+          entryResult: 'REQUEST_CANCELLED',
+          requestTerminalReason: 'WITHDRAWN_PARTICIPANT',
+        }),
+        expect.objectContaining({
+          viewerParticipantId: 'participant-b-withdrawn-history',
+          counterpartParticipantId: 'participant-a-withdrawn-history',
+          entryResult: 'REQUEST_CANCELLED',
+          requestTerminalReason: 'WITHDRAWN_PARTICIPANT',
+        }),
+      ]),
+    );
+
+    expect(history.items).toHaveLength(1);
+    expect(history.items[0]).toMatchObject({
+      seasonId: 'season-withdrawn-history',
+      finalResult: 'NO_MATCH',
+      sentRequestCount: 1,
+      receivedRequestCount: 0,
+      conversationCount: 0,
+    });
+    expect(history.items[0]?.history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          counterpartParticipantId: 'participant-b-withdrawn-history',
+          counterpartNickname: '철회사용자',
+          stage: 'SENT_REQUEST',
+          result: 'REQUEST_CANCELLED',
+          requestTerminalReason: 'WITHDRAWN_PARTICIPANT',
+          finalizedAt: '2025-01-20T12:00:00.000Z',
+        }),
+      ]),
+    );
+  });
+
   it('terminal request row도 viewer 기준 score snapshot을 저장하고 user DTO에는 숨긴다', async () => {
     await seedCampusDormitory();
     await seedSeason({

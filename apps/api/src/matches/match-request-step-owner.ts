@@ -13,6 +13,33 @@ import { buildParticipantPairIdentity } from './match.utils.js';
 export type TerminalMatchRequestStatus = 'REJECTED' | 'CANCELLED_BY_REQUESTER';
 export type TerminalMatchRequestReason = 'REJECTED_BY_RECEIVER' | 'CANCELLED_BY_REQUESTER';
 
+type MatchRequestParticipantState = MatchRequestRecord['requesterParticipant'];
+
+function isWithdrawnMatchRequestParticipant(participant: MatchRequestParticipantState) {
+  return (
+    participant.participationIntent === 'DECLINED' ||
+    participant.participantStatus === 'WITHDRAWN' ||
+    (participant.withdrawnAt !== null && participant.withdrawnAt !== undefined) ||
+    (participant.declinedAt !== null && participant.declinedAt !== undefined)
+  );
+}
+
+async function systemCancelWithdrawnParticipantRequest(
+  tx: Prisma.TransactionClient,
+  request: MatchRequestRecord,
+  now: Date,
+): Promise<MatchRequestRecord> {
+  return (await tx.matchRequest.update({
+    where: { id: request.id },
+    data: {
+      status: 'CANCELLED_BY_SYSTEM',
+      terminalReason: 'WITHDRAWN_PARTICIPANT',
+      terminalAt: now,
+    },
+    select: matchRequestSummarySelect,
+  })) as MatchRequestRecord;
+}
+
 export function getRequestTerminalNotAllowedError(status: TerminalMatchRequestStatus) {
   return status === 'REJECTED'
     ? matchesErrors.requestRejectNotAllowed()
@@ -80,15 +107,23 @@ export async function executeTerminalMatchRequestUpdate(
   })) as MatchRequestRecord;
 }
 
+export type AcceptableMatchRequestLoadResult =
+  | {
+      kind: 'ACCEPTABLE';
+      request: MatchRequestRecord;
+      pairIdentity: ReturnType<typeof buildParticipantPairIdentity>;
+    }
+  | {
+      kind: 'TERMINAL';
+      request: MatchRequestRecord;
+    };
+
 export async function loadAcceptableMatchRequest(
   tx: Prisma.TransactionClient,
   requestId: string,
   receiverParticipantId: string,
   now: Date,
-): Promise<{
-  request: MatchRequestRecord;
-  pairIdentity: ReturnType<typeof buildParticipantPairIdentity>;
-}> {
+): Promise<AcceptableMatchRequestLoadResult> {
   await lockRequestRow(tx, requestId);
 
   const request = (await tx.matchRequest.findUnique({
@@ -121,13 +156,46 @@ export async function loadAcceptableMatchRequest(
       ? ([request.requesterParticipantId, request.receiverParticipantId] as const)
       : ([request.receiverParticipantId, request.requesterParticipantId] as const);
   await acquireParticipantLocks(tx, request.seasonId, sortedParticipants);
-  await assertNoLiveActiveMatchForParticipants(tx, request.seasonId, sortedParticipants);
+
+  const lockedRequest = (await tx.matchRequest.findUnique({
+    where: { id: requestId },
+    select: matchRequestSummarySelect,
+  })) as MatchRequestRecord | null;
+  if (!lockedRequest) {
+    throw matchesErrors.requestNotFound();
+  }
+  if (lockedRequest.status !== 'PENDING') {
+    throw matchesErrors.requestNotPending();
+  }
+  if (lockedRequest.expiresAt.getTime() <= now.getTime()) {
+    await tx.matchRequest.update({
+      where: { id: lockedRequest.id },
+      data: {
+        status: 'EXPIRED',
+        terminalReason: 'EXPIRED',
+        terminalAt: now,
+      },
+    });
+    throw matchesErrors.requestExpired();
+  }
+  if (
+    isWithdrawnMatchRequestParticipant(lockedRequest.requesterParticipant) ||
+    isWithdrawnMatchRequestParticipant(lockedRequest.receiverParticipant)
+  ) {
+    return {
+      kind: 'TERMINAL',
+      request: await systemCancelWithdrawnParticipantRequest(tx, lockedRequest, now),
+    };
+  }
+
+  await assertNoLiveActiveMatchForParticipants(tx, lockedRequest.seasonId, sortedParticipants);
 
   return {
-    request,
+    kind: 'ACCEPTABLE',
+    request: lockedRequest,
     pairIdentity: buildParticipantPairIdentity(
-      request.requesterParticipantId,
-      request.receiverParticipantId,
+      lockedRequest.requesterParticipantId,
+      lockedRequest.receiverParticipantId,
     ),
   };
 }

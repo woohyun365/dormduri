@@ -60,14 +60,21 @@ interface MatchRequestCommandClusterDeps {
     requestId: string,
     receiverParticipantId: string,
     now: Date,
-  ): Promise<{
-    request: MatchRequestRecord;
-    pairIdentity: {
-      pairKey: string;
-      pairMinParticipantId: string;
-      pairMaxParticipantId: string;
-    };
-  }>;
+  ): Promise<
+    | {
+        kind: 'ACCEPTABLE';
+        request: MatchRequestRecord;
+        pairIdentity: {
+          pairKey: string;
+          pairMinParticipantId: string;
+          pairMaxParticipantId: string;
+        };
+      }
+    | {
+        kind: 'TERMINAL';
+        request: MatchRequestRecord;
+      }
+  >;
   executeAcceptMatchRequest(
     tx: Prisma.TransactionClient,
     input: {
@@ -146,6 +153,13 @@ export function createMatchRequestCommandCluster(deps: MatchRequestCommandCluste
           receiverParticipantId,
           now,
         );
+        if (acceptanceContext.kind === 'TERMINAL') {
+          return {
+            request: toMatchRequestSummary(acceptanceContext.request, receiverParticipantId),
+            activeMatch: null,
+          };
+        }
+
         const { acceptedRequest, activeMatchRecord } = await deps.executeAcceptMatchRequest(
           tx,
           acceptanceContext,

@@ -394,6 +394,72 @@ describe('SeasonParticipantsService', () => {
     });
   });
 
+  it('삭제 처리된 사용자는 register를 거부한다', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      emailVerifiedAt: now,
+      deletedAt: now,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      profile: baseProfile,
+    });
+
+    await expect(service.registerCurrentSeasonParticipation('user-1', now)).rejects.toMatchObject({
+      response: seasonParticipantsErrors.registrationNotAllowed().getResponse(),
+    });
+    expect(seasonsService.getCurrentSeasonContext).not.toHaveBeenCalled();
+    expect(prisma.seasonParticipant.upsert).not.toHaveBeenCalled();
+  });
+
+  it('같은 시즌에서 철회 이력이 있는 사용자는 register를 다시 허용하지 않는다', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      emailVerifiedAt: now,
+      deletedAt: null,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      profile: baseProfile,
+    });
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-1' },
+      state: 'SEASON_OPEN',
+    });
+    prisma.seasonParticipant.upsert.mockResolvedValue({
+      id: 'participant-1',
+      seasonId: 'season-1',
+      userId: 'user-1',
+      participationIntent: 'DECLINED',
+      registeredAt: new Date('2026-02-01T00:00:00.000Z'),
+      declinedAt: now,
+      dormitoryId: 'dasan',
+      dormitorySelectionState: 'ASSIGNED',
+      participantStatus: 'WITHDRAWN',
+      campusCodeSnapshot: 'CHUNCHEON',
+      genderSnapshot: 'M',
+      joinedAt: now,
+      activatedAt: new Date('2026-02-01T00:00:00.000Z'),
+      matchedAt: null,
+      withdrawnAt: now,
+      expiredAt: null,
+      hiddenByAdminAt: null,
+      hiddenReasonCode: null,
+      hiddenReasonDetail: null,
+      deactivatedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      profile: null,
+    });
+
+    await expect(service.registerCurrentSeasonParticipation('user-1', now)).rejects.toMatchObject({
+      response: seasonParticipantsErrors.registrationNotAllowed().getResponse(),
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+    expect(txSeasonParticipantProfileUpsert).not.toHaveBeenCalled();
+  });
+
   it('원하는 룸메 조건이 하나라도 비어 있으면 register를 거부한다', async () => {
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
@@ -476,6 +542,22 @@ describe('SeasonParticipantsService', () => {
 
     const result = await service.backfillCurrentSeasonParticipants(now);
 
+    const [eligibleUserQuery] = prisma.user.findMany.mock.calls as Array<
+      [
+        {
+          where: {
+            campus: string;
+            emailVerifiedAt: { not: null };
+            deletedAt: null;
+          };
+        },
+      ]
+    >;
+    expect(eligibleUserQuery?.[0].where).toMatchObject({
+      campus: 'CHUNCHEON',
+      emailVerifiedAt: { not: null },
+      deletedAt: null,
+    });
     expect(prisma.seasonParticipant.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({

@@ -18,4 +18,10 @@ export class CurrentSeasonParticipationController {
     await this.seasonParticipantsService.registerCurrentSeasonParticipation(authUser.id);
     return this.usersService.getCurrentUser(authUser);
   }
+
+  @Post('deregister')
+  async deregister(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+    await this.seasonParticipantsService.deregisterCurrentSeasonParticipation(authUser.id);
+    return this.usersService.getCurrentUser(authUser);
+  }
 }

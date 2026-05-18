@@ -1,4 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
+import type { Campus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import {
@@ -94,6 +95,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
         id: true,
         email: true,
         emailVerifiedAt: true,
+        deletedAt: true,
         gender: true,
         campus: true,
         profile: {
@@ -116,7 +118,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
       },
     });
 
-    if (!user || !user.profile || !user.emailVerifiedAt) {
+    if (!user || !user.profile || !user.emailVerifiedAt || user.deletedAt) {
       throw seasonParticipantsErrors.registrationNotAllowed();
     }
 
@@ -131,6 +133,26 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     }
 
     return mappedUser;
+  }
+
+  async function getVerifiedUserForSeasonAction(
+    userId: string,
+  ): Promise<{ id: string; campus: Campus }> {
+    const user = await deps.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        campus: true,
+        emailVerifiedAt: true,
+        deletedAt: true,
+      },
+    });
+
+    if (!user || !user.emailVerifiedAt || user.deletedAt) {
+      throw seasonParticipantsErrors.deregistrationNotAllowed();
+    }
+
+    return { id: user.id, campus: user.campus };
   }
 
   async function ensureCurrentSeasonParticipantForUser(
@@ -183,6 +205,14 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
 
     const participant = await ensureCurrentSeasonParticipantForUser(user, referenceNow);
     if (!participant) {
+      throw seasonParticipantsErrors.registrationNotAllowed();
+    }
+
+    if (
+      participant.participationIntent === 'DECLINED' ||
+      participant.participantStatus === 'WITHDRAWN' ||
+      participant.withdrawnAt
+    ) {
       throw seasonParticipantsErrors.registrationNotAllowed();
     }
 
@@ -267,6 +297,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
         where: {
           campus: campus.code,
           emailVerifiedAt: { not: null },
+          deletedAt: null,
         },
         select: {
           id: true,
@@ -379,10 +410,117 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     return syncedCount;
   }
 
+  async function deregisterCurrentSeasonParticipation(
+    userId: string,
+    now?: Date,
+  ): Promise<CurrentSeasonParticipantRecord> {
+    const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
+    const user = await getVerifiedUserForSeasonAction(userId);
+    const seasonContext = await deps.seasonsService.getCurrentSeasonContext(
+      user.campus,
+      referenceNow,
+    );
+
+    if (
+      !seasonContext ||
+      (seasonContext.state !== 'SEASON_OPEN' && seasonContext.state !== 'SEASON_MATCHING')
+    ) {
+      throw seasonParticipantsErrors.deregistrationNotAllowed();
+    }
+
+    const participant = await deps.prisma.seasonParticipant.findUnique({
+      where: {
+        seasonId_userId: {
+          seasonId: seasonContext.season.id,
+          userId,
+        },
+      },
+      select: currentSeasonParticipantSelect,
+    });
+
+    if (!participant) {
+      throw seasonParticipantsErrors.deregistrationNotAllowed();
+    }
+
+    const mappedParticipant = mapCurrentSeasonParticipantRecord(participant);
+    if (!mappedParticipant.registeredAt || mappedParticipant.participationIntent !== 'REGISTERED') {
+      throw seasonParticipantsErrors.deregistrationNotAllowed();
+    }
+
+    const liveActiveMatch = await deps.prisma.activeMatch.findFirst({
+      where: {
+        seasonId: mappedParticipant.seasonId,
+        endedAt: null,
+        OR: [{ participantAId: mappedParticipant.id }, { participantBId: mappedParticipant.id }],
+      },
+      select: { id: true },
+    });
+
+    if (liveActiveMatch) {
+      throw seasonParticipantsErrors.deregistrationNotAllowed();
+    }
+
+    await deps.prisma.$transaction(async (tx) => {
+      await tx.seasonParticipant.update({
+        where: { id: mappedParticipant.id },
+        data: {
+          participationIntent: 'DECLINED',
+          declinedAt: mappedParticipant.declinedAt ?? referenceNow,
+          participantStatus: 'WITHDRAWN',
+          withdrawnAt: mappedParticipant.withdrawnAt ?? referenceNow,
+        },
+      });
+
+      await tx.matchRequest.updateMany({
+        where: {
+          seasonId: mappedParticipant.seasonId,
+          status: 'PENDING',
+          OR: [
+            { requesterParticipantId: mappedParticipant.id },
+            { receiverParticipantId: mappedParticipant.id },
+          ],
+        },
+        data: {
+          status: 'CANCELLED_BY_SYSTEM',
+          terminalReason: 'WITHDRAWN_PARTICIPANT',
+          terminalAt: referenceNow,
+        },
+      });
+
+      await tx.conversationThread.updateMany({
+        where: {
+          seasonId: mappedParticipant.seasonId,
+          activeMatchId: null,
+          status: 'OPEN',
+          OR: [{ participantAId: mappedParticipant.id }, { participantBId: mappedParticipant.id }],
+        },
+        data: {
+          status: 'READ_ONLY',
+          closedReason: 'PARTICIPANT_WITHDRAWN',
+          closedAt: referenceNow,
+        },
+      });
+    });
+
+    const refreshed = await deps.prisma.seasonParticipant.findUnique({
+      where: { id: mappedParticipant.id },
+      select: currentSeasonParticipantSelect,
+    });
+
+    if (!refreshed) {
+      throw new Error(
+        '[SeasonParticipantsService] deregistered participant not found after update',
+      );
+    }
+
+    return mapCurrentSeasonParticipantRecord(refreshed);
+  }
+
   return {
     ensureCurrentSeasonParticipantForUser,
     registerCurrentSeasonParticipation,
     backfillCurrentSeasonParticipants,
+    deregisterCurrentSeasonParticipation,
     syncCurrentSeasonProfileTemplates,
   };
 }

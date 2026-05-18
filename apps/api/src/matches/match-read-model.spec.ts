@@ -120,8 +120,20 @@ describe('match read model helpers', () => {
       acceptedAt: null,
       terminalReason: null,
       requestChannel: 'PROFILE_DETAIL',
-      requesterParticipant: { userId: 'user-1' },
-      receiverParticipant: { userId: 'user-2' },
+      requesterParticipant: {
+        userId: 'user-1',
+        participationIntent: 'REGISTERED',
+        declinedAt: null,
+        participantStatus: 'ACTIVE',
+        withdrawnAt: null,
+      },
+      receiverParticipant: {
+        userId: 'user-2',
+        participationIntent: 'REGISTERED',
+        declinedAt: null,
+        participantStatus: 'ACTIVE',
+        withdrawnAt: null,
+      },
     };
 
     expect(toMatchRequestSummary(request, 'participant-1')).toMatchObject({

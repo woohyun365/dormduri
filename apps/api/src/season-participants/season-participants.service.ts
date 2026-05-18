@@ -54,6 +54,13 @@ export class SeasonParticipantsService {
     return this.writeOwner.registerCurrentSeasonParticipation(userId, now);
   }
 
+  async deregisterCurrentSeasonParticipation(
+    userId: string,
+    now?: Date,
+  ): Promise<CurrentSeasonParticipantRecord> {
+    return this.writeOwner.deregisterCurrentSeasonParticipation(userId, now);
+  }
+
   async backfillCurrentSeasonParticipants(now: Date): Promise<SeasonParticipantBackfillResult[]> {
     return this.writeOwner.backfillCurrentSeasonParticipants(now);
   }
