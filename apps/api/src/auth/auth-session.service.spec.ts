@@ -102,6 +102,36 @@ describe('AuthSessionService', () => {
     );
   });
 
+  it('삭제 처리된 사용자는 유효한 토큰이 있어도 세션 인증에서 제외한다', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sid: 'session-deleted', sub: 'user-deleted' });
+    prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-deleted' }]);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-deleted',
+      email: 'deleted@kangwon.ac.kr',
+      deletedAt: new Date('2026-05-12T00:00:00.000Z'),
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      profile: {
+        nickname: '탈퇴한 사용자',
+      },
+    });
+
+    await expect(service.getSession('token')).resolves.toEqual({ authenticated: false });
+  });
+
+  it('삭제 처리된 사용자는 authenticated user context도 반환하지 않는다', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sid: 'session-deleted', sub: 'user-deleted' });
+    prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-deleted' }]);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-deleted',
+      deletedAt: new Date('2026-05-12T00:00:00.000Z'),
+      gender: 'M',
+      campus: 'CHUNCHEON',
+    });
+
+    await expect(service.resolveCurrentUserContext('token')).resolves.toBeNull();
+  });
+
   it('logout은 session id가 있으면 session revoke updateMany를 실행한다', async () => {
     jwtService.verifyAsync.mockResolvedValue({ sid: 'session-1' });
     prisma.authSession.updateMany.mockResolvedValue({ count: 1 });

@@ -45,14 +45,27 @@ export class AuthSessionService {
       return null;
     }
 
-    return this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        gender: true,
-        campus: true,
-      },
-    });
+    return this.prisma.user
+      .findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          gender: true,
+          campus: true,
+          deletedAt: true,
+        },
+      })
+      .then((user) =>
+        user?.deletedAt
+          ? null
+          : user
+            ? {
+                id: user.id,
+                gender: user.gender,
+                campus: user.campus,
+              }
+            : null,
+      );
   }
 
   async issueAuthResult(
@@ -124,6 +137,7 @@ export class AuthSessionService {
       select: {
         id: true,
         email: true,
+        deletedAt: true,
         gender: true,
         campus: true,
         profile: {
@@ -134,7 +148,7 @@ export class AuthSessionService {
       },
     });
 
-    if (!user?.profile) {
+    if (!user?.profile || user.deletedAt) {
       return null;
     }
 

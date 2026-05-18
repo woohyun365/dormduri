@@ -153,6 +153,38 @@ describe('AuthService orchestration', () => {
     expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('missing@kangwon.ac.kr');
   });
 
+  it('삭제 처리된 계정 login은 실패 기록으로 위임하고 세션을 발급하지 않는다', async () => {
+    loginAttemptService.getActiveLock.mockResolvedValue(null);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-deleted',
+      email: 'deleted@kangwon.ac.kr',
+      passwordHash: 'deleted-password-hash',
+      deletedAt: new Date('2026-05-12T00:00:00.000Z'),
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      profile: {
+        nickname: '탈퇴한 사용자',
+      },
+    });
+    loginAttemptService.recordLoginFailure.mockResolvedValue({
+      success: false,
+      error: '이메일 또는 비밀번호가 올바르지 않습니다.',
+      code: 'AUTH_INVALID_CREDENTIALS',
+      userActionable: true,
+    });
+
+    await expect(service.login('deleted@kangwon.ac.kr', 'Pass1234', false)).resolves.toEqual({
+      success: false,
+      error: '이메일 또는 비밀번호가 올바르지 않습니다.',
+      code: 'AUTH_INVALID_CREDENTIALS',
+      userActionable: true,
+    });
+
+    expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('deleted@kangwon.ac.kr');
+    expect(loginAttemptService.clearFailures).not.toHaveBeenCalled();
+    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+  });
+
   it('활성 잠금이 있으면 login은 즉시 잠금 응답을 반환한다', async () => {
     loginAttemptService.getActiveLock.mockResolvedValue({
       success: false,

@@ -52,18 +52,24 @@ export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
     },
 
     async getMatchUserProjection(userId: string): Promise<MatchParticipantUserProjection | null> {
-      return deps.prisma.user.findUnique({
+      const user = await deps.prisma.user.findUnique({
         where: { id: userId },
         select: {
           id: true,
           emailVerifiedAt: true,
           gender: true,
           campus: true,
+          deletedAt: true,
           profile: {
             select: lifestyleColumnSelect,
           },
         },
       });
+      if (!user || user.deletedAt) {
+        return null;
+      }
+
+      return user;
     },
 
     async getValidatedTargetUserForMatchRequest(

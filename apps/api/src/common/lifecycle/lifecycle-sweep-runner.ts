@@ -1,6 +1,7 @@
 import type { ChatService } from '../../chat/chat.service.js';
 import type { MatchesService } from '../../matches/matches.service.js';
 import type { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import type { UsersService } from '../../users/users.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { LifecycleSweepResult } from './lifecycle-sweep.service.js';
 
@@ -11,6 +12,12 @@ interface LifecycleSweepRunnerDeps {
   seasonParticipantsService: Pick<
     SeasonParticipantsService,
     'backfillCurrentSeasonParticipants' | 'syncCurrentSeasonProfileTemplates'
+  >;
+  usersService: Pick<
+    UsersService,
+    | 'activateThreadRetentionJobsForArchivedThreads'
+    | 'retryDueDeletionArchiveJobs'
+    | 'disposeExpiredRetainedIdentities'
   >;
 }
 
@@ -23,6 +30,11 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
     const participantBackfill =
       await deps.seasonParticipantsService.backfillCurrentSeasonParticipants(referenceNow);
     await deps.seasonParticipantsService.syncCurrentSeasonProfileTemplates(referenceNow);
+    const threadRetentionActivationSweep =
+      await deps.usersService.activateThreadRetentionJobsForArchivedThreads(referenceNow);
+    const archiveJobSweep = await deps.usersService.retryDueDeletionArchiveJobs(referenceNow);
+    const retainedIdentityDisposalSweep =
+      await deps.usersService.disposeExpiredRetainedIdentities(referenceNow);
 
     return {
       ranAt: referenceNow.toISOString(),
@@ -30,6 +42,9 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
       threadTransitions,
       matchHistory,
       participantBackfill,
+      threadRetentionActivationSweep,
+      archiveJobSweep,
+      retainedIdentityDisposalSweep,
     };
   }
 

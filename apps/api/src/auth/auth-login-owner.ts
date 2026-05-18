@@ -34,6 +34,7 @@ export async function login(
       id: true,
       email: true,
       passwordHash: true,
+      deletedAt: true,
       gender: true,
       campus: true,
       profile: {
@@ -45,6 +46,10 @@ export async function login(
   });
 
   if (!user) {
+    return deps.loginAttemptService.recordLoginFailure(emailNormalized);
+  }
+
+  if (user.deletedAt) {
     return deps.loginAttemptService.recordLoginFailure(emailNormalized);
   }
 

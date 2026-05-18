@@ -7,10 +7,21 @@ import { SeasonParticipantsService } from '../season-participants/season-partici
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
 import { createUserUpdateOwner, type UpdateCurrentUserInput } from './user-update-owner.js';
+import { createUserDeletionOwner } from './user-deletion-owner.js';
+import type {
+  ArchiveJobActivationResult,
+  ArchiveJobSweepResult,
+} from '../retention/archive-job-owner.js';
+import type {
+  AccountDeletionRequestAccepted,
+  RequestAccountDeletion,
+} from '@repo/shared/user-contract';
+import type { RetainedIdentityDisposalResult } from '../retention/retained-identity-owner.js';
 
 @Injectable()
 export class UsersService {
   private readonly updateOwner;
+  private readonly deletionOwner;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -26,6 +37,10 @@ export class UsersService {
       seasonParticipantsService: this.seasonParticipantsService,
       currentUserViewService: this.currentUserViewService,
     });
+    this.deletionOwner = createUserDeletionOwner({
+      prisma: this.prisma,
+      seasonsService: this.seasonsService,
+    });
   }
 
   async getCurrentUser(authUser: AuthenticatedUserContext): Promise<CurrentUserResponse> {
@@ -37,5 +52,26 @@ export class UsersService {
     input: UpdateCurrentUserInput,
   ): Promise<CurrentUserResponse> {
     return this.updateOwner.updateCurrentUser(authUser, input);
+  }
+
+  async requestAccountDeletion(
+    authUser: AuthenticatedUserContext,
+    input: RequestAccountDeletion,
+  ): Promise<AccountDeletionRequestAccepted> {
+    return this.deletionOwner.requestAccountDeletion(authUser.id, input);
+  }
+
+  async activateThreadRetentionJobsForArchivedThreads(
+    now: Date,
+  ): Promise<ArchiveJobActivationResult> {
+    return this.deletionOwner.activateThreadRetentionJobsForArchivedThreads(now);
+  }
+
+  async retryDueDeletionArchiveJobs(now: Date): Promise<ArchiveJobSweepResult> {
+    return this.deletionOwner.retryDueDeletionArchiveJobs(now);
+  }
+
+  async disposeExpiredRetainedIdentities(now: Date): Promise<RetainedIdentityDisposalResult> {
+    return this.deletionOwner.disposeExpiredRetainedIdentities(now);
   }
 }

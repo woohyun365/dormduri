@@ -248,9 +248,12 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     const viewerContext = await loadViewerContext(authUser, now);
     const rawUser = await deps.prisma.user.findUnique({
       where: { id: targetUserId },
-      select: buildUserWithProfileSelect(viewerContext.currentSeasonId),
+      select: {
+        ...buildUserWithProfileSelect(viewerContext.currentSeasonId),
+        deletedAt: true,
+      },
     });
-    if (!rawUser) {
+    if (!rawUser || rawUser.deletedAt) {
       return null;
     }
 

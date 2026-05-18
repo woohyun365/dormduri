@@ -12,6 +12,7 @@ import { ChatService } from '../../chat/chat.service.js';
 import lifecycleConfig from '../../config/lifecycle.config.js';
 import { MatchesService } from '../../matches/matches.service.js';
 import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import { UsersService } from '../../users/users.service.js';
 import {
   createLifecycleBoundaryJobBuilder,
   BOUNDARY_JOB_PREFIX,
@@ -29,6 +30,13 @@ export interface LifecycleSweepResult {
   participantBackfill: Awaited<
     ReturnType<SeasonParticipantsService['backfillCurrentSeasonParticipants']>
   >;
+  threadRetentionActivationSweep: Awaited<
+    ReturnType<UsersService['activateThreadRetentionJobsForArchivedThreads']>
+  >;
+  archiveJobSweep: Awaited<ReturnType<UsersService['retryDueDeletionArchiveJobs']>>;
+  retainedIdentityDisposalSweep: Awaited<
+    ReturnType<UsersService['disposeExpiredRetainedIdentities']>
+  >;
 }
 
 @Injectable()
@@ -43,6 +51,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
     private readonly chatService: ChatService,
     private readonly matchesService: MatchesService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    private readonly usersService: UsersService,
     private readonly schedulerRegistry: SchedulerRegistry,
     @Inject(lifecycleConfig.KEY)
     private readonly lifecycleSettings: ConfigType<typeof lifecycleConfig>,
@@ -52,6 +61,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
       chatService: this.chatService,
       matchesService: this.matchesService,
       seasonParticipantsService: this.seasonParticipantsService,
+      usersService: this.usersService,
     });
     this.boundaryJobBuilder = createLifecycleBoundaryJobBuilder(this.prisma);
   }

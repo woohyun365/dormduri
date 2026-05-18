@@ -98,4 +98,16 @@ export const envValidationSchema = Joi.object({
     .integer()
     .min(1_000)
     .default(DEFAULT_LIFECYCLE_SWEEP_INTERVAL_MS),
+  RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64: Joi.string().base64().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.string().base64().optional(),
+  }),
+  RETENTION_IDENTITY_KEY_VERSION: Joi.string().trim().default('local-v1'),
+  RETENTION_CHAT_BODY_ENCRYPTION_KEY_BASE64: Joi.string().base64().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.string().base64().optional(),
+  }),
+  RETENTION_CHAT_BODY_KEY_VERSION: Joi.string().trim().default('local-v1'),
 }).unknown(true);

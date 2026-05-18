@@ -245,6 +245,30 @@ describe('RoommateSearchService integration', () => {
     expect(result.items[0]).toMatchObject({ canViewFull: true });
   });
 
+  it('삭제 처리된 사용자는 시즌 roommate-search summary와 FULL detail 대상에서 제외된다', async () => {
+    await setSeasonState('SEASON_OPEN');
+    await prisma.user.update({
+      where: { id: 'user-b' },
+      data: { deletedAt: await prisma.getDatabaseNow() },
+    });
+
+    const result = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      offset: 0,
+      limit: 20,
+    });
+
+    expect(result.effectiveVisibility).toBe('FULL_ONLY');
+    expect(result.items.map((item) => item.nickname)).toEqual(['유저C']);
+    expect(result.items.every((item) => item.canViewFull)).toBe(true);
+
+    await expect(
+      profilesService.getProfileByUserId(authContext('user-a'), 'user-b'),
+    ).rejects.toMatchObject({
+      response: { code: 'PROFILE_NOT_VISIBLE' },
+    });
+  });
+
   it('SEASON_MATCHING 등록 viewer는 same-building만 보고 explicit CAMPUS_MERGED는 400이다', async () => {
     await setSeasonState('SEASON_MATCHING');
 

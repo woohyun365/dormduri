@@ -22,18 +22,24 @@ interface ChatContextOwnerDeps {
 export function createChatContextOwner(deps: ChatContextOwnerDeps) {
   return {
     async getChatUserProjection(userId: string): Promise<ChatParticipantUserProjection | null> {
-      return deps.prisma.user.findUnique({
+      const user = await deps.prisma.user.findUnique({
         where: { id: userId },
         select: {
           id: true,
           emailVerifiedAt: true,
           gender: true,
           campus: true,
+          deletedAt: true,
           profile: {
             select: lifestyleColumnSelect,
           },
         },
       });
+      if (!user || user.deletedAt) {
+        return null;
+      }
+
+      return user;
     },
 
     async getCurrentChatContext(userId: string, now: Date): Promise<ChatUserContext | null> {

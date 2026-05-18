@@ -208,6 +208,7 @@ function buildCandidateUserWhere(
 ): Prisma.UserWhereInput {
   const baseWhere: Prisma.UserWhereInput = {
     id: { not: viewerContext.viewer.id },
+    deletedAt: null,
     campus: viewerContext.viewer.campus,
     gender: viewerContext.viewer.gender,
     profile: { isNot: null },
