@@ -397,6 +397,20 @@ describe('Match history integration', () => {
     const sweepResult = await lifecycleSweepService.runBoundarySweep(now);
     expect(sweepResult.matchHistory.rebuiltEntries).toBeGreaterThanOrEqual(5);
 
+    await prisma.user.update({
+      where: { id: 'user-e' },
+      data: { deletedAt: new Date('2026-05-11T00:00:00.000Z') },
+    });
+    await prisma.retainedIdentity.create({
+      data: {
+        originalUserId: 'user-e',
+        anonymizedActorKey: 'deleted-user-e',
+        displayLabel: '탈퇴한 사용자',
+        deletedAt: new Date('2026-05-11T00:00:00.000Z'),
+        retentionReason: 'ACCOUNT_DELETION',
+      },
+    });
+
     const currentRequests = await matchesService.listCurrentSeasonRequests(authContext('user-a'));
     expect(currentRequests.items).toEqual([]);
 
@@ -447,6 +461,23 @@ describe('Match history integration', () => {
       receivedRequestCount: 0,
       conversationCount: 1,
     });
+    expect(history.items[1]?.history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          counterpartParticipantId: 'participant-e-2025-01',
+          counterpartNickname: '탈퇴한 사용자',
+          result: 'MATCHED_SUCCESS',
+        }),
+      ]),
+    );
+    expect(history.items[1]?.history).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          counterpartParticipantId: 'participant-e-2025-01',
+          counterpartNickname: '가을바람',
+        }),
+      ]),
+    );
   });
 
   it('history row에는 viewer 기준 match score snapshot을 저장하고 user DTO에는 숨긴다', async () => {
@@ -493,6 +524,36 @@ describe('Match history integration', () => {
           ...DEFAULT_LIFESTYLE,
           cleanLevel: 'WHEN_DIRTY',
         }),
+      },
+    });
+    await prisma.seasonParticipantProfileHistory.create({
+      data: {
+        participantId: 'participant-b-2025-01',
+        seasonId: 'season-2025-01',
+        nicknameSnapshot: '좋은날씨-final',
+        nicknameNormalizedSnapshot: '좋은날씨-final',
+        ...toCompleteLifestyleColumnData({
+          ...DEFAULT_LIFESTYLE,
+          cleanLevel: 'WHEN_DIRTY',
+          drinkingFrequency: 'OFTEN',
+        }),
+        intro: '시즌 종료 전 최종 소개',
+        messageToRoommate: '시즌 종료 전 최종 메시지',
+        source: 'SEASON_USER_EDIT',
+        createdAt: new Date('2025-02-27T12:00:00.000Z'),
+      },
+    });
+    await prisma.seasonParticipantProfileHistory.create({
+      data: {
+        participantId: 'participant-b-2025-01',
+        seasonId: 'season-2025-01',
+        nicknameSnapshot: '좋은날씨-after',
+        nicknameNormalizedSnapshot: '좋은날씨-after',
+        ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
+        intro: '시즌 종료 후 소개',
+        messageToRoommate: '시즌 종료 후 메시지',
+        source: 'RETENTION_SNAPSHOT',
+        createdAt: new Date('2025-03-05T12:00:00.000Z'),
       },
     });
 
@@ -550,6 +611,34 @@ describe('Match history integration', () => {
     expect(storedRow?.matchScore).not.toBeNull();
 
     expect(history.items[0]?.history[0]).not.toHaveProperty('matchScore');
+
+    const counterpartProfile = await matchesService.getMatchHistoryCounterpartProfile(
+      authContext('user-a'),
+      storedRow!.id,
+    );
+    expect(counterpartProfile).toMatchObject({
+      exposureLevel: 'FULL',
+      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+      relationToViewer: 'MATCHED_PARTNER',
+      nickname: '좋은날씨-final',
+      intro: '시즌 종료 전 최종 소개',
+      messageToRoommate: '시즌 종료 전 최종 메시지',
+      actions: {
+        canBookmark: false,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+      lifestyle: {
+        cleanLevel: 'WHEN_DIRTY',
+      },
+    });
+    expect(counterpartProfile.lifestyle).not.toHaveProperty('drinkingFrequency');
+
+    await expect(
+      matchesService.getMatchHistoryCounterpartProfile(authContext('user-b'), storedRow!.id),
+    ).rejects.toMatchObject({
+      response: { code: 'MATCH_HISTORY_ENTRY_ACCESS_DENIED' },
+    });
   });
 
   it('withdrawn participant로 system-cancel된 request도 WITHDRAWN_PARTICIPANT history로 남긴다', async () => {

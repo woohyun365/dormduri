@@ -1,11 +1,15 @@
 import type { MatchHistoryResponse } from '@repo/shared/match-contract';
-import { formatKstDate } from '../seasons/season.utils.js';
+import type { FullPublicProfile } from '@repo/shared/profile-contract';
+import { formatKstDate, subtractDays } from '../seasons/season.utils.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
+import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
+import { mapProfileViewRecordFromColumns, toPublicProfile } from '../profiles/profile.mapper.js';
 import {
   toMatchHistoryResponse,
   type MatchHistoryEntryRow,
   type MatchHistorySeasonRow,
 } from './match-history-read-model.js';
+import { matchesErrors } from './matches.errors.js';
 
 export function createMatchHistoryReadOwner(prisma: PrismaService) {
   return {
@@ -71,6 +75,51 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
         },
       });
 
+      const counterpartParticipantIds = Array.from(
+        new Set(historyRows.map((row) => row.counterpartParticipantId)),
+      );
+      const counterpartParticipants =
+        counterpartParticipantIds.length > 0
+          ? await prisma.seasonParticipant.findMany({
+              where: { id: { in: counterpartParticipantIds } },
+              select: {
+                id: true,
+                userId: true,
+                user: {
+                  select: {
+                    deletedAt: true,
+                  },
+                },
+              },
+            })
+          : [];
+      const deletedUserIds = counterpartParticipants
+        .filter((participant) => participant.user.deletedAt !== null)
+        .map((participant) => participant.userId);
+      const retainedIdentities =
+        deletedUserIds.length > 0
+          ? await prisma.retainedIdentity.findMany({
+              where: {
+                originalUserId: { in: deletedUserIds },
+              },
+              select: {
+                originalUserId: true,
+                displayLabel: true,
+              },
+            })
+          : [];
+      const retainedIdentityLabelByUserId = new Map(
+        retainedIdentities.map((identity) => [identity.originalUserId, identity.displayLabel]),
+      );
+      const deletedCounterpartLabelByParticipantId = new Map(
+        counterpartParticipants
+          .filter((participant) => participant.user.deletedAt !== null)
+          .map((participant) => [
+            participant.id,
+            retainedIdentityLabelByUserId.get(participant.userId) ?? '탈퇴한 사용자',
+          ]),
+      );
+
       return toMatchHistoryResponse({
         seasons: seasons.map(
           (season) =>
@@ -81,8 +130,125 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
               viewerDormitoryIdSnapshot: season.dormitoryId,
             }) satisfies MatchHistorySeasonRow,
         ),
-        entries: historyRows satisfies MatchHistoryEntryRow[],
+        entries: historyRows.map((row) => ({
+          ...row,
+          counterpartNicknameSnapshot:
+            deletedCounterpartLabelByParticipantId.get(row.counterpartParticipantId) ??
+            row.counterpartNicknameSnapshot,
+        })) satisfies MatchHistoryEntryRow[],
       });
     },
+
+    async getFinalCounterpartProfileForEntry(
+      userId: string,
+      entryId: string,
+      now: Date,
+    ): Promise<FullPublicProfile> {
+      const entry = await prisma.seasonMatchHistoryEntry.findUnique({
+        where: { id: entryId },
+        select: {
+          id: true,
+          seasonId: true,
+          counterpartParticipantId: true,
+          entryType: true,
+          entryResult: true,
+          season: {
+            select: {
+              seasonEndDate: true,
+            },
+          },
+          viewerParticipant: {
+            select: {
+              userId: true,
+            },
+          },
+          counterpartParticipant: {
+            select: {
+              user: {
+                select: {
+                  id: true,
+                  gender: true,
+                  campus: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!entry) {
+        throw matchesErrors.matchHistoryEntryNotFound();
+      }
+
+      if (entry.viewerParticipant.userId !== userId) {
+        throw matchesErrors.matchHistoryEntryAccessDenied();
+      }
+
+      if (
+        entry.entryType !== 'MATCH' ||
+        (entry.entryResult !== 'MATCHED_SUCCESS' && entry.entryResult !== 'UNMATCHED_AFTER_SUCCESS')
+      ) {
+        throw matchesErrors.matchHistoryProfileNotAvailable();
+      }
+
+      const seasonEndBoundary = toSeasonEndBoundary(entry.season.seasonEndDate, now);
+      const finalProfile =
+        (await prisma.seasonParticipantProfileHistory.findFirst({
+          where: {
+            seasonId: entry.seasonId,
+            participantId: entry.counterpartParticipantId,
+            createdAt: { lte: seasonEndBoundary },
+          },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: seasonParticipantProfileHistoryPublicSelect,
+        })) ??
+        (await prisma.seasonParticipantProfileHistory.findFirst({
+          where: {
+            seasonId: entry.seasonId,
+            participantId: entry.counterpartParticipantId,
+          },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: seasonParticipantProfileHistoryPublicSelect,
+        }));
+
+      if (!finalProfile) {
+        throw matchesErrors.matchHistoryProfileNotAvailable();
+      }
+
+      const profile = mapProfileViewRecordFromColumns({
+        ...finalProfile,
+        nickname: finalProfile.nicknameSnapshot,
+        nicknameNormalized: finalProfile.nicknameNormalizedSnapshot,
+      });
+
+      return toPublicProfile(entry.counterpartParticipant.user, profile, {
+        exposureLevel: 'FULL',
+        sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+        relationToViewer: 'MATCHED_PARTNER',
+        actions: {
+          canBookmark: false,
+          canRequestMatch: false,
+          canStartChat: false,
+        },
+      }) as FullPublicProfile;
+    },
   };
+}
+
+const seasonParticipantProfileHistoryPublicSelect = {
+  nicknameSnapshot: true,
+  nicknameNormalizedSnapshot: true,
+  ...lifestyleColumnSelect,
+  intro: true,
+  messageToRoommate: true,
+  collegeCode: true,
+  grade: true,
+  mbti: true,
+  birthYear: true,
+} as const;
+
+function toSeasonEndBoundary(seasonEndDate: Date, now: Date) {
+  const seasonEnd = formatKstDate(seasonEndDate);
+  const boundary = new Date(`${subtractDays(seasonEnd, -1)}T00:00:00+09:00`);
+  return boundary.getTime() <= now.getTime() ? boundary : now;
 }

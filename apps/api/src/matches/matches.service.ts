@@ -8,6 +8,7 @@ import type {
   MatchRequestActionResponse,
   MatchRequestListResponse,
 } from '@repo/shared/match-contract';
+import type { FullPublicProfile } from '@repo/shared/profile-contract';
 import { Prisma } from '../generated/prisma/client.js';
 import type { Campus } from '../generated/prisma/enums.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
@@ -213,6 +214,15 @@ export class MatchesService {
     const now = await this.prisma.getDatabaseNow();
     await this.historyMaterializationOwner.materializeEndedSeasonHistory(now, authUser.id);
     return this.historyReadOwner.listPastSeasonHistoryForUser(authUser.id, now);
+  }
+
+  async getMatchHistoryCounterpartProfile(
+    authUser: AuthenticatedUserContext,
+    entryId: string,
+  ): Promise<FullPublicProfile> {
+    const now = await this.prisma.getDatabaseNow();
+    await this.historyMaterializationOwner.materializeEndedSeasonHistory(now, authUser.id);
+    return this.historyReadOwner.getFinalCounterpartProfileForEntry(authUser.id, entryId, now);
   }
 
   async createMatchRequest(

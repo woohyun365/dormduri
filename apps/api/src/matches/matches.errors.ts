@@ -1,5 +1,6 @@
 import {
   conflictError,
+  forbiddenError,
   notFoundError,
   unprocessableEntityError,
 } from '../common/http/api-error.js';
@@ -120,6 +121,24 @@ export const matchesErrors = {
     return conflictError(
       'ACTIVE_MATCH_UNMATCH_REQUEST_CANCEL_NOT_ALLOWED',
       '현재 상태에서는 매칭 취소 요청을 철회할 수 없습니다.',
+    );
+  },
+
+  matchHistoryEntryNotFound() {
+    return notFoundError('MATCH_HISTORY_ENTRY_NOT_FOUND', '매칭 히스토리 항목을 찾을 수 없습니다.');
+  },
+
+  matchHistoryEntryAccessDenied() {
+    return forbiddenError(
+      'MATCH_HISTORY_ENTRY_ACCESS_DENIED',
+      '해당 매칭 히스토리 항목을 조회할 권한이 없습니다.',
+    );
+  },
+
+  matchHistoryProfileNotAvailable() {
+    return conflictError(
+      'MATCH_HISTORY_PROFILE_NOT_AVAILABLE',
+      '해당 히스토리 항목은 최종 매칭 상대 프로필 조회 대상이 아닙니다.',
     );
   },
 };

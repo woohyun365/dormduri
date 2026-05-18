@@ -59,6 +59,14 @@ export class MatchesController {
     return this.matchesService.getMatchHistory(authUser);
   }
 
+  @Get('history/entries/:entryId/counterpart-profile')
+  async getHistoryCounterpartProfile(
+    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @Param('entryId') entryId: string,
+  ) {
+    return this.matchesService.getMatchHistoryCounterpartProfile(authUser, entryId);
+  }
+
   @Post('active/:id/unmatch-request')
   async requestUnmatch(
     @AuthenticatedUser() authUser: AuthenticatedUserContext,
