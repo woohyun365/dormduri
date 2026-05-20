@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import {
+  dismissCurrentUserOnboardingNoticeRequestSchema,
   requestAccountDeletionSchema,
   updateCurrentUserRequestSchema,
 } from '@repo/shared/user-contract';
@@ -26,6 +27,15 @@ export class UsersController {
   ) {
     const parsed = parseRequestBody(updateCurrentUserRequestSchema, body);
     return this.usersService.updateCurrentUser(authUser, parsed);
+  }
+
+  @Patch('me/onboarding')
+  async dismissCurrentUserOnboardingNotice(
+    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @Body() body: unknown,
+  ) {
+    const parsed = parseRequestBody(dismissCurrentUserOnboardingNoticeRequestSchema, body);
+    return this.usersService.dismissCurrentUserOnboardingNotice(authUser, parsed);
   }
 
   @Post('me/delete')

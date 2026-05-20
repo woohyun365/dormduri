@@ -22,7 +22,9 @@ import {
 } from '@repo/shared/roommate-search-contract';
 import { publicProfileSchema } from '@repo/shared/profile-contract';
 import {
+  SERVICE_INTRO_NOTICE_KEY,
   currentUserResponseSchema,
+  dismissCurrentUserOnboardingNoticeRequestSchema,
   updateCurrentUserRequestSchema,
 } from '@repo/shared/user-contract';
 import { signupRequestSchema } from '@repo/shared/auth-contract';
@@ -263,7 +265,7 @@ describe('shared reference contracts', () => {
         onboarding: {
           dismissedNotices: [
             {
-              noticeKey: 'season-profile-onboarding',
+              noticeKey: SERVICE_INTRO_NOTICE_KEY,
               dismissed: true,
               dismissedAt: '2026-05-20T00:00:00.000Z',
             },
@@ -279,6 +281,20 @@ describe('shared reference contracts', () => {
       seasonProfile: { profileState: 'COMPLETE' },
       onboarding: { dismissedNotices: [{ dismissed: true }] },
     });
+  });
+
+  it('onboarding dismiss request는 지원 notice key만 허용한다', () => {
+    expect(
+      dismissCurrentUserOnboardingNoticeRequestSchema.parse({
+        noticeKey: SERVICE_INTRO_NOTICE_KEY,
+      }),
+    ).toEqual({ noticeKey: SERVICE_INTRO_NOTICE_KEY });
+
+    expect(
+      dismissCurrentUserOnboardingNoticeRequestSchema.safeParse({
+        noticeKey: 'season-profile-onboarding',
+      }).success,
+    ).toBe(false);
   });
 
   it('user update request는 selection/message patch와 season profile write를 분리한다', () => {

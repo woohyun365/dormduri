@@ -13,6 +13,8 @@ import {
 } from './user-contract-primitives.js';
 
 export const displayIdentityNicknameSourceSchema = z.literal('USER_DISPLAY_IDENTITY');
+export const SERVICE_INTRO_NOTICE_KEY = 'service-intro' as const;
+export const dismissedNoticeKeySchema = z.literal(SERVICE_INTRO_NOTICE_KEY);
 
 export const userDisplayIdentitySchema = z.strictObject({
   userId: z.string(),
@@ -22,7 +24,7 @@ export const userDisplayIdentitySchema = z.strictObject({
 });
 
 export const dismissedNoticeStateSchema = z.strictObject({
-  noticeKey: z.string(),
+  noticeKey: dismissedNoticeKeySchema,
   dismissed: z.boolean(),
   dismissedAt: z.string().nullable(),
 });
@@ -73,6 +75,7 @@ export const currentUserResponseSchema = z.strictObject({
 });
 
 export type DisplayIdentityNicknameSource = z.infer<typeof displayIdentityNicknameSourceSchema>;
+export type DismissedNoticeKey = z.infer<typeof dismissedNoticeKeySchema>;
 export type UserDisplayIdentity = z.infer<typeof userDisplayIdentitySchema>;
 export type DismissedNoticeState = z.infer<typeof dismissedNoticeStateSchema>;
 export type CurrentUserSeasonProfileState = z.infer<typeof currentUserSeasonProfileStateSchema>;

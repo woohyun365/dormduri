@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import {
+  SERVICE_INTRO_NOTICE_KEY,
+  type CurrentUserResponse,
+  type DismissedNoticeState,
+} from '@repo/shared/user-contract';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
@@ -14,6 +18,7 @@ import { SeasonParticipantsService } from '../season-participants/season-partici
 import {
   buildUserWithDisplayIdentitySelect,
   mapUserWithDisplayIdentityProjection,
+  type UserDismissedNoticeRecord,
   type UserDisplayIdentityRecord,
   type UserWithDisplayIdentityRecord,
 } from './current-user-select.js';
@@ -43,8 +48,12 @@ type CurrentUserSeasonParticipantRecord = Prisma.SeasonParticipantGetPayload<{
   select: typeof currentUserSeasonParticipantSelect;
 }>;
 
-type CurrentUserResponseUserRecord = Omit<UserWithDisplayIdentityRecord, 'displayIdentity'> & {
+type CurrentUserResponseUserRecord = Omit<
+  UserWithDisplayIdentityRecord,
+  'displayIdentity' | 'dismissedNotices'
+> & {
   displayIdentity?: UserDisplayIdentityRecord | null;
+  dismissedNotices?: UserDismissedNoticeRecord[];
 };
 
 @Injectable()
@@ -175,7 +184,7 @@ export class CurrentUserViewService {
         canStartChat: false,
       },
       onboarding: {
-        dismissedNotices: [],
+        dismissedNotices: buildOnboardingDismissedNotices(user.dismissedNotices ?? []),
       },
       serviceState: {
         campusOperated: serviceState.campusOperated,
@@ -258,6 +267,22 @@ function buildSeasonProfileCompletion(input: {
     registrationUnavailable: registrationUnavailableReasons.length > 0,
     registrationUnavailableReasons,
   };
+}
+
+function buildOnboardingDismissedNotices(
+  dismissedNotices: UserDismissedNoticeRecord[],
+): DismissedNoticeState[] {
+  const serviceIntroNotice = dismissedNotices.find(
+    (notice) => notice.noticeKey === SERVICE_INTRO_NOTICE_KEY,
+  );
+
+  return [
+    {
+      noticeKey: SERVICE_INTRO_NOTICE_KEY,
+      dismissed: Boolean(serviceIntroNotice),
+      dismissedAt: toNullableIsoDateTime(serviceIntroNotice?.dismissedAt ?? null),
+    },
+  ];
 }
 
 function toNullableIsoDateTime(value: Date | null): string | null {

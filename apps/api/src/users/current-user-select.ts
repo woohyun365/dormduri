@@ -1,3 +1,4 @@
+import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
 import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
 import {
   mapUserProfileRecordFromColumns,
@@ -56,6 +57,11 @@ const userDisplayIdentitySelect = {
   updatedAt: true,
 } as const;
 
+const userDismissedNoticeSelect = {
+  noticeKey: true,
+  dismissedAt: true,
+} as const;
+
 export function buildUserWithDisplayIdentitySelect() {
   return {
     id: true,
@@ -65,6 +71,11 @@ export function buildUserWithDisplayIdentitySelect() {
     campus: true,
     displayIdentity: {
       select: userDisplayIdentitySelect,
+    },
+    dismissedNotices: {
+      where: { noticeKey: SERVICE_INTRO_NOTICE_KEY },
+      take: 1,
+      select: userDismissedNoticeSelect,
     },
   } as const;
 }
@@ -107,6 +118,11 @@ export interface UserDisplayIdentityRecord {
   updatedAt: Date;
 }
 
+export interface UserDismissedNoticeRecord {
+  noticeKey: string;
+  dismissedAt: Date;
+}
+
 export interface UserWithDisplayIdentityQueryRecord {
   id: string;
   email: string;
@@ -114,6 +130,7 @@ export interface UserWithDisplayIdentityQueryRecord {
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   displayIdentity: UserDisplayIdentityRecord | null;
+  dismissedNotices: UserDismissedNoticeRecord[];
 }
 
 export interface UserWithDisplayIdentityRecord {
@@ -123,6 +140,7 @@ export interface UserWithDisplayIdentityRecord {
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   displayIdentity: UserDisplayIdentityRecord | null;
+  dismissedNotices: UserDismissedNoticeRecord[];
 }
 
 export function mapUserWithDisplayIdentityProjection(
@@ -135,6 +153,7 @@ export function mapUserWithDisplayIdentityProjection(
     gender: user.gender,
     campus: user.campus,
     displayIdentity: user.displayIdentity,
+    dismissedNotices: user.dismissedNotices,
   };
 }
 
