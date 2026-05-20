@@ -16,6 +16,7 @@ import type {
 } from './auth.types.js';
 import { toAuthenticatedSessionResult } from './auth-response.builder.js';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
+import { hasUserDisplayIdentity } from '../common/user-display-identity-invariant.js';
 
 export interface AuthenticatedUserContext {
   id: string;
@@ -45,32 +46,30 @@ export class AuthSessionService {
       return null;
     }
 
-    return this.prisma.user
-      .findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          gender: true,
-          campus: true,
-          deletedAt: true,
-          displayIdentity: {
-            select: {
-              userId: true,
-            },
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        gender: true,
+        campus: true,
+        deletedAt: true,
+        displayIdentity: {
+          select: {
+            userId: true,
           },
         },
-      })
-      .then((user) =>
-        user?.deletedAt || !user?.displayIdentity
-          ? null
-          : user
-            ? {
-                id: user.id,
-                gender: user.gender,
-                campus: user.campus,
-              }
-            : null,
-      );
+      },
+    });
+
+    if (!hasUserDisplayIdentity(user) || user.deletedAt) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      gender: user.gender,
+      campus: user.campus,
+    };
   }
 
   async issueAuthResult(
@@ -153,7 +152,7 @@ export class AuthSessionService {
       },
     });
 
-    if (!user?.displayIdentity || user.deletedAt) {
+    if (!hasUserDisplayIdentity(user) || user.deletedAt) {
       return null;
     }
 

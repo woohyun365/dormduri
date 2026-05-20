@@ -4,7 +4,7 @@ export {
   emailRequestSchema,
   verificationCodeRequestSchema,
   loginRequestSchema,
-  signupProfileValidationRequestSchema,
+  signupDraftValidationRequestSchema,
   signupRequestSchema,
   resetPasswordRequestSchema,
 } from './auth-contract-requests.js';
@@ -12,7 +12,7 @@ export type {
   EmailRequest,
   VerificationCodeRequest,
   LoginRequest,
-  SignupProfileValidationRequest,
+  SignupDraftValidationRequest,
   SignupRequest,
   ResetPasswordRequest,
 } from './auth-contract-requests.js';

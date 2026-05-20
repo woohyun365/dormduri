@@ -19,6 +19,27 @@ describe('AuthSignupValidationService', () => {
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
   });
 
+  it('email/password/nickname signup draft 필드를 함께 검증한다', async () => {
+    await expect(
+      service.validateDraft({
+        email: 'student@example.com',
+        password: 'short',
+        nickname: '!!',
+      }),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_SIGNUP_VALIDATION_FAILED',
+      fieldErrors: {
+        email: '강원대학교 이메일(@kangwon.ac.kr)을 입력해주세요.',
+        password: '비밀번호는 8자 이상이어야 합니다.',
+        nickname: '닉네임은 한글, 영문, 숫자만 사용할 수 있습니다.',
+      },
+    });
+
+    expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
+    expect(prisma.userDisplayIdentity.findUnique).not.toHaveBeenCalled();
+  });
+
   it('금지어 닉네임은 validation 단계에서 차단한다', async () => {
     moderationService.validateNicknamePolicy.mockResolvedValue(
       '사용할 수 없는 표현이 포함되어 있습니다.',

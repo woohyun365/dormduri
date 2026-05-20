@@ -24,6 +24,8 @@ import {
 } from './current-user-select.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveCampusServiceState } from './service-state.js';
+import { assertUserDisplayIdentity } from '../common/user-display-identity-invariant.js';
+import { usersErrors } from './users.errors.js';
 
 const currentUserSeasonParticipantSelect = {
   id: true,
@@ -75,9 +77,7 @@ export class CurrentUserViewService {
     user: CurrentUserResponseUserRecord,
     now: Date,
   ): Promise<CurrentUserResponse> {
-    if (!user.displayIdentity) {
-      throw new Error('[CurrentUserViewService] user display identity row is required');
-    }
+    assertUserDisplayIdentity(user, () => usersErrors.accountIdentityIncomplete('current-user'));
 
     const serviceState = await resolveCampusServiceState(
       this.prisma,

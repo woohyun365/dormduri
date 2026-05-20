@@ -22,7 +22,7 @@ export const loginRequestSchema = z.strictObject({
   rememberMe: z.boolean().optional(),
 });
 
-export const signupProfileValidationRequestSchema = z.strictObject({
+export const signupDraftValidationRequestSchema = z.strictObject({
   email: emailSchema,
   password: passwordSchema,
   nickname: nicknameSchema,
@@ -44,6 +44,6 @@ export const resetPasswordRequestSchema = z.strictObject({
 export type EmailRequest = z.infer<typeof emailRequestSchema>;
 export type VerificationCodeRequest = z.infer<typeof verificationCodeRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
-export type SignupProfileValidationRequest = z.infer<typeof signupProfileValidationRequestSchema>;
+export type SignupDraftValidationRequest = z.infer<typeof signupDraftValidationRequestSchema>;
 export type SignupRequest = z.infer<typeof signupRequestSchema>;
 export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;

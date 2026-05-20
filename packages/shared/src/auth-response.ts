@@ -15,10 +15,10 @@ export type {
   AuthenticatedSessionUser,
 } from './auth-response-auth.js';
 export {
-  signupProfileValidationFieldErrorsSchema,
-  signupProfileValidationResponseSchema,
+  signupDraftValidationFieldErrorsSchema,
+  signupDraftValidationResponseSchema,
 } from './auth-response-signup-validation.js';
 export type {
-  SignupProfileValidationFieldErrors,
-  SignupProfileValidationResponse,
+  SignupDraftValidationFieldErrors,
+  SignupDraftValidationResponse,
 } from './auth-response-signup-validation.js';

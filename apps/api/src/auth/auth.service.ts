@@ -11,7 +11,7 @@ import { AuthSessionService } from './auth-session.service.js';
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { AuthSignupValidationService } from './auth-signup-validation.service.js';
-import type { SignupProfileValidationResponse } from '@repo/shared/auth-response';
+import type { SignupDraftValidationResponse } from '@repo/shared/auth-response';
 import { authFailures } from './auth-failures.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { signup } from './auth-signup-owner.js';
@@ -69,11 +69,11 @@ export class AuthService {
     return this.sessionService.getSession(token);
   }
 
-  async validateSignupProfileDraft(input: {
+  async validateSignupDraft(input: {
     email: string;
     password: string;
     nickname: string;
-  }): Promise<SignupProfileValidationResponse> {
+  }): Promise<SignupDraftValidationResponse> {
     return this.signupValidationService.validateDraft(input);
   }
 

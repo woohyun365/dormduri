@@ -27,7 +27,10 @@ import {
   dismissCurrentUserOnboardingNoticeRequestSchema,
   updateCurrentUserRequestSchema,
 } from '@repo/shared/user-contract';
-import { signupRequestSchema } from '@repo/shared/auth-contract';
+import {
+  signupDraftValidationRequestSchema,
+  signupRequestSchema,
+} from '@repo/shared/auth-contract';
 import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match-contract';
 import {
   isLocalDateString,
@@ -206,6 +209,31 @@ describe('shared reference contracts', () => {
         campus: 'CHUNCHEON',
         lifestyle: VALID_LIFESTYLE,
         intro: '가입 단계 소개',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('auth signup draft validation request는 email/password/nickname만 받는다', () => {
+    expect(
+      signupDraftValidationRequestSchema.parse({
+        email: 'student@kangwon.ac.kr',
+        password: 'pass1234',
+        nickname: '테스터',
+      }),
+    ).toEqual({
+      email: 'student@kangwon.ac.kr',
+      password: 'pass1234',
+      nickname: '테스터',
+    });
+
+    expect(
+      signupDraftValidationRequestSchema.safeParse({
+        email: 'student@kangwon.ac.kr',
+        password: 'pass1234',
+        nickname: '테스터',
+        lifestyle: VALID_LIFESTYLE,
+        intro: '가입 단계 소개',
+        profile: { intro: 'legacy profile' },
       }).success,
     ).toBe(false);
   });

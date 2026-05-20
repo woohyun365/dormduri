@@ -119,7 +119,7 @@ describe('AuthSessionService', () => {
     await expect(service.getSession('token')).resolves.toEqual({ authenticated: false });
   });
 
-  it('display identity가 없는 사용자는 유효한 토큰이 있어도 세션 인증에서 제외한다', async () => {
+  it('display identity가 없는 사용자는 유효한 토큰이 있어도 세션 인증에서 제외하고 nickname fallback을 쓰지 않는다', async () => {
     jwtService.verifyAsync.mockResolvedValue({ sid: 'session-legacy', sub: 'user-legacy' });
     prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-legacy' }]);
     prisma.user.findUnique.mockResolvedValue({
@@ -128,6 +128,7 @@ describe('AuthSessionService', () => {
       deletedAt: null,
       gender: 'M',
       campus: 'CHUNCHEON',
+      nickname: 'legacy-user-nickname',
       displayIdentity: null,
     });
 
@@ -142,6 +143,23 @@ describe('AuthSessionService', () => {
       deletedAt: new Date('2026-05-12T00:00:00.000Z'),
       gender: 'M',
       campus: 'CHUNCHEON',
+      displayIdentity: {
+        userId: 'user-deleted',
+      },
+    });
+
+    await expect(service.resolveCurrentUserContext('token')).resolves.toBeNull();
+  });
+
+  it('display identity가 없는 사용자는 current-user context로도 복원하지 않는다', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sid: 'session-legacy', sub: 'user-legacy' });
+    prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-legacy' }]);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-legacy',
+      deletedAt: null,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: null,
     });
 
     await expect(service.resolveCurrentUserContext('token')).resolves.toBeNull();

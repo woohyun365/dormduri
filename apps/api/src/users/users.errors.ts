@@ -1,6 +1,8 @@
+import { InternalServerErrorException } from '@nestjs/common';
 import {
   badRequestError,
   conflictError,
+  createApiErrorBody,
   unprocessableEntityError,
 } from '../common/http/api-error.js';
 
@@ -55,6 +57,15 @@ export const usersErrors = {
       'TEXT_MODERATION_REJECTED',
       message,
       fieldErrors(field, message),
+    );
+  },
+
+  accountIdentityIncomplete(surface: 'current-user') {
+    return new InternalServerErrorException(
+      createApiErrorBody('ACCOUNT_IDENTITY_INCOMPLETE', '계정 표시 identity가 누락되었습니다.', {
+        invariant: 'USER_DISPLAY_IDENTITY_REQUIRED',
+        surface,
+      }),
     );
   },
 };

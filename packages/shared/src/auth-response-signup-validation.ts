@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { genericErrorResponseSchema } from './auth-response-base.js';
 
-export const signupProfileValidationFieldErrorsSchema = z
+export const signupDraftValidationFieldErrorsSchema = z
   .strictObject({
     email: z.string().optional(),
     nickname: z.string().optional(),
@@ -9,11 +9,11 @@ export const signupProfileValidationFieldErrorsSchema = z
   })
   .partial();
 
-export const signupProfileValidationResponseSchema = genericErrorResponseSchema.extend({
-  fieldErrors: signupProfileValidationFieldErrorsSchema.optional(),
+export const signupDraftValidationResponseSchema = genericErrorResponseSchema.extend({
+  fieldErrors: signupDraftValidationFieldErrorsSchema.optional(),
 });
 
-export type SignupProfileValidationFieldErrors = z.infer<
-  typeof signupProfileValidationFieldErrorsSchema
+export type SignupDraftValidationFieldErrors = z.infer<
+  typeof signupDraftValidationFieldErrorsSchema
 >;
-export type SignupProfileValidationResponse = z.infer<typeof signupProfileValidationResponseSchema>;
+export type SignupDraftValidationResponse = z.infer<typeof signupDraftValidationResponseSchema>;

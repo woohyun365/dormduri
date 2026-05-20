@@ -6,6 +6,7 @@ import { toLoginSuccessResult } from './auth-response.builder.js';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
 import { normalizeEmail } from './auth.utils.js';
 import { verifyPasswordHash } from './auth-password.js';
+import { hasUserDisplayIdentity } from '../common/user-display-identity-invariant.js';
 
 interface AuthLoginOwnerDeps {
   prisma: PrismaService;
@@ -49,7 +50,7 @@ export async function login(
     return deps.loginAttemptService.recordLoginFailure(emailNormalized);
   }
 
-  if (user.deletedAt || !user.displayIdentity) {
+  if (user.deletedAt || !hasUserDisplayIdentity(user)) {
     return deps.loginAttemptService.recordLoginFailure(emailNormalized);
   }
 

@@ -119,7 +119,7 @@ describe('AuthService orchestration', () => {
     });
 
     await expect(
-      service.validateSignupProfileDraft({
+      service.validateSignupDraft({
         email: 'test@kangwon.ac.kr',
         password: 'Test1234',
         nickname: '섹스',
@@ -130,6 +130,12 @@ describe('AuthService orchestration', () => {
       userActionable: true,
       error: '입력값을 다시 확인해주세요.',
       fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+    });
+
+    expect(signupValidationService.validateDraft).toHaveBeenCalledWith({
+      email: 'test@kangwon.ac.kr',
+      password: 'Test1234',
+      nickname: '섹스',
     });
   });
 
@@ -247,7 +253,7 @@ describe('AuthService orchestration', () => {
     );
   });
 
-  it('display identity가 없는 계정 login은 세션을 발급하지 않는다', async () => {
+  it('display identity가 없는 계정 login은 인증 성공으로 보지 않고 실패 횟수를 기록한다', async () => {
     const passwordHash = await argonHash('Pass1234', {
       algorithm: 2,
       memoryCost: 8192,
@@ -278,6 +284,8 @@ describe('AuthService orchestration', () => {
     });
 
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+    expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('legacy@kangwon.ac.kr');
+    expect(loginAttemptService.clearFailures).not.toHaveBeenCalled();
   });
 
   it('signup은 검증 완료된 최신 code를 소비하고 세션 발급 결과를 반환한다', async () => {

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
-  SignupProfileValidationFieldErrors,
-  SignupProfileValidationResponse,
+  SignupDraftValidationFieldErrors,
+  SignupDraftValidationResponse,
 } from '@repo/shared/auth-response';
 import { validateKnuEmailFormat } from '@repo/shared/auth-policy';
 import { PrismaService } from '../common/prisma/prisma.service.js';
@@ -20,8 +20,8 @@ export class AuthSignupValidationService {
     email: string;
     password: string;
     nickname: string;
-  }): Promise<SignupProfileValidationResponse> {
-    const fieldErrors: SignupProfileValidationFieldErrors = {};
+  }): Promise<SignupDraftValidationResponse> {
+    const fieldErrors: SignupDraftValidationFieldErrors = {};
 
     const emailError = validateKnuEmailFormat(input.email);
     if (emailError) {
