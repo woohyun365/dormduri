@@ -16,8 +16,19 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain(
       `CREATE TYPE "SeasonOverrideState" AS ENUM ('OFF_SEASON', 'SEASON_OPEN', 'SEASON_MATCHING', 'SEASON_POST_MATCH');`,
     );
+    expect(sql).toContain(
+      `CREATE TYPE "ProfileHistorySource" AS ENUM ('SEASON_REGISTRATION', 'RETENTION_SNAPSHOT', 'SYSTEM_BACKFILL');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "ArchiveJobTarget" AS ENUM ('RETAINED_IDENTITY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION');`,
+    );
+    expect(sql).toContain(`CREATE TYPE "ArchiveTier" AS ENUM ('HOT_DB');`);
+    expect(sql).toContain(
+      `CREATE TYPE "ParticipantHiddenReasonCode" AS ENUM ('POLICY_VIOLATION', 'SAFETY_REVIEW', 'ADMIN_REQUEST', 'OTHER');`,
+    );
     expect(sql).toContain('CREATE TABLE "CollegeMaster"');
-    expect(sql).toContain('CREATE TABLE "UserProfileHistory"');
+    expect(sql).toContain('CREATE TABLE "UserDisplayIdentity"');
+    expect(sql).toContain('CREATE TABLE "UserDismissedNotice"');
     expect(sql).toContain('CREATE TABLE "RetainedIdentity"');
     expect(sql).toContain('CREATE TABLE "RetainedIdentityDataAccessLog"');
     expect(sql).toContain('CREATE TABLE "ArchiveJob"');
@@ -34,7 +45,7 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain(
       `CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISPOSED');`,
     );
-    expect(sql).toContain('ADD CONSTRAINT "UserProfile_grade_check"');
+    expect(sql).toContain('"registeredAtSnapshot" TIMESTAMPTZ(3)');
     expect(sql).toContain('ADD CONSTRAINT "SeasonParticipantProfile_birthYear_check"');
     expect(sql).toContain(
       'CREATE UNIQUE INDEX "MatchRequest_seasonId_pairMinParticipantId_pairMaxParticipantId_pending_key"',
@@ -52,6 +63,13 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE INDEX "ConversationMessage_bodyState_tombstonedAt_idx"');
     expect(sql).not.toContain('CREATE INDEX "User_dormitoryId_idx"');
     expect(sql).not.toContain('ADD CONSTRAINT "User_dormitoryId_fkey"');
+    expect(sql).not.toContain('CREATE TABLE "UserProfile"');
+    expect(sql).not.toContain('CREATE TABLE "UserProfileHistory"');
+    expect(sql).not.toContain('messageToRoommate');
+    expect(sql).not.toContain('MatchRequestChannel');
+    expect(sql).not.toContain('requestChannel');
+    expect(sql).not.toContain('USER_PROFILE_HISTORY');
+    expect(sql).not.toContain('templateSourceUserProfileUpdatedAt');
   });
 
   it('updatedAt baseline은 legacy trigger 없이도 유지된다', () => {

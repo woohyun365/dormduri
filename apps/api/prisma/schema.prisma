@@ -105,13 +105,6 @@ enum MatchRequestTerminalReason {
   ADMIN_ACTION
 }
 
-enum MatchRequestChannel {
-  ROOMMATE_TAB
-  PROFILE_DETAIL
-  RECOMMENDATION
-  ADMIN
-}
-
 enum ActiveMatchStatus {
   ACTIVE
   UNMATCHED
@@ -336,10 +329,7 @@ enum RoommateDrinkingTolerance {
 }
 
 enum ProfileHistorySource {
-  SIGNUP_CREATE
-  USER_EDIT
   SEASON_REGISTRATION
-  SEASON_USER_EDIT
   RETENTION_SNAPSHOT
   SYSTEM_BACKFILL
 }
@@ -350,7 +340,6 @@ enum ArchiveTier {
 
 enum ArchiveJobTarget {
   RETAINED_IDENTITY
-  USER_PROFILE_HISTORY
   SEASON_PROFILE_HISTORY
   MATCH_HISTORY
   THREAD_RETENTION
@@ -426,7 +415,6 @@ model CollegeMaster {
   createdAt                 DateTime                   @default(now()) @db.Timestamptz(3)
   updatedAt                 DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
   campus                    CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
-  userProfiles              UserProfile[]
   seasonParticipantProfiles SeasonParticipantProfile[]
 
   @@unique([campusCode, nameKo])
@@ -505,103 +493,44 @@ model SeasonDormitoryOperation {
 }
 
 model User {
-  id                 String              @id @default(uuid())
+  id                 String                @id @default(uuid())
   email              String
-  emailNormalized    String              @unique
+  emailNormalized    String                @unique
   passwordHash       String
   gender             Gender
   campus             Campus
-  emailVerifiedAt    DateTime?           @db.Timestamptz(3)
-  deletedAt          DateTime?           @db.Timestamptz(3)
-  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime            @default(now()) @updatedAt @db.Timestamptz(3)
+  emailVerifiedAt    DateTime?             @db.Timestamptz(3)
+  deletedAt          DateTime?             @db.Timestamptz(3)
+  createdAt          DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
   authSessions       AuthSession[]
-  profile            UserProfile?
+  displayIdentity    UserDisplayIdentity?
+  dismissedNotices   UserDismissedNotice[]
   seasonParticipants SeasonParticipant[]
 }
 
-model UserProfile {
-  userId                 String                           @id
-  nickname               String
-  nicknameNormalized     String                           @unique
-  nicknameChangedAt      DateTime?                        @db.Timestamptz(3)
-  bedtime                LifestyleBedtime?
-  wakeTime               LifestyleWakeTime?
-  sleepHabit             LifestyleSleepHabit?
-  sleepEnvironment       LifestyleSleepEnvironment?
-  screenUsage            LifestyleScreenUsage?
-  noiseSensitivity       LifestyleNoiseSensitivity?
-  smokingBehavior        LifestyleSmokingBehavior?
-  indoorEating           LifestyleIndoorEating?
-  phoneBehavior          LifestylePhoneBehavior?
-  earphoneUsage          LifestyleEarphoneUsage?
-  cleanLevel             LifestyleCleanLevel?
-  drinkingFrequency      LifestyleDrinkingFrequency?
-  relationshipStyle      LifestyleRelationshipStyle?
-  temperatureSensitivity LifestyleTemperatureSensitivity?
-  smokingTolerance       RoommateSmokingTolerance?
-  phoneTolerance         RoommatePhoneTolerance?
-  earphoneExpectation    RoommateEarphoneExpectation?
-  sleepEnvPreference     RoommateSleepEnvPreference?
-  screenTolerance        RoommateScreenTolerance?
-  indoorEatingTolerance  RoommateIndoorEatingTolerance?
-  cleanExpectation       RoommateCleanExpectation?
-  drinkingTolerance      RoommateDrinkingTolerance?
-  intro                  String                           @default("")
-  messageToRoommate      String?
-  collegeCode            String?
-  grade                  String?
-  mbti                   String?
-  birthYear              Int?
-  createdAt              DateTime                         @default(now()) @db.Timestamptz(3)
-  updatedAt              DateTime                         @default(now()) @updatedAt @db.Timestamptz(3)
-  collegeRef             CollegeMaster?                   @relation(fields: [collegeCode], references: [code], onDelete: SetNull)
-  user                   User                             @relation(fields: [userId], references: [id], onDelete: Cascade)
+model UserDisplayIdentity {
+  userId             String    @id
+  nickname           String
+  nicknameNormalized String    @unique
+  nicknameChangedAt  DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([nickname])
-  @@index([collegeCode])
 }
 
-model UserProfileHistory {
-  id                     String                           @id @default(uuid())
-  userId                 String
-  retainedIdentityId     String?
-  nickname               String
-  nicknameNormalized     String
-  nicknameChangedAt      DateTime?                        @db.Timestamptz(3)
-  bedtime                LifestyleBedtime?
-  wakeTime               LifestyleWakeTime?
-  sleepHabit             LifestyleSleepHabit?
-  sleepEnvironment       LifestyleSleepEnvironment?
-  screenUsage            LifestyleScreenUsage?
-  noiseSensitivity       LifestyleNoiseSensitivity?
-  smokingBehavior        LifestyleSmokingBehavior?
-  indoorEating           LifestyleIndoorEating?
-  phoneBehavior          LifestylePhoneBehavior?
-  earphoneUsage          LifestyleEarphoneUsage?
-  cleanLevel             LifestyleCleanLevel?
-  drinkingFrequency      LifestyleDrinkingFrequency?
-  relationshipStyle      LifestyleRelationshipStyle?
-  temperatureSensitivity LifestyleTemperatureSensitivity?
-  smokingTolerance       RoommateSmokingTolerance?
-  phoneTolerance         RoommatePhoneTolerance?
-  earphoneExpectation    RoommateEarphoneExpectation?
-  sleepEnvPreference     RoommateSleepEnvPreference?
-  screenTolerance        RoommateScreenTolerance?
-  indoorEatingTolerance  RoommateIndoorEatingTolerance?
-  cleanExpectation       RoommateCleanExpectation?
-  drinkingTolerance      RoommateDrinkingTolerance?
-  intro                  String
-  messageToRoommate      String?
-  collegeCode            String?
-  grade                  String?
-  mbti                   String?
-  birthYear              Int?
-  source                 ProfileHistorySource
-  createdAt              DateTime                         @default(now()) @db.Timestamptz(3)
+model UserDismissedNotice {
+  userId      String
+  noticeKey   String
+  dismissedAt DateTime @default(now()) @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, createdAt])
-  @@index([retainedIdentityId, createdAt])
+  @@id([userId, noticeKey])
+  @@index([noticeKey, dismissedAt])
 }
 
 model RetainedIdentity {
@@ -731,85 +660,82 @@ model SeasonParticipant {
 }
 
 model SeasonParticipantProfile {
-  participantId                      String                          @id
-  nicknameSnapshot                   String
-  nicknameNormalizedSnapshot         String
-  bedtime                            LifestyleBedtime
-  wakeTime                           LifestyleWakeTime
-  sleepHabit                         LifestyleSleepHabit
-  sleepEnvironment                   LifestyleSleepEnvironment
-  screenUsage                        LifestyleScreenUsage
-  noiseSensitivity                   LifestyleNoiseSensitivity
-  smokingBehavior                    LifestyleSmokingBehavior
-  indoorEating                       LifestyleIndoorEating
-  phoneBehavior                      LifestylePhoneBehavior
-  earphoneUsage                      LifestyleEarphoneUsage
-  cleanLevel                         LifestyleCleanLevel
-  drinkingFrequency                  LifestyleDrinkingFrequency
-  relationshipStyle                  LifestyleRelationshipStyle
-  temperatureSensitivity             LifestyleTemperatureSensitivity
-  smokingTolerance                   RoommateSmokingTolerance
-  phoneTolerance                     RoommatePhoneTolerance
-  earphoneExpectation                RoommateEarphoneExpectation
-  sleepEnvPreference                 RoommateSleepEnvPreference
-  screenTolerance                    RoommateScreenTolerance
-  indoorEatingTolerance              RoommateIndoorEatingTolerance
-  cleanExpectation                   RoommateCleanExpectation
-  drinkingTolerance                  RoommateDrinkingTolerance
-  intro                              String                          @default("")
-  messageToRoommate                  String?
-  collegeCode                        String?
-  grade                              String?
-  mbti                               String?
-  birthYear                          Int?
-  templateSourceUserProfileUpdatedAt DateTime?                       @db.Timestamptz(3)
-  createdAt                          DateTime                        @default(now()) @db.Timestamptz(3)
-  updatedAt                          DateTime                        @default(now()) @updatedAt @db.Timestamptz(3)
-  collegeRef                         CollegeMaster?                  @relation(fields: [collegeCode], references: [code], onDelete: SetNull)
-  participant                        SeasonParticipant               @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  participantId              String                          @id
+  nicknameSnapshot           String
+  nicknameNormalizedSnapshot String
+  bedtime                    LifestyleBedtime
+  wakeTime                   LifestyleWakeTime
+  sleepHabit                 LifestyleSleepHabit
+  sleepEnvironment           LifestyleSleepEnvironment
+  screenUsage                LifestyleScreenUsage
+  noiseSensitivity           LifestyleNoiseSensitivity
+  smokingBehavior            LifestyleSmokingBehavior
+  indoorEating               LifestyleIndoorEating
+  phoneBehavior              LifestylePhoneBehavior
+  earphoneUsage              LifestyleEarphoneUsage
+  cleanLevel                 LifestyleCleanLevel
+  drinkingFrequency          LifestyleDrinkingFrequency
+  relationshipStyle          LifestyleRelationshipStyle
+  temperatureSensitivity     LifestyleTemperatureSensitivity
+  smokingTolerance           RoommateSmokingTolerance
+  phoneTolerance             RoommatePhoneTolerance
+  earphoneExpectation        RoommateEarphoneExpectation
+  sleepEnvPreference         RoommateSleepEnvPreference
+  screenTolerance            RoommateScreenTolerance
+  indoorEatingTolerance      RoommateIndoorEatingTolerance
+  cleanExpectation           RoommateCleanExpectation
+  drinkingTolerance          RoommateDrinkingTolerance
+  intro                      String                          @default("")
+  collegeCode                String?
+  grade                      String?
+  mbti                       String?
+  birthYear                  Int?
+  createdAt                  DateTime                        @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime                        @default(now()) @updatedAt @db.Timestamptz(3)
+  collegeRef                 CollegeMaster?                  @relation(fields: [collegeCode], references: [code], onDelete: SetNull)
+  participant                SeasonParticipant               @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([collegeCode])
   @@index([nicknameNormalizedSnapshot])
 }
 
 model SeasonParticipantProfileHistory {
-  id                                 String                          @id @default(uuid())
-  participantId                      String
-  seasonId                           String
-  retainedIdentityId                 String?
-  nicknameSnapshot                   String
-  nicknameNormalizedSnapshot         String
-  bedtime                            LifestyleBedtime
-  wakeTime                           LifestyleWakeTime
-  sleepHabit                         LifestyleSleepHabit
-  sleepEnvironment                   LifestyleSleepEnvironment
-  screenUsage                        LifestyleScreenUsage
-  noiseSensitivity                   LifestyleNoiseSensitivity
-  smokingBehavior                    LifestyleSmokingBehavior
-  indoorEating                       LifestyleIndoorEating
-  phoneBehavior                      LifestylePhoneBehavior
-  earphoneUsage                      LifestyleEarphoneUsage
-  cleanLevel                         LifestyleCleanLevel
-  drinkingFrequency                  LifestyleDrinkingFrequency
-  relationshipStyle                  LifestyleRelationshipStyle
-  temperatureSensitivity             LifestyleTemperatureSensitivity
-  smokingTolerance                   RoommateSmokingTolerance
-  phoneTolerance                     RoommatePhoneTolerance
-  earphoneExpectation                RoommateEarphoneExpectation
-  sleepEnvPreference                 RoommateSleepEnvPreference
-  screenTolerance                    RoommateScreenTolerance
-  indoorEatingTolerance              RoommateIndoorEatingTolerance
-  cleanExpectation                   RoommateCleanExpectation
-  drinkingTolerance                  RoommateDrinkingTolerance
-  intro                              String
-  messageToRoommate                  String?
-  collegeCode                        String?
-  grade                              String?
-  mbti                               String?
-  birthYear                          Int?
-  templateSourceUserProfileUpdatedAt DateTime?                       @db.Timestamptz(3)
-  source                             ProfileHistorySource
-  createdAt                          DateTime                        @default(now()) @db.Timestamptz(3)
+  id                         String                          @id @default(uuid())
+  participantId              String
+  seasonId                   String
+  retainedIdentityId         String?
+  nicknameSnapshot           String
+  nicknameNormalizedSnapshot String
+  bedtime                    LifestyleBedtime
+  wakeTime                   LifestyleWakeTime
+  sleepHabit                 LifestyleSleepHabit
+  sleepEnvironment           LifestyleSleepEnvironment
+  screenUsage                LifestyleScreenUsage
+  noiseSensitivity           LifestyleNoiseSensitivity
+  smokingBehavior            LifestyleSmokingBehavior
+  indoorEating               LifestyleIndoorEating
+  phoneBehavior              LifestylePhoneBehavior
+  earphoneUsage              LifestyleEarphoneUsage
+  cleanLevel                 LifestyleCleanLevel
+  drinkingFrequency          LifestyleDrinkingFrequency
+  relationshipStyle          LifestyleRelationshipStyle
+  temperatureSensitivity     LifestyleTemperatureSensitivity
+  smokingTolerance           RoommateSmokingTolerance
+  phoneTolerance             RoommatePhoneTolerance
+  earphoneExpectation        RoommateEarphoneExpectation
+  sleepEnvPreference         RoommateSleepEnvPreference
+  screenTolerance            RoommateScreenTolerance
+  indoorEatingTolerance      RoommateIndoorEatingTolerance
+  cleanExpectation           RoommateCleanExpectation
+  drinkingTolerance          RoommateDrinkingTolerance
+  intro                      String
+  collegeCode                String?
+  grade                      String?
+  mbti                       String?
+  birthYear                  Int?
+  registeredAtSnapshot       DateTime?                       @db.Timestamptz(3)
+  source                     ProfileHistorySource
+  createdAt                  DateTime                        @default(now()) @db.Timestamptz(3)
 
   @@index([participantId, createdAt])
   @@index([seasonId, participantId, createdAt])
@@ -831,7 +757,6 @@ model MatchRequest {
   expiresAt              DateTime                    @db.Timestamptz(3)
   terminalAt             DateTime?                   @db.Timestamptz(3)
   acceptedAt             DateTime?                   @db.Timestamptz(3)
-  requestChannel         MatchRequestChannel?
   season                 Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   requesterParticipant   SeasonParticipant           @relation("MatchRequestRequester", fields: [requesterParticipantId], references: [id], onDelete: Cascade)
   receiverParticipant    SeasonParticipant           @relation("MatchRequestReceiver", fields: [receiverParticipantId], references: [id], onDelete: Cascade)

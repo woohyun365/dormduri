@@ -50,9 +50,6 @@ CREATE TYPE "MatchRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CA
 CREATE TYPE "MatchRequestTerminalReason" AS ENUM ('ACCEPTED', 'REJECTED_BY_RECEIVER', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH', 'EXPIRED', 'WITHDRAWN_PARTICIPANT', 'ADMIN_ACTION');
 
 -- CreateEnum
-CREATE TYPE "MatchRequestChannel" AS ENUM ('ROOMMATE_TAB', 'PROFILE_DETAIL', 'RECOMMENDATION', 'ADMIN');
-
--- CreateEnum
 CREATE TYPE "ActiveMatchStatus" AS ENUM ('ACTIVE', 'UNMATCHED', 'SEASON_ENDED', 'ADMIN_ENDED');
 
 -- CreateEnum
@@ -159,13 +156,13 @@ CREATE TYPE "RoommateCleanExpectation" AS ENUM ('STRICT', 'BASIC', 'FLEXIBLE');
 CREATE TYPE "RoommateDrinkingTolerance" AS ENUM ('LOW_ONLY', 'ANY');
 
 -- CreateEnum
-CREATE TYPE "ProfileHistorySource" AS ENUM ('SIGNUP_CREATE', 'USER_EDIT', 'SEASON_REGISTRATION', 'SEASON_USER_EDIT', 'RETENTION_SNAPSHOT', 'SYSTEM_BACKFILL');
+CREATE TYPE "ProfileHistorySource" AS ENUM ('SEASON_REGISTRATION', 'RETENTION_SNAPSHOT', 'SYSTEM_BACKFILL');
 
 -- CreateEnum
 CREATE TYPE "ArchiveTier" AS ENUM ('HOT_DB');
 
 -- CreateEnum
-CREATE TYPE "ArchiveJobTarget" AS ENUM ('RETAINED_IDENTITY', 'USER_PROFILE_HISTORY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION');
+CREATE TYPE "ArchiveJobTarget" AS ENUM ('RETAINED_IDENTITY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION');
 
 -- CreateEnum
 CREATE TYPE "ArchiveJobStatus" AS ENUM ('PENDING', 'WAITING_CONDITION', 'SUCCEEDED', 'RETRY_SCHEDULED', 'FAILED_MANUAL_REVIEW');
@@ -295,86 +292,26 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
-CREATE TABLE "UserProfile" (
+CREATE TABLE "UserDisplayIdentity" (
     "userId" TEXT NOT NULL,
     "nickname" TEXT NOT NULL,
     "nicknameNormalized" TEXT NOT NULL,
     "nicknameChangedAt" TIMESTAMPTZ(3),
-    "bedtime" "LifestyleBedtime",
-    "wakeTime" "LifestyleWakeTime",
-    "sleepHabit" "LifestyleSleepHabit",
-    "sleepEnvironment" "LifestyleSleepEnvironment",
-    "screenUsage" "LifestyleScreenUsage",
-    "noiseSensitivity" "LifestyleNoiseSensitivity",
-    "smokingBehavior" "LifestyleSmokingBehavior",
-    "indoorEating" "LifestyleIndoorEating",
-    "phoneBehavior" "LifestylePhoneBehavior",
-    "earphoneUsage" "LifestyleEarphoneUsage",
-    "cleanLevel" "LifestyleCleanLevel",
-    "drinkingFrequency" "LifestyleDrinkingFrequency",
-    "relationshipStyle" "LifestyleRelationshipStyle",
-    "temperatureSensitivity" "LifestyleTemperatureSensitivity",
-    "smokingTolerance" "RoommateSmokingTolerance",
-    "phoneTolerance" "RoommatePhoneTolerance",
-    "earphoneExpectation" "RoommateEarphoneExpectation",
-    "sleepEnvPreference" "RoommateSleepEnvPreference",
-    "screenTolerance" "RoommateScreenTolerance",
-    "indoorEatingTolerance" "RoommateIndoorEatingTolerance",
-    "cleanExpectation" "RoommateCleanExpectation",
-    "drinkingTolerance" "RoommateDrinkingTolerance",
-    "intro" TEXT NOT NULL DEFAULT '',
-    "messageToRoommate" TEXT,
-    "collegeCode" TEXT,
-    "grade" TEXT,
-    "mbti" TEXT,
-    "birthYear" INTEGER,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "UserProfile_pkey" PRIMARY KEY ("userId")
+    CONSTRAINT "UserDisplayIdentity_pkey" PRIMARY KEY ("userId")
 );
 
-
 -- CreateTable
-CREATE TABLE "UserProfileHistory" (
-    "id" TEXT NOT NULL,
+CREATE TABLE "UserDismissedNotice" (
     "userId" TEXT NOT NULL,
-    "retainedIdentityId" TEXT,
-    "nickname" TEXT NOT NULL,
-    "nicknameNormalized" TEXT NOT NULL,
-    "nicknameChangedAt" TIMESTAMPTZ(3),
-    "bedtime" "LifestyleBedtime",
-    "wakeTime" "LifestyleWakeTime",
-    "sleepHabit" "LifestyleSleepHabit",
-    "sleepEnvironment" "LifestyleSleepEnvironment",
-    "screenUsage" "LifestyleScreenUsage",
-    "noiseSensitivity" "LifestyleNoiseSensitivity",
-    "smokingBehavior" "LifestyleSmokingBehavior",
-    "indoorEating" "LifestyleIndoorEating",
-    "phoneBehavior" "LifestylePhoneBehavior",
-    "earphoneUsage" "LifestyleEarphoneUsage",
-    "cleanLevel" "LifestyleCleanLevel",
-    "drinkingFrequency" "LifestyleDrinkingFrequency",
-    "relationshipStyle" "LifestyleRelationshipStyle",
-    "temperatureSensitivity" "LifestyleTemperatureSensitivity",
-    "smokingTolerance" "RoommateSmokingTolerance",
-    "phoneTolerance" "RoommatePhoneTolerance",
-    "earphoneExpectation" "RoommateEarphoneExpectation",
-    "sleepEnvPreference" "RoommateSleepEnvPreference",
-    "screenTolerance" "RoommateScreenTolerance",
-    "indoorEatingTolerance" "RoommateIndoorEatingTolerance",
-    "cleanExpectation" "RoommateCleanExpectation",
-    "drinkingTolerance" "RoommateDrinkingTolerance",
-    "intro" TEXT NOT NULL,
-    "messageToRoommate" TEXT,
-    "collegeCode" TEXT,
-    "grade" TEXT,
-    "mbti" TEXT,
-    "birthYear" INTEGER,
-    "source" "ProfileHistorySource" NOT NULL,
+    "noticeKey" TEXT NOT NULL,
+    "dismissedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "UserProfileHistory_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "UserDismissedNotice_pkey" PRIMARY KEY ("userId","noticeKey")
 );
 
 -- CreateTable
@@ -501,12 +438,10 @@ CREATE TABLE "SeasonParticipantProfile" (
     "cleanExpectation" "RoommateCleanExpectation" NOT NULL,
     "drinkingTolerance" "RoommateDrinkingTolerance" NOT NULL,
     "intro" TEXT NOT NULL DEFAULT '',
-    "messageToRoommate" TEXT,
     "collegeCode" TEXT,
     "grade" TEXT,
     "mbti" TEXT,
     "birthYear" INTEGER,
-    "templateSourceUserProfileUpdatedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -545,12 +480,11 @@ CREATE TABLE "SeasonParticipantProfileHistory" (
     "cleanExpectation" "RoommateCleanExpectation" NOT NULL,
     "drinkingTolerance" "RoommateDrinkingTolerance" NOT NULL,
     "intro" TEXT NOT NULL,
-    "messageToRoommate" TEXT,
     "collegeCode" TEXT,
     "grade" TEXT,
     "mbti" TEXT,
     "birthYear" INTEGER,
-    "templateSourceUserProfileUpdatedAt" TIMESTAMPTZ(3),
+    "registeredAtSnapshot" TIMESTAMPTZ(3),
     "source" "ProfileHistorySource" NOT NULL,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -573,7 +507,6 @@ CREATE TABLE "MatchRequest" (
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
     "terminalAt" TIMESTAMPTZ(3),
     "acceptedAt" TIMESTAMPTZ(3),
-    "requestChannel" "MatchRequestChannel",
 
     CONSTRAINT "MatchRequest_pkey" PRIMARY KEY ("id")
 );
@@ -852,20 +785,13 @@ CREATE INDEX "SeasonDormitoryOperation_dormitoryId_roomSelectionDate_idx" ON "Se
 CREATE UNIQUE INDEX "User_emailNormalized_key" ON "User"("emailNormalized");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "UserProfile_nicknameNormalized_key" ON "UserProfile"("nicknameNormalized");
+CREATE UNIQUE INDEX "UserDisplayIdentity_nicknameNormalized_key" ON "UserDisplayIdentity"("nicknameNormalized");
 
 -- CreateIndex
-CREATE INDEX "UserProfile_nickname_idx" ON "UserProfile"("nickname");
+CREATE INDEX "UserDisplayIdentity_nickname_idx" ON "UserDisplayIdentity"("nickname");
 
 -- CreateIndex
-CREATE INDEX "UserProfile_collegeCode_idx" ON "UserProfile"("collegeCode");
-
-
--- CreateIndex
-CREATE INDEX "UserProfileHistory_userId_createdAt_idx" ON "UserProfileHistory"("userId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "UserProfileHistory_retainedIdentityId_createdAt_idx" ON "UserProfileHistory"("retainedIdentityId", "createdAt");
+CREATE INDEX "UserDismissedNotice_noticeKey_dismissedAt_idx" ON "UserDismissedNotice"("noticeKey", "dismissedAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "RetainedIdentity_originalUserId_key" ON "RetainedIdentity"("originalUserId");
@@ -1048,34 +974,16 @@ CREATE INDEX "ModerationTerm_surface_category_isActive_idx" ON "ModerationTerm"(
 CREATE UNIQUE INDEX "ModerationTerm_normalizedTerm_category_matchMode_surface_key" ON "ModerationTerm"("normalizedTerm", "category", "matchMode", "surface");
 
 -- Custom constraints not expressible in Prisma schema
-ALTER TABLE "UserProfile"
-  ADD CONSTRAINT "UserProfile_grade_check"
-  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
-
 ALTER TABLE "SeasonParticipantProfile"
   ADD CONSTRAINT "SeasonParticipantProfile_grade_check"
-  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
-
-
-ALTER TABLE "UserProfileHistory"
-  ADD CONSTRAINT "UserProfileHistory_grade_check"
   CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
 
 ALTER TABLE "SeasonParticipantProfileHistory"
   ADD CONSTRAINT "SeasonParticipantProfileHistory_grade_check"
   CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
 
-ALTER TABLE "UserProfile"
-  ADD CONSTRAINT "UserProfile_birthYear_check"
-  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
-
 ALTER TABLE "SeasonParticipantProfile"
   ADD CONSTRAINT "SeasonParticipantProfile_birthYear_check"
-  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
-
-
-ALTER TABLE "UserProfileHistory"
-  ADD CONSTRAINT "UserProfileHistory_birthYear_check"
   CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
 
 ALTER TABLE "SeasonParticipantProfileHistory"
@@ -1121,16 +1029,16 @@ ALTER TABLE "SeasonDormitoryOperation" ADD CONSTRAINT "SeasonDormitoryOperation_
 ALTER TABLE "SeasonDormitoryOperation" ADD CONSTRAINT "SeasonDormitoryOperation_dormitoryId_fkey" FOREIGN KEY ("dormitoryId") REFERENCES "Dormitory"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UserProfile" ADD CONSTRAINT "UserProfile_collegeCode_fkey" FOREIGN KEY ("collegeCode") REFERENCES "CollegeMaster"("code") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "UserDisplayIdentity" ADD CONSTRAINT "UserDisplayIdentity_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserDismissedNotice" ADD CONSTRAINT "UserDismissedNotice_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ArchiveJob" ADD CONSTRAINT "ArchiveJob_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "RetainedIdentityDataAccessLog" ADD CONSTRAINT "RetainedIdentityDataAccessLog_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "UserProfile" ADD CONSTRAINT "UserProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonParticipant" ADD CONSTRAINT "SeasonParticipant_dormitoryId_fkey" FOREIGN KEY ("dormitoryId") REFERENCES "Dormitory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
