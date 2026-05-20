@@ -1,12 +1,5 @@
 import { z } from 'zod';
 
-export const matchRequestChannelSchema = z.enum([
-  'ROOMMATE_TAB',
-  'PROFILE_DETAIL',
-  'RECOMMENDATION',
-  'ADMIN',
-]);
-
 export const matchRequestStatusSchema = z.enum([
   'PENDING',
   'ACCEPTED',
@@ -49,7 +42,6 @@ export const activeMatchUnmatchProgressStateSchema = z.enum([
 
 export const requestDirectionSchema = z.enum(['SENT', 'RECEIVED']);
 
-export type MatchRequestChannel = z.infer<typeof matchRequestChannelSchema>;
 export type MatchRequestStatus = z.infer<typeof matchRequestStatusSchema>;
 export type MatchRequestTerminalReason = z.infer<typeof matchRequestTerminalReasonSchema>;
 export type ActiveMatchStatus = z.infer<typeof activeMatchStatusSchema>;

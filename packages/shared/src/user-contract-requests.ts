@@ -1,28 +1,12 @@
 import { z } from 'zod';
-import {
-  profileBirthYearSchema,
-  profileGradeSchema,
-  profileMbtiInputSchema,
-} from './profile-contract.js';
-import { collegeCodeSchema } from './college-contract.js';
+import { nicknameSchema } from './auth-contract-primitives.js';
 
-export const selectionPatchSchema = z.strictObject({
-  state: z.enum(['UNASSIGNED', 'ASSIGNED']),
-  dormitoryId: z.string().nullable(),
-});
-
-export const additionalProfilePatchSchema = z.strictObject({
-  college: collegeCodeSchema.nullable().optional(),
-  grade: profileGradeSchema.nullable().optional(),
-  mbti: profileMbtiInputSchema.nullable().optional(),
-  birthYear: profileBirthYearSchema.nullable().optional(),
+export const updateCurrentUserDisplayIdentityRequestSchema = z.strictObject({
+  nickname: nicknameSchema,
 });
 
 export const updateCurrentUserRequestSchema = z.strictObject({
-  selection: selectionPatchSchema.optional(),
-  intro: z.string().max(200).optional(),
-  messageToRoommate: z.string().max(100).nullable().optional(),
-  additional: additionalProfilePatchSchema.optional(),
+  displayIdentity: updateCurrentUserDisplayIdentityRequestSchema.optional(),
 });
 
 export const requestAccountDeletionSchema = z.strictObject({
@@ -35,6 +19,9 @@ export const accountDeletionRequestAcceptedSchema = z.strictObject({
   retentionHoldUntil: z.string().nullable(),
 });
 
+export type UpdateCurrentUserDisplayIdentityRequest = z.infer<
+  typeof updateCurrentUserDisplayIdentityRequestSchema
+>;
 export type UpdateCurrentUserRequest = z.infer<typeof updateCurrentUserRequestSchema>;
 export type RequestAccountDeletion = z.infer<typeof requestAccountDeletionSchema>;
 export type AccountDeletionRequestAccepted = z.infer<typeof accountDeletionRequestAcceptedSchema>;

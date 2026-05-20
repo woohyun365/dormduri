@@ -6,6 +6,10 @@ import {
 } from '@repo/shared/lifestyle';
 import {
   currentSeasonResponseSchema,
+  createSeasonProfileRequestSchema,
+  seasonRegistrationFinalizeResponseSchema,
+  selectableDormitoriesResponseSchema,
+  selectedDormitorySubmitRequestSchema,
   seasonRuntimeOverrideSchema,
 } from '@repo/shared/season-contract';
 import {
@@ -16,6 +20,13 @@ import {
   roommateSearchQuerySchema,
   roommateSearchResponseSchema,
 } from '@repo/shared/roommate-search-contract';
+import { publicProfileSchema } from '@repo/shared/profile-contract';
+import {
+  currentUserResponseSchema,
+  updateCurrentUserRequestSchema,
+} from '@repo/shared/user-contract';
+import { signupRequestSchema } from '@repo/shared/auth-contract';
+import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match-contract';
 import {
   isLocalDateString,
   toDateOnlyString,
@@ -37,15 +48,117 @@ const VALID_LIFESTYLE: LifestyleData = {
   drinkingFrequency: 'NONE',
   relationshipStyle: 'CLOSE',
   temperatureSensitivity: 'NORMAL',
-  smokingTolerance: null,
-  phoneTolerance: null,
-  earphoneExpectation: null,
-  sleepEnvPreference: null,
-  screenTolerance: null,
-  indoorEatingTolerance: null,
-  cleanExpectation: null,
+  smokingTolerance: 'NO_ONLY',
+  phoneTolerance: 'BRIEF_OK',
+  earphoneExpectation: 'STUDY',
+  sleepEnvPreference: 'NO_SPEAKER',
+  screenTolerance: 'LOW_OK',
+  indoorEatingTolerance: 'CLEAN_OK',
+  cleanExpectation: 'BASIC',
   drinkingTolerance: 'LOW_ONLY',
 };
+
+const SUMMARY_ITEM = {
+  id: 'participant-1',
+  sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+  relationToViewer: 'GENERAL',
+  summaryVisible: true,
+  canViewFull: false,
+  detailViewable: false,
+  scoreVisible: false,
+  actions: {
+    canBookmark: false,
+    canRequestMatch: false,
+    canStartChat: false,
+  },
+  nickname: '테스터',
+  intro: '소개',
+  smokingBehavior: 'NO',
+  sleepHabit: 'NONE',
+  relationshipStyle: 'CLOSE',
+} as const;
+
+const PUBLIC_PROFILE_DETAIL = {
+  id: 'participant-1',
+  sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+  relationToViewer: 'MATCHED_PARTNER',
+  capabilities: {
+    summaryVisible: true,
+    detailViewable: true,
+    canViewFull: true,
+    scoreVisible: true,
+    actions: {
+      canBookmark: false,
+      canRequestMatch: false,
+      canStartChat: true,
+    },
+  },
+  nickname: '스냅샷닉',
+  intro: '소개',
+  additional: {
+    college: null,
+    grade: null,
+    mbti: null,
+    birthYear: null,
+  },
+  gender: 'M',
+  campus: 'CHUNCHEON',
+  lifestyle: {
+    bedtime: '22_24',
+    wakeTime: '07_08',
+    sleepHabit: 'NONE',
+    sleepEnvironment: 'QUIET',
+    screenUsage: 'NONE',
+    noiseSensitivity: 'NORMAL',
+    smokingBehavior: 'NO',
+    indoorEating: 'SNACK',
+    phoneBehavior: 'SOMETIMES',
+    earphoneUsage: 'MOSTLY',
+    cleanLevel: 'WEEKLY_3_UP',
+    relationshipStyle: 'CLOSE',
+    temperatureSensitivity: 'NORMAL',
+  },
+  matchScore: 87,
+} as const;
+
+const ROOMMATE_SEARCH_RESPONSE = {
+  scope: 'CAMPUS_MERGED',
+  appliedSort: 'MATCH_SCORE',
+  resultSummary: {
+    summaryOnlyCount: 1,
+    detailViewableCount: 0,
+    scoreVisibleCount: 0,
+  },
+  scopeCapabilities: {
+    campusMerged: true,
+    sameBuildingOnly: true,
+  },
+  filterCapabilities: {
+    smokingBehavior: true,
+    bedtime: true,
+    wakeTime: true,
+    noiseSensitivity: true,
+    cleanLevel: true,
+    sleepHabit: true,
+    indoorEating: true,
+    relationshipStyle: true,
+    college: false,
+    grade: false,
+    mbti: false,
+    birthYear: false,
+  },
+  sortCapabilities: {
+    matchScore: false,
+  },
+  items: [SUMMARY_ITEM],
+} as const;
+
+const COMPLETION_READY = {
+  profileCompletionRequired: false,
+  dormitorySelectionRequired: false,
+  registrationUnavailable: false,
+  registrationUnavailableReasons: [],
+} as const;
 
 describe('shared reference contracts', () => {
   it('lifestyle schema는 필수 필드 null과 screen/sleep invariant를 계속 강제한다', () => {
@@ -69,6 +182,123 @@ describe('shared reference contracts', () => {
       });
       expect(optionalCondition.success).toBe(true);
     }
+  });
+
+  it('auth signup request는 profile orchestration 필드를 받지 않는다', () => {
+    expect(
+      signupRequestSchema.parse({
+        email: 'student@kangwon.ac.kr',
+        password: 'pass1234',
+        nickname: '테스터',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      }),
+    ).toMatchObject({ nickname: '테스터' });
+
+    expect(
+      signupRequestSchema.safeParse({
+        email: 'student@kangwon.ac.kr',
+        password: 'pass1234',
+        nickname: '테스터',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        lifestyle: VALID_LIFESTYLE,
+        intro: '가입 단계 소개',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('current-user contract는 display identity, season profile state, onboarding notice를 표현한다', () => {
+    expect(
+      currentUserResponseSchema.parse({
+        user: {
+          id: 'user-1',
+          email: 'student@kangwon.ac.kr',
+          nickname: '테스터',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        displayIdentity: {
+          userId: 'user-1',
+          nickname: '테스터',
+          nicknameSource: 'USER_DISPLAY_IDENTITY',
+          nicknameChangedAt: null,
+        },
+        seasonProfile: {
+          hasCurrentSeason: true,
+          hasParticipantRow: true,
+          intent: 'UNDECIDED',
+          registered: false,
+          profileExists: true,
+          profileState: 'COMPLETE',
+          completion: {
+            profileCompletionRequired: false,
+            dormitorySelectionRequired: true,
+            registrationUnavailable: false,
+            registrationUnavailableReasons: [],
+          },
+          draftWritable: true,
+          canSelectDormitory: true,
+          canFinalizeRegistration: false,
+        },
+        selection: {
+          state: 'NOT_SELECTED',
+          dormitoryId: null,
+          source: 'SEASON_PARTICIPANT',
+        },
+        match: {
+          hasActiveMatch: false,
+          activeMatch: null,
+        },
+        capabilities: {
+          canBrowseProfiles: true,
+          canCreateOrUpdateSeasonProfileDraft: true,
+          canSelectDormitory: true,
+          canFinalizeSeasonRegistration: false,
+          canEditDisplayIdentity: true,
+          canBookmark: false,
+          canRequestMatch: false,
+          canStartChat: false,
+        },
+        onboarding: {
+          dismissedNotices: [
+            {
+              noticeKey: 'season-profile-onboarding',
+              dismissed: true,
+              dismissedAt: '2026-05-20T00:00:00.000Z',
+            },
+          ],
+        },
+        serviceState: {
+          campusOperated: true,
+          seasonState: 'SEASON_OPEN',
+        },
+      }),
+    ).toMatchObject({
+      displayIdentity: { nicknameSource: 'USER_DISPLAY_IDENTITY' },
+      seasonProfile: { profileState: 'COMPLETE' },
+      onboarding: { dismissedNotices: [{ dismissed: true }] },
+    });
+  });
+
+  it('user update request는 selection/message patch와 season profile write를 분리한다', () => {
+    expect(
+      updateCurrentUserRequestSchema.parse({
+        displayIdentity: { nickname: '새닉네임' },
+      }),
+    ).toMatchObject({ displayIdentity: { nickname: '새닉네임' } });
+
+    expect(
+      updateCurrentUserRequestSchema.safeParse({
+        selection: { state: 'ASSIGNED', dormitoryId: 'dasan' },
+      }).success,
+    ).toBe(false);
+    expect(updateCurrentUserRequestSchema.safeParse({ messageToRoommate: '한마디' }).success).toBe(
+      false,
+    );
+    expect(updateCurrentUserRequestSchema.safeParse({ intro: '시즌 프로필 소개' }).success).toBe(
+      false,
+    );
   });
 
   it('date primitives는 local/iso normalization과 guard를 유지한다', () => {
@@ -130,6 +360,58 @@ describe('shared reference contracts', () => {
     ).toMatchObject({ state: 'SEASON_MATCHING', isMatching: true });
   });
 
+  it('season participation/dormitory selection contract가 draft, 선택 목록, finalize를 표현한다', () => {
+    expect(
+      createSeasonProfileRequestSchema.parse({
+        lifestyle: VALID_LIFESTYLE,
+        intro: '시즌 프로필 소개',
+      }),
+    ).toMatchObject({ intro: '시즌 프로필 소개' });
+
+    expect(
+      selectableDormitoriesResponseSchema.parse({
+        seasonId: 'season-1',
+        seasonState: 'SEASON_OPEN',
+        profileState: 'COMPLETE',
+        completion: {
+          profileCompletionRequired: false,
+          dormitorySelectionRequired: true,
+          registrationUnavailable: false,
+          registrationUnavailableReasons: [],
+        },
+        items: [
+          {
+            id: 'dasan',
+            name: '다산관',
+            campusCode: 'CHUNCHEON',
+            roomType: 2,
+            genderPolicy: 'M',
+            roomSelectionDate: '2026-02-11',
+          },
+        ],
+      }),
+    ).toMatchObject({ profileState: 'COMPLETE', items: [{ id: 'dasan' }] });
+
+    expect(selectedDormitorySubmitRequestSchema.parse({ dormitoryId: 'dasan' })).toMatchObject({
+      dormitoryId: 'dasan',
+    });
+
+    expect(
+      seasonRegistrationFinalizeResponseSchema.parse({
+        seasonId: 'season-1',
+        participantId: 'participant-1',
+        participationIntent: 'REGISTERED',
+        registeredAt: '2026-05-20T00:00:00.000Z',
+        dormitorySelectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        profileState: 'REGISTRATION_FINALIZED',
+        profileHistoryId: 'history-1',
+        registeredAtSnapshot: '2026-05-20T00:00:00.000Z',
+        completion: COMPLETION_READY,
+      }),
+    ).toMatchObject({ dormitorySelectionState: 'ASSIGNED' });
+  });
+
   it('dormitory contract는 selection state와 guide response shape를 유지한다', () => {
     expect(dormitorySelectionStateSchema.parse('ASSIGNED')).toBe('ASSIGNED');
     expect(dormitorySelectionStateSchema.safeParse('UNKNOWN').success).toBe(false);
@@ -157,69 +439,104 @@ describe('shared reference contracts', () => {
     });
   });
 
-  it('roommate search contract는 summary shape와 appliedSort를 유지한다', () => {
+  it('public profile contract는 detail-viewable target shape만 허용하고 legacy public fields를 노출하지 않는다', () => {
+    expect(publicProfileSchema.parse(PUBLIC_PROFILE_DETAIL)).toMatchObject({
+      capabilities: { canViewFull: true },
+    });
+
+    expect(
+      publicProfileSchema.safeParse({
+        ...PUBLIC_PROFILE_DETAIL,
+        messageToRoommate: null,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      publicProfileSchema.safeParse({
+        ...PUBLIC_PROFILE_DETAIL,
+        exposureLevel: 'LIMITED',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('roommate search contract는 capability 기반 단일 summary shape를 사용한다', () => {
     expect(
       roommateSearchQuerySchema.parse({
         smokingBehavior: 'NO',
       }),
-    ).toMatchObject({
-      smokingBehavior: 'NO',
+    ).toMatchObject({ smokingBehavior: 'NO' });
+
+    expect(roommateSearchResponseSchema.parse(ROOMMATE_SEARCH_RESPONSE)).toMatchObject({
+      scope: 'CAMPUS_MERGED',
+      resultSummary: { summaryOnlyCount: 1 },
+      items: [{ summaryVisible: true, canViewFull: false }],
     });
 
     expect(
-      roommateSearchResponseSchema.parse({
-        scope: 'CAMPUS_MERGED',
-        appliedSort: 'MATCH_SCORE',
-        effectiveVisibility: 'MIXED_VISIBILITY',
-        scopeCapabilities: {
-          campusMerged: true,
-          sameBuildingOnly: true,
-        },
-        filterCapabilities: {
-          smokingBehavior: true,
-          bedtime: true,
-          wakeTime: true,
-          noiseSensitivity: true,
-          cleanLevel: true,
-          sleepHabit: true,
-          indoorEating: true,
-          relationshipStyle: true,
-          college: true,
-          grade: true,
-          mbti: true,
-          birthYear: true,
-        },
-        sortCapabilities: {
-          matchScore: true,
-        },
-        items: [
-          {
-            id: 'user-1',
-            sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-            relationToViewer: 'GENERAL',
-            actions: {
-              canBookmark: true,
-              canRequestMatch: true,
-              canStartChat: true,
-            },
-            canViewFull: true,
-            nickname: '테스터',
-            intro: '소개',
-            messageToRoommate: null,
-            additional: {
-              college: null,
-              grade: null,
-              mbti: null,
-              birthYear: null,
-            },
-            matchScore: 87,
-          },
-        ],
+      roommateSearchResponseSchema.safeParse({
+        ...ROOMMATE_SEARCH_RESPONSE,
+        effectiveVisibility: 'FULL_ONLY',
+      }).success,
+    ).toBe(false);
+
+    expect(
+      roommateSearchResponseSchema.safeParse({
+        ...ROOMMATE_SEARCH_RESPONSE,
+        items: [{ ...SUMMARY_ITEM, messageToRoommate: null }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('match request contract는 requestChannel 없이 roommate-search summary projection을 재사용한다', () => {
+    expect(
+      createMatchRequestSchema.parse({
+        targetUserId: 'user-2',
+        note: '안녕하세요',
       }),
-    ).toMatchObject({
-      scope: 'CAMPUS_MERGED',
-      appliedSort: 'MATCH_SCORE',
-      effectiveVisibility: 'MIXED_VISIBILITY',
-    });
+    ).toMatchObject({ targetUserId: 'user-2' });
+
+    expect(
+      createMatchRequestSchema.safeParse({
+        targetUserId: 'user-2',
+        channel: 'ROOMMATE_TAB',
+      }).success,
+    ).toBe(false);
+
+    expect(
+      matchRequestSummarySchema.parse({
+        id: 'request-1',
+        seasonId: 'season-1',
+        direction: 'SENT',
+        counterpartUserId: 'user-2',
+        counterpartParticipantId: 'participant-2',
+        counterpartSummary: SUMMARY_ITEM,
+        status: 'PENDING',
+        note: null,
+        createdAt: '2026-05-20T00:00:00.000Z',
+        expiresAt: '2026-05-25T00:00:00.000Z',
+        terminalAt: null,
+        acceptedAt: null,
+        terminalReason: null,
+      }),
+    ).toMatchObject({ counterpartSummary: { nickname: '테스터' } });
+
+    expect(
+      matchRequestSummarySchema.safeParse({
+        id: 'request-1',
+        seasonId: 'season-1',
+        direction: 'SENT',
+        counterpartUserId: 'user-2',
+        counterpartParticipantId: 'participant-2',
+        counterpartSummary: SUMMARY_ITEM,
+        status: 'PENDING',
+        note: null,
+        createdAt: '2026-05-20T00:00:00.000Z',
+        expiresAt: '2026-05-25T00:00:00.000Z',
+        terminalAt: null,
+        acceptedAt: null,
+        terminalReason: null,
+        requestChannel: 'ROOMMATE_TAB',
+      }).success,
+    ).toBe(false);
   });
 });

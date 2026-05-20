@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import { isoDateTimeStringSchema } from './date-primitives.js';
+import { roommateSearchSummarySchema } from './roommate-search-contract.js';
 import {
   activeMatchEndReasonSchema,
   activeMatchStatusSchema,
   activeMatchUnmatchProgressStateSchema,
-  matchRequestChannelSchema,
   matchRequestStatusSchema,
   matchRequestTerminalReasonSchema,
   requestDirectionSchema,
@@ -27,6 +27,7 @@ export const matchRequestSummarySchema = z.strictObject({
   direction: requestDirectionSchema,
   counterpartUserId: z.string(),
   counterpartParticipantId: z.string(),
+  counterpartSummary: roommateSearchSummarySchema,
   status: matchRequestStatusSchema,
   note: z.string().nullable(),
   createdAt: isoDateTimeStringSchema,
@@ -34,7 +35,6 @@ export const matchRequestSummarySchema = z.strictObject({
   terminalAt: isoDateTimeStringSchema.nullable(),
   acceptedAt: isoDateTimeStringSchema.nullable(),
   terminalReason: matchRequestTerminalReasonSchema.nullable(),
-  requestChannel: matchRequestChannelSchema.nullable(),
 });
 
 export const activeMatchSummarySchema = z.strictObject({

@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { lifestyleSchema } from './lifestyle.js';
 import { campusSchema, genderSchema } from './identity-contract.js';
 import {
   emailSchema,
@@ -35,8 +34,6 @@ export const signupRequestSchema = z.strictObject({
   nickname: nicknameSchema,
   gender: genderSchema,
   campus: campusSchema,
-  lifestyle: lifestyleSchema,
-  intro: z.string().trim(),
 });
 
 export const resetPasswordRequestSchema = z.strictObject({

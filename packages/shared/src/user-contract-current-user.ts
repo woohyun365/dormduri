@@ -1,8 +1,10 @@
 import { z } from 'zod';
-import { lifestyleSchema } from './lifestyle.js';
-import { additionalProfileSchema, profileSourceSchema } from './profile-contract.js';
 import { dormitorySelectionStateSchema } from './dormitory-contract.js';
 import { seasonStateSchema } from './season-contract.js';
+import {
+  seasonParticipationCompletionStateSchema,
+  seasonParticipationStateSchema,
+} from './season-participation-contract.js';
 import { activeMatchSummarySchema } from './match-contract.js';
 import {
   authenticatedSessionUserSchema,
@@ -10,58 +12,59 @@ import {
   selectionSourceSchema,
 } from './user-contract-primitives.js';
 
+export const displayIdentityNicknameSourceSchema = z.literal('USER_DISPLAY_IDENTITY');
+
+export const userDisplayIdentitySchema = z.strictObject({
+  userId: z.string(),
+  nickname: z.string(),
+  nicknameSource: displayIdentityNicknameSourceSchema,
+  nicknameChangedAt: z.string().nullable(),
+});
+
+export const dismissedNoticeStateSchema = z.strictObject({
+  noticeKey: z.string(),
+  dismissed: z.boolean(),
+  dismissedAt: z.string().nullable(),
+});
+
+export const currentUserSeasonProfileStateSchema = z.strictObject({
+  hasCurrentSeason: z.boolean(),
+  hasParticipantRow: z.boolean(),
+  intent: participationIntentSchema.nullable(),
+  registered: z.boolean(),
+  profileExists: z.boolean(),
+  profileState: seasonParticipationStateSchema.shape.profileState,
+  completion: seasonParticipationCompletionStateSchema,
+  draftWritable: z.boolean(),
+  canSelectDormitory: z.boolean(),
+  canFinalizeRegistration: z.boolean(),
+});
+
 export const currentUserResponseSchema = z.strictObject({
   user: authenticatedSessionUserSchema,
+  displayIdentity: userDisplayIdentitySchema,
+  seasonProfile: currentUserSeasonProfileStateSchema,
   selection: z.strictObject({
     state: dormitorySelectionStateSchema,
     dormitoryId: z.string().nullable(),
     source: selectionSourceSchema,
   }),
-  profile: z.strictObject({
-    source: profileSourceSchema,
-    lifestyle: lifestyleSchema,
-    intro: z.string(),
-    messageToRoommate: z.string().nullable(),
-    additional: additionalProfileSchema,
-  }),
-  participation: z.strictObject({
-    hasCurrentSeason: z.boolean(),
-    hasParticipantRow: z.boolean(),
-    intent: participationIntentSchema.nullable(),
-    registered: z.boolean(),
-    profileExists: z.boolean(),
-  }),
   match: z.strictObject({
     hasActiveMatch: z.boolean(),
     activeMatch: activeMatchSummarySchema.nullable(),
   }),
-  readiness: z.strictObject({
-    requiredCompletedCount: z.number().int().nonnegative(),
-    requiredTotalCount: z.number().int().positive(),
-    requiredComplete: z.boolean(),
-    optionalCompletedCount: z.number().int().nonnegative(),
-    optionalTotalCount: z.number().int().positive(),
-    optionalComplete: z.boolean(),
-    selectionState: dormitorySelectionStateSchema,
-    canBrowseProfiles: z.boolean(),
-  }),
   capabilities: z.strictObject({
     canBrowseProfiles: z.boolean(),
-    canRegisterParticipation: z.boolean(),
+    canCreateOrUpdateSeasonProfileDraft: z.boolean(),
     canSelectDormitory: z.boolean(),
-    canEditLifestyle: z.boolean(),
-    canEditNickname: z.boolean(),
-    canEditProfileText: z.boolean(),
+    canFinalizeSeasonRegistration: z.boolean(),
+    canEditDisplayIdentity: z.boolean(),
     canBookmark: z.boolean(),
     canRequestMatch: z.boolean(),
     canStartChat: z.boolean(),
-    profileEdit: z.strictObject({
-      intro: z.boolean(),
-      messageToRoommate: z.boolean(),
-      additional: z.boolean(),
-      lifestyle: z.boolean(),
-      nickname: z.boolean(),
-    }),
+  }),
+  onboarding: z.strictObject({
+    dismissedNotices: z.array(dismissedNoticeStateSchema),
   }),
   serviceState: z.strictObject({
     campusOperated: z.boolean(),
@@ -69,4 +72,8 @@ export const currentUserResponseSchema = z.strictObject({
   }),
 });
 
+export type DisplayIdentityNicknameSource = z.infer<typeof displayIdentityNicknameSourceSchema>;
+export type UserDisplayIdentity = z.infer<typeof userDisplayIdentitySchema>;
+export type DismissedNoticeState = z.infer<typeof dismissedNoticeStateSchema>;
+export type CurrentUserSeasonProfileState = z.infer<typeof currentUserSeasonProfileStateSchema>;
 export type CurrentUserResponse = z.infer<typeof currentUserResponseSchema>;
