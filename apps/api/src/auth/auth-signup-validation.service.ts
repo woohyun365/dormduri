@@ -43,7 +43,7 @@ export class AuthSignupValidationService {
       if (nicknamePolicyError) {
         fieldErrors.nickname = nicknamePolicyError;
       } else {
-        const existingNickname = await this.prisma.userProfile.findUnique({
+        const existingNickname = await this.prisma.userDisplayIdentity.findUnique({
           where: { nicknameNormalized: normalizeNickname(input.nickname) },
           select: { userId: true },
         });

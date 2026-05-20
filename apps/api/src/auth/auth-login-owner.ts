@@ -37,7 +37,7 @@ export async function login(
       deletedAt: true,
       gender: true,
       campus: true,
-      profile: {
+      displayIdentity: {
         select: {
           nickname: true,
         },
@@ -49,7 +49,7 @@ export async function login(
     return deps.loginAttemptService.recordLoginFailure(emailNormalized);
   }
 
-  if (user.deletedAt) {
+  if (user.deletedAt || !user.displayIdentity) {
     return deps.loginAttemptService.recordLoginFailure(emailNormalized);
   }
 
@@ -66,7 +66,7 @@ export async function login(
     toAuthSessionUserSummary({
       id: user.id,
       email: user.email,
-      nickname: user.profile?.nickname ?? '',
+      nickname: user.displayIdentity.nickname,
       gender: user.gender,
       campus: user.campus,
     }),

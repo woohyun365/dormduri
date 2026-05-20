@@ -83,7 +83,6 @@ export class AuthService {
         prisma: this.prisma,
         verificationService: this.verificationService,
         sessionService: this.sessionService,
-        moderationService: this.moderationService,
         signupValidationService: this.signupValidationService,
       },
       input,

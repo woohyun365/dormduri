@@ -9,8 +9,6 @@ export interface SignupInput {
   nickname: string;
   gender: Gender;
   campus: Campus;
-  lifestyle: Record<string, unknown>;
-  intro: string;
 }
 
 export interface AuthSessionIssueResult {

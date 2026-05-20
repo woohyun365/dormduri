@@ -69,4 +69,20 @@ describe('AuthController', () => {
       expect(response.fieldErrors?.password?.length).toBeGreaterThan(0);
     }
   });
+
+  it('signup body는 lifestyle/intro legacy profile orchestration 필드를 거부한다', async () => {
+    await expect(
+      controller.signup({
+        email: 'test@kangwon.ac.kr',
+        password: 'Test1234',
+        nickname: '테스터',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        lifestyle: {},
+        intro: '가입 단계 소개',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(authService.signup).not.toHaveBeenCalled();
+  });
 });

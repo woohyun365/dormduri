@@ -1,12 +1,10 @@
 import { Prisma } from '../generated/prisma/client.js';
 import type { LoginResult, SignupInput } from './auth.types.js';
 import { isKnuEmail, normalizeEmail, normalizeNickname } from './auth.utils.js';
-import { validateSignupLifestyleData } from './lifestyle.schema.js';
 import type { AuthVerificationService } from './auth-verification.service.js';
 import type { AuthSessionService } from './auth-session.service.js';
 import { toLoginSuccessResult } from './auth-response.builder.js';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
-import type { ModerationService } from '../common/moderation/moderation.service.js';
 import type { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import { authFailures } from './auth-failures.js';
 import { hashPassword } from './auth-password.js';
@@ -15,14 +13,11 @@ import {
   SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
 } from './auth-verification-proof.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
-import { appendUserProfileHistorySnapshot } from '../profiles/profile-history-owner.js';
-import { toLifestyleColumnData } from '../profiles/profile-lifestyle.persistence.js';
 
 interface AuthSignupOwnerDeps {
   prisma: PrismaService;
   verificationService: Pick<AuthVerificationService, 'findLatestVerifiedSignupCode'>;
   sessionService: Pick<AuthSessionService, 'issueAuthResult'>;
-  moderationService: Pick<ModerationService, 'moderatePublicText'>;
   signupValidationService: Pick<AuthSignupValidationService, 'validateDraft'>;
 }
 
@@ -49,23 +44,13 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
     );
   }
 
-  const lifestyleValidation = validateSignupLifestyleData(input.lifestyle);
-  if (!lifestyleValidation.ok) {
-    return authFailures.invalidLifestyle(lifestyleValidation.error);
-  }
-
-  const introModeration = await deps.moderationService.moderatePublicText(input.intro, 'intro');
-  if (!introModeration.ok) {
-    return authFailures.introRejected(introModeration.error);
-  }
-
   const normalizedNickname = normalizeNickname(input.nickname);
   const [existingEmailUser, existingNicknameUser] = await Promise.all([
     deps.prisma.user.findUnique({
       where: { emailNormalized },
       select: { id: true },
     }),
-    deps.prisma.userProfile.findUnique({
+    deps.prisma.userDisplayIdentity.findUnique({
       where: { nicknameNormalized: normalizedNickname },
       select: { userId: true },
     }),
@@ -96,12 +81,10 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
           gender: input.gender,
           campus: input.campus,
           emailVerifiedAt,
-          profile: {
+          displayIdentity: {
             create: {
               nickname: input.nickname.trim(),
               nicknameNormalized: normalizedNickname,
-              ...toLifestyleColumnData(lifestyleValidation.value),
-              intro: input.intro.trim(),
             },
           },
         },
@@ -110,8 +93,18 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
           email: true,
           gender: true,
           campus: true,
+          displayIdentity: {
+            select: {
+              nickname: true,
+            },
+          },
         },
       });
+
+      if (!createdUser.displayIdentity) {
+        throw new Error('[AuthSignupOwner] user display identity row is required');
+      }
+      const displayIdentity = createdUser.displayIdentity;
 
       await consumeVerifiedCodeOrThrow(
         tx,
@@ -120,9 +113,7 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
         SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
       );
 
-      await appendUserProfileHistorySnapshot(tx, createdUser.id, 'SIGNUP_CREATE');
-
-      return createdUser;
+      return { ...createdUser, displayIdentity };
     });
 
     const authResult = await deps.sessionService.issueAuthResult(user.id, user.email, false);
@@ -131,7 +122,7 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
       toAuthSessionUserSummary({
         id: user.id,
         email: user.email,
-        nickname: input.nickname.trim(),
+        nickname: user.displayIdentity.nickname,
         gender: user.gender,
         campus: user.campus,
       }),

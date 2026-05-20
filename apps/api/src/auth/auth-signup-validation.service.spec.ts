@@ -2,7 +2,7 @@ import { AuthSignupValidationService } from './auth-signup-validation.service.js
 
 describe('AuthSignupValidationService', () => {
   const prisma = {
-    userProfile: {
+    userDisplayIdentity: {
       findUnique: jest.fn(),
     },
   };
@@ -16,7 +16,7 @@ describe('AuthSignupValidationService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
-    prisma.userProfile.findUnique.mockResolvedValue(null);
+    prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
   });
 
   it('금지어 닉네임은 validation 단계에서 차단한다', async () => {
@@ -36,6 +36,26 @@ describe('AuthSignupValidationService', () => {
       userActionable: true,
       error: '입력값을 다시 확인해주세요.',
       fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
+    });
+  });
+
+  it('닉네임 중복은 UserDisplayIdentity nicknameNormalized 기준으로 검사한다', async () => {
+    prisma.userDisplayIdentity.findUnique.mockResolvedValue({ userId: 'user-existing' });
+
+    await expect(
+      service.validateDraft({
+        email: 'test@kangwon.ac.kr',
+        password: 'Test1234',
+        nickname: '테스터',
+      }),
+    ).resolves.toMatchObject({
+      success: false,
+      fieldErrors: { nickname: '이미 사용 중인 닉네임입니다.' },
+    });
+
+    expect(prisma.userDisplayIdentity.findUnique).toHaveBeenCalledWith({
+      where: { nicknameNormalized: '테스터' },
+      select: { userId: true },
     });
   });
 });

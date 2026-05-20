@@ -47,18 +47,6 @@ export const authFailures = {
     });
   },
 
-  invalidLifestyle(error: string) {
-    return createFailure('AUTH_INVALID_LIFESTYLE_INPUT', error, {
-      fieldErrors: { lifestyle: error },
-    });
-  },
-
-  introRejected(error: string) {
-    return createFailure('AUTH_INTRO_REJECTED', error, {
-      fieldErrors: { intro: error },
-    });
-  },
-
   emailAlreadyRegistered() {
     return createFailure('AUTH_EMAIL_ALREADY_REGISTERED', '이미 가입된 이메일입니다.', {
       fieldErrors: { email: '이미 가입된 이메일입니다.' },

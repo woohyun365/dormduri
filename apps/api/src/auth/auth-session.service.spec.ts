@@ -78,7 +78,7 @@ describe('AuthSessionService', () => {
       email: 'test@kangwon.ac.kr',
       gender: 'M',
       campus: 'CHUNCHEON',
-      profile: {
+      displayIdentity: {
         nickname: '테스터',
       },
     });
@@ -111,9 +111,24 @@ describe('AuthSessionService', () => {
       deletedAt: new Date('2026-05-12T00:00:00.000Z'),
       gender: 'M',
       campus: 'CHUNCHEON',
-      profile: {
+      displayIdentity: {
         nickname: '탈퇴한 사용자',
       },
+    });
+
+    await expect(service.getSession('token')).resolves.toEqual({ authenticated: false });
+  });
+
+  it('display identity가 없는 사용자는 유효한 토큰이 있어도 세션 인증에서 제외한다', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sid: 'session-legacy', sub: 'user-legacy' });
+    prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-legacy' }]);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-legacy',
+      email: 'legacy@kangwon.ac.kr',
+      deletedAt: null,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: null,
     });
 
     await expect(service.getSession('token')).resolves.toEqual({ authenticated: false });

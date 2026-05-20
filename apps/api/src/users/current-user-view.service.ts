@@ -1,35 +1,51 @@
 import { Injectable } from '@nestjs/common';
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
-import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
+import type { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
-import {
-  parseLifestyleOrThrow,
-  toAdditionalProfile,
-  type UserWithProfileRecord,
-} from '../profiles/profile.mapper.js';
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import {
-  buildCurrentUserCapabilities,
-  canCurrentDormitoryMatch,
   hasParticipantProfile,
   isParticipantRegistered,
-  requiresCurrentSeasonParticipantProfile,
-  resolveCurrentUserProfileSource,
 } from '../season-participants/season-participant-policy.js';
+import { normalizeSelectionState } from '../season-participants/season-participant-selection.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import {
-  buildCurrentUserCapabilityInput,
-  toOperatedDormitoryIdSet,
-} from '../season-participants/season-participant-gate-context.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
-import {
-  buildUserWithProfileSelect,
-  mapUserWithParticipantProjection,
+  buildUserWithDisplayIdentitySelect,
+  mapUserWithDisplayIdentityProjection,
+  type UserDisplayIdentityRecord,
+  type UserWithDisplayIdentityRecord,
 } from './current-user-select.js';
+import { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveCampusServiceState } from './service-state.js';
-import { buildUserReadiness } from './user-readiness.js';
+
+const currentUserSeasonParticipantSelect = {
+  id: true,
+  seasonId: true,
+  userId: true,
+  participationIntent: true,
+  registeredAt: true,
+  declinedAt: true,
+  dormitoryId: true,
+  dormitorySelectionState: true,
+  participantStatus: true,
+  hiddenByAdminAt: true,
+  deactivatedAt: true,
+  profile: {
+    select: {
+      participantId: true,
+    },
+  },
+} as const;
+
+type CurrentUserSeasonParticipantRecord = Prisma.SeasonParticipantGetPayload<{
+  select: typeof currentUserSeasonParticipantSelect;
+}>;
+
+type CurrentUserResponseUserRecord = Omit<UserWithDisplayIdentityRecord, 'displayIdentity'> & {
+  displayIdentity?: UserDisplayIdentityRecord | null;
+};
 
 @Injectable()
 export class CurrentUserViewService {
@@ -42,16 +58,16 @@ export class CurrentUserViewService {
 
   async getCurrentUser(authUser: AuthenticatedUserContext): Promise<CurrentUserResponse> {
     const now = await this.prisma.getDatabaseNow();
-    const user = await this.getUserWithProfile(authUser.id);
+    const user = await this.getUserWithDisplayIdentity(authUser.id);
     return this.buildCurrentUserResponse(user, now);
   }
 
   async buildCurrentUserResponse(
-    user: UserWithProfileRecord,
+    user: CurrentUserResponseUserRecord,
     now: Date,
   ): Promise<CurrentUserResponse> {
-    if (!user.profile) {
-      throw new Error('[CurrentUserViewService] user profile row is required');
+    if (!user.displayIdentity) {
+      throw new Error('[CurrentUserViewService] user display identity row is required');
     }
 
     const serviceState = await resolveCampusServiceState(
@@ -60,14 +76,17 @@ export class CurrentUserViewService {
       user.campus,
       now,
     );
-    const currentParticipant =
-      await this.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
-
-    if (requiresCurrentSeasonParticipantProfile(currentParticipant, serviceState.seasonState)) {
-      throw new Error(
-        '[CurrentUserViewService] registered participant profile is required during current season',
-      );
-    }
+    const currentParticipant = serviceState.seasonContext
+      ? await this.prisma.seasonParticipant.findUnique({
+          where: {
+            seasonId_userId: {
+              seasonId: serviceState.seasonContext.season.id,
+              userId: user.id,
+            },
+          },
+          select: currentUserSeasonParticipantSelect,
+        })
+      : null;
 
     const activeMatch =
       currentParticipant && serviceState.seasonContext
@@ -78,82 +97,86 @@ export class CurrentUserViewService {
           )
         : null;
     const participantRegistered = isParticipantRegistered(currentParticipant);
-    const canonicalSelection =
-      this.seasonParticipantsService.selectCanonicalSelection(currentParticipant);
-    const profileSource = resolveCurrentUserProfileSource({
+    const canonicalSelection = selectCanonicalSelection(currentParticipant, participantRegistered);
+    const profileExists = hasParticipantProfile(currentParticipant);
+    const activeSeasonPhase =
+      serviceState.seasonState === 'SEASON_OPEN' || serviceState.seasonState === 'SEASON_MATCHING';
+    const completion = buildSeasonProfileCompletion({
+      hasCurrentSeason: Boolean(serviceState.seasonContext),
       campusOperated: serviceState.campusOperated,
-      seasonState: serviceState.seasonState,
-      participantRegistered,
-      participantProfileExists: hasParticipantProfile(currentParticipant),
+      activeSeasonPhase,
+      profileExists,
+      selectionState: canonicalSelection.dormitorySelectionState,
     });
-    const canonicalProfile = this.seasonParticipantsService.selectProfileBySource(
-      user.profile,
-      currentParticipant?.profile ?? null,
-      profileSource,
-    );
-    const lifestyle = parseLifestyleOrThrow(canonicalProfile.lifestyle);
-    const additional = toAdditionalProfile(canonicalProfile);
-    const nicknameLockedBySeason = canonicalProfile.source === 'SEASON_PARTICIPANT_PROFILE';
-    const nicknameCooldownActive = hasNicknameCooldown(user.profile.nicknameChangedAt, now);
-    const operatedDormitoryIds = toOperatedDormitoryIdSet(serviceState.seasonContext);
-    const currentDormitoryCanMatch = canCurrentDormitoryMatch(
-      serviceState.seasonContext,
-      canonicalSelection.dormitoryId,
+    const canSelectDormitory =
+      serviceState.campusOperated &&
+      activeSeasonPhase &&
+      profileExists &&
+      canonicalSelection.dormitorySelectionState !== 'ASSIGNED';
+    const canFinalizeSeasonRegistration =
+      serviceState.campusOperated &&
+      activeSeasonPhase &&
+      profileExists &&
+      canonicalSelection.dormitorySelectionState === 'ASSIGNED' &&
+      !participantRegistered;
+    const canEditDisplayIdentity = !hasNicknameCooldown(
+      user.displayIdentity.nicknameChangedAt,
       now,
     );
-    const capabilityInput = buildCurrentUserCapabilityInput({
-      campusOperated: serviceState.campusOperated,
-      seasonState: serviceState.seasonState,
-      participant: currentParticipant,
-      participantMatched: activeMatch !== null,
-      seasonProfileComplete: isSeasonProfileComplete(lifestyle),
-      selection: canonicalSelection,
-      operatedDormitoryIds,
-      currentDormitoryCanMatch,
-      nicknameLockedBySeason,
-      nicknameCooldownActive,
-    });
 
     return {
       user: {
         id: user.id,
         email: user.email,
-        nickname: canonicalProfile.nickname,
+        nickname: user.displayIdentity.nickname,
         gender: user.gender,
         campus: user.campus,
+      },
+      displayIdentity: {
+        userId: user.displayIdentity.userId,
+        nickname: user.displayIdentity.nickname,
+        nicknameSource: 'USER_DISPLAY_IDENTITY',
+        nicknameChangedAt: toNullableIsoDateTime(user.displayIdentity.nicknameChangedAt),
+      },
+      seasonProfile: {
+        hasCurrentSeason: Boolean(serviceState.seasonContext),
+        hasParticipantRow: Boolean(currentParticipant),
+        intent: currentParticipant?.participationIntent ?? null,
+        registered: participantRegistered,
+        profileExists,
+        profileState: resolveSeasonProfileState(currentParticipant, participantRegistered),
+        completion,
+        draftWritable: serviceState.campusOperated && activeSeasonPhase && !participantRegistered,
+        canSelectDormitory,
+        canFinalizeRegistration: canFinalizeSeasonRegistration,
       },
       selection: {
         state: canonicalSelection.dormitorySelectionState,
         dormitoryId: canonicalSelection.dormitoryId,
         source: canonicalSelection.source,
       },
-      profile: {
-        source: canonicalProfile.source,
-        lifestyle,
-        intro: canonicalProfile.intro,
-        messageToRoommate: canonicalProfile.messageToRoommate,
-        additional,
-      },
-      participation: {
-        hasCurrentSeason: Boolean(serviceState.seasonContext),
-        hasParticipantRow: Boolean(currentParticipant),
-        intent: currentParticipant?.participationIntent ?? null,
-        registered: participantRegistered,
-        profileExists: hasParticipantProfile(currentParticipant),
-      },
       match: {
         hasActiveMatch: activeMatch !== null,
         activeMatch,
       },
-      readiness: buildUserReadiness({
-        lifestyle,
-        intro: canonicalProfile.intro,
-        messageToRoommate: canonicalProfile.messageToRoommate,
-        additional,
-        selectionState: canonicalSelection.dormitorySelectionState,
-        canBrowseProfiles: true,
-      }),
-      capabilities: buildCurrentUserCapabilities(capabilityInput),
+      capabilities: {
+        canBrowseProfiles:
+          serviceState.campusOperated &&
+          (serviceState.seasonState === 'SEASON_OPEN' ||
+            serviceState.seasonState === 'SEASON_MATCHING' ||
+            serviceState.seasonState === 'SEASON_POST_MATCH'),
+        canCreateOrUpdateSeasonProfileDraft:
+          serviceState.campusOperated && activeSeasonPhase && !participantRegistered,
+        canSelectDormitory,
+        canFinalizeSeasonRegistration,
+        canEditDisplayIdentity,
+        canBookmark: false,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+      onboarding: {
+        dismissedNotices: [],
+      },
       serviceState: {
         campusOperated: serviceState.campusOperated,
         seasonState: serviceState.seasonState,
@@ -161,16 +184,82 @@ export class CurrentUserViewService {
     };
   }
 
-  private async getUserWithProfile(userId: string): Promise<UserWithProfileRecord> {
+  private async getUserWithDisplayIdentity(userId: string): Promise<UserWithDisplayIdentityRecord> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: buildUserWithProfileSelect(null),
+      select: buildUserWithDisplayIdentitySelect(),
     });
 
     if (!user) {
       throw new Error('[CurrentUserViewService] authenticated user not found');
     }
 
-    return mapUserWithParticipantProjection(user);
+    return mapUserWithDisplayIdentityProjection(user);
   }
+}
+
+function selectCanonicalSelection(
+  participant: CurrentUserSeasonParticipantRecord | null,
+  registered: boolean,
+) {
+  const normalized = normalizeSelectionState({
+    registered,
+    dormitorySelectionState: participant?.dormitorySelectionState ?? 'NOT_SELECTED',
+    dormitoryId: participant?.dormitoryId ?? null,
+  });
+
+  return {
+    ...normalized,
+    source: 'SEASON_PARTICIPANT' as const,
+  };
+}
+
+function resolveSeasonProfileState(
+  participant: CurrentUserSeasonParticipantRecord | null,
+  registered: boolean,
+): CurrentUserResponse['seasonProfile']['profileState'] {
+  if (!participant?.profile) {
+    return 'NONE';
+  }
+
+  return registered ? 'REGISTRATION_FINALIZED' : 'DRAFT';
+}
+
+function buildSeasonProfileCompletion(input: {
+  hasCurrentSeason: boolean;
+  campusOperated: boolean;
+  activeSeasonPhase: boolean;
+  profileExists: boolean;
+  selectionState: CurrentUserResponse['selection']['state'];
+}): CurrentUserResponse['seasonProfile']['completion'] {
+  const registrationUnavailableReasons: CurrentUserResponse['seasonProfile']['completion']['registrationUnavailableReasons'] =
+    [];
+
+  if (!input.hasCurrentSeason) {
+    registrationUnavailableReasons.push('NO_CURRENT_SEASON');
+  }
+  if (!input.campusOperated) {
+    registrationUnavailableReasons.push('UNSUPPORTED_CAMPUS');
+  }
+  if (input.hasCurrentSeason && !input.activeSeasonPhase) {
+    registrationUnavailableReasons.push('SEASON_NOT_OPEN');
+  }
+  if (!input.profileExists) {
+    registrationUnavailableReasons.push('PROFILE_INCOMPLETE');
+  }
+  if (input.profileExists && input.selectionState !== 'ASSIGNED') {
+    registrationUnavailableReasons.push('DORMITORY_SELECTION_REQUIRED');
+  }
+
+  return {
+    profileCompletionRequired: input.activeSeasonPhase && !input.profileExists,
+    dormitorySelectionRequired:
+      input.activeSeasonPhase && input.profileExists && input.selectionState !== 'ASSIGNED',
+    registrationUnavailable: registrationUnavailableReasons.length > 0,
+    registrationUnavailableReasons,
+  };
+}
+
+function toNullableIsoDateTime(value: Date | null): string | null {
+  return value ? value.toISOString() : null;
 }

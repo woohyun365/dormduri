@@ -1,227 +1,116 @@
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
-import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
+import { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
-import { parseLifestyleOrNull, type UserWithProfileRecord } from '../profiles/profile.mapper.js';
-import {
-  appendSeasonParticipantProfileHistorySnapshot,
-  appendUserProfileHistorySnapshot,
-} from '../profiles/profile-history-owner.js';
-import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
-import { resolveCampusServiceState } from './service-state.js';
+import { normalizeNickname, validateNicknameFormat } from '../auth/auth.utils.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
+import { PrismaService } from '../common/prisma/prisma.service.js';
+import { profilesErrors } from '../profiles/profiles.errors.js';
+import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
 import {
-  SeasonParticipantsService,
-  type CurrentSeasonParticipantRecord,
-} from '../season-participants/season-participants.service.js';
-import {
-  canCurrentDormitoryMatch,
-  hasParticipantProfile,
-  isParticipantRegistered,
-  requiresCurrentSeasonParticipantProfile,
-  resolveCurrentUserProfileSource,
-  resolveCurrentUserProfileEditability,
-} from '../season-participants/season-participant-policy.js';
-import {
-  buildCurrentUserCapabilityInput,
-  toOperatedDormitoryIdSet,
-} from '../season-participants/season-participant-gate-context.js';
-import {
-  buildUserWithProfileSelect,
-  mapUserWithParticipantProjection,
+  buildUserWithDisplayIdentitySelect,
+  mapUserWithDisplayIdentityProjection,
+  type UserWithDisplayIdentityRecord,
 } from './current-user-select.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
-import { createUserProfilePatchOwner } from './user-profile-patch-owner.js';
-import { createUserSelectionUpdateOwner } from './user-selection-update-owner.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
 
 export interface UpdateCurrentUserInput {
-  selection?: {
-    state: 'UNASSIGNED' | 'ASSIGNED';
-    dormitoryId: string | null;
-  };
-  intro?: string;
-  messageToRoommate?: string | null;
-  additional?: {
-    college?: string | null;
-    grade?: string | null;
-    mbti?: string | null;
-    birthYear?: number | null;
+  displayIdentity?: {
+    nickname: string;
   };
 }
 
 interface UserUpdateOwnerDeps {
   prisma: PrismaService;
-  seasonsService: SeasonsService;
   moderationService: ModerationService;
-  seasonParticipantsService: SeasonParticipantsService;
   currentUserViewService: CurrentUserViewService;
 }
 
 export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
-  async function getUserWithProfile(userId: string): Promise<UserWithProfileRecord> {
+  async function getUserWithDisplayIdentity(
+    userId: string,
+  ): Promise<UserWithDisplayIdentityRecord> {
     const user = await deps.prisma.user.findUnique({
       where: { id: userId },
-      select: buildUserWithProfileSelect(null),
+      select: buildUserWithDisplayIdentitySelect(),
     });
 
     if (!user) {
       throw new Error('[UsersService] authenticated user not found');
     }
 
-    return mapUserWithParticipantProjection(user);
+    return mapUserWithDisplayIdentityProjection(user);
   }
 
   async function updateCurrentUser(
     authUser: AuthenticatedUserContext,
     input: UpdateCurrentUserInput,
   ): Promise<CurrentUserResponse> {
-    const profilePatchOwner = createUserProfilePatchOwner({
-      prisma: deps.prisma,
-      moderationService: deps.moderationService,
-    });
-    const selectionUpdateOwner = createUserSelectionUpdateOwner({
-      prisma: deps.prisma,
-      seasonParticipantsService: deps.seasonParticipantsService,
-    });
     const now = await deps.prisma.getDatabaseNow();
-    const user = await getUserWithProfile(authUser.id);
-    const currentParticipant =
-      await deps.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
-    const serviceState = await resolveCampusServiceState(
-      deps.prisma,
-      deps.seasonsService,
-      user.campus,
-      now,
-    );
-    const participantRegistered = isParticipantRegistered(currentParticipant);
-    const canonicalSelection =
-      deps.seasonParticipantsService.selectCanonicalSelection(currentParticipant);
-    const currentProfileSource = resolveCurrentUserProfileSource({
-      campusOperated: serviceState.campusOperated,
-      seasonState: serviceState.seasonState,
-      participantRegistered,
-      participantProfileExists: hasParticipantProfile(currentParticipant),
-    });
-    const canonicalProfile = user.profile
-      ? deps.seasonParticipantsService.selectProfileBySource(
-          user.profile,
-          currentParticipant?.profile ?? null,
-          currentProfileSource,
-        )
-      : null;
-    const canonicalLifestyle = canonicalProfile
-      ? parseLifestyleOrNull(canonicalProfile.lifestyle)
-      : null;
+    const user = await getUserWithDisplayIdentity(authUser.id);
 
-    if (requiresCurrentSeasonParticipantProfile(currentParticipant, serviceState.seasonState)) {
-      throw new Error(
-        '[UsersService] registered participant profile is required during current season',
-      );
+    if (!input.displayIdentity) {
+      return deps.currentUserViewService.buildCurrentUserResponse(user, now);
     }
 
-    const nicknameLockedBySeason = currentProfileSource === 'SEASON_PARTICIPANT_PROFILE';
-    const nicknameCooldownActive = user.profile
-      ? hasNicknameCooldown(user.profile.nicknameChangedAt, now)
-      : false;
-    const operatedDormitoryIds = toOperatedDormitoryIdSet(serviceState.seasonContext);
-    const currentDormitoryCanMatch = canCurrentDormitoryMatch(
-      serviceState.seasonContext,
-      canonicalSelection.dormitoryId,
-      now,
-    );
-    const profileEdit = resolveCurrentUserProfileEditability(
-      buildCurrentUserCapabilityInput({
-        campusOperated: serviceState.campusOperated,
-        seasonState: serviceState.seasonState,
-        participant: currentParticipant,
-        participantMatched: false,
-        seasonProfileComplete: canonicalLifestyle
-          ? isSeasonProfileComplete(canonicalLifestyle)
-          : false,
-        selection: canonicalSelection,
-        operatedDormitoryIds,
-        currentDormitoryCanMatch,
-        nicknameLockedBySeason,
-        nicknameCooldownActive,
-      }),
-    );
-
-    const seasonParticipantUpdateData: {
-      dormitoryId?: string | null;
-      dormitorySelectionState?: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
-      participantStatus?: 'DRAFT' | 'ACTIVE';
-      activatedAt?: Date | null;
-    } = {};
-
-    const profilePatchPayloads = await profilePatchOwner.buildProfileUpdatePayloads({
-      user,
-      input: {
-        intro: input.intro,
-        messageToRoommate: input.messageToRoommate,
-        additional: input.additional,
-      },
-      now,
-      currentProfileSource,
-      profileEdit,
-    });
-    const profileUpdateData = omitUnchangedBaseProfilePatch(
-      user.profile,
-      profilePatchPayloads.profileUpdateData,
-    );
-    const seasonParticipantProfileUpdateData = omitUnchangedSeasonProfilePatch(
-      currentParticipant?.profile ?? null,
-      profilePatchPayloads.seasonParticipantProfileUpdateData,
-    );
-
-    if (input.selection) {
-      selectionUpdateOwner.assertSelectionPayload(input.selection);
-      await selectionUpdateOwner.applySelectionUpdate(
-        user,
-        currentParticipant,
-        serviceState,
-        now,
-        input.selection,
-        seasonParticipantUpdateData,
-      );
+    const displayIdentity = user.displayIdentity;
+    if (!displayIdentity) {
+      throw new Error('[UsersService] user display identity row is required');
     }
 
-    await deps.prisma.$transaction(async (tx) => {
-      if (Object.keys(profileUpdateData).length > 0) {
-        await tx.userProfile.update({
-          where: { userId: user.id },
-          data: profileUpdateData,
-        });
+    const trimmedNickname = input.displayIdentity.nickname.trim();
+    const formatError = validateNicknameFormat(trimmedNickname);
+    if (formatError) {
+      throw profilesErrors.invalidNickname(formatError);
+    }
 
-        await appendUserProfileHistorySnapshot(tx, user.id, 'USER_EDIT');
-      }
+    if (hasNicknameCooldown(displayIdentity.nicknameChangedAt, now)) {
+      throw profilesErrors.nicknameCooldownActive();
+    }
 
-      if (currentParticipant && Object.keys(seasonParticipantUpdateData).length > 0) {
-        await tx.seasonParticipant.update({
-          where: { id: currentParticipant.id },
-          data: seasonParticipantUpdateData,
-        });
-      }
+    const nicknamePolicyError =
+      await deps.moderationService.validateNicknamePolicy(trimmedNickname);
+    if (nicknamePolicyError) {
+      throw profilesErrors.nicknameModerationRejected(nicknamePolicyError);
+    }
 
-      if (
-        currentParticipant?.profile &&
-        Object.keys(seasonParticipantProfileUpdateData).length > 0
-      ) {
-        await tx.seasonParticipantProfile.update({
-          where: { participantId: currentParticipant.id },
-          data: seasonParticipantProfileUpdateData,
-        });
-
-        await appendSeasonParticipantProfileHistorySnapshot(
-          tx,
-          currentParticipant.id,
-          'SEASON_USER_EDIT',
-        );
-      }
+    const nicknameNormalized = normalizeNickname(trimmedNickname);
+    const existingNickname = await deps.prisma.userDisplayIdentity.findUnique({
+      where: { nicknameNormalized },
+      select: { userId: true },
     });
+
+    if (existingNickname && existingNickname.userId !== authUser.id) {
+      throw profilesErrors.nicknameAlreadyTaken();
+    }
+
+    if (
+      displayIdentity.nickname === trimmedNickname &&
+      displayIdentity.nicknameNormalized === nicknameNormalized
+    ) {
+      return deps.currentUserViewService.buildCurrentUserResponse(user, now);
+    }
+
+    try {
+      await deps.prisma.userDisplayIdentity.update({
+        where: { userId: authUser.id },
+        data: {
+          nickname: trimmedNickname,
+          nicknameNormalized,
+          nicknameChangedAt: now,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const target = Array.isArray(error.meta?.target) ? error.meta.target.join(',') : '';
+        if (target.includes('nicknameNormalized')) {
+          throw profilesErrors.nicknameAlreadyTaken();
+        }
+      }
+      throw error;
+    }
 
     return deps.currentUserViewService.buildCurrentUserResponse(
-      await getUserWithProfile(authUser.id),
+      await getUserWithDisplayIdentity(authUser.id),
       now,
     );
   }
@@ -229,48 +118,4 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
   return {
     updateCurrentUser,
   };
-}
-
-function omitUnchangedBaseProfilePatch(
-  profile: UserWithProfileRecord['profile'],
-  patch: {
-    intro?: string;
-    messageToRoommate?: string | null;
-    collegeCode?: string | null;
-    grade?: string | null;
-    mbti?: string | null;
-    birthYear?: number | null;
-  },
-) {
-  if (!profile) {
-    return patch;
-  }
-
-  return Object.fromEntries(
-    Object.entries(patch).filter(
-      ([field, value]) => profile[field as keyof typeof profile] !== value,
-    ),
-  ) as typeof patch;
-}
-
-function omitUnchangedSeasonProfilePatch(
-  profile: NonNullable<CurrentSeasonParticipantRecord['profile']> | null,
-  patch: {
-    intro?: string;
-    messageToRoommate?: string | null;
-    collegeCode?: string | null;
-    grade?: string | null;
-    mbti?: string | null;
-    birthYear?: number | null;
-  },
-) {
-  if (!profile) {
-    return patch;
-  }
-
-  return Object.fromEntries(
-    Object.entries(patch).filter(
-      ([field, value]) => profile[field as keyof typeof profile] !== value,
-    ),
-  ) as typeof patch;
 }

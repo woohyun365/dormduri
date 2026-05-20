@@ -47,6 +47,28 @@ export function buildUserWithProfileSelect(seasonId: string | null) {
   } as const;
 }
 
+const userDisplayIdentitySelect = {
+  userId: true,
+  nickname: true,
+  nicknameNormalized: true,
+  nicknameChangedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+export function buildUserWithDisplayIdentitySelect() {
+  return {
+    id: true,
+    email: true,
+    emailVerifiedAt: true,
+    gender: true,
+    campus: true,
+    displayIdentity: {
+      select: userDisplayIdentitySelect,
+    },
+  } as const;
+}
+
 export interface UserWithProfileQueryRecord {
   id: string;
   email: string;
@@ -75,6 +97,46 @@ export interface UserWithProfileQueryRecord {
 export type UserWithParticipantProjectionRecord = UserWithProfileRecord & {
   seasonParticipants?: CurrentSeasonParticipantRecord[];
 };
+
+export interface UserDisplayIdentityRecord {
+  userId: string;
+  nickname: string;
+  nicknameNormalized: string;
+  nicknameChangedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface UserWithDisplayIdentityQueryRecord {
+  id: string;
+  email: string;
+  emailVerifiedAt: Date | null;
+  gender: 'M' | 'F';
+  campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
+  displayIdentity: UserDisplayIdentityRecord | null;
+}
+
+export interface UserWithDisplayIdentityRecord {
+  id: string;
+  email: string;
+  emailVerifiedAt: Date | null;
+  gender: 'M' | 'F';
+  campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
+  displayIdentity: UserDisplayIdentityRecord | null;
+}
+
+export function mapUserWithDisplayIdentityProjection(
+  user: UserWithDisplayIdentityQueryRecord,
+): UserWithDisplayIdentityRecord {
+  return {
+    id: user.id,
+    email: user.email,
+    emailVerifiedAt: user.emailVerifiedAt,
+    gender: user.gender,
+    campus: user.campus,
+    displayIdentity: user.displayIdentity,
+  };
+}
 
 export function mapUserWithParticipantProjection(
   user: UserWithProfileQueryRecord,

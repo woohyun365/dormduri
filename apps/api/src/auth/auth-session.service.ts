@@ -53,10 +53,15 @@ export class AuthSessionService {
           gender: true,
           campus: true,
           deletedAt: true,
+          displayIdentity: {
+            select: {
+              userId: true,
+            },
+          },
         },
       })
       .then((user) =>
-        user?.deletedAt
+        user?.deletedAt || !user?.displayIdentity
           ? null
           : user
             ? {
@@ -140,7 +145,7 @@ export class AuthSessionService {
         deletedAt: true,
         gender: true,
         campus: true,
-        profile: {
+        displayIdentity: {
           select: {
             nickname: true,
           },
@@ -148,14 +153,14 @@ export class AuthSessionService {
       },
     });
 
-    if (!user?.profile || user.deletedAt) {
+    if (!user?.displayIdentity || user.deletedAt) {
       return null;
     }
 
     return toAuthSessionUserSummary({
       id: user.id,
       email: user.email,
-      nickname: user.profile.nickname,
+      nickname: user.displayIdentity.nickname,
       gender: user.gender,
       campus: user.campus,
     });

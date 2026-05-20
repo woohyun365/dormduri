@@ -32,9 +32,7 @@ export class UsersService {
   ) {
     this.updateOwner = createUserUpdateOwner({
       prisma: this.prisma,
-      seasonsService: this.seasonsService,
       moderationService: this.moderationService,
-      seasonParticipantsService: this.seasonParticipantsService,
       currentUserViewService: this.currentUserViewService,
     });
     this.deletionOwner = createUserDeletionOwner({
