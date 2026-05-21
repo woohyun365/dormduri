@@ -28,39 +28,15 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
       profileDraftOwner.assertSeasonProfileCompleteForRegistration,
     listSelectableDormitoriesForCurrentSeason:
       dormitorySelectionOwner.listSelectableDormitoriesForCurrentSeason,
-    listSelectableDormitoriesForParticipant:
-      dormitorySelectionOwner.listSelectableDormitoriesForParticipant,
     hasSelectableDormitoriesForCurrentParticipant:
       dormitorySelectionOwner.hasSelectableDormitoriesForCurrentParticipant,
     hasSelectableDormitoriesForCurrentUser:
       dormitorySelectionOwner.hasSelectableDormitoriesForCurrentUser,
     hasValidDormitorySelectionForCurrentParticipant:
       dormitorySelectionOwner.hasValidDormitorySelectionForCurrentParticipant,
-    validateDormitorySelection: dormitorySelectionOwner.validateDormitorySelection,
     createOrUpdateDormitorySelection: dormitorySelectionOwner.createOrUpdateDormitorySelection,
     finalizeSeasonRegistration: registrationFinalizeOwner.finalizeSeasonRegistration,
     backfillCurrentSeasonParticipants: backfillOwner.backfillCurrentSeasonParticipants,
     deregisterCurrentSeasonParticipation: deregistrationOwner.deregisterCurrentSeasonParticipation,
   };
 }
-
-export {
-  assertParticipantAllowsDormitorySelection,
-  assertParticipantAllowsProfileDraftWrite,
-  assertParticipantAllowsRegistration,
-  assertParticipantHasDormitorySelection,
-  assertSeasonProfileCompleteForRegistration,
-  buildCompletion,
-  buildCompletionForParticipant,
-  buildCompletionForSeasonActionSnapshot,
-  buildEmptySeasonProfileDraftResponse,
-  buildSeasonProfileDraftResponse,
-  hasParticipantDormitorySelection,
-  isParticipantInactive,
-  isParticipantLockedOrInactive,
-  isParticipantRegistrationLocked,
-  resolveSeasonProfileState,
-  validateSeasonProfileCompleteness,
-} from './season-participation-capability.owner.js';
-export { toSeasonProfileDraftColumnData } from './season-profile-draft.owner.js';
-export { toSeasonProfileHistoryCreateData } from './season-registration-finalize.owner.js';

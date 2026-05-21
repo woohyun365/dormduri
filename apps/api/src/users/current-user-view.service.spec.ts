@@ -112,8 +112,8 @@ describe('CurrentUserViewService identity invariant', () => {
     const { service, prisma, currentSeasonParticipationViewOwner, matchesService } =
       createServiceTestKit();
     prisma.user.findUnique.mockResolvedValue({
-      id: 'user-legacy',
-      email: 'legacy@kangwon.ac.kr',
+      id: 'user-missing-display-identity',
+      email: 'missing-display-identity@kangwon.ac.kr',
       emailVerifiedAt: new Date('2026-05-01T00:00:00.000Z'),
       gender: 'M',
       campus: 'CHUNCHEON',
@@ -122,7 +122,11 @@ describe('CurrentUserViewService identity invariant', () => {
     });
 
     try {
-      await service.getCurrentUser({ id: 'user-legacy', gender: 'M', campus: 'CHUNCHEON' });
+      await service.getCurrentUser({
+        id: 'user-missing-display-identity',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      });
       throw new Error('Expected current-user invariant violation');
     } catch (error) {
       expect(error).toBeInstanceOf(InternalServerErrorException);

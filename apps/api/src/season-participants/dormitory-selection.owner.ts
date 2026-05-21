@@ -227,7 +227,6 @@ export function createDormitorySelectionOwner(
     hasSelectableDormitoriesForCurrentParticipant,
     hasSelectableDormitoriesForCurrentUser,
     hasValidDormitorySelectionForCurrentParticipant,
-    listSelectableDormitoriesForParticipant,
     validateDormitorySelection,
   };
 }
