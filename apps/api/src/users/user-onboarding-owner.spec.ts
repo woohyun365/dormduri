@@ -1,5 +1,6 @@
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
 import { CurrentUserViewService } from './current-user-view.service.js';
+import { CurrentSeasonParticipationViewOwner } from '../season-participants/current-season-participation-view.owner.js';
 import type { UserWithDisplayIdentityRecord } from './current-user-select.js';
 import { createUserOnboardingOwner } from './user-onboarding-owner.js';
 
@@ -143,10 +144,14 @@ describe('CurrentUserViewService onboarding read model', () => {
   const matchesService = {
     getCurrentActiveMatchSummaryForParticipant: jest.fn(),
   };
+  const currentSeasonParticipationViewOwner = new CurrentSeasonParticipationViewOwner(
+    prisma as never,
+    seasonParticipantsService as never,
+  );
   const currentUserViewService = new CurrentUserViewService(
     prisma as never,
     seasonsService as never,
-    seasonParticipantsService as never,
+    currentSeasonParticipationViewOwner as never,
     matchesService as never,
   );
 

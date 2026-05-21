@@ -7,12 +7,13 @@ import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
 } from './current-season-participation.controller.js';
+import { CurrentSeasonParticipationViewOwner } from './current-season-participation-view.owner.js';
 import { SeasonParticipantsService } from './season-participants.service.js';
 
 @Module({
   imports: [PrismaModule, SeasonsModule, DormitoriesModule, AuthModule],
   controllers: [CurrentSeasonProfileController, CurrentSeasonParticipationController],
-  providers: [SeasonParticipantsService],
-  exports: [SeasonParticipantsService],
+  providers: [SeasonParticipantsService, CurrentSeasonParticipationViewOwner],
+  exports: [SeasonParticipantsService, CurrentSeasonParticipationViewOwner],
 })
 export class SeasonParticipantsModule {}

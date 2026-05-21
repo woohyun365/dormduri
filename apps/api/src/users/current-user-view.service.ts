@@ -8,18 +8,7 @@ import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
-import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
-import { normalizeSelectionState } from '../season-participants/season-participant-selection.js';
-import {
-  currentSeasonParticipantSelect,
-  mapCurrentSeasonParticipantRecord,
-} from '../season-participants/season-participant-records.js';
-import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
-import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
-import {
-  buildCompletion,
-  resolveSeasonProfileState,
-} from '../season-participants/season-participant-write-owner.js';
+import { CurrentSeasonParticipationViewOwner } from '../season-participants/current-season-participation-view.owner.js';
 import {
   buildUserWithDisplayIdentitySelect,
   mapUserWithDisplayIdentityProjection,
@@ -46,7 +35,7 @@ export class CurrentUserViewService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly seasonsService: SeasonsService,
-    private readonly seasonParticipantsService: SeasonParticipantsService,
+    private readonly currentSeasonParticipationViewOwner: CurrentSeasonParticipationViewOwner,
     private readonly matchesService: MatchesService,
   ) {}
 
@@ -68,103 +57,29 @@ export class CurrentUserViewService {
       user.campus,
       now,
     );
-    const currentParticipant = serviceState.seasonContext
-      ? await this.prisma.seasonParticipant.findUnique({
-          where: {
-            seasonId_userId: {
-              seasonId: serviceState.seasonContext.season.id,
-              userId: user.id,
-            },
-          },
-          select: currentSeasonParticipantSelect,
-        })
-      : null;
-    const mappedParticipant = currentParticipant
-      ? mapCurrentSeasonParticipantRecord(currentParticipant)
-      : null;
+    const seasonSegment =
+      await this.currentSeasonParticipationViewOwner.buildCurrentUserSeasonParticipationSegment({
+        user: {
+          id: user.id,
+          emailVerifiedAt: user.emailVerifiedAt,
+          gender: user.gender,
+          campus: user.campus,
+          deletedAt: user.deletedAt,
+        },
+        campusOperated: serviceState.campusOperated,
+        seasonState: serviceState.seasonState,
+        seasonContext: serviceState.seasonContext,
+        now,
+      });
 
     const activeMatch =
-      mappedParticipant && serviceState.seasonContext
+      seasonSegment.participant && serviceState.seasonContext
         ? await this.matchesService.getCurrentActiveMatchSummaryForParticipant(
             serviceState.seasonContext,
-            mappedParticipant.id,
+            seasonSegment.participant.id,
             now,
           )
         : null;
-    const participantRegistered = isParticipantRegistered(mappedParticipant);
-    const canonicalSelection = selectCanonicalSelection(mappedParticipant, participantRegistered);
-    const activeSeasonPhase =
-      serviceState.seasonState === 'SEASON_OPEN' || serviceState.seasonState === 'SEASON_MATCHING';
-    const participantRegistrationLocked = Boolean(
-      mappedParticipant?.participationIntent === 'DECLINED' ||
-      mappedParticipant?.participantStatus === 'WITHDRAWN' ||
-      mappedParticipant?.withdrawnAt ||
-      mappedParticipant?.declinedAt,
-    );
-    const accountOrParticipantInactive = Boolean(
-      user.deletedAt || mappedParticipant?.hiddenByAdminAt || mappedParticipant?.deactivatedAt,
-    );
-    const profileComplete = this.seasonParticipantsService.validateSeasonProfileCompleteness(
-      mappedParticipant?.profile,
-    ).complete;
-    const selectableDormitoriesAvailable = activeSeasonPhase
-      ? mappedParticipant
-        ? await this.seasonParticipantsService.hasSelectableDormitoriesForCurrentParticipant(
-            mappedParticipant,
-            serviceState.seasonContext,
-            now,
-          )
-        : await this.seasonParticipantsService.hasSelectableDormitoriesForCurrentUser(
-            {
-              id: user.id,
-              emailVerifiedAt: user.emailVerifiedAt,
-              gender: user.gender,
-              campus: user.campus,
-            },
-            serviceState.seasonContext,
-            now,
-          )
-      : false;
-    const validDormitorySelection = activeSeasonPhase
-      ? await this.seasonParticipantsService.hasValidDormitorySelectionForCurrentParticipant(
-          mappedParticipant,
-          serviceState.seasonContext,
-          now,
-        )
-      : false;
-    const completion = buildCompletion({
-      hasCurrentSeason: Boolean(serviceState.seasonContext),
-      campusOperated: serviceState.campusOperated,
-      activeSeasonPhase,
-      profileComplete,
-      dormitorySelectionReady: participantRegistered || validDormitorySelection,
-      participantRegistrationLocked,
-      accountOrParticipantInactive,
-      hasSelectableDormitories: activeSeasonPhase ? selectableDormitoriesAvailable : undefined,
-      roomSelectionClosed:
-        serviceState.seasonState === 'SEASON_MATCHING' && !selectableDormitoriesAvailable,
-    });
-    const canCreateOrUpdateSeasonProfileDraft =
-      serviceState.campusOperated &&
-      activeSeasonPhase &&
-      !participantRegistered &&
-      !participantRegistrationLocked &&
-      !accountOrParticipantInactive;
-    const canSelectDormitory =
-      serviceState.campusOperated &&
-      activeSeasonPhase &&
-      selectableDormitoriesAvailable &&
-      !participantRegistered &&
-      !participantRegistrationLocked &&
-      !accountOrParticipantInactive;
-    const canFinalizeSeasonRegistration =
-      serviceState.campusOperated &&
-      activeSeasonPhase &&
-      profileComplete &&
-      validDormitorySelection &&
-      !participantRegistered &&
-      !participantRegistrationLocked &&
-      !accountOrParticipantInactive;
     const canEditDisplayIdentity = !hasNicknameCooldown(
       user.displayIdentity.nicknameChangedAt,
       now,
@@ -184,23 +99,8 @@ export class CurrentUserViewService {
         nicknameSource: 'USER_DISPLAY_IDENTITY',
         nicknameChangedAt: toNullableIsoDateTime(user.displayIdentity.nicknameChangedAt),
       },
-      seasonProfile: {
-        hasCurrentSeason: Boolean(serviceState.seasonContext),
-        hasParticipantRow: Boolean(mappedParticipant),
-        intent: mappedParticipant?.participationIntent ?? null,
-        registered: participantRegistered,
-        profileExists: Boolean(mappedParticipant?.profile),
-        profileState: resolveSeasonProfileState(mappedParticipant),
-        completion,
-        draftWritable: canCreateOrUpdateSeasonProfileDraft,
-        canSelectDormitory,
-        canFinalizeRegistration: canFinalizeSeasonRegistration,
-      },
-      selection: {
-        state: canonicalSelection.dormitorySelectionState,
-        dormitoryId: canonicalSelection.dormitoryId,
-        source: canonicalSelection.source,
-      },
+      seasonProfile: seasonSegment.seasonProfile,
+      selection: seasonSegment.selection,
       match: {
         hasActiveMatch: activeMatch !== null,
         activeMatch,
@@ -211,9 +111,10 @@ export class CurrentUserViewService {
           (serviceState.seasonState === 'SEASON_OPEN' ||
             serviceState.seasonState === 'SEASON_MATCHING' ||
             serviceState.seasonState === 'SEASON_POST_MATCH'),
-        canCreateOrUpdateSeasonProfileDraft: canCreateOrUpdateSeasonProfileDraft,
-        canSelectDormitory,
-        canFinalizeSeasonRegistration,
+        canCreateOrUpdateSeasonProfileDraft:
+          seasonSegment.capabilities.canCreateOrUpdateSeasonProfileDraft,
+        canSelectDormitory: seasonSegment.capabilities.canSelectDormitory,
+        canFinalizeSeasonRegistration: seasonSegment.capabilities.canFinalizeSeasonRegistration,
         canEditDisplayIdentity,
         canBookmark: false,
         canRequestMatch: false,
@@ -241,22 +142,6 @@ export class CurrentUserViewService {
 
     return mapUserWithDisplayIdentityProjection(user);
   }
-}
-
-function selectCanonicalSelection(
-  participant: CurrentSeasonParticipantRecord | null,
-  registered: boolean,
-) {
-  const normalized = normalizeSelectionState({
-    registered,
-    dormitorySelectionState: participant?.dormitorySelectionState ?? 'NOT_SELECTED',
-    dormitoryId: participant?.dormitoryId ?? null,
-  });
-
-  return {
-    ...normalized,
-    source: 'SEASON_PARTICIPANT' as const,
-  };
 }
 
 function buildOnboardingDismissedNotices(
