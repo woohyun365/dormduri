@@ -1,5 +1,4 @@
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
-import { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { normalizeNickname, validateNicknameFormat } from '../auth/auth.utils.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
@@ -12,6 +11,10 @@ import {
   type UserWithDisplayIdentityRecord,
 } from './current-user-select.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
+import {
+  isPrismaKnownRequestError,
+  prismaErrorTargetIncludes,
+} from '../common/prisma/prisma-error.js';
 
 export interface UpdateCurrentUserInput {
   displayIdentity?: {
@@ -91,18 +94,24 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     }
 
     try {
-      await deps.prisma.userDisplayIdentity.update({
-        where: { userId: authUser.id },
+      const updateResult = await deps.prisma.userDisplayIdentity.updateMany({
+        where: {
+          userId: authUser.id,
+          nicknameChangedAt: displayIdentity.nicknameChangedAt,
+        },
         data: {
           nickname: trimmedNickname,
           nicknameNormalized,
           nicknameChangedAt: now,
         },
       });
+
+      if (updateResult.count !== 1) {
+        throw profilesErrors.nicknameCooldownActive();
+      }
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        const target = Array.isArray(error.meta?.target) ? error.meta.target.join(',') : '';
-        if (target.includes('nicknameNormalized')) {
+      if (isPrismaKnownRequestError(error, 'P2002')) {
+        if (prismaErrorTargetIncludes(error, 'nicknameNormalized')) {
           throw profilesErrors.nicknameAlreadyTaken();
         }
       }

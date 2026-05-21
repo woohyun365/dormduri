@@ -1,4 +1,3 @@
-import { Prisma } from '../generated/prisma/client.js';
 import type { LoginResult, SignupInput } from './auth.types.js';
 import { isKnuEmail, normalizeEmail, normalizeNickname } from './auth.utils.js';
 import type { AuthVerificationService } from './auth-verification.service.js';
@@ -13,6 +12,10 @@ import {
   SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
 } from './auth-verification-proof.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
+import {
+  isPrismaKnownRequestError,
+  prismaErrorTargetIncludes,
+} from '../common/prisma/prisma-error.js';
 
 interface AuthSignupOwnerDeps {
   prisma: PrismaService;
@@ -128,12 +131,11 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
       }),
     );
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      const target = Array.isArray(error.meta?.target) ? error.meta.target.join(',') : '';
-      if (target.includes('emailNormalized')) {
+    if (isPrismaKnownRequestError(error, 'P2002')) {
+      if (prismaErrorTargetIncludes(error, 'emailNormalized')) {
         return authFailures.emailAlreadyRegistered();
       }
-      if (target.includes('nicknameNormalized')) {
+      if (prismaErrorTargetIncludes(error, 'nicknameNormalized')) {
         return authFailures.nicknameAlreadyTaken();
       }
     }

@@ -49,6 +49,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       application_name: databaseSettings.applicationName,
     });
 
+    const queryLogEvents =
+      process.env.PRISMA_QUERY_LOG_EVENTS === '1'
+        ? [
+            {
+              emit: 'event' as const,
+              level: 'query' as const,
+            },
+          ]
+        : undefined;
+
     super({
       adapter: new PrismaPg(pool, {
         schema: databaseSettings.runtimeSchema ?? undefined,
@@ -60,6 +70,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           console.error(`[${loggerLabel}] pg connection error`, error);
         },
       }),
+      ...(queryLogEvents ? { log: queryLogEvents } : {}),
     });
 
     this.pool = pool;

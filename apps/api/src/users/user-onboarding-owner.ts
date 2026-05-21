@@ -5,6 +5,7 @@ import {
 } from '@repo/shared/user-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import { isPrismaKnownRequestError } from '../common/prisma/prisma-error.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
 import { usersErrors } from './users.errors.js';
 
@@ -23,20 +24,26 @@ export function createUserOnboardingOwner(deps: UserOnboardingOwnerDeps) {
     }
 
     const now = await deps.prisma.getDatabaseNow();
-    await deps.prisma.userDismissedNotice.upsert({
-      where: {
-        userId_noticeKey: {
+    try {
+      await deps.prisma.userDismissedNotice.upsert({
+        where: {
+          userId_noticeKey: {
+            userId: authUser.id,
+            noticeKey: SERVICE_INTRO_NOTICE_KEY,
+          },
+        },
+        update: {},
+        create: {
           userId: authUser.id,
           noticeKey: SERVICE_INTRO_NOTICE_KEY,
+          dismissedAt: now,
         },
-      },
-      update: {},
-      create: {
-        userId: authUser.id,
-        noticeKey: SERVICE_INTRO_NOTICE_KEY,
-        dismissedAt: now,
-      },
-    });
+      });
+    } catch (error) {
+      if (!isPrismaKnownRequestError(error, 'P2002')) {
+        throw error;
+      }
+    }
 
     return deps.currentUserViewService.getCurrentUser(authUser);
   }

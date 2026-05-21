@@ -33,6 +33,7 @@ function resolveAdminDatabaseUrl(databaseUrl: string) {
 function setRuntimeDatabaseUrl(databaseUrl: string) {
   process.env.DATABASE_URL = databaseUrl;
   process.env.DIRECT_URL = databaseUrl;
+  process.env.PRISMA_QUERY_LOG_EVENTS = '1';
 }
 
 function runPrismaMigrateDeploy(databaseUrl: string) {
