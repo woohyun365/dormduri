@@ -9,6 +9,7 @@ import type {
 } from '@repo/shared/season-contract';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import { DormitoriesService } from '../dormitories/dormitories.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import { createSeasonParticipantSourceOwner } from './season-participant-source-owner.js';
@@ -37,10 +38,12 @@ export class SeasonParticipantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly seasonsService: SeasonsService,
+    private readonly dormitoriesService: DormitoriesService,
   ) {
     this.writeOwner = createSeasonParticipantWriteOwner({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
+      dormitoriesService: this.dormitoriesService,
     });
   }
 

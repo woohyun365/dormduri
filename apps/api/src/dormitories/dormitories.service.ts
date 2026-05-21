@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { dormitoriesErrors } from './dormitories.errors.js';
-import { DormitorySelectableQueryService } from './dormitory-selectable-query.service.js';
+import {
+  DormitorySelectableQueryService,
+  type DormitorySelectionValidationResult,
+  type SeasonParticipantDormitorySelectionInput,
+  type SeasonParticipantDormitoryValidationInput,
+} from './dormitory-selectable-query.service.js';
 import { mapDormitoryGuideResponse } from './dormitory-guide.mapper.js';
 
 @Injectable()
@@ -54,6 +59,22 @@ export class DormitoriesService {
 
   async getSelectableDormitories(campus: Campus, gender?: Gender) {
     return this.dormitorySelectableQueryService.getSelectableDormitories(campus, gender);
+  }
+
+  async listSelectableDormitoriesForSeasonParticipant(
+    input: SeasonParticipantDormitorySelectionInput,
+  ) {
+    return this.dormitorySelectableQueryService.listSelectableDormitoriesForSeasonParticipant(
+      input,
+    );
+  }
+
+  async validateSelectableDormitoryForSeasonParticipant(
+    input: SeasonParticipantDormitoryValidationInput,
+  ): Promise<DormitorySelectionValidationResult> {
+    return this.dormitorySelectableQueryService.validateSelectableDormitoryForSeasonParticipant(
+      input,
+    );
   }
 
   async getDormitoryById(id: string) {

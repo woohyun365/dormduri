@@ -11,13 +11,12 @@ import type {
   SeasonRegistrationFinalizeResponse,
 } from '@repo/shared/season-contract';
 import { isSeasonProfileComplete, type LifestyleData } from '@repo/shared/lifestyle';
-import { toDateOnlyString } from '@repo/shared/date-primitives';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import { DormitoriesService } from '../dormitories/dormitories.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { formatKstDate } from '../seasons/season.utils.js';
 import {
   lifestyleFieldNames,
   toCompleteLifestyleColumnData,
@@ -39,6 +38,7 @@ import {
 interface SeasonParticipantWriteOwnerDeps {
   prisma: PrismaService;
   seasonsService: SeasonsService;
+  dormitoriesService: DormitoriesService;
 }
 
 type DbClient = Prisma.TransactionClient | PrismaService;
@@ -56,20 +56,6 @@ type VerifiedSeasonActionUser = {
   } | null;
 };
 
-type SelectableDormitoryOperation = {
-  seasonId: string;
-  dormitoryId: string;
-  isOperated: boolean;
-  roomSelectionDate: Date;
-  dormitory: {
-    id: string;
-    campusCode: Campus;
-    nameKo: string;
-    roomType: number;
-    genderPolicy: 'M' | 'F' | 'BOTH';
-  };
-};
-
 const userForSeasonActionSelect = {
   id: true,
   campus: true,
@@ -81,22 +67,6 @@ const userForSeasonActionSelect = {
       userId: true,
       nickname: true,
       nicknameNormalized: true,
-    },
-  },
-} as const;
-
-const selectableDormitoryOperationSelect = {
-  seasonId: true,
-  dormitoryId: true,
-  isOperated: true,
-  roomSelectionDate: true,
-  dormitory: {
-    select: {
-      id: true,
-      campusCode: true,
-      nameKo: true,
-      roomType: true,
-      genderPolicy: true,
     },
   },
 } as const;
@@ -295,7 +265,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
       }
       assertParticipantAllowsDormitorySelection(participant);
 
-      const operation = await validateDormitorySelection(
+      const selectedDormitory = await validateDormitorySelection(
         tx,
         participant,
         seasonContext,
@@ -307,7 +277,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
         where: { id: participant.id },
         data: {
           dormitorySelectionState: 'SELECTED',
-          dormitoryId: operation.dormitoryId,
+          dormitoryId: selectedDormitory.id,
           participantStatus:
             participant.participantStatus === 'NOT_STARTED'
               ? 'DRAFT'
@@ -321,10 +291,10 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
         seasonId: mapped.seasonId,
         participantId: mapped.id,
         dormitorySelectionState: 'SELECTED',
-        dormitoryId: operation.dormitoryId,
+        dormitoryId: selectedDormitory.id,
         profileState: resolveSeasonProfileState(mapped),
         completion: buildCompletionForParticipant(mapped, seasonContext, referenceNow, [
-          mapSelectableDormitory(operation),
+          selectedDormitory,
         ]),
       };
     });
@@ -348,7 +318,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
       assertSeasonProfileCompleteForRegistration(participant.profile);
       assertParticipantHasDormitorySelection(participant);
 
-      const operation = await validateDormitorySelection(
+      const selectedDormitory = await validateDormitorySelection(
         tx,
         participant,
         seasonContext,
@@ -364,7 +334,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
           registeredAt,
           declinedAt: null,
           dormitorySelectionState: 'ASSIGNED',
-          dormitoryId: operation.dormitoryId,
+          dormitoryId: selectedDormitory.id,
           participantStatus: 'ACTIVE',
           activatedAt: participant.activatedAt ?? registeredAt,
         },
@@ -402,7 +372,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
         participationIntent: 'REGISTERED',
         registeredAt: registeredAt.toISOString(),
         dormitorySelectionState: 'ASSIGNED',
-        dormitoryId: operation.dormitoryId,
+        dormitoryId: selectedDormitory.id,
         profileState: 'REGISTRATION_FINALIZED',
         profileHistoryId: history.id,
         registeredAtSnapshot: (history.registeredAtSnapshot ?? registeredAt).toISOString(),
@@ -690,15 +660,15 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     participant: CurrentSeasonParticipantRecord,
     seasonContext: CurrentSeasonContext,
     now: Date,
-    client: DbClient = deps.prisma,
+    tx?: Prisma.TransactionClient,
   ): Promise<SelectableDormitory[]> {
-    return listSelectableDormitoriesForSnapshot(
-      participant.campusCodeSnapshot,
-      participant.genderSnapshot,
+    return deps.dormitoriesService.listSelectableDormitoriesForSeasonParticipant({
       seasonContext,
+      campusCodeSnapshot: participant.campusCodeSnapshot,
+      genderSnapshot: participant.genderSnapshot,
       now,
-      client,
-    );
+      tx,
+    });
   }
 
   async function listSelectableDormitoriesForSnapshot(
@@ -706,70 +676,37 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     gender: Gender,
     seasonContext: CurrentSeasonContext,
     now: Date,
-    client: DbClient = deps.prisma,
   ): Promise<SelectableDormitory[]> {
-    const where: Prisma.SeasonDormitoryOperationWhereInput = {
-      seasonId: seasonContext.season.id,
-      isOperated: true,
-      dormitory: {
-        campusCode,
-        genderPolicy: { in: [gender, 'BOTH'] },
-      },
-    };
-
-    if (seasonContext.state === 'SEASON_MATCHING') {
-      where.roomSelectionDate = { gte: new Date(`${formatKstDate(now)}T00:00:00.000Z`) };
-    }
-
-    const operations = await client.seasonDormitoryOperation.findMany({
-      where,
-      select: selectableDormitoryOperationSelect,
-      orderBy: [
-        { roomSelectionDate: 'asc' },
-        { dormitory: { sortOrder: 'asc' } },
-        { dormitoryId: 'asc' },
-      ],
+    return deps.dormitoriesService.listSelectableDormitoriesForSeasonParticipant({
+      seasonContext,
+      campusCodeSnapshot: campusCode,
+      genderSnapshot: gender,
+      now,
     });
-
-    return operations.map(mapSelectableDormitory);
   }
 
   async function validateDormitorySelection(
-    client: DbClient,
+    tx: Prisma.TransactionClient,
     participant: CurrentSeasonParticipantRecord,
     seasonContext: CurrentSeasonContext,
     dormitoryId: string,
     now: Date,
-  ): Promise<SelectableDormitoryOperation> {
-    const operation = await client.seasonDormitoryOperation.findUnique({
-      where: {
-        seasonId_dormitoryId: {
-          seasonId: seasonContext.season.id,
-          dormitoryId,
-        },
-      },
-      select: selectableDormitoryOperationSelect,
-    });
+  ): Promise<SelectableDormitory> {
+    const validation =
+      await deps.dormitoriesService.validateSelectableDormitoryForSeasonParticipant({
+        seasonContext,
+        campusCodeSnapshot: participant.campusCodeSnapshot,
+        genderSnapshot: participant.genderSnapshot,
+        dormitoryId,
+        now,
+        tx,
+      });
 
-    if (!operation?.isOperated) {
-      throw seasonParticipantsErrors.dormitorySelectionInvalid();
-    }
-
-    const typedOperation = operation as SelectableDormitoryOperation;
-    if (typedOperation.dormitory.campusCode !== participant.campusCodeSnapshot) {
-      throw seasonParticipantsErrors.dormitorySelectionInvalid();
-    }
-    if (!isGenderCompatible(participant.genderSnapshot, typedOperation.dormitory.genderPolicy)) {
-      throw seasonParticipantsErrors.dormitorySelectionInvalid();
-    }
-    if (
-      seasonContext.state === 'SEASON_MATCHING' &&
-      !canCurrentDormitoryMatch(seasonContext, typedOperation.dormitoryId, now)
-    ) {
+    if (!validation.valid) {
       throw seasonParticipantsErrors.dormitorySelectionInvalid();
     }
 
-    return typedOperation;
+    return validation.item;
   }
 }
 
@@ -1015,17 +952,6 @@ function toSeasonProfileHistoryCreateData(
   };
 }
 
-function mapSelectableDormitory(operation: SelectableDormitoryOperation): SelectableDormitory {
-  return {
-    id: operation.dormitory.id,
-    name: operation.dormitory.nameKo,
-    campusCode: operation.dormitory.campusCode,
-    roomType: operation.dormitory.roomType as 2 | 3,
-    genderPolicy: operation.dormitory.genderPolicy,
-    roomSelectionDate: toDateOnlyString(operation.roomSelectionDate),
-  };
-}
-
 function assertParticipantAllowsProfileDraftWrite(participant: CurrentSeasonParticipantRecord) {
   if (isParticipantRegistered(participant) || isParticipantLockedOrInactive(participant)) {
     throw seasonParticipantsErrors.seasonProfileDraftNotAllowed();
@@ -1077,10 +1003,6 @@ function isParticipantInactive(participant: CurrentSeasonParticipantRecord) {
 
 function isParticipantLockedOrInactive(participant: CurrentSeasonParticipantRecord) {
   return isParticipantRegistrationLocked(participant) || isParticipantInactive(participant);
-}
-
-function isGenderCompatible(gender: Gender, genderPolicy: 'M' | 'F' | 'BOTH') {
-  return genderPolicy === 'BOTH' || genderPolicy === gender;
 }
 
 function emptyLifestyle(): LifestyleData {

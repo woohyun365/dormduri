@@ -5,7 +5,6 @@ import { seasonParticipantsErrors } from './season-participants.errors.js';
 import { toLifestyleColumnData } from '../profiles/profile-lifestyle.persistence.js';
 
 const now = new Date('2026-02-10T03:00:00.000Z');
-const later = new Date('2026-02-11T03:00:00.000Z');
 
 function objectContaining(shape: Record<string, unknown>): unknown {
   return expect.objectContaining(shape) as unknown;
@@ -138,7 +137,6 @@ describe('SeasonParticipantsService Step 5', () => {
   const txSeasonParticipantProfileUpsert = jest.fn();
   const txSeasonParticipantProfileUpdate = jest.fn();
   const txSeasonParticipantProfileHistoryCreate = jest.fn();
-  const txSeasonDormitoryOperationFindUnique = jest.fn();
   const tx = {
     user: { findUnique: txUserFindUnique },
     seasonParticipant: {
@@ -151,7 +149,6 @@ describe('SeasonParticipantsService Step 5', () => {
       update: txSeasonParticipantProfileUpdate,
     },
     seasonParticipantProfileHistory: { create: txSeasonParticipantProfileHistoryCreate },
-    seasonDormitoryOperation: { findUnique: txSeasonDormitoryOperationFindUnique },
     matchRequest: { updateMany: jest.fn() },
     conversationThread: { updateMany: jest.fn() },
   };
@@ -166,14 +163,18 @@ describe('SeasonParticipantsService Step 5', () => {
       createMany: jest.fn(),
       findUnique: jest.fn(),
     },
-    seasonDormitoryOperation: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-    },
     activeMatch: { findFirst: jest.fn() },
   };
   const seasonsService = { getCurrentSeasonContext: jest.fn() };
-  const service = new SeasonParticipantsService(prisma as never, seasonsService as never);
+  const dormitoriesService = {
+    listSelectableDormitoriesForSeasonParticipant: jest.fn(),
+    validateSelectableDormitoryForSeasonParticipant: jest.fn(),
+  };
+  const service = new SeasonParticipantsService(
+    prisma as never,
+    seasonsService as never,
+    dormitoriesService as never,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -193,17 +194,25 @@ describe('SeasonParticipantsService Step 5', () => {
       id: 'history-1',
       registeredAtSnapshot: now,
     });
-    txSeasonDormitoryOperationFindUnique.mockResolvedValue({
-      seasonId: 'season-1',
-      dormitoryId: 'dasan',
-      isOperated: true,
-      roomSelectionDate: later,
-      dormitory: {
+    dormitoriesService.listSelectableDormitoriesForSeasonParticipant.mockResolvedValue([
+      {
         id: 'dasan',
+        name: '다산관',
         campusCode: 'CHUNCHEON',
-        nameKo: '다산관',
         roomType: 2,
         genderPolicy: 'M',
+        roomSelectionDate: '2026-02-11',
+      },
+    ]);
+    dormitoriesService.validateSelectableDormitoryForSeasonParticipant.mockResolvedValue({
+      valid: true,
+      item: {
+        id: 'dasan',
+        name: '다산관',
+        campusCode: 'CHUNCHEON',
+        roomType: 2,
+        genderPolicy: 'M',
+        roomSelectionDate: '2026-02-11',
       },
     });
     txSeasonParticipantFindUnique.mockResolvedValue(
@@ -218,21 +227,6 @@ describe('SeasonParticipantsService Step 5', () => {
       }),
     );
     prisma.seasonParticipant.findUnique.mockResolvedValue(participant({ profile: profile() }));
-    prisma.seasonDormitoryOperation.findMany.mockResolvedValue([
-      {
-        seasonId: 'season-1',
-        dormitoryId: 'dasan',
-        isOperated: true,
-        roomSelectionDate: later,
-        dormitory: {
-          id: 'dasan',
-          campusCode: 'CHUNCHEON',
-          nameKo: '다산관',
-          roomType: 2,
-          genderPolicy: 'M',
-        },
-      },
-    ]);
   });
 
   it('ensureCurrentSeasonParticipant()는 row/container만 보장하고 registered/assigned/history를 만들지 않는다', async () => {
@@ -409,16 +403,12 @@ describe('SeasonParticipantsService Step 5', () => {
     const result = await service.listSelectableDormitoriesForCurrentSeason('user-1', now);
 
     expect(prisma.seasonParticipant.upsert).not.toHaveBeenCalled();
-    expect(prisma.seasonDormitoryOperation.findMany).toHaveBeenCalledWith(
+    expect(dormitoriesService.listSelectableDormitoriesForSeasonParticipant).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: objectContaining({
-          seasonId: 'season-1',
-          isOperated: true,
-          dormitory: objectContaining({
-            campusCode: 'CHUNCHEON',
-            genderPolicy: { in: ['M', 'BOTH'] },
-          }),
-        }),
+        seasonContext: objectContaining({ season: { id: 'season-1' } }),
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        now,
       }),
     );
     expect(result.items).toEqual([
@@ -434,16 +424,12 @@ describe('SeasonParticipantsService Step 5', () => {
     const result = await service.listSelectableDormitoriesForCurrentSeason('user-1', now);
 
     expect(prisma.seasonParticipant.upsert).not.toHaveBeenCalled();
-    expect(prisma.seasonDormitoryOperation.findMany).toHaveBeenCalledWith(
+    expect(dormitoriesService.listSelectableDormitoriesForSeasonParticipant).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: objectContaining({
-          seasonId: 'season-1',
-          isOperated: true,
-          dormitory: objectContaining({
-            campusCode: 'CHUNCHEON',
-            genderPolicy: { in: ['M', 'BOTH'] },
-          }),
-        }),
+        seasonContext: objectContaining({ season: { id: 'season-1' } }),
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        now,
       }),
     );
     expect(result).toMatchObject({
@@ -459,14 +445,12 @@ describe('SeasonParticipantsService Step 5', () => {
     const result = await service.listSelectableDormitoriesForCurrentSeason('user-1', now);
 
     expect(prisma.seasonParticipant.upsert).not.toHaveBeenCalled();
-    expect(prisma.seasonDormitoryOperation.findMany).toHaveBeenCalledWith(
+    expect(dormitoriesService.listSelectableDormitoriesForSeasonParticipant).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: objectContaining({
-          dormitory: objectContaining({
-            campusCode: 'CHUNCHEON',
-            genderPolicy: { in: ['M', 'BOTH'] },
-          }),
-        }),
+        seasonContext: objectContaining({ season: { id: 'season-1' } }),
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        now,
       }),
     );
     expect(result).toMatchObject({
@@ -527,30 +511,34 @@ describe('SeasonParticipantsService Step 5', () => {
       dormitoryId: 'dasan',
       profileState: 'COMPLETE',
     });
+    expect(dormitoriesService.validateSelectableDormitoryForSeasonParticipant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seasonContext: objectContaining({ season: { id: 'season-1' } }),
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        dormitoryId: 'dasan',
+        now,
+        tx,
+      }),
+    );
   });
 
   it('dormitory validation은 operated/campus/gender/cutoff/no selectable 조건을 닫는다', async () => {
     txSeasonParticipantUpsert.mockResolvedValue(participant({ profile: profile() }));
 
-    txSeasonDormitoryOperationFindUnique.mockResolvedValueOnce(null);
+    dormitoriesService.validateSelectableDormitoryForSeasonParticipant.mockResolvedValueOnce({
+      valid: false,
+      reason: 'DORMITORY_NOT_FOUND',
+    });
     await expect(
       service.createOrUpdateDormitorySelection('user-1', { dormitoryId: 'missing' }, now),
     ).rejects.toMatchObject({
       response: seasonParticipantsErrors.dormitorySelectionInvalid().getResponse(),
     });
 
-    txSeasonDormitoryOperationFindUnique.mockResolvedValueOnce({
-      seasonId: 'season-1',
-      dormitoryId: 'samcheok',
-      isOperated: true,
-      roomSelectionDate: later,
-      dormitory: {
-        id: 'samcheok',
-        campusCode: 'SAMCHEOK',
-        nameKo: '삼척관',
-        roomType: 2,
-        genderPolicy: 'M',
-      },
+    dormitoriesService.validateSelectableDormitoryForSeasonParticipant.mockResolvedValueOnce({
+      valid: false,
+      reason: 'DORMITORY_CAMPUS_MISMATCH',
     });
     await expect(
       service.createOrUpdateDormitorySelection('user-1', { dormitoryId: 'samcheok' }, now),
@@ -558,18 +546,9 @@ describe('SeasonParticipantsService Step 5', () => {
       response: seasonParticipantsErrors.dormitorySelectionInvalid().getResponse(),
     });
 
-    txSeasonDormitoryOperationFindUnique.mockResolvedValueOnce({
-      seasonId: 'season-1',
-      dormitoryId: 'female-only',
-      isOperated: true,
-      roomSelectionDate: later,
-      dormitory: {
-        id: 'female-only',
-        campusCode: 'CHUNCHEON',
-        nameKo: '여성관',
-        roomType: 2,
-        genderPolicy: 'F',
-      },
+    dormitoriesService.validateSelectableDormitoryForSeasonParticipant.mockResolvedValueOnce({
+      valid: false,
+      reason: 'DORMITORY_GENDER_MISMATCH',
     });
     await expect(
       service.createOrUpdateDormitorySelection('user-1', { dormitoryId: 'female-only' }, now),
@@ -580,18 +559,9 @@ describe('SeasonParticipantsService Step 5', () => {
     seasonsService.getCurrentSeasonContext.mockResolvedValue(
       seasonContext({ state: 'SEASON_MATCHING' }),
     );
-    txSeasonDormitoryOperationFindUnique.mockResolvedValueOnce({
-      seasonId: 'season-1',
-      dormitoryId: 'closed',
-      isOperated: true,
-      roomSelectionDate: new Date('2026-02-01T00:00:00.000Z'),
-      dormitory: {
-        id: 'closed',
-        campusCode: 'CHUNCHEON',
-        nameKo: '마감관',
-        roomType: 2,
-        genderPolicy: 'M',
-      },
+    dormitoriesService.validateSelectableDormitoryForSeasonParticipant.mockResolvedValueOnce({
+      valid: false,
+      reason: 'DORMITORY_SELECTION_CLOSED',
     });
     await expect(
       service.createOrUpdateDormitorySelection('user-1', { dormitoryId: 'closed' }, now),
@@ -600,7 +570,7 @@ describe('SeasonParticipantsService Step 5', () => {
     });
 
     prisma.seasonParticipant.findUnique.mockResolvedValueOnce(participant({ profile: profile() }));
-    prisma.seasonDormitoryOperation.findMany.mockResolvedValueOnce([]);
+    dormitoriesService.listSelectableDormitoriesForSeasonParticipant.mockResolvedValueOnce([]);
     const noSelectable = await service.listSelectableDormitoriesForCurrentSeason('user-1', now);
     expect(noSelectable.completion.registrationUnavailableReasons).toContain(
       'NO_SELECTABLE_DORMITORY',
@@ -611,7 +581,7 @@ describe('SeasonParticipantsService Step 5', () => {
     prisma.seasonParticipant.findUnique.mockResolvedValueOnce(
       participant({ profile: profile({ drinkingTolerance: null }) }),
     );
-    prisma.seasonDormitoryOperation.findMany.mockResolvedValueOnce([]);
+    dormitoriesService.listSelectableDormitoriesForSeasonParticipant.mockResolvedValueOnce([]);
 
     const response = await service.listSelectableDormitoriesForCurrentSeason('user-1', now);
 
@@ -668,6 +638,16 @@ describe('SeasonParticipantsService Step 5', () => {
       dormitoryId: 'dasan',
       profileHistoryId: 'history-1',
     });
+    expect(dormitoriesService.validateSelectableDormitoryForSeasonParticipant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seasonContext: objectContaining({ season: { id: 'season-1' } }),
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        dormitoryId: 'dasan',
+        now,
+        tx,
+      }),
+    );
   });
 
   it('withdrawn/declined 재등록은 거부한다', async () => {

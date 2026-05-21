@@ -8,7 +8,7 @@ import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
 import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
-import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import { SeasonParticipantsService } from './season-participants.service.js';
 
 @Controller('api/seasons/current/profile')
 @UseGuards(AuthenticatedUserGuard)
