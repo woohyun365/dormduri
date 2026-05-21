@@ -20,6 +20,7 @@ function makeUser(
     id: 'user-1',
     email: 'student@kangwon.ac.kr',
     emailVerifiedAt: new Date('2026-05-01T00:00:00.000Z'),
+    deletedAt: null,
     gender: 'M',
     campus: 'CHUNCHEON',
     displayIdentity: {
@@ -133,7 +134,12 @@ describe('CurrentUserViewService onboarding read model', () => {
   const seasonsService = {
     getCurrentSeasonContext: jest.fn(),
   };
-  const seasonParticipantsService = {};
+  const seasonParticipantsService = {
+    validateSeasonProfileCompleteness: jest.fn(() => ({ complete: false })),
+    hasSelectableDormitoriesForCurrentParticipant: jest.fn(() => Promise.resolve(false)),
+    hasValidDormitorySelectionForCurrentParticipant: jest.fn(() => Promise.resolve(false)),
+    pickCurrentSeasonParticipant: jest.fn((items: unknown[]) => items[0] ?? null),
+  };
   const matchesService = {
     getCurrentActiveMatchSummaryForParticipant: jest.fn(),
   };
@@ -150,6 +156,15 @@ describe('CurrentUserViewService onboarding read model', () => {
     prisma.seasonParticipant.findUnique.mockResolvedValue(null);
     seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
     matchesService.getCurrentActiveMatchSummaryForParticipant.mockResolvedValue(null);
+    seasonParticipantsService.validateSeasonProfileCompleteness.mockReturnValue({
+      complete: false,
+    });
+    seasonParticipantsService.hasSelectableDormitoriesForCurrentParticipant.mockResolvedValue(
+      false,
+    );
+    seasonParticipantsService.hasValidDormitorySelectionForCurrentParticipant.mockResolvedValue(
+      false,
+    );
   });
 
   it('row가 없으면 service-intro dismissed=false/null을 반환한다', async () => {
@@ -181,7 +196,40 @@ describe('CurrentUserViewService onboarding read model', () => {
       participantStatus: 'ACTIVE',
       hiddenByAdminAt: null,
       deactivatedAt: null,
-      profile: { participantId: 'participant-1' },
+      profile: {
+        participantId: 'participant-1',
+        nicknameSnapshot: '테스터',
+        nicknameNormalizedSnapshot: '테스터',
+        bedtime: 'BETWEEN_22_24',
+        wakeTime: 'BETWEEN_07_08',
+        sleepHabit: 'NONE',
+        sleepEnvironment: 'QUIET',
+        screenUsage: 'NONE',
+        noiseSensitivity: 'NORMAL',
+        smokingBehavior: 'NO',
+        indoorEating: 'SNACK',
+        phoneBehavior: 'SOMETIMES',
+        earphoneUsage: 'MOSTLY',
+        cleanLevel: 'WEEKLY_3_UP',
+        drinkingFrequency: 'NONE',
+        relationshipStyle: 'CLOSE',
+        temperatureSensitivity: 'NORMAL',
+        smokingTolerance: 'NO_ONLY',
+        phoneTolerance: 'BRIEF_OK',
+        earphoneExpectation: 'MUST',
+        sleepEnvPreference: 'NO_SPEAKER',
+        screenTolerance: 'LOW_OK',
+        indoorEatingTolerance: 'NO_SMELL',
+        cleanExpectation: 'STRICT',
+        drinkingTolerance: 'LOW_ONLY',
+        intro: '소개',
+        collegeCode: null,
+        grade: null,
+        mbti: null,
+        birthYear: null,
+        createdAt: new Date('2026-05-10T00:00:00.000Z'),
+        updatedAt: new Date('2026-05-10T00:00:00.000Z'),
+      },
     });
 
     const result = await currentUserViewService.buildCurrentUserResponse(
