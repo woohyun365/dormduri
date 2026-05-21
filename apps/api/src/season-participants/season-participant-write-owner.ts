@@ -1,30 +1,39 @@
+import type {
+  SeasonProfileDraftRequest,
+  SeasonProfileDraftResponse,
+  SelectableDormitoriesResponse,
+  SelectableDormitory,
+  SelectedDormitorySubmitRequest,
+  DormitorySelectionDraftResponse,
+  SeasonParticipationCompletionState,
+  SeasonProfileState,
+  SeasonRegistrationBlockReason,
+  SeasonRegistrationFinalizeResponse,
+} from '@repo/shared/season-contract';
+import { isSeasonProfileComplete, type LifestyleData } from '@repo/shared/lifestyle';
+import { toDateOnlyString } from '@repo/shared/date-primitives';
 import type { Prisma } from '../generated/prisma/client.js';
-import type { Campus } from '../generated/prisma/enums.js';
+import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
-import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
-import {
-  appendSeasonParticipantProfileHistorySnapshot,
-  appendUserProfileHistorySnapshot,
-} from '../profiles/profile-history-owner.js';
-import {
-  lifestyleColumnSelect,
-  toCompleteLifestyleColumnData,
-} from '../profiles/profile-lifestyle.persistence.js';
-import {
-  mapUserProfileRecordFromColumns,
-  parseLifestyleOrNull,
-} from '../profiles/profile.mapper.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
-import { normalizeSelectionState } from './season-participant-policy.js';
+import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import { formatKstDate } from '../seasons/season.utils.js';
+import {
+  lifestyleFieldNames,
+  toCompleteLifestyleColumnData,
+  toLifestyleColumnData,
+} from '../profiles/profile-lifestyle.persistence.js';
+import { isParticipantRegistered } from './season-participant-policy.js';
+import { canCurrentDormitoryMatch } from './season-participant-selection.js';
 import { seasonParticipantsErrors } from './season-participants.errors.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
+  toAdditionalProfileFromRecord,
+  type CurrentSeasonParticipantProfileRecord,
   type CurrentSeasonParticipantRecord,
   type SeasonParticipantBackfillResult,
   type SeasonParticipantEnsureInput,
-  type UserWithProfileRecord,
-  type VerifiedUserWithProfile,
 } from './season-participant-records.js';
 
 interface SeasonParticipantWriteOwnerDeps {
@@ -32,22 +41,64 @@ interface SeasonParticipantWriteOwnerDeps {
   seasonsService: SeasonsService;
 }
 
-interface ProfileTemplateSyncFields {
-  intro: string;
-  messageToRoommate: string | null;
-  collegeCode: string | null;
-  grade: string | null;
-  mbti: string | null;
-  birthYear: number | null;
-}
+type DbClient = Prisma.TransactionClient | PrismaService;
 
-const seasonParticipantTemplateSyncFieldSelect = {
-  intro: true,
-  messageToRoommate: true,
-  collegeCode: true,
-  grade: true,
-  mbti: true,
-  birthYear: true,
+type VerifiedSeasonActionUser = {
+  id: string;
+  campus: Campus;
+  gender: Gender;
+  emailVerifiedAt: Date | null;
+  deletedAt: Date | null;
+  displayIdentity: {
+    userId: string;
+    nickname: string;
+    nicknameNormalized: string;
+  } | null;
+};
+
+type SelectableDormitoryOperation = {
+  seasonId: string;
+  dormitoryId: string;
+  isOperated: boolean;
+  roomSelectionDate: Date;
+  dormitory: {
+    id: string;
+    campusCode: Campus;
+    nameKo: string;
+    roomType: number;
+    genderPolicy: 'M' | 'F' | 'BOTH';
+  };
+};
+
+const userForSeasonActionSelect = {
+  id: true,
+  campus: true,
+  gender: true,
+  emailVerifiedAt: true,
+  deletedAt: true,
+  displayIdentity: {
+    select: {
+      userId: true,
+      nickname: true,
+      nicknameNormalized: true,
+    },
+  },
+} as const;
+
+const selectableDormitoryOperationSelect = {
+  seasonId: true,
+  dormitoryId: true,
+  isOperated: true,
+  roomSelectionDate: true,
+  dormitory: {
+    select: {
+      id: true,
+      campusCode: true,
+      nameKo: true,
+      roomType: true,
+      genderPolicy: true,
+    },
+  },
 } as const;
 
 export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOwnerDeps) {
@@ -71,91 +122,23 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     };
   }
 
-  function buildParticipantProfileSnapshotData(
-    baseProfile: NonNullable<UserWithProfileRecord['profile']>,
-  ): Omit<Prisma.SeasonParticipantProfileUncheckedCreateInput, 'participantId'> {
-    return {
-      nicknameSnapshot: baseProfile.nickname,
-      nicknameNormalizedSnapshot: baseProfile.nicknameNormalized,
-      ...toCompleteLifestyleColumnData(baseProfile.lifestyle),
-      intro: baseProfile.intro,
-      messageToRoommate: baseProfile.messageToRoommate,
-      collegeCode: baseProfile.collegeCode,
-      grade: baseProfile.grade,
-      mbti: baseProfile.mbti,
-      birthYear: baseProfile.birthYear,
-      templateSourceUserProfileUpdatedAt: baseProfile.updatedAt,
-    };
-  }
-
-  async function getVerifiedUserWithProfile(userId: string): Promise<VerifiedUserWithProfile> {
-    const user = await deps.prisma.user.findUnique({
+  async function getVerifiedUserForSeasonAction(
+    userId: string,
+    client: DbClient = deps.prisma,
+  ): Promise<VerifiedSeasonActionUser> {
+    const user = await client.user.findUnique({
       where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        emailVerifiedAt: true,
-        deletedAt: true,
-        gender: true,
-        campus: true,
-        profile: {
-          select: {
-            userId: true,
-            nickname: true,
-            nicknameNormalized: true,
-            nicknameChangedAt: true,
-            ...lifestyleColumnSelect,
-            intro: true,
-            messageToRoommate: true,
-            collegeCode: true,
-            grade: true,
-            mbti: true,
-            birthYear: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-      },
+      select: userForSeasonActionSelect,
     });
 
-    if (!user || !user.profile || !user.emailVerifiedAt || user.deletedAt) {
+    if (!user || !user.emailVerifiedAt || user.deletedAt || !user.displayIdentity) {
       throw seasonParticipantsErrors.registrationNotAllowed();
     }
 
-    const mappedUser = {
-      ...user,
-      profile: mapUserProfileRecordFromColumns(user.profile),
-    } satisfies VerifiedUserWithProfile;
-
-    const lifestyle = parseLifestyleOrNull(mappedUser.profile.lifestyle);
-    if (!lifestyle || !isSeasonProfileComplete(lifestyle)) {
-      throw seasonParticipantsErrors.registrationSeasonProfileIncomplete();
-    }
-
-    return mappedUser;
+    return user;
   }
 
-  async function getVerifiedUserForSeasonAction(
-    userId: string,
-  ): Promise<{ id: string; campus: Campus }> {
-    const user = await deps.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        campus: true,
-        emailVerifiedAt: true,
-        deletedAt: true,
-      },
-    });
-
-    if (!user || !user.emailVerifiedAt || user.deletedAt) {
-      throw seasonParticipantsErrors.deregistrationNotAllowed();
-    }
-
-    return { id: user.id, campus: user.campus };
-  }
-
-  async function ensureCurrentSeasonParticipantForUser(
+  async function ensureCurrentSeasonParticipant(
     user: SeasonParticipantEnsureInput,
     now: Date,
     tx?: Prisma.TransactionClient,
@@ -185,95 +168,257 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     return mapCurrentSeasonParticipantRecord(participant);
   }
 
-  async function registerCurrentSeasonParticipation(
+  async function findCurrentSeasonParticipant(
+    userId: string,
+    seasonId: string,
+    client: DbClient = deps.prisma,
+  ): Promise<CurrentSeasonParticipantRecord | null> {
+    const participant = await client.seasonParticipant.findUnique({
+      where: {
+        seasonId_userId: {
+          seasonId,
+          userId,
+        },
+      },
+      select: currentSeasonParticipantSelect,
+    });
+
+    return participant ? mapCurrentSeasonParticipantRecord(participant) : null;
+  }
+
+  async function getCurrentSeasonProfile(
     userId: string,
     now?: Date,
-  ): Promise<CurrentSeasonParticipantRecord> {
+  ): Promise<SeasonProfileDraftResponse> {
     const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
-    const user = await getVerifiedUserWithProfile(userId);
-    const seasonContext = await deps.seasonsService.getCurrentSeasonContext(
-      user.campus,
-      referenceNow,
-    );
+    const user = await getVerifiedUserForSeasonAction(userId);
+    const seasonContext = await assertReadableSeasonContext(user.campus, referenceNow);
+    const participant = await findCurrentSeasonParticipant(user.id, seasonContext.season.id);
 
-    if (
-      !seasonContext ||
-      (seasonContext.state !== 'SEASON_OPEN' && seasonContext.state !== 'SEASON_MATCHING')
-    ) {
-      throw seasonParticipantsErrors.registrationNotAllowed();
-    }
+    return participant
+      ? buildSeasonProfileDraftResponse(participant, seasonContext, referenceNow)
+      : buildEmptySeasonProfileDraftResponse(seasonContext);
+  }
 
-    const participant = await ensureCurrentSeasonParticipantForUser(user, referenceNow);
-    if (!participant) {
-      throw seasonParticipantsErrors.registrationNotAllowed();
-    }
+  async function createOrUpdateSeasonProfileDraft(
+    userId: string,
+    input: SeasonProfileDraftRequest,
+    now?: Date,
+  ): Promise<SeasonProfileDraftResponse> {
+    const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
+    const user = await getVerifiedUserForSeasonAction(userId);
+    const seasonContext = await assertWritableSeasonContext(user.campus, referenceNow);
 
-    if (
-      participant.participationIntent === 'DECLINED' ||
-      participant.participantStatus === 'WITHDRAWN' ||
-      participant.withdrawnAt
-    ) {
-      throw seasonParticipantsErrors.registrationNotAllowed();
-    }
+    const participantId = await deps.prisma.runSerializableTransaction(async (tx) => {
+      const txUser = await getVerifiedUserForSeasonAction(userId, tx);
+      const participant = await ensureCurrentSeasonParticipant(txUser, referenceNow, tx);
+      if (!participant) {
+        throw seasonParticipantsErrors.seasonProfileDraftNotAllowed();
+      }
+      assertParticipantAllowsProfileDraftWrite(participant);
 
-    const normalizedSelection = normalizeSelectionState({
-      registered: true,
-      dormitorySelectionState: participant.dormitorySelectionState,
-      dormitoryId: participant.dormitoryId,
-    });
-    const participantStatus =
-      normalizedSelection.dormitorySelectionState === 'ASSIGNED' ? 'ACTIVE' : 'DRAFT';
-
-    const nextProfileSnapshot = buildParticipantProfileSnapshotData(user.profile);
-    const shouldAppendSeasonProfileHistory =
-      !participant.profile ||
-      hasSeasonParticipantProfileSnapshotChanges(participant.profile, nextProfileSnapshot);
-
-    await deps.prisma.$transaction(async (tx) => {
-      await tx.seasonParticipant.update({
-        where: { id: participant.id },
-        data: {
-          participationIntent: 'REGISTERED',
-          registeredAt: participant.registeredAt ?? referenceNow,
-          declinedAt: null,
-          dormitorySelectionState: normalizedSelection.dormitorySelectionState,
-          dormitoryId: normalizedSelection.dormitoryId,
-          participantStatus,
-          activatedAt:
-            participantStatus === 'ACTIVE'
-              ? (participant.activatedAt ?? referenceNow)
-              : participant.activatedAt,
-        },
-      });
-
+      const draftData = toSeasonProfileDraftColumnData(input, txUser.displayIdentity!);
       await tx.seasonParticipantProfile.upsert({
         where: { participantId: participant.id },
         create: {
           participantId: participant.id,
-          ...nextProfileSnapshot,
-        } satisfies Prisma.SeasonParticipantProfileUncheckedCreateInput,
-        update: nextProfileSnapshot satisfies Prisma.SeasonParticipantProfileUncheckedUpdateInput,
+          ...draftData,
+        },
+        update: draftData,
       });
 
-      if (shouldAppendSeasonProfileHistory) {
-        await appendSeasonParticipantProfileHistorySnapshot(
-          tx,
-          participant.id,
-          'SEASON_REGISTRATION',
-        );
-      }
+      return participant.id;
     });
 
     const refreshed = await deps.prisma.seasonParticipant.findUnique({
-      where: { id: participant.id },
+      where: { id: participantId },
       select: currentSeasonParticipantSelect,
     });
-
     if (!refreshed) {
-      throw new Error('[SeasonParticipantsService] registered participant not found after update');
+      throw new Error('[SeasonParticipantsService] season profile draft participant not found');
     }
 
-    return mapCurrentSeasonParticipantRecord(refreshed);
+    return buildSeasonProfileDraftResponse(
+      mapCurrentSeasonParticipantRecord(refreshed),
+      seasonContext,
+      referenceNow,
+    );
+  }
+
+  async function listSelectableDormitoriesForCurrentSeason(
+    userId: string,
+    now?: Date,
+  ): Promise<SelectableDormitoriesResponse> {
+    const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
+    const user = await getVerifiedUserForSeasonAction(userId);
+    const seasonContext = await assertWritableSeasonContext(user.campus, referenceNow);
+    const participant = await findCurrentSeasonParticipant(user.id, seasonContext.season.id);
+    const items = participant
+      ? await listSelectableDormitoriesForParticipant(participant, seasonContext, referenceNow)
+      : await listSelectableDormitoriesForSnapshot(
+          user.campus,
+          user.gender,
+          seasonContext,
+          referenceNow,
+        );
+
+    return {
+      seasonId: seasonContext.season.id,
+      seasonState: seasonContext.state,
+      profileState: resolveSeasonProfileState(participant),
+      completion: participant
+        ? buildCompletionForParticipant(participant, seasonContext, referenceNow, items)
+        : buildCompletionForSeasonActionSnapshot({
+            seasonContext,
+            profileComplete: false,
+            dormitorySelectionReady: false,
+            hasSelectableDormitories: items.length > 0,
+          }),
+      items,
+    };
+  }
+
+  async function createOrUpdateDormitorySelection(
+    userId: string,
+    input: SelectedDormitorySubmitRequest,
+    now?: Date,
+  ): Promise<DormitorySelectionDraftResponse> {
+    const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
+    const user = await getVerifiedUserForSeasonAction(userId);
+    const seasonContext = await assertWritableSeasonContext(user.campus, referenceNow);
+
+    return deps.prisma.runSerializableTransaction(async (tx) => {
+      const txUser = await getVerifiedUserForSeasonAction(userId, tx);
+      const participant = await ensureCurrentSeasonParticipant(txUser, referenceNow, tx);
+      if (!participant) {
+        throw seasonParticipantsErrors.registrationNotAllowed();
+      }
+      assertParticipantAllowsDormitorySelection(participant);
+
+      const operation = await validateDormitorySelection(
+        tx,
+        participant,
+        seasonContext,
+        input.dormitoryId,
+        referenceNow,
+      );
+
+      const updated = await tx.seasonParticipant.update({
+        where: { id: participant.id },
+        data: {
+          dormitorySelectionState: 'SELECTED',
+          dormitoryId: operation.dormitoryId,
+          participantStatus:
+            participant.participantStatus === 'NOT_STARTED'
+              ? 'DRAFT'
+              : participant.participantStatus,
+        },
+        select: currentSeasonParticipantSelect,
+      });
+      const mapped = mapCurrentSeasonParticipantRecord(updated);
+
+      return {
+        seasonId: mapped.seasonId,
+        participantId: mapped.id,
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: operation.dormitoryId,
+        profileState: resolveSeasonProfileState(mapped),
+        completion: buildCompletionForParticipant(mapped, seasonContext, referenceNow, [
+          mapSelectableDormitory(operation),
+        ]),
+      };
+    });
+  }
+
+  async function finalizeSeasonRegistration(
+    userId: string,
+    now?: Date,
+  ): Promise<SeasonRegistrationFinalizeResponse> {
+    const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
+    const user = await getVerifiedUserForSeasonAction(userId);
+    const seasonContext = await assertRegistrationSeasonContext(user.campus, referenceNow);
+
+    return deps.prisma.runSerializableTransaction(async (tx) => {
+      const txUser = await getVerifiedUserForSeasonAction(userId, tx);
+      let participant = await ensureCurrentSeasonParticipant(txUser, referenceNow, tx);
+      if (!participant) {
+        throw seasonParticipantsErrors.registrationNotAllowed();
+      }
+      assertParticipantAllowsRegistration(participant);
+      assertSeasonProfileCompleteForRegistration(participant.profile);
+      assertParticipantHasDormitorySelection(participant);
+
+      const operation = await validateDormitorySelection(
+        tx,
+        participant,
+        seasonContext,
+        participant.dormitoryId!,
+        referenceNow,
+      );
+
+      const registeredAt = referenceNow;
+      await tx.seasonParticipant.update({
+        where: { id: participant.id },
+        data: {
+          participationIntent: 'REGISTERED',
+          registeredAt,
+          declinedAt: null,
+          dormitorySelectionState: 'ASSIGNED',
+          dormitoryId: operation.dormitoryId,
+          participantStatus: 'ACTIVE',
+          activatedAt: participant.activatedAt ?? registeredAt,
+        },
+      });
+
+      await tx.seasonParticipantProfile.update({
+        where: { participantId: participant.id },
+        data: {
+          nicknameSnapshot: txUser.displayIdentity!.nickname,
+          nicknameNormalizedSnapshot: txUser.displayIdentity!.nicknameNormalized,
+        },
+      });
+
+      const refreshed = await tx.seasonParticipant.findUnique({
+        where: { id: participant.id },
+        select: currentSeasonParticipantSelect,
+      });
+      if (!refreshed) {
+        throw new Error('[SeasonParticipantsService] finalized participant not found in tx');
+      }
+      participant = mapCurrentSeasonParticipantRecord(refreshed);
+      assertSeasonProfileCompleteForRegistration(participant.profile);
+
+      const history = await tx.seasonParticipantProfileHistory.create({
+        data: toSeasonProfileHistoryCreateData(participant, registeredAt),
+        select: {
+          id: true,
+          registeredAtSnapshot: true,
+        },
+      });
+
+      return {
+        seasonId: participant.seasonId,
+        participantId: participant.id,
+        participationIntent: 'REGISTERED',
+        registeredAt: registeredAt.toISOString(),
+        dormitorySelectionState: 'ASSIGNED',
+        dormitoryId: operation.dormitoryId,
+        profileState: 'REGISTRATION_FINALIZED',
+        profileHistoryId: history.id,
+        registeredAtSnapshot: (history.registeredAtSnapshot ?? registeredAt).toISOString(),
+        completion: buildCompletion({
+          hasCurrentSeason: true,
+          campusOperated: true,
+          activeSeasonPhase: true,
+          profileComplete: true,
+          dormitorySelectionReady: true,
+          participantRegistrationLocked: false,
+          accountOrParticipantInactive: false,
+          hasSelectableDormitories: true,
+          roomSelectionClosed: false,
+        }),
+      };
+    });
   }
 
   async function backfillCurrentSeasonParticipants(
@@ -317,8 +462,8 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
       );
 
       const createData = eligibleUsers
-        .filter((user) => !existingUserIds.has(user.id))
-        .map((user) => buildParticipantCreateData(user, seasonContext.season.id, now));
+        .filter((candidate) => !existingUserIds.has(candidate.id))
+        .map((candidate) => buildParticipantCreateData(candidate, seasonContext.season.id, now));
 
       if (createData.length > 0) {
         await deps.prisma.seasonParticipant.createMany({
@@ -337,77 +482,6 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     }
 
     return results;
-  }
-
-  async function syncCurrentSeasonProfileTemplates(now: Date): Promise<number> {
-    const operatedCampuses = await deps.prisma.campusMaster.findMany({
-      where: { isOperated: true },
-      select: { code: true },
-      orderBy: { code: 'asc' },
-    });
-
-    let syncedCount = 0;
-
-    for (const campus of operatedCampuses) {
-      const seasonContext = await deps.seasonsService.getCurrentSeasonContext(campus.code, now);
-      if (!seasonContext) {
-        continue;
-      }
-
-      const participants = await deps.prisma.seasonParticipant.findMany({
-        where: {
-          seasonId: seasonContext.season.id,
-          participationIntent: 'REGISTERED',
-          registeredAt: { not: null },
-          profile: { isNot: null },
-          user: {
-            profile: { isNot: null },
-          },
-        },
-        select: {
-          id: true,
-          userId: true,
-          profile: {
-            select: seasonParticipantTemplateSyncFieldSelect,
-          },
-          user: {
-            select: {
-              profile: {
-                select: seasonParticipantTemplateSyncFieldSelect,
-              },
-            },
-          },
-        },
-        orderBy: { id: 'asc' },
-      });
-
-      for (const participant of participants) {
-        if (!participant.profile || !participant.user.profile) {
-          continue;
-        }
-
-        const syncPatch = buildBaseProfileTemplateSyncPatch(
-          participant.user.profile,
-          participant.profile,
-        );
-        if (Object.keys(syncPatch).length === 0) {
-          continue;
-        }
-
-        await deps.prisma.$transaction(async (tx) => {
-          await tx.userProfile.update({
-            where: { userId: participant.userId },
-            data: syncPatch,
-          });
-
-          await appendUserProfileHistorySnapshot(tx, participant.userId, 'SYSTEM_BACKFILL');
-        });
-
-        syncedCount += 1;
-      }
-    }
-
-    return syncedCount;
   }
 
   async function deregisterCurrentSeasonParticipation(
@@ -443,7 +517,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     }
 
     const mappedParticipant = mapCurrentSeasonParticipantRecord(participant);
-    if (!mappedParticipant.registeredAt || mappedParticipant.participationIntent !== 'REGISTERED') {
+    if (!isParticipantRegistered(mappedParticipant)) {
       throw seasonParticipantsErrors.deregistrationNotAllowed();
     }
 
@@ -460,7 +534,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
       throw seasonParticipantsErrors.deregistrationNotAllowed();
     }
 
-    await deps.prisma.$transaction(async (tx) => {
+    await deps.prisma.runSerializableTransaction(async (tx) => {
       await tx.seasonParticipant.update({
         where: { id: mappedParticipant.id },
         data: {
@@ -516,84 +590,505 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     return mapCurrentSeasonParticipantRecord(refreshed);
   }
 
+  async function syncCurrentSeasonProfileTemplates(_now?: Date): Promise<number> {
+    return 0;
+  }
+
+  async function hasSelectableDormitoriesForCurrentParticipant(
+    participant: CurrentSeasonParticipantRecord | null,
+    seasonContext: CurrentSeasonContext | null,
+    now: Date,
+  ): Promise<boolean> {
+    if (!participant || !seasonContext) {
+      return false;
+    }
+
+    const items = await listSelectableDormitoriesForParticipant(participant, seasonContext, now);
+    return items.length > 0;
+  }
+
+  async function hasSelectableDormitoriesForCurrentUser(
+    user: SeasonParticipantEnsureInput,
+    seasonContext: CurrentSeasonContext | null,
+    now: Date,
+  ): Promise<boolean> {
+    if (!user.emailVerifiedAt || !seasonContext) {
+      return false;
+    }
+
+    const items = await listSelectableDormitoriesForSnapshot(
+      user.campus,
+      user.gender,
+      seasonContext,
+      now,
+    );
+    return items.length > 0;
+  }
+
+  async function hasValidDormitorySelectionForCurrentParticipant(
+    participant: CurrentSeasonParticipantRecord | null,
+    seasonContext: CurrentSeasonContext | null,
+    now: Date,
+  ): Promise<boolean> {
+    if (!participant || !seasonContext || !hasParticipantDormitorySelection(participant)) {
+      return false;
+    }
+
+    const items = await listSelectableDormitoriesForParticipant(participant, seasonContext, now);
+    return items.some((item) => item.id === participant.dormitoryId);
+  }
+
   return {
-    ensureCurrentSeasonParticipantForUser,
-    registerCurrentSeasonParticipation,
+    ensureCurrentSeasonParticipant,
+    ensureCurrentSeasonParticipantForUser: ensureCurrentSeasonParticipant,
+    findCurrentSeasonParticipant,
+    getCurrentSeasonProfile,
+    createOrUpdateSeasonProfileDraft,
+    validateSeasonProfileCompleteness,
+    assertSeasonProfileCompleteForRegistration,
+    listSelectableDormitoriesForCurrentSeason,
+    listSelectableDormitoriesForParticipant,
+    hasSelectableDormitoriesForCurrentParticipant,
+    hasSelectableDormitoriesForCurrentUser,
+    hasValidDormitorySelectionForCurrentParticipant,
+    validateDormitorySelection,
+    createOrUpdateDormitorySelection,
+    finalizeSeasonRegistration,
     backfillCurrentSeasonParticipants,
     deregisterCurrentSeasonParticipation,
     syncCurrentSeasonProfileTemplates,
   };
+
+  async function assertReadableSeasonContext(campus: Campus, now: Date) {
+    const seasonContext = await deps.seasonsService.getCurrentSeasonContext(campus, now);
+    if (!seasonContext) {
+      throw seasonParticipantsErrors.seasonProfileDraftNotAllowed();
+    }
+
+    return seasonContext;
+  }
+
+  async function assertWritableSeasonContext(campus: Campus, now: Date) {
+    const seasonContext = await deps.seasonsService.getCurrentSeasonContext(campus, now);
+    if (
+      !seasonContext ||
+      (seasonContext.state !== 'SEASON_OPEN' && seasonContext.state !== 'SEASON_MATCHING')
+    ) {
+      throw seasonParticipantsErrors.seasonProfileDraftNotAllowed();
+    }
+
+    return seasonContext;
+  }
+
+  async function assertRegistrationSeasonContext(campus: Campus, now: Date) {
+    const seasonContext = await deps.seasonsService.getCurrentSeasonContext(campus, now);
+    if (
+      !seasonContext ||
+      (seasonContext.state !== 'SEASON_OPEN' && seasonContext.state !== 'SEASON_MATCHING')
+    ) {
+      throw seasonParticipantsErrors.registrationNotAllowed();
+    }
+
+    return seasonContext;
+  }
+
+  async function listSelectableDormitoriesForParticipant(
+    participant: CurrentSeasonParticipantRecord,
+    seasonContext: CurrentSeasonContext,
+    now: Date,
+    client: DbClient = deps.prisma,
+  ): Promise<SelectableDormitory[]> {
+    return listSelectableDormitoriesForSnapshot(
+      participant.campusCodeSnapshot,
+      participant.genderSnapshot,
+      seasonContext,
+      now,
+      client,
+    );
+  }
+
+  async function listSelectableDormitoriesForSnapshot(
+    campusCode: Campus,
+    gender: Gender,
+    seasonContext: CurrentSeasonContext,
+    now: Date,
+    client: DbClient = deps.prisma,
+  ): Promise<SelectableDormitory[]> {
+    const where: Prisma.SeasonDormitoryOperationWhereInput = {
+      seasonId: seasonContext.season.id,
+      isOperated: true,
+      dormitory: {
+        campusCode,
+        genderPolicy: { in: [gender, 'BOTH'] },
+      },
+    };
+
+    if (seasonContext.state === 'SEASON_MATCHING') {
+      where.roomSelectionDate = { gte: new Date(`${formatKstDate(now)}T00:00:00.000Z`) };
+    }
+
+    const operations = await client.seasonDormitoryOperation.findMany({
+      where,
+      select: selectableDormitoryOperationSelect,
+      orderBy: [
+        { roomSelectionDate: 'asc' },
+        { dormitory: { sortOrder: 'asc' } },
+        { dormitoryId: 'asc' },
+      ],
+    });
+
+    return operations.map(mapSelectableDormitory);
+  }
+
+  async function validateDormitorySelection(
+    client: DbClient,
+    participant: CurrentSeasonParticipantRecord,
+    seasonContext: CurrentSeasonContext,
+    dormitoryId: string,
+    now: Date,
+  ): Promise<SelectableDormitoryOperation> {
+    const operation = await client.seasonDormitoryOperation.findUnique({
+      where: {
+        seasonId_dormitoryId: {
+          seasonId: seasonContext.season.id,
+          dormitoryId,
+        },
+      },
+      select: selectableDormitoryOperationSelect,
+    });
+
+    if (!operation?.isOperated) {
+      throw seasonParticipantsErrors.dormitorySelectionInvalid();
+    }
+
+    const typedOperation = operation as SelectableDormitoryOperation;
+    if (typedOperation.dormitory.campusCode !== participant.campusCodeSnapshot) {
+      throw seasonParticipantsErrors.dormitorySelectionInvalid();
+    }
+    if (!isGenderCompatible(participant.genderSnapshot, typedOperation.dormitory.genderPolicy)) {
+      throw seasonParticipantsErrors.dormitorySelectionInvalid();
+    }
+    if (
+      seasonContext.state === 'SEASON_MATCHING' &&
+      !canCurrentDormitoryMatch(seasonContext, typedOperation.dormitoryId, now)
+    ) {
+      throw seasonParticipantsErrors.dormitorySelectionInvalid();
+    }
+
+    return typedOperation;
+  }
 }
 
-function hasSeasonParticipantProfileSnapshotChanges(
-  currentProfile: NonNullable<CurrentSeasonParticipantRecord['profile']>,
-  nextSnapshot: Omit<Prisma.SeasonParticipantProfileUncheckedCreateInput, 'participantId'>,
+export function validateSeasonProfileCompleteness(
+  profile: CurrentSeasonParticipantProfileRecord | null | undefined,
+): { complete: boolean } {
+  if (!profile) {
+    return { complete: false };
+  }
+
+  return {
+    complete: isSeasonProfileComplete(profile.lifestyle) && profile.intro.trim().length > 0,
+  };
+}
+
+export function assertSeasonProfileCompleteForRegistration(
+  profile: CurrentSeasonParticipantProfileRecord | null | undefined,
 ) {
-  return (
-    currentProfile.nicknameSnapshot !== nextSnapshot.nicknameSnapshot ||
-    currentProfile.nicknameNormalizedSnapshot !== nextSnapshot.nicknameNormalizedSnapshot ||
-    currentProfile.lifestyle.bedtime !== nextSnapshot.bedtime ||
-    currentProfile.lifestyle.wakeTime !== nextSnapshot.wakeTime ||
-    currentProfile.lifestyle.sleepHabit !== nextSnapshot.sleepHabit ||
-    currentProfile.lifestyle.sleepEnvironment !== nextSnapshot.sleepEnvironment ||
-    currentProfile.lifestyle.screenUsage !== nextSnapshot.screenUsage ||
-    currentProfile.lifestyle.noiseSensitivity !== nextSnapshot.noiseSensitivity ||
-    currentProfile.lifestyle.smokingBehavior !== nextSnapshot.smokingBehavior ||
-    currentProfile.lifestyle.indoorEating !== nextSnapshot.indoorEating ||
-    currentProfile.lifestyle.phoneBehavior !== nextSnapshot.phoneBehavior ||
-    currentProfile.lifestyle.earphoneUsage !== nextSnapshot.earphoneUsage ||
-    currentProfile.lifestyle.cleanLevel !== nextSnapshot.cleanLevel ||
-    currentProfile.lifestyle.drinkingFrequency !== nextSnapshot.drinkingFrequency ||
-    currentProfile.lifestyle.relationshipStyle !== nextSnapshot.relationshipStyle ||
-    currentProfile.lifestyle.temperatureSensitivity !== nextSnapshot.temperatureSensitivity ||
-    currentProfile.lifestyle.smokingTolerance !== nextSnapshot.smokingTolerance ||
-    currentProfile.lifestyle.phoneTolerance !== nextSnapshot.phoneTolerance ||
-    currentProfile.lifestyle.earphoneExpectation !== nextSnapshot.earphoneExpectation ||
-    currentProfile.lifestyle.sleepEnvPreference !== nextSnapshot.sleepEnvPreference ||
-    currentProfile.lifestyle.screenTolerance !== nextSnapshot.screenTolerance ||
-    currentProfile.lifestyle.indoorEatingTolerance !== nextSnapshot.indoorEatingTolerance ||
-    currentProfile.lifestyle.cleanExpectation !== nextSnapshot.cleanExpectation ||
-    currentProfile.lifestyle.drinkingTolerance !== nextSnapshot.drinkingTolerance ||
-    currentProfile.intro !== nextSnapshot.intro ||
-    currentProfile.messageToRoommate !== nextSnapshot.messageToRoommate ||
-    currentProfile.collegeCode !== nextSnapshot.collegeCode ||
-    currentProfile.grade !== nextSnapshot.grade ||
-    currentProfile.mbti !== nextSnapshot.mbti ||
-    currentProfile.birthYear !== nextSnapshot.birthYear ||
-    toComparableDateMillis(currentProfile.templateSourceUserProfileUpdatedAt) !==
-      toComparableDateMillis(nextSnapshot.templateSourceUserProfileUpdatedAt)
+  if (!validateSeasonProfileCompleteness(profile).complete) {
+    throw seasonParticipantsErrors.registrationSeasonProfileIncomplete();
+  }
+}
+
+export function resolveSeasonProfileState(
+  participant: CurrentSeasonParticipantRecord | null | undefined,
+): SeasonProfileState {
+  if (!participant?.profile) {
+    return 'NONE';
+  }
+  if (isParticipantRegistered(participant)) {
+    return 'REGISTRATION_FINALIZED';
+  }
+  return validateSeasonProfileCompleteness(participant.profile).complete ? 'COMPLETE' : 'DRAFT';
+}
+
+export function buildCompletion(input: {
+  hasCurrentSeason: boolean;
+  campusOperated: boolean;
+  activeSeasonPhase: boolean;
+  profileComplete: boolean;
+  dormitorySelectionReady: boolean;
+  participantRegistrationLocked: boolean;
+  accountOrParticipantInactive: boolean;
+  hasSelectableDormitories?: boolean;
+  roomSelectionClosed?: boolean;
+}): SeasonParticipationCompletionState {
+  const registrationUnavailableReasons: SeasonRegistrationBlockReason[] = [];
+
+  if (!input.hasCurrentSeason) {
+    registrationUnavailableReasons.push('NO_CURRENT_SEASON');
+  }
+  if (!input.campusOperated) {
+    registrationUnavailableReasons.push('UNSUPPORTED_CAMPUS');
+  }
+  if (input.hasCurrentSeason && !input.activeSeasonPhase) {
+    registrationUnavailableReasons.push('SEASON_NOT_OPEN');
+  }
+  if (!input.profileComplete) {
+    registrationUnavailableReasons.push('PROFILE_INCOMPLETE');
+  }
+  if (input.activeSeasonPhase && !input.dormitorySelectionReady) {
+    registrationUnavailableReasons.push('DORMITORY_SELECTION_REQUIRED');
+  }
+  if (input.activeSeasonPhase && input.hasSelectableDormitories === false) {
+    registrationUnavailableReasons.push('NO_SELECTABLE_DORMITORY');
+  }
+  if (input.activeSeasonPhase && input.roomSelectionClosed) {
+    registrationUnavailableReasons.push('DORMITORY_SELECTION_CLOSED');
+  }
+  if (input.participantRegistrationLocked) {
+    registrationUnavailableReasons.push('WITHDRAWN_OR_DECLINED_LOCK');
+  }
+  if (input.accountOrParticipantInactive) {
+    registrationUnavailableReasons.push('ACCOUNT_OR_PARTICIPANT_INACTIVE');
+  }
+
+  return {
+    profileCompletionRequired: input.activeSeasonPhase && !input.profileComplete,
+    dormitorySelectionRequired: input.activeSeasonPhase && !input.dormitorySelectionReady,
+    registrationUnavailable: registrationUnavailableReasons.length > 0,
+    registrationUnavailableReasons,
+  };
+}
+
+function buildEmptySeasonProfileDraftResponse(
+  seasonContext: CurrentSeasonContext,
+): SeasonProfileDraftResponse {
+  const activeSeasonPhase =
+    seasonContext.state === 'SEASON_OPEN' || seasonContext.state === 'SEASON_MATCHING';
+
+  return {
+    participantId: null,
+    seasonId: seasonContext.season.id,
+    state: 'NONE',
+    lifestyle: emptyLifestyle(),
+    intro: '',
+    additional: toAdditionalProfileFromRecord(null),
+    completion: buildCompletion({
+      hasCurrentSeason: true,
+      campusOperated: true,
+      activeSeasonPhase,
+      profileComplete: false,
+      dormitorySelectionReady: false,
+      participantRegistrationLocked: false,
+      accountOrParticipantInactive: false,
+    }),
+    draftWritable: activeSeasonPhase,
+  };
+}
+
+function buildCompletionForSeasonActionSnapshot(input: {
+  seasonContext: CurrentSeasonContext;
+  profileComplete: boolean;
+  dormitorySelectionReady: boolean;
+  hasSelectableDormitories: boolean;
+}): SeasonParticipationCompletionState {
+  const activeSeasonPhase =
+    input.seasonContext.state === 'SEASON_OPEN' || input.seasonContext.state === 'SEASON_MATCHING';
+
+  return buildCompletion({
+    hasCurrentSeason: true,
+    campusOperated: true,
+    activeSeasonPhase,
+    profileComplete: input.profileComplete,
+    dormitorySelectionReady: input.dormitorySelectionReady,
+    participantRegistrationLocked: false,
+    accountOrParticipantInactive: false,
+    hasSelectableDormitories: input.hasSelectableDormitories,
+    roomSelectionClosed:
+      input.seasonContext.state === 'SEASON_MATCHING' && !input.hasSelectableDormitories,
+  });
+}
+
+function buildSeasonProfileDraftResponse(
+  participant: CurrentSeasonParticipantRecord,
+  seasonContext: CurrentSeasonContext,
+  now: Date,
+): SeasonProfileDraftResponse {
+  const profileState = resolveSeasonProfileState(participant);
+  const profileComplete = validateSeasonProfileCompleteness(participant.profile).complete;
+  const activeSeasonPhase =
+    seasonContext.state === 'SEASON_OPEN' || seasonContext.state === 'SEASON_MATCHING';
+
+  return {
+    participantId: participant.id,
+    seasonId: participant.seasonId,
+    state: profileState,
+    lifestyle: participant.profile?.lifestyle ?? emptyLifestyle(),
+    intro: participant.profile?.intro ?? '',
+    additional: toAdditionalProfileFromRecord(participant.profile),
+    completion: buildCompletion({
+      hasCurrentSeason: true,
+      campusOperated: true,
+      activeSeasonPhase,
+      profileComplete,
+      dormitorySelectionReady: hasParticipantDormitorySelection(participant),
+      participantRegistrationLocked: isParticipantRegistrationLocked(participant),
+      accountOrParticipantInactive: isParticipantInactive(participant),
+      roomSelectionClosed:
+        participant.dormitoryId !== null &&
+        seasonContext.state === 'SEASON_MATCHING' &&
+        !canCurrentDormitoryMatch(seasonContext, participant.dormitoryId, now),
+    }),
+    draftWritable:
+      activeSeasonPhase &&
+      !isParticipantRegistered(participant) &&
+      !isParticipantLockedOrInactive(participant),
+  };
+}
+
+function buildCompletionForParticipant(
+  participant: CurrentSeasonParticipantRecord,
+  seasonContext: CurrentSeasonContext,
+  now: Date,
+  selectableDormitories?: SelectableDormitory[],
+): SeasonParticipationCompletionState {
+  const profileComplete = validateSeasonProfileCompleteness(participant.profile).complete;
+  const activeSeasonPhase =
+    seasonContext.state === 'SEASON_OPEN' || seasonContext.state === 'SEASON_MATCHING';
+  const dormitorySelectionReady =
+    hasParticipantDormitorySelection(participant) &&
+    (selectableDormitories === undefined ||
+      selectableDormitories.some((item) => item.id === participant.dormitoryId));
+
+  return buildCompletion({
+    hasCurrentSeason: true,
+    campusOperated: true,
+    activeSeasonPhase,
+    profileComplete,
+    dormitorySelectionReady,
+    participantRegistrationLocked: isParticipantRegistrationLocked(participant),
+    accountOrParticipantInactive: isParticipantInactive(participant),
+    hasSelectableDormitories: (selectableDormitories?.length ?? 1) > 0,
+    roomSelectionClosed:
+      seasonContext.state === 'SEASON_MATCHING' &&
+      selectableDormitories !== undefined &&
+      selectableDormitories.length === 0,
+  });
+}
+
+function toSeasonProfileDraftColumnData(
+  input: SeasonProfileDraftRequest,
+  displayIdentity: NonNullable<VerifiedSeasonActionUser['displayIdentity']>,
+): Omit<Prisma.SeasonParticipantProfileUncheckedCreateInput, 'participantId'> {
+  const additional = input.additional;
+  return {
+    nicknameSnapshot: displayIdentity.nickname,
+    nicknameNormalizedSnapshot: displayIdentity.nicknameNormalized,
+    ...toLifestyleColumnData(input.lifestyle),
+    intro: input.intro.trim(),
+    ...(additional
+      ? {
+          collegeCode: additional.college,
+          grade: additional.grade,
+          mbti: additional.mbti,
+          birthYear: additional.birthYear,
+        }
+      : {}),
+  };
+}
+
+function toSeasonProfileHistoryCreateData(
+  participant: CurrentSeasonParticipantRecord,
+  registeredAt: Date,
+): Prisma.SeasonParticipantProfileHistoryUncheckedCreateInput {
+  if (!participant.profile) {
+    throw seasonParticipantsErrors.registrationSeasonProfileIncomplete();
+  }
+
+  return {
+    participantId: participant.id,
+    seasonId: participant.seasonId,
+    nicknameSnapshot: participant.profile.nicknameSnapshot,
+    nicknameNormalizedSnapshot: participant.profile.nicknameNormalizedSnapshot,
+    ...toCompleteLifestyleColumnData(participant.profile.lifestyle),
+    intro: participant.profile.intro,
+    collegeCode: participant.profile.collegeCode,
+    grade: participant.profile.grade,
+    mbti: participant.profile.mbti,
+    birthYear: participant.profile.birthYear,
+    registeredAtSnapshot: registeredAt,
+    source: 'SEASON_REGISTRATION',
+  };
+}
+
+function mapSelectableDormitory(operation: SelectableDormitoryOperation): SelectableDormitory {
+  return {
+    id: operation.dormitory.id,
+    name: operation.dormitory.nameKo,
+    campusCode: operation.dormitory.campusCode,
+    roomType: operation.dormitory.roomType as 2 | 3,
+    genderPolicy: operation.dormitory.genderPolicy,
+    roomSelectionDate: toDateOnlyString(operation.roomSelectionDate),
+  };
+}
+
+function assertParticipantAllowsProfileDraftWrite(participant: CurrentSeasonParticipantRecord) {
+  if (isParticipantRegistered(participant) || isParticipantLockedOrInactive(participant)) {
+    throw seasonParticipantsErrors.seasonProfileDraftNotAllowed();
+  }
+}
+
+function assertParticipantAllowsDormitorySelection(participant: CurrentSeasonParticipantRecord) {
+  if (isParticipantRegistered(participant) || isParticipantLockedOrInactive(participant)) {
+    throw seasonParticipantsErrors.dormitorySelectionInvalid();
+  }
+}
+
+function assertParticipantAllowsRegistration(participant: CurrentSeasonParticipantRecord) {
+  if (
+    isParticipantRegistered(participant) ||
+    isParticipantLockedOrInactive(participant) ||
+    isParticipantRegistrationLocked(participant)
+  ) {
+    throw seasonParticipantsErrors.registrationNotAllowed();
+  }
+}
+
+function assertParticipantHasDormitorySelection(participant: CurrentSeasonParticipantRecord) {
+  if (!hasParticipantDormitorySelection(participant)) {
+    throw seasonParticipantsErrors.registrationNotAllowed();
+  }
+}
+
+function hasParticipantDormitorySelection(participant: CurrentSeasonParticipantRecord) {
+  return Boolean(
+    participant.dormitoryId !== null &&
+    (participant.dormitorySelectionState === 'SELECTED' ||
+      participant.dormitorySelectionState === 'ASSIGNED'),
   );
 }
 
-function buildBaseProfileTemplateSyncPatch(
-  baseProfile: ProfileTemplateSyncFields,
-  seasonProfile: ProfileTemplateSyncFields,
-) {
-  const patch: Partial<ProfileTemplateSyncFields> = {};
-
-  if (baseProfile.messageToRoommate !== seasonProfile.messageToRoommate) {
-    patch.messageToRoommate = seasonProfile.messageToRoommate;
-  }
-  if (baseProfile.collegeCode !== seasonProfile.collegeCode) {
-    patch.collegeCode = seasonProfile.collegeCode;
-  }
-  if (baseProfile.grade !== seasonProfile.grade) {
-    patch.grade = seasonProfile.grade;
-  }
-  if (baseProfile.mbti !== seasonProfile.mbti) {
-    patch.mbti = seasonProfile.mbti;
-  }
-  if (baseProfile.birthYear !== seasonProfile.birthYear) {
-    patch.birthYear = seasonProfile.birthYear;
-  }
-
-  return patch;
+function isParticipantRegistrationLocked(participant: CurrentSeasonParticipantRecord) {
+  return Boolean(
+    participant.participationIntent === 'DECLINED' ||
+    participant.participantStatus === 'WITHDRAWN' ||
+    participant.withdrawnAt ||
+    participant.declinedAt,
+  );
 }
 
-function toComparableDateMillis(value: string | Date | null | undefined) {
-  if (!value) {
-    return null;
-  }
+function isParticipantInactive(participant: CurrentSeasonParticipantRecord) {
+  return Boolean(participant.hiddenByAdminAt || participant.deactivatedAt);
+}
 
-  return new Date(value).getTime();
+function isParticipantLockedOrInactive(participant: CurrentSeasonParticipantRecord) {
+  return isParticipantRegistrationLocked(participant) || isParticipantInactive(participant);
+}
+
+function isGenderCompatible(gender: Gender, genderPolicy: 'M' | 'F' | 'BOTH') {
+  return genderPolicy === 'BOTH' || genderPolicy === gender;
+}
+
+function emptyLifestyle(): LifestyleData {
+  return Object.fromEntries(lifestyleFieldNames.map((field) => [field, null])) as LifestyleData;
 }

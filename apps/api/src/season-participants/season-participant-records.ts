@@ -7,16 +7,13 @@ import type {
   ParticipantStatus,
   SeasonParticipationIntent,
 } from '../generated/prisma/enums.js';
-import {
-  mapProfileViewRecordFromColumns,
-  mapUserProfileRecordFromColumns,
-  type ProfileViewRecord,
-  type UserProfileRecord,
-  type UserWithProfileRecord,
-} from '../profiles/profile.mapper.js';
-import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
+import type { LifestyleData } from '@repo/shared/lifestyle';
+import type { AdditionalProfile } from '@repo/shared/profile-contract';
 import type { ParticipantPolicyRecord } from './season-participant-policy.js';
-import type { ProfileSource } from '@repo/shared/profile-contract';
+import {
+  lifestyleColumnSelect,
+  toLifestyleFromColumns,
+} from '../profiles/profile-lifestyle.persistence.js';
 
 export const currentSeasonParticipantProfileSelect = {
   participantId: true,
@@ -24,12 +21,10 @@ export const currentSeasonParticipantProfileSelect = {
   nicknameNormalizedSnapshot: true,
   ...lifestyleColumnSelect,
   intro: true,
-  messageToRoommate: true,
   collegeCode: true,
   grade: true,
   mbti: true,
   birthYear: true,
-  templateSourceUserProfileUpdatedAt: true,
   createdAt: true,
   updatedAt: true,
 } as const;
@@ -73,14 +68,12 @@ export interface CurrentSeasonParticipantProfileRecord {
   participantId: string;
   nicknameSnapshot: string;
   nicknameNormalizedSnapshot: string;
-  lifestyle: UserProfileRecord['lifestyle'];
+  lifestyle: LifestyleData;
   intro: string;
-  messageToRoommate: string | null;
   collegeCode: string | null;
   grade: string | null;
   mbti: string | null;
   birthYear: number | null;
-  templateSourceUserProfileUpdatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -117,10 +110,6 @@ export interface CanonicalSelectionState {
   source: 'SEASON_PARTICIPANT';
 }
 
-export interface CanonicalProfileSource extends ProfileViewRecord {
-  source: ProfileSource;
-}
-
 export interface SeasonParticipantBackfillResult {
   campus: Campus;
   seasonId: string;
@@ -129,13 +118,23 @@ export interface SeasonParticipantBackfillResult {
   existingCount: number;
 }
 
-export type VerifiedUserWithProfile = UserWithProfileRecord & {
-  profile: NonNullable<UserWithProfileRecord['profile']>;
-};
-
 export type CurrentSeasonParticipantQueryRecord = Prisma.SeasonParticipantGetPayload<{
   select: typeof currentSeasonParticipantSelect;
 }>;
+
+export function toAdditionalProfileFromRecord(
+  profile:
+    | Pick<CurrentSeasonParticipantProfileRecord, 'collegeCode' | 'grade' | 'mbti' | 'birthYear'>
+    | null
+    | undefined,
+): AdditionalProfile {
+  return {
+    college: (profile?.collegeCode ?? null) as AdditionalProfile['college'],
+    grade: (profile?.grade ?? null) as AdditionalProfile['grade'],
+    mbti: profile?.mbti ?? null,
+    birthYear: profile?.birthYear ?? null,
+  };
+}
 
 export function mapCurrentSeasonParticipantProfileRecord(
   profile: CurrentSeasonParticipantQueryRecord['profile'],
@@ -144,24 +143,21 @@ export function mapCurrentSeasonParticipantProfileRecord(
     return null;
   }
 
-  const mapped = mapProfileViewRecordFromColumns({
-    ...profile,
-    nickname: profile.nicknameSnapshot,
-    nicknameNormalized: profile.nicknameNormalizedSnapshot,
-  });
+  const lifestyle = toLifestyleFromColumns(profile);
+  if (!lifestyle) {
+    throw new Error('[season-participant-records] invalid season profile lifestyle columns');
+  }
 
   return {
     participantId: profile.participantId,
     nicknameSnapshot: profile.nicknameSnapshot,
     nicknameNormalizedSnapshot: profile.nicknameNormalizedSnapshot,
-    lifestyle: mapped.lifestyle,
-    intro: mapped.intro,
-    messageToRoommate: mapped.messageToRoommate,
-    collegeCode: mapped.collegeCode,
-    grade: mapped.grade,
-    mbti: mapped.mbti,
-    birthYear: mapped.birthYear,
-    templateSourceUserProfileUpdatedAt: profile.templateSourceUserProfileUpdatedAt,
+    lifestyle,
+    intro: profile.intro,
+    collegeCode: profile.collegeCode,
+    grade: profile.grade,
+    mbti: profile.mbti,
+    birthYear: profile.birthYear,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
   };
@@ -175,6 +171,3 @@ export function mapCurrentSeasonParticipantRecord(
     profile: mapCurrentSeasonParticipantProfileRecord(participant.profile),
   };
 }
-
-export type { UserProfileRecord, UserWithProfileRecord };
-export { mapUserProfileRecordFromColumns };

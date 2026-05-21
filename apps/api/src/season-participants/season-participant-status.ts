@@ -19,6 +19,8 @@ export function isParticipantRegistered(participant: ParticipantPolicyRecord | n
     participant &&
     participant.participationIntent === 'REGISTERED' &&
     participant.registeredAt &&
+    participant.dormitorySelectionState === 'ASSIGNED' &&
+    participant.dormitoryId !== null &&
     !participant.declinedAt &&
     participant.participantStatus !== 'WITHDRAWN' &&
     participant.participantStatus !== 'EXPIRED',

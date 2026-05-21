@@ -19,6 +19,13 @@ export function normalizeSelectionState(input: {
     };
   }
 
+  if (!input.registered && input.dormitorySelectionState === 'SELECTED' && input.dormitoryId) {
+    return {
+      dormitorySelectionState: 'SELECTED',
+      dormitoryId: input.dormitoryId,
+    };
+  }
+
   return {
     dormitorySelectionState: input.registered ? 'UNASSIGNED' : input.dormitorySelectionState,
     dormitoryId: null,
