@@ -7,6 +7,9 @@ import {
 import {
   currentSeasonResponseSchema,
   createSeasonProfileRequestSchema,
+  dormitorySelectionDraftResponseSchema,
+  seasonProfileDraftResponseSchema,
+  seasonRegistrationFinalizeRequestSchema,
   seasonRegistrationFinalizeResponseSchema,
   selectableDormitoriesResponseSchema,
   selectedDormitorySubmitRequestSchema,
@@ -413,6 +416,31 @@ describe('shared reference contracts', () => {
     ).toMatchObject({ intro: '시즌 프로필 소개' });
 
     expect(
+      seasonProfileDraftResponseSchema.parse({
+        participantId: null,
+        seasonId: 'season-1',
+        state: 'NONE',
+        lifestyle: Object.fromEntries(
+          [...CORE_LIFESTYLE_FIELDS, ...ROOMMATE_CONDITION_FIELDS].map((field) => [field, null]),
+        ),
+        intro: '',
+        additional: {
+          college: null,
+          grade: null,
+          mbti: null,
+          birthYear: null,
+        },
+        completion: {
+          profileCompletionRequired: true,
+          dormitorySelectionRequired: true,
+          registrationUnavailable: true,
+          registrationUnavailableReasons: ['PROFILE_INCOMPLETE', 'DORMITORY_SELECTION_REQUIRED'],
+        },
+        draftWritable: true,
+      }),
+    ).toMatchObject({ participantId: null, state: 'NONE' });
+
+    expect(
       selectableDormitoriesResponseSchema.parse({
         seasonId: 'season-1',
         seasonState: 'SEASON_OPEN',
@@ -441,6 +469,22 @@ describe('shared reference contracts', () => {
     });
 
     expect(
+      dormitorySelectionDraftResponseSchema.parse({
+        seasonId: 'season-1',
+        participantId: 'participant-1',
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        profileState: 'COMPLETE',
+        completion: COMPLETION_READY,
+      }),
+    ).toMatchObject({ dormitorySelectionState: 'SELECTED', dormitoryId: 'dasan' });
+
+    expect(seasonRegistrationFinalizeRequestSchema.parse({})).toEqual({});
+    expect(
+      seasonRegistrationFinalizeRequestSchema.safeParse({ dormitoryId: 'dasan' }).success,
+    ).toBe(false);
+
+    expect(
       seasonRegistrationFinalizeResponseSchema.parse({
         seasonId: 'season-1',
         participantId: 'participant-1',
@@ -457,6 +501,7 @@ describe('shared reference contracts', () => {
   });
 
   it('dormitory contract는 selection state와 guide response shape를 유지한다', () => {
+    expect(dormitorySelectionStateSchema.parse('SELECTED')).toBe('SELECTED');
     expect(dormitorySelectionStateSchema.parse('ASSIGNED')).toBe('ASSIGNED');
     expect(dormitorySelectionStateSchema.safeParse('UNKNOWN').success).toBe(false);
 

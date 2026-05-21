@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { dormitoryGenderPolicySchema, dormitoryRoomTypeSchema } from './dormitory-contract.js';
+import {
+  dormitoryGenderPolicySchema,
+  dormitoryRoomTypeSchema,
+  dormitorySelectionStateSchema,
+} from './dormitory-contract.js';
 import { campusSchema } from './identity-contract.js';
 import { lifestyleSchema } from './lifestyle.js';
 import { additionalProfileSchema } from './profile-contract-fields.js';
@@ -43,7 +47,7 @@ export const createSeasonProfileRequestSchema = seasonProfileDraftRequestSchema;
 export const updateSeasonProfileRequestSchema = seasonProfileDraftRequestSchema;
 
 export const seasonProfileDraftResponseSchema = z.strictObject({
-  participantId: z.string(),
+  participantId: z.string().nullable(),
   seasonId: z.string(),
   state: seasonProfileStateSchema,
   lifestyle: lifestyleSchema,
@@ -74,6 +78,17 @@ export const selectedDormitorySubmitRequestSchema = z.strictObject({
   dormitoryId: z.string(),
 });
 
+export const dormitorySelectionDraftResponseSchema = z.strictObject({
+  seasonId: z.string(),
+  participantId: z.string(),
+  dormitorySelectionState: z.literal('SELECTED'),
+  dormitoryId: z.string(),
+  profileState: seasonProfileStateSchema,
+  completion: seasonParticipationCompletionStateSchema,
+});
+
+export const seasonRegistrationFinalizeRequestSchema = z.strictObject({});
+
 export const seasonRegistrationFinalizeResponseSchema = z.strictObject({
   seasonId: z.string(),
   participantId: z.string(),
@@ -94,6 +109,8 @@ export const seasonParticipationStateSchema = z.strictObject({
   registered: z.boolean(),
   profileExists: z.boolean(),
   profileState: seasonProfileStateSchema,
+  dormitorySelectionState: dormitorySelectionStateSchema,
+  dormitoryId: z.string().nullable(),
   completion: seasonParticipationCompletionStateSchema,
 });
 
@@ -109,6 +126,10 @@ export type SeasonProfileDraftResponse = z.infer<typeof seasonProfileDraftRespon
 export type SelectableDormitory = z.infer<typeof selectableDormitorySchema>;
 export type SelectableDormitoriesResponse = z.infer<typeof selectableDormitoriesResponseSchema>;
 export type SelectedDormitorySubmitRequest = z.infer<typeof selectedDormitorySubmitRequestSchema>;
+export type DormitorySelectionDraftResponse = z.infer<typeof dormitorySelectionDraftResponseSchema>;
+export type SeasonRegistrationFinalizeRequest = z.infer<
+  typeof seasonRegistrationFinalizeRequestSchema
+>;
 export type SeasonRegistrationFinalizeResponse = z.infer<
   typeof seasonRegistrationFinalizeResponseSchema
 >;

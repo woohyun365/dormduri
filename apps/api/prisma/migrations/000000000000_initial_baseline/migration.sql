@@ -23,7 +23,7 @@ CREATE TYPE "ModerationMatchMode" AS ENUM ('EXACT', 'INCLUDES');
 CREATE TYPE "ModerationSurface" AS ENUM ('ALL', 'NICKNAME', 'INTRO');
 
 -- CreateEnum
-CREATE TYPE "DormitorySelectionState" AS ENUM ('NOT_SELECTED', 'UNASSIGNED', 'ASSIGNED');
+CREATE TYPE "DormitorySelectionState" AS ENUM ('NOT_SELECTED', 'SELECTED', 'UNASSIGNED', 'ASSIGNED');
 
 -- CreateEnum
 CREATE TYPE "DormitoryGenderPolicy" AS ENUM ('M', 'F', 'BOTH');
@@ -415,28 +415,28 @@ CREATE TABLE "SeasonParticipantProfile" (
     "participantId" TEXT NOT NULL,
     "nicknameSnapshot" TEXT NOT NULL,
     "nicknameNormalizedSnapshot" TEXT NOT NULL,
-    "bedtime" "LifestyleBedtime" NOT NULL,
-    "wakeTime" "LifestyleWakeTime" NOT NULL,
-    "sleepHabit" "LifestyleSleepHabit" NOT NULL,
-    "sleepEnvironment" "LifestyleSleepEnvironment" NOT NULL,
-    "screenUsage" "LifestyleScreenUsage" NOT NULL,
-    "noiseSensitivity" "LifestyleNoiseSensitivity" NOT NULL,
-    "smokingBehavior" "LifestyleSmokingBehavior" NOT NULL,
-    "indoorEating" "LifestyleIndoorEating" NOT NULL,
-    "phoneBehavior" "LifestylePhoneBehavior" NOT NULL,
-    "earphoneUsage" "LifestyleEarphoneUsage" NOT NULL,
-    "cleanLevel" "LifestyleCleanLevel" NOT NULL,
-    "drinkingFrequency" "LifestyleDrinkingFrequency" NOT NULL,
-    "relationshipStyle" "LifestyleRelationshipStyle" NOT NULL,
-    "temperatureSensitivity" "LifestyleTemperatureSensitivity" NOT NULL,
-    "smokingTolerance" "RoommateSmokingTolerance" NOT NULL,
-    "phoneTolerance" "RoommatePhoneTolerance" NOT NULL,
-    "earphoneExpectation" "RoommateEarphoneExpectation" NOT NULL,
-    "sleepEnvPreference" "RoommateSleepEnvPreference" NOT NULL,
-    "screenTolerance" "RoommateScreenTolerance" NOT NULL,
-    "indoorEatingTolerance" "RoommateIndoorEatingTolerance" NOT NULL,
-    "cleanExpectation" "RoommateCleanExpectation" NOT NULL,
-    "drinkingTolerance" "RoommateDrinkingTolerance" NOT NULL,
+    "bedtime" "LifestyleBedtime",
+    "wakeTime" "LifestyleWakeTime",
+    "sleepHabit" "LifestyleSleepHabit",
+    "sleepEnvironment" "LifestyleSleepEnvironment",
+    "screenUsage" "LifestyleScreenUsage",
+    "noiseSensitivity" "LifestyleNoiseSensitivity",
+    "smokingBehavior" "LifestyleSmokingBehavior",
+    "indoorEating" "LifestyleIndoorEating",
+    "phoneBehavior" "LifestylePhoneBehavior",
+    "earphoneUsage" "LifestyleEarphoneUsage",
+    "cleanLevel" "LifestyleCleanLevel",
+    "drinkingFrequency" "LifestyleDrinkingFrequency",
+    "relationshipStyle" "LifestyleRelationshipStyle",
+    "temperatureSensitivity" "LifestyleTemperatureSensitivity",
+    "smokingTolerance" "RoommateSmokingTolerance",
+    "phoneTolerance" "RoommatePhoneTolerance",
+    "earphoneExpectation" "RoommateEarphoneExpectation",
+    "sleepEnvPreference" "RoommateSleepEnvPreference",
+    "screenTolerance" "RoommateScreenTolerance",
+    "indoorEatingTolerance" "RoommateIndoorEatingTolerance",
+    "cleanExpectation" "RoommateCleanExpectation",
+    "drinkingTolerance" "RoommateDrinkingTolerance",
     "intro" TEXT NOT NULL DEFAULT '',
     "collegeCode" TEXT,
     "grade" TEXT,
@@ -1136,4 +1136,3 @@ ALTER TABLE "ConversationMessageRetainedBodyAccessLog" ADD CONSTRAINT "Conversat
 
 -- AddForeignKey
 ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
