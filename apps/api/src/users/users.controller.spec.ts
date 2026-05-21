@@ -28,6 +28,19 @@ describe('UsersController', () => {
     jest.clearAllMocks();
   });
 
+  it('PATCH /api/users/me는 dormitory selection write payload를 받지 않는다', async () => {
+    try {
+      await controller.updateCurrentUser(authUser, {
+        selection: { dormitoryId: 'dasan' },
+      });
+      throw new Error('Expected BadRequestException');
+    } catch (error) {
+      const response = getBadRequestResponse(error);
+      expect(response.code).toBe('INVALID_REQUEST_BODY');
+      expect(usersService.updateCurrentUser).not.toHaveBeenCalled();
+    }
+  });
+
   it('PATCH /api/users/me/onboarding body를 파싱해 dismiss owner로 위임한다', async () => {
     const response = { ok: true };
     usersService.dismissCurrentUserOnboardingNotice.mockResolvedValue(response);
