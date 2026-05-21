@@ -52,14 +52,6 @@ export class SeasonParticipantsService {
     return this.writeOwner.ensureCurrentSeasonParticipant(user, now, tx);
   }
 
-  async ensureCurrentSeasonParticipantForUser(
-    user: SeasonParticipantEnsureInput,
-    now: Date,
-    tx?: Prisma.TransactionClient,
-  ): Promise<CurrentSeasonParticipantRecord | null> {
-    return this.ensureCurrentSeasonParticipant(user, now, tx);
-  }
-
   async findCurrentSeasonParticipant(
     userId: string,
     seasonId: string,
@@ -155,10 +147,6 @@ export class SeasonParticipantsService {
 
   async backfillCurrentSeasonParticipants(now: Date): Promise<SeasonParticipantBackfillResult[]> {
     return this.writeOwner.backfillCurrentSeasonParticipants(now);
-  }
-
-  async syncCurrentSeasonProfileTemplates(now: Date): Promise<number> {
-    return this.writeOwner.syncCurrentSeasonProfileTemplates(now);
   }
 
   selectCanonicalSelection(

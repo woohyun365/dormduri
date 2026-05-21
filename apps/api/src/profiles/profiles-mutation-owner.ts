@@ -61,8 +61,10 @@ export function createProfilesMutationOwner(deps: ProfilesMutationOwnerDeps) {
 
   async function loadEditableProfileContext(authUserId: string, now: Date) {
     const user = await getUserWithProfile(deps.prisma, authUserId);
-    const currentParticipant =
-      await deps.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now);
+    const currentParticipant = await deps.seasonParticipantsService.ensureCurrentSeasonParticipant(
+      user,
+      now,
+    );
     const serviceState = await resolveCampusServiceState(
       deps.prisma,
       deps.seasonsService,

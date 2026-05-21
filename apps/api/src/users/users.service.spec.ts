@@ -134,7 +134,7 @@ describe('UsersService', () => {
     moderatePublicText: jest.fn(),
   };
   const seasonParticipantsService = {
-    ensureCurrentSeasonParticipantForUser: jest.fn(),
+    ensureCurrentSeasonParticipant: jest.fn(),
     selectCanonicalSelection: jest.fn(),
     selectProfileBySource: jest.fn(),
   };
@@ -179,7 +179,7 @@ describe('UsersService', () => {
     txUserProfileUpdate.mockResolvedValue(undefined);
     txSeasonParticipantUpdate.mockResolvedValue(undefined);
     txSeasonParticipantProfileUpdate.mockResolvedValue(undefined);
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(null);
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(null);
     matchesService.getCurrentActiveMatchByParticipantId.mockResolvedValue(null);
     matchesService.getCurrentActiveMatchSummaryForParticipant.mockResolvedValue(null);
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
@@ -286,7 +286,7 @@ describe('UsersService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -344,7 +344,7 @@ describe('UsersService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -408,7 +408,7 @@ describe('UsersService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -458,9 +458,7 @@ describe('UsersService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
-      makeParticipant(),
-    );
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(makeParticipant());
 
     await expect(
       service.updateCurrentUser(
@@ -496,7 +494,7 @@ describe('UsersService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -542,7 +540,7 @@ describe('UsersService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -610,7 +608,7 @@ describe('UsersService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -670,7 +668,7 @@ describe('UsersService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -756,7 +754,7 @@ describe('UsersService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),

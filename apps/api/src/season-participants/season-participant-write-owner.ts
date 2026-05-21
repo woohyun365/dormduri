@@ -590,10 +590,6 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     return mapCurrentSeasonParticipantRecord(refreshed);
   }
 
-  async function syncCurrentSeasonProfileTemplates(_now?: Date): Promise<number> {
-    return 0;
-  }
-
   async function hasSelectableDormitoriesForCurrentParticipant(
     participant: CurrentSeasonParticipantRecord | null,
     seasonContext: CurrentSeasonContext | null,
@@ -640,7 +636,6 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
 
   return {
     ensureCurrentSeasonParticipant,
-    ensureCurrentSeasonParticipantForUser: ensureCurrentSeasonParticipant,
     findCurrentSeasonParticipant,
     getCurrentSeasonProfile,
     createOrUpdateSeasonProfileDraft,
@@ -656,7 +651,6 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantWriteOw
     finalizeSeasonRegistration,
     backfillCurrentSeasonParticipants,
     deregisterCurrentSeasonParticipation,
-    syncCurrentSeasonProfileTemplates,
   };
 
   async function assertReadableSeasonContext(campus: Campus, now: Date) {

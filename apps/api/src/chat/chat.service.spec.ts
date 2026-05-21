@@ -197,7 +197,7 @@ describe('ChatService', () => {
     getCurrentSeasonContext: jest.fn(),
   };
   const seasonParticipantsService = {
-    ensureCurrentSeasonParticipantForUser: jest.fn(),
+    ensureCurrentSeasonParticipant: jest.fn(),
     selectCanonicalSelection: jest.fn(),
     pickCurrentSeasonParticipant: jest.fn(),
   };
@@ -229,13 +229,12 @@ describe('ChatService', () => {
         where.id === 'user-2' ? makeUserSeed({ id: 'user-2' }) : makeUserSeed({ id: where.id }),
       ),
     );
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
-      (user: UserSeed) =>
-        Promise.resolve(
-          user.id === 'user-2'
-            ? makeParticipant({ id: 'participant-2', userId: 'user-2' })
-            : makeParticipant({ id: 'participant-1', userId: user.id }),
-        ),
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
+      Promise.resolve(
+        user.id === 'user-2'
+          ? makeParticipant({ id: 'participant-2', userId: 'user-2' })
+          : makeParticipant({ id: 'participant-1', userId: user.id }),
+      ),
     );
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
@@ -323,19 +322,18 @@ describe('ChatService', () => {
   });
 
   it('시즌 참여자라도 UNASSIGNED면 같은 건물 사용자에 대한 채팅 UI entry와 send가 모두 닫힌다', async () => {
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
-      (user: UserSeed) =>
-        Promise.resolve(
-          user.id === 'user-2'
-            ? makeParticipant({ id: 'participant-2', userId: 'user-2' })
-            : makeParticipant({
-                id: 'participant-1',
-                userId: user.id,
-                dormitoryId: null,
-                dormitorySelectionState: 'NOT_SELECTED',
-                participantStatus: 'DRAFT',
-              }),
-        ),
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
+      Promise.resolve(
+        user.id === 'user-2'
+          ? makeParticipant({ id: 'participant-2', userId: 'user-2' })
+          : makeParticipant({
+              id: 'participant-1',
+              userId: user.id,
+              dormitoryId: null,
+              dormitorySelectionState: 'NOT_SELECTED',
+              participantStatus: 'DRAFT',
+            }),
+      ),
     );
     seasonParticipantsService.selectCanonicalSelection.mockReturnValue({
       dormitoryId: null,
@@ -373,18 +371,17 @@ describe('ChatService', () => {
   });
 
   it('시즌 참여자라도 ASSIGNED 사용자는 다른 건물 사용자에게 채팅 UI entry와 send가 모두 닫힌다', async () => {
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
-      (user: UserSeed) =>
-        Promise.resolve(
-          user.id === 'user-2'
-            ? makeParticipant({
-                id: 'participant-2',
-                userId: 'user-2',
-                dormitoryId: 'other-dorm',
-                dormitorySelectionState: 'ASSIGNED',
-              })
-            : makeParticipant({ id: 'participant-1', userId: user.id }),
-        ),
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
+      Promise.resolve(
+        user.id === 'user-2'
+          ? makeParticipant({
+              id: 'participant-2',
+              userId: 'user-2',
+              dormitoryId: 'other-dorm',
+              dormitorySelectionState: 'ASSIGNED',
+            })
+          : makeParticipant({ id: 'participant-1', userId: user.id }),
+      ),
     );
 
     const entry = await service.getThreadEntry(
@@ -436,18 +433,17 @@ describe('ChatService', () => {
   });
 
   it('live ActiveMatch가 없으면 stale MATCHED target도 채팅 후보로 유지한다', async () => {
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
-      (user: UserSeed) =>
-        Promise.resolve(
-          user.id === 'user-2'
-            ? makeParticipant({
-                id: 'participant-2',
-                userId: 'user-2',
-                participantStatus: 'MATCHED',
-                matchedAt: new Date('2026-02-01T00:00:00.000Z'),
-              })
-            : makeParticipant({ id: 'participant-1', userId: user.id }),
-        ),
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
+      Promise.resolve(
+        user.id === 'user-2'
+          ? makeParticipant({
+              id: 'participant-2',
+              userId: 'user-2',
+              participantStatus: 'MATCHED',
+              matchedAt: new Date('2026-02-01T00:00:00.000Z'),
+            })
+          : makeParticipant({ id: 'participant-1', userId: user.id }),
+      ),
     );
 
     const entry = await service.getThreadEntry(
@@ -510,19 +506,18 @@ describe('ChatService', () => {
   });
 
   it('상대가 시즌 참여자라도 ASSIGNED가 아니면 같은 캠퍼스/성별이어도 채팅 UI entry와 send가 모두 닫힌다', async () => {
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
-      (user: UserSeed) =>
-        Promise.resolve(
-          user.id === 'user-2'
-            ? makeParticipant({
-                id: 'participant-2',
-                userId: 'user-2',
-                dormitoryId: null,
-                dormitorySelectionState: 'UNASSIGNED',
-                participantStatus: 'DRAFT',
-              })
-            : makeParticipant({ id: 'participant-1', userId: user.id }),
-        ),
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
+      Promise.resolve(
+        user.id === 'user-2'
+          ? makeParticipant({
+              id: 'participant-2',
+              userId: 'user-2',
+              dormitoryId: null,
+              dormitorySelectionState: 'UNASSIGNED',
+              participantStatus: 'DRAFT',
+            })
+          : makeParticipant({ id: 'participant-1', userId: user.id }),
+      ),
     );
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (

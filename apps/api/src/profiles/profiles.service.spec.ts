@@ -179,7 +179,7 @@ describe('ProfilesService', () => {
     validateNicknamePolicy: jest.fn(),
   };
   const seasonParticipantsService = {
-    ensureCurrentSeasonParticipantForUser: jest.fn(),
+    ensureCurrentSeasonParticipant: jest.fn(),
     selectCanonicalSelection: jest.fn(),
     selectProfileBySource: jest.fn(),
     pickCurrentSeasonParticipant: jest.fn(),
@@ -215,7 +215,7 @@ describe('ProfilesService', () => {
     currentUserViewService.buildCurrentUserResponse.mockResolvedValue({ success: true });
     userProfileUpdate.mockResolvedValue(undefined);
     seasonParticipantProfileUpdate.mockResolvedValue(undefined);
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(null);
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(null);
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
@@ -318,7 +318,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -408,7 +408,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -488,7 +488,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -569,7 +569,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -693,7 +693,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -787,7 +787,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -832,7 +832,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -873,7 +873,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -945,7 +945,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -997,7 +997,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'REGISTERED',
         registeredAt: new Date('2026-01-05T00:00:00.000Z'),
@@ -1038,9 +1038,7 @@ describe('ProfilesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValue(
-      makeParticipant(),
-    );
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(makeParticipant());
 
     await service.updateNickname(
       {

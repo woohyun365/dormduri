@@ -34,7 +34,7 @@ export function createUserSelectionUpdateOwner(deps: UserSelectionUpdateOwnerDep
   async function applySelectionUpdate(
     user: UserWithProfileRecord,
     currentParticipant: Awaited<
-      ReturnType<SeasonParticipantsService['ensureCurrentSeasonParticipantForUser']>
+      ReturnType<SeasonParticipantsService['ensureCurrentSeasonParticipant']>
     >,
     serviceState: Awaited<ReturnType<typeof resolveCampusServiceState>>,
     now: Date,

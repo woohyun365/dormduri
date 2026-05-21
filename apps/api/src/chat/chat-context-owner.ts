@@ -50,7 +50,7 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
 
       const seasonContext = await deps.seasonsService.getCurrentSeasonContext(user.campus, now);
       const participant = user.emailVerifiedAt
-        ? await deps.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(user, now)
+        ? await deps.seasonParticipantsService.ensureCurrentSeasonParticipant(user, now)
         : null;
       const selection = deps.seasonParticipantsService.selectCanonicalSelection(participant);
 
@@ -81,8 +81,10 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
       targetUser: ChatParticipantUserProjection,
       now: Date,
     ): Promise<CurrentSeasonParticipantRecord> {
-      const participant =
-        await deps.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(targetUser, now);
+      const participant = await deps.seasonParticipantsService.ensureCurrentSeasonParticipant(
+        targetUser,
+        now,
+      );
       if (!participant) {
         throw chatErrors.threadTargetNotFound();
       }

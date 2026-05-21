@@ -83,8 +83,10 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       viewer.campus,
       now,
     );
-    const viewerParticipant =
-      await deps.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(viewer, now);
+    const viewerParticipant = await deps.seasonParticipantsService.ensureCurrentSeasonParticipant(
+      viewer,
+      now,
+    );
     const viewerSelection =
       deps.seasonParticipantsService.selectCanonicalSelection(viewerParticipant);
     const operatedDormitoryIds = new Set(

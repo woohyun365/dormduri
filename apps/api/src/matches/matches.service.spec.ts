@@ -133,7 +133,7 @@ describe('MatchesService', () => {
     moderatePublicText: jest.fn(),
   };
   const seasonParticipantsService = {
-    ensureCurrentSeasonParticipantForUser: jest.fn(),
+    ensureCurrentSeasonParticipant: jest.fn(),
     selectCanonicalSelection: jest.fn(),
   };
 
@@ -185,13 +185,12 @@ describe('MatchesService', () => {
         where.id === 'user-2' ? makeUserSeed({ id: 'user-2' }) : makeUserSeed({ id: where.id }),
       ),
     );
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
-      (user: UserSeed) =>
-        Promise.resolve(
-          user.id === 'user-2'
-            ? makeParticipant({ id: 'participant-2', userId: 'user-2' })
-            : makeParticipant({ id: 'participant-1', userId: user.id }),
-        ),
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
+      Promise.resolve(
+        user.id === 'user-2'
+          ? makeParticipant({ id: 'participant-2', userId: 'user-2' })
+          : makeParticipant({ id: 'participant-1', userId: user.id }),
+      ),
     );
     prisma.activeMatch.findMany.mockResolvedValue([]);
     prisma.activeMatch.findFirst.mockResolvedValue(null);
@@ -987,9 +986,8 @@ describe('MatchesService', () => {
     prisma.user.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
       Promise.resolve(makeUserSeed({ id: where.id })),
     );
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockImplementation(
-      (user: UserSeed) =>
-        Promise.resolve(makeParticipant({ id: `participant-${user.id}`, userId: user.id })),
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
+      Promise.resolve(makeParticipant({ id: `participant-${user.id}`, userId: user.id })),
     );
 
     await expect(
@@ -1246,7 +1244,7 @@ describe('MatchesService', () => {
         seasonEnd: '2026-02-28',
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipantForUser.mockResolvedValueOnce(
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValueOnce(
       makeParticipant({
         participantStatus: 'MATCHED',
         matchedAt: new Date('2026-02-10T03:00:00.000Z'),

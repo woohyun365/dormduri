@@ -9,10 +9,7 @@ interface LifecycleSweepRunnerDeps {
   prisma: PrismaService;
   chatService: Pick<ChatService, 'sweepThreadLifecycle'>;
   matchesService: Pick<MatchesService, 'sweepHistoryMaterialization' | 'sweepLifecycleTransitions'>;
-  seasonParticipantsService: Pick<
-    SeasonParticipantsService,
-    'backfillCurrentSeasonParticipants' | 'syncCurrentSeasonProfileTemplates'
-  >;
+  seasonParticipantsService: Pick<SeasonParticipantsService, 'backfillCurrentSeasonParticipants'>;
   usersService: Pick<
     UsersService,
     | 'activateThreadRetentionJobsForArchivedThreads'
@@ -29,7 +26,6 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
     const matchHistory = await deps.matchesService.sweepHistoryMaterialization(referenceNow);
     const participantBackfill =
       await deps.seasonParticipantsService.backfillCurrentSeasonParticipants(referenceNow);
-    await deps.seasonParticipantsService.syncCurrentSeasonProfileTemplates(referenceNow);
     const threadRetentionActivationSweep =
       await deps.usersService.activateThreadRetentionJobsForArchivedThreads(referenceNow);
     const archiveJobSweep = await deps.usersService.retryDueDeletionArchiveJobs(referenceNow);

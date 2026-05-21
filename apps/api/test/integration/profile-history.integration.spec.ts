@@ -558,61 +558,6 @@ describe('Profile history integration', () => {
     });
   });
 
-  it('current season template sync repair는 기존 season/base sync 대상 필드 mismatch를 base에 반영한다', async () => {
-    await seedRegisteredAssignedParticipant(prisma, {
-      userId: 'user-a',
-      participantId: 'participant-a',
-      email: 'user-a@kangwon.ac.kr',
-      nickname: '유저A',
-    });
-    await setSeasonOverride('SEASON_MATCHING');
-    await prisma.seasonParticipantProfile.update({
-      where: { participantId: 'participant-a' },
-      data: {
-        messageToRoommate: '보정 대상 시즌 메시지',
-        grade: '4+',
-        mbti: 'ENTP',
-        birthYear: 2001,
-      },
-    });
-
-    const syncedCount = await seasonParticipantsService.syncCurrentSeasonProfileTemplates(
-      await prisma.getDatabaseNow(),
-    );
-
-    const baseProfile = await prisma.userProfile.findUniqueOrThrow({
-      where: { userId: 'user-a' },
-      select: {
-        intro: true,
-        messageToRoommate: true,
-        collegeCode: true,
-        grade: true,
-        mbti: true,
-        birthYear: true,
-      },
-    });
-    const latestUserHistory = await prisma.userProfileHistory.findFirst({
-      where: { userId: 'user-a' },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-    });
-
-    expect(syncedCount).toBe(1);
-    expect(baseProfile.intro).toBe('유저A 소개');
-    expect(baseProfile.messageToRoommate).toBe('보정 대상 시즌 메시지');
-    expect(baseProfile.collegeCode).toBeNull();
-    expect(baseProfile.grade).toBe('4+');
-    expect(baseProfile.mbti).toBe('ENTP');
-    expect(baseProfile.birthYear).toBe(2001);
-    expect(latestUserHistory).toMatchObject({
-      source: 'SYSTEM_BACKFILL',
-      messageToRoommate: '보정 대상 시즌 메시지',
-      collegeCode: null,
-      grade: '4+',
-      mbti: 'ENTP',
-      birthYear: 2001,
-    });
-  });
-
   async function seedVerifiedSignupCode(email: string) {
     const emailNormalized = email.toLowerCase();
     const now = await prisma.getDatabaseNow();

@@ -80,8 +80,10 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
         input.targetUserId,
         requesterContext.user,
       );
-      const targetParticipant =
-        await deps.seasonParticipantsService.ensureCurrentSeasonParticipantForUser(targetUser, now);
+      const targetParticipant = await deps.seasonParticipantsService.ensureCurrentSeasonParticipant(
+        targetUser,
+        now,
+      );
       if (!targetParticipant) {
         throw matchesErrors.requestTargetNotFound();
       }
