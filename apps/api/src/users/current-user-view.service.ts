@@ -4,17 +4,22 @@ import {
   type CurrentUserResponse,
   type DismissedNoticeState,
 } from '@repo/shared/user-contract';
-import type { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
-import {
-  hasParticipantProfile,
-  isParticipantRegistered,
-} from '../season-participants/season-participant-policy.js';
+import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
 import { normalizeSelectionState } from '../season-participants/season-participant-selection.js';
+import {
+  currentSeasonParticipantSelect,
+  mapCurrentSeasonParticipantRecord,
+} from '../season-participants/season-participant-records.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
+import {
+  buildCompletion,
+  resolveSeasonProfileState,
+} from '../season-participants/season-participant-write-owner.js';
 import {
   buildUserWithDisplayIdentitySelect,
   mapUserWithDisplayIdentityProjection,
@@ -27,33 +32,11 @@ import { resolveCampusServiceState } from './service-state.js';
 import { assertUserDisplayIdentity } from '../common/user-display-identity-invariant.js';
 import { usersErrors } from './users.errors.js';
 
-const currentUserSeasonParticipantSelect = {
-  id: true,
-  seasonId: true,
-  userId: true,
-  participationIntent: true,
-  registeredAt: true,
-  declinedAt: true,
-  dormitoryId: true,
-  dormitorySelectionState: true,
-  participantStatus: true,
-  hiddenByAdminAt: true,
-  deactivatedAt: true,
-  profile: {
-    select: {
-      participantId: true,
-    },
-  },
-} as const;
-
-type CurrentUserSeasonParticipantRecord = Prisma.SeasonParticipantGetPayload<{
-  select: typeof currentUserSeasonParticipantSelect;
-}>;
-
 type CurrentUserResponseUserRecord = Omit<
   UserWithDisplayIdentityRecord,
-  'displayIdentity' | 'dismissedNotices'
+  'displayIdentity' | 'dismissedNotices' | 'deletedAt'
 > & {
+  deletedAt?: Date | null;
   displayIdentity?: UserDisplayIdentityRecord | null;
   dismissedNotices?: UserDismissedNoticeRecord[];
 };
@@ -93,41 +76,95 @@ export class CurrentUserViewService {
               userId: user.id,
             },
           },
-          select: currentUserSeasonParticipantSelect,
+          select: currentSeasonParticipantSelect,
         })
+      : null;
+    const mappedParticipant = currentParticipant
+      ? mapCurrentSeasonParticipantRecord(currentParticipant)
       : null;
 
     const activeMatch =
-      currentParticipant && serviceState.seasonContext
+      mappedParticipant && serviceState.seasonContext
         ? await this.matchesService.getCurrentActiveMatchSummaryForParticipant(
             serviceState.seasonContext,
-            currentParticipant.id,
+            mappedParticipant.id,
             now,
           )
         : null;
-    const participantRegistered = isParticipantRegistered(currentParticipant);
-    const canonicalSelection = selectCanonicalSelection(currentParticipant, participantRegistered);
-    const profileExists = hasParticipantProfile(currentParticipant);
+    const participantRegistered = isParticipantRegistered(mappedParticipant);
+    const canonicalSelection = selectCanonicalSelection(mappedParticipant, participantRegistered);
     const activeSeasonPhase =
       serviceState.seasonState === 'SEASON_OPEN' || serviceState.seasonState === 'SEASON_MATCHING';
-    const completion = buildSeasonProfileCompletion({
+    const participantRegistrationLocked = Boolean(
+      mappedParticipant?.participationIntent === 'DECLINED' ||
+      mappedParticipant?.participantStatus === 'WITHDRAWN' ||
+      mappedParticipant?.withdrawnAt ||
+      mappedParticipant?.declinedAt,
+    );
+    const accountOrParticipantInactive = Boolean(
+      user.deletedAt || mappedParticipant?.hiddenByAdminAt || mappedParticipant?.deactivatedAt,
+    );
+    const profileComplete = this.seasonParticipantsService.validateSeasonProfileCompleteness(
+      mappedParticipant?.profile,
+    ).complete;
+    const selectableDormitoriesAvailable = activeSeasonPhase
+      ? mappedParticipant
+        ? await this.seasonParticipantsService.hasSelectableDormitoriesForCurrentParticipant(
+            mappedParticipant,
+            serviceState.seasonContext,
+            now,
+          )
+        : await this.seasonParticipantsService.hasSelectableDormitoriesForCurrentUser(
+            {
+              id: user.id,
+              emailVerifiedAt: user.emailVerifiedAt,
+              gender: user.gender,
+              campus: user.campus,
+            },
+            serviceState.seasonContext,
+            now,
+          )
+      : false;
+    const validDormitorySelection = activeSeasonPhase
+      ? await this.seasonParticipantsService.hasValidDormitorySelectionForCurrentParticipant(
+          mappedParticipant,
+          serviceState.seasonContext,
+          now,
+        )
+      : false;
+    const completion = buildCompletion({
       hasCurrentSeason: Boolean(serviceState.seasonContext),
       campusOperated: serviceState.campusOperated,
       activeSeasonPhase,
-      profileExists,
-      selectionState: canonicalSelection.dormitorySelectionState,
+      profileComplete,
+      dormitorySelectionReady: participantRegistered || validDormitorySelection,
+      participantRegistrationLocked,
+      accountOrParticipantInactive,
+      hasSelectableDormitories: activeSeasonPhase ? selectableDormitoriesAvailable : undefined,
+      roomSelectionClosed:
+        serviceState.seasonState === 'SEASON_MATCHING' && !selectableDormitoriesAvailable,
     });
+    const canCreateOrUpdateSeasonProfileDraft =
+      serviceState.campusOperated &&
+      activeSeasonPhase &&
+      !participantRegistered &&
+      !participantRegistrationLocked &&
+      !accountOrParticipantInactive;
     const canSelectDormitory =
       serviceState.campusOperated &&
       activeSeasonPhase &&
-      profileExists &&
-      canonicalSelection.dormitorySelectionState !== 'ASSIGNED';
+      selectableDormitoriesAvailable &&
+      !participantRegistered &&
+      !participantRegistrationLocked &&
+      !accountOrParticipantInactive;
     const canFinalizeSeasonRegistration =
       serviceState.campusOperated &&
       activeSeasonPhase &&
-      profileExists &&
-      canonicalSelection.dormitorySelectionState === 'ASSIGNED' &&
-      !participantRegistered;
+      profileComplete &&
+      validDormitorySelection &&
+      !participantRegistered &&
+      !participantRegistrationLocked &&
+      !accountOrParticipantInactive;
     const canEditDisplayIdentity = !hasNicknameCooldown(
       user.displayIdentity.nicknameChangedAt,
       now,
@@ -149,13 +186,13 @@ export class CurrentUserViewService {
       },
       seasonProfile: {
         hasCurrentSeason: Boolean(serviceState.seasonContext),
-        hasParticipantRow: Boolean(currentParticipant),
-        intent: currentParticipant?.participationIntent ?? null,
+        hasParticipantRow: Boolean(mappedParticipant),
+        intent: mappedParticipant?.participationIntent ?? null,
         registered: participantRegistered,
-        profileExists,
-        profileState: resolveSeasonProfileState(currentParticipant, participantRegistered),
+        profileExists: Boolean(mappedParticipant?.profile),
+        profileState: resolveSeasonProfileState(mappedParticipant),
         completion,
-        draftWritable: serviceState.campusOperated && activeSeasonPhase && !participantRegistered,
+        draftWritable: canCreateOrUpdateSeasonProfileDraft,
         canSelectDormitory,
         canFinalizeRegistration: canFinalizeSeasonRegistration,
       },
@@ -174,8 +211,7 @@ export class CurrentUserViewService {
           (serviceState.seasonState === 'SEASON_OPEN' ||
             serviceState.seasonState === 'SEASON_MATCHING' ||
             serviceState.seasonState === 'SEASON_POST_MATCH'),
-        canCreateOrUpdateSeasonProfileDraft:
-          serviceState.campusOperated && activeSeasonPhase && !participantRegistered,
+        canCreateOrUpdateSeasonProfileDraft: canCreateOrUpdateSeasonProfileDraft,
         canSelectDormitory,
         canFinalizeSeasonRegistration,
         canEditDisplayIdentity,
@@ -208,7 +244,7 @@ export class CurrentUserViewService {
 }
 
 function selectCanonicalSelection(
-  participant: CurrentUserSeasonParticipantRecord | null,
+  participant: CurrentSeasonParticipantRecord | null,
   registered: boolean,
 ) {
   const normalized = normalizeSelectionState({
@@ -220,52 +256,6 @@ function selectCanonicalSelection(
   return {
     ...normalized,
     source: 'SEASON_PARTICIPANT' as const,
-  };
-}
-
-function resolveSeasonProfileState(
-  participant: CurrentUserSeasonParticipantRecord | null,
-  registered: boolean,
-): CurrentUserResponse['seasonProfile']['profileState'] {
-  if (!participant?.profile) {
-    return 'NONE';
-  }
-
-  return registered ? 'REGISTRATION_FINALIZED' : 'DRAFT';
-}
-
-function buildSeasonProfileCompletion(input: {
-  hasCurrentSeason: boolean;
-  campusOperated: boolean;
-  activeSeasonPhase: boolean;
-  profileExists: boolean;
-  selectionState: CurrentUserResponse['selection']['state'];
-}): CurrentUserResponse['seasonProfile']['completion'] {
-  const registrationUnavailableReasons: CurrentUserResponse['seasonProfile']['completion']['registrationUnavailableReasons'] =
-    [];
-
-  if (!input.hasCurrentSeason) {
-    registrationUnavailableReasons.push('NO_CURRENT_SEASON');
-  }
-  if (!input.campusOperated) {
-    registrationUnavailableReasons.push('UNSUPPORTED_CAMPUS');
-  }
-  if (input.hasCurrentSeason && !input.activeSeasonPhase) {
-    registrationUnavailableReasons.push('SEASON_NOT_OPEN');
-  }
-  if (!input.profileExists) {
-    registrationUnavailableReasons.push('PROFILE_INCOMPLETE');
-  }
-  if (input.profileExists && input.selectionState !== 'ASSIGNED') {
-    registrationUnavailableReasons.push('DORMITORY_SELECTION_REQUIRED');
-  }
-
-  return {
-    profileCompletionRequired: input.activeSeasonPhase && !input.profileExists,
-    dormitorySelectionRequired:
-      input.activeSeasonPhase && input.profileExists && input.selectionState !== 'ASSIGNED',
-    registrationUnavailable: registrationUnavailableReasons.length > 0,
-    registrationUnavailableReasons,
   };
 }
 

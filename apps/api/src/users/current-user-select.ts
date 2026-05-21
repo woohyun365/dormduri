@@ -67,6 +67,7 @@ export function buildUserWithDisplayIdentitySelect() {
     id: true,
     email: true,
     emailVerifiedAt: true,
+    deletedAt: true,
     gender: true,
     campus: true,
     displayIdentity: {
@@ -127,6 +128,7 @@ export interface UserWithDisplayIdentityQueryRecord {
   id: string;
   email: string;
   emailVerifiedAt: Date | null;
+  deletedAt: Date | null;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   displayIdentity: UserDisplayIdentityRecord | null;
@@ -137,6 +139,7 @@ export interface UserWithDisplayIdentityRecord {
   id: string;
   email: string;
   emailVerifiedAt: Date | null;
+  deletedAt: Date | null;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   displayIdentity: UserDisplayIdentityRecord | null;
@@ -150,6 +153,7 @@ export function mapUserWithDisplayIdentityProjection(
     id: user.id,
     email: user.email,
     emailVerifiedAt: user.emailVerifiedAt,
+    deletedAt: user.deletedAt,
     gender: user.gender,
     campus: user.campus,
     displayIdentity: user.displayIdentity,
