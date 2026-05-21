@@ -49,15 +49,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       application_name: databaseSettings.applicationName,
     });
 
-    const queryLogEvents =
-      process.env.PRISMA_QUERY_LOG_EVENTS === '1'
-        ? [
-            {
-              emit: 'event' as const,
-              level: 'query' as const,
-            },
-          ]
-        : undefined;
+    const queryLogEvents = databaseSettings.prismaQueryLogEvents
+      ? [
+          {
+            emit: 'event' as const,
+            level: 'query' as const,
+          },
+        ]
+      : undefined;
 
     super({
       adapter: new PrismaPg(pool, {

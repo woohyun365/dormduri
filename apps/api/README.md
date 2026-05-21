@@ -62,6 +62,7 @@ cp apps/api/.env.example apps/api/.env
 - `DATABASE_QUERY_TIMEOUT_MS`
 - `DATABASE_STATEMENT_TIMEOUT_MS`
 - `DATABASE_APPLICATION_NAME`
+- `PRISMA_QUERY_LOG_EVENTS`: `1/true/yes/on`이면 Prisma query event를 활성화한다. 통합 테스트 SQL trace처럼 실패 시점 진단이 필요할 때만 켠다.
 
 즉, 실제 운영/배포에서는 반드시 환경변수 또는 secret store로 주입해야 한다.
 

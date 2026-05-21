@@ -1,5 +1,5 @@
 import { registerAs } from '@nestjs/config';
-import { readNumberEnv, readStringEnv } from './env.helpers.js';
+import { readBooleanEnv, readNumberEnv, readStringEnv } from './env.helpers.js';
 
 export const DEFAULT_DATABASE_URL =
   'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
@@ -10,6 +10,7 @@ export const DEFAULT_DATABASE_POOL_MIN = 0;
 export const DEFAULT_DATABASE_QUERY_TIMEOUT_MS = 0;
 export const DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 0;
 export const DEFAULT_DATABASE_APPLICATION_NAME = 'knu-roommate-api';
+export const DEFAULT_PRISMA_QUERY_LOG_EVENTS = false;
 
 export default registerAs('database', () => {
   const runtimeDatabaseUrl = readStringEnv(process.env, 'DATABASE_URL', DEFAULT_DATABASE_URL);
@@ -53,6 +54,11 @@ export default registerAs('database', () => {
       process.env,
       'DATABASE_APPLICATION_NAME',
       DEFAULT_DATABASE_APPLICATION_NAME,
+    ),
+    prismaQueryLogEvents: readBooleanEnv(
+      process.env,
+      'PRISMA_QUERY_LOG_EVENTS',
+      DEFAULT_PRISMA_QUERY_LOG_EVENTS,
     ),
   };
 });

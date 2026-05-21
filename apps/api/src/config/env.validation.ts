@@ -17,6 +17,7 @@ import {
   DEFAULT_DATABASE_QUERY_TIMEOUT_MS,
   DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS,
   DEFAULT_DATABASE_URL,
+  DEFAULT_PRISMA_QUERY_LOG_EVENTS,
 } from './database.config.js';
 import {
   DEFAULT_LIFECYCLE_SWEEP_ENABLED,
@@ -56,6 +57,16 @@ export const envValidationSchema = Joi.object({
     .min(0)
     .default(DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS),
   DATABASE_APPLICATION_NAME: Joi.string().trim().default(DEFAULT_DATABASE_APPLICATION_NAME),
+  PRISMA_QUERY_LOG_EVENTS: Joi.boolean()
+    .truthy('1')
+    .truthy('true')
+    .truthy('yes')
+    .truthy('on')
+    .falsy('0')
+    .falsy('false')
+    .falsy('no')
+    .falsy('off')
+    .default(DEFAULT_PRISMA_QUERY_LOG_EVENTS),
   PORT: Joi.number().integer().min(1).default(DEFAULT_PORT),
   JWT_SECRET: Joi.string()
     .trim()
