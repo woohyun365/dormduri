@@ -1,5 +1,4 @@
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
-import type { SeasonProfileDraftRequest } from '@repo/shared/season-contract';
 import { AuthService } from '../../src/auth/auth.service.js';
 import type { AuthenticatedUserContext } from '../../src/auth/auth-session.service.js';
 import { normalizeEmail } from '../../src/auth/auth.utils.js';
@@ -12,7 +11,11 @@ import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from './support/integration-db.js';
-import { DEFAULT_LIFESTYLE, seedBaseSeasonFixtures } from './support/integration-fixtures.js';
+import {
+  buildCompleteSeasonProfileDraft,
+  buildIncompleteSeasonProfileDraft,
+  seedBaseSeasonFixtures,
+} from './support/integration-fixtures.js';
 import { withPrismaQueryTraceOnFailure } from './support/integration-query-trace.js';
 
 describe('Season registration split-flow integration', () => {
@@ -85,7 +88,7 @@ describe('Season registration split-flow integration', () => {
 
       const profileDraft = await seasonParticipantsService.createOrUpdateSeasonProfileDraft(
         userId,
-        completeDraft('최종 등록 전 시즌 프로필'),
+        buildCompleteSeasonProfileDraft('최종 등록 전 시즌 프로필'),
       );
       expect(profileDraft).toMatchObject({
         state: 'COMPLETE',
@@ -203,7 +206,7 @@ describe('Season registration split-flow integration', () => {
 
       const profileDraft = await seasonParticipantsService.createOrUpdateSeasonProfileDraft(
         userId,
-        completeDraft('건물 선택 후 작성한 시즌 프로필'),
+        buildCompleteSeasonProfileDraft('건물 선택 후 작성한 시즌 프로필'),
       );
       expect(profileDraft).toMatchObject({
         state: 'COMPLETE',
@@ -243,7 +246,7 @@ describe('Season registration split-flow integration', () => {
 
       const profileDraft = await seasonParticipantsService.createOrUpdateSeasonProfileDraft(
         userId,
-        incompleteDraft('미완성 시즌 프로필'),
+        buildIncompleteSeasonProfileDraft('미완성 시즌 프로필'),
       );
       expect(profileDraft.completion.registrationUnavailableReasons).toContain(
         'PROFILE_INCOMPLETE',
@@ -329,20 +332,3 @@ describe('Season registration split-flow integration', () => {
     });
   }
 });
-
-function completeDraft(intro: string): SeasonProfileDraftRequest {
-  return {
-    lifestyle: DEFAULT_LIFESTYLE,
-    intro,
-  };
-}
-
-function incompleteDraft(intro: string): SeasonProfileDraftRequest {
-  return {
-    ...completeDraft(intro),
-    lifestyle: {
-      ...DEFAULT_LIFESTYLE,
-      drinkingTolerance: null,
-    },
-  };
-}

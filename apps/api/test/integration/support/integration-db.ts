@@ -8,6 +8,14 @@ import { PrismaClient } from '../../../src/generated/prisma/client.js';
 const DEFAULT_DATABASE_URL =
   'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
 
+/**
+ * Integration specs run against a disposable PostgreSQL schema created from the
+ * current DATABASE_URL and apply Prisma migrations into that schema. If local
+ * execution fails with a PostgreSQL credential error such as P1000, treat it as
+ * an environment blocker and recreate/fix the local Postgres volume or
+ * DATABASE_URL credentials before rerunning; the helper intentionally does not
+ * mask that failure.
+ */
 const SUPPORT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const API_DIR = path.resolve(SUPPORT_DIR, '../../..');
 

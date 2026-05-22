@@ -1,3 +1,4 @@
+import type { SeasonProfileDraftRequest } from '@repo/shared/season-contract';
 import type { PrismaService } from '../../../src/common/prisma/prisma.service.js';
 import {
   toCompleteLifestyleColumnData,
@@ -29,6 +30,27 @@ export const DEFAULT_LIFESTYLE = {
   cleanExpectation: 'STRICT',
   drinkingTolerance: 'LOW_ONLY',
 } as const;
+
+export function buildCompleteSeasonProfileDraft(
+  intro = '완성된 시즌 프로필',
+): SeasonProfileDraftRequest {
+  return {
+    lifestyle: DEFAULT_LIFESTYLE,
+    intro,
+  };
+}
+
+export function buildIncompleteSeasonProfileDraft(
+  intro = '미완성 시즌 프로필',
+): SeasonProfileDraftRequest {
+  return {
+    ...buildCompleteSeasonProfileDraft(intro),
+    lifestyle: {
+      ...DEFAULT_LIFESTYLE,
+      drinkingTolerance: null,
+    },
+  };
+}
 
 export async function seedBaseSeasonFixtures(prisma: PrismaService) {
   const databaseNow = await prisma.getDatabaseNow();
@@ -73,6 +95,80 @@ export async function seedBaseSeasonFixtures(prisma: PrismaService) {
       dormitoryId: 'dasan',
       isOperated: true,
       roomSelectionDate: new Date(`${subtractDays(today, -30)}T00:00:00.000Z`),
+    },
+  });
+}
+
+export async function seedOperatedDormitoryFixture(
+  prisma: PrismaService,
+  input: {
+    id: string;
+    nameKo: string;
+    genderPolicy?: 'M' | 'F' | 'BOTH';
+    roomSelectionDate?: Date;
+    sortOrder?: number;
+  },
+) {
+  const databaseNow = await prisma.getDatabaseNow();
+  const today = formatKstDate(databaseNow);
+
+  await prisma.dormitory.create({
+    data: {
+      id: input.id,
+      campusCode: 'CHUNCHEON',
+      nameKo: input.nameKo,
+      roomType: 2,
+      genderPolicy: input.genderPolicy ?? 'M',
+      sortOrder: input.sortOrder ?? 2,
+    },
+  });
+
+  await prisma.seasonDormitoryOperation.create({
+    data: {
+      seasonId: 'season-integration',
+      dormitoryId: input.id,
+      isOperated: true,
+      roomSelectionDate:
+        input.roomSelectionDate ?? new Date(`${subtractDays(today, -30)}T00:00:00.000Z`),
+    },
+  });
+}
+
+export async function disableSeasonDormitoryOperationFixture(
+  prisma: PrismaService,
+  input: {
+    seasonId?: string;
+    dormitoryId?: string;
+  } = {},
+) {
+  await prisma.seasonDormitoryOperation.update({
+    where: {
+      seasonId_dormitoryId: {
+        seasonId: input.seasonId ?? 'season-integration',
+        dormitoryId: input.dormitoryId ?? 'dasan',
+      },
+    },
+    data: { isOperated: false },
+  });
+}
+
+export async function moveSeasonDormitorySelectionCutoffToPastFixture(
+  prisma: PrismaService,
+  input: {
+    seasonId?: string;
+    dormitoryId?: string;
+  } = {},
+) {
+  const databaseNow = await prisma.getDatabaseNow();
+  await prisma.seasonDormitoryOperation.update({
+    where: {
+      seasonId_dormitoryId: {
+        seasonId: input.seasonId ?? 'season-integration',
+        dormitoryId: input.dormitoryId ?? 'dasan',
+      },
+    },
+    data: {
+      roomSelectionDate: new Date(databaseNow.getTime() - 24 * 60 * 60 * 1_000),
     },
   });
 }
