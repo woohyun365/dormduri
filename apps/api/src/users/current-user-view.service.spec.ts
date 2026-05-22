@@ -266,4 +266,37 @@ describe('CurrentUserViewService season composition boundary', () => {
       },
     ]);
   });
+
+  it('current-user display identity는 season profile nickname snapshot과 섞지 않는다', async () => {
+    const { service, currentSeasonParticipationViewOwner } = createServiceTestKit();
+    currentSeasonParticipationViewOwner.buildCurrentUserSeasonParticipationSegment.mockResolvedValueOnce(
+      makeSeasonSegment({
+        participant: {
+          id: 'participant-1',
+          profile: {
+            nicknameSnapshot: '시즌스냅샷',
+            nicknameNormalizedSnapshot: '시즌스냅샷',
+          },
+        },
+      }),
+    );
+
+    const result = await service.buildCurrentUserResponse(
+      {
+        ...makeUser(),
+        displayIdentity: {
+          ...makeUser().displayIdentity,
+          nickname: '계정닉네임',
+          nicknameNormalized: '계정닉네임',
+        },
+      },
+      NOW,
+    );
+
+    expect(result.user.nickname).toBe('계정닉네임');
+    expect(result.displayIdentity).toMatchObject({
+      nickname: '계정닉네임',
+      nicknameSource: 'USER_DISPLAY_IDENTITY',
+    });
+  });
 });

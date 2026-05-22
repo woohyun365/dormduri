@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  SERVICE_INTRO_NOTICE_KEY,
-  type CurrentUserResponse,
-  type DismissedNoticeState,
-} from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
@@ -85,48 +81,16 @@ export class CurrentUserViewService {
       now,
     );
 
+    const identity = buildIdentitySegment(user);
+
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        nickname: user.displayIdentity.nickname,
-        gender: user.gender,
-        campus: user.campus,
-      },
-      displayIdentity: {
-        userId: user.displayIdentity.userId,
-        nickname: user.displayIdentity.nickname,
-        nicknameSource: 'USER_DISPLAY_IDENTITY',
-        nicknameChangedAt: toNullableIsoDateTime(user.displayIdentity.nicknameChangedAt),
-      },
+      ...identity,
       seasonProfile: seasonSegment.seasonProfile,
       selection: seasonSegment.selection,
-      match: {
-        hasActiveMatch: activeMatch !== null,
-        activeMatch,
-      },
-      capabilities: {
-        canBrowseProfiles:
-          serviceState.campusOperated &&
-          (serviceState.seasonState === 'SEASON_OPEN' ||
-            serviceState.seasonState === 'SEASON_MATCHING' ||
-            serviceState.seasonState === 'SEASON_POST_MATCH'),
-        canCreateOrUpdateSeasonProfileDraft:
-          seasonSegment.capabilities.canCreateOrUpdateSeasonProfileDraft,
-        canSelectDormitory: seasonSegment.capabilities.canSelectDormitory,
-        canFinalizeSeasonRegistration: seasonSegment.capabilities.canFinalizeSeasonRegistration,
-        canEditDisplayIdentity,
-        canBookmark: false,
-        canRequestMatch: false,
-        canStartChat: false,
-      },
-      onboarding: {
-        dismissedNotices: buildOnboardingDismissedNotices(user.dismissedNotices ?? []),
-      },
-      serviceState: {
-        campusOperated: serviceState.campusOperated,
-        seasonState: serviceState.seasonState,
-      },
+      match: buildMatchSegment(activeMatch),
+      capabilities: buildCapabilitySegment(serviceState, seasonSegment, canEditDisplayIdentity),
+      onboarding: buildOnboardingSegment(user.dismissedNotices ?? []),
+      serviceState: buildServiceStateSegment(serviceState),
     };
   }
 
@@ -144,20 +108,91 @@ export class CurrentUserViewService {
   }
 }
 
-function buildOnboardingDismissedNotices(
+function buildIdentitySegment(
+  user: CurrentUserResponseUserRecord & { displayIdentity: UserDisplayIdentityRecord },
+): Pick<CurrentUserResponse, 'user' | 'displayIdentity'> {
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      nickname: user.displayIdentity.nickname,
+      gender: user.gender,
+      campus: user.campus,
+    },
+    displayIdentity: {
+      userId: user.displayIdentity.userId,
+      nickname: user.displayIdentity.nickname,
+      nicknameSource: 'USER_DISPLAY_IDENTITY',
+      nicknameChangedAt: toNullableIsoDateTime(user.displayIdentity.nicknameChangedAt),
+    },
+  };
+}
+
+function buildMatchSegment(
+  activeMatch: CurrentUserResponse['match']['activeMatch'],
+): CurrentUserResponse['match'] {
+  return {
+    hasActiveMatch: activeMatch !== null,
+    activeMatch,
+  };
+}
+
+function buildCapabilitySegment(
+  serviceState: {
+    campusOperated: boolean;
+    seasonState: CurrentUserResponse['serviceState']['seasonState'];
+  },
+  seasonSegment: Pick<CurrentUserResponse, 'seasonProfile'> & {
+    capabilities: Pick<
+      CurrentUserResponse['capabilities'],
+      'canCreateOrUpdateSeasonProfileDraft' | 'canSelectDormitory' | 'canFinalizeSeasonRegistration'
+    >;
+  },
+  canEditDisplayIdentity: boolean,
+): CurrentUserResponse['capabilities'] {
+  return {
+    canBrowseProfiles:
+      serviceState.campusOperated &&
+      (serviceState.seasonState === 'SEASON_OPEN' ||
+        serviceState.seasonState === 'SEASON_MATCHING' ||
+        serviceState.seasonState === 'SEASON_POST_MATCH'),
+    canCreateOrUpdateSeasonProfileDraft:
+      seasonSegment.capabilities.canCreateOrUpdateSeasonProfileDraft,
+    canSelectDormitory: seasonSegment.capabilities.canSelectDormitory,
+    canFinalizeSeasonRegistration: seasonSegment.capabilities.canFinalizeSeasonRegistration,
+    canEditDisplayIdentity,
+    canBookmark: false,
+    canRequestMatch: false,
+    canStartChat: false,
+  };
+}
+
+function buildOnboardingSegment(
   dismissedNotices: UserDismissedNoticeRecord[],
-): DismissedNoticeState[] {
+): CurrentUserResponse['onboarding'] {
   const serviceIntroNotice = dismissedNotices.find(
     (notice) => notice.noticeKey === SERVICE_INTRO_NOTICE_KEY,
   );
 
-  return [
-    {
-      noticeKey: SERVICE_INTRO_NOTICE_KEY,
-      dismissed: Boolean(serviceIntroNotice),
-      dismissedAt: toNullableIsoDateTime(serviceIntroNotice?.dismissedAt ?? null),
-    },
-  ];
+  return {
+    dismissedNotices: [
+      {
+        noticeKey: SERVICE_INTRO_NOTICE_KEY,
+        dismissed: Boolean(serviceIntroNotice),
+        dismissedAt: toNullableIsoDateTime(serviceIntroNotice?.dismissedAt ?? null),
+      },
+    ],
+  };
+}
+
+function buildServiceStateSegment(serviceState: {
+  campusOperated: boolean;
+  seasonState: CurrentUserResponse['serviceState']['seasonState'];
+}): CurrentUserResponse['serviceState'] {
+  return {
+    campusOperated: serviceState.campusOperated,
+    seasonState: serviceState.seasonState,
+  };
 }
 
 function toNullableIsoDateTime(value: Date | null): string | null {
