@@ -111,6 +111,85 @@ describe('current-season-participation-view.owner', () => {
     expect(result.capabilities.canFinalizeSeasonRegistration).toBe(true);
   });
 
+  it('SELECTED dormitory가 stale/invalid이면 current-user는 등록 완료 capability를 열지 않는다', async () => {
+    prisma.seasonParticipant.findUnique.mockResolvedValue(
+      participant({
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        profile: profile(),
+      }),
+    );
+    seasonParticipantsService.hasSelectableDormitoriesForCurrentParticipant.mockResolvedValue(
+      false,
+    );
+    seasonParticipantsService.hasValidDormitorySelectionForCurrentParticipant.mockResolvedValue(
+      false,
+    );
+
+    const result = await owner.buildCurrentUserSeasonParticipationSegment({
+      user: {
+        id: 'user-1',
+        emailVerifiedAt: now,
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        deletedAt: null,
+      },
+      campusOperated: true,
+      seasonState: 'SEASON_MATCHING',
+      seasonContext: seasonContext({ state: 'SEASON_MATCHING' }) as never,
+      now,
+    });
+
+    expect(result.selection).toMatchObject({ state: 'SELECTED', dormitoryId: 'dasan' });
+    expect(result.seasonProfile).toMatchObject({
+      registered: false,
+      profileState: 'COMPLETE',
+      canSelectDormitory: false,
+      canFinalizeRegistration: false,
+    });
+    expect(result.seasonProfile.completion.registrationUnavailableReasons).toEqual(
+      expect.arrayContaining(['DORMITORY_SELECTION_REQUIRED', 'NO_SELECTABLE_DORMITORY']),
+    );
+    expect(result.capabilities.canFinalizeSeasonRegistration).toBe(false);
+  });
+
+  it('account 또는 participant inactive 상태면 current-user registration capability를 닫는다', async () => {
+    prisma.seasonParticipant.findUnique.mockResolvedValue(
+      participant({
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        hiddenByAdminAt: now,
+        profile: profile(),
+      }),
+    );
+    seasonParticipantsService.hasValidDormitorySelectionForCurrentParticipant.mockResolvedValue(
+      true,
+    );
+
+    const result = await owner.buildCurrentUserSeasonParticipationSegment({
+      user: {
+        id: 'user-1',
+        emailVerifiedAt: now,
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        deletedAt: now,
+      },
+      campusOperated: true,
+      seasonState: 'SEASON_OPEN',
+      seasonContext: seasonContext() as never,
+      now,
+    });
+
+    expect(result.seasonProfile.completion.registrationUnavailableReasons).toContain(
+      'ACCOUNT_OR_PARTICIPANT_INACTIVE',
+    );
+    expect(result.capabilities).toMatchObject({
+      canCreateOrUpdateSeasonProfileDraft: false,
+      canSelectDormitory: false,
+      canFinalizeSeasonRegistration: false,
+    });
+  });
+
   it('REGISTERED+ASSIGNED는 finalized state이고 draft/selection/finalize capability를 닫는다', async () => {
     prisma.seasonParticipant.findUnique.mockResolvedValue(
       participant({
