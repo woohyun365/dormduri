@@ -56,11 +56,6 @@ export class DormitoriesService {
       })),
     };
   }
-
-  async getSelectableDormitories(campus: Campus, gender?: Gender) {
-    return this.dormitorySelectableQueryService.getSelectableDormitories(campus, gender);
-  }
-
   async listSelectableDormitoriesForSeasonParticipant(
     input: SeasonParticipantDormitorySelectionInput,
   ) {

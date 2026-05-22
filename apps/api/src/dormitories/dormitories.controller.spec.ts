@@ -27,7 +27,6 @@ function getBadRequestResponse(error: unknown) {
 describe('DormitoriesController', () => {
   const dormitoriesService = {
     getDormitories: jest.fn(),
-    getSelectableDormitories: jest.fn(),
     getDormitoryById: jest.fn(),
     getDormitoryGuide: jest.fn(),
   };

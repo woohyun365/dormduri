@@ -11,7 +11,8 @@ describe('DormitoriesService', () => {
     },
   };
   const dormitorySelectableQueryService = {
-    getSelectableDormitories: jest.fn(),
+    listSelectableDormitoriesForSeasonParticipant: jest.fn(),
+    validateSelectableDormitoryForSeasonParticipant: jest.fn(),
   };
 
   const service = new DormitoriesService(prisma as never, dormitorySelectableQueryService as never);
@@ -57,31 +58,6 @@ describe('DormitoriesService', () => {
       { id: 'saerom', name: '새롬관', roomType: 2, genderPolicy: 'BOTH', isOperated: true },
     ]);
   });
-
-  it('selectable 목록 조회는 SeasonDormitoryOperation 중심 query service에 위임한다', async () => {
-    dormitorySelectableQueryService.getSelectableDormitories.mockResolvedValue({
-      campus: {
-        code: 'CHUNCHEON',
-        nameKo: '춘천캠퍼스',
-        isOperated: true,
-      },
-      items: [{ id: 'dasan', name: '다산관', roomType: 2, genderPolicy: 'M', isOperated: true }],
-    });
-
-    await expect(service.getSelectableDormitories('CHUNCHEON', 'M')).resolves.toEqual({
-      campus: {
-        code: 'CHUNCHEON',
-        nameKo: '춘천캠퍼스',
-        isOperated: true,
-      },
-      items: [{ id: 'dasan', name: '다산관', roomType: 2, genderPolicy: 'M', isOperated: true }],
-    });
-    expect(dormitorySelectableQueryService.getSelectableDormitories).toHaveBeenCalledWith(
-      'CHUNCHEON',
-      'M',
-    );
-  });
-
   it('건물 guide 응답에 공통 규칙과 연락처를 포함한다', async () => {
     prisma.dormitory.findUnique.mockResolvedValue({
       id: 'dasan',
