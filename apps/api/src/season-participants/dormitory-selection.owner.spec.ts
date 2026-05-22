@@ -132,7 +132,7 @@ describe('dormitory-selection.owner', () => {
         genderSnapshot: 'M',
         dormitoryId: 'dasan',
         now,
-        tx,
+        queryClient: tx,
       }),
     );
   });

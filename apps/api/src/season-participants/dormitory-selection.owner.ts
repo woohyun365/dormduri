@@ -79,8 +79,9 @@ export function createDormitorySelectionOwner(
 
     return deps.prisma.runSerializableTransaction(async (tx) => {
       const txUser = await getVerifiedUserForSeasonAction(deps, userId, tx);
-      const participant = await containerOwner.ensureCurrentSeasonParticipant(
+      const participant = await containerOwner.ensureSeasonParticipantForSeason(
         txUser,
+        seasonContext.season.id,
         referenceNow,
         tx,
       );
@@ -179,7 +180,7 @@ export function createDormitorySelectionOwner(
       campusCodeSnapshot: participant.campusCodeSnapshot,
       genderSnapshot: participant.genderSnapshot,
       now,
-      tx,
+      queryClient: tx,
     });
   }
 
@@ -211,7 +212,7 @@ export function createDormitorySelectionOwner(
         genderSnapshot: participant.genderSnapshot,
         dormitoryId,
         now,
-        tx,
+        queryClient: tx,
       });
 
     if (!validation.valid) {

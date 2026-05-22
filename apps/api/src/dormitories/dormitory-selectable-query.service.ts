@@ -30,6 +30,11 @@ type SeasonDormitoryOperationRecord = Prisma.SeasonDormitoryOperationGetPayload<
   select: typeof seasonDormitoryOperationSelect;
 }>;
 
+export type DormitorySelectionQueryClient = Pick<
+  Prisma.TransactionClient,
+  'seasonDormitoryOperation'
+>;
+
 export type DormitorySelectionValidationReason =
   | 'DORMITORY_NOT_FOUND'
   | 'DORMITORY_NOT_OPERATED'
@@ -46,7 +51,7 @@ export interface SeasonParticipantDormitorySelectionInput {
   campusCodeSnapshot: Campus;
   genderSnapshot: Gender;
   now: Date;
-  tx?: Prisma.TransactionClient;
+  queryClient?: DormitorySelectionQueryClient;
 }
 
 export interface SeasonParticipantDormitoryValidationInput extends SeasonParticipantDormitorySelectionInput {
@@ -152,7 +157,7 @@ export class DormitorySelectableQueryService {
   async validateSelectableDormitoryForSeasonParticipant(
     input: SeasonParticipantDormitoryValidationInput,
   ): Promise<DormitorySelectionValidationResult> {
-    const client = input.tx ?? this.prisma;
+    const client = input.queryClient ?? this.prisma;
     const operation = await client.seasonDormitoryOperation.findUnique({
       where: {
         seasonId_dormitoryId: {
@@ -188,7 +193,7 @@ export class DormitorySelectableQueryService {
   private async listSelectableOperationsForSnapshot(
     input: SeasonParticipantDormitorySelectionInput,
   ): Promise<SeasonDormitoryOperationRecord[]> {
-    const client = input.tx ?? this.prisma;
+    const client = input.queryClient ?? this.prisma;
     return client.seasonDormitoryOperation.findMany({
       where: buildSelectableDormitoryWhere(input),
       select: seasonDormitoryOperationSelect,

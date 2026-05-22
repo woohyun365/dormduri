@@ -253,7 +253,52 @@ describe('DormitorySelectableQueryService', () => {
     );
   });
 
-  it('season participant용 validation은 tx client와 compound key lookup을 사용한다', async () => {
+  it('season participant용 selectable 조회는 전달된 query client를 사용한다', async () => {
+    const queryClient = {
+      seasonDormitoryOperation: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            seasonId: 'season-1',
+            dormitoryId: 'dasan',
+            isOperated: true,
+            roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+            dormitory: {
+              id: 'dasan',
+              campusCode: 'CHUNCHEON',
+              nameKo: '다산관',
+              roomType: 2,
+              genderPolicy: 'M',
+              sortOrder: 2,
+            },
+          },
+        ]),
+      },
+    };
+
+    await expect(
+      service.listSelectableDormitoriesForSeasonParticipant({
+        seasonContext: {
+          season: { id: 'season-1' },
+          state: 'SEASON_MATCHING',
+        } as never,
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        now: new Date('2026-02-10T03:00:00.000Z'),
+        queryClient: queryClient as never,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: 'dasan',
+        campusCode: 'CHUNCHEON',
+        roomSelectionDate: '2026-02-11',
+      }),
+    ]);
+
+    expect(queryClient.seasonDormitoryOperation.findMany).toHaveBeenCalled();
+    expect(prisma.seasonDormitoryOperation.findMany).not.toHaveBeenCalled();
+  });
+
+  it('season participant용 validation은 query client와 compound key lookup을 사용한다', async () => {
     const tx = {
       seasonDormitoryOperation: {
         findUnique: jest.fn().mockResolvedValue({
@@ -283,7 +328,7 @@ describe('DormitorySelectableQueryService', () => {
         genderSnapshot: 'M',
         dormitoryId: 'dasan',
         now: new Date('2026-02-10T03:00:00.000Z'),
-        tx: tx as never,
+        queryClient: tx as never,
       }),
     ).resolves.toEqual({
       valid: true,

@@ -42,15 +42,28 @@ export function createSeasonParticipantContainerOwner(deps: SeasonParticipantOwn
       return null;
     }
 
+    return ensureSeasonParticipantForSeason(user, seasonContext.season.id, now, tx);
+  }
+
+  async function ensureSeasonParticipantForSeason(
+    user: SeasonParticipantEnsureInput,
+    seasonId: string,
+    now: Date,
+    tx?: Prisma.TransactionClient,
+  ): Promise<CurrentSeasonParticipantRecord | null> {
+    if (!user.emailVerifiedAt) {
+      return null;
+    }
+
     const client = tx ?? deps.prisma;
     const participant = await client.seasonParticipant.upsert({
       where: {
         seasonId_userId: {
-          seasonId: seasonContext.season.id,
+          seasonId,
           userId: user.id,
         },
       },
-      create: buildSeasonParticipantCreateData(user, seasonContext.season.id, now),
+      create: buildSeasonParticipantCreateData(user, seasonId, now),
       update: {},
       select: currentSeasonParticipantSelect,
     });
@@ -78,6 +91,7 @@ export function createSeasonParticipantContainerOwner(deps: SeasonParticipantOwn
 
   return {
     ensureCurrentSeasonParticipant,
+    ensureSeasonParticipantForSeason,
     findCurrentSeasonParticipant,
   };
 }

@@ -57,8 +57,9 @@ export function createSeasonProfileDraftOwner(
 
     const participantId = await deps.prisma.runSerializableTransaction(async (tx) => {
       const txUser = await getVerifiedUserForSeasonAction(deps, userId, tx);
-      const participant = await containerOwner.ensureCurrentSeasonParticipant(
+      const participant = await containerOwner.ensureSeasonParticipantForSeason(
         txUser,
+        seasonContext.season.id,
         referenceNow,
         tx,
       );

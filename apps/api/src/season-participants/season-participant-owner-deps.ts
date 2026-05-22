@@ -3,6 +3,13 @@ import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { DormitoriesService } from '../dormitories/dormitories.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
+import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import {
+  formatKstDate,
+  hasActiveSeasonOverride,
+  normalizeSeasonRuntimeRow,
+  toCurrentSeasonResponse,
+} from '../seasons/season.utils.js';
 import { seasonParticipantsErrors } from './season-participants.errors.js';
 
 export interface SeasonParticipantOwnerDeps {
@@ -12,6 +19,27 @@ export interface SeasonParticipantOwnerDeps {
 }
 
 export type DbClient = Prisma.TransactionClient | PrismaService;
+
+const seasonContextSelect = {
+  id: true,
+  campusCode: true,
+  name: true,
+  preparationStartDate: true,
+  matchingStartDate: true,
+  seasonEndDate: true,
+  overrideState: true,
+  overrideReason: true,
+  overrideStartedAt: true,
+  overrideEndsAt: true,
+  dormitoryOperations: {
+    select: {
+      dormitoryId: true,
+      isOperated: true,
+      roomSelectionDate: true,
+    },
+    orderBy: [{ roomSelectionDate: 'asc' }, { dormitoryId: 'asc' }],
+  },
+} satisfies Prisma.SeasonSelect;
 
 export type VerifiedSeasonActionUser = {
   id: string;
@@ -62,8 +90,11 @@ export async function assertReadableSeasonContext(
   deps: SeasonParticipantOwnerDeps,
   campus: Campus,
   now: Date,
+  client?: DbClient,
 ) {
-  const seasonContext = await deps.seasonsService.getCurrentSeasonContext(campus, now);
+  const seasonContext = client
+    ? await getCurrentSeasonContextFromClient(client, campus, now)
+    : await deps.seasonsService.getCurrentSeasonContext(campus, now);
   if (!seasonContext) {
     throw seasonParticipantsErrors.seasonProfileDraftNotAllowed();
   }
@@ -75,8 +106,11 @@ export async function assertWritableSeasonContext(
   deps: SeasonParticipantOwnerDeps,
   campus: Campus,
   now: Date,
+  client?: DbClient,
 ) {
-  const seasonContext = await deps.seasonsService.getCurrentSeasonContext(campus, now);
+  const seasonContext = client
+    ? await getCurrentSeasonContextFromClient(client, campus, now)
+    : await deps.seasonsService.getCurrentSeasonContext(campus, now);
   if (
     !seasonContext ||
     (seasonContext.state !== 'SEASON_OPEN' && seasonContext.state !== 'SEASON_MATCHING')
@@ -91,8 +125,11 @@ export async function assertRegistrationSeasonContext(
   deps: SeasonParticipantOwnerDeps,
   campus: Campus,
   now: Date,
+  client?: DbClient,
 ) {
-  const seasonContext = await deps.seasonsService.getCurrentSeasonContext(campus, now);
+  const seasonContext = client
+    ? await getCurrentSeasonContextFromClient(client, campus, now)
+    : await deps.seasonsService.getCurrentSeasonContext(campus, now);
   if (
     !seasonContext ||
     (seasonContext.state !== 'SEASON_OPEN' && seasonContext.state !== 'SEASON_MATCHING')
@@ -101,4 +138,39 @@ export async function assertRegistrationSeasonContext(
   }
 
   return seasonContext;
+}
+
+async function getCurrentSeasonContextFromClient(
+  client: DbClient,
+  campusCode: Campus,
+  now: Date,
+): Promise<CurrentSeasonContext | null> {
+  const campusMeta = await client.campusMaster.findUnique({
+    where: { code: campusCode },
+    select: { isOperated: true },
+  });
+
+  if (!campusMeta?.isOperated) {
+    return null;
+  }
+
+  const seasons = await client.season.findMany({
+    where: { campusCode },
+    orderBy: [{ seasonEndDate: 'asc' }, { matchingStartDate: 'asc' }, { createdAt: 'asc' }],
+    select: seasonContextSelect,
+  });
+
+  if (seasons.length === 0) {
+    return null;
+  }
+
+  const normalizedSeasons = seasons.map(normalizeSeasonRuntimeRow);
+  const today = formatKstDate(now);
+  const currentSeasons = normalizedSeasons.filter(
+    (season) => season.preparationStartDate <= today && season.seasonEndDate >= today,
+  );
+  const overrideSeason = currentSeasons.find((season) => hasActiveSeasonOverride(season, now));
+  const selectedSeason = overrideSeason ?? currentSeasons[0] ?? null;
+
+  return selectedSeason ? toCurrentSeasonResponse(selectedSeason, now) : null;
 }

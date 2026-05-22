@@ -32,12 +32,19 @@ export function createSeasonRegistrationFinalizeOwner(
   ): Promise<SeasonRegistrationFinalizeResponse> {
     const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
     const user = await getVerifiedUserForSeasonAction(deps, userId);
-    const seasonContext = await assertRegistrationSeasonContext(deps, user.campus, referenceNow);
+    await assertRegistrationSeasonContext(deps, user.campus, referenceNow);
 
     return deps.prisma.runSerializableTransaction(async (tx) => {
       const txUser = await getVerifiedUserForSeasonAction(deps, userId, tx);
-      let participant = await containerOwner.ensureCurrentSeasonParticipant(
+      const txSeasonContext = await assertRegistrationSeasonContext(
+        deps,
+        txUser.campus,
+        referenceNow,
+        tx,
+      );
+      let participant = await containerOwner.ensureSeasonParticipantForSeason(
         txUser,
+        txSeasonContext.season.id,
         referenceNow,
         tx,
       );
@@ -51,7 +58,7 @@ export function createSeasonRegistrationFinalizeOwner(
       const selectedDormitory = await dormitorySelectionOwner.validateDormitorySelection(
         tx,
         participant,
-        seasonContext,
+        txSeasonContext,
         participant.dormitoryId!,
         referenceNow,
       );

@@ -65,6 +65,30 @@ export function seasonContext(overrides: Record<string, unknown> = {}) {
   };
 }
 
+export function seasonRuntimeRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'season-1',
+    campusCode: 'CHUNCHEON',
+    name: '2026-1',
+    preparationStartDate: new Date('2026-01-01T00:00:00.000Z'),
+    matchingStartDate: new Date('2026-02-01T00:00:00.000Z'),
+    seasonEndDate: new Date('2026-03-01T00:00:00.000Z'),
+    overrideState: null,
+    overrideReason: null,
+    overrideStartedAt: null,
+    overrideEndsAt: null,
+    createdAt: now,
+    dormitoryOperations: [
+      {
+        dormitoryId: 'dasan',
+        isOperated: true,
+        roomSelectionDate: new Date('2026-02-20T00:00:00.000Z'),
+      },
+    ],
+    ...overrides,
+  };
+}
+
 export function user(overrides: Record<string, unknown> = {}) {
   return {
     id: 'user-1',
@@ -160,7 +184,11 @@ export function createSeasonParticipantsServiceTestKit() {
   const txSeasonParticipantProfileUpsert = jest.fn();
   const txSeasonParticipantProfileUpdate = jest.fn();
   const txSeasonParticipantProfileHistoryCreate = jest.fn();
+  const txCampusMasterFindUnique = jest.fn();
+  const txSeasonFindMany = jest.fn();
   const tx = {
+    campusMaster: { findUnique: txCampusMasterFindUnique },
+    season: { findMany: txSeasonFindMany },
     user: { findUnique: txUserFindUnique },
     seasonParticipant: {
       upsert: txSeasonParticipantUpsert,
@@ -205,6 +233,8 @@ export function createSeasonParticipantsServiceTestKit() {
   );
   prisma.user.findUnique.mockResolvedValue(user());
   txUserFindUnique.mockResolvedValue(user());
+  txCampusMasterFindUnique.mockResolvedValue({ isOperated: true });
+  txSeasonFindMany.mockResolvedValue([seasonRuntimeRow()]);
   seasonsService.getCurrentSeasonContext.mockResolvedValue(seasonContext());
   prisma.seasonParticipant.upsert.mockResolvedValue(participant());
   txSeasonParticipantUpsert.mockResolvedValue(participant());
@@ -255,6 +285,8 @@ export function createSeasonParticipantsServiceTestKit() {
     seasonsService,
     dormitoriesService,
     tx,
+    txCampusMasterFindUnique,
+    txSeasonFindMany,
     txUserFindUnique,
     txSeasonParticipantUpsert,
     txSeasonParticipantUpdate,

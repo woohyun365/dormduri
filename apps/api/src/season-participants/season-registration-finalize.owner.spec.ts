@@ -5,6 +5,7 @@ import {
   objectContaining,
   participant,
   profile,
+  seasonRuntimeRow,
 } from './season-participants.owner.spec-fixtures.js';
 
 describe('season-registration-finalize.owner', () => {
@@ -144,12 +145,50 @@ describe('season-registration-finalize.owner', () => {
     });
     expect(dormitoriesService.validateSelectableDormitoryForSeasonParticipant).toHaveBeenCalledWith(
       expect.objectContaining({
-        seasonContext: objectContaining({ season: { id: 'season-1' } }),
+        seasonContext: objectContaining({
+          season: expect.objectContaining({ id: 'season-1' }),
+        }),
         campusCodeSnapshot: 'CHUNCHEON',
         genderSnapshot: 'M',
         dormitoryId: 'dasan',
         now,
-        tx,
+        queryClient: tx,
+      }),
+    );
+  });
+
+  it('finalize는 transaction 내부에서 season context를 재조회한 seasonId로 participant와 dormitory validation을 수행한다', async () => {
+    const { service, tx, txSeasonFindMany, txSeasonParticipantUpsert, dormitoriesService } =
+      createSeasonParticipantsServiceTestKit();
+    txSeasonFindMany.mockResolvedValueOnce([seasonRuntimeRow({ id: 'season-tx' })]);
+    txSeasonParticipantUpsert.mockResolvedValue(
+      participant({
+        seasonId: 'season-tx',
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    );
+
+    await service.finalizeSeasonRegistration('user-1', now);
+
+    expect(txSeasonParticipantUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          seasonId_userId: {
+            seasonId: 'season-tx',
+            userId: 'user-1',
+          },
+        },
+      }),
+    );
+    expect(dormitoriesService.validateSelectableDormitoryForSeasonParticipant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seasonContext: objectContaining({
+          season: objectContaining({ id: 'season-tx' }),
+        }),
+        queryClient: tx,
       }),
     );
   });
@@ -171,5 +210,86 @@ describe('season-registration-finalize.owner', () => {
       response: seasonParticipantsErrors.registrationNotAllowed().getResponse(),
     });
     expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+  });
+
+  it('tx 내부 user deletedAt 재조회에서 inactive account를 감지하면 finalize mutation을 수행하지 않는다', async () => {
+    const {
+      service,
+      txUserFindUnique,
+      txSeasonParticipantUpdate,
+      txSeasonParticipantProfileHistoryCreate,
+    } = createSeasonParticipantsServiceTestKit();
+    txUserFindUnique.mockResolvedValueOnce({
+      id: 'user-1',
+      campus: 'CHUNCHEON',
+      gender: 'M',
+      emailVerifiedAt: now,
+      deletedAt: now,
+      displayIdentity: {
+        userId: 'user-1',
+        nickname: '현재닉네임',
+        nicknameNormalized: '현재닉네임',
+      },
+    });
+
+    await expect(service.finalizeSeasonRegistration('user-1', now)).rejects.toMatchObject({
+      response: seasonParticipantsErrors.registrationNotAllowed().getResponse(),
+    });
+    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+    expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
+  });
+
+  it('participant inactive/hidden 상태면 finalize mutation과 history 생성을 수행하지 않는다', async () => {
+    for (const inactiveOverride of [{ deactivatedAt: now }, { hiddenByAdminAt: now }] as const) {
+      const {
+        service,
+        txSeasonParticipantUpsert,
+        txSeasonParticipantUpdate,
+        txSeasonParticipantProfileHistoryCreate,
+      } = createSeasonParticipantsServiceTestKit();
+      txSeasonParticipantUpsert.mockResolvedValue(
+        participant({
+          ...inactiveOverride,
+          dormitorySelectionState: 'SELECTED',
+          dormitoryId: 'dasan',
+          participantStatus: 'DRAFT',
+          profile: profile(),
+        }),
+      );
+
+      await expect(service.finalizeSeasonRegistration('user-1', now)).rejects.toMatchObject({
+        response: seasonParticipantsErrors.registrationNotAllowed().getResponse(),
+      });
+      expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+      expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
+    }
+  });
+
+  it('saved selection을 tx query client로 재검증하고 invalid이면 registration mutation을 수행하지 않는다', async () => {
+    const {
+      service,
+      txSeasonParticipantUpsert,
+      txSeasonParticipantUpdate,
+      txSeasonParticipantProfileHistoryCreate,
+      dormitoriesService,
+    } = createSeasonParticipantsServiceTestKit();
+    txSeasonParticipantUpsert.mockResolvedValue(
+      participant({
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    );
+    dormitoriesService.validateSelectableDormitoryForSeasonParticipant.mockResolvedValueOnce({
+      valid: false,
+      reason: 'DORMITORY_NOT_OPERATED',
+    });
+
+    await expect(service.finalizeSeasonRegistration('user-1', now)).rejects.toMatchObject({
+      response: seasonParticipantsErrors.dormitorySelectionInvalid().getResponse(),
+    });
+    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+    expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
   });
 });
