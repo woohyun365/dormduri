@@ -3,7 +3,7 @@ import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
-import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
+import { hasNicknameCooldown } from './nickname-policy.js';
 import { CurrentSeasonParticipationViewOwner } from '../season-participants/current-season-participation-view.owner.js';
 import {
   buildUserWithDisplayIdentitySelect,

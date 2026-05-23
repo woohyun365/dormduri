@@ -4,7 +4,7 @@ import { normalizeNickname, validateNicknameFormat } from '../auth/auth.utils.js
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { profilesErrors } from '../profiles/profiles.errors.js';
-import { hasNicknameCooldown } from '../profiles/nickname-policy.js';
+import { hasNicknameCooldown } from './nickname-policy.js';
 import {
   buildUserWithDisplayIdentitySelect,
   mapUserWithDisplayIdentityProjection,
