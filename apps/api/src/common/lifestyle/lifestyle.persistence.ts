@@ -202,7 +202,7 @@ export function toCompleteLifestyleColumnData(
   const raw = toLifestyleColumnData(lifestyle);
 
   if (Object.values(raw).some((value) => value === null)) {
-    throw new Error('[profile-lifestyle.persistence] complete lifestyle is required');
+    throw new Error('[lifestyle.persistence] complete lifestyle is required');
   }
 
   return raw as StoredCompleteLifestyleColumns;

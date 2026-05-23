@@ -14,7 +14,7 @@ import {
   toStoredWakeTime,
   type LifestyleColumns,
   toLifestyleFromColumns,
-} from '../profiles/profile-lifestyle.persistence.js';
+} from '../common/lifestyle/lifestyle.persistence.js';
 
 export interface MatchHistoryMaterializationResult {
   processedSeasons: number;

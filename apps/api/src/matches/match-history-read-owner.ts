@@ -2,7 +2,7 @@ import type { MatchHistoryResponse } from '@repo/shared/match-contract';
 import type { FullPublicProfile } from '@repo/shared/profile-contract';
 import { formatKstDate, subtractDays } from '../seasons/season.utils.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
-import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
+import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import { mapProfileViewRecordFromColumns, toPublicProfile } from '../profiles/profile.mapper.js';
 import {
   toMatchHistoryResponse,

@@ -3,7 +3,7 @@ import type {
   SeasonProfileDraftResponse,
 } from '@repo/shared/season-contract';
 import type { Prisma } from '../generated/prisma/client.js';
-import { toLifestyleColumnData } from '../profiles/profile-lifestyle.persistence.js';
+import { toLifestyleColumnData } from '../common/lifestyle/lifestyle.persistence.js';
 import {
   assertReadableSeasonContext,
   assertWritableSeasonContext,

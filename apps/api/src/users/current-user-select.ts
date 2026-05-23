@@ -1,5 +1,5 @@
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
-import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
+import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import {
   mapUserProfileRecordFromColumns,
   type UserProfileColumns,

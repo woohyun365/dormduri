@@ -1,5 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
-import { lifestyleColumnSelect } from './profile-lifestyle.persistence.js';
+import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 
 const userProfileHistorySourceSelect = {
   userId: true,

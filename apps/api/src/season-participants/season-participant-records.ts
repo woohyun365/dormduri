@@ -13,7 +13,7 @@ import type { ParticipantPolicyRecord } from './season-participant-policy.js';
 import {
   lifestyleColumnSelect,
   toLifestyleFromColumns,
-} from '../profiles/profile-lifestyle.persistence.js';
+} from '../common/lifestyle/lifestyle.persistence.js';
 
 export const currentSeasonParticipantProfileSelect = {
   participantId: true,

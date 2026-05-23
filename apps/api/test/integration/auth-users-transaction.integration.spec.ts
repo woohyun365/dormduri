@@ -11,7 +11,7 @@ import { createUserUpdateOwner } from '../../src/users/user-update-owner.js';
 import type { ModerationService } from '../../src/common/moderation/moderation.service.js';
 import { UsersService } from '../../src/users/users.service.js';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
-import { toCompleteLifestyleColumnData } from '../../src/profiles/profile-lifestyle.persistence.js';
+import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,

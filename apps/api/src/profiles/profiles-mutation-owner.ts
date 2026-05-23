@@ -34,7 +34,7 @@ import {
 import {
   toCompleteLifestyleColumnData,
   toLifestyleColumnData,
-} from './profile-lifestyle.persistence.js';
+} from '../common/lifestyle/lifestyle.persistence.js';
 import { profilesErrors } from './profiles.errors.js';
 import { getUserWithProfile } from './profiles-owner-support.js';
 

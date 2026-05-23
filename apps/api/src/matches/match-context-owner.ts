@@ -1,5 +1,5 @@
 import type { PrismaService } from '../common/prisma/prisma.service.js';
-import { lifestyleColumnSelect } from '../profiles/profile-lifestyle.persistence.js';
+import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import type {
   CurrentSeasonParticipantRecord,

@@ -21,7 +21,7 @@ import {
   mapUserWithParticipantProjection,
 } from '../users/current-user-select.js';
 import { toAdditionalProfile } from './profile.mapper.js';
-import { toStoredBedtime, toStoredWakeTime } from './profile-lifestyle.persistence.js';
+import { toStoredBedtime, toStoredWakeTime } from '../common/lifestyle/lifestyle.persistence.js';
 import { roommateSearchErrors } from './roommate-search.errors.js';
 import {
   createVisibleProfileOwner,

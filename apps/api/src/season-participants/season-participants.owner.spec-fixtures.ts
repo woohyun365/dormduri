@@ -1,6 +1,6 @@
 import type { SeasonProfileDraftRequest } from '@repo/shared/season-contract';
 import { SeasonParticipantsService } from './season-participants.service.js';
-import { toLifestyleColumnData } from '../profiles/profile-lifestyle.persistence.js';
+import { toLifestyleColumnData } from '../common/lifestyle/lifestyle.persistence.js';
 
 export const now = new Date('2026-02-10T03:00:00.000Z');
 

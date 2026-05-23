@@ -1,6 +1,6 @@
 import type { SeasonRegistrationFinalizeResponse } from '@repo/shared/season-contract';
 import type { Prisma } from '../generated/prisma/client.js';
-import { toCompleteLifestyleColumnData } from '../profiles/profile-lifestyle.persistence.js';
+import { toCompleteLifestyleColumnData } from '../common/lifestyle/lifestyle.persistence.js';
 import {
   assertRegistrationSeasonContext,
   getVerifiedUserForSeasonAction,

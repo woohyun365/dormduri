@@ -2,7 +2,7 @@ import { AuthService } from '../../src/auth/auth.service.js';
 import type { AuthenticatedUserContext } from '../../src/auth/auth-session.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { ProfilesService } from '../../src/profiles/profiles.service.js';
-import { toLifestyleColumnData } from '../../src/profiles/profile-lifestyle.persistence.js';
+import { toLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
 import { SeasonParticipantsService } from '../../src/season-participants/season-participants.service.js';
 import { UsersService } from '../../src/users/users.service.js';
 import { createIntegrationApp } from './support/integration-app.js';

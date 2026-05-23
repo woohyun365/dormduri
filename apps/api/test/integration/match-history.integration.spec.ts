@@ -4,7 +4,7 @@ import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import {
   toCompleteLifestyleColumnData,
   toLifestyleColumnData,
-} from '../../src/profiles/profile-lifestyle.persistence.js';
+} from '../../src/common/lifestyle/lifestyle.persistence.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,

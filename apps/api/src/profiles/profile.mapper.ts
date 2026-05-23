@@ -9,7 +9,10 @@ import {
   type PublicProfileActionCapabilities,
   type PublicLifestyle,
 } from '@repo/shared/profile-contract';
-import { type LifestyleColumns, toLifestyleFromColumns } from './profile-lifestyle.persistence.js';
+import {
+  type LifestyleColumns,
+  toLifestyleFromColumns,
+} from '../common/lifestyle/lifestyle.persistence.js';
 
 export interface UserProfileRecord {
   userId: string;

@@ -3,7 +3,7 @@ import type { PrismaService } from '../../../src/common/prisma/prisma.service.js
 import {
   toCompleteLifestyleColumnData,
   toLifestyleColumnData,
-} from '../../../src/profiles/profile-lifestyle.persistence.js';
+} from '../../../src/common/lifestyle/lifestyle.persistence.js';
 import { formatKstDate, subtractDays } from '../../../src/seasons/season.utils.js';
 
 export const DEFAULT_LIFESTYLE = {
