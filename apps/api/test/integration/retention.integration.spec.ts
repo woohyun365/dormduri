@@ -9,10 +9,6 @@ import {
   createRetainedIdentityOwner,
 } from '../../src/retention/retained-identity-owner.js';
 import { createConversationRetainedBodyCipher } from '../../src/retention/conversation-retained-body-owner.js';
-import {
-  appendSeasonParticipantProfileHistorySnapshot,
-  appendUserProfileHistorySnapshot,
-} from '../../src/profiles/profile-history-owner.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -95,10 +91,9 @@ describe('RetainedIdentity integration', () => {
       keyVersion: 'integration-v1',
     });
 
-    await expect(prisma.userProfileHistory.count({ where: { userId: 'user-a' } })).resolves.toBe(0);
     await expect(
       prisma.seasonParticipantProfileHistory.count({
-        where: { participantId: 'participant-a' },
+        where: { participantId: 'participant-a', source: 'RETENTION_SNAPSHOT' },
       }),
     ).resolves.toBe(0);
   });
@@ -303,21 +298,6 @@ describe('RetainedIdentity integration', () => {
       },
     });
 
-    await prisma.runSerializableTransaction(async (tx) => {
-      await appendUserProfileHistorySnapshot(
-        tx,
-        'user-a',
-        'RETENTION_SNAPSHOT',
-        retainedIdentity.id,
-      );
-      await appendSeasonParticipantProfileHistorySnapshot(
-        tx,
-        'participant-a',
-        'RETENTION_SNAPSHOT',
-        retainedIdentity.id,
-      );
-    });
-
     await prisma.seasonMatchHistoryEntry.create({
       data: {
         id: 'history-a-b',
@@ -364,7 +344,7 @@ describe('RetainedIdentity integration', () => {
       }),
     );
 
-    expect(result.createdCount).toBe(5);
+    expect(result.createdCount).toBe(4);
 
     const jobs = await prisma.archiveJob.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
@@ -376,7 +356,6 @@ describe('RetainedIdentity integration', () => {
         'RETAINED_IDENTITY',
         'SEASON_PROFILE_HISTORY',
         'THREAD_RETENTION',
-        'USER_PROFILE_HISTORY',
       ]),
     );
 
@@ -387,12 +366,6 @@ describe('RetainedIdentity integration', () => {
       retainedIdentityId: retainedIdentity.id,
       status: 'PENDING',
     });
-    expect(jobByTarget.get('USER_PROFILE_HISTORY')).toMatchObject({
-      userId: 'user-a',
-    });
-    expect(jobByTarget.get('USER_PROFILE_HISTORY')?.payload).toEqual(
-      expect.objectContaining({ historyCount: 1 }),
-    );
     expect(jobByTarget.get('SEASON_PROFILE_HISTORY')).toMatchObject({
       userId: 'user-a',
       participantId: 'participant-a',

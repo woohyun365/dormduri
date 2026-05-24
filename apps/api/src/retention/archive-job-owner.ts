@@ -12,7 +12,6 @@ const CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS = 365 * 2;
 
 const deletionArchiveJobTargets = [
   'RETAINED_IDENTITY',
-  'USER_PROFILE_HISTORY',
   'SEASON_PROFILE_HISTORY',
   'MATCH_HISTORY',
   'THREAD_RETENTION',
@@ -117,10 +116,6 @@ export async function createDeletionArchiveJobsTx(
   });
   const participantIds = participantRows.map((participant) => participant.id);
 
-  const userProfileHistoryCount = await tx.userProfileHistory.count({
-    where: { userId: input.userId },
-  });
-
   const seasonProfileHistories =
     participantIds.length > 0
       ? await tx.seasonParticipantProfileHistory.findMany({
@@ -171,18 +166,6 @@ export async function createDeletionArchiveJobsTx(
       deletedAt: input.deletedAt,
     }),
   ];
-
-  if (userProfileHistoryCount > 0) {
-    jobs.push(
-      buildArchiveJob({
-        target: 'USER_PROFILE_HISTORY',
-        retainedIdentityId: input.retainedIdentityId,
-        userId: input.userId,
-        deletedAt: input.deletedAt,
-        payload: { historyCount: userProfileHistoryCount },
-      }),
-    );
-  }
 
   for (const history of seasonProfileHistories) {
     jobs.push(
