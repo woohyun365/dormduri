@@ -120,15 +120,18 @@ describe('AuthSessionService', () => {
   });
 
   it('display identity가 없는 사용자는 유효한 토큰이 있어도 세션 인증에서 제외하고 nickname fallback을 쓰지 않는다', async () => {
-    jwtService.verifyAsync.mockResolvedValue({ sid: 'session-legacy', sub: 'user-legacy' });
-    prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-legacy' }]);
+    jwtService.verifyAsync.mockResolvedValue({
+      sid: 'session-missing-identity',
+      sub: 'user-missing-identity',
+    });
+    prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-missing-identity' }]);
     prisma.user.findUnique.mockResolvedValue({
-      id: 'user-legacy',
-      email: 'legacy@kangwon.ac.kr',
+      id: 'user-missing-identity',
+      email: 'missing-identity@kangwon.ac.kr',
       deletedAt: null,
       gender: 'M',
       campus: 'CHUNCHEON',
-      nickname: 'legacy-user-nickname',
+      nickname: 'account-level-nickname',
       displayIdentity: null,
     });
 
@@ -152,10 +155,13 @@ describe('AuthSessionService', () => {
   });
 
   it('display identity가 없는 사용자는 current-user context로도 복원하지 않는다', async () => {
-    jwtService.verifyAsync.mockResolvedValue({ sid: 'session-legacy', sub: 'user-legacy' });
-    prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-legacy' }]);
+    jwtService.verifyAsync.mockResolvedValue({
+      sid: 'session-missing-identity',
+      sub: 'user-missing-identity',
+    });
+    prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-missing-identity' }]);
     prisma.user.findUnique.mockResolvedValue({
-      id: 'user-legacy',
+      id: 'user-missing-identity',
       deletedAt: null,
       gender: 'M',
       campus: 'CHUNCHEON',

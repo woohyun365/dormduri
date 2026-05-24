@@ -61,18 +61,14 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE INDEX "RetainedIdentityDataAccessLog_logRetention_idx"');
     expect(sql).toContain('CREATE UNIQUE INDEX "ConversationMessageRetainedBody_messageId_key"');
     expect(sql).toContain('CREATE INDEX "ConversationMessage_bodyState_tombstonedAt_idx"');
+    expect(sql).toContain('CREATE TABLE "UserDisplayIdentity"');
+    expect(sql).toContain('CREATE TABLE "SeasonParticipantProfile"');
+    expect(sql).toContain('CREATE TABLE "SeasonParticipantProfileHistory"');
     expect(sql).not.toContain('CREATE INDEX "User_dormitoryId_idx"');
     expect(sql).not.toContain('ADD CONSTRAINT "User_dormitoryId_fkey"');
-    expect(sql).not.toContain('CREATE TABLE "UserProfile"');
-    expect(sql).not.toContain('CREATE TABLE "UserProfileHistory"');
-    expect(sql).not.toContain('messageToRoommate');
-    expect(sql).not.toContain('MatchRequestChannel');
-    expect(sql).not.toContain('requestChannel');
-    expect(sql).not.toContain('USER_PROFILE_HISTORY');
-    expect(sql).not.toContain('templateSourceUserProfileUpdatedAt');
   });
 
-  it('updatedAt baseline은 legacy trigger 없이도 유지된다', () => {
+  it('updatedAt baseline은 DB trigger 없이도 유지된다', () => {
     expect(sql).not.toContain('CREATE OR REPLACE FUNCTION set_current_timestamp()');
     expect(sql).not.toContain('CREATE TRIGGER set_user_updated_at');
     expect(sql).not.toContain('CREATE TRIGGER set_auth_session_updated_at');

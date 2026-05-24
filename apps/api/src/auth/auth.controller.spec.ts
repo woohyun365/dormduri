@@ -73,7 +73,7 @@ describe('AuthController', () => {
     }
   });
 
-  it('signup body는 lifestyle/intro legacy profile orchestration 필드를 거부한다', async () => {
+  it('signup body는 season profile orchestration 필드를 거부한다', async () => {
     await expect(
       controller.signup({
         email: 'test@kangwon.ac.kr',
@@ -130,7 +130,7 @@ describe('AuthController', () => {
         nickname: '테스터',
         lifestyle: {},
         intro: '가입 단계 소개',
-        profile: { intro: 'legacy profile' },
+        profile: { intro: 'signup 단계 프로필' },
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
 

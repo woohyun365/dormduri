@@ -39,10 +39,11 @@ describe('validateLifestyleData', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('base/off-season profile 관점에서는 핵심 필드 null도 parse 자체는 허용한다', () => {
+  it('lifestyle parser는 completeness 판정과 분리되어 생활패턴/조건 필수값 null을 parse 단계에서 허용한다', () => {
     const result = validateLifestyleData({
       ...validLifestyle,
       bedtime: null,
+      drinkingTolerance: null,
     });
 
     expect(result).toEqual({
@@ -50,6 +51,7 @@ describe('validateLifestyleData', () => {
       value: {
         ...validLifestyle,
         bedtime: null,
+        drinkingTolerance: null,
       },
     });
   });

@@ -55,7 +55,7 @@ describe('match-score-projection', () => {
     ).toBeNull();
   });
 
-  it('SEASON_POST_MATCH에서는 matched partner FULL에만 점수를 노출한다', () => {
+  it('SEASON_POST_MATCH에서는 score-visible matched partner에게만 점수를 노출한다', () => {
     expect(
       shouldExposePublicMatchScore({
         seasonState: 'SEASON_POST_MATCH',

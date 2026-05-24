@@ -263,8 +263,8 @@ describe('AuthService orchestration', () => {
     });
     loginAttemptService.getActiveLock.mockResolvedValue(null);
     prisma.user.findUnique.mockResolvedValue({
-      id: 'user-legacy',
-      email: 'legacy@kangwon.ac.kr',
+      id: 'user-missing-identity',
+      email: 'missing-identity@kangwon.ac.kr',
       passwordHash,
       deletedAt: null,
       gender: 'M',
@@ -278,13 +278,17 @@ describe('AuthService orchestration', () => {
       userActionable: true,
     });
 
-    await expect(service.login('legacy@kangwon.ac.kr', 'Pass1234', false)).resolves.toMatchObject({
+    await expect(
+      service.login('missing-identity@kangwon.ac.kr', 'Pass1234', false),
+    ).resolves.toMatchObject({
       success: false,
       code: 'AUTH_INVALID_CREDENTIALS',
     });
 
     expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
-    expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith('legacy@kangwon.ac.kr');
+    expect(loginAttemptService.recordLoginFailure).toHaveBeenCalledWith(
+      'missing-identity@kangwon.ac.kr',
+    );
     expect(loginAttemptService.clearFailures).not.toHaveBeenCalled();
   });
 

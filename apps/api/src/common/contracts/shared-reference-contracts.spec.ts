@@ -236,7 +236,7 @@ describe('shared reference contracts', () => {
         nickname: '테스터',
         lifestyle: VALID_LIFESTYLE,
         intro: '가입 단계 소개',
-        profile: { intro: 'legacy profile' },
+        profile: { intro: 'signup 단계 프로필' },
       }).success,
     ).toBe(false);
   });
@@ -340,10 +340,10 @@ describe('shared reference contracts', () => {
         selection: { state: 'ASSIGNED', dormitoryId: 'dasan' },
       }).success,
     ).toBe(false);
-    expect(updateCurrentUserRequestSchema.safeParse({ messageToRoommate: '한마디' }).success).toBe(
+    expect(updateCurrentUserRequestSchema.safeParse({ intro: '시즌 프로필 소개' }).success).toBe(
       false,
     );
-    expect(updateCurrentUserRequestSchema.safeParse({ intro: '시즌 프로필 소개' }).success).toBe(
+    expect(updateCurrentUserRequestSchema.safeParse({ unsupportedUserPatch: true }).success).toBe(
       false,
     );
   });
@@ -528,22 +528,16 @@ describe('shared reference contracts', () => {
     });
   });
 
-  it('public profile contract는 detail-viewable target shape만 허용하고 legacy public fields를 노출하지 않는다', () => {
+  it('public profile contract는 capability 기반 detail target shape만 허용한다', () => {
     expect(publicProfileSchema.parse(PUBLIC_PROFILE_DETAIL)).toMatchObject({
-      capabilities: { canViewFull: true },
+      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+      capabilities: { canViewFull: true, detailViewable: true },
     });
 
     expect(
       publicProfileSchema.safeParse({
         ...PUBLIC_PROFILE_DETAIL,
-        messageToRoommate: null,
-      }).success,
-    ).toBe(false);
-
-    expect(
-      publicProfileSchema.safeParse({
-        ...PUBLIC_PROFILE_DETAIL,
-        exposureLevel: 'LIMITED',
+        unsupportedDetailField: true,
       }).success,
     ).toBe(false);
   });
@@ -564,19 +558,19 @@ describe('shared reference contracts', () => {
     expect(
       roommateSearchResponseSchema.safeParse({
         ...ROOMMATE_SEARCH_RESPONSE,
-        effectiveVisibility: 'FULL_ONLY',
+        unsupportedSearchScopeField: true,
       }).success,
     ).toBe(false);
 
     expect(
       roommateSearchResponseSchema.safeParse({
         ...ROOMMATE_SEARCH_RESPONSE,
-        items: [{ ...SUMMARY_ITEM, messageToRoommate: null }],
+        items: [{ ...SUMMARY_ITEM, unsupportedSummaryField: true }],
       }).success,
     ).toBe(false);
   });
 
-  it('match request contract는 requestChannel 없이 roommate-search summary projection을 재사용한다', () => {
+  it('match request contract는 roommate-search summary projection을 재사용한다', () => {
     expect(
       createMatchRequestSchema.parse({
         targetUserId: 'user-2',
@@ -587,7 +581,7 @@ describe('shared reference contracts', () => {
     expect(
       createMatchRequestSchema.safeParse({
         targetUserId: 'user-2',
-        channel: 'ROOMMATE_TAB',
+        unsupportedRequestField: true,
       }).success,
     ).toBe(false);
 
@@ -624,7 +618,7 @@ describe('shared reference contracts', () => {
         terminalAt: null,
         acceptedAt: null,
         terminalReason: null,
-        requestChannel: 'ROOMMATE_TAB',
+        unsupportedSummaryField: true,
       }).success,
     ).toBe(false);
   });

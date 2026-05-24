@@ -44,8 +44,7 @@ describe('UsersController', () => {
   it.each([
     ['season profile intro', { intro: '자기소개' }],
     ['season lifestyle', { lifestyle: { smokingBehavior: 'NO' } }],
-    ['legacy message field', { messageToRoommate: '안녕하세요' }],
-    ['legacy request channel', { requestChannel: 'DIRECT' }],
+    ['unsupported users field', { unsupportedUserPatch: true }],
   ])('PATCH /api/users/me는 %s payload를 users 경계에서 거부한다', async (_caseName, body) => {
     try {
       await controller.updateCurrentUser(authUser, body);
