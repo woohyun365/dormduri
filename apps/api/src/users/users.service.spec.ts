@@ -1,154 +1,61 @@
 import { UsersService } from './users.service.js';
-import { CurrentUserViewService } from './current-user-view.service.js';
-import type { UserWithProfileRecord } from '../profiles/profile.mapper.js';
 import { usersErrors } from './users.errors.js';
-import type {
-  CanonicalProfileSource,
-  CanonicalSelectionState,
-} from '../season-participants/season-participants.service.js';
 
-type UserOverride = Omit<Partial<UserWithProfileRecord>, 'profile'> & {
-  profile?: Partial<NonNullable<UserWithProfileRecord['profile']>> | null;
-};
+const NOW = new Date('2026-05-23T00:00:00.000Z');
 
-function makeUser(overrides: UserOverride = {}): UserWithProfileRecord {
-  const baseProfile: NonNullable<UserWithProfileRecord['profile']> = {
+function makeDisplayIdentity(overrides: Record<string, unknown> = {}) {
+  return {
     userId: 'user-1',
-    nickname: '테스터',
-    nicknameNormalized: '테스터',
+    nickname: '기존닉네임',
+    nicknameNormalized: '기존닉네임',
     nicknameChangedAt: null,
-    lifestyle: {
-      bedtime: '22_24',
-      wakeTime: '07_08',
-      sleepHabit: 'NONE',
-      sleepEnvironment: 'QUIET',
-      screenUsage: 'NONE',
-      noiseSensitivity: 'NORMAL',
-      smokingBehavior: 'NO',
-      indoorEating: 'SNACK',
-      phoneBehavior: 'SOMETIMES',
-      earphoneUsage: 'MOSTLY',
-      cleanLevel: 'WEEKLY_3_UP',
-      drinkingFrequency: 'NONE',
-      relationshipStyle: 'CLOSE',
-      temperatureSensitivity: 'NORMAL',
-      smokingTolerance: 'NO_ONLY',
-      phoneTolerance: 'BRIEF_OK',
-      earphoneExpectation: 'MUST',
-      sleepEnvPreference: 'NO_SPEAKER',
-      screenTolerance: 'LOW_OK',
-      indoorEatingTolerance: 'NO_SMELL',
-      cleanExpectation: 'STRICT',
-      drinkingTolerance: 'LOW_ONLY',
-    },
-    intro: '안녕하세요',
-    messageToRoommate: '잘 부탁해요',
-    collegeCode: 'ARTS_ENGINEERING',
-    grade: '3',
-    mbti: 'INTJ',
-    birthYear: 2002,
-    createdAt: new Date('2026-01-01T00:00:00.000Z'),
-    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-05-01T00:00:00.000Z'),
+    ...overrides,
   };
+}
 
-  const { profile: profileOverrides, ...userOverrides } = overrides;
-
+function makeUser(overrides: Record<string, unknown> = {}) {
   return {
     id: 'user-1',
-    email: 'test@kangwon.ac.kr',
-    emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
+    email: 'student@kangwon.ac.kr',
+    emailVerifiedAt: new Date('2026-05-01T00:00:00.000Z'),
+    deletedAt: null,
     gender: 'M',
     campus: 'CHUNCHEON',
-    ...userOverrides,
-    profile: profileOverrides === null ? null : { ...baseProfile, ...(profileOverrides ?? {}) },
+    displayIdentity: makeDisplayIdentity(),
+    dismissedNotices: [],
+    ...overrides,
   };
 }
 
-const COMPLETE_LIFESTYLE = makeUser().profile!.lifestyle;
+type UserFindUniqueArgs = {
+  where: { id: string };
+  select: Record<string, unknown>;
+};
 
-function makeParticipant(overrides: Record<string, unknown> = {}) {
-  const { profile: profileOverrides, ...restOverrides } = overrides;
+type BuildCurrentUserResponseArgs = [ReturnType<typeof makeUser>, Date];
 
-  return {
-    id: 'participant-1',
-    seasonId: 'season-1',
-    userId: 'user-1',
-    participationIntent: 'UNDECIDED',
-    registeredAt: null,
-    declinedAt: null,
-    dormitoryId: null,
-    dormitorySelectionState: 'NOT_SELECTED',
-    participantStatus: 'NOT_STARTED',
-    campusCodeSnapshot: 'CHUNCHEON',
-    genderSnapshot: 'M',
-    joinedAt: new Date('2026-01-01T00:00:00.000Z'),
-    activatedAt: null,
-    matchedAt: null,
-    withdrawnAt: null,
-    expiredAt: null,
-    hiddenByAdminAt: null,
-    hiddenReasonCode: null,
-    hiddenReasonDetail: null,
-    deactivatedAt: null,
-    createdAt: new Date('2026-01-01T00:00:00.000Z'),
-    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-    profile: {
-      participantId: 'participant-1',
-      lifestyle: COMPLETE_LIFESTYLE,
-      ...(typeof profileOverrides === 'object' && profileOverrides !== null
-        ? profileOverrides
-        : {}),
-    },
-    ...restOverrides,
-  };
-}
-
-describe('UsersService', () => {
-  const txUserUpdate = jest.fn();
-  const txUserProfileUpdate = jest.fn();
-  const txSeasonParticipantUpdate = jest.fn();
-  const txSeasonParticipantProfileUpdate = jest.fn();
+describe('UsersService current-user boundary', () => {
   const prisma = {
     getDatabaseNow: jest.fn(),
-    $transaction: jest.fn(),
-    campusMaster: {
-      findUnique: jest.fn(),
-    },
     user: {
       findUnique: jest.fn(),
     },
-    collegeMaster: {
+    userDisplayIdentity: {
       findUnique: jest.fn(),
-    },
-    dormitory: {
-      findUnique: jest.fn(),
-    },
-    userProfile: {
-      update: jest.fn(),
+      updateMany: jest.fn(),
     },
   };
-  const seasonsService = {
-    getCurrentSeasonContext: jest.fn(),
-  };
+  const seasonsService = {};
   const moderationService = {
-    moderatePublicText: jest.fn(),
+    validateNicknamePolicy: jest.fn(),
   };
-  const seasonParticipantsService = {
-    ensureCurrentSeasonParticipant: jest.fn(),
-    selectCanonicalSelection: jest.fn(),
-    selectProfileBySource: jest.fn(),
+  const seasonParticipantsService = {};
+  const currentUserViewService = {
+    getCurrentUser: jest.fn(),
+    buildCurrentUserResponse: jest.fn(),
   };
-
-  const matchesService = {
-    getCurrentActiveMatchByParticipantId: jest.fn(),
-    getCurrentActiveMatchSummaryForParticipant: jest.fn(),
-  };
-  const currentUserViewService = new CurrentUserViewService(
-    prisma as never,
-    seasonsService as never,
-    seasonParticipantsService as never,
-    matchesService as never,
-  );
 
   const service = new UsersService(
     prisma as never,
@@ -158,642 +65,95 @@ describe('UsersService', () => {
     currentUserViewService as never,
   );
 
+  const authUser = {
+    id: 'user-1',
+    gender: 'M' as const,
+    campus: 'CHUNCHEON' as const,
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma.getDatabaseNow.mockResolvedValue(new Date('2026-02-10T03:00:00.000Z'));
-    prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: true });
-    prisma.collegeMaster.findUnique.mockResolvedValue({
-      code: 'HUMANITIES',
-      campusCode: 'CHUNCHEON',
-      nameKo: '인문대',
-      isActive: true,
-    });
-    prisma.dormitory.findUnique.mockResolvedValue({
-      id: 'dasan',
-      campusCode: 'CHUNCHEON',
-      genderPolicy: 'M',
-    });
-    seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
-    moderationService.moderatePublicText.mockResolvedValue({ ok: true });
-    txUserUpdate.mockResolvedValue(undefined);
-    txUserProfileUpdate.mockResolvedValue(undefined);
-    txSeasonParticipantUpdate.mockResolvedValue(undefined);
-    txSeasonParticipantProfileUpdate.mockResolvedValue(undefined);
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(null);
-    matchesService.getCurrentActiveMatchByParticipantId.mockResolvedValue(null);
-    matchesService.getCurrentActiveMatchSummaryForParticipant.mockResolvedValue(null);
-    seasonParticipantsService.selectCanonicalSelection.mockImplementation(
-      (
-        participant: Pick<
-          CanonicalSelectionState,
-          'dormitoryId' | 'dormitorySelectionState'
-        > | null,
-      ): CanonicalSelectionState => ({
-        dormitoryId: participant?.dormitoryId ?? null,
-        dormitorySelectionState: participant?.dormitorySelectionState ?? 'NOT_SELECTED',
-        source: 'SEASON_PARTICIPANT',
-      }),
-    );
-    seasonParticipantsService.selectProfileBySource.mockImplementation(
-      (
-        userProfile: NonNullable<UserWithProfileRecord['profile']>,
-        participantProfile: {
-          nicknameSnapshot: string;
-          nicknameNormalizedSnapshot: string;
-          lifestyle: NonNullable<UserWithProfileRecord['profile']>['lifestyle'];
-          intro: string;
-          messageToRoommate: string | null;
-          collegeCode: string | null;
-          grade: string | null;
-          mbti: string | null;
-          birthYear: number | null;
-        } | null,
-        source: CanonicalProfileSource['source'],
-      ): CanonicalProfileSource =>
-        source === 'SEASON_PARTICIPANT_PROFILE' && participantProfile
-          ? {
-              source: 'SEASON_PARTICIPANT_PROFILE',
-              nickname: participantProfile.nicknameSnapshot,
-              nicknameNormalized: participantProfile.nicknameNormalizedSnapshot,
-              lifestyle: participantProfile.lifestyle,
-              intro: participantProfile.intro,
-              messageToRoommate: participantProfile.messageToRoommate,
-              collegeCode: participantProfile.collegeCode,
-              grade: participantProfile.grade,
-              mbti: participantProfile.mbti,
-              birthYear: participantProfile.birthYear,
-            }
-          : {
-              source: 'USER_PROFILE',
-              nickname: userProfile.nickname,
-              nicknameNormalized: userProfile.nicknameNormalized,
-              lifestyle: userProfile.lifestyle,
-              intro: userProfile.intro,
-              messageToRoommate: userProfile.messageToRoommate,
-              collegeCode: userProfile.collegeCode,
-              grade: userProfile.grade,
-              mbti: userProfile.mbti,
-              birthYear: userProfile.birthYear,
-            },
-    );
-    prisma.$transaction.mockImplementation((callback: (tx: unknown) => unknown) =>
-      callback({
-        user: { update: txUserUpdate },
-        userProfile: { update: txUserProfileUpdate },
-        seasonParticipant: { update: txSeasonParticipantUpdate },
-        seasonParticipantProfile: { update: txSeasonParticipantProfileUpdate },
-      }),
-    );
+    prisma.getDatabaseNow.mockResolvedValue(NOW);
+    prisma.user.findUnique.mockResolvedValue(makeUser());
+    prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
+    prisma.userDisplayIdentity.updateMany.mockResolvedValue({ count: 1 });
+    moderationService.validateNicknamePolicy.mockResolvedValue(null);
+    currentUserViewService.getCurrentUser.mockResolvedValue({ current: true });
+    currentUserViewService.buildCurrentUserResponse.mockResolvedValue({ updated: true });
   });
 
-  it('운영 캠퍼스인데 current season row가 없으면 OFF_SEASON current user로 계산한다', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser());
+  it('getCurrentUser는 CurrentUserViewService에 위임한다', async () => {
+    await expect(service.getCurrentUser(authUser)).resolves.toEqual({ current: true });
 
-    const result = await service.getCurrentUser({
-      id: 'user-1',
-      gender: 'M',
-      campus: 'CHUNCHEON',
-    });
-
-    expect(result.serviceState).toEqual({
-      campusOperated: true,
-      seasonState: 'OFF_SEASON',
-    });
-    expect(result.participation).toEqual({
-      hasCurrentSeason: false,
-      hasParticipantRow: false,
-      intent: null,
-      registered: false,
-      profileExists: false,
-    });
-    expect(result.profile.source).toBe('USER_PROFILE');
-    expect(result.capabilities.canRegisterParticipation).toBe(false);
-    expect(result.capabilities.canBrowseProfiles).toBe(true);
+    expect(currentUserViewService.getCurrentUser).toHaveBeenCalledWith(authUser);
   });
 
-  it('SEASON_OPEN 등록+배정 사용자는 시즌 프로필을 현재 source로 사용하고 채팅만 열린다', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser());
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_OPEN',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
-      },
-    });
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
-      makeParticipant({
-        participationIntent: 'REGISTERED',
-        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
-        participantStatus: 'ACTIVE',
-        profile: {
-          participantId: 'participant-1',
-          nicknameSnapshot: '시즌닉네임',
-          nicknameNormalizedSnapshot: '시즌닉네임',
-          lifestyle: makeUser().profile!.lifestyle,
-          intro: '시즌 소개',
-          messageToRoommate: '시즌 메시지',
-          collegeCode: 'HUMANITIES',
-          grade: '4+',
-          mbti: 'ENTP',
-          birthYear: 2001,
-        },
-      }),
-    );
-
-    const result = await service.getCurrentUser({
-      id: 'user-1',
-      gender: 'M',
-      campus: 'CHUNCHEON',
-    });
-
-    expect(result.profile.source).toBe('SEASON_PARTICIPANT_PROFILE');
-    expect(result.user.nickname).toBe('시즌닉네임');
-    expect(result.participation.registered).toBe(true);
-    expect(result.capabilities.canStartChat).toBe(true);
-    expect(result.capabilities.canRequestMatch).toBe(false);
-    expect(result.capabilities.canBookmark).toBe(true);
-    expect(result.capabilities.profileEdit).toMatchObject({
-      intro: true,
-      messageToRoommate: true,
-      additional: true,
-      lifestyle: true,
-      nickname: false,
-    });
-  });
-
-  it('SEASON_MATCHING 등록+미배정 사용자는 LIMITED browse만 유지하고 action capability는 닫힌다', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser());
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_MATCHING',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
-      },
-    });
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
-      makeParticipant({
-        participationIntent: 'REGISTERED',
-        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-        dormitorySelectionState: 'NOT_SELECTED',
-        participantStatus: 'DRAFT',
-        profile: {
-          participantId: 'participant-1',
-          nicknameSnapshot: '시즌닉네임',
-          nicknameNormalizedSnapshot: '시즌닉네임',
-          lifestyle: makeUser().profile!.lifestyle,
-          intro: '시즌 소개',
-          messageToRoommate: '시즌 메시지',
-          collegeCode: 'HUMANITIES',
-          grade: '4+',
-          mbti: 'ENTP',
-          birthYear: 2001,
-        },
-      }),
-    );
-    seasonParticipantsService.selectCanonicalSelection.mockReturnValue({
-      dormitoryId: null,
-      dormitorySelectionState: 'UNASSIGNED',
-      source: 'SEASON_PARTICIPANT',
-    });
-
-    const result = await service.getCurrentUser({
-      id: 'user-1',
-      gender: 'M',
-      campus: 'CHUNCHEON',
-    });
-
-    expect(result.selection).toEqual({
-      state: 'UNASSIGNED',
-      dormitoryId: null,
-      source: 'SEASON_PARTICIPANT',
-    });
-    expect(result.readiness.canBrowseProfiles).toBe(true);
-    expect(result.capabilities.canSelectDormitory).toBe(true);
-    expect(result.capabilities.canBookmark).toBe(false);
-    expect(result.capabilities.canRequestMatch).toBe(false);
-    expect(result.capabilities.canStartChat).toBe(false);
-    expect(result.capabilities.profileEdit).toMatchObject({
-      intro: false,
-      messageToRoommate: true,
-      additional: true,
-    });
-  });
-
-  it('live ActiveMatch가 없으면 stale MATCHED participantStatus만으로 현재 매칭 상태를 잠그지 않는다', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser());
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_MATCHING',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
-      },
-    });
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
-      makeParticipant({
-        participationIntent: 'REGISTERED',
-        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
-        participantStatus: 'MATCHED',
-        matchedAt: new Date('2026-02-01T00:00:00.000Z'),
-        profile: {
-          participantId: 'participant-1',
-          nicknameSnapshot: '시즌닉네임',
-          nicknameNormalizedSnapshot: '시즌닉네임',
-          lifestyle: makeUser().profile!.lifestyle,
-          intro: '시즌 소개',
-          messageToRoommate: '시즌 메시지',
-          collegeCode: 'HUMANITIES',
-          grade: '4+',
-          mbti: 'ENTP',
-          birthYear: 2001,
-        },
-      }),
-    );
-    matchesService.getCurrentActiveMatchSummaryForParticipant.mockResolvedValue(null);
-
-    const result = await service.getCurrentUser({
-      id: 'user-1',
-      gender: 'M',
-      campus: 'CHUNCHEON',
-    });
-
-    expect(result.match.activeMatch).toBeNull();
-    expect(result.capabilities.canRequestMatch).toBe(true);
-    expect(result.capabilities.canStartChat).toBe(true);
-  });
-
-  it('건물 선택은 시즌 참여자 등록 전에는 거부된다', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser());
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_OPEN',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
-      },
-    });
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(makeParticipant());
-
+  it('updateCurrentUser는 display identity nickname만 수정한다', async () => {
     await expect(
-      service.updateCurrentUser(
-        {
-          id: 'user-1',
-          gender: 'M',
-          campus: 'CHUNCHEON',
-        },
-        {
-          selection: {
-            state: 'ASSIGNED',
-            dormitoryId: 'dasan',
-          },
-        },
-      ),
-    ).rejects.toMatchObject({
-      response: usersErrors.dormitorySelectionRequiresParticipation().getResponse(),
-    });
-  });
+      service.updateCurrentUser(authUser, {
+        displayIdentity: { nickname: '새닉네임' },
+      }),
+    ).resolves.toEqual({ updated: true });
 
-  it('SEASON_MATCHING 등록 사용자의 intro 수정은 잠근다', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser());
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_MATCHING',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
+    const findUniqueMock = prisma.user.findUnique as jest.Mock<unknown, [UserFindUniqueArgs]>;
+    const [findUniqueArgs] = findUniqueMock.mock.calls[0]!;
+    expect(findUniqueArgs.where).toEqual({ id: 'user-1' });
+    expect(findUniqueArgs.select).toHaveProperty('displayIdentity');
+    expect(findUniqueArgs.select).toHaveProperty('dismissedNotices');
+    expect(prisma.userDisplayIdentity.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        nicknameChangedAt: null,
+      },
+      data: {
+        nickname: '새닉네임',
+        nicknameNormalized: '새닉네임',
+        nicknameChangedAt: NOW,
       },
     });
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
-      makeParticipant({
-        participationIntent: 'REGISTERED',
-        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-        participantStatus: 'DRAFT',
-        profile: { participantId: 'participant-1' },
-      }),
-    );
-
-    await expect(
-      service.updateCurrentUser(
-        {
-          id: 'user-1',
-          gender: 'M',
-          campus: 'CHUNCHEON',
-        },
-        { intro: '새 소개' },
-      ),
-    ).rejects.toMatchObject({
-      response: usersErrors
-        .profileFieldLocked('intro', '현재 시즌 상태에서는 자기소개를 수정할 수 없습니다.')
-        .getResponse(),
-    });
+    const buildCurrentUserResponseMock =
+      currentUserViewService.buildCurrentUserResponse as jest.Mock<
+        unknown,
+        BuildCurrentUserResponseArgs
+      >;
+    const [builtUser, builtAt] = buildCurrentUserResponseMock.mock.calls.at(-1)!;
+    expect(builtUser.id).toBe('user-1');
+    expect(builtUser.displayIdentity.nickname).toBe('기존닉네임');
+    expect(builtAt).toBe(NOW);
   });
 
-  it('SEASON_MATCHING 등록 사용자의 additional은 base+season profile에 제한 sync한다', async () => {
-    prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(
+  it('display identity payload가 없으면 profile/selection write 없이 current-user 응답만 다시 만든다', async () => {
+    await expect(service.updateCurrentUser(authUser, {})).resolves.toEqual({ updated: true });
+
+    expect(prisma.userDisplayIdentity.updateMany).not.toHaveBeenCalled();
+    expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
+    const buildCurrentUserResponseMock =
+      currentUserViewService.buildCurrentUserResponse as jest.Mock<
+        unknown,
+        BuildCurrentUserResponseArgs
+      >;
+    const [builtUser, builtAt] = buildCurrentUserResponseMock.mock.calls[0]!;
+    expect(builtUser.id).toBe('user-1');
+    expect(builtAt).toBe(NOW);
+  });
+
+  it('닉네임 쿨다운이 활성화되어 있으면 display identity 수정을 거부한다', async () => {
+    prisma.user.findUnique.mockResolvedValue(
       makeUser({
-        profile: {
-          collegeCode: 'HUMANITIES',
-        },
-      }),
-    );
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_MATCHING',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
-      },
-    });
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
-      makeParticipant({
-        participationIntent: 'REGISTERED',
-        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-        participantStatus: 'DRAFT',
-        profile: {
-          participantId: 'participant-1',
-          nicknameSnapshot: '시즌닉네임',
-          nicknameNormalizedSnapshot: '시즌닉네임',
-          lifestyle: makeUser().profile!.lifestyle,
-          intro: '시즌 소개',
-          messageToRoommate: '시즌 메시지',
-          collegeCode: 'ARTS_ENGINEERING',
-          grade: '3',
-          mbti: 'INTJ',
-          birthYear: 2002,
-        },
-      }),
-    );
-    prisma.collegeMaster.findUnique.mockResolvedValue({
-      code: 'HUMANITIES',
-      campusCode: 'CHUNCHEON',
-      nameKo: '인문대',
-      isActive: true,
-    });
-
-    await service.updateCurrentUser(
-      {
-        id: 'user-1',
-        gender: 'M',
-        campus: 'CHUNCHEON',
-      },
-      {
-        additional: {
-          college: 'HUMANITIES',
-        },
-      },
-    );
-
-    expect(txUserProfileUpdate).toHaveBeenCalledWith({
-      where: { userId: 'user-1' },
-      data: {
-        collegeCode: 'HUMANITIES',
-      },
-    });
-    expect(txSeasonParticipantProfileUpdate).toHaveBeenCalledWith({
-      where: { participantId: 'participant-1' },
-      data: {
-        collegeCode: 'HUMANITIES',
-      },
-    });
-  });
-
-  it('SEASON_MATCHING 등록 사용자의 messageToRoommate는 base + season profile에 함께 반영한다', async () => {
-    prisma.user.findUnique.mockResolvedValueOnce(makeUser()).mockResolvedValueOnce(makeUser());
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_MATCHING',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
-      },
-    });
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
-      makeParticipant({
-        participationIntent: 'REGISTERED',
-        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-        participantStatus: 'DRAFT',
-        profile: {
-          participantId: 'participant-1',
-          nicknameSnapshot: '시즌닉네임',
-          nicknameNormalizedSnapshot: '시즌닉네임',
-          lifestyle: makeUser().profile!.lifestyle,
-          intro: '시즌 소개',
-          messageToRoommate: '시즌 메시지',
-          collegeCode: 'ARTS_ENGINEERING',
-          grade: '3',
-          mbti: 'INTJ',
-          birthYear: 2002,
-        },
-      }),
-    );
-
-    await service.updateCurrentUser(
-      {
-        id: 'user-1',
-        gender: 'M',
-        campus: 'CHUNCHEON',
-      },
-      {
-        messageToRoommate: '시즌 동기화 메시지',
-      },
-    );
-
-    expect(txUserProfileUpdate).toHaveBeenCalledWith({
-      where: { userId: 'user-1' },
-      data: {
-        messageToRoommate: '시즌 동기화 메시지',
-      },
-    });
-    expect(txSeasonParticipantProfileUpdate).toHaveBeenCalledWith({
-      where: { participantId: 'participant-1' },
-      data: {
-        messageToRoommate: '시즌 동기화 메시지',
-      },
-    });
-  });
-
-  it('SEASON_POST_MATCH 등록 사용자는 현재 시즌 프로필 source를 유지하고 read-only 상태가 된다', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser({ profile: { nickname: '베이스닉네임' } }));
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_POST_MATCH',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
-      },
-    });
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
-      makeParticipant({
-        participationIntent: 'REGISTERED',
-        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
-        participantStatus: 'MATCHED',
-        profile: {
-          participantId: 'participant-1',
-          nicknameSnapshot: '시즌닉네임',
-          nicknameNormalizedSnapshot: '시즌닉네임',
-          lifestyle: makeUser().profile!.lifestyle,
-          intro: '시즌 소개',
-          messageToRoommate: '시즌 메시지',
-          collegeCode: 'HUMANITIES',
-          grade: '4+',
-          mbti: 'ENTP',
-          birthYear: 2001,
-        },
-      }),
-    );
-    matchesService.getCurrentActiveMatchSummaryForParticipant.mockResolvedValue({
-      id: 'active-1',
-      seasonId: 'season-1',
-      counterpartUserId: 'user-2',
-      counterpartParticipantId: 'participant-2',
-      status: 'ACTIVE',
-      startedAt: new Date('2026-02-10T03:00:00.000Z').toISOString(),
-      endedAt: null,
-      endReason: null,
-      createdFromRequestId: 'request-1',
-      unmatchProgress: {
-        state: 'WAITING_FOR_COUNTERPART',
-        requestedByViewerAt: new Date('2026-02-10T03:01:00.000Z').toISOString(),
-        requestedByCounterpartAt: null,
-        progressCount: 1,
-        requiredCount: 2,
-        canRequest: false,
-        canCancel: true,
-        availableUntil: new Date('2026-02-11T14:59:59.000Z').toISOString(),
-      },
-    });
-
-    const result = await service.getCurrentUser({
-      id: 'user-1',
-      gender: 'M',
-      campus: 'CHUNCHEON',
-    });
-
-    expect(result.profile.source).toBe('SEASON_PARTICIPANT_PROFILE');
-    expect(result.user.nickname).toBe('시즌닉네임');
-    expect(result.participation.profileExists).toBe(true);
-    expect(result.capabilities.profileEdit).toMatchObject({
-      intro: false,
-      messageToRoommate: false,
-      additional: false,
-      lifestyle: false,
-      nickname: false,
-    });
-    expect(result.capabilities.canRequestMatch).toBe(false);
-    expect(result.capabilities.canStartChat).toBe(false);
-    expect(result.match.hasActiveMatch).toBe(true);
-    expect(result.match.activeMatch?.id).toBe('active-1');
-    expect(result.match.activeMatch?.counterpartUserId).toBe('user-2');
-    expect(result.match.activeMatch?.unmatchProgress).toMatchObject({
-      state: 'WAITING_FOR_COUNTERPART',
-      progressCount: 1,
-      canCancel: true,
-    });
-  });
-
-  it('SEASON_POST_MATCH 등록 사용자의 profile text 수정은 거부한다', async () => {
-    prisma.user.findUnique.mockResolvedValue(makeUser());
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-1' },
-      state: 'SEASON_POST_MATCH',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      ],
-      schedule: {
-        preparationStart: '2026-01-01',
-        matchingStart: '2026-01-28',
-        matchingEnd: '2026-02-11',
-        seasonEnd: '2026-02-28',
-      },
-    });
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
-      makeParticipant({
-        participationIntent: 'REGISTERED',
-        registeredAt: new Date('2026-01-05T00:00:00.000Z'),
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
-        participantStatus: 'MATCHED',
-        profile: {
-          participantId: 'participant-1',
-          nicknameSnapshot: '시즌닉네임',
-          nicknameNormalizedSnapshot: '시즌닉네임',
-          lifestyle: makeUser().profile!.lifestyle,
-          intro: '시즌 소개',
-          messageToRoommate: '시즌 메시지',
-          collegeCode: 'HUMANITIES',
-          grade: '4+',
-          mbti: 'ENTP',
-          birthYear: 2001,
-        },
+        displayIdentity: makeDisplayIdentity({
+          nicknameChangedAt: new Date('2026-05-22T23:59:00.000Z'),
+        }),
       }),
     );
 
     await expect(
-      service.updateCurrentUser(
-        {
-          id: 'user-1',
-          gender: 'M',
-          campus: 'CHUNCHEON',
-        },
-        {
-          messageToRoommate: '수정 시도',
-        },
-      ),
+      service.updateCurrentUser(authUser, {
+        displayIdentity: { nickname: '쿨다운닉네임' },
+      }),
     ).rejects.toMatchObject({
-      response: usersErrors
-        .profileFieldLocked(
-          'messageToRoommate',
-          '현재 시즌 상태에서는 룸메이트에게 남길 말을 수정할 수 없습니다.',
-        )
-        .getResponse(),
+      response: usersErrors.nicknameCooldownActive().getResponse(),
     });
+
+    expect(prisma.userDisplayIdentity.updateMany).not.toHaveBeenCalled();
   });
 });

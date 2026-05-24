@@ -2,30 +2,19 @@ import {
   additionalProfileSchema,
   profileBirthYearSchema,
   profileGradeSchema,
-  profileMbtiInputSchema,
   profileMbtiSchema,
 } from '@repo/shared/profile-contract';
-import { additionalProfilePatchSchema } from '@repo/shared/user-contract';
 
 describe('additional profile contract', () => {
   it('grade는 허용된 4개 값만 통과한다', () => {
     expect(profileGradeSchema.parse('1')).toBe('1');
     expect(profileGradeSchema.safeParse('5').success).toBe(false);
-    expect(
-      additionalProfilePatchSchema.safeParse({
-        grade: '5',
-      }).success,
-    ).toBe(false);
   });
 
-  it('mbti patch input은 trim + uppercase normalize 후 검증한다', () => {
-    expect(profileMbtiInputSchema.parse(' enfp ')).toBe('ENFP');
+  it('mbti canonical value는 uppercase 4글자 형식만 허용한다', () => {
+    expect(profileMbtiSchema.parse('ENFP')).toBe('ENFP');
     expect(profileMbtiSchema.safeParse('ABCD').success).toBe(false);
-    expect(
-      additionalProfilePatchSchema.safeParse({
-        mbti: ' enfp ',
-      }).data,
-    ).toEqual({ mbti: 'ENFP' });
+    expect(profileMbtiSchema.safeParse(' enfp ').success).toBe(false);
   });
 
   it('birthYear는 1980 미만을 거부한다', () => {
