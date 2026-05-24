@@ -1,5 +1,4 @@
 import type { PrismaService } from '../common/prisma/prisma.service.js';
-import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import type {
   CurrentSeasonParticipantRecord,
@@ -11,7 +10,6 @@ export interface MatchParticipantUserProjection extends SeasonParticipantEnsureI
   id: string;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  profile: Record<string, unknown> | null;
 }
 
 export interface MatchUserContext {
@@ -60,9 +58,6 @@ export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
           gender: true,
           campus: true,
           deletedAt: true,
-          profile: {
-            select: lifestyleColumnSelect,
-          },
         },
       });
       if (!user || user.deletedAt) {

@@ -13,7 +13,6 @@ export const matchRequestSummarySelect = {
   terminalAt: true,
   acceptedAt: true,
   terminalReason: true,
-  requestChannel: true,
   requesterParticipant: {
     select: {
       userId: true,
@@ -21,6 +20,15 @@ export const matchRequestSummarySelect = {
       participantStatus: true,
       declinedAt: true,
       withdrawnAt: true,
+      profile: {
+        select: {
+          nicknameSnapshot: true,
+          intro: true,
+          smokingBehavior: true,
+          sleepHabit: true,
+          relationshipStyle: true,
+        },
+      },
     },
   },
   receiverParticipant: {
@@ -30,6 +38,15 @@ export const matchRequestSummarySelect = {
       participantStatus: true,
       declinedAt: true,
       withdrawnAt: true,
+      profile: {
+        select: {
+          nicknameSnapshot: true,
+          intro: true,
+          smokingBehavior: true,
+          sleepHabit: true,
+          relationshipStyle: true,
+        },
+      },
     },
   },
 } as const satisfies Prisma.MatchRequestSelect;

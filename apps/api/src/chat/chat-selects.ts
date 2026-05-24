@@ -95,5 +95,4 @@ export type ChatParticipantUserProjection = SeasonParticipantEnsureInput & {
   id: string;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  profile: Record<string, unknown> | null;
 };

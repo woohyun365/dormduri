@@ -19,7 +19,6 @@ interface PreparedMatchRequestCreationLike {
   };
   requesterRoomSelectionDate: string;
   note: string | null;
-  requestChannel: CreateMatchRequestRequest['channel'] | null;
 }
 
 interface ActiveMatchRecordLike {

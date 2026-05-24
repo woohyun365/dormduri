@@ -319,7 +319,7 @@ describe('Season transition integration', () => {
     });
     expect(archivedThread?.status).toBe('ARCHIVED');
 
-    await prisma.userProfile.update({
+    await prisma.userDisplayIdentity.update({
       where: { userId: 'user-b' },
       data: {
         nickname: '바뀐닉네임',
@@ -371,7 +371,6 @@ describe('Season transition integration', () => {
         status: 'PENDING',
         createdAt: new Date(databaseNow.getTime() - 24 * 60 * 60 * 1_000),
         expiresAt: new Date(databaseNow.getTime() - 1_000),
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
 
@@ -487,7 +486,6 @@ describe('Season transition integration', () => {
         createdAt: new Date(databaseNow.getTime() - 120_000),
         expiresAt: new Date(databaseNow.getTime() + 300_000),
         terminalAt: new Date(databaseNow.getTime() - 60_000),
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
 

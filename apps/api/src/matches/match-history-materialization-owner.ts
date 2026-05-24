@@ -26,10 +26,6 @@ interface SeasonHistoryProfileSnapshot extends LifestyleColumns {
   nicknameSnapshot: string;
 }
 
-interface SeasonHistoryUserProfileSnapshot extends LifestyleColumns {
-  nickname: string;
-}
-
 interface SeasonHistorySource {
   id: string;
   name: string;
@@ -42,13 +38,10 @@ interface SeasonHistorySource {
     declinedAt: Date | null;
     participantStatus: 'NOT_STARTED' | 'DRAFT' | 'ACTIVE' | 'MATCHED' | 'WITHDRAWN' | 'EXPIRED';
     dormitoryId: string | null;
-    dormitorySelectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
+    dormitorySelectionState: 'NOT_SELECTED' | 'SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
     hiddenByAdminAt: Date | null;
     deactivatedAt: Date | null;
     profile: SeasonHistoryProfileSnapshot | null;
-    user: {
-      profile: SeasonHistoryUserProfileSnapshot | null;
-    };
   }>;
   matchRequests: Array<{
     id: string;
@@ -219,7 +212,7 @@ async function loadSeasonHistorySource(
   tx: DbClient,
   seasonId: string,
 ): Promise<SeasonHistorySource | null> {
-  return tx.season.findUnique({
+  const season = await tx.season.findUnique({
     where: { id: seasonId },
     select: {
       id: true,
@@ -243,16 +236,6 @@ async function loadSeasonHistorySource(
               participantId: true,
               nicknameSnapshot: true,
               ...lifestyleColumnSelect,
-            },
-          },
-          user: {
-            select: {
-              profile: {
-                select: {
-                  nickname: true,
-                  ...lifestyleColumnSelect,
-                },
-              },
             },
           },
         },
@@ -309,6 +292,8 @@ async function loadSeasonHistorySource(
       },
     },
   });
+
+  return season as SeasonHistorySource | null;
 }
 
 function buildHistoryRows(
@@ -317,7 +302,7 @@ function buildHistoryRows(
 ): Prisma.SeasonMatchHistoryEntryCreateManyInput[] {
   const historyParticipantIds = new Set(
     season.participants
-      .filter((participant) => participant.registeredAt !== null)
+      .filter((participant) => participant.registeredAt !== null && participant.profile !== null)
       .map((participant) => participant.id),
   );
   const participantMap = new Map(
@@ -586,9 +571,7 @@ function buildMatchHistoryRow(input: {
 }
 
 function resolveCounterpartNickname(participant: SeasonHistorySource['participants'][number]) {
-  return (
-    participant.profile?.nicknameSnapshot ?? participant.user.profile?.nickname ?? '알 수 없음'
-  );
+  return participant.profile?.nicknameSnapshot ?? '알 수 없음';
 }
 
 function buildHistoryScoreSnapshot(
@@ -624,8 +607,7 @@ function buildHistoryScoreSnapshot(
 function parseParticipantLifestyle(
   participant: SeasonHistorySource['participants'][number],
 ): LifestyleData | null {
-  const rawLifestyle = participant.profile ?? participant.user.profile ?? null;
-  return toLifestyleFromColumns(rawLifestyle);
+  return toLifestyleFromColumns(participant.profile);
 }
 
 function pickLifestyleFields<const T extends readonly (keyof LifestyleData)[]>(

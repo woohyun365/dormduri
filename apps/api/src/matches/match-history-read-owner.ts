@@ -1,5 +1,5 @@
 import type { MatchHistoryResponse } from '@repo/shared/match-contract';
-import type { FullPublicProfile } from '@repo/shared/profile-contract';
+import type { PublicProfile } from '@repo/shared/profile-contract';
 import { formatKstDate, subtractDays } from '../seasons/season.utils.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
@@ -143,7 +143,7 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
       userId: string,
       entryId: string,
       now: Date,
-    ): Promise<FullPublicProfile> {
+    ): Promise<PublicProfile> {
       const entry = await prisma.seasonMatchHistoryEntry.findUnique({
         where: { id: entryId },
         select: {
@@ -169,6 +169,7 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
                   id: true,
                   gender: true,
                   campus: true,
+                  deletedAt: true,
                 },
               },
             },
@@ -188,6 +189,10 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
         entry.entryType !== 'MATCH' ||
         (entry.entryResult !== 'MATCHED_SUCCESS' && entry.entryResult !== 'UNMATCHED_AFTER_SUCCESS')
       ) {
+        throw matchesErrors.matchHistoryProfileNotAvailable();
+      }
+
+      if (entry.counterpartParticipant.user.deletedAt !== null) {
         throw matchesErrors.matchHistoryProfileNotAvailable();
       }
 
@@ -222,15 +227,14 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
       });
 
       return toPublicProfile(entry.counterpartParticipant.user, profile, {
-        exposureLevel: 'FULL',
-        sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
         relationToViewer: 'MATCHED_PARTNER',
         actions: {
           canBookmark: false,
           canRequestMatch: false,
           canStartChat: false,
         },
-      }) as FullPublicProfile;
+        scoreVisible: false,
+      });
     },
   };
 }
@@ -240,7 +244,6 @@ const seasonParticipantProfileHistoryPublicSelect = {
   nicknameNormalizedSnapshot: true,
   ...lifestyleColumnSelect,
   intro: true,
-  messageToRoommate: true,
   collegeCode: true,
   grade: true,
   mbti: true,

@@ -230,7 +230,6 @@ describe('KST boundary + DB now integration', () => {
     const result = await matchesService.createMatchRequest(authContext('user-a'), {
       targetUserId: 'user-b',
       note: 'boundary request',
-      channel: 'PROFILE_DETAIL',
     });
 
     expect(result.request.status).toBe('PENDING');

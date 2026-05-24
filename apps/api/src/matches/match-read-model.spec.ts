@@ -119,13 +119,19 @@ describe('match read model helpers', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requestChannel: 'PROFILE_DETAIL',
       requesterParticipant: {
         userId: 'user-1',
         participationIntent: 'REGISTERED',
         declinedAt: null,
         participantStatus: 'ACTIVE',
         withdrawnAt: null,
+        profile: {
+          nicknameSnapshot: '요청자',
+          intro: '요청자 소개',
+          smokingBehavior: 'NO',
+          sleepHabit: 'NONE',
+          relationshipStyle: 'CLOSE',
+        },
       },
       receiverParticipant: {
         userId: 'user-2',
@@ -133,19 +139,33 @@ describe('match read model helpers', () => {
         declinedAt: null,
         participantStatus: 'ACTIVE',
         withdrawnAt: null,
+        profile: {
+          nicknameSnapshot: '수신자',
+          intro: '수신자 소개',
+          smokingBehavior: 'NO',
+          sleepHabit: 'NONE',
+          relationshipStyle: 'CLOSE',
+        },
       },
     };
 
-    expect(toMatchRequestSummary(request, 'participant-1')).toMatchObject({
+    const sentSummary = toMatchRequestSummary(request, 'participant-1');
+    expect(sentSummary).toMatchObject({
       direction: 'SENT',
       counterpartUserId: 'user-2',
       counterpartParticipantId: 'participant-2',
     });
-    expect(toMatchRequestSummary(request, 'participant-2')).toMatchObject({
+    expect(sentSummary.counterpartSummary.id).toBe('user-2');
+    expect(sentSummary.counterpartSummary.nickname).toBe('수신자');
+
+    const receivedSummary = toMatchRequestSummary(request, 'participant-2');
+    expect(receivedSummary).toMatchObject({
       direction: 'RECEIVED',
       counterpartUserId: 'user-1',
       counterpartParticipantId: 'participant-1',
     });
+    expect(receivedSummary.counterpartSummary.id).toBe('user-1');
+    expect(receivedSummary.counterpartSummary.nickname).toBe('요청자');
   });
 
   it('detailed active match summary는 viewer/counterpart unmatch progress를 계산한다', () => {

@@ -1,10 +1,7 @@
 import { MatchesService } from '../../src/matches/matches.service.js';
 import { LifecycleSweepService } from '../../src/common/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
-import {
-  toCompleteLifestyleColumnData,
-  toLifestyleColumnData,
-} from '../../src/common/lifestyle/lifestyle.persistence.js';
+import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -113,14 +110,11 @@ describe('Match history integration', () => {
       },
     });
 
-    await prisma.userProfile.create({
+    await prisma.userDisplayIdentity.create({
       data: {
         userId: input.userId,
         nickname: input.nickname,
         nicknameNormalized: input.nickname,
-        ...toLifestyleColumnData(DEFAULT_LIFESTYLE),
-        intro: `${input.nickname} 기본 소개`,
-        messageToRoommate: `${input.nickname} 기본 메시지`,
       },
     });
   }
@@ -155,7 +149,6 @@ describe('Match history integration', () => {
         nicknameNormalizedSnapshot: input.nicknameSnapshot,
         ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
         intro: `${input.nicknameSnapshot} 시즌 소개`,
-        messageToRoommate: `${input.nicknameSnapshot} 시즌 메시지`,
       },
     });
   }
@@ -242,7 +235,6 @@ describe('Match history integration', () => {
         createdAt: new Date('2025-07-22T12:00:00.000Z'),
         expiresAt: new Date('2025-07-27T12:00:00.000Z'),
         terminalAt: new Date('2025-07-22T13:00:00.000Z'),
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
     await prisma.matchRequest.create({
@@ -259,7 +251,6 @@ describe('Match history integration', () => {
         createdAt: new Date('2025-07-26T12:00:00.000Z'),
         expiresAt: new Date('2025-07-31T12:00:00.000Z'),
         terminalAt: new Date('2025-07-26T15:00:00.000Z'),
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
     await prisma.matchRequest.create({
@@ -277,7 +268,6 @@ describe('Match history integration', () => {
         expiresAt: new Date('2025-08-06T09:00:00.000Z'),
         terminalAt: new Date('2025-08-01T10:00:00.000Z'),
         acceptedAt: new Date('2025-08-01T10:00:00.000Z'),
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
     await prisma.activeMatch.create({
@@ -347,7 +337,6 @@ describe('Match history integration', () => {
         expiresAt: new Date('2025-02-15T09:00:00.000Z'),
         terminalAt: new Date('2025-02-10T10:00:00.000Z'),
         acceptedAt: new Date('2025-02-10T10:00:00.000Z'),
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
     await prisma.activeMatch.create({
@@ -538,8 +527,8 @@ describe('Match history integration', () => {
           drinkingFrequency: 'OFTEN',
         }),
         intro: '시즌 종료 전 최종 소개',
-        messageToRoommate: '시즌 종료 전 최종 메시지',
-        source: 'SEASON_USER_EDIT',
+        registeredAtSnapshot: new Date('2025-01-10T12:00:00.000Z'),
+        source: 'SEASON_REGISTRATION',
         createdAt: new Date('2025-02-27T12:00:00.000Z'),
       },
     });
@@ -551,7 +540,6 @@ describe('Match history integration', () => {
         nicknameNormalizedSnapshot: '좋은날씨-after',
         ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
         intro: '시즌 종료 후 소개',
-        messageToRoommate: '시즌 종료 후 메시지',
         source: 'RETENTION_SNAPSHOT',
         createdAt: new Date('2025-03-05T12:00:00.000Z'),
       },
@@ -572,7 +560,6 @@ describe('Match history integration', () => {
         expiresAt: new Date('2025-01-25T10:00:00.000Z'),
         terminalAt: new Date('2025-01-20T12:00:00.000Z'),
         acceptedAt: new Date('2025-01-20T12:00:00.000Z'),
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
     await prisma.activeMatch.create({
@@ -617,17 +604,21 @@ describe('Match history integration', () => {
       storedRow!.id,
     );
     expect(counterpartProfile).toMatchObject({
-      exposureLevel: 'FULL',
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
       relationToViewer: 'MATCHED_PARTNER',
+      capabilities: {
+        summaryVisible: true,
+        detailViewable: true,
+        canViewFull: true,
+        scoreVisible: false,
+        actions: {
+          canBookmark: false,
+          canRequestMatch: false,
+          canStartChat: false,
+        },
+      },
       nickname: '좋은날씨-final',
       intro: '시즌 종료 전 최종 소개',
-      messageToRoommate: '시즌 종료 전 최종 메시지',
-      actions: {
-        canBookmark: false,
-        canRequestMatch: false,
-        canStartChat: false,
-      },
       lifestyle: {
         cleanLevel: 'WHEN_DIRTY',
       },
@@ -692,7 +683,6 @@ describe('Match history integration', () => {
         createdAt: new Date('2025-01-20T10:00:00.000Z'),
         expiresAt: new Date('2025-01-25T10:00:00.000Z'),
         terminalAt: new Date('2025-01-20T12:00:00.000Z'),
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
 
@@ -803,7 +793,6 @@ describe('Match history integration', () => {
         createdAt: new Date('2025-01-20T10:00:00.000Z'),
         expiresAt: new Date('2025-01-25T10:00:00.000Z'),
         terminalAt: new Date('2025-01-20T12:00:00.000Z'),
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
 

@@ -68,12 +68,10 @@ describe('MatchesService integration', () => {
     const first = service.createMatchRequest(authContext('user-a'), {
       targetUserId: 'user-b',
       note: '같은 pair race 1',
-      channel: 'PROFILE_DETAIL',
     });
     const second = service.createMatchRequest(authContext('user-a'), {
       targetUserId: 'user-b',
       note: '같은 pair race 2',
-      channel: 'PROFILE_DETAIL',
     });
 
     const settled = await Promise.allSettled([first, second]);
@@ -106,12 +104,10 @@ describe('MatchesService integration', () => {
     const requestA = await service.createMatchRequest(authContext('user-a'), {
       targetUserId: 'user-b',
       note: 'request-a',
-      channel: 'PROFILE_DETAIL',
     });
     const requestB = await service.createMatchRequest(authContext('user-c'), {
       targetUserId: 'user-b',
       note: 'request-b',
-      channel: 'PROFILE_DETAIL',
     });
 
     const settled = await Promise.allSettled([
@@ -144,7 +140,6 @@ describe('MatchesService integration', () => {
     const request = await service.createMatchRequest(authContext('user-a'), {
       targetUserId: 'user-b',
       note: 'withdrawn race',
-      channel: 'PROFILE_DETAIL',
     });
     const withdrawnAt = new Date('2026-02-10T04:00:00.000Z');
 
@@ -198,12 +193,10 @@ describe('MatchesService integration', () => {
     const requestA = await service.createMatchRequest(authContext('user-a'), {
       targetUserId: 'user-b',
       note: 'request-a',
-      channel: 'PROFILE_DETAIL',
     });
     const requestB = await service.createMatchRequest(authContext('user-c'), {
       targetUserId: 'user-b',
       note: 'request-b',
-      channel: 'PROFILE_DETAIL',
     });
 
     await service.acceptMatchRequest(authContext('user-b'), requestA.request.id);
@@ -225,15 +218,24 @@ describe('MatchesService integration', () => {
     });
   });
 
-  it('season participant profile complete invariant는 nullable condition write를 거부한다', async () => {
+  it('incomplete season participant profile은 raw nullable write가 가능해도 match request capability에서 닫힌다', async () => {
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-a' },
+      data: {
+        smokingTolerance: null,
+      },
+    });
+
     await expect(
-      prisma.seasonParticipantProfile.update({
-        where: { participantId: 'participant-a' },
-        data: {
-          smokingTolerance: null as never,
-        },
+      service.createMatchRequest(authContext('user-a'), {
+        targetUserId: 'user-b',
+        note: 'incomplete requester profile',
       }),
-    ).rejects.toBeTruthy();
+    ).rejects.toMatchObject({
+      response: {
+        code: 'MATCH_REQUEST_NOT_ALLOWED',
+      },
+    });
   });
 
   it('ACTIVE match summary의 match score는 viewer 기준 단방향으로 계산된다', async () => {

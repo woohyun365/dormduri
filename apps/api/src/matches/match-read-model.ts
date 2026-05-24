@@ -3,6 +3,7 @@ import type {
   ActiveMatchUnmatchProgress,
   MatchRequestSummary,
 } from '@repo/shared/match-contract';
+import type { RoommateSearchSummary } from '@repo/shared/roommate-search-contract';
 import { buildDirectionalMatchScoreProjection } from './match-score-projection.js';
 import { formatKstDate } from '../seasons/season.utils.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
@@ -39,7 +40,33 @@ export function toMatchRequestSummary(
     terminalAt: request.terminalAt?.toISOString() ?? null,
     acceptedAt: request.acceptedAt?.toISOString() ?? null,
     terminalReason: request.terminalReason,
-    requestChannel: request.requestChannel,
+    counterpartSummary: toMatchRequestCounterpartSummary(
+      sent ? request.receiverParticipant : request.requesterParticipant,
+    ),
+  };
+}
+
+function toMatchRequestCounterpartSummary(
+  participant: MatchRequestRecord['requesterParticipant'],
+): RoommateSearchSummary {
+  return {
+    id: participant.userId,
+    sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+    relationToViewer: 'GENERAL',
+    summaryVisible: true,
+    canViewFull: false,
+    detailViewable: false,
+    scoreVisible: false,
+    actions: {
+      canBookmark: false,
+      canRequestMatch: false,
+      canStartChat: false,
+    },
+    nickname: participant.profile?.nicknameSnapshot ?? '탈퇴한 사용자',
+    intro: participant.profile?.intro ?? '',
+    smokingBehavior: participant.profile?.smokingBehavior ?? null,
+    sleepHabit: participant.profile?.sleepHabit ?? null,
+    relationshipStyle: participant.profile?.relationshipStyle ?? null,
   };
 }
 
