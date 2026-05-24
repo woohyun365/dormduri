@@ -129,9 +129,6 @@ describe('ProfilesService Step 6 public detail', () => {
     seasonParticipant: {
       findFirst: jest.fn(),
     },
-    seasonParticipantProfileHistory: {
-      findMany: jest.fn(),
-    },
   };
   const seasonsService = {
     getCurrentSeasonContext: jest.fn(),
@@ -139,6 +136,7 @@ describe('ProfilesService Step 6 public detail', () => {
   const seasonParticipantsService = {
     ensureCurrentSeasonParticipant: jest.fn(),
     selectCanonicalSelection: jest.fn(),
+    findRegistrationSnapshotParticipantIdSet: jest.fn(),
   };
   const matchesService = {
     getLiveActiveMatchMapForParticipantIds: jest.fn(),
@@ -175,9 +173,9 @@ describe('ProfilesService Step 6 public detail', () => {
       }),
     );
     seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(makeParticipant());
-    prisma.seasonParticipantProfileHistory.findMany.mockResolvedValue([
-      { participantId: 'participant-target' },
-    ]);
+    seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(
+      new Set(['participant-target']),
+    );
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
   });
 
@@ -248,7 +246,7 @@ describe('ProfilesService Step 6 public detail', () => {
     prisma.seasonParticipant.findFirst.mockResolvedValue(
       toRawParticipant(makeParticipant({ id: 'participant-target', userId: 'peer-1' }), 'peer-1'),
     );
-    prisma.seasonParticipantProfileHistory.findMany.mockResolvedValue([]);
+    seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(new Set());
 
     await expect(
       service.getProfileByUserId({ id: 'user-1', gender: 'M', campus: 'CHUNCHEON' }, 'peer-1'),

@@ -133,10 +133,9 @@ describe('season-participant-gate-context', () => {
     });
   });
 
-  it('target exposure input은 OFF_SEASON이면 visibility hidden residue를 무시하고 browse를 열 수 있게 만든다', () => {
+  it('target exposure input은 OFF_SEASON이어도 hidden/deactivated target을 visible로 되살리지 않는다', () => {
     const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
     const result = buildPublicExposureTargetInput({
-      seasonState: 'OFF_SEASON',
       operatedDormitoryIds,
       participant: makeParticipant({
         hiddenByAdminAt: new Date('2026-02-01T00:00:00.000Z'),
@@ -146,9 +145,10 @@ describe('season-participant-gate-context', () => {
         dormitoryId: 'dasan',
         dormitorySelectionState: 'ASSIGNED',
       },
+      registrationSnapshotExists: true,
     });
 
-    expect(result.visible).toBe(true);
+    expect(result.visible).toBe(false);
     expect(result.hasOperatedAssignedDormitory).toBe(true);
     expect(result.hasSeasonProfile).toBe(true);
   });
@@ -156,7 +156,6 @@ describe('season-participant-gate-context', () => {
   it('current season/post-match에서는 season profile 없는 registered target을 visible로 보지 않는다', () => {
     const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
     const result = buildPublicExposureTargetInput({
-      seasonState: 'SEASON_POST_MATCH',
       operatedDormitoryIds,
       participant: makeParticipant({
         profile: null,
@@ -166,6 +165,7 @@ describe('season-participant-gate-context', () => {
         dormitoryId: 'dasan',
         dormitorySelectionState: 'ASSIGNED',
       },
+      registrationSnapshotExists: true,
     });
 
     expect(result.visible).toBe(false);

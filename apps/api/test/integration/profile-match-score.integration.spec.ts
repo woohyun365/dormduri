@@ -277,7 +277,7 @@ describe('ProfilesService match score integration', () => {
     });
   });
 
-  it('SEASON_POST_MATCH에서는 최종 matched partner만 detail과 score를 유지하고 다른 등록자는 LIMITED summary만 본다', async () => {
+  it('SEASON_POST_MATCH에서는 최종 matched partner만 detail과 score를 유지하고 다른 등록자는 summary-only로 본다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'viewer',
       participantId: 'participant-viewer',

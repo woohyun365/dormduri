@@ -12,6 +12,7 @@ import { PrismaService } from '../common/prisma/prisma.service.js';
 import { DormitoriesService } from '../dormitories/dormitories.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import { createSeasonParticipantPublicTargetOwner } from './season-participant-public-target.owner.js';
 import { createSeasonParticipantSourceOwner } from './season-participant-source-owner.js';
 import { createSeasonParticipantWriteOwner } from './season-participant-write-owner.js';
 import type {
@@ -34,6 +35,7 @@ export type {
 export class SeasonParticipantsService {
   private readonly sourceOwner = createSeasonParticipantSourceOwner();
   private readonly writeOwner;
+  private readonly publicTargetOwner;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -45,6 +47,7 @@ export class SeasonParticipantsService {
       seasonsService: this.seasonsService,
       dormitoriesService: this.dormitoriesService,
     });
+    this.publicTargetOwner = createSeasonParticipantPublicTargetOwner(this.prisma);
   }
 
   async ensureCurrentSeasonParticipant(
@@ -124,6 +127,20 @@ export class SeasonParticipantsService {
       seasonContext,
       now,
     );
+  }
+
+  async hasRegistrationSnapshotForParticipant(
+    participantId: string,
+    tx?: Prisma.TransactionClient | PrismaService,
+  ): Promise<boolean> {
+    return this.publicTargetOwner.hasRegistrationSnapshotForParticipant(participantId, tx);
+  }
+
+  async findRegistrationSnapshotParticipantIdSet(
+    participantIds: readonly string[],
+    tx?: Prisma.TransactionClient | PrismaService,
+  ): Promise<ReadonlySet<string>> {
+    return this.publicTargetOwner.findRegistrationSnapshotParticipantIdSet(participantIds, tx);
   }
 
   async createOrUpdateDormitorySelection(

@@ -150,25 +150,6 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     };
   }
 
-  async function findRegistrationSnapshotParticipantIdSet(
-    participantIds: readonly string[],
-  ): Promise<ReadonlySet<string>> {
-    if (participantIds.length === 0) {
-      return new Set();
-    }
-
-    const histories = await deps.prisma.seasonParticipantProfileHistory.findMany({
-      where: {
-        participantId: { in: [...participantIds] },
-        source: 'SEASON_REGISTRATION',
-        registeredAtSnapshot: { not: null },
-      },
-      select: { participantId: true },
-    });
-
-    return new Set(histories.map((history) => history.participantId));
-  }
-
   function resolveVisibleProfileEntry(
     candidate: VisibleProfileTargetCandidate,
     viewerContext: VisibleProfileViewerContext,
@@ -201,7 +182,6 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
         currentDormitoryCanMatch: viewerContext.currentDormitoryCanMatch,
       }),
       buildPublicExposureTargetInput({
-        seasonState: viewerContext.serviceState.seasonState,
         operatedDormitoryIds: viewerContext.operatedDormitoryIds,
         participant: targetParticipant,
         matched: targetActiveMatch !== null,
@@ -245,9 +225,10 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       viewerContext.viewerParticipant?.id ?? null,
       ...candidates.map((candidate) => candidate.participant.id),
     ].filter((participantId): participantId is string => participantId !== null);
-    const registrationSnapshotParticipantIds = await findRegistrationSnapshotParticipantIdSet(
-      candidates.map((candidate) => candidate.participant.id),
-    );
+    const registrationSnapshotParticipantIds =
+      await deps.seasonParticipantsService.findRegistrationSnapshotParticipantIdSet(
+        candidates.map((candidate) => candidate.participant.id),
+      );
 
     const activeMatchMap = viewerContext.currentSeasonId
       ? await deps.matchesService.getLiveActiveMatchMapForParticipantIds(

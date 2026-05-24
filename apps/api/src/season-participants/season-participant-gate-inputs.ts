@@ -87,12 +87,11 @@ export function buildPublicExposureViewerInput(input: {
 }
 
 export function buildPublicExposureTargetInput(input: {
-  seasonState: SeasonState | null;
   operatedDormitoryIds: ReadonlySet<string>;
   participant: CurrentSeasonParticipantRecord | null;
   matched: boolean;
   selection: SelectionLike;
-  registrationSnapshotExists?: boolean;
+  registrationSnapshotExists: boolean;
 }): PublicExposureTargetInput {
   const hasSeasonProfile = hasParticipantProfile(input.participant);
   const parsedSeasonProfileLifestyle = input.participant?.profile
@@ -105,7 +104,7 @@ export function buildPublicExposureTargetInput(input: {
     isVisibleRegisteredParticipant(input.participant) &&
     hasSeasonProfile &&
     seasonProfileComplete &&
-    input.registrationSnapshotExists !== false;
+    input.registrationSnapshotExists;
 
   return {
     participantId: input.participant?.id ?? null,
@@ -120,6 +119,6 @@ export function buildPublicExposureTargetInput(input: {
       input.selection.dormitoryId,
     ),
     hasSeasonProfile,
-    registrationSnapshotExists: input.registrationSnapshotExists !== false,
+    registrationSnapshotExists: input.registrationSnapshotExists,
   };
 }

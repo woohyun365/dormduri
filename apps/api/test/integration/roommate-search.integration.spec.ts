@@ -274,7 +274,7 @@ describe('RoommateSearchService integration', () => {
     });
   });
 
-  it('삭제 처리된 사용자는 시즌 roommate-search summary와 FULL detail 대상에서 제외된다', async () => {
+  it('삭제 처리된 사용자는 시즌 roommate-search summary와 detail-capable target에서 제외된다', async () => {
     await setSeasonState('SEASON_OPEN');
     await prisma.user.update({
       where: { id: 'user-b' },
@@ -330,7 +330,7 @@ describe('RoommateSearchService integration', () => {
     expect(result.items.every((item) => item.canViewFull)).toBe(true);
   });
 
-  it('SEASON_POST_MATCH matched viewer는 same-building 목록에서 partner만 FULL이고 나머지는 LIMITED다', async () => {
+  it('SEASON_POST_MATCH matched viewer는 same-building 목록에서 partner만 detail-capable이고 나머지는 summary-only다', async () => {
     await seedActiveMatchFixture(prisma, {
       activeMatchId: 'active-a-b',
       participantAId: 'participant-a',
