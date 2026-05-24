@@ -59,30 +59,54 @@ describe('UsersService integration', () => {
     });
   });
 
-  it('current user 응답에서는 drinking 필드가 lifestyle에 포함되어 self read가 가능하다', async () => {
+  it('current user 응답은 season profile lifestyle 본문을 직접 포함하지 않고 상태 segment만 조합한다', async () => {
     const currentUser = await service.getCurrentUser(authContext('user-a'));
 
-    expect(currentUser.profile.lifestyle.drinkingFrequency).toBe('NONE');
-    expect(currentUser.profile.lifestyle.drinkingTolerance).toBe('LOW_ONLY');
+    expect(currentUser.user).toMatchObject({
+      id: 'user-a',
+      email: 'user-a@kangwon.ac.kr',
+      nickname: '유저A',
+    });
+    expect(currentUser.displayIdentity).toMatchObject({
+      userId: 'user-a',
+      nickname: '유저A',
+      nicknameSource: 'USER_DISPLAY_IDENTITY',
+    });
+    expect(currentUser.seasonProfile).toMatchObject({
+      hasParticipantRow: true,
+      registered: false,
+      profileExists: true,
+      profileState: 'COMPLETE',
+    });
+    expect(currentUser.selection).toMatchObject({
+      state: 'NOT_SELECTED',
+      dormitoryId: null,
+      source: 'SEASON_PARTICIPANT',
+    });
+    expect(currentUser).not.toHaveProperty('profile');
   });
 
-  it('selection ASSIGNED update는 SeasonParticipant를 ACTIVE 상태로 맞춘다', async () => {
+  it('display identity 수정은 users 도메인만 변경하고 dormitory selection은 건드리지 않는다', async () => {
     await service.updateCurrentUser(authContext('user-a'), {
-      selection: {
-        state: 'ASSIGNED',
-        dormitoryId: 'dasan',
-      },
+      displayIdentity: { nickname: '유저변경' },
     });
 
     const participant = await prisma.seasonParticipant.findUnique({
       where: { id: 'participant-a' },
     });
+    const displayIdentity = await prisma.userDisplayIdentity.findUnique({
+      where: { userId: 'user-a' },
+    });
 
     expect(participant).toMatchObject({
-      dormitoryId: 'dasan',
-      dormitorySelectionState: 'ASSIGNED',
-      participantStatus: 'ACTIVE',
+      dormitoryId: null,
+      dormitorySelectionState: 'NOT_SELECTED',
+      participantStatus: 'DRAFT',
     });
-    expect(participant?.activatedAt).not.toBeNull();
+    expect(participant?.activatedAt).toBeNull();
+    expect(displayIdentity).toMatchObject({
+      nickname: '유저변경',
+      nicknameNormalized: '유저변경',
+    });
   });
 });

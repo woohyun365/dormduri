@@ -2,7 +2,7 @@ import { AuthLoginAttemptService } from '../../src/auth/auth-login-attempt.servi
 import { ChatService } from '../../src/chat/chat.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { MatchesService } from '../../src/matches/matches.service.js';
-import { UsersService } from '../../src/users/users.service.js';
+import { SeasonParticipantsService } from '../../src/season-participants/season-participants.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -24,7 +24,7 @@ describe('timestamp field integration', () => {
 
   let prisma: PrismaService;
   let loginAttemptService: AuthLoginAttemptService;
-  let usersService: UsersService;
+  let seasonParticipantsService: SeasonParticipantsService;
   let matchesService: MatchesService;
   let chatService: ChatService;
   let closeApp: (() => Promise<void>) | null = null;
@@ -38,7 +38,7 @@ describe('timestamp field integration', () => {
     closeApp = () => app.close();
     prisma = prismaService;
     loginAttemptService = app.get(AuthLoginAttemptService);
-    usersService = app.get(UsersService);
+    seasonParticipantsService = app.get(SeasonParticipantsService);
     matchesService = app.get(MatchesService);
     chatService = app.get(ChatService);
   });
@@ -126,12 +126,10 @@ describe('timestamp field integration', () => {
       },
     });
 
-    await usersService.updateCurrentUser(authContext('user-a'), {
-      selection: {
-        state: 'ASSIGNED',
-        dormitoryId: 'dasan',
-      },
+    await seasonParticipantsService.createOrUpdateDormitorySelection('user-a', {
+      dormitoryId: 'dasan',
     });
+    await seasonParticipantsService.finalizeSeasonRegistration('user-a');
 
     const activatedParticipant = await prisma.seasonParticipant.findUniqueOrThrow({
       where: { id: 'participant-a' },
@@ -176,7 +174,7 @@ describe('timestamp field integration', () => {
     expect(thread.lastMessageAt).not.toBeNull();
   });
 
-  it('legacy DB trigger가 없는 mutable model들도 Prisma @updatedAt으로 updatedAt을 갱신한다', async () => {
+  it('DB trigger가 없는 mutable model들도 Prisma @updatedAt으로 updatedAt을 갱신한다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-a',
       participantId: 'participant-a',
@@ -223,7 +221,9 @@ describe('timestamp field integration', () => {
     });
 
     const before = {
-      userProfile: await prisma.userProfile.findUniqueOrThrow({ where: { userId: 'user-a' } }),
+      userDisplayIdentity: await prisma.userDisplayIdentity.findUniqueOrThrow({
+        where: { userId: 'user-a' },
+      }),
       seasonParticipant: await prisma.seasonParticipant.findUniqueOrThrow({
         where: { id: 'participant-a' },
       }),
@@ -254,9 +254,9 @@ describe('timestamp field integration', () => {
 
     await waitMs(10);
 
-    await prisma.userProfile.update({
+    await prisma.userDisplayIdentity.update({
       where: { userId: 'user-a' },
-      data: { intro: 'updated intro' },
+      data: { nickname: 'updated identity nickname' },
     });
     await prisma.seasonParticipant.updateMany({
       where: { id: 'participant-a' },
@@ -308,7 +308,9 @@ describe('timestamp field integration', () => {
     });
 
     const after = {
-      userProfile: await prisma.userProfile.findUniqueOrThrow({ where: { userId: 'user-a' } }),
+      userDisplayIdentity: await prisma.userDisplayIdentity.findUniqueOrThrow({
+        where: { userId: 'user-a' },
+      }),
       seasonParticipant: await prisma.seasonParticipant.findUniqueOrThrow({
         where: { id: 'participant-a' },
       }),
@@ -337,8 +339,8 @@ describe('timestamp field integration', () => {
       }),
     };
 
-    expect(after.userProfile.updatedAt.getTime()).toBeGreaterThan(
-      before.userProfile.updatedAt.getTime(),
+    expect(after.userDisplayIdentity.updatedAt.getTime()).toBeGreaterThan(
+      before.userDisplayIdentity.updatedAt.getTime(),
     );
     expect(after.seasonParticipant.updatedAt.getTime()).toBeGreaterThan(
       before.seasonParticipant.updatedAt.getTime(),

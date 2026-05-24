@@ -51,7 +51,6 @@ describe('UsersService current-user boundary', () => {
   const moderationService = {
     validateNicknamePolicy: jest.fn(),
   };
-  const seasonParticipantsService = {};
   const currentUserViewService = {
     getCurrentUser: jest.fn(),
     buildCurrentUserResponse: jest.fn(),
@@ -61,7 +60,6 @@ describe('UsersService current-user boundary', () => {
     prisma as never,
     seasonsService as never,
     moderationService as never,
-    seasonParticipantsService as never,
     currentUserViewService as never,
   );
 

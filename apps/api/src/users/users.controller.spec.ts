@@ -41,6 +41,22 @@ describe('UsersController', () => {
     }
   });
 
+  it.each([
+    ['season profile intro', { intro: '자기소개' }],
+    ['season lifestyle', { lifestyle: { smokingBehavior: 'NO' } }],
+    ['legacy message field', { messageToRoommate: '안녕하세요' }],
+    ['legacy request channel', { requestChannel: 'DIRECT' }],
+  ])('PATCH /api/users/me는 %s payload를 users 경계에서 거부한다', async (_caseName, body) => {
+    try {
+      await controller.updateCurrentUser(authUser, body);
+      throw new Error('Expected BadRequestException');
+    } catch (error) {
+      const response = getBadRequestResponse(error);
+      expect(response.code).toBe('INVALID_REQUEST_BODY');
+      expect(usersService.updateCurrentUser).not.toHaveBeenCalled();
+    }
+  });
+
   it('PATCH /api/users/me/onboarding body를 파싱해 dismiss owner로 위임한다', async () => {
     const response = { ok: true };
     usersService.dismissCurrentUserOnboardingNotice.mockResolvedValue(response);
