@@ -2,13 +2,18 @@ import request from 'supertest';
 import { AuthSessionService } from '../../src/auth/auth-session.service.js';
 import { hashPassword } from '../../src/auth/auth-password.js';
 import { LifecycleSweepService } from '../../src/common/lifecycle/lifecycle-sweep.service.js';
+import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from './support/integration-db.js';
-import { seedActiveMatchFixture, seedBaseSeasonFixtures } from './support/integration-fixtures.js';
+import {
+  DEFAULT_LIFESTYLE,
+  seedActiveMatchFixture,
+  seedBaseSeasonFixtures,
+} from './support/integration-fixtures.js';
 
 describe('account deletion + season de-registration integration', () => {
   jest.setTimeout(60_000);
@@ -67,23 +72,24 @@ describe('account deletion + season de-registration integration', () => {
       },
     });
 
-    await prisma.userProfile.create({
+    await prisma.userDisplayIdentity.create({
       data: {
         userId: input.userId,
         nickname: input.nickname,
         nicknameNormalized: input.nickname,
-        intro: `${input.nickname} 소개`,
       },
     });
 
     if (input.withParticipant) {
+      const registeredAt = new Date(now.getTime() - 24 * 60 * 60 * 1_000);
+
       await prisma.seasonParticipant.create({
         data: {
           id: `${input.userId}-participant`,
           seasonId: 'season-integration',
           userId: input.userId,
           participationIntent: 'REGISTERED',
-          registeredAt: new Date(now.getTime() - 24 * 60 * 60 * 1_000),
+          registeredAt,
           dormitoryId: 'dasan',
           dormitorySelectionState: 'ASSIGNED',
           participantStatus: 'ACTIVE',
@@ -122,7 +128,19 @@ describe('account deletion + season de-registration integration', () => {
           cleanExpectation: 'STRICT',
           drinkingTolerance: 'LOW_ONLY',
           intro: `${input.nickname} 시즌 소개`,
-          messageToRoommate: `${input.nickname} 시즌 메시지`,
+        },
+      });
+
+      await prisma.seasonParticipantProfileHistory.create({
+        data: {
+          participantId: `${input.userId}-participant`,
+          seasonId: 'season-integration',
+          source: 'SEASON_REGISTRATION',
+          nicknameSnapshot: input.nickname,
+          nicknameNormalizedSnapshot: input.nickname,
+          ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
+          intro: `${input.nickname} 시즌 소개`,
+          registeredAtSnapshot: registeredAt,
         },
       });
     }
@@ -131,6 +149,43 @@ describe('account deletion + season de-registration integration', () => {
   async function issueAccessToken(userId: string, email: string) {
     const issued = await authSessionService.issueAuthResult(userId, email, false);
     return issued.accessToken;
+  }
+
+  async function seedRegistrationReadyDraftUser(input: {
+    userId: string;
+    email: string;
+    nickname: string;
+    participantId: string;
+  }) {
+    const now = await prisma.getDatabaseNow();
+    await seedVerifiedUser({
+      userId: input.userId,
+      email: input.email,
+      nickname: input.nickname,
+    });
+    await prisma.seasonParticipant.create({
+      data: {
+        id: input.participantId,
+        seasonId: 'season-integration',
+        userId: input.userId,
+        participationIntent: 'UNDECIDED',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'SELECTED',
+        participantStatus: 'DRAFT',
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        joinedAt: now,
+      },
+    });
+    await prisma.seasonParticipantProfile.create({
+      data: {
+        participantId: input.participantId,
+        nicknameSnapshot: input.nickname,
+        nicknameNormalizedSnapshot: input.nickname,
+        ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
+        intro: `${input.nickname} 등록 준비 소개`,
+      },
+    });
   }
 
   it('current season registered participant는 계정 삭제 요청 대신 시즌 참여 철회 또는 시즌 종료 후 재시도를 안내받는다', async () => {
@@ -151,6 +206,64 @@ describe('account deletion + season de-registration integration', () => {
     const body = response.body as { code: string; seasonState: string };
     expect(body.code).toBe('ACCOUNT_DELETION_BLOCKED_BY_SEASON_PARTICIPATION');
     expect(body.seasonState).toBe('SEASON_MATCHING');
+  });
+
+  it('계정 삭제와 registration finalize가 동시에 실행되어도 삭제 계정과 등록 완료 participant가 동시에 남지 않는다', async () => {
+    const userId = 'delete-register-race-user';
+    const participantId = 'delete-register-race-participant';
+    const email = 'delete-register-race@kangwon.ac.kr';
+    await seedRegistrationReadyDraftUser({
+      userId,
+      participantId,
+      email,
+      nickname: '삭제등록경합',
+    });
+    const accessToken = await issueAccessToken(userId, email);
+
+    const [deleteResponse, registrationResponse] = await Promise.all([
+      request(httpServer)
+        .post('/api/users/me/delete')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ password: 'Pass1234' }),
+      request(httpServer)
+        .post('/api/seasons/current/participation/registration')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({}),
+    ]);
+
+    const deletionSucceeded = deleteResponse.status === 201;
+    const registrationSucceeded = registrationResponse.status === 201;
+    expect(Number(deletionSucceeded) + Number(registrationSucceeded)).toBe(1);
+
+    const [user, participant, historyCount] = await Promise.all([
+      prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      prisma.seasonParticipant.findUniqueOrThrow({ where: { id: participantId } }),
+      prisma.seasonParticipantProfileHistory.count({
+        where: { participantId, source: 'SEASON_REGISTRATION' },
+      }),
+    ]);
+    const registrationComplete =
+      participant.participationIntent === 'REGISTERED' &&
+      participant.registeredAt !== null &&
+      participant.dormitorySelectionState === 'ASSIGNED' &&
+      participant.dormitoryId !== null;
+
+    expect(user.deletedAt !== null && registrationComplete).toBe(false);
+
+    if (deletionSucceeded) {
+      expect(user.deletedAt).not.toBeNull();
+      expect(registrationComplete).toBe(false);
+      expect(historyCount).toBe(0);
+    }
+
+    if (registrationSucceeded) {
+      expect(user.deletedAt).toBeNull();
+      expect(registrationComplete).toBe(true);
+      expect(historyCount).toBe(1);
+      expect(deleteResponse.body).toMatchObject({
+        code: 'ACCOUNT_DELETION_BLOCKED_BY_SEASON_PARTICIPATION',
+      });
+    }
   });
 
   it('계정 삭제 요청은 현재 비밀번호가 틀리면 계정을 비식별화하지 않는다', async () => {
@@ -202,7 +315,6 @@ describe('account deletion + season de-registration integration', () => {
         receiverParticipantId: 'user-b-participant',
         status: 'PENDING',
         expiresAt: new Date((await prisma.getDatabaseNow()).getTime() + 60 * 60 * 1_000),
-        requestChannel: 'ROOMMATE_TAB',
       },
     });
 
@@ -225,8 +337,9 @@ describe('account deletion + season de-registration integration', () => {
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(201);
 
-    const body = response.body as { participation: { registered: boolean } };
-    expect(body.participation.registered).toBe(false);
+    const body = response.body as { participationIntent: string; participantStatus: string };
+    expect(body.participationIntent).toBe('DECLINED');
+    expect(body.participantStatus).toBe('WITHDRAWN');
 
     const participant = await prisma.seasonParticipant.findUniqueOrThrow({
       where: { id: 'user-a-participant' },
@@ -248,7 +361,7 @@ describe('account deletion + season de-registration integration', () => {
     expect(thread.closedReason).toBe('PARTICIPANT_WITHDRAWN');
 
     await request(httpServer)
-      .post('/api/seasons/current/participation/register')
+      .post('/api/seasons/current/participation/registration')
       .set('Authorization', `Bearer ${accessToken}`)
       .expect(409);
   });
@@ -360,18 +473,31 @@ describe('account deletion + season de-registration integration', () => {
     expect(threadAfterDeletion.status).toBe('READ_ONLY');
     expect(threadAfterDeletion.closedReason).toBe('PARTICIPANT_WITHDRAWN');
 
-    const anonymizedProfile = await prisma.userProfile.findUniqueOrThrow({
+    const anonymizedIdentity = await prisma.userDisplayIdentity.findUniqueOrThrow({
       where: { userId: 'user-a' },
     });
-    expect(anonymizedProfile.nickname).toBe('탈퇴한 사용자');
-    expect(anonymizedProfile.intro).toBe('');
-    expect(anonymizedProfile.messageToRoommate).toBeNull();
+    expect(anonymizedIdentity.nickname).toBe('탈퇴한 사용자');
+    expect(anonymizedIdentity.nicknameNormalized.startsWith('deleted-')).toBe(true);
 
     const retainedIdentity = await prisma.retainedIdentity.findUniqueOrThrow({
       where: { originalUserId: 'user-a' },
     });
     expect(retainedIdentity.displayLabel).toBe('탈퇴한 사용자');
     expect(retainedIdentity.retentionReason).toBe('ACCOUNT_DELETION');
+    const archiveJobs = await prisma.archiveJob.findMany({
+      where: { retainedIdentityId: retainedIdentity.id },
+      orderBy: { target: 'asc' },
+    });
+    expect(archiveJobs.map((job) => job.target)).toEqual([
+      'RETAINED_IDENTITY',
+      'SEASON_PROFILE_HISTORY',
+      'THREAD_RETENTION',
+    ]);
+    const threadRetentionJob = archiveJobs.find((job) => job.target === 'THREAD_RETENTION');
+    expect(threadRetentionJob).toMatchObject({
+      threadId: 'direct-thread-with-message',
+      status: 'WAITING_CONDITION',
+    });
 
     const detailAfterDeletion = await request(httpServer)
       .get('/api/chat/threads/direct-thread-with-message')
@@ -491,10 +617,11 @@ describe('account deletion + season de-registration integration', () => {
     expect(user.emailNormalized.startsWith('deleted+')).toBe(true);
     expect(user.emailVerifiedAt).toBeNull();
 
-    const profile = await prisma.userProfile.findUniqueOrThrow({ where: { userId: 'user-c' } });
-    expect(profile.nickname).toBe('탈퇴한 사용자');
-    expect(profile.intro).toBe('');
-    expect(profile.messageToRoommate).toBeNull();
+    const displayIdentity = await prisma.userDisplayIdentity.findUniqueOrThrow({
+      where: { userId: 'user-c' },
+    });
+    expect(displayIdentity.nickname).toBe('탈퇴한 사용자');
+    expect(displayIdentity.nicknameNormalized.startsWith('deleted-')).toBe(true);
 
     const retainedIdentity = await prisma.retainedIdentity.findUniqueOrThrow({
       where: { originalUserId: 'user-c' },
@@ -549,7 +676,69 @@ describe('account deletion + season de-registration integration', () => {
     expect(completedArchiveJobs.every((job) => job.status === 'SUCCEEDED')).toBe(true);
   });
 
-  it('정상 계정 삭제는 full profile history retention snapshot을 자동 생성하지 않는다', async () => {
+  it('등록 전 season profile draft는 계정 삭제 수락 시 current profile 식별/생활패턴 필드를 비식별화한다', async () => {
+    await seedVerifiedUser({
+      userId: 'user-draft-profile',
+      email: 'draft-profile@kangwon.ac.kr',
+      nickname: '드래프트유저',
+    });
+    await prisma.seasonParticipant.create({
+      data: {
+        id: 'user-draft-profile-participant',
+        seasonId: 'season-integration',
+        userId: 'user-draft-profile',
+        participationIntent: 'UNDECIDED',
+        dormitorySelectionState: 'NOT_SELECTED',
+        participantStatus: 'DRAFT',
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+      },
+    });
+    await prisma.seasonParticipantProfile.create({
+      data: {
+        participantId: 'user-draft-profile-participant',
+        nicknameSnapshot: '드래프트유저',
+        nicknameNormalizedSnapshot: '드래프트유저',
+        bedtime: 'BETWEEN_22_24',
+        wakeTime: 'BETWEEN_07_08',
+        smokingBehavior: 'NO',
+        relationshipStyle: 'CLOSE',
+        intro: '등록 전 소개',
+        grade: '2',
+        mbti: 'INTJ',
+        birthYear: 2000,
+      },
+    });
+    const accessToken = await issueAccessToken('user-draft-profile', 'draft-profile@kangwon.ac.kr');
+
+    await request(httpServer)
+      .post('/api/users/me/delete')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ password: 'Pass1234' })
+      .expect(201);
+
+    const draftProfile = await prisma.seasonParticipantProfile.findUniqueOrThrow({
+      where: { participantId: 'user-draft-profile-participant' },
+    });
+    expect(draftProfile.nicknameSnapshot).toBe('탈퇴한 사용자');
+    expect(draftProfile.nicknameNormalizedSnapshot.startsWith('deleted-')).toBe(true);
+    expect(draftProfile.intro).toBe('');
+    expect(draftProfile.bedtime).toBeNull();
+    expect(draftProfile.wakeTime).toBeNull();
+    expect(draftProfile.smokingBehavior).toBeNull();
+    expect(draftProfile.relationshipStyle).toBeNull();
+    expect(draftProfile.collegeCode).toBeNull();
+    expect(draftProfile.grade).toBeNull();
+    expect(draftProfile.mbti).toBeNull();
+    expect(draftProfile.birthYear).toBeNull();
+
+    const seasonHistoryCount = await prisma.seasonParticipantProfileHistory.count({
+      where: { participantId: 'user-draft-profile-participant' },
+    });
+    expect(seasonHistoryCount).toBe(0);
+  });
+
+  it('정상 계정 삭제는 season profile history retention snapshot을 자동 생성하지 않는다', async () => {
     await seedVerifiedUser({
       userId: 'user-no-history',
       email: 'user-no-history@kangwon.ac.kr',
@@ -563,10 +752,10 @@ describe('account deletion + season de-registration integration', () => {
       .send({ password: 'Pass1234' })
       .expect(201);
 
-    const userHistoryCount = await prisma.userProfileHistory.count({
-      where: { userId: 'user-no-history', source: 'RETENTION_SNAPSHOT' },
+    const seasonHistoryCount = await prisma.seasonParticipantProfileHistory.count({
+      where: { source: 'RETENTION_SNAPSHOT' },
     });
-    expect(userHistoryCount).toBe(0);
+    expect(seasonHistoryCount).toBe(0);
 
     const retainedIdentity = await prisma.retainedIdentity.findFirstOrThrow({
       where: { originalUserId: 'user-no-history' },

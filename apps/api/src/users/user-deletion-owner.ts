@@ -25,6 +25,23 @@ interface UserDeletionOwnerDeps {
   seasonsService: SeasonsService;
 }
 
+type CurrentSeasonContext = NonNullable<
+  Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>
+>;
+
+const accountDeletionParticipantSelect = {
+  id: true,
+  participationIntent: true,
+  registeredAt: true,
+  declinedAt: true,
+  dormitoryId: true,
+  dormitorySelectionState: true,
+  participantStatus: true,
+  hiddenByAdminAt: true,
+  deactivatedAt: true,
+  profile: { select: { participantId: true } },
+} as const;
+
 export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
   async function requestAccountDeletion(
     userId: string,
@@ -63,29 +80,11 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
             userId: user.id,
           },
         },
-        select: {
-          id: true,
-          participationIntent: true,
-          registeredAt: true,
-          declinedAt: true,
-          dormitoryId: true,
-          dormitorySelectionState: true,
-          participantStatus: true,
-          hiddenByAdminAt: true,
-          deactivatedAt: true,
-          profile: { select: { participantId: true } },
-        },
+        select: accountDeletionParticipantSelect,
       });
 
       if (isParticipantRegistered(currentParticipant)) {
-        throw conflictError(
-          'ACCOUNT_DELETION_BLOCKED_BY_SEASON_PARTICIPATION',
-          '현재 시즌 참여 중에는 계정 삭제 요청을 받을 수 없습니다. 시즌 참여 철회를 먼저 진행하거나 시즌 종료 후 다시 시도해주세요.',
-          {
-            seasonState: seasonContext.state,
-            seasonEndDate: seasonContext.schedule.seasonEnd,
-          },
-        );
+        throw accountDeletionBlockedBySeasonParticipation(seasonContext);
       }
     }
 
@@ -95,16 +94,27 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
         select: {
           id: true,
           deletedAt: true,
-          profile: {
-            select: {
-              userId: true,
-            },
-          },
         },
       });
 
       if (!txUser || txUser.deletedAt) {
         throw conflictError('ACCOUNT_ALREADY_DELETED', '이미 삭제 처리된 계정입니다.');
+      }
+
+      if (seasonContext) {
+        const txParticipant = await tx.seasonParticipant.findUnique({
+          where: {
+            seasonId_userId: {
+              seasonId: seasonContext.season.id,
+              userId: txUser.id,
+            },
+          },
+          select: accountDeletionParticipantSelect,
+        });
+
+        if (isParticipantRegistered(txParticipant)) {
+          throw accountDeletionBlockedBySeasonParticipation(seasonContext);
+        }
       }
 
       const retained = await createRetainedIdentitySnapshotTx(tx, {
@@ -139,44 +149,49 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
         },
       });
 
-      if (txUser.profile) {
-        await tx.userProfile.update({
-          where: { userId: txUser.id },
-          data: {
-            nickname: retained.displayLabel,
-            nicknameNormalized: `deleted-${retained.anonymizedActorKey}`,
-            nicknameChangedAt: now,
-            bedtime: null,
-            wakeTime: null,
-            sleepHabit: null,
-            sleepEnvironment: null,
-            screenUsage: null,
-            noiseSensitivity: null,
-            smokingBehavior: null,
-            indoorEating: null,
-            phoneBehavior: null,
-            earphoneUsage: null,
-            cleanLevel: null,
-            drinkingFrequency: null,
-            relationshipStyle: null,
-            temperatureSensitivity: null,
-            smokingTolerance: null,
-            phoneTolerance: null,
-            earphoneExpectation: null,
-            sleepEnvPreference: null,
-            screenTolerance: null,
-            indoorEatingTolerance: null,
-            cleanExpectation: null,
-            drinkingTolerance: null,
-            intro: '',
-            messageToRoommate: null,
-            collegeCode: null,
-            grade: null,
-            mbti: null,
-            birthYear: null,
-          },
-        });
-      }
+      await tx.userDisplayIdentity.updateMany({
+        where: { userId: txUser.id },
+        data: {
+          nickname: retained.displayLabel,
+          nicknameNormalized: `deleted-${retained.anonymizedActorKey}`,
+          nicknameChangedAt: now,
+        },
+      });
+
+      await tx.seasonParticipantProfile.updateMany({
+        where: { participant: { userId: txUser.id } },
+        data: {
+          nicknameSnapshot: retained.displayLabel,
+          nicknameNormalizedSnapshot: `deleted-${retained.anonymizedActorKey}`,
+          bedtime: null,
+          wakeTime: null,
+          sleepHabit: null,
+          sleepEnvironment: null,
+          screenUsage: null,
+          noiseSensitivity: null,
+          smokingBehavior: null,
+          indoorEating: null,
+          phoneBehavior: null,
+          earphoneUsage: null,
+          cleanLevel: null,
+          drinkingFrequency: null,
+          relationshipStyle: null,
+          temperatureSensitivity: null,
+          smokingTolerance: null,
+          phoneTolerance: null,
+          earphoneExpectation: null,
+          sleepEnvPreference: null,
+          screenTolerance: null,
+          indoorEatingTolerance: null,
+          cleanExpectation: null,
+          drinkingTolerance: null,
+          intro: '',
+          collegeCode: null,
+          grade: null,
+          mbti: null,
+          birthYear: null,
+        },
+      });
 
       await tx.user.update({
         where: { id: txUser.id },
@@ -211,4 +226,15 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
       return disposeExpiredRetainedIdentities(deps.prisma, now);
     },
   };
+}
+
+function accountDeletionBlockedBySeasonParticipation(seasonContext: CurrentSeasonContext) {
+  return conflictError(
+    'ACCOUNT_DELETION_BLOCKED_BY_SEASON_PARTICIPATION',
+    '현재 시즌 참여 중에는 계정 삭제 요청을 받을 수 없습니다. 시즌 참여 철회를 먼저 진행하거나 시즌 종료 후 다시 시도해주세요.',
+    {
+      seasonState: seasonContext.state,
+      seasonEndDate: seasonContext.schedule.seasonEnd,
+    },
+  );
 }
