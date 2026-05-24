@@ -134,7 +134,9 @@ describe('MatchesService', () => {
   };
   const seasonParticipantsService = {
     ensureCurrentSeasonParticipant: jest.fn(),
+    findCurrentSeasonParticipant: jest.fn(),
     selectCanonicalSelection: jest.fn(),
+    hasRegistrationSnapshotForParticipant: jest.fn(),
   };
 
   const chatService = {
@@ -180,6 +182,7 @@ describe('MatchesService', () => {
         source: 'SEASON_PARTICIPANT',
       }),
     );
+    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValue(true);
     prisma.user.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
       Promise.resolve(
         where.id === 'user-2' ? makeUserSeed({ id: 'user-2' }) : makeUserSeed({ id: where.id }),
@@ -190,6 +193,13 @@ describe('MatchesService', () => {
         user.id === 'user-2'
           ? makeParticipant({ id: 'participant-2', userId: 'user-2' })
           : makeParticipant({ id: 'participant-1', userId: user.id }),
+      ),
+    );
+    seasonParticipantsService.findCurrentSeasonParticipant.mockImplementation((userId: string) =>
+      Promise.resolve(
+        userId === 'user-2'
+          ? makeParticipant({ id: 'participant-2', userId: 'user-2' })
+          : makeParticipant({ id: 'participant-1', userId }),
       ),
     );
     prisma.activeMatch.findMany.mockResolvedValue([]);
@@ -216,7 +226,6 @@ describe('MatchesService', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requestChannel: 'PROFILE_DETAIL',
       requesterParticipant: { userId: 'user-1' },
       receiverParticipant: { userId: 'user-2' },
     });
@@ -232,7 +241,6 @@ describe('MatchesService', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requestChannel: 'PROFILE_DETAIL',
       requesterParticipant: { userId: 'user-1' },
       receiverParticipant: { userId: 'user-2' },
     });
@@ -248,7 +256,6 @@ describe('MatchesService', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requestChannel: 'PROFILE_DETAIL',
       requesterParticipant: { userId: 'user-1' },
       receiverParticipant: { userId: 'user-2' },
     };
@@ -410,11 +417,58 @@ describe('MatchesService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', note: '안녕하세요', channel: 'PROFILE_DETAIL' },
+        { targetUserId: 'user-2', note: '안녕하세요' },
       ),
     ).rejects.toMatchObject({
       response: matchesErrors.requestNotAllowed().getResponse(),
     });
+  });
+
+  it('target registration snapshot이 없으면 등록/배정 상태여도 매칭 요청 action을 닫는다', async () => {
+    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValueOnce(false);
+
+    await expect(
+      service.createMatchRequest(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { targetUserId: 'user-2', note: '안녕하세요' },
+      ),
+    ).rejects.toMatchObject({
+      response: matchesErrors.requestNotAllowed().getResponse(),
+    });
+
+    expect(txMatchRequestCreate).not.toHaveBeenCalled();
+  });
+
+  it('target participant는 action 준비 중 ensure/upsert하지 않고 기존 SeasonParticipant만 조회한다', async () => {
+    seasonParticipantsService.findCurrentSeasonParticipant.mockResolvedValueOnce(null);
+
+    await expect(
+      service.createMatchRequest(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { targetUserId: 'user-2', note: '안녕하세요' },
+      ),
+    ).rejects.toMatchObject({
+      response: matchesErrors.requestTargetNotFound().getResponse(),
+    });
+
+    expect(seasonParticipantsService.ensureCurrentSeasonParticipant).toHaveBeenCalledTimes(1);
+    expect(seasonParticipantsService.ensureCurrentSeasonParticipant).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'user-1' }),
+      expect.any(Date),
+    );
+    expect(seasonParticipantsService.findCurrentSeasonParticipant).toHaveBeenCalledWith(
+      'user-2',
+      'season-1',
+    );
+    expect(txMatchRequestCreate).not.toHaveBeenCalled();
   });
 
   it('same-pair live pending duplicate를 차단한다', async () => {
@@ -427,7 +481,7 @@ describe('MatchesService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', note: '안녕하세요', channel: 'PROFILE_DETAIL' },
+        { targetUserId: 'user-2', note: '안녕하세요' },
       ),
     ).rejects.toMatchObject({
       response: matchesErrors.requestAlreadyPending().getResponse(),
@@ -447,7 +501,7 @@ describe('MatchesService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', note: null, channel: 'PROFILE_DETAIL' },
+        { targetUserId: 'user-2', note: null },
       ),
     ).rejects.toMatchObject({
       response: matchesErrors.requestDirectionCooldownActive().getResponse(),
@@ -464,7 +518,7 @@ describe('MatchesService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', note: null, channel: 'PROFILE_DETAIL' },
+        { targetUserId: 'user-2', note: null },
       ),
     ).rejects.toMatchObject({
       response: matchesErrors.requestDirectionLimitReached().getResponse(),
@@ -478,7 +532,7 @@ describe('MatchesService', () => {
         gender: 'M',
         campus: 'CHUNCHEON',
       },
-      { targetUserId: 'user-2', note: '안녕하세요', channel: 'PROFILE_DETAIL' },
+      { targetUserId: 'user-2', note: '안녕하세요' },
     );
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
@@ -494,7 +548,6 @@ describe('MatchesService', () => {
         pairMinParticipantId: 'participant-1',
         pairMaxParticipantId: 'participant-2',
         status: 'PENDING',
-        requestChannel: 'PROFILE_DETAIL',
       },
     });
     expect(result.request.status).toBe('PENDING');
@@ -1017,7 +1070,6 @@ describe('MatchesService', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requestChannel: null,
       requesterParticipant: { userId: 'user-1' },
       receiverParticipant: { userId: 'user-2' },
     });
@@ -1068,7 +1120,7 @@ describe('MatchesService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', note: null, channel: 'PROFILE_DETAIL' },
+        { targetUserId: 'user-2', note: null },
       ),
     ).rejects.toMatchObject({
       response: matchesErrors.requestDirectionCooldownActive().getResponse(),

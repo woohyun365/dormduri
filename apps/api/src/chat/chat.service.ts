@@ -69,8 +69,8 @@ export class ChatService {
       getCurrentChatContext: (userId, now) => this.contextOwner.getCurrentChatContext(userId, now),
       getValidatedTargetUser: (targetUserId, viewerUser) =>
         this.contextOwner.getValidatedTargetUser(targetUserId, viewerUser),
-      getRequiredParticipant: (targetUser, now) =>
-        this.contextOwner.getRequiredParticipant(targetUser, now),
+      getRequiredParticipant: (targetUser, seasonId) =>
+        this.contextOwner.getRequiredParticipant(targetUser, seasonId),
       findThreadByPair: (seasonId, leftParticipantId, rightParticipantId, client) =>
         this.queryOwner.findThreadByPair(seasonId, leftParticipantId, rightParticipantId, client),
       synchronizeThreadLifecycle: (thread, now, client) =>
@@ -124,7 +124,10 @@ export class ChatService {
       targetUserId,
       viewerContext.user,
     );
-    const targetParticipant = await this.contextOwner.getRequiredParticipant(targetUser, now);
+    const targetParticipant = await this.contextOwner.getRequiredParticipant(
+      targetUser,
+      viewerContext.seasonContext.season.id,
+    );
     const existingThread = await this.queryOwner.findThreadByPair(
       viewerContext.seasonContext.season.id,
       viewerContext.participant.id,

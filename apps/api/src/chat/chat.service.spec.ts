@@ -198,8 +198,10 @@ describe('ChatService', () => {
   };
   const seasonParticipantsService = {
     ensureCurrentSeasonParticipant: jest.fn(),
+    findCurrentSeasonParticipant: jest.fn(),
     selectCanonicalSelection: jest.fn(),
     pickCurrentSeasonParticipant: jest.fn(),
+    hasRegistrationSnapshotForParticipant: jest.fn(),
   };
 
   const service = new ChatService(
@@ -236,6 +238,13 @@ describe('ChatService', () => {
           : makeParticipant({ id: 'participant-1', userId: user.id }),
       ),
     );
+    seasonParticipantsService.findCurrentSeasonParticipant.mockImplementation((userId: string) =>
+      Promise.resolve(
+        userId === 'user-2'
+          ? makeParticipant({ id: 'participant-2', userId: 'user-2' })
+          : makeParticipant({ id: 'participant-1', userId }),
+      ),
+    );
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
         participant: Pick<
@@ -252,6 +261,7 @@ describe('ChatService', () => {
       (participants: CurrentSeasonParticipantRecord[] | null | undefined) =>
         participants?.[0] ?? null,
     );
+    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValue(true);
     prisma.activeMatch.findFirst.mockResolvedValue(null);
     prisma.conversationThread.findFirst.mockResolvedValue(null);
     prisma.conversationThread.findMany.mockResolvedValue([]);
@@ -371,17 +381,13 @@ describe('ChatService', () => {
   });
 
   it('시즌 참여자라도 ASSIGNED 사용자는 다른 건물 사용자에게 채팅 UI entry와 send가 모두 닫힌다', async () => {
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
-      Promise.resolve(
-        user.id === 'user-2'
-          ? makeParticipant({
-              id: 'participant-2',
-              userId: 'user-2',
-              dormitoryId: 'other-dorm',
-              dormitorySelectionState: 'ASSIGNED',
-            })
-          : makeParticipant({ id: 'participant-1', userId: user.id }),
-      ),
+    seasonParticipantsService.findCurrentSeasonParticipant.mockResolvedValue(
+      makeParticipant({
+        id: 'participant-2',
+        userId: 'user-2',
+        dormitoryId: 'other-dorm',
+        dormitorySelectionState: 'ASSIGNED',
+      }),
     );
 
     const entry = await service.getThreadEntry(
@@ -433,17 +439,13 @@ describe('ChatService', () => {
   });
 
   it('live ActiveMatch가 없으면 stale MATCHED target도 채팅 후보로 유지한다', async () => {
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
-      Promise.resolve(
-        user.id === 'user-2'
-          ? makeParticipant({
-              id: 'participant-2',
-              userId: 'user-2',
-              participantStatus: 'MATCHED',
-              matchedAt: new Date('2026-02-01T00:00:00.000Z'),
-            })
-          : makeParticipant({ id: 'participant-1', userId: user.id }),
-      ),
+    seasonParticipantsService.findCurrentSeasonParticipant.mockResolvedValue(
+      makeParticipant({
+        id: 'participant-2',
+        userId: 'user-2',
+        participantStatus: 'MATCHED',
+        matchedAt: new Date('2026-02-01T00:00:00.000Z'),
+      }),
     );
 
     const entry = await service.getThreadEntry(
@@ -506,18 +508,14 @@ describe('ChatService', () => {
   });
 
   it('상대가 시즌 참여자라도 ASSIGNED가 아니면 같은 캠퍼스/성별이어도 채팅 UI entry와 send가 모두 닫힌다', async () => {
-    seasonParticipantsService.ensureCurrentSeasonParticipant.mockImplementation((user: UserSeed) =>
-      Promise.resolve(
-        user.id === 'user-2'
-          ? makeParticipant({
-              id: 'participant-2',
-              userId: 'user-2',
-              dormitoryId: null,
-              dormitorySelectionState: 'UNASSIGNED',
-              participantStatus: 'DRAFT',
-            })
-          : makeParticipant({ id: 'participant-1', userId: user.id }),
-      ),
+    seasonParticipantsService.findCurrentSeasonParticipant.mockResolvedValue(
+      makeParticipant({
+        id: 'participant-2',
+        userId: 'user-2',
+        dormitoryId: null,
+        dormitorySelectionState: 'UNASSIGNED',
+        participantStatus: 'DRAFT',
+      }),
     );
     seasonParticipantsService.selectCanonicalSelection.mockImplementation(
       (
@@ -547,6 +545,72 @@ describe('ChatService', () => {
       canEnterChatUi: false,
       canSendMessage: false,
     });
+  });
+
+  it('target registration snapshot이 없으면 등록/배정 상태여도 새 채팅 entry와 send를 닫는다', async () => {
+    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValueOnce(false);
+
+    const entry = await service.getThreadEntry(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      'user-2',
+    );
+
+    expect(entry).toEqual({
+      targetUserId: 'user-2',
+      thread: null,
+      canEnterChatUi: false,
+      canSendMessage: false,
+    });
+
+    seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValueOnce(false);
+
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { targetUserId: 'user-2', body: 'registration snapshot 없는 target' },
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.messageSendNotAllowed().getResponse(),
+    });
+
+    expect(txConversationThreadCreate).not.toHaveBeenCalled();
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
+  });
+
+  it('target participant는 chat entry 준비 중 ensure/upsert하지 않고 기존 SeasonParticipant만 조회한다', async () => {
+    seasonParticipantsService.findCurrentSeasonParticipant.mockResolvedValueOnce(null);
+
+    await expect(
+      service.getThreadEntry(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'user-2',
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.threadTargetNotFound().getResponse(),
+    });
+
+    expect(seasonParticipantsService.ensureCurrentSeasonParticipant).toHaveBeenCalledTimes(1);
+    expect(seasonParticipantsService.ensureCurrentSeasonParticipant).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'user-1' }),
+      expect.any(Date),
+    );
+    expect(seasonParticipantsService.findCurrentSeasonParticipant).toHaveBeenCalledWith(
+      'user-2',
+      'season-1',
+    );
+    expect(prisma.conversationThread.findFirst).not.toHaveBeenCalled();
   });
 
   it('첫 메시지 전송 시 thread를 생성한다', async () => {

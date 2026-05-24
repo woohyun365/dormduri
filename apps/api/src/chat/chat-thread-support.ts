@@ -137,9 +137,7 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
         return false;
       }
 
-      const viewerLifestyle = parseLifestyleOrNull(
-        viewerParticipant.profile?.lifestyle ?? viewerContext.user.profile?.lifestyle ?? null,
-      );
+      const viewerLifestyle = parseLifestyleOrNull(viewerParticipant.profile?.lifestyle ?? null);
       const viewerSeasonProfileComplete =
         viewerLifestyle !== null && isSeasonProfileComplete(viewerLifestyle);
       if (!viewerSeasonProfileComplete) {
@@ -159,6 +157,11 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
 
       const targetSelection =
         deps.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
+      const targetRegistrationSnapshotExists =
+        await deps.seasonParticipantsService.hasRegistrationSnapshotForParticipant(
+          targetParticipant.id,
+          client,
+        );
       const viewerPairActiveMatch = await client.activeMatch.findFirst({
         where: {
           seasonId: seasonContext.season.id,
@@ -221,15 +224,15 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           currentDormitoryCanMatch: viewerCurrentDormitoryCanMatch,
         }),
         buildPublicExposureTargetInput({
-          seasonState: seasonContext.state,
           operatedDormitoryIds,
           participant: targetParticipant,
           matched: targetPairActiveMatch !== null,
           selection: targetSelection,
+          registrationSnapshotExists: targetRegistrationSnapshotExists,
         }),
       );
 
-      return canStartChat && exposure.exposureLevel === 'FULL';
+      return canStartChat && exposure.actions.canStartChat;
     },
   };
 }

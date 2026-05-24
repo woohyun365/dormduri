@@ -40,7 +40,7 @@ interface ChatCommandClusterDeps {
   ): Promise<ChatParticipantUserProjection>;
   getRequiredParticipant(
     targetUser: ChatParticipantUserProjection,
-    now: Date,
+    seasonId: string,
   ): Promise<CurrentSeasonParticipantRecord>;
   findThreadByPair(
     seasonId: string,
@@ -91,7 +91,10 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
       }
 
       const targetUser = await deps.getValidatedTargetUser(input.targetUserId, viewerContext.user);
-      const targetParticipant = await deps.getRequiredParticipant(targetUser, now);
+      const targetParticipant = await deps.getRequiredParticipant(
+        targetUser,
+        viewerContext.seasonContext.season.id,
+      );
       const pairIdentity = buildParticipantPairIdentity(
         viewerContext.participant.id,
         targetParticipant.id,

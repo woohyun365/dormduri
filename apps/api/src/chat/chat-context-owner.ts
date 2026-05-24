@@ -1,5 +1,4 @@
 import type { PrismaService } from '../common/prisma/prisma.service.js';
-import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
@@ -30,9 +29,6 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
           gender: true,
           campus: true,
           deletedAt: true,
-          profile: {
-            select: lifestyleColumnSelect,
-          },
         },
       });
       if (!user || user.deletedAt) {
@@ -79,11 +75,11 @@ export function createChatContextOwner(deps: ChatContextOwnerDeps) {
 
     async getRequiredParticipant(
       targetUser: ChatParticipantUserProjection,
-      now: Date,
+      seasonId: string,
     ): Promise<CurrentSeasonParticipantRecord> {
-      const participant = await deps.seasonParticipantsService.ensureCurrentSeasonParticipant(
-        targetUser,
-        now,
+      const participant = await deps.seasonParticipantsService.findCurrentSeasonParticipant(
+        targetUser.id,
+        seasonId,
       );
       if (!participant) {
         throw chatErrors.threadTargetNotFound();

@@ -26,7 +26,6 @@ export interface PreparedMatchRequestCreation {
   pairIdentity: ReturnType<typeof buildParticipantPairIdentity>;
   requesterRoomSelectionDate: string;
   note: string | null;
-  requestChannel: CreateMatchRequestRequest['channel'] | null;
 }
 
 interface MatchRequestPreparationDeps {
@@ -57,7 +56,7 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
 
       const moderation = await deps.moderationService.moderatePublicText(
         trimmedNote,
-        'messageToRoommate',
+        'matchRequestNote',
       );
       if (!moderation.ok) {
         throw matchesErrors.requestNoteModerationRejected(moderation.error);
@@ -80,9 +79,9 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
         input.targetUserId,
         requesterContext.user,
       );
-      const targetParticipant = await deps.seasonParticipantsService.ensureCurrentSeasonParticipant(
-        targetUser,
-        now,
+      const targetParticipant = await deps.seasonParticipantsService.findCurrentSeasonParticipant(
+        targetUser.id,
+        requesterContext.seasonContext.season.id,
       );
       if (!targetParticipant) {
         throw matchesErrors.requestTargetNotFound();
@@ -90,6 +89,10 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
 
       const targetSelection =
         deps.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
+      const targetRegistrationSnapshotExists =
+        await deps.seasonParticipantsService.hasRegistrationSnapshotForParticipant(
+          targetParticipant.id,
+        );
       const activeMatchMap = await deps.getLiveActiveMatchMapForParticipantIds(
         requesterContext.seasonContext.season.id,
         [requesterContext.participant.id, targetParticipant.id],
@@ -103,9 +106,7 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
         now,
       );
       const requesterLifestyle = parseLifestyleOrNull(
-        requesterContext.participant?.profile?.lifestyle ??
-          requesterContext.user.profile?.lifestyle ??
-          null,
+        requesterContext.participant?.profile?.lifestyle ?? null,
       );
       const requesterSeasonProfileComplete =
         requesterLifestyle !== null && isSeasonProfileComplete(requesterLifestyle);
@@ -136,15 +137,15 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
           currentDormitoryCanMatch: requesterCurrentDormitoryCanMatch,
         }),
         buildPublicExposureTargetInput({
-          seasonState: requesterContext.seasonContext.state,
           operatedDormitoryIds,
           participant: targetParticipant,
           matched: targetActiveMatch !== null,
           selection: targetSelection,
+          registrationSnapshotExists: targetRegistrationSnapshotExists,
         }),
       );
 
-      if (!requesterCapabilities.canRequestMatch || exposure.exposureLevel !== 'FULL') {
+      if (!requesterCapabilities.canRequestMatch || !exposure.actions.canRequestMatch) {
         throw matchesErrors.requestNotAllowed();
       }
 
@@ -167,7 +168,6 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
         ),
         requesterRoomSelectionDate,
         note,
-        requestChannel: input.channel ?? null,
       };
     },
   };
