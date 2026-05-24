@@ -92,6 +92,7 @@ export function buildPublicExposureTargetInput(input: {
   participant: CurrentSeasonParticipantRecord | null;
   matched: boolean;
   selection: SelectionLike;
+  registrationSnapshotExists?: boolean;
 }): PublicExposureTargetInput {
   const hasSeasonProfile = hasParticipantProfile(input.participant);
   const parsedSeasonProfileLifestyle = input.participant?.profile
@@ -101,14 +102,14 @@ export function buildPublicExposureTargetInput(input: {
     parsedSeasonProfileLifestyle?.success === true &&
     isSeasonProfileComplete(parsedSeasonProfileLifestyle.data);
   const currentSeasonExposureVisible =
-    isVisibleRegisteredParticipant(input.participant) && hasSeasonProfile && seasonProfileComplete;
+    isVisibleRegisteredParticipant(input.participant) &&
+    hasSeasonProfile &&
+    seasonProfileComplete &&
+    input.registrationSnapshotExists !== false;
 
   return {
     participantId: input.participant?.id ?? null,
-    visible:
-      input.seasonState === null || input.seasonState === 'OFF_SEASON'
-        ? true
-        : currentSeasonExposureVisible,
+    visible: currentSeasonExposureVisible,
     registered: isParticipantRegistered(input.participant),
     matched: input.matched,
     selectionState: input.selection.dormitorySelectionState,
@@ -119,5 +120,6 @@ export function buildPublicExposureTargetInput(input: {
       input.selection.dormitoryId,
     ),
     hasSeasonProfile,
+    registrationSnapshotExists: input.registrationSnapshotExists !== false,
   };
 }

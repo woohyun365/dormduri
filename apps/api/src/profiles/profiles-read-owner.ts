@@ -1,4 +1,4 @@
-import type { FullPublicProfile } from '@repo/shared/profile-contract';
+import type { PublicProfile } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import type { MatchesService } from '../matches/matches.service.js';
@@ -20,13 +20,13 @@ export function createProfilesReadOwner(deps: ProfilesReadOwnerDeps) {
   async function getProfileByUserId(
     authUser: AuthenticatedUserContext,
     targetUserId: string,
-  ): Promise<FullPublicProfile> {
+  ): Promise<PublicProfile> {
     if (authUser.id === targetUserId) {
       throw profilesErrors.profileNotVisible();
     }
 
     const now = await deps.prisma.getDatabaseNow();
-    const profile = await visibleProfileOwner.getFullProfileByUserId(authUser, targetUserId, now);
+    const profile = await visibleProfileOwner.getDetailProfileByUserId(authUser, targetUserId, now);
     if (!profile) {
       throw profilesErrors.profileNotVisible();
     }

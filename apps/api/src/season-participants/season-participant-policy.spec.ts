@@ -3,157 +3,19 @@ import {
   canCurrentDormitoryMatch,
   hasOperatedAssignedDormitory,
   resolvePublicExposure,
-  resolveCurrentUserProfileSource,
 } from './season-participant-policy.js';
 
 describe('season-participant-policy', () => {
-  it('등록+미배정 매칭 사용자는 LIMITED browse만 유지하고 action capability는 닫힌다', () => {
-    const result = buildCurrentUserCapabilities({
-      campusOperated: true,
-      seasonState: 'SEASON_MATCHING',
-      participantRegistered: true,
-      participantMatched: false,
-      seasonProfileComplete: true,
-      selectionState: 'UNASSIGNED',
-      hasOperatedAssignedDormitory: false,
-      nicknameLockedBySeason: true,
-      nicknameCooldownActive: false,
-      hasSelectableDormitories: true,
-      currentDormitoryCanMatch: false,
-    });
-
-    expect(result).toMatchObject({
-      canBrowseProfiles: true,
-      canRegisterParticipation: false,
-      canSelectDormitory: true,
-      canBookmark: false,
-      canRequestMatch: false,
-      canStartChat: false,
-      profileEdit: {
-        intro: false,
-        messageToRoommate: true,
-        additional: true,
-        lifestyle: false,
-        nickname: false,
-      },
-    });
-  });
-
-  it('등록+배정 오픈 사용자는 chat만 열리고 match는 닫힌다', () => {
-    const result = buildCurrentUserCapabilities({
-      campusOperated: true,
-      seasonState: 'SEASON_OPEN',
-      participantRegistered: true,
-      participantMatched: false,
-      seasonProfileComplete: true,
-      selectionState: 'ASSIGNED',
-      hasOperatedAssignedDormitory: true,
-      nicknameLockedBySeason: true,
-      nicknameCooldownActive: false,
-      hasSelectableDormitories: true,
-      currentDormitoryCanMatch: false,
-    });
-
-    expect(result.canBookmark).toBe(true);
-    expect(result.canStartChat).toBe(true);
-    expect(result.canRequestMatch).toBe(false);
-  });
-
-  it('미등록 사용자는 시즌이 열려 있어도 season profile complete 전에는 참여 등록 capability를 열지 않는다', () => {
-    const result = buildCurrentUserCapabilities({
-      campusOperated: true,
-      seasonState: 'SEASON_OPEN',
-      participantRegistered: false,
-      participantMatched: false,
-      seasonProfileComplete: false,
-      selectionState: 'NOT_SELECTED',
-      hasOperatedAssignedDormitory: false,
-      nicknameLockedBySeason: false,
-      nicknameCooldownActive: false,
-      hasSelectableDormitories: true,
-      currentDormitoryCanMatch: false,
-    });
-
-    expect(result.canRegisterParticipation).toBe(false);
-  });
-
-  it('viewer 조건이 미완성이면 SEASON_MATCHING에서도 canRequestMatch를 열지 않는다', () => {
-    const result = buildCurrentUserCapabilities({
-      campusOperated: true,
-      seasonState: 'SEASON_MATCHING',
-      participantRegistered: true,
-      participantMatched: false,
-      seasonProfileComplete: false,
-      selectionState: 'ASSIGNED',
-      hasOperatedAssignedDormitory: true,
-      nicknameLockedBySeason: true,
-      nicknameCooldownActive: false,
-      hasSelectableDormitories: true,
-      currentDormitoryCanMatch: true,
-    });
-
-    expect(result.canRequestMatch).toBe(false);
-    expect(result.canStartChat).toBe(false);
-  });
-
-  it('operated dormitory가 0개면 SEASON_MATCHING action capability를 열지 않는다', () => {
-    const result = buildCurrentUserCapabilities({
-      campusOperated: true,
-      seasonState: 'SEASON_OPEN',
-      participantRegistered: true,
-      participantMatched: false,
-      seasonProfileComplete: true,
-      selectionState: 'ASSIGNED',
-      hasOperatedAssignedDormitory: false,
-      nicknameLockedBySeason: true,
-      nicknameCooldownActive: false,
-      hasSelectableDormitories: false,
-      currentDormitoryCanMatch: false,
-    });
-
-    expect(result.canSelectDormitory).toBe(false);
-    expect(result.canBookmark).toBe(false);
-    expect(result.canStartChat).toBe(false);
-    expect(result.canRequestMatch).toBe(false);
-  });
-
-  it('현재 시즌 등록 target만 LIMITED/FULL 노출 대상으로 본다', () => {
-    const hiddenTarget = resolvePublicExposure(
+  it('미등록 사용자는 시즌 중 browse는 가능하지만 detail/score/action capability는 닫힌다', () => {
+    const result = resolvePublicExposure(
       {
         campusOperated: true,
         seasonState: 'SEASON_MATCHING',
         registered: false,
         matched: false,
-        seasonProfileComplete: true,
+        seasonProfileComplete: false,
         matchedPartnerParticipantId: null,
-        selectionState: 'UNASSIGNED',
-        dormitoryId: null,
-        hasOperatedAssignedDormitory: false,
-        currentDormitoryCanMatch: false,
-      },
-      {
-        participantId: null,
-        visible: false,
-        registered: false,
-        matched: false,
         selectionState: 'NOT_SELECTED',
-        dormitoryId: null,
-        hasOperatedAssignedDormitory: false,
-        hasSeasonProfile: false,
-      },
-    );
-
-    expect(hiddenTarget.exposureLevel).toBe('NONE');
-
-    const limitedTarget = resolvePublicExposure(
-      {
-        campusOperated: true,
-        seasonState: 'SEASON_MATCHING',
-        registered: true,
-        matched: false,
-        seasonProfileComplete: true,
-        matchedPartnerParticipantId: null,
-        selectionState: 'UNASSIGNED',
         dormitoryId: null,
         hasOperatedAssignedDormitory: false,
         currentDormitoryCanMatch: false,
@@ -163,15 +25,19 @@ describe('season-participant-policy', () => {
         visible: true,
         registered: true,
         matched: false,
-        selectionState: 'UNASSIGNED',
-        dormitoryId: null,
-        hasOperatedAssignedDormitory: false,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
         hasSeasonProfile: true,
+        registrationSnapshotExists: true,
       },
     );
 
-    expect(limitedTarget).toMatchObject({
-      exposureLevel: 'LIMITED',
+    expect(result).toEqual({
+      summaryVisible: true,
+      detailViewable: false,
+      canViewFull: false,
+      scoreVisible: false,
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
       relationToViewer: 'GENERAL',
       actions: {
@@ -182,8 +48,109 @@ describe('season-participant-policy', () => {
     });
   });
 
-  it('같은 건물 등록+배정 매칭 사용자는 FULL + match/chat action을 가진다', () => {
-    const fullTarget = resolvePublicExposure(
+  it('OFF_SEASON에는 public browse 자체를 닫는다', () => {
+    const result = resolvePublicExposure(
+      {
+        campusOperated: true,
+        seasonState: 'OFF_SEASON',
+        registered: true,
+        matched: false,
+        seasonProfileComplete: true,
+        matchedPartnerParticipantId: null,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        currentDormitoryCanMatch: false,
+      },
+      {
+        participantId: 'target-1',
+        visible: true,
+        registered: true,
+        matched: false,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        hasSeasonProfile: true,
+        registrationSnapshotExists: true,
+      },
+    );
+
+    expect(result.summaryVisible).toBe(false);
+    expect(result.canViewFull).toBe(false);
+    expect(result.scoreVisible).toBe(false);
+  });
+
+  it('registration snapshot이 없는 target은 public summary/detail 대상이 아니다', () => {
+    const result = resolvePublicExposure(
+      {
+        campusOperated: true,
+        seasonState: 'SEASON_OPEN',
+        registered: true,
+        matched: false,
+        seasonProfileComplete: true,
+        matchedPartnerParticipantId: null,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        currentDormitoryCanMatch: false,
+      },
+      {
+        participantId: 'target-1',
+        visible: true,
+        registered: true,
+        matched: false,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        hasSeasonProfile: true,
+        registrationSnapshotExists: false,
+      },
+    );
+
+    expect(result.summaryVisible).toBe(false);
+  });
+
+  it('같은 건물 등록 완료 viewer는 detail/score를 열고 phase별 action capability를 분리한다', () => {
+    const openResult = resolvePublicExposure(
+      {
+        campusOperated: true,
+        seasonState: 'SEASON_OPEN',
+        registered: true,
+        matched: false,
+        seasonProfileComplete: true,
+        matchedPartnerParticipantId: null,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        currentDormitoryCanMatch: false,
+      },
+      {
+        participantId: 'target-1',
+        visible: true,
+        registered: true,
+        matched: false,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        hasSeasonProfile: true,
+        registrationSnapshotExists: true,
+      },
+    );
+
+    expect(openResult).toMatchObject({
+      summaryVisible: true,
+      detailViewable: true,
+      canViewFull: true,
+      scoreVisible: true,
+      relationToViewer: 'GENERAL',
+      actions: {
+        canBookmark: true,
+        canRequestMatch: false,
+        canStartChat: true,
+      },
+    });
+
+    const matchingResult = resolvePublicExposure(
       {
         campusOperated: true,
         seasonState: 'SEASON_MATCHING',
@@ -205,58 +172,19 @@ describe('season-participant-policy', () => {
         dormitoryId: 'dasan',
         hasOperatedAssignedDormitory: true,
         hasSeasonProfile: true,
+        registrationSnapshotExists: true,
       },
     );
 
-    expect(fullTarget).toEqual({
-      exposureLevel: 'FULL',
-      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-      relationToViewer: 'GENERAL',
-      actions: {
-        canBookmark: true,
-        canRequestMatch: true,
-        canStartChat: true,
-      },
+    expect(matchingResult.actions).toEqual({
+      canBookmark: true,
+      canRequestMatch: true,
+      canStartChat: true,
     });
   });
 
-  it('viewer 조건이 미완성이면 같은 건물 FULL이어도 canRequestMatch는 닫힌다', () => {
+  it('matched partner는 post-match에서도 detail/score read-only capability를 유지한다', () => {
     const result = resolvePublicExposure(
-      {
-        campusOperated: true,
-        seasonState: 'SEASON_MATCHING',
-        registered: true,
-        matched: false,
-        seasonProfileComplete: false,
-        matchedPartnerParticipantId: null,
-        selectionState: 'ASSIGNED',
-        dormitoryId: 'dasan',
-        hasOperatedAssignedDormitory: true,
-        currentDormitoryCanMatch: true,
-      },
-      {
-        participantId: 'target-1',
-        visible: true,
-        registered: true,
-        matched: false,
-        selectionState: 'ASSIGNED',
-        dormitoryId: 'dasan',
-        hasOperatedAssignedDormitory: true,
-        hasSeasonProfile: true,
-      },
-    );
-
-    expect(result).toMatchObject({
-      exposureLevel: 'FULL',
-      actions: {
-        canRequestMatch: false,
-        canStartChat: false,
-      },
-    });
-  });
-
-  it('matched partner는 FULL read-only result baseline을 가진다', () => {
-    const matchedTarget = resolvePublicExposure(
       {
         campusOperated: true,
         seasonState: 'SEASON_POST_MATCH',
@@ -278,11 +206,15 @@ describe('season-participant-policy', () => {
         dormitoryId: 'dasan',
         hasOperatedAssignedDormitory: true,
         hasSeasonProfile: true,
+        registrationSnapshotExists: true,
       },
     );
 
-    expect(matchedTarget).toEqual({
-      exposureLevel: 'FULL',
+    expect(result).toEqual({
+      summaryVisible: true,
+      detailViewable: true,
+      canViewFull: true,
+      scoreVisible: true,
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
       relationToViewer: 'MATCHED_PARTNER',
       actions: {
@@ -293,22 +225,22 @@ describe('season-participant-policy', () => {
     });
   });
 
-  it('SEASON_MATCHING에서 live ActiveMatch가 있으면 일반 다른 사용자 노출은 LIMITED지만 bookmark는 유지된다', () => {
-    const generalTarget = resolvePublicExposure(
+  it('detailViewable과 scoreVisible은 canViewFull 정책 capability에서 파생된다', () => {
+    const summaryOnly = resolvePublicExposure(
       {
         campusOperated: true,
         seasonState: 'SEASON_MATCHING',
-        registered: true,
-        matched: true,
-        seasonProfileComplete: true,
-        matchedPartnerParticipantId: 'partner-1',
-        selectionState: 'ASSIGNED',
-        dormitoryId: 'dasan',
-        hasOperatedAssignedDormitory: true,
-        currentDormitoryCanMatch: true,
+        registered: false,
+        matched: false,
+        seasonProfileComplete: false,
+        matchedPartnerParticipantId: null,
+        selectionState: 'NOT_SELECTED',
+        dormitoryId: null,
+        hasOperatedAssignedDormitory: false,
+        currentDormitoryCanMatch: false,
       },
       {
-        participantId: 'other-target',
+        participantId: 'target-1',
         visible: true,
         registered: true,
         matched: false,
@@ -316,62 +248,86 @@ describe('season-participant-policy', () => {
         dormitoryId: 'dasan',
         hasOperatedAssignedDormitory: true,
         hasSeasonProfile: true,
+        registrationSnapshotExists: true,
+      },
+    );
+    const fullView = resolvePublicExposure(
+      {
+        campusOperated: true,
+        seasonState: 'SEASON_OPEN',
+        registered: true,
+        matched: false,
+        seasonProfileComplete: true,
+        matchedPartnerParticipantId: null,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        currentDormitoryCanMatch: false,
+      },
+      {
+        participantId: 'target-1',
+        visible: true,
+        registered: true,
+        matched: false,
+        selectionState: 'ASSIGNED',
+        dormitoryId: 'dasan',
+        hasOperatedAssignedDormitory: true,
+        hasSeasonProfile: true,
+        registrationSnapshotExists: true,
       },
     );
 
-    expect(generalTarget).toEqual({
-      exposureLevel: 'LIMITED',
-      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-      relationToViewer: 'GENERAL',
-      actions: {
-        canBookmark: true,
-        canRequestMatch: false,
-        canStartChat: false,
-      },
-    });
+    for (const result of [summaryOnly, fullView]) {
+      expect(result.detailViewable).toBe(result.canViewFull);
+      expect(result.scoreVisible).toBe(result.canViewFull);
+    }
   });
 
-  it('등록 여부에 따라 current-user profile source가 갈린다', () => {
-    expect(
-      resolveCurrentUserProfileSource({
-        campusOperated: true,
-        seasonState: 'SEASON_OPEN',
-        participantRegistered: true,
-        participantProfileExists: true,
-      }),
-    ).toBe('SEASON_PARTICIPANT_PROFILE');
-
-    expect(
-      resolveCurrentUserProfileSource({
-        campusOperated: true,
-        seasonState: 'SEASON_POST_MATCH',
-        participantRegistered: true,
-        participantProfileExists: true,
-      }),
-    ).toBe('SEASON_PARTICIPANT_PROFILE');
-  });
-
-  it('SEASON_POST_MATCH 등록 사용자는 현재 시즌 프로필을 read-only로 유지한다', () => {
-    const result = buildCurrentUserCapabilities({
+  it('current-user capability는 registration draft/finalize와 public action을 분리한다', () => {
+    const draftUser = buildCurrentUserCapabilities({
       campusOperated: true,
-      seasonState: 'SEASON_POST_MATCH',
+      seasonState: 'SEASON_OPEN',
+      participantRegistered: false,
+      participantMatched: false,
+      seasonProfileComplete: true,
+      selectionState: 'SELECTED',
+      hasOperatedAssignedDormitory: false,
+      nicknameLockedBySeason: false,
+      nicknameCooldownActive: false,
+      hasSelectableDormitories: true,
+      currentDormitoryCanMatch: false,
+    });
+
+    expect(draftUser).toMatchObject({
+      canBrowseProfiles: true,
+      canCreateOrUpdateSeasonProfileDraft: true,
+      canSelectDormitory: true,
+      canFinalizeSeasonRegistration: true,
+      canRequestMatch: false,
+      canStartChat: false,
+    });
+
+    const registeredUser = buildCurrentUserCapabilities({
+      campusOperated: true,
+      seasonState: 'SEASON_MATCHING',
       participantRegistered: true,
-      participantMatched: true,
+      participantMatched: false,
       seasonProfileComplete: true,
       selectionState: 'ASSIGNED',
       hasOperatedAssignedDormitory: true,
       nicknameLockedBySeason: true,
       nicknameCooldownActive: false,
       hasSelectableDormitories: true,
-      currentDormitoryCanMatch: false,
+      currentDormitoryCanMatch: true,
     });
 
-    expect(result.profileEdit).toEqual({
-      intro: false,
-      messageToRoommate: false,
-      additional: false,
-      lifestyle: false,
-      nickname: false,
+    expect(registeredUser).toMatchObject({
+      canCreateOrUpdateSeasonProfileDraft: false,
+      canSelectDormitory: false,
+      canFinalizeSeasonRegistration: false,
+      canBookmark: true,
+      canRequestMatch: true,
+      canStartChat: true,
     });
   });
 

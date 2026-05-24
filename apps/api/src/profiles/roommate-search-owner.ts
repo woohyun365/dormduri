@@ -4,7 +4,6 @@ import type {
   RoommateSearchScope,
   RoommateSearchSort,
   RoommateSearchSummary,
-  RoommateSearchVisibilityMode,
 } from '@repo/shared/roommate-search-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
@@ -14,13 +13,9 @@ import type {
   CurrentSeasonParticipantRecord,
   SeasonParticipantsService,
 } from '../season-participants/season-participants.service.js';
+import { currentSeasonParticipantSelect } from '../season-participants/season-participant-records.js';
 import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
-import {
-  buildUserWithProfileSelect,
-  mapUserWithParticipantProjection,
-} from '../users/current-user-select.js';
-import { toAdditionalProfile } from './profile.mapper.js';
 import { toStoredBedtime, toStoredWakeTime } from '../common/lifestyle/lifestyle.persistence.js';
 import { roommateSearchErrors } from './roommate-search.errors.js';
 import {
@@ -35,6 +30,37 @@ interface RoommateSearchOwnerDeps {
   seasonParticipantsService: SeasonParticipantsService;
   matchesService: MatchesService;
 }
+
+const targetParticipantSelect = {
+  ...currentSeasonParticipantSelect,
+  user: {
+    select: {
+      id: true,
+      deletedAt: true,
+    },
+  },
+} as const;
+
+type TargetParticipantQueryRecord = Prisma.SeasonParticipantGetPayload<{
+  select: typeof targetParticipantSelect;
+}>;
+
+const SUMMARY_FILTER_FIELDS = new Set<keyof RoommateSearchQuery>([
+  'smokingBehavior',
+  'sleepHabit',
+  'relationshipStyle',
+]);
+const DETAIL_ONLY_FILTER_FIELDS = new Set<keyof RoommateSearchQuery>([
+  'bedtime',
+  'wakeTime',
+  'noiseSensitivity',
+  'cleanLevel',
+  'indoorEating',
+  'college',
+  'grade',
+  'mbti',
+  'birthYear',
+]);
 
 export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
   const visibleProfileOwner = createVisibleProfileOwner(deps);
@@ -52,52 +78,42 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
       throw roommateSearchErrors.invalidQuery(resolveScopeErrorMessage(scope));
     }
 
-    const scopeUsers = await findCandidateUsers(viewerContext, scope);
+    const scopeCandidates = await findCandidateParticipants(viewerContext, scope);
     const scopeEntries = await visibleProfileOwner.materializeVisibleProfileEntries(
       viewerContext,
-      scopeUsers,
+      scopeCandidates.map((candidate) =>
+        visibleProfileOwner.mapTargetParticipantCandidate(
+          candidate as unknown as Parameters<
+            typeof visibleProfileOwner.mapTargetParticipantCandidate
+          >[0],
+        ),
+      ),
     );
     const scopeSummaries = scopeEntries.map(toRoommateSearchSummary);
-    const hasFullEntries = scopeSummaries.some((item) => item.canViewFull);
-    const lifestyleFilterRequested = hasLifestyleFilter(query);
-
-    const filterCapabilities = {
-      smokingBehavior: hasFullEntries,
-      bedtime: hasFullEntries,
-      wakeTime: hasFullEntries,
-      noiseSensitivity: hasFullEntries,
-      cleanLevel: hasFullEntries,
-      sleepHabit: hasFullEntries,
-      indoorEating: hasFullEntries,
-      relationshipStyle: hasFullEntries,
-      college: true,
-      grade: true,
-      mbti: true,
-      birthYear: true,
-    };
+    const filterCapabilities = resolveFilterCapabilities(scopeSummaries);
     const sortCapabilities = {
-      matchScore: hasFullEntries,
+      matchScore: scopeSummaries.some((item) => item.scoreVisible),
     };
 
-    if (lifestyleFilterRequested && !filterCapabilities.smokingBehavior) {
-      throw roommateSearchErrors.invalidQuery(
-        '현재 노출 범위에서는 생활패턴 기반 필터를 사용할 수 없습니다.',
-      );
-    }
+    assertFilterAllowed(query, filterCapabilities, scopeSummaries);
     if (query.sort === 'MATCH_SCORE' && !sortCapabilities.matchScore) {
       throw roommateSearchErrors.invalidQuery(
         '현재 노출 범위에서는 매칭 점수 정렬을 사용할 수 없습니다.',
       );
     }
 
-    const filteredUsers = await findCandidateUsers(viewerContext, scope, query);
+    const filteredCandidates = await findCandidateParticipants(viewerContext, scope, query);
     const filteredEntries = await visibleProfileOwner.materializeVisibleProfileEntries(
       viewerContext,
-      filteredUsers,
+      filteredCandidates.map((candidate) =>
+        visibleProfileOwner.mapTargetParticipantCandidate(
+          candidate as unknown as Parameters<
+            typeof visibleProfileOwner.mapTargetParticipantCandidate
+          >[0],
+        ),
+      ),
     );
-    const filteredSummaries = filteredEntries
-      .map(toRoommateSearchSummary)
-      .filter((item) => !lifestyleFilterRequested || item.canViewFull);
+    const filteredSummaries = filteredEntries.map(toRoommateSearchSummary);
 
     const appliedSort = resolveAppliedSort(query, filteredSummaries, sortCapabilities.matchScore);
     const sortedItems = sortRoommateSearchSummaries(filteredSummaries, appliedSort);
@@ -105,7 +121,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     return {
       scope,
       appliedSort,
-      effectiveVisibility: resolveEffectiveVisibility(scopeSummaries),
+      resultSummary: summarizeResults(scopeSummaries),
       scopeCapabilities,
       filterCapabilities,
       sortCapabilities,
@@ -113,18 +129,20 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     };
   }
 
-  async function findCandidateUsers(
+  async function findCandidateParticipants(
     viewerContext: VisibleProfileViewerContext,
     scope: RoommateSearchScope,
     query?: RoommateSearchQuery,
-  ) {
-    const users = await deps.prisma.user.findMany({
-      where: buildCandidateUserWhere(viewerContext, scope, query),
-      select: buildUserWithProfileSelect(viewerContext.currentSeasonId),
+  ): Promise<TargetParticipantQueryRecord[]> {
+    if (!viewerContext.currentSeasonId || viewerContext.serviceState.seasonState === 'OFF_SEASON') {
+      return [];
+    }
+
+    return deps.prisma.seasonParticipant.findMany({
+      where: buildCandidateParticipantWhere(viewerContext, scope, query),
+      select: targetParticipantSelect,
       orderBy: { id: 'asc' },
     });
-
-    return users.map(mapUserWithParticipantProjection);
   }
 
   return {
@@ -143,7 +161,7 @@ function resolveScopeCapabilities(viewerContext: VisibleProfileViewerContext) {
 
   if (seasonState === null || seasonState === 'OFF_SEASON') {
     return {
-      campusMerged: true,
+      campusMerged: false,
       sameBuildingOnly: false,
     };
   }
@@ -183,7 +201,10 @@ function resolveDefaultScope(scopeCapabilities: {
   campusMerged: boolean;
   sameBuildingOnly: boolean;
 }): RoommateSearchScope {
-  return scopeCapabilities.campusMerged ? 'CAMPUS_MERGED' : 'SAME_BUILDING_ONLY';
+  if (scopeCapabilities.campusMerged) {
+    return 'CAMPUS_MERGED';
+  }
+  return 'SAME_BUILDING_ONLY';
 }
 
 function isScopeAllowed(
@@ -201,58 +222,32 @@ function resolveScopeErrorMessage(scope: RoommateSearchScope) {
     : '현재 상태에서는 같은 건물 범위 검색을 사용할 수 없습니다.';
 }
 
-function buildCandidateUserWhere(
+function buildCandidateParticipantWhere(
   viewerContext: VisibleProfileViewerContext,
   scope: RoommateSearchScope,
   query?: RoommateSearchQuery,
-): Prisma.UserWhereInput {
-  const baseWhere: Prisma.UserWhereInput = {
-    id: { not: viewerContext.viewer.id },
-    deletedAt: null,
-    campus: viewerContext.viewer.campus,
-    gender: viewerContext.viewer.gender,
-    profile: { isNot: null },
-  };
+): Prisma.SeasonParticipantWhereInput {
+  const profileWhere = query ? buildSeasonProfileWhere(query) : {};
 
-  if (
-    !viewerContext.serviceState.campusOperated ||
-    !viewerContext.currentSeasonId ||
-    viewerContext.serviceState.seasonState === null ||
-    viewerContext.serviceState.seasonState === 'OFF_SEASON'
-  ) {
-    return {
-      ...baseWhere,
-      ...(query ? { profile: { is: buildBaseProfileWhere(query) } } : {}),
-    };
-  }
-
-  const participantWhere: Prisma.SeasonParticipantWhereInput = {
-    seasonId: viewerContext.currentSeasonId,
+  return {
+    ...(viewerContext.viewerParticipant ? { id: { not: viewerContext.viewerParticipant.id } } : {}),
+    seasonId: viewerContext.currentSeasonId ?? '',
+    userId: { not: viewerContext.viewer.id },
+    user: {
+      deletedAt: null,
+      campus: viewerContext.viewer.campus,
+      gender: viewerContext.viewer.gender,
+    },
     participationIntent: 'REGISTERED',
     registeredAt: { not: null },
-    ...(scope === 'SAME_BUILDING_ONLY'
-      ? {
-          dormitoryId: viewerContext.viewerSelection.dormitoryId,
-          dormitorySelectionState: 'ASSIGNED',
-        }
-      : {}),
-    profile: query ? { is: buildSeasonProfileWhere(query) } : { isNot: null },
-  };
-
-  return {
-    ...baseWhere,
-    seasonParticipants: {
-      some: participantWhere,
-    },
-  };
-}
-
-function buildBaseProfileWhere(query: RoommateSearchQuery): Prisma.UserProfileWhereInput {
-  return {
-    ...(query.college !== undefined ? { collegeCode: query.college } : {}),
-    ...(query.grade !== undefined ? { grade: query.grade } : {}),
-    ...(query.mbti !== undefined ? { mbti: query.mbti } : {}),
-    ...(query.birthYear !== undefined ? { birthYear: query.birthYear } : {}),
+    declinedAt: null,
+    dormitorySelectionState: 'ASSIGNED',
+    dormitoryId:
+      scope === 'SAME_BUILDING_ONLY' ? viewerContext.viewerSelection.dormitoryId : { not: null },
+    participantStatus: { notIn: ['WITHDRAWN', 'EXPIRED'] },
+    hiddenByAdminAt: null,
+    deactivatedAt: null,
+    profile: { is: profileWhere },
   };
 }
 
@@ -295,23 +290,58 @@ function buildSeasonProfileWhere(
   };
 }
 
-function hasLifestyleFilter(query: RoommateSearchQuery) {
-  return Boolean(
-    query.smokingBehavior ||
-    query.bedtime ||
-    query.wakeTime ||
-    query.noiseSensitivity ||
-    query.cleanLevel ||
-    query.sleepHabit ||
-    query.indoorEating ||
-    query.relationshipStyle,
-  );
+function hasRequestedFilter(
+  query: RoommateSearchQuery,
+  fields: ReadonlySet<keyof RoommateSearchQuery>,
+) {
+  return [...fields].some((field) => query[field] !== undefined);
 }
 
 function hasAnyFilter(query: RoommateSearchQuery) {
-  return Boolean(
-    hasLifestyleFilter(query) || query.college || query.grade || query.mbti || query.birthYear,
+  return (
+    hasRequestedFilter(query, SUMMARY_FILTER_FIELDS) ||
+    hasRequestedFilter(query, DETAIL_ONLY_FILTER_FIELDS)
   );
+}
+
+function resolveFilterCapabilities(
+  items: RoommateSearchSummary[],
+): RoommateSearchResponse['filterCapabilities'] {
+  const hasSummaryOnlyTarget = items.some((item) => !item.canViewFull);
+  const hasFullViewTarget = items.some((item) => item.canViewFull);
+  const detailOnlyAllowed = hasFullViewTarget && !hasSummaryOnlyTarget;
+
+  return {
+    smokingBehavior: true,
+    bedtime: detailOnlyAllowed,
+    wakeTime: detailOnlyAllowed,
+    noiseSensitivity: detailOnlyAllowed,
+    cleanLevel: detailOnlyAllowed,
+    sleepHabit: true,
+    indoorEating: detailOnlyAllowed,
+    relationshipStyle: true,
+    college: detailOnlyAllowed,
+    grade: detailOnlyAllowed,
+    mbti: detailOnlyAllowed,
+    birthYear: detailOnlyAllowed,
+  };
+}
+
+function assertFilterAllowed(
+  query: RoommateSearchQuery,
+  filterCapabilities: RoommateSearchResponse['filterCapabilities'],
+  scopeSummaries: RoommateSearchSummary[],
+) {
+  if (!hasRequestedFilter(query, DETAIL_ONLY_FILTER_FIELDS)) {
+    return;
+  }
+
+  const hasSummaryOnlyTarget = scopeSummaries.some((item) => !item.canViewFull);
+  if (hasSummaryOnlyTarget || !filterCapabilities.bedtime) {
+    throw roommateSearchErrors.invalidQuery(
+      '현재 노출 범위에서는 상세 전용 필터를 사용할 수 없습니다.',
+    );
+  }
 }
 
 function resolveAppliedSort(
@@ -333,29 +363,30 @@ function resolveAppliedSort(
 function toRoommateSearchSummary(entry: ResolvedVisibleProfileEntry): RoommateSearchSummary {
   const base = {
     id: entry.user.id,
-    sourceProfile: entry.sourceProfile.source,
+    sourceProfile: entry.exposure.sourceProfile,
     relationToViewer: entry.exposure.relationToViewer,
+    summaryVisible: true as const,
+    canViewFull: entry.exposure.canViewFull,
+    detailViewable: entry.exposure.detailViewable,
+    scoreVisible: entry.exposure.scoreVisible,
     actions: entry.exposure.actions,
     nickname: entry.sourceProfile.nickname,
     intro: entry.sourceProfile.intro,
-    messageToRoommate: entry.sourceProfile.messageToRoommate,
-    additional: toAdditionalProfile(entry.sourceProfile),
+    smokingBehavior: entry.sourceProfile.lifestyle.smokingBehavior,
+    sleepHabit: entry.sourceProfile.lifestyle.sleepHabit,
+    relationshipStyle: entry.sourceProfile.lifestyle.relationshipStyle,
   };
 
-  if (entry.exposure.exposureLevel !== 'FULL') {
-    return {
-      ...base,
-      canViewFull: false,
-    };
+  if (!entry.exposure.scoreVisible) {
+    return base;
   }
 
   if (typeof entry.matchScore !== 'number') {
-    throw new Error('[roommate-search-owner] FULL summary target must have matchScore');
+    throw new Error('[roommate-search-owner] score-visible summary target must have matchScore');
   }
 
   return {
     ...base,
-    canViewFull: true,
     matchScore: entry.matchScore,
   };
 }
@@ -366,8 +397,8 @@ function sortRoommateSearchSummaries(items: RoommateSearchSummary[], sort: Roomm
   }
 
   return [...items].sort((left, right) => {
-    const leftScore = left.canViewFull ? left.matchScore : null;
-    const rightScore = right.canViewFull ? right.matchScore : null;
+    const leftScore = left.scoreVisible ? left.matchScore : null;
+    const rightScore = right.scoreVisible ? right.matchScore : null;
 
     if (typeof leftScore === 'number' && typeof rightScore === 'number') {
       const scoreDiff = rightScore - leftScore;
@@ -388,15 +419,10 @@ function sortRoommateSearchSummaries(items: RoommateSearchSummary[], sort: Roomm
   });
 }
 
-function resolveEffectiveVisibility(items: RoommateSearchSummary[]): RoommateSearchVisibilityMode {
-  const hasFull = items.some((item) => item.canViewFull);
-  const hasLimited = items.some((item) => !item.canViewFull);
-
-  if (hasFull && hasLimited) {
-    return 'MIXED_VISIBILITY';
-  }
-  if (hasFull) {
-    return 'FULL_ONLY';
-  }
-  return 'LIMITED_ONLY';
+function summarizeResults(items: RoommateSearchSummary[]): RoommateSearchResponse['resultSummary'] {
+  return {
+    summaryOnlyCount: items.filter((item) => !item.detailViewable).length,
+    detailViewableCount: items.filter((item) => item.detailViewable).length,
+    scoreVisibleCount: items.filter((item) => item.scoreVisible).length,
+  };
 }

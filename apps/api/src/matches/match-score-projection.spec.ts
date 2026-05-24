@@ -59,7 +59,7 @@ describe('match-score-projection', () => {
     expect(
       shouldExposePublicMatchScore({
         seasonState: 'SEASON_POST_MATCH',
-        exposureLevel: 'FULL',
+        scoreVisible: true,
         relationToViewer: 'MATCHED_PARTNER',
       }),
     ).toBe(true);
@@ -67,17 +67,17 @@ describe('match-score-projection', () => {
     expect(
       shouldExposePublicMatchScore({
         seasonState: 'SEASON_POST_MATCH',
-        exposureLevel: 'FULL',
+        scoreVisible: true,
         relationToViewer: 'GENERAL',
       }),
     ).toBe(false);
   });
 
-  it('OFF_SEASON과 LIMITED surface에는 점수를 노출하지 않는다', () => {
+  it('OFF_SEASON과 scoreVisible=false surface에는 점수를 노출하지 않는다', () => {
     expect(
       shouldExposePublicMatchScore({
         seasonState: 'OFF_SEASON',
-        exposureLevel: 'FULL',
+        scoreVisible: true,
         relationToViewer: 'MATCHED_PARTNER',
       }),
     ).toBe(false);
@@ -85,7 +85,7 @@ describe('match-score-projection', () => {
     expect(
       shouldExposePublicMatchScore({
         seasonState: 'SEASON_MATCHING',
-        exposureLevel: 'LIMITED',
+        scoreVisible: false,
         relationToViewer: 'GENERAL',
       }),
     ).toBe(false);

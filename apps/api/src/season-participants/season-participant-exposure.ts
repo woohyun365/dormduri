@@ -1,5 +1,4 @@
 import type {
-  ProfileExposureLevel,
   ProfileRelationToViewer,
   ProfileSource,
   PublicProfileActionCapabilities,
@@ -29,20 +28,38 @@ export interface PublicExposureTargetInput {
   dormitoryId: string | null;
   hasOperatedAssignedDormitory: boolean;
   hasSeasonProfile: boolean;
+  registrationSnapshotExists: boolean;
 }
 
 export interface PublicExposureDecision {
-  exposureLevel: ProfileExposureLevel | 'NONE';
+  summaryVisible: boolean;
+  detailViewable: boolean;
+  canViewFull: boolean;
+  scoreVisible: boolean;
   sourceProfile: ProfileSource;
   relationToViewer: ProfileRelationToViewer;
   actions: PublicProfileActionCapabilities;
 }
+
+const SEASON_PROFILE_SOURCE: ProfileSource = 'SEASON_PARTICIPANT_PROFILE';
 
 const NO_PROFILE_ACTIONS: PublicProfileActionCapabilities = {
   canBookmark: false,
   canRequestMatch: false,
   canStartChat: false,
 };
+
+function hiddenExposure(): PublicExposureDecision {
+  return {
+    summaryVisible: false,
+    detailViewable: false,
+    canViewFull: false,
+    scoreVisible: false,
+    sourceProfile: SEASON_PROFILE_SOURCE,
+    relationToViewer: 'GENERAL',
+    actions: NO_PROFILE_ACTIONS,
+  };
+}
 
 export function resolvePublicExposure(
   viewer: PublicExposureViewerInput,
@@ -53,26 +70,18 @@ export function resolvePublicExposure(
     viewer.seasonState === null ||
     viewer.seasonState === 'OFF_SEASON'
   ) {
-    return {
-      exposureLevel: 'LIMITED',
-      sourceProfile: 'USER_PROFILE',
-      relationToViewer: 'GENERAL',
-      actions: NO_PROFILE_ACTIONS,
-    };
+    return hiddenExposure();
   }
 
-  if (!target.visible || !target.registered) {
-    return {
-      exposureLevel: 'NONE',
-      sourceProfile: target.hasSeasonProfile ? 'SEASON_PARTICIPANT_PROFILE' : 'USER_PROFILE',
-      relationToViewer: 'GENERAL',
-      actions: NO_PROFILE_ACTIONS,
-    };
+  if (
+    !target.visible ||
+    !target.registered ||
+    !target.hasSeasonProfile ||
+    !target.registrationSnapshotExists
+  ) {
+    return hiddenExposure();
   }
 
-  const seasonSource: ProfileSource = target.hasSeasonProfile
-    ? 'SEASON_PARTICIPANT_PROFILE'
-    : 'USER_PROFILE';
   const matchedPartnerTarget =
     viewer.matchedPartnerParticipantId !== null &&
     target.participantId === viewer.matchedPartnerParticipantId;
@@ -81,64 +90,42 @@ export function resolvePublicExposure(
     target.hasOperatedAssignedDormitory &&
     viewer.dormitoryId !== null &&
     viewer.dormitoryId === target.dormitoryId;
+  const viewerRegistrationComplete =
+    viewer.registered && viewer.seasonProfileComplete && viewer.hasOperatedAssignedDormitory;
   const viewerCanBookmark =
-    viewer.registered &&
-    viewer.hasOperatedAssignedDormitory &&
+    viewerRegistrationComplete &&
     (viewer.seasonState === 'SEASON_OPEN' ||
       viewer.seasonState === 'SEASON_MATCHING' ||
       viewer.seasonState === 'SEASON_POST_MATCH');
-  const viewerCanChatCandidate =
-    viewer.registered &&
-    !viewer.matched &&
-    viewer.seasonProfileComplete &&
+  const matchedPartnerDetail =
+    matchedPartnerTarget &&
+    (viewer.seasonState === 'SEASON_MATCHING' || viewer.seasonState === 'SEASON_POST_MATCH');
+  const sameDormitoryDetail =
+    viewerRegistrationComplete &&
     sameDormitory &&
+    !viewer.matched &&
     !target.matched &&
+    (viewer.seasonState === 'SEASON_OPEN' || viewer.seasonState === 'SEASON_MATCHING');
+  const canViewFull = matchedPartnerDetail || sameDormitoryDetail;
+  // canViewFull is the authoritative domain capability; response/UI flags derive from it.
+  const detailViewable = canViewFull;
+  const scoreVisible = canViewFull;
+  const viewerCanChatCandidate =
+    sameDormitoryDetail &&
     (viewer.seasonState === 'SEASON_OPEN' ||
       (viewer.seasonState === 'SEASON_MATCHING' && viewer.currentDormitoryCanMatch));
   const viewerCanRequestMatch =
-    viewer.registered &&
-    !viewer.matched &&
-    viewer.seasonProfileComplete &&
-    sameDormitory &&
-    !target.matched &&
+    sameDormitoryDetail &&
     viewer.seasonState === 'SEASON_MATCHING' &&
     viewer.currentDormitoryCanMatch;
 
-  if (
-    matchedPartnerTarget &&
-    (viewer.seasonState === 'SEASON_MATCHING' || viewer.seasonState === 'SEASON_POST_MATCH')
-  ) {
-    return {
-      exposureLevel: 'FULL',
-      sourceProfile: seasonSource,
-      relationToViewer: 'MATCHED_PARTNER',
-      actions: {
-        canBookmark: viewerCanBookmark,
-        canRequestMatch: false,
-        canStartChat: false,
-      },
-    };
-  }
-
-  if (viewer.seasonState === 'SEASON_POST_MATCH') {
-    return {
-      exposureLevel: 'LIMITED',
-      sourceProfile: seasonSource,
-      relationToViewer: 'GENERAL',
-      actions: {
-        canBookmark: viewerCanBookmark,
-        canRequestMatch: false,
-        canStartChat: false,
-      },
-    };
-  }
-
-  const fullExposureAllowed = sameDormitory && !viewer.matched && !target.matched;
-
   return {
-    exposureLevel: fullExposureAllowed ? 'FULL' : 'LIMITED',
-    sourceProfile: seasonSource,
-    relationToViewer: 'GENERAL',
+    summaryVisible: true,
+    detailViewable,
+    canViewFull,
+    scoreVisible,
+    sourceProfile: SEASON_PROFILE_SOURCE,
+    relationToViewer: matchedPartnerDetail ? 'MATCHED_PARTNER' : 'GENERAL',
     actions: {
       canBookmark: viewerCanBookmark,
       canRequestMatch: viewerCanRequestMatch,

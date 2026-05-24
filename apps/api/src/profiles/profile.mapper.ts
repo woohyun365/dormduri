@@ -1,45 +1,32 @@
-import type { LifestyleData } from '../auth/lifestyle.schema.js';
 import { publicLifestyleSchema } from '@repo/shared/profile-contract';
-import {
-  type AdditionalProfile,
-  type ProfileExposureLevel,
-  type ProfileRelationToViewer,
-  type ProfileSource,
-  type PublicProfile,
-  type PublicProfileActionCapabilities,
-  type PublicLifestyle,
+import type {
+  AdditionalProfile,
+  ProfileRelationToViewer,
+  PublicProfile,
+  PublicProfileActionCapabilities,
+  PublicLifestyle,
 } from '@repo/shared/profile-contract';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 import {
   type LifestyleColumns,
   toLifestyleFromColumns,
 } from '../common/lifestyle/lifestyle.persistence.js';
-
-export interface UserProfileRecord {
-  userId: string;
-  nickname: string;
-  nicknameNormalized: string;
-  nicknameChangedAt: Date | null;
-  lifestyle: LifestyleData;
-  intro: string;
-  messageToRoommate: string | null;
-  collegeCode: string | null;
-  grade: string | null;
-  mbti: string | null;
-  birthYear: number | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 export interface ProfileViewRecord {
   nickname: string;
   nicknameNormalized: string;
   lifestyle: LifestyleData;
   intro: string;
-  messageToRoommate: string | null;
   collegeCode: string | null;
   grade: string | null;
   mbti: string | null;
   birthYear: number | null;
+}
+
+export interface PublicProfileUserRecord {
+  id: string;
+  gender: 'M' | 'F';
+  campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
 }
 
 export type ProfileViewColumns = Omit<ProfileViewRecord, 'lifestyle'> & LifestyleColumns;
@@ -51,8 +38,6 @@ function parseEmbeddedLifestyle(input: unknown): LifestyleData | null {
   return parseLifestyleOrNull((input as { lifestyle: unknown }).lifestyle);
 }
 
-export type UserProfileColumns = Omit<UserProfileRecord, 'lifestyle'> & LifestyleColumns;
-
 export function mapProfileViewRecordFromColumns(
   profile: ProfileViewColumns | ProfileViewRecord,
 ): ProfileViewRecord {
@@ -62,26 +47,6 @@ export function mapProfileViewRecordFromColumns(
     ...profile,
     lifestyle: embeddedLifestyle ?? parseLifestyleOrThrow(profile),
   };
-}
-
-export function mapUserProfileRecordFromColumns(
-  profile: UserProfileColumns | UserProfileRecord,
-): UserProfileRecord {
-  const embeddedLifestyle = parseEmbeddedLifestyle(profile);
-
-  return {
-    ...profile,
-    lifestyle: embeddedLifestyle ?? parseLifestyleOrThrow(profile),
-  };
-}
-
-export interface UserWithProfileRecord {
-  id: string;
-  email: string;
-  emailVerifiedAt: Date | null;
-  gender: 'M' | 'F';
-  campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  profile: UserProfileRecord | null;
 }
 
 export function parseLifestyleOrThrow(lifestyle: unknown): LifestyleData {
@@ -134,46 +99,36 @@ export function toPublicLifestyle(lifestyle: LifestyleData): PublicLifestyle {
 }
 
 export function toPublicProfile(
-  user: Pick<UserWithProfileRecord, 'id' | 'gender' | 'campus'>,
+  user: PublicProfileUserRecord,
   profile: ProfileViewRecord,
   options: {
-    exposureLevel: ProfileExposureLevel;
-    sourceProfile: ProfileSource;
     relationToViewer: ProfileRelationToViewer;
     actions: PublicProfileActionCapabilities;
+    scoreVisible: boolean;
     matchScore?: number;
   },
 ): PublicProfile {
-  const base = {
+  return {
     id: user.id,
-    sourceProfile: options.sourceProfile,
+    sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
     relationToViewer: options.relationToViewer,
-    actions: options.actions,
+    capabilities: {
+      summaryVisible: true,
+      detailViewable: true,
+      canViewFull: true,
+      scoreVisible: options.scoreVisible,
+      actions: options.actions,
+    },
+    gender: user.gender,
+    campus: user.campus,
+    lifestyle: toPublicLifestyle(parseLifestyleOrThrow(profile.lifestyle)),
     nickname: profile.nickname,
     intro: profile.intro,
-    messageToRoommate: profile.messageToRoommate,
     additional: toAdditionalProfile(profile),
     ...(typeof options.matchScore === 'number'
       ? {
           matchScore: options.matchScore,
         }
       : {}),
-  };
-
-  if (options.exposureLevel === 'LIMITED') {
-    return {
-      ...base,
-      exposureLevel: 'LIMITED',
-    };
-  }
-
-  const lifestyle = parseLifestyleOrThrow(profile.lifestyle);
-
-  return {
-    ...base,
-    exposureLevel: 'FULL',
-    gender: user.gender,
-    campus: user.campus,
-    lifestyle: toPublicLifestyle(lifestyle),
   };
 }

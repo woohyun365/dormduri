@@ -1,34 +1,33 @@
 import type { PrismaService } from '../common/prisma/prisma.service.js';
-import {
-  buildUserWithProfileSelect,
-  mapUserWithParticipantProjection,
-  type UserWithParticipantProjectionRecord,
-} from '../users/current-user-select.js';
-import type { UserWithProfileRecord } from './profile.mapper.js';
 
-export type UserWithParticipantProjection = UserWithParticipantProjectionRecord;
+export interface UserWithParticipantProjection {
+  id: string;
+  email: string;
+  emailVerifiedAt: Date | null;
+  deletedAt?: Date | null;
+  gender: 'M' | 'F';
+  campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
+}
 
 export async function getUserWithProfile(
   prisma: PrismaService,
   userId: string,
-): Promise<UserWithProfileRecord> {
+): Promise<UserWithParticipantProjection> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: buildUserWithProfileSelect(null),
+    select: {
+      id: true,
+      email: true,
+      emailVerifiedAt: true,
+      deletedAt: true,
+      gender: true,
+      campus: true,
+    },
   });
 
   if (!user) {
     throw new Error('[ProfilesService] authenticated user not found');
   }
 
-  const mapped = mapUserWithParticipantProjection(user);
-
-  return {
-    id: mapped.id,
-    email: mapped.email,
-    emailVerifiedAt: mapped.emailVerifiedAt,
-    gender: mapped.gender,
-    campus: mapped.campus,
-    profile: mapped.profile,
-  };
+  return user;
 }

@@ -140,8 +140,8 @@ describe('ProfilesService match score integration', () => {
       'peer-often',
     );
 
-    if (noneDetail.exposureLevel !== 'FULL' || oftenDetail.exposureLevel !== 'FULL') {
-      throw new Error('expected FULL detail for same-building peers');
+    if (!noneDetail.capabilities.canViewFull || !oftenDetail.capabilities.canViewFull) {
+      throw new Error('expected detail-viewable same-building peers');
     }
 
     expect(noneDetail.lifestyle).not.toHaveProperty('drinkingFrequency');
@@ -150,7 +150,7 @@ describe('ProfilesService match score integration', () => {
     expect(oftenDetail.lifestyle).not.toHaveProperty('drinkingTolerance');
   });
 
-  it('season participant profile complete invariant는 nullable condition update를 허용하지 않는다', async () => {
+  it('incomplete season participant profile은 public score/detail target에서 제외된다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'viewer',
       participantId: 'participant-viewer',
@@ -158,14 +158,34 @@ describe('ProfilesService match score integration', () => {
       nickname: '뷰어',
     });
 
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'peer',
+      participantId: 'participant-peer',
+      email: 'peer@kangwon.ac.kr',
+      nickname: '상대',
+    });
+
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-peer' },
+      data: {
+        smokingTolerance: null,
+      },
+    });
+
+    const result = await roommateSearchService.search(authContext('viewer'), {
+      scope: 'SAME_BUILDING_ONLY',
+      offset: 0,
+      limit: 10,
+    });
+
+    expect(result.items.map((item) => item.nickname)).not.toContain('상대');
     await expect(
-      prisma.seasonParticipantProfile.update({
-        where: { participantId: 'participant-viewer' },
-        data: {
-          smokingTolerance: null as never,
-        },
-      }),
-    ).rejects.toBeTruthy();
+      profilesService.getProfileByUserId(authContext('viewer'), 'peer'),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'PROFILE_NOT_VISIBLE',
+      },
+    });
   });
 
   it('같은 사용자 쌍이라도 viewer 기준 점수는 방향에 따라 달라질 수 있다', async () => {
@@ -206,8 +226,8 @@ describe('ProfilesService match score integration', () => {
     const profileForA = await profilesService.getProfileByUserId(authContext('user-a'), 'user-b');
     const profileForB = await profilesService.getProfileByUserId(authContext('user-b'), 'user-a');
 
-    expect(profileForA.exposureLevel).toBe('FULL');
-    expect(profileForB.exposureLevel).toBe('FULL');
+    expect(profileForA.capabilities.canViewFull).toBe(true);
+    expect(profileForB.capabilities.canViewFull).toBe(true);
     expect(profileForA.matchScore).toEqual(expect.any(Number));
     expect(profileForB.matchScore).toEqual(expect.any(Number));
     expect(profileForA.matchScore).not.toBe(profileForB.matchScore);
@@ -245,16 +265,16 @@ describe('ProfilesService match score integration', () => {
       },
     });
 
-    const result = await roommateSearchService.search(authContext('viewer'), {
-      offset: 0,
-      limit: 10,
+    await expect(
+      roommateSearchService.search(authContext('viewer'), {
+        offset: 0,
+        limit: 10,
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'INVALID_ROOMMATE_SEARCH_QUERY',
+      },
     });
-    const peer = result.items.find((item) => item.nickname === '상대');
-
-    expect(result.scope).toBe('CAMPUS_MERGED');
-    expect(result.appliedSort).toBe('NICKNAME');
-    expect(peer).toMatchObject({ canViewFull: false });
-    expect(peer).not.toHaveProperty('matchScore');
   });
 
   it('SEASON_POST_MATCH에서는 최종 matched partner만 detail과 score를 유지하고 다른 등록자는 LIMITED summary만 본다', async () => {
@@ -314,7 +334,7 @@ describe('ProfilesService match score integration', () => {
       authContext('viewer'),
       'partner',
     );
-    expect(partnerProfile.exposureLevel).toBe('FULL');
+    expect(partnerProfile.capabilities.canViewFull).toBe(true);
     expect(partnerProfile.relationToViewer).toBe('MATCHED_PARTNER');
 
     await expect(

@@ -3,7 +3,6 @@ import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { normalizeNickname, validateNicknameFormat } from '../auth/auth.utils.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
-import { profilesErrors } from '../profiles/profiles.errors.js';
 import { hasNicknameCooldown } from './nickname-policy.js';
 import {
   buildUserWithDisplayIdentitySelect,
@@ -15,6 +14,7 @@ import {
   isPrismaKnownRequestError,
   prismaErrorTargetIncludes,
 } from '../common/prisma/prisma-error.js';
+import { usersErrors } from './users.errors.js';
 
 export interface UpdateCurrentUserInput {
   displayIdentity?: {
@@ -63,17 +63,17 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     const trimmedNickname = input.displayIdentity.nickname.trim();
     const formatError = validateNicknameFormat(trimmedNickname);
     if (formatError) {
-      throw profilesErrors.invalidNickname(formatError);
+      throw usersErrors.invalidNickname(formatError);
     }
 
     if (hasNicknameCooldown(displayIdentity.nicknameChangedAt, now)) {
-      throw profilesErrors.nicknameCooldownActive();
+      throw usersErrors.nicknameCooldownActive();
     }
 
     const nicknamePolicyError =
       await deps.moderationService.validateNicknamePolicy(trimmedNickname);
     if (nicknamePolicyError) {
-      throw profilesErrors.nicknameModerationRejected(nicknamePolicyError);
+      throw usersErrors.nicknameModerationRejected(nicknamePolicyError);
     }
 
     const nicknameNormalized = normalizeNickname(trimmedNickname);
@@ -83,7 +83,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     });
 
     if (existingNickname && existingNickname.userId !== authUser.id) {
-      throw profilesErrors.nicknameAlreadyTaken();
+      throw usersErrors.nicknameAlreadyTaken();
     }
 
     if (
@@ -107,12 +107,12 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       });
 
       if (updateResult.count !== 1) {
-        throw profilesErrors.nicknameCooldownActive();
+        throw usersErrors.nicknameCooldownActive();
       }
     } catch (error) {
       if (isPrismaKnownRequestError(error, 'P2002')) {
         if (prismaErrorTargetIncludes(error, 'nicknameNormalized')) {
-          throw profilesErrors.nicknameAlreadyTaken();
+          throw usersErrors.nicknameAlreadyTaken();
         }
       }
       throw error;

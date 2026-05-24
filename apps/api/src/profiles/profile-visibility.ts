@@ -1,5 +1,4 @@
 import type {
-  ProfileExposureLevel,
   ProfileRelationToViewer,
   ProfileSource,
   PublicProfileActionCapabilities,
@@ -12,7 +11,10 @@ import {
 } from '../season-participants/season-participant-policy.js';
 
 export interface ProfileExposureResult {
-  exposureLevel: ProfileExposureLevel;
+  summaryVisible: true;
+  detailViewable: boolean;
+  canViewFull: boolean;
+  scoreVisible: boolean;
   sourceProfile: ProfileSource;
   relationToViewer: ProfileRelationToViewer;
   actions: PublicProfileActionCapabilities;
@@ -24,12 +26,15 @@ export function resolveProfileExposure(input: {
 }): ProfileExposureResult | null {
   const result: PublicExposureDecision = resolvePublicExposure(input.viewer, input.target);
 
-  if (result.exposureLevel === 'NONE') {
+  if (!result.summaryVisible) {
     return null;
   }
 
   return {
-    exposureLevel: result.exposureLevel,
+    summaryVisible: true,
+    detailViewable: result.detailViewable,
+    canViewFull: result.canViewFull,
+    scoreVisible: result.scoreVisible,
     sourceProfile: result.sourceProfile,
     relationToViewer: result.relationToViewer,
     actions: result.actions,

@@ -126,23 +126,17 @@ describe('RoommateSearchService integration', () => {
     });
   }
 
-  it('OFF_SEASON에서는 merged summary만 허용하고 detail은 항상 막는다', async () => {
+  it('OFF_SEASON에서는 roommate browse와 detail을 모두 막는다', async () => {
     await setSeasonState('OFF_SEASON');
 
-    const result = await service.search(authContext('user-a'), {
-      offset: 0,
-      limit: 20,
+    await expect(
+      service.search(authContext('user-a'), {
+        offset: 0,
+        limit: 20,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
     });
-
-    expect(result.scope).toBe('CAMPUS_MERGED');
-    expect(result.appliedSort).toBe('NICKNAME');
-    expect(result.scopeCapabilities).toEqual({
-      campusMerged: true,
-      sameBuildingOnly: false,
-    });
-    expect(result.items).toHaveLength(2);
-    expect(result.items.every((item) => item.canViewFull === false)).toBe(true);
-    expect(result.items.every((item) => !('matchScore' in item))).toBe(true);
 
     await expect(
       profilesService.getProfileByUserId(authContext('user-a'), 'user-b'),
@@ -151,7 +145,7 @@ describe('RoommateSearchService integration', () => {
     });
   });
 
-  it('시즌 중 미참여 viewer는 registered season profile cohort의 merged LIMITED summary만 본다', async () => {
+  it('시즌 중 미참여 viewer는 registered season profile cohort의 merged summary만 본다', async () => {
     await setSeasonState('SEASON_MATCHING');
     await makeViewerNonParticipant();
 
@@ -165,7 +159,11 @@ describe('RoommateSearchService integration', () => {
       campusMerged: true,
       sameBuildingOnly: false,
     });
-    expect(result.effectiveVisibility).toBe('LIMITED_ONLY');
+    expect(result.resultSummary).toEqual({
+      summaryOnlyCount: 2,
+      detailViewableCount: 0,
+      scoreVisibleCount: 0,
+    });
     expect(result.items.map((item) => item.nickname)).toEqual(['유저B', '유저C']);
     expect(result.items.every((item) => item.canViewFull === false)).toBe(true);
     expect(result.items.every((item) => !('matchScore' in item))).toBe(true);
@@ -216,7 +214,7 @@ describe('RoommateSearchService integration', () => {
     expect(sameBuilding.items[0]?.canViewFull).toBe(true);
   });
 
-  it('SEASON_OPEN merged에서 lifestyle filter는 FULL 후보만 남기고 LIMITED 후보를 제외한다', async () => {
+  it('SEASON_OPEN merged에서 summary filter는 summary-only 후보까지 같은 field set으로 필터링한다', async () => {
     await seedSecondDormitory();
     await moveUserToDormitory({
       participantId: 'participant-c',
@@ -240,9 +238,40 @@ describe('RoommateSearchService integration', () => {
       limit: 20,
     });
 
-    expect(result.effectiveVisibility).toBe('MIXED_VISIBILITY');
-    expect(result.items.map((item) => item.nickname)).toEqual(['유저B']);
-    expect(result.items[0]).toMatchObject({ canViewFull: true });
+    expect(result.resultSummary).toEqual({
+      summaryOnlyCount: 1,
+      detailViewableCount: 1,
+      scoreVisibleCount: 1,
+    });
+    expect(result.items.map((item) => item.nickname)).toEqual(['유저B', '유저C']);
+    expect(result.items.find((item) => item.nickname === '유저B')).toMatchObject({
+      canViewFull: true,
+      smokingBehavior: 'NO',
+    });
+    expect(result.items.find((item) => item.nickname === '유저C')).toMatchObject({
+      canViewFull: false,
+      smokingBehavior: 'NO',
+    });
+  });
+
+  it('SEASON_OPEN mixed query에서 optional additional/detail-only filter는 400이다', async () => {
+    await seedSecondDormitory();
+    await moveUserToDormitory({
+      participantId: 'participant-c',
+      dormitoryId: 'saerom',
+    });
+    await setSeasonState('SEASON_OPEN');
+
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'CAMPUS_MERGED',
+        college: 'ARTS_ENGINEERING',
+        offset: 0,
+        limit: 20,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+    });
   });
 
   it('삭제 처리된 사용자는 시즌 roommate-search summary와 FULL detail 대상에서 제외된다', async () => {
@@ -258,7 +287,11 @@ describe('RoommateSearchService integration', () => {
       limit: 20,
     });
 
-    expect(result.effectiveVisibility).toBe('FULL_ONLY');
+    expect(result.resultSummary).toEqual({
+      summaryOnlyCount: 0,
+      detailViewableCount: 1,
+      scoreVisibleCount: 1,
+    });
     expect(result.items.map((item) => item.nickname)).toEqual(['유저C']);
     expect(result.items.every((item) => item.canViewFull)).toBe(true);
 
@@ -292,7 +325,8 @@ describe('RoommateSearchService integration', () => {
       campusMerged: false,
       sameBuildingOnly: true,
     });
-    expect(result.effectiveVisibility).toBe('FULL_ONLY');
+    expect(result.resultSummary.summaryOnlyCount).toBe(0);
+    expect(result.resultSummary.detailViewableCount).toBe(result.items.length);
     expect(result.items.every((item) => item.canViewFull)).toBe(true);
   });
 

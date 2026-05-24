@@ -1,9 +1,6 @@
 import type { SeasonProfileDraftRequest } from '@repo/shared/season-contract';
 import type { PrismaService } from '../../../src/common/prisma/prisma.service.js';
-import {
-  toCompleteLifestyleColumnData,
-  toLifestyleColumnData,
-} from '../../../src/common/lifestyle/lifestyle.persistence.js';
+import { toCompleteLifestyleColumnData } from '../../../src/common/lifestyle/lifestyle.persistence.js';
 import { formatKstDate, subtractDays } from '../../../src/seasons/season.utils.js';
 
 export const DEFAULT_LIFESTYLE = {
@@ -198,14 +195,12 @@ export async function seedRegisteredAssignedParticipant(
     },
   });
 
-  await prisma.userProfile.create({
+  await prisma.userDisplayIdentity.create({
     data: {
       userId: input.userId,
       nickname: input.nickname,
       nicknameNormalized: input.nickname,
-      ...toLifestyleColumnData(DEFAULT_LIFESTYLE),
-      intro: `${input.nickname} 소개`,
-      messageToRoommate: `${input.nickname} 메시지`,
+      nicknameChangedAt: null,
     },
   });
 
@@ -233,7 +228,19 @@ export async function seedRegisteredAssignedParticipant(
       nicknameNormalizedSnapshot: input.nickname,
       ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
       intro: `${input.nickname} 시즌 소개`,
-      messageToRoommate: `${input.nickname} 시즌 메시지`,
+    },
+  });
+
+  await prisma.seasonParticipantProfileHistory.create({
+    data: {
+      participantId: input.participantId,
+      seasonId: input.seasonId ?? 'season-integration',
+      nicknameSnapshot: input.nickname,
+      nicknameNormalizedSnapshot: input.nickname,
+      ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
+      intro: `${input.nickname} 시즌 소개`,
+      registeredAtSnapshot: verifiedAt,
+      source: 'SEASON_REGISTRATION',
     },
   });
 }
@@ -272,7 +279,6 @@ export async function seedActiveMatchFixture(
       expiresAt: new Date(databaseNow.getTime() + 30 * 24 * 60 * 60 * 1_000),
       terminalAt: requestAcceptedAt,
       acceptedAt: requestAcceptedAt,
-      requestChannel: 'PROFILE_DETAIL',
     },
   });
 

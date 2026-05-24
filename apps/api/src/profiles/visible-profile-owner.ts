@@ -1,4 +1,4 @@
-import type { FullPublicProfile } from '@repo/shared/profile-contract';
+import type { PublicProfile } from '@repo/shared/profile-contract';
 import { isSeasonProfileComplete, type LifestyleData } from '@repo/shared/lifestyle';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
@@ -7,17 +7,16 @@ import {
   buildDirectionalMatchScoreProjection,
   shouldExposePublicMatchScore,
 } from '../matches/match-score-projection.js';
-import type {
-  CanonicalProfileSource,
-  CurrentSeasonParticipantRecord,
-} from '../season-participants/season-participants.service.js';
+import {
+  currentSeasonParticipantSelect,
+  mapCurrentSeasonParticipantRecord,
+  type CurrentSeasonParticipantRecord,
+  type CurrentSeasonParticipantProfileRecord,
+} from '../season-participants/season-participant-records.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import {
   canCurrentDormitoryMatch,
   hasOperatedAssignedDormitory,
-  hasParticipantProfile,
-  isParticipantRegistered,
-  resolveCurrentUserProfileSource,
 } from '../season-participants/season-participant-policy.js';
 import {
   buildPublicExposureTargetInput,
@@ -25,16 +24,8 @@ import {
 } from '../season-participants/season-participant-gate-context.js';
 import { resolvePublicExposure } from '../season-participants/season-participant-exposure.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
-import {
-  buildUserWithProfileSelect,
-  mapUserWithParticipantProjection,
-} from '../users/current-user-select.js';
 import { resolveCampusServiceState } from '../users/service-state.js';
-import {
-  getUserWithProfile,
-  type UserWithParticipantProjection,
-} from './profiles-owner-support.js';
-import { parseLifestyleOrNull, toPublicProfile } from './profile.mapper.js';
+import { parseLifestyleOrNull, toPublicProfile, type ProfileViewRecord } from './profile.mapper.js';
 
 interface VisibleProfileOwnerDeps {
   prisma: PrismaService;
@@ -44,7 +35,12 @@ interface VisibleProfileOwnerDeps {
 }
 
 export interface VisibleProfileViewerContext {
-  viewer: UserWithParticipantProjection;
+  viewer: {
+    id: string;
+    emailVerifiedAt: Date | null;
+    gender: 'M' | 'F';
+    campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
+  };
   viewerParticipant: CurrentSeasonParticipantRecord | null;
   viewerSelection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>;
   viewerLifestyle: LifestyleData | null;
@@ -59,24 +55,58 @@ export interface VisibleProfileViewerContext {
   currentDormitoryCanMatch: boolean;
 }
 
+export interface VisibleProfileTargetCandidate {
+  user: {
+    id: string;
+    deletedAt: Date | null;
+  };
+  participant: CurrentSeasonParticipantRecord;
+}
+
 export interface ResolvedVisibleProfileEntry {
-  user: UserWithParticipantProjection;
-  targetParticipant: CurrentSeasonParticipantRecord | null;
+  user: VisibleProfileTargetCandidate['user'];
+  targetParticipant: CurrentSeasonParticipantRecord;
   targetDormitoryId: string | null;
-  sourceProfile: CanonicalProfileSource;
+  sourceProfile: ProfileViewRecord;
   exposure: ReturnType<typeof resolvePublicExposure>;
   matchScore: number | null;
 }
+
+const userForProfileVisibilitySelect = {
+  id: true,
+  emailVerifiedAt: true,
+  gender: true,
+  campus: true,
+  deletedAt: true,
+} as const;
+
+const targetParticipantSelect = {
+  ...currentSeasonParticipantSelect,
+  user: {
+    select: {
+      id: true,
+      deletedAt: true,
+    },
+  },
+} as const;
+
+type TargetParticipantQueryRecord = CurrentSeasonParticipantRecord & {
+  user: { id: string; deletedAt: Date | null };
+};
 
 export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
   async function loadViewerContext(
     authUser: AuthenticatedUserContext,
     now: Date,
   ): Promise<VisibleProfileViewerContext> {
-    const viewer = (await getUserWithProfile(
-      deps.prisma,
-      authUser.id,
-    )) as UserWithParticipantProjection;
+    const viewer = await deps.prisma.user.findUnique({
+      where: { id: authUser.id },
+      select: userForProfileVisibilitySelect,
+    });
+    if (!viewer || viewer.deletedAt) {
+      throw new Error('[VisibleProfileOwner] authenticated viewer not found');
+    }
+
     const serviceState = await resolveCampusServiceState(
       deps.prisma,
       deps.seasonsService,
@@ -92,23 +122,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     const operatedDormitoryIds = new Set(
       serviceState.seasonContext?.operatedDormitories.map((item) => item.dormitoryId) ?? [],
     );
-
-    if (!viewer.profile) {
-      throw new Error('[VisibleProfileOwner] authenticated viewer profile is required');
-    }
-
-    const viewerProfileSource = resolveCurrentUserProfileSource({
-      campusOperated: serviceState.campusOperated,
-      seasonState: serviceState.seasonState,
-      participantRegistered: isParticipantRegistered(viewerParticipant),
-      participantProfileExists: hasParticipantProfile(viewerParticipant),
-    });
-    const viewerProfile = deps.seasonParticipantsService.selectProfileBySource(
-      viewer.profile,
-      viewerParticipant?.profile ?? null,
-      viewerProfileSource,
-    );
-    const viewerLifestyle = parseLifestyleOrNull(viewerProfile.lifestyle);
+    const viewerLifestyle = parseLifestyleOrNull(viewerParticipant?.profile?.lifestyle ?? null);
 
     return {
       viewer,
@@ -136,27 +150,44 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     };
   }
 
+  async function findRegistrationSnapshotParticipantIdSet(
+    participantIds: readonly string[],
+  ): Promise<ReadonlySet<string>> {
+    if (participantIds.length === 0) {
+      return new Set();
+    }
+
+    const histories = await deps.prisma.seasonParticipantProfileHistory.findMany({
+      where: {
+        participantId: { in: [...participantIds] },
+        source: 'SEASON_REGISTRATION',
+        registeredAtSnapshot: { not: null },
+      },
+      select: { participantId: true },
+    });
+
+    return new Set(histories.map((history) => history.participantId));
+  }
+
   function resolveVisibleProfileEntry(
-    user: UserWithParticipantProjection,
+    candidate: VisibleProfileTargetCandidate,
     viewerContext: VisibleProfileViewerContext,
     viewerActiveMatch: Awaited<ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>>,
     activeMatchMap: Map<
       string,
       Awaited<ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>>
     >,
+    registrationSnapshotParticipantIds: ReadonlySet<string>,
   ): ResolvedVisibleProfileEntry | null {
-    if (!user.profile) {
+    const targetParticipant = candidate.participant;
+    const sourceProfile = toProfileViewRecord(targetParticipant.profile ?? null);
+    if (!sourceProfile || candidate.user.deletedAt) {
       return null;
     }
 
-    const targetParticipant = deps.seasonParticipantsService.pickCurrentSeasonParticipant(
-      user.seasonParticipants,
-    );
     const targetSelection =
       deps.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
-    const targetActiveMatch = targetParticipant
-      ? (activeMatchMap.get(targetParticipant.id) ?? null)
-      : null;
+    const targetActiveMatch = activeMatchMap.get(targetParticipant.id) ?? null;
     const exposure = resolvePublicExposure(
       buildPublicExposureViewerInput({
         campusOperated: viewerContext.serviceState.campusOperated,
@@ -175,49 +206,48 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
         participant: targetParticipant,
         matched: targetActiveMatch !== null,
         selection: targetSelection,
+        registrationSnapshotExists: registrationSnapshotParticipantIds.has(targetParticipant.id),
       }),
     );
 
-    if (!exposure || exposure.exposureLevel === 'NONE') {
+    if (!exposure.summaryVisible) {
       return null;
     }
 
-    const sourceProfile = deps.seasonParticipantsService.selectProfileBySource(
-      user.profile,
-      targetParticipant?.profile ?? null,
-      exposure.sourceProfile,
-    );
     const targetLifestyle = parseLifestyleOrNull(sourceProfile.lifestyle);
-    const matchScore = shouldExposePublicMatchScore({
+    const scoreVisible = shouldExposePublicMatchScore({
       seasonState: viewerContext.serviceState.seasonState,
-      exposureLevel: exposure.exposureLevel,
+      scoreVisible: exposure.scoreVisible,
       relationToViewer: exposure.relationToViewer,
-    })
+    });
+    const matchScore = scoreVisible
       ? buildDirectionalMatchScoreProjection(viewerContext.viewerLifestyle, targetLifestyle)
       : null;
 
     return {
-      user,
+      user: candidate.user,
       targetParticipant,
       targetDormitoryId: targetSelection.dormitoryId,
       sourceProfile,
-      exposure,
+      exposure: {
+        ...exposure,
+        scoreVisible,
+      },
       matchScore,
     };
   }
 
   async function materializeVisibleProfileEntries(
     viewerContext: VisibleProfileViewerContext,
-    users: UserWithParticipantProjection[],
+    candidates: VisibleProfileTargetCandidate[],
   ): Promise<ResolvedVisibleProfileEntry[]> {
     const participantIds = [
       viewerContext.viewerParticipant?.id ?? null,
-      ...users.map(
-        (user) =>
-          deps.seasonParticipantsService.pickCurrentSeasonParticipant(user.seasonParticipants)
-            ?.id ?? null,
-      ),
+      ...candidates.map((candidate) => candidate.participant.id),
     ].filter((participantId): participantId is string => participantId !== null);
+    const registrationSnapshotParticipantIds = await findRegistrationSnapshotParticipantIdSet(
+      candidates.map((candidate) => candidate.participant.id),
+    );
 
     const activeMatchMap = viewerContext.currentSeasonId
       ? await deps.matchesService.getLiveActiveMatchMapForParticipantIds(
@@ -232,14 +262,33 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       ? (activeMatchMap.get(viewerContext.viewerParticipant.id) ?? null)
       : null;
 
-    return users
-      .map((user) =>
-        resolveVisibleProfileEntry(user, viewerContext, viewerActiveMatch, activeMatchMap),
+    return candidates
+      .map((candidate) =>
+        resolveVisibleProfileEntry(
+          candidate,
+          viewerContext,
+          viewerActiveMatch,
+          activeMatchMap,
+          registrationSnapshotParticipantIds,
+        ),
       )
       .filter((entry): entry is ResolvedVisibleProfileEntry => entry !== null)
       .sort((left, right) =>
         left.sourceProfile.nickname.localeCompare(right.sourceProfile.nickname, 'ko'),
       );
+  }
+
+  function mapTargetParticipantCandidate(
+    record: TargetParticipantQueryRecord,
+  ): VisibleProfileTargetCandidate {
+    const { user, ...participant } = record;
+
+    return {
+      user,
+      participant: mapCurrentSeasonParticipantRecord(
+        participant as Parameters<typeof mapCurrentSeasonParticipantRecord>[0],
+      ),
+    };
   }
 
   async function getResolvedProfileByUserId(
@@ -248,54 +297,92 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     now: Date,
   ): Promise<ResolvedVisibleProfileEntry | null> {
     const viewerContext = await loadViewerContext(authUser, now);
-    const rawUser = await deps.prisma.user.findUnique({
-      where: { id: targetUserId },
-      select: {
-        ...buildUserWithProfileSelect(viewerContext.currentSeasonId),
-        deletedAt: true,
-      },
-    });
-    if (!rawUser || rawUser.deletedAt) {
+    if (
+      !viewerContext.currentSeasonId ||
+      !viewerContext.serviceState.campusOperated ||
+      viewerContext.serviceState.seasonState === null ||
+      viewerContext.serviceState.seasonState === 'OFF_SEASON'
+    ) {
       return null;
     }
 
-    const user = mapUserWithParticipantProjection(rawUser);
-    const [entry] = await materializeVisibleProfileEntries(viewerContext, [user]);
+    const rawParticipant = await deps.prisma.seasonParticipant.findFirst({
+      where: {
+        seasonId: viewerContext.currentSeasonId,
+        userId: targetUserId,
+        user: { deletedAt: null },
+      },
+      select: targetParticipantSelect,
+    });
+    if (!rawParticipant) {
+      return null;
+    }
+
+    const [entry] = await materializeVisibleProfileEntries(viewerContext, [
+      mapTargetParticipantCandidate(rawParticipant as unknown as TargetParticipantQueryRecord),
+    ]);
     return entry ?? null;
   }
 
-  function toFullPublicProfile(entry: ResolvedVisibleProfileEntry): FullPublicProfile | null {
-    if (entry.exposure.exposureLevel !== 'FULL') {
+  function toDetailPublicProfile(entry: ResolvedVisibleProfileEntry): PublicProfile | null {
+    if (!entry.exposure.canViewFull) {
       return null;
     }
 
-    return toPublicProfile(entry.user, entry.sourceProfile, {
-      exposureLevel: 'FULL',
-      sourceProfile: entry.exposure.sourceProfile,
-      relationToViewer: entry.exposure.relationToViewer,
-      actions: entry.exposure.actions,
-      ...(typeof entry.matchScore === 'number' ? { matchScore: entry.matchScore } : {}),
-    }) as FullPublicProfile;
+    return toPublicProfile(
+      {
+        id: entry.user.id,
+        gender: entry.targetParticipant.genderSnapshot,
+        campus: entry.targetParticipant.campusCodeSnapshot,
+      },
+      entry.sourceProfile,
+      {
+        relationToViewer: entry.exposure.relationToViewer,
+        actions: entry.exposure.actions,
+        scoreVisible: entry.exposure.scoreVisible,
+        ...(typeof entry.matchScore === 'number' ? { matchScore: entry.matchScore } : {}),
+      },
+    );
   }
 
-  async function getFullProfileByUserId(
+  async function getDetailProfileByUserId(
     authUser: AuthenticatedUserContext,
     targetUserId: string,
     now: Date,
-  ): Promise<FullPublicProfile | null> {
+  ): Promise<PublicProfile | null> {
     const entry = await getResolvedProfileByUserId(authUser, targetUserId, now);
     if (!entry) {
       return null;
     }
 
-    return toFullPublicProfile(entry);
+    return toDetailPublicProfile(entry);
   }
 
   return {
     loadViewerContext,
     materializeVisibleProfileEntries,
+    mapTargetParticipantCandidate,
     getResolvedProfileByUserId,
-    getFullProfileByUserId,
-    toFullPublicProfile,
+    getDetailProfileByUserId,
+    toDetailPublicProfile,
+  };
+}
+
+function toProfileViewRecord(
+  profile: CurrentSeasonParticipantProfileRecord | null,
+): ProfileViewRecord | null {
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    nickname: profile.nicknameSnapshot,
+    nicknameNormalized: profile.nicknameNormalizedSnapshot,
+    lifestyle: profile.lifestyle,
+    intro: profile.intro,
+    collegeCode: profile.collegeCode,
+    grade: profile.grade,
+    mbti: profile.mbti,
+    birthYear: profile.birthYear,
   };
 }

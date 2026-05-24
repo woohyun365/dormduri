@@ -1,4 +1,4 @@
-import type { ProfileExposureLevel, ProfileRelationToViewer } from '@repo/shared/profile-contract';
+import type { ProfileRelationToViewer } from '@repo/shared/profile-contract';
 import { calcViewerMatchScore } from '@repo/shared/match-score';
 import type { SeasonState } from '@repo/shared/season-contract';
 import type { LifestyleData } from '@repo/shared/lifestyle';
@@ -16,16 +16,16 @@ export function buildDirectionalMatchScoreProjection(
 
 export function shouldExposePublicMatchScore(input: {
   seasonState: SeasonState | null;
-  exposureLevel: ProfileExposureLevel;
+  scoreVisible: boolean;
   relationToViewer: ProfileRelationToViewer;
 }): boolean {
-  if (input.seasonState === null || input.seasonState === 'OFF_SEASON') {
+  if (!input.scoreVisible || input.seasonState === null || input.seasonState === 'OFF_SEASON') {
     return false;
   }
 
   if (input.seasonState === 'SEASON_POST_MATCH') {
-    return input.exposureLevel === 'FULL' && input.relationToViewer === 'MATCHED_PARTNER';
+    return input.relationToViewer === 'MATCHED_PARTNER';
   }
 
-  return input.exposureLevel === 'FULL';
+  return true;
 }
