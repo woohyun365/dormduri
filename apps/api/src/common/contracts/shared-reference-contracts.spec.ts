@@ -289,6 +289,7 @@ describe('shared reference contracts', () => {
           canSelectDormitory: true,
           canFinalizeSeasonRegistration: false,
           canEditDisplayIdentity: true,
+          displayIdentityEditUnavailableReasons: [],
           canBookmark: false,
           canRequestMatch: false,
           canStartChat: false,

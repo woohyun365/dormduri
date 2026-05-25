@@ -201,6 +201,8 @@ describe('CurrentUserViewService season composition boundary', () => {
         canCreateOrUpdateSeasonProfileDraft: true,
         canSelectDormitory: true,
         canFinalizeSeasonRegistration: false,
+        canEditDisplayIdentity: true,
+        displayIdentityEditUnavailableReasons: [],
         canBookmark: false,
         canRequestMatch: false,
         canStartChat: false,
@@ -210,6 +212,54 @@ describe('CurrentUserViewService season composition boundary', () => {
         seasonState: 'SEASON_OPEN',
       },
     });
+  });
+
+  it('registration 완료 current season 사용자는 display identity edit capability를 닫고 season lock reason을 반환한다', async () => {
+    const { service, currentSeasonParticipationViewOwner } = createServiceTestKit();
+    currentSeasonParticipationViewOwner.buildCurrentUserSeasonParticipationSegment.mockResolvedValueOnce(
+      makeSeasonSegment({
+        seasonProfile: {
+          ...makeSeasonSegment().seasonProfile,
+          registered: true,
+          profileState: 'REGISTRATION_FINALIZED',
+          draftWritable: false,
+          canSelectDormitory: false,
+          canFinalizeRegistration: false,
+        },
+        capabilities: {
+          canCreateOrUpdateSeasonProfileDraft: false,
+          canSelectDormitory: false,
+          canFinalizeSeasonRegistration: false,
+        },
+      }),
+    );
+
+    const result = await service.buildCurrentUserResponse(makeUser(), NOW);
+
+    expect(result.capabilities.canEditDisplayIdentity).toBe(false);
+    expect(result.capabilities.displayIdentityEditUnavailableReasons).toEqual([
+      'CURRENT_SEASON_REGISTRATION_LOCK',
+    ]);
+  });
+
+  it('nickname cooldown은 registration 전 사용자 display identity edit capability reason으로만 반영된다', async () => {
+    const { service } = createServiceTestKit();
+
+    const result = await service.buildCurrentUserResponse(
+      {
+        ...makeUser(),
+        displayIdentity: {
+          ...makeUser().displayIdentity,
+          nicknameChangedAt: new Date('2026-05-20T23:59:00.000Z'),
+        },
+      },
+      NOW,
+    );
+
+    expect(result.capabilities.canEditDisplayIdentity).toBe(false);
+    expect(result.capabilities.displayIdentityEditUnavailableReasons).toEqual([
+      'NICKNAME_COOLDOWN_ACTIVE',
+    ]);
   });
 
   it('participant row가 없으면 current-user는 match summary를 조회하지 않고 season segment만 조합한다', async () => {

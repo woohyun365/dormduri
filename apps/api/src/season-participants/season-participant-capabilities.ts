@@ -1,5 +1,8 @@
 import type { SeasonState } from '@repo/shared/season-contract';
-import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import type {
+  CurrentUserResponse,
+  DisplayIdentityEditUnavailableReason,
+} from '@repo/shared/user-contract';
 import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
 
 export interface CurrentUserCapabilityInput {
@@ -20,6 +23,7 @@ export interface CurrentUserCapabilityInput {
 export function buildCurrentUserCapabilities(
   input: CurrentUserCapabilityInput,
 ): CurrentUserResponse['capabilities'] {
+  const displayIdentityEditUnavailableReasons = buildDisplayIdentityEditUnavailableReasons(input);
   const activeSeasonPhase =
     input.seasonState === 'SEASON_OPEN' || input.seasonState === 'SEASON_MATCHING';
   const canCreateOrUpdateSeasonProfileDraft =
@@ -51,7 +55,8 @@ export function buildCurrentUserCapabilities(
     canCreateOrUpdateSeasonProfileDraft,
     canSelectDormitory,
     canFinalizeSeasonRegistration,
-    canEditDisplayIdentity: !input.nicknameLockedBySeason && !input.nicknameCooldownActive,
+    canEditDisplayIdentity: displayIdentityEditUnavailableReasons.length === 0,
+    displayIdentityEditUnavailableReasons,
     canBookmark:
       input.campusOperated &&
       input.participantRegistered &&
@@ -69,4 +74,18 @@ export function buildCurrentUserCapabilities(
       (input.seasonState === 'SEASON_OPEN' ||
         (input.seasonState === 'SEASON_MATCHING' && input.currentDormitoryCanMatch)),
   };
+}
+
+function buildDisplayIdentityEditUnavailableReasons(input: {
+  nicknameLockedBySeason: boolean;
+  nicknameCooldownActive: boolean;
+}): DisplayIdentityEditUnavailableReason[] {
+  const reasons: DisplayIdentityEditUnavailableReason[] = [];
+  if (input.nicknameLockedBySeason) {
+    reasons.push('CURRENT_SEASON_REGISTRATION_LOCK');
+  }
+  if (input.nicknameCooldownActive) {
+    reasons.push('NICKNAME_COOLDOWN_ACTIVE');
+  }
+  return reasons;
 }

@@ -4,6 +4,10 @@ import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { hasNicknameCooldown } from './nickname-policy.js';
+import {
+  buildDisplayIdentityEditUnavailableReasons,
+  isNicknameLockedByCurrentSeasonRegistration,
+} from './nickname-change-policy.owner.js';
 import { CurrentSeasonParticipationViewOwner } from '../season-participants/current-season-participation-view.owner.js';
 import {
   buildUserWithDisplayIdentitySelect,
@@ -76,10 +80,15 @@ export class CurrentUserViewService {
             now,
           )
         : null;
-    const canEditDisplayIdentity = !hasNicknameCooldown(
-      user.displayIdentity.nicknameChangedAt,
-      now,
-    );
+    const nicknameCooldownActive = hasNicknameCooldown(user.displayIdentity.nicknameChangedAt, now);
+    const nicknameLockedBySeason = isNicknameLockedByCurrentSeasonRegistration({
+      seasonState: serviceState.seasonState,
+      participantRegistered: seasonSegment.seasonProfile.registered,
+    });
+    const displayIdentityEditUnavailableReasons = buildDisplayIdentityEditUnavailableReasons({
+      nicknameLockedBySeason,
+      nicknameCooldownActive,
+    });
 
     const identity = buildIdentitySegment(user);
 
@@ -88,7 +97,11 @@ export class CurrentUserViewService {
       seasonProfile: seasonSegment.seasonProfile,
       selection: seasonSegment.selection,
       match: buildMatchSegment(activeMatch),
-      capabilities: buildCapabilitySegment(serviceState, seasonSegment, canEditDisplayIdentity),
+      capabilities: buildCapabilitySegment(
+        serviceState,
+        seasonSegment,
+        displayIdentityEditUnavailableReasons,
+      ),
       onboarding: buildOnboardingSegment(user.dismissedNotices ?? []),
       serviceState: buildServiceStateSegment(serviceState),
     };
@@ -148,7 +161,7 @@ function buildCapabilitySegment(
       'canCreateOrUpdateSeasonProfileDraft' | 'canSelectDormitory' | 'canFinalizeSeasonRegistration'
     >;
   },
-  canEditDisplayIdentity: boolean,
+  displayIdentityEditUnavailableReasons: CurrentUserResponse['capabilities']['displayIdentityEditUnavailableReasons'],
 ): CurrentUserResponse['capabilities'] {
   return {
     canBrowseProfiles:
@@ -160,7 +173,8 @@ function buildCapabilitySegment(
       seasonSegment.capabilities.canCreateOrUpdateSeasonProfileDraft,
     canSelectDormitory: seasonSegment.capabilities.canSelectDormitory,
     canFinalizeSeasonRegistration: seasonSegment.capabilities.canFinalizeSeasonRegistration,
-    canEditDisplayIdentity,
+    canEditDisplayIdentity: displayIdentityEditUnavailableReasons.length === 0,
+    displayIdentityEditUnavailableReasons,
     canBookmark: false,
     canRequestMatch: false,
     canStartChat: false,

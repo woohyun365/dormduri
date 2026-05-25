@@ -13,6 +13,10 @@ import {
 } from './user-contract-primitives.js';
 
 export const displayIdentityNicknameSourceSchema = z.literal('USER_DISPLAY_IDENTITY');
+export const displayIdentityEditUnavailableReasonSchema = z.enum([
+  'CURRENT_SEASON_REGISTRATION_LOCK',
+  'NICKNAME_COOLDOWN_ACTIVE',
+]);
 export const SERVICE_INTRO_NOTICE_KEY = 'service-intro' as const;
 export const dismissedNoticeKeySchema = z.literal(SERVICE_INTRO_NOTICE_KEY);
 
@@ -61,6 +65,7 @@ export const currentUserResponseSchema = z.strictObject({
     canSelectDormitory: z.boolean(),
     canFinalizeSeasonRegistration: z.boolean(),
     canEditDisplayIdentity: z.boolean(),
+    displayIdentityEditUnavailableReasons: z.array(displayIdentityEditUnavailableReasonSchema),
     canBookmark: z.boolean(),
     canRequestMatch: z.boolean(),
     canStartChat: z.boolean(),
@@ -75,6 +80,9 @@ export const currentUserResponseSchema = z.strictObject({
 });
 
 export type DisplayIdentityNicknameSource = z.infer<typeof displayIdentityNicknameSourceSchema>;
+export type DisplayIdentityEditUnavailableReason = z.infer<
+  typeof displayIdentityEditUnavailableReasonSchema
+>;
 export type DismissedNoticeKey = z.infer<typeof dismissedNoticeKeySchema>;
 export type UserDisplayIdentity = z.infer<typeof userDisplayIdentitySchema>;
 export type DismissedNoticeState = z.infer<typeof dismissedNoticeStateSchema>;
