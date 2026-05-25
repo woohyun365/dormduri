@@ -1,4 +1,9 @@
-import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import type {
+  CurrentUserResponse,
+  UpdateCurrentUserDisplayIdentityMutationResult,
+  UpdateCurrentUserResponse,
+} from '@repo/shared/user-contract';
+import type { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { normalizeNickname, validateNicknameFormat } from '../auth/auth.utils.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
@@ -7,6 +12,7 @@ import { hasNicknameCooldown } from './nickname-policy.js';
 import {
   buildUserWithDisplayIdentitySelect,
   mapUserWithDisplayIdentityProjection,
+  type UserDisplayIdentityRecord,
   type UserWithDisplayIdentityRecord,
 } from './current-user-select.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
@@ -15,6 +21,8 @@ import {
   prismaErrorTargetIncludes,
 } from '../common/prisma/prisma-error.js';
 import { usersErrors } from './users.errors.js';
+import { SeasonsService } from '../seasons/seasons.service.js';
+import { resolveNicknameChangePolicy } from './nickname-change-policy.owner.js';
 
 export interface UpdateCurrentUserInput {
   displayIdentity?: {
@@ -24,15 +32,22 @@ export interface UpdateCurrentUserInput {
 
 interface UserUpdateOwnerDeps {
   prisma: PrismaService;
+  seasonsService: SeasonsService;
   moderationService: ModerationService;
   currentUserViewService: CurrentUserViewService;
 }
 
+type UserReadClient = Pick<PrismaService, 'user'> | Pick<Prisma.TransactionClient, 'user'>;
+type UserDisplayIdentityClient =
+  | Pick<PrismaService, 'userDisplayIdentity'>
+  | Pick<Prisma.TransactionClient, 'userDisplayIdentity'>;
+
 export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
   async function getUserWithDisplayIdentity(
     userId: string,
+    client: UserReadClient = deps.prisma,
   ): Promise<UserWithDisplayIdentityRecord> {
-    const user = await deps.prisma.user.findUnique({
+    const user = await client.user.findUnique({
       where: { id: userId },
       select: buildUserWithDisplayIdentitySelect(),
     });
@@ -47,61 +62,130 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
   async function updateCurrentUser(
     authUser: AuthenticatedUserContext,
     input: UpdateCurrentUserInput,
-  ): Promise<CurrentUserResponse> {
+  ): Promise<UpdateCurrentUserResponse> {
     const now = await deps.prisma.getDatabaseNow();
     const user = await getUserWithDisplayIdentity(authUser.id);
+    let displayIdentityMutation: UpdateCurrentUserDisplayIdentityMutationResult = {
+      attempted: false,
+      changed: false,
+      noOpReason: null,
+    };
 
     if (!input.displayIdentity) {
-      return deps.currentUserViewService.buildCurrentUserResponse(user, now);
+      return buildUpdateCurrentUserResponse(
+        await deps.currentUserViewService.buildCurrentUserResponse(user, now),
+        displayIdentityMutation,
+      );
     }
 
-    const displayIdentity = user.displayIdentity;
-    if (!displayIdentity) {
-      throw new Error('[UsersService] user display identity row is required');
-    }
+    const parsedNickname = parseDisplayIdentityNickname(input.displayIdentity.nickname);
+    displayIdentityMutation = {
+      attempted: true,
+      changed: false,
+      noOpReason: null,
+    };
 
-    const trimmedNickname = input.displayIdentity.nickname.trim();
+    const transactionResult = await deps.prisma.runSerializableTransaction(async (tx) => {
+      const txUser = await getUserWithDisplayIdentity(authUser.id, tx);
+      const displayIdentity = assertDisplayIdentity(txUser.displayIdentity);
+
+      if (isSameNickname(displayIdentity, parsedNickname)) {
+        return {
+          attempted: true,
+          changed: false,
+          noOpReason: 'SAME_NICKNAME' as const,
+        };
+      }
+
+      const nicknamePolicy = await resolveNicknameChangePolicy(
+        {
+          prisma: deps.prisma,
+          seasonsService: deps.seasonsService,
+        },
+        txUser,
+        now,
+        tx,
+      );
+      if (nicknamePolicy.nicknameLockedBySeason) {
+        throw usersErrors.nicknameLockedBySeason();
+      }
+
+      if (hasNicknameCooldown(displayIdentity.nicknameChangedAt, now)) {
+        throw usersErrors.nicknameCooldownActive();
+      }
+
+      await assertNicknamePolicyAccepted(parsedNickname.nickname);
+      await assertNicknameAvailableForUser(parsedNickname, authUser.id, tx);
+      await updateDisplayIdentityNickname(authUser.id, displayIdentity, parsedNickname, now, tx);
+
+      return {
+        attempted: true,
+        changed: true,
+        noOpReason: null,
+      };
+    });
+    displayIdentityMutation = transactionResult;
+
+    return buildUpdateCurrentUserResponse(
+      await deps.currentUserViewService.buildCurrentUserResponse(
+        await getUserWithDisplayIdentity(authUser.id),
+        now,
+      ),
+      displayIdentityMutation,
+    );
+  }
+
+  function parseDisplayIdentityNickname(nickname: string) {
+    const trimmedNickname = nickname.trim();
     const formatError = validateNicknameFormat(trimmedNickname);
     if (formatError) {
       throw usersErrors.invalidNickname(formatError);
     }
 
-    if (hasNicknameCooldown(displayIdentity.nicknameChangedAt, now)) {
-      throw usersErrors.nicknameCooldownActive();
-    }
+    return {
+      nickname: trimmedNickname,
+      nicknameNormalized: normalizeNickname(trimmedNickname),
+    };
+  }
 
-    const nicknamePolicyError =
-      await deps.moderationService.validateNicknamePolicy(trimmedNickname);
+  async function assertNicknamePolicyAccepted(nickname: string) {
+    const nicknamePolicyError = await deps.moderationService.validateNicknamePolicy(nickname);
     if (nicknamePolicyError) {
       throw usersErrors.nicknameModerationRejected(nicknamePolicyError);
     }
+  }
 
-    const nicknameNormalized = normalizeNickname(trimmedNickname);
-    const existingNickname = await deps.prisma.userDisplayIdentity.findUnique({
-      where: { nicknameNormalized },
+  async function assertNicknameAvailableForUser(
+    parsedNickname: { nicknameNormalized: string },
+    userId: string,
+    client: UserDisplayIdentityClient = deps.prisma,
+  ) {
+    const existingNickname = await client.userDisplayIdentity.findUnique({
+      where: { nicknameNormalized: parsedNickname.nicknameNormalized },
       select: { userId: true },
     });
 
-    if (existingNickname && existingNickname.userId !== authUser.id) {
+    if (existingNickname && existingNickname.userId !== userId) {
       throw usersErrors.nicknameAlreadyTaken();
     }
+  }
 
-    if (
-      displayIdentity.nickname === trimmedNickname &&
-      displayIdentity.nicknameNormalized === nicknameNormalized
-    ) {
-      return deps.currentUserViewService.buildCurrentUserResponse(user, now);
-    }
-
+  async function updateDisplayIdentityNickname(
+    userId: string,
+    displayIdentity: UserDisplayIdentityRecord,
+    parsedNickname: { nickname: string; nicknameNormalized: string },
+    now: Date,
+    client: UserDisplayIdentityClient = deps.prisma,
+  ) {
     try {
-      const updateResult = await deps.prisma.userDisplayIdentity.updateMany({
+      const updateResult = await client.userDisplayIdentity.updateMany({
         where: {
-          userId: authUser.id,
+          userId,
           nicknameChangedAt: displayIdentity.nicknameChangedAt,
         },
         data: {
-          nickname: trimmedNickname,
-          nicknameNormalized,
+          nickname: parsedNickname.nickname,
+          nicknameNormalized: parsedNickname.nicknameNormalized,
           nicknameChangedAt: now,
         },
       });
@@ -117,14 +201,40 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       }
       throw error;
     }
-
-    return deps.currentUserViewService.buildCurrentUserResponse(
-      await getUserWithDisplayIdentity(authUser.id),
-      now,
-    );
   }
 
   return {
     updateCurrentUser,
   };
+}
+
+function buildUpdateCurrentUserResponse(
+  currentUser: CurrentUserResponse,
+  displayIdentity: UpdateCurrentUserDisplayIdentityMutationResult,
+): UpdateCurrentUserResponse {
+  return {
+    currentUser,
+    mutation: {
+      displayIdentity,
+    },
+  };
+}
+
+function assertDisplayIdentity(
+  displayIdentity: UserWithDisplayIdentityRecord['displayIdentity'],
+): UserDisplayIdentityRecord {
+  if (!displayIdentity) {
+    throw new Error('[UsersService] user display identity row is required');
+  }
+  return displayIdentity;
+}
+
+function isSameNickname(
+  displayIdentity: UserDisplayIdentityRecord,
+  parsedNickname: { nickname: string; nicknameNormalized: string },
+) {
+  return (
+    displayIdentity.nickname === parsedNickname.nickname &&
+    displayIdentity.nicknameNormalized === parsedNickname.nicknameNormalized
+  );
 }

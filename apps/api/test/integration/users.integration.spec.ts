@@ -1,4 +1,5 @@
 import { UsersService } from '../../src/users/users.service.js';
+import { usersErrors } from '../../src/users/users.errors.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
@@ -108,5 +109,95 @@ describe('UsersService integration', () => {
       nickname: '유저변경',
       nicknameNormalized: '유저변경',
     });
+  });
+
+  it('현재 시즌 registration 완료 사용자의 display identity nickname 변경은 season lock으로 거부한다', async () => {
+    const now = await prisma.getDatabaseNow();
+    await prisma.seasonParticipant.update({
+      where: { id: 'participant-a' },
+      data: {
+        participationIntent: 'REGISTERED',
+        registeredAt: now,
+        declinedAt: null,
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'ACTIVE',
+        activatedAt: now,
+        withdrawnAt: null,
+      },
+    });
+
+    await expect(
+      service.updateCurrentUser(authContext('user-a'), {
+        displayIdentity: { nickname: '등록후변경' },
+      }),
+    ).rejects.toMatchObject({
+      response: usersErrors.nicknameLockedBySeason().getResponse(),
+    });
+
+    const currentUser = await service.getCurrentUser(authContext('user-a'));
+    expect(currentUser.capabilities).toMatchObject({
+      canEditDisplayIdentity: false,
+      displayIdentityEditUnavailableReasons: ['CURRENT_SEASON_REGISTRATION_LOCK'],
+    });
+
+    const displayIdentity = await prisma.userDisplayIdentity.findUniqueOrThrow({
+      where: { userId: 'user-a' },
+    });
+    expect(displayIdentity.nickname).toBe('유저A');
+  });
+
+  it('같은 display identity nickname 저장은 registration lock 중에도 no-op metadata로 성공한다', async () => {
+    const now = await prisma.getDatabaseNow();
+    await prisma.userDisplayIdentity.update({
+      where: { userId: 'user-a' },
+      data: { nicknameNormalized: '유저a' },
+    });
+    await prisma.seasonParticipant.update({
+      where: { id: 'participant-a' },
+      data: {
+        participationIntent: 'REGISTERED',
+        registeredAt: now,
+        declinedAt: null,
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'ACTIVE',
+        activatedAt: now,
+        withdrawnAt: null,
+      },
+    });
+
+    const response = await service.updateCurrentUser(authContext('user-a'), {
+      displayIdentity: { nickname: '유저A' },
+    });
+
+    expect(response.mutation.displayIdentity).toEqual({
+      attempted: true,
+      changed: false,
+      noOpReason: 'SAME_NICKNAME',
+    });
+    expect(response.currentUser.displayIdentity.nickname).toBe('유저A');
+  });
+
+  it('철회된 사용자는 같은 시즌 재등록 불가 상태이므로 display identity nickname 변경은 다시 허용한다', async () => {
+    const now = await prisma.getDatabaseNow();
+    await prisma.seasonParticipant.update({
+      where: { id: 'participant-a' },
+      data: {
+        participationIntent: 'DECLINED',
+        declinedAt: now,
+        participantStatus: 'WITHDRAWN',
+        withdrawnAt: now,
+      },
+    });
+
+    await service.updateCurrentUser(authContext('user-a'), {
+      displayIdentity: { nickname: '철회후변경' },
+    });
+
+    const displayIdentity = await prisma.userDisplayIdentity.findUniqueOrThrow({
+      where: { userId: 'user-a' },
+    });
+    expect(displayIdentity.nickname).toBe('철회후변경');
   });
 });

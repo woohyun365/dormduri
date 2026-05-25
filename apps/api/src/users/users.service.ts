@@ -4,6 +4,7 @@ import type {
   CurrentUserResponse,
   DismissCurrentUserOnboardingNoticeRequest,
   RequestAccountDeletion,
+  UpdateCurrentUserResponse,
 } from '@repo/shared/user-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
@@ -33,6 +34,7 @@ export class UsersService {
   ) {
     this.updateOwner = createUserUpdateOwner({
       prisma: this.prisma,
+      seasonsService: this.seasonsService,
       moderationService: this.moderationService,
       currentUserViewService: this.currentUserViewService,
     });
@@ -53,7 +55,7 @@ export class UsersService {
   async updateCurrentUser(
     authUser: AuthenticatedUserContext,
     input: UpdateCurrentUserInput,
-  ): Promise<CurrentUserResponse> {
+  ): Promise<UpdateCurrentUserResponse> {
     return this.updateOwner.updateCurrentUser(authUser, input);
   }
 

@@ -29,6 +29,7 @@ import {
   currentUserResponseSchema,
   dismissCurrentUserOnboardingNoticeRequestSchema,
   updateCurrentUserRequestSchema,
+  updateCurrentUserResponseSchema,
 } from '@repo/shared/user-contract';
 import {
   signupDraftValidationRequestSchema,
@@ -347,6 +348,76 @@ describe('shared reference contracts', () => {
     expect(updateCurrentUserRequestSchema.safeParse({ unsupportedUserPatch: true }).success).toBe(
       false,
     );
+
+    expect(
+      updateCurrentUserResponseSchema.parse({
+        currentUser: {
+          user: {
+            id: 'user-1',
+            email: 'student@kangwon.ac.kr',
+            nickname: '테스터',
+            gender: 'M',
+            campus: 'CHUNCHEON',
+          },
+          displayIdentity: {
+            userId: 'user-1',
+            nickname: '테스터',
+            nicknameSource: 'USER_DISPLAY_IDENTITY',
+            nicknameChangedAt: null,
+          },
+          seasonProfile: {
+            hasCurrentSeason: true,
+            hasParticipantRow: true,
+            intent: 'UNDECIDED',
+            registered: false,
+            profileExists: true,
+            profileState: 'COMPLETE',
+            completion: COMPLETION_READY,
+            draftWritable: true,
+            canSelectDormitory: true,
+            canFinalizeRegistration: false,
+          },
+          selection: {
+            state: 'NOT_SELECTED',
+            dormitoryId: null,
+            source: 'SEASON_PARTICIPANT',
+          },
+          match: {
+            hasActiveMatch: false,
+            activeMatch: null,
+          },
+          capabilities: {
+            canBrowseProfiles: true,
+            canCreateOrUpdateSeasonProfileDraft: true,
+            canSelectDormitory: true,
+            canFinalizeSeasonRegistration: false,
+            canEditDisplayIdentity: true,
+            displayIdentityEditUnavailableReasons: [],
+            canBookmark: false,
+            canRequestMatch: false,
+            canStartChat: false,
+          },
+          onboarding: {
+            dismissedNotices: [],
+          },
+          serviceState: {
+            campusOperated: true,
+            seasonState: 'SEASON_OPEN',
+          },
+        },
+        mutation: {
+          displayIdentity: {
+            attempted: true,
+            changed: false,
+            noOpReason: 'SAME_NICKNAME',
+          },
+        },
+      }).mutation.displayIdentity,
+    ).toEqual({
+      attempted: true,
+      changed: false,
+      noOpReason: 'SAME_NICKNAME',
+    });
   });
 
   it('date primitives는 local/iso normalization과 guard를 유지한다', () => {
