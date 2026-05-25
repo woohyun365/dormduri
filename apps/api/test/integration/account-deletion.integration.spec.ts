@@ -630,6 +630,24 @@ describe('account deletion + season de-registration integration', () => {
     expect(retainedIdentity.retentionHoldUntil?.toISOString()).toBe(
       requestDeleteBody.retentionHoldUntil,
     );
+
+    const nicknameEvent = await prisma.userDisplayIdentityNicknameChangeEvent.findFirstOrThrow({
+      where: {
+        userId: 'user-c',
+        source: 'ACCOUNT_DELETION_DEIDENTIFICATION',
+      },
+    });
+    expect(nicknameEvent).toMatchObject({
+      retainedIdentityId: retainedIdentity.id,
+      reason: 'ACCOUNT_DELETION',
+      actorType: 'SYSTEM',
+      actorId: 'account-deletion',
+      previousNickname: '유저C',
+      previousNicknameNormalized: '유저C',
+      nextNickname: '탈퇴한 사용자',
+      nextNicknameNormalized: displayIdentity.nicknameNormalized,
+    });
+
     const archiveJobs = await prisma.archiveJob.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
       orderBy: { target: 'asc' },

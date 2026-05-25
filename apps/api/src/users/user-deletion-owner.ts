@@ -19,6 +19,7 @@ import {
 } from '../retention/retained-identity-owner.js';
 import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
+import { recordDisplayIdentityNicknameChangeAuditTx } from './display-identity-nickname-audit.owner.js';
 
 interface UserDeletionOwnerDeps {
   prisma: PrismaService;
@@ -94,6 +95,12 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
         select: {
           id: true,
           deletedAt: true,
+          displayIdentity: {
+            select: {
+              nickname: true,
+              nicknameNormalized: true,
+            },
+          },
         },
       });
 
@@ -115,6 +122,9 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
         if (isParticipantRegistered(txParticipant)) {
           throw accountDeletionBlockedBySeasonParticipation(seasonContext);
         }
+      }
+      if (!txUser.displayIdentity) {
+        throw new Error('[UserDeletionOwner] user display identity row is required');
       }
 
       const retained = await createRetainedIdentitySnapshotTx(tx, {
@@ -146,6 +156,25 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
         },
         data: {
           revokedAt: now,
+        },
+      });
+
+      await recordDisplayIdentityNicknameChangeAuditTx(tx, {
+        userId: txUser.id,
+        retainedIdentityId: retained.id,
+        source: 'ACCOUNT_DELETION_DEIDENTIFICATION',
+        reason: 'ACCOUNT_DELETION',
+        actorType: 'SYSTEM',
+        actorId: 'account-deletion',
+        previousNickname: txUser.displayIdentity.nickname,
+        previousNicknameNormalized: txUser.displayIdentity.nicknameNormalized,
+        nextNickname: retained.displayLabel,
+        nextNicknameNormalized: `deleted-${retained.anonymizedActorKey}`,
+        changedAt: now,
+        metadata: {
+          schemaVersion: 1,
+          priority: 'ACCOUNT_DELETION_TOMBSTONE_OVERRIDES_DISPLAY_IDENTITY',
+          requestedBy: 'USER',
         },
       });
 
