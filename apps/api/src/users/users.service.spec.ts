@@ -80,8 +80,15 @@ describe('UsersService current-user boundary', () => {
       findUnique: jest.fn(),
       updateMany: jest.fn(),
     },
+    userDisplayIdentityNicknameChangeEvent: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+    },
     seasonParticipant: {
       findUnique: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    seasonParticipantProfile: {
       updateMany: jest.fn(),
     },
     runSerializableTransaction: jest.fn(),
@@ -116,7 +123,13 @@ describe('UsersService current-user boundary', () => {
     prisma.user.findUnique.mockResolvedValue(makeUser());
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
     prisma.userDisplayIdentity.updateMany.mockResolvedValue({ count: 1 });
+    prisma.userDisplayIdentityNicknameChangeEvent.create.mockResolvedValue({
+      id: 'nickname-change-event-1',
+    });
+    prisma.userDisplayIdentityNicknameChangeEvent.findMany.mockResolvedValue([]);
     prisma.seasonParticipant.findUnique.mockResolvedValue(null);
+    prisma.seasonParticipant.updateMany.mockResolvedValue({ count: 0 });
+    prisma.seasonParticipantProfile.updateMany.mockResolvedValue({ count: 0 });
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       Promise.resolve(callback(prisma)),
     );
@@ -164,6 +177,29 @@ describe('UsersService current-user boundary', () => {
         nicknameChangedAt: NOW,
       },
     });
+    expect(prisma.userDisplayIdentityNicknameChangeEvent.create).toHaveBeenCalledWith({
+      data: {
+        userId: 'user-1',
+        retainedIdentityId: null,
+        source: 'USER_SELF',
+        reason: 'USER_REQUEST',
+        actorType: 'USER',
+        actorId: 'user-1',
+        previousNickname: '기존닉네임',
+        previousNicknameNormalized: '기존닉네임',
+        nextNickname: '새닉네임',
+        nextNicknameNormalized: '새닉네임',
+        seasonId: null,
+        participantId: null,
+        seasonProfileSnapshotUpdated: false,
+        reportId: null,
+        moderationCaseId: null,
+        sanctionId: null,
+        approvalReference: null,
+        changedAt: NOW,
+      },
+      select: { id: true },
+    });
     const buildCurrentUserResponseMock =
       currentUserViewService.buildCurrentUserResponse as jest.Mock<
         unknown,
@@ -188,6 +224,7 @@ describe('UsersService current-user boundary', () => {
     });
 
     expect(prisma.userDisplayIdentity.updateMany).not.toHaveBeenCalled();
+    expect(prisma.userDisplayIdentityNicknameChangeEvent.create).not.toHaveBeenCalled();
     expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
     const buildCurrentUserResponseMock =
       currentUserViewService.buildCurrentUserResponse as jest.Mock<
@@ -211,6 +248,7 @@ describe('UsersService current-user boundary', () => {
     });
 
     expect(prisma.userDisplayIdentity.updateMany).not.toHaveBeenCalled();
+    expect(prisma.userDisplayIdentityNicknameChangeEvent.create).not.toHaveBeenCalled();
     expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
   });
 
@@ -310,6 +348,7 @@ describe('UsersService current-user boundary', () => {
     });
 
     expect(prisma.userDisplayIdentity.updateMany).not.toHaveBeenCalled();
+    expect(prisma.userDisplayIdentityNicknameChangeEvent.create).not.toHaveBeenCalled();
     expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
   });
 
@@ -329,6 +368,74 @@ describe('UsersService current-user boundary', () => {
       }),
     ).rejects.toMatchObject({
       response: usersErrors.nicknameLockedBySeason().getResponse(),
+    });
+  });
+
+  it('policy enforcement override base는 registration lock과 cooldown을 우회하지만 unique/format invariants는 유지한다', async () => {
+    prisma.seasonParticipantProfile.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.user.findUnique.mockResolvedValue(
+      makeUser({
+        displayIdentity: makeDisplayIdentity({
+          nicknameChangedAt: new Date('2026-05-22T23:59:00.000Z'),
+        }),
+      }),
+    );
+    prisma.seasonParticipant.findUnique.mockResolvedValue(makeRegisteredParticipant());
+
+    await expect(
+      service.overrideDisplayIdentityNicknameForPolicyEnforcement({
+        userId: 'user-1',
+        nickname: '임시닉네임',
+        actorId: 'ops-1',
+        reason: 'ENFORCEMENT_ACTION',
+      }),
+    ).resolves.toMatchObject({
+      userId: 'user-1',
+      nickname: '임시닉네임',
+      nicknameNormalized: '임시닉네임',
+      override: { actorId: 'ops-1', reason: 'ENFORCEMENT_ACTION' },
+    });
+
+    expect(prisma.userDisplayIdentity.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        nicknameChangedAt: new Date('2026-05-22T23:59:00.000Z'),
+      },
+      data: {
+        nickname: '임시닉네임',
+        nicknameNormalized: '임시닉네임',
+        nicknameChangedAt: NOW,
+      },
+    });
+    expect(prisma.seasonParticipantProfile.updateMany).toHaveBeenCalledWith({
+      where: { participantId: 'participant-1' },
+      data: {
+        nicknameSnapshot: '임시닉네임',
+        nicknameNormalizedSnapshot: '임시닉네임',
+      },
+    });
+    expect(prisma.userDisplayIdentityNicknameChangeEvent.create).toHaveBeenCalledWith({
+      data: {
+        userId: 'user-1',
+        retainedIdentityId: null,
+        source: 'POLICY_ENFORCEMENT',
+        reason: 'ENFORCEMENT_ACTION',
+        actorType: 'ADMIN',
+        actorId: 'ops-1',
+        previousNickname: '기존닉네임',
+        previousNicknameNormalized: '기존닉네임',
+        nextNickname: '임시닉네임',
+        nextNicknameNormalized: '임시닉네임',
+        seasonId: 'season-1',
+        participantId: 'participant-1',
+        seasonProfileSnapshotUpdated: true,
+        reportId: null,
+        moderationCaseId: null,
+        sanctionId: null,
+        approvalReference: null,
+        changedAt: NOW,
+      },
+      select: { id: true },
     });
   });
 

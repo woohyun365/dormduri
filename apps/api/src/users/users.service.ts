@@ -11,7 +11,16 @@ import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
-import { createUserUpdateOwner, type UpdateCurrentUserInput } from './user-update-owner.js';
+import {
+  createUserUpdateOwner,
+  type DisplayIdentityNicknameOverrideInput,
+  type DisplayIdentityNicknameOverrideResult,
+  type UpdateCurrentUserInput,
+} from './user-update-owner.js';
+import {
+  listDisplayIdentityNicknameChangeAuditForOperations,
+  type DisplayIdentityNicknameChangeAuditEntry,
+} from './display-identity-nickname-audit.owner.js';
 import { createUserDeletionOwner } from './user-deletion-owner.js';
 import { createUserOnboardingOwner } from './user-onboarding-owner.js';
 import type {
@@ -57,6 +66,18 @@ export class UsersService {
     input: UpdateCurrentUserInput,
   ): Promise<UpdateCurrentUserResponse> {
     return this.updateOwner.updateCurrentUser(authUser, input);
+  }
+
+  async overrideDisplayIdentityNicknameForPolicyEnforcement(
+    input: DisplayIdentityNicknameOverrideInput,
+  ): Promise<DisplayIdentityNicknameOverrideResult> {
+    return this.updateOwner.overrideDisplayIdentityNicknameForPolicyEnforcement(input);
+  }
+
+  async listDisplayIdentityNicknameChangeAuditForOperations(
+    userId: string,
+  ): Promise<DisplayIdentityNicknameChangeAuditEntry[]> {
+    return listDisplayIdentityNicknameChangeAuditForOperations(this.prisma, userId);
   }
 
   async dismissCurrentUserOnboardingNotice(

@@ -109,6 +109,26 @@ describe('UsersService integration', () => {
       nickname: '유저변경',
       nicknameNormalized: '유저변경',
     });
+
+    const nicknameEvents = await prisma.userDisplayIdentityNicknameChangeEvent.findMany({
+      where: { userId: 'user-a' },
+      orderBy: { changedAt: 'asc' },
+    });
+    expect(nicknameEvents).toHaveLength(1);
+    expect(nicknameEvents[0]).toMatchObject({
+      source: 'USER_SELF',
+      reason: 'USER_REQUEST',
+      actorType: 'USER',
+      actorId: 'user-a',
+      previousNickname: '유저A',
+      previousNicknameNormalized: '유저A',
+      nextNickname: '유저변경',
+      nextNicknameNormalized: '유저변경',
+      seasonProfileSnapshotUpdated: false,
+      reportId: null,
+      moderationCaseId: null,
+      sanctionId: null,
+    });
   });
 
   it('현재 시즌 registration 완료 사용자의 display identity nickname 변경은 season lock으로 거부한다', async () => {
@@ -177,6 +197,82 @@ describe('UsersService integration', () => {
       noOpReason: 'SAME_NICKNAME',
     });
     expect(response.currentUser.displayIdentity.nickname).toBe('유저A');
+
+    const nicknameEventCount = await prisma.userDisplayIdentityNicknameChangeEvent.count({
+      where: { userId: 'user-a' },
+    });
+    expect(nicknameEventCount).toBe(0);
+  });
+
+  it('policy enforcement nickname override는 registered snapshot과 운영 감사 이력을 함께 남긴다', async () => {
+    const now = await prisma.getDatabaseNow();
+    await prisma.seasonParticipant.update({
+      where: { id: 'participant-a' },
+      data: {
+        participationIntent: 'REGISTERED',
+        registeredAt: now,
+        declinedAt: null,
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'ACTIVE',
+        activatedAt: now,
+        withdrawnAt: null,
+      },
+    });
+
+    const result = await service.overrideDisplayIdentityNicknameForPolicyEnforcement({
+      userId: 'user-a',
+      nickname: '운영변경',
+      actorId: 'admin-1',
+      reason: 'REPORT_REVIEW',
+      reportId: 'report-1',
+      moderationCaseId: 'moderation-case-1',
+      sanctionId: 'sanction-1',
+      approvalReference: 'approval-1',
+      metadata: {
+        note: 'manual report review nickname replacement',
+      },
+    });
+
+    expect(result.override).toMatchObject({
+      actorId: 'admin-1',
+      actorType: 'ADMIN',
+      reason: 'REPORT_REVIEW',
+    });
+    expect(typeof result.override.auditEventId).toBe('string');
+    expect(result.override.auditEventId.length).toBeGreaterThan(0);
+
+    const displayIdentity = await prisma.userDisplayIdentity.findUniqueOrThrow({
+      where: { userId: 'user-a' },
+    });
+    expect(displayIdentity.nickname).toBe('운영변경');
+
+    const profile = await prisma.seasonParticipantProfile.findUniqueOrThrow({
+      where: { participantId: 'participant-a' },
+    });
+    expect(profile.nicknameSnapshot).toBe('운영변경');
+
+    const nicknameEvent = await prisma.userDisplayIdentityNicknameChangeEvent.findUniqueOrThrow({
+      where: { id: result.override.auditEventId },
+    });
+    expect(nicknameEvent).toMatchObject({
+      userId: 'user-a',
+      source: 'POLICY_ENFORCEMENT',
+      reason: 'REPORT_REVIEW',
+      actorType: 'ADMIN',
+      actorId: 'admin-1',
+      previousNickname: '유저A',
+      previousNicknameNormalized: '유저A',
+      nextNickname: '운영변경',
+      nextNicknameNormalized: '운영변경',
+      seasonId: 'season-integration',
+      participantId: 'participant-a',
+      seasonProfileSnapshotUpdated: true,
+      reportId: 'report-1',
+      moderationCaseId: 'moderation-case-1',
+      sanctionId: 'sanction-1',
+      approvalReference: 'approval-1',
+    });
   });
 
   it('철회된 사용자는 같은 시즌 재등록 불가 상태이므로 display identity nickname 변경은 다시 허용한다', async () => {

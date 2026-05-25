@@ -384,6 +384,28 @@ enum RetainedIdentityAccessResult {
   DISPOSED
 }
 
+enum DisplayIdentityNicknameChangeSource {
+  USER_SELF
+  POLICY_ENFORCEMENT
+  ACCOUNT_DELETION_DEIDENTIFICATION
+}
+
+enum DisplayIdentityNicknameChangeActorType {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+enum DisplayIdentityNicknameChangeReason {
+  USER_REQUEST
+  REPORT_REVIEW
+  ENFORCEMENT_ACTION
+  SAFETY_INCIDENT
+  RESERVED_OR_BLOCKED_TERM
+  ADMIN_MANUAL
+  ACCOUNT_DELETION
+}
+
 model CampusMaster {
   code         Campus              @id
   nameKo       String
@@ -494,20 +516,21 @@ model SeasonDormitoryOperation {
 }
 
 model User {
-  id                 String                @id @default(uuid())
-  email              String
-  emailNormalized    String                @unique
-  passwordHash       String
-  gender             Gender
-  campus             Campus
-  emailVerifiedAt    DateTime?             @db.Timestamptz(3)
-  deletedAt          DateTime?             @db.Timestamptz(3)
-  createdAt          DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
-  authSessions       AuthSession[]
-  displayIdentity    UserDisplayIdentity?
-  dismissedNotices   UserDismissedNotice[]
-  seasonParticipants SeasonParticipant[]
+  id                   String                                   @id @default(uuid())
+  email                String
+  emailNormalized      String                                   @unique
+  passwordHash         String
+  gender               Gender
+  campus               Campus
+  emailVerifiedAt      DateTime?                                @db.Timestamptz(3)
+  deletedAt            DateTime?                                @db.Timestamptz(3)
+  createdAt            DateTime                                 @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
+  authSessions         AuthSession[]
+  displayIdentity      UserDisplayIdentity?
+  dismissedNotices     UserDismissedNotice[]
+  nicknameChangeEvents UserDisplayIdentityNicknameChangeEvent[]
+  seasonParticipants   SeasonParticipant[]
 }
 
 model UserDisplayIdentity {
@@ -535,32 +558,67 @@ model UserDismissedNotice {
 }
 
 model RetainedIdentity {
-  id                         String                            @id @default(uuid())
-  originalUserId             String?                           @unique
-  anonymizedActorKey         String                            @unique
+  id                         String                                   @id @default(uuid())
+  originalUserId             String?                                  @unique
+  anonymizedActorKey         String                                   @unique
   displayLabel               String
-  deletedAt                  DateTime                          @db.Timestamptz(3)
+  deletedAt                  DateTime                                 @db.Timestamptz(3)
   emailHash                  String?
   retentionReason            RetentionReason
-  retentionHoldUntil         DateTime?                         @db.Timestamptz(3)
-  legalHoldAt                DateTime?                         @db.Timestamptz(3)
+  retentionHoldUntil         DateTime?                                @db.Timestamptz(3)
+  legalHoldAt                DateTime?                                @db.Timestamptz(3)
   legalHoldReason            LegalHoldReason?
-  archiveTier                ArchiveTier                       @default(HOT_DB)
+  archiveTier                ArchiveTier                              @default(HOT_DB)
   encryptedIdentifierPayload Json?
   identifierKeyVersion       String?
-  retentionDisposedAt        DateTime?                         @db.Timestamptz(3)
+  retentionDisposedAt        DateTime?                                @db.Timestamptz(3)
   retentionDisposalReason    String?
   metadata                   Json?
-  createdAt                  DateTime                          @default(now()) @db.Timestamptz(3)
-  updatedAt                  DateTime                          @default(now()) @updatedAt @db.Timestamptz(3)
+  createdAt                  DateTime                                 @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
   archiveJobs                ArchiveJob[]
   dataAccessLogs             RetainedIdentityDataAccessLog[]
   retainedConversationBodies ConversationMessageRetainedBody[]
+  nicknameChangeEvents       UserDisplayIdentityNicknameChangeEvent[]
 
   @@index([retentionReason, deletedAt])
   @@index([legalHoldReason, retentionHoldUntil])
   @@index([archiveTier, deletedAt])
   @@index([retentionHoldUntil, retentionDisposedAt])
+}
+
+model UserDisplayIdentityNicknameChangeEvent {
+  id                           String                                 @id @default(uuid())
+  userId                       String
+  retainedIdentityId           String?
+  source                       DisplayIdentityNicknameChangeSource
+  reason                       DisplayIdentityNicknameChangeReason
+  actorType                    DisplayIdentityNicknameChangeActorType
+  actorId                      String?
+  previousNickname             String
+  previousNicknameNormalized   String
+  nextNickname                 String
+  nextNicknameNormalized       String
+  seasonId                     String?
+  participantId                String?
+  seasonProfileSnapshotUpdated Boolean                                @default(false)
+  reportId                     String?
+  moderationCaseId             String?
+  sanctionId                   String?
+  approvalReference            String?
+  metadata                     Json?
+  changedAt                    DateTime                               @db.Timestamptz(3)
+  createdAt                    DateTime                               @default(now()) @db.Timestamptz(3)
+  retainedIdentity             RetainedIdentity?                      @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  user                         User                                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, changedAt])
+  @@index([source, changedAt])
+  @@index([actorType, actorId, changedAt])
+  @@index([retainedIdentityId, changedAt])
+  @@index([reportId])
+  @@index([moderationCaseId])
+  @@index([sanctionId])
 }
 
 model RetainedIdentityDataAccessLog {

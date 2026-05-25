@@ -179,6 +179,15 @@ CREATE TYPE "RetainedIdentityAccessReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', '
 -- CreateEnum
 CREATE TYPE "RetainedIdentityAccessResult" AS ENUM ('DISCLOSED', 'DENIED', 'DISPOSED');
 
+-- CreateEnum
+CREATE TYPE "DisplayIdentityNicknameChangeSource" AS ENUM ('USER_SELF', 'POLICY_ENFORCEMENT', 'ACCOUNT_DELETION_DEIDENTIFICATION');
+
+-- CreateEnum
+CREATE TYPE "DisplayIdentityNicknameChangeActorType" AS ENUM ('USER', 'ADMIN', 'SYSTEM');
+
+-- CreateEnum
+CREATE TYPE "DisplayIdentityNicknameChangeReason" AS ENUM ('USER_REQUEST', 'REPORT_REVIEW', 'ENFORCEMENT_ACTION', 'SAFETY_INCIDENT', 'RESERVED_OR_BLOCKED_TERM', 'ADMIN_MANUAL', 'ACCOUNT_DELETION');
+
 -- CreateTable
 CREATE TABLE "CampusMaster" (
     "code" "Campus" NOT NULL,
@@ -336,6 +345,33 @@ CREATE TABLE "RetainedIdentity" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "RetainedIdentity_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserDisplayIdentityNicknameChangeEvent" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "retainedIdentityId" TEXT,
+    "source" "DisplayIdentityNicknameChangeSource" NOT NULL,
+    "reason" "DisplayIdentityNicknameChangeReason" NOT NULL,
+    "actorType" "DisplayIdentityNicknameChangeActorType" NOT NULL,
+    "actorId" TEXT,
+    "previousNickname" TEXT NOT NULL,
+    "previousNicknameNormalized" TEXT NOT NULL,
+    "nextNickname" TEXT NOT NULL,
+    "nextNicknameNormalized" TEXT NOT NULL,
+    "seasonId" TEXT,
+    "participantId" TEXT,
+    "seasonProfileSnapshotUpdated" BOOLEAN NOT NULL DEFAULT false,
+    "reportId" TEXT,
+    "moderationCaseId" TEXT,
+    "sanctionId" TEXT,
+    "approvalReference" TEXT,
+    "metadata" JSONB,
+    "changedAt" TIMESTAMPTZ(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -812,6 +848,27 @@ CREATE INDEX "RetainedIdentity_archiveTier_deletedAt_idx" ON "RetainedIdentity"(
 CREATE INDEX "RetainedIdentity_retentionHoldUntil_retentionDisposedAt_idx" ON "RetainedIdentity"("retentionHoldUntil", "retentionDisposedAt");
 
 -- CreateIndex
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_userId_changedAt_idx" ON "UserDisplayIdentityNicknameChangeEvent"("userId", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_source_changedAt_idx" ON "UserDisplayIdentityNicknameChangeEvent"("source", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_actorType_actorId_changedAt_idx" ON "UserDisplayIdentityNicknameChangeEvent"("actorType", "actorId", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_retainedIdentityId_changedAt_idx" ON "UserDisplayIdentityNicknameChangeEvent"("retainedIdentityId", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_reportId_idx" ON "UserDisplayIdentityNicknameChangeEvent"("reportId");
+
+-- CreateIndex
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_moderationCaseId_idx" ON "UserDisplayIdentityNicknameChangeEvent"("moderationCaseId");
+
+-- CreateIndex
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_sanctionId_idx" ON "UserDisplayIdentityNicknameChangeEvent"("sanctionId");
+
+-- CreateIndex
 CREATE INDEX "RetainedIdentityDataAccessLog_identity_createdAt_idx" ON "RetainedIdentityDataAccessLog"("retainedIdentityId", "createdAt");
 
 -- CreateIndex
@@ -1033,6 +1090,12 @@ ALTER TABLE "UserDisplayIdentity" ADD CONSTRAINT "UserDisplayIdentity_userId_fke
 
 -- AddForeignKey
 ALTER TABLE "UserDismissedNotice" ADD CONSTRAINT "UserDismissedNotice_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ArchiveJob" ADD CONSTRAINT "ArchiveJob_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;

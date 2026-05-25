@@ -23,10 +23,43 @@ import {
 import { usersErrors } from './users.errors.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveNicknameChangePolicy } from './nickname-change-policy.owner.js';
+import {
+  recordDisplayIdentityNicknameChangeAuditTx,
+  type DisplayIdentityNicknameAuditReference,
+} from './display-identity-nickname-audit.owner.js';
 
 export interface UpdateCurrentUserInput {
   displayIdentity?: {
     nickname: string;
+  };
+}
+
+export type DisplayIdentityNicknameOverrideReason =
+  | 'REPORT_REVIEW'
+  | 'ENFORCEMENT_ACTION'
+  | 'SAFETY_INCIDENT'
+  | 'RESERVED_OR_BLOCKED_TERM'
+  | 'ADMIN_MANUAL';
+
+export interface DisplayIdentityNicknameOverrideInput extends DisplayIdentityNicknameAuditReference {
+  userId: string;
+  nickname: string;
+  actorId: string;
+  actorType?: 'ADMIN' | 'SYSTEM';
+  reason: DisplayIdentityNicknameOverrideReason;
+}
+
+export interface DisplayIdentityNicknameOverrideResult {
+  userId: string;
+  nickname: string;
+  nicknameNormalized: string;
+  nicknameChangedAt: string;
+  override: {
+    actorId: string;
+    actorType: 'ADMIN' | 'SYSTEM';
+    reason: DisplayIdentityNicknameOverrideReason;
+    appliedAt: string;
+    auditEventId: string;
   };
 }
 
@@ -117,6 +150,18 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       await assertNicknamePolicyAccepted(parsedNickname.nickname);
       await assertNicknameAvailableForUser(parsedNickname, authUser.id, tx);
       await updateDisplayIdentityNickname(authUser.id, displayIdentity, parsedNickname, now, tx);
+      await recordDisplayIdentityNicknameChangeAuditTx(tx, {
+        userId: authUser.id,
+        source: 'USER_SELF',
+        reason: 'USER_REQUEST',
+        actorType: 'USER',
+        actorId: authUser.id,
+        previousNickname: displayIdentity.nickname,
+        previousNicknameNormalized: displayIdentity.nicknameNormalized,
+        nextNickname: parsedNickname.nickname,
+        nextNicknameNormalized: parsedNickname.nicknameNormalized,
+        changedAt: now,
+      });
 
       return {
         attempted: true,
@@ -133,6 +178,83 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       ),
       displayIdentityMutation,
     );
+  }
+
+  async function overrideDisplayIdentityNicknameForPolicyEnforcement(
+    input: DisplayIdentityNicknameOverrideInput,
+  ): Promise<DisplayIdentityNicknameOverrideResult> {
+    const now = await deps.prisma.getDatabaseNow();
+    const parsedNickname = parseDisplayIdentityNickname(input.nickname);
+    await assertNicknamePolicyAccepted(parsedNickname.nickname);
+    let auditEventId: string | null = null;
+
+    await deps.prisma.runSerializableTransaction(async (tx) => {
+      const txUser = await getUserWithDisplayIdentity(input.userId, tx);
+      const displayIdentity = assertDisplayIdentity(txUser.displayIdentity);
+      await assertNicknameAvailableForUser(parsedNickname, input.userId, tx);
+
+      const nicknamePolicy = await resolveNicknameChangePolicy(
+        {
+          prisma: deps.prisma,
+          seasonsService: deps.seasonsService,
+        },
+        txUser,
+        now,
+        tx,
+      );
+
+      if (!isSameNickname(displayIdentity, parsedNickname)) {
+        await updateDisplayIdentityNickname(input.userId, displayIdentity, parsedNickname, now, tx);
+      }
+
+      let seasonProfileSnapshotUpdated = false;
+      if (nicknamePolicy.currentRegisteredParticipant) {
+        const snapshotUpdate = await tx.seasonParticipantProfile.updateMany({
+          where: { participantId: nicknamePolicy.currentRegisteredParticipant.id },
+          data: {
+            nicknameSnapshot: parsedNickname.nickname,
+            nicknameNormalizedSnapshot: parsedNickname.nicknameNormalized,
+          },
+        });
+        seasonProfileSnapshotUpdated = snapshotUpdate.count > 0;
+      }
+
+      const auditEvent = await recordDisplayIdentityNicknameChangeAuditTx(tx, {
+        userId: input.userId,
+        source: 'POLICY_ENFORCEMENT',
+        reason: input.reason,
+        actorType: input.actorType ?? 'ADMIN',
+        actorId: input.actorId,
+        previousNickname: displayIdentity.nickname,
+        previousNicknameNormalized: displayIdentity.nicknameNormalized,
+        nextNickname: parsedNickname.nickname,
+        nextNicknameNormalized: parsedNickname.nicknameNormalized,
+        seasonId: nicknamePolicy.currentRegisteredParticipant?.seasonId ?? null,
+        participantId: nicknamePolicy.currentRegisteredParticipant?.id ?? null,
+        seasonProfileSnapshotUpdated,
+        reportId: input.reportId,
+        moderationCaseId: input.moderationCaseId,
+        sanctionId: input.sanctionId,
+        approvalReference: input.approvalReference,
+        metadata: input.metadata,
+        changedAt: now,
+      });
+      auditEventId = auditEvent.id;
+    });
+
+    return {
+      userId: input.userId,
+      nickname: parsedNickname.nickname,
+      nicknameNormalized: parsedNickname.nicknameNormalized,
+      nicknameChangedAt: now.toISOString(),
+      override: {
+        actorId: input.actorId,
+        actorType: input.actorType ?? 'ADMIN',
+        reason: input.reason,
+        appliedAt: now.toISOString(),
+        auditEventId: auditEventId ?? '',
+      },
+    };
   }
 
   function parseDisplayIdentityNickname(nickname: string) {
@@ -205,6 +327,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
 
   return {
     updateCurrentUser,
+    overrideDisplayIdentityNicknameForPolicyEnforcement,
   };
 }
 
