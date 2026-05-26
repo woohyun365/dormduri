@@ -372,6 +372,26 @@ describe('UsersService current-user boundary', () => {
     });
   });
 
+  it('retention/de-identification 표시용 reserved nickname은 사용자 변경에서 거부한다', async () => {
+    moderationService.validateNicknamePolicy.mockResolvedValue(
+      '사용할 수 없는 단어가 포함되어 있습니다.',
+    );
+
+    await expect(
+      service.updateCurrentUser(authUser, {
+        displayIdentity: { nickname: '탈퇴한사용자' },
+      }),
+    ).rejects.toMatchObject({
+      response: usersErrors
+        .nicknameModerationRejected('사용할 수 없는 단어가 포함되어 있습니다.')
+        .getResponse(),
+    });
+
+    expect(moderationService.validateNicknamePolicy).toHaveBeenCalledWith('탈퇴한사용자');
+    expect(prisma.userDisplayIdentity.updateMany).not.toHaveBeenCalled();
+    expect(prisma.userDisplayIdentityNicknameChangeEvent.create).not.toHaveBeenCalled();
+  });
+
   it('policy enforcement override base는 registration lock과 cooldown을 우회하지만 unique/format invariants는 유지한다', async () => {
     prisma.seasonParticipantProfile.updateMany.mockResolvedValueOnce({ count: 1 });
     prisma.user.findUnique.mockResolvedValue(
