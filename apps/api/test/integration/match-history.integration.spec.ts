@@ -390,33 +390,6 @@ describe('Match history integration', () => {
       where: { id: 'user-e' },
       data: { deletedAt: new Date('2026-05-11T00:00:00.000Z') },
     });
-    const retainedUserE = await prisma.retainedIdentity.create({
-      data: {
-        originalUserId: 'user-e',
-        anonymizedActorKey: 'deleted-user-e',
-        displayLabel: '탈퇴한 사용자',
-        deletedAt: new Date('2026-05-11T00:00:00.000Z'),
-      },
-    });
-    const retentionCaseUserE = await prisma.retentionCase.create({
-      data: {
-        reason: 'ACCOUNT_DELETION',
-        triggerRetainedIdentityId: retainedUserE.id,
-        sourceTable: 'RetainedIdentity',
-        sourceId: retainedUserE.id,
-        retentionHoldUntil: new Date('2026-05-16T00:00:00.000Z'),
-        policyVersion: 'rrpd-v1',
-      },
-    });
-    await prisma.retainedIdentityHold.create({
-      data: {
-        retainedIdentityId: retainedUserE.id,
-        retentionCaseId: retentionCaseUserE.id,
-        holdReason: 'ACCOUNT_DELETION',
-        holdUntil: new Date('2026-05-16T00:00:00.000Z'),
-      },
-    });
-
     const currentRequests = await matchesService.listCurrentSeasonRequests(authContext('user-a'));
     expect(currentRequests.items).toEqual([]);
 

@@ -93,31 +93,10 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
               },
             })
           : [];
-      const deletedUserIds = counterpartParticipants
-        .filter((participant) => participant.user.deletedAt !== null)
-        .map((participant) => participant.userId);
-      const retainedIdentities =
-        deletedUserIds.length > 0
-          ? await prisma.retainedIdentity.findMany({
-              where: {
-                originalUserId: { in: deletedUserIds },
-              },
-              select: {
-                originalUserId: true,
-                displayLabel: true,
-              },
-            })
-          : [];
-      const retainedIdentityLabelByUserId = new Map(
-        retainedIdentities.map((identity) => [identity.originalUserId, identity.displayLabel]),
-      );
       const deletedCounterpartLabelByParticipantId = new Map(
         counterpartParticipants
           .filter((participant) => participant.user.deletedAt !== null)
-          .map((participant) => [
-            participant.id,
-            retainedIdentityLabelByUserId.get(participant.userId) ?? '탈퇴한 사용자',
-          ]),
+          .map((participant) => [participant.id, '탈퇴한 사용자']),
       );
 
       return toMatchHistoryResponse({
