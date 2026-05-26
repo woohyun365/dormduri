@@ -13,6 +13,7 @@ import { UsersModule } from './users/users.module.js';
 import { ApiExceptionFilter } from './common/http/api-exception.filter.js';
 import { MatchesModule } from './matches/matches.module.js';
 import { LifecycleSweepService } from './common/lifecycle/lifecycle-sweep.service.js';
+import { RetentionObservabilityService } from './retention/retention-observability.js';
 import { SeasonParticipantsModule } from './season-participants/season-participants.module.js';
 import appConfig from './config/app.config.js';
 import authConfig from './config/auth.config.js';
@@ -46,6 +47,7 @@ import { envValidationSchema } from './config/env.validation.js';
   ],
   providers: [
     LifecycleSweepService,
+    RetentionObservabilityService,
     {
       provide: APP_FILTER,
       useClass: ApiExceptionFilter,

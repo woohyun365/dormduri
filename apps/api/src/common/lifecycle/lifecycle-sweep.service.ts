@@ -18,7 +18,8 @@ import {
   BOUNDARY_JOB_PREFIX,
 } from './lifecycle-boundary-job-builder.js';
 import { createLifecycleSweepRunner } from './lifecycle-sweep-runner.js';
-import { PrismaService } from '../prisma/prisma.service.js';
+import { PrismaService, RetentionWorkerPrismaService } from '../prisma/prisma.service.js';
+import { RetentionObservabilityService } from '../../retention/retention-observability.js';
 
 const PERIODIC_INTERVAL_NAME = 'lifecycle-periodic-sweep';
 
@@ -52,16 +53,20 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly retentionWorkerPrisma: RetentionWorkerPrismaService,
     private readonly chatService: ChatService,
     private readonly matchesService: MatchesService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly usersService: UsersService,
     private readonly schedulerRegistry: SchedulerRegistry,
+    private readonly retentionObservability: RetentionObservabilityService,
     @Inject(lifecycleConfig.KEY)
     private readonly lifecycleSettings: ConfigType<typeof lifecycleConfig>,
   ) {
     this.runner = createLifecycleSweepRunner({
       prisma: this.prisma,
+      retentionPrisma: this.retentionWorkerPrisma,
+      retentionObservability: this.retentionObservability,
       chatService: this.chatService,
       matchesService: this.matchesService,
       seasonParticipantsService: this.seasonParticipantsService,
@@ -165,6 +170,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
       }
     } catch (error) {
       this.logger.error('Lifecycle sweep failed', error instanceof Error ? error.stack : undefined);
+      this.retentionObservability.emitSweepFailure({ mode, error });
     } finally {
       this.running = false;
     }
