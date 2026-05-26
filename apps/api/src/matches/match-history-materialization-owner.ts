@@ -61,6 +61,7 @@ interface SeasonHistorySource {
       | 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH'
       | 'EXPIRED'
       | 'WITHDRAWN_PARTICIPANT'
+      | 'MATCH_PRECONDITION_FAILED'
       | 'ADMIN_ACTION'
       | null;
     terminalAt: Date | null;
@@ -476,6 +477,7 @@ function buildRequestHistoryRow(input: {
     | 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH'
     | 'EXPIRED'
     | 'WITHDRAWN_PARTICIPANT'
+    | 'MATCH_PRECONDITION_FAILED'
     | 'ADMIN_ACTION'
     | null;
   entryResult:

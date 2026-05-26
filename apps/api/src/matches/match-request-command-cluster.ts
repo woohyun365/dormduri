@@ -59,6 +59,7 @@ interface MatchRequestCommandClusterDeps {
     requestId: string,
     receiverParticipantId: string,
     now: Date,
+    seasonContext: NonNullable<MatchRequestActionContext['seasonContext']>,
   ): Promise<
     | {
         kind: 'ACCEPTABLE';
@@ -151,6 +152,7 @@ export function createMatchRequestCommandCluster(deps: MatchRequestCommandCluste
           requestId,
           receiverParticipantId,
           now,
+          receiverSeasonContext,
         );
         if (acceptanceContext.kind === 'TERMINAL') {
           return {

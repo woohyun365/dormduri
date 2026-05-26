@@ -1,3 +1,4 @@
+import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../generated/prisma/client.js';
 import type { ChatService } from '../chat/chat.service.js';
 import { matchesErrors } from './matches.errors.js';
@@ -9,6 +10,9 @@ import {
   lockRequestRow,
 } from './match-transaction-helpers.js';
 import { buildParticipantPairIdentity } from './match.utils.js';
+import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import { formatKstDate } from '../seasons/season.utils.js';
+import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 
 export type TerminalMatchRequestStatus = 'REJECTED' | 'CANCELLED_BY_REQUESTER';
 export type TerminalMatchRequestReason = 'REJECTED_BY_RECEIVER' | 'CANCELLED_BY_REQUESTER';
@@ -38,6 +42,89 @@ async function systemCancelWithdrawnParticipantRequest(
     },
     select: matchRequestSummarySelect,
   })) as MatchRequestRecord;
+}
+
+async function systemCancelInvalidParticipantStateRequest(
+  tx: Prisma.TransactionClient,
+  request: MatchRequestRecord,
+  now: Date,
+): Promise<MatchRequestRecord> {
+  return (await tx.matchRequest.update({
+    where: { id: request.id },
+    data: {
+      status: 'CANCELLED_BY_SYSTEM',
+      terminalReason: 'MATCH_PRECONDITION_FAILED',
+      terminalAt: now,
+    },
+    select: matchRequestSummarySelect,
+  })) as MatchRequestRecord;
+}
+
+function isRegistrationCompleteMatchRequestParticipant(participant: MatchRequestParticipantState) {
+  const lifestyle = parseLifestyleOrNull(participant.profile ?? null);
+
+  return (
+    participant.participationIntent === 'REGISTERED' &&
+    participant.registeredAt !== null &&
+    participant.dormitorySelectionState === 'ASSIGNED' &&
+    participant.dormitoryId !== null &&
+    participant.declinedAt === null &&
+    participant.withdrawnAt === null &&
+    participant.participantStatus !== 'WITHDRAWN' &&
+    participant.participantStatus !== 'EXPIRED' &&
+    participant.hiddenByAdminAt === null &&
+    participant.deactivatedAt === null &&
+    participant.user.deletedAt === null &&
+    lifestyle !== null &&
+    isSeasonProfileComplete(lifestyle)
+  );
+}
+
+async function hasRegistrationSnapshotsForRequest(
+  tx: Prisma.TransactionClient,
+  request: MatchRequestRecord,
+) {
+  const snapshotCount = await tx.seasonParticipantProfileHistory.count({
+    where: {
+      participantId: {
+        in: [request.requesterParticipantId, request.receiverParticipantId],
+      },
+      seasonId: request.seasonId,
+      source: 'SEASON_REGISTRATION',
+      registeredAtSnapshot: {
+        not: null,
+      },
+      redactedAt: null,
+    },
+  });
+
+  return snapshotCount === 2;
+}
+
+function canParticipantsStillMatchInSeason(
+  request: MatchRequestRecord,
+  seasonContext: CurrentSeasonContext,
+  now: Date,
+) {
+  if (seasonContext.state !== 'SEASON_MATCHING') {
+    return false;
+  }
+  if (
+    request.requesterParticipant.dormitoryId === null ||
+    request.receiverParticipant.dormitoryId === null ||
+    request.requesterParticipant.dormitoryId !== request.receiverParticipant.dormitoryId
+  ) {
+    return false;
+  }
+
+  const operation = seasonContext.operatedDormitories.find(
+    (item) => item.isOperated && item.dormitoryId === request.requesterParticipant.dormitoryId,
+  );
+  if (!operation) {
+    return false;
+  }
+
+  return formatKstDate(now) <= operation.roomSelectionDate;
 }
 
 export function getRequestTerminalNotAllowedError(status: TerminalMatchRequestStatus) {
@@ -123,6 +210,7 @@ export async function loadAcceptableMatchRequest(
   requestId: string,
   receiverParticipantId: string,
   now: Date,
+  seasonContext: CurrentSeasonContext,
 ): Promise<AcceptableMatchRequestLoadResult> {
   await lockRequestRow(tx, requestId);
 
@@ -185,6 +273,17 @@ export async function loadAcceptableMatchRequest(
     return {
       kind: 'TERMINAL',
       request: await systemCancelWithdrawnParticipantRequest(tx, lockedRequest, now),
+    };
+  }
+  if (
+    !isRegistrationCompleteMatchRequestParticipant(lockedRequest.requesterParticipant) ||
+    !isRegistrationCompleteMatchRequestParticipant(lockedRequest.receiverParticipant) ||
+    !(await hasRegistrationSnapshotsForRequest(tx, lockedRequest)) ||
+    !canParticipantsStillMatchInSeason(lockedRequest, seasonContext, now)
+  ) {
+    return {
+      kind: 'TERMINAL',
+      request: await systemCancelInvalidParticipantStateRequest(tx, lockedRequest, now),
     };
   }
 

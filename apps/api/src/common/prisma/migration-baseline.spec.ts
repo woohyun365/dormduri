@@ -48,6 +48,9 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain(
       `CREATE TYPE "ParticipantHiddenReasonCode" AS ENUM ('POLICY_VIOLATION', 'SAFETY_REVIEW', 'ADMIN_REQUEST', 'OTHER');`,
     );
+    expect(sql).toContain(
+      `CREATE TYPE "MatchRequestTerminalReason" AS ENUM ('ACCEPTED', 'REJECTED_BY_RECEIVER', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH', 'EXPIRED', 'WITHDRAWN_PARTICIPANT', 'MATCH_PRECONDITION_FAILED', 'ADMIN_ACTION');`,
+    );
     expect(sql).toContain('CREATE TABLE "CollegeMaster"');
     expect(sql).toContain('CREATE TABLE "UserDisplayIdentity"');
     expect(sql).toContain('CREATE TABLE "UserDismissedNotice"');

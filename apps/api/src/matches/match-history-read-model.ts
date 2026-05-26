@@ -37,6 +37,7 @@ export interface MatchHistoryEntryRow {
     | 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH'
     | 'EXPIRED'
     | 'WITHDRAWN_PARTICIPANT'
+    | 'MATCH_PRECONDITION_FAILED'
     | 'ADMIN_ACTION'
     | null;
   activeMatchEndReason:

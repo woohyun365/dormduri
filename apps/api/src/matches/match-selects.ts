@@ -16,17 +16,25 @@ export const matchRequestSummarySelect = {
   requesterParticipant: {
     select: {
       userId: true,
+      registeredAt: true,
+      dormitoryId: true,
+      dormitorySelectionState: true,
       participationIntent: true,
       participantStatus: true,
       declinedAt: true,
       withdrawnAt: true,
+      hiddenByAdminAt: true,
+      deactivatedAt: true,
+      user: {
+        select: {
+          deletedAt: true,
+        },
+      },
       profile: {
         select: {
           nicknameSnapshot: true,
           intro: true,
-          smokingBehavior: true,
-          sleepHabit: true,
-          relationshipStyle: true,
+          ...lifestyleColumnSelect,
         },
       },
     },
@@ -34,17 +42,25 @@ export const matchRequestSummarySelect = {
   receiverParticipant: {
     select: {
       userId: true,
+      registeredAt: true,
+      dormitoryId: true,
+      dormitorySelectionState: true,
       participationIntent: true,
       participantStatus: true,
       declinedAt: true,
       withdrawnAt: true,
+      hiddenByAdminAt: true,
+      deactivatedAt: true,
+      user: {
+        select: {
+          deletedAt: true,
+        },
+      },
       profile: {
         select: {
           nicknameSnapshot: true,
           intro: true,
-          smokingBehavior: true,
-          sleepHabit: true,
-          relationshipStyle: true,
+          ...lifestyleColumnSelect,
         },
       },
     },

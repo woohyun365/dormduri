@@ -16,6 +16,7 @@ export const matchRequestTerminalReasonSchema = z.enum([
   'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
   'EXPIRED',
   'WITHDRAWN_PARTICIPANT',
+  'MATCH_PRECONDITION_FAILED',
   'ADMIN_ACTION',
 ]);
 

@@ -53,6 +53,29 @@ function makeUserSeed(overrides: Partial<UserSeed> = {}): UserSeed {
   };
 }
 
+function makeMatchRequestParticipant(userId: string, overrides: Record<string, unknown> = {}) {
+  const suffix = userId.split('-').at(-1) ?? userId;
+  return {
+    userId,
+    registeredAt: new Date('2026-02-01T00:00:00.000Z'),
+    dormitoryId: 'dasan',
+    dormitorySelectionState: 'ASSIGNED',
+    participationIntent: 'REGISTERED',
+    participantStatus: 'ACTIVE',
+    declinedAt: null,
+    withdrawnAt: null,
+    hiddenByAdminAt: null,
+    deactivatedAt: null,
+    user: { deletedAt: null },
+    profile: {
+      nicknameSnapshot: `유저${suffix}`,
+      intro: `유저${suffix} 소개`,
+      ...COMPLETE_LIFESTYLE,
+    },
+    ...overrides,
+  };
+}
+
 function makeParticipant(
   overrides: Partial<CurrentSeasonParticipantRecord> = {},
 ): CurrentSeasonParticipantRecord {
@@ -105,6 +128,7 @@ describe('MatchesService', () => {
   const txActiveMatchUnmatchRequestUpdate = jest.fn();
   const txActiveMatchUnmatchRequestUpdateMany = jest.fn();
   const txSeasonParticipantUpdateMany = jest.fn();
+  const txSeasonParticipantProfileHistoryCount = jest.fn();
 
   const prisma = {
     getDatabaseNow: jest.fn(),
@@ -226,8 +250,8 @@ describe('MatchesService', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requesterParticipant: { userId: 'user-1' },
-      receiverParticipant: { userId: 'user-2' },
+      requesterParticipant: makeMatchRequestParticipant('user-1'),
+      receiverParticipant: makeMatchRequestParticipant('user-2'),
     });
     txMatchRequestFindUnique.mockResolvedValue({
       id: 'request-1',
@@ -241,8 +265,8 @@ describe('MatchesService', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requesterParticipant: { userId: 'user-1' },
-      receiverParticipant: { userId: 'user-2' },
+      requesterParticipant: makeMatchRequestParticipant('user-1'),
+      receiverParticipant: makeMatchRequestParticipant('user-2'),
     });
     const baseRequestRecord = {
       id: 'request-1',
@@ -256,8 +280,8 @@ describe('MatchesService', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requesterParticipant: { userId: 'user-1' },
-      receiverParticipant: { userId: 'user-2' },
+      requesterParticipant: makeMatchRequestParticipant('user-1'),
+      receiverParticipant: makeMatchRequestParticipant('user-2'),
     };
     txMatchRequestUpdate.mockImplementation(
       ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) =>
@@ -265,8 +289,8 @@ describe('MatchesService', () => {
           ...baseRequestRecord,
           id: where.id,
           ...data,
-          requesterParticipant: { userId: 'user-1' },
-          receiverParticipant: { userId: 'user-2' },
+          requesterParticipant: makeMatchRequestParticipant('user-1'),
+          receiverParticipant: makeMatchRequestParticipant('user-2'),
         }),
     );
     txMatchRequestUpdateMany.mockResolvedValue({ count: 1 });
@@ -364,6 +388,7 @@ describe('MatchesService', () => {
     });
     txActiveMatchUnmatchRequestUpdateMany.mockResolvedValue({ count: 1 });
     txSeasonParticipantUpdateMany.mockResolvedValue({ count: 2 });
+    txSeasonParticipantProfileHistoryCount.mockResolvedValue(2);
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
         $queryRaw: txQueryRaw,
@@ -390,6 +415,9 @@ describe('MatchesService', () => {
         },
         seasonParticipant: {
           updateMany: txSeasonParticipantUpdateMany,
+        },
+        seasonParticipantProfileHistory: {
+          count: txSeasonParticipantProfileHistoryCount,
         },
       }),
     );
@@ -1070,8 +1098,8 @@ describe('MatchesService', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requesterParticipant: { userId: 'user-1' },
-      receiverParticipant: { userId: 'user-2' },
+      requesterParticipant: makeMatchRequestParticipant('user-1'),
+      receiverParticipant: makeMatchRequestParticipant('user-2'),
     });
 
     await expect(

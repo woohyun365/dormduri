@@ -136,6 +136,37 @@ describe('MatchesService integration', () => {
     expect(acceptedCount).toBe(1);
   });
 
+  it('pending 생성 후 requester profile snapshot invariant가 깨지면 accept가 system cancel로 fail-closed 된다', async () => {
+    const request = await service.createMatchRequest(authContext('user-a'), {
+      targetUserId: 'user-b',
+      note: 'profile snapshot stale',
+    });
+
+    await prisma.seasonParticipantProfileHistory.deleteMany({
+      where: { participantId: 'participant-a', source: 'SEASON_REGISTRATION' },
+    });
+
+    const result = await service.acceptMatchRequest(authContext('user-b'), request.request.id);
+    expect(result).toMatchObject({
+      activeMatch: null,
+      request: {
+        id: request.request.id,
+        status: 'CANCELLED_BY_SYSTEM',
+        terminalReason: 'MATCH_PRECONDITION_FAILED',
+      },
+    });
+
+    await expect(
+      prisma.activeMatch.findFirst({
+        where: {
+          seasonId: 'season-integration',
+          endedAt: null,
+          OR: [{ participantAId: 'participant-a' }, { participantBId: 'participant-a' }],
+        },
+      }),
+    ).resolves.toBeNull();
+  });
+
   it('withdrawn requester가 포함된 stale pending request는 accept race에서 active match를 만들지 않고 system cancel한다', async () => {
     const request = await service.createMatchRequest(authContext('user-a'), {
       targetUserId: 'user-b',
