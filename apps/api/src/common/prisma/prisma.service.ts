@@ -6,6 +6,16 @@ import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
 import databaseConfig from '../../config/database.config.js';
 
+type DatabaseSettings = ConfigType<typeof databaseConfig>;
+
+export type PrismaConnectionRole = 'runtime' | 'retention_worker' | 'retention_disclosure';
+
+interface ManagedPrismaClientSettings {
+  connectionString: string;
+  schema: string | null;
+  applicationName: string;
+}
+
 function isRetryableTransactionConflict(error: unknown) {
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034') {
     return true;
@@ -29,24 +39,54 @@ function isRetryableTransactionConflict(error: unknown) {
   );
 }
 
-@Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+function resolveManagedPrismaClientSettings(
+  databaseSettings: DatabaseSettings,
+  role: PrismaConnectionRole,
+): ManagedPrismaClientSettings {
+  switch (role) {
+    case 'retention_worker':
+      return {
+        connectionString: databaseSettings.retentionWorkerDatabaseUrl,
+        schema: databaseSettings.retentionWorkerSchema,
+        applicationName: databaseSettings.retentionWorkerApplicationName,
+      };
+    case 'retention_disclosure':
+      return {
+        connectionString: databaseSettings.retentionDisclosureDatabaseUrl,
+        schema: databaseSettings.retentionDisclosureSchema,
+        applicationName: databaseSettings.retentionDisclosureApplicationName,
+      };
+    case 'runtime':
+    default:
+      return {
+        connectionString: databaseSettings.runtimeDatabaseUrl,
+        schema: databaseSettings.runtimeSchema,
+        applicationName: databaseSettings.applicationName,
+      };
+  }
+}
+
+export abstract class ManagedPrismaClient
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly pool: Pool;
 
-  constructor(
-    @Inject(databaseConfig.KEY)
-    databaseSettings: ConfigType<typeof databaseConfig>,
+  protected constructor(
+    databaseSettings: DatabaseSettings,
+    role: PrismaConnectionRole,
+    label: string,
   ) {
-    const loggerLabel = PrismaService.name;
+    const roleSettings = resolveManagedPrismaClientSettings(databaseSettings, role);
     const pool = new Pool({
-      connectionString: databaseSettings.runtimeDatabaseUrl,
+      connectionString: roleSettings.connectionString,
       max: databaseSettings.poolMax,
       min: databaseSettings.poolMin,
       connectionTimeoutMillis: databaseSettings.adapterConnectionTimeoutMs,
       idleTimeoutMillis: databaseSettings.adapterIdleTimeoutMs,
       query_timeout: databaseSettings.queryTimeoutMs,
       statement_timeout: databaseSettings.statementTimeoutMs,
-      application_name: databaseSettings.applicationName,
+      application_name: roleSettings.applicationName,
     });
 
     const queryLogEvents = databaseSettings.prismaQueryLogEvents
@@ -60,13 +100,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
     super({
       adapter: new PrismaPg(pool, {
-        schema: databaseSettings.runtimeSchema ?? undefined,
+        schema: roleSettings.schema ?? undefined,
         disposeExternalPool: false,
         onPoolError: (error) => {
-          console.error(`[${loggerLabel}] pg pool error`, error);
+          console.error(`[${label}] pg pool error`, error);
         },
         onConnectionError: (error) => {
-          console.error(`[${loggerLabel}] pg connection error`, error);
+          console.error(`[${label}] pg connection error`, error);
         },
       }),
       ...(queryLogEvents ? { log: queryLogEvents } : {}),
@@ -119,5 +159,35 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     }
 
     return row.now instanceof Date ? row.now : new Date(row.now);
+  }
+}
+
+@Injectable()
+export class PrismaService extends ManagedPrismaClient {
+  constructor(
+    @Inject(databaseConfig.KEY)
+    databaseSettings: DatabaseSettings,
+  ) {
+    super(databaseSettings, 'runtime', PrismaService.name);
+  }
+}
+
+@Injectable()
+export class RetentionWorkerPrismaService extends ManagedPrismaClient {
+  constructor(
+    @Inject(databaseConfig.KEY)
+    databaseSettings: DatabaseSettings,
+  ) {
+    super(databaseSettings, 'retention_worker', RetentionWorkerPrismaService.name);
+  }
+}
+
+@Injectable()
+export class RetentionDisclosurePrismaService extends ManagedPrismaClient {
+  constructor(
+    @Inject(databaseConfig.KEY)
+    databaseSettings: DatabaseSettings,
+  ) {
+    super(databaseSettings, 'retention_disclosure', RetentionDisclosurePrismaService.name);
   }
 }

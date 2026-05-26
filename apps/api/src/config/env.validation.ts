@@ -12,6 +12,8 @@ import {
   DEFAULT_DATABASE_ADAPTER_CONNECT_TIMEOUT_MS,
   DEFAULT_DATABASE_ADAPTER_IDLE_TIMEOUT_MS,
   DEFAULT_DATABASE_APPLICATION_NAME,
+  DEFAULT_RETENTION_DISCLOSURE_DATABASE_APPLICATION_NAME,
+  DEFAULT_RETENTION_WORKER_DATABASE_APPLICATION_NAME,
   DEFAULT_DATABASE_POOL_MAX,
   DEFAULT_DATABASE_POOL_MIN,
   DEFAULT_DATABASE_QUERY_TIMEOUT_MS,
@@ -38,6 +40,21 @@ export const envValidationSchema = Joi.object({
     then: Joi.required(),
     otherwise: Joi.string().trim().optional(),
   }),
+  RETENTION_WORKER_DATABASE_URL: Joi.string().trim().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.string().trim().optional(),
+  }),
+  RETENTION_DISCLOSURE_DATABASE_URL: Joi.string().trim().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.string().trim().optional(),
+  }),
+  MIGRATION_DATABASE_URL: Joi.string().trim().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.required(),
+    otherwise: Joi.string().trim().optional(),
+  }),
   DATABASE_ADAPTER_CONNECT_TIMEOUT_MS: Joi.number()
     .integer()
     .min(1)
@@ -57,6 +74,12 @@ export const envValidationSchema = Joi.object({
     .min(0)
     .default(DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS),
   DATABASE_APPLICATION_NAME: Joi.string().trim().default(DEFAULT_DATABASE_APPLICATION_NAME),
+  RETENTION_WORKER_DATABASE_APPLICATION_NAME: Joi.string()
+    .trim()
+    .default(DEFAULT_RETENTION_WORKER_DATABASE_APPLICATION_NAME),
+  RETENTION_DISCLOSURE_DATABASE_APPLICATION_NAME: Joi.string()
+    .trim()
+    .default(DEFAULT_RETENTION_DISCLOSURE_DATABASE_APPLICATION_NAME),
   PRISMA_QUERY_LOG_EVENTS: Joi.boolean()
     .truthy('1')
     .truthy('true')

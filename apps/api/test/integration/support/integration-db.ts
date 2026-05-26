@@ -41,6 +41,9 @@ function resolveAdminDatabaseUrl(databaseUrl: string) {
 function setRuntimeDatabaseUrl(databaseUrl: string) {
   process.env.DATABASE_URL = databaseUrl;
   process.env.DIRECT_URL = databaseUrl;
+  process.env.RETENTION_WORKER_DATABASE_URL = databaseUrl;
+  process.env.RETENTION_DISCLOSURE_DATABASE_URL = databaseUrl;
+  process.env.MIGRATION_DATABASE_URL = databaseUrl;
   process.env.PRISMA_QUERY_LOG_EVENTS = '1';
 }
 

@@ -10,16 +10,42 @@ export const DEFAULT_DATABASE_POOL_MIN = 0;
 export const DEFAULT_DATABASE_QUERY_TIMEOUT_MS = 0;
 export const DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 0;
 export const DEFAULT_DATABASE_APPLICATION_NAME = 'knu-roommate-api';
+export const DEFAULT_RETENTION_WORKER_DATABASE_APPLICATION_NAME =
+  'knu-roommate-api-retention-worker';
+export const DEFAULT_RETENTION_DISCLOSURE_DATABASE_APPLICATION_NAME =
+  'knu-roommate-api-retention-disclosure';
 export const DEFAULT_PRISMA_QUERY_LOG_EVENTS = false;
+
+function resolveSchema(databaseUrl: string) {
+  return new URL(databaseUrl).searchParams.get('schema');
+}
 
 export default registerAs('database', () => {
   const runtimeDatabaseUrl = readStringEnv(process.env, 'DATABASE_URL', DEFAULT_DATABASE_URL);
-  const runtimeSchema = new URL(runtimeDatabaseUrl).searchParams.get('schema');
+  const retentionWorkerDatabaseUrl = readStringEnv(
+    process.env,
+    'RETENTION_WORKER_DATABASE_URL',
+    runtimeDatabaseUrl,
+  );
+  const retentionDisclosureDatabaseUrl = readStringEnv(
+    process.env,
+    'RETENTION_DISCLOSURE_DATABASE_URL',
+    runtimeDatabaseUrl,
+  );
 
   return {
     runtimeDatabaseUrl,
-    runtimeSchema,
+    runtimeSchema: resolveSchema(runtimeDatabaseUrl),
+    retentionWorkerDatabaseUrl,
+    retentionWorkerSchema: resolveSchema(retentionWorkerDatabaseUrl),
+    retentionDisclosureDatabaseUrl,
+    retentionDisclosureSchema: resolveSchema(retentionDisclosureDatabaseUrl),
     directDatabaseUrl: readStringEnv(process.env, 'DIRECT_URL', runtimeDatabaseUrl),
+    migrationDatabaseUrl: readStringEnv(
+      process.env,
+      'MIGRATION_DATABASE_URL',
+      readStringEnv(process.env, 'DIRECT_URL', runtimeDatabaseUrl),
+    ),
     adapterConnectionTimeoutMs: readNumberEnv(
       process.env,
       'DATABASE_ADAPTER_CONNECT_TIMEOUT_MS',
@@ -54,6 +80,16 @@ export default registerAs('database', () => {
       process.env,
       'DATABASE_APPLICATION_NAME',
       DEFAULT_DATABASE_APPLICATION_NAME,
+    ),
+    retentionWorkerApplicationName: readStringEnv(
+      process.env,
+      'RETENTION_WORKER_DATABASE_APPLICATION_NAME',
+      DEFAULT_RETENTION_WORKER_DATABASE_APPLICATION_NAME,
+    ),
+    retentionDisclosureApplicationName: readStringEnv(
+      process.env,
+      'RETENTION_DISCLOSURE_DATABASE_APPLICATION_NAME',
+      DEFAULT_RETENTION_DISCLOSURE_DATABASE_APPLICATION_NAME,
     ),
     prismaQueryLogEvents: readBooleanEnv(
       process.env,
