@@ -15,6 +15,8 @@ interface LifecycleSweepRunnerDeps {
     | 'activateThreadRetentionJobsForArchivedThreads'
     | 'retryDueDeletionArchiveJobs'
     | 'disposeExpiredRetainedIdentities'
+    | 'retryDueRetentionReviewJobs'
+    | 'disposeDueRetentionAccessLogs'
   >;
 }
 
@@ -31,6 +33,10 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
     const archiveJobSweep = await deps.usersService.retryDueDeletionArchiveJobs(referenceNow);
     const retainedIdentityDisposalSweep =
       await deps.usersService.disposeExpiredRetainedIdentities(referenceNow);
+    const retentionReviewJobSweep =
+      await deps.usersService.retryDueRetentionReviewJobs(referenceNow);
+    const retentionAccessLogDisposalSweep =
+      await deps.usersService.disposeDueRetentionAccessLogs(referenceNow);
 
     return {
       ranAt: referenceNow.toISOString(),
@@ -41,6 +47,8 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
       threadRetentionActivationSweep,
       archiveJobSweep,
       retainedIdentityDisposalSweep,
+      retentionReviewJobSweep,
+      retentionAccessLogDisposalSweep,
     };
   }
 

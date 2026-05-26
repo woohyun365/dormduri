@@ -192,7 +192,7 @@ enum RetainedVaultObjectState {
   FAILED_MANUAL_REVIEW
 }
 
-/// RRPD payload 보존/hold 사유. `RetainedIdentity.retentionReason`과 달리 retained vault payload case와 hold를 표현한다.
+/// RRPD 보존/hold 사유. identity anchor hold와 retained vault payload hold가 모두 이 case reason을 참조한다.
 enum RetentionCaseReason {
   ACCOUNT_DELETION
   REPORT_REVIEW
@@ -211,7 +211,12 @@ enum RetainedVaultSubjectRole {
   MESSAGE_SENDER
 }
 
-enum RetainedVaultAccessReason {
+enum RetentionAccessTargetType {
+  IDENTITY_ANCHOR
+  VAULT_OBJECT
+}
+
+enum RetentionAccessReason {
   LAW_ENFORCEMENT_REQUEST
   REPORT_REVIEW
   DISPUTE_RESPONSE
@@ -220,10 +225,15 @@ enum RetainedVaultAccessReason {
   RETENTION_EXPIRY_REVIEW
 }
 
-enum RetainedVaultAccessResult {
+enum RetentionAccessResult {
   DISCLOSED
   DENIED
   DISPOSED
+}
+
+enum RetentionReviewJobTarget {
+  CHAT_IDENTITY_LINK
+  ACCESS_LOG_DISPOSAL
 }
 
 enum LifestyleBedtime {
@@ -364,16 +374,10 @@ enum RoommateDrinkingTolerance {
 
 enum ProfileHistorySource {
   SEASON_REGISTRATION
-  RETENTION_SNAPSHOT
   SYSTEM_BACKFILL
 }
 
-enum ArchiveTier {
-  HOT_DB
-}
-
 enum ArchiveJobTarget {
-  RETAINED_IDENTITY
   SEASON_PROFILE_HISTORY
   MATCH_HISTORY
   THREAD_RETENTION
@@ -388,35 +392,11 @@ enum ArchiveJobStatus {
   FAILED_MANUAL_REVIEW
 }
 
-/// 삭제 계정 식별 anchor(`RetainedIdentity`) 자체의 보존 사유. Payload 보존 사유는 `RetentionCaseReason`을 사용한다.
-enum RetainedIdentityRetentionReason {
-  ACCOUNT_DELETION
-  REPORT_REVIEW
-  ENFORCEMENT_RECORD
-  DISPUTE_RESPONSE
-  LEGAL_HOLD
-  ADMIN_MANUAL
-}
-
 enum LegalHoldReason {
   LAW_ENFORCEMENT_REQUEST
   INTERNAL_DISPUTE_REVIEW
   SAFETY_INCIDENT
   ADMIN_LEGAL_REVIEW
-}
-
-enum RetainedIdentityAccessReason {
-  LAW_ENFORCEMENT_REQUEST
-  REPORT_REVIEW
-  DISPUTE_RESPONSE
-  SECURITY_AUDIT
-  RETENTION_EXPIRY_REVIEW
-}
-
-enum RetainedIdentityAccessResult {
-  DISCLOSED
-  DENIED
-  DISPOSED
 }
 
 enum DisplayIdentityNicknameChangeSource {
@@ -600,11 +580,6 @@ model RetainedIdentity {
   displayLabel               String
   deletedAt                  DateTime                                 @db.Timestamptz(3)
   emailHash                  String?
-  retentionReason            RetainedIdentityRetentionReason
-  retentionHoldUntil         DateTime?                                @db.Timestamptz(3)
-  legalHoldAt                DateTime?                                @db.Timestamptz(3)
-  legalHoldReason            LegalHoldReason?
-  archiveTier                ArchiveTier                              @default(HOT_DB)
   encryptedIdentifierPayload Json?
   identifierKeyVersion       String?
   retentionDisposedAt        DateTime?                                @db.Timestamptz(3)
@@ -613,16 +588,14 @@ model RetainedIdentity {
   createdAt                  DateTime                                 @default(now()) @db.Timestamptz(3)
   updatedAt                  DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
   archiveJobs                ArchiveJob[]
-  dataAccessLogs             RetainedIdentityDataAccessLog[]
+  holds                      RetainedIdentityHold[]
+  accessLogs                 RetentionAccessLog[]
   nicknameChangeEvents       UserDisplayIdentityNicknameChangeEvent[]
   triggeredRetentionCases    RetentionCase[]                          @relation("RetentionCaseTriggerIdentity")
   subjectVaultObjects        RetainedVaultObject[]                    @relation("RetainedVaultObjectSubjectIdentity")
-  vaultAccessLogs            RetainedVaultAccessLog[]                 @relation("RetainedVaultAccessLogIdentity")
 
-  @@index([retentionReason, deletedAt])
-  @@index([legalHoldReason, retentionHoldUntil])
-  @@index([archiveTier, deletedAt])
-  @@index([retentionHoldUntil, retentionDisposedAt])
+  @@index([deletedAt])
+  @@index([retentionDisposedAt, deletedAt])
 }
 
 model UserDisplayIdentityNicknameChangeEvent {
@@ -665,32 +638,10 @@ model UserDisplayIdentityNicknameChangeEvent {
   @@index([sanctionId])
 }
 
-model RetainedIdentityDataAccessLog {
-  id                         String                       @id @default(uuid())
-  retainedIdentityId         String?
-  accessedBy                 String
-  accessReason               RetainedIdentityAccessReason
-  approvalReference          String
-  purpose                    String
-  result                     RetainedIdentityAccessResult
-  disclosedFields            Json?
-  logRetentionHoldUntil      DateTime?                    @db.Timestamptz(3)
-  logRetentionDisposedAt     DateTime?                    @db.Timestamptz(3)
-  logRetentionDisposalReason String?
-  createdAt                  DateTime                     @default(now()) @db.Timestamptz(3)
-  retainedIdentity           RetainedIdentity?            @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull, map: "RetainedIdentityDataAccessLog_retainedIdentityId_fkey")
-
-  @@index([retainedIdentityId, createdAt], map: "RetainedIdentityDataAccessLog_identity_createdAt_idx")
-  @@index([accessedBy, createdAt], map: "RetainedIdentityDataAccessLog_accessedBy_createdAt_idx")
-  @@index([accessReason, createdAt], map: "RetainedIdentityDataAccessLog_accessReason_createdAt_idx")
-  @@index([logRetentionHoldUntil, logRetentionDisposedAt], map: "RetainedIdentityDataAccessLog_logRetention_idx")
-}
-
 model ArchiveJob {
   id                   String                @id @default(uuid())
   target               ArchiveJobTarget
   status               ArchiveJobStatus      @default(PENDING)
-  archiveTier          ArchiveTier           @default(HOT_DB)
   retainedIdentityId   String?
   userId               String?
   seasonId             String?
@@ -1089,6 +1040,7 @@ model RetentionCase {
   updatedAt                 DateTime                  @default(now()) @updatedAt @db.Timestamptz(3)
   triggerRetainedIdentity   RetainedIdentity?         @relation("RetentionCaseTriggerIdentity", fields: [triggerRetainedIdentityId], references: [id], onDelete: SetNull)
   vaultHolds                RetainedVaultObjectHold[]
+  identityHolds             RetainedIdentityHold[]
 
   @@index([reason, retentionHoldUntil])
   @@index([triggerRetainedIdentityId, reason])
@@ -1122,7 +1074,7 @@ model RetainedVaultObject {
   archiveJob                ArchiveJob?                             @relation(fields: [archiveJobId], references: [id], onDelete: SetNull)
   subjectRetainedIdentity   RetainedIdentity?                       @relation("RetainedVaultObjectSubjectIdentity", fields: [subjectRetainedIdentityId], references: [id], onDelete: SetNull)
   holds                     RetainedVaultObjectHold[]
-  accessLogs                RetainedVaultAccessLog[]
+  accessLogs                RetentionAccessLog[]
   chatMessage               ConversationMessage?                    @relation("ConversationMessageRetainedVaultObject")
   nicknameChangeEvent       UserDisplayIdentityNicknameChangeEvent? @relation("NicknameEventRetainedVaultObject")
   profileHistory            SeasonParticipantProfileHistory?        @relation("ProfileHistoryRetainedVaultObject")
@@ -1152,29 +1104,69 @@ model RetainedVaultObjectHold {
   @@index([holdReason, holdUntil])
 }
 
-model RetainedVaultAccessLog {
-  id                         String                    @id @default(uuid())
-  retainedVaultObjectId      String?
-  retainedIdentityId         String?
-  target                     RetainedVaultObjectTarget
-  accessedBy                 String
-  accessReason               RetainedVaultAccessReason
-  approvalReference          String
-  purpose                    String
-  result                     RetainedVaultAccessResult
-  disclosedFields            Json
-  createdAt                  DateTime                  @default(now()) @db.Timestamptz(3)
-  logRetentionHoldUntil      DateTime                  @db.Timestamptz(3)
-  logRetentionDisposedAt     DateTime?                 @db.Timestamptz(3)
-  logRetentionDisposalReason String?
-  retainedVaultObject        RetainedVaultObject?      @relation(fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
-  retainedIdentity           RetainedIdentity?         @relation("RetainedVaultAccessLogIdentity", fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+model RetainedIdentityHold {
+  id                 String              @id @default(uuid())
+  retainedIdentityId String
+  retentionCaseId    String
+  holdReason         RetentionCaseReason
+  holdUntil          DateTime?           @db.Timestamptz(3)
+  releasedAt         DateTime?           @db.Timestamptz(3)
+  releaseReason      String?
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  retainedIdentity   RetainedIdentity    @relation(fields: [retainedIdentityId], references: [id], onDelete: Cascade)
+  retentionCase      RetentionCase       @relation(fields: [retentionCaseId], references: [id], onDelete: Cascade)
 
-  @@index([retainedVaultObjectId, createdAt])
+  @@unique([retainedIdentityId, retentionCaseId])
+  @@index([retentionCaseId, holdUntil])
+  @@index([holdReason, holdUntil])
+}
+
+model RetentionAccessLog {
+  id                         String                     @id @default(uuid())
+  targetType                 RetentionAccessTargetType
+  retainedIdentityId         String?
+  retainedVaultObjectId      String?
+  vaultTarget                RetainedVaultObjectTarget?
+  accessedBy                 String?
+  accessReason               RetentionAccessReason
+  approvalReference          String?
+  purpose                    String?
+  result                     RetentionAccessResult
+  disclosedFields            Json?
+  createdAt                  DateTime                   @default(now()) @db.Timestamptz(3)
+  logRetentionHoldUntil      DateTime?                  @db.Timestamptz(3)
+  logRetentionDisposedAt     DateTime?                  @db.Timestamptz(3)
+  logRetentionDisposalReason String?
+  retainedIdentity           RetainedIdentity?          @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  retainedVaultObject        RetainedVaultObject?       @relation(fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
+
   @@index([retainedIdentityId, createdAt])
-  @@index([target, accessReason, createdAt])
+  @@index([retainedVaultObjectId, createdAt])
+  @@index([targetType, accessReason, createdAt])
+  @@index([vaultTarget, accessReason, createdAt])
   @@index([accessedBy, createdAt])
   @@index([logRetentionHoldUntil, logRetentionDisposedAt])
+}
+
+model RetentionReviewJob {
+  id           String                   @id @default(uuid())
+  target       RetentionReviewJobTarget
+  status       ArchiveJobStatus         @default(PENDING)
+  sourceId     String
+  dueAt        DateTime                 @db.Timestamptz(3)
+  payload      Json?
+  attemptCount Int                      @default(0)
+  maxAttempts  Int                      @default(5)
+  lastErrorCode String?
+  lastAttemptAt DateTime?               @db.Timestamptz(3)
+  lastSucceededAt DateTime?             @db.Timestamptz(3)
+  manualReviewRequired Boolean          @default(false)
+  createdAt    DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@unique([target, sourceId])
+  @@index([status, dueAt])
+  @@index([target, status, dueAt])
 }
 
 model LoginAttempt {

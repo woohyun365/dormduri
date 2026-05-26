@@ -28,6 +28,8 @@ import type {
   ArchiveJobSweepResult,
 } from '../retention/archive-job-owner.js';
 import type { RetainedIdentityDisposalResult } from '../retention/retained-identity-owner.js';
+import type { RetentionReviewJobSweepResult } from '../retention/retention-review-job-owner.js';
+import type { RetentionAccessLogDisposalResult } from '../retention/retention-access-log-owner.js';
 
 @Injectable()
 export class UsersService {
@@ -106,5 +108,13 @@ export class UsersService {
 
   async disposeExpiredRetainedIdentities(now: Date): Promise<RetainedIdentityDisposalResult> {
     return this.deletionOwner.disposeExpiredRetainedIdentities(now);
+  }
+
+  async retryDueRetentionReviewJobs(now: Date): Promise<RetentionReviewJobSweepResult> {
+    return this.deletionOwner.retryDueRetentionReviewJobs(now);
+  }
+
+  async disposeDueRetentionAccessLogs(now: Date): Promise<RetentionAccessLogDisposalResult> {
+    return this.deletionOwner.disposeDueRetentionAccessLogs(now);
   }
 }

@@ -1,11 +1,15 @@
 import { Prisma } from '../generated/prisma/client.js';
+import type { RetentionAccessReason } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import type { RetentionCipher } from './retention-cipher.js';
+import { decryptJsonPayload, encryptJsonPayload } from './retention-cipher.js';
 import {
+  createEnvRetentionVaultKeyring,
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
   discloseRetainedVaultPayload,
   ensureRetentionCaseTx,
+  hmacPayloadDigest,
   retainVaultPayloadTx,
   type RetentionVaultKeyring,
 } from './retained-vault-owner.js';
@@ -21,15 +25,7 @@ export const conversationMessageTombstoneText = {
 } as const;
 
 type ConversationMessageTombstoneReason = keyof typeof conversationMessageTombstoneText;
-type ConversationRetainedBodyAccessReason =
-  | 'LAW_ENFORCEMENT_REQUEST'
-  | 'REPORT_REVIEW'
-  | 'DISPUTE_RESPONSE'
-  | 'ENFORCEMENT_REVIEW'
-  | 'SECURITY_AUDIT'
-  | 'RETENTION_EXPIRY_REVIEW';
-
-interface RetainedConversationBodyPlaintext {
+interface RetainedConversationBodyPlaintextV1 {
   schemaVersion: 1;
   messageId: string;
   threadId: string;
@@ -41,6 +37,23 @@ interface RetainedConversationBodyPlaintext {
   retainedAt: string;
   tombstoneReason: ConversationMessageTombstoneReason;
 }
+
+interface RetainedConversationBodyPlaintextV2 {
+  schemaVersion: 2;
+  messageId: string;
+  threadId: string;
+  senderParticipantId: string | null;
+  sentAt: string;
+  body: string;
+  bodyVersionAtRetention: number;
+  retainedAt: string;
+  tombstoneReason: ConversationMessageTombstoneReason;
+  identityLinkReviewedAt: string;
+}
+
+type RetainedConversationBodyPlaintext =
+  | RetainedConversationBodyPlaintextV1
+  | RetainedConversationBodyPlaintextV2;
 
 export type ConversationRetainedBodyCipher = RetentionCipher;
 
@@ -93,7 +106,7 @@ export interface ConversationRetainedBodyDisclosureInput {
   retainedVaultObjectId?: string;
   messageId?: string;
   accessedBy: string;
-  accessReason: ConversationRetainedBodyAccessReason;
+  accessReason: RetentionAccessReason;
   approvalReference: string;
   purpose: string;
   now?: Date;
@@ -106,6 +119,19 @@ export interface ConversationRetainedBodyDisclosure {
   body: string;
   keyVersion: string;
   disclosedAt: Date;
+}
+
+export interface ReviewRetainedConversationIdentityLinksInput {
+  threadId: string;
+  now: Date;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ReviewRetainedConversationIdentityLinksResult {
+  scannedCount: number;
+  minimizedCount: number;
+  skippedWithActiveHoldCount: number;
+  nextReviewAt: Date | null;
 }
 
 export function createConversationRetainedBodyOwner(
@@ -125,10 +151,17 @@ export function createConversationRetainedBodyOwner(
       return tombstoneConversationMessageTx(tx, input, options);
     },
     discloseRetainedConversationMessageBody(
-      prisma: Pick<PrismaService, 'retainedVaultObject' | 'retainedVaultAccessLog'>,
+      prisma: Pick<PrismaService, 'retainedVaultObject' | 'retentionAccessLog'> &
+        Partial<Pick<PrismaService, 'retentionReviewJob'>>,
       input: ConversationRetainedBodyDisclosureInput,
     ) {
       return discloseRetainedConversationMessageBody(prisma, input, options);
+    },
+    reviewRetainedConversationIdentityLinksTx(
+      tx: Prisma.TransactionClient,
+      input: ReviewRetainedConversationIdentityLinksInput,
+    ) {
+      return reviewRetainedConversationIdentityLinksTx(tx, input, options);
     },
   };
 }
@@ -294,7 +327,7 @@ export async function tombstoneConversationMessageTx(
           bodyVersionAtRetention: message.bodyVersion,
           retainedAt: input.now.toISOString(),
           tombstoneReason: input.reason,
-        } satisfies RetainedConversationBodyPlaintext,
+        } satisfies RetainedConversationBodyPlaintextV1,
         aad: buildChatBodyAad(message.id),
         retainedAt: input.now,
         metadata: input.metadata,
@@ -340,7 +373,8 @@ export async function tombstoneConversationMessageTx(
 }
 
 export async function discloseRetainedConversationMessageBody(
-  prisma: Pick<PrismaService, 'retainedVaultObject' | 'retainedVaultAccessLog'>,
+  prisma: Pick<PrismaService, 'retainedVaultObject' | 'retentionAccessLog'> &
+    Partial<Pick<PrismaService, 'retentionReviewJob'>>,
   input: ConversationRetainedBodyDisclosureInput,
   options: ConversationRetainedBodyOwnerOptions = {},
 ): Promise<ConversationRetainedBodyDisclosure> {
@@ -371,6 +405,112 @@ export async function discloseRetainedConversationMessageBody(
   };
 }
 
+export async function reviewRetainedConversationIdentityLinksTx(
+  tx: Prisma.TransactionClient,
+  input: ReviewRetainedConversationIdentityLinksInput,
+  options: ConversationRetainedBodyOwnerOptions = {},
+): Promise<ReviewRetainedConversationIdentityLinksResult> {
+  const messages = await tx.conversationMessage.findMany({
+    where: {
+      threadId: input.threadId,
+      retainedVaultObjectId: { not: null },
+    },
+    select: {
+      retainedVaultObject: {
+        select: {
+          id: true,
+          state: true,
+          subjectUserId: true,
+          subjectRetainedIdentityId: true,
+          encryptedPayload: true,
+          aad: true,
+          metadata: true,
+          holds: {
+            select: {
+              holdReason: true,
+              holdUntil: true,
+              releasedAt: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: [{ sentAt: 'asc' }, { id: 'asc' }],
+  });
+
+  const result: ReviewRetainedConversationIdentityLinksResult = {
+    scannedCount: messages.length,
+    minimizedCount: 0,
+    skippedWithActiveHoldCount: 0,
+    nextReviewAt: null,
+  };
+  const cipher = (
+    resolveConversationKeyring(options) ?? createEnvRetentionVaultKeyring()
+  ).getCipher('CHAT_BODY');
+  if (!cipher) {
+    throw new Error('[conversation-retained-body-owner] CHAT_BODY key unavailable');
+  }
+
+  for (const message of messages) {
+    const vaultObject = message.retainedVaultObject;
+    if (
+      !vaultObject ||
+      vaultObject.state !== 'RETAINED' ||
+      !vaultObject.subjectRetainedIdentityId
+    ) {
+      continue;
+    }
+
+    const activeHold = getActiveNonArchiveHoldReview(vaultObject.holds, input.now);
+    if (activeHold.active) {
+      result.skippedWithActiveHoldCount += 1;
+      if (activeHold.nextReviewAt) {
+        result.nextReviewAt = minDate(result.nextReviewAt, activeHold.nextReviewAt);
+      }
+      continue;
+    }
+
+    if (!vaultObject.encryptedPayload) {
+      throw new Error('[conversation-retained-body-owner] retained body payload unavailable');
+    }
+
+    const payload = decryptJsonPayload({
+      cipher,
+      payload: vaultObject.encryptedPayload,
+      aad: Buffer.from(vaultObject.aad),
+      errorPrefix: '[conversation-retained-body-owner] retained body',
+      parsePlaintext: parseRetainedConversationBodyPlaintext,
+    });
+    const minimizedPayload = toIdentityLinkMinimizedPayload(payload, input.now);
+
+    await tx.retainedVaultObject.update({
+      where: { id: vaultObject.id },
+      data: {
+        subjectUserId: null,
+        subjectRetainedIdentityId: null,
+        payloadSchemaVersion: 2,
+        encryptedPayload: encryptJsonPayload({
+          cipher,
+          plaintext: minimizedPayload,
+          aad: Buffer.from(vaultObject.aad),
+        }) as unknown as Prisma.InputJsonValue,
+        payloadDigest: hmacPayloadDigest(cipher, minimizedPayload),
+        keyVersion: cipher.keyVersion,
+        metadata: mergeMetadata(vaultObject.metadata, {
+          identityLinkReview: {
+            reviewedAt: input.now.toISOString(),
+            action: 'IDENTITY_LINK_MINIMIZED',
+          },
+          ...(input.metadata ?? {}),
+        }) as Prisma.InputJsonValue,
+      },
+    });
+    result.minimizedCount += 1;
+  }
+
+  return result;
+}
+
 export function parseRetainedConversationBodyPlaintext(
   payload: unknown,
 ): RetainedConversationBodyPlaintext {
@@ -378,7 +518,7 @@ export function parseRetainedConversationBodyPlaintext(
     throw new Error('[conversation-retained-body-owner] retained body plaintext invalid');
   }
 
-  const candidate = payload as Partial<Record<keyof RetainedConversationBodyPlaintext, unknown>>;
+  const candidate = payload as Partial<Record<keyof RetainedConversationBodyPlaintextV1, unknown>>;
   if (
     candidate.schemaVersion !== 1 ||
     typeof candidate.messageId !== 'string' ||
@@ -391,10 +531,91 @@ export function parseRetainedConversationBodyPlaintext(
     typeof candidate.retainedAt !== 'string' ||
     typeof candidate.tombstoneReason !== 'string'
   ) {
+    const v2Candidate = payload as Partial<
+      Record<keyof RetainedConversationBodyPlaintextV2, unknown>
+    >;
+    if (
+      v2Candidate.schemaVersion === 2 &&
+      typeof v2Candidate.messageId === 'string' &&
+      typeof v2Candidate.threadId === 'string' &&
+      (typeof v2Candidate.senderParticipantId === 'string' ||
+        v2Candidate.senderParticipantId === null) &&
+      typeof v2Candidate.sentAt === 'string' &&
+      typeof v2Candidate.body === 'string' &&
+      typeof v2Candidate.bodyVersionAtRetention === 'number' &&
+      typeof v2Candidate.retainedAt === 'string' &&
+      typeof v2Candidate.tombstoneReason === 'string' &&
+      typeof v2Candidate.identityLinkReviewedAt === 'string'
+    ) {
+      return v2Candidate as RetainedConversationBodyPlaintextV2;
+    }
     throw new Error('[conversation-retained-body-owner] retained body plaintext invalid');
   }
 
-  return candidate as RetainedConversationBodyPlaintext;
+  return candidate as RetainedConversationBodyPlaintextV1;
+}
+
+function getActiveNonArchiveHoldReview(
+  holds: Array<{
+    holdReason: string;
+    holdUntil: Date | null;
+    releasedAt: Date | null;
+  }>,
+  now: Date,
+): { active: boolean; nextReviewAt: Date | null } {
+  let active = false;
+  let nextReviewAt: Date | null = null;
+
+  for (const hold of holds) {
+    if (hold.holdReason === 'CHAT_THREAD_ARCHIVE' || hold.releasedAt) {
+      continue;
+    }
+    if (hold.holdUntil && hold.holdUntil.getTime() <= now.getTime()) {
+      continue;
+    }
+
+    active = true;
+    if (hold.holdUntil) {
+      nextReviewAt = minDate(nextReviewAt, hold.holdUntil);
+    }
+  }
+
+  return { active, nextReviewAt };
+}
+
+function minDate(current: Date | null, candidate: Date) {
+  if (!current || candidate.getTime() < current.getTime()) {
+    return candidate;
+  }
+  return current;
+}
+
+function toIdentityLinkMinimizedPayload(
+  payload: RetainedConversationBodyPlaintext,
+  now: Date,
+): RetainedConversationBodyPlaintextV2 {
+  return {
+    schemaVersion: 2,
+    messageId: payload.messageId,
+    threadId: payload.threadId,
+    senderParticipantId: payload.senderParticipantId,
+    sentAt: payload.sentAt,
+    body: payload.body,
+    bodyVersionAtRetention: payload.bodyVersionAtRetention,
+    retainedAt: payload.retainedAt,
+    tombstoneReason: payload.tombstoneReason,
+    identityLinkReviewedAt: now.toISOString(),
+  };
+}
+
+function mergeMetadata(
+  existing: Prisma.JsonValue | null,
+  next: Record<string, unknown>,
+): Record<string, unknown> {
+  if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
+    return { ...(existing as Record<string, unknown>), ...next };
+  }
+  return next;
 }
 
 function resolveConversationKeyring(options: ConversationRetainedBodyOwnerOptions) {

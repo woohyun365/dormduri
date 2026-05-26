@@ -17,6 +17,14 @@ import {
   disposeExpiredRetainedIdentities,
   type RetainedIdentityDisposalResult,
 } from '../retention/retained-identity-owner.js';
+import {
+  retryDueRetentionReviewJobs,
+  type RetentionReviewJobSweepResult,
+} from '../retention/retention-review-job-owner.js';
+import {
+  disposeDueRetentionAccessLogs,
+  type RetentionAccessLogDisposalResult,
+} from '../retention/retention-access-log-owner.js';
 import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { recordDisplayIdentityNicknameChangeAuditTx } from './display-identity-nickname-audit.owner.js';
@@ -253,6 +261,12 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
     },
     disposeExpiredRetainedIdentities(now: Date): Promise<RetainedIdentityDisposalResult> {
       return disposeExpiredRetainedIdentities(deps.prisma, now);
+    },
+    retryDueRetentionReviewJobs(now: Date): Promise<RetentionReviewJobSweepResult> {
+      return retryDueRetentionReviewJobs(deps.prisma, now);
+    },
+    disposeDueRetentionAccessLogs(now: Date): Promise<RetentionAccessLogDisposalResult> {
+      return disposeDueRetentionAccessLogs(deps.prisma, now);
     },
   };
 }

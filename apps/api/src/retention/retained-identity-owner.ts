@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
+import type { RetentionAccessReason } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import { validateRetainedIdentityMetadata } from './retained-identity-metadata.validator.js';
-import { disposeDueRetainedVaultObjects } from './retained-vault-owner.js';
+import { disposeDueRetainedVaultObjects, ensureRetentionCaseTx } from './retained-vault-owner.js';
+import { createRetentionAccessLog } from './retention-access-log-owner.js';
 import {
   decryptJsonPayload,
   encryptJsonPayload,
@@ -13,18 +15,10 @@ import {
 
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1_000;
 const THREE_YEARS_DAYS = 365 * 3;
-const DATA_ACCESS_LOG_RETENTION_DAYS = 365 * 3;
 const RETAINED_IDENTIFIER_KEY_ENV = 'RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64';
 const RETAINED_IDENTIFIER_KEY_VERSION_ENV = 'RETENTION_IDENTITY_KEY_VERSION';
 const DEFAULT_RETAINED_IDENTIFIER_KEY_VERSION = 'local-v1';
 const RETAINED_IDENTIFIER_AAD = Buffer.from('knu-roommate:retained-identity:v1');
-
-type RetainedIdentityAccessReason =
-  | 'LAW_ENFORCEMENT_REQUEST'
-  | 'REPORT_REVIEW'
-  | 'DISPUTE_RESPONSE'
-  | 'SECURITY_AUDIT'
-  | 'RETENTION_EXPIRY_REVIEW';
 
 interface RetainedIdentifierPlaintext {
   schemaVersion: 1;
@@ -63,7 +57,7 @@ export interface RetainedIdentityOwnerOptions {
 export interface RetainedIdentityDisclosureInput {
   retainedIdentityId: string;
   accessedBy: string;
-  accessReason: RetainedIdentityAccessReason;
+  accessReason: RetentionAccessReason;
   approvalReference: string;
   purpose: string;
   now?: Date;
@@ -85,45 +79,40 @@ export interface RetainedIdentityDisposalResult {
 export function resolveRetainedIdentityDecision(input: RetainedIdentityDecisionInput) {
   if (input.legalHoldReason) {
     return {
-      retentionReason: 'LEGAL_HOLD' as const,
+      retentionCaseReason: 'LEGAL_HOLD' as const,
       legalHoldReason: input.legalHoldReason,
-      legalHoldAt: input.deletedAt,
-      retentionHoldUntil: input.manualRetentionUntil ?? null,
+      holdUntil: input.manualRetentionUntil ?? null,
     };
   }
 
   if (input.disputeOpen) {
     return {
-      retentionReason: 'DISPUTE_RESPONSE' as const,
+      retentionCaseReason: 'DISPUTE_RESPONSE' as const,
       legalHoldReason: null,
-      legalHoldAt: null,
-      retentionHoldUntil: addDays(input.deletedAt, THREE_YEARS_DAYS),
+      holdUntil: addDays(input.deletedAt, THREE_YEARS_DAYS),
     };
   }
 
   if (input.reportOpen) {
     return {
-      retentionReason: 'REPORT_REVIEW' as const,
+      retentionCaseReason: 'REPORT_REVIEW' as const,
       legalHoldReason: null,
-      legalHoldAt: null,
-      retentionHoldUntil: addDays(input.deletedAt, THREE_YEARS_DAYS),
+      holdUntil: addDays(input.deletedAt, THREE_YEARS_DAYS),
     };
   }
 
   if (input.enforcementRecord) {
     return {
-      retentionReason: 'ENFORCEMENT_RECORD' as const,
+      retentionCaseReason: 'ENFORCEMENT_RECORD' as const,
       legalHoldReason: null,
-      legalHoldAt: null,
-      retentionHoldUntil: addDays(input.deletedAt, THREE_YEARS_DAYS),
+      holdUntil: addDays(input.deletedAt, THREE_YEARS_DAYS),
     };
   }
 
   return {
-    retentionReason: 'ACCOUNT_DELETION' as const,
+    retentionCaseReason: 'ACCOUNT_DELETION' as const,
     legalHoldReason: null,
-    legalHoldAt: null,
-    retentionHoldUntil: new Date(input.deletedAt.getTime() + FIVE_DAYS_MS),
+    holdUntil: new Date(input.deletedAt.getTime() + FIVE_DAYS_MS),
   };
 }
 
@@ -207,10 +196,6 @@ export async function createRetainedIdentitySnapshotTx(
       displayLabel: '탈퇴한 사용자',
       deletedAt: input.deletedAt,
       emailHash: hashText(user.emailNormalized),
-      retentionReason: decision.retentionReason,
-      retentionHoldUntil: decision.retentionHoldUntil,
-      legalHoldAt: decision.legalHoldAt,
-      legalHoldReason: decision.legalHoldReason,
       ...encryptedIdentifierData,
       retentionDisposedAt: null,
       retentionDisposalReason: null,
@@ -222,20 +207,54 @@ export async function createRetainedIdentitySnapshotTx(
       displayLabel: '탈퇴한 사용자',
       deletedAt: input.deletedAt,
       emailHash: hashText(user.emailNormalized),
-      retentionReason: decision.retentionReason,
-      retentionHoldUntil: decision.retentionHoldUntil,
-      legalHoldAt: decision.legalHoldAt,
-      legalHoldReason: decision.legalHoldReason,
       ...encryptedIdentifierData,
       metadata: (metadata ?? undefined) as Prisma.InputJsonValue | undefined,
     },
   });
 
-  return retainedIdentity;
+  const retentionCase = await ensureRetentionCaseTx(tx, {
+    reason: decision.retentionCaseReason,
+    triggerUserId: user.id,
+    triggerRetainedIdentityId: retainedIdentity.id,
+    sourceTable: 'RetainedIdentity',
+    sourceId: retainedIdentity.id,
+    retentionHoldUntil: decision.holdUntil,
+    legalHoldReason: decision.legalHoldReason,
+    metadata: metadata ? { retainedIdentityMetadata: metadata } : null,
+  });
+
+  await tx.retainedIdentityHold.upsert({
+    where: {
+      retainedIdentityId_retentionCaseId: {
+        retainedIdentityId: retainedIdentity.id,
+        retentionCaseId: retentionCase.id,
+      },
+    },
+    update: {
+      holdReason: decision.retentionCaseReason,
+      holdUntil: decision.holdUntil ?? undefined,
+      releasedAt: null,
+      releaseReason: null,
+    },
+    create: {
+      retainedIdentityId: retainedIdentity.id,
+      retentionCaseId: retentionCase.id,
+      holdReason: decision.retentionCaseReason,
+      holdUntil: decision.holdUntil ?? undefined,
+    },
+  });
+
+  return {
+    ...retainedIdentity,
+    retentionCaseReason: decision.retentionCaseReason,
+    retentionHoldUntil: decision.holdUntil,
+    legalHoldReason: decision.legalHoldReason,
+  };
 }
 
 export async function discloseRetainedIdentityIdentifiers(
-  prisma: Pick<PrismaService, 'retainedIdentity' | 'retainedIdentityDataAccessLog'>,
+  prisma: Pick<PrismaService, 'retainedIdentity' | 'retentionAccessLog'> &
+    Partial<Pick<PrismaService, 'retentionReviewJob'>>,
   input: RetainedIdentityDisclosureInput,
   options: RetainedIdentityOwnerOptions = {},
 ): Promise<RetainedIdentityDisclosure> {
@@ -265,8 +284,9 @@ export async function discloseRetainedIdentityIdentifiers(
   };
 
   if (retainedIdentity.retentionDisposedAt) {
-    await createRetainedIdentityDataAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
       ...deniedLogInput,
+      targetType: 'IDENTITY_ANCHOR',
       result: 'DENIED',
       disclosedFields: [],
     });
@@ -275,8 +295,9 @@ export async function discloseRetainedIdentityIdentifiers(
 
   const cipher = resolveRetainedIdentityCipher(options.identifierCipher);
   if (!cipher || !retainedIdentity.encryptedIdentifierPayload) {
-    await createRetainedIdentityDataAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
       ...deniedLogInput,
+      targetType: 'IDENTITY_ANCHOR',
       result: 'DENIED',
       disclosedFields: [],
     });
@@ -288,8 +309,9 @@ export async function discloseRetainedIdentityIdentifiers(
       cipher,
       retainedIdentity.encryptedIdentifierPayload,
     );
-    await createRetainedIdentityDataAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
       retainedIdentityId: retainedIdentity.id,
+      targetType: 'IDENTITY_ANCHOR',
       accessedBy: input.accessedBy,
       accessReason: input.accessReason,
       approvalReference: input.approvalReference,
@@ -308,8 +330,9 @@ export async function discloseRetainedIdentityIdentifiers(
       disclosedAt: now,
     };
   } catch (error) {
-    await createRetainedIdentityDataAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
       ...deniedLogInput,
+      targetType: 'IDENTITY_ANCHOR',
       result: 'DENIED',
       disclosedFields: [],
     });
@@ -320,21 +343,22 @@ export async function discloseRetainedIdentityIdentifiers(
 export async function disposeExpiredRetainedIdentities(
   prisma: Pick<
     PrismaService,
-    | 'retainedIdentity'
-    | 'retainedIdentityDataAccessLog'
-    | 'retainedVaultObject'
-    | 'retainedVaultAccessLog'
+    'retainedIdentity' | 'retainedVaultObject' | 'retentionAccessLog' | 'retentionReviewJob'
   >,
   now: Date,
 ): Promise<RetainedIdentityDisposalResult> {
   const dueIdentities = await prisma.retainedIdentity.findMany({
     where: {
       retentionDisposedAt: null,
-      retentionHoldUntil: { lte: now },
-      legalHoldReason: null,
+      holds: {
+        some: {},
+        every: {
+          OR: [{ releasedAt: { not: null } }, { holdUntil: { not: null, lte: now } }],
+        },
+      },
     },
     select: { id: true },
-    orderBy: [{ retentionHoldUntil: 'asc' }, { id: 'asc' }],
+    orderBy: [{ deletedAt: 'asc' }, { id: 'asc' }],
   });
 
   let processedCount = 0;
@@ -350,8 +374,9 @@ export async function disposeExpiredRetainedIdentities(
         retentionDisposalReason: 'RETENTION_HOLD_EXPIRED',
       },
     });
-    await createRetainedIdentityDataAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
       retainedIdentityId: identity.id,
+      targetType: 'IDENTITY_ANCHOR',
       accessedBy: 'SYSTEM',
       accessReason: 'RETENTION_EXPIRY_REVIEW',
       approvalReference: 'SYSTEM_RETENTION_EXPIRY',
@@ -437,35 +462,6 @@ function resolveRetainedIdentityCipher(
     keyVersion:
       process.env[RETAINED_IDENTIFIER_KEY_VERSION_ENV]?.trim() ||
       DEFAULT_RETAINED_IDENTIFIER_KEY_VERSION,
-  });
-}
-
-async function createRetainedIdentityDataAccessLog(
-  prisma: Pick<PrismaService, 'retainedIdentityDataAccessLog'>,
-  input: {
-    retainedIdentityId: string;
-    accessedBy: string;
-    accessReason: RetainedIdentityAccessReason;
-    approvalReference: string;
-    purpose: string;
-    result: 'DISCLOSED' | 'DENIED' | 'DISPOSED';
-    disclosedFields: string[];
-    createdAt?: Date;
-  },
-) {
-  const createdAt = input.createdAt ?? new Date();
-  await prisma.retainedIdentityDataAccessLog.create({
-    data: {
-      retainedIdentityId: input.retainedIdentityId,
-      accessedBy: input.accessedBy,
-      accessReason: input.accessReason,
-      approvalReference: input.approvalReference,
-      purpose: input.purpose,
-      result: input.result,
-      disclosedFields: input.disclosedFields as Prisma.InputJsonValue,
-      logRetentionHoldUntil: addDays(createdAt, DATA_ACCESS_LOG_RETENTION_DAYS),
-      createdAt,
-    },
   });
 }
 

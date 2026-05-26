@@ -37,6 +37,10 @@ export interface LifecycleSweepResult {
   retainedIdentityDisposalSweep: Awaited<
     ReturnType<UsersService['disposeExpiredRetainedIdentities']>
   >;
+  retentionReviewJobSweep: Awaited<ReturnType<UsersService['retryDueRetentionReviewJobs']>>;
+  retentionAccessLogDisposalSweep: Awaited<
+    ReturnType<UsersService['disposeDueRetentionAccessLogs']>
+  >;
 }
 
 @Injectable()

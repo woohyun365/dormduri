@@ -95,10 +95,16 @@ CREATE TYPE "RetentionCaseReason" AS ENUM ('ACCOUNT_DELETION', 'REPORT_REVIEW', 
 CREATE TYPE "RetainedVaultSubjectRole" AS ENUM ('USER', 'PARTICIPANT', 'VIEWER', 'COUNTERPART', 'MESSAGE_SENDER');
 
 -- CreateEnum
-CREATE TYPE "RetainedVaultAccessReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'REPORT_REVIEW', 'DISPUTE_RESPONSE', 'ENFORCEMENT_REVIEW', 'SECURITY_AUDIT', 'RETENTION_EXPIRY_REVIEW');
+CREATE TYPE "RetentionAccessTargetType" AS ENUM ('IDENTITY_ANCHOR', 'VAULT_OBJECT');
 
 -- CreateEnum
-CREATE TYPE "RetainedVaultAccessResult" AS ENUM ('DISCLOSED', 'DENIED', 'DISPOSED');
+CREATE TYPE "RetentionAccessReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'REPORT_REVIEW', 'DISPUTE_RESPONSE', 'ENFORCEMENT_REVIEW', 'SECURITY_AUDIT', 'RETENTION_EXPIRY_REVIEW');
+
+-- CreateEnum
+CREATE TYPE "RetentionAccessResult" AS ENUM ('DISCLOSED', 'DENIED', 'DISPOSED');
+
+-- CreateEnum
+CREATE TYPE "RetentionReviewJobTarget" AS ENUM ('CHAT_IDENTITY_LINK', 'ACCESS_LOG_DISPOSAL');
 
 -- CreateEnum
 CREATE TYPE "LifestyleBedtime" AS ENUM ('BEFORE_22', '22_24', '24_02', 'AFTER_02');
@@ -167,28 +173,16 @@ CREATE TYPE "RoommateCleanExpectation" AS ENUM ('STRICT', 'BASIC', 'FLEXIBLE');
 CREATE TYPE "RoommateDrinkingTolerance" AS ENUM ('LOW_ONLY', 'ANY');
 
 -- CreateEnum
-CREATE TYPE "ProfileHistorySource" AS ENUM ('SEASON_REGISTRATION', 'RETENTION_SNAPSHOT', 'SYSTEM_BACKFILL');
+CREATE TYPE "ProfileHistorySource" AS ENUM ('SEASON_REGISTRATION', 'SYSTEM_BACKFILL');
 
 -- CreateEnum
-CREATE TYPE "ArchiveTier" AS ENUM ('HOT_DB');
-
--- CreateEnum
-CREATE TYPE "ArchiveJobTarget" AS ENUM ('RETAINED_IDENTITY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT');
+CREATE TYPE "ArchiveJobTarget" AS ENUM ('SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT');
 
 -- CreateEnum
 CREATE TYPE "ArchiveJobStatus" AS ENUM ('PENDING', 'WAITING_CONDITION', 'SUCCEEDED', 'RETRY_SCHEDULED', 'FAILED_MANUAL_REVIEW');
 
 -- CreateEnum
-CREATE TYPE "RetainedIdentityRetentionReason" AS ENUM ('ACCOUNT_DELETION', 'REPORT_REVIEW', 'ENFORCEMENT_RECORD', 'DISPUTE_RESPONSE', 'LEGAL_HOLD', 'ADMIN_MANUAL');
-
--- CreateEnum
 CREATE TYPE "LegalHoldReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'INTERNAL_DISPUTE_REVIEW', 'SAFETY_INCIDENT', 'ADMIN_LEGAL_REVIEW');
-
--- CreateEnum
-CREATE TYPE "RetainedIdentityAccessReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'REPORT_REVIEW', 'DISPUTE_RESPONSE', 'SECURITY_AUDIT', 'RETENTION_EXPIRY_REVIEW');
-
--- CreateEnum
-CREATE TYPE "RetainedIdentityAccessResult" AS ENUM ('DISCLOSED', 'DENIED', 'DISPOSED');
 
 -- CreateEnum
 CREATE TYPE "DisplayIdentityNicknameChangeSource" AS ENUM ('USER_SELF', 'POLICY_ENFORCEMENT', 'ACCOUNT_DELETION_DEIDENTIFICATION');
@@ -342,11 +336,6 @@ CREATE TABLE "RetainedIdentity" (
     "displayLabel" TEXT NOT NULL,
     "deletedAt" TIMESTAMPTZ(3) NOT NULL,
     "emailHash" TEXT,
-    "retentionReason" "RetainedIdentityRetentionReason" NOT NULL,
-    "retentionHoldUntil" TIMESTAMPTZ(3),
-    "legalHoldAt" TIMESTAMPTZ(3),
-    "legalHoldReason" "LegalHoldReason",
-    "archiveTier" "ArchiveTier" NOT NULL DEFAULT 'HOT_DB',
     "encryptedIdentifierPayload" JSONB,
     "identifierKeyVersion" TEXT,
     "retentionDisposedAt" TIMESTAMPTZ(3),
@@ -389,29 +378,10 @@ CREATE TABLE "UserDisplayIdentityNicknameChangeEvent" (
 );
 
 -- CreateTable
-CREATE TABLE "RetainedIdentityDataAccessLog" (
-    "id" TEXT NOT NULL,
-    "retainedIdentityId" TEXT,
-    "accessedBy" TEXT NOT NULL,
-    "accessReason" "RetainedIdentityAccessReason" NOT NULL,
-    "approvalReference" TEXT NOT NULL,
-    "purpose" TEXT NOT NULL,
-    "result" "RetainedIdentityAccessResult" NOT NULL,
-    "disclosedFields" JSONB,
-    "logRetentionHoldUntil" TIMESTAMPTZ(3),
-    "logRetentionDisposedAt" TIMESTAMPTZ(3),
-    "logRetentionDisposalReason" TEXT,
-    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "RetainedIdentityDataAccessLog_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "ArchiveJob" (
     "id" TEXT NOT NULL,
     "target" "ArchiveJobTarget" NOT NULL,
     "status" "ArchiveJobStatus" NOT NULL DEFAULT 'PENDING',
-    "archiveTier" "ArchiveTier" NOT NULL DEFAULT 'HOT_DB',
     "retainedIdentityId" TEXT,
     "userId" TEXT,
     "seasonId" TEXT,
@@ -787,23 +757,58 @@ CREATE TABLE "RetainedVaultObjectHold" (
 );
 
 -- CreateTable
-CREATE TABLE "RetainedVaultAccessLog" (
+CREATE TABLE "RetainedIdentityHold" (
     "id" TEXT NOT NULL,
-    "retainedVaultObjectId" TEXT,
-    "retainedIdentityId" TEXT,
-    "target" "RetainedVaultObjectTarget" NOT NULL,
-    "accessedBy" TEXT NOT NULL,
-    "accessReason" "RetainedVaultAccessReason" NOT NULL,
-    "approvalReference" TEXT NOT NULL,
-    "purpose" TEXT NOT NULL,
-    "result" "RetainedVaultAccessResult" NOT NULL,
-    "disclosedFields" JSONB NOT NULL,
+    "retainedIdentityId" TEXT NOT NULL,
+    "retentionCaseId" TEXT NOT NULL,
+    "holdReason" "RetentionCaseReason" NOT NULL,
+    "holdUntil" TIMESTAMPTZ(3),
+    "releasedAt" TIMESTAMPTZ(3),
+    "releaseReason" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "logRetentionHoldUntil" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "RetainedIdentityHold_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RetentionAccessLog" (
+    "id" TEXT NOT NULL,
+    "targetType" "RetentionAccessTargetType" NOT NULL,
+    "retainedIdentityId" TEXT,
+    "retainedVaultObjectId" TEXT,
+    "vaultTarget" "RetainedVaultObjectTarget",
+    "accessedBy" TEXT,
+    "accessReason" "RetentionAccessReason" NOT NULL,
+    "approvalReference" TEXT,
+    "purpose" TEXT,
+    "result" "RetentionAccessResult" NOT NULL,
+    "disclosedFields" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "logRetentionHoldUntil" TIMESTAMPTZ(3),
     "logRetentionDisposedAt" TIMESTAMPTZ(3),
     "logRetentionDisposalReason" TEXT,
 
-    CONSTRAINT "RetainedVaultAccessLog_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "RetentionAccessLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RetentionReviewJob" (
+    "id" TEXT NOT NULL,
+    "target" "RetentionReviewJobTarget" NOT NULL,
+    "status" "ArchiveJobStatus" NOT NULL DEFAULT 'PENDING',
+    "sourceId" TEXT NOT NULL,
+    "dueAt" TIMESTAMPTZ(3) NOT NULL,
+    "payload" JSONB,
+    "attemptCount" INTEGER NOT NULL DEFAULT 0,
+    "maxAttempts" INTEGER NOT NULL DEFAULT 5,
+    "lastErrorCode" TEXT,
+    "lastAttemptAt" TIMESTAMPTZ(3),
+    "lastSucceededAt" TIMESTAMPTZ(3),
+    "manualReviewRequired" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RetentionReviewJob_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -918,16 +923,10 @@ CREATE UNIQUE INDEX "RetainedIdentity_originalUserId_key" ON "RetainedIdentity"(
 CREATE UNIQUE INDEX "RetainedIdentity_anonymizedActorKey_key" ON "RetainedIdentity"("anonymizedActorKey");
 
 -- CreateIndex
-CREATE INDEX "RetainedIdentity_retentionReason_deletedAt_idx" ON "RetainedIdentity"("retentionReason", "deletedAt");
+CREATE INDEX "RetainedIdentity_deletedAt_idx" ON "RetainedIdentity"("deletedAt");
 
 -- CreateIndex
-CREATE INDEX "RetainedIdentity_legalHoldReason_retentionHoldUntil_idx" ON "RetainedIdentity"("legalHoldReason", "retentionHoldUntil");
-
--- CreateIndex
-CREATE INDEX "RetainedIdentity_archiveTier_deletedAt_idx" ON "RetainedIdentity"("archiveTier", "deletedAt");
-
--- CreateIndex
-CREATE INDEX "RetainedIdentity_retentionHoldUntil_retentionDisposedAt_idx" ON "RetainedIdentity"("retentionHoldUntil", "retentionDisposedAt");
+CREATE INDEX "RetainedIdentity_retentionDisposedAt_deletedAt_idx" ON "RetainedIdentity"("retentionDisposedAt", "deletedAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "UserDisplayIdentityNicknameChangeEvent_retainedVaultObjectI_key" ON "UserDisplayIdentityNicknameChangeEvent"("retainedVaultObjectId");
@@ -958,18 +957,6 @@ CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_moderationCaseId_idx" ON "U
 
 -- CreateIndex
 CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_sanctionId_idx" ON "UserDisplayIdentityNicknameChangeEvent"("sanctionId");
-
--- CreateIndex
-CREATE INDEX "RetainedIdentityDataAccessLog_identity_createdAt_idx" ON "RetainedIdentityDataAccessLog"("retainedIdentityId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "RetainedIdentityDataAccessLog_accessedBy_createdAt_idx" ON "RetainedIdentityDataAccessLog"("accessedBy", "createdAt");
-
--- CreateIndex
-CREATE INDEX "RetainedIdentityDataAccessLog_accessReason_createdAt_idx" ON "RetainedIdentityDataAccessLog"("accessReason", "createdAt");
-
--- CreateIndex
-CREATE INDEX "RetainedIdentityDataAccessLog_logRetention_idx" ON "RetainedIdentityDataAccessLog"("logRetentionHoldUntil", "logRetentionDisposedAt");
 
 -- CreateIndex
 CREATE INDEX "ArchiveJob_status_nextRunAt_idx" ON "ArchiveJob"("status", "nextRunAt");
@@ -1137,19 +1124,40 @@ CREATE INDEX "RetainedVaultObjectHold_holdReason_holdUntil_idx" ON "RetainedVaul
 CREATE UNIQUE INDEX "RetainedVaultObjectHold_retainedVaultObjectId_retentionCase_key" ON "RetainedVaultObjectHold"("retainedVaultObjectId", "retentionCaseId");
 
 -- CreateIndex
-CREATE INDEX "RetainedVaultAccessLog_retainedVaultObjectId_createdAt_idx" ON "RetainedVaultAccessLog"("retainedVaultObjectId", "createdAt");
+CREATE INDEX "RetainedIdentityHold_retentionCaseId_holdUntil_idx" ON "RetainedIdentityHold"("retentionCaseId", "holdUntil");
 
 -- CreateIndex
-CREATE INDEX "RetainedVaultAccessLog_retainedIdentityId_createdAt_idx" ON "RetainedVaultAccessLog"("retainedIdentityId", "createdAt");
+CREATE INDEX "RetainedIdentityHold_holdReason_holdUntil_idx" ON "RetainedIdentityHold"("holdReason", "holdUntil");
 
 -- CreateIndex
-CREATE INDEX "RetainedVaultAccessLog_target_accessReason_createdAt_idx" ON "RetainedVaultAccessLog"("target", "accessReason", "createdAt");
+CREATE UNIQUE INDEX "RetainedIdentityHold_retainedIdentityId_retentionCaseId_key" ON "RetainedIdentityHold"("retainedIdentityId", "retentionCaseId");
 
 -- CreateIndex
-CREATE INDEX "RetainedVaultAccessLog_accessedBy_createdAt_idx" ON "RetainedVaultAccessLog"("accessedBy", "createdAt");
+CREATE INDEX "RetentionAccessLog_retainedIdentityId_createdAt_idx" ON "RetentionAccessLog"("retainedIdentityId", "createdAt");
 
 -- CreateIndex
-CREATE INDEX "RetainedVaultAccessLog_logRetentionHoldUntil_logRetentionDi_idx" ON "RetainedVaultAccessLog"("logRetentionHoldUntil", "logRetentionDisposedAt");
+CREATE INDEX "RetentionAccessLog_retainedVaultObjectId_createdAt_idx" ON "RetentionAccessLog"("retainedVaultObjectId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetentionAccessLog_targetType_accessReason_createdAt_idx" ON "RetentionAccessLog"("targetType", "accessReason", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetentionAccessLog_vaultTarget_accessReason_createdAt_idx" ON "RetentionAccessLog"("vaultTarget", "accessReason", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetentionAccessLog_accessedBy_createdAt_idx" ON "RetentionAccessLog"("accessedBy", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetentionAccessLog_logRetentionHoldUntil_logRetentionDispos_idx" ON "RetentionAccessLog"("logRetentionHoldUntil", "logRetentionDisposedAt");
+
+-- CreateIndex
+CREATE INDEX "RetentionReviewJob_status_dueAt_idx" ON "RetentionReviewJob"("status", "dueAt");
+
+-- CreateIndex
+CREATE INDEX "RetentionReviewJob_target_status_dueAt_idx" ON "RetentionReviewJob"("target", "status", "dueAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RetentionReviewJob_target_sourceId_key" ON "RetentionReviewJob"("target", "sourceId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "LoginAttempt_emailNormalized_key" ON "LoginAttempt"("emailNormalized");
@@ -1207,9 +1215,6 @@ ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplay
 
 -- AddForeignKey
 ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "RetainedIdentityDataAccessLog" ADD CONSTRAINT "RetainedIdentityDataAccessLog_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ArchiveJob" ADD CONSTRAINT "ArchiveJob_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1320,15 +1325,21 @@ ALTER TABLE "RetainedVaultObjectHold" ADD CONSTRAINT "RetainedVaultObjectHold_re
 ALTER TABLE "RetainedVaultObjectHold" ADD CONSTRAINT "RetainedVaultObjectHold_retentionCaseId_fkey" FOREIGN KEY ("retentionCaseId") REFERENCES "RetentionCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "RetainedVaultAccessLog" ADD CONSTRAINT "RetainedVaultAccessLog_retainedVaultObjectId_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "RetainedIdentityHold" ADD CONSTRAINT "RetainedIdentityHold_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "RetainedVaultAccessLog" ADD CONSTRAINT "RetainedVaultAccessLog_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "RetainedIdentityHold" ADD CONSTRAINT "RetainedIdentityHold_retentionCaseId_fkey" FOREIGN KEY ("retentionCaseId") REFERENCES "RetentionCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RetentionAccessLog" ADD CONSTRAINT "RetentionAccessLog_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RetentionAccessLog" ADD CONSTRAINT "RetentionAccessLog_retainedVaultObjectId_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Baseline custom constraints
+-- Manual check constraints not represented by Prisma schema DSL
 ALTER TABLE "SeasonParticipantProfile"
   ADD CONSTRAINT "SeasonParticipantProfile_grade_check"
   CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
@@ -1345,7 +1356,7 @@ ALTER TABLE "SeasonParticipantProfileHistory"
   ADD CONSTRAINT "SeasonParticipantProfileHistory_birthYear_check"
   CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
 
--- Baseline partial unique indexes
+-- Baseline partial unique indexes not represented by Prisma schema DSL
 CREATE UNIQUE INDEX "MatchRequest_seasonId_pairMinParticipantId_pairMaxParticipantId_pending_key"
   ON "MatchRequest"("seasonId", "pairMinParticipantId", "pairMaxParticipantId")
   WHERE "status" = 'PENDING';

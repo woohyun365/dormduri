@@ -1,12 +1,13 @@
 import { createHmac } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
 import type {
-  RetainedVaultAccessReason,
   RetainedVaultObjectTarget,
   RetainedVaultSubjectRole,
+  RetentionAccessReason,
   RetentionCaseReason,
 } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
+import { createRetentionAccessLog } from './retention-access-log-owner.js';
 import {
   createRetentionCipher,
   decryptJsonPayload,
@@ -15,7 +16,6 @@ import {
 } from './retention-cipher.js';
 
 const DEFAULT_VAULT_KEY_VERSION = 'local-v1';
-const ACCESS_LOG_RETENTION_DAYS = 365 * 3;
 const POLICY_VERSION = 'rrpd-v1';
 
 export type RetentionVaultKeyPurpose =
@@ -81,7 +81,7 @@ export interface RetainedVaultDisclosureInput<TPayload> {
   sourceId?: string;
   subjectRole?: RetainedVaultSubjectRole;
   accessedBy: string;
-  accessReason: RetainedVaultAccessReason;
+  accessReason: RetentionAccessReason;
   approvalReference: string;
   purpose: string;
   now?: Date;
@@ -295,7 +295,8 @@ export async function retainVaultPayloadTx<TPayload>(
 }
 
 export async function discloseRetainedVaultPayload<TPayload>(
-  prisma: Pick<PrismaService, 'retainedVaultObject' | 'retainedVaultAccessLog'>,
+  prisma: Pick<PrismaService, 'retainedVaultObject' | 'retentionAccessLog'> &
+    Partial<Pick<PrismaService, 'retentionReviewJob'>>,
   input: RetainedVaultDisclosureInput<TPayload>,
   options: RetainedVaultOwnerOptions = {},
 ): Promise<RetainedVaultDisclosure<TPayload>> {
@@ -344,7 +345,6 @@ export async function discloseRetainedVaultPayload<TPayload>(
   const logBase = {
     retainedVaultObjectId: vaultObject.id,
     retainedIdentityId: vaultObject.subjectRetainedIdentityId,
-    target: vaultObject.target,
     accessedBy: input.accessedBy,
     accessReason: input.accessReason,
     approvalReference: input.approvalReference,
@@ -353,8 +353,10 @@ export async function discloseRetainedVaultPayload<TPayload>(
   };
 
   if (vaultObject.state === 'DISPOSED' || vaultObject.disposedAt) {
-    await createRetainedVaultAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
       ...logBase,
+      targetType: 'VAULT_OBJECT',
+      vaultTarget: vaultObject.target,
       result: 'DENIED',
       disclosedFields: [],
     });
@@ -364,8 +366,10 @@ export async function discloseRetainedVaultPayload<TPayload>(
   const keyPurpose = parseRetentionVaultKeyPurpose(vaultObject.keyPurpose);
   const cipher = resolveRetentionVaultCipher(options.keyring, keyPurpose);
   if (!cipher || !vaultObject.encryptedPayload) {
-    await createRetainedVaultAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
       ...logBase,
+      targetType: 'VAULT_OBJECT',
+      vaultTarget: vaultObject.target,
       result: 'DENIED',
       disclosedFields: [],
     });
@@ -380,8 +384,10 @@ export async function discloseRetainedVaultPayload<TPayload>(
       errorPrefix: '[retained-vault-owner] retained payload',
       parsePlaintext: input.parsePlaintext,
     });
-    await createRetainedVaultAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
       ...logBase,
+      targetType: 'VAULT_OBJECT',
+      vaultTarget: vaultObject.target,
       result: 'DISCLOSED',
       disclosedFields: ['payload'],
     });
@@ -397,8 +403,10 @@ export async function discloseRetainedVaultPayload<TPayload>(
       disclosedAt: now,
     };
   } catch (error) {
-    await createRetainedVaultAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
       ...logBase,
+      targetType: 'VAULT_OBJECT',
+      vaultTarget: vaultObject.target,
       result: 'DENIED',
       disclosedFields: [],
     });
@@ -407,7 +415,8 @@ export async function discloseRetainedVaultPayload<TPayload>(
 }
 
 export async function disposeDueRetainedVaultObjects(
-  prisma: Pick<PrismaService, 'retainedVaultObject' | 'retainedVaultAccessLog'>,
+  prisma: Pick<PrismaService, 'retainedVaultObject' | 'retentionAccessLog'> &
+    Partial<Pick<PrismaService, 'retentionReviewJob'>>,
   now: Date,
 ): Promise<RetainedVaultDisposalResult> {
   const dueObjects = await prisma.retainedVaultObject.findMany({
@@ -437,10 +446,11 @@ export async function disposeDueRetainedVaultObjects(
         disposalReason: 'RETENTION_HOLD_EXPIRED',
       },
     });
-    await createRetainedVaultAccessLog(prisma, {
+    await createRetentionAccessLog(prisma, {
+      targetType: 'VAULT_OBJECT',
       retainedVaultObjectId: object.id,
       retainedIdentityId: object.subjectRetainedIdentityId,
-      target: object.target,
+      vaultTarget: object.target,
       accessedBy: 'SYSTEM',
       accessReason: 'RETENTION_EXPIRY_REVIEW',
       approvalReference: 'SYSTEM_RETENTION_EXPIRY',
@@ -529,38 +539,6 @@ function resolveLegacyEnvKeyVersion(purpose: RetentionVaultKeyPurpose) {
   return '';
 }
 
-async function createRetainedVaultAccessLog(
-  prisma: Pick<PrismaService, 'retainedVaultAccessLog'>,
-  input: {
-    retainedVaultObjectId: string | null;
-    retainedIdentityId?: string | null;
-    target: RetainedVaultObjectTarget;
-    accessedBy: string;
-    accessReason: RetainedVaultAccessReason;
-    approvalReference: string;
-    purpose: string;
-    result: 'DISCLOSED' | 'DENIED' | 'DISPOSED';
-    disclosedFields: string[];
-    createdAt: Date;
-  },
-) {
-  await prisma.retainedVaultAccessLog.create({
-    data: {
-      retainedVaultObjectId: input.retainedVaultObjectId ?? undefined,
-      retainedIdentityId: input.retainedIdentityId ?? undefined,
-      target: input.target,
-      accessedBy: input.accessedBy,
-      accessReason: input.accessReason,
-      approvalReference: input.approvalReference,
-      purpose: input.purpose,
-      result: input.result,
-      disclosedFields: input.disclosedFields as Prisma.InputJsonValue,
-      createdAt: input.createdAt,
-      logRetentionHoldUntil: addDays(input.createdAt, ACCESS_LOG_RETENTION_DAYS),
-    },
-  });
-}
-
 function assertDisclosureInput(input: {
   accessedBy: string;
   approvalReference: string;
@@ -599,8 +577,4 @@ function stableStringify(value: unknown): string {
   return `{${entries
     .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`)
     .join(',')}}`;
-}
-
-function addDays(date: Date, days: number) {
-  return new Date(date.getTime() + days * 24 * 60 * 60 * 1_000);
 }

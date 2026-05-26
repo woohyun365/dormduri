@@ -1,5 +1,10 @@
 import type { Prisma } from '../generated/prisma/client.js';
-import type { ArchiveJobStatus, ArchiveJobTarget, ArchiveTier } from '../generated/prisma/enums.js';
+import type {
+  ArchiveJobStatus,
+  ArchiveJobTarget,
+  LegalHoldReason,
+  RetentionCaseReason,
+} from '../generated/prisma/enums.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import {
   ensureRetentionCaseTx,
@@ -10,6 +15,7 @@ import {
   createConversationRetainedBodyOwner,
   type ConversationRetainedBodyOwnerOptions,
 } from './conversation-retained-body-owner.js';
+import { scheduleChatIdentityLinkReviewJobTx } from './retention-review-job-owner.js';
 
 const DEFAULT_MAX_ATTEMPTS = 5;
 const RETRY_BASE_DELAY_MS = 60 * 60 * 1_000;
@@ -17,7 +23,6 @@ const CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS = 365 * 2;
 const DEIDENTIFIED_DISPLAY_LABEL = '탈퇴한 사용자';
 
 const deletionArchiveJobTargets = [
-  'RETAINED_IDENTITY',
   'SEASON_PROFILE_HISTORY',
   'MATCH_HISTORY',
   'THREAD_RETENTION',
@@ -28,7 +33,6 @@ const archiveJobWorkItemSelect = {
   id: true,
   target: true,
   status: true,
-  archiveTier: true,
   retainedIdentityId: true,
   userId: true,
   seasonId: true,
@@ -62,7 +66,6 @@ type ArchiveDeletionJobHandler = (
 const hotDbArchiveJobHandlers = {
   THREAD_RETENTION: ({ prisma, job, now, conversationRetention }) =>
     archiveThreadRetentionJob(prisma, job, now, conversationRetention),
-  RETAINED_IDENTITY: ({ prisma, job }) => archiveRetainedIdentityJob(prisma, job),
   NICKNAME_AUDIT: ({ prisma, job, now, retainedVaultOptions }) =>
     archiveNicknameAuditJob(prisma, job, now, retainedVaultOptions),
   SEASON_PROFILE_HISTORY: ({ prisma, job, now, retainedVaultOptions }) =>
@@ -77,28 +80,9 @@ export interface ArchiveStorageResult {
   waitingCondition?: boolean;
 }
 
-export interface ArchiveStoragePort {
-  archive(job: ArchiveJobWorkItem): Promise<ArchiveStorageResult>;
-}
-
 export interface ArchiveJobOwnerOptions {
-  archiveStorage?: ArchiveStoragePort;
   conversationRetention?: ConversationRetainedBodyOwnerOptions;
   retainedVault?: RetainedVaultOwnerOptions;
-}
-
-export class HotDbArchiveAdapter implements ArchiveStoragePort {
-  archive(job: ArchiveJobWorkItem): Promise<ArchiveStorageResult> {
-    if (job.archiveTier !== 'HOT_DB') {
-      return Promise.resolve({ ok: false, errorCode: 'UNSUPPORTED_ARCHIVE_TIER' });
-    }
-
-    if (job.manualReviewRequired) {
-      return Promise.resolve({ ok: false, errorCode: 'MANUAL_REVIEW_REQUIRED' });
-    }
-
-    return Promise.resolve({ ok: true });
-  }
 }
 
 export interface DeletionArchiveJobInput {
@@ -122,13 +106,7 @@ export interface ArchiveJobActivationResult {
 export function createArchiveJobOwner(prisma: PrismaService, options: ArchiveJobOwnerOptions = {}) {
   return {
     async retryDueArchiveJobs(now: Date): Promise<ArchiveJobSweepResult> {
-      return retryDueArchiveJobs(
-        prisma,
-        now,
-        options.archiveStorage ?? new HotDbArchiveAdapter(),
-        options.conversationRetention,
-        options.retainedVault,
-      );
+      return retryDueArchiveJobs(prisma, now, options.conversationRetention, options.retainedVault);
     },
     async activateThreadRetentionJobsForArchivedThreads(
       now: Date,
@@ -197,12 +175,6 @@ export async function createDeletionArchiveJobsTx(
   });
 
   const jobs: Prisma.ArchiveJobCreateManyInput[] = [
-    buildArchiveJob({
-      target: 'RETAINED_IDENTITY',
-      retainedIdentityId: input.retainedIdentityId,
-      userId: input.userId,
-      deletedAt: input.deletedAt,
-    }),
     buildArchiveJob({
       target: 'NICKNAME_AUDIT',
       retainedIdentityId: input.retainedIdentityId,
@@ -313,7 +285,6 @@ export async function activateThreadRetentionJobsForArchivedThreads(
 export async function retryDueArchiveJobs(
   prisma: PrismaService,
   now: Date,
-  archiveStorage: ArchiveStoragePort = new HotDbArchiveAdapter(),
   conversationRetentionOptions: ConversationRetainedBodyOwnerOptions = {},
   retainedVaultOptions: RetainedVaultOwnerOptions = {},
 ): Promise<ArchiveJobSweepResult> {
@@ -349,7 +320,6 @@ export async function retryDueArchiveJobs(
       prisma,
       job,
       now,
-      archiveStorage,
       conversationRetention,
       retainedVaultOptions,
     );
@@ -412,52 +382,15 @@ async function archiveDeletionJob(
   prisma: PrismaService,
   job: ArchiveJobWorkItem,
   now: Date,
-  archiveStorage: ArchiveStoragePort,
   conversationRetention: ReturnType<typeof createConversationRetainedBodyOwner>,
   retainedVaultOptions: RetainedVaultOwnerOptions = {},
 ): Promise<ArchiveStorageResult> {
-  if (job.archiveTier !== 'HOT_DB') {
-    return archiveStorage.archive(job);
-  }
-
   const handler = hotDbArchiveJobHandlers[job.target];
   if (!handler) {
-    return archiveStorage.archive(job);
+    return { ok: false, errorCode: 'ARCHIVE_HANDLER_MISSING' };
   }
 
   return handler({ prisma, job, now, conversationRetention, retainedVaultOptions });
-}
-
-async function archiveRetainedIdentityJob(
-  prisma: Pick<PrismaService, 'retainedIdentity'>,
-  job: ArchiveJobWorkItem,
-): Promise<ArchiveStorageResult> {
-  if (!job.retainedIdentityId) {
-    return { ok: false, errorCode: 'RETAINED_IDENTITY_ID_MISSING' };
-  }
-
-  const retainedIdentity = await prisma.retainedIdentity.findUnique({
-    where: { id: job.retainedIdentityId },
-    select: {
-      id: true,
-      retentionReason: true,
-      retentionHoldUntil: true,
-      retentionDisposedAt: true,
-      encryptedIdentifierPayload: true,
-      identifierKeyVersion: true,
-    },
-  });
-  if (!retainedIdentity) {
-    return { ok: false, errorCode: 'RETAINED_IDENTITY_NOT_FOUND' };
-  }
-  if (retainedIdentity.retentionDisposedAt) {
-    return { ok: false, errorCode: 'RETAINED_IDENTITY_ALREADY_DISPOSED' };
-  }
-  if (!retainedIdentity.encryptedIdentifierPayload || !retainedIdentity.identifierKeyVersion) {
-    return { ok: false, errorCode: 'RETAINED_IDENTITY_IDENTIFIER_PAYLOAD_MISSING' };
-  }
-
-  return { ok: true };
 }
 
 async function archiveNicknameAuditJob(
@@ -828,16 +761,11 @@ async function archiveThreadRetentionJob(
 
   try {
     await prisma.runSerializableTransaction((tx) =>
-      conversationRetention.retainAndTombstoneThreadMessagesTx(tx, {
+      archiveThreadRetentionJobTx(tx, {
+        job,
         threadId: thread.id,
-        archiveJobId: job.id,
-        triggerUserId: job.userId,
-        triggerRetainedIdentityId: job.retainedIdentityId,
         now,
-        metadata: {
-          archiveJobId: job.id,
-          archiveJobTarget: job.target,
-        },
+        conversationRetention,
       }),
     );
     return { ok: true };
@@ -850,6 +778,36 @@ async function archiveThreadRetentionJob(
           : 'THREAD_RETENTION_ARCHIVE_ERROR',
     };
   }
+}
+
+async function archiveThreadRetentionJobTx(
+  tx: Prisma.TransactionClient,
+  input: {
+    job: ArchiveJobWorkItem;
+    threadId: string;
+    now: Date;
+    conversationRetention: ReturnType<typeof createConversationRetainedBodyOwner>;
+  },
+) {
+  const { job, threadId, now, conversationRetention } = input;
+  await conversationRetention.retainAndTombstoneThreadMessagesTx(tx, {
+    threadId,
+    archiveJobId: job.id,
+    triggerUserId: job.userId,
+    triggerRetainedIdentityId: job.retainedIdentityId,
+    now,
+    metadata: {
+      archiveJobId: job.id,
+      archiveJobTarget: job.target,
+    },
+  });
+  await scheduleChatIdentityLinkReviewJobTx(tx, {
+    threadId,
+    dueAt: resolveChatIdentityReviewAfter(job.payload, now),
+    archiveJobId: job.id,
+    retainedIdentityId: job.retainedIdentityId,
+    userId: job.userId,
+  });
 }
 
 function buildArchiveJob(input: {
@@ -871,7 +829,6 @@ function buildArchiveJob(input: {
   return {
     target: input.target,
     status,
-    archiveTier: 'HOT_DB' satisfies ArchiveTier,
     retainedIdentityId: input.retainedIdentityId,
     userId: input.userId,
     seasonId: input.seasonId,
@@ -931,33 +888,71 @@ async function loadRetainedIdentityForCase(
   const retainedIdentity = await tx.retainedIdentity.findUnique({
     where: { id: retainedIdentityId },
     select: {
-      retentionReason: true,
-      retentionHoldUntil: true,
-      legalHoldReason: true,
+      holds: {
+        where: { releasedAt: null },
+        select: {
+          holdReason: true,
+          holdUntil: true,
+          createdAt: true,
+          retentionCase: {
+            select: {
+              legalHoldReason: true,
+            },
+          },
+        },
+      },
     },
   });
   if (!retainedIdentity) {
-    throw new Error('RETAINED_IDENTITY_NOT_FOUND');
+    throw new Error('IDENTITY_ANCHOR_NOT_FOUND');
+  }
+
+  const activeHold = selectCanonicalIdentityHold(retainedIdentity.holds);
+  if (!activeHold) {
+    throw new Error('IDENTITY_ANCHOR_HOLD_NOT_FOUND');
   }
 
   return {
-    retentionCaseReason: toRetentionCaseReason(retainedIdentity.retentionReason),
-    retentionHoldUntil: retainedIdentity.retentionHoldUntil,
-    legalHoldReason: retainedIdentity.legalHoldReason,
+    retentionCaseReason: activeHold.holdReason,
+    retentionHoldUntil: activeHold.holdUntil,
+    legalHoldReason: activeHold.retentionCase.legalHoldReason,
   };
 }
 
-function toRetentionCaseReason(reason: string) {
+function selectCanonicalIdentityHold(
+  holds: Array<{
+    holdReason: RetentionCaseReason;
+    holdUntil: Date | null;
+    createdAt: Date;
+    retentionCase: { legalHoldReason: LegalHoldReason | null };
+  }>,
+) {
+  return [...holds].sort((left, right) => {
+    const priorityDelta =
+      retentionHoldPriority(left.holdReason) - retentionHoldPriority(right.holdReason);
+    if (priorityDelta !== 0) {
+      return priorityDelta;
+    }
+    return right.createdAt.getTime() - left.createdAt.getTime();
+  })[0];
+}
+
+function retentionHoldPriority(reason: string) {
   switch (reason) {
-    case 'ACCOUNT_DELETION':
-    case 'REPORT_REVIEW':
-    case 'ENFORCEMENT_RECORD':
-    case 'DISPUTE_RESPONSE':
     case 'LEGAL_HOLD':
+      return 0;
     case 'ADMIN_MANUAL':
-      return reason;
+      return 1;
+    case 'DISPUTE_RESPONSE':
+      return 2;
+    case 'REPORT_REVIEW':
+      return 3;
+    case 'ENFORCEMENT_RECORD':
+      return 4;
+    case 'ACCOUNT_DELETION':
+      return 5;
     default:
-      return 'ACCOUNT_DELETION';
+      return 99;
   }
 }
 
@@ -1009,6 +1004,19 @@ function toJsonSerializable(value: unknown): unknown {
 
 function addDays(date: Date, days: number) {
   return new Date(date.getTime() + days * 24 * 60 * 60 * 1_000);
+}
+
+function resolveChatIdentityReviewAfter(payload: unknown, fallbackFrom: Date) {
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    const identityReviewAfter = (payload as Record<string, unknown>).identityReviewAfter;
+    if (typeof identityReviewAfter === 'string') {
+      const parsed = new Date(identityReviewAfter);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+  }
+  return addDays(fallbackFrom, CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS);
 }
 
 function normalizeArchiveErrorCode(message: string) {
