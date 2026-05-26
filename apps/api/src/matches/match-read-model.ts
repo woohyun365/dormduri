@@ -62,12 +62,21 @@ function toMatchRequestCounterpartSummary(
       canRequestMatch: false,
       canStartChat: false,
     },
-    nickname: participant.profile?.nicknameSnapshot ?? '탈퇴한 사용자',
+    nickname: resolveMatchRequestCounterpartNickname(participant),
     intro: participant.profile?.intro ?? '',
     smokingBehavior: participant.profile?.smokingBehavior ?? null,
     sleepHabit: participant.profile?.sleepHabit ?? null,
     relationshipStyle: participant.profile?.relationshipStyle ?? null,
   };
+}
+
+function resolveMatchRequestCounterpartNickname(
+  participant: MatchRequestRecord['requesterParticipant'],
+) {
+  if (participant.user?.deletedAt) {
+    return '탈퇴한 사용자';
+  }
+  return participant.profile?.nicknameSnapshot ?? '프로필 확인 불가';
 }
 
 export function toActiveMatchSummary(

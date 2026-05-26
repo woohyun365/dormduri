@@ -75,6 +75,34 @@ function makeSeasonContext(overrides: Partial<CurrentSeasonContext> = {}): Curre
   };
 }
 
+function makeRequestParticipant(input: {
+  userId: string;
+  nicknameSnapshot?: string;
+  intro?: string;
+  profileMissing?: boolean;
+}): MatchRequestRecord['requesterParticipant'] {
+  return {
+    userId: input.userId,
+    registeredAt: new Date('2026-02-01T00:00:00.000Z'),
+    dormitoryId: 'dasan',
+    dormitorySelectionState: 'ASSIGNED',
+    participationIntent: 'REGISTERED',
+    declinedAt: null,
+    participantStatus: 'ACTIVE',
+    withdrawnAt: null,
+    hiddenByAdminAt: null,
+    deactivatedAt: null,
+    user: { deletedAt: null },
+    profile: input.profileMissing
+      ? null
+      : {
+          nicknameSnapshot: input.nicknameSnapshot ?? input.userId,
+          intro: input.intro ?? '',
+          ...toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+        },
+  };
+}
+
 function makeActiveMatch(
   overrides: Partial<ActiveMatchCommandRecord> = {},
 ): ActiveMatchCommandRecord {
@@ -119,34 +147,16 @@ describe('match read model helpers', () => {
       terminalAt: null,
       acceptedAt: null,
       terminalReason: null,
-      requesterParticipant: {
+      requesterParticipant: makeRequestParticipant({
         userId: 'user-1',
-        participationIntent: 'REGISTERED',
-        declinedAt: null,
-        participantStatus: 'ACTIVE',
-        withdrawnAt: null,
-        profile: {
-          nicknameSnapshot: '요청자',
-          intro: '요청자 소개',
-          smokingBehavior: 'NO',
-          sleepHabit: 'NONE',
-          relationshipStyle: 'CLOSE',
-        },
-      },
-      receiverParticipant: {
+        nicknameSnapshot: '요청자',
+        intro: '요청자 소개',
+      }),
+      receiverParticipant: makeRequestParticipant({
         userId: 'user-2',
-        participationIntent: 'REGISTERED',
-        declinedAt: null,
-        participantStatus: 'ACTIVE',
-        withdrawnAt: null,
-        profile: {
-          nicknameSnapshot: '수신자',
-          intro: '수신자 소개',
-          smokingBehavior: 'NO',
-          sleepHabit: 'NONE',
-          relationshipStyle: 'CLOSE',
-        },
-      },
+        nicknameSnapshot: '수신자',
+        intro: '수신자 소개',
+      }),
     };
 
     const sentSummary = toMatchRequestSummary(request, 'participant-1');
@@ -166,6 +176,29 @@ describe('match read model helpers', () => {
     });
     expect(receivedSummary.counterpartSummary.id).toBe('user-1');
     expect(receivedSummary.counterpartSummary.nickname).toBe('요청자');
+  });
+
+  it('request summary는 profile missing을 삭제 사용자 tombstone label로 위장하지 않는다', () => {
+    const request: MatchRequestRecord = {
+      id: 'request-1',
+      seasonId: 'season-1',
+      requesterParticipantId: 'participant-1',
+      receiverParticipantId: 'participant-2',
+      status: 'PENDING',
+      note: null,
+      createdAt: new Date('2026-02-10T03:00:00.000Z'),
+      expiresAt: new Date('2026-02-11T14:59:59.000Z'),
+      terminalAt: null,
+      acceptedAt: null,
+      terminalReason: null,
+      requesterParticipant: makeRequestParticipant({ userId: 'user-1', profileMissing: true }),
+      receiverParticipant: makeRequestParticipant({ userId: 'user-2', profileMissing: true }),
+    };
+
+    const summary = toMatchRequestSummary(request, 'participant-2');
+
+    expect(summary.counterpartSummary.nickname).toBe('프로필 확인 불가');
+    expect(summary.counterpartSummary.nickname).not.toBe('탈퇴한 사용자');
   });
 
   it('detailed active match summary는 viewer/counterpart unmatch progress를 계산한다', () => {
