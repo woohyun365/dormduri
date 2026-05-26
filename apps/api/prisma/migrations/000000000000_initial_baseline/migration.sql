@@ -83,10 +83,22 @@ CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISP
 CREATE TYPE "ConversationMessageTombstoneReason" AS ENUM ('ACCOUNT_DELETION_RETENTION', 'USER_MESSAGE_DELETED', 'MODERATION_POLICY_VIOLATION', 'ADMIN_ACTION', 'RETENTION_DISPOSED');
 
 -- CreateEnum
-CREATE TYPE "ConversationRetainedBodyAccessReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'REPORT_REVIEW', 'DISPUTE_RESPONSE', 'SECURITY_AUDIT', 'RETENTION_EXPIRY_REVIEW');
+CREATE TYPE "RetainedVaultObjectTarget" AS ENUM ('CHAT_MESSAGE_BODY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY', 'NICKNAME_AUDIT_EVENT');
 
 -- CreateEnum
-CREATE TYPE "ConversationRetainedBodyAccessResult" AS ENUM ('DISCLOSED', 'DENIED', 'DISPOSED');
+CREATE TYPE "RetainedVaultObjectState" AS ENUM ('RETAINED', 'DISPOSED', 'FAILED_MANUAL_REVIEW');
+
+-- CreateEnum
+CREATE TYPE "RetentionCaseReason" AS ENUM ('ACCOUNT_DELETION', 'REPORT_REVIEW', 'ENFORCEMENT_RECORD', 'DISPUTE_RESPONSE', 'LEGAL_HOLD', 'ADMIN_MANUAL', 'CHAT_THREAD_ARCHIVE');
+
+-- CreateEnum
+CREATE TYPE "RetainedVaultSubjectRole" AS ENUM ('USER', 'PARTICIPANT', 'VIEWER', 'COUNTERPART', 'MESSAGE_SENDER');
+
+-- CreateEnum
+CREATE TYPE "RetainedVaultAccessReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'REPORT_REVIEW', 'DISPUTE_RESPONSE', 'ENFORCEMENT_REVIEW', 'SECURITY_AUDIT', 'RETENTION_EXPIRY_REVIEW');
+
+-- CreateEnum
+CREATE TYPE "RetainedVaultAccessResult" AS ENUM ('DISCLOSED', 'DENIED', 'DISPOSED');
 
 -- CreateEnum
 CREATE TYPE "LifestyleBedtime" AS ENUM ('BEFORE_22', '22_24', '24_02', 'AFTER_02');
@@ -151,7 +163,6 @@ CREATE TYPE "RoommateIndoorEatingTolerance" AS ENUM ('NO_SMELL', 'CLEAN_OK', 'AN
 -- CreateEnum
 CREATE TYPE "RoommateCleanExpectation" AS ENUM ('STRICT', 'BASIC', 'FLEXIBLE');
 
-
 -- CreateEnum
 CREATE TYPE "RoommateDrinkingTolerance" AS ENUM ('LOW_ONLY', 'ANY');
 
@@ -162,13 +173,13 @@ CREATE TYPE "ProfileHistorySource" AS ENUM ('SEASON_REGISTRATION', 'RETENTION_SN
 CREATE TYPE "ArchiveTier" AS ENUM ('HOT_DB');
 
 -- CreateEnum
-CREATE TYPE "ArchiveJobTarget" AS ENUM ('RETAINED_IDENTITY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION');
+CREATE TYPE "ArchiveJobTarget" AS ENUM ('RETAINED_IDENTITY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT');
 
 -- CreateEnum
 CREATE TYPE "ArchiveJobStatus" AS ENUM ('PENDING', 'WAITING_CONDITION', 'SUCCEEDED', 'RETRY_SCHEDULED', 'FAILED_MANUAL_REVIEW');
 
 -- CreateEnum
-CREATE TYPE "RetentionReason" AS ENUM ('ACCOUNT_DELETION', 'REPORT_REVIEW', 'ENFORCEMENT_RECORD', 'DISPUTE_RESPONSE', 'LEGAL_HOLD', 'ADMIN_MANUAL');
+CREATE TYPE "RetainedIdentityRetentionReason" AS ENUM ('ACCOUNT_DELETION', 'REPORT_REVIEW', 'ENFORCEMENT_RECORD', 'DISPUTE_RESPONSE', 'LEGAL_HOLD', 'ADMIN_MANUAL');
 
 -- CreateEnum
 CREATE TYPE "LegalHoldReason" AS ENUM ('LAW_ENFORCEMENT_REQUEST', 'INTERNAL_DISPUTE_REVIEW', 'SAFETY_INCIDENT', 'ADMIN_LEGAL_REVIEW');
@@ -331,7 +342,7 @@ CREATE TABLE "RetainedIdentity" (
     "displayLabel" TEXT NOT NULL,
     "deletedAt" TIMESTAMPTZ(3) NOT NULL,
     "emailHash" TEXT,
-    "retentionReason" "RetentionReason" NOT NULL,
+    "retentionReason" "RetainedIdentityRetentionReason" NOT NULL,
     "retentionHoldUntil" TIMESTAMPTZ(3),
     "legalHoldAt" TIMESTAMPTZ(3),
     "legalHoldReason" "LegalHoldReason",
@@ -352,6 +363,9 @@ CREATE TABLE "UserDisplayIdentityNicknameChangeEvent" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "retainedIdentityId" TEXT,
+    "retainedVaultObjectId" TEXT,
+    "redactedAt" TIMESTAMPTZ(3),
+    "redactionReason" TEXT,
     "source" "DisplayIdentityNicknameChangeSource" NOT NULL,
     "reason" "DisplayIdentityNicknameChangeReason" NOT NULL,
     "actorType" "DisplayIdentityNicknameChangeActorType" NOT NULL,
@@ -484,37 +498,39 @@ CREATE TABLE "SeasonParticipantProfile" (
     CONSTRAINT "SeasonParticipantProfile_pkey" PRIMARY KEY ("participantId")
 );
 
-
 -- CreateTable
 CREATE TABLE "SeasonParticipantProfileHistory" (
     "id" TEXT NOT NULL,
     "participantId" TEXT NOT NULL,
     "seasonId" TEXT NOT NULL,
     "retainedIdentityId" TEXT,
+    "retainedVaultObjectId" TEXT,
+    "redactedAt" TIMESTAMPTZ(3),
+    "redactionReason" TEXT,
     "nicknameSnapshot" TEXT NOT NULL,
     "nicknameNormalizedSnapshot" TEXT NOT NULL,
-    "bedtime" "LifestyleBedtime" NOT NULL,
-    "wakeTime" "LifestyleWakeTime" NOT NULL,
-    "sleepHabit" "LifestyleSleepHabit" NOT NULL,
-    "sleepEnvironment" "LifestyleSleepEnvironment" NOT NULL,
-    "screenUsage" "LifestyleScreenUsage" NOT NULL,
-    "noiseSensitivity" "LifestyleNoiseSensitivity" NOT NULL,
-    "smokingBehavior" "LifestyleSmokingBehavior" NOT NULL,
-    "indoorEating" "LifestyleIndoorEating" NOT NULL,
-    "phoneBehavior" "LifestylePhoneBehavior" NOT NULL,
-    "earphoneUsage" "LifestyleEarphoneUsage" NOT NULL,
-    "cleanLevel" "LifestyleCleanLevel" NOT NULL,
-    "drinkingFrequency" "LifestyleDrinkingFrequency" NOT NULL,
-    "relationshipStyle" "LifestyleRelationshipStyle" NOT NULL,
-    "temperatureSensitivity" "LifestyleTemperatureSensitivity" NOT NULL,
-    "smokingTolerance" "RoommateSmokingTolerance" NOT NULL,
-    "phoneTolerance" "RoommatePhoneTolerance" NOT NULL,
-    "earphoneExpectation" "RoommateEarphoneExpectation" NOT NULL,
-    "sleepEnvPreference" "RoommateSleepEnvPreference" NOT NULL,
-    "screenTolerance" "RoommateScreenTolerance" NOT NULL,
-    "indoorEatingTolerance" "RoommateIndoorEatingTolerance" NOT NULL,
-    "cleanExpectation" "RoommateCleanExpectation" NOT NULL,
-    "drinkingTolerance" "RoommateDrinkingTolerance" NOT NULL,
+    "bedtime" "LifestyleBedtime",
+    "wakeTime" "LifestyleWakeTime",
+    "sleepHabit" "LifestyleSleepHabit",
+    "sleepEnvironment" "LifestyleSleepEnvironment",
+    "screenUsage" "LifestyleScreenUsage",
+    "noiseSensitivity" "LifestyleNoiseSensitivity",
+    "smokingBehavior" "LifestyleSmokingBehavior",
+    "indoorEating" "LifestyleIndoorEating",
+    "phoneBehavior" "LifestylePhoneBehavior",
+    "earphoneUsage" "LifestyleEarphoneUsage",
+    "cleanLevel" "LifestyleCleanLevel",
+    "drinkingFrequency" "LifestyleDrinkingFrequency",
+    "relationshipStyle" "LifestyleRelationshipStyle",
+    "temperatureSensitivity" "LifestyleTemperatureSensitivity",
+    "smokingTolerance" "RoommateSmokingTolerance",
+    "phoneTolerance" "RoommatePhoneTolerance",
+    "earphoneExpectation" "RoommateEarphoneExpectation",
+    "sleepEnvPreference" "RoommateSleepEnvPreference",
+    "screenTolerance" "RoommateScreenTolerance",
+    "indoorEatingTolerance" "RoommateIndoorEatingTolerance",
+    "cleanExpectation" "RoommateCleanExpectation",
+    "drinkingTolerance" "RoommateDrinkingTolerance",
     "intro" TEXT NOT NULL,
     "collegeCode" TEXT,
     "grade" TEXT,
@@ -620,6 +636,8 @@ CREATE TABLE "SeasonMatchHistoryEntry" (
     "counterpartRelationshipStyleSnapshot" "LifestyleRelationshipStyle",
     "counterpartTemperatureSensitivitySnapshot" "LifestyleTemperatureSensitivity",
     "counterpartNicknameSnapshot" TEXT NOT NULL,
+    "counterpartRedactedAt" TIMESTAMPTZ(3),
+    "viewerRedactedAt" TIMESTAMPTZ(3),
     "viewerDormitoryIdSnapshot" TEXT,
     "hadConversation" BOOLEAN NOT NULL DEFAULT false,
     "matchedAt" TIMESTAMPTZ(3),
@@ -681,6 +699,7 @@ CREATE TABLE "ConversationMessage" (
     "tombstonedAt" TIMESTAMPTZ(3),
     "bodyRetainedAt" TIMESTAMPTZ(3),
     "bodyDisposedAt" TIMESTAMPTZ(3),
+    "retainedVaultObjectId" TEXT,
     "bodyVersion" INTEGER NOT NULL DEFAULT 1,
     "sentAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deletedAt" TIMESTAMPTZ(3),
@@ -690,38 +709,101 @@ CREATE TABLE "ConversationMessage" (
 );
 
 -- CreateTable
-CREATE TABLE "ConversationMessageRetainedBody" (
+CREATE TABLE "SeasonMatchHistoryEntryRetentionLink" (
     "id" TEXT NOT NULL,
-    "messageId" TEXT NOT NULL,
-    "threadId" TEXT NOT NULL,
-    "archiveJobId" TEXT,
+    "matchHistoryEntryId" TEXT NOT NULL,
+    "participantId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "retainedIdentityId" TEXT NOT NULL,
+    "subjectRole" "RetainedVaultSubjectRole" NOT NULL,
+    "retainedVaultObjectId" TEXT,
+    "redactedAt" TIMESTAMPTZ(3),
+    "redactionReason" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SeasonMatchHistoryEntryRetentionLink_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RetentionCase" (
+    "id" TEXT NOT NULL,
+    "reason" "RetentionCaseReason" NOT NULL,
+    "triggerUserId" TEXT,
     "triggerRetainedIdentityId" TEXT,
-    "encryptedBodyPayload" JSONB NOT NULL,
-    "bodyDigest" TEXT NOT NULL,
-    "keyVersion" TEXT NOT NULL,
+    "sourceTable" TEXT,
+    "sourceId" TEXT,
+    "retentionHoldUntil" TIMESTAMPTZ(3),
+    "legalHoldReason" "LegalHoldReason",
+    "approvalReference" TEXT,
+    "policyVersion" TEXT NOT NULL,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RetentionCase_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RetainedVaultObject" (
+    "id" TEXT NOT NULL,
+    "target" "RetainedVaultObjectTarget" NOT NULL,
+    "sourceTable" TEXT NOT NULL,
+    "sourceId" TEXT NOT NULL,
+    "archiveJobId" TEXT,
+    "subjectUserId" TEXT,
+    "subjectRetainedIdentityId" TEXT,
+    "subjectParticipantId" TEXT,
+    "subjectRole" "RetainedVaultSubjectRole" NOT NULL,
+    "payloadSchemaVersion" INTEGER NOT NULL,
+    "encryptedPayload" JSONB,
+    "payloadDigest" TEXT,
+    "keyPurpose" TEXT NOT NULL,
+    "keyVersion" TEXT,
+    "aad" TEXT NOT NULL,
+    "state" "RetainedVaultObjectState" NOT NULL DEFAULT 'RETAINED',
     "retainedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "disposedAt" TIMESTAMPTZ(3),
     "disposalReason" TEXT,
     "metadata" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "ConversationMessageRetainedBody_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "RetainedVaultObject_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "ConversationMessageRetainedBodyAccessLog" (
+CREATE TABLE "RetainedVaultObjectHold" (
     "id" TEXT NOT NULL,
-    "retainedBodyId" TEXT,
-    "threadId" TEXT,
-    "messageId" TEXT,
-    "accessedBy" TEXT NOT NULL,
-    "accessReason" "ConversationRetainedBodyAccessReason" NOT NULL,
-    "approvalReference" TEXT NOT NULL,
-    "purpose" TEXT NOT NULL,
-    "result" "ConversationRetainedBodyAccessResult" NOT NULL,
-    "disclosedFields" JSONB,
+    "retainedVaultObjectId" TEXT NOT NULL,
+    "retentionCaseId" TEXT NOT NULL,
+    "holdReason" "RetentionCaseReason" NOT NULL,
+    "holdUntil" TIMESTAMPTZ(3),
+    "releasedAt" TIMESTAMPTZ(3),
+    "releaseReason" TEXT,
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "ConversationMessageRetainedBodyAccessLog_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "RetainedVaultObjectHold_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RetainedVaultAccessLog" (
+    "id" TEXT NOT NULL,
+    "retainedVaultObjectId" TEXT,
+    "retainedIdentityId" TEXT,
+    "target" "RetainedVaultObjectTarget" NOT NULL,
+    "accessedBy" TEXT NOT NULL,
+    "accessReason" "RetainedVaultAccessReason" NOT NULL,
+    "approvalReference" TEXT NOT NULL,
+    "purpose" TEXT NOT NULL,
+    "result" "RetainedVaultAccessResult" NOT NULL,
+    "disclosedFields" JSONB NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "logRetentionHoldUntil" TIMESTAMPTZ(3) NOT NULL,
+    "logRetentionDisposedAt" TIMESTAMPTZ(3),
+    "logRetentionDisposalReason" TEXT,
+
+    CONSTRAINT "RetainedVaultAccessLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -848,16 +930,25 @@ CREATE INDEX "RetainedIdentity_archiveTier_deletedAt_idx" ON "RetainedIdentity"(
 CREATE INDEX "RetainedIdentity_retentionHoldUntil_retentionDisposedAt_idx" ON "RetainedIdentity"("retentionHoldUntil", "retentionDisposedAt");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserDisplayIdentityNicknameChangeEvent_retainedVaultObjectI_key" ON "UserDisplayIdentityNicknameChangeEvent"("retainedVaultObjectId");
+
+-- CreateIndex
 CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_userId_changedAt_idx" ON "UserDisplayIdentityNicknameChangeEvent"("userId", "changedAt");
 
 -- CreateIndex
 CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_source_changedAt_idx" ON "UserDisplayIdentityNicknameChangeEvent"("source", "changedAt");
 
 -- CreateIndex
-CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_actorType_actorId_changedAt_idx" ON "UserDisplayIdentityNicknameChangeEvent"("actorType", "actorId", "changedAt");
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_actorType_actorId_ch_idx" ON "UserDisplayIdentityNicknameChangeEvent"("actorType", "actorId", "changedAt");
 
 -- CreateIndex
-CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_retainedIdentityId_changedAt_idx" ON "UserDisplayIdentityNicknameChangeEvent"("retainedIdentityId", "changedAt");
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_retainedIdentityId_c_idx" ON "UserDisplayIdentityNicknameChangeEvent"("retainedIdentityId", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_retainedVaultObjectI_idx" ON "UserDisplayIdentityNicknameChangeEvent"("retainedVaultObjectId");
+
+-- CreateIndex
+CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_redactedAt_idx" ON "UserDisplayIdentityNicknameChangeEvent"("redactedAt");
 
 -- CreateIndex
 CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_reportId_idx" ON "UserDisplayIdentityNicknameChangeEvent"("reportId");
@@ -893,15 +984,6 @@ CREATE INDEX "ArchiveJob_target_manualReviewRequired_idx" ON "ArchiveJob"("targe
 CREATE INDEX "ArchiveJob_userId_target_idx" ON "ArchiveJob"("userId", "target");
 
 -- CreateIndex
-CREATE INDEX "SeasonParticipantProfileHistory_participantId_createdAt_idx" ON "SeasonParticipantProfileHistory"("participantId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "SeasonParticipantProfileHistory_seasonId_participantId_crea_idx" ON "SeasonParticipantProfileHistory"("seasonId", "participantId", "createdAt");
-
--- CreateIndex
-CREATE INDEX "SeasonParticipantProfileHistory_retainedIdentityId_createdA_idx" ON "SeasonParticipantProfileHistory"("retainedIdentityId", "createdAt");
-
--- CreateIndex
 CREATE INDEX "SeasonParticipant_userId_seasonId_idx" ON "SeasonParticipant"("userId", "seasonId");
 
 -- CreateIndex
@@ -918,6 +1000,24 @@ CREATE INDEX "SeasonParticipantProfile_collegeCode_idx" ON "SeasonParticipantPro
 
 -- CreateIndex
 CREATE INDEX "SeasonParticipantProfile_nicknameNormalizedSnapshot_idx" ON "SeasonParticipantProfile"("nicknameNormalizedSnapshot");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SeasonParticipantProfileHistory_retainedVaultObjectId_key" ON "SeasonParticipantProfileHistory"("retainedVaultObjectId");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantProfileHistory_participantId_createdAt_idx" ON "SeasonParticipantProfileHistory"("participantId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantProfileHistory_seasonId_participantId_crea_idx" ON "SeasonParticipantProfileHistory"("seasonId", "participantId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantProfileHistory_retainedIdentityId_createdA_idx" ON "SeasonParticipantProfileHistory"("retainedIdentityId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantProfileHistory_retainedVaultObjectId_idx" ON "SeasonParticipantProfileHistory"("retainedVaultObjectId");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantProfileHistory_redactedAt_idx" ON "SeasonParticipantProfileHistory"("redactedAt");
 
 -- CreateIndex
 CREATE INDEX "MatchRequest_seasonId_requesterParticipantId_receiverPartic_idx" ON "MatchRequest"("seasonId", "requesterParticipantId", "receiverParticipantId", "createdAt");
@@ -974,6 +1074,9 @@ CREATE INDEX "ConversationThread_participantAId_idx" ON "ConversationThread"("pa
 CREATE INDEX "ConversationThread_participantBId_idx" ON "ConversationThread"("participantBId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "ConversationMessage_retainedVaultObjectId_key" ON "ConversationMessage"("retainedVaultObjectId");
+
+-- CreateIndex
 CREATE INDEX "ConversationMessage_threadId_sentAt_idx" ON "ConversationMessage"("threadId", "sentAt");
 
 -- CreateIndex
@@ -983,31 +1086,70 @@ CREATE INDEX "ConversationMessage_senderParticipantId_sentAt_idx" ON "Conversati
 CREATE INDEX "ConversationMessage_bodyState_tombstonedAt_idx" ON "ConversationMessage"("bodyState", "tombstonedAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ConversationMessageRetainedBody_messageId_key" ON "ConversationMessageRetainedBody"("messageId");
+CREATE INDEX "ConversationMessage_retainedVaultObjectId_idx" ON "ConversationMessage"("retainedVaultObjectId");
 
 -- CreateIndex
-CREATE INDEX "ConversationMessageRetainedBody_threadId_retainedAt_idx" ON "ConversationMessageRetainedBody"("threadId", "retainedAt");
+CREATE UNIQUE INDEX "SeasonMatchHistoryEntryRetentionLink_retainedVaultObjectId_key" ON "SeasonMatchHistoryEntryRetentionLink"("retainedVaultObjectId");
 
 -- CreateIndex
-CREATE INDEX "ConversationMessageRetainedBody_triggerRetainedIdentityId_r_idx" ON "ConversationMessageRetainedBody"("triggerRetainedIdentityId", "retainedAt");
+CREATE INDEX "SeasonMatchHistoryEntryRetentionLink_retainedIdentityId_sub_idx" ON "SeasonMatchHistoryEntryRetentionLink"("retainedIdentityId", "subjectRole");
 
 -- CreateIndex
-CREATE INDEX "ConversationMessageRetainedBody_archiveJobId_idx" ON "ConversationMessageRetainedBody"("archiveJobId");
+CREATE INDEX "SeasonMatchHistoryEntryRetentionLink_participantId_idx" ON "SeasonMatchHistoryEntryRetentionLink"("participantId");
 
 -- CreateIndex
-CREATE INDEX "ConversationMessageRetainedBody_disposedAt_idx" ON "ConversationMessageRetainedBody"("disposedAt");
+CREATE INDEX "SeasonMatchHistoryEntryRetentionLink_userId_idx" ON "SeasonMatchHistoryEntryRetentionLink"("userId");
 
 -- CreateIndex
-CREATE INDEX "ConversationMessageRetainedBodyAccessLog_retainedBodyId_cre_idx" ON "ConversationMessageRetainedBodyAccessLog"("retainedBodyId", "createdAt");
+CREATE UNIQUE INDEX "SeasonMatchHistoryEntryRetentionLink_matchHistoryEntryId_re_key" ON "SeasonMatchHistoryEntryRetentionLink"("matchHistoryEntryId", "retainedIdentityId", "subjectRole");
 
 -- CreateIndex
-CREATE INDEX "ConversationMessageRetainedBodyAccessLog_threadId_createdAt_idx" ON "ConversationMessageRetainedBodyAccessLog"("threadId", "createdAt");
+CREATE INDEX "RetentionCase_reason_retentionHoldUntil_idx" ON "RetentionCase"("reason", "retentionHoldUntil");
 
 -- CreateIndex
-CREATE INDEX "ConversationMessageRetainedBodyAccessLog_messageId_createdA_idx" ON "ConversationMessageRetainedBodyAccessLog"("messageId", "createdAt");
+CREATE INDEX "RetentionCase_triggerRetainedIdentityId_reason_idx" ON "RetentionCase"("triggerRetainedIdentityId", "reason");
 
 -- CreateIndex
-CREATE INDEX "ConversationMessageRetainedBodyAccessLog_accessReason_creat_idx" ON "ConversationMessageRetainedBodyAccessLog"("accessReason", "createdAt");
+CREATE INDEX "RetentionCase_sourceTable_sourceId_idx" ON "RetentionCase"("sourceTable", "sourceId");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultObject_target_sourceId_idx" ON "RetainedVaultObject"("target", "sourceId");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultObject_archiveJobId_idx" ON "RetainedVaultObject"("archiveJobId");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultObject_subjectRetainedIdentityId_target_retain_idx" ON "RetainedVaultObject"("subjectRetainedIdentityId", "target", "retainedAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultObject_state_retainedAt_idx" ON "RetainedVaultObject"("state", "retainedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RetainedVaultObject_target_sourceId_subjectRole_key" ON "RetainedVaultObject"("target", "sourceId", "subjectRole");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultObjectHold_retentionCaseId_holdUntil_idx" ON "RetainedVaultObjectHold"("retentionCaseId", "holdUntil");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultObjectHold_holdReason_holdUntil_idx" ON "RetainedVaultObjectHold"("holdReason", "holdUntil");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RetainedVaultObjectHold_retainedVaultObjectId_retentionCase_key" ON "RetainedVaultObjectHold"("retainedVaultObjectId", "retentionCaseId");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultAccessLog_retainedVaultObjectId_createdAt_idx" ON "RetainedVaultAccessLog"("retainedVaultObjectId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultAccessLog_retainedIdentityId_createdAt_idx" ON "RetainedVaultAccessLog"("retainedIdentityId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultAccessLog_target_accessReason_createdAt_idx" ON "RetainedVaultAccessLog"("target", "accessReason", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultAccessLog_accessedBy_createdAt_idx" ON "RetainedVaultAccessLog"("accessedBy", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "RetainedVaultAccessLog_logRetentionHoldUntil_logRetentionDi_idx" ON "RetainedVaultAccessLog"("logRetentionHoldUntil", "logRetentionDisposedAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "LoginAttempt_emailNormalized_key" ON "LoginAttempt"("emailNormalized");
@@ -1029,40 +1171,6 @@ CREATE INDEX "ModerationTerm_surface_category_isActive_idx" ON "ModerationTerm"(
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ModerationTerm_normalizedTerm_category_matchMode_surface_key" ON "ModerationTerm"("normalizedTerm", "category", "matchMode", "surface");
-
--- Custom constraints not expressible in Prisma schema
-ALTER TABLE "SeasonParticipantProfile"
-  ADD CONSTRAINT "SeasonParticipantProfile_grade_check"
-  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
-
-ALTER TABLE "SeasonParticipantProfileHistory"
-  ADD CONSTRAINT "SeasonParticipantProfileHistory_grade_check"
-  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
-
-ALTER TABLE "SeasonParticipantProfile"
-  ADD CONSTRAINT "SeasonParticipantProfile_birthYear_check"
-  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
-
-ALTER TABLE "SeasonParticipantProfileHistory"
-  ADD CONSTRAINT "SeasonParticipantProfileHistory_birthYear_check"
-  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
-
--- Partial unique indexes for live/current invariants
-CREATE UNIQUE INDEX "MatchRequest_seasonId_pairMinParticipantId_pairMaxParticipantId_pending_key"
-ON "MatchRequest"("seasonId", "pairMinParticipantId", "pairMaxParticipantId")
-WHERE "status" = 'PENDING';
-
-CREATE UNIQUE INDEX "ActiveMatch_seasonId_pairKey_live_key"
-ON "ActiveMatch"("seasonId", "pairKey")
-WHERE "endedAt" IS NULL;
-
-CREATE UNIQUE INDEX "ConversationThread_seasonId_pairKey_live_key"
-ON "ConversationThread"("seasonId", "pairKey")
-WHERE "status" <> 'ARCHIVED';
-
-CREATE UNIQUE INDEX "ActiveMatchUnmatchRequest_activeMatchId_participantId_pending_key"
-ON "ActiveMatchUnmatchRequest"("activeMatchId", "participantId")
-WHERE "status" = 'PENDING';
 
 -- AddForeignKey
 ALTER TABLE "CampusGuideContent" ADD CONSTRAINT "CampusGuideContent_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1092,16 +1200,19 @@ ALTER TABLE "UserDisplayIdentity" ADD CONSTRAINT "UserDisplayIdentity_userId_fke
 ALTER TABLE "UserDismissedNotice" ADD CONSTRAINT "UserDismissedNotice_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ArchiveJob" ADD CONSTRAINT "ArchiveJob_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_retainedVaultObject_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "RetainedIdentityDataAccessLog" ADD CONSTRAINT "RetainedIdentityDataAccessLog_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ArchiveJob" ADD CONSTRAINT "ArchiveJob_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonParticipant" ADD CONSTRAINT "SeasonParticipant_dormitoryId_fkey" FOREIGN KEY ("dormitoryId") REFERENCES "Dormitory"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1117,6 +1228,9 @@ ALTER TABLE "SeasonParticipantProfile" ADD CONSTRAINT "SeasonParticipantProfile_
 
 -- AddForeignKey
 ALTER TABLE "SeasonParticipantProfile" ADD CONSTRAINT "SeasonParticipantProfile_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SeasonParticipantProfileHistory" ADD CONSTRAINT "SeasonParticipantProfileHistory_retainedVaultObjectId_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "MatchRequest" ADD CONSTRAINT "MatchRequest_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1181,21 +1295,69 @@ ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_threadId_f
 -- AddForeignKey
 ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_senderParticipantId_fkey" FOREIGN KEY ("senderParticipantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+-- AddForeignKey
+ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_retainedVaultObjectId_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConversationMessageRetainedBody" ADD CONSTRAINT "ConversationMessageRetainedBody_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "ConversationMessage"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SeasonMatchHistoryEntryRetentionLink" ADD CONSTRAINT "SeasonMatchHistoryEntryRetentionLink_matchHistoryEntryId_fkey" FOREIGN KEY ("matchHistoryEntryId") REFERENCES "SeasonMatchHistoryEntry"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConversationMessageRetainedBody" ADD CONSTRAINT "ConversationMessageRetainedBody_threadId_fkey" FOREIGN KEY ("threadId") REFERENCES "ConversationThread"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SeasonMatchHistoryEntryRetentionLink" ADD CONSTRAINT "SeasonMatchHistoryEntryRetentionLink_retainedVaultObjectId_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConversationMessageRetainedBody" ADD CONSTRAINT "ConversationMessageRetainedBody_archiveJobId_fkey" FOREIGN KEY ("archiveJobId") REFERENCES "ArchiveJob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "RetentionCase" ADD CONSTRAINT "RetentionCase_triggerRetainedIdentityId_fkey" FOREIGN KEY ("triggerRetainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConversationMessageRetainedBody" ADD CONSTRAINT "ConversationMessageRetainedBody_triggerRetainedIdentityId_fkey" FOREIGN KEY ("triggerRetainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "RetainedVaultObject" ADD CONSTRAINT "RetainedVaultObject_archiveJobId_fkey" FOREIGN KEY ("archiveJobId") REFERENCES "ArchiveJob"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ConversationMessageRetainedBodyAccessLog" ADD CONSTRAINT "ConversationMessageRetainedBodyAccessLog_retainedBodyId_fkey" FOREIGN KEY ("retainedBodyId") REFERENCES "ConversationMessageRetainedBody"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "RetainedVaultObject" ADD CONSTRAINT "RetainedVaultObject_subjectRetainedIdentityId_fkey" FOREIGN KEY ("subjectRetainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RetainedVaultObjectHold" ADD CONSTRAINT "RetainedVaultObjectHold_retainedVaultObjectId_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RetainedVaultObjectHold" ADD CONSTRAINT "RetainedVaultObjectHold_retentionCaseId_fkey" FOREIGN KEY ("retentionCaseId") REFERENCES "RetentionCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RetainedVaultAccessLog" ADD CONSTRAINT "RetainedVaultAccessLog_retainedVaultObjectId_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RetainedVaultAccessLog" ADD CONSTRAINT "RetainedVaultAccessLog_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Baseline custom constraints
+ALTER TABLE "SeasonParticipantProfile"
+  ADD CONSTRAINT "SeasonParticipantProfile_grade_check"
+  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
+
+ALTER TABLE "SeasonParticipantProfileHistory"
+  ADD CONSTRAINT "SeasonParticipantProfileHistory_grade_check"
+  CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
+
+ALTER TABLE "SeasonParticipantProfile"
+  ADD CONSTRAINT "SeasonParticipantProfile_birthYear_check"
+  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
+
+ALTER TABLE "SeasonParticipantProfileHistory"
+  ADD CONSTRAINT "SeasonParticipantProfileHistory_birthYear_check"
+  CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
+
+-- Baseline partial unique indexes
+CREATE UNIQUE INDEX "MatchRequest_seasonId_pairMinParticipantId_pairMaxParticipantId_pending_key"
+  ON "MatchRequest"("seasonId", "pairMinParticipantId", "pairMaxParticipantId")
+  WHERE "status" = 'PENDING';
+
+CREATE UNIQUE INDEX "ActiveMatch_seasonId_pairKey_live_key"
+  ON "ActiveMatch"("seasonId", "pairKey")
+  WHERE "endedAt" IS NULL;
+
+CREATE UNIQUE INDEX "ConversationThread_seasonId_pairKey_live_key"
+  ON "ConversationThread"("seasonId", "pairKey")
+  WHERE "status" <> 'ARCHIVED';
+
+CREATE UNIQUE INDEX "ActiveMatchUnmatchRequest_activeMatchId_participantId_pending_key"
+  ON "ActiveMatchUnmatchRequest"("activeMatchId", "participantId")
+  WHERE "status" = 'PENDING';

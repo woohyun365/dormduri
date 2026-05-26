@@ -7,7 +7,13 @@ describe('archive job owner', () => {
     manualReviewRequired?: boolean;
     attemptCount?: number;
     maxAttempts?: number;
-    target?: 'RETAINED_IDENTITY' | 'THREAD_RETENTION';
+    target?:
+      | 'RETAINED_IDENTITY'
+      | 'THREAD_RETENTION'
+      | 'NICKNAME_AUDIT'
+      | 'SEASON_PROFILE_HISTORY'
+      | 'MATCH_HISTORY';
+    retainedIdentityPayloadMissing?: boolean;
     threadId?: string | null;
     threadStatus?: 'OPEN' | 'READ_ONLY' | 'ARCHIVED' | null;
   }) {
@@ -39,6 +45,18 @@ describe('archive job owner', () => {
           update: jest.fn().mockImplementation((input: unknown) => {
             updates.push(input);
             return Promise.resolve(undefined);
+          }),
+        },
+        retainedIdentity: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'retained-1',
+            retentionReason: 'ACCOUNT_DELETION',
+            retentionHoldUntil: new Date('2026-05-18T00:00:00.000Z'),
+            retentionDisposedAt: null,
+            encryptedIdentifierPayload: job.retainedIdentityPayloadMissing
+              ? null
+              : { schemaVersion: 1 },
+            identifierKeyVersion: job.retainedIdentityPayloadMissing ? null : 'test-v1',
           }),
         },
         conversationThread: {
@@ -80,13 +98,16 @@ describe('archive job owner', () => {
     });
   });
 
-  it('실패 job은 maxAttempts 전까지 retry를 예약한다', async () => {
+  it('RETAINED_IDENTITY validation 실패는 maxAttempts 전까지 retry를 예약한다', async () => {
     const now = new Date('2026-05-13T00:00:00.000Z');
-    const store = createArchiveJobStore({ id: 'job-retry', attemptCount: 1, maxAttempts: 5 });
-
-    const result = await retryDueArchiveJobs(store.prisma as never, now, {
-      archive: () => Promise.resolve({ ok: false, errorCode: 'TEMPORARY_STORAGE_ERROR' }),
+    const store = createArchiveJobStore({
+      id: 'job-retry',
+      attemptCount: 1,
+      maxAttempts: 5,
+      retainedIdentityPayloadMissing: true,
     });
+
+    const result = await retryDueArchiveJobs(store.prisma as never, now, new HotDbArchiveAdapter());
 
     expect(result.retryScheduledCount).toBe(1);
     expect(store.updates[0]).toMatchObject({
@@ -94,7 +115,7 @@ describe('archive job owner', () => {
       data: {
         status: 'RETRY_SCHEDULED',
         attemptCount: 2,
-        lastErrorCode: 'TEMPORARY_STORAGE_ERROR',
+        lastErrorCode: 'RETAINED_IDENTITY_IDENTIFIER_PAYLOAD_MISSING',
       },
     });
   });

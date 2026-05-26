@@ -20,7 +20,7 @@ describe('migration baseline coverage', () => {
       `CREATE TYPE "ProfileHistorySource" AS ENUM ('SEASON_REGISTRATION', 'RETENTION_SNAPSHOT', 'SYSTEM_BACKFILL');`,
     );
     expect(sql).toContain(
-      `CREATE TYPE "ArchiveJobTarget" AS ENUM ('RETAINED_IDENTITY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION');`,
+      `CREATE TYPE "ArchiveJobTarget" AS ENUM ('RETAINED_IDENTITY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT');`,
     );
     expect(sql).toContain(`CREATE TYPE "ArchiveTier" AS ENUM ('HOT_DB');`);
     expect(sql).toContain(
@@ -32,8 +32,20 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE TABLE "RetainedIdentity"');
     expect(sql).toContain('CREATE TABLE "RetainedIdentityDataAccessLog"');
     expect(sql).toContain('CREATE TABLE "ArchiveJob"');
-    expect(sql).toContain('CREATE TABLE "ConversationMessageRetainedBody"');
-    expect(sql).toContain('CREATE TABLE "ConversationMessageRetainedBodyAccessLog"');
+    expect(sql).toContain('CREATE TABLE "RetentionCase"');
+    expect(sql).toContain('CREATE TABLE "RetainedVaultObject"');
+    expect(sql).toContain('CREATE TABLE "RetainedVaultObjectHold"');
+    expect(sql).toContain('CREATE TABLE "RetainedVaultAccessLog"');
+    expect(sql).toContain('CREATE TABLE "SeasonMatchHistoryEntryRetentionLink"');
+    expect(sql).toContain(
+      `CREATE TYPE "RetainedVaultObjectTarget" AS ENUM ('CHAT_MESSAGE_BODY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY', 'NICKNAME_AUDIT_EVENT');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "RetentionCaseReason" AS ENUM ('ACCOUNT_DELETION', 'REPORT_REVIEW', 'ENFORCEMENT_RECORD', 'DISPUTE_RESPONSE', 'LEGAL_HOLD', 'ADMIN_MANUAL', 'CHAT_THREAD_ARCHIVE');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "RetainedIdentityRetentionReason" AS ENUM ('ACCOUNT_DELETION', 'REPORT_REVIEW', 'ENFORCEMENT_RECORD', 'DISPUTE_RESPONSE', 'LEGAL_HOLD', 'ADMIN_MANUAL');`,
+    );
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfileHistory"');
     expect(sql).toContain('CREATE TABLE "ActiveMatchUnmatchRequest"');
     expect(sql).toContain(
@@ -59,13 +71,22 @@ describe('migration baseline coverage', () => {
     );
     expect(sql).toContain('CREATE INDEX "RetainedIdentityDataAccessLog_identity_createdAt_idx"');
     expect(sql).toContain('CREATE INDEX "RetainedIdentityDataAccessLog_logRetention_idx"');
-    expect(sql).toContain('CREATE UNIQUE INDEX "ConversationMessageRetainedBody_messageId_key"');
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "RetainedVaultObject_target_sourceId_subjectRole_key"',
+    );
+    expect(sql).toContain('CREATE INDEX "RetainedVaultObject_state_retainedAt_idx"');
+    expect(sql).toContain(
+      'CREATE INDEX "RetainedVaultAccessLog_target_accessReason_createdAt_idx"',
+    );
     expect(sql).toContain('CREATE INDEX "ConversationMessage_bodyState_tombstonedAt_idx"');
+    expect(sql).toContain('CREATE INDEX "ConversationMessage_retainedVaultObjectId_idx"');
     expect(sql).toContain('CREATE TABLE "UserDisplayIdentity"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfile"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfileHistory"');
     expect(sql).not.toContain('CREATE INDEX "User_dormitoryId_idx"');
     expect(sql).not.toContain('ADD CONSTRAINT "User_dormitoryId_fkey"');
+    expect(sql).not.toContain('CREATE TABLE "ConversationMessageRetainedBody"');
+    expect(sql).not.toContain('CREATE TABLE "ConversationMessageRetainedBodyAccessLog"');
   });
 
   it('updatedAt baseline은 DB trigger 없이도 유지된다', () => {

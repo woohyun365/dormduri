@@ -1,9 +1,7 @@
 import {
   conversationMessageTombstoneText,
   createConversationRetainedBodyCipher,
-  decryptConversationBodyPayload,
   discloseRetainedConversationMessageBody,
-  encryptConversationBodyPayload,
   retainAndTombstoneThreadMessagesTx,
   tombstoneConversationMessageTx,
 } from './conversation-retained-body-owner.js';
@@ -32,14 +30,43 @@ describe('conversation retained body owner', () => {
       tombstonedAt: null as Date | null,
       bodyRetainedAt: null as Date | null,
       bodyVersion: initial?.bodyVersion ?? 1,
-      retainedBody: null as { id: string } | null,
+      retainedVaultObjectId: null as string | null,
+      senderParticipantId: 'participant-1',
+      sentAt: new Date('2026-05-14T00:00:00.000Z'),
+      senderParticipant: { userId: 'user-1' },
     };
-    const retainedBodies: unknown[] = [];
+    const retentionCases: unknown[] = [];
+    const vaultObjects: Array<Record<string, unknown>> = [];
+    const vaultHolds: unknown[] = [];
 
     return {
       message,
-      retainedBodies,
+      retentionCases,
+      vaultObjects,
+      vaultHolds,
       tx: {
+        retentionCase: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+            const created = { id: 'retention-case-1', ...data };
+            retentionCases.push(created);
+            return Promise.resolve({ id: created.id });
+          }),
+        },
+        retainedVaultObject: {
+          findFirst: jest.fn().mockResolvedValue(null),
+          create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+            const created = { id: 'vault-object-1', ...data };
+            vaultObjects.push(created);
+            return Promise.resolve({ id: created.id });
+          }),
+        },
+        retainedVaultObjectHold: {
+          upsert: jest.fn().mockImplementation((input: unknown) => {
+            vaultHolds.push(input);
+            return Promise.resolve(input);
+          }),
+        },
         conversationMessage: {
           findMany: jest.fn().mockResolvedValue([message]),
           findUnique: jest.fn().mockResolvedValue(message),
@@ -51,6 +78,9 @@ describe('conversation retained body owner', () => {
             }
             if (data.tombstonedAt instanceof Date) message.tombstonedAt = data.tombstonedAt;
             if (data.bodyRetainedAt instanceof Date) message.bodyRetainedAt = data.bodyRetainedAt;
+            if (typeof data.retainedVaultObjectId === 'string') {
+              message.retainedVaultObjectId = data.retainedVaultObjectId;
+            }
             if (typeof data.bodyVersion === 'object' && data.bodyVersion) {
               message.bodyVersion += (data.bodyVersion as { increment: number }).increment;
             }
@@ -62,20 +92,11 @@ describe('conversation retained body owner', () => {
             });
           }),
         },
-        conversationMessageRetainedBody: {
-          upsert: jest
-            .fn()
-            .mockImplementation(({ create }: { create: Record<string, unknown> }) => {
-              retainedBodies.push(create);
-              message.retainedBody = { id: 'retained-body-1' };
-              return Promise.resolve(create);
-            }),
-        },
       },
     };
   }
 
-  it('PLAIN message body를 암호화 vault에 저장하고 tombstone으로 치환한다', async () => {
+  it('PLAIN message body를 공통 retained vault에 저장하고 tombstone으로 치환한다', async () => {
     const now = new Date('2026-05-14T00:00:00.000Z');
     const store = createMessageTx({ body: '신고 대응에 필요할 수 있는 원문' });
 
@@ -84,6 +105,7 @@ describe('conversation retained body owner', () => {
       {
         threadId: 'thread-1',
         archiveJobId: 'archive-job-1',
+        triggerUserId: 'user-1',
         triggerRetainedIdentityId: 'retained-identity-1',
         now,
       },
@@ -97,22 +119,31 @@ describe('conversation retained body owner', () => {
       tombstoneReason: 'ACCOUNT_DELETION_RETENTION',
       bodyVersion: 2,
       bodyRetainedAt: now,
+      retainedVaultObjectId: 'vault-object-1',
     });
-    expect(store.retainedBodies).toHaveLength(1);
-    const retainedBody = store.retainedBodies[0] as {
-      encryptedBodyPayload: unknown;
-      bodyDigest: string;
-      keyVersion: string;
-    };
-    expect(retainedBody.bodyDigest).toHaveLength(64);
-    expect(retainedBody.keyVersion).toBe('test-v1');
-    expect(decryptConversationBodyPayload(cipher, retainedBody.encryptedBodyPayload)).toMatchObject(
-      {
-        messageId: 'message-1',
-        threadId: 'thread-1',
-        body: '신고 대응에 필요할 수 있는 원문',
-      },
-    );
+    expect(store.retentionCases[0]).toMatchObject({
+      reason: 'CHAT_THREAD_ARCHIVE',
+      triggerRetainedIdentityId: 'retained-identity-1',
+      sourceTable: 'ConversationThread',
+      sourceId: 'thread-1',
+    });
+    expect(store.vaultObjects).toHaveLength(1);
+    expect(store.vaultObjects[0]).toMatchObject({
+      target: 'CHAT_MESSAGE_BODY',
+      sourceTable: 'ConversationMessage',
+      sourceId: 'message-1',
+      subjectUserId: 'user-1',
+      subjectRetainedIdentityId: 'retained-identity-1',
+      subjectRole: 'MESSAGE_SENDER',
+      keyPurpose: 'CHAT_BODY',
+      keyVersion: 'test-v1',
+    });
+    expect(store.vaultObjects[0]?.payloadDigest).toHaveLength(64);
+    expect(store.vaultObjects[0]?.encryptedPayload).toMatchObject({
+      schemaVersion: 1,
+      algorithm: 'aes-256-gcm',
+      keyVersion: 'test-v1',
+    });
     expect(result.events[0]).toMatchObject({
       type: 'conversation.message.tombstoned',
       messageId: 'message-1',
@@ -134,33 +165,32 @@ describe('conversation retained body owner', () => {
       retainOriginalBody: false,
     });
 
-    expect(store.retainedBodies).toHaveLength(0);
+    expect(store.vaultObjects).toHaveLength(0);
     expect(event).toMatchObject({
       tombstoneReason: 'USER_MESSAGE_DELETED',
       body: conversationMessageTombstoneText.USER_MESSAGE_DELETED,
     });
   });
 
-  it('retained body 복원은 승인 근거와 접근 로그를 남긴다', async () => {
-    const encryptedBodyPayload = encryptConversationBodyPayload(cipher, {
-      schemaVersion: 1,
-      messageId: 'message-1',
-      threadId: 'thread-1',
-      body: '복원 대상 원문',
-      retainedAt: '2026-05-14T00:00:00.000Z',
-    });
+  it('retained body 복원은 공통 retained vault 접근 로그를 남긴다', async () => {
+    const now = new Date('2026-05-14T00:00:00.000Z');
+    const store = createMessageTx({ body: '복원 대상 원문' });
+    await retainAndTombstoneThreadMessagesTx(
+      store.tx as never,
+      { threadId: 'thread-1', now },
+      { bodyCipher: cipher },
+    );
     const logs: unknown[] = [];
     const prisma = {
-      conversationMessageRetainedBody: {
+      retainedVaultObject: {
         findUnique: jest.fn().mockResolvedValue({
-          id: 'retained-body-1',
-          messageId: 'message-1',
-          threadId: 'thread-1',
-          encryptedBodyPayload,
+          ...store.vaultObjects[0],
+          id: 'vault-object-1',
+          state: 'RETAINED',
           disposedAt: null,
         }),
       },
-      conversationMessageRetainedBodyAccessLog: {
+      retainedVaultAccessLog: {
         create: jest.fn().mockImplementation((input: unknown) => {
           logs.push(input);
           return Promise.resolve(input);
@@ -171,7 +201,7 @@ describe('conversation retained body owner', () => {
     const disclosure = await discloseRetainedConversationMessageBody(
       prisma as never,
       {
-        retainedBodyId: 'retained-body-1',
+        retainedVaultObjectId: 'vault-object-1',
         accessedBy: 'ops-1',
         accessReason: 'REPORT_REVIEW',
         approvalReference: 'report-1',
@@ -182,7 +212,7 @@ describe('conversation retained body owner', () => {
     );
 
     expect(disclosure).toMatchObject({
-      retainedBodyId: 'retained-body-1',
+      retainedVaultObjectId: 'vault-object-1',
       messageId: 'message-1',
       threadId: 'thread-1',
       body: '복원 대상 원문',
@@ -190,11 +220,12 @@ describe('conversation retained body owner', () => {
     });
     expect(logs[0]).toMatchObject({
       data: {
-        retainedBodyId: 'retained-body-1',
+        retainedVaultObjectId: 'vault-object-1',
+        target: 'CHAT_MESSAGE_BODY',
         accessReason: 'REPORT_REVIEW',
         approvalReference: 'report-1',
         result: 'DISCLOSED',
-        disclosedFields: ['body'],
+        disclosedFields: ['payload'],
       },
     });
   });

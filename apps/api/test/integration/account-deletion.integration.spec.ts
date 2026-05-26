@@ -18,6 +18,21 @@ import {
 describe('account deletion + season de-registration integration', () => {
   jest.setTimeout(60_000);
 
+  const retainedVaultEnv = {
+    RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64: Buffer.alloc(32, 20).toString('base64'),
+    RETENTION_IDENTITY_KEY_VERSION: 'account-deletion-identity-v1',
+    RETENTION_VAULT_NICKNAME_AUDIT_ENCRYPTION_KEY_BASE64: Buffer.alloc(32, 21).toString('base64'),
+    RETENTION_VAULT_NICKNAME_AUDIT_KEY_VERSION: 'account-deletion-nickname-v1',
+    RETENTION_VAULT_SEASON_PROFILE_HISTORY_ENCRYPTION_KEY_BASE64: Buffer.alloc(32, 22).toString(
+      'base64',
+    ),
+    RETENTION_VAULT_SEASON_PROFILE_HISTORY_KEY_VERSION: 'account-deletion-profile-v1',
+    RETENTION_VAULT_MATCH_HISTORY_ENCRYPTION_KEY_BASE64: Buffer.alloc(32, 23).toString('base64'),
+    RETENTION_VAULT_MATCH_HISTORY_KEY_VERSION: 'account-deletion-match-v1',
+    RETENTION_VAULT_CHAT_BODY_ENCRYPTION_KEY_BASE64: Buffer.alloc(32, 24).toString('base64'),
+    RETENTION_VAULT_CHAT_BODY_KEY_VERSION: 'account-deletion-chat-v1',
+  } as const;
+  let previousRetainedVaultEnv: Partial<Record<keyof typeof retainedVaultEnv, string | undefined>>;
   let prisma: PrismaService;
   let authSessionService: AuthSessionService;
   let lifecycleSweepService: LifecycleSweepService;
@@ -26,6 +41,14 @@ describe('account deletion + season de-registration integration', () => {
   let cleanupDb: (() => Promise<void>) | null = null;
 
   beforeAll(async () => {
+    previousRetainedVaultEnv = Object.fromEntries(
+      Object.keys(retainedVaultEnv).map((key) => [
+        key,
+        process.env[key as keyof typeof retainedVaultEnv],
+      ]),
+    ) as Partial<Record<keyof typeof retainedVaultEnv, string | undefined>>;
+    Object.assign(process.env, retainedVaultEnv);
+
     const sandbox = await createIntegrationDatabaseSandbox('account_deletion_integration');
     cleanupDb = sandbox.cleanup;
 
@@ -43,6 +66,14 @@ describe('account deletion + season de-registration integration', () => {
     }
     if (cleanupDb) {
       await cleanupDb();
+    }
+    for (const key of Object.keys(retainedVaultEnv) as Array<keyof typeof retainedVaultEnv>) {
+      const previous = previousRetainedVaultEnv[key];
+      if (previous === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previous;
+      }
     }
   });
 
@@ -492,6 +523,7 @@ describe('account deletion + season de-registration integration', () => {
       'RETAINED_IDENTITY',
       'SEASON_PROFILE_HISTORY',
       'THREAD_RETENTION',
+      'NICKNAME_AUDIT',
     ]);
     const threadRetentionJob = archiveJobs.find((job) => job.target === 'THREAD_RETENTION');
     expect(threadRetentionJob).toMatchObject({
@@ -652,7 +684,7 @@ describe('account deletion + season de-registration integration', () => {
       where: { retainedIdentityId: retainedIdentity.id },
       orderBy: { target: 'asc' },
     });
-    expect(archiveJobs.map((job) => job.target)).toEqual(['RETAINED_IDENTITY']);
+    expect(archiveJobs.map((job) => job.target)).toEqual(['RETAINED_IDENTITY', 'NICKNAME_AUDIT']);
 
     await request(httpServer)
       .post('/api/users/me/delete/cancel')
@@ -668,8 +700,8 @@ describe('account deletion + season de-registration integration', () => {
       new Date(requestDeleteBody.deletedAt).getTime() + 6 * 24 * 60 * 60 * 1_000,
     );
     const sweepResult = await lifecycleSweepService.runSweep(sixDaysLater);
-    expect(sweepResult.archiveJobSweep.succeededCount).toBeGreaterThanOrEqual(1);
-    expect(sweepResult.retainedIdentityDisposalSweep.processedCount).toBe(1);
+    expect(sweepResult.archiveJobSweep.succeededCount).toBeGreaterThanOrEqual(2);
+    expect(sweepResult.retainedIdentityDisposalSweep.processedCount).toBe(2);
 
     const disposedIdentity = await prisma.retainedIdentity.findUniqueOrThrow({
       where: { id: retainedIdentity.id },

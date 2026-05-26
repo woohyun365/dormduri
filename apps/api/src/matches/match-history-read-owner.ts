@@ -202,6 +202,7 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
           where: {
             seasonId: entry.seasonId,
             participantId: entry.counterpartParticipantId,
+            redactedAt: null,
             createdAt: { lte: seasonEndBoundary },
           },
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -211,6 +212,7 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
           where: {
             seasonId: entry.seasonId,
             participantId: entry.counterpartParticipantId,
+            redactedAt: null,
           },
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           select: seasonParticipantProfileHistoryPublicSelect,

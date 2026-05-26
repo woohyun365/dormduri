@@ -536,6 +536,19 @@ describe('Match history integration', () => {
       data: {
         participantId: 'participant-b-2025-01',
         seasonId: 'season-2025-01',
+        nicknameSnapshot: '탈퇴한 사용자',
+        nicknameNormalizedSnapshot: 'redacted-history',
+        intro: '',
+        source: 'RETENTION_SNAPSHOT',
+        redactedAt: new Date('2026-05-12T00:00:00.000Z'),
+        redactionReason: 'ACCOUNT_DELETION',
+        createdAt: new Date('2025-02-28T12:00:00.000Z'),
+      },
+    });
+    await prisma.seasonParticipantProfileHistory.create({
+      data: {
+        participantId: 'participant-b-2025-01',
+        seasonId: 'season-2025-01',
         nicknameSnapshot: '좋은날씨-after',
         nicknameNormalizedSnapshot: '좋은날씨-after',
         ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),

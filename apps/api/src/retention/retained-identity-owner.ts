@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import { validateRetainedIdentityMetadata } from './retained-identity-metadata.validator.js';
+import { disposeDueRetainedVaultObjects } from './retained-vault-owner.js';
 import {
   decryptJsonPayload,
   encryptJsonPayload,
@@ -317,7 +318,13 @@ export async function discloseRetainedIdentityIdentifiers(
 }
 
 export async function disposeExpiredRetainedIdentities(
-  prisma: Pick<PrismaService, 'retainedIdentity' | 'retainedIdentityDataAccessLog'>,
+  prisma: Pick<
+    PrismaService,
+    | 'retainedIdentity'
+    | 'retainedIdentityDataAccessLog'
+    | 'retainedVaultObject'
+    | 'retainedVaultAccessLog'
+  >,
   now: Date,
 ): Promise<RetainedIdentityDisposalResult> {
   const dueIdentities = await prisma.retainedIdentity.findMany({
@@ -356,7 +363,9 @@ export async function disposeExpiredRetainedIdentities(
     processedCount += 1;
   }
 
-  return { processedCount };
+  const vaultDisposal = await disposeDueRetainedVaultObjects(prisma, now);
+
+  return { processedCount: processedCount + vaultDisposal.processedCount };
 }
 
 export function createRetainedIdentityCipher(input: {

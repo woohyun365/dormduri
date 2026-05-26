@@ -9,6 +9,12 @@ import {
   createRetainedIdentityOwner,
 } from '../../src/retention/retained-identity-owner.js';
 import { createConversationRetainedBodyCipher } from '../../src/retention/conversation-retained-body-owner.js';
+import {
+  createRetentionVaultCipher,
+  createStaticRetentionVaultKeyring,
+  ensureRetentionCaseTx,
+  retainVaultPayloadTx,
+} from '../../src/retention/retained-vault-owner.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -32,6 +38,21 @@ describe('RetainedIdentity integration', () => {
   const chatBodyCipher = createConversationRetainedBodyCipher({
     key: Buffer.alloc(32, 12),
     keyVersion: 'chat-integration-v1',
+  });
+  const retainedVaultKeyring = createStaticRetentionVaultKeyring({
+    CHAT_BODY: chatBodyCipher,
+    NICKNAME_AUDIT: createRetentionVaultCipher({
+      key: Buffer.alloc(32, 13),
+      keyVersion: 'nickname-integration-v1',
+    }),
+    SEASON_PROFILE_HISTORY: createRetentionVaultCipher({
+      key: Buffer.alloc(32, 14),
+      keyVersion: 'profile-history-integration-v1',
+    }),
+    MATCH_HISTORY: createRetentionVaultCipher({
+      key: Buffer.alloc(32, 15),
+      keyVersion: 'match-history-integration-v1',
+    }),
   });
 
   beforeAll(async () => {
@@ -276,6 +297,102 @@ describe('RetainedIdentity integration', () => {
       }),
     ).rejects.toThrow('anchor disposed');
   });
+
+  it('보존 기간이 만료된 RRPD vault payload는 ciphertext와 digest를 함께 폐기하고 로그를 남긴다', async () => {
+    const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+    const deletedAt = new Date('2026-05-12T00:00:00.000Z');
+    const retainedIdentity = await owner.createRetainedIdentitySnapshot({
+      userId: 'user-a',
+      deletedAt,
+      metadata: {
+        schemaVersion: 1,
+        request: {
+          requestedBy: 'USER',
+          note: 'vault payload 만료 처리 테스트',
+        },
+      },
+    });
+
+    const retainedVaultObject = await prisma.runSerializableTransaction(async (tx) => {
+      const retentionCase = await ensureRetentionCaseTx(tx, {
+        reason: 'ACCOUNT_DELETION',
+        triggerUserId: 'user-a',
+        triggerRetainedIdentityId: retainedIdentity.id,
+        sourceTable: 'UserDisplayIdentityNicknameChangeEvent',
+        sourceId: 'nickname-disposal-test',
+        retentionHoldUntil: new Date('2026-05-17T00:00:00.000Z'),
+        metadata: { test: 'vault payload disposal' },
+      });
+
+      return retainVaultPayloadTx(
+        tx,
+        {
+          target: 'NICKNAME_AUDIT_EVENT',
+          sourceTable: 'UserDisplayIdentityNicknameChangeEvent',
+          sourceId: 'nickname-disposal-test',
+          subjectUserId: 'user-a',
+          subjectRetainedIdentityId: retainedIdentity.id,
+          subjectRole: 'USER',
+          keyPurpose: 'NICKNAME_AUDIT',
+          payloadSchemaVersion: 1,
+          plaintext: {
+            schemaVersion: 1,
+            previousNickname: '유저A',
+            nextNickname: '유저A-변경',
+          },
+          aad: 'knu-roommate:test:nickname-disposal-test',
+          retainedAt: deletedAt,
+          retentionCaseId: retentionCase.id,
+          holdReason: 'ACCOUNT_DELETION',
+          holdUntil: new Date('2026-05-17T00:00:00.000Z'),
+        },
+        { keyring: retainedVaultKeyring },
+      );
+    });
+
+    const retainedBefore = await prisma.retainedVaultObject.findUniqueOrThrow({
+      where: { id: retainedVaultObject.id },
+    });
+    expect(retainedBefore).toMatchObject({
+      target: 'NICKNAME_AUDIT_EVENT',
+      state: 'RETAINED',
+      keyVersion: 'nickname-integration-v1',
+    });
+    expect(retainedBefore.encryptedPayload).not.toBeNull();
+    expect(retainedBefore.payloadDigest).toHaveLength(64);
+
+    const result = await owner.disposeExpiredRetainedIdentities(
+      new Date('2026-05-18T00:00:00.000Z'),
+    );
+
+    expect(result.processedCount).toBe(2);
+    const disposedVault = await prisma.retainedVaultObject.findUniqueOrThrow({
+      where: { id: retainedVaultObject.id },
+    });
+    expect(disposedVault).toMatchObject({
+      state: 'DISPOSED',
+      encryptedPayload: null,
+      payloadDigest: null,
+      keyVersion: null,
+      disposalReason: 'RETENTION_HOLD_EXPIRED',
+    });
+    expect(disposedVault.disposedAt?.toISOString()).toBe('2026-05-18T00:00:00.000Z');
+
+    const accessLogs = await prisma.retainedVaultAccessLog.findMany({
+      where: { retainedVaultObjectId: retainedVaultObject.id },
+    });
+    expect(accessLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: 'NICKNAME_AUDIT_EVENT',
+          accessedBy: 'SYSTEM',
+          accessReason: 'RETENTION_EXPIRY_REVIEW',
+          result: 'DISPOSED',
+        }),
+      ]),
+    );
+  });
+
   it('계정 삭제 archive job 생성은 target별 ArchiveJob row를 만들고, 미archive thread의 THREAD_RETENTION은 대기 상태로 남긴다.', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-b',
@@ -344,7 +461,7 @@ describe('RetainedIdentity integration', () => {
       }),
     );
 
-    expect(result.createdCount).toBe(4);
+    expect(result.createdCount).toBe(5);
 
     const jobs = await prisma.archiveJob.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
@@ -353,6 +470,7 @@ describe('RetainedIdentity integration', () => {
     expect(jobs.map((job) => job.target)).toEqual(
       expect.arrayContaining([
         'MATCH_HISTORY',
+        'NICKNAME_AUDIT',
         'RETAINED_IDENTITY',
         'SEASON_PROFILE_HISTORY',
         'THREAD_RETENTION',
@@ -383,14 +501,332 @@ describe('RetainedIdentity integration', () => {
       manualReviewRequired: false,
       lastErrorCode: null,
     });
+    expect(jobByTarget.get('NICKNAME_AUDIT')).toMatchObject({
+      userId: 'user-a',
+      retainedIdentityId: retainedIdentity.id,
+      status: 'PENDING',
+    });
     expect(jobByTarget.get('THREAD_RETENTION')?.payload).toEqual(
       expect.objectContaining({
         source: 'ACCOUNT_DELETE',
         target: 'THREAD_RETENTION',
-        retentionMode: 'INDEFINITE_LOGICAL_ARCHIVE',
+        retentionMode: 'CHAT_THREAD_ARCHIVE',
         identityReviewAfter: '2028-05-11T00:00:00.000Z',
         waitingFor: 'THREAD_ARCHIVED',
       }),
+    );
+  });
+
+  it('archive sweep은 nickname/profile/match history 원문을 RRPD vault로 옮기고 hot row를 최소화한다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-b',
+      participantId: 'participant-b',
+      email: 'user-b@kangwon.ac.kr',
+      nickname: '유저B',
+    });
+
+    const deletedAt = new Date('2026-05-12T00:00:00.000Z');
+    const archiveNow = new Date('2026-05-13T00:00:00.000Z');
+    const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
+    const retainedIdentity = await owner.createRetainedIdentitySnapshot({
+      userId: 'user-a',
+      deletedAt,
+      metadata: {
+        schemaVersion: 1,
+        request: {
+          requestedBy: 'SYSTEM',
+          note: 'profile/match/nickname archive 처리 테스트',
+        },
+      },
+    });
+
+    await prisma.userDisplayIdentityNicknameChangeEvent.create({
+      data: {
+        id: 'nickname-event-a',
+        userId: 'user-a',
+        source: 'USER_SELF',
+        reason: 'USER_REQUEST',
+        actorType: 'USER',
+        actorId: 'user-a',
+        previousNickname: '이전A',
+        previousNicknameNormalized: '이전a',
+        nextNickname: '유저A',
+        nextNicknameNormalized: '유저a',
+        changedAt: new Date('2026-05-01T00:00:00.000Z'),
+      },
+    });
+
+    await prisma.seasonMatchHistoryEntry.createMany({
+      data: [
+        {
+          id: 'history-a-viewer',
+          seasonId: 'season-integration',
+          viewerParticipantId: 'participant-a',
+          counterpartParticipantId: 'participant-b',
+          pairKey: 'participant-a:participant-b',
+          entryType: 'MATCH',
+          entryResult: 'MATCHED_SUCCESS',
+          viewerRequested: true,
+          matchScore: 87,
+          viewerSmokingToleranceSnapshot: 'NO_ONLY',
+          viewerBedtimeSnapshot: 'BETWEEN_22_24',
+          viewerWakeTimeSnapshot: 'BETWEEN_07_08',
+          viewerRelationshipStyleSnapshot: 'CLOSE',
+          counterpartBedtimeSnapshot: 'BETWEEN_22_24',
+          counterpartCleanLevelSnapshot: 'WEEKLY_3_UP',
+          counterpartNicknameSnapshot: '유저B',
+          hadConversation: true,
+          matchedAt: new Date('2026-05-01T00:00:00.000Z'),
+          finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
+        },
+        {
+          id: 'history-a-counterpart',
+          seasonId: 'season-integration',
+          viewerParticipantId: 'participant-b',
+          counterpartParticipantId: 'participant-a',
+          pairKey: 'participant-a:participant-b',
+          entryType: 'MATCH',
+          entryResult: 'MATCHED_SUCCESS',
+          viewerRequested: false,
+          matchScore: 91,
+          viewerSmokingToleranceSnapshot: 'ANY',
+          viewerBedtimeSnapshot: 'AFTER_02',
+          viewerWakeTimeSnapshot: 'AFTER_10',
+          viewerRelationshipStyleSnapshot: 'CASUAL',
+          counterpartBedtimeSnapshot: 'BETWEEN_22_24',
+          counterpartWakeTimeSnapshot: 'BETWEEN_07_08',
+          counterpartSleepHabitSnapshot: 'NONE',
+          counterpartCleanLevelSnapshot: 'WEEKLY_3_UP',
+          counterpartNicknameSnapshot: '유저A',
+          hadConversation: true,
+          matchedAt: new Date('2026-05-01T00:00:00.000Z'),
+          finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
+        },
+      ],
+    });
+
+    await prisma.runSerializableTransaction((tx) =>
+      createDeletionArchiveJobsTx(tx, {
+        retainedIdentityId: retainedIdentity.id,
+        userId: 'user-a',
+        deletedAt,
+      }),
+    );
+
+    const sweep = await retryDueArchiveJobs(prisma, archiveNow, undefined, undefined, {
+      keyring: retainedVaultKeyring,
+    });
+    expect(sweep.manualReviewCount).toBe(0);
+    expect(sweep.succeededCount).toBe(5);
+
+    const nicknameEvent = await prisma.userDisplayIdentityNicknameChangeEvent.findUniqueOrThrow({
+      where: { id: 'nickname-event-a' },
+    });
+    expect(nicknameEvent).toMatchObject({
+      retainedIdentityId: retainedIdentity.id,
+      previousNickname: '탈퇴한 사용자',
+      nextNickname: '탈퇴한 사용자',
+      actorId: null,
+      redactionReason: 'ACCOUNT_DELETION',
+    });
+    expect(nicknameEvent.redactedAt?.toISOString()).toBe(archiveNow.toISOString());
+    expect(nicknameEvent.retainedVaultObjectId).not.toBeNull();
+
+    const profileHistory = await prisma.seasonParticipantProfileHistory.findFirstOrThrow({
+      where: { participantId: 'participant-a' },
+    });
+    expect(profileHistory).toMatchObject({
+      retainedIdentityId: retainedIdentity.id,
+      nicknameSnapshot: '탈퇴한 사용자',
+      bedtime: null,
+      drinkingTolerance: null,
+      intro: '',
+      redactionReason: 'ACCOUNT_DELETION',
+    });
+    expect(profileHistory.redactedAt?.toISOString()).toBe(archiveNow.toISOString());
+    expect(profileHistory.retainedVaultObjectId).not.toBeNull();
+
+    const viewerEntry = await prisma.seasonMatchHistoryEntry.findUniqueOrThrow({
+      where: { id: 'history-a-viewer' },
+    });
+    expect(viewerEntry).toMatchObject({
+      viewerSmokingToleranceSnapshot: null,
+      viewerBedtimeSnapshot: null,
+      viewerWakeTimeSnapshot: null,
+      counterpartNicknameSnapshot: '유저B',
+      counterpartRedactedAt: null,
+      matchScore: null,
+    });
+    expect(viewerEntry.viewerRedactedAt?.toISOString()).toBe(archiveNow.toISOString());
+
+    const counterpartEntry = await prisma.seasonMatchHistoryEntry.findUniqueOrThrow({
+      where: { id: 'history-a-counterpart' },
+    });
+    expect(counterpartEntry).toMatchObject({
+      counterpartBedtimeSnapshot: null,
+      counterpartWakeTimeSnapshot: null,
+      counterpartSleepHabitSnapshot: null,
+      counterpartNicknameSnapshot: '탈퇴한 사용자',
+      viewerRedactedAt: null,
+      matchScore: null,
+    });
+    expect(counterpartEntry.counterpartRedactedAt?.toISOString()).toBe(archiveNow.toISOString());
+
+    const vaultObjects = await prisma.retainedVaultObject.findMany({
+      where: {
+        subjectRetainedIdentityId: retainedIdentity.id,
+        target: { in: ['NICKNAME_AUDIT_EVENT', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY'] },
+      },
+      orderBy: [{ target: 'asc' }, { subjectRole: 'asc' }, { sourceId: 'asc' }],
+      include: { holds: true },
+    });
+    expect(vaultObjects).toHaveLength(4);
+    expect(vaultObjects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          target: 'NICKNAME_AUDIT_EVENT',
+          sourceId: 'nickname-event-a',
+          subjectRole: 'USER',
+          keyPurpose: 'NICKNAME_AUDIT',
+          keyVersion: 'nickname-integration-v1',
+        }),
+        expect.objectContaining({
+          target: 'SEASON_PROFILE_HISTORY',
+          sourceId: profileHistory.id,
+          subjectRole: 'PARTICIPANT',
+          keyPurpose: 'SEASON_PROFILE_HISTORY',
+          keyVersion: 'profile-history-integration-v1',
+        }),
+        expect.objectContaining({
+          target: 'MATCH_HISTORY_ENTRY',
+          sourceId: 'history-a-viewer',
+          subjectRole: 'VIEWER',
+          keyPurpose: 'MATCH_HISTORY',
+          keyVersion: 'match-history-integration-v1',
+        }),
+        expect.objectContaining({
+          target: 'MATCH_HISTORY_ENTRY',
+          sourceId: 'history-a-counterpart',
+          subjectRole: 'COUNTERPART',
+          keyPurpose: 'MATCH_HISTORY',
+          keyVersion: 'match-history-integration-v1',
+        }),
+      ]),
+    );
+    expect(vaultObjects.every((object) => object.encryptedPayload !== null)).toBe(true);
+    expect(vaultObjects.every((object) => object.payloadDigest?.length === 64)).toBe(true);
+    expect(vaultObjects.every((object) => object.holds[0]?.holdReason === 'ACCOUNT_DELETION')).toBe(
+      true,
+    );
+
+    const matchLinks = await prisma.seasonMatchHistoryEntryRetentionLink.findMany({
+      where: { retainedIdentityId: retainedIdentity.id },
+      orderBy: [{ subjectRole: 'asc' }],
+    });
+    expect(matchLinks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          matchHistoryEntryId: 'history-a-viewer',
+          participantId: 'participant-a',
+          subjectRole: 'VIEWER',
+          redactionReason: 'ACCOUNT_DELETION',
+        }),
+        expect.objectContaining({
+          matchHistoryEntryId: 'history-a-counterpart',
+          participantId: 'participant-a',
+          subjectRole: 'COUNTERPART',
+          redactionReason: 'ACCOUNT_DELETION',
+        }),
+      ]),
+    );
+
+    const retainedIdentityB = await owner.createRetainedIdentitySnapshot({
+      userId: 'user-b',
+      deletedAt,
+      metadata: {
+        schemaVersion: 1,
+        request: {
+          requestedBy: 'SYSTEM',
+          note: 'sequential counterpart deletion 처리 테스트',
+        },
+      },
+    });
+
+    await prisma.runSerializableTransaction((tx) =>
+      createDeletionArchiveJobsTx(tx, {
+        retainedIdentityId: retainedIdentityB.id,
+        userId: 'user-b',
+        deletedAt,
+      }),
+    );
+
+    const counterpartSweep = await retryDueArchiveJobs(prisma, archiveNow, undefined, undefined, {
+      keyring: retainedVaultKeyring,
+    });
+    expect(counterpartSweep.manualReviewCount).toBe(0);
+    expect(counterpartSweep.succeededCount).toBe(5);
+
+    const allMatchLinks = await prisma.seasonMatchHistoryEntryRetentionLink.findMany({
+      orderBy: [{ matchHistoryEntryId: 'asc' }, { subjectRole: 'asc' }],
+    });
+    expect(allMatchLinks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          matchHistoryEntryId: 'history-a-viewer',
+          retainedIdentityId: retainedIdentity.id,
+          participantId: 'participant-a',
+          subjectRole: 'VIEWER',
+        }),
+        expect.objectContaining({
+          matchHistoryEntryId: 'history-a-viewer',
+          retainedIdentityId: retainedIdentityB.id,
+          participantId: 'participant-b',
+          subjectRole: 'COUNTERPART',
+        }),
+        expect.objectContaining({
+          matchHistoryEntryId: 'history-a-counterpart',
+          retainedIdentityId: retainedIdentity.id,
+          participantId: 'participant-a',
+          subjectRole: 'COUNTERPART',
+        }),
+        expect.objectContaining({
+          matchHistoryEntryId: 'history-a-counterpart',
+          retainedIdentityId: retainedIdentityB.id,
+          participantId: 'participant-b',
+          subjectRole: 'VIEWER',
+        }),
+      ]),
+    );
+    expect(allMatchLinks).toHaveLength(4);
+
+    const matchVaultObjects = await prisma.retainedVaultObject.findMany({
+      where: { target: 'MATCH_HISTORY_ENTRY' },
+      orderBy: [{ sourceId: 'asc' }, { subjectRole: 'asc' }],
+    });
+    expect(matchVaultObjects).toHaveLength(4);
+    expect(matchVaultObjects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceId: 'history-a-viewer',
+          subjectRetainedIdentityId: retainedIdentity.id,
+          subjectRole: 'VIEWER',
+        }),
+        expect.objectContaining({
+          sourceId: 'history-a-viewer',
+          subjectRetainedIdentityId: retainedIdentityB.id,
+          subjectRole: 'COUNTERPART',
+        }),
+        expect.objectContaining({
+          sourceId: 'history-a-counterpart',
+          subjectRetainedIdentityId: retainedIdentity.id,
+          subjectRole: 'COUNTERPART',
+        }),
+        expect.objectContaining({
+          sourceId: 'history-a-counterpart',
+          subjectRetainedIdentityId: retainedIdentityB.id,
+          subjectRole: 'VIEWER',
+        }),
+      ]),
     );
   });
 
@@ -484,6 +920,9 @@ describe('RetainedIdentity integration', () => {
       {
         bodyCipher: chatBodyCipher,
       },
+      {
+        keyring: retainedVaultKeyring,
+      },
     );
     expect(sweep.succeededCount).toBeGreaterThanOrEqual(1);
 
@@ -520,20 +959,85 @@ describe('RetainedIdentity integration', () => {
       ]),
     );
 
-    const retainedBodies = await prisma.conversationMessageRetainedBody.findMany({
-      where: { threadId: 'thread-a-b-retention' },
-      orderBy: { messageId: 'asc' },
+    const retainedBodies = await prisma.retainedVaultObject.findMany({
+      where: { target: 'CHAT_MESSAGE_BODY', sourceTable: 'ConversationMessage' },
+      orderBy: { sourceId: 'asc' },
+      include: { holds: true },
     });
     expect(retainedBodies).toHaveLength(2);
     expect(retainedBodies[0]).toMatchObject({
       archiveJobId: waitingJob.id,
-      triggerRetainedIdentityId: retainedIdentity.id,
+      target: 'CHAT_MESSAGE_BODY',
+      sourceId: 'message-retention-1',
+      subjectUserId: 'user-a',
+      subjectRetainedIdentityId: retainedIdentity.id,
+      subjectRole: 'MESSAGE_SENDER',
+      keyPurpose: 'CHAT_BODY',
       keyVersion: 'chat-integration-v1',
     });
-    expect(retainedBodies[0]?.encryptedBodyPayload).toMatchObject({
+    expect(retainedBodies[0]?.encryptedPayload).toMatchObject({
       schemaVersion: 1,
       algorithm: 'aes-256-gcm',
       keyVersion: 'chat-integration-v1',
     });
+    expect(retainedBodies[0]?.payloadDigest).toHaveLength(64);
+    expect(retainedBodies[0]?.holds[0]).toMatchObject({
+      holdReason: 'CHAT_THREAD_ARCHIVE',
+    });
+    expect(retainedBodies[1]).toMatchObject({
+      archiveJobId: waitingJob.id,
+      target: 'CHAT_MESSAGE_BODY',
+      sourceId: 'message-retention-2',
+      subjectUserId: 'user-b',
+      subjectRetainedIdentityId: null,
+      subjectRole: 'MESSAGE_SENDER',
+      keyPurpose: 'CHAT_BODY',
+      keyVersion: 'chat-integration-v1',
+    });
+    expect(retainedBodies[1]?.encryptedPayload).toMatchObject({
+      schemaVersion: 1,
+      algorithm: 'aes-256-gcm',
+      keyVersion: 'chat-integration-v1',
+    });
+    expect(retainedBodies[1]?.payloadDigest).toHaveLength(64);
+    expect(retainedBodies[1]?.holds[0]).toMatchObject({
+      holdReason: 'CHAT_THREAD_ARCHIVE',
+      holdUntil: null,
+    });
+
+    const disposal = await owner.disposeExpiredRetainedIdentities(
+      new Date('2026-05-18T00:00:00.000Z'),
+    );
+    expect(disposal.processedCount).toBeGreaterThanOrEqual(1);
+
+    const disposedIdentity = await prisma.retainedIdentity.findUniqueOrThrow({
+      where: { id: retainedIdentity.id },
+    });
+    expect(disposedIdentity.retentionDisposedAt?.toISOString()).toBe('2026-05-18T00:00:00.000Z');
+
+    const bodiesAfterIdentityDisposal = await prisma.retainedVaultObject.findMany({
+      where: { target: 'CHAT_MESSAGE_BODY', sourceTable: 'ConversationMessage' },
+      orderBy: { sourceId: 'asc' },
+    });
+    expect(bodiesAfterIdentityDisposal).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceId: 'message-retention-1',
+          subjectRetainedIdentityId: retainedIdentity.id,
+          state: 'RETAINED',
+          keyPurpose: 'CHAT_BODY',
+        }),
+        expect.objectContaining({
+          sourceId: 'message-retention-2',
+          subjectRetainedIdentityId: null,
+          state: 'RETAINED',
+          keyPurpose: 'CHAT_BODY',
+        }),
+      ]),
+    );
+    expect(bodiesAfterIdentityDisposal.every((body) => body.encryptedPayload !== null)).toBe(true);
+    expect(bodiesAfterIdentityDisposal.every((body) => body.payloadDigest?.length === 64)).toBe(
+      true,
+    );
   });
 });
