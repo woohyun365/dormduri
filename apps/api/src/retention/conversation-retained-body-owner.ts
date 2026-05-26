@@ -25,21 +25,8 @@ export const conversationMessageTombstoneText = {
 } as const;
 
 type ConversationMessageTombstoneReason = keyof typeof conversationMessageTombstoneText;
-interface RetainedConversationBodyPlaintextV1 {
+interface RetainedConversationBodyPlaintext {
   schemaVersion: 1;
-  messageId: string;
-  threadId: string;
-  senderUserId: string;
-  senderParticipantId: string;
-  sentAt: string;
-  body: string;
-  bodyVersionAtRetention: number;
-  retainedAt: string;
-  tombstoneReason: ConversationMessageTombstoneReason;
-}
-
-interface RetainedConversationBodyPlaintextV2 {
-  schemaVersion: 2;
   messageId: string;
   threadId: string;
   senderParticipantId: string | null;
@@ -48,12 +35,8 @@ interface RetainedConversationBodyPlaintextV2 {
   bodyVersionAtRetention: number;
   retainedAt: string;
   tombstoneReason: ConversationMessageTombstoneReason;
-  identityLinkReviewedAt: string;
+  identityLinkReviewedAt: string | null;
 }
-
-type RetainedConversationBodyPlaintext =
-  | RetainedConversationBodyPlaintextV1
-  | RetainedConversationBodyPlaintextV2;
 
 export type ConversationRetainedBodyCipher = RetentionCipher;
 
@@ -320,14 +303,14 @@ export async function tombstoneConversationMessageTx(
           schemaVersion: 1,
           messageId: message.id,
           threadId: message.threadId,
-          senderUserId: message.senderParticipant.userId,
           senderParticipantId: message.senderParticipantId,
           sentAt: message.sentAt.toISOString(),
           body: message.body,
           bodyVersionAtRetention: message.bodyVersion,
           retainedAt: input.now.toISOString(),
           tombstoneReason: input.reason,
-        } satisfies RetainedConversationBodyPlaintextV1,
+          identityLinkReviewedAt: null,
+        } satisfies RetainedConversationBodyPlaintext,
         aad: buildChatBodyAad(message.id),
         retainedAt: input.now,
         metadata: input.metadata,
@@ -488,7 +471,7 @@ export async function reviewRetainedConversationIdentityLinksTx(
       data: {
         subjectUserId: null,
         subjectRetainedIdentityId: null,
-        payloadSchemaVersion: 2,
+        payloadSchemaVersion: 1,
         encryptedPayload: encryptJsonPayload({
           cipher,
           plaintext: minimizedPayload,
@@ -518,41 +501,24 @@ export function parseRetainedConversationBodyPlaintext(
     throw new Error('[conversation-retained-body-owner] retained body plaintext invalid');
   }
 
-  const candidate = payload as Partial<Record<keyof RetainedConversationBodyPlaintextV1, unknown>>;
+  const candidate = payload as Partial<Record<keyof RetainedConversationBodyPlaintext, unknown>>;
   if (
     candidate.schemaVersion !== 1 ||
     typeof candidate.messageId !== 'string' ||
     typeof candidate.threadId !== 'string' ||
-    typeof candidate.senderUserId !== 'string' ||
-    typeof candidate.senderParticipantId !== 'string' ||
+    (typeof candidate.senderParticipantId !== 'string' && candidate.senderParticipantId !== null) ||
     typeof candidate.sentAt !== 'string' ||
     typeof candidate.body !== 'string' ||
     typeof candidate.bodyVersionAtRetention !== 'number' ||
     typeof candidate.retainedAt !== 'string' ||
-    typeof candidate.tombstoneReason !== 'string'
+    typeof candidate.tombstoneReason !== 'string' ||
+    (typeof candidate.identityLinkReviewedAt !== 'string' &&
+      candidate.identityLinkReviewedAt !== null)
   ) {
-    const v2Candidate = payload as Partial<
-      Record<keyof RetainedConversationBodyPlaintextV2, unknown>
-    >;
-    if (
-      v2Candidate.schemaVersion === 2 &&
-      typeof v2Candidate.messageId === 'string' &&
-      typeof v2Candidate.threadId === 'string' &&
-      (typeof v2Candidate.senderParticipantId === 'string' ||
-        v2Candidate.senderParticipantId === null) &&
-      typeof v2Candidate.sentAt === 'string' &&
-      typeof v2Candidate.body === 'string' &&
-      typeof v2Candidate.bodyVersionAtRetention === 'number' &&
-      typeof v2Candidate.retainedAt === 'string' &&
-      typeof v2Candidate.tombstoneReason === 'string' &&
-      typeof v2Candidate.identityLinkReviewedAt === 'string'
-    ) {
-      return v2Candidate as RetainedConversationBodyPlaintextV2;
-    }
     throw new Error('[conversation-retained-body-owner] retained body plaintext invalid');
   }
 
-  return candidate as RetainedConversationBodyPlaintextV1;
+  return candidate as RetainedConversationBodyPlaintext;
 }
 
 function getActiveNonArchiveHoldReview(
@@ -593,9 +559,9 @@ function minDate(current: Date | null, candidate: Date) {
 function toIdentityLinkMinimizedPayload(
   payload: RetainedConversationBodyPlaintext,
   now: Date,
-): RetainedConversationBodyPlaintextV2 {
+): RetainedConversationBodyPlaintext {
   return {
-    schemaVersion: 2,
+    schemaVersion: 1,
     messageId: payload.messageId,
     threadId: payload.threadId,
     senderParticipantId: payload.senderParticipantId,

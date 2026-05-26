@@ -82,7 +82,7 @@ describe('retained identity owner', () => {
     ).toThrow('unsupported metadata key');
     expect(() =>
       validateRetainedIdentityMetadata({
-        schemaVersion: 2,
+        schemaVersion: 99,
       }),
     ).toThrow('schemaVersion=1');
     expect(() =>
@@ -118,7 +118,7 @@ describe('retained identity owner', () => {
     });
     expect(() =>
       decryptRetainedIdentifierPayload(
-        createRetainedIdentityCipher({ key: Buffer.alloc(32, 8), keyVersion: 'test-v2' }),
+        createRetainedIdentityCipher({ key: Buffer.alloc(32, 8), keyVersion: 'test-other' }),
         encrypted,
       ),
     ).toThrow('key version mismatch');

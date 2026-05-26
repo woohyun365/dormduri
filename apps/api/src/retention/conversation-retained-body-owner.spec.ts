@@ -295,7 +295,7 @@ describe('conversation retained body owner', () => {
     expect(updates[0]).toMatchObject({
       subjectUserId: null,
       subjectRetainedIdentityId: null,
-      payloadSchemaVersion: 2,
+      payloadSchemaVersion: 1,
       keyVersion: 'test-v1',
     });
     expect(updates[0]?.payloadDigest).toEqual(expect.stringMatching(/^[a-f0-9]{64}$/));
