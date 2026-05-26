@@ -144,17 +144,6 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
         return false;
       }
 
-      if (thread) {
-        const viewerMember = this.getThreadMember(thread, viewerParticipant.id);
-        if (viewerMember?.memberState === 'ACTIVE') {
-          return this.isThreadWritable(thread, viewerParticipant.id, now);
-        }
-
-        if (viewerMember?.memberState === 'LEFT') {
-          return thread.status === 'OPEN';
-        }
-      }
-
       const targetSelection =
         deps.seasonParticipantsService.selectCanonicalSelection(targetParticipant);
       const targetRegistrationSnapshotExists =
@@ -191,6 +180,7 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           ? viewerPairActiveMatch.participantBId
           : viewerPairActiveMatch.participantAId
         : null;
+      const pairHasActiveMatch = matchedPartnerParticipantId === targetParticipant.id;
       const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
       const viewerCurrentDormitoryCanMatch = canCurrentDormitoryMatch(
         seasonContext,
@@ -231,8 +221,28 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           registrationSnapshotExists: targetRegistrationSnapshotExists,
         }),
       );
+      const directThreadActionEligible = canStartChat && exposure.actions.canStartChat;
 
-      return canStartChat && exposure.actions.canStartChat;
+      if (thread) {
+        const viewerMember = this.getThreadMember(thread, viewerParticipant.id);
+        if (viewerMember?.memberState === 'ACTIVE') {
+          if (thread.threadKind === 'MATCHED' || pairHasActiveMatch) {
+            return this.isThreadWritable(thread, viewerParticipant.id, now);
+          }
+          return (
+            directThreadActionEligible && this.isThreadWritable(thread, viewerParticipant.id, now)
+          );
+        }
+
+        if (viewerMember?.memberState === 'LEFT') {
+          if (pairHasActiveMatch) {
+            return thread.status === 'OPEN';
+          }
+          return directThreadActionEligible && thread.status === 'OPEN';
+        }
+      }
+
+      return directThreadActionEligible;
     },
   };
 }
