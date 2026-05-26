@@ -8,10 +8,33 @@ const BASELINE_MIGRATION_PATH = path.resolve(
   '../../../prisma/migrations/000000000000_initial_baseline/migration.sql',
 );
 
+const REMOVED_PROFILE_ACCOUNT_ARTIFACTS = [
+  'CREATE INDEX "User_dormitoryId_idx"',
+  'ADD CONSTRAINT "User_dormitoryId_fkey"',
+] as const;
+
+const REMOVED_RETENTION_ARTIFACTS = [
+  'RetainedIdentityRetentionReason',
+  'ArchiveTier',
+  'RETENTION_SNAPSHOT',
+  'RETAINED_IDENTITY',
+  'CREATE TABLE "RetainedIdentityDataAccessLog"',
+  'CREATE TABLE "RetainedVaultAccessLog"',
+  'CREATE TABLE "ConversationMessageRetainedBody"',
+  'CREATE TABLE "ConversationMessageRetainedBodyAccessLog"',
+] as const;
+
+const REMOVED_UPDATED_AT_TRIGGER_ARTIFACTS = [
+  'CREATE OR REPLACE FUNCTION set_current_timestamp()',
+  'CREATE TRIGGER set_user_updated_at',
+  'CREATE TRIGGER set_auth_session_updated_at',
+  'CREATE TRIGGER set_season_dormitory_operation_updated_at',
+] as const;
+
 describe('migration baseline coverage', () => {
   const sql = readFileSync(BASELINE_MIGRATION_PATH, 'utf8');
 
-  it('현재 schema에 필요한 핵심 enum/table/index/constraint를 모두 포함한다', () => {
+  it('현재 baseline의 canonical enum/table/index/constraint와 제거된 schema artifact를 함께 고정한다', () => {
     expect(sql).toContain('CREATE EXTENSION IF NOT EXISTS pgcrypto;');
     expect(sql).toContain(
       `CREATE TYPE "SeasonOverrideState" AS ENUM ('OFF_SEASON', 'SEASON_OPEN', 'SEASON_MATCHING', 'SEASON_POST_MATCH');`,
@@ -86,22 +109,17 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE TABLE "UserDisplayIdentity"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfile"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfileHistory"');
-    expect(sql).not.toContain('CREATE INDEX "User_dormitoryId_idx"');
-    expect(sql).not.toContain('ADD CONSTRAINT "User_dormitoryId_fkey"');
-    expect(sql).not.toContain('RetainedIdentityRetentionReason');
-    expect(sql).not.toContain('ArchiveTier');
-    expect(sql).not.toContain('RETENTION_SNAPSHOT');
-    expect(sql).not.toContain('RETAINED_IDENTITY');
-    expect(sql).not.toContain('CREATE TABLE "RetainedIdentityDataAccessLog"');
-    expect(sql).not.toContain('CREATE TABLE "RetainedVaultAccessLog"');
-    expect(sql).not.toContain('CREATE TABLE "ConversationMessageRetainedBody"');
-    expect(sql).not.toContain('CREATE TABLE "ConversationMessageRetainedBodyAccessLog"');
+
+    // These are not broad string-search guards. They pin removed DB-level artifacts
+    // that would reintroduce old account-profile ownership or pre-RRPD retention tables.
+    for (const artifact of [...REMOVED_PROFILE_ACCOUNT_ARTIFACTS, ...REMOVED_RETENTION_ARTIFACTS]) {
+      expect(sql).not.toContain(artifact);
+    }
   });
 
-  it('updatedAt baseline은 DB trigger 없이도 유지된다', () => {
-    expect(sql).not.toContain('CREATE OR REPLACE FUNCTION set_current_timestamp()');
-    expect(sql).not.toContain('CREATE TRIGGER set_user_updated_at');
-    expect(sql).not.toContain('CREATE TRIGGER set_auth_session_updated_at');
-    expect(sql).not.toContain('CREATE TRIGGER set_season_dormitory_operation_updated_at');
+  it('updatedAt baseline은 legacy DB trigger가 아니라 Prisma @updatedAt 소유로 유지된다', () => {
+    for (const artifact of REMOVED_UPDATED_AT_TRIGGER_ARTIFACTS) {
+      expect(sql).not.toContain(artifact);
+    }
   });
 });

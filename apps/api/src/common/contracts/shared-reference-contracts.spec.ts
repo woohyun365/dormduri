@@ -193,7 +193,7 @@ describe('shared reference contracts', () => {
     }
   });
 
-  it('auth signup request는 profile orchestration 필드를 받지 않는다', () => {
+  it('auth signup request는 계정 identity 입력만 받고 profile orchestration 필드를 받지 않는다', () => {
     expect(
       signupRequestSchema.parse({
         email: 'student@kangwon.ac.kr',
@@ -217,7 +217,7 @@ describe('shared reference contracts', () => {
     ).toBe(false);
   });
 
-  it('auth signup draft validation request는 email/password/nickname만 받는다', () => {
+  it('auth signup draft validation request는 legacy profile payload 없이 email/password/nickname만 받는다', () => {
     expect(
       signupDraftValidationRequestSchema.parse({
         email: 'student@kangwon.ac.kr',
@@ -316,7 +316,7 @@ describe('shared reference contracts', () => {
     });
   });
 
-  it('onboarding dismiss request는 지원 notice key만 허용한다', () => {
+  it('onboarding dismiss request는 service-intro notice key만 허용하고 legacy onboarding alias를 거부한다', () => {
     expect(
       dismissCurrentUserOnboardingNoticeRequestSchema.parse({
         noticeKey: SERVICE_INTRO_NOTICE_KEY,
@@ -330,7 +330,7 @@ describe('shared reference contracts', () => {
     ).toBe(false);
   });
 
-  it('user update request는 selection/message patch와 season profile write를 분리한다', () => {
+  it('user update request는 display identity 변경만 받고 selection/message/season profile write를 분리한다', () => {
     expect(
       updateCurrentUserRequestSchema.parse({
         displayIdentity: { nickname: '새닉네임' },
@@ -600,7 +600,7 @@ describe('shared reference contracts', () => {
     });
   });
 
-  it('public profile contract는 capability 기반 detail target shape만 허용한다', () => {
+  it('public profile contract는 exposure enum 없이 capability 기반 detail target shape만 허용한다', () => {
     expect(publicProfileSchema.parse(PUBLIC_PROFILE_DETAIL)).toMatchObject({
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
       capabilities: { canViewFull: true, detailViewable: true },
@@ -614,7 +614,7 @@ describe('shared reference contracts', () => {
     ).toBe(false);
   });
 
-  it('roommate search contract는 capability 기반 단일 summary shape를 사용한다', () => {
+  it('roommate search contract는 exposure enum 없이 capability 기반 단일 summary shape를 사용한다', () => {
     expect(
       roommateSearchQuerySchema.parse({
         smokingBehavior: 'NO',
@@ -642,7 +642,7 @@ describe('shared reference contracts', () => {
     ).toBe(false);
   });
 
-  it('match request contract는 roommate-search summary projection을 재사용한다', () => {
+  it('match request contract는 requestChannel 없이 roommate-search summary projection을 재사용한다', () => {
     expect(
       createMatchRequestSchema.parse({
         targetUserId: 'user-2',
