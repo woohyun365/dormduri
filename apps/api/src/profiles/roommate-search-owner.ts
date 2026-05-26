@@ -166,7 +166,7 @@ function resolveScopeCapabilities(viewerContext: VisibleProfileViewerContext) {
     };
   }
 
-  if (seasonState === 'SEASON_OPEN') {
+  if (seasonState === 'SEASON_OPEN' || seasonState === 'SEASON_POST_MATCH') {
     return {
       campusMerged: true,
       sameBuildingOnly,

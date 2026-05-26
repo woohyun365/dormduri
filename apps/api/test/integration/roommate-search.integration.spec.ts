@@ -330,43 +330,35 @@ describe('RoommateSearchService integration', () => {
     expect(result.items.every((item) => item.canViewFull)).toBe(true);
   });
 
-  it('SEASON_POST_MATCH matched viewer는 same-building 목록에서 partner만 detail-capable이고 나머지는 summary-only다', async () => {
+  it('SEASON_POST_MATCH matched viewer는 CAMPUS_MERGED summary를 보고 partner만 detail-capable이다', async () => {
+    await seedSecondDormitory();
+    await moveUserToDormitory({ participantId: 'participant-c', dormitoryId: 'saerom' });
+    await setSeasonState('SEASON_POST_MATCH');
     await seedActiveMatchFixture(prisma, {
       activeMatchId: 'active-a-b',
       participantAId: 'participant-a',
       participantBId: 'participant-b',
     });
-    await prisma.seasonDormitoryOperation.update({
-      where: {
-        seasonId_dormitoryId: {
-          seasonId: 'season-integration',
-          dormitoryId: 'dasan',
-        },
-      },
-      data: {
-        roomSelectionDate: new Date('2026-01-01T00:00:00.000Z'),
-      },
-    });
 
     const result = await service.search(authContext('user-a'), {
-      scope: 'SAME_BUILDING_ONLY',
+      scope: 'CAMPUS_MERGED',
       offset: 0,
       limit: 20,
     });
     const partner = result.items.find((item) => item.nickname === '유저B');
-    const other = result.items.find((item) => item.nickname === '유저C');
+    const otherDormitoryTarget = result.items.find((item) => item.nickname === '유저C');
 
-    expect(result.scopeCapabilities).toEqual({
-      campusMerged: false,
-      sameBuildingOnly: true,
+    expect(result.scope).toBe('CAMPUS_MERGED');
+    expect(result.scopeCapabilities).toMatchObject({
+      campusMerged: true,
     });
     expect(partner?.relationToViewer).toBe('MATCHED_PARTNER');
     expect(partner?.canViewFull).toBe(true);
-    expect(other).toMatchObject({
+    expect(otherDormitoryTarget).toMatchObject({
       relationToViewer: 'GENERAL',
       canViewFull: false,
     });
-    expect(other).not.toHaveProperty('matchScore');
+    expect(otherDormitoryTarget).not.toHaveProperty('matchScore');
 
     await expect(
       profilesService.getProfileByUserId(authContext('user-a'), 'user-c'),
