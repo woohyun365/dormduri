@@ -69,7 +69,11 @@ describe('createUserDeletionOwner', () => {
       getCurrentSeasonContext: jest.fn().mockResolvedValue(seasonContext),
     } as unknown as SeasonsService;
 
-    const owner = createUserDeletionOwner({ prisma, seasonsService });
+    const owner = createUserDeletionOwner({
+      prisma,
+      retentionWorkerPrisma: prisma as never,
+      seasonsService,
+    });
 
     await expect(
       owner.requestAccountDeletion('user-1', { password: 'Pass1234' }),

@@ -106,6 +106,7 @@ describe('UsersService current-user boundary', () => {
 
   const service = new UsersService(
     prisma as never,
+    prisma as never,
     seasonsService as never,
     moderationService as never,
     currentUserViewService as never,

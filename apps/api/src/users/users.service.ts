@@ -8,7 +8,7 @@ import type {
 } from '@repo/shared/user-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { PrismaService, RetentionWorkerPrismaService } from '../common/prisma/prisma.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
 import {
@@ -39,6 +39,7 @@ export class UsersService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly retentionWorkerPrisma: RetentionWorkerPrismaService,
     private readonly seasonsService: SeasonsService,
     private readonly moderationService: ModerationService,
     private readonly currentUserViewService: CurrentUserViewService,
@@ -51,6 +52,7 @@ export class UsersService {
     });
     this.deletionOwner = createUserDeletionOwner({
       prisma: this.prisma,
+      retentionWorkerPrisma: this.retentionWorkerPrisma,
       seasonsService: this.seasonsService,
     });
     this.onboardingOwner = createUserOnboardingOwner({

@@ -4,7 +4,10 @@ import type {
 } from '@repo/shared/user-contract';
 import { verifyPasswordHash } from '../auth/auth-password.js';
 import { badRequestError, conflictError } from '../common/http/api-error.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type {
+  PrismaService,
+  RetentionWorkerPrismaService,
+} from '../common/prisma/prisma.service.js';
 import {
   activateThreadRetentionJobsForArchivedThreads,
   createDeletionArchiveJobsTx,
@@ -31,6 +34,7 @@ import { recordDisplayIdentityNicknameChangeAuditTx } from './display-identity-n
 
 interface UserDeletionOwnerDeps {
   prisma: PrismaService;
+  retentionWorkerPrisma: RetentionWorkerPrismaService;
   seasonsService: SeasonsService;
 }
 
@@ -97,152 +101,154 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
       }
     }
 
-    const retainedIdentity = await deps.prisma.runSerializableTransaction(async (tx) => {
-      const txUser = await tx.user.findUnique({
-        where: { id: user.id },
-        select: {
-          id: true,
-          deletedAt: true,
-          displayIdentity: {
-            select: {
-              nickname: true,
-              nicknameNormalized: true,
+    const retainedIdentity = await deps.retentionWorkerPrisma.runSerializableTransaction(
+      async (tx) => {
+        const txUser = await tx.user.findUnique({
+          where: { id: user.id },
+          select: {
+            id: true,
+            deletedAt: true,
+            displayIdentity: {
+              select: {
+                nickname: true,
+                nicknameNormalized: true,
+              },
             },
           },
-        },
-      });
-
-      if (!txUser || txUser.deletedAt) {
-        throw conflictError('ACCOUNT_ALREADY_DELETED', '이미 삭제 처리된 계정입니다.');
-      }
-
-      if (seasonContext) {
-        const txParticipant = await tx.seasonParticipant.findUnique({
-          where: {
-            seasonId_userId: {
-              seasonId: seasonContext.season.id,
-              userId: txUser.id,
-            },
-          },
-          select: accountDeletionParticipantSelect,
         });
 
-        if (isParticipantRegistered(txParticipant)) {
-          throw accountDeletionBlockedBySeasonParticipation(seasonContext);
+        if (!txUser || txUser.deletedAt) {
+          throw conflictError('ACCOUNT_ALREADY_DELETED', '이미 삭제 처리된 계정입니다.');
         }
-      }
-      if (!txUser.displayIdentity) {
-        throw new Error('[UserDeletionOwner] user display identity row is required');
-      }
 
-      const retained = await createRetainedIdentitySnapshotTx(tx, {
-        userId: txUser.id,
-        deletedAt: now,
-        metadata: {
-          schemaVersion: 1,
-          migration: {
-            source: 'ACCOUNT_DELETE',
-            note: 'immediate de-identification with five-day retained identifier anchor',
-          },
-          request: {
-            requestedBy: 'USER',
-            note: '계정 삭제 요청 수락 즉시 비식별화',
-          },
-        },
-      });
+        if (seasonContext) {
+          const txParticipant = await tx.seasonParticipant.findUnique({
+            where: {
+              seasonId_userId: {
+                seasonId: seasonContext.season.id,
+                userId: txUser.id,
+              },
+            },
+            select: accountDeletionParticipantSelect,
+          });
 
-      await createDeletionArchiveJobsTx(tx, {
-        retainedIdentityId: retained.id,
-        userId: txUser.id,
-        deletedAt: now,
-      });
+          if (isParticipantRegistered(txParticipant)) {
+            throw accountDeletionBlockedBySeasonParticipation(seasonContext);
+          }
+        }
+        if (!txUser.displayIdentity) {
+          throw new Error('[UserDeletionOwner] user display identity row is required');
+        }
 
-      await tx.authSession.updateMany({
-        where: {
+        const retained = await createRetainedIdentitySnapshotTx(tx, {
           userId: txUser.id,
-          revokedAt: null,
-        },
-        data: {
-          revokedAt: now,
-        },
-      });
-
-      await recordDisplayIdentityNicknameChangeAuditTx(tx, {
-        userId: txUser.id,
-        retainedIdentityId: retained.id,
-        source: 'ACCOUNT_DELETION_DEIDENTIFICATION',
-        reason: 'ACCOUNT_DELETION',
-        actorType: 'SYSTEM',
-        actorId: 'account-deletion',
-        previousNickname: txUser.displayIdentity.nickname,
-        previousNicknameNormalized: txUser.displayIdentity.nicknameNormalized,
-        nextNickname: retained.displayLabel,
-        nextNicknameNormalized: `deleted-${retained.anonymizedActorKey}`,
-        changedAt: now,
-        metadata: {
-          schemaVersion: 1,
-          priority: 'ACCOUNT_DELETION_TOMBSTONE_OVERRIDES_DISPLAY_IDENTITY',
-          requestedBy: 'USER',
-        },
-      });
-
-      await tx.userDisplayIdentity.updateMany({
-        where: { userId: txUser.id },
-        data: {
-          nickname: retained.displayLabel,
-          nicknameNormalized: `deleted-${retained.anonymizedActorKey}`,
-          nicknameChangedAt: now,
-        },
-      });
-
-      await tx.seasonParticipantProfile.updateMany({
-        where: { participant: { userId: txUser.id } },
-        data: {
-          nicknameSnapshot: retained.displayLabel,
-          nicknameNormalizedSnapshot: `deleted-${retained.anonymizedActorKey}`,
-          bedtime: null,
-          wakeTime: null,
-          sleepHabit: null,
-          sleepEnvironment: null,
-          screenUsage: null,
-          noiseSensitivity: null,
-          smokingBehavior: null,
-          indoorEating: null,
-          phoneBehavior: null,
-          earphoneUsage: null,
-          cleanLevel: null,
-          drinkingFrequency: null,
-          relationshipStyle: null,
-          temperatureSensitivity: null,
-          smokingTolerance: null,
-          phoneTolerance: null,
-          earphoneExpectation: null,
-          sleepEnvPreference: null,
-          screenTolerance: null,
-          indoorEatingTolerance: null,
-          cleanExpectation: null,
-          drinkingTolerance: null,
-          intro: '',
-          collegeCode: null,
-          grade: null,
-          mbti: null,
-          birthYear: null,
-        },
-      });
-
-      await tx.user.update({
-        where: { id: txUser.id },
-        data: {
-          email: `deleted+${retained.anonymizedActorKey}@deleted.local`,
-          emailNormalized: `deleted+${retained.anonymizedActorKey}@deleted.local`,
-          passwordHash: `deleted:${retained.anonymizedActorKey}`,
-          emailVerifiedAt: null,
           deletedAt: now,
-        },
-      });
+          metadata: {
+            schemaVersion: 1,
+            migration: {
+              source: 'ACCOUNT_DELETE',
+              note: 'immediate de-identification with five-day retained identifier anchor',
+            },
+            request: {
+              requestedBy: 'USER',
+              note: '계정 삭제 요청 수락 즉시 비식별화',
+            },
+          },
+        });
 
-      return retained;
-    });
+        await createDeletionArchiveJobsTx(tx, {
+          retainedIdentityId: retained.id,
+          userId: txUser.id,
+          deletedAt: now,
+        });
+
+        await tx.authSession.updateMany({
+          where: {
+            userId: txUser.id,
+            revokedAt: null,
+          },
+          data: {
+            revokedAt: now,
+          },
+        });
+
+        await recordDisplayIdentityNicknameChangeAuditTx(tx, {
+          userId: txUser.id,
+          retainedIdentityId: retained.id,
+          source: 'ACCOUNT_DELETION_DEIDENTIFICATION',
+          reason: 'ACCOUNT_DELETION',
+          actorType: 'SYSTEM',
+          actorId: 'account-deletion',
+          previousNickname: txUser.displayIdentity.nickname,
+          previousNicknameNormalized: txUser.displayIdentity.nicknameNormalized,
+          nextNickname: retained.displayLabel,
+          nextNicknameNormalized: `deleted-${retained.anonymizedActorKey}`,
+          changedAt: now,
+          metadata: {
+            schemaVersion: 1,
+            priority: 'ACCOUNT_DELETION_TOMBSTONE_OVERRIDES_DISPLAY_IDENTITY',
+            requestedBy: 'USER',
+          },
+        });
+
+        await tx.userDisplayIdentity.updateMany({
+          where: { userId: txUser.id },
+          data: {
+            nickname: retained.displayLabel,
+            nicknameNormalized: `deleted-${retained.anonymizedActorKey}`,
+            nicknameChangedAt: now,
+          },
+        });
+
+        await tx.seasonParticipantProfile.updateMany({
+          where: { participant: { userId: txUser.id } },
+          data: {
+            nicknameSnapshot: retained.displayLabel,
+            nicknameNormalizedSnapshot: `deleted-${retained.anonymizedActorKey}`,
+            bedtime: null,
+            wakeTime: null,
+            sleepHabit: null,
+            sleepEnvironment: null,
+            screenUsage: null,
+            noiseSensitivity: null,
+            smokingBehavior: null,
+            indoorEating: null,
+            phoneBehavior: null,
+            earphoneUsage: null,
+            cleanLevel: null,
+            drinkingFrequency: null,
+            relationshipStyle: null,
+            temperatureSensitivity: null,
+            smokingTolerance: null,
+            phoneTolerance: null,
+            earphoneExpectation: null,
+            sleepEnvPreference: null,
+            screenTolerance: null,
+            indoorEatingTolerance: null,
+            cleanExpectation: null,
+            drinkingTolerance: null,
+            intro: '',
+            collegeCode: null,
+            grade: null,
+            mbti: null,
+            birthYear: null,
+          },
+        });
+
+        await tx.user.update({
+          where: { id: txUser.id },
+          data: {
+            email: `deleted+${retained.anonymizedActorKey}@deleted.local`,
+            emailNormalized: `deleted+${retained.anonymizedActorKey}@deleted.local`,
+            passwordHash: `deleted:${retained.anonymizedActorKey}`,
+            emailVerifiedAt: null,
+            deletedAt: now,
+          },
+        });
+
+        return retained;
+      },
+    );
 
     return {
       state: 'DEIDENTIFIED_RETAINED',
@@ -254,19 +260,19 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
   return {
     requestAccountDeletion,
     activateThreadRetentionJobsForArchivedThreads(now: Date): Promise<ArchiveJobActivationResult> {
-      return activateThreadRetentionJobsForArchivedThreads(deps.prisma, now);
+      return activateThreadRetentionJobsForArchivedThreads(deps.retentionWorkerPrisma, now);
     },
     retryDueDeletionArchiveJobs(now: Date): Promise<ArchiveJobSweepResult> {
-      return retryDueArchiveJobs(deps.prisma, now);
+      return retryDueArchiveJobs(deps.retentionWorkerPrisma, now);
     },
     disposeExpiredRetainedIdentities(now: Date): Promise<RetainedIdentityDisposalResult> {
-      return disposeExpiredRetainedIdentities(deps.prisma, now);
+      return disposeExpiredRetainedIdentities(deps.retentionWorkerPrisma, now);
     },
     retryDueRetentionReviewJobs(now: Date): Promise<RetentionReviewJobSweepResult> {
-      return retryDueRetentionReviewJobs(deps.prisma, now);
+      return retryDueRetentionReviewJobs(deps.retentionWorkerPrisma, now);
     },
     disposeDueRetentionAccessLogs(now: Date): Promise<RetentionAccessLogDisposalResult> {
-      return disposeDueRetentionAccessLogs(deps.prisma, now);
+      return disposeDueRetentionAccessLogs(deps.retentionWorkerPrisma, now);
     },
   };
 }
