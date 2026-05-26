@@ -156,7 +156,7 @@ describe('retained-vault-owner', () => {
           disposedAt: null,
         }),
       },
-      retainedVaultAccessLog: {
+      retentionAccessLog: {
         create: jest.fn().mockImplementation(({ data }) => {
           accessLogs.push(data as Record<string, unknown>);
           return Promise.resolve({ id: `log-${accessLogs.length}` });
@@ -201,7 +201,8 @@ describe('retained-vault-owner', () => {
       expect.objectContaining({
         retainedVaultObjectId: 'vault-1',
         retainedIdentityId: 'identity-a',
-        target: 'NICKNAME_AUDIT_EVENT',
+        targetType: 'VAULT_OBJECT',
+        vaultTarget: 'NICKNAME_AUDIT_EVENT',
         accessedBy: 'ops-1',
         accessReason: 'REPORT_REVIEW',
         approvalReference: 'report-1',
@@ -268,21 +269,19 @@ describe('retained-vault-owner', () => {
     const accessLogs: Array<Record<string, unknown>> = [];
     const prisma = {
       retainedVaultObject: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            {
-              id: 'vault-1',
-              target: 'NICKNAME_AUDIT_EVENT',
-              subjectRetainedIdentityId: 'identity-a',
-            },
-          ]),
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'vault-1',
+            target: 'NICKNAME_AUDIT_EVENT',
+            subjectRetainedIdentityId: 'identity-a',
+          },
+        ]),
         update: jest.fn().mockImplementation(({ data }) => {
           updatedObjects.push(data as Record<string, unknown>);
           return Promise.resolve({ id: 'vault-1' });
         }),
       },
-      retainedVaultAccessLog: {
+      retentionAccessLog: {
         create: jest.fn().mockImplementation(({ data }) => {
           accessLogs.push(data as Record<string, unknown>);
           return Promise.resolve({ id: 'log-1' });
@@ -304,7 +303,8 @@ describe('retained-vault-owner', () => {
     expect(accessLogs[0]).toMatchObject({
       retainedVaultObjectId: 'vault-1',
       retainedIdentityId: 'identity-a',
-      target: 'NICKNAME_AUDIT_EVENT',
+      targetType: 'VAULT_OBJECT',
+      vaultTarget: 'NICKNAME_AUDIT_EVENT',
       accessedBy: 'SYSTEM',
       accessReason: 'RETENTION_EXPIRY_REVIEW',
       result: 'DISPOSED',

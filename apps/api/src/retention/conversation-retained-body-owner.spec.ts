@@ -3,6 +3,7 @@ import {
   createConversationRetainedBodyCipher,
   discloseRetainedConversationMessageBody,
   retainAndTombstoneThreadMessagesTx,
+  reviewRetainedConversationIdentityLinksTx,
   tombstoneConversationMessageTx,
 } from './conversation-retained-body-owner.js';
 
@@ -190,7 +191,7 @@ describe('conversation retained body owner', () => {
           disposedAt: null,
         }),
       },
-      retainedVaultAccessLog: {
+      retentionAccessLog: {
         create: jest.fn().mockImplementation((input: unknown) => {
           logs.push(input);
           return Promise.resolve(input);
@@ -221,12 +222,155 @@ describe('conversation retained body owner', () => {
     expect(logs[0]).toMatchObject({
       data: {
         retainedVaultObjectId: 'vault-object-1',
-        target: 'CHAT_MESSAGE_BODY',
+        targetType: 'VAULT_OBJECT',
+        vaultTarget: 'CHAT_MESSAGE_BODY',
         accessReason: 'REPORT_REVIEW',
         approvalReference: 'report-1',
         result: 'DISCLOSED',
         disclosedFields: ['payload'],
       },
     });
+  });
+
+  it('2년 identity-link review는 active hold가 없는 deleted sender retained body의 identity link를 최소화한다', async () => {
+    const now = new Date('2026-05-14T00:00:00.000Z');
+    const store = createMessageTx({ body: '리뷰 대상 원문' });
+    await retainAndTombstoneThreadMessagesTx(
+      store.tx as never,
+      {
+        threadId: 'thread-1',
+        archiveJobId: 'archive-job-1',
+        triggerUserId: 'user-1',
+        triggerRetainedIdentityId: 'retained-identity-1',
+        now,
+      },
+      { bodyCipher: cipher },
+    );
+
+    const updates: Array<Record<string, unknown>> = [];
+    const reviewTx = {
+      conversationMessage: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            retainedVaultObject: {
+              ...store.vaultObjects[0],
+              id: 'vault-object-1',
+              state: 'RETAINED',
+              subjectUserId: 'user-1',
+              subjectRetainedIdentityId: 'retained-identity-1',
+              holds: [
+                {
+                  holdReason: 'CHAT_THREAD_ARCHIVE',
+                  holdUntil: null,
+                  releasedAt: null,
+                },
+              ],
+            },
+          },
+        ]),
+      },
+      retainedVaultObject: {
+        update: jest.fn().mockImplementation(({ data }) => {
+          updates.push(data as Record<string, unknown>);
+          return Promise.resolve({ id: 'vault-object-1' });
+        }),
+      },
+    };
+
+    const result = await reviewRetainedConversationIdentityLinksTx(
+      reviewTx as never,
+      {
+        threadId: 'thread-1',
+        now: new Date('2028-05-14T00:00:00.000Z'),
+      },
+      { bodyCipher: cipher },
+    );
+
+    expect(result).toEqual({
+      scannedCount: 1,
+      minimizedCount: 1,
+      skippedWithActiveHoldCount: 0,
+      nextReviewAt: null,
+    });
+    expect(updates[0]).toMatchObject({
+      subjectUserId: null,
+      subjectRetainedIdentityId: null,
+      payloadSchemaVersion: 2,
+      keyVersion: 'test-v1',
+    });
+    expect(updates[0]?.payloadDigest).toEqual(expect.stringMatching(/^[a-f0-9]{64}$/));
+    expect(updates[0]?.encryptedPayload).toMatchObject({
+      schemaVersion: 1,
+      algorithm: 'aes-256-gcm',
+      keyVersion: 'test-v1',
+    });
+  });
+  it('2년 identity-link review는 active non-archive hold가 있으면 identity link를 유지하고 holdUntil에 맞춰 재검토한다', async () => {
+    const cipher = createConversationRetainedBodyCipher({
+      key: Buffer.alloc(32, 1),
+      keyVersion: 'test-v1',
+    });
+    const now = new Date('2026-05-14T00:00:00.000Z');
+    const nextReviewAt = new Date('2028-06-01T00:00:00.000Z');
+    const store = createMessageTx({ body: 'hold 유지 대상 원문' });
+
+    await retainAndTombstoneThreadMessagesTx(
+      store.tx as never,
+      {
+        threadId: 'thread-1',
+        archiveJobId: 'archive-job-1',
+        triggerUserId: 'user-1',
+        triggerRetainedIdentityId: 'retained-identity-1',
+        now,
+      },
+      { bodyCipher: cipher },
+    );
+
+    const updates: Array<Record<string, unknown>> = [];
+    const reviewTx = {
+      conversationMessage: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            retainedVaultObject: {
+              ...store.vaultObjects[0],
+              id: 'vault-object-1',
+              state: 'RETAINED',
+              subjectUserId: 'user-1',
+              subjectRetainedIdentityId: 'retained-identity-1',
+              holds: [
+                {
+                  holdReason: 'REPORT_REVIEW',
+                  holdUntil: nextReviewAt,
+                  releasedAt: null,
+                },
+              ],
+            },
+          },
+        ]),
+      },
+      retainedVaultObject: {
+        update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+          updates.push(data);
+          return Promise.resolve({ id: 'vault-object-1' });
+        }),
+      },
+    };
+
+    const result = await reviewRetainedConversationIdentityLinksTx(
+      reviewTx as never,
+      {
+        threadId: 'thread-1',
+        now: new Date('2028-05-14T00:00:00.000Z'),
+      },
+      { bodyCipher: cipher },
+    );
+
+    expect(result).toEqual({
+      scannedCount: 1,
+      minimizedCount: 0,
+      skippedWithActiveHoldCount: 1,
+      nextReviewAt,
+    });
+    expect(updates).toEqual([]);
   });
 });

@@ -390,13 +390,30 @@ describe('Match history integration', () => {
       where: { id: 'user-e' },
       data: { deletedAt: new Date('2026-05-11T00:00:00.000Z') },
     });
-    await prisma.retainedIdentity.create({
+    const retainedUserE = await prisma.retainedIdentity.create({
       data: {
         originalUserId: 'user-e',
         anonymizedActorKey: 'deleted-user-e',
         displayLabel: '탈퇴한 사용자',
         deletedAt: new Date('2026-05-11T00:00:00.000Z'),
-        retentionReason: 'ACCOUNT_DELETION',
+      },
+    });
+    const retentionCaseUserE = await prisma.retentionCase.create({
+      data: {
+        reason: 'ACCOUNT_DELETION',
+        triggerRetainedIdentityId: retainedUserE.id,
+        sourceTable: 'RetainedIdentity',
+        sourceId: retainedUserE.id,
+        retentionHoldUntil: new Date('2026-05-16T00:00:00.000Z'),
+        policyVersion: 'rrpd-v1',
+      },
+    });
+    await prisma.retainedIdentityHold.create({
+      data: {
+        retainedIdentityId: retainedUserE.id,
+        retentionCaseId: retentionCaseUserE.id,
+        holdReason: 'ACCOUNT_DELETION',
+        holdUntil: new Date('2026-05-16T00:00:00.000Z'),
       },
     });
 
@@ -539,7 +556,7 @@ describe('Match history integration', () => {
         nicknameSnapshot: '탈퇴한 사용자',
         nicknameNormalizedSnapshot: 'redacted-history',
         intro: '',
-        source: 'RETENTION_SNAPSHOT',
+        source: 'SYSTEM_BACKFILL',
         redactedAt: new Date('2026-05-12T00:00:00.000Z'),
         redactionReason: 'ACCOUNT_DELETION',
         createdAt: new Date('2025-02-28T12:00:00.000Z'),
@@ -553,7 +570,7 @@ describe('Match history integration', () => {
         nicknameNormalizedSnapshot: '좋은날씨-after',
         ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
         intro: '시즌 종료 후 소개',
-        source: 'RETENTION_SNAPSHOT',
+        source: 'SYSTEM_BACKFILL',
         createdAt: new Date('2025-03-05T12:00:00.000Z'),
       },
     });

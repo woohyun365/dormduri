@@ -514,17 +514,23 @@ describe('account deletion + season de-registration integration', () => {
       where: { originalUserId: 'user-a' },
     });
     expect(retainedIdentity.displayLabel).toBe('탈퇴한 사용자');
-    expect(retainedIdentity.retentionReason).toBe('ACCOUNT_DELETION');
+    await expect(
+      prisma.retainedIdentityHold.findFirst({
+        where: { retainedIdentityId: retainedIdentity.id, holdReason: 'ACCOUNT_DELETION' },
+        include: { retentionCase: true },
+      }),
+    ).resolves.toMatchObject({
+      holdReason: 'ACCOUNT_DELETION',
+      retentionCase: { reason: 'ACCOUNT_DELETION' },
+    });
     const archiveJobs = await prisma.archiveJob.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
       orderBy: { target: 'asc' },
     });
-    expect(archiveJobs.map((job) => job.target)).toEqual([
-      'RETAINED_IDENTITY',
-      'SEASON_PROFILE_HISTORY',
-      'THREAD_RETENTION',
-      'NICKNAME_AUDIT',
-    ]);
+    expect(archiveJobs.map((job) => job.target)).toEqual(
+      expect.arrayContaining(['SEASON_PROFILE_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT']),
+    );
+    expect(archiveJobs).toHaveLength(3);
     const threadRetentionJob = archiveJobs.find((job) => job.target === 'THREAD_RETENTION');
     expect(threadRetentionJob).toMatchObject({
       threadId: 'direct-thread-with-message',
@@ -658,8 +664,12 @@ describe('account deletion + season de-registration integration', () => {
     const retainedIdentity = await prisma.retainedIdentity.findUniqueOrThrow({
       where: { originalUserId: 'user-c' },
     });
-    expect(retainedIdentity.retentionReason).toBe('ACCOUNT_DELETION');
-    expect(retainedIdentity.retentionHoldUntil?.toISOString()).toBe(
+    const retainedIdentityHold = await prisma.retainedIdentityHold.findFirstOrThrow({
+      where: { retainedIdentityId: retainedIdentity.id, holdReason: 'ACCOUNT_DELETION' },
+      include: { retentionCase: true },
+    });
+    expect(retainedIdentityHold.retentionCase.reason).toBe('ACCOUNT_DELETION');
+    expect(retainedIdentityHold.holdUntil?.toISOString()).toBe(
       requestDeleteBody.retentionHoldUntil,
     );
 
@@ -684,7 +694,7 @@ describe('account deletion + season de-registration integration', () => {
       where: { retainedIdentityId: retainedIdentity.id },
       orderBy: { target: 'asc' },
     });
-    expect(archiveJobs.map((job) => job.target)).toEqual(['RETAINED_IDENTITY', 'NICKNAME_AUDIT']);
+    expect(archiveJobs.map((job) => job.target)).toEqual(['NICKNAME_AUDIT']);
 
     await request(httpServer)
       .post('/api/users/me/delete/cancel')
@@ -700,7 +710,7 @@ describe('account deletion + season de-registration integration', () => {
       new Date(requestDeleteBody.deletedAt).getTime() + 6 * 24 * 60 * 60 * 1_000,
     );
     const sweepResult = await lifecycleSweepService.runSweep(sixDaysLater);
-    expect(sweepResult.archiveJobSweep.succeededCount).toBeGreaterThanOrEqual(2);
+    expect(sweepResult.archiveJobSweep.succeededCount).toBeGreaterThanOrEqual(1);
     expect(sweepResult.retainedIdentityDisposalSweep.processedCount).toBe(2);
 
     const disposedIdentity = await prisma.retainedIdentity.findUniqueOrThrow({
@@ -712,9 +722,10 @@ describe('account deletion + season de-registration integration', () => {
     expect(disposedIdentity.identifierKeyVersion).toBeNull();
     expect(disposedIdentity.retentionDisposalReason).toBe('RETENTION_HOLD_EXPIRED');
 
-    const disposalLog = await prisma.retainedIdentityDataAccessLog.findFirst({
+    const disposalLog = await prisma.retentionAccessLog.findFirst({
       where: {
         retainedIdentityId: retainedIdentity.id,
+        targetType: 'IDENTITY_ANCHOR',
         result: 'DISPOSED',
       },
     });
@@ -802,14 +813,16 @@ describe('account deletion + season de-registration integration', () => {
       .send({ password: 'Pass1234' })
       .expect(201);
 
-    const seasonHistoryCount = await prisma.seasonParticipantProfileHistory.count({
-      where: { source: 'RETENTION_SNAPSHOT' },
-    });
+    const seasonHistoryCount = await prisma.seasonParticipantProfileHistory.count();
     expect(seasonHistoryCount).toBe(0);
 
     const retainedIdentity = await prisma.retainedIdentity.findFirstOrThrow({
       where: { originalUserId: 'user-no-history' },
     });
-    expect(retainedIdentity.retentionReason).toBe('ACCOUNT_DELETION');
+    await expect(
+      prisma.retainedIdentityHold.findFirst({
+        where: { retainedIdentityId: retainedIdentity.id, holdReason: 'ACCOUNT_DELETION' },
+      }),
+    ).resolves.toMatchObject({ holdReason: 'ACCOUNT_DELETION' });
   });
 });

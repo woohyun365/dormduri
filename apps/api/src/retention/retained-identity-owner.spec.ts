@@ -18,9 +18,8 @@ describe('retained identity owner', () => {
         legalHoldReason: 'LAW_ENFORCEMENT_REQUEST',
       }),
     ).toMatchObject({
-      retentionReason: 'LEGAL_HOLD',
+      retentionCaseReason: 'LEGAL_HOLD',
       legalHoldReason: 'LAW_ENFORCEMENT_REQUEST',
-      legalHoldAt: deletedAt,
     });
   });
 
@@ -40,10 +39,9 @@ describe('retained identity owner', () => {
         manualRetentionUntil,
       }),
     ).toEqual({
-      retentionReason: 'LEGAL_HOLD',
+      retentionCaseReason: 'LEGAL_HOLD',
       legalHoldReason: reason,
-      legalHoldAt: deletedAt,
-      retentionHoldUntil: manualRetentionUntil,
+      holdUntil: manualRetentionUntil,
     });
   });
 
@@ -51,17 +49,17 @@ describe('retained identity owner', () => {
     const deletedAt = new Date('2026-05-12T00:00:00.000Z');
 
     expect(resolveRetainedIdentityDecision({ deletedAt, disputeOpen: true })).toMatchObject({
-      retentionReason: 'DISPUTE_RESPONSE',
+      retentionCaseReason: 'DISPUTE_RESPONSE',
     });
     expect(resolveRetainedIdentityDecision({ deletedAt, reportOpen: true })).toMatchObject({
-      retentionReason: 'REPORT_REVIEW',
+      retentionCaseReason: 'REPORT_REVIEW',
     });
     expect(resolveRetainedIdentityDecision({ deletedAt, enforcementRecord: true })).toMatchObject({
-      retentionReason: 'ENFORCEMENT_RECORD',
+      retentionCaseReason: 'ENFORCEMENT_RECORD',
     });
     expect(resolveRetainedIdentityDecision({ deletedAt })).toMatchObject({
-      retentionReason: 'ACCOUNT_DELETION',
-      retentionHoldUntil: new Date('2026-05-17T00:00:00.000Z'),
+      retentionCaseReason: 'ACCOUNT_DELETION',
+      holdUntil: new Date('2026-05-17T00:00:00.000Z'),
     });
   });
 

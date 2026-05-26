@@ -87,6 +87,9 @@ describe('RetainedIdentity integration', () => {
   it('일반 탈퇴 retained identity는 identifier anchor만 만들고 profile history는 자동 생성하지 않는다', async () => {
     const owner = createRetainedIdentityOwner(prisma, { identifierCipher });
     const deletedAt = new Date('2026-05-12T00:00:00.000Z');
+    const historyCountBeforeRetention = await prisma.seasonParticipantProfileHistory.count({
+      where: { participantId: 'participant-a' },
+    });
 
     const retainedIdentity = await owner.createRetainedIdentitySnapshot({
       userId: 'user-a',
@@ -102,9 +105,17 @@ describe('RetainedIdentity integration', () => {
 
     expect(retainedIdentity.displayLabel).toBe('탈퇴한 사용자');
     expect(retainedIdentity.originalUserId).toBe('user-a');
-    expect(retainedIdentity.retentionReason).toBe('ACCOUNT_DELETION');
+    expect(retainedIdentity.retentionCaseReason).toBe('ACCOUNT_DELETION');
     expect(retainedIdentity.emailHash).toHaveLength(64);
-    expect(retainedIdentity.retentionHoldUntil?.toISOString()).toBe('2026-05-17T00:00:00.000Z');
+    await expect(
+      prisma.retainedIdentityHold.findFirst({
+        where: { retainedIdentityId: retainedIdentity.id, holdReason: 'ACCOUNT_DELETION' },
+        include: { retentionCase: true },
+      }),
+    ).resolves.toMatchObject({
+      holdUntil: new Date('2026-05-17T00:00:00.000Z'),
+      retentionCase: { reason: 'ACCOUNT_DELETION' },
+    });
     expect(retainedIdentity.identifierKeyVersion).toBe('integration-v1');
     expect(retainedIdentity.encryptedIdentifierPayload).toMatchObject({
       schemaVersion: 1,
@@ -114,9 +125,9 @@ describe('RetainedIdentity integration', () => {
 
     await expect(
       prisma.seasonParticipantProfileHistory.count({
-        where: { participantId: 'participant-a', source: 'RETENTION_SNAPSHOT' },
+        where: { participantId: 'participant-a' },
       }),
-    ).resolves.toBe(0);
+    ).resolves.toBe(historyCountBeforeRetention);
   });
 
   it('legal hold가 있으면 일반 삭제 대신 LEGAL_HOLD retained identity로 분류한다', async () => {
@@ -135,9 +146,17 @@ describe('RetainedIdentity integration', () => {
       },
     });
 
-    expect(retainedIdentity.retentionReason).toBe('LEGAL_HOLD');
+    expect(retainedIdentity.retentionCaseReason).toBe('LEGAL_HOLD');
     expect(retainedIdentity.legalHoldReason).toBe('LAW_ENFORCEMENT_REQUEST');
-    expect(retainedIdentity.legalHoldAt?.toISOString()).toBe('2026-05-12T00:00:00.000Z');
+    await expect(
+      prisma.retainedIdentityHold.findFirst({
+        where: { retainedIdentityId: retainedIdentity.id, holdReason: 'LEGAL_HOLD' },
+        include: { retentionCase: true },
+      }),
+    ).resolves.toMatchObject({
+      holdUntil: null,
+      retentionCase: { legalHoldReason: 'LAW_ENFORCEMENT_REQUEST' },
+    });
   });
 
   it('5일 anchor 폐기 전 신고 신호가 생기면 REPORT_REVIEW 보존으로 승격한다', async () => {
@@ -155,8 +174,12 @@ describe('RetainedIdentity integration', () => {
         },
       },
     });
-    expect(initial.retentionReason).toBe('ACCOUNT_DELETION');
-    expect(initial.retentionHoldUntil?.toISOString()).toBe('2026-05-17T00:00:00.000Z');
+    expect(initial.retentionCaseReason).toBe('ACCOUNT_DELETION');
+    await expect(
+      prisma.retainedIdentityHold.findFirst({
+        where: { retainedIdentityId: initial.id, holdReason: 'ACCOUNT_DELETION' },
+      }),
+    ).resolves.toMatchObject({ holdUntil: new Date('2026-05-17T00:00:00.000Z') });
 
     const upgraded = await owner.createRetainedIdentitySnapshot({
       userId: 'user-a',
@@ -172,8 +195,12 @@ describe('RetainedIdentity integration', () => {
     });
 
     expect(upgraded.id).toBe(initial.id);
-    expect(upgraded.retentionReason).toBe('REPORT_REVIEW');
-    expect(upgraded.retentionHoldUntil?.toISOString()).toBe('2029-05-11T00:00:00.000Z');
+    expect(upgraded.retentionCaseReason).toBe('REPORT_REVIEW');
+    await expect(
+      prisma.retainedIdentityHold.findFirst({
+        where: { retainedIdentityId: upgraded.id, holdReason: 'REPORT_REVIEW' },
+      }),
+    ).resolves.toMatchObject({ holdUntil: new Date('2029-05-11T00:00:00.000Z') });
     expect(upgraded.retentionDisposedAt).toBeNull();
   });
 
@@ -219,7 +246,7 @@ describe('RetainedIdentity integration', () => {
       keyVersion: 'integration-v1',
     });
 
-    const logs = await prisma.retainedIdentityDataAccessLog.findMany({
+    const logs = await prisma.retentionAccessLog.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
     });
     expect(logs).toHaveLength(1);
@@ -378,13 +405,14 @@ describe('RetainedIdentity integration', () => {
     });
     expect(disposedVault.disposedAt?.toISOString()).toBe('2026-05-18T00:00:00.000Z');
 
-    const accessLogs = await prisma.retainedVaultAccessLog.findMany({
+    const accessLogs = await prisma.retentionAccessLog.findMany({
       where: { retainedVaultObjectId: retainedVaultObject.id },
     });
     expect(accessLogs).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          target: 'NICKNAME_AUDIT_EVENT',
+          targetType: 'VAULT_OBJECT',
+          vaultTarget: 'NICKNAME_AUDIT_EVENT',
           accessedBy: 'SYSTEM',
           accessReason: 'RETENTION_EXPIRY_REVIEW',
           result: 'DISPOSED',
@@ -461,7 +489,7 @@ describe('RetainedIdentity integration', () => {
       }),
     );
 
-    expect(result.createdCount).toBe(5);
+    expect(result.createdCount).toBe(4);
 
     const jobs = await prisma.archiveJob.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
@@ -471,19 +499,12 @@ describe('RetainedIdentity integration', () => {
       expect.arrayContaining([
         'MATCH_HISTORY',
         'NICKNAME_AUDIT',
-        'RETAINED_IDENTITY',
         'SEASON_PROFILE_HISTORY',
         'THREAD_RETENTION',
       ]),
     );
 
     const jobByTarget = new Map(jobs.map((job) => [job.target, job]));
-    expect(jobByTarget.get('RETAINED_IDENTITY')).toMatchObject({
-      archiveTier: 'HOT_DB',
-      userId: 'user-a',
-      retainedIdentityId: retainedIdentity.id,
-      status: 'PENDING',
-    });
     expect(jobByTarget.get('SEASON_PROFILE_HISTORY')).toMatchObject({
       userId: 'user-a',
       participantId: 'participant-a',
@@ -613,11 +634,11 @@ describe('RetainedIdentity integration', () => {
       }),
     );
 
-    const sweep = await retryDueArchiveJobs(prisma, archiveNow, undefined, undefined, {
+    const sweep = await retryDueArchiveJobs(prisma, archiveNow, undefined, {
       keyring: retainedVaultKeyring,
     });
     expect(sweep.manualReviewCount).toBe(0);
-    expect(sweep.succeededCount).toBe(5);
+    expect(sweep.succeededCount).toBe(4);
 
     const nicknameEvent = await prisma.userDisplayIdentityNicknameChangeEvent.findUniqueOrThrow({
       where: { id: 'nickname-event-a' },
@@ -760,11 +781,11 @@ describe('RetainedIdentity integration', () => {
       }),
     );
 
-    const counterpartSweep = await retryDueArchiveJobs(prisma, archiveNow, undefined, undefined, {
+    const counterpartSweep = await retryDueArchiveJobs(prisma, archiveNow, undefined, {
       keyring: retainedVaultKeyring,
     });
     expect(counterpartSweep.manualReviewCount).toBe(0);
-    expect(counterpartSweep.succeededCount).toBe(5);
+    expect(counterpartSweep.succeededCount).toBe(4);
 
     const allMatchLinks = await prisma.seasonMatchHistoryEntryRetentionLink.findMany({
       orderBy: [{ matchHistoryEntryId: 'asc' }, { subjectRole: 'asc' }],
@@ -916,7 +937,6 @@ describe('RetainedIdentity integration', () => {
     const sweep = await retryDueArchiveJobs(
       prisma,
       new Date('2026-05-20T00:00:00.000Z'),
-      undefined,
       {
         bodyCipher: chatBodyCipher,
       },
