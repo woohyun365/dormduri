@@ -316,7 +316,7 @@ describe('shared reference contracts', () => {
     });
   });
 
-  it('onboarding dismiss request는 service-intro notice key만 허용하고 legacy onboarding alias를 거부한다', () => {
+  it('onboarding dismiss request는 service-intro notice key만 허용하고 이전 onboarding key를 거부한다', () => {
     expect(
       dismissCurrentUserOnboardingNoticeRequestSchema.parse({
         noticeKey: SERVICE_INTRO_NOTICE_KEY,
@@ -642,7 +642,7 @@ describe('shared reference contracts', () => {
     ).toBe(false);
   });
 
-  it('match request contract는 requestChannel 없이 roommate-search summary projection을 재사용한다', () => {
+  it('match request contract는 요청 surface 필드 없이 roommate-search summary projection을 재사용한다', () => {
     expect(
       createMatchRequestSchema.parse({
         targetUserId: 'user-2',
