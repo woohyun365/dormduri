@@ -327,7 +327,7 @@ describe('shared reference contracts', () => {
           activeMatch: null,
         },
         capabilities: {
-          canBrowseProfiles: true,
+          canEnterRoommateSearch: true,
           canCreateOrUpdateSeasonProfileDraft: true,
           canSelectDormitory: true,
           canFinalizeSeasonRegistration: false,
@@ -429,7 +429,7 @@ describe('shared reference contracts', () => {
             activeMatch: null,
           },
           capabilities: {
-            canBrowseProfiles: true,
+            canEnterRoommateSearch: true,
             canCreateOrUpdateSeasonProfileDraft: true,
             canSelectDormitory: true,
             canFinalizeSeasonRegistration: false,

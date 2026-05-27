@@ -10,6 +10,7 @@ import type { CurrentUserViewService } from '../../src/users/current-user-view.s
 import { createUserUpdateOwner } from '../../src/users/user-update-owner.js';
 import type { ModerationService } from '../../src/common/moderation/moderation.service.js';
 import { UsersService } from '../../src/users/users.service.js';
+import { SeasonsService } from '../../src/seasons/seasons.service.js';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
 import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
 import { createIntegrationApp } from './support/integration-app.js';
@@ -33,6 +34,7 @@ describe('Auth/users transaction rollback and race integration', () => {
   let authService: AuthService;
   let authSessionService: AuthSessionService;
   let usersService: UsersService;
+  let seasonsService: SeasonsService;
   let closeApp: (() => Promise<void>) | null = null;
   let cleanupDb: (() => Promise<void>) | null = null;
 
@@ -46,6 +48,7 @@ describe('Auth/users transaction rollback and race integration', () => {
     authService = app.get(AuthService);
     authSessionService = app.get(AuthSessionService);
     usersService = app.get(UsersService);
+    seasonsService = app.get(SeasonsService);
   });
 
   afterAll(async () => {
@@ -631,6 +634,7 @@ describe('Auth/users transaction rollback and race integration', () => {
   function createNicknameUpdateOwner(barrier: ReturnType<typeof createBarrier>) {
     return createUserUpdateOwner({
       prisma,
+      seasonsService,
       moderationService: {
         async validateNicknamePolicy() {
           await barrier.block();
@@ -866,7 +870,7 @@ function buildCurrentUserResponse(user: {
       activeMatch: null,
     },
     capabilities: {
-      canBrowseProfiles: false,
+      canEnterRoommateSearch: false,
       canCreateOrUpdateSeasonProfileDraft: false,
       canSelectDormitory: false,
       canFinalizeSeasonRegistration: false,

@@ -197,7 +197,7 @@ describe('CurrentUserViewService season composition boundary', () => {
         source: 'SEASON_PARTICIPANT',
       },
       capabilities: {
-        canBrowseProfiles: true,
+        canEnterRoommateSearch: true,
         canCreateOrUpdateSeasonProfileDraft: true,
         canSelectDormitory: true,
         canFinalizeSeasonRegistration: false,

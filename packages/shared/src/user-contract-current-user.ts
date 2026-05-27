@@ -60,7 +60,7 @@ export const currentUserResponseSchema = z.strictObject({
     activeMatch: activeMatchSummarySchema.nullable(),
   }),
   capabilities: z.strictObject({
-    canBrowseProfiles: z.boolean(),
+    canEnterRoommateSearch: z.boolean(),
     canCreateOrUpdateSeasonProfileDraft: z.boolean(),
     canSelectDormitory: z.boolean(),
     canFinalizeSeasonRegistration: z.boolean(),

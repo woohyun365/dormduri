@@ -164,7 +164,7 @@ function buildCapabilitySegment(
   displayIdentityEditUnavailableReasons: CurrentUserResponse['capabilities']['displayIdentityEditUnavailableReasons'],
 ): CurrentUserResponse['capabilities'] {
   return {
-    canBrowseProfiles:
+    canEnterRoommateSearch:
       serviceState.campusOperated &&
       (serviceState.seasonState === 'SEASON_OPEN' ||
         serviceState.seasonState === 'SEASON_MATCHING' ||
