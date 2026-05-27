@@ -6,6 +6,7 @@ import type {
   RetentionCaseReason,
 } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
+import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../common/deidentification/deidentified-display.owner.js';
 import {
   ensureRetentionCaseTx,
   retainVaultPayloadTx,
@@ -20,7 +21,6 @@ import { scheduleChatIdentityLinkReviewJobTx } from './retention-review-job-owne
 const DEFAULT_MAX_ATTEMPTS = 5;
 const RETRY_BASE_DELAY_MS = 60 * 60 * 1_000;
 const CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS = 365 * 2;
-const DEIDENTIFIED_DISPLAY_LABEL = '탈퇴한 사용자';
 
 const deletionArchiveJobTargets = [
   'SEASON_PROFILE_HISTORY',
@@ -461,9 +461,9 @@ async function archiveNicknameAuditJob(
             retainedVaultObjectId: retained.id,
             redactedAt: now,
             redactionReason: 'ACCOUNT_DELETION',
-            previousNickname: DEIDENTIFIED_DISPLAY_LABEL,
+            previousNickname: DEIDENTIFIED_USER_DISPLAY_NAME,
             previousNicknameNormalized: `redacted-${event.id}`,
-            nextNickname: DEIDENTIFIED_DISPLAY_LABEL,
+            nextNickname: DEIDENTIFIED_USER_DISPLAY_NAME,
             nextNicknameNormalized: `redacted-${event.id}`,
             actorId: event.actorType === 'USER' && event.actorId === userId ? null : event.actorId,
           },
@@ -539,7 +539,7 @@ async function archiveSeasonProfileHistoryJob(
             retainedVaultObjectId: retained.id,
             redactedAt: now,
             redactionReason: 'ACCOUNT_DELETION',
-            nicknameSnapshot: DEIDENTIFIED_DISPLAY_LABEL,
+            nicknameSnapshot: DEIDENTIFIED_USER_DISPLAY_NAME,
             nicknameNormalizedSnapshot: `redacted-${history.id}`,
             bedtime: null,
             wakeTime: null,
@@ -717,7 +717,7 @@ async function archiveMatchHistoryJob(
           counterpartDrinkingFrequencySnapshot: null,
           counterpartRelationshipStyleSnapshot: null,
           counterpartTemperatureSensitivitySnapshot: null,
-          counterpartNicknameSnapshot: DEIDENTIFIED_DISPLAY_LABEL,
+          counterpartNicknameSnapshot: DEIDENTIFIED_USER_DISPLAY_NAME,
           counterpartRedactedAt: now,
           matchScore: null,
         });

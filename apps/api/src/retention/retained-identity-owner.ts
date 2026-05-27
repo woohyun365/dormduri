@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../common/deidentification/deidentified-display.owner.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type { RetentionAccessReason } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
@@ -193,7 +194,7 @@ export async function createRetainedIdentitySnapshotTx(
   const retainedIdentity = await tx.retainedIdentity.upsert({
     where: { originalUserId: user.id },
     update: {
-      displayLabel: '탈퇴한 사용자',
+      displayLabel: DEIDENTIFIED_USER_DISPLAY_NAME,
       deletedAt: input.deletedAt,
       emailHash: hashText(user.emailNormalized),
       ...encryptedIdentifierData,
@@ -204,7 +205,7 @@ export async function createRetainedIdentitySnapshotTx(
     create: {
       originalUserId: user.id,
       anonymizedActorKey: buildAnonymizedActorKey(user.id, input.deletedAt),
-      displayLabel: '탈퇴한 사용자',
+      displayLabel: DEIDENTIFIED_USER_DISPLAY_NAME,
       deletedAt: input.deletedAt,
       emailHash: hashText(user.emailNormalized),
       ...encryptedIdentifierData,

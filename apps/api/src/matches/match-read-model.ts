@@ -8,6 +8,7 @@ import { buildDirectionalMatchScoreProjection } from './match-score-projection.j
 import { formatKstDate } from '../seasons/season.utils.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
+import { resolvePublicCounterpartNickname } from '../common/deidentification/deidentified-display.owner.js';
 export type {
   ActiveMatchCommandRecord,
   ActiveMatchRecord,
@@ -73,10 +74,10 @@ function toMatchRequestCounterpartSummary(
 function resolveMatchRequestCounterpartNickname(
   participant: MatchRequestRecord['requesterParticipant'],
 ) {
-  if (participant.user?.deletedAt) {
-    return '탈퇴한 사용자';
-  }
-  return participant.profile?.nicknameSnapshot ?? '프로필 확인 불가';
+  return resolvePublicCounterpartNickname({
+    deletedAt: participant.user?.deletedAt,
+    nicknameSnapshot: participant.profile?.nicknameSnapshot,
+  });
 }
 
 export function toActiveMatchSummary(
