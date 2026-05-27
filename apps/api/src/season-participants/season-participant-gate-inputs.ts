@@ -92,6 +92,7 @@ export function buildPublicTargetPolicyTargetInput(input: {
   matched: boolean;
   selection: SelectionLike;
   registrationSnapshotExists: boolean;
+  deletedOrDeidentified?: boolean;
 }): PublicTargetPolicyTargetInput {
   const hasSeasonProfile = hasParticipantProfile(input.participant);
   const parsedSeasonProfileLifestyle = input.participant?.profile
@@ -100,11 +101,7 @@ export function buildPublicTargetPolicyTargetInput(input: {
   const seasonProfileComplete =
     parsedSeasonProfileLifestyle?.success === true &&
     isSeasonProfileComplete(parsedSeasonProfileLifestyle.data);
-  const currentSeasonExposureVisible =
-    isVisibleRegisteredParticipant(input.participant) &&
-    hasSeasonProfile &&
-    seasonProfileComplete &&
-    input.registrationSnapshotExists;
+  const currentSeasonExposureVisible = isVisibleRegisteredParticipant(input.participant);
 
   return {
     participantId: input.participant?.id ?? null,
@@ -119,6 +116,8 @@ export function buildPublicTargetPolicyTargetInput(input: {
       input.selection.dormitoryId,
     ),
     hasSeasonProfile,
+    seasonProfileComplete,
     registrationSnapshotExists: input.registrationSnapshotExists,
+    deletedOrDeidentified: input.deletedOrDeidentified ?? false,
   };
 }

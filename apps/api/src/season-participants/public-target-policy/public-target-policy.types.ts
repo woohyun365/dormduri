@@ -30,7 +30,9 @@ export interface PublicTargetPolicyTargetInput {
   dormitoryId: string | null;
   hasOperatedAssignedDormitory: boolean;
   hasSeasonProfile: boolean;
+  seasonProfileComplete: boolean;
   registrationSnapshotExists: boolean;
+  deletedOrDeidentified: boolean;
 }
 
 export type PublicTargetEligibilityUnavailableReason =

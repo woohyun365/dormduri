@@ -40,7 +40,9 @@ const baseTarget = (
   dormitoryId: 'dasan',
   hasOperatedAssignedDormitory: true,
   hasSeasonProfile: true,
+  seasonProfileComplete: true,
   registrationSnapshotExists: true,
+  deletedOrDeidentified: false,
   ...overrides,
 });
 

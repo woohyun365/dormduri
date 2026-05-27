@@ -17,13 +17,16 @@ export function resolvePublicTargetEligibility(
   if (viewer.seasonState === 'OFF_SEASON') {
     return { publicTarget: false, unavailableReason: 'OFF_SEASON' };
   }
+  if (target.deletedOrDeidentified) {
+    return { publicTarget: false, unavailableReason: 'TARGET_DELETED_OR_DEIDENTIFIED' };
+  }
   if (!target.visible) {
     return { publicTarget: false, unavailableReason: 'TARGET_NOT_VISIBLE' };
   }
   if (!target.registered) {
     return { publicTarget: false, unavailableReason: 'TARGET_NOT_REGISTERED' };
   }
-  if (!target.hasSeasonProfile) {
+  if (!target.hasSeasonProfile || !target.seasonProfileComplete) {
     return { publicTarget: false, unavailableReason: 'TARGET_PROFILE_INCOMPLETE' };
   }
   if (!target.registrationSnapshotExists) {

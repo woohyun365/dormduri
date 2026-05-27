@@ -89,18 +89,24 @@ const SUMMARY_ITEM = {
 
 const PUBLIC_PROFILE_DETAIL = {
   id: 'participant-1',
+  detailState: 'FULL',
   sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-  relationToViewer: 'MATCHED_PARTNER',
-  capabilities: {
-    summaryVisible: true,
+  relation: { type: 'MATCHED_PARTNER' },
+  exposure: {
+    listSummaryVisible: true,
     detailViewable: true,
     canViewFull: true,
     scoreVisible: true,
-    actions: {
-      canBookmark: false,
-      canRequestMatch: false,
-      canStartChat: true,
-    },
+  },
+  actions: {
+    canBookmark: false,
+    canRequestMatch: false,
+    canStartChat: true,
+    unavailableReasons: [],
+  },
+  resultRead: {
+    resultReadable: true,
+    context: 'CURRENT_MATCHED_PARTNER',
   },
   nickname: '스냅샷닉',
   intro: '소개',
@@ -128,6 +134,33 @@ const PUBLIC_PROFILE_DETAIL = {
     temperatureSensitivity: 'NORMAL',
   },
   matchScore: 87,
+} as const;
+
+const PUBLIC_PROFILE_TOMBSTONE_DETAIL = {
+  id: 'participant-1',
+  detailState: 'TOMBSTONE',
+  relation: { type: 'MATCHED_PARTNER' },
+  exposure: {
+    listSummaryVisible: false,
+    detailViewable: true,
+    canViewFull: false,
+    scoreVisible: false,
+  },
+  actions: {
+    canBookmark: false,
+    canRequestMatch: false,
+    canStartChat: false,
+    unavailableReasons: ['TARGET_DELETED_OR_DEIDENTIFIED'],
+  },
+  resultRead: {
+    resultReadable: true,
+    context: 'PAST_MATCH_HISTORY',
+  },
+  tombstone: {
+    reason: 'TARGET_DELETED_OR_DEIDENTIFIED',
+    displayName: '탈퇴한 사용자',
+    message: '탈퇴 또는 비식별화된 사용자라 상세 프로필을 볼 수 없습니다.',
+  },
 } as const;
 
 const ROOMMATE_SEARCH_RESPONSE = {
@@ -602,8 +635,15 @@ describe('shared reference contracts', () => {
 
   it('public profile contract는 exposure enum 없이 capability 기반 detail target shape만 허용한다', () => {
     expect(publicProfileSchema.parse(PUBLIC_PROFILE_DETAIL)).toMatchObject({
+      detailState: 'FULL',
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-      capabilities: { canViewFull: true, detailViewable: true },
+      exposure: { canViewFull: true, detailViewable: true },
+      relation: { type: 'MATCHED_PARTNER' },
+    });
+    expect(publicProfileSchema.parse(PUBLIC_PROFILE_TOMBSTONE_DETAIL)).toMatchObject({
+      detailState: 'TOMBSTONE',
+      exposure: { canViewFull: false, detailViewable: true },
+      tombstone: { reason: 'TARGET_DELETED_OR_DEIDENTIFIED' },
     });
 
     expect(
