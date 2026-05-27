@@ -121,13 +121,13 @@ describe('ProfilesService match score integration', () => {
       offset: 0,
       limit: 10,
     });
-    const noneProfile = result.items.find((item) => item.nickname === 'A동기');
-    const oftenProfile = result.items.find((item) => item.nickname === 'B동기');
+    const noneProfile = result.items.find((item) => item.profileSummary.nickname === 'A동기');
+    const oftenProfile = result.items.find((item) => item.profileSummary.nickname === 'B동기');
 
     expect(result.appliedSort).toBe('MATCH_SCORE');
-    expect(noneProfile?.canViewFull).toBe(true);
-    expect(oftenProfile?.canViewFull).toBe(true);
-    if (!noneProfile?.canViewFull || !oftenProfile?.canViewFull) {
+    expect(noneProfile?.exposure.canViewFull).toBe(true);
+    expect(oftenProfile?.exposure.canViewFull).toBe(true);
+    if (!noneProfile?.exposure.canViewFull || !oftenProfile?.exposure.canViewFull) {
       throw new Error('expected same-building peers to allow full detail');
     }
     expect(noneProfile.matchScore).toBeGreaterThan(oftenProfile.matchScore);
@@ -140,7 +140,7 @@ describe('ProfilesService match score integration', () => {
       'peer-often',
     );
 
-    if (!noneDetail.capabilities.canViewFull || !oftenDetail.capabilities.canViewFull) {
+    if (!noneDetail.exposure.canViewFull || !oftenDetail.exposure.canViewFull) {
       throw new Error('expected detail-viewable same-building peers');
     }
 
@@ -178,7 +178,7 @@ describe('ProfilesService match score integration', () => {
       limit: 10,
     });
 
-    expect(result.items.map((item) => item.nickname)).not.toContain('상대');
+    expect(result.items.map((item) => item.profileSummary.nickname)).not.toContain('상대');
     await expect(
       profilesService.getProfileByUserId(authContext('viewer'), 'peer'),
     ).rejects.toMatchObject({
@@ -226,8 +226,8 @@ describe('ProfilesService match score integration', () => {
     const profileForA = await profilesService.getProfileByUserId(authContext('user-a'), 'user-b');
     const profileForB = await profilesService.getProfileByUserId(authContext('user-b'), 'user-a');
 
-    expect(profileForA.capabilities.canViewFull).toBe(true);
-    expect(profileForB.capabilities.canViewFull).toBe(true);
+    expect(profileForA.exposure.canViewFull).toBe(true);
+    expect(profileForB.exposure.canViewFull).toBe(true);
     expect(profileForA.matchScore).toEqual(expect.any(Number));
     expect(profileForB.matchScore).toEqual(expect.any(Number));
     expect(profileForA.matchScore).not.toBe(profileForB.matchScore);
@@ -319,14 +319,18 @@ describe('ProfilesService match score integration', () => {
       offset: 0,
       limit: 10,
     });
-    const partnerSummary = searchResult.items.find((item) => item.nickname === '최종상대');
-    const otherSummary = searchResult.items.find((item) => item.nickname === '일반상대');
+    const partnerSummary = searchResult.items.find(
+      (item) => item.profileSummary.nickname === '최종상대',
+    );
+    const otherSummary = searchResult.items.find(
+      (item) => item.profileSummary.nickname === '일반상대',
+    );
 
-    expect(partnerSummary?.relationToViewer).toBe('MATCHED_PARTNER');
-    expect(partnerSummary?.canViewFull).toBe(true);
+    expect(partnerSummary?.relation.type).toBe('MATCHED_PARTNER');
+    expect(partnerSummary?.exposure.canViewFull).toBe(true);
     expect(otherSummary).toMatchObject({
-      relationToViewer: 'GENERAL',
-      canViewFull: false,
+      relation: { type: 'GENERAL' },
+      exposure: { canViewFull: false },
     });
     expect(otherSummary).not.toHaveProperty('matchScore');
 
@@ -334,8 +338,8 @@ describe('ProfilesService match score integration', () => {
       authContext('viewer'),
       'partner',
     );
-    expect(partnerProfile.capabilities.canViewFull).toBe(true);
-    expect(partnerProfile.relationToViewer).toBe('MATCHED_PARTNER');
+    expect(partnerProfile.exposure.canViewFull).toBe(true);
+    expect(partnerProfile.relation.type).toBe('MATCHED_PARTNER');
 
     await expect(
       profilesService.getProfileByUserId(authContext('viewer'), 'other'),

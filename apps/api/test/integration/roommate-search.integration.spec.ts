@@ -155,7 +155,7 @@ describe('RoommateSearchService integration', () => {
     });
 
     expect(result.scope).toBe('CAMPUS_MERGED');
-    expect(result.scopeCapabilities).toEqual({
+    expect(result.scopeAvailability).toEqual({
       campusMerged: true,
       sameBuildingOnly: false,
     });
@@ -164,8 +164,8 @@ describe('RoommateSearchService integration', () => {
       detailViewableCount: 0,
       scoreVisibleCount: 0,
     });
-    expect(result.items.map((item) => item.nickname)).toEqual(['유저B', '유저C']);
-    expect(result.items.every((item) => item.canViewFull === false)).toBe(true);
+    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B', '유저C']);
+    expect(result.items.every((item) => item.exposure.canViewFull === false)).toBe(true);
     expect(result.items.every((item) => !('matchScore' in item))).toBe(true);
 
     await expect(
@@ -198,20 +198,20 @@ describe('RoommateSearchService integration', () => {
       limit: 20,
     });
 
-    expect(merged.scopeCapabilities).toEqual({
+    expect(merged.scopeAvailability).toEqual({
       campusMerged: true,
       sameBuildingOnly: true,
     });
-    const sameBuildingPeer = merged.items.find((item) => item.nickname === '유저B');
-    const otherBuildingPeer = merged.items.find((item) => item.nickname === '유저C');
-    expect(sameBuildingPeer?.canViewFull).toBe(true);
-    expect(otherBuildingPeer).toMatchObject({ canViewFull: false });
+    const sameBuildingPeer = merged.items.find((item) => item.profileSummary.nickname === '유저B');
+    const otherBuildingPeer = merged.items.find((item) => item.profileSummary.nickname === '유저C');
+    expect(sameBuildingPeer?.exposure.canViewFull).toBe(true);
+    expect(otherBuildingPeer).toMatchObject({ exposure: { canViewFull: false } });
     expect(otherBuildingPeer).not.toHaveProperty('matchScore');
     expect(sameBuildingPeer).not.toHaveProperty('lifestyle');
 
     expect(sameBuilding.scope).toBe('SAME_BUILDING_ONLY');
-    expect(sameBuilding.items.map((item) => item.nickname)).toEqual(['유저B']);
-    expect(sameBuilding.items[0]?.canViewFull).toBe(true);
+    expect(sameBuilding.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+    expect(sameBuilding.items[0]?.exposure.canViewFull).toBe(true);
   });
 
   it('SEASON_OPEN merged에서 summary filter는 summary-only 후보까지 같은 field set으로 필터링한다', async () => {
@@ -243,14 +243,14 @@ describe('RoommateSearchService integration', () => {
       detailViewableCount: 1,
       scoreVisibleCount: 1,
     });
-    expect(result.items.map((item) => item.nickname)).toEqual(['유저B', '유저C']);
-    expect(result.items.find((item) => item.nickname === '유저B')).toMatchObject({
-      canViewFull: true,
-      smokingBehavior: 'NO',
+    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B', '유저C']);
+    expect(result.items.find((item) => item.profileSummary.nickname === '유저B')).toMatchObject({
+      exposure: { canViewFull: true },
+      profileSummary: { smokingBehavior: 'NO' },
     });
-    expect(result.items.find((item) => item.nickname === '유저C')).toMatchObject({
-      canViewFull: false,
-      smokingBehavior: 'NO',
+    expect(result.items.find((item) => item.profileSummary.nickname === '유저C')).toMatchObject({
+      exposure: { canViewFull: false },
+      profileSummary: { smokingBehavior: 'NO' },
     });
   });
 
@@ -274,7 +274,7 @@ describe('RoommateSearchService integration', () => {
     });
   });
 
-  it('삭제 처리된 사용자는 시즌 roommate-search summary와 detail-capable target에서 제외된다', async () => {
+  it('삭제 처리된 사용자는 search에서 제외하고 기존 detail 진입은 tombstone으로 degrade한다', async () => {
     await setSeasonState('SEASON_OPEN');
     await prisma.user.update({
       where: { id: 'user-b' },
@@ -292,13 +292,21 @@ describe('RoommateSearchService integration', () => {
       detailViewableCount: 1,
       scoreVisibleCount: 1,
     });
-    expect(result.items.map((item) => item.nickname)).toEqual(['유저C']);
-    expect(result.items.every((item) => item.canViewFull)).toBe(true);
+    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(result.items.every((item) => item.exposure.canViewFull)).toBe(true);
 
     await expect(
       profilesService.getProfileByUserId(authContext('user-a'), 'user-b'),
-    ).rejects.toMatchObject({
-      response: { code: 'PROFILE_NOT_VISIBLE' },
+    ).resolves.toMatchObject({
+      detailState: 'TOMBSTONE',
+      exposure: {
+        detailViewable: true,
+        canViewFull: false,
+      },
+      tombstone: {
+        reason: 'TARGET_DELETED_OR_DEIDENTIFIED',
+        displayName: '탈퇴한 사용자',
+      },
     });
   });
 
@@ -321,13 +329,13 @@ describe('RoommateSearchService integration', () => {
       limit: 20,
     });
 
-    expect(result.scopeCapabilities).toEqual({
+    expect(result.scopeAvailability).toEqual({
       campusMerged: false,
       sameBuildingOnly: true,
     });
     expect(result.resultSummary.summaryOnlyCount).toBe(0);
     expect(result.resultSummary.detailViewableCount).toBe(result.items.length);
-    expect(result.items.every((item) => item.canViewFull)).toBe(true);
+    expect(result.items.every((item) => item.exposure.canViewFull)).toBe(true);
   });
 
   it('SEASON_POST_MATCH matched viewer는 CAMPUS_MERGED summary를 보고 partner만 detail-capable이다', async () => {
@@ -345,18 +353,20 @@ describe('RoommateSearchService integration', () => {
       offset: 0,
       limit: 20,
     });
-    const partner = result.items.find((item) => item.nickname === '유저B');
-    const otherDormitoryTarget = result.items.find((item) => item.nickname === '유저C');
+    const partner = result.items.find((item) => item.profileSummary.nickname === '유저B');
+    const otherDormitoryTarget = result.items.find(
+      (item) => item.profileSummary.nickname === '유저C',
+    );
 
     expect(result.scope).toBe('CAMPUS_MERGED');
-    expect(result.scopeCapabilities).toMatchObject({
+    expect(result.scopeAvailability).toMatchObject({
       campusMerged: true,
     });
-    expect(partner?.relationToViewer).toBe('MATCHED_PARTNER');
-    expect(partner?.canViewFull).toBe(true);
+    expect(partner?.relation.type).toBe('MATCHED_PARTNER');
+    expect(partner?.exposure.canViewFull).toBe(true);
     expect(otherDormitoryTarget).toMatchObject({
-      relationToViewer: 'GENERAL',
-      canViewFull: false,
+      relation: { type: 'GENERAL' },
+      exposure: { canViewFull: false },
     });
     expect(otherDormitoryTarget).not.toHaveProperty('matchScore');
 

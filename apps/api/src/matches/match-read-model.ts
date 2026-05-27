@@ -53,21 +53,30 @@ function toMatchRequestCounterpartSummary(
   return {
     id: participant.userId,
     sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-    relationToViewer: 'GENERAL',
-    summaryVisible: true,
-    canViewFull: false,
-    detailViewable: false,
-    scoreVisible: false,
+    relation: { type: 'GENERAL' },
+    exposure: {
+      listSummaryVisible: true,
+      canViewFull: false,
+      detailViewable: false,
+      scoreVisible: false,
+    },
     actions: {
       canBookmark: false,
       canRequestMatch: false,
       canStartChat: false,
+      unavailableReasons: ['TARGET_NOT_PUBLIC'],
     },
-    nickname: resolveMatchRequestCounterpartNickname(participant),
-    intro: participant.profile?.intro ?? '',
-    smokingBehavior: participant.profile?.smokingBehavior ?? null,
-    sleepHabit: participant.profile?.sleepHabit ?? null,
-    relationshipStyle: participant.profile?.relationshipStyle ?? null,
+    resultRead: {
+      resultReadable: false,
+      context: 'NONE',
+    },
+    profileSummary: {
+      nickname: resolveMatchRequestCounterpartNickname(participant),
+      intro: participant.profile?.intro ?? '',
+      smokingBehavior: participant.profile?.smokingBehavior ?? null,
+      sleepHabit: participant.profile?.sleepHabit ?? null,
+      relationshipStyle: participant.profile?.relationshipStyle ?? null,
+    },
   };
 }
 

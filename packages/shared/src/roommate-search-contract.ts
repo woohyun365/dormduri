@@ -5,10 +5,12 @@ import {
   MIN_PROFILE_BIRTH_YEAR,
   profileGradeSchema,
   profileMbtiSchema,
-  profileRelationToViewerSchema,
   profileSourceSchema,
   publicProfileActionCapabilitiesSchema,
   publicProfileMatchScoreSchema,
+  publicTargetExposureSchema,
+  publicTargetRelationSchema,
+  publicTargetResultReadSchema,
 } from './profile-contract.js';
 
 const nullableEnum = <const T extends readonly [string, ...string[]]>(values: T) =>
@@ -40,7 +42,7 @@ export const roommateSearchQuerySchema = z.strictObject({
   birthYear: z.coerce.number().int().min(MIN_PROFILE_BIRTH_YEAR).optional(),
 });
 
-export const roommateSearchScopeCapabilitiesSchema = z.strictObject({
+export const roommateSearchScopeAvailabilitySchema = z.strictObject({
   campusMerged: z.boolean(),
   sameBuildingOnly: z.boolean(),
 });
@@ -70,21 +72,23 @@ export const roommateSearchResultSummarySchema = z.strictObject({
   scoreVisibleCount: z.number().int().nonnegative(),
 });
 
+export const roommateSearchProfileSummarySchema = z.strictObject({
+  nickname: z.string(),
+  intro: z.string(),
+  smokingBehavior: z.enum(LIFESTYLE_FIELD_OPTIONS.smokingBehavior).nullable(),
+  sleepHabit: z.enum(LIFESTYLE_FIELD_OPTIONS.sleepHabit).nullable(),
+  relationshipStyle: z.enum(LIFESTYLE_FIELD_OPTIONS.relationshipStyle).nullable(),
+});
+
 export const roommateSearchSummarySchema = z
   .strictObject({
     id: z.string(),
     sourceProfile: profileSourceSchema,
-    relationToViewer: profileRelationToViewerSchema,
-    summaryVisible: z.literal(true),
-    canViewFull: z.boolean(),
-    detailViewable: z.boolean(),
-    scoreVisible: z.boolean(),
+    relation: publicTargetRelationSchema,
+    exposure: publicTargetExposureSchema,
     actions: publicProfileActionCapabilitiesSchema,
-    nickname: z.string(),
-    intro: z.string(),
-    smokingBehavior: z.enum(LIFESTYLE_FIELD_OPTIONS.smokingBehavior).nullable(),
-    sleepHabit: z.enum(LIFESTYLE_FIELD_OPTIONS.sleepHabit).nullable(),
-    relationshipStyle: z.enum(LIFESTYLE_FIELD_OPTIONS.relationshipStyle).nullable(),
+    resultRead: publicTargetResultReadSchema,
+    profileSummary: roommateSearchProfileSummarySchema,
   })
   .extend({
     matchScore: publicProfileMatchScoreSchema.shape.matchScore.optional(),
@@ -94,7 +98,7 @@ export const roommateSearchResponseSchema = z.strictObject({
   scope: roommateSearchScopeSchema,
   appliedSort: roommateSearchSortSchema,
   resultSummary: roommateSearchResultSummarySchema,
-  scopeCapabilities: roommateSearchScopeCapabilitiesSchema,
+  scopeAvailability: roommateSearchScopeAvailabilitySchema,
   filterCapabilities: roommateSearchFilterCapabilitiesSchema,
   sortCapabilities: roommateSearchSortCapabilitiesSchema,
   items: z.array(roommateSearchSummarySchema),
@@ -105,4 +109,5 @@ export type RoommateSearchResponse = z.infer<typeof roommateSearchResponseSchema
 export type RoommateSearchScope = z.infer<typeof roommateSearchScopeSchema>;
 export type RoommateSearchSort = z.infer<typeof roommateSearchSortSchema>;
 export type RoommateSearchResultSummary = z.infer<typeof roommateSearchResultSummarySchema>;
+export type RoommateSearchProfileSummary = z.infer<typeof roommateSearchProfileSummarySchema>;
 export type RoommateSearchSummary = z.infer<typeof roommateSearchSummarySchema>;

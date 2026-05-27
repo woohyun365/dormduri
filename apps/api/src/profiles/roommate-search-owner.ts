@@ -71,10 +71,10 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
   ): Promise<RoommateSearchResponse> {
     const now = await deps.prisma.getDatabaseNow();
     const viewerContext = await visibleProfileOwner.loadViewerContext(authUser, now);
-    const scopeCapabilities = resolveScopeCapabilities(viewerContext);
-    const scope = query.scope ?? resolveDefaultScope(scopeCapabilities);
+    const scopeAvailability = resolveScopeAvailability(viewerContext);
+    const scope = query.scope ?? resolveDefaultScope(scopeAvailability);
 
-    if (!isScopeAllowed(scopeCapabilities, scope)) {
+    if (!isScopeAllowed(scopeAvailability, scope)) {
       throw roommateSearchErrors.invalidQuery(resolveScopeErrorMessage(scope));
     }
 
@@ -92,7 +92,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     const scopeSummaries = scopeEntries.map(toRoommateSearchSummary);
     const filterCapabilities = resolveFilterCapabilities(scopeSummaries);
     const sortCapabilities = {
-      matchScore: scopeSummaries.some((item) => item.scoreVisible),
+      matchScore: scopeSummaries.some((item) => item.exposure.scoreVisible),
     };
 
     assertFilterAllowed(query, filterCapabilities, scopeSummaries);
@@ -122,7 +122,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
       scope,
       appliedSort,
       resultSummary: summarizeResults(scopeSummaries),
-      scopeCapabilities,
+      scopeAvailability,
       filterCapabilities,
       sortCapabilities,
       items: sortedItems.slice(query.offset ?? 0, (query.offset ?? 0) + (query.limit ?? 20)),
@@ -150,7 +150,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
   };
 }
 
-function resolveScopeCapabilities(viewerContext: VisibleProfileViewerContext) {
+function resolveScopeAvailability(viewerContext: VisibleProfileViewerContext) {
   const seasonState = viewerContext.serviceState.seasonState;
   const viewerRegistered = isParticipantRegistered(viewerContext.viewerParticipant);
   const sameBuildingOnly =
@@ -197,23 +197,23 @@ function viewerHasAssignedDormitory(
   );
 }
 
-function resolveDefaultScope(scopeCapabilities: {
+function resolveDefaultScope(scopeAvailability: {
   campusMerged: boolean;
   sameBuildingOnly: boolean;
 }): RoommateSearchScope {
-  if (scopeCapabilities.campusMerged) {
+  if (scopeAvailability.campusMerged) {
     return 'CAMPUS_MERGED';
   }
   return 'SAME_BUILDING_ONLY';
 }
 
 function isScopeAllowed(
-  scopeCapabilities: { campusMerged: boolean; sameBuildingOnly: boolean },
+  scopeAvailability: { campusMerged: boolean; sameBuildingOnly: boolean },
   scope: RoommateSearchScope,
 ) {
   return scope === 'CAMPUS_MERGED'
-    ? scopeCapabilities.campusMerged
-    : scopeCapabilities.sameBuildingOnly;
+    ? scopeAvailability.campusMerged
+    : scopeAvailability.sameBuildingOnly;
 }
 
 function resolveScopeErrorMessage(scope: RoommateSearchScope) {
@@ -307,8 +307,8 @@ function hasAnyFilter(query: RoommateSearchQuery) {
 function resolveFilterCapabilities(
   items: RoommateSearchSummary[],
 ): RoommateSearchResponse['filterCapabilities'] {
-  const hasSummaryOnlyTarget = items.some((item) => !item.canViewFull);
-  const hasFullViewTarget = items.some((item) => item.canViewFull);
+  const hasSummaryOnlyTarget = items.some((item) => !item.exposure.canViewFull);
+  const hasFullViewTarget = items.some((item) => item.exposure.canViewFull);
   const detailOnlyAllowed = hasFullViewTarget && !hasSummaryOnlyTarget;
 
   return {
@@ -336,7 +336,7 @@ function assertFilterAllowed(
     return;
   }
 
-  const hasSummaryOnlyTarget = scopeSummaries.some((item) => !item.canViewFull);
+  const hasSummaryOnlyTarget = scopeSummaries.some((item) => !item.exposure.canViewFull);
   if (hasSummaryOnlyTarget || !filterCapabilities.bedtime) {
     throw roommateSearchErrors.invalidQuery(
       '현재 노출 범위에서는 상세 전용 필터를 사용할 수 없습니다.',
@@ -361,23 +361,29 @@ function resolveAppliedSort(
 }
 
 function toRoommateSearchSummary(entry: ResolvedVisibleProfileEntry): RoommateSearchSummary {
+  const policy = entry.publicTargetPolicy;
   const base = {
     id: entry.user.id,
-    sourceProfile: entry.exposure.sourceProfile,
-    relationToViewer: entry.exposure.relationToViewer,
-    summaryVisible: true as const,
-    canViewFull: entry.exposure.canViewFull,
-    detailViewable: entry.exposure.detailViewable,
-    scoreVisible: entry.exposure.scoreVisible,
-    actions: entry.exposure.actions,
-    nickname: entry.sourceProfile.nickname,
-    intro: entry.sourceProfile.intro,
-    smokingBehavior: entry.sourceProfile.lifestyle.smokingBehavior,
-    sleepHabit: entry.sourceProfile.lifestyle.sleepHabit,
-    relationshipStyle: entry.sourceProfile.lifestyle.relationshipStyle,
+    sourceProfile: policy.sourceProfile,
+    relation: { type: policy.relation.relationToViewer },
+    exposure: {
+      listSummaryVisible: true as const,
+      detailViewable: policy.exposure.detailViewable,
+      canViewFull: policy.exposure.canViewFull,
+      scoreVisible: policy.exposure.scoreVisible,
+    },
+    actions: policy.actions,
+    resultRead: policy.resultRead,
+    profileSummary: {
+      nickname: entry.sourceProfile.nickname,
+      intro: entry.sourceProfile.intro,
+      smokingBehavior: entry.sourceProfile.lifestyle.smokingBehavior,
+      sleepHabit: entry.sourceProfile.lifestyle.sleepHabit,
+      relationshipStyle: entry.sourceProfile.lifestyle.relationshipStyle,
+    },
   };
 
-  if (!entry.exposure.scoreVisible) {
+  if (!policy.exposure.scoreVisible) {
     return base;
   }
 
@@ -393,19 +399,21 @@ function toRoommateSearchSummary(entry: ResolvedVisibleProfileEntry): RoommateSe
 
 function sortRoommateSearchSummaries(items: RoommateSearchSummary[], sort: RoommateSearchSort) {
   if (sort !== 'MATCH_SCORE') {
-    return [...items].sort((left, right) => left.nickname.localeCompare(right.nickname, 'ko'));
+    return [...items].sort((left, right) =>
+      left.profileSummary.nickname.localeCompare(right.profileSummary.nickname, 'ko'),
+    );
   }
 
   return [...items].sort((left, right) => {
-    const leftScore = left.scoreVisible ? left.matchScore : null;
-    const rightScore = right.scoreVisible ? right.matchScore : null;
+    const leftScore = left.exposure.scoreVisible ? left.matchScore : null;
+    const rightScore = right.exposure.scoreVisible ? right.matchScore : null;
 
     if (typeof leftScore === 'number' && typeof rightScore === 'number') {
       const scoreDiff = rightScore - leftScore;
       if (scoreDiff !== 0) {
         return scoreDiff;
       }
-      return left.nickname.localeCompare(right.nickname, 'ko');
+      return left.profileSummary.nickname.localeCompare(right.profileSummary.nickname, 'ko');
     }
 
     if (typeof leftScore === 'number') {
@@ -415,14 +423,14 @@ function sortRoommateSearchSummaries(items: RoommateSearchSummary[], sort: Roomm
       return 1;
     }
 
-    return left.nickname.localeCompare(right.nickname, 'ko');
+    return left.profileSummary.nickname.localeCompare(right.profileSummary.nickname, 'ko');
   });
 }
 
 function summarizeResults(items: RoommateSearchSummary[]): RoommateSearchResponse['resultSummary'] {
   return {
-    summaryOnlyCount: items.filter((item) => !item.detailViewable).length,
-    detailViewableCount: items.filter((item) => item.detailViewable).length,
-    scoreVisibleCount: items.filter((item) => item.scoreVisible).length,
+    summaryOnlyCount: items.filter((item) => !item.exposure.detailViewable).length,
+    detailViewableCount: items.filter((item) => item.exposure.detailViewable).length,
+    scoreVisibleCount: items.filter((item) => item.exposure.scoreVisible).length,
   };
 }

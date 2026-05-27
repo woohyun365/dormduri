@@ -60,7 +60,7 @@ describe('match-score-projection', () => {
       shouldExposePublicMatchScore({
         seasonState: 'SEASON_POST_MATCH',
         scoreVisible: true,
-        relationToViewer: 'MATCHED_PARTNER',
+        resultReadContext: 'CURRENT_MATCHED_PARTNER',
       }),
     ).toBe(true);
 
@@ -68,7 +68,7 @@ describe('match-score-projection', () => {
       shouldExposePublicMatchScore({
         seasonState: 'SEASON_POST_MATCH',
         scoreVisible: true,
-        relationToViewer: 'GENERAL',
+        resultReadContext: 'NONE',
       }),
     ).toBe(false);
   });
@@ -78,7 +78,7 @@ describe('match-score-projection', () => {
       shouldExposePublicMatchScore({
         seasonState: 'OFF_SEASON',
         scoreVisible: true,
-        relationToViewer: 'MATCHED_PARTNER',
+        resultReadContext: 'CURRENT_MATCHED_PARTNER',
       }),
     ).toBe(false);
 
@@ -86,7 +86,7 @@ describe('match-score-projection', () => {
       shouldExposePublicMatchScore({
         seasonState: 'SEASON_MATCHING',
         scoreVisible: false,
-        relationToViewer: 'GENERAL',
+        resultReadContext: 'NONE',
       }),
     ).toBe(false);
   });

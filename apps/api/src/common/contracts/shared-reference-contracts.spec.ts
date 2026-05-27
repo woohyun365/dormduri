@@ -70,21 +70,30 @@ const VALID_LIFESTYLE: LifestyleData = {
 const SUMMARY_ITEM = {
   id: 'participant-1',
   sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-  relationToViewer: 'GENERAL',
-  summaryVisible: true,
-  canViewFull: false,
-  detailViewable: false,
-  scoreVisible: false,
+  relation: { type: 'GENERAL' },
+  exposure: {
+    listSummaryVisible: true,
+    canViewFull: false,
+    detailViewable: false,
+    scoreVisible: false,
+  },
   actions: {
     canBookmark: false,
     canRequestMatch: false,
     canStartChat: false,
+    unavailableReasons: ['VIEWER_NOT_REGISTERED'],
   },
-  nickname: '테스터',
-  intro: '소개',
-  smokingBehavior: 'NO',
-  sleepHabit: 'NONE',
-  relationshipStyle: 'CLOSE',
+  resultRead: {
+    resultReadable: false,
+    context: 'NONE',
+  },
+  profileSummary: {
+    nickname: '테스터',
+    intro: '소개',
+    smokingBehavior: 'NO',
+    sleepHabit: 'NONE',
+    relationshipStyle: 'CLOSE',
+  },
 } as const;
 
 const PUBLIC_PROFILE_DETAIL = {
@@ -171,7 +180,7 @@ const ROOMMATE_SEARCH_RESPONSE = {
     detailViewableCount: 0,
     scoreVisibleCount: 0,
   },
-  scopeCapabilities: {
+  scopeAvailability: {
     campusMerged: true,
     sameBuildingOnly: true,
   },
@@ -664,7 +673,7 @@ describe('shared reference contracts', () => {
     expect(roommateSearchResponseSchema.parse(ROOMMATE_SEARCH_RESPONSE)).toMatchObject({
       scope: 'CAMPUS_MERGED',
       resultSummary: { summaryOnlyCount: 1 },
-      items: [{ summaryVisible: true, canViewFull: false }],
+      items: [{ exposure: { listSummaryVisible: true, canViewFull: false } }],
     });
 
     expect(
@@ -713,7 +722,7 @@ describe('shared reference contracts', () => {
         acceptedAt: null,
         terminalReason: null,
       }),
-    ).toMatchObject({ counterpartSummary: { nickname: '테스터' } });
+    ).toMatchObject({ counterpartSummary: { profileSummary: { nickname: '테스터' } } });
 
     expect(
       matchRequestSummarySchema.safeParse({

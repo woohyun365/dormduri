@@ -166,7 +166,7 @@ describe('match read model helpers', () => {
       counterpartParticipantId: 'participant-2',
     });
     expect(sentSummary.counterpartSummary.id).toBe('user-2');
-    expect(sentSummary.counterpartSummary.nickname).toBe('수신자');
+    expect(sentSummary.counterpartSummary.profileSummary.nickname).toBe('수신자');
 
     const receivedSummary = toMatchRequestSummary(request, 'participant-2');
     expect(receivedSummary).toMatchObject({
@@ -175,7 +175,7 @@ describe('match read model helpers', () => {
       counterpartParticipantId: 'participant-1',
     });
     expect(receivedSummary.counterpartSummary.id).toBe('user-1');
-    expect(receivedSummary.counterpartSummary.nickname).toBe('요청자');
+    expect(receivedSummary.counterpartSummary.profileSummary.nickname).toBe('요청자');
   });
 
   it('request summary는 profile missing을 삭제 사용자 tombstone label로 위장하지 않는다', () => {
@@ -197,8 +197,8 @@ describe('match read model helpers', () => {
 
     const summary = toMatchRequestSummary(request, 'participant-2');
 
-    expect(summary.counterpartSummary.nickname).toBe('프로필 확인 불가');
-    expect(summary.counterpartSummary.nickname).not.toBe('탈퇴한 사용자');
+    expect(summary.counterpartSummary.profileSummary.nickname).toBe('프로필 확인 불가');
+    expect(summary.counterpartSummary.profileSummary.nickname).not.toBe('탈퇴한 사용자');
   });
 
   it('detailed active match summary는 viewer/counterpart unmatch progress를 계산한다', () => {
