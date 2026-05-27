@@ -47,7 +47,7 @@ export function buildCurrentUserCapabilities(
     input.hasOperatedAssignedDormitory;
 
   return {
-    canBrowseProfiles:
+    canEnterRoommateSearch:
       input.campusOperated &&
       (input.seasonState === 'SEASON_OPEN' ||
         input.seasonState === 'SEASON_MATCHING' ||
@@ -58,13 +58,8 @@ export function buildCurrentUserCapabilities(
     canEditDisplayIdentity: displayIdentityEditUnavailableReasons.length === 0,
     displayIdentityEditUnavailableReasons,
     canBookmark:
-      input.campusOperated &&
-      input.participantRegistered &&
-      input.seasonProfileComplete &&
-      input.hasOperatedAssignedDormitory &&
-      (input.seasonState === 'SEASON_OPEN' ||
-        input.seasonState === 'SEASON_MATCHING' ||
-        input.seasonState === 'SEASON_POST_MATCH'),
+      canActOnPublicTargets &&
+      (input.seasonState === 'SEASON_OPEN' || input.seasonState === 'SEASON_MATCHING'),
     canRequestMatch:
       canActOnPublicTargets &&
       input.seasonState === 'SEASON_MATCHING' &&

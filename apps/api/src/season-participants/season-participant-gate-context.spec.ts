@@ -1,7 +1,7 @@
 import {
   buildCurrentUserCapabilityInput,
-  buildPublicExposureTargetInput,
-  buildPublicExposureViewerInput,
+  buildPublicTargetPolicyTargetInput,
+  buildPublicTargetPolicyViewerInput,
   toOperatedDormitoryIdSet,
 } from './season-participant-gate-context.js';
 import type { CurrentSeasonParticipantRecord } from './season-participants.service.js';
@@ -103,8 +103,8 @@ describe('season-participant-gate-context', () => {
     });
   });
 
-  it('viewer exposure input은 matched partner와 roomSelection window를 분리해 유지한다', () => {
-    const result = buildPublicExposureViewerInput({
+  it('viewer public target policy input은 matched partner와 roomSelection window를 분리해 유지한다', () => {
+    const result = buildPublicTargetPolicyViewerInput({
       campusOperated: true,
       seasonState: 'SEASON_MATCHING',
       participant: makeParticipant(),
@@ -133,9 +133,9 @@ describe('season-participant-gate-context', () => {
     });
   });
 
-  it('target exposure input은 OFF_SEASON이어도 hidden/deactivated target을 visible로 되살리지 않는다', () => {
+  it('target public target policy input은 OFF_SEASON이어도 hidden/deactivated target을 visible로 되살리지 않는다', () => {
     const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
-    const result = buildPublicExposureTargetInput({
+    const result = buildPublicTargetPolicyTargetInput({
       operatedDormitoryIds,
       participant: makeParticipant({
         hiddenByAdminAt: new Date('2026-02-01T00:00:00.000Z'),
@@ -155,7 +155,7 @@ describe('season-participant-gate-context', () => {
 
   it('current season/post-match에서는 season profile 없는 registered target을 visible로 보지 않는다', () => {
     const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
-    const result = buildPublicExposureTargetInput({
+    const result = buildPublicTargetPolicyTargetInput({
       operatedDormitoryIds,
       participant: makeParticipant({
         profile: null,

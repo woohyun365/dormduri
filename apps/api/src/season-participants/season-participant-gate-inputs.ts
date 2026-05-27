@@ -11,8 +11,8 @@ import {
   isParticipantRegistered,
   isVisibleRegisteredParticipant,
   type CurrentUserCapabilityInput,
-  type PublicExposureTargetInput,
-  type PublicExposureViewerInput,
+  type PublicTargetPolicyTargetInput,
+  type PublicTargetPolicyViewerInput,
 } from './season-participant-policy.js';
 
 type SelectionLike = Pick<CanonicalSelectionState, 'dormitoryId' | 'dormitorySelectionState'>;
@@ -57,7 +57,7 @@ export function buildCurrentUserCapabilityInput(input: {
   };
 }
 
-export function buildPublicExposureViewerInput(input: {
+export function buildPublicTargetPolicyViewerInput(input: {
   campusOperated: boolean;
   seasonState: SeasonState | null;
   participant: CurrentSeasonParticipantRecord | null;
@@ -67,7 +67,7 @@ export function buildPublicExposureViewerInput(input: {
   selection: SelectionLike;
   operatedDormitoryIds: ReadonlySet<string>;
   currentDormitoryCanMatch: boolean;
-}): PublicExposureViewerInput {
+}): PublicTargetPolicyViewerInput {
   return {
     campusOperated: input.campusOperated,
     seasonState: input.seasonState,
@@ -86,13 +86,13 @@ export function buildPublicExposureViewerInput(input: {
   };
 }
 
-export function buildPublicExposureTargetInput(input: {
+export function buildPublicTargetPolicyTargetInput(input: {
   operatedDormitoryIds: ReadonlySet<string>;
   participant: CurrentSeasonParticipantRecord | null;
   matched: boolean;
   selection: SelectionLike;
   registrationSnapshotExists: boolean;
-}): PublicExposureTargetInput {
+}): PublicTargetPolicyTargetInput {
   const hasSeasonProfile = hasParticipantProfile(input.participant);
   const parsedSeasonProfileLifestyle = input.participant?.profile
     ? lifestyleSchema.safeParse(input.participant.profile.lifestyle)
