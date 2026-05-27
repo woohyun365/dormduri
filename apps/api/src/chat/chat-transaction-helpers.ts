@@ -11,6 +11,18 @@ export async function acquireConversationThreadPairLock(
   );
 }
 
+export async function acquireConversationThreadParticipantLocks(
+  tx: Prisma.TransactionClient,
+  seasonId: string,
+  participantIds: readonly [string, string],
+) {
+  for (const participantId of [...participantIds].sort()) {
+    await tx.$queryRawTyped(
+      acquireTransactionAdvisoryLock('participant_active_match', `${seasonId}:${participantId}`),
+    );
+  }
+}
+
 export async function acquireConversationThreadLeaveLock(
   tx: Prisma.TransactionClient,
   threadId: string,

@@ -11,6 +11,7 @@ import { chatErrors } from './chat.errors.js';
 import type { ChatParticipantUserProjection, ThreadRecord } from './chat-selects.js';
 import { threadSelect } from './chat-selects.js';
 import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
+import type { ChatSendMessageDecision } from './chat-thread-support.js';
 
 type ConversationMessageResponseRecord = {
   id: string;
@@ -34,14 +35,28 @@ interface ChatCommandClusterDeps {
   getDatabaseNow(): Promise<Date>;
   runSerializableTransaction<T>(callback: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T>;
   getCurrentChatContext(userId: string, now: Date): Promise<ChatUserContext | null>;
+  getChatUserProjection(
+    userId: string,
+    client?: Prisma.TransactionClient,
+  ): Promise<ChatParticipantUserProjection | null>;
   getValidatedTargetUser(
     targetUserId: string,
     viewerUser: ChatParticipantUserProjection,
+    client?: Prisma.TransactionClient,
   ): Promise<ChatParticipantUserProjection>;
   getRequiredParticipant(
     targetUser: ChatParticipantUserProjection,
     seasonId: string,
+    client?: Prisma.TransactionClient,
   ): Promise<CurrentSeasonParticipantRecord>;
+  findCurrentSeasonParticipant(
+    userId: string,
+    seasonId: string,
+    client?: Prisma.TransactionClient,
+  ): Promise<CurrentSeasonParticipantRecord | null>;
+  selectCanonicalSelection(
+    participant: CurrentSeasonParticipantRecord | null,
+  ): ChatUserContext['selection'];
   findThreadByPair(
     seasonId: string,
     leftParticipantId: string,
@@ -60,11 +75,11 @@ interface ChatCommandClusterDeps {
     thread: ThreadRecord | null,
     now: Date,
     client?: Prisma.TransactionClient,
-  ): Promise<boolean>;
+  ): Promise<ChatSendMessageDecision>;
   toThreadSummary(
     thread: ThreadRecord,
     viewerParticipantId: string,
-    canSendMessage: boolean,
+    sendMessageDecision: ChatSendMessageDecision,
   ): SendConversationMessageResponse['thread'];
   toMessage(message: ConversationMessageResponseRecord): SendConversationMessageResponse['message'];
   resolveViewerParticipantId(thread: ThreadRecord, viewerUserId: string): string;
@@ -72,6 +87,11 @@ interface ChatCommandClusterDeps {
     tx: Prisma.TransactionClient,
     seasonId: string,
     pairKey: string,
+  ): Promise<void>;
+  acquireConversationThreadParticipantLocks(
+    tx: Prisma.TransactionClient,
+    seasonId: string,
+    participantIds: readonly [string, string],
   ): Promise<void>;
   acquireConversationThreadLeaveLock(tx: Prisma.TransactionClient, threadId: string): Promise<void>;
   findLeavableThread(userId: string, threadId: string): Promise<ThreadRecord | null>;
@@ -107,25 +127,66 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           pairIdentity.pairKey,
         );
 
+        await deps.acquireConversationThreadParticipantLocks(
+          tx,
+          viewerContext.seasonContext!.season.id,
+          [pairIdentity.pairMinParticipantId, pairIdentity.pairMaxParticipantId],
+        );
+
+        const txViewerUser = await deps.getChatUserProjection(authUser.id, tx);
+        if (!txViewerUser) {
+          throw chatErrors.messageSendNotAllowed();
+        }
+        const txTargetUser = await deps.getChatUserProjection(input.targetUserId, tx);
+        if (
+          !txTargetUser ||
+          txTargetUser.id === txViewerUser.id ||
+          txTargetUser.campus !== txViewerUser.campus ||
+          txTargetUser.gender !== txViewerUser.gender
+        ) {
+          throw chatErrors.messageSendNotAllowed();
+        }
+        const txViewerParticipant = await deps.findCurrentSeasonParticipant(
+          txViewerUser.id,
+          viewerContext.seasonContext!.season.id,
+          tx,
+        );
+        const txTargetParticipant = await deps.findCurrentSeasonParticipant(
+          txTargetUser.id,
+          viewerContext.seasonContext!.season.id,
+          tx,
+        );
+
+        if (!txViewerParticipant || !txTargetParticipant) {
+          throw chatErrors.messageSendNotAllowed();
+        }
+
+        const txViewerContext: ChatUserContext = {
+          ...viewerContext,
+          user: txViewerUser,
+          participant: txViewerParticipant,
+          selection: deps.selectCanonicalSelection(txViewerParticipant),
+        };
+
         const existingThread = await deps.findThreadByPair(
           viewerContext.seasonContext!.season.id,
-          viewerContext.participant!.id,
-          targetParticipant.id,
+          txViewerParticipant.id,
+          txTargetParticipant.id,
           tx,
         );
         const synchronizedThread = existingThread
           ? await deps.synchronizeThreadLifecycle(existingThread, now, tx)
           : null;
-        const canSend = await deps.canSendMessageToPair(
-          viewerContext,
-          targetUser,
-          targetParticipant,
+        const sendMessageDecision = await deps.canSendMessageToPair(
+          txViewerContext,
+          txTargetUser,
+          txTargetParticipant,
           synchronizedThread,
           now,
           tx,
         );
 
-        if (!canSend) {
+        if (!sendMessageDecision.canSendMessage) {
           throw chatErrors.messageSendNotAllowed();
         }
 
@@ -155,7 +216,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
               pairKey: pairIdentity.pairKey,
               participantAId: pairIdentity.pairMinParticipantId,
               participantBId: pairIdentity.pairMaxParticipantId,
-              openedByParticipantId: viewerContext.participant!.id,
+              openedByParticipantId: txViewerParticipant.id,
               threadKind: pairActiveMatch ? 'MATCHED' : 'DIRECT',
               activeMatchId: pairActiveMatch?.id ?? null,
               status: 'OPEN',
@@ -191,7 +252,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         await tx.conversationThreadMember.updateMany({
           where: {
             threadId: thread.id,
-            participantId: { in: [viewerContext.participant!.id, targetParticipant.id] },
+            participantId: { in: [txViewerParticipant.id, txTargetParticipant.id] },
             memberState: 'LEFT',
           },
           data: {
@@ -204,7 +265,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         const message = await tx.conversationMessage.create({
           data: {
             threadId: thread.id,
-            senderParticipantId: viewerContext.participant!.id,
+            senderParticipantId: txViewerParticipant.id,
             body: input.body,
             sentAt: now,
           },
@@ -230,7 +291,10 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         });
 
         return {
-          thread: deps.toThreadSummary(thread, viewerContext.participant!.id, true),
+          thread: deps.toThreadSummary(thread, txViewerParticipant.id, {
+            canSendMessage: true,
+            unavailableReason: null,
+          }),
           message: deps.toMessage(message),
           createdThread,
         };

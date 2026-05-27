@@ -202,6 +202,7 @@ describe('KST boundary + DB now integration', () => {
 
     expect(result.thread.status).toBe('READ_ONLY');
     expect(result.thread.canSendMessage).toBe(false);
+    expect(result.thread.sendMessageUnavailableReason).toBe('SEASON_ENDED');
   });
 
   it('DB now의 KST 오늘이 roomSelectionDate와 같으면 match request는 아직 허용된다', async () => {
@@ -283,5 +284,6 @@ describe('KST boundary + DB now integration', () => {
 
     expect(result.thread.status).toBe('READ_ONLY');
     expect(result.thread.canSendMessage).toBe(false);
+    expect(result.thread.sendMessageUnavailableReason).toBe('THREAD_READ_ONLY');
   });
 });

@@ -1,18 +1,22 @@
-import type { ConversationMessage, ConversationThreadSummary } from '@repo/shared/chat-contract';
+import type {
+  ChatSendMessageUnavailableReason,
+  ConversationMessage,
+  ConversationThreadSummary,
+} from '@repo/shared/chat-contract';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import {
   buildCurrentUserCapabilities,
   canCurrentDormitoryMatch,
-  resolvePublicExposure,
+  resolvePublicTargetPolicy,
 } from '../season-participants/season-participant-policy.js';
 import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import {
   buildCurrentUserCapabilityInput,
-  buildPublicExposureTargetInput,
-  buildPublicExposureViewerInput,
+  buildPublicTargetPolicyTargetInput,
+  buildPublicTargetPolicyViewerInput,
   toOperatedDormitoryIdSet,
 } from '../season-participants/season-participant-gate-context.js';
 import {
@@ -26,6 +30,23 @@ import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 import type { ChatParticipantUserProjection, ThreadRecord } from './chat-selects.js';
 
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
+
+export interface ChatSendMessageDecision {
+  canSendMessage: boolean;
+  unavailableReason: ChatSendMessageUnavailableReason | null;
+}
+
+const canSendMessageDecision = (): ChatSendMessageDecision => ({
+  canSendMessage: true,
+  unavailableReason: null,
+});
+
+const cannotSendMessageDecision = (
+  unavailableReason: ChatSendMessageUnavailableReason,
+): ChatSendMessageDecision => ({
+  canSendMessage: false,
+  unavailableReason,
+});
 
 interface ChatThreadSupportOwnerDeps {
   prisma: PrismaService;
@@ -68,27 +89,84 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
       return thread.participantAId === participantId || thread.participantBId === participantId;
     },
 
-    isThreadWritable(thread: ThreadRecord, viewerParticipantId: string, now: Date) {
-      if (thread.status !== 'OPEN') {
-        return false;
-      }
+    resolveThreadSendMessageDecision(
+      thread: ThreadRecord,
+      viewerParticipantId: string,
+      now: Date,
+    ): ChatSendMessageDecision {
+      const viewerMember = this.getThreadMember(thread, viewerParticipantId);
       if (!this.isThreadParticipant(thread, viewerParticipantId)) {
-        return false;
+        return cannotSendMessageDecision('SAFETY_OR_VISIBILITY_RESTRICTED');
+      }
+      if (viewerMember?.memberState === 'LEFT') {
+        return cannotSendMessageDecision('MEMBER_LEFT');
+      }
+      if (thread.status === 'ARCHIVED') {
+        return cannotSendMessageDecision('ARCHIVED_THREAD');
+      }
+      if (thread.status !== 'OPEN') {
+        return cannotSendMessageDecision(
+          thread.closedReason === 'SEASON_ENDED' ? 'SEASON_ENDED' : 'THREAD_READ_ONLY',
+        );
       }
 
       if (thread.threadKind === 'MATCHED') {
         const state = this.resolveThreadSeasonState(thread, now);
-        return state === 'SEASON_MATCHING' || state === 'SEASON_POST_MATCH';
+        if (state === 'SEASON_MATCHING' || state === 'SEASON_POST_MATCH') {
+          return canSendMessageDecision();
+        }
+        return cannotSendMessageDecision('SEASON_ENDED');
       }
 
       const roomSelectionDate = this.findThreadRoomSelectionDate(thread);
-      return roomSelectionDate ? formatKstDate(now) <= roomSelectionDate : false;
+      if (roomSelectionDate && formatKstDate(now) <= roomSelectionDate) {
+        return canSendMessageDecision();
+      }
+
+      return cannotSendMessageDecision('THREAD_READ_ONLY');
+    },
+
+    isThreadWritable(thread: ThreadRecord, viewerParticipantId: string, now: Date) {
+      return this.resolveThreadSendMessageDecision(thread, viewerParticipantId, now).canSendMessage;
+    },
+
+    resolveThreadSummarySendMessageDecision(
+      thread: ThreadRecord,
+      viewerParticipantId: string,
+      now: Date,
+    ): ChatSendMessageDecision {
+      return this.resolveThreadSendMessageDecision(thread, viewerParticipantId, now);
+    },
+
+    resolveMatchedPairThreadSendMessageDecision(
+      thread: ThreadRecord,
+      viewerParticipantId: string,
+      now: Date,
+    ): ChatSendMessageDecision {
+      if (thread.status !== 'OPEN') {
+        return cannotSendMessageDecision(
+          thread.closedReason === 'SEASON_ENDED' ? 'SEASON_ENDED' : 'THREAD_READ_ONLY',
+        );
+      }
+      if (!this.isThreadParticipant(thread, viewerParticipantId)) {
+        return cannotSendMessageDecision('SAFETY_OR_VISIBILITY_RESTRICTED');
+      }
+
+      const viewerMember = this.getThreadMember(thread, viewerParticipantId);
+      if (viewerMember?.memberState === 'LEFT') {
+        return cannotSendMessageDecision('MEMBER_LEFT');
+      }
+
+      const state = this.resolveThreadSeasonState(thread, now);
+      return state === 'SEASON_MATCHING' || state === 'SEASON_POST_MATCH'
+        ? canSendMessageDecision()
+        : cannotSendMessageDecision('SEASON_ENDED');
     },
 
     toThreadSummary(
       thread: ThreadRecord,
       viewerParticipantId: string,
-      canSendMessage: boolean,
+      sendMessageDecision: ChatSendMessageDecision,
     ): ConversationThreadSummary {
       const viewerIsParticipantA = thread.participantAId === viewerParticipantId;
 
@@ -106,7 +184,8 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
         closedReason: thread.closedReason,
         closedAt: thread.closedAt?.toISOString() ?? null,
         lastMessageAt: thread.lastMessageAt?.toISOString() ?? null,
-        canSendMessage,
+        canSendMessage: sendMessageDecision.canSendMessage,
+        sendMessageUnavailableReason: sendMessageDecision.unavailableReason,
         canReport: true,
       };
     },
@@ -134,14 +213,14 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
       const seasonContext = viewerContext.seasonContext;
       const viewerParticipant = viewerContext.participant;
       if (!seasonContext || !viewerParticipant) {
-        return false;
+        return cannotSendMessageDecision('DIRECT_ACTION_NOT_ALLOWED');
       }
 
       const viewerLifestyle = parseLifestyleOrNull(viewerParticipant.profile?.lifestyle ?? null);
       const viewerSeasonProfileComplete =
         viewerLifestyle !== null && isSeasonProfileComplete(viewerLifestyle);
       if (!viewerSeasonProfileComplete) {
-        return false;
+        return cannotSendMessageDecision('DIRECT_ACTION_NOT_ALLOWED');
       }
 
       const targetSelection =
@@ -201,8 +280,8 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           nicknameCooldownActive: false,
         }),
       ).canStartChat;
-      const exposure = resolvePublicExposure(
-        buildPublicExposureViewerInput({
+      const publicTargetPolicy = resolvePublicTargetPolicy(
+        buildPublicTargetPolicyViewerInput({
           campusOperated: true,
           seasonState: seasonContext.state,
           participant: viewerParticipant,
@@ -213,7 +292,7 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           operatedDormitoryIds,
           currentDormitoryCanMatch: viewerCurrentDormitoryCanMatch,
         }),
-        buildPublicExposureTargetInput({
+        buildPublicTargetPolicyTargetInput({
           operatedDormitoryIds,
           participant: targetParticipant,
           matched: targetPairActiveMatch !== null,
@@ -221,28 +300,51 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
           registrationSnapshotExists: targetRegistrationSnapshotExists,
         }),
       );
-      const directThreadActionEligible = canStartChat && exposure.actions.canStartChat;
+      const directThreadActionEligible = canStartChat && publicTargetPolicy.actions.canStartChat;
+      const directThreadActionUnavailableReason =
+        publicTargetPolicy.actions.unavailableReasons.includes('TARGET_DELETED_OR_DEIDENTIFIED')
+          ? 'TARGET_DELETED_OR_DEIDENTIFIED'
+          : 'DIRECT_ACTION_NOT_ALLOWED';
 
       if (thread) {
         const viewerMember = this.getThreadMember(thread, viewerParticipant.id);
         if (viewerMember?.memberState === 'ACTIVE') {
           if (thread.threadKind === 'MATCHED' || pairHasActiveMatch) {
-            return this.isThreadWritable(thread, viewerParticipant.id, now);
+            return pairHasActiveMatch
+              ? this.resolveMatchedPairThreadSendMessageDecision(thread, viewerParticipant.id, now)
+              : this.resolveThreadSendMessageDecision(thread, viewerParticipant.id, now);
           }
-          return (
-            directThreadActionEligible && this.isThreadWritable(thread, viewerParticipant.id, now)
+          const threadDecision = this.resolveThreadSendMessageDecision(
+            thread,
+            viewerParticipant.id,
+            now,
           );
+          return directThreadActionEligible && threadDecision.canSendMessage
+            ? canSendMessageDecision()
+            : cannotSendMessageDecision(
+                threadDecision.unavailableReason ?? directThreadActionUnavailableReason,
+              );
         }
 
         if (viewerMember?.memberState === 'LEFT') {
           if (pairHasActiveMatch) {
-            return thread.status === 'OPEN';
+            return thread.status === 'OPEN'
+              ? canSendMessageDecision()
+              : cannotSendMessageDecision(
+                  thread.closedReason === 'SEASON_ENDED' ? 'SEASON_ENDED' : 'THREAD_READ_ONLY',
+                );
           }
-          return directThreadActionEligible && thread.status === 'OPEN';
+          return directThreadActionEligible && thread.status === 'OPEN'
+            ? canSendMessageDecision()
+            : cannotSendMessageDecision(
+                thread.status === 'OPEN' ? directThreadActionUnavailableReason : 'THREAD_READ_ONLY',
+              );
         }
       }
 
-      return directThreadActionEligible;
+      return directThreadActionEligible
+        ? canSendMessageDecision()
+        : cannotSendMessageDecision(directThreadActionUnavailableReason);
     },
   };
 }

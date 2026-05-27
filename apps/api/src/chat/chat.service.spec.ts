@@ -10,6 +10,7 @@ type UserSeed = {
   emailVerifiedAt: Date | null;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
+  deletedAt: Date | null;
   profile: {
     lifestyle: Record<string, unknown>;
   } | null;
@@ -46,6 +47,7 @@ function makeUserSeed(overrides: Partial<UserSeed> = {}): UserSeed {
     emailVerifiedAt: new Date('2026-02-01T00:00:00.000Z'),
     gender: 'M',
     campus: 'CHUNCHEON',
+    deletedAt: null,
     profile: {
       lifestyle: COMPLETE_LIFESTYLE,
     },
@@ -166,6 +168,7 @@ function makeVisibleThread(params: {
 
 describe('ChatService', () => {
   const txQueryRawTyped = jest.fn();
+  const txUserFindUnique = jest.fn();
   const txConversationThreadFindFirst = jest.fn();
   const txConversationThreadCreate = jest.fn();
   const txConversationThreadUpdate = jest.fn();
@@ -269,6 +272,11 @@ describe('ChatService', () => {
       makeThread({ status: 'READ_ONLY', closedReason: 'ROOM_SELECTION_CUTOFF' }),
     );
     txQueryRawTyped.mockResolvedValue([{ lockAcquired: null }]);
+    txUserFindUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve(
+        where.id === 'user-2' ? makeUserSeed({ id: 'user-2' }) : makeUserSeed({ id: where.id }),
+      ),
+    );
     txConversationThreadFindFirst.mockResolvedValue(null);
     txConversationThreadCreate.mockResolvedValue(makeThread());
     txConversationThreadUpdate.mockResolvedValue(
@@ -289,6 +297,9 @@ describe('ChatService', () => {
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
         $queryRawTyped: txQueryRawTyped,
+        user: {
+          findUnique: txUserFindUnique,
+        },
         conversationThread: {
           findFirst: txConversationThreadFindFirst,
           create: txConversationThreadCreate,
@@ -609,8 +620,64 @@ describe('ChatService', () => {
     expect(seasonParticipantsService.findCurrentSeasonParticipant).toHaveBeenCalledWith(
       'user-2',
       'season-1',
+      undefined,
     );
     expect(prisma.conversationThread.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('send transaction 내부에서 participant 상태를 재조회해 hidden race를 차단한다', async () => {
+    seasonParticipantsService.findCurrentSeasonParticipant
+      .mockResolvedValueOnce(makeParticipant({ id: 'participant-2', userId: 'user-2' }))
+      .mockResolvedValueOnce(makeParticipant({ id: 'participant-1', userId: 'user-1' }))
+      .mockResolvedValueOnce(
+        makeParticipant({
+          id: 'participant-2',
+          userId: 'user-2',
+          hiddenByAdminAt: new Date('2026-02-10T03:00:00.000Z'),
+        }),
+      );
+
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { targetUserId: 'user-2', body: 'hidden race 차단' },
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.messageSendNotAllowed().getResponse(),
+    });
+
+    expect(txConversationThreadCreate).not.toHaveBeenCalled();
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
+  });
+
+  it('send transaction 내부에서 target user를 재조회해 삭제 race를 차단한다', async () => {
+    txUserFindUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve(
+        where.id === 'user-2'
+          ? { ...makeUserSeed({ id: 'user-2' }), deletedAt: new Date('2026-02-10T03:00:00.000Z') }
+          : { ...makeUserSeed({ id: where.id }), deletedAt: null },
+      ),
+    );
+
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { targetUserId: 'user-2', body: '삭제 race 차단' },
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.messageSendNotAllowed().getResponse(),
+    });
+
+    expect(txConversationThreadCreate).not.toHaveBeenCalled();
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
   });
 
   it('첫 메시지 전송 시 thread를 생성한다', async () => {
@@ -689,6 +756,9 @@ describe('ChatService', () => {
     await service.handleActiveMatchCreated(
       {
         $queryRawTyped: txQueryRawTyped,
+        user: {
+          findUnique: txUserFindUnique,
+        },
         conversationThread: {
           findFirst: jest.fn(),
           update: txConversationThreadUpdate,
@@ -782,6 +852,8 @@ describe('ChatService', () => {
     );
 
     expect(result.thread.status).toBe('READ_ONLY');
+    expect(result.thread.canSendMessage).toBe(false);
+    expect(result.thread.sendMessageUnavailableReason).toBe('THREAD_READ_ONLY');
     expect(result.thread.canReport).toBe(true);
   });
 
@@ -972,6 +1044,7 @@ describe('ChatService', () => {
 
     expect(result.thread.status).toBe('READ_ONLY');
     expect(result.thread.canSendMessage).toBe(false);
+    expect(result.thread.sendMessageUnavailableReason).toBe('SEASON_ENDED');
   });
 
   it.each([
@@ -1042,6 +1115,8 @@ describe('ChatService', () => {
         threadKind,
         status: 'READ_ONLY',
         canSendMessage: false,
+        sendMessageUnavailableReason:
+          closedReason === 'SEASON_ENDED' ? 'SEASON_ENDED' : 'THREAD_READ_ONLY',
       });
     },
   );

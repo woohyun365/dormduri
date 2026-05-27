@@ -23,6 +23,7 @@ import { createChatThreadSupportOwner } from './chat-thread-support.js';
 import {
   acquireConversationThreadLeaveLock,
   acquireConversationThreadPairLock,
+  acquireConversationThreadParticipantLocks,
 } from './chat-transaction-helpers.js';
 
 @Injectable()
@@ -67,10 +68,16 @@ export class ChatService {
       runSerializableTransaction: <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>) =>
         this.prisma.runSerializableTransaction(callback),
       getCurrentChatContext: (userId, now) => this.contextOwner.getCurrentChatContext(userId, now),
-      getValidatedTargetUser: (targetUserId, viewerUser) =>
-        this.contextOwner.getValidatedTargetUser(targetUserId, viewerUser),
-      getRequiredParticipant: (targetUser, seasonId) =>
-        this.contextOwner.getRequiredParticipant(targetUser, seasonId),
+      getChatUserProjection: (userId, client) =>
+        this.contextOwner.getChatUserProjection(userId, client),
+      getValidatedTargetUser: (targetUserId, viewerUser, client) =>
+        this.contextOwner.getValidatedTargetUser(targetUserId, viewerUser, client),
+      getRequiredParticipant: (targetUser, seasonId, client) =>
+        this.contextOwner.getRequiredParticipant(targetUser, seasonId, client),
+      findCurrentSeasonParticipant: (userId, seasonId, client) =>
+        this.seasonParticipantsService.findCurrentSeasonParticipant(userId, seasonId, client),
+      selectCanonicalSelection: (participant) =>
+        this.seasonParticipantsService.selectCanonicalSelection(participant),
       findThreadByPair: (seasonId, leftParticipantId, rightParticipantId, client) =>
         this.queryOwner.findThreadByPair(seasonId, leftParticipantId, rightParticipantId, client),
       synchronizeThreadLifecycle: (thread, now, client) =>
@@ -84,12 +91,13 @@ export class ChatService {
           now,
           client,
         ),
-      toThreadSummary: (thread, viewerParticipantId, canSendMessage) =>
-        this.threadSupportOwner.toThreadSummary(thread, viewerParticipantId, canSendMessage),
+      toThreadSummary: (thread, viewerParticipantId, sendMessageDecision) =>
+        this.threadSupportOwner.toThreadSummary(thread, viewerParticipantId, sendMessageDecision),
       toMessage: (message) => this.threadSupportOwner.toMessage(message),
       resolveViewerParticipantId: (thread, viewerUserId) =>
         this.threadSupportOwner.resolveViewerParticipantId(thread, viewerUserId),
       acquireConversationThreadPairLock,
+      acquireConversationThreadParticipantLocks,
       acquireConversationThreadLeaveLock,
       findLeavableThread: (userId, threadId) =>
         this.queryOwner.findLeavableThread(userId, threadId),
@@ -136,7 +144,7 @@ export class ChatService {
     const synchronizedThread = existingThread
       ? await this.lifecycleOwner.synchronizeThreadLifecycle(existingThread, now)
       : null;
-    const canSendMessage = await this.threadSupportOwner.canSendMessageToPair(
+    const sendMessageDecision = await this.threadSupportOwner.canSendMessageToPair(
       viewerContext,
       targetUser,
       targetParticipant,
@@ -161,11 +169,11 @@ export class ChatService {
         ? this.threadSupportOwner.toThreadSummary(
             visibleThread,
             viewerContext.participant.id,
-            canSendMessage,
+            sendMessageDecision,
           )
         : null,
-      canEnterChatUi: visibleThread !== null || canSendMessage,
-      canSendMessage,
+      canEnterChatUi: visibleThread !== null || sendMessageDecision.canSendMessage,
+      canSendMessage: sendMessageDecision.canSendMessage,
     };
   }
 
@@ -187,7 +195,11 @@ export class ChatService {
         this.threadSupportOwner.toThreadSummary(
           synchronized,
           viewerParticipantId,
-          this.threadSupportOwner.isThreadWritable(synchronized, viewerParticipantId, now),
+          this.threadSupportOwner.resolveThreadSummarySendMessageDecision(
+            synchronized,
+            viewerParticipantId,
+            now,
+          ),
         ),
       );
     }
@@ -222,7 +234,11 @@ export class ChatService {
       thread: this.threadSupportOwner.toThreadSummary(
         synchronized,
         viewerParticipantId,
-        this.threadSupportOwner.isThreadWritable(synchronized, viewerParticipantId, now),
+        this.threadSupportOwner.resolveThreadSummarySendMessageDecision(
+          synchronized,
+          viewerParticipantId,
+          now,
+        ),
       ),
       messages: visibleMessages.map((message) => this.threadSupportOwner.toMessage(message)),
     };
