@@ -127,7 +127,9 @@ describe('MatchesService', () => {
   const txActiveMatchUnmatchRequestFindMany = jest.fn();
   const txActiveMatchUnmatchRequestUpdate = jest.fn();
   const txActiveMatchUnmatchRequestUpdateMany = jest.fn();
+  const txSeasonParticipantFindMany = jest.fn();
   const txSeasonParticipantUpdateMany = jest.fn();
+  const txSeasonDormitoryOperationFindUnique = jest.fn();
   const txSeasonParticipantProfileHistoryCount = jest.fn();
 
   const prisma = {
@@ -387,7 +389,21 @@ describe('MatchesService', () => {
       terminalAt: new Date('2026-02-10T03:05:00.000Z'),
     });
     txActiveMatchUnmatchRequestUpdateMany.mockResolvedValue({ count: 1 });
+    txSeasonParticipantFindMany.mockResolvedValue([
+      {
+        id: 'participant-1',
+        ...makeMatchRequestParticipant('user-1'),
+      },
+      {
+        id: 'participant-2',
+        ...makeMatchRequestParticipant('user-2'),
+      },
+    ]);
     txSeasonParticipantUpdateMany.mockResolvedValue({ count: 2 });
+    txSeasonDormitoryOperationFindUnique.mockResolvedValue({
+      isOperated: true,
+      roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+    });
     txSeasonParticipantProfileHistoryCount.mockResolvedValue(2);
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
@@ -414,7 +430,11 @@ describe('MatchesService', () => {
           updateMany: txActiveMatchUnmatchRequestUpdateMany,
         },
         seasonParticipant: {
+          findMany: txSeasonParticipantFindMany,
           updateMany: txSeasonParticipantUpdateMany,
+        },
+        seasonDormitoryOperation: {
+          findUnique: txSeasonDormitoryOperationFindUnique,
         },
         seasonParticipantProfileHistory: {
           count: txSeasonParticipantProfileHistoryCount,
@@ -468,6 +488,37 @@ describe('MatchesService', () => {
       response: matchesErrors.requestNotAllowed().getResponse(),
     });
 
+    expect(txMatchRequestCreate).not.toHaveBeenCalled();
+  });
+
+  it('요청 생성 transaction 내부에서 target 상태를 재점검해 race로 숨김/삭제된 target 생성을 막는다', async () => {
+    txSeasonParticipantFindMany.mockResolvedValueOnce([
+      {
+        id: 'participant-1',
+        ...makeMatchRequestParticipant('user-1'),
+      },
+      {
+        id: 'participant-2',
+        ...makeMatchRequestParticipant('user-2', {
+          hiddenByAdminAt: new Date('2026-02-10T03:00:00.000Z'),
+        }),
+      },
+    ]);
+
+    await expect(
+      service.createMatchRequest(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { targetUserId: 'user-2', note: '안녕하세요' },
+      ),
+    ).rejects.toMatchObject({
+      response: matchesErrors.requestNotAllowed().getResponse(),
+    });
+
+    expect(txSeasonParticipantFindMany).toHaveBeenCalled();
     expect(txMatchRequestCreate).not.toHaveBeenCalled();
   });
 
@@ -1137,7 +1188,7 @@ describe('MatchesService', () => {
   it('UNMATCHED 직후 같은 방향 재요청에도 2일 cooldown을 적용한다', async () => {
     txMatchRequestCount.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
     txMatchRequestFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
-    txActiveMatchFindFirst.mockResolvedValueOnce({
+    txActiveMatchFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
       endedAt: new Date('2026-02-09T12:00:00.000Z'),
     });
 

@@ -4,13 +4,13 @@ import type { ModerationService } from '../common/moderation/moderation.service.
 import {
   buildCurrentUserCapabilities,
   canCurrentDormitoryMatch,
-  resolvePublicExposure,
+  resolvePublicTargetPolicy,
 } from '../season-participants/season-participant-policy.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import {
   buildCurrentUserCapabilityInput,
-  buildPublicExposureTargetInput,
-  buildPublicExposureViewerInput,
+  buildPublicTargetPolicyTargetInput,
+  buildPublicTargetPolicyViewerInput,
   toOperatedDormitoryIdSet,
 } from '../season-participants/season-participant-gate-context.js';
 import { matchesErrors } from './matches.errors.js';
@@ -124,8 +124,8 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
           nicknameCooldownActive: false,
         }),
       );
-      const exposure = resolvePublicExposure(
-        buildPublicExposureViewerInput({
+      const publicTargetPolicy = resolvePublicTargetPolicy(
+        buildPublicTargetPolicyViewerInput({
           campusOperated: true,
           seasonState: requesterContext.seasonContext.state,
           participant: requesterContext.participant,
@@ -136,7 +136,7 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
           operatedDormitoryIds,
           currentDormitoryCanMatch: requesterCurrentDormitoryCanMatch,
         }),
-        buildPublicExposureTargetInput({
+        buildPublicTargetPolicyTargetInput({
           operatedDormitoryIds,
           participant: targetParticipant,
           matched: targetActiveMatch !== null,
@@ -145,7 +145,7 @@ export function createMatchRequestPreparationOwner(deps: MatchRequestPreparation
         }),
       );
 
-      if (!requesterCapabilities.canRequestMatch || !exposure.actions.canRequestMatch) {
+      if (!requesterCapabilities.canRequestMatch || !publicTargetPolicy.actions.canRequestMatch) {
         throw matchesErrors.requestNotAllowed();
       }
 

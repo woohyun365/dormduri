@@ -9,10 +9,12 @@ import type {
   MatchRequestListResponse,
 } from '@repo/shared/match-contract';
 import type { PublicProfile } from '@repo/shared/profile-contract';
+import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../generated/prisma/client.js';
 import type { Campus } from '../generated/prisma/enums.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { ChatService } from '../chat/chat.service.js';
+import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { createMatchContextOwner } from './match-context-owner.js';
@@ -40,8 +42,10 @@ import { activeMatchCommandSelect, matchRequestSummarySelect } from './match-sel
 import {
   acquireActiveMatchLock,
   acquirePairLock,
+  acquireParticipantLocks,
   assertDirectionCooldown,
   assertDirectionLimit,
+  assertNoLiveActiveMatchForParticipants,
   assertNoLivePendingPair,
   assertPendingRequestLimit,
   expireDuePendingRequests,
@@ -54,11 +58,38 @@ import {
   synchronizePendingUnmatchRequests,
 } from './match-unmatch-support.js';
 import { resolveMatchRequestExpiresAt } from './match.utils.js';
+import { formatKstDate } from '../seasons/season.utils.js';
+import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 
 interface LifecycleTransitionResult {
   expiredUnmatchRequests: number;
   seasonEndedActiveMatch: boolean;
 }
+
+const matchRequestCreationParticipantSelect = {
+  id: true,
+  registeredAt: true,
+  dormitoryId: true,
+  dormitorySelectionState: true,
+  participationIntent: true,
+  participantStatus: true,
+  declinedAt: true,
+  withdrawnAt: true,
+  hiddenByAdminAt: true,
+  deactivatedAt: true,
+  user: {
+    select: {
+      deletedAt: true,
+    },
+  },
+  profile: {
+    select: lifestyleColumnSelect,
+  },
+} as const satisfies Prisma.SeasonParticipantSelect;
+
+type MatchRequestCreationParticipant = Prisma.SeasonParticipantGetPayload<{
+  select: typeof matchRequestCreationParticipantSelect;
+}>;
 
 @Injectable()
 export class MatchesService {
@@ -445,8 +476,15 @@ export class MatchesService {
     now: Date,
   ) {
     await acquirePairLock(tx, input.seasonId, input.pairIdentity.pairKey);
+    const sortedParticipants = [
+      input.pairIdentity.pairMinParticipantId,
+      input.pairIdentity.pairMaxParticipantId,
+    ] as const;
+    await acquireParticipantLocks(tx, input.seasonId, sortedParticipants);
+    await this.assertPreparedParticipantsStillRequestable(tx, input, sortedParticipants, now);
     await expireDuePendingRequests(tx, input.seasonId, now);
     await assertNoLivePendingPair(tx, input.seasonId, input.pairIdentity);
+    await assertNoLiveActiveMatchForParticipants(tx, input.seasonId, sortedParticipants);
     await assertPendingRequestLimit(tx, input.seasonId, input.requesterParticipantId);
     await assertDirectionLimit(
       tx,
@@ -462,4 +500,86 @@ export class MatchesService {
       now,
     );
   }
+
+  private async assertPreparedParticipantsStillRequestable(
+    tx: Prisma.TransactionClient,
+    input: PreparedMatchRequestCreation,
+    sortedParticipantIds: readonly [string, string],
+    now: Date,
+  ) {
+    const participants = await tx.seasonParticipant.findMany({
+      where: {
+        seasonId: input.seasonId,
+        id: { in: [input.requesterParticipantId, input.receiverParticipantId] },
+      },
+      select: matchRequestCreationParticipantSelect,
+    });
+    const participantById = new Map(
+      participants.map((participant) => [participant.id, participant]),
+    );
+    const requester = participantById.get(input.requesterParticipantId);
+    const receiver = participantById.get(input.receiverParticipantId);
+    if (
+      !requester ||
+      !receiver ||
+      !isMatchRequestCreationParticipantReady(requester) ||
+      !isMatchRequestCreationParticipantReady(receiver) ||
+      requester.dormitoryId === null ||
+      requester.dormitoryId !== receiver.dormitoryId
+    ) {
+      throw matchesErrors.requestNotAllowed();
+    }
+
+    const [operation, snapshotCount] = await Promise.all([
+      tx.seasonDormitoryOperation.findUnique({
+        where: {
+          seasonId_dormitoryId: {
+            seasonId: input.seasonId,
+            dormitoryId: requester.dormitoryId,
+          },
+        },
+        select: {
+          isOperated: true,
+          roomSelectionDate: true,
+        },
+      }),
+      tx.seasonParticipantProfileHistory.count({
+        where: {
+          seasonId: input.seasonId,
+          participantId: { in: [input.requesterParticipantId, input.receiverParticipantId] },
+          source: 'SEASON_REGISTRATION',
+          registeredAtSnapshot: { not: null },
+          redactedAt: null,
+        },
+      }),
+    ]);
+
+    if (
+      !operation?.isOperated ||
+      formatKstDate(now) > formatKstDate(operation.roomSelectionDate) ||
+      snapshotCount !== 2
+    ) {
+      throw matchesErrors.requestNotAllowed();
+    }
+  }
+}
+
+function isMatchRequestCreationParticipantReady(participant: MatchRequestCreationParticipant) {
+  const lifestyle = parseLifestyleOrNull(participant.profile ?? null);
+
+  return (
+    participant.participationIntent === 'REGISTERED' &&
+    participant.registeredAt !== null &&
+    participant.dormitorySelectionState === 'ASSIGNED' &&
+    participant.dormitoryId !== null &&
+    participant.declinedAt === null &&
+    participant.withdrawnAt === null &&
+    participant.participantStatus !== 'WITHDRAWN' &&
+    participant.participantStatus !== 'EXPIRED' &&
+    participant.hiddenByAdminAt === null &&
+    participant.deactivatedAt === null &&
+    participant.user.deletedAt === null &&
+    lifestyle !== null &&
+    isSeasonProfileComplete(lifestyle)
+  );
 }
