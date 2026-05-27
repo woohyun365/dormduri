@@ -6,7 +6,7 @@ import { Client } from 'pg';
 import { PrismaClient } from '../../../src/generated/prisma/client.js';
 
 const DEFAULT_DATABASE_URL =
-  'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
+  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
 
 /**
  * Integration specs run against a disposable PostgreSQL schema created from the

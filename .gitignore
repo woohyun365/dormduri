@@ -12,10 +12,10 @@ node_modules
 !.yarn/versions
 
 ## 환경변수/비밀키
-# 로컬 환경 변수 파일 무시(필요 시 개별 opt-in 커밋)
+# 로컬 환경 변수 파일/템플릿 무시(배포 환경은 infra/secret manager에서 주입)
 .env
 .env.*
-!.env.example
+.env.example
 
 ## 로그/디버그
 npm-debug.log*

@@ -29,9 +29,9 @@
 
 ```env
 # 앱 런타임이 사용하는 URL. 운영에서는 pooled / pooler URL 권장.
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public"
+DATABASE_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public"
 # Prisma CLI가 사용하는 direct URL. 운영에서는 세션 유지 가능한 direct URL 권장.
-DIRECT_URL="postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public"
+DIRECT_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public"
 PORT=4000
 JWT_SECRET="<generate-with-openssl-rand-base64-32>"
 VERIFICATION_CODE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
@@ -45,8 +45,9 @@ cp apps/api/.env.example apps/api/.env
 
 환경 정책:
 
-- `development / test`: 로컬 fallback 허용
-- `production`: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `VERIFICATION_CODE_HMAC_SECRET` 누락 시 앱 시작 실패
+- `development`: Prisma CLI(`prisma:generate`, migrate 등)는 stale shell/tmux env로 인한 P1000을 막기 위해 `apps/api/.env`를 로컬 source of truth로 보고 inherited `DATABASE_URL`/`DIRECT_URL`을 덮어쓴다.
+- `test`: integration sandbox가 주입하는 disposable schema URL을 보존하기 위해 `.env`가 이미 주입된 `DATABASE_URL`/`DIRECT_URL`을 덮어쓰지 않는다.
+- `production`: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `VERIFICATION_CODE_HMAC_SECRET` 누락 시 앱 시작 실패. secret manager/infra 주입값을 `.env`로 덮어쓰지 않는다.
 
 운영 권장 연결 경로:
 
@@ -206,7 +207,7 @@ pnpm --dir apps/api exec eslint \
 
 ```bash
 docker exec knu-roommate-postgres-dev \
-  psql -U postgres -d knu_roommate \
+  psql -U knu_dev -d knu_roommate \
   -c 'SELECT email, nickname, campus, gender FROM "User" ORDER BY email;'
 ```
 

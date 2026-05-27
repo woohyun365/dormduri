@@ -2,7 +2,7 @@ import { registerAs } from '@nestjs/config';
 import { readBooleanEnv, readNumberEnv, readStringEnv } from './env.helpers.js';
 
 export const DEFAULT_DATABASE_URL =
-  'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
+  'postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public';
 export const DEFAULT_DATABASE_ADAPTER_CONNECT_TIMEOUT_MS = 5_000;
 export const DEFAULT_DATABASE_ADAPTER_IDLE_TIMEOUT_MS = 300_000;
 export const DEFAULT_DATABASE_POOL_MAX = 10;
