@@ -200,22 +200,28 @@ describe('ProfilesService Step 6 public detail', () => {
 
     expect(result).toMatchObject({
       id: 'peer-1',
+      detailState: 'FULL',
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-      relationToViewer: 'GENERAL',
-      capabilities: {
-        summaryVisible: true,
+      relation: { type: 'GENERAL' },
+      exposure: {
+        listSummaryVisible: true,
         detailViewable: true,
         canViewFull: true,
         scoreVisible: true,
-        actions: {
-          canBookmark: true,
-          canRequestMatch: true,
-          canStartChat: true,
-        },
       },
+      actions: {
+        canBookmark: true,
+        canRequestMatch: true,
+        canStartChat: true,
+      },
+      resultRead: { resultReadable: false, context: 'NONE' },
       nickname: '시즌상대',
       intro: '상대 소개',
     });
+    expect(result.detailState).toBe('FULL');
+    if (result.detailState !== 'FULL') {
+      throw new Error('expected full profile detail');
+    }
     expect(result).toHaveProperty('matchScore');
     expect(result.lifestyle).not.toHaveProperty('drinkingFrequency');
     expect(result.lifestyle).not.toHaveProperty('drinkingTolerance');
@@ -242,7 +248,7 @@ describe('ProfilesService Step 6 public detail', () => {
     });
   });
 
-  it('registration snapshot이 없는 target은 detail 대상이 아니다', async () => {
+  it('registration snapshot이 사라진 same-dormitory target은 tombstone detail로 degrade한다', async () => {
     prisma.seasonParticipant.findFirst.mockResolvedValue(
       toRawParticipant(makeParticipant({ id: 'participant-target', userId: 'peer-1' }), 'peer-1'),
     );
@@ -250,8 +256,45 @@ describe('ProfilesService Step 6 public detail', () => {
 
     await expect(
       service.getProfileByUserId({ id: 'user-1', gender: 'M', campus: 'CHUNCHEON' }, 'peer-1'),
-    ).rejects.toMatchObject({
-      response: profilesErrors.profileNotVisible().getResponse(),
+    ).resolves.toMatchObject({
+      detailState: 'TOMBSTONE',
+      exposure: {
+        detailViewable: true,
+        canViewFull: false,
+        scoreVisible: false,
+      },
+      tombstone: {
+        reason: 'PROFILE_NO_LONGER_AVAILABLE',
+      },
+    });
+  });
+
+  it('삭제 처리된 same-dormitory target은 retained payload 없이 tombstone detail을 반환한다', async () => {
+    const target = toRawParticipant(
+      makeParticipant({ id: 'participant-target', userId: 'peer-1' }),
+      'peer-1',
+    );
+    prisma.seasonParticipant.findFirst.mockResolvedValue({
+      ...target,
+      user: {
+        ...target.user,
+        deletedAt: new Date('2026-02-10T03:00:00.000Z'),
+      },
+    });
+
+    await expect(
+      service.getProfileByUserId({ id: 'user-1', gender: 'M', campus: 'CHUNCHEON' }, 'peer-1'),
+    ).resolves.toMatchObject({
+      detailState: 'TOMBSTONE',
+      exposure: {
+        listSummaryVisible: false,
+        detailViewable: true,
+        canViewFull: false,
+      },
+      tombstone: {
+        reason: 'TARGET_DELETED_OR_DEIDENTIFIED',
+        displayName: '탈퇴한 사용자',
+      },
     });
   });
 
