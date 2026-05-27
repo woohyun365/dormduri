@@ -1,10 +1,14 @@
 import type { MatchHistoryResponse } from '@repo/shared/match-contract';
-import type { PublicProfile } from '@repo/shared/profile-contract';
+import type { PublicProfile, PublicProfileActionCapabilities } from '@repo/shared/profile-contract';
 import { formatKstDate, subtractDays } from '../seasons/season.utils.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../common/deidentification/deidentified-display.owner.js';
 import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
-import { mapProfileViewRecordFromColumns, toPublicProfile } from '../profiles/profile.mapper.js';
+import {
+  mapProfileViewRecordFromColumns,
+  toPublicProfile,
+  toTombstonePublicProfile,
+} from '../profiles/profile.mapper.js';
 import {
   toMatchHistoryResponse,
   type MatchHistoryEntryRow,
@@ -130,6 +134,7 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
           id: true,
           seasonId: true,
           counterpartParticipantId: true,
+          matchScore: true,
           entryType: true,
           entryResult: true,
           season: {
@@ -165,14 +170,7 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
         throw matchesErrors.matchHistoryEntryAccessDenied();
       }
 
-      if (
-        entry.entryType !== 'MATCH' ||
-        (entry.entryResult !== 'MATCHED_SUCCESS' && entry.entryResult !== 'UNMATCHED_AFTER_SUCCESS')
-      ) {
-        throw matchesErrors.matchHistoryProfileNotAvailable();
-      }
-
-      if (entry.counterpartParticipant.user.deletedAt !== null) {
+      if (entry.entryType !== 'MATCH' || entry.entryResult !== 'MATCHED_SUCCESS') {
         throw matchesErrors.matchHistoryProfileNotAvailable();
       }
 
@@ -198,8 +196,28 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
           select: seasonParticipantProfileHistoryPublicSelect,
         }));
 
-      if (!finalProfile) {
-        throw matchesErrors.matchHistoryProfileNotAvailable();
+      const resultRead = { resultReadable: true, context: 'PAST_MATCH_HISTORY' } as const;
+      const actions = {
+        canBookmark: false,
+        canRequestMatch: false,
+        canStartChat: false,
+        unavailableReasons: ['SEASON_NOT_ACTIONABLE'],
+      } satisfies PublicProfileActionCapabilities;
+
+      if (entry.counterpartParticipant.user.deletedAt !== null || !finalProfile) {
+        return toTombstonePublicProfile(entry.counterpartParticipant.user.id, {
+          reason:
+            entry.counterpartParticipant.user.deletedAt !== null
+              ? 'TARGET_DELETED_OR_DEIDENTIFIED'
+              : 'PROFILE_NO_LONGER_AVAILABLE',
+          displayName:
+            entry.counterpartParticipant.user.deletedAt !== null
+              ? DEIDENTIFIED_USER_DISPLAY_NAME
+              : undefined,
+          relation: { type: 'MATCHED_PARTNER' },
+          actions,
+          resultRead,
+        });
       }
 
       const profile = mapProfileViewRecordFromColumns({
@@ -209,13 +227,16 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
       });
 
       return toPublicProfile(entry.counterpartParticipant.user, profile, {
-        relationToViewer: 'MATCHED_PARTNER',
+        relation: { type: 'MATCHED_PARTNER' },
         actions: {
           canBookmark: false,
           canRequestMatch: false,
           canStartChat: false,
+          unavailableReasons: ['SEASON_NOT_ACTIONABLE'],
         },
-        scoreVisible: false,
+        resultRead,
+        scoreVisible: typeof entry.matchScore === 'number',
+        ...(typeof entry.matchScore === 'number' ? { matchScore: entry.matchScore } : {}),
       });
     },
   };

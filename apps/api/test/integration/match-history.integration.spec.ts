@@ -457,9 +457,31 @@ describe('Match history integration', () => {
         }),
       ]),
     );
+
+    const deletedCounterpartHistory = history.items[1]?.history.find(
+      (entry) => entry.counterpartParticipantId === 'participant-e-2025-01',
+    );
+    const deletedCounterpartProfile = await matchesService.getMatchHistoryCounterpartProfile(
+      authContext('user-a'),
+      deletedCounterpartHistory!.id,
+    );
+    expect(deletedCounterpartProfile).toMatchObject({
+      detailState: 'TOMBSTONE',
+      exposure: {
+        detailViewable: true,
+        canViewFull: false,
+        scoreVisible: false,
+      },
+      resultRead: { resultReadable: true, context: 'PAST_MATCH_HISTORY' },
+      tombstone: {
+        reason: 'TARGET_DELETED_OR_DEIDENTIFIED',
+        displayName: '탈퇴한 사용자',
+      },
+    });
+    expect(deletedCounterpartProfile).not.toHaveProperty('matchScore');
   });
 
-  it('history row에는 viewer 기준 match score snapshot을 저장하고 user DTO에는 숨긴다', async () => {
+  it('history row에는 viewer 기준 match score snapshot을 저장하고 list DTO에는 숨기며 final detail에는 노출한다', async () => {
     await seedCampusDormitory();
     await seedSeason({
       id: 'season-2025-01',
@@ -608,18 +630,20 @@ describe('Match history integration', () => {
     );
     expect(counterpartProfile).toMatchObject({
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
-      relationToViewer: 'MATCHED_PARTNER',
-      capabilities: {
-        summaryVisible: true,
+      relation: { type: 'MATCHED_PARTNER' },
+      exposure: {
+        listSummaryVisible: true,
         detailViewable: true,
         canViewFull: true,
-        scoreVisible: false,
-        actions: {
-          canBookmark: false,
-          canRequestMatch: false,
-          canStartChat: false,
-        },
+        scoreVisible: true,
       },
+      actions: {
+        canBookmark: false,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+      resultRead: { resultReadable: true, context: 'PAST_MATCH_HISTORY' },
+      matchScore: storedRow!.matchScore,
       nickname: '좋은날씨-final',
       intro: '시즌 종료 전 최종 소개',
       lifestyle: {
@@ -627,6 +651,21 @@ describe('Match history integration', () => {
       },
     });
     expect(counterpartProfile.lifestyle).not.toHaveProperty('drinkingFrequency');
+
+    await prisma.activeMatch.update({
+      where: { id: 'active-a-b' },
+      data: {
+        status: 'UNMATCHED',
+        endedAt: new Date('2025-01-22T12:00:00.000Z'),
+        endReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
+      },
+    });
+
+    await expect(
+      matchesService.getMatchHistoryCounterpartProfile(authContext('user-a'), storedRow!.id),
+    ).rejects.toMatchObject({
+      response: { code: 'MATCH_HISTORY_PROFILE_NOT_AVAILABLE' },
+    });
 
     await expect(
       matchesService.getMatchHistoryCounterpartProfile(authContext('user-b'), storedRow!.id),
@@ -823,5 +862,11 @@ describe('Match history integration', () => {
     const requestHistory = history.items[0]?.history.find((row) => row.id === storedRow?.id);
     expect(requestHistory).toBeDefined();
     expect(requestHistory).not.toHaveProperty('matchScore');
+
+    await expect(
+      matchesService.getMatchHistoryCounterpartProfile(authContext('user-a'), storedRow!.id),
+    ).rejects.toMatchObject({
+      response: { code: 'MATCH_HISTORY_PROFILE_NOT_AVAILABLE' },
+    });
   });
 });
