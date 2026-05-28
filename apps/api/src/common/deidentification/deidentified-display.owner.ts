@@ -23,10 +23,6 @@ export function resolveProfileTombstoneDisplayName(input: {
   reason: PublicProfileTombstoneReason;
   displayName?: string | null;
 }): string {
-  if (input.reason === 'TARGET_DELETED_OR_DEIDENTIFIED') {
-    return DEIDENTIFIED_USER_DISPLAY_NAME;
-  }
-
   return input.displayName ?? PROFILE_UNAVAILABLE_DISPLAY_NAME;
 }
 

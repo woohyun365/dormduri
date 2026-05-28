@@ -28,7 +28,8 @@ export class ProfilesService {
   async getProfileByUserId(
     authUser: AuthenticatedUserContext,
     targetUserId: string,
+    options: { detailEntryToken?: string } = {},
   ): Promise<PublicProfile> {
-    return this.readOwner.getProfileByUserId(authUser, targetUserId);
+    return this.readOwner.getProfileByUserId(authUser, targetUserId, options);
   }
 }

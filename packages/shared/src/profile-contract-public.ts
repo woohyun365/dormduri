@@ -26,10 +26,11 @@ export const publicTargetActionUnavailableReasonSchema = z.enum([
 ]);
 export const publicProfileDetailStateSchema = z.enum(['FULL', 'TOMBSTONE']);
 export const publicProfileTombstoneReasonSchema = z.enum([
-  'TARGET_DELETED_OR_DEIDENTIFIED',
-  'SAFETY_OR_VISIBILITY_RESTRICTED',
-  'PROFILE_NO_LONGER_AVAILABLE',
-  'DETAIL_ACCESS_REVOKED',
+  'DETAIL_NOT_AVAILABLE_DIFFERENT_DORMITORY',
+  'DETAIL_REQUIRES_REGISTRATION',
+  'DETAIL_REQUIRES_ASSIGNED_DORMITORY',
+  'DETAIL_CONTEXT_NO_LONGER_VALID',
+  'TARGET_NO_LONGER_DISCOVERABLE',
 ]);
 
 export const publicTargetRelationSchema = z.strictObject({

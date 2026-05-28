@@ -1,4 +1,5 @@
 import type {
+  RoommateSearchAvailabilityNotice,
   RoommateSearchQuery,
   RoommateSearchResponse,
   RoommateSearchScope,
@@ -18,6 +19,10 @@ import { isParticipantRegistered } from '../season-participants/season-participa
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { toStoredBedtime, toStoredWakeTime } from '../common/lifestyle/lifestyle.persistence.js';
 import { roommateSearchErrors } from './roommate-search.errors.js';
+import {
+  createRoommateSearchTokenOwner,
+  type RoommateSearchCursorBoundary,
+} from './roommate-search-token-owner.js';
 import {
   createVisibleProfileOwner,
   type ResolvedVisibleProfileEntry,
@@ -45,11 +50,12 @@ type TargetParticipantQueryRecord = Prisma.SeasonParticipantGetPayload<{
   select: typeof targetParticipantSelect;
 }>;
 
-const SUMMARY_FILTER_FIELDS = new Set<keyof RoommateSearchQuery>([
-  'smokingBehavior',
-  'sleepHabit',
-  'relationshipStyle',
-]);
+type SearchMaterializedItem = {
+  entry: ResolvedVisibleProfileEntry;
+  summary: RoommateSearchSummary;
+  cursorBoundary: RoommateSearchCursorBoundary;
+};
+
 const DETAIL_ONLY_FILTER_FIELDS = new Set<keyof RoommateSearchQuery>([
   'bedtime',
   'wakeTime',
@@ -64,6 +70,7 @@ const DETAIL_ONLY_FILTER_FIELDS = new Set<keyof RoommateSearchQuery>([
 
 export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
   const visibleProfileOwner = createVisibleProfileOwner(deps);
+  const tokenOwner = createRoommateSearchTokenOwner();
 
   async function search(
     authUser: AuthenticatedUserContext,
@@ -78,45 +85,41 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
       throw roommateSearchErrors.invalidQuery(resolveScopeErrorMessage(scope));
     }
 
-    const scopeCandidates = await findCandidateParticipants(viewerContext, scope);
-    const scopeEntries = await visibleProfileOwner.materializeVisibleProfileEntries(
-      viewerContext,
-      scopeCandidates.map((candidate) =>
-        visibleProfileOwner.mapTargetParticipantCandidate(
-          candidate as unknown as Parameters<
-            typeof visibleProfileOwner.mapTargetParticipantCandidate
-          >[0],
-        ),
-      ),
+    const scopeEntries = await loadVisibleEntries(viewerContext, scope);
+    const scopeDiscovery = applyDiscoveryFilter(scopeEntries);
+    const scopeItems = scopeDiscovery.entries.map((entry) =>
+      toSearchMaterializedItem({ entry, viewerContext, scope, now }),
     );
-    const scopeSummaries = scopeEntries.map(toRoommateSearchSummary);
+    const scopeSummaries = scopeItems.map((item) => item.summary);
     const filterCapabilities = resolveFilterCapabilities(scopeSummaries);
     const sortCapabilities = {
-      matchScore: scopeSummaries.some((item) => item.exposure.scoreVisible),
+      matchScore: false,
     };
 
     assertFilterAllowed(query, filterCapabilities, scopeSummaries);
-    if (query.sort === 'MATCH_SCORE' && !sortCapabilities.matchScore) {
+    if (query.sort === 'MATCH_SCORE') {
       throw roommateSearchErrors.invalidQuery(
-        '현재 노출 범위에서는 매칭 점수 정렬을 사용할 수 없습니다.',
+        '매칭 점수 정렬은 cursor pagination deterministic ordering 확정 후 제공됩니다.',
       );
     }
 
-    const filteredCandidates = await findCandidateParticipants(viewerContext, scope, query);
-    const filteredEntries = await visibleProfileOwner.materializeVisibleProfileEntries(
-      viewerContext,
-      filteredCandidates.map((candidate) =>
-        visibleProfileOwner.mapTargetParticipantCandidate(
-          candidate as unknown as Parameters<
-            typeof visibleProfileOwner.mapTargetParticipantCandidate
-          >[0],
-        ),
-      ),
+    const filteredEntries = await loadVisibleEntries(viewerContext, scope, query);
+    const filteredDiscovery = applyDiscoveryFilter(filteredEntries);
+    const filteredItems = filteredDiscovery.entries.map((entry) =>
+      toSearchMaterializedItem({ entry, viewerContext, scope, now }),
     );
-    const filteredSummaries = filteredEntries.map(toRoommateSearchSummary);
-
-    const appliedSort = resolveAppliedSort(query, filteredSummaries, sortCapabilities.matchScore);
-    const sortedItems = sortRoommateSearchSummaries(filteredSummaries, appliedSort);
+    const appliedSort = resolveAppliedSort(query);
+    const sortedItems = sortSearchMaterializedItems(filteredItems, appliedSort);
+    const queryDigest = tokenOwner.buildQueryDigest({ scope, sort: appliedSort, query });
+    const pageItems = paginateItems({
+      items: sortedItems,
+      query,
+      viewerContext,
+      scope,
+      appliedSort,
+      queryDigest,
+      now,
+    });
 
     return {
       scope,
@@ -125,7 +128,156 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
       scopeAvailability,
       filterCapabilities,
       sortCapabilities,
-      items: sortedItems.slice(query.offset ?? 0, (query.offset ?? 0) + (query.limit ?? 20)),
+      pageInfo: pageItems.pageInfo,
+      availabilityNotices: buildAvailabilityNotices({
+        viewerContext,
+        scopeSummaries,
+        matchedTargetsExcluded:
+          scopeDiscovery.matchedTargetsExcluded || filteredDiscovery.matchedTargetsExcluded,
+      }),
+      items: pageItems.items.map((item) => item.summary),
+    };
+  }
+
+  async function loadVisibleEntries(
+    viewerContext: VisibleProfileViewerContext,
+    scope: RoommateSearchScope,
+    query?: RoommateSearchQuery,
+  ): Promise<ResolvedVisibleProfileEntry[]> {
+    const candidates = await findCandidateParticipants(viewerContext, scope, query);
+    return visibleProfileOwner.materializeVisibleProfileEntries(
+      viewerContext,
+      candidates.map((candidate) =>
+        visibleProfileOwner.mapTargetParticipantCandidate(
+          candidate as unknown as Parameters<
+            typeof visibleProfileOwner.mapTargetParticipantCandidate
+          >[0],
+        ),
+      ),
+    );
+  }
+
+  function paginateItems(input: {
+    items: SearchMaterializedItem[];
+    query: RoommateSearchQuery;
+    viewerContext: VisibleProfileViewerContext;
+    scope: RoommateSearchScope;
+    appliedSort: 'NICKNAME';
+    queryDigest: string;
+    now: Date;
+  }) {
+    const { items, query, viewerContext, scope, appliedSort, queryDigest, now } = input;
+    const seasonId = viewerContext.currentSeasonId;
+    if (!seasonId) {
+      return { items: [], pageInfo: { hasNextPage: false, nextCursor: null } };
+    }
+
+    const startIndex = query.cursor
+      ? resolveCursorStartIndex({
+          cursor: query.cursor,
+          items,
+          viewerUserId: viewerContext.viewer.id,
+          seasonId,
+          scope,
+          appliedSort,
+          queryDigest,
+          now,
+        })
+      : 0;
+    const limit = query.limit ?? 20;
+    const page = items.slice(startIndex, startIndex + limit);
+    const hasNextPage = startIndex + limit < items.length;
+    const lastItem = page.at(-1);
+    const nextCursor =
+      hasNextPage && lastItem
+        ? tokenOwner.signCursor({
+            viewerUserId: viewerContext.viewer.id,
+            seasonId,
+            scope,
+            sort: appliedSort,
+            queryDigest,
+            after: lastItem.cursorBoundary,
+            now,
+          })
+        : null;
+
+    return {
+      items: page,
+      pageInfo: {
+        hasNextPage,
+        nextCursor,
+      },
+    };
+  }
+
+  function resolveCursorStartIndex(input: {
+    cursor: string;
+    items: SearchMaterializedItem[];
+    viewerUserId: string;
+    seasonId: string;
+    scope: RoommateSearchScope;
+    appliedSort: 'NICKNAME';
+    queryDigest: string;
+    now: Date;
+  }) {
+    try {
+      const verified = tokenOwner.verifyCursor({
+        token: input.cursor,
+        viewerUserId: input.viewerUserId,
+        seasonId: input.seasonId,
+        scope: input.scope,
+        sort: input.appliedSort,
+        queryDigest: input.queryDigest,
+        now: input.now,
+      });
+      const firstIndexAfterBoundary = input.items.findIndex((item) =>
+        isAfterBoundary(item, verified.boundary),
+      );
+      return firstIndexAfterBoundary === -1 ? input.items.length : firstIndexAfterBoundary;
+    } catch {
+      throw roommateSearchErrors.invalidQuery(
+        '검색 cursor가 만료되었거나 현재 검색 조건과 일치하지 않습니다.',
+      );
+    }
+  }
+
+  function toSearchMaterializedItem(input: {
+    entry: ResolvedVisibleProfileEntry;
+    viewerContext: VisibleProfileViewerContext;
+    scope: RoommateSearchScope;
+    now: Date;
+  }): SearchMaterializedItem {
+    const summary = toRoommateSearchSummary(input.entry);
+    const seasonId = input.viewerContext.currentSeasonId;
+    if (!seasonId) {
+      return {
+        entry: input.entry,
+        summary,
+        cursorBoundary: toCursorBoundary(input.entry),
+      };
+    }
+
+    return {
+      entry: input.entry,
+      summary: {
+        ...summary,
+        detailEntryToken: tokenOwner.signDetailEntryToken({
+          viewerUserId: input.viewerContext.viewer.id,
+          targetUserId: input.entry.user.id,
+          targetParticipantId: input.entry.targetParticipant.id,
+          seasonId,
+          issuedScope: input.scope,
+          issuedRelation: summary.relation.type,
+          issuedExposure: {
+            listSummaryVisible: true,
+            canViewFull: summary.exposure.canViewFull,
+            detailViewable: summary.exposure.detailViewable,
+            scoreVisible: summary.exposure.scoreVisible,
+          },
+          now: input.now,
+        }),
+      },
+      cursorBoundary: toCursorBoundary(input.entry),
     };
   }
 
@@ -141,7 +293,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     return deps.prisma.seasonParticipant.findMany({
       where: buildCandidateParticipantWhere(viewerContext, scope, query),
       select: targetParticipantSelect,
-      orderBy: { id: 'asc' },
+      orderBy: [{ profile: { nicknameNormalizedSnapshot: 'asc' } }, { id: 'asc' }],
     });
   }
 
@@ -297,13 +449,6 @@ function hasRequestedFilter(
   return [...fields].some((field) => query[field] !== undefined);
 }
 
-function hasAnyFilter(query: RoommateSearchQuery) {
-  return (
-    hasRequestedFilter(query, SUMMARY_FILTER_FIELDS) ||
-    hasRequestedFilter(query, DETAIL_ONLY_FILTER_FIELDS)
-  );
-}
-
 function resolveFilterCapabilities(
   items: RoommateSearchSummary[],
 ): RoommateSearchResponse['filterCapabilities'] {
@@ -344,20 +489,117 @@ function assertFilterAllowed(
   }
 }
 
-function resolveAppliedSort(
-  query: RoommateSearchQuery,
-  items: RoommateSearchSummary[],
-  canSortByMatchScore: boolean,
-): RoommateSearchSort {
-  if (query.sort) {
-    return query.sort;
+function resolveAppliedSort(query: RoommateSearchQuery): 'NICKNAME' {
+  if (!query.sort || query.sort === 'NICKNAME') {
+    return 'NICKNAME';
   }
 
-  if (!hasAnyFilter(query) && canSortByMatchScore && items.length > 0) {
-    return 'MATCH_SCORE';
+  throw roommateSearchErrors.invalidQuery(
+    '매칭 점수 정렬은 cursor pagination deterministic ordering 확정 후 제공됩니다.',
+  );
+}
+
+function applyDiscoveryFilter(entries: ResolvedVisibleProfileEntry[]) {
+  const filtered = entries.filter((entry) => !entry.targetMatched);
+  return {
+    entries: filtered,
+    matchedTargetsExcluded: filtered.length !== entries.length,
+  };
+}
+
+function buildAvailabilityNotices(input: {
+  viewerContext: VisibleProfileViewerContext;
+  scopeSummaries: RoommateSearchSummary[];
+  matchedTargetsExcluded: boolean;
+}): RoommateSearchAvailabilityNotice[] {
+  const notices = new Map<string, RoommateSearchAvailabilityNotice>();
+  const add = (notice: RoommateSearchAvailabilityNotice) => notices.set(notice.code, notice);
+
+  if (input.matchedTargetsExcluded) {
+    add({
+      code: 'MATCHED_TARGETS_EXCLUDED',
+      severity: 'INFO',
+      message: '이미 매칭이 완료된 사용자는 신규 후보 목록에서 제외됩니다.',
+    });
   }
 
-  return 'NICKNAME';
+  if (
+    input.scopeSummaries.some((item) => item.actions.canBookmark || item.actions.canRequestMatch)
+  ) {
+    add({
+      code: 'DISCOVERY_ACTIONABLE_ONLY',
+      severity: 'INFO',
+      message: '룸메이트 찾기는 현재 신규 후보 탐색 기준으로 정렬됩니다.',
+    });
+  }
+
+  if (
+    !isParticipantRegistered(input.viewerContext.viewerParticipant) ||
+    !input.viewerContext.viewerHasOperatedAssignedDormitory
+  ) {
+    add({
+      code: 'SCOPE_RESTRICTED_BY_VIEWER_STATE',
+      severity: 'INFO',
+      message: '현재 등록 또는 기숙사 배정 상태에 따라 사용할 수 있는 검색 범위가 제한됩니다.',
+    });
+  }
+
+  if (input.viewerContext.serviceState.seasonState === 'SEASON_POST_MATCH') {
+    add({
+      code: 'POST_MATCH_ACTION_CLOSED',
+      severity: 'INFO',
+      message: '포스트매치 기간에는 신규 매칭/채팅 action이 닫힙니다.',
+    });
+  }
+
+  if (input.scopeSummaries.some((item) => !item.exposure.canViewFull)) {
+    add({
+      code: 'DETAIL_UNAVAILABLE_BY_POLICY',
+      severity: 'INFO',
+      message:
+        '일부 사용자는 summary만 볼 수 있으며 상세 화면에서는 정책 안내가 표시될 수 있습니다.',
+    });
+  }
+
+  return [...notices.values()];
+}
+
+function toSearchSortKey(entry: ResolvedVisibleProfileEntry) {
+  return entry.sourceProfile.nicknameNormalized || entry.sourceProfile.nickname;
+}
+
+function toCursorBoundary(entry: ResolvedVisibleProfileEntry): RoommateSearchCursorBoundary {
+  return {
+    nicknameSortKey: toSearchSortKey(entry),
+    participantId: entry.targetParticipant.id,
+  };
+}
+
+function isAfterBoundary(item: SearchMaterializedItem, boundary: RoommateSearchCursorBoundary) {
+  const current = item.cursorBoundary;
+  if (current.nicknameSortKey !== boundary.nicknameSortKey) {
+    return current.nicknameSortKey > boundary.nicknameSortKey;
+  }
+
+  return current.participantId > boundary.participantId;
+}
+
+function sortSearchMaterializedItems(items: SearchMaterializedItem[], sort: RoommateSearchSort) {
+  if (sort !== 'NICKNAME') {
+    throw roommateSearchErrors.invalidQuery(
+      '매칭 점수 정렬은 cursor pagination deterministic ordering 확정 후 제공됩니다.',
+    );
+  }
+
+  return [...items].sort((left, right) => {
+    const leftKey = left.cursorBoundary.nicknameSortKey;
+    const rightKey = right.cursorBoundary.nicknameSortKey;
+    if (leftKey !== rightKey) {
+      return leftKey.localeCompare(rightKey, 'ko');
+    }
+
+    return left.cursorBoundary.participantId.localeCompare(right.cursorBoundary.participantId);
+  });
 }
 
 function toRoommateSearchSummary(entry: ResolvedVisibleProfileEntry): RoommateSearchSummary {
@@ -395,36 +637,6 @@ function toRoommateSearchSummary(entry: ResolvedVisibleProfileEntry): RoommateSe
     ...base,
     matchScore: entry.matchScore,
   };
-}
-
-function sortRoommateSearchSummaries(items: RoommateSearchSummary[], sort: RoommateSearchSort) {
-  if (sort !== 'MATCH_SCORE') {
-    return [...items].sort((left, right) =>
-      left.profileSummary.nickname.localeCompare(right.profileSummary.nickname, 'ko'),
-    );
-  }
-
-  return [...items].sort((left, right) => {
-    const leftScore = left.exposure.scoreVisible ? left.matchScore : null;
-    const rightScore = right.exposure.scoreVisible ? right.matchScore : null;
-
-    if (typeof leftScore === 'number' && typeof rightScore === 'number') {
-      const scoreDiff = rightScore - leftScore;
-      if (scoreDiff !== 0) {
-        return scoreDiff;
-      }
-      return left.profileSummary.nickname.localeCompare(right.profileSummary.nickname, 'ko');
-    }
-
-    if (typeof leftScore === 'number') {
-      return -1;
-    }
-    if (typeof rightScore === 'number') {
-      return 1;
-    }
-
-    return left.profileSummary.nickname.localeCompare(right.profileSummary.nickname, 'ko');
-  });
 }
 
 function summarizeResults(items: RoommateSearchSummary[]): RoommateSearchResponse['resultSummary'] {

@@ -168,10 +168,7 @@ export function toTombstonePublicProfile(
       canRequestMatch: false,
       canStartChat: false,
       unavailableReasons: Array.from(
-        new Set([
-          ...options.actions.unavailableReasons,
-          toTombstoneUnavailableReason(options.reason),
-        ]),
+        new Set([...options.actions.unavailableReasons, toTombstoneUnavailableReason()]),
       ),
     },
     resultRead: options.resultRead,
@@ -186,27 +183,21 @@ export function toTombstonePublicProfile(
   };
 }
 
-function toTombstoneUnavailableReason(
-  reason: PublicProfileTombstoneReason,
-): PublicProfileActionCapabilities['unavailableReasons'][number] {
-  if (reason === 'TARGET_DELETED_OR_DEIDENTIFIED') {
-    return 'TARGET_DELETED_OR_DEIDENTIFIED';
-  }
-  if (reason === 'SAFETY_OR_VISIBILITY_RESTRICTED') {
-    return 'SAFETY_OR_VISIBILITY_RESTRICTED';
-  }
+function toTombstoneUnavailableReason(): PublicProfileActionCapabilities['unavailableReasons'][number] {
   return 'TARGET_NOT_PUBLIC';
 }
 
 function toTombstoneMessage(reason: PublicProfileTombstoneReason) {
   switch (reason) {
-    case 'TARGET_DELETED_OR_DEIDENTIFIED':
-      return '탈퇴 또는 비식별화된 사용자라 상세 프로필을 볼 수 없습니다.';
-    case 'SAFETY_OR_VISIBILITY_RESTRICTED':
-      return '운영 정책에 따라 현재 상세 프로필을 표시할 수 없습니다.';
-    case 'PROFILE_NO_LONGER_AVAILABLE':
-      return '상대가 시즌 참여를 철회했거나 시즌 프로필이 더 이상 공개 가능한 상태가 아닙니다.';
-    case 'DETAIL_ACCESS_REVOKED':
-      return '현재 상태에서는 이 사용자의 상세 프로필을 볼 수 없습니다.';
+    case 'DETAIL_NOT_AVAILABLE_DIFFERENT_DORMITORY':
+      return '본인 기숙사 외의 사용자의 상세 프로필은 열람할 수 없습니다.';
+    case 'DETAIL_REQUIRES_REGISTRATION':
+      return '시즌 등록을 완료한 뒤 상세 프로필을 볼 수 있습니다.';
+    case 'DETAIL_REQUIRES_ASSIGNED_DORMITORY':
+      return '기숙사 배정이 완료된 뒤 상세 프로필을 볼 수 있습니다.';
+    case 'DETAIL_CONTEXT_NO_LONGER_VALID':
+      return '이 상세 프로필 진입 경로가 더 이상 유효하지 않습니다.';
+    case 'TARGET_NO_LONGER_DISCOVERABLE':
+      return '상대가 시즌 참여를 철회했거나 더 이상 공개 가능한 상태가 아닙니다.';
   }
 }

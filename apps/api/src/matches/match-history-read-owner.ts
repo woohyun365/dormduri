@@ -206,10 +206,7 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
 
       if (entry.counterpartParticipant.user.deletedAt !== null || !finalProfile) {
         return toTombstonePublicProfile(entry.counterpartParticipant.user.id, {
-          reason:
-            entry.counterpartParticipant.user.deletedAt !== null
-              ? 'TARGET_DELETED_OR_DEIDENTIFIED'
-              : 'PROFILE_NO_LONGER_AVAILABLE',
+          reason: 'TARGET_NO_LONGER_DISCOVERABLE',
           displayName:
             entry.counterpartParticipant.user.deletedAt !== null
               ? DEIDENTIFIED_USER_DISPLAY_NAME

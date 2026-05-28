@@ -18,14 +18,22 @@ const nullableEnum = <const T extends readonly [string, ...string[]]>(values: T)
 
 export const roommateSearchScopeSchema = z.enum(['CAMPUS_MERGED', 'SAME_BUILDING_ONLY']);
 export const roommateSearchSortSchema = z.enum(['NICKNAME', 'MATCH_SCORE']);
+export const roommateSearchAvailabilityNoticeCodeSchema = z.enum([
+  'MATCHED_TARGETS_EXCLUDED',
+  'DISCOVERY_ACTIONABLE_ONLY',
+  'SCOPE_RESTRICTED_BY_VIEWER_STATE',
+  'POST_MATCH_ACTION_CLOSED',
+  'DETAIL_UNAVAILABLE_BY_POLICY',
+]);
+export const roommateSearchAvailabilityNoticeSeveritySchema = z.enum(['INFO', 'WARNING']);
 export const roommateSearchSleepHabitFilterSchema = z.union([
   z.enum(LIFESTYLE_FIELD_OPTIONS.sleepHabit),
   z.literal('HAS'),
 ]);
 
 export const roommateSearchQuerySchema = z.strictObject({
-  offset: z.coerce.number().int().nonnegative().optional().default(0),
   limit: z.coerce.number().int().positive().max(50).optional().default(20),
+  cursor: z.string().trim().min(1).optional(),
   scope: roommateSearchScopeSchema.optional(),
   sort: roommateSearchSortSchema.optional(),
   smokingBehavior: nullableEnum(LIFESTYLE_FIELD_OPTIONS.smokingBehavior),
@@ -72,6 +80,17 @@ export const roommateSearchResultSummarySchema = z.strictObject({
   scoreVisibleCount: z.number().int().nonnegative(),
 });
 
+export const roommateSearchPageInfoSchema = z.strictObject({
+  hasNextPage: z.boolean(),
+  nextCursor: z.string().nullable(),
+});
+
+export const roommateSearchAvailabilityNoticeSchema = z.strictObject({
+  code: roommateSearchAvailabilityNoticeCodeSchema,
+  severity: roommateSearchAvailabilityNoticeSeveritySchema,
+  message: z.string().optional(),
+});
+
 export const roommateSearchProfileSummarySchema = z.strictObject({
   nickname: z.string(),
   intro: z.string(),
@@ -89,6 +108,7 @@ export const roommateSearchSummarySchema = z
     actions: publicProfileActionCapabilitiesSchema,
     resultRead: publicTargetResultReadSchema,
     profileSummary: roommateSearchProfileSummarySchema,
+    detailEntryToken: z.string().optional(),
   })
   .extend({
     matchScore: publicProfileMatchScoreSchema.shape.matchScore.optional(),
@@ -101,6 +121,8 @@ export const roommateSearchResponseSchema = z.strictObject({
   scopeAvailability: roommateSearchScopeAvailabilitySchema,
   filterCapabilities: roommateSearchFilterCapabilitiesSchema,
   sortCapabilities: roommateSearchSortCapabilitiesSchema,
+  pageInfo: roommateSearchPageInfoSchema,
+  availabilityNotices: z.array(roommateSearchAvailabilityNoticeSchema),
   items: z.array(roommateSearchSummarySchema),
 });
 
@@ -108,6 +130,13 @@ export type RoommateSearchQuery = z.infer<typeof roommateSearchQuerySchema>;
 export type RoommateSearchResponse = z.infer<typeof roommateSearchResponseSchema>;
 export type RoommateSearchScope = z.infer<typeof roommateSearchScopeSchema>;
 export type RoommateSearchSort = z.infer<typeof roommateSearchSortSchema>;
+export type RoommateSearchAvailabilityNoticeCode = z.infer<
+  typeof roommateSearchAvailabilityNoticeCodeSchema
+>;
+export type RoommateSearchAvailabilityNotice = z.infer<
+  typeof roommateSearchAvailabilityNoticeSchema
+>;
 export type RoommateSearchResultSummary = z.infer<typeof roommateSearchResultSummarySchema>;
+export type RoommateSearchPageInfo = z.infer<typeof roommateSearchPageInfoSchema>;
 export type RoommateSearchProfileSummary = z.infer<typeof roommateSearchProfileSummarySchema>;
 export type RoommateSearchSummary = z.infer<typeof roommateSearchSummarySchema>;

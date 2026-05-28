@@ -33,6 +33,10 @@ import {
   toTombstonePublicProfile,
   type ProfileViewRecord,
 } from './profile.mapper.js';
+import {
+  createRoommateSearchTokenOwner,
+  type ProfileDetailEntryTokenPayload,
+} from './roommate-search-token-owner.js';
 
 interface VisibleProfileOwnerDeps {
   prisma: PrismaService;
@@ -77,6 +81,8 @@ export interface ResolvedVisibleProfileEntry {
   sourceProfile: ProfileViewRecord;
   publicTargetPolicy: ReturnType<typeof resolvePublicTargetPolicy>;
   matchScore: number | null;
+  viewerMatched: boolean;
+  targetMatched: boolean;
 }
 
 type ActiveMatchByParticipantId = Awaited<
@@ -107,6 +113,8 @@ type TargetParticipantQueryRecord = CurrentSeasonParticipantRecord & {
 };
 
 export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
+  const tokenOwner = createRoommateSearchTokenOwner();
+
   async function loadViewerContext(
     authUser: AuthenticatedUserContext,
     now: Date,
@@ -227,6 +235,8 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
         },
       },
       matchScore,
+      viewerMatched: viewerActiveMatch !== null,
+      targetMatched: targetActiveMatch !== null,
     };
   }
 
@@ -341,7 +351,20 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     authUser: AuthenticatedUserContext,
     targetUserId: string,
     now: Date,
+    options: { detailEntryToken?: string } = {},
   ): Promise<PublicProfile | null> {
+    const detailEntryContext = options.detailEntryToken
+      ? tokenOwner.verifyDetailEntryToken({
+          token: options.detailEntryToken,
+          viewerUserId: authUser.id,
+          targetUserId,
+          now,
+        })?.payload
+      : null;
+    if (options.detailEntryToken && !detailEntryContext) {
+      return null;
+    }
+
     const viewerContext = await loadViewerContext(authUser, now);
     if (
       !viewerContext.currentSeasonId ||
@@ -370,13 +393,24 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     return resolveTargetDetailProfile(
       viewerContext,
       mapTargetParticipantCandidate(rawParticipant as unknown as TargetParticipantQueryRecord),
+      detailEntryContext,
     );
   }
 
   async function resolveTargetDetailProfile(
     viewerContext: VisibleProfileViewerContext,
     candidate: VisibleProfileTargetCandidate,
+    detailEntryContext: ProfileDetailEntryTokenPayload | null = null,
   ): Promise<PublicProfile | null> {
+    if (detailEntryContext) {
+      if (
+        detailEntryContext.seasonId !== viewerContext.currentSeasonId ||
+        detailEntryContext.targetParticipantId !== candidate.participant.id
+      ) {
+        return null;
+      }
+    }
+
     const participantIds = [
       viewerContext.viewerParticipant?.id ?? null,
       candidate.participant.id,
@@ -424,7 +458,14 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       }),
     );
 
-    if (sourceProfile && publicTargetPolicy.exposure.canViewFull) {
+    const hasDetailEntryContext = detailEntryContext !== null;
+    const hasResultReadContext = publicTargetPolicy.relation.relationToViewer === 'MATCHED_PARTNER';
+
+    if (
+      sourceProfile &&
+      publicTargetPolicy.exposure.canViewFull &&
+      (hasDetailEntryContext || hasResultReadContext)
+    ) {
       const targetLifestyle = parseLifestyleOrNull(sourceProfile.lifestyle);
       const scoreVisible = shouldExposePublicMatchScore({
         seasonState: viewerContext.serviceState.seasonState,
@@ -452,7 +493,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       );
     }
 
-    if (!canRenderTombstoneDetail(viewerContext, targetSelection, publicTargetPolicy.relation)) {
+    if (!canRenderTombstoneDetail(viewerContext, publicTargetPolicy, hasDetailEntryContext)) {
       return null;
     }
 
@@ -461,6 +502,9 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
         candidate,
         sourceProfile,
         publicTargetPolicy.eligibility.unavailableReason,
+        viewerContext,
+        targetSelection,
+        hasDetailEntryContext,
       ),
       displayName: resolveProfileDisplayName({
         deletedAt: candidate.user.deletedAt,
@@ -485,50 +529,64 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
 
 function canRenderTombstoneDetail(
   viewerContext: VisibleProfileViewerContext,
-  targetSelection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>,
-  relation: ReturnType<typeof resolvePublicTargetPolicy>['relation'],
+  publicTargetPolicy: ReturnType<typeof resolvePublicTargetPolicy>,
+  hasDetailEntryContext: boolean,
 ) {
-  const viewerHadDetailCapableContext =
-    isParticipantRegistered(viewerContext.viewerParticipant) &&
-    viewerContext.viewerSeasonProfileComplete &&
-    viewerContext.viewerHasOperatedAssignedDormitory;
-  if (!viewerHadDetailCapableContext) {
-    return false;
-  }
-
-  if (relation.relationToViewer === 'MATCHED_PARTNER') {
+  if (publicTargetPolicy.relation.relationToViewer === 'MATCHED_PARTNER') {
     return true;
   }
 
-  return (
-    viewerContext.viewerSelection.dormitoryId !== null &&
-    viewerContext.viewerSelection.dormitoryId === targetSelection.dormitoryId
-  );
+  if (!hasDetailEntryContext) {
+    return false;
+  }
+
+  return viewerContext.serviceState.seasonState !== null;
 }
 
 function resolveProfileDetailTombstoneReason(
   candidate: VisibleProfileTargetCandidate,
   sourceProfile: ProfileViewRecord | null,
   eligibilityReason: string | null,
+  viewerContext: VisibleProfileViewerContext,
+  targetSelection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>,
+  hasDetailEntryContext: boolean,
 ): PublicProfileTombstoneReason {
-  if (candidate.user.deletedAt !== null || eligibilityReason === 'TARGET_DELETED_OR_DEIDENTIFIED') {
-    return 'TARGET_DELETED_OR_DEIDENTIFIED';
+  if (!hasDetailEntryContext) {
+    return 'DETAIL_CONTEXT_NO_LONGER_VALID';
   }
+
   if (
+    candidate.user.deletedAt !== null ||
+    eligibilityReason === 'TARGET_DELETED_OR_DEIDENTIFIED' ||
     candidate.participant.hiddenByAdminAt !== null ||
-    candidate.participant.deactivatedAt !== null
-  ) {
-    return 'SAFETY_OR_VISIBILITY_RESTRICTED';
-  }
-  if (
+    candidate.participant.deactivatedAt !== null ||
+    candidate.participant.participantStatus === 'WITHDRAWN' ||
+    candidate.participant.participantStatus === 'EXPIRED' ||
     !sourceProfile ||
     eligibilityReason === 'TARGET_PROFILE_INCOMPLETE' ||
     eligibilityReason === 'TARGET_REGISTRATION_SNAPSHOT_MISSING' ||
     eligibilityReason === 'TARGET_NOT_REGISTERED'
   ) {
-    return 'PROFILE_NO_LONGER_AVAILABLE';
+    return 'TARGET_NO_LONGER_DISCOVERABLE';
   }
-  return 'DETAIL_ACCESS_REVOKED';
+
+  if (!isParticipantRegistered(viewerContext.viewerParticipant)) {
+    return 'DETAIL_REQUIRES_REGISTRATION';
+  }
+
+  if (!viewerContext.viewerHasOperatedAssignedDormitory) {
+    return 'DETAIL_REQUIRES_ASSIGNED_DORMITORY';
+  }
+
+  if (
+    viewerContext.viewerSelection.dormitoryId !== null &&
+    targetSelection.dormitoryId !== null &&
+    viewerContext.viewerSelection.dormitoryId !== targetSelection.dormitoryId
+  ) {
+    return 'DETAIL_NOT_AVAILABLE_DIFFERENT_DORMITORY';
+  }
+
+  return 'DETAIL_CONTEXT_NO_LONGER_VALID';
 }
 
 function toProfileViewRecord(

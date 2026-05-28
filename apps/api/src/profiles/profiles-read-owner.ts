@@ -20,13 +20,19 @@ export function createProfilesReadOwner(deps: ProfilesReadOwnerDeps) {
   async function getProfileByUserId(
     authUser: AuthenticatedUserContext,
     targetUserId: string,
+    options: { detailEntryToken?: string } = {},
   ): Promise<PublicProfile> {
     if (authUser.id === targetUserId) {
       throw profilesErrors.profileNotVisible();
     }
 
     const now = await deps.prisma.getDatabaseNow();
-    const profile = await visibleProfileOwner.getDetailProfileByUserId(authUser, targetUserId, now);
+    const profile = await visibleProfileOwner.getDetailProfileByUserId(
+      authUser,
+      targetUserId,
+      now,
+      options,
+    );
     if (!profile) {
       throw profilesErrors.profileNotVisible();
     }

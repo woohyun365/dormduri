@@ -25,6 +25,12 @@ import {
   DEFAULT_LIFECYCLE_SWEEP_ENABLED,
   DEFAULT_LIFECYCLE_SWEEP_INTERVAL_MS,
 } from './lifecycle.config.js';
+import {
+  DEFAULT_PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET,
+  DEFAULT_ROOMMATE_SEARCH_CURSOR_HMAC_SECRET,
+  PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET_ENV,
+  ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV,
+} from '../profiles/roommate-search-token-owner.js';
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').default(DEFAULT_NODE_ENV),
@@ -144,4 +150,18 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().base64().optional(),
   }),
   RETENTION_CHAT_BODY_KEY_VERSION: Joi.string().trim().default('local-v1'),
+  [ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV]: Joi.string()
+    .trim()
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.required(),
+      otherwise: Joi.string().trim().default(DEFAULT_ROOMMATE_SEARCH_CURSOR_HMAC_SECRET),
+    }),
+  [PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET_ENV]: Joi.string()
+    .trim()
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.required(),
+      otherwise: Joi.string().trim().default(DEFAULT_PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET),
+    }),
 }).unknown(true);
