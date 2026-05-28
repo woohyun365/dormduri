@@ -1,6 +1,7 @@
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import { ProfilesService } from './profiles.service.js';
 import { profilesErrors } from './profiles.errors.js';
+import { createRoommateSearchTokenOwner } from './roommate-search-token-owner.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
@@ -117,6 +118,29 @@ const seasonContext = {
   },
 } as const;
 
+function detailEntryToken(input: {
+  viewerUserId?: string;
+  targetUserId?: string;
+  targetParticipantId?: string;
+  canViewFull?: boolean;
+}) {
+  return createRoommateSearchTokenOwner().signDetailEntryToken({
+    viewerUserId: input.viewerUserId ?? 'user-1',
+    targetUserId: input.targetUserId ?? 'peer-1',
+    targetParticipantId: input.targetParticipantId ?? 'participant-target',
+    seasonId: 'season-1',
+    issuedScope: 'SAME_BUILDING_ONLY',
+    issuedRelation: 'GENERAL',
+    issuedExposure: {
+      listSummaryVisible: true,
+      canViewFull: input.canViewFull ?? true,
+      detailViewable: input.canViewFull ?? true,
+      scoreVisible: input.canViewFull ?? true,
+    },
+    now: new Date('2026-02-10T03:00:00.000Z'),
+  });
+}
+
 describe('ProfilesService Step 6 public detail', () => {
   const prisma = {
     getDatabaseNow: jest.fn(),
@@ -196,6 +220,7 @@ describe('ProfilesService Step 6 public detail', () => {
     const result = await service.getProfileByUserId(
       { id: 'user-1', gender: 'M', campus: 'CHUNCHEON' },
       'peer-1',
+      { detailEntryToken: detailEntryToken({}) },
     );
 
     expect(result).toMatchObject({
@@ -227,7 +252,7 @@ describe('ProfilesService Step 6 public detail', () => {
     expect(result.lifestyle).not.toHaveProperty('drinkingTolerance');
   });
 
-  it('미등록 viewer는 summary 가능 target이어도 detail API를 열 수 없다', async () => {
+  it('미등록 viewer는 summary entry token이 있어도 tombstone 안내만 받는다', async () => {
     seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(
       makeParticipant({
         participationIntent: 'UNDECIDED',
@@ -242,9 +267,14 @@ describe('ProfilesService Step 6 public detail', () => {
     );
 
     await expect(
-      service.getProfileByUserId({ id: 'user-1', gender: 'M', campus: 'CHUNCHEON' }, 'peer-1'),
-    ).rejects.toMatchObject({
-      response: profilesErrors.profileNotVisible().getResponse(),
+      service.getProfileByUserId({ id: 'user-1', gender: 'M', campus: 'CHUNCHEON' }, 'peer-1', {
+        detailEntryToken: detailEntryToken({ canViewFull: false }),
+      }),
+    ).resolves.toMatchObject({
+      detailState: 'TOMBSTONE',
+      tombstone: {
+        reason: 'DETAIL_REQUIRES_REGISTRATION',
+      },
     });
   });
 
@@ -255,7 +285,9 @@ describe('ProfilesService Step 6 public detail', () => {
     seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(new Set());
 
     await expect(
-      service.getProfileByUserId({ id: 'user-1', gender: 'M', campus: 'CHUNCHEON' }, 'peer-1'),
+      service.getProfileByUserId({ id: 'user-1', gender: 'M', campus: 'CHUNCHEON' }, 'peer-1', {
+        detailEntryToken: detailEntryToken({}),
+      }),
     ).resolves.toMatchObject({
       detailState: 'TOMBSTONE',
       exposure: {
@@ -264,7 +296,7 @@ describe('ProfilesService Step 6 public detail', () => {
         scoreVisible: false,
       },
       tombstone: {
-        reason: 'PROFILE_NO_LONGER_AVAILABLE',
+        reason: 'TARGET_NO_LONGER_DISCOVERABLE',
       },
     });
   });
@@ -283,7 +315,9 @@ describe('ProfilesService Step 6 public detail', () => {
     });
 
     await expect(
-      service.getProfileByUserId({ id: 'user-1', gender: 'M', campus: 'CHUNCHEON' }, 'peer-1'),
+      service.getProfileByUserId({ id: 'user-1', gender: 'M', campus: 'CHUNCHEON' }, 'peer-1', {
+        detailEntryToken: detailEntryToken({}),
+      }),
     ).resolves.toMatchObject({
       detailState: 'TOMBSTONE',
       exposure: {
@@ -292,7 +326,7 @@ describe('ProfilesService Step 6 public detail', () => {
         canViewFull: false,
       },
       tombstone: {
-        reason: 'TARGET_DELETED_OR_DEIDENTIFIED',
+        reason: 'TARGET_NO_LONGER_DISCOVERABLE',
         displayName: '탈퇴한 사용자',
       },
     });

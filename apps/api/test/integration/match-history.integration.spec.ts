@@ -474,7 +474,7 @@ describe('Match history integration', () => {
       },
       resultRead: { resultReadable: true, context: 'PAST_MATCH_HISTORY' },
       tombstone: {
-        reason: 'TARGET_DELETED_OR_DEIDENTIFIED',
+        reason: 'TARGET_NO_LONGER_DISCOVERABLE',
         displayName: '탈퇴한 사용자',
       },
     });
@@ -650,6 +650,9 @@ describe('Match history integration', () => {
         cleanLevel: 'WHEN_DIRTY',
       },
     });
+    if (counterpartProfile.detailState !== 'FULL') {
+      throw new Error('expected full counterpart profile detail');
+    }
     expect(counterpartProfile.lifestyle).not.toHaveProperty('drinkingFrequency');
 
     await prisma.activeMatch.update({

@@ -118,29 +118,45 @@ describe('ProfilesService match score integration', () => {
 
     const result = await roommateSearchService.search(authContext('viewer'), {
       scope: 'SAME_BUILDING_ONLY',
-      offset: 0,
       limit: 10,
     });
     const noneProfile = result.items.find((item) => item.profileSummary.nickname === 'A동기');
     const oftenProfile = result.items.find((item) => item.profileSummary.nickname === 'B동기');
 
-    expect(result.appliedSort).toBe('MATCH_SCORE');
+    expect(result.appliedSort).toBe('NICKNAME');
     expect(noneProfile?.exposure.canViewFull).toBe(true);
     expect(oftenProfile?.exposure.canViewFull).toBe(true);
-    if (!noneProfile?.exposure.canViewFull || !oftenProfile?.exposure.canViewFull) {
+    if (
+      !noneProfile?.exposure.canViewFull ||
+      typeof noneProfile.matchScore !== 'number' ||
+      !oftenProfile?.exposure.canViewFull ||
+      typeof oftenProfile.matchScore !== 'number'
+    ) {
       throw new Error('expected same-building peers to allow full detail');
     }
     expect(noneProfile.matchScore).toBeGreaterThan(oftenProfile.matchScore);
     expect(noneProfile).not.toHaveProperty('lifestyle');
     expect(oftenProfile).not.toHaveProperty('lifestyle');
 
-    const noneDetail = await profilesService.getProfileByUserId(authContext('viewer'), 'peer-none');
+    const noneDetail = await profilesService.getProfileByUserId(
+      authContext('viewer'),
+      'peer-none',
+      {
+        detailEntryToken: noneProfile.detailEntryToken,
+      },
+    );
     const oftenDetail = await profilesService.getProfileByUserId(
       authContext('viewer'),
       'peer-often',
+      { detailEntryToken: oftenProfile.detailEntryToken },
     );
 
-    if (!noneDetail.exposure.canViewFull || !oftenDetail.exposure.canViewFull) {
+    if (
+      noneDetail.detailState !== 'FULL' ||
+      oftenDetail.detailState !== 'FULL' ||
+      !noneDetail.exposure.canViewFull ||
+      !oftenDetail.exposure.canViewFull
+    ) {
       throw new Error('expected detail-viewable same-building peers');
     }
 
@@ -174,7 +190,6 @@ describe('ProfilesService match score integration', () => {
 
     const result = await roommateSearchService.search(authContext('viewer'), {
       scope: 'SAME_BUILDING_ONLY',
-      offset: 0,
       limit: 10,
     });
 
@@ -223,8 +238,35 @@ describe('ProfilesService match score integration', () => {
       },
     });
 
-    const profileForA = await profilesService.getProfileByUserId(authContext('user-a'), 'user-b');
-    const profileForB = await profilesService.getProfileByUserId(authContext('user-b'), 'user-a');
+    const searchForA = await roommateSearchService.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 10,
+    });
+    const searchForB = await roommateSearchService.search(authContext('user-b'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 10,
+    });
+    const tokenForB = searchForA.items.find(
+      (item) => item.profileSummary.nickname === '사용자B',
+    )?.detailEntryToken;
+    const tokenForA = searchForB.items.find(
+      (item) => item.profileSummary.nickname === '사용자A',
+    )?.detailEntryToken;
+    const profileForA = await profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
+      detailEntryToken: tokenForB,
+    });
+    const profileForB = await profilesService.getProfileByUserId(authContext('user-b'), 'user-a', {
+      detailEntryToken: tokenForA,
+    });
+
+    if (
+      profileForA.detailState !== 'FULL' ||
+      profileForB.detailState !== 'FULL' ||
+      !profileForA.exposure.canViewFull ||
+      !profileForB.exposure.canViewFull
+    ) {
+      throw new Error('expected full profile details with match scores');
+    }
 
     expect(profileForA.exposure.canViewFull).toBe(true);
     expect(profileForB.exposure.canViewFull).toBe(true);
@@ -267,7 +309,6 @@ describe('ProfilesService match score integration', () => {
 
     await expect(
       roommateSearchService.search(authContext('viewer'), {
-        offset: 0,
         limit: 10,
       }),
     ).rejects.toMatchObject({
@@ -316,7 +357,6 @@ describe('ProfilesService match score integration', () => {
 
     const searchResult = await roommateSearchService.search(authContext('viewer'), {
       scope: 'SAME_BUILDING_ONLY',
-      offset: 0,
       limit: 10,
     });
     const partnerSummary = searchResult.items.find(
@@ -326,8 +366,10 @@ describe('ProfilesService match score integration', () => {
       (item) => item.profileSummary.nickname === '일반상대',
     );
 
-    expect(partnerSummary?.relation.type).toBe('MATCHED_PARTNER');
-    expect(partnerSummary?.exposure.canViewFull).toBe(true);
+    expect(partnerSummary).toBeUndefined();
+    expect(searchResult.availabilityNotices).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'MATCHED_TARGETS_EXCLUDED' })]),
+    );
     expect(otherSummary).toMatchObject({
       relation: { type: 'GENERAL' },
       exposure: { canViewFull: false },

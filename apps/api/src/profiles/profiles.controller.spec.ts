@@ -21,10 +21,14 @@ describe('ProfilesController', () => {
   it('public detail 조회를 ProfilesService로 위임한다', async () => {
     profilesService.getProfileByUserId.mockResolvedValue({ id: 'target-user' });
 
-    await expect(controller.getProfileByUserId(authUser as never, 'target-user')).resolves.toEqual({
+    await expect(
+      controller.getProfileByUserId(authUser as never, 'target-user', 'detail-token'),
+    ).resolves.toEqual({
       id: 'target-user',
     });
 
-    expect(profilesService.getProfileByUserId).toHaveBeenCalledWith(authUser, 'target-user');
+    expect(profilesService.getProfileByUserId).toHaveBeenCalledWith(authUser, 'target-user', {
+      detailEntryToken: 'detail-token',
+    });
   });
 });

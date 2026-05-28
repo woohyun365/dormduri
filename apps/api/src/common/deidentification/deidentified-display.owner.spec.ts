@@ -30,11 +30,11 @@ describe('deidentified-display-owner', () => {
     );
   });
 
-  it('deleted/deidentified tombstone reason은 caller displayName보다 탈퇴 사용자 label을 우선한다', () => {
+  it('tombstone displayName은 caller가 확정한 deidentified label을 그대로 사용한다', () => {
     expect(
       resolveProfileTombstoneDisplayName({
-        reason: 'TARGET_DELETED_OR_DEIDENTIFIED',
-        displayName: '홍길동',
+        reason: 'TARGET_NO_LONGER_DISCOVERABLE',
+        displayName: DEIDENTIFIED_USER_DISPLAY_NAME,
       }),
     ).toBe(DEIDENTIFIED_USER_DISPLAY_NAME);
   });

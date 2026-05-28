@@ -131,7 +131,6 @@ describe('RoommateSearchService integration', () => {
 
     await expect(
       service.search(authContext('user-a'), {
-        offset: 0,
         limit: 20,
       }),
     ).rejects.toMatchObject({
@@ -150,7 +149,6 @@ describe('RoommateSearchService integration', () => {
     await makeViewerNonParticipant();
 
     const result = await service.search(authContext('user-a'), {
-      offset: 0,
       limit: 20,
     });
 
@@ -167,11 +165,17 @@ describe('RoommateSearchService integration', () => {
     expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B', '유저C']);
     expect(result.items.every((item) => item.exposure.canViewFull === false)).toBe(true);
     expect(result.items.every((item) => !('matchScore' in item))).toBe(true);
+    expect(result.items.every((item) => typeof item.detailEntryToken === 'string')).toBe(true);
+    expect(result.availabilityNotices).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'SCOPE_RESTRICTED_BY_VIEWER_STATE' }),
+        expect.objectContaining({ code: 'DETAIL_UNAVAILABLE_BY_POLICY' }),
+      ]),
+    );
 
     await expect(
       service.search(authContext('user-a'), {
         scope: 'SAME_BUILDING_ONLY',
-        offset: 0,
         limit: 20,
       }),
     ).rejects.toMatchObject({
@@ -189,12 +193,10 @@ describe('RoommateSearchService integration', () => {
 
     const merged = await service.search(authContext('user-a'), {
       scope: 'CAMPUS_MERGED',
-      offset: 0,
       limit: 20,
     });
     const sameBuilding = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
-      offset: 0,
       limit: 20,
     });
 
@@ -208,6 +210,18 @@ describe('RoommateSearchService integration', () => {
     expect(otherBuildingPeer).toMatchObject({ exposure: { canViewFull: false } });
     expect(otherBuildingPeer).not.toHaveProperty('matchScore');
     expect(sameBuildingPeer).not.toHaveProperty('lifestyle');
+    expect(otherBuildingPeer?.detailEntryToken).toEqual(expect.any(String));
+
+    await expect(
+      profilesService.getProfileByUserId(authContext('user-a'), 'user-c', {
+        detailEntryToken: otherBuildingPeer?.detailEntryToken,
+      }),
+    ).resolves.toMatchObject({
+      detailState: 'TOMBSTONE',
+      tombstone: {
+        reason: 'DETAIL_NOT_AVAILABLE_DIFFERENT_DORMITORY',
+      },
+    });
 
     expect(sameBuilding.scope).toBe('SAME_BUILDING_ONLY');
     expect(sameBuilding.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
@@ -234,7 +248,6 @@ describe('RoommateSearchService integration', () => {
     const result = await service.search(authContext('user-a'), {
       scope: 'CAMPUS_MERGED',
       smokingBehavior: 'NO',
-      offset: 0,
       limit: 20,
     });
 
@@ -266,7 +279,6 @@ describe('RoommateSearchService integration', () => {
       service.search(authContext('user-a'), {
         scope: 'CAMPUS_MERGED',
         college: 'ARTS_ENGINEERING',
-        offset: 0,
         limit: 20,
       }),
     ).rejects.toMatchObject({
@@ -274,8 +286,17 @@ describe('RoommateSearchService integration', () => {
     });
   });
 
-  it('삭제 처리된 사용자는 search에서 제외하고 기존 detail 진입은 tombstone으로 degrade한다', async () => {
+  it('삭제 처리된 사용자는 search에서 제외하고 기존 summary entry detail 진입은 tombstone으로 degrade한다', async () => {
     await setSeasonState('SEASON_OPEN');
+    const beforeDeletion = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 20,
+    });
+    const deletedTargetEntry = beforeDeletion.items.find(
+      (item) => item.profileSummary.nickname === '유저B',
+    );
+    expect(deletedTargetEntry?.detailEntryToken).toEqual(expect.any(String));
+
     await prisma.user.update({
       where: { id: 'user-b' },
       data: { deletedAt: await prisma.getDatabaseNow() },
@@ -283,7 +304,6 @@ describe('RoommateSearchService integration', () => {
 
     const result = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
-      offset: 0,
       limit: 20,
     });
 
@@ -296,7 +316,9 @@ describe('RoommateSearchService integration', () => {
     expect(result.items.every((item) => item.exposure.canViewFull)).toBe(true);
 
     await expect(
-      profilesService.getProfileByUserId(authContext('user-a'), 'user-b'),
+      profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
+        detailEntryToken: deletedTargetEntry?.detailEntryToken,
+      }),
     ).resolves.toMatchObject({
       detailState: 'TOMBSTONE',
       exposure: {
@@ -304,9 +326,15 @@ describe('RoommateSearchService integration', () => {
         canViewFull: false,
       },
       tombstone: {
-        reason: 'TARGET_DELETED_OR_DEIDENTIFIED',
+        reason: 'TARGET_NO_LONGER_DISCOVERABLE',
         displayName: '탈퇴한 사용자',
       },
+    });
+
+    await expect(
+      profilesService.getProfileByUserId(authContext('user-a'), 'user-b'),
+    ).rejects.toMatchObject({
+      response: { code: 'PROFILE_NOT_VISIBLE' },
     });
   });
 
@@ -316,7 +344,6 @@ describe('RoommateSearchService integration', () => {
     await expect(
       service.search(authContext('user-a'), {
         scope: 'CAMPUS_MERGED',
-        offset: 0,
         limit: 20,
       }),
     ).rejects.toMatchObject({
@@ -325,7 +352,6 @@ describe('RoommateSearchService integration', () => {
 
     const result = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
-      offset: 0,
       limit: 20,
     });
 
@@ -338,7 +364,7 @@ describe('RoommateSearchService integration', () => {
     expect(result.items.every((item) => item.exposure.canViewFull)).toBe(true);
   });
 
-  it('SEASON_POST_MATCH matched viewer는 CAMPUS_MERGED summary를 보고 partner만 detail-capable이다', async () => {
+  it('SEASON_POST_MATCH roommate-search discovery는 active matched target을 제외하고 notice를 제공한다', async () => {
     await seedSecondDormitory();
     await moveUserToDormitory({ participantId: 'participant-c', dormitoryId: 'saerom' });
     await setSeasonState('SEASON_POST_MATCH');
@@ -350,7 +376,6 @@ describe('RoommateSearchService integration', () => {
 
     const result = await service.search(authContext('user-a'), {
       scope: 'CAMPUS_MERGED',
-      offset: 0,
       limit: 20,
     });
     const partner = result.items.find((item) => item.profileSummary.nickname === '유저B');
@@ -362,8 +387,10 @@ describe('RoommateSearchService integration', () => {
     expect(result.scopeAvailability).toMatchObject({
       campusMerged: true,
     });
-    expect(partner?.relation.type).toBe('MATCHED_PARTNER');
-    expect(partner?.exposure.canViewFull).toBe(true);
+    expect(partner).toBeUndefined();
+    expect(result.availabilityNotices).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'MATCHED_TARGETS_EXCLUDED' })]),
+    );
     expect(otherDormitoryTarget).toMatchObject({
       relation: { type: 'GENERAL' },
       exposure: { canViewFull: false },
@@ -374,6 +401,39 @@ describe('RoommateSearchService integration', () => {
       profilesService.getProfileByUserId(authContext('user-a'), 'user-c'),
     ).rejects.toMatchObject({
       response: { code: 'PROFILE_NOT_VISIBLE' },
+    });
+  });
+
+  it('cursor-only pagination은 nickname boundary 이후 다음 page를 반환한다', async () => {
+    await setSeasonState('SEASON_OPEN');
+
+    const firstPage = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 1,
+    });
+    expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+    expect(firstPage.pageInfo.hasNextPage).toBe(true);
+    expect(typeof firstPage.pageInfo.nextCursor).toBe('string');
+
+    const secondPage = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 1,
+      cursor: firstPage.pageInfo.nextCursor ?? undefined,
+    });
+    expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(secondPage.pageInfo).toEqual({
+      hasNextPage: false,
+      nextCursor: null,
+    });
+
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'CAMPUS_MERGED',
+        limit: 1,
+        cursor: firstPage.pageInfo.nextCursor ?? undefined,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
     });
   });
 });

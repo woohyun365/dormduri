@@ -159,22 +159,22 @@ const PUBLIC_PROFILE_TOMBSTONE_DETAIL = {
     canBookmark: false,
     canRequestMatch: false,
     canStartChat: false,
-    unavailableReasons: ['TARGET_DELETED_OR_DEIDENTIFIED'],
+    unavailableReasons: ['TARGET_NOT_PUBLIC'],
   },
   resultRead: {
     resultReadable: true,
     context: 'PAST_MATCH_HISTORY',
   },
   tombstone: {
-    reason: 'TARGET_DELETED_OR_DEIDENTIFIED',
+    reason: 'TARGET_NO_LONGER_DISCOVERABLE',
     displayName: '탈퇴한 사용자',
-    message: '탈퇴 또는 비식별화된 사용자라 상세 프로필을 볼 수 없습니다.',
+    message: '상대가 시즌 참여를 철회했거나 더 이상 공개 가능한 상태가 아닙니다.',
   },
 } as const;
 
 const ROOMMATE_SEARCH_RESPONSE = {
   scope: 'CAMPUS_MERGED',
-  appliedSort: 'MATCH_SCORE',
+  appliedSort: 'NICKNAME',
   resultSummary: {
     summaryOnlyCount: 1,
     detailViewableCount: 0,
@@ -201,6 +201,17 @@ const ROOMMATE_SEARCH_RESPONSE = {
   sortCapabilities: {
     matchScore: false,
   },
+  pageInfo: {
+    hasNextPage: false,
+    nextCursor: null,
+  },
+  availabilityNotices: [
+    {
+      code: 'SCOPE_RESTRICTED_BY_VIEWER_STATE',
+      severity: 'INFO',
+      message: '현재 등록 또는 기숙사 배정 상태에 따라 사용할 수 있는 검색 범위가 제한됩니다.',
+    },
+  ],
   items: [SUMMARY_ITEM],
 } as const;
 
@@ -652,7 +663,7 @@ describe('shared reference contracts', () => {
     expect(publicProfileSchema.parse(PUBLIC_PROFILE_TOMBSTONE_DETAIL)).toMatchObject({
       detailState: 'TOMBSTONE',
       exposure: { canViewFull: false, detailViewable: true },
-      tombstone: { reason: 'TARGET_DELETED_OR_DEIDENTIFIED' },
+      tombstone: { reason: 'TARGET_NO_LONGER_DISCOVERABLE' },
     });
 
     expect(

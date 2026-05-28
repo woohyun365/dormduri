@@ -875,6 +875,7 @@ function buildCurrentUserResponse(user: {
       canSelectDormitory: false,
       canFinalizeSeasonRegistration: false,
       canEditDisplayIdentity: true,
+      displayIdentityEditUnavailableReasons: [],
       canBookmark: false,
       canRequestMatch: false,
       canStartChat: false,
