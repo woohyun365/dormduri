@@ -1,4 +1,4 @@
-import type { DisplayIdentityEditUnavailableReason } from '@repo/shared/user-contract';
+import type { DisplayIdentityEditUnavailableReason } from '@repo/shared/display-identity-contract';
 import type { Campus } from '../generated/prisma/enums.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';

@@ -1,5 +1,6 @@
 import type {
   CurrentUserResponse,
+  UpdateCurrentUserAcademicIdentityMutationResult,
   UpdateCurrentUserDisplayIdentityMutationResult,
   UpdateCurrentUserResponse,
 } from '@repo/shared/user-contract';
@@ -334,11 +335,17 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
 function buildUpdateCurrentUserResponse(
   currentUser: CurrentUserResponse,
   displayIdentity: UpdateCurrentUserDisplayIdentityMutationResult,
+  academicIdentity: UpdateCurrentUserAcademicIdentityMutationResult = {
+    attempted: false,
+    changed: false,
+    noOpReason: null,
+  },
 ): UpdateCurrentUserResponse {
   return {
     currentUser,
     mutation: {
       displayIdentity,
+      academicIdentity,
     },
   };
 }

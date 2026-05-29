@@ -175,6 +175,8 @@ function buildCapabilitySegment(
     canFinalizeSeasonRegistration: seasonSegment.capabilities.canFinalizeSeasonRegistration,
     canEditDisplayIdentity: displayIdentityEditUnavailableReasons.length === 0,
     displayIdentityEditUnavailableReasons,
+    canEditAcademicIdentity: true,
+    academicIdentityEditUnavailableReasons: [],
     canBookmark: false,
     canRequestMatch: false,
     canStartChat: false,

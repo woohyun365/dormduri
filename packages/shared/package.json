@@ -27,6 +27,18 @@
       "types": "./dist/user-contract.d.ts",
       "default": "./dist/user-contract.js"
     },
+    "./display-identity-contract": {
+      "types": "./dist/display-identity-contract.d.ts",
+      "default": "./dist/display-identity-contract.js"
+    },
+    "./academic-identity-contract": {
+      "types": "./dist/academic-identity-contract.d.ts",
+      "default": "./dist/academic-identity-contract.js"
+    },
+    "./account-identity-contract": {
+      "types": "./dist/account-identity-contract.d.ts",
+      "default": "./dist/account-identity-contract.js"
+    },
     "./session-contract": {
       "types": "./dist/session-contract.d.ts",
       "default": "./dist/session-contract.js"

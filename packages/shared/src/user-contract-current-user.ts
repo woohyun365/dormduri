@@ -7,25 +7,22 @@ import {
 } from './season-participation-contract.js';
 import { activeMatchSummarySchema } from './match-contract.js';
 import {
+  displayIdentityEditUnavailableReasonSchema,
+  userDisplayIdentitySchema,
+} from './display-identity-contract.js';
+import {
+  academicIdentityEditUnavailableReasonSchema,
+  userAcademicIdentitySchema,
+} from './academic-identity-contract.js';
+import { accountIdentityIncompleteErrorSchema } from './account-identity-contract.js';
+import {
   authenticatedSessionUserSchema,
   participationIntentSchema,
   selectionSourceSchema,
 } from './user-contract-primitives.js';
 
-export const displayIdentityNicknameSourceSchema = z.literal('USER_DISPLAY_IDENTITY');
-export const displayIdentityEditUnavailableReasonSchema = z.enum([
-  'CURRENT_SEASON_REGISTRATION_LOCK',
-  'NICKNAME_COOLDOWN_ACTIVE',
-]);
 export const SERVICE_INTRO_NOTICE_KEY = 'service-intro' as const;
 export const dismissedNoticeKeySchema = z.literal(SERVICE_INTRO_NOTICE_KEY);
-
-export const userDisplayIdentitySchema = z.strictObject({
-  userId: z.string(),
-  nickname: z.string(),
-  nicknameSource: displayIdentityNicknameSourceSchema,
-  nicknameChangedAt: z.string().nullable(),
-});
 
 export const dismissedNoticeStateSchema = z.strictObject({
   noticeKey: dismissedNoticeKeySchema,
@@ -49,6 +46,7 @@ export const currentUserSeasonProfileStateSchema = z.strictObject({
 export const currentUserResponseSchema = z.strictObject({
   user: authenticatedSessionUserSchema,
   displayIdentity: userDisplayIdentitySchema,
+  academicIdentity: userAcademicIdentitySchema.optional(),
   seasonProfile: currentUserSeasonProfileStateSchema,
   selection: z.strictObject({
     state: dormitorySelectionStateSchema,
@@ -66,6 +64,8 @@ export const currentUserResponseSchema = z.strictObject({
     canFinalizeSeasonRegistration: z.boolean(),
     canEditDisplayIdentity: z.boolean(),
     displayIdentityEditUnavailableReasons: z.array(displayIdentityEditUnavailableReasonSchema),
+    canEditAcademicIdentity: z.boolean(),
+    academicIdentityEditUnavailableReasons: z.array(academicIdentityEditUnavailableReasonSchema),
     canBookmark: z.boolean(),
     canRequestMatch: z.boolean(),
     canStartChat: z.boolean(),
@@ -79,12 +79,12 @@ export const currentUserResponseSchema = z.strictObject({
   }),
 });
 
-export type DisplayIdentityNicknameSource = z.infer<typeof displayIdentityNicknameSourceSchema>;
-export type DisplayIdentityEditUnavailableReason = z.infer<
-  typeof displayIdentityEditUnavailableReasonSchema
->;
 export type DismissedNoticeKey = z.infer<typeof dismissedNoticeKeySchema>;
-export type UserDisplayIdentity = z.infer<typeof userDisplayIdentitySchema>;
+export const currentUserAccountIdentityIncompleteErrorSchema = accountIdentityIncompleteErrorSchema;
+
 export type DismissedNoticeState = z.infer<typeof dismissedNoticeStateSchema>;
 export type CurrentUserSeasonProfileState = z.infer<typeof currentUserSeasonProfileStateSchema>;
 export type CurrentUserResponse = z.infer<typeof currentUserResponseSchema>;
+export type CurrentUserAccountIdentityIncompleteError = z.infer<
+  typeof currentUserAccountIdentityIncompleteErrorSchema
+>;

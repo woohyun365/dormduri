@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { campusSchema, genderSchema } from './identity-contract.js';
+import { userAcademicIdentitySchema } from './academic-identity-contract.js';
 import {
   emailSchema,
   nicknameSchema,
@@ -28,13 +29,15 @@ export const signupDraftValidationRequestSchema = z.strictObject({
   nickname: nicknameSchema,
 });
 
-export const signupRequestSchema = z.strictObject({
-  email: emailSchema,
-  password: passwordSchema,
-  nickname: nicknameSchema,
-  gender: genderSchema,
-  campus: campusSchema,
-});
+export const signupRequestSchema = z
+  .strictObject({
+    email: emailSchema,
+    password: passwordSchema,
+    nickname: nicknameSchema,
+    gender: genderSchema,
+    campus: campusSchema,
+  })
+  .extend(userAcademicIdentitySchema.shape);
 
 export const resetPasswordRequestSchema = z.strictObject({
   email: emailSchema,

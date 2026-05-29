@@ -1,8 +1,7 @@
 import type { SeasonState } from '@repo/shared/season-contract';
-import type {
-  CurrentUserResponse,
-  DisplayIdentityEditUnavailableReason,
-} from '@repo/shared/user-contract';
+import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import type { DisplayIdentityEditUnavailableReason } from '@repo/shared/display-identity-contract';
+import type { AcademicIdentityEditUnavailableReason } from '@repo/shared/academic-identity-contract';
 import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
 
 export interface CurrentUserCapabilityInput {
@@ -24,6 +23,7 @@ export function buildCurrentUserCapabilities(
   input: CurrentUserCapabilityInput,
 ): CurrentUserResponse['capabilities'] {
   const displayIdentityEditUnavailableReasons = buildDisplayIdentityEditUnavailableReasons(input);
+  const academicIdentityEditUnavailableReasons = buildAcademicIdentityEditUnavailableReasons(input);
   const activeSeasonPhase =
     input.seasonState === 'SEASON_OPEN' || input.seasonState === 'SEASON_MATCHING';
   const canCreateOrUpdateSeasonProfileDraft =
@@ -57,6 +57,8 @@ export function buildCurrentUserCapabilities(
     canFinalizeSeasonRegistration,
     canEditDisplayIdentity: displayIdentityEditUnavailableReasons.length === 0,
     displayIdentityEditUnavailableReasons,
+    canEditAcademicIdentity: academicIdentityEditUnavailableReasons.length === 0,
+    academicIdentityEditUnavailableReasons,
     canBookmark:
       canActOnPublicTargets &&
       (input.seasonState === 'SEASON_OPEN' || input.seasonState === 'SEASON_MATCHING'),
@@ -81,6 +83,16 @@ function buildDisplayIdentityEditUnavailableReasons(input: {
   }
   if (input.nicknameCooldownActive) {
     reasons.push('NICKNAME_COOLDOWN_ACTIVE');
+  }
+  return reasons;
+}
+
+function buildAcademicIdentityEditUnavailableReasons(input: {
+  participantRegistered: boolean;
+}): AcademicIdentityEditUnavailableReason[] {
+  const reasons: AcademicIdentityEditUnavailableReason[] = [];
+  if (input.participantRegistered) {
+    reasons.push('CURRENT_SEASON_REGISTRATION_LOCK');
   }
   return reasons;
 }
