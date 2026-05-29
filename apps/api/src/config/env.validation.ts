@@ -144,12 +144,12 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().base64().optional(),
   }),
   RETENTION_IDENTITY_KEY_VERSION: Joi.string().trim().default('local-v1'),
-  RETENTION_CHAT_BODY_ENCRYPTION_KEY_BASE64: Joi.string().base64().when('NODE_ENV', {
+  RETENTION_VAULT_CHAT_BODY_ENCRYPTION_KEY_BASE64: Joi.string().base64().when('NODE_ENV', {
     is: 'production',
     then: Joi.required(),
     otherwise: Joi.string().base64().optional(),
   }),
-  RETENTION_CHAT_BODY_KEY_VERSION: Joi.string().trim().default('local-v1'),
+  RETENTION_VAULT_CHAT_BODY_KEY_VERSION: Joi.string().trim().default('local-v1'),
   [ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV]: Joi.string()
     .trim()
     .when('NODE_ENV', {

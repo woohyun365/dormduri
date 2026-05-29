@@ -1,5 +1,6 @@
 import { Prisma } from '../generated/prisma/client.js';
 import {
+  createEnvRetentionVaultKeyring,
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
   discloseRetainedVaultPayload,
@@ -18,6 +19,46 @@ describe('retained-vault-owner', () => {
     keyVersion: 'vault-test-v1',
   });
   const keyring = createStaticRetentionVaultKeyring({ NICKNAME_AUDIT: cipher });
+
+  it('env keyring은 RETENTION_VAULT_* canonical key만 사용하고 legacy fallback을 읽지 않는다', () => {
+    const envKeys = [
+      'RETENTION_VAULT_CHAT_BODY_ENCRYPTION_KEY_BASE64',
+      'RETENTION_VAULT_CHAT_BODY_KEY_VERSION',
+      'RETENTION_CHAT_BODY_ENCRYPTION_KEY_BASE64',
+      'RETENTION_CHAT_BODY_KEY_VERSION',
+    ] as const;
+    const previous = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
+
+    try {
+      for (const key of envKeys) {
+        delete process.env[key];
+      }
+      process.env.RETENTION_CHAT_BODY_ENCRYPTION_KEY_BASE64 = Buffer.alloc(32, 11).toString(
+        'base64',
+      );
+      process.env.RETENTION_CHAT_BODY_KEY_VERSION = 'legacy-chat-v1';
+
+      expect(createEnvRetentionVaultKeyring().getCipher('CHAT_BODY')).toBeNull();
+
+      process.env.RETENTION_VAULT_CHAT_BODY_ENCRYPTION_KEY_BASE64 = Buffer.alloc(32, 12).toString(
+        'base64',
+      );
+      process.env.RETENTION_VAULT_CHAT_BODY_KEY_VERSION = 'canonical-chat-v1';
+
+      expect(createEnvRetentionVaultKeyring().getCipher('CHAT_BODY')).toMatchObject({
+        keyVersion: 'canonical-chat-v1',
+      });
+    } finally {
+      for (const key of envKeys) {
+        const value = previous[key];
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
 
   it('retention case와 vault object를 idempotent하게 생성하고 HMAC digest/hold를 저장한다', async () => {
     const createdCases: Array<Record<string, unknown>> = [];

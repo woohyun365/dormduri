@@ -186,17 +186,13 @@ export function createStaticRetentionVaultKeyring(
 export function createEnvRetentionVaultKeyring(): RetentionVaultKeyring {
   return {
     getCipher(purpose) {
-      const rawKey = process.env[`RETENTION_VAULT_${purpose}_ENCRYPTION_KEY_BASE64`]?.trim();
-      const fallbackKey = resolveLegacyEnvKey(purpose);
-      const key = rawKey || fallbackKey;
+      const key = process.env[`RETENTION_VAULT_${purpose}_ENCRYPTION_KEY_BASE64`]?.trim();
       if (!key) {
         return null;
       }
 
       const keyVersion =
-        process.env[`RETENTION_VAULT_${purpose}_KEY_VERSION`]?.trim() ||
-        resolveLegacyEnvKeyVersion(purpose) ||
-        DEFAULT_VAULT_KEY_VERSION;
+        process.env[`RETENTION_VAULT_${purpose}_KEY_VERSION`]?.trim() || DEFAULT_VAULT_KEY_VERSION;
       return createRetentionVaultCipher({ key, keyVersion });
     },
   };
@@ -517,26 +513,6 @@ function parseRetentionVaultKeyPurpose(value: string): RetentionVaultKeyPurpose 
     return value;
   }
   throw new Error('[retained-vault-owner] unsupported key purpose');
-}
-
-function resolveLegacyEnvKey(purpose: RetentionVaultKeyPurpose) {
-  if (purpose === 'CHAT_BODY') {
-    return process.env.RETENTION_CHAT_BODY_ENCRYPTION_KEY_BASE64?.trim() || '';
-  }
-  if (purpose === 'IDENTITY') {
-    return process.env.RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64?.trim() || '';
-  }
-  return '';
-}
-
-function resolveLegacyEnvKeyVersion(purpose: RetentionVaultKeyPurpose) {
-  if (purpose === 'CHAT_BODY') {
-    return process.env.RETENTION_CHAT_BODY_KEY_VERSION?.trim() || '';
-  }
-  if (purpose === 'IDENTITY') {
-    return process.env.RETENTION_IDENTITY_KEY_VERSION?.trim() || '';
-  }
-  return '';
 }
 
 function assertDisclosureInput(input: {
