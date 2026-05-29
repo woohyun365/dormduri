@@ -6,6 +6,21 @@ import {
 } from '@repo/shared/profile-contract';
 
 describe('additional profile contract', () => {
+  it('season additional profile은 grade와 full MBTI만 소유한다', () => {
+    expect(
+      additionalProfileSchema.safeParse({
+        grade: '3',
+        mbti: 'INTJ',
+      }).success,
+    ).toBe(true);
+    expect(
+      additionalProfileSchema.safeParse({
+        grade: null,
+        mbti: 'INTJ',
+      }).success,
+    ).toBe(false);
+  });
+
   it('grade는 허용된 4개 값만 통과한다', () => {
     expect(profileGradeSchema.parse('1')).toBe('1');
     expect(profileGradeSchema.safeParse('5').success).toBe(false);
@@ -17,15 +32,14 @@ describe('additional profile contract', () => {
     expect(profileMbtiSchema.safeParse(' enfp ').success).toBe(false);
   });
 
-  it('birthYear는 1980 미만을 거부한다', () => {
+  it('birthYear는 account academic identity 입력값으로 검증하되 season additional에는 포함하지 않는다', () => {
     expect(profileBirthYearSchema.parse(2001)).toBe(2001);
     expect(profileBirthYearSchema.safeParse(1979).success).toBe(false);
     expect(
       additionalProfileSchema.safeParse({
-        college: null,
-        grade: null,
+        grade: '3',
         mbti: null,
-        birthYear: 1979,
+        birthYear: 2001,
       }).success,
     ).toBe(false);
   });
