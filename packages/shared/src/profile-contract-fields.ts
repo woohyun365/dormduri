@@ -8,8 +8,25 @@ const nullableEnum = <const T extends readonly [string, ...string[]]>(values: T)
 export const PROFILE_GRADE_VALUES = ['1', '2', '3', '4+'] as const;
 export const profileGradeSchema = z.enum(PROFILE_GRADE_VALUES);
 
-const MBTI_REGEX = /^[EI][SN][TF][JP]$/;
-export const profileMbtiSchema = z.string().regex(MBTI_REGEX);
+export const PROFILE_MBTI_VALUES = [
+  'ISTJ',
+  'ISFJ',
+  'INFJ',
+  'INTJ',
+  'ISTP',
+  'ISFP',
+  'INFP',
+  'INTP',
+  'ESTP',
+  'ESFP',
+  'ENFP',
+  'ENTP',
+  'ESTJ',
+  'ESFJ',
+  'ENFJ',
+  'ENTJ',
+] as const;
+export const profileMbtiSchema = z.enum(PROFILE_MBTI_VALUES);
 export const profileMbtiInputSchema = z
   .string()
   .trim()
@@ -20,6 +37,16 @@ export const MIN_PROFILE_BIRTH_YEAR = 1980;
 export const profileBirthYearSchema = z.number().int().min(MIN_PROFILE_BIRTH_YEAR);
 
 export const additionalProfileSchema = z.strictObject({
+  grade: profileGradeSchema,
+  mbti: profileMbtiSchema,
+});
+
+export const seasonAdditionalProfileDraftSchema = z.strictObject({
+  grade: profileGradeSchema.nullable(),
+  mbti: profileMbtiSchema.nullable(),
+});
+
+export const publicProfileAdditionalSchema = z.strictObject({
   college: collegeCodeSchema.nullable(),
   grade: profileGradeSchema.nullable(),
   mbti: profileMbtiSchema.nullable(),
@@ -50,4 +77,6 @@ export const publicLifestyleSchema = z.strictObject({
 });
 
 export type AdditionalProfile = z.infer<typeof additionalProfileSchema>;
+export type SeasonAdditionalProfileDraft = z.infer<typeof seasonAdditionalProfileDraftSchema>;
+export type PublicProfileAdditional = z.infer<typeof publicProfileAdditionalSchema>;
 export type PublicLifestyle = z.infer<typeof publicLifestyleSchema>;

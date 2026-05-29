@@ -8,7 +8,7 @@ import type {
   SeasonParticipationIntent,
 } from '../generated/prisma/enums.js';
 import type { LifestyleData } from '@repo/shared/lifestyle';
-import type { AdditionalProfile } from '@repo/shared/profile-contract';
+import type { SeasonAdditionalProfileDraft } from '@repo/shared/profile-contract';
 import type { ParticipantPolicyRecord } from './season-participant-policy.js';
 import {
   lifestyleColumnSelect,
@@ -127,12 +127,10 @@ export function toAdditionalProfileFromRecord(
     | Pick<CurrentSeasonParticipantProfileRecord, 'collegeCode' | 'grade' | 'mbti' | 'birthYear'>
     | null
     | undefined,
-): AdditionalProfile {
+): SeasonAdditionalProfileDraft {
   return {
-    college: (profile?.collegeCode ?? null) as AdditionalProfile['college'],
-    grade: (profile?.grade ?? null) as AdditionalProfile['grade'],
-    mbti: profile?.mbti ?? null,
-    birthYear: profile?.birthYear ?? null,
+    grade: (profile?.grade ?? null) as SeasonAdditionalProfileDraft['grade'],
+    mbti: (profile?.mbti ?? null) as SeasonAdditionalProfileDraft['mbti'],
   };
 }
 

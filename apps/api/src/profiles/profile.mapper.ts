@@ -1,7 +1,7 @@
 import { publicLifestyleSchema } from '@repo/shared/profile-contract';
 import type {
-  AdditionalProfile,
   PublicProfile,
+  PublicProfileAdditional,
   PublicProfileActionCapabilities,
   PublicProfileTombstone,
   PublicProfileTombstoneReason,
@@ -68,11 +68,11 @@ export function parseLifestyleOrNull(lifestyle: unknown): LifestyleData | null {
 
 export function toAdditionalProfile(
   profile: Pick<ProfileViewRecord, 'collegeCode' | 'grade' | 'mbti' | 'birthYear'>,
-): AdditionalProfile {
+): PublicProfileAdditional {
   return {
-    college: profile.collegeCode as AdditionalProfile['college'],
-    grade: profile.grade as AdditionalProfile['grade'],
-    mbti: profile.mbti,
+    college: profile.collegeCode as PublicProfileAdditional['college'],
+    grade: profile.grade as PublicProfileAdditional['grade'],
+    mbti: profile.mbti as PublicProfileAdditional['mbti'],
     birthYear: profile.birthYear,
   };
 }

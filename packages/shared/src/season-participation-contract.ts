@@ -6,7 +6,10 @@ import {
 } from './dormitory-contract.js';
 import { campusSchema } from './identity-contract.js';
 import { lifestyleSchema } from './lifestyle.js';
-import { additionalProfileSchema } from './profile-contract-fields.js';
+import {
+  additionalProfileSchema,
+  seasonAdditionalProfileDraftSchema,
+} from './profile-contract-fields.js';
 import { seasonStateSchema } from './season-contract-primitives.js';
 import { participationIntentSchema } from './user-contract-primitives.js';
 import { isoDateTimeStringSchema, localDateStringSchema } from './date-primitives.js';
@@ -39,8 +42,8 @@ export const seasonParticipationCompletionStateSchema = z.strictObject({
 
 export const seasonProfileDraftRequestSchema = z.strictObject({
   lifestyle: lifestyleSchema,
-  intro: z.string().trim().min(1).max(200),
-  additional: additionalProfileSchema.optional(),
+  intro: z.string().trim().max(200).optional().default(''),
+  additional: additionalProfileSchema,
 });
 
 export const createSeasonProfileRequestSchema = seasonProfileDraftRequestSchema;
@@ -52,7 +55,7 @@ export const seasonProfileDraftResponseSchema = z.strictObject({
   state: seasonProfileStateSchema,
   lifestyle: lifestyleSchema,
   intro: z.string(),
-  additional: additionalProfileSchema,
+  additional: seasonAdditionalProfileDraftSchema,
   completion: seasonParticipationCompletionStateSchema,
   draftWritable: z.boolean(),
 });

@@ -41,10 +41,8 @@ export const draftInput: SeasonProfileDraftRequest = {
   lifestyle: completeLifestyle,
   intro: '시즌 소개',
   additional: {
-    college: 'ARTS_ENGINEERING',
     grade: '3',
     mbti: 'INTJ',
-    birthYear: 2002,
   },
 };
 

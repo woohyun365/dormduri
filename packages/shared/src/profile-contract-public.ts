@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { campusSchema, genderSchema } from './identity-contract.js';
-import { additionalProfileSchema, publicLifestyleSchema } from './profile-contract-fields.js';
+import { publicProfileAdditionalSchema, publicLifestyleSchema } from './profile-contract-fields.js';
 
 export const profileSourceSchema = z.enum(['SEASON_PARTICIPANT_PROFILE']);
 export const profileRelationToViewerSchema = z.enum(['GENERAL', 'MATCHED_PARTNER']);
@@ -87,7 +87,7 @@ export const publicProfileFullDetailSchema = z
     resultRead: publicTargetResultReadSchema,
     nickname: z.string(),
     intro: z.string(),
-    additional: additionalProfileSchema,
+    additional: publicProfileAdditionalSchema,
     gender: genderSchema,
     campus: campusSchema,
     lifestyle: publicProfileDetailLifestyleSchema,

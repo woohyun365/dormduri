@@ -114,14 +114,8 @@ export function toSeasonProfileDraftColumnData(
     nicknameNormalizedSnapshot: displayIdentity.nicknameNormalized,
     ...toLifestyleColumnData(input.lifestyle),
     intro: input.intro.trim(),
-    ...(additional
-      ? {
-          collegeCode: additional.college,
-          grade: additional.grade,
-          mbti: additional.mbti,
-          birthYear: additional.birthYear,
-        }
-      : {}),
+    grade: additional.grade,
+    mbti: additional.mbti,
   };
 }
 
