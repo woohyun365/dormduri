@@ -172,7 +172,7 @@ const PUBLIC_PROFILE_TOMBSTONE_DETAIL = {
   },
 } as const;
 
-const ROOMMATE_SEARCH_RESPONSE = {
+const LEGACY_ROOMMATE_SEARCH_RESPONSE = {
   scope: 'CAMPUS_MERGED',
   appliedSort: 'NICKNAME',
   resultSummary: {
@@ -826,30 +826,77 @@ describe('shared reference contracts', () => {
     ).toBe(false);
   });
 
-  it('roommate search contract는 exposure enum 없이 capability 기반 단일 summary shape를 사용한다', () => {
-    expect(
-      roommateSearchQuerySchema.parse({
-        smokingBehavior: 'NO',
-      }),
-    ).toMatchObject({ smokingBehavior: 'NO' });
-
-    expect(roommateSearchResponseSchema.parse(ROOMMATE_SEARCH_RESPONSE)).toMatchObject({
-      scope: 'CAMPUS_MERGED',
-      resultSummary: { summaryOnlyCount: 1 },
-      items: [{ exposure: { listSummaryVisible: true, canViewFull: false } }],
-    });
+  it('roommate search contract는 manifest 기반 summary response shape를 사용한다', () => {
+    expect(roommateSearchResponseSchema.safeParse(ROOMMATE_SEARCH_MANIFEST_RESPONSE).success).toBe(
+      true,
+    );
 
     expect(
       roommateSearchResponseSchema.safeParse({
-        ...ROOMMATE_SEARCH_RESPONSE,
+        ...ROOMMATE_SEARCH_MANIFEST_RESPONSE,
         unsupportedSearchScopeField: true,
       }).success,
     ).toBe(false);
 
     expect(
       roommateSearchResponseSchema.safeParse({
-        ...ROOMMATE_SEARCH_RESPONSE,
+        ...ROOMMATE_SEARCH_MANIFEST_RESPONSE,
         items: [{ ...SUMMARY_ITEM, unsupportedSummaryField: true }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('roommate search contract는 manifest/sort 계약을 요구하고 legacy capability boolean bridge를 거부한다', () => {
+    expect(roommateSearchResponseSchema.safeParse(LEGACY_ROOMMATE_SEARCH_RESPONSE).success).toBe(
+      false,
+    );
+  });
+
+  it('roommate search query contract는 dotted nested filters를 normalized filter object로 받는다', () => {
+    expect(
+      roommateSearchQuerySchema.safeParse({
+        scope: 'SAME_BUILDING_ONLY',
+        sort: 'MATCH_SCORE',
+        'college.operator': 'EXCLUDE',
+        'college.values[]': ['ARTS_ENGINEERING'],
+        'mbtiTraits.energy': 'E',
+        'mbtiTraits.decision': 'T',
+        'ageBand.values[]': ['20', '21'],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      roommateSearchQuerySchema.safeParse({
+        scope: 'SAME_BUILDING_ONLY',
+        excludeMyCollege: true,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('roommate search college filter는 INCLUDE/EXCLUDE 중 single operator만 허용한다', () => {
+    expect(
+      roommateSearchQuerySchema.safeParse({
+        scope: 'SAME_BUILDING_ONLY',
+        'college.operator': 'EXCLUDE',
+        'college.values[]': ['ARTS_ENGINEERING'],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      roommateSearchQuerySchema.safeParse({
+        scope: 'SAME_BUILDING_ONLY',
+        'college.operators[]': ['INCLUDE', 'EXCLUDE'],
+        'college.values[]': ['ARTS_ENGINEERING'],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      roommateSearchQuerySchema.safeParse({
+        scope: 'SAME_BUILDING_ONLY',
+        college: {
+          include: ['ARTS_ENGINEERING'],
+          exclude: ['NURSING'],
+        },
       }).success,
     ).toBe(false);
   });

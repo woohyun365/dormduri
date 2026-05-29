@@ -228,7 +228,7 @@ describe('RoommateSearchService integration', () => {
     expect(sameBuilding.items[0]?.exposure.canViewFull).toBe(true);
   });
 
-  it('SEASON_OPEN merged에서 summary filter는 summary-only 후보까지 같은 field set으로 필터링한다', async () => {
+  it('SEASON_OPEN CAMPUS_MERGED는 broad preview라 모든 filter를 거부하고 no-filter manifest를 제공한다', async () => {
     await seedSecondDormitory();
     await moveUserToDormitory({
       participantId: 'participant-c',
@@ -236,38 +236,34 @@ describe('RoommateSearchService integration', () => {
     });
     await setSeasonState('SEASON_OPEN');
 
-    await prisma.seasonParticipantProfile.update({
-      where: { participantId: 'participant-b' },
-      data: { smokingBehavior: 'NO' },
-    });
-    await prisma.seasonParticipantProfile.update({
-      where: { participantId: 'participant-c' },
-      data: { smokingBehavior: 'NO' },
-    });
-
-    const result = await service.search(authContext('user-a'), {
+    const merged = await service.search(authContext('user-a'), {
       scope: 'CAMPUS_MERGED',
-      smokingBehavior: 'NO',
       limit: 20,
     });
+    const manifest = (
+      merged as unknown as {
+        manifest?: { filters?: { enabled: boolean; fields: Record<string, unknown> } };
+      }
+    ).manifest;
+    expect(manifest).toMatchObject({
+      filters: {
+        enabled: false,
+        fields: {},
+      },
+    });
 
-    expect(result.resultSummary).toEqual({
-      summaryOnlyCount: 1,
-      detailViewableCount: 1,
-      scoreVisibleCount: 1,
-    });
-    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B', '유저C']);
-    expect(result.items.find((item) => item.profileSummary.nickname === '유저B')).toMatchObject({
-      exposure: { canViewFull: true },
-      profileSummary: { smokingBehavior: 'NO' },
-    });
-    expect(result.items.find((item) => item.profileSummary.nickname === '유저C')).toMatchObject({
-      exposure: { canViewFull: false },
-      profileSummary: { smokingBehavior: 'NO' },
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'CAMPUS_MERGED',
+        smokingBehavior: 'NO',
+        limit: 20,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
     });
   });
 
-  it('SEASON_OPEN mixed query에서 optional additional/detail-only filter는 400이다', async () => {
+  it('SEASON_OPEN CAMPUS_MERGED는 legacy scalar additional/detail-only filter도 400이다', async () => {
     await seedSecondDormitory();
     await moveUserToDormitory({
       participantId: 'participant-c',
@@ -364,6 +360,82 @@ describe('RoommateSearchService integration', () => {
     expect(result.items.every((item) => item.exposure.canViewFull)).toBe(true);
   });
 
+  it('SAME_BUILDING_ONLY actionable discovery manifest는 detail lifestyle/additional filter와 score sort를 제공한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+
+    const result = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 20,
+    });
+    const manifest = (
+      result as unknown as {
+        manifest?: {
+          purpose: string;
+          filters: { enabled: boolean; fields: Record<string, unknown> };
+          sorts: { default: string; options: string[] };
+        };
+      }
+    ).manifest;
+
+    expect(manifest?.purpose).toBe('ACTIONABLE_DETAIL_DISCOVERY');
+    expect(manifest?.filters.enabled).toBe(true);
+    expect(manifest?.filters.fields).toHaveProperty('smokingBehavior');
+    expect(manifest?.filters.fields).toHaveProperty('college');
+    expect(manifest?.filters.fields).toHaveProperty('grade');
+    expect(manifest?.filters.fields).toHaveProperty('mbtiTraits');
+    expect(manifest?.filters.fields).toHaveProperty('ageBand');
+    expect(manifest?.sorts.default).toBe('MATCH_SCORE');
+    expect(manifest?.sorts.options).toContain('MATCH_SCORE');
+    expect(manifest?.sorts.options).toContain('NICKNAME');
+  });
+
+  it('excludeMyCollege shortcut은 BE contract가 아니라 FE convenience이므로 거부한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        excludeMyCollege: true,
+        limit: 20,
+      } as never),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+    });
+  });
+
+  it('college filter는 INCLUDE/EXCLUDE 동시 표현을 single-operator contract 위반으로 거부한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        college: {
+          include: ['ARTS_ENGINEERING'],
+          exclude: ['NURSING'],
+        },
+        limit: 20,
+      } as never),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+    });
+  });
+
+  it('valid filter empty result는 200 empty list와 FILTER_RESULT_EMPTY notice 및 stable manifest를 반환한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+
+    const result = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      smokingBehavior: 'YES',
+      limit: 20,
+    });
+
+    expect(result.items).toEqual([]);
+    expect(result.availabilityNotices).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'FILTER_RESULT_EMPTY' })]),
+    );
+    expect((result as unknown as { manifest?: unknown }).manifest).toEqual(expect.any(Object));
+  });
+
   it('SEASON_POST_MATCH roommate-search discovery는 active matched target을 제외하고 notice를 제공한다', async () => {
     await seedSecondDormitory();
     await moveUserToDormitory({ participantId: 'participant-c', dormitoryId: 'saerom' });
@@ -401,6 +473,50 @@ describe('RoommateSearchService integration', () => {
       profilesService.getProfileByUserId(authContext('user-a'), 'user-c'),
     ).rejects.toMatchObject({
       response: { code: 'PROFILE_NOT_VISIBLE' },
+    });
+  });
+
+  it('SEASON_POST_MATCH SAME_BUILDING_ONLY는 cohort review list로 active matched target을 포함하고 filter/score를 닫는다', async () => {
+    await setSeasonState('SEASON_POST_MATCH');
+    await seedActiveMatchFixture(prisma, {
+      activeMatchId: 'active-a-b',
+      participantAId: 'participant-a',
+      participantBId: 'participant-b',
+    });
+
+    const result = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 20,
+    });
+    const manifest = (
+      result as unknown as {
+        manifest?: {
+          purpose: string;
+          filters: { enabled: boolean; fields: Record<string, unknown> };
+          sorts: { default: string; options: string[] };
+        };
+      }
+    ).manifest;
+    const matchedPartner = result.items.find((item) => item.profileSummary.nickname === '유저B');
+
+    expect(manifest?.purpose).toBe('POST_MATCH_COHORT_REVIEW');
+    expect(manifest?.filters).toEqual({
+      enabled: false,
+      fields: {},
+    });
+    expect(manifest?.sorts.default).toBe('NICKNAME');
+    expect(manifest?.sorts.options).toEqual(['NICKNAME']);
+    expect(matchedPartner).toBeDefined();
+    expect(matchedPartner).not.toHaveProperty('matchScore');
+
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        smokingBehavior: 'NO',
+        limit: 20,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
     });
   });
 
