@@ -55,6 +55,14 @@ describe('Season registration split-flow integration', () => {
   beforeEach(async () => {
     await truncateIntegrationSchema(prisma);
     await seedBaseSeasonFixtures(prisma);
+    await prisma.collegeMaster.create({
+      data: {
+        code: 'IT',
+        campusCode: 'CHUNCHEON',
+        nameKo: 'IT대',
+        sortOrder: 1,
+      },
+    });
   });
 
   function itWithQueryTrace(testName: string, testFn: () => Promise<void>) {
@@ -97,6 +105,29 @@ describe('Season registration split-flow integration', () => {
         state: 'COMPLETE',
         draftWritable: true,
       });
+      expect(profileDraft.participantId).toEqual(expect.any(String));
+      const profileDraftParticipantId = profileDraft.participantId;
+      if (!profileDraftParticipantId) {
+        throw new Error('profile draft participantId is required after draft persistence');
+      }
+      const afterProfileDraftParticipant = await prisma.seasonParticipant.findUniqueOrThrow({
+        where: { id: profileDraftParticipantId },
+      });
+      expect(afterProfileDraftParticipant).toMatchObject({
+        participationIntent: 'UNDECIDED',
+        registeredAt: null,
+        participantStatus: 'DRAFT',
+      });
+      await expect(
+        prisma.seasonParticipantProfile.count({
+          where: { participantId: profileDraftParticipantId },
+        }),
+      ).resolves.toBe(1);
+      await expect(
+        prisma.seasonParticipantProfileHistory.count({
+          where: { participantId: profileDraftParticipantId },
+        }),
+      ).resolves.toBe(0);
 
       const selectable =
         await seasonParticipantsService.listSelectableDormitoriesForCurrentSeason(userId);
@@ -222,6 +253,27 @@ describe('Season registration split-flow integration', () => {
         registrationUnavailableReasons: [],
       });
 
+      const draftOnlyParticipant = await prisma.seasonParticipant.findUniqueOrThrow({
+        where: { id: selected.participantId },
+      });
+      expect(draftOnlyParticipant).toMatchObject({
+        participationIntent: 'UNDECIDED',
+        registeredAt: null,
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        participantStatus: 'DRAFT',
+      });
+      await expect(
+        prisma.seasonParticipantProfile.count({
+          where: { participantId: selected.participantId },
+        }),
+      ).resolves.toBe(1);
+      await expect(
+        prisma.seasonParticipantProfileHistory.count({
+          where: { participantId: selected.participantId },
+        }),
+      ).resolves.toBe(0);
+
       const finalized = await seasonParticipantsService.finalizeSeasonRegistration(userId);
       expect(finalized).toMatchObject({
         participantId: selected.participantId,
@@ -240,7 +292,7 @@ describe('Season registration split-flow integration', () => {
   );
 
   itWithQueryTrace(
-    'profile draft upsert가 transaction 내부에서 실패하면 participant row와 history가 남지 않는다',
+    'profile draft persistence가 transaction 내부에서 실패하면 participant row와 history가 남지 않는다',
     async () => {
       const userId = await signupVerifiedUser({
         email: 'season-registration-profile-rollback@kangwon.ac.kr',
@@ -249,12 +301,10 @@ describe('Season registration split-flow integration', () => {
 
       await expect(
         seasonParticipantsService.createOrUpdateSeasonProfileDraft(userId, {
-          ...buildCompleteSeasonProfileDraft('FK 실패 시즌 프로필'),
-          additional: {
-            college: 'NON_EXISTENT_COLLEGE' as never,
-            grade: null,
-            mbti: null,
-            birthYear: null,
+          ...buildCompleteSeasonProfileDraft('저장 실패 시즌 프로필'),
+          lifestyle: {
+            ...buildCompleteSeasonProfileDraft().lifestyle,
+            bedtime: 'INVALID_BEDTIME' as never,
           },
         }),
       ).rejects.toBeTruthy();
@@ -707,7 +757,9 @@ describe('Season registration split-flow integration', () => {
         nickname: input.nickname,
         gender: 'M',
         campus: 'CHUNCHEON',
-      }),
+        collegeCode: 'IT',
+        birthYear: 2002,
+      } as never),
     ).resolves.toMatchObject({ success: true });
 
     const user = await prisma.user.findUniqueOrThrow({

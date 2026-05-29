@@ -6,7 +6,7 @@ import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from './support/integration-db.js';
-import { DEFAULT_LIFESTYLE } from './support/integration-fixtures.js';
+import { seedBaseSeasonFixtures } from './support/integration-fixtures.js';
 
 describe('AuthService integration', () => {
   jest.setTimeout(60_000);
@@ -39,10 +39,11 @@ describe('AuthService integration', () => {
     await truncateIntegrationSchema(prisma);
   });
 
-  it('동시에 같은 signup verification proof를 소비해도 계정은 하나만 생성된다', async () => {
+  it('동시에 같은 signup verification proof를 소비해도 User/DisplayIdentity/AcademicIdentity 계정은 하나만 생성된다', async () => {
     const email = 'signup-race@kangwon.ac.kr';
     const emailNormalized = email.toLowerCase();
     const databaseNow = await prisma.getDatabaseNow();
+    await seedAcademicIdentityReferenceData();
     await prisma.verificationCode.create({
       data: {
         emailNormalized,
@@ -60,9 +61,9 @@ describe('AuthService integration', () => {
       nickname: '통합테스트닉네임',
       gender: 'M' as const,
       campus: 'CHUNCHEON' as const,
-      lifestyle: DEFAULT_LIFESTYLE,
-      intro: 'integration intro',
-    };
+      collegeCode: 'IT',
+      birthYear: 2002,
+    } as never;
 
     const settled = await Promise.allSettled([
       service.signup(signupInput),
@@ -93,6 +94,12 @@ describe('AuthService integration', () => {
         where: { emailNormalized },
       }),
     ).toBe(1);
+    expect(
+      await prisma.userDisplayIdentity.count({
+        where: { user: { emailNormalized } },
+      }),
+    ).toBe(1);
+    await expect(expectAcademicIdentityCount(emailNormalized)).resolves.toBe(1);
 
     expect(
       await prisma.verificationCode.count({
@@ -104,6 +111,47 @@ describe('AuthService integration', () => {
       }),
     ).toBe(0);
   });
+
+  async function seedAcademicIdentityReferenceData() {
+    await seedBaseSeasonFixtures(prisma);
+    await prisma.collegeMaster.upsert({
+      where: { code: 'IT' },
+      create: {
+        code: 'IT',
+        campusCode: 'CHUNCHEON',
+        nameKo: 'IT대',
+        sortOrder: 1,
+      },
+      update: {
+        campusCode: 'CHUNCHEON',
+        nameKo: 'IT대',
+        sortOrder: 1,
+        isActive: true,
+      },
+    });
+  }
+
+  async function expectAcademicIdentityCount(emailNormalized: string) {
+    const academicIdentityDelegate = (
+      prisma as unknown as {
+        userAcademicIdentity?: {
+          count(args: {
+            where: {
+              user: {
+                emailNormalized: string;
+              };
+            };
+          }): Promise<number>;
+        };
+      }
+    ).userAcademicIdentity;
+
+    expect(academicIdentityDelegate).toBeDefined();
+    if (!academicIdentityDelegate) {
+      return 0;
+    }
+    return academicIdentityDelegate.count({ where: { user: { emailNormalized } } });
+  }
 
   it('동시에 같은 reset verification proof를 소비해도 비밀번호 변경은 한 번만 성공한다', async () => {
     const email = 'reset-race@kangwon.ac.kr';

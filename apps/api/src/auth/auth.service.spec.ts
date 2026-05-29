@@ -316,7 +316,9 @@ describe('AuthService orchestration', () => {
       nickname: '테스터',
       gender: 'M',
       campus: 'CHUNCHEON',
-    });
+      collegeCode: 'IT',
+      birthYear: 2002,
+    } as never);
 
     const [createArg] = (prisma.user.create.mock.calls[0] ?? []) as [
       {
@@ -328,6 +330,12 @@ describe('AuthService orchestration', () => {
               nicknameNormalized: string;
             };
           };
+          academicIdentity: {
+            create: {
+              collegeCode: string;
+              birthYear: number;
+            };
+          };
         };
       }?,
     ];
@@ -335,6 +343,10 @@ describe('AuthService orchestration', () => {
     expect(createArg?.data.displayIdentity.create).toMatchObject({
       nickname: '테스터',
       nicknameNormalized: '테스터',
+    });
+    expect(createArg?.data.academicIdentity.create).toMatchObject({
+      collegeCode: 'IT',
+      birthYear: 2002,
     });
     expect(createArg?.data).not.toHaveProperty('profile');
     expect(moderationService.moderatePublicText).not.toHaveBeenCalled();
@@ -387,7 +399,9 @@ describe('AuthService orchestration', () => {
         nickname: '테스터',
         gender: 'M',
         campus: 'CHUNCHEON',
-      }),
+        collegeCode: 'IT',
+        birthYear: 2002,
+      } as never),
     ).resolves.toMatchObject({
       success: false,
       code: 'AUTH_SIGNUP_EMAIL_VERIFICATION_REQUIRED',
@@ -415,7 +429,9 @@ describe('AuthService orchestration', () => {
         nickname: '테스터',
         gender: 'M',
         campus: 'CHUNCHEON',
-      }),
+        collegeCode: 'IT',
+        birthYear: 2002,
+      } as never),
     ).rejects.toThrow('[AuthSignupOwner] user display identity row is required');
 
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();

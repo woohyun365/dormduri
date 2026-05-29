@@ -36,6 +36,34 @@ export const usersErrors = {
     );
   },
 
+  academicIdentityLockedByRegistration() {
+    return conflictError(
+      'ACADEMIC_IDENTITY_LOCKED_BY_REGISTRATION',
+      '현재 시즌 등록 완료 후에는 학업 정보를 직접 변경할 수 없습니다.',
+    );
+  },
+
+  academicBirthYearLockedAfterRegistration() {
+    return conflictError(
+      'ACADEMIC_BIRTH_YEAR_LOCKED_AFTER_REGISTRATION',
+      '시즌 등록 이력이 있으면 출생연도는 직접 변경할 수 없습니다.',
+    );
+  },
+
+  academicCollegeChangeAllowanceExhausted() {
+    return conflictError(
+      'ACADEMIC_COLLEGE_CHANGE_ALLOWANCE_EXHAUSTED',
+      '이번 학사 주기의 단과대 정정 가능 횟수를 모두 사용했습니다.',
+    );
+  },
+
+  academicCorrectionCycleUnavailable() {
+    return conflictError(
+      'ACADEMIC_CORRECTION_CYCLE_UNAVAILABLE',
+      '현재 학사 주기를 확인할 수 없어 학업 정보를 변경할 수 없습니다.',
+    );
+  },
+
   nicknameAlreadyTaken() {
     return conflictError(
       'NICKNAME_ALREADY_TAKEN',
@@ -52,10 +80,15 @@ export const usersErrors = {
     );
   },
 
-  accountIdentityIncomplete(surface: 'current-user') {
+  accountIdentityIncomplete(
+    surface: 'current-user' | 'registration-finalize' | 'public-target-snapshot',
+    invariant:
+      | 'USER_DISPLAY_IDENTITY_REQUIRED'
+      | 'USER_ACADEMIC_IDENTITY_REQUIRED' = 'USER_DISPLAY_IDENTITY_REQUIRED',
+  ) {
     return new InternalServerErrorException(
-      createApiErrorBody('ACCOUNT_IDENTITY_INCOMPLETE', '계정 표시 identity가 누락되었습니다.', {
-        invariant: 'USER_DISPLAY_IDENTITY_REQUIRED',
+      createApiErrorBody('ACCOUNT_IDENTITY_INCOMPLETE', '계정 identity가 누락되었습니다.', {
+        invariant,
         surface,
       }),
     );

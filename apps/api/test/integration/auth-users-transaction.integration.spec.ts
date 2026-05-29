@@ -68,9 +68,123 @@ describe('Auth/users transaction rollback and race integration', () => {
     it(testName, () => withPrismaQueryTraceOnFailure(prisma, testName, testFn));
   }
 
+  itWithQueryTrace(
+    'verified user라도 UserAcademicIdentity가 없으면 current-user는 계정 invariant 위반으로 fail-closed한다',
+    async () => {
+      await seedBaseSeasonFixtures(prisma);
+      await seedUserWithDisplayIdentity({
+        id: 'academic-missing-user',
+        email: 'academic-missing@kangwon.ac.kr',
+        nickname: '학업미입력',
+      });
+
+      let invariantError: unknown = null;
+      try {
+        await usersService.getCurrentUser(authContext('academic-missing-user'));
+      } catch (error) {
+        invariantError = error;
+      }
+
+      expect(getHttpExceptionCode(invariantError)).toBe('ACCOUNT_IDENTITY_INCOMPLETE');
+      expect(getHttpExceptionBody(invariantError)).toMatchObject({
+        invariant: 'USER_ACADEMIC_IDENTITY_REQUIRED',
+        surface: 'current-user',
+      });
+    },
+  );
+
+  itWithQueryTrace(
+    'verified user라도 UserDisplayIdentity가 없으면 current-user는 계정 invariant 위반으로 fail-closed한다',
+    async () => {
+      await prisma.user.create({
+        data: {
+          id: 'display-missing-user',
+          email: 'display-missing@kangwon.ac.kr',
+          emailNormalized: normalizeEmail('display-missing@kangwon.ac.kr'),
+          passwordHash: 'integration-password-hash',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          emailVerifiedAt: await prisma.getDatabaseNow(),
+        },
+      });
+
+      let invariantError: unknown = null;
+      try {
+        await usersService.getCurrentUser(authContext('display-missing-user'));
+      } catch (error) {
+        invariantError = error;
+      }
+
+      expect(getHttpExceptionCode(invariantError)).toBe('ACCOUNT_IDENTITY_INCOMPLETE');
+      expect(getHttpExceptionBody(invariantError)).toMatchObject({
+        invariant: 'USER_DISPLAY_IDENTITY_REQUIRED',
+        surface: 'current-user',
+      });
+    },
+  );
+
   describe('signup rollback / atomicity', () => {
     itWithQueryTrace(
-      'preflight가 아니라 UserDisplayIdentity DB unique 충돌로 signup이 실패하면 신규 User/AuthSession/proof consume이 남지 않는다',
+      'signup finalize transaction은 UserAcademicIdentity를 User/DisplayIdentity/AuthSession과 함께 생성한다',
+      async () => {
+        const email = 'signup-academic-identity@kangwon.ac.kr';
+        const emailNormalized = normalizeEmail(email);
+        const verificationCodeId = 'signup-academic-identity-code';
+
+        await seedAcademicIdentityReferenceData();
+        await seedVerifiedCode({
+          id: verificationCodeId,
+          emailNormalized,
+          purpose: 'SIGNUP',
+        });
+
+        await expect(
+          authService.signup({
+            email,
+            password: 'Pass1234',
+            nickname: '학업가입',
+            gender: 'M',
+            campus: 'CHUNCHEON',
+            collegeCode: 'IT',
+            birthYear: 2002,
+          } as never),
+        ).resolves.toMatchObject({ success: true });
+
+        const createdUser = await prisma.user.findUniqueOrThrow({
+          where: { emailNormalized },
+          select: { id: true },
+        });
+        const academicIdentityDelegate = (
+          prisma as unknown as {
+            userAcademicIdentity?: {
+              findUnique(args: {
+                where: {
+                  userId: string;
+                };
+              }): Promise<unknown>;
+            };
+          }
+        ).userAcademicIdentity;
+
+        expect(academicIdentityDelegate).toBeDefined();
+        if (!academicIdentityDelegate) {
+          throw new Error('UserAcademicIdentity delegate is not available');
+        }
+
+        await expect(
+          academicIdentityDelegate.findUnique({
+            where: { userId: createdUser.id },
+          }),
+        ).resolves.toMatchObject({
+          collegeCode: 'IT',
+          birthYear: 2002,
+        });
+        await expectVerificationConsumed(verificationCodeId, true);
+      },
+    );
+
+    itWithQueryTrace(
+      'preflight가 아니라 UserDisplayIdentity DB unique 충돌로 signup이 실패하면 신규 User/AcademicIdentity/AuthSession/proof consume이 남지 않는다',
       async () => {
         const email = 'signup-rollback@kangwon.ac.kr';
         const emailNormalized = normalizeEmail(email);
@@ -79,6 +193,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         const verificationCodeId = 'signup-rollback-code';
         const gate = createGate();
 
+        await seedAcademicIdentityReferenceData();
         await seedVerifiedCode({
           id: verificationCodeId,
           emailNormalized,
@@ -107,7 +222,9 @@ describe('Auth/users transaction rollback and race integration', () => {
             nickname,
             gender: 'M',
             campus: 'CHUNCHEON',
-          },
+            collegeCode: 'IT',
+            birthYear: 2002,
+          } as never,
         );
 
         await gate.waitUntilBlocked();
@@ -126,6 +243,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         await expect(expectUserAuthFootprint(emailNormalized)).resolves.toEqual({
           users: 0,
           displayIdentities: 0,
+          academicIdentities: 0,
           authSessions: 0,
         });
         await expect(
@@ -136,11 +254,12 @@ describe('Auth/users transaction rollback and race integration', () => {
     );
 
     itWithQueryTrace(
-      '같은 verified signup code를 동시에 소비해도 성공은 최대 1개이고 실패 요청은 User/DisplayIdentity/AuthSession을 남기지 않는다',
+      '같은 verified signup code를 동시에 소비해도 성공은 최대 1개이고 실패 요청은 User/DisplayIdentity/AcademicIdentity/AuthSession을 남기지 않는다',
       async () => {
         const email = 'signup-code-race@kangwon.ac.kr';
         const emailNormalized = normalizeEmail(email);
         const verificationCodeId = 'signup-code-race-proof';
+        await seedAcademicIdentityReferenceData();
         await seedVerifiedCode({
           id: verificationCodeId,
           emailNormalized,
@@ -154,14 +273,18 @@ describe('Auth/users transaction rollback and race integration', () => {
             nickname: '동시가입',
             gender: 'M',
             campus: 'CHUNCHEON',
-          }),
+            collegeCode: 'IT',
+            birthYear: 2002,
+          } as never),
           authService.signup({
             email,
             password: 'Pass1234',
             nickname: '동시가입',
             gender: 'M',
             campus: 'CHUNCHEON',
-          }),
+            collegeCode: 'IT',
+            birthYear: 2002,
+          } as never),
         ]);
 
         const fulfilled = settled.map((result) => {
@@ -185,6 +308,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         await expect(expectUserAuthFootprint(emailNormalized)).resolves.toEqual({
           users: 1,
           displayIdentities: 1,
+          academicIdentities: 1,
           authSessions: 1,
         });
         await expectVerificationConsumed(verificationCodeId, true);
@@ -727,13 +851,48 @@ describe('Auth/users transaction rollback and race integration', () => {
   }
 
   async function expectUserAuthFootprint(emailNormalized: string) {
-    const [users, displayIdentities, authSessions] = await Promise.all([
+    const academicIdentityDelegate = (
+      prisma as unknown as {
+        userAcademicIdentity?: {
+          count(args: {
+            where: {
+              user: {
+                emailNormalized: string;
+              };
+            };
+          }): Promise<number>;
+        };
+      }
+    ).userAcademicIdentity;
+    const [users, displayIdentities, academicIdentities, authSessions] = await Promise.all([
       prisma.user.count({ where: { emailNormalized } }),
       prisma.userDisplayIdentity.count({ where: { user: { emailNormalized } } }),
+      academicIdentityDelegate
+        ? academicIdentityDelegate.count({ where: { user: { emailNormalized } } })
+        : Promise.resolve(0),
       prisma.authSession.count({ where: { user: { emailNormalized } } }),
     ]);
 
-    return { users, displayIdentities, authSessions };
+    return { users, displayIdentities, academicIdentities, authSessions };
+  }
+
+  async function seedAcademicIdentityReferenceData() {
+    await seedBaseSeasonFixtures(prisma);
+    await prisma.collegeMaster.upsert({
+      where: { code: 'IT' },
+      create: {
+        code: 'IT',
+        campusCode: 'CHUNCHEON',
+        nameKo: 'IT대',
+        sortOrder: 1,
+      },
+      update: {
+        campusCode: 'CHUNCHEON',
+        nameKo: 'IT대',
+        sortOrder: 1,
+        isActive: true,
+      },
+    });
   }
 
   async function expectVerificationConsumed(verificationCodeId: string, consumed: boolean) {
@@ -908,4 +1067,13 @@ function getHttpExceptionCode(error: unknown) {
   }
 
   return null;
+}
+
+function getHttpExceptionBody(error: unknown) {
+  if (!(error instanceof HttpException)) {
+    return null;
+  }
+
+  const response = error.getResponse();
+  return typeof response === 'object' && response !== null ? response : null;
 }

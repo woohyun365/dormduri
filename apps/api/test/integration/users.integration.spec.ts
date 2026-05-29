@@ -131,7 +131,7 @@ describe('UsersService integration', () => {
     });
   });
 
-  it('현재 시즌 registration 완료 사용자의 display identity nickname 변경은 season lock으로 거부한다', async () => {
+  it('현재 시즌 registration 완료 사용자의 display identity nickname 변경은 registration snapshot lock으로 거부한다', async () => {
     const now = await prisma.getDatabaseNow();
     await prisma.seasonParticipant.update({
       where: { id: 'participant-a' },
@@ -167,7 +167,7 @@ describe('UsersService integration', () => {
     expect(displayIdentity.nickname).toBe('유저A');
   });
 
-  it('같은 display identity nickname 저장은 registration lock 중에도 no-op metadata로 성공한다', async () => {
+  it('같은 display identity nickname 저장은 registration snapshot lock 중에도 no-op metadata로 성공한다', async () => {
     const now = await prisma.getDatabaseNow();
     await prisma.userDisplayIdentity.update({
       where: { userId: 'user-a' },
@@ -202,6 +202,47 @@ describe('UsersService integration', () => {
       where: { userId: 'user-a' },
     });
     expect(nicknameEventCount).toBe(0);
+  });
+
+  it('같은 academic identity 저장은 registration snapshot lock 중에도 no-op metadata로 성공한다', async () => {
+    const now = await prisma.getDatabaseNow();
+    await prisma.seasonParticipant.update({
+      where: { id: 'participant-a' },
+      data: {
+        participationIntent: 'REGISTERED',
+        registeredAt: now,
+        declinedAt: null,
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'ACTIVE',
+        activatedAt: now,
+        withdrawnAt: null,
+      },
+    });
+
+    const response = await service.updateCurrentUser(authContext('user-a'), {
+      academicIdentity: {
+        collegeCode: 'ARTS_ENGINEERING',
+        birthYear: 2002,
+      },
+    } as never);
+
+    expect(response.mutation).toMatchObject({
+      displayIdentity: {
+        attempted: false,
+        changed: false,
+        noOpReason: null,
+      },
+      academicIdentity: {
+        attempted: true,
+        changed: false,
+        noOpReason: 'SAME_ACADEMIC_IDENTITY',
+      },
+    });
+    expect(response.currentUser.academicIdentity).toMatchObject({
+      collegeCode: 'ARTS_ENGINEERING',
+      birthYear: 2002,
+    });
   });
 
   it('policy enforcement nickname override는 registered snapshot과 운영 감사 이력을 함께 남긴다', async () => {

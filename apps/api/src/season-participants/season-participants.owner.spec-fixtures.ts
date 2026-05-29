@@ -101,6 +101,11 @@ export function user(overrides: Record<string, unknown> = {}) {
       nickname: '현재닉네임',
       nicknameNormalized: '현재닉네임',
     },
+    academicIdentity: {
+      userId: 'user-1',
+      collegeCode: 'ARTS_ENGINEERING',
+      birthYear: 2002,
+    },
     ...overrides,
   };
 }

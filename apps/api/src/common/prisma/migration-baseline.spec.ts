@@ -43,7 +43,7 @@ describe('migration baseline coverage', () => {
       `CREATE TYPE "ProfileHistorySource" AS ENUM ('SEASON_REGISTRATION', 'SYSTEM_BACKFILL');`,
     );
     expect(sql).toContain(
-      `CREATE TYPE "ArchiveJobTarget" AS ENUM ('SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT');`,
+      `CREATE TYPE "ArchiveJobTarget" AS ENUM ('SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT', 'ACADEMIC_IDENTITY_AUDIT');`,
     );
     expect(sql).toContain(
       `CREATE TYPE "ParticipantHiddenReasonCode" AS ENUM ('POLICY_VIOLATION', 'SAFETY_REVIEW', 'ADMIN_REQUEST', 'OTHER');`,
@@ -53,6 +53,9 @@ describe('migration baseline coverage', () => {
     );
     expect(sql).toContain('CREATE TABLE "CollegeMaster"');
     expect(sql).toContain('CREATE TABLE "UserDisplayIdentity"');
+    expect(sql).toContain('CREATE TABLE "UserAcademicIdentity"');
+    expect(sql).toContain('CREATE TABLE "UserAcademicIdentityChangeAllowance"');
+    expect(sql).toContain('CREATE TABLE "UserAcademicIdentityChangeEvent"');
     expect(sql).toContain('CREATE TABLE "UserDismissedNotice"');
     expect(sql).toContain('CREATE TABLE "RetainedIdentity"');
     expect(sql).toContain('CREATE TABLE "RetainedIdentityHold"');
@@ -64,7 +67,7 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE TABLE "RetentionReviewJob"');
     expect(sql).toContain('CREATE TABLE "SeasonMatchHistoryEntryRetentionLink"');
     expect(sql).toContain(
-      `CREATE TYPE "RetainedVaultObjectTarget" AS ENUM ('CHAT_MESSAGE_BODY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY', 'NICKNAME_AUDIT_EVENT');`,
+      `CREATE TYPE "RetainedVaultObjectTarget" AS ENUM ('CHAT_MESSAGE_BODY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY', 'NICKNAME_AUDIT_EVENT', 'ACADEMIC_IDENTITY_AUDIT_EVENT');`,
     );
     expect(sql).toContain(
       `CREATE TYPE "RetentionCaseReason" AS ENUM ('ACCOUNT_DELETION', 'REPORT_REVIEW', 'ENFORCEMENT_RECORD', 'DISPUTE_RESPONSE', 'LEGAL_HOLD', 'ADMIN_MANUAL', 'CHAT_THREAD_ARCHIVE');`,
@@ -110,6 +113,8 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE INDEX "ConversationMessage_bodyState_tombstonedAt_idx"');
     expect(sql).toContain('CREATE INDEX "ConversationMessage_retainedVaultObjectId_idx"');
     expect(sql).toContain('CREATE TABLE "UserDisplayIdentity"');
+    expect(sql).toContain('CREATE TABLE "UserAcademicIdentity"');
+    expect(sql).toContain('CREATE TABLE "UserAcademicIdentityChangeEvent"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfile"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfileHistory"');
 
@@ -120,9 +125,18 @@ describe('migration baseline coverage', () => {
     }
   });
 
-  it('updatedAt baseline은 legacy DB trigger가 아니라 Prisma @updatedAt 소유로 유지된다', () => {
+  it('updatedAt baseline은 DB trigger가 아니라 Prisma @updatedAt 소유로 유지된다', () => {
     for (const artifact of REMOVED_UPDATED_AT_TRIGGER_ARTIFACTS) {
       expect(sql).not.toContain(artifact);
     }
+  });
+
+  it('academic identity allowance는 retained payload가 아니라 User cascade live state로 유지된다', () => {
+    expect(sql).toContain('CREATE TABLE "UserAcademicIdentityChangeAllowance"');
+    expect(sql).toContain(
+      'ALTER TABLE "UserAcademicIdentityChangeAllowance" ADD CONSTRAINT "UserAcademicIdentityChangeAllowance_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
+    );
+    expect(sql).not.toContain('ACADEMIC_IDENTITY_CHANGE_ALLOWANCE');
+    expect(sql).not.toContain('ACADEMIC_IDENTITY_ALLOWANCE');
   });
 });

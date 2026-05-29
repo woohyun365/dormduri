@@ -23,7 +23,7 @@ import {
   roommateSearchQuerySchema,
   roommateSearchResponseSchema,
 } from '@repo/shared/roommate-search-contract';
-import { publicProfileSchema } from '@repo/shared/profile-contract';
+import { additionalProfileSchema, publicProfileSchema } from '@repo/shared/profile-contract';
 import {
   SERVICE_INTRO_NOTICE_KEY,
   currentUserResponseSchema,
@@ -215,6 +215,50 @@ const ROOMMATE_SEARCH_RESPONSE = {
   items: [SUMMARY_ITEM],
 } as const;
 
+const ROOMMATE_SEARCH_MANIFEST_RESPONSE = {
+  scope: 'SAME_BUILDING_ONLY',
+  appliedSort: 'MATCH_SCORE',
+  resultSummary: {
+    summaryOnlyCount: 0,
+    detailViewableCount: 1,
+    scoreVisibleCount: 1,
+  },
+  scopeAvailability: {
+    campusMerged: true,
+    sameBuildingOnly: true,
+  },
+  manifest: {
+    manifestRevision: 'same-building:v1:college-rev-1',
+    scope: 'SAME_BUILDING_ONLY',
+    purpose: 'ACTIONABLE_DETAIL_DISCOVERY',
+    filters: {
+      enabled: true,
+      fields: {
+        smokingBehavior: { enabled: true, source: 'SHARED_ENUM' },
+        college: {
+          enabled: true,
+          source: 'VIEWER_CAMPUS_ACTIVE_CATALOG',
+          operators: ['INCLUDE', 'EXCLUDE'],
+          options: [{ code: 'ARTS_ENGINEERING', label: '문화예술·공과대학' }],
+        },
+        grade: { enabled: true, source: 'SHARED_ENUM' },
+        mbtiTraits: { enabled: true, source: 'SHARED_MBTI_TRAITS' },
+        ageBand: { enabled: true, source: 'SEASON_REFERENCE_YEAR' },
+      },
+    },
+    sorts: {
+      default: 'MATCH_SCORE',
+      options: ['MATCH_SCORE', 'NICKNAME'],
+    },
+  },
+  pageInfo: {
+    hasNextPage: false,
+    nextCursor: null,
+  },
+  availabilityNotices: [],
+  items: [{ ...SUMMARY_ITEM, matchScore: 87 }],
+} as const;
+
 const COMPLETION_READY = {
   profileCompletionRequired: false,
   dormitorySelectionRequired: false,
@@ -246,24 +290,33 @@ describe('shared reference contracts', () => {
     }
   });
 
-  it('auth signup request는 계정 identity 입력만 받고 profile orchestration 필드를 받지 않는다', () => {
-    expect(
-      signupRequestSchema.parse({
-        email: 'student@kangwon.ac.kr',
-        password: 'pass1234',
-        nickname: '테스터',
-        gender: 'M',
-        campus: 'CHUNCHEON',
-      }),
-    ).toMatchObject({ nickname: '테스터' });
+  it('auth signup request는 display identity와 academic identity 입력을 받고 profile orchestration 필드를 받지 않는다', () => {
+    const signupAccountIdentityInput = {
+      email: 'student@kangwon.ac.kr',
+      password: 'pass1234',
+      nickname: '테스터',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      collegeCode: 'IT',
+      birthYear: 2002,
+    } as const;
+
+    expect(signupRequestSchema.parse(signupAccountIdentityInput)).toMatchObject({
+      nickname: '테스터',
+      collegeCode: 'IT',
+      birthYear: 2002,
+    });
 
     expect(
       signupRequestSchema.safeParse({
-        email: 'student@kangwon.ac.kr',
-        password: 'pass1234',
-        nickname: '테스터',
-        gender: 'M',
-        campus: 'CHUNCHEON',
+        ...signupAccountIdentityInput,
+        displayIdentity: { nickname: '테스터' },
+      }).success,
+    ).toBe(false);
+
+    expect(
+      signupRequestSchema.safeParse({
+        ...signupAccountIdentityInput,
         lifestyle: VALID_LIFESTYLE,
         intro: '가입 단계 소개',
       }).success,
@@ -310,6 +363,10 @@ describe('shared reference contracts', () => {
           nickname: '테스터',
           nicknameSource: 'USER_DISPLAY_IDENTITY',
           nicknameChangedAt: null,
+        },
+        academicIdentity: {
+          collegeCode: 'IT',
+          birthYear: 2002,
         },
         seasonProfile: {
           hasCurrentSeason: true,
@@ -383,12 +440,25 @@ describe('shared reference contracts', () => {
     ).toBe(false);
   });
 
-  it('user update request는 display identity 변경만 받고 selection/message/season profile write를 분리한다', () => {
+  it('user update request는 display identity와 account academic identity 변경만 받고 selection/message/season profile write를 분리한다', () => {
     expect(
       updateCurrentUserRequestSchema.parse({
         displayIdentity: { nickname: '새닉네임' },
       }),
     ).toMatchObject({ displayIdentity: { nickname: '새닉네임' } });
+    expect(
+      updateCurrentUserRequestSchema.parse({
+        academicIdentity: {
+          collegeCode: 'NURSING',
+          birthYear: 2001,
+        },
+      }),
+    ).toMatchObject({
+      academicIdentity: {
+        collegeCode: 'NURSING',
+        birthYear: 2001,
+      },
+    });
 
     expect(
       updateCurrentUserRequestSchema.safeParse({
@@ -532,39 +602,7 @@ describe('shared reference contracts', () => {
     ).toMatchObject({ state: 'SEASON_MATCHING', isMatching: true });
   });
 
-  it('season participation/dormitory selection contract가 draft, 선택 목록, finalize를 표현한다', () => {
-    expect(
-      createSeasonProfileRequestSchema.parse({
-        lifestyle: VALID_LIFESTYLE,
-        intro: '시즌 프로필 소개',
-      }),
-    ).toMatchObject({ intro: '시즌 프로필 소개' });
-
-    expect(
-      seasonProfileDraftResponseSchema.parse({
-        participantId: null,
-        seasonId: 'season-1',
-        state: 'NONE',
-        lifestyle: Object.fromEntries(
-          [...CORE_LIFESTYLE_FIELDS, ...ROOMMATE_CONDITION_FIELDS].map((field) => [field, null]),
-        ),
-        intro: '',
-        additional: {
-          college: null,
-          grade: null,
-          mbti: null,
-          birthYear: null,
-        },
-        completion: {
-          profileCompletionRequired: true,
-          dormitorySelectionRequired: true,
-          registrationUnavailable: true,
-          registrationUnavailableReasons: ['PROFILE_INCOMPLETE', 'DORMITORY_SELECTION_REQUIRED'],
-        },
-        draftWritable: true,
-      }),
-    ).toMatchObject({ participantId: null, state: 'NONE' });
-
+  it('dormitory selection draft contract와 registration finalize contract를 분리해 표현한다', () => {
     expect(
       selectableDormitoriesResponseSchema.parse({
         seasonId: 'season-1',
@@ -623,6 +661,120 @@ describe('shared reference contracts', () => {
         completion: COMPLETION_READY,
       }),
     ).toMatchObject({ dormitorySelectionState: 'ASSIGNED' });
+  });
+
+  it('season profile draft contract는 account display/academic identity와 season additional을 분리하고 intro optional을 허용한다', () => {
+    expect(
+      additionalProfileSchema.safeParse({
+        grade: '3',
+        mbti: 'INTJ',
+      }).success,
+    ).toBe(true);
+
+    expect(
+      additionalProfileSchema.safeParse({
+        college: 'ARTS_ENGINEERING',
+        grade: '3',
+        mbti: 'INTJ',
+        birthYear: 2002,
+      }).success,
+    ).toBe(false);
+
+    const validSeasonProfileDraftRequest = {
+      lifestyle: VALID_LIFESTYLE,
+      additional: {
+        grade: '3',
+        mbti: 'INTJ',
+      },
+    } as const;
+
+    expect(createSeasonProfileRequestSchema.safeParse(validSeasonProfileDraftRequest).success).toBe(
+      true,
+    );
+
+    expect(
+      createSeasonProfileRequestSchema.safeParse({
+        ...validSeasonProfileDraftRequest,
+        nickname: '시즌닉네임',
+      }).success,
+    ).toBe(false);
+    expect(
+      createSeasonProfileRequestSchema.safeParse({
+        ...validSeasonProfileDraftRequest,
+        displayIdentity: { nickname: '시즌닉네임' },
+      }).success,
+    ).toBe(false);
+    expect(
+      createSeasonProfileRequestSchema.safeParse({
+        ...validSeasonProfileDraftRequest,
+        academicIdentity: {
+          collegeCode: 'ARTS_ENGINEERING',
+          birthYear: 2002,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      createSeasonProfileRequestSchema.safeParse({
+        ...validSeasonProfileDraftRequest,
+        collegeCode: 'ARTS_ENGINEERING',
+        birthYear: 2002,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      createSeasonProfileRequestSchema.safeParse({
+        lifestyle: VALID_LIFESTYLE,
+        intro: '선택 소개',
+        additional: {
+          grade: null,
+          mbti: 'INTJ',
+        },
+      }).success,
+    ).toBe(false);
+
+    const seasonProfileDraftResponse = {
+      participantId: null,
+      seasonId: 'season-1',
+      state: 'NONE',
+      lifestyle: Object.fromEntries(
+        [...CORE_LIFESTYLE_FIELDS, ...ROOMMATE_CONDITION_FIELDS].map((field) => [field, null]),
+      ),
+      intro: '',
+      additional: {
+        grade: null,
+        mbti: null,
+      },
+      completion: {
+        profileCompletionRequired: true,
+        dormitorySelectionRequired: true,
+        registrationUnavailable: true,
+        registrationUnavailableReasons: ['PROFILE_INCOMPLETE', 'DORMITORY_SELECTION_REQUIRED'],
+      },
+      draftWritable: true,
+    } as const;
+
+    expect(seasonProfileDraftResponseSchema.safeParse(seasonProfileDraftResponse).success).toBe(
+      true,
+    );
+    expect(
+      seasonProfileDraftResponseSchema.safeParse({
+        ...seasonProfileDraftResponse,
+        displayIdentity: {
+          nickname: '현재닉네임',
+          nicknameSource: 'USER_DISPLAY_IDENTITY',
+          nicknameChangedAt: null,
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      seasonProfileDraftResponseSchema.safeParse({
+        ...seasonProfileDraftResponse,
+        academicIdentity: {
+          collegeCode: 'ARTS_ENGINEERING',
+          birthYear: 2002,
+        },
+      }).success,
+    ).toBe(false);
   });
 
   it('dormitory contract는 selection state와 guide response shape를 유지한다', () => {

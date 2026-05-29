@@ -34,6 +34,13 @@ function makeUser() {
       createdAt: new Date('2026-05-01T00:00:00.000Z'),
       updatedAt: new Date('2026-05-01T00:00:00.000Z'),
     },
+    academicIdentity: {
+      userId: 'user-1',
+      collegeCode: 'IT',
+      birthYear: 2002,
+      createdAt: new Date('2026-05-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-05-01T00:00:00.000Z'),
+    },
     dismissedNotices: [],
   };
 }
@@ -118,6 +125,13 @@ describe('CurrentUserViewService identity invariant', () => {
       gender: 'M',
       campus: 'CHUNCHEON',
       displayIdentity: null,
+      academicIdentity: {
+        userId: 'user-missing-display-identity',
+        collegeCode: 'IT',
+        birthYear: 2002,
+        createdAt: new Date('2026-05-01T00:00:00.000Z'),
+        updatedAt: new Date('2026-05-01T00:00:00.000Z'),
+      },
       dismissedNotices: [],
     });
 
@@ -134,6 +148,40 @@ describe('CurrentUserViewService identity invariant', () => {
         success: false,
         code: 'ACCOUNT_IDENTITY_INCOMPLETE',
         invariant: 'USER_DISPLAY_IDENTITY_REQUIRED',
+        surface: 'current-user',
+      });
+    }
+
+    expect(prisma.campusMaster.findUnique).not.toHaveBeenCalled();
+    expect(
+      currentSeasonParticipationViewOwner.buildCurrentUserSeasonParticipationSegment,
+    ).not.toHaveBeenCalled();
+    expect(matchesService.getCurrentActiveMatchSummaryForParticipant).not.toHaveBeenCalled();
+  });
+
+  it('current-user는 academic identity 없이 정상 response를 만들지 않고 invariant error를 던진다', async () => {
+    const { service, prisma, currentSeasonParticipationViewOwner, matchesService } =
+      createServiceTestKit();
+    prisma.user.findUnique.mockResolvedValue({
+      ...makeUser(),
+      id: 'user-missing-academic-identity',
+      email: 'missing-academic-identity@kangwon.ac.kr',
+      academicIdentity: null,
+    });
+
+    try {
+      await service.getCurrentUser({
+        id: 'user-missing-academic-identity',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      });
+      throw new Error('Expected current-user academic invariant violation');
+    } catch (error) {
+      expect(error).toBeInstanceOf(InternalServerErrorException);
+      expect((error as InternalServerErrorException).getResponse()).toMatchObject({
+        success: false,
+        code: 'ACCOUNT_IDENTITY_INCOMPLETE',
+        invariant: 'USER_ACADEMIC_IDENTITY_REQUIRED',
         surface: 'current-user',
       });
     }
@@ -186,6 +234,10 @@ describe('CurrentUserViewService season composition boundary', () => {
         nicknameSource: 'USER_DISPLAY_IDENTITY',
         nicknameChangedAt: null,
       },
+      academicIdentity: {
+        collegeCode: 'IT',
+        birthYear: 2002,
+      },
       seasonProfile: {
         profileState: 'COMPLETE',
         canSelectDormitory: true,
@@ -214,7 +266,7 @@ describe('CurrentUserViewService season composition boundary', () => {
     });
   });
 
-  it('registration 완료 current season 사용자는 display identity edit capability를 닫고 season lock reason을 반환한다', async () => {
+  it('registration 완료 current season 사용자는 display identity edit capability를 닫고 registration snapshot lock reason을 반환한다', async () => {
     const { service, currentSeasonParticipationViewOwner } = createServiceTestKit();
     currentSeasonParticipationViewOwner.buildCurrentUserSeasonParticipationSegment.mockResolvedValueOnce(
       makeSeasonSegment({

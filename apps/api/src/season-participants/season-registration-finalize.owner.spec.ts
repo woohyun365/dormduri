@@ -6,6 +6,7 @@ import {
   participant,
   profile,
   seasonRuntimeRow,
+  user,
 } from './season-participants.owner.spec-fixtures.js';
 
 describe('season-registration-finalize.owner', () => {
@@ -67,6 +68,11 @@ describe('season-registration-finalize.owner', () => {
         nickname: '현재닉네임',
         nicknameNormalized: '현재닉네임',
       },
+      academicIdentity: {
+        userId: 'user-1',
+        collegeCode: 'ARTS_ENGINEERING',
+        birthYear: 2002,
+      },
     });
     seasonsService.getCurrentSeasonContext.mockResolvedValue({
       season: { id: 'season-1' },
@@ -123,10 +129,12 @@ describe('season-registration-finalize.owner', () => {
     });
     expect(txSeasonParticipantProfileUpdate).toHaveBeenCalledWith({
       where: { participantId: 'participant-1' },
-      data: {
+      data: objectContaining({
         nicknameSnapshot: '현재닉네임',
         nicknameNormalizedSnapshot: '현재닉네임',
-      },
+        collegeCode: 'ARTS_ENGINEERING',
+        birthYear: 2002,
+      }),
     });
     expect(txSeasonParticipantProfileHistoryCreate).toHaveBeenCalledWith({
       data: objectContaining({
@@ -134,6 +142,10 @@ describe('season-registration-finalize.owner', () => {
         seasonId: 'season-1',
         source: 'SEASON_REGISTRATION',
         registeredAtSnapshot: now,
+        nicknameSnapshot: '현재닉네임',
+        nicknameNormalizedSnapshot: '현재닉네임',
+        collegeCode: 'ARTS_ENGINEERING',
+        birthYear: 2002,
       }),
       select: { id: true, registeredAtSnapshot: true },
     });
@@ -155,6 +167,195 @@ describe('season-registration-finalize.owner', () => {
         queryClient: tx,
       }),
     );
+  });
+
+  it('finalize는 display identity가 없으면 account invariant 위반으로 registration snapshot을 만들지 않는다', async () => {
+    const {
+      service,
+      txUserFindUnique,
+      txSeasonParticipantUpdate,
+      txSeasonParticipantProfileUpdate,
+      txSeasonParticipantProfileHistoryCreate,
+    } = createSeasonParticipantsServiceTestKit();
+    txUserFindUnique.mockResolvedValue(user({ displayIdentity: null }));
+
+    await expect(service.finalizeSeasonRegistration('user-1', now)).rejects.toMatchObject({
+      response: {
+        code: 'ACCOUNT_IDENTITY_INCOMPLETE',
+        invariant: 'USER_DISPLAY_IDENTITY_REQUIRED',
+        surface: 'registration-finalize',
+      },
+    });
+    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+    expect(txSeasonParticipantProfileUpdate).not.toHaveBeenCalled();
+    expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
+  });
+
+  it('finalize는 display identity를 season profile/history nickname snapshot으로 복사한다', async () => {
+    const {
+      service,
+      txUserFindUnique,
+      txSeasonParticipantUpsert,
+      txSeasonParticipantFindUnique,
+      txSeasonParticipantProfileUpdate,
+      txSeasonParticipantProfileHistoryCreate,
+    } = createSeasonParticipantsServiceTestKit();
+    txUserFindUnique.mockResolvedValue(
+      user({
+        displayIdentity: {
+          userId: 'user-1',
+          nickname: '등록닉네임',
+          nicknameNormalized: '등록닉네임',
+        },
+      }),
+    );
+    txSeasonParticipantUpsert.mockResolvedValue(
+      participant({
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        participantStatus: 'DRAFT',
+        profile: profile({
+          nicknameSnapshot: '이전스냅샷',
+          nicknameNormalizedSnapshot: '이전스냅샷',
+        }),
+      }),
+    );
+    txSeasonParticipantFindUnique.mockResolvedValue(
+      participant({
+        participationIntent: 'REGISTERED',
+        registeredAt: now,
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'ACTIVE',
+        activatedAt: now,
+        profile: profile({
+          nicknameSnapshot: '등록닉네임',
+          nicknameNormalizedSnapshot: '등록닉네임',
+        }),
+      }),
+    );
+
+    await service.finalizeSeasonRegistration('user-1', now);
+
+    expect(txSeasonParticipantProfileUpdate).toHaveBeenCalledWith({
+      where: { participantId: 'participant-1' },
+      data: objectContaining({
+        nicknameSnapshot: '등록닉네임',
+        nicknameNormalizedSnapshot: '등록닉네임',
+      }),
+    });
+    expect(txSeasonParticipantProfileHistoryCreate).toHaveBeenCalledWith({
+      data: objectContaining({
+        nicknameSnapshot: '등록닉네임',
+        nicknameNormalizedSnapshot: '등록닉네임',
+      }),
+      select: { id: true, registeredAtSnapshot: true },
+    });
+  });
+
+  it('finalize는 account academic identity가 없으면 registration snapshot을 만들지 않는다', async () => {
+    const {
+      service,
+      txUserFindUnique,
+      txSeasonParticipantUpsert,
+      txSeasonParticipantUpdate,
+      txSeasonParticipantProfileHistoryCreate,
+    } = createSeasonParticipantsServiceTestKit();
+    txUserFindUnique.mockResolvedValue({
+      id: 'user-1',
+      campus: 'CHUNCHEON',
+      gender: 'M',
+      emailVerifiedAt: now,
+      deletedAt: null,
+      displayIdentity: {
+        userId: 'user-1',
+        nickname: '현재닉네임',
+        nicknameNormalized: '현재닉네임',
+      },
+      academicIdentity: null,
+    });
+    txSeasonParticipantUpsert.mockResolvedValue(
+      participant({
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    );
+
+    await expect(service.finalizeSeasonRegistration('user-1', now)).rejects.toMatchObject({
+      response: {
+        code: 'ACCOUNT_IDENTITY_INCOMPLETE',
+        invariant: 'USER_ACADEMIC_IDENTITY_REQUIRED',
+        surface: 'registration-finalize',
+      },
+    });
+    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+    expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
+  });
+
+  it('finalize는 account academic identity를 season profile/history snapshot으로 복사한다', async () => {
+    const {
+      service,
+      txUserFindUnique,
+      txSeasonParticipantUpsert,
+      txSeasonParticipantFindUnique,
+      txSeasonParticipantProfileUpdate,
+      txSeasonParticipantProfileHistoryCreate,
+    } = createSeasonParticipantsServiceTestKit();
+    txUserFindUnique.mockResolvedValue({
+      id: 'user-1',
+      campus: 'CHUNCHEON',
+      gender: 'M',
+      emailVerifiedAt: now,
+      deletedAt: null,
+      displayIdentity: {
+        userId: 'user-1',
+        nickname: '현재닉네임',
+        nicknameNormalized: '현재닉네임',
+      },
+      academicIdentity: {
+        userId: 'user-1',
+        collegeCode: 'NURSING',
+        birthYear: 2001,
+      },
+    });
+    txSeasonParticipantUpsert.mockResolvedValue(
+      participant({
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        participantStatus: 'DRAFT',
+        profile: profile({ collegeCode: 'ARTS_ENGINEERING', birthYear: 2002 }),
+      }),
+    );
+    txSeasonParticipantFindUnique.mockResolvedValue(
+      participant({
+        participationIntent: 'REGISTERED',
+        registeredAt: now,
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+        participantStatus: 'ACTIVE',
+        activatedAt: now,
+        profile: profile({ collegeCode: 'NURSING', birthYear: 2001 }),
+      }),
+    );
+
+    await service.finalizeSeasonRegistration('user-1', now);
+
+    expect(txSeasonParticipantProfileUpdate).toHaveBeenCalledWith({
+      where: { participantId: 'participant-1' },
+      data: objectContaining({
+        collegeCode: 'NURSING',
+        birthYear: 2001,
+      }),
+    });
+    expect(txSeasonParticipantProfileHistoryCreate).toHaveBeenCalledWith({
+      data: objectContaining({
+        collegeCode: 'NURSING',
+        birthYear: 2001,
+      }),
+      select: { id: true, registeredAtSnapshot: true },
+    });
   });
 
   it('finalize는 transaction 내부에서 season context를 재조회한 seasonId로 participant와 dormitory validation을 수행한다', async () => {
@@ -229,6 +430,11 @@ describe('season-registration-finalize.owner', () => {
         userId: 'user-1',
         nickname: '현재닉네임',
         nicknameNormalized: '현재닉네임',
+      },
+      academicIdentity: {
+        userId: 'user-1',
+        collegeCode: 'ARTS_ENGINEERING',
+        birthYear: 2002,
       },
     });
 
