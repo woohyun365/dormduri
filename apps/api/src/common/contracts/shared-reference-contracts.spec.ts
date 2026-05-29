@@ -32,6 +32,15 @@ import {
   updateCurrentUserResponseSchema,
 } from '@repo/shared/user-contract';
 import {
+  displayIdentityEditUnavailableReasonSchema,
+  userDisplayIdentitySchema,
+} from '@repo/shared/display-identity-contract';
+import { userAcademicIdentitySchema } from '@repo/shared/academic-identity-contract';
+import {
+  accountIdentityIncompleteErrorSchema,
+  accountIdentitySchema,
+} from '@repo/shared/account-identity-contract';
+import {
   signupDraftValidationRequestSchema,
   signupRequestSchema,
 } from '@repo/shared/auth-contract';
@@ -323,6 +332,53 @@ describe('shared reference contracts', () => {
     ).toBe(false);
   });
 
+  it('account identity contract는 display identity와 academic identity를 user contract barrel이 아니라 전용 contract에서 소유한다', () => {
+    expect(
+      userDisplayIdentitySchema.parse({
+        userId: 'user-1',
+        nickname: '테스터',
+        nicknameSource: 'USER_DISPLAY_IDENTITY',
+        nicknameChangedAt: null,
+      }),
+    ).toMatchObject({ nicknameSource: 'USER_DISPLAY_IDENTITY' });
+    expect(displayIdentityEditUnavailableReasonSchema.parse('NICKNAME_COOLDOWN_ACTIVE')).toBe(
+      'NICKNAME_COOLDOWN_ACTIVE',
+    );
+
+    expect(
+      userAcademicIdentitySchema.parse({
+        collegeCode: 'IT',
+        birthYear: 2002,
+      }),
+    ).toEqual({ collegeCode: 'IT', birthYear: 2002 });
+
+    expect(
+      accountIdentitySchema.parse({
+        displayIdentity: {
+          userId: 'user-1',
+          nickname: '테스터',
+          nicknameSource: 'USER_DISPLAY_IDENTITY',
+          nicknameChangedAt: null,
+        },
+        academicIdentity: {
+          collegeCode: 'IT',
+          birthYear: 2002,
+        },
+      }),
+    ).toMatchObject({
+      displayIdentity: { nickname: '테스터' },
+      academicIdentity: { collegeCode: 'IT' },
+    });
+    expect(
+      accountIdentityIncompleteErrorSchema.parse({
+        code: 'ACCOUNT_IDENTITY_INCOMPLETE',
+        error: '계정 identity가 완성되지 않았습니다.',
+        invariant: 'USER_DISPLAY_IDENTITY_REQUIRED',
+        context: 'current-user',
+      }),
+    ).toMatchObject({ invariant: 'USER_DISPLAY_IDENTITY_REQUIRED' });
+  });
+
   it('auth signup draft validation request는 legacy profile payload 없이 email/password/nickname만 받는다', () => {
     expect(
       signupDraftValidationRequestSchema.parse({
@@ -401,6 +457,8 @@ describe('shared reference contracts', () => {
           canFinalizeSeasonRegistration: false,
           canEditDisplayIdentity: true,
           displayIdentityEditUnavailableReasons: [],
+          canEditAcademicIdentity: true,
+          academicIdentityEditUnavailableReasons: [],
           canBookmark: false,
           canRequestMatch: false,
           canStartChat: false,
@@ -516,6 +574,8 @@ describe('shared reference contracts', () => {
             canFinalizeSeasonRegistration: false,
             canEditDisplayIdentity: true,
             displayIdentityEditUnavailableReasons: [],
+            canEditAcademicIdentity: true,
+            academicIdentityEditUnavailableReasons: [],
             canBookmark: false,
             canRequestMatch: false,
             canStartChat: false,
@@ -534,12 +594,24 @@ describe('shared reference contracts', () => {
             changed: false,
             noOpReason: 'SAME_NICKNAME',
           },
+          academicIdentity: {
+            attempted: false,
+            changed: false,
+            noOpReason: null,
+          },
         },
-      }).mutation.displayIdentity,
-    ).toEqual({
-      attempted: true,
-      changed: false,
-      noOpReason: 'SAME_NICKNAME',
+      }).mutation,
+    ).toMatchObject({
+      displayIdentity: {
+        attempted: true,
+        changed: false,
+        noOpReason: 'SAME_NICKNAME',
+      },
+      academicIdentity: {
+        attempted: false,
+        changed: false,
+        noOpReason: null,
+      },
     });
   });
 
