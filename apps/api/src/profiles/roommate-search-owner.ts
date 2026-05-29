@@ -1,5 +1,6 @@
 import type {
   RoommateSearchAvailabilityNotice,
+  RoommateSearchManifest,
   RoommateSearchQuery,
   RoommateSearchResponse,
   RoommateSearchScope,
@@ -64,8 +65,8 @@ const DETAIL_ONLY_FILTER_FIELDS = new Set<keyof RoommateSearchQuery>([
   'indoorEating',
   'college',
   'grade',
-  'mbti',
-  'birthYear',
+  'mbtiTraits',
+  'ageBand',
 ]);
 
 export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
@@ -91,12 +92,14 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
       toSearchMaterializedItem({ entry, viewerContext, scope, now }),
     );
     const scopeSummaries = scopeItems.map((item) => item.summary);
-    const filterCapabilities = resolveFilterCapabilities(scopeSummaries);
-    const sortCapabilities = {
-      matchScore: false,
-    };
+    const scopeManifest = buildRoommateSearchManifest({
+      scope,
+      appliedSort: 'NICKNAME',
+      scopeSummaries,
+      viewerContext,
+    });
 
-    assertFilterAllowed(query, filterCapabilities, scopeSummaries);
+    assertFilterAllowed(query, scopeManifest, scopeSummaries);
     if (query.sort === 'MATCH_SCORE') {
       throw roommateSearchErrors.invalidQuery(
         '매칭 점수 정렬은 cursor pagination deterministic ordering 확정 후 제공됩니다.',
@@ -126,8 +129,12 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
       appliedSort,
       resultSummary: summarizeResults(scopeSummaries),
       scopeAvailability,
-      filterCapabilities,
-      sortCapabilities,
+      manifest: buildRoommateSearchManifest({
+        scope,
+        appliedSort,
+        scopeSummaries,
+        viewerContext,
+      }),
       pageInfo: pageItems.pageInfo,
       availabilityNotices: buildAvailabilityNotices({
         viewerContext,
@@ -407,10 +414,8 @@ function buildSeasonProfileWhere(
   query: RoommateSearchQuery,
 ): Prisma.SeasonParticipantProfileWhereInput {
   return {
-    ...(query.college !== undefined ? { collegeCode: query.college } : {}),
-    ...(query.grade !== undefined ? { grade: query.grade } : {}),
-    ...(query.mbti !== undefined ? { mbti: query.mbti } : {}),
-    ...(query.birthYear !== undefined ? { birthYear: query.birthYear } : {}),
+    ...(query.college !== undefined ? { collegeCode: toStringNullableFilter(query.college) } : {}),
+    ...(query.grade !== undefined ? { grade: toStringNullableFilter(query.grade) } : {}),
     ...(query.smokingBehavior !== undefined ? { smokingBehavior: query.smokingBehavior } : {}),
     ...(query.bedtime !== undefined
       ? {
@@ -449,32 +454,66 @@ function hasRequestedFilter(
   return [...fields].some((field) => query[field] !== undefined);
 }
 
-function resolveFilterCapabilities(
-  items: RoommateSearchSummary[],
-): RoommateSearchResponse['filterCapabilities'] {
-  const hasSummaryOnlyTarget = items.some((item) => !item.exposure.canViewFull);
-  const hasFullViewTarget = items.some((item) => item.exposure.canViewFull);
-  const detailOnlyAllowed = hasFullViewTarget && !hasSummaryOnlyTarget;
+function buildRoommateSearchManifest(input: {
+  scope: RoommateSearchScope;
+  appliedSort: RoommateSearchSort;
+  scopeSummaries: RoommateSearchSummary[];
+  viewerContext: VisibleProfileViewerContext;
+}): RoommateSearchManifest {
+  const hasSummaryOnlyTarget = input.scopeSummaries.some((item) => !item.exposure.canViewFull);
+  const hasFullViewTarget = input.scopeSummaries.some((item) => item.exposure.canViewFull);
+  const detailFilterEnabled =
+    input.scope === 'SAME_BUILDING_ONLY' && hasFullViewTarget && !hasSummaryOnlyTarget;
+  const purpose =
+    input.viewerContext.serviceState.seasonState === 'SEASON_POST_MATCH'
+      ? 'POST_MATCH_COHORT_REVIEW'
+      : detailFilterEnabled
+        ? 'ACTIONABLE_DETAIL_DISCOVERY'
+        : 'BROAD_PREVIEW';
+
+  const detailField = (source: RoommateSearchManifest['filters']['fields'][string]['source']) => ({
+    enabled: detailFilterEnabled,
+    source,
+    ...(detailFilterEnabled ? {} : { disabledReason: 'DETAIL_ONLY_FILTER_NOT_AVAILABLE_IN_SCOPE' }),
+  });
 
   return {
-    smokingBehavior: true,
-    bedtime: detailOnlyAllowed,
-    wakeTime: detailOnlyAllowed,
-    noiseSensitivity: detailOnlyAllowed,
-    cleanLevel: detailOnlyAllowed,
-    sleepHabit: true,
-    indoorEating: detailOnlyAllowed,
-    relationshipStyle: true,
-    college: detailOnlyAllowed,
-    grade: detailOnlyAllowed,
-    mbti: detailOnlyAllowed,
-    birthYear: detailOnlyAllowed,
+    manifestRevision: `${input.scope}:${purpose}:v1`,
+    scope: input.scope,
+    purpose,
+    filters: {
+      enabled: detailFilterEnabled,
+      fields: {
+        smokingBehavior: detailField('SHARED_ENUM'),
+        bedtime: detailField('SHARED_ENUM'),
+        wakeTime: detailField('SHARED_ENUM'),
+        noiseSensitivity: detailField('SHARED_ENUM'),
+        cleanLevel: detailField('SHARED_ENUM'),
+        sleepHabit: detailField('SHARED_ENUM'),
+        indoorEating: detailField('SHARED_ENUM'),
+        relationshipStyle: detailField('SHARED_ENUM'),
+        college: {
+          ...detailField('VIEWER_CAMPUS_ACTIVE_CATALOG'),
+          operators: ['INCLUDE', 'EXCLUDE'],
+        },
+        grade: {
+          ...detailField('SHARED_ENUM'),
+          operators: ['INCLUDE'],
+        },
+        mbtiTraits: detailField('SHARED_MBTI_TRAITS'),
+        ageBand: detailField('SEASON_REFERENCE_YEAR'),
+      },
+    },
+    sorts: {
+      default: input.appliedSort,
+      options: ['NICKNAME'],
+    },
   };
 }
 
 function assertFilterAllowed(
   query: RoommateSearchQuery,
-  filterCapabilities: RoommateSearchResponse['filterCapabilities'],
+  manifest: RoommateSearchManifest,
   scopeSummaries: RoommateSearchSummary[],
 ) {
   if (!hasRequestedFilter(query, DETAIL_ONLY_FILTER_FIELDS)) {
@@ -482,11 +521,15 @@ function assertFilterAllowed(
   }
 
   const hasSummaryOnlyTarget = scopeSummaries.some((item) => !item.exposure.canViewFull);
-  if (hasSummaryOnlyTarget || !filterCapabilities.bedtime) {
+  if (hasSummaryOnlyTarget || !manifest.filters.enabled) {
     throw roommateSearchErrors.invalidQuery(
       '현재 노출 범위에서는 상세 전용 필터를 사용할 수 없습니다.',
     );
   }
+}
+
+function toStringNullableFilter(filter: { operator: 'INCLUDE' | 'EXCLUDE'; values: string[] }) {
+  return filter.operator === 'INCLUDE' ? { in: filter.values } : { notIn: filter.values };
 }
 
 function resolveAppliedSort(query: RoommateSearchQuery): 'NICKNAME' {
