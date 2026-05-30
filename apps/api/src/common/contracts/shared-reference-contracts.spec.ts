@@ -404,7 +404,7 @@ describe('shared reference contracts', () => {
     ).toBe(false);
   });
 
-  it('current-user contract는 display identity, season profile state, onboarding notice를 표현한다', () => {
+  it('current-user contract는 registration 준비 UI의 display/academic identity 표시 source를 표현한다', () => {
     expect(
       currentUserResponseSchema.parse({
         user: {
@@ -545,6 +545,10 @@ describe('shared reference contracts', () => {
             nickname: '테스터',
             nicknameSource: 'USER_DISPLAY_IDENTITY',
             nicknameChangedAt: null,
+          },
+          academicIdentity: {
+            collegeCode: 'NURSING',
+            birthYear: 2001,
           },
           seasonProfile: {
             hasCurrentSeason: true,
@@ -828,6 +832,12 @@ describe('shared reference contracts', () => {
     expect(seasonProfileDraftResponseSchema.safeParse(seasonProfileDraftResponse).success).toBe(
       true,
     );
+    expect(
+      seasonProfileDraftResponseSchema.safeParse({
+        ...seasonProfileDraftResponse,
+        nickname: '현재닉네임',
+      }).success,
+    ).toBe(false);
     expect(
       seasonProfileDraftResponseSchema.safeParse({
         ...seasonProfileDraftResponse,
