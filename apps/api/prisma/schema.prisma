@@ -422,6 +422,31 @@ enum DisplayIdentityNicknameChangeReason {
   ACCOUNT_DELETION
 }
 
+enum AcademicIdentityChangeSource {
+  USER_SELF
+  SUPPORT_OVERRIDE
+  POLICY_ENFORCEMENT
+}
+
+enum AcademicIdentityChangeActorType {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+enum AcademicIdentityChangeReason {
+  USER_CORRECTION
+  ACADEMIC_CYCLE_ALLOWANCE
+  SUPPORT_OVERRIDE
+  POLICY_ENFORCEMENT
+}
+
+enum AcademicIdentityAllowanceResetReason {
+  INITIAL_CYCLE_ALLOWANCE
+  ACADEMIC_CYCLE_ROLLOVER
+  SUPPORT_OVERRIDE
+}
+
 model CampusMaster {
   code         Campus              @id
   nameKo       String
@@ -454,6 +479,7 @@ model CollegeMaster {
   createdAt                 DateTime                   @default(now()) @db.Timestamptz(3)
   updatedAt                 DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
   campus                    CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  academicIdentities        UserAcademicIdentity[]
   seasonParticipantProfiles SeasonParticipantProfile[]
 
   @@unique([campusCode, nameKo])
@@ -532,21 +558,24 @@ model SeasonDormitoryOperation {
 }
 
 model User {
-  id                   String                                   @id @default(uuid())
-  email                String
-  emailNormalized      String                                   @unique
-  passwordHash         String
-  gender               Gender
-  campus               Campus
-  emailVerifiedAt      DateTime?                                @db.Timestamptz(3)
-  deletedAt            DateTime?                                @db.Timestamptz(3)
-  createdAt            DateTime                                 @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
-  authSessions         AuthSession[]
-  displayIdentity      UserDisplayIdentity?
-  dismissedNotices     UserDismissedNotice[]
-  nicknameChangeEvents UserDisplayIdentityNicknameChangeEvent[]
-  seasonParticipants   SeasonParticipant[]
+  id                      String                                   @id @default(uuid())
+  email                   String
+  emailNormalized         String                                   @unique
+  passwordHash            String
+  gender                  Gender
+  campus                  Campus
+  emailVerifiedAt         DateTime?                                @db.Timestamptz(3)
+  deletedAt               DateTime?                                @db.Timestamptz(3)
+  createdAt               DateTime                                 @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
+  authSessions            AuthSession[]
+  displayIdentity         UserDisplayIdentity?
+  academicIdentity        UserAcademicIdentity?
+  academicChangeAllowance UserAcademicIdentityChangeAllowance?
+  academicChangeEvents    UserAcademicIdentityChangeEvent[]
+  dismissedNotices        UserDismissedNotice[]
+  nicknameChangeEvents    UserDisplayIdentityNicknameChangeEvent[]
+  seasonParticipants      SeasonParticipant[]
 }
 
 model UserDisplayIdentity {
@@ -559,6 +588,31 @@ model UserDisplayIdentity {
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([nickname])
+}
+
+model UserAcademicIdentity {
+  userId      String        @id
+  collegeCode String
+  birthYear   Int
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime      @default(now()) @updatedAt @db.Timestamptz(3)
+  college     CollegeMaster @relation(fields: [collegeCode], references: [code], onDelete: Restrict)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([collegeCode])
+  @@index([birthYear])
+}
+
+model UserAcademicIdentityChangeAllowance {
+  userId                 String                               @id
+  academicYear           Int
+  collegeChangeRemaining Int                                  @default(1)
+  resetReason            AcademicIdentityAllowanceResetReason
+  createdAt              DateTime                             @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                             @default(now()) @updatedAt @db.Timestamptz(3)
+  user                   User                                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([academicYear])
 }
 
 model UserDismissedNotice {
@@ -575,25 +629,26 @@ model UserDismissedNotice {
 
 /// 삭제 계정의 제한 보존 식별 anchor. 원문 payload 보존은 `RetainedVaultObject`가 담당한다.
 model RetainedIdentity {
-  id                         String                                   @id @default(uuid())
-  originalUserId             String?                                  @unique
-  anonymizedActorKey         String                                   @unique
-  displayLabel               String
-  deletedAt                  DateTime                                 @db.Timestamptz(3)
-  emailHash                  String?
-  encryptedIdentifierPayload Json?
-  identifierKeyVersion       String?
-  retentionDisposedAt        DateTime?                                @db.Timestamptz(3)
-  retentionDisposalReason    String?
-  metadata                   Json?
-  createdAt                  DateTime                                 @default(now()) @db.Timestamptz(3)
-  updatedAt                  DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
-  archiveJobs                ArchiveJob[]
-  holds                      RetainedIdentityHold[]
-  accessLogs                 RetentionAccessLog[]
-  nicknameChangeEvents       UserDisplayIdentityNicknameChangeEvent[]
-  triggeredRetentionCases    RetentionCase[]                          @relation("RetentionCaseTriggerIdentity")
-  subjectVaultObjects        RetainedVaultObject[]                    @relation("RetainedVaultObjectSubjectIdentity")
+  id                           String                                   @id @default(uuid())
+  originalUserId               String?                                  @unique
+  anonymizedActorKey           String                                   @unique
+  displayLabel                 String
+  deletedAt                    DateTime                                 @db.Timestamptz(3)
+  emailHash                    String?
+  encryptedIdentifierPayload   Json?
+  identifierKeyVersion         String?
+  retentionDisposedAt          DateTime?                                @db.Timestamptz(3)
+  retentionDisposalReason      String?
+  metadata                     Json?
+  createdAt                    DateTime                                 @default(now()) @db.Timestamptz(3)
+  updatedAt                    DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
+  archiveJobs                  ArchiveJob[]
+  holds                        RetainedIdentityHold[]
+  accessLogs                   RetentionAccessLog[]
+  nicknameChangeEvents         UserDisplayIdentityNicknameChangeEvent[]
+  academicIdentityChangeEvents UserAcademicIdentityChangeEvent[]
+  triggeredRetentionCases      RetentionCase[]                          @relation("RetentionCaseTriggerIdentity")
+  subjectVaultObjects          RetainedVaultObject[]                    @relation("RetainedVaultObjectSubjectIdentity")
 
   @@index([deletedAt])
   @@index([retentionDisposedAt, deletedAt])
@@ -633,6 +688,42 @@ model UserDisplayIdentityNicknameChangeEvent {
   @@index([actorType, actorId, changedAt])
   @@index([retainedIdentityId, changedAt])
   @@index([retainedVaultObjectId])
+  @@index([redactedAt])
+  @@index([reportId])
+  @@index([moderationCaseId])
+  @@index([sanctionId])
+}
+
+model UserAcademicIdentityChangeEvent {
+  id                  String                          @id @default(uuid())
+  userId              String
+  retainedIdentityId  String?
+  redactedAt          DateTime?                       @db.Timestamptz(3)
+  redactionReason     String?
+  source              AcademicIdentityChangeSource
+  reason              AcademicIdentityChangeReason
+  actorType           AcademicIdentityChangeActorType
+  actorId             String?
+  previousCollegeCode String
+  nextCollegeCode     String
+  previousBirthYear   Int
+  nextBirthYear       Int
+  seasonId            String?
+  participantId       String?
+  reportId            String?
+  moderationCaseId    String?
+  sanctionId          String?
+  approvalReference   String?
+  metadata            Json?
+  changedAt           DateTime                        @db.Timestamptz(3)
+  createdAt           DateTime                        @default(now()) @db.Timestamptz(3)
+  retainedIdentity    RetainedIdentity?               @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  user                User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, changedAt])
+  @@index([source, changedAt])
+  @@index([actorType, actorId, changedAt])
+  @@index([retainedIdentityId, changedAt])
   @@index([redactedAt])
   @@index([reportId])
   @@index([moderationCaseId])
@@ -1150,20 +1241,20 @@ model RetentionAccessLog {
 }
 
 model RetentionReviewJob {
-  id           String                   @id @default(uuid())
-  target       RetentionReviewJobTarget
-  status       ArchiveJobStatus         @default(PENDING)
-  sourceId     String
-  dueAt        DateTime                 @db.Timestamptz(3)
-  payload      Json?
-  attemptCount Int                      @default(0)
-  maxAttempts  Int                      @default(5)
-  lastErrorCode String?
-  lastAttemptAt DateTime?               @db.Timestamptz(3)
-  lastSucceededAt DateTime?             @db.Timestamptz(3)
-  manualReviewRequired Boolean          @default(false)
-  createdAt    DateTime                 @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+  id                   String                   @id @default(uuid())
+  target               RetentionReviewJobTarget
+  status               ArchiveJobStatus         @default(PENDING)
+  sourceId             String
+  dueAt                DateTime                 @db.Timestamptz(3)
+  payload              Json?
+  attemptCount         Int                      @default(0)
+  maxAttempts          Int                      @default(5)
+  lastErrorCode        String?
+  lastAttemptAt        DateTime?                @db.Timestamptz(3)
+  lastSucceededAt      DateTime?                @db.Timestamptz(3)
+  manualReviewRequired Boolean                  @default(false)
+  createdAt            DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
 
   @@unique([target, sourceId])
   @@index([status, dueAt])

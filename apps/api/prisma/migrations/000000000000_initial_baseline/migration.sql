@@ -193,6 +193,18 @@ CREATE TYPE "DisplayIdentityNicknameChangeActorType" AS ENUM ('USER', 'ADMIN', '
 -- CreateEnum
 CREATE TYPE "DisplayIdentityNicknameChangeReason" AS ENUM ('USER_REQUEST', 'REPORT_REVIEW', 'ENFORCEMENT_ACTION', 'SAFETY_INCIDENT', 'RESERVED_OR_BLOCKED_TERM', 'ADMIN_MANUAL', 'ACCOUNT_DELETION');
 
+-- CreateEnum
+CREATE TYPE "AcademicIdentityChangeSource" AS ENUM ('USER_SELF', 'SUPPORT_OVERRIDE', 'POLICY_ENFORCEMENT');
+
+-- CreateEnum
+CREATE TYPE "AcademicIdentityChangeActorType" AS ENUM ('USER', 'ADMIN', 'SYSTEM');
+
+-- CreateEnum
+CREATE TYPE "AcademicIdentityChangeReason" AS ENUM ('USER_CORRECTION', 'ACADEMIC_CYCLE_ALLOWANCE', 'SUPPORT_OVERRIDE', 'POLICY_ENFORCEMENT');
+
+-- CreateEnum
+CREATE TYPE "AcademicIdentityAllowanceResetReason" AS ENUM ('INITIAL_CYCLE_ALLOWANCE', 'ACADEMIC_CYCLE_ROLLOVER', 'SUPPORT_OVERRIDE');
+
 -- CreateTable
 CREATE TABLE "CampusMaster" (
     "code" "Campus" NOT NULL,
@@ -318,6 +330,29 @@ CREATE TABLE "UserDisplayIdentity" (
 );
 
 -- CreateTable
+CREATE TABLE "UserAcademicIdentity" (
+    "userId" TEXT NOT NULL,
+    "collegeCode" TEXT NOT NULL,
+    "birthYear" INTEGER NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserAcademicIdentity_pkey" PRIMARY KEY ("userId")
+);
+
+-- CreateTable
+CREATE TABLE "UserAcademicIdentityChangeAllowance" (
+    "userId" TEXT NOT NULL,
+    "academicYear" INTEGER NOT NULL,
+    "collegeChangeRemaining" INTEGER NOT NULL DEFAULT 1,
+    "resetReason" "AcademicIdentityAllowanceResetReason" NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserAcademicIdentityChangeAllowance_pkey" PRIMARY KEY ("userId")
+);
+
+-- CreateTable
 CREATE TABLE "UserDismissedNotice" (
     "userId" TEXT NOT NULL,
     "noticeKey" TEXT NOT NULL,
@@ -375,6 +410,34 @@ CREATE TABLE "UserDisplayIdentityNicknameChangeEvent" (
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserAcademicIdentityChangeEvent" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "retainedIdentityId" TEXT,
+    "redactedAt" TIMESTAMPTZ(3),
+    "redactionReason" TEXT,
+    "source" "AcademicIdentityChangeSource" NOT NULL,
+    "reason" "AcademicIdentityChangeReason" NOT NULL,
+    "actorType" "AcademicIdentityChangeActorType" NOT NULL,
+    "actorId" TEXT,
+    "previousCollegeCode" TEXT NOT NULL,
+    "nextCollegeCode" TEXT NOT NULL,
+    "previousBirthYear" INTEGER NOT NULL,
+    "nextBirthYear" INTEGER NOT NULL,
+    "seasonId" TEXT,
+    "participantId" TEXT,
+    "reportId" TEXT,
+    "moderationCaseId" TEXT,
+    "sanctionId" TEXT,
+    "approvalReference" TEXT,
+    "metadata" JSONB,
+    "changedAt" TIMESTAMPTZ(3) NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserAcademicIdentityChangeEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -914,6 +977,15 @@ CREATE UNIQUE INDEX "UserDisplayIdentity_nicknameNormalized_key" ON "UserDisplay
 CREATE INDEX "UserDisplayIdentity_nickname_idx" ON "UserDisplayIdentity"("nickname");
 
 -- CreateIndex
+CREATE INDEX "UserAcademicIdentity_collegeCode_idx" ON "UserAcademicIdentity"("collegeCode");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentity_birthYear_idx" ON "UserAcademicIdentity"("birthYear");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeAllowance_academicYear_idx" ON "UserAcademicIdentityChangeAllowance"("academicYear");
+
+-- CreateIndex
 CREATE INDEX "UserDismissedNotice_noticeKey_dismissedAt_idx" ON "UserDismissedNotice"("noticeKey", "dismissedAt");
 
 -- CreateIndex
@@ -957,6 +1029,30 @@ CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_moderationCaseId_idx" ON "U
 
 -- CreateIndex
 CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_sanctionId_idx" ON "UserDisplayIdentityNicknameChangeEvent"("sanctionId");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeEvent_userId_changedAt_idx" ON "UserAcademicIdentityChangeEvent"("userId", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeEvent_source_changedAt_idx" ON "UserAcademicIdentityChangeEvent"("source", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeEvent_actorType_actorId_ch_idx" ON "UserAcademicIdentityChangeEvent"("actorType", "actorId", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeEvent_retainedIdentityId_c_idx" ON "UserAcademicIdentityChangeEvent"("retainedIdentityId", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeEvent_redactedAt_idx" ON "UserAcademicIdentityChangeEvent"("redactedAt");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeEvent_reportId_idx" ON "UserAcademicIdentityChangeEvent"("reportId");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeEvent_moderationCaseId_idx" ON "UserAcademicIdentityChangeEvent"("moderationCaseId");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeEvent_sanctionId_idx" ON "UserAcademicIdentityChangeEvent"("sanctionId");
 
 -- CreateIndex
 CREATE INDEX "ArchiveJob_status_nextRunAt_idx" ON "ArchiveJob"("status", "nextRunAt");
@@ -1205,6 +1301,15 @@ ALTER TABLE "SeasonDormitoryOperation" ADD CONSTRAINT "SeasonDormitoryOperation_
 ALTER TABLE "UserDisplayIdentity" ADD CONSTRAINT "UserDisplayIdentity_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "UserAcademicIdentity" ADD CONSTRAINT "UserAcademicIdentity_collegeCode_fkey" FOREIGN KEY ("collegeCode") REFERENCES "CollegeMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserAcademicIdentity" ADD CONSTRAINT "UserAcademicIdentity_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserAcademicIdentityChangeAllowance" ADD CONSTRAINT "UserAcademicIdentityChangeAllowance_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "UserDismissedNotice" ADD CONSTRAINT "UserDismissedNotice_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1215,6 +1320,12 @@ ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplay
 
 -- AddForeignKey
 ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplayIdentityNicknameChangeEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserAcademicIdentityChangeEvent" ADD CONSTRAINT "UserAcademicIdentityChangeEvent_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserAcademicIdentityChangeEvent" ADD CONSTRAINT "UserAcademicIdentityChangeEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ArchiveJob" ADD CONSTRAINT "ArchiveJob_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1340,6 +1451,14 @@ ALTER TABLE "RetentionAccessLog" ADD CONSTRAINT "RetentionAccessLog_retainedVaul
 ALTER TABLE "AuthSession" ADD CONSTRAINT "AuthSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Manual check constraints not represented by Prisma schema DSL
+ALTER TABLE "UserAcademicIdentity"
+  ADD CONSTRAINT "UserAcademicIdentity_birthYear_check"
+  CHECK ("birthYear" >= 1980);
+
+ALTER TABLE "UserAcademicIdentityChangeAllowance"
+  ADD CONSTRAINT "UserAcademicIdentityChangeAllowance_collegeChangeRemaining_check"
+  CHECK ("collegeChangeRemaining" >= 0);
+
 ALTER TABLE "SeasonParticipantProfile"
   ADD CONSTRAINT "SeasonParticipantProfile_grade_check"
   CHECK ("grade" IS NULL OR "grade" IN ('1', '2', '3', '4+'));
