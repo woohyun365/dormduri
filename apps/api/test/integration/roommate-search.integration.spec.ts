@@ -276,7 +276,7 @@ describe('RoommateSearchService integration', () => {
         scope: 'CAMPUS_MERGED',
         college: 'ARTS_ENGINEERING',
         limit: 20,
-      }),
+      } as never),
     ).rejects.toMatchObject({
       response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
     });
@@ -360,7 +360,7 @@ describe('RoommateSearchService integration', () => {
     expect(result.items.every((item) => item.exposure.canViewFull)).toBe(true);
   });
 
-  it('SAME_BUILDING_ONLY actionable discovery manifest는 detail lifestyle/additional filter와 score sort를 제공한다', async () => {
+  it('SAME_BUILDING_ONLY actionable discovery manifest는 detail lifestyle/additional filter 메뉴판을 제공한다', async () => {
     await setSeasonState('SEASON_MATCHING');
 
     const result = await service.search(authContext('user-a'), {
@@ -384,9 +384,90 @@ describe('RoommateSearchService integration', () => {
     expect(manifest?.filters.fields).toHaveProperty('grade');
     expect(manifest?.filters.fields).toHaveProperty('mbtiTraits');
     expect(manifest?.filters.fields).toHaveProperty('ageBand');
-    expect(manifest?.sorts.default).toBe('MATCH_SCORE');
-    expect(manifest?.sorts.options).toContain('MATCH_SCORE');
-    expect(manifest?.sorts.options).toContain('NICKNAME');
+    const collegeField = manifest?.filters.fields.college as
+      | { source?: string; operators?: string[]; options?: Array<{ code: string; label: string }> }
+      | undefined;
+    expect(collegeField).toMatchObject({
+      source: 'VIEWER_CAMPUS_ACTIVE_CATALOG',
+      operators: ['INCLUDE', 'EXCLUDE'],
+    });
+    expect(collegeField?.options).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'ARTS_ENGINEERING', label: '문화예술공과대학' }),
+      ]),
+    );
+    expect(manifest?.sorts.default).toBe('NICKNAME');
+    expect(manifest?.sorts.options).toEqual(['NICKNAME']);
+  });
+
+  it('preflight manifest endpoint와 search response는 같은 manifest owner 결과를 사용한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+
+    const preflight = await service.getManifest(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+    });
+    const search = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 20,
+    });
+
+    expect(preflight.scope).toBe('SAME_BUILDING_ONLY');
+    expect(preflight.scopeAvailability).toEqual(search.scopeAvailability);
+    expect(preflight.manifest).toEqual(search.manifest);
+  });
+
+  it('preflight 이후 season state가 바뀌면 search는 최신 scope policy로 다시 fail-closed한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+
+    const preflight = await service.getManifest(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+    });
+    expect(preflight.manifest.filters.enabled).toBe(true);
+
+    await setSeasonState('OFF_SEASON');
+
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        limit: 20,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+    });
+  });
+
+  it('preflight 이후 college catalog가 바뀌면 search는 최신 manifest option으로 filter를 재검증한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+
+    const preflight = await service.getManifest(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+    });
+    const preflightCollegeField = preflight.manifest.filters.fields.college;
+    expect(preflightCollegeField?.options).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'ARTS_ENGINEERING' })]),
+    );
+
+    await prisma.collegeMaster.update({
+      where: { code: 'ARTS_ENGINEERING' },
+      data: { isActive: false },
+    });
+
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        college: { operator: 'INCLUDE', values: ['ARTS_ENGINEERING'] },
+        limit: 20,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+    });
+
+    const latest = await service.getManifest(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+    });
+    expect(latest.manifest.filters.fields.college?.options).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'ARTS_ENGINEERING' })]),
+    );
   });
 
   it('excludeMyCollege shortcut은 BE contract가 아니라 FE convenience이므로 거부한다', async () => {
@@ -434,6 +515,62 @@ describe('RoommateSearchService integration', () => {
       expect.arrayContaining([expect.objectContaining({ code: 'FILTER_RESULT_EMPTY' })]),
     );
     expect((result as unknown as { manifest?: unknown }).manifest).toEqual(expect.any(Object));
+  });
+
+  it('SAME_BUILDING_ONLY filter는 college negative, MBTI trait, ageBand를 적용한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+    await prisma.collegeMaster.create({
+      data: {
+        code: 'NURSING',
+        campusCode: 'CHUNCHEON',
+        nameKo: '간호대',
+        sortOrder: 2,
+      },
+    });
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-b' },
+      data: {
+        collegeCode: 'ARTS_ENGINEERING',
+        grade: '2',
+        mbti: 'ISTJ',
+        birthYear: 2002,
+      },
+    });
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-c' },
+      data: {
+        collegeCode: 'NURSING',
+        grade: '3',
+        mbti: 'ENTJ',
+        birthYear: 2001,
+      },
+    });
+
+    const excludeIt = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      college: { operator: 'EXCLUDE', values: ['ARTS_ENGINEERING'] },
+      limit: 20,
+    });
+    expect(excludeIt.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+
+    const entjLike = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      mbtiTraits: {
+        energy: 'E',
+        perception: null,
+        decision: 'T',
+        lifestyle: 'J',
+      },
+      limit: 20,
+    });
+    expect(entjLike.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+
+    const age25Plus = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      ageBand: { values: ['25_PLUS'] },
+      limit: 20,
+    });
+    expect(age25Plus.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
   });
 
   it('SEASON_POST_MATCH roommate-search discovery는 active matched target을 제외하고 notice를 제공한다', async () => {

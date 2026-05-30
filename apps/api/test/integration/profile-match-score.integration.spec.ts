@@ -318,7 +318,102 @@ describe('ProfilesService match score integration', () => {
     });
   });
 
-  it('SEASON_POST_MATCH에서는 최종 matched partner만 detail과 score를 유지하고 다른 등록자는 summary-only로 본다', async () => {
+  it('SEASON_POST_MATCH same-dorm cohort list는 일반 matched target을 다시 포함하되 list score/detail은 열지 않는다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'viewer',
+      participantId: 'participant-viewer',
+      email: 'viewer@kangwon.ac.kr',
+      nickname: '뷰어',
+    });
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'matched-target',
+      participantId: 'participant-matched-target',
+      email: 'matched-target@kangwon.ac.kr',
+      nickname: '매칭완료상대',
+    });
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'matched-counterpart',
+      participantId: 'participant-matched-counterpart',
+      email: 'matched-counterpart@kangwon.ac.kr',
+      nickname: '매칭완료상대의상대',
+    });
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'other',
+      participantId: 'participant-other',
+      email: 'other@kangwon.ac.kr',
+      nickname: '일반상대',
+    });
+
+    await seedActiveMatchFixture(prisma, {
+      activeMatchId: 'active-matched-target',
+      participantAId: 'participant-matched-target',
+      participantBId: 'participant-matched-counterpart',
+    });
+
+    const matchingSearchResult = await roommateSearchService.search(authContext('viewer'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 10,
+    });
+    expect(
+      matchingSearchResult.items.some((item) => item.profileSummary.nickname === '매칭완료상대'),
+    ).toBe(false);
+    expect(matchingSearchResult.availabilityNotices).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'MATCHED_TARGETS_EXCLUDED' })]),
+    );
+
+    await prisma.seasonDormitoryOperation.update({
+      where: {
+        seasonId_dormitoryId: {
+          seasonId: 'season-integration',
+          dormitoryId: 'dasan',
+        },
+      },
+      data: {
+        roomSelectionDate: new Date('2026-01-01T00:00:00.000Z'),
+      },
+    });
+
+    const searchResult = await roommateSearchService.search(authContext('viewer'), {
+      scope: 'SAME_BUILDING_ONLY',
+      limit: 10,
+    });
+    const matchedTargetSummary = searchResult.items.find(
+      (item) => item.profileSummary.nickname === '매칭완료상대',
+    );
+    const otherSummary = searchResult.items.find(
+      (item) => item.profileSummary.nickname === '일반상대',
+    );
+
+    expect(searchResult.manifest).toMatchObject({
+      purpose: 'POST_MATCH_COHORT_REVIEW',
+      filters: { enabled: false, fields: {} },
+      sorts: { default: 'NICKNAME', options: ['NICKNAME'] },
+    });
+    expect(matchedTargetSummary).toMatchObject({
+      relation: { type: 'GENERAL' },
+      exposure: {
+        canViewFull: false,
+        detailViewable: false,
+        scoreVisible: false,
+      },
+    });
+    expect(matchedTargetSummary).not.toHaveProperty('matchScore');
+    expect(otherSummary).toMatchObject({
+      relation: { type: 'GENERAL' },
+      exposure: { canViewFull: false },
+    });
+    expect(otherSummary).not.toHaveProperty('matchScore');
+
+    await expect(
+      profilesService.getProfileByUserId(authContext('viewer'), 'matched-target'),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'PROFILE_NOT_VISIBLE',
+      },
+    });
+  });
+
+  it('SEASON_POST_MATCH current matched partner는 result-read detail을 유지하지만 cohort list score는 노출하지 않는다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'viewer',
       participantId: 'participant-viewer',
@@ -330,12 +425,6 @@ describe('ProfilesService match score integration', () => {
       participantId: 'participant-partner',
       email: 'partner@kangwon.ac.kr',
       nickname: '최종상대',
-    });
-    await seedRegisteredAssignedParticipant(prisma, {
-      userId: 'other',
-      participantId: 'participant-other',
-      email: 'other@kangwon.ac.kr',
-      nickname: '일반상대',
     });
 
     await seedActiveMatchFixture(prisma, {
@@ -362,19 +451,16 @@ describe('ProfilesService match score integration', () => {
     const partnerSummary = searchResult.items.find(
       (item) => item.profileSummary.nickname === '최종상대',
     );
-    const otherSummary = searchResult.items.find(
-      (item) => item.profileSummary.nickname === '일반상대',
-    );
 
-    expect(partnerSummary).toBeUndefined();
-    expect(searchResult.availabilityNotices).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'MATCHED_TARGETS_EXCLUDED' })]),
-    );
-    expect(otherSummary).toMatchObject({
-      relation: { type: 'GENERAL' },
-      exposure: { canViewFull: false },
+    expect(partnerSummary).toMatchObject({
+      relation: { type: 'MATCHED_PARTNER' },
+      exposure: {
+        canViewFull: true,
+        detailViewable: true,
+        scoreVisible: false,
+      },
     });
-    expect(otherSummary).not.toHaveProperty('matchScore');
+    expect(partnerSummary).not.toHaveProperty('matchScore');
 
     const partnerProfile = await profilesService.getProfileByUserId(
       authContext('viewer'),
@@ -382,13 +468,5 @@ describe('ProfilesService match score integration', () => {
     );
     expect(partnerProfile.exposure.canViewFull).toBe(true);
     expect(partnerProfile.relation.type).toBe('MATCHED_PARTNER');
-
-    await expect(
-      profilesService.getProfileByUserId(authContext('viewer'), 'other'),
-    ).rejects.toMatchObject({
-      response: {
-        code: 'PROFILE_NOT_VISIBLE',
-      },
-    });
   });
 });
