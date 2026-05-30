@@ -9,6 +9,14 @@ const userDisplayIdentitySelect = {
   updatedAt: true,
 } as const;
 
+const userAcademicIdentitySelect = {
+  userId: true,
+  collegeCode: true,
+  birthYear: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 const userDismissedNoticeSelect = {
   noticeKey: true,
   dismissedAt: true,
@@ -24,6 +32,9 @@ export function buildUserWithDisplayIdentitySelect() {
     campus: true,
     displayIdentity: {
       select: userDisplayIdentitySelect,
+    },
+    academicIdentity: {
+      select: userAcademicIdentitySelect,
     },
     dismissedNotices: {
       where: { noticeKey: SERVICE_INTRO_NOTICE_KEY },
@@ -42,6 +53,14 @@ export interface UserDisplayIdentityRecord {
   updatedAt: Date;
 }
 
+export interface UserAcademicIdentityRecord {
+  userId: string;
+  collegeCode: string;
+  birthYear: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface UserDismissedNoticeRecord {
   noticeKey: string;
   dismissedAt: Date;
@@ -55,6 +74,7 @@ export interface UserWithDisplayIdentityQueryRecord {
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   displayIdentity: UserDisplayIdentityRecord | null;
+  academicIdentity: UserAcademicIdentityRecord | null;
   dismissedNotices: UserDismissedNoticeRecord[];
 }
 
@@ -66,6 +86,7 @@ export interface UserWithDisplayIdentityRecord {
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
   displayIdentity: UserDisplayIdentityRecord | null;
+  academicIdentity: UserAcademicIdentityRecord | null;
   dismissedNotices: UserDismissedNoticeRecord[];
 }
 
@@ -80,6 +101,7 @@ export function mapUserWithDisplayIdentityProjection(
     gender: user.gender,
     campus: user.campus,
     displayIdentity: user.displayIdentity,
+    academicIdentity: user.academicIdentity,
     dismissedNotices: user.dismissedNotices,
   };
 }

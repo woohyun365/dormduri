@@ -12,21 +12,23 @@ import { CurrentSeasonParticipationViewOwner } from '../season-participants/curr
 import {
   buildUserWithDisplayIdentitySelect,
   mapUserWithDisplayIdentityProjection,
+  type UserAcademicIdentityRecord,
   type UserDismissedNoticeRecord,
   type UserDisplayIdentityRecord,
   type UserWithDisplayIdentityRecord,
 } from './current-user-select.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveCampusServiceState } from './service-state.js';
-import { assertUserDisplayIdentity } from '../common/user-display-identity-invariant.js';
+import { assertUserAccountIdentity } from '../common/account-identity-invariant.owner.js';
 import { usersErrors } from './users.errors.js';
 
 type CurrentUserResponseUserRecord = Omit<
   UserWithDisplayIdentityRecord,
-  'displayIdentity' | 'dismissedNotices' | 'deletedAt'
+  'displayIdentity' | 'academicIdentity' | 'dismissedNotices' | 'deletedAt'
 > & {
   deletedAt?: Date | null;
   displayIdentity?: UserDisplayIdentityRecord | null;
+  academicIdentity?: UserAcademicIdentityRecord | null;
   dismissedNotices?: UserDismissedNoticeRecord[];
 };
 
@@ -49,7 +51,9 @@ export class CurrentUserViewService {
     user: CurrentUserResponseUserRecord,
     now: Date,
   ): Promise<CurrentUserResponse> {
-    assertUserDisplayIdentity(user, () => usersErrors.accountIdentityIncomplete('current-user'));
+    assertUserAccountIdentity(user, (invariant) =>
+      usersErrors.accountIdentityIncomplete('current-user', invariant),
+    );
 
     const serviceState = await resolveCampusServiceState(
       this.prisma,
@@ -122,8 +126,11 @@ export class CurrentUserViewService {
 }
 
 function buildIdentitySegment(
-  user: CurrentUserResponseUserRecord & { displayIdentity: UserDisplayIdentityRecord },
-): Pick<CurrentUserResponse, 'user' | 'displayIdentity'> {
+  user: CurrentUserResponseUserRecord & {
+    displayIdentity: UserDisplayIdentityRecord;
+    academicIdentity: UserAcademicIdentityRecord;
+  },
+): Pick<CurrentUserResponse, 'user' | 'displayIdentity' | 'academicIdentity'> {
   return {
     user: {
       id: user.id,
@@ -137,6 +144,12 @@ function buildIdentitySegment(
       nickname: user.displayIdentity.nickname,
       nicknameSource: 'USER_DISPLAY_IDENTITY',
       nicknameChangedAt: toNullableIsoDateTime(user.displayIdentity.nicknameChangedAt),
+    },
+    academicIdentity: {
+      collegeCode: user.academicIdentity.collegeCode as NonNullable<
+        CurrentUserResponse['academicIdentity']
+      >['collegeCode'],
+      birthYear: user.academicIdentity.birthYear,
     },
   };
 }
@@ -175,8 +188,10 @@ function buildCapabilitySegment(
     canFinalizeSeasonRegistration: seasonSegment.capabilities.canFinalizeSeasonRegistration,
     canEditDisplayIdentity: displayIdentityEditUnavailableReasons.length === 0,
     displayIdentityEditUnavailableReasons,
-    canEditAcademicIdentity: true,
-    academicIdentityEditUnavailableReasons: [],
+    canEditAcademicIdentity: !seasonSegment.seasonProfile.registered,
+    academicIdentityEditUnavailableReasons: seasonSegment.seasonProfile.registered
+      ? ['CURRENT_SEASON_REGISTRATION_LOCK']
+      : [],
     canBookmark: false,
     canRequestMatch: false,
     canStartChat: false,

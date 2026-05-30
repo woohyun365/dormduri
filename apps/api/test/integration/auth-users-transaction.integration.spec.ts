@@ -76,6 +76,7 @@ describe('Auth/users transaction rollback and race integration', () => {
         id: 'academic-missing-user',
         email: 'academic-missing@kangwon.ac.kr',
         nickname: '학업미입력',
+        withAcademicIdentity: false,
       });
 
       let invariantError: unknown = null;
@@ -800,8 +801,13 @@ describe('Auth/users transaction rollback and race integration', () => {
     nickname: string;
     passwordHash?: string;
     nicknameChangedAt?: Date | null;
+    withAcademicIdentity?: boolean;
   }) {
     const databaseNow = await prisma.getDatabaseNow();
+    if (input.withAcademicIdentity !== false) {
+      await ensureAcademicIdentityReferenceData();
+    }
+
     await prisma.user.create({
       data: {
         id: input.id,
@@ -818,6 +824,23 @@ describe('Auth/users transaction rollback and race integration', () => {
             nicknameChangedAt: input.nicknameChangedAt ?? null,
           },
         },
+        ...(input.withAcademicIdentity === false
+          ? {}
+          : {
+              academicIdentity: {
+                create: {
+                  collegeCode: 'IT',
+                  birthYear: 2002,
+                },
+              },
+              academicChangeAllowance: {
+                create: {
+                  academicYear: databaseNow.getUTCFullYear(),
+                  collegeChangeRemaining: 1,
+                  resetReason: 'INITIAL_CYCLE_ALLOWANCE',
+                },
+              },
+            }),
       },
     });
   }
@@ -874,6 +897,36 @@ describe('Auth/users transaction rollback and race integration', () => {
     ]);
 
     return { users, displayIdentities, academicIdentities, authSessions };
+  }
+
+  async function ensureAcademicIdentityReferenceData() {
+    await prisma.campusMaster.upsert({
+      where: { code: 'CHUNCHEON' },
+      create: {
+        code: 'CHUNCHEON',
+        nameKo: '춘천캠퍼스',
+        isOperated: true,
+        sortOrder: 1,
+      },
+      update: {
+        isOperated: true,
+      },
+    });
+    await prisma.collegeMaster.upsert({
+      where: { code: 'IT' },
+      create: {
+        code: 'IT',
+        campusCode: 'CHUNCHEON',
+        nameKo: 'IT대',
+        sortOrder: 1,
+      },
+      update: {
+        campusCode: 'CHUNCHEON',
+        nameKo: 'IT대',
+        sortOrder: 1,
+        isActive: true,
+      },
+    });
   }
 
   async function seedAcademicIdentityReferenceData() {

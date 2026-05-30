@@ -90,6 +90,12 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
               nicknameNormalized: normalizedNickname,
             },
           },
+          academicIdentity: {
+            create: {
+              collegeCode: input.collegeCode,
+              birthYear: input.birthYear,
+            },
+          },
         },
         select: {
           id: true,
@@ -99,6 +105,12 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
           displayIdentity: {
             select: {
               nickname: true,
+            },
+          },
+          academicIdentity: {
+            select: {
+              collegeCode: true,
+              birthYear: true,
             },
           },
         },

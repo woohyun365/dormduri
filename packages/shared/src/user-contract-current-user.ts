@@ -46,7 +46,7 @@ export const currentUserSeasonProfileStateSchema = z.strictObject({
 export const currentUserResponseSchema = z.strictObject({
   user: authenticatedSessionUserSchema,
   displayIdentity: userDisplayIdentitySchema,
-  academicIdentity: userAcademicIdentitySchema.optional(),
+  academicIdentity: userAcademicIdentitySchema,
   seasonProfile: currentUserSeasonProfileStateSchema,
   selection: z.strictObject({
     state: dormitorySelectionStateSchema,
