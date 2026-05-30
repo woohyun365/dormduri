@@ -143,6 +143,10 @@ export const roommateSearchQuerySchema = z.preprocess(
   }),
 );
 
+export const roommateSearchManifestQuerySchema = z.strictObject({
+  scope: roommateSearchScopeSchema.optional(),
+});
+
 export const roommateSearchScopeAvailabilitySchema = z.strictObject({
   campusMerged: z.boolean(),
   sameBuildingOnly: z.boolean(),
@@ -242,8 +246,17 @@ export const roommateSearchResponseSchema = z.strictObject({
   items: z.array(roommateSearchSummarySchema),
 });
 
+export const roommateSearchManifestResponseSchema = z.strictObject({
+  scope: roommateSearchScopeSchema,
+  scopeAvailability: roommateSearchScopeAvailabilitySchema,
+  manifest: roommateSearchManifestSchema,
+  availabilityNotices: z.array(roommateSearchAvailabilityNoticeSchema),
+});
+
 export type RoommateSearchQuery = z.infer<typeof roommateSearchQuerySchema>;
+export type RoommateSearchManifestQuery = z.infer<typeof roommateSearchManifestQuerySchema>;
 export type RoommateSearchResponse = z.infer<typeof roommateSearchResponseSchema>;
+export type RoommateSearchManifestResponse = z.infer<typeof roommateSearchManifestResponseSchema>;
 export type RoommateSearchScope = z.infer<typeof roommateSearchScopeSchema>;
 export type RoommateSearchPurpose = z.infer<typeof roommateSearchPurposeSchema>;
 export type RoommateSearchSort = z.infer<typeof roommateSearchSortSchema>;

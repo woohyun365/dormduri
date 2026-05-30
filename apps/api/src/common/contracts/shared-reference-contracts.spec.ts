@@ -20,6 +20,8 @@ import {
   dormitorySelectionStateSchema,
 } from '@repo/shared/dormitory-contract';
 import {
+  roommateSearchManifestQuerySchema,
+  roommateSearchManifestResponseSchema,
   roommateSearchQuerySchema,
   roommateSearchResponseSchema,
 } from '@repo/shared/roommate-search-contract';
@@ -266,6 +268,13 @@ const ROOMMATE_SEARCH_MANIFEST_RESPONSE = {
   },
   availabilityNotices: [],
   items: [{ ...SUMMARY_ITEM, matchScore: 87 }],
+} as const;
+
+const ROOMMATE_SEARCH_PREFLIGHT_MANIFEST_RESPONSE = {
+  scope: ROOMMATE_SEARCH_MANIFEST_RESPONSE.scope,
+  scopeAvailability: ROOMMATE_SEARCH_MANIFEST_RESPONSE.scopeAvailability,
+  manifest: ROOMMATE_SEARCH_MANIFEST_RESPONSE.manifest,
+  availabilityNotices: ROOMMATE_SEARCH_MANIFEST_RESPONSE.availabilityNotices,
 } as const;
 
 const COMPLETION_READY = {
@@ -932,6 +941,23 @@ describe('shared reference contracts', () => {
     expect(roommateSearchResponseSchema.safeParse(LEGACY_ROOMMATE_SEARCH_RESPONSE).success).toBe(
       false,
     );
+  });
+
+  it('roommate search manifest preflight contract는 list response와 같은 manifest owner shape를 사용한다', () => {
+    expect(
+      roommateSearchManifestQuerySchema.safeParse({ scope: 'SAME_BUILDING_ONLY' }).success,
+    ).toBe(true);
+    expect(roommateSearchManifestQuerySchema.safeParse({ scope: 'UNKNOWN' }).success).toBe(false);
+    expect(
+      roommateSearchManifestResponseSchema.safeParse(ROOMMATE_SEARCH_PREFLIGHT_MANIFEST_RESPONSE)
+        .success,
+    ).toBe(true);
+    expect(
+      roommateSearchManifestResponseSchema.safeParse({
+        ...ROOMMATE_SEARCH_PREFLIGHT_MANIFEST_RESPONSE,
+        items: [],
+      }).success,
+    ).toBe(false);
   });
 
   it('roommate search query contract는 dotted nested filters를 normalized filter object로 받는다', () => {
