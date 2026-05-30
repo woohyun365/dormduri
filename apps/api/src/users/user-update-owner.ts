@@ -1,5 +1,6 @@
 import type {
   CurrentUserResponse,
+  UpdateCurrentUserAcademicIdentityRequest,
   UpdateCurrentUserAcademicIdentityMutationResult,
   UpdateCurrentUserDisplayIdentityMutationResult,
   UpdateCurrentUserResponse,
@@ -13,6 +14,7 @@ import { hasNicknameCooldown } from './nickname-policy.js';
 import {
   buildUserWithDisplayIdentitySelect,
   mapUserWithDisplayIdentityProjection,
+  type UserAcademicIdentityRecord,
   type UserDisplayIdentityRecord,
   type UserWithDisplayIdentityRecord,
 } from './current-user-select.js';
@@ -33,6 +35,7 @@ export interface UpdateCurrentUserInput {
   displayIdentity?: {
     nickname: string;
   };
+  academicIdentity?: UpdateCurrentUserAcademicIdentityRequest;
 }
 
 export type DisplayIdentityNicknameOverrideReason =
@@ -76,6 +79,24 @@ type UserDisplayIdentityClient =
   | Pick<PrismaService, 'userDisplayIdentity'>
   | Pick<Prisma.TransactionClient, 'userDisplayIdentity'>;
 
+type AcademicIdentityClient =
+  | Pick<
+      PrismaService,
+      | 'userAcademicIdentity'
+      | 'userAcademicIdentityChangeAllowance'
+      | 'userAcademicIdentityChangeEvent'
+      | 'seasonParticipantProfileHistory'
+      | 'seasonParticipant'
+    >
+  | Pick<
+      Prisma.TransactionClient,
+      | 'userAcademicIdentity'
+      | 'userAcademicIdentityChangeAllowance'
+      | 'userAcademicIdentityChangeEvent'
+      | 'seasonParticipantProfileHistory'
+      | 'seasonParticipant'
+    >;
+
 export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
   async function getUserWithDisplayIdentity(
     userId: string,
@@ -104,73 +125,69 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       changed: false,
       noOpReason: null,
     };
-
-    if (!input.displayIdentity) {
-      return buildUpdateCurrentUserResponse(
-        await deps.currentUserViewService.buildCurrentUserResponse(user, now),
-        displayIdentityMutation,
-      );
-    }
-
-    const parsedNickname = parseDisplayIdentityNickname(input.displayIdentity.nickname);
-    displayIdentityMutation = {
-      attempted: true,
+    let academicIdentityMutation: UpdateCurrentUserAcademicIdentityMutationResult = {
+      attempted: false,
       changed: false,
       noOpReason: null,
     };
 
+    if (!input.displayIdentity && !input.academicIdentity) {
+      return buildUpdateCurrentUserResponse(
+        await deps.currentUserViewService.buildCurrentUserResponse(user, now),
+        displayIdentityMutation,
+        academicIdentityMutation,
+      );
+    }
+
+    const parsedNickname = input.displayIdentity
+      ? parseDisplayIdentityNickname(input.displayIdentity.nickname)
+      : null;
+    const parsedAcademicIdentity = input.academicIdentity
+      ? parseAcademicIdentity(input.academicIdentity)
+      : null;
+
     const transactionResult = await deps.prisma.runSerializableTransaction(async (tx) => {
       const txUser = await getUserWithDisplayIdentity(authUser.id, tx);
-      const displayIdentity = assertDisplayIdentity(txUser.displayIdentity);
-
-      if (isSameNickname(displayIdentity, parsedNickname)) {
-        return {
-          attempted: true,
-          changed: false,
-          noOpReason: 'SAME_NICKNAME' as const,
-        };
+      if (txUser.deletedAt) {
+        throw usersErrors.accountAlreadyDeleted();
       }
 
-      const nicknamePolicy = await resolveNicknameChangePolicy(
-        {
-          prisma: deps.prisma,
-          seasonsService: deps.seasonsService,
-        },
-        txUser,
-        now,
-        tx,
-      );
-      if (nicknamePolicy.nicknameLockedBySeason) {
-        throw usersErrors.nicknameLockedBySeason();
-      }
-
-      if (hasNicknameCooldown(displayIdentity.nicknameChangedAt, now)) {
-        throw usersErrors.nicknameCooldownActive();
-      }
-
-      await assertNicknamePolicyAccepted(parsedNickname.nickname);
-      await assertNicknameAvailableForUser(parsedNickname, authUser.id, tx);
-      await updateDisplayIdentityNickname(authUser.id, displayIdentity, parsedNickname, now, tx);
-      await recordDisplayIdentityNicknameChangeAuditTx(tx, {
-        userId: authUser.id,
-        source: 'USER_SELF',
-        reason: 'USER_REQUEST',
-        actorType: 'USER',
-        actorId: authUser.id,
-        previousNickname: displayIdentity.nickname,
-        previousNicknameNormalized: displayIdentity.nicknameNormalized,
-        nextNickname: parsedNickname.nickname,
-        nextNicknameNormalized: parsedNickname.nicknameNormalized,
-        changedAt: now,
-      });
-
-      return {
-        attempted: true,
-        changed: true,
+      let txDisplayIdentityMutation: UpdateCurrentUserDisplayIdentityMutationResult = {
+        attempted: false,
+        changed: false,
         noOpReason: null,
       };
+      let txAcademicIdentityMutation: UpdateCurrentUserAcademicIdentityMutationResult = {
+        attempted: false,
+        changed: false,
+        noOpReason: null,
+      };
+
+      if (parsedNickname) {
+        txDisplayIdentityMutation = await applyDisplayIdentityNicknameChange(
+          txUser,
+          parsedNickname,
+          now,
+          tx,
+        );
+      }
+
+      if (parsedAcademicIdentity) {
+        txAcademicIdentityMutation = await applyAcademicIdentityChange(
+          txUser,
+          parsedAcademicIdentity,
+          now,
+          tx,
+        );
+      }
+
+      return {
+        displayIdentity: txDisplayIdentityMutation,
+        academicIdentity: txAcademicIdentityMutation,
+      };
     });
-    displayIdentityMutation = transactionResult;
+    displayIdentityMutation = transactionResult.displayIdentity;
+    academicIdentityMutation = transactionResult.academicIdentity;
 
     return buildUpdateCurrentUserResponse(
       await deps.currentUserViewService.buildCurrentUserResponse(
@@ -178,7 +195,134 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
         now,
       ),
       displayIdentityMutation,
+      academicIdentityMutation,
     );
+  }
+
+  async function applyDisplayIdentityNicknameChange(
+    txUser: UserWithDisplayIdentityRecord,
+    parsedNickname: { nickname: string; nicknameNormalized: string },
+    now: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<UpdateCurrentUserDisplayIdentityMutationResult> {
+    const displayIdentity = assertDisplayIdentity(txUser.displayIdentity);
+
+    if (isSameNickname(displayIdentity, parsedNickname)) {
+      return {
+        attempted: true,
+        changed: false,
+        noOpReason: 'SAME_NICKNAME',
+      };
+    }
+
+    const nicknamePolicy = await resolveNicknameChangePolicy(
+      {
+        prisma: deps.prisma,
+        seasonsService: deps.seasonsService,
+      },
+      txUser,
+      now,
+      tx,
+    );
+    if (nicknamePolicy.nicknameLockedBySeason) {
+      throw usersErrors.nicknameLockedBySeason();
+    }
+
+    if (hasNicknameCooldown(displayIdentity.nicknameChangedAt, now)) {
+      throw usersErrors.nicknameCooldownActive();
+    }
+
+    await assertNicknamePolicyAccepted(parsedNickname.nickname);
+    await assertNicknameAvailableForUser(parsedNickname, txUser.id, tx);
+    await updateDisplayIdentityNickname(txUser.id, displayIdentity, parsedNickname, now, tx);
+    await recordDisplayIdentityNicknameChangeAuditTx(tx, {
+      userId: txUser.id,
+      source: 'USER_SELF',
+      reason: 'USER_REQUEST',
+      actorType: 'USER',
+      actorId: txUser.id,
+      previousNickname: displayIdentity.nickname,
+      previousNicknameNormalized: displayIdentity.nicknameNormalized,
+      nextNickname: parsedNickname.nickname,
+      nextNicknameNormalized: parsedNickname.nicknameNormalized,
+      changedAt: now,
+    });
+
+    return {
+      attempted: true,
+      changed: true,
+      noOpReason: null,
+    };
+  }
+
+  async function applyAcademicIdentityChange(
+    txUser: UserWithDisplayIdentityRecord,
+    parsedAcademicIdentity: UpdateCurrentUserAcademicIdentityRequest,
+    now: Date,
+    tx: Prisma.TransactionClient,
+  ): Promise<UpdateCurrentUserAcademicIdentityMutationResult> {
+    const academicIdentity = assertAcademicIdentity(txUser.academicIdentity);
+
+    if (isSameAcademicIdentity(academicIdentity, parsedAcademicIdentity)) {
+      return {
+        attempted: true,
+        changed: false,
+        noOpReason: 'SAME_ACADEMIC_IDENTITY',
+      };
+    }
+
+    const nicknamePolicy = await resolveNicknameChangePolicy(
+      {
+        prisma: deps.prisma,
+        seasonsService: deps.seasonsService,
+      },
+      txUser,
+      now,
+      tx,
+    );
+    if (nicknamePolicy.nicknameLockedBySeason) {
+      throw usersErrors.academicIdentityLockedByRegistration();
+    }
+
+    const collegeChanged = academicIdentity.collegeCode !== parsedAcademicIdentity.collegeCode;
+    const birthYearChanged = academicIdentity.birthYear !== parsedAcademicIdentity.birthYear;
+
+    if (birthYearChanged) {
+      await assertBirthYearEditableBeforeRegistration(txUser.id, tx);
+    }
+    if (collegeChanged) {
+      await consumeCurrentAcademicCollegeAllowance(txUser, now, tx);
+    }
+
+    await updateAcademicIdentity(txUser.id, parsedAcademicIdentity, tx);
+    await tx.userAcademicIdentityChangeEvent.create({
+      data: {
+        userId: txUser.id,
+        retainedIdentityId: null,
+        source: 'USER_SELF',
+        reason: birthYearChanged ? 'USER_CORRECTION' : 'ACADEMIC_CYCLE_ALLOWANCE',
+        actorType: 'USER',
+        actorId: txUser.id,
+        previousCollegeCode: academicIdentity.collegeCode,
+        nextCollegeCode: parsedAcademicIdentity.collegeCode,
+        previousBirthYear: academicIdentity.birthYear,
+        nextBirthYear: parsedAcademicIdentity.birthYear,
+        seasonId: null,
+        participantId: null,
+        reportId: null,
+        moderationCaseId: null,
+        sanctionId: null,
+        approvalReference: null,
+        changedAt: now,
+      },
+      select: { id: true },
+    });
+
+    return {
+      attempted: true,
+      changed: true,
+      noOpReason: null,
+    };
   }
 
   async function overrideDisplayIdentityNicknameForPolicyEnforcement(
@@ -271,6 +415,13 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     };
   }
 
+  function parseAcademicIdentity(input: UpdateCurrentUserAcademicIdentityRequest) {
+    return {
+      collegeCode: input.collegeCode,
+      birthYear: input.birthYear,
+    };
+  }
+
   async function assertNicknamePolicyAccepted(nickname: string) {
     const nicknamePolicyError = await deps.moderationService.validateNicknamePolicy(nickname);
     if (nicknamePolicyError) {
@@ -291,6 +442,94 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     if (existingNickname && existingNickname.userId !== userId) {
       throw usersErrors.nicknameAlreadyTaken();
     }
+  }
+
+  async function assertBirthYearEditableBeforeRegistration(
+    userId: string,
+    client: AcademicIdentityClient = deps.prisma,
+  ) {
+    const participantRows = await client.seasonParticipant.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    if (participantRows.length === 0) {
+      return;
+    }
+
+    const registrationSnapshot = await client.seasonParticipantProfileHistory.findFirst({
+      where: {
+        source: 'SEASON_REGISTRATION',
+        participantId: { in: participantRows.map((participant) => participant.id) },
+      },
+      select: { id: true },
+    });
+
+    if (registrationSnapshot) {
+      throw usersErrors.academicBirthYearLockedAfterRegistration();
+    }
+  }
+
+  async function consumeCurrentAcademicCollegeAllowance(
+    user: Pick<UserWithDisplayIdentityRecord, 'id' | 'campus'>,
+    now: Date,
+    client: AcademicIdentityClient = deps.prisma,
+  ) {
+    const seasonContext = await deps.seasonsService.getCurrentSeasonContext(user.campus, now);
+    const academicYear = (seasonContext?.season as { academicYear?: number } | undefined)
+      ?.academicYear;
+    if (typeof academicYear !== 'number') {
+      throw usersErrors.academicCorrectionCycleUnavailable();
+    }
+
+    const allowance = await client.userAcademicIdentityChangeAllowance.findUnique({
+      where: { userId: user.id },
+      select: {
+        academicYear: true,
+        collegeChangeRemaining: true,
+      },
+    });
+
+    if (
+      !allowance ||
+      allowance.academicYear !== academicYear ||
+      allowance.collegeChangeRemaining <= 0
+    ) {
+      throw usersErrors.academicCollegeChangeAllowanceExhausted();
+    }
+
+    const updateResult = await client.userAcademicIdentityChangeAllowance.updateMany({
+      where: {
+        userId: user.id,
+        academicYear,
+        collegeChangeRemaining: { gt: 0 },
+      },
+      data: {
+        collegeChangeRemaining: { decrement: 1 },
+      },
+    });
+
+    if (updateResult.count !== 1) {
+      throw usersErrors.academicCollegeChangeAllowanceExhausted();
+    }
+  }
+
+  async function updateAcademicIdentity(
+    userId: string,
+    parsedAcademicIdentity: UpdateCurrentUserAcademicIdentityRequest,
+    client: AcademicIdentityClient = deps.prisma,
+  ) {
+    await client.userAcademicIdentity.upsert({
+      where: { userId },
+      create: {
+        userId,
+        collegeCode: parsedAcademicIdentity.collegeCode,
+        birthYear: parsedAcademicIdentity.birthYear,
+      },
+      update: {
+        collegeCode: parsedAcademicIdentity.collegeCode,
+        birthYear: parsedAcademicIdentity.birthYear,
+      },
+    });
   }
 
   async function updateDisplayIdentityNickname(
@@ -366,5 +605,24 @@ function isSameNickname(
   return (
     displayIdentity.nickname === parsedNickname.nickname &&
     displayIdentity.nicknameNormalized === parsedNickname.nicknameNormalized
+  );
+}
+
+function assertAcademicIdentity(
+  academicIdentity: UserWithDisplayIdentityRecord['academicIdentity'],
+): UserAcademicIdentityRecord {
+  if (!academicIdentity) {
+    throw new Error('[UsersService] user academic identity row is required');
+  }
+  return academicIdentity;
+}
+
+function isSameAcademicIdentity(
+  academicIdentity: UserAcademicIdentityRecord,
+  parsedAcademicIdentity: UpdateCurrentUserAcademicIdentityRequest,
+) {
+  return (
+    academicIdentity.collegeCode === parsedAcademicIdentity.collegeCode &&
+    academicIdentity.birthYear === parsedAcademicIdentity.birthYear
   );
 }

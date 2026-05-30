@@ -72,6 +72,10 @@ export const usersErrors = {
     );
   },
 
+  accountAlreadyDeleted() {
+    return conflictError('ACCOUNT_ALREADY_DELETED', '이미 삭제 처리된 계정입니다.');
+  },
+
   nicknameModerationRejected(message: string) {
     return unprocessableEntityError(
       'NICKNAME_MODERATION_REJECTED',

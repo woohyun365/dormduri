@@ -115,6 +115,7 @@ describe('UsersService current-user boundary', () => {
     },
     seasonParticipant: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
       updateMany: jest.fn(),
     },
     seasonParticipantProfile: {
@@ -182,6 +183,7 @@ describe('UsersService current-user boundary', () => {
     prisma.userAcademicIdentityChangeEvent.findMany.mockResolvedValue([]);
     prisma.seasonParticipantProfileHistory.findFirst.mockResolvedValue(null);
     prisma.seasonParticipant.findUnique.mockResolvedValue(null);
+    prisma.seasonParticipant.findMany.mockResolvedValue([{ id: 'participant-1' }]);
     prisma.seasonParticipant.updateMany.mockResolvedValue({ count: 0 });
     prisma.seasonParticipantProfile.updateMany.mockResolvedValue({ count: 0 });
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
