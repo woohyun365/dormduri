@@ -1,25 +1,33 @@
 import type {
   RoommateSearchAvailabilityNotice,
-  RoommateSearchManifest,
+  RoommateSearchManifestResponse,
+  RoommateSearchPurpose,
   RoommateSearchQuery,
   RoommateSearchResponse,
   RoommateSearchScope,
   RoommateSearchSort,
   RoommateSearchSummary,
 } from '@repo/shared/roommate-search-contract';
+import { PROFILE_MBTI_VALUES } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { MatchesService } from '../matches/matches.service.js';
-import type {
-  CurrentSeasonParticipantRecord,
-  SeasonParticipantsService,
-} from '../season-participants/season-participants.service.js';
+import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import { currentSeasonParticipantSelect } from '../season-participants/season-participant-records.js';
 import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { toStoredBedtime, toStoredWakeTime } from '../common/lifestyle/lifestyle.persistence.js';
 import { roommateSearchErrors } from './roommate-search.errors.js';
+import { buildRoommateSearchManifest } from './roommate-search-filter-manifest.owner.js';
+import {
+  assertRoommateSearchQueryAllowed,
+  hasEffectiveRoommateSearchFilter,
+} from './roommate-search-query-policy.owner.js';
+import {
+  resolveRoommateSearchScopeContext,
+  shouldExcludeMatchedTargetsFromDiscovery,
+} from './roommate-search-scope.owner.js';
 import {
   createRoommateSearchTokenOwner,
   type RoommateSearchCursorBoundary,
@@ -57,18 +65,6 @@ type SearchMaterializedItem = {
   cursorBoundary: RoommateSearchCursorBoundary;
 };
 
-const DETAIL_ONLY_FILTER_FIELDS = new Set<keyof RoommateSearchQuery>([
-  'bedtime',
-  'wakeTime',
-  'noiseSensitivity',
-  'cleanLevel',
-  'indoorEating',
-  'college',
-  'grade',
-  'mbtiTraits',
-  'ageBand',
-]);
-
 export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
   const visibleProfileOwner = createVisibleProfileOwner(deps);
   const tokenOwner = createRoommateSearchTokenOwner();
@@ -79,41 +75,34 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
   ): Promise<RoommateSearchResponse> {
     const now = await deps.prisma.getDatabaseNow();
     const viewerContext = await visibleProfileOwner.loadViewerContext(authUser, now);
-    const scopeAvailability = resolveScopeAvailability(viewerContext);
-    const scope = query.scope ?? resolveDefaultScope(scopeAvailability);
-
-    if (!isScopeAllowed(scopeAvailability, scope)) {
-      throw roommateSearchErrors.invalidQuery(resolveScopeErrorMessage(scope));
-    }
-
-    const scopeEntries = await loadVisibleEntries(viewerContext, scope);
-    const scopeDiscovery = applyDiscoveryFilter(scopeEntries);
-    const scopeItems = scopeDiscovery.entries.map((entry) =>
-      toSearchMaterializedItem({ entry, viewerContext, scope, now }),
-    );
-    const scopeSummaries = scopeItems.map((item) => item.summary);
-    const scopeManifest = buildRoommateSearchManifest({
-      scope,
-      appliedSort: 'NICKNAME',
-      scopeSummaries,
+    const { scopeAvailability, scope, purpose } = resolveRoommateSearchScopeContext(
       viewerContext,
-    });
-
-    assertFilterAllowed(query, scopeManifest, scopeSummaries);
-    if (query.sort === 'MATCH_SCORE') {
-      throw roommateSearchErrors.invalidQuery(
-        '매칭 점수 정렬은 cursor pagination deterministic ordering 확정 후 제공됩니다.',
-      );
-    }
-
-    const filteredEntries = await loadVisibleEntries(viewerContext, scope, query);
-    const filteredDiscovery = applyDiscoveryFilter(filteredEntries);
-    const filteredItems = filteredDiscovery.entries.map((entry) =>
-      toSearchMaterializedItem({ entry, viewerContext, scope, now }),
+      query.scope,
     );
-    const appliedSort = resolveAppliedSort(query);
+    const activeCollegeOptions = await loadActiveCollegeOptions(viewerContext);
+    const manifest = buildRoommateSearchManifest({
+      viewerContext,
+      scope,
+      purpose,
+      appliedSort: 'NICKNAME',
+      activeCollegeOptions,
+    });
+    const queryPolicy = assertRoommateSearchQueryAllowed({ query, manifest });
+
+    const appliedSort = assertNicknameSort(queryPolicy.appliedSort);
+    const filteredEntries = await loadVisibleEntries(viewerContext, scope, query);
+    const filteredDiscovery = applyDiscoveryFilter(filteredEntries, {
+      excludeMatchedTargets: shouldExcludeMatchedTargetsFromDiscovery(purpose),
+    });
+    const filteredItems = filteredDiscovery.entries.map((entry) =>
+      toSearchMaterializedItem({ entry, viewerContext, scope, purpose, now }),
+    );
     const sortedItems = sortSearchMaterializedItems(filteredItems, appliedSort);
-    const queryDigest = tokenOwner.buildQueryDigest({ scope, sort: appliedSort, query });
+    const queryDigest = tokenOwner.buildQueryDigest({
+      scope,
+      sort: appliedSort,
+      query,
+    });
     const pageItems = paginateItems({
       items: sortedItems,
       query,
@@ -123,26 +112,55 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
       queryDigest,
       now,
     });
+    const filteredSummaries = filteredItems.map((item) => item.summary);
 
     return {
       scope,
       appliedSort,
-      resultSummary: summarizeResults(scopeSummaries),
+      resultSummary: summarizeResults(filteredSummaries),
       scopeAvailability,
-      manifest: buildRoommateSearchManifest({
-        scope,
-        appliedSort,
-        scopeSummaries,
-        viewerContext,
-      }),
+      manifest,
       pageInfo: pageItems.pageInfo,
       availabilityNotices: buildAvailabilityNotices({
         viewerContext,
-        scopeSummaries,
-        matchedTargetsExcluded:
-          scopeDiscovery.matchedTargetsExcluded || filteredDiscovery.matchedTargetsExcluded,
+        summaries: filteredSummaries,
+        matchedTargetsExcluded: filteredDiscovery.matchedTargetsExcluded,
+        filterResultEmpty:
+          hasEffectiveRoommateSearchFilter(query) && filteredDiscovery.entries.length === 0,
       }),
       items: pageItems.items.map((item) => item.summary),
+    };
+  }
+
+  async function getManifest(
+    authUser: AuthenticatedUserContext,
+    query: Pick<RoommateSearchQuery, 'scope'>,
+  ): Promise<RoommateSearchManifestResponse> {
+    const now = await deps.prisma.getDatabaseNow();
+    const viewerContext = await visibleProfileOwner.loadViewerContext(authUser, now);
+    const { scopeAvailability, scope, purpose } = resolveRoommateSearchScopeContext(
+      viewerContext,
+      query.scope,
+    );
+    const activeCollegeOptions = await loadActiveCollegeOptions(viewerContext);
+    const manifest = buildRoommateSearchManifest({
+      viewerContext,
+      scope,
+      purpose,
+      appliedSort: 'NICKNAME',
+      activeCollegeOptions,
+    });
+
+    return {
+      scope,
+      scopeAvailability,
+      manifest,
+      availabilityNotices: buildAvailabilityNotices({
+        viewerContext,
+        summaries: [],
+        matchedTargetsExcluded: false,
+        filterResultEmpty: false,
+      }),
     };
   }
 
@@ -252,9 +270,10 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     entry: ResolvedVisibleProfileEntry;
     viewerContext: VisibleProfileViewerContext;
     scope: RoommateSearchScope;
+    purpose: RoommateSearchPurpose;
     now: Date;
   }): SearchMaterializedItem {
-    const summary = toRoommateSearchSummary(input.entry);
+    const summary = toRoommateSearchSummary(input.entry, input.purpose);
     const seasonId = input.viewerContext.currentSeasonId;
     if (!seasonId) {
       return {
@@ -304,81 +323,29 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     });
   }
 
+  async function loadActiveCollegeOptions(viewerContext: VisibleProfileViewerContext) {
+    const colleges = await deps.prisma.collegeMaster.findMany({
+      where: {
+        campusCode: viewerContext.viewer.campus,
+        isActive: true,
+      },
+      select: {
+        code: true,
+        nameKo: true,
+      },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+
+    return colleges.map((college) => ({
+      code: college.code,
+      label: college.nameKo,
+    }));
+  }
+
   return {
     search,
+    getManifest,
   };
-}
-
-function resolveScopeAvailability(viewerContext: VisibleProfileViewerContext) {
-  const seasonState = viewerContext.serviceState.seasonState;
-  const viewerRegistered = isParticipantRegistered(viewerContext.viewerParticipant);
-  const sameBuildingOnly =
-    viewerRegistered &&
-    viewerHasAssignedDormitory(viewerContext.viewerParticipant, viewerContext) &&
-    seasonState !== null &&
-    seasonState !== 'OFF_SEASON';
-
-  if (seasonState === null || seasonState === 'OFF_SEASON') {
-    return {
-      campusMerged: false,
-      sameBuildingOnly: false,
-    };
-  }
-
-  if (seasonState === 'SEASON_OPEN' || seasonState === 'SEASON_POST_MATCH') {
-    return {
-      campusMerged: true,
-      sameBuildingOnly,
-    };
-  }
-
-  if (viewerRegistered) {
-    return {
-      campusMerged: false,
-      sameBuildingOnly,
-    };
-  }
-
-  return {
-    campusMerged: true,
-    sameBuildingOnly: false,
-  };
-}
-
-function viewerHasAssignedDormitory(
-  participant: CurrentSeasonParticipantRecord | null,
-  viewerContext: VisibleProfileViewerContext,
-) {
-  return (
-    isParticipantRegistered(participant) &&
-    viewerContext.viewerHasOperatedAssignedDormitory &&
-    viewerContext.viewerSelection.dormitoryId !== null
-  );
-}
-
-function resolveDefaultScope(scopeAvailability: {
-  campusMerged: boolean;
-  sameBuildingOnly: boolean;
-}): RoommateSearchScope {
-  if (scopeAvailability.campusMerged) {
-    return 'CAMPUS_MERGED';
-  }
-  return 'SAME_BUILDING_ONLY';
-}
-
-function isScopeAllowed(
-  scopeAvailability: { campusMerged: boolean; sameBuildingOnly: boolean },
-  scope: RoommateSearchScope,
-) {
-  return scope === 'CAMPUS_MERGED'
-    ? scopeAvailability.campusMerged
-    : scopeAvailability.sameBuildingOnly;
-}
-
-function resolveScopeErrorMessage(scope: RoommateSearchScope) {
-  return scope === 'CAMPUS_MERGED'
-    ? '현재 상태에서는 캠퍼스 통합 범위 검색을 사용할 수 없습니다.'
-    : '현재 상태에서는 같은 건물 범위 검색을 사용할 수 없습니다.';
 }
 
 function buildCandidateParticipantWhere(
@@ -386,7 +353,7 @@ function buildCandidateParticipantWhere(
   scope: RoommateSearchScope,
   query?: RoommateSearchQuery,
 ): Prisma.SeasonParticipantWhereInput {
-  const profileWhere = query ? buildSeasonProfileWhere(query) : {};
+  const profileWhere = query ? buildSeasonProfileWhere(query, viewerContext) : {};
 
   return {
     ...(viewerContext.viewerParticipant ? { id: { not: viewerContext.viewerParticipant.id } } : {}),
@@ -412,10 +379,16 @@ function buildCandidateParticipantWhere(
 
 function buildSeasonProfileWhere(
   query: RoommateSearchQuery,
+  viewerContext: VisibleProfileViewerContext,
 ): Prisma.SeasonParticipantProfileWhereInput {
+  const mbtiWhere = buildMbtiWhere(query);
+  const ageBandWhere = buildAgeBandWhere(query, viewerContext.seasonReferenceYear);
+
   return {
     ...(query.college !== undefined ? { collegeCode: toStringNullableFilter(query.college) } : {}),
     ...(query.grade !== undefined ? { grade: toStringNullableFilter(query.grade) } : {}),
+    ...(mbtiWhere ? { mbti: mbtiWhere } : {}),
+    ...(ageBandWhere ? { OR: ageBandWhere } : {}),
     ...(query.smokingBehavior !== undefined ? { smokingBehavior: query.smokingBehavior } : {}),
     ...(query.bedtime !== undefined
       ? {
@@ -447,103 +420,73 @@ function buildSeasonProfileWhere(
   };
 }
 
-function hasRequestedFilter(
-  query: RoommateSearchQuery,
-  fields: ReadonlySet<keyof RoommateSearchQuery>,
-) {
-  return [...fields].some((field) => query[field] !== undefined);
+function buildMbtiWhere(query: RoommateSearchQuery): Prisma.StringNullableFilter | null {
+  const traits = query.mbtiTraits;
+  if (!traits) {
+    return null;
+  }
+
+  const selectedTraits: string[] = [];
+  if (traits.energy) {
+    selectedTraits.push(traits.energy);
+  }
+  if (traits.perception) {
+    selectedTraits.push(traits.perception);
+  }
+  if (traits.decision) {
+    selectedTraits.push(traits.decision);
+  }
+  if (traits.lifestyle) {
+    selectedTraits.push(traits.lifestyle);
+  }
+  if (selectedTraits.length === 0) {
+    return null;
+  }
+
+  const matchingValues = PROFILE_MBTI_VALUES.filter((value) =>
+    selectedTraits.every((trait) => value.includes(trait)),
+  );
+  return { in: [...matchingValues] };
 }
 
-function buildRoommateSearchManifest(input: {
-  scope: RoommateSearchScope;
-  appliedSort: RoommateSearchSort;
-  scopeSummaries: RoommateSearchSummary[];
-  viewerContext: VisibleProfileViewerContext;
-}): RoommateSearchManifest {
-  const hasSummaryOnlyTarget = input.scopeSummaries.some((item) => !item.exposure.canViewFull);
-  const hasFullViewTarget = input.scopeSummaries.some((item) => item.exposure.canViewFull);
-  const detailFilterEnabled =
-    input.scope === 'SAME_BUILDING_ONLY' && hasFullViewTarget && !hasSummaryOnlyTarget;
-  const purpose =
-    input.viewerContext.serviceState.seasonState === 'SEASON_POST_MATCH'
-      ? 'POST_MATCH_COHORT_REVIEW'
-      : detailFilterEnabled
-        ? 'ACTIONABLE_DETAIL_DISCOVERY'
-        : 'BROAD_PREVIEW';
+function buildAgeBandWhere(
+  query: RoommateSearchQuery,
+  seasonReferenceYear: number | null,
+): Prisma.SeasonParticipantProfileWhereInput[] | null {
+  if (!query.ageBand || !seasonReferenceYear) {
+    return null;
+  }
 
-  const detailField = (source: RoommateSearchManifest['filters']['fields'][string]['source']) => ({
-    enabled: detailFilterEnabled,
-    source,
-    ...(detailFilterEnabled ? {} : { disabledReason: 'DETAIL_ONLY_FILTER_NOT_AVAILABLE_IN_SCOPE' }),
+  return query.ageBand.values.map((value) => {
+    if (value === '25_PLUS') {
+      return { birthYear: { lte: seasonReferenceYear - 25 } };
+    }
+
+    return { birthYear: seasonReferenceYear - Number(value) };
   });
-
-  return {
-    manifestRevision: `${input.scope}:${purpose}:v1`,
-    scope: input.scope,
-    purpose,
-    filters: {
-      enabled: detailFilterEnabled,
-      fields: {
-        smokingBehavior: detailField('SHARED_ENUM'),
-        bedtime: detailField('SHARED_ENUM'),
-        wakeTime: detailField('SHARED_ENUM'),
-        noiseSensitivity: detailField('SHARED_ENUM'),
-        cleanLevel: detailField('SHARED_ENUM'),
-        sleepHabit: detailField('SHARED_ENUM'),
-        indoorEating: detailField('SHARED_ENUM'),
-        relationshipStyle: detailField('SHARED_ENUM'),
-        college: {
-          ...detailField('VIEWER_CAMPUS_ACTIVE_CATALOG'),
-          operators: ['INCLUDE', 'EXCLUDE'],
-        },
-        grade: {
-          ...detailField('SHARED_ENUM'),
-          operators: ['INCLUDE'],
-        },
-        mbtiTraits: detailField('SHARED_MBTI_TRAITS'),
-        ageBand: detailField('SEASON_REFERENCE_YEAR'),
-      },
-    },
-    sorts: {
-      default: input.appliedSort,
-      options: ['NICKNAME'],
-    },
-  };
-}
-
-function assertFilterAllowed(
-  query: RoommateSearchQuery,
-  manifest: RoommateSearchManifest,
-  scopeSummaries: RoommateSearchSummary[],
-) {
-  if (!hasRequestedFilter(query, DETAIL_ONLY_FILTER_FIELDS)) {
-    return;
-  }
-
-  const hasSummaryOnlyTarget = scopeSummaries.some((item) => !item.exposure.canViewFull);
-  if (hasSummaryOnlyTarget || !manifest.filters.enabled) {
-    throw roommateSearchErrors.invalidQuery(
-      '현재 노출 범위에서는 상세 전용 필터를 사용할 수 없습니다.',
-    );
-  }
 }
 
 function toStringNullableFilter(filter: { operator: 'INCLUDE' | 'EXCLUDE'; values: string[] }) {
   return filter.operator === 'INCLUDE' ? { in: filter.values } : { notIn: filter.values };
 }
 
-function resolveAppliedSort(query: RoommateSearchQuery): 'NICKNAME' {
-  if (!query.sort || query.sort === 'NICKNAME') {
-    return 'NICKNAME';
+function assertNicknameSort(sort: RoommateSearchSort): 'NICKNAME' {
+  if (sort === 'NICKNAME') {
+    return sort;
   }
 
   throw roommateSearchErrors.invalidQuery(
-    '매칭 점수 정렬은 cursor pagination deterministic ordering 확정 후 제공됩니다.',
+    '매칭 점수 정렬은 score projection cursor 구현 후 제공됩니다.',
   );
 }
 
-function applyDiscoveryFilter(entries: ResolvedVisibleProfileEntry[]) {
-  const filtered = entries.filter((entry) => !entry.targetMatched);
+function applyDiscoveryFilter(
+  entries: ResolvedVisibleProfileEntry[],
+  input: { excludeMatchedTargets: boolean },
+) {
+  const filtered = input.excludeMatchedTargets
+    ? entries.filter((entry) => !entry.targetMatched)
+    : entries;
   return {
     entries: filtered,
     matchedTargetsExcluded: filtered.length !== entries.length,
@@ -552,8 +495,9 @@ function applyDiscoveryFilter(entries: ResolvedVisibleProfileEntry[]) {
 
 function buildAvailabilityNotices(input: {
   viewerContext: VisibleProfileViewerContext;
-  scopeSummaries: RoommateSearchSummary[];
+  summaries: RoommateSearchSummary[];
   matchedTargetsExcluded: boolean;
+  filterResultEmpty: boolean;
 }): RoommateSearchAvailabilityNotice[] {
   const notices = new Map<string, RoommateSearchAvailabilityNotice>();
   const add = (notice: RoommateSearchAvailabilityNotice) => notices.set(notice.code, notice);
@@ -566,9 +510,7 @@ function buildAvailabilityNotices(input: {
     });
   }
 
-  if (
-    input.scopeSummaries.some((item) => item.actions.canBookmark || item.actions.canRequestMatch)
-  ) {
+  if (input.summaries.some((item) => item.actions.canBookmark || item.actions.canRequestMatch)) {
     add({
       code: 'DISCOVERY_ACTIONABLE_ONLY',
       severity: 'INFO',
@@ -595,12 +537,20 @@ function buildAvailabilityNotices(input: {
     });
   }
 
-  if (input.scopeSummaries.some((item) => !item.exposure.canViewFull)) {
+  if (input.summaries.some((item) => !item.exposure.canViewFull)) {
     add({
       code: 'DETAIL_UNAVAILABLE_BY_POLICY',
       severity: 'INFO',
       message:
         '일부 사용자는 summary만 볼 수 있으며 상세 화면에서는 정책 안내가 표시될 수 있습니다.',
+    });
+  }
+
+  if (input.filterResultEmpty) {
+    add({
+      code: 'FILTER_RESULT_EMPTY',
+      severity: 'INFO',
+      message: '조건에 맞는 룸메이트 후보가 없습니다.',
     });
   }
 
@@ -645,8 +595,13 @@ function sortSearchMaterializedItems(items: SearchMaterializedItem[], sort: Room
   });
 }
 
-function toRoommateSearchSummary(entry: ResolvedVisibleProfileEntry): RoommateSearchSummary {
+function toRoommateSearchSummary(
+  entry: ResolvedVisibleProfileEntry,
+  purpose: RoommateSearchPurpose,
+): RoommateSearchSummary {
   const policy = entry.publicTargetPolicy;
+  const scoreVisible =
+    purpose === 'POST_MATCH_COHORT_REVIEW' ? false : policy.exposure.scoreVisible;
   const base = {
     id: entry.user.id,
     sourceProfile: policy.sourceProfile,
@@ -655,7 +610,7 @@ function toRoommateSearchSummary(entry: ResolvedVisibleProfileEntry): RoommateSe
       listSummaryVisible: true as const,
       detailViewable: policy.exposure.detailViewable,
       canViewFull: policy.exposure.canViewFull,
-      scoreVisible: policy.exposure.scoreVisible,
+      scoreVisible,
     },
     actions: policy.actions,
     resultRead: policy.resultRead,
@@ -668,7 +623,7 @@ function toRoommateSearchSummary(entry: ResolvedVisibleProfileEntry): RoommateSe
     },
   };
 
-  if (!policy.exposure.scoreVisible) {
+  if (!scoreVisible) {
     return base;
   }
 

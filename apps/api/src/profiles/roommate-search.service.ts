@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import type {
+  RoommateSearchManifestQuery,
+  RoommateSearchManifestResponse,
   RoommateSearchQuery,
   RoommateSearchResponse,
 } from '@repo/shared/roommate-search-contract';
@@ -33,5 +35,12 @@ export class RoommateSearchService {
     query: RoommateSearchQuery,
   ): Promise<RoommateSearchResponse> {
     return this.searchOwner.search(authUser, query);
+  }
+
+  async getManifest(
+    authUser: AuthenticatedUserContext,
+    query: RoommateSearchManifestQuery,
+  ): Promise<RoommateSearchManifestResponse> {
+    return this.searchOwner.getManifest(authUser, query);
   }
 }
