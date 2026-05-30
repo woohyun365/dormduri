@@ -6,6 +6,7 @@ import {
   discloseRetainedVaultPayload,
   disposeDueRetainedVaultObjects,
   ensureRetentionCaseTx,
+  parseRetainedAcademicIdentityAuditPayload,
   parseRetainedMatchHistoryPayload,
   parseRetainedNicknameAuditPayload,
   parseRetainedSeasonProfileHistoryPayload,
@@ -277,6 +278,16 @@ describe('retained-vault-owner', () => {
       }),
     ).toMatchObject({ schemaVersion: 1, event: { id: 'event-a' } });
     expect(
+      parseRetainedAcademicIdentityAuditPayload({
+        schemaVersion: 1,
+        event: {
+          id: 'academic-event-a',
+          previousCollegeCode: 'ARTS_ENGINEERING',
+          nextCollegeCode: 'NURSING',
+        },
+      }),
+    ).toMatchObject({ schemaVersion: 1, event: { id: 'academic-event-a' } });
+    expect(
       parseRetainedSeasonProfileHistoryPayload({
         schemaVersion: 1,
         history: { id: 'history-a', participantId: 'participant-a' },
@@ -293,6 +304,12 @@ describe('retained-vault-owner', () => {
     expect(() =>
       parseRetainedNicknameAuditPayload({ schemaVersion: 1, event: { nextNickname: '다음' } }),
     ).toThrow('nickname audit payload invalid');
+    expect(() =>
+      parseRetainedAcademicIdentityAuditPayload({
+        schemaVersion: 1,
+        event: { id: 'academic-event-a', previousCollegeCode: 'ARTS_ENGINEERING' },
+      }),
+    ).toThrow('academic identity audit payload invalid');
     expect(() =>
       parseRetainedSeasonProfileHistoryPayload({ schemaVersion: 1, history: { id: 'history-a' } }),
     ).toThrow('profile history payload invalid');

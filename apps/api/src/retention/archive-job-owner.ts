@@ -27,6 +27,7 @@ const deletionArchiveJobTargets = [
   'MATCH_HISTORY',
   'THREAD_RETENTION',
   'NICKNAME_AUDIT',
+  'ACADEMIC_IDENTITY_AUDIT',
 ] satisfies ArchiveJobTarget[];
 
 const archiveJobWorkItemSelect = {
@@ -68,6 +69,8 @@ const hotDbArchiveJobHandlers = {
     archiveThreadRetentionJob(prisma, job, now, conversationRetention),
   NICKNAME_AUDIT: ({ prisma, job, now, retainedVaultOptions }) =>
     archiveNicknameAuditJob(prisma, job, now, retainedVaultOptions),
+  ACADEMIC_IDENTITY_AUDIT: ({ prisma, job, now, retainedVaultOptions }) =>
+    archiveAcademicIdentityAuditJob(prisma, job, now, retainedVaultOptions),
   SEASON_PROFILE_HISTORY: ({ prisma, job, now, retainedVaultOptions }) =>
     archiveSeasonProfileHistoryJob(prisma, job, now, retainedVaultOptions),
   MATCH_HISTORY: ({ prisma, job, now, retainedVaultOptions }) =>
@@ -173,10 +176,20 @@ export async function createDeletionArchiveJobsTx(
     where: { userId: input.userId, retainedIdentityId: null },
     data: { retainedIdentityId: input.retainedIdentityId },
   });
+  await tx.userAcademicIdentityChangeEvent.updateMany({
+    where: { userId: input.userId, retainedIdentityId: null },
+    data: { retainedIdentityId: input.retainedIdentityId },
+  });
 
   const jobs: Prisma.ArchiveJobCreateManyInput[] = [
     buildArchiveJob({
       target: 'NICKNAME_AUDIT',
+      retainedIdentityId: input.retainedIdentityId,
+      userId: input.userId,
+      deletedAt: input.deletedAt,
+    }),
+    buildArchiveJob({
+      target: 'ACADEMIC_IDENTITY_AUDIT',
       retainedIdentityId: input.retainedIdentityId,
       userId: input.userId,
       deletedAt: input.deletedAt,
@@ -473,6 +486,89 @@ async function archiveNicknameAuditJob(
     return { ok: true };
   } catch (error) {
     return toArchiveStorageError(error, 'NICKNAME_AUDIT_ARCHIVE_ERROR');
+  }
+}
+
+async function archiveAcademicIdentityAuditJob(
+  prisma: PrismaService,
+  job: ArchiveJobWorkItem,
+  now: Date,
+  retainedVaultOptions: RetainedVaultOwnerOptions,
+): Promise<ArchiveStorageResult> {
+  if (!job.userId || !job.retainedIdentityId) {
+    return { ok: false, errorCode: 'ACADEMIC_IDENTITY_AUDIT_CONTEXT_MISSING' };
+  }
+
+  const userId = job.userId;
+  const retainedIdentityId = job.retainedIdentityId;
+
+  try {
+    await prisma.runSerializableTransaction(async (tx) => {
+      const retainedIdentity = await loadRetainedIdentityForCase(tx, retainedIdentityId);
+      const retentionCase = await ensureRetentionCaseTx(tx, {
+        reason: retainedIdentity.retentionCaseReason,
+        triggerUserId: userId,
+        triggerRetainedIdentityId: retainedIdentityId,
+        sourceTable: 'UserAcademicIdentityChangeEvent',
+        sourceId: userId,
+        retentionHoldUntil: retainedIdentity.retentionHoldUntil,
+        legalHoldReason: retainedIdentity.legalHoldReason,
+        metadata: buildJobMetadata(job),
+      });
+
+      await tx.userAcademicIdentityChangeEvent.updateMany({
+        where: { userId, retainedIdentityId: null },
+        data: { retainedIdentityId },
+      });
+
+      const events = await tx.userAcademicIdentityChangeEvent.findMany({
+        where: { userId, redactedAt: null },
+        orderBy: [{ changedAt: 'asc' }, { id: 'asc' }],
+      });
+
+      for (const event of events) {
+        const retained = await retainVaultPayloadTx(
+          tx,
+          {
+            target: 'ACADEMIC_IDENTITY_AUDIT_EVENT',
+            sourceTable: 'UserAcademicIdentityChangeEvent',
+            sourceId: event.id,
+            archiveJobId: job.id,
+            subjectUserId: event.userId,
+            subjectRetainedIdentityId: retainedIdentityId,
+            subjectRole: 'USER',
+            keyPurpose: 'ACADEMIC_IDENTITY_AUDIT',
+            payloadSchemaVersion: 1,
+            plaintext: toVaultJson({ schemaVersion: 1, event }),
+            aad: buildVaultAad('ACADEMIC_IDENTITY_AUDIT_EVENT', event.id),
+            retainedAt: now,
+            metadata: buildJobMetadata(job),
+            retentionCaseId: retentionCase.id,
+            holdReason: retainedIdentity.retentionCaseReason,
+            holdUntil: retainedIdentity.retentionHoldUntil,
+          },
+          retainedVaultOptions,
+        );
+
+        await tx.userAcademicIdentityChangeEvent.update({
+          where: { id: event.id },
+          data: {
+            retainedIdentityId,
+            retainedVaultObjectId: retained.id,
+            redactedAt: now,
+            redactionReason: 'ACCOUNT_DELETION',
+            previousCollegeCode: 'REDACTED',
+            nextCollegeCode: 'REDACTED',
+            previousBirthYear: 0,
+            nextBirthYear: 0,
+            actorId: event.actorType === 'USER' && event.actorId === userId ? null : event.actorId,
+          },
+        });
+      }
+    });
+    return { ok: true };
+  } catch (error) {
+    return toArchiveStorageError(error, 'ACADEMIC_IDENTITY_AUDIT_ARCHIVE_ERROR');
   }
 }
 

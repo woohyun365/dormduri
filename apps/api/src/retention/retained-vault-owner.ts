@@ -22,6 +22,7 @@ export type RetentionVaultKeyPurpose =
   | 'IDENTITY'
   | 'CHAT_BODY'
   | 'NICKNAME_AUDIT'
+  | 'ACADEMIC_IDENTITY_AUDIT'
   | 'SEASON_PROFILE_HISTORY'
   | 'MATCH_HISTORY';
 
@@ -108,6 +109,11 @@ export interface RetainedNicknameAuditPayload {
   event: Record<string, unknown>;
 }
 
+export interface RetainedAcademicIdentityAuditPayload {
+  schemaVersion: 1;
+  event: Record<string, unknown>;
+}
+
 export interface RetainedSeasonProfileHistoryPayload {
   schemaVersion: 1;
   history: Record<string, unknown>;
@@ -124,6 +130,29 @@ export function parseRetainedNicknameAuditPayload(payload: unknown): RetainedNic
   const event = asRecord(candidate.event, '[retained-vault-owner] nickname audit payload invalid');
   if (candidate.schemaVersion !== 1 || typeof event.id !== 'string') {
     throw new Error('[retained-vault-owner] nickname audit payload invalid');
+  }
+
+  return { schemaVersion: 1, event };
+}
+
+export function parseRetainedAcademicIdentityAuditPayload(
+  payload: unknown,
+): RetainedAcademicIdentityAuditPayload {
+  const candidate = asRecord(
+    payload,
+    '[retained-vault-owner] academic identity audit payload invalid',
+  );
+  const event = asRecord(
+    candidate.event,
+    '[retained-vault-owner] academic identity audit payload invalid',
+  );
+  if (
+    candidate.schemaVersion !== 1 ||
+    typeof event.id !== 'string' ||
+    typeof event.previousCollegeCode !== 'string' ||
+    typeof event.nextCollegeCode !== 'string'
+  ) {
+    throw new Error('[retained-vault-owner] academic identity audit payload invalid');
   }
 
   return { schemaVersion: 1, event };
@@ -507,6 +536,7 @@ function parseRetentionVaultKeyPurpose(value: string): RetentionVaultKeyPurpose 
     value === 'IDENTITY' ||
     value === 'CHAT_BODY' ||
     value === 'NICKNAME_AUDIT' ||
+    value === 'ACADEMIC_IDENTITY_AUDIT' ||
     value === 'SEASON_PROFILE_HISTORY' ||
     value === 'MATCH_HISTORY'
   ) {

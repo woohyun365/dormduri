@@ -1,4 +1,8 @@
 import { createDeletionArchiveJobsTx, retryDueArchiveJobs } from './archive-job-owner.js';
+import {
+  createRetentionVaultCipher,
+  createStaticRetentionVaultKeyring,
+} from './retained-vault-owner.js';
 
 type ArchiveJobUpdateInput = { where: { id: string }; data: Record<string, unknown> };
 type ReviewJobUpsertInput = {
@@ -13,7 +17,12 @@ describe('archive job owner', () => {
     manualReviewRequired?: boolean;
     attemptCount?: number;
     maxAttempts?: number;
-    target?: 'THREAD_RETENTION' | 'NICKNAME_AUDIT' | 'SEASON_PROFILE_HISTORY' | 'MATCH_HISTORY';
+    target?:
+      | 'THREAD_RETENTION'
+      | 'NICKNAME_AUDIT'
+      | 'ACADEMIC_IDENTITY_AUDIT'
+      | 'SEASON_PROFILE_HISTORY'
+      | 'MATCH_HISTORY';
     threadId?: string | null;
     threadStatus?: 'OPEN' | 'READ_ONLY' | 'ARCHIVED' | null;
   }) {
@@ -185,6 +194,9 @@ describe('archive job owner', () => {
       userDisplayIdentityNicknameChangeEvent: {
         updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
+      userAcademicIdentityChangeEvent: {
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
       archiveJob: {
         createMany: jest.fn().mockImplementation(({ data }: { data: CreatedArchiveJob[] }) => {
           created.push(...data);
@@ -199,13 +211,147 @@ describe('archive job owner', () => {
       deletedAt: new Date('2026-05-13T00:00:00.000Z'),
     });
 
-    expect(result).toEqual({ createdCount: 5 });
+    expect(result).toEqual({ createdCount: 6 });
     expect(created.map((job) => job.target).sort()).toEqual([
+      'ACADEMIC_IDENTITY_AUDIT',
       'MATCH_HISTORY',
       'NICKNAME_AUDIT',
       'SEASON_PROFILE_HISTORY',
       'THREAD_RETENTION',
       'THREAD_RETENTION',
     ]);
+  });
+
+  it('ACADEMIC_IDENTITY_AUDIT job은 학업 identity audit 원문을 vault로 옮기고 hot row를 redaction한다', async () => {
+    const now = new Date('2026-05-13T00:00:00.000Z');
+    const vaultObjects: Array<Record<string, unknown>> = [];
+    const eventUpdates: Array<Record<string, unknown>> = [];
+    const archiveUpdates: ArchiveJobUpdateInput[] = [];
+    const event = {
+      id: 'academic-event-1',
+      userId: 'user-1',
+      retainedIdentityId: 'retained-1',
+      retainedVaultObjectId: null,
+      redactedAt: null,
+      redactionReason: null,
+      source: 'USER_SELF',
+      reason: 'ACADEMIC_CYCLE_ALLOWANCE',
+      actorType: 'USER',
+      actorId: 'user-1',
+      previousCollegeCode: 'ARTS_ENGINEERING',
+      nextCollegeCode: 'NURSING',
+      previousBirthYear: 2002,
+      nextBirthYear: 2002,
+      seasonId: null,
+      participantId: null,
+      reportId: null,
+      moderationCaseId: null,
+      sanctionId: null,
+      approvalReference: null,
+      metadata: null,
+      changedAt: new Date('2026-05-12T00:00:00.000Z'),
+      createdAt: new Date('2026-05-12T00:00:00.000Z'),
+    };
+    const tx = {
+      retainedIdentity: {
+        findUnique: jest.fn().mockResolvedValue({
+          holds: [
+            {
+              holdReason: 'ACCOUNT_DELETION',
+              holdUntil: new Date('2026-05-18T00:00:00.000Z'),
+              createdAt: new Date('2026-05-12T00:00:00.000Z'),
+              retentionCase: { legalHoldReason: null },
+            },
+          ],
+        }),
+      },
+      retentionCase: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'case-academic' }),
+      },
+      userAcademicIdentityChangeEvent: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findMany: jest.fn().mockResolvedValue([event]),
+        update: jest.fn().mockImplementation((input: { data: Record<string, unknown> }) => {
+          eventUpdates.push(input.data);
+          return Promise.resolve({ id: event.id });
+        }),
+      },
+      retainedVaultObject: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+          vaultObjects.push(data);
+          return Promise.resolve({ id: 'vault-academic-1' });
+        }),
+      },
+      retainedVaultObjectHold: {
+        upsert: jest.fn().mockResolvedValue({ id: 'hold-academic' }),
+      },
+    };
+    const prisma = {
+      archiveJob: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'job-academic',
+            target: 'ACADEMIC_IDENTITY_AUDIT',
+            status: 'PENDING',
+            retainedIdentityId: 'retained-1',
+            userId: 'user-1',
+            seasonId: null,
+            participantId: null,
+            matchHistoryEntryId: null,
+            threadId: null,
+            attemptCount: 0,
+            maxAttempts: 5,
+            nextRunAt: now,
+            lastErrorCode: null,
+            manualReviewRequired: false,
+            payload: { schemaVersion: 1 },
+          },
+        ]),
+        update: jest.fn().mockImplementation((input: ArchiveJobUpdateInput) => {
+          archiveUpdates.push(input);
+          return Promise.resolve(undefined);
+        }),
+      },
+      runSerializableTransaction: jest.fn(<T>(callback: (transaction: typeof tx) => T) =>
+        callback(tx),
+      ),
+    };
+    const cipher = createRetentionVaultCipher({
+      key: Buffer.alloc(32, 17),
+      keyVersion: 'academic-test-v1',
+    });
+
+    const result = await retryDueArchiveJobs(prisma as never, now, undefined, {
+      keyring: createStaticRetentionVaultKeyring({ ACADEMIC_IDENTITY_AUDIT: cipher }),
+    });
+
+    expect(result).toMatchObject({ processedCount: 1, succeededCount: 1, manualReviewCount: 0 });
+    expect(vaultObjects[0]).toMatchObject({
+      target: 'ACADEMIC_IDENTITY_AUDIT_EVENT',
+      sourceTable: 'UserAcademicIdentityChangeEvent',
+      sourceId: 'academic-event-1',
+      subjectUserId: 'user-1',
+      subjectRetainedIdentityId: 'retained-1',
+      subjectRole: 'USER',
+      keyPurpose: 'ACADEMIC_IDENTITY_AUDIT',
+      keyVersion: 'academic-test-v1',
+    });
+    expect(eventUpdates[0]).toMatchObject({
+      retainedIdentityId: 'retained-1',
+      retainedVaultObjectId: 'vault-academic-1',
+      redactedAt: now,
+      redactionReason: 'ACCOUNT_DELETION',
+      previousCollegeCode: 'REDACTED',
+      nextCollegeCode: 'REDACTED',
+      previousBirthYear: 0,
+      nextBirthYear: 0,
+      actorId: null,
+    });
+    expect(archiveUpdates[0]).toMatchObject({
+      where: { id: 'job-academic' },
+      data: { status: 'SUCCEEDED', attemptCount: 1, lastSucceededAt: now },
+    });
   });
 });

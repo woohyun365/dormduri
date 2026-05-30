@@ -23,6 +23,10 @@ describe('account deletion + season de-registration integration', () => {
     RETENTION_IDENTITY_KEY_VERSION: 'account-deletion-identity-v1',
     RETENTION_VAULT_NICKNAME_AUDIT_ENCRYPTION_KEY_BASE64: Buffer.alloc(32, 21).toString('base64'),
     RETENTION_VAULT_NICKNAME_AUDIT_KEY_VERSION: 'account-deletion-nickname-v1',
+    RETENTION_VAULT_ACADEMIC_IDENTITY_AUDIT_ENCRYPTION_KEY_BASE64: Buffer.alloc(32, 25).toString(
+      'base64',
+    ),
+    RETENTION_VAULT_ACADEMIC_IDENTITY_AUDIT_KEY_VERSION: 'account-deletion-academic-v1',
     RETENTION_VAULT_SEASON_PROFILE_HISTORY_ENCRYPTION_KEY_BASE64: Buffer.alloc(32, 22).toString(
       'base64',
     ),
@@ -108,6 +112,13 @@ describe('account deletion + season de-registration integration', () => {
         userId: input.userId,
         nickname: input.nickname,
         nicknameNormalized: input.nickname,
+      },
+    });
+    await prisma.userAcademicIdentity.create({
+      data: {
+        userId: input.userId,
+        collegeCode: 'ARTS_ENGINEERING',
+        birthYear: 2002,
       },
     });
 
@@ -215,6 +226,10 @@ describe('account deletion + season de-registration integration', () => {
         nicknameNormalizedSnapshot: input.nickname,
         ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
         intro: `${input.nickname} 등록 준비 소개`,
+        collegeCode: 'ARTS_ENGINEERING',
+        grade: '3',
+        mbti: 'INTJ',
+        birthYear: 2002,
       },
     });
   }
@@ -528,9 +543,14 @@ describe('account deletion + season de-registration integration', () => {
       orderBy: { target: 'asc' },
     });
     expect(archiveJobs.map((job) => job.target)).toEqual(
-      expect.arrayContaining(['SEASON_PROFILE_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT']),
+      expect.arrayContaining([
+        'ACADEMIC_IDENTITY_AUDIT',
+        'SEASON_PROFILE_HISTORY',
+        'THREAD_RETENTION',
+        'NICKNAME_AUDIT',
+      ]),
     );
-    expect(archiveJobs).toHaveLength(3);
+    expect(archiveJobs).toHaveLength(4);
     const threadRetentionJob = archiveJobs.find((job) => job.target === 'THREAD_RETENTION');
     expect(threadRetentionJob).toMatchObject({
       threadId: 'direct-thread-with-message',
@@ -661,6 +681,13 @@ describe('account deletion + season de-registration integration', () => {
     expect(displayIdentity.nickname).toBe('탈퇴한 사용자');
     expect(displayIdentity.nicknameNormalized.startsWith('deleted-')).toBe(true);
 
+    await expect(
+      prisma.userAcademicIdentity.findUnique({ where: { userId: 'user-c' } }),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.userAcademicIdentityChangeAllowance.findUnique({ where: { userId: 'user-c' } }),
+    ).resolves.toBeNull();
+
     const retainedIdentity = await prisma.retainedIdentity.findUniqueOrThrow({
       where: { originalUserId: 'user-c' },
     });
@@ -694,7 +721,10 @@ describe('account deletion + season de-registration integration', () => {
       where: { retainedIdentityId: retainedIdentity.id },
       orderBy: { target: 'asc' },
     });
-    expect(archiveJobs.map((job) => job.target)).toEqual(['NICKNAME_AUDIT']);
+    expect(archiveJobs.map((job) => job.target).sort()).toEqual([
+      'ACADEMIC_IDENTITY_AUDIT',
+      'NICKNAME_AUDIT',
+    ]);
 
     await request(httpServer)
       .post('/api/users/me/delete/cancel')

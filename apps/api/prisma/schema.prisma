@@ -185,6 +185,7 @@ enum RetainedVaultObjectTarget {
   SEASON_PROFILE_HISTORY
   MATCH_HISTORY_ENTRY
   NICKNAME_AUDIT_EVENT
+  ACADEMIC_IDENTITY_AUDIT_EVENT
 }
 
 enum RetainedVaultObjectState {
@@ -383,6 +384,7 @@ enum ArchiveJobTarget {
   MATCH_HISTORY
   THREAD_RETENTION
   NICKNAME_AUDIT
+  ACADEMIC_IDENTITY_AUDIT
 }
 
 enum ArchiveJobStatus {
@@ -698,6 +700,7 @@ model UserAcademicIdentityChangeEvent {
   id                  String                          @id @default(uuid())
   userId              String
   retainedIdentityId  String?
+  retainedVaultObjectId String?                       @unique
   redactedAt          DateTime?                       @db.Timestamptz(3)
   redactionReason     String?
   source              AcademicIdentityChangeSource
@@ -718,12 +721,14 @@ model UserAcademicIdentityChangeEvent {
   changedAt           DateTime                        @db.Timestamptz(3)
   createdAt           DateTime                        @default(now()) @db.Timestamptz(3)
   retainedIdentity    RetainedIdentity?               @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  retainedVaultObject RetainedVaultObject?            @relation("AcademicIdentityEventRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
   user                User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, changedAt])
   @@index([source, changedAt])
   @@index([actorType, actorId, changedAt])
   @@index([retainedIdentityId, changedAt])
+  @@index([retainedVaultObjectId])
   @@index([redactedAt])
   @@index([reportId])
   @@index([moderationCaseId])
@@ -1169,6 +1174,7 @@ model RetainedVaultObject {
   accessLogs                RetentionAccessLog[]
   chatMessage               ConversationMessage?                    @relation("ConversationMessageRetainedVaultObject")
   nicknameChangeEvent       UserDisplayIdentityNicknameChangeEvent? @relation("NicknameEventRetainedVaultObject")
+  academicIdentityChangeEvent UserAcademicIdentityChangeEvent?      @relation("AcademicIdentityEventRetainedVaultObject")
   profileHistory            SeasonParticipantProfileHistory?        @relation("ProfileHistoryRetainedVaultObject")
   matchHistoryLink          SeasonMatchHistoryEntryRetentionLink?   @relation("MatchHistoryLinkRetainedVaultObject")
 

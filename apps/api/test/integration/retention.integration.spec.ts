@@ -45,6 +45,10 @@ describe('RetainedIdentity integration', () => {
       key: Buffer.alloc(32, 13),
       keyVersion: 'nickname-integration-v1',
     }),
+    ACADEMIC_IDENTITY_AUDIT: createRetentionVaultCipher({
+      key: Buffer.alloc(32, 16),
+      keyVersion: 'academic-integration-v1',
+    }),
     SEASON_PROFILE_HISTORY: createRetentionVaultCipher({
       key: Buffer.alloc(32, 14),
       keyVersion: 'profile-history-integration-v1',
@@ -489,7 +493,7 @@ describe('RetainedIdentity integration', () => {
       }),
     );
 
-    expect(result.createdCount).toBe(4);
+    expect(result.createdCount).toBe(5);
 
     const jobs = await prisma.archiveJob.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
@@ -497,6 +501,7 @@ describe('RetainedIdentity integration', () => {
     });
     expect(jobs.map((job) => job.target)).toEqual(
       expect.arrayContaining([
+        'ACADEMIC_IDENTITY_AUDIT',
         'MATCH_HISTORY',
         'NICKNAME_AUDIT',
         'SEASON_PROFILE_HISTORY',
@@ -523,6 +528,11 @@ describe('RetainedIdentity integration', () => {
       lastErrorCode: null,
     });
     expect(jobByTarget.get('NICKNAME_AUDIT')).toMatchObject({
+      userId: 'user-a',
+      retainedIdentityId: retainedIdentity.id,
+      status: 'PENDING',
+    });
+    expect(jobByTarget.get('ACADEMIC_IDENTITY_AUDIT')).toMatchObject({
       userId: 'user-a',
       retainedIdentityId: retainedIdentity.id,
       status: 'PENDING',
@@ -574,6 +584,21 @@ describe('RetainedIdentity integration', () => {
         nextNickname: '유저A',
         nextNicknameNormalized: '유저a',
         changedAt: new Date('2026-05-01T00:00:00.000Z'),
+      },
+    });
+    await prisma.userAcademicIdentityChangeEvent.create({
+      data: {
+        id: 'academic-event-a',
+        userId: 'user-a',
+        source: 'USER_SELF',
+        reason: 'ACADEMIC_CYCLE_ALLOWANCE',
+        actorType: 'USER',
+        actorId: 'user-a',
+        previousCollegeCode: 'ARTS_ENGINEERING',
+        nextCollegeCode: 'NURSING',
+        previousBirthYear: 2002,
+        nextBirthYear: 2002,
+        changedAt: new Date('2026-05-01T00:10:00.000Z'),
       },
     });
 
@@ -638,7 +663,7 @@ describe('RetainedIdentity integration', () => {
       keyring: retainedVaultKeyring,
     });
     expect(sweep.manualReviewCount).toBe(0);
-    expect(sweep.succeededCount).toBe(4);
+    expect(sweep.succeededCount).toBe(5);
 
     const nicknameEvent = await prisma.userDisplayIdentityNicknameChangeEvent.findUniqueOrThrow({
       where: { id: 'nickname-event-a' },
@@ -652,6 +677,21 @@ describe('RetainedIdentity integration', () => {
     });
     expect(nicknameEvent.redactedAt?.toISOString()).toBe(archiveNow.toISOString());
     expect(nicknameEvent.retainedVaultObjectId).not.toBeNull();
+
+    const academicEvent = await prisma.userAcademicIdentityChangeEvent.findUniqueOrThrow({
+      where: { id: 'academic-event-a' },
+    });
+    expect(academicEvent).toMatchObject({
+      retainedIdentityId: retainedIdentity.id,
+      previousCollegeCode: 'REDACTED',
+      nextCollegeCode: 'REDACTED',
+      previousBirthYear: 0,
+      nextBirthYear: 0,
+      actorId: null,
+      redactionReason: 'ACCOUNT_DELETION',
+    });
+    expect(academicEvent.redactedAt?.toISOString()).toBe(archiveNow.toISOString());
+    expect(academicEvent.retainedVaultObjectId).not.toBeNull();
 
     const profileHistory = await prisma.seasonParticipantProfileHistory.findFirstOrThrow({
       where: { participantId: 'participant-a' },
@@ -740,6 +780,26 @@ describe('RetainedIdentity integration', () => {
       true,
     );
 
+    const academicVaultObjects = await prisma.retainedVaultObject.findMany({
+      where: {
+        subjectRetainedIdentityId: retainedIdentity.id,
+        target: 'ACADEMIC_IDENTITY_AUDIT_EVENT',
+      },
+      include: { holds: true },
+    });
+    expect(academicVaultObjects).toEqual([
+      expect.objectContaining({
+        target: 'ACADEMIC_IDENTITY_AUDIT_EVENT',
+        sourceId: 'academic-event-a',
+        subjectRole: 'USER',
+        keyPurpose: 'ACADEMIC_IDENTITY_AUDIT',
+        keyVersion: 'academic-integration-v1',
+      }),
+    ]);
+    expect(academicVaultObjects[0]?.encryptedPayload).not.toBeNull();
+    expect(academicVaultObjects[0]?.payloadDigest).toHaveLength(64);
+    expect(academicVaultObjects[0]?.holds[0]?.holdReason).toBe('ACCOUNT_DELETION');
+
     const matchLinks = await prisma.seasonMatchHistoryEntryRetentionLink.findMany({
       where: { retainedIdentityId: retainedIdentity.id },
       orderBy: [{ subjectRole: 'asc' }],
@@ -785,7 +845,7 @@ describe('RetainedIdentity integration', () => {
       keyring: retainedVaultKeyring,
     });
     expect(counterpartSweep.manualReviewCount).toBe(0);
-    expect(counterpartSweep.succeededCount).toBe(4);
+    expect(counterpartSweep.succeededCount).toBe(5);
 
     const allMatchLinks = await prisma.seasonMatchHistoryEntryRetentionLink.findMany({
       orderBy: [{ matchHistoryEntryId: 'asc' }, { subjectRole: 'asc' }],

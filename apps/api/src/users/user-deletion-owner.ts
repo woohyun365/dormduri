@@ -200,6 +200,14 @@ export function createUserDeletionOwner(deps: UserDeletionOwnerDeps) {
           },
         });
 
+        await tx.userAcademicIdentity.deleteMany({
+          where: { userId: txUser.id },
+        });
+
+        await tx.userAcademicIdentityChangeAllowance.deleteMany({
+          where: { userId: txUser.id },
+        });
+
         await tx.seasonParticipantProfile.updateMany({
           where: { participant: { userId: txUser.id } },
           data: {

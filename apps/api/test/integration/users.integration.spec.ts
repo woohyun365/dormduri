@@ -350,6 +350,61 @@ describe('UsersService integration', () => {
     });
   });
 
+  it('동시에 두 college correction 요청이 들어와도 academic cycle allowance는 한 번만 소비된다', async () => {
+    await prisma.collegeMaster.createMany({
+      data: [
+        {
+          code: 'NURSING',
+          campusCode: 'CHUNCHEON',
+          nameKo: '간호대학',
+          sortOrder: 2,
+        },
+        {
+          code: 'BUSINESS',
+          campusCode: 'CHUNCHEON',
+          nameKo: '경영대학',
+          sortOrder: 3,
+        },
+      ],
+    });
+
+    const results = await Promise.allSettled([
+      service.updateCurrentUser(authContext('user-a'), {
+        academicIdentity: {
+          collegeCode: 'NURSING',
+          birthYear: 2002,
+        },
+      } as never),
+      service.updateCurrentUser(authContext('user-a'), {
+        academicIdentity: {
+          collegeCode: 'BUSINESS',
+          birthYear: 2002,
+        },
+      } as never),
+    ]);
+
+    const fulfilled = results.filter((result) => result.status === 'fulfilled');
+    const rejected = results.filter((result) => result.status === 'rejected');
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expect(rejected[0]).toMatchObject({
+      reason: {
+        response: usersErrors.academicCollegeChangeAllowanceExhausted().getResponse(),
+      },
+    });
+
+    const [academicIdentity, allowance, auditEventCount] = await Promise.all([
+      prisma.userAcademicIdentity.findUniqueOrThrow({ where: { userId: 'user-a' } }),
+      prisma.userAcademicIdentityChangeAllowance.findUniqueOrThrow({
+        where: { userId: 'user-a' },
+      }),
+      prisma.userAcademicIdentityChangeEvent.count({ where: { userId: 'user-a' } }),
+    ]);
+    expect(['NURSING', 'BUSINESS']).toContain(academicIdentity.collegeCode);
+    expect(allowance.collegeChangeRemaining).toBe(0);
+    expect(auditEventCount).toBe(1);
+  });
+
   it('policy enforcement nickname override는 registered snapshot과 운영 감사 이력을 함께 남긴다', async () => {
     const now = await prisma.getDatabaseNow();
     await prisma.seasonParticipant.update({

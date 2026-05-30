@@ -83,7 +83,7 @@ CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISP
 CREATE TYPE "ConversationMessageTombstoneReason" AS ENUM ('ACCOUNT_DELETION_RETENTION', 'USER_MESSAGE_DELETED', 'MODERATION_POLICY_VIOLATION', 'ADMIN_ACTION', 'RETENTION_DISPOSED');
 
 -- CreateEnum
-CREATE TYPE "RetainedVaultObjectTarget" AS ENUM ('CHAT_MESSAGE_BODY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY', 'NICKNAME_AUDIT_EVENT');
+CREATE TYPE "RetainedVaultObjectTarget" AS ENUM ('CHAT_MESSAGE_BODY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY', 'NICKNAME_AUDIT_EVENT', 'ACADEMIC_IDENTITY_AUDIT_EVENT');
 
 -- CreateEnum
 CREATE TYPE "RetainedVaultObjectState" AS ENUM ('RETAINED', 'DISPOSED', 'FAILED_MANUAL_REVIEW');
@@ -176,7 +176,7 @@ CREATE TYPE "RoommateDrinkingTolerance" AS ENUM ('LOW_ONLY', 'ANY');
 CREATE TYPE "ProfileHistorySource" AS ENUM ('SEASON_REGISTRATION', 'SYSTEM_BACKFILL');
 
 -- CreateEnum
-CREATE TYPE "ArchiveJobTarget" AS ENUM ('SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT');
+CREATE TYPE "ArchiveJobTarget" AS ENUM ('SEASON_PROFILE_HISTORY', 'MATCH_HISTORY', 'THREAD_RETENTION', 'NICKNAME_AUDIT', 'ACADEMIC_IDENTITY_AUDIT');
 
 -- CreateEnum
 CREATE TYPE "ArchiveJobStatus" AS ENUM ('PENDING', 'WAITING_CONDITION', 'SUCCEEDED', 'RETRY_SCHEDULED', 'FAILED_MANUAL_REVIEW');
@@ -417,6 +417,7 @@ CREATE TABLE "UserAcademicIdentityChangeEvent" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "retainedIdentityId" TEXT,
+    "retainedVaultObjectId" TEXT,
     "redactedAt" TIMESTAMPTZ(3),
     "redactionReason" TEXT,
     "source" "AcademicIdentityChangeSource" NOT NULL,
@@ -1031,6 +1032,9 @@ CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_moderationCaseId_idx" ON "U
 CREATE INDEX "UserDisplayIdentityNicknameChangeEvent_sanctionId_idx" ON "UserDisplayIdentityNicknameChangeEvent"("sanctionId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserAcademicIdentityChangeEvent_retainedVaultObjectI_key" ON "UserAcademicIdentityChangeEvent"("retainedVaultObjectId");
+
+-- CreateIndex
 CREATE INDEX "UserAcademicIdentityChangeEvent_userId_changedAt_idx" ON "UserAcademicIdentityChangeEvent"("userId", "changedAt");
 
 -- CreateIndex
@@ -1041,6 +1045,9 @@ CREATE INDEX "UserAcademicIdentityChangeEvent_actorType_actorId_ch_idx" ON "User
 
 -- CreateIndex
 CREATE INDEX "UserAcademicIdentityChangeEvent_retainedIdentityId_c_idx" ON "UserAcademicIdentityChangeEvent"("retainedIdentityId", "changedAt");
+
+-- CreateIndex
+CREATE INDEX "UserAcademicIdentityChangeEvent_retainedVaultObjectI_idx" ON "UserAcademicIdentityChangeEvent"("retainedVaultObjectId");
 
 -- CreateIndex
 CREATE INDEX "UserAcademicIdentityChangeEvent_redactedAt_idx" ON "UserAcademicIdentityChangeEvent"("redactedAt");
@@ -1323,6 +1330,9 @@ ALTER TABLE "UserDisplayIdentityNicknameChangeEvent" ADD CONSTRAINT "UserDisplay
 
 -- AddForeignKey
 ALTER TABLE "UserAcademicIdentityChangeEvent" ADD CONSTRAINT "UserAcademicIdentityChangeEvent_retainedIdentityId_fkey" FOREIGN KEY ("retainedIdentityId") REFERENCES "RetainedIdentity"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserAcademicIdentityChangeEvent" ADD CONSTRAINT "UserAcademicIdentityChangeEvent_retainedVaultObject_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserAcademicIdentityChangeEvent" ADD CONSTRAINT "UserAcademicIdentityChangeEvent_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
