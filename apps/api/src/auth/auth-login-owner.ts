@@ -6,7 +6,7 @@ import { toLoginSuccessResult } from './auth-response.builder.js';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
 import { normalizeEmail } from './auth.utils.js';
 import { verifyPasswordHash } from './auth-password.js';
-import { hasUserDisplayIdentity } from '../common/user-display-identity-invariant.js';
+import { hasUserDisplayIdentity } from '../common/account-identity-invariant.owner.js';
 
 interface AuthLoginOwnerDeps {
   prisma: PrismaService;

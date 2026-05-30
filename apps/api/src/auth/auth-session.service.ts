@@ -16,7 +16,7 @@ import type {
 } from './auth.types.js';
 import { toAuthenticatedSessionResult } from './auth-response.builder.js';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
-import { hasUserDisplayIdentity } from '../common/user-display-identity-invariant.js';
+import { hasUserDisplayIdentity } from '../common/account-identity-invariant.owner.js';
 
 export interface AuthenticatedUserContext {
   id: string;
