@@ -118,6 +118,9 @@ describe('UsersService current-user boundary', () => {
       findMany: jest.fn(),
       updateMany: jest.fn(),
     },
+    season: {
+      findFirst: jest.fn(),
+    },
     seasonParticipantProfile: {
       updateMany: jest.fn(),
     },
@@ -185,6 +188,7 @@ describe('UsersService current-user boundary', () => {
     prisma.seasonParticipant.findUnique.mockResolvedValue(null);
     prisma.seasonParticipant.findMany.mockResolvedValue([{ id: 'participant-1' }]);
     prisma.seasonParticipant.updateMany.mockResolvedValue({ count: 0 });
+    prisma.season.findFirst.mockResolvedValue({ academicYear: 2026 });
     prisma.seasonParticipantProfile.updateMany.mockResolvedValue({ count: 0 });
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       Promise.resolve(callback(prisma)),
@@ -523,6 +527,7 @@ describe('UsersService current-user boundary', () => {
       season: { id: 'season-without-academic-year' },
       state: 'SEASON_OPEN',
     });
+    prisma.season.findFirst.mockResolvedValue(null);
 
     await expect(
       service.updateCurrentUser(authUser, {
@@ -538,6 +543,60 @@ describe('UsersService current-user boundary', () => {
     expect(prisma.userAcademicIdentityChangeAllowance.upsert).not.toHaveBeenCalled();
     expect(prisma.userAcademicIdentityChangeAllowance.updateMany).not.toHaveBeenCalled();
     expect(prisma.userAcademicIdentity.upsert).not.toHaveBeenCalled();
+  });
+
+  it('OFF_SEASON에는 현재 시즌이 없어도 upcoming season academicYear로 allowance cycle을 lazy rollover한다', async () => {
+    seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
+    prisma.season.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ academicYear: 2027 });
+    prisma.userAcademicIdentityChangeAllowance.findUnique.mockResolvedValue({
+      userId: 'user-1',
+      academicYear: 2026,
+      collegeChangeRemaining: 0,
+    });
+
+    await expect(
+      service.updateCurrentUser(authUser, {
+        academicIdentity: {
+          collegeCode: 'NURSING',
+          birthYear: 2002,
+        },
+      } as never),
+    ).resolves.toMatchObject({
+      mutation: {
+        academicIdentity: {
+          attempted: true,
+          changed: true,
+          noOpReason: null,
+        },
+      },
+    });
+
+    expect(prisma.userAcademicIdentityChangeAllowance.upsert).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      create: {
+        userId: 'user-1',
+        academicYear: 2027,
+        collegeChangeRemaining: 1,
+        resetReason: 'ACADEMIC_CYCLE_ROLLOVER',
+      },
+      update: {
+        academicYear: 2027,
+        collegeChangeRemaining: 1,
+        resetReason: 'ACADEMIC_CYCLE_ROLLOVER',
+      },
+    });
+    expect(prisma.userAcademicIdentityChangeAllowance.updateMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-1',
+        academicYear: 2027,
+        collegeChangeRemaining: { gt: 0 },
+      },
+      data: {
+        collegeChangeRemaining: { decrement: 1 },
+      },
+    });
   });
 
   it('registration 전 academic identity 정정은 academic correction policy로 nickname cooldown과 독립된 mutation metadata를 반환한다', async () => {

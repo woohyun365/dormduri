@@ -30,6 +30,7 @@ import {
   recordDisplayIdentityNicknameChangeAuditTx,
   type DisplayIdentityNicknameAuditReference,
 } from './display-identity-nickname-audit.owner.js';
+import { consumeAcademicCollegeChangeAllowanceTx } from './academic-identity-correction-allowance.owner.js';
 
 export interface UpdateCurrentUserInput {
   displayIdentity?: {
@@ -82,19 +83,11 @@ type UserDisplayIdentityClient =
 type AcademicIdentityClient =
   | Pick<
       PrismaService,
-      | 'userAcademicIdentity'
-      | 'userAcademicIdentityChangeAllowance'
-      | 'userAcademicIdentityChangeEvent'
-      | 'seasonParticipantProfileHistory'
-      | 'seasonParticipant'
+      'userAcademicIdentity' | 'seasonParticipantProfileHistory' | 'seasonParticipant'
     >
   | Pick<
       Prisma.TransactionClient,
-      | 'userAcademicIdentity'
-      | 'userAcademicIdentityChangeAllowance'
-      | 'userAcademicIdentityChangeEvent'
-      | 'seasonParticipantProfileHistory'
-      | 'seasonParticipant'
+      'userAcademicIdentity' | 'seasonParticipantProfileHistory' | 'seasonParticipant'
     >;
 
 export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
@@ -291,7 +284,11 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       await assertBirthYearEditableBeforeRegistration(txUser.id, tx);
     }
     if (collegeChanged) {
-      await consumeCurrentAcademicCollegeAllowance(txUser, now, tx);
+      await consumeAcademicCollegeChangeAllowanceTx(tx, {
+        userId: txUser.id,
+        campus: txUser.campus,
+        now,
+      });
     }
 
     await updateAcademicIdentity(txUser.id, parsedAcademicIdentity, tx);
@@ -466,50 +463,6 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
 
     if (registrationSnapshot) {
       throw usersErrors.academicBirthYearLockedAfterRegistration();
-    }
-  }
-
-  async function consumeCurrentAcademicCollegeAllowance(
-    user: Pick<UserWithDisplayIdentityRecord, 'id' | 'campus'>,
-    now: Date,
-    client: AcademicIdentityClient = deps.prisma,
-  ) {
-    const seasonContext = await deps.seasonsService.getCurrentSeasonContext(user.campus, now);
-    const academicYear = (seasonContext?.season as { academicYear?: number } | undefined)
-      ?.academicYear;
-    if (typeof academicYear !== 'number') {
-      throw usersErrors.academicCorrectionCycleUnavailable();
-    }
-
-    const allowance = await client.userAcademicIdentityChangeAllowance.findUnique({
-      where: { userId: user.id },
-      select: {
-        academicYear: true,
-        collegeChangeRemaining: true,
-      },
-    });
-
-    if (
-      !allowance ||
-      allowance.academicYear !== academicYear ||
-      allowance.collegeChangeRemaining <= 0
-    ) {
-      throw usersErrors.academicCollegeChangeAllowanceExhausted();
-    }
-
-    const updateResult = await client.userAcademicIdentityChangeAllowance.updateMany({
-      where: {
-        userId: user.id,
-        academicYear,
-        collegeChangeRemaining: { gt: 0 },
-      },
-      data: {
-        collegeChangeRemaining: { decrement: 1 },
-      },
-    });
-
-    if (updateResult.count !== 1) {
-      throw usersErrors.academicCollegeChangeAllowanceExhausted();
     }
   }
 

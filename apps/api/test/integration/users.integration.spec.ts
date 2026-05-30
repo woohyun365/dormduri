@@ -245,6 +245,111 @@ describe('UsersService integration', () => {
     });
   });
 
+  it('academic college allowance row가 없으면 college 변경 요청 transaction에서 current cycle row를 lazy create 후 차감한다', async () => {
+    const season = await prisma.season.findUniqueOrThrow({
+      where: { id: 'season-integration' },
+      select: { academicYear: true },
+    });
+    await prisma.collegeMaster.create({
+      data: {
+        code: 'NURSING',
+        campusCode: 'CHUNCHEON',
+        nameKo: '간호대학',
+        sortOrder: 2,
+      },
+    });
+    await prisma.userAcademicIdentityChangeAllowance.delete({
+      where: { userId: 'user-a' },
+    });
+
+    const response = await service.updateCurrentUser(authContext('user-a'), {
+      academicIdentity: {
+        collegeCode: 'NURSING',
+        birthYear: 2002,
+      },
+    } as never);
+
+    expect(response.mutation.academicIdentity).toEqual({
+      attempted: true,
+      changed: true,
+      noOpReason: null,
+    });
+    expect(response.currentUser.academicIdentity).toMatchObject({
+      collegeCode: 'NURSING',
+      birthYear: 2002,
+    });
+
+    const allowance = await prisma.userAcademicIdentityChangeAllowance.findUniqueOrThrow({
+      where: { userId: 'user-a' },
+    });
+    expect(allowance).toMatchObject({
+      academicYear: season.academicYear,
+      collegeChangeRemaining: 0,
+      resetReason: 'INITIAL_CYCLE_ALLOWANCE',
+    });
+
+    const auditEvents = await prisma.userAcademicIdentityChangeEvent.findMany({
+      where: { userId: 'user-a' },
+      orderBy: { changedAt: 'asc' },
+    });
+    expect(auditEvents).toHaveLength(1);
+    expect(auditEvents[0]).toMatchObject({
+      source: 'USER_SELF',
+      reason: 'ACADEMIC_CYCLE_ALLOWANCE',
+      actorType: 'USER',
+      actorId: 'user-a',
+      previousCollegeCode: 'ARTS_ENGINEERING',
+      nextCollegeCode: 'NURSING',
+      previousBirthYear: 2002,
+      nextBirthYear: 2002,
+    });
+  });
+
+  it('이전 academic cycle allowance row는 college 변경 요청 transaction에서 current cycle로 lazy rollover 후 차감한다', async () => {
+    const season = await prisma.season.findUniqueOrThrow({
+      where: { id: 'season-integration' },
+      select: { academicYear: true },
+    });
+    await prisma.collegeMaster.create({
+      data: {
+        code: 'NURSING',
+        campusCode: 'CHUNCHEON',
+        nameKo: '간호대학',
+        sortOrder: 2,
+      },
+    });
+    await prisma.userAcademicIdentityChangeAllowance.update({
+      where: { userId: 'user-a' },
+      data: {
+        academicYear: season.academicYear - 1,
+        collegeChangeRemaining: 0,
+        resetReason: 'INITIAL_CYCLE_ALLOWANCE',
+      },
+    });
+
+    const response = await service.updateCurrentUser(authContext('user-a'), {
+      academicIdentity: {
+        collegeCode: 'NURSING',
+        birthYear: 2002,
+      },
+    } as never);
+
+    expect(response.mutation.academicIdentity).toEqual({
+      attempted: true,
+      changed: true,
+      noOpReason: null,
+    });
+
+    const allowance = await prisma.userAcademicIdentityChangeAllowance.findUniqueOrThrow({
+      where: { userId: 'user-a' },
+    });
+    expect(allowance).toMatchObject({
+      academicYear: season.academicYear,
+      collegeChangeRemaining: 0,
+      resetReason: 'ACADEMIC_CYCLE_ROLLOVER',
+    });
+  });
+
   it('policy enforcement nickname override는 registered snapshot과 운영 감사 이력을 함께 남긴다', async () => {
     const now = await prisma.getDatabaseNow();
     await prisma.seasonParticipant.update({
