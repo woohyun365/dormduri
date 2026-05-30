@@ -58,6 +58,7 @@ export interface VisibleProfileViewerContext {
   viewerSeasonProfileComplete: boolean;
   viewerHasOperatedAssignedDormitory: boolean;
   currentSeasonId: string | null;
+  seasonReferenceYear: number | null;
   serviceState: {
     campusOperated: boolean;
     seasonState: 'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING' | 'SEASON_POST_MATCH' | null;
@@ -157,6 +158,9 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
         viewerSelection.dormitoryId,
       ),
       currentSeasonId: serviceState.seasonContext?.season.id ?? null,
+      seasonReferenceYear: resolveSeasonReferenceYear(
+        serviceState.seasonContext?.season.seasonEndDate,
+      ),
       serviceState: {
         campusOperated: serviceState.campusOperated,
         seasonState: serviceState.seasonState,
@@ -525,6 +529,15 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     getDetailProfileByUserId,
     toDetailPublicProfile,
   };
+}
+
+function resolveSeasonReferenceYear(seasonEndDate: string | null | undefined) {
+  if (!seasonEndDate) {
+    return null;
+  }
+
+  const parsed = Number(seasonEndDate.slice(0, 4));
+  return Number.isInteger(parsed) ? parsed : null;
 }
 
 function canRenderTombstoneDetail(
