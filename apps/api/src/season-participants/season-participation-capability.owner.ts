@@ -25,7 +25,8 @@ export function validateSeasonProfileCompleteness(
   }
 
   return {
-    complete: isSeasonProfileComplete(profile.lifestyle) && profile.intro.trim().length > 0,
+    complete:
+      isSeasonProfileComplete(profile.lifestyle) && profile.grade !== null && profile.mbti !== null,
   };
 }
 

@@ -19,6 +19,8 @@ import {
   assertSeasonProfileCompleteForRegistration,
   buildCompletion,
 } from './season-participation-capability.owner.js';
+import { assertUserAccountIdentity } from '../common/account-identity-invariant.owner.js';
+import { usersErrors } from '../users/users.errors.js';
 import { seasonParticipantsErrors } from './season-participants.errors.js';
 
 export function createSeasonRegistrationFinalizeOwner(
@@ -36,6 +38,9 @@ export function createSeasonRegistrationFinalizeOwner(
 
     return deps.prisma.runSerializableTransaction(async (tx) => {
       const txUser = await getVerifiedUserForSeasonAction(deps, userId, tx);
+      assertUserAccountIdentity(txUser, (invariant) =>
+        usersErrors.accountIdentityIncomplete('registration-finalize', invariant),
+      );
       const txSeasonContext = await assertRegistrationSeasonContext(
         deps,
         txUser.campus,
@@ -80,8 +85,10 @@ export function createSeasonRegistrationFinalizeOwner(
       await tx.seasonParticipantProfile.update({
         where: { participantId: participant.id },
         data: {
-          nicknameSnapshot: txUser.displayIdentity!.nickname,
-          nicknameNormalizedSnapshot: txUser.displayIdentity!.nicknameNormalized,
+          nicknameSnapshot: txUser.displayIdentity.nickname,
+          nicknameNormalizedSnapshot: txUser.displayIdentity.nicknameNormalized,
+          collegeCode: txUser.academicIdentity.collegeCode,
+          birthYear: txUser.academicIdentity.birthYear,
         },
       });
 

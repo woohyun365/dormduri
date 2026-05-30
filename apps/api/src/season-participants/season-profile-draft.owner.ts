@@ -68,7 +68,10 @@ export function createSeasonProfileDraftOwner(
       }
       assertParticipantAllowsProfileDraftWrite(participant);
 
-      const draftData = toSeasonProfileDraftColumnData(input, txUser.displayIdentity!);
+      if (!txUser.displayIdentity) {
+        throw new Error('[SeasonProfileDraftOwner] user display identity row is required');
+      }
+      const draftData = toSeasonProfileDraftColumnData(input, txUser.displayIdentity);
       await tx.seasonParticipantProfile.upsert({
         where: { participantId: participant.id },
         create: {
@@ -77,6 +80,12 @@ export function createSeasonProfileDraftOwner(
         },
         update: draftData,
       });
+      if (participant.participantStatus === 'NOT_STARTED') {
+        await tx.seasonParticipant.update({
+          where: { id: participant.id },
+          data: { participantStatus: 'DRAFT' },
+        });
+      }
 
       return participant.id;
     });
@@ -113,7 +122,7 @@ export function toSeasonProfileDraftColumnData(
     nicknameSnapshot: displayIdentity.nickname,
     nicknameNormalizedSnapshot: displayIdentity.nicknameNormalized,
     ...toLifestyleColumnData(input.lifestyle),
-    intro: input.intro.trim(),
+    intro: (input.intro ?? '').trim(),
     grade: additional.grade,
     mbti: additional.mbti,
   };

@@ -757,7 +757,7 @@ describe('Season registration split-flow integration', () => {
         nickname: input.nickname,
         gender: 'M',
         campus: 'CHUNCHEON',
-        collegeCode: 'IT',
+        collegeCode: 'ARTS_ENGINEERING',
         birthYear: 2002,
       } as never),
     ).resolves.toMatchObject({ success: true });

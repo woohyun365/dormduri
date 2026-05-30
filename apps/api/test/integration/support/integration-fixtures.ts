@@ -34,6 +34,10 @@ export function buildCompleteSeasonProfileDraft(
   return {
     lifestyle: DEFAULT_LIFESTYLE,
     intro,
+    additional: {
+      grade: '3',
+      mbti: 'INTJ',
+    },
   };
 }
 
@@ -69,6 +73,15 @@ export async function seedBaseSeasonFixtures(prisma: PrismaService) {
       nameKo: '다산관',
       roomType: 2,
       genderPolicy: 'M',
+      sortOrder: 1,
+    },
+  });
+
+  await prisma.collegeMaster.create({
+    data: {
+      code: 'ARTS_ENGINEERING',
+      campusCode: 'CHUNCHEON',
+      nameKo: '문화예술공과대학',
       sortOrder: 1,
     },
   });
@@ -204,6 +217,23 @@ export async function seedRegisteredAssignedParticipant(
     },
   });
 
+  await prisma.userAcademicIdentity.create({
+    data: {
+      userId: input.userId,
+      collegeCode: 'ARTS_ENGINEERING',
+      birthYear: 2002,
+    },
+  });
+
+  await prisma.userAcademicIdentityChangeAllowance.create({
+    data: {
+      userId: input.userId,
+      academicYear: databaseNow.getUTCFullYear(),
+      collegeChangeRemaining: 1,
+      resetReason: 'INITIAL_CYCLE_ALLOWANCE',
+    },
+  });
+
   await prisma.seasonParticipant.create({
     data: {
       id: input.participantId,
@@ -228,6 +258,10 @@ export async function seedRegisteredAssignedParticipant(
       nicknameNormalizedSnapshot: input.nickname,
       ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
       intro: `${input.nickname} 시즌 소개`,
+      collegeCode: 'ARTS_ENGINEERING',
+      grade: '3',
+      mbti: 'INTJ',
+      birthYear: 2002,
     },
   });
 
@@ -239,6 +273,10 @@ export async function seedRegisteredAssignedParticipant(
       nicknameNormalizedSnapshot: input.nickname,
       ...toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE),
       intro: `${input.nickname} 시즌 소개`,
+      collegeCode: 'ARTS_ENGINEERING',
+      grade: '3',
+      mbti: 'INTJ',
+      birthYear: 2002,
       registeredAtSnapshot: verifiedAt,
       source: 'SEASON_REGISTRATION',
     },

@@ -52,6 +52,11 @@ export type VerifiedSeasonActionUser = {
     nickname: string;
     nicknameNormalized: string;
   } | null;
+  academicIdentity: {
+    userId: string;
+    collegeCode: string;
+    birthYear: number;
+  } | null;
 };
 
 const userForSeasonActionSelect = {
@@ -67,6 +72,13 @@ const userForSeasonActionSelect = {
       nicknameNormalized: true,
     },
   },
+  academicIdentity: {
+    select: {
+      userId: true,
+      collegeCode: true,
+      birthYear: true,
+    },
+  },
 } as const;
 
 export async function getVerifiedUserForSeasonAction(
@@ -79,7 +91,7 @@ export async function getVerifiedUserForSeasonAction(
     select: userForSeasonActionSelect,
   });
 
-  if (!user || !user.emailVerifiedAt || user.deletedAt || !user.displayIdentity) {
+  if (!user || !user.emailVerifiedAt || user.deletedAt) {
     throw seasonParticipantsErrors.registrationNotAllowed();
   }
 
