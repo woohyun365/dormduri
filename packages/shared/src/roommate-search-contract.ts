@@ -94,7 +94,6 @@ export const roommateSearchAvailabilityNoticeCodeSchema = z.enum([
   'POST_MATCH_ACTION_CLOSED',
   'DETAIL_UNAVAILABLE_BY_POLICY',
   'FILTER_RESULT_EMPTY',
-  'SCORE_PROJECTION_REPAIRING',
 ]);
 export const roommateSearchAvailabilityNoticeSeveritySchema = z.enum(['INFO', 'WARNING']);
 export const roommateSearchSleepHabitFilterSchema = z.union([

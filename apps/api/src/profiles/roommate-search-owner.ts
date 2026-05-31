@@ -476,7 +476,7 @@ function assertNicknameSort(sort: RoommateSearchSort): 'NICKNAME' {
   }
 
   throw roommateSearchErrors.invalidQuery(
-    '매칭 점수 정렬은 score projection cursor 구현 후 제공됩니다.',
+    '매칭 점수 정렬은 query-time score cursor 구현 후 제공됩니다.',
   );
 }
 
