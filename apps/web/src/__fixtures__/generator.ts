@@ -132,15 +132,15 @@ const INDOOR_EATING_TOL_VALUES: LifestyleData['indoorEatingTolerance'][] = [
   'ANY',
 ];
 const COLLEGES: AdditionalProfile['college'][] = [
-  'IT대',
-  '경영대',
-  '사범대',
-  '인문대',
-  '농업생명대',
-  '자연과학대',
-  '문화예술·공대',
-  '사회과학대',
-  '산림환경대',
+  'IT',
+  'BUSINESS',
+  'EDUCATION',
+  'HUMANITIES',
+  'AGRICULTURE_LIFE',
+  'NATURAL_SCIENCES',
+  'ARTS_ENGINEERING',
+  'SOCIAL_SCIENCES',
+  'FOREST_ENVIRONMENT',
   null,
 ];
 const GRADES: AdditionalProfile['grade'][] = ['1', '2', '3', '4+', null];

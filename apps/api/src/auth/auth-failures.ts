@@ -1,5 +1,5 @@
 import type { GenericSuccessResult, LoginResult } from './auth.types.js';
-import type { SignupProfileValidationFieldErrors } from '@repo/shared/auth-response';
+import type { SignupDraftValidationFieldErrors } from '@repo/shared/auth-response';
 
 interface AuthFailureOptions {
   userActionable?: boolean;
@@ -35,7 +35,7 @@ export const authFailures = {
     );
   },
 
-  signupValidation(error: string, fieldErrors: SignupProfileValidationFieldErrors = {}) {
+  signupValidation(error: string, fieldErrors: SignupDraftValidationFieldErrors = {}) {
     const normalizedFieldErrors = Object.fromEntries(
       Object.entries(fieldErrors).filter(
         (entry): entry is [string, string] => typeof entry[1] === 'string',
@@ -44,18 +44,6 @@ export const authFailures = {
 
     return createFailure('AUTH_SIGNUP_VALIDATION_FAILED', error, {
       fieldErrors: normalizedFieldErrors,
-    });
-  },
-
-  invalidLifestyle(error: string) {
-    return createFailure('AUTH_INVALID_LIFESTYLE_INPUT', error, {
-      fieldErrors: { lifestyle: error },
-    });
-  },
-
-  introRejected(error: string) {
-    return createFailure('AUTH_INTRO_REJECTED', error, {
-      fieldErrors: { intro: error },
     });
   },
 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { Campus, DormitorySelectionState, Gender } from '../generated/prisma/enums.js';
+import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { getCurrentSessionUserId } from '../generated/prisma/sql.js';
 import {
@@ -16,14 +16,12 @@ import type {
 } from './auth.types.js';
 import { toAuthenticatedSessionResult } from './auth-response.builder.js';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
-import { apiEnv } from '../config/env.js';
+import { hasUserDisplayIdentity } from '../common/account-identity-invariant.owner.js';
 
 export interface AuthenticatedUserContext {
   id: string;
   gender: Gender;
   campus: Campus;
-  dormitoryId: string | null;
-  dormitorySelectionState: DormitorySelectionState;
 }
 
 @Injectable()
@@ -48,16 +46,30 @@ export class AuthSessionService {
       return null;
     }
 
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         gender: true,
         campus: true,
-        dormitoryId: true,
-        dormitorySelectionState: true,
+        deletedAt: true,
+        displayIdentity: {
+          select: {
+            userId: true,
+          },
+        },
       },
     });
+
+    if (!hasUserDisplayIdentity(user) || user.deletedAt) {
+      return null;
+    }
+
+    return {
+      id: user.id,
+      gender: user.gender,
+      campus: user.campus,
+    };
   }
 
   async issueAuthResult(
@@ -66,26 +78,16 @@ export class AuthSessionService {
     rememberMe: boolean,
   ): Promise<AuthSessionIssueResult> {
     const ttlSeconds = rememberMe ? AUTH_SESSION_REMEMBER_ME_TTL_SECONDS : AUTH_SESSION_TTL_SECONDS;
+    const databaseNow = await this.prisma.getDatabaseNow();
 
-    const [session] = await this.prisma.$queryRaw<{ id: string }[]>`
-        INSERT INTO "AuthSession" (
-          id,
-          "userId",
-          "rememberMe",
-          "expiresAt"
-        )
-        VALUES (
-          gen_random_uuid()::text,
-          ${userId},
-          ${rememberMe},
-          CURRENT_TIMESTAMP + (${ttlSeconds} * INTERVAL '1 second')
-        )
-        RETURNING id
-      `;
-
-    if (!session) {
-      throw new Error('AuthSession insert failed');
-    }
+    const session = await this.prisma.authSession.create({
+      data: {
+        userId,
+        rememberMe,
+        expiresAt: new Date(databaseNow.getTime() + ttlSeconds * 1000),
+      },
+      select: { id: true },
+    });
 
     const accessToken = await this.jwtService.signAsync(
       {
@@ -93,10 +95,7 @@ export class AuthSessionService {
         email,
         sid: session.id,
       },
-      {
-        secret: this.getJwtSecret(),
-        expiresIn: JWT_ACCESS_TTL_SECONDS,
-      },
+      { expiresIn: JWT_ACCESS_TTL_SECONDS },
     );
 
     return { accessToken, sessionId: session.id };
@@ -108,9 +107,7 @@ export class AuthSessionService {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<{ sid?: string }>(token, {
-        secret: this.getJwtSecret(),
-      });
+      const payload = await this.jwtService.verifyAsync<{ sid?: string }>(token);
       if (payload.sid) {
         const revokedAt = await this.prisma.getDatabaseNow();
 
@@ -131,10 +128,6 @@ export class AuthSessionService {
     return { success: true };
   }
 
-  private getJwtSecret(): string {
-    return apiEnv.jwtSecret;
-  }
-
   private async resolveCurrentSessionUser(
     token: string | null,
   ): Promise<AuthSessionUserSummary | null> {
@@ -148,9 +141,10 @@ export class AuthSessionService {
       select: {
         id: true,
         email: true,
+        deletedAt: true,
         gender: true,
         campus: true,
-        profile: {
+        displayIdentity: {
           select: {
             nickname: true,
           },
@@ -158,14 +152,14 @@ export class AuthSessionService {
       },
     });
 
-    if (!user?.profile) {
+    if (!hasUserDisplayIdentity(user) || user.deletedAt) {
       return null;
     }
 
     return toAuthSessionUserSummary({
       id: user.id,
       email: user.email,
-      nickname: user.profile.nickname,
+      nickname: user.displayIdentity.nickname,
       gender: user.gender,
       campus: user.campus,
     });
@@ -177,9 +171,7 @@ export class AuthSessionService {
     }
 
     try {
-      const payload = await this.jwtService.verifyAsync<{ sid?: string; sub?: string }>(token, {
-        secret: this.getJwtSecret(),
-      });
+      const payload = await this.jwtService.verifyAsync<{ sid?: string; sub?: string }>(token);
 
       if (!payload.sid || !payload.sub) {
         return null;

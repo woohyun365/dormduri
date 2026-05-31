@@ -1,33 +1,8 @@
-import { BadRequestException } from '@nestjs/common';
 import { ProfilesController } from './profiles.controller.js';
-
-function getBadRequestResponse(error: unknown) {
-  expect(error).toBeInstanceOf(BadRequestException);
-
-  if (!(error instanceof BadRequestException)) {
-    throw new Error('Expected BadRequestException');
-  }
-
-  const response = error.getResponse();
-  expect(typeof response).toBe('object');
-  expect(response).not.toBeNull();
-
-  if (typeof response !== 'object' || response === null) {
-    throw new Error('Expected object response');
-  }
-
-  return response as {
-    code: string;
-    fieldErrors?: Record<string, string[]>;
-  };
-}
 
 describe('ProfilesController', () => {
   const profilesService = {
-    getProfiles: jest.fn(),
     getProfileByUserId: jest.fn(),
-    updateLifestyle: jest.fn(),
-    updateNickname: jest.fn(),
   };
 
   const controller = new ProfilesController(profilesService as never);
@@ -43,13 +18,17 @@ describe('ProfilesController', () => {
     jest.clearAllMocks();
   });
 
-  it('unsupported query filter는 INVALID_PROFILE_QUERY bad request를 던진다', async () => {
-    try {
-      await controller.getProfiles(authUser as never, { campus: 'CHUNCHEON' });
-      throw new Error('Expected getProfiles to throw');
-    } catch (error) {
-      const response = getBadRequestResponse(error);
-      expect(response.code).toBe('INVALID_PROFILE_QUERY');
-    }
+  it('public detail 조회를 ProfilesService로 위임한다', async () => {
+    profilesService.getProfileByUserId.mockResolvedValue({ id: 'target-user' });
+
+    await expect(
+      controller.getProfileByUserId(authUser as never, 'target-user', 'detail-token'),
+    ).resolves.toEqual({
+      id: 'target-user',
+    });
+
+    expect(profilesService.getProfileByUserId).toHaveBeenCalledWith(authUser, 'target-user', {
+      detailEntryToken: 'detail-token',
+    });
   });
 });

@@ -1,53 +1,78 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import type { LifestyleData } from '../auth/lifestyle.schema.js';
-import { lifestyleSchema } from '@repo/shared/lifestyle';
-import {
-  publicLifestyleSchema,
-  type AdditionalProfile,
-  type PublicLifestyle,
-  type PublicProfile,
+import { publicLifestyleSchema } from '@repo/shared/profile-contract';
+import type {
+  PublicProfile,
+  PublicProfileAdditional,
+  PublicProfileActionCapabilities,
+  PublicProfileTombstone,
+  PublicProfileTombstoneReason,
+  PublicTargetRelation,
+  PublicTargetResultRead,
+  PublicLifestyle,
 } from '@repo/shared/profile-contract';
+import type { LifestyleData } from '@repo/shared/lifestyle';
+import {
+  type LifestyleColumns,
+  toLifestyleFromColumns,
+} from '../common/lifestyle/lifestyle.persistence.js';
+import { resolveProfileTombstoneDisplayName } from '../common/deidentification/deidentified-display.owner.js';
 
-export interface UserProfileRecord {
-  userId: string;
+export interface ProfileViewRecord {
   nickname: string;
   nicknameNormalized: string;
-  nicknameChangedAt: Date | null;
-  lifestyle: Prisma.JsonValue;
+  lifestyle: LifestyleData;
   intro: string;
-  messageToRoommate: string | null;
-  college: string | null;
+  collegeCode: string | null;
   grade: string | null;
   mbti: string | null;
   birthYear: number | null;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
-export interface UserWithProfileRecord {
+export interface PublicProfileUserRecord {
   id: string;
-  email: string;
   gender: 'M' | 'F';
   campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  dormitoryId: string | null;
-  dormitorySelectionState: 'NOT_SELECTED' | 'UNASSIGNED' | 'ASSIGNED';
-  profile: UserProfileRecord | null;
 }
 
-export function parseLifestyleOrThrow(lifestyle: Prisma.JsonValue): LifestyleData {
-  const parsed = lifestyleSchema.safeParse(lifestyle);
-  if (!parsed.success) {
+export type ProfileViewColumns = Omit<ProfileViewRecord, 'lifestyle'> & LifestyleColumns;
+function parseEmbeddedLifestyle(input: unknown): LifestyleData | null {
+  if (!input || typeof input !== 'object' || !('lifestyle' in input)) {
+    return null;
+  }
+
+  return parseLifestyleOrNull((input as { lifestyle: unknown }).lifestyle);
+}
+
+export function mapProfileViewRecordFromColumns(
+  profile: ProfileViewColumns | ProfileViewRecord,
+): ProfileViewRecord {
+  const embeddedLifestyle = parseEmbeddedLifestyle(profile);
+
+  return {
+    ...profile,
+    lifestyle: embeddedLifestyle ?? parseLifestyleOrThrow(profile),
+  };
+}
+
+export function parseLifestyleOrThrow(lifestyle: unknown): LifestyleData {
+  const parsed = parseLifestyleOrNull(lifestyle);
+  if (!parsed) {
     throw new Error('[profile.mapper] invalid lifestyle payload from persistence layer');
   }
 
-  return parsed.data;
+  return parsed;
 }
 
-export function toAdditionalProfile(profile: UserProfileRecord): AdditionalProfile {
+export function parseLifestyleOrNull(lifestyle: unknown): LifestyleData | null {
+  return toLifestyleFromColumns(lifestyle);
+}
+
+export function toAdditionalProfile(
+  profile: Pick<ProfileViewRecord, 'collegeCode' | 'grade' | 'mbti' | 'birthYear'>,
+): PublicProfileAdditional {
   return {
-    college: profile.college,
-    grade: profile.grade as AdditionalProfile['grade'],
-    mbti: profile.mbti,
+    college: profile.collegeCode as PublicProfileAdditional['college'],
+    grade: profile.grade as PublicProfileAdditional['grade'],
+    mbti: profile.mbti as PublicProfileAdditional['mbti'],
     birthYear: profile.birthYear,
   };
 }
@@ -77,21 +102,102 @@ export function toPublicLifestyle(lifestyle: LifestyleData): PublicLifestyle {
   });
 }
 
-export function toPublicProfile(user: UserWithProfileRecord): PublicProfile {
-  if (!user.profile) {
-    throw new Error('[profile.mapper] profile row is required');
-  }
-
-  const lifestyle = parseLifestyleOrThrow(user.profile.lifestyle);
-
+export function toPublicProfile(
+  user: PublicProfileUserRecord,
+  profile: ProfileViewRecord,
+  options: {
+    relation: PublicTargetRelation;
+    actions: PublicProfileActionCapabilities;
+    resultRead: PublicTargetResultRead;
+    scoreVisible: boolean;
+    matchScore?: number;
+  },
+): PublicProfile {
   return {
     id: user.id,
-    nickname: user.profile.nickname,
+    detailState: 'FULL',
+    sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+    relation: options.relation,
+    exposure: {
+      listSummaryVisible: true,
+      detailViewable: true,
+      canViewFull: true,
+      scoreVisible: options.scoreVisible,
+    },
+    actions: options.actions,
+    resultRead: options.resultRead,
     gender: user.gender,
     campus: user.campus,
-    lifestyle: toPublicLifestyle(lifestyle),
-    intro: user.profile.intro,
-    messageToRoommate: user.profile.messageToRoommate,
-    additional: toAdditionalProfile(user.profile),
+    lifestyle: toPublicLifestyle(parseLifestyleOrThrow(profile.lifestyle)),
+    nickname: profile.nickname,
+    intro: profile.intro,
+    additional: toAdditionalProfile(profile),
+    ...(typeof options.matchScore === 'number'
+      ? {
+          matchScore: options.matchScore,
+        }
+      : {}),
   };
+}
+
+export function toTombstonePublicProfile(
+  id: string,
+  options: {
+    reason: PublicProfileTombstoneReason;
+    displayName?: string;
+    message?: string;
+    relation: PublicTargetRelation;
+    actions: PublicProfileActionCapabilities;
+    resultRead: PublicTargetResultRead;
+    listSummaryVisible?: boolean;
+  },
+): PublicProfileTombstone {
+  return {
+    id,
+    detailState: 'TOMBSTONE',
+    relation: options.relation,
+    exposure: {
+      listSummaryVisible: options.listSummaryVisible ?? false,
+      detailViewable: true,
+      canViewFull: false,
+      scoreVisible: false,
+    },
+    actions: {
+      ...options.actions,
+      canBookmark: false,
+      canRequestMatch: false,
+      canStartChat: false,
+      unavailableReasons: Array.from(
+        new Set([...options.actions.unavailableReasons, toTombstoneUnavailableReason()]),
+      ),
+    },
+    resultRead: options.resultRead,
+    tombstone: {
+      reason: options.reason,
+      displayName: resolveProfileTombstoneDisplayName({
+        reason: options.reason,
+        displayName: options.displayName,
+      }),
+      message: options.message ?? toTombstoneMessage(options.reason),
+    },
+  };
+}
+
+function toTombstoneUnavailableReason(): PublicProfileActionCapabilities['unavailableReasons'][number] {
+  return 'TARGET_NOT_PUBLIC';
+}
+
+function toTombstoneMessage(reason: PublicProfileTombstoneReason) {
+  switch (reason) {
+    case 'DETAIL_NOT_AVAILABLE_DIFFERENT_DORMITORY':
+      return '본인 기숙사 외의 사용자의 상세 프로필은 열람할 수 없습니다.';
+    case 'DETAIL_REQUIRES_REGISTRATION':
+      return '시즌 등록을 완료한 뒤 상세 프로필을 볼 수 있습니다.';
+    case 'DETAIL_REQUIRES_ASSIGNED_DORMITORY':
+      return '기숙사 배정이 완료된 뒤 상세 프로필을 볼 수 있습니다.';
+    case 'DETAIL_CONTEXT_NO_LONGER_VALID':
+      return '이 상세 프로필 진입 경로가 더 이상 유효하지 않습니다.';
+    case 'TARGET_NO_LONGER_DISCOVERABLE':
+      return '상대가 시즌 참여를 철회했거나 더 이상 공개 가능한 상태가 아닙니다.';
+  }
 }

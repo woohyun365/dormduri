@@ -1,8 +1,7 @@
 {
   "extends": "@repo/tsconfig/base.json",
   "compilerOptions": {
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    "module": "node20",
     "target": "ES2022",
     "declaration": true,
     "outDir": "./dist",

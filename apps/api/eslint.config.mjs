@@ -33,12 +33,7 @@ export default defineConfig([
       sourceType: 'module',
       parserOptions: {
         projectService: {
-          allowDefaultProject: [
-            'prisma.config.ts',
-            'prisma/seed.js',
-            'prisma/seed-data/reference/*.js',
-            'prisma/seed-data/fixtures/*.js',
-          ],
+          allowDefaultProject: ['prisma.config.ts'],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -46,19 +41,26 @@ export default defineConfig([
   },
 
   {
-    files: ['prisma/seed.js', 'prisma/seed-data/reference/*.js', 'prisma/seed-data/fixtures/*.js'],
-    rules: {
-      '@typescript-eslint/no-unsafe-assignment': 'off',
-      '@typescript-eslint/no-unsafe-call': 'off',
-      '@typescript-eslint/no-unsafe-member-access': 'off',
-      '@typescript-eslint/no-unsafe-return': 'off',
-    },
-  },
-  {
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
+    },
+  },
+  {
+    files: ['prisma/seed.js', 'prisma/seed-data/reference/*.js', 'prisma/seed-data/fixtures/*.js'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    files: ['test/**/*.cjs'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    files: ['test/integration/support/integration-db.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
     },
   },
 ]);

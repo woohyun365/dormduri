@@ -26,27 +26,6 @@ export class DormitoriesController {
 
     return this.dormitoriesService.getDormitories(parsedCampus, parsedGender);
   }
-
-  @Get('selectable')
-  async getSelectableDormitories(
-    @Query('campus') campus: string | undefined,
-    @Query('gender') gender?: string,
-  ) {
-    const parsedCampus = parseQueryValue(campusSchema, campus, {
-      code: 'DORMITORIES_INVALID_CAMPUS_QUERY',
-      errorMessage: 'campus 쿼리 파라미터 값이 올바르지 않습니다.',
-      fieldName: 'campus',
-    });
-
-    const parsedGender = parseOptionalQueryValue(genderSchema, gender, {
-      code: 'DORMITORIES_INVALID_GENDER_QUERY',
-      errorMessage: 'gender 쿼리 파라미터 값이 올바르지 않습니다.',
-      fieldName: 'gender',
-    });
-
-    return this.dormitoriesService.getSelectableDormitories(parsedCampus, parsedGender);
-  }
-
   @Get(':id')
   async getDormitoryById(@Param('id') id: string) {
     return this.dormitoriesService.getDormitoryById(id);

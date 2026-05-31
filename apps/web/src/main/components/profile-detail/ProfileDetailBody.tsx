@@ -1,6 +1,6 @@
 import { MessageCircle, Lock, AlertCircle } from 'lucide-react';
 import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
-import { ADDITIONAL_FIELD_NAMES, GRADES } from '@/constants/additional-profile';
+import { ADDITIONAL_FIELD_NAMES, GRADES, getCollegeLabel } from '@/constants/additional-profile';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
 import { getDormitoryLabel } from '@/utils/dormitoryLabel';
@@ -142,7 +142,7 @@ export function ProfileDetailBody({
                   {ADDITIONAL_FIELD_NAMES.college}
                 </p>
                 <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                  {profile.additional.college}
+                  {getCollegeLabel(profile.additional.college) ?? profile.additional.college}
                 </p>
               </div>
             )}

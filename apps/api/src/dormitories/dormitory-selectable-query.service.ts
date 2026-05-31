@@ -1,154 +1,175 @@
 import { Injectable } from '@nestjs/common';
-import type { Campus, Gender } from '../generated/prisma/enums.js';
+import type { SelectableDormitory } from '@repo/shared/season-contract';
+import { toDateOnlyString } from '@repo/shared/date-primitives';
+import type { Prisma } from '../generated/prisma/client.js';
+import type { Campus, DormitoryGenderPolicy, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
-import { getCurrentTimestamp } from '../generated/prisma/sql.js';
-import { dormitoriesErrors } from './dormitories.errors.js';
-import {
-  formatKstDate,
-  hasActiveSeasonOverride,
-  normalizeSeasonRuntimeRow,
-} from '../seasons/season.utils.js';
+import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import { formatKstDate } from '../seasons/season.utils.js';
+
+const seasonDormitoryOperationSelect = {
+  seasonId: true,
+  dormitoryId: true,
+  isOperated: true,
+  roomSelectionDate: true,
+  dormitory: {
+    select: {
+      id: true,
+      campusCode: true,
+      nameKo: true,
+      roomType: true,
+      genderPolicy: true,
+      sortOrder: true,
+    },
+  },
+} as const;
+
+type SeasonDormitoryOperationRecord = Prisma.SeasonDormitoryOperationGetPayload<{
+  select: typeof seasonDormitoryOperationSelect;
+}>;
+
+export type DormitorySelectionQueryClient = Pick<
+  Prisma.TransactionClient,
+  'seasonDormitoryOperation'
+>;
+
+export type DormitorySelectionValidationReason =
+  | 'DORMITORY_NOT_FOUND'
+  | 'DORMITORY_NOT_OPERATED'
+  | 'DORMITORY_CAMPUS_MISMATCH'
+  | 'DORMITORY_GENDER_MISMATCH'
+  | 'DORMITORY_SELECTION_CLOSED';
+
+export type DormitorySelectionValidationResult =
+  | { valid: true; item: SelectableDormitory }
+  | { valid: false; reason: DormitorySelectionValidationReason };
+
+export interface SeasonParticipantDormitorySelectionInput {
+  seasonContext: CurrentSeasonContext;
+  campusCodeSnapshot: Campus;
+  genderSnapshot: Gender;
+  now: Date;
+  queryClient?: DormitorySelectionQueryClient;
+}
+
+export interface SeasonParticipantDormitoryValidationInput extends SeasonParticipantDormitorySelectionInput {
+  dormitoryId: string;
+}
 
 @Injectable()
 export class DormitorySelectableQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getSelectableDormitories(campus: Campus, gender?: Gender, now?: Date) {
-    const campusMeta = await this.prisma.campusMaster.findUnique({
-      where: { code: campus },
-      select: {
-        code: true,
-        nameKo: true,
-        isOperated: true,
-      },
-    });
+  async listSelectableDormitoriesForSeasonParticipant(
+    input: SeasonParticipantDormitorySelectionInput,
+  ): Promise<SelectableDormitory[]> {
+    const operations = await this.listSelectableOperationsForSnapshot(input);
+    return operations.map(mapSeasonParticipantSelectableDormitory);
+  }
 
-    if (!campusMeta) {
-      throw dormitoriesErrors.campusNotFound();
-    }
-
-    if (!campusMeta.isOperated) {
-      return {
-        campus: campusMeta,
-        items: [],
-      };
-    }
-
-    const referenceNow = await this.resolveReferenceTime(now);
-    const selectableSeasonId = await this.resolveSelectableSeasonId(campus, referenceNow);
-    if (!selectableSeasonId) {
-      return {
-        campus: campusMeta,
-        items: [],
-      };
-    }
-
-    const operations = await this.prisma.seasonDormitoryOperation.findMany({
+  async validateSelectableDormitoryForSeasonParticipant(
+    input: SeasonParticipantDormitoryValidationInput,
+  ): Promise<DormitorySelectionValidationResult> {
+    const client = input.queryClient ?? this.prisma;
+    const operation = await client.seasonDormitoryOperation.findUnique({
       where: {
-        seasonId: selectableSeasonId,
-        isOperated: true,
-        dormitory: {
-          campusCode: campus,
-          ...(gender ? { OR: [{ genderPolicy: gender }, { genderPolicy: 'BOTH' }] } : {}),
+        seasonId_dormitoryId: {
+          seasonId: input.seasonContext.season.id,
+          dormitoryId: input.dormitoryId,
         },
       },
-      select: {
-        roomSelectionDate: true,
-        dormitory: {
-          select: {
-            id: true,
-            nameKo: true,
-            roomType: true,
-            genderPolicy: true,
-            sortOrder: true,
-          },
-        },
-      },
+      select: seasonDormitoryOperationSelect,
     });
 
-    const items = operations
-      .sort((a, b) => {
-        const roomSelectionDateCompare = a.roomSelectionDate
-          .toISOString()
-          .localeCompare(b.roomSelectionDate.toISOString());
-        if (roomSelectionDateCompare !== 0) {
-          return roomSelectionDateCompare;
-        }
-
-        const sortOrderCompare = a.dormitory.sortOrder - b.dormitory.sortOrder;
-        if (sortOrderCompare !== 0) {
-          return sortOrderCompare;
-        }
-
-        return a.dormitory.id.localeCompare(b.dormitory.id);
-      })
-      .map((operation) => ({
-        id: operation.dormitory.id,
-        name: operation.dormitory.nameKo,
-        roomType: operation.dormitory.roomType as 2 | 3,
-        genderPolicy: operation.dormitory.genderPolicy,
-        isOperated: true,
-      }));
+    if (!operation) {
+      return invalidDormitorySelection('DORMITORY_NOT_FOUND');
+    }
+    if (!operation.isOperated) {
+      return invalidDormitorySelection('DORMITORY_NOT_OPERATED');
+    }
+    if (operation.dormitory.campusCode !== input.campusCodeSnapshot) {
+      return invalidDormitorySelection('DORMITORY_CAMPUS_MISMATCH');
+    }
+    if (!isGenderCompatible(input.genderSnapshot, operation.dormitory.genderPolicy)) {
+      return invalidDormitorySelection('DORMITORY_GENDER_MISMATCH');
+    }
+    if (isRoomSelectionClosed(input.seasonContext, operation.roomSelectionDate, input.now)) {
+      return invalidDormitorySelection('DORMITORY_SELECTION_CLOSED');
+    }
 
     return {
-      campus: campusMeta,
-      items,
+      valid: true,
+      item: mapSeasonParticipantSelectableDormitory(operation),
     };
   }
 
-  private async resolveSelectableSeasonId(campus: Campus, referenceNow: Date) {
-    const seasons = await this.prisma.season.findMany({
-      where: { campusCode: campus },
-      orderBy: [{ seasonEndDate: 'asc' }, { matchingStartDate: 'asc' }, { createdAt: 'asc' }],
-      select: {
-        id: true,
-        campusCode: true,
-        name: true,
-        preparationStartDate: true,
-        matchingStartDate: true,
-        seasonEndDate: true,
-        overrideState: true,
-        overrideReason: true,
-        overrideStartedAt: true,
-        overrideEndsAt: true,
-        dormitoryOperations: {
-          select: {
-            dormitoryId: true,
-            isOperated: true,
-            roomSelectionDate: true,
-          },
-        },
-      },
+  private async listSelectableOperationsForSnapshot(
+    input: SeasonParticipantDormitorySelectionInput,
+  ): Promise<SeasonDormitoryOperationRecord[]> {
+    const client = input.queryClient ?? this.prisma;
+    return client.seasonDormitoryOperation.findMany({
+      where: buildSelectableDormitoryWhere(input),
+      select: seasonDormitoryOperationSelect,
+      orderBy: [
+        { roomSelectionDate: 'asc' },
+        { dormitory: { sortOrder: 'asc' } },
+        { dormitoryId: 'asc' },
+      ],
     });
+  }
+}
 
-    if (seasons.length === 0) {
-      return null;
-    }
+function buildSelectableDormitoryWhere(
+  input: SeasonParticipantDormitorySelectionInput,
+): Prisma.SeasonDormitoryOperationWhereInput {
+  const where: Prisma.SeasonDormitoryOperationWhereInput = {
+    seasonId: input.seasonContext.season.id,
+    isOperated: true,
+    dormitory: {
+      campusCode: input.campusCodeSnapshot,
+      genderPolicy: { in: [input.genderSnapshot, 'BOTH'] },
+    },
+  };
 
-    const normalizedSeasons = seasons.map(normalizeSeasonRuntimeRow);
-    const today = formatKstDate(referenceNow);
-
-    const currentSeasons = normalizedSeasons.filter(
-      (season) => season.preparationStartDate <= today && season.seasonEndDate >= today,
-    );
-    const overrideSeason = currentSeasons.find((season) =>
-      hasActiveSeasonOverride(season, referenceNow),
-    );
-
-    return (overrideSeason ?? currentSeasons[0])?.id ?? null;
+  if (input.seasonContext.state === 'SEASON_MATCHING') {
+    where.roomSelectionDate = {
+      gte: new Date(`${formatKstDate(input.now)}T00:00:00.000Z`),
+    };
   }
 
-  private async resolveReferenceTime(now?: Date) {
-    if (now) {
-      return now;
-    }
+  return where;
+}
 
-    const [row] = await this.prisma.$queryRawTyped(getCurrentTimestamp());
+function mapSeasonParticipantSelectableDormitory(
+  operation: SeasonDormitoryOperationRecord,
+): SelectableDormitory {
+  return {
+    id: operation.dormitory.id,
+    name: operation.dormitory.nameKo,
+    campusCode: operation.dormitory.campusCode,
+    roomType: operation.dormitory.roomType as 2 | 3,
+    genderPolicy: operation.dormitory.genderPolicy,
+    roomSelectionDate: toDateOnlyString(operation.roomSelectionDate),
+  };
+}
 
-    if (!row?.now) {
-      return new Date();
-    }
+function invalidDormitorySelection(
+  reason: DormitorySelectionValidationReason,
+): DormitorySelectionValidationResult {
+  return { valid: false, reason };
+}
 
-    return row.now instanceof Date ? row.now : new Date(row.now);
-  }
+function isGenderCompatible(gender: Gender, genderPolicy: DormitoryGenderPolicy) {
+  return genderPolicy === 'BOTH' || genderPolicy === gender;
+}
+
+function isRoomSelectionClosed(
+  seasonContext: CurrentSeasonContext,
+  roomSelectionDate: Date,
+  now: Date,
+) {
+  return (
+    seasonContext.state === 'SEASON_MATCHING' &&
+    formatKstDate(now) > toDateOnlyString(roomSelectionDate)
+  );
 }

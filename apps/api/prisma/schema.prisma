@@ -42,6 +42,7 @@ enum ModerationSurface {
 
 enum DormitorySelectionState {
   NOT_SELECTED
+  SELECTED
   UNASSIGNED
   ASSIGNED
 }
@@ -59,9 +60,393 @@ enum DormitoryBathroomType {
 
 enum SeasonOverrideState {
   OFF_SEASON
-  SEASON_PREPARATION
+  SEASON_OPEN
   SEASON_MATCHING
   SEASON_POST_MATCH
+}
+
+enum SeasonParticipationIntent {
+  UNDECIDED
+  REGISTERED
+  DECLINED
+}
+
+enum ParticipantStatus {
+  NOT_STARTED
+  DRAFT
+  ACTIVE
+  MATCHED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum ParticipantHiddenReasonCode {
+  POLICY_VIOLATION
+  SAFETY_REVIEW
+  ADMIN_REQUEST
+  OTHER
+}
+
+enum MatchRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED_BY_REQUESTER
+  CANCELLED_BY_SYSTEM
+  EXPIRED
+}
+
+enum MatchRequestTerminalReason {
+  ACCEPTED
+  REJECTED_BY_RECEIVER
+  CANCELLED_BY_REQUESTER
+  CANCELLED_BY_SYSTEM_ACTIVE_MATCH
+  EXPIRED
+  WITHDRAWN_PARTICIPANT
+  MATCH_PRECONDITION_FAILED
+  ADMIN_ACTION
+}
+
+enum ActiveMatchStatus {
+  ACTIVE
+  UNMATCHED
+  SEASON_ENDED
+  ADMIN_ENDED
+}
+
+enum ActiveMatchEndReason {
+  UNMATCHED_BY_MUTUAL_CONSENT
+  SEASON_ENDED
+  ADMIN_ACTION
+  WITHDRAWN_PARTICIPANT
+}
+
+enum ActiveMatchUnmatchRequestStatus {
+  PENDING
+  CANCELLED_BY_REQUESTER
+  EXPIRED_BY_CUTOFF
+  FULFILLED_BY_MUTUAL_CONSENT
+}
+
+enum SeasonMatchHistoryEntryType {
+  REQUEST
+  MATCH
+}
+
+enum SeasonMatchHistoryEntryResult {
+  REQUEST_REJECTED
+  REQUEST_CANCELLED
+  REQUEST_EXPIRED
+  MATCHED_SUCCESS
+  UNMATCHED_AFTER_SUCCESS
+}
+
+enum ConversationThreadKind {
+  DIRECT
+  MATCHED
+}
+
+enum ConversationThreadStatus {
+  OPEN
+  READ_ONLY
+  ARCHIVED
+}
+
+enum ConversationThreadClosedReason {
+  ACTIVE_MATCH_CREATED
+  ROOM_SELECTION_CUTOFF
+  SEASON_ENDED
+  PARTICIPANT_WITHDRAWN
+  MODERATION
+  ADMIN_ACTION
+}
+
+enum ConversationThreadMemberState {
+  ACTIVE
+  LEFT
+}
+
+enum ConversationMessageBodyState {
+  PLAIN
+  TOMBSTONED
+  DISPOSED
+}
+
+enum ConversationMessageTombstoneReason {
+  ACCOUNT_DELETION_RETENTION
+  USER_MESSAGE_DELETED
+  MODERATION_POLICY_VIOLATION
+  ADMIN_ACTION
+  RETENTION_DISPOSED
+}
+
+enum RetainedVaultObjectTarget {
+  CHAT_MESSAGE_BODY
+  SEASON_PROFILE_HISTORY
+  MATCH_HISTORY_ENTRY
+  NICKNAME_AUDIT_EVENT
+  ACADEMIC_IDENTITY_AUDIT_EVENT
+}
+
+enum RetainedVaultObjectState {
+  RETAINED
+  DISPOSED
+  FAILED_MANUAL_REVIEW
+}
+
+/// RRPD 보존/hold 사유. identity anchor hold와 retained vault payload hold가 모두 이 case reason을 참조한다.
+enum RetentionCaseReason {
+  ACCOUNT_DELETION
+  REPORT_REVIEW
+  ENFORCEMENT_RECORD
+  DISPUTE_RESPONSE
+  LEGAL_HOLD
+  ADMIN_MANUAL
+  CHAT_THREAD_ARCHIVE
+}
+
+enum RetainedVaultSubjectRole {
+  USER
+  PARTICIPANT
+  VIEWER
+  COUNTERPART
+  MESSAGE_SENDER
+}
+
+enum RetentionAccessTargetType {
+  IDENTITY_ANCHOR
+  VAULT_OBJECT
+}
+
+enum RetentionAccessReason {
+  LAW_ENFORCEMENT_REQUEST
+  REPORT_REVIEW
+  DISPUTE_RESPONSE
+  ENFORCEMENT_REVIEW
+  SECURITY_AUDIT
+  RETENTION_EXPIRY_REVIEW
+}
+
+enum RetentionAccessResult {
+  DISCLOSED
+  DENIED
+  DISPOSED
+}
+
+enum RetentionReviewJobTarget {
+  CHAT_IDENTITY_LINK
+  ACCESS_LOG_DISPOSAL
+}
+
+enum LifestyleBedtime {
+  BEFORE_22
+  BETWEEN_22_24 @map("22_24")
+  BETWEEN_24_02 @map("24_02")
+  AFTER_02
+}
+
+enum LifestyleWakeTime {
+  BEFORE_07
+  BETWEEN_07_08 @map("07_08")
+  BETWEEN_08_09 @map("08_09")
+  BETWEEN_09_10 @map("09_10")
+  AFTER_10
+  FLEXIBLE
+}
+
+enum LifestyleSleepHabit {
+  NONE
+  TALKING
+  SNORING
+  GRINDING
+}
+
+enum LifestyleSleepEnvironment {
+  QUIET
+  EARPHONE
+  LOW_SPEAKER
+}
+
+enum LifestyleScreenUsage {
+  NONE
+  AUDIO
+  SCREEN
+}
+
+enum LifestyleNoiseSensitivity {
+  SENSITIVE
+  NORMAL
+  DEEP
+}
+
+enum LifestyleSmokingBehavior {
+  NO
+  E_CIG
+  YES
+}
+
+enum LifestyleIndoorEating {
+  RARELY
+  SNACK
+  MEAL
+}
+
+enum LifestylePhoneBehavior {
+  RARELY
+  SOMETIMES
+  OFTEN
+}
+
+enum LifestyleEarphoneUsage {
+  ALWAYS
+  MOSTLY
+  MOSTLY_SPEAKER
+  ALWAYS_SPEAKER
+}
+
+enum LifestyleCleanLevel {
+  WHEN_DIRTY
+  WEEKLY_1_2
+  WEEKLY_3_UP
+}
+
+enum LifestyleDrinkingFrequency {
+  NONE
+  RARELY
+  SOMETIMES
+  OFTEN
+}
+
+enum LifestyleRelationshipStyle {
+  CLOSE
+  CASUAL
+}
+
+enum LifestyleTemperatureSensitivity {
+  COLD
+  NORMAL
+  HOT
+}
+
+enum RoommateSmokingTolerance {
+  NO_ONLY
+  E_CIG_OK
+  ANY
+}
+
+enum RoommatePhoneTolerance {
+  OUTSIDE_ONLY
+  BRIEF_OK
+  ANY
+}
+
+enum RoommateEarphoneExpectation {
+  MUST
+  STUDY
+  ANY
+}
+
+enum RoommateSleepEnvPreference {
+  NO_SPEAKER
+  SPEAKER_OK
+}
+
+enum RoommateScreenTolerance {
+  NO_SCREEN
+  LOW_OK
+  SCREEN_OK
+}
+
+enum RoommateIndoorEatingTolerance {
+  NO_SMELL
+  CLEAN_OK
+  ANY
+}
+
+enum RoommateCleanExpectation {
+  STRICT
+  BASIC
+  FLEXIBLE
+}
+
+enum RoommateDrinkingTolerance {
+  LOW_ONLY
+  ANY
+}
+
+enum ProfileHistorySource {
+  SEASON_REGISTRATION
+  SYSTEM_BACKFILL
+}
+
+enum ArchiveJobTarget {
+  SEASON_PROFILE_HISTORY
+  MATCH_HISTORY
+  THREAD_RETENTION
+  NICKNAME_AUDIT
+  ACADEMIC_IDENTITY_AUDIT
+}
+
+enum ArchiveJobStatus {
+  PENDING
+  WAITING_CONDITION
+  SUCCEEDED
+  RETRY_SCHEDULED
+  FAILED_MANUAL_REVIEW
+}
+
+enum LegalHoldReason {
+  LAW_ENFORCEMENT_REQUEST
+  INTERNAL_DISPUTE_REVIEW
+  SAFETY_INCIDENT
+  ADMIN_LEGAL_REVIEW
+}
+
+enum DisplayIdentityNicknameChangeSource {
+  USER_SELF
+  POLICY_ENFORCEMENT
+  ACCOUNT_DELETION_DEIDENTIFICATION
+}
+
+enum DisplayIdentityNicknameChangeActorType {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+enum DisplayIdentityNicknameChangeReason {
+  USER_REQUEST
+  REPORT_REVIEW
+  ENFORCEMENT_ACTION
+  SAFETY_INCIDENT
+  RESERVED_OR_BLOCKED_TERM
+  ADMIN_MANUAL
+  ACCOUNT_DELETION
+}
+
+enum AcademicIdentityChangeSource {
+  USER_SELF
+  SUPPORT_OVERRIDE
+  POLICY_ENFORCEMENT
+}
+
+enum AcademicIdentityChangeActorType {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+enum AcademicIdentityChangeReason {
+  USER_CORRECTION
+  ACADEMIC_CYCLE_ALLOWANCE
+  SUPPORT_OVERRIDE
+  POLICY_ENFORCEMENT
+}
+
+enum AcademicIdentityAllowanceResetReason {
+  INITIAL_CYCLE_ALLOWANCE
+  ACADEMIC_CYCLE_ROLLOVER
+  SUPPORT_OVERRIDE
 }
 
 model CampusMaster {
@@ -70,7 +455,8 @@ model CampusMaster {
   isOperated   Boolean
   sortOrder    Int                 @default(0)
   createdAt    DateTime            @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime            @default(now()) @updatedAt @db.Timestamptz(3)
+  colleges     CollegeMaster[]
   dormitories  Dormitory[]
   seasons      Season[]
   guideContent CampusGuideContent?
@@ -82,23 +468,39 @@ model CampusGuideContent {
   commonRules       Json
   emergencyContacts Json
   createdAt         DateTime     @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime     @default(now()) @updatedAt @db.Timestamptz(3)
   campus            CampusMaster @relation(fields: [campusCode], references: [code], onDelete: Cascade)
 }
 
+model CollegeMaster {
+  code                      String                     @id
+  campusCode                Campus
+  nameKo                    String
+  sortOrder                 Int                        @default(0)
+  isActive                  Boolean                    @default(true)
+  createdAt                 DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
+  campus                    CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  academicIdentities        UserAcademicIdentity[]
+  seasonParticipantProfiles SeasonParticipantProfile[]
+
+  @@unique([campusCode, nameKo])
+  @@index([campusCode, sortOrder])
+}
+
 model Dormitory {
-  id               String                     @id
-  campusCode       Campus
-  nameKo           String
-  roomType         Int
-  genderPolicy     DormitoryGenderPolicy
-  sortOrder        Int                        @default(0)
-  createdAt        DateTime                   @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime                   @default(now()) @db.Timestamptz(3)
-  campus           CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
-  guide            DormitoryGuide?
-  seasonOperations SeasonDormitoryOperation[]
-  users            User[]
+  id                 String                     @id
+  campusCode         Campus
+  nameKo             String
+  roomType           Int
+  genderPolicy       DormitoryGenderPolicy
+  sortOrder          Int                        @default(0)
+  createdAt          DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
+  campus             CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  guide              DormitoryGuide?
+  seasonOperations   SeasonDormitoryOperation[]
+  seasonParticipants SeasonParticipant[]
 
   @@index([campusCode, genderPolicy, sortOrder])
 }
@@ -110,7 +512,7 @@ model DormitoryGuide {
   repairContact String
   diningContact String?
   createdAt     DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
   dormitory     Dormitory             @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
 }
 
@@ -128,9 +530,14 @@ model Season {
   overrideStartedAt    DateTime?                  @db.Timestamptz(3)
   overrideEndsAt       DateTime?                  @db.Timestamptz(3)
   createdAt            DateTime                   @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
   campus               CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
   dormitoryOperations  SeasonDormitoryOperation[]
+  participants         SeasonParticipant[]
+  matchRequests        MatchRequest[]
+  activeMatches        ActiveMatch[]
+  matchHistoryEntries  SeasonMatchHistoryEntry[]
+  conversationThreads  ConversationThread[]
 
   @@unique([campusCode, academicYear, semester])
   @@index([campusCode, matchingStartDate])
@@ -143,7 +550,7 @@ model SeasonDormitoryOperation {
   isOperated        Boolean   @default(true)
   roomSelectionDate DateTime  @db.Date
   createdAt         DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
   season            Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   dormitory         Dormitory @relation(fields: [dormitoryId], references: [id], onDelete: Cascade)
 
@@ -153,42 +560,711 @@ model SeasonDormitoryOperation {
 }
 
 model User {
-  id                      String                  @id @default(uuid())
+  id                      String                                   @id @default(uuid())
   email                   String
-  emailNormalized         String                  @unique
+  emailNormalized         String                                   @unique
   passwordHash            String
   gender                  Gender
   campus                  Campus
-  dormitoryId             String?
-  dormitorySelectionState DormitorySelectionState @default(NOT_SELECTED)
-  emailVerifiedAt         DateTime?               @db.Timestamptz(3)
-  createdAt               DateTime                @default(now()) @db.Timestamptz(3)
-  updatedAt               DateTime                @default(now()) @db.Timestamptz(3)
-  dormitory               Dormitory?              @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
+  emailVerifiedAt         DateTime?                                @db.Timestamptz(3)
+  deletedAt               DateTime?                                @db.Timestamptz(3)
+  createdAt               DateTime                                 @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
   authSessions            AuthSession[]
-  profile                 UserProfile?
-
-  @@index([campus, dormitorySelectionState])
-  @@index([dormitoryId])
+  displayIdentity         UserDisplayIdentity?
+  academicIdentity        UserAcademicIdentity?
+  academicChangeAllowance UserAcademicIdentityChangeAllowance?
+  academicChangeEvents    UserAcademicIdentityChangeEvent[]
+  dismissedNotices        UserDismissedNotice[]
+  nicknameChangeEvents    UserDisplayIdentityNicknameChangeEvent[]
+  seasonParticipants      SeasonParticipant[]
 }
 
-model UserProfile {
-  userId              String   @id
-  nickname            String
-  nicknameNormalized  String   @unique
-  nicknameChangedAt   DateTime? @db.Timestamptz(3)
-  lifestyle           Json
-  intro               String   @default("")
-  messageToRoommate   String?
-  college             String?
-  grade               String?
-  mbti                String?
-  birthYear           Int?
-  createdAt           DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime @default(now()) @db.Timestamptz(3)
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model UserDisplayIdentity {
+  userId             String    @id
+  nickname           String
+  nicknameNormalized String    @unique
+  nicknameChangedAt  DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([nickname])
+}
+
+model UserAcademicIdentity {
+  userId      String        @id
+  collegeCode String
+  birthYear   Int
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime      @default(now()) @updatedAt @db.Timestamptz(3)
+  college     CollegeMaster @relation(fields: [collegeCode], references: [code], onDelete: Restrict)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([collegeCode])
+  @@index([birthYear])
+}
+
+model UserAcademicIdentityChangeAllowance {
+  userId                 String                               @id
+  academicYear           Int
+  collegeChangeRemaining Int                                  @default(1)
+  resetReason            AcademicIdentityAllowanceResetReason
+  createdAt              DateTime                             @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime                             @default(now()) @updatedAt @db.Timestamptz(3)
+  user                   User                                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([academicYear])
+}
+
+model UserDismissedNotice {
+  userId      String
+  noticeKey   String
+  dismissedAt DateTime @default(now()) @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, noticeKey])
+  @@index([noticeKey, dismissedAt])
+}
+
+/// 삭제 계정의 제한 보존 식별 anchor. 원문 payload 보존은 `RetainedVaultObject`가 담당한다.
+model RetainedIdentity {
+  id                           String                                   @id @default(uuid())
+  originalUserId               String?                                  @unique
+  anonymizedActorKey           String                                   @unique
+  displayLabel                 String
+  deletedAt                    DateTime                                 @db.Timestamptz(3)
+  emailHash                    String?
+  encryptedIdentifierPayload   Json?
+  identifierKeyVersion         String?
+  retentionDisposedAt          DateTime?                                @db.Timestamptz(3)
+  retentionDisposalReason      String?
+  metadata                     Json?
+  createdAt                    DateTime                                 @default(now()) @db.Timestamptz(3)
+  updatedAt                    DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
+  archiveJobs                  ArchiveJob[]
+  holds                        RetainedIdentityHold[]
+  accessLogs                   RetentionAccessLog[]
+  nicknameChangeEvents         UserDisplayIdentityNicknameChangeEvent[]
+  academicIdentityChangeEvents UserAcademicIdentityChangeEvent[]
+  triggeredRetentionCases      RetentionCase[]                          @relation("RetentionCaseTriggerIdentity")
+  subjectVaultObjects          RetainedVaultObject[]                    @relation("RetainedVaultObjectSubjectIdentity")
+
+  @@index([deletedAt])
+  @@index([retentionDisposedAt, deletedAt])
+}
+
+model UserDisplayIdentityNicknameChangeEvent {
+  id                           String                                 @id @default(uuid())
+  userId                       String
+  retainedIdentityId           String?
+  retainedVaultObjectId        String?                                @unique
+  redactedAt                   DateTime?                              @db.Timestamptz(3)
+  redactionReason              String?
+  source                       DisplayIdentityNicknameChangeSource
+  reason                       DisplayIdentityNicknameChangeReason
+  actorType                    DisplayIdentityNicknameChangeActorType
+  actorId                      String?
+  previousNickname             String
+  previousNicknameNormalized   String
+  nextNickname                 String
+  nextNicknameNormalized       String
+  seasonId                     String?
+  participantId                String?
+  seasonProfileSnapshotUpdated Boolean                                @default(false)
+  reportId                     String?
+  moderationCaseId             String?
+  sanctionId                   String?
+  approvalReference            String?
+  metadata                     Json?
+  changedAt                    DateTime                               @db.Timestamptz(3)
+  createdAt                    DateTime                               @default(now()) @db.Timestamptz(3)
+  retainedIdentity             RetainedIdentity?                      @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  retainedVaultObject          RetainedVaultObject?                   @relation("NicknameEventRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
+  user                         User                                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, changedAt])
+  @@index([source, changedAt])
+  @@index([actorType, actorId, changedAt])
+  @@index([retainedIdentityId, changedAt])
+  @@index([retainedVaultObjectId])
+  @@index([redactedAt])
+  @@index([reportId])
+  @@index([moderationCaseId])
+  @@index([sanctionId])
+}
+
+model UserAcademicIdentityChangeEvent {
+  id                  String                          @id @default(uuid())
+  userId              String
+  retainedIdentityId  String?
+  retainedVaultObjectId String?                       @unique
+  redactedAt          DateTime?                       @db.Timestamptz(3)
+  redactionReason     String?
+  source              AcademicIdentityChangeSource
+  reason              AcademicIdentityChangeReason
+  actorType           AcademicIdentityChangeActorType
+  actorId             String?
+  previousCollegeCode String
+  nextCollegeCode     String
+  previousBirthYear   Int
+  nextBirthYear       Int
+  seasonId            String?
+  participantId       String?
+  reportId            String?
+  moderationCaseId    String?
+  sanctionId          String?
+  approvalReference   String?
+  metadata            Json?
+  changedAt           DateTime                        @db.Timestamptz(3)
+  createdAt           DateTime                        @default(now()) @db.Timestamptz(3)
+  retainedIdentity    RetainedIdentity?               @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  retainedVaultObject RetainedVaultObject?            @relation("AcademicIdentityEventRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
+  user                User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, changedAt])
+  @@index([source, changedAt])
+  @@index([actorType, actorId, changedAt])
+  @@index([retainedIdentityId, changedAt])
+  @@index([retainedVaultObjectId])
+  @@index([redactedAt])
+  @@index([reportId])
+  @@index([moderationCaseId])
+  @@index([sanctionId])
+}
+
+model ArchiveJob {
+  id                   String                @id @default(uuid())
+  target               ArchiveJobTarget
+  status               ArchiveJobStatus      @default(PENDING)
+  retainedIdentityId   String?
+  userId               String?
+  seasonId             String?
+  participantId        String?
+  matchHistoryEntryId  String?
+  threadId             String?
+  attemptCount         Int                   @default(0)
+  maxAttempts          Int                   @default(5)
+  nextRunAt            DateTime              @default(now()) @db.Timestamptz(3)
+  lastAttemptAt        DateTime?             @db.Timestamptz(3)
+  lastSucceededAt      DateTime?             @db.Timestamptz(3)
+  lastErrorCode        String?
+  manualReviewRequired Boolean               @default(false)
+  payload              Json?
+  createdAt            DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
+  retainedIdentity     RetainedIdentity?     @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  retainedVaultObjects RetainedVaultObject[]
+
+  @@index([status, nextRunAt])
+  @@index([retainedIdentityId, target])
+  @@index([target, manualReviewRequired])
+  @@index([userId, target])
+}
+
+model SeasonParticipant {
+  id                             String                       @id @default(uuid())
+  seasonId                       String
+  userId                         String
+  participationIntent            SeasonParticipationIntent    @default(UNDECIDED)
+  registeredAt                   DateTime?                    @db.Timestamptz(3)
+  declinedAt                     DateTime?                    @db.Timestamptz(3)
+  dormitoryId                    String?
+  dormitorySelectionState        DormitorySelectionState      @default(NOT_SELECTED)
+  participantStatus              ParticipantStatus            @default(NOT_STARTED)
+  campusCodeSnapshot             Campus
+  genderSnapshot                 Gender
+  joinedAt                       DateTime                     @default(now()) @db.Timestamptz(3)
+  activatedAt                    DateTime?                    @db.Timestamptz(3)
+  matchedAt                      DateTime?                    @db.Timestamptz(3)
+  withdrawnAt                    DateTime?                    @db.Timestamptz(3)
+  expiredAt                      DateTime?                    @db.Timestamptz(3)
+  hiddenByAdminAt                DateTime?                    @db.Timestamptz(3)
+  hiddenReasonCode               ParticipantHiddenReasonCode?
+  hiddenReasonDetail             String?
+  deactivatedAt                  DateTime?                    @db.Timestamptz(3)
+  createdAt                      DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt                      DateTime                     @default(now()) @updatedAt @db.Timestamptz(3)
+  dormitory                      Dormitory?                   @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
+  season                         Season                       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  user                           User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile                        SeasonParticipantProfile?
+  sentMatchRequests              MatchRequest[]               @relation("MatchRequestRequester")
+  receivedMatchRequests          MatchRequest[]               @relation("MatchRequestReceiver")
+  activeMatchesAsA               ActiveMatch[]                @relation("ActiveMatchParticipantA")
+  activeMatchesAsB               ActiveMatch[]                @relation("ActiveMatchParticipantB")
+  activeMatchUnmatchRequests     ActiveMatchUnmatchRequest[]
+  viewedMatchHistoryEntries      SeasonMatchHistoryEntry[]    @relation("SeasonMatchHistoryViewer")
+  counterpartMatchHistoryEntries SeasonMatchHistoryEntry[]    @relation("SeasonMatchHistoryCounterpart")
+  openedThreads                  ConversationThread[]         @relation("ConversationThreadOpenedBy")
+  threadsAsA                     ConversationThread[]         @relation("ConversationThreadParticipantA")
+  threadsAsB                     ConversationThread[]         @relation("ConversationThreadParticipantB")
+  threadMembers                  ConversationThreadMember[]
+  sentMessages                   ConversationMessage[]        @relation("ConversationMessageSender")
+
+  @@unique([seasonId, userId])
+  @@index([userId, seasonId])
+  @@index([seasonId, dormitoryId, dormitorySelectionState])
+  @@index([seasonId, participantStatus])
+}
+
+model SeasonParticipantProfile {
+  participantId              String                           @id
+  nicknameSnapshot           String
+  nicknameNormalizedSnapshot String
+  bedtime                    LifestyleBedtime?
+  wakeTime                   LifestyleWakeTime?
+  sleepHabit                 LifestyleSleepHabit?
+  sleepEnvironment           LifestyleSleepEnvironment?
+  screenUsage                LifestyleScreenUsage?
+  noiseSensitivity           LifestyleNoiseSensitivity?
+  smokingBehavior            LifestyleSmokingBehavior?
+  indoorEating               LifestyleIndoorEating?
+  phoneBehavior              LifestylePhoneBehavior?
+  earphoneUsage              LifestyleEarphoneUsage?
+  cleanLevel                 LifestyleCleanLevel?
+  drinkingFrequency          LifestyleDrinkingFrequency?
+  relationshipStyle          LifestyleRelationshipStyle?
+  temperatureSensitivity     LifestyleTemperatureSensitivity?
+  smokingTolerance           RoommateSmokingTolerance?
+  phoneTolerance             RoommatePhoneTolerance?
+  earphoneExpectation        RoommateEarphoneExpectation?
+  sleepEnvPreference         RoommateSleepEnvPreference?
+  screenTolerance            RoommateScreenTolerance?
+  indoorEatingTolerance      RoommateIndoorEatingTolerance?
+  cleanExpectation           RoommateCleanExpectation?
+  drinkingTolerance          RoommateDrinkingTolerance?
+  intro                      String                           @default("")
+  collegeCode                String?
+  grade                      String?
+  mbti                       String?
+  birthYear                  Int?
+  createdAt                  DateTime                         @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime                         @default(now()) @updatedAt @db.Timestamptz(3)
+  collegeRef                 CollegeMaster?                   @relation(fields: [collegeCode], references: [code], onDelete: SetNull)
+  participant                SeasonParticipant                @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([collegeCode])
+  @@index([nicknameNormalizedSnapshot])
+}
+
+model SeasonParticipantProfileHistory {
+  id                         String                           @id @default(uuid())
+  participantId              String
+  seasonId                   String
+  retainedIdentityId         String?
+  retainedVaultObjectId      String?                          @unique
+  redactedAt                 DateTime?                        @db.Timestamptz(3)
+  redactionReason            String?
+  nicknameSnapshot           String
+  nicknameNormalizedSnapshot String
+  bedtime                    LifestyleBedtime?
+  wakeTime                   LifestyleWakeTime?
+  sleepHabit                 LifestyleSleepHabit?
+  sleepEnvironment           LifestyleSleepEnvironment?
+  screenUsage                LifestyleScreenUsage?
+  noiseSensitivity           LifestyleNoiseSensitivity?
+  smokingBehavior            LifestyleSmokingBehavior?
+  indoorEating               LifestyleIndoorEating?
+  phoneBehavior              LifestylePhoneBehavior?
+  earphoneUsage              LifestyleEarphoneUsage?
+  cleanLevel                 LifestyleCleanLevel?
+  drinkingFrequency          LifestyleDrinkingFrequency?
+  relationshipStyle          LifestyleRelationshipStyle?
+  temperatureSensitivity     LifestyleTemperatureSensitivity?
+  smokingTolerance           RoommateSmokingTolerance?
+  phoneTolerance             RoommatePhoneTolerance?
+  earphoneExpectation        RoommateEarphoneExpectation?
+  sleepEnvPreference         RoommateSleepEnvPreference?
+  screenTolerance            RoommateScreenTolerance?
+  indoorEatingTolerance      RoommateIndoorEatingTolerance?
+  cleanExpectation           RoommateCleanExpectation?
+  drinkingTolerance          RoommateDrinkingTolerance?
+  intro                      String
+  collegeCode                String?
+  grade                      String?
+  mbti                       String?
+  birthYear                  Int?
+  registeredAtSnapshot       DateTime?                        @db.Timestamptz(3)
+  source                     ProfileHistorySource
+  createdAt                  DateTime                         @default(now()) @db.Timestamptz(3)
+  retainedVaultObject        RetainedVaultObject?             @relation("ProfileHistoryRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
+
+  @@index([participantId, createdAt])
+  @@index([seasonId, participantId, createdAt])
+  @@index([retainedIdentityId, createdAt])
+  @@index([retainedVaultObjectId])
+  @@index([redactedAt])
+}
+
+model MatchRequest {
+  id                     String                      @id @default(uuid())
+  seasonId               String
+  pairKey                String
+  pairMinParticipantId   String
+  pairMaxParticipantId   String
+  requesterParticipantId String
+  receiverParticipantId  String
+  note                   String?
+  status                 MatchRequestStatus          @default(PENDING)
+  terminalReason         MatchRequestTerminalReason?
+  createdAt              DateTime                    @default(now()) @db.Timestamptz(3)
+  expiresAt              DateTime                    @db.Timestamptz(3)
+  terminalAt             DateTime?                   @db.Timestamptz(3)
+  acceptedAt             DateTime?                   @db.Timestamptz(3)
+  season                 Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  requesterParticipant   SeasonParticipant           @relation("MatchRequestRequester", fields: [requesterParticipantId], references: [id], onDelete: Cascade)
+  receiverParticipant    SeasonParticipant           @relation("MatchRequestReceiver", fields: [receiverParticipantId], references: [id], onDelete: Cascade)
+  createdActiveMatch     ActiveMatch?                @relation("ActiveMatchCreatedFromRequest")
+
+  @@index([seasonId, requesterParticipantId, receiverParticipantId, createdAt])
+  @@index([seasonId, receiverParticipantId, status])
+  @@index([expiresAt, status])
+  @@index([seasonId, pairKey, status])
+}
+
+model ActiveMatch {
+  id                   String                      @id @default(uuid())
+  seasonId             String
+  pairKey              String
+  participantAId       String
+  participantBId       String
+  createdFromRequestId String                      @unique
+  status               ActiveMatchStatus           @default(ACTIVE)
+  startedAt            DateTime                    @default(now()) @db.Timestamptz(3)
+  endedAt              DateTime?                   @db.Timestamptz(3)
+  endReason            ActiveMatchEndReason?
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                    @default(now()) @updatedAt @db.Timestamptz(3)
+  season               Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  participantA         SeasonParticipant           @relation("ActiveMatchParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantB         SeasonParticipant           @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+  createdFromRequest   MatchRequest                @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
+  unmatchRequests      ActiveMatchUnmatchRequest[]
+  conversationThread   ConversationThread?
+
+  @@index([seasonId, pairKey, endedAt])
+  @@index([participantAId, endedAt])
+  @@index([participantBId, endedAt])
+  @@index([seasonId, status, endedAt])
+}
+
+model ActiveMatchUnmatchRequest {
+  id            String                          @id @default(uuid())
+  activeMatchId String
+  participantId String
+  status        ActiveMatchUnmatchRequestStatus @default(PENDING)
+  requestedAt   DateTime                        @default(now()) @db.Timestamptz(3)
+  terminalAt    DateTime?                       @db.Timestamptz(3)
+  createdAt     DateTime                        @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime                        @default(now()) @updatedAt @db.Timestamptz(3)
+  activeMatch   ActiveMatch                     @relation(fields: [activeMatchId], references: [id], onDelete: Cascade)
+  participant   SeasonParticipant               @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([activeMatchId, status, requestedAt])
+  @@index([participantId, status, requestedAt])
+}
+
+model SeasonMatchHistoryEntry {
+  id                                        String                                 @id @default(uuid())
+  seasonId                                  String
+  viewerParticipantId                       String
+  counterpartParticipantId                  String
+  pairKey                                   String
+  entryType                                 SeasonMatchHistoryEntryType
+  entryResult                               SeasonMatchHistoryEntryResult
+  viewerRequested                           Boolean
+  sourceRequestId                           String?
+  sourceActiveMatchId                       String?
+  createdFromRequestId                      String?
+  matchScore                                Int?
+  viewerSmokingToleranceSnapshot            RoommateSmokingTolerance?
+  viewerPhoneToleranceSnapshot              RoommatePhoneTolerance?
+  viewerEarphoneExpectationSnapshot         RoommateEarphoneExpectation?
+  viewerSleepEnvPreferenceSnapshot          RoommateSleepEnvPreference?
+  viewerScreenToleranceSnapshot             RoommateScreenTolerance?
+  viewerIndoorEatingToleranceSnapshot       RoommateIndoorEatingTolerance?
+  viewerCleanExpectationSnapshot            RoommateCleanExpectation?
+  viewerDrinkingToleranceSnapshot           RoommateDrinkingTolerance?
+  viewerBedtimeSnapshot                     LifestyleBedtime?
+  viewerWakeTimeSnapshot                    LifestyleWakeTime?
+  viewerRelationshipStyleSnapshot           LifestyleRelationshipStyle?
+  viewerTemperatureSensitivitySnapshot      LifestyleTemperatureSensitivity?
+  counterpartBedtimeSnapshot                LifestyleBedtime?
+  counterpartWakeTimeSnapshot               LifestyleWakeTime?
+  counterpartSleepHabitSnapshot             LifestyleSleepHabit?
+  counterpartSleepEnvironmentSnapshot       LifestyleSleepEnvironment?
+  counterpartScreenUsageSnapshot            LifestyleScreenUsage?
+  counterpartNoiseSensitivitySnapshot       LifestyleNoiseSensitivity?
+  counterpartSmokingBehaviorSnapshot        LifestyleSmokingBehavior?
+  counterpartIndoorEatingSnapshot           LifestyleIndoorEating?
+  counterpartPhoneBehaviorSnapshot          LifestylePhoneBehavior?
+  counterpartEarphoneUsageSnapshot          LifestyleEarphoneUsage?
+  counterpartCleanLevelSnapshot             LifestyleCleanLevel?
+  counterpartDrinkingFrequencySnapshot      LifestyleDrinkingFrequency?
+  counterpartRelationshipStyleSnapshot      LifestyleRelationshipStyle?
+  counterpartTemperatureSensitivitySnapshot LifestyleTemperatureSensitivity?
+  counterpartNicknameSnapshot               String
+  counterpartRedactedAt                     DateTime?                              @db.Timestamptz(3)
+  viewerRedactedAt                          DateTime?                              @db.Timestamptz(3)
+  viewerDormitoryIdSnapshot                 String?
+  hadConversation                           Boolean                                @default(false)
+  matchedAt                                 DateTime?                              @db.Timestamptz(3)
+  unmatchedAt                               DateTime?                              @db.Timestamptz(3)
+  finalizedAt                               DateTime                               @db.Timestamptz(3)
+  requestTerminalReason                     MatchRequestTerminalReason?
+  activeMatchEndReason                      ActiveMatchEndReason?
+  threadClosedReason                        ConversationThreadClosedReason?
+  threadClosedAt                            DateTime?                              @db.Timestamptz(3)
+  createdAt                                 DateTime                               @default(now()) @db.Timestamptz(3)
+  updatedAt                                 DateTime                               @default(now()) @updatedAt @db.Timestamptz(3)
+  season                                    Season                                 @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  viewerParticipant                         SeasonParticipant                      @relation("SeasonMatchHistoryViewer", fields: [viewerParticipantId], references: [id], onDelete: Cascade)
+  counterpartParticipant                    SeasonParticipant                      @relation("SeasonMatchHistoryCounterpart", fields: [counterpartParticipantId], references: [id], onDelete: Cascade)
+  retentionLinks                            SeasonMatchHistoryEntryRetentionLink[]
+
+  @@index([seasonId, viewerParticipantId, finalizedAt])
+  @@index([viewerParticipantId, counterpartParticipantId, finalizedAt])
+  @@index([seasonId, pairKey, finalizedAt])
+}
+
+model ConversationThread {
+  id                    String                          @id @default(uuid())
+  seasonId              String
+  pairKey               String
+  participantAId        String
+  participantBId        String
+  openedByParticipantId String
+  threadKind            ConversationThreadKind
+  activeMatchId         String?                         @unique
+  status                ConversationThreadStatus        @default(OPEN)
+  closedReason          ConversationThreadClosedReason?
+  closedAt              DateTime?                       @db.Timestamptz(3)
+  lastMessageAt         DateTime?                       @db.Timestamptz(3)
+  createdAt             DateTime                        @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                        @default(now()) @updatedAt @db.Timestamptz(3)
+  season                Season                          @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  participantA          SeasonParticipant               @relation("ConversationThreadParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantB          SeasonParticipant               @relation("ConversationThreadParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+  openedByParticipant   SeasonParticipant               @relation("ConversationThreadOpenedBy", fields: [openedByParticipantId], references: [id], onDelete: Cascade)
+  activeMatch           ActiveMatch?                    @relation(fields: [activeMatchId], references: [id], onDelete: SetNull)
+  members               ConversationThreadMember[]
+  messages              ConversationMessage[]
+
+  @@index([seasonId, pairKey, status])
+  @@index([participantAId])
+  @@index([participantBId])
+}
+
+model ConversationThreadMember {
+  threadId      String
+  participantId String
+  memberState   ConversationThreadMemberState @default(ACTIVE)
+  leftAt        DateTime?                     @db.Timestamptz(3)
+  mutedAt       DateTime?                     @db.Timestamptz(3)
+  lastReadAt    DateTime?                     @db.Timestamptz(3)
+  lastVisibleAt DateTime?                     @db.Timestamptz(3)
+  createdAt     DateTime                      @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime                      @default(now()) @updatedAt @db.Timestamptz(3)
+  thread        ConversationThread            @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  participant   SeasonParticipant             @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@id([threadId, participantId])
+}
+
+model ConversationMessage {
+  id                    String                              @id @default(uuid())
+  threadId              String
+  senderParticipantId   String
+  body                  String
+  bodyState             ConversationMessageBodyState        @default(PLAIN)
+  tombstoneReason       ConversationMessageTombstoneReason?
+  tombstonedAt          DateTime?                           @db.Timestamptz(3)
+  bodyRetainedAt        DateTime?                           @db.Timestamptz(3)
+  bodyDisposedAt        DateTime?                           @db.Timestamptz(3)
+  retainedVaultObjectId String?                             @unique
+  bodyVersion           Int                                 @default(1)
+  sentAt                DateTime                            @default(now()) @db.Timestamptz(3)
+  deletedAt             DateTime?                           @db.Timestamptz(3)
+  createdAt             DateTime                            @default(now()) @db.Timestamptz(3)
+  thread                ConversationThread                  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  senderParticipant     SeasonParticipant                   @relation("ConversationMessageSender", fields: [senderParticipantId], references: [id], onDelete: Cascade)
+  retainedVaultObject   RetainedVaultObject?                @relation("ConversationMessageRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, sentAt])
+  @@index([senderParticipantId, sentAt])
+  @@index([bodyState, tombstonedAt])
+  @@index([retainedVaultObjectId])
+}
+
+model SeasonMatchHistoryEntryRetentionLink {
+  id                    String                   @id @default(uuid())
+  matchHistoryEntryId   String
+  participantId         String
+  userId                String
+  retainedIdentityId    String
+  subjectRole           RetainedVaultSubjectRole
+  retainedVaultObjectId String?                  @unique
+  redactedAt            DateTime?                @db.Timestamptz(3)
+  redactionReason       String?
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+  matchHistoryEntry     SeasonMatchHistoryEntry  @relation(fields: [matchHistoryEntryId], references: [id], onDelete: Cascade)
+  retainedVaultObject   RetainedVaultObject?     @relation("MatchHistoryLinkRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
+
+  @@unique([matchHistoryEntryId, retainedIdentityId, subjectRole])
+  @@index([retainedIdentityId, subjectRole])
+  @@index([participantId])
+  @@index([userId])
+}
+
+/// Retained vault payload의 보존 case/hold owner. 계정 식별 anchor 보존 사유와 분리된다.
+model RetentionCase {
+  id                        String                    @id @default(uuid())
+  reason                    RetentionCaseReason
+  triggerUserId             String?
+  triggerRetainedIdentityId String?
+  sourceTable               String?
+  sourceId                  String?
+  retentionHoldUntil        DateTime?                 @db.Timestamptz(3)
+  legalHoldReason           LegalHoldReason?
+  approvalReference         String?
+  policyVersion             String
+  metadata                  Json?
+  createdAt                 DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime                  @default(now()) @updatedAt @db.Timestamptz(3)
+  triggerRetainedIdentity   RetainedIdentity?         @relation("RetentionCaseTriggerIdentity", fields: [triggerRetainedIdentityId], references: [id], onDelete: SetNull)
+  vaultHolds                RetainedVaultObjectHold[]
+  identityHolds             RetainedIdentityHold[]
+
+  @@index([reason, retentionHoldUntil])
+  @@index([triggerRetainedIdentityId, reason])
+  @@index([sourceTable, sourceId])
+}
+
+/// RRPD payload의 암호화 보존 단위. 일반 product read path에서 복원하지 않는다.
+model RetainedVaultObject {
+  id                        String                                  @id @default(uuid())
+  target                    RetainedVaultObjectTarget
+  sourceTable               String
+  sourceId                  String
+  archiveJobId              String?
+  subjectUserId             String?
+  subjectRetainedIdentityId String?
+  subjectParticipantId      String?
+  subjectRole               RetainedVaultSubjectRole
+  payloadSchemaVersion      Int
+  encryptedPayload          Json?
+  payloadDigest             String?
+  keyPurpose                String
+  keyVersion                String?
+  aad                       String
+  state                     RetainedVaultObjectState                @default(RETAINED)
+  retainedAt                DateTime                                @default(now()) @db.Timestamptz(3)
+  disposedAt                DateTime?                               @db.Timestamptz(3)
+  disposalReason            String?
+  metadata                  Json?
+  createdAt                 DateTime                                @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime                                @default(now()) @updatedAt @db.Timestamptz(3)
+  archiveJob                ArchiveJob?                             @relation(fields: [archiveJobId], references: [id], onDelete: SetNull)
+  subjectRetainedIdentity   RetainedIdentity?                       @relation("RetainedVaultObjectSubjectIdentity", fields: [subjectRetainedIdentityId], references: [id], onDelete: SetNull)
+  holds                     RetainedVaultObjectHold[]
+  accessLogs                RetentionAccessLog[]
+  chatMessage               ConversationMessage?                    @relation("ConversationMessageRetainedVaultObject")
+  nicknameChangeEvent       UserDisplayIdentityNicknameChangeEvent? @relation("NicknameEventRetainedVaultObject")
+  academicIdentityChangeEvent UserAcademicIdentityChangeEvent?      @relation("AcademicIdentityEventRetainedVaultObject")
+  profileHistory            SeasonParticipantProfileHistory?        @relation("ProfileHistoryRetainedVaultObject")
+  matchHistoryLink          SeasonMatchHistoryEntryRetentionLink?   @relation("MatchHistoryLinkRetainedVaultObject")
+
+  @@unique([target, sourceId, subjectRole])
+  @@index([target, sourceId])
+  @@index([archiveJobId])
+  @@index([subjectRetainedIdentityId, target, retainedAt])
+  @@index([state, retainedAt])
+}
+
+model RetainedVaultObjectHold {
+  id                    String              @id @default(uuid())
+  retainedVaultObjectId String
+  retentionCaseId       String
+  holdReason            RetentionCaseReason
+  holdUntil             DateTime?           @db.Timestamptz(3)
+  releasedAt            DateTime?           @db.Timestamptz(3)
+  releaseReason         String?
+  createdAt             DateTime            @default(now()) @db.Timestamptz(3)
+  retainedVaultObject   RetainedVaultObject @relation(fields: [retainedVaultObjectId], references: [id], onDelete: Cascade)
+  retentionCase         RetentionCase       @relation(fields: [retentionCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([retainedVaultObjectId, retentionCaseId])
+  @@index([retentionCaseId, holdUntil])
+  @@index([holdReason, holdUntil])
+}
+
+model RetainedIdentityHold {
+  id                 String              @id @default(uuid())
+  retainedIdentityId String
+  retentionCaseId    String
+  holdReason         RetentionCaseReason
+  holdUntil          DateTime?           @db.Timestamptz(3)
+  releasedAt         DateTime?           @db.Timestamptz(3)
+  releaseReason      String?
+  createdAt          DateTime            @default(now()) @db.Timestamptz(3)
+  retainedIdentity   RetainedIdentity    @relation(fields: [retainedIdentityId], references: [id], onDelete: Cascade)
+  retentionCase      RetentionCase       @relation(fields: [retentionCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([retainedIdentityId, retentionCaseId])
+  @@index([retentionCaseId, holdUntil])
+  @@index([holdReason, holdUntil])
+}
+
+model RetentionAccessLog {
+  id                         String                     @id @default(uuid())
+  targetType                 RetentionAccessTargetType
+  retainedIdentityId         String?
+  retainedVaultObjectId      String?
+  vaultTarget                RetainedVaultObjectTarget?
+  accessedBy                 String?
+  accessReason               RetentionAccessReason
+  approvalReference          String?
+  purpose                    String?
+  result                     RetentionAccessResult
+  disclosedFields            Json?
+  createdAt                  DateTime                   @default(now()) @db.Timestamptz(3)
+  logRetentionHoldUntil      DateTime?                  @db.Timestamptz(3)
+  logRetentionDisposedAt     DateTime?                  @db.Timestamptz(3)
+  logRetentionDisposalReason String?
+  retainedIdentity           RetainedIdentity?          @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  retainedVaultObject        RetainedVaultObject?       @relation(fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
+
+  @@index([retainedIdentityId, createdAt])
+  @@index([retainedVaultObjectId, createdAt])
+  @@index([targetType, accessReason, createdAt])
+  @@index([vaultTarget, accessReason, createdAt])
+  @@index([accessedBy, createdAt])
+  @@index([logRetentionHoldUntil, logRetentionDisposedAt])
+}
+
+model RetentionReviewJob {
+  id                   String                   @id @default(uuid())
+  target               RetentionReviewJobTarget
+  status               ArchiveJobStatus         @default(PENDING)
+  sourceId             String
+  dueAt                DateTime                 @db.Timestamptz(3)
+  payload              Json?
+  attemptCount         Int                      @default(0)
+  maxAttempts          Int                      @default(5)
+  lastErrorCode        String?
+  lastAttemptAt        DateTime?                @db.Timestamptz(3)
+  lastSucceededAt      DateTime?                @db.Timestamptz(3)
+  manualReviewRequired Boolean                  @default(false)
+  createdAt            DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@unique([target, sourceId])
+  @@index([status, dueAt])
+  @@index([target, status, dueAt])
 }
 
 model LoginAttempt {
@@ -198,7 +1274,7 @@ model LoginAttempt {
   lockedUntil     DateTime? @db.Timestamptz(3)
   lastFailedAt    DateTime? @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
 }
 
 model VerificationCode {
@@ -235,7 +1311,7 @@ model AuthSession {
   expiresAt        DateTime  @db.Timestamptz(3)
   revokedAt        DateTime? @db.Timestamptz(3)
   createdAt        DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
   user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -250,7 +1326,7 @@ model ModerationTerm {
   surface        ModerationSurface
   isActive       Boolean                @default(true)
   createdAt      DateTime               @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime               @default(now()) @updatedAt @db.Timestamptz(3)
 
   @@unique([normalizedTerm, category, matchMode, surface])
   @@index([surface, category, isActive])

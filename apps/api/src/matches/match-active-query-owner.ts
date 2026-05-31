@@ -1,0 +1,96 @@
+import type { ActiveMatchSummary } from '@repo/shared/match-contract';
+import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import { matchesErrors } from './matches.errors.js';
+import { toActiveMatchSummary, toDetailedActiveMatchSummary } from './match-read-model.js';
+import {
+  activeMatchCommandSelect,
+  activeMatchSummarySelect,
+  type ActiveMatchCommandRecord,
+} from './match-selects.js';
+import { synchronizePendingUnmatchRequests } from './match-unmatch-support.js';
+import type { CurrentSeasonContext } from '../seasons/season.types.js';
+
+export function createMatchActiveQueryOwner(prisma: PrismaService) {
+  return {
+    async getCurrentDetailedActiveMatchByParticipantId(
+      seasonId: string,
+      participantId: string,
+    ): Promise<ActiveMatchCommandRecord | null> {
+      return prisma.activeMatch.findFirst({
+        where: {
+          seasonId,
+          endedAt: null,
+          OR: [{ participantAId: participantId }, { participantBId: participantId }],
+        },
+        select: activeMatchCommandSelect,
+      });
+    },
+
+    async getDetailedActiveMatchSummaryForViewer(
+      client: PrismaService | Prisma.TransactionClient,
+      activeMatchId: string,
+      viewerParticipantId: string,
+      seasonContext: CurrentSeasonContext,
+      now: Date,
+    ): Promise<ActiveMatchSummary> {
+      const activeMatch = await client.activeMatch.findUnique({
+        where: { id: activeMatchId },
+        select: activeMatchCommandSelect,
+      });
+
+      if (!activeMatch) {
+        throw matchesErrors.activeMatchNotFound();
+      }
+
+      const synchronizedActiveMatch = await synchronizePendingUnmatchRequests(
+        client,
+        activeMatch,
+        seasonContext,
+        now,
+      );
+
+      return toDetailedActiveMatchSummary(
+        synchronizedActiveMatch,
+        viewerParticipantId,
+        seasonContext,
+        now,
+      );
+    },
+
+    async getLiveActiveMatchMapForParticipantIds(
+      seasonId: string,
+      participantIds: string[],
+    ): Promise<Map<string, ActiveMatchSummary>> {
+      if (participantIds.length === 0) {
+        return new Map();
+      }
+
+      const activeMatches = await prisma.activeMatch.findMany({
+        where: {
+          seasonId,
+          endedAt: null,
+          OR: [
+            { participantAId: { in: participantIds } },
+            { participantBId: { in: participantIds } },
+          ],
+        },
+        select: activeMatchSummarySelect,
+      });
+
+      const map = new Map<string, ActiveMatchSummary>();
+      for (const activeMatch of activeMatches) {
+        map.set(
+          activeMatch.participantAId,
+          toActiveMatchSummary(activeMatch, activeMatch.participantAId),
+        );
+        map.set(
+          activeMatch.participantBId,
+          toActiveMatchSummary(activeMatch, activeMatch.participantBId),
+        );
+      }
+
+      return map;
+    },
+  };
+}

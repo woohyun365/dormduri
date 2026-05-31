@@ -1,4 +1,7 @@
+import type { ConfigType } from '@nestjs/config';
 import { AuthVerificationService } from './auth-verification.service.js';
+import { hashVerificationCode } from './auth.utils.js';
+import authConfig, { DEFAULT_VERIFICATION_CODE_HMAC_SECRET } from '../config/auth.config.js';
 
 describe('AuthVerificationService', () => {
   const verificationStore = {
@@ -9,6 +12,7 @@ describe('AuthVerificationService', () => {
     findLatestVerifiedResetCode: jest.fn(),
     consumeVerificationCode: jest.fn(),
     invalidateActiveSignupCodes: jest.fn(),
+    replaceActiveSignupCode: jest.fn(),
     insertVerificationCode: jest.fn(),
     findActiveVerificationRecord: jest.fn(),
     markVerified: jest.fn(),
@@ -21,7 +25,20 @@ describe('AuthVerificationService', () => {
     sendPasswordResetCode: jest.fn(),
   };
 
-  const service = new AuthVerificationService(verificationStore as never, emailSender as never);
+  const authSettings: ConfigType<typeof authConfig> = {
+    jwtSecret: 'local-jwt-secret',
+    verificationCodeHmacSecret: DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
+    codeRequestCooldownSeconds: 5,
+    codeRequestBackstopWindowSeconds: 600,
+    codeRequestBackstopLimit: 20,
+    authThrottleLimit: 300,
+  };
+
+  const service = new AuthVerificationService(
+    verificationStore as never,
+    emailSender as never,
+    authSettings,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -40,13 +57,13 @@ describe('AuthVerificationService', () => {
     );
   });
 
-  it('signup code 재발급 시 기존 unconsumed signup verification row를 먼저 무효화한다', async () => {
+  it('signup code 재발급 시 serializable helper 경로로 active signup code를 교체한다', async () => {
     emailSender.sendVerificationCode.mockResolvedValue(undefined);
 
     await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
 
-    expect(verificationStore.invalidateActiveSignupCodes).toHaveBeenCalledWith(
-      'test@kangwon.ac.kr',
+    expect(verificationStore.replaceActiveSignupCode).toHaveBeenCalledWith(
+      expect.objectContaining({ emailNormalized: 'test@kangwon.ac.kr' }),
     );
     expect(emailSender.sendVerificationCode).toHaveBeenCalledWith(
       expect.objectContaining({ expiresInSeconds: 600 }),
@@ -58,11 +75,11 @@ describe('AuthVerificationService', () => {
 
     await service.maybeSendSignupCode('test@kangwon.ac.kr', false, '127.0.0.1');
 
-    const [insertArg] = (verificationStore.insertVerificationCode.mock.calls[0] ?? []) as [
+    const [replaceArg] = (verificationStore.replaceActiveSignupCode.mock.calls[0] ?? []) as [
       { codeHash: string }?,
     ];
 
-    expect(insertArg?.codeHash).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
+    expect(replaceArg?.codeHash).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
   });
 
   it('reset code는 완화된 600초 TTL을 사용한다', async () => {
@@ -100,5 +117,84 @@ describe('AuthVerificationService', () => {
         },
       });
     }
+  });
+
+  it('reset code 요청은 user가 없으면 이메일 발송 없이 중립 성공을 유지한다', async () => {
+    emailSender.sendPasswordResetCode.mockResolvedValue(undefined);
+
+    await expect(
+      service.maybeSendResetCode('missing@kangwon.ac.kr', false, '127.0.0.1'),
+    ).resolves.toEqual({
+      success: true,
+    });
+
+    expect(verificationStore.insertVerificationCode).not.toHaveBeenCalled();
+    expect(emailSender.sendPasswordResetCode).not.toHaveBeenCalled();
+    expect(verificationStore.createRequestLog).toHaveBeenCalledWith(
+      'missing@kangwon.ac.kr',
+      'RESET_PASSWORD',
+      '127.0.0.1',
+    );
+  });
+
+  it('올바른 verification code는 verified 처리한다', async () => {
+    verificationStore.findActiveVerificationRecord.mockResolvedValue({
+      id: 'code-1',
+      codeHash: hashVerificationCode(
+        'test@kangwon.ac.kr',
+        'SIGNUP',
+        '123456',
+        DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
+      ),
+      failedAttempts: 0,
+    });
+
+    await expect(service.verifyEmailCode('test@kangwon.ac.kr', '123456')).resolves.toEqual({
+      success: true,
+    });
+
+    expect(verificationStore.markVerified).toHaveBeenCalledWith('code-1');
+  });
+
+  it('잘못된 verification code는 failedAttempts를 증가시킨다', async () => {
+    verificationStore.findActiveVerificationRecord.mockResolvedValue({
+      id: 'code-1',
+      codeHash: hashVerificationCode(
+        'test@kangwon.ac.kr',
+        'SIGNUP',
+        '123456',
+        DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
+      ),
+      failedAttempts: 0,
+    });
+
+    await expect(service.verifyEmailCode('test@kangwon.ac.kr', '654321')).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_VERIFICATION_CODE_INVALID',
+    });
+
+    expect(verificationStore.incrementFailedAttempts).toHaveBeenCalledWith('code-1');
+    expect(verificationStore.failAndConsume).not.toHaveBeenCalled();
+  });
+
+  it('잘못된 verification code가 최대 시도에 도달하면 즉시 consume한다', async () => {
+    verificationStore.findActiveVerificationRecord.mockResolvedValue({
+      id: 'code-1',
+      codeHash: hashVerificationCode(
+        'test@kangwon.ac.kr',
+        'RESET_PASSWORD',
+        '123456',
+        DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
+      ),
+      failedAttempts: 4,
+    });
+
+    await expect(service.verifyResetCode('test@kangwon.ac.kr', '654321')).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_VERIFICATION_CODE_INVALID',
+    });
+
+    expect(verificationStore.failAndConsume).toHaveBeenCalledWith('code-1');
+    expect(verificationStore.incrementFailedAttempts).not.toHaveBeenCalled();
   });
 });

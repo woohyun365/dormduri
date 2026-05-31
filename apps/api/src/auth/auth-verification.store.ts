@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { VerificationCodePurpose } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
+  acquireTransactionAdvisoryLock,
   getActiveVerificationRecord,
   getLatestVerifiedResetCode,
   getLatestVerifiedSignupCode,
@@ -114,6 +115,46 @@ export class AuthVerificationStore {
         consumedAt: null,
       },
       data: { consumedAt },
+    });
+  }
+
+  async replaceActiveSignupCode(input: {
+    id: string;
+    emailNormalized: string;
+    codeHash: string;
+    ttlSeconds: number;
+    requestIp: string | null;
+  }): Promise<void> {
+    const issuedAt = await this.prisma.getDatabaseNow();
+
+    await this.prisma.runSerializableTransaction(async (tx) => {
+      await tx.$queryRawTyped(
+        acquireTransactionAdvisoryLock(
+          'verification_code_signup',
+          `${input.emailNormalized}:SIGNUP`,
+        ),
+      );
+
+      await tx.verificationCode.updateMany({
+        where: {
+          emailNormalized: input.emailNormalized,
+          purpose: 'SIGNUP',
+          consumedAt: null,
+        },
+        data: { consumedAt: issuedAt },
+      });
+
+      await tx.verificationCode.create({
+        data: {
+          id: input.id,
+          emailNormalized: input.emailNormalized,
+          purpose: 'SIGNUP',
+          codeHash: input.codeHash,
+          issuedAt,
+          expiresAt: new Date(issuedAt.getTime() + input.ttlSeconds * 1000),
+          requestIp: input.requestIp,
+        },
+      });
     });
   }
 

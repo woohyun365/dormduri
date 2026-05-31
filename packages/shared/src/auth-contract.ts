@@ -1,48 +1,18 @@
-import { z } from 'zod';
 export { campusSchema, genderSchema } from './identity-contract.js';
 export type { Campus, Gender } from './identity-contract.js';
-import { lifestyleSchema } from './lifestyle.js';
-import { campusSchema, genderSchema } from './identity-contract.js';
-
-export const emailRequestSchema = z.strictObject({
-  email: z.string(),
-});
-
-export const verificationCodeRequestSchema = z.strictObject({
-  email: z.string(),
-  code: z.string(),
-});
-
-export const loginRequestSchema = z.strictObject({
-  email: z.string(),
-  password: z.string(),
-  rememberMe: z.boolean().optional(),
-});
-
-export const signupProfileValidationRequestSchema = z.strictObject({
-  email: z.string(),
-  password: z.string(),
-  nickname: z.string(),
-});
-
-export const signupRequestSchema = z.strictObject({
-  email: z.string(),
-  password: z.string(),
-  nickname: z.string(),
-  gender: genderSchema,
-  campus: campusSchema,
-  lifestyle: lifestyleSchema,
-  intro: z.string(),
-});
-
-export const resetPasswordRequestSchema = z.strictObject({
-  email: z.string(),
-  newPassword: z.string(),
-});
-
-export type EmailRequest = z.infer<typeof emailRequestSchema>;
-export type VerificationCodeRequest = z.infer<typeof verificationCodeRequestSchema>;
-export type LoginRequest = z.infer<typeof loginRequestSchema>;
-export type SignupProfileValidationRequest = z.infer<typeof signupProfileValidationRequestSchema>;
-export type SignupRequest = z.infer<typeof signupRequestSchema>;
-export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
+export {
+  emailRequestSchema,
+  verificationCodeRequestSchema,
+  loginRequestSchema,
+  signupDraftValidationRequestSchema,
+  signupRequestSchema,
+  resetPasswordRequestSchema,
+} from './auth-contract-requests.js';
+export type {
+  EmailRequest,
+  VerificationCodeRequest,
+  LoginRequest,
+  SignupDraftValidationRequest,
+  SignupRequest,
+  ResetPasswordRequest,
+} from './auth-contract-requests.js';

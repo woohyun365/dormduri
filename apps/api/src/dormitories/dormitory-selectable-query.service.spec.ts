@@ -1,54 +1,7 @@
 import { DormitorySelectableQueryService } from './dormitory-selectable-query.service.js';
 
-function makeSeasonRow(
-  overrides: Partial<{
-    id: string;
-    campusCode: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-    name: string;
-    preparationStartDate: Date;
-    matchingStartDate: Date;
-    seasonEndDate: Date;
-    overrideState:
-      | 'OFF_SEASON'
-      | 'SEASON_PREPARATION'
-      | 'SEASON_MATCHING'
-      | 'SEASON_POST_MATCH'
-      | null;
-    overrideReason: string | null;
-    overrideStartedAt: Date | null;
-    overrideEndsAt: Date | null;
-    dormitoryOperations: Array<{
-      dormitoryId: string;
-      isOperated: boolean;
-      roomSelectionDate: Date;
-    }>;
-  }> = {},
-) {
-  return {
-    id: 'season-1',
-    campusCode: 'CHUNCHEON' as const,
-    name: '2026년 1학기',
-    preparationStartDate: new Date('2026-01-01T00:00:00.000Z'),
-    matchingStartDate: new Date('2026-01-28T00:00:00.000Z'),
-    seasonEndDate: new Date('2026-02-28T00:00:00.000Z'),
-    overrideState: null,
-    overrideReason: null,
-    overrideStartedAt: null,
-    overrideEndsAt: null,
-    dormitoryOperations: [
-      {
-        dormitoryId: 'dasan',
-        isOperated: true,
-        roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
-      },
-      {
-        dormitoryId: 'saerom',
-        isOperated: true,
-        roomSelectionDate: new Date('2026-02-12T00:00:00.000Z'),
-      },
-    ],
-    ...overrides,
-  };
+function objectContaining(shape: Record<string, unknown>): unknown {
+  return expect.objectContaining(shape) as unknown;
 }
 
 describe('DormitorySelectableQueryService', () => {
@@ -56,71 +9,28 @@ describe('DormitorySelectableQueryService', () => {
     campusMaster: {
       findUnique: jest.fn(),
     },
-    season: {
-      findMany: jest.fn(),
-    },
     seasonDormitoryOperation: {
       findMany: jest.fn(),
+      findUnique: jest.fn(),
     },
-    $queryRawTyped: jest.fn(),
   };
-
   const service = new DormitorySelectableQueryService(prisma as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
-    prisma.$queryRawTyped.mockResolvedValue([{ now: new Date('2026-02-10T03:00:00.000Z') }]);
   });
 
-  it('비운영 캠퍼스 selectable 목록은 빈 items를 반환한다', async () => {
-    prisma.campusMaster.findUnique.mockResolvedValue({
-      code: 'SAMCHEOK',
-      nameKo: '삼척캠퍼스',
-      isOperated: false,
-    });
-
-    await expect(service.getSelectableDormitories('SAMCHEOK', 'M')).resolves.toEqual({
-      campus: {
-        code: 'SAMCHEOK',
-        nameKo: '삼척캠퍼스',
-        isOperated: false,
-      },
-      items: [],
-    });
-    expect(prisma.season.findMany).not.toHaveBeenCalled();
-  });
-
-  it('current season의 운영 기숙사만 selectable 목록으로 반환한다', async () => {
-    prisma.campusMaster.findUnique.mockResolvedValue({
-      code: 'CHUNCHEON',
-      nameKo: '춘천캠퍼스',
-      isOperated: true,
-    });
-    prisma.season.findMany.mockResolvedValue([
-      makeSeasonRow(),
-      makeSeasonRow({
-        id: 'season-2',
-        name: '2026년 2학기',
-        preparationStartDate: new Date('2026-07-01T00:00:00.000Z'),
-        matchingStartDate: new Date('2026-08-18T00:00:00.000Z'),
-        seasonEndDate: new Date('2026-08-31T00:00:00.000Z'),
-      }),
-    ]);
+  it('season participant용 selectable 조회는 snapshot 기준으로 cutoff를 적용하고 season contract item을 반환한다', async () => {
+    const now = new Date('2026-02-10T03:00:00.000Z');
     prisma.seasonDormitoryOperation.findMany.mockResolvedValue([
       {
-        roomSelectionDate: new Date('2026-02-12T00:00:00.000Z'),
-        dormitory: {
-          id: 'saerom',
-          nameKo: '새롬관',
-          roomType: 2,
-          genderPolicy: 'BOTH',
-          sortOrder: 6,
-        },
-      },
-      {
+        seasonId: 'season-1',
+        dormitoryId: 'dasan',
+        isOperated: true,
         roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
         dormitory: {
           id: 'dasan',
+          campusCode: 'CHUNCHEON',
           nameKo: '다산관',
           roomType: 2,
           genderPolicy: 'M',
@@ -129,96 +39,246 @@ describe('DormitorySelectableQueryService', () => {
       },
     ]);
 
-    await expect(service.getSelectableDormitories('CHUNCHEON', 'M')).resolves.toEqual({
-      campus: {
-        code: 'CHUNCHEON',
-        nameKo: '춘천캠퍼스',
-        isOperated: true,
-      },
-      items: [
-        { id: 'dasan', name: '다산관', roomType: 2, genderPolicy: 'M', isOperated: true },
-        { id: 'saerom', name: '새롬관', roomType: 2, genderPolicy: 'BOTH', isOperated: true },
-      ],
-    });
-    expect(prisma.seasonDormitoryOperation.findMany).toHaveBeenCalled();
-    const seasonDormitoryFindMany = prisma.seasonDormitoryOperation.findMany;
-    const [firstCallArg] = (seasonDormitoryFindMany.mock.calls[0] ?? []) as [unknown?];
-
-    expect(firstCallArg).toMatchObject({
-      where: {
-        seasonId: 'season-1',
-        isOperated: true,
-      },
-    });
-  });
-
-  it('future season row만 있으면 selectable 목록은 빈 items를 반환한다', async () => {
-    prisma.campusMaster.findUnique.mockResolvedValue({
-      code: 'CHUNCHEON',
-      nameKo: '춘천캠퍼스',
-      isOperated: true,
-    });
-    prisma.season.findMany.mockResolvedValue([
-      makeSeasonRow({
-        id: 'season-2',
-        name: '2026년 2학기',
-        preparationStartDate: new Date('2026-07-01T00:00:00.000Z'),
-        matchingStartDate: new Date('2026-08-18T00:00:00.000Z'),
-        seasonEndDate: new Date('2026-08-31T00:00:00.000Z'),
-      }),
-    ]);
-
     await expect(
-      service.getSelectableDormitories('CHUNCHEON', 'M', new Date('2026-06-10T12:00:00+09:00')),
-    ).resolves.toEqual({
-      campus: {
-        code: 'CHUNCHEON',
-        nameKo: '춘천캠퍼스',
-        isOperated: true,
-      },
-      items: [],
-    });
-    expect(prisma.seasonDormitoryOperation.findMany).not.toHaveBeenCalled();
-  });
-
-  it('current season row는 있으나 operated dormitory가 0개면 빈 items를 반환한다', async () => {
-    prisma.campusMaster.findUnique.mockResolvedValue({
-      code: 'CHUNCHEON',
-      nameKo: '춘천캠퍼스',
-      isOperated: true,
-    });
-    prisma.season.findMany.mockResolvedValue([
-      makeSeasonRow({
-        dormitoryOperations: [
-          {
-            dormitoryId: 'dasan',
-            isOperated: false,
-            roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
-          },
-        ],
+      service.listSelectableDormitoriesForSeasonParticipant({
+        seasonContext: {
+          season: { id: 'season-1' },
+          state: 'SEASON_MATCHING',
+        } as never,
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        now,
       }),
-    ]);
-    prisma.seasonDormitoryOperation.findMany.mockResolvedValue([]);
-
-    await expect(service.getSelectableDormitories('CHUNCHEON', 'M')).resolves.toEqual({
-      campus: {
-        code: 'CHUNCHEON',
-        nameKo: '춘천캠퍼스',
-        isOperated: true,
+    ).resolves.toEqual([
+      {
+        id: 'dasan',
+        name: '다산관',
+        campusCode: 'CHUNCHEON',
+        roomType: 2,
+        genderPolicy: 'M',
+        roomSelectionDate: '2026-02-11',
       },
-      items: [],
-    });
+    ]);
+
     expect(prisma.seasonDormitoryOperation.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
+        where: objectContaining({
           seasonId: 'season-1',
           isOperated: true,
           dormitory: {
             campusCode: 'CHUNCHEON',
-            OR: [{ genderPolicy: 'M' }, { genderPolicy: 'BOTH' }],
+            genderPolicy: { in: ['M', 'BOTH'] },
+          },
+          roomSelectionDate: { gte: new Date('2026-02-10T00:00:00.000Z') },
+        }),
+      }),
+    );
+  });
+
+  it('season participant용 selectable 조회는 전달된 query client를 사용한다', async () => {
+    const queryClient = {
+      seasonDormitoryOperation: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            seasonId: 'season-1',
+            dormitoryId: 'dasan',
+            isOperated: true,
+            roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+            dormitory: {
+              id: 'dasan',
+              campusCode: 'CHUNCHEON',
+              nameKo: '다산관',
+              roomType: 2,
+              genderPolicy: 'M',
+              sortOrder: 2,
+            },
+          },
+        ]),
+      },
+    };
+
+    await expect(
+      service.listSelectableDormitoriesForSeasonParticipant({
+        seasonContext: {
+          season: { id: 'season-1' },
+          state: 'SEASON_MATCHING',
+        } as never,
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        now: new Date('2026-02-10T03:00:00.000Z'),
+        queryClient: queryClient as never,
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: 'dasan',
+        campusCode: 'CHUNCHEON',
+        roomSelectionDate: '2026-02-11',
+      }),
+    ]);
+
+    expect(queryClient.seasonDormitoryOperation.findMany).toHaveBeenCalled();
+    expect(prisma.seasonDormitoryOperation.findMany).not.toHaveBeenCalled();
+  });
+
+  it('season participant용 validation은 query client와 compound key lookup을 사용한다', async () => {
+    const tx = {
+      seasonDormitoryOperation: {
+        findUnique: jest.fn().mockResolvedValue({
+          seasonId: 'season-1',
+          dormitoryId: 'dasan',
+          isOperated: true,
+          roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+          dormitory: {
+            id: 'dasan',
+            campusCode: 'CHUNCHEON',
+            nameKo: '다산관',
+            roomType: 2,
+            genderPolicy: 'M',
+            sortOrder: 2,
+          },
+        }),
+      },
+    };
+
+    await expect(
+      service.validateSelectableDormitoryForSeasonParticipant({
+        seasonContext: {
+          season: { id: 'season-1' },
+          state: 'SEASON_MATCHING',
+        } as never,
+        campusCodeSnapshot: 'CHUNCHEON',
+        genderSnapshot: 'M',
+        dormitoryId: 'dasan',
+        now: new Date('2026-02-10T03:00:00.000Z'),
+        queryClient: tx as never,
+      }),
+    ).resolves.toEqual({
+      valid: true,
+      item: {
+        id: 'dasan',
+        name: '다산관',
+        campusCode: 'CHUNCHEON',
+        roomType: 2,
+        genderPolicy: 'M',
+        roomSelectionDate: '2026-02-11',
+      },
+    });
+
+    expect(tx.seasonDormitoryOperation.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          seasonId_dormitoryId: {
+            seasonId: 'season-1',
+            dormitoryId: 'dasan',
           },
         },
       }),
     );
+    expect(prisma.seasonDormitoryOperation.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('season participant용 validation은 operated/campus/gender/cutoff 실패 reason을 반환한다', async () => {
+    const baseInput = {
+      seasonContext: {
+        season: { id: 'season-1' },
+        state: 'SEASON_MATCHING',
+      } as never,
+      campusCodeSnapshot: 'CHUNCHEON' as const,
+      genderSnapshot: 'M' as const,
+      dormitoryId: 'dasan',
+      now: new Date('2026-02-10T03:00:00.000Z'),
+    };
+
+    prisma.seasonDormitoryOperation.findUnique.mockResolvedValueOnce(null);
+    await expect(
+      service.validateSelectableDormitoryForSeasonParticipant(baseInput),
+    ).resolves.toEqual({
+      valid: false,
+      reason: 'DORMITORY_NOT_FOUND',
+    });
+
+    prisma.seasonDormitoryOperation.findUnique.mockResolvedValueOnce({
+      seasonId: 'season-1',
+      dormitoryId: 'dasan',
+      isOperated: false,
+      roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+      dormitory: {
+        id: 'dasan',
+        campusCode: 'CHUNCHEON',
+        nameKo: '다산관',
+        roomType: 2,
+        genderPolicy: 'M',
+        sortOrder: 2,
+      },
+    });
+    await expect(
+      service.validateSelectableDormitoryForSeasonParticipant(baseInput),
+    ).resolves.toEqual({
+      valid: false,
+      reason: 'DORMITORY_NOT_OPERATED',
+    });
+
+    prisma.seasonDormitoryOperation.findUnique.mockResolvedValueOnce({
+      seasonId: 'season-1',
+      dormitoryId: 'dasan',
+      isOperated: true,
+      roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+      dormitory: {
+        id: 'dasan',
+        campusCode: 'SAMCHEOK',
+        nameKo: '다산관',
+        roomType: 2,
+        genderPolicy: 'M',
+        sortOrder: 2,
+      },
+    });
+    await expect(
+      service.validateSelectableDormitoryForSeasonParticipant(baseInput),
+    ).resolves.toEqual({
+      valid: false,
+      reason: 'DORMITORY_CAMPUS_MISMATCH',
+    });
+
+    prisma.seasonDormitoryOperation.findUnique.mockResolvedValueOnce({
+      seasonId: 'season-1',
+      dormitoryId: 'dasan',
+      isOperated: true,
+      roomSelectionDate: new Date('2026-02-11T00:00:00.000Z'),
+      dormitory: {
+        id: 'dasan',
+        campusCode: 'CHUNCHEON',
+        nameKo: '다산관',
+        roomType: 2,
+        genderPolicy: 'F',
+        sortOrder: 2,
+      },
+    });
+    await expect(
+      service.validateSelectableDormitoryForSeasonParticipant(baseInput),
+    ).resolves.toEqual({
+      valid: false,
+      reason: 'DORMITORY_GENDER_MISMATCH',
+    });
+
+    prisma.seasonDormitoryOperation.findUnique.mockResolvedValueOnce({
+      seasonId: 'season-1',
+      dormitoryId: 'dasan',
+      isOperated: true,
+      roomSelectionDate: new Date('2026-02-09T00:00:00.000Z'),
+      dormitory: {
+        id: 'dasan',
+        campusCode: 'CHUNCHEON',
+        nameKo: '다산관',
+        roomType: 2,
+        genderPolicy: 'M',
+        sortOrder: 2,
+      },
+    });
+    await expect(
+      service.validateSelectableDormitoryForSeasonParticipant(baseInput),
+    ).resolves.toEqual({
+      valid: false,
+      reason: 'DORMITORY_SELECTION_CLOSED',
+    });
   });
 });

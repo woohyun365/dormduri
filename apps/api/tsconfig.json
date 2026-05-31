@@ -1,9 +1,8 @@
 {
   "extends": "@repo/tsconfig/base.json",
   "compilerOptions": {
-    /* ESM(NodeNext) */
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
+    /* ESM(Node 20 fixed semantics) */
+    "module": "node20",
     "resolvePackageJsonExports": true,
 
     /* Nest(데코레이터) */

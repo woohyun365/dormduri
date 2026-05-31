@@ -2,10 +2,11 @@ import { GraduationCap } from 'lucide-react';
 import { Chip } from '@/components/Chip';
 import { SectionHeading } from '@/components/SectionHeading';
 import {
-  COLLEGES,
+  COLLEGE_OPTIONS,
   GRADES,
   BIRTH_YEARS,
   ADDITIONAL_FIELD_NAMES,
+  getCollegeLabel,
 } from '@/constants/additional-profile';
 import { ProfileMbtiSelector } from './ProfileMbtiSelector';
 import type { AdditionalProfile } from '@/types/additional-profile';
@@ -34,16 +35,21 @@ export function ProfileAdditionalSection({
             <span
               className={`ml-2 font-normal ${additional.college ? 'text-[var(--knu-primary)]' : 'text-[var(--knu-text-tertiary)]'}`}
             >
-              {additional.college ?? '-'}
+              {getCollegeLabel(additional.college) ?? '-'}
             </span>
           </p>
           <div className="flex flex-wrap gap-2">
-            {COLLEGES.map((c) => (
+            {COLLEGE_OPTIONS.map((college) => (
               <Chip
-                key={c}
-                label={c}
-                selected={additional.college === c}
-                onClick={() => onFieldChange('college', additional.college === c ? null : c)}
+                key={college.value}
+                label={college.label}
+                selected={additional.college === college.value}
+                onClick={() =>
+                  onFieldChange(
+                    'college',
+                    additional.college === college.value ? null : college.value,
+                  )
+                }
               />
             ))}
           </div>

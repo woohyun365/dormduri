@@ -39,15 +39,20 @@ describe('validateLifestyleData', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('필수 필드가 null이면 거부한다', () => {
+  it('lifestyle parser는 completeness 판정과 분리되어 생활패턴/조건 필수값 null을 parse 단계에서 허용한다', () => {
     const result = validateLifestyleData({
       ...validLifestyle,
       bedtime: null,
+      drinkingTolerance: null,
     });
 
     expect(result).toEqual({
-      ok: false,
-      error: 'bedtime 필드는 필수입니다.',
+      ok: true,
+      value: {
+        ...validLifestyle,
+        bedtime: null,
+        drinkingTolerance: null,
+      },
     });
   });
 

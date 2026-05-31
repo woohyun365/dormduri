@@ -6,7 +6,7 @@ import {
   emailRequestSchema,
   loginRequestSchema,
   resetPasswordRequestSchema,
-  signupProfileValidationRequestSchema,
+  signupDraftValidationRequestSchema,
   signupRequestSchema,
   verificationCodeRequestSchema,
 } from '@repo/shared/auth-contract';
@@ -49,10 +49,10 @@ export class AuthController {
     return this.authService.getSession(token);
   }
 
-  @Post('validate-signup-profile')
-  async validateSignupProfile(@Body() body: unknown) {
-    const parsed = parseRequestBody(signupProfileValidationRequestSchema, body);
-    return this.authService.validateSignupProfileDraft(parsed);
+  @Post('validate-signup-draft')
+  async validateSignupDraft(@Body() body: unknown) {
+    const parsed = parseRequestBody(signupDraftValidationRequestSchema, body);
+    return this.authService.validateSignupDraft(parsed);
   }
 
   @Post('signup')

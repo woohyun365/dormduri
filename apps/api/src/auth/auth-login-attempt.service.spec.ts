@@ -6,7 +6,6 @@ describe('AuthLoginAttemptService', () => {
       deleteMany: jest.fn(),
     },
     $queryRawTyped: jest.fn(),
-    $queryRaw: jest.fn(),
   };
 
   const service = new AuthLoginAttemptService(prisma as never);
@@ -33,7 +32,7 @@ describe('AuthLoginAttemptService', () => {
   });
 
   it('실패 횟수가 잠금 기준 미만이면 invalid credentials를 반환한다', async () => {
-    prisma.$queryRaw.mockResolvedValue([{ failureCount: 1, lockedUntil: null }]);
+    prisma.$queryRawTyped.mockResolvedValue([{ failureCount: 1, lockedUntil: null }]);
 
     await expect(service.recordLoginFailure('test@kangwon.ac.kr')).resolves.toMatchObject({
       success: false,
@@ -42,7 +41,7 @@ describe('AuthLoginAttemptService', () => {
   });
 
   it('실패 횟수가 잠금 기준 이상이면 잠금 응답을 반환한다', async () => {
-    prisma.$queryRaw.mockResolvedValue([{ failureCount: 5, lockedUntil: new Date() }]);
+    prisma.$queryRawTyped.mockResolvedValue([{ failureCount: 5, lockedUntil: new Date() }]);
 
     await expect(service.recordLoginFailure('test@kangwon.ac.kr')).resolves.toMatchObject({
       success: false,

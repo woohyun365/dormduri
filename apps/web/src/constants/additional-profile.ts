@@ -1,21 +1,17 @@
-export const COLLEGES = [
-  'IT대',
-  '간호대',
-  '경영대',
-  '농업생명대',
-  '동물생명대',
-  '문화예술·공대',
-  '사범대',
-  '사회과학대',
-  '산림환경대',
-  '의·약·수의대',
-  '의생명과학대',
-  '인문대',
-  '자연과학대',
-  '자유전공',
-] as const;
+import {
+  COLLEGE_CODES,
+  getCollegeCatalog,
+  getCollegeLabel,
+  type CollegeCode,
+} from '@repo/shared/college-contract';
 
-export type College = (typeof COLLEGES)[number];
+export const COLLEGES = [...COLLEGE_CODES] as const;
+export const COLLEGE_OPTIONS = getCollegeCatalog('CHUNCHEON').map((item) => ({
+  value: item.code,
+  label: item.nameKo,
+}));
+
+export type College = CollegeCode;
 
 export const GRADES = [
   { value: '1', label: '1학년' },
@@ -60,3 +56,5 @@ export const ADDITIONAL_FIELD_NAMES: Record<keyof AdditionalProfile, string> = {
   mbti: 'MBTI',
   birthYear: '출생연도',
 };
+
+export { getCollegeLabel };

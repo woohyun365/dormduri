@@ -114,12 +114,12 @@ export class SeasonsService {
         nowDateOnly >= context.schedule.matchingStart &&
         nowDateOnly <= dormitory.roomSelectionDate &&
         context.state !== 'OFF_SEASON' &&
-        context.state !== 'SEASON_PREPARATION',
+        context.state !== 'SEASON_OPEN',
     };
   }
 
-  async isCurrentSeasonPreparation(campusCode: Campus, now?: Date) {
-    return (await this.getCurrentSeasonState(campusCode, now)) === 'SEASON_PREPARATION';
+  async isCurrentSeasonOpen(campusCode: Campus, now?: Date) {
+    return (await this.getCurrentSeasonState(campusCode, now)) === 'SEASON_OPEN';
   }
 
   async isCurrentSeasonMatching(campusCode: Campus, now?: Date) {

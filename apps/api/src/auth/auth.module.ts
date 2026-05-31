@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
+import { ConfigType } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from '../common/prisma/prisma.module.js';
 import { ModerationModule } from '../common/moderation/moderation.module.js';
-import { apiEnv } from '../config/env.js';
+import authConfig from '../config/auth.config.js';
 import { AuthController } from './auth.controller.js';
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
 import { AuthService } from './auth.service.js';
@@ -20,13 +21,21 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
   imports: [
     PrismaModule,
     ModerationModule,
-    JwtModule.register({}),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60_000,
-        limit: apiEnv.authThrottleLimit,
-      },
-    ]),
+    JwtModule.registerAsync({
+      inject: [authConfig.KEY],
+      useFactory: (config: ConfigType<typeof authConfig>) => ({
+        secret: config.jwtSecret,
+      }),
+    }),
+    ThrottlerModule.forRootAsync({
+      inject: [authConfig.KEY],
+      useFactory: (config: ConfigType<typeof authConfig>) => [
+        {
+          ttl: 60_000,
+          limit: config.authThrottleLimit,
+        },
+      ],
+    }),
   ],
   controllers: [AuthController],
   providers: [

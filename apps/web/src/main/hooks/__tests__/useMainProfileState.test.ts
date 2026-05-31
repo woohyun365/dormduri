@@ -165,11 +165,11 @@ describe('useMainProfileState — 프로필 편집', () => {
 
   it('추가정보 변경 시 user에 반영된다', () => {
     const { hook } = setup();
-    const newAdditional = { ...baseAdditional, college: 'IT대' as const };
+    const newAdditional = { ...baseAdditional, college: 'IT' as const };
 
     act(() => hook.result.current.handleAdditionalChange(newAdditional));
 
-    expect(hook.result.current.user.additional.college).toBe('IT대');
+    expect(hook.result.current.user.additional.college).toBe('IT');
   });
 });
 
@@ -178,7 +178,7 @@ describe('useMainProfileState — 프로필 100% 완성 토스트', () => {
     const { hook, toasts } = setup();
 
     const completeAdditional: UserProfile['additional'] = {
-      college: 'IT대',
+      college: 'IT',
       grade: '1',
       mbti: 'INTJ',
       birthYear: 2004,
@@ -200,7 +200,7 @@ describe('useMainProfileState — 프로필 100% 완성 토스트', () => {
     const { hook, toasts } = setup({
       messageToRoommate: '이미 있음',
       additional: {
-        college: 'IT대',
+        college: 'IT',
         grade: '1',
         mbti: 'INTJ',
         birthYear: 2004,

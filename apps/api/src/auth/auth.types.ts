@@ -1,4 +1,5 @@
 import type { Campus, Gender } from '../generated/prisma/enums.js';
+import type { CollegeCode } from '@repo/shared/college-contract';
 import type { LoginResponse } from '@repo/shared/auth-response';
 import type { SessionResponse } from '@repo/shared/session-contract';
 import type { AuthenticatedSessionUser } from '@repo/shared/user-contract';
@@ -9,8 +10,8 @@ export interface SignupInput {
   nickname: string;
   gender: Gender;
   campus: Campus;
-  lifestyle: Record<string, unknown>;
-  intro: string;
+  collegeCode: CollegeCode;
+  birthYear: number;
 }
 
 export interface AuthSessionIssueResult {

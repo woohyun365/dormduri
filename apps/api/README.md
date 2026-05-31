@@ -28,7 +28,10 @@
 예시 값:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public"
+# 앱 런타임이 사용하는 URL. 운영에서는 pooled / pooler URL 권장.
+DATABASE_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public"
+# Prisma CLI가 사용하는 direct URL. 운영에서는 세션 유지 가능한 direct URL 권장.
+DIRECT_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public"
 PORT=4000
 JWT_SECRET="<generate-with-openssl-rand-base64-32>"
 VERIFICATION_CODE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
@@ -42,8 +45,25 @@ cp apps/api/.env.example apps/api/.env
 
 환경 정책:
 
-- `development / test`: 로컬 fallback 허용
-- `production`: `DATABASE_URL`, `JWT_SECRET`, `VERIFICATION_CODE_HMAC_SECRET` 누락 시 앱 시작 실패
+- `development`: Prisma CLI(`prisma:generate`, migrate 등)는 stale shell/tmux env로 인한 P1000을 막기 위해 `apps/api/.env`를 로컬 source of truth로 보고 inherited `DATABASE_URL`/`DIRECT_URL`을 덮어쓴다.
+- `test`: integration sandbox가 주입하는 disposable schema URL을 보존하기 위해 `.env`가 이미 주입된 `DATABASE_URL`/`DIRECT_URL`을 덮어쓰지 않는다.
+- `production`: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `VERIFICATION_CODE_HMAC_SECRET` 누락 시 앱 시작 실패. secret manager/infra 주입값을 `.env`로 덮어쓰지 않는다.
+
+운영 권장 연결 경로:
+
+- **앱 런타임**: `DATABASE_URL` → pooled / external pooler / provider pooler URL
+- **Prisma CLI**: `DIRECT_URL` → migrate / validate / admin 용 direct connection
+
+선택적 pool 튜닝 환경변수:
+
+- `DATABASE_POOL_MAX`
+- `DATABASE_POOL_MIN`
+- `DATABASE_ADAPTER_CONNECT_TIMEOUT_MS`
+- `DATABASE_ADAPTER_IDLE_TIMEOUT_MS`
+- `DATABASE_QUERY_TIMEOUT_MS`
+- `DATABASE_STATEMENT_TIMEOUT_MS`
+- `DATABASE_APPLICATION_NAME`
+- `PRISMA_QUERY_LOG_EVENTS`: `1/true/yes/on`이면 Prisma query event를 활성화한다. 통합 테스트 SQL trace처럼 실패 시점 진단이 필요할 때만 켠다.
 
 즉, 실제 운영/배포에서는 반드시 환경변수 또는 secret store로 주입해야 한다.
 
@@ -171,7 +191,9 @@ pnpm --dir apps/api lint
 
 ```bash
 pnpm --dir apps/api exec eslint \
-  src/config/env.ts \
+  src/config/app.config.ts \
+  src/config/auth.config.ts \
+  src/config/database.config.ts \
   src/common/prisma/prisma.service.ts \
   prisma.config.ts \
   --no-warn-ignored
@@ -185,7 +207,7 @@ pnpm --dir apps/api exec eslint \
 
 ```bash
 docker exec knu-roommate-postgres-dev \
-  psql -U postgres -d knu_roommate \
+  psql -U knu_dev -d knu_roommate \
   -c 'SELECT email, nickname, campus, gender FROM "User" ORDER BY email;'
 ```
 

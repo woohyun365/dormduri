@@ -105,7 +105,7 @@ export function getEffectiveSeasonState(
         }
 
         if (nowMs < toKstStartMs(schedule.matchingStart)) {
-          return 'SEASON_PREPARATION' as const;
+          return 'SEASON_OPEN' as const;
         }
 
         if (nowMs <= toKstEndMs(schedule.matchingEnd)) {
@@ -122,7 +122,7 @@ export function getEffectiveSeasonState(
     !hasOperatedDormitories &&
     (resolvedState === 'SEASON_MATCHING' || resolvedState === 'SEASON_POST_MATCH')
   ) {
-    return 'SEASON_PREPARATION';
+    return 'SEASON_OPEN';
   }
 
   return resolvedState;
@@ -200,7 +200,7 @@ export function toCurrentSeasonResponse(season: NormalizedSeasonRuntimeRow, now:
     operatedDormitories,
     state,
     isActive: state !== 'OFF_SEASON',
-    isPreparation: state === 'SEASON_PREPARATION',
+    isOpen: state === 'SEASON_OPEN',
     isMatching: state === 'SEASON_MATCHING',
     isPostMatch: state === 'SEASON_POST_MATCH',
     daysUntilMatchingEnd:
