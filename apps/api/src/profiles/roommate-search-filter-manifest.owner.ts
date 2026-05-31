@@ -6,6 +6,7 @@ import type {
   RoommateSearchScope,
   RoommateSearchSort,
 } from '@repo/shared/roommate-search-contract';
+import { ROOMMATE_SEARCH_MIN_SCORE_PRESETS } from '@repo/shared/roommate-search-contract';
 import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
 
 const FILTER_POLICY_VERSION = 'roommate-search-filter-manifest-v1';
@@ -39,7 +40,7 @@ export function buildRoommateSearchManifest(input: {
           enabled: false,
           fields: {},
         },
-    sorts: buildSortManifest(input.appliedSort),
+    sorts: buildSortManifest(input.appliedSort, filtersEnabled),
   };
 }
 
@@ -98,6 +99,14 @@ function buildEnabledFilterFields(input: {
         label: value === '25_PLUS' ? '25세 이상' : `${value}세`,
       })),
     },
+    minScore: {
+      enabled: true,
+      source: 'MATCH_SCORE_PRESET',
+      options: ROOMMATE_SEARCH_MIN_SCORE_PRESETS.map((value) => ({
+        code: String(value),
+        label: `${value}점 이상`,
+      })),
+    },
   };
 }
 
@@ -109,9 +118,12 @@ function enumField(values: readonly string[]) {
   };
 }
 
-function buildSortManifest(appliedSort: RoommateSearchSort): RoommateSearchManifest['sorts'] {
+function buildSortManifest(
+  appliedSort: RoommateSearchSort,
+  scoreSortEnabled: boolean,
+): RoommateSearchManifest['sorts'] {
   return {
-    default: appliedSort,
-    options: ['NICKNAME'],
+    default: scoreSortEnabled ? 'MATCH_SCORE' : appliedSort,
+    options: scoreSortEnabled ? ['NICKNAME', 'MATCH_SCORE'] : ['NICKNAME'],
   };
 }

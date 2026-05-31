@@ -255,11 +255,21 @@ const ROOMMATE_SEARCH_MANIFEST_RESPONSE = {
         grade: { enabled: true, source: 'SHARED_ENUM' },
         mbtiTraits: { enabled: true, source: 'SHARED_MBTI_TRAITS' },
         ageBand: { enabled: true, source: 'SEASON_REFERENCE_YEAR' },
+        minScore: {
+          enabled: true,
+          source: 'MATCH_SCORE_PRESET',
+          options: [
+            { code: '90', label: '90점 이상' },
+            { code: '80', label: '80점 이상' },
+            { code: '70', label: '70점 이상' },
+            { code: '60', label: '60점 이상' },
+          ],
+        },
       },
     },
     sorts: {
       default: 'MATCH_SCORE',
-      options: ['MATCH_SCORE', 'NICKNAME'],
+      options: ['NICKNAME', 'MATCH_SCORE'],
     },
   },
   pageInfo: {
@@ -970,8 +980,16 @@ describe('shared reference contracts', () => {
         'mbtiTraits.energy': 'E',
         'mbtiTraits.decision': 'T',
         'ageBand.values[]': ['20', '21'],
+        minScore: '80',
       }).success,
     ).toBe(true);
+
+    expect(
+      roommateSearchQuerySchema.safeParse({
+        scope: 'SAME_BUILDING_ONLY',
+        minScore: 75,
+      }).success,
+    ).toBe(false);
 
     expect(
       roommateSearchQuerySchema.safeParse({

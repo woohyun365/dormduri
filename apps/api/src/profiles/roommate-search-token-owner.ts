@@ -24,7 +24,7 @@ export type RoommateSearchCursorPayload = {
   viewerUserId: string;
   seasonId: string;
   scope: RoommateSearchScope;
-  sort: 'NICKNAME';
+  sort: RoommateSearchSort;
   queryDigest: string;
   after: RoommateSearchCursorBoundary;
   issuedAt: number;
@@ -54,6 +54,7 @@ export type ProfileDetailEntryTokenPayload = {
 export interface RoommateSearchCursorBoundary {
   nicknameSortKey: string;
   participantId: string;
+  matchScore?: number;
 }
 
 export interface VerifiedRoommateSearchCursor {
@@ -75,7 +76,7 @@ export interface RoommateSearchTokenOwner {
     viewerUserId: string;
     seasonId: string;
     scope: RoommateSearchScope;
-    sort: 'NICKNAME';
+    sort: RoommateSearchSort;
     queryDigest: string;
     after: RoommateSearchCursorBoundary;
     now: Date;
@@ -85,7 +86,7 @@ export interface RoommateSearchTokenOwner {
     viewerUserId: string;
     seasonId: string;
     scope: RoommateSearchScope;
-    sort: 'NICKNAME';
+    sort: RoommateSearchSort;
     queryDigest: string;
     now: Date;
   }): VerifiedRoommateSearchCursor;
@@ -242,13 +243,18 @@ function isRoommateSearchCursorPayload(value: unknown): value is RoommateSearchC
     typeof value.viewerUserId === 'string' &&
     typeof value.seasonId === 'string' &&
     isRoommateSearchScope(value.scope) &&
-    value.sort === 'NICKNAME' &&
+    isRoommateSearchSort(value.sort) &&
     typeof value.queryDigest === 'string' &&
     typeof value.after.nicknameSortKey === 'string' &&
     typeof value.after.participantId === 'string' &&
+    (value.sort === 'NICKNAME' || typeof value.after.matchScore === 'number') &&
     typeof value.issuedAt === 'number' &&
     typeof value.expiresAt === 'number'
   );
+}
+
+function isRoommateSearchSort(value: unknown): value is RoommateSearchSort {
+  return value === 'NICKNAME' || value === 'MATCH_SCORE';
 }
 
 function isProfileRelation(value: unknown): value is 'GENERAL' | 'MATCHED_PARTNER' {

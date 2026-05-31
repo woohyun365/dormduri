@@ -73,6 +73,7 @@ describe('roommate-search-filter-manifest.owner', () => {
     expect(manifest.filters.fields).toHaveProperty('grade');
     expect(manifest.filters.fields).toHaveProperty('mbtiTraits');
     expect(manifest.filters.fields).toHaveProperty('ageBand');
+    expect(manifest.filters.fields).toHaveProperty('minScore');
     const collegeField = manifest.filters.fields.college;
     expect(collegeField).toBeDefined();
     expect(collegeField).toMatchObject({
@@ -83,5 +84,9 @@ describe('roommate-search-filter-manifest.owner', () => {
       expect.arrayContaining([expect.objectContaining({ code: 'IT', label: 'IT대' })]),
     );
     expect(manifest.manifestRevision).toContain('CHUNCHEON');
+    expect(manifest.sorts).toEqual({
+      default: 'MATCH_SCORE',
+      options: ['NICKNAME', 'MATCH_SCORE'],
+    });
   });
 });

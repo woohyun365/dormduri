@@ -14,9 +14,9 @@ import type { MatchesService } from '../matches/matches.service.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
-import { roommateSearchErrors } from './roommate-search.errors.js';
 import { createRoommateSearchCandidateOwner } from './roommate-search-candidate.owner.js';
 import { buildRoommateSearchManifest } from './roommate-search-filter-manifest.owner.js';
+import { createRoommateSearchPaginationOwner } from './roommate-search-pagination.owner.js';
 import {
   assertRoommateSearchQueryAllowed,
   hasEffectiveRoommateSearchFilter,
@@ -53,6 +53,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
   const visibleProfileOwner = createVisibleProfileOwner(deps);
   const candidateOwner = createRoommateSearchCandidateOwner(deps);
   const tokenOwner = createRoommateSearchTokenOwner();
+  const paginationOwner = createRoommateSearchPaginationOwner(tokenOwner);
 
   async function search(
     authUser: AuthenticatedUserContext,
@@ -74,7 +75,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     });
     const queryPolicy = assertRoommateSearchQueryAllowed({ query, manifest });
 
-    const appliedSort = assertNicknameSort(queryPolicy.appliedSort);
+    const appliedSort = queryPolicy.appliedSort;
     const filteredEntries = await loadVisibleEntries(viewerContext, scope, query);
     const filteredDiscovery = applyDiscoveryFilter(filteredEntries, {
       excludeMatchedTargets: shouldExcludeMatchedTargetsFromDiscovery(purpose),
@@ -82,22 +83,24 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     const filteredItems = filteredDiscovery.entries.map((entry) =>
       toSearchMaterializedItem({ entry, viewerContext, scope, purpose, now }),
     );
-    const sortedItems = sortSearchMaterializedItems(filteredItems, appliedSort);
+    const scoreThresholdItems = applyScoreThresholdFilter(filteredItems, query);
+    const sortedItems = sortSearchMaterializedItems(scoreThresholdItems, appliedSort);
     const queryDigest = tokenOwner.buildQueryDigest({
       scope,
       sort: appliedSort,
       query,
     });
-    const pageItems = paginateItems({
+    const pageItems = paginationOwner.paginate({
       items: sortedItems,
       query,
-      viewerContext,
+      viewerUserId: viewerContext.viewer.id,
+      seasonId: viewerContext.currentSeasonId,
       scope,
       appliedSort,
       queryDigest,
       now,
     });
-    const filteredSummaries = filteredItems.map((item) => item.summary);
+    const filteredSummaries = scoreThresholdItems.map((item) => item.summary);
 
     return {
       scope,
@@ -111,7 +114,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
         summaries: filteredSummaries,
         matchedTargetsExcluded: filteredDiscovery.matchedTargetsExcluded,
         filterResultEmpty:
-          hasEffectiveRoommateSearchFilter(query) && filteredDiscovery.entries.length === 0,
+          hasEffectiveRoommateSearchFilter(query) && scoreThresholdItems.length === 0,
       }),
       items: pageItems.items.map((item) => item.summary),
     };
@@ -167,90 +170,6 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     );
   }
 
-  function paginateItems(input: {
-    items: SearchMaterializedItem[];
-    query: RoommateSearchQuery;
-    viewerContext: VisibleProfileViewerContext;
-    scope: RoommateSearchScope;
-    appliedSort: 'NICKNAME';
-    queryDigest: string;
-    now: Date;
-  }) {
-    const { items, query, viewerContext, scope, appliedSort, queryDigest, now } = input;
-    const seasonId = viewerContext.currentSeasonId;
-    if (!seasonId) {
-      return { items: [], pageInfo: { hasNextPage: false, nextCursor: null } };
-    }
-
-    const startIndex = query.cursor
-      ? resolveCursorStartIndex({
-          cursor: query.cursor,
-          items,
-          viewerUserId: viewerContext.viewer.id,
-          seasonId,
-          scope,
-          appliedSort,
-          queryDigest,
-          now,
-        })
-      : 0;
-    const limit = query.limit ?? 20;
-    const page = items.slice(startIndex, startIndex + limit);
-    const hasNextPage = startIndex + limit < items.length;
-    const lastItem = page.at(-1);
-    const nextCursor =
-      hasNextPage && lastItem
-        ? tokenOwner.signCursor({
-            viewerUserId: viewerContext.viewer.id,
-            seasonId,
-            scope,
-            sort: appliedSort,
-            queryDigest,
-            after: lastItem.cursorBoundary,
-            now,
-          })
-        : null;
-
-    return {
-      items: page,
-      pageInfo: {
-        hasNextPage,
-        nextCursor,
-      },
-    };
-  }
-
-  function resolveCursorStartIndex(input: {
-    cursor: string;
-    items: SearchMaterializedItem[];
-    viewerUserId: string;
-    seasonId: string;
-    scope: RoommateSearchScope;
-    appliedSort: 'NICKNAME';
-    queryDigest: string;
-    now: Date;
-  }) {
-    try {
-      const verified = tokenOwner.verifyCursor({
-        token: input.cursor,
-        viewerUserId: input.viewerUserId,
-        seasonId: input.seasonId,
-        scope: input.scope,
-        sort: input.appliedSort,
-        queryDigest: input.queryDigest,
-        now: input.now,
-      });
-      const firstIndexAfterBoundary = input.items.findIndex((item) =>
-        isAfterBoundary(item, verified.boundary),
-      );
-      return firstIndexAfterBoundary === -1 ? input.items.length : firstIndexAfterBoundary;
-    } catch {
-      throw roommateSearchErrors.invalidQuery(
-        '검색 cursor가 만료되었거나 현재 검색 조건과 일치하지 않습니다.',
-      );
-    }
-  }
-
   function toSearchMaterializedItem(input: {
     entry: ResolvedVisibleProfileEntry;
     viewerContext: VisibleProfileViewerContext;
@@ -264,7 +183,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
       return {
         entry: input.entry,
         summary,
-        cursorBoundary: toCursorBoundary(input.entry),
+        cursorBoundary: toCursorBoundary(summary, input.entry),
       };
     }
 
@@ -288,7 +207,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
           now: input.now,
         }),
       },
-      cursorBoundary: toCursorBoundary(input.entry),
+      cursorBoundary: toCursorBoundary(summary, input.entry),
     };
   }
 
@@ -317,16 +236,6 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
   };
 }
 
-function assertNicknameSort(sort: RoommateSearchSort): 'NICKNAME' {
-  if (sort === 'NICKNAME') {
-    return sort;
-  }
-
-  throw roommateSearchErrors.invalidQuery(
-    '매칭 점수 정렬은 query-time score cursor 구현 후 제공됩니다.',
-  );
-}
-
 function applyDiscoveryFilter(
   entries: ResolvedVisibleProfileEntry[],
   input: { excludeMatchedTargets: boolean },
@@ -338,6 +247,23 @@ function applyDiscoveryFilter(
     entries: filtered,
     matchedTargetsExcluded: filtered.length !== entries.length,
   };
+}
+
+function applyScoreThresholdFilter(
+  items: SearchMaterializedItem[],
+  query: RoommateSearchQuery,
+): SearchMaterializedItem[] {
+  if (query.minScore === undefined) {
+    return items;
+  }
+
+  const minScore = query.minScore;
+  return items.filter(
+    (item) =>
+      item.summary.exposure.scoreVisible &&
+      typeof item.summary.matchScore === 'number' &&
+      item.summary.matchScore >= minScore,
+  );
 }
 
 function buildAvailabilityNotices(input: {
@@ -408,29 +334,25 @@ function toSearchSortKey(entry: ResolvedVisibleProfileEntry) {
   return entry.sourceProfile.nicknameNormalized || entry.sourceProfile.nickname;
 }
 
-function toCursorBoundary(entry: ResolvedVisibleProfileEntry): RoommateSearchCursorBoundary {
-  return {
+function toCursorBoundary(
+  summary: RoommateSearchSummary,
+  entry: ResolvedVisibleProfileEntry,
+): RoommateSearchCursorBoundary {
+  const base = {
     nicknameSortKey: toSearchSortKey(entry),
     participantId: entry.targetParticipant.id,
   };
-}
-
-function isAfterBoundary(item: SearchMaterializedItem, boundary: RoommateSearchCursorBoundary) {
-  const current = item.cursorBoundary;
-  if (current.nicknameSortKey !== boundary.nicknameSortKey) {
-    return current.nicknameSortKey > boundary.nicknameSortKey;
+  if (typeof summary.matchScore !== 'number') {
+    return base;
   }
 
-  return current.participantId > boundary.participantId;
+  return {
+    ...base,
+    matchScore: summary.matchScore,
+  };
 }
 
 function sortSearchMaterializedItems(items: SearchMaterializedItem[], sort: RoommateSearchSort) {
-  if (sort !== 'NICKNAME') {
-    throw roommateSearchErrors.invalidQuery(
-      '매칭 점수 정렬은 cursor pagination deterministic ordering 확정 후 제공됩니다.',
-    );
-  }
-
   return sortRoommateSearchItems(items, sort);
 }
 

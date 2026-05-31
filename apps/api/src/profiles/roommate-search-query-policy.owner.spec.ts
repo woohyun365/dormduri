@@ -29,11 +29,21 @@ const actionableManifest: RoommateSearchManifest = {
         source: 'AGE_BAND',
         options: [{ code: '24', label: '24세' }],
       },
+      minScore: {
+        enabled: true,
+        source: 'MATCH_SCORE_PRESET',
+        options: [
+          { code: '90', label: '90점 이상' },
+          { code: '80', label: '80점 이상' },
+          { code: '70', label: '70점 이상' },
+          { code: '60', label: '60점 이상' },
+        ],
+      },
     },
   },
   sorts: {
-    default: 'NICKNAME',
-    options: ['NICKNAME'],
+    default: 'MATCH_SCORE',
+    options: ['NICKNAME', 'MATCH_SCORE'],
   },
 };
 
@@ -44,6 +54,7 @@ describe('roommate-search-query-policy.owner', () => {
       scope: 'CAMPUS_MERGED',
       purpose: 'BROAD_PREVIEW',
       filters: { enabled: false, fields: {} },
+      sorts: { default: 'NICKNAME', options: ['NICKNAME'] },
     };
 
     expect(() =>
@@ -55,7 +66,35 @@ describe('roommate-search-query-policy.owner', () => {
 
     expect(() =>
       assertRoommateSearchQueryAllowed({
-        query: { scope: 'SAME_BUILDING_ONLY', sort: 'MATCH_SCORE', limit: 20 },
+        query: { scope: 'CAMPUS_MERGED', sort: 'MATCH_SCORE', limit: 20 },
+        manifest: broadPreviewManifest,
+      }),
+    ).toThrow();
+  });
+
+  it('minScore preset만 요청해도 MATCH_SCORE sort로 정규화하고 queryDigest 대상 필터로 취급한다', () => {
+    expect(
+      assertRoommateSearchQueryAllowed({
+        query: {
+          scope: 'SAME_BUILDING_ONLY',
+          minScore: 70,
+          limit: 20,
+        },
+        manifest: actionableManifest,
+      }),
+    ).toEqual({
+      appliedSort: 'MATCH_SCORE',
+      requestedFilterFields: ['minScore'],
+    });
+
+    expect(() =>
+      assertRoommateSearchQueryAllowed({
+        query: {
+          scope: 'SAME_BUILDING_ONLY',
+          minScore: 70,
+          sort: 'NICKNAME',
+          limit: 20,
+        },
         manifest: actionableManifest,
       }),
     ).toThrow();

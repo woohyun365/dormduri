@@ -18,6 +18,7 @@ const FILTER_FIELDS = [
   'grade',
   'mbtiTraits',
   'ageBand',
+  'minScore',
 ] as const satisfies ReadonlyArray<keyof RoommateSearchQuery>;
 
 type FilterField = (typeof FILTER_FIELDS)[number];
@@ -59,10 +60,18 @@ function resolveAppliedSort(
   query: RoommateSearchQuery,
   manifest: RoommateSearchManifest,
 ): RoommateSearchSort {
-  const requestedSort = query.sort ?? manifest.sorts.default;
+  const requestedSort =
+    query.minScore !== undefined && query.sort === undefined
+      ? 'MATCH_SCORE'
+      : (query.sort ?? manifest.sorts.default);
   if (!manifest.sorts.options.includes(requestedSort)) {
     throw roommateSearchErrors.invalidQuery(
       '현재 검색 범위에서는 요청한 정렬을 사용할 수 없습니다.',
+    );
+  }
+  if (query.minScore !== undefined && requestedSort !== 'MATCH_SCORE') {
+    throw roommateSearchErrors.invalidQuery(
+      'minScore 필터는 MATCH_SCORE 정렬에서만 사용할 수 있습니다.',
     );
   }
 
@@ -99,6 +108,11 @@ function assertFieldAllowed(
 
   if (field === 'ageBand') {
     assertValueFilterAllowed(query.ageBand, fieldManifest, field);
+    return;
+  }
+
+  if (field === 'minScore') {
+    assertScorePresetAllowed(query.minScore, fieldManifest);
   }
 }
 
@@ -170,6 +184,25 @@ function assertValuesInManifest(
   if (values.some((value) => !allowedValues.has(value))) {
     throw roommateSearchErrors.invalidQuery(
       `${field} 필터에 현재 campus/scope에서 사용할 수 없는 값이 포함되어 있습니다.`,
+    );
+  }
+}
+
+function assertScorePresetAllowed(
+  value: unknown,
+  fieldManifest: NonNullable<RoommateSearchManifest['filters']['fields'][string]>,
+) {
+  if (typeof value !== 'number') {
+    throw roommateSearchErrors.invalidQuery('minScore 필터 형식이 올바르지 않습니다.');
+  }
+  if (!fieldManifest.options) {
+    return;
+  }
+
+  const allowedValues = new Set(fieldManifest.options.map((option) => option.code));
+  if (!allowedValues.has(String(value))) {
+    throw roommateSearchErrors.invalidQuery(
+      'minScore 필터에 현재 scope에서 사용할 수 없는 값이 포함되어 있습니다.',
     );
   }
 }

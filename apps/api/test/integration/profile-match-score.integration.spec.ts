@@ -123,7 +123,7 @@ describe('ProfilesService match score integration', () => {
     const noneProfile = result.items.find((item) => item.profileSummary.nickname === 'A동기');
     const oftenProfile = result.items.find((item) => item.profileSummary.nickname === 'B동기');
 
-    expect(result.appliedSort).toBe('NICKNAME');
+    expect(result.appliedSort).toBe('MATCH_SCORE');
     expect(noneProfile?.exposure.canViewFull).toBe(true);
     expect(oftenProfile?.exposure.canViewFull).toBe(true);
     if (

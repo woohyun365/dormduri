@@ -87,6 +87,16 @@ export const roommateSearchPurposeSchema = z.enum([
   'POST_MATCH_COHORT_REVIEW',
 ]);
 export const roommateSearchSortSchema = z.enum(['NICKNAME', 'MATCH_SCORE']);
+export const ROOMMATE_SEARCH_MIN_SCORE_PRESETS = [90, 80, 70, 60] as const;
+export const roommateSearchMinScorePresetSchema = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() !== '' ? Number(value) : value),
+  z.union([
+    z.literal(ROOMMATE_SEARCH_MIN_SCORE_PRESETS[0]),
+    z.literal(ROOMMATE_SEARCH_MIN_SCORE_PRESETS[1]),
+    z.literal(ROOMMATE_SEARCH_MIN_SCORE_PRESETS[2]),
+    z.literal(ROOMMATE_SEARCH_MIN_SCORE_PRESETS[3]),
+  ]),
+);
 export const roommateSearchAvailabilityNoticeCodeSchema = z.enum([
   'MATCHED_TARGETS_EXCLUDED',
   'DISCOVERY_ACTIONABLE_ONLY',
@@ -139,6 +149,7 @@ export const roommateSearchQuerySchema = z.preprocess(
     grade: roommateSearchGradeFilterSchema.optional(),
     mbtiTraits: roommateSearchMbtiTraitsSchema.optional(),
     ageBand: roommateSearchAgeBandFilterSchema.optional(),
+    minScore: roommateSearchMinScorePresetSchema.optional(),
   }),
 );
 
@@ -166,6 +177,7 @@ export const roommateSearchFilterManifestSourceSchema = z.enum([
   'PROFILE_ENUM',
   'MBTI_TRAITS',
   'AGE_BAND',
+  'MATCH_SCORE_PRESET',
 ]);
 
 export const roommateSearchFilterFieldManifestSchema = z.strictObject({
@@ -259,6 +271,7 @@ export type RoommateSearchManifestResponse = z.infer<typeof roommateSearchManife
 export type RoommateSearchScope = z.infer<typeof roommateSearchScopeSchema>;
 export type RoommateSearchPurpose = z.infer<typeof roommateSearchPurposeSchema>;
 export type RoommateSearchSort = z.infer<typeof roommateSearchSortSchema>;
+export type RoommateSearchMinScorePreset = z.infer<typeof roommateSearchMinScorePresetSchema>;
 export type RoommateSearchFilterOperator = z.infer<typeof roommateSearchFilterOperatorSchema>;
 export type RoommateSearchAgeBand = z.infer<typeof roommateSearchAgeBandSchema>;
 export type RoommateSearchMbtiTraits = z.infer<typeof roommateSearchMbtiTraitsSchema>;

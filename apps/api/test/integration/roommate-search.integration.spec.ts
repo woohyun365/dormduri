@@ -1,4 +1,5 @@
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
 import { ProfilesService } from '../../src/profiles/profiles.service.js';
 import { RoommateSearchService } from '../../src/profiles/roommate-search.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
@@ -8,6 +9,7 @@ import {
 } from './support/integration-db.js';
 import {
   authContext,
+  DEFAULT_LIFESTYLE,
   seedActiveMatchFixture,
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
@@ -384,6 +386,7 @@ describe('RoommateSearchService integration', () => {
     expect(manifest?.filters.fields).toHaveProperty('grade');
     expect(manifest?.filters.fields).toHaveProperty('mbtiTraits');
     expect(manifest?.filters.fields).toHaveProperty('ageBand');
+    expect(manifest?.filters.fields).toHaveProperty('minScore');
     const collegeField = manifest?.filters.fields.college as
       | { source?: string; operators?: string[]; options?: Array<{ code: string; label: string }> }
       | undefined;
@@ -396,8 +399,8 @@ describe('RoommateSearchService integration', () => {
         expect.objectContaining({ code: 'ARTS_ENGINEERING', label: '문화예술공과대학' }),
       ]),
     );
-    expect(manifest?.sorts.default).toBe('NICKNAME');
-    expect(manifest?.sorts.options).toEqual(['NICKNAME']);
+    expect(manifest?.sorts.default).toBe('MATCH_SCORE');
+    expect(manifest?.sorts.options).toEqual(['NICKNAME', 'MATCH_SCORE']);
   });
 
   it('preflight manifest endpoint와 search response는 같은 manifest owner 결과를 사용한다', async () => {
@@ -662,6 +665,7 @@ describe('RoommateSearchService integration', () => {
 
     const firstPage = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
+      sort: 'NICKNAME',
       limit: 1,
     });
     expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
@@ -670,6 +674,7 @@ describe('RoommateSearchService integration', () => {
 
     const secondPage = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
+      sort: 'NICKNAME',
       limit: 1,
       cursor: firstPage.pageInfo.nextCursor ?? undefined,
     });
@@ -684,6 +689,81 @@ describe('RoommateSearchService integration', () => {
         scope: 'CAMPUS_MERGED',
         limit: 1,
         cursor: firstPage.pageInfo.nextCursor ?? undefined,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+    });
+  });
+
+  it('MATCH_SCORE cursor는 score boundary 이후 page를 반환하고 minScore preset은 post-score filter로 동작한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-c' },
+      data: {
+        ...toCompleteLifestyleColumnData({
+          ...DEFAULT_LIFESTYLE,
+          bedtime: 'AFTER_02',
+          wakeTime: 'AFTER_10',
+          sleepHabit: 'SNORING',
+          sleepEnvironment: 'LOW_SPEAKER',
+          screenUsage: 'SCREEN',
+          smokingBehavior: 'YES',
+          indoorEating: 'MEAL',
+          phoneBehavior: 'OFTEN',
+          earphoneUsage: 'ALWAYS_SPEAKER',
+          cleanLevel: 'WHEN_DIRTY',
+          drinkingFrequency: 'OFTEN',
+          relationshipStyle: 'CASUAL',
+          temperatureSensitivity: 'HOT',
+        }),
+      },
+    });
+
+    const firstPage = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      sort: 'MATCH_SCORE',
+      limit: 1,
+    });
+    expect(firstPage.appliedSort).toBe('MATCH_SCORE');
+    expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+    expect(firstPage.items[0]?.matchScore).toEqual(expect.any(Number));
+    expect(firstPage.pageInfo.hasNextPage).toBe(true);
+    expect(typeof firstPage.pageInfo.nextCursor).toBe('string');
+
+    const secondPage = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      sort: 'MATCH_SCORE',
+      limit: 1,
+      cursor: firstPage.pageInfo.nextCursor ?? undefined,
+    });
+    expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(secondPage.pageInfo.nextCursor).toBeNull();
+    expect(firstPage.items[0]?.matchScore).toBeGreaterThan(secondPage.items[0]?.matchScore ?? 0);
+
+    const thresholdResult = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      minScore: 90,
+      limit: 20,
+    });
+    expect(thresholdResult.appliedSort).toBe('MATCH_SCORE');
+    expect(thresholdResult.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        sort: 'NICKNAME',
+        minScore: 70,
+        limit: 20,
+      }),
+    ).rejects.toMatchObject({
+      response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
+    });
+
+    await expect(
+      service.search(authContext('user-a'), {
+        scope: 'CAMPUS_MERGED',
+        minScore: 70,
+        limit: 20,
       }),
     ).rejects.toMatchObject({
       response: { code: 'INVALID_ROOMMATE_SEARCH_QUERY' },
