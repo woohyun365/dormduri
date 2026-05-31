@@ -4,10 +4,7 @@ import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import { resolveProfileDisplayName } from '../common/deidentification/deidentified-display.owner.js';
 import type { MatchesService } from '../matches/matches.service.js';
-import {
-  buildDirectionalMatchScoreProjection,
-  shouldExposePublicMatchScore,
-} from '../matches/match-score-projection.js';
+import { shouldExposePublicMatchScore } from '../matches/match-score-projection.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
@@ -33,6 +30,7 @@ import {
   toTombstonePublicProfile,
   type ProfileViewRecord,
 } from './profile.mapper.js';
+import { calculateQueryTimeRoommateSearchScore } from './roommate-search-score.owner.js';
 import {
   createRoommateSearchTokenOwner,
   type ProfileDetailEntryTokenPayload,
@@ -223,7 +221,11 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       resultReadContext: publicTargetPolicy.resultRead.context,
     });
     const matchScore = scoreVisible
-      ? buildDirectionalMatchScoreProjection(viewerContext.viewerLifestyle, targetLifestyle)
+      ? calculateQueryTimeRoommateSearchScore({
+          viewerLifestyle: viewerContext.viewerLifestyle,
+          targetLifestyle,
+          scoreVisible,
+        })
       : null;
 
     return {
@@ -477,7 +479,11 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
         resultReadContext: publicTargetPolicy.resultRead.context,
       });
       const matchScore = scoreVisible
-        ? buildDirectionalMatchScoreProjection(viewerContext.viewerLifestyle, targetLifestyle)
+        ? calculateQueryTimeRoommateSearchScore({
+            viewerLifestyle: viewerContext.viewerLifestyle,
+            targetLifestyle,
+            scoreVisible,
+          })
         : null;
 
       return toPublicProfile(

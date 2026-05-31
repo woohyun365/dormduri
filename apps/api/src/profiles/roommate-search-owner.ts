@@ -8,22 +8,20 @@ import type {
   RoommateSearchSort,
   RoommateSearchSummary,
 } from '@repo/shared/roommate-search-contract';
-import { PROFILE_MBTI_VALUES } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
-import type { Prisma } from '../generated/prisma/client.js';
 import type { MatchesService } from '../matches/matches.service.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
-import { currentSeasonParticipantSelect } from '../season-participants/season-participant-records.js';
 import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
-import { toStoredBedtime, toStoredWakeTime } from '../common/lifestyle/lifestyle.persistence.js';
 import { roommateSearchErrors } from './roommate-search.errors.js';
+import { createRoommateSearchCandidateOwner } from './roommate-search-candidate.owner.js';
 import { buildRoommateSearchManifest } from './roommate-search-filter-manifest.owner.js';
 import {
   assertRoommateSearchQueryAllowed,
   hasEffectiveRoommateSearchFilter,
 } from './roommate-search-query-policy.owner.js';
+import { sortRoommateSearchItems } from './roommate-search-score-sort.owner.js';
 import {
   resolveRoommateSearchScopeContext,
   shouldExcludeMatchedTargetsFromDiscovery,
@@ -45,20 +43,6 @@ interface RoommateSearchOwnerDeps {
   matchesService: MatchesService;
 }
 
-const targetParticipantSelect = {
-  ...currentSeasonParticipantSelect,
-  user: {
-    select: {
-      id: true,
-      deletedAt: true,
-    },
-  },
-} as const;
-
-type TargetParticipantQueryRecord = Prisma.SeasonParticipantGetPayload<{
-  select: typeof targetParticipantSelect;
-}>;
-
 type SearchMaterializedItem = {
   entry: ResolvedVisibleProfileEntry;
   summary: RoommateSearchSummary;
@@ -67,6 +51,7 @@ type SearchMaterializedItem = {
 
 export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
   const visibleProfileOwner = createVisibleProfileOwner(deps);
+  const candidateOwner = createRoommateSearchCandidateOwner(deps);
   const tokenOwner = createRoommateSearchTokenOwner();
 
   async function search(
@@ -169,7 +154,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     scope: RoommateSearchScope,
     query?: RoommateSearchQuery,
   ): Promise<ResolvedVisibleProfileEntry[]> {
-    const candidates = await findCandidateParticipants(viewerContext, scope, query);
+    const candidates = await candidateOwner.findCandidates({ viewerContext, scope, query });
     return visibleProfileOwner.materializeVisibleProfileEntries(
       viewerContext,
       candidates.map((candidate) =>
@@ -307,22 +292,6 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     };
   }
 
-  async function findCandidateParticipants(
-    viewerContext: VisibleProfileViewerContext,
-    scope: RoommateSearchScope,
-    query?: RoommateSearchQuery,
-  ): Promise<TargetParticipantQueryRecord[]> {
-    if (!viewerContext.currentSeasonId || viewerContext.serviceState.seasonState === 'OFF_SEASON') {
-      return [];
-    }
-
-    return deps.prisma.seasonParticipant.findMany({
-      where: buildCandidateParticipantWhere(viewerContext, scope, query),
-      select: targetParticipantSelect,
-      orderBy: [{ profile: { nicknameNormalizedSnapshot: 'asc' } }, { id: 'asc' }],
-    });
-  }
-
   async function loadActiveCollegeOptions(viewerContext: VisibleProfileViewerContext) {
     const colleges = await deps.prisma.collegeMaster.findMany({
       where: {
@@ -346,128 +315,6 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     search,
     getManifest,
   };
-}
-
-function buildCandidateParticipantWhere(
-  viewerContext: VisibleProfileViewerContext,
-  scope: RoommateSearchScope,
-  query?: RoommateSearchQuery,
-): Prisma.SeasonParticipantWhereInput {
-  const profileWhere = query ? buildSeasonProfileWhere(query, viewerContext) : {};
-
-  return {
-    ...(viewerContext.viewerParticipant ? { id: { not: viewerContext.viewerParticipant.id } } : {}),
-    seasonId: viewerContext.currentSeasonId ?? '',
-    userId: { not: viewerContext.viewer.id },
-    user: {
-      deletedAt: null,
-      campus: viewerContext.viewer.campus,
-      gender: viewerContext.viewer.gender,
-    },
-    participationIntent: 'REGISTERED',
-    registeredAt: { not: null },
-    declinedAt: null,
-    dormitorySelectionState: 'ASSIGNED',
-    dormitoryId:
-      scope === 'SAME_BUILDING_ONLY' ? viewerContext.viewerSelection.dormitoryId : { not: null },
-    participantStatus: { notIn: ['WITHDRAWN', 'EXPIRED'] },
-    hiddenByAdminAt: null,
-    deactivatedAt: null,
-    profile: { is: profileWhere },
-  };
-}
-
-function buildSeasonProfileWhere(
-  query: RoommateSearchQuery,
-  viewerContext: VisibleProfileViewerContext,
-): Prisma.SeasonParticipantProfileWhereInput {
-  const mbtiWhere = buildMbtiWhere(query);
-  const ageBandWhere = buildAgeBandWhere(query, viewerContext.seasonReferenceYear);
-
-  return {
-    ...(query.college !== undefined ? { collegeCode: toStringNullableFilter(query.college) } : {}),
-    ...(query.grade !== undefined ? { grade: toStringNullableFilter(query.grade) } : {}),
-    ...(mbtiWhere ? { mbti: mbtiWhere } : {}),
-    ...(ageBandWhere ? { OR: ageBandWhere } : {}),
-    ...(query.smokingBehavior !== undefined ? { smokingBehavior: query.smokingBehavior } : {}),
-    ...(query.bedtime !== undefined
-      ? {
-          bedtime: toStoredBedtime(query.bedtime) as Exclude<
-            ReturnType<typeof toStoredBedtime>,
-            null
-          >,
-        }
-      : {}),
-    ...(query.wakeTime !== undefined
-      ? {
-          wakeTime: toStoredWakeTime(query.wakeTime) as Exclude<
-            ReturnType<typeof toStoredWakeTime>,
-            null
-          >,
-        }
-      : {}),
-    ...(query.noiseSensitivity !== undefined ? { noiseSensitivity: query.noiseSensitivity } : {}),
-    ...(query.cleanLevel !== undefined ? { cleanLevel: query.cleanLevel } : {}),
-    ...(query.indoorEating !== undefined ? { indoorEating: query.indoorEating } : {}),
-    ...(query.relationshipStyle !== undefined
-      ? { relationshipStyle: query.relationshipStyle }
-      : {}),
-    ...(query.sleepHabit !== undefined
-      ? query.sleepHabit === 'HAS'
-        ? { sleepHabit: { not: 'NONE' } }
-        : { sleepHabit: query.sleepHabit }
-      : {}),
-  };
-}
-
-function buildMbtiWhere(query: RoommateSearchQuery): Prisma.StringNullableFilter | null {
-  const traits = query.mbtiTraits;
-  if (!traits) {
-    return null;
-  }
-
-  const selectedTraits: string[] = [];
-  if (traits.energy) {
-    selectedTraits.push(traits.energy);
-  }
-  if (traits.perception) {
-    selectedTraits.push(traits.perception);
-  }
-  if (traits.decision) {
-    selectedTraits.push(traits.decision);
-  }
-  if (traits.lifestyle) {
-    selectedTraits.push(traits.lifestyle);
-  }
-  if (selectedTraits.length === 0) {
-    return null;
-  }
-
-  const matchingValues = PROFILE_MBTI_VALUES.filter((value) =>
-    selectedTraits.every((trait) => value.includes(trait)),
-  );
-  return { in: [...matchingValues] };
-}
-
-function buildAgeBandWhere(
-  query: RoommateSearchQuery,
-  seasonReferenceYear: number | null,
-): Prisma.SeasonParticipantProfileWhereInput[] | null {
-  if (!query.ageBand || !seasonReferenceYear) {
-    return null;
-  }
-
-  return query.ageBand.values.map((value) => {
-    if (value === '25_PLUS') {
-      return { birthYear: { lte: seasonReferenceYear - 25 } };
-    }
-
-    return { birthYear: seasonReferenceYear - Number(value) };
-  });
-}
-
-function toStringNullableFilter(filter: { operator: 'INCLUDE' | 'EXCLUDE'; values: string[] }) {
-  return filter.operator === 'INCLUDE' ? { in: filter.values } : { notIn: filter.values };
 }
 
 function assertNicknameSort(sort: RoommateSearchSort): 'NICKNAME' {
@@ -584,15 +431,7 @@ function sortSearchMaterializedItems(items: SearchMaterializedItem[], sort: Room
     );
   }
 
-  return [...items].sort((left, right) => {
-    const leftKey = left.cursorBoundary.nicknameSortKey;
-    const rightKey = right.cursorBoundary.nicknameSortKey;
-    if (leftKey !== rightKey) {
-      return leftKey.localeCompare(rightKey, 'ko');
-    }
-
-    return left.cursorBoundary.participantId.localeCompare(right.cursorBoundary.participantId);
-  });
+  return sortRoommateSearchItems(items, sort);
 }
 
 function toRoommateSearchSummary(
