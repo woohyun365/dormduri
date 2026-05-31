@@ -1,144 +1,169 @@
 # KNU Roommate
 
-강원대학교 재학생을 위한 생활패턴 기반 기숙사 룸메이트 매칭 서비스.
+강원대학교 재학생을 위한 **시즌 기반 기숙사 룸메이트 탐색·매칭 서비스**입니다.
 
-**이 프로젝트에서 경험한 것:**
+이 저장소는 단순 기능 구현보다, 정책을 도메인 모델과 API 계약으로 고정하고 검증하는 과정을 포트폴리오의 핵심 근거로 둡니다.
 
-- 11개 정책 이슈를 8개 공식 정책 문서로 정규화하고, 그 정책을 기반으로 UI/API를 설계한 경험
-- AI(Claude Code + Codex) 워크플로를 설계하고, 최종 판단은 사람이 하는 QA 프로세스를 구축한 경험
-- FE 프로토타입 → 정책 정규화 → 정책 기반 UI 완성 → BE 설계 순서로 제품을 진화시킨 경험
+## 이 프로젝트에서 증명하고 싶은 것
+
+- **정책 → 도메인 모델 → API 계약 → 테스트**로 이어지는 개발 체계를 설계했습니다.
+- `User` 중심 legacy 구조를 `UserDisplayIdentity` / `UserAcademicIdentity` / `SeasonParticipant` 중심으로 재정렬했습니다.
+- 룸메이트 찾기 기능을 summary/detail/action/result-read 축으로 분리하고, manifest 기반 필터·cursor pagination·query-time score sort를 구현했습니다.
+- 탈퇴/비식별화 이후에도 신고·분쟁 대응에 필요한 데이터를 RRPD retained vault로 분리 보존하는 BE foundation을 설계했습니다.
+- AI 도구는 코드 작성·리뷰·인수 검증에 활용하되, 정책 판단과 최종 적용 여부는 사람이 결정하는 워크플로를 운영했습니다.
+
+## 현재 구현 스냅샷
+
+| 영역                 | 현재 상태                                                                                                                                                      |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth / Users         | 학교 이메일 인증 코드, signup draft 검증, argon2id 비밀번호, JWT session, login lockout, reset password, account identity invariant                            |
+| Account identity     | 표시 identity(`UserDisplayIdentity`)와 학업 identity(`UserAcademicIdentity`) 분리. 닉네임/단과대/출생연도 수정 정책과 감사 이력 기반 마련                      |
+| Season participation | 시즌 프로필 draft, 기숙사 선택 draft, registration finalize, deregistration, registration snapshot/history 생성                                                |
+| Roommate search      | `SeasonParticipant`를 public target root로 사용. scope manifest, filter manifest, cursor-only pagination, `NICKNAME`/`MATCH_SCORE` 정렬, min score preset 지원 |
+| Public profile       | list-summary / detail / score / action capability 분리. 정상 entry context 기반 tombstone detail과 direct probing fail-closed 처리                             |
+| Match / Chat         | match request, accept/reject/cancel, active match, unmatch request, history read, thread lifecycle, `canSendMessage=false` reason payload                      |
+| Retention            | RRPD retained vault, archive job, retained vault access log, disposal, chat body vault 전환, account deletion de-identification foundation                     |
+| Test                 | API unit/integration 중심 Jest 테스트 + web Vitest 테스트. 현재 repo 기준 `*.spec.ts`/`*.test.ts` 100개 이상                                                   |
+
+> 현재 단계는 제품 릴리즈 전 개발 단계입니다. 운영 배포·실사용자 검증·admin/backoffice UI는 후속 범위입니다.
 
 ## 핵심 기술 결정
 
-| 영역        | 기술                                                | 선택 이유                                                            |
-| ----------- | --------------------------------------------------- | -------------------------------------------------------------------- |
-| Frontend    | Next.js 16 (App Router), React 19, TypeScript       | SSR/라우팅 통합, 최신 React 기능, 정책-코드 타입 안전성              |
-| Backend     | NestJS, TypeScript                                  | FE와 TS 타입 공유, 모듈 기반 아키텍처로 정책 도메인 분리             |
-| Styling     | Tailwind CSS 4                                      | 유틸리티 퍼스트로 빠른 프로토타이핑, 정책 변경 시 스타일 수정 최소화 |
-| Monorepo    | pnpm workspace                                      | 디스크 효율성, 엄격한 의존성 관리, FE/BE 타입 공유                   |
-| Test        | vitest + @testing-library/react + jsdom             | Vite 생태계 호환, 빠른 실행, ESM 네이티브 지원                       |
-| Lint/Format | ESLint (flat config), Prettier, Husky + lint-staged | 코드 일관성 자동 보장                                                |
+| 영역                | 기술                                     | 선택 이유                                                                                                                 |
+| ------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Language            | TypeScript                               | FE/BE/shared contract를 같은 타입 언어로 연결하고 정책 enum/schema drift를 줄이기 위함                                    |
+| Monorepo            | pnpm workspace                           | `apps/web`, `apps/api`, `packages/shared` 간 계약 공유와 의존성 경계를 명확히 하기 위함                                   |
+| Frontend            | Next.js 16, React 19                     | App Router 기반 화면 구조와 인증 BFF 경계를 함께 다루기 위함                                                              |
+| Backend             | NestJS 11                                | 모듈/DI 구조가 auth, users, seasons, profiles, matches, chat, retention 같은 정책 도메인 분리에 적합                      |
+| Database            | PostgreSQL 16 + Prisma 7                 | 관계형 제약, transaction, migration, generated client 기반 타입 안정성을 함께 확보                                        |
+| Contract            | Zod schemas in `packages/shared`         | API request/response, roommate-search manifest, identity/profile/match/chat contract를 런타임 검증과 타입으로 동시에 사용 |
+| Validation / Config | Joi + Nest Config                        | production 필수 secret과 dev default를 명확히 분리                                                                        |
+| Test                | Jest, Supertest, Vitest, Testing Library | BE owner 단위/통합 테스트와 FE component 테스트를 분리                                                                    |
+| Styling             | Tailwind CSS 4                           | 정책 변화에 따라 UI 상태가 자주 바뀌는 프로토타입 단계에서 빠르게 조정 가능                                               |
 
-## 이 프로젝트에서 한 일
+## 백엔드 설계 포인트
 
-### 프로토타입에서 제품으로
+### 1. SeasonParticipant 중심 도메인 재정렬
 
-초기에는 구체적인 정책 없이 UI를 먼저 구현하고, 화면에 맞춰 규칙을 끼워 넣는 방식으로 진행했습니다. 하지만 Sprint 1~3을 거치며 제품화를 진행할수록, 정책이 정해져야 UI와 로직이 결정된다는 것을 체감했습니다.
+룸메이트 탐색·매칭·채팅의 canonical target은 account `User`가 아니라 current season의 `SeasonParticipant`입니다.
 
-- 기존 매칭 점수가 '**같은 필드끼리 1:1 비교**'라서 "비슷한 성향"은 측정하지만 "함께 살기 좋은 조합"은 측정하지 못함 — 프로필 모델을 "나의 정보 vs 원하는 조건"으로 재설계해야 했지만 기준이 될 정책이 없었음
-- 건물 변경 시 매칭 상태 처리, 3인실 UI, 닉네임 제한, 계정 삭제 등 미결 항목이 쌓였지만 정책 없이는 답이 나오지 않음
-- source of truth가 코드, 상수, 카피에 분산돼 어느 것이 실제 규칙인지 판단 불가
+- signup/auth는 `User`와 account identity만 만든다.
+- 시즌 프로필 draft와 기숙사 선택 draft는 registration 전까지 독립 저장 가능하다.
+- registration finalize만 `REGISTERED + ASSIGNED + registeredAt + complete profile + SEASON_REGISTRATION history`를 확정한다.
+- search/detail/match/chat capability는 registration complete participant를 기준으로 계산한다.
 
-인증/프로필/매칭/시즌 정책이 서로 강하게 의존해 하나씩 결정하면 뒤의 결정이 앞의 구현을 뒤집는 문제가 반복됐습니다. Sprint 4에서 구현을 멈추고 11개 정책 이슈를 8개 공식 정책 문서로 정규화한 뒤, 그 정책을 기준으로 UI 이슈를 다시 생성했습니다.
+이 구조로 account identity, season participation, public exposure, match/chat action capability를 분리했습니다.
 
-### 개발 타임라인
+### 2. Public target capability 축 분리
 
-| Sprint | 목표                            | 핵심 판단                                                 | 참여 역할            |
-| ------ | ------------------------------- | --------------------------------------------------------- | -------------------- |
-| 0      | 프로토타입 구현                 | 정책 전에 전체 사용자 흐름 먼저 확인                      | PM, FE, UX           |
-| 1      | 테스트 인프라 + Quick Win       | fixture/테스트 기반 먼저 확보                             | PM, DX, FE, QA       |
-| 2      | 인증~메인 진입 플로우 확정      | e2e 사용자 경로 검증                                      | PM, FE, 정책, UX, QA |
-| 3      | 온보딩 + Main 리팩토링          | 도메인 훅 추출 → 섹션 분리                                | PM, FE, UX, QA       |
-| 4      | 핵심 정책 재설계                | 8개 정책 문서 정규화                                      | PM, 정책, Writer     |
-| 5      | 정책 일괄 결정 + 정책 코드 반영 | 8개 정책 정규화 → legal.ts/Landing 동기화 + 인증 리팩토링 | PM, 정책, FE, QA     |
-| 6~     | Main 도메인 + BE 기반 구축      | 확정된 정책 기반 FE/BE 병렬                               | PM, FE, BE, QA       |
+기존의 단일 public exposure 표현 대신 아래 축을 분리했습니다.
 
-### 역할 경험
+| 축                      | 의미                                                        |
+| ----------------------- | ----------------------------------------------------------- |
+| Relation                | viewer와 target의 관계: general target / matched partner    |
+| Exposure                | list-summary, detail, score를 어디까지 볼 수 있는가         |
+| Action capability       | bookmark, match request, chat start 같은 새 행동이 가능한가 |
+| Result-read context     | 이미 생성된 match/thread/history를 읽는 맥락인가            |
+| Read-only storage state | thread/profile row 자체가 쓰기 잠금 상태인가                |
 
-1인 개발이지만 Sprint마다 역할을 의도적으로 분리했습니다. 각 역할의 산출물이 다음 역할의 입력이 되는 구조로 진행했습니다.
+이 분리 덕분에 “목록에는 보이지만 상세/점수/action은 닫힘”, “과거 최종 매칭 상대의 detail은 result-read로 허용”, “정상 entry context는 tombstone으로 degrade” 같은 상태를 명확히 표현할 수 있습니다.
 
-| 역할             | 경험 내용                                                                                                                                                   | 근거                                                                                           |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| PM               | Sprint 계획과 스코프 판단(Sprint 4에서 구현 중단→정책 우선 전환), 정합성 분석 기반 이슈 재배치(Sprint 5 법적 분석→Phase 2 순서 확정)                        | [CLAUDE.md](./CLAUDE.md), GitHub Issues/Milestones                                             |
-| 정책 담당        | 대안 비교 기반 정책 결정(11개→8개 정규화), 법적 정합성 검증(개인정보보호법/정보통신망법 교차 검증, Codex·Claude 분석 통합)                                  | [docs/04_policy/official/](./docs/04_policy/official/), [docs/98_analyze/](./docs/98_analyze/) |
-| UX 설계          | 사용자 진입 흐름 설계(뒤로가기 방어, 자동 로그인), 온보딩 UX 설계(이탈율 분석 기반 패턴 선택), UI 제약 분석(닉네임 8자 — 컴포넌트 오버플로 검증)            | [docs/03_planning/](./docs/03_planning/)                                                       |
-| FE Engineer      | 컴포넌트 구조 설계(도메인 훅 추출→섹션 분리), 리팩토링 시점 판단("Make it work, then make it right"), 테스트 인프라(vitest+jsdom) 설계, 코드 리뷰 적용 판단 | [docs/02_review-decisions/](./docs/02_review-decisions/), PR 이력                              |
-| QA Engineer      | QA 프로세스 설계(ATDD 워크플로, 코드 리뷰→적용 판단 분리), 정책 기반 인수 테스트 실행(#132 첫 ATDD 사이클 완료)                                             | [QA.md](./QA.md), [docs/01_codex-review/](./docs/01_codex-review/)                             |
-| Technical Writer | planning 문서 템플릿 설계(ATDD 전달 포함), 정책 문서 정규화, 문서 디렉토리 구조 설계                                                                        | [docs/03_planning/TEMPLATE.md](./docs/03_planning/TEMPLATE.md)                                 |
-| BE Engineer      | 확정된 정책과 FE 도메인 모델 기반으로 API/DB 설계 및 구현 (Sprint 6~, FE 선행 후 순차 진행)                                                                 | —                                                                                              |
+### 3. Roommate-search filter / cursor / score 설계
+
+룸메이트 찾기는 `CAMPUS_MERGED`와 `SAME_BUILDING_ONLY` scope를 가진 summary list API입니다.
+
+- `GET /api/roommate-search/manifest`가 scope별 필터/정렬 가능성을 preflight로 제공한다.
+- `GET /api/roommate-search`는 response에도 authoritative manifest를 포함해 stale UI state를 방어한다.
+- pagination은 offset이 아니라 HMAC cursor token과 query digest를 사용한다.
+- `MATCH_SCORE` 정렬은 projection table precompute가 아니라 query-time score calculation으로 구현했다.
+- bounded cache는 실제 병목이 측정된 뒤 후속 issue에서 도입한다.
+
+`docs/07_tech/roommate-search-score-scaling-design.md`에서는 BTL 1~3차 기숙사 규모, managed PostgreSQL 비용, App CPU/DB write amplification 트레이드오프를 기준으로 이 결정을 정리했습니다.
+
+### 4. Account deletion / retention foundation
+
+탈퇴는 단순 row 삭제가 아니라 user-facing 비식별화와 restricted retention을 분리합니다.
+
+- active `User`/display/profile surface는 즉시 비식별화한다.
+- 정상 탈퇴 identifier anchor는 `RetainedIdentity`로 제한 보존한다.
+- nickname audit, academic identity audit, season profile history, match history, chat body는 `RetainedVaultObject`로 원문 payload를 분리할 수 있다.
+- retained payload 접근은 purpose/approval/access log 없이는 허용하지 않는다.
+
+이 구조는 “사용자 화면에는 탈퇴한 사용자로 보이지만, 신고·분쟁·법적 보존 사유가 있으면 승인된 운영 경로에서만 근거를 복원할 수 있는” foundation입니다.
 
 ## 개발 프로세스
 
-이슈마다 `issue/{번호}-{설명}` 브랜치를 생성합니다. PR마다 Codex로 코드 리뷰를 수행하고, 항목별로 프로젝트 맥락을 고려해 적용 여부를 판단합니다. 정책 기반 이슈에는 ATDD를 적용해 정책 문서에서 인수 조건을 도출하고, 구현 완료 후 인수 테스트로 정책 충족 여부를 검증합니다. 정책/설계 결정에는 대안 비교표(방안 / 장단점 / 결정 / 근거)를 포함하고, 채택하지 않은 안의 탈락 사유도 명시합니다. 이는 나중에 정책이 변경될 때 어떤 전제를 재검토해야 하는지 추적하기 위한 것입니다.
+### 정책을 먼저 고정한 이유
+
+초기에는 FE 프로토타입 중심으로 진행했지만, 시즌·기숙사·프로필·매칭·탈퇴 정책이 서로 강하게 의존해 작은 기능 변경이 다른 도메인을 계속 뒤집었습니다. 그래서 Sprint 4 이후 구현을 멈추고 정책 문서를 정규화한 뒤, BE는 정책 owner에 맞춰 다시 설계했습니다.
+
+대표적으로 다음 질문들은 코드보다 정책이 먼저 필요했습니다.
+
+- registration 전 draft profile은 public search target인가?
+- 미등록 viewer가 볼 수 있는 summary 범위는 어디까지인가?
+- active matched target은 search discovery에서 제외할 것인가?
+- 계정 삭제 후 과거 matched partner detail은 어떻게 degrade할 것인가?
+- chat body와 profile/history snapshot은 어떤 retention tier에 둘 것인가?
 
 ### AI 활용 방식
 
-코드 작성은 Claude Code, 코드 리뷰와 인수 테스트는 Codex를 활용합니다. 본인의 역할은 요구사항 정의, 정책 설계, 아키텍처 결정, AI 산출물에 대한 판단입니다.
+| 영역          | 사람의 역할                                    | AI 활용                                        |
+| ------------- | ---------------------------------------------- | ---------------------------------------------- |
+| 요구사항·정책 | 정책 결정, 트레이드오프 선택, 범위 조정        | 대안 분석, 문서 초안, 누락 질문 도출           |
+| 구현          | 아키텍처 판단, owner 경계 결정, 최종 diff 검토 | 반복 구현, 테스트 보강, regression 탐색        |
+| QA            | 인수 조건 확정, 통과/불통과 판정               | 코드 리뷰, static guard, integration test 보강 |
+| 문서          | 포트폴리오 방향성, 최종 메시지                 | 설계 근거 정리, stale 표현 탐색                |
 
-| 영역          | 본인                                  | AI                             |
-| ------------- | ------------------------------------- | ------------------------------ |
-| 요구사항·정책 | 이슈 설계, 대안 비교, 정책 정규화     | —                              |
-| 프로세스      | ATDD 워크플로, 문서 구조, 브랜치 전략 | —                              |
-| 구현          | 아키텍처 결정, 코드 리뷰 적용 판단    | 코드 작성 (Claude Code)        |
-| QA            | 프로세스 설계, 판정 검토              | 코드 리뷰, 인수 테스트 (Codex) |
+핵심은 “AI가 대신 결정”이 아니라, AI가 만든 분석·코드를 정책 문서와 테스트로 검증하고 사람이 채택/반려를 판단하는 구조입니다.
 
-코드 리뷰 적용 여부, ATDD 판정 결과 등 판단 근거는 PR·planning 문서에 기록합니다.
+## 개발 타임라인
 
-### 실무 흐름과의 비교
+| 구간               | 목표                                       | 핵심 산출물                                                                                                                              |
+| ------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Sprint 0~3         | FE 프로토타입과 주요 사용자 흐름 확인      | landing/onboarding/main tab, mock 기반 auth/profile/matching flow                                                                        |
+| Sprint 4~5         | 정책 충돌 정리                             | 공식 정책 문서 세트, ATDD/QA workflow, policy-driven issue 재배치                                                                        |
+| Sprint 6           | FE↔BE 아키텍처와 운영 전제 정리            | Next.js auth BFF + NestJS API + PostgreSQL 방향 결정                                                                                     |
+| Sprint 7 #191~#194 | BE 기반 도입                               | Prisma/Postgres, auth API, users/profile API, campus/dormitory/season API                                                                |
+| Sprint 7 #195      | matching/search/detail/chat/retention 정렬 | SeasonParticipant adoption, public target policy, roommate-search manifest/cursor/score, match/chat lifecycle, RRPD retention foundation |
 
-이 프로젝트의 흐름(프로토타입 → 충돌 발견 → 정책 정리 → 재정렬)은 실제 서비스 개발에서 일반적으로 발생하는 패턴과 유사합니다. 다만 1인 개발이라는 맥락에서 오는 차이가 있고, 그 차이에는 의도적인 판단이 있었습니다.
+## 서비스 요약
 
-| 실무 일반 패턴                     | 이 프로젝트                                                | 이유                                                                                                                     |
-| ---------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 정책이 기능 단위로 점진적으로 생김 | Sprint 4에서 정책을 몰아서 정규화                          | 1인 개발이라 정책 결정자와 구현자가 동일. 정책 간 의존성이 강해 일괄 결정이 더 효율적                                    |
-| 사용자 피드백이 정책 수정 트리거   | 설계자 분석 기반으로 정책 수립 + 법적 정합성 분석으로 보강 | 사용자 테스트 전 단계. 대안 비교와 근거를 문서화하고, 법령 교차 검증으로 정책 누락을 사전 식별                           |
-| 법률/컴플라이언스 팀이 법적 검토   | 개발자가 법적 정합성 분석 직접 수행                        | 1인 개발이라 법률 팀 없음. Codex·Claude 교차 분석 + 웹 검색 법령 검증으로 가드레일 수립. 전문가 자문은 런칭 전 별도 권장 |
-| 정책 변경 시 영향도 분석 후 배포   | 정책 변경의 코드 영향을 분석 문서 체인으로 추적            | 정책→코드 변경의 추적 가능성을 문서 체인으로 확보 (policy-change-points → UI/UX change points → issue plan)              |
-| 역할이 직군별로 고정               | 한 사람이 Sprint마다 역할을 전환                           | 1인 개발이라 PM→정책→FE→BE를 순차 경험. 각 역할의 산출물이 다음 역할의 입력이 됨                                         |
+KNU Roommate는 학교 이메일 인증을 통과한 사용자가 시즌별로 기숙사 배정과 생활패턴 프로필을 등록하고, 같은 조건의 룸메이트 후보를 탐색·대화·매칭할 수 있게 하는 서비스입니다.
 
-## 대표 트러블슈팅
+- 가입과 시즌 registration은 분리한다.
+- registration 전에는 프로필/기숙사 선택 draft를 준비한다.
+- registration 완료 후 같은 기숙사 후보에 대해 상세/점수/action capability가 열린다.
+- post-match에는 신규 action보다 결과 확인과 과거 이력 read를 우선한다.
+- 탈퇴/비식별화된 사용자는 user-facing detail을 tombstone/minimal result로 degrade한다.
 
-> Sprint 진행에 따라 추가 예정입니다. 상세: `docs/06_trouble-shooting/`
+더 자세한 제품 설명은 [SERVICE.md](./SERVICE.md)를 참고합니다.
 
-## 서비스 소개
+## 문서 구조
 
-학교 이메일 인증, 생활패턴 프로필, 시즌 운영, 건물 기반 매칭을 통해 더 현실적인 룸메이트 탐색 경험을 제공합니다.
+> 현재 `docs/`와 `.omx/plans/`는 로컬 설계 근거 문서 성격이 강합니다. 공개 포트폴리오에서는 README에 핵심 결정을 요약하고, 필요 시 원문 문서를 별도로 공유하는 방식을 전제로 합니다.
 
-- **학교 이메일 인증** — `@kangwon.ac.kr` 인증으로 재학생만 이용
-- **생활패턴 프로필** — 생활패턴과 원하는 룸메 조건을 구조화해 비교
-- **건물 기반 매칭** — 시즌에는 같은 건물 배정 사용자 중심으로 매칭
-- **시즌형 운영** — 비시즌 읽기 전용 탐색, 시즌 매칭 활성화
-- **안전 장치** — 신고/차단, 공개 정보 제한, 커뮤니티 안전 정책
-
-Frontend는 랜딩~메인 탭 구조와 테스트 기반이 구현되었으며, Backend는 Sprint 6에서 NestJS API를 구축 중입니다.
-
-- 서비스 설명: [SERVICE.md](./SERVICE.md)
-- 운영 규칙: [docs/04_policy/official/](./docs/04_policy/official/README.md)
-
-## 핵심 산출물
-
-| 산출물             | 설명                                                           | 위치                       |
-| ------------------ | -------------------------------------------------------------- | -------------------------- |
-| 8개 공식 정책 문서 | 인증/프로필/매칭/시즌/안전/면책/데이터보유 등 서비스 핵심 규칙 | `docs/04_policy/official/` |
-| Sprint별 결정 과정 | 대안 비교, 트레이드오프, 구현 기록                             | `docs/03_planning/`        |
-| 법적 정합성 분석   | 개인정보보호법/정보통신망법 교차 검증                          | `docs/98_analyze/`         |
-| 서비스 소개        | 현재형 서비스 설명                                             | [SERVICE.md](./SERVICE.md) |
-
-> `docs/`는 `.gitignore` 대상입니다. 포트폴리오 리뷰 시 요청하시면 주요 문서를 공유합니다.
-
-## 기술 스택
-
-| 영역        | 기술                                                |
-| ----------- | --------------------------------------------------- |
-| Frontend    | Next.js 16 (App Router), React 19, TypeScript       |
-| Backend     | NestJS, TypeScript                                  |
-| Styling     | Tailwind CSS 4                                      |
-| Monorepo    | pnpm workspace                                      |
-| Test        | vitest + @testing-library/react + jsdom             |
-| Lint/Format | ESLint (flat config), Prettier, Husky + lint-staged |
+| 문서군                       | 역할                                                                                           |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- |
+| `docs/04_policy/official/`   | auth, season, profile, roommate-search, matching, chat, retention 등 공식 정책 source of truth |
+| `docs/03_planning/sprint-7/` | BE issue별 구현 전 결정, 대안 비교, handoff                                                    |
+| `.omx/plans/`                | 세션 단위 대규모 리팩토링/정합성 작업 plan과 완료 근거                                         |
+| `docs/07_tech/`              | 성능/운영/아키텍처 설계 근거                                                                   |
+| `docs/99_portfolio/`         | README와 포트폴리오 표현 전략                                                                  |
 
 ## 프로젝트 구조
 
-```
-knu_roomate/
+```text
+knu_roommate/
 ├── apps/
-│   ├── web/            # Next.js 프론트엔드
-│   └── api/            # NestJS 백엔드
+│   ├── web/             # Next.js frontend / auth BFF
+│   └── api/             # NestJS backend
 ├── packages/
-│   ├── eslint-config/  # 공유 ESLint 설정
-│   └── tsconfig/       # 공유 TypeScript 설정
-├── docs/               # 정책 문서, Sprint별 결정 과정
-├── SERVICE.md          # 현재형 서비스 소개 문서
+│   ├── shared/          # FE/BE shared zod contracts and domain constants
+│   ├── eslint-config/   # shared ESLint config
+│   └── tsconfig/        # shared TypeScript config
+├── docs/                # local policy/planning/tech docs
+├── docker-compose.dev.yml
+├── SERVICE.md
 └── README.md
 ```
 
@@ -146,23 +171,44 @@ knu_roomate/
 
 ### 사전 요구사항
 
-- Node.js 20+
-- pnpm 9+
+- Node.js `>=24 <25`
+- pnpm `10.x`
+- Docker / Docker Compose
 
-### 설치 및 실행
+### 개발 환경 실행
 
 ```bash
-# 의존성 설치
 pnpm install
 
-# 환경변수 설정
-cp apps/web/.env.example apps/web/.env
+# 로컬 PostgreSQL 실행: 127.0.0.1:5432, knu_dev / knu_dev_password
+pnpm db:up
 
-# 개발 서버 실행 (web + api 동시)
+# Prisma client 생성 및 schema 반영
+pnpm api:prisma:generate
+pnpm db:push
+pnpm db:seed
+
+# web + api 개발 서버
+cp apps/web/.env.example apps/web/.env
 pnpm dev
 ```
 
-| 앱             | URL                                                |
-| -------------- | -------------------------------------------------- |
-| Web (Frontend) | http://localhost:3000                              |
-| API (Backend)  | `PORT` 환경변수 기준 (예: `http://localhost:3001`) |
+| 앱         | 기본 URL                      |
+| ---------- | ----------------------------- |
+| Web        | http://localhost:3000         |
+| API        | http://localhost:4000         |
+| PostgreSQL | `127.0.0.1:5432/knu_roommate` |
+
+API 개발 기본값은 `apps/api/src/config/*.ts`에 정의되어 있어 개발 단계에서는 root `.env` 없이도 동작합니다. `NODE_ENV=production`에서는 DB URL, JWT secret, retention key, cursor/token HMAC secret을 환경변수로 명시해야 합니다.
+
+### 자주 쓰는 검증 명령
+
+```bash
+pnpm shared:build
+pnpm api:prisma:generate
+pnpm api:typecheck
+pnpm api:lint
+pnpm --dir apps/api exec jest --watchman=false --runInBand
+pnpm --dir apps/api test:integration -- --runInBand
+pnpm --dir apps/web test
+```
