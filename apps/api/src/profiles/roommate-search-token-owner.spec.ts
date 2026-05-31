@@ -47,4 +47,45 @@ describe('roommate-search-token-owner', () => {
       }),
     ).toThrow();
   });
+
+  it('cursor tamper와 expiry를 fail-closed한다', () => {
+    const owner = createRoommateSearchTokenOwner();
+    const token = owner.signCursor({
+      viewerUserId: 'viewer',
+      seasonId: 'season-1',
+      scope: 'SAME_BUILDING_ONLY',
+      sort: 'NICKNAME',
+      queryDigest: 'digest-a',
+      after: {
+        nicknameSortKey: '나나',
+        participantId: 'participant-b',
+      },
+      now,
+    });
+    const tampered = `${token.slice(0, -1)}x`;
+
+    expect(() =>
+      owner.verifyCursor({
+        token: tampered,
+        viewerUserId: 'viewer',
+        seasonId: 'season-1',
+        scope: 'SAME_BUILDING_ONLY',
+        sort: 'NICKNAME',
+        queryDigest: 'digest-a',
+        now,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      owner.verifyCursor({
+        token,
+        viewerUserId: 'viewer',
+        seasonId: 'season-1',
+        scope: 'SAME_BUILDING_ONLY',
+        sort: 'NICKNAME',
+        queryDigest: 'digest-a',
+        now: new Date(now.getTime() + 11 * 60 * 1000),
+      }),
+    ).toThrow();
+  });
 });

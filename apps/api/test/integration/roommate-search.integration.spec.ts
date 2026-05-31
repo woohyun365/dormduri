@@ -265,6 +265,30 @@ describe('RoommateSearchService integration', () => {
     });
   });
 
+  it('SEASON_OPEN CAMPUS_MERGED는 nickname cursor로 broad preview page를 이어준다', async () => {
+    await setSeasonState('SEASON_OPEN');
+
+    const firstPage = await service.search(authContext('user-a'), {
+      scope: 'CAMPUS_MERGED',
+      limit: 1,
+    });
+    expect(firstPage.appliedSort).toBe('NICKNAME');
+    expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
+    expect(firstPage.pageInfo.hasNextPage).toBe(true);
+    expect(firstPage.pageInfo.nextCursor).toEqual(expect.any(String));
+
+    const secondPage = await service.search(authContext('user-a'), {
+      scope: 'CAMPUS_MERGED',
+      limit: 1,
+      cursor: firstPage.pageInfo.nextCursor ?? undefined,
+    });
+    expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(secondPage.pageInfo).toEqual({
+      hasNextPage: false,
+      nextCursor: null,
+    });
+  });
+
   it('SEASON_OPEN CAMPUS_MERGED는 legacy scalar additional/detail-only filter도 400이다', async () => {
     await seedSecondDormitory();
     await moveUserToDormitory({
@@ -335,6 +359,56 @@ describe('RoommateSearchService integration', () => {
       response: { code: 'PROFILE_NOT_VISIBLE' },
     });
   });
+
+  it.each(['WITHDRAWN', 'HIDDEN', 'DEACTIVATED'] as const)(
+    'target state %s 변경은 최신 public target policy로 search에서 제외하고 stale summary detail은 tombstone으로 닫는다',
+    async (targetState) => {
+      await setSeasonState('SEASON_OPEN');
+      const beforeChange = await service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        limit: 20,
+      });
+      const staleTargetEntry = beforeChange.items.find(
+        (item) => item.profileSummary.nickname === '유저B',
+      );
+      expect(staleTargetEntry?.detailEntryToken).toEqual(expect.any(String));
+
+      const now = await prisma.getDatabaseNow();
+      if (targetState === 'WITHDRAWN') {
+        await prisma.seasonParticipant.update({
+          where: { id: 'participant-b' },
+          data: { participantStatus: 'WITHDRAWN', withdrawnAt: now },
+        });
+      } else if (targetState === 'HIDDEN') {
+        await prisma.seasonParticipant.update({
+          where: { id: 'participant-b' },
+          data: { hiddenByAdminAt: now },
+        });
+      } else {
+        await prisma.seasonParticipant.update({
+          where: { id: 'participant-b' },
+          data: { deactivatedAt: now },
+        });
+      }
+
+      const latest = await service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        limit: 20,
+      });
+      expect(latest.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+
+      await expect(
+        profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
+          detailEntryToken: staleTargetEntry?.detailEntryToken,
+        }),
+      ).resolves.toMatchObject({
+        detailState: 'TOMBSTONE',
+        tombstone: {
+          reason: 'TARGET_NO_LONGER_DISCOVERABLE',
+        },
+      });
+    },
+  );
 
   it('SEASON_MATCHING 등록 viewer는 same-building만 보고 explicit CAMPUS_MERGED는 400이다', async () => {
     await setSeasonState('SEASON_MATCHING');
@@ -574,6 +648,47 @@ describe('RoommateSearchService integration', () => {
       limit: 20,
     });
     expect(age25Plus.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+  });
+
+  it('SEASON_OPEN SAME_BUILDING_ONLY는 additional filter와 MATCH_SCORE/minScore를 함께 적용한다', async () => {
+    await setSeasonState('SEASON_OPEN');
+    await prisma.collegeMaster.create({
+      data: {
+        code: 'NURSING',
+        campusCode: 'CHUNCHEON',
+        nameKo: '간호대',
+        sortOrder: 2,
+      },
+    });
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-c' },
+      data: {
+        collegeCode: 'NURSING',
+        grade: '3',
+        mbti: 'ENTJ',
+        birthYear: 2001,
+      },
+    });
+
+    const result = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      sort: 'MATCH_SCORE',
+      college: { operator: 'EXCLUDE', values: ['ARTS_ENGINEERING'] },
+      mbtiTraits: {
+        energy: 'E',
+        perception: null,
+        decision: 'T',
+        lifestyle: 'J',
+      },
+      ageBand: { values: ['25_PLUS'] },
+      minScore: 90,
+      limit: 20,
+    });
+
+    expect(result.appliedSort).toBe('MATCH_SCORE');
+    expect(result.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(result.items[0]?.matchScore).toEqual(expect.any(Number));
+    expect(result.items[0]?.matchScore).toBeGreaterThanOrEqual(90);
   });
 
   it('SEASON_POST_MATCH roommate-search discovery는 active matched target을 제외하고 notice를 제공한다', async () => {
