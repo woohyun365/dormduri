@@ -196,6 +196,7 @@ describe('MatchesService unmatch integration', () => {
       chatService.sendMessage(authContext('user-a'), {
         targetUserId: 'user-b',
         body: '매칭 해제 직전 메시지',
+        clientMessageId: 'client-message-unmatch-race',
       }),
     ]);
 
@@ -226,6 +227,7 @@ describe('MatchesService unmatch integration', () => {
     await chatService.sendMessage(authContext('user-a'), {
       targetUserId: 'user-b',
       body: '매칭된 상태에서 남긴 메시지',
+      clientMessageId: 'client-message-unmatch-history',
     });
 
     await service.requestUnmatch(authContext('user-a'), 'active-match-1');

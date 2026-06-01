@@ -6,6 +6,7 @@ import type {
   LeaveConversationThreadResponse,
   SendConversationMessageRequest,
   SendConversationMessageResponse,
+  UpdateChatReadMarkerRequest,
 } from '@repo/shared/chat-contract';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
@@ -249,6 +250,14 @@ export class ChatService {
     input: SendConversationMessageRequest,
   ): Promise<SendConversationMessageResponse> {
     return this.commandCluster.sendMessage(authUser, input);
+  }
+
+  async updateReadMarker(
+    authUser: AuthenticatedUserContext,
+    threadId: string,
+    input: UpdateChatReadMarkerRequest,
+  ) {
+    return this.commandCluster.updateReadMarker(authUser, threadId, input);
   }
 
   async handleActiveMatchCreated(

@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import type { LeaveConversationThreadResponse } from '@repo/shared/chat-contract';
-import { sendConversationMessageRequestSchema } from '@repo/shared/chat-contract';
+import {
+  sendConversationMessageRequestSchema,
+  updateChatReadMarkerRequestSchema,
+} from '@repo/shared/chat-contract';
 import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
 import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
@@ -39,6 +42,16 @@ export class ChatController {
     @Param('threadId') threadId: string,
   ): Promise<LeaveConversationThreadResponse> {
     return this.chatService.leaveThread(authUser, threadId);
+  }
+
+  @Post('threads/:threadId/read-marker')
+  async updateReadMarker(
+    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @Param('threadId') threadId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = parseRequestBody(updateChatReadMarkerRequestSchema, body);
+    return this.chatService.updateReadMarker(authUser, threadId, parsed);
   }
 
   @Post('messages')

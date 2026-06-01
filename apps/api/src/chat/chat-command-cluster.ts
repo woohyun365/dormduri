@@ -2,10 +2,15 @@ import type {
   LeaveConversationThreadResponse,
   SendConversationMessageRequest,
   SendConversationMessageResponse,
+  UpdateChatReadMarkerRequest,
 } from '@repo/shared/chat-contract';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { buildParticipantPairIdentity } from '../matches/match.utils.js';
+import {
+  isPrismaKnownRequestError,
+  prismaErrorTargetIncludes,
+} from '../common/prisma/prisma-error.js';
 import type { ChatUserContext } from './chat-context-owner.js';
 import { chatErrors } from './chat.errors.js';
 import type { ChatParticipantUserProjection, ThreadRecord } from './chat-selects.js';
@@ -15,6 +20,7 @@ import type { ChatSendMessageDecision } from './chat-thread-support.js';
 
 type ConversationMessageResponseRecord = {
   id: string;
+  threadId?: string;
   body: string;
   bodyState: 'PLAIN' | 'TOMBSTONED' | 'DISPOSED';
   tombstoneReason:
@@ -30,6 +36,38 @@ type ConversationMessageResponseRecord = {
     userId: string;
   };
 };
+
+type MessageOrderRecord = {
+  id: string;
+  sentAt: Date;
+};
+
+const MAX_MESSAGE_BODY_LENGTH = 1000;
+
+function assertValidSendMessageInput(input: SendConversationMessageRequest) {
+  if (typeof input.clientMessageId !== 'string' || input.clientMessageId.trim().length === 0) {
+    throw chatErrors.messageClientMessageIdRequired();
+  }
+  if (typeof input.body !== 'string' || input.body.trim().length > MAX_MESSAGE_BODY_LENGTH) {
+    throw chatErrors.messageBodyTooLong();
+  }
+}
+
+function compareMessageOrder(left: MessageOrderRecord, right: MessageOrderRecord) {
+  const sentAtDelta = left.sentAt.getTime() - right.sentAt.getTime();
+  if (sentAtDelta !== 0) {
+    return sentAtDelta;
+  }
+  return left.id.localeCompare(right.id);
+}
+
+function createChatRealtimeCursor(eventId: string, userId: string) {
+  return `${eventId}:${userId}`;
+}
+
+function createUserRoomKey(userId: string) {
+  return `user:${userId}`;
+}
 
 interface ChatCommandClusterDeps {
   getDatabaseNow(): Promise<Date>;
@@ -103,6 +141,13 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
       authUser: AuthenticatedUserContext,
       input: SendConversationMessageRequest,
     ): Promise<SendConversationMessageResponse> {
+      assertValidSendMessageInput(input);
+
+      const normalizedInput = {
+        ...input,
+        body: input.body.trim(),
+        clientMessageId: input.clientMessageId.trim(),
+      };
       const now = await deps.getDatabaseNow();
       const viewerContext = await deps.getCurrentChatContext(authUser.id, now);
 
@@ -110,7 +155,10 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         throw chatErrors.messageSendNotAllowed();
       }
 
-      const targetUser = await deps.getValidatedTargetUser(input.targetUserId, viewerContext.user);
+      const targetUser = await deps.getValidatedTargetUser(
+        normalizedInput.targetUserId,
+        viewerContext.user,
+      );
       const targetParticipant = await deps.getRequiredParticipant(
         targetUser,
         viewerContext.seasonContext.season.id,
@@ -137,7 +185,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         if (!txViewerUser) {
           throw chatErrors.messageSendNotAllowed();
         }
-        const txTargetUser = await deps.getChatUserProjection(input.targetUserId, tx);
+        const txTargetUser = await deps.getChatUserProjection(normalizedInput.targetUserId, tx);
         if (
           !txTargetUser ||
           txTargetUser.id === txViewerUser.id ||
@@ -188,6 +236,56 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
 
         if (!sendMessageDecision.canSendMessage) {
           throw chatErrors.messageSendNotAllowed();
+        }
+
+        const existingIdempotentMessage = await tx.conversationMessage.findUnique({
+          where: {
+            senderParticipantId_clientMessageId: {
+              senderParticipantId: txViewerParticipant.id,
+              clientMessageId: normalizedInput.clientMessageId,
+            },
+          },
+          select: {
+            id: true,
+            threadId: true,
+            body: true,
+            bodyState: true,
+            tombstoneReason: true,
+            bodyVersion: true,
+            sentAt: true,
+            senderParticipant: {
+              select: {
+                userId: true,
+              },
+            },
+            thread: {
+              select: threadSelect,
+            },
+          },
+        });
+
+        if (existingIdempotentMessage) {
+          if (
+            existingIdempotentMessage.body !== normalizedInput.body ||
+            existingIdempotentMessage.thread.pairKey !== pairIdentity.pairKey
+          ) {
+            throw chatErrors.messageIdempotencyConflict();
+          }
+
+          const idempotentThread = await deps.synchronizeThreadLifecycle(
+            existingIdempotentMessage.thread,
+            now,
+            tx,
+          );
+
+          return {
+            thread: deps.toThreadSummary(idempotentThread, txViewerParticipant.id, {
+              canSendMessage: true,
+              unavailableReason: null,
+            }),
+            message: deps.toMessage(existingIdempotentMessage),
+            createdThread: false,
+          };
         }
 
         const pairActiveMatch = await tx.activeMatch.findFirst({
@@ -262,32 +360,123 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           },
         });
 
-        const message = await tx.conversationMessage.create({
-          data: {
-            threadId: thread.id,
-            senderParticipantId: txViewerParticipant.id,
-            body: input.body,
-            sentAt: now,
-          },
-          select: {
-            id: true,
-            body: true,
-            bodyState: true,
-            tombstoneReason: true,
-            bodyVersion: true,
-            sentAt: true,
-            senderParticipant: {
-              select: {
-                userId: true,
+        let message: ConversationMessageResponseRecord;
+        try {
+          message = await tx.conversationMessage.create({
+            data: {
+              threadId: thread.id,
+              senderParticipantId: txViewerParticipant.id,
+              clientMessageId: normalizedInput.clientMessageId,
+              body: normalizedInput.body,
+              sentAt: now,
+            },
+            select: {
+              id: true,
+              threadId: true,
+              body: true,
+              bodyState: true,
+              tombstoneReason: true,
+              bodyVersion: true,
+              sentAt: true,
+              senderParticipant: {
+                select: {
+                  userId: true,
+                },
               },
             },
-          },
-        });
+          });
+        } catch (error) {
+          if (
+            isPrismaKnownRequestError(error, 'P2002') &&
+            prismaErrorTargetIncludes(error, 'clientMessageId')
+          ) {
+            const duplicateMessage = await tx.conversationMessage.findUnique({
+              where: {
+                senderParticipantId_clientMessageId: {
+                  senderParticipantId: txViewerParticipant.id,
+                  clientMessageId: normalizedInput.clientMessageId,
+                },
+              },
+              select: {
+                id: true,
+                threadId: true,
+                body: true,
+                bodyState: true,
+                tombstoneReason: true,
+                bodyVersion: true,
+                sentAt: true,
+                senderParticipant: {
+                  select: {
+                    userId: true,
+                  },
+                },
+                thread: {
+                  select: threadSelect,
+                },
+              },
+            });
+
+            if (
+              duplicateMessage &&
+              duplicateMessage.body === normalizedInput.body &&
+              duplicateMessage.thread.pairKey === pairIdentity.pairKey
+            ) {
+              return {
+                thread: deps.toThreadSummary(duplicateMessage.thread, txViewerParticipant.id, {
+                  canSendMessage: true,
+                  unavailableReason: null,
+                }),
+                message: deps.toMessage(duplicateMessage),
+                createdThread: false,
+              };
+            }
+
+            throw chatErrors.messageIdempotencyConflict();
+          }
+          throw error;
+        }
 
         thread = await tx.conversationThread.update({
           where: { id: thread.id },
           data: { lastMessageAt: now },
           select: threadSelect,
+        });
+
+        const outboxEvent = await tx.chatRealtimeOutboxEvent.create({
+          data: {
+            eventType: 'chat.message.created',
+            schemaVersion: 1,
+            threadId: thread.id,
+            aggregateType: 'conversation.message',
+            aggregateId: message.id,
+            aggregateVersion: 1,
+            payload: {
+              message: {
+                id: message.id,
+                senderUserId: message.senderParticipant.userId,
+                body: message.body,
+                bodyState: message.bodyState,
+                tombstoneReason: message.tombstoneReason,
+                bodyVersion: message.bodyVersion,
+                sentAt: message.sentAt.toISOString(),
+              },
+            },
+            roomKeys: [createUserRoomKey(txViewerUser.id), createUserRoomKey(txTargetUser.id)],
+            occurredAt: message.sentAt,
+            availableAt: now,
+          },
+          select: { id: true },
+        });
+
+        await tx.chatRealtimeEventRecipient.createMany({
+          data: [txViewerUser.id, txTargetUser.id].map((userId) => ({
+            eventId: outboxEvent.id,
+            userId,
+            threadId: thread.id,
+            cursor: createChatRealtimeCursor(outboxEvent.id, userId),
+            createdAt: now,
+          })),
+          skipDuplicates: true,
         });
 
         return {
@@ -297,6 +486,92 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           }),
           message: deps.toMessage(message),
           createdThread,
+        };
+      });
+    },
+
+    async updateReadMarker(
+      authUser: AuthenticatedUserContext,
+      threadId: string,
+      input: UpdateChatReadMarkerRequest,
+    ) {
+      const now = await deps.getDatabaseNow();
+      const thread = await deps.findLeavableThread(authUser.id, threadId);
+
+      if (!thread) {
+        throw chatErrors.threadNotFound();
+      }
+
+      const viewerParticipantId = deps.resolveViewerParticipantId(thread, authUser.id);
+
+      return deps.runSerializableTransaction(async (tx) => {
+        await deps.acquireConversationThreadLeaveLock(tx, thread.id);
+
+        const [targetMessage, currentMember] = await Promise.all([
+          tx.conversationMessage.findFirst({
+            where: {
+              id: input.lastReadMessageId,
+              threadId: thread.id,
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              sentAt: true,
+            },
+          }),
+          tx.conversationThreadMember.findUnique({
+            where: {
+              threadId_participantId: {
+                threadId: thread.id,
+                participantId: viewerParticipantId,
+              },
+            },
+            select: {
+              memberState: true,
+              lastReadMessageId: true,
+            },
+          }),
+        ]);
+
+        if (!targetMessage || currentMember?.memberState !== 'ACTIVE') {
+          throw chatErrors.threadNotFound();
+        }
+
+        if (currentMember.lastReadMessageId) {
+          const currentReadMessage = await tx.conversationMessage.findFirst({
+            where: {
+              id: currentMember.lastReadMessageId,
+              threadId: thread.id,
+              deletedAt: null,
+            },
+            select: {
+              id: true,
+              sentAt: true,
+            },
+          });
+
+          if (currentReadMessage && compareMessageOrder(targetMessage, currentReadMessage) < 0) {
+            throw chatErrors.readMarkerCannotMoveBackward();
+          }
+        }
+
+        await tx.conversationThreadMember.update({
+          where: {
+            threadId_participantId: {
+              threadId: thread.id,
+              participantId: viewerParticipantId,
+            },
+          },
+          data: {
+            lastReadAt: now,
+            lastReadMessageId: targetMessage.id,
+          },
+        });
+
+        return {
+          threadId: thread.id,
+          lastReadMessageId: targetMessage.id,
+          lastReadAt: now.toISOString(),
         };
       });
     },

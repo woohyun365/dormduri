@@ -1,4 +1,4 @@
-import { conflictError, notFoundError } from '../common/http/api-error.js';
+import { badRequestError, conflictError, notFoundError } from '../common/http/api-error.js';
 
 export const chatErrors = {
   threadTargetNotFound() {
@@ -13,6 +13,31 @@ export const chatErrors = {
     return conflictError(
       'CHAT_MESSAGE_SEND_NOT_ALLOWED',
       '현재 상태에서는 메시지를 보낼 수 없습니다.',
+    );
+  },
+
+  messageClientMessageIdRequired() {
+    return badRequestError(
+      'CHAT_MESSAGE_CLIENT_MESSAGE_ID_REQUIRED',
+      '메시지 중복 방지 식별자가 필요합니다.',
+    );
+  },
+
+  messageBodyTooLong() {
+    return badRequestError('CHAT_MESSAGE_BODY_TOO_LONG', '메시지는 1,000자 이하로 입력해주세요.');
+  },
+
+  messageIdempotencyConflict() {
+    return conflictError(
+      'CHAT_MESSAGE_IDEMPOTENCY_CONFLICT',
+      '같은 메시지 식별자로 다른 본문을 보낼 수 없습니다.',
+    );
+  },
+
+  readMarkerCannotMoveBackward() {
+    return conflictError(
+      'CHAT_READ_MARKER_CANNOT_MOVE_BACKWARD',
+      '읽음 위치는 이전 메시지로 되돌릴 수 없습니다.',
     );
   },
 

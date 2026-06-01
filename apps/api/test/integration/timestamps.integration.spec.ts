@@ -167,6 +167,7 @@ describe('timestamp field integration', () => {
     await chatService.sendMessage(authContext('user-a'), {
       targetUserId: 'user-b',
       body: 'timestamp check message',
+      clientMessageId: 'client-message-timestamp-check',
     });
     const thread = await prisma.conversationThread.findFirstOrThrow({
       where: { pairKey: 'participant-a:participant-b' },

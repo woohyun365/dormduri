@@ -36,6 +36,7 @@ describe('ChatController', () => {
     getThreadEntry: jest.fn(),
     getThreadDetail: jest.fn(),
     leaveThread: jest.fn(),
+    updateReadMarker: jest.fn(),
     sendMessage: jest.fn(),
   };
 
@@ -125,5 +126,35 @@ describe('ChatController', () => {
     };
 
     expect(candidate.updateReadMarker).toEqual(expect.any(Function));
+  });
+
+  it('read marker 갱신 요청은 lastReadMessageId를 필수로 검증한다', async () => {
+    const response = await expectBadRequest(() =>
+      controller.updateReadMarker(authUser as never, 'thread-1', {}),
+    );
+
+    expect(response.code).toBe('INVALID_REQUEST_BODY');
+    expect(response.fieldErrors?.lastReadMessageId).toEqual(
+      expect.arrayContaining([expect.any(String)]),
+    );
+    expect(chatService.updateReadMarker).not.toHaveBeenCalled();
+  });
+
+  it('유효한 read marker 갱신 요청은 service로 전달한다', async () => {
+    chatService.updateReadMarker.mockResolvedValueOnce({
+      threadId: 'thread-1',
+      lastReadMessageId: 'message-1',
+      lastReadAt: '2026-02-10T03:00:00.000Z',
+    });
+
+    await expect(
+      controller.updateReadMarker(authUser as never, 'thread-1', {
+        lastReadMessageId: 'message-1',
+      }),
+    ).resolves.toMatchObject({ lastReadMessageId: 'message-1' });
+
+    expect(chatService.updateReadMarker).toHaveBeenCalledWith(authUser, 'thread-1', {
+      lastReadMessageId: 'message-1',
+    });
   });
 });

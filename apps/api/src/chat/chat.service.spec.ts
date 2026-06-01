@@ -191,6 +191,8 @@ describe('ChatService', () => {
   const txConversationThreadMemberUpdate = jest.fn();
   const txConversationThreadMemberUpdateMany = jest.fn();
   const txConversationThreadMemberCount = jest.fn();
+  const txConversationThreadMemberFindUnique = jest.fn();
+  const txConversationMessageFindUnique = jest.fn();
   const txConversationMessageFindFirst = jest.fn();
   const txConversationMessageCreate = jest.fn();
   const txChatRealtimeOutboxEventCreate = jest.fn();
@@ -311,8 +313,13 @@ describe('ChatService', () => {
     txConversationThreadMemberUpdate.mockResolvedValue(undefined);
     txConversationThreadMemberUpdateMany.mockResolvedValue({ count: 1 });
     txConversationThreadMemberCount.mockResolvedValue(1);
+    txConversationThreadMemberFindUnique.mockResolvedValue({
+      memberState: 'ACTIVE',
+      lastReadMessageId: 'message-current',
+    });
     txConversationMessageCreate.mockResolvedValue({
       id: 'message-1',
+      threadId: 'thread-1',
       body: '안녕하세요',
       bodyState: 'PLAIN',
       tombstoneReason: null,
@@ -320,6 +327,7 @@ describe('ChatService', () => {
       sentAt: new Date('2026-02-10T03:00:00.000Z'),
       senderParticipant: { userId: 'user-1' },
     });
+    txConversationMessageFindUnique.mockResolvedValue(null);
     txConversationMessageFindFirst.mockResolvedValue(null);
     txChatRealtimeOutboxEventCreate.mockResolvedValue({ id: 'event-1' });
     txChatRealtimeEventRecipientCreateMany.mockResolvedValue({ count: 2 });
@@ -341,8 +349,10 @@ describe('ChatService', () => {
           update: txConversationThreadMemberUpdate,
           updateMany: txConversationThreadMemberUpdateMany,
           count: txConversationThreadMemberCount,
+          findUnique: txConversationThreadMemberFindUnique,
         },
         conversationMessage: {
+          findUnique: txConversationMessageFindUnique,
           findFirst: txConversationMessageFindFirst,
           create: txConversationMessageCreate,
         },
@@ -795,16 +805,18 @@ describe('ChatService', () => {
   it('같은 sender participant의 같은 clientMessageId와 같은 body는 기존 message로 수렴한다', async () => {
     const existingMessage = {
       id: 'message-existing',
+      threadId: 'thread-1',
       body: '안녕하세요',
       bodyState: 'PLAIN',
       tombstoneReason: null,
       bodyVersion: 1,
       sentAt: new Date('2026-02-10T03:00:00.000Z'),
       senderParticipant: { userId: 'user-1' },
+      thread: makeThread(),
     };
     txConversationThreadFindFirst.mockResolvedValue(makeThread());
     txConversationThreadUpdate.mockResolvedValue(makeThread());
-    txConversationMessageFindFirst.mockResolvedValue(existingMessage);
+    txConversationMessageFindUnique.mockResolvedValue(existingMessage);
 
     const result = await service.sendMessage(
       {
@@ -819,7 +831,7 @@ describe('ChatService', () => {
       } as never,
     );
 
-    const messageLookupCalls = txConversationMessageFindFirst.mock.calls as Array<
+    const messageLookupCalls = txConversationMessageFindUnique.mock.calls as Array<
       [
         {
           where?: {
@@ -836,20 +848,24 @@ describe('ChatService', () => {
       clientMessageId: 'client-message-1',
     });
     expect(txConversationMessageCreate).not.toHaveBeenCalled();
+    expect(txChatRealtimeOutboxEventCreate).not.toHaveBeenCalled();
+    expect(txChatRealtimeEventRecipientCreateMany).not.toHaveBeenCalled();
     expect(result.message.id).toBe('message-existing');
   });
 
   it('같은 sender participant의 같은 clientMessageId와 다른 body는 409로 거절한다', async () => {
     txConversationThreadFindFirst.mockResolvedValue(makeThread());
     txConversationThreadUpdate.mockResolvedValue(makeThread());
-    txConversationMessageFindFirst.mockResolvedValue({
+    txConversationMessageFindUnique.mockResolvedValue({
       id: 'message-existing',
+      threadId: 'thread-1',
       body: '기존 본문',
       bodyState: 'PLAIN',
       tombstoneReason: null,
       bodyVersion: 1,
       sentAt: new Date('2026-02-10T03:00:00.000Z'),
       senderParticipant: { userId: 'user-1' },
+      thread: makeThread(),
     });
 
     await expect(
@@ -870,6 +886,8 @@ describe('ChatService', () => {
     });
 
     expect(txConversationMessageCreate).not.toHaveBeenCalled();
+    expect(txChatRealtimeOutboxEventCreate).not.toHaveBeenCalled();
+    expect(txChatRealtimeEventRecipientCreateMany).not.toHaveBeenCalled();
   });
 
   it('message commit은 outbox event와 recipient rows를 같은 transaction에 남긴다', async () => {
@@ -902,7 +920,64 @@ describe('ChatService', () => {
     );
   });
 
+  it('read marker는 현재 위치가 없으면 지정한 메시지로 전진한다', async () => {
+    prisma.conversationThread.findFirst.mockResolvedValue(
+      makeVisibleThread({ threadKind: 'DIRECT', status: 'READ_ONLY' }),
+    );
+    txConversationThreadMemberFindUnique.mockResolvedValue({
+      memberState: 'ACTIVE',
+      lastReadMessageId: null,
+    });
+    txConversationMessageFindFirst.mockResolvedValueOnce({
+      id: 'message-new',
+      sentAt: new Date('2026-02-10T02:00:00.000Z'),
+    });
+
+    const result = await service.updateReadMarker(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      'thread-1',
+      { lastReadMessageId: 'message-new' },
+    );
+
+    expect(txConversationThreadMemberUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          threadId_participantId: {
+            threadId: 'thread-1',
+            participantId: 'participant-1',
+          },
+        },
+        data: {
+          lastReadAt: new Date('2026-02-10T03:00:00.000Z'),
+          lastReadMessageId: 'message-new',
+        },
+      }),
+    );
+    expect(result).toMatchObject({
+      threadId: 'thread-1',
+      lastReadMessageId: 'message-new',
+      lastReadAt: '2026-02-10T03:00:00.000Z',
+    });
+  });
+
   it('read marker는 뒤로 이동할 수 없다', async () => {
+    prisma.conversationThread.findFirst.mockResolvedValue(
+      makeVisibleThread({ threadKind: 'DIRECT', status: 'READ_ONLY' }),
+    );
+    txConversationMessageFindFirst
+      .mockResolvedValueOnce({
+        id: 'message-old',
+        sentAt: new Date('2026-02-10T01:00:00.000Z'),
+      })
+      .mockResolvedValueOnce({
+        id: 'message-current',
+        sentAt: new Date('2026-02-10T02:00:00.000Z'),
+      });
+
     const candidate = service as unknown as {
       updateReadMarker?: (
         authUser: { id: string; gender: 'M'; campus: 'CHUNCHEON' },

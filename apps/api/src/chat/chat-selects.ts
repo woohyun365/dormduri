@@ -68,11 +68,13 @@ export const threadSelect = {
       participantId: true,
       memberState: true,
       leftAt: true,
+      lastReadAt: true,
+      lastReadMessageId: true,
       lastVisibleAt: true,
     },
   },
   messages: {
-    orderBy: [{ sentAt: 'asc' as const }, { createdAt: 'asc' as const }],
+    orderBy: [{ sentAt: 'asc' as const }, { id: 'asc' as const }],
     select: {
       id: true,
       body: true,
