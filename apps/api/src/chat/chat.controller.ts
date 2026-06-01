@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Post,
   Query,
@@ -16,7 +17,9 @@ import {
 import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
 import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import { unauthorizedError } from '../common/http/api-error.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
+import { ChatRealtimeTicketService } from './realtime/chat-realtime-ticket.service.js';
 import { ChatService } from './chat.service.js';
 
 function parseReplayLimit(rawLimit: string | undefined): number {
@@ -40,7 +43,10 @@ function parseReplayLimit(rawLimit: string | undefined): number {
 @Controller('api/chat')
 @UseGuards(AuthenticatedUserGuard)
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly realtimeTicketService: ChatRealtimeTicketService,
+  ) {}
 
   @Get('threads')
   async getThreads(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
@@ -73,6 +79,17 @@ export class ChatController {
       after: after && after.trim().length > 0 ? after.trim() : null,
       limit: parseReplayLimit(limit),
     });
+  }
+
+  @Post('realtime/tickets')
+  async issueRealtimeTicket(@Headers('authorization') authorization?: string) {
+    const accessToken = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
+    const ticket = await this.realtimeTicketService.issueTicketFromAccessToken(accessToken);
+    if (!ticket) {
+      throw unauthorizedError('UNAUTHENTICATED', '로그인이 필요합니다.');
+    }
+
+    return ticket;
   }
 
   @Post('threads/:threadId/leave')

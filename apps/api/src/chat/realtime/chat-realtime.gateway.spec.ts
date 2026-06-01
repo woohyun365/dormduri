@@ -1,89 +1,167 @@
-type ModuleRecord = Record<string, unknown>;
+import { CHAT_REALTIME_ERROR_EVENT_NAME } from './chat-realtime.constants.js';
+import { ChatRealtimeGateway } from './chat-realtime.gateway.js';
+import { ChatRealtimeMetricsService } from './chat-realtime.metrics.js';
 
-type Constructor = new (...args: unknown[]) => Record<string, unknown>;
+type TestSocket = {
+  handshake: {
+    auth: { ticket?: string };
+    query: Record<string, string>;
+  };
+  data: {
+    authUser?: {
+      id: string;
+      gender: 'M';
+      campus: 'CHUNCHEON';
+    };
+  };
+  join: (room: string) => Promise<void>;
+  leave: (room: string) => Promise<void>;
+  emit: (event: string, payload: unknown) => void;
+  disconnect: (close: boolean) => void;
+};
 
-async function loadRealtimeModule(modulePath: string): Promise<ModuleRecord> {
-  return (await import(modulePath)) as ModuleRecord;
+function createSocket(ticket: string | null = 'ticket-1'): TestSocket {
+  const join = jest.fn((_room: string) => Promise.resolve());
+  const leave = jest.fn((_room: string) => Promise.resolve());
+  const emit = jest.fn((_event: string, _payload: unknown) => undefined);
+  const disconnect = jest.fn((_close: boolean) => undefined);
+
+  return {
+    handshake: {
+      auth: ticket ? { ticket } : {},
+      query: {},
+    },
+    data: {},
+    join,
+    leave,
+    emit,
+    disconnect,
+  } satisfies TestSocket;
 }
 
-function expectConstructor(moduleRecord: ModuleRecord, exportName: string): Constructor {
-  const exported = moduleRecord[exportName];
-  expect(exported).toEqual(expect.any(Function));
-  return exported as Constructor;
+function createQueryTicketSocket(ticket: string): TestSocket {
+  return {
+    ...createSocket(null),
+    handshake: {
+      auth: {},
+      query: { ticket },
+    },
+  };
 }
 
-function getMethod<T extends (...args: unknown[]) => unknown>(
-  owner: Record<string, unknown>,
-  methodName: string,
-): T {
-  const method = owner[methodName];
-  expect(method).toEqual(expect.any(Function));
-  return method as T;
-}
+describe('ChatRealtimeGateway', () => {
+  const authUser = {
+    id: 'user-1',
+    gender: 'M' as const,
+    campus: 'CHUNCHEON' as const,
+  };
+  const authService = {
+    consumeTicket: jest.fn(),
+    canSubscribeThread: jest.fn(),
+  };
+  const publisher = {
+    bindServer: jest.fn(),
+  };
+  let metrics: ChatRealtimeMetricsService;
+  let gateway: ChatRealtimeGateway;
 
-describe('chat realtime gateway/auth red contract', () => {
-  it('expired realtime ticket은 gateway auth에서 거절된다', async () => {
-    const ticketModule = await loadRealtimeModule('./chat-realtime-ticket.service.js');
-    const TicketService = expectConstructor(ticketModule, 'ChatRealtimeTicketService');
-    const ticketService = new TicketService({ secret: 'test-secret', ttlSeconds: 60 });
-    const verifyTicket = getMethod<(...args: unknown[]) => Promise<unknown>>(
-      ticketService,
-      'verifyTicket',
-    );
-
-    await expect(
-      verifyTicket.call(ticketService, 'expired-ticket', new Date('2026-02-10T03:02:00.000Z')),
-    ).rejects.toMatchObject({
-      response: { code: 'CHAT_REALTIME_TICKET_INVALID' },
-    });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    metrics = new ChatRealtimeMetricsService();
+    gateway = new ChatRealtimeGateway(authService as never, publisher as never, metrics);
   });
 
-  it('valid ticket 연결은 user room에 join한다', async () => {
-    const gatewayModule = await loadRealtimeModule('./chat-realtime.gateway.js');
-    const Gateway = expectConstructor(gatewayModule, 'ChatRealtimeGateway');
-    const authService = {
-      verifyTicket: jest.fn().mockResolvedValue({ userId: 'user-1', sessionId: 'session-1' }),
-    };
-    const gateway = new Gateway(authService, { canJoinThread: jest.fn() });
-    const handleConnection = getMethod<(...args: unknown[]) => Promise<unknown>>(
-      gateway,
-      'handleConnection',
-    );
-    const socket = {
-      handshake: { auth: { ticket: 'valid-ticket' } },
-      join: jest.fn().mockResolvedValue(undefined),
-      disconnect: jest.fn(),
-      data: {},
-    };
+  it('afterInit은 publisher에 Socket.IO server를 bind한다', () => {
+    const server = { to: jest.fn() };
 
-    await handleConnection.call(gateway, socket);
+    gateway.afterInit(server as never);
 
+    expect(publisher.bindServer).toHaveBeenCalledWith(server);
+  });
+
+  it('valid ticket connection은 user room에 join하고 metrics를 증가시킨다', async () => {
+    authService.consumeTicket.mockResolvedValueOnce(authUser);
+    const socket = createSocket('ticket-1');
+
+    await gateway.handleConnection(socket as never);
+
+    expect(authService.consumeTicket).toHaveBeenCalledWith('ticket-1');
+    expect(socket.data.authUser).toBe(authUser);
     expect(socket.join).toHaveBeenCalledWith('user:user-1');
-    expect(socket.disconnect).not.toHaveBeenCalled();
+    expect(metrics.snapshot().connectedSockets).toBe(1);
+
+    gateway.handleDisconnect();
+    expect(metrics.snapshot().connectedSockets).toBe(0);
   });
 
-  it('thread room subscribe는 membership policy가 실패하면 거절된다', async () => {
-    const gatewayModule = await loadRealtimeModule('./chat-realtime.gateway.js');
-    const Gateway = expectConstructor(gatewayModule, 'ChatRealtimeGateway');
-    const gateway = new Gateway(
-      { verifyTicket: jest.fn() },
-      { canJoinThread: jest.fn().mockResolvedValue(false) },
-    );
-    const handleSubscribeThread = getMethod<(...args: unknown[]) => Promise<unknown>>(
-      gateway,
-      'handleSubscribeThread',
-    );
-    const socket = {
-      data: { userId: 'user-1' },
-      join: jest.fn(),
-      emit: jest.fn(),
-    };
+  it('invalid/expired ticket connection은 error를 emit하고 disconnect한다', async () => {
+    authService.consumeTicket.mockResolvedValueOnce(null);
+    const socket = createSocket('expired-ticket');
+
+    await gateway.handleConnection(socket as never);
+
+    expect(socket.emit).toHaveBeenCalledWith(CHAT_REALTIME_ERROR_EVENT_NAME, {
+      code: 'CHAT_REALTIME_UNAUTHENTICATED',
+    });
+    expect(socket.disconnect).toHaveBeenCalledWith(true);
+    expect(socket.join).not.toHaveBeenCalled();
+  });
+
+  it('URL query ticket은 access log 노출 위험 때문에 connection 인증에 사용하지 않는다', async () => {
+    const socket = createQueryTicketSocket('query-ticket');
+
+    await gateway.handleConnection(socket as never);
+
+    expect(authService.consumeTicket).toHaveBeenCalledWith(null);
+    expect(socket.emit).toHaveBeenCalledWith(CHAT_REALTIME_ERROR_EVENT_NAME, {
+      code: 'CHAT_REALTIME_UNAUTHENTICATED',
+    });
+    expect(socket.disconnect).toHaveBeenCalledWith(true);
+    expect(socket.join).not.toHaveBeenCalled();
+  });
+
+  it('authorized thread subscribe는 thread room에 join한다', async () => {
+    authService.canSubscribeThread.mockResolvedValueOnce(true);
+    const socket = createSocket();
+    socket.data.authUser = authUser;
 
     await expect(
-      handleSubscribeThread.call(gateway, socket, { threadId: 'thread-1' }),
-    ).rejects.toMatchObject({
-      response: { code: 'CHAT_REALTIME_THREAD_SUBSCRIBE_FORBIDDEN' },
+      gateway.subscribeThread(socket as never, { threadId: ' thread-1 ' }),
+    ).resolves.toEqual({
+      ok: true,
+      threadId: 'thread-1',
     });
+
+    expect(authService.canSubscribeThread).toHaveBeenCalledWith(authUser, 'thread-1');
+    expect(socket.join).toHaveBeenCalledWith('thread:thread-1');
+  });
+
+  it('authenticated thread unsubscribe는 thread room에서 leave한다', async () => {
+    const socket = createSocket();
+    socket.data.authUser = authUser;
+
+    await expect(
+      gateway.unsubscribeThread(socket as never, { threadId: ' thread-1 ' }),
+    ).resolves.toEqual({
+      ok: true,
+      threadId: 'thread-1',
+    });
+
+    expect(socket.leave).toHaveBeenCalledWith('thread:thread-1');
+  });
+
+  it('unauthorized thread subscribe는 join하지 않고 거절한다', async () => {
+    authService.canSubscribeThread.mockResolvedValueOnce(false);
+    const socket = createSocket();
+    socket.data.authUser = authUser;
+
+    await expect(
+      gateway.subscribeThread(socket as never, { threadId: 'thread-2' }),
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'UNAUTHORIZED_THREAD',
+    });
+
     expect(socket.join).not.toHaveBeenCalled();
   });
 });

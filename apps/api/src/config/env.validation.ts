@@ -26,6 +26,15 @@ import {
   DEFAULT_LIFECYCLE_SWEEP_INTERVAL_MS,
 } from './lifecycle.config.js';
 import {
+  CHAT_REALTIME_ALLOWED_ORIGINS_ENV,
+  DEFAULT_CHAT_REALTIME_DISPATCHER_BATCH_SIZE,
+  DEFAULT_CHAT_REALTIME_DISPATCHER_CLAIM_LEASE_MS,
+  DEFAULT_CHAT_REALTIME_DISPATCHER_ENABLED,
+  DEFAULT_CHAT_REALTIME_DISPATCHER_INTERVAL_MS,
+  DEFAULT_CHAT_REALTIME_DISPATCHER_RETRY_BASE_MS,
+  DEFAULT_CHAT_REALTIME_DISPATCHER_RETRY_MAX_MS,
+} from './chat-realtime.config.js';
+import {
   DEFAULT_PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET,
   DEFAULT_ROOMMATE_SEARCH_CURSOR_HMAC_SECRET,
   PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET_ENV,
@@ -138,6 +147,37 @@ export const envValidationSchema = Joi.object({
     .integer()
     .min(1_000)
     .default(DEFAULT_LIFECYCLE_SWEEP_INTERVAL_MS),
+  [CHAT_REALTIME_ALLOWED_ORIGINS_ENV]: Joi.string().trim().optional(),
+  CHAT_REALTIME_DISPATCHER_ENABLED: Joi.boolean()
+    .truthy('1')
+    .truthy('true')
+    .truthy('yes')
+    .truthy('on')
+    .falsy('0')
+    .falsy('false')
+    .falsy('no')
+    .falsy('off')
+    .default(DEFAULT_CHAT_REALTIME_DISPATCHER_ENABLED),
+  CHAT_REALTIME_DISPATCHER_INTERVAL_MS: Joi.number()
+    .integer()
+    .min(100)
+    .default(DEFAULT_CHAT_REALTIME_DISPATCHER_INTERVAL_MS),
+  CHAT_REALTIME_DISPATCHER_BATCH_SIZE: Joi.number()
+    .integer()
+    .min(1)
+    .default(DEFAULT_CHAT_REALTIME_DISPATCHER_BATCH_SIZE),
+  CHAT_REALTIME_DISPATCHER_CLAIM_LEASE_MS: Joi.number()
+    .integer()
+    .min(1_000)
+    .default(DEFAULT_CHAT_REALTIME_DISPATCHER_CLAIM_LEASE_MS),
+  CHAT_REALTIME_DISPATCHER_RETRY_BASE_MS: Joi.number()
+    .integer()
+    .min(100)
+    .default(DEFAULT_CHAT_REALTIME_DISPATCHER_RETRY_BASE_MS),
+  CHAT_REALTIME_DISPATCHER_RETRY_MAX_MS: Joi.number()
+    .integer()
+    .min(1_000)
+    .default(DEFAULT_CHAT_REALTIME_DISPATCHER_RETRY_MAX_MS),
   RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64: Joi.string().base64().when('NODE_ENV', {
     is: 'production',
     then: Joi.required(),

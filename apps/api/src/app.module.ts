@@ -17,6 +17,7 @@ import { RetentionObservabilityService } from './retention/retention-observabili
 import { SeasonParticipantsModule } from './season-participants/season-participants.module.js';
 import appConfig from './config/app.config.js';
 import authConfig from './config/auth.config.js';
+import chatRealtimeConfig from './config/chat-realtime.config.js';
 import databaseConfig from './config/database.config.js';
 import lifecycleConfig from './config/lifecycle.config.js';
 import { envValidationSchema } from './config/env.validation.js';
@@ -26,7 +27,7 @@ import { envValidationSchema } from './config/env.validation.js';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [appConfig, authConfig, databaseConfig, lifecycleConfig],
+      load: [appConfig, authConfig, chatRealtimeConfig, databaseConfig, lifecycleConfig],
       validationSchema: envValidationSchema,
       validationOptions: {
         abortEarly: false,

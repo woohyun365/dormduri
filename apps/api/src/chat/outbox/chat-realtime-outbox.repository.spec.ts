@@ -103,4 +103,54 @@ describe('ChatRealtimeOutboxRepository red contract', () => {
     expect(sqlText).toMatch(/DELETE\s+FROM\s+"ChatRealtimeOutboxEvent"/i);
     expect(sqlText).toMatch(/"occurredAt"\s+</i);
   });
+
+  it('publish success/failure mark API는 payload를 건드리지 않고 outbox 상태만 갱신한다', async () => {
+    const { ChatRealtimeOutboxRepository } = await loadOutboxRepositoryModule();
+    expect(ChatRealtimeOutboxRepository).toEqual(expect.any(Function));
+
+    if (!ChatRealtimeOutboxRepository) {
+      throw new Error('ChatRealtimeOutboxRepository export is required');
+    }
+
+    const repository = new ChatRealtimeOutboxRepository();
+    const markPublished = getMethod<(...args: unknown[]) => Promise<unknown>>(
+      repository,
+      'markPublished',
+    );
+    const markPublishFailed = getMethod<(...args: unknown[]) => Promise<unknown>>(
+      repository,
+      'markPublishFailed',
+    );
+    const update = jest.fn().mockResolvedValue({ id: 'event-1' });
+    const prisma = {
+      chatRealtimeOutboxEvent: { update },
+    };
+    const now = new Date('2026-02-10T03:00:00.000Z');
+
+    await markPublished.call(repository, prisma, { eventId: 'event-1', now });
+    await markPublishFailed.call(repository, prisma, {
+      eventId: 'event-2',
+      now,
+      nextAvailableAt: new Date('2026-02-10T03:00:02.000Z'),
+      error: 'socket publish failed',
+    });
+
+    expect(update).toHaveBeenNthCalledWith(1, {
+      where: { id: 'event-1' },
+      data: {
+        publishedAt: now,
+        lastPublishError: null,
+        updatedAt: now,
+      },
+    });
+    expect(update).toHaveBeenNthCalledWith(2, {
+      where: { id: 'event-2' },
+      data: {
+        availableAt: new Date('2026-02-10T03:00:02.000Z'),
+        lastPublishError: 'socket publish failed',
+        updatedAt: now,
+      },
+    });
+    expect(JSON.stringify(update.mock.calls)).not.toContain('payload');
+  });
 });

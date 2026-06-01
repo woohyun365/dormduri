@@ -40,8 +40,11 @@ describe('ChatController', () => {
     replayRealtimeEvents: jest.fn(),
     sendMessage: jest.fn(),
   };
+  const realtimeTicketService = {
+    issueTicketFromAccessToken: jest.fn(),
+  };
 
-  const controller = new ChatController(chatService as never);
+  const controller = new ChatController(chatService as never, realtimeTicketService as never);
   const authUser = {
     id: 'user-1',
     gender: 'M' as const,
@@ -190,5 +193,29 @@ describe('ChatController', () => {
     expect(response.code).toBe('INVALID_QUERY');
     expect(response.fieldErrors?.limit).toEqual(expect.arrayContaining([expect.any(String)]));
     expect(chatService.replayRealtimeEvents).not.toHaveBeenCalled();
+  });
+
+  it('realtime ticket endpoint는 bearer access token으로 60초 ticket을 발급한다', async () => {
+    realtimeTicketService.issueTicketFromAccessToken.mockResolvedValueOnce({
+      ticket: 'ticket-1',
+      scope: 'chat:realtime',
+      expiresAt: '2026-02-10T03:01:00.000Z',
+    });
+
+    await expect(controller.issueRealtimeTicket('Bearer access-token-1')).resolves.toEqual({
+      ticket: 'ticket-1',
+      scope: 'chat:realtime',
+      expiresAt: '2026-02-10T03:01:00.000Z',
+    });
+
+    expect(realtimeTicketService.issueTicketFromAccessToken).toHaveBeenCalledWith('access-token-1');
+  });
+
+  it('realtime ticket 발급 실패는 unauthenticated로 거절한다', async () => {
+    realtimeTicketService.issueTicketFromAccessToken.mockResolvedValueOnce(null);
+
+    await expect(controller.issueRealtimeTicket(undefined)).rejects.toMatchObject({
+      response: { code: 'UNAUTHENTICATED' },
+    });
   });
 });

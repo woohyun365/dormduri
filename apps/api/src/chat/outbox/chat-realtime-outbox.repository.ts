@@ -8,6 +8,12 @@ type RawExecutable = {
   $executeRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
 };
 
+type OutboxMutableClient = {
+  chatRealtimeOutboxEvent: {
+    update(args: unknown): Promise<unknown>;
+  };
+};
+
 export type ClaimedChatRealtimeOutboxEvent = {
   id: string;
   eventType: string;
@@ -21,6 +27,13 @@ export type ClaimedChatRealtimeOutboxEvent = {
   occurredAt: Date;
   availableAt: Date;
   publishAttempts: number;
+};
+
+export type ChatRealtimeOutboxRecipient = {
+  eventId: string;
+  userId: string;
+  threadId: string | null;
+  cursor: string;
 };
 
 export class ChatRealtimeOutboxRepository {
@@ -75,5 +88,45 @@ export class ChatRealtimeOutboxRepository {
     `);
 
     return Number(deletedCount);
+  }
+
+  async findRecipientsForEvent(
+    prisma: RawQueryable,
+    input: { eventId: string },
+  ): Promise<ChatRealtimeOutboxRecipient[]> {
+    return prisma.$queryRaw<ChatRealtimeOutboxRecipient[]>(Prisma.sql`
+      SELECT "eventId", "userId", "threadId", "cursor"
+      FROM "ChatRealtimeEventRecipient"
+      WHERE "eventId" = ${input.eventId}
+      ORDER BY "userId" ASC
+    `);
+  }
+
+  async markPublished(
+    prisma: OutboxMutableClient,
+    input: { eventId: string; now: Date },
+  ): Promise<void> {
+    await prisma.chatRealtimeOutboxEvent.update({
+      where: { id: input.eventId },
+      data: {
+        publishedAt: input.now,
+        lastPublishError: null,
+        updatedAt: input.now,
+      },
+    });
+  }
+
+  async markPublishFailed(
+    prisma: OutboxMutableClient,
+    input: { eventId: string; now: Date; nextAvailableAt: Date; error: string },
+  ): Promise<void> {
+    await prisma.chatRealtimeOutboxEvent.update({
+      where: { id: input.eventId },
+      data: {
+        availableAt: input.nextAvailableAt,
+        lastPublishError: input.error.slice(0, 1_000),
+        updatedAt: input.now,
+      },
+    });
   }
 }
