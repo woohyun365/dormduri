@@ -3,6 +3,7 @@ import { readBooleanEnv, readNumberEnv } from './env.helpers.js';
 
 const nodeEnv = process.env.NODE_ENV?.trim() || 'development';
 export const CHAT_REALTIME_ALLOWED_ORIGINS_ENV = 'CHAT_REALTIME_ALLOWED_ORIGINS';
+export const CHAT_REALTIME_TRUST_PROXY_ENV = 'CHAT_REALTIME_TRUST_PROXY';
 
 export const DEFAULT_CHAT_REALTIME_DISPATCHER_ENABLED = nodeEnv !== 'test';
 export const DEFAULT_CHAT_REALTIME_DISPATCHER_INTERVAL_MS = 1_000;
@@ -46,6 +47,10 @@ export function readChatRealtimeAllowedOrigins(
   return origins.length > 0 ? origins : false;
 }
 
+export function readChatRealtimeTrustProxy(env: NodeJS.ProcessEnv = process.env): boolean {
+  return readBooleanEnv(env, CHAT_REALTIME_TRUST_PROXY_ENV, false);
+}
+
 export function readChatRealtimeWsConnectIpRateLimit(env: NodeJS.ProcessEnv = process.env) {
   return {
     limit: readNumberEnv(
@@ -68,6 +73,7 @@ export function readChatRealtimeWsConnectIpRateLimit(env: NodeJS.ProcessEnv = pr
 
 export default registerAs('chatRealtime', () => ({
   allowedOrigins: readChatRealtimeAllowedOrigins(process.env),
+  trustProxy: readChatRealtimeTrustProxy(process.env),
   dispatcherEnabled: readBooleanEnv(
     process.env,
     'CHAT_REALTIME_DISPATCHER_ENABLED',

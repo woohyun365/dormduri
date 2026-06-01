@@ -331,6 +331,10 @@ export class ChatService {
     }
   }
 
+  async canSubscribeThread(authUser: AuthenticatedUserContext, threadId: string): Promise<boolean> {
+    return this.queryOwner.canSubscribeThreadForViewer(authUser.id, threadId);
+  }
+
   async handleActiveMatchCreated(
     tx: Prisma.TransactionClient,
     input: {

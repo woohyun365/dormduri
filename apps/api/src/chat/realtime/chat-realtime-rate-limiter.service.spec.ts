@@ -6,6 +6,7 @@ import {
 function createSettings(overrides: Record<string, unknown> = {}) {
   return {
     allowedOrigins: false as const,
+    trustProxy: false,
     dispatcherEnabled: false,
     dispatcherIntervalMs: 1_000,
     dispatcherBatchSize: 50,
@@ -112,7 +113,7 @@ describe('ChatRealtimeRateLimiterService', () => {
     );
   });
 
-  it('request ip는 forwarded header를 우선하고 없으면 socket address로 fallback한다', () => {
+  it('request ip는 기본적으로 forwarded header를 신뢰하지 않고 socket address로 fallback한다', () => {
     expect(
       resolveChatRealtimeRequestIp({
         headers: {
@@ -120,6 +121,17 @@ describe('ChatRealtimeRateLimiterService', () => {
         },
         ip: '127.0.0.1',
       }),
+    ).toBe('127.0.0.1');
+    expect(
+      resolveChatRealtimeRequestIp(
+        {
+          headers: {
+            'x-forwarded-for': '203.0.113.10, 10.0.0.1',
+          },
+          ip: '127.0.0.1',
+        },
+        { trustProxy: true },
+      ),
     ).toBe('203.0.113.10');
     expect(
       resolveChatRealtimeRequestIp({
@@ -127,5 +139,19 @@ describe('ChatRealtimeRateLimiterService', () => {
         socket: { remoteAddress: '127.0.0.2' },
       }),
     ).toBe('127.0.0.2');
+  });
+
+  it('trusted proxy 설정이 켜진 limiter instance만 forwarded header를 rate-limit key로 사용한다', () => {
+    const { limiter: untrustedLimiter } = createLimiter({ trustProxy: false });
+    const { limiter: trustedLimiter } = createLimiter({ trustProxy: true });
+    const source = {
+      headers: {
+        'x-forwarded-for': '203.0.113.10, 10.0.0.1',
+      },
+      ip: '127.0.0.1',
+    };
+
+    expect(untrustedLimiter.resolveRequestIp(source)).toBe('127.0.0.1');
+    expect(trustedLimiter.resolveRequestIp(source)).toBe('203.0.113.10');
   });
 });

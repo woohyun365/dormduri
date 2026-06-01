@@ -42,6 +42,10 @@ type RequestIpSource = {
   };
 };
 
+type RequestIpOptions = {
+  trustProxy?: boolean;
+};
+
 const DEFAULT_RETRY_AFTER_SECONDS = 1;
 
 @Injectable()
@@ -160,6 +164,10 @@ export class ChatRealtimeRateLimiterService {
     return this.userSocketCounts.get(userId) ?? 0;
   }
 
+  resolveRequestIp(source: RequestIpSource | undefined): string {
+    return resolveChatRealtimeRequestIp(source, { trustProxy: this.settings.trustProxy });
+  }
+
   consumeThreadSubscription(input: { failed?: boolean; socketId: string }) {
     const specs: RateLimitSpec[] = [
       {
@@ -236,16 +244,21 @@ export function throwChatRealtimeRateLimitError(result: ChatRealtimeRateLimitRes
   );
 }
 
-export function resolveChatRealtimeRequestIp(source: RequestIpSource | undefined): string {
-  const forwardedFor = getHeader(source?.headers, 'x-forwarded-for');
-  const firstForwardedIp = forwardedFor?.split(',')[0]?.trim();
-  if (firstForwardedIp) {
-    return firstForwardedIp;
-  }
+export function resolveChatRealtimeRequestIp(
+  source: RequestIpSource | undefined,
+  options: RequestIpOptions = {},
+): string {
+  if (options.trustProxy) {
+    const forwardedFor = getHeader(source?.headers, 'x-forwarded-for');
+    const firstForwardedIp = forwardedFor?.split(',')[0]?.trim();
+    if (firstForwardedIp) {
+      return firstForwardedIp;
+    }
 
-  const realIp = getHeader(source?.headers, 'x-real-ip')?.trim();
-  if (realIp) {
-    return realIp;
+    const realIp = getHeader(source?.headers, 'x-real-ip')?.trim();
+    if (realIp) {
+      return realIp;
+    }
   }
 
   if (source?.ip?.trim()) {

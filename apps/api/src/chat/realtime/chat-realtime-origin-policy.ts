@@ -13,10 +13,12 @@ export type ChatRealtimeOriginPolicyInput = {
   forwardedHost?: HeaderValue;
   forwardedProto?: HeaderValue;
   encrypted?: boolean;
+  trustProxy?: boolean;
 };
 
 export type ChatRealtimeAllowRequestOptions = {
   preAuthRateLimit?: (request: IncomingMessage) => boolean;
+  trustProxy?: boolean;
 };
 
 export function createChatRealtimeAllowRequest(
@@ -31,6 +33,7 @@ export function createChatRealtimeAllowRequest(
       forwardedHost: request.headers['x-forwarded-host'],
       forwardedProto: request.headers['x-forwarded-proto'],
       encrypted: Boolean((request.socket as TLSSocket | undefined)?.encrypted),
+      trustProxy: options.trustProxy,
     });
 
     if (!originAllowed) {
@@ -60,13 +63,16 @@ export function isChatRealtimeRequestOriginAllowed(input: ChatRealtimeOriginPoli
 }
 
 function resolveRequestUrlOrigin(input: ChatRealtimeOriginPolicyInput): string | null {
-  const host = firstForwardedHeaderValue(input.forwardedHost) ?? firstHeaderValue(input.host);
+  const host =
+    (input.trustProxy ? firstForwardedHeaderValue(input.forwardedHost) : null) ??
+    firstHeaderValue(input.host);
   if (!host) {
     return null;
   }
 
   const proto =
-    firstForwardedHeaderValue(input.forwardedProto) ?? (input.encrypted ? 'https' : 'http');
+    (input.trustProxy ? firstForwardedHeaderValue(input.forwardedProto) : null) ??
+    (input.encrypted ? 'https' : 'http');
   return normalizeOrigin(`${proto}://${host}`);
 }
 

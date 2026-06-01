@@ -16,8 +16,7 @@ export class ChatRealtimeAuthService {
 
   async canSubscribeThread(authUser: AuthenticatedUserContext, threadId: string): Promise<boolean> {
     try {
-      await this.chatService.getThreadDetail(authUser, threadId);
-      return true;
+      return await this.chatService.canSubscribeThread(authUser, threadId);
     } catch {
       return false;
     }

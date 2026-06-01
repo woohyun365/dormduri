@@ -40,6 +40,7 @@ describe('chat realtime origin policy', () => {
         forwardedHost: 'knu-roommate.example.com',
         forwardedProto: 'https',
         host: 'internal-api:4000',
+        trustProxy: true,
       }),
     ).toBe(true);
 
@@ -50,6 +51,20 @@ describe('chat realtime origin policy', () => {
         forwardedHost: 'knu-roommate.example.com',
         forwardedProto: 'https',
         host: 'internal-api:4000',
+        trustProxy: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('trust proxy가 꺼져 있으면 forwarded host spoofing으로 same-origin fallback을 통과할 수 없다', () => {
+    expect(
+      isChatRealtimeRequestOriginAllowed({
+        requestOrigin: 'https://knu-roommate.example.com',
+        allowedOrigins: false,
+        forwardedHost: 'knu-roommate.example.com',
+        forwardedProto: 'https',
+        host: 'internal-api:4000',
+        trustProxy: false,
       }),
     ).toBe(false);
   });

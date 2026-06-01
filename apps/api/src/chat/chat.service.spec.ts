@@ -211,6 +211,7 @@ describe('ChatService', () => {
       findFirst: jest.fn(),
     },
     conversationThread: {
+      count: jest.fn(),
       findMany: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
@@ -294,6 +295,7 @@ describe('ChatService', () => {
     );
     seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValue(true);
     prisma.activeMatch.findFirst.mockResolvedValue(null);
+    prisma.conversationThread.count.mockResolvedValue(0);
     prisma.conversationThread.findFirst.mockResolvedValue(null);
     prisma.conversationThread.findMany.mockResolvedValue([]);
     prisma.conversationThread.update.mockResolvedValue(
@@ -1242,6 +1244,43 @@ describe('ChatService', () => {
       reason: 'SCHEMA_UNSUPPORTED',
       resyncRequired: true,
     });
+  });
+
+  it('canSubscribeThread는 detail/lifecycle sync 없이 side-effect 없는 membership read만 수행한다', async () => {
+    prisma.conversationThread.count.mockResolvedValueOnce(1);
+
+    await expect(
+      service.canSubscribeThread(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'thread-1',
+      ),
+    ).resolves.toBe(true);
+
+    expect(prisma.conversationThread.count).toHaveBeenCalledWith({
+      where: {
+        id: 'thread-1',
+        status: { in: ['OPEN', 'READ_ONLY'] },
+        members: {
+          some: {
+            memberState: 'ACTIVE',
+            participant: {
+              userId: 'user-1',
+              hiddenByAdminAt: null,
+              deactivatedAt: null,
+              user: {
+                deletedAt: null,
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(prisma.conversationThread.findFirst).not.toHaveBeenCalled();
+    expect(prisma.conversationThread.update).not.toHaveBeenCalled();
   });
 
   it('첫 메시지 전송 시 thread를 생성한다', async () => {

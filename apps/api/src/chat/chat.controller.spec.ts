@@ -44,6 +44,7 @@ describe('ChatController', () => {
     issueTicketFromAccessToken: jest.fn(),
   };
   const rateLimiter = {
+    resolveRequestIp: jest.fn(),
     consumeMessageSend: jest.fn(),
     consumeRealtimeTicket: jest.fn(),
   };
@@ -77,6 +78,7 @@ describe('ChatController', () => {
       retryAfterSeconds: 0,
       scope: 'chat:ticket:user',
     });
+    rateLimiter.resolveRequestIp.mockReturnValue('203.0.113.20');
   });
 
   it('controller class는 AuthenticatedUserGuard로 보호된다', () => {
@@ -266,6 +268,9 @@ describe('ChatController', () => {
     expect(rateLimiter.consumeRealtimeTicket).toHaveBeenCalledWith({
       userId: 'user-1',
       ip: '203.0.113.20',
+    });
+    expect(rateLimiter.resolveRequestIp).toHaveBeenCalledWith({
+      headers: { 'x-forwarded-for': '203.0.113.20' },
     });
     expect(realtimeTicketService.issueTicketFromAccessToken).toHaveBeenCalledWith('access-token-1');
   });

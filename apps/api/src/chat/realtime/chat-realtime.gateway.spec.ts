@@ -72,6 +72,7 @@ describe('ChatRealtimeGateway', () => {
     bindServer: jest.fn(),
   };
   const rateLimiter = {
+    resolveRequestIp: jest.fn(),
     consumeGatewayConnectIp: jest.fn(),
     consumeGatewayConnectUser: jest.fn(),
     tryRegisterUserSocket: jest.fn(),
@@ -103,6 +104,7 @@ describe('ChatRealtimeGateway', () => {
       retryAfterSeconds: 0,
       scope: 'chat:ws:subscribe:socket',
     });
+    rateLimiter.resolveRequestIp.mockReturnValue('203.0.113.10');
     metrics = new ChatRealtimeMetricsService();
     gateway = new ChatRealtimeGateway(
       authService as never,
@@ -126,6 +128,10 @@ describe('ChatRealtimeGateway', () => {
 
     await gateway.handleConnection(socket as never);
 
+    expect(rateLimiter.resolveRequestIp).toHaveBeenCalledWith({
+      headers: socket.handshake.headers,
+      ip: socket.handshake.address,
+    });
     expect(rateLimiter.consumeGatewayConnectIp).toHaveBeenCalledWith({ ip: '203.0.113.10' });
     expect(authService.consumeTicket).toHaveBeenCalledWith('ticket-1');
     expect(rateLimiter.consumeGatewayConnectUser).toHaveBeenCalledWith({ userId: 'user-1' });
@@ -194,6 +200,9 @@ describe('ChatRealtimeGateway', () => {
     });
     expect(socket.disconnect).toHaveBeenCalledWith(true);
     expect(socket.join).not.toHaveBeenCalled();
+    expect(metrics.snapshot().authFailures).toMatchObject({
+      ticket_invalid: 1,
+    });
   });
 
   it('URL query ticket은 access log 노출 위험 때문에 connection 인증에 사용하지 않는다', async () => {
@@ -258,6 +267,29 @@ describe('ChatRealtimeGateway', () => {
       failed: true,
     });
     expect(socket.join).not.toHaveBeenCalled();
+    expect(metrics.snapshot().subscribeRejections).toMatchObject({
+      UNAUTHORIZED_THREAD: 1,
+    });
+  });
+
+  it('invalid thread subscribe는 payload 없이 거절 metric만 남기고 join하지 않는다', async () => {
+    const socket = createSocket();
+    socket.data.authUser = authUser;
+
+    await expect(gateway.subscribeThread(socket as never, {})).resolves.toEqual({
+      ok: false,
+      reason: 'INVALID_REQUEST',
+    });
+
+    expect(rateLimiter.consumeThreadSubscription).toHaveBeenCalledWith({
+      socketId: 'socket-1',
+      failed: true,
+    });
+    expect(authService.canSubscribeThread).not.toHaveBeenCalled();
+    expect(socket.join).not.toHaveBeenCalled();
+    expect(metrics.snapshot().subscribeRejections).toMatchObject({
+      INVALID_REQUEST: 1,
+    });
   });
 
   it('thread subscribe churn limiter 초과 시 membership check 없이 disconnect한다', async () => {

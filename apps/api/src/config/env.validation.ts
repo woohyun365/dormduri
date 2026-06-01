@@ -27,6 +27,7 @@ import {
 } from './lifecycle.config.js';
 import {
   CHAT_REALTIME_ALLOWED_ORIGINS_ENV,
+  CHAT_REALTIME_TRUST_PROXY_ENV,
   DEFAULT_CHAT_REALTIME_DISPATCHER_BATCH_SIZE,
   DEFAULT_CHAT_REALTIME_DISPATCHER_CLAIM_LEASE_MS,
   DEFAULT_CHAT_REALTIME_DISPATCHER_ENABLED,
@@ -167,6 +168,16 @@ export const envValidationSchema = Joi.object({
     .min(1_000)
     .default(DEFAULT_LIFECYCLE_SWEEP_INTERVAL_MS),
   [CHAT_REALTIME_ALLOWED_ORIGINS_ENV]: Joi.string().trim().optional(),
+  [CHAT_REALTIME_TRUST_PROXY_ENV]: Joi.boolean()
+    .truthy('1')
+    .truthy('true')
+    .truthy('yes')
+    .truthy('on')
+    .falsy('0')
+    .falsy('false')
+    .falsy('no')
+    .falsy('off')
+    .default(false),
   CHAT_REALTIME_DISPATCHER_ENABLED: Joi.boolean()
     .truthy('1')
     .truthy('true')

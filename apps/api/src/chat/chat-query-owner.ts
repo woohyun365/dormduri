@@ -60,6 +60,30 @@ export function createChatQueryOwner(prisma: PrismaService) {
       });
     },
 
+    async canSubscribeThreadForViewer(userId: string, threadId: string): Promise<boolean> {
+      const count = await prisma.conversationThread.count({
+        where: {
+          id: threadId,
+          status: { in: ['OPEN', 'READ_ONLY'] },
+          members: {
+            some: {
+              memberState: 'ACTIVE',
+              participant: {
+                userId,
+                hiddenByAdminAt: null,
+                deactivatedAt: null,
+                user: {
+                  deletedAt: null,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return count > 0;
+    },
+
     async findLeavableThread(userId: string, threadId: string): Promise<ThreadRecord | null> {
       return await prisma.conversationThread.findFirst({
         where: {

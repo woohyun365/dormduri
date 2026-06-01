@@ -10,7 +10,10 @@ import {
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 import type { AuthenticatedUserContext } from '../../auth/auth-session.service.js';
-import { readChatRealtimeAllowedOrigins } from '../../config/chat-realtime.config.js';
+import {
+  readChatRealtimeAllowedOrigins,
+  readChatRealtimeTrustProxy,
+} from '../../config/chat-realtime.config.js';
 import {
   CHAT_REALTIME_ERROR_EVENT_NAME,
   CHAT_REALTIME_NAMESPACE,
@@ -27,7 +30,6 @@ import { ChatRealtimePublisher } from './chat-realtime-publisher.js';
 import {
   ChatRealtimeRateLimiterService,
   type ChatRealtimeRateLimitResult,
-  resolveChatRealtimeRequestIp,
 } from './chat-realtime-rate-limiter.service.js';
 
 type ChatRealtimeSocketData = {
@@ -40,6 +42,7 @@ type ChatRealtimeSocket = Omit<Socket, 'data'> & {
 };
 
 const allowedOrigins = readChatRealtimeAllowedOrigins();
+const trustProxy = readChatRealtimeTrustProxy();
 const preAuthIpRateLimit = createChatRealtimeAllowRequestIpRateLimiter();
 
 @WebSocketGateway({
@@ -50,6 +53,7 @@ const preAuthIpRateLimit = createChatRealtimeAllowRequestIpRateLimiter();
   },
   allowRequest: createChatRealtimeAllowRequest(allowedOrigins, {
     preAuthRateLimit: preAuthIpRateLimit,
+    trustProxy,
   }),
 })
 export class ChatRealtimeGateway
@@ -71,7 +75,7 @@ export class ChatRealtimeGateway
 
   async handleConnection(client: ChatRealtimeSocket) {
     const ipRateLimit = this.rateLimiter.consumeGatewayConnectIp({
-      ip: resolveChatRealtimeRequestIp({
+      ip: this.rateLimiter.resolveRequestIp({
         headers: client.handshake.headers,
         ip: client.handshake.address,
       }),
@@ -83,6 +87,7 @@ export class ChatRealtimeGateway
 
     const authUser = await this.authService.consumeTicket(extractTicket(client));
     if (!authUser) {
+      this.metrics.recordAuthFailure('ticket_invalid');
       client.emit(CHAT_REALTIME_ERROR_EVENT_NAME, {
         code: 'CHAT_REALTIME_UNAUTHENTICATED',
       });
@@ -139,6 +144,7 @@ export class ChatRealtimeGateway
         };
       }
 
+      this.metrics.recordSubscribeRejection('INVALID_REQUEST');
       return {
         ok: false,
         reason: 'INVALID_REQUEST',
@@ -159,6 +165,7 @@ export class ChatRealtimeGateway
         };
       }
 
+      this.metrics.recordSubscribeRejection('UNAUTHORIZED_THREAD');
       return {
         ok: false,
         reason: 'UNAUTHORIZED_THREAD',

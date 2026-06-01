@@ -25,7 +25,6 @@ import { ChatRealtimeMetricsService } from './realtime/chat-realtime.metrics.js'
 import { ChatRealtimeTicketService } from './realtime/chat-realtime-ticket.service.js';
 import {
   ChatRealtimeRateLimiterService,
-  resolveChatRealtimeRequestIp,
   throwChatRealtimeRateLimitError,
 } from './realtime/chat-realtime-rate-limiter.service.js';
 import { ChatService } from './chat.service.js';
@@ -99,7 +98,7 @@ export class ChatController {
   ) {
     const rateLimit = this.rateLimiter.consumeRealtimeTicket({
       userId: authUser.id,
-      ip: resolveChatRealtimeRequestIp(request),
+      ip: this.rateLimiter.resolveRequestIp(request),
     });
     if (!rateLimit.allowed) {
       this.metrics.recordRateLimitRejection(rateLimit.scope);

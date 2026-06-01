@@ -52,6 +52,7 @@ function createDispatcher(input: {
   const metrics = new ChatRealtimeMetricsService();
   const settings = {
     allowedOrigins: false as const,
+    trustProxy: false,
     dispatcherEnabled: false,
     dispatcherIntervalMs: 1_000,
     dispatcherBatchSize: 50,
@@ -233,6 +234,7 @@ describe('ChatRealtimeDispatcherService', () => {
     };
     const settings = {
       allowedOrigins: false as const,
+      trustProxy: false,
       dispatcherEnabled: false,
       dispatcherIntervalMs: 1_000,
       dispatcherBatchSize: 50,

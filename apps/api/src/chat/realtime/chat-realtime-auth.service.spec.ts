@@ -10,6 +10,7 @@ describe('ChatRealtimeAuthService', () => {
     consumeTicket: jest.fn(),
   };
   const chatService = {
+    canSubscribeThread: jest.fn(),
     getThreadDetail: jest.fn(),
   };
 
@@ -24,16 +25,24 @@ describe('ChatRealtimeAuthService', () => {
     await expect(service.consumeTicket('ticket-1')).resolves.toBe(authUser);
   });
 
-  it('thread detail을 볼 수 있는 사용자만 subscribe 가능하다', async () => {
-    chatService.getThreadDetail.mockResolvedValueOnce({ thread: { id: 'thread-1' } });
+  it('side-effect 없는 subscribe 전용 read 결과가 true면 subscribe 가능하다', async () => {
+    chatService.canSubscribeThread.mockResolvedValueOnce(true);
     const service = new ChatRealtimeAuthService(ticketService as never, chatService as never);
 
     await expect(service.canSubscribeThread(authUser, 'thread-1')).resolves.toBe(true);
-    expect(chatService.getThreadDetail).toHaveBeenCalledWith(authUser, 'thread-1');
+    expect(chatService.canSubscribeThread).toHaveBeenCalledWith(authUser, 'thread-1');
+    expect(chatService.getThreadDetail).not.toHaveBeenCalled();
   });
 
-  it('thread detail 권한이 없으면 subscribe를 거절한다', async () => {
-    chatService.getThreadDetail.mockRejectedValueOnce(new Error('not found'));
+  it('subscribe 전용 read가 false면 subscribe를 거절한다', async () => {
+    chatService.canSubscribeThread.mockResolvedValueOnce(false);
+    const service = new ChatRealtimeAuthService(ticketService as never, chatService as never);
+
+    await expect(service.canSubscribeThread(authUser, 'thread-1')).resolves.toBe(false);
+  });
+
+  it('subscribe 전용 read가 예외를 던져도 fail-closed로 거절한다', async () => {
+    chatService.canSubscribeThread.mockRejectedValueOnce(new Error('read failed'));
     const service = new ChatRealtimeAuthService(ticketService as never, chatService as never);
 
     await expect(service.canSubscribeThread(authUser, 'thread-1')).resolves.toBe(false);
