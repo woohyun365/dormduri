@@ -14,13 +14,18 @@ import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
-import { formatKstDate } from '../seasons/season.utils.js';
+import {
+  formatKstDate,
+  normalizeSeasonRuntimeRow,
+  toCurrentSeasonResponse,
+} from '../seasons/season.utils.js';
 import { createChatCommandCluster } from './chat-command-cluster.js';
 import { createChatContextOwner } from './chat-context-owner.js';
 import { chatErrors } from './chat.errors.js';
 import { createChatLifecycleOwner } from './chat-lifecycle-owner.js';
 import { createChatMatchEventOwner } from './chat-match-event-owner.js';
 import { createChatQueryOwner } from './chat-query-owner.js';
+import type { ThreadRecord } from './chat-selects.js';
 import { createChatThreadSupportOwner } from './chat-thread-support.js';
 import { ChatRealtimeReplayService } from './outbox/chat-realtime-replay.service.js';
 import {
@@ -116,6 +121,8 @@ export class ChatService {
       findThreadRoomSelectionDate: (thread) =>
         this.threadSupportOwner.findThreadRoomSelectionDate(thread),
       formatKstDate,
+      canReopenDirectThreadAfterUnmatch: (tx, thread, now) =>
+        this.canReopenDirectThreadAfterUnmatch(tx, thread, now),
     });
   }
 
@@ -346,6 +353,69 @@ export class ChatService {
     now: Date,
   ) {
     return this.matchEventOwner.handleActiveMatchUnmatched(tx, input, now);
+  }
+
+  private async canReopenDirectThreadAfterUnmatch(
+    tx: Prisma.TransactionClient,
+    thread: ThreadRecord,
+    now: Date,
+  ) {
+    const participantAUser = await this.contextOwner.getChatUserProjection(
+      thread.participantA.userId,
+      tx,
+    );
+    const participantBUser = await this.contextOwner.getChatUserProjection(
+      thread.participantB.userId,
+      tx,
+    );
+
+    if (
+      !participantAUser ||
+      !participantBUser ||
+      participantAUser.id === participantBUser.id ||
+      participantAUser.campus !== participantBUser.campus ||
+      participantAUser.gender !== participantBUser.gender
+    ) {
+      return false;
+    }
+
+    const participantA = await this.seasonParticipantsService.findCurrentSeasonParticipant(
+      participantAUser.id,
+      thread.seasonId,
+      tx,
+    );
+    const participantB = await this.seasonParticipantsService.findCurrentSeasonParticipant(
+      participantBUser.id,
+      thread.seasonId,
+      tx,
+    );
+
+    if (!participantA || !participantB) {
+      return false;
+    }
+
+    const seasonContext = toCurrentSeasonResponse(normalizeSeasonRuntimeRow(thread.season), now);
+    const virtualOpenThread = {
+      ...thread,
+      status: 'OPEN' as const,
+      closedReason: null,
+      closedAt: null,
+    };
+    const decision = await this.threadSupportOwner.canSendMessageToPair(
+      {
+        user: participantAUser,
+        seasonContext,
+        participant: participantA,
+        selection: this.seasonParticipantsService.selectCanonicalSelection(participantA),
+      },
+      participantBUser,
+      participantB,
+      virtualOpenThread,
+      now,
+      tx,
+    );
+
+    return decision.canSendMessage;
   }
 
   async sweepThreadLifecycle(now: Date) {

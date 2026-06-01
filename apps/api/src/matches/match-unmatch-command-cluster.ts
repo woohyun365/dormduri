@@ -137,12 +137,6 @@ export function createMatchUnmatchCommandCluster(deps: MatchUnmatchCommandCluste
           },
         });
 
-        await deps.handleActiveMatchUnmatched(
-          tx,
-          { activeMatchId: synchronizedActiveMatch.id },
-          now,
-        );
-
         const endedActiveMatch = await tx.activeMatch.update({
           where: { id: synchronizedActiveMatch.id },
           data: {
@@ -152,6 +146,12 @@ export function createMatchUnmatchCommandCluster(deps: MatchUnmatchCommandCluste
           },
           select: activeMatchCommandSelect,
         });
+
+        await deps.handleActiveMatchUnmatched(
+          tx,
+          { activeMatchId: synchronizedActiveMatch.id },
+          now,
+        );
 
         return {
           activeMatch: toDetailedActiveMatchSummary(

@@ -122,7 +122,7 @@ describe('MatchesService unmatch integration', () => {
     expect(thread?.activeMatchId).toBeNull();
   });
 
-  it('unmatch는 matched thread만 direct로 되돌리고 ACTIVE 생성 때 닫힌 다른 direct thread는 다시 OPEN하지 않는다', async () => {
+  it('unmatch는 ACTIVE 생성 때 닫힌 eligible direct thread를 다시 OPEN하고 outbox를 남긴다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-c',
       participantId: 'participant-c',
@@ -158,6 +158,73 @@ describe('MatchesService unmatch integration', () => {
 
     const otherDirectThread = await prisma.conversationThread.findUnique({
       where: { id: 'thread-a-c-closed-by-active-match' },
+    });
+    expect(otherDirectThread).toMatchObject({
+      threadKind: 'DIRECT',
+      activeMatchId: null,
+      status: 'OPEN',
+      closedReason: null,
+    });
+    expect(otherDirectThread?.closedAt).toBeNull();
+
+    const entry = await chatService.getThreadEntry(authContext('user-a'), 'user-c');
+    expect(entry.canSendMessage).toBe(true);
+
+    const reopenEvent = await prisma.chatRealtimeOutboxEvent.findFirst({
+      where: {
+        threadId: 'thread-a-c-closed-by-active-match',
+        eventType: 'chat.thread.updated',
+      },
+      orderBy: { occurredAt: 'desc' },
+    });
+    expect(reopenEvent?.payload).toMatchObject({
+      threadId: 'thread-a-c-closed-by-active-match',
+      status: 'OPEN',
+      closedReason: null,
+    });
+  });
+
+  it('unmatch는 상대 direct participant가 여전히 active match 중이면 ACTIVE 생성 때 닫힌 direct thread를 reopen하지 않는다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-c',
+      participantId: 'participant-c',
+      email: 'user-c@kangwon.ac.kr',
+      nickname: '유저C',
+    });
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-d',
+      participantId: 'participant-d',
+      email: 'user-d@kangwon.ac.kr',
+      nickname: '유저D',
+    });
+    await seedActiveMatchFixture(prisma, {
+      activeMatchId: 'active-match-c-d',
+      participantAId: 'participant-c',
+      participantBId: 'participant-d',
+    });
+    await prisma.conversationThread.create({
+      data: {
+        id: 'thread-a-c-closed-by-c-active-match',
+        seasonId: 'season-integration',
+        pairKey: 'participant-a:participant-c',
+        participantAId: 'participant-a',
+        participantBId: 'participant-c',
+        openedByParticipantId: 'participant-a',
+        threadKind: 'DIRECT',
+        activeMatchId: null,
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+        members: {
+          create: [{ participantId: 'participant-a' }, { participantId: 'participant-c' }],
+        },
+      },
+    });
+
+    await service.requestUnmatch(authContext('user-a'), 'active-match-1');
+    await service.requestUnmatch(authContext('user-b'), 'active-match-1');
+
+    const otherDirectThread = await prisma.conversationThread.findUnique({
+      where: { id: 'thread-a-c-closed-by-c-active-match' },
     });
     expect(otherDirectThread).toMatchObject({
       threadKind: 'DIRECT',

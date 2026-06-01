@@ -1,4 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
+import { resolveDirectThreadReopenStaticDecision } from './chat-direct-thread-reopen-policy.js';
 import { threadSelect, type ThreadRecord } from './chat-selects.js';
 import {
   ChatRealtimeOutboxService,
@@ -8,6 +9,11 @@ import {
 interface ChatMatchEventOwnerDeps {
   findThreadRoomSelectionDate(thread: ThreadRecord): string | null;
   formatKstDate(date: Date): string;
+  canReopenDirectThreadAfterUnmatch?(
+    tx: Prisma.TransactionClient,
+    thread: ThreadRecord,
+    now: Date,
+  ): Promise<boolean>;
 }
 
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();
@@ -163,6 +169,83 @@ export function createChatMatchEventOwner(deps: ChatMatchEventOwnerDeps) {
         select: threadSelect,
       });
       await appendThreadUpdatedIfSupported(tx, updatedThread, now);
+
+      const reopenCandidates =
+        typeof tx.conversationThread.findMany === 'function'
+          ? await tx.conversationThread.findMany({
+              where: {
+                seasonId: matchedThread.seasonId,
+                id: { not: matchedThread.id },
+                threadKind: 'DIRECT',
+                activeMatchId: null,
+                status: 'READ_ONLY',
+                closedReason: 'ACTIVE_MATCH_CREATED',
+                OR: [
+                  {
+                    participantAId: {
+                      in: [matchedThread.participantAId, matchedThread.participantBId],
+                    },
+                  },
+                  {
+                    participantBId: {
+                      in: [matchedThread.participantAId, matchedThread.participantBId],
+                    },
+                  },
+                ],
+              },
+              orderBy: [{ id: 'asc' }],
+              select: threadSelect,
+            })
+          : [];
+      const reopenThreadIds: string[] = [];
+      for (const candidate of reopenCandidates) {
+        const staticDecision = resolveDirectThreadReopenStaticDecision({
+          thread: candidate,
+          now,
+          findThreadRoomSelectionDate: (thread) => deps.findThreadRoomSelectionDate(thread),
+          formatKstDate: (date) => deps.formatKstDate(date),
+        });
+        if (staticDecision.kind !== 'REOPEN_CANDIDATE') {
+          continue;
+        }
+        if (!(await deps.canReopenDirectThreadAfterUnmatch?.(tx, candidate, now))) {
+          continue;
+        }
+        reopenThreadIds.push(candidate.id);
+      }
+
+      if (reopenThreadIds.length > 0) {
+        await tx.conversationThread.updateMany({
+          where: {
+            id: { in: reopenThreadIds },
+            status: 'READ_ONLY',
+            closedReason: 'ACTIVE_MATCH_CREATED',
+          },
+          data: {
+            status: 'OPEN',
+            closedReason: null,
+            closedAt: null,
+          },
+        });
+      }
+
+      const reopenedThreads =
+        reopenThreadIds.length > 0 && typeof tx.conversationThread.findMany === 'function'
+          ? await tx.conversationThread.findMany({
+              where: {
+                id: { in: reopenThreadIds },
+                status: 'OPEN',
+                closedReason: null,
+                closedAt: null,
+              },
+              orderBy: [{ id: 'asc' }],
+              select: threadSelect,
+            })
+          : [];
+
+      for (const reopenedThread of reopenedThreads) {
+        await appendThreadUpdatedIfSupported(tx, reopenedThread, now);
+      }
     },
   };
 }
