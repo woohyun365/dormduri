@@ -166,6 +166,20 @@ function makeVisibleThread(params: {
   });
 }
 
+type FutureSendConversationMessageRequest = {
+  targetUserId: string;
+  body: string;
+  clientMessageId: string;
+};
+
+function makeSendMessageInput(
+  body: string,
+  clientMessageId: string,
+  targetUserId = 'user-2',
+): FutureSendConversationMessageRequest {
+  return { targetUserId, body, clientMessageId };
+}
+
 describe('ChatService', () => {
   const txQueryRawTyped = jest.fn();
   const txUserFindUnique = jest.fn();
@@ -177,7 +191,10 @@ describe('ChatService', () => {
   const txConversationThreadMemberUpdate = jest.fn();
   const txConversationThreadMemberUpdateMany = jest.fn();
   const txConversationThreadMemberCount = jest.fn();
+  const txConversationMessageFindFirst = jest.fn();
   const txConversationMessageCreate = jest.fn();
+  const txChatRealtimeOutboxEventCreate = jest.fn();
+  const txChatRealtimeEventRecipientCreateMany = jest.fn();
   const txActiveMatchFindFirst = jest.fn();
 
   const prisma = {
@@ -212,6 +229,13 @@ describe('ChatService', () => {
     seasonsService as never,
     seasonParticipantsService as never,
   );
+
+  function expectMessageCreateClientMessageId(expectedClientMessageId: string) {
+    const messageCreateCalls = txConversationMessageCreate.mock.calls as Array<
+      [{ data?: { clientMessageId?: string } }]
+    >;
+    expect(messageCreateCalls.at(-1)?.[0].data?.clientMessageId).toBe(expectedClientMessageId);
+  }
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -290,9 +314,15 @@ describe('ChatService', () => {
     txConversationMessageCreate.mockResolvedValue({
       id: 'message-1',
       body: '안녕하세요',
+      bodyState: 'PLAIN',
+      tombstoneReason: null,
+      bodyVersion: 1,
       sentAt: new Date('2026-02-10T03:00:00.000Z'),
       senderParticipant: { userId: 'user-1' },
     });
+    txConversationMessageFindFirst.mockResolvedValue(null);
+    txChatRealtimeOutboxEventCreate.mockResolvedValue({ id: 'event-1' });
+    txChatRealtimeEventRecipientCreateMany.mockResolvedValue({ count: 2 });
     txActiveMatchFindFirst.mockResolvedValue(null);
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
@@ -313,7 +343,14 @@ describe('ChatService', () => {
           count: txConversationThreadMemberCount,
         },
         conversationMessage: {
+          findFirst: txConversationMessageFindFirst,
           create: txConversationMessageCreate,
+        },
+        chatRealtimeOutboxEvent: {
+          create: txChatRealtimeOutboxEventCreate,
+        },
+        chatRealtimeEventRecipient: {
+          createMany: txChatRealtimeEventRecipientCreateMany,
         },
         activeMatch: {
           findFirst: txActiveMatchFindFirst,
@@ -340,6 +377,26 @@ describe('ChatService', () => {
     });
     expect(prisma.conversationThread.findFirst).toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+  });
+
+  it('message command는 thread/message mutation 전에 pair와 participant advisory lock을 먼저 잡는다', async () => {
+    await service.sendMessage(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      makeSendMessageInput('락 순서 검증', 'client-message-lock-order'),
+    );
+
+    expect(prisma.runSerializableTransaction).toHaveBeenCalledTimes(1);
+    expect(txQueryRawTyped).toHaveBeenCalledTimes(3);
+    const lockCallOrders = txQueryRawTyped.mock.invocationCallOrder;
+    const firstMutationOrder = Math.min(
+      txConversationThreadCreate.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+      txConversationMessageCreate.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(Math.max(...lockCallOrders)).toBeLessThan(firstMutationOrder);
   });
 
   it('시즌 참여자라도 UNASSIGNED면 같은 건물 사용자에 대한 채팅 UI entry와 send가 모두 닫힌다', async () => {
@@ -384,7 +441,7 @@ describe('ChatService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', body: '안녕하세요' },
+        makeSendMessageInput('안녕하세요', 'client-message-policy-unassigned'),
       ),
     ).rejects.toMatchObject({
       response: chatErrors.messageSendNotAllowed().getResponse(),
@@ -424,7 +481,10 @@ describe('ChatService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', body: '다른 건물 사용자에게 보낼 수 없음' },
+        makeSendMessageInput(
+          '다른 건물 사용자에게 보낼 수 없음',
+          'client-message-policy-dormitory',
+        ),
       ),
     ).rejects.toMatchObject({
       response: chatErrors.messageSendNotAllowed().getResponse(),
@@ -447,6 +507,18 @@ describe('ChatService', () => {
       canEnterChatUi: true,
       canSendMessage: true,
     });
+
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        makeSendMessageInput('안녕하세요', 'client-message-entry-open'),
+      ),
+    ).resolves.toMatchObject({ createdThread: true });
+    expectMessageCreateClientMessageId('client-message-entry-open');
   });
 
   it('live ActiveMatch가 없으면 stale MATCHED target도 채팅 후보로 유지한다', async () => {
@@ -586,7 +658,7 @@ describe('ChatService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', body: 'registration snapshot 없는 target' },
+        makeSendMessageInput('registration snapshot 없는 target', 'client-message-policy-snapshot'),
       ),
     ).rejects.toMatchObject({
       response: chatErrors.messageSendNotAllowed().getResponse(),
@@ -644,7 +716,7 @@ describe('ChatService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', body: 'hidden race 차단' },
+        makeSendMessageInput('hidden race 차단', 'client-message-policy-hidden-race'),
       ),
     ).rejects.toMatchObject({
       response: chatErrors.messageSendNotAllowed().getResponse(),
@@ -670,7 +742,7 @@ describe('ChatService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', body: '삭제 race 차단' },
+        makeSendMessageInput('삭제 race 차단', 'client-message-policy-deleted-race'),
       ),
     ).rejects.toMatchObject({
       response: chatErrors.messageSendNotAllowed().getResponse(),
@@ -680,6 +752,186 @@ describe('ChatService', () => {
     expect(txConversationMessageCreate).not.toHaveBeenCalled();
   });
 
+  it('clientMessageId 없는 message command는 DB write 전에 거절한다', async () => {
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { targetUserId: 'user-2', body: '안녕하세요' } as never,
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CHAT_MESSAGE_CLIENT_MESSAGE_ID_REQUIRED' },
+    });
+
+    expect(txConversationThreadCreate).not.toHaveBeenCalled();
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
+  });
+
+  it('1,000자를 초과하는 message command는 DB write 전에 거절한다', async () => {
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        {
+          targetUserId: 'user-2',
+          body: `${'가'.repeat(1000)}!`,
+          clientMessageId: 'client-message-1',
+        } as never,
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CHAT_MESSAGE_BODY_TOO_LONG' },
+    });
+
+    expect(txConversationThreadCreate).not.toHaveBeenCalled();
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
+  });
+
+  it('같은 sender participant의 같은 clientMessageId와 같은 body는 기존 message로 수렴한다', async () => {
+    const existingMessage = {
+      id: 'message-existing',
+      body: '안녕하세요',
+      bodyState: 'PLAIN',
+      tombstoneReason: null,
+      bodyVersion: 1,
+      sentAt: new Date('2026-02-10T03:00:00.000Z'),
+      senderParticipant: { userId: 'user-1' },
+    };
+    txConversationThreadFindFirst.mockResolvedValue(makeThread());
+    txConversationThreadUpdate.mockResolvedValue(makeThread());
+    txConversationMessageFindFirst.mockResolvedValue(existingMessage);
+
+    const result = await service.sendMessage(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      {
+        targetUserId: 'user-2',
+        body: '안녕하세요',
+        clientMessageId: 'client-message-1',
+      } as never,
+    );
+
+    const messageLookupCalls = txConversationMessageFindFirst.mock.calls as Array<
+      [
+        {
+          where?: {
+            senderParticipantId_clientMessageId?: {
+              senderParticipantId?: string;
+              clientMessageId?: string;
+            };
+          };
+        },
+      ]
+    >;
+    expect(messageLookupCalls[0]?.[0].where?.senderParticipantId_clientMessageId).toEqual({
+      senderParticipantId: 'participant-1',
+      clientMessageId: 'client-message-1',
+    });
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
+    expect(result.message.id).toBe('message-existing');
+  });
+
+  it('같은 sender participant의 같은 clientMessageId와 다른 body는 409로 거절한다', async () => {
+    txConversationThreadFindFirst.mockResolvedValue(makeThread());
+    txConversationThreadUpdate.mockResolvedValue(makeThread());
+    txConversationMessageFindFirst.mockResolvedValue({
+      id: 'message-existing',
+      body: '기존 본문',
+      bodyState: 'PLAIN',
+      tombstoneReason: null,
+      bodyVersion: 1,
+      sentAt: new Date('2026-02-10T03:00:00.000Z'),
+      senderParticipant: { userId: 'user-1' },
+    });
+
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        {
+          targetUserId: 'user-2',
+          body: '새 본문',
+          clientMessageId: 'client-message-1',
+        } as never,
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CHAT_MESSAGE_IDEMPOTENCY_CONFLICT' },
+    });
+
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
+  });
+
+  it('message commit은 outbox event와 recipient rows를 같은 transaction에 남긴다', async () => {
+    await service.sendMessage(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      {
+        targetUserId: 'user-2',
+        body: '안녕하세요',
+        clientMessageId: 'client-message-1',
+      } as never,
+    );
+
+    const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<
+      [{ data?: { eventType?: string; threadId?: string } }]
+    >;
+    expect(outboxCreateCalls[0]?.[0].data).toMatchObject({
+      eventType: 'chat.message.created',
+      threadId: 'thread-1',
+    });
+
+    const recipientCreateCalls = txChatRealtimeEventRecipientCreateMany.mock.calls as Array<
+      [{ data?: Array<{ userId?: string }> }]
+    >;
+    expect(recipientCreateCalls[0]?.[0].data?.map((row) => row.userId)).toEqual(
+      expect.arrayContaining(['user-1', 'user-2']),
+    );
+  });
+
+  it('read marker는 뒤로 이동할 수 없다', async () => {
+    const candidate = service as unknown as {
+      updateReadMarker?: (
+        authUser: { id: string; gender: 'M'; campus: 'CHUNCHEON' },
+        threadId: string,
+        input: { lastReadMessageId: string },
+      ) => Promise<unknown>;
+    };
+
+    expect(candidate.updateReadMarker).toEqual(expect.any(Function));
+
+    if (!candidate.updateReadMarker) {
+      throw new Error('ChatService.updateReadMarker must be implemented');
+    }
+
+    await expect(
+      candidate.updateReadMarker(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'thread-1',
+        { lastReadMessageId: 'message-old' },
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CHAT_READ_MARKER_CANNOT_MOVE_BACKWARD' },
+    });
+  });
+
   it('첫 메시지 전송 시 thread를 생성한다', async () => {
     const result = await service.sendMessage(
       {
@@ -687,12 +939,13 @@ describe('ChatService', () => {
         gender: 'M',
         campus: 'CHUNCHEON',
       },
-      { targetUserId: 'user-2', body: '안녕하세요' },
+      makeSendMessageInput('안녕하세요', 'client-message-create-thread'),
     );
 
     expect(txConversationThreadCreate).toHaveBeenCalled();
     expect(txConversationThreadMemberCreateMany).toHaveBeenCalled();
     expect(txConversationMessageCreate).toHaveBeenCalled();
+    expectMessageCreateClientMessageId('client-message-create-thread');
     expect(result.createdThread).toBe(true);
   });
 
@@ -706,10 +959,11 @@ describe('ChatService', () => {
         gender: 'M',
         campus: 'CHUNCHEON',
       },
-      { targetUserId: 'user-2', body: '안녕하세요' },
+      makeSendMessageInput('안녕하세요', 'client-message-reuse-thread'),
     );
 
     expect(txConversationThreadCreate).not.toHaveBeenCalled();
+    expectMessageCreateClientMessageId('client-message-reuse-thread');
     expect(result.createdThread).toBe(false);
   });
 
@@ -733,7 +987,7 @@ describe('ChatService', () => {
         gender: 'M',
         campus: 'CHUNCHEON',
       },
-      { targetUserId: 'user-2', body: '안녕하세요' },
+      makeSendMessageInput('안녕하세요', 'client-message-active-match-upgrade'),
     );
 
     const [threadUpdateCall] = txConversationThreadUpdate.mock.calls as Array<
@@ -749,6 +1003,7 @@ describe('ChatService', () => {
         activeMatchId: 'active-1',
       },
     });
+    expectMessageCreateClientMessageId('client-message-active-match-upgrade');
     expect(result.thread.threadKind).toBe('MATCHED');
   });
 
@@ -869,7 +1124,7 @@ describe('ChatService', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
         },
-        { targetUserId: 'user-2', body: '안녕하세요' },
+        makeSendMessageInput('안녕하세요', 'client-message-read-only-denied'),
       ),
     ).rejects.toMatchObject({
       response: chatErrors.messageSendNotAllowed().getResponse(),
@@ -1293,7 +1548,7 @@ describe('ChatService', () => {
         gender: 'M',
         campus: 'CHUNCHEON',
       },
-      { targetUserId: 'user-1', body: '복귀 후 첫 메시지' },
+      makeSendMessageInput('복귀 후 첫 메시지', 'client-message-left-reactivation', 'user-1'),
     );
 
     const [memberReactivateCall] = txConversationThreadMemberUpdateMany.mock.calls as Array<
@@ -1309,6 +1564,7 @@ describe('ChatService', () => {
         lastVisibleAt: new Date('2026-02-10T03:00:00.000Z'),
       },
     });
+    expectMessageCreateClientMessageId('client-message-left-reactivation');
     expect(sendResult.thread.status).toBe('OPEN');
 
     prisma.conversationThread.findFirst.mockResolvedValue(
@@ -1383,16 +1639,17 @@ describe('ChatService', () => {
   it('양쪽 모두 나가 archive된 이전 thread는 재사용하지 않고, 이후 첫 메시지에서 새 thread를 다시 생성한다', async () => {
     txConversationThreadFindFirst.mockResolvedValue(null);
 
-    await expect(
-      service.sendMessage(
-        {
-          id: 'user-1',
-          gender: 'M',
-          campus: 'CHUNCHEON',
-        },
-        { targetUserId: 'user-2', body: '새 시즌이 아니어도 새 thread' },
-      ),
-    ).resolves.toMatchObject({ createdThread: true });
+    const result = await service.sendMessage(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      makeSendMessageInput('새 시즌이 아니어도 새 thread', 'client-message-archived-recreate'),
+    );
+
+    expect(result).toMatchObject({ createdThread: true });
+    expectMessageCreateClientMessageId('client-message-archived-recreate');
 
     const [findArchivedExcludedCall] = txConversationThreadFindFirst.mock.calls as Array<
       [{ where: { status: { in: string[] } } }]

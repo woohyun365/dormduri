@@ -1039,6 +1039,37 @@ describe('RetainedIdentity integration', () => {
       ]),
     );
 
+    const tombstoneOutboxEvents = await prisma.$queryRaw<
+      Array<{ id: string; eventType: string; payload: unknown }>
+    >`
+      SELECT "id", "eventType", "payload"
+      FROM "ChatRealtimeOutboxEvent"
+      WHERE "threadId" = ${'thread-a-b-retention'}
+        AND "eventType" = ${'chat.message.tombstoned'}
+      ORDER BY "occurredAt" ASC, "id" ASC
+    `;
+    expect(tombstoneOutboxEvents).toHaveLength(2);
+    for (const event of tombstoneOutboxEvents) {
+      const payloadText = JSON.stringify(event.payload);
+      expect(payloadText).toContain('보존 처리된 메시지입니다.');
+      expect(payloadText).not.toContain('원문 메시지 1');
+      expect(payloadText).not.toContain('원문 메시지 2');
+    }
+
+    const tombstoneOutboxRecipients = await prisma.$queryRaw<
+      Array<{ outboxEventId: string; userId: string }>
+    >`
+      SELECT r."outboxEventId", r."userId"
+      FROM "ChatRealtimeEventRecipient" r
+      INNER JOIN "ChatRealtimeOutboxEvent" e ON e."id" = r."outboxEventId"
+      WHERE e."threadId" = ${'thread-a-b-retention'}
+        AND e."eventType" = ${'chat.message.tombstoned'}
+      ORDER BY r."outboxEventId" ASC, r."userId" ASC
+    `;
+    expect(tombstoneOutboxRecipients.map((row) => row.userId)).toEqual(
+      expect.arrayContaining(['user-a', 'user-b']),
+    );
+
     const retainedBodies = await prisma.retainedVaultObject.findMany({
       where: { target: 'CHAT_MESSAGE_BODY', sourceTable: 'ConversationMessage' },
       orderBy: { sourceId: 'asc' },
