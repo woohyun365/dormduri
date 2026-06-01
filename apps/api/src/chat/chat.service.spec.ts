@@ -305,7 +305,11 @@ describe('ChatService', () => {
         where.id === 'user-2' ? makeUserSeed({ id: 'user-2' }) : makeUserSeed({ id: where.id }),
       ),
     );
-    txConversationThreadFindFirst.mockResolvedValue(null);
+    txConversationThreadFindFirst.mockImplementation(({ where }: { where?: { id?: string } }) =>
+      Promise.resolve(
+        where?.id ? makeVisibleThread({ threadKind: 'DIRECT', status: 'READ_ONLY' }) : null,
+      ),
+    );
     txConversationThreadCreate.mockResolvedValue(makeThread());
     txConversationThreadUpdate.mockResolvedValue(
       makeThread({ threadKind: 'MATCHED', activeMatchId: 'active-1' }),
@@ -855,6 +859,81 @@ describe('ChatService', () => {
     expect(result.message.id).toBe('message-existing');
   });
 
+  it('idempotent retry는 현재 thread가 READ_ONLY이면 기존 message를 반환하되 send 가능 상태를 false로 투영한다', async () => {
+    const readOnlyThread = makeThread({
+      status: 'READ_ONLY',
+      closedReason: 'ROOM_SELECTION_CUTOFF',
+    });
+    txConversationThreadFindFirst.mockResolvedValue(readOnlyThread);
+    txConversationMessageFindUnique.mockResolvedValue({
+      id: 'message-existing',
+      threadId: 'thread-1',
+      body: '이미 저장된 메시지',
+      bodyState: 'PLAIN',
+      tombstoneReason: null,
+      bodyVersion: 1,
+      sentAt: new Date('2026-02-10T03:00:00.000Z'),
+      senderParticipant: { userId: 'user-1' },
+      thread: readOnlyThread,
+    });
+
+    const result = await service.sendMessage(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      {
+        targetUserId: 'user-2',
+        body: '이미 저장된 메시지',
+        clientMessageId: 'client-message-read-only-idempotent',
+      } as never,
+    );
+
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
+    expect(result.message.id).toBe('message-existing');
+    expect(result.thread.canSendMessage).toBe(false);
+    expect(result.thread.sendMessageUnavailableReason).toBe('THREAD_READ_ONLY');
+  });
+
+  it('idempotent retry라도 현재 thread가 ARCHIVED면 send command를 fail-closed로 거절한다', async () => {
+    const archivedThread = makeThread({
+      status: 'ARCHIVED',
+      closedReason: 'SEASON_ENDED',
+      closedAt: new Date('2026-02-10T03:00:00.000Z'),
+    });
+    txConversationMessageFindUnique.mockResolvedValue({
+      id: 'message-existing',
+      threadId: 'thread-1',
+      body: '이미 저장된 메시지',
+      bodyState: 'PLAIN',
+      tombstoneReason: null,
+      bodyVersion: 1,
+      sentAt: new Date('2026-02-10T03:00:00.000Z'),
+      senderParticipant: { userId: 'user-1' },
+      thread: archivedThread,
+    });
+
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        {
+          targetUserId: 'user-2',
+          body: '이미 저장된 메시지',
+          clientMessageId: 'client-message-archived-idempotent',
+        } as never,
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.messageSendNotAllowed().getResponse(),
+    });
+
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
+  });
+
   it('같은 sender participant의 같은 clientMessageId와 다른 body는 409로 거절한다', async () => {
     txConversationThreadFindFirst.mockResolvedValue(makeThread());
     txConversationThreadUpdate.mockResolvedValue(makeThread());
@@ -982,24 +1061,41 @@ describe('ChatService', () => {
     ]);
   });
 
-  it('read marker는 lifecycle sync 결과 ARCHIVED가 된 thread를 갱신하지 않는다', async () => {
+  it('read marker는 transaction 내부 lifecycle sync 결과 ARCHIVED가 된 thread를 갱신하지 않는다', async () => {
     prisma.conversationThread.findFirst.mockResolvedValue(
       makeThread({ status: 'READ_ONLY', closedReason: 'SEASON_ENDED' }),
     );
-    seasonsService.getCurrentSeasonContext.mockResolvedValue({
-      season: { id: 'season-2' },
-      state: 'SEASON_OPEN',
-      operatedDormitories: [
-        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2027-01-11' },
-      ],
-      schedule: {
-        preparationStart: '2027-01-01',
-        matchingStart: '2027-01-05',
-        matchingEnd: '2027-01-11',
-        seasonEnd: '2027-01-28',
-      },
-    });
-    prisma.conversationThread.update.mockResolvedValue(
+    seasonsService.getCurrentSeasonContext
+      .mockResolvedValueOnce({
+        season: { id: 'season-1' },
+        state: 'SEASON_MATCHING',
+        operatedDormitories: [
+          { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+        ],
+        schedule: {
+          preparationStart: '2026-02-01',
+          matchingStart: '2026-02-05',
+          matchingEnd: '2026-02-11',
+          seasonEnd: '2026-02-28',
+        },
+      })
+      .mockResolvedValueOnce({
+        season: { id: 'season-2' },
+        state: 'SEASON_OPEN',
+        operatedDormitories: [
+          { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2027-01-11' },
+        ],
+        schedule: {
+          preparationStart: '2027-01-01',
+          matchingStart: '2027-01-05',
+          matchingEnd: '2027-01-11',
+          seasonEnd: '2027-01-28',
+        },
+      });
+    txConversationThreadFindFirst.mockResolvedValue(
+      makeThread({ status: 'READ_ONLY', closedReason: 'SEASON_ENDED' }),
+    );
+    txConversationThreadUpdate.mockResolvedValue(
       makeThread({
         status: 'ARCHIVED',
         closedReason: 'SEASON_ENDED',
@@ -1020,9 +1116,12 @@ describe('ChatService', () => {
     ).rejects.toMatchObject({
       response: chatErrors.threadNotFound().getResponse(),
     });
-    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
     expect(txConversationThreadMemberUpdate).not.toHaveBeenCalled();
-    expect(txChatRealtimeOutboxEventCreate).not.toHaveBeenCalled();
+    const outboxEventTypes = txChatRealtimeOutboxEventCreate.mock.calls.map(
+      (call: [{ data?: { eventType?: string } }]) => call[0].data?.eventType,
+    );
+    expect(outboxEventTypes).not.toContain('chat.read_marker.updated');
   });
 
   it('read marker는 뒤로 이동할 수 없다', async () => {
@@ -1239,6 +1338,17 @@ describe('ChatService', () => {
         },
         conversationThread: {
           findFirst: jest.fn(),
+          findMany: jest
+            .fn()
+            .mockResolvedValueOnce([{ id: 'thread-other' }])
+            .mockResolvedValueOnce([
+              makeThread({
+                id: 'thread-other',
+                status: 'READ_ONLY',
+                closedReason: 'ACTIVE_MATCH_CREATED',
+                closedAt: new Date('2026-02-10T03:00:00.000Z'),
+              }),
+            ]),
           update: txConversationThreadUpdate,
           updateMany: txConversationThreadUpdateMany,
         },
@@ -1771,6 +1881,7 @@ describe('ChatService', () => {
       prisma.conversationThread.findFirst.mockResolvedValue(
         makeVisibleThread({ threadKind, status }),
       );
+      txConversationThreadFindFirst.mockResolvedValue(makeVisibleThread({ threadKind, status }));
 
       await expect(
         service.leaveThread(
@@ -1808,6 +1919,77 @@ describe('ChatService', () => {
       });
     },
   );
+
+  it('leaveThread는 transaction 내부에서 member가 이미 LEFT가 된 race를 다시 확인해 거절한다', async () => {
+    prisma.conversationThread.findFirst.mockResolvedValue(
+      makeVisibleThread({ threadKind: 'DIRECT', status: 'OPEN' }),
+    );
+    txConversationThreadFindFirst.mockResolvedValue(null);
+
+    await expect(
+      service.leaveThread(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'thread-1',
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.threadLeaveNotAllowed().getResponse(),
+    });
+
+    expect(txConversationThreadMemberUpdate).not.toHaveBeenCalled();
+    expect(txChatRealtimeOutboxEventCreate).not.toHaveBeenCalled();
+  });
+
+  it('leaveThread는 transaction 내부 lifecycle sync 결과 ARCHIVED면 member leave를 남기지 않는다', async () => {
+    prisma.conversationThread.findFirst.mockResolvedValue(
+      makeThread({ status: 'READ_ONLY', closedReason: 'SEASON_ENDED' }),
+    );
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-2' },
+      state: 'SEASON_OPEN',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2027-01-11' },
+      ],
+      schedule: {
+        preparationStart: '2027-01-01',
+        matchingStart: '2027-01-05',
+        matchingEnd: '2027-01-11',
+        seasonEnd: '2027-01-28',
+      },
+    });
+    txConversationThreadFindFirst.mockResolvedValue(
+      makeThread({ status: 'READ_ONLY', closedReason: 'SEASON_ENDED' }),
+    );
+    txConversationThreadUpdate.mockResolvedValue(
+      makeThread({
+        status: 'ARCHIVED',
+        closedReason: 'SEASON_ENDED',
+        closedAt: new Date('2026-02-10T03:00:00.000Z'),
+      }),
+    );
+
+    await expect(
+      service.leaveThread(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'thread-1',
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.threadLeaveNotAllowed().getResponse(),
+    });
+
+    expect(txConversationThreadMemberUpdate).not.toHaveBeenCalled();
+    const outboxEventTypes = txChatRealtimeOutboxEventCreate.mock.calls.map(
+      (call: [{ data?: { eventType?: string } }]) => call[0].data?.eventType,
+    );
+    expect(outboxEventTypes).not.toContain('chat.member.left');
+  });
 
   it('OPEN thread에서 한 명이 나간 뒤 상대가 메시지를 보내면 LEFT 사용자는 ACTIVE로 복귀하고 새 메시지부터 본다', async () => {
     txConversationThreadFindFirst.mockResolvedValue(
@@ -2006,6 +2188,7 @@ describe('ChatService', () => {
       prisma.conversationThread.findFirst.mockResolvedValue(
         makeVisibleThread({ threadKind, status }),
       );
+      txConversationThreadFindFirst.mockResolvedValue(makeVisibleThread({ threadKind, status }));
       txConversationThreadMemberCount.mockResolvedValue(0);
 
       await expect(
@@ -2019,9 +2202,11 @@ describe('ChatService', () => {
         ),
       ).resolves.toEqual({ threadId: 'thread-1', archived: true });
 
-      const [threadUpdateCall] = txConversationThreadUpdate.mock.calls as Array<
-        [{ where: { id: string }; data: Record<string, unknown> }]
-      >;
+      const threadUpdateCall = (
+        txConversationThreadUpdate.mock.calls as Array<
+          [{ where: { id: string }; data: Record<string, unknown> }]
+        >
+      ).find((call) => call[0].data.status === 'ARCHIVED');
       expect(threadUpdateCall).toBeDefined();
       if (!threadUpdateCall) {
         throw new Error('Expected archive thread update call');

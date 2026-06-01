@@ -43,6 +43,10 @@ type MessageOrderRecord = {
   sentAt: Date;
 };
 
+type IdempotentMessageRecord = ConversationMessageResponseRecord & {
+  thread: ThreadRecord;
+};
+
 const MAX_MESSAGE_BODY_LENGTH = 1000;
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
@@ -65,6 +69,26 @@ function compareMessageOrder(left: MessageOrderRecord, right: MessageOrderRecord
 
 function getThreadRecipientUserIds(thread: ThreadRecord) {
   return [thread.participantA.userId, thread.participantB.userId];
+}
+
+async function findVisibleThreadForActiveMember(
+  tx: Prisma.TransactionClient,
+  threadId: string,
+  participantId: string,
+): Promise<ThreadRecord | null> {
+  return await tx.conversationThread.findFirst({
+    where: {
+      id: threadId,
+      status: { in: ['OPEN', 'READ_ONLY'] },
+      members: {
+        some: {
+          participantId,
+          memberState: 'ACTIVE',
+        },
+      },
+    },
+    select: threadSelect,
+  });
 }
 
 interface ChatCommandClusterDeps {
@@ -223,18 +247,46 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         const synchronizedThread = existingThread
           ? await deps.synchronizeThreadLifecycle(existingThread, now, tx)
           : null;
-        const sendMessageDecision = await deps.canSendMessageToPair(
-          txViewerContext,
-          txTargetUser,
-          txTargetParticipant,
-          synchronizedThread,
-          now,
-          tx,
-        );
 
-        if (!sendMessageDecision.canSendMessage) {
-          throw chatErrors.messageSendNotAllowed();
-        }
+        const resolveIdempotentMessageResponse = async (
+          idempotentMessage: IdempotentMessageRecord,
+        ): Promise<SendConversationMessageResponse> => {
+          if (
+            idempotentMessage.body !== normalizedInput.body ||
+            idempotentMessage.thread.pairKey !== pairIdentity.pairKey
+          ) {
+            throw chatErrors.messageIdempotencyConflict();
+          }
+
+          const idempotentThread = await deps.synchronizeThreadLifecycle(
+            idempotentMessage.thread,
+            now,
+            tx,
+          );
+
+          if (idempotentThread.status === 'ARCHIVED') {
+            throw chatErrors.messageSendNotAllowed();
+          }
+
+          const idempotentSendMessageDecision = await deps.canSendMessageToPair(
+            txViewerContext,
+            txTargetUser,
+            txTargetParticipant,
+            idempotentThread,
+            now,
+            tx,
+          );
+
+          return {
+            thread: deps.toThreadSummary(
+              idempotentThread,
+              txViewerParticipant.id,
+              idempotentSendMessageDecision,
+            ),
+            message: deps.toMessage(idempotentMessage),
+            createdThread: false,
+          };
+        };
 
         const existingIdempotentMessage = await tx.conversationMessage.findUnique({
           where: {
@@ -263,27 +315,20 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         });
 
         if (existingIdempotentMessage) {
-          if (
-            existingIdempotentMessage.body !== normalizedInput.body ||
-            existingIdempotentMessage.thread.pairKey !== pairIdentity.pairKey
-          ) {
-            throw chatErrors.messageIdempotencyConflict();
-          }
+          return resolveIdempotentMessageResponse(existingIdempotentMessage);
+        }
 
-          const idempotentThread = await deps.synchronizeThreadLifecycle(
-            existingIdempotentMessage.thread,
-            now,
-            tx,
-          );
+        const sendMessageDecision = await deps.canSendMessageToPair(
+          txViewerContext,
+          txTargetUser,
+          txTargetParticipant,
+          synchronizedThread,
+          now,
+          tx,
+        );
 
-          return {
-            thread: deps.toThreadSummary(idempotentThread, txViewerParticipant.id, {
-              canSendMessage: true,
-              unavailableReason: null,
-            }),
-            message: deps.toMessage(existingIdempotentMessage),
-            createdThread: false,
-          };
+        if (!sendMessageDecision.canSendMessage) {
+          throw chatErrors.messageSendNotAllowed();
         }
 
         const pairActiveMatch = await tx.activeMatch.findFirst({
@@ -426,14 +471,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
               duplicateMessage.body === normalizedInput.body &&
               duplicateMessage.thread.pairKey === pairIdentity.pairKey
             ) {
-              return {
-                thread: deps.toThreadSummary(duplicateMessage.thread, txViewerParticipant.id, {
-                  canSendMessage: true,
-                  unavailableReason: null,
-                }),
-                message: deps.toMessage(duplicateMessage),
-                createdThread: false,
-              };
+              return resolveIdempotentMessageResponse(duplicateMessage);
             }
 
             throw chatErrors.messageIdempotencyConflict();
@@ -495,11 +533,26 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
       return deps.runSerializableTransaction(async (tx) => {
         await deps.acquireConversationThreadLeaveLock(tx, synchronizedThread.id);
 
+        const latestThread = await findVisibleThreadForActiveMember(
+          tx,
+          synchronizedThread.id,
+          viewerParticipantId,
+        );
+
+        if (!latestThread) {
+          throw chatErrors.threadNotFound();
+        }
+
+        const txSynchronizedThread = await deps.synchronizeThreadLifecycle(latestThread, now, tx);
+        if (txSynchronizedThread.status === 'ARCHIVED') {
+          throw chatErrors.threadNotFound();
+        }
+
         const [targetMessage, currentMember] = await Promise.all([
           tx.conversationMessage.findFirst({
             where: {
               id: input.lastReadMessageId,
-              threadId: synchronizedThread.id,
+              threadId: txSynchronizedThread.id,
               deletedAt: null,
             },
             select: {
@@ -510,7 +563,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           tx.conversationThreadMember.findUnique({
             where: {
               threadId_participantId: {
-                threadId: synchronizedThread.id,
+                threadId: txSynchronizedThread.id,
                 participantId: viewerParticipantId,
               },
             },
@@ -529,7 +582,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           const currentReadMessage = await tx.conversationMessage.findFirst({
             where: {
               id: currentMember.lastReadMessageId,
-              threadId: synchronizedThread.id,
+              threadId: txSynchronizedThread.id,
               deletedAt: null,
             },
             select: {
@@ -546,7 +599,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         await tx.conversationThreadMember.update({
           where: {
             threadId_participantId: {
-              threadId: synchronizedThread.id,
+              threadId: txSynchronizedThread.id,
               participantId: viewerParticipantId,
             },
           },
@@ -557,14 +610,14 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         });
 
         await chatRealtimeOutbox.appendReadMarkerUpdated(tx, {
-          threadId: synchronizedThread.id,
+          threadId: txSynchronizedThread.id,
           lastReadMessageId: targetMessage.id,
           recipientUserIds: [authUser.id],
           occurredAt: now,
         });
 
         return {
-          threadId: synchronizedThread.id,
+          threadId: txSynchronizedThread.id,
           lastReadMessageId: targetMessage.id,
           lastReadAt: now.toISOString(),
         };
@@ -587,10 +640,25 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
       return deps.runSerializableTransaction(async (tx) => {
         await deps.acquireConversationThreadLeaveLock(tx, thread.id);
 
+        const latestThread = await findVisibleThreadForActiveMember(
+          tx,
+          thread.id,
+          viewerParticipantId,
+        );
+
+        if (!latestThread) {
+          throw chatErrors.threadLeaveNotAllowed();
+        }
+
+        const synchronizedThread = await deps.synchronizeThreadLifecycle(latestThread, now, tx);
+        if (synchronizedThread.status === 'ARCHIVED') {
+          throw chatErrors.threadLeaveNotAllowed();
+        }
+
         await tx.conversationThreadMember.update({
           where: {
             threadId_participantId: {
-              threadId: thread.id,
+              threadId: synchronizedThread.id,
               participantId: viewerParticipantId,
             },
           },
@@ -601,38 +669,38 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         });
 
         await chatRealtimeOutbox.appendMemberLeft(tx, {
-          threadId: thread.id,
+          threadId: synchronizedThread.id,
           participantId: viewerParticipantId,
           userId: authUser.id,
           leftAt: now,
-          recipientUserIds: getThreadRecipientUserIds(thread),
+          recipientUserIds: getThreadRecipientUserIds(synchronizedThread),
         });
 
         const remainingActiveMembers = await tx.conversationThreadMember.count({
           where: {
-            threadId: thread.id,
+            threadId: synchronizedThread.id,
             memberState: 'ACTIVE',
           },
         });
 
         if (remainingActiveMembers === 0) {
           await tx.conversationThread.update({
-            where: { id: thread.id },
+            where: { id: synchronizedThread.id },
             data: {
               status: 'ARCHIVED',
-              closedAt: thread.closedAt ?? now,
+              closedAt: synchronizedThread.closedAt ?? now,
             },
           });
           await chatRealtimeOutbox.appendThreadArchived(tx, {
-            threadId: thread.id,
-            closedAt: thread.closedAt ?? now,
-            closedReason: thread.closedReason,
-            recipientUserIds: getThreadRecipientUserIds(thread),
+            threadId: synchronizedThread.id,
+            closedAt: synchronizedThread.closedAt ?? now,
+            closedReason: synchronizedThread.closedReason,
+            recipientUserIds: getThreadRecipientUserIds(synchronizedThread),
           });
-          return { threadId: thread.id, archived: true };
+          return { threadId: synchronizedThread.id, archived: true };
         }
 
-        return { threadId: thread.id, archived: false };
+        return { threadId: synchronizedThread.id, archived: false };
       });
     },
   };

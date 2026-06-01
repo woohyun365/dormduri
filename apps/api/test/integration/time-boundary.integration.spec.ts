@@ -74,6 +74,14 @@ describe('KST boundary + DB now integration', () => {
         sortOrder: 1,
       },
     });
+    await prisma.collegeMaster.create({
+      data: {
+        code: 'ARTS_ENGINEERING',
+        campusCode: 'CHUNCHEON',
+        nameKo: '문화예술공과대학',
+        sortOrder: 1,
+      },
+    });
     await prisma.season.create({
       data: {
         id: 'season-boundary',

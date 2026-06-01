@@ -122,6 +122,51 @@ describe('MatchesService unmatch integration', () => {
     expect(thread?.activeMatchId).toBeNull();
   });
 
+  it('unmatch는 matched thread만 direct로 되돌리고 ACTIVE 생성 때 닫힌 다른 direct thread는 다시 OPEN하지 않는다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-c',
+      participantId: 'participant-c',
+      email: 'user-c@kangwon.ac.kr',
+      nickname: '유저C',
+    });
+    await prisma.conversationThread.create({
+      data: {
+        id: 'thread-a-c-closed-by-active-match',
+        seasonId: 'season-integration',
+        pairKey: 'participant-a:participant-c',
+        participantAId: 'participant-a',
+        participantBId: 'participant-c',
+        openedByParticipantId: 'participant-a',
+        threadKind: 'DIRECT',
+        activeMatchId: null,
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+        members: {
+          create: [{ participantId: 'participant-a' }, { participantId: 'participant-c' }],
+        },
+      },
+    });
+
+    await service.requestUnmatch(authContext('user-a'), 'active-match-1');
+    await service.requestUnmatch(authContext('user-b'), 'active-match-1');
+
+    const matchedThread = await prisma.conversationThread.findUnique({
+      where: { id: 'active-match-1-thread' },
+    });
+    expect(matchedThread?.threadKind).toBe('DIRECT');
+    expect(matchedThread?.activeMatchId).toBeNull();
+
+    const otherDirectThread = await prisma.conversationThread.findUnique({
+      where: { id: 'thread-a-c-closed-by-active-match' },
+    });
+    expect(otherDirectThread).toMatchObject({
+      threadKind: 'DIRECT',
+      activeMatchId: null,
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+    });
+  });
+
   it('한쪽 cancel과 상대 request가 엇갈리면 ACTIVE 유지 또는 UNMATCHED 중 하나로만 수렴한다', async () => {
     const now = await prisma.getDatabaseNow();
     await prisma.activeMatchUnmatchRequest.create({

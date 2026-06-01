@@ -4,11 +4,19 @@ import type {
   ChatRealtimeOutboxRecipient,
   ClaimedChatRealtimeOutboxEvent,
 } from '../outbox/chat-realtime-outbox.repository.js';
-import { CHAT_REALTIME_EVENT_NAME, chatRealtimeUserRoom } from './chat-realtime.constants.js';
+import {
+  CHAT_REALTIME_EVENT_NAME,
+  chatRealtimeThreadRoom,
+  chatRealtimeUserRoom,
+} from './chat-realtime.constants.js';
 import {
   type ChatRealtimeEventType,
   toChatRealtimeEventEnvelope,
 } from './chat-realtime-event.mapper.js';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
 
 @Injectable()
 export class ChatRealtimePublisher {
@@ -59,6 +67,8 @@ export class ChatRealtimePublisher {
         .to(roomKey)
         .emit(CHAT_REALTIME_EVENT_NAME, this.toEnvelope(input.event, input.event.id));
     }
+
+    this.applyRoomSideEffects(input.event);
   }
 
   private toEnvelope(event: ClaimedChatRealtimeOutboxEvent, cursor: string) {
@@ -75,5 +85,23 @@ export class ChatRealtimePublisher {
       threadId: event.threadId,
       payload: event.payload,
     });
+  }
+
+  private applyRoomSideEffects(event: ClaimedChatRealtimeOutboxEvent) {
+    if (!this.server || event.eventType !== 'chat.member.left') {
+      return;
+    }
+
+    if (!isRecord(event.payload)) {
+      return;
+    }
+
+    const userId = event.payload.userId;
+    const threadId = event.payload.threadId;
+    if (typeof userId !== 'string' || typeof threadId !== 'string') {
+      return;
+    }
+
+    this.server.in(chatRealtimeUserRoom(userId)).socketsLeave(chatRealtimeThreadRoom(threadId));
   }
 }

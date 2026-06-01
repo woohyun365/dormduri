@@ -152,6 +152,64 @@ describe('ChatRealtimeDispatcherService', () => {
     expect(metrics.snapshot().oldestClaimedOutboxLagSeconds).toBe(60);
   });
 
+  it('claim된 chat.thread.updated event를 recipient와 함께 publisher로 넘긴다', async () => {
+    const event = createClaimedEvent({
+      id: 'event-thread-updated',
+      eventType: 'chat.thread.updated',
+      aggregateType: 'conversation.thread',
+      aggregateId: 'thread-1',
+      payload: {
+        threadId: 'thread-1',
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+      },
+      roomKeys: ['user:user-1', 'user:user-3'],
+    });
+    const { dispatcher, publisher } = createDispatcher({
+      queryRows: [
+        [event],
+        [
+          {
+            eventId: 'event-thread-updated',
+            userId: 'user-1',
+            threadId: 'thread-1',
+            cursor: 'event-thread-updated:user-1',
+          },
+          {
+            eventId: 'event-thread-updated',
+            userId: 'user-3',
+            threadId: 'thread-1',
+            cursor: 'event-thread-updated:user-3',
+          },
+        ],
+      ],
+    });
+
+    await expect(dispatcher.dispatchOnce(now)).resolves.toMatchObject({
+      claimedCount: 1,
+      publishedCount: 1,
+      failedCount: 0,
+    });
+
+    expect(publisher.publishOutboxEvent).toHaveBeenCalledWith({
+      event,
+      recipients: [
+        {
+          eventId: 'event-thread-updated',
+          userId: 'user-1',
+          threadId: 'thread-1',
+          cursor: 'event-thread-updated:user-1',
+        },
+        {
+          eventId: 'event-thread-updated',
+          userId: 'user-3',
+          threadId: 'thread-1',
+          cursor: 'event-thread-updated:user-3',
+        },
+      ],
+    });
+  });
+
   it('dispatch tick이 겹쳐도 running guard로 같은 프로세스 안의 중복 claim을 막는다', async () => {
     const event = createClaimedEvent();
     const prisma = {

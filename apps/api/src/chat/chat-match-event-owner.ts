@@ -81,30 +81,40 @@ export function createChatMatchEventOwner(deps: ChatMatchEventOwnerDeps) {
         typeof tx.conversationThread.findMany === 'function'
           ? await tx.conversationThread.findMany({
               where: otherOpenThreadWhere,
-              select: threadSelect,
+              select: { id: true },
             })
           : [];
+      const affectedThreadIds = affectedThreads.map((thread) => thread.id);
 
-      await tx.conversationThread.updateMany({
-        where: otherOpenThreadWhere,
-        data: {
-          status: 'READ_ONLY',
-          closedReason: 'ACTIVE_MATCH_CREATED',
-          closedAt: now,
-        },
-      });
-
-      for (const affectedThread of affectedThreads) {
-        await appendThreadUpdatedIfSupported(
-          tx,
-          {
-            ...affectedThread,
+      if (affectedThreadIds.length > 0) {
+        await tx.conversationThread.updateMany({
+          where: {
+            id: { in: affectedThreadIds },
+            status: 'OPEN',
+          },
+          data: {
             status: 'READ_ONLY',
             closedReason: 'ACTIVE_MATCH_CREATED',
             closedAt: now,
           },
-          now,
-        );
+        });
+      }
+
+      const updatedAffectedThreads =
+        affectedThreadIds.length > 0 && typeof tx.conversationThread.findMany === 'function'
+          ? await tx.conversationThread.findMany({
+              where: {
+                id: { in: affectedThreadIds },
+                status: 'READ_ONLY',
+                closedReason: 'ACTIVE_MATCH_CREATED',
+                closedAt: now,
+              },
+              select: threadSelect,
+            })
+          : [];
+
+      for (const affectedThread of updatedAffectedThreads) {
+        await appendThreadUpdatedIfSupported(tx, affectedThread, now);
       }
     },
 

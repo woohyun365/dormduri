@@ -11,6 +11,7 @@ import {
 import {
   authContext,
   seedBaseSeasonFixtures,
+  seedActiveMatchFixture,
   seedRegisteredAssignedParticipant,
 } from './support/integration-fixtures.js';
 
@@ -246,6 +247,82 @@ describe('ChatService integration', () => {
     expect(persistedClientMessageIds.map((row) => row.clientMessageId)).toEqual(
       expect.arrayContaining(['client-message-concurrent-1', 'client-message-concurrent-2']),
     );
+  });
+
+  it('양쪽이 동시에 서로에게 첫 메시지를 보내도 thread는 하나만 생성되고 두 메시지가 남는다', async () => {
+    const first = service.sendMessage(
+      authContext('user-a'),
+      makeSendMessageInput('A가 B에게 보낸 첫 메시지', 'client-message-cross-a-to-b', 'user-b'),
+    );
+    const second = service.sendMessage(
+      authContext('user-b'),
+      makeSendMessageInput('B가 A에게 보낸 첫 메시지', 'client-message-cross-b-to-a', 'user-a'),
+    );
+
+    const results = await Promise.all([first, second]);
+
+    expect(results[0]?.thread.id).toBe(results[1]?.thread.id);
+
+    const threads = await prisma.conversationThread.findMany({
+      where: {
+        seasonId: 'season-integration',
+        pairKey: 'participant-a:participant-b',
+      },
+    });
+    expect(threads).toHaveLength(1);
+
+    const messages = await prisma.conversationMessage.findMany({
+      where: {
+        threadId: threads[0]?.id,
+      },
+      orderBy: [{ sentAt: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    expect(messages.map((message) => message.body)).toEqual(
+      expect.arrayContaining(['A가 B에게 보낸 첫 메시지', 'B가 A에게 보낸 첫 메시지']),
+    );
+    expect(messages.map((message) => message.clientMessageId)).toEqual(
+      expect.arrayContaining(['client-message-cross-a-to-b', 'client-message-cross-b-to-a']),
+    );
+  });
+
+  it('UI entry 이후 첫 메시지 직전에 target이 다른 사용자와 matched 되면 새 thread를 만들지 않고 거절한다', async () => {
+    const entry = await service.getThreadEntry(authContext('user-a'), 'user-b');
+    expect(entry.canEnterChatUi).toBe(true);
+    expect(entry.canSendMessage).toBe(true);
+
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-c',
+      participantId: 'participant-c',
+      email: 'user-c@kangwon.ac.kr',
+      nickname: '유저C',
+    });
+    await seedActiveMatchFixture(prisma, {
+      activeMatchId: 'active-b-c-before-first-message',
+      participantAId: 'participant-b',
+      participantBId: 'participant-c',
+    });
+
+    await expect(
+      service.sendMessage(
+        authContext('user-a'),
+        makeSendMessageInput(
+          'UI entry 이후 target matched race',
+          'client-message-target-matched-before-first-send',
+          'user-b',
+        ),
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CHAT_MESSAGE_SEND_NOT_ALLOWED' },
+    });
+
+    const thread = await prisma.conversationThread.findFirst({
+      where: {
+        seasonId: 'season-integration',
+        pairKey: 'participant-a:participant-b',
+      },
+    });
+    expect(thread).toBeNull();
   });
 
   it('같은 sender의 같은 clientMessageId와 같은 body는 기존 메시지로 수렴한다', async () => {
