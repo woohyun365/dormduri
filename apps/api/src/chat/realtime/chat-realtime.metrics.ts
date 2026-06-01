@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { ChatRealtimeRateLimitScope } from './chat-realtime-rate-limiter.service.js';
 
 @Injectable()
 export class ChatRealtimeMetricsService {
@@ -6,6 +7,7 @@ export class ChatRealtimeMetricsService {
   private totalConnections = 0;
   private publishFailures = 0;
   private oldestClaimedOutboxLagSeconds = 0;
+  private readonly rateLimitRejections = new Map<ChatRealtimeRateLimitScope, number>();
 
   recordSocketConnected() {
     this.connectedSockets += 1;
@@ -20,6 +22,10 @@ export class ChatRealtimeMetricsService {
     this.publishFailures += 1;
   }
 
+  recordRateLimitRejection(scope: ChatRealtimeRateLimitScope) {
+    this.rateLimitRejections.set(scope, (this.rateLimitRejections.get(scope) ?? 0) + 1);
+  }
+
   recordClaimedOutboxLag(input: { oldestOccurredAt: Date | null; now: Date }) {
     this.oldestClaimedOutboxLagSeconds = input.oldestOccurredAt
       ? Math.max(0, Math.floor((input.now.getTime() - input.oldestOccurredAt.getTime()) / 1000))
@@ -32,6 +38,7 @@ export class ChatRealtimeMetricsService {
       totalConnections: this.totalConnections,
       publishFailures: this.publishFailures,
       oldestClaimedOutboxLagSeconds: this.oldestClaimedOutboxLagSeconds,
+      rateLimitRejections: Object.fromEntries(this.rateLimitRejections),
     };
   }
 }

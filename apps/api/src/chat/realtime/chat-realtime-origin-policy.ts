@@ -15,19 +15,30 @@ export type ChatRealtimeOriginPolicyInput = {
   encrypted?: boolean;
 };
 
-export function createChatRealtimeAllowRequest(allowedOrigins: ChatRealtimeAllowedOrigins) {
+export type ChatRealtimeAllowRequestOptions = {
+  preAuthRateLimit?: (request: IncomingMessage) => boolean;
+};
+
+export function createChatRealtimeAllowRequest(
+  allowedOrigins: ChatRealtimeAllowedOrigins,
+  options: ChatRealtimeAllowRequestOptions = {},
+) {
   return (request: IncomingMessage, callback: (error: string | null, success: boolean) => void) => {
-    callback(
-      null,
-      isChatRealtimeRequestOriginAllowed({
-        requestOrigin: request.headers.origin,
-        allowedOrigins,
-        host: request.headers.host,
-        forwardedHost: request.headers['x-forwarded-host'],
-        forwardedProto: request.headers['x-forwarded-proto'],
-        encrypted: Boolean((request.socket as TLSSocket | undefined)?.encrypted),
-      }),
-    );
+    const originAllowed = isChatRealtimeRequestOriginAllowed({
+      requestOrigin: request.headers.origin,
+      allowedOrigins,
+      host: request.headers.host,
+      forwardedHost: request.headers['x-forwarded-host'],
+      forwardedProto: request.headers['x-forwarded-proto'],
+      encrypted: Boolean((request.socket as TLSSocket | undefined)?.encrypted),
+    });
+
+    if (!originAllowed) {
+      callback(null, false);
+      return;
+    }
+
+    callback(null, options.preAuthRateLimit ? options.preAuthRateLimit(request) : true);
   };
 }
 

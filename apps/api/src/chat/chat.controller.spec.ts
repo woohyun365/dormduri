@@ -43,8 +43,20 @@ describe('ChatController', () => {
   const realtimeTicketService = {
     issueTicketFromAccessToken: jest.fn(),
   };
+  const rateLimiter = {
+    consumeMessageSend: jest.fn(),
+    consumeRealtimeTicket: jest.fn(),
+  };
+  const metrics = {
+    recordRateLimitRejection: jest.fn(),
+  };
 
-  const controller = new ChatController(chatService as never, realtimeTicketService as never);
+  const controller = new ChatController(
+    chatService as never,
+    realtimeTicketService as never,
+    rateLimiter as never,
+    metrics as never,
+  );
   const authUser = {
     id: 'user-1',
     gender: 'M' as const,
@@ -55,6 +67,16 @@ describe('ChatController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    rateLimiter.consumeMessageSend.mockReturnValue({
+      allowed: true,
+      retryAfterSeconds: 0,
+      scope: 'chat:message:user',
+    });
+    rateLimiter.consumeRealtimeTicket.mockReturnValue({
+      allowed: true,
+      retryAfterSeconds: 0,
+      scope: 'chat:ticket:user',
+    });
   });
 
   it('controller class는 AuthenticatedUserGuard로 보호된다', () => {
@@ -114,6 +136,10 @@ describe('ChatController', () => {
       }),
     ).resolves.toMatchObject({ message: { id: 'message-1' } });
 
+    expect(rateLimiter.consumeMessageSend).toHaveBeenCalledWith({
+      userId: 'user-1',
+      targetUserId: 'user-2',
+    });
     expect(chatService.sendMessage).toHaveBeenCalledWith(
       authUser,
       expect.objectContaining({
@@ -122,6 +148,31 @@ describe('ChatController', () => {
         clientMessageId: 'client-message-1',
       }),
     );
+  });
+
+  it('message rate limit 초과 시 ChatService.sendMessage를 호출하지 않는다', async () => {
+    rateLimiter.consumeMessageSend.mockReturnValueOnce({
+      allowed: false,
+      retryAfterSeconds: 9,
+      scope: 'chat:message:user',
+    });
+
+    await expect(
+      controller.sendMessage(authUser as never, {
+        targetUserId: 'user-2',
+        body: '안녕하세요',
+        clientMessageId: 'client-message-rate-limited',
+      }),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'CHAT_REALTIME_RATE_LIMITED',
+        retryAfterSeconds: 9,
+        scope: 'chat:message:user',
+      },
+    });
+
+    expect(metrics.recordRateLimitRejection).toHaveBeenCalledWith('chat:message:user');
+    expect(chatService.sendMessage).not.toHaveBeenCalled();
   });
 
   it('read marker 갱신 route handler를 제공한다', () => {
@@ -202,20 +253,51 @@ describe('ChatController', () => {
       expiresAt: '2026-02-10T03:01:00.000Z',
     });
 
-    await expect(controller.issueRealtimeTicket('Bearer access-token-1')).resolves.toEqual({
+    await expect(
+      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1', {
+        headers: { 'x-forwarded-for': '203.0.113.20' },
+      } as never),
+    ).resolves.toEqual({
       ticket: 'ticket-1',
       scope: 'chat:realtime',
       expiresAt: '2026-02-10T03:01:00.000Z',
     });
 
+    expect(rateLimiter.consumeRealtimeTicket).toHaveBeenCalledWith({
+      userId: 'user-1',
+      ip: '203.0.113.20',
+    });
     expect(realtimeTicketService.issueTicketFromAccessToken).toHaveBeenCalledWith('access-token-1');
   });
 
   it('realtime ticket 발급 실패는 unauthenticated로 거절한다', async () => {
     realtimeTicketService.issueTicketFromAccessToken.mockResolvedValueOnce(null);
 
-    await expect(controller.issueRealtimeTicket(undefined)).rejects.toMatchObject({
+    await expect(
+      controller.issueRealtimeTicket(authUser as never, undefined),
+    ).rejects.toMatchObject({
       response: { code: 'UNAUTHENTICATED' },
     });
+  });
+
+  it('realtime ticket rate limit 초과 시 새 ticket을 발급하지 않는다', async () => {
+    rateLimiter.consumeRealtimeTicket.mockReturnValueOnce({
+      allowed: false,
+      retryAfterSeconds: 30,
+      scope: 'chat:ticket:user',
+    });
+
+    await expect(
+      controller.issueRealtimeTicket(authUser as never, 'Bearer access-token-1'),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'CHAT_REALTIME_RATE_LIMITED',
+        retryAfterSeconds: 30,
+        scope: 'chat:ticket:user',
+      },
+    });
+
+    expect(metrics.recordRateLimitRejection).toHaveBeenCalledWith('chat:ticket:user');
+    expect(realtimeTicketService.issueTicketFromAccessToken).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,7 @@
+import request from 'supertest';
+import { AuthSessionService } from '../../src/auth/auth-session.service.js';
 import { ChatService } from '../../src/chat/chat.service.js';
+import { ChatRealtimeRateLimiterService } from '../../src/chat/realtime/chat-realtime-rate-limiter.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
@@ -83,6 +86,9 @@ describe('ChatService integration', () => {
 
   let prisma: PrismaService;
   let service: ChatService;
+  let authSessionService: AuthSessionService;
+  let rateLimiter: ChatRealtimeRateLimiterService;
+  let httpServer: Parameters<typeof request>[0];
   let closeApp: (() => Promise<void>) | null = null;
   let cleanupDb: (() => Promise<void>) | null = null;
 
@@ -92,8 +98,11 @@ describe('ChatService integration', () => {
 
     const { app, prisma: prismaService } = await createIntegrationApp();
     closeApp = () => app.close();
+    httpServer = app.getHttpServer() as Parameters<typeof request>[0];
     prisma = prismaService;
     service = app.get(ChatService);
+    authSessionService = app.get(AuthSessionService);
+    rateLimiter = app.get(ChatRealtimeRateLimiterService);
   });
 
   afterAll(async () => {
@@ -106,6 +115,7 @@ describe('ChatService integration', () => {
   });
 
   beforeEach(async () => {
+    rateLimiter.resetForTest();
     await truncateIntegrationSchema(prisma);
     await seedBaseSeasonFixtures(prisma);
     await seedRegisteredAssignedParticipant(prisma, {
@@ -120,6 +130,75 @@ describe('ChatService integration', () => {
       email: 'user-b@kangwon.ac.kr',
       nickname: '유저B',
     });
+  });
+
+  async function issueAccessToken(userId = 'user-a', email = 'user-a@kangwon.ac.kr') {
+    const issued = await authSessionService.issueAuthResult(userId, email, false);
+    return issued.accessToken;
+  }
+
+  it('HTTP message limiter 초과 시 429로 거절하고 DB message/outbox를 추가하지 않는다', async () => {
+    const accessToken = await issueAccessToken();
+
+    for (let index = 0; index < 5; index += 1) {
+      const response = await request(httpServer)
+        .post('/api/chat/messages')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send(
+          makeSendMessageInput(`rate limit 허용 메시지 ${index}`, `http-rate-message-${index}`),
+        );
+
+      expect(response.status).toBeLessThan(300);
+    }
+
+    const beforeMessageCount = await prisma.conversationMessage.count();
+    const beforeOutboxCount = await prisma.chatRealtimeOutboxEvent.count();
+    const rejected = await request(httpServer)
+      .post('/api/chat/messages')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send(makeSendMessageInput('rate limit 거절 메시지', 'http-rate-message-rejected'));
+
+    expect(rejected.status).toBe(429);
+    expect(rejected.body).toMatchObject({
+      code: 'CHAT_REALTIME_RATE_LIMITED',
+      scope: 'chat:message:burst',
+    });
+    expect(await prisma.conversationMessage.count()).toBe(beforeMessageCount);
+    expect(await prisma.chatRealtimeOutboxEvent.count()).toBe(beforeOutboxCount);
+  });
+
+  it('HTTP realtime ticket limiter 초과 시 429로 거절하고 token/ticket 값을 error payload에 노출하지 않는다', async () => {
+    const accessToken = await issueAccessToken();
+
+    const issuedTickets: string[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      const response = await request(httpServer)
+        .post('/api/chat/realtime/tickets')
+        .set('Authorization', `Bearer ${accessToken}`);
+
+      expect(response.status).toBeLessThan(300);
+      const responseBody = response.body as { ticket?: unknown };
+      expect(responseBody.ticket).toEqual(expect.any(String));
+      if (typeof responseBody.ticket !== 'string') {
+        throw new Error('Expected realtime ticket string');
+      }
+      issuedTickets.push(responseBody.ticket);
+    }
+
+    const rejected = await request(httpServer)
+      .post('/api/chat/realtime/tickets')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(rejected.status).toBe(429);
+    expect(rejected.body).toMatchObject({
+      code: 'CHAT_REALTIME_RATE_LIMITED',
+      scope: 'chat:ticket:user',
+    });
+    const serializedBody = JSON.stringify(rejected.body);
+    expect(serializedBody).not.toContain(accessToken);
+    for (const issuedTicket of issuedTickets) {
+      expect(serializedBody).not.toContain(issuedTicket);
+    }
   });
 
   it('동시에 같은 pair로 첫 메시지를 보내도 thread는 하나만 생성되고 두 메시지가 남는다', async () => {

@@ -9,6 +9,7 @@ import { ChatRealtimeDispatcherService } from './realtime/chat-realtime-dispatch
 import { ChatRealtimeGateway } from './realtime/chat-realtime.gateway.js';
 import { ChatRealtimeMetricsService } from './realtime/chat-realtime.metrics.js';
 import { ChatRealtimePublisher } from './realtime/chat-realtime-publisher.js';
+import { ChatRealtimeRateLimiterService } from './realtime/chat-realtime-rate-limiter.service.js';
 import { ChatRealtimeTicketService } from './realtime/chat-realtime-ticket.service.js';
 import { ChatService } from './chat.service.js';
 
@@ -22,6 +23,7 @@ import { ChatService } from './chat.service.js';
     ChatRealtimeGateway,
     ChatRealtimeMetricsService,
     ChatRealtimePublisher,
+    ChatRealtimeRateLimiterService,
     ChatRealtimeTicketService,
   ],
   exports: [ChatService],

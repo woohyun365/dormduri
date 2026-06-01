@@ -7,8 +7,10 @@ import {
   Param,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import type { LeaveConversationThreadResponse } from '@repo/shared/chat-contract';
 import {
   sendConversationMessageRequestSchema,
@@ -19,7 +21,13 @@ import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { unauthorizedError } from '../common/http/api-error.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
+import { ChatRealtimeMetricsService } from './realtime/chat-realtime.metrics.js';
 import { ChatRealtimeTicketService } from './realtime/chat-realtime-ticket.service.js';
+import {
+  ChatRealtimeRateLimiterService,
+  resolveChatRealtimeRequestIp,
+  throwChatRealtimeRateLimitError,
+} from './realtime/chat-realtime-rate-limiter.service.js';
 import { ChatService } from './chat.service.js';
 
 function parseReplayLimit(rawLimit: string | undefined): number {
@@ -46,6 +54,8 @@ export class ChatController {
   constructor(
     private readonly chatService: ChatService,
     private readonly realtimeTicketService: ChatRealtimeTicketService,
+    private readonly rateLimiter: ChatRealtimeRateLimiterService,
+    private readonly metrics: ChatRealtimeMetricsService,
   ) {}
 
   @Get('threads')
@@ -82,7 +92,20 @@ export class ChatController {
   }
 
   @Post('realtime/tickets')
-  async issueRealtimeTicket(@Headers('authorization') authorization?: string) {
+  async issueRealtimeTicket(
+    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @Headers('authorization') authorization?: string,
+    @Req() request?: Request,
+  ) {
+    const rateLimit = this.rateLimiter.consumeRealtimeTicket({
+      userId: authUser.id,
+      ip: resolveChatRealtimeRequestIp(request),
+    });
+    if (!rateLimit.allowed) {
+      this.metrics.recordRateLimitRejection(rateLimit.scope);
+      throwChatRealtimeRateLimitError(rateLimit);
+    }
+
     const accessToken = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
     const ticket = await this.realtimeTicketService.issueTicketFromAccessToken(accessToken);
     if (!ticket) {
@@ -116,6 +139,15 @@ export class ChatController {
     @Body() body: unknown,
   ) {
     const parsed = parseRequestBody(sendConversationMessageRequestSchema, body);
+    const rateLimit = this.rateLimiter.consumeMessageSend({
+      userId: authUser.id,
+      targetUserId: parsed.targetUserId,
+    });
+    if (!rateLimit.allowed) {
+      this.metrics.recordRateLimitRejection(rateLimit.scope);
+      throwChatRealtimeRateLimitError(rateLimit);
+    }
+
     return this.chatService.sendMessage(authUser, parsed);
   }
 }
