@@ -13,7 +13,7 @@ type OutboxEventCreateArgs = {
 };
 
 type RecipientCreateManyArgs = {
-  data?: Array<{ userId?: string }>;
+  data?: Array<{ eventId?: string; userId?: string; cursor?: string }>;
 };
 
 async function loadOutboxModule(): Promise<ChatRealtimeOutboxModule> {
@@ -73,6 +73,12 @@ describe('ChatRealtimeOutboxService red contract', () => {
     expect(recipientCalls[0]?.[0].data?.map((row) => row.userId)).toEqual(
       expect.arrayContaining(['user-1', 'user-2']),
     );
+    const recipientRows = recipientCalls[0]?.[0].data ?? [];
+    expect(
+      recipientRows.some(
+        (row) => row.eventId === 'event-1' && typeof row.cursor === 'string' && row.cursor !== '',
+      ),
+    ).toBe(true);
   });
 
   it('recipient 생성 실패는 삼키지 않고 transaction rollback으로 수렴하게 노출한다', async () => {

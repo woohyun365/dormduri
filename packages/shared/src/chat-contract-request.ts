@@ -2,10 +2,8 @@ import { z } from 'zod';
 
 export const sendConversationMessageRequestSchema = z.strictObject({
   targetUserId: z.string(),
-  body: z
-    .string()
-    .transform((value) => value.trim())
-    .refine((value) => value.length > 0),
+  body: z.string().trim().min(1).max(1000),
+  clientMessageId: z.string().trim().min(1).max(128),
 });
 
 export type SendConversationMessageRequest = z.infer<typeof sendConversationMessageRequestSchema>;

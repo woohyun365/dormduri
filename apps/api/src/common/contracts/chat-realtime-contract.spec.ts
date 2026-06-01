@@ -1,4 +1,6 @@
 import * as chatContract from '@repo/shared/chat-contract';
+import * as chatRealtimeContract from '@repo/shared/chat-realtime-contract';
+import * as chatRealtimeEvents from '@repo/shared/chat-realtime-events';
 
 type SchemaLike = {
   parse(input: unknown): unknown;
@@ -15,6 +17,19 @@ function getSchema(exportName: string): SchemaLike {
 }
 
 describe('chat realtime shared contract guards', () => {
+  it('dedicated realtime package exports는 chat-contract 통합 export와 같은 schema surface를 제공한다', () => {
+    expect(chatRealtimeContract.updateChatReadMarkerRequestSchema).toBe(
+      chatContract.updateChatReadMarkerRequestSchema,
+    );
+    expect(chatRealtimeContract.chatRealtimeReplayResponseSchema).toBe(
+      chatContract.chatRealtimeReplayResponseSchema,
+    );
+    expect(chatRealtimeEvents.chatRealtimeEventSchema).toBe(chatContract.chatRealtimeEventSchema);
+    expect(chatRealtimeEvents.chatRealtimeEventEnvelopeSchema).toBe(
+      chatContract.chatRealtimeEventEnvelopeSchema,
+    );
+  });
+
   it('send message request는 clientMessageId를 필수 idempotency key로 요구하고 body 1..1000 trim invariant를 고정한다', () => {
     const schema = getSchema('sendConversationMessageRequestSchema');
 
@@ -38,6 +53,20 @@ describe('chat realtime shared contract guards', () => {
         targetUserId: 'user-2',
         body: `${'가'.repeat(1000)}!`,
         clientMessageId: 'client-message-1',
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        targetUserId: 'user-2',
+        body: '안녕하세요',
+        clientMessageId: ' '.repeat(3),
+      }).success,
+    ).toBe(false);
+    expect(
+      schema.safeParse({
+        targetUserId: 'user-2',
+        body: '안녕하세요',
+        clientMessageId: 'c'.repeat(129),
       }).success,
     ).toBe(false);
 
@@ -141,6 +170,22 @@ describe('chat realtime shared contract guards', () => {
           tombstoneReason: 'ACCOUNT_DELETION_RETENTION',
           bodyVersion: 2,
           retainedOriginalBody: '노출되면 안 되는 원문',
+        },
+      }).success,
+    ).toBe(false);
+
+    expect(
+      eventSchema.safeParse({
+        ...messageCreatedEvent,
+        eventId: 'event-3',
+        cursor: 'cursor-3',
+        payload: {
+          message: {
+            ...messageCreatedEvent.payload.message,
+            retainedVaultObjectId: 'vault-object-1',
+            retainedOriginalBody: '보존 vault 원문',
+            internalAuditData: { accessedBy: 'admin-user' },
+          },
         },
       }).success,
     ).toBe(false);

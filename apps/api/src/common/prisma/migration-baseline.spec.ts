@@ -139,4 +139,33 @@ describe('migration baseline coverage', () => {
     expect(sql).not.toContain('ACADEMIC_IDENTITY_CHANGE_ALLOWANCE');
     expect(sql).not.toContain('ACADEMIC_IDENTITY_ALLOWANCE');
   });
+
+  it('chat realtime Phase 2 storage baseline은 idempotency/read marker/outbox/replay column과 index를 포함한다', () => {
+    expect(sql).toContain('"clientMessageId" TEXT');
+    expect(sql).toContain('"lastReadMessageId" TEXT');
+    expect(sql).toContain('CREATE TABLE "ChatRealtimeOutboxEvent"');
+    expect(sql).toContain('CREATE TABLE "ChatRealtimeEventRecipient"');
+    expect(sql).toMatch(
+      /ADD\s+CONSTRAINT\s+"ConversationMessage_body_length_check"\s+CHECK\s+\(char_length\("body"\) BETWEEN 1 AND 1000\)/,
+    );
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "ConversationMessage_senderParticipantId_clientMessageId_key" ON "ConversationMessage"("senderParticipantId", "clientMessageId")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationMessage_threadId_sentAt_id_idx" ON "ConversationMessage"("threadId", "sentAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadMember_participantId_memberState_updatedAt_idx" ON "ConversationThreadMember"("participantId", "memberState", "updatedAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ChatRealtimeOutboxEvent_publishedAt_availableAt_occurredAt_id_idx" ON "ChatRealtimeOutboxEvent"("publishedAt", "availableAt", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ChatRealtimeEventRecipient_userId_cursor_idx" ON "ChatRealtimeEventRecipient"("userId", "cursor")',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "ChatRealtimeEventRecipient" ADD CONSTRAINT "ChatRealtimeEventRecipient_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "ChatRealtimeOutboxEvent"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
+    );
+    expect(sql).not.toContain('"outboxEventId"');
+  });
 });

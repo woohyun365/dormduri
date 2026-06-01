@@ -715,6 +715,7 @@ CREATE TABLE "ConversationThreadMember" (
     "leftAt" TIMESTAMPTZ(3),
     "mutedAt" TIMESTAMPTZ(3),
     "lastReadAt" TIMESTAMPTZ(3),
+    "lastReadMessageId" TEXT,
     "lastVisibleAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -727,6 +728,7 @@ CREATE TABLE "ConversationMessage" (
     "id" TEXT NOT NULL,
     "threadId" TEXT NOT NULL,
     "senderParticipantId" TEXT NOT NULL,
+    "clientMessageId" TEXT,
     "body" TEXT NOT NULL,
     "bodyState" "ConversationMessageBodyState" NOT NULL DEFAULT 'PLAIN',
     "tombstoneReason" "ConversationMessageTombstoneReason",
@@ -740,6 +742,40 @@ CREATE TABLE "ConversationMessage" (
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ConversationMessage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ChatRealtimeOutboxEvent" (
+    "id" TEXT NOT NULL,
+    "eventType" TEXT NOT NULL,
+    "schemaVersion" INTEGER NOT NULL DEFAULT 1,
+    "threadId" TEXT,
+    "aggregateType" TEXT NOT NULL,
+    "aggregateId" TEXT NOT NULL,
+    "aggregateVersion" INTEGER,
+    "payload" JSONB NOT NULL,
+    "roomKeys" TEXT[] NOT NULL,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "availableAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "publishedAt" TIMESTAMPTZ(3),
+    "publishAttempts" INTEGER NOT NULL DEFAULT 0,
+    "lastPublishError" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ChatRealtimeOutboxEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ChatRealtimeEventRecipient" (
+    "eventId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "threadId" TEXT,
+    "cursor" TEXT NOT NULL,
+    "deliveredAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ChatRealtimeEventRecipient_pkey" PRIMARY KEY ("eventId","userId")
 );
 
 -- CreateTable
@@ -1164,19 +1200,52 @@ CREATE INDEX "ConversationThread_participantAId_idx" ON "ConversationThread"("pa
 CREATE INDEX "ConversationThread_participantBId_idx" ON "ConversationThread"("participantBId");
 
 -- CreateIndex
+CREATE INDEX "ConversationThreadMember_participantId_memberState_updatedAt_idx" ON "ConversationThreadMember"("participantId", "memberState", "updatedAt");
+
+-- CreateIndex
+CREATE INDEX "ConversationThreadMember_participantId_lastVisibleAt_idx" ON "ConversationThreadMember"("participantId", "lastVisibleAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "ConversationMessage_retainedVaultObjectId_key" ON "ConversationMessage"("retainedVaultObjectId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ConversationMessage_senderParticipantId_clientMessageId_key" ON "ConversationMessage"("senderParticipantId", "clientMessageId");
 
 -- CreateIndex
 CREATE INDEX "ConversationMessage_threadId_sentAt_idx" ON "ConversationMessage"("threadId", "sentAt");
 
 -- CreateIndex
+CREATE INDEX "ConversationMessage_threadId_sentAt_id_idx" ON "ConversationMessage"("threadId", "sentAt", "id");
+
+-- CreateIndex
 CREATE INDEX "ConversationMessage_senderParticipantId_sentAt_idx" ON "ConversationMessage"("senderParticipantId", "sentAt");
+
+-- CreateIndex
+CREATE INDEX "ConversationMessage_senderParticipantId_sentAt_id_idx" ON "ConversationMessage"("senderParticipantId", "sentAt", "id");
 
 -- CreateIndex
 CREATE INDEX "ConversationMessage_bodyState_tombstonedAt_idx" ON "ConversationMessage"("bodyState", "tombstonedAt");
 
 -- CreateIndex
 CREATE INDEX "ConversationMessage_retainedVaultObjectId_idx" ON "ConversationMessage"("retainedVaultObjectId");
+
+-- CreateIndex
+CREATE INDEX "ChatRealtimeOutboxEvent_publishedAt_availableAt_occurredAt_id_idx" ON "ChatRealtimeOutboxEvent"("publishedAt", "availableAt", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ChatRealtimeOutboxEvent_threadId_occurredAt_id_idx" ON "ChatRealtimeOutboxEvent"("threadId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ChatRealtimeOutboxEvent_aggregateType_aggregateId_occurredAt_id_idx" ON "ChatRealtimeOutboxEvent"("aggregateType", "aggregateId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ChatRealtimeEventRecipient_userId_createdAt_eventId_idx" ON "ChatRealtimeEventRecipient"("userId", "createdAt", "eventId");
+
+-- CreateIndex
+CREATE INDEX "ChatRealtimeEventRecipient_userId_cursor_idx" ON "ChatRealtimeEventRecipient"("userId", "cursor");
+
+-- CreateIndex
+CREATE INDEX "ChatRealtimeEventRecipient_threadId_createdAt_eventId_idx" ON "ChatRealtimeEventRecipient"("threadId", "createdAt", "eventId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SeasonMatchHistoryEntryRetentionLink_retainedVaultObjectId_key" ON "SeasonMatchHistoryEntryRetentionLink"("retainedVaultObjectId");
@@ -1425,6 +1494,9 @@ ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_senderPart
 ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_retainedVaultObjectId_fkey" FOREIGN KEY ("retainedVaultObjectId") REFERENCES "RetainedVaultObject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "ChatRealtimeEventRecipient" ADD CONSTRAINT "ChatRealtimeEventRecipient_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "ChatRealtimeOutboxEvent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "SeasonMatchHistoryEntryRetentionLink" ADD CONSTRAINT "SeasonMatchHistoryEntryRetentionLink_matchHistoryEntryId_fkey" FOREIGN KEY ("matchHistoryEntryId") REFERENCES "SeasonMatchHistoryEntry"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1484,6 +1556,10 @@ ALTER TABLE "SeasonParticipantProfile"
 ALTER TABLE "SeasonParticipantProfileHistory"
   ADD CONSTRAINT "SeasonParticipantProfileHistory_birthYear_check"
   CHECK ("birthYear" IS NULL OR "birthYear" >= 1980);
+
+ALTER TABLE "ConversationMessage"
+  ADD CONSTRAINT "ConversationMessage_body_length_check"
+  CHECK (char_length("body") BETWEEN 1 AND 1000);
 
 -- Baseline partial unique indexes not represented by Prisma schema DSL
 CREATE UNIQUE INDEX "MatchRequest_seasonId_pairMinParticipantId_pairMaxParticipantId_pending_key"

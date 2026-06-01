@@ -1057,14 +1057,14 @@ describe('RetainedIdentity integration', () => {
     }
 
     const tombstoneOutboxRecipients = await prisma.$queryRaw<
-      Array<{ outboxEventId: string; userId: string }>
+      Array<{ eventId: string; userId: string }>
     >`
-      SELECT r."outboxEventId", r."userId"
+      SELECT r."eventId", r."userId"
       FROM "ChatRealtimeEventRecipient" r
-      INNER JOIN "ChatRealtimeOutboxEvent" e ON e."id" = r."outboxEventId"
+      INNER JOIN "ChatRealtimeOutboxEvent" e ON e."id" = r."eventId"
       WHERE e."threadId" = ${'thread-a-b-retention'}
         AND e."eventType" = ${'chat.message.tombstoned'}
-      ORDER BY r."outboxEventId" ASC, r."userId" ASC
+      ORDER BY r."eventId" ASC, r."userId" ASC
     `;
     expect(tombstoneOutboxRecipients.map((row) => row.userId)).toEqual(
       expect.arrayContaining(['user-a', 'user-b']),

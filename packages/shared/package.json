@@ -90,6 +90,14 @@
     "./chat-contract": {
       "types": "./dist/chat-contract.d.ts",
       "default": "./dist/chat-contract.js"
+    },
+    "./chat-realtime-contract": {
+      "types": "./dist/chat-realtime-contract.d.ts",
+      "default": "./dist/chat-realtime-contract.js"
+    },
+    "./chat-realtime-events": {
+      "types": "./dist/chat-realtime-events.d.ts",
+      "default": "./dist/chat-realtime-events.js"
     }
   },
   "scripts": {

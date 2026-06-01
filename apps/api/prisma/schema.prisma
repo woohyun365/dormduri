@@ -1059,25 +1059,29 @@ model ConversationThread {
 }
 
 model ConversationThreadMember {
-  threadId      String
-  participantId String
-  memberState   ConversationThreadMemberState @default(ACTIVE)
-  leftAt        DateTime?                     @db.Timestamptz(3)
-  mutedAt       DateTime?                     @db.Timestamptz(3)
-  lastReadAt    DateTime?                     @db.Timestamptz(3)
-  lastVisibleAt DateTime?                     @db.Timestamptz(3)
-  createdAt     DateTime                      @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime                      @default(now()) @updatedAt @db.Timestamptz(3)
-  thread        ConversationThread            @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  participant   SeasonParticipant             @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  threadId          String
+  participantId     String
+  memberState       ConversationThreadMemberState @default(ACTIVE)
+  leftAt            DateTime?                     @db.Timestamptz(3)
+  mutedAt           DateTime?                     @db.Timestamptz(3)
+  lastReadAt        DateTime?                     @db.Timestamptz(3)
+  lastReadMessageId String?
+  lastVisibleAt     DateTime?                     @db.Timestamptz(3)
+  createdAt         DateTime                      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime                      @default(now()) @updatedAt @db.Timestamptz(3)
+  thread            ConversationThread            @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  participant       SeasonParticipant             @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@id([threadId, participantId])
+  @@index([participantId, memberState, updatedAt])
+  @@index([participantId, lastVisibleAt])
 }
 
 model ConversationMessage {
   id                    String                              @id @default(uuid())
   threadId              String
   senderParticipantId   String
+  clientMessageId       String?
   body                  String
   bodyState             ConversationMessageBodyState        @default(PLAIN)
   tombstoneReason       ConversationMessageTombstoneReason?
@@ -1093,10 +1097,52 @@ model ConversationMessage {
   senderParticipant     SeasonParticipant                   @relation("ConversationMessageSender", fields: [senderParticipantId], references: [id], onDelete: Cascade)
   retainedVaultObject   RetainedVaultObject?                @relation("ConversationMessageRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
 
+  @@unique([senderParticipantId, clientMessageId])
   @@index([threadId, sentAt])
+  @@index([threadId, sentAt, id])
   @@index([senderParticipantId, sentAt])
+  @@index([senderParticipantId, sentAt, id])
   @@index([bodyState, tombstonedAt])
   @@index([retainedVaultObjectId])
+}
+
+model ChatRealtimeOutboxEvent {
+  id               String                       @id @default(cuid())
+  eventType        String
+  schemaVersion    Int                          @default(1)
+  threadId         String?
+  aggregateType    String
+  aggregateId      String
+  aggregateVersion Int?
+  payload          Json
+  roomKeys         String[]
+  occurredAt       DateTime                     @default(now()) @db.Timestamptz(3)
+  availableAt      DateTime                     @default(now()) @db.Timestamptz(3)
+  publishedAt      DateTime?                    @db.Timestamptz(3)
+  publishAttempts  Int                          @default(0)
+  lastPublishError String?
+  createdAt        DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                     @default(now()) @updatedAt @db.Timestamptz(3)
+  recipients       ChatRealtimeEventRecipient[]
+
+  @@index([publishedAt, availableAt, occurredAt, id])
+  @@index([threadId, occurredAt, id])
+  @@index([aggregateType, aggregateId, occurredAt, id])
+}
+
+model ChatRealtimeEventRecipient {
+  eventId     String
+  userId      String
+  threadId    String?
+  cursor      String
+  deliveredAt DateTime?               @db.Timestamptz(3)
+  createdAt   DateTime                @default(now()) @db.Timestamptz(3)
+  event       ChatRealtimeOutboxEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
+  @@index([userId, createdAt, eventId])
+  @@index([userId, cursor])
+  @@index([threadId, createdAt, eventId])
 }
 
 model SeasonMatchHistoryEntryRetentionLink {
