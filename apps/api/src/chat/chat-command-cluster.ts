@@ -485,16 +485,21 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         throw chatErrors.threadNotFound();
       }
 
-      const viewerParticipantId = deps.resolveViewerParticipantId(thread, authUser.id);
+      const synchronizedThread = await deps.synchronizeThreadLifecycle(thread, now);
+      if (synchronizedThread.status === 'ARCHIVED') {
+        throw chatErrors.threadNotFound();
+      }
+
+      const viewerParticipantId = deps.resolveViewerParticipantId(synchronizedThread, authUser.id);
 
       return deps.runSerializableTransaction(async (tx) => {
-        await deps.acquireConversationThreadLeaveLock(tx, thread.id);
+        await deps.acquireConversationThreadLeaveLock(tx, synchronizedThread.id);
 
         const [targetMessage, currentMember] = await Promise.all([
           tx.conversationMessage.findFirst({
             where: {
               id: input.lastReadMessageId,
-              threadId: thread.id,
+              threadId: synchronizedThread.id,
               deletedAt: null,
             },
             select: {
@@ -505,7 +510,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           tx.conversationThreadMember.findUnique({
             where: {
               threadId_participantId: {
-                threadId: thread.id,
+                threadId: synchronizedThread.id,
                 participantId: viewerParticipantId,
               },
             },
@@ -524,7 +529,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           const currentReadMessage = await tx.conversationMessage.findFirst({
             where: {
               id: currentMember.lastReadMessageId,
-              threadId: thread.id,
+              threadId: synchronizedThread.id,
               deletedAt: null,
             },
             select: {
@@ -541,7 +546,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         await tx.conversationThreadMember.update({
           where: {
             threadId_participantId: {
-              threadId: thread.id,
+              threadId: synchronizedThread.id,
               participantId: viewerParticipantId,
             },
           },
@@ -552,14 +557,14 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
         });
 
         await chatRealtimeOutbox.appendReadMarkerUpdated(tx, {
-          threadId: thread.id,
+          threadId: synchronizedThread.id,
           lastReadMessageId: targetMessage.id,
           recipientUserIds: [authUser.id],
           occurredAt: now,
         });
 
         return {
-          threadId: thread.id,
+          threadId: synchronizedThread.id,
           lastReadMessageId: targetMessage.id,
           lastReadAt: now.toISOString(),
         };

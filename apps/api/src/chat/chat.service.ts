@@ -230,6 +230,10 @@ export class ChatService {
     }
 
     const synchronized = await this.lifecycleOwner.synchronizeThreadLifecycle(thread, now);
+    if (synchronized.status === 'ARCHIVED') {
+      throw chatErrors.threadNotFound();
+    }
+
     const viewerParticipantId = this.threadSupportOwner.resolveViewerParticipantId(
       synchronized,
       authUser.id,

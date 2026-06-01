@@ -152,6 +152,81 @@ describe('ChatRealtimeDispatcherService', () => {
     expect(metrics.snapshot().oldestClaimedOutboxLagSeconds).toBe(60);
   });
 
+  it('dispatch tick이 겹쳐도 running guard로 같은 프로세스 안의 중복 claim을 막는다', async () => {
+    const event = createClaimedEvent();
+    const prisma = {
+      getDatabaseNow: jest.fn().mockResolvedValue(now),
+      $queryRaw: jest.fn().mockResolvedValueOnce([event]).mockResolvedValueOnce([]),
+      chatRealtimeOutboxEvent: {
+        update: jest.fn().mockResolvedValue({ id: 'event-1' }),
+      },
+    };
+    const metrics = new ChatRealtimeMetricsService();
+    let dispatcher: ChatRealtimeDispatcherService | null = null;
+    let nestedDispatch: Promise<unknown> | null = null;
+    const publisher = {
+      isBound: jest.fn().mockReturnValue(true),
+      publishOutboxEvent: jest.fn(() => {
+        if (!dispatcher) {
+          throw new Error('dispatcher is required before publish');
+        }
+        nestedDispatch = dispatcher.dispatchOnce(now);
+      }),
+    };
+    const settings = {
+      allowedOrigins: false as const,
+      dispatcherEnabled: false,
+      dispatcherIntervalMs: 1_000,
+      dispatcherBatchSize: 50,
+      dispatcherClaimLeaseMs: 30_000,
+      dispatcherRetryBaseMs: 1_000,
+      dispatcherRetryMaxMs: 60_000,
+      messageUserLimit: 30,
+      messageUserWindowMs: 60_000,
+      messagePairLimit: 20,
+      messagePairWindowMs: 60_000,
+      messageBurstLimit: 5,
+      messageBurstWindowMs: 10_000,
+      ticketUserLimit: 10,
+      ticketUserWindowMs: 60_000,
+      ticketIpLimit: 60,
+      ticketIpWindowMs: 60_000,
+      wsConnectIpLimit: 30,
+      wsConnectIpWindowMs: 60_000,
+      wsConnectUserLimit: 10,
+      wsConnectUserWindowMs: 60_000,
+      wsConcurrentUserLimit: 5,
+      wsSubscribeSocketLimit: 60,
+      wsSubscribeSocketWindowMs: 60_000,
+      wsSubscribeFailureLimit: 10,
+      wsSubscribeFailureWindowMs: 60_000,
+    };
+    dispatcher = new ChatRealtimeDispatcherService(
+      prisma as never,
+      publisher as never,
+      metrics,
+      settings,
+    );
+
+    await expect(dispatcher.dispatchOnce(now)).resolves.toEqual({
+      claimedCount: 1,
+      publishedCount: 1,
+      failedCount: 0,
+      skippedReason: null,
+    });
+    expect(nestedDispatch).not.toBeNull();
+    if (!nestedDispatch) {
+      throw new Error('nested dispatch promise is required');
+    }
+    await expect(nestedDispatch).resolves.toEqual({
+      claimedCount: 0,
+      publishedCount: 0,
+      failedCount: 0,
+      skippedReason: null,
+    });
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+  });
+
   it('publish 실패는 business data를 롤백하지 않고 retry 가능한 outbox failure mark로 남기며 payload를 일반 로그에 남기지 않는다', async () => {
     const loggerSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const { dispatcher, prisma, metrics } = createDispatcher({

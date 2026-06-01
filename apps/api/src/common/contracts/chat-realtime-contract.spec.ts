@@ -189,5 +189,18 @@ describe('chat realtime shared contract guards', () => {
         },
       }).success,
     ).toBe(false);
+
+    expect(
+      eventSchema.safeParse({
+        schemaVersion: 1,
+        eventId: 'event-resync-required',
+        eventType: 'chat.resync.required',
+        occurredAt,
+        cursor: 'cursor-resync-required',
+        payload: {
+          reason: 'CURSOR_EXPIRED',
+        },
+      }).success,
+    ).toBe(true);
   });
 });

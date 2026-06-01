@@ -20,6 +20,32 @@ describe('ChatRealtimeReplayService', () => {
     });
   });
 
+  it('after cursor가 7일 replay window 밖이면 CURSOR_EXPIRED resync로 수렴한다', async () => {
+    const service = new ChatRealtimeReplayService({ replayWindowDays: 7 });
+    const prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([
+        {
+          cursor: 'cursor-expired',
+          createdAt: new Date('2026-02-02T02:59:59.000Z'),
+          eventId: 'event-expired',
+        },
+      ]),
+    };
+
+    await expect(
+      service.getReplayEvents(prisma, {
+        userId: 'user-1',
+        after: 'cursor-expired',
+        limit: 10,
+        now: new Date('2026-02-09T03:00:00.000Z'),
+      }),
+    ).resolves.toEqual({
+      status: 'resync_required',
+      reason: 'CURSOR_EXPIRED',
+    });
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+  });
+
   it('payload privacy guard 위반 event는 replay 대신 resync required로 수렴한다', async () => {
     const service = new ChatRealtimeReplayService({ replayWindowDays: 7 });
     const prisma = {

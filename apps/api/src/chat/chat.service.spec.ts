@@ -982,6 +982,49 @@ describe('ChatService', () => {
     ]);
   });
 
+  it('read marker는 lifecycle sync 결과 ARCHIVED가 된 thread를 갱신하지 않는다', async () => {
+    prisma.conversationThread.findFirst.mockResolvedValue(
+      makeThread({ status: 'READ_ONLY', closedReason: 'SEASON_ENDED' }),
+    );
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-2' },
+      state: 'SEASON_OPEN',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2027-01-11' },
+      ],
+      schedule: {
+        preparationStart: '2027-01-01',
+        matchingStart: '2027-01-05',
+        matchingEnd: '2027-01-11',
+        seasonEnd: '2027-01-28',
+      },
+    });
+    prisma.conversationThread.update.mockResolvedValue(
+      makeThread({
+        status: 'ARCHIVED',
+        closedReason: 'SEASON_ENDED',
+        closedAt: new Date('2026-02-10T03:00:00.000Z'),
+      }),
+    );
+
+    await expect(
+      service.updateReadMarker(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'thread-1',
+        { lastReadMessageId: 'message-new' },
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.threadNotFound().getResponse(),
+    });
+    expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
+    expect(txConversationThreadMemberUpdate).not.toHaveBeenCalled();
+    expect(txChatRealtimeOutboxEventCreate).not.toHaveBeenCalled();
+  });
+
   it('read marker는 뒤로 이동할 수 없다', async () => {
     prisma.conversationThread.findFirst.mockResolvedValue(
       makeVisibleThread({ threadKind: 'DIRECT', status: 'READ_ONLY' }),
@@ -1334,6 +1377,57 @@ describe('ChatService', () => {
     expect(result.thread.canSendMessage).toBe(false);
     expect(result.thread.sendMessageUnavailableReason).toBe('THREAD_READ_ONLY');
     expect(result.thread.canReport).toBe(true);
+  });
+
+  it('thread detail은 lifecycle sync 결과 ARCHIVED가 된 thread를 not found로 숨긴다', async () => {
+    prisma.conversationThread.findFirst.mockResolvedValue(
+      makeThread({
+        status: 'READ_ONLY',
+        closedReason: 'SEASON_ENDED',
+        messages: [
+          {
+            id: 'message-1',
+            body: '지난 시즌 메시지',
+            sentAt: new Date('2026-02-10T03:00:00.000Z'),
+            senderParticipant: { userId: 'user-1' },
+          },
+        ],
+      }),
+    );
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-2' },
+      state: 'SEASON_OPEN',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2027-01-11' },
+      ],
+      schedule: {
+        preparationStart: '2027-01-01',
+        matchingStart: '2027-01-05',
+        matchingEnd: '2027-01-11',
+        seasonEnd: '2027-01-28',
+      },
+    });
+    prisma.conversationThread.update.mockResolvedValue(
+      makeThread({
+        status: 'ARCHIVED',
+        closedReason: 'SEASON_ENDED',
+        closedAt: new Date('2026-02-10T03:00:00.000Z'),
+        messages: [],
+      }),
+    );
+
+    await expect(
+      service.getThreadDetail(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'thread-1',
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.threadNotFound().getResponse(),
+    });
   });
 
   it('READ_ONLY thread에 메시지를 보내려 하면 거부된다', async () => {
