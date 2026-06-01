@@ -37,6 +37,7 @@ describe('ChatController', () => {
     getThreadDetail: jest.fn(),
     leaveThread: jest.fn(),
     updateReadMarker: jest.fn(),
+    replayRealtimeEvents: jest.fn(),
     sendMessage: jest.fn(),
   };
 
@@ -156,5 +157,38 @@ describe('ChatController', () => {
     expect(chatService.updateReadMarker).toHaveBeenCalledWith(authUser, 'thread-1', {
       lastReadMessageId: 'message-1',
     });
+  });
+
+  it('replay 요청은 after cursor와 limit을 service로 전달한다', async () => {
+    chatService.replayRealtimeEvents.mockResolvedValueOnce({
+      ok: true,
+      events: [],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    await expect(
+      controller.replayRealtimeEvents(authUser as never, ' cursor-1 ', '25'),
+    ).resolves.toEqual({
+      ok: true,
+      events: [],
+      nextCursor: null,
+      hasMore: false,
+    });
+
+    expect(chatService.replayRealtimeEvents).toHaveBeenCalledWith(authUser, {
+      after: 'cursor-1',
+      limit: 25,
+    });
+  });
+
+  it('replay limit이 허용 범위를 벗어나면 bad request로 거절한다', async () => {
+    const response = await expectBadRequest(() =>
+      controller.replayRealtimeEvents(authUser as never, undefined, '101'),
+    );
+
+    expect(response.code).toBe('INVALID_QUERY');
+    expect(response.fieldErrors?.limit).toEqual(expect.arrayContaining([expect.any(String)]));
+    expect(chatService.replayRealtimeEvents).not.toHaveBeenCalled();
   });
 });

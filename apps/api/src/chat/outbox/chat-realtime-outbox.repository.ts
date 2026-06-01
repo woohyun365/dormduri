@@ -4,6 +4,10 @@ type RawQueryable = {
   $queryRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
 };
 
+type RawExecutable = {
+  $executeRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
+};
+
 export type ClaimedChatRealtimeOutboxEvent = {
   id: string;
   eventType: string;
@@ -57,5 +61,19 @@ export class ChatRealtimeOutboxRepository {
         event."availableAt",
         event."publishAttempts"
     `);
+  }
+
+  async pruneExpired(
+    prisma: RawExecutable,
+    input: { now: Date; replayWindowDays?: number },
+  ): Promise<number> {
+    const replayWindowDays = input.replayWindowDays ?? 7;
+    const cutoff = new Date(input.now.getTime() - replayWindowDays * 24 * 60 * 60 * 1000);
+    const deletedCount = await prisma.$executeRaw<number>(Prisma.sql`
+      DELETE FROM "ChatRealtimeOutboxEvent"
+      WHERE "occurredAt" < ${cutoff}
+    `);
+
+    return Number(deletedCount);
   }
 }

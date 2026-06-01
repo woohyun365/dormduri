@@ -469,6 +469,65 @@ describe('ChatService integration', () => {
     expect(claimedIds).toEqual(expect.arrayContaining(['claim-event-1', 'claim-event-2']));
   });
 
+  it('outbox prune은 7일 replay window 밖 event와 recipient를 삭제한다', async () => {
+    const Repository = await loadChatRealtimeOutboxRepository();
+    const repository = new Repository();
+    const pruneExpired = getMethod<(...args: unknown[]) => Promise<unknown>>(
+      repository,
+      'pruneExpired',
+    );
+    const now = new Date('2026-02-10T03:00:00.000Z');
+    const expiredAt = new Date('2026-02-01T02:59:59.000Z');
+    const freshAt = new Date('2026-02-04T03:00:00.000Z');
+
+    await prisma.$executeRaw`
+      INSERT INTO "ChatRealtimeOutboxEvent" (
+        "id", "eventType", "schemaVersion", "threadId", "aggregateType", "aggregateId",
+        "aggregateVersion", "payload", "roomKeys", "occurredAt", "availableAt",
+        "publishAttempts", "createdAt", "updatedAt"
+      )
+      VALUES
+        (
+          ${'prune-event-expired'}, ${'chat.message.created'}, ${1}, ${'thread-prune'},
+          ${'conversation.message'}, ${'prune-message-expired'}, ${1},
+          ${JSON.stringify({ messageId: 'prune-message-expired' })}::jsonb,
+          ARRAY[${'user:user-a'}], ${expiredAt}, ${expiredAt}, ${0}, ${expiredAt}, ${expiredAt}
+        ),
+        (
+          ${'prune-event-fresh'}, ${'chat.message.created'}, ${1}, ${'thread-prune'},
+          ${'conversation.message'}, ${'prune-message-fresh'}, ${1},
+          ${JSON.stringify({ messageId: 'prune-message-fresh' })}::jsonb,
+          ARRAY[${'user:user-a'}], ${freshAt}, ${freshAt}, ${0}, ${freshAt}, ${freshAt}
+        )
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO "ChatRealtimeEventRecipient" (
+        "eventId", "userId", "threadId", "cursor", "createdAt"
+      )
+      VALUES
+        (${'prune-event-expired'}, ${'user-a'}, ${'thread-prune'}, ${'cursor-prune-expired'}, ${expiredAt}),
+        (${'prune-event-fresh'}, ${'user-a'}, ${'thread-prune'}, ${'cursor-prune-fresh'}, ${freshAt})
+    `;
+
+    await expect(pruneExpired.call(repository, prisma, { now, replayWindowDays: 7 })).resolves.toBe(
+      1,
+    );
+
+    const [remainingEvents] = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM "ChatRealtimeOutboxEvent"
+      WHERE "id" IN (${'prune-event-expired'}, ${'prune-event-fresh'})
+    `;
+    expect(remainingEvents?.count).toBe(1);
+
+    const [expiredRecipients] = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM "ChatRealtimeEventRecipient"
+      WHERE "eventId" = ${'prune-event-expired'}
+    `;
+    expect(expiredRecipients?.count).toBe(0);
+  });
+
   it('replay service는 user별 recipient cursor만 순서대로 반환하고 만료 cursor는 resync로 수렴한다', async () => {
     const ReplayService = await loadChatRealtimeReplayService();
     const replayService = new ReplayService({ replayWindowDays: 7 });

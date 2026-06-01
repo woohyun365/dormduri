@@ -3,6 +3,7 @@ import type {
   ConversationThreadDetailResponse,
   ConversationThreadEntryResponse,
   ConversationThreadListResponse,
+  ChatRealtimeReplayResponse,
   LeaveConversationThreadResponse,
   SendConversationMessageRequest,
   SendConversationMessageResponse,
@@ -21,6 +22,11 @@ import { createChatLifecycleOwner } from './chat-lifecycle-owner.js';
 import { createChatMatchEventOwner } from './chat-match-event-owner.js';
 import { createChatQueryOwner } from './chat-query-owner.js';
 import { createChatThreadSupportOwner } from './chat-thread-support.js';
+import { ChatRealtimeReplayService } from './outbox/chat-realtime-replay.service.js';
+import {
+  type ChatRealtimeEventType,
+  toChatRealtimeEventEnvelope,
+} from './realtime/chat-realtime-event.mapper.js';
 import {
   acquireConversationThreadLeaveLock,
   acquireConversationThreadPairLock,
@@ -111,6 +117,10 @@ export class ChatService {
         this.threadSupportOwner.findThreadRoomSelectionDate(thread),
       formatKstDate,
     });
+  }
+
+  private get realtimeReplayService() {
+    return new ChatRealtimeReplayService({ replayWindowDays: 7 });
   }
 
   async getThreadEntry(
@@ -258,6 +268,56 @@ export class ChatService {
     input: UpdateChatReadMarkerRequest,
   ) {
     return this.commandCluster.updateReadMarker(authUser, threadId, input);
+  }
+
+  async replayRealtimeEvents(
+    authUser: AuthenticatedUserContext,
+    input: { after?: string | null; limit?: number | null },
+  ): Promise<ChatRealtimeReplayResponse> {
+    const now = await this.prisma.getDatabaseNow();
+    const replayResult = await this.realtimeReplayService.getReplayEvents(this.prisma, {
+      userId: authUser.id,
+      after: input.after ?? null,
+      limit: input.limit ?? 100,
+      now,
+    });
+
+    if (replayResult.status === 'resync_required') {
+      return {
+        ok: false,
+        reason: replayResult.reason,
+        resyncRequired: true,
+      };
+    }
+
+    try {
+      return {
+        ok: true,
+        events: replayResult.events.map((event) => {
+          if (event.schemaVersion !== 1) {
+            throw new Error('[chat-service] unsupported realtime event schema version');
+          }
+
+          return toChatRealtimeEventEnvelope({
+            schemaVersion: 1,
+            eventId: event.eventId,
+            eventType: event.eventType as ChatRealtimeEventType,
+            occurredAt: new Date(event.occurredAt),
+            cursor: event.cursor,
+            threadId: event.threadId,
+            payload: event.payload,
+          });
+        }),
+        nextCursor: replayResult.nextCursor,
+        hasMore: replayResult.hasMore,
+      };
+    } catch {
+      return {
+        ok: false,
+        reason: 'SCHEMA_UNSUPPORTED',
+        resyncRequired: true,
+      };
+    }
   }
 
   async handleActiveMatchCreated(

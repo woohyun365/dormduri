@@ -17,6 +17,7 @@ import type { ChatParticipantUserProjection, ThreadRecord } from './chat-selects
 import { threadSelect } from './chat-selects.js';
 import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
 import type { ChatSendMessageDecision } from './chat-thread-support.js';
+import { ChatRealtimeOutboxService } from './outbox/chat-realtime-outbox.service.js';
 
 type ConversationMessageResponseRecord = {
   id: string;
@@ -43,6 +44,7 @@ type MessageOrderRecord = {
 };
 
 const MAX_MESSAGE_BODY_LENGTH = 1000;
+const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
 function assertValidSendMessageInput(input: SendConversationMessageRequest) {
   if (typeof input.clientMessageId !== 'string' || input.clientMessageId.trim().length === 0) {
@@ -61,12 +63,8 @@ function compareMessageOrder(left: MessageOrderRecord, right: MessageOrderRecord
   return left.id.localeCompare(right.id);
 }
 
-function createChatRealtimeCursor(eventId: string, userId: string) {
-  return `${eventId}:${userId}`;
-}
-
-function createUserRoomKey(userId: string) {
-  return `user:${userId}`;
+function getThreadRecipientUserIds(thread: ThreadRecord) {
+  return [thread.participantA.userId, thread.participantB.userId];
 }
 
 interface ChatCommandClusterDeps {
@@ -345,6 +343,13 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
             },
             select: threadSelect,
           });
+          await chatRealtimeOutbox.appendThreadUpdated(tx, {
+            threadId: thread.id,
+            status: thread.status,
+            closedReason: thread.closedReason,
+            recipientUserIds: [txViewerUser.id, txTargetUser.id],
+            occurredAt: now,
+          });
         }
 
         await tx.conversationThreadMember.updateMany({
@@ -442,41 +447,19 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           select: threadSelect,
         });
 
-        const outboxEvent = await tx.chatRealtimeOutboxEvent.create({
-          data: {
-            eventType: 'chat.message.created',
-            schemaVersion: 1,
-            threadId: thread.id,
-            aggregateType: 'conversation.message',
-            aggregateId: message.id,
-            aggregateVersion: 1,
-            payload: {
-              message: {
-                id: message.id,
-                senderUserId: message.senderParticipant.userId,
-                body: message.body,
-                bodyState: message.bodyState,
-                tombstoneReason: message.tombstoneReason,
-                bodyVersion: message.bodyVersion,
-                sentAt: message.sentAt.toISOString(),
-              },
-            },
-            roomKeys: [createUserRoomKey(txViewerUser.id), createUserRoomKey(txTargetUser.id)],
-            occurredAt: message.sentAt,
-            availableAt: now,
+        await chatRealtimeOutbox.appendMessageCreated(tx, {
+          threadId: thread.id,
+          actorUserId: txViewerUser.id,
+          message: {
+            id: message.id,
+            body: message.body,
+            senderUserId: message.senderParticipant.userId,
+            bodyState: message.bodyState,
+            tombstoneReason: message.tombstoneReason,
+            bodyVersion: message.bodyVersion,
+            sentAt: message.sentAt,
           },
-          select: { id: true },
-        });
-
-        await tx.chatRealtimeEventRecipient.createMany({
-          data: [txViewerUser.id, txTargetUser.id].map((userId) => ({
-            eventId: outboxEvent.id,
-            userId,
-            threadId: thread.id,
-            cursor: createChatRealtimeCursor(outboxEvent.id, userId),
-            createdAt: now,
-          })),
-          skipDuplicates: true,
+          recipientUserIds: [txViewerUser.id, txTargetUser.id],
         });
 
         return {
@@ -568,6 +551,13 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           },
         });
 
+        await chatRealtimeOutbox.appendReadMarkerUpdated(tx, {
+          threadId: thread.id,
+          lastReadMessageId: targetMessage.id,
+          recipientUserIds: [authUser.id],
+          occurredAt: now,
+        });
+
         return {
           threadId: thread.id,
           lastReadMessageId: targetMessage.id,
@@ -605,6 +595,14 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           },
         });
 
+        await chatRealtimeOutbox.appendMemberLeft(tx, {
+          threadId: thread.id,
+          participantId: viewerParticipantId,
+          userId: authUser.id,
+          leftAt: now,
+          recipientUserIds: getThreadRecipientUserIds(thread),
+        });
+
         const remainingActiveMembers = await tx.conversationThreadMember.count({
           where: {
             threadId: thread.id,
@@ -619,6 +617,12 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
               status: 'ARCHIVED',
               closedAt: thread.closedAt ?? now,
             },
+          });
+          await chatRealtimeOutbox.appendThreadArchived(tx, {
+            threadId: thread.id,
+            closedAt: thread.closedAt ?? now,
+            closedReason: thread.closedReason,
+            recipientUserIds: getThreadRecipientUserIds(thread),
           });
           return { threadId: thread.id, archived: true };
         }

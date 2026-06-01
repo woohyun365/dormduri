@@ -1,4 +1,5 @@
 import { Prisma } from '../../generated/prisma/client.js';
+import { isChatRealtimePayloadPrivacySafe } from '../realtime/chat-realtime-event.mapper.js';
 
 type RawQueryable = {
   $queryRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
@@ -38,7 +39,7 @@ type ReplayOk = {
 
 type ReplayResyncRequired = {
   status: 'resync_required';
-  reason: 'CURSOR_EXPIRED' | 'CURSOR_INVALID';
+  reason: 'CURSOR_EXPIRED' | 'CURSOR_INVALID' | 'PRIVACY_GUARD';
 };
 
 export class ChatRealtimeReplayService {
@@ -97,6 +98,10 @@ export class ChatRealtimeReplayService {
     `);
 
     const page = rows.slice(0, safeLimit);
+    if (page.some((row) => !isChatRealtimePayloadPrivacySafe(row.payload))) {
+      return { status: 'resync_required', reason: 'PRIVACY_GUARD' };
+    }
+
     const nextCursor = page.at(-1)?.cursor ?? input.after ?? null;
 
     return {

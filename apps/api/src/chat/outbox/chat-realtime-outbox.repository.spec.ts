@@ -5,6 +5,7 @@ type ChatRealtimeOutboxRepositoryModule = {
 };
 
 type RawQueryMock = jest.Mock<Promise<unknown[]>, unknown[]>;
+type RawExecuteMock = jest.Mock<Promise<number>, unknown[]>;
 
 async function loadOutboxRepositoryModule(): Promise<ChatRealtimeOutboxRepositoryModule> {
   const modulePath = './chat-realtime-outbox.repository.js';
@@ -73,5 +74,33 @@ describe('ChatRealtimeOutboxRepository red contract', () => {
     expect(sqlText).toMatch(/ORDER\s+BY[\s\S]*"availableAt"[\s\S]*"occurredAt"[\s\S]*"id"/i);
     expect(sqlText).toMatch(/FOR\s+UPDATE\s+SKIP\s+LOCKED/i);
     expect(sqlText).toMatch(/RETURNING/i);
+  });
+
+  it('pruneExpired는 7일 replay window 밖 outbox event를 삭제해 recipient도 cascade 되게 한다', async () => {
+    const { ChatRealtimeOutboxRepository } = await loadOutboxRepositoryModule();
+    expect(ChatRealtimeOutboxRepository).toEqual(expect.any(Function));
+
+    if (!ChatRealtimeOutboxRepository) {
+      throw new Error('ChatRealtimeOutboxRepository export is required');
+    }
+
+    const repository = new ChatRealtimeOutboxRepository();
+    const pruneExpired = getMethod<(...args: unknown[]) => Promise<unknown>>(
+      repository,
+      'pruneExpired',
+    );
+    const executeRaw = jest.fn().mockResolvedValue(3) as RawExecuteMock;
+    const prisma = { $executeRaw: executeRaw };
+
+    await expect(
+      pruneExpired.call(repository, prisma, {
+        now: new Date('2026-02-10T03:00:00.000Z'),
+        replayWindowDays: 7,
+      }),
+    ).resolves.toBe(3);
+
+    const sqlText = sqlTextFromCall(executeRaw.mock.calls[0] ?? []);
+    expect(sqlText).toMatch(/DELETE\s+FROM\s+"ChatRealtimeOutboxEvent"/i);
+    expect(sqlText).toMatch(/"occurredAt"\s+</i);
   });
 });

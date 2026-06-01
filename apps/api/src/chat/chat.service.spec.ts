@@ -181,6 +181,7 @@ function makeSendMessageInput(
 }
 
 describe('ChatService', () => {
+  const prismaQueryRaw = jest.fn();
   const txQueryRawTyped = jest.fn();
   const txUserFindUnique = jest.fn();
   const txConversationThreadFindFirst = jest.fn();
@@ -200,6 +201,7 @@ describe('ChatService', () => {
   const txActiveMatchFindFirst = jest.fn();
 
   const prisma = {
+    $queryRaw: prismaQueryRaw,
     getDatabaseNow: jest.fn(),
     runSerializableTransaction: jest.fn(),
     user: {
@@ -962,6 +964,22 @@ describe('ChatService', () => {
       lastReadMessageId: 'message-new',
       lastReadAt: '2026-02-10T03:00:00.000Z',
     });
+    const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<
+      [{ data?: { eventType?: string; payload?: Record<string, unknown> } }]
+    >;
+    expect(outboxCreateCalls.at(-1)?.[0].data).toMatchObject({
+      eventType: 'chat.read_marker.updated',
+      payload: {
+        threadId: 'thread-1',
+        lastReadMessageId: 'message-new',
+      },
+    });
+    const recipientCreateCalls = txChatRealtimeEventRecipientCreateMany.mock.calls as Array<
+      [{ data?: Array<{ userId?: string }> }]
+    >;
+    expect(recipientCreateCalls.at(-1)?.[0].data).toEqual([
+      expect.objectContaining({ userId: 'user-1' }),
+    ]);
   });
 
   it('read marker는 뒤로 이동할 수 없다', async () => {
@@ -1004,6 +1022,83 @@ describe('ChatService', () => {
       ),
     ).rejects.toMatchObject({
       response: { code: 'CHAT_READ_MARKER_CANNOT_MOVE_BACKWARD' },
+    });
+  });
+
+  it('replayRealtimeEvents는 authenticated user recipient event만 계약 envelope로 반환한다', async () => {
+    prismaQueryRaw.mockResolvedValueOnce([
+      {
+        eventId: 'event-1',
+        cursor: 'event-1:user-1',
+        eventType: 'chat.read_marker.updated',
+        schemaVersion: 1,
+        threadId: 'thread-1',
+        payload: {
+          threadId: 'thread-1',
+          lastReadMessageId: 'message-1',
+        },
+        occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+        recipientCreatedAt: new Date('2026-02-10T03:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      service.replayRealtimeEvents(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { after: null, limit: 10 },
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      events: [
+        {
+          schemaVersion: 1,
+          eventId: 'event-1',
+          eventType: 'chat.read_marker.updated',
+          occurredAt: '2026-02-10T03:00:00.000Z',
+          cursor: 'event-1:user-1',
+          threadId: 'thread-1',
+          payload: {
+            threadId: 'thread-1',
+            lastReadMessageId: 'message-1',
+          },
+        },
+      ],
+      nextCursor: 'event-1:user-1',
+      hasMore: false,
+    });
+  });
+
+  it('replayRealtimeEvents는 지원하지 않는 schema/event type이면 resync required로 수렴한다', async () => {
+    prismaQueryRaw.mockResolvedValueOnce([
+      {
+        eventId: 'event-unsupported',
+        cursor: 'event-unsupported:user-1',
+        eventType: 'chat.unknown',
+        schemaVersion: 1,
+        threadId: 'thread-1',
+        payload: {},
+        occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+        recipientCreatedAt: new Date('2026-02-10T03:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      service.replayRealtimeEvents(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { after: null, limit: 10 },
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'SCHEMA_UNSUPPORTED',
+      resyncRequired: true,
     });
   });
 
@@ -1077,6 +1172,16 @@ describe('ChatService', () => {
         threadKind: 'MATCHED',
         activeMatchId: 'active-1',
       },
+    });
+    const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<
+      [{ data?: { eventType?: string; payload?: Record<string, unknown> } }]
+    >;
+    expect(outboxCreateCalls.map((call) => call[0].data?.eventType)).toEqual(
+      expect.arrayContaining(['chat.thread.updated', 'chat.message.created']),
+    );
+    expect(outboxCreateCalls[0]?.[0].data?.payload).toMatchObject({
+      threadId: 'thread-1',
+      status: 'OPEN',
     });
     expectMessageCreateClientMessageId('client-message-active-match-upgrade');
     expect(result.thread.threadKind).toBe('MATCHED');
@@ -1152,6 +1257,50 @@ describe('ChatService', () => {
         closedAt: null,
       },
     });
+  });
+
+  it('UNMATCHED thread downgrade는 thread updated outbox event를 남긴다', async () => {
+    txConversationThreadFindFirst.mockResolvedValue(
+      makeVisibleThread({ threadKind: 'MATCHED', status: 'OPEN' }),
+    );
+    txConversationThreadUpdate.mockResolvedValue(
+      makeThread({ threadKind: 'DIRECT', activeMatchId: null, status: 'OPEN' }),
+    );
+
+    await service.handleActiveMatchUnmatched(
+      {
+        conversationThread: {
+          findFirst: txConversationThreadFindFirst,
+          update: txConversationThreadUpdate,
+        },
+        chatRealtimeOutboxEvent: {
+          create: txChatRealtimeOutboxEventCreate,
+        },
+        chatRealtimeEventRecipient: {
+          createMany: txChatRealtimeEventRecipientCreateMany,
+        },
+      } as never,
+      { activeMatchId: 'active-1' },
+      new Date('2026-02-10T03:00:00.000Z'),
+    );
+
+    const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<
+      [{ data?: { eventType?: string; payload?: Record<string, unknown> } }]
+    >;
+    expect(outboxCreateCalls[0]?.[0].data).toMatchObject({
+      eventType: 'chat.thread.updated',
+      payload: {
+        threadId: 'thread-1',
+        status: 'OPEN',
+        closedReason: null,
+      },
+    });
+    const recipientCreateCalls = txChatRealtimeEventRecipientCreateMany.mock.calls as Array<
+      [{ data?: Array<{ userId?: string }> }]
+    >;
+    expect(recipientCreateCalls[0]?.[0].data?.map((row) => row.userId)).toEqual(
+      expect.arrayContaining(['user-1', 'user-2']),
+    );
   });
 
   it('비매칭 thread는 roomSelectionDate 이후 read-only가 된다', async () => {
@@ -1552,6 +1701,17 @@ describe('ChatService', () => {
           leftAt: new Date('2026-02-10T03:00:00.000Z'),
         },
       });
+      const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<
+        [{ data?: { eventType?: string; payload?: Record<string, unknown> } }]
+      >;
+      expect(outboxCreateCalls.at(-1)?.[0].data).toMatchObject({
+        eventType: 'chat.member.left',
+        payload: {
+          threadId: 'thread-1',
+          participantId: 'participant-1',
+          userId: 'user-1',
+        },
+      });
     },
   );
 
@@ -1776,6 +1936,12 @@ describe('ChatService', () => {
         where: { id: 'thread-1' },
         data: { status: 'ARCHIVED' },
       });
+      const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<
+        [{ data?: { eventType?: string } }]
+      >;
+      expect(outboxCreateCalls.map((call) => call[0].data?.eventType)).toEqual(
+        expect.arrayContaining(['chat.member.left', 'chat.thread.archived']),
+      );
     },
   );
 });

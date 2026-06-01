@@ -832,6 +832,30 @@ describe('RetainedIdentity integration', () => {
         },
       },
     });
+    await prisma.$executeRaw`
+      INSERT INTO "ChatRealtimeOutboxEvent" (
+        "id", "eventType", "schemaVersion", "threadId", "aggregateType", "aggregateId",
+        "aggregateVersion", "payload", "roomKeys", "occurredAt", "availableAt",
+        "publishAttempts", "createdAt", "updatedAt"
+      )
+      VALUES
+        (
+          ${'stale-message-created-1'}, ${'chat.message.created'}, ${1}, ${'thread-a-b-retention'},
+          ${'conversation.message'}, ${'message-retention-1'}, ${1},
+          ${JSON.stringify({ message: { id: 'message-retention-1', body: '원문 메시지 1' } })}::jsonb,
+          ARRAY[${'user:user-a'}, ${'user:user-b'}],
+          ${new Date('2026-05-01T01:00:00.000Z')}, ${new Date('2026-05-01T01:00:00.000Z')},
+          ${0}, ${new Date('2026-05-01T01:00:00.000Z')}, ${new Date('2026-05-01T01:00:00.000Z')}
+        ),
+        (
+          ${'stale-message-created-2'}, ${'chat.message.created'}, ${1}, ${'thread-a-b-retention'},
+          ${'conversation.message'}, ${'message-retention-2'}, ${1},
+          ${JSON.stringify({ message: { id: 'message-retention-2', body: '원문 메시지 2' } })}::jsonb,
+          ARRAY[${'user:user-a'}, ${'user:user-b'}],
+          ${new Date('2026-05-01T01:01:00.000Z')}, ${new Date('2026-05-01T01:01:00.000Z')},
+          ${0}, ${new Date('2026-05-01T01:01:00.000Z')}, ${new Date('2026-05-01T01:01:00.000Z')}
+        )
+    `;
 
     await prisma.runSerializableTransaction((tx) =>
       createDeletionArchiveJobsTx(tx, {
@@ -1069,6 +1093,15 @@ describe('RetainedIdentity integration', () => {
     expect(tombstoneOutboxRecipients.map((row) => row.userId)).toEqual(
       expect.arrayContaining(['user-a', 'user-b']),
     );
+
+    const [staleMessageCreatedCount] = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM "ChatRealtimeOutboxEvent"
+      WHERE "threadId" = ${'thread-a-b-retention'}
+        AND "eventType" = ${'chat.message.created'}
+        AND "aggregateId" IN (${'message-retention-1'}, ${'message-retention-2'})
+    `;
+    expect(staleMessageCreatedCount?.count).toBe(0);
 
     const retainedBodies = await prisma.retainedVaultObject.findMany({
       where: { target: 'CHAT_MESSAGE_BODY', sourceTable: 'ConversationMessage' },

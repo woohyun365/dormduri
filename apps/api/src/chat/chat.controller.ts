@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import type { LeaveConversationThreadResponse } from '@repo/shared/chat-contract';
 import {
   sendConversationMessageRequestSchema,
@@ -9,6 +18,24 @@ import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
 import { ChatService } from './chat.service.js';
+
+function parseReplayLimit(rawLimit: string | undefined): number {
+  if (rawLimit === undefined) {
+    return 100;
+  }
+
+  const limit = Number(rawLimit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new BadRequestException({
+      code: 'INVALID_QUERY',
+      fieldErrors: {
+        limit: ['limit must be an integer between 1 and 100'],
+      },
+    });
+  }
+
+  return limit;
+}
 
 @Controller('api/chat')
 @UseGuards(AuthenticatedUserGuard)
@@ -34,6 +61,18 @@ export class ChatController {
     @Param('threadId') threadId: string,
   ) {
     return this.chatService.getThreadDetail(authUser, threadId);
+  }
+
+  @Get('realtime/replay')
+  async replayRealtimeEvents(
+    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @Query('after') after?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.chatService.replayRealtimeEvents(authUser, {
+      after: after && after.trim().length > 0 ? after.trim() : null,
+      limit: parseReplayLimit(limit),
+    });
   }
 
   @Post('threads/:threadId/leave')

@@ -154,4 +154,110 @@ describe('ChatRealtimeOutboxService red contract', () => {
     expect(outboxCalls[0]?.[0].data?.eventType).toBe('chat.message.tombstoned');
     expect(outboxCalls[0]?.[0].data?.payload).not.toHaveProperty('retainedOriginalBody');
   });
+
+  it('read marker/member/thread event도 allowlist payload와 recipient cursor를 생성한다', async () => {
+    const { ChatRealtimeOutboxService } = await loadOutboxModule();
+    expect(ChatRealtimeOutboxService).toEqual(expect.any(Function));
+
+    if (!ChatRealtimeOutboxService) {
+      throw new Error('ChatRealtimeOutboxService export is required');
+    }
+
+    const service = new ChatRealtimeOutboxService({});
+    const appendReadMarkerUpdated = getMethod<(...args: unknown[]) => Promise<unknown>>(
+      service,
+      'appendReadMarkerUpdated',
+    );
+    const appendMemberLeft = getMethod<(...args: unknown[]) => Promise<unknown>>(
+      service,
+      'appendMemberLeft',
+    );
+    const appendThreadArchived = getMethod<(...args: unknown[]) => Promise<unknown>>(
+      service,
+      'appendThreadArchived',
+    );
+    const createOutboxEvent = jest
+      .fn()
+      .mockResolvedValueOnce({ id: 'event-read' })
+      .mockResolvedValueOnce({ id: 'event-left' })
+      .mockResolvedValueOnce({ id: 'event-archive' });
+    const createRecipients = jest.fn().mockResolvedValue({ count: 1 });
+    const tx = {
+      chatRealtimeOutboxEvent: { create: createOutboxEvent },
+      chatRealtimeEventRecipient: { createMany: createRecipients },
+    };
+
+    await appendReadMarkerUpdated.call(service, tx, {
+      threadId: 'thread-1',
+      lastReadMessageId: 'message-1',
+      recipientUserIds: ['user-1'],
+      occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+    });
+    await appendMemberLeft.call(service, tx, {
+      threadId: 'thread-1',
+      participantId: 'participant-1',
+      userId: 'user-1',
+      leftAt: new Date('2026-02-10T03:01:00.000Z'),
+      recipientUserIds: ['user-1', 'user-2'],
+    });
+    await appendThreadArchived.call(service, tx, {
+      threadId: 'thread-1',
+      closedAt: new Date('2026-02-10T03:02:00.000Z'),
+      closedReason: null,
+      recipientUserIds: ['user-1', 'user-2'],
+    });
+
+    const outboxCalls = createOutboxEvent.mock.calls as Array<[OutboxEventCreateArgs]>;
+    expect(outboxCalls.map((call) => call[0].data?.eventType)).toEqual([
+      'chat.read_marker.updated',
+      'chat.member.left',
+      'chat.thread.archived',
+    ]);
+    expect(outboxCalls[0]?.[0].data?.payload).toEqual({
+      threadId: 'thread-1',
+      lastReadMessageId: 'message-1',
+    });
+
+    const recipientCalls = createRecipients.mock.calls as Array<[RecipientCreateManyArgs]>;
+    expect(recipientCalls[1]?.[0].data?.map((row) => row.userId)).toEqual(
+      expect.arrayContaining(['user-1', 'user-2']),
+    );
+  });
+
+  it('append 과정에서 outbox payload를 일반 로그로 출력하지 않는다', async () => {
+    const { ChatRealtimeOutboxService } = await loadOutboxModule();
+    expect(ChatRealtimeOutboxService).toEqual(expect.any(Function));
+
+    if (!ChatRealtimeOutboxService) {
+      throw new Error('ChatRealtimeOutboxService export is required');
+    }
+
+    const service = new ChatRealtimeOutboxService({});
+    const appendMessageCreated = getMethod<(...args: unknown[]) => Promise<unknown>>(
+      service,
+      'appendMessageCreated',
+    );
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    const tx = {
+      chatRealtimeOutboxEvent: { create: jest.fn().mockResolvedValue({ id: 'event-log' }) },
+      chatRealtimeEventRecipient: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    };
+
+    try {
+      await appendMessageCreated.call(service, tx, {
+        threadId: 'thread-1',
+        actorUserId: 'user-1',
+        message: {
+          id: 'message-1',
+          body: '로그에 노출되면 안 되는 본문',
+          senderUserId: 'user-1',
+          sentAt: new Date('2026-02-10T03:00:00.000Z'),
+        },
+        recipientUserIds: ['user-1'],
+      });
+      expect(consoleLogSpy).not.toHaveBeenCalled();
+    } finally {
+      consoleLogSpy.mockRestore();
+    }
+  });
 });
