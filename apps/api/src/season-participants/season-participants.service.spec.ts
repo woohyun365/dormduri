@@ -3,7 +3,9 @@ import { SeasonParticipantsService } from './season-participants.service.js';
 import { currentProfile, participant } from './season-participants.owner.spec-fixtures.js';
 
 describe('SeasonParticipantsService facade', () => {
-  const service = new SeasonParticipantsService({} as never, {} as never, {} as never);
+  const service = new SeasonParticipantsService({} as never, {} as never, {} as never, {
+    markOpenDirectThreadsReadOnlyForWithdrawnParticipant: jest.fn(),
+  });
 
   it('profile completeness pure helper를 facade로 유지한다', () => {
     expect(service.validateSeasonProfileCompleteness(currentProfile()).complete).toBe(true);

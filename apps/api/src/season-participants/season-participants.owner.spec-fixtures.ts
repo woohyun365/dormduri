@@ -204,7 +204,6 @@ export function createSeasonParticipantsServiceTestKit() {
     },
     seasonParticipantProfileHistory: { create: txSeasonParticipantProfileHistoryCreate },
     matchRequest: { updateMany: jest.fn() },
-    conversationThread: { updateMany: jest.fn() },
   };
   const prisma = {
     getDatabaseNow: jest.fn(),
@@ -224,10 +223,16 @@ export function createSeasonParticipantsServiceTestKit() {
     listSelectableDormitoriesForSeasonParticipant: jest.fn(),
     validateSelectableDormitoryForSeasonParticipant: jest.fn(),
   };
+  const chatThreadWithdrawal = {
+    markOpenDirectThreadsReadOnlyForWithdrawnParticipant: jest
+      .fn()
+      .mockResolvedValue({ updatedThreadIds: [] }),
+  };
   const service = new SeasonParticipantsService(
     prisma as never,
     seasonsService as never,
     dormitoriesService as never,
+    chatThreadWithdrawal,
   );
 
   prisma.getDatabaseNow.mockResolvedValue(now);
@@ -287,6 +292,7 @@ export function createSeasonParticipantsServiceTestKit() {
     prisma,
     seasonsService,
     dormitoriesService,
+    chatThreadWithdrawal,
     tx,
     txCampusMasterFindUnique,
     txSeasonFindMany,

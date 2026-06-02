@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Server } from 'socket.io';
+import type { RealtimeUserRoomPublisherPort } from '../../realtime/realtime.tokens.js';
 import type {
   ChatRealtimeOutboxRecipient,
   ClaimedChatRealtimeOutboxEvent,
@@ -19,7 +20,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 @Injectable()
-export class ChatRealtimePublisher {
+export class ChatRealtimePublisher implements RealtimeUserRoomPublisherPort {
   private server: Server | null = null;
 
   bindServer(server: Server) {

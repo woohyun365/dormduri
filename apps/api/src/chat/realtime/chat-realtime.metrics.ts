@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import type { ChatRealtimeReplayFailureReason } from '@repo/shared/chat-contract';
+import type {
+  RealtimeDispatchMetricsPort,
+  RealtimeDispatcherName,
+  RealtimeDispatcherSkippedReason,
+  RealtimeMetricsReaderPort,
+} from '../../realtime/realtime.tokens.js';
 import type { ChatRealtimeRateLimitScope } from './chat-realtime-rate-limiter.service.js';
 
 export type ChatRealtimeAuthFailureReason = 'ticket_invalid';
 export type ChatRealtimeSubscribeRejectionReason = 'INVALID_REQUEST' | 'UNAUTHORIZED_THREAD';
-export type ChatRealtimeDispatcherName = 'chat' | 'notification';
-export type ChatRealtimeDispatcherSkippedReason = 'PUBLISHER_UNBOUND';
 
 type DispatcherMetrics = {
   totalClaimed: number;
@@ -15,7 +19,7 @@ type DispatcherMetrics = {
   lastClaimedCount: number;
   lastPublishedCount: number;
   lastFailedCount: number;
-  lastSkippedReason: ChatRealtimeDispatcherSkippedReason | null;
+  lastSkippedReason: RealtimeDispatcherSkippedReason | null;
   lastRunAt: string | null;
   lastFailureAt: string | null;
   oldestClaimedOutboxLagSeconds: number;
@@ -46,12 +50,14 @@ function createDispatcherMetrics(): DispatcherMetrics {
 }
 
 @Injectable()
-export class ChatRealtimeMetricsService {
+export class ChatRealtimeMetricsService
+  implements RealtimeDispatchMetricsPort, RealtimeMetricsReaderPort
+{
   private connectedSockets = 0;
   private totalConnections = 0;
   private publishFailures = 0;
   private oldestClaimedOutboxLagSeconds = 0;
-  private readonly dispatcherMetrics: Record<ChatRealtimeDispatcherName, DispatcherMetrics> = {
+  private readonly dispatcherMetrics: Record<RealtimeDispatcherName, DispatcherMetrics> = {
     chat: createDispatcherMetrics(),
     notification: createDispatcherMetrics(),
   };
@@ -76,7 +82,7 @@ export class ChatRealtimeMetricsService {
     this.connectedSockets = Math.max(0, this.connectedSockets - 1);
   }
 
-  recordPublishFailure(dispatcher: ChatRealtimeDispatcherName = 'chat') {
+  recordPublishFailure(dispatcher: RealtimeDispatcherName = 'chat') {
     this.publishFailures += 1;
     this.dispatcherMetrics[dispatcher].lastFailureAt = new Date().toISOString();
   }
@@ -104,8 +110,8 @@ export class ChatRealtimeMetricsService {
   }
 
   recordDispatcherSkipped(input: {
-    dispatcher: ChatRealtimeDispatcherName;
-    skippedReason: ChatRealtimeDispatcherSkippedReason;
+    dispatcher: RealtimeDispatcherName;
+    skippedReason: RealtimeDispatcherSkippedReason;
     now: Date;
   }) {
     const metrics = this.dispatcherMetrics[input.dispatcher];
@@ -119,7 +125,7 @@ export class ChatRealtimeMetricsService {
   }
 
   recordDispatcherBatch(input: {
-    dispatcher: ChatRealtimeDispatcherName;
+    dispatcher: RealtimeDispatcherName;
     claimedCount: number;
     publishedCount: number;
     failedCount: number;

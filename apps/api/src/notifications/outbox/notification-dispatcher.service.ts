@@ -6,11 +6,14 @@ import {
   OnModuleDestroy,
   Optional,
 } from '@nestjs/common';
-import type { ConfigType } from '@nestjs/config';
 import { notificationCreatedRealtimeEventSchema } from '@repo/shared/notification-contract';
-import { ChatRealtimeMetricsService } from '../../chat/realtime/chat-realtime.metrics.js';
 import { PrismaService } from '../../common/prisma/prisma.service.js';
-import chatRealtimeConfig from '../../config/chat-realtime.config.js';
+import {
+  REALTIME_DISPATCHER_CONFIG_PORT,
+  REALTIME_DISPATCH_METRICS_PORT,
+  type RealtimeDispatcherConfigPort,
+  type RealtimeDispatchMetricsPort,
+} from '../../realtime/realtime.tokens.js';
 import {
   NOTIFICATION_REALTIME_PUBLISHER,
   type NotificationRealtimePublisherPort,
@@ -41,10 +44,11 @@ export class NotificationOutboxDispatcherService
     private readonly prisma: PrismaService,
     @Inject(NOTIFICATION_REALTIME_PUBLISHER)
     private readonly publisher: NotificationRealtimePublisherPort,
-    @Inject(chatRealtimeConfig.KEY)
-    private readonly settings: ConfigType<typeof chatRealtimeConfig>,
+    @Inject(REALTIME_DISPATCHER_CONFIG_PORT)
+    private readonly settings: RealtimeDispatcherConfigPort,
+    @Inject(REALTIME_DISPATCH_METRICS_PORT)
     @Optional()
-    private readonly metrics?: ChatRealtimeMetricsService,
+    private readonly metrics?: RealtimeDispatchMetricsPort,
   ) {}
 
   onApplicationBootstrap() {

@@ -5,11 +5,14 @@ import {
   OnApplicationBootstrap,
   OnModuleDestroy,
 } from '@nestjs/common';
-import type { ConfigType } from '@nestjs/config';
-import chatRealtimeConfig from '../../config/chat-realtime.config.js';
 import { PrismaService } from '../../common/prisma/prisma.service.js';
+import {
+  REALTIME_DISPATCHER_CONFIG_PORT,
+  REALTIME_DISPATCH_METRICS_PORT,
+  type RealtimeDispatcherConfigPort,
+  type RealtimeDispatchMetricsPort,
+} from '../../realtime/realtime.tokens.js';
 import { ChatRealtimeOutboxRepository } from '../outbox/chat-realtime-outbox.repository.js';
-import { ChatRealtimeMetricsService } from './chat-realtime.metrics.js';
 import { ChatRealtimePublisher } from './chat-realtime-publisher.js';
 
 const CHAT_REALTIME_REPLAY_WINDOW_DAYS = 7;
@@ -33,9 +36,10 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
   constructor(
     private readonly prisma: PrismaService,
     private readonly publisher: ChatRealtimePublisher,
-    private readonly metrics: ChatRealtimeMetricsService,
-    @Inject(chatRealtimeConfig.KEY)
-    private readonly settings: ConfigType<typeof chatRealtimeConfig>,
+    @Inject(REALTIME_DISPATCH_METRICS_PORT)
+    private readonly metrics: RealtimeDispatchMetricsPort,
+    @Inject(REALTIME_DISPATCHER_CONFIG_PORT)
+    private readonly settings: RealtimeDispatcherConfigPort,
   ) {}
 
   onApplicationBootstrap() {

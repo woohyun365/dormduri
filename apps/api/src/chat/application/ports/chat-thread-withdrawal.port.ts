@@ -2,6 +2,10 @@ import type { Prisma } from '../../../generated/prisma/client.js';
 
 export const CHAT_THREAD_WITHDRAWAL_PORT = Symbol('CHAT_THREAD_WITHDRAWAL_PORT');
 
+export interface ChatThreadWithdrawalResult {
+  updatedThreadIds: string[];
+}
+
 export interface ChatThreadWithdrawalPort {
   markOpenDirectThreadsReadOnlyForWithdrawnParticipant(
     tx: Prisma.TransactionClient,
@@ -10,5 +14,5 @@ export interface ChatThreadWithdrawalPort {
       participantId: string;
       now: Date;
     },
-  ): Promise<{ updatedThreadIds: string[] }>;
+  ): Promise<ChatThreadWithdrawalResult>;
 }

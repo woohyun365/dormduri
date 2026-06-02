@@ -1,11 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { NotificationRealtimePublisherPort } from '../../notifications/notifications.tokens.js';
+import {
+  REALTIME_USER_ROOM_PUBLISHER_PORT,
+  type RealtimeUserRoomPublisherPort,
+} from '../../realtime/realtime.tokens.js';
 import { CHAT_REALTIME_EVENT_NAME } from '../realtime/chat-realtime.constants.js';
-import { ChatRealtimePublisher } from '../realtime/chat-realtime-publisher.js';
 
 @Injectable()
 export class ChatNotificationRealtimePublisherAdapter implements NotificationRealtimePublisherPort {
-  constructor(private readonly publisher: ChatRealtimePublisher) {}
+  constructor(
+    @Inject(REALTIME_USER_ROOM_PUBLISHER_PORT)
+    private readonly publisher: RealtimeUserRoomPublisherPort,
+  ) {}
 
   isBound(): boolean {
     return this.publisher.isBound();

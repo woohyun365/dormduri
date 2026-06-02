@@ -1,14 +1,22 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { PrismaModule } from '../common/prisma/prisma.module.js';
+import chatRealtimeConfig from '../config/chat-realtime.config.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { NOTIFICATION_REALTIME_PUBLISHER } from '../notifications/notifications.tokens.js';
 import { NotificationOutboxDispatcherService } from '../notifications/outbox/notification-dispatcher.service.js';
+import {
+  REALTIME_DISPATCHER_CONFIG_PORT,
+  REALTIME_DISPATCH_METRICS_PORT,
+  REALTIME_METRICS_READER_PORT,
+  REALTIME_USER_ROOM_PUBLISHER_PORT,
+} from '../realtime/realtime.tokens.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { ChatNotificationRealtimePublisherAdapter } from './adapters/chat-notification-realtime-publisher.adapter.js';
 import { ChatSubscriptionQueryService } from './queries/chat-subscription-query.service.js';
 import { ChatController } from './chat.controller.js';
+import { ChatLifecycleModule } from './lifecycle/chat-lifecycle.module.js';
 import { ChatRealtimeAuthService } from './realtime/chat-realtime-auth.service.js';
 import { ChatRealtimeDispatcherService } from './realtime/chat-realtime-dispatcher.service.js';
 import { ChatRealtimeGateway } from './realtime/chat-realtime.gateway.js';
@@ -21,7 +29,14 @@ import { CHAT_LIFECYCLE_SWEEP_PORT } from './application/ports/chat-lifecycle-sw
 import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from './application/ports/chat-match-thread-lifecycle.port.js';
 
 @Module({
-  imports: [PrismaModule, SeasonsModule, SeasonParticipantsModule, AuthModule, NotificationsModule],
+  imports: [
+    PrismaModule,
+    SeasonsModule,
+    SeasonParticipantsModule,
+    AuthModule,
+    NotificationsModule,
+    ChatLifecycleModule,
+  ],
   controllers: [ChatController],
   providers: [
     ChatService,
@@ -47,11 +62,31 @@ import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from './application/ports/chat-match
       provide: CHAT_LIFECYCLE_SWEEP_PORT,
       useExisting: ChatService,
     },
+    {
+      provide: REALTIME_DISPATCHER_CONFIG_PORT,
+      useExisting: chatRealtimeConfig.KEY,
+    },
+    {
+      provide: REALTIME_DISPATCH_METRICS_PORT,
+      useExisting: ChatRealtimeMetricsService,
+    },
+    {
+      provide: REALTIME_METRICS_READER_PORT,
+      useExisting: ChatRealtimeMetricsService,
+    },
+    {
+      provide: REALTIME_USER_ROOM_PUBLISHER_PORT,
+      useExisting: ChatRealtimePublisher,
+    },
   ],
   exports: [
     CHAT_MATCH_THREAD_LIFECYCLE_PORT,
     CHAT_LIFECYCLE_SWEEP_PORT,
-    ChatRealtimeMetricsService,
+    ChatLifecycleModule,
+    REALTIME_DISPATCHER_CONFIG_PORT,
+    REALTIME_DISPATCH_METRICS_PORT,
+    REALTIME_METRICS_READER_PORT,
+    REALTIME_USER_ROOM_PUBLISHER_PORT,
   ],
 })
 export class ChatModule {}

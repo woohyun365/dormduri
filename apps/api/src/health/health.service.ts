@@ -1,6 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { ChatRealtimeMetricsService } from '../chat/realtime/chat-realtime.metrics.js';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import {
+  REALTIME_METRICS_READER_PORT,
+  type RealtimeMetricsReaderPort,
+} from '../realtime/realtime.tokens.js';
 
 interface HealthBaseResponse {
   status: 'ok';
@@ -18,14 +21,15 @@ export interface HealthStatusResponse extends HealthBaseResponse {
 }
 
 export interface RealtimeOperationsStatusResponse extends HealthBaseResponse {
-  realtime: ReturnType<ChatRealtimeMetricsService['snapshot']>;
+  realtime: ReturnType<RealtimeMetricsReaderPort['snapshot']>;
 }
 
 @Injectable()
 export class HealthService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly realtimeMetrics: ChatRealtimeMetricsService,
+    @Inject(REALTIME_METRICS_READER_PORT)
+    private readonly realtimeMetrics: RealtimeMetricsReaderPort,
   ) {}
 
   getLiveness(): HealthStatusResponse {

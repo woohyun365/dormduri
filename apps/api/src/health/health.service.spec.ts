@@ -1,4 +1,3 @@
-import { ChatRealtimeMetricsService } from '../chat/realtime/chat-realtime.metrics.js';
 import { HealthService } from './health.service.js';
 
 describe('HealthService', () => {
@@ -18,14 +17,21 @@ describe('HealthService', () => {
     const prisma = {
       getDatabaseNow: jest.fn(),
     };
-    const metrics = new ChatRealtimeMetricsService();
-    metrics.recordSocketConnected();
-    metrics.recordDispatcherSkipped({
-      dispatcher: 'chat',
-      skippedReason: 'PUBLISHER_UNBOUND',
-      now: new Date('2026-06-02T03:00:00.000Z'),
-    });
-    metrics.recordReplayResyncRequired('CURSOR_EXPIRED');
+    const metrics = {
+      snapshot: jest.fn(() => ({
+        connectedSockets: 1,
+        totalConnections: 1,
+        dispatchers: {
+          chat: {
+            totalSkippedPublisherUnbound: 1,
+            lastSkippedReason: 'PUBLISHER_UNBOUND',
+          },
+        },
+        replayResyncRequired: {
+          CURSOR_EXPIRED: 1,
+        },
+      })),
+    };
 
     const service = new HealthService(prisma as never, metrics);
 

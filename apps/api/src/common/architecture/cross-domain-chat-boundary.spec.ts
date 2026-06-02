@@ -78,11 +78,32 @@ describe('Phase 10C cross-domain chat architecture boundary', () => {
     expect(offendingFiles(apiSourceRoot, /\bforwardRef\s*\(/)).toEqual([]);
   });
 
-  it.todo(
-    'Phase 10C.3: season-participants production code must stop mutating conversationThread/conversationMessage directly',
-  );
+  it('keeps season-participants production code from mutating chat persistence directly', () => {
+    expect(
+      offendingFiles(
+        join(apiSourceRoot, 'season-participants'),
+        /conversationThread\.(?:update|updateMany|create)|conversationMessage\./,
+      ),
+    ).toEqual([]);
+  });
 
-  it.todo(
-    'Phase 10C.4: notifications production code must stop importing chat realtime concrete metrics/config/publisher classes',
-  );
+  it('keeps notifications production code on generic realtime ports instead of chat realtime concrete classes', () => {
+    expect(
+      offendingFiles(
+        join(apiSourceRoot, 'notifications'),
+        /from\s+['"].*(?:chat\/realtime|config\/chat-realtime\.config)|\bChatRealtimeMetricsService\b/,
+      ),
+    ).toEqual([]);
+  });
+
+  it('keeps ChatModule public exports on narrow ports instead of concrete facade/metrics classes', () => {
+    const source = readSource(join(apiSourceRoot, 'chat/chat.module.ts'));
+    const exportsBlock = source.match(/exports:\s*\[([\s\S]*?)\],\n\}/)?.[1] ?? '';
+
+    expect(exportsBlock).toContain('CHAT_MATCH_THREAD_LIFECYCLE_PORT');
+    expect(exportsBlock).toContain('CHAT_LIFECYCLE_SWEEP_PORT');
+    expect(exportsBlock).toContain('REALTIME_DISPATCH_METRICS_PORT');
+    expect(exportsBlock).not.toMatch(/\bChatService\b/);
+    expect(exportsBlock).not.toMatch(/\bChatRealtimeMetricsService\b/);
+  });
 });
