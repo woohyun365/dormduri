@@ -12,7 +12,7 @@ import type {
   ThreadRecord,
 } from '../persistence/chat-thread.select.js';
 import type { CurrentSeasonParticipantRecord } from '../../season-participants/season-participants.service.js';
-import type { ChatSendMessageDecision } from '../policies/chat-thread-policy.js';
+import type { ChatSendMessageDecision } from '../policies/chat-thread-permission.policy.js';
 
 export type ConversationMessageResponseRecord = {
   id: string;

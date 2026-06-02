@@ -20,19 +20,12 @@ import {
 } from '../../notifications/notifications.tokens.js';
 import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
 import { SeasonsService } from '../../seasons/seasons.service.js';
-import {
-  formatKstDate,
-  normalizeSeasonRuntimeRow,
-  toCurrentSeasonResponse,
-} from '../../seasons/season.utils.js';
 import { createChatCommandService } from './chat-command.service.js';
 import { createChatUserContextService } from './chat-user-context.service.js';
 import { chatErrors } from '../errors/chat.errors.js';
-import { createChatLifecycleOwner } from '../lifecycle/chat-lifecycle.service.js';
-import { createChatMatchEventOwner } from '../lifecycle/chat-match-event.service.js';
+import { ChatSeasonLifecycleService } from '../lifecycle/chat-season-lifecycle.service.js';
 import { toChatMessage, toChatThreadSummary } from '../mappers/chat-thread-presenter.js';
 import { createChatThreadQueryService } from '../queries/chat-thread-query.service.js';
-import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 import {
   buildChatThreadListCursorBoundary,
   type ChatThreadListCursorBoundary,
@@ -49,15 +42,6 @@ import {
   acquireConversationThreadPairLock,
   acquireConversationThreadParticipantLocks,
 } from '../persistence/chat-advisory-locks.js';
-import type {
-  ActiveMatchCreatedChatLifecycleInput,
-  ActiveMatchUnmatchedChatLifecycleInput,
-  ChatMatchThreadLifecyclePort,
-} from './ports/chat-match-thread-lifecycle.port.js';
-import type {
-  ChatLifecycleSweepPort,
-  ChatLifecycleSweepResult,
-} from './ports/chat-lifecycle-sweep.port.js';
 
 const noopChatThreadNotificationWriter: ChatThreadNotificationWriter = {
   appendChatThreadCreated() {
@@ -66,11 +50,12 @@ const noopChatThreadNotificationWriter: ChatThreadNotificationWriter = {
 };
 
 @Injectable()
-export class ChatService implements ChatMatchThreadLifecyclePort, ChatLifecycleSweepPort {
+export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly seasonsService: SeasonsService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    private readonly chatSeasonLifecycle: ChatSeasonLifecycleService,
     @Inject(CHAT_THREAD_NOTIFICATION_WRITER)
     private readonly chatThreadNotificationWriter: ChatThreadNotificationWriter = noopChatThreadNotificationWriter,
   ) {}
@@ -94,15 +79,6 @@ export class ChatService implements ChatMatchThreadLifecyclePort, ChatLifecycleS
     });
   }
 
-  private get lifecycleOwner() {
-    return createChatLifecycleOwner({
-      prisma: this.prisma,
-      seasonsService: this.seasonsService,
-      findThreadRoomSelectionDate: (thread) =>
-        this.threadSupportOwner.findThreadRoomSelectionDate(thread),
-    });
-  }
-
   private get commandCluster() {
     return createChatCommandService({
       getDatabaseNow: () => this.prisma.getDatabaseNow(),
@@ -122,7 +98,7 @@ export class ChatService implements ChatMatchThreadLifecyclePort, ChatLifecycleS
       findThreadByPair: (seasonId, leftParticipantId, rightParticipantId, client) =>
         this.queryOwner.findThreadByPair(seasonId, leftParticipantId, rightParticipantId, client),
       synchronizeThreadLifecycle: (thread, now, client) =>
-        this.lifecycleOwner.synchronizeThreadLifecycle(thread, now, client),
+        this.chatSeasonLifecycle.synchronizeThreadLifecycle(thread, now, client),
       canSendMessageToPair: (viewerContext, targetUser, targetParticipant, thread, now, client) =>
         this.threadSupportOwner.canSendMessageToPair(
           viewerContext,
@@ -144,16 +120,6 @@ export class ChatService implements ChatMatchThreadLifecyclePort, ChatLifecycleS
         this.queryOwner.findLeavableThread(userId, threadId),
       appendChatThreadCreatedNotification: (tx, input) =>
         this.chatThreadNotificationWriter.appendChatThreadCreated(tx, input),
-    });
-  }
-
-  private get matchEventOwner() {
-    return createChatMatchEventOwner({
-      findThreadRoomSelectionDate: (thread) =>
-        this.threadSupportOwner.findThreadRoomSelectionDate(thread),
-      formatKstDate,
-      canReopenDirectThreadAfterUnmatch: (tx, thread, now) =>
-        this.canReopenDirectThreadAfterUnmatch(tx, thread, now),
     });
   }
 
@@ -195,7 +161,7 @@ export class ChatService implements ChatMatchThreadLifecyclePort, ChatLifecycleS
       targetParticipant.id,
     );
     const synchronizedThread = existingThread
-      ? await this.lifecycleOwner.resolveThreadLifecycleSnapshot(existingThread, now)
+      ? await this.chatSeasonLifecycle.resolveThreadLifecycleSnapshot(existingThread, now)
       : null;
     const sendMessageDecision = await this.threadSupportOwner.canSendMessageToPair(
       viewerContext,
@@ -248,7 +214,10 @@ export class ChatService implements ChatMatchThreadLifecyclePort, ChatLifecycleS
 
     const items = [];
     for (const thread of threads.items) {
-      const synchronized = await this.lifecycleOwner.resolveThreadLifecycleSnapshot(thread, now);
+      const synchronized = await this.chatSeasonLifecycle.resolveThreadLifecycleSnapshot(
+        thread,
+        now,
+      );
       if (synchronized.status === 'ARCHIVED') {
         continue;
       }
@@ -327,7 +296,7 @@ export class ChatService implements ChatMatchThreadLifecyclePort, ChatLifecycleS
       throw chatErrors.threadNotFound();
     }
 
-    const synchronized = await this.lifecycleOwner.resolveThreadLifecycleSnapshot(thread, now);
+    const synchronized = await this.chatSeasonLifecycle.resolveThreadLifecycleSnapshot(thread, now);
     if (synchronized.status === 'ARCHIVED') {
       throw chatErrors.threadNotFound();
     }
@@ -424,89 +393,6 @@ export class ChatService implements ChatMatchThreadLifecyclePort, ChatLifecycleS
 
   async canSubscribeThread(authUser: AuthenticatedUserContext, threadId: string): Promise<boolean> {
     return this.queryOwner.canSubscribeThreadForViewer(authUser.id, threadId);
-  }
-
-  async handleActiveMatchCreated(
-    tx: Prisma.TransactionClient,
-    input: ActiveMatchCreatedChatLifecycleInput,
-    now: Date,
-  ) {
-    return this.matchEventOwner.handleActiveMatchCreated(tx, input, now);
-  }
-
-  async handleActiveMatchUnmatched(
-    tx: Prisma.TransactionClient,
-    input: ActiveMatchUnmatchedChatLifecycleInput,
-    now: Date,
-  ) {
-    return this.matchEventOwner.handleActiveMatchUnmatched(tx, input, now);
-  }
-
-  private async canReopenDirectThreadAfterUnmatch(
-    tx: Prisma.TransactionClient,
-    thread: ThreadRecord,
-    now: Date,
-  ) {
-    const participantAUser = await this.contextOwner.getChatUserProjection(
-      thread.participantA.userId,
-      tx,
-    );
-    const participantBUser = await this.contextOwner.getChatUserProjection(
-      thread.participantB.userId,
-      tx,
-    );
-
-    if (
-      !participantAUser ||
-      !participantBUser ||
-      participantAUser.id === participantBUser.id ||
-      participantAUser.campus !== participantBUser.campus ||
-      participantAUser.gender !== participantBUser.gender
-    ) {
-      return false;
-    }
-
-    const participantA = await this.seasonParticipantsService.findCurrentSeasonParticipant(
-      participantAUser.id,
-      thread.seasonId,
-      tx,
-    );
-    const participantB = await this.seasonParticipantsService.findCurrentSeasonParticipant(
-      participantBUser.id,
-      thread.seasonId,
-      tx,
-    );
-
-    if (!participantA || !participantB) {
-      return false;
-    }
-
-    const seasonContext = toCurrentSeasonResponse(normalizeSeasonRuntimeRow(thread.season), now);
-    const virtualOpenThread = {
-      ...thread,
-      status: 'OPEN' as const,
-      closedReason: null,
-      closedAt: null,
-    };
-    const decision = await this.threadSupportOwner.canSendMessageToPair(
-      {
-        user: participantAUser,
-        seasonContext,
-        participant: participantA,
-        selection: this.seasonParticipantsService.selectCanonicalSelection(participantA),
-      },
-      participantBUser,
-      participantB,
-      virtualOpenThread,
-      now,
-      tx,
-    );
-
-    return decision.canSendMessage;
-  }
-
-  async sweepThreadLifecycle(now: Date): Promise<ChatLifecycleSweepResult> {
-    return this.lifecycleOwner.sweepThreadLifecycle(now);
   }
 
   async leaveThread(

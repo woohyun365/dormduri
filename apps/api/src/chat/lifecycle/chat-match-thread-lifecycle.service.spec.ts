@@ -1,4 +1,4 @@
-import { createChatMatchEventOwner } from './chat-match-event.service.js';
+import { createChatMatchThreadLifecycleOwner } from './chat-match-thread-lifecycle.service.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
 const now = new Date('2026-02-10T03:00:00.000Z');
@@ -104,7 +104,7 @@ type RecipientCreateManyCall = [
   },
 ];
 
-describe('ChatMatchEventOwner', () => {
+describe('ChatMatchThreadLifecycleOwner', () => {
   it('ACTIVE 생성으로 닫히는 다른 open direct thread에도 read-only thread.updated outbox를 남긴다', async () => {
     const affectedThread = makeThread();
     const updatedAffectedThread = makeThread({
@@ -128,7 +128,7 @@ describe('ChatMatchEventOwner', () => {
         createMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };
-    const owner = createChatMatchEventOwner({
+    const owner = createChatMatchThreadLifecycleOwner({
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
@@ -224,7 +224,7 @@ describe('ChatMatchEventOwner', () => {
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
-    const owner = createChatMatchEventOwner({
+    const owner = createChatMatchThreadLifecycleOwner({
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
@@ -313,7 +313,7 @@ describe('ChatMatchEventOwner', () => {
         createMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };
-    const owner = createChatMatchEventOwner({
+    const owner = createChatMatchThreadLifecycleOwner({
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
@@ -399,7 +399,7 @@ describe('ChatMatchEventOwner', () => {
         createMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };
-    const owner = createChatMatchEventOwner({
+    const owner = createChatMatchThreadLifecycleOwner({
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
@@ -499,7 +499,7 @@ describe('ChatMatchEventOwner', () => {
       },
     };
     const canReopenDirectThreadAfterUnmatch = jest.fn().mockResolvedValue(true);
-    const owner = createChatMatchEventOwner({
+    const owner = createChatMatchThreadLifecycleOwner({
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
       canReopenDirectThreadAfterUnmatch,
@@ -582,7 +582,7 @@ describe('ChatMatchEventOwner', () => {
         createMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };
-    const owner = createChatMatchEventOwner({
+    const owner = createChatMatchThreadLifecycleOwner({
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
       canReopenDirectThreadAfterUnmatch: jest.fn().mockResolvedValue(false),
@@ -674,7 +674,7 @@ describe('ChatMatchEventOwner', () => {
       thread.id === 'thread-cutoff' ? '2026-02-09' : '2026-02-11',
     );
     const canReopenDirectThreadAfterUnmatch = jest.fn().mockResolvedValue(true);
-    const owner = createChatMatchEventOwner({
+    const owner = createChatMatchThreadLifecycleOwner({
       findThreadRoomSelectionDate,
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
       canReopenDirectThreadAfterUnmatch,
@@ -743,7 +743,7 @@ describe('ChatMatchEventOwner', () => {
         createMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };
-    const owner = createChatMatchEventOwner({
+    const owner = createChatMatchThreadLifecycleOwner({
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });

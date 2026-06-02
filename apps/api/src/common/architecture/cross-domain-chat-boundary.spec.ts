@@ -106,4 +106,48 @@ describe('Phase 10C cross-domain chat architecture boundary', () => {
     expect(exportsBlock).not.toMatch(/\bChatService\b/);
     expect(exportsBlock).not.toMatch(/\bChatRealtimeMetricsService\b/);
   });
+
+  it('keeps ChatService as a facade instead of direct chat table mutation/outbox owner', () => {
+    const source = readSource(join(apiSourceRoot, 'chat/application/chat.service.ts'));
+
+    expect(source).not.toMatch(
+      /conversation(?:Thread|Message)\.(?:create|update|updateMany|delete|deleteMany|upsert)|ChatRealtimeOutboxService|append(?:Message|Thread)[A-Z]/,
+    );
+    expect(source).not.toMatch(/\bhandleActiveMatchCreated\b|\bhandleActiveMatchUnmatched\b/);
+    expect(source).not.toMatch(/\bsweepThreadLifecycle\b/);
+  });
+
+  it('keeps lifecycle service filenames explicit for match/season responsibility', () => {
+    expect(existsSync(join(apiSourceRoot, 'chat/lifecycle/chat-match-event.service.ts'))).toBe(
+      false,
+    );
+    expect(existsSync(join(apiSourceRoot, 'chat/lifecycle/chat-lifecycle.service.ts'))).toBe(false);
+    expect(
+      existsSync(join(apiSourceRoot, 'chat/lifecycle/chat-match-thread-lifecycle.service.ts')),
+    ).toBe(true);
+    expect(existsSync(join(apiSourceRoot, 'chat/lifecycle/chat-season-lifecycle.service.ts'))).toBe(
+      true,
+    );
+  });
+
+  it('keeps the extracted send permission helper pure', () => {
+    const source = readSource(
+      join(apiSourceRoot, 'chat/policies/chat-thread-permission.policy.ts'),
+    );
+
+    expect(source).not.toMatch(
+      /from\s+['"].*@nestjs|PrismaService|generated\/prisma|conversationThread|conversationMessage/,
+    );
+  });
+
+  it('keeps an AI-readable chat architecture note with public boundary rules', () => {
+    const readmePath = join(apiSourceRoot, 'chat/README.md');
+
+    expect(existsSync(readmePath)).toBe(true);
+    const source = readSource(readmePath);
+    expect(source).toContain('CHAT_MATCH_THREAD_LIFECYCLE_PORT');
+    expect(source).toContain('CHAT_THREAD_WITHDRAWAL_PORT');
+    expect(source).toContain('외부 domain production code');
+    expect(source).toContain('direct chat table mutation outside chat');
+  });
 });

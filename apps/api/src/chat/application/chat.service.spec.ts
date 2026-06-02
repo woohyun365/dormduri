@@ -1,4 +1,5 @@
 import { ChatService } from './chat.service.js';
+import { ChatSeasonLifecycleService } from '../lifecycle/chat-season-lifecycle.service.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import type {
   CanonicalSelectionState,
@@ -230,10 +231,17 @@ describe('ChatService', () => {
     hasRegistrationSnapshotForParticipant: jest.fn(),
   };
 
+  const chatSeasonLifecycle = new ChatSeasonLifecycleService(
+    prisma as never,
+    seasonsService as never,
+    seasonParticipantsService as never,
+  );
+
   const service = new ChatService(
     prisma as never,
     seasonsService as never,
     seasonParticipantsService as never,
+    chatSeasonLifecycle,
     {
       appendChatThreadCreated: appendChatThreadCreatedNotification,
     },
@@ -1513,133 +1521,6 @@ describe('ChatService', () => {
     expectMessageCreateClientMessageId('client-message-active-match-upgrade');
     expect(appendChatThreadCreatedNotification).not.toHaveBeenCalled();
     expect(result.thread.threadKind).toBe('MATCHED');
-  });
-
-  it('ACTIVE 생성 시 다른 non-matched thread를 read-only로 전환한다', async () => {
-    await service.handleActiveMatchCreated(
-      {
-        $queryRawTyped: txQueryRawTyped,
-        user: {
-          findUnique: txUserFindUnique,
-        },
-        conversationThread: {
-          findFirst: jest.fn(),
-          findMany: jest
-            .fn()
-            .mockResolvedValueOnce([{ id: 'thread-other' }])
-            .mockResolvedValueOnce([
-              makeThread({
-                id: 'thread-other',
-                status: 'READ_ONLY',
-                closedReason: 'ACTIVE_MATCH_CREATED',
-                closedAt: new Date('2026-02-10T03:00:00.000Z'),
-              }),
-            ]),
-          update: txConversationThreadUpdate,
-          updateMany: txConversationThreadUpdateMany,
-        },
-      } as never,
-      {
-        seasonId: 'season-1',
-        pairKey: 'participant-1:participant-2',
-        participantAId: 'participant-1',
-        participantBId: 'participant-2',
-        activeMatchId: 'active-1',
-      },
-      new Date('2026-02-10T03:00:00.000Z'),
-    );
-
-    const [threadUpdateManyCall] = txConversationThreadUpdateMany.mock.calls as Array<
-      [{ data: Record<string, unknown> }]
-    >;
-    expect(threadUpdateManyCall).toBeDefined();
-    if (!threadUpdateManyCall) {
-      throw new Error('Expected thread updateMany call');
-    }
-    expect(threadUpdateManyCall[0]).toMatchObject({
-      data: {
-        status: 'READ_ONLY',
-        closedReason: 'ACTIVE_MATCH_CREATED',
-      },
-    });
-  });
-
-  it('UNMATCHED가 되면 matched thread는 direct thread로 내려가고 roomSelectionDate 전이면 OPEN을 유지한다', async () => {
-    txConversationThreadFindFirst.mockResolvedValue(
-      makeVisibleThread({ threadKind: 'MATCHED', status: 'OPEN' }),
-    );
-
-    await service.handleActiveMatchUnmatched(
-      {
-        conversationThread: {
-          findFirst: txConversationThreadFindFirst,
-          update: txConversationThreadUpdate,
-        },
-      } as never,
-      { activeMatchId: 'active-1' },
-      new Date('2026-02-10T03:00:00.000Z'),
-    );
-
-    const [threadUpdateCall] = txConversationThreadUpdate.mock.calls as Array<
-      [{ data: Record<string, unknown> }]
-    >;
-    expect(threadUpdateCall).toBeDefined();
-    if (!threadUpdateCall) {
-      throw new Error('Expected thread downgrade update call');
-    }
-    expect(threadUpdateCall[0]).toMatchObject({
-      data: {
-        threadKind: 'DIRECT',
-        activeMatchId: null,
-        status: 'OPEN',
-        closedReason: null,
-        closedAt: null,
-      },
-    });
-  });
-
-  it('UNMATCHED thread downgrade는 thread updated outbox event를 남긴다', async () => {
-    txConversationThreadFindFirst.mockResolvedValue(
-      makeVisibleThread({ threadKind: 'MATCHED', status: 'OPEN' }),
-    );
-    txConversationThreadUpdate.mockResolvedValue(
-      makeThread({ threadKind: 'DIRECT', activeMatchId: null, status: 'OPEN' }),
-    );
-
-    await service.handleActiveMatchUnmatched(
-      {
-        conversationThread: {
-          findFirst: txConversationThreadFindFirst,
-          update: txConversationThreadUpdate,
-        },
-        chatRealtimeOutboxEvent: {
-          create: txChatRealtimeOutboxEventCreate,
-        },
-        chatRealtimeEventRecipient: {
-          createMany: txChatRealtimeEventRecipientCreateMany,
-        },
-      } as never,
-      { activeMatchId: 'active-1' },
-      new Date('2026-02-10T03:00:00.000Z'),
-    );
-
-    const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<
-      [{ data?: { eventType?: string; payload?: Record<string, unknown> } }]
-    >;
-    expect(outboxCreateCalls[0]?.[0].data).toMatchObject({
-      eventType: 'chat.thread.updated',
-      payload: {
-        threadId: 'thread-1',
-        status: 'OPEN',
-        closedReason: null,
-      },
-    });
-    const recipientCreateCalls = txChatRealtimeEventRecipientCreateMany.mock.calls as Array<
-      [{ data?: Array<{ userId?: string }> }]
-    >;
-    expect(recipientCreateCalls[0]?.[0].data?.map((row) => row.userId)).toEqual(
-      expect.arrayContaining(['user-1', 'user-2']),
-    );
   });
 
   it('비매칭 thread는 roomSelectionDate 이후 read-only가 된다', async () => {

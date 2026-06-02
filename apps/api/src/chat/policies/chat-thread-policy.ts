@@ -1,4 +1,3 @@
-import type { ChatSendMessageUnavailableReason } from '@repo/shared/chat-contract';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { PrismaService } from '../../common/prisma/prisma.service.js';
@@ -27,25 +26,19 @@ import type {
   ChatParticipantUserProjection,
   ThreadRecord,
 } from '../persistence/chat-thread.select.js';
+import {
+  canSendMessageDecision,
+  cannotSendMessageDecision,
+  getThreadMember,
+  isThreadParticipant,
+  isViewerInThread,
+  resolveMatchedPairThreadSendMessageDecision,
+  resolveThreadSendMessageDecision,
+  resolveViewerParticipantIdOrNull,
+  type ChatSendMessageDecision,
+} from './chat-thread-permission.policy.js';
 
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
-
-export interface ChatSendMessageDecision {
-  canSendMessage: boolean;
-  unavailableReason: ChatSendMessageUnavailableReason | null;
-}
-
-const canSendMessageDecision = (): ChatSendMessageDecision => ({
-  canSendMessage: true,
-  unavailableReason: null,
-});
-
-const cannotSendMessageDecision = (
-  unavailableReason: ChatSendMessageUnavailableReason,
-): ChatSendMessageDecision => ({
-  canSendMessage: false,
-  unavailableReason,
-});
 
 interface ChatThreadSupportOwnerDeps {
   prisma: PrismaService;
@@ -55,7 +48,7 @@ interface ChatThreadSupportOwnerDeps {
 export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
   return {
     getThreadMember(thread: ThreadRecord, participantId: string) {
-      return thread.members.find((member) => member.participantId === participantId) ?? null;
+      return getThreadMember(thread, participantId);
     },
 
     resolveThreadSeasonState(thread: ThreadRecord, now: Date) {
@@ -71,21 +64,19 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
     },
 
     isViewerInThread(thread: ThreadRecord, userId: string) {
-      return thread.participantA.userId === userId || thread.participantB.userId === userId;
+      return isViewerInThread(thread, userId);
     },
 
     resolveViewerParticipantId(thread: ThreadRecord, viewerUserId: string) {
-      if (thread.participantA.userId === viewerUserId) {
-        return thread.participantAId;
-      }
-      if (thread.participantB.userId === viewerUserId) {
-        return thread.participantBId;
+      const viewerParticipantId = resolveViewerParticipantIdOrNull(thread, viewerUserId);
+      if (viewerParticipantId) {
+        return viewerParticipantId;
       }
       throw chatErrors.threadNotFound();
     },
 
     isThreadParticipant(thread: ThreadRecord, participantId: string) {
-      return thread.participantAId === participantId || thread.participantBId === participantId;
+      return isThreadParticipant(thread, participantId);
     },
 
     resolveThreadSendMessageDecision(
@@ -93,36 +84,13 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
       viewerParticipantId: string,
       now: Date,
     ): ChatSendMessageDecision {
-      const viewerMember = this.getThreadMember(thread, viewerParticipantId);
-      if (!this.isThreadParticipant(thread, viewerParticipantId)) {
-        return cannotSendMessageDecision('SAFETY_OR_VISIBILITY_RESTRICTED');
-      }
-      if (viewerMember?.memberState === 'LEFT') {
-        return cannotSendMessageDecision('MEMBER_LEFT');
-      }
-      if (thread.status === 'ARCHIVED') {
-        return cannotSendMessageDecision('ARCHIVED_THREAD');
-      }
-      if (thread.status !== 'OPEN') {
-        return cannotSendMessageDecision(
-          thread.closedReason === 'SEASON_ENDED' ? 'SEASON_ENDED' : 'THREAD_READ_ONLY',
-        );
-      }
-
-      if (thread.threadKind === 'MATCHED') {
-        const state = this.resolveThreadSeasonState(thread, now);
-        if (state === 'SEASON_MATCHING' || state === 'SEASON_POST_MATCH') {
-          return canSendMessageDecision();
-        }
-        return cannotSendMessageDecision('SEASON_ENDED');
-      }
-
-      const roomSelectionDate = this.findThreadRoomSelectionDate(thread);
-      if (roomSelectionDate && formatKstDate(now) <= roomSelectionDate) {
-        return canSendMessageDecision();
-      }
-
-      return cannotSendMessageDecision('THREAD_READ_ONLY');
+      return resolveThreadSendMessageDecision({
+        thread,
+        viewerParticipantId,
+        now,
+        findThreadRoomSelectionDate: (thread) => this.findThreadRoomSelectionDate(thread),
+        resolveThreadSeasonState: (thread, now) => this.resolveThreadSeasonState(thread, now),
+      });
     },
 
     isThreadWritable(thread: ThreadRecord, viewerParticipantId: string, now: Date) {
@@ -142,24 +110,12 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
       viewerParticipantId: string,
       now: Date,
     ): ChatSendMessageDecision {
-      if (thread.status !== 'OPEN') {
-        return cannotSendMessageDecision(
-          thread.closedReason === 'SEASON_ENDED' ? 'SEASON_ENDED' : 'THREAD_READ_ONLY',
-        );
-      }
-      if (!this.isThreadParticipant(thread, viewerParticipantId)) {
-        return cannotSendMessageDecision('SAFETY_OR_VISIBILITY_RESTRICTED');
-      }
-
-      const viewerMember = this.getThreadMember(thread, viewerParticipantId);
-      if (viewerMember?.memberState === 'LEFT') {
-        return cannotSendMessageDecision('MEMBER_LEFT');
-      }
-
-      const state = this.resolveThreadSeasonState(thread, now);
-      return state === 'SEASON_MATCHING' || state === 'SEASON_POST_MATCH'
-        ? canSendMessageDecision()
-        : cannotSendMessageDecision('SEASON_ENDED');
+      return resolveMatchedPairThreadSendMessageDecision({
+        thread,
+        viewerParticipantId,
+        now,
+        resolveThreadSeasonState: (thread, now) => this.resolveThreadSeasonState(thread, now),
+      });
     },
 
     async canSendMessageToPair(

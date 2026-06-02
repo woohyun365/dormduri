@@ -17,6 +17,8 @@ import { ChatNotificationRealtimePublisherAdapter } from './adapters/chat-notifi
 import { ChatSubscriptionQueryService } from './queries/chat-subscription-query.service.js';
 import { ChatController } from './chat.controller.js';
 import { ChatLifecycleModule } from './lifecycle/chat-lifecycle.module.js';
+import { ChatMatchThreadLifecycleService } from './lifecycle/chat-match-thread-lifecycle.service.js';
+import { ChatSeasonLifecycleService } from './lifecycle/chat-season-lifecycle.service.js';
 import { ChatRealtimeAuthService } from './realtime/chat-realtime-auth.service.js';
 import { ChatRealtimeDispatcherService } from './realtime/chat-realtime-dispatcher.service.js';
 import { ChatRealtimeGateway } from './realtime/chat-realtime.gateway.js';
@@ -40,6 +42,8 @@ import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from './application/ports/chat-match
   controllers: [ChatController],
   providers: [
     ChatService,
+    ChatMatchThreadLifecycleService,
+    ChatSeasonLifecycleService,
     ChatNotificationRealtimePublisherAdapter,
     ChatSubscriptionQueryService,
     ChatRealtimeAuthService,
@@ -56,11 +60,11 @@ import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from './application/ports/chat-match
     },
     {
       provide: CHAT_MATCH_THREAD_LIFECYCLE_PORT,
-      useExisting: ChatService,
+      useExisting: ChatMatchThreadLifecycleService,
     },
     {
       provide: CHAT_LIFECYCLE_SWEEP_PORT,
-      useExisting: ChatService,
+      useExisting: ChatSeasonLifecycleService,
     },
     {
       provide: REALTIME_DISPATCHER_CONFIG_PORT,

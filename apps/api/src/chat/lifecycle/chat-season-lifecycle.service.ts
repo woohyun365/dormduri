@@ -1,6 +1,13 @@
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { PrismaService } from '../../common/prisma/prisma.service.js';
-import type { SeasonsService } from '../../seasons/seasons.service.js';
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { SeasonsService } from '../../seasons/seasons.service.js';
+import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import type {
+  ChatLifecycleSweepPort,
+  ChatLifecycleSweepResult,
+} from '../application/ports/chat-lifecycle-sweep.port.js';
+import { createChatThreadSupportOwner } from '../policies/chat-thread-policy.js';
 import { formatKstDate } from '../../seasons/season.utils.js';
 import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';
 import {
@@ -11,13 +18,13 @@ import {
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
-interface ChatLifecycleOwnerDeps {
+interface ChatSeasonLifecycleOwnerDeps {
   prisma: PrismaService;
   seasonsService: SeasonsService;
   findThreadRoomSelectionDate(thread: ThreadRecord): string | null;
 }
 
-export function createChatLifecycleOwner(deps: ChatLifecycleOwnerDeps) {
+export function createChatSeasonLifecycleOwner(deps: ChatSeasonLifecycleOwnerDeps) {
   async function resolveThreadLifecycleData(thread: ThreadRecord, now: Date) {
     const today = formatKstDate(now);
     const currentSeasonContext = await deps.seasonsService.getCurrentSeasonContext(
@@ -182,4 +189,45 @@ export function createChatLifecycleOwner(deps: ChatLifecycleOwnerDeps) {
       };
     },
   };
+}
+
+@Injectable()
+export class ChatSeasonLifecycleService implements ChatLifecycleSweepPort {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly seasonsService: SeasonsService,
+    private readonly seasonParticipantsService: SeasonParticipantsService,
+  ) {}
+
+  private get threadSupportOwner() {
+    return createChatThreadSupportOwner({
+      prisma: this.prisma,
+      seasonParticipantsService: this.seasonParticipantsService,
+    });
+  }
+
+  private get owner() {
+    return createChatSeasonLifecycleOwner({
+      prisma: this.prisma,
+      seasonsService: this.seasonsService,
+      findThreadRoomSelectionDate: (thread) =>
+        this.threadSupportOwner.findThreadRoomSelectionDate(thread),
+    });
+  }
+
+  resolveThreadLifecycleSnapshot(thread: ThreadRecord, now: Date): Promise<ThreadRecord> {
+    return this.owner.resolveThreadLifecycleSnapshot(thread, now);
+  }
+
+  synchronizeThreadLifecycle(
+    thread: ThreadRecord,
+    now: Date,
+    client?: ChatDbClient,
+  ): Promise<ThreadRecord> {
+    return this.owner.synchronizeThreadLifecycle(thread, now, client);
+  }
+
+  sweepThreadLifecycle(now: Date): Promise<ChatLifecycleSweepResult> {
+    return this.owner.sweepThreadLifecycle(now);
+  }
 }

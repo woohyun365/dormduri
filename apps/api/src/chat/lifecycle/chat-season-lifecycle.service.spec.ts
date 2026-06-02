@@ -1,4 +1,4 @@
-import { createChatLifecycleOwner } from './chat-lifecycle.service.js';
+import { createChatSeasonLifecycleOwner } from './chat-season-lifecycle.service.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
 const now = new Date('2026-03-01T03:00:00.000Z');
@@ -101,7 +101,7 @@ type RecipientCreateManyCall = [
   },
 ];
 
-describe('ChatLifecycleOwner', () => {
+describe('ChatSeasonLifecycleOwner', () => {
   it('resolveThreadLifecycleSnapshot은 read path에서 mutation 없이 계산된 상태만 반환한다', async () => {
     const thread = makeThread();
     const prisma = {
@@ -109,7 +109,7 @@ describe('ChatLifecycleOwner', () => {
         update: jest.fn(),
       },
     };
-    const owner = createChatLifecycleOwner({
+    const owner = createChatSeasonLifecycleOwner({
       prisma: prisma as never,
       seasonsService: {
         getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-1' } }),
@@ -137,7 +137,7 @@ describe('ChatLifecycleOwner', () => {
     const seasonsService = {
       getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-1' } }),
     };
-    const owner = createChatLifecycleOwner({
+    const owner = createChatSeasonLifecycleOwner({
       prisma: {} as never,
       seasonsService: seasonsService as never,
       findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
@@ -212,7 +212,7 @@ describe('ChatLifecycleOwner', () => {
       closedAt: new Date('2026-02-28T03:00:00.000Z'),
     });
     const tx = createOutboxCapableTx(updatedThread);
-    const owner = createChatLifecycleOwner({
+    const owner = createChatSeasonLifecycleOwner({
       prisma: {} as never,
       seasonsService: {
         getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-2' } }),

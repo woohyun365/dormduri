@@ -1,6 +1,6 @@
 import type { ConversationMessage, ConversationThreadSummary } from '@repo/shared/chat-contract';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
-import type { ChatSendMessageDecision } from '../policies/chat-thread-policy.js';
+import type { ChatSendMessageDecision } from '../policies/chat-thread-permission.policy.js';
 
 export function toChatThreadSummary(
   thread: ThreadRecord,
