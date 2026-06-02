@@ -47,4 +47,11 @@ export const chatErrors = {
       '현재 상태에서는 이 채팅에서 나갈 수 없습니다.',
     );
   },
+
+  invalidThreadListCursor() {
+    return badRequestError(
+      'CHAT_THREAD_LIST_CURSOR_INVALID',
+      '채팅 목록 cursor가 만료되었거나 올바르지 않습니다.',
+    );
+  },
 };

@@ -47,6 +47,24 @@ function parseReplayLimit(rawLimit: string | undefined): number {
   return limit;
 }
 
+function parseThreadListLimit(rawLimit: string | undefined): number | undefined {
+  if (rawLimit === undefined) {
+    return undefined;
+  }
+
+  const limit = Number(rawLimit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50) {
+    throw new BadRequestException({
+      code: 'INVALID_QUERY',
+      fieldErrors: {
+        limit: ['limit must be an integer between 1 and 50'],
+      },
+    });
+  }
+
+  return limit;
+}
+
 @Controller('api/chat')
 @UseGuards(AuthenticatedUserGuard)
 export class ChatController {
@@ -58,8 +76,15 @@ export class ChatController {
   ) {}
 
   @Get('threads')
-  async getThreads(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
-    return this.chatService.listThreads(authUser);
+  async getThreads(
+    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    return this.chatService.listThreads(authUser, {
+      limit: parseThreadListLimit(limit),
+      cursor: cursor && cursor.trim().length > 0 ? cursor.trim() : null,
+    });
   }
 
   @Get('threads/with/:targetUserId')

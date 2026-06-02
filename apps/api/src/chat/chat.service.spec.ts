@@ -397,6 +397,41 @@ describe('ChatService', () => {
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
   });
 
+  it('채팅 UI entry는 lifecycle snapshot만 계산하고 read path에서 thread를 update하지 않는다', async () => {
+    prisma.conversationThread.findFirst.mockResolvedValue(
+      makeThread({
+        messages: [
+          {
+            id: 'message-1',
+            body: '입장 조회 메시지',
+            sentAt: new Date('2026-02-10T03:00:00.000Z'),
+            senderParticipant: { userId: 'user-1' },
+          },
+        ],
+      }),
+    );
+    prisma.getDatabaseNow.mockResolvedValueOnce(new Date('2026-02-12T03:00:00.000Z'));
+
+    const result = await service.getThreadEntry(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      'user-2',
+    );
+
+    expect(result.thread).toMatchObject({
+      id: 'thread-1',
+      status: 'READ_ONLY',
+      canSendMessage: false,
+      sendMessageUnavailableReason: 'THREAD_READ_ONLY',
+    });
+    expect(result.canEnterChatUi).toBe(true);
+    expect(result.canSendMessage).toBe(false);
+    expect(prisma.conversationThread.update).not.toHaveBeenCalled();
+  });
+
   it('message command는 thread/message mutation 전에 pair와 participant advisory lock을 먼저 잡는다', async () => {
     await service.sendMessage(
       {
@@ -1283,6 +1318,76 @@ describe('ChatService', () => {
     expect(prisma.conversationThread.update).not.toHaveBeenCalled();
   });
 
+  it('listThreads는 bounded pageInfo cursor를 반환하고 read path lifecycle mutation을 만들지 않는다', async () => {
+    prisma.conversationThread.findMany.mockResolvedValue(
+      Array.from({ length: 21 }, (_, index) =>
+        makeThread({
+          id: `thread-${String(index).padStart(2, '0')}`,
+          createdAt: new Date(
+            `2026-02-${String(10 - Math.floor(index / 3)).padStart(2, '0')}T03:00:00.000Z`,
+          ),
+          lastMessageAt: new Date(
+            `2026-02-${String(10 - Math.floor(index / 3)).padStart(2, '0')}T04:00:00.000Z`,
+          ),
+        }),
+      ),
+    );
+
+    const result = await service.listThreads(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      { limit: 20 },
+    );
+
+    expect(result.items).toHaveLength(20);
+    expect(result.pageInfo.hasNextPage).toBe(true);
+    expect(typeof result.pageInfo.nextCursor).toBe('string');
+    expect(prisma.conversationThread.update).not.toHaveBeenCalled();
+
+    const nextCursor = result.pageInfo.nextCursor;
+    if (!nextCursor) {
+      throw new Error('Expected next cursor');
+    }
+
+    prisma.conversationThread.findMany.mockResolvedValueOnce([]);
+    await expect(
+      service.listThreads(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { cursor: nextCursor, limit: 20 },
+      ),
+    ).resolves.toEqual({
+      items: [],
+      pageInfo: {
+        hasNextPage: false,
+        nextCursor: null,
+      },
+    });
+  });
+
+  it('listThreads는 tampered/expired cursor를 bad request로 거절한다', async () => {
+    await expect(
+      service.listThreads(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { cursor: 'not-a-valid-cursor' },
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CHAT_THREAD_LIST_CURSOR_INVALID' },
+    });
+
+    expect(prisma.conversationThread.findMany).not.toHaveBeenCalled();
+  });
+
   it('첫 메시지 전송 시 thread를 생성한다', async () => {
     const result = await service.sendMessage(
       {
@@ -1526,6 +1631,7 @@ describe('ChatService', () => {
     expect(result.thread.canSendMessage).toBe(false);
     expect(result.thread.sendMessageUnavailableReason).toBe('THREAD_READ_ONLY');
     expect(result.thread.canReport).toBe(true);
+    expect(prisma.conversationThread.update).not.toHaveBeenCalled();
   });
 
   it('thread detail은 lifecycle sync 결과 ARCHIVED가 된 thread를 not found로 숨긴다', async () => {
@@ -1577,6 +1683,7 @@ describe('ChatService', () => {
     ).rejects.toMatchObject({
       response: chatErrors.threadNotFound().getResponse(),
     });
+    expect(prisma.conversationThread.update).not.toHaveBeenCalled();
   });
 
   it('READ_ONLY thread에 메시지를 보내려 하면 거부된다', async () => {
@@ -1906,6 +2013,7 @@ describe('ChatService', () => {
       });
 
       expect(result.items).toEqual([]);
+      expect(prisma.conversationThread.update).not.toHaveBeenCalled();
     },
   );
 

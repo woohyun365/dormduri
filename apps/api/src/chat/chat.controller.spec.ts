@@ -87,6 +87,30 @@ describe('ChatController', () => {
     expect(guards).toContain(AuthenticatedUserGuard);
   });
 
+  it('thread list query는 bounded limit/cursor로 service에 전달한다', async () => {
+    chatService.listThreads.mockResolvedValueOnce({
+      items: [],
+      pageInfo: { hasNextPage: false, nextCursor: null },
+    });
+
+    await expect(controller.getThreads(authUser as never, '25', ' cursor-1 ')).resolves.toEqual({
+      items: [],
+      pageInfo: { hasNextPage: false, nextCursor: null },
+    });
+
+    expect(chatService.listThreads).toHaveBeenCalledWith(authUser, {
+      limit: 25,
+      cursor: 'cursor-1',
+    });
+  });
+
+  it('thread list limit이 허용 범위를 벗어나면 bad request로 거절한다', async () => {
+    const response = await expectBadRequest(() => controller.getThreads(authUser as never, '51'));
+
+    expect(response.code).toBe('INVALID_QUERY');
+    expect(chatService.listThreads).not.toHaveBeenCalled();
+  });
+
   it('빈 message body는 bad request를 던진다', async () => {
     const response = await expectBadRequest(() =>
       controller.sendMessage(authUser as never, {

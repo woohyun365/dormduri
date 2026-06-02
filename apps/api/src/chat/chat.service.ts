@@ -5,6 +5,7 @@ import type {
   ConversationThreadListResponse,
   ChatRealtimeReplayResponse,
   LeaveConversationThreadResponse,
+  ListConversationThreadsQuery,
   SendConversationMessageRequest,
   SendConversationMessageResponse,
   UpdateChatReadMarkerRequest,
@@ -26,6 +27,11 @@ import { createChatLifecycleOwner } from './chat-lifecycle-owner.js';
 import { createChatMatchEventOwner } from './chat-match-event-owner.js';
 import { createChatQueryOwner } from './chat-query-owner.js';
 import type { ThreadRecord } from './chat-selects.js';
+import {
+  buildChatThreadListCursorBoundary,
+  type ChatThreadListCursorBoundary,
+  createChatThreadListCursorOwner,
+} from './chat-thread-list-cursor.owner.js';
 import { createChatThreadSupportOwner } from './chat-thread-support.js';
 import { ChatRealtimeReplayService } from './outbox/chat-realtime-replay.service.js';
 import {
@@ -130,6 +136,10 @@ export class ChatService {
     return new ChatRealtimeReplayService({ replayWindowDays: 7 });
   }
 
+  private get threadListCursorOwner() {
+    return createChatThreadListCursorOwner();
+  }
+
   async getThreadEntry(
     authUser: AuthenticatedUserContext,
     targetUserId: string,
@@ -160,7 +170,7 @@ export class ChatService {
       targetParticipant.id,
     );
     const synchronizedThread = existingThread
-      ? await this.lifecycleOwner.synchronizeThreadLifecycle(existingThread, now)
+      ? await this.lifecycleOwner.resolveThreadLifecycleSnapshot(existingThread, now)
       : null;
     const sendMessageDecision = await this.threadSupportOwner.canSendMessageToPair(
       viewerContext,
@@ -195,13 +205,29 @@ export class ChatService {
     };
   }
 
-  async listThreads(authUser: AuthenticatedUserContext): Promise<ConversationThreadListResponse> {
+  async listThreads(
+    authUser: AuthenticatedUserContext,
+    input: ListConversationThreadsQuery = {},
+  ): Promise<ConversationThreadListResponse> {
     const now = await this.prisma.getDatabaseNow();
-    const threads = await this.queryOwner.findThreadsForViewer(authUser.id);
+    const limit = input.limit ?? 20;
+    let after: ChatThreadListCursorBoundary | null = null;
+    if (input.cursor) {
+      try {
+        after = this.threadListCursorOwner.verifyCursor({
+          cursor: input.cursor,
+          viewerUserId: authUser.id,
+          now,
+        });
+      } catch {
+        throw chatErrors.invalidThreadListCursor();
+      }
+    }
+    const threads = await this.queryOwner.findThreadsForViewer(authUser.id, { limit, after });
 
     const items = [];
-    for (const thread of threads) {
-      const synchronized = await this.lifecycleOwner.synchronizeThreadLifecycle(thread, now);
+    for (const thread of threads.items) {
+      const synchronized = await this.lifecycleOwner.resolveThreadLifecycleSnapshot(thread, now);
       if (synchronized.status === 'ARCHIVED') {
         continue;
       }
@@ -222,7 +248,23 @@ export class ChatService {
       );
     }
 
-    return { items };
+    const lastThread = threads.items.at(-1) ?? null;
+    const nextCursor =
+      threads.hasNextPage && lastThread
+        ? this.threadListCursorOwner.signCursor({
+            viewerUserId: authUser.id,
+            after: buildChatThreadListCursorBoundary(lastThread),
+            now,
+          })
+        : null;
+
+    return {
+      items,
+      pageInfo: {
+        hasNextPage: nextCursor !== null,
+        nextCursor,
+      },
+    };
   }
 
   async getThreadDetail(
@@ -236,7 +278,7 @@ export class ChatService {
       throw chatErrors.threadNotFound();
     }
 
-    const synchronized = await this.lifecycleOwner.synchronizeThreadLifecycle(thread, now);
+    const synchronized = await this.lifecycleOwner.resolveThreadLifecycleSnapshot(thread, now);
     if (synchronized.status === 'ARCHIVED') {
       throw chatErrors.threadNotFound();
     }

@@ -102,6 +102,30 @@ type RecipientCreateManyCall = [
 ];
 
 describe('ChatLifecycleOwner', () => {
+  it('resolveThreadLifecycleSnapshot은 read path에서 mutation 없이 계산된 상태만 반환한다', async () => {
+    const thread = makeThread();
+    const prisma = {
+      conversationThread: {
+        update: jest.fn(),
+      },
+    };
+    const owner = createChatLifecycleOwner({
+      prisma: prisma as never,
+      seasonsService: {
+        getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-1' } }),
+      } as never,
+      findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
+    });
+
+    await expect(owner.resolveThreadLifecycleSnapshot(thread, now)).resolves.toMatchObject({
+      id: 'thread-1',
+      status: 'READ_ONLY',
+      closedReason: 'SEASON_ENDED',
+      closedAt: now,
+    });
+    expect(prisma.conversationThread.update).not.toHaveBeenCalled();
+  });
+
   it('season end로 MATCHED thread가 READ_ONLY가 되면 동일 mutation 경계에서 thread.updated outbox를 남긴다', async () => {
     const thread = makeThread();
     const updatedThread = makeThread({

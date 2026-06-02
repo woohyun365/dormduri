@@ -18,6 +18,61 @@ interface ChatLifecycleOwnerDeps {
 }
 
 export function createChatLifecycleOwner(deps: ChatLifecycleOwnerDeps) {
+  async function resolveThreadLifecycleData(thread: ThreadRecord, now: Date) {
+    const today = formatKstDate(now);
+    const currentSeasonContext = await deps.seasonsService.getCurrentSeasonContext(
+      thread.season.campusCode,
+      now,
+    );
+    const hasNewerCurrentSeason =
+      currentSeasonContext !== null && currentSeasonContext.season.id !== thread.seasonId;
+    const nextData: Partial<
+      Pick<ThreadRecord, 'activeMatchId' | 'closedAt' | 'closedReason' | 'status' | 'threadKind'>
+    > = {};
+
+    if (hasNewerCurrentSeason) {
+      if (thread.status !== 'ARCHIVED') {
+        nextData.status = 'ARCHIVED';
+        nextData.closedReason = thread.closedReason ?? 'SEASON_ENDED';
+        nextData.closedAt = thread.closedAt ?? now;
+      }
+    } else if (thread.activeMatch) {
+      if (thread.threadKind !== 'MATCHED') {
+        nextData.threadKind = 'MATCHED';
+        nextData.activeMatchId = thread.activeMatch.id;
+      }
+
+      if (today > formatKstDate(thread.season.seasonEndDate)) {
+        if (thread.status !== 'READ_ONLY') {
+          nextData.status = 'READ_ONLY';
+          nextData.closedReason = thread.closedReason ?? 'SEASON_ENDED';
+          nextData.closedAt = thread.closedAt ?? now;
+        }
+      } else if (thread.status !== 'OPEN') {
+        nextData.status = 'OPEN';
+        nextData.closedReason = null;
+        nextData.closedAt = null;
+      }
+    } else {
+      const roomSelectionDate = deps.findThreadRoomSelectionDate(thread);
+      if (today > formatKstDate(thread.season.seasonEndDate)) {
+        if (thread.status !== 'READ_ONLY') {
+          nextData.status = 'READ_ONLY';
+          nextData.closedReason = thread.closedReason ?? 'SEASON_ENDED';
+          nextData.closedAt = thread.closedAt ?? now;
+        }
+      } else if (roomSelectionDate && today > roomSelectionDate) {
+        if (thread.status !== 'READ_ONLY') {
+          nextData.status = 'READ_ONLY';
+          nextData.closedReason = thread.closedReason ?? 'ROOM_SELECTION_CUTOFF';
+          nextData.closedAt = thread.closedAt ?? now;
+        }
+      }
+    }
+
+    return nextData;
+  }
+
   async function appendLifecycleOutboxIfSupported(
     client: ChatDbClient,
     thread: ThreadRecord,
@@ -66,59 +121,18 @@ export function createChatLifecycleOwner(deps: ChatLifecycleOwnerDeps) {
   }
 
   return {
+    async resolveThreadLifecycleSnapshot(thread: ThreadRecord, now: Date): Promise<ThreadRecord> {
+      const nextData = await resolveThreadLifecycleData(thread, now);
+
+      return Object.keys(nextData).length === 0 ? thread : { ...thread, ...nextData };
+    },
+
     async synchronizeThreadLifecycle(
       thread: ThreadRecord,
       now: Date,
       client: ChatDbClient = deps.prisma,
     ): Promise<ThreadRecord> {
-      const today = formatKstDate(now);
-      const currentSeasonContext = await deps.seasonsService.getCurrentSeasonContext(
-        thread.season.campusCode,
-        now,
-      );
-      const hasNewerCurrentSeason =
-        currentSeasonContext !== null && currentSeasonContext.season.id !== thread.seasonId;
-      const nextData: Record<string, unknown> = {};
-
-      if (hasNewerCurrentSeason) {
-        if (thread.status !== 'ARCHIVED') {
-          nextData.status = 'ARCHIVED';
-          nextData.closedReason = thread.closedReason ?? 'SEASON_ENDED';
-          nextData.closedAt = thread.closedAt ?? now;
-        }
-      } else if (thread.activeMatch) {
-        if (thread.threadKind !== 'MATCHED') {
-          nextData.threadKind = 'MATCHED';
-          nextData.activeMatchId = thread.activeMatch.id;
-        }
-
-        if (today > formatKstDate(thread.season.seasonEndDate)) {
-          if (thread.status !== 'READ_ONLY') {
-            nextData.status = 'READ_ONLY';
-            nextData.closedReason = thread.closedReason ?? 'SEASON_ENDED';
-            nextData.closedAt = thread.closedAt ?? now;
-          }
-        } else if (thread.status !== 'OPEN') {
-          nextData.status = 'OPEN';
-          nextData.closedReason = null;
-          nextData.closedAt = null;
-        }
-      } else {
-        const roomSelectionDate = deps.findThreadRoomSelectionDate(thread);
-        if (today > formatKstDate(thread.season.seasonEndDate)) {
-          if (thread.status !== 'READ_ONLY') {
-            nextData.status = 'READ_ONLY';
-            nextData.closedReason = thread.closedReason ?? 'SEASON_ENDED';
-            nextData.closedAt = thread.closedAt ?? now;
-          }
-        } else if (roomSelectionDate && today > roomSelectionDate) {
-          if (thread.status !== 'READ_ONLY') {
-            nextData.status = 'READ_ONLY';
-            nextData.closedReason = thread.closedReason ?? 'ROOM_SELECTION_CUTOFF';
-            nextData.closedAt = thread.closedAt ?? now;
-          }
-        }
-      }
+      const nextData = await resolveThreadLifecycleData(thread, now);
 
       if (Object.keys(nextData).length === 0) {
         return thread;
@@ -126,11 +140,16 @@ export function createChatLifecycleOwner(deps: ChatLifecycleOwnerDeps) {
 
       if (client === deps.prisma && hasChatRealtimeOutboxTx(deps.prisma)) {
         return deps.prisma.runSerializableTransaction((tx) =>
-          updateThreadAndAppendOutbox(tx, thread.id, nextData, now),
+          updateThreadAndAppendOutbox(tx, thread.id, nextData as Record<string, unknown>, now),
         );
       }
 
-      return updateThreadAndAppendOutbox(client, thread.id, nextData, now);
+      return updateThreadAndAppendOutbox(
+        client,
+        thread.id,
+        nextData as Record<string, unknown>,
+        now,
+      );
     },
 
     async sweepThreadLifecycle(now: Date) {

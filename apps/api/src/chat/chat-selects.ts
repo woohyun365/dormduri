@@ -93,6 +93,22 @@ export const threadSelect = {
 
 export type ThreadRecord = Prisma.ConversationThreadGetPayload<{ select: typeof threadSelect }>;
 
+export const threadListSelect = {
+  ...threadSelect,
+  messages: false,
+} satisfies Prisma.ConversationThreadSelect;
+
+export type ThreadListRecord = Prisma.ConversationThreadGetPayload<{
+  select: typeof threadListSelect;
+}>;
+
+export function toThreadRecordWithEmptyMessages(thread: ThreadListRecord): ThreadRecord {
+  return {
+    ...thread,
+    messages: [],
+  };
+}
+
 export type ChatParticipantUserProjection = SeasonParticipantEnsureInput & {
   id: string;
   gender: 'M' | 'F';

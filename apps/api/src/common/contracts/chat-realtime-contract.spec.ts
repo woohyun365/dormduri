@@ -203,4 +203,26 @@ describe('chat realtime shared contract guards', () => {
       }).success,
     ).toBe(true);
   });
+
+  it('thread list contract는 bounded limit과 pageInfo cursor를 제공한다', () => {
+    const querySchema = getSchema('listConversationThreadsQuerySchema');
+    const responseSchema = getSchema('conversationThreadListResponseSchema');
+
+    expect(querySchema.safeParse({ limit: 50, cursor: 'cursor-1' }).success).toBe(true);
+    expect(querySchema.safeParse({ limit: 51 }).success).toBe(false);
+    expect(
+      responseSchema.safeParse({
+        items: [],
+        pageInfo: {
+          hasNextPage: false,
+          nextCursor: null,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      responseSchema.safeParse({
+        items: [],
+      }).success,
+    ).toBe(false);
+  });
 });

@@ -55,6 +55,10 @@ import {
   DEFAULT_CHAT_REALTIME_WS_SUBSCRIBE_SOCKET_WINDOW_SECONDS,
 } from './chat-realtime.config.js';
 import {
+  CHAT_THREAD_LIST_CURSOR_HMAC_SECRET_ENV,
+  DEFAULT_CHAT_THREAD_LIST_CURSOR_HMAC_SECRET,
+} from '../chat/chat-thread-list-cursor.owner.js';
+import {
   DEFAULT_PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET,
   DEFAULT_ROOMMATE_SEARCH_CURSOR_HMAC_SECRET,
   PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET_ENV,
@@ -310,5 +314,12 @@ export const envValidationSchema = Joi.object({
       is: 'production',
       then: Joi.required(),
       otherwise: Joi.string().trim().default(DEFAULT_PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET),
+    }),
+  [CHAT_THREAD_LIST_CURSOR_HMAC_SECRET_ENV]: Joi.string()
+    .trim()
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.required(),
+      otherwise: Joi.string().trim().default(DEFAULT_CHAT_THREAD_LIST_CURSOR_HMAC_SECRET),
     }),
 }).unknown(true);

@@ -1074,6 +1074,7 @@ model ConversationThreadMember {
 
   @@id([threadId, participantId])
   @@index([participantId, memberState, updatedAt])
+  @@index([participantId, memberState, threadId])
   @@index([participantId, lastVisibleAt])
 }
 

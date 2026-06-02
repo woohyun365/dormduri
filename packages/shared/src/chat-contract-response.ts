@@ -4,8 +4,14 @@ import {
   conversationThreadSummarySchema,
 } from './chat-contract-thread.js';
 
+export const conversationThreadListPageInfoSchema = z.strictObject({
+  hasNextPage: z.boolean(),
+  nextCursor: z.string().nullable(),
+});
+
 export const conversationThreadListResponseSchema = z.strictObject({
   items: z.array(conversationThreadSummarySchema),
+  pageInfo: conversationThreadListPageInfoSchema,
 });
 
 export const conversationThreadEntryResponseSchema = z.strictObject({

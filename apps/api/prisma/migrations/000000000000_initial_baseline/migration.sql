@@ -1201,6 +1201,7 @@ CREATE INDEX "ConversationThread_participantBId_idx" ON "ConversationThread"("pa
 
 -- CreateIndex
 CREATE INDEX "ConversationThreadMember_participantId_memberState_updatedAt_idx" ON "ConversationThreadMember"("participantId", "memberState", "updatedAt");
+CREATE INDEX "ConversationThreadMember_participantId_memberState_threadId_idx" ON "ConversationThreadMember"("participantId", "memberState", "threadId");
 
 -- CreateIndex
 CREATE INDEX "ConversationThreadMember_participantId_lastVisibleAt_idx" ON "ConversationThreadMember"("participantId", "lastVisibleAt");
