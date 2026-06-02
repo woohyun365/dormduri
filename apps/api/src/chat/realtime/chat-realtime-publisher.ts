@@ -30,6 +30,14 @@ export class ChatRealtimePublisher {
     return this.server !== null;
   }
 
+  publishToUserRoom(input: { userId: string; eventName: string; payload: unknown }): void {
+    if (!this.server) {
+      throw new Error('[ChatRealtimePublisher] server is not bound');
+    }
+
+    this.server.to(chatRealtimeUserRoom(input.userId)).emit(input.eventName, input.payload);
+  }
+
   publishOutboxEvent(input: {
     event: ClaimedChatRealtimeOutboxEvent;
     recipients: ChatRealtimeOutboxRecipient[];

@@ -83,6 +83,12 @@ CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISP
 CREATE TYPE "ConversationMessageTombstoneReason" AS ENUM ('ACCOUNT_DELETION_RETENTION', 'USER_MESSAGE_DELETED', 'MODERATION_POLICY_VIOLATION', 'ADMIN_ACTION', 'RETENTION_DISPOSED');
 
 -- CreateEnum
+CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED');
+
+-- CreateEnum
+CREATE TYPE "NotificationOutboxStatus" AS ENUM ('PENDING', 'PUBLISHED', 'FAILED');
+
+-- CreateEnum
 CREATE TYPE "RetainedVaultObjectTarget" AS ENUM ('CHAT_MESSAGE_BODY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY', 'NICKNAME_AUDIT_EVENT', 'ACADEMIC_IDENTITY_AUDIT_EVENT');
 
 -- CreateEnum
@@ -779,6 +785,44 @@ CREATE TABLE "ChatRealtimeEventRecipient" (
 );
 
 -- CreateTable
+CREATE TABLE "UserNotification" (
+    "id" TEXT NOT NULL,
+    "recipientUserId" TEXT NOT NULL,
+    "actorUserId" TEXT NOT NULL,
+    "kind" "NotificationKind" NOT NULL,
+    "sourceType" TEXT NOT NULL,
+    "sourceId" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "readAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserNotification_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "NotificationOutboxEvent" (
+    "id" TEXT NOT NULL,
+    "notificationId" TEXT NOT NULL,
+    "recipientUserId" TEXT NOT NULL,
+    "eventType" TEXT NOT NULL,
+    "schemaVersion" INTEGER NOT NULL DEFAULT 1,
+    "payload" JSONB NOT NULL,
+    "status" "NotificationOutboxStatus" NOT NULL DEFAULT 'PENDING',
+    "availableAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "publishAttempts" INTEGER NOT NULL DEFAULT 0,
+    "lockedAt" TIMESTAMPTZ(3),
+    "lockedBy" TEXT,
+    "publishedAt" TIMESTAMPTZ(3),
+    "failedAt" TIMESTAMPTZ(3),
+    "lastError" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NotificationOutboxEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "SeasonMatchHistoryEntryRetentionLink" (
     "id" TEXT NOT NULL,
     "matchHistoryEntryId" TEXT NOT NULL,
@@ -1249,6 +1293,27 @@ CREATE INDEX "ChatRealtimeEventRecipient_userId_cursor_idx" ON "ChatRealtimeEven
 CREATE INDEX "ChatRealtimeEventRecipient_threadId_createdAt_eventId_idx" ON "ChatRealtimeEventRecipient"("threadId", "createdAt", "eventId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "UserNotification_recipientUserId_kind_sourceType_sourceId_key" ON "UserNotification"("recipientUserId", "kind", "sourceType", "sourceId");
+
+-- CreateIndex
+CREATE INDEX "UserNotification_recipientUserId_readAt_createdAt_id_idx" ON "UserNotification"("recipientUserId", "readAt", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserNotification_recipientUserId_createdAt_id_idx" ON "UserNotification"("recipientUserId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserNotification_actorUserId_createdAt_id_idx" ON "UserNotification"("actorUserId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "NotificationOutboxEvent_status_availableAt_createdAt_id_idx" ON "NotificationOutboxEvent"("status", "availableAt", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "NotificationOutboxEvent_notificationId_createdAt_id_idx" ON "NotificationOutboxEvent"("notificationId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "NotificationOutboxEvent_recipientUserId_createdAt_id_idx" ON "NotificationOutboxEvent"("recipientUserId", "createdAt", "id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "SeasonMatchHistoryEntryRetentionLink_retainedVaultObjectId_key" ON "SeasonMatchHistoryEntryRetentionLink"("retainedVaultObjectId");
 
 -- CreateIndex
@@ -1496,6 +1561,18 @@ ALTER TABLE "ConversationMessage" ADD CONSTRAINT "ConversationMessage_retainedVa
 
 -- AddForeignKey
 ALTER TABLE "ChatRealtimeEventRecipient" ADD CONSTRAINT "ChatRealtimeEventRecipient_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "ChatRealtimeOutboxEvent"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserNotification" ADD CONSTRAINT "UserNotification_recipientUserId_fkey" FOREIGN KEY ("recipientUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserNotification" ADD CONSTRAINT "UserNotification_actorUserId_fkey" FOREIGN KEY ("actorUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NotificationOutboxEvent" ADD CONSTRAINT "NotificationOutboxEvent_notificationId_fkey" FOREIGN KEY ("notificationId") REFERENCES "UserNotification"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NotificationOutboxEvent" ADD CONSTRAINT "NotificationOutboxEvent_recipientUserId_fkey" FOREIGN KEY ("recipientUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonMatchHistoryEntryRetentionLink" ADD CONSTRAINT "SeasonMatchHistoryEntryRetentionLink_matchHistoryEntryId_fkey" FOREIGN KEY ("matchHistoryEntryId") REFERENCES "SeasonMatchHistoryEntry"("id") ON DELETE CASCADE ON UPDATE CASCADE;

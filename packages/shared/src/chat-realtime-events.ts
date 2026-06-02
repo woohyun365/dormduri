@@ -7,6 +7,7 @@ import {
   conversationThreadStatusSchema,
 } from './chat-contract-enums.js';
 import { conversationMessageSchema } from './chat-contract-thread.js';
+import { notificationCreatedRealtimeEventSchema } from './notification-contract.js';
 
 const chatRealtimeEventBaseSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -97,6 +98,7 @@ export const chatRealtimeEventSchema = z.discriminatedUnion('eventType', [
   chatMessageTombstonedEventSchema,
   chatReadMarkerUpdatedEventSchema,
   chatResyncRequiredEventSchema,
+  notificationCreatedRealtimeEventSchema,
 ]);
 
 export type ChatRealtimeEventEnvelope = z.infer<typeof chatRealtimeEventEnvelopeSchema>;

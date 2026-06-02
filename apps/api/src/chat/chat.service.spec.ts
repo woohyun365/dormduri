@@ -199,6 +199,7 @@ describe('ChatService', () => {
   const txChatRealtimeOutboxEventCreate = jest.fn();
   const txChatRealtimeEventRecipientCreateMany = jest.fn();
   const txActiveMatchFindFirst = jest.fn();
+  const appendChatThreadCreatedNotification = jest.fn();
 
   const prisma = {
     $queryRaw: prismaQueryRaw,
@@ -233,6 +234,9 @@ describe('ChatService', () => {
     prisma as never,
     seasonsService as never,
     seasonParticipantsService as never,
+    {
+      appendChatThreadCreated: appendChatThreadCreatedNotification,
+    },
   );
 
   function expectMessageCreateClientMessageId(expectedClientMessageId: string) {
@@ -339,6 +343,10 @@ describe('ChatService', () => {
     txConversationMessageFindFirst.mockResolvedValue(null);
     txChatRealtimeOutboxEventCreate.mockResolvedValue({ id: 'event-1' });
     txChatRealtimeEventRecipientCreateMany.mockResolvedValue({ count: 2 });
+    appendChatThreadCreatedNotification.mockResolvedValue({
+      notificationId: 'notification-1',
+      created: true,
+    });
     txActiveMatchFindFirst.mockResolvedValue(null);
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
@@ -1402,7 +1410,39 @@ describe('ChatService', () => {
     expect(txConversationThreadMemberCreateMany).toHaveBeenCalled();
     expect(txConversationMessageCreate).toHaveBeenCalled();
     expectMessageCreateClientMessageId('client-message-create-thread');
+    expect(appendChatThreadCreatedNotification).toHaveBeenCalledWith(expect.any(Object), {
+      threadId: 'thread-1',
+      actorUserId: 'user-1',
+      recipientUserId: 'user-2',
+      occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+    });
     expect(result.createdThread).toBe(true);
+  });
+
+  it('새 thread 알림 append 실패는 send transaction을 성공으로 숨기지 않는다', async () => {
+    appendChatThreadCreatedNotification.mockRejectedValueOnce(
+      new Error('notification append failed'),
+    );
+
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        makeSendMessageInput('안녕하세요', 'client-message-notification-rollback'),
+      ),
+    ).rejects.toThrow('notification append failed');
+
+    expect(txConversationThreadCreate).toHaveBeenCalled();
+    expect(txConversationMessageCreate).toHaveBeenCalled();
+    expect(appendChatThreadCreatedNotification).toHaveBeenCalledWith(expect.any(Object), {
+      threadId: 'thread-1',
+      actorUserId: 'user-1',
+      recipientUserId: 'user-2',
+      occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+    });
   });
 
   it('같은 pair의 기존 thread를 재사용한다', async () => {
@@ -1420,6 +1460,7 @@ describe('ChatService', () => {
 
     expect(txConversationThreadCreate).not.toHaveBeenCalled();
     expectMessageCreateClientMessageId('client-message-reuse-thread');
+    expect(appendChatThreadCreatedNotification).not.toHaveBeenCalled();
     expect(result.createdThread).toBe(false);
   });
 
@@ -1470,6 +1511,7 @@ describe('ChatService', () => {
       status: 'OPEN',
     });
     expectMessageCreateClientMessageId('client-message-active-match-upgrade');
+    expect(appendChatThreadCreatedNotification).not.toHaveBeenCalled();
     expect(result.thread.threadKind).toBe('MATCHED');
   });
 

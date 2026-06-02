@@ -155,6 +155,15 @@ interface ChatCommandClusterDeps {
   ): Promise<void>;
   acquireConversationThreadLeaveLock(tx: Prisma.TransactionClient, threadId: string): Promise<void>;
   findLeavableThread(userId: string, threadId: string): Promise<ThreadRecord | null>;
+  appendChatThreadCreatedNotification(
+    tx: Prisma.TransactionClient,
+    input: {
+      threadId: string;
+      actorUserId: string;
+      recipientUserId: string;
+      occurredAt: Date;
+    },
+  ): Promise<unknown>;
 }
 
 export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
@@ -396,6 +405,7 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
             occurredAt: now,
           });
         }
+        const shouldNotifyThreadCreated = createdThread && !pairActiveMatch;
 
         await tx.conversationThreadMember.updateMany({
           where: {
@@ -499,6 +509,15 @@ export function createChatCommandCluster(deps: ChatCommandClusterDeps) {
           },
           recipientUserIds: [txViewerUser.id, txTargetUser.id],
         });
+
+        if (shouldNotifyThreadCreated) {
+          await deps.appendChatThreadCreatedNotification(tx, {
+            threadId: thread.id,
+            actorUserId: txViewerUser.id,
+            recipientUserId: txTargetUser.id,
+            occurredAt: now,
+          });
+        }
 
         return {
           thread: deps.toThreadSummary(thread, txViewerParticipant.id, {

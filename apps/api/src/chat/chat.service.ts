@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   ConversationThreadDetailResponse,
   ConversationThreadEntryResponse,
@@ -13,6 +13,10 @@ import type {
 import type { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
+import {
+  CHAT_THREAD_NOTIFICATION_WRITER,
+  type ChatThreadNotificationWriter,
+} from '../notifications/notifications.tokens.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import {
@@ -44,12 +48,20 @@ import {
   acquireConversationThreadParticipantLocks,
 } from './chat-transaction-helpers.js';
 
+const noopChatThreadNotificationWriter: ChatThreadNotificationWriter = {
+  appendChatThreadCreated() {
+    return Promise.resolve({ notificationId: '', created: false });
+  },
+};
+
 @Injectable()
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly seasonsService: SeasonsService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    @Inject(CHAT_THREAD_NOTIFICATION_WRITER)
+    private readonly chatThreadNotificationWriter: ChatThreadNotificationWriter = noopChatThreadNotificationWriter,
   ) {}
 
   private get contextOwner() {
@@ -119,6 +131,8 @@ export class ChatService {
       acquireConversationThreadLeaveLock,
       findLeavableThread: (userId, threadId) =>
         this.queryOwner.findLeavableThread(userId, threadId),
+      appendChatThreadCreatedNotification: (tx, input) =>
+        this.chatThreadNotificationWriter.appendChatThreadCreated(tx, input),
     });
   }
 

@@ -171,4 +171,25 @@ describe('migration baseline coverage', () => {
     );
     expect(sql).not.toContain('"outboxEventId"');
   });
+
+  it('notification Phase 6-1.6 baseline은 read model/outbox table과 privacy-safe index를 포함한다', () => {
+    expect(sql).toContain('CREATE TYPE "NotificationKind" AS ENUM (\'CHAT_THREAD_CREATED\')');
+    expect(sql).toContain(
+      "CREATE TYPE \"NotificationOutboxStatus\" AS ENUM ('PENDING', 'PUBLISHED', 'FAILED')",
+    );
+    expect(sql).toContain('CREATE TABLE "UserNotification"');
+    expect(sql).toContain('CREATE TABLE "NotificationOutboxEvent"');
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "UserNotification_recipientUserId_kind_sourceType_sourceId_key" ON "UserNotification"("recipientUserId", "kind", "sourceType", "sourceId")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "UserNotification_recipientUserId_readAt_createdAt_id_idx" ON "UserNotification"("recipientUserId", "readAt", "createdAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "NotificationOutboxEvent_status_availableAt_createdAt_id_idx" ON "NotificationOutboxEvent"("status", "availableAt", "createdAt", "id")',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "NotificationOutboxEvent" ADD CONSTRAINT "NotificationOutboxEvent_notificationId_fkey" FOREIGN KEY ("notificationId") REFERENCES "UserNotification"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
+    );
+  });
 });

@@ -98,6 +98,10 @@
     "./chat-realtime-events": {
       "types": "./dist/chat-realtime-events.d.ts",
       "default": "./dist/chat-realtime-events.js"
+    },
+    "./notification-contract": {
+      "types": "./dist/notification-contract.d.ts",
+      "default": "./dist/notification-contract.js"
     }
   },
   "scripts": {
