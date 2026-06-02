@@ -46,15 +46,6 @@ export interface MatchHistoryEntryRow {
     | 'ADMIN_ACTION'
     | 'WITHDRAWN_PARTICIPANT'
     | null;
-  threadClosedReason:
-    | 'ACTIVE_MATCH_CREATED'
-    | 'ROOM_SELECTION_CUTOFF'
-    | 'SEASON_ENDED'
-    | 'PARTICIPANT_WITHDRAWN'
-    | 'MODERATION'
-    | 'ADMIN_ACTION'
-    | null;
-  threadClosedAt: Date | null;
 }
 
 export function toMatchHistoryResponse(input: {
@@ -147,8 +138,6 @@ function toMatchHistoryEntry(row: MatchHistoryEntryRow): MatchHistoryEntry {
     finalizedAt: row.finalizedAt.toISOString(),
     requestTerminalReason: row.requestTerminalReason,
     activeMatchEndReason: row.activeMatchEndReason,
-    threadClosedReason: row.threadClosedReason,
-    threadClosedAt: row.threadClosedAt?.toISOString() ?? null,
   };
 }
 

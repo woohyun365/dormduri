@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { conversationThreadClosedReasonSchema } from './chat/enums.js';
 import { isoDateTimeStringSchema } from './date-primitives.js';
 import {
   activeMatchEndReasonSchema,
@@ -35,8 +34,6 @@ export const matchHistoryEntrySchema = z.strictObject({
   finalizedAt: isoDateTimeStringSchema,
   requestTerminalReason: matchRequestTerminalReasonSchema.nullable(),
   activeMatchEndReason: activeMatchEndReasonSchema.nullable(),
-  threadClosedReason: conversationThreadClosedReasonSchema.nullable(),
-  threadClosedAt: isoDateTimeStringSchema.nullable(),
 });
 
 export const matchHistorySeasonSummarySchema = z.strictObject({

@@ -75,8 +75,6 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
           finalizedAt: true,
           requestTerminalReason: true,
           activeMatchEndReason: true,
-          threadClosedReason: true,
-          threadClosedAt: true,
         },
       });
 
