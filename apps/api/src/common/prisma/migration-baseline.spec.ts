@@ -139,4 +139,64 @@ describe('migration baseline coverage', () => {
     expect(sql).not.toContain('ACADEMIC_IDENTITY_CHANGE_ALLOWANCE');
     expect(sql).not.toContain('ACADEMIC_IDENTITY_ALLOWANCE');
   });
+
+  it('chat realtime Phase 2 storage baseline은 idempotency/read marker/outbox/replay column과 index를 포함한다', () => {
+    expect(sql).toContain('"clientMessageId" TEXT');
+    expect(sql).toContain('"lastReadMessageId" TEXT');
+    expect(sql).toContain('CREATE TABLE "ChatRealtimeOutboxEvent"');
+    expect(sql).toContain('CREATE TABLE "ChatRealtimeEventRecipient"');
+    expect(sql).toMatch(
+      /ADD\s+CONSTRAINT\s+"ConversationMessage_body_length_check"\s+CHECK\s+\(char_length\("body"\) BETWEEN 1 AND 1000\)/,
+    );
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "ConversationMessage_senderParticipantId_clientMessageId_key" ON "ConversationMessage"("senderParticipantId", "clientMessageId")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationMessage_threadId_sentAt_id_idx" ON "ConversationMessage"("threadId", "sentAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadMember_participantId_memberState_updatedAt_idx" ON "ConversationThreadMember"("participantId", "memberState", "updatedAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadMember_participantId_memberState_threadId_idx" ON "ConversationThreadMember"("participantId", "memberState", "threadId")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ChatRealtimeOutboxEvent_publishedAt_availableAt_occurredAt_id_idx" ON "ChatRealtimeOutboxEvent"("publishedAt", "availableAt", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ChatRealtimeEventRecipient_userId_cursor_idx" ON "ChatRealtimeEventRecipient"("userId", "cursor")',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "ChatRealtimeEventRecipient" ADD CONSTRAINT "ChatRealtimeEventRecipient_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "ChatRealtimeOutboxEvent"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
+    );
+    expect(sql).not.toContain('"outboxEventId"');
+  });
+
+  it('notification Phase 6-1.6 baseline은 read model/outbox table과 privacy-safe index를 포함한다', () => {
+    expect(sql).toContain('CREATE TYPE "NotificationKind" AS ENUM (\'CHAT_THREAD_CREATED\')');
+    expect(sql).toContain(
+      "CREATE TYPE \"NotificationOutboxStatus\" AS ENUM ('PENDING', 'PUBLISHED', 'FAILED')",
+    );
+    expect(sql).toContain('CREATE TABLE "UserNotification"');
+    expect(sql).toContain('CREATE TABLE "NotificationOutboxEvent"');
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "UserNotification_recipientUserId_kind_sourceType_sourceId_key" ON "UserNotification"("recipientUserId", "kind", "sourceType", "sourceId")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "UserNotification_recipientUserId_readAt_createdAt_id_idx" ON "UserNotification"("recipientUserId", "readAt", "createdAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "NotificationOutboxEvent_status_availableAt_createdAt_id_idx" ON "NotificationOutboxEvent"("status", "availableAt", "createdAt", "id")',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "NotificationOutboxEvent" ADD CONSTRAINT "NotificationOutboxEvent_notificationId_fkey" FOREIGN KEY ("notificationId") REFERENCES "UserNotification"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
+    );
+  });
+
+  it('match history baseline은 chat thread closure snapshot column을 포함하지 않는다', () => {
+    expect(sql).toContain('CREATE TABLE "SeasonMatchHistoryEntry"');
+    expect(sql).not.toContain('"threadClosedReason"');
+    expect(sql).not.toContain('"threadClosedAt"');
+    expect(sql).not.toContain('"hadConversation"');
+  });
 });

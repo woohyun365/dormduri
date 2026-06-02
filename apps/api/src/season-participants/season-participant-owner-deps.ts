@@ -1,5 +1,6 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
+import type { ChatThreadWithdrawalPort } from '../chat/application/ports/chat-thread-withdrawal.port.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { DormitoriesService } from '../dormitories/dormitories.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
@@ -16,6 +17,7 @@ export interface SeasonParticipantOwnerDeps {
   prisma: PrismaService;
   seasonsService: SeasonsService;
   dormitoriesService: DormitoriesService;
+  chatThreadWithdrawal: ChatThreadWithdrawalPort;
 }
 
 export type DbClient = Prisma.TransactionClient | PrismaService;

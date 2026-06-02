@@ -26,7 +26,6 @@ export interface MatchHistoryEntryRow {
     | 'MATCHED_SUCCESS'
     | 'UNMATCHED_AFTER_SUCCESS';
   viewerRequested: boolean;
-  hadConversation: boolean;
   matchedAt: Date | null;
   unmatchedAt: Date | null;
   finalizedAt: Date;
@@ -46,15 +45,6 @@ export interface MatchHistoryEntryRow {
     | 'ADMIN_ACTION'
     | 'WITHDRAWN_PARTICIPANT'
     | null;
-  threadClosedReason:
-    | 'ACTIVE_MATCH_CREATED'
-    | 'ROOM_SELECTION_CUTOFF'
-    | 'SEASON_ENDED'
-    | 'PARTICIPANT_WITHDRAWN'
-    | 'MODERATION'
-    | 'ADMIN_ACTION'
-    | null;
-  threadClosedAt: Date | null;
 }
 
 export function toMatchHistoryResponse(input: {
@@ -102,9 +92,6 @@ function toMatchHistorySeasonSummary(
   const receivedTargets = new Set(
     rows.filter((row) => !row.viewerRequested).map((row) => row.counterpartParticipantId),
   );
-  const conversationTargets = new Set(
-    rows.filter((row) => row.hadConversation).map((row) => row.counterpartParticipantId),
-  );
 
   return {
     seasonId: season.seasonId,
@@ -114,7 +101,6 @@ function toMatchHistorySeasonSummary(
     finalResult: toSeasonFinalResult(rows),
     sentRequestCount: sentTargets.size,
     receivedRequestCount: receivedTargets.size,
-    conversationCount: conversationTargets.size,
     history,
   };
 }
@@ -141,14 +127,11 @@ function toMatchHistoryEntry(row: MatchHistoryEntryRow): MatchHistoryEntry {
     stage: toStage(row),
     result: row.entryResult,
     viewerRequested: row.viewerRequested,
-    hadConversation: row.hadConversation,
     matchedAt: row.matchedAt?.toISOString() ?? null,
     unmatchedAt: row.unmatchedAt?.toISOString() ?? null,
     finalizedAt: row.finalizedAt.toISOString(),
     requestTerminalReason: row.requestTerminalReason,
     activeMatchEndReason: row.activeMatchEndReason,
-    threadClosedReason: row.threadClosedReason,
-    threadClosedAt: row.threadClosedAt?.toISOString() ?? null,
   };
 }
 

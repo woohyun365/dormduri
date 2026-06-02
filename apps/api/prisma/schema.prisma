@@ -180,6 +180,16 @@ enum ConversationMessageTombstoneReason {
   RETENTION_DISPOSED
 }
 
+enum NotificationKind {
+  CHAT_THREAD_CREATED
+}
+
+enum NotificationOutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+}
+
 enum RetainedVaultObjectTarget {
   CHAT_MESSAGE_BODY
   SEASON_PROFILE_HISTORY
@@ -560,24 +570,27 @@ model SeasonDormitoryOperation {
 }
 
 model User {
-  id                      String                                   @id @default(uuid())
-  email                   String
-  emailNormalized         String                                   @unique
-  passwordHash            String
-  gender                  Gender
-  campus                  Campus
-  emailVerifiedAt         DateTime?                                @db.Timestamptz(3)
-  deletedAt               DateTime?                                @db.Timestamptz(3)
-  createdAt               DateTime                                 @default(now()) @db.Timestamptz(3)
-  updatedAt               DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
-  authSessions            AuthSession[]
-  displayIdentity         UserDisplayIdentity?
-  academicIdentity        UserAcademicIdentity?
-  academicChangeAllowance UserAcademicIdentityChangeAllowance?
-  academicChangeEvents    UserAcademicIdentityChangeEvent[]
-  dismissedNotices        UserDismissedNotice[]
-  nicknameChangeEvents    UserDisplayIdentityNicknameChangeEvent[]
-  seasonParticipants      SeasonParticipant[]
+  id                       String                                   @id @default(uuid())
+  email                    String
+  emailNormalized          String                                   @unique
+  passwordHash             String
+  gender                   Gender
+  campus                   Campus
+  emailVerifiedAt          DateTime?                                @db.Timestamptz(3)
+  deletedAt                DateTime?                                @db.Timestamptz(3)
+  createdAt                DateTime                                 @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime                                 @default(now()) @updatedAt @db.Timestamptz(3)
+  authSessions             AuthSession[]
+  displayIdentity          UserDisplayIdentity?
+  academicIdentity         UserAcademicIdentity?
+  academicChangeAllowance  UserAcademicIdentityChangeAllowance?
+  academicChangeEvents     UserAcademicIdentityChangeEvent[]
+  dismissedNotices         UserDismissedNotice[]
+  nicknameChangeEvents     UserDisplayIdentityNicknameChangeEvent[]
+  seasonParticipants       SeasonParticipant[]
+  receivedNotifications    UserNotification[]                       @relation("UserNotificationRecipient")
+  actedNotifications       UserNotification[]                       @relation("UserNotificationActor")
+  notificationOutboxEvents NotificationOutboxEvent[]
 }
 
 model UserDisplayIdentity {
@@ -697,32 +710,32 @@ model UserDisplayIdentityNicknameChangeEvent {
 }
 
 model UserAcademicIdentityChangeEvent {
-  id                  String                          @id @default(uuid())
-  userId              String
-  retainedIdentityId  String?
-  retainedVaultObjectId String?                       @unique
-  redactedAt          DateTime?                       @db.Timestamptz(3)
-  redactionReason     String?
-  source              AcademicIdentityChangeSource
-  reason              AcademicIdentityChangeReason
-  actorType           AcademicIdentityChangeActorType
-  actorId             String?
-  previousCollegeCode String
-  nextCollegeCode     String
-  previousBirthYear   Int
-  nextBirthYear       Int
-  seasonId            String?
-  participantId       String?
-  reportId            String?
-  moderationCaseId    String?
-  sanctionId          String?
-  approvalReference   String?
-  metadata            Json?
-  changedAt           DateTime                        @db.Timestamptz(3)
-  createdAt           DateTime                        @default(now()) @db.Timestamptz(3)
-  retainedIdentity    RetainedIdentity?               @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
-  retainedVaultObject RetainedVaultObject?            @relation("AcademicIdentityEventRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
-  user                User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String                          @id @default(uuid())
+  userId                String
+  retainedIdentityId    String?
+  retainedVaultObjectId String?                         @unique
+  redactedAt            DateTime?                       @db.Timestamptz(3)
+  redactionReason       String?
+  source                AcademicIdentityChangeSource
+  reason                AcademicIdentityChangeReason
+  actorType             AcademicIdentityChangeActorType
+  actorId               String?
+  previousCollegeCode   String
+  nextCollegeCode       String
+  previousBirthYear     Int
+  nextBirthYear         Int
+  seasonId              String?
+  participantId         String?
+  reportId              String?
+  moderationCaseId      String?
+  sanctionId            String?
+  approvalReference     String?
+  metadata              Json?
+  changedAt             DateTime                        @db.Timestamptz(3)
+  createdAt             DateTime                        @default(now()) @db.Timestamptz(3)
+  retainedIdentity      RetainedIdentity?               @relation(fields: [retainedIdentityId], references: [id], onDelete: SetNull)
+  retainedVaultObject   RetainedVaultObject?            @relation("AcademicIdentityEventRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
+  user                  User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, changedAt])
   @@index([source, changedAt])
@@ -1010,14 +1023,11 @@ model SeasonMatchHistoryEntry {
   counterpartRedactedAt                     DateTime?                              @db.Timestamptz(3)
   viewerRedactedAt                          DateTime?                              @db.Timestamptz(3)
   viewerDormitoryIdSnapshot                 String?
-  hadConversation                           Boolean                                @default(false)
   matchedAt                                 DateTime?                              @db.Timestamptz(3)
   unmatchedAt                               DateTime?                              @db.Timestamptz(3)
   finalizedAt                               DateTime                               @db.Timestamptz(3)
   requestTerminalReason                     MatchRequestTerminalReason?
   activeMatchEndReason                      ActiveMatchEndReason?
-  threadClosedReason                        ConversationThreadClosedReason?
-  threadClosedAt                            DateTime?                              @db.Timestamptz(3)
   createdAt                                 DateTime                               @default(now()) @db.Timestamptz(3)
   updatedAt                                 DateTime                               @default(now()) @updatedAt @db.Timestamptz(3)
   season                                    Season                                 @relation(fields: [seasonId], references: [id], onDelete: Cascade)
@@ -1059,25 +1069,30 @@ model ConversationThread {
 }
 
 model ConversationThreadMember {
-  threadId      String
-  participantId String
-  memberState   ConversationThreadMemberState @default(ACTIVE)
-  leftAt        DateTime?                     @db.Timestamptz(3)
-  mutedAt       DateTime?                     @db.Timestamptz(3)
-  lastReadAt    DateTime?                     @db.Timestamptz(3)
-  lastVisibleAt DateTime?                     @db.Timestamptz(3)
-  createdAt     DateTime                      @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime                      @default(now()) @updatedAt @db.Timestamptz(3)
-  thread        ConversationThread            @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  participant   SeasonParticipant             @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  threadId          String
+  participantId     String
+  memberState       ConversationThreadMemberState @default(ACTIVE)
+  leftAt            DateTime?                     @db.Timestamptz(3)
+  mutedAt           DateTime?                     @db.Timestamptz(3)
+  lastReadAt        DateTime?                     @db.Timestamptz(3)
+  lastReadMessageId String?
+  lastVisibleAt     DateTime?                     @db.Timestamptz(3)
+  createdAt         DateTime                      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime                      @default(now()) @updatedAt @db.Timestamptz(3)
+  thread            ConversationThread            @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  participant       SeasonParticipant             @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@id([threadId, participantId])
+  @@index([participantId, memberState, updatedAt])
+  @@index([participantId, memberState, threadId])
+  @@index([participantId, lastVisibleAt])
 }
 
 model ConversationMessage {
   id                    String                              @id @default(uuid())
   threadId              String
   senderParticipantId   String
+  clientMessageId       String?
   body                  String
   bodyState             ConversationMessageBodyState        @default(PLAIN)
   tombstoneReason       ConversationMessageTombstoneReason?
@@ -1093,10 +1108,98 @@ model ConversationMessage {
   senderParticipant     SeasonParticipant                   @relation("ConversationMessageSender", fields: [senderParticipantId], references: [id], onDelete: Cascade)
   retainedVaultObject   RetainedVaultObject?                @relation("ConversationMessageRetainedVaultObject", fields: [retainedVaultObjectId], references: [id], onDelete: SetNull)
 
+  @@unique([senderParticipantId, clientMessageId])
   @@index([threadId, sentAt])
+  @@index([threadId, sentAt, id])
   @@index([senderParticipantId, sentAt])
+  @@index([senderParticipantId, sentAt, id])
   @@index([bodyState, tombstonedAt])
   @@index([retainedVaultObjectId])
+}
+
+model ChatRealtimeOutboxEvent {
+  id               String                       @id @default(cuid())
+  eventType        String
+  schemaVersion    Int                          @default(1)
+  threadId         String?
+  aggregateType    String
+  aggregateId      String
+  aggregateVersion Int?
+  payload          Json
+  roomKeys         String[]
+  occurredAt       DateTime                     @default(now()) @db.Timestamptz(3)
+  availableAt      DateTime                     @default(now()) @db.Timestamptz(3)
+  publishedAt      DateTime?                    @db.Timestamptz(3)
+  publishAttempts  Int                          @default(0)
+  lastPublishError String?
+  createdAt        DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime                     @default(now()) @updatedAt @db.Timestamptz(3)
+  recipients       ChatRealtimeEventRecipient[]
+
+  @@index([publishedAt, availableAt, occurredAt, id])
+  @@index([threadId, occurredAt, id])
+  @@index([aggregateType, aggregateId, occurredAt, id])
+}
+
+model ChatRealtimeEventRecipient {
+  eventId     String
+  userId      String
+  threadId    String?
+  cursor      String
+  deliveredAt DateTime?               @db.Timestamptz(3)
+  createdAt   DateTime                @default(now()) @db.Timestamptz(3)
+  event       ChatRealtimeOutboxEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
+  @@index([userId, createdAt, eventId])
+  @@index([userId, cursor])
+  @@index([threadId, createdAt, eventId])
+}
+
+model UserNotification {
+  id              String                    @id @default(cuid())
+  recipientUserId String
+  actorUserId     String
+  kind            NotificationKind
+  sourceType      String
+  sourceId        String
+  payload         Json
+  readAt          DateTime?                 @db.Timestamptz(3)
+  createdAt       DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime                  @default(now()) @updatedAt @db.Timestamptz(3)
+  recipient       User                      @relation("UserNotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+  actor           User                      @relation("UserNotificationActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  outboxEvents    NotificationOutboxEvent[]
+
+  @@unique([recipientUserId, kind, sourceType, sourceId])
+  @@index([recipientUserId, readAt, createdAt, id])
+  @@index([recipientUserId, createdAt, id])
+  @@index([actorUserId, createdAt, id])
+}
+
+model NotificationOutboxEvent {
+  id              String                   @id @default(cuid())
+  notificationId  String
+  recipientUserId String
+  eventType       String
+  schemaVersion   Int                      @default(1)
+  payload         Json
+  status          NotificationOutboxStatus @default(PENDING)
+  availableAt     DateTime                 @default(now()) @db.Timestamptz(3)
+  publishAttempts Int                      @default(0)
+  lockedAt        DateTime?                @db.Timestamptz(3)
+  lockedBy        String?
+  publishedAt     DateTime?                @db.Timestamptz(3)
+  failedAt        DateTime?                @db.Timestamptz(3)
+  lastError       String?
+  createdAt       DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime                 @default(now()) @updatedAt @db.Timestamptz(3)
+  notification    UserNotification         @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  recipient       User                     @relation(fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt, createdAt, id])
+  @@index([notificationId, createdAt, id])
+  @@index([recipientUserId, createdAt, id])
 }
 
 model SeasonMatchHistoryEntryRetentionLink {
@@ -1146,37 +1249,37 @@ model RetentionCase {
 
 /// RRPD payload의 암호화 보존 단위. 일반 product read path에서 복원하지 않는다.
 model RetainedVaultObject {
-  id                        String                                  @id @default(uuid())
-  target                    RetainedVaultObjectTarget
-  sourceTable               String
-  sourceId                  String
-  archiveJobId              String?
-  subjectUserId             String?
-  subjectRetainedIdentityId String?
-  subjectParticipantId      String?
-  subjectRole               RetainedVaultSubjectRole
-  payloadSchemaVersion      Int
-  encryptedPayload          Json?
-  payloadDigest             String?
-  keyPurpose                String
-  keyVersion                String?
-  aad                       String
-  state                     RetainedVaultObjectState                @default(RETAINED)
-  retainedAt                DateTime                                @default(now()) @db.Timestamptz(3)
-  disposedAt                DateTime?                               @db.Timestamptz(3)
-  disposalReason            String?
-  metadata                  Json?
-  createdAt                 DateTime                                @default(now()) @db.Timestamptz(3)
-  updatedAt                 DateTime                                @default(now()) @updatedAt @db.Timestamptz(3)
-  archiveJob                ArchiveJob?                             @relation(fields: [archiveJobId], references: [id], onDelete: SetNull)
-  subjectRetainedIdentity   RetainedIdentity?                       @relation("RetainedVaultObjectSubjectIdentity", fields: [subjectRetainedIdentityId], references: [id], onDelete: SetNull)
-  holds                     RetainedVaultObjectHold[]
-  accessLogs                RetentionAccessLog[]
-  chatMessage               ConversationMessage?                    @relation("ConversationMessageRetainedVaultObject")
-  nicknameChangeEvent       UserDisplayIdentityNicknameChangeEvent? @relation("NicknameEventRetainedVaultObject")
-  academicIdentityChangeEvent UserAcademicIdentityChangeEvent?      @relation("AcademicIdentityEventRetainedVaultObject")
-  profileHistory            SeasonParticipantProfileHistory?        @relation("ProfileHistoryRetainedVaultObject")
-  matchHistoryLink          SeasonMatchHistoryEntryRetentionLink?   @relation("MatchHistoryLinkRetainedVaultObject")
+  id                          String                                  @id @default(uuid())
+  target                      RetainedVaultObjectTarget
+  sourceTable                 String
+  sourceId                    String
+  archiveJobId                String?
+  subjectUserId               String?
+  subjectRetainedIdentityId   String?
+  subjectParticipantId        String?
+  subjectRole                 RetainedVaultSubjectRole
+  payloadSchemaVersion        Int
+  encryptedPayload            Json?
+  payloadDigest               String?
+  keyPurpose                  String
+  keyVersion                  String?
+  aad                         String
+  state                       RetainedVaultObjectState                @default(RETAINED)
+  retainedAt                  DateTime                                @default(now()) @db.Timestamptz(3)
+  disposedAt                  DateTime?                               @db.Timestamptz(3)
+  disposalReason              String?
+  metadata                    Json?
+  createdAt                   DateTime                                @default(now()) @db.Timestamptz(3)
+  updatedAt                   DateTime                                @default(now()) @updatedAt @db.Timestamptz(3)
+  archiveJob                  ArchiveJob?                             @relation(fields: [archiveJobId], references: [id], onDelete: SetNull)
+  subjectRetainedIdentity     RetainedIdentity?                       @relation("RetainedVaultObjectSubjectIdentity", fields: [subjectRetainedIdentityId], references: [id], onDelete: SetNull)
+  holds                       RetainedVaultObjectHold[]
+  accessLogs                  RetentionAccessLog[]
+  chatMessage                 ConversationMessage?                    @relation("ConversationMessageRetainedVaultObject")
+  nicknameChangeEvent         UserDisplayIdentityNicknameChangeEvent? @relation("NicknameEventRetainedVaultObject")
+  academicIdentityChangeEvent UserAcademicIdentityChangeEvent?        @relation("AcademicIdentityEventRetainedVaultObject")
+  profileHistory              SeasonParticipantProfileHistory?        @relation("ProfileHistoryRetainedVaultObject")
+  matchHistoryLink            SeasonMatchHistoryEntryRetentionLink?   @relation("MatchHistoryLinkRetainedVaultObject")
 
   @@unique([target, sourceId, subjectRole])
   @@index([target, sourceId])

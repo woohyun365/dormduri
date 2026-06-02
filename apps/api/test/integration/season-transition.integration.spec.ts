@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { ChatService } from '../../src/chat/chat.service.js';
+import { ChatService } from '../../src/chat/application/chat.service.js';
 import { LifecycleSweepService } from '../../src/common/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { MatchesService } from '../../src/matches/matches.service.js';
@@ -77,6 +77,15 @@ describe('Season transition integration', () => {
         nameKo: '다산관',
         roomType: 2,
         genderPolicy: 'M',
+        sortOrder: 1,
+      },
+    });
+
+    await prisma.collegeMaster.create({
+      data: {
+        code: 'ARTS_ENGINEERING',
+        campusCode: 'CHUNCHEON',
+        nameKo: '문화예술공과대학',
         sortOrder: 1,
       },
     });
@@ -254,7 +263,6 @@ describe('Season transition integration', () => {
       finalResult: 'MATCHED_SUCCESS',
       sentRequestCount: 1,
       receivedRequestCount: 0,
-      conversationCount: 0,
     });
     expect(offSeasonHistory.items[0]?.history).toEqual(
       expect.arrayContaining([
@@ -499,7 +507,6 @@ describe('Season transition integration', () => {
       finalResult: 'MATCHED_SUCCESS',
       sentRequestCount: 1,
       receivedRequestCount: 1,
-      conversationCount: 1,
     });
     expect(summary?.history).toEqual(
       expect.arrayContaining([
@@ -507,7 +514,6 @@ describe('Season transition integration', () => {
           counterpartParticipantId: 'participant-b',
           stage: 'MATCH',
           result: 'MATCHED_SUCCESS',
-          hadConversation: true,
         }),
         expect.objectContaining({
           counterpartParticipantId: 'participant-c',

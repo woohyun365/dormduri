@@ -1,5 +1,5 @@
 import { AuthLoginAttemptService } from '../../src/auth/auth-login-attempt.service.js';
-import { ChatService } from '../../src/chat/chat.service.js';
+import { ChatService } from '../../src/chat/application/chat.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { MatchesService } from '../../src/matches/matches.service.js';
 import { SeasonParticipantsService } from '../../src/season-participants/season-participants.service.js';
@@ -167,6 +167,7 @@ describe('timestamp field integration', () => {
     await chatService.sendMessage(authContext('user-a'), {
       targetUserId: 'user-b',
       body: 'timestamp check message',
+      clientMessageId: 'client-message-timestamp-check',
     });
     const thread = await prisma.conversationThread.findFirstOrThrow({
       where: { pairKey: 'participant-a:participant-b' },
@@ -304,7 +305,7 @@ describe('timestamp field integration', () => {
     });
     await prisma.seasonMatchHistoryEntry.updateMany({
       where: { id: 'history-updated-at' },
-      data: { hadConversation: true },
+      data: { viewerDormitoryIdSnapshot: 'dasan' },
     });
 
     const after = {

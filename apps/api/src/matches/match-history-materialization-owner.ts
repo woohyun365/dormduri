@@ -87,36 +87,6 @@ interface SeasonHistorySource {
       receiverParticipantId: string;
     };
   }>;
-  conversationThreads: Array<{
-    id: string;
-    participantAId: string;
-    participantBId: string;
-    status: 'OPEN' | 'READ_ONLY' | 'ARCHIVED';
-    closedReason:
-      | 'ACTIVE_MATCH_CREATED'
-      | 'ROOM_SELECTION_CUTOFF'
-      | 'SEASON_ENDED'
-      | 'PARTICIPANT_WITHDRAWN'
-      | 'MODERATION'
-      | 'ADMIN_ACTION'
-      | null;
-    closedAt: Date | null;
-    lastMessageAt: Date | null;
-    updatedAt: Date;
-  }>;
-}
-
-interface PairThreadSnapshot {
-  hadConversation: boolean;
-  latestClosedReason:
-    | 'ACTIVE_MATCH_CREATED'
-    | 'ROOM_SELECTION_CUTOFF'
-    | 'SEASON_ENDED'
-    | 'PARTICIPANT_WITHDRAWN'
-    | 'MODERATION'
-    | 'ADMIN_ACTION'
-    | null;
-  latestClosedAt: Date | null;
 }
 
 type DbClient = Prisma.TransactionClient | PrismaClient;
@@ -278,19 +248,6 @@ async function loadSeasonHistorySource(
           },
         },
       },
-      conversationThreads: {
-        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-        select: {
-          id: true,
-          participantAId: true,
-          participantBId: true,
-          status: true,
-          closedReason: true,
-          closedAt: true,
-          lastMessageAt: true,
-          updatedAt: true,
-        },
-      },
     },
   });
 
@@ -309,7 +266,6 @@ function buildHistoryRows(
   const participantMap = new Map(
     season.participants.map((participant) => [participant.id, participant] as const),
   );
-  const pairThreadMap = buildPairThreadMap(season.conversationThreads);
   const seasonBoundaryAt = toSeasonEndBoundary(season.seasonEndDate, now);
   const rows: Prisma.SeasonMatchHistoryEntryCreateManyInput[] = [];
 
@@ -332,7 +288,6 @@ function buildHistoryRows(
       request.requesterParticipantId,
       request.receiverParticipantId,
     );
-    const threadSnapshot = pairThreadMap.get(pairIdentity.pairKey);
     const finalizedAt = request.terminalAt ?? request.createdAt;
 
     rows.push(
@@ -346,7 +301,6 @@ function buildHistoryRows(
         finalizedAt,
         requestTerminalReason: request.terminalReason,
         entryResult: toRequestEntryResult(request.status, request.terminalReason),
-        threadSnapshot,
         sourceRequestId: request.id,
       }),
       buildRequestHistoryRow({
@@ -359,7 +313,6 @@ function buildHistoryRows(
         finalizedAt,
         requestTerminalReason: request.terminalReason,
         entryResult: toRequestEntryResult(request.status, request.terminalReason),
-        threadSnapshot,
         sourceRequestId: request.id,
       }),
     );
@@ -379,7 +332,6 @@ function buildHistoryRows(
       continue;
     }
 
-    const threadSnapshot = pairThreadMap.get(activeMatch.pairKey);
     const finalizedAt = activeMatch.endedAt ?? seasonBoundaryAt;
     const unmatchedAt =
       activeMatch.endReason && activeMatch.endReason !== 'SEASON_ENDED' ? finalizedAt : null;
@@ -406,7 +358,6 @@ function buildHistoryRows(
         matchedAt: activeMatch.startedAt,
         unmatchedAt,
         finalizedAt,
-        threadSnapshot,
       }),
       buildMatchHistoryRow({
         id: `match:${activeMatch.id}:viewer:${participantB.id}`,
@@ -423,43 +374,11 @@ function buildHistoryRows(
         matchedAt: activeMatch.startedAt,
         unmatchedAt,
         finalizedAt,
-        threadSnapshot,
       }),
     );
   }
 
   return rows;
-}
-
-function buildPairThreadMap(
-  threads: SeasonHistorySource['conversationThreads'],
-): ReadonlyMap<string, PairThreadSnapshot> {
-  const map = new Map<string, PairThreadSnapshot>();
-
-  for (const thread of threads) {
-    const pairKey = buildParticipantPairIdentity(
-      thread.participantAId,
-      thread.participantBId,
-    ).pairKey;
-    const existing = map.get(pairKey);
-    const hadConversation = thread.lastMessageAt !== null;
-    if (!existing) {
-      map.set(pairKey, {
-        hadConversation,
-        latestClosedReason: thread.closedReason,
-        latestClosedAt: thread.closedAt,
-      });
-      continue;
-    }
-
-    map.set(pairKey, {
-      hadConversation: existing.hadConversation || hadConversation,
-      latestClosedReason: existing.latestClosedReason,
-      latestClosedAt: existing.latestClosedAt,
-    });
-  }
-
-  return map;
 }
 
 function buildRequestHistoryRow(input: {
@@ -486,7 +405,6 @@ function buildRequestHistoryRow(input: {
     | 'REQUEST_EXPIRED'
     | 'MATCHED_SUCCESS'
     | 'UNMATCHED_AFTER_SUCCESS';
-  threadSnapshot: PairThreadSnapshot | undefined;
   sourceRequestId: string;
 }): Prisma.SeasonMatchHistoryEntryCreateManyInput {
   const scoreSnapshot = buildHistoryScoreSnapshot(
@@ -508,14 +426,11 @@ function buildRequestHistoryRow(input: {
     ...toHistorySnapshotColumns(scoreSnapshot),
     counterpartNicknameSnapshot: resolveCounterpartNickname(input.counterpartParticipant),
     viewerDormitoryIdSnapshot: input.viewerParticipant.dormitoryId,
-    hadConversation: input.threadSnapshot?.hadConversation ?? false,
     matchedAt: null,
     unmatchedAt: null,
     finalizedAt: input.finalizedAt,
     requestTerminalReason: input.requestTerminalReason,
     activeMatchEndReason: null,
-    threadClosedReason: input.threadSnapshot?.latestClosedReason ?? null,
-    threadClosedAt: input.threadSnapshot?.latestClosedAt ?? null,
   };
 }
 
@@ -538,7 +453,6 @@ function buildMatchHistoryRow(input: {
   matchedAt: Date;
   unmatchedAt: Date | null;
   finalizedAt: Date;
-  threadSnapshot: PairThreadSnapshot | undefined;
 }): Prisma.SeasonMatchHistoryEntryCreateManyInput {
   const scoreSnapshot = buildHistoryScoreSnapshot(
     input.viewerParticipant,
@@ -561,14 +475,11 @@ function buildMatchHistoryRow(input: {
     ...toHistorySnapshotColumns(scoreSnapshot),
     counterpartNicknameSnapshot: resolveCounterpartNickname(input.counterpartParticipant),
     viewerDormitoryIdSnapshot: input.viewerParticipant.dormitoryId,
-    hadConversation: input.threadSnapshot?.hadConversation ?? false,
     matchedAt: input.matchedAt,
     unmatchedAt: input.unmatchedAt,
     finalizedAt: input.finalizedAt,
     requestTerminalReason: 'ACCEPTED',
     activeMatchEndReason: input.activeMatchEndReason,
-    threadClosedReason: input.threadSnapshot?.latestClosedReason ?? null,
-    threadClosedAt: input.threadSnapshot?.latestClosedAt ?? null,
   };
 }
 

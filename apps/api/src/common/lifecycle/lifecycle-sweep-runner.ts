@@ -1,4 +1,4 @@
-import type { ChatService } from '../../chat/chat.service.js';
+import type { ChatLifecycleSweepPort } from '../../chat/application/ports/chat-lifecycle-sweep.port.js';
 import type { MatchesService } from '../../matches/matches.service.js';
 import type { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
 import type { UsersService } from '../../users/users.service.js';
@@ -10,7 +10,7 @@ interface LifecycleSweepRunnerDeps {
   prisma: PrismaService;
   retentionPrisma: ManagedPrismaClient;
   retentionObservability?: Pick<RetentionObservabilityService, 'emitSweep'>;
-  chatService: Pick<ChatService, 'sweepThreadLifecycle'>;
+  chatLifecycleSweep: ChatLifecycleSweepPort;
   matchesService: Pick<MatchesService, 'sweepHistoryMaterialization' | 'sweepLifecycleTransitions'>;
   seasonParticipantsService: Pick<SeasonParticipantsService, 'backfillCurrentSeasonParticipants'>;
   usersService: Pick<
@@ -28,7 +28,7 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
     const startedAt = Date.now();
     const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
     const matchTransitions = await deps.matchesService.sweepLifecycleTransitions(referenceNow);
-    const threadTransitions = await deps.chatService.sweepThreadLifecycle(referenceNow);
+    const threadTransitions = await deps.chatLifecycleSweep.sweepThreadLifecycle(referenceNow);
     const matchHistory = await deps.matchesService.sweepHistoryMaterialization(referenceNow);
     const participantBackfill =
       await deps.seasonParticipantsService.backfillCurrentSeasonParticipants(referenceNow);
