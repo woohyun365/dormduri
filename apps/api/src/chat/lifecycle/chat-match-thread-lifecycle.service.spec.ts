@@ -1,0 +1,756 @@
+import { createChatMatchThreadLifecycleOwner } from './chat-match-thread-lifecycle.service.js';
+import type { ThreadRecord } from '../persistence/chat-thread.select.js';
+
+const now = new Date('2026-02-10T03:00:00.000Z');
+
+const activeMembers = [
+  {
+    participantId: 'participant-1',
+    memberState: 'ACTIVE' as const,
+    leftAt: null,
+    lastReadAt: null,
+    lastReadMessageId: null,
+    lastVisibleAt: null,
+  },
+  {
+    participantId: 'participant-3',
+    memberState: 'ACTIVE' as const,
+    leftAt: null,
+    lastReadAt: null,
+    lastReadMessageId: null,
+    lastVisibleAt: null,
+  },
+];
+
+function makeThread(overrides: Record<string, unknown> = {}): ThreadRecord {
+  return {
+    id: 'thread-other',
+    seasonId: 'season-1',
+    pairKey: 'participant-1:participant-3',
+    participantAId: 'participant-1',
+    participantBId: 'participant-3',
+    openedByParticipantId: 'participant-1',
+    threadKind: 'DIRECT',
+    activeMatchId: null,
+    status: 'OPEN',
+    closedReason: null,
+    closedAt: null,
+    lastMessageAt: new Date('2026-02-10T03:00:00.000Z'),
+    createdAt: new Date('2026-02-10T03:00:00.000Z'),
+    updatedAt: new Date('2026-02-10T03:00:00.000Z'),
+    season: {
+      id: 'season-1',
+      campusCode: 'CHUNCHEON',
+      name: '2026-1',
+      preparationStartDate: new Date('2026-02-01T00:00:00.000Z'),
+      matchingStartDate: new Date('2026-02-05T00:00:00.000Z'),
+      seasonEndDate: new Date('2026-02-28T00:00:00.000Z'),
+      overrideState: null,
+      overrideReason: null,
+      overrideStartedAt: null,
+      overrideEndsAt: null,
+      dormitoryOperations: [],
+    },
+    participantA: {
+      id: 'participant-1',
+      userId: 'user-1',
+      dormitoryId: 'dasan',
+      dormitorySelectionState: 'ASSIGNED',
+    },
+    participantB: {
+      id: 'participant-3',
+      userId: 'user-3',
+      dormitoryId: 'dasan',
+      dormitorySelectionState: 'ASSIGNED',
+    },
+    activeMatch: null,
+    members: activeMembers,
+    messages: [],
+    ...overrides,
+  } as ThreadRecord;
+}
+
+type ThreadUpdateManyCall = [
+  {
+    data: Record<string, unknown>;
+  },
+];
+
+type OutboxCreateCall = [
+  {
+    data: {
+      eventType: string;
+      threadId: string;
+      aggregateType: string;
+      aggregateId: string;
+      payload: Record<string, unknown>;
+      occurredAt: Date;
+      availableAt: Date;
+    };
+    select: { id: true };
+  },
+];
+
+type RecipientCreateManyCall = [
+  {
+    data: Array<{
+      eventId: string;
+      userId: string;
+      threadId: string;
+      cursor: string;
+      createdAt: Date;
+    }>;
+    skipDuplicates: boolean;
+  },
+];
+
+describe('ChatMatchThreadLifecycleOwner', () => {
+  it('ACTIVE 생성으로 닫히는 다른 open direct thread에도 read-only thread.updated outbox를 남긴다', async () => {
+    const affectedThread = makeThread();
+    const updatedAffectedThread = makeThread({
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+      closedAt: now,
+    });
+    const tx = {
+      conversationThread: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([affectedThread])
+          .mockResolvedValueOnce([updatedAffectedThread]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      chatRealtimeOutboxEvent: {
+        create: jest.fn().mockResolvedValue({ id: 'event-affected' }),
+      },
+      chatRealtimeEventRecipient: {
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+    };
+    const owner = createChatMatchThreadLifecycleOwner({
+      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
+    });
+
+    await owner.handleActiveMatchCreated(
+      tx as never,
+      {
+        seasonId: 'season-1',
+        pairKey: 'participant-1:participant-2',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        activeMatchId: 'active-1',
+      },
+      now,
+    );
+
+    const updateManyCalls = tx.conversationThread.updateMany.mock
+      .calls as unknown as ThreadUpdateManyCall[];
+    const [updateManyArgs] = updateManyCalls[0] ?? [];
+    if (!updateManyArgs) {
+      throw new Error('thread updateMany args are required');
+    }
+    expect(updateManyArgs).toMatchObject({
+      data: {
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+        closedAt: now,
+      },
+    });
+
+    const outboxCreateCalls = tx.chatRealtimeOutboxEvent.create.mock
+      .calls as unknown as OutboxCreateCall[];
+    const [outboxCreateArgs] = outboxCreateCalls[0] ?? [];
+    if (!outboxCreateArgs) {
+      throw new Error('outbox create args are required');
+    }
+    expect(outboxCreateArgs).toMatchObject({
+      data: {
+        eventType: 'chat.thread.updated',
+        threadId: 'thread-other',
+        aggregateType: 'conversation.thread',
+        aggregateId: 'thread-other',
+        payload: {
+          threadId: 'thread-other',
+          status: 'READ_ONLY',
+          closedReason: 'ACTIVE_MATCH_CREATED',
+        },
+        occurredAt: now,
+        availableAt: now,
+      },
+      select: { id: true },
+    });
+
+    const recipientCreateCalls = tx.chatRealtimeEventRecipient.createMany.mock
+      .calls as unknown as RecipientCreateManyCall[];
+    const [recipientCreateArgs] = recipientCreateCalls[0] ?? [];
+    if (!recipientCreateArgs) {
+      throw new Error('recipient createMany args are required');
+    }
+    expect(recipientCreateArgs.skipDuplicates).toBe(true);
+    expect(recipientCreateArgs.data).toEqual(
+      expect.arrayContaining([
+        {
+          eventId: 'event-affected',
+          userId: 'user-1',
+          threadId: 'thread-other',
+          cursor: 'event-affected:user-1',
+          createdAt: now,
+        },
+        {
+          eventId: 'event-affected',
+          userId: 'user-3',
+          threadId: 'thread-other',
+          cursor: 'event-affected:user-3',
+          createdAt: now,
+        },
+      ]),
+    );
+  });
+
+  it('ACTIVE 생성 중 stale candidate가 실제 READ_ONLY로 갱신되지 않았으면 outbox event를 만들지 않는다', async () => {
+    const staleCandidate = makeThread();
+    const tx = {
+      conversationThread: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest.fn().mockResolvedValueOnce([staleCandidate]).mockResolvedValueOnce([]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      chatRealtimeOutboxEvent: {
+        create: jest.fn().mockResolvedValue({ id: 'event-stale' }),
+      },
+      chatRealtimeEventRecipient: {
+        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+    };
+    const owner = createChatMatchThreadLifecycleOwner({
+      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
+    });
+
+    await owner.handleActiveMatchCreated(
+      tx as never,
+      {
+        seasonId: 'season-1',
+        pairKey: 'participant-1:participant-2',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        activeMatchId: 'active-1',
+      },
+      now,
+    );
+
+    expect(tx.conversationThread.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: { in: ['thread-other'] },
+          status: 'OPEN',
+        },
+      }),
+    );
+    const findManyCalls = tx.conversationThread.findMany.mock.calls as unknown as Array<
+      [{ where: Record<string, unknown> }]
+    >;
+    expect(findManyCalls[1]?.[0].where).toMatchObject({
+      id: { in: ['thread-other'] },
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+      closedAt: now,
+    });
+    expect(tx.chatRealtimeOutboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.chatRealtimeEventRecipient.createMany).not.toHaveBeenCalled();
+  });
+
+  it('ACTIVE 생성으로 영향을 받는 open direct thread가 2개 이상이면 모두 READ_ONLY update 대상이 된다', async () => {
+    const affectedThreads = [
+      makeThread({
+        id: 'thread-other-a',
+        participantB: { ...makeThread().participantB, userId: 'user-3' },
+      }),
+      makeThread({
+        id: 'thread-other-b',
+        participantAId: 'participant-4',
+        participantBId: 'participant-2',
+        participantA: {
+          id: 'participant-4',
+          userId: 'user-4',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        participantB: {
+          id: 'participant-2',
+          userId: 'user-2',
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+      }),
+    ];
+    const updatedThreads = affectedThreads.map((thread) =>
+      makeThread({
+        ...thread,
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+        closedAt: now,
+      }),
+    );
+    const tx = {
+      conversationThread: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce(affectedThreads)
+          .mockResolvedValueOnce(updatedThreads),
+        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+      chatRealtimeOutboxEvent: {
+        create: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'event-thread-other-a' })
+          .mockResolvedValueOnce({ id: 'event-thread-other-b' }),
+      },
+      chatRealtimeEventRecipient: {
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+    };
+    const owner = createChatMatchThreadLifecycleOwner({
+      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
+    });
+
+    await owner.handleActiveMatchCreated(
+      tx as never,
+      {
+        seasonId: 'season-1',
+        pairKey: 'participant-1:participant-2',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        activeMatchId: 'active-1',
+      },
+      now,
+    );
+
+    expect(tx.conversationThread.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: { in: ['thread-other-a', 'thread-other-b'] },
+          status: 'OPEN',
+        },
+        data: {
+          status: 'READ_ONLY',
+          closedReason: 'ACTIVE_MATCH_CREATED',
+          closedAt: now,
+        },
+      }),
+    );
+    expect(tx.chatRealtimeOutboxEvent.create).toHaveBeenCalledTimes(2);
+    const outboxCreateCalls = tx.chatRealtimeOutboxEvent.create.mock
+      .calls as unknown as OutboxCreateCall[];
+    expect(outboxCreateCalls.map((call) => call[0].data.threadId)).toEqual([
+      'thread-other-a',
+      'thread-other-b',
+    ]);
+  });
+
+  it('기존 pair thread 승격 event와 다른 direct thread read-only event를 같은 match-created transaction에 남긴다', async () => {
+    const existingPairThread = makeThread({
+      id: 'thread-pair',
+      pairKey: 'participant-1:participant-2',
+      participantBId: 'participant-2',
+      participantB: {
+        id: 'participant-2',
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+    });
+    const updatedPairThread = makeThread({
+      ...existingPairThread,
+      threadKind: 'MATCHED',
+      activeMatchId: 'active-1',
+      status: 'OPEN',
+      closedReason: null,
+      closedAt: null,
+    });
+    const affectedThread = makeThread({ id: 'thread-other' });
+    const updatedAffectedThread = makeThread({
+      id: 'thread-other',
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+      closedAt: now,
+    });
+    const tx = {
+      conversationThread: {
+        findFirst: jest.fn().mockResolvedValue(existingPairThread),
+        update: jest.fn().mockResolvedValue(updatedPairThread),
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([affectedThread])
+          .mockResolvedValueOnce([updatedAffectedThread]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      chatRealtimeOutboxEvent: {
+        create: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'event-pair' })
+          .mockResolvedValueOnce({ id: 'event-other' }),
+      },
+      chatRealtimeEventRecipient: {
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+    };
+    const owner = createChatMatchThreadLifecycleOwner({
+      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
+    });
+
+    await owner.handleActiveMatchCreated(
+      tx as never,
+      {
+        seasonId: 'season-1',
+        pairKey: 'participant-1:participant-2',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        activeMatchId: 'active-1',
+      },
+      now,
+    );
+
+    const outboxCreateCalls = tx.chatRealtimeOutboxEvent.create.mock
+      .calls as unknown as OutboxCreateCall[];
+    const outboxThreadIds = outboxCreateCalls.map((call) => call[0].data.threadId);
+    expect(outboxThreadIds).toEqual(['thread-pair', 'thread-other']);
+    expect(outboxCreateCalls[0]?.[0]).toMatchObject({
+      data: {
+        eventType: 'chat.thread.updated',
+        threadId: 'thread-pair',
+        payload: {
+          threadId: 'thread-pair',
+          status: 'OPEN',
+          closedReason: null,
+        },
+      },
+    });
+    expect(outboxCreateCalls[1]?.[0]).toMatchObject({
+      data: {
+        eventType: 'chat.thread.updated',
+        threadId: 'thread-other',
+        payload: {
+          threadId: 'thread-other',
+          status: 'READ_ONLY',
+          closedReason: 'ACTIVE_MATCH_CREATED',
+        },
+      },
+    });
+  });
+
+  it('UNMATCHED 시 eligible ACTIVE_MATCH_CREATED direct thread를 OPEN으로 복구하고 outbox를 남긴다', async () => {
+    const matchedThread = makeThread({
+      id: 'thread-matched',
+      pairKey: 'participant-1:participant-2',
+      participantBId: 'participant-2',
+      threadKind: 'MATCHED',
+      activeMatchId: 'active-1',
+      status: 'OPEN',
+      participantB: {
+        id: 'participant-2',
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+    });
+    const downgradedThread = makeThread({
+      ...matchedThread,
+      threadKind: 'DIRECT',
+      activeMatchId: null,
+      status: 'OPEN',
+    });
+    const reopenCandidate = makeThread({
+      id: 'thread-other',
+      pairKey: 'participant-1:participant-3',
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+      closedAt: now,
+    });
+    const reopenedThread = makeThread({
+      ...reopenCandidate,
+      status: 'OPEN',
+      closedReason: null,
+      closedAt: null,
+    });
+    const tx = {
+      conversationThread: {
+        findFirst: jest.fn().mockResolvedValue(matchedThread),
+        update: jest.fn().mockResolvedValue(downgradedThread),
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([reopenCandidate])
+          .mockResolvedValueOnce([reopenedThread]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      chatRealtimeOutboxEvent: {
+        create: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'event-matched' })
+          .mockResolvedValueOnce({ id: 'event-reopened' }),
+      },
+      chatRealtimeEventRecipient: {
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+    };
+    const canReopenDirectThreadAfterUnmatch = jest.fn().mockResolvedValue(true);
+    const owner = createChatMatchThreadLifecycleOwner({
+      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
+      canReopenDirectThreadAfterUnmatch,
+    });
+
+    await owner.handleActiveMatchUnmatched(tx as never, { activeMatchId: 'active-1' }, now);
+
+    expect(canReopenDirectThreadAfterUnmatch).toHaveBeenCalledWith(tx, reopenCandidate, now);
+    expect(tx.conversationThread.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ['thread-other'] },
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+      },
+      data: {
+        status: 'OPEN',
+        closedReason: null,
+        closedAt: null,
+      },
+    });
+    const outboxCreateCalls = tx.chatRealtimeOutboxEvent.create.mock
+      .calls as unknown as OutboxCreateCall[];
+    expect(outboxCreateCalls.map((call) => call[0].data.threadId)).toEqual([
+      'thread-matched',
+      'thread-other',
+    ]);
+    expect(outboxCreateCalls[1]?.[0]).toMatchObject({
+      data: {
+        eventType: 'chat.thread.updated',
+        threadId: 'thread-other',
+        payload: {
+          threadId: 'thread-other',
+          status: 'OPEN',
+          closedReason: null,
+        },
+      },
+    });
+  });
+
+  it('UNMATCHED 시 direct reopen policy가 거절한 thread는 READ_ONLY로 유지한다', async () => {
+    const matchedThread = makeThread({
+      id: 'thread-matched',
+      pairKey: 'participant-1:participant-2',
+      participantBId: 'participant-2',
+      threadKind: 'MATCHED',
+      activeMatchId: 'active-1',
+      status: 'OPEN',
+      participantB: {
+        id: 'participant-2',
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+    });
+    const reopenCandidate = makeThread({
+      id: 'thread-other',
+      pairKey: 'participant-1:participant-3',
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+      closedAt: now,
+    });
+    const tx = {
+      conversationThread: {
+        findFirst: jest.fn().mockResolvedValue(matchedThread),
+        update: jest.fn().mockResolvedValue(
+          makeThread({
+            ...matchedThread,
+            threadKind: 'DIRECT',
+            activeMatchId: null,
+            status: 'OPEN',
+          }),
+        ),
+        findMany: jest.fn().mockResolvedValueOnce([reopenCandidate]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      chatRealtimeOutboxEvent: {
+        create: jest.fn().mockResolvedValue({ id: 'event-matched' }),
+      },
+      chatRealtimeEventRecipient: {
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+    };
+    const owner = createChatMatchThreadLifecycleOwner({
+      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
+      canReopenDirectThreadAfterUnmatch: jest.fn().mockResolvedValue(false),
+    });
+
+    await owner.handleActiveMatchUnmatched(tx as never, { activeMatchId: 'active-1' }, now);
+
+    expect(tx.conversationThread.updateMany).not.toHaveBeenCalled();
+    expect(tx.chatRealtimeOutboxEvent.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('UNMATCHED 시 여러 related direct thread 중 eligible 후보만 reopen한다', async () => {
+    const matchedThread = makeThread({
+      id: 'thread-matched',
+      pairKey: 'participant-1:participant-2',
+      participantBId: 'participant-2',
+      threadKind: 'MATCHED',
+      activeMatchId: 'active-1',
+      status: 'OPEN',
+      participantB: {
+        id: 'participant-2',
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+    });
+    const eligibleCandidate = makeThread({
+      id: 'thread-eligible',
+      pairKey: 'participant-1:participant-3',
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+      closedAt: now,
+    });
+    const cutoffCandidate = makeThread({
+      id: 'thread-cutoff',
+      pairKey: 'participant-2:participant-4',
+      participantAId: 'participant-2',
+      participantBId: 'participant-4',
+      participantA: {
+        id: 'participant-2',
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      participantB: {
+        id: 'participant-4',
+        userId: 'user-4',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+      closedAt: now,
+    });
+    const reopenedThread = makeThread({
+      ...eligibleCandidate,
+      status: 'OPEN',
+      closedReason: null,
+      closedAt: null,
+    });
+    const tx = {
+      conversationThread: {
+        findFirst: jest.fn().mockResolvedValue(matchedThread),
+        update: jest.fn().mockResolvedValue(
+          makeThread({
+            ...matchedThread,
+            threadKind: 'DIRECT',
+            activeMatchId: null,
+            status: 'OPEN',
+          }),
+        ),
+        findMany: jest
+          .fn()
+          .mockResolvedValueOnce([eligibleCandidate, cutoffCandidate])
+          .mockResolvedValueOnce([reopenedThread]),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      chatRealtimeOutboxEvent: {
+        create: jest
+          .fn()
+          .mockResolvedValueOnce({ id: 'event-matched' })
+          .mockResolvedValueOnce({ id: 'event-reopened' }),
+      },
+      chatRealtimeEventRecipient: {
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+    };
+    const findThreadRoomSelectionDate = jest.fn((thread: ThreadRecord) =>
+      thread.id === 'thread-cutoff' ? '2026-02-09' : '2026-02-11',
+    );
+    const canReopenDirectThreadAfterUnmatch = jest.fn().mockResolvedValue(true);
+    const owner = createChatMatchThreadLifecycleOwner({
+      findThreadRoomSelectionDate,
+      formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
+      canReopenDirectThreadAfterUnmatch,
+    });
+
+    await owner.handleActiveMatchUnmatched(tx as never, { activeMatchId: 'active-1' }, now);
+
+    expect(canReopenDirectThreadAfterUnmatch).toHaveBeenCalledTimes(1);
+    expect(canReopenDirectThreadAfterUnmatch).toHaveBeenCalledWith(tx, eligibleCandidate, now);
+    const updateManyCalls = tx.conversationThread.updateMany.mock.calls as unknown as Array<
+      [Record<string, unknown>]
+    >;
+    expect(updateManyCalls[0]?.[0]).toMatchObject({
+      where: {
+        id: { in: ['thread-eligible'] },
+      },
+    });
+    const outboxCreateCalls = tx.chatRealtimeOutboxEvent.create.mock
+      .calls as unknown as OutboxCreateCall[];
+    expect(outboxCreateCalls.map((call) => call[0].data.threadId)).toEqual([
+      'thread-matched',
+      'thread-eligible',
+    ]);
+  });
+
+  it('UNMATCHED 시 dynamic reopen callback이 없으면 fail-closed로 reopen하지 않는다', async () => {
+    const matchedThread = makeThread({
+      id: 'thread-matched',
+      pairKey: 'participant-1:participant-2',
+      participantBId: 'participant-2',
+      threadKind: 'MATCHED',
+      activeMatchId: 'active-1',
+      status: 'OPEN',
+      participantB: {
+        id: 'participant-2',
+        userId: 'user-2',
+        dormitoryId: 'dasan',
+        dormitorySelectionState: 'ASSIGNED',
+      },
+    });
+    const reopenCandidate = makeThread({
+      id: 'thread-other',
+      pairKey: 'participant-1:participant-3',
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+      closedAt: now,
+    });
+    const tx = {
+      conversationThread: {
+        findFirst: jest.fn().mockResolvedValue(matchedThread),
+        update: jest.fn().mockResolvedValue(
+          makeThread({
+            ...matchedThread,
+            threadKind: 'DIRECT',
+            activeMatchId: null,
+            status: 'OPEN',
+          }),
+        ),
+        findMany: jest.fn().mockResolvedValueOnce([reopenCandidate]),
+        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      chatRealtimeOutboxEvent: {
+        create: jest.fn().mockResolvedValue({ id: 'event-matched' }),
+      },
+      chatRealtimeEventRecipient: {
+        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      },
+    };
+    const owner = createChatMatchThreadLifecycleOwner({
+      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
+    });
+
+    await owner.handleActiveMatchUnmatched(tx as never, { activeMatchId: 'active-1' }, now);
+
+    expect(tx.conversationThread.updateMany).not.toHaveBeenCalled();
+    expect(tx.chatRealtimeOutboxEvent.create).toHaveBeenCalledTimes(1);
+  });
+});

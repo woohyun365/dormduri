@@ -249,6 +249,139 @@ describe('MatchesService integration', () => {
     });
   });
 
+  it('매칭 성공 시 matched pair thread 외 관련 open direct threads는 READ_ONLY가 되고 thread.updated outbox를 남긴다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-d',
+      participantId: 'participant-d',
+      email: 'user-d@kangwon.ac.kr',
+      nickname: '유저D',
+    });
+
+    await prisma.conversationThread.createMany({
+      data: [
+        {
+          id: 'thread-a-b-existing',
+          seasonId: 'season-integration',
+          pairKey: 'participant-a:participant-b',
+          participantAId: 'participant-a',
+          participantBId: 'participant-b',
+          openedByParticipantId: 'participant-a',
+          threadKind: 'DIRECT',
+          status: 'OPEN',
+        },
+        {
+          id: 'thread-a-c-other',
+          seasonId: 'season-integration',
+          pairKey: 'participant-a:participant-c',
+          participantAId: 'participant-a',
+          participantBId: 'participant-c',
+          openedByParticipantId: 'participant-a',
+          threadKind: 'DIRECT',
+          status: 'OPEN',
+        },
+        {
+          id: 'thread-b-d-other',
+          seasonId: 'season-integration',
+          pairKey: 'participant-b:participant-d',
+          participantAId: 'participant-b',
+          participantBId: 'participant-d',
+          openedByParticipantId: 'participant-b',
+          threadKind: 'DIRECT',
+          status: 'OPEN',
+        },
+      ],
+    });
+    await prisma.conversationThreadMember.createMany({
+      data: [
+        { threadId: 'thread-a-b-existing', participantId: 'participant-a' },
+        { threadId: 'thread-a-b-existing', participantId: 'participant-b' },
+        { threadId: 'thread-a-c-other', participantId: 'participant-a' },
+        { threadId: 'thread-a-c-other', participantId: 'participant-c' },
+        { threadId: 'thread-b-d-other', participantId: 'participant-b' },
+        { threadId: 'thread-b-d-other', participantId: 'participant-d' },
+      ],
+    });
+
+    const request = await service.createMatchRequest(authContext('user-a'), {
+      targetUserId: 'user-b',
+      note: '기존 direct thread 승격과 다른 direct thread 종료',
+    });
+
+    await service.acceptMatchRequest(authContext('user-b'), request.request.id);
+
+    const threads = await prisma.conversationThread.findMany({
+      where: {
+        id: { in: ['thread-a-b-existing', 'thread-a-c-other', 'thread-b-d-other'] },
+      },
+      orderBy: [{ id: 'asc' }],
+    });
+    const threadStates: Record<
+      string,
+      {
+        threadKind: string;
+        activeMatchId: string | null;
+        status: string;
+        closedReason: string | null;
+      }
+    > = {};
+    for (const thread of threads) {
+      threadStates[thread.id] = {
+        threadKind: thread.threadKind,
+        activeMatchId: thread.activeMatchId,
+        status: thread.status,
+        closedReason: thread.closedReason,
+      };
+    }
+    expect(threadStates['thread-a-b-existing']?.activeMatchId).toEqual(expect.any(String));
+    expect(threadStates).toMatchObject({
+      'thread-a-b-existing': {
+        threadKind: 'MATCHED',
+        status: 'OPEN',
+        closedReason: null,
+      },
+      'thread-a-c-other': {
+        threadKind: 'DIRECT',
+        activeMatchId: null,
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+      },
+      'thread-b-d-other': {
+        threadKind: 'DIRECT',
+        activeMatchId: null,
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+      },
+    });
+
+    const outboxEvents = await prisma.chatRealtimeOutboxEvent.findMany({
+      where: {
+        eventType: 'chat.thread.updated',
+        threadId: { in: ['thread-a-b-existing', 'thread-a-c-other', 'thread-b-d-other'] },
+      },
+      orderBy: [{ threadId: 'asc' }],
+    });
+    expect(outboxEvents.map((event) => event.threadId)).toEqual([
+      'thread-a-b-existing',
+      'thread-a-c-other',
+      'thread-b-d-other',
+    ]);
+    expect(outboxEvents.map((event) => event.payload)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ threadId: 'thread-a-b-existing', status: 'OPEN' }),
+        expect.objectContaining({
+          threadId: 'thread-a-c-other',
+          status: 'READ_ONLY',
+          closedReason: 'ACTIVE_MATCH_CREATED',
+        }),
+        expect.objectContaining({
+          threadId: 'thread-b-d-other',
+          status: 'READ_ONLY',
+          closedReason: 'ACTIVE_MATCH_CREATED',
+        }),
+      ]),
+    );
+  });
+
   it('incomplete season participant profile은 raw nullable write가 가능해도 match request capability에서 닫힌다', async () => {
     await prisma.seasonParticipantProfile.update({
       where: { participantId: 'participant-a' },

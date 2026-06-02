@@ -153,6 +153,8 @@ describe('conversation retained body owner', () => {
       body: conversationMessageTombstoneText.ACCOUNT_DELETION_RETENTION,
       bodyVersion: 2,
     });
+    expect(result.events[0]).not.toHaveProperty('retainedOriginalBody');
+    expect(JSON.stringify(result.events[0])).not.toContain('신고 대응에 필요할 수 있는 원문');
   });
 
   it('사용자 메시지 삭제 tombstone은 원문 보존 없이 처리할 수 있다', async () => {

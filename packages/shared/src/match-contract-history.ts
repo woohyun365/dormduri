@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { conversationThreadClosedReasonSchema } from './chat-contract-enums.js';
 import { isoDateTimeStringSchema } from './date-primitives.js';
 import {
   activeMatchEndReasonSchema,
@@ -29,14 +28,11 @@ export const matchHistoryEntrySchema = z.strictObject({
   stage: matchHistoryStageSchema,
   result: matchHistoryEntryResultSchema,
   viewerRequested: z.boolean(),
-  hadConversation: z.boolean(),
   matchedAt: isoDateTimeStringSchema.nullable(),
   unmatchedAt: isoDateTimeStringSchema.nullable(),
   finalizedAt: isoDateTimeStringSchema,
   requestTerminalReason: matchRequestTerminalReasonSchema.nullable(),
   activeMatchEndReason: activeMatchEndReasonSchema.nullable(),
-  threadClosedReason: conversationThreadClosedReasonSchema.nullable(),
-  threadClosedAt: isoDateTimeStringSchema.nullable(),
 });
 
 export const matchHistorySeasonSummarySchema = z.strictObject({
@@ -47,7 +43,6 @@ export const matchHistorySeasonSummarySchema = z.strictObject({
   finalResult: matchHistorySeasonFinalResultSchema,
   sentRequestCount: z.number().int().nonnegative(),
   receivedRequestCount: z.number().int().nonnegative(),
-  conversationCount: z.number().int().nonnegative(),
   history: z.array(matchHistoryEntrySchema),
 });
 

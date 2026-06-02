@@ -1,5 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
-import { HealthService, type HealthStatusResponse } from './health.service.js';
+import {
+  HealthService,
+  type HealthStatusResponse,
+  type RealtimeOperationsStatusResponse,
+} from './health.service.js';
 
 @Controller('health')
 export class HealthController {
@@ -13,5 +17,10 @@ export class HealthController {
   @Get('ready')
   getReadiness(): Promise<HealthStatusResponse> {
     return this.healthService.getReadiness();
+  }
+
+  @Get('realtime')
+  getRealtimeOperations(): RealtimeOperationsStatusResponse {
+    return this.healthService.getRealtimeOperations();
   }
 }

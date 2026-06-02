@@ -1,5 +1,5 @@
 import { MatchesService } from '../../src/matches/matches.service.js';
-import { ChatService } from '../../src/chat/chat.service.js';
+import { ChatService } from '../../src/chat/application/chat.service.js';
 import { LifecycleSweepService } from '../../src/common/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
@@ -122,6 +122,118 @@ describe('MatchesService unmatch integration', () => {
     expect(thread?.activeMatchId).toBeNull();
   });
 
+  it('unmatch는 ACTIVE 생성 때 닫힌 eligible direct thread를 다시 OPEN하고 outbox를 남긴다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-c',
+      participantId: 'participant-c',
+      email: 'user-c@kangwon.ac.kr',
+      nickname: '유저C',
+    });
+    await prisma.conversationThread.create({
+      data: {
+        id: 'thread-a-c-closed-by-active-match',
+        seasonId: 'season-integration',
+        pairKey: 'participant-a:participant-c',
+        participantAId: 'participant-a',
+        participantBId: 'participant-c',
+        openedByParticipantId: 'participant-a',
+        threadKind: 'DIRECT',
+        activeMatchId: null,
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+        members: {
+          create: [{ participantId: 'participant-a' }, { participantId: 'participant-c' }],
+        },
+      },
+    });
+
+    await service.requestUnmatch(authContext('user-a'), 'active-match-1');
+    await service.requestUnmatch(authContext('user-b'), 'active-match-1');
+
+    const matchedThread = await prisma.conversationThread.findUnique({
+      where: { id: 'active-match-1-thread' },
+    });
+    expect(matchedThread?.threadKind).toBe('DIRECT');
+    expect(matchedThread?.activeMatchId).toBeNull();
+
+    const otherDirectThread = await prisma.conversationThread.findUnique({
+      where: { id: 'thread-a-c-closed-by-active-match' },
+    });
+    expect(otherDirectThread).toMatchObject({
+      threadKind: 'DIRECT',
+      activeMatchId: null,
+      status: 'OPEN',
+      closedReason: null,
+    });
+    expect(otherDirectThread?.closedAt).toBeNull();
+
+    const entry = await chatService.getThreadEntry(authContext('user-a'), 'user-c');
+    expect(entry.canSendMessage).toBe(true);
+
+    const reopenEvent = await prisma.chatRealtimeOutboxEvent.findFirst({
+      where: {
+        threadId: 'thread-a-c-closed-by-active-match',
+        eventType: 'chat.thread.updated',
+      },
+      orderBy: { occurredAt: 'desc' },
+    });
+    expect(reopenEvent?.payload).toMatchObject({
+      threadId: 'thread-a-c-closed-by-active-match',
+      status: 'OPEN',
+      closedReason: null,
+    });
+  });
+
+  it('unmatch는 상대 direct participant가 여전히 active match 중이면 ACTIVE 생성 때 닫힌 direct thread를 reopen하지 않는다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-c',
+      participantId: 'participant-c',
+      email: 'user-c@kangwon.ac.kr',
+      nickname: '유저C',
+    });
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-d',
+      participantId: 'participant-d',
+      email: 'user-d@kangwon.ac.kr',
+      nickname: '유저D',
+    });
+    await seedActiveMatchFixture(prisma, {
+      activeMatchId: 'active-match-c-d',
+      participantAId: 'participant-c',
+      participantBId: 'participant-d',
+    });
+    await prisma.conversationThread.create({
+      data: {
+        id: 'thread-a-c-closed-by-c-active-match',
+        seasonId: 'season-integration',
+        pairKey: 'participant-a:participant-c',
+        participantAId: 'participant-a',
+        participantBId: 'participant-c',
+        openedByParticipantId: 'participant-a',
+        threadKind: 'DIRECT',
+        activeMatchId: null,
+        status: 'READ_ONLY',
+        closedReason: 'ACTIVE_MATCH_CREATED',
+        members: {
+          create: [{ participantId: 'participant-a' }, { participantId: 'participant-c' }],
+        },
+      },
+    });
+
+    await service.requestUnmatch(authContext('user-a'), 'active-match-1');
+    await service.requestUnmatch(authContext('user-b'), 'active-match-1');
+
+    const otherDirectThread = await prisma.conversationThread.findUnique({
+      where: { id: 'thread-a-c-closed-by-c-active-match' },
+    });
+    expect(otherDirectThread).toMatchObject({
+      threadKind: 'DIRECT',
+      activeMatchId: null,
+      status: 'READ_ONLY',
+      closedReason: 'ACTIVE_MATCH_CREATED',
+    });
+  });
+
   it('한쪽 cancel과 상대 request가 엇갈리면 ACTIVE 유지 또는 UNMATCHED 중 하나로만 수렴한다', async () => {
     const now = await prisma.getDatabaseNow();
     await prisma.activeMatchUnmatchRequest.create({
@@ -196,6 +308,7 @@ describe('MatchesService unmatch integration', () => {
       chatService.sendMessage(authContext('user-a'), {
         targetUserId: 'user-b',
         body: '매칭 해제 직전 메시지',
+        clientMessageId: 'client-message-unmatch-race',
       }),
     ]);
 
@@ -226,6 +339,7 @@ describe('MatchesService unmatch integration', () => {
     await chatService.sendMessage(authContext('user-a'), {
       targetUserId: 'user-b',
       body: '매칭된 상태에서 남긴 메시지',
+      clientMessageId: 'client-message-unmatch-history',
     });
 
     await service.requestUnmatch(authContext('user-a'), 'active-match-1');
@@ -259,7 +373,6 @@ describe('MatchesService unmatch integration', () => {
       finalResult: 'UNMATCHED_AFTER_SUCCESS',
       sentRequestCount: 1,
       receivedRequestCount: 0,
-      conversationCount: 1,
     });
     expect(history.items[0]?.history).toEqual(
       expect.arrayContaining([
@@ -268,7 +381,6 @@ describe('MatchesService unmatch integration', () => {
           stage: 'MATCH',
           result: 'UNMATCHED_AFTER_SUCCESS',
           activeMatchEndReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
-          hadConversation: true,
         }),
       ]),
     );

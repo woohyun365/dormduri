@@ -165,7 +165,7 @@ describe('MatchesService', () => {
     hasRegistrationSnapshotForParticipant: jest.fn(),
   };
 
-  const chatService = {
+  const chatMatchThreadLifecycle = {
     handleActiveMatchCreated: jest.fn(),
     handleActiveMatchUnmatched: jest.fn(),
   };
@@ -175,7 +175,7 @@ describe('MatchesService', () => {
     seasonsService as never,
     moderationService as never,
     seasonParticipantsService as never,
-    chatService as never,
+    chatMatchThreadLifecycle as never,
   );
 
   beforeEach(() => {
@@ -232,8 +232,8 @@ describe('MatchesService', () => {
     prisma.activeMatch.findFirst.mockResolvedValue(null);
     prisma.activeMatch.findUnique.mockResolvedValue(null);
     prisma.activeMatchUnmatchRequest.updateMany.mockResolvedValue({ count: 0 });
-    chatService.handleActiveMatchCreated.mockResolvedValue(undefined);
-    chatService.handleActiveMatchUnmatched.mockResolvedValue(undefined);
+    chatMatchThreadLifecycle.handleActiveMatchCreated.mockResolvedValue(undefined);
+    chatMatchThreadLifecycle.handleActiveMatchUnmatched.mockResolvedValue(undefined);
     prisma.matchRequest.findMany.mockResolvedValue([]);
     prisma.matchRequest.updateMany.mockResolvedValue({ count: 0 });
     txQueryRaw.mockResolvedValue([{ id: 'lock-row' }]);
@@ -803,7 +803,7 @@ describe('MatchesService', () => {
     );
 
     expect(txActiveMatchUpdate).not.toHaveBeenCalled();
-    expect(chatService.handleActiveMatchUnmatched).not.toHaveBeenCalled();
+    expect(chatMatchThreadLifecycle.handleActiveMatchUnmatched).not.toHaveBeenCalled();
     expect(result.activeMatch.status).toBe('ACTIVE');
     expect(result.activeMatch.unmatchProgress).toMatchObject({
       state: 'WAITING_FOR_COUNTERPART',
@@ -930,7 +930,7 @@ describe('MatchesService', () => {
         matchedAt: null,
       },
     });
-    expect(chatService.handleActiveMatchUnmatched).toHaveBeenCalledWith(
+    expect(chatMatchThreadLifecycle.handleActiveMatchUnmatched).toHaveBeenCalledWith(
       expect.anything(),
       { activeMatchId: 'active-1' },
       new Date('2026-02-10T03:00:00.000Z'),

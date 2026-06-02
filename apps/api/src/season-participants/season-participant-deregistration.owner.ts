@@ -88,18 +88,10 @@ export function createSeasonParticipantDeregistrationOwner(deps: SeasonParticipa
         },
       });
 
-      await tx.conversationThread.updateMany({
-        where: {
-          seasonId: mappedParticipant.seasonId,
-          activeMatchId: null,
-          status: 'OPEN',
-          OR: [{ participantAId: mappedParticipant.id }, { participantBId: mappedParticipant.id }],
-        },
-        data: {
-          status: 'READ_ONLY',
-          closedReason: 'PARTICIPANT_WITHDRAWN',
-          closedAt: referenceNow,
-        },
+      await deps.chatThreadWithdrawal.markOpenDirectThreadsReadOnlyForWithdrawnParticipant(tx, {
+        seasonId: mappedParticipant.seasonId,
+        participantId: mappedParticipant.id,
+        now: referenceNow,
       });
     });
 

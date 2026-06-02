@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   SeasonProfileDraftRequest,
   SeasonProfileDraftResponse,
@@ -8,6 +8,10 @@ import type {
   SeasonRegistrationFinalizeResponse,
 } from '@repo/shared/season-contract';
 import type { Prisma } from '../generated/prisma/client.js';
+import {
+  CHAT_THREAD_WITHDRAWAL_PORT,
+  type ChatThreadWithdrawalPort,
+} from '../chat/application/ports/chat-thread-withdrawal.port.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { DormitoriesService } from '../dormitories/dormitories.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
@@ -41,11 +45,14 @@ export class SeasonParticipantsService {
     private readonly prisma: PrismaService,
     private readonly seasonsService: SeasonsService,
     private readonly dormitoriesService: DormitoriesService,
+    @Inject(CHAT_THREAD_WITHDRAWAL_PORT)
+    private readonly chatThreadWithdrawal: ChatThreadWithdrawalPort,
   ) {
     this.writeOwner = createSeasonParticipantWriteOwner({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
       dormitoriesService: this.dormitoriesService,
+      chatThreadWithdrawal: this.chatThreadWithdrawal,
     });
     this.publicTargetOwner = createSeasonParticipantPublicTargetOwner(this.prisma);
   }

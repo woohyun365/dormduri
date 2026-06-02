@@ -12,7 +12,9 @@ import { createConversationRetainedBodyCipher } from '../../src/retention/conver
 import {
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
+  discloseRetainedVaultPayload,
   ensureRetentionCaseTx,
+  parseRetainedMatchHistoryPayload,
   retainVaultPayloadTx,
 } from '../../src/retention/retained-vault-owner.js';
 import { createIntegrationApp } from './support/integration-app.js';
@@ -458,7 +460,6 @@ describe('RetainedIdentity integration', () => {
         entryResult: 'MATCHED_SUCCESS',
         viewerRequested: true,
         counterpartNicknameSnapshot: '유저B',
-        hadConversation: true,
         matchedAt: new Date('2026-05-01T00:00:00.000Z'),
         finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
       },
@@ -621,7 +622,6 @@ describe('RetainedIdentity integration', () => {
           counterpartBedtimeSnapshot: 'BETWEEN_22_24',
           counterpartCleanLevelSnapshot: 'WEEKLY_3_UP',
           counterpartNicknameSnapshot: '유저B',
-          hadConversation: true,
           matchedAt: new Date('2026-05-01T00:00:00.000Z'),
           finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
         },
@@ -644,7 +644,6 @@ describe('RetainedIdentity integration', () => {
           counterpartSleepHabitSnapshot: 'NONE',
           counterpartCleanLevelSnapshot: 'WEEKLY_3_UP',
           counterpartNicknameSnapshot: '유저A',
-          hadConversation: true,
           matchedAt: new Date('2026-05-01T00:00:00.000Z'),
           finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
         },
@@ -832,6 +831,30 @@ describe('RetainedIdentity integration', () => {
         },
       },
     });
+    await prisma.$executeRaw`
+      INSERT INTO "ChatRealtimeOutboxEvent" (
+        "id", "eventType", "schemaVersion", "threadId", "aggregateType", "aggregateId",
+        "aggregateVersion", "payload", "roomKeys", "occurredAt", "availableAt",
+        "publishAttempts", "createdAt", "updatedAt"
+      )
+      VALUES
+        (
+          ${'stale-message-created-1'}, ${'chat.message.created'}, ${1}, ${'thread-a-b-retention'},
+          ${'conversation.message'}, ${'message-retention-1'}, ${1},
+          ${JSON.stringify({ message: { id: 'message-retention-1', body: '원문 메시지 1' } })}::jsonb,
+          ARRAY[${'user:user-a'}, ${'user:user-b'}],
+          ${new Date('2026-05-01T01:00:00.000Z')}, ${new Date('2026-05-01T01:00:00.000Z')},
+          ${0}, ${new Date('2026-05-01T01:00:00.000Z')}, ${new Date('2026-05-01T01:00:00.000Z')}
+        ),
+        (
+          ${'stale-message-created-2'}, ${'chat.message.created'}, ${1}, ${'thread-a-b-retention'},
+          ${'conversation.message'}, ${'message-retention-2'}, ${1},
+          ${JSON.stringify({ message: { id: 'message-retention-2', body: '원문 메시지 2' } })}::jsonb,
+          ARRAY[${'user:user-a'}, ${'user:user-b'}],
+          ${new Date('2026-05-01T01:01:00.000Z')}, ${new Date('2026-05-01T01:01:00.000Z')},
+          ${0}, ${new Date('2026-05-01T01:01:00.000Z')}, ${new Date('2026-05-01T01:01:00.000Z')}
+        )
+    `;
 
     await prisma.runSerializableTransaction((tx) =>
       createDeletionArchiveJobsTx(tx, {
@@ -909,6 +932,34 @@ describe('RetainedIdentity integration', () => {
         }),
       ]),
     );
+
+    const viewerMatchVault = matchVaultObjects.find(
+      (object) =>
+        object.sourceId === 'history-a-viewer' &&
+        object.subjectRetainedIdentityId === retainedIdentity.id &&
+        object.subjectRole === 'VIEWER',
+    );
+    expect(viewerMatchVault).toBeDefined();
+    if (!viewerMatchVault) {
+      throw new Error('viewer match vault object not found');
+    }
+
+    const disclosure = await discloseRetainedVaultPayload(
+      prisma,
+      {
+        retainedVaultObjectId: viewerMatchVault.id,
+        accessedBy: 'retention-integration-test',
+        accessReason: 'SECURITY_AUDIT',
+        approvalReference: 'phase-10a-match-history-closure-guard',
+        purpose: 'verify match history retained payload excludes chat closure fields',
+        parsePlaintext: parseRetainedMatchHistoryPayload,
+        now: archiveNow,
+      },
+      { keyring: retainedVaultKeyring },
+    );
+    expect(disclosure.payload.entry).not.toHaveProperty('threadClosedReason');
+    expect(disclosure.payload.entry).not.toHaveProperty('threadClosedAt');
+    expect(disclosure.payload.entry).not.toHaveProperty('hadConversation');
   });
 
   it('archived THREAD_RETENTION job은 메시지 본문을 retained body vault로 옮기고 tombstone 처리한다', async () => {
@@ -1038,6 +1089,46 @@ describe('RetainedIdentity integration', () => {
         }),
       ]),
     );
+
+    const tombstoneOutboxEvents = await prisma.$queryRaw<
+      Array<{ id: string; eventType: string; payload: unknown }>
+    >`
+      SELECT "id", "eventType", "payload"
+      FROM "ChatRealtimeOutboxEvent"
+      WHERE "threadId" = ${'thread-a-b-retention'}
+        AND "eventType" = ${'chat.message.tombstoned'}
+      ORDER BY "occurredAt" ASC, "id" ASC
+    `;
+    expect(tombstoneOutboxEvents).toHaveLength(2);
+    for (const event of tombstoneOutboxEvents) {
+      const payloadText = JSON.stringify(event.payload);
+      expect(payloadText).toContain('보존 처리된 메시지입니다.');
+      expect(payloadText).not.toContain('원문 메시지 1');
+      expect(payloadText).not.toContain('원문 메시지 2');
+    }
+
+    const tombstoneOutboxRecipients = await prisma.$queryRaw<
+      Array<{ eventId: string; userId: string }>
+    >`
+      SELECT r."eventId", r."userId"
+      FROM "ChatRealtimeEventRecipient" r
+      INNER JOIN "ChatRealtimeOutboxEvent" e ON e."id" = r."eventId"
+      WHERE e."threadId" = ${'thread-a-b-retention'}
+        AND e."eventType" = ${'chat.message.tombstoned'}
+      ORDER BY r."eventId" ASC, r."userId" ASC
+    `;
+    expect(tombstoneOutboxRecipients.map((row) => row.userId)).toEqual(
+      expect.arrayContaining(['user-a', 'user-b']),
+    );
+
+    const [staleMessageCreatedCount] = await prisma.$queryRaw<Array<{ count: number }>>`
+      SELECT COUNT(*)::int AS count
+      FROM "ChatRealtimeOutboxEvent"
+      WHERE "threadId" = ${'thread-a-b-retention'}
+        AND "eventType" = ${'chat.message.created'}
+        AND "aggregateId" IN (${'message-retention-1'}, ${'message-retention-2'})
+    `;
+    expect(staleMessageCreatedCount?.count).toBe(0);
 
     const retainedBodies = await prisma.retainedVaultObject.findMany({
       where: { target: 'CHAT_MESSAGE_BODY', sourceTable: 'ConversationMessage' },

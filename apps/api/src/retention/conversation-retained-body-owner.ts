@@ -1,5 +1,9 @@
 import { Prisma } from '../generated/prisma/client.js';
 import type { RetentionAccessReason } from '../generated/prisma/enums.js';
+import {
+  ChatRealtimeOutboxService,
+  hasChatRealtimeOutboxTx,
+} from '../chat/outbox/chat-realtime-outbox.service.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import type { RetentionCipher } from './retention-cipher.js';
 import { decryptJsonPayload, encryptJsonPayload } from './retention-cipher.js';
@@ -15,6 +19,7 @@ import {
 } from './retained-vault-owner.js';
 
 const CHAT_BODY_AAD_PREFIX = 'knu-roommate:chat-message-body:v1';
+const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
 export const conversationMessageTombstoneText = {
   ACCOUNT_DELETION_RETENTION: '보존 처리된 메시지입니다.',
@@ -37,6 +42,16 @@ interface RetainedConversationBodyPlaintext {
   tombstoneReason: ConversationMessageTombstoneReason;
   identityLinkReviewedAt: string | null;
 }
+
+type ThreadRecipientLookupTx = {
+  conversationThread: {
+    findUnique(args: unknown): Promise<{
+      participantA: { userId: string };
+      participantB: { userId: string };
+      members: Array<{ participant: { userId: string } }>;
+    } | null>;
+  };
+};
 
 export type ConversationRetainedBodyCipher = RetentionCipher;
 
@@ -343,7 +358,7 @@ export async function tombstoneConversationMessageTx(
     },
   });
 
-  return {
+  const event = {
     type: 'conversation.message.tombstoned',
     threadId: updated.threadId,
     messageId: updated.id,
@@ -352,7 +367,69 @@ export async function tombstoneConversationMessageTx(
     body: updated.body,
     occurredAt: input.now.toISOString(),
     bodyVersion: updated.bodyVersion,
-  };
+  } satisfies ConversationMessageTombstoneEventPayload;
+
+  await appendTombstoneOutboxIfSupported(tx, event);
+
+  return event;
+}
+
+async function appendTombstoneOutboxIfSupported(
+  tx: Prisma.TransactionClient,
+  event: ConversationMessageTombstoneEventPayload,
+) {
+  if (!hasChatRealtimeOutboxTx(tx) || !hasThreadRecipientLookupTx(tx)) {
+    return;
+  }
+
+  await chatRealtimeOutbox.deleteMessageCreatedEventsForMessage(tx, {
+    messageId: event.messageId,
+  });
+
+  const thread = await tx.conversationThread.findUnique({
+    where: { id: event.threadId },
+    select: {
+      participantA: {
+        select: { userId: true },
+      },
+      participantB: {
+        select: { userId: true },
+      },
+      members: {
+        select: {
+          participant: {
+            select: { userId: true },
+          },
+        },
+      },
+    },
+  });
+  const recipientUserIds = [
+    ...(thread?.members.map((member) => member.participant.userId) ?? []),
+    ...(thread ? [thread.participantA.userId, thread.participantB.userId] : []),
+  ];
+
+  await chatRealtimeOutbox.appendMessageTombstoned(tx, {
+    threadId: event.threadId,
+    messageId: event.messageId,
+    body: event.body,
+    bodyState: event.bodyState,
+    tombstoneReason: event.tombstoneReason,
+    bodyVersion: event.bodyVersion,
+    recipientUserIds,
+    occurredAt: new Date(event.occurredAt),
+  });
+}
+
+function hasThreadRecipientLookupTx(candidate: unknown): candidate is ThreadRecipientLookupTx {
+  if (!candidate || typeof candidate !== 'object') {
+    return false;
+  }
+
+  return (
+    typeof (candidate as Partial<ThreadRecipientLookupTx>).conversationThread?.findUnique ===
+    'function'
+  );
 }
 
 export async function discloseRetainedConversationMessageBody(

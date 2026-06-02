@@ -1,4 +1,4 @@
-import { ChatService } from '../../src/chat/chat.service.js';
+import { ChatService } from '../../src/chat/application/chat.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { MatchesService } from '../../src/matches/matches.service.js';
 import { SeasonsService } from '../../src/seasons/seasons.service.js';
@@ -71,6 +71,14 @@ describe('KST boundary + DB now integration', () => {
         nameKo: '다산관',
         roomType: 2,
         genderPolicy: 'M',
+        sortOrder: 1,
+      },
+    });
+    await prisma.collegeMaster.create({
+      data: {
+        code: 'ARTS_ENGINEERING',
+        campusCode: 'CHUNCHEON',
+        nameKo: '문화예술공과대학',
         sortOrder: 1,
       },
     });
