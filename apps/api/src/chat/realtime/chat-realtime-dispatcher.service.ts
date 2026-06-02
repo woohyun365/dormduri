@@ -12,6 +12,9 @@ import { ChatRealtimeOutboxRepository } from '../outbox/chat-realtime-outbox.rep
 import { ChatRealtimeMetricsService } from './chat-realtime.metrics.js';
 import { ChatRealtimePublisher } from './chat-realtime-publisher.js';
 
+const CHAT_REALTIME_REPLAY_WINDOW_DAYS = 7;
+const CHAT_REALTIME_OUTBOX_PRUNE_INTERVAL_MS = 60 * 60 * 1_000;
+
 export type ChatRealtimeDispatchResult = {
   claimedCount: number;
   publishedCount: number;
@@ -25,6 +28,7 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
   private readonly repository = new ChatRealtimeOutboxRepository();
   private interval: NodeJS.Timeout | null = null;
   private running = false;
+  private lastPrunedAt: Date | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -65,6 +69,11 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
     }
 
     if (!this.publisher.isBound()) {
+      this.metrics.recordDispatcherSkipped({
+        dispatcher: 'chat',
+        skippedReason: 'PUBLISHER_UNBOUND',
+        now: now ?? new Date(),
+      });
       return {
         claimedCount: 0,
         publishedCount: 0,
@@ -80,10 +89,6 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
         limit: this.settings.dispatcherBatchSize,
         now: databaseNow,
         claimLeaseMs: this.settings.dispatcherClaimLeaseMs,
-      });
-      this.metrics.recordClaimedOutboxLag({
-        oldestOccurredAt: claimed[0]?.occurredAt ?? null,
-        now: databaseNow,
       });
 
       let publishedCount = 0;
@@ -111,13 +116,23 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
             nextAvailableAt,
             error: errorMessage,
           });
-          this.metrics.recordPublishFailure();
+          this.metrics.recordPublishFailure('chat');
           failedCount += 1;
           this.logger.warn(
             `[ChatRealtimeDispatcher] publish failed eventId=${event.id} eventType=${event.eventType} attempts=${event.publishAttempts} errorType=${toErrorLogType(error)}`,
           );
         }
       }
+
+      this.metrics.recordDispatcherBatch({
+        dispatcher: 'chat',
+        claimedCount: claimed.length,
+        publishedCount,
+        failedCount,
+        oldestOccurredAt: claimed[0]?.occurredAt ?? null,
+        now: databaseNow,
+      });
+      await this.pruneExpiredReplayWindowIfDue(databaseNow);
 
       return {
         claimedCount: claimed.length,
@@ -127,6 +142,27 @@ export class ChatRealtimeDispatcherService implements OnApplicationBootstrap, On
       };
     } finally {
       this.running = false;
+    }
+  }
+
+  private async pruneExpiredReplayWindowIfDue(now: Date) {
+    if (
+      this.lastPrunedAt &&
+      now.getTime() - this.lastPrunedAt.getTime() < CHAT_REALTIME_OUTBOX_PRUNE_INTERVAL_MS
+    ) {
+      return;
+    }
+
+    try {
+      const deletedCount = await this.repository.pruneExpired(this.prisma, {
+        now,
+        replayWindowDays: CHAT_REALTIME_REPLAY_WINDOW_DAYS,
+      });
+      this.lastPrunedAt = now;
+      this.metrics.recordOutboxPrune({ deletedCount, now });
+    } catch (error) {
+      this.metrics.recordOutboxPruneFailure({ now });
+      this.logger.warn(`[ChatRealtimeDispatcher] prune failed errorType=${toErrorLogType(error)}`);
     }
   }
 

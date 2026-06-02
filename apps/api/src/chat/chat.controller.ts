@@ -109,10 +109,15 @@ export class ChatController {
     @Query('after') after?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.chatService.replayRealtimeEvents(authUser, {
+    const response = await this.chatService.replayRealtimeEvents(authUser, {
       after: after && after.trim().length > 0 ? after.trim() : null,
       limit: parseReplayLimit(limit),
     });
+    if (!response.ok) {
+      this.metrics.recordReplayResyncRequired(response.reason);
+    }
+
+    return response;
   }
 
   @Post('realtime/tickets')

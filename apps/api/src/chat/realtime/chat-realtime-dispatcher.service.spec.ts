@@ -32,13 +32,13 @@ function createDispatcher(input: {
 }) {
   const prisma = {
     getDatabaseNow: jest.fn().mockResolvedValue(now),
-    $queryRaw: jest.fn(),
+    $queryRawTyped: jest.fn(),
     chatRealtimeOutboxEvent: {
       update: jest.fn().mockResolvedValue({ id: 'event-1' }),
     },
   };
   for (const rows of input.queryRows ?? []) {
-    prisma.$queryRaw.mockResolvedValueOnce(rows);
+    prisma.$queryRawTyped.mockResolvedValueOnce(rows);
   }
   const publishError = input.publishRejects;
   const publisher = {
@@ -95,7 +95,7 @@ function createDispatcher(input: {
 
 describe('ChatRealtimeDispatcherService', () => {
   it('publisher가 아직 bind되지 않았으면 claim하지 않고 skip한다', async () => {
-    const { dispatcher, prisma } = createDispatcher({
+    const { dispatcher, prisma, metrics } = createDispatcher({
       publisherBound: false,
     });
 
@@ -105,7 +105,12 @@ describe('ChatRealtimeDispatcherService', () => {
       failedCount: 0,
       skippedReason: 'PUBLISHER_UNBOUND',
     });
-    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(prisma.$queryRawTyped).not.toHaveBeenCalled();
+    expect(metrics.snapshot().dispatchers.chat).toMatchObject({
+      totalSkippedPublisherUnbound: 1,
+      lastSkippedReason: 'PUBLISHER_UNBOUND',
+      lastRunAt: now.toISOString(),
+    });
   });
 
   it('claim된 outbox event를 publish하고 publishedAt을 mark한다', async () => {
@@ -121,6 +126,7 @@ describe('ChatRealtimeDispatcherService', () => {
             cursor: 'event-1:user-1',
           },
         ],
+        [{ deletedCount: 0 }],
       ],
     });
 
@@ -151,6 +157,12 @@ describe('ChatRealtimeDispatcherService', () => {
       },
     });
     expect(metrics.snapshot().oldestClaimedOutboxLagSeconds).toBe(60);
+    expect(metrics.snapshot().dispatchers.chat).toMatchObject({
+      totalClaimed: 1,
+      totalPublished: 1,
+      totalFailed: 0,
+      oldestClaimedOutboxLagSeconds: 60,
+    });
   });
 
   it('claim된 chat.thread.updated event를 recipient와 함께 publisher로 넘긴다', async () => {
@@ -183,6 +195,7 @@ describe('ChatRealtimeDispatcherService', () => {
             cursor: 'event-thread-updated:user-3',
           },
         ],
+        [{ deletedCount: 0 }],
       ],
     });
 
@@ -215,7 +228,11 @@ describe('ChatRealtimeDispatcherService', () => {
     const event = createClaimedEvent();
     const prisma = {
       getDatabaseNow: jest.fn().mockResolvedValue(now),
-      $queryRaw: jest.fn().mockResolvedValueOnce([event]).mockResolvedValueOnce([]),
+      $queryRawTyped: jest
+        .fn()
+        .mockResolvedValueOnce([event])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ deletedCount: 0 }]),
       chatRealtimeOutboxEvent: {
         update: jest.fn().mockResolvedValue({ id: 'event-1' }),
       },
@@ -284,7 +301,7 @@ describe('ChatRealtimeDispatcherService', () => {
       failedCount: 0,
       skippedReason: null,
     });
-    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(3);
   });
 
   it('publish 실패는 business data를 롤백하지 않고 retry 가능한 outbox failure mark로 남기며 payload를 일반 로그에 남기지 않는다', async () => {
@@ -301,6 +318,7 @@ describe('ChatRealtimeDispatcherService', () => {
           }),
         ],
         [],
+        [{ deletedCount: 0 }],
       ],
       publishRejects: new Error('socket publish failed: 로그에 남으면 안 되는 원문'),
     });
@@ -328,6 +346,64 @@ describe('ChatRealtimeDispatcherService', () => {
       expect(warnOutput).not.toContain('internalAuditData');
       expect(warnOutput).not.toContain('로그에 남으면 안 되는 원문');
       expect(metrics.snapshot().publishFailures).toBe(1);
+      expect(metrics.snapshot().dispatchers.chat.totalFailed).toBe(1);
+    } finally {
+      loggerSpy.mockRestore();
+    }
+  });
+
+  it('replay window prune은 dispatcher가 주기적으로 호출하고 너무 잦은 delete를 피한다', async () => {
+    const { dispatcher, prisma, metrics } = createDispatcher({
+      queryRows: [[], [{ deletedCount: 2 }], []],
+    });
+
+    await expect(dispatcher.dispatchOnce(now)).resolves.toMatchObject({
+      claimedCount: 0,
+      publishedCount: 0,
+      failedCount: 0,
+    });
+    await expect(
+      dispatcher.dispatchOnce(new Date('2026-02-10T03:30:00.000Z')),
+    ).resolves.toMatchObject({
+      claimedCount: 0,
+      publishedCount: 0,
+      failedCount: 0,
+    });
+
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(3);
+    expect(metrics.snapshot().outboxPrune).toMatchObject({
+      totalDeleted: 2,
+      lastDeletedCount: 2,
+      lastPrunedAt: now.toISOString(),
+      totalFailures: 0,
+    });
+  });
+
+  it('replay window prune 실패는 dispatch 결과를 깨지 않고 no-PII failure metric으로 남긴다', async () => {
+    const loggerSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const { dispatcher, prisma, metrics } = createDispatcher({
+      queryRows: [[]],
+    });
+    prisma.$queryRawTyped.mockRejectedValueOnce(new Error('delete failed: 원문 body 노출 금지'));
+
+    await expect(dispatcher.dispatchOnce(now)).resolves.toEqual({
+      claimedCount: 0,
+      publishedCount: 0,
+      failedCount: 0,
+      skippedReason: null,
+    });
+
+    try {
+      expect(metrics.snapshot().outboxPrune).toMatchObject({
+        totalDeleted: 0,
+        totalFailures: 1,
+        lastDeletedCount: 0,
+        lastFailureAt: now.toISOString(),
+      });
+      const warnOutput = loggerSpy.mock.calls.flat().join('\\n');
+      expect(warnOutput).toContain('prune failed');
+      expect(warnOutput).toContain('errorType=Error');
+      expect(warnOutput).not.toContain('원문 body 노출 금지');
     } finally {
       loggerSpy.mockRestore();
     }

@@ -1,4 +1,5 @@
 import { NotificationOutboxDispatcherService } from './notification-dispatcher.service.js';
+import { ChatRealtimeMetricsService } from '../../chat/realtime/chat-realtime.metrics.js';
 
 type PublisherMock = {
   isBound: jest.Mock<boolean, []>;
@@ -73,6 +74,8 @@ function createPrismaMock(eventPayload?: unknown) {
 describe('NotificationOutboxDispatcherService', () => {
   it('publisher가 unbound이면 claim하지 않고 skip한다', async () => {
     const prisma = createPrismaMock();
+    const metrics = new ChatRealtimeMetricsService();
+    const now = new Date('2026-06-02T00:00:00.000Z');
     const publisher: PublisherMock = {
       isBound: jest.fn(() => false),
       publishNotificationCreated: jest.fn<
@@ -84,19 +87,26 @@ describe('NotificationOutboxDispatcherService', () => {
       prisma as never,
       publisher,
       createSettings() as never,
+      metrics,
     );
 
-    await expect(dispatcher.dispatchOnce()).resolves.toEqual({
+    await expect(dispatcher.dispatchOnce(now)).resolves.toEqual({
       claimedCount: 0,
       publishedCount: 0,
       failedCount: 0,
       skippedReason: 'PUBLISHER_UNBOUND',
     });
     expect(prisma.$queryRawTyped).not.toHaveBeenCalled();
+    expect(metrics.snapshot().dispatchers.notification).toMatchObject({
+      totalSkippedPublisherUnbound: 1,
+      lastSkippedReason: 'PUBLISHER_UNBOUND',
+      lastRunAt: now.toISOString(),
+    });
   });
 
   it('claim된 notification.created를 recipient user room publisher에 전달하고 published로 전이한다', async () => {
     const prisma = createPrismaMock();
+    const metrics = new ChatRealtimeMetricsService();
     const publisher: PublisherMock = {
       isBound: jest.fn(() => true),
       publishNotificationCreated: jest.fn<
@@ -108,6 +118,7 @@ describe('NotificationOutboxDispatcherService', () => {
       prisma as never,
       publisher,
       createSettings() as never,
+      metrics,
     );
 
     await expect(dispatcher.dispatchOnce()).resolves.toMatchObject({
@@ -129,9 +140,15 @@ describe('NotificationOutboxDispatcherService', () => {
       where: { id: 'notification-event-1' },
       data: { status: 'PUBLISHED' },
     });
+    expect(metrics.snapshot().dispatchers.notification).toMatchObject({
+      totalClaimed: 1,
+      totalPublished: 1,
+      totalFailed: 0,
+    });
   });
 
   it('publisher 실패나 unsafe payload는 failed/backoff로 전이한다', async () => {
+    const metrics = new ChatRealtimeMetricsService();
     const prisma = createPrismaMock({
       notification: {
         id: 'notification-1',
@@ -163,6 +180,7 @@ describe('NotificationOutboxDispatcherService', () => {
       prisma as never,
       publisher,
       createSettings() as never,
+      metrics,
     );
 
     await expect(dispatcher.dispatchOnce()).resolves.toMatchObject({
@@ -176,5 +194,7 @@ describe('NotificationOutboxDispatcherService', () => {
     expect(failedUpdateCall?.[0].where).toEqual({ id: 'notification-event-1' });
     expect(failedUpdateCall?.[0].data.status).toBe('FAILED');
     expect(typeof failedUpdateCall?.[0].data.lastError).toBe('string');
+    expect(metrics.snapshot().dispatchers.notification.totalFailed).toBe(1);
+    expect(metrics.snapshot().publishFailures).toBe(1);
   });
 });

@@ -38,6 +38,6 @@ import { ChatService } from './application/chat.service.js';
       useExisting: ChatNotificationRealtimePublisherAdapter,
     },
   ],
-  exports: [ChatService],
+  exports: [ChatService, ChatRealtimeMetricsService],
 })
 export class ChatModule {}

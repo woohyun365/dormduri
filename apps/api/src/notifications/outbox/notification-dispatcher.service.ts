@@ -4,9 +4,11 @@ import {
   Logger,
   OnApplicationBootstrap,
   OnModuleDestroy,
+  Optional,
 } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { notificationCreatedRealtimeEventSchema } from '@repo/shared/notification-contract';
+import { ChatRealtimeMetricsService } from '../../chat/realtime/chat-realtime.metrics.js';
 import { PrismaService } from '../../common/prisma/prisma.service.js';
 import chatRealtimeConfig from '../../config/chat-realtime.config.js';
 import {
@@ -41,6 +43,8 @@ export class NotificationOutboxDispatcherService
     private readonly publisher: NotificationRealtimePublisherPort,
     @Inject(chatRealtimeConfig.KEY)
     private readonly settings: ConfigType<typeof chatRealtimeConfig>,
+    @Optional()
+    private readonly metrics?: ChatRealtimeMetricsService,
   ) {}
 
   onApplicationBootstrap() {
@@ -71,6 +75,11 @@ export class NotificationOutboxDispatcherService
     }
 
     if (!this.publisher.isBound()) {
+      this.metrics?.recordDispatcherSkipped({
+        dispatcher: 'notification',
+        skippedReason: 'PUBLISHER_UNBOUND',
+        now: now ?? new Date(),
+      });
       return {
         claimedCount: 0,
         publishedCount: 0,
@@ -114,12 +123,22 @@ export class NotificationOutboxDispatcherService
             nextAvailableAt,
             error: errorMessage,
           });
+          this.metrics?.recordPublishFailure('notification');
           failedCount += 1;
           this.logger.warn(
             `[NotificationOutboxDispatcher] publish failed eventId=${event.id} eventType=${event.eventType} attempts=${event.publishAttempts} errorType=${toErrorLogType(error)}`,
           );
         }
       }
+
+      this.metrics?.recordDispatcherBatch({
+        dispatcher: 'notification',
+        claimedCount: claimed.length,
+        publishedCount,
+        failedCount,
+        oldestOccurredAt: claimed[0]?.createdAt ?? null,
+        now: databaseNow,
+      });
 
       return {
         claimedCount: claimed.length,

@@ -50,6 +50,7 @@ describe('ChatController', () => {
   };
   const metrics = {
     recordRateLimitRejection: jest.fn(),
+    recordReplayResyncRequired: jest.fn(),
   };
 
   const controller = new ChatController(
@@ -260,6 +261,23 @@ describe('ChatController', () => {
       after: 'cursor-1',
       limit: 25,
     });
+    expect(metrics.recordReplayResyncRequired).not.toHaveBeenCalled();
+  });
+
+  it('replay resync-required 응답은 reason별 metric으로 기록한다', async () => {
+    chatService.replayRealtimeEvents.mockResolvedValueOnce({
+      ok: false,
+      reason: 'CURSOR_EXPIRED',
+      resyncRequired: true,
+    });
+
+    await expect(controller.replayRealtimeEvents(authUser as never)).resolves.toEqual({
+      ok: false,
+      reason: 'CURSOR_EXPIRED',
+      resyncRequired: true,
+    });
+
+    expect(metrics.recordReplayResyncRequired).toHaveBeenCalledWith('CURSOR_EXPIRED');
   });
 
   it('replay limit이 허용 범위를 벗어나면 bad request로 거절한다', async () => {

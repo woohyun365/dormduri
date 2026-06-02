@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ChatRealtimeMetricsService } from '../chat/realtime/chat-realtime.metrics.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 
 interface HealthBaseResponse {
@@ -16,9 +17,16 @@ export interface HealthStatusResponse extends HealthBaseResponse {
   };
 }
 
+export interface RealtimeOperationsStatusResponse extends HealthBaseResponse {
+  realtime: ReturnType<ChatRealtimeMetricsService['snapshot']>;
+}
+
 @Injectable()
 export class HealthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtimeMetrics: ChatRealtimeMetricsService,
+  ) {}
 
   getLiveness(): HealthStatusResponse {
     return {
@@ -39,6 +47,13 @@ export class HealthService {
           checkedAt: databaseNow.toISOString(),
         },
       },
+    };
+  }
+
+  getRealtimeOperations(): RealtimeOperationsStatusResponse {
+    return {
+      ...this.getLiveness(),
+      realtime: this.realtimeMetrics.snapshot(),
     };
   }
 }
