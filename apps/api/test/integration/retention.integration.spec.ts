@@ -12,7 +12,9 @@ import { createConversationRetainedBodyCipher } from '../../src/retention/conver
 import {
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
+  discloseRetainedVaultPayload,
   ensureRetentionCaseTx,
+  parseRetainedMatchHistoryPayload,
   retainVaultPayloadTx,
 } from '../../src/retention/retained-vault-owner.js';
 import { createIntegrationApp } from './support/integration-app.js';
@@ -933,6 +935,33 @@ describe('RetainedIdentity integration', () => {
         }),
       ]),
     );
+
+    const viewerMatchVault = matchVaultObjects.find(
+      (object) =>
+        object.sourceId === 'history-a-viewer' &&
+        object.subjectRetainedIdentityId === retainedIdentity.id &&
+        object.subjectRole === 'VIEWER',
+    );
+    expect(viewerMatchVault).toBeDefined();
+    if (!viewerMatchVault) {
+      throw new Error('viewer match vault object not found');
+    }
+
+    const disclosure = await discloseRetainedVaultPayload(
+      prisma,
+      {
+        retainedVaultObjectId: viewerMatchVault.id,
+        accessedBy: 'retention-integration-test',
+        accessReason: 'SECURITY_AUDIT',
+        approvalReference: 'phase-10a-match-history-closure-guard',
+        purpose: 'verify match history retained payload excludes chat closure fields',
+        parsePlaintext: parseRetainedMatchHistoryPayload,
+        now: archiveNow,
+      },
+      { keyring: retainedVaultKeyring },
+    );
+    expect(disclosure.payload.entry).not.toHaveProperty('threadClosedReason');
+    expect(disclosure.payload.entry).not.toHaveProperty('threadClosedAt');
   });
 
   it('archived THREAD_RETENTION job은 메시지 본문을 retained body vault로 옮기고 tombstone 처리한다', async () => {

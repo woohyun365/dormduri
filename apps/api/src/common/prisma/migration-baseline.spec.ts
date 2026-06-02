@@ -192,4 +192,10 @@ describe('migration baseline coverage', () => {
       'ALTER TABLE "NotificationOutboxEvent" ADD CONSTRAINT "NotificationOutboxEvent_notificationId_fkey" FOREIGN KEY ("notificationId") REFERENCES "UserNotification"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
     );
   });
+
+  it('match history baseline은 chat thread closure snapshot column을 포함하지 않는다', () => {
+    expect(sql).toContain('CREATE TABLE "SeasonMatchHistoryEntry"');
+    expect(sql).not.toContain('"threadClosedReason"');
+    expect(sql).not.toContain('"threadClosedAt"');
+  });
 });

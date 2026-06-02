@@ -685,8 +685,6 @@ CREATE TABLE "SeasonMatchHistoryEntry" (
     "finalizedAt" TIMESTAMPTZ(3) NOT NULL,
     "requestTerminalReason" "MatchRequestTerminalReason",
     "activeMatchEndReason" "ActiveMatchEndReason",
-    "threadClosedReason" "ConversationThreadClosedReason",
-    "threadClosedAt" TIMESTAMPTZ(3),
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

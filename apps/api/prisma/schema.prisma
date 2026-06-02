@@ -1029,8 +1029,6 @@ model SeasonMatchHistoryEntry {
   finalizedAt                               DateTime                               @db.Timestamptz(3)
   requestTerminalReason                     MatchRequestTerminalReason?
   activeMatchEndReason                      ActiveMatchEndReason?
-  threadClosedReason                        ConversationThreadClosedReason?
-  threadClosedAt                            DateTime?                              @db.Timestamptz(3)
   createdAt                                 DateTime                               @default(now()) @db.Timestamptz(3)
   updatedAt                                 DateTime                               @default(now()) @updatedAt @db.Timestamptz(3)
   season                                    Season                                 @relation(fields: [seasonId], references: [id], onDelete: Cascade)

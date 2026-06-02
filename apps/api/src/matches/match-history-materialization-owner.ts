@@ -88,35 +88,14 @@ interface SeasonHistorySource {
     };
   }>;
   conversationThreads: Array<{
-    id: string;
     participantAId: string;
     participantBId: string;
-    status: 'OPEN' | 'READ_ONLY' | 'ARCHIVED';
-    closedReason:
-      | 'ACTIVE_MATCH_CREATED'
-      | 'ROOM_SELECTION_CUTOFF'
-      | 'SEASON_ENDED'
-      | 'PARTICIPANT_WITHDRAWN'
-      | 'MODERATION'
-      | 'ADMIN_ACTION'
-      | null;
-    closedAt: Date | null;
     lastMessageAt: Date | null;
-    updatedAt: Date;
   }>;
 }
 
 interface PairThreadSnapshot {
   hadConversation: boolean;
-  latestClosedReason:
-    | 'ACTIVE_MATCH_CREATED'
-    | 'ROOM_SELECTION_CUTOFF'
-    | 'SEASON_ENDED'
-    | 'PARTICIPANT_WITHDRAWN'
-    | 'MODERATION'
-    | 'ADMIN_ACTION'
-    | null;
-  latestClosedAt: Date | null;
 }
 
 type DbClient = Prisma.TransactionClient | PrismaClient;
@@ -281,14 +260,9 @@ async function loadSeasonHistorySource(
       conversationThreads: {
         orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
         select: {
-          id: true,
           participantAId: true,
           participantBId: true,
-          status: true,
-          closedReason: true,
-          closedAt: true,
           lastMessageAt: true,
-          updatedAt: true,
         },
       },
     },
@@ -446,16 +420,12 @@ function buildPairThreadMap(
     if (!existing) {
       map.set(pairKey, {
         hadConversation,
-        latestClosedReason: thread.closedReason,
-        latestClosedAt: thread.closedAt,
       });
       continue;
     }
 
     map.set(pairKey, {
       hadConversation: existing.hadConversation || hadConversation,
-      latestClosedReason: existing.latestClosedReason,
-      latestClosedAt: existing.latestClosedAt,
     });
   }
 
@@ -514,8 +484,6 @@ function buildRequestHistoryRow(input: {
     finalizedAt: input.finalizedAt,
     requestTerminalReason: input.requestTerminalReason,
     activeMatchEndReason: null,
-    threadClosedReason: input.threadSnapshot?.latestClosedReason ?? null,
-    threadClosedAt: input.threadSnapshot?.latestClosedAt ?? null,
   };
 }
 
@@ -567,8 +535,6 @@ function buildMatchHistoryRow(input: {
     finalizedAt: input.finalizedAt,
     requestTerminalReason: 'ACCEPTED',
     activeMatchEndReason: input.activeMatchEndReason,
-    threadClosedReason: input.threadSnapshot?.latestClosedReason ?? null,
-    threadClosedAt: input.threadSnapshot?.latestClosedAt ?? null,
   };
 }
 
