@@ -44,9 +44,15 @@ export const resetPasswordRequestSchema = z.strictObject({
   newPassword: passwordSchema,
 });
 
+export const changePasswordRequestSchema = z.strictObject({
+  currentPassword: passwordSchema,
+  newPassword: passwordSchema,
+});
+
 export type EmailRequest = z.infer<typeof emailRequestSchema>;
 export type VerificationCodeRequest = z.infer<typeof verificationCodeRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type SignupDraftValidationRequest = z.infer<typeof signupDraftValidationRequestSchema>;
 export type SignupRequest = z.infer<typeof signupRequestSchema>;
 export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;

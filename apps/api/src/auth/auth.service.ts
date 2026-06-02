@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   GenericSuccessResult,
+  ChangePasswordResult,
   LoginResult,
   SessionStatusResult,
   SignupInput,
@@ -17,6 +18,8 @@ import { PrismaService } from '../common/prisma/prisma.service.js';
 import { signup } from './auth-signup-owner.js';
 import { login } from './auth-login-owner.js';
 import { resetPassword } from './auth-reset-password-owner.js';
+import { changePassword } from './auth-change-password-owner.js';
+import type { AuthenticatedUserContext } from './auth-session.service.js';
 
 @Injectable()
 export class AuthService {
@@ -51,10 +54,11 @@ export class AuthService {
     const emailNormalized = normalizeEmail(email);
     const user = await this.prisma.user.findUnique({
       where: { emailNormalized },
-      select: { id: true },
+      select: { id: true, deletedAt: true, emailVerifiedAt: true },
     });
 
-    return this.verificationService.maybeSendResetCode(emailNormalized, Boolean(user), requestIp);
+    const resetEligible = Boolean(user && !user.deletedAt && user.emailVerifiedAt);
+    return this.verificationService.maybeSendResetCode(emailNormalized, resetEligible, requestIp);
   }
 
   async verifyEmailCode(email: string, code: string): Promise<GenericSuccessResult> {
@@ -62,6 +66,16 @@ export class AuthService {
   }
 
   async verifyResetCode(email: string, code: string): Promise<GenericSuccessResult> {
+    const emailNormalized = normalizeEmail(email);
+    const user = await this.prisma.user.findUnique({
+      where: { emailNormalized },
+      select: { id: true, deletedAt: true, emailVerifiedAt: true },
+    });
+
+    if (!user || user.deletedAt || !user.emailVerifiedAt) {
+      return authFailures.verificationCodeInvalid();
+    }
+
     return this.verificationService.verifyResetCode(email, code);
   }
 
@@ -109,6 +123,22 @@ export class AuthService {
         verificationService: this.verificationService,
       },
       email,
+      newPassword,
+    );
+  }
+
+  async changePassword(
+    authUser: AuthenticatedUserContext,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<ChangePasswordResult> {
+    return changePassword(
+      {
+        prisma: this.prisma,
+        sessionService: this.sessionService,
+      },
+      authUser,
+      currentPassword,
       newPassword,
     );
   }

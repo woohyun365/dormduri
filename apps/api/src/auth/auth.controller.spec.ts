@@ -38,6 +38,7 @@ describe('AuthController', () => {
     signup: jest.fn(),
     login: jest.fn(),
     resetPassword: jest.fn(),
+    changePassword: jest.fn(),
     logout: jest.fn(),
   };
 
@@ -135,5 +136,48 @@ describe('AuthController', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(authService.validateSignupDraft).not.toHaveBeenCalled();
+  });
+
+  it('changePassword route는 /auth/change-password로 노출되고 authenticated user context를 service로 전달한다', async () => {
+    authService.changePassword.mockResolvedValue({
+      success: true,
+      accessToken: 'rotated-token',
+      rememberMe: false,
+    });
+
+    const descriptor = Object.getOwnPropertyDescriptor(
+      AuthController.prototype,
+      'changePassword',
+    ) as
+      | TypedPropertyDescriptor<(body: unknown, authUser: unknown) => Promise<unknown>>
+      | undefined;
+    const handler = descriptor?.value;
+
+    if (!handler) {
+      throw new Error('Expected changePassword handler');
+    }
+
+    expect(Reflect.getMetadata(NEST_ROUTE_PATH_METADATA, handler)).toBe('change-password');
+    expect(Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, handler)).toBe(RequestMethod.POST);
+
+    await expect(
+      controller.changePassword(
+        {
+          currentPassword: 'OldPass1234',
+          newPassword: 'NewPass1234',
+        },
+        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
+      ),
+    ).resolves.toEqual({
+      success: true,
+      accessToken: 'rotated-token',
+      rememberMe: false,
+    });
+
+    expect(authService.changePassword).toHaveBeenCalledWith(
+      { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
+      'OldPass1234',
+      'NewPass1234',
+    );
   });
 });

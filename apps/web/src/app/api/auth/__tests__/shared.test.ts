@@ -26,4 +26,13 @@ describe('auth BFF shared helpers', () => {
     expect(cookie?.value).toBe('token');
     expect(cookie?.maxAge).toBe(60 * 15);
   });
+
+  it('Phase 0 expected-change: rememberMe 체크 시 7일 session/token family TTL에 맞춘 persistent cookie를 설정해야 한다', () => {
+    const response = buildJsonResponse(new Response('{}', { status: 200 }), { success: true });
+    setAuthCookie(response, 'token', true);
+
+    const cookie = response.cookies.get('auth-token');
+    expect(cookie?.value).toBe('token');
+    expect(cookie?.maxAge).toBe(60 * 60 * 24 * 7);
+  });
 });

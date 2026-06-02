@@ -14,9 +14,14 @@ export const signupResponseSchema = genericErrorResponseSchema.extend({
   user: authenticatedSessionUserSchema.optional(),
 });
 export const resetPasswordResponseSchema = genericErrorResponseSchema;
+export const changePasswordResponseSchema = genericErrorResponseSchema.extend({
+  accessToken: z.string().optional(),
+  rememberMe: z.boolean().optional(),
+});
 
 export type LoginResponse = z.infer<typeof loginResponseSchema>;
 export type VerifyCodeResponse = z.infer<typeof verifyCodeResponseSchema>;
 export type SignupResponse = z.infer<typeof signupResponseSchema>;
 export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
+export type ChangePasswordResponse = z.infer<typeof changePasswordResponseSchema>;
 export type { AuthenticatedSessionUser };

@@ -24,7 +24,7 @@ export async function resetPassword(
     where: { emailNormalized },
   });
 
-  if (!user) {
+  if (!user || user.deletedAt || !user.emailVerifiedAt) {
     return authFailures.resetRestartRequired();
   }
 

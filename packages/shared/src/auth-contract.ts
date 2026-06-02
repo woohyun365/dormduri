@@ -7,6 +7,7 @@ export {
   signupDraftValidationRequestSchema,
   signupRequestSchema,
   resetPasswordRequestSchema,
+  changePasswordRequestSchema,
 } from './auth-contract-requests.js';
 export type {
   EmailRequest,
@@ -15,4 +16,5 @@ export type {
   SignupDraftValidationRequest,
   SignupRequest,
   ResetPasswordRequest,
+  ChangePasswordRequest,
 } from './auth-contract-requests.js';

@@ -154,6 +154,27 @@ describe('AuthSessionService', () => {
     await expect(service.resolveCurrentUserContext('token')).resolves.toBeNull();
   });
 
+  it('authenticated user context는 현재 session id를 포함한다', async () => {
+    jwtService.verifyAsync.mockResolvedValue({ sid: 'session-1', sub: 'user-1' });
+    prisma.$queryRawTyped.mockResolvedValue([{ userId: 'user-1' }]);
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      deletedAt: null,
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      displayIdentity: {
+        userId: 'user-1',
+      },
+    });
+
+    await expect(service.resolveCurrentUserContext('token')).resolves.toEqual({
+      id: 'user-1',
+      sessionId: 'session-1',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+    });
+  });
+
   it('display identity가 없는 사용자는 current-user context로도 복원하지 않는다', async () => {
     jwtService.verifyAsync.mockResolvedValue({
       sid: 'session-missing-identity',

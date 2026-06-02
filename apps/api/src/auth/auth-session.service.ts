@@ -20,8 +20,14 @@ import { hasUserDisplayIdentity } from '../common/account-identity-invariant.own
 
 export interface AuthenticatedUserContext {
   id: string;
+  sessionId?: string;
   gender: Gender;
   campus: Campus;
+}
+
+interface AuthenticatedSessionRef {
+  userId: string;
+  sessionId: string;
 }
 
 @Injectable()
@@ -41,13 +47,13 @@ export class AuthSessionService {
   }
 
   async resolveCurrentUserContext(token: string | null): Promise<AuthenticatedUserContext | null> {
-    const userId = await this.resolveAuthenticatedUserId(token);
-    if (!userId) {
+    const session = await this.resolveAuthenticatedSession(token);
+    if (!session) {
       return null;
     }
 
     const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: session.userId },
       select: {
         id: true,
         gender: true,
@@ -67,6 +73,7 @@ export class AuthSessionService {
 
     return {
       id: user.id,
+      sessionId: session.sessionId,
       gender: user.gender,
       campus: user.campus,
     };
@@ -166,6 +173,13 @@ export class AuthSessionService {
   }
 
   private async resolveAuthenticatedUserId(token: string | null): Promise<string | null> {
+    const session = await this.resolveAuthenticatedSession(token);
+    return session?.userId ?? null;
+  }
+
+  private async resolveAuthenticatedSession(
+    token: string | null,
+  ): Promise<AuthenticatedSessionRef | null> {
     if (!token) {
       return null;
     }
@@ -181,7 +195,7 @@ export class AuthSessionService {
         getCurrentSessionUserId(payload.sid, payload.sub),
       );
 
-      return session?.userId ?? null;
+      return session?.userId ? { userId: session.userId, sessionId: payload.sid } : null;
     } catch {
       return null;
     }

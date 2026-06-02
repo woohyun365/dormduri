@@ -4,6 +4,7 @@ import { AuthService } from './auth.service.js';
 describe('AuthService orchestration', () => {
   const prisma = {
     authSession: {
+      findFirst: jest.fn(),
       updateMany: jest.fn(),
     },
     getDatabaseNow: jest.fn(),
@@ -72,10 +73,17 @@ describe('AuthService orchestration', () => {
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
-        authSession: { updateMany: prisma.authSession.updateMany },
+        authSession: {
+          findFirst: prisma.authSession.findFirst,
+          updateMany: prisma.authSession.updateMany,
+        },
         user: { ...prisma.user, create: prisma.user.create, update: prisma.user.update },
       }),
     );
+    prisma.authSession.findFirst.mockResolvedValue({
+      id: 'session-1',
+      rememberMe: false,
+    });
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
   });
 
@@ -109,6 +117,57 @@ describe('AuthService orchestration', () => {
     );
   });
 
+  it('삭제/미인증 계정의 reset code 요청도 중립 성공을 유지하고 코드 발급 eligibility를 false로 전달한다', async () => {
+    verificationService.maybeSendResetCode.mockResolvedValue({ success: true });
+
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'user-deleted',
+      deletedAt: new Date('2026-05-12T00:00:00.000Z'),
+      emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
+    });
+    await expect(service.sendResetCode('deleted@kangwon.ac.kr', '127.0.0.1')).resolves.toEqual({
+      success: true,
+    });
+    expect(verificationService.maybeSendResetCode).toHaveBeenLastCalledWith(
+      'deleted@kangwon.ac.kr',
+      false,
+      '127.0.0.1',
+    );
+
+    prisma.user.findUnique.mockResolvedValueOnce({
+      id: 'user-unverified',
+      deletedAt: null,
+      emailVerifiedAt: null,
+    });
+    await expect(service.sendResetCode('unverified@kangwon.ac.kr', '127.0.0.1')).resolves.toEqual({
+      success: true,
+    });
+    expect(verificationService.maybeSendResetCode).toHaveBeenLastCalledWith(
+      'unverified@kangwon.ac.kr',
+      false,
+      '127.0.0.1',
+    );
+  });
+
+  it('active+verified 계정의 reset code 요청만 code 발급 eligibility를 true로 전달한다', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-verified',
+      deletedAt: null,
+      emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
+    });
+    verificationService.maybeSendResetCode.mockResolvedValue({ success: true });
+
+    await expect(service.sendResetCode('verified@kangwon.ac.kr', '127.0.0.1')).resolves.toEqual({
+      success: true,
+    });
+
+    expect(verificationService.maybeSendResetCode).toHaveBeenCalledWith(
+      'verified@kangwon.ac.kr',
+      true,
+      '127.0.0.1',
+    );
+  });
+
   it('signup draft validation은 전용 validation service로 위임한다', async () => {
     signupValidationService.validateDraft.mockResolvedValue({
       success: false,
@@ -137,6 +196,50 @@ describe('AuthService orchestration', () => {
       password: 'Test1234',
       nickname: '섹스',
     });
+  });
+
+  it('verifyResetCode는 없는/삭제/미인증 계정 상태를 노출하지 않고 동일한 invalid-code 응답을 반환한다', async () => {
+    for (const user of [
+      null,
+      {
+        id: 'user-deleted',
+        deletedAt: new Date('2026-05-12T00:00:00.000Z'),
+        emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
+      },
+      {
+        id: 'user-unverified',
+        deletedAt: null,
+        emailVerifiedAt: null,
+      },
+    ]) {
+      jest.clearAllMocks();
+      prisma.user.findUnique.mockResolvedValue(user);
+
+      await expect(service.verifyResetCode('test@kangwon.ac.kr', '123456')).resolves.toMatchObject({
+        success: false,
+        code: 'AUTH_VERIFICATION_CODE_INVALID',
+      });
+
+      expect(verificationService.verifyResetCode).not.toHaveBeenCalled();
+    }
+  });
+
+  it('verifyResetCode는 active+verified 계정일 때만 verification service로 위임한다', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-verified',
+      deletedAt: null,
+      emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
+    });
+    verificationService.verifyResetCode.mockResolvedValue({ success: true });
+
+    await expect(service.verifyResetCode('verified@kangwon.ac.kr', '123456')).resolves.toEqual({
+      success: true,
+    });
+
+    expect(verificationService.verifyResetCode).toHaveBeenCalledWith(
+      'verified@kangwon.ac.kr',
+      '123456',
+    );
   });
 
   it('존재하지 않는 계정 login은 로그인 실패 기록 서비스로 위임한다', async () => {
@@ -451,6 +554,8 @@ describe('AuthService orchestration', () => {
       id: 'user-1',
       email: 'test@kangwon.ac.kr',
       passwordHash: currentPasswordHash,
+      deletedAt: null,
+      emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
     });
     verificationService.findLatestVerifiedResetCode.mockResolvedValue({ id: 'code-1' });
     prisma.user.update.mockResolvedValue(undefined);
@@ -520,6 +625,8 @@ describe('AuthService orchestration', () => {
       id: 'user-1',
       email: 'test@kangwon.ac.kr',
       passwordHash: currentPasswordHash,
+      deletedAt: null,
+      emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
     });
     verificationService.findLatestVerifiedResetCode.mockResolvedValue({ id: 'code-1' });
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 0 });
@@ -532,5 +639,208 @@ describe('AuthService orchestration', () => {
     );
 
     expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('resetPassword는 삭제/미인증 계정도 reset restart required로 중립 처리하고 세션을 건드리지 않는다', async () => {
+    for (const user of [
+      {
+        id: 'user-deleted',
+        email: 'deleted@kangwon.ac.kr',
+        passwordHash: 'hash',
+        deletedAt: new Date('2026-05-12T00:00:00.000Z'),
+        emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
+      },
+      {
+        id: 'user-unverified',
+        email: 'unverified@kangwon.ac.kr',
+        passwordHash: 'hash',
+        deletedAt: null,
+        emailVerifiedAt: null,
+      },
+    ]) {
+      jest.clearAllMocks();
+      prisma.user.findUnique.mockResolvedValue(user);
+
+      await expect(service.resetPassword(user.email, 'NewPass1234')).resolves.toMatchObject({
+        success: false,
+        code: 'AUTH_RESET_RESTART_REQUIRED',
+      });
+
+      expect(verificationService.findLatestVerifiedResetCode).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+      expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+    }
+  });
+
+  it('changePassword는 현재 비밀번호 확인 후 기존 모든 세션을 revoke하고 새 현재 세션 access token을 반환한다', async () => {
+    const currentPasswordHash = await argonHash('OldPass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+    });
+    prisma.authSession.findFirst.mockResolvedValue({
+      id: 'session-1',
+      rememberMe: true,
+    });
+    prisma.user.update.mockResolvedValue(undefined);
+    prisma.authSession.updateMany.mockResolvedValue({ count: 2 });
+    sessionService.issueAuthResult.mockResolvedValue({
+      accessToken: 'rotated-access-token',
+      sessionId: 'session-new',
+    });
+
+    await expect(
+      service.changePassword(
+        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
+        'OldPass1234',
+        'NewPass1234',
+      ),
+    ).resolves.toEqual({
+      success: true,
+      accessToken: 'rotated-access-token',
+      rememberMe: true,
+    });
+
+    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
+    expect(prisma.authSession.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'session-1',
+          userId: 'user-1',
+          revokedAt: null,
+        }),
+        select: { rememberMe: true },
+      }),
+    );
+    expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+    expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
+      'user-1',
+      'test@kangwon.ac.kr',
+      true,
+    );
+  });
+
+  it('changePassword는 auth context에 session id가 없으면 재인증을 요구하고 user/session을 조회하지 않는다', async () => {
+    await expect(
+      service.changePassword(
+        { id: 'user-1', gender: 'M', campus: 'CHUNCHEON' },
+        'OldPass1234',
+        'NewPass1234',
+      ),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_REAUTHENTICATION_REQUIRED',
+    });
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.authSession.findFirst).not.toHaveBeenCalled();
+    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+  });
+
+  it('changePassword는 현재 authenticated session이 이미 없으면 재인증을 요구하고 password update를 rollback한다', async () => {
+    const currentPasswordHash = await argonHash('OldPass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+    });
+    prisma.authSession.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.changePassword(
+        { id: 'user-1', sessionId: 'session-revoked', gender: 'M', campus: 'CHUNCHEON' },
+        'OldPass1234',
+        'NewPass1234',
+      ),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_REAUTHENTICATION_REQUIRED',
+    });
+
+    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+  });
+
+  it('changePassword는 현재 비밀번호가 틀리면 password update/session revoke/token 재발급을 하지 않는다', async () => {
+    const currentPasswordHash = await argonHash('OldPass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.changePassword(
+        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
+        'WrongPass1234',
+        'NewPass1234',
+      ),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_CURRENT_PASSWORD_INVALID',
+      fieldErrors: { currentPassword: '현재 비밀번호가 올바르지 않습니다.' },
+    });
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+    expect(sessionService.issueAuthResult).not.toHaveBeenCalled();
+  });
+
+  it('changePassword는 새 비밀번호가 현재 비밀번호와 같으면 거부한다', async () => {
+    const currentPasswordHash = await argonHash('OldPass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'test@kangwon.ac.kr',
+      passwordHash: currentPasswordHash,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.changePassword(
+        { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
+        'OldPass1234',
+        'OldPass1234',
+      ),
+    ).resolves.toMatchObject({
+      success: false,
+      code: 'AUTH_PASSWORD_UNCHANGED',
+    });
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
   });
 });

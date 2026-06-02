@@ -1,6 +1,6 @@
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import type { CollegeCode } from '@repo/shared/college-contract';
-import type { LoginResponse } from '@repo/shared/auth-response';
+import type { ChangePasswordResponse, LoginResponse } from '@repo/shared/auth-response';
 import type { SessionResponse } from '@repo/shared/session-contract';
 import type { AuthenticatedSessionUser } from '@repo/shared/user-contract';
 
@@ -22,6 +22,7 @@ export interface AuthSessionIssueResult {
 export type AuthSessionUserSummary = AuthenticatedSessionUser;
 
 export type LoginResult = LoginResponse;
+export type ChangePasswordResult = ChangePasswordResponse;
 
 export interface GenericSuccessResult {
   success: boolean;

@@ -43,6 +43,7 @@ import {
   accountIdentitySchema,
 } from '@repo/shared/account-identity-contract';
 import {
+  changePasswordRequestSchema,
   signupDraftValidationRequestSchema,
   signupRequestSchema,
 } from '@repo/shared/auth-contract';
@@ -419,6 +420,26 @@ describe('shared reference contracts', () => {
         lifestyle: VALID_LIFESTYLE,
         intro: '가입 단계 소개',
         profile: { intro: 'signup 단계 프로필' },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('auth change password request는 로그인 상태 currentPassword와 newPassword만 받는다', () => {
+    expect(
+      changePasswordRequestSchema.parse({
+        currentPassword: 'OldPass1234',
+        newPassword: 'NewPass1234',
+      }),
+    ).toEqual({
+      currentPassword: 'OldPass1234',
+      newPassword: 'NewPass1234',
+    });
+
+    expect(
+      changePasswordRequestSchema.safeParse({
+        email: 'student@kangwon.ac.kr',
+        code: '123456',
+        newPassword: 'NewPass1234',
       }).success,
     ).toBe(false);
   });

@@ -6,12 +6,14 @@ export {
   verifyCodeResponseSchema,
   signupResponseSchema,
   resetPasswordResponseSchema,
+  changePasswordResponseSchema,
 } from './auth-response-auth.js';
 export type {
   LoginResponse,
   VerifyCodeResponse,
   SignupResponse,
   ResetPasswordResponse,
+  ChangePasswordResponse,
   AuthenticatedSessionUser,
 } from './auth-response-auth.js';
 export {

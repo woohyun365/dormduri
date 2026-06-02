@@ -115,4 +115,18 @@ export const authFailures = {
       },
     );
   },
+
+  currentPasswordInvalid() {
+    return createFailure('AUTH_CURRENT_PASSWORD_INVALID', '현재 비밀번호가 올바르지 않습니다.', {
+      fieldErrors: {
+        currentPassword: '현재 비밀번호가 올바르지 않습니다.',
+      },
+    });
+  },
+
+  reauthenticationRequired() {
+    return createFailure('AUTH_REAUTHENTICATION_REQUIRED', '다시 로그인한 뒤 시도해주세요.', {
+      userActionable: true,
+    });
+  },
 };
