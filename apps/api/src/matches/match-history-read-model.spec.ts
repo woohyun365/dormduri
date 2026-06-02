@@ -1,6 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { matchHistoryEntrySchema } from '@repo/shared/match-contract';
+import {
+  matchHistoryEntrySchema,
+  matchHistorySeasonSummarySchema,
+} from '@repo/shared/match-contract';
 import { toMatchHistoryResponse, type MatchHistoryEntryRow } from './match-history-read-model.js';
 
 function findRepoRoot() {
@@ -26,7 +29,6 @@ function makeHistoryEntryRow(overrides: Partial<MatchHistoryEntryRow> = {}): Mat
     entryType: 'MATCH',
     entryResult: 'MATCHED_SUCCESS',
     viewerRequested: true,
-    hadConversation: true,
     matchedAt: new Date('2026-02-10T03:00:00.000Z'),
     unmatchedAt: null,
     finalizedAt: new Date('2026-02-28T03:00:00.000Z'),
@@ -47,7 +49,7 @@ describe('match history read model', () => {
     expect(source).not.toContain('conversationThreadClosedReasonSchema');
   });
 
-  it('public history entry는 chat thread closed reason을 노출하지 않는다', () => {
+  it('public history entry는 chat-derived fields를 노출하지 않는다', () => {
     const response = toMatchHistoryResponse({
       seasons: [
         {
@@ -64,14 +66,35 @@ describe('match history read model', () => {
 
     expect(entry).toMatchObject({
       id: 'history-entry-1',
-      hadConversation: true,
       result: 'MATCHED_SUCCESS',
     });
+    expect(response.items[0]).not.toHaveProperty('conversationCount');
+    expect(entry).not.toHaveProperty('hadConversation');
     expect(entry).not.toHaveProperty('threadClosedReason');
     expect(entry).not.toHaveProperty('threadClosedAt');
   });
 
   it('match history contract는 chat closed reason 필드를 거부한다', () => {
+    expect(
+      matchHistoryEntrySchema.safeParse({
+        id: 'history-entry-1',
+        counterpartParticipantId: 'counterpart-participant-1',
+        counterpartNickname: '상대방',
+        stage: 'MATCH',
+        result: 'MATCHED_SUCCESS',
+        viewerRequested: true,
+        matchedAt: '2026-02-10T03:00:00.000Z',
+        unmatchedAt: null,
+        finalizedAt: '2026-02-28T03:00:00.000Z',
+        requestTerminalReason: null,
+        activeMatchEndReason: null,
+        threadClosedReason: 'SEASON_ENDED',
+        threadClosedAt: '2026-02-28T03:00:00.000Z',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('match history contract는 conversation field를 거부한다', () => {
     expect(
       matchHistoryEntrySchema.safeParse({
         id: 'history-entry-1',
@@ -86,8 +109,20 @@ describe('match history read model', () => {
         finalizedAt: '2026-02-28T03:00:00.000Z',
         requestTerminalReason: null,
         activeMatchEndReason: null,
-        threadClosedReason: 'SEASON_ENDED',
-        threadClosedAt: '2026-02-28T03:00:00.000Z',
+      }).success,
+    ).toBe(false);
+
+    expect(
+      matchHistorySeasonSummarySchema.safeParse({
+        seasonId: 'season-1',
+        seasonName: '2026-1',
+        viewerParticipantId: 'viewer-participant-1',
+        viewerDormitoryIdSnapshot: null,
+        finalResult: 'MATCHED_SUCCESS',
+        sentRequestCount: 0,
+        receivedRequestCount: 0,
+        conversationCount: 1,
+        history: [],
       }).success,
     ).toBe(false);
   });

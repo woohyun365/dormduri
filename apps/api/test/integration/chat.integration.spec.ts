@@ -138,6 +138,136 @@ describe('ChatService integration', () => {
     return issued.accessToken;
   }
 
+  it('conversation stats API는 match history가 아니라 chat thread row 기준 unique 대화 사용자 수를 반환한다', async () => {
+    await seedRegisteredAssignedParticipant(prisma, {
+      userId: 'user-c',
+      participantId: 'participant-c',
+      email: 'user-c@kangwon.ac.kr',
+      nickname: '유저C',
+    });
+
+    const databaseNow = await prisma.getDatabaseNow();
+    const currentYear = databaseNow.getUTCFullYear();
+    await prisma.season.create({
+      data: {
+        id: 'season-past-conversation-stats',
+        campusCode: 'CHUNCHEON',
+        academicYear: currentYear - 1,
+        semester: 2,
+        name: `${currentYear - 1}-2`,
+        preparationStartDate: new Date(`${currentYear - 1}-01-01T00:00:00.000Z`),
+        matchingStartDate: new Date(`${currentYear - 1}-01-15T00:00:00.000Z`),
+        seasonEndDate: new Date(`${currentYear - 1}-02-28T00:00:00.000Z`),
+      },
+    });
+    await prisma.seasonParticipant.createMany({
+      data: [
+        {
+          id: 'participant-a-past-conversation-stats',
+          seasonId: 'season-past-conversation-stats',
+          userId: 'user-a',
+          participationIntent: 'REGISTERED',
+          registeredAt: databaseNow,
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+          participantStatus: 'ACTIVE',
+          campusCodeSnapshot: 'CHUNCHEON',
+          genderSnapshot: 'M',
+          joinedAt: databaseNow,
+          activatedAt: databaseNow,
+        },
+        {
+          id: 'participant-c-past-conversation-stats',
+          seasonId: 'season-past-conversation-stats',
+          userId: 'user-c',
+          participationIntent: 'REGISTERED',
+          registeredAt: databaseNow,
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+          participantStatus: 'ACTIVE',
+          campusCodeSnapshot: 'CHUNCHEON',
+          genderSnapshot: 'M',
+          joinedAt: databaseNow,
+          activatedAt: databaseNow,
+        },
+      ],
+    });
+    await prisma.conversationThread.createMany({
+      data: [
+        {
+          id: 'stats-current-thread-open',
+          seasonId: 'season-integration',
+          pairKey: 'participant-a:participant-b',
+          participantAId: 'participant-a',
+          participantBId: 'participant-b',
+          openedByParticipantId: 'participant-a',
+          threadKind: 'DIRECT',
+          status: 'OPEN',
+        },
+        {
+          id: 'stats-current-thread-archived-same-counterpart',
+          seasonId: 'season-integration',
+          pairKey: 'participant-a:participant-b',
+          participantAId: 'participant-a',
+          participantBId: 'participant-b',
+          openedByParticipantId: 'participant-b',
+          threadKind: 'DIRECT',
+          status: 'ARCHIVED',
+          closedReason: 'PARTICIPANT_WITHDRAWN',
+          closedAt: databaseNow,
+        },
+        {
+          id: 'stats-past-thread',
+          seasonId: 'season-past-conversation-stats',
+          pairKey: 'participant-a-past-conversation-stats:participant-c-past-conversation-stats',
+          participantAId: 'participant-a-past-conversation-stats',
+          participantBId: 'participant-c-past-conversation-stats',
+          openedByParticipantId: 'participant-a-past-conversation-stats',
+          threadKind: 'DIRECT',
+          status: 'ARCHIVED',
+          closedReason: 'SEASON_ENDED',
+          closedAt: databaseNow,
+        },
+      ],
+    });
+    await prisma.seasonMatchHistoryEntry.create({
+      data: {
+        id: 'stats-history-entry-without-chat-dependency',
+        seasonId: 'season-past-conversation-stats',
+        viewerParticipantId: 'participant-a-past-conversation-stats',
+        counterpartParticipantId: 'participant-c-past-conversation-stats',
+        pairKey: 'participant-a-past-conversation-stats:participant-c-past-conversation-stats',
+        entryType: 'MATCH',
+        entryResult: 'MATCHED_SUCCESS',
+        viewerRequested: true,
+        matchScore: 80,
+        counterpartNicknameSnapshot: '유저C',
+        finalizedAt: databaseNow,
+      },
+    });
+
+    const accessToken = await issueAccessToken();
+    const response = await request(httpServer)
+      .get('/api/chat/conversation-stats')
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      current: {
+        seasonId: 'season-integration',
+        seasonName: `${currentYear}-1`,
+        conversationUserCount: 1,
+      },
+      past: [
+        {
+          seasonId: 'season-past-conversation-stats',
+          seasonName: `${currentYear - 1}-2`,
+          conversationUserCount: 1,
+        },
+      ],
+    });
+  });
+
   it('HTTP message limiter 초과 시 429로 거절하고 DB message/outbox를 추가하지 않는다', async () => {
     const accessToken = await issueAccessToken();
 

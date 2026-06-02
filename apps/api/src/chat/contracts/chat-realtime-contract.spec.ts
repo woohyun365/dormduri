@@ -225,4 +225,32 @@ describe('chat realtime shared contract guards', () => {
       }).success,
     ).toBe(false);
   });
+
+  it('conversation stats contract는 current/past 시즌별 unique counterpart count를 표현한다', () => {
+    const responseSchema = getSchema('conversationStatsResponseSchema');
+
+    expect(
+      responseSchema.safeParse({
+        current: {
+          seasonId: 'season-current',
+          seasonName: '2026-1',
+          conversationUserCount: 2,
+        },
+        past: [
+          {
+            seasonId: 'season-2025-2',
+            seasonName: '2025-2',
+            conversationUserCount: 1,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      responseSchema.safeParse({
+        current: null,
+        past: [],
+        conversationCount: 1,
+      }).success,
+    ).toBe(false);
+  });
 });

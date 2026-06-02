@@ -373,7 +373,6 @@ describe('MatchesService unmatch integration', () => {
       finalResult: 'UNMATCHED_AFTER_SUCCESS',
       sentRequestCount: 1,
       receivedRequestCount: 0,
-      conversationCount: 1,
     });
     expect(history.items[0]?.history).toEqual(
       expect.arrayContaining([
@@ -382,7 +381,6 @@ describe('MatchesService unmatch integration', () => {
           stage: 'MATCH',
           result: 'UNMATCHED_AFTER_SUCCESS',
           activeMatchEndReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
-          hadConversation: true,
         }),
       ]),
     );

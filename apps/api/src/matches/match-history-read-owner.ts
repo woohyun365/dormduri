@@ -69,7 +69,6 @@ export function createMatchHistoryReadOwner(prisma: PrismaService) {
           entryType: true,
           entryResult: true,
           viewerRequested: true,
-          hadConversation: true,
           matchedAt: true,
           unmatchedAt: true,
           finalizedAt: true,

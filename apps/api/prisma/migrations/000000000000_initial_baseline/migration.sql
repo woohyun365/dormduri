@@ -679,7 +679,6 @@ CREATE TABLE "SeasonMatchHistoryEntry" (
     "counterpartRedactedAt" TIMESTAMPTZ(3),
     "viewerRedactedAt" TIMESTAMPTZ(3),
     "viewerDormitoryIdSnapshot" TEXT,
-    "hadConversation" BOOLEAN NOT NULL DEFAULT false,
     "matchedAt" TIMESTAMPTZ(3),
     "unmatchedAt" TIMESTAMPTZ(3),
     "finalizedAt" TIMESTAMPTZ(3) NOT NULL,

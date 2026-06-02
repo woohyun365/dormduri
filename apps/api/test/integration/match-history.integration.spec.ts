@@ -405,7 +405,6 @@ describe('Match history integration', () => {
       finalResult: 'UNMATCHED_AFTER_SUCCESS',
       sentRequestCount: 2,
       receivedRequestCount: 1,
-      conversationCount: 1,
     });
     expect(history.items[0]?.history).toEqual(
       expect.arrayContaining([
@@ -427,7 +426,6 @@ describe('Match history integration', () => {
           result: 'UNMATCHED_AFTER_SUCCESS',
           matchedAt: '2025-08-01T10:00:00.000Z',
           unmatchedAt: '2025-08-01T18:00:00.000Z',
-          hadConversation: true,
         }),
       ]),
     );
@@ -438,7 +436,6 @@ describe('Match history integration', () => {
       finalResult: 'MATCHED_SUCCESS',
       sentRequestCount: 1,
       receivedRequestCount: 0,
-      conversationCount: 1,
     });
     expect(history.items[1]?.history).toEqual(
       expect.arrayContaining([
@@ -761,7 +758,6 @@ describe('Match history integration', () => {
       finalResult: 'NO_MATCH',
       sentRequestCount: 1,
       receivedRequestCount: 0,
-      conversationCount: 0,
     });
     expect(history.items[0]?.history).toEqual(
       expect.arrayContaining([

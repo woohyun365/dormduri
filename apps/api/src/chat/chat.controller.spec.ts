@@ -33,6 +33,7 @@ async function expectBadRequest(action: () => Promise<unknown>) {
 describe('ChatController', () => {
   const chatService = {
     listThreads: jest.fn(),
+    getConversationStats: jest.fn(),
     getThreadEntry: jest.fn(),
     getThreadDetail: jest.fn(),
     leaveThread: jest.fn(),
@@ -110,6 +111,28 @@ describe('ChatController', () => {
 
     expect(response.code).toBe('INVALID_QUERY');
     expect(chatService.listThreads).not.toHaveBeenCalled();
+  });
+
+  it('conversation stats는 chat service의 read-only stats surface로 위임한다', async () => {
+    chatService.getConversationStats.mockResolvedValueOnce({
+      current: {
+        seasonId: 'season-current',
+        seasonName: '2026-1',
+        conversationUserCount: 1,
+      },
+      past: [],
+    });
+
+    await expect(controller.getConversationStats(authUser as never)).resolves.toEqual({
+      current: {
+        seasonId: 'season-current',
+        seasonName: '2026-1',
+        conversationUserCount: 1,
+      },
+      past: [],
+    });
+
+    expect(chatService.getConversationStats).toHaveBeenCalledWith(authUser);
   });
 
   it('빈 message body는 bad request를 던진다', async () => {

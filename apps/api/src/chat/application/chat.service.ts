@@ -3,6 +3,7 @@ import type {
   ConversationThreadDetailResponse,
   ConversationThreadEntryResponse,
   ConversationThreadListResponse,
+  ConversationStatsResponse,
   ChatRealtimeReplayResponse,
   LeaveConversationThreadResponse,
   ListConversationThreadsQuery,
@@ -276,6 +277,34 @@ export class ChatService {
         nextCursor,
       },
     };
+  }
+
+  async getConversationStats(
+    authUser: AuthenticatedUserContext,
+  ): Promise<ConversationStatsResponse> {
+    const now = await this.prisma.getDatabaseNow();
+    const user = await this.prisma.user.findUnique({
+      where: { id: authUser.id },
+      select: { campus: true },
+    });
+    if (!user) {
+      return { current: null, past: [] };
+    }
+
+    const currentSeasonContext = await this.seasonsService.getCurrentSeasonContext(
+      user.campus,
+      now,
+    );
+
+    return this.queryOwner.getConversationStatsForUser({
+      userId: authUser.id,
+      currentSeason: currentSeasonContext
+        ? {
+            id: currentSeasonContext.season.id,
+            name: currentSeasonContext.season.name,
+          }
+        : null,
+    });
   }
 
   async getThreadDetail(

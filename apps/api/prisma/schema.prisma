@@ -1023,7 +1023,6 @@ model SeasonMatchHistoryEntry {
   counterpartRedactedAt                     DateTime?                              @db.Timestamptz(3)
   viewerRedactedAt                          DateTime?                              @db.Timestamptz(3)
   viewerDormitoryIdSnapshot                 String?
-  hadConversation                           Boolean                                @default(false)
   matchedAt                                 DateTime?                              @db.Timestamptz(3)
   unmatchedAt                               DateTime?                              @db.Timestamptz(3)
   finalizedAt                               DateTime                               @db.Timestamptz(3)

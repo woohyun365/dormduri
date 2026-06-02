@@ -305,7 +305,7 @@ describe('timestamp field integration', () => {
     });
     await prisma.seasonMatchHistoryEntry.updateMany({
       where: { id: 'history-updated-at' },
-      data: { hadConversation: true },
+      data: { viewerDormitoryIdSnapshot: 'dasan' },
     });
 
     const after = {

@@ -197,5 +197,6 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE TABLE "SeasonMatchHistoryEntry"');
     expect(sql).not.toContain('"threadClosedReason"');
     expect(sql).not.toContain('"threadClosedAt"');
+    expect(sql).not.toContain('"hadConversation"');
   });
 });

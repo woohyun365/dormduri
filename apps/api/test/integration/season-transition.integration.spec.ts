@@ -263,7 +263,6 @@ describe('Season transition integration', () => {
       finalResult: 'MATCHED_SUCCESS',
       sentRequestCount: 1,
       receivedRequestCount: 0,
-      conversationCount: 0,
     });
     expect(offSeasonHistory.items[0]?.history).toEqual(
       expect.arrayContaining([
@@ -508,7 +507,6 @@ describe('Season transition integration', () => {
       finalResult: 'MATCHED_SUCCESS',
       sentRequestCount: 1,
       receivedRequestCount: 1,
-      conversationCount: 1,
     });
     expect(summary?.history).toEqual(
       expect.arrayContaining([
@@ -516,7 +514,6 @@ describe('Season transition integration', () => {
           counterpartParticipantId: 'participant-b',
           stage: 'MATCH',
           result: 'MATCHED_SUCCESS',
-          hadConversation: true,
         }),
         expect.objectContaining({
           counterpartParticipantId: 'participant-c',

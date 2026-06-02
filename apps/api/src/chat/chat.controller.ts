@@ -87,6 +87,11 @@ export class ChatController {
     });
   }
 
+  @Get('conversation-stats')
+  async getConversationStats(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+    return this.chatService.getConversationStats(authUser);
+  }
+
   @Get('threads/with/:targetUserId')
   async getThreadEntry(
     @AuthenticatedUser() authUser: AuthenticatedUserContext,

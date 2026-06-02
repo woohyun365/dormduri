@@ -1,3 +1,4 @@
+import type { ConversationStatsResponse } from '@repo/shared/chat-contract';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { PrismaService } from '../../common/prisma/prisma.service.js';
 import { buildParticipantPairIdentity } from '../../matches/match.utils.js';
@@ -118,6 +119,133 @@ export function createChatThreadQueryService(prisma: PrismaService) {
         },
         select: threadSelect,
       });
+    },
+
+    async getConversationStatsForUser(input: {
+      userId: string;
+      currentSeason: { id: string; name: string } | null;
+    }): Promise<ConversationStatsResponse> {
+      const participantRows = await prisma.seasonParticipant.findMany({
+        where: { userId: input.userId },
+        select: { id: true },
+      });
+      const participantIds = participantRows.map((participant) => participant.id);
+      if (participantIds.length === 0) {
+        return {
+          current: input.currentSeason
+            ? {
+                seasonId: input.currentSeason.id,
+                seasonName: input.currentSeason.name,
+                conversationUserCount: 0,
+              }
+            : null,
+          past: [],
+        };
+      }
+
+      const participantIdSet = new Set(participantIds);
+      const threads = await prisma.conversationThread.findMany({
+        where: {
+          OR: [
+            { participantAId: { in: participantIds } },
+            { participantBId: { in: participantIds } },
+          ],
+        },
+        select: {
+          seasonId: true,
+          participantAId: true,
+          participantBId: true,
+          participantA: {
+            select: {
+              userId: true,
+            },
+          },
+          participantB: {
+            select: {
+              userId: true,
+            },
+          },
+          season: {
+            select: {
+              id: true,
+              name: true,
+              academicYear: true,
+              semester: true,
+            },
+          },
+        },
+      });
+
+      const statsBySeason = new Map<
+        string,
+        {
+          seasonId: string;
+          seasonName: string;
+          academicYear: number;
+          semester: number;
+          counterpartUserIds: Set<string>;
+        }
+      >();
+
+      for (const thread of threads) {
+        const counterpartUserId = participantIdSet.has(thread.participantAId)
+          ? thread.participantB.userId
+          : participantIdSet.has(thread.participantBId)
+            ? thread.participantA.userId
+            : null;
+        if (!counterpartUserId) {
+          continue;
+        }
+
+        const existing = statsBySeason.get(thread.seasonId) ?? {
+          seasonId: thread.season.id,
+          seasonName: thread.season.name,
+          academicYear: thread.season.academicYear,
+          semester: thread.season.semester,
+          counterpartUserIds: new Set<string>(),
+        };
+        existing.counterpartUserIds.add(counterpartUserId);
+        statsBySeason.set(thread.seasonId, existing);
+      }
+
+      const toStatsSeason = (season: {
+        seasonId: string;
+        seasonName: string;
+        counterpartUserIds: Set<string>;
+      }) => ({
+        seasonId: season.seasonId,
+        seasonName: season.seasonName,
+        conversationUserCount: season.counterpartUserIds.size,
+      });
+
+      const current = input.currentSeason
+        ? (statsBySeason.get(input.currentSeason.id) ?? {
+            seasonId: input.currentSeason.id,
+            seasonName: input.currentSeason.name,
+            academicYear: 0,
+            semester: 0,
+            counterpartUserIds: new Set<string>(),
+          })
+        : null;
+      const past = Array.from(statsBySeason.values())
+        .filter((season) => season.seasonId !== input.currentSeason?.id)
+        .sort((left, right) => {
+          const academicYearDiff = right.academicYear - left.academicYear;
+          if (academicYearDiff !== 0) {
+            return academicYearDiff;
+          }
+          const semesterDiff = right.semester - left.semester;
+          if (semesterDiff !== 0) {
+            return semesterDiff;
+          }
+          return left.seasonId.localeCompare(right.seasonId);
+        })
+        .map(toStatsSeason);
+
+      return {
+        current: current ? toStatsSeason(current) : null,
+        past,
+      };
     },
   };
 }

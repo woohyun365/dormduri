@@ -460,7 +460,6 @@ describe('RetainedIdentity integration', () => {
         entryResult: 'MATCHED_SUCCESS',
         viewerRequested: true,
         counterpartNicknameSnapshot: '유저B',
-        hadConversation: true,
         matchedAt: new Date('2026-05-01T00:00:00.000Z'),
         finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
       },
@@ -623,7 +622,6 @@ describe('RetainedIdentity integration', () => {
           counterpartBedtimeSnapshot: 'BETWEEN_22_24',
           counterpartCleanLevelSnapshot: 'WEEKLY_3_UP',
           counterpartNicknameSnapshot: '유저B',
-          hadConversation: true,
           matchedAt: new Date('2026-05-01T00:00:00.000Z'),
           finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
         },
@@ -646,7 +644,6 @@ describe('RetainedIdentity integration', () => {
           counterpartSleepHabitSnapshot: 'NONE',
           counterpartCleanLevelSnapshot: 'WEEKLY_3_UP',
           counterpartNicknameSnapshot: '유저A',
-          hadConversation: true,
           matchedAt: new Date('2026-05-01T00:00:00.000Z'),
           finalizedAt: new Date('2026-05-02T00:00:00.000Z'),
         },
@@ -962,6 +959,7 @@ describe('RetainedIdentity integration', () => {
     );
     expect(disclosure.payload.entry).not.toHaveProperty('threadClosedReason');
     expect(disclosure.payload.entry).not.toHaveProperty('threadClosedAt');
+    expect(disclosure.payload.entry).not.toHaveProperty('hadConversation');
   });
 
   it('archived THREAD_RETENTION job은 메시지 본문을 retained body vault로 옮기고 tombstone 처리한다', async () => {

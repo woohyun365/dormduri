@@ -34,6 +34,17 @@ export const sendConversationMessageResponseSchema = z.strictObject({
   createdThread: z.boolean(),
 });
 
+export const conversationStatsSeasonSchema = z.strictObject({
+  seasonId: z.string(),
+  seasonName: z.string(),
+  conversationUserCount: z.number().int().nonnegative(),
+});
+
+export const conversationStatsResponseSchema = z.strictObject({
+  current: conversationStatsSeasonSchema.nullable(),
+  past: z.array(conversationStatsSeasonSchema),
+});
+
 export type ConversationThreadListResponse = z.infer<typeof conversationThreadListResponseSchema>;
 export type ConversationThreadEntryResponse = z.infer<typeof conversationThreadEntryResponseSchema>;
 export type ConversationThreadDetailResponse = z.infer<
@@ -41,3 +52,5 @@ export type ConversationThreadDetailResponse = z.infer<
 >;
 export type LeaveConversationThreadResponse = z.infer<typeof leaveConversationThreadResponseSchema>;
 export type SendConversationMessageResponse = z.infer<typeof sendConversationMessageResponseSchema>;
+export type ConversationStatsSeason = z.infer<typeof conversationStatsSeasonSchema>;
+export type ConversationStatsResponse = z.infer<typeof conversationStatsResponseSchema>;

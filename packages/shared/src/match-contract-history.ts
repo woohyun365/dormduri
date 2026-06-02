@@ -28,7 +28,6 @@ export const matchHistoryEntrySchema = z.strictObject({
   stage: matchHistoryStageSchema,
   result: matchHistoryEntryResultSchema,
   viewerRequested: z.boolean(),
-  hadConversation: z.boolean(),
   matchedAt: isoDateTimeStringSchema.nullable(),
   unmatchedAt: isoDateTimeStringSchema.nullable(),
   finalizedAt: isoDateTimeStringSchema,
@@ -44,7 +43,6 @@ export const matchHistorySeasonSummarySchema = z.strictObject({
   finalResult: matchHistorySeasonFinalResultSchema,
   sentRequestCount: z.number().int().nonnegative(),
   receivedRequestCount: z.number().int().nonnegative(),
-  conversationCount: z.number().int().nonnegative(),
   history: z.array(matchHistoryEntrySchema),
 });
 
