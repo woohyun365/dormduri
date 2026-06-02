@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { ChatService } from '../../src/chat/chat.service.js';
+import { ChatService } from '../../src/chat/application/chat.service.js';
 import { LifecycleSweepService } from '../../src/common/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { MatchesService } from '../../src/matches/matches.service.js';

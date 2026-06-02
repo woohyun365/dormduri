@@ -27,7 +27,7 @@ import {
   ChatRealtimeRateLimiterService,
   throwChatRealtimeRateLimitError,
 } from './realtime/chat-realtime-rate-limiter.service.js';
-import { ChatService } from './chat.service.js';
+import { ChatService } from './application/chat.service.js';
 
 function parseReplayLimit(rawLimit: string | undefined): number {
   if (rawLimit === undefined) {

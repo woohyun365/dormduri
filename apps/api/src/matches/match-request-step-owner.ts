@@ -1,6 +1,6 @@
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../generated/prisma/client.js';
-import type { ChatService } from '../chat/chat.service.js';
+import type { ChatService } from '../chat/application/chat.service.js';
 import { matchesErrors } from './matches.errors.js';
 import type { MatchRequestRecord, ActiveMatchRecord } from './match-selects.js';
 import { activeMatchSummarySelect, matchRequestSummarySelect } from './match-selects.js';

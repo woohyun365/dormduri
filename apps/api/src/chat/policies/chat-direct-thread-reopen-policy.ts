@@ -1,4 +1,4 @@
-import type { ThreadRecord } from './chat-selects.js';
+import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
 export type DirectThreadReopenStaticDecision =
   | { kind: 'REOPEN_CANDIDATE' }

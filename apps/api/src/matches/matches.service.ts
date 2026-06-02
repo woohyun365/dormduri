@@ -13,7 +13,7 @@ import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../generated/prisma/client.js';
 import type { Campus } from '../generated/prisma/enums.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import { ChatService } from '../chat/chat.service.js';
+import { ChatService } from '../chat/application/chat.service.js';
 import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';

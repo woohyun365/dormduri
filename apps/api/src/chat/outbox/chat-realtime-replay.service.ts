@@ -1,8 +1,11 @@
-import { Prisma } from '../../generated/prisma/client.js';
-import { isChatRealtimePayloadPrivacySafe } from '../realtime/chat-realtime-event.mapper.js';
+import {
+  findChatRealtimeReplayCursor,
+  findChatRealtimeReplayEvents,
+} from '../../generated/prisma/sql.js';
+import { isChatRealtimePayloadPrivacySafe } from '../events/chat-realtime-event.mapper.js';
 
-type RawQueryable = {
-  $queryRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
+type TypedQueryable = {
+  $queryRawTyped<T = unknown>(query: unknown): Promise<T[]>;
 };
 
 type CursorRow = {
@@ -50,7 +53,7 @@ export class ChatRealtimeReplayService {
   }
 
   async getReplayEvents(
-    prisma: RawQueryable,
+    prisma: TypedQueryable,
     input: { userId: string; after?: string | null; limit: number; now: Date },
   ): Promise<ReplayOk | ReplayResyncRequired> {
     const windowStart = new Date(input.now.getTime() - this.replayWindowDays * 24 * 60 * 60 * 1000);
@@ -58,13 +61,9 @@ export class ChatRealtimeReplayService {
 
     let afterRow: CursorRow | null = null;
     if (input.after) {
-      const rows = await prisma.$queryRaw<CursorRow[]>(Prisma.sql`
-        SELECT "cursor", "createdAt", "eventId"
-        FROM "ChatRealtimeEventRecipient"
-        WHERE "userId" = ${input.userId}
-          AND "cursor" = ${input.after}
-        LIMIT 1
-      `);
+      const rows = await prisma.$queryRawTyped<CursorRow>(
+        findChatRealtimeReplayCursor(input.userId, input.after),
+      );
       afterRow = rows[0] ?? null;
 
       if (!afterRow) {
@@ -75,27 +74,16 @@ export class ChatRealtimeReplayService {
       }
     }
 
-    const rows = await prisma.$queryRaw<ReplayRow[]>(Prisma.sql`
-      SELECT
-        recipient."eventId" AS "eventId",
-        recipient."cursor" AS "cursor",
-        event."eventType" AS "eventType",
-        event."schemaVersion" AS "schemaVersion",
-        event."threadId" AS "threadId",
-        event."payload" AS "payload",
-        event."occurredAt" AS "occurredAt",
-        recipient."createdAt" AS "recipientCreatedAt"
-      FROM "ChatRealtimeEventRecipient" AS recipient
-      INNER JOIN "ChatRealtimeOutboxEvent" AS event ON event."id" = recipient."eventId"
-      WHERE recipient."userId" = ${input.userId}
-        AND recipient."createdAt" >= ${windowStart}
-        AND (
-          ${afterRow?.createdAt ?? null}::timestamptz IS NULL
-          OR (recipient."createdAt", recipient."eventId") > (${afterRow?.createdAt ?? null}::timestamptz, ${afterRow?.eventId ?? ''})
-        )
-      ORDER BY recipient."createdAt" ASC, recipient."eventId" ASC
-      LIMIT ${safeLimit + 1}
-    `);
+    const rows = await prisma.$queryRawTyped<ReplayRow>(
+      findChatRealtimeReplayEvents(
+        input.userId,
+        windowStart,
+        Boolean(afterRow),
+        afterRow?.createdAt ?? windowStart,
+        afterRow?.eventId ?? '',
+        safeLimit + 1,
+      ),
+    );
 
     const page = rows.slice(0, safeLimit);
     if (page.some((row) => !isChatRealtimePayloadPrivacySafe(row.payload))) {

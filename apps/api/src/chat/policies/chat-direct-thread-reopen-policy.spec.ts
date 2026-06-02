@@ -1,5 +1,5 @@
 import { resolveDirectThreadReopenStaticDecision } from './chat-direct-thread-reopen-policy.js';
-import type { ThreadRecord } from './chat-selects.js';
+import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
 const now = new Date('2026-02-10T03:00:00.000Z');
 

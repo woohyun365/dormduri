@@ -10,43 +10,44 @@ import type {
   SendConversationMessageResponse,
   UpdateChatReadMarkerRequest,
 } from '@repo/shared/chat-contract';
-import type { Prisma } from '../generated/prisma/client.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import type { AuthenticatedUserContext } from '../../auth/auth-session.service.js';
+import { PrismaService } from '../../common/prisma/prisma.service.js';
 import {
   CHAT_THREAD_NOTIFICATION_WRITER,
   type ChatThreadNotificationWriter,
-} from '../notifications/notifications.tokens.js';
-import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+} from '../../notifications/notifications.tokens.js';
+import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import { SeasonsService } from '../../seasons/seasons.service.js';
 import {
   formatKstDate,
   normalizeSeasonRuntimeRow,
   toCurrentSeasonResponse,
-} from '../seasons/season.utils.js';
-import { createChatCommandCluster } from './chat-command-cluster.js';
-import { createChatContextOwner } from './chat-context-owner.js';
-import { chatErrors } from './chat.errors.js';
-import { createChatLifecycleOwner } from './chat-lifecycle-owner.js';
-import { createChatMatchEventOwner } from './chat-match-event-owner.js';
-import { createChatQueryOwner } from './chat-query-owner.js';
-import type { ThreadRecord } from './chat-selects.js';
+} from '../../seasons/season.utils.js';
+import { createChatCommandService } from './chat-command.service.js';
+import { createChatUserContextService } from './chat-user-context.service.js';
+import { chatErrors } from '../errors/chat.errors.js';
+import { createChatLifecycleOwner } from '../lifecycle/chat-lifecycle.service.js';
+import { createChatMatchEventOwner } from '../lifecycle/chat-match-event.service.js';
+import { toChatMessage, toChatThreadSummary } from '../mappers/chat-thread-presenter.js';
+import { createChatThreadQueryService } from '../queries/chat-thread-query.service.js';
+import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 import {
   buildChatThreadListCursorBoundary,
   type ChatThreadListCursorBoundary,
   createChatThreadListCursorOwner,
-} from './chat-thread-list-cursor.owner.js';
-import { createChatThreadSupportOwner } from './chat-thread-support.js';
-import { ChatRealtimeReplayService } from './outbox/chat-realtime-replay.service.js';
+} from '../queries/chat-thread-list-cursor.js';
+import { createChatThreadSupportOwner } from '../policies/chat-thread-policy.js';
+import { ChatRealtimeReplayService } from '../outbox/chat-realtime-replay.service.js';
 import {
   type ChatRealtimeEventType,
   toChatRealtimeEventEnvelope,
-} from './realtime/chat-realtime-event.mapper.js';
+} from '../events/chat-realtime-event.mapper.js';
 import {
   acquireConversationThreadLeaveLock,
   acquireConversationThreadPairLock,
   acquireConversationThreadParticipantLocks,
-} from './chat-transaction-helpers.js';
+} from '../persistence/chat-advisory-locks.js';
 
 const noopChatThreadNotificationWriter: ChatThreadNotificationWriter = {
   appendChatThreadCreated() {
@@ -65,7 +66,7 @@ export class ChatService {
   ) {}
 
   private get contextOwner() {
-    return createChatContextOwner({
+    return createChatUserContextService({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
       seasonParticipantsService: this.seasonParticipantsService,
@@ -73,7 +74,7 @@ export class ChatService {
   }
 
   private get queryOwner() {
-    return createChatQueryOwner(this.prisma);
+    return createChatThreadQueryService(this.prisma);
   }
 
   private get threadSupportOwner() {
@@ -93,7 +94,7 @@ export class ChatService {
   }
 
   private get commandCluster() {
-    return createChatCommandCluster({
+    return createChatCommandService({
       getDatabaseNow: () => this.prisma.getDatabaseNow(),
       runSerializableTransaction: <T>(callback: (tx: Prisma.TransactionClient) => Promise<T>) =>
         this.prisma.runSerializableTransaction(callback),
@@ -122,8 +123,8 @@ export class ChatService {
           client,
         ),
       toThreadSummary: (thread, viewerParticipantId, sendMessageDecision) =>
-        this.threadSupportOwner.toThreadSummary(thread, viewerParticipantId, sendMessageDecision),
-      toMessage: (message) => this.threadSupportOwner.toMessage(message),
+        toChatThreadSummary(thread, viewerParticipantId, sendMessageDecision),
+      toMessage: (message) => toChatMessage(message),
       resolveViewerParticipantId: (thread, viewerUserId) =>
         this.threadSupportOwner.resolveViewerParticipantId(thread, viewerUserId),
       acquireConversationThreadPairLock,
@@ -208,11 +209,7 @@ export class ChatService {
     return {
       targetUserId,
       thread: visibleThread
-        ? this.threadSupportOwner.toThreadSummary(
-            visibleThread,
-            viewerContext.participant.id,
-            sendMessageDecision,
-          )
+        ? toChatThreadSummary(visibleThread, viewerContext.participant.id, sendMessageDecision)
         : null,
       canEnterChatUi: visibleThread !== null || sendMessageDecision.canSendMessage,
       canSendMessage: sendMessageDecision.canSendMessage,
@@ -250,7 +247,7 @@ export class ChatService {
         authUser.id,
       );
       items.push(
-        this.threadSupportOwner.toThreadSummary(
+        toChatThreadSummary(
           synchronized,
           viewerParticipantId,
           this.threadSupportOwner.resolveThreadSummarySendMessageDecision(
@@ -309,7 +306,7 @@ export class ChatService {
       : synchronized.messages;
 
     return {
-      thread: this.threadSupportOwner.toThreadSummary(
+      thread: toChatThreadSummary(
         synchronized,
         viewerParticipantId,
         this.threadSupportOwner.resolveThreadSummarySendMessageDecision(
@@ -318,7 +315,7 @@ export class ChatService {
           now,
         ),
       ),
-      messages: visibleMessages.map((message) => this.threadSupportOwner.toMessage(message)),
+      messages: visibleMessages.map((message) => toChatMessage(message)),
     };
   }
 

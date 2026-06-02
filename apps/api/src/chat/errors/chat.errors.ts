@@ -1,4 +1,4 @@
-import { badRequestError, conflictError, notFoundError } from '../common/http/api-error.js';
+import { badRequestError, conflictError, notFoundError } from '../../common/http/api-error.js';
 
 export const chatErrors = {
   threadTargetNotFound() {

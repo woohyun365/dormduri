@@ -12,7 +12,7 @@ import {
 import {
   type ChatRealtimeEventType,
   toChatRealtimeEventEnvelope,
-} from './chat-realtime-event.mapper.js';
+} from '../events/chat-realtime-event.mapper.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

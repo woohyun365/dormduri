@@ -1,33 +1,32 @@
-import type {
-  ChatSendMessageUnavailableReason,
-  ConversationMessage,
-  ConversationThreadSummary,
-} from '@repo/shared/chat-contract';
+import type { ChatSendMessageUnavailableReason } from '@repo/shared/chat-contract';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
-import type { Prisma } from '../generated/prisma/client.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import type { PrismaService } from '../../common/prisma/prisma.service.js';
 import {
   buildCurrentUserCapabilities,
   canCurrentDormitoryMatch,
   resolvePublicTargetPolicy,
-} from '../season-participants/season-participant-policy.js';
-import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
-import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+} from '../../season-participants/season-participant-policy.js';
+import type { CurrentSeasonParticipantRecord } from '../../season-participants/season-participants.service.js';
+import type { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
 import {
   buildCurrentUserCapabilityInput,
   buildPublicTargetPolicyTargetInput,
   buildPublicTargetPolicyViewerInput,
   toOperatedDormitoryIdSet,
-} from '../season-participants/season-participant-gate-context.js';
+} from '../../season-participants/season-participant-gate-context.js';
 import {
   formatKstDate,
   getEffectiveSeasonState,
   normalizeSeasonRuntimeRow,
-} from '../seasons/season.utils.js';
-import { chatErrors } from './chat.errors.js';
-import type { ChatUserContext } from './chat-context-owner.js';
-import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
-import type { ChatParticipantUserProjection, ThreadRecord } from './chat-selects.js';
+} from '../../seasons/season.utils.js';
+import { chatErrors } from '../errors/chat.errors.js';
+import type { ChatUserContext } from '../application/chat-user-context.service.js';
+import { parseLifestyleOrNull } from '../../profiles/profile.mapper.js';
+import type {
+  ChatParticipantUserProjection,
+  ThreadRecord,
+} from '../persistence/chat-thread.select.js';
 
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
 
@@ -161,45 +160,6 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
       return state === 'SEASON_MATCHING' || state === 'SEASON_POST_MATCH'
         ? canSendMessageDecision()
         : cannotSendMessageDecision('SEASON_ENDED');
-    },
-
-    toThreadSummary(
-      thread: ThreadRecord,
-      viewerParticipantId: string,
-      sendMessageDecision: ChatSendMessageDecision,
-    ): ConversationThreadSummary {
-      const viewerIsParticipantA = thread.participantAId === viewerParticipantId;
-
-      return {
-        id: thread.id,
-        seasonId: thread.seasonId,
-        counterpartUserId: viewerIsParticipantA
-          ? thread.participantB.userId
-          : thread.participantA.userId,
-        counterpartParticipantId: viewerIsParticipantA
-          ? thread.participantBId
-          : thread.participantAId,
-        threadKind: thread.threadKind,
-        status: thread.status,
-        closedReason: thread.closedReason,
-        closedAt: thread.closedAt?.toISOString() ?? null,
-        lastMessageAt: thread.lastMessageAt?.toISOString() ?? null,
-        canSendMessage: sendMessageDecision.canSendMessage,
-        sendMessageUnavailableReason: sendMessageDecision.unavailableReason,
-        canReport: true,
-      };
-    },
-
-    toMessage(message: ThreadRecord['messages'][number]): ConversationMessage {
-      return {
-        id: message.id,
-        senderUserId: message.senderParticipant.userId,
-        body: message.body,
-        bodyState: message.bodyState,
-        tombstoneReason: message.tombstoneReason,
-        bodyVersion: message.bodyVersion,
-        sentAt: message.sentAt.toISOString(),
-      };
     },
 
     async canSendMessageToPair(

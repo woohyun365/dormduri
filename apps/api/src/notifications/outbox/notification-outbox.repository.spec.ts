@@ -1,7 +1,8 @@
 import { NotificationOutboxRepository } from './notification-outbox.repository.js';
 
-type PrismaSqlLike = {
-  strings: readonly string[];
+type TypedSqlLike = {
+  sql: string;
+  values: readonly unknown[];
 };
 
 type NotificationOutboxUpdateCall = [
@@ -19,22 +20,23 @@ type NotificationOutboxUpdateCall = [
 describe('NotificationOutboxRepository', () => {
   it('publishable event claim은 SKIP LOCKED와 status/availableAt guard를 사용한다', async () => {
     const repository = new NotificationOutboxRepository();
-    const queryRaw = jest.fn<Promise<unknown[]>, [PrismaSqlLike]>().mockResolvedValue([]);
+    const queryRawTyped = jest.fn<Promise<unknown[]>, [TypedSqlLike]>().mockResolvedValue([]);
     const now = new Date('2026-06-02T00:00:00.000Z');
 
-    await repository.claimPublishableBatch({ $queryRaw: queryRaw } as never, {
+    await repository.claimPublishableBatch({ $queryRawTyped: queryRawTyped } as never, {
       limit: 200,
       now,
       claimLeaseMs: 30_000,
       lockedBy: 'test-dispatcher',
     });
 
-    const sqlArg = queryRaw.mock.calls[0]?.[0];
-    const sqlText = sqlArg?.strings.join('?') ?? '';
+    const sqlArg = queryRawTyped.mock.calls[0]?.[0];
+    const sqlText = sqlArg?.sql ?? '';
     expect(sqlText).toMatch(/UPDATE\s+"NotificationOutboxEvent"/i);
     expect(sqlText).toMatch(/"status"\s+IN\s+\('PENDING',\s*'FAILED'\)/i);
     expect(sqlText).toMatch(/FOR UPDATE SKIP LOCKED/i);
-    expect(sqlText).toMatch(/LIMIT\s+\?/i);
+    expect(sqlText).toMatch(/LIMIT\s+\$4/i);
+    expect(sqlArg?.values).toHaveLength(4);
   });
 
   it('markPublished와 markPublishFailed는 dispatcher가 상태 전이를 소유한다', async () => {

@@ -6,7 +6,7 @@ import type {
   NotificationUnreadCountResponse,
 } from '@repo/shared/notification-contract';
 import { PrismaService } from '../../common/prisma/prisma.service.js';
-import { notificationErrors } from '../notification.errors.js';
+import { notificationErrors } from '../errors/notification.errors.js';
 import {
   toUserNotification,
   type UserNotificationRecord,

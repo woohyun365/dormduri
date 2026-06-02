@@ -1,8 +1,8 @@
-import { OpaqueTokenError } from '../common/security/opaque-hmac-token.js';
+import { OpaqueTokenError } from '../../common/security/opaque-hmac-token.js';
 import {
   buildChatThreadListCursorBoundary,
   createChatThreadListCursorOwner,
-} from './chat-thread-list-cursor.owner.js';
+} from './chat-thread-list-cursor.js';
 
 describe('ChatThreadListCursorOwner', () => {
   const now = new Date('2026-02-10T03:00:00.000Z');

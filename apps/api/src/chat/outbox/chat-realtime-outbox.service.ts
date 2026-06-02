@@ -6,7 +6,7 @@ import {
   toChatReadMarkerUpdatedPayload,
   toChatThreadArchivedPayload,
   toChatThreadUpdatedPayload,
-} from '../realtime/chat-realtime-event.mapper.js';
+} from '../events/chat-realtime-event.mapper.js';
 
 export type ChatRealtimeOutboxTx = {
   chatRealtimeOutboxEvent: {

@@ -1,10 +1,10 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
-import type { CurrentSeasonParticipantRecord } from '../season-participants/season-participants.service.js';
-import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
-import type { SeasonsService } from '../seasons/seasons.service.js';
-import { chatErrors } from './chat.errors.js';
-import type { ChatParticipantUserProjection } from './chat-selects.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import type { PrismaService } from '../../common/prisma/prisma.service.js';
+import type { CurrentSeasonParticipantRecord } from '../../season-participants/season-participants.service.js';
+import type { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import type { SeasonsService } from '../../seasons/seasons.service.js';
+import { chatErrors } from '../errors/chat.errors.js';
+import type { ChatParticipantUserProjection } from '../persistence/chat-thread.select.js';
 
 type ChatContextDbClient = Prisma.TransactionClient | PrismaService;
 
@@ -15,13 +15,13 @@ export interface ChatUserContext {
   selection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>;
 }
 
-interface ChatContextOwnerDeps {
+interface ChatUserContextServiceDeps {
   prisma: PrismaService;
   seasonsService: SeasonsService;
   seasonParticipantsService: SeasonParticipantsService;
 }
 
-export function createChatContextOwner(deps: ChatContextOwnerDeps) {
+export function createChatUserContextService(deps: ChatUserContextServiceDeps) {
   return {
     async getChatUserProjection(
       userId: string,

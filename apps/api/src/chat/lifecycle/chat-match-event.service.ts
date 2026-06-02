@@ -1,10 +1,10 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import { resolveDirectThreadReopenStaticDecision } from './chat-direct-thread-reopen-policy.js';
-import { threadSelect, type ThreadRecord } from './chat-selects.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import { resolveDirectThreadReopenStaticDecision } from '../policies/chat-direct-thread-reopen-policy.js';
+import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';
 import {
   ChatRealtimeOutboxService,
   hasChatRealtimeOutboxTx,
-} from './outbox/chat-realtime-outbox.service.js';
+} from '../outbox/chat-realtime-outbox.service.js';
 
 interface ChatMatchEventOwnerDeps {
   findThreadRoomSelectionDate(thread: ThreadRecord): string | null;

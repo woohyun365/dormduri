@@ -4,8 +4,7 @@ type ChatRealtimeOutboxRepositoryModule = {
   ChatRealtimeOutboxRepository?: RepositoryConstructor;
 };
 
-type RawQueryMock = jest.Mock<Promise<unknown[]>, unknown[]>;
-type RawExecuteMock = jest.Mock<Promise<number>, unknown[]>;
+type TypedQueryMock = jest.Mock<Promise<unknown[]>, unknown[]>;
 
 async function loadOutboxRepositoryModule(): Promise<ChatRealtimeOutboxRepositoryModule> {
   const modulePath = './chat-realtime-outbox.repository.js';
@@ -52,10 +51,10 @@ describe('ChatRealtimeOutboxRepository red contract', () => {
       repository,
       'claimPublishableBatch',
     );
-    const claimedRows = [{ id: 'event-1', eventType: 'chat.message.created' }];
-    const queryRaw = jest.fn().mockResolvedValue(claimedRows) as RawQueryMock;
-    const queryRawUnsafe = jest.fn().mockResolvedValue(claimedRows) as RawQueryMock;
-    const prisma = { $queryRaw: queryRaw, $queryRawUnsafe: queryRawUnsafe };
+    const claimedRows = [{ id: 'event-1', eventType: 'chat.message.created', roomKeys: [] }];
+    const queryRawTyped = jest.fn().mockResolvedValue(claimedRows) as TypedQueryMock;
+    const queryRawUnsafe = jest.fn().mockResolvedValue(claimedRows) as TypedQueryMock;
+    const prisma = { $queryRawTyped: queryRawTyped, $queryRawUnsafe: queryRawUnsafe };
 
     await expect(
       claimPublishableBatch.call(repository, prisma, {
@@ -65,7 +64,7 @@ describe('ChatRealtimeOutboxRepository red contract', () => {
       }),
     ).resolves.toEqual(claimedRows);
 
-    const rawCalls = [...queryRaw.mock.calls, ...queryRawUnsafe.mock.calls];
+    const rawCalls = [...queryRawTyped.mock.calls, ...queryRawUnsafe.mock.calls];
     expect(rawCalls).toHaveLength(1);
     const sqlText = sqlTextFromCall(rawCalls[0] ?? []);
     expect(sqlText).toMatch(/UPDATE\s+"ChatRealtimeOutboxEvent"/i);
@@ -89,8 +88,8 @@ describe('ChatRealtimeOutboxRepository red contract', () => {
       repository,
       'pruneExpired',
     );
-    const executeRaw = jest.fn().mockResolvedValue(3) as RawExecuteMock;
-    const prisma = { $executeRaw: executeRaw };
+    const queryRawTyped = jest.fn().mockResolvedValue([{ deletedCount: 3 }]) as TypedQueryMock;
+    const prisma = { $queryRawTyped: queryRawTyped };
 
     await expect(
       pruneExpired.call(repository, prisma, {
@@ -99,7 +98,7 @@ describe('ChatRealtimeOutboxRepository red contract', () => {
       }),
     ).resolves.toBe(3);
 
-    const sqlText = sqlTextFromCall(executeRaw.mock.calls[0] ?? []);
+    const sqlText = sqlTextFromCall(queryRawTyped.mock.calls[0] ?? []);
     expect(sqlText).toMatch(/DELETE\s+FROM\s+"ChatRealtimeOutboxEvent"/i);
     expect(sqlText).toMatch(/"occurredAt"\s+</i);
   });

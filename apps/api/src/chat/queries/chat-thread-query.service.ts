@@ -1,17 +1,17 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
-import { buildParticipantPairIdentity } from '../matches/match.utils.js';
-import type { ChatThreadListCursorBoundary } from './chat-thread-list-cursor.owner.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import type { PrismaService } from '../../common/prisma/prisma.service.js';
+import { buildParticipantPairIdentity } from '../../matches/match.utils.js';
+import type { ChatThreadListCursorBoundary } from './chat-thread-list-cursor.js';
 import {
   threadListSelect,
   threadSelect,
   toThreadRecordWithEmptyMessages,
   type ThreadRecord,
-} from './chat-selects.js';
+} from '../persistence/chat-thread.select.js';
 
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
 
-export function createChatQueryOwner(prisma: PrismaService) {
+export function createChatThreadQueryService(prisma: PrismaService) {
   return {
     async findThreadByPair(
       seasonId: string,

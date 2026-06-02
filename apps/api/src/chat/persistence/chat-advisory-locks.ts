@@ -1,5 +1,5 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import { acquireTransactionAdvisoryLock } from '../generated/prisma/sql.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import { acquireTransactionAdvisoryLock } from '../../generated/prisma/sql.js';
 
 export async function acquireConversationThreadPairLock(
   tx: Prisma.TransactionClient,

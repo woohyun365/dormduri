@@ -1,4 +1,4 @@
-import { createChatQueryOwner } from './chat-query-owner.js';
+import { createChatThreadQueryService } from './chat-thread-query.service.js';
 
 type ThreadListFindManyInput = {
   orderBy?: unknown;
@@ -25,7 +25,7 @@ describe('ChatQueryOwner', () => {
         findMany,
       },
     };
-    const owner = createChatQueryOwner(prisma as never);
+    const owner = createChatThreadQueryService(prisma as never);
 
     const result = await owner.findThreadsForViewer('user-1', { limit: 2, after: null });
 
@@ -60,7 +60,7 @@ describe('ChatQueryOwner', () => {
         findMany,
       },
     };
-    const owner = createChatQueryOwner(prisma as never);
+    const owner = createChatThreadQueryService(prisma as never);
 
     await owner.findThreadsForViewer('user-1', {
       limit: 20,
@@ -103,7 +103,7 @@ describe('ChatQueryOwner', () => {
         create: jest.fn(),
       },
     };
-    const owner = createChatQueryOwner(prisma as never);
+    const owner = createChatThreadQueryService(prisma as never);
 
     await expect(owner.canSubscribeThreadForViewer('user-1', 'thread-1')).resolves.toBe(true);
 
@@ -137,7 +137,7 @@ describe('ChatQueryOwner', () => {
         count: jest.fn().mockResolvedValue(0),
       },
     };
-    const owner = createChatQueryOwner(prisma as never);
+    const owner = createChatThreadQueryService(prisma as never);
 
     await expect(owner.canSubscribeThreadForViewer('user-1', 'thread-1')).resolves.toBe(false);
   });

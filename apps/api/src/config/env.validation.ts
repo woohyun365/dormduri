@@ -57,7 +57,7 @@ import {
 import {
   CHAT_THREAD_LIST_CURSOR_HMAC_SECRET_ENV,
   DEFAULT_CHAT_THREAD_LIST_CURSOR_HMAC_SECRET,
-} from '../chat/chat-thread-list-cursor.owner.js';
+} from '../chat/queries/chat-thread-list-cursor.js';
 import {
   DEFAULT_PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET,
   DEFAULT_ROOMMATE_SEARCH_CURSOR_HMAC_SECRET,

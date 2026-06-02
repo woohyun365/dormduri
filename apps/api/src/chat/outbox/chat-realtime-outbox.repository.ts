@@ -1,11 +1,11 @@
-import { Prisma } from '../../generated/prisma/client.js';
+import {
+  claimChatRealtimeOutboxEvents,
+  findChatRealtimeOutboxRecipients,
+  pruneExpiredChatRealtimeOutboxEvents,
+} from '../../generated/prisma/sql.js';
 
-type RawQueryable = {
-  $queryRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
-};
-
-type RawExecutable = {
-  $executeRaw<T = unknown>(query: Prisma.Sql): Promise<T>;
+type TypedQueryable = {
+  $queryRawTyped<T = unknown>(query: unknown): Promise<T[]>;
 };
 
 type OutboxMutableClient = {
@@ -38,68 +38,42 @@ export type ChatRealtimeOutboxRecipient = {
 
 export class ChatRealtimeOutboxRepository {
   async claimPublishableBatch(
-    prisma: RawQueryable,
+    prisma: TypedQueryable,
     input: { limit: number; now: Date; claimLeaseMs: number },
   ): Promise<ClaimedChatRealtimeOutboxEvent[]> {
     const safeLimit = Math.max(1, Math.min(input.limit, 100));
     const leaseUntil = new Date(input.now.getTime() + input.claimLeaseMs);
 
-    return prisma.$queryRaw<ClaimedChatRealtimeOutboxEvent[]>(Prisma.sql`
-      WITH picked AS (
-        SELECT "id"
-        FROM "ChatRealtimeOutboxEvent"
-        WHERE "publishedAt" IS NULL
-          AND "availableAt" <= ${input.now}
-        ORDER BY "availableAt" ASC, "occurredAt" ASC, "id" ASC
-        LIMIT ${safeLimit}
-        FOR UPDATE SKIP LOCKED
-      )
-      UPDATE "ChatRealtimeOutboxEvent" AS event
-      SET "availableAt" = ${leaseUntil},
-          "publishAttempts" = event."publishAttempts" + 1,
-          "updatedAt" = ${input.now}
-      FROM picked
-      WHERE event."id" = picked."id"
-      RETURNING
-        event."id",
-        event."eventType",
-        event."schemaVersion",
-        event."threadId",
-        event."aggregateType",
-        event."aggregateId",
-        event."aggregateVersion",
-        event."payload",
-        event."roomKeys",
-        event."occurredAt",
-        event."availableAt",
-        event."publishAttempts"
-    `);
+    const rows = await prisma.$queryRawTyped<claimChatRealtimeOutboxEvents.Result>(
+      claimChatRealtimeOutboxEvents(input.now, leaseUntil, safeLimit),
+    );
+
+    return rows.map((row) => ({
+      ...row,
+      roomKeys: row.roomKeys ?? [],
+    }));
   }
 
   async pruneExpired(
-    prisma: RawExecutable,
+    prisma: TypedQueryable,
     input: { now: Date; replayWindowDays?: number },
   ): Promise<number> {
     const replayWindowDays = input.replayWindowDays ?? 7;
     const cutoff = new Date(input.now.getTime() - replayWindowDays * 24 * 60 * 60 * 1000);
-    const deletedCount = await prisma.$executeRaw<number>(Prisma.sql`
-      DELETE FROM "ChatRealtimeOutboxEvent"
-      WHERE "occurredAt" < ${cutoff}
-    `);
+    const [result] = await prisma.$queryRawTyped<pruneExpiredChatRealtimeOutboxEvents.Result>(
+      pruneExpiredChatRealtimeOutboxEvents(cutoff),
+    );
 
-    return Number(deletedCount);
+    return result?.deletedCount ?? 0;
   }
 
   async findRecipientsForEvent(
-    prisma: RawQueryable,
+    prisma: TypedQueryable,
     input: { eventId: string },
   ): Promise<ChatRealtimeOutboxRecipient[]> {
-    return prisma.$queryRaw<ChatRealtimeOutboxRecipient[]>(Prisma.sql`
-      SELECT "eventId", "userId", "threadId", "cursor"
-      FROM "ChatRealtimeEventRecipient"
-      WHERE "eventId" = ${input.eventId}
-      ORDER BY "userId" ASC
-    `);
+    return prisma.$queryRawTyped<findChatRealtimeOutboxRecipients.Result>(
+      findChatRealtimeOutboxRecipients(input.eventId),
+    );
   }
 
   async markPublished(

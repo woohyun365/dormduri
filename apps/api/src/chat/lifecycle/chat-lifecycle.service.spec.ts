@@ -1,5 +1,5 @@
-import { createChatLifecycleOwner } from './chat-lifecycle-owner.js';
-import type { ThreadRecord } from './chat-selects.js';
+import { createChatLifecycleOwner } from './chat-lifecycle.service.js';
+import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
 const now = new Date('2026-03-01T03:00:00.000Z');
 

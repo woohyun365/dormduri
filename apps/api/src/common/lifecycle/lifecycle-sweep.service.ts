@@ -8,7 +8,7 @@ import {
 import type { ConfigType } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { ChatService } from '../../chat/chat.service.js';
+import { ChatService } from '../../chat/application/chat.service.js';
 import lifecycleConfig from '../../config/lifecycle.config.js';
 import { MatchesService } from '../../matches/matches.service.js';
 import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';

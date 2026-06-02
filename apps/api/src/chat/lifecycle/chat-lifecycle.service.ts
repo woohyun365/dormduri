@@ -1,12 +1,12 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
-import type { SeasonsService } from '../seasons/seasons.service.js';
-import { formatKstDate } from '../seasons/season.utils.js';
-import { threadSelect, type ThreadRecord } from './chat-selects.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import type { PrismaService } from '../../common/prisma/prisma.service.js';
+import type { SeasonsService } from '../../seasons/seasons.service.js';
+import { formatKstDate } from '../../seasons/season.utils.js';
+import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';
 import {
   ChatRealtimeOutboxService,
   hasChatRealtimeOutboxTx,
-} from './outbox/chat-realtime-outbox.service.js';
+} from '../outbox/chat-realtime-outbox.service.js';
 
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();

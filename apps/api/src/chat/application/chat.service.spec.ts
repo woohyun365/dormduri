@@ -1,9 +1,9 @@
 import { ChatService } from './chat.service.js';
-import { chatErrors } from './chat.errors.js';
+import { chatErrors } from '../errors/chat.errors.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
-} from '../season-participants/season-participants.service.js';
+} from '../../season-participants/season-participants.service.js';
 
 type UserSeed = {
   id: string;
@@ -181,7 +181,7 @@ function makeSendMessageInput(
 }
 
 describe('ChatService', () => {
-  const prismaQueryRaw = jest.fn();
+  const prismaQueryRawTyped = jest.fn();
   const txQueryRawTyped = jest.fn();
   const txUserFindUnique = jest.fn();
   const txConversationThreadFindFirst = jest.fn();
@@ -202,7 +202,7 @@ describe('ChatService', () => {
   const appendChatThreadCreatedNotification = jest.fn();
 
   const prisma = {
-    $queryRaw: prismaQueryRaw,
+    $queryRawTyped: prismaQueryRawTyped,
     getDatabaseNow: jest.fn(),
     runSerializableTransaction: jest.fn(),
     user: {
@@ -1213,7 +1213,7 @@ describe('ChatService', () => {
   });
 
   it('replayRealtimeEvents는 authenticated user recipient event만 계약 envelope로 반환한다', async () => {
-    prismaQueryRaw.mockResolvedValueOnce([
+    prismaQueryRawTyped.mockResolvedValueOnce([
       {
         eventId: 'event-1',
         cursor: 'event-1:user-1',
@@ -1260,7 +1260,7 @@ describe('ChatService', () => {
   });
 
   it('replayRealtimeEvents는 지원하지 않는 schema/event type이면 resync required로 수렴한다', async () => {
-    prismaQueryRaw.mockResolvedValueOnce([
+    prismaQueryRawTyped.mockResolvedValueOnce([
       {
         eventId: 'event-unsupported',
         cursor: 'event-unsupported:user-1',

@@ -1,4 +1,4 @@
-import { ChatService } from '../../src/chat/chat.service.js';
+import { ChatService } from '../../src/chat/application/chat.service.js';
 import { PrismaService } from '../../src/common/prisma/prisma.service.js';
 import { MatchesService } from '../../src/matches/matches.service.js';
 import { SeasonsService } from '../../src/seasons/seasons.service.js';

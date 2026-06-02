@@ -1,5 +1,5 @@
-import { createChatMatchEventOwner } from './chat-match-event-owner.js';
-import type { ThreadRecord } from './chat-selects.js';
+import { createChatMatchEventOwner } from './chat-match-event.service.js';
+import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
 const now = new Date('2026-02-10T03:00:00.000Z');
 

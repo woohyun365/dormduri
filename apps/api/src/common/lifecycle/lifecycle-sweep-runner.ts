@@ -1,4 +1,4 @@
-import type { ChatService } from '../../chat/chat.service.js';
+import type { ChatService } from '../../chat/application/chat.service.js';
 import type { MatchesService } from '../../matches/matches.service.js';
 import type { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
 import type { UsersService } from '../../users/users.service.js';

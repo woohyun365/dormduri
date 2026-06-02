@@ -34,7 +34,7 @@ function createPrismaMock(eventPayload?: unknown) {
   const now = new Date('2026-06-02T00:00:00.000Z');
   return {
     getDatabaseNow: jest.fn().mockResolvedValue(now),
-    $queryRaw: jest.fn().mockResolvedValue([
+    $queryRawTyped: jest.fn().mockResolvedValue([
       {
         id: 'notification-event-1',
         notificationId: 'notification-1',
@@ -92,7 +92,7 @@ describe('NotificationOutboxDispatcherService', () => {
       failedCount: 0,
       skippedReason: 'PUBLISHER_UNBOUND',
     });
-    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(prisma.$queryRawTyped).not.toHaveBeenCalled();
   });
 
   it('claim된 notification.created를 recipient user room publisher에 전달하고 published로 전이한다', async () => {
