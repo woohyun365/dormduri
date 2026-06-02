@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { conversationThreadClosedReasonSchema } from './chat-contract-enums.js';
+import { conversationThreadClosedReasonSchema } from './chat/enums.js';
 import { isoDateTimeStringSchema } from './date-primitives.js';
 import {
   activeMatchEndReasonSchema,

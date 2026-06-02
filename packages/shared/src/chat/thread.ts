@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from './date-primitives.js';
+import { isoDateTimeStringSchema } from '../date-primitives.js';
 import {
   conversationMessageBodyStateSchema,
   conversationMessageTombstoneReasonSchema,
   conversationThreadClosedReasonSchema,
   conversationThreadKindSchema,
   conversationThreadStatusSchema,
-} from './chat-contract-enums.js';
+} from './enums.js';
 
 export const chatSendMessageUnavailableReasonSchema = z.enum([
   'THREAD_READ_ONLY',

@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import {
-  conversationMessageSchema,
-  conversationThreadSummarySchema,
-} from './chat-contract-thread.js';
+import { conversationMessageSchema, conversationThreadSummarySchema } from './thread.js';
 
 export const conversationThreadListPageInfoSchema = z.strictObject({
   hasNextPage: z.boolean(),

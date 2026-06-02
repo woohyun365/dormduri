@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { chatRealtimeEventSchema } from './chat-realtime-events.js';
+import { chatRealtimeEventSchema } from './realtime-events.js';
 
 export const updateChatReadMarkerRequestSchema = z.strictObject({
   lastReadMessageId: z.string().min(1),

@@ -1,13 +1,13 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from './date-primitives.js';
+import { isoDateTimeStringSchema } from '../date-primitives.js';
 import {
   conversationMessageBodyStateSchema,
   conversationMessageTombstoneReasonSchema,
   conversationThreadClosedReasonSchema,
   conversationThreadStatusSchema,
-} from './chat-contract-enums.js';
-import { conversationMessageSchema } from './chat-contract-thread.js';
-import { notificationCreatedRealtimeEventSchema } from './notification-contract.js';
+} from './enums.js';
+import { conversationMessageSchema } from './thread.js';
+import { notificationCreatedRealtimeEventSchema } from '../notifications/contract.js';
 
 const chatRealtimeEventBaseSchema = z.strictObject({
   schemaVersion: z.literal(1),
