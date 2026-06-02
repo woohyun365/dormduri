@@ -1,6 +1,6 @@
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../generated/prisma/client.js';
-import type { ChatService } from '../chat/application/chat.service.js';
+import type { ChatMatchThreadLifecyclePort } from '../chat/application/ports/chat-match-thread-lifecycle.port.js';
 import { matchesErrors } from './matches.errors.js';
 import type { MatchRequestRecord, ActiveMatchRecord } from './match-selects.js';
 import { activeMatchSummarySelect, matchRequestSummarySelect } from './match-selects.js';
@@ -301,7 +301,7 @@ export async function loadAcceptableMatchRequest(
 
 export async function executeAcceptMatchRequest(
   tx: Prisma.TransactionClient,
-  chatService: ChatService,
+  chatLifecycle: ChatMatchThreadLifecyclePort,
   input: {
     request: MatchRequestRecord;
     pairIdentity: ReturnType<typeof buildParticipantPairIdentity>;
@@ -352,7 +352,7 @@ export async function executeAcceptMatchRequest(
     },
   });
 
-  await chatService.handleActiveMatchCreated(
+  await chatLifecycle.handleActiveMatchCreated(
     tx,
     {
       seasonId: input.request.seasonId,

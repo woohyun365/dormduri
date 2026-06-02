@@ -17,6 +17,8 @@ import { ChatRealtimePublisher } from './realtime/chat-realtime-publisher.js';
 import { ChatRealtimeRateLimiterService } from './realtime/chat-realtime-rate-limiter.service.js';
 import { ChatRealtimeTicketService } from './realtime/chat-realtime-ticket.service.js';
 import { ChatService } from './application/chat.service.js';
+import { CHAT_LIFECYCLE_SWEEP_PORT } from './application/ports/chat-lifecycle-sweep.port.js';
+import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from './application/ports/chat-match-thread-lifecycle.port.js';
 
 @Module({
   imports: [PrismaModule, SeasonsModule, SeasonParticipantsModule, AuthModule, NotificationsModule],
@@ -37,7 +39,19 @@ import { ChatService } from './application/chat.service.js';
       provide: NOTIFICATION_REALTIME_PUBLISHER,
       useExisting: ChatNotificationRealtimePublisherAdapter,
     },
+    {
+      provide: CHAT_MATCH_THREAD_LIFECYCLE_PORT,
+      useExisting: ChatService,
+    },
+    {
+      provide: CHAT_LIFECYCLE_SWEEP_PORT,
+      useExisting: ChatService,
+    },
   ],
-  exports: [ChatService, ChatRealtimeMetricsService],
+  exports: [
+    CHAT_MATCH_THREAD_LIFECYCLE_PORT,
+    CHAT_LIFECYCLE_SWEEP_PORT,
+    ChatRealtimeMetricsService,
+  ],
 })
 export class ChatModule {}

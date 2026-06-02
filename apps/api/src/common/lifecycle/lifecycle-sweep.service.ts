@@ -8,7 +8,11 @@ import {
 import type { ConfigType } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
-import { ChatService } from '../../chat/application/chat.service.js';
+import {
+  CHAT_LIFECYCLE_SWEEP_PORT,
+  type ChatLifecycleSweepPort,
+  type ChatLifecycleSweepResult,
+} from '../../chat/application/ports/chat-lifecycle-sweep.port.js';
 import lifecycleConfig from '../../config/lifecycle.config.js';
 import { MatchesService } from '../../matches/matches.service.js';
 import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
@@ -26,7 +30,7 @@ const PERIODIC_INTERVAL_NAME = 'lifecycle-periodic-sweep';
 export interface LifecycleSweepResult {
   ranAt: string;
   matchTransitions: Awaited<ReturnType<MatchesService['sweepLifecycleTransitions']>>;
-  threadTransitions: Awaited<ReturnType<ChatService['sweepThreadLifecycle']>>;
+  threadTransitions: ChatLifecycleSweepResult;
   matchHistory: Awaited<ReturnType<MatchesService['sweepHistoryMaterialization']>>;
   participantBackfill: Awaited<
     ReturnType<SeasonParticipantsService['backfillCurrentSeasonParticipants']>
@@ -54,7 +58,8 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
   constructor(
     private readonly prisma: PrismaService,
     private readonly retentionWorkerPrisma: RetentionWorkerPrismaService,
-    private readonly chatService: ChatService,
+    @Inject(CHAT_LIFECYCLE_SWEEP_PORT)
+    private readonly chatLifecycleSweep: ChatLifecycleSweepPort,
     private readonly matchesService: MatchesService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly usersService: UsersService,
@@ -67,7 +72,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
       prisma: this.prisma,
       retentionPrisma: this.retentionWorkerPrisma,
       retentionObservability: this.retentionObservability,
-      chatService: this.chatService,
+      chatLifecycleSweep: this.chatLifecycleSweep,
       matchesService: this.matchesService,
       seasonParticipantsService: this.seasonParticipantsService,
       usersService: this.usersService,

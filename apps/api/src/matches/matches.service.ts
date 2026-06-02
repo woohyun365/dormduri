@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   ActiveMatchActionResponse,
   ActiveMatchResponse,
@@ -13,7 +13,10 @@ import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../generated/prisma/client.js';
 import type { Campus } from '../generated/prisma/enums.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import { ChatService } from '../chat/application/chat.service.js';
+import {
+  CHAT_MATCH_THREAD_LIFECYCLE_PORT,
+  type ChatMatchThreadLifecyclePort,
+} from '../chat/application/ports/chat-match-thread-lifecycle.port.js';
 import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
@@ -98,7 +101,8 @@ export class MatchesService {
     private readonly seasonsService: SeasonsService,
     private readonly moderationService: ModerationService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
-    private readonly chatService: ChatService,
+    @Inject(CHAT_MATCH_THREAD_LIFECYCLE_PORT)
+    private readonly chatMatchThreadLifecycle: ChatMatchThreadLifecyclePort,
   ) {}
 
   private get requestCommandCluster() {
@@ -114,7 +118,7 @@ export class MatchesService {
         expireDuePendingRequests(tx ?? this.prisma, seasonId, now),
       loadAcceptableMatchRequest,
       executeAcceptMatchRequest: (tx, input, now) =>
-        executeAcceptMatchRequest(tx, this.chatService, input, now),
+        executeAcceptMatchRequest(tx, this.chatMatchThreadLifecycle, input, now),
       getDetailedActiveMatchSummaryForViewer: (
         client,
         activeMatchId,
@@ -183,7 +187,7 @@ export class MatchesService {
       loadValidatedActiveMatchForUnmatch,
       reloadActiveMatchOrThrow,
       handleActiveMatchUnmatched: (tx, input, now) =>
-        this.chatService.handleActiveMatchUnmatched(tx, input, now),
+        this.chatMatchThreadLifecycle.handleActiveMatchUnmatched(tx, input, now),
     });
   }
 

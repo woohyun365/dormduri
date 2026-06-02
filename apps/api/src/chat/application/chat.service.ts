@@ -49,6 +49,15 @@ import {
   acquireConversationThreadPairLock,
   acquireConversationThreadParticipantLocks,
 } from '../persistence/chat-advisory-locks.js';
+import type {
+  ActiveMatchCreatedChatLifecycleInput,
+  ActiveMatchUnmatchedChatLifecycleInput,
+  ChatMatchThreadLifecyclePort,
+} from './ports/chat-match-thread-lifecycle.port.js';
+import type {
+  ChatLifecycleSweepPort,
+  ChatLifecycleSweepResult,
+} from './ports/chat-lifecycle-sweep.port.js';
 
 const noopChatThreadNotificationWriter: ChatThreadNotificationWriter = {
   appendChatThreadCreated() {
@@ -57,7 +66,7 @@ const noopChatThreadNotificationWriter: ChatThreadNotificationWriter = {
 };
 
 @Injectable()
-export class ChatService {
+export class ChatService implements ChatMatchThreadLifecyclePort, ChatLifecycleSweepPort {
   constructor(
     private readonly prisma: PrismaService,
     private readonly seasonsService: SeasonsService,
@@ -419,13 +428,7 @@ export class ChatService {
 
   async handleActiveMatchCreated(
     tx: Prisma.TransactionClient,
-    input: {
-      seasonId: string;
-      pairKey: string;
-      participantAId: string;
-      participantBId: string;
-      activeMatchId: string;
-    },
+    input: ActiveMatchCreatedChatLifecycleInput,
     now: Date,
   ) {
     return this.matchEventOwner.handleActiveMatchCreated(tx, input, now);
@@ -433,9 +436,7 @@ export class ChatService {
 
   async handleActiveMatchUnmatched(
     tx: Prisma.TransactionClient,
-    input: {
-      activeMatchId: string;
-    },
+    input: ActiveMatchUnmatchedChatLifecycleInput,
     now: Date,
   ) {
     return this.matchEventOwner.handleActiveMatchUnmatched(tx, input, now);
@@ -504,7 +505,7 @@ export class ChatService {
     return decision.canSendMessage;
   }
 
-  async sweepThreadLifecycle(now: Date) {
+  async sweepThreadLifecycle(now: Date): Promise<ChatLifecycleSweepResult> {
     return this.lifecycleOwner.sweepThreadLifecycle(now);
   }
 
