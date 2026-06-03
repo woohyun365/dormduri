@@ -11,6 +11,8 @@ import { ChatController } from '../chat/chat.controller.js';
 import { ChatThreadContextGuard } from '../chat/context/chat-thread-context.guard.js';
 import { MatchesController } from '../matches/matches.controller.js';
 import { ActiveMatchContextGuard } from '../matches/active-match-context.guard.js';
+import { RoommateSearchController } from '../profiles/roommate-search.controller.js';
+import { ProfilesController } from '../profiles/profiles.controller.js';
 
 const NEST_GUARDS_METADATA = '__guards__';
 
@@ -32,6 +34,7 @@ const expectedPhase51P1Routes: ExpectedDomainContextRoute[] = [
         kind: 'current-season-participant',
         mode: 'ensure',
         source: 'actor-campus',
+        failure: 'season-profile-draft-not-allowed',
       },
     ],
     guards: [CurrentSeasonParticipantContextGuard],
@@ -45,6 +48,7 @@ const expectedPhase51P1Routes: ExpectedDomainContextRoute[] = [
         kind: 'current-season-participant',
         mode: 'ensure',
         source: 'actor-campus',
+        failure: 'season-profile-draft-not-allowed',
       },
     ],
     guards: [CurrentSeasonParticipantContextGuard],
@@ -58,6 +62,7 @@ const expectedPhase51P1Routes: ExpectedDomainContextRoute[] = [
         kind: 'current-season-participant',
         mode: 'ensure',
         source: 'actor-campus',
+        failure: 'registration-not-allowed',
       },
     ],
     guards: [CurrentSeasonParticipantContextGuard],
@@ -75,6 +80,12 @@ const expectedPhase51ExcludedRoutes: ExpectedDomainContextRoute[] = [
     controller: CurrentSeasonParticipationController,
     handler: 'listSelectableDormitories',
     path: 'GET /api/seasons/current/participation/selectable-dormitories',
+    domainContexts: [],
+  },
+  {
+    controller: CurrentSeasonParticipationController,
+    handler: 'deregister',
+    path: 'POST /api/seasons/current/participation/deregister',
     domainContexts: [],
   },
 ];
@@ -229,6 +240,27 @@ const expectedPhase52ExcludedRoutes: ExpectedDomainContextRoute[] = [
   },
 ];
 
+const expectedPhase53P3ExcludedRoutes: ExpectedDomainContextRoute[] = [
+  {
+    controller: RoommateSearchController,
+    handler: 'getManifest',
+    path: 'GET /api/roommate-search/manifest',
+    domainContexts: [],
+  },
+  {
+    controller: RoommateSearchController,
+    handler: 'search',
+    path: 'GET /api/roommate-search',
+    domainContexts: [],
+  },
+  {
+    controller: ProfilesController,
+    handler: 'getProfileByUserId',
+    path: 'GET /api/profiles/:userId',
+    domainContexts: [],
+  },
+];
+
 function resolveDomainContexts(
   controller: ExpectedDomainContextRoute['controller'],
   handler: string,
@@ -298,6 +330,14 @@ describe('Domain context route metadata inventory', () => {
 
   it.each(expectedPhase52ExcludedRoutes)(
     '$path#$handler는 Phase 5-2 전환 대상이 아니므로 domain context guard를 적용하지 않는다',
+    ({ controller, handler, domainContexts }) => {
+      expect(resolveDomainContexts(controller, handler)).toEqual(domainContexts);
+      expect(resolveRouteGuards(controller, handler)).toEqual([]);
+    },
+  );
+
+  it.each(expectedPhase53P3ExcludedRoutes)(
+    '$path#$handler는 public target policy를 canonical으로 유지하므로 Phase 5-3 viewer/target context guard를 적용하지 않는다',
     ({ controller, handler, domainContexts }) => {
       expect(resolveDomainContexts(controller, handler)).toEqual(domainContexts);
       expect(resolveRouteGuards(controller, handler)).toEqual([]);

@@ -6,12 +6,20 @@ import {
   type CurrentSeasonParticipantContextRequest,
 } from './current-season-participant-context.types.js';
 
-export function RequireCurrentSeasonParticipant() {
+export type CurrentSeasonParticipantFailureMode =
+  | 'context-required'
+  | 'season-profile-draft-not-allowed'
+  | 'registration-not-allowed';
+
+export function RequireCurrentSeasonParticipant(
+  failure: CurrentSeasonParticipantFailureMode = 'context-required',
+) {
   return applyDecorators(
     RequireDomainContext({
       kind: 'current-season-participant',
       mode: 'ensure',
       source: 'actor-campus',
+      failure,
     }),
     UseGuards(CurrentSeasonParticipantContextGuard),
   );

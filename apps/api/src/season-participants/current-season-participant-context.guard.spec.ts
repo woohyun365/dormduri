@@ -11,6 +11,16 @@ class DomainContextGuardFixtureController {
     return 'mutation';
   }
 
+  @RequireCurrentSeasonParticipant('season-profile-draft-not-allowed')
+  profileDraftRoute() {
+    return 'profile-draft';
+  }
+
+  @RequireCurrentSeasonParticipant('registration-not-allowed')
+  registrationRoute() {
+    return 'registration';
+  }
+
   noDomainContextRoute() {
     return 'read';
   }
@@ -153,29 +163,34 @@ describe('CurrentSeasonParticipantContextGuard', () => {
     ['missing user', null],
     ['unverified user', { ...user, emailVerifiedAt: null }],
     ['deleted user', { ...user, deletedAt: new Date('2026-01-02T00:00:00.000Z') }],
-  ])('%s는 participant context를 만들지 않고 fail-closed 처리한다', async (_label, dbUser) => {
-    prisma.user.findUnique.mockResolvedValue(dbUser);
+  ])(
+    '%s는 기존 season action service error code로 fail-closed 처리한다',
+    async (_label, dbUser) => {
+      prisma.user.findUnique.mockResolvedValue(dbUser);
 
-    await expect(
-      guard.canActivate(
-        makeExecutionContext('mutationRoute', {
-          authUser: {
-            id: 'user-1',
-            gender: 'M',
-            campus: 'CHUNCHEON',
-            sessionId: 'session-1',
-            actorType: 'USER',
-            actorId: 'user-1',
-            capabilities: [],
-          },
-        }),
-      ),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(
+        guard.canActivate(
+          makeExecutionContext('mutationRoute', {
+            authUser: {
+              id: 'user-1',
+              gender: 'M',
+              campus: 'CHUNCHEON',
+              sessionId: 'session-1',
+              actorType: 'USER',
+              actorId: 'user-1',
+              capabilities: [],
+            },
+          }),
+        ),
+      ).rejects.toMatchObject({
+        response: { code: 'SEASON_PARTICIPATION_REGISTRATION_NOT_ALLOWED' },
+      });
 
-    expect(seasonParticipantsService.ensureCurrentSeasonParticipant).not.toHaveBeenCalled();
-  });
+      expect(seasonParticipantsService.ensureCurrentSeasonParticipant).not.toHaveBeenCalled();
+    },
+  );
 
-  it('current season participant ensure가 실패하면 fail-closed 처리한다', async () => {
+  it('default route는 current season participant ensure 실패를 context-required로 fail-closed 처리한다', async () => {
     seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(null);
 
     await expect(
@@ -193,5 +208,49 @@ describe('CurrentSeasonParticipantContextGuard', () => {
         }),
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('profile/dormitory route는 ensure 실패 시 기존 profile draft error code를 유지한다', async () => {
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(null);
+
+    await expect(
+      guard.canActivate(
+        makeExecutionContext('profileDraftRoute', {
+          authUser: {
+            id: 'user-1',
+            gender: 'M',
+            campus: 'CHUNCHEON',
+            sessionId: 'session-1',
+            actorType: 'USER',
+            actorId: 'user-1',
+            capabilities: [],
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'SEASON_PROFILE_DRAFT_NOT_ALLOWED' },
+    });
+  });
+
+  it('registration route는 ensure 실패 시 기존 registration error code를 유지한다', async () => {
+    seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue(null);
+
+    await expect(
+      guard.canActivate(
+        makeExecutionContext('registrationRoute', {
+          authUser: {
+            id: 'user-1',
+            gender: 'M',
+            campus: 'CHUNCHEON',
+            sessionId: 'session-1',
+            actorType: 'USER',
+            actorId: 'user-1',
+            capabilities: [],
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'SEASON_PARTICIPATION_REGISTRATION_NOT_ALLOWED' },
+    });
   });
 });

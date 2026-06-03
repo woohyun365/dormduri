@@ -3,6 +3,7 @@ import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
 } from './current-season-participation.controller.js';
+import { seasonParticipantsErrors } from './season-participants.errors.js';
 
 function getBadRequestResponse(error: unknown) {
   expect(error).toBeInstanceOf(BadRequestException);
@@ -136,5 +137,62 @@ describe('CurrentSeasonParticipationController', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(seasonParticipantsService.createOrUpdateSeasonProfileDraft).not.toHaveBeenCalled();
+  });
+
+  it('profile PUT 세부 action error는 guard/controller가 아니라 service error를 그대로 전파한다', async () => {
+    const request = makeSeasonProfileDraftRequest();
+    seasonParticipantsService.createOrUpdateSeasonProfileDraft.mockRejectedValueOnce(
+      seasonParticipantsErrors.seasonProfileDraftNotAllowed(),
+    );
+
+    await expect(
+      profileController.createOrUpdateSeasonProfileDraft(authUser, request, {
+        userId: 'user-1',
+      } as never),
+    ).rejects.toMatchObject({
+      response: { code: 'SEASON_PROFILE_DRAFT_NOT_ALLOWED' },
+    });
+  });
+
+  it('dormitory-selection 세부 validation error는 service error를 그대로 전파한다', async () => {
+    seasonParticipantsService.createOrUpdateDormitorySelection.mockRejectedValueOnce(
+      seasonParticipantsErrors.dormitorySelectionInvalid(),
+    );
+
+    await expect(
+      participationController.createOrUpdateDormitorySelection(authUser, { dormitoryId: 'dasan' }, {
+        userId: 'user-1',
+      } as never),
+    ).rejects.toMatchObject({
+      response: { code: 'DORMITORY_SELECTION_INVALID' },
+    });
+  });
+
+  it('registration 세부 action error는 service error를 그대로 전파한다', async () => {
+    seasonParticipantsService.finalizeSeasonRegistration.mockRejectedValueOnce(
+      seasonParticipantsErrors.registrationSeasonProfileIncomplete(),
+    );
+
+    await expect(
+      participationController.finalizeSeasonRegistration(authUser, {}, {
+        userId: 'user-1',
+      } as never),
+    ).rejects.toMatchObject({
+      response: { code: 'SEASON_PARTICIPATION_PROFILE_INCOMPLETE' },
+    });
+  });
+
+  it('deregister는 domain context guard 없이 service path의 deregistration policy로 위임한다', async () => {
+    seasonParticipantsService.deregisterCurrentSeasonParticipation.mockRejectedValueOnce(
+      seasonParticipantsErrors.deregistrationNotAllowed(),
+    );
+
+    await expect(participationController.deregister(authUser)).rejects.toMatchObject({
+      response: { code: 'SEASON_PARTICIPATION_DEREGISTRATION_NOT_ALLOWED' },
+    });
+
+    expect(seasonParticipantsService.deregisterCurrentSeasonParticipation).toHaveBeenCalledWith(
+      'user-1',
+    );
   });
 });

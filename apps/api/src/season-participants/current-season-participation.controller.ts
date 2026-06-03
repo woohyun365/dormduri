@@ -29,7 +29,7 @@ export class CurrentSeasonProfileController {
   }
 
   @Put()
-  @RequireCurrentSeasonParticipant()
+  @RequireCurrentSeasonParticipant('season-profile-draft-not-allowed')
   async createOrUpdateSeasonProfileDraft(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Body() body: unknown,
@@ -54,7 +54,7 @@ export class CurrentSeasonParticipationController {
   }
 
   @Post('dormitory-selection')
-  @RequireCurrentSeasonParticipant()
+  @RequireCurrentSeasonParticipant('season-profile-draft-not-allowed')
   async createOrUpdateDormitorySelection(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Body() body: unknown,
@@ -68,7 +68,7 @@ export class CurrentSeasonParticipationController {
   }
 
   @Post('registration')
-  @RequireCurrentSeasonParticipant()
+  @RequireCurrentSeasonParticipant('registration-not-allowed')
   async finalizeSeasonRegistration(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Body() body: unknown,

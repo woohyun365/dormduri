@@ -192,4 +192,20 @@ describe('ActiveMatchContextGuard', () => {
       response: { code: 'ACTIVE_MATCH_UNMATCH_REQUEST_CANCEL_NOT_ALLOWED' },
     });
   });
+
+  it.each([
+    ['ended match', makeActiveMatch({ endedAt: new Date('2026-06-03T00:00:00.000Z') })],
+    ['non-active match', makeActiveMatch({ status: 'UNMATCHED' })],
+  ])(
+    'cancel route의 %s도 cancel-specific error contract를 유지한다',
+    async (_label, activeMatch) => {
+      prisma.activeMatch.findUnique.mockResolvedValue(activeMatch);
+
+      await expect(
+        guard.canActivate(makeExecutionContext('activeMatchCancelRoute', makeActorRequest())),
+      ).rejects.toMatchObject({
+        response: { code: 'ACTIVE_MATCH_UNMATCH_REQUEST_CANCEL_NOT_ALLOWED' },
+      });
+    },
+  );
 });

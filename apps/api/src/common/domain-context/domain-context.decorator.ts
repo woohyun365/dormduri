@@ -6,6 +6,7 @@ export type CurrentSeasonParticipantContextRequirement = {
   kind: 'current-season-participant';
   mode: 'ensure' | 'require-existing';
   source: 'actor-campus';
+  failure: 'context-required' | 'season-profile-draft-not-allowed' | 'registration-not-allowed';
 };
 
 export type ChatThreadMemberContextRequirement = {

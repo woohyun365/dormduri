@@ -13,6 +13,7 @@ import {
   setCurrentSeasonParticipantContext,
   type CurrentSeasonParticipantContextRequest,
 } from './current-season-participant-context.types.js';
+import { seasonParticipantsErrors } from './season-participants.errors.js';
 
 const currentSeasonParticipantUserSelect = {
   id: true,
@@ -48,7 +49,7 @@ export class CurrentSeasonParticipantContextGuard implements CanActivate {
     });
 
     if (!user || !user.emailVerifiedAt || user.deletedAt) {
-      throw currentSeasonParticipantContextRequired();
+      throw seasonParticipantsErrors.registrationNotAllowed();
     }
 
     const databaseNow = await this.prisma.getDatabaseNow();
@@ -58,7 +59,7 @@ export class CurrentSeasonParticipantContextGuard implements CanActivate {
         : null;
 
     if (!participant) {
-      throw currentSeasonParticipantContextRequired();
+      throw currentSeasonParticipantFailureError(requirement);
     }
 
     setCurrentSeasonParticipantContext(request, participant);
@@ -93,4 +94,17 @@ function currentSeasonParticipantContextRequired() {
     'CURRENT_SEASON_PARTICIPANT_CONTEXT_REQUIRED',
     '현재 시즌 참여자 컨텍스트를 확인할 수 없습니다.',
   );
+}
+
+function currentSeasonParticipantFailureError(
+  requirement: CurrentSeasonParticipantContextRequirement,
+) {
+  switch (requirement.failure) {
+    case 'season-profile-draft-not-allowed':
+      return seasonParticipantsErrors.seasonProfileDraftNotAllowed();
+    case 'registration-not-allowed':
+      return seasonParticipantsErrors.registrationNotAllowed();
+    case 'context-required':
+      return currentSeasonParticipantContextRequired();
+  }
 }
