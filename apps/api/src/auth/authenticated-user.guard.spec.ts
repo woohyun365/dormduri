@@ -35,6 +35,34 @@ class GuardFixtureController {
   }
 }
 
+@Public()
+class PublicByDefaultFixtureController {
+  publicRoute() {
+    return 'class-public';
+  }
+
+  @RequireCapability('admin:operations:health:read')
+  operationsHealthRoute() {
+    return 'ops-health';
+  }
+}
+
+function makePublicByDefaultExecutionContext(
+  handlerName: keyof PublicByDefaultFixtureController,
+  request: Partial<AuthenticatedRequest> = {},
+): ExecutionContext {
+  const httpRequest = request as AuthenticatedRequest;
+  httpRequest.headers ??= {};
+
+  return {
+    getClass: () => PublicByDefaultFixtureController,
+    getHandler: () => PublicByDefaultFixtureController.prototype[handlerName],
+    switchToHttp: () => ({
+      getRequest: () => httpRequest,
+    }),
+  } as unknown as ExecutionContext;
+}
+
 function makeExecutionContext(
   handlerName: keyof GuardFixtureController,
   request: Partial<AuthenticatedRequest> = {},
@@ -154,6 +182,24 @@ describe('AuthenticatedUserGuard access metadata', () => {
     );
 
     expect(request).toHaveProperty('authUser', actorContext);
+  });
+
+  it('class-level @Public health controller에서도 method-level capability route는 protected로 override된다', async () => {
+    authSessionService.resolveCurrentUserContext.mockResolvedValue({
+      ...actorContext,
+      capabilities: ['admin:operations:health:read'],
+    });
+    const request = { headers: { authorization: 'Bearer ops-token' } };
+
+    await expect(
+      guard.canActivate(makePublicByDefaultExecutionContext('operationsHealthRoute', request)),
+    ).resolves.toBe(true);
+
+    expect(authSessionService.resolveCurrentUserContext).toHaveBeenCalledWith('ops-token');
+    expect(request).toHaveProperty(
+      'authUser',
+      expect.objectContaining({ capabilities: ['admin:operations:health:read'] }),
+    );
   });
 
   it('future admin capability naming은 구현 없이 metadata로만 표현할 수 있다', () => {

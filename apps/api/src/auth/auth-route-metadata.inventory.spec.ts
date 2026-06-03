@@ -174,6 +174,14 @@ const expectedRoutes: ExpectedRoute[] = [
     access: 'public',
   },
   {
+    controller: HealthController,
+    handler: 'getAuthOperations',
+    method: RequestMethod.GET,
+    path: 'health/auth',
+    access: 'protected',
+    capabilities: ['admin:operations:health:read'],
+  },
+  {
     controller: SeasonsController,
     handler: 'getCurrentSeason',
     method: RequestMethod.GET,

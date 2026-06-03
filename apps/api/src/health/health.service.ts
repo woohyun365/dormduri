@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
+  AuthOperationsHealthService,
+  type AuthOperationsHealthSnapshot,
+} from '../auth/operations/auth-operations-health.service.js';
+import {
   REALTIME_METRICS_READER_PORT,
   type RealtimeMetricsReaderPort,
 } from '../realtime/realtime.tokens.js';
@@ -24,12 +28,17 @@ export interface RealtimeOperationsStatusResponse extends HealthBaseResponse {
   realtime: ReturnType<RealtimeMetricsReaderPort['snapshot']>;
 }
 
+export interface AuthOperationsStatusResponse extends HealthBaseResponse {
+  auth: AuthOperationsHealthSnapshot;
+}
+
 @Injectable()
 export class HealthService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(REALTIME_METRICS_READER_PORT)
     private readonly realtimeMetrics: RealtimeMetricsReaderPort,
+    private readonly authOperationsHealth: AuthOperationsHealthService,
   ) {}
 
   getLiveness(): HealthStatusResponse {
@@ -58,6 +67,13 @@ export class HealthService {
     return {
       ...this.getLiveness(),
       realtime: this.realtimeMetrics.snapshot(),
+    };
+  }
+
+  getAuthOperations(): AuthOperationsStatusResponse {
+    return {
+      ...this.getLiveness(),
+      auth: this.authOperationsHealth.getSnapshot(),
     };
   }
 }

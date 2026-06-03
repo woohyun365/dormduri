@@ -1423,7 +1423,19 @@ CREATE UNIQUE INDEX "RetentionReviewJob_target_sourceId_key" ON "RetentionReview
 CREATE UNIQUE INDEX "LoginAttempt_emailNormalized_key" ON "LoginAttempt"("emailNormalized");
 
 -- CreateIndex
+CREATE INDEX "LoginAttempt_lastFailedAt_idx" ON "LoginAttempt"("lastFailedAt");
+
+-- CreateIndex
+CREATE INDEX "LoginAttempt_lockedUntil_idx" ON "LoginAttempt"("lockedUntil");
+
+-- CreateIndex
 CREATE INDEX "VerificationCode_emailNormalized_purpose_idx" ON "VerificationCode"("emailNormalized", "purpose");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_expiresAt_idx" ON "VerificationCode"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_consumedAt_idx" ON "VerificationCode"("consumedAt");
 
 -- CreateIndex
 CREATE INDEX "VerificationCodeRequestLog_emailNormalized_purpose_requestI_idx" ON "VerificationCodeRequestLog"("emailNormalized", "purpose", "requestIp", "createdAt");
@@ -1432,10 +1444,22 @@ CREATE INDEX "VerificationCodeRequestLog_emailNormalized_purpose_requestI_idx" O
 CREATE INDEX "VerificationCodeRequestLog_requestIp_createdAt_idx" ON "VerificationCodeRequestLog"("requestIp", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "VerificationCodeRequestLog_createdAt_idx" ON "VerificationCodeRequestLog"("createdAt");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("sessionTokenHash");
 
 -- CreateIndex
 CREATE INDEX "AuthSession_userId_idx" ON "AuthSession"("userId");
+
+-- CreateIndex
+CREATE INDEX "AuthSession_userId_revokedAt_expiresAt_idx" ON "AuthSession"("userId", "revokedAt", "expiresAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSession_expiresAt_idx" ON "AuthSession"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSession_revokedAt_idx" ON "AuthSession"("revokedAt");
 
 -- CreateIndex
 CREATE INDEX "AuthSecurityEvent_type_createdAt_idx" ON "AuthSecurityEvent"("type", "createdAt");
@@ -1454,6 +1478,9 @@ CREATE INDEX "AuthSecurityEvent_emailHash_type_createdAt_idx" ON "AuthSecurityEv
 
 -- CreateIndex
 CREATE INDEX "AuthSecurityEvent_sessionId_createdAt_idx" ON "AuthSecurityEvent"("sessionId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_createdAt_idx" ON "AuthSecurityEvent"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "ModerationTerm_surface_category_isActive_idx" ON "ModerationTerm"("surface", "category", "isActive");

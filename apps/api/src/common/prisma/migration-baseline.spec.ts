@@ -139,6 +139,19 @@ describe('migration baseline coverage', () => {
       'CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("sessionTokenHash")',
     );
     expect(sql).toContain('CREATE INDEX "AuthSession_userId_idx" ON "AuthSession"("userId")');
+    expect(sql).toContain(
+      'CREATE INDEX "AuthSession_userId_revokedAt_expiresAt_idx" ON "AuthSession"("userId", "revokedAt", "expiresAt")',
+    );
+    expect(sql).toContain('CREATE INDEX "AuthSession_expiresAt_idx" ON "AuthSession"("expiresAt")');
+    expect(sql).toContain(
+      'CREATE INDEX "VerificationCode_expiresAt_idx" ON "VerificationCode"("expiresAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "VerificationCodeRequestLog_createdAt_idx" ON "VerificationCodeRequestLog"("createdAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "LoginAttempt_lastFailedAt_idx" ON "LoginAttempt"("lastFailedAt")',
+    );
   });
 
   it('auth security event baseline은 민감값 대신 hash dimension과 운영 조회 index를 포함한다', () => {
@@ -153,6 +166,9 @@ describe('migration baseline coverage', () => {
     );
     expect(sql).toContain(
       'CREATE INDEX "AuthSecurityEvent_emailHash_type_createdAt_idx" ON "AuthSecurityEvent"("emailHash", "type", "createdAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "AuthSecurityEvent_createdAt_idx" ON "AuthSecurityEvent"("createdAt")',
     );
     expect(sql).not.toContain('"rawToken"');
     expect(sql).not.toContain('"rawCode"');

@@ -5,6 +5,7 @@ import type { UsersService } from '../../users/users.service.js';
 import type { ManagedPrismaClient, PrismaService } from '../prisma/prisma.service.js';
 import type { RetentionObservabilityService } from '../../retention/retention-observability.js';
 import type { LifecycleSweepResult } from './lifecycle-sweep.service.js';
+import type { AuthOperationalCleanupService } from '../../auth/operations/auth-operational-cleanup.service.js';
 
 interface LifecycleSweepRunnerDeps {
   prisma: PrismaService;
@@ -21,6 +22,7 @@ interface LifecycleSweepRunnerDeps {
     | 'retryDueRetentionReviewJobs'
     | 'disposeDueRetentionAccessLogs'
   >;
+  authOperationalCleanupService: Pick<AuthOperationalCleanupService, 'runCleanupBatch'>;
 }
 
 export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
@@ -41,6 +43,7 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
       await deps.usersService.retryDueRetentionReviewJobs(referenceNow);
     const retentionAccessLogDisposalSweep =
       await deps.usersService.disposeDueRetentionAccessLogs(referenceNow);
+    const authCleanupSweep = await deps.authOperationalCleanupService.runCleanupBatch(referenceNow);
 
     const result = {
       ranAt: referenceNow.toISOString(),
@@ -53,6 +56,7 @@ export function createLifecycleSweepRunner(deps: LifecycleSweepRunnerDeps) {
       retainedIdentityDisposalSweep,
       retentionReviewJobSweep,
       retentionAccessLogDisposalSweep,
+      authCleanupSweep,
     } satisfies LifecycleSweepResult;
 
     try {

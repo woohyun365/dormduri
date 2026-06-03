@@ -1,10 +1,11 @@
 import { Controller, Get } from '@nestjs/common';
 import {
   HealthService,
+  type AuthOperationsStatusResponse,
   type HealthStatusResponse,
   type RealtimeOperationsStatusResponse,
 } from './health.service.js';
-import { Public } from '../auth/auth-access.decorator.js';
+import { Public, RequireCapability } from '../auth/auth-access.decorator.js';
 
 @Controller('health')
 @Public()
@@ -24,5 +25,11 @@ export class HealthController {
   @Get('realtime')
   getRealtimeOperations(): RealtimeOperationsStatusResponse {
     return this.healthService.getRealtimeOperations();
+  }
+
+  @Get('auth')
+  @RequireCapability('admin:operations:health:read')
+  getAuthOperations(): AuthOperationsStatusResponse {
+    return this.healthService.getAuthOperations();
   }
 }

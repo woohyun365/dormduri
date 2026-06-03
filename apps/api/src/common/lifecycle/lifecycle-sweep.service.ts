@@ -24,6 +24,7 @@ import {
 import { createLifecycleSweepRunner } from './lifecycle-sweep-runner.js';
 import { PrismaService, RetentionWorkerPrismaService } from '../prisma/prisma.service.js';
 import { RetentionObservabilityService } from '../../retention/retention-observability.js';
+import { AuthOperationalCleanupService } from '../../auth/operations/auth-operational-cleanup.service.js';
 
 const PERIODIC_INTERVAL_NAME = 'lifecycle-periodic-sweep';
 
@@ -46,6 +47,7 @@ export interface LifecycleSweepResult {
   retentionAccessLogDisposalSweep: Awaited<
     ReturnType<UsersService['disposeDueRetentionAccessLogs']>
   >;
+  authCleanupSweep: Awaited<ReturnType<AuthOperationalCleanupService['runCleanupBatch']>>;
 }
 
 @Injectable()
@@ -63,6 +65,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
     private readonly matchesService: MatchesService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly usersService: UsersService,
+    private readonly authOperationalCleanupService: AuthOperationalCleanupService,
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly retentionObservability: RetentionObservabilityService,
     @Inject(lifecycleConfig.KEY)
@@ -76,6 +79,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
       matchesService: this.matchesService,
       seasonParticipantsService: this.seasonParticipantsService,
       usersService: this.usersService,
+      authOperationalCleanupService: this.authOperationalCleanupService,
     });
     this.boundaryJobBuilder = createLifecycleBoundaryJobBuilder(this.prisma);
   }

@@ -9,11 +9,28 @@ import databaseConfig from '../../config/database.config.js';
 type DatabaseSettings = ConfigType<typeof databaseConfig>;
 
 export type PrismaConnectionRole = 'runtime' | 'retention_worker' | 'retention_disclosure';
+export const ACTIVE_PRISMA_CONNECTION_ROLES: PrismaConnectionRole[] = [
+  'runtime',
+  'retention_worker',
+  'retention_disclosure',
+];
 
 interface ManagedPrismaClientSettings {
   connectionString: string;
   schema: string | null;
   applicationName: string;
+}
+
+export interface PrismaConnectionPoolBudget {
+  activeRoles: PrismaConnectionRole[];
+  poolMaxPerRole: number;
+  activePoolMaxConnections: number;
+  migrationConnectionIncludedInAppPool: false;
+  futureRolePoolCost: {
+    role: 'auth_cleanup_worker' | 'read_only_operations';
+    additionalMaxConnections: number;
+  }[];
+  alertAtEstimatedConnections: number;
 }
 
 function isRetryableTransactionConflict(error: unknown) {
@@ -77,6 +94,36 @@ function resolveManagedPrismaClientSettings(
         applicationName: databaseSettings.applicationName,
       };
   }
+}
+
+export function calculatePrismaConnectionPoolBudget(
+  databaseSettings: Pick<DatabaseSettings, 'poolMax'>,
+  options: { alertRatio: number } = { alertRatio: 0.8 },
+): PrismaConnectionPoolBudget {
+  const activeRoles = [...ACTIVE_PRISMA_CONNECTION_ROLES];
+  const poolMaxPerRole = databaseSettings.poolMax;
+  const activePoolMaxConnections = activeRoles.length * poolMaxPerRole;
+
+  return {
+    activeRoles,
+    poolMaxPerRole,
+    activePoolMaxConnections,
+    migrationConnectionIncludedInAppPool: false,
+    futureRolePoolCost: [
+      {
+        role: 'auth_cleanup_worker',
+        additionalMaxConnections: poolMaxPerRole,
+      },
+      {
+        role: 'read_only_operations',
+        additionalMaxConnections: poolMaxPerRole,
+      },
+    ],
+    alertAtEstimatedConnections: Math.max(
+      1,
+      Math.floor(activePoolMaxConnections * options.alertRatio),
+    ),
+  };
 }
 
 export abstract class ManagedPrismaClient
