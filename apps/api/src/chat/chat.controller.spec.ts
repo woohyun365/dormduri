@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AUTH_ACCESS_METADATA_KEY } from '../auth/auth-access.decorator.js';
 import { ChatController } from './chat.controller.js';
 
@@ -231,6 +231,61 @@ describe('ChatController', () => {
     expect(candidate.updateReadMarker).toEqual(expect.any(Function));
   });
 
+  it('thread detail은 chat thread context가 있으면 actor/param 일치 후 service로 위임한다', async () => {
+    chatService.getThreadDetail.mockResolvedValueOnce({
+      thread: { id: 'thread-1' },
+      messages: [],
+    });
+
+    await expect(
+      controller.getThreadDetail(authUser as never, 'thread-1', {
+        threadId: 'thread-1',
+        actorUserId: 'user-1',
+      } as never),
+    ).resolves.toEqual({
+      thread: { id: 'thread-1' },
+      messages: [],
+    });
+
+    expect(chatService.getThreadDetail).toHaveBeenCalledWith(authUser, 'thread-1');
+  });
+
+  it('thread detail은 chat thread context와 auth actor가 다르면 fail-closed 처리한다', async () => {
+    await expect(
+      controller.getThreadDetail(authUser as never, 'thread-1', {
+        threadId: 'thread-1',
+        actorUserId: 'other-user',
+      } as never),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(chatService.getThreadDetail).not.toHaveBeenCalled();
+  });
+
+  it('thread detail은 chat thread context와 route param이 다르면 fail-closed 처리한다', async () => {
+    await expect(
+      controller.getThreadDetail(authUser as never, 'thread-1', {
+        threadId: 'thread-2',
+        actorUserId: 'user-1',
+      } as never),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(chatService.getThreadDetail).not.toHaveBeenCalled();
+  });
+
+  it('leaveThread는 Phase 5-2 guard 적용 대상이 아니며 기존 service error contract에 위임한다', async () => {
+    chatService.leaveThread.mockResolvedValueOnce({
+      threadId: 'thread-1',
+      archived: false,
+    });
+
+    await expect(controller.leaveThread(authUser as never, 'thread-1')).resolves.toEqual({
+      threadId: 'thread-1',
+      archived: false,
+    });
+
+    expect(chatService.leaveThread).toHaveBeenCalledWith(authUser, 'thread-1');
+  });
+
   it('read marker 갱신 요청은 lastReadMessageId를 필수로 검증한다', async () => {
     const response = await expectBadRequest(() =>
       controller.updateReadMarker(authUser as never, 'thread-1', {}),
@@ -251,9 +306,17 @@ describe('ChatController', () => {
     });
 
     await expect(
-      controller.updateReadMarker(authUser as never, 'thread-1', {
-        lastReadMessageId: 'message-1',
-      }),
+      controller.updateReadMarker(
+        authUser as never,
+        'thread-1',
+        {
+          lastReadMessageId: 'message-1',
+        },
+        {
+          threadId: 'thread-1',
+          actorUserId: 'user-1',
+        } as never,
+      ),
     ).resolves.toMatchObject({ lastReadMessageId: 'message-1' });
 
     expect(chatService.updateReadMarker).toHaveBeenCalledWith(authUser, 'thread-1', {

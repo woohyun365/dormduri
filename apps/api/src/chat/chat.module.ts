@@ -16,6 +16,7 @@ import { SeasonsModule } from '../seasons/seasons.module.js';
 import { ChatNotificationRealtimePublisherAdapter } from './adapters/chat-notification-realtime-publisher.adapter.js';
 import { ChatSubscriptionQueryService } from './queries/chat-subscription-query.service.js';
 import { ChatController } from './chat.controller.js';
+import { ChatThreadContextGuard } from './chat-thread-context.guard.js';
 import { ChatLifecycleModule } from './lifecycle/chat-lifecycle.module.js';
 import { ChatMatchThreadLifecycleService } from './lifecycle/chat-match-thread-lifecycle.service.js';
 import { ChatSeasonLifecycleService } from './lifecycle/chat-season-lifecycle.service.js';
@@ -42,6 +43,7 @@ import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from './application/ports/chat-match
   controllers: [ChatController],
   providers: [
     ChatService,
+    ChatThreadContextGuard,
     ChatMatchThreadLifecycleService,
     ChatSeasonLifecycleService,
     ChatNotificationRealtimePublisherAdapter,

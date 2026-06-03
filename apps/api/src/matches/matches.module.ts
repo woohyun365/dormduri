@@ -5,6 +5,7 @@ import { ModerationModule } from '../common/moderation/moderation.module.js';
 import { PrismaModule } from '../common/prisma/prisma.module.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
+import { ActiveMatchContextGuard } from './active-match-context.guard.js';
 import { MatchesController } from './matches.controller.js';
 import { MatchesService } from './matches.service.js';
 
@@ -18,7 +19,7 @@ import { MatchesService } from './matches.service.js';
     AuthModule,
   ],
   controllers: [MatchesController],
-  providers: [MatchesService],
+  providers: [MatchesService, ActiveMatchContextGuard],
   exports: [MatchesService],
 })
 export class MatchesModule {}

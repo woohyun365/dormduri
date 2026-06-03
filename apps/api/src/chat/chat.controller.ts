@@ -18,8 +18,10 @@ import {
 import { RequireCapability } from '../auth/auth-access.decorator.js';
 import { CurrentUser } from '../auth/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import { unauthorizedError } from '../common/http/api-error.js';
+import { forbiddenError, unauthorizedError } from '../common/http/api-error.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
+import { ChatThread, RequireChatThreadMember } from './chat-thread-context.decorator.js';
+import type { ChatThreadContext } from './chat-thread-context.types.js';
 import { ChatRealtimeMetricsService } from './realtime/chat-realtime.metrics.js';
 import { ChatRealtimeTicketService } from './realtime/chat-realtime-ticket.service.js';
 import {
@@ -100,11 +102,16 @@ export class ChatController {
   }
 
   @Get('threads/:threadId')
+  @RequireChatThreadMember()
   async getThreadDetail(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
+    @ChatThread() chatThread?: ChatThreadContext,
   ) {
-    return this.chatService.getThreadDetail(authUser, threadId);
+    return this.chatService.getThreadDetail(
+      authUser,
+      resolveChatThreadActorThreadId(authUser, threadId, chatThread),
+    );
   }
 
   @Get('realtime/replay')
@@ -157,13 +164,19 @@ export class ChatController {
   }
 
   @Post('threads/:threadId/read-marker')
+  @RequireChatThreadMember()
   async updateReadMarker(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
     @Body() body: unknown,
+    @ChatThread() chatThread?: ChatThreadContext,
   ) {
     const parsed = parseRequestBody(updateChatReadMarkerRequestSchema, body);
-    return this.chatService.updateReadMarker(authUser, threadId, parsed);
+    return this.chatService.updateReadMarker(
+      authUser,
+      resolveChatThreadActorThreadId(authUser, threadId, chatThread),
+      parsed,
+    );
   }
 
   @Post('messages')
@@ -180,4 +193,23 @@ export class ChatController {
 
     return this.chatService.sendMessage(authUser, parsed);
   }
+}
+
+function resolveChatThreadActorThreadId(
+  authUser: AuthenticatedUserContext,
+  threadId: string,
+  chatThread: ChatThreadContext | null | undefined,
+) {
+  if (!chatThread) {
+    return threadId;
+  }
+
+  if (chatThread.actorUserId !== authUser.id || chatThread.threadId !== threadId) {
+    throw forbiddenError(
+      'CHAT_THREAD_CONTEXT_ACTOR_MISMATCH',
+      '채팅 thread 컨텍스트와 로그인 사용자가 일치하지 않습니다.',
+    );
+  }
+
+  return chatThread.threadId;
 }

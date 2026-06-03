@@ -18,6 +18,7 @@ export type ActiveMatchParticipantContextRequirement = {
   kind: 'active-match-participant';
   mode: 'require-existing';
   param: 'id';
+  failure: 'unmatch-request-not-allowed' | 'unmatch-cancel-not-allowed';
 };
 
 export type DomainContextRequirement =

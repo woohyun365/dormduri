@@ -3,7 +3,13 @@ import { createMatchRequestSchema } from '@repo/shared/match-contract';
 import { RequireCapability } from '../auth/auth-access.decorator.js';
 import { CurrentUser } from '../auth/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import { forbiddenError } from '../common/http/api-error.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
+import {
+  ActiveMatchContext,
+  RequireActiveMatchParticipant,
+} from './active-match-context.decorator.js';
+import type { ActiveMatchContext as ActiveMatchContextValue } from './active-match-context.types.js';
 import { MatchesService } from './matches.service.js';
 
 @Controller('api/matches')
@@ -65,18 +71,47 @@ export class MatchesController {
   }
 
   @Post('active/:id/unmatch-request')
+  @RequireActiveMatchParticipant()
   async requestUnmatch(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('id') activeMatchId: string,
+    @ActiveMatchContext() activeMatch?: ActiveMatchContextValue,
   ) {
-    return this.matchesService.requestUnmatch(authUser, activeMatchId);
+    return this.matchesService.requestUnmatch(
+      authUser,
+      resolveActiveMatchActorMatchId(authUser, activeMatchId, activeMatch),
+    );
   }
 
   @Post('active/:id/unmatch-request/cancel')
+  @RequireActiveMatchParticipant('unmatch-cancel-not-allowed')
   async cancelUnmatchRequest(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('id') activeMatchId: string,
+    @ActiveMatchContext() activeMatch?: ActiveMatchContextValue,
   ) {
-    return this.matchesService.cancelUnmatchRequest(authUser, activeMatchId);
+    return this.matchesService.cancelUnmatchRequest(
+      authUser,
+      resolveActiveMatchActorMatchId(authUser, activeMatchId, activeMatch),
+    );
   }
+}
+
+function resolveActiveMatchActorMatchId(
+  authUser: AuthenticatedUserContext,
+  activeMatchId: string,
+  activeMatch: ActiveMatchContextValue | null | undefined,
+) {
+  if (!activeMatch) {
+    return activeMatchId;
+  }
+
+  if (activeMatch.actorUserId !== authUser.id || activeMatch.activeMatchId !== activeMatchId) {
+    throw forbiddenError(
+      'ACTIVE_MATCH_CONTEXT_ACTOR_MISMATCH',
+      '활성 매칭 컨텍스트와 로그인 사용자가 일치하지 않습니다.',
+    );
+  }
+
+  return activeMatch.activeMatchId;
 }
