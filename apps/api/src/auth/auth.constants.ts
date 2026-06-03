@@ -6,7 +6,7 @@ import {
   SIGNUP_VERIFIED_PROOF_TTL_SECONDS,
 } from '@repo/shared/auth-policy';
 
-export const JWT_ACCESS_TTL_SECONDS = 60 * 15;
+export const AUTH_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 export const LOGIN_LOCKOUT_ATTEMPTS = LOGIN_FAILURE_LIMIT;
 export const LOGIN_LOCKOUT_TTL_SECONDS = LOGIN_LOCKOUT_SECONDS;
 export {

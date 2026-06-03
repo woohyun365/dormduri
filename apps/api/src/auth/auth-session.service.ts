@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
-import { getCurrentSessionUserId } from '../generated/prisma/sql.js';
 import {
+  AUTH_ACCESS_TOKEN_TTL_SECONDS,
   AUTH_SESSION_REMEMBER_ME_TTL_SECONDS,
   AUTH_SESSION_TTL_SECONDS,
-  JWT_ACCESS_TTL_SECONDS,
 } from './auth.constants.js';
 import type {
   AuthSessionUserSummary,
@@ -31,33 +29,44 @@ export interface AuthenticatedUserContext {
 interface AuthenticatedSessionRef {
   userId: string;
   sessionId: string;
+  user: {
+    id: string;
+    email: string;
+    gender: Gender;
+    campus: Campus;
+    deletedAt: Date | null;
+    displayIdentity: {
+      userId: string;
+      nickname: string;
+    };
+  };
 }
 
-const RENEWAL_TOKEN_VERSION = 'v1';
-const RENEWAL_TOKEN_BYTES = 32;
-const RENEWAL_TOKEN_SECRET_LENGTH = 43;
-const RENEWAL_TOKEN_SECRET_PATTERN = /^[A-Za-z0-9_-]+$/;
+const OPAQUE_TOKEN_VERSION = 'v1';
+const OPAQUE_TOKEN_BYTES = 32;
+const OPAQUE_TOKEN_SECRET_LENGTH = 43;
+const OPAQUE_TOKEN_SECRET_PATTERN = /^[A-Za-z0-9_-]+$/;
 
-function createRenewalToken(sessionId: string) {
-  return `${RENEWAL_TOKEN_VERSION}.${sessionId}.${randomBytes(RENEWAL_TOKEN_BYTES).toString('base64url')}`;
+function createOpaqueToken(sessionId: string) {
+  return `${OPAQUE_TOKEN_VERSION}.${sessionId}.${randomBytes(OPAQUE_TOKEN_BYTES).toString('base64url')}`;
 }
 
-function hashRenewalToken(renewalToken: string) {
-  return createHash('sha256').update(renewalToken).digest('hex');
+function hashOpaqueToken(token: string) {
+  return createHash('sha256').update(token).digest('hex');
 }
 
-function parseRenewalToken(renewalToken: string | null) {
-  if (!renewalToken) {
+function parseOpaqueToken(token: string | null) {
+  if (!token) {
     return null;
   }
 
-  const [version, sessionId, secret, ...rest] = renewalToken.split('.');
+  const [version, sessionId, secret, ...rest] = token.split('.');
   if (
-    version !== RENEWAL_TOKEN_VERSION ||
+    version !== OPAQUE_TOKEN_VERSION ||
     !sessionId ||
     !secret ||
-    secret.length !== RENEWAL_TOKEN_SECRET_LENGTH ||
-    !RENEWAL_TOKEN_SECRET_PATTERN.test(secret) ||
+    secret.length !== OPAQUE_TOKEN_SECRET_LENGTH ||
+    !OPAQUE_TOKEN_SECRET_PATTERN.test(secret) ||
     rest.length > 0
   ) {
     return null;
@@ -65,7 +74,7 @@ function parseRenewalToken(renewalToken: string | null) {
 
   return {
     sessionId,
-    tokenHash: hashRenewalToken(renewalToken),
+    tokenHash: hashOpaqueToken(token),
   };
 }
 
@@ -78,18 +87,15 @@ function safeCompareTokenHash(expectedHash: string, actualHash: string) {
 
 @Injectable()
 export class AuthSessionService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getSession(token: string | null): Promise<SessionStatusResult> {
-    const user = await this.resolveCurrentSessionUser(token);
-    if (!user) {
+    const session = await this.resolveAuthenticatedSession(token);
+    if (!session) {
       return { authenticated: false };
     }
 
-    return toAuthenticatedSessionResult(user);
+    return toAuthenticatedSessionResult(this.toSessionUserSummary(session));
   }
 
   async resolveCurrentUserContext(token: string | null): Promise<AuthenticatedUserContext | null> {
@@ -98,55 +104,40 @@ export class AuthSessionService {
       return null;
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: session.userId },
-      select: {
-        id: true,
-        gender: true,
-        campus: true,
-        deletedAt: true,
-        displayIdentity: {
-          select: {
-            userId: true,
-          },
-        },
-      },
-    });
-
-    if (!hasUserDisplayIdentity(user) || user.deletedAt) {
-      return null;
-    }
-
     return {
-      id: user.id,
+      id: session.user.id,
       sessionId: session.sessionId,
-      gender: user.gender,
-      campus: user.campus,
+      gender: session.user.gender,
+      campus: session.user.campus,
     };
   }
 
   async issueAuthResult(
     userId: string,
-    email: string,
+    _email: string,
     rememberMe: boolean,
   ): Promise<AuthSessionIssueResult> {
     const ttlSeconds = rememberMe ? AUTH_SESSION_REMEMBER_ME_TTL_SECONDS : AUTH_SESSION_TTL_SECONDS;
     const databaseNow = await this.prisma.getDatabaseNow();
     const sessionId = randomUUID();
-    const renewalToken = rememberMe ? createRenewalToken(sessionId) : undefined;
+    const accessToken = createOpaqueToken(sessionId);
+    const sessionTokenExpiresAt = new Date(
+      databaseNow.getTime() + AUTH_ACCESS_TOKEN_TTL_SECONDS * 1000,
+    );
+    const renewalToken = rememberMe ? createOpaqueToken(sessionId) : undefined;
 
     const session = await this.prisma.authSession.create({
       data: {
         id: sessionId,
         userId,
         rememberMe,
-        ...(renewalToken ? { refreshTokenHash: hashRenewalToken(renewalToken) } : {}),
+        sessionTokenHash: hashOpaqueToken(accessToken),
+        sessionTokenExpiresAt,
+        ...(renewalToken ? { refreshTokenHash: hashOpaqueToken(renewalToken) } : {}),
         expiresAt: new Date(databaseNow.getTime() + ttlSeconds * 1000),
       },
       select: { id: true },
     });
-
-    const accessToken = await this.signAccessToken(userId, email, session.id);
 
     return {
       accessToken,
@@ -156,14 +147,19 @@ export class AuthSessionService {
   }
 
   async renewSession(renewalToken: string | null): Promise<RenewSessionResult> {
-    const parsedRenewalToken = parseRenewalToken(renewalToken);
+    const parsedRenewalToken = parseOpaqueToken(renewalToken);
     if (!parsedRenewalToken) {
       return authFailures.sessionRenewalRequired();
     }
 
     const databaseNow = await this.prisma.getDatabaseNow();
-    const nextRenewalToken = createRenewalToken(parsedRenewalToken.sessionId);
-    const nextRenewalTokenHash = hashRenewalToken(nextRenewalToken);
+    const nextAccessToken = createOpaqueToken(parsedRenewalToken.sessionId);
+    const nextAccessTokenHash = hashOpaqueToken(nextAccessToken);
+    const nextAccessTokenExpiresAt = new Date(
+      databaseNow.getTime() + AUTH_ACCESS_TOKEN_TTL_SECONDS * 1000,
+    );
+    const nextRenewalToken = createOpaqueToken(parsedRenewalToken.sessionId);
+    const nextRenewalTokenHash = hashOpaqueToken(nextRenewalToken);
 
     const renewalAttempt = await this.prisma.runSerializableTransaction(async (tx) => {
       const session = await tx.authSession.findUnique({
@@ -177,7 +173,6 @@ export class AuthSessionService {
           revokedAt: true,
           user: {
             select: {
-              email: true,
               deletedAt: true,
               displayIdentity: {
                 select: { userId: true },
@@ -224,6 +219,8 @@ export class AuthSessionService {
         },
         data: {
           refreshTokenHash: nextRenewalTokenHash,
+          sessionTokenHash: nextAccessTokenHash,
+          sessionTokenExpiresAt: nextAccessTokenExpiresAt,
         },
       });
 
@@ -233,9 +230,6 @@ export class AuthSessionService {
 
       return {
         kind: 'renewed' as const,
-        userId: session.userId,
-        email: session.user.email,
-        sessionId: session.id,
       };
     });
 
@@ -247,14 +241,9 @@ export class AuthSessionService {
       return authFailures.sessionRenewalReused();
     }
 
-    const accessToken = await this.signAccessToken(
-      renewalAttempt.userId,
-      renewalAttempt.email,
-      renewalAttempt.sessionId,
-    );
     return {
       success: true,
-      accessToken,
+      accessToken: nextAccessToken,
       renewalToken: nextRenewalToken,
       rememberMe: true,
     };
@@ -266,23 +255,28 @@ export class AuthSessionService {
   ): Promise<GenericSuccessResult> {
     const sessionIds = new Set<string>();
 
-    const parsedRenewalToken = parseRenewalToken(renewalToken);
+    const parsedRenewalToken = parseOpaqueToken(renewalToken);
     if (parsedRenewalToken) {
-      sessionIds.add(parsedRenewalToken.sessionId);
+      const session = await this.prisma.authSession.findUnique({
+        where: { id: parsedRenewalToken.sessionId },
+        select: { id: true, refreshTokenHash: true },
+      });
+      if (
+        session?.refreshTokenHash &&
+        safeCompareTokenHash(session.refreshTokenHash, parsedRenewalToken.tokenHash)
+      ) {
+        sessionIds.add(session.id);
+      }
     }
 
-    if (!token && sessionIds.size === 0) {
-      return { success: true };
-    }
-
-    if (token) {
-      try {
-        const payload = await this.jwtService.verifyAsync<{ sid?: string }>(token);
-        if (payload.sid) {
-          sessionIds.add(payload.sid);
-        }
-      } catch {
-        // clear cookie regardless
+    const parsedAccessToken = parseOpaqueToken(token);
+    if (parsedAccessToken) {
+      const session = await this.prisma.authSession.findUnique({
+        where: { sessionTokenHash: parsedAccessToken.tokenHash },
+        select: { id: true },
+      });
+      if (session) {
+        sessionIds.add(session.id);
       }
     }
 
@@ -303,80 +297,66 @@ export class AuthSessionService {
     return { success: true };
   }
 
-  private async signAccessToken(userId: string, email: string, sessionId: string) {
-    return this.jwtService.signAsync(
-      {
-        sub: userId,
-        email,
-        sid: sessionId,
-      },
-      { expiresIn: JWT_ACCESS_TTL_SECONDS },
-    );
-  }
-
-  private async resolveCurrentSessionUser(
-    token: string | null,
-  ): Promise<AuthSessionUserSummary | null> {
-    const userId = await this.resolveAuthenticatedUserId(token);
-    if (!userId) {
-      return null;
-    }
-
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        deletedAt: true,
-        gender: true,
-        campus: true,
-        displayIdentity: {
-          select: {
-            nickname: true,
-          },
-        },
-      },
-    });
-
-    if (!hasUserDisplayIdentity(user) || user.deletedAt) {
-      return null;
-    }
-
+  private toSessionUserSummary(session: AuthenticatedSessionRef): AuthSessionUserSummary {
     return toAuthSessionUserSummary({
-      id: user.id,
-      email: user.email,
-      nickname: user.displayIdentity.nickname,
-      gender: user.gender,
-      campus: user.campus,
+      id: session.user.id,
+      email: session.user.email,
+      nickname: session.user.displayIdentity.nickname,
+      gender: session.user.gender,
+      campus: session.user.campus,
     });
-  }
-
-  private async resolveAuthenticatedUserId(token: string | null): Promise<string | null> {
-    const session = await this.resolveAuthenticatedSession(token);
-    return session?.userId ?? null;
   }
 
   private async resolveAuthenticatedSession(
     token: string | null,
   ): Promise<AuthenticatedSessionRef | null> {
-    if (!token) {
+    const parsedAccessToken = parseOpaqueToken(token);
+    if (!parsedAccessToken) {
       return null;
     }
 
-    try {
-      const payload = await this.jwtService.verifyAsync<{ sid?: string; sub?: string }>(token);
+    const session = await this.prisma.authSession.findUnique({
+      where: { sessionTokenHash: parsedAccessToken.tokenHash },
+      select: {
+        id: true,
+        userId: true,
+        sessionTokenExpiresAt: true,
+        expiresAt: true,
+        revokedAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            gender: true,
+            campus: true,
+            deletedAt: true,
+            displayIdentity: {
+              select: {
+                userId: true,
+                nickname: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
-      if (!payload.sid || !payload.sub) {
-        return null;
-      }
-
-      const [session] = await this.prisma.$queryRawTyped(
-        getCurrentSessionUserId(payload.sid, payload.sub),
-      );
-
-      return session?.userId ? { userId: session.userId, sessionId: payload.sid } : null;
-    } catch {
+    if (
+      !session ||
+      session.revokedAt ||
+      !session.sessionTokenExpiresAt ||
+      session.sessionTokenExpiresAt <= new Date() ||
+      session.expiresAt <= new Date() ||
+      session.user.deletedAt ||
+      !hasUserDisplayIdentity(session.user)
+    ) {
       return null;
     }
+
+    return {
+      userId: session.userId,
+      sessionId: session.id,
+      user: session.user,
+    };
   }
 }

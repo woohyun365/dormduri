@@ -131,6 +131,16 @@ describe('migration baseline coverage', () => {
     }
   });
 
+  it('auth session baseline은 opaque access token hash authority와 short access TTL column을 포함한다', () => {
+    expect(sql).toContain('CREATE TABLE "AuthSession"');
+    expect(sql).toContain('"sessionTokenHash" TEXT');
+    expect(sql).toContain('"sessionTokenExpiresAt" TIMESTAMPTZ(3)');
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("sessionTokenHash")',
+    );
+    expect(sql).toContain('CREATE INDEX "AuthSession_userId_idx" ON "AuthSession"("userId")');
+  });
+
   it('academic identity allowance는 retained payload가 아니라 User cascade live state로 유지된다', () => {
     expect(sql).toContain('CREATE TABLE "UserAcademicIdentityChangeAllowance"');
     expect(sql).toContain(

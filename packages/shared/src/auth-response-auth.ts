@@ -2,9 +2,13 @@ import { z } from 'zod';
 import { authenticatedSessionUserSchema, type AuthenticatedSessionUser } from './user-contract.js';
 import { genericErrorResponseSchema } from './auth-response-base.js';
 
+const opaqueAuthTokenSchema = z
+  .string()
+  .regex(/^v1\.[^.]+\.[A-Za-z0-9_-]{43}$/, 'opaque auth token 형식이어야 합니다.');
+
 export const loginResponseSchema = genericErrorResponseSchema.extend({
-  accessToken: z.string().optional(),
-  renewalToken: z.string().optional(),
+  accessToken: opaqueAuthTokenSchema.optional(),
+  renewalToken: opaqueAuthTokenSchema.optional(),
   rememberMe: z.boolean().optional(),
   user: authenticatedSessionUserSchema.optional(),
   locked: z.boolean().optional(),
@@ -17,13 +21,13 @@ export const signupResponseSchema = genericErrorResponseSchema.extend({
 });
 export const resetPasswordResponseSchema = genericErrorResponseSchema;
 export const changePasswordResponseSchema = genericErrorResponseSchema.extend({
-  accessToken: z.string().optional(),
-  renewalToken: z.string().optional(),
+  accessToken: opaqueAuthTokenSchema.optional(),
+  renewalToken: opaqueAuthTokenSchema.optional(),
   rememberMe: z.boolean().optional(),
 });
 export const renewSessionResponseSchema = genericErrorResponseSchema.extend({
-  accessToken: z.string().optional(),
-  renewalToken: z.string().optional(),
+  accessToken: opaqueAuthTokenSchema.optional(),
+  renewalToken: opaqueAuthTokenSchema.optional(),
   rememberMe: z.boolean().optional(),
 });
 

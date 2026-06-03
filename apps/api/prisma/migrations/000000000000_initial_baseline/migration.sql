@@ -997,6 +997,8 @@ CREATE TABLE "AuthSession" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "rememberMe" BOOLEAN NOT NULL DEFAULT false,
+    "sessionTokenHash" TEXT,
+    "sessionTokenExpiresAt" TIMESTAMPTZ(3),
     "refreshTokenHash" TEXT,
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
     "revokedAt" TIMESTAMPTZ(3),
@@ -1405,6 +1407,9 @@ CREATE INDEX "VerificationCodeRequestLog_emailNormalized_purpose_requestI_idx" O
 
 -- CreateIndex
 CREATE INDEX "VerificationCodeRequestLog_requestIp_createdAt_idx" ON "VerificationCodeRequestLog"("requestIp", "createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("sessionTokenHash");
 
 -- CreateIndex
 CREATE INDEX "AuthSession_userId_idx" ON "AuthSession"("userId");

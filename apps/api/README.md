@@ -33,7 +33,6 @@ DATABASE_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?
 # Prisma CLI가 사용하는 direct URL. 운영에서는 세션 유지 가능한 direct URL 권장.
 DIRECT_URL="postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public"
 PORT=4000
-JWT_SECRET="<generate-with-openssl-rand-base64-32>"
 VERIFICATION_CODE_HMAC_SECRET="<generate-with-openssl-rand-base64-32>"
 ```
 
@@ -47,7 +46,7 @@ cp apps/api/.env.example apps/api/.env
 
 - `development`: Prisma CLI(`prisma:generate`, migrate 등)는 stale shell/tmux env로 인한 P1000을 막기 위해 `apps/api/.env`를 로컬 source of truth로 보고 inherited `DATABASE_URL`/`DIRECT_URL`을 덮어쓴다.
 - `test`: integration sandbox가 주입하는 disposable schema URL을 보존하기 위해 `.env`가 이미 주입된 `DATABASE_URL`/`DIRECT_URL`을 덮어쓰지 않는다.
-- `production`: `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET`, `VERIFICATION_CODE_HMAC_SECRET` 누락 시 앱 시작 실패. secret manager/infra 주입값을 `.env`로 덮어쓰지 않는다.
+- `production`: `DATABASE_URL`, `DIRECT_URL`, `VERIFICATION_CODE_HMAC_SECRET` 누락 시 앱 시작 실패. secret manager/infra 주입값을 `.env`로 덮어쓰지 않는다.
 
 운영 권장 연결 경로:
 
@@ -65,7 +64,7 @@ cp apps/api/.env.example apps/api/.env
 - `DATABASE_APPLICATION_NAME`
 - `PRISMA_QUERY_LOG_EVENTS`: `1/true/yes/on`이면 Prisma query event를 활성화한다. 통합 테스트 SQL trace처럼 실패 시점 진단이 필요할 때만 켠다.
 
-즉, 실제 운영/배포에서는 반드시 환경변수 또는 secret store로 주입해야 한다.
+Phase 3 auth transport는 JWT bridge를 제거하고 DB-backed opaque session token을 사용하므로 `JWT_SECRET`은 더 이상 API 런타임 필수 환경변수가 아니다. 즉, 실제 운영/배포에서는 남은 DB/HMAC/provider secret을 반드시 환경변수 또는 secret store로 주입해야 한다.
 
 ## 3. 로컬 실행 순서
 

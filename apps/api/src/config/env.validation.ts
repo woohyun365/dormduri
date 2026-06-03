@@ -5,7 +5,6 @@ import {
   DEFAULT_CODE_REQUEST_BACKSTOP_LIMIT,
   DEFAULT_CODE_REQUEST_BACKSTOP_WINDOW_SECONDS,
   DEFAULT_CODE_REQUEST_COOLDOWN_SECONDS,
-  DEFAULT_JWT_SECRET,
   DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
 } from './auth.config.js';
 import {
@@ -130,13 +129,6 @@ export const envValidationSchema = Joi.object({
     .falsy('off')
     .default(DEFAULT_PRISMA_QUERY_LOG_EVENTS),
   PORT: Joi.number().integer().min(1).default(DEFAULT_PORT),
-  JWT_SECRET: Joi.string()
-    .trim()
-    .when('NODE_ENV', {
-      is: 'production',
-      then: Joi.required(),
-      otherwise: Joi.string().trim().default(DEFAULT_JWT_SECRET),
-    }),
   VERIFICATION_CODE_HMAC_SECRET: Joi.string()
     .trim()
     .when('NODE_ENV', {

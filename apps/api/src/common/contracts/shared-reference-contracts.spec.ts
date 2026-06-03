@@ -48,7 +48,11 @@ import {
   signupDraftValidationRequestSchema,
   signupRequestSchema,
 } from '@repo/shared/auth-contract';
-import { renewSessionResponseSchema } from '@repo/shared/auth-response';
+import {
+  changePasswordResponseSchema,
+  loginResponseSchema,
+  renewSessionResponseSchema,
+} from '@repo/shared/auth-response';
 import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match-contract';
 import {
   isLocalDateString,
@@ -447,6 +451,9 @@ describe('shared reference contracts', () => {
   });
 
   it('auth renew session contract는 renewalToken rotation transport만 받는다', () => {
+    const opaqueAccessToken = `v1.session-1.${'a'.repeat(43)}`;
+    const opaqueRenewalToken = `v1.session-1.${'b'.repeat(43)}`;
+
     expect(
       renewSessionRequestSchema.parse({
         renewalToken: 'v1.session-1.renewal-token',
@@ -464,14 +471,44 @@ describe('shared reference contracts', () => {
     expect(
       renewSessionResponseSchema.parse({
         success: true,
-        accessToken: 'renewed-access-token',
-        renewalToken: 'next-renewal-token',
+        accessToken: opaqueAccessToken,
+        renewalToken: opaqueRenewalToken,
         rememberMe: true,
       }),
     ).toMatchObject({
       success: true,
       rememberMe: true,
     });
+
+    expect(
+      loginResponseSchema.safeParse({
+        success: true,
+        accessToken: opaqueAccessToken,
+        renewalToken: opaqueRenewalToken,
+        rememberMe: true,
+      }).success,
+    ).toBe(true);
+    expect(
+      changePasswordResponseSchema.safeParse({
+        success: true,
+        accessToken: opaqueAccessToken,
+        renewalToken: opaqueRenewalToken,
+        rememberMe: true,
+      }).success,
+    ).toBe(true);
+
+    for (const schema of [
+      loginResponseSchema,
+      changePasswordResponseSchema,
+      renewSessionResponseSchema,
+    ]) {
+      expect(
+        schema.safeParse({
+          success: true,
+          accessToken: 'eyJhbGciOiJIUzI1NiJ9.payload.signature',
+        }).success,
+      ).toBe(false);
+    }
   });
 
   it('current-user contract는 registration 준비 UI의 display/academic identity 표시 source를 표현한다', () => {

@@ -2,18 +2,22 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAuthenticatedForwardPostHandler } from '../_post-route';
 
+const CURRENT_ACCESS_TOKEN = `v1.session-current-access.${'c'.repeat(43)}`;
+const ROTATED_ACCESS_TOKEN = `v1.session-rotated-access.${'a'.repeat(43)}`;
+const ROTATED_RENEWAL_TOKEN = `v1.session-rotated-renewal.${'b'.repeat(43)}`;
+
 describe('auth BFF post route helpers', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('authenticated post는 auth-token cookie를 Authorization으로 전달하고 upstream accessToken은 cookie로만 회전한다', async () => {
+  it('authenticated post는 opaque auth-token cookie를 Authorization으로 전달하고 upstream accessToken은 cookie로만 회전한다', async () => {
     const fetchMock = vi.fn(async () => {
       return new Response(
         JSON.stringify({
           success: true,
-          accessToken: 'rotated-access-token',
-          renewalToken: 'rotated-renewal-token',
+          accessToken: ROTATED_ACCESS_TOKEN,
+          renewalToken: ROTATED_RENEWAL_TOKEN,
           rememberMe: true,
         }),
         {
@@ -30,7 +34,7 @@ describe('auth BFF post route helpers', () => {
     const request = new NextRequest('http://localhost/api/auth/change-password', {
       method: 'POST',
       headers: {
-        Cookie: 'auth-token=current-access-token',
+        Cookie: `auth-token=${CURRENT_ACCESS_TOKEN}`,
         'x-forwarded-for': '203.0.113.10',
         'user-agent': 'vitest',
       },
@@ -53,7 +57,7 @@ describe('auth BFF post route helpers', () => {
         }),
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          Authorization: 'Bearer current-access-token',
+          Authorization: `Bearer ${CURRENT_ACCESS_TOKEN}`,
           'x-forwarded-for': '203.0.113.10',
           'user-agent': 'vitest',
         }),
@@ -62,10 +66,10 @@ describe('auth BFF post route helpers', () => {
     await expect(response.json()).resolves.toEqual({ success: true });
 
     const cookie = response.cookies.get('auth-token');
-    expect(cookie?.value).toBe('rotated-access-token');
+    expect(cookie?.value).toBe(ROTATED_ACCESS_TOKEN);
     expect(cookie?.maxAge).toBe(60 * 60 * 24 * 7);
     const renewalCookie = response.cookies.get('auth-renewal-token');
-    expect(renewalCookie?.value).toBe('rotated-renewal-token');
+    expect(renewalCookie?.value).toBe(ROTATED_RENEWAL_TOKEN);
     expect(renewalCookie?.maxAge).toBe(60 * 60 * 24 * 7);
   });
 
@@ -94,7 +98,7 @@ describe('auth BFF post route helpers', () => {
     const request = new NextRequest('http://localhost/api/auth/change-password', {
       method: 'POST',
       headers: {
-        Cookie: 'auth-token=current-access-token',
+        Cookie: `auth-token=${CURRENT_ACCESS_TOKEN}`,
       },
       body: JSON.stringify({
         currentPassword: 'WrongPass1234',

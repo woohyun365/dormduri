@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from '../common/prisma/prisma.module.js';
 import { ModerationModule } from '../common/moderation/moderation.module.js';
@@ -21,12 +20,6 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
   imports: [
     PrismaModule,
     ModerationModule,
-    JwtModule.registerAsync({
-      inject: [authConfig.KEY],
-      useFactory: (config: ConfigType<typeof authConfig>) => ({
-        secret: config.jwtSecret,
-      }),
-    }),
     ThrottlerModule.forRootAsync({
       inject: [authConfig.KEY],
       useFactory: (config: ConfigType<typeof authConfig>) => [

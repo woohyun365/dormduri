@@ -26,7 +26,6 @@ describe('AuthVerificationService', () => {
   };
 
   const authSettings: ConfigType<typeof authConfig> = {
-    jwtSecret: 'local-jwt-secret',
     verificationCodeHmacSecret: DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
     codeRequestCooldownSeconds: 5,
     codeRequestBackstopWindowSeconds: 600,
