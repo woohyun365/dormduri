@@ -13,7 +13,8 @@ describe('auth BFF post route helpers', () => {
         JSON.stringify({
           success: true,
           accessToken: 'rotated-access-token',
-          rememberMe: false,
+          renewalToken: 'rotated-renewal-token',
+          rememberMe: true,
         }),
         {
           status: 200,
@@ -62,7 +63,10 @@ describe('auth BFF post route helpers', () => {
 
     const cookie = response.cookies.get('auth-token');
     expect(cookie?.value).toBe('rotated-access-token');
-    expect(cookie?.maxAge).toBeUndefined();
+    expect(cookie?.maxAge).toBe(60 * 60 * 24 * 7);
+    const renewalCookie = response.cookies.get('auth-renewal-token');
+    expect(renewalCookie?.value).toBe('rotated-renewal-token');
+    expect(renewalCookie?.maxAge).toBe(60 * 60 * 24 * 7);
   });
 
   it('authenticated post 실패 응답은 upstream token-like fields를 노출하거나 cookie를 회전하지 않는다', async () => {
@@ -73,6 +77,7 @@ describe('auth BFF post route helpers', () => {
           code: 'AUTH_CURRENT_PASSWORD_INVALID',
           error: '현재 비밀번호가 올바르지 않습니다.',
           accessToken: 'must-not-leak',
+          renewalToken: 'must-not-leak',
           rememberMe: true,
         }),
         {

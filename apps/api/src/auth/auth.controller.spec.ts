@@ -39,6 +39,7 @@ describe('AuthController', () => {
     login: jest.fn(),
     resetPassword: jest.fn(),
     changePassword: jest.fn(),
+    renewSession: jest.fn(),
     logout: jest.fn(),
   };
 
@@ -178,6 +179,55 @@ describe('AuthController', () => {
       { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
       'OldPass1234',
       'NewPass1234',
+    );
+  });
+
+  it('renewSession route는 /auth/renew-session으로 노출되고 renewalToken만 service로 전달한다', async () => {
+    authService.renewSession.mockResolvedValue({
+      success: true,
+      accessToken: 'renewed-access-token',
+      renewalToken: 'next-renewal-token',
+      rememberMe: true,
+    });
+
+    const descriptor = Object.getOwnPropertyDescriptor(AuthController.prototype, 'renewSession') as
+      | TypedPropertyDescriptor<(body: unknown) => Promise<unknown>>
+      | undefined;
+    const handler = descriptor?.value;
+
+    if (!handler) {
+      throw new Error('Expected renewSession handler');
+    }
+
+    expect(Reflect.getMetadata(NEST_ROUTE_PATH_METADATA, handler)).toBe('renew-session');
+    expect(Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, handler)).toBe(RequestMethod.POST);
+
+    await expect(
+      controller.renewSession({
+        renewalToken: 'v1.session-1.renewal-token',
+      }),
+    ).resolves.toEqual({
+      success: true,
+      accessToken: 'renewed-access-token',
+      renewalToken: 'next-renewal-token',
+      rememberMe: true,
+    });
+
+    expect(authService.renewSession).toHaveBeenCalledWith('v1.session-1.renewal-token');
+  });
+
+  it('logout은 access token과 renewal token을 함께 revoke 후보로 전달한다', async () => {
+    authService.logout.mockResolvedValue({ success: true });
+
+    await expect(
+      controller.logout('Bearer current-access-token', {
+        renewalToken: 'v1.session-1.renewal-token',
+      }),
+    ).resolves.toEqual({ success: true });
+
+    expect(authService.logout).toHaveBeenCalledWith(
+      'current-access-token',
+      'v1.session-1.renewal-token',
     );
   });
 });

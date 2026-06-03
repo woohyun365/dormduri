@@ -8,6 +8,7 @@ export {
   signupRequestSchema,
   resetPasswordRequestSchema,
   changePasswordRequestSchema,
+  renewSessionRequestSchema,
 } from './auth-contract-requests.js';
 export type {
   EmailRequest,
@@ -17,4 +18,5 @@ export type {
   SignupRequest,
   ResetPasswordRequest,
   ChangePasswordRequest,
+  RenewSessionRequest,
 } from './auth-contract-requests.js';

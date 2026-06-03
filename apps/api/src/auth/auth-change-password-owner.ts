@@ -98,6 +98,7 @@ export async function changePassword(
   return {
     success: true,
     accessToken: authResult.accessToken,
+    ...(authResult.renewalToken ? { renewalToken: authResult.renewalToken } : {}),
     rememberMe,
   };
 }

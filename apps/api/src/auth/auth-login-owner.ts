@@ -71,5 +71,6 @@ export async function login(
       gender: user.gender,
       campus: user.campus,
     }),
+    { renewalToken: authResult.renewalToken, rememberMe },
   );
 }

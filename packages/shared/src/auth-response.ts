@@ -7,6 +7,7 @@ export {
   signupResponseSchema,
   resetPasswordResponseSchema,
   changePasswordResponseSchema,
+  renewSessionResponseSchema,
 } from './auth-response-auth.js';
 export type {
   LoginResponse,
@@ -14,6 +15,7 @@ export type {
   SignupResponse,
   ResetPasswordResponse,
   ChangePasswordResponse,
+  RenewSessionResponse,
   AuthenticatedSessionUser,
 } from './auth-response-auth.js';
 export {

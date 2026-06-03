@@ -44,9 +44,11 @@ import {
 } from '@repo/shared/account-identity-contract';
 import {
   changePasswordRequestSchema,
+  renewSessionRequestSchema,
   signupDraftValidationRequestSchema,
   signupRequestSchema,
 } from '@repo/shared/auth-contract';
+import { renewSessionResponseSchema } from '@repo/shared/auth-response';
 import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match-contract';
 import {
   isLocalDateString,
@@ -442,6 +444,34 @@ describe('shared reference contracts', () => {
         newPassword: 'NewPass1234',
       }).success,
     ).toBe(false);
+  });
+
+  it('auth renew session contract는 renewalToken rotation transport만 받는다', () => {
+    expect(
+      renewSessionRequestSchema.parse({
+        renewalToken: 'v1.session-1.renewal-token',
+      }),
+    ).toEqual({
+      renewalToken: 'v1.session-1.renewal-token',
+    });
+
+    expect(
+      renewSessionRequestSchema.safeParse({
+        accessToken: 'short-access-jwt',
+      }).success,
+    ).toBe(false);
+
+    expect(
+      renewSessionResponseSchema.parse({
+        success: true,
+        accessToken: 'renewed-access-token',
+        renewalToken: 'next-renewal-token',
+        rememberMe: true,
+      }),
+    ).toMatchObject({
+      success: true,
+      rememberMe: true,
+    });
   });
 
   it('current-user contract는 registration 준비 UI의 display/academic identity 표시 source를 표현한다', () => {

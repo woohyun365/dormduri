@@ -4,6 +4,8 @@ import { genericErrorResponseSchema } from './auth-response-base.js';
 
 export const loginResponseSchema = genericErrorResponseSchema.extend({
   accessToken: z.string().optional(),
+  renewalToken: z.string().optional(),
+  rememberMe: z.boolean().optional(),
   user: authenticatedSessionUserSchema.optional(),
   locked: z.boolean().optional(),
   remainingSeconds: z.number().int().nonnegative().optional(),
@@ -16,6 +18,12 @@ export const signupResponseSchema = genericErrorResponseSchema.extend({
 export const resetPasswordResponseSchema = genericErrorResponseSchema;
 export const changePasswordResponseSchema = genericErrorResponseSchema.extend({
   accessToken: z.string().optional(),
+  renewalToken: z.string().optional(),
+  rememberMe: z.boolean().optional(),
+});
+export const renewSessionResponseSchema = genericErrorResponseSchema.extend({
+  accessToken: z.string().optional(),
+  renewalToken: z.string().optional(),
   rememberMe: z.boolean().optional(),
 });
 
@@ -24,4 +32,5 @@ export type VerifyCodeResponse = z.infer<typeof verifyCodeResponseSchema>;
 export type SignupResponse = z.infer<typeof signupResponseSchema>;
 export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
 export type ChangePasswordResponse = z.infer<typeof changePasswordResponseSchema>;
+export type RenewSessionResponse = z.infer<typeof renewSessionResponseSchema>;
 export type { AuthenticatedSessionUser };

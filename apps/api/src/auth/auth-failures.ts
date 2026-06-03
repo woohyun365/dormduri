@@ -129,4 +129,20 @@ export const authFailures = {
       userActionable: true,
     });
   },
+
+  sessionRenewalRequired() {
+    return createFailure('AUTH_SESSION_RENEWAL_REQUIRED', '다시 로그인한 뒤 시도해주세요.', {
+      userActionable: true,
+    });
+  },
+
+  sessionRenewalReused() {
+    return createFailure(
+      'AUTH_SESSION_RENEWAL_REUSED',
+      '세션 보안을 위해 모든 로그인 상태를 종료했습니다. 다시 로그인해주세요.',
+      {
+        userActionable: true,
+      },
+    );
+  },
 };

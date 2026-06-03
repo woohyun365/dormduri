@@ -3,6 +3,7 @@ import type {
   GenericSuccessResult,
   ChangePasswordResult,
   LoginResult,
+  RenewSessionResult,
   SessionStatusResult,
   SignupInput,
 } from './auth.types.js';
@@ -143,7 +144,14 @@ export class AuthService {
     );
   }
 
-  async logout(token: string | null): Promise<GenericSuccessResult> {
-    return this.sessionService.logout(token);
+  async renewSession(renewalToken: string | null): Promise<RenewSessionResult> {
+    return this.sessionService.renewSession(renewalToken);
+  }
+
+  async logout(
+    token: string | null,
+    renewalToken: string | null = null,
+  ): Promise<GenericSuccessResult> {
+    return this.sessionService.logout(token, renewalToken);
   }
 }

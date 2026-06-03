@@ -6,6 +6,7 @@ import {
   changePasswordRequestSchema,
   emailRequestSchema,
   loginRequestSchema,
+  renewSessionRequestSchema,
   resetPasswordRequestSchema,
   signupDraftValidationRequestSchema,
   signupRequestSchema,
@@ -90,10 +91,25 @@ export class AuthController {
     return this.authService.changePassword(authUser, parsed.currentPassword, parsed.newPassword);
   }
 
+  @Post('renew-session')
+  @HttpCode(200)
+  async renewSession(@Body() body: unknown) {
+    const parsed = parseRequestBody(renewSessionRequestSchema, body);
+    return this.authService.renewSession(parsed.renewalToken);
+  }
+
   @Post('logout')
   @HttpCode(200)
-  async logout(@Headers('authorization') authorization?: string) {
+  async logout(@Headers('authorization') authorization?: string, @Body() body?: unknown) {
     const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
-    return this.authService.logout(token);
+    const renewalToken =
+      typeof body === 'object' &&
+      body !== null &&
+      'renewalToken' in body &&
+      typeof body.renewalToken === 'string'
+        ? body.renewalToken
+        : null;
+
+    return this.authService.logout(token, renewalToken);
   }
 }

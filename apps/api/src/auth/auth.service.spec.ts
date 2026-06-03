@@ -36,6 +36,7 @@ describe('AuthService orchestration', () => {
   const sessionService = {
     getSession: jest.fn(),
     issueAuthResult: jest.fn(),
+    renewSession: jest.fn(),
     logout: jest.fn(),
   };
 
@@ -710,20 +711,36 @@ describe('AuthService orchestration', () => {
     });
 
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
-    expect(prisma.authSession.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          id: 'session-1',
-          userId: 'user-1',
-          revokedAt: null,
-        }),
-        select: { rememberMe: true },
-      }),
-    );
-    expect(prisma.authSession.updateMany).toHaveBeenCalledWith({
-      where: { userId: 'user-1', revokedAt: null },
-      data: { revokedAt: expect.any(Date) },
+    const [findCurrentSessionCall] = prisma.authSession.findFirst.mock.calls as Array<
+      [
+        {
+          where: {
+            id: string;
+            userId: string;
+            revokedAt: null;
+            expiresAt: { gt: Date };
+          };
+          select: { rememberMe: true };
+        },
+      ]
+    >;
+    expect(findCurrentSessionCall?.[0].where).toMatchObject({
+      id: 'session-1',
+      userId: 'user-1',
+      revokedAt: null,
     });
+    expect(findCurrentSessionCall?.[0].select).toEqual({ rememberMe: true });
+
+    const [revokeSessionsCall] = prisma.authSession.updateMany.mock.calls as Array<
+      [
+        {
+          where: { userId: string; revokedAt: null };
+          data: { revokedAt: Date };
+        },
+      ]
+    >;
+    expect(revokeSessionsCall?.[0].where).toEqual({ userId: 'user-1', revokedAt: null });
+    expect(revokeSessionsCall?.[0].data.revokedAt).toBeInstanceOf(Date);
     expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
       'user-1',
       'test@kangwon.ac.kr',
@@ -842,5 +859,36 @@ describe('AuthService orchestration', () => {
 
     expect(prisma.user.update).not.toHaveBeenCalled();
     expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('renewSession은 session service renewal primitive로 위임한다', async () => {
+    sessionService.renewSession.mockResolvedValue({
+      success: true,
+      accessToken: 'renewed-access-token',
+      renewalToken: 'next-renewal-token',
+      rememberMe: true,
+    });
+
+    await expect(service.renewSession('v1.session-1.renewal-token')).resolves.toEqual({
+      success: true,
+      accessToken: 'renewed-access-token',
+      renewalToken: 'next-renewal-token',
+      rememberMe: true,
+    });
+
+    expect(sessionService.renewSession).toHaveBeenCalledWith('v1.session-1.renewal-token');
+  });
+
+  it('logout은 access token과 renewal token을 session service에 함께 전달한다', async () => {
+    sessionService.logout.mockResolvedValue({ success: true });
+
+    await expect(service.logout('access-token', 'v1.session-1.renewal-token')).resolves.toEqual({
+      success: true,
+    });
+
+    expect(sessionService.logout).toHaveBeenCalledWith(
+      'access-token',
+      'v1.session-1.renewal-token',
+    );
   });
 });

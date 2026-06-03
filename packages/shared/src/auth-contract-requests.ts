@@ -49,6 +49,10 @@ export const changePasswordRequestSchema = z.strictObject({
   newPassword: passwordSchema,
 });
 
+export const renewSessionRequestSchema = z.strictObject({
+  renewalToken: z.string().min(1),
+});
+
 export type EmailRequest = z.infer<typeof emailRequestSchema>;
 export type VerificationCodeRequest = z.infer<typeof verificationCodeRequestSchema>;
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
@@ -56,3 +60,4 @@ export type SignupDraftValidationRequest = z.infer<typeof signupDraftValidationR
 export type SignupRequest = z.infer<typeof signupRequestSchema>;
 export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
 export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
+export type RenewSessionRequest = z.infer<typeof renewSessionRequestSchema>;

@@ -1,5 +1,11 @@
 import type { NextRequest } from 'next/server';
-import { buildJsonResponse, forwardAuthRequest, getForwardHeaders, setAuthCookie } from './_shared';
+import {
+  buildJsonResponse,
+  forwardAuthRequest,
+  getAuthTokenCookie,
+  getForwardHeaders,
+  setAuthTransportCookies,
+} from './_shared';
 
 export function createForwardPostHandler<TBody extends Record<string, unknown>>(path: string) {
   return async function POST(request: NextRequest) {
@@ -18,7 +24,7 @@ export function createAuthenticatedForwardPostHandler<TBody extends Record<strin
 ) {
   return async function POST(request: NextRequest) {
     const body = (await request.json()) as TBody;
-    const token = request.cookies.get('auth-token')?.value;
+    const token = getAuthTokenCookie(request);
     const { response, json } = await forwardAuthRequest('POST', path, body, {
       headers: getForwardHeaders(request, token ? { Authorization: `Bearer ${token}` } : undefined),
     });
@@ -26,6 +32,7 @@ export function createAuthenticatedForwardPostHandler<TBody extends Record<strin
     const nextResponse = buildJsonResponse(response, {
       ...json,
       accessToken: undefined,
+      renewalToken: undefined,
       rememberMe: undefined,
     });
 
@@ -34,7 +41,11 @@ export function createAuthenticatedForwardPostHandler<TBody extends Record<strin
       json.success === true &&
       typeof json.accessToken === 'string'
     ) {
-      setAuthCookie(nextResponse, json.accessToken, json.rememberMe === true);
+      setAuthTransportCookies(nextResponse, {
+        accessToken: json.accessToken,
+        rememberMe: json.rememberMe === true,
+        renewalToken: typeof json.renewalToken === 'string' ? json.renewalToken : undefined,
+      });
     }
 
     return nextResponse;
