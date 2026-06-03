@@ -1,22 +1,22 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import {
   roommateSearchManifestQuerySchema,
   roommateSearchQuerySchema,
 } from '@repo/shared/roommate-search-contract';
-import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
-import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
+import { RequireCapability } from '../auth/auth-access.decorator.js';
+import { CurrentUser } from '../auth/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { parseQueryObject } from '../common/http/zod-request.js';
 import { RoommateSearchService } from './roommate-search.service.js';
 
 @Controller('api/roommate-search')
-@UseGuards(AuthenticatedUserGuard)
+@RequireCapability()
 export class RoommateSearchController {
   constructor(private readonly roommateSearchService: RoommateSearchService) {}
 
   @Get('manifest')
   async getManifest(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Query() query: Record<string, unknown>,
   ) {
     const parsed = parseQueryObject(roommateSearchManifestQuerySchema, query, {
@@ -28,7 +28,7 @@ export class RoommateSearchController {
 
   @Get()
   async search(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Query() query: Record<string, unknown>,
   ) {
     const parsed = parseQueryObject(roommateSearchQuerySchema, query, {

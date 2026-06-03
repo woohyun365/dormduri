@@ -18,12 +18,23 @@ import { toAuthenticatedSessionResult } from './auth-response.builder.js';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
 import { hasUserDisplayIdentity } from '../common/account-identity-invariant.owner.js';
 import { authFailures } from './auth-failures.js';
+import { SELF_SERVICE_AUTH_CAPABILITIES, type AuthCapability } from './auth-capability.js';
 
 export interface AuthenticatedUserContext {
   id: string;
   sessionId?: string;
   gender: Gender;
   campus: Campus;
+  actorType?: 'USER';
+  actorId?: string;
+  capabilities?: readonly AuthCapability[];
+}
+
+export interface ResolvedAuthActorContext extends AuthenticatedUserContext {
+  sessionId: string;
+  actorType: 'USER';
+  actorId: string;
+  capabilities: readonly AuthCapability[];
 }
 
 interface AuthenticatedSessionRef {
@@ -98,7 +109,7 @@ export class AuthSessionService {
     return toAuthenticatedSessionResult(this.toSessionUserSummary(session));
   }
 
-  async resolveCurrentUserContext(token: string | null): Promise<AuthenticatedUserContext | null> {
+  async resolveCurrentUserContext(token: string | null): Promise<ResolvedAuthActorContext | null> {
     const session = await this.resolveAuthenticatedSession(token);
     if (!session) {
       return null;
@@ -109,6 +120,9 @@ export class AuthSessionService {
       sessionId: session.sessionId,
       gender: session.user.gender,
       campus: session.user.campus,
+      actorType: 'USER',
+      actorId: session.user.id,
+      capabilities: SELF_SERVICE_AUTH_CAPABILITIES,
     };
   }
 

@@ -48,6 +48,10 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    {
+      provide: APP_GUARD,
+      useClass: AuthenticatedUserGuard,
+    },
   ],
   exports: [AuthService, AuthSessionService, AuthenticatedUserGuard],
 })

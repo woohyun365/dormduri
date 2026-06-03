@@ -8,7 +8,6 @@ import {
   Post,
   Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import type { LeaveConversationThreadResponse } from '@repo/shared/chat-contract';
@@ -16,8 +15,8 @@ import {
   sendConversationMessageRequestSchema,
   updateChatReadMarkerRequestSchema,
 } from '@repo/shared/chat-contract';
-import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
-import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
+import { RequireCapability } from '../auth/auth-access.decorator.js';
+import { CurrentUser } from '../auth/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { unauthorizedError } from '../common/http/api-error.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
@@ -66,7 +65,7 @@ function parseThreadListLimit(rawLimit: string | undefined): number | undefined 
 }
 
 @Controller('api/chat')
-@UseGuards(AuthenticatedUserGuard)
+@RequireCapability()
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
@@ -77,7 +76,7 @@ export class ChatController {
 
   @Get('threads')
   async getThreads(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
@@ -88,13 +87,13 @@ export class ChatController {
   }
 
   @Get('conversation-stats')
-  async getConversationStats(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+  async getConversationStats(@CurrentUser() authUser: AuthenticatedUserContext) {
     return this.chatService.getConversationStats(authUser);
   }
 
   @Get('threads/with/:targetUserId')
   async getThreadEntry(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('targetUserId') targetUserId: string,
   ) {
     return this.chatService.getThreadEntry(authUser, targetUserId);
@@ -102,7 +101,7 @@ export class ChatController {
 
   @Get('threads/:threadId')
   async getThreadDetail(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
   ) {
     return this.chatService.getThreadDetail(authUser, threadId);
@@ -110,7 +109,7 @@ export class ChatController {
 
   @Get('realtime/replay')
   async replayRealtimeEvents(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Query('after') after?: string,
     @Query('limit') limit?: string,
   ) {
@@ -127,7 +126,7 @@ export class ChatController {
 
   @Post('realtime/tickets')
   async issueRealtimeTicket(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Headers('authorization') authorization?: string,
     @Req() request?: Request,
   ) {
@@ -151,7 +150,7 @@ export class ChatController {
 
   @Post('threads/:threadId/leave')
   async leaveThread(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
   ): Promise<LeaveConversationThreadResponse> {
     return this.chatService.leaveThread(authUser, threadId);
@@ -159,7 +158,7 @@ export class ChatController {
 
   @Post('threads/:threadId/read-marker')
   async updateReadMarker(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
     @Body() body: unknown,
   ) {
@@ -168,10 +167,7 @@ export class ChatController {
   }
 
   @Post('messages')
-  async sendMessage(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
-    @Body() body: unknown,
-  ) {
+  async sendMessage(@CurrentUser() authUser: AuthenticatedUserContext, @Body() body: unknown) {
     const parsed = parseRequestBody(sendConversationMessageRequestSchema, body);
     const rateLimit = this.rateLimiter.consumeMessageSend({
       userId: authUser.id,

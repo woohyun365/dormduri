@@ -4,8 +4,10 @@ import {
   type HealthStatusResponse,
   type RealtimeOperationsStatusResponse,
 } from './health.service.js';
+import { Public } from '../auth/auth-access.decorator.js';
 
 @Controller('health')
+@Public()
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 

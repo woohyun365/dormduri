@@ -1,18 +1,18 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
-import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
+import { Controller, Get, Param, Query } from '@nestjs/common';
+import { RequireCapability } from '../auth/auth-access.decorator.js';
+import { CurrentUser } from '../auth/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { profilesErrors } from './profiles.errors.js';
 import { ProfilesService } from './profiles.service.js';
 
 @Controller('api/profiles')
-@UseGuards(AuthenticatedUserGuard)
+@RequireCapability()
 export class ProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
   @Get(':userId')
   async getProfileByUserId(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('userId') userId: string,
     @Query('detailEntryToken') detailEntryToken: unknown,
   ) {

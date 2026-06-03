@@ -1,10 +1,12 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { campusSchema } from '@repo/shared/identity-contract';
+import { Public } from '../auth/auth-access.decorator.js';
 import { SeasonsService } from './seasons.service.js';
 import { parseQueryValue } from '../common/http/zod-request.js';
 import { seasonsErrors } from './seasons.errors.js';
 
 @Controller('api/seasons')
+@Public()
 export class SeasonsController {
   constructor(private readonly seasonsService: SeasonsService) {}
 

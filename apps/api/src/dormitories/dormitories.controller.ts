@@ -1,9 +1,11 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { campusSchema, genderSchema } from '@repo/shared/identity-contract';
 import { DormitoriesService } from './dormitories.service.js';
+import { Public } from '../auth/auth-access.decorator.js';
 import { parseOptionalQueryValue, parseQueryValue } from '../common/http/zod-request.js';
 
 @Controller('api/dormitories')
+@Public()
 export class DormitoriesController {
   constructor(private readonly dormitoriesService: DormitoriesService) {}
 

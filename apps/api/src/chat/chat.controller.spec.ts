@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
+import { AUTH_ACCESS_METADATA_KEY } from '../auth/auth-access.decorator.js';
 import { ChatController } from './chat.controller.js';
 
 function getBadRequestResponse(error: unknown) {
@@ -83,10 +83,8 @@ describe('ChatController', () => {
     rateLimiter.resolveRequestIp.mockReturnValue('203.0.113.20');
   });
 
-  it('controller class는 AuthenticatedUserGuard로 보호된다', () => {
-    const guards = Reflect.getMetadata('__guards__', ChatController) as Array<unknown> | undefined;
-    expect(guards).toBeDefined();
-    expect(guards).toContain(AuthenticatedUserGuard);
+  it('controller class는 protected auth metadata로 보호된다', () => {
+    expect(Reflect.getMetadata(AUTH_ACCESS_METADATA_KEY, ChatController)).toBe('protected');
   });
 
   it('thread list query는 bounded limit/cursor로 service에 전달한다', async () => {

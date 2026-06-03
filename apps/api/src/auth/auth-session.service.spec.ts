@@ -390,6 +390,14 @@ describe('AuthSessionService', () => {
     expect(prisma.authSession.findUnique).not.toHaveBeenCalled();
   });
 
+  it('old JWT-like token은 actor context resolve에서도 session row를 조회하지 않는다', async () => {
+    await expect(
+      service.resolveCurrentUserContext('eyJhbGciOiJIUzI1NiJ9.payload.signature'),
+    ).resolves.toBeNull();
+
+    expect(prisma.authSession.findUnique).not.toHaveBeenCalled();
+  });
+
   it.each([
     [
       'revoked',
@@ -456,6 +464,49 @@ describe('AuthSessionService', () => {
     });
   });
 
+  it.each([
+    [
+      'revoked',
+      {
+        sessionTokenExpiresAt: new Date('2099-04-30T00:00:00.000Z'),
+        expiresAt: new Date('2099-04-30T00:00:00.000Z'),
+        revokedAt: new Date('2026-04-22T00:00:00.000Z'),
+        user: activeSessionUser,
+      },
+    ],
+    [
+      'access-token-expired',
+      {
+        sessionTokenExpiresAt: new Date('2026-04-22T23:59:59.000Z'),
+        expiresAt: new Date('2099-04-30T00:00:00.000Z'),
+        revokedAt: null,
+        user: activeSessionUser,
+      },
+    ],
+    [
+      'deleted user',
+      {
+        sessionTokenExpiresAt: new Date('2099-04-30T00:00:00.000Z'),
+        expiresAt: new Date('2099-04-30T00:00:00.000Z'),
+        revokedAt: null,
+        user: {
+          ...activeSessionUser,
+          deletedAt: new Date('2026-05-12T00:00:00.000Z'),
+        },
+      },
+    ],
+  ])('actor context resolve는 %s 상태를 fail-closed 처리한다', async (_label, state) => {
+    prisma.authSession.findUnique.mockResolvedValue({
+      id: 'session-1',
+      userId: 'user-1',
+      ...state,
+    });
+
+    await expect(
+      service.resolveCurrentUserContext(makeOpaqueToken('session-1')),
+    ).resolves.toBeNull();
+  });
+
   it('display identity가 없는 사용자는 유효한 opaque token이 있어도 세션 인증에서 제외한다', async () => {
     prisma.authSession.findUnique.mockResolvedValue({
       id: 'session-missing-identity',
@@ -488,9 +539,17 @@ describe('AuthSessionService', () => {
 
     await expect(service.resolveCurrentUserContext(makeOpaqueToken('session-1'))).resolves.toEqual({
       id: 'user-1',
+      actorType: 'USER',
+      actorId: 'user-1',
       sessionId: 'session-1',
       gender: 'M',
       campus: 'CHUNCHEON',
+      capabilities: [
+        'user:read:self',
+        'user:update:self',
+        'auth:session:revoke:self',
+        'auth:password:change:self',
+      ],
     });
   });
 

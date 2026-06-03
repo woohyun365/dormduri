@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Post, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
@@ -13,11 +13,13 @@ import {
   verificationCodeRequestSchema,
 } from '@repo/shared/auth-contract';
 import { parseRequestBody } from '../common/http/zod-request.js';
-import { AuthenticatedUser } from './authenticated-user.decorator.js';
-import { AuthenticatedUserGuard } from './authenticated-user.guard.js';
+import { OptionalAuth, Public, RequireCapability } from './auth-access.decorator.js';
+import { AUTH_CAPABILITIES } from './auth-capability.js';
+import { CurrentUser } from './authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from './auth-session.service.js';
 
 @Controller('auth')
+@Public()
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -48,6 +50,7 @@ export class AuthController {
   }
 
   @Get('session')
+  @OptionalAuth()
   @HttpCode(200)
   async session(@Headers('authorization') authorization?: string) {
     const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
@@ -81,12 +84,9 @@ export class AuthController {
   }
 
   @Post('change-password')
-  @UseGuards(AuthenticatedUserGuard)
+  @RequireCapability(AUTH_CAPABILITIES.AUTH_PASSWORD_CHANGE_SELF)
   @HttpCode(200)
-  async changePassword(
-    @Body() body: unknown,
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
-  ) {
+  async changePassword(@Body() body: unknown, @CurrentUser() authUser: AuthenticatedUserContext) {
     const parsed = parseRequestBody(changePasswordRequestSchema, body);
     return this.authService.changePassword(authUser, parsed.currentPassword, parsed.newPassword);
   }
@@ -99,6 +99,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @OptionalAuth()
   @HttpCode(200)
   async logout(@Headers('authorization') authorization?: string, @Body() body?: unknown) {
     const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;

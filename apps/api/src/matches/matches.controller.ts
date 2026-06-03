@@ -1,33 +1,30 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { createMatchRequestSchema } from '@repo/shared/match-contract';
-import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
-import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
+import { RequireCapability } from '../auth/auth-access.decorator.js';
+import { CurrentUser } from '../auth/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
 import { MatchesService } from './matches.service.js';
 
 @Controller('api/matches')
-@UseGuards(AuthenticatedUserGuard)
+@RequireCapability()
 export class MatchesController {
   constructor(private readonly matchesService: MatchesService) {}
 
   @Get('requests')
-  async getRequests(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+  async getRequests(@CurrentUser() authUser: AuthenticatedUserContext) {
     return this.matchesService.listCurrentSeasonRequests(authUser);
   }
 
   @Post('requests')
-  async createRequest(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
-    @Body() body: unknown,
-  ) {
+  async createRequest(@CurrentUser() authUser: AuthenticatedUserContext, @Body() body: unknown) {
     const parsed = parseRequestBody(createMatchRequestSchema, body);
     return this.matchesService.createMatchRequest(authUser, parsed);
   }
 
   @Post('requests/:id/accept')
   async acceptRequest(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('id') requestId: string,
   ) {
     return this.matchesService.acceptMatchRequest(authUser, requestId);
@@ -35,7 +32,7 @@ export class MatchesController {
 
   @Post('requests/:id/reject')
   async rejectRequest(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('id') requestId: string,
   ) {
     return this.matchesService.rejectMatchRequest(authUser, requestId);
@@ -43,25 +40,25 @@ export class MatchesController {
 
   @Post('requests/:id/cancel')
   async cancelRequest(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('id') requestId: string,
   ) {
     return this.matchesService.cancelMatchRequest(authUser, requestId);
   }
 
   @Get('active')
-  async getActiveMatch(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+  async getActiveMatch(@CurrentUser() authUser: AuthenticatedUserContext) {
     return this.matchesService.getCurrentActiveMatch(authUser);
   }
 
   @Get('history')
-  async getHistory(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+  async getHistory(@CurrentUser() authUser: AuthenticatedUserContext) {
     return this.matchesService.getMatchHistory(authUser);
   }
 
   @Get('history/entries/:entryId/counterpart-profile')
   async getHistoryCounterpartProfile(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('entryId') entryId: string,
   ) {
     return this.matchesService.getMatchHistoryCounterpartProfile(authUser, entryId);
@@ -69,7 +66,7 @@ export class MatchesController {
 
   @Post('active/:id/unmatch-request')
   async requestUnmatch(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('id') activeMatchId: string,
   ) {
     return this.matchesService.requestUnmatch(authUser, activeMatchId);
@@ -77,7 +74,7 @@ export class MatchesController {
 
   @Post('active/:id/unmatch-request/cancel')
   async cancelUnmatchRequest(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('id') activeMatchId: string,
   ) {
     return this.matchesService.cancelUnmatchRequest(authUser, activeMatchId);
