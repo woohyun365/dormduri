@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AuthSessionService } from './auth-session.service.js';
+import type { AuthSecurityEventInput } from './auth-security-event.types.js';
 
 function hashTokenForTest(token: string) {
   return createHash('sha256').update(token).digest('hex');
@@ -31,8 +32,11 @@ describe('AuthSessionService', () => {
     getDatabaseNow: jest.fn(),
     runSerializableTransaction: jest.fn(),
   };
+  const securityEvents = {
+    recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+  };
 
-  const service = new AuthSessionService(prisma as never);
+  const service = new AuthSessionService(prisma as never, securityEvents as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -198,6 +202,13 @@ describe('AuthSessionService', () => {
     expect(rotationCall[0].data.sessionTokenExpiresAt).toEqual(
       new Date('2026-04-23T00:15:00.000Z'),
     );
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SESSION_REFRESH_SUCCESS',
+        sessionId: 'session-1',
+        metadata: { rememberMe: true },
+      }),
+    );
   });
 
   it('renewSession old token reuse는 token family를 revoke하고 재로그인을 요구한다', async () => {
@@ -232,6 +243,17 @@ describe('AuthSessionService', () => {
         revokedAt: new Date('2026-04-23T00:00:00.000Z'),
       },
     });
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SESSION_TOKEN_REUSE_DETECTED',
+        severity: 'WARNING',
+        sessionId: 'session-1',
+        metadata: {
+          metricName: 'auth.session.token_reuse',
+          tokenKind: 'renewal',
+        },
+      }),
+    );
   });
 
   it('renewSession rotation race는 logout/reset/delete revoke가 먼저 반영되면 fail-closed 처리한다', async () => {
@@ -351,6 +373,16 @@ describe('AuthSessionService', () => {
 
     expect(prisma.runSerializableTransaction).not.toHaveBeenCalled();
     expect(prisma.authSession.findUnique).not.toHaveBeenCalled();
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'OPAQUE_TRANSPORT_REJECTED',
+        severity: 'WARNING',
+        metadata: {
+          tokenKind: 'renewal',
+          reason: 'malformed_or_legacy',
+        },
+      }),
+    );
   });
 
   it('유효한 opaque token이면 현재 사용자 세션을 조회한다', async () => {
@@ -388,6 +420,15 @@ describe('AuthSessionService', () => {
     });
 
     expect(prisma.authSession.findUnique).not.toHaveBeenCalled();
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'OPAQUE_TRANSPORT_REJECTED',
+        metadata: {
+          tokenKind: 'access',
+          reason: 'malformed_or_legacy',
+        },
+      }),
+    );
   });
 
   it('old JWT-like token은 actor context resolve에서도 session row를 조회하지 않는다', async () => {
@@ -573,6 +614,13 @@ describe('AuthSessionService', () => {
         revokedAt: new Date('2026-04-23T00:00:00.000Z'),
       },
     });
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SESSION_REVOKED',
+        sessionId: 'session-1',
+        metadata: { reason: 'logout', revokedCount: 1 },
+      }),
+    );
   });
 
   it('logout은 forged opaque access token의 session id만 믿고 revoke하지 않는다', async () => {

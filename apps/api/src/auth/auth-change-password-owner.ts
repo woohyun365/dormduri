@@ -4,6 +4,11 @@ import type { AuthenticatedUserContext, AuthSessionService } from './auth-sessio
 import { authFailures } from './auth-failures.js';
 import { hashPassword, verifyPasswordHash } from './auth-password.js';
 import { validatePasswordPolicy } from './auth.utils.js';
+import {
+  AuthSecurityEventService,
+  recordAuthSecurityEventSafely,
+} from './auth-security-event.service.js';
+import type { AuthRequestContext } from './auth-request-context.js';
 
 const CHANGE_PASSWORD_SESSION_UNAVAILABLE =
   '[AuthChangePasswordOwner] current authenticated session unavailable';
@@ -11,6 +16,7 @@ const CHANGE_PASSWORD_SESSION_UNAVAILABLE =
 interface AuthChangePasswordOwnerDeps {
   prisma: PrismaService;
   sessionService: Pick<AuthSessionService, 'issueAuthResult'>;
+  securityEvents?: AuthSecurityEventService;
 }
 
 export async function changePassword(
@@ -18,6 +24,7 @@ export async function changePassword(
   authUser: AuthenticatedUserContext,
   currentPassword: string,
   newPassword: string,
+  requestContext: AuthRequestContext = {},
 ): Promise<ChangePasswordResponse> {
   if (!authUser.sessionId) {
     return authFailures.reauthenticationRequired();
@@ -55,6 +62,7 @@ export async function changePassword(
   const passwordHash = await hashPassword(newPassword);
   const databaseNow = await deps.prisma.getDatabaseNow();
   let rememberMe = false;
+  let revokedSessionCount = 0;
 
   try {
     await deps.prisma.runSerializableTransaction(async (tx) => {
@@ -81,10 +89,11 @@ export async function changePassword(
         data: { passwordHash },
       });
 
-      await tx.authSession.updateMany({
+      const revokeResult = await tx.authSession.updateMany({
         where: { userId: user.id, revokedAt: null },
         data: { revokedAt: databaseNow },
       });
+      revokedSessionCount = revokeResult.count;
     });
   } catch (error) {
     if (error instanceof Error && error.message === CHANGE_PASSWORD_SESSION_UNAVAILABLE) {
@@ -95,6 +104,30 @@ export async function changePassword(
   }
 
   const authResult = await deps.sessionService.issueAuthResult(user.id, user.email, rememberMe);
+  await recordAuthSecurityEventSafely(deps.securityEvents, {
+    type: 'SESSION_REVOKE_ALL',
+    severity: 'INFO',
+    actorUserId: user.id,
+    targetUserId: user.id,
+    sessionId: authUser.sessionId,
+    emailNormalized: user.email,
+    requestIp: requestContext.requestIp,
+    userAgent: requestContext.userAgent,
+    metadata: {
+      reason: 'change_password',
+      revokedCount: revokedSessionCount,
+    },
+  });
+  await recordAuthSecurityEventSafely(deps.securityEvents, {
+    type: 'CHANGE_PASSWORD_SUCCESS',
+    severity: 'INFO',
+    actorUserId: user.id,
+    targetUserId: user.id,
+    sessionId: authResult.sessionId,
+    emailNormalized: user.email,
+    requestIp: requestContext.requestIp,
+    userAgent: requestContext.userAgent,
+  });
   return {
     success: true,
     accessToken: authResult.accessToken,

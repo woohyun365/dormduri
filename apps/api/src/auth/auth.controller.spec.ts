@@ -3,6 +3,11 @@ import { AuthController } from './auth.controller.js';
 
 const NEST_ROUTE_PATH_METADATA = 'path';
 const NEST_ROUTE_METHOD_METADATA = 'method';
+const request = {
+  ip: '127.0.0.1',
+  headers: { 'user-agent': 'jest-agent' },
+  get: (name: string) => (name.toLowerCase() === 'user-agent' ? 'jest-agent' : undefined),
+};
 
 function getBadRequestResponse(error: unknown) {
   expect(error).toBeInstanceOf(BadRequestException);
@@ -60,12 +65,14 @@ describe('AuthController', () => {
       expect(response.details?.some((detail) => detail.path === '')).toBe(true);
     }
 
-    await expect(controller.login(undefined)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.login(undefined, request as never)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('필드 누락 body는 fieldErrors를 포함한다', async () => {
     try {
-      await controller.login({});
+      await controller.login({}, request as never);
     } catch (error) {
       const response = getBadRequestResponse(error);
 
@@ -150,7 +157,9 @@ describe('AuthController', () => {
       AuthController.prototype,
       'changePassword',
     ) as
-      | TypedPropertyDescriptor<(body: unknown, authUser: unknown) => Promise<unknown>>
+      | TypedPropertyDescriptor<
+          (body: unknown, authUser: unknown, request: unknown) => Promise<unknown>
+        >
       | undefined;
     const handler = descriptor?.value;
 
@@ -168,6 +177,7 @@ describe('AuthController', () => {
           newPassword: 'NewPass1234',
         },
         { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
+        request as never,
       ),
     ).resolves.toEqual({
       success: true,
@@ -179,6 +189,7 @@ describe('AuthController', () => {
       { id: 'user-1', sessionId: 'session-1', gender: 'M', campus: 'CHUNCHEON' },
       'OldPass1234',
       'NewPass1234',
+      { requestIp: '127.0.0.1', userAgent: 'jest-agent' },
     );
   });
 
@@ -191,7 +202,7 @@ describe('AuthController', () => {
     });
 
     const descriptor = Object.getOwnPropertyDescriptor(AuthController.prototype, 'renewSession') as
-      | TypedPropertyDescriptor<(body: unknown) => Promise<unknown>>
+      | TypedPropertyDescriptor<(body: unknown, request: unknown) => Promise<unknown>>
       | undefined;
     const handler = descriptor?.value;
 
@@ -203,9 +214,12 @@ describe('AuthController', () => {
     expect(Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, handler)).toBe(RequestMethod.POST);
 
     await expect(
-      controller.renewSession({
-        renewalToken: 'v1.session-1.renewal-token',
-      }),
+      controller.renewSession(
+        {
+          renewalToken: 'v1.session-1.renewal-token',
+        },
+        request as never,
+      ),
     ).resolves.toEqual({
       success: true,
       accessToken: 'renewed-access-token',
@@ -213,21 +227,29 @@ describe('AuthController', () => {
       rememberMe: true,
     });
 
-    expect(authService.renewSession).toHaveBeenCalledWith('v1.session-1.renewal-token');
+    expect(authService.renewSession).toHaveBeenCalledWith('v1.session-1.renewal-token', {
+      requestIp: '127.0.0.1',
+      userAgent: 'jest-agent',
+    });
   });
 
   it('logout은 access token과 renewal token을 함께 revoke 후보로 전달한다', async () => {
     authService.logout.mockResolvedValue({ success: true });
 
     await expect(
-      controller.logout('Bearer current-access-token', {
-        renewalToken: 'v1.session-1.renewal-token',
-      }),
+      controller.logout(
+        'Bearer current-access-token',
+        {
+          renewalToken: 'v1.session-1.renewal-token',
+        },
+        request as never,
+      ),
     ).resolves.toEqual({ success: true });
 
     expect(authService.logout).toHaveBeenCalledWith(
       'current-access-token',
       'v1.session-1.renewal-token',
+      { requestIp: '127.0.0.1', userAgent: 'jest-agent' },
     );
   });
 });

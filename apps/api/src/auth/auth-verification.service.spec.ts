@@ -3,6 +3,7 @@ import { AuthVerificationService } from './auth-verification.service.js';
 import { VERIFICATION_CODE_MAX_ATTEMPTS } from './auth.constants.js';
 import { hashVerificationCode } from './auth.utils.js';
 import authConfig, { DEFAULT_VERIFICATION_CODE_HMAC_SECRET } from '../config/auth.config.js';
+import type { AuthSecurityEventInput } from './auth-security-event.types.js';
 
 describe('AuthVerificationService', () => {
   const verificationStore = {
@@ -27,6 +28,9 @@ describe('AuthVerificationService', () => {
     sendVerificationCode: jest.fn(),
     sendPasswordResetCode: jest.fn(),
   };
+  const securityEvents = {
+    recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+  };
 
   const authSettings: ConfigType<typeof authConfig> = {
     verificationCodeHmacSecret: DEFAULT_VERIFICATION_CODE_HMAC_SECRET,
@@ -40,6 +44,7 @@ describe('AuthVerificationService', () => {
     verificationStore as never,
     emailSender as never,
     authSettings,
+    securityEvents as never,
   );
 
   beforeEach(() => {
@@ -74,6 +79,17 @@ describe('AuthVerificationService', () => {
     );
     expect(emailSender.sendVerificationCode).toHaveBeenCalledWith(
       expect.objectContaining({ expiresInSeconds: 600 }),
+    );
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'VERIFICATION_CODE_REQUESTED',
+        emailNormalized: 'test@kangwon.ac.kr',
+        requestIp: '127.0.0.1',
+        metadata: {
+          purpose: 'SIGNUP',
+          metricName: 'auth.signup.code.request',
+        },
+      }),
     );
   });
 
@@ -171,6 +187,13 @@ describe('AuthVerificationService', () => {
       purpose: 'SIGNUP',
       maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
     });
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'VERIFICATION_CODE_VERIFY_SUCCESS',
+        emailNormalized: 'test@kangwon.ac.kr',
+        metadata: { purpose: 'SIGNUP' },
+      }),
+    );
   });
 
   it('잘못된 verification code는 failedAttempts를 증가시킨다', async () => {
@@ -198,6 +221,14 @@ describe('AuthVerificationService', () => {
     });
     expect(verificationStore.incrementFailedAttempts).not.toHaveBeenCalled();
     expect(verificationStore.failAndConsume).not.toHaveBeenCalled();
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'VERIFICATION_CODE_VERIFY_FAILURE',
+        severity: 'WARNING',
+        emailNormalized: 'test@kangwon.ac.kr',
+        metadata: { purpose: 'SIGNUP', reason: 'invalid_code' },
+      }),
+    );
   });
 
   it('잘못된 verification code가 최대 시도에 도달하면 즉시 consume한다', async () => {

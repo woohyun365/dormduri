@@ -141,6 +141,24 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE INDEX "AuthSession_userId_idx" ON "AuthSession"("userId")');
   });
 
+  it('auth security event baseline은 민감값 대신 hash dimension과 운영 조회 index를 포함한다', () => {
+    expect(sql).toContain('CREATE TYPE "AuthSecurityEventType"');
+    expect(sql).toContain('CREATE TYPE "AuthSecurityEventSeverity"');
+    expect(sql).toContain('CREATE TABLE "AuthSecurityEvent"');
+    expect(sql).toContain('"emailHash" TEXT');
+    expect(sql).toContain('"requestIpHash" TEXT');
+    expect(sql).toContain('"userAgentHash" TEXT');
+    expect(sql).toContain(
+      'CREATE INDEX "AuthSecurityEvent_type_createdAt_idx" ON "AuthSecurityEvent"("type", "createdAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "AuthSecurityEvent_emailHash_type_createdAt_idx" ON "AuthSecurityEvent"("emailHash", "type", "createdAt")',
+    );
+    expect(sql).not.toContain('"rawToken"');
+    expect(sql).not.toContain('"rawCode"');
+    expect(sql).not.toContain('"password" TEXT');
+  });
+
   it('academic identity allowance는 retained payload가 아니라 User cascade live state로 유지된다', () => {
     expect(sql).toContain('CREATE TABLE "UserAcademicIdentityChangeAllowance"');
     expect(sql).toContain(

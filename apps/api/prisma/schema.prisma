@@ -24,6 +24,30 @@ enum VerificationCodePurpose {
   RESET_PASSWORD
 }
 
+enum AuthSecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGIN_LOCKOUT
+  VERIFICATION_CODE_REQUESTED
+  VERIFICATION_CODE_VERIFY_SUCCESS
+  VERIFICATION_CODE_VERIFY_FAILURE
+  RESET_PASSWORD_CONSUMED
+  CHANGE_PASSWORD_SUCCESS
+  SESSION_REFRESH_SUCCESS
+  SESSION_REVOKED
+  SESSION_REVOKE_ALL
+  SESSION_TOKEN_REUSE_DETECTED
+  OPAQUE_TRANSPORT_REJECTED
+  MAIL_SEND_SUCCESS
+  MAIL_SEND_FAILURE
+}
+
+enum AuthSecurityEventSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
 enum ModerationTermCategory {
   BLOCKED_TEXT
   RESERVED_NICKNAME
@@ -1420,6 +1444,27 @@ model AuthSession {
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model AuthSecurityEvent {
+  id            String                    @id @default(uuid())
+  type          AuthSecurityEventType
+  severity      AuthSecurityEventSeverity @default(INFO)
+  actorUserId   String?
+  targetUserId  String?
+  sessionId     String?
+  emailHash     String?
+  requestIpHash String?
+  userAgentHash String?
+  metadata      Json?
+  createdAt     DateTime                  @default(now()) @db.Timestamptz(3)
+
+  @@index([type, createdAt])
+  @@index([severity, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([emailHash, type, createdAt])
+  @@index([sessionId, createdAt])
 }
 
 model ModerationTerm {

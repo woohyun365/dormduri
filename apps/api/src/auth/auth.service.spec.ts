@@ -1,5 +1,6 @@
 import { hash as argonHash } from '@node-rs/argon2';
 import { AuthService } from './auth.service.js';
+import type { AuthSecurityEventInput } from './auth-security-event.types.js';
 
 describe('AuthService orchestration', () => {
   const prisma = {
@@ -55,6 +56,11 @@ describe('AuthService orchestration', () => {
     validateDraft: jest.fn(),
   };
 
+  const securityEvents = {
+    record: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+    recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+  };
+
   const service = new AuthService(
     prisma as never,
     verificationService as never,
@@ -62,6 +68,7 @@ describe('AuthService orchestration', () => {
     loginAttemptService as never,
     moderationService as never,
     signupValidationService as never,
+    securityEvents as never,
   );
 
   beforeEach(() => {
@@ -358,6 +365,16 @@ describe('AuthService orchestration', () => {
       'test@kangwon.ac.kr',
       true,
     );
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'LOGIN_SUCCESS',
+        actorUserId: 'user-1',
+        targetUserId: 'user-1',
+        sessionId: 'session-1',
+        emailNormalized: 'test@kangwon.ac.kr',
+        metadata: { rememberMe: true },
+      }),
+    );
   });
 
   it('display identity가 없는 계정 login은 인증 성공으로 보지 않고 실패 횟수를 기록한다', async () => {
@@ -595,6 +612,20 @@ describe('AuthService orchestration', () => {
     }
     expect(revokeSessionsCall.where).toEqual({ userId: 'user-1', revokedAt: null });
     expect(revokeSessionsCall.data.revokedAt).toBeInstanceOf(Date);
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'RESET_PASSWORD_CONSUMED',
+        targetUserId: 'user-1',
+        emailNormalized: 'test@kangwon.ac.kr',
+      }),
+    );
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SESSION_REVOKE_ALL',
+        targetUserId: 'user-1',
+        metadata: { reason: 'reset_password', revokedCount: 1 },
+      }),
+    );
   });
 
   it('reset verification proof가 먼저 소비되면 resetRestartRequired를 반환한다', async () => {
@@ -728,6 +759,23 @@ describe('AuthService orchestration', () => {
       'user-1',
       'test@kangwon.ac.kr',
       true,
+    );
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'CHANGE_PASSWORD_SUCCESS',
+        actorUserId: 'user-1',
+        targetUserId: 'user-1',
+        sessionId: 'session-new',
+      }),
+    );
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'SESSION_REVOKE_ALL',
+        actorUserId: 'user-1',
+        targetUserId: 'user-1',
+        sessionId: 'session-1',
+        metadata: { reason: 'change_password', revokedCount: 2 },
+      }),
     );
   });
 

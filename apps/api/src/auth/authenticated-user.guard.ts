@@ -9,6 +9,7 @@ import {
 } from './auth-access.decorator.js';
 import type { AuthCapability } from './auth-capability.js';
 import { AuthSessionService, type ResolvedAuthActorContext } from './auth-session.service.js';
+import { hasAuthRequestContext, resolveAuthRequestContext } from './auth-request-context.js';
 
 export interface AuthenticatedRequest extends Request {
   authUser?: ResolvedAuthActorContext;
@@ -34,7 +35,10 @@ export class AuthenticatedUserGuard implements CanActivate {
       return true;
     }
 
-    const authUser = await this.authSessionService.resolveCurrentUserContext(token);
+    const requestContext = resolveAuthRequestContext(request);
+    const authUser = await (hasAuthRequestContext(requestContext)
+      ? this.authSessionService.resolveCurrentUserContext(token, requestContext)
+      : this.authSessionService.resolveCurrentUserContext(token));
 
     if (!authUser && accessMode === 'optional') {
       return true;

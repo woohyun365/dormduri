@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
@@ -19,6 +19,12 @@ import { toAuthSessionUserSummary } from './auth-user-view.js';
 import { hasUserDisplayIdentity } from '../common/account-identity-invariant.owner.js';
 import { authFailures } from './auth-failures.js';
 import { SELF_SERVICE_AUTH_CAPABILITIES, type AuthCapability } from './auth-capability.js';
+import type { AuthRequestContext } from './auth-request-context.js';
+import {
+  AuthSecurityEventService,
+  recordAuthSecurityEventSafely,
+} from './auth-security-event.service.js';
+import { AUTH_SECURITY_EVENT_METRICS } from './auth-security-event.types.js';
 
 export interface AuthenticatedUserContext {
   id: string;
@@ -98,10 +104,16 @@ function safeCompareTokenHash(expectedHash: string, actualHash: string) {
 
 @Injectable()
 export class AuthSessionService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly securityEvents?: AuthSecurityEventService,
+  ) {}
 
-  async getSession(token: string | null): Promise<SessionStatusResult> {
-    const session = await this.resolveAuthenticatedSession(token);
+  async getSession(
+    token: string | null,
+    requestContext: AuthRequestContext = {},
+  ): Promise<SessionStatusResult> {
+    const session = await this.resolveAuthenticatedSession(token, requestContext);
     if (!session) {
       return { authenticated: false };
     }
@@ -109,8 +121,11 @@ export class AuthSessionService {
     return toAuthenticatedSessionResult(this.toSessionUserSummary(session));
   }
 
-  async resolveCurrentUserContext(token: string | null): Promise<ResolvedAuthActorContext | null> {
-    const session = await this.resolveAuthenticatedSession(token);
+  async resolveCurrentUserContext(
+    token: string | null,
+    requestContext: AuthRequestContext = {},
+  ): Promise<ResolvedAuthActorContext | null> {
+    const session = await this.resolveAuthenticatedSession(token, requestContext);
     if (!session) {
       return null;
     }
@@ -160,9 +175,13 @@ export class AuthSessionService {
     };
   }
 
-  async renewSession(renewalToken: string | null): Promise<RenewSessionResult> {
+  async renewSession(
+    renewalToken: string | null,
+    requestContext: AuthRequestContext = {},
+  ): Promise<RenewSessionResult> {
     const parsedRenewalToken = parseOpaqueToken(renewalToken);
     if (!parsedRenewalToken) {
+      await this.recordOpaqueTransportRejected('renewal', 'malformed_or_legacy', requestContext);
       return authFailures.sessionRenewalRequired();
     }
 
@@ -252,8 +271,30 @@ export class AuthSessionService {
     }
 
     if (renewalAttempt.kind === 'reused') {
+      await recordAuthSecurityEventSafely(this.securityEvents, {
+        type: 'SESSION_TOKEN_REUSE_DETECTED',
+        severity: 'WARNING',
+        sessionId: parsedRenewalToken.sessionId,
+        requestIp: requestContext.requestIp,
+        userAgent: requestContext.userAgent,
+        metadata: {
+          metricName: AUTH_SECURITY_EVENT_METRICS.tokenReuse,
+          tokenKind: 'renewal',
+        },
+      });
       return authFailures.sessionRenewalReused();
     }
+
+    await recordAuthSecurityEventSafely(this.securityEvents, {
+      type: 'SESSION_REFRESH_SUCCESS',
+      severity: 'INFO',
+      sessionId: parsedRenewalToken.sessionId,
+      requestIp: requestContext.requestIp,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        rememberMe: true,
+      },
+    });
 
     return {
       success: true,
@@ -266,6 +307,7 @@ export class AuthSessionService {
   async logout(
     token: string | null,
     renewalToken: string | null = null,
+    requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
     const sessionIds = new Set<string>();
 
@@ -297,13 +339,24 @@ export class AuthSessionService {
     if (sessionIds.size > 0) {
       const revokedAt = await this.prisma.getDatabaseNow();
 
-      await this.prisma.authSession.updateMany({
+      const revokeResult = await this.prisma.authSession.updateMany({
         where: {
           id: { in: [...sessionIds] },
           revokedAt: null,
         },
         data: {
           revokedAt,
+        },
+      });
+      await recordAuthSecurityEventSafely(this.securityEvents, {
+        type: 'SESSION_REVOKED',
+        severity: 'INFO',
+        sessionId: sessionIds.size === 1 ? [...sessionIds][0] : undefined,
+        requestIp: requestContext.requestIp,
+        userAgent: requestContext.userAgent,
+        metadata: {
+          reason: 'logout',
+          revokedCount: revokeResult.count,
         },
       });
     }
@@ -323,9 +376,13 @@ export class AuthSessionService {
 
   private async resolveAuthenticatedSession(
     token: string | null,
+    requestContext: AuthRequestContext = {},
   ): Promise<AuthenticatedSessionRef | null> {
     const parsedAccessToken = parseOpaqueToken(token);
     if (!parsedAccessToken) {
+      if (token) {
+        await this.recordOpaqueTransportRejected('access', 'malformed_or_legacy', requestContext);
+      }
       return null;
     }
 
@@ -355,15 +412,16 @@ export class AuthSessionService {
       },
     });
 
-    if (
-      !session ||
-      session.revokedAt ||
-      !session.sessionTokenExpiresAt ||
-      session.sessionTokenExpiresAt <= new Date() ||
-      session.expiresAt <= new Date() ||
-      session.user.deletedAt ||
-      !hasUserDisplayIdentity(session.user)
-    ) {
+    const rejectedReason = this.resolveSessionRejectionReason(session);
+    if (rejectedReason) {
+      await this.recordOpaqueTransportRejected('access', rejectedReason, requestContext, {
+        sessionId: parsedAccessToken.sessionId,
+        targetUserId: session?.userId,
+      });
+      return null;
+    }
+
+    if (!session || !hasUserDisplayIdentity(session.user)) {
       return null;
     }
 
@@ -372,5 +430,66 @@ export class AuthSessionService {
       sessionId: session.id,
       user: session.user,
     };
+  }
+
+  private resolveSessionRejectionReason(
+    session: {
+      userId: string;
+      sessionTokenExpiresAt?: Date | null;
+      expiresAt: Date;
+      revokedAt: Date | null;
+      user: {
+        id: string;
+        email: string;
+        gender: Gender;
+        campus: Campus;
+        deletedAt: Date | null;
+        displayIdentity: AuthenticatedSessionRef['user']['displayIdentity'] | null;
+      };
+    } | null,
+  ) {
+    if (!session) {
+      return 'not_found';
+    }
+    if (session.revokedAt) {
+      return 'revoked';
+    }
+    if (!session.sessionTokenExpiresAt) {
+      return 'missing_token_expiry';
+    }
+    if (session.sessionTokenExpiresAt <= new Date()) {
+      return 'access_expired';
+    }
+    if (session.expiresAt <= new Date()) {
+      return 'session_expired';
+    }
+    if (session.user.deletedAt) {
+      return 'deleted_user';
+    }
+    if (!hasUserDisplayIdentity(session.user)) {
+      return 'account_identity_incomplete';
+    }
+
+    return null;
+  }
+
+  private async recordOpaqueTransportRejected(
+    tokenKind: 'access' | 'renewal',
+    reason: string,
+    requestContext: AuthRequestContext,
+    context: { sessionId?: string; targetUserId?: string } = {},
+  ) {
+    await recordAuthSecurityEventSafely(this.securityEvents, {
+      type: 'OPAQUE_TRANSPORT_REJECTED',
+      severity: 'WARNING',
+      targetUserId: context.targetUserId,
+      sessionId: context.sessionId,
+      requestIp: requestContext.requestIp,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        tokenKind,
+        reason,
+      },
+    });
   }
 }

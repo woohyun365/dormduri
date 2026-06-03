@@ -14,6 +14,12 @@ CREATE TYPE "Campus" AS ENUM ('CHUNCHEON', 'SAMCHEOK', 'DOGYE');
 CREATE TYPE "VerificationCodePurpose" AS ENUM ('SIGNUP', 'RESET_PASSWORD');
 
 -- CreateEnum
+CREATE TYPE "AuthSecurityEventType" AS ENUM ('LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGIN_LOCKOUT', 'VERIFICATION_CODE_REQUESTED', 'VERIFICATION_CODE_VERIFY_SUCCESS', 'VERIFICATION_CODE_VERIFY_FAILURE', 'RESET_PASSWORD_CONSUMED', 'CHANGE_PASSWORD_SUCCESS', 'SESSION_REFRESH_SUCCESS', 'SESSION_REVOKED', 'SESSION_REVOKE_ALL', 'SESSION_TOKEN_REUSE_DETECTED', 'OPAQUE_TRANSPORT_REJECTED', 'MAIL_SEND_SUCCESS', 'MAIL_SEND_FAILURE');
+
+-- CreateEnum
+CREATE TYPE "AuthSecurityEventSeverity" AS ENUM ('INFO', 'WARNING', 'CRITICAL');
+
+-- CreateEnum
 CREATE TYPE "ModerationTermCategory" AS ENUM ('BLOCKED_TEXT', 'RESERVED_NICKNAME');
 
 -- CreateEnum
@@ -1009,6 +1015,23 @@ CREATE TABLE "AuthSession" (
 );
 
 -- CreateTable
+CREATE TABLE "AuthSecurityEvent" (
+    "id" TEXT NOT NULL,
+    "type" "AuthSecurityEventType" NOT NULL,
+    "severity" "AuthSecurityEventSeverity" NOT NULL DEFAULT 'INFO',
+    "actorUserId" TEXT,
+    "targetUserId" TEXT,
+    "sessionId" TEXT,
+    "emailHash" TEXT,
+    "requestIpHash" TEXT,
+    "userAgentHash" TEXT,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AuthSecurityEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "ModerationTerm" (
     "id" TEXT NOT NULL,
     "term" TEXT NOT NULL,
@@ -1413,6 +1436,24 @@ CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("session
 
 -- CreateIndex
 CREATE INDEX "AuthSession_userId_idx" ON "AuthSession"("userId");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_type_createdAt_idx" ON "AuthSecurityEvent"("type", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_severity_createdAt_idx" ON "AuthSecurityEvent"("severity", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_actorUserId_createdAt_idx" ON "AuthSecurityEvent"("actorUserId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_targetUserId_createdAt_idx" ON "AuthSecurityEvent"("targetUserId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_emailHash_type_createdAt_idx" ON "AuthSecurityEvent"("emailHash", "type", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_sessionId_createdAt_idx" ON "AuthSecurityEvent"("sessionId", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "ModerationTerm_surface_category_isActive_idx" ON "ModerationTerm"("surface", "category", "isActive");

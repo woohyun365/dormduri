@@ -14,6 +14,8 @@ import { AuthVerificationService } from './auth-verification.service.js';
 import { AuthVerificationStore } from './auth-verification.store.js';
 import { AuthenticatedUserGuard } from './authenticated-user.guard.js';
 import { EMAIL_SENDER } from './email-sender.interface.js';
+import { AuthSecurityEventService } from './auth-security-event.service.js';
+import { MonitoredEmailSenderService } from './monitored-email-sender.service.js';
 import { StubEmailSenderService } from './stub-email-sender.service.js';
 
 @Module({
@@ -38,11 +40,13 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
     AuthSessionService,
     AuthSignupValidationService,
     AuthLoginAttemptService,
+    AuthSecurityEventService,
     AuthenticatedUserGuard,
     StubEmailSenderService,
+    MonitoredEmailSenderService,
     {
       provide: EMAIL_SENDER,
-      useExisting: StubEmailSenderService,
+      useExisting: MonitoredEmailSenderService,
     },
     {
       provide: APP_GUARD,

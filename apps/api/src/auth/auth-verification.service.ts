@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import type { VerificationCodePurpose } from '../generated/prisma/enums.js';
@@ -23,6 +23,12 @@ import authConfig from '../config/auth.config.js';
 import { AuthVerificationStore } from './auth-verification.store.js';
 import { authErrors } from './auth.errors.js';
 import { authFailures } from './auth-failures.js';
+import type { AuthRequestContext } from './auth-request-context.js';
+import {
+  AuthSecurityEventService,
+  recordAuthSecurityEventSafely,
+} from './auth-security-event.service.js';
+import { AUTH_SECURITY_EVENT_METRICS } from './auth-security-event.types.js';
 
 const VERIFICATION_CODE_TTL_BY_PURPOSE = {
   SIGNUP: SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
@@ -36,14 +42,16 @@ export class AuthVerificationService {
     @Inject(EMAIL_SENDER) private readonly emailSender: EmailSender,
     @Inject(authConfig.KEY)
     private readonly authSettings: ConfigType<typeof authConfig>,
+    @Optional() private readonly securityEvents?: AuthSecurityEventService,
   ) {}
 
   async assertCodeRequestAllowed(
     emailNormalized: string,
     purpose: VerificationCodePurpose,
-    requestIp: string | null,
+    requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<void> {
-    const normalizedIp = this.normalizeRequestIp(requestIp);
+    const requestContext = this.normalizeRequestContext(requestIpOrContext);
+    const normalizedIp = this.normalizeRequestIp(requestContext.requestIp ?? null);
     const ipRetryAfterSeconds = await this.verificationStore.findRetryAfterSeconds(
       emailNormalized,
       purpose,
@@ -72,55 +80,79 @@ export class AuthVerificationService {
   async recordCodeRequest(
     emailNormalized: string,
     purpose: VerificationCodePurpose,
-    requestIp: string | null,
+    requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<void> {
+    const requestContext = this.normalizeRequestContext(requestIpOrContext);
     await this.verificationStore.createRequestLog(
       emailNormalized,
       purpose,
-      this.normalizeRequestIp(requestIp),
+      this.normalizeRequestIp(requestContext.requestIp ?? null),
     );
   }
 
   async maybeSendSignupCode(
     emailNormalized: string,
     userExists: boolean,
-    requestIp: string | null,
+    requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<GenericSuccessResult> {
-    return this.maybeSendCode('SIGNUP', emailNormalized, userExists, requestIp);
+    return this.maybeSendCode('SIGNUP', emailNormalized, userExists, requestIpOrContext);
   }
 
   async maybeSendResetCode(
     emailNormalized: string,
     userExists: boolean,
-    requestIp: string | null,
+    requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<GenericSuccessResult> {
-    return this.maybeSendCode('RESET_PASSWORD', emailNormalized, userExists, requestIp);
+    return this.maybeSendCode('RESET_PASSWORD', emailNormalized, userExists, requestIpOrContext);
   }
 
   private async maybeSendCode(
     purpose: VerificationCodePurpose,
     emailNormalized: string,
     userExists: boolean,
-    requestIp: string | null,
+    requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<GenericSuccessResult> {
     const startedAt = Date.now();
-    await this.assertCodeRequestAllowed(emailNormalized, purpose, requestIp);
+    const requestContext = this.normalizeRequestContext(requestIpOrContext);
+    await this.assertCodeRequestAllowed(emailNormalized, purpose, requestContext);
 
     if (this.shouldIssueVerificationCode(purpose, userExists)) {
-      await this.issueVerificationCode(emailNormalized, purpose, requestIp);
+      await this.issueVerificationCode(emailNormalized, purpose, requestContext);
     }
 
-    await this.recordCodeRequest(emailNormalized, purpose, requestIp);
+    await this.recordCodeRequest(emailNormalized, purpose, requestContext);
+    await recordAuthSecurityEventSafely(this.securityEvents, {
+      type: 'VERIFICATION_CODE_REQUESTED',
+      severity: 'INFO',
+      emailNormalized,
+      requestIp: requestContext.requestIp,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        purpose,
+        metricName:
+          purpose === 'RESET_PASSWORD'
+            ? AUTH_SECURITY_EVENT_METRICS.resetRequest
+            : 'auth.signup.code.request',
+      },
+    });
     await ensureMinDuration(startedAt, CODE_REQUEST_MIN_RESPONSE_MS);
     return { success: true };
   }
 
-  async verifyEmailCode(email: string, code: string): Promise<GenericSuccessResult> {
-    return this.verifyCode(email, 'SIGNUP', code);
+  async verifyEmailCode(
+    email: string,
+    code: string,
+    requestContext: AuthRequestContext = {},
+  ): Promise<GenericSuccessResult> {
+    return this.verifyCode(email, 'SIGNUP', code, requestContext);
   }
 
-  async verifyResetCode(email: string, code: string): Promise<GenericSuccessResult> {
-    return this.verifyCode(email, 'RESET_PASSWORD', code);
+  async verifyResetCode(
+    email: string,
+    code: string,
+    requestContext: AuthRequestContext = {},
+  ): Promise<GenericSuccessResult> {
+    return this.verifyCode(email, 'RESET_PASSWORD', code, requestContext);
   }
 
   async findLatestVerifiedSignupCode(emailNormalized: string) {
@@ -141,7 +173,7 @@ export class AuthVerificationService {
   private async issueVerificationCode(
     emailNormalized: string,
     purpose: VerificationCodePurpose,
-    requestIp: string | null,
+    requestContext: AuthRequestContext,
   ): Promise<void> {
     const ttlSeconds = VERIFICATION_CODE_TTL_BY_PURPOSE[purpose];
     const code = generateVerificationCode();
@@ -157,7 +189,7 @@ export class AuthVerificationService {
       emailNormalized,
       codeHash,
       ttlSeconds,
-      requestIp,
+      requestIp: requestContext.requestIp ?? null,
     });
 
     await this.sendVerificationEmail({
@@ -228,10 +260,31 @@ export class AuthVerificationService {
     return requestIp?.trim() || 'unknown';
   }
 
+  private normalizeRequestContext(
+    requestIpOrContext: string | null | AuthRequestContext,
+  ): AuthRequestContext {
+    if (
+      typeof requestIpOrContext === 'object' &&
+      requestIpOrContext !== null &&
+      ('requestIp' in requestIpOrContext || 'userAgent' in requestIpOrContext)
+    ) {
+      return {
+        requestIp: requestIpOrContext.requestIp ?? null,
+        userAgent: requestIpOrContext.userAgent ?? null,
+      };
+    }
+
+    return {
+      requestIp: typeof requestIpOrContext === 'string' ? requestIpOrContext : null,
+      userAgent: null,
+    };
+  }
+
   private async verifyCode(
     email: string,
     purpose: VerificationCodePurpose,
     code: string,
+    requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
     const emailNormalized = normalizeEmail(email);
     const record = await this.verificationStore.findActiveVerificationRecord(
@@ -241,6 +294,9 @@ export class AuthVerificationService {
     );
 
     if (!record) {
+      await this.recordVerificationCodeResult(emailNormalized, purpose, false, requestContext, {
+        reason: 'missing_or_consumed',
+      });
       return authFailures.verificationCodeInvalid();
     }
 
@@ -254,6 +310,9 @@ export class AuthVerificationService {
 
     if (!codeMatches) {
       await this.handleFailedVerification(record.id, emailNormalized, purpose);
+      await this.recordVerificationCodeResult(emailNormalized, purpose, false, requestContext, {
+        reason: 'invalid_code',
+      });
       return authFailures.verificationCodeInvalid();
     }
 
@@ -264,10 +323,34 @@ export class AuthVerificationService {
       maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
     });
     if (!verified) {
+      await this.recordVerificationCodeResult(emailNormalized, purpose, false, requestContext, {
+        reason: 'stale_or_expired',
+      });
       return authFailures.verificationCodeInvalid();
     }
 
+    await this.recordVerificationCodeResult(emailNormalized, purpose, true, requestContext);
     return { success: true };
+  }
+
+  private async recordVerificationCodeResult(
+    emailNormalized: string,
+    purpose: VerificationCodePurpose,
+    success: boolean,
+    requestContext: AuthRequestContext,
+    metadata: Record<string, string> = {},
+  ) {
+    await recordAuthSecurityEventSafely(this.securityEvents, {
+      type: success ? 'VERIFICATION_CODE_VERIFY_SUCCESS' : 'VERIFICATION_CODE_VERIFY_FAILURE',
+      severity: success ? 'INFO' : 'WARNING',
+      emailNormalized,
+      requestIp: requestContext.requestIp,
+      userAgent: requestContext.userAgent,
+      metadata: {
+        purpose,
+        ...metadata,
+      },
+    });
   }
 
   private async handleFailedVerification(

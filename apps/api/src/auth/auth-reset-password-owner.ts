@@ -9,16 +9,23 @@ import {
   consumeVerifiedCodeOrThrow,
   RESET_VERIFICATION_PROOF_UNAVAILABLE,
 } from './auth-verification-proof.js';
+import {
+  AuthSecurityEventService,
+  recordAuthSecurityEventSafely,
+} from './auth-security-event.service.js';
+import type { AuthRequestContext } from './auth-request-context.js';
 
 interface AuthResetPasswordOwnerDeps {
   prisma: PrismaService;
   verificationService: Pick<AuthVerificationService, 'findLatestVerifiedResetCode'>;
+  securityEvents?: AuthSecurityEventService;
 }
 
 export async function resetPassword(
   deps: AuthResetPasswordOwnerDeps,
   email: string,
   newPassword: string,
+  requestContext: AuthRequestContext = {},
 ): Promise<GenericSuccessResult> {
   const emailNormalized = normalizeEmail(email);
   const user = await deps.prisma.user.findUnique({
@@ -46,6 +53,7 @@ export async function resetPassword(
 
   const passwordHash = await hashPassword(newPassword);
   const databaseNow = await deps.prisma.getDatabaseNow();
+  let revokedSessionCount = 0;
 
   try {
     await deps.prisma.runSerializableTransaction(async (tx) => {
@@ -61,10 +69,11 @@ export async function resetPassword(
         where: { id: user.id },
         data: { passwordHash },
       });
-      await tx.authSession.updateMany({
+      const revokeResult = await tx.authSession.updateMany({
         where: { userId: user.id, revokedAt: null },
         data: { revokedAt: databaseNow },
       });
+      revokedSessionCount = revokeResult.count;
     });
   } catch (error) {
     if (error instanceof Error && error.message === RESET_VERIFICATION_PROOF_UNAVAILABLE) {
@@ -72,6 +81,30 @@ export async function resetPassword(
     }
     throw error;
   }
+
+  await recordAuthSecurityEventSafely(deps.securityEvents, {
+    type: 'SESSION_REVOKE_ALL',
+    severity: 'INFO',
+    actorUserId: user.id,
+    targetUserId: user.id,
+    emailNormalized,
+    requestIp: requestContext.requestIp,
+    userAgent: requestContext.userAgent,
+    metadata: {
+      reason: 'reset_password',
+      revokedCount: revokedSessionCount,
+    },
+  });
+
+  await recordAuthSecurityEventSafely(deps.securityEvents, {
+    type: 'RESET_PASSWORD_CONSUMED',
+    severity: 'INFO',
+    actorUserId: user.id,
+    targetUserId: user.id,
+    emailNormalized,
+    requestIp: requestContext.requestIp,
+    userAgent: requestContext.userAgent,
+  });
 
   return { success: true };
 }
