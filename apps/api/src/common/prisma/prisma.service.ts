@@ -21,6 +21,17 @@ function isRetryableTransactionConflict(error: unknown) {
     return true;
   }
 
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2010' &&
+    typeof error.meta === 'object' &&
+    error.meta !== null &&
+    'code' in error.meta &&
+    error.meta.code === '40001'
+  ) {
+    return true;
+  }
+
   if (!(error instanceof Error)) {
     return false;
   }
@@ -35,7 +46,9 @@ function isRetryableTransactionConflict(error: unknown) {
   return (
     cause?.kind === 'TransactionWriteConflict' ||
     cause?.originalCode === '40001' ||
-    error.message.includes('TransactionWriteConflict')
+    error.message.includes('TransactionWriteConflict') ||
+    error.message.includes('could not serialize access due to concurrent update') ||
+    error.message.includes('Code: `40001`')
   );
 }
 

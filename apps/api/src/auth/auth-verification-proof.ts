@@ -1,19 +1,32 @@
-const UNCONSUMED_VERIFICATION_CODE_WHERE = {
-  consumedAt: null,
-} as const;
+import type { VerificationCodePurpose } from '../generated/prisma/enums.js';
+import type { Prisma } from '../generated/prisma/client.js';
+import {
+  acquireTransactionAdvisoryLock,
+  consumeVerificationCodeProof,
+} from '../generated/prisma/sql.js';
+import {
+  getVerificationCodePurposeLockKey,
+  VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
+} from './auth-verification-lock.js';
 
 export const SIGNUP_VERIFICATION_PROOF_UNAVAILABLE =
   '[AuthService] signup verification proof unavailable';
 export const RESET_VERIFICATION_PROOF_UNAVAILABLE =
   '[AuthService] reset verification proof unavailable';
 
-interface VerificationCodeConsumer {
-  verificationCode: {
-    updateMany(args: {
-      where: { id: string; consumedAt: null };
-      data: { consumedAt: Date };
-    }): Promise<{ count: number }>;
-  };
+type VerificationCodeConsumer = Pick<Prisma.TransactionClient, '$queryRawTyped'>;
+
+export async function acquireVerificationCodePurposeLock(
+  tx: VerificationCodeConsumer,
+  emailNormalized: string,
+  purpose: VerificationCodePurpose,
+): Promise<void> {
+  await tx.$queryRawTyped(
+    acquireTransactionAdvisoryLock(
+      VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
+      getVerificationCodePurposeLockKey(emailNormalized, purpose),
+    ),
+  );
 }
 
 export async function consumeVerifiedCodeOrThrow(
@@ -22,15 +35,11 @@ export async function consumeVerifiedCodeOrThrow(
   consumedAt: Date,
   unavailableMessage: string,
 ): Promise<void> {
-  const consumeResult = await tx.verificationCode.updateMany({
-    where: {
-      id: verificationCodeId,
-      ...UNCONSUMED_VERIFICATION_CODE_WHERE,
-    },
-    data: { consumedAt },
-  });
+  const rows = await tx.$queryRawTyped(
+    consumeVerificationCodeProof(verificationCodeId, consumedAt),
+  );
 
-  if (consumeResult.count !== 1) {
+  if (rows.length !== 1) {
     throw new Error(unavailableMessage);
   }
 }

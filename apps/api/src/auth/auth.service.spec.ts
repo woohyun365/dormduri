@@ -20,6 +20,7 @@ describe('AuthService orchestration', () => {
     verificationCode: {
       updateMany: jest.fn(),
     },
+    $queryRawTyped: jest.fn(),
     $transaction: jest.fn(),
   };
 
@@ -70,9 +71,11 @@ describe('AuthService orchestration', () => {
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-04-23T00:00:00.000Z'));
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
     prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
+    prisma.$queryRawTyped.mockResolvedValue([{ id: 'code-1' }]);
     prisma.$transaction.mockResolvedValue([]);
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
+        $queryRawTyped: prisma.$queryRawTyped,
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
         authSession: {
           findFirst: prisma.authSession.findFirst,
@@ -455,14 +458,7 @@ describe('AuthService orchestration', () => {
     expect(createArg?.data).not.toHaveProperty('profile');
     expect(moderationService.moderatePublicText).not.toHaveBeenCalled();
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
-    const [verificationUpdateArg] = (prisma.verificationCode.updateMany.mock.calls[0] ?? []) as [
-      {
-        where: { id: string; consumedAt: null };
-        data: { consumedAt: Date };
-      }?,
-    ];
-    expect(verificationUpdateArg?.where).toEqual({ id: 'code-1', consumedAt: null });
-    expect(verificationUpdateArg?.data.consumedAt).toEqual(expect.any(Date));
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(2);
     expect(sessionService.issueAuthResult).toHaveBeenCalledWith(
       'user-1',
       'test@kangwon.ac.kr',
@@ -494,7 +490,7 @@ describe('AuthService orchestration', () => {
         nickname: '테스터',
       },
     });
-    prisma.verificationCode.updateMany.mockResolvedValue({ count: 0 });
+    prisma.$queryRawTyped.mockResolvedValueOnce([{ lockAcquired: null }]).mockResolvedValueOnce([]);
 
     await expect(
       service.signup({
@@ -568,20 +564,7 @@ describe('AuthService orchestration', () => {
     });
 
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
-    const consumeCalls = prisma.verificationCode.updateMany.mock.calls as Array<
-      [
-        {
-          where: { id: string; consumedAt: null };
-          data: { consumedAt: Date };
-        },
-      ]
-    >;
-    const consumeCall = consumeCalls[0]?.[0];
-    if (!consumeCall) {
-      throw new Error('verificationCode.updateMany call was not captured');
-    }
-    expect(consumeCall.where).toEqual({ id: 'code-1', consumedAt: null });
-    expect(consumeCall.data.consumedAt).toBeInstanceOf(Date);
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(2);
 
     const updateUserCalls = prisma.user.update.mock.calls as Array<
       [
@@ -630,7 +613,7 @@ describe('AuthService orchestration', () => {
       emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
     });
     verificationService.findLatestVerifiedResetCode.mockResolvedValue({ id: 'code-1' });
-    prisma.verificationCode.updateMany.mockResolvedValue({ count: 0 });
+    prisma.$queryRawTyped.mockResolvedValueOnce([{ lockAcquired: null }]).mockResolvedValueOnce([]);
 
     await expect(service.resetPassword('test@kangwon.ac.kr', 'NewPass1234')).resolves.toMatchObject(
       {

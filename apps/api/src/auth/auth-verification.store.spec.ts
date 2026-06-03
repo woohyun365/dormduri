@@ -1,7 +1,7 @@
 import { AuthVerificationStore } from './auth-verification.store.js';
 
 describe('AuthVerificationStore', () => {
-  const txQueryRawTyped = jest.fn<Promise<Array<{ lockAcquired: null }>>, [unknown]>();
+  const txQueryRawTyped = jest.fn<Promise<unknown[]>, [unknown]>();
   const txVerificationCodeUpdateMany = jest.fn<Promise<{ count: number }>, [unknown]>();
   const txVerificationCodeCreate = jest.fn<Promise<{ id: string }>, [unknown]>();
 
@@ -143,7 +143,39 @@ describe('AuthVerificationStore', () => {
     });
   });
 
-  it('consume / invalidate / insert / mark / increment / failAndConsume은 Prisma CRUD로 실행한다', async () => {
+  it('reset code 교체도 serializable transaction + advisory lock으로 active reset code를 교체한다', async () => {
+    prisma.verificationCode.create.mockResolvedValue({ id: 'code-1' });
+    prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
+
+    await store.replaceActiveResetCode({
+      id: 'code-1',
+      emailNormalized: 'test@kangwon.ac.kr',
+      codeHash: 'hash',
+      ttlSeconds: 600,
+      requestIp: '127.0.0.1',
+    });
+
+    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
+    expect(txVerificationCodeUpdateMany).toHaveBeenCalledWith({
+      where: {
+        emailNormalized: 'test@kangwon.ac.kr',
+        purpose: 'RESET_PASSWORD',
+        consumedAt: null,
+      },
+      data: { consumedAt: new Date('2026-04-23T00:00:00.000Z') },
+    });
+    const [createCall] = txVerificationCodeCreate.mock.calls;
+    expect(createCall?.[0]).toMatchObject({
+      data: {
+        id: 'code-1',
+        emailNormalized: 'test@kangwon.ac.kr',
+        purpose: 'RESET_PASSWORD',
+      },
+    });
+  });
+
+  it('consume / invalidate / insert는 proof conditional query와 Prisma CRUD로 실행한다', async () => {
+    prisma.$queryRawTyped.mockResolvedValue([{ id: 'code-1' }]);
     prisma.verificationCode.create.mockResolvedValue({ id: 'code-1' });
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
 
@@ -157,11 +189,47 @@ describe('AuthVerificationStore', () => {
       ttlSeconds: 600,
       requestIp: '127.0.0.1',
     });
-    await store.markVerified('code-1');
-    await store.incrementFailedAttempts('code-1');
-    await store.failAndConsume('code-1');
 
-    expect(prisma.verificationCode.updateMany).toHaveBeenCalledTimes(5);
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+    expect(prisma.verificationCode.updateMany).toHaveBeenCalledTimes(1);
     expect(prisma.verificationCode.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('markVerified는 advisory lock + TypedSQL conditional update 결과를 boolean으로 반환한다', async () => {
+    txQueryRawTyped
+      .mockResolvedValueOnce([{ lockAcquired: null }])
+      .mockResolvedValueOnce([{ id: 'code-1' }]);
+
+    await expect(
+      store.markVerified({
+        id: 'code-1',
+        emailNormalized: 'test@kangwon.ac.kr',
+        purpose: 'SIGNUP',
+        maxAttempts: 5,
+      }),
+    ).resolves.toBe(true);
+
+    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
+    expect(txQueryRawTyped).toHaveBeenCalledTimes(2);
+  });
+
+  it('recordVerificationFailure는 advisory lock + TypedSQL 결과로 consume 여부를 반환한다', async () => {
+    txQueryRawTyped
+      .mockResolvedValueOnce([{ lockAcquired: null }])
+      .mockResolvedValueOnce([
+        { failedAttempts: 5, consumedAt: new Date('2026-04-23T00:00:00.000Z') },
+      ]);
+
+    await expect(
+      store.recordVerificationFailure({
+        id: 'code-1',
+        emailNormalized: 'test@kangwon.ac.kr',
+        purpose: 'RESET_PASSWORD',
+        maxAttempts: 5,
+      }),
+    ).resolves.toEqual({ recorded: true, consumed: true });
+
+    expect(prisma.runSerializableTransaction).toHaveBeenCalled();
+    expect(txQueryRawTyped).toHaveBeenCalledTimes(2);
   });
 });

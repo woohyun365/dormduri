@@ -1,5 +1,6 @@
 import type { ConfigType } from '@nestjs/config';
 import { AuthVerificationService } from './auth-verification.service.js';
+import { VERIFICATION_CODE_MAX_ATTEMPTS } from './auth.constants.js';
 import { hashVerificationCode } from './auth.utils.js';
 import authConfig, { DEFAULT_VERIFICATION_CODE_HMAC_SECRET } from '../config/auth.config.js';
 
@@ -13,9 +14,11 @@ describe('AuthVerificationService', () => {
     consumeVerificationCode: jest.fn(),
     invalidateActiveSignupCodes: jest.fn(),
     replaceActiveSignupCode: jest.fn(),
+    replaceActiveResetCode: jest.fn(),
     insertVerificationCode: jest.fn(),
     findActiveVerificationRecord: jest.fn(),
     markVerified: jest.fn(),
+    recordVerificationFailure: jest.fn(),
     incrementFailedAttempts: jest.fn(),
     failAndConsume: jest.fn(),
   };
@@ -43,6 +46,11 @@ describe('AuthVerificationService', () => {
     jest.clearAllMocks();
     verificationStore.findRetryAfterSeconds.mockResolvedValue(null);
     verificationStore.findBackstopRetryAfterSeconds.mockResolvedValue(null);
+    verificationStore.markVerified.mockResolvedValue(true);
+    verificationStore.recordVerificationFailure.mockResolvedValue({
+      recorded: true,
+      consumed: false,
+    });
   });
 
   it('signup 완료용 verified code 조회는 store로 위임한다', async () => {
@@ -81,11 +89,15 @@ describe('AuthVerificationService', () => {
     expect(replaceArg?.codeHash).toMatch(/^hmac-sha256:[0-9a-f]{64}$/);
   });
 
-  it('reset code는 완화된 600초 TTL을 사용한다', async () => {
+  it('reset code는 완화된 600초 TTL과 serializable 교체 경로를 사용한다', async () => {
     emailSender.sendPasswordResetCode.mockResolvedValue(undefined);
 
     await service.maybeSendResetCode('test@kangwon.ac.kr', true, '127.0.0.1');
 
+    expect(verificationStore.replaceActiveResetCode).toHaveBeenCalledWith(
+      expect.objectContaining({ emailNormalized: 'test@kangwon.ac.kr' }),
+    );
+    expect(verificationStore.insertVerificationCode).not.toHaveBeenCalled();
     expect(emailSender.sendPasswordResetCode).toHaveBeenCalledWith(
       expect.objectContaining({ expiresInSeconds: 600 }),
     );
@@ -127,6 +139,7 @@ describe('AuthVerificationService', () => {
       success: true,
     });
 
+    expect(verificationStore.replaceActiveResetCode).not.toHaveBeenCalled();
     expect(verificationStore.insertVerificationCode).not.toHaveBeenCalled();
     expect(emailSender.sendPasswordResetCode).not.toHaveBeenCalled();
     expect(verificationStore.createRequestLog).toHaveBeenCalledWith(
@@ -152,7 +165,12 @@ describe('AuthVerificationService', () => {
       success: true,
     });
 
-    expect(verificationStore.markVerified).toHaveBeenCalledWith('code-1');
+    expect(verificationStore.markVerified).toHaveBeenCalledWith({
+      id: 'code-1',
+      emailNormalized: 'test@kangwon.ac.kr',
+      purpose: 'SIGNUP',
+      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+    });
   });
 
   it('잘못된 verification code는 failedAttempts를 증가시킨다', async () => {
@@ -172,7 +190,13 @@ describe('AuthVerificationService', () => {
       code: 'AUTH_VERIFICATION_CODE_INVALID',
     });
 
-    expect(verificationStore.incrementFailedAttempts).toHaveBeenCalledWith('code-1');
+    expect(verificationStore.recordVerificationFailure).toHaveBeenCalledWith({
+      id: 'code-1',
+      emailNormalized: 'test@kangwon.ac.kr',
+      purpose: 'SIGNUP',
+      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+    });
+    expect(verificationStore.incrementFailedAttempts).not.toHaveBeenCalled();
     expect(verificationStore.failAndConsume).not.toHaveBeenCalled();
   });
 
@@ -193,7 +217,13 @@ describe('AuthVerificationService', () => {
       code: 'AUTH_VERIFICATION_CODE_INVALID',
     });
 
-    expect(verificationStore.failAndConsume).toHaveBeenCalledWith('code-1');
+    expect(verificationStore.recordVerificationFailure).toHaveBeenCalledWith({
+      id: 'code-1',
+      emailNormalized: 'test@kangwon.ac.kr',
+      purpose: 'RESET_PASSWORD',
+      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+    });
+    expect(verificationStore.failAndConsume).not.toHaveBeenCalled();
     expect(verificationStore.incrementFailedAttempts).not.toHaveBeenCalled();
   });
 });

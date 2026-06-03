@@ -193,10 +193,9 @@ export class AuthVerificationService {
       return;
     }
 
-    await this.verificationStore.insertVerificationCode({
+    await this.verificationStore.replaceActiveResetCode({
       id: randomUUID(),
       emailNormalized: input.emailNormalized,
-      purpose: input.purpose,
       codeHash: input.codeHash,
       ttlSeconds: input.ttlSeconds,
       requestIp: input.requestIp,
@@ -254,20 +253,33 @@ export class AuthVerificationService {
     const codeMatches = safeTimeEquals(record.codeHash, incomingHash);
 
     if (!codeMatches) {
-      await this.handleFailedVerification(record.id, record.failedAttempts);
+      await this.handleFailedVerification(record.id, emailNormalized, purpose);
       return authFailures.verificationCodeInvalid();
     }
 
-    await this.verificationStore.markVerified(record.id);
+    const verified = await this.verificationStore.markVerified({
+      id: record.id,
+      emailNormalized,
+      purpose,
+      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+    });
+    if (!verified) {
+      return authFailures.verificationCodeInvalid();
+    }
+
     return { success: true };
   }
 
-  private async handleFailedVerification(id: string, failedAttempts: number): Promise<void> {
-    if (failedAttempts + 1 >= VERIFICATION_CODE_MAX_ATTEMPTS) {
-      await this.verificationStore.failAndConsume(id);
-      return;
-    }
-
-    await this.verificationStore.incrementFailedAttempts(id);
+  private async handleFailedVerification(
+    id: string,
+    emailNormalized: string,
+    purpose: VerificationCodePurpose,
+  ): Promise<void> {
+    await this.verificationStore.recordVerificationFailure({
+      id,
+      emailNormalized,
+      purpose,
+      maxAttempts: VERIFICATION_CODE_MAX_ATTEMPTS,
+    });
   }
 }

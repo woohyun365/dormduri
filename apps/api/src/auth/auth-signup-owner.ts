@@ -8,6 +8,7 @@ import type { AuthSignupValidationService } from './auth-signup-validation.servi
 import { authFailures } from './auth-failures.js';
 import { hashPassword } from './auth-password.js';
 import {
+  acquireVerificationCodePurposeLock,
   consumeVerifiedCodeOrThrow,
   SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
 } from './auth-verification-proof.js';
@@ -121,6 +122,7 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
       }
       const displayIdentity = createdUser.displayIdentity;
 
+      await acquireVerificationCodePurposeLock(tx, emailNormalized, 'SIGNUP');
       await consumeVerifiedCodeOrThrow(
         tx,
         verifiedCode.id,

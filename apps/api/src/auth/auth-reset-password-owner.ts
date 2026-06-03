@@ -5,6 +5,7 @@ import { authFailures } from './auth-failures.js';
 import { normalizeEmail, validatePasswordPolicy } from './auth.utils.js';
 import { hashPassword, verifyPasswordHash } from './auth-password.js';
 import {
+  acquireVerificationCodePurposeLock,
   consumeVerifiedCodeOrThrow,
   RESET_VERIFICATION_PROOF_UNAVAILABLE,
 } from './auth-verification-proof.js';
@@ -48,6 +49,7 @@ export async function resetPassword(
 
   try {
     await deps.prisma.runSerializableTransaction(async (tx) => {
+      await acquireVerificationCodePurposeLock(tx, emailNormalized, 'RESET_PASSWORD');
       await consumeVerifiedCodeOrThrow(
         tx,
         verifiedCode.id,
