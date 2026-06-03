@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
@@ -10,6 +10,40 @@ function getBadRequestResponse(error: unknown) {
     throw new Error('Expected BadRequestException');
   }
   return error.getResponse() as { code?: string; details?: unknown };
+}
+
+function makeSeasonProfileDraftRequest() {
+  return {
+    lifestyle: {
+      bedtime: 'BEFORE_22',
+      wakeTime: 'BEFORE_07',
+      sleepHabit: 'NONE',
+      sleepEnvironment: 'QUIET',
+      screenUsage: 'NONE',
+      noiseSensitivity: 'NORMAL',
+      smokingBehavior: 'NO',
+      indoorEating: 'RARELY',
+      phoneBehavior: 'RARELY',
+      earphoneUsage: 'ALWAYS',
+      cleanLevel: 'WHEN_DIRTY',
+      drinkingFrequency: 'NONE',
+      relationshipStyle: 'CASUAL',
+      temperatureSensitivity: 'NORMAL',
+      smokingTolerance: 'NO_ONLY',
+      phoneTolerance: 'OUTSIDE_ONLY',
+      earphoneExpectation: 'MUST',
+      sleepEnvPreference: 'NO_SPEAKER',
+      screenTolerance: 'NO_SCREEN',
+      indoorEatingTolerance: 'NO_SMELL',
+      cleanExpectation: 'STRICT',
+      drinkingTolerance: 'LOW_ONLY',
+    },
+    intro: '안녕하세요',
+    additional: {
+      grade: '2',
+      mbti: 'ISTJ',
+    },
+  };
 }
 
 describe('CurrentSeasonParticipationController', () => {
@@ -81,33 +115,7 @@ describe('CurrentSeasonParticipationController', () => {
   });
 
   it('profile PUT은 season profile draft owner로 위임한다', async () => {
-    const request = {
-      lifestyle: {
-        bedtime: 'BEFORE_22',
-        wakeTime: 'BEFORE_07',
-        sleepHabit: 'NONE',
-        sleepEnvironment: 'QUIET',
-        screenUsage: 'NONE',
-        noiseSensitivity: 'NORMAL',
-        smokingBehavior: 'NO',
-        indoorEating: 'RARELY',
-        phoneBehavior: 'RARELY',
-        earphoneUsage: 'ALWAYS',
-        cleanLevel: 'WHEN_DIRTY',
-        drinkingFrequency: 'NONE',
-        relationshipStyle: 'CASUAL',
-        temperatureSensitivity: 'NORMAL',
-        smokingTolerance: 'NO_ONLY',
-        phoneTolerance: 'OUTSIDE_ONLY',
-        earphoneExpectation: 'MUST',
-        sleepEnvPreference: 'NO_SPEAKER',
-        screenTolerance: 'NO_SCREEN',
-        indoorEatingTolerance: 'NO_SMELL',
-        cleanExpectation: 'STRICT',
-        drinkingTolerance: 'LOW_ONLY',
-      },
-      intro: '안녕하세요',
-    };
+    const request = makeSeasonProfileDraftRequest();
     seasonParticipantsService.createOrUpdateSeasonProfileDraft.mockResolvedValue({ ok: true });
 
     await profileController.createOrUpdateSeasonProfileDraft(authUser, request);
@@ -116,5 +124,17 @@ describe('CurrentSeasonParticipationController', () => {
       'user-1',
       request,
     );
+  });
+
+  it('domain participant context와 auth actor가 다르면 fail-closed 처리한다', async () => {
+    const request = makeSeasonProfileDraftRequest();
+
+    await expect(
+      profileController.createOrUpdateSeasonProfileDraft(authUser, request, {
+        userId: 'other-user',
+      } as never),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(seasonParticipantsService.createOrUpdateSeasonProfileDraft).not.toHaveBeenCalled();
   });
 });

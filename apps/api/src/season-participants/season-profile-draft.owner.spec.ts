@@ -27,15 +27,21 @@ describe('season-profile-draft.owner', () => {
           participantId: 'participant-1',
           nicknameSnapshot: '현재닉네임',
           intro: '시즌 소개',
-          collegeCode: 'ARTS_ENGINEERING',
+          grade: '3',
+          mbti: 'INTJ',
         }),
         update: objectContaining({
           nicknameSnapshot: '현재닉네임',
           intro: '시즌 소개',
+          grade: '3',
+          mbti: 'INTJ',
         }),
       }),
     );
-    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+    expect(txSeasonParticipantUpdate).toHaveBeenCalledWith({
+      where: { id: 'participant-1' },
+      data: { participantStatus: 'DRAFT' },
+    });
     expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
     expect(response.state).toBe('COMPLETE');
   });

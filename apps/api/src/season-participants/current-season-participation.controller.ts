@@ -7,8 +7,16 @@ import {
 import { RequireCapability } from '../auth/auth-access.decorator.js';
 import { CurrentUser } from '../auth/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import { forbiddenError } from '../common/http/api-error.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
-import { SeasonParticipantsService } from './season-participants.service.js';
+import {
+  RequireCurrentSeasonParticipant,
+  SeasonParticipant,
+} from './current-season-participant-context.decorator.js';
+import {
+  SeasonParticipantsService,
+  type CurrentSeasonParticipantRecord,
+} from './season-participants.service.js';
 
 @Controller('api/seasons/current/profile')
 @RequireCapability()
@@ -21,12 +29,17 @@ export class CurrentSeasonProfileController {
   }
 
   @Put()
+  @RequireCurrentSeasonParticipant()
   async createOrUpdateSeasonProfileDraft(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Body() body: unknown,
+    @SeasonParticipant() seasonParticipant?: CurrentSeasonParticipantRecord,
   ) {
     const parsed = parseRequestBody(updateSeasonProfileRequestSchema, body);
-    return this.seasonParticipantsService.createOrUpdateSeasonProfileDraft(authUser.id, parsed);
+    return this.seasonParticipantsService.createOrUpdateSeasonProfileDraft(
+      resolveSeasonParticipantActorUserId(authUser, seasonParticipant),
+      parsed,
+    );
   }
 }
 
@@ -41,25 +54,52 @@ export class CurrentSeasonParticipationController {
   }
 
   @Post('dormitory-selection')
+  @RequireCurrentSeasonParticipant()
   async createOrUpdateDormitorySelection(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Body() body: unknown,
+    @SeasonParticipant() seasonParticipant?: CurrentSeasonParticipantRecord,
   ) {
     const parsed = parseRequestBody(selectedDormitorySubmitRequestSchema, body);
-    return this.seasonParticipantsService.createOrUpdateDormitorySelection(authUser.id, parsed);
+    return this.seasonParticipantsService.createOrUpdateDormitorySelection(
+      resolveSeasonParticipantActorUserId(authUser, seasonParticipant),
+      parsed,
+    );
   }
 
   @Post('registration')
+  @RequireCurrentSeasonParticipant()
   async finalizeSeasonRegistration(
     @CurrentUser() authUser: AuthenticatedUserContext,
     @Body() body: unknown,
+    @SeasonParticipant() seasonParticipant?: CurrentSeasonParticipantRecord,
   ) {
     parseRequestBody(seasonRegistrationFinalizeRequestSchema, body ?? {});
-    return this.seasonParticipantsService.finalizeSeasonRegistration(authUser.id);
+    return this.seasonParticipantsService.finalizeSeasonRegistration(
+      resolveSeasonParticipantActorUserId(authUser, seasonParticipant),
+    );
   }
 
   @Post('deregister')
   async deregister(@CurrentUser() authUser: AuthenticatedUserContext) {
     return this.seasonParticipantsService.deregisterCurrentSeasonParticipation(authUser.id);
   }
+}
+
+function resolveSeasonParticipantActorUserId(
+  authUser: AuthenticatedUserContext,
+  seasonParticipant: CurrentSeasonParticipantRecord | null | undefined,
+) {
+  if (!seasonParticipant) {
+    return authUser.id;
+  }
+
+  if (seasonParticipant.userId !== authUser.id) {
+    throw forbiddenError(
+      'CURRENT_SEASON_PARTICIPANT_ACTOR_MISMATCH',
+      '현재 시즌 참여자 컨텍스트와 로그인 사용자가 일치하지 않습니다.',
+    );
+  }
+
+  return authUser.id;
 }
