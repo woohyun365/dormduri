@@ -17,6 +17,7 @@ Issue #198 실시간 채팅 구현의 서버-side boundary map이다. 이 문서
 - `application/`: HTTP/Gateway-facing facade와 public port definitions. `ChatService`는 controller-facing orchestration만 맡고 cross-domain lifecycle port 구현을 소유하지 않는다.
 - `commands/`: send/leave/read-marker write use case. DB transaction, idempotency, outbox append는 command owner 책임이다.
 - `queries/`: thread list/detail/subscription/read-only query owner. message body over-fetch를 피하고 pagination/cursor boundary를 유지한다.
+- `pairs/`: actor-target pair entry query/use-case. `GET /threads/with/:targetUserId`의 target validation, existing thread snapshot, send eligibility 조합을 소유하며 guard나 send transaction으로 분산하지 않는다.
 - `lifecycle/`: active match, participant withdrawal, season/cutoff lifecycle owner. 외부 domain에서 발생한 chat state side effect는 이 디렉토리의 port 구현으로 들어온다.
 - `policies/`: pure policy/helper 우선. Nest provider나 Prisma mutation을 넣지 않는다. DB가 필요한 orchestration은 command/query/lifecycle owner에 둔다.
 - `outbox/`: transactional outbox persistence, claim, replay owner. payload allowlist와 replay window/prune 정책을 유지한다.
