@@ -15,6 +15,7 @@ import { AuthVerificationStore } from './auth-verification.store.js';
 import { AuthenticatedUserGuard } from './authenticated-user.guard.js';
 import { EMAIL_SENDER } from './email-sender.interface.js';
 import { AuthSecurityEventService } from './auth-security-event.service.js';
+import { AuthSecurityEventRepository } from './repositories/security-event.repository.js';
 import { MonitoredEmailSenderService } from './monitored-email-sender.service.js';
 import { StubEmailSenderService } from './stub-email-sender.service.js';
 
@@ -41,6 +42,7 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
     AuthSignupValidationService,
     AuthLoginAttemptService,
     AuthSecurityEventService,
+    AuthSecurityEventRepository,
     AuthenticatedUserGuard,
     StubEmailSenderService,
     MonitoredEmailSenderService,

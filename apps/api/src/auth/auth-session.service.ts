@@ -1,5 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import {
@@ -25,6 +25,12 @@ import {
   recordAuthSecurityEventSafely,
 } from './auth-security-event.service.js';
 import { AUTH_SECURITY_EVENT_METRICS } from './auth-security-event.types.js';
+import {
+  createOpaqueToken,
+  hashOpaqueToken,
+  parseOpaqueToken,
+  safeCompareTokenHash,
+} from './domain/opaque-token.js';
 
 export interface AuthenticatedUserContext {
   id: string;
@@ -57,49 +63,6 @@ interface AuthenticatedSessionRef {
       nickname: string;
     };
   };
-}
-
-const OPAQUE_TOKEN_VERSION = 'v1';
-const OPAQUE_TOKEN_BYTES = 32;
-const OPAQUE_TOKEN_SECRET_LENGTH = 43;
-const OPAQUE_TOKEN_SECRET_PATTERN = /^[A-Za-z0-9_-]+$/;
-
-function createOpaqueToken(sessionId: string) {
-  return `${OPAQUE_TOKEN_VERSION}.${sessionId}.${randomBytes(OPAQUE_TOKEN_BYTES).toString('base64url')}`;
-}
-
-function hashOpaqueToken(token: string) {
-  return createHash('sha256').update(token).digest('hex');
-}
-
-function parseOpaqueToken(token: string | null) {
-  if (!token) {
-    return null;
-  }
-
-  const [version, sessionId, secret, ...rest] = token.split('.');
-  if (
-    version !== OPAQUE_TOKEN_VERSION ||
-    !sessionId ||
-    !secret ||
-    secret.length !== OPAQUE_TOKEN_SECRET_LENGTH ||
-    !OPAQUE_TOKEN_SECRET_PATTERN.test(secret) ||
-    rest.length > 0
-  ) {
-    return null;
-  }
-
-  return {
-    sessionId,
-    tokenHash: hashOpaqueToken(token),
-  };
-}
-
-function safeCompareTokenHash(expectedHash: string, actualHash: string) {
-  const expected = Buffer.from(expectedHash, 'hex');
-  const actual = Buffer.from(actualHash, 'hex');
-
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
 @Injectable()

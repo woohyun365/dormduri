@@ -1,26 +1,22 @@
 import { AuthSecurityEventService } from './auth-security-event.service.js';
 
-interface AuthSecurityEventCreateArgs {
-  data: {
-    type: string;
-    severity: string;
-    actorUserId?: string;
-    targetUserId?: string;
-    sessionId?: string;
-    emailHash?: string;
-    requestIpHash?: string;
-    userAgentHash?: string;
-    metadata?: Record<string, unknown>;
-  };
+interface AuthSecurityEventCreateData {
+  type: string;
+  severity: string;
+  actorUserId?: string;
+  targetUserId?: string;
+  sessionId?: string;
+  emailHash?: string;
+  requestIpHash?: string;
+  userAgentHash?: string;
+  metadata?: Record<string, unknown>;
 }
 
 describe('AuthSecurityEventService', () => {
-  const prisma = {
-    authSecurityEvent: {
-      create: jest.fn<Promise<void>, [AuthSecurityEventCreateArgs]>().mockResolvedValue(undefined),
-    },
+  const repository = {
+    create: jest.fn<Promise<void>, [AuthSecurityEventCreateData]>().mockResolvedValue(undefined),
   };
-  const service = new AuthSecurityEventService(prisma as never);
+  const service = new AuthSecurityEventService(repository as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -41,22 +37,22 @@ describe('AuthSecurityEventService', () => {
       },
     });
 
-    const createCall = prisma.authSecurityEvent.create.mock.calls[0]?.[0];
+    const createCall = repository.create.mock.calls[0]?.[0];
     if (!createCall) {
       throw new Error('Expected authSecurityEvent.create call');
     }
-    expect(createCall.data).toMatchObject({
+    expect(createCall).toMatchObject({
       type: 'LOGIN_FAILURE',
       severity: 'WARNING',
       metadata: {
         reason: 'invalid_credentials',
       },
     });
-    expect(createCall.data.emailHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(createCall.data.requestIpHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(createCall.data.userAgentHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(createCall.emailHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(createCall.requestIpHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(createCall.userAgentHash).toMatch(/^[a-f0-9]{64}$/);
 
-    const serialized = JSON.stringify(createCall.data);
+    const serialized = JSON.stringify(createCall);
     expect(serialized).not.toContain('Student@Kangwon.ac.kr');
     expect(serialized).not.toContain('127.0.0.1');
     expect(serialized).not.toContain('phase6-test-agent');
@@ -80,18 +76,18 @@ describe('AuthSecurityEventService', () => {
       },
     });
 
-    const createCall = prisma.authSecurityEvent.create.mock.calls[0]?.[0];
+    const createCall = repository.create.mock.calls[0]?.[0];
     if (!createCall) {
       throw new Error('Expected authSecurityEvent.create call');
     }
 
-    expect(createCall.data.type).toBe('MAIL_SEND_FAILURE');
-    expect(createCall.data.severity).toBe('WARNING');
-    expect(createCall.data.actorUserId).toBe('user-1');
-    expect(createCall.data.targetUserId).toBe('user-2');
-    expect(createCall.data.sessionId).toBe('session-1');
-    expect(createCall.data.emailHash).toMatch(/^[a-f0-9]{64}$/);
-    expect(createCall.data.metadata).toEqual({
+    expect(createCall.type).toBe('MAIL_SEND_FAILURE');
+    expect(createCall.severity).toBe('WARNING');
+    expect(createCall.actorUserId).toBe('user-1');
+    expect(createCall.targetUserId).toBe('user-2');
+    expect(createCall.sessionId).toBe('session-1');
+    expect(createCall.emailHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(createCall.metadata).toEqual({
       purpose: 'RESET_PASSWORD',
       metricName: 'auth.mail.send.failure',
       providerErrorCategory: 'throttled',

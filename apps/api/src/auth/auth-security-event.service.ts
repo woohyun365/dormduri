@@ -1,80 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { createHash } from 'node:crypto';
-import type { Prisma } from '../generated/prisma/client.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
-import type {
-  AuthSecurityEventInput,
-  AuthSecurityEventSeverity,
-} from './auth-security-event.types.js';
-
-const SENSITIVE_METADATA_KEY_PATTERN = /password|token|secret|code|credential|hash/i;
-
-function hashDimension(value: string | null | undefined) {
-  const normalized = value?.trim().toLowerCase();
-  if (!normalized) {
-    return undefined;
-  }
-
-  return createHash('sha256').update(normalized).digest('hex');
-}
-
-function isJsonPrimitive(value: unknown): value is string | number | boolean | null {
-  return (
-    value === null ||
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-  );
-}
-
-function sanitizeMetadata(metadata: Record<string, unknown> | null | undefined) {
-  if (!metadata) {
-    return undefined;
-  }
-
-  const safeEntries = Object.entries(metadata).filter(([key, value]) => {
-    return !SENSITIVE_METADATA_KEY_PATTERN.test(key) && isJsonPrimitive(value);
-  });
-
-  if (safeEntries.length === 0) {
-    return undefined;
-  }
-
-  return Object.fromEntries(safeEntries) as Prisma.InputJsonObject;
-}
-
-function defaultSeverity(type: AuthSecurityEventInput['type']): AuthSecurityEventSeverity {
-  switch (type) {
-    case 'LOGIN_LOCKOUT':
-    case 'MAIL_SEND_FAILURE':
-    case 'OPAQUE_TRANSPORT_REJECTED':
-    case 'SESSION_TOKEN_REUSE_DETECTED':
-    case 'VERIFICATION_CODE_VERIFY_FAILURE':
-      return 'WARNING';
-    default:
-      return 'INFO';
-  }
-}
+import { AuthSecurityEventRepository } from './repositories/security-event.repository.js';
+import type { AuthSecurityEventInput } from './auth-security-event.types.js';
+import {
+  defaultAuthSecurityEventSeverity,
+  hashAuthSecurityEventDimension,
+  sanitizeAuthSecurityEventMetadata,
+} from './policies/security-event-sanitizer.js';
 
 @Injectable()
 export class AuthSecurityEventService {
   private readonly logger = new Logger(AuthSecurityEventService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repository: AuthSecurityEventRepository) {}
 
   async record(input: AuthSecurityEventInput): Promise<void> {
-    await this.prisma.authSecurityEvent.create({
-      data: {
-        type: input.type,
-        severity: input.severity ?? defaultSeverity(input.type),
-        actorUserId: input.actorUserId ?? undefined,
-        targetUserId: input.targetUserId ?? undefined,
-        sessionId: input.sessionId ?? undefined,
-        emailHash: hashDimension(input.emailNormalized),
-        requestIpHash: hashDimension(input.requestIp),
-        userAgentHash: hashDimension(input.userAgent),
-        metadata: sanitizeMetadata(input.metadata),
-      },
+    await this.repository.create({
+      type: input.type,
+      severity: input.severity ?? defaultAuthSecurityEventSeverity(input.type),
+      actorUserId: input.actorUserId ?? undefined,
+      targetUserId: input.targetUserId ?? undefined,
+      sessionId: input.sessionId ?? undefined,
+      emailHash: hashAuthSecurityEventDimension(input.emailNormalized),
+      requestIpHash: hashAuthSecurityEventDimension(input.requestIp),
+      userAgentHash: hashAuthSecurityEventDimension(input.userAgent),
+      metadata: sanitizeAuthSecurityEventMetadata(input.metadata),
     });
   }
 
