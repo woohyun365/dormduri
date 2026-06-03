@@ -13,6 +13,7 @@ Issue #198 실시간 채팅 구현의 서버-side boundary map이다. 이 문서
 
 ## Directory responsibilities
 
+- `context/`: route-level chat thread context decorator/guard/resolver. Guard는 route metadata와 request context 주입만 맡고, Prisma 조회는 resolver가 소유한다.
 - `application/`: HTTP/Gateway-facing facade와 public port definitions. `ChatService`는 controller-facing orchestration만 맡고 cross-domain lifecycle port 구현을 소유하지 않는다.
 - `commands/`: send/leave/read-marker write use case. DB transaction, idempotency, outbox append는 command owner 책임이다.
 - `queries/`: thread list/detail/subscription/read-only query owner. message body over-fetch를 피하고 pagination/cursor boundary를 유지한다.

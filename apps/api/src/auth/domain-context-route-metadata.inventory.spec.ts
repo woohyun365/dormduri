@@ -8,7 +8,7 @@ import {
 } from '../common/domain-context/domain-context.decorator.js';
 import { CurrentSeasonParticipantContextGuard } from '../season-participants/current-season-participant-context.guard.js';
 import { ChatController } from '../chat/chat.controller.js';
-import { ChatThreadContextGuard } from '../chat/chat-thread-context.guard.js';
+import { ChatThreadContextGuard } from '../chat/context/chat-thread-context.guard.js';
 import { MatchesController } from '../matches/matches.controller.js';
 import { ActiveMatchContextGuard } from '../matches/active-match-context.guard.js';
 

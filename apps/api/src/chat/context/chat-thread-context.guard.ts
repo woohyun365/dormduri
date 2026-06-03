@@ -4,10 +4,10 @@ import {
   DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
   type ChatThreadMemberContextRequirement,
   type DomainContextRequirement,
-} from '../common/domain-context/domain-context.decorator.js';
-import { badRequestError, unauthorizedError } from '../common/http/api-error.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
-import { chatErrors } from './errors/chat.errors.js';
+} from '../../common/domain-context/domain-context.decorator.js';
+import { badRequestError, unauthorizedError } from '../../common/http/api-error.js';
+import { chatErrors } from '../errors/chat.errors.js';
+import { ChatThreadContextResolver } from './chat-thread-context.resolver.js';
 import {
   setChatThreadContext,
   type ChatThreadContextRequest,
@@ -16,7 +16,7 @@ import {
 @Injectable()
 export class ChatThreadContextGuard implements CanActivate {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly resolver: ChatThreadContextResolver,
     private readonly reflector: Reflector,
   ) {}
 
@@ -32,67 +32,16 @@ export class ChatThreadContextGuard implements CanActivate {
     }
 
     const threadId = resolveRequiredParam(request, requirement.param);
-    const thread = await this.prisma.conversationThread.findFirst({
-      where: {
-        id: threadId,
-        status: { in: ['OPEN', 'READ_ONLY'] },
-        members: {
-          some: {
-            memberState: 'ACTIVE',
-            participant: {
-              userId: request.authUser.id,
-              hiddenByAdminAt: null,
-              deactivatedAt: null,
-              user: {
-                deletedAt: null,
-              },
-            },
-          },
-        },
-      },
-      select: {
-        id: true,
-        status: true,
-        closedAt: true,
-        closedReason: true,
-        members: {
-          where: {
-            participant: {
-              userId: request.authUser.id,
-            },
-          },
-          select: {
-            participantId: true,
-            memberState: true,
-            lastVisibleAt: true,
-            participant: {
-              select: {
-                userId: true,
-              },
-            },
-          },
-        },
-      },
+    const chatThread = await this.resolver.resolveVisibleActiveMemberContext({
+      actorUserId: request.authUser.id,
+      threadId,
     });
 
-    const actorMember = thread?.members.find(
-      (member) =>
-        member.participant.userId === request.authUser?.id && member.memberState === 'ACTIVE',
-    );
-    if (!thread || !actorMember) {
+    if (!chatThread) {
       throw chatErrors.threadNotFound();
     }
 
-    setChatThreadContext(request, {
-      threadId: thread.id,
-      actorUserId: request.authUser.id,
-      actorParticipantId: actorMember.participantId,
-      memberState: actorMember.memberState,
-      threadStatus: thread.status,
-      closedAt: thread.closedAt,
-      closedReason: thread.closedReason,
-      lastVisibleAt: actorMember.lastVisibleAt,
-    });
+    setChatThreadContext(request, chatThread);
 
     return true;
   }

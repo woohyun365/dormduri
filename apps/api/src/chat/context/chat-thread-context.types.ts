@@ -1,8 +1,8 @@
-import type { AuthenticatedRequest } from '../auth/authenticated-user.guard.js';
+import type { AuthenticatedRequest } from '../../auth/authenticated-user.guard.js';
 import type {
   ConversationThreadMemberState,
   ConversationThreadStatus,
-} from '../generated/prisma/enums.js';
+} from '../../generated/prisma/enums.js';
 
 export interface ChatThreadContext {
   threadId: string;

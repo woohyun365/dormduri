@@ -20,8 +20,8 @@ import { CurrentUser } from '../auth/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
 import { forbiddenError, unauthorizedError } from '../common/http/api-error.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
-import { ChatThread, RequireChatThreadMember } from './chat-thread-context.decorator.js';
-import type { ChatThreadContext } from './chat-thread-context.types.js';
+import { ChatThread, RequireChatThreadMember } from './context/chat-thread-context.decorator.js';
+import type { ChatThreadContext } from './context/chat-thread-context.types.js';
 import { ChatRealtimeMetricsService } from './realtime/chat-realtime.metrics.js';
 import { ChatRealtimeTicketService } from './realtime/chat-realtime-ticket.service.js';
 import {
