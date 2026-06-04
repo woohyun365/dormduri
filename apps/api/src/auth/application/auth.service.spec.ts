@@ -1,34 +1,44 @@
 import { AuthService } from './auth.service.js';
 
 describe('AuthService facade', () => {
-  const useCases = {
+  const verificationUseCases = {
     sendSignupCode: jest.fn(),
     sendResetCode: jest.fn(),
     verifyEmailCode: jest.fn(),
     verifyResetCode: jest.fn(),
-    getSession: jest.fn(),
+  };
+  const registrationUseCases = {
     validateSignupDraft: jest.fn(),
     signup: jest.fn(),
+  };
+  const credentialUseCases = {
     login: jest.fn(),
     resetPassword: jest.fn(),
     changePassword: jest.fn(),
+  };
+  const sessionUseCases = {
+    getSession: jest.fn(),
     renewSession: jest.fn(),
     logout: jest.fn(),
   };
-  const service = new AuthService(useCases as never);
+  const service = new AuthService(
+    verificationUseCases as never,
+    registrationUseCases as never,
+    credentialUseCases as never,
+    sessionUseCases as never,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('delegates verification and session read use cases without owning domain behavior', async () => {
+  it('delegates verification and session read methods to their slice use-case providers', async () => {
     const requestContext = { requestIp: '127.0.0.1', userAgent: 'jest' };
-    useCases.sendSignupCode.mockResolvedValueOnce({ success: true });
-    useCases.sendResetCode.mockResolvedValueOnce({ success: true });
-    useCases.verifyEmailCode.mockResolvedValueOnce({ success: true });
-    useCases.verifyResetCode.mockResolvedValueOnce({ success: true });
-    useCases.getSession.mockResolvedValueOnce({ authenticated: false });
-    useCases.validateSignupDraft.mockResolvedValueOnce({ success: true });
+    verificationUseCases.sendSignupCode.mockResolvedValueOnce({ success: true });
+    verificationUseCases.sendResetCode.mockResolvedValueOnce({ success: true });
+    verificationUseCases.verifyEmailCode.mockResolvedValueOnce({ success: true });
+    verificationUseCases.verifyResetCode.mockResolvedValueOnce({ success: true });
+    sessionUseCases.getSession.mockResolvedValueOnce({ authenticated: false });
 
     await expect(service.sendSignupCode('test@kangwon.ac.kr', requestContext)).resolves.toEqual({
       success: true,
@@ -45,35 +55,29 @@ describe('AuthService facade', () => {
     await expect(service.getSession('access-token', requestContext)).resolves.toEqual({
       authenticated: false,
     });
-    await expect(
-      service.validateSignupDraft({
-        email: 'test@kangwon.ac.kr',
-        password: 'Pass1234',
-        nickname: '테스터',
-      }),
-    ).resolves.toEqual({ success: true });
 
-    expect(useCases.sendSignupCode).toHaveBeenCalledWith('test@kangwon.ac.kr', requestContext);
-    expect(useCases.sendResetCode).toHaveBeenCalledWith('test@kangwon.ac.kr', requestContext);
-    expect(useCases.verifyEmailCode).toHaveBeenCalledWith(
+    expect(verificationUseCases.sendSignupCode).toHaveBeenCalledWith(
+      'test@kangwon.ac.kr',
+      requestContext,
+    );
+    expect(verificationUseCases.sendResetCode).toHaveBeenCalledWith(
+      'test@kangwon.ac.kr',
+      requestContext,
+    );
+    expect(verificationUseCases.verifyEmailCode).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
       '123456',
       requestContext,
     );
-    expect(useCases.verifyResetCode).toHaveBeenCalledWith(
+    expect(verificationUseCases.verifyResetCode).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
       '123456',
       requestContext,
     );
-    expect(useCases.getSession).toHaveBeenCalledWith('access-token', requestContext);
-    expect(useCases.validateSignupDraft).toHaveBeenCalledWith({
-      email: 'test@kangwon.ac.kr',
-      password: 'Pass1234',
-      nickname: '테스터',
-    });
+    expect(sessionUseCases.getSession).toHaveBeenCalledWith('access-token', requestContext);
   });
 
-  it('delegates mutating auth use cases without direct Prisma/session/security-event orchestration', async () => {
+  it('delegates registration and credential mutation methods to their slice use-case providers', async () => {
     const requestContext = { requestIp: '127.0.0.1', userAgent: 'jest' };
     const signupInput = {
       email: 'test@kangwon.ac.kr',
@@ -91,22 +95,33 @@ describe('AuthService facade', () => {
       campus: 'CHUNCHEON',
     } as const;
 
-    useCases.signup.mockResolvedValueOnce({ success: true, accessToken: 'signup-token' });
-    useCases.login.mockResolvedValueOnce({ success: true, accessToken: 'login-token' });
-    useCases.resetPassword.mockResolvedValueOnce({ success: true });
-    useCases.changePassword.mockResolvedValueOnce({
+    registrationUseCases.validateSignupDraft.mockResolvedValueOnce({ success: true });
+    registrationUseCases.signup.mockResolvedValueOnce({
+      success: true,
+      accessToken: 'signup-token',
+    });
+    credentialUseCases.login.mockResolvedValueOnce({ success: true, accessToken: 'login-token' });
+    credentialUseCases.resetPassword.mockResolvedValueOnce({ success: true });
+    credentialUseCases.changePassword.mockResolvedValueOnce({
       success: true,
       accessToken: 'changed-token',
       rememberMe: true,
     });
-    useCases.renewSession.mockResolvedValueOnce({
+    sessionUseCases.renewSession.mockResolvedValueOnce({
       success: true,
       accessToken: 'renewed-token',
       renewalToken: 'next-renewal-token',
       rememberMe: true,
     });
-    useCases.logout.mockResolvedValueOnce({ success: true });
+    sessionUseCases.logout.mockResolvedValueOnce({ success: true });
 
+    await expect(
+      service.validateSignupDraft({
+        email: 'test@kangwon.ac.kr',
+        password: 'Pass1234',
+        nickname: '테스터',
+      }),
+    ).resolves.toEqual({ success: true });
     await expect(service.signup(signupInput as never)).resolves.toEqual({
       success: true,
       accessToken: 'signup-token',
@@ -130,25 +145,34 @@ describe('AuthService facade', () => {
       success: true,
     });
 
-    expect(useCases.signup).toHaveBeenCalledWith(signupInput);
-    expect(useCases.login).toHaveBeenCalledWith(
+    expect(registrationUseCases.validateSignupDraft).toHaveBeenCalledWith({
+      email: 'test@kangwon.ac.kr',
+      password: 'Pass1234',
+      nickname: '테스터',
+    });
+    expect(registrationUseCases.signup).toHaveBeenCalledWith(signupInput);
+    expect(credentialUseCases.login).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
       'Pass1234',
       true,
       requestContext,
     );
-    expect(useCases.resetPassword).toHaveBeenCalledWith(
+    expect(credentialUseCases.resetPassword).toHaveBeenCalledWith(
       'test@kangwon.ac.kr',
       'NewPass1234',
       requestContext,
     );
-    expect(useCases.changePassword).toHaveBeenCalledWith(
+    expect(credentialUseCases.changePassword).toHaveBeenCalledWith(
       authUser,
       'OldPass1234',
       'NewPass1234',
       requestContext,
     );
-    expect(useCases.renewSession).toHaveBeenCalledWith('renewal-token', requestContext);
-    expect(useCases.logout).toHaveBeenCalledWith('access-token', 'renewal-token', requestContext);
+    expect(sessionUseCases.renewSession).toHaveBeenCalledWith('renewal-token', requestContext);
+    expect(sessionUseCases.logout).toHaveBeenCalledWith(
+      'access-token',
+      'renewal-token',
+      requestContext,
+    );
   });
 });

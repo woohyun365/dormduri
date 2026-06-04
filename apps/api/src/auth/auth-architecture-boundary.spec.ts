@@ -199,6 +199,21 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(missingCommandSpecs).toEqual([]);
   });
 
+  it('keeps auth workflow orchestration in slice-local use-case providers', () => {
+    const requiredUseCaseProviders = [
+      'verification/auth-verification-use-cases.service.ts',
+      'registration/auth-registration-use-cases.service.ts',
+      'credentials/auth-credential-use-cases.service.ts',
+      'sessions/auth-session-use-cases.service.ts',
+    ];
+    const missingUseCaseProviders = requiredUseCaseProviders.filter(
+      (file) => !existsSync(join(authRoot, file)),
+    );
+
+    expect(missingUseCaseProviders).toEqual([]);
+    expect(existsSync(join(authRoot, 'application/auth-use-cases.service.ts'))).toBe(false);
+  });
+
   it('keeps login-attempt and security-event ownership in their slices', () => {
     const expectedSliceFiles = {
       'login-attempts': [
@@ -305,6 +320,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
   it('keeps AuthService final-facade migration debt explicit', () => {
     const source = readSource(join(authRoot, 'application/auth.service.ts'));
     const forbiddenFacadeResponsibilities = [
+      ['AuthUseCases bucket dependency', /\bAuthUseCases\b/],
       ['PrismaService dependency', /\bPrismaService\b/],
       ['command Prisma dependency forwarding', /\bprisma:\s*this\.prisma\b/],
       ['session internals dependency', /\bAuthSessionService\b/],
@@ -318,6 +334,10 @@ describe('Phase 8/9 auth architecture boundary', () => {
       .map(([label]) => label);
 
     expect(offenders).toEqual([]);
+    expect(source).toContain('AuthVerificationUseCases');
+    expect(source).toContain('AuthRegistrationUseCases');
+    expect(source).toContain('AuthCredentialUseCases');
+    expect(source).toContain('AuthSessionUseCases');
   });
 
   it('keeps external domains on the final public auth import surface or explicit transition surface', () => {
@@ -420,7 +440,8 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'AUTH_APPLICATION_PROVIDERS',
       'AUTH_VERIFICATION_PROVIDERS',
       'AUTH_SESSION_PROVIDERS',
-      'AUTH_CREDENTIAL_REGISTRATION_PROVIDERS',
+      'AUTH_CREDENTIAL_PROVIDERS',
+      'AUTH_REGISTRATION_PROVIDERS',
       'AUTH_LOGIN_ATTEMPT_PROVIDERS',
       'AUTH_SECURITY_EVENT_PROVIDERS',
       'AUTH_EMAIL_ADAPTER_PROVIDERS',
@@ -432,6 +453,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
       expect(providersSource).toContain(`...${group}`);
     }
 
+    expect(providersSource).not.toContain('AuthUseCases');
     expect(providersSource.indexOf('useClass: ThrottlerGuard')).toBeLessThan(
       providersSource.indexOf('useClass: AuthenticatedUserGuard'),
     );
@@ -440,7 +462,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(exportsSource).toContain('AuthActorContextResolver');
     expect(exportsSource).toContain('AuthenticatedUserGuard');
     expect(exportsSource).not.toMatch(
-      /\bAuthUseCases\b|\bAuthSessionService\b|\bAuthVerificationService\b|\bAuthLoginAttemptService\b|\bAuthSecurityEventService\b|\bAuthSessionRepository\b/,
+      /\bAuthUseCases\b|\bAuthVerificationUseCases\b|\bAuthRegistrationUseCases\b|\bAuthCredentialUseCases\b|\bAuthSessionUseCases\b|\bAuthSessionService\b|\bAuthVerificationService\b|\bAuthLoginAttemptService\b|\bAuthSecurityEventService\b|\bAuthSessionRepository\b/,
     );
   });
 
@@ -473,6 +495,10 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(source).toContain('composition/auth.providers.ts');
     expect(source).toContain('sessions/opaque-token.ts');
     expect(source).toContain('credentials/password-hash.ts');
+    expect(source).toContain('auth-verification-use-cases.service.ts');
+    expect(source).toContain('auth-registration-use-cases.service.ts');
+    expect(source).toContain('auth-credential-use-cases.service.ts');
+    expect(source).toContain('auth-session-use-cases.service.ts');
     expect(source).toContain('외부 domain production code');
   });
 });

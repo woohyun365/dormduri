@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import type { SignupDraftValidationResponse } from '@repo/shared/auth-response';
+import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
 import type {
   ChangePasswordResult,
   GenericSuccessResult,
@@ -7,27 +9,33 @@ import type {
   SessionStatusResult,
   SignupInput,
 } from '../domain/auth.types.js';
-import type { SignupDraftValidationResponse } from '@repo/shared/auth-response';
-import type { AuthenticatedUserContext } from './auth-actor-context.types.js';
 import type { AuthRequestContext } from '../domain/auth-request-context.js';
-import { AuthUseCases } from './auth-use-cases.service.js';
+import { AuthRegistrationUseCases } from '../registration/auth-registration-use-cases.service.js';
+import { AuthSessionUseCases } from '../sessions/auth-session-use-cases.service.js';
+import type { AuthenticatedUserContext } from './auth-actor-context.types.js';
+import { AuthVerificationUseCases } from '../verification/auth-verification-use-cases.service.js';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly useCases: AuthUseCases) {}
+  constructor(
+    private readonly verificationUseCases: AuthVerificationUseCases,
+    private readonly registrationUseCases: AuthRegistrationUseCases,
+    private readonly credentialUseCases: AuthCredentialUseCases,
+    private readonly sessionUseCases: AuthSessionUseCases,
+  ) {}
 
   sendSignupCode(
     email: string,
     requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<GenericSuccessResult> {
-    return this.useCases.sendSignupCode(email, requestIpOrContext);
+    return this.verificationUseCases.sendSignupCode(email, requestIpOrContext);
   }
 
   sendResetCode(
     email: string,
     requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<GenericSuccessResult> {
-    return this.useCases.sendResetCode(email, requestIpOrContext);
+    return this.verificationUseCases.sendResetCode(email, requestIpOrContext);
   }
 
   verifyEmailCode(
@@ -35,7 +43,7 @@ export class AuthService {
     code: string,
     requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
-    return this.useCases.verifyEmailCode(email, code, requestContext);
+    return this.verificationUseCases.verifyEmailCode(email, code, requestContext);
   }
 
   verifyResetCode(
@@ -43,14 +51,14 @@ export class AuthService {
     code: string,
     requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
-    return this.useCases.verifyResetCode(email, code, requestContext);
+    return this.verificationUseCases.verifyResetCode(email, code, requestContext);
   }
 
   getSession(
     token: string | null,
     requestContext: AuthRequestContext = {},
   ): Promise<SessionStatusResult> {
-    return this.useCases.getSession(token, requestContext);
+    return this.sessionUseCases.getSession(token, requestContext);
   }
 
   validateSignupDraft(input: {
@@ -58,11 +66,11 @@ export class AuthService {
     password: string;
     nickname: string;
   }): Promise<SignupDraftValidationResponse> {
-    return this.useCases.validateSignupDraft(input);
+    return this.registrationUseCases.validateSignupDraft(input);
   }
 
   signup(input: SignupInput): Promise<LoginResult> {
-    return this.useCases.signup(input);
+    return this.registrationUseCases.signup(input);
   }
 
   login(
@@ -71,7 +79,7 @@ export class AuthService {
     rememberMe: boolean,
     requestContext: AuthRequestContext = {},
   ): Promise<LoginResult> {
-    return this.useCases.login(email, password, rememberMe, requestContext);
+    return this.credentialUseCases.login(email, password, rememberMe, requestContext);
   }
 
   resetPassword(
@@ -79,7 +87,7 @@ export class AuthService {
     newPassword: string,
     requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
-    return this.useCases.resetPassword(email, newPassword, requestContext);
+    return this.credentialUseCases.resetPassword(email, newPassword, requestContext);
   }
 
   changePassword(
@@ -88,14 +96,19 @@ export class AuthService {
     newPassword: string,
     requestContext: AuthRequestContext = {},
   ): Promise<ChangePasswordResult> {
-    return this.useCases.changePassword(authUser, currentPassword, newPassword, requestContext);
+    return this.credentialUseCases.changePassword(
+      authUser,
+      currentPassword,
+      newPassword,
+      requestContext,
+    );
   }
 
   renewSession(
     renewalToken: string | null,
     requestContext: AuthRequestContext = {},
   ): Promise<RenewSessionResult> {
-    return this.useCases.renewSession(renewalToken, requestContext);
+    return this.sessionUseCases.renewSession(renewalToken, requestContext);
   }
 
   logout(
@@ -103,6 +116,6 @@ export class AuthService {
     renewalToken: string | null = null,
     requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
-    return this.useCases.logout(token, renewalToken, requestContext);
+    return this.sessionUseCases.logout(token, renewalToken, requestContext);
   }
 }
