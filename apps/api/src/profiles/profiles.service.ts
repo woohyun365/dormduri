@@ -3,7 +3,7 @@ import type { PublicProfile } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
-import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { createProfilesReadOwner } from './profiles-read-owner.js';
 

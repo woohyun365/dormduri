@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../platform/database/prisma.service.js';
-import { dormitoriesErrors } from '../dormitories.errors.js';
+import { dormitoriesErrors } from '../errors/dormitories.errors.js';
 import { mapDormitoryGuideResponse } from './dormitory-guide.mapper.js';
 
 @Injectable()

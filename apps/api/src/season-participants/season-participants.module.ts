@@ -25,10 +25,10 @@ import {
 } from './current-season-participation.controller.js';
 import { CurrentSeasonParticipantContextGuard } from './current-season-participant-context.guard.js';
 import { CurrentSeasonParticipationViewOwner } from './current-season-participation-view.owner.js';
-import { createSeasonParticipantPublicTargetOwner } from './season-participant-public-target.owner.js';
-import { createSeasonParticipantSourceOwner } from './season-participant-source-owner.js';
-import { createSeasonParticipantWriteOwner } from './season-participant-write-owner.js';
-import { SeasonParticipantsService } from './season-participants.service.js';
+import { createSeasonParticipantPublicTargetOwner } from './public-targets/registration-snapshot.query.js';
+import { createSeasonParticipantSourceOwner } from './participants/season-participant-source.policy.js';
+import { createSeasonParticipantWriteOwner } from './application/season-participant-write-owner.js';
+import { SeasonParticipantsService } from './application/season-participants.service.js';
 
 @Module({
   imports: [PrismaModule, SeasonsModule, DormitoriesModule, AuthModule, ChatLifecycleModule],

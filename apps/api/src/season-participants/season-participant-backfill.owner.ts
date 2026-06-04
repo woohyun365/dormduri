@@ -1,6 +1,6 @@
 import type { SeasonParticipantOwnerDeps } from './season-participant-owner-deps.js';
-import { buildSeasonParticipantCreateData } from './season-participant-container.owner.js';
-import type { SeasonParticipantBackfillResult } from './season-participant-records.js';
+import { buildSeasonParticipantCreateData } from './participants/season-participant-container.command.js';
+import type { SeasonParticipantBackfillResult } from './participants/season-participant-records.js';
 
 export function createSeasonParticipantBackfillOwner(deps: SeasonParticipantOwnerDeps) {
   async function backfillCurrentSeasonParticipants(

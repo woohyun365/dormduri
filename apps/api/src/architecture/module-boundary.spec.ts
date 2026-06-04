@@ -15,7 +15,7 @@ import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from '../chat/application/ports/chat
 import { CHAT_THREAD_WITHDRAWAL_PORT } from '../chat/application/ports/chat-thread-withdrawal.port.js';
 import { ChatLifecycleModule } from '../chat/lifecycle/chat-lifecycle.module.js';
 import { DormitoriesModule } from '../dormitories/dormitories.module.js';
-import { DormitoriesService } from '../dormitories/dormitories.service.js';
+import { DormitoriesService } from '../dormitories/application/dormitories.service.js';
 import { DORMITORY_SELECTION_CATALOG_PORT } from '../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
 import { HealthModule } from '../health/health.module.js';
 import { LifecycleModule } from '../lifecycle/lifecycle.module.js';
@@ -40,7 +40,7 @@ import {
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { CurrentSeasonParticipantContextGuard } from '../season-participants/current-season-participant-context.guard.js';
 import { CurrentSeasonParticipationViewOwner } from '../season-participants/current-season-participation-view.owner.js';
-import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { CurrentUserViewModule } from '../users/current-user-view.module.js';

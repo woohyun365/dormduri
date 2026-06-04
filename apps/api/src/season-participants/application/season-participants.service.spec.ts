@@ -1,8 +1,8 @@
 import { updateCurrentUserRequestSchema } from '@repo/shared/user-contract';
-import { validateSeasonProfileCompleteness } from './season-participation-capability.owner.js';
-import { createSeasonParticipantSourceOwner } from './season-participant-source-owner.js';
+import { validateSeasonProfileCompleteness } from '../season-participation-capability.owner.js';
+import { createSeasonParticipantSourceOwner } from '../participants/season-participant-source.policy.js';
 import { SeasonParticipantsService } from './season-participants.service.js';
-import { currentProfile, participant } from './season-participants.owner.spec-fixtures.js';
+import { currentProfile, participant } from '../season-participants.owner.spec-fixtures.js';
 
 describe('SeasonParticipantsService facade', () => {
   const writeOwner = {

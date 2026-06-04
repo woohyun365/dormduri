@@ -3,7 +3,7 @@ import { basename, dirname, join, relative, sep } from 'node:path';
 import { CurrentSeasonParticipantContextGuard } from '../../season-participants/current-season-participant-context.guard.js';
 import { CurrentSeasonParticipationViewOwner } from '../../season-participants/current-season-participation-view.owner.js';
 import { SeasonParticipantsModule } from '../../season-participants/season-participants.module.js';
-import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
@@ -14,13 +14,33 @@ const transitionalRootOwnerFiles = [
   'current-season-participation-view.owner.ts',
   'dormitory-selection.owner.ts',
   'season-participant-backfill.owner.ts',
-  'season-participant-container.owner.ts',
   'season-participant-deregistration.owner.ts',
-  'season-participant-public-target.owner.ts',
   'season-participation-capability.owner.ts',
   'season-profile-draft.owner.ts',
   'season-registration-finalize.owner.ts',
 ] as const;
+
+const finalizingPhaseTwoDirectories = [
+  'application',
+  'errors',
+  'participants',
+  'public-targets',
+] as const;
+
+const requiredPhaseTwoOneFiles = {
+  application: [
+    'season-participant-use-case.tokens.ts',
+    'season-participant-write-owner.ts',
+    'season-participants.service.ts',
+  ],
+  errors: ['season-participants.errors.ts'],
+  participants: [
+    'season-participant-container.command.ts',
+    'season-participant-records.ts',
+    'season-participant-source.policy.ts',
+  ],
+  'public-targets': ['registration-snapshot.query.ts'],
+} as const;
 
 const transitionalRootContextFiles = [
   'current-season-participant-context.decorator.ts',
@@ -70,6 +90,32 @@ function filesContaining(root: string, pattern: RegExp) {
 }
 
 describe('season-participants final structure boundary', () => {
+  it('keeps Phase 2-1 finalized slice directories and files out of the root', () => {
+    for (const directory of finalizingPhaseTwoDirectories) {
+      expect(existsSync(join(seasonParticipantsRoot, directory))).toBe(true);
+    }
+
+    for (const [directory, files] of Object.entries(requiredPhaseTwoOneFiles)) {
+      for (const file of files) {
+        expect(existsSync(join(seasonParticipantsRoot, directory, file))).toBe(true);
+      }
+    }
+
+    const forbiddenRootFiles = [
+      'season-participants.service.ts',
+      'season-participants.errors.ts',
+      'season-participant-container.owner.ts',
+      'season-participant-public-target.owner.ts',
+      'season-participant-records.ts',
+      'season-participant-source-owner.ts',
+      'season-participant-write-owner.ts',
+    ] as const;
+
+    for (const file of forbiddenRootFiles) {
+      expect(existsSync(join(seasonParticipantsRoot, file))).toBe(false);
+    }
+  });
+
   it('locks current root owner files so Phase 2~8 can only delete or move them deliberately', () => {
     const rootOwnerFiles = productionTypeScriptFiles(seasonParticipantsRoot)
       .filter(
@@ -105,7 +151,7 @@ describe('season-participants final structure boundary', () => {
 
   it('keeps SeasonParticipantsService as provider-injected facade instead of direct dependency assembler', () => {
     const serviceSource = readSource(
-      join(seasonParticipantsRoot, 'season-participants.service.ts'),
+      join(seasonParticipantsRoot, 'application/season-participants.service.ts'),
     );
 
     expect(serviceSource).toContain('SEASON_PARTICIPANT_WRITE_OWNER');

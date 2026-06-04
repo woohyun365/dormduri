@@ -9,12 +9,12 @@ import {
 import type { CurrentSeasonParticipantContextRequirement } from './context/current-season-participant-context-requirement.js';
 import { forbiddenError, unauthorizedError } from '../platform/http/api-error.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
-import { SeasonParticipantsService } from './season-participants.service.js';
+import { SeasonParticipantsService } from './application/season-participants.service.js';
 import {
   setCurrentSeasonParticipantContext,
   type CurrentSeasonParticipantContextRequest,
 } from './current-season-participant-context.types.js';
-import { seasonParticipantsErrors } from './season-participants.errors.js';
+import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 
 const currentSeasonParticipantUserSelect = {
   id: true,

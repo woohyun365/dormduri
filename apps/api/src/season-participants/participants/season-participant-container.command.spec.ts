@@ -2,9 +2,9 @@ import {
   createSeasonParticipantsServiceTestKit,
   now,
   objectContaining,
-} from './season-participants.owner.spec-fixtures.js';
+} from '../season-participants.owner.spec-fixtures.js';
 
-describe('season-participant-container.owner', () => {
+describe('season-participant-container.command', () => {
   it('ensureCurrentSeasonParticipant()는 row/container만 보장하고 registered/assigned/history를 만들지 않는다', async () => {
     const { service, prisma, txSeasonParticipantUpdate, txSeasonParticipantProfileHistoryCreate } =
       createSeasonParticipantsServiceTestKit();

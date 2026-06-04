@@ -1,6 +1,6 @@
-import type { SeasonParticipantPublicTargetOwner } from '../season-participant-public-target.owner.js';
-import type { SeasonParticipantSourceOwner } from '../season-participant-source-owner.js';
-import type { SeasonParticipantWriteOwner } from '../season-participant-write-owner.js';
+import type { SeasonParticipantPublicTargetOwner } from '../public-targets/registration-snapshot.query.js';
+import type { SeasonParticipantSourceOwner } from '../participants/season-participant-source.policy.js';
+import type { SeasonParticipantWriteOwner } from './season-participant-write-owner.js';
 
 export const SEASON_PARTICIPANT_WRITE_OWNER = Symbol('SEASON_PARTICIPANT_WRITE_OWNER');
 

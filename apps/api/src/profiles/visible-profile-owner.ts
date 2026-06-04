@@ -10,8 +10,8 @@ import {
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantProfileRecord,
-} from '../season-participants/season-participant-records.js';
-import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+} from '../season-participants/participants/season-participant-records.js';
+import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import {
   canCurrentDormitoryMatch,
   hasOperatedAssignedDormitory,

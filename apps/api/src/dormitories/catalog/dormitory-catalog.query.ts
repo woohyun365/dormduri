@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
-import { dormitoriesErrors } from '../dormitories.errors.js';
+import { dormitoriesErrors } from '../errors/dormitories.errors.js';
 import {
   mapDormitoryCatalogDetailResponse,
   mapDormitoryCatalogListResponse,

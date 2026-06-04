@@ -1,5 +1,5 @@
 import type { AuthenticatedRequest } from '../auth/application/auth-actor-context.types.js';
-import type { CurrentSeasonParticipantRecord } from './season-participants.service.js';
+import type { CurrentSeasonParticipantRecord } from './application/season-participants.service.js';
 
 export interface CurrentSeasonParticipantDomainContexts {
   currentSeasonParticipant?: CurrentSeasonParticipantRecord;

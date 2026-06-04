@@ -4,7 +4,7 @@ import {
   buildPublicTargetPolicyViewerInput,
   toOperatedDormitoryIdSet,
 } from './season-participant-gate-context.js';
-import type { CurrentSeasonParticipantRecord } from './season-participants.service.js';
+import type { CurrentSeasonParticipantRecord } from './application/season-participants.service.js';
 
 const COMPLETE_LIFESTYLE = {
   bedtime: '22_24',

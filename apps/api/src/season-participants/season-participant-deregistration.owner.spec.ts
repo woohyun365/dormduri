@@ -4,7 +4,7 @@ import {
   participant,
   profile,
 } from './season-participants.owner.spec-fixtures.js';
-import { seasonParticipantsErrors } from './season-participants.errors.js';
+import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 
 describe('season-participant-deregistration.owner', () => {
   it('withdrawal에 따른 chat thread lifecycle mutation은 chat withdrawal port로 위임한다', async () => {

@@ -1,10 +1,10 @@
-import { createDormitorySelectionOwner } from './dormitory-selection.owner.js';
-import { createSeasonParticipantBackfillOwner } from './season-participant-backfill.owner.js';
-import { createSeasonParticipantContainerOwner } from './season-participant-container.owner.js';
-import { createSeasonParticipantDeregistrationOwner } from './season-participant-deregistration.owner.js';
-import type { SeasonParticipantOwnerDeps } from './season-participant-owner-deps.js';
-import { createSeasonProfileDraftOwner } from './season-profile-draft.owner.js';
-import { createSeasonRegistrationFinalizeOwner } from './season-registration-finalize.owner.js';
+import { createDormitorySelectionOwner } from '../dormitory-selection.owner.js';
+import { createSeasonParticipantBackfillOwner } from '../season-participant-backfill.owner.js';
+import { createSeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
+import { createSeasonParticipantDeregistrationOwner } from '../season-participant-deregistration.owner.js';
+import type { SeasonParticipantOwnerDeps } from '../season-participant-owner-deps.js';
+import { createSeasonProfileDraftOwner } from '../season-profile-draft.owner.js';
+import { createSeasonRegistrationFinalizeOwner } from '../season-registration-finalize.owner.js';
 
 export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDeps) {
   const containerOwner = createSeasonParticipantContainerOwner(deps);

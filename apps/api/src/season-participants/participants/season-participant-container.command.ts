@@ -1,5 +1,5 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import type { SeasonParticipantOwnerDeps, DbClient } from './season-participant-owner-deps.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import type { SeasonParticipantOwnerDeps, DbClient } from '../season-participant-owner-deps.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,

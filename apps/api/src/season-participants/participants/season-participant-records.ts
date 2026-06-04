@@ -1,4 +1,4 @@
-import type { Prisma } from '../generated/prisma/client.js';
+import type { Prisma } from '../../generated/prisma/client.js';
 import type {
   Campus,
   DormitorySelectionState,
@@ -6,14 +6,14 @@ import type {
   ParticipantHiddenReasonCode,
   ParticipantStatus,
   SeasonParticipationIntent,
-} from '../generated/prisma/enums.js';
+} from '../../generated/prisma/enums.js';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { SeasonAdditionalProfileDraft } from '@repo/shared/profile-contract';
-import type { ParticipantPolicyRecord } from './season-participant-policy.js';
+import type { ParticipantPolicyRecord } from '../season-participant-policy.js';
 import {
   lifestyleColumnSelect,
   toLifestyleFromColumns,
-} from './lifestyle/lifestyle-persistence.mapper.js';
+} from '../lifestyle/lifestyle-persistence.mapper.js';
 
 export const currentSeasonParticipantProfileSelect = {
   participantId: true,

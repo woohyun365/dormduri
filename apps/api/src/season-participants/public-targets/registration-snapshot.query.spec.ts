@@ -1,6 +1,6 @@
-import { createSeasonParticipantPublicTargetOwner } from './season-participant-public-target.owner.js';
+import { createSeasonParticipantPublicTargetOwner } from './registration-snapshot.query.js';
 
-describe('season-participant-public-target.owner', () => {
+describe('registration-snapshot.query', () => {
   const prisma = {
     seasonParticipantProfileHistory: {
       findMany: jest.fn(),

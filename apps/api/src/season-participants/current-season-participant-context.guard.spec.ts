@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { RequireCurrentSeasonParticipant } from './current-season-participant-context.decorator.js';
 import { CurrentSeasonParticipantContextGuard } from './current-season-participant-context.guard.js';
 import type { CurrentSeasonParticipantContextRequest } from './current-season-participant-context.types.js';
-import type { CurrentSeasonParticipantRecord } from './season-participants.service.js';
+import type { CurrentSeasonParticipantRecord } from './application/season-participants.service.js';
 
 class DomainContextGuardFixtureController {
   @RequireCurrentSeasonParticipant()

@@ -10,8 +10,8 @@ import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
-} from './season-participant-records.js';
-import { SeasonParticipantsService } from './season-participants.service.js';
+} from './participants/season-participant-records.js';
+import { SeasonParticipantsService } from './application/season-participants.service.js';
 import {
   buildCompletion,
   isParticipantInactive,

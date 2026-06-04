@@ -15,8 +15,8 @@ import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantProfileRecord,
-} from './season-participant-records.js';
-import type { SeasonParticipantContainerOwner } from './season-participant-container.owner.js';
+} from './participants/season-participant-records.js';
+import type { SeasonParticipantContainerOwner } from './participants/season-participant-container.command.js';
 import {
   assertParticipantAllowsProfileDraftWrite,
   assertSeasonProfileCompleteForRegistration,

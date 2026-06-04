@@ -8,7 +8,7 @@ import type {
 } from '@repo/shared/roommate-search-contract';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
-import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { createRoommateSearchOwner } from './roommate-search-owner.js';
 

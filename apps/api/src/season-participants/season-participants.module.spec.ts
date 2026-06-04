@@ -13,7 +13,7 @@ import {
   SEASON_PARTICIPANT_WRITE_OWNER,
 } from './application/season-participant-use-case.tokens.js';
 import { SeasonParticipantsModule } from './season-participants.module.js';
-import { SeasonParticipantsService } from './season-participants.service.js';
+import { SeasonParticipantsService } from './application/season-participants.service.js';
 
 function getModuleMetadata<T>(target: object, key: string): T[] {
   return (Reflect.getMetadata(key, target) ?? []) as T[];

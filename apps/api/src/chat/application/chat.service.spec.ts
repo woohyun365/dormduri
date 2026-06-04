@@ -4,7 +4,7 @@ import { chatErrors } from '../errors/chat.errors.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
-} from '../../season-participants/season-participants.service.js';
+} from '../../season-participants/application/season-participants.service.js';
 
 type UserSeed = {
   id: string;

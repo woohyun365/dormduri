@@ -10,12 +10,12 @@ import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import { lifestyleFieldNames } from './lifestyle/lifestyle-persistence.mapper.js';
 import { isParticipantRegistered } from './season-participant-policy.js';
 import { canCurrentDormitoryMatch } from './season-participant-selection.js';
-import { seasonParticipantsErrors } from './season-participants.errors.js';
+import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 import {
   toAdditionalProfileFromRecord,
   type CurrentSeasonParticipantProfileRecord,
   type CurrentSeasonParticipantRecord,
-} from './season-participant-records.js';
+} from './participants/season-participant-records.js';
 
 export function validateSeasonProfileCompleteness(
   profile: CurrentSeasonParticipantProfileRecord | null | undefined,

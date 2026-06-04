@@ -1,4 +1,4 @@
-import { conflictError } from '../platform/http/api-error.js';
+import { conflictError } from '../../platform/http/api-error.js';
 
 export const seasonParticipantsErrors = {
   seasonProfileDraftNotAllowed() {

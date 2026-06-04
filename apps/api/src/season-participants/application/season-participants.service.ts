@@ -7,8 +7,8 @@ import type {
   DormitorySelectionDraftResponse,
   SeasonRegistrationFinalizeResponse,
 } from '@repo/shared/season-contract';
-import type { Prisma } from '../generated/prisma/client.js';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import type { CurrentSeasonContext } from '../../seasons/season.types.js';
 import {
   SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER,
   SEASON_PARTICIPANT_SOURCE_OWNER,
@@ -16,15 +16,15 @@ import {
   type SeasonParticipantPublicTargetOwner,
   type SeasonParticipantSourceOwner,
   type SeasonParticipantWriteOwner,
-} from './application/season-participant-use-case.tokens.js';
-import type { RegistrationSnapshotReader } from './season-participant-public-target.owner.js';
+} from './season-participant-use-case.tokens.js';
+import type { RegistrationSnapshotReader } from '../public-targets/registration-snapshot.query.js';
 import type {
   CurrentSeasonParticipantProfileRecord,
   CurrentSeasonParticipantRecord,
   SeasonParticipantEnsureInput,
   SeasonParticipantBackfillResult,
   CanonicalSelectionState,
-} from './season-participant-records.js';
+} from '../participants/season-participant-records.js';
 
 export type {
   SeasonParticipantEnsureInput,

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { DormitoriesModule } from '../../dormitories/dormitories.module.js';
-import { DormitoriesService } from '../../dormitories/dormitories.service.js';
+import { DormitoriesService } from '../../dormitories/application/dormitories.service.js';
 import { DORMITORY_SELECTION_CATALOG_PORT } from '../../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
 
 const apiRoot = process.cwd();
@@ -9,21 +9,24 @@ const apiSourceRoot = join(apiRoot, 'src');
 const dormitoriesRoot = join(apiSourceRoot, 'dormitories');
 const seasonParticipantsRoot = join(apiSourceRoot, 'season-participants');
 
-const finalRootRuntimeFiles = [
-  'dormitories.controller.ts',
-  'dormitories.errors.ts',
-  'dormitories.module.ts',
-  'dormitories.service.ts',
+const finalRootRuntimeFiles = ['dormitories.controller.ts', 'dormitories.module.ts'] as const;
+
+const requiredFinalDirectories = [
+  'application',
+  'catalog',
+  'errors',
+  'guides',
+  'selection-catalog',
 ] as const;
 
-const requiredFinalDirectories = ['catalog', 'guides', 'selection-catalog'] as const;
-
 const requiredPhaseOneSliceFiles = {
+  application: ['dormitories.service.ts'],
   catalog: [
     'dormitory-catalog.mapper.ts',
     'dormitory-catalog.query.ts',
     'dormitory-catalog.repository.ts',
   ],
+  errors: ['dormitories.errors.ts'],
   guides: ['dormitory-guide.mapper.ts', 'dormitory-guide.query.ts'],
   'selection-catalog': [
     'dormitory-selection-catalog.mapper.ts',

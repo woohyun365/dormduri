@@ -12,13 +12,13 @@ import {
   getVerifiedUserForSeasonAction,
   type SeasonParticipantOwnerDeps,
 } from './season-participant-owner-deps.js';
-import type { SeasonParticipantContainerOwner } from './season-participant-container.owner.js';
+import type { SeasonParticipantContainerOwner } from './participants/season-participant-container.command.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
   type SeasonParticipantEnsureInput,
-} from './season-participant-records.js';
+} from './participants/season-participant-records.js';
 import {
   assertParticipantAllowsDormitorySelection,
   buildCompletionForParticipant,
@@ -26,7 +26,7 @@ import {
   hasParticipantDormitorySelection,
   resolveSeasonProfileState,
 } from './season-participation-capability.owner.js';
-import { seasonParticipantsErrors } from './season-participants.errors.js';
+import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 
 export function createDormitorySelectionOwner(
   deps: SeasonParticipantOwnerDeps,

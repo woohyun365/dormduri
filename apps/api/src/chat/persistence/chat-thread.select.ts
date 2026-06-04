@@ -1,5 +1,5 @@
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { SeasonParticipantEnsureInput } from '../../season-participants/season-participants.service.js';
+import type { SeasonParticipantEnsureInput } from '../../season-participants/application/season-participants.service.js';
 
 export const threadSelect = {
   id: true,

@@ -4,7 +4,7 @@ import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
-} from './season-participants.service.js';
+} from './application/season-participants.service.js';
 import {
   hasOperatedAssignedDormitory,
   hasParticipantProfile,

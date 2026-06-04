@@ -1,9 +1,9 @@
 import type { SeasonProfileDraftRequest } from '@repo/shared/season-contract';
-import { SeasonParticipantsService } from './season-participants.service.js';
+import { SeasonParticipantsService } from './application/season-participants.service.js';
 import { toLifestyleColumnData } from './lifestyle/lifestyle-persistence.mapper.js';
-import { createSeasonParticipantPublicTargetOwner } from './season-participant-public-target.owner.js';
-import { createSeasonParticipantSourceOwner } from './season-participant-source-owner.js';
-import { createSeasonParticipantWriteOwner } from './season-participant-write-owner.js';
+import { createSeasonParticipantPublicTargetOwner } from './public-targets/registration-snapshot.query.js';
+import { createSeasonParticipantSourceOwner } from './participants/season-participant-source.policy.js';
+import { createSeasonParticipantWriteOwner } from './application/season-participant-write-owner.js';
 
 export const now = new Date('2026-02-10T03:00:00.000Z');
 

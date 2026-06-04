@@ -9,7 +9,7 @@ import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
-} from '../season-participants/season-participant-records.js';
+} from '../season-participants/participants/season-participant-records.js';
 
 export interface NicknameChangePolicyUser {
   id: string;

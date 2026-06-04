@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { Campus, Gender } from '../generated/prisma/enums.js';
-import { DormitoryCatalogQuery } from './catalog/dormitory-catalog.query.js';
-import { DormitoryGuideQuery } from './guides/dormitory-guide.query.js';
+import type { Campus, Gender } from '../../generated/prisma/enums.js';
+import { DormitoryCatalogQuery } from '../catalog/dormitory-catalog.query.js';
+import { DormitoryGuideQuery } from '../guides/dormitory-guide.query.js';
 
 @Injectable()
 export class DormitoriesService {

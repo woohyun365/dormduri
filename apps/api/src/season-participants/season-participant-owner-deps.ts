@@ -11,7 +11,7 @@ import {
   normalizeSeasonRuntimeRow,
   toCurrentSeasonResponse,
 } from '../seasons/season.utils.js';
-import { seasonParticipantsErrors } from './season-participants.errors.js';
+import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 
 export interface SeasonParticipantOwnerDeps {
   prisma: PrismaService;

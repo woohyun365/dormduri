@@ -6,7 +6,7 @@ import {
   canCurrentDormitoryMatch,
   resolvePublicTargetPolicy,
 } from '../season-participants/season-participant-policy.js';
-import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import {
   buildCurrentUserCapabilityInput,
   buildPublicTargetPolicyTargetInput,

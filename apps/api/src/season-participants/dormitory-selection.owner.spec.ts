@@ -1,4 +1,4 @@
-import { seasonParticipantsErrors } from './season-participants.errors.js';
+import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 import {
   anyObject,
   createSeasonParticipantsServiceTestKit,

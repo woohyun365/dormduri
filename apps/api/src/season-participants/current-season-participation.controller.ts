@@ -16,7 +16,7 @@ import {
 import {
   SeasonParticipantsService,
   type CurrentSeasonParticipantRecord,
-} from './season-participants.service.js';
+} from './application/season-participants.service.js';
 
 @Controller('api/seasons/current/profile')
 @RequireCapability()

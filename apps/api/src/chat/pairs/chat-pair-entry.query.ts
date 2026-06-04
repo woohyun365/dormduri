@@ -1,6 +1,6 @@
 import type { ConversationThreadEntryResponse } from '@repo/shared/chat-contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
-import type { CurrentSeasonParticipantRecord } from '../../season-participants/season-participants.service.js';
+import type { CurrentSeasonParticipantRecord } from '../../season-participants/application/season-participants.service.js';
 import type { ChatUserContext } from '../application/chat-user-context.service.js';
 import type {
   ChatParticipantUserProjection,

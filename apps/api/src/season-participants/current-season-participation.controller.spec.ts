@@ -3,7 +3,7 @@ import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
 } from './current-season-participation.controller.js';
-import { seasonParticipantsErrors } from './season-participants.errors.js';
+import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 
 function getBadRequestResponse(error: unknown) {
   expect(error).toBeInstanceOf(BadRequestException);

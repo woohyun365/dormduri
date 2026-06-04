@@ -6,13 +6,13 @@ import {
   getVerifiedUserForSeasonAction,
   type SeasonParticipantOwnerDeps,
 } from './season-participant-owner-deps.js';
-import type { SeasonParticipantContainerOwner } from './season-participant-container.owner.js';
+import type { SeasonParticipantContainerOwner } from './participants/season-participant-container.command.js';
 import type { DormitorySelectionOwner } from './dormitory-selection.owner.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
-} from './season-participant-records.js';
+} from './participants/season-participant-records.js';
 import {
   assertParticipantAllowsRegistration,
   assertParticipantHasDormitorySelection,
@@ -21,7 +21,7 @@ import {
 } from './season-participation-capability.owner.js';
 import { assertUserAccountIdentity } from '../identity/account-identity-invariant.js';
 import { usersErrors } from '../users/users.errors.js';
-import { seasonParticipantsErrors } from './season-participants.errors.js';
+import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 
 export function createSeasonRegistrationFinalizeOwner(
   deps: SeasonParticipantOwnerDeps,

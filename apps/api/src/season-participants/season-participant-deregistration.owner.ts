@@ -3,12 +3,12 @@ import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
-} from './season-participant-records.js';
+} from './participants/season-participant-records.js';
 import {
   getVerifiedUserForSeasonAction,
   type SeasonParticipantOwnerDeps,
 } from './season-participant-owner-deps.js';
-import { seasonParticipantsErrors } from './season-participants.errors.js';
+import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 
 export function createSeasonParticipantDeregistrationOwner(deps: SeasonParticipantOwnerDeps) {
   async function deregisterCurrentSeasonParticipation(

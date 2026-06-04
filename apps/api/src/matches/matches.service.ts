@@ -21,7 +21,7 @@ import { lifestyleColumnSelect } from '../season-participants/lifestyle/lifestyl
 import { ModerationService } from '../moderation/moderation.service.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { createMatchContextOwner } from './match-context-owner.js';
-import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { matchesErrors } from './matches.errors.js';
 import { createMatchActiveQueryOwner } from './match-active-query-owner.js';

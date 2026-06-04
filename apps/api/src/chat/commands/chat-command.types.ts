@@ -11,7 +11,7 @@ import type {
   ChatParticipantUserProjection,
   ThreadRecord,
 } from '../persistence/chat-thread.select.js';
-import type { CurrentSeasonParticipantRecord } from '../../season-participants/season-participants.service.js';
+import type { CurrentSeasonParticipantRecord } from '../../season-participants/application/season-participants.service.js';
 import type { ChatSendMessageDecision } from '../policies/chat-thread-permission.policy.js';
 
 export type ConversationMessageResponseRecord = {
