@@ -84,6 +84,10 @@ describe('api common final structure boundary', () => {
     expect(knownCommonRemovalTargets).toEqual({});
   });
 
+  it('deletes the common migration bucket after canonical import completion', () => {
+    expect(existsSync(commonRoot)).toBe(false);
+  });
+
   it('keeps architecture and conformance test surfaces out of runtime common', () => {
     const staleTestOnlyOwners = removedTestOnlyCommonOwners
       .filter((owner) => existsSync(join(commonRoot, owner)))
@@ -206,13 +210,8 @@ describe('api common final structure boundary', () => {
     expect(existsSync(join(apiSourceRoot, 'moderation/text-moderation.policy.ts'))).toBe(true);
   });
 
-  it('keeps common documented as a temporary migration bucket', () => {
-    const readmePath = join(commonRoot, 'README.md');
-
-    expect(existsSync(readmePath)).toBe(true);
-    const source = readSource(readmePath);
-    expect(source).toContain('temporary migration bucket');
-    expect(source).toContain('Do not add new runtime files');
-    expect(source).toContain('api-common-final-structure-refactor-plan.md');
+  it('keeps common runtime bucket deleted instead of documented as a final owner', () => {
+    expect(existsSync(join(commonRoot, 'README.md'))).toBe(false);
+    expect(productionTypeScriptFiles(commonRoot)).toEqual([]);
   });
 });
