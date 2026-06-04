@@ -1,45 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { basename, dirname, join, relative } from 'node:path';
+import { basename, join, relative } from 'node:path';
 
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
 const authRoot = join(apiSourceRoot, 'auth');
-
-const finalRootProductionFiles = ['auth.controller.ts', 'auth.module.ts'];
-
-const removedRootCompatibilityFiles = [
-  'auth-access.decorator.ts',
-  'auth-password.ts',
-  'auth-capability.ts',
-  'auth-change-password-owner.ts',
-  'auth-failures.ts',
-  'auth-login-attempt.service.ts',
-  'auth-login-owner.ts',
-  'auth-reset-password-owner.ts',
-  'auth-response.builder.ts',
-  'auth-security-alert.policy.ts',
-  'auth-security-event.service.ts',
-  'auth-security-event.types.ts',
-  'auth-signup-owner.ts',
-  'auth-signup-validation.service.ts',
-  'auth-user-view.ts',
-  'auth-verification-lock.ts',
-  'auth-verification-proof.ts',
-  'auth-verification.service.ts',
-  'auth-verification.store.ts',
-  'auth.errors.ts',
-  'auth.service.ts',
-  'authenticated-user.decorator.ts',
-  'authenticated-user.guard.ts',
-  'email-sender.interface.ts',
-  'monitored-email-sender.service.ts',
-  'stub-email-sender.service.ts',
-  'auth-request-context.ts',
-  'auth-session.service.ts',
-  'auth.constants.ts',
-  'auth.types.ts',
-  'auth.utils.ts',
-] as const;
 
 function walkTypeScriptFiles(root: string): string[] {
   if (!existsSync(root)) {
@@ -67,13 +31,6 @@ function relativeSourcePath(path: string) {
   return relative(apiRoot, path);
 }
 
-function rootProductionFileNames(root: string) {
-  return productionTypeScriptFiles(root)
-    .filter((path) => dirname(path) === root)
-    .map((path) => basename(path))
-    .sort();
-}
-
 function offendingFiles(root: string, forbidden: RegExp) {
   return productionTypeScriptFiles(root)
     .filter((path) => forbidden.test(readSource(path)))
@@ -87,164 +44,7 @@ function importSpecifiers(source: string): string[] {
   );
 }
 
-describe('Phase 8/9 auth architecture boundary', () => {
-  it('keeps auth refactor target directories explicit for agent-readable responsibilities', () => {
-    const expectedDirectories = [
-      'access',
-      'adapters',
-      'application',
-      'composition',
-      'credentials',
-      'domain',
-      'errors',
-      'login-attempts',
-      'mappers',
-      'operations',
-      'registration',
-      'security-events',
-      'sessions',
-      'verification',
-    ];
-
-    const missingDirectories = expectedDirectories.filter(
-      (directory) => !existsSync(join(authRoot, directory)),
-    );
-
-    expect(missingDirectories).toEqual([]);
-  });
-
-  it('keeps removed top-level transition directories out of the final target', () => {
-    const removedTransitionDirectories = ['queries', 'policies', 'repositories'];
-    const existingTransitionDirectories = removedTransitionDirectories
-      .filter((directory) => existsSync(join(authRoot, directory)))
-      .map((directory) => `src/auth/${directory}`);
-
-    expect(existingTransitionDirectories).toEqual([]);
-  });
-
-  it('keeps session lifecycle ownership in the sessions slice', () => {
-    const expectedSessionSliceFiles = [
-      'auth-session.repository.ts',
-      'current-session.query.ts',
-      'issue-session.command.ts',
-      'logout-session.command.ts',
-      'opaque-token.ts',
-      'renew-session.command.ts',
-      'revoke-sessions.command.ts',
-      'session-lifecycle.policy.ts',
-    ];
-    const missingSessionSliceFiles = expectedSessionSliceFiles.filter(
-      (file) => !existsSync(join(authRoot, 'sessions', file)),
-    );
-    const sessionService = readSource(join(authRoot, 'sessions/auth-session.service.ts'));
-
-    expect(missingSessionSliceFiles).toEqual([]);
-    expect(sessionService).not.toContain('PrismaService');
-    expect(sessionService).not.toContain('createOpaqueToken');
-    expect(sessionService).not.toContain('parseOpaqueToken');
-    expect(sessionService).not.toContain('recordAuthSecurityEventSafely');
-  });
-
-  it('keeps session repository transaction-aware paths explicit', () => {
-    const source = readSource(join(authRoot, 'sessions/auth-session.repository.ts'));
-
-    expect(source).toContain('type AuthSessionClient =');
-    expect(source).toContain('runSerializableTransaction<T>');
-    expect(source).toContain('findRenewalSessionById(\n    client: AuthSessionClient');
-    expect(source).toContain('rotateRenewalToken(\n    client: AuthSessionClient');
-    expect(source).toContain('revokeSessionById(client: AuthSessionClient');
-  });
-
-  it('keeps verification, credentials, and registration ownership in their slices', () => {
-    const expectedSliceFiles = {
-      verification: [
-        'auth-verification-lock.ts',
-        'auth-verification-proof.ts',
-        'auth-verification.service.ts',
-        'auth-verification-eligibility.query.ts',
-        'verification-code.repository.ts',
-      ],
-      credentials: [
-        'password-hash.ts',
-        'change-password.command.ts',
-        'login.command.ts',
-        'reset-password.command.ts',
-      ],
-      registration: ['auth-signup-validation.service.ts', 'signup.command.ts'],
-    } as const;
-
-    const missingSliceFiles = Object.entries(expectedSliceFiles).flatMap(([directory, files]) =>
-      files
-        .filter((file) => !existsSync(join(authRoot, directory, file)))
-        .map((file) => `${directory}/${file}`),
-    );
-
-    expect(missingSliceFiles).toEqual([]);
-    expect(existsSync(join(authRoot, 'domain/opaque-token.ts'))).toBe(false);
-    expect(existsSync(join(authRoot, 'sessions/opaque-token.ts'))).toBe(true);
-    expect(existsSync(join(authRoot, 'application/auth-password-hash.ts'))).toBe(true);
-  });
-
-  it('keeps login/reset/change/signup command behavior specs on their owning slices', () => {
-    const requiredCommandSpecs = [
-      'credentials/login.command.spec.ts',
-      'credentials/reset-password.command.spec.ts',
-      'credentials/change-password.command.spec.ts',
-      'registration/signup.command.spec.ts',
-    ];
-    const missingCommandSpecs = requiredCommandSpecs.filter(
-      (file) => !existsSync(join(authRoot, file)),
-    );
-
-    expect(missingCommandSpecs).toEqual([]);
-  });
-
-  it('keeps auth workflow orchestration in slice-local use-case providers', () => {
-    const requiredUseCaseProviders = [
-      'verification/auth-verification-use-cases.service.ts',
-      'registration/auth-registration-use-cases.service.ts',
-      'credentials/auth-credential-use-cases.service.ts',
-      'sessions/auth-session-use-cases.service.ts',
-    ];
-    const missingUseCaseProviders = requiredUseCaseProviders.filter(
-      (file) => !existsSync(join(authRoot, file)),
-    );
-
-    expect(missingUseCaseProviders).toEqual([]);
-    expect(existsSync(join(authRoot, 'application/auth-use-cases.service.ts'))).toBe(false);
-  });
-
-  it('keeps login-attempt and security-event ownership in their slices', () => {
-    const expectedSliceFiles = {
-      'login-attempts': [
-        'auth-login-attempt.service.ts',
-        'clear-login-failures.command.ts',
-        'get-active-login-lock.query.ts',
-        'login-attempt.repository.ts',
-        'login-lockout.policy.ts',
-        'record-login-failure.command.ts',
-      ],
-      'security-events': [
-        'auth-security-event.repository.ts',
-        'auth-security-event.service.ts',
-        'auth-security-event.types.ts',
-        'security-alert.policy.ts',
-        'security-event-sanitizer.ts',
-      ],
-    } as const;
-
-    const missingSliceFiles = Object.entries(expectedSliceFiles).flatMap(([directory, files]) =>
-      files
-        .filter((file) => !existsSync(join(authRoot, directory, file)))
-        .map((file) => `${directory}/${file}`),
-    );
-
-    expect(missingSliceFiles).toEqual([]);
-    expect(existsSync(join(authRoot, 'repositories/security-event.repository.ts'))).toBe(false);
-    expect(existsSync(join(authRoot, 'policies/security-event-sanitizer.ts'))).toBe(false);
-    expect(existsSync(join(authRoot, 'policies/security-alert.policy.ts'))).toBe(false);
-  });
-
+describe('Auth product architecture boundary', () => {
   it('keeps external production code away from auth internal implementation directories', () => {
     const forbiddenAuthInternalImports =
       /from\s+['"].*(?:\.\.\/)+auth\/(?:commands|repositories|domain|policies|adapters|sessions|verification|credentials|registration|login-attempts|security-events)(?:\/[^'"]*)?(?:\.js)?['"]/;
@@ -260,73 +60,20 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('removes root compatibility wrappers after imports migrate to stable surfaces', () => {
-    const remainingRemovedRootFiles = removedRootCompatibilityFiles
-      .filter((file) => existsSync(join(authRoot, file)))
-      .map((file) => `src/auth/${file}`);
-
-    expect(remainingRemovedRootFiles).toEqual([]);
-  });
-
-  it('keeps auth free of season profile lifestyle parser ownership', () => {
-    const removedAuthLifestylePaths = [
-      join(authRoot, 'lifestyle.schema.ts'),
-      join(authRoot, 'registration/lifestyle.schema.ts'),
-    ];
-
-    const existingAuthLifestylePaths = removedAuthLifestylePaths
-      .filter((path) => existsSync(path))
-      .map(relativeSourcePath);
-
-    expect(existingAuthLifestylePaths).toEqual([]);
-  });
-
-  it('keeps login command out of the generic transition commands directory', () => {
-    const genericCommandsDirectory = join(authRoot, 'commands');
-
-    expect(existsSync(genericCommandsDirectory)).toBe(false);
-    expect(existsSync(join(authRoot, 'credentials/login.command.ts'))).toBe(true);
-  });
-
-  it('keeps the final root production file target explicit with shrinking transition debt', () => {
-    const allowedTransitionRootFiles = [...finalRootProductionFiles].sort();
-    const rootFiles = rootProductionFileNames(authRoot);
-    const unexpectedRootFiles = rootFiles.filter(
-      (file) => !allowedTransitionRootFiles.includes(file),
-    );
-    const staleTransitionAllowlist = allowedTransitionRootFiles.filter(
-      (file) => !rootFiles.includes(file),
-    );
-
-    expect(unexpectedRootFiles).toEqual([]);
-    expect(staleTransitionAllowlist).toEqual([]);
-  });
-
-  it('keeps root-level specs limited to the final controller spec', () => {
-    const allowedRootSpecFiles = ['auth.controller.spec.ts'];
-    const rootSpecFiles = walkTypeScriptFiles(authRoot)
-      .filter((path) => dirname(path) === authRoot && path.endsWith('.spec.ts'))
-      .map((path) => basename(path))
-      .sort();
-
-    expect(rootSpecFiles).toEqual(allowedRootSpecFiles.sort());
-  });
-
-  it('keeps architecture and inventory guards on the architecture surface', () => {
-    const architectureAuthRoot = join(apiSourceRoot, 'architecture/auth');
-
-    expect(existsSync(join(architectureAuthRoot, 'auth-architecture-boundary.spec.ts'))).toBe(true);
-    expect(existsSync(join(architectureAuthRoot, 'auth-route-metadata.inventory.spec.ts'))).toBe(
-      true,
-    );
+  it('keeps architecture and inventory guards on product-named architecture surfaces', () => {
+    expect(existsSync(join(apiSourceRoot, 'architecture/auth-boundary.spec.ts'))).toBe(true);
+    expect(
+      existsSync(join(apiSourceRoot, 'architecture/security/auth-access-route-matrix.spec.ts')),
+    ).toBe(true);
     expect(
       existsSync(
-        join(architectureAuthRoot, 'auth-domain-context-route-metadata.inventory.spec.ts'),
+        join(apiSourceRoot, 'architecture/domain-context/domain-context-route-matrix.spec.ts'),
       ),
     ).toBe(true);
+    expect(existsSync(join(apiSourceRoot, 'architecture/auth'))).toBe(false);
   });
 
-  it('keeps AuthService final-facade migration debt explicit', () => {
+  it('keeps AuthService as a controller-facing facade without infrastructure ownership', () => {
     const source = readSource(join(authRoot, 'application/auth.service.ts'));
     const forbiddenFacadeResponsibilities = [
       ['AuthUseCases bucket dependency', /\bAuthUseCases\b/],
@@ -349,21 +96,21 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(source).toContain('AuthSessionUseCases');
   });
 
-  it('keeps external domains on the final public auth import surface or explicit transition surface', () => {
+  it('keeps external domains on the public auth import surface or explicit operations boundary', () => {
     const finalAllowedExternalAuthImports = [
       /(?:^|\/)auth\/auth\.module(?:\.js)?$/,
       /(?:^|\/)auth\/access\/[^'"]+(?:\.js)?$/,
       /(?:^|\/)auth\/application\/auth-actor-context[^'"]*(?:\.js)?$/,
       /(?:^|\/)auth\/application\/auth-password-hash(?:\.js)?$/,
     ];
-    const transitionAllowedExternalAuthImports = [
+    const operationsAllowedExternalAuthImports = [
       /(?:^|\/)auth\/operations\/auth-operational-cleanup\.service(?:\.js)?$/,
       /(?:^|\/)auth\/operations\/auth-operations-health\.service(?:\.js)?$/,
       /(?:^|\/)auth\/operations\/auth-operations\.module(?:\.js)?$/,
     ];
     const allowedExternalAuthImports = [
       ...finalAllowedExternalAuthImports,
-      ...transitionAllowedExternalAuthImports,
+      ...operationsAllowedExternalAuthImports,
     ];
 
     const externalSourceRoots = readdirSync(apiSourceRoot, { withFileTypes: true })

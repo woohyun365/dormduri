@@ -508,7 +508,7 @@ function getRouteHandler(controller: ExpectedRoute['controller'], handler: strin
   return methodRef;
 }
 
-describe('Auth route metadata inventory', () => {
+describe('Auth access route matrix', () => {
   it('모든 HTTP route는 public/optional/protected matrix에 고정된다', () => {
     const controllers = [...new Set(expectedRoutes.map((route) => route.controller))];
     const actualRoutes = getActualRoutes(controllers);

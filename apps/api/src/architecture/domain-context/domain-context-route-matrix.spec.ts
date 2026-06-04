@@ -24,7 +24,7 @@ interface ExpectedDomainContextRoute {
   guards?: readonly unknown[];
 }
 
-const expectedPhase51P1Routes: ExpectedDomainContextRoute[] = [
+const expectedCurrentSeasonParticipantRoutes: ExpectedDomainContextRoute[] = [
   {
     controller: CurrentSeasonProfileController,
     handler: 'createOrUpdateSeasonProfileDraft',
@@ -69,7 +69,7 @@ const expectedPhase51P1Routes: ExpectedDomainContextRoute[] = [
   },
 ];
 
-const expectedPhase51ExcludedRoutes: ExpectedDomainContextRoute[] = [
+const expectedCurrentSeasonParticipantExcludedRoutes: ExpectedDomainContextRoute[] = [
   {
     controller: CurrentSeasonProfileController,
     handler: 'getCurrentSeasonProfile',
@@ -90,7 +90,7 @@ const expectedPhase51ExcludedRoutes: ExpectedDomainContextRoute[] = [
   },
 ];
 
-const expectedPhase52P2Routes: ExpectedDomainContextRoute[] = [
+const expectedChatAndActiveMatchContextRoutes: ExpectedDomainContextRoute[] = [
   {
     controller: ChatController,
     handler: 'getThreadDetail',
@@ -147,7 +147,7 @@ const expectedPhase52P2Routes: ExpectedDomainContextRoute[] = [
   },
 ];
 
-const expectedPhase52ExcludedRoutes: ExpectedDomainContextRoute[] = [
+const expectedChatAndActiveMatchContextExcludedRoutes: ExpectedDomainContextRoute[] = [
   {
     controller: ChatController,
     handler: 'getThreads',
@@ -240,7 +240,7 @@ const expectedPhase52ExcludedRoutes: ExpectedDomainContextRoute[] = [
   },
 ];
 
-const expectedPhase53P3ExcludedRoutes: ExpectedDomainContextRoute[] = [
+const expectedPublicTargetPolicyCanonicalRoutes: ExpectedDomainContextRoute[] = [
   {
     controller: RoommateSearchController,
     handler: 'getManifest',
@@ -291,53 +291,53 @@ function getRouteHandler(
   return methodRef;
 }
 
-describe('Domain context route metadata inventory', () => {
-  it.each(expectedPhase51P1Routes)(
-    '$path#$handler는 auth axis와 별도로 current-season-participant context를 요구한다',
+describe('Domain context route matrix', () => {
+  it.each(expectedCurrentSeasonParticipantRoutes)(
+    '$path#$handler는 current-season-participant context metadata를 요구한다',
     ({ controller, handler, domainContexts }) => {
       expect(resolveDomainContexts(controller, handler)).toEqual(domainContexts);
     },
   );
 
-  it.each(expectedPhase51P1Routes)(
-    '$path#$handler는 domain context guard도 route method에 직접 적용한다',
+  it.each(expectedCurrentSeasonParticipantRoutes)(
+    '$path#$handler는 current-season-participant context guard도 route method에 직접 적용한다',
     ({ controller, handler, guards }) => {
       expect(resolveRouteGuards(controller, handler)).toEqual(guards);
     },
   );
 
-  it.each(expectedPhase51ExcludedRoutes)(
-    '$path#$handler는 no-row 정상 응답을 위해 participant context guard를 적용하지 않는다',
+  it.each(expectedCurrentSeasonParticipantExcludedRoutes)(
+    '$path#$handler는 current-season-participant context guard 대상이 아니다',
     ({ controller, handler, domainContexts }) => {
       expect(resolveDomainContexts(controller, handler)).toEqual(domainContexts);
       expect(resolveRouteGuards(controller, handler)).toEqual([]);
     },
   );
 
-  it.each(expectedPhase52P2Routes)(
-    '$path#$handler는 P2 domain context metadata를 요구한다',
+  it.each(expectedChatAndActiveMatchContextRoutes)(
+    '$path#$handler는 chat/active-match domain context metadata를 요구한다',
     ({ controller, handler, domainContexts }) => {
       expect(resolveDomainContexts(controller, handler)).toEqual(domainContexts);
     },
   );
 
-  it.each(expectedPhase52P2Routes)(
-    '$path#$handler는 P2 domain context guard도 route method에 직접 적용한다',
+  it.each(expectedChatAndActiveMatchContextRoutes)(
+    '$path#$handler는 chat/active-match domain context guard도 route method에 직접 적용한다',
     ({ controller, handler, guards }) => {
       expect(resolveRouteGuards(controller, handler)).toEqual(guards);
     },
   );
 
-  it.each(expectedPhase52ExcludedRoutes)(
-    '$path#$handler는 Phase 5-2 전환 대상이 아니므로 domain context guard를 적용하지 않는다',
+  it.each(expectedChatAndActiveMatchContextExcludedRoutes)(
+    '$path#$handler는 chat/active-match domain context guard 대상이 아니다',
     ({ controller, handler, domainContexts }) => {
       expect(resolveDomainContexts(controller, handler)).toEqual(domainContexts);
       expect(resolveRouteGuards(controller, handler)).toEqual([]);
     },
   );
 
-  it.each(expectedPhase53P3ExcludedRoutes)(
-    '$path#$handler는 public target policy를 canonical으로 유지하므로 Phase 5-3 viewer/target context guard를 적용하지 않는다',
+  it.each(expectedPublicTargetPolicyCanonicalRoutes)(
+    '$path#$handler는 public target policy를 canonical으로 유지하므로 viewer/target context guard를 적용하지 않는다',
     ({ controller, handler, domainContexts }) => {
       expect(resolveDomainContexts(controller, handler)).toEqual(domainContexts);
       expect(resolveRouteGuards(controller, handler)).toEqual([]);

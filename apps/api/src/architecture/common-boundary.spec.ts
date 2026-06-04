@@ -97,9 +97,7 @@ describe('api common final structure boundary', () => {
       .map((owner) => `src/common/${owner}`);
 
     expect(staleTestOnlyOwners).toEqual([]);
-    expect(
-      existsSync(join(apiSourceRoot, 'architecture/auth/auth-architecture-boundary.spec.ts')),
-    ).toBe(true);
+    expect(existsSync(join(apiSourceRoot, 'architecture/auth-boundary.spec.ts'))).toBe(true);
     expect(
       existsSync(
         join(apiSourceRoot, 'architecture/api-contracts/shared-reference-contracts.spec.ts'),
