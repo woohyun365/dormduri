@@ -2,7 +2,7 @@ import type {
   EmailRequest,
   LoginRequest,
   ResetPasswordRequest,
-  SignupProfileValidationRequest,
+  SignupDraftValidationRequest,
   SignupRequest,
   VerificationCodeRequest,
 } from '@repo/shared/auth-contract';
@@ -11,7 +11,7 @@ import type {
   LoginResponse,
   ResetPasswordResponse,
   SessionResponse,
-  SignupProfileValidationResponse,
+  SignupDraftValidationResponse,
   SignupResponse,
   VerifyCodeResponse,
 } from '@repo/shared/auth-response';
@@ -84,10 +84,20 @@ export const authApi = {
     return postJson<VerifyCodeResponse>('/api/auth/verify-email-code', { email, code });
   },
 
+  validateSignupDraft: (
+    data: SignupDraftValidationRequest,
+  ): Promise<SignupDraftValidationResponse> => {
+    return postJson<SignupDraftValidationResponse>('/api/auth/validate-signup-draft', data);
+  },
+
+  /**
+   * @deprecated Compatibility alias for the old signup basic-info naming.
+   * Use validateSignupDraft for new BFF/API code.
+   */
   validateSignupProfile: (
-    data: SignupProfileValidationRequest,
-  ): Promise<SignupProfileValidationResponse> => {
-    return postJson<SignupProfileValidationResponse>('/api/auth/validate-signup-profile', data);
+    data: SignupDraftValidationRequest,
+  ): Promise<SignupDraftValidationResponse> => {
+    return authApi.validateSignupDraft(data);
   },
 
   signup: async (data: SignupRequest): Promise<SignupResponse> => {

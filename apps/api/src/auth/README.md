@@ -15,14 +15,13 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 
 - `access/`: route-level auth access metadata, capability, current user decorator, authenticated user guard. Domain context guard와 합치지 않는다.
 - `application/`: controller-facing facade와 public actor context resolver/type boundary.
-- `commands/`: transition compatibility 위치다. Phase D 이후 login command만 남아 있고 signup/reset/change는 slice로 이동했다. 여기서 transition compatibility는 기존 import/후속 Phase와 충돌하지 않도록 잠시 유지하는 경로라는 뜻이다.
 - `queries/`: auth eligibility read projection 등 transition compatibility 위치다.
 - `domain/`: opaque token, request context, user view 같은 pure/domain helper.
 - `repositories/`: transition compatibility 위치다. Phase D 이후 verification repository는 `verification/`이 소유한다.
 - `sessions/`: opaque DB-backed session lifecycle. current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy를 함께 둔다.
 - `verification/`: verification code request/verify, proof consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
-- `credentials/`: password hash/verify helper와 reset/change password command를 함께 둔다.
-- `registration/`: signup command, signup draft validation, lifestyle schema validation을 함께 둔다.
+- `credentials/`: password hash/verify helper와 login/reset/change password command를 함께 둔다.
+- `registration/`: signup command와 signup draft validation을 함께 둔다. Auth는 lifestyle/intro/profile parser를 소유하지 않는다.
 - `adapters/email/`: `EmailSender` contract, stub/provider adapter, monitored send wrapper.
 - `policies/`: pure policy/helper. Nest provider나 Prisma mutation을 넣지 않는다.
 - `mappers/`: shared response mapper and user/session presenter.
@@ -49,6 +48,7 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 - `AuthService`는 controller-facing facade가 최종 목표이며, 현재 direct Prisma/session/verification/login-attempt/security-event orchestration은 explicit migration debt다.
 - Phase C 이후 session lifecycle은 `sessions/` slice가 소유하고, root `AuthSessionService`는 기존 call site 호환을 위한 thin facade로만 남긴다.
 - Phase D 이후 verification/credentials/registration use case는 각 slice가 소유하고, root files는 기존 import 호환 wrapper로만 남긴다.
+- Phase D-1/D-2 이후 auth-local lifestyle parser와 generic `commands/` directory는 제거되었다. 남은 root compatibility file은 exact `export *` re-export만 허용하며, removal trigger는 Phase F root wrapper cleanup이다.
 - 외부 domain은 최종적으로 `auth/access/*`, `auth/application/auth-actor-context*`, `auth/auth.module`만 import해야 한다. 현재 root compatibility wrapper와 operations-only imports는 transition surface로만 허용한다.
 - policy/domain helper는 Nest provider와 `PrismaService`를 import하지 않는 pure boundary로 유지한다.
 

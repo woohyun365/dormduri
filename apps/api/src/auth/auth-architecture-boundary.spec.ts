@@ -42,7 +42,6 @@ const transitionRootImplementationFiles = [
   'auth.constants.ts',
   'auth.types.ts',
   'auth.utils.ts',
-  'lifestyle.schema.ts',
 ];
 
 function walkTypeScriptFiles(root: string): string[] {
@@ -97,7 +96,6 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'access',
       'adapters',
       'application',
-      'commands',
       'controllers',
       'credentials',
       'domain',
@@ -161,12 +159,13 @@ describe('Phase 8/9 auth architecture boundary', () => {
         'auth-verification-eligibility.query.ts',
         'verification-code.repository.ts',
       ],
-      credentials: ['auth-password.ts', 'change-password.command.ts', 'reset-password.command.ts'],
-      registration: [
-        'auth-signup-validation.service.ts',
-        'lifestyle.schema.ts',
-        'signup.command.ts',
+      credentials: [
+        'auth-password.ts',
+        'change-password.command.ts',
+        'login.command.ts',
+        'reset-password.command.ts',
       ],
+      registration: ['auth-signup-validation.service.ts', 'signup.command.ts'],
     } as const;
 
     const missingSliceFiles = Object.entries(expectedSliceFiles).flatMap(([directory, files]) =>
@@ -203,7 +202,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'auth.controller.ts': "export * from './controllers/auth.controller.js';\n",
       'auth.service.ts': "export * from './application/auth.service.js';\n",
       'auth-signup-owner.ts': "export * from './registration/signup.command.js';\n",
-      'auth-login-owner.ts': "export * from './commands/login.command.js';\n",
+      'auth-login-owner.ts': "export * from './credentials/login.command.js';\n",
       'auth-reset-password-owner.ts': "export * from './credentials/reset-password.command.js';\n",
       'auth-change-password-owner.ts':
         "export * from './credentials/change-password.command.js';\n",
@@ -216,7 +215,6 @@ describe('Phase 8/9 auth architecture boundary', () => {
         "export * from './verification/auth-verification.service.js';\n",
       'auth-verification.store.ts':
         "export * from './verification/verification-code.repository.js';\n",
-      'lifestyle.schema.ts': "export * from './registration/lifestyle.schema.js';\n",
       'email-sender.interface.ts': "export * from './adapters/email/email-sender.interface.js';\n",
       'stub-email-sender.service.ts':
         "export * from './adapters/email/stub-email-sender.service.js';\n",
@@ -235,6 +233,26 @@ describe('Phase 8/9 auth architecture boundary', () => {
     });
 
     expect(mismatches).toEqual([]);
+  });
+
+  it('keeps auth free of season profile lifestyle parser ownership', () => {
+    const removedAuthLifestylePaths = [
+      join(authRoot, 'lifestyle.schema.ts'),
+      join(authRoot, 'registration/lifestyle.schema.ts'),
+    ];
+
+    const existingAuthLifestylePaths = removedAuthLifestylePaths
+      .filter((path) => existsSync(path))
+      .map(relativeSourcePath);
+
+    expect(existingAuthLifestylePaths).toEqual([]);
+  });
+
+  it('keeps login command out of the generic transition commands directory', () => {
+    const genericCommandsDirectory = join(authRoot, 'commands');
+
+    expect(existsSync(genericCommandsDirectory)).toBe(false);
+    expect(existsSync(join(authRoot, 'credentials/login.command.ts'))).toBe(true);
   });
 
   it('keeps the final root production file target explicit with shrinking transition debt', () => {

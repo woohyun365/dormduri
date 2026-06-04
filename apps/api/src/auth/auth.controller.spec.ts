@@ -92,6 +92,7 @@ describe('AuthController', () => {
         campus: 'CHUNCHEON',
         lifestyle: {},
         intro: '가입 단계 소개',
+        additional: { grade: 2 },
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -139,6 +140,7 @@ describe('AuthController', () => {
         nickname: '테스터',
         lifestyle: {},
         intro: '가입 단계 소개',
+        additional: { grade: 2 },
         profile: { intro: 'signup 단계 프로필' },
       }),
     ).rejects.toBeInstanceOf(BadRequestException);

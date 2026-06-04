@@ -354,6 +354,7 @@ describe('shared reference contracts', () => {
         ...signupAccountIdentityInput,
         lifestyle: VALID_LIFESTYLE,
         intro: '가입 단계 소개',
+        additional: { grade: 2 },
       }).success,
     ).toBe(false);
   });
@@ -425,6 +426,7 @@ describe('shared reference contracts', () => {
         nickname: '테스터',
         lifestyle: VALID_LIFESTYLE,
         intro: '가입 단계 소개',
+        additional: { grade: 2 },
         profile: { intro: 'signup 단계 프로필' },
       }).success,
     ).toBe(false);

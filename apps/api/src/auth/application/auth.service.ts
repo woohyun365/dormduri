@@ -18,7 +18,7 @@ import type { SignupDraftValidationResponse } from '@repo/shared/auth-response';
 import { authFailures } from '../auth-failures.js';
 import { PrismaService } from '../../common/prisma/prisma.service.js';
 import { signup } from '../registration/signup.command.js';
-import { login } from '../commands/login.command.js';
+import { login } from '../credentials/login.command.js';
 import { resetPassword } from '../credentials/reset-password.command.js';
 import { changePassword } from '../credentials/change-password.command.js';
 import type { AuthenticatedUserContext } from '../auth-session.service.js';
