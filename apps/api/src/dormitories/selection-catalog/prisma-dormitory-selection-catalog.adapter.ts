@@ -1,11 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import type { SelectableDormitory } from '@repo/shared/season-contract';
-import { toDateOnlyString } from '@repo/shared/date-primitives';
-import type { Prisma } from '../generated/prisma/client.js';
-import type { Campus, DormitoryGenderPolicy, Gender } from '../generated/prisma/enums.js';
-import { PrismaService } from '../platform/database/prisma.service.js';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { formatKstDate } from '../seasons/season.utils.js';
+import type { Prisma } from '../../generated/prisma/client.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
+import { formatKstDate } from '../../seasons/season.utils.js';
+import {
+  isDormitoryGenderCompatible,
+  isDormitoryRoomSelectionClosed,
+} from './dormitory-selection-eligibility.policy.js';
+import { mapSeasonParticipantSelectableDormitory } from './dormitory-selection-catalog.mapper.js';
+import type {
+  DormitorySelectionCatalogPort,
+  DormitorySelectionValidationReason,
+  DormitorySelectionValidationResult,
+  SeasonParticipantDormitorySelectionInput,
+  SeasonParticipantDormitoryValidationInput,
+} from './dormitory-selection-catalog.port.js';
 
 const seasonDormitoryOperationSelect = {
   seasonId: true,
@@ -28,36 +37,8 @@ type SeasonDormitoryOperationRecord = Prisma.SeasonDormitoryOperationGetPayload<
   select: typeof seasonDormitoryOperationSelect;
 }>;
 
-export type DormitorySelectionQueryClient = Pick<
-  Prisma.TransactionClient,
-  'seasonDormitoryOperation'
->;
-
-export type DormitorySelectionValidationReason =
-  | 'DORMITORY_NOT_FOUND'
-  | 'DORMITORY_NOT_OPERATED'
-  | 'DORMITORY_CAMPUS_MISMATCH'
-  | 'DORMITORY_GENDER_MISMATCH'
-  | 'DORMITORY_SELECTION_CLOSED';
-
-export type DormitorySelectionValidationResult =
-  | { valid: true; item: SelectableDormitory }
-  | { valid: false; reason: DormitorySelectionValidationReason };
-
-export interface SeasonParticipantDormitorySelectionInput {
-  seasonContext: CurrentSeasonContext;
-  campusCodeSnapshot: Campus;
-  genderSnapshot: Gender;
-  now: Date;
-  queryClient?: DormitorySelectionQueryClient;
-}
-
-export interface SeasonParticipantDormitoryValidationInput extends SeasonParticipantDormitorySelectionInput {
-  dormitoryId: string;
-}
-
 @Injectable()
-export class DormitorySelectableQueryService {
+export class PrismaDormitorySelectionCatalogAdapter implements DormitorySelectionCatalogPort {
   constructor(private readonly prisma: PrismaService) {}
 
   async listSelectableDormitoriesForSeasonParticipant(
@@ -90,10 +71,12 @@ export class DormitorySelectableQueryService {
     if (operation.dormitory.campusCode !== input.campusCodeSnapshot) {
       return invalidDormitorySelection('DORMITORY_CAMPUS_MISMATCH');
     }
-    if (!isGenderCompatible(input.genderSnapshot, operation.dormitory.genderPolicy)) {
+    if (!isDormitoryGenderCompatible(input.genderSnapshot, operation.dormitory.genderPolicy)) {
       return invalidDormitorySelection('DORMITORY_GENDER_MISMATCH');
     }
-    if (isRoomSelectionClosed(input.seasonContext, operation.roomSelectionDate, input.now)) {
+    if (
+      isDormitoryRoomSelectionClosed(input.seasonContext, operation.roomSelectionDate, input.now)
+    ) {
       return invalidDormitorySelection('DORMITORY_SELECTION_CLOSED');
     }
 
@@ -140,36 +123,8 @@ function buildSelectableDormitoryWhere(
   return where;
 }
 
-function mapSeasonParticipantSelectableDormitory(
-  operation: SeasonDormitoryOperationRecord,
-): SelectableDormitory {
-  return {
-    id: operation.dormitory.id,
-    name: operation.dormitory.nameKo,
-    campusCode: operation.dormitory.campusCode,
-    roomType: operation.dormitory.roomType as 2 | 3,
-    genderPolicy: operation.dormitory.genderPolicy,
-    roomSelectionDate: toDateOnlyString(operation.roomSelectionDate),
-  };
-}
-
 function invalidDormitorySelection(
   reason: DormitorySelectionValidationReason,
 ): DormitorySelectionValidationResult {
   return { valid: false, reason };
-}
-
-function isGenderCompatible(gender: Gender, genderPolicy: DormitoryGenderPolicy) {
-  return genderPolicy === 'BOTH' || genderPolicy === gender;
-}
-
-function isRoomSelectionClosed(
-  seasonContext: CurrentSeasonContext,
-  roomSelectionDate: Date,
-  now: Date,
-) {
-  return (
-    seasonContext.state === 'SEASON_MATCHING' &&
-    formatKstDate(now) > toDateOnlyString(roomSelectionDate)
-  );
 }

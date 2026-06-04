@@ -1,10 +1,10 @@
-import { DormitorySelectableQueryService } from './dormitory-selectable-query.service.js';
+import { PrismaDormitorySelectionCatalogAdapter } from './prisma-dormitory-selection-catalog.adapter.js';
 
 function objectContaining(shape: Record<string, unknown>): unknown {
   return expect.objectContaining(shape) as unknown;
 }
 
-describe('DormitorySelectableQueryService', () => {
+describe('PrismaDormitorySelectionCatalogAdapter', () => {
   const prisma = {
     campusMaster: {
       findUnique: jest.fn(),
@@ -14,7 +14,7 @@ describe('DormitorySelectableQueryService', () => {
       findUnique: jest.fn(),
     },
   };
-  const service = new DormitorySelectableQueryService(prisma as never);
+  const service = new PrismaDormitorySelectionCatalogAdapter(prisma as never);
 
   beforeEach(() => {
     jest.clearAllMocks();

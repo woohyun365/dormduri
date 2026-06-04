@@ -16,6 +16,7 @@ import { CHAT_THREAD_WITHDRAWAL_PORT } from '../chat/application/ports/chat-thre
 import { ChatLifecycleModule } from '../chat/lifecycle/chat-lifecycle.module.js';
 import { DormitoriesModule } from '../dormitories/dormitories.module.js';
 import { DormitoriesService } from '../dormitories/dormitories.service.js';
+import { DORMITORY_SELECTION_CATALOG_PORT } from '../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
 import { HealthModule } from '../health/health.module.js';
 import { LifecycleModule } from '../lifecycle/lifecycle.module.js';
 import { LifecycleSweepService } from '../lifecycle/lifecycle-sweep.service.js';
@@ -229,7 +230,10 @@ describe('affected API module boundary finalization', () => {
       NotificationQueryService,
       CHAT_THREAD_NOTIFICATION_WRITER,
     ]);
-    expect(moduleMetadata(DormitoriesModule, 'exports')).toEqual([DormitoriesService]);
+    expect(moduleMetadata(DormitoriesModule, 'exports')).toEqual([
+      DormitoriesService,
+      DORMITORY_SELECTION_CATALOG_PORT,
+    ]);
     expect(moduleMetadata(SeasonsModule, 'exports')).toEqual([SeasonsService]);
     expect(moduleMetadata(ModerationModule, 'exports')).toEqual([ModerationService]);
     expect(moduleMetadata(LifecycleModule, 'exports')).toEqual([LifecycleSweepService]);

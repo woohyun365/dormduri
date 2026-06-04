@@ -13,7 +13,10 @@ import {
   type ChatThreadWithdrawalPort,
 } from '../chat/application/ports/chat-thread-withdrawal.port.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
-import { DormitoriesService } from '../dormitories/dormitories.service.js';
+import {
+  DORMITORY_SELECTION_CATALOG_PORT,
+  type DormitorySelectionCatalogPort,
+} from '../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import { createSeasonParticipantPublicTargetOwner } from './season-participant-public-target.owner.js';
@@ -44,14 +47,15 @@ export class SeasonParticipantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly seasonsService: SeasonsService,
-    private readonly dormitoriesService: DormitoriesService,
+    @Inject(DORMITORY_SELECTION_CATALOG_PORT)
+    private readonly dormitorySelectionCatalog: DormitorySelectionCatalogPort,
     @Inject(CHAT_THREAD_WITHDRAWAL_PORT)
     private readonly chatThreadWithdrawal: ChatThreadWithdrawalPort,
   ) {
     this.writeOwner = createSeasonParticipantWriteOwner({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
-      dormitoriesService: this.dormitoriesService,
+      dormitorySelectionCatalog: this.dormitorySelectionCatalog,
       chatThreadWithdrawal: this.chatThreadWithdrawal,
     });
     this.publicTargetOwner = createSeasonParticipantPublicTargetOwner(this.prisma);

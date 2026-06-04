@@ -175,7 +175,7 @@ export function createDormitorySelectionOwner(
     now: Date,
     tx?: Prisma.TransactionClient,
   ): Promise<SelectableDormitory[]> {
-    return deps.dormitoriesService.listSelectableDormitoriesForSeasonParticipant({
+    return deps.dormitorySelectionCatalog.listSelectableDormitoriesForSeasonParticipant({
       seasonContext,
       campusCodeSnapshot: participant.campusCodeSnapshot,
       genderSnapshot: participant.genderSnapshot,
@@ -190,7 +190,7 @@ export function createDormitorySelectionOwner(
     seasonContext: CurrentSeasonContext,
     now: Date,
   ): Promise<SelectableDormitory[]> {
-    return deps.dormitoriesService.listSelectableDormitoriesForSeasonParticipant({
+    return deps.dormitorySelectionCatalog.listSelectableDormitoriesForSeasonParticipant({
       seasonContext,
       campusCodeSnapshot: campusCode,
       genderSnapshot: gender,
@@ -206,7 +206,7 @@ export function createDormitorySelectionOwner(
     now: Date,
   ): Promise<SelectableDormitory> {
     const validation =
-      await deps.dormitoriesService.validateSelectableDormitoryForSeasonParticipant({
+      await deps.dormitorySelectionCatalog.validateSelectableDormitoryForSeasonParticipant({
         seasonContext,
         campusCodeSnapshot: participant.campusCodeSnapshot,
         genderSnapshot: participant.genderSnapshot,

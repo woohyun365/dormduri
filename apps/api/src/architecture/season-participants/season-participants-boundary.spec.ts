@@ -103,6 +103,13 @@ describe('season-participants final structure boundary', () => {
     ]);
   });
 
+  it('keeps season-participants independent from concrete DormitoriesService internals', () => {
+    const concreteDormitoriesServiceImport =
+      /from\s+['"][^'"]*dormitories\/dormitories\.service(?:\.js)?['"]/;
+
+    expect(filesContaining(seasonParticipantsRoot, concreteDormitoriesServiceImport)).toEqual([]);
+  });
+
   it('keeps current-season participant context migration debt explicit until Phase 7 owner finalization', () => {
     const rootContextFiles = productionTypeScriptFiles(seasonParticipantsRoot)
       .filter((path) => dirname(path) === seasonParticipantsRoot)

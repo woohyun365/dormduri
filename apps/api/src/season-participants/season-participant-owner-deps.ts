@@ -2,7 +2,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import type { ChatThreadWithdrawalPort } from '../chat/application/ports/chat-thread-withdrawal.port.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
-import { DormitoriesService } from '../dormitories/dormitories.service.js';
+import type { DormitorySelectionCatalogPort } from '../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import {
@@ -16,7 +16,7 @@ import { seasonParticipantsErrors } from './season-participants.errors.js';
 export interface SeasonParticipantOwnerDeps {
   prisma: PrismaService;
   seasonsService: SeasonsService;
-  dormitoriesService: DormitoriesService;
+  dormitorySelectionCatalog: DormitorySelectionCatalogPort;
   chatThreadWithdrawal: ChatThreadWithdrawalPort;
 }
 
