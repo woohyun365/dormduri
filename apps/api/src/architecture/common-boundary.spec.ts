@@ -15,7 +15,6 @@ const knownCommonRemovalTargets = {
   'domain-context': 'platform/domain-context plus domain-owned requirement types',
   lifecycle: 'lifecycle or operations/lifecycle',
   lifestyle: 'season-participants/lifestyle',
-  moderation: 'moderation',
 } as const;
 
 const forbiddenPlatformDomainDirectories = [
@@ -33,7 +32,6 @@ const forbiddenPlatformDomainDirectories = [
 ] as const;
 
 const allowedGlobalModules = ['src/platform/database/prisma.module.ts'] as const;
-const knownBusinessGlobalViolations = ['src/common/moderation/moderation.module.ts'] as const;
 
 function walkTypeScriptFiles(root: string): string[] {
   if (!existsSync(root)) {
@@ -90,7 +88,6 @@ describe('api common final structure boundary', () => {
 
     expect(undocumentedRuntimeOwners).toEqual([]);
     expect(knownCommonRemovalTargets).toMatchObject({
-      moderation: 'moderation',
       lifecycle: 'lifecycle or operations/lifecycle',
       lifestyle: 'season-participants/lifestyle',
     });
@@ -138,20 +135,24 @@ describe('api common final structure boundary', () => {
     expect(filesContaining(platformRoot, forbiddenDomainImport)).toEqual([]);
   });
 
-  it('keeps business @Global() usage limited to documented violations during migration', () => {
+  it('keeps business @Global() usage banned outside platform database', () => {
     const globalModuleFiles = filesContaining(apiSourceRoot, /@Global\s*\(\s*\)/);
     const unexpectedGlobalModules = globalModuleFiles.filter(
-      (path) =>
-        !allowedGlobalModules.includes(path as (typeof allowedGlobalModules)[number]) &&
-        !knownBusinessGlobalViolations.includes(
-          path as (typeof knownBusinessGlobalViolations)[number],
-        ),
+      (path) => !allowedGlobalModules.includes(path as (typeof allowedGlobalModules)[number]),
     );
 
-    expect(globalModuleFiles).toEqual(
-      [...allowedGlobalModules, ...knownBusinessGlobalViolations].sort(),
-    );
+    expect(globalModuleFiles).toEqual([...allowedGlobalModules].sort());
     expect(unexpectedGlobalModules).toEqual([]);
+  });
+
+  it('keeps moderation as a top-level non-global business capability module', () => {
+    const moderationModulePath = join(apiSourceRoot, 'moderation/moderation.module.ts');
+
+    expect(existsSync(join(commonRoot, 'moderation'))).toBe(false);
+    expect(existsSync(moderationModulePath)).toBe(true);
+    expect(readSource(moderationModulePath)).not.toContain('@Global()');
+    expect(existsSync(join(apiSourceRoot, 'moderation/moderation.repository.ts'))).toBe(true);
+    expect(existsSync(join(apiSourceRoot, 'moderation/text-moderation.policy.ts'))).toBe(true);
   });
 
   it('keeps common documented as a temporary migration bucket', () => {

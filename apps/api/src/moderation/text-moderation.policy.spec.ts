@@ -1,4 +1,4 @@
-import { matchesModerationTerm, normalizeForModeration } from './text-moderation.js';
+import { matchesModerationTerm, normalizeForModeration } from './text-moderation.policy.js';
 
 describe('text moderation helpers', () => {
   it('NFKC 정규화 + 공백/기호 제거 기준으로 비교한다', () => {

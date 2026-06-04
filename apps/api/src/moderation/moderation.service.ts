@@ -1,26 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../platform/database/prisma.service.js';
-import { toModerationSurfaceValue } from './moderation.defaults.js';
+import { ModerationRepository, type ModerationTermsByCategory } from './moderation.repository.js';
 import {
   getErrorMessage,
   matchesModerationTerm,
   normalizeForModeration,
-  type ModerationTermEntry,
   type PublicTextSurface,
-} from './text-moderation.js';
+} from './text-moderation.policy.js';
 
 const MODERATION_CACHE_TTL_MS = 60_000;
 
-interface CachedSurfaceTerms {
-  blocked: ModerationTermEntry[];
-  reserved: ModerationTermEntry[];
-}
-
 @Injectable()
 export class ModerationService {
-  private cache = new Map<string, { expiresAt: number; terms: CachedSurfaceTerms }>();
+  private cache = new Map<string, { expiresAt: number; terms: ModerationTermsByCategory }>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly moderationRepository: ModerationRepository) {}
 
   async moderatePublicText(
     value: string,
@@ -66,49 +59,21 @@ export class ModerationService {
   private getBlockedTextError(
     normalizedValue: string,
     surface: PublicTextSurface,
-    terms: CachedSurfaceTerms,
+    terms: ModerationTermsByCategory,
   ): string | null {
     return terms.blocked.some((term) => matchesModerationTerm(normalizedValue, term))
       ? getErrorMessage(surface)
       : null;
   }
 
-  private async getTerms(surface: PublicTextSurface): Promise<CachedSurfaceTerms> {
+  private async getTerms(surface: PublicTextSurface): Promise<ModerationTermsByCategory> {
     const cacheKey = surface;
     const cached = this.cache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.terms;
     }
 
-    const surfaceValue = toModerationSurfaceValue(surface);
-    const rows = await this.prisma.moderationTerm.findMany({
-      where: {
-        isActive: true,
-        surface: { in: ['ALL', surfaceValue] },
-      },
-      select: {
-        normalizedTerm: true,
-        matchMode: true,
-        category: true,
-      },
-    });
-
-    const terms: CachedSurfaceTerms = {
-      blocked: rows
-        .filter((row) => row.category === 'BLOCKED_TEXT')
-        .map((row) => ({
-          normalizedTerm: row.normalizedTerm,
-          matchMode: row.matchMode,
-          term: row.normalizedTerm,
-        })),
-      reserved: rows
-        .filter((row) => row.category === 'RESERVED_NICKNAME')
-        .map((row) => ({
-          normalizedTerm: row.normalizedTerm,
-          matchMode: row.matchMode,
-          term: row.normalizedTerm,
-        })),
-    };
+    const terms = await this.moderationRepository.findActiveTerms(surface);
 
     this.cache.set(cacheKey, {
       expiresAt: Date.now() + MODERATION_CACHE_TTL_MS,

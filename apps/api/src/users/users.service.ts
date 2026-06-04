@@ -7,7 +7,7 @@ import type {
   UpdateCurrentUserResponse,
 } from '@repo/shared/user-contract';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { ModerationService } from '../common/moderation/moderation.service.js';
+import { ModerationService } from '../moderation/moderation.service.js';
 import {
   PrismaService,
   RetentionWorkerPrismaService,

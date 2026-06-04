@@ -20,6 +20,9 @@ Known final-removal targets:
 - `domain-context/` → `platform/domain-context` plus domain-owned requirement types
 - `lifecycle/` → `lifecycle` or `operations/lifecycle`
 - `lifestyle/` → `season-participants/lifestyle`
+
+Moved business capability owners:
+
 - `moderation/` → `moderation`
 
 Test-only architecture/conformance surfaces live under `apps/api/src/architecture`.

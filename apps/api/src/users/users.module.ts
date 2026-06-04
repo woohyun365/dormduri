@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
-import { ModerationModule } from '../common/moderation/moderation.module.js';
+import { ModerationModule } from '../moderation/moderation.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { CurrentUserViewModule } from './current-user-view.module.js';

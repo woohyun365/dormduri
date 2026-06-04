@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from '../platform/database/prisma.module.js';
-import { ModerationModule } from '../common/moderation/moderation.module.js';
+import { ModerationModule } from '../moderation/moderation.module.js';
 import authConfig from '../config/auth.config.js';
 import { AuthController } from './auth.controller.js';
 import { AUTH_EXPORTS } from './composition/auth.exports.js';

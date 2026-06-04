@@ -5,7 +5,7 @@ import type {
 } from '@repo/shared/auth-response';
 import { validateKnuEmailFormat } from '@repo/shared/auth-policy';
 import { PrismaService } from '../../platform/database/prisma.service.js';
-import { ModerationService } from '../../common/moderation/moderation.service.js';
+import { ModerationService } from '../../moderation/moderation.service.js';
 import {
   normalizeNickname,
   validateNicknameFormat,

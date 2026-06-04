@@ -11,7 +11,7 @@ import {
   normalizeNickname,
   validateNicknameStructure as validateNicknameFormat,
 } from '@repo/shared/auth-policy';
-import { ModerationService } from '../common/moderation/moderation.service.js';
+import { ModerationService } from '../moderation/moderation.service.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { hasNicknameCooldown } from './nickname-policy.js';
 import {
