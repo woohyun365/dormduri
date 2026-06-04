@@ -4,7 +4,7 @@ import {
   ChatRealtimeOutboxService,
   hasChatRealtimeOutboxTx,
 } from '../chat/outbox/chat-realtime-outbox.service.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import type { RetentionCipher } from './retention-cipher.js';
 import { decryptJsonPayload, encryptJsonPayload } from './retention-cipher.js';
 import {

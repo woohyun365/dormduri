@@ -1,6 +1,6 @@
 import type { CreateMatchRequestRequest } from '@repo/shared/match-contract';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
-import type { ModerationService } from '../common/moderation/moderation.service.js';
+import type { ModerationService } from '../moderation/moderation.service.js';
 import {
   buildCurrentUserCapabilities,
   canCurrentDormitoryMatch,

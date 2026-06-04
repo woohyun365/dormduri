@@ -5,7 +5,7 @@ import databaseConfig from '../../config/database.config.js';
 import {
   calculatePrismaConnectionPoolBudget,
   type PrismaConnectionPoolBudget,
-} from '../../common/prisma/prisma.service.js';
+} from '../../platform/database/prisma.service.js';
 import { evaluateAuthRedisGate, type AuthRedisGateSignals } from './auth-redis-gate.policy.js';
 import {
   AuthOperationalMetricsService,

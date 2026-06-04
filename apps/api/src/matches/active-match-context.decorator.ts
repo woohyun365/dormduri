@@ -1,14 +1,13 @@
 import { applyDecorators, createParamDecorator, ExecutionContext, UseGuards } from '@nestjs/common';
-import { RequireDomainContext } from '../common/domain-context/domain-context.decorator.js';
+import { RequireDomainContext } from '../platform/domain-context/domain-context.decorator.js';
+import type { ActiveMatchParticipantContextRequirement } from './context/active-match-context-requirement.js';
 import { ActiveMatchContextGuard } from './active-match-context.guard.js';
 import {
   getActiveMatchContext,
   type ActiveMatchContextRequest,
 } from './active-match-context.types.js';
 
-export type ActiveMatchParticipantFailureMode =
-  | 'unmatch-request-not-allowed'
-  | 'unmatch-cancel-not-allowed';
+export type ActiveMatchParticipantFailureMode = ActiveMatchParticipantContextRequirement['failure'];
 
 export function RequireActiveMatchParticipant(
   failure: ActiveMatchParticipantFailureMode = 'unmatch-request-not-allowed',

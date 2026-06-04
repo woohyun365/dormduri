@@ -1,5 +1,5 @@
 import type { GenericSuccessResult } from '../domain/auth.types.js';
-import type { PrismaService } from '../../common/prisma/prisma.service.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { authFailures } from '../errors/auth-failures.js';
 import { normalizeEmail, validatePasswordPolicy } from '../domain/auth.utils.js';

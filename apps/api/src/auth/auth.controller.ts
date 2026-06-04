@@ -12,7 +12,7 @@ import {
   signupRequestSchema,
   verificationCodeRequestSchema,
 } from '@repo/shared/auth-contract';
-import { parseRequestBody } from '../common/http/zod-request.js';
+import { parseRequestBody } from '../platform/http/zod-request.js';
 import { OptionalAuth, Public, RequireCapability } from './access/auth-access.decorator.js';
 import { AUTH_CAPABILITIES } from './access/auth-capability.js';
 import { CurrentAuthToken, CurrentUser } from './access/authenticated-user.decorator.js';

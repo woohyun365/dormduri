@@ -1,6 +1,6 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import type { Campus } from '../generated/prisma/enums.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import { formatKstDate } from '../seasons/season.utils.js';
 import { usersErrors } from './users.errors.js';
 

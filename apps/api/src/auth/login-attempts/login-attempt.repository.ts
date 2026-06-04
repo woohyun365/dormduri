@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   getActiveLoginLock,
   recordLoginFailure as recordLoginFailureSql,

@@ -6,7 +6,7 @@ import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
 } from '../season-participants/season-participants.service.js';
-import { toCompleteLifestyleColumnData } from '../common/lifestyle/lifestyle.persistence.js';
+import { toCompleteLifestyleColumnData } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 
 const COMPLETE_LIFESTYLE: LifestyleData = {
   bedtime: '22_24',

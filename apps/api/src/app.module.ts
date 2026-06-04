@@ -3,18 +3,16 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module.js';
-import { AuthOperationsModule } from './auth/operations/auth-operations.module.js';
 import { ChatModule } from './chat/chat.module.js';
-import { PrismaModule } from './common/prisma/prisma.module.js';
+import { PrismaModule } from './platform/database/prisma.module.js';
 import { DormitoriesModule } from './dormitories/dormitories.module.js';
 import { HealthModule } from './health/health.module.js';
 import { ProfilesModule } from './profiles/profiles.module.js';
 import { SeasonsModule } from './seasons/seasons.module.js';
 import { UsersModule } from './users/users.module.js';
-import { ApiExceptionFilter } from './common/http/api-exception.filter.js';
+import { ApiExceptionFilter } from './platform/http/api-exception.filter.js';
 import { MatchesModule } from './matches/matches.module.js';
-import { LifecycleSweepService } from './common/lifecycle/lifecycle-sweep.service.js';
-import { RetentionObservabilityService } from './retention/retention-observability.js';
+import { LifecycleModule } from './lifecycle/lifecycle.module.js';
 import { SeasonParticipantsModule } from './season-participants/season-participants.module.js';
 import appConfig from './config/app.config.js';
 import authConfig from './config/auth.config.js';
@@ -45,7 +43,6 @@ import { envValidationSchema } from './config/env.validation.js';
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
-    AuthOperationsModule,
     AuthModule,
     ChatModule,
     DormitoriesModule,
@@ -55,10 +52,9 @@ import { envValidationSchema } from './config/env.validation.js';
     UsersModule,
     ProfilesModule,
     MatchesModule,
+    LifecycleModule,
   ],
   providers: [
-    LifecycleSweepService,
-    RetentionObservabilityService,
     {
       provide: APP_FILTER,
       useClass: ApiExceptionFilter,

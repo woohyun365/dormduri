@@ -1,4 +1,4 @@
-import type { PrismaService } from '../../common/prisma/prisma.service.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
 import { ChatThreadContextResolver } from './chat-thread-context.resolver.js';
 
 function objectContaining(shape: Record<string, unknown>): unknown {

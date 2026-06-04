@@ -1,6 +1,6 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import type { ArchiveJobStatus } from '../generated/prisma/enums.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import {
   createConversationRetainedBodyOwner,
   type ConversationRetainedBodyOwnerOptions,

@@ -7,7 +7,7 @@ import {
   type MatchRequestRecord,
 } from './match-read-model.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { toCompleteLifestyleColumnData } from '../common/lifestyle/lifestyle.persistence.js';
+import { toCompleteLifestyleColumnData } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 
 const COMPLETE_LIFESTYLE = {
   bedtime: '22_24',

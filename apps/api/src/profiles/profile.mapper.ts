@@ -13,8 +13,8 @@ import type { LifestyleData } from '@repo/shared/lifestyle';
 import {
   type LifestyleColumns,
   toLifestyleFromColumns,
-} from '../common/lifestyle/lifestyle.persistence.js';
-import { resolveProfileTombstoneDisplayName } from '../common/deidentification/deidentified-display.owner.js';
+} from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
+import { resolveProfileTombstoneDisplayName } from '../privacy/deidentification/deidentified-display.policy.js';
 
 export interface ProfileViewRecord {
   nickname: string;

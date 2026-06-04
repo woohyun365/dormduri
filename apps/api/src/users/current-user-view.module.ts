@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../common/prisma/prisma.module.js';
+import { PrismaModule } from '../platform/database/prisma.module.js';
 import { MatchesModule } from '../matches/matches.module.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';

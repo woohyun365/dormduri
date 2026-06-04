@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { SignupDraftValidationResponse } from '@repo/shared/auth-response';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import type { LoginResult, SignupInput } from '../domain/auth.types.js';
 import { AuthSessionService } from '../sessions/auth-session.service.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';

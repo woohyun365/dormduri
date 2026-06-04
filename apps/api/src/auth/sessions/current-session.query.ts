@@ -1,6 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
-import { hasUserDisplayIdentity } from '../../common/account-identity-invariant.owner.js';
+import { hasUserDisplayIdentity } from '../../identity/account-identity-invariant.js';
 import type { AuthSessionUserSummary, SessionStatusResult } from '../domain/auth.types.js';
 import { toAuthenticatedSessionResult } from '../mappers/auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';

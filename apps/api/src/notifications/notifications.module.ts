@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
-import { PrismaModule } from '../common/prisma/prisma.module.js';
+import { PrismaModule } from '../platform/database/prisma.module.js';
 import { CreateChatThreadNotificationCommand } from './commands/create-chat-thread-notification.command.js';
 import { CHAT_THREAD_NOTIFICATION_WRITER } from './notifications.tokens.js';
 import { NotificationsController } from './notifications.controller.js';

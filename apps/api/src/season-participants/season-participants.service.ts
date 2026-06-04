@@ -12,7 +12,7 @@ import {
   CHAT_THREAD_WITHDRAWAL_PORT,
   type ChatThreadWithdrawalPort,
 } from '../chat/application/ports/chat-thread-withdrawal.port.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import { DormitoriesService } from '../dormitories/dormitories.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';

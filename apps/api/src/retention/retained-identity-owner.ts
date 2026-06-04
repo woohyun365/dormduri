@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../common/deidentification/deidentified-display.owner.js';
+import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../privacy/deidentification/deidentified-display.policy.js';
 import { Prisma } from '../generated/prisma/client.js';
 import type { RetentionAccessReason } from '../generated/prisma/enums.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import { validateRetainedIdentityMetadata } from './retained-identity-metadata.validator.js';
 import { disposeDueRetainedVaultObjects, ensureRetentionCaseTx } from './retained-vault-owner.js';
 import { createRetentionAccessLog } from './retention-access-log-owner.js';

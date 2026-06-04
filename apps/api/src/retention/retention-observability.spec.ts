@@ -3,7 +3,7 @@ import {
   buildRetentionSweepEmission,
   type RetentionBacklogSnapshot,
 } from './retention-observability.js';
-import type { LifecycleSweepResult } from '../common/lifecycle/lifecycle-sweep.service.js';
+import type { LifecycleSweepResult } from '../lifecycle/lifecycle-sweep.service.js';
 
 describe('retention-observability', () => {
   it('manual review/retry exhaustion/key unavailable를 운영 alert로 분리한다', () => {

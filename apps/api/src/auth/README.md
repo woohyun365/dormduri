@@ -42,7 +42,7 @@
 
 ## Architecture guard
 
-Auth architecture/inventory guard는 `apps/api/src/common/architecture/auth/`가 소유한다. `apps/api/src/auth` root spec은 controller behavior spec만 남기고, cross-cutting architecture fitness는 common architecture surface에서 고정한다.
+Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-named surface가 소유한다. `apps/api/src/auth` root spec은 controller behavior spec만 남기고, cross-cutting architecture fitness는 architecture surface에서 고정한다.
 
 - Root production TypeScript file은 `auth.module.ts`, `auth.controller.ts`만 허용한다.
 - Root spec file은 `auth.controller.spec.ts`만 허용한다.
@@ -74,16 +74,16 @@ Auth architecture/inventory guard는 `apps/api/src/common/architecture/auth/`가
 - Mail sending adapter and monitoring wrapper: `adapters/email/`.
 - Shared response/user/session projection helpers: `mappers/`.
 - Operational cleanup, Redis gate metrics, and `/health/auth` snapshot: `operations/`.
-- Auth route metadata, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `common/architecture/auth/`.
+- Auth route access matrix, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `architecture/security/auth-access-route-matrix.spec.ts`, `architecture/domain-context/domain-context-route-matrix.spec.ts`, `architecture/auth-boundary.spec.ts`.
 - Shared auth request/response/policy/session contracts: `packages/shared/src/auth/**`; old public subpaths stay in `packages/shared/src/compat/**`.
 
 ## Useful verification
 
 ```bash
 pnpm --dir apps/api exec jest --watchman=false --runInBand \
-  src/common/architecture/auth/auth-architecture-boundary.spec.ts \
-  src/common/architecture/auth/auth-route-metadata.inventory.spec.ts \
-  src/common/architecture/auth/auth-domain-context-route-metadata.inventory.spec.ts \
+  src/architecture/auth-boundary.spec.ts \
+  src/architecture/security/auth-access-route-matrix.spec.ts \
+  src/architecture/domain-context/domain-context-route-matrix.spec.ts \
   src/auth/application/auth.service.spec.ts \
   src/auth/verification/auth-verification-use-cases.service.spec.ts \
   src/auth/registration/auth-registration-use-cases.service.spec.ts \

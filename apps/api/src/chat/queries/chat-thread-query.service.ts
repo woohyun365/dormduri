@@ -1,6 +1,6 @@
 import type { ConversationStatsResponse } from '@repo/shared/chat-contract';
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { PrismaService } from '../../common/prisma/prisma.service.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
 import { buildParticipantPairIdentity } from '../../matches/match.utils.js';
 import type { ChatThreadListCursorBoundary } from './chat-thread-list-cursor.js';
 import {

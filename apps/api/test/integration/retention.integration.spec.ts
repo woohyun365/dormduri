@@ -1,4 +1,4 @@
-import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import {
   activateThreadRetentionJobsForArchivedThreads,
   createDeletionArchiveJobsTx,

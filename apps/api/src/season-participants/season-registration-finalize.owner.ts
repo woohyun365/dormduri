@@ -1,6 +1,6 @@
 import type { SeasonRegistrationFinalizeResponse } from '@repo/shared/season-contract';
 import type { Prisma } from '../generated/prisma/client.js';
-import { toCompleteLifestyleColumnData } from '../common/lifestyle/lifestyle.persistence.js';
+import { toCompleteLifestyleColumnData } from './lifestyle/lifestyle-persistence.mapper.js';
 import {
   assertRegistrationSeasonContext,
   getVerifiedUserForSeasonAction,
@@ -19,7 +19,7 @@ import {
   assertSeasonProfileCompleteForRegistration,
   buildCompletion,
 } from './season-participation-capability.owner.js';
-import { assertUserAccountIdentity } from '../common/account-identity-invariant.owner.js';
+import { assertUserAccountIdentity } from '../identity/account-identity-invariant.js';
 import { usersErrors } from '../users/users.errors.js';
 import { seasonParticipantsErrors } from './season-participants.errors.js';
 

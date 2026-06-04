@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { VerificationCodePurpose } from '../../generated/prisma/enums.js';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   acquireTransactionAdvisoryLock,
   consumeVerificationCodeProof,

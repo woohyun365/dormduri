@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import type {
   ChangePasswordResult,
   GenericSuccessResult,

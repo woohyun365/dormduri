@@ -1,5 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import { matchesErrors } from './matches.errors.js';
 import { isUnmatchWindowOpen } from './match-read-model.js';
 import { activeMatchCommandSelect, type ActiveMatchCommandRecord } from './match-selects.js';

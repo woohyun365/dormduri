@@ -6,7 +6,7 @@ import type {
   RoommateSearchQuery,
   RoommateSearchResponse,
 } from '@repo/shared/roommate-search-contract';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import { MatchesService } from '../matches/matches.service.js';

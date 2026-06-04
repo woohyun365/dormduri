@@ -2,7 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { campusSchema } from '@repo/shared/identity-contract';
 import { Public } from '../auth/access/auth-access.decorator.js';
 import { SeasonsService } from './seasons.service.js';
-import { parseQueryValue } from '../common/http/zod-request.js';
+import { parseQueryValue } from '../platform/http/zod-request.js';
 import { seasonsErrors } from './seasons.errors.js';
 
 @Controller('api/seasons')

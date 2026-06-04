@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Campus } from '../generated/prisma/enums.js';
 import type { CurrentSeasonResponse } from '@repo/shared/season-contract';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import { getCurrentTimestamp } from '../generated/prisma/sql.js';
 import {
   formatKstDate,

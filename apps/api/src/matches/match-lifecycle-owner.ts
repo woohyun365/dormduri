@@ -1,4 +1,4 @@
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import type { Campus } from '../generated/prisma/enums.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 
