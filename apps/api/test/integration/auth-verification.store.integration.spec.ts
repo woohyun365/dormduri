@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { AuthVerificationStore } from '../../src/auth/auth-verification.store.js';
+import { AuthVerificationStore } from '../../src/auth/verification/verification-code.repository.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {

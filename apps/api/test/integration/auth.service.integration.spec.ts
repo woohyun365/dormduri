@@ -1,6 +1,6 @@
 import { hash as argonHash } from '@node-rs/argon2';
 import { createHash } from 'node:crypto';
-import { AuthService } from '../../src/auth/auth.service.js';
+import { AuthService } from '../../src/auth/application/auth.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {

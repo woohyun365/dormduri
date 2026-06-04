@@ -153,7 +153,7 @@ describe('season-participant-gate-context', () => {
     expect(result.hasSeasonProfile).toBe(true);
   });
 
-  it('current season/post-match에서는 season profile 없는 registered target을 visible로 보지 않는다', () => {
+  it('profile 없는 registered target은 visibility 축은 열고 profile completeness 축에서 거부되게 분리한다', () => {
     const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
     const result = buildPublicTargetPolicyTargetInput({
       operatedDormitoryIds,
@@ -168,8 +168,9 @@ describe('season-participant-gate-context', () => {
       registrationSnapshotExists: true,
     });
 
-    expect(result.visible).toBe(false);
+    expect(result.visible).toBe(true);
     expect(result.registered).toBe(true);
     expect(result.hasSeasonProfile).toBe(false);
+    expect(result.seasonProfileComplete).toBe(false);
   });
 });

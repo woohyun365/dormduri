@@ -1,12 +1,12 @@
 import { MatchesService } from '../../src/matches/matches.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { toCompleteLifestyleColumnData } from '../../src/season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from './support/integration-db.js';
 import {
+  toCompleteLifestyleColumnData,
   authContext,
   DEFAULT_LIFESTYLE,
   seedActiveMatchFixture,

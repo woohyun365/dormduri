@@ -82,6 +82,18 @@ describe('public-target-policy axis owners', () => {
       });
     });
 
+    it('visible registered target도 profile이 없거나 incomplete하면 profile incomplete reason으로 닫는다', () => {
+      for (const target of [
+        baseTarget({ hasSeasonProfile: false, seasonProfileComplete: false }),
+        baseTarget({ hasSeasonProfile: true, seasonProfileComplete: false }),
+      ]) {
+        expect(resolvePublicTargetEligibility(baseViewer(), target)).toEqual({
+          publicTarget: false,
+          unavailableReason: 'TARGET_PROFILE_INCOMPLETE',
+        });
+      }
+    });
+
     it('registration complete + visible + profile snapshot target만 public target이다', () => {
       expect(resolvePublicTargetEligibility(baseViewer(), baseTarget())).toEqual({
         publicTarget: true,
