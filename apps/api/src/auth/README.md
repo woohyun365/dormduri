@@ -15,6 +15,7 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 
 - `access/`: route-level auth access metadata, capability, current user decorator, authenticated user guard. Domain context guard와 합치지 않는다.
 - `application/`: controller-facing facade와 public actor context resolver/type boundary.
+- `composition/`: `AuthModule` provider/export grouping. Slice provider 목록과 public module export surface를 모듈 decorator에서 분리해 읽기 쉽게 유지한다.
 - `queries/`: auth eligibility read projection 등 transition compatibility 위치다.
 - `domain/`: opaque token, request context, user view 같은 pure/domain helper.
 - `repositories/`: transition compatibility 위치다. Phase D 이후 verification repository는 `verification/`이 소유한다.
@@ -48,6 +49,7 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 - 최종 목표 root production TypeScript file은 `auth.module.ts`, `auth.controller.ts`만 허용한다.
 - Phase A 이후에는 `transitionRootCompatibilityFiles`와 `transitionRootImplementationFiles` allowlist를 단계별로 줄인다.
 - `AuthService`는 controller-facing facade가 최종 목표이며, 현재 direct Prisma/session/verification/login-attempt/security-event orchestration은 explicit migration debt다.
+- Phase G 이후 `AuthModule` provider/export list는 `composition/auth.providers.ts`, `composition/auth.exports.ts`가 소유한다. `APP_GUARD` 등록 순서는 ThrottlerGuard → AuthenticatedUserGuard로 유지한다.
 - Phase C 이후 session lifecycle은 `sessions/` slice가 소유하고, root `AuthSessionService`는 기존 call site 호환을 위한 thin facade로만 남긴다.
 - Phase D 이후 verification/credentials/registration use case는 각 slice가 소유하고, root files는 기존 import 호환 wrapper로만 남긴다.
 - Phase D-1/D-2 이후 auth-local lifestyle parser와 generic `commands/` directory는 제거되었다. 남은 root compatibility file은 exact `export *` re-export만 허용하며, removal trigger는 Phase F root wrapper cleanup이다.

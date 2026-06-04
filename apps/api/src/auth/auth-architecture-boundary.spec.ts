@@ -93,6 +93,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'access',
       'adapters',
       'application',
+      'composition',
       'credentials',
       'domain',
       'errors',
@@ -379,6 +380,46 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(source).toContain('AuthOperationsHealthService');
   });
 
+  it('keeps AuthModule provider composition grouped by auth slice', () => {
+    const moduleSource = readSource(join(authRoot, 'auth.module.ts'));
+    const providersSource = readSource(join(authRoot, 'composition/auth.providers.ts'));
+    const exportsSource = readSource(join(authRoot, 'composition/auth.exports.ts'));
+
+    expect(moduleSource).toContain("from './composition/auth.providers.js'");
+    expect(moduleSource).toContain("from './composition/auth.exports.js'");
+    expect(moduleSource).toContain('providers: AUTH_PROVIDERS');
+    expect(moduleSource).toContain('exports: AUTH_EXPORTS');
+    expect(moduleSource).not.toMatch(/providers:\s*\[\s*AuthService/);
+    expect(moduleSource).not.toMatch(/exports:\s*\[\s*AuthService/);
+
+    const expectedProviderGroups = [
+      'AUTH_APPLICATION_PROVIDERS',
+      'AUTH_VERIFICATION_PROVIDERS',
+      'AUTH_SESSION_PROVIDERS',
+      'AUTH_CREDENTIAL_REGISTRATION_PROVIDERS',
+      'AUTH_LOGIN_ATTEMPT_PROVIDERS',
+      'AUTH_SECURITY_EVENT_PROVIDERS',
+      'AUTH_EMAIL_ADAPTER_PROVIDERS',
+      'AUTH_ACCESS_PROVIDERS',
+    ];
+
+    for (const group of expectedProviderGroups) {
+      expect(providersSource).toContain(`export const ${group}`);
+      expect(providersSource).toContain(`...${group}`);
+    }
+
+    expect(providersSource.indexOf('useClass: ThrottlerGuard')).toBeLessThan(
+      providersSource.indexOf('useClass: AuthenticatedUserGuard'),
+    );
+    expect(exportsSource).toContain('export const AUTH_EXPORTS');
+    expect(exportsSource).toContain('AuthService');
+    expect(exportsSource).toContain('AuthActorContextResolver');
+    expect(exportsSource).toContain('AuthenticatedUserGuard');
+    expect(exportsSource).not.toMatch(
+      /\bAuthUseCases\b|\bAuthSessionService\b|\bAuthVerificationService\b|\bAuthLoginAttemptService\b|\bAuthSecurityEventService\b|\bAuthSessionRepository\b/,
+    );
+  });
+
   it('keeps /health/auth as an ops-only protected capability route', () => {
     const healthController = readSource(join(apiSourceRoot, 'health/health.controller.ts'));
     const routeBlock =
@@ -405,6 +446,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(source).toContain('Postgres authoritative');
     expect(source).toContain('RetentionWorkerPrismaService');
     expect(source).toContain('admin:operations:health:read');
+    expect(source).toContain('composition/auth.providers.ts');
     expect(source).toContain('외부 domain production code');
   });
 });
