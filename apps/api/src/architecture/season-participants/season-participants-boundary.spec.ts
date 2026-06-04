@@ -13,12 +13,12 @@ const platformDomainContextRoot = join(apiSourceRoot, 'platform/domain-context')
 const transitionalRootOwnerFiles = [
   'current-season-participation-view.owner.ts',
   'season-participant-backfill.owner.ts',
-  'season-participant-deregistration.owner.ts',
   'season-participation-capability.owner.ts',
 ] as const;
 
 const finalizingPhaseTwoDirectories = [
   'application',
+  'deregistration',
   'dormitory-selection',
   'errors',
   'participants',
@@ -33,6 +33,7 @@ const requiredPhaseTwoOneFiles = {
     'season-participant-write-owner.ts',
     'season-participants.service.ts',
   ],
+  deregistration: ['deregister-season-participant.command.ts', 'season-deregistration.policy.ts'],
   'dormitory-selection': [
     'dormitory-selection-readiness.evaluator.ts',
     'dormitory-selection.mapper.ts',
@@ -131,6 +132,7 @@ describe('season-participants final structure boundary', () => {
       'season-profile-draft.owner.ts',
       'dormitory-selection.owner.ts',
       'season-registration-finalize.owner.ts',
+      'season-participant-deregistration.owner.ts',
     ] as const;
 
     for (const file of forbiddenRootFiles) {
@@ -167,6 +169,16 @@ describe('season-participants final structure boundary', () => {
     expect(commandSource).not.toMatch(/season-registration-finalize\.owner/);
     expect(commandSource).toContain('toSeasonProfileHistoryCreateData');
     expect(commandSource).toContain('createFinalizeSeasonRegistrationCommand');
+  });
+
+  it('keeps deregistration command isolated from root owner and preserves side-effect boundary', () => {
+    const commandSource = readSource(
+      join(seasonParticipantsRoot, 'deregistration/deregister-season-participant.command.ts'),
+    );
+
+    expect(commandSource).not.toMatch(/season-participant-deregistration\.owner/);
+    expect(commandSource).toContain('markOpenDirectThreadsReadOnlyForWithdrawnParticipant');
+    expect(commandSource).toContain('tx.activeMatch.findFirst');
   });
 
   it('keeps external domains from importing planned season-participants commands/queries/repositories internals', () => {

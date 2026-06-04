@@ -3,7 +3,7 @@ import { createSeasonParticipantContainerOwner } from '../participants/season-pa
 import { createDormitorySelectionReadinessEvaluator } from '../dormitory-selection/dormitory-selection-readiness.evaluator.js';
 import { createListCurrentSeasonSelectableDormitoriesQuery } from '../dormitory-selection/list-current-season-selectable-dormitories.query.js';
 import { createUpdateDormitorySelectionCommand } from '../dormitory-selection/update-dormitory-selection.command.js';
-import { createSeasonParticipantDeregistrationOwner } from '../season-participant-deregistration.owner.js';
+import { createDeregisterSeasonParticipantCommand } from '../deregistration/deregister-season-participant.command.js';
 import type { SeasonParticipantOwnerDeps } from '../season-participant-owner-deps.js';
 import { createGetCurrentSeasonProfileQuery } from '../profile-draft/get-current-season-profile.query.js';
 import { createUpsertSeasonProfileDraftCommand } from '../profile-draft/upsert-season-profile-draft.command.js';
@@ -38,7 +38,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
     registrationReadiness,
   );
   const backfillOwner = createSeasonParticipantBackfillOwner(deps);
-  const deregistrationOwner = createSeasonParticipantDeregistrationOwner(deps);
+  const deregistrationCommand = createDeregisterSeasonParticipantCommand(deps);
 
   return {
     ensureCurrentSeasonParticipant: containerOwner.ensureCurrentSeasonParticipant,
@@ -58,7 +58,8 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
     createOrUpdateDormitorySelection: dormitorySelectionCommand.createOrUpdateDormitorySelection,
     finalizeSeasonRegistration: registrationFinalizeCommand.finalizeSeasonRegistration,
     backfillCurrentSeasonParticipants: backfillOwner.backfillCurrentSeasonParticipants,
-    deregisterCurrentSeasonParticipation: deregistrationOwner.deregisterCurrentSeasonParticipation,
+    deregisterCurrentSeasonParticipation:
+      deregistrationCommand.deregisterCurrentSeasonParticipation,
   };
 }
 

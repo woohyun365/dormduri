@@ -206,6 +206,7 @@ export function createSeasonParticipantsServiceTestKit() {
       update: txSeasonParticipantProfileUpdate,
     },
     seasonParticipantProfileHistory: { create: txSeasonParticipantProfileHistoryCreate },
+    activeMatch: { findFirst: jest.fn() },
     matchRequest: { updateMany: jest.fn() },
   };
   const prisma = {

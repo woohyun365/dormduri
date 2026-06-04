@@ -1,16 +1,20 @@
-import { isParticipantRegistered } from './season-participant-policy.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
-} from './participants/season-participant-records.js';
+} from '../participants/season-participant-records.js';
 import {
   getVerifiedUserForSeasonAction,
   type SeasonParticipantOwnerDeps,
-} from './season-participant-owner-deps.js';
-import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
+} from '../season-participant-owner-deps.js';
+import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
+import {
+  assertDeregistrationSeasonContext,
+  assertNoLiveActiveMatch,
+  assertParticipantAllowsDeregistration,
+} from './season-deregistration.policy.js';
 
-export function createSeasonParticipantDeregistrationOwner(deps: SeasonParticipantOwnerDeps) {
+export function createDeregisterSeasonParticipantCommand(deps: SeasonParticipantOwnerDeps) {
   async function deregisterCurrentSeasonParticipation(
     userId: string,
     now?: Date,
@@ -21,13 +25,7 @@ export function createSeasonParticipantDeregistrationOwner(deps: SeasonParticipa
       user.campus,
       referenceNow,
     );
-
-    if (
-      !seasonContext ||
-      (seasonContext.state !== 'SEASON_OPEN' && seasonContext.state !== 'SEASON_MATCHING')
-    ) {
-      throw seasonParticipantsErrors.deregistrationNotAllowed();
-    }
+    assertDeregistrationSeasonContext(seasonContext);
 
     const participant = await deps.prisma.seasonParticipant.findUnique({
       where: {
@@ -44,9 +42,7 @@ export function createSeasonParticipantDeregistrationOwner(deps: SeasonParticipa
     }
 
     const mappedParticipant = mapCurrentSeasonParticipantRecord(participant);
-    if (!isParticipantRegistered(mappedParticipant)) {
-      throw seasonParticipantsErrors.deregistrationNotAllowed();
-    }
+    assertParticipantAllowsDeregistration(mappedParticipant);
 
     const liveActiveMatch = await deps.prisma.activeMatch.findFirst({
       where: {
@@ -56,12 +52,19 @@ export function createSeasonParticipantDeregistrationOwner(deps: SeasonParticipa
       },
       select: { id: true },
     });
-
-    if (liveActiveMatch) {
-      throw seasonParticipantsErrors.deregistrationNotAllowed();
-    }
+    assertNoLiveActiveMatch(liveActiveMatch);
 
     await deps.prisma.runSerializableTransaction(async (tx) => {
+      const txLiveActiveMatch = await tx.activeMatch.findFirst({
+        where: {
+          seasonId: mappedParticipant.seasonId,
+          endedAt: null,
+          OR: [{ participantAId: mappedParticipant.id }, { participantBId: mappedParticipant.id }],
+        },
+        select: { id: true },
+      });
+      assertNoLiveActiveMatch(txLiveActiveMatch);
+
       await tx.seasonParticipant.update({
         where: { id: mappedParticipant.id },
         data: {
@@ -101,7 +104,7 @@ export function createSeasonParticipantDeregistrationOwner(deps: SeasonParticipa
     });
 
     if (!refreshed) {
-      throw new Error('[SeasonParticipantDeregistrationOwner] participant not found after update');
+      throw new Error('[DeregisterSeasonParticipantCommand] participant not found after update');
     }
 
     return mapCurrentSeasonParticipantRecord(refreshed);
@@ -110,6 +113,6 @@ export function createSeasonParticipantDeregistrationOwner(deps: SeasonParticipa
   return { deregisterCurrentSeasonParticipation };
 }
 
-export type SeasonParticipantDeregistrationOwner = ReturnType<
-  typeof createSeasonParticipantDeregistrationOwner
+export type DeregisterSeasonParticipantCommand = ReturnType<
+  typeof createDeregisterSeasonParticipantCommand
 >;
