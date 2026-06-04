@@ -2,9 +2,10 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import {
   DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
-  type ChatThreadMemberContextRequirement,
-  type DomainContextRequirement,
-} from '../../common/domain-context/domain-context.decorator.js';
+  type DomainContextRequirementBase,
+  isDomainContextRequirement,
+} from '../../platform/domain-context/domain-context.decorator.js';
+import type { ChatThreadMemberContextRequirement } from './chat-thread-context-requirement.js';
 import { badRequestError, unauthorizedError } from '../../platform/http/api-error.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import { ChatThreadContextResolver } from './chat-thread-context.resolver.js';
@@ -50,20 +51,22 @@ export class ChatThreadContextGuard implements CanActivate {
     context: ExecutionContext,
   ): ChatThreadMemberContextRequirement | null {
     const requirements = [
-      ...(this.reflector.get<readonly DomainContextRequirement[]>(
+      ...(this.reflector.get<readonly DomainContextRequirementBase[]>(
         DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
         context.getClass(),
       ) ?? []),
-      ...(this.reflector.get<readonly DomainContextRequirement[]>(
+      ...(this.reflector.get<readonly DomainContextRequirementBase[]>(
         DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
         context.getHandler(),
       ) ?? []),
     ];
 
     return (
-      requirements.find(
-        (requirement): requirement is ChatThreadMemberContextRequirement =>
-          requirement.kind === 'chat-thread-member',
+      requirements.find((requirement): requirement is ChatThreadMemberContextRequirement =>
+        isDomainContextRequirement<ChatThreadMemberContextRequirement>(
+          requirement,
+          'chat-thread-member',
+        ),
       ) ?? null
     );
   }

@@ -9,9 +9,7 @@ const platformRoot = join(apiSourceRoot, 'platform');
 const removedTestOnlyCommonOwners = ['architecture', 'contracts', 'reference'] as const;
 const removedPlatformCommonOwners = ['http', 'prisma', 'security'] as const;
 
-const knownCommonRemovalTargets = {
-  'domain-context': 'platform/domain-context plus domain-owned requirement types',
-} as const;
+const knownCommonRemovalTargets = {} as const;
 
 const forbiddenPlatformDomainDirectories = [
   'auth',
@@ -83,9 +81,7 @@ describe('api common final structure boundary', () => {
       .sort();
 
     expect(undocumentedRuntimeOwners).toEqual([]);
-    expect(knownCommonRemovalTargets).toMatchObject({
-      'domain-context': 'platform/domain-context plus domain-owned requirement types',
-    });
+    expect(knownCommonRemovalTargets).toEqual({});
   });
 
   it('keeps architecture and conformance test surfaces out of runtime common', () => {
@@ -139,6 +135,35 @@ describe('api common final structure boundary', () => {
     expect(
       existsSync(
         join(apiSourceRoot, 'season-participants/lifestyle/lifestyle-persistence.mapper.ts'),
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps domain context metadata primitive in platform without domain vocabulary', () => {
+    const platformDomainContextPath = join(
+      apiSourceRoot,
+      'platform/domain-context/domain-context.decorator.ts',
+    );
+    const source = readSource(platformDomainContextPath);
+
+    expect(existsSync(join(commonRoot, 'domain-context'))).toBe(false);
+    expect(existsSync(platformDomainContextPath)).toBe(true);
+    expect(source).toContain('DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY');
+    expect(source).not.toMatch(
+      /current-season-participant|chat-thread-member|active-match-participant/,
+    );
+    expect(existsSync(join(apiSourceRoot, 'chat/context/chat-thread-context-requirement.ts'))).toBe(
+      true,
+    );
+    expect(
+      existsSync(join(apiSourceRoot, 'matches/context/active-match-context-requirement.ts')),
+    ).toBe(true);
+    expect(
+      existsSync(
+        join(
+          apiSourceRoot,
+          'season-participants/context/current-season-participant-context-requirement.ts',
+        ),
       ),
     ).toBe(true);
   });

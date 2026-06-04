@@ -1,5 +1,5 @@
 import { applyDecorators, createParamDecorator, ExecutionContext, UseGuards } from '@nestjs/common';
-import { RequireDomainContext } from '../../common/domain-context/domain-context.decorator.js';
+import { RequireDomainContext } from '../../platform/domain-context/domain-context.decorator.js';
 import { ChatThreadContextGuard } from './chat-thread-context.guard.js';
 import {
   getChatThreadContext,

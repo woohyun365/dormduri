@@ -1,5 +1,6 @@
 import { applyDecorators, createParamDecorator, ExecutionContext, UseGuards } from '@nestjs/common';
-import { RequireDomainContext } from '../common/domain-context/domain-context.decorator.js';
+import { RequireDomainContext } from '../platform/domain-context/domain-context.decorator.js';
+import type { CurrentSeasonParticipantContextRequirement } from './context/current-season-participant-context-requirement.js';
 import { CurrentSeasonParticipantContextGuard } from './current-season-participant-context.guard.js';
 import {
   getCurrentSeasonParticipantContext,
@@ -7,9 +8,7 @@ import {
 } from './current-season-participant-context.types.js';
 
 export type CurrentSeasonParticipantFailureMode =
-  | 'context-required'
-  | 'season-profile-draft-not-allowed'
-  | 'registration-not-allowed';
+  CurrentSeasonParticipantContextRequirement['failure'];
 
 export function RequireCurrentSeasonParticipant(
   failure: CurrentSeasonParticipantFailureMode = 'context-required',

@@ -2,10 +2,10 @@ import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
 } from '../../season-participants/current-season-participation.controller.js';
-import {
-  DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
-  type DomainContextRequirement,
-} from '../../common/domain-context/domain-context.decorator.js';
+import { DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY } from '../../platform/domain-context/domain-context.decorator.js';
+import type { ChatThreadMemberContextRequirement } from '../../chat/context/chat-thread-context-requirement.js';
+import type { ActiveMatchParticipantContextRequirement } from '../../matches/context/active-match-context-requirement.js';
+import type { CurrentSeasonParticipantContextRequirement } from '../../season-participants/context/current-season-participant-context-requirement.js';
 import { CurrentSeasonParticipantContextGuard } from '../../season-participants/current-season-participant-context.guard.js';
 import { ChatController } from '../../chat/chat.controller.js';
 import { ChatThreadContextGuard } from '../../chat/context/chat-thread-context.guard.js';
@@ -15,6 +15,11 @@ import { RoommateSearchController } from '../../profiles/roommate-search.control
 import { ProfilesController } from '../../profiles/profiles.controller.js';
 
 const NEST_GUARDS_METADATA = '__guards__';
+
+type DomainContextRequirement =
+  | ChatThreadMemberContextRequirement
+  | ActiveMatchParticipantContextRequirement
+  | CurrentSeasonParticipantContextRequirement;
 
 interface ExpectedDomainContextRoute {
   controller: new (...args: never[]) => unknown;

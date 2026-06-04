@@ -3,9 +3,10 @@ import { Reflector } from '@nestjs/core';
 import type { Prisma } from '../generated/prisma/client.js';
 import {
   DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
-  type CurrentSeasonParticipantContextRequirement,
-  type DomainContextRequirement,
-} from '../common/domain-context/domain-context.decorator.js';
+  type DomainContextRequirementBase,
+  isDomainContextRequirement,
+} from '../platform/domain-context/domain-context.decorator.js';
+import type { CurrentSeasonParticipantContextRequirement } from './context/current-season-participant-context-requirement.js';
 import { forbiddenError, unauthorizedError } from '../platform/http/api-error.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { SeasonParticipantsService } from './season-participants.service.js';
@@ -70,20 +71,22 @@ export class CurrentSeasonParticipantContextGuard implements CanActivate {
     context: ExecutionContext,
   ): CurrentSeasonParticipantContextRequirement | null {
     const requirements = [
-      ...(this.reflector.get<readonly DomainContextRequirement[]>(
+      ...(this.reflector.get<readonly DomainContextRequirementBase[]>(
         DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
         context.getClass(),
       ) ?? []),
-      ...(this.reflector.get<readonly DomainContextRequirement[]>(
+      ...(this.reflector.get<readonly DomainContextRequirementBase[]>(
         DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
         context.getHandler(),
       ) ?? []),
     ];
 
     return (
-      requirements.find(
-        (requirement): requirement is CurrentSeasonParticipantContextRequirement =>
-          requirement.kind === 'current-season-participant',
+      requirements.find((requirement): requirement is CurrentSeasonParticipantContextRequirement =>
+        isDomainContextRequirement<CurrentSeasonParticipantContextRequirement>(
+          requirement,
+          'current-season-participant',
+        ),
       ) ?? null
     );
   }

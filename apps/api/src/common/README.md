@@ -13,9 +13,11 @@ Moved platform runtime owners:
 
 Do not recreate `http/`, `prisma/`, or `security/` under `apps/api/src/common`.
 
-Known final-removal targets:
+Known final-removal targets: none. Runtime `common/` is now closed for new owners.
 
-- `domain-context/` → `platform/domain-context` plus domain-owned requirement types
+Moved platform metadata owners:
+
+- `domain-context/` → `platform/domain-context` plus domain-owned requirement types under each domain
 
 Moved shared-kernel owners:
 
