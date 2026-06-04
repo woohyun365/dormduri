@@ -36,6 +36,16 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 - 외부 domain production code에서 `auth/commands`, `auth/repositories`, `auth/domain`, `auth/policies`, `auth/adapters`를 직접 import하지 않는다.
 - Web rendering/hook/page/component 작업은 auth Phase 8 범위가 아니다.
 
+## Phase 9 transition guard
+
+`auth-architecture-boundary.spec.ts`는 Phase 9 최종 목표와 현재 migration debt를 함께 고정한다.
+
+- 최종 목표 root production TypeScript file은 `auth.module.ts`, `auth.controller.ts`만 허용한다.
+- Phase A 이후에는 `transitionRootCompatibilityFiles`와 `transitionRootImplementationFiles` allowlist를 단계별로 줄인다.
+- `AuthService`는 controller-facing facade가 최종 목표이며, 현재 direct Prisma/session/verification/login-attempt/security-event orchestration은 explicit migration debt다.
+- 외부 domain은 최종적으로 `auth/access/*`, `auth/application/auth-actor-context*`, `auth/auth.module`만 import해야 한다. 현재 root compatibility wrapper와 operations-only imports는 transition surface로만 허용한다.
+- policy/domain helper는 Nest provider와 `PrismaService`를 import하지 않는 pure boundary로 유지한다.
+
 ## Useful verification
 
 ```bash
