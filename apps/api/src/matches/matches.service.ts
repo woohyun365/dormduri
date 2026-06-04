@@ -17,7 +17,7 @@ import {
   CHAT_MATCH_THREAD_LIFECYCLE_PORT,
   type ChatMatchThreadLifecyclePort,
 } from '../chat/application/ports/chat-match-thread-lifecycle.port.js';
-import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
+import { lifestyleColumnSelect } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import { ModerationService } from '../moderation/moderation.service.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { createMatchContextOwner } from './match-context-owner.js';

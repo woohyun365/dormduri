@@ -1,4 +1,4 @@
-import { hasUserDisplayIdentity } from '../../common/account-identity-invariant.owner.js';
+import { hasUserDisplayIdentity } from '../../identity/account-identity-invariant.js';
 import { safeCompareTokenHash } from './opaque-token.js';
 
 export interface SessionUserIdentityProjection {

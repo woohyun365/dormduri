@@ -1,5 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
-import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
+import { lifestyleColumnSelect } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 
 export const matchRequestSummarySelect = {
   id: true,

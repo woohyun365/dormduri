@@ -15,9 +15,12 @@ Do not recreate `http/`, `prisma/`, or `security/` under `apps/api/src/common`.
 
 Known final-removal targets:
 
-- `account-identity-invariant.owner.ts` → `identity/account-identity-invariant`
-- `deidentification/` → `privacy/deidentification`
 - `domain-context/` → `platform/domain-context` plus domain-owned requirement types
+
+Moved shared-kernel owners:
+
+- `account-identity-invariant.owner.ts` → `identity/account-identity-invariant.ts`
+- `deidentification/` → `privacy/deidentification`
 - `lifestyle/` → `season-participants/lifestyle`
 
 Moved orchestration owners:

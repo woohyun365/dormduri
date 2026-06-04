@@ -8,7 +8,7 @@ import { buildDirectionalMatchScoreProjection } from './match-score-projection.j
 import { formatKstDate } from '../seasons/season.utils.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
-import { resolvePublicCounterpartNickname } from '../common/deidentification/deidentified-display.owner.js';
+import { resolvePublicCounterpartNickname } from '../privacy/deidentification/deidentified-display.policy.js';
 export type {
   ActiveMatchCommandRecord,
   ActiveMatchRecord,

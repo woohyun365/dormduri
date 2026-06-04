@@ -7,7 +7,7 @@ import type {
 } from '@repo/shared/season-contract';
 import { isSeasonProfileComplete, type LifestyleData } from '@repo/shared/lifestyle';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { lifestyleFieldNames } from '../common/lifestyle/lifestyle.persistence.js';
+import { lifestyleFieldNames } from './lifestyle/lifestyle-persistence.mapper.js';
 import { isParticipantRegistered } from './season-participant-policy.js';
 import { canCurrentDormitoryMatch } from './season-participant-selection.js';
 import { seasonParticipantsErrors } from './season-participants.errors.js';

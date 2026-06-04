@@ -19,7 +19,7 @@ import {
 } from './current-user-select.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveCampusServiceState } from './service-state.js';
-import { assertUserAccountIdentity } from '../common/account-identity-invariant.owner.js';
+import { assertUserAccountIdentity } from '../identity/account-identity-invariant.js';
 import { usersErrors } from './users.errors.js';
 
 type CurrentUserResponseUserRecord = Omit<

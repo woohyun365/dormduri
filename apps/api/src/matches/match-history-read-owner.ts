@@ -2,8 +2,8 @@ import type { MatchHistoryResponse } from '@repo/shared/match-contract';
 import type { PublicProfile, PublicProfileActionCapabilities } from '@repo/shared/profile-contract';
 import { formatKstDate, subtractDays } from '../seasons/season.utils.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';
-import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../common/deidentification/deidentified-display.owner.js';
-import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
+import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../privacy/deidentification/deidentified-display.policy.js';
+import { lifestyleColumnSelect } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import {
   mapProfileViewRecordFromColumns,
   toPublicProfile,

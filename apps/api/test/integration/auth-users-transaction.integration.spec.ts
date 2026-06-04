@@ -12,7 +12,7 @@ import type { ModerationService } from '../../src/moderation/moderation.service.
 import { UsersService } from '../../src/users/users.service.js';
 import { SeasonsService } from '../../src/seasons/seasons.service.js';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
-import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
+import { toCompleteLifestyleColumnData } from '../../src/season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,

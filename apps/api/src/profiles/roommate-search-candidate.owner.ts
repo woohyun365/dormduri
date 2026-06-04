@@ -10,7 +10,7 @@ import {
   lifestyleFieldNames,
   toStoredBedtime,
   toStoredWakeTime,
-} from '../common/lifestyle/lifestyle.persistence.js';
+} from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
 
 export interface RoommateSearchCandidateOwnerDeps {

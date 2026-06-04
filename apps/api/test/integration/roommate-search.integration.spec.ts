@@ -1,5 +1,5 @@
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
+import { toCompleteLifestyleColumnData } from '../../src/season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import { ProfilesService } from '../../src/profiles/profiles.service.js';
 import { RoommateSearchService } from '../../src/profiles/roommate-search.service.js';
 import { createIntegrationApp } from './support/integration-app.js';

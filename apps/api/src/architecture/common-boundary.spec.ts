@@ -10,10 +10,7 @@ const removedTestOnlyCommonOwners = ['architecture', 'contracts', 'reference'] a
 const removedPlatformCommonOwners = ['http', 'prisma', 'security'] as const;
 
 const knownCommonRemovalTargets = {
-  'account-identity-invariant.owner.ts': 'identity/account-identity-invariant',
-  deidentification: 'privacy/deidentification',
   'domain-context': 'platform/domain-context plus domain-owned requirement types',
-  lifestyle: 'season-participants/lifestyle',
 } as const;
 
 const forbiddenPlatformDomainDirectories = [
@@ -87,7 +84,7 @@ describe('api common final structure boundary', () => {
 
     expect(undocumentedRuntimeOwners).toEqual([]);
     expect(knownCommonRemovalTargets).toMatchObject({
-      lifestyle: 'season-participants/lifestyle',
+      'domain-context': 'platform/domain-context plus domain-owned requirement types',
     });
   });
 
@@ -129,6 +126,21 @@ describe('api common final structure boundary', () => {
     );
 
     expect(filesContaining(platformRoot, forbiddenDomainImport)).toEqual([]);
+  });
+
+  it('keeps identity, privacy, and lifestyle shared-kernel owners outside common', () => {
+    expect(existsSync(join(commonRoot, 'account-identity-invariant.owner.ts'))).toBe(false);
+    expect(existsSync(join(commonRoot, 'deidentification'))).toBe(false);
+    expect(existsSync(join(commonRoot, 'lifestyle'))).toBe(false);
+    expect(existsSync(join(apiSourceRoot, 'identity/account-identity-invariant.ts'))).toBe(true);
+    expect(
+      existsSync(join(apiSourceRoot, 'privacy/deidentification/deidentified-display.policy.ts')),
+    ).toBe(true);
+    expect(
+      existsSync(
+        join(apiSourceRoot, 'season-participants/lifestyle/lifestyle-persistence.mapper.ts'),
+      ),
+    ).toBe(true);
   });
 
   it('keeps lifecycle orchestration outside common and composes domain work through adapters', () => {

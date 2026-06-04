@@ -4,7 +4,7 @@ import {
   resolveProfileDisplayName,
   resolveProfileTombstoneDisplayName,
   resolvePublicCounterpartNickname,
-} from './deidentified-display.owner.js';
+} from './deidentified-display.policy.js';
 
 describe('deidentified-display-owner', () => {
   it('deleted/deidentified 사용자는 nickname fallback보다 탈퇴 사용자 label을 우선한다', () => {
