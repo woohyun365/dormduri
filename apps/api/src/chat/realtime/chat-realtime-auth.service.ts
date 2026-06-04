@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { AuthenticatedUserContext } from '../../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { ChatSubscriptionQueryService } from '../queries/chat-subscription-query.service.js';
 import { ChatRealtimeTicketService } from './chat-realtime-ticket.service.js';
 

@@ -1,5 +1,5 @@
 import { Prisma } from '../../generated/prisma/client.js';
-import { PrismaService } from './prisma.service.js';
+import { calculatePrismaConnectionPoolBudget, PrismaService } from './prisma.service.js';
 
 type TransactionCallback = (tx: unknown) => Promise<unknown>;
 type TransactionOptions = { isolationLevel?: unknown };
@@ -55,5 +55,27 @@ describe('PrismaService serializable transaction retry', () => {
     await expect(harness.runSerializableTransaction(operation, 2)).rejects.toBe(conflict);
     expect(harness.$transaction).toHaveBeenCalledTimes(2);
     expect(operation).not.toHaveBeenCalled();
+  });
+});
+
+describe('calculatePrismaConnectionPoolBudget', () => {
+  it('runtime/worker/read-only disclosure pool 비용과 future role 증가 비용을 명시한다', () => {
+    expect(calculatePrismaConnectionPoolBudget({ poolMax: 10 }, { alertRatio: 0.8 })).toEqual({
+      activeRoles: ['runtime', 'retention_worker', 'retention_disclosure'],
+      poolMaxPerRole: 10,
+      activePoolMaxConnections: 30,
+      migrationConnectionIncludedInAppPool: false,
+      futureRolePoolCost: [
+        {
+          role: 'auth_cleanup_worker',
+          additionalMaxConnections: 10,
+        },
+        {
+          role: 'read_only_operations',
+          additionalMaxConnections: 10,
+        },
+      ],
+      alertAtEstimatedConnections: 24,
+    });
   });
 });

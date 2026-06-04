@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module.js';
+import { AuthOperationsModule } from './auth/operations/auth-operations.module.js';
 import { ChatModule } from './chat/chat.module.js';
 import { PrismaModule } from './common/prisma/prisma.module.js';
 import { DormitoriesModule } from './dormitories/dormitories.module.js';
@@ -17,6 +18,7 @@ import { RetentionObservabilityService } from './retention/retention-observabili
 import { SeasonParticipantsModule } from './season-participants/season-participants.module.js';
 import appConfig from './config/app.config.js';
 import authConfig from './config/auth.config.js';
+import authOperationsConfig from './config/auth-operations.config.js';
 import chatRealtimeConfig from './config/chat-realtime.config.js';
 import databaseConfig from './config/database.config.js';
 import lifecycleConfig from './config/lifecycle.config.js';
@@ -27,7 +29,14 @@ import { envValidationSchema } from './config/env.validation.js';
     ConfigModule.forRoot({
       isGlobal: true,
       cache: true,
-      load: [appConfig, authConfig, chatRealtimeConfig, databaseConfig, lifecycleConfig],
+      load: [
+        appConfig,
+        authConfig,
+        authOperationsConfig,
+        chatRealtimeConfig,
+        databaseConfig,
+        lifecycleConfig,
+      ],
       validationSchema: envValidationSchema,
       validationOptions: {
         abortEarly: false,
@@ -36,6 +45,7 @@ import { envValidationSchema } from './config/env.validation.js';
     }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    AuthOperationsModule,
     AuthModule,
     ChatModule,
     DormitoriesModule,

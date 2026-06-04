@@ -1043,6 +1043,25 @@ describe('MatchesService', () => {
     });
   });
 
+  it('pending unmatch request가 없으면 cancel route는 cancel-specific error를 유지한다', async () => {
+    txActiveMatchUnmatchRequestFindMany.mockResolvedValueOnce([]);
+
+    await expect(
+      service.cancelUnmatchRequest(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'active-1',
+      ),
+    ).rejects.toMatchObject({
+      response: matchesErrors.unmatchRequestCancelNotAllowed().getResponse(),
+    });
+
+    expect(txActiveMatchUnmatchRequestUpdate).not.toHaveBeenCalled();
+  });
+
   it('roomSelectionDate 이후 또는 SEASON_POST_MATCH에서는 매칭 취소 요청을 받을 수 없다', async () => {
     seasonsService.getCurrentSeasonContext.mockResolvedValueOnce({
       season: { id: 'season-1' },

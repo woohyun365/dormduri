@@ -1,4 +1,22 @@
+import { NextRequest } from 'next/server';
 import type { ResetPasswordRequest } from '@repo/shared/auth-contract';
-import { createForwardPostHandler } from '../_post-route';
+import {
+  buildJsonResponse,
+  clearAuthCookie,
+  forwardAuthRequest,
+  getForwardHeaders,
+} from '../_shared';
 
-export const POST = createForwardPostHandler<ResetPasswordRequest>('/auth/reset-password');
+export async function POST(request: NextRequest) {
+  const body = (await request.json()) as ResetPasswordRequest;
+  const { response, json } = await forwardAuthRequest('POST', '/auth/reset-password', body, {
+    headers: getForwardHeaders(request),
+  });
+
+  const nextResponse = buildJsonResponse(response, json);
+  if (json.success === true) {
+    clearAuthCookie(nextResponse);
+  }
+
+  return nextResponse;
+}

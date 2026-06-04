@@ -5,6 +5,7 @@ import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
 } from './current-season-participation.controller.js';
+import { CurrentSeasonParticipantContextGuard } from './current-season-participant-context.guard.js';
 import { CurrentSeasonParticipationViewOwner } from './current-season-participation-view.owner.js';
 import { SeasonParticipantsModule } from './season-participants.module.js';
 import { SeasonParticipantsService } from './season-participants.service.js';
@@ -39,10 +40,18 @@ describe('SeasonParticipantsModule boundary wiring', () => {
     const exports = getModuleMetadata<unknown>(SeasonParticipantsModule, 'exports');
 
     expect(providers).toEqual(
-      expect.arrayContaining([SeasonParticipantsService, CurrentSeasonParticipationViewOwner]),
+      expect.arrayContaining([
+        SeasonParticipantsService,
+        CurrentSeasonParticipationViewOwner,
+        CurrentSeasonParticipantContextGuard,
+      ]),
     );
     expect(exports).toEqual(
-      expect.arrayContaining([SeasonParticipantsService, CurrentSeasonParticipationViewOwner]),
+      expect.arrayContaining([
+        SeasonParticipantsService,
+        CurrentSeasonParticipationViewOwner,
+        CurrentSeasonParticipantContextGuard,
+      ]),
     );
   });
 });

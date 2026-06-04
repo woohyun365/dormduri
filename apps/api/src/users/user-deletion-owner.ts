@@ -2,7 +2,7 @@ import type {
   AccountDeletionRequestAccepted,
   RequestAccountDeletion,
 } from '@repo/shared/user-contract';
-import { verifyPasswordHash } from '../auth/auth-password.js';
+import { verifyPasswordHash } from '../auth/application/auth-password-hash.js';
 import { badRequestError, conflictError } from '../common/http/api-error.js';
 import type {
   PrismaService,

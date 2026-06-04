@@ -490,6 +490,71 @@ describe('Auth/users transaction rollback and race integration', () => {
     );
 
     itWithQueryTrace(
+      'expired verified reset proof는 consume/password/session 변경 없이 restart required로 처리된다',
+      async () => {
+        const email = 'reset-expired-proof@kangwon.ac.kr';
+        const emailNormalized = normalizeEmail(email);
+        const userId = 'reset-expired-proof-user';
+        const oldPasswordHash = await hashPassword('OldPass1234');
+        const verificationCodeId = 'reset-expired-proof-code';
+        const databaseNow = await prisma.getDatabaseNow();
+
+        await seedUserWithDisplayIdentity({
+          id: userId,
+          email,
+          nickname: '만료리셋',
+          passwordHash: oldPasswordHash,
+        });
+        await prisma.authSession.create({
+          data: {
+            id: 'reset-expired-proof-session',
+            userId,
+            expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
+          },
+        });
+        await prisma.verificationCode.create({
+          data: {
+            id: verificationCodeId,
+            emailNormalized,
+            purpose: 'RESET_PASSWORD',
+            codeHash: 'hmac-sha256:expired-proof',
+            issuedAt: new Date(databaseNow.getTime() - 20 * 60 * 1000),
+            expiresAt: new Date(databaseNow.getTime() - 1000),
+            verifiedAt: new Date(databaseNow.getTime() - 10 * 60 * 1000),
+          },
+        });
+
+        await expect(
+          resetPasswordWithOwner(
+            {
+              prisma,
+              verificationService: {
+                findLatestVerifiedResetCode() {
+                  return Promise.resolve({ id: verificationCodeId });
+                },
+              },
+            },
+            email,
+            'NewPass1234',
+          ),
+        ).resolves.toMatchObject({
+          success: false,
+          code: 'AUTH_RESET_RESTART_REQUIRED',
+        });
+
+        await expect(
+          prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+        ).resolves.toMatchObject({
+          passwordHash: oldPasswordHash,
+        });
+        await expectVerificationConsumed(verificationCodeId, false);
+        await expect(
+          prisma.authSession.findUniqueOrThrow({ where: { id: 'reset-expired-proof-session' } }),
+        ).resolves.toMatchObject({ revokedAt: null });
+      },
+    );
+
+    itWithQueryTrace(
       '같은 reset code를 동시에 사용하면 성공은 최대 1개이고 성공 transaction만 session을 revoke한다',
       async () => {
         const email = 'reset-code-race@kangwon.ac.kr';

@@ -1,15 +1,7 @@
-import {
-  BadRequestException,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
-import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import { BadRequestException, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { RequireCapability } from '../auth/access/auth-access.decorator.js';
+import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { NotificationsService } from './notifications.service.js';
 
 function parseNotificationListLimit(rawLimit: string | undefined): number | undefined {
@@ -31,13 +23,13 @@ function parseNotificationListLimit(rawLimit: string | undefined): number | unde
 }
 
 @Controller('api/notifications')
-@UseGuards(AuthenticatedUserGuard)
+@RequireCapability()
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
   async listNotifications(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
@@ -48,13 +40,13 @@ export class NotificationsController {
   }
 
   @Get('unread-count')
-  async getUnreadCount(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+  async getUnreadCount(@CurrentUser() authUser: AuthenticatedUserContext) {
     return this.notificationsService.getUnreadCount(authUser);
   }
 
   @Post(':notificationId/read')
   async markRead(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('notificationId') notificationId: string,
   ) {
     return this.notificationsService.markRead(authUser, notificationId);

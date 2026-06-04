@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { hasNicknameCooldown } from './nickname-policy.js';

@@ -23,6 +23,17 @@ describe('createLifecycleSweepRunner', () => {
     const retentionObservability = {
       emitSweep: jest.fn().mockResolvedValue(undefined),
     };
+    const authOperationalCleanupService = {
+      runCleanupBatch: jest.fn().mockResolvedValue({
+        expiredSessions: 1,
+        verificationCodes: 2,
+        verificationRequestLogs: 3,
+        loginAttempts: 4,
+        securityEvents: 5,
+        cleanupLagSeconds: 0,
+        ranAt: now.toISOString(),
+      }),
+    };
 
     const runner = createLifecycleSweepRunner({
       prisma: { getDatabaseNow: jest.fn().mockResolvedValue(now) } as never,
@@ -32,12 +43,21 @@ describe('createLifecycleSweepRunner', () => {
       matchesService: matchesService as never,
       seasonParticipantsService: seasonParticipantsService as never,
       usersService: usersService as never,
+      authOperationalCleanupService,
     });
 
     const result = await runner.runSweep();
 
     expect(chatLifecycleSweep.sweepThreadLifecycle).toHaveBeenCalledWith(now);
     expect(result.threadTransitions).toEqual({ scannedCount: 2, updatedCount: 1 });
+    expect(authOperationalCleanupService.runCleanupBatch).toHaveBeenCalledWith(now);
+    expect(result.authCleanupSweep).toMatchObject({
+      expiredSessions: 1,
+      verificationCodes: 2,
+      verificationRequestLogs: 3,
+      loginAttempts: 4,
+      securityEvents: 5,
+    });
     expect(retentionObservability.emitSweep).toHaveBeenCalledWith(
       expect.objectContaining({ result, now }),
     );

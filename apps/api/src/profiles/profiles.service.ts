@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { PublicProfile } from '@repo/shared/profile-contract';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';

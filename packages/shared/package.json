@@ -12,8 +12,28 @@
   },
   "exports": {
     "./auth-contract": {
-      "types": "./dist/auth-contract.d.ts",
-      "default": "./dist/auth-contract.js"
+      "types": "./dist/compat/auth-contract.d.ts",
+      "default": "./dist/compat/auth-contract.js"
+    },
+    "./auth": {
+      "types": "./dist/auth/index.d.ts",
+      "default": "./dist/auth/index.js"
+    },
+    "./auth/contract": {
+      "types": "./dist/auth/contract/index.d.ts",
+      "default": "./dist/auth/contract/index.js"
+    },
+    "./auth/policy": {
+      "types": "./dist/auth/policy/index.d.ts",
+      "default": "./dist/auth/policy/index.js"
+    },
+    "./auth/response": {
+      "types": "./dist/auth/response/index.d.ts",
+      "default": "./dist/auth/response/index.js"
+    },
+    "./auth/session": {
+      "types": "./dist/auth/session/index.d.ts",
+      "default": "./dist/auth/session/index.js"
     },
     "./identity-contract": {
       "types": "./dist/identity-contract.d.ts",
@@ -40,20 +60,20 @@
       "default": "./dist/account-identity-contract.js"
     },
     "./session-contract": {
-      "types": "./dist/session-contract.d.ts",
-      "default": "./dist/session-contract.js"
+      "types": "./dist/compat/session-contract.d.ts",
+      "default": "./dist/compat/session-contract.js"
     },
     "./lifestyle": {
       "types": "./dist/lifestyle.d.ts",
       "default": "./dist/lifestyle.js"
     },
     "./auth-policy": {
-      "types": "./dist/auth-policy.d.ts",
-      "default": "./dist/auth-policy.js"
+      "types": "./dist/compat/auth-policy.d.ts",
+      "default": "./dist/compat/auth-policy.js"
     },
     "./auth-response": {
-      "types": "./dist/auth-response.d.ts",
-      "default": "./dist/auth-response.js"
+      "types": "./dist/compat/auth-response.d.ts",
+      "default": "./dist/compat/auth-response.js"
     },
     "./campus-contract": {
       "types": "./dist/campus-contract.d.ts",

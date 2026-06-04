@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import {
-  AuthSessionService,
-  type AuthenticatedUserContext,
-} from '../../auth/auth-session.service.js';
+import { AuthActorContextResolver } from '../../auth/application/auth-actor-context.resolver.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import {
   CHAT_REALTIME_TICKET_SCOPE,
   CHAT_REALTIME_TICKET_TTL_SECONDS,
@@ -24,7 +22,7 @@ export type ChatRealtimeTicketIssueResult = {
 export class ChatRealtimeTicketService {
   private readonly tickets = new Map<string, TicketStoreRecord>();
 
-  constructor(private readonly authSessionService: AuthSessionService) {}
+  constructor(private readonly authActorContextResolver: AuthActorContextResolver) {}
 
   async issueTicketFromAccessToken(
     accessToken: string | null,
@@ -33,7 +31,7 @@ export class ChatRealtimeTicketService {
       return null;
     }
 
-    const authUser = await this.authSessionService.resolveCurrentUserContext(accessToken);
+    const authUser = await this.authActorContextResolver.resolveCurrentUserContext(accessToken);
     if (!authUser) {
       return null;
     }
@@ -63,7 +61,7 @@ export class ChatRealtimeTicketService {
       return null;
     }
 
-    return this.authSessionService.resolveCurrentUserContext(record.accessToken);
+    return this.authActorContextResolver.resolveCurrentUserContext(record.accessToken);
   }
 
   private deleteExpiredTickets(now: Date) {

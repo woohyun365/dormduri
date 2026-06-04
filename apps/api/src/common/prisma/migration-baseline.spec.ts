@@ -131,6 +131,50 @@ describe('migration baseline coverage', () => {
     }
   });
 
+  it('auth session baseline은 opaque access token hash authority와 short access TTL column을 포함한다', () => {
+    expect(sql).toContain('CREATE TABLE "AuthSession"');
+    expect(sql).toContain('"sessionTokenHash" TEXT');
+    expect(sql).toContain('"sessionTokenExpiresAt" TIMESTAMPTZ(3)');
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("sessionTokenHash")',
+    );
+    expect(sql).toContain('CREATE INDEX "AuthSession_userId_idx" ON "AuthSession"("userId")');
+    expect(sql).toContain(
+      'CREATE INDEX "AuthSession_userId_revokedAt_expiresAt_idx" ON "AuthSession"("userId", "revokedAt", "expiresAt")',
+    );
+    expect(sql).toContain('CREATE INDEX "AuthSession_expiresAt_idx" ON "AuthSession"("expiresAt")');
+    expect(sql).toContain(
+      'CREATE INDEX "VerificationCode_expiresAt_idx" ON "VerificationCode"("expiresAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "VerificationCodeRequestLog_createdAt_idx" ON "VerificationCodeRequestLog"("createdAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "LoginAttempt_lastFailedAt_idx" ON "LoginAttempt"("lastFailedAt")',
+    );
+  });
+
+  it('auth security event baseline은 민감값 대신 hash dimension과 운영 조회 index를 포함한다', () => {
+    expect(sql).toContain('CREATE TYPE "AuthSecurityEventType"');
+    expect(sql).toContain('CREATE TYPE "AuthSecurityEventSeverity"');
+    expect(sql).toContain('CREATE TABLE "AuthSecurityEvent"');
+    expect(sql).toContain('"emailHash" TEXT');
+    expect(sql).toContain('"requestIpHash" TEXT');
+    expect(sql).toContain('"userAgentHash" TEXT');
+    expect(sql).toContain(
+      'CREATE INDEX "AuthSecurityEvent_type_createdAt_idx" ON "AuthSecurityEvent"("type", "createdAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "AuthSecurityEvent_emailHash_type_createdAt_idx" ON "AuthSecurityEvent"("emailHash", "type", "createdAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "AuthSecurityEvent_createdAt_idx" ON "AuthSecurityEvent"("createdAt")',
+    );
+    expect(sql).not.toContain('"rawToken"');
+    expect(sql).not.toContain('"rawCode"');
+    expect(sql).not.toContain('"password" TEXT');
+  });
+
   it('academic identity allowance는 retained payload가 아니라 User cascade live state로 유지된다', () => {
     expect(sql).toContain('CREATE TABLE "UserAcademicIdentityChangeAllowance"');
     expect(sql).toContain(

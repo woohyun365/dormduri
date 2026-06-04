@@ -1,4 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  AUTH_ACCESS_METADATA_KEY,
+  AUTH_REQUIRED_CAPABILITIES_METADATA_KEY,
+} from '../auth/access/auth-access.decorator.js';
 import { HealthController } from './health.controller.js';
 import { HealthService } from './health.service.js';
 
@@ -101,5 +105,21 @@ describe('HealthController', () => {
         },
       },
     });
+  });
+
+  it('realtime operations endpoint should be protected by operations health capability', () => {
+    const handler = Object.getOwnPropertyDescriptor(
+      HealthController.prototype,
+      'getRealtimeOperations',
+    )?.value as object | undefined;
+
+    if (!handler) {
+      throw new Error('Expected HealthController.getRealtimeOperations handler');
+    }
+
+    expect(Reflect.getMetadata(AUTH_ACCESS_METADATA_KEY, handler)).toBe('protected');
+    expect(Reflect.getMetadata(AUTH_REQUIRED_CAPABILITIES_METADATA_KEY, handler)).toEqual([
+      'admin:operations:health:read',
+    ]);
   });
 });

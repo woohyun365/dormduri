@@ -6,7 +6,7 @@ import type {
   RequestAccountDeletion,
   UpdateCurrentUserResponse,
 } from '@repo/shared/user-contract';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService, RetentionWorkerPrismaService } from '../common/prisma/prisma.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';

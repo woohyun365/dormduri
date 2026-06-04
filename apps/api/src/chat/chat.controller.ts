@@ -8,7 +8,6 @@ import {
   Post,
   Query,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import type { LeaveConversationThreadResponse } from '@repo/shared/chat-contract';
@@ -16,11 +15,13 @@ import {
   sendConversationMessageRequestSchema,
   updateChatReadMarkerRequestSchema,
 } from '@repo/shared/chat-contract';
-import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
-import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import { unauthorizedError } from '../common/http/api-error.js';
+import { RequireCapability } from '../auth/access/auth-access.decorator.js';
+import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
+import { forbiddenError, unauthorizedError } from '../common/http/api-error.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
+import { ChatThread, RequireChatThreadMember } from './context/chat-thread-context.decorator.js';
+import type { ChatThreadContext } from './context/chat-thread-context.types.js';
 import { ChatRealtimeMetricsService } from './realtime/chat-realtime.metrics.js';
 import { ChatRealtimeTicketService } from './realtime/chat-realtime-ticket.service.js';
 import {
@@ -66,7 +67,7 @@ function parseThreadListLimit(rawLimit: string | undefined): number | undefined 
 }
 
 @Controller('api/chat')
-@UseGuards(AuthenticatedUserGuard)
+@RequireCapability()
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
@@ -77,7 +78,7 @@ export class ChatController {
 
   @Get('threads')
   async getThreads(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
   ) {
@@ -88,29 +89,34 @@ export class ChatController {
   }
 
   @Get('conversation-stats')
-  async getConversationStats(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+  async getConversationStats(@CurrentUser() authUser: AuthenticatedUserContext) {
     return this.chatService.getConversationStats(authUser);
   }
 
   @Get('threads/with/:targetUserId')
   async getThreadEntry(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('targetUserId') targetUserId: string,
   ) {
     return this.chatService.getThreadEntry(authUser, targetUserId);
   }
 
   @Get('threads/:threadId')
+  @RequireChatThreadMember()
   async getThreadDetail(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
+    @ChatThread() chatThread?: ChatThreadContext,
   ) {
-    return this.chatService.getThreadDetail(authUser, threadId);
+    return this.chatService.getThreadDetail(
+      authUser,
+      resolveChatThreadActorThreadId(authUser, threadId, chatThread),
+    );
   }
 
   @Get('realtime/replay')
   async replayRealtimeEvents(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Query('after') after?: string,
     @Query('limit') limit?: string,
   ) {
@@ -127,7 +133,7 @@ export class ChatController {
 
   @Post('realtime/tickets')
   async issueRealtimeTicket(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Headers('authorization') authorization?: string,
     @Req() request?: Request,
   ) {
@@ -151,27 +157,30 @@ export class ChatController {
 
   @Post('threads/:threadId/leave')
   async leaveThread(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
   ): Promise<LeaveConversationThreadResponse> {
     return this.chatService.leaveThread(authUser, threadId);
   }
 
   @Post('threads/:threadId/read-marker')
+  @RequireChatThreadMember()
   async updateReadMarker(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Param('threadId') threadId: string,
     @Body() body: unknown,
+    @ChatThread() chatThread?: ChatThreadContext,
   ) {
     const parsed = parseRequestBody(updateChatReadMarkerRequestSchema, body);
-    return this.chatService.updateReadMarker(authUser, threadId, parsed);
+    return this.chatService.updateReadMarker(
+      authUser,
+      resolveChatThreadActorThreadId(authUser, threadId, chatThread),
+      parsed,
+    );
   }
 
   @Post('messages')
-  async sendMessage(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
-    @Body() body: unknown,
-  ) {
+  async sendMessage(@CurrentUser() authUser: AuthenticatedUserContext, @Body() body: unknown) {
     const parsed = parseRequestBody(sendConversationMessageRequestSchema, body);
     const rateLimit = this.rateLimiter.consumeMessageSend({
       userId: authUser.id,
@@ -184,4 +193,23 @@ export class ChatController {
 
     return this.chatService.sendMessage(authUser, parsed);
   }
+}
+
+function resolveChatThreadActorThreadId(
+  authUser: AuthenticatedUserContext,
+  threadId: string,
+  chatThread: ChatThreadContext | null | undefined,
+) {
+  if (!chatThread) {
+    return threadId;
+  }
+
+  if (chatThread.actorUserId !== authUser.id || chatThread.threadId !== threadId) {
+    throw forbiddenError(
+      'CHAT_THREAD_CONTEXT_ACTOR_MISMATCH',
+      '채팅 thread 컨텍스트와 로그인 사용자가 일치하지 않습니다.',
+    );
+  }
+
+  return chatThread.threadId;
 }

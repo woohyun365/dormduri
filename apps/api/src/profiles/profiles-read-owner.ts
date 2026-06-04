@@ -1,5 +1,5 @@
 import type { PublicProfile } from '@repo/shared/profile-contract';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import type { MatchesService } from '../matches/matches.service.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';

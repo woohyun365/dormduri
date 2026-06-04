@@ -24,6 +24,30 @@ enum VerificationCodePurpose {
   RESET_PASSWORD
 }
 
+enum AuthSecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGIN_LOCKOUT
+  VERIFICATION_CODE_REQUESTED
+  VERIFICATION_CODE_VERIFY_SUCCESS
+  VERIFICATION_CODE_VERIFY_FAILURE
+  RESET_PASSWORD_CONSUMED
+  CHANGE_PASSWORD_SUCCESS
+  SESSION_REFRESH_SUCCESS
+  SESSION_REVOKED
+  SESSION_REVOKE_ALL
+  SESSION_TOKEN_REUSE_DETECTED
+  OPAQUE_TRANSPORT_REJECTED
+  MAIL_SEND_SUCCESS
+  MAIL_SEND_FAILURE
+}
+
+enum AuthSecurityEventSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
 enum ModerationTermCategory {
   BLOCKED_TEXT
   RESERVED_NICKNAME
@@ -1378,6 +1402,9 @@ model LoginAttempt {
   lastFailedAt    DateTime? @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@index([lastFailedAt])
+  @@index([lockedUntil])
 }
 
 model VerificationCode {
@@ -1393,6 +1420,8 @@ model VerificationCode {
   requestIp       String?
 
   @@index([emailNormalized, purpose])
+  @@index([expiresAt])
+  @@index([consumedAt])
 }
 
 model VerificationCodeRequestLog {
@@ -1404,20 +1433,48 @@ model VerificationCodeRequestLog {
 
   @@index([emailNormalized, purpose, requestIp, createdAt])
   @@index([requestIp, createdAt])
+  @@index([createdAt])
 }
 
 model AuthSession {
-  id               String    @id @default(uuid())
-  userId           String
-  rememberMe       Boolean   @default(false)
-  refreshTokenHash String?
-  expiresAt        DateTime  @db.Timestamptz(3)
-  revokedAt        DateTime? @db.Timestamptz(3)
-  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String    @id @default(uuid())
+  userId                String
+  rememberMe            Boolean   @default(false)
+  sessionTokenHash      String?   @unique
+  sessionTokenExpiresAt DateTime? @db.Timestamptz(3)
+  refreshTokenHash      String?
+  expiresAt             DateTime  @db.Timestamptz(3)
+  revokedAt             DateTime? @db.Timestamptz(3)
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, revokedAt, expiresAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model AuthSecurityEvent {
+  id            String                    @id @default(uuid())
+  type          AuthSecurityEventType
+  severity      AuthSecurityEventSeverity @default(INFO)
+  actorUserId   String?
+  targetUserId  String?
+  sessionId     String?
+  emailHash     String?
+  requestIpHash String?
+  userAgentHash String?
+  metadata      Json?
+  createdAt     DateTime                  @default(now()) @db.Timestamptz(3)
+
+  @@index([type, createdAt])
+  @@index([severity, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([emailHash, type, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([createdAt])
 }
 
 model ModerationTerm {
