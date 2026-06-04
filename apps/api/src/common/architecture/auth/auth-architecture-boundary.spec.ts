@@ -302,19 +302,30 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(staleTransitionAllowlist).toEqual([]);
   });
 
-  it('keeps root-level specs limited to final controller and architecture inventory guards', () => {
-    const allowedRootSpecFiles = [
-      'auth-architecture-boundary.spec.ts',
-      'auth-route-metadata.inventory.spec.ts',
-      'auth.controller.spec.ts',
-      'domain-context-route-metadata.inventory.spec.ts',
-    ];
+  it('keeps root-level specs limited to the final controller spec', () => {
+    const allowedRootSpecFiles = ['auth.controller.spec.ts'];
     const rootSpecFiles = walkTypeScriptFiles(authRoot)
       .filter((path) => dirname(path) === authRoot && path.endsWith('.spec.ts'))
       .map((path) => basename(path))
       .sort();
 
     expect(rootSpecFiles).toEqual(allowedRootSpecFiles.sort());
+  });
+
+  it('keeps architecture and inventory guards on the common architecture surface', () => {
+    const commonArchitectureAuthRoot = join(apiSourceRoot, 'common/architecture/auth');
+
+    expect(existsSync(join(commonArchitectureAuthRoot, 'auth-architecture-boundary.spec.ts'))).toBe(
+      true,
+    );
+    expect(
+      existsSync(join(commonArchitectureAuthRoot, 'auth-route-metadata.inventory.spec.ts')),
+    ).toBe(true);
+    expect(
+      existsSync(
+        join(commonArchitectureAuthRoot, 'auth-domain-context-route-metadata.inventory.spec.ts'),
+      ),
+    ).toBe(true);
   });
 
   it('keeps AuthService final-facade migration debt explicit', () => {

@@ -42,9 +42,10 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 
 ## Phase 9 transition guard
 
-`auth-architecture-boundary.spec.ts`는 Phase 9 최종 목표와 현재 migration debt를 함께 고정한다.
+Phase H-1 이후 auth architecture/inventory guard는 `apps/api/src/common/architecture/auth/`가 소유한다. `apps/api/src/auth` root spec은 controller behavior spec만 남기고, cross-cutting architecture fitness는 common architecture surface에서 고정한다.
 
 - 최종 목표 root production TypeScript file은 `auth.module.ts`, `auth.controller.ts`만 허용한다.
+- 최종 목표 root spec file은 `auth.controller.spec.ts`만 허용한다.
 - Phase A 이후에는 `transitionRootCompatibilityFiles`와 `transitionRootImplementationFiles` allowlist를 단계별로 줄인다.
 - `AuthService`는 controller-facing facade가 최종 목표이며, 현재 direct Prisma/session/verification/login-attempt/security-event orchestration은 explicit migration debt다.
 - Phase G 이후 `AuthModule` provider/export list는 `composition/auth.providers.ts`, `composition/auth.exports.ts`가 소유한다. `APP_GUARD` 등록 순서는 ThrottlerGuard → AuthenticatedUserGuard로 유지한다.
@@ -62,9 +63,9 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 
 ```bash
 pnpm --dir apps/api exec jest --watchman=false --runInBand \
-  src/auth/auth-architecture-boundary.spec.ts \
-  src/auth/auth-route-metadata.inventory.spec.ts \
-  src/auth/domain-context-route-metadata.inventory.spec.ts \
+  src/common/architecture/auth/auth-architecture-boundary.spec.ts \
+  src/common/architecture/auth/auth-route-metadata.inventory.spec.ts \
+  src/common/architecture/auth/auth-domain-context-route-metadata.inventory.spec.ts \
   src/auth/application/auth.service.spec.ts \
   src/auth/verification/auth-verification-use-cases.service.spec.ts \
   src/auth/registration/auth-registration-use-cases.service.spec.ts \
