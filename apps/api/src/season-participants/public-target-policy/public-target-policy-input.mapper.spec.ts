@@ -1,10 +1,9 @@
 import {
-  buildCurrentUserCapabilityInput,
   buildPublicTargetPolicyTargetInput,
   buildPublicTargetPolicyViewerInput,
   toOperatedDormitoryIdSet,
-} from './season-participant-gate-context.js';
-import type { CurrentSeasonParticipantRecord } from './application/season-participants.service.js';
+} from './public-target-policy-input.mapper.js';
+import type { CurrentSeasonParticipantRecord } from '../application/season-participants.service.js';
 
 const COMPLETE_LIFESTYLE = {
   bedtime: '22_24',
@@ -62,47 +61,21 @@ function makeParticipant(
   };
 }
 
-describe('season-participant-gate-context', () => {
-  const seasonContext = {
-    state: 'SEASON_MATCHING' as const,
-    operatedDormitories: [
-      { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
-      { dormitoryId: 'saerom', isOperated: true, roomSelectionDate: '2026-02-12' },
-    ],
-    schedule: {
-      preparationStart: '2026-01-01',
-      matchingStart: '2026-01-28',
-      matchingEnd: '2026-02-12',
-      seasonEnd: '2026-02-28',
-    },
-  };
+const seasonContext = {
+  state: 'SEASON_MATCHING' as const,
+  operatedDormitories: [
+    { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-02-11' },
+    { dormitoryId: 'saerom', isOperated: true, roomSelectionDate: '2026-02-12' },
+  ],
+  schedule: {
+    preparationStart: '2026-01-01',
+    matchingStart: '2026-01-28',
+    matchingEnd: '2026-02-12',
+    seasonEnd: '2026-02-28',
+  },
+};
 
-  it('capability input을 같은 source들에서 일관되게 계산한다', () => {
-    const result = buildCurrentUserCapabilityInput({
-      campusOperated: true,
-      seasonState: 'SEASON_MATCHING',
-      participant: makeParticipant(),
-      participantMatched: false,
-      seasonProfileComplete: true,
-      selection: {
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
-      },
-      operatedDormitoryIds: toOperatedDormitoryIdSet(seasonContext),
-      currentDormitoryCanMatch: true,
-      nicknameLockedBySeason: true,
-      nicknameCooldownActive: false,
-    });
-
-    expect(result).toMatchObject({
-      participantRegistered: true,
-      hasOperatedAssignedDormitory: true,
-      hasSelectableDormitories: true,
-      currentDormitoryCanMatch: true,
-      participantMatched: false,
-    });
-  });
-
+describe('public-target-policy-input.mapper', () => {
   it('viewer public target policy input은 matched partner와 roomSelection window를 분리해 유지한다', () => {
     const result = buildPublicTargetPolicyViewerInput({
       campusOperated: true,

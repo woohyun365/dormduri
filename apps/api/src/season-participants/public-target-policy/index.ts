@@ -5,3 +5,4 @@ export * from './public-profile-exposure.policy.js';
 export * from './public-target-action.policy.js';
 export * from './public-result-read.policy.js';
 export * from './public-target-policy.js';
+export * from './public-target-policy-input.mapper.js';

@@ -20,7 +20,7 @@ import {
 import {
   buildPublicTargetPolicyTargetInput,
   buildPublicTargetPolicyViewerInput,
-} from '../season-participants/season-participant-gate-context.js';
+} from '../season-participants/public-target-policy/index.js';
 import { resolvePublicTargetPolicy } from '../season-participants/public-target-policy/index.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveCampusServiceState } from '../users/service-state.js';

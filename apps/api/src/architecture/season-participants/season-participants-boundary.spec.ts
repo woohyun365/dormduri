@@ -38,6 +38,7 @@ const requiredPhaseTwoOneFiles = {
     'season-participants.service.ts',
   ],
   capabilities: [
+    'current-user-capability-input.mapper.ts',
     'current-user-capabilities.policy.ts',
     'index.ts',
     'season-participation-capability.mapper.ts',
@@ -88,6 +89,7 @@ const requiredPhaseTwoOneFiles = {
     'public-target-action.policy.ts',
     'public-target-eligibility.policy.ts',
     'public-target-policy.ts',
+    'public-target-policy-input.mapper.ts',
     'public-target-policy.types.ts',
     'public-target-relation.policy.ts',
   ],
@@ -170,6 +172,8 @@ describe('season-participants final structure boundary', () => {
       'season-participant-selection.ts',
       'season-participant-capabilities.ts',
       'season-participation-capability.owner.ts',
+      'season-participant-gate-context.ts',
+      'season-participant-gate-inputs.ts',
     ] as const;
 
     for (const file of forbiddenRootFiles) {
@@ -305,14 +309,53 @@ describe('season-participants final structure boundary', () => {
     expect(legacyRootPolicyImports).toEqual([]);
   });
 
+  it('keeps Phase 8-A mapper/spec boundaries out of root compatibility files', () => {
+    const rootGateFiles = walkTypeScriptFiles(seasonParticipantsRoot)
+      .filter((path) => dirname(path) === seasonParticipantsRoot)
+      .map((path) => rootRelativePath(path, seasonParticipantsRoot))
+      .filter((path) => path.startsWith('season-participant-gate'))
+      .sort();
+    const rootPolicySpecs = walkTypeScriptFiles(seasonParticipantsRoot)
+      .filter((path) => dirname(path) === seasonParticipantsRoot)
+      .map((path) => rootRelativePath(path, seasonParticipantsRoot))
+      .filter((path) =>
+        ['season-participant-policy.spec.ts', 'season-participant-gate-context.spec.ts'].includes(
+          path,
+        ),
+      )
+      .sort();
+    const requiredSpecFiles = [
+      'capabilities/current-user-capabilities.policy.spec.ts',
+      'capabilities/current-user-capability-input.mapper.spec.ts',
+      'policies/season-participant-selection.policy.spec.ts',
+      'public-target-policy/public-profile-exposure.policy.spec.ts',
+      'public-target-policy/public-result-read.policy.spec.ts',
+      'public-target-policy/public-target-action.policy.spec.ts',
+      'public-target-policy/public-target-eligibility.policy.spec.ts',
+      'public-target-policy/public-target-policy-input.mapper.spec.ts',
+      'public-target-policy/public-target-policy.spec.ts',
+      'public-target-policy/public-target-relation.policy.spec.ts',
+    ] as const;
+
+    expect(rootGateFiles).toEqual([]);
+    expect(rootPolicySpecs).toEqual([]);
+    for (const file of requiredSpecFiles) {
+      expect(existsSync(join(seasonParticipantsRoot, file))).toBe(true);
+    }
+  });
+
   it('keeps external domains on season-participants public policy/capability barrels', () => {
     const internalPolicySurfaceImport =
       /season-participants\/(?:capabilities|policies|public-target-policy)\/(?!index(?:\.js)?['"])[^'"]+/;
+    const rootGateImport = /season-participants\/season-participant-gate-context(?:\.js)?/;
     const externalFiles = productionTypeScriptFiles(apiSourceRoot).filter(
       (path) => !path.startsWith(seasonParticipantsRoot),
     );
     const offenders = externalFiles
-      .filter((path) => internalPolicySurfaceImport.test(readSource(path)))
+      .filter((path) => {
+        const source = readSource(path);
+        return internalPolicySurfaceImport.test(source) || rootGateImport.test(source);
+      })
       .map(relativeSourcePath)
       .sort();
 

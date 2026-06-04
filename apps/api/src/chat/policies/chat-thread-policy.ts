@@ -6,12 +6,12 @@ import { canCurrentDormitoryMatch } from '../../season-participants/policies/ind
 import { resolvePublicTargetPolicy } from '../../season-participants/public-target-policy/index.js';
 import type { CurrentSeasonParticipantRecord } from '../../season-participants/application/season-participants.service.js';
 import type { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
+import { buildCurrentUserCapabilityInput } from '../../season-participants/capabilities/index.js';
 import {
-  buildCurrentUserCapabilityInput,
   buildPublicTargetPolicyTargetInput,
   buildPublicTargetPolicyViewerInput,
   toOperatedDormitoryIdSet,
-} from '../../season-participants/season-participant-gate-context.js';
+} from '../../season-participants/public-target-policy/index.js';
 import {
   formatKstDate,
   getEffectiveSeasonState,
