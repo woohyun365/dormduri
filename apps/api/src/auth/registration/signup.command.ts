@@ -6,7 +6,7 @@ import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
 import type { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import { authFailures } from '../errors/auth-failures.js';
-import { hashPassword } from '../credentials/auth-password.js';
+import { hashPassword } from '../credentials/password-hash.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerifiedCodeOrThrow,

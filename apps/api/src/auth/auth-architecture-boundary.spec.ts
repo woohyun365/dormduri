@@ -100,7 +100,6 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'login-attempts',
       'mappers',
       'operations',
-      'queries',
       'registration',
       'security-events',
       'sessions',
@@ -112,6 +111,15 @@ describe('Phase 8/9 auth architecture boundary', () => {
     );
 
     expect(missingDirectories).toEqual([]);
+  });
+
+  it('keeps removed top-level transition directories out of the final target', () => {
+    const removedTransitionDirectories = ['queries', 'policies', 'repositories'];
+    const existingTransitionDirectories = removedTransitionDirectories
+      .filter((directory) => existsSync(join(authRoot, directory)))
+      .map((directory) => `src/auth/${directory}`);
+
+    expect(existingTransitionDirectories).toEqual([]);
   });
 
   it('keeps session lifecycle ownership in the sessions slice', () => {
@@ -157,7 +165,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
         'verification-code.repository.ts',
       ],
       credentials: [
-        'auth-password.ts',
+        'password-hash.ts',
         'change-password.command.ts',
         'login.command.ts',
         'reset-password.command.ts',
@@ -172,6 +180,23 @@ describe('Phase 8/9 auth architecture boundary', () => {
     );
 
     expect(missingSliceFiles).toEqual([]);
+    expect(existsSync(join(authRoot, 'domain/opaque-token.ts'))).toBe(false);
+    expect(existsSync(join(authRoot, 'sessions/opaque-token.ts'))).toBe(true);
+    expect(existsSync(join(authRoot, 'application/auth-password-hash.ts'))).toBe(true);
+  });
+
+  it('keeps login/reset/change/signup command behavior specs on their owning slices', () => {
+    const requiredCommandSpecs = [
+      'credentials/login.command.spec.ts',
+      'credentials/reset-password.command.spec.ts',
+      'credentials/change-password.command.spec.ts',
+      'registration/signup.command.spec.ts',
+    ];
+    const missingCommandSpecs = requiredCommandSpecs.filter(
+      (file) => !existsSync(join(authRoot, file)),
+    );
+
+    expect(missingCommandSpecs).toEqual([]);
   });
 
   it('keeps login-attempt and security-event ownership in their slices', () => {
@@ -341,7 +366,6 @@ describe('Phase 8/9 auth architecture boundary', () => {
   it('keeps policy/domain helpers pure from Nest providers and Prisma clients', () => {
     const purePolicyOrDomainRoots = [
       'domain',
-      'policies',
       'sessions',
       'verification',
       'credentials',
@@ -447,6 +471,8 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(source).toContain('RetentionWorkerPrismaService');
     expect(source).toContain('admin:operations:health:read');
     expect(source).toContain('composition/auth.providers.ts');
+    expect(source).toContain('sessions/opaque-token.ts');
+    expect(source).toContain('credentials/password-hash.ts');
     expect(source).toContain('외부 domain production code');
   });
 });

@@ -1,1 +1,1 @@
-export { hashPassword, verifyPasswordHash } from '../credentials/auth-password.js';
+export { hashPassword, verifyPasswordHash } from '../credentials/password-hash.js';

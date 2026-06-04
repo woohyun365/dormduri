@@ -5,7 +5,7 @@ import type {
   AuthSessionService,
 } from '../sessions/auth-session.service.js';
 import { authFailures } from '../errors/auth-failures.js';
-import { hashPassword, verifyPasswordHash } from './auth-password.js';
+import { hashPassword, verifyPasswordHash } from './password-hash.js';
 import { validatePasswordPolicy } from '../domain/auth.utils.js';
 import {
   AuthSecurityEventService,

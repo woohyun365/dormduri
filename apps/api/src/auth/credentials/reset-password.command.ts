@@ -3,7 +3,7 @@ import type { PrismaService } from '../../common/prisma/prisma.service.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { authFailures } from '../errors/auth-failures.js';
 import { normalizeEmail, validatePasswordPolicy } from '../domain/auth.utils.js';
-import { hashPassword, verifyPasswordHash } from './auth-password.js';
+import { hashPassword, verifyPasswordHash } from './password-hash.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerifiedCodeOrThrow,
