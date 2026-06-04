@@ -33,7 +33,8 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 
 - Postgres authoritative: Redis는 metric gate 후보일 뿐 auth source-of-truth가 아니다.
 - Auth cleanup은 현재 `RetentionWorkerPrismaService`로 실행한다. `auth_cleanup_worker`는 future infra role이다.
-- `/health/auth`는 `admin:operations:health:read` capability가 필요한 ops-only endpoint이며 public internet health가 아니다.
+- `/health/auth`, `/health/realtime`은 `admin:operations:health:read` capability가 필요한 ops-only endpoint이며 public internet health가 아니다.
+- `/health`, `/health/ready`는 현재 public liveness/readiness baseline으로 유지한다. 운영 metric, dispatcher failure, replay resync reason 같은 상세 운영 정보는 public surface와 분리한다.
 - `AuthOperationsModule`은 `@Global()` module이 아니다.
 - JWT transport/JWT bridge를 재도입하지 않는다.
 - 새 `forwardRef()`로 boundary 문제를 봉합하지 않는다.

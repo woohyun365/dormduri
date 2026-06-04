@@ -23,6 +23,7 @@ export class HealthController {
   }
 
   @Get('realtime')
+  @RequireCapability('admin:operations:health:read')
   getRealtimeOperations(): RealtimeOperationsStatusResponse {
     return this.healthService.getRealtimeOperations();
   }

@@ -388,6 +388,15 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(routeBlock).not.toContain('@Public()');
   });
 
+  it('keeps /health/realtime as an ops-only protected capability route', () => {
+    const healthController = readSource(join(apiSourceRoot, 'health/health.controller.ts'));
+    const routeBlock =
+      healthController.match(/@Get\('realtime'\)[\s\S]*?getRealtimeOperations\(/)?.[0] ?? '';
+
+    expect(routeBlock).toContain("@RequireCapability('admin:operations:health:read')");
+    expect(routeBlock).not.toContain('@Public()');
+  });
+
   it('keeps an AI-readable auth architecture note with public boundary rules', () => {
     const readmePath = join(authRoot, 'README.md');
 

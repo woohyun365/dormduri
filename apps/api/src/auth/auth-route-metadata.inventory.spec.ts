@@ -171,7 +171,8 @@ const expectedRoutes: ExpectedRoute[] = [
     handler: 'getRealtimeOperations',
     method: RequestMethod.GET,
     path: 'health/realtime',
-    access: 'public',
+    access: 'protected',
+    capabilities: ['admin:operations:health:read'],
   },
   {
     controller: HealthController,
