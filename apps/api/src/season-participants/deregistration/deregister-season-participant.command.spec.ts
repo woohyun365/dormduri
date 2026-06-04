@@ -1,6 +1,7 @@
 import {
   createSeasonParticipantsServiceTestKit,
   now,
+  objectContaining,
   participant,
   profile,
   seasonContext,
@@ -9,8 +10,14 @@ import { seasonParticipantsErrors } from '../errors/season-participants.errors.j
 
 describe('deregister-season-participant.command', () => {
   it('withdrawal에 따른 chat thread lifecycle mutation은 chat withdrawal port로 위임한다', async () => {
-    const { service, prisma, tx, txSeasonParticipantUpdate, chatThreadWithdrawal } =
-      createSeasonParticipantsServiceTestKit();
+    const {
+      service,
+      prisma,
+      tx,
+      txSeasonParticipantUpdate,
+      txSeasonParticipantLifecycleEventCreate,
+      chatThreadWithdrawal,
+    } = createSeasonParticipantsServiceTestKit();
     const registeredParticipant = participant({
       participationIntent: 'REGISTERED',
       registeredAt: now,
@@ -21,6 +28,12 @@ describe('deregister-season-participant.command', () => {
     });
     prisma.seasonParticipant.findUnique.mockResolvedValue(registeredParticipant);
     prisma.activeMatch.findFirst.mockResolvedValue(null);
+    tx.matchRequest.updateMany.mockResolvedValueOnce({ count: 2 });
+    chatThreadWithdrawal.markOpenDirectThreadsReadOnlyForWithdrawnParticipant.mockResolvedValueOnce(
+      {
+        updatedThreadIds: ['thread-1', 'thread-2', 'thread-3'],
+      },
+    );
 
     await service.deregisterCurrentSeasonParticipation('user-1', now);
 
@@ -40,6 +53,31 @@ describe('deregister-season-participant.command', () => {
       seasonId: 'season-1',
       participantId: 'participant-1',
       now,
+    });
+    expect(txSeasonParticipantLifecycleEventCreate).toHaveBeenCalledWith({
+      data: objectContaining({
+        participantId: 'participant-1',
+        seasonId: 'season-1',
+        userId: 'user-1',
+        eventType: 'WITHDRAWN',
+        actorUserId: 'user-1',
+        actorType: 'USER',
+        reason: 'USER_DEREGISTERED',
+        occurredAt: now,
+        metadata: objectContaining({
+          transitionOwner: 'deregistration.command',
+          previousStatus: 'ACTIVE',
+          nextStatus: 'WITHDRAWN',
+          previousIntent: 'REGISTERED',
+          nextIntent: 'DECLINED',
+          previousDormitoryId: 'dasan',
+          nextDormitoryId: 'dasan',
+          selectionState: 'ASSIGNED',
+          canceledPendingMatchRequests: 2,
+          chatThreadsMarkedReadOnly: 3,
+        }),
+      }),
+      select: { id: true },
     });
   });
 
@@ -118,8 +156,14 @@ describe('deregister-season-participant.command', () => {
   });
 
   it('tx 내부 active match race가 보이면 participant/match/chat side effect 없이 닫는다', async () => {
-    const { service, prisma, tx, txSeasonParticipantUpdate, chatThreadWithdrawal } =
-      createSeasonParticipantsServiceTestKit();
+    const {
+      service,
+      prisma,
+      tx,
+      txSeasonParticipantUpdate,
+      txSeasonParticipantLifecycleEventCreate,
+      chatThreadWithdrawal,
+    } = createSeasonParticipantsServiceTestKit();
     prisma.seasonParticipant.findUnique.mockResolvedValue(
       participant({
         participationIntent: 'REGISTERED',
@@ -141,6 +185,7 @@ describe('deregister-season-participant.command', () => {
 
     expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
     expect(tx.matchRequest.updateMany).not.toHaveBeenCalled();
+    expect(txSeasonParticipantLifecycleEventCreate).not.toHaveBeenCalled();
     expect(
       chatThreadWithdrawal.markOpenDirectThreadsReadOnlyForWithdrawnParticipant,
     ).not.toHaveBeenCalled();

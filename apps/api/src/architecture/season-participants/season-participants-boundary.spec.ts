@@ -21,6 +21,7 @@ const finalizingPhaseTwoDirectories = [
   'deregistration',
   'dormitory-selection',
   'errors',
+  'lifecycle',
   'participants',
   'profile-draft',
   'public-targets',
@@ -42,6 +43,11 @@ const requiredPhaseTwoOneFiles = {
     'update-dormitory-selection.command.ts',
   ],
   errors: ['season-participants.errors.ts'],
+  lifecycle: [
+    'season-participant-lifecycle-event.repository.ts',
+    'season-participant-lifecycle-event.types.ts',
+    'season-participant-lifecycle-event.writer.ts',
+  ],
   participants: [
     'season-participant-container.command.ts',
     'season-participant-records.ts',
@@ -179,6 +185,28 @@ describe('season-participants final structure boundary', () => {
     expect(commandSource).not.toMatch(/season-participant-deregistration\.owner/);
     expect(commandSource).toContain('markOpenDirectThreadsReadOnlyForWithdrawnParticipant');
     expect(commandSource).toContain('tx.activeMatch.findFirst');
+  });
+
+  it('keeps lifecycle event log as an audit-only slice wired from write owners', () => {
+    const registrationSource = readSource(
+      join(seasonParticipantsRoot, 'registration/finalize-season-registration.command.ts'),
+    );
+    const deregistrationSource = readSource(
+      join(seasonParticipantsRoot, 'deregistration/deregister-season-participant.command.ts'),
+    );
+    const backfillSource = readSource(
+      join(seasonParticipantsRoot, 'season-participant-backfill.owner.ts'),
+    );
+    const lifecycleWriterSource = readSource(
+      join(seasonParticipantsRoot, 'lifecycle/season-participant-lifecycle-event.writer.ts'),
+    );
+
+    expect(backfillSource).toContain('recordJoinedMany');
+    expect(registrationSource).toContain('recordActivated');
+    expect(deregistrationSource).toContain('recordWithdrawn');
+    expect(lifecycleWriterSource).toContain('mapSeasonParticipantLifecycleMetadata');
+    expect(lifecycleWriterSource).not.toMatch(/profile:\s*input/);
+    expect(lifecycleWriterSource).not.toMatch(/lifestyle:\s*input/);
   });
 
   it('keeps external domains from importing planned season-participants commands/queries/repositories internals', () => {

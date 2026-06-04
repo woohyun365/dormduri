@@ -104,6 +104,7 @@ describe('finalize-season-registration.command', () => {
       txSeasonParticipantUpdate,
       txSeasonParticipantProfileUpdate,
       txSeasonParticipantProfileHistoryCreate,
+      txSeasonParticipantLifecycleEventCreate,
       dormitoriesService,
     } = createSeasonParticipantsServiceTestKit();
     txSeasonParticipantUpsert.mockResolvedValue(
@@ -148,6 +149,29 @@ describe('finalize-season-registration.command', () => {
         birthYear: 2002,
       }),
       select: { id: true, registeredAtSnapshot: true },
+    });
+    expect(txSeasonParticipantLifecycleEventCreate).toHaveBeenCalledWith({
+      data: objectContaining({
+        participantId: 'participant-1',
+        seasonId: 'season-1',
+        userId: 'user-1',
+        eventType: 'ACTIVATED',
+        actorUserId: 'user-1',
+        actorType: 'USER',
+        reason: 'SEASON_REGISTRATION_FINALIZED',
+        occurredAt: now,
+        metadata: objectContaining({
+          transitionOwner: 'registration.finalize',
+          previousStatus: 'DRAFT',
+          nextStatus: 'ACTIVE',
+          previousIntent: 'UNDECIDED',
+          nextIntent: 'REGISTERED',
+          previousDormitoryId: 'dasan',
+          nextDormitoryId: 'dasan',
+          selectionState: 'ASSIGNED',
+        }),
+      }),
+      select: { id: true },
     });
     expect(result).toMatchObject({
       participationIntent: 'REGISTERED',
@@ -506,6 +530,7 @@ describe('finalize-season-registration.command', () => {
       txSeasonParticipantUpdate,
       txSeasonParticipantProfileUpdate,
       txSeasonParticipantProfileHistoryCreate,
+      txSeasonParticipantLifecycleEventCreate,
     } = createSeasonParticipantsServiceTestKit();
     txSeasonParticipantUpsert.mockResolvedValue(
       participant({
@@ -524,5 +549,6 @@ describe('finalize-season-registration.command', () => {
     );
     expect(txSeasonParticipantUpdate).toHaveBeenCalled();
     expect(txSeasonParticipantProfileUpdate).toHaveBeenCalled();
+    expect(txSeasonParticipantLifecycleEventCreate).not.toHaveBeenCalled();
   });
 });

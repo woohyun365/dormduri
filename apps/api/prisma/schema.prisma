@@ -111,6 +111,18 @@ enum ParticipantHiddenReasonCode {
   OTHER
 }
 
+enum SeasonParticipantLifecycleEventType {
+  JOINED
+  ACTIVATED
+  WITHDRAWN
+  EXPIRED
+  DEACTIVATED
+  HIDDEN
+  UNHIDDEN
+  MATCHED
+  UNMATCHED
+}
+
 enum MatchRequestStatus {
   PENDING
   ACCEPTED
@@ -802,49 +814,71 @@ model ArchiveJob {
 }
 
 model SeasonParticipant {
-  id                             String                       @id @default(uuid())
+  id                             String                            @id @default(uuid())
   seasonId                       String
   userId                         String
-  participationIntent            SeasonParticipationIntent    @default(UNDECIDED)
-  registeredAt                   DateTime?                    @db.Timestamptz(3)
-  declinedAt                     DateTime?                    @db.Timestamptz(3)
+  participationIntent            SeasonParticipationIntent         @default(UNDECIDED)
+  registeredAt                   DateTime?                         @db.Timestamptz(3)
+  declinedAt                     DateTime?                         @db.Timestamptz(3)
   dormitoryId                    String?
-  dormitorySelectionState        DormitorySelectionState      @default(NOT_SELECTED)
-  participantStatus              ParticipantStatus            @default(NOT_STARTED)
+  dormitorySelectionState        DormitorySelectionState           @default(NOT_SELECTED)
+  participantStatus              ParticipantStatus                 @default(NOT_STARTED)
   campusCodeSnapshot             Campus
   genderSnapshot                 Gender
-  joinedAt                       DateTime                     @default(now()) @db.Timestamptz(3)
-  activatedAt                    DateTime?                    @db.Timestamptz(3)
-  matchedAt                      DateTime?                    @db.Timestamptz(3)
-  withdrawnAt                    DateTime?                    @db.Timestamptz(3)
-  expiredAt                      DateTime?                    @db.Timestamptz(3)
-  hiddenByAdminAt                DateTime?                    @db.Timestamptz(3)
+  joinedAt                       DateTime                          @default(now()) @db.Timestamptz(3)
+  activatedAt                    DateTime?                         @db.Timestamptz(3)
+  matchedAt                      DateTime?                         @db.Timestamptz(3)
+  withdrawnAt                    DateTime?                         @db.Timestamptz(3)
+  expiredAt                      DateTime?                         @db.Timestamptz(3)
+  hiddenByAdminAt                DateTime?                         @db.Timestamptz(3)
   hiddenReasonCode               ParticipantHiddenReasonCode?
   hiddenReasonDetail             String?
-  deactivatedAt                  DateTime?                    @db.Timestamptz(3)
-  createdAt                      DateTime                     @default(now()) @db.Timestamptz(3)
-  updatedAt                      DateTime                     @default(now()) @updatedAt @db.Timestamptz(3)
-  dormitory                      Dormitory?                   @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
-  season                         Season                       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  user                           User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deactivatedAt                  DateTime?                         @db.Timestamptz(3)
+  createdAt                      DateTime                          @default(now()) @db.Timestamptz(3)
+  updatedAt                      DateTime                          @default(now()) @updatedAt @db.Timestamptz(3)
+  dormitory                      Dormitory?                        @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
+  season                         Season                            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  user                           User                              @relation(fields: [userId], references: [id], onDelete: Cascade)
   profile                        SeasonParticipantProfile?
-  sentMatchRequests              MatchRequest[]               @relation("MatchRequestRequester")
-  receivedMatchRequests          MatchRequest[]               @relation("MatchRequestReceiver")
-  activeMatchesAsA               ActiveMatch[]                @relation("ActiveMatchParticipantA")
-  activeMatchesAsB               ActiveMatch[]                @relation("ActiveMatchParticipantB")
+  sentMatchRequests              MatchRequest[]                    @relation("MatchRequestRequester")
+  receivedMatchRequests          MatchRequest[]                    @relation("MatchRequestReceiver")
+  activeMatchesAsA               ActiveMatch[]                     @relation("ActiveMatchParticipantA")
+  activeMatchesAsB               ActiveMatch[]                     @relation("ActiveMatchParticipantB")
   activeMatchUnmatchRequests     ActiveMatchUnmatchRequest[]
-  viewedMatchHistoryEntries      SeasonMatchHistoryEntry[]    @relation("SeasonMatchHistoryViewer")
-  counterpartMatchHistoryEntries SeasonMatchHistoryEntry[]    @relation("SeasonMatchHistoryCounterpart")
-  openedThreads                  ConversationThread[]         @relation("ConversationThreadOpenedBy")
-  threadsAsA                     ConversationThread[]         @relation("ConversationThreadParticipantA")
-  threadsAsB                     ConversationThread[]         @relation("ConversationThreadParticipantB")
+  viewedMatchHistoryEntries      SeasonMatchHistoryEntry[]         @relation("SeasonMatchHistoryViewer")
+  counterpartMatchHistoryEntries SeasonMatchHistoryEntry[]         @relation("SeasonMatchHistoryCounterpart")
+  openedThreads                  ConversationThread[]              @relation("ConversationThreadOpenedBy")
+  threadsAsA                     ConversationThread[]              @relation("ConversationThreadParticipantA")
+  threadsAsB                     ConversationThread[]              @relation("ConversationThreadParticipantB")
   threadMembers                  ConversationThreadMember[]
-  sentMessages                   ConversationMessage[]        @relation("ConversationMessageSender")
+  sentMessages                   ConversationMessage[]             @relation("ConversationMessageSender")
+  lifecycleEvents                SeasonParticipantLifecycleEvent[]
 
   @@unique([seasonId, userId])
   @@index([userId, seasonId])
   @@index([seasonId, dormitoryId, dormitorySelectionState])
   @@index([seasonId, participantStatus])
+}
+
+model SeasonParticipantLifecycleEvent {
+  id            String                              @id @default(uuid())
+  participantId String
+  seasonId      String
+  userId        String
+  eventType     SeasonParticipantLifecycleEventType
+  actorUserId   String?
+  actorType     String?
+  reason        String?
+  metadata      Json?
+  occurredAt    DateTime                            @default(now()) @db.Timestamptz(3)
+  createdAt     DateTime                            @default(now()) @db.Timestamptz(3)
+  participant   SeasonParticipant                   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([participantId, occurredAt])
+  @@index([seasonId, eventType, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([eventType, occurredAt])
+  @@index([createdAt])
 }
 
 model SeasonParticipantProfile {

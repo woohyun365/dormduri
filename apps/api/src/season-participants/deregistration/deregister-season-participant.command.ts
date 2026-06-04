@@ -13,8 +13,12 @@ import {
   assertNoLiveActiveMatch,
   assertParticipantAllowsDeregistration,
 } from './season-deregistration.policy.js';
+import type { SeasonParticipantLifecycleEventWriter } from '../lifecycle/season-participant-lifecycle-event.writer.js';
 
-export function createDeregisterSeasonParticipantCommand(deps: SeasonParticipantOwnerDeps) {
+export function createDeregisterSeasonParticipantCommand(
+  deps: SeasonParticipantOwnerDeps,
+  lifecycleEventWriter: SeasonParticipantLifecycleEventWriter,
+) {
   async function deregisterCurrentSeasonParticipation(
     userId: string,
     now?: Date,
@@ -75,7 +79,7 @@ export function createDeregisterSeasonParticipantCommand(deps: SeasonParticipant
         },
       });
 
-      await tx.matchRequest.updateMany({
+      const canceledPendingMatchRequests = await tx.matchRequest.updateMany({
         where: {
           seasonId: mappedParticipant.seasonId,
           status: 'PENDING',
@@ -91,10 +95,19 @@ export function createDeregisterSeasonParticipantCommand(deps: SeasonParticipant
         },
       });
 
-      await deps.chatThreadWithdrawal.markOpenDirectThreadsReadOnlyForWithdrawnParticipant(tx, {
-        seasonId: mappedParticipant.seasonId,
-        participantId: mappedParticipant.id,
-        now: referenceNow,
+      const chatWithdrawalResult =
+        await deps.chatThreadWithdrawal.markOpenDirectThreadsReadOnlyForWithdrawnParticipant(tx, {
+          seasonId: mappedParticipant.seasonId,
+          participantId: mappedParticipant.id,
+          now: referenceNow,
+        });
+
+      await lifecycleEventWriter.recordWithdrawn(tx, {
+        participant: mappedParticipant,
+        actorUserId: user.id,
+        occurredAt: referenceNow,
+        canceledPendingMatchRequests: canceledPendingMatchRequests.count,
+        chatThreadsMarkedReadOnly: chatWithdrawalResult.updatedThreadIds.length,
       });
     });
 

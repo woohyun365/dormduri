@@ -14,11 +14,13 @@ import { buildCompletion } from '../season-participation-capability.owner.js';
 import { assertSeasonProfileCompleteForRegistration } from '../profile-draft/season-profile-completeness.policy.js';
 import { toSeasonProfileHistoryCreateData } from './season-registration-history.mapper.js';
 import type { SeasonRegistrationReadinessEvaluator } from './season-registration-readiness.evaluator.js';
+import type { SeasonParticipantLifecycleEventWriter } from '../lifecycle/season-participant-lifecycle-event.writer.js';
 
 export function createFinalizeSeasonRegistrationCommand(
   deps: SeasonParticipantOwnerDeps,
   containerOwner: SeasonParticipantContainerOwner,
   readiness: SeasonRegistrationReadinessEvaluator,
+  lifecycleEventWriter: SeasonParticipantLifecycleEventWriter,
 ) {
   async function finalizeSeasonRegistration(
     userId: string,
@@ -45,6 +47,7 @@ export function createFinalizeSeasonRegistrationCommand(
       if (!participant) {
         throw seasonParticipantsErrors.registrationNotAllowed();
       }
+      const previousParticipant = participant;
 
       const registrationReady = await readiness.assertReadyForRegistration({
         tx,
@@ -97,6 +100,13 @@ export function createFinalizeSeasonRegistrationCommand(
           id: true,
           registeredAtSnapshot: true,
         },
+      });
+
+      await lifecycleEventWriter.recordActivated(tx, {
+        previousParticipant,
+        participant,
+        actorUserId: txUser.id,
+        occurredAt: registeredAt,
       });
 
       return {

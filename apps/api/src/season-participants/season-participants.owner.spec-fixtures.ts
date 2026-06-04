@@ -185,11 +185,14 @@ export function currentParticipant(overrides: Record<string, unknown> = {}) {
 export function createSeasonParticipantsServiceTestKit() {
   const txUserFindUnique = jest.fn();
   const txSeasonParticipantUpsert = jest.fn();
+  const txSeasonParticipantCreateManyAndReturn = jest.fn();
   const txSeasonParticipantUpdate = jest.fn();
   const txSeasonParticipantFindUnique = jest.fn();
   const txSeasonParticipantProfileUpsert = jest.fn();
   const txSeasonParticipantProfileUpdate = jest.fn();
   const txSeasonParticipantProfileHistoryCreate = jest.fn();
+  const txSeasonParticipantLifecycleEventCreate = jest.fn();
+  const txSeasonParticipantLifecycleEventCreateMany = jest.fn();
   const txCampusMasterFindUnique = jest.fn();
   const txSeasonFindMany = jest.fn();
   const tx = {
@@ -198,6 +201,7 @@ export function createSeasonParticipantsServiceTestKit() {
     user: { findUnique: txUserFindUnique },
     seasonParticipant: {
       upsert: txSeasonParticipantUpsert,
+      createManyAndReturn: txSeasonParticipantCreateManyAndReturn,
       update: txSeasonParticipantUpdate,
       findUnique: txSeasonParticipantFindUnique,
     },
@@ -206,6 +210,10 @@ export function createSeasonParticipantsServiceTestKit() {
       update: txSeasonParticipantProfileUpdate,
     },
     seasonParticipantProfileHistory: { create: txSeasonParticipantProfileHistoryCreate },
+    seasonParticipantLifecycleEvent: {
+      create: txSeasonParticipantLifecycleEventCreate,
+      createMany: txSeasonParticipantLifecycleEventCreateMany,
+    },
     activeMatch: { findFirst: jest.fn() },
     matchRequest: { updateMany: jest.fn() },
   };
@@ -255,6 +263,7 @@ export function createSeasonParticipantsServiceTestKit() {
   seasonsService.getCurrentSeasonContext.mockResolvedValue(seasonContext());
   prisma.seasonParticipant.upsert.mockResolvedValue(participant());
   txSeasonParticipantUpsert.mockResolvedValue(participant());
+  txSeasonParticipantCreateManyAndReturn.mockResolvedValue([]);
   txSeasonParticipantUpdate.mockResolvedValue(undefined);
   txSeasonParticipantProfileUpsert.mockResolvedValue(undefined);
   txSeasonParticipantProfileUpdate.mockResolvedValue(undefined);
@@ -262,6 +271,9 @@ export function createSeasonParticipantsServiceTestKit() {
     id: 'history-1',
     registeredAtSnapshot: now,
   });
+  txSeasonParticipantLifecycleEventCreate.mockResolvedValue({ id: 'lifecycle-event-1' });
+  txSeasonParticipantLifecycleEventCreateMany.mockResolvedValue({ count: 0 });
+  tx.matchRequest.updateMany.mockResolvedValue({ count: 0 });
   dormitoriesService.listSelectableDormitoriesForSeasonParticipant.mockResolvedValue([
     {
       id: 'dasan',
@@ -307,10 +319,13 @@ export function createSeasonParticipantsServiceTestKit() {
     txSeasonFindMany,
     txUserFindUnique,
     txSeasonParticipantUpsert,
+    txSeasonParticipantCreateManyAndReturn,
     txSeasonParticipantUpdate,
     txSeasonParticipantFindUnique,
     txSeasonParticipantProfileUpsert,
     txSeasonParticipantProfileUpdate,
     txSeasonParticipantProfileHistoryCreate,
+    txSeasonParticipantLifecycleEventCreate,
+    txSeasonParticipantLifecycleEventCreateMany,
   };
 }

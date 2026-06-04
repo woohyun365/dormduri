@@ -1,8 +1,12 @@
 import type { SeasonParticipantOwnerDeps } from './season-participant-owner-deps.js';
 import { buildSeasonParticipantCreateData } from './participants/season-participant-container.command.js';
 import type { SeasonParticipantBackfillResult } from './participants/season-participant-records.js';
+import type { SeasonParticipantLifecycleEventWriter } from './lifecycle/season-participant-lifecycle-event.writer.js';
 
-export function createSeasonParticipantBackfillOwner(deps: SeasonParticipantOwnerDeps) {
+export function createSeasonParticipantBackfillOwner(
+  deps: SeasonParticipantOwnerDeps,
+  lifecycleEventWriter: SeasonParticipantLifecycleEventWriter,
+) {
   async function backfillCurrentSeasonParticipants(
     now: Date,
   ): Promise<SeasonParticipantBackfillResult[]> {
@@ -49,18 +53,37 @@ export function createSeasonParticipantBackfillOwner(deps: SeasonParticipantOwne
           buildSeasonParticipantCreateData(candidate, seasonContext.season.id, now),
         );
 
-      if (createData.length > 0) {
-        await deps.prisma.seasonParticipant.createMany({
-          data: createData,
-          skipDuplicates: true,
-        });
-      }
+      const createdParticipants =
+        createData.length > 0
+          ? await deps.prisma.runSerializableTransaction(async (tx) => {
+              const created = await tx.seasonParticipant.createManyAndReturn({
+                data: createData,
+                skipDuplicates: true,
+                select: {
+                  id: true,
+                  seasonId: true,
+                  userId: true,
+                  participationIntent: true,
+                  dormitoryId: true,
+                  dormitorySelectionState: true,
+                  participantStatus: true,
+                  joinedAt: true,
+                },
+              });
+              await lifecycleEventWriter.recordJoinedMany(tx, {
+                participants: created,
+                occurredAt: now,
+              });
+
+              return created;
+            })
+          : [];
 
       results.push({
         campus: campus.code,
         seasonId: seasonContext.season.id,
         eligibleUserCount: eligibleUsers.length,
-        createdCount: createData.length,
+        createdCount: createdParticipants.length,
         existingCount: existingParticipants.length,
       });
     }

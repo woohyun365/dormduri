@@ -13,9 +13,11 @@ import {
 } from '../profile-draft/season-profile-completeness.policy.js';
 import { createFinalizeSeasonRegistrationCommand } from '../registration/finalize-season-registration.command.js';
 import { createSeasonRegistrationReadinessEvaluator } from '../registration/season-registration-readiness.evaluator.js';
+import { createSeasonParticipantLifecycleEventWriter } from '../lifecycle/season-participant-lifecycle-event.writer.js';
 
 export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDeps) {
   const containerOwner = createSeasonParticipantContainerOwner(deps);
+  const lifecycleEventWriter = createSeasonParticipantLifecycleEventWriter();
   const profileDraftQuery = createGetCurrentSeasonProfileQuery(deps, containerOwner);
   const profileDraftCommand = createUpsertSeasonProfileDraftCommand(deps, containerOwner);
   const dormitorySelectionReadiness = createDormitorySelectionReadinessEvaluator(deps);
@@ -36,9 +38,13 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
     deps,
     containerOwner,
     registrationReadiness,
+    lifecycleEventWriter,
   );
-  const backfillOwner = createSeasonParticipantBackfillOwner(deps);
-  const deregistrationCommand = createDeregisterSeasonParticipantCommand(deps);
+  const backfillOwner = createSeasonParticipantBackfillOwner(deps, lifecycleEventWriter);
+  const deregistrationCommand = createDeregisterSeasonParticipantCommand(
+    deps,
+    lifecycleEventWriter,
+  );
 
   return {
     ensureCurrentSeasonParticipant: containerOwner.ensureCurrentSeasonParticipant,
