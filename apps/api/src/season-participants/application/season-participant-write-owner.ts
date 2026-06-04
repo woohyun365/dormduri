@@ -3,12 +3,18 @@ import { createSeasonParticipantBackfillOwner } from '../season-participant-back
 import { createSeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
 import { createSeasonParticipantDeregistrationOwner } from '../season-participant-deregistration.owner.js';
 import type { SeasonParticipantOwnerDeps } from '../season-participant-owner-deps.js';
-import { createSeasonProfileDraftOwner } from '../season-profile-draft.owner.js';
+import { createGetCurrentSeasonProfileQuery } from '../profile-draft/get-current-season-profile.query.js';
+import { createUpsertSeasonProfileDraftCommand } from '../profile-draft/upsert-season-profile-draft.command.js';
+import {
+  assertSeasonProfileCompleteForRegistration,
+  validateSeasonProfileCompleteness,
+} from '../profile-draft/season-profile-completeness.policy.js';
 import { createSeasonRegistrationFinalizeOwner } from '../season-registration-finalize.owner.js';
 
 export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDeps) {
   const containerOwner = createSeasonParticipantContainerOwner(deps);
-  const profileDraftOwner = createSeasonProfileDraftOwner(deps, containerOwner);
+  const profileDraftQuery = createGetCurrentSeasonProfileQuery(deps, containerOwner);
+  const profileDraftCommand = createUpsertSeasonProfileDraftCommand(deps, containerOwner);
   const dormitorySelectionOwner = createDormitorySelectionOwner(deps, containerOwner);
   const registrationFinalizeOwner = createSeasonRegistrationFinalizeOwner(
     deps,
@@ -21,11 +27,10 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
   return {
     ensureCurrentSeasonParticipant: containerOwner.ensureCurrentSeasonParticipant,
     findCurrentSeasonParticipant: containerOwner.findCurrentSeasonParticipant,
-    getCurrentSeasonProfile: profileDraftOwner.getCurrentSeasonProfile,
-    createOrUpdateSeasonProfileDraft: profileDraftOwner.createOrUpdateSeasonProfileDraft,
-    validateSeasonProfileCompleteness: profileDraftOwner.validateSeasonProfileCompleteness,
-    assertSeasonProfileCompleteForRegistration:
-      profileDraftOwner.assertSeasonProfileCompleteForRegistration,
+    getCurrentSeasonProfile: profileDraftQuery.getCurrentSeasonProfile,
+    createOrUpdateSeasonProfileDraft: profileDraftCommand.createOrUpdateSeasonProfileDraft,
+    validateSeasonProfileCompleteness,
+    assertSeasonProfileCompleteForRegistration,
     listSelectableDormitoriesForCurrentSeason:
       dormitorySelectionOwner.listSelectableDormitoriesForCurrentSeason,
     hasSelectableDormitoriesForCurrentParticipant:

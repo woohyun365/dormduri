@@ -24,8 +24,8 @@ import {
   buildCompletionForParticipant,
   buildCompletionForSeasonActionSnapshot,
   hasParticipantDormitorySelection,
-  resolveSeasonProfileState,
 } from './season-participation-capability.owner.js';
+import { resolveSeasonProfileState } from './profile-draft/season-profile-draft.mapper.js';
 import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 
 export function createDormitorySelectionOwner(

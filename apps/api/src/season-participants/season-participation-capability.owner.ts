@@ -1,54 +1,13 @@
 import type {
   SeasonParticipationCompletionState,
-  SeasonProfileDraftResponse,
-  SeasonProfileState,
   SeasonRegistrationBlockReason,
   SelectableDormitory,
 } from '@repo/shared/season-contract';
-import { isSeasonProfileComplete, type LifestyleData } from '@repo/shared/lifestyle';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { lifestyleFieldNames } from './lifestyle/lifestyle-persistence.mapper.js';
 import { isParticipantRegistered } from './season-participant-policy.js';
-import { canCurrentDormitoryMatch } from './season-participant-selection.js';
 import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
-import {
-  toAdditionalProfileFromRecord,
-  type CurrentSeasonParticipantProfileRecord,
-  type CurrentSeasonParticipantRecord,
-} from './participants/season-participant-records.js';
-
-export function validateSeasonProfileCompleteness(
-  profile: CurrentSeasonParticipantProfileRecord | null | undefined,
-): { complete: boolean } {
-  if (!profile) {
-    return { complete: false };
-  }
-
-  return {
-    complete:
-      isSeasonProfileComplete(profile.lifestyle) && profile.grade !== null && profile.mbti !== null,
-  };
-}
-
-export function assertSeasonProfileCompleteForRegistration(
-  profile: CurrentSeasonParticipantProfileRecord | null | undefined,
-) {
-  if (!validateSeasonProfileCompleteness(profile).complete) {
-    throw seasonParticipantsErrors.registrationSeasonProfileIncomplete();
-  }
-}
-
-export function resolveSeasonProfileState(
-  participant: CurrentSeasonParticipantRecord | null | undefined,
-): SeasonProfileState {
-  if (!participant?.profile) {
-    return 'NONE';
-  }
-  if (isParticipantRegistered(participant)) {
-    return 'REGISTRATION_FINALIZED';
-  }
-  return validateSeasonProfileCompleteness(participant.profile).complete ? 'COMPLETE' : 'DRAFT';
-}
+import type { CurrentSeasonParticipantRecord } from './participants/season-participant-records.js';
+import { validateSeasonProfileCompleteness } from './profile-draft/season-profile-completeness.policy.js';
 
 export function buildCompletion(input: {
   hasCurrentSeason: boolean;
@@ -99,31 +58,6 @@ export function buildCompletion(input: {
   };
 }
 
-export function buildEmptySeasonProfileDraftResponse(
-  seasonContext: CurrentSeasonContext,
-): SeasonProfileDraftResponse {
-  const activeSeasonPhase = isSeasonProfileWritablePhase(seasonContext.state);
-
-  return {
-    participantId: null,
-    seasonId: seasonContext.season.id,
-    state: 'NONE',
-    lifestyle: emptyLifestyle(),
-    intro: '',
-    additional: toAdditionalProfileFromRecord(null),
-    completion: buildCompletion({
-      hasCurrentSeason: true,
-      campusOperated: true,
-      activeSeasonPhase,
-      profileComplete: false,
-      dormitorySelectionReady: false,
-      participantRegistrationLocked: false,
-      accountOrParticipantInactive: false,
-    }),
-    draftWritable: activeSeasonPhase,
-  };
-}
-
 export function buildCompletionForSeasonActionSnapshot(input: {
   seasonContext: CurrentSeasonContext;
   profileComplete: boolean;
@@ -144,42 +78,6 @@ export function buildCompletionForSeasonActionSnapshot(input: {
     roomSelectionClosed:
       input.seasonContext.state === 'SEASON_MATCHING' && !input.hasSelectableDormitories,
   });
-}
-
-export function buildSeasonProfileDraftResponse(
-  participant: CurrentSeasonParticipantRecord,
-  seasonContext: CurrentSeasonContext,
-  now: Date,
-): SeasonProfileDraftResponse {
-  const profileState = resolveSeasonProfileState(participant);
-  const profileComplete = validateSeasonProfileCompleteness(participant.profile).complete;
-  const activeSeasonPhase = isSeasonProfileWritablePhase(seasonContext.state);
-
-  return {
-    participantId: participant.id,
-    seasonId: participant.seasonId,
-    state: profileState,
-    lifestyle: participant.profile?.lifestyle ?? emptyLifestyle(),
-    intro: participant.profile?.intro ?? '',
-    additional: toAdditionalProfileFromRecord(participant.profile),
-    completion: buildCompletion({
-      hasCurrentSeason: true,
-      campusOperated: true,
-      activeSeasonPhase,
-      profileComplete,
-      dormitorySelectionReady: hasParticipantDormitorySelection(participant),
-      participantRegistrationLocked: isParticipantRegistrationLocked(participant),
-      accountOrParticipantInactive: isParticipantInactive(participant),
-      roomSelectionClosed:
-        participant.dormitoryId !== null &&
-        seasonContext.state === 'SEASON_MATCHING' &&
-        !canCurrentDormitoryMatch(seasonContext, participant.dormitoryId, now),
-    }),
-    draftWritable:
-      activeSeasonPhase &&
-      !isParticipantRegistered(participant) &&
-      !isParticipantLockedOrInactive(participant),
-  };
 }
 
 export function buildCompletionForParticipant(
@@ -209,14 +107,6 @@ export function buildCompletionForParticipant(
       selectableDormitories !== undefined &&
       selectableDormitories.length === 0,
   });
-}
-
-export function assertParticipantAllowsProfileDraftWrite(
-  participant: CurrentSeasonParticipantRecord,
-) {
-  if (isParticipantRegistered(participant) || isParticipantLockedOrInactive(participant)) {
-    throw seasonParticipantsErrors.seasonProfileDraftNotAllowed();
-  }
 }
 
 export function assertParticipantAllowsDormitorySelection(
@@ -272,8 +162,4 @@ export function isParticipantLockedOrInactive(participant: CurrentSeasonParticip
 
 function isSeasonProfileWritablePhase(state: CurrentSeasonContext['state']) {
   return state === 'SEASON_OPEN' || state === 'SEASON_MATCHING';
-}
-
-function emptyLifestyle(): LifestyleData {
-  return Object.fromEntries(lifestyleFieldNames.map((field) => [field, null])) as LifestyleData;
 }

@@ -16,7 +16,6 @@ const transitionalRootOwnerFiles = [
   'season-participant-backfill.owner.ts',
   'season-participant-deregistration.owner.ts',
   'season-participation-capability.owner.ts',
-  'season-profile-draft.owner.ts',
   'season-registration-finalize.owner.ts',
 ] as const;
 
@@ -24,6 +23,7 @@ const finalizingPhaseTwoDirectories = [
   'application',
   'errors',
   'participants',
+  'profile-draft',
   'public-targets',
 ] as const;
 
@@ -38,6 +38,12 @@ const requiredPhaseTwoOneFiles = {
     'season-participant-container.command.ts',
     'season-participant-records.ts',
     'season-participant-source.policy.ts',
+  ],
+  'profile-draft': [
+    'get-current-season-profile.query.ts',
+    'season-profile-completeness.policy.ts',
+    'season-profile-draft.mapper.ts',
+    'upsert-season-profile-draft.command.ts',
   ],
   'public-targets': ['registration-snapshot.query.ts'],
 } as const;
@@ -109,6 +115,7 @@ describe('season-participants final structure boundary', () => {
       'season-participant-records.ts',
       'season-participant-source-owner.ts',
       'season-participant-write-owner.ts',
+      'season-profile-draft.owner.ts',
     ] as const;
 
     for (const file of forbiddenRootFiles) {
@@ -125,6 +132,16 @@ describe('season-participants final structure boundary', () => {
       .sort();
 
     expect(rootOwnerFiles).toEqual([...transitionalRootOwnerFiles].sort());
+  });
+
+  it('keeps profile draft command isolated from dormitory-selection owner internals', () => {
+    const commandSource = readSource(
+      join(seasonParticipantsRoot, 'profile-draft/upsert-season-profile-draft.command.ts'),
+    );
+
+    expect(commandSource).not.toMatch(/dormitory-selection\.owner/);
+    expect(commandSource).not.toMatch(/assertParticipantAllowsDormitorySelection/);
+    expect(commandSource).not.toMatch(/hasParticipantDormitorySelection/);
   });
 
   it('keeps external domains from importing planned season-participants commands/queries/repositories internals', () => {

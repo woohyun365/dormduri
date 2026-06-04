@@ -16,9 +16,9 @@ import {
 import {
   assertParticipantAllowsRegistration,
   assertParticipantHasDormitorySelection,
-  assertSeasonProfileCompleteForRegistration,
   buildCompletion,
 } from './season-participation-capability.owner.js';
+import { assertSeasonProfileCompleteForRegistration } from './profile-draft/season-profile-completeness.policy.js';
 import { assertUserAccountIdentity } from '../identity/account-identity-invariant.js';
 import { usersErrors } from '../users/users.errors.js';
 import { seasonParticipantsErrors } from './errors/season-participants.errors.js';

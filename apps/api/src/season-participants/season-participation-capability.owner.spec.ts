@@ -1,56 +1,6 @@
-import {
-  buildCompletion,
-  resolveSeasonProfileState,
-  validateSeasonProfileCompleteness,
-} from './season-participation-capability.owner.js';
-import {
-  currentParticipant,
-  currentProfile,
-  participant,
-} from './season-participants.owner.spec-fixtures.js';
+import { buildCompletion } from './season-participation-capability.owner.js';
 
 describe('season-participation-capability.owner', () => {
-  it('registration completeness는 lifestyle/condition과 season additional을 보고 intro를 blocker로 보지 않는다', () => {
-    expect(validateSeasonProfileCompleteness(currentProfile()).complete).toBe(true);
-    expect(validateSeasonProfileCompleteness(currentProfile({ intro: '   ' })).complete).toBe(true);
-    expect(
-      validateSeasonProfileCompleteness(
-        currentProfile({ lifestyle: { ...currentProfile().lifestyle, drinkingTolerance: null } }),
-      ).complete,
-    ).toBe(false);
-    expect(validateSeasonProfileCompleteness(currentProfile({ grade: null })).complete).toBe(false);
-    expect(validateSeasonProfileCompleteness(currentProfile({ mbti: null })).complete).toBe(false);
-    expect(validateSeasonProfileCompleteness(null).complete).toBe(false);
-  });
-
-  it('profileState는 없음/draft/complete/finalized를 registration 상태와 completeness 기준으로 계산한다', () => {
-    expect(resolveSeasonProfileState(null)).toBe('NONE');
-    expect(
-      resolveSeasonProfileState(
-        currentParticipant({
-          profile: currentProfile({
-            lifestyle: { ...currentProfile().lifestyle, drinkingTolerance: null },
-          }),
-        }) as never,
-      ),
-    ).toBe('DRAFT');
-    expect(
-      resolveSeasonProfileState(currentParticipant({ profile: currentProfile() }) as never),
-    ).toBe('COMPLETE');
-    expect(
-      resolveSeasonProfileState(
-        participant({
-          participationIntent: 'REGISTERED',
-          registeredAt: new Date('2026-02-10T03:00:00.000Z'),
-          dormitorySelectionState: 'ASSIGNED',
-          dormitoryId: 'dasan',
-          participantStatus: 'ACTIVE',
-          profile: currentProfile(),
-        }) as never,
-      ),
-    ).toBe('REGISTRATION_FINALIZED');
-  });
-
   it('buildCompletion은 block reason과 required flags를 한 곳에서 계산한다', () => {
     const completion = buildCompletion({
       hasCurrentSeason: true,

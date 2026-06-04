@@ -16,8 +16,8 @@ import {
   buildCompletion,
   isParticipantInactive,
   isParticipantRegistrationLocked,
-  resolveSeasonProfileState,
 } from './season-participation-capability.owner.js';
+import { resolveSeasonProfileState } from './profile-draft/season-profile-draft.mapper.js';
 
 interface CurrentUserSeasonSegmentUser {
   id: string;

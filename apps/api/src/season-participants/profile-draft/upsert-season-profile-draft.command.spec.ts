@@ -1,4 +1,4 @@
-import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
+import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import {
   createSeasonParticipantsServiceTestKit,
   draftInput,
@@ -7,9 +7,9 @@ import {
   participant,
   profile,
   seasonContext,
-} from './season-participants.owner.spec-fixtures.js';
+} from '../season-participants.owner.spec-fixtures.js';
 
-describe('season-profile-draft.owner', () => {
+describe('upsert-season-profile-draft.command', () => {
   it('createOrUpdateSeasonProfileDraft()는 draft current row만 쓰고 history를 만들지 않는다', async () => {
     const {
       service,
@@ -113,5 +113,63 @@ describe('season-profile-draft.owner', () => {
       response: seasonParticipantsErrors.seasonProfileDraftNotAllowed().getResponse(),
     });
     expect(txSeasonParticipantProfileUpsert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'declined intent',
+      participant({
+        participationIntent: 'DECLINED',
+        declinedAt: now,
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    ],
+    [
+      'withdrawn status',
+      participant({
+        withdrawnAt: now,
+        participantStatus: 'WITHDRAWN',
+        profile: profile(),
+      }),
+    ],
+    [
+      'deactivated participant',
+      participant({
+        deactivatedAt: now,
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    ],
+    [
+      'admin hidden participant',
+      participant({
+        hiddenByAdminAt: now,
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    ],
+  ])('%s 상태 participant는 profile draft write를 선차단한다', async (_label, blocked) => {
+    const { service, txSeasonParticipantUpsert, txSeasonParticipantProfileUpsert } =
+      createSeasonParticipantsServiceTestKit();
+    txSeasonParticipantUpsert.mockResolvedValue(blocked);
+
+    await expect(
+      service.createOrUpdateSeasonProfileDraft('user-1', draftInput, now),
+    ).rejects.toMatchObject({
+      response: seasonParticipantsErrors.seasonProfileDraftNotAllowed().getResponse(),
+    });
+    expect(txSeasonParticipantProfileUpsert).not.toHaveBeenCalled();
+  });
+
+  it('profile draft upsert 실패 시 participant draft status update를 실행하지 않는다', async () => {
+    const { service, txSeasonParticipantProfileUpsert, txSeasonParticipantUpdate } =
+      createSeasonParticipantsServiceTestKit();
+    txSeasonParticipantProfileUpsert.mockRejectedValueOnce(new Error('profile upsert failed'));
+
+    await expect(
+      service.createOrUpdateSeasonProfileDraft('user-1', draftInput, now),
+    ).rejects.toThrow('profile upsert failed');
+    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
   });
 });
