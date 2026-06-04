@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { campusSchema, genderSchema } from './identity-contract.js';
-import { userAcademicIdentitySchema } from './academic-identity-contract.js';
+import { campusSchema, genderSchema } from '../../identity-contract.js';
+import { userAcademicIdentitySchema } from '../../academic-identity-contract.js';
 import {
   emailSchema,
   nicknameSchema,
   passwordSchema,
   verificationCodeSchema,
-} from './auth-contract-primitives.js';
+} from './primitives.js';
 
 export const emailRequestSchema = z.strictObject({
   email: emailSchema,

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { genericErrorResponseSchema } from './auth-response-base.js';
+import { genericErrorResponseSchema } from './base.js';
 
 export const signupDraftValidationFieldErrorsSchema = z
   .strictObject({

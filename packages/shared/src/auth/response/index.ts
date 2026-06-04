@@ -1,6 +1,6 @@
-export { sessionResponseSchema, type SessionResponse } from './session-contract.js';
-export { genericErrorResponseSchema } from './auth-response-base.js';
-export type { GenericErrorResponse } from './auth-response-base.js';
+export { sessionResponseSchema, type SessionResponse } from '../session/contract.js';
+export { genericErrorResponseSchema } from './base.js';
+export type { GenericErrorResponse } from './base.js';
 export {
   loginResponseSchema,
   verifyCodeResponseSchema,
@@ -8,7 +8,7 @@ export {
   resetPasswordResponseSchema,
   changePasswordResponseSchema,
   renewSessionResponseSchema,
-} from './auth-response-auth.js';
+} from './auth.js';
 export type {
   LoginResponse,
   VerifyCodeResponse,
@@ -17,12 +17,12 @@ export type {
   ChangePasswordResponse,
   RenewSessionResponse,
   AuthenticatedSessionUser,
-} from './auth-response-auth.js';
+} from './auth.js';
 export {
   signupDraftValidationFieldErrorsSchema,
   signupDraftValidationResponseSchema,
-} from './auth-response-signup-validation.js';
+} from './signup-validation.js';
 export type {
   SignupDraftValidationFieldErrors,
   SignupDraftValidationResponse,
-} from './auth-response-signup-validation.js';
+} from './signup-validation.js';

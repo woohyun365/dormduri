@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { nicknameSchema } from './auth-contract-primitives.js';
+import { nicknameSchema } from './auth/contract/primitives.js';
 import { userAcademicIdentitySchema } from './academic-identity-contract.js';
 import {
   currentUserResponseSchema,

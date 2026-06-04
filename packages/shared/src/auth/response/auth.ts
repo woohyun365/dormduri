@@ -1,6 +1,9 @@
 import { z } from 'zod';
-import { authenticatedSessionUserSchema, type AuthenticatedSessionUser } from './user-contract.js';
-import { genericErrorResponseSchema } from './auth-response-base.js';
+import {
+  authenticatedSessionUserSchema,
+  type AuthenticatedSessionUser,
+} from '../../user-contract.js';
+import { genericErrorResponseSchema } from './base.js';
 
 const opaqueAuthTokenSchema = z
   .string()

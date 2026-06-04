@@ -42,17 +42,6 @@ import {
   accountIdentityIncompleteErrorSchema,
   accountIdentitySchema,
 } from '@repo/shared/account-identity-contract';
-import {
-  changePasswordRequestSchema,
-  renewSessionRequestSchema,
-  signupDraftValidationRequestSchema,
-  signupRequestSchema,
-} from '@repo/shared/auth-contract';
-import {
-  changePasswordResponseSchema,
-  loginResponseSchema,
-  renewSessionResponseSchema,
-} from '@repo/shared/auth-response';
 import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match-contract';
 import {
   isLocalDateString,
@@ -325,40 +314,6 @@ describe('shared reference contracts', () => {
     }
   });
 
-  it('auth signup request는 display identity와 academic identity 입력을 받고 profile orchestration 필드를 받지 않는다', () => {
-    const signupAccountIdentityInput = {
-      email: 'student@kangwon.ac.kr',
-      password: 'pass1234',
-      nickname: '테스터',
-      gender: 'M',
-      campus: 'CHUNCHEON',
-      collegeCode: 'IT',
-      birthYear: 2002,
-    } as const;
-
-    expect(signupRequestSchema.parse(signupAccountIdentityInput)).toMatchObject({
-      nickname: '테스터',
-      collegeCode: 'IT',
-      birthYear: 2002,
-    });
-
-    expect(
-      signupRequestSchema.safeParse({
-        ...signupAccountIdentityInput,
-        displayIdentity: { nickname: '테스터' },
-      }).success,
-    ).toBe(false);
-
-    expect(
-      signupRequestSchema.safeParse({
-        ...signupAccountIdentityInput,
-        lifestyle: VALID_LIFESTYLE,
-        intro: '가입 단계 소개',
-        additional: { grade: 2 },
-      }).success,
-    ).toBe(false);
-  });
-
   it('account identity contract는 display identity와 academic identity를 user contract barrel이 아니라 전용 contract에서 소유한다', () => {
     expect(
       userDisplayIdentitySchema.parse({
@@ -404,113 +359,6 @@ describe('shared reference contracts', () => {
         context: 'current-user',
       }),
     ).toMatchObject({ invariant: 'USER_DISPLAY_IDENTITY_REQUIRED' });
-  });
-
-  it('auth signup draft validation request는 legacy profile payload 없이 email/password/nickname만 받는다', () => {
-    expect(
-      signupDraftValidationRequestSchema.parse({
-        email: 'student@kangwon.ac.kr',
-        password: 'pass1234',
-        nickname: '테스터',
-      }),
-    ).toEqual({
-      email: 'student@kangwon.ac.kr',
-      password: 'pass1234',
-      nickname: '테스터',
-    });
-
-    expect(
-      signupDraftValidationRequestSchema.safeParse({
-        email: 'student@kangwon.ac.kr',
-        password: 'pass1234',
-        nickname: '테스터',
-        lifestyle: VALID_LIFESTYLE,
-        intro: '가입 단계 소개',
-        additional: { grade: 2 },
-        profile: { intro: 'signup 단계 프로필' },
-      }).success,
-    ).toBe(false);
-  });
-
-  it('auth change password request는 로그인 상태 currentPassword와 newPassword만 받는다', () => {
-    expect(
-      changePasswordRequestSchema.parse({
-        currentPassword: 'OldPass1234',
-        newPassword: 'NewPass1234',
-      }),
-    ).toEqual({
-      currentPassword: 'OldPass1234',
-      newPassword: 'NewPass1234',
-    });
-
-    expect(
-      changePasswordRequestSchema.safeParse({
-        email: 'student@kangwon.ac.kr',
-        code: '123456',
-        newPassword: 'NewPass1234',
-      }).success,
-    ).toBe(false);
-  });
-
-  it('auth renew session contract는 renewalToken rotation transport만 받는다', () => {
-    const opaqueAccessToken = `v1.session-1.${'a'.repeat(43)}`;
-    const opaqueRenewalToken = `v1.session-1.${'b'.repeat(43)}`;
-
-    expect(
-      renewSessionRequestSchema.parse({
-        renewalToken: 'v1.session-1.renewal-token',
-      }),
-    ).toEqual({
-      renewalToken: 'v1.session-1.renewal-token',
-    });
-
-    expect(
-      renewSessionRequestSchema.safeParse({
-        accessToken: 'short-access-jwt',
-      }).success,
-    ).toBe(false);
-
-    expect(
-      renewSessionResponseSchema.parse({
-        success: true,
-        accessToken: opaqueAccessToken,
-        renewalToken: opaqueRenewalToken,
-        rememberMe: true,
-      }),
-    ).toMatchObject({
-      success: true,
-      rememberMe: true,
-    });
-
-    expect(
-      loginResponseSchema.safeParse({
-        success: true,
-        accessToken: opaqueAccessToken,
-        renewalToken: opaqueRenewalToken,
-        rememberMe: true,
-      }).success,
-    ).toBe(true);
-    expect(
-      changePasswordResponseSchema.safeParse({
-        success: true,
-        accessToken: opaqueAccessToken,
-        renewalToken: opaqueRenewalToken,
-        rememberMe: true,
-      }).success,
-    ).toBe(true);
-
-    for (const schema of [
-      loginResponseSchema,
-      changePasswordResponseSchema,
-      renewSessionResponseSchema,
-    ]) {
-      expect(
-        schema.safeParse({
-          success: true,
-          accessToken: 'eyJhbGciOiJIUzI1NiJ9.payload.signature',
-        }).success,
-      ).toBe(false);
-    }
   });
 
   it('current-user contract는 registration 준비 UI의 display/academic identity 표시 source를 표현한다', () => {

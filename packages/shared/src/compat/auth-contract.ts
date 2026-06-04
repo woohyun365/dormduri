@@ -1,5 +1,5 @@
-export { campusSchema, genderSchema } from './identity-contract.js';
-export type { Campus, Gender } from './identity-contract.js';
+export { campusSchema, genderSchema } from '../identity-contract.js';
+export type { Campus, Gender } from '../identity-contract.js';
 export {
   emailRequestSchema,
   verificationCodeRequestSchema,
@@ -9,7 +9,7 @@ export {
   resetPasswordRequestSchema,
   changePasswordRequestSchema,
   renewSessionRequestSchema,
-} from './auth-contract-requests.js';
+} from '../auth/contract/requests.js';
 export type {
   EmailRequest,
   VerificationCodeRequest,
@@ -19,4 +19,4 @@ export type {
   ResetPasswordRequest,
   ChangePasswordRequest,
   RenewSessionRequest,
-} from './auth-contract-requests.js';
+} from '../auth/contract/requests.js';
