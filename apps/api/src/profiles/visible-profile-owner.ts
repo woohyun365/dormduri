@@ -16,12 +16,12 @@ import {
   canCurrentDormitoryMatch,
   hasOperatedAssignedDormitory,
   isParticipantRegistered,
-} from '../season-participants/season-participant-policy.js';
+} from '../season-participants/policies/index.js';
 import {
   buildPublicTargetPolicyTargetInput,
   buildPublicTargetPolicyViewerInput,
 } from '../season-participants/season-participant-gate-context.js';
-import { resolvePublicTargetPolicy } from '../season-participants/season-participant-policy.js';
+import { resolvePublicTargetPolicy } from '../season-participants/public-target-policy/index.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveCampusServiceState } from '../users/service-state.js';
 import {

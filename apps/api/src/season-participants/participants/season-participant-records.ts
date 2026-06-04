@@ -9,7 +9,7 @@ import type {
 } from '../../generated/prisma/enums.js';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { SeasonAdditionalProfileDraft } from '@repo/shared/profile-contract';
-import type { ParticipantPolicyRecord } from '../season-participant-policy.js';
+import type { ParticipantPolicyRecord } from '../policies/index.js';
 import {
   lifestyleColumnSelect,
   toLifestyleFromColumns,

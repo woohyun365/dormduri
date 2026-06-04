@@ -62,7 +62,7 @@ const baseIntermediate = (
   ...overrides,
 });
 
-describe('public-target-policy axis owners', () => {
+describe('public-target-policy axis policies', () => {
   describe('public target eligibility', () => {
     it('OFF_SEASON에는 public target 자체를 닫는다', () => {
       expect(

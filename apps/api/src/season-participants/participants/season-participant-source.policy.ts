@@ -2,7 +2,7 @@ import {
   isParticipantRegistered,
   normalizeSelectionState,
   type ParticipantPolicyRecord,
-} from '../season-participant-policy.js';
+} from '../policies/index.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,

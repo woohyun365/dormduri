@@ -10,14 +10,14 @@ import {
   lifestyleFieldNames,
   toLifestyleColumnData,
 } from '../lifestyle/lifestyle-persistence.mapper.js';
-import { isParticipantRegistered } from '../season-participant-policy.js';
-import { canCurrentDormitoryMatch } from '../season-participant-selection.js';
+import { isParticipantRegistered } from '../policies/index.js';
+import { canCurrentDormitoryMatch } from '../policies/season-participant-selection.policy.js';
+import { buildCompletion } from '../capabilities/season-participation-capability.mapper.js';
 import {
-  buildCompletion,
   isParticipantInactive,
   isParticipantLockedOrInactive,
   isParticipantRegistrationLocked,
-} from '../season-participation-capability.owner.js';
+} from '../capabilities/season-participation-capability.policy.js';
 import { hasParticipantDormitorySelection } from '../dormitory-selection/dormitory-selection.policy.js';
 import {
   toAdditionalProfileFromRecord,

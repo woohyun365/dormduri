@@ -1,6 +1,6 @@
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
-import { isParticipantRegistered } from '../season-participant-policy.js';
+import { isParticipantRegistered } from '../policies/index.js';
 import type {
   CurrentSeasonParticipantProfileRecord,
   CurrentSeasonParticipantRecord,

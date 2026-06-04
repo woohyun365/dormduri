@@ -3,7 +3,7 @@ import type {
   RoommateSearchScope,
 } from '@repo/shared/roommate-search-contract';
 import type { CurrentSeasonParticipantRecord } from '../season-participants/application/season-participants.service.js';
-import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
+import { isParticipantRegistered } from '../season-participants/policies/index.js';
 import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
 import { roommateSearchErrors } from './roommate-search.errors.js';
 

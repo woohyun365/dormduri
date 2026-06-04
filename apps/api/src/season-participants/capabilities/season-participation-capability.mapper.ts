@@ -3,10 +3,15 @@ import type {
   SeasonRegistrationBlockReason,
   SelectableDormitory,
 } from '@repo/shared/season-contract';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { hasParticipantDormitorySelection } from './dormitory-selection/dormitory-selection.policy.js';
-import type { CurrentSeasonParticipantRecord } from './participants/season-participant-records.js';
-import { validateSeasonProfileCompleteness } from './profile-draft/season-profile-completeness.policy.js';
+import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import { hasParticipantDormitorySelection } from '../dormitory-selection/dormitory-selection.policy.js';
+import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
+import { validateSeasonProfileCompleteness } from '../profile-draft/season-profile-completeness.policy.js';
+import {
+  isParticipantInactive,
+  isParticipantRegistrationLocked,
+  isSeasonProfileWritablePhase,
+} from './season-participation-capability.policy.js';
 
 export function buildCompletion(input: {
   hasCurrentSeason: boolean;
@@ -106,25 +111,4 @@ export function buildCompletionForParticipant(
       selectableDormitories !== undefined &&
       selectableDormitories.length === 0,
   });
-}
-
-export function isParticipantRegistrationLocked(participant: CurrentSeasonParticipantRecord) {
-  return Boolean(
-    participant.participationIntent === 'DECLINED' ||
-    participant.participantStatus === 'WITHDRAWN' ||
-    participant.withdrawnAt ||
-    participant.declinedAt,
-  );
-}
-
-export function isParticipantInactive(participant: CurrentSeasonParticipantRecord) {
-  return Boolean(participant.hiddenByAdminAt || participant.deactivatedAt);
-}
-
-export function isParticipantLockedOrInactive(participant: CurrentSeasonParticipantRecord) {
-  return isParticipantRegistrationLocked(participant) || isParticipantInactive(participant);
-}
-
-function isSeasonProfileWritablePhase(state: CurrentSeasonContext['state']) {
-  return state === 'SEASON_OPEN' || state === 'SEASON_MATCHING';
 }

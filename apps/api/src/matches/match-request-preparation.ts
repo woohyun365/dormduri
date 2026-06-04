@@ -1,11 +1,9 @@
 import type { CreateMatchRequestRequest } from '@repo/shared/match-contract';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import type { ModerationService } from '../moderation/moderation.service.js';
-import {
-  buildCurrentUserCapabilities,
-  canCurrentDormitoryMatch,
-  resolvePublicTargetPolicy,
-} from '../season-participants/season-participant-policy.js';
+import { buildCurrentUserCapabilities } from '../season-participants/capabilities/index.js';
+import { canCurrentDormitoryMatch } from '../season-participants/policies/index.js';
+import { resolvePublicTargetPolicy } from '../season-participants/public-target-policy/index.js';
 import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import {
   buildCurrentUserCapabilityInput,

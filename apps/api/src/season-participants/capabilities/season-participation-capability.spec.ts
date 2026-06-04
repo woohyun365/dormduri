@@ -1,6 +1,6 @@
-import { buildCompletion } from './season-participation-capability.owner.js';
+import { buildCompletion } from './season-participation-capability.mapper.js';
 
-describe('season-participation-capability.owner', () => {
+describe('season-participation-capability mapper', () => {
   it('buildCompletion은 block reason과 required flags를 한 곳에서 계산한다', () => {
     const completion = buildCompletion({
       hasCurrentSeason: true,

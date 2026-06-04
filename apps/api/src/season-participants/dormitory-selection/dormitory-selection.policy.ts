@@ -1,6 +1,6 @@
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
-import { isParticipantRegistered } from '../season-participant-policy.js';
+import { isParticipantRegistered } from '../policies/index.js';
 
 export function assertParticipantAllowsDormitorySelection(
   participant: CurrentSeasonParticipantRecord,

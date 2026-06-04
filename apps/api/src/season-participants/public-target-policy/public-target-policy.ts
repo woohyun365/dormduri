@@ -1,8 +1,8 @@
-import { resolvePublicProfileExposure } from './public-profile-exposure.owner.js';
-import { resolvePublicResultRead } from './public-result-read.owner.js';
-import { resolvePublicTargetActions } from './public-target-action.owner.js';
-import { resolvePublicTargetEligibility } from './public-target-eligibility.owner.js';
-import { resolvePublicTargetRelation } from './public-target-relation.owner.js';
+import { resolvePublicProfileExposure } from './public-profile-exposure.policy.js';
+import { resolvePublicResultRead } from './public-result-read.policy.js';
+import { resolvePublicTargetActions } from './public-target-action.policy.js';
+import { resolvePublicTargetEligibility } from './public-target-eligibility.policy.js';
+import { resolvePublicTargetRelation } from './public-target-relation.policy.js';
 import type {
   PublicTargetPolicy,
   PublicTargetPolicyIntermediate,

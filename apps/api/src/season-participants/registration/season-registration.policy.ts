@@ -1,11 +1,11 @@
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
-import { isParticipantRegistered } from '../season-participant-policy.js';
+import { isParticipantRegistered } from '../policies/index.js';
 import { hasParticipantDormitorySelection } from '../dormitory-selection/dormitory-selection.policy.js';
 import {
   isParticipantLockedOrInactive,
   isParticipantRegistrationLocked,
-} from '../season-participation-capability.owner.js';
+} from '../capabilities/season-participation-capability.policy.js';
 
 export function assertParticipantAllowsRegistration(participant: CurrentSeasonParticipantRecord) {
   if (

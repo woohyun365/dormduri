@@ -8,7 +8,7 @@ import type { CurrentSeasonParticipantRecord } from '../participants/season-part
 import {
   buildCompletionForParticipant,
   buildCompletionForSeasonActionSnapshot,
-} from '../season-participation-capability.owner.js';
+} from '../capabilities/season-participation-capability.mapper.js';
 import { resolveSeasonProfileState } from '../profile-draft/season-profile-draft.mapper.js';
 
 export function buildSelectableDormitoriesResponse(input: {

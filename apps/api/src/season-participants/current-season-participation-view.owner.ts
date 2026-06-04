@@ -4,19 +4,19 @@ import type { SeasonState } from '@repo/shared/season-contract';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { isParticipantRegistered } from './season-participant-policy.js';
-import { normalizeSelectionState } from './season-participant-selection.js';
+import { isParticipantRegistered } from './policies/index.js';
+import { normalizeSelectionState } from './policies/season-participant-selection.policy.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
 } from './participants/season-participant-records.js';
 import { SeasonParticipantsService } from './application/season-participants.service.js';
+import { buildCompletion } from './capabilities/season-participation-capability.mapper.js';
 import {
-  buildCompletion,
   isParticipantInactive,
   isParticipantRegistrationLocked,
-} from './season-participation-capability.owner.js';
+} from './capabilities/season-participation-capability.policy.js';
 import { resolveSeasonProfileState } from './profile-draft/season-profile-draft.mapper.js';
 
 interface CurrentUserSeasonSegmentUser {

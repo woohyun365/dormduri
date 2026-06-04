@@ -1,8 +1,5 @@
-import {
-  buildCurrentUserCapabilities,
-  canCurrentDormitoryMatch,
-  hasOperatedAssignedDormitory,
-} from './season-participant-policy.js';
+import { buildCurrentUserCapabilities } from './capabilities/index.js';
+import { canCurrentDormitoryMatch, hasOperatedAssignedDormitory } from './policies/index.js';
 
 describe('season-participant current-user capability policy', () => {
   it('current-user capability는 registration draft/finalize와 public action을 분리한다', () => {

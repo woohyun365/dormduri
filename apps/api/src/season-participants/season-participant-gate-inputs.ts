@@ -5,15 +5,17 @@ import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
 } from './application/season-participants.service.js';
+import type { CurrentUserCapabilityInput } from './capabilities/index.js';
 import {
   hasOperatedAssignedDormitory,
   hasParticipantProfile,
   isParticipantRegistered,
   isVisibleRegisteredParticipant,
-  type CurrentUserCapabilityInput,
-  type PublicTargetPolicyTargetInput,
-  type PublicTargetPolicyViewerInput,
-} from './season-participant-policy.js';
+} from './policies/index.js';
+import type {
+  PublicTargetPolicyTargetInput,
+  PublicTargetPolicyViewerInput,
+} from './public-target-policy/index.js';
 
 type SelectionLike = Pick<CanonicalSelectionState, 'dormitoryId' | 'dormitorySelectionState'>;
 

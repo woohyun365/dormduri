@@ -13,18 +13,20 @@ const platformDomainContextRoot = join(apiSourceRoot, 'platform/domain-context')
 const transitionalRootOwnerFiles = [
   'current-season-participation-view.owner.ts',
   'season-participant-backfill.owner.ts',
-  'season-participation-capability.owner.ts',
 ] as const;
 
 const finalizingPhaseTwoDirectories = [
   'application',
+  'capabilities',
   'context',
   'deregistration',
   'dormitory-selection',
   'errors',
   'lifecycle',
   'participants',
+  'policies',
   'profile-draft',
+  'public-target-policy',
   'public-targets',
   'registration',
 ] as const;
@@ -34,6 +36,12 @@ const requiredPhaseTwoOneFiles = {
     'season-participant-use-case.tokens.ts',
     'season-participant-write-owner.ts',
     'season-participants.service.ts',
+  ],
+  capabilities: [
+    'current-user-capabilities.policy.ts',
+    'index.ts',
+    'season-participation-capability.mapper.ts',
+    'season-participation-capability.policy.ts',
   ],
   context: [
     'current-season-participant-context.decorator.ts',
@@ -62,11 +70,26 @@ const requiredPhaseTwoOneFiles = {
     'season-participant-records.ts',
     'season-participant-source.policy.ts',
   ],
+  policies: [
+    'index.ts',
+    'season-participant-selection.policy.ts',
+    'season-participant-status.policy.ts',
+  ],
   'profile-draft': [
     'get-current-season-profile.query.ts',
     'season-profile-completeness.policy.ts',
     'season-profile-draft.mapper.ts',
     'upsert-season-profile-draft.command.ts',
+  ],
+  'public-target-policy': [
+    'index.ts',
+    'public-profile-exposure.policy.ts',
+    'public-result-read.policy.ts',
+    'public-target-action.policy.ts',
+    'public-target-eligibility.policy.ts',
+    'public-target-policy.ts',
+    'public-target-policy.types.ts',
+    'public-target-relation.policy.ts',
   ],
   'public-targets': ['registration-snapshot.query.ts'],
   registration: [
@@ -142,6 +165,11 @@ describe('season-participants final structure boundary', () => {
       'dormitory-selection.owner.ts',
       'season-registration-finalize.owner.ts',
       'season-participant-deregistration.owner.ts',
+      'season-participant-policy.ts',
+      'season-participant-status.ts',
+      'season-participant-selection.ts',
+      'season-participant-capabilities.ts',
+      'season-participation-capability.owner.ts',
     ] as const;
 
     for (const file of forbiddenRootFiles) {
@@ -253,6 +281,42 @@ describe('season-participants final structure boundary', () => {
       /from\s+['"][^'"]*dormitories\/dormitories\.service(?:\.js)?['"]/;
 
     expect(filesContaining(seasonParticipantsRoot, concreteDormitoriesServiceImport)).toEqual([]);
+  });
+
+  it('keeps public target policy pure and capability/policy files in final slices', () => {
+    const publicTargetPolicyFiles = productionTypeScriptFiles(
+      join(seasonParticipantsRoot, 'public-target-policy'),
+    )
+      .map((path) => rootRelativePath(path, join(seasonParticipantsRoot, 'public-target-policy')))
+      .sort();
+    const publicTargetPolicySource = publicTargetPolicyFiles
+      .map((file) => readSource(join(seasonParticipantsRoot, 'public-target-policy', file)))
+      .join('\n');
+    const legacyRootPolicyImports = filesContaining(
+      apiSourceRoot,
+      /season-participants\/season-participant-policy(?:\.js)?/,
+    );
+
+    expect(publicTargetPolicyFiles.filter((file) => file.endsWith('.owner.ts'))).toEqual([]);
+    expect(publicTargetPolicySource).not.toMatch(/PrismaService|from ['"][^'"]*public-targets\//);
+    expect(
+      existsSync(join(seasonParticipantsRoot, 'public-targets/registration-snapshot.query.ts')),
+    ).toBe(true);
+    expect(legacyRootPolicyImports).toEqual([]);
+  });
+
+  it('keeps external domains on season-participants public policy/capability barrels', () => {
+    const internalPolicySurfaceImport =
+      /season-participants\/(?:capabilities|policies|public-target-policy)\/(?!index(?:\.js)?['"])[^'"]+/;
+    const externalFiles = productionTypeScriptFiles(apiSourceRoot).filter(
+      (path) => !path.startsWith(seasonParticipantsRoot),
+    );
+    const offenders = externalFiles
+      .filter((path) => internalPolicySurfaceImport.test(readSource(path)))
+      .map(relativeSourcePath)
+      .sort();
+
+    expect(offenders).toEqual([]);
   });
 
   it('keeps current-season participant context owned by the context slice', () => {

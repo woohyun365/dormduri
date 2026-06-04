@@ -10,7 +10,7 @@ import {
   type SeasonParticipantOwnerDeps,
 } from '../season-participant-owner-deps.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
-import { buildCompletion } from '../season-participation-capability.owner.js';
+import { buildCompletion } from '../capabilities/season-participation-capability.mapper.js';
 import { assertSeasonProfileCompleteForRegistration } from '../profile-draft/season-profile-completeness.policy.js';
 import { toSeasonProfileHistoryCreateData } from './season-registration-history.mapper.js';
 import type { SeasonRegistrationReadinessEvaluator } from './season-registration-readiness.evaluator.js';

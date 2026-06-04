@@ -4,7 +4,7 @@ import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import type { SeasonState } from '@repo/shared/season-contract';
-import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
+import { isParticipantRegistered } from '../season-participants/policies/index.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
