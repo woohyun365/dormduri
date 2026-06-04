@@ -3,8 +3,13 @@ import type {
   AuthenticatedRequest,
   AuthenticatedUserContext,
 } from '../application/auth-actor-context.types.js';
+import { resolveBearerAuthToken } from './auth-token.js';
 
 interface CurrentUserOptions {
+  optional?: boolean;
+}
+
+interface CurrentAuthTokenOptions {
   optional?: boolean;
 }
 
@@ -26,3 +31,14 @@ export const CurrentUser = createParamDecorator(
 );
 
 export const AuthenticatedUser = CurrentUser;
+
+export const CurrentAuthToken = createParamDecorator(
+  (data: CurrentAuthTokenOptions | undefined, context: ExecutionContext): string | null => {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const token = resolveBearerAuthToken(request.headers.authorization);
+    if (!token && !data?.optional) {
+      throw new Error('[CurrentAuthToken] bearer token is required');
+    }
+    return token;
+  },
+);

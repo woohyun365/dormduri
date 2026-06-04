@@ -233,12 +233,54 @@ describe('AuthController', () => {
     });
   });
 
+  it('session route는 guard/decorator가 주입한 access token을 service로 전달한다', async () => {
+    authService.getSession.mockResolvedValue({
+      authenticated: true,
+      user: {
+        id: 'user-1',
+        email: 'test@kangwon.ac.kr',
+        nickname: '테스터',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+    });
+
+    await expect(controller.session('current-access-token', request as never)).resolves.toEqual({
+      authenticated: true,
+      user: {
+        id: 'user-1',
+        email: 'test@kangwon.ac.kr',
+        nickname: '테스터',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+    });
+
+    expect(authService.getSession).toHaveBeenCalledWith('current-access-token', {
+      requestIp: '127.0.0.1',
+      userAgent: 'jest-agent',
+    });
+  });
+
+  it('session route는 optional token이 null이면 unauthenticated session 조회를 위임한다', async () => {
+    authService.getSession.mockResolvedValue({ authenticated: false });
+
+    await expect(controller.session(null, request as never)).resolves.toEqual({
+      authenticated: false,
+    });
+
+    expect(authService.getSession).toHaveBeenCalledWith(null, {
+      requestIp: '127.0.0.1',
+      userAgent: 'jest-agent',
+    });
+  });
+
   it('logout은 access token과 renewal token을 함께 revoke 후보로 전달한다', async () => {
     authService.logout.mockResolvedValue({ success: true });
 
     await expect(
       controller.logout(
-        'Bearer current-access-token',
+        'current-access-token',
         {
           renewalToken: 'v1.session-1.renewal-token',
         },

@@ -246,6 +246,14 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(unapprovedImports.sort()).toEqual([]);
   });
 
+  it('keeps optional auth controller routes away from direct Authorization header parsing', () => {
+    const source = readSource(join(authRoot, 'controllers/auth.controller.ts'));
+
+    expect(source).not.toContain("@Headers('authorization')");
+    expect(source).not.toContain('headers.authorization');
+    expect(source).not.toContain("startsWith('Bearer ')");
+  });
+
   it('keeps policy/domain helpers pure from Nest providers and Prisma clients', () => {
     const purePolicyOrDomainRoots = [
       'domain',

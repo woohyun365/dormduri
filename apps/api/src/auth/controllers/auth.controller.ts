@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from '../auth.service.js';
@@ -15,7 +15,7 @@ import {
 import { parseRequestBody } from '../../common/http/zod-request.js';
 import { OptionalAuth, Public, RequireCapability } from '../auth-access.decorator.js';
 import { AUTH_CAPABILITIES } from '../auth-capability.js';
-import { CurrentUser } from '../authenticated-user.decorator.js';
+import { CurrentAuthToken, CurrentUser } from '../authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth-session.service.js';
 import { resolveAuthRequestContext } from '../auth-request-context.js';
 
@@ -61,8 +61,7 @@ export class AuthController {
   @Get('session')
   @OptionalAuth()
   @HttpCode(200)
-  async session(@Headers('authorization') authorization: string | undefined, @Req() req: Request) {
-    const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
+  async session(@CurrentAuthToken({ optional: true }) token: string | null, @Req() req: Request) {
     return this.authService.getSession(token, resolveAuthRequestContext(req));
   }
 
@@ -129,11 +128,10 @@ export class AuthController {
   @OptionalAuth()
   @HttpCode(200)
   async logout(
-    @Headers('authorization') authorization: string | undefined,
+    @CurrentAuthToken({ optional: true }) token: string | null,
     @Body() body: unknown,
     @Req() req: Request,
   ) {
-    const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
     const renewalToken =
       typeof body === 'object' &&
       body !== null &&

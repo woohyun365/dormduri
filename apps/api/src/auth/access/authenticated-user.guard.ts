@@ -7,6 +7,7 @@ import {
   type AuthAccessMode,
 } from './auth-access.decorator.js';
 import type { AuthCapability } from './auth-capability.js';
+import { resolveBearerAuthToken } from './auth-token.js';
 import { AuthActorContextResolver } from '../application/auth-actor-context.resolver.js';
 import type { AuthenticatedRequest } from '../application/auth-actor-context.types.js';
 import { hasAuthRequestContext, resolveAuthRequestContext } from '../auth-request-context.js';
@@ -25,8 +26,7 @@ export class AuthenticatedUserGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const authorization = request.headers.authorization;
-    const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
+    const token = resolveBearerAuthToken(request.headers.authorization);
     if (accessMode === 'optional' && !token) {
       return true;
     }
