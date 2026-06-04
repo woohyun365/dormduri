@@ -1,6 +1,6 @@
 # Auth API module architecture
 
-Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서는 구현 세션이 `apps/api/src/auth` 책임을 빠르게 찾기 위한 orientation note이며, 사용자-facing auth behavior를 변경하는 정책 문서가 아니다.
+이 문서는 `apps/api/src/auth` 내부 책임 경계, public surface, directory ownership, 수정 위치를 빠르게 찾기 위한 server-side boundary map이다.
 
 ## Public boundary
 
@@ -38,26 +38,44 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 - JWT transport/JWT bridge를 재도입하지 않는다.
 - 새 `forwardRef()`로 boundary 문제를 봉합하지 않는다.
 - 외부 domain production code에서 `auth/commands`, `auth/repositories`, `auth/domain`, `auth/policies`, `auth/adapters`, `auth/sessions`, `auth/verification`, `auth/credentials`, `auth/registration`, `auth/login-attempts`, `auth/security-events`를 직접 import하지 않는다.
-- Web rendering/hook/page/component 작업은 auth Phase 8 범위가 아니다.
+- Web rendering/hook/page/component 작업은 auth API module 범위가 아니다.
 
-## Phase 9 transition guard
+## Architecture guard
 
-Phase H-1 이후 auth architecture/inventory guard는 `apps/api/src/common/architecture/auth/`가 소유한다. `apps/api/src/auth` root spec은 controller behavior spec만 남기고, cross-cutting architecture fitness는 common architecture surface에서 고정한다.
+Auth architecture/inventory guard는 `apps/api/src/common/architecture/auth/`가 소유한다. `apps/api/src/auth` root spec은 controller behavior spec만 남기고, cross-cutting architecture fitness는 common architecture surface에서 고정한다.
 
-- 최종 목표 root production TypeScript file은 `auth.module.ts`, `auth.controller.ts`만 허용한다.
-- 최종 목표 root spec file은 `auth.controller.spec.ts`만 허용한다.
-- Phase A 이후에는 `transitionRootCompatibilityFiles`와 `transitionRootImplementationFiles` allowlist를 단계별로 줄인다.
-- `AuthService`는 controller-facing facade가 최종 목표이며, 현재 direct Prisma/session/verification/login-attempt/security-event orchestration은 explicit migration debt다.
-- Phase G 이후 `AuthModule` provider/export list는 `composition/auth.providers.ts`, `composition/auth.exports.ts`가 소유한다. `APP_GUARD` 등록 순서는 ThrottlerGuard → AuthenticatedUserGuard로 유지한다.
-- Phase G-1 이후 top-level `queries/`, `policies/`, `repositories` transition structure는 최종 target에서 제거한다. Query/policy/repository는 각 owning slice 내부 파일명으로 둔다.
-- Phase G-1 이후 opaque session token primitive는 `sessions/opaque-token.ts`, password hash helper는 `credentials/password-hash.ts`가 canonical owner다.
-- Phase G-2 이후 `application/auth-use-cases.service.ts` bucket은 제거되고 workflow orchestration은 `verification/`, `registration/`, `credentials/`, `sessions/` slice-local use-case provider가 소유한다.
-- Phase C 이후 session lifecycle은 `sessions/` slice가 소유하고, root `AuthSessionService`는 기존 call site 호환을 위한 thin facade로만 남긴다.
-- Phase D 이후 verification/credentials/registration use case는 각 slice가 소유하고, root files는 기존 import 호환 wrapper로만 남긴다.
-- Phase D-1/D-2 이후 auth-local lifestyle parser와 generic `commands/` directory는 제거되었다. 남은 root compatibility file은 exact `export *` re-export만 허용하며, removal trigger는 Phase F root wrapper cleanup이다.
-- Phase E 이후 login-attempt/security-event use case는 각각 `login-attempts/`, `security-events/` slice가 소유하고, root files는 기존 import 호환 wrapper로만 남긴다.
-- 외부 domain은 최종적으로 `auth/access/*`, `auth/application/auth-actor-context*`, `auth/auth.module`만 import해야 한다. 현재 root compatibility wrapper와 operations-only imports는 transition surface로만 허용한다.
+- Root production TypeScript file은 `auth.module.ts`, `auth.controller.ts`만 허용한다.
+- Root spec file은 `auth.controller.spec.ts`만 허용한다.
+- `AuthService`는 controller-facing facade이며 direct Prisma/session/verification/login-attempt/security-event orchestration을 하지 않는다.
+- `AuthModule` provider/export list는 `composition/auth.providers.ts`, `composition/auth.exports.ts`가 소유한다. `APP_GUARD` 등록 순서는 ThrottlerGuard → AuthenticatedUserGuard로 유지한다.
+- Top-level `queries/`, `policies/`, `repositories` transition structure는 두지 않는다. Query/policy/repository는 각 owning slice 내부 파일명으로 둔다.
+- Opaque session token primitive는 `sessions/opaque-token.ts`, password hash helper는 `credentials/password-hash.ts`가 canonical owner다.
+- `application/auth-use-cases.service.ts` bucket은 두지 않는다. Workflow orchestration은 `verification/`, `registration/`, `credentials/`, `sessions/` slice-local use-case provider가 소유한다.
+- Session lifecycle은 `sessions/` slice가 소유한다.
+- Verification/credentials/registration use case는 각 slice가 소유한다.
+- Auth-local lifestyle parser와 generic `commands/` directory는 두지 않는다.
+- Login-attempt/security-event use case는 각각 `login-attempts/`, `security-events/` slice가 소유한다.
+- 외부 domain은 `auth/access/*`, `auth/application/auth-actor-context*`, `auth/auth.module`과 명시적 operations boundary만 import한다.
 - policy/domain helper는 Nest provider와 `PrismaService`를 import하지 않는 pure boundary로 유지한다.
+
+## Where to change auth behavior
+
+- HTTP request/response parsing, cookie/header transport, and controller delegation: `auth.controller.ts`.
+- Public route access mode, capability metadata, and current-user decorator behavior: `access/`.
+- Controller-facing use-case delegation only: `application/auth.service.ts`.
+- External-domain actor lookup/type surface: `application/auth-actor-context.*`.
+- External users-domain password check bridge: `application/auth-password-hash.ts`.
+- Opaque session issue/renew/logout/revoke/current actor projection: `sessions/`.
+- Verification code/proof issue, verify, consume, and ACID repository behavior: `verification/`.
+- Login, reset password, change password, and password hashing: `credentials/`.
+- Signup draft validation and signup orchestration: `registration/`.
+- Login failure lockout and failure counter state: `login-attempts/`.
+- Audit/security event sanitize, persistence, and alert policy: `security-events/`.
+- Mail sending adapter and monitoring wrapper: `adapters/email/`.
+- Shared response/user/session projection helpers: `mappers/`.
+- Operational cleanup, Redis gate metrics, and `/health/auth` snapshot: `operations/`.
+- Auth route metadata, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `common/architecture/auth/`.
+- Shared auth request/response/policy/session contracts: `packages/shared/src/auth/**`; old public subpaths stay in `packages/shared/src/compat/**`.
 
 ## Useful verification
 
