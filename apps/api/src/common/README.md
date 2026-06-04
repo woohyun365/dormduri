@@ -20,6 +20,9 @@ Known final-removal targets:
 - `lifestyle/` → `season-participants/lifestyle`
 - `moderation/` → `moderation`
 
+Test-only architecture/conformance surfaces live under `apps/api/src/architecture`.
+Do not add architecture, contract, or reference-data specs under `apps/api/src/common`.
+
 Architecture guard:
 
 - `apps/api/src/architecture/common-boundary.spec.ts`

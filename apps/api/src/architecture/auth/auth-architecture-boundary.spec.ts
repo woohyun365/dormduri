@@ -312,18 +312,16 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(rootSpecFiles).toEqual(allowedRootSpecFiles.sort());
   });
 
-  it('keeps architecture and inventory guards on the common architecture surface', () => {
-    const commonArchitectureAuthRoot = join(apiSourceRoot, 'common/architecture/auth');
+  it('keeps architecture and inventory guards on the architecture surface', () => {
+    const architectureAuthRoot = join(apiSourceRoot, 'architecture/auth');
 
-    expect(existsSync(join(commonArchitectureAuthRoot, 'auth-architecture-boundary.spec.ts'))).toBe(
+    expect(existsSync(join(architectureAuthRoot, 'auth-architecture-boundary.spec.ts'))).toBe(true);
+    expect(existsSync(join(architectureAuthRoot, 'auth-route-metadata.inventory.spec.ts'))).toBe(
       true,
     );
     expect(
-      existsSync(join(commonArchitectureAuthRoot, 'auth-route-metadata.inventory.spec.ts')),
-    ).toBe(true);
-    expect(
       existsSync(
-        join(commonArchitectureAuthRoot, 'auth-domain-context-route-metadata.inventory.spec.ts'),
+        join(architectureAuthRoot, 'auth-domain-context-route-metadata.inventory.spec.ts'),
       ),
     ).toBe(true);
   });

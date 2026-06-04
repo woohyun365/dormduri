@@ -1,23 +1,23 @@
 import { RequestMethod } from '@nestjs/common';
-import { AuthController } from '../../../auth/auth.controller.js';
-import { AUTH_CAPABILITIES } from '../../../auth/access/auth-capability.js';
+import { AuthController } from '../../auth/auth.controller.js';
+import { AUTH_CAPABILITIES } from '../../auth/access/auth-capability.js';
 import {
   AUTH_ACCESS_METADATA_KEY,
   AUTH_REQUIRED_CAPABILITIES_METADATA_KEY,
-} from '../../../auth/access/auth-access.decorator.js';
-import { ChatController } from '../../../chat/chat.controller.js';
-import { DormitoriesController } from '../../../dormitories/dormitories.controller.js';
-import { HealthController } from '../../../health/health.controller.js';
-import { MatchesController } from '../../../matches/matches.controller.js';
-import { NotificationsController } from '../../../notifications/notifications.controller.js';
-import { ProfilesController } from '../../../profiles/profiles.controller.js';
-import { RoommateSearchController } from '../../../profiles/roommate-search.controller.js';
-import { SeasonsController } from '../../../seasons/seasons.controller.js';
+} from '../../auth/access/auth-access.decorator.js';
+import { ChatController } from '../../chat/chat.controller.js';
+import { DormitoriesController } from '../../dormitories/dormitories.controller.js';
+import { HealthController } from '../../health/health.controller.js';
+import { MatchesController } from '../../matches/matches.controller.js';
+import { NotificationsController } from '../../notifications/notifications.controller.js';
+import { ProfilesController } from '../../profiles/profiles.controller.js';
+import { RoommateSearchController } from '../../profiles/roommate-search.controller.js';
+import { SeasonsController } from '../../seasons/seasons.controller.js';
 import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
-} from '../../../season-participants/current-season-participation.controller.js';
-import { UsersController } from '../../../users/users.controller.js';
+} from '../../season-participants/current-season-participation.controller.js';
+import { UsersController } from '../../users/users.controller.js';
 
 const NEST_CONTROLLER_PATH_METADATA = 'path';
 const NEST_ROUTE_PATH_METADATA = 'path';

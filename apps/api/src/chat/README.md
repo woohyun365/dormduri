@@ -36,7 +36,7 @@ Issue #198 실시간 채팅 구현의 서버-side boundary map이다. 이 문서
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api test -- src/common/architecture/cross-domain-chat-boundary.spec.ts src/chat --runInBand
+pnpm --dir apps/api test -- src/architecture/cross-domain-chat-boundary.spec.ts src/chat --runInBand
 pnpm --dir apps/api test:integration -- chat.integration.spec.ts unmatch.integration.spec.ts notifications.integration.spec.ts --runInBand
 pnpm check:api
 git diff --check

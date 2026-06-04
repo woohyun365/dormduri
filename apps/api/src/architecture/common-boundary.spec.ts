@@ -7,6 +7,7 @@ const commonRoot = join(apiSourceRoot, 'common');
 const platformRoot = join(apiSourceRoot, 'platform');
 
 const temporaryRuntimeCommonAllowlist = ['http', 'prisma', 'security'] as const;
+const removedTestOnlyCommonOwners = ['architecture', 'contracts', 'reference'] as const;
 
 const knownCommonRemovalTargets = {
   'account-identity-invariant.owner.ts': 'identity/account-identity-invariant',
@@ -61,7 +62,7 @@ function relativeSourcePath(path: string) {
 }
 
 function commonTopLevelOwner(path: string) {
-  return relative(commonRoot, path).split(sep)[0];
+  return relative(commonRoot, path).split(sep)[0] ?? '';
 }
 
 function filesContaining(root: string, pattern: RegExp) {
@@ -101,6 +102,25 @@ describe('api common final structure boundary', () => {
       lifecycle: 'lifecycle or operations/lifecycle',
       lifestyle: 'season-participants/lifestyle',
     });
+  });
+
+  it('keeps architecture and conformance test surfaces out of runtime common', () => {
+    const staleTestOnlyOwners = removedTestOnlyCommonOwners
+      .filter((owner) => existsSync(join(commonRoot, owner)))
+      .map((owner) => `src/common/${owner}`);
+
+    expect(staleTestOnlyOwners).toEqual([]);
+    expect(
+      existsSync(join(apiSourceRoot, 'architecture/auth/auth-architecture-boundary.spec.ts')),
+    ).toBe(true);
+    expect(
+      existsSync(
+        join(apiSourceRoot, 'architecture/api-contracts/shared-reference-contracts.spec.ts'),
+      ),
+    ).toBe(true);
+    expect(
+      existsSync(join(apiSourceRoot, 'architecture/reference-data/college-reference-data.spec.ts')),
+    ).toBe(true);
   });
 
   it('keeps future platform code independent from product-domain imports', () => {
