@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
 import { AuthSessionService } from './auth-session.service.js';
+import { AuthSessionRepository } from './sessions/auth-session.repository.js';
+import { CurrentSessionQuery } from './sessions/current-session.query.js';
+import { IssueSessionCommand } from './sessions/issue-session.command.js';
+import { LogoutSessionCommand } from './sessions/logout-session.command.js';
+import { RenewSessionCommand } from './sessions/renew-session.command.js';
+import { RevokeSessionsCommand } from './sessions/revoke-sessions.command.js';
 import type { AuthSecurityEventInput } from './auth-security-event.types.js';
 
 function hashTokenForTest(token: string) {
@@ -36,7 +42,22 @@ describe('AuthSessionService', () => {
     recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
   };
 
-  const service = new AuthSessionService(prisma as never, securityEvents as never);
+  const repository = new AuthSessionRepository(prisma as never);
+  const currentSessionQuery = new CurrentSessionQuery(repository, securityEvents as never);
+  const issueSessionCommand = new IssueSessionCommand(repository);
+  const renewSessionCommand = new RenewSessionCommand(repository, securityEvents as never);
+  const revokeSessionsCommand = new RevokeSessionsCommand(repository);
+  const logoutSessionCommand = new LogoutSessionCommand(
+    repository,
+    revokeSessionsCommand,
+    securityEvents as never,
+  );
+  const service = new AuthSessionService(
+    currentSessionQuery,
+    issueSessionCommand,
+    renewSessionCommand,
+    logoutSessionCommand,
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();

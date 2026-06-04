@@ -8,17 +8,18 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 
 - `AuthModule`: auth guard/session/access provider wiring을 제공한다.
 - `access/` surface 또는 root compatibility wrapper: `@Public()`, `@OptionalAuth()`, `@RequireCapability()`, `@CurrentUser()`.
-- actor context public type/resolver surface: 현재 compatibility 기간에는 `AuthenticatedUserContext`/`AuthSessionService` wrapper를 유지한다.
+- actor context public type/resolver surface: 외부 domain은 `AuthenticatedUserContext`와 `AuthActorContextResolver`만 사용한다. `AuthSessionService`는 auth 내부 compatibility facade다.
 - `operations/`는 ops boundary다. `AuthOperationsModule`은 non-global module이며 필요한 module이 명시 import한다.
 
 ## Directory responsibilities
 
 - `access/`: route-level auth access metadata, capability, current user decorator, authenticated user guard. Domain context guard와 합치지 않는다.
 - `application/`: controller-facing facade와 public actor context resolver/type boundary.
-- `commands/`: signup/login/reset/change/session renewal/logout 같은 write use case orchestration.
+- `commands/`: signup/login/reset/change 같은 account credential/registration write use case orchestration.
 - `queries/`: current session/user lookup, signup draft validation, auth eligibility read projection.
 - `domain/`: opaque token, password hash, verification proof, request context, user view 같은 pure/domain helper.
 - `repositories/`: Prisma/TypedSQL, serializable transaction, advisory lock, conditional update, DB projection shape.
+- `sessions/`: opaque DB-backed session lifecycle. current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy를 함께 둔다.
 - `adapters/email/`: `EmailSender` contract, stub/provider adapter, monitored send wrapper.
 - `policies/`: pure policy/helper. Nest provider나 Prisma mutation을 넣지 않는다.
 - `mappers/`: shared response mapper and user/session presenter.
@@ -43,6 +44,7 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 - 최종 목표 root production TypeScript file은 `auth.module.ts`, `auth.controller.ts`만 허용한다.
 - Phase A 이후에는 `transitionRootCompatibilityFiles`와 `transitionRootImplementationFiles` allowlist를 단계별로 줄인다.
 - `AuthService`는 controller-facing facade가 최종 목표이며, 현재 direct Prisma/session/verification/login-attempt/security-event orchestration은 explicit migration debt다.
+- Phase C 이후 session lifecycle은 `sessions/` slice가 소유하고, root `AuthSessionService`는 legacy call sites를 위한 thin facade로만 남긴다.
 - 외부 domain은 최종적으로 `auth/access/*`, `auth/application/auth-actor-context*`, `auth/auth.module`만 import해야 한다. 현재 root compatibility wrapper와 operations-only imports는 transition surface로만 허용한다.
 - policy/domain helper는 Nest provider와 `PrismaService`를 import하지 않는 pure boundary로 유지한다.
 

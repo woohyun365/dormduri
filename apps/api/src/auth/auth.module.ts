@@ -19,6 +19,12 @@ import { AuthSecurityEventRepository } from './repositories/security-event.repos
 import { MonitoredEmailSenderService } from './monitored-email-sender.service.js';
 import { StubEmailSenderService } from './stub-email-sender.service.js';
 import { AuthActorContextResolver } from './application/auth-actor-context.resolver.js';
+import { AuthSessionRepository } from './sessions/auth-session.repository.js';
+import { CurrentSessionQuery } from './sessions/current-session.query.js';
+import { IssueSessionCommand } from './sessions/issue-session.command.js';
+import { LogoutSessionCommand } from './sessions/logout-session.command.js';
+import { RenewSessionCommand } from './sessions/renew-session.command.js';
+import { RevokeSessionsCommand } from './sessions/revoke-sessions.command.js';
 
 @Module({
   imports: [
@@ -44,6 +50,12 @@ import { AuthActorContextResolver } from './application/auth-actor-context.resol
     AuthLoginAttemptService,
     AuthSecurityEventService,
     AuthSecurityEventRepository,
+    AuthSessionRepository,
+    CurrentSessionQuery,
+    IssueSessionCommand,
+    RenewSessionCommand,
+    RevokeSessionsCommand,
+    LogoutSessionCommand,
     AuthActorContextResolver,
     AuthenticatedUserGuard,
     StubEmailSenderService,

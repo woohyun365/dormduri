@@ -106,6 +106,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'policies',
       'queries',
       'repositories',
+      'sessions',
     ];
 
     const missingDirectories = expectedDirectories.filter(
@@ -115,9 +116,42 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(missingDirectories).toEqual([]);
   });
 
+  it('keeps session lifecycle ownership in the sessions slice', () => {
+    const expectedSessionSliceFiles = [
+      'auth-session.repository.ts',
+      'current-session.query.ts',
+      'issue-session.command.ts',
+      'logout-session.command.ts',
+      'opaque-token.ts',
+      'renew-session.command.ts',
+      'revoke-sessions.command.ts',
+      'session-lifecycle.policy.ts',
+    ];
+    const missingSessionSliceFiles = expectedSessionSliceFiles.filter(
+      (file) => !existsSync(join(authRoot, 'sessions', file)),
+    );
+    const rootSessionService = readSource(join(authRoot, 'auth-session.service.ts'));
+
+    expect(missingSessionSliceFiles).toEqual([]);
+    expect(rootSessionService).not.toContain('PrismaService');
+    expect(rootSessionService).not.toContain('createOpaqueToken');
+    expect(rootSessionService).not.toContain('parseOpaqueToken');
+    expect(rootSessionService).not.toContain('recordAuthSecurityEventSafely');
+  });
+
+  it('keeps session repository transaction-aware paths explicit', () => {
+    const source = readSource(join(authRoot, 'sessions/auth-session.repository.ts'));
+
+    expect(source).toContain('type AuthSessionClient =');
+    expect(source).toContain('runSerializableTransaction<T>');
+    expect(source).toContain('findRenewalSessionById(\n    client: AuthSessionClient');
+    expect(source).toContain('rotateRenewalToken(\n    client: AuthSessionClient');
+    expect(source).toContain('revokeSessionById(client: AuthSessionClient');
+  });
+
   it('keeps external production code away from auth internal implementation directories', () => {
     const forbiddenAuthInternalImports =
-      /from\s+['"].*(?:\.\.\/)+auth\/(?:commands|repositories|domain|policies|adapters)(?:\/[^'"]*)?(?:\.js)?['"]/;
+      /from\s+['"].*(?:\.\.\/)+auth\/(?:commands|repositories|domain|policies|adapters|sessions)(?:\/[^'"]*)?(?:\.js)?['"]/;
 
     const externalSourceRoots = readdirSync(apiSourceRoot, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && entry.name !== 'auth' && entry.name !== 'generated')
