@@ -1,32 +1,24 @@
 import type { SeasonRegistrationFinalizeResponse } from '@repo/shared/season-contract';
-import type { Prisma } from '../generated/prisma/client.js';
-import { toCompleteLifestyleColumnData } from './lifestyle/lifestyle-persistence.mapper.js';
+import {
+  currentSeasonParticipantSelect,
+  mapCurrentSeasonParticipantRecord,
+} from '../participants/season-participant-records.js';
+import type { SeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
 import {
   assertRegistrationSeasonContext,
   getVerifiedUserForSeasonAction,
   type SeasonParticipantOwnerDeps,
-} from './season-participant-owner-deps.js';
-import type { SeasonParticipantContainerOwner } from './participants/season-participant-container.command.js';
-import type { DormitorySelectionReadinessEvaluator } from './dormitory-selection/dormitory-selection-readiness.evaluator.js';
-import {
-  currentSeasonParticipantSelect,
-  mapCurrentSeasonParticipantRecord,
-  type CurrentSeasonParticipantRecord,
-} from './participants/season-participant-records.js';
-import {
-  assertParticipantAllowsRegistration,
-  assertParticipantHasDormitorySelection,
-  buildCompletion,
-} from './season-participation-capability.owner.js';
-import { assertSeasonProfileCompleteForRegistration } from './profile-draft/season-profile-completeness.policy.js';
-import { assertUserAccountIdentity } from '../identity/account-identity-invariant.js';
-import { usersErrors } from '../users/users.errors.js';
-import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
+} from '../season-participant-owner-deps.js';
+import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
+import { buildCompletion } from '../season-participation-capability.owner.js';
+import { assertSeasonProfileCompleteForRegistration } from '../profile-draft/season-profile-completeness.policy.js';
+import { toSeasonProfileHistoryCreateData } from './season-registration-history.mapper.js';
+import type { SeasonRegistrationReadinessEvaluator } from './season-registration-readiness.evaluator.js';
 
-export function createSeasonRegistrationFinalizeOwner(
+export function createFinalizeSeasonRegistrationCommand(
   deps: SeasonParticipantOwnerDeps,
   containerOwner: SeasonParticipantContainerOwner,
-  dormitorySelectionOwner: DormitorySelectionReadinessEvaluator,
+  readiness: SeasonRegistrationReadinessEvaluator,
 ) {
   async function finalizeSeasonRegistration(
     userId: string,
@@ -38,9 +30,6 @@ export function createSeasonRegistrationFinalizeOwner(
 
     return deps.prisma.runSerializableTransaction(async (tx) => {
       const txUser = await getVerifiedUserForSeasonAction(deps, userId, tx);
-      assertUserAccountIdentity(txUser, (invariant) =>
-        usersErrors.accountIdentityIncomplete('registration-finalize', invariant),
-      );
       const txSeasonContext = await assertRegistrationSeasonContext(
         deps,
         txUser.campus,
@@ -56,17 +45,15 @@ export function createSeasonRegistrationFinalizeOwner(
       if (!participant) {
         throw seasonParticipantsErrors.registrationNotAllowed();
       }
-      assertParticipantAllowsRegistration(participant);
-      assertSeasonProfileCompleteForRegistration(participant.profile);
-      assertParticipantHasDormitorySelection(participant);
 
-      const selectedDormitory = await dormitorySelectionOwner.validateDormitorySelection(
+      const registrationReady = await readiness.assertReadyForRegistration({
         tx,
+        user: txUser,
         participant,
-        txSeasonContext,
-        participant.dormitoryId!,
-        referenceNow,
-      );
+        seasonContext: txSeasonContext,
+        now: referenceNow,
+      });
+      const { selectedDormitory, displayIdentity, academicIdentity } = registrationReady;
 
       const registeredAt = referenceNow;
       await tx.seasonParticipant.update({
@@ -85,10 +72,10 @@ export function createSeasonRegistrationFinalizeOwner(
       await tx.seasonParticipantProfile.update({
         where: { participantId: participant.id },
         data: {
-          nicknameSnapshot: txUser.displayIdentity.nickname,
-          nicknameNormalizedSnapshot: txUser.displayIdentity.nicknameNormalized,
-          collegeCode: txUser.academicIdentity.collegeCode,
-          birthYear: txUser.academicIdentity.birthYear,
+          nicknameSnapshot: displayIdentity.nickname,
+          nicknameNormalizedSnapshot: displayIdentity.nicknameNormalized,
+          collegeCode: academicIdentity.collegeCode,
+          birthYear: academicIdentity.birthYear,
         },
       });
 
@@ -97,7 +84,9 @@ export function createSeasonRegistrationFinalizeOwner(
         select: currentSeasonParticipantSelect,
       });
       if (!refreshed) {
-        throw new Error('[SeasonRegistrationFinalizeOwner] finalized participant not found in tx');
+        throw new Error(
+          '[FinalizeSeasonRegistrationCommand] finalized participant not found in tx',
+        );
       }
       participant = mapCurrentSeasonParticipantRecord(refreshed);
       assertSeasonProfileCompleteForRegistration(participant.profile);
@@ -138,30 +127,6 @@ export function createSeasonRegistrationFinalizeOwner(
   return { finalizeSeasonRegistration };
 }
 
-export function toSeasonProfileHistoryCreateData(
-  participant: CurrentSeasonParticipantRecord,
-  registeredAt: Date,
-): Prisma.SeasonParticipantProfileHistoryUncheckedCreateInput {
-  if (!participant.profile) {
-    throw seasonParticipantsErrors.registrationSeasonProfileIncomplete();
-  }
-
-  return {
-    participantId: participant.id,
-    seasonId: participant.seasonId,
-    nicknameSnapshot: participant.profile.nicknameSnapshot,
-    nicknameNormalizedSnapshot: participant.profile.nicknameNormalizedSnapshot,
-    ...toCompleteLifestyleColumnData(participant.profile.lifestyle),
-    intro: participant.profile.intro,
-    collegeCode: participant.profile.collegeCode,
-    grade: participant.profile.grade,
-    mbti: participant.profile.mbti,
-    birthYear: participant.profile.birthYear,
-    registeredAtSnapshot: registeredAt,
-    source: 'SEASON_REGISTRATION',
-  };
-}
-
-export type SeasonRegistrationFinalizeOwner = ReturnType<
-  typeof createSeasonRegistrationFinalizeOwner
+export type FinalizeSeasonRegistrationCommand = ReturnType<
+  typeof createFinalizeSeasonRegistrationCommand
 >;

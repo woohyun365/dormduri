@@ -15,7 +15,6 @@ const transitionalRootOwnerFiles = [
   'season-participant-backfill.owner.ts',
   'season-participant-deregistration.owner.ts',
   'season-participation-capability.owner.ts',
-  'season-registration-finalize.owner.ts',
 ] as const;
 
 const finalizingPhaseTwoDirectories = [
@@ -25,6 +24,7 @@ const finalizingPhaseTwoDirectories = [
   'participants',
   'profile-draft',
   'public-targets',
+  'registration',
 ] as const;
 
 const requiredPhaseTwoOneFiles = {
@@ -53,6 +53,12 @@ const requiredPhaseTwoOneFiles = {
     'upsert-season-profile-draft.command.ts',
   ],
   'public-targets': ['registration-snapshot.query.ts'],
+  registration: [
+    'finalize-season-registration.command.ts',
+    'season-registration-history.mapper.ts',
+    'season-registration-readiness.evaluator.ts',
+    'season-registration.policy.ts',
+  ],
 } as const;
 
 const transitionalRootContextFiles = [
@@ -124,6 +130,7 @@ describe('season-participants final structure boundary', () => {
       'season-participant-write-owner.ts',
       'season-profile-draft.owner.ts',
       'dormitory-selection.owner.ts',
+      'season-registration-finalize.owner.ts',
     ] as const;
 
     for (const file of forbiddenRootFiles) {
@@ -150,6 +157,16 @@ describe('season-participants final structure boundary', () => {
     expect(commandSource).not.toMatch(/dormitory-selection\.owner/);
     expect(commandSource).not.toMatch(/assertParticipantAllowsDormitorySelection/);
     expect(commandSource).not.toMatch(/hasParticipantDormitorySelection/);
+  });
+
+  it('keeps registration finalize command isolated from root owner and history mapping leakage', () => {
+    const commandSource = readSource(
+      join(seasonParticipantsRoot, 'registration/finalize-season-registration.command.ts'),
+    );
+
+    expect(commandSource).not.toMatch(/season-registration-finalize\.owner/);
+    expect(commandSource).toContain('toSeasonProfileHistoryCreateData');
+    expect(commandSource).toContain('createFinalizeSeasonRegistrationCommand');
   });
 
   it('keeps external domains from importing planned season-participants commands/queries/repositories internals', () => {

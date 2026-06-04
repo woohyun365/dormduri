@@ -4,8 +4,6 @@ import type {
   SelectableDormitory,
 } from '@repo/shared/season-contract';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { isParticipantRegistered } from './season-participant-policy.js';
-import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
 import { hasParticipantDormitorySelection } from './dormitory-selection/dormitory-selection.policy.js';
 import type { CurrentSeasonParticipantRecord } from './participants/season-participant-records.js';
 import { validateSeasonProfileCompleteness } from './profile-draft/season-profile-completeness.policy.js';
@@ -108,24 +106,6 @@ export function buildCompletionForParticipant(
       selectableDormitories !== undefined &&
       selectableDormitories.length === 0,
   });
-}
-
-export function assertParticipantAllowsRegistration(participant: CurrentSeasonParticipantRecord) {
-  if (
-    isParticipantRegistered(participant) ||
-    isParticipantLockedOrInactive(participant) ||
-    isParticipantRegistrationLocked(participant)
-  ) {
-    throw seasonParticipantsErrors.registrationNotAllowed();
-  }
-}
-
-export function assertParticipantHasDormitorySelection(
-  participant: CurrentSeasonParticipantRecord,
-) {
-  if (!hasParticipantDormitorySelection(participant)) {
-    throw seasonParticipantsErrors.registrationNotAllowed();
-  }
 }
 
 export function isParticipantRegistrationLocked(participant: CurrentSeasonParticipantRecord) {

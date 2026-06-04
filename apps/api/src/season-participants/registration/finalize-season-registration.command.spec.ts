@@ -1,4 +1,4 @@
-import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
+import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import {
   createSeasonParticipantsServiceTestKit,
   now,
@@ -7,9 +7,9 @@ import {
   profile,
   seasonRuntimeRow,
   user,
-} from './season-participants.owner.spec-fixtures.js';
+} from '../season-participants.owner.spec-fixtures.js';
 
-describe('season-registration-finalize.owner', () => {
+describe('finalize-season-registration.command', () => {
   it('건물 선택 전 finalize는 registration 완료로 진행하지 않는다', async () => {
     const {
       service,
@@ -497,5 +497,32 @@ describe('season-registration-finalize.owner', () => {
     });
     expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
     expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
+  });
+
+  it('profile history 생성 실패는 성공 응답으로 삼키지 않고 transaction 실패로 전파한다', async () => {
+    const {
+      service,
+      txSeasonParticipantUpsert,
+      txSeasonParticipantUpdate,
+      txSeasonParticipantProfileUpdate,
+      txSeasonParticipantProfileHistoryCreate,
+    } = createSeasonParticipantsServiceTestKit();
+    txSeasonParticipantUpsert.mockResolvedValue(
+      participant({
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    );
+    txSeasonParticipantProfileHistoryCreate.mockRejectedValueOnce(
+      new Error('history create failed'),
+    );
+
+    await expect(service.finalizeSeasonRegistration('user-1', now)).rejects.toThrow(
+      'history create failed',
+    );
+    expect(txSeasonParticipantUpdate).toHaveBeenCalled();
+    expect(txSeasonParticipantProfileUpdate).toHaveBeenCalled();
   });
 });

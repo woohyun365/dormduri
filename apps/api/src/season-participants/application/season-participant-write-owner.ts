@@ -11,7 +11,8 @@ import {
   assertSeasonProfileCompleteForRegistration,
   validateSeasonProfileCompleteness,
 } from '../profile-draft/season-profile-completeness.policy.js';
-import { createSeasonRegistrationFinalizeOwner } from '../season-registration-finalize.owner.js';
+import { createFinalizeSeasonRegistrationCommand } from '../registration/finalize-season-registration.command.js';
+import { createSeasonRegistrationReadinessEvaluator } from '../registration/season-registration-readiness.evaluator.js';
 
 export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDeps) {
   const containerOwner = createSeasonParticipantContainerOwner(deps);
@@ -28,10 +29,13 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
     containerOwner,
     dormitorySelectionReadiness,
   );
-  const registrationFinalizeOwner = createSeasonRegistrationFinalizeOwner(
+  const registrationReadiness = createSeasonRegistrationReadinessEvaluator(
+    dormitorySelectionReadiness,
+  );
+  const registrationFinalizeCommand = createFinalizeSeasonRegistrationCommand(
     deps,
     containerOwner,
-    dormitorySelectionReadiness,
+    registrationReadiness,
   );
   const backfillOwner = createSeasonParticipantBackfillOwner(deps);
   const deregistrationOwner = createSeasonParticipantDeregistrationOwner(deps);
@@ -52,7 +56,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
     hasValidDormitorySelectionForCurrentParticipant:
       dormitorySelectionReadiness.hasValidDormitorySelectionForCurrentParticipant,
     createOrUpdateDormitorySelection: dormitorySelectionCommand.createOrUpdateDormitorySelection,
-    finalizeSeasonRegistration: registrationFinalizeOwner.finalizeSeasonRegistration,
+    finalizeSeasonRegistration: registrationFinalizeCommand.finalizeSeasonRegistration,
     backfillCurrentSeasonParticipants: backfillOwner.backfillCurrentSeasonParticipants,
     deregisterCurrentSeasonParticipation: deregistrationOwner.deregisterCurrentSeasonParticipation,
   };
