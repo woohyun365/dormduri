@@ -7,7 +7,7 @@ import {
   type SeasonParticipantOwnerDeps,
 } from './season-participant-owner-deps.js';
 import type { SeasonParticipantContainerOwner } from './participants/season-participant-container.command.js';
-import type { DormitorySelectionOwner } from './dormitory-selection.owner.js';
+import type { DormitorySelectionReadinessEvaluator } from './dormitory-selection/dormitory-selection-readiness.evaluator.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
@@ -26,7 +26,7 @@ import { seasonParticipantsErrors } from './errors/season-participants.errors.js
 export function createSeasonRegistrationFinalizeOwner(
   deps: SeasonParticipantOwnerDeps,
   containerOwner: SeasonParticipantContainerOwner,
-  dormitorySelectionOwner: DormitorySelectionOwner,
+  dormitorySelectionOwner: DormitorySelectionReadinessEvaluator,
 ) {
   async function finalizeSeasonRegistration(
     userId: string,

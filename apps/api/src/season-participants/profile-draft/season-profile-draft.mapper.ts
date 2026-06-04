@@ -14,11 +14,11 @@ import { isParticipantRegistered } from '../season-participant-policy.js';
 import { canCurrentDormitoryMatch } from '../season-participant-selection.js';
 import {
   buildCompletion,
-  hasParticipantDormitorySelection,
   isParticipantInactive,
   isParticipantLockedOrInactive,
   isParticipantRegistrationLocked,
 } from '../season-participation-capability.owner.js';
+import { hasParticipantDormitorySelection } from '../dormitory-selection/dormitory-selection.policy.js';
 import {
   toAdditionalProfileFromRecord,
   type CurrentSeasonParticipantRecord,

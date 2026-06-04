@@ -1,6 +1,8 @@
-import { createDormitorySelectionOwner } from '../dormitory-selection.owner.js';
 import { createSeasonParticipantBackfillOwner } from '../season-participant-backfill.owner.js';
 import { createSeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
+import { createDormitorySelectionReadinessEvaluator } from '../dormitory-selection/dormitory-selection-readiness.evaluator.js';
+import { createListCurrentSeasonSelectableDormitoriesQuery } from '../dormitory-selection/list-current-season-selectable-dormitories.query.js';
+import { createUpdateDormitorySelectionCommand } from '../dormitory-selection/update-dormitory-selection.command.js';
 import { createSeasonParticipantDeregistrationOwner } from '../season-participant-deregistration.owner.js';
 import type { SeasonParticipantOwnerDeps } from '../season-participant-owner-deps.js';
 import { createGetCurrentSeasonProfileQuery } from '../profile-draft/get-current-season-profile.query.js';
@@ -15,11 +17,21 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
   const containerOwner = createSeasonParticipantContainerOwner(deps);
   const profileDraftQuery = createGetCurrentSeasonProfileQuery(deps, containerOwner);
   const profileDraftCommand = createUpsertSeasonProfileDraftCommand(deps, containerOwner);
-  const dormitorySelectionOwner = createDormitorySelectionOwner(deps, containerOwner);
+  const dormitorySelectionReadiness = createDormitorySelectionReadinessEvaluator(deps);
+  const dormitorySelectionQuery = createListCurrentSeasonSelectableDormitoriesQuery(
+    deps,
+    containerOwner,
+    dormitorySelectionReadiness,
+  );
+  const dormitorySelectionCommand = createUpdateDormitorySelectionCommand(
+    deps,
+    containerOwner,
+    dormitorySelectionReadiness,
+  );
   const registrationFinalizeOwner = createSeasonRegistrationFinalizeOwner(
     deps,
     containerOwner,
-    dormitorySelectionOwner,
+    dormitorySelectionReadiness,
   );
   const backfillOwner = createSeasonParticipantBackfillOwner(deps);
   const deregistrationOwner = createSeasonParticipantDeregistrationOwner(deps);
@@ -32,14 +44,14 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
     validateSeasonProfileCompleteness,
     assertSeasonProfileCompleteForRegistration,
     listSelectableDormitoriesForCurrentSeason:
-      dormitorySelectionOwner.listSelectableDormitoriesForCurrentSeason,
+      dormitorySelectionQuery.listSelectableDormitoriesForCurrentSeason,
     hasSelectableDormitoriesForCurrentParticipant:
-      dormitorySelectionOwner.hasSelectableDormitoriesForCurrentParticipant,
+      dormitorySelectionReadiness.hasSelectableDormitoriesForCurrentParticipant,
     hasSelectableDormitoriesForCurrentUser:
-      dormitorySelectionOwner.hasSelectableDormitoriesForCurrentUser,
+      dormitorySelectionReadiness.hasSelectableDormitoriesForCurrentUser,
     hasValidDormitorySelectionForCurrentParticipant:
-      dormitorySelectionOwner.hasValidDormitorySelectionForCurrentParticipant,
-    createOrUpdateDormitorySelection: dormitorySelectionOwner.createOrUpdateDormitorySelection,
+      dormitorySelectionReadiness.hasValidDormitorySelectionForCurrentParticipant,
+    createOrUpdateDormitorySelection: dormitorySelectionCommand.createOrUpdateDormitorySelection,
     finalizeSeasonRegistration: registrationFinalizeOwner.finalizeSeasonRegistration,
     backfillCurrentSeasonParticipants: backfillOwner.backfillCurrentSeasonParticipants,
     deregisterCurrentSeasonParticipation: deregistrationOwner.deregisterCurrentSeasonParticipation,

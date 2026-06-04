@@ -1,4 +1,4 @@
-import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
+import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import {
   anyObject,
   createSeasonParticipantsServiceTestKit,
@@ -7,9 +7,9 @@ import {
   participant,
   profile,
   seasonContext,
-} from './season-participants.owner.spec-fixtures.js';
+} from '../season-participants.owner.spec-fixtures.js';
 
-describe('dormitory-selection.owner', () => {
+describe('dormitory-selection use cases', () => {
   it('complete profile 상태에서도 현재 시즌의 본인 campus/gender 기준 selectable dormitory list를 반환한다', async () => {
     const { service, prisma, dormitoriesService } = createSeasonParticipantsServiceTestKit();
     prisma.seasonParticipant.findUnique.mockResolvedValue(participant({ profile: profile() }));
@@ -160,8 +160,14 @@ describe('dormitory-selection.owner', () => {
   });
 
   it('dormitory validation은 operated/campus/gender/cutoff/no selectable 조건을 닫는다', async () => {
-    const { service, prisma, seasonsService, txSeasonParticipantUpsert, dormitoriesService } =
-      createSeasonParticipantsServiceTestKit();
+    const {
+      service,
+      prisma,
+      seasonsService,
+      txSeasonParticipantUpsert,
+      txSeasonParticipantUpdate,
+      dormitoriesService,
+    } = createSeasonParticipantsServiceTestKit();
     txSeasonParticipantUpsert.mockResolvedValue(participant({ profile: profile() }));
 
     for (const reason of [
@@ -178,6 +184,7 @@ describe('dormitory-selection.owner', () => {
       ).rejects.toMatchObject({
         response: seasonParticipantsErrors.dormitorySelectionInvalid().getResponse(),
       });
+      expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
     }
 
     seasonsService.getCurrentSeasonContext.mockResolvedValue(
@@ -192,6 +199,7 @@ describe('dormitory-selection.owner', () => {
     ).rejects.toMatchObject({
       response: seasonParticipantsErrors.dormitorySelectionInvalid().getResponse(),
     });
+    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
 
     prisma.seasonParticipant.findUnique.mockResolvedValueOnce(participant({ profile: profile() }));
     dormitoriesService.listSelectableDormitoriesForSeasonParticipant.mockResolvedValueOnce([]);

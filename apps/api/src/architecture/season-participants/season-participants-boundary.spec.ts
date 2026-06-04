@@ -12,7 +12,6 @@ const platformDomainContextRoot = join(apiSourceRoot, 'platform/domain-context')
 
 const transitionalRootOwnerFiles = [
   'current-season-participation-view.owner.ts',
-  'dormitory-selection.owner.ts',
   'season-participant-backfill.owner.ts',
   'season-participant-deregistration.owner.ts',
   'season-participation-capability.owner.ts',
@@ -21,6 +20,7 @@ const transitionalRootOwnerFiles = [
 
 const finalizingPhaseTwoDirectories = [
   'application',
+  'dormitory-selection',
   'errors',
   'participants',
   'profile-draft',
@@ -32,6 +32,13 @@ const requiredPhaseTwoOneFiles = {
     'season-participant-use-case.tokens.ts',
     'season-participant-write-owner.ts',
     'season-participants.service.ts',
+  ],
+  'dormitory-selection': [
+    'dormitory-selection-readiness.evaluator.ts',
+    'dormitory-selection.mapper.ts',
+    'dormitory-selection.policy.ts',
+    'list-current-season-selectable-dormitories.query.ts',
+    'update-dormitory-selection.command.ts',
   ],
   errors: ['season-participants.errors.ts'],
   participants: [
@@ -116,6 +123,7 @@ describe('season-participants final structure boundary', () => {
       'season-participant-source-owner.ts',
       'season-participant-write-owner.ts',
       'season-profile-draft.owner.ts',
+      'dormitory-selection.owner.ts',
     ] as const;
 
     for (const file of forbiddenRootFiles) {

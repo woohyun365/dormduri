@@ -1,0 +1,53 @@
+import type { SelectableDormitoriesResponse } from '@repo/shared/season-contract';
+import type { SeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
+import {
+  assertWritableSeasonContext,
+  getVerifiedUserForSeasonAction,
+  type SeasonParticipantOwnerDeps,
+} from '../season-participant-owner-deps.js';
+import { buildSelectableDormitoriesResponse } from './dormitory-selection.mapper.js';
+import type { DormitorySelectionReadinessEvaluator } from './dormitory-selection-readiness.evaluator.js';
+
+export function createListCurrentSeasonSelectableDormitoriesQuery(
+  deps: SeasonParticipantOwnerDeps,
+  containerOwner: SeasonParticipantContainerOwner,
+  readiness: DormitorySelectionReadinessEvaluator,
+) {
+  async function listSelectableDormitoriesForCurrentSeason(
+    userId: string,
+    now?: Date,
+  ): Promise<SelectableDormitoriesResponse> {
+    const referenceNow = now ?? (await deps.prisma.getDatabaseNow());
+    const user = await getVerifiedUserForSeasonAction(deps, userId);
+    const seasonContext = await assertWritableSeasonContext(deps, user.campus, referenceNow);
+    const participant = await containerOwner.findCurrentSeasonParticipant(
+      user.id,
+      seasonContext.season.id,
+    );
+    const items = participant
+      ? await readiness.listSelectableDormitoriesForParticipant(
+          participant,
+          seasonContext,
+          referenceNow,
+        )
+      : await readiness.listSelectableDormitoriesForSnapshot(
+          user.campus,
+          user.gender,
+          seasonContext,
+          referenceNow,
+        );
+
+    return buildSelectableDormitoriesResponse({
+      seasonContext,
+      participant,
+      items,
+      now: referenceNow,
+    });
+  }
+
+  return { listSelectableDormitoriesForCurrentSeason };
+}
+
+export type ListCurrentSeasonSelectableDormitoriesQuery = ReturnType<
+  typeof createListCurrentSeasonSelectableDormitoriesQuery
+>;
