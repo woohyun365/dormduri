@@ -9,6 +9,7 @@ const finalRootProductionFiles = ['auth.controller.ts', 'auth.module.ts'];
 
 const transitionRootCompatibilityFiles = [
   'auth-access.decorator.ts',
+  'auth-password.ts',
   'auth-capability.ts',
   'auth-change-password-owner.ts',
   'auth-failures.ts',
@@ -17,7 +18,11 @@ const transitionRootCompatibilityFiles = [
   'auth-response.builder.ts',
   'auth-security-alert.policy.ts',
   'auth-signup-owner.ts',
+  'auth-signup-validation.service.ts',
   'auth-user-view.ts',
+  'auth-verification-lock.ts',
+  'auth-verification-proof.ts',
+  'auth-verification.service.ts',
   'auth-verification.store.ts',
   'auth.errors.ts',
   'auth.service.ts',
@@ -30,15 +35,10 @@ const transitionRootCompatibilityFiles = [
 
 const transitionRootImplementationFiles = [
   'auth-login-attempt.service.ts',
-  'auth-password.ts',
   'auth-request-context.ts',
   'auth-security-event.service.ts',
   'auth-security-event.types.ts',
   'auth-session.service.ts',
-  'auth-signup-validation.service.ts',
-  'auth-verification-lock.ts',
-  'auth-verification-proof.ts',
-  'auth-verification.service.ts',
   'auth.constants.ts',
   'auth.types.ts',
   'auth.utils.ts',
@@ -99,14 +99,17 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'application',
       'commands',
       'controllers',
+      'credentials',
       'domain',
       'errors',
       'mappers',
       'operations',
       'policies',
       'queries',
+      'registration',
       'repositories',
       'sessions',
+      'verification',
     ];
 
     const missingDirectories = expectedDirectories.filter(
@@ -149,9 +152,35 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(source).toContain('revokeSessionById(client: AuthSessionClient');
   });
 
+  it('keeps verification, credentials, and registration ownership in their slices', () => {
+    const expectedSliceFiles = {
+      verification: [
+        'auth-verification-lock.ts',
+        'auth-verification-proof.ts',
+        'auth-verification.service.ts',
+        'auth-verification-eligibility.query.ts',
+        'verification-code.repository.ts',
+      ],
+      credentials: ['auth-password.ts', 'change-password.command.ts', 'reset-password.command.ts'],
+      registration: [
+        'auth-signup-validation.service.ts',
+        'lifestyle.schema.ts',
+        'signup.command.ts',
+      ],
+    } as const;
+
+    const missingSliceFiles = Object.entries(expectedSliceFiles).flatMap(([directory, files]) =>
+      files
+        .filter((file) => !existsSync(join(authRoot, directory, file)))
+        .map((file) => `${directory}/${file}`),
+    );
+
+    expect(missingSliceFiles).toEqual([]);
+  });
+
   it('keeps external production code away from auth internal implementation directories', () => {
     const forbiddenAuthInternalImports =
-      /from\s+['"].*(?:\.\.\/)+auth\/(?:commands|repositories|domain|policies|adapters|sessions)(?:\/[^'"]*)?(?:\.js)?['"]/;
+      /from\s+['"].*(?:\.\.\/)+auth\/(?:commands|repositories|domain|policies|adapters|sessions|verification|credentials|registration)(?:\/[^'"]*)?(?:\.js)?['"]/;
 
     const externalSourceRoots = readdirSync(apiSourceRoot, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && entry.name !== 'auth' && entry.name !== 'generated')
@@ -173,12 +202,21 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'authenticated-user.guard.ts': "export * from './access/authenticated-user.guard.js';\n",
       'auth.controller.ts': "export * from './controllers/auth.controller.js';\n",
       'auth.service.ts': "export * from './application/auth.service.js';\n",
-      'auth-signup-owner.ts': "export * from './commands/signup.command.js';\n",
+      'auth-signup-owner.ts': "export * from './registration/signup.command.js';\n",
       'auth-login-owner.ts': "export * from './commands/login.command.js';\n",
-      'auth-reset-password-owner.ts': "export * from './commands/reset-password.command.js';\n",
-      'auth-change-password-owner.ts': "export * from './commands/change-password.command.js';\n",
+      'auth-reset-password-owner.ts': "export * from './credentials/reset-password.command.js';\n",
+      'auth-change-password-owner.ts':
+        "export * from './credentials/change-password.command.js';\n",
+      'auth-password.ts': "export * from './credentials/auth-password.js';\n",
+      'auth-signup-validation.service.ts':
+        "export * from './registration/auth-signup-validation.service.js';\n",
+      'auth-verification-lock.ts': "export * from './verification/auth-verification-lock.js';\n",
+      'auth-verification-proof.ts': "export * from './verification/auth-verification-proof.js';\n",
+      'auth-verification.service.ts':
+        "export * from './verification/auth-verification.service.js';\n",
       'auth-verification.store.ts':
-        "export * from './repositories/verification-code.repository.js';\n",
+        "export * from './verification/verification-code.repository.js';\n",
+      'lifestyle.schema.ts': "export * from './registration/lifestyle.schema.js';\n",
       'email-sender.interface.ts': "export * from './adapters/email/email-sender.interface.js';\n",
       'stub-email-sender.service.ts':
         "export * from './adapters/email/stub-email-sender.service.js';\n",
@@ -221,7 +259,6 @@ describe('Phase 8/9 auth architecture boundary', () => {
     const source = readSource(join(authRoot, 'application/auth.service.ts'));
     const forbiddenFacadeResponsibilities = [
       ['PrismaService dependency', /\bPrismaService\b/],
-      ['direct Prisma user lookup', /\bthis\.prisma\.user\.findUnique\b/],
       ['command Prisma dependency forwarding', /\bprisma:\s*this\.prisma\b/],
       ['session internals dependency', /\bAuthSessionService\b/],
       ['verification internals dependency', /\bAuthVerificationService\b/],
@@ -235,7 +272,6 @@ describe('Phase 8/9 auth architecture boundary', () => {
 
     expect(offenders).toEqual([
       'PrismaService dependency',
-      'direct Prisma user lookup',
       'command Prisma dependency forwarding',
       'session internals dependency',
       'verification internals dependency',

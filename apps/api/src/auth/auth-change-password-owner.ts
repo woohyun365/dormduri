@@ -1,1 +1,1 @@
-export * from './commands/change-password.command.js';
+export * from './credentials/change-password.command.js';

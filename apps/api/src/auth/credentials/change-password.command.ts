@@ -2,7 +2,7 @@ import type { ChangePasswordResponse } from '@repo/shared/auth-response';
 import type { PrismaService } from '../../common/prisma/prisma.service.js';
 import type { AuthenticatedUserContext, AuthSessionService } from '../auth-session.service.js';
 import { authFailures } from '../auth-failures.js';
-import { hashPassword, verifyPasswordHash } from '../auth-password.js';
+import { hashPassword, verifyPasswordHash } from './auth-password.js';
 import { validatePasswordPolicy } from '../auth.utils.js';
 import {
   AuthSecurityEventService,

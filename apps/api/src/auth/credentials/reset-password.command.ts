@@ -1,14 +1,14 @@
 import type { GenericSuccessResult } from '../auth.types.js';
 import type { PrismaService } from '../../common/prisma/prisma.service.js';
-import type { AuthVerificationService } from '../auth-verification.service.js';
+import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { authFailures } from '../auth-failures.js';
 import { normalizeEmail, validatePasswordPolicy } from '../auth.utils.js';
-import { hashPassword, verifyPasswordHash } from '../auth-password.js';
+import { hashPassword, verifyPasswordHash } from './auth-password.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerifiedCodeOrThrow,
   RESET_VERIFICATION_PROOF_UNAVAILABLE,
-} from '../auth-verification-proof.js';
+} from '../verification/auth-verification-proof.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,

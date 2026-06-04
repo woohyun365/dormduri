@@ -8,18 +8,19 @@ import type {
   SignupInput,
 } from '../auth.types.js';
 import { isKnuEmail, normalizeEmail } from '../auth.utils.js';
-import { AuthVerificationService } from '../auth-verification.service.js';
+import { AuthVerificationService } from '../verification/auth-verification.service.js';
+import { AuthVerificationEligibilityQuery } from '../verification/auth-verification-eligibility.query.js';
 import { AuthSessionService } from '../auth-session.service.js';
 import { AuthLoginAttemptService } from '../auth-login-attempt.service.js';
 import { ModerationService } from '../../common/moderation/moderation.service.js';
-import { AuthSignupValidationService } from '../auth-signup-validation.service.js';
+import { AuthSignupValidationService } from '../registration/auth-signup-validation.service.js';
 import type { SignupDraftValidationResponse } from '@repo/shared/auth-response';
 import { authFailures } from '../auth-failures.js';
 import { PrismaService } from '../../common/prisma/prisma.service.js';
-import { signup } from '../commands/signup.command.js';
+import { signup } from '../registration/signup.command.js';
 import { login } from '../commands/login.command.js';
-import { resetPassword } from '../commands/reset-password.command.js';
-import { changePassword } from '../commands/change-password.command.js';
+import { resetPassword } from '../credentials/reset-password.command.js';
+import { changePassword } from '../credentials/change-password.command.js';
 import type { AuthenticatedUserContext } from '../auth-session.service.js';
 import { AuthSecurityEventService } from '../auth-security-event.service.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../auth-request-context.js';
@@ -29,6 +30,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly verificationService: AuthVerificationService,
+    private readonly verificationEligibilityQuery: AuthVerificationEligibilityQuery,
     private readonly sessionService: AuthSessionService,
     private readonly loginAttemptService: AuthLoginAttemptService,
     private readonly moderationService: ModerationService,
@@ -45,14 +47,11 @@ export class AuthService {
       return authFailures.invalidKnuEmail();
     }
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: { emailNormalized },
-      select: { id: true },
-    });
+    const userExists = await this.verificationEligibilityQuery.signupUserExists(emailNormalized);
 
     return this.verificationService.maybeSendSignupCode(
       emailNormalized,
-      Boolean(existingUser),
+      userExists,
       requestIpOrContext,
     );
   }
@@ -62,12 +61,8 @@ export class AuthService {
     requestIpOrContext: string | null | AuthRequestContext,
   ): Promise<GenericSuccessResult> {
     const emailNormalized = normalizeEmail(email);
-    const user = await this.prisma.user.findUnique({
-      where: { emailNormalized },
-      select: { id: true, deletedAt: true, emailVerifiedAt: true },
-    });
-
-    const resetEligible = Boolean(user && !user.deletedAt && user.emailVerifiedAt);
+    const resetEligible =
+      await this.verificationEligibilityQuery.passwordResetEligible(emailNormalized);
     return this.verificationService.maybeSendResetCode(
       emailNormalized,
       resetEligible,
@@ -92,12 +87,10 @@ export class AuthService {
     requestContext: AuthRequestContext = {},
   ): Promise<GenericSuccessResult> {
     const emailNormalized = normalizeEmail(email);
-    const user = await this.prisma.user.findUnique({
-      where: { emailNormalized },
-      select: { id: true, deletedAt: true, emailVerifiedAt: true },
-    });
+    const resetEligible =
+      await this.verificationEligibilityQuery.passwordResetEligible(emailNormalized);
 
-    if (!user || user.deletedAt || !user.emailVerifiedAt) {
+    if (!resetEligible) {
       return authFailures.verificationCodeInvalid();
     }
 

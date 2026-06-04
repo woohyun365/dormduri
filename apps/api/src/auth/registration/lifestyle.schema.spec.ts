@@ -1,6 +1,6 @@
 import { validateLifestyleData } from './lifestyle.schema.js';
 // @ts-expect-error -- seed fixture is plain JS and intentionally reused here for schema compatibility regression coverage
-import { AUTH_FIXTURE_USERS } from '../../prisma/seed-data/fixtures/auth-fixture-users.js';
+import { AUTH_FIXTURE_USERS } from '../../../prisma/seed-data/fixtures/auth-fixture-users.js';
 
 const fixtureUsers = AUTH_FIXTURE_USERS as unknown as ReadonlyArray<{
   key: string;

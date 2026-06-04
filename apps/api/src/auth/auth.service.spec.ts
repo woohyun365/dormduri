@@ -35,6 +35,11 @@ describe('AuthService orchestration', () => {
     consumeVerificationCode: jest.fn(),
   };
 
+  const verificationEligibilityQuery = {
+    signupUserExists: jest.fn(),
+    passwordResetEligible: jest.fn(),
+  };
+
   const sessionService = {
     getSession: jest.fn(),
     issueAuthResult: jest.fn(),
@@ -64,6 +69,7 @@ describe('AuthService orchestration', () => {
   const service = new AuthService(
     prisma as never,
     verificationService as never,
+    verificationEligibilityQuery as never,
     sessionService as never,
     loginAttemptService as never,
     moderationService as never,
@@ -75,6 +81,8 @@ describe('AuthService orchestration', () => {
     jest.clearAllMocks();
     moderationService.moderatePublicText.mockResolvedValue({ ok: true });
     signupValidationService.validateDraft.mockResolvedValue({ success: true });
+    verificationEligibilityQuery.signupUserExists.mockResolvedValue(false);
+    verificationEligibilityQuery.passwordResetEligible.mockResolvedValue(false);
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-04-23T00:00:00.000Z'));
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
     prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
@@ -99,7 +107,7 @@ describe('AuthService orchestration', () => {
   });
 
   it('이미 가입된 이메일의 signup code 요청은 중립 응답을 유지한 채 코드 발급만 생략한다', async () => {
-    prisma.user.findUnique.mockResolvedValue({ id: 'user-1' });
+    verificationEligibilityQuery.signupUserExists.mockResolvedValue(true);
     verificationService.maybeSendSignupCode.mockResolvedValue({ success: true });
 
     await expect(service.sendSignupCode('test@kangwon.ac.kr', '127.0.0.1')).resolves.toEqual({
@@ -114,7 +122,7 @@ describe('AuthService orchestration', () => {
   });
 
   it('존재하지 않는 계정의 reset code 요청도 중립 성공 응답을 유지한다', async () => {
-    prisma.user.findUnique.mockResolvedValue(null);
+    verificationEligibilityQuery.passwordResetEligible.mockResolvedValue(false);
     verificationService.maybeSendResetCode.mockResolvedValue({ success: true });
 
     await expect(service.sendResetCode('missing@kangwon.ac.kr', '127.0.0.1')).resolves.toEqual({
@@ -131,11 +139,7 @@ describe('AuthService orchestration', () => {
   it('삭제/미인증 계정의 reset code 요청도 중립 성공을 유지하고 코드 발급 eligibility를 false로 전달한다', async () => {
     verificationService.maybeSendResetCode.mockResolvedValue({ success: true });
 
-    prisma.user.findUnique.mockResolvedValueOnce({
-      id: 'user-deleted',
-      deletedAt: new Date('2026-05-12T00:00:00.000Z'),
-      emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
-    });
+    verificationEligibilityQuery.passwordResetEligible.mockResolvedValueOnce(false);
     await expect(service.sendResetCode('deleted@kangwon.ac.kr', '127.0.0.1')).resolves.toEqual({
       success: true,
     });
@@ -145,11 +149,7 @@ describe('AuthService orchestration', () => {
       '127.0.0.1',
     );
 
-    prisma.user.findUnique.mockResolvedValueOnce({
-      id: 'user-unverified',
-      deletedAt: null,
-      emailVerifiedAt: null,
-    });
+    verificationEligibilityQuery.passwordResetEligible.mockResolvedValueOnce(false);
     await expect(service.sendResetCode('unverified@kangwon.ac.kr', '127.0.0.1')).resolves.toEqual({
       success: true,
     });
@@ -161,11 +161,7 @@ describe('AuthService orchestration', () => {
   });
 
   it('active+verified 계정의 reset code 요청만 code 발급 eligibility를 true로 전달한다', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-verified',
-      deletedAt: null,
-      emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
-    });
+    verificationEligibilityQuery.passwordResetEligible.mockResolvedValue(true);
     verificationService.maybeSendResetCode.mockResolvedValue({ success: true });
 
     await expect(service.sendResetCode('verified@kangwon.ac.kr', '127.0.0.1')).resolves.toEqual({
@@ -210,21 +206,9 @@ describe('AuthService orchestration', () => {
   });
 
   it('verifyResetCode는 없는/삭제/미인증 계정 상태를 노출하지 않고 동일한 invalid-code 응답을 반환한다', async () => {
-    for (const user of [
-      null,
-      {
-        id: 'user-deleted',
-        deletedAt: new Date('2026-05-12T00:00:00.000Z'),
-        emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
-      },
-      {
-        id: 'user-unverified',
-        deletedAt: null,
-        emailVerifiedAt: null,
-      },
-    ]) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       jest.clearAllMocks();
-      prisma.user.findUnique.mockResolvedValue(user);
+      verificationEligibilityQuery.passwordResetEligible.mockResolvedValue(false);
 
       await expect(service.verifyResetCode('test@kangwon.ac.kr', '123456')).resolves.toMatchObject({
         success: false,
@@ -236,11 +220,7 @@ describe('AuthService orchestration', () => {
   });
 
   it('verifyResetCode는 active+verified 계정일 때만 verification service로 위임한다', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: 'user-verified',
-      deletedAt: null,
-      emailVerifiedAt: new Date('2026-04-23T00:00:00.000Z'),
-    });
+    verificationEligibilityQuery.passwordResetEligible.mockResolvedValue(true);
     verificationService.verifyResetCode.mockResolvedValue({ success: true });
 
     await expect(service.verifyResetCode('verified@kangwon.ac.kr', '123456')).resolves.toEqual({

@@ -1,4 +1,4 @@
-import { AuthVerificationStore } from './auth-verification.store.js';
+import { AuthVerificationStore } from './verification-code.repository.js';
 
 describe('AuthVerificationStore', () => {
   const txQueryRawTyped = jest.fn<Promise<unknown[]>, [unknown]>();

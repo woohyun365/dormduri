@@ -5,7 +5,7 @@ import type { AuthSessionService } from '../auth-session.service.js';
 import { toLoginSuccessResult } from '../auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../auth-user-view.js';
 import { normalizeEmail } from '../auth.utils.js';
-import { verifyPasswordHash } from '../auth-password.js';
+import { verifyPasswordHash } from '../credentials/auth-password.js';
 import { hasUserDisplayIdentity } from '../../common/account-identity-invariant.owner.js';
 import {
   AuthSecurityEventService,

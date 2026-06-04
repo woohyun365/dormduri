@@ -1,17 +1,17 @@
 import type { LoginResult, SignupInput } from '../auth.types.js';
 import { isKnuEmail, normalizeEmail, normalizeNickname } from '../auth.utils.js';
-import type { AuthVerificationService } from '../auth-verification.service.js';
+import type { AuthVerificationService } from '../verification/auth-verification.service.js';
 import type { AuthSessionService } from '../auth-session.service.js';
 import { toLoginSuccessResult } from '../auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../auth-user-view.js';
-import type { AuthSignupValidationService } from '../auth-signup-validation.service.js';
+import type { AuthSignupValidationService } from './auth-signup-validation.service.js';
 import { authFailures } from '../auth-failures.js';
-import { hashPassword } from '../auth-password.js';
+import { hashPassword } from '../credentials/auth-password.js';
 import {
   acquireVerificationCodePurposeLock,
   consumeVerifiedCodeOrThrow,
   SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
-} from '../auth-verification-proof.js';
+} from '../verification/auth-verification-proof.js';
 import type { PrismaService } from '../../common/prisma/prisma.service.js';
 import {
   isPrismaKnownRequestError,

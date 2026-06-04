@@ -1,1 +1,1 @@
-export * from './commands/signup.command.js';
+export * from './registration/signup.command.js';

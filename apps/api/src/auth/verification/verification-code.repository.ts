@@ -15,7 +15,7 @@ import {
 import {
   getVerificationCodePurposeLockKey,
   VERIFICATION_CODE_PURPOSE_LOCK_NAMESPACE,
-} from '../auth-verification-lock.js';
+} from './auth-verification-lock.js';
 
 export interface VerificationCodeHandle {
   id: string;

@@ -1,1 +1,1 @@
-export * from './repositories/verification-code.repository.js';
+export * from './verification/verification-code.repository.js';

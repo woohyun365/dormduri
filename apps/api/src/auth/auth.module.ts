@@ -9,9 +9,10 @@ import { AuthController } from './auth.controller.js';
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
 import { AuthService } from './auth.service.js';
 import { AuthSessionService } from './auth-session.service.js';
-import { AuthSignupValidationService } from './auth-signup-validation.service.js';
-import { AuthVerificationService } from './auth-verification.service.js';
-import { AuthVerificationStore } from './auth-verification.store.js';
+import { AuthSignupValidationService } from './registration/auth-signup-validation.service.js';
+import { AuthVerificationService } from './verification/auth-verification.service.js';
+import { AuthVerificationEligibilityQuery } from './verification/auth-verification-eligibility.query.js';
+import { AuthVerificationStore } from './verification/verification-code.repository.js';
 import { AuthenticatedUserGuard } from './authenticated-user.guard.js';
 import { EMAIL_SENDER } from './email-sender.interface.js';
 import { AuthSecurityEventService } from './auth-security-event.service.js';
@@ -44,6 +45,7 @@ import { RevokeSessionsCommand } from './sessions/revoke-sessions.command.js';
   providers: [
     AuthService,
     AuthVerificationService,
+    AuthVerificationEligibilityQuery,
     AuthVerificationStore,
     AuthSessionService,
     AuthSignupValidationService,
