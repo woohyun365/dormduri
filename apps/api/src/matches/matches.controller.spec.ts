@@ -1,5 +1,5 @@
 import { ForbiddenException } from '@nestjs/common';
-import { AUTH_ACCESS_METADATA_KEY } from '../auth/auth-access.decorator.js';
+import { AUTH_ACCESS_METADATA_KEY } from '../auth/access/auth-access.decorator.js';
 import { MatchesController } from './matches.controller.js';
 
 describe('MatchesController', () => {

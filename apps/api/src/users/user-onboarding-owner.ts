@@ -3,7 +3,7 @@ import {
   type CurrentUserResponse,
   type DismissCurrentUserOnboardingNoticeRequest,
 } from '@repo/shared/user-contract';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';
 import { isPrismaKnownRequestError } from '../common/prisma/prisma-error.js';
 import { CurrentUserViewService } from './current-user-view.service.js';

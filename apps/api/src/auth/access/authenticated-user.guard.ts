@@ -1,6 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Request } from 'express';
 import { forbiddenError, unauthorizedError } from '../../common/http/api-error.js';
 import {
   AUTH_ACCESS_METADATA_KEY,
@@ -8,17 +7,14 @@ import {
   type AuthAccessMode,
 } from './auth-access.decorator.js';
 import type { AuthCapability } from './auth-capability.js';
-import { AuthSessionService, type ResolvedAuthActorContext } from '../auth-session.service.js';
+import { AuthActorContextResolver } from '../application/auth-actor-context.resolver.js';
+import type { AuthenticatedRequest } from '../application/auth-actor-context.types.js';
 import { hasAuthRequestContext, resolveAuthRequestContext } from '../auth-request-context.js';
-
-export interface AuthenticatedRequest extends Request {
-  authUser?: ResolvedAuthActorContext;
-}
 
 @Injectable()
 export class AuthenticatedUserGuard implements CanActivate {
   constructor(
-    private readonly authSessionService: AuthSessionService,
+    private readonly authActorContextResolver: AuthActorContextResolver,
     private readonly reflector: Reflector,
   ) {}
 
@@ -37,8 +33,8 @@ export class AuthenticatedUserGuard implements CanActivate {
 
     const requestContext = resolveAuthRequestContext(request);
     const authUser = await (hasAuthRequestContext(requestContext)
-      ? this.authSessionService.resolveCurrentUserContext(token, requestContext)
-      : this.authSessionService.resolveCurrentUserContext(token));
+      ? this.authActorContextResolver.resolveCurrentUserContext(token, requestContext)
+      : this.authActorContextResolver.resolveCurrentUserContext(token));
 
     if (!authUser && accessMode === 'optional') {
       return true;

@@ -4,10 +4,10 @@ import {
   requestAccountDeletionSchema,
   updateCurrentUserRequestSchema,
 } from '@repo/shared/user-contract';
-import { RequireCapability } from '../auth/auth-access.decorator.js';
-import { AUTH_CAPABILITIES } from '../auth/auth-capability.js';
-import { CurrentUser } from '../auth/authenticated-user.decorator.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import { RequireCapability } from '../auth/access/auth-access.decorator.js';
+import { AUTH_CAPABILITIES } from '../auth/access/auth-capability.js';
+import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
 import { UsersService } from './users.service.js';
 

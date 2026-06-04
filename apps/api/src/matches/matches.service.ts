@@ -12,7 +12,7 @@ import type { PublicProfile } from '@repo/shared/profile-contract';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../generated/prisma/client.js';
 import type { Campus } from '../generated/prisma/enums.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import {
   CHAT_MATCH_THREAD_LIFECYCLE_PORT,
   type ChatMatchThreadLifecyclePort,

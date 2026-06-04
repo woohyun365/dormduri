@@ -2,7 +2,7 @@ import type {
   SendConversationMessageRequest,
   SendConversationMessageResponse,
 } from '@repo/shared/chat-contract';
-import type { AuthenticatedUserContext } from '../../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { buildParticipantPairIdentity } from '../../matches/match.utils.js';
 import {
   isPrismaKnownRequestError,

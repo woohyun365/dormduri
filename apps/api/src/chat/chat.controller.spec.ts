@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { AUTH_ACCESS_METADATA_KEY } from '../auth/auth-access.decorator.js';
+import { AUTH_ACCESS_METADATA_KEY } from '../auth/access/auth-access.decorator.js';
 import { ChatController } from './chat.controller.js';
 
 function getBadRequestResponse(error: unknown) {

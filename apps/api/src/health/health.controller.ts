@@ -5,7 +5,7 @@ import {
   type HealthStatusResponse,
   type RealtimeOperationsStatusResponse,
 } from './health.service.js';
-import { Public, RequireCapability } from '../auth/auth-access.decorator.js';
+import { Public, RequireCapability } from '../auth/access/auth-access.decorator.js';
 
 @Controller('health')
 @Public()

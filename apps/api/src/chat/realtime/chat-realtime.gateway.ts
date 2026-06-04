@@ -9,7 +9,7 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
-import type { AuthenticatedUserContext } from '../../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import {
   readChatRealtimeAllowedOrigins,
   readChatRealtimeTrustProxy,

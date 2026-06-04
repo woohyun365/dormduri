@@ -217,13 +217,8 @@ describe('Phase 8/9 auth architecture boundary', () => {
       /(?:^|\/)auth\/application\/auth-actor-context[^'"]*(?:\.js)?$/,
     ];
     const transitionAllowedExternalAuthImports = [
-      /(?:^|\/)auth\/auth-access\.decorator(?:\.js)?$/,
-      /(?:^|\/)auth\/auth-capability(?:\.js)?$/,
       /(?:^|\/)auth\/auth-password(?:\.js)?$/,
-      /(?:^|\/)auth\/auth-session\.service(?:\.js)?$/,
       /(?:^|\/)auth\/auth\.utils(?:\.js)?$/,
-      /(?:^|\/)auth\/authenticated-user\.decorator(?:\.js)?$/,
-      /(?:^|\/)auth\/authenticated-user\.guard(?:\.js)?$/,
       /(?:^|\/)auth\/operations\/auth-operational-cleanup\.service(?:\.js)?$/,
       /(?:^|\/)auth\/operations\/auth-operations-health\.service(?:\.js)?$/,
       /(?:^|\/)auth\/operations\/auth-operations\.module(?:\.js)?$/,

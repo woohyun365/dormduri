@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import type {
   RoommateSearchManifestQuery,
   RoommateSearchManifestResponse,

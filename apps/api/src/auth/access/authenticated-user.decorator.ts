@@ -1,6 +1,8 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import type { AuthenticatedUserContext } from '../auth-session.service.js';
-import type { AuthenticatedRequest } from './authenticated-user.guard.js';
+import type {
+  AuthenticatedRequest,
+  AuthenticatedUserContext,
+} from '../application/auth-actor-context.types.js';
 
 interface CurrentUserOptions {
   optional?: boolean;

@@ -18,6 +18,7 @@ import { AuthSecurityEventService } from './auth-security-event.service.js';
 import { AuthSecurityEventRepository } from './repositories/security-event.repository.js';
 import { MonitoredEmailSenderService } from './monitored-email-sender.service.js';
 import { StubEmailSenderService } from './stub-email-sender.service.js';
+import { AuthActorContextResolver } from './application/auth-actor-context.resolver.js';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
     AuthLoginAttemptService,
     AuthSecurityEventService,
     AuthSecurityEventRepository,
+    AuthActorContextResolver,
     AuthenticatedUserGuard,
     StubEmailSenderService,
     MonitoredEmailSenderService,
@@ -59,6 +61,6 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
       useClass: AuthenticatedUserGuard,
     },
   ],
-  exports: [AuthService, AuthSessionService, AuthenticatedUserGuard],
+  exports: [AuthService, AuthSessionService, AuthActorContextResolver, AuthenticatedUserGuard],
 })
 export class AuthModule {}

@@ -4,7 +4,7 @@ import type {
   MatchRequestActionResponse,
 } from '@repo/shared/match-contract';
 import { Prisma } from '../generated/prisma/client.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import { toMatchRequestSummary, type MatchRequestRecord } from './match-read-model.js';
 

@@ -6,7 +6,7 @@ import type {
   UpdateCurrentUserResponse,
 } from '@repo/shared/user-contract';
 import type { Prisma } from '../generated/prisma/client.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { normalizeNickname, validateNicknameFormat } from '../auth/auth.utils.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
 import { PrismaService } from '../common/prisma/prisma.service.js';

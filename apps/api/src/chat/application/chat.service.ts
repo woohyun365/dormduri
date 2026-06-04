@@ -12,7 +12,7 @@ import type {
   UpdateChatReadMarkerRequest,
 } from '@repo/shared/chat-contract';
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { AuthenticatedUserContext } from '../../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../common/prisma/prisma.service.js';
 import {
   CHAT_THREAD_NOTIFICATION_WRITER,

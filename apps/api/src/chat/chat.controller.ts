@@ -15,9 +15,9 @@ import {
   sendConversationMessageRequestSchema,
   updateChatReadMarkerRequestSchema,
 } from '@repo/shared/chat-contract';
-import { RequireCapability } from '../auth/auth-access.decorator.js';
-import { CurrentUser } from '../auth/authenticated-user.decorator.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
+import { RequireCapability } from '../auth/access/auth-access.decorator.js';
+import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { forbiddenError, unauthorizedError } from '../common/http/api-error.js';
 import { parseRequestBody } from '../common/http/zod-request.js';
 import { ChatThread, RequireChatThreadMember } from './context/chat-thread-context.decorator.js';

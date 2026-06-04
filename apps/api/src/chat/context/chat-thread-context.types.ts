@@ -1,4 +1,4 @@
-import type { AuthenticatedRequest } from '../../auth/authenticated-user.guard.js';
+import type { AuthenticatedRequest } from '../../auth/application/auth-actor-context.types.js';
 import type {
   ConversationThreadMemberState,
   ConversationThreadStatus,

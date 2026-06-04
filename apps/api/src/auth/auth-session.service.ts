@@ -18,7 +18,7 @@ import { toAuthenticatedSessionResult } from './auth-response.builder.js';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
 import { hasUserDisplayIdentity } from '../common/account-identity-invariant.owner.js';
 import { authFailures } from './auth-failures.js';
-import { SELF_SERVICE_AUTH_CAPABILITIES, type AuthCapability } from './auth-capability.js';
+import { SELF_SERVICE_AUTH_CAPABILITIES } from './auth-capability.js';
 import type { AuthRequestContext } from './auth-request-context.js';
 import {
   AuthSecurityEventService,
@@ -31,23 +31,11 @@ import {
   parseOpaqueToken,
   safeCompareTokenHash,
 } from './domain/opaque-token.js';
-
-export interface AuthenticatedUserContext {
-  id: string;
-  sessionId?: string;
-  gender: Gender;
-  campus: Campus;
-  actorType?: 'USER';
-  actorId?: string;
-  capabilities?: readonly AuthCapability[];
-}
-
-export interface ResolvedAuthActorContext extends AuthenticatedUserContext {
-  sessionId: string;
-  actorType: 'USER';
-  actorId: string;
-  capabilities: readonly AuthCapability[];
-}
+import type { ResolvedAuthActorContext } from './application/auth-actor-context.types.js';
+export type {
+  AuthenticatedUserContext,
+  ResolvedAuthActorContext,
+} from './application/auth-actor-context.types.js';
 
 interface AuthenticatedSessionRef {
   userId: string;

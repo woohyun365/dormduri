@@ -1,4 +1,4 @@
-import type { AuthenticatedUserContext } from '../../auth/auth-session.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { ChatUserContext } from '../application/chat-user-context.service.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 import { createChatPairEntryQuery } from './chat-pair-entry.query.js';
