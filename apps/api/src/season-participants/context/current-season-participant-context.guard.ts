@@ -1,34 +1,23 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Prisma } from '../generated/prisma/client.js';
 import {
   DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
   type DomainContextRequirementBase,
   isDomainContextRequirement,
-} from '../platform/domain-context/domain-context.decorator.js';
-import type { CurrentSeasonParticipantContextRequirement } from './context/current-season-participant-context-requirement.js';
-import { forbiddenError, unauthorizedError } from '../platform/http/api-error.js';
-import { PrismaService } from '../platform/database/prisma.service.js';
-import { SeasonParticipantsService } from './application/season-participants.service.js';
+} from '../../platform/domain-context/domain-context.decorator.js';
+import { forbiddenError, unauthorizedError } from '../../platform/http/api-error.js';
+import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
+import type { CurrentSeasonParticipantContextRequirement } from './current-season-participant-context-requirement.js';
+import { CurrentSeasonParticipantContextResolver } from './current-season-participant-context.resolver.js';
 import {
   setCurrentSeasonParticipantContext,
   type CurrentSeasonParticipantContextRequest,
 } from './current-season-participant-context.types.js';
-import { seasonParticipantsErrors } from './errors/season-participants.errors.js';
-
-const currentSeasonParticipantUserSelect = {
-  id: true,
-  emailVerifiedAt: true,
-  deletedAt: true,
-  gender: true,
-  campus: true,
-} satisfies Prisma.UserSelect;
 
 @Injectable()
 export class CurrentSeasonParticipantContextGuard implements CanActivate {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly seasonParticipantsService: SeasonParticipantsService,
+    private readonly resolver: CurrentSeasonParticipantContextResolver,
     private readonly reflector: Reflector,
   ) {}
 
@@ -44,20 +33,10 @@ export class CurrentSeasonParticipantContextGuard implements CanActivate {
       throw unauthorizedError('UNAUTHENTICATED', '로그인이 필요합니다.');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: request.authUser.id },
-      select: currentSeasonParticipantUserSelect,
+    const participant = await this.resolver.resolveForActor({
+      actorUserId: request.authUser.id,
+      requirement,
     });
-
-    if (!user || !user.emailVerifiedAt || user.deletedAt) {
-      throw seasonParticipantsErrors.registrationNotAllowed();
-    }
-
-    const databaseNow = await this.prisma.getDatabaseNow();
-    const participant =
-      requirement.mode === 'ensure'
-        ? await this.seasonParticipantsService.ensureCurrentSeasonParticipant(user, databaseNow)
-        : null;
 
     if (!participant) {
       throw currentSeasonParticipantFailureError(requirement);

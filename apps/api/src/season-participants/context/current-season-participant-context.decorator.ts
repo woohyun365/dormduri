@@ -1,6 +1,6 @@
 import { applyDecorators, createParamDecorator, ExecutionContext, UseGuards } from '@nestjs/common';
-import { RequireDomainContext } from '../platform/domain-context/domain-context.decorator.js';
-import type { CurrentSeasonParticipantContextRequirement } from './context/current-season-participant-context-requirement.js';
+import { RequireDomainContext } from '../../platform/domain-context/domain-context.decorator.js';
+import type { CurrentSeasonParticipantContextRequirement } from './current-season-participant-context-requirement.js';
 import { CurrentSeasonParticipantContextGuard } from './current-season-participant-context.guard.js';
 import {
   getCurrentSeasonParticipantContext,

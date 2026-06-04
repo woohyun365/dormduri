@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
-import { CurrentSeasonParticipantContextGuard } from '../../season-participants/current-season-participant-context.guard.js';
+import { CurrentSeasonParticipantContextGuard } from '../../season-participants/context/current-season-participant-context.guard.js';
 import { CurrentSeasonParticipationViewOwner } from '../../season-participants/current-season-participation-view.owner.js';
 import { SeasonParticipantsModule } from '../../season-participants/season-participants.module.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
@@ -18,6 +18,7 @@ const transitionalRootOwnerFiles = [
 
 const finalizingPhaseTwoDirectories = [
   'application',
+  'context',
   'deregistration',
   'dormitory-selection',
   'errors',
@@ -33,6 +34,14 @@ const requiredPhaseTwoOneFiles = {
     'season-participant-use-case.tokens.ts',
     'season-participant-write-owner.ts',
     'season-participants.service.ts',
+  ],
+  context: [
+    'current-season-participant-context.decorator.ts',
+    'current-season-participant-context.guard.ts',
+    'current-season-participant-context.resolver.ts',
+    'current-season-participant-context-requirement.ts',
+    'current-season-participant-context.types.ts',
+    'index.ts',
   ],
   deregistration: ['deregister-season-participant.command.ts', 'season-deregistration.policy.ts'],
   'dormitory-selection': [
@@ -67,12 +76,6 @@ const requiredPhaseTwoOneFiles = {
     'season-registration.policy.ts',
   ],
 } as const;
-
-const transitionalRootContextFiles = [
-  'current-season-participant-context.decorator.ts',
-  'current-season-participant-context.guard.ts',
-  'current-season-participant-context.types.ts',
-] as const;
 
 function moduleMetadata<T>(target: object, key: 'imports' | 'exports'): T[] {
   return (Reflect.getMetadata(key, target) ?? []) as T[];
@@ -252,19 +255,25 @@ describe('season-participants final structure boundary', () => {
     expect(filesContaining(seasonParticipantsRoot, concreteDormitoriesServiceImport)).toEqual([]);
   });
 
-  it('keeps current-season participant context migration debt explicit until Phase 7 owner finalization', () => {
+  it('keeps current-season participant context owned by the context slice', () => {
     const rootContextFiles = productionTypeScriptFiles(seasonParticipantsRoot)
       .filter((path) => dirname(path) === seasonParticipantsRoot)
       .map((path) => rootRelativePath(path, seasonParticipantsRoot))
       .filter((path) => path.startsWith('current-season-participant-context.'))
       .sort();
+    const guardSource = readSource(
+      join(seasonParticipantsRoot, 'context/current-season-participant-context.guard.ts'),
+    );
+    const resolverSource = readSource(
+      join(seasonParticipantsRoot, 'context/current-season-participant-context.resolver.ts'),
+    );
 
-    expect(rootContextFiles).toEqual([...transitionalRootContextFiles].sort());
-    expect(
-      existsSync(
-        join(seasonParticipantsRoot, 'context/current-season-participant-context-requirement.ts'),
-      ),
-    ).toBe(true);
+    expect(rootContextFiles).toEqual([]);
+    expect(guardSource).not.toMatch(/PrismaService/);
+    expect(guardSource).not.toMatch(/ensureCurrentSeasonParticipant/);
+    expect(guardSource).toContain('CurrentSeasonParticipantContextResolver');
+    expect(resolverSource).toMatch(/PrismaService/);
+    expect(resolverSource).toMatch(/ensureCurrentSeasonParticipant/);
   });
 
   it('keeps platform domain-context primitive free of current-season-participant vocabulary', () => {

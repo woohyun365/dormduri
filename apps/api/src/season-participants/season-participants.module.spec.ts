@@ -5,7 +5,8 @@ import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
 } from './current-season-participation.controller.js';
-import { CurrentSeasonParticipantContextGuard } from './current-season-participant-context.guard.js';
+import { CurrentSeasonParticipantContextGuard } from './context/current-season-participant-context.guard.js';
+import { CurrentSeasonParticipantContextResolver } from './context/current-season-participant-context.resolver.js';
 import { CurrentSeasonParticipationViewOwner } from './current-season-participation-view.owner.js';
 import {
   SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER,
@@ -48,6 +49,7 @@ describe('SeasonParticipantsModule boundary wiring', () => {
       expect.arrayContaining([
         SeasonParticipantsService,
         CurrentSeasonParticipationViewOwner,
+        CurrentSeasonParticipantContextResolver,
         CurrentSeasonParticipantContextGuard,
         expect.objectContaining({ provide: SEASON_PARTICIPANT_WRITE_OWNER }),
         expect.objectContaining({ provide: SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER }),

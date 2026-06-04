@@ -9,10 +9,7 @@ import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { forbiddenError } from '../platform/http/api-error.js';
 import { parseRequestBody } from '../platform/http/zod-request.js';
-import {
-  RequireCurrentSeasonParticipant,
-  SeasonParticipant,
-} from './current-season-participant-context.decorator.js';
+import { RequireCurrentSeasonParticipant, SeasonParticipant } from './context/index.js';
 import {
   SeasonParticipantsService,
   type CurrentSeasonParticipantRecord,
