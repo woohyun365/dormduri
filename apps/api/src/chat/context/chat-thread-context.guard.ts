@@ -5,7 +5,7 @@ import {
   type ChatThreadMemberContextRequirement,
   type DomainContextRequirement,
 } from '../../common/domain-context/domain-context.decorator.js';
-import { badRequestError, unauthorizedError } from '../../common/http/api-error.js';
+import { badRequestError, unauthorizedError } from '../../platform/http/api-error.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import { ChatThreadContextResolver } from './chat-thread-context.resolver.js';
 import {

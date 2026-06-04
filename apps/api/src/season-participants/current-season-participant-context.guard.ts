@@ -6,8 +6,8 @@ import {
   type CurrentSeasonParticipantContextRequirement,
   type DomainContextRequirement,
 } from '../common/domain-context/domain-context.decorator.js';
-import { forbiddenError, unauthorizedError } from '../common/http/api-error.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { forbiddenError, unauthorizedError } from '../platform/http/api-error.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import { SeasonParticipantsService } from './season-participants.service.js';
 import {
   setCurrentSeasonParticipantContext,

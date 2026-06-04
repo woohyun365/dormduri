@@ -8,7 +8,10 @@ import type {
 } from '@repo/shared/user-contract';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
-import { PrismaService, RetentionWorkerPrismaService } from '../common/prisma/prisma.service.js';
+import {
+  PrismaService,
+  RetentionWorkerPrismaService,
+} from '../platform/database/prisma.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
 import {

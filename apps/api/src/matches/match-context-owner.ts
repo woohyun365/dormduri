@@ -1,4 +1,4 @@
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import type {
   CurrentSeasonParticipantRecord,

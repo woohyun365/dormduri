@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { forbiddenError, unauthorizedError } from '../../common/http/api-error.js';
+import { forbiddenError, unauthorizedError } from '../../platform/http/api-error.js';
 import {
   AUTH_ACCESS_METADATA_KEY,
   AUTH_REQUIRED_CAPABILITIES_METADATA_KEY,

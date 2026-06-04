@@ -3,8 +3,8 @@ import { createMatchRequestSchema } from '@repo/shared/match-contract';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { forbiddenError } from '../common/http/api-error.js';
-import { parseRequestBody } from '../common/http/zod-request.js';
+import { forbiddenError } from '../platform/http/api-error.js';
+import { parseRequestBody } from '../platform/http/zod-request.js';
 import {
   ActiveMatchContext,
   RequireActiveMatchParticipant,

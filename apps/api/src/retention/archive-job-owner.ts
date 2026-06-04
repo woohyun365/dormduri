@@ -5,7 +5,7 @@ import type {
   LegalHoldReason,
   RetentionCaseReason,
 } from '../generated/prisma/enums.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../common/deidentification/deidentified-display.owner.js';
 import {
   ensureRetentionCaseTx,

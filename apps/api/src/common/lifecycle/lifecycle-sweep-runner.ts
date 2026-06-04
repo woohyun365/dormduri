@@ -2,7 +2,7 @@ import type { ChatLifecycleSweepPort } from '../../chat/application/ports/chat-l
 import type { MatchesService } from '../../matches/matches.service.js';
 import type { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
 import type { UsersService } from '../../users/users.service.js';
-import type { ManagedPrismaClient, PrismaService } from '../prisma/prisma.service.js';
+import type { ManagedPrismaClient, PrismaService } from '../../platform/database/prisma.service.js';
 import type { RetentionObservabilityService } from '../../retention/retention-observability.js';
 import type { LifecycleSweepResult } from './lifecycle-sweep.service.js';
 import type { AuthOperationalCleanupService } from '../../auth/operations/auth-operational-cleanup.service.js';

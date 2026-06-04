@@ -2,7 +2,7 @@ import {
   OpaqueTokenError,
   signOpaqueHmacToken,
   verifyOpaqueHmacToken,
-} from '../../common/security/opaque-hmac-token.js';
+} from '../../platform/security/opaque-hmac-token.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
 export const CHAT_THREAD_LIST_CURSOR_HMAC_SECRET_ENV = 'CHAT_THREAD_LIST_CURSOR_HMAC_SECRET';

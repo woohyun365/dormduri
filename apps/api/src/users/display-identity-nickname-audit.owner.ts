@@ -4,7 +4,7 @@ import type {
   DisplayIdentityNicknameChangeReason,
   DisplayIdentityNicknameChangeSource,
 } from '../generated/prisma/enums.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 
 type DisplayIdentityNicknameAuditClient =
   | Pick<PrismaService, 'userDisplayIdentityNicknameChangeEvent'>

@@ -5,8 +5,8 @@ import {
   type ActiveMatchParticipantContextRequirement,
   type DomainContextRequirement,
 } from '../common/domain-context/domain-context.decorator.js';
-import { badRequestError, unauthorizedError } from '../common/http/api-error.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { badRequestError, unauthorizedError } from '../platform/http/api-error.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import { matchesErrors } from './matches.errors.js';
 import {
   setActiveMatchContext,

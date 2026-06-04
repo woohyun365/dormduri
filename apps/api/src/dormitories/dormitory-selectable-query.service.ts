@@ -3,7 +3,7 @@ import type { SelectableDormitory } from '@repo/shared/season-contract';
 import { toDateOnlyString } from '@repo/shared/date-primitives';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { Campus, DormitoryGenderPolicy, Gender } from '../generated/prisma/enums.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import { formatKstDate } from '../seasons/season.utils.js';
 

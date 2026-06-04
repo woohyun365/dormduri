@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
-import { PrismaModule } from '../common/prisma/prisma.module.js';
+import { PrismaModule } from '../platform/database/prisma.module.js';
 import chatRealtimeConfig from '../config/chat-realtime.config.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { NOTIFICATION_REALTIME_PUBLISHER } from '../notifications/notifications.tokens.js';

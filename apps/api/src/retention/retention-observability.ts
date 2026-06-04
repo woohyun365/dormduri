@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ManagedPrismaClient } from '../common/prisma/prisma.service.js';
+import type { ManagedPrismaClient } from '../platform/database/prisma.service.js';
 import type { LifecycleSweepResult } from '../common/lifecycle/lifecycle-sweep.service.js';
 
 export type RetentionMetricName =

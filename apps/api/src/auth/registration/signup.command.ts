@@ -12,11 +12,11 @@ import {
   consumeVerifiedCodeOrThrow,
   SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
 } from '../verification/auth-verification-proof.js';
-import type { PrismaService } from '../../common/prisma/prisma.service.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   isPrismaKnownRequestError,
   prismaErrorTargetIncludes,
-} from '../../common/prisma/prisma-error.js';
+} from '../../platform/database/prisma-error.js';
 
 interface AuthSignupOwnerDeps {
   prisma: PrismaService;

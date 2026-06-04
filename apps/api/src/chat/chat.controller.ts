@@ -18,8 +18,8 @@ import {
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { forbiddenError, unauthorizedError } from '../common/http/api-error.js';
-import { parseRequestBody } from '../common/http/zod-request.js';
+import { forbiddenError, unauthorizedError } from '../platform/http/api-error.js';
+import { parseRequestBody } from '../platform/http/zod-request.js';
 import { ChatThread, RequireChatThreadMember } from './context/chat-thread-context.decorator.js';
 import type { ChatThreadContext } from './context/chat-thread-context.types.js';
 import { ChatRealtimeMetricsService } from './realtime/chat-realtime.metrics.js';

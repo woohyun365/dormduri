@@ -1,4 +1,4 @@
-import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import { ProfilesService } from '../../src/profiles/profiles.service.js';
 import { RoommateSearchService } from '../../src/profiles/roommate-search.service.js';

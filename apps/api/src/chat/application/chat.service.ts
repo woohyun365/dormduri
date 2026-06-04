@@ -13,7 +13,7 @@ import type {
 } from '@repo/shared/chat-contract';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   CHAT_THREAD_NOTIFICATION_WRITER,
   type ChatThreadNotificationWriter,

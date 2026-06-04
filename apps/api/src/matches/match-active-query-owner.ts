@@ -1,5 +1,5 @@
 import type { ActiveMatchSummary } from '@repo/shared/match-contract';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { matchesErrors } from './matches.errors.js';
 import { toActiveMatchSummary, toDetailedActiveMatchSummary } from './match-read-model.js';

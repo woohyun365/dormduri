@@ -1,7 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../../src/app.module.js';
-import { PrismaService } from '../../../src/common/prisma/prisma.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 
 export interface IntegrationAppContext {
   app: INestApplication;

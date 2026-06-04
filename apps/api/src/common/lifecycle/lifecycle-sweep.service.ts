@@ -22,7 +22,10 @@ import {
   BOUNDARY_JOB_PREFIX,
 } from './lifecycle-boundary-job-builder.js';
 import { createLifecycleSweepRunner } from './lifecycle-sweep-runner.js';
-import { PrismaService, RetentionWorkerPrismaService } from '../prisma/prisma.service.js';
+import {
+  PrismaService,
+  RetentionWorkerPrismaService,
+} from '../../platform/database/prisma.service.js';
 import { RetentionObservabilityService } from '../../retention/retention-observability.js';
 import { AuthOperationalCleanupService } from '../../auth/operations/auth-operational-cleanup.service.js';
 

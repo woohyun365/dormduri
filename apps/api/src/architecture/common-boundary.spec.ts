@@ -6,8 +6,8 @@ const apiSourceRoot = join(apiRoot, 'src');
 const commonRoot = join(apiSourceRoot, 'common');
 const platformRoot = join(apiSourceRoot, 'platform');
 
-const temporaryRuntimeCommonAllowlist = ['http', 'prisma', 'security'] as const;
 const removedTestOnlyCommonOwners = ['architecture', 'contracts', 'reference'] as const;
+const removedPlatformCommonOwners = ['http', 'prisma', 'security'] as const;
 
 const knownCommonRemovalTargets = {
   'account-identity-invariant.owner.ts': 'identity/account-identity-invariant',
@@ -32,7 +32,7 @@ const forbiddenPlatformDomainDirectories = [
   'users',
 ] as const;
 
-const allowedGlobalModules = ['src/common/prisma/prisma.module.ts'] as const;
+const allowedGlobalModules = ['src/platform/database/prisma.module.ts'] as const;
 const knownBusinessGlobalViolations = ['src/common/moderation/moderation.module.ts'] as const;
 
 function walkTypeScriptFiles(root: string): string[] {
@@ -73,14 +73,11 @@ function filesContaining(root: string, pattern: RegExp) {
 }
 
 describe('api common final structure boundary', () => {
-  it('locks runtime common to temporary platform allowlist plus explicit final-removal targets', () => {
+  it('locks runtime common to explicit final-removal targets', () => {
     const actualRuntimeOwners = [
       ...new Set(productionTypeScriptFiles(commonRoot).map(commonTopLevelOwner)),
     ].sort();
-    const expectedRuntimeOwners = [
-      ...temporaryRuntimeCommonAllowlist,
-      ...Object.keys(knownCommonRemovalTargets),
-    ].sort();
+    const expectedRuntimeOwners = Object.keys(knownCommonRemovalTargets).sort();
 
     expect(actualRuntimeOwners).toEqual(expectedRuntimeOwners);
   });
@@ -88,12 +85,7 @@ describe('api common final structure boundary', () => {
   it('keeps every non-platform common runtime owner mapped to a canonical final owner', () => {
     const undocumentedRuntimeOwners = productionTypeScriptFiles(commonRoot)
       .map(commonTopLevelOwner)
-      .filter(
-        (owner) =>
-          !temporaryRuntimeCommonAllowlist.includes(
-            owner as (typeof temporaryRuntimeCommonAllowlist)[number],
-          ) && !Object.hasOwn(knownCommonRemovalTargets, owner),
-      )
+      .filter((owner) => !Object.hasOwn(knownCommonRemovalTargets, owner))
       .sort();
 
     expect(undocumentedRuntimeOwners).toEqual([]);
@@ -121,6 +113,17 @@ describe('api common final structure boundary', () => {
     expect(
       existsSync(join(apiSourceRoot, 'architecture/reference-data/college-reference-data.spec.ts')),
     ).toBe(true);
+  });
+
+  it('keeps platform-neutral runtime owners out of common after canonicalization', () => {
+    const stalePlatformOwners = removedPlatformCommonOwners
+      .filter((owner) => existsSync(join(commonRoot, owner)))
+      .map((owner) => `src/common/${owner}`);
+
+    expect(stalePlatformOwners).toEqual([]);
+    expect(existsSync(join(apiSourceRoot, 'platform/http/api-error.ts'))).toBe(true);
+    expect(existsSync(join(apiSourceRoot, 'platform/security/opaque-hmac-token.ts'))).toBe(true);
+    expect(existsSync(join(apiSourceRoot, 'platform/database/prisma.module.ts'))).toBe(true);
   });
 
   it('keeps future platform code independent from product-domain imports', () => {

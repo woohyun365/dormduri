@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from '../../common/prisma/prisma.module.js';
+import { PrismaModule } from '../../platform/database/prisma.module.js';
 import { AuthOperationalCleanupRepository } from './auth-operational-cleanup.repository.js';
 import { AuthOperationalCleanupService } from './auth-operational-cleanup.service.js';
 import { AuthOperationalMetricsService } from './auth-operational-metrics.service.js';

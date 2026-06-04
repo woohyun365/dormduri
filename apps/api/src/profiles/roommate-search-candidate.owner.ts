@@ -3,7 +3,7 @@ import type {
   RoommateSearchQuery,
   RoommateSearchScope,
 } from '@repo/shared/roommate-search-contract';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { currentSeasonParticipantSelect } from '../season-participants/season-participant-records.js';
 import {

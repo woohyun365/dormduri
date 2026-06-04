@@ -1,7 +1,7 @@
 import type { PublicProfile, PublicProfileTombstoneReason } from '@repo/shared/profile-contract';
 import { isSeasonProfileComplete, type LifestyleData } from '@repo/shared/lifestyle';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import { resolveProfileDisplayName } from '../common/deidentification/deidentified-display.owner.js';
 import type { MatchesService } from '../matches/matches.service.js';
 import { shouldExposePublicMatchScore } from '../matches/match-score-projection.js';

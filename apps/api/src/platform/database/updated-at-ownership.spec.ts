@@ -9,6 +9,19 @@ const LOGIN_ATTEMPT_SQL_PATH = path.resolve(
   CURRENT_DIR,
   '../../../prisma/sql/recordLoginFailure.sql',
 );
+const SQL_WRITE_FILES = [
+  'claimChatRealtimeOutboxEvents.sql',
+  'claimNotificationOutboxEvents.sql',
+  'consumeVerificationCodeProof.sql',
+  'markVerificationCodeVerified.sql',
+  'recordLoginFailure.sql',
+  'recordVerificationCodeFailure.sql',
+] as const;
+const UPDATED_AT_OWNED_WRITE_SQL_FILES = [
+  'claimChatRealtimeOutboxEvents.sql',
+  'claimNotificationOutboxEvents.sql',
+  'recordLoginFailure.sql',
+] as const;
 
 describe('updatedAt ownership coverage', () => {
   const schema = readFileSync(SCHEMA_PATH, 'utf8');
@@ -41,12 +54,22 @@ describe('updatedAt ownership coverage', () => {
     expect(loginAttemptSql).toContain('"updatedAt" = NOW()');
   });
 
-  it('현재 runtime raw SQL write 파일 목록은 recordLoginFailure.sql 하나로 고정된다', () => {
+  it('updatedAt 모델을 쓰는 raw SQL은 SQL이 직접 updatedAt를 세팅한다', () => {
+    const missingUpdatedAtWrites = UPDATED_AT_OWNED_WRITE_SQL_FILES.filter((fileName) => {
+      const content = readFileSync(path.join(SQL_DIR_PATH, fileName), 'utf8');
+
+      return !/"updatedAt"\s*=\s*(NOW\(\)|\$\d+)/.test(content);
+    });
+
+    expect(missingUpdatedAtWrites).toEqual([]);
+  });
+
+  it('현재 runtime raw SQL write 파일 목록을 명시적으로 고정한다', () => {
     const writeSqlFiles = readdirSync(SQL_DIR_PATH).filter((fileName) => {
       const content = readFileSync(path.join(SQL_DIR_PATH, fileName), 'utf8');
       return /^\s*(INSERT INTO|UPDATE)\b/m.test(content);
     });
 
-    expect(writeSqlFiles.sort()).toEqual(['recordLoginFailure.sql']);
+    expect(writeSqlFiles.sort()).toEqual([...SQL_WRITE_FILES].sort());
   });
 });

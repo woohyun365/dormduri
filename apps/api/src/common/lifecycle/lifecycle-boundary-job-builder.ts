@@ -1,6 +1,6 @@
 import { toDateOnlyString } from '@repo/shared/date-primitives';
 import { subtractDays } from '../../seasons/season.utils.js';
-import type { PrismaService } from '../prisma/prisma.service.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
 
 export const BOUNDARY_JOB_PREFIX = 'lifecycle-boundary';
 

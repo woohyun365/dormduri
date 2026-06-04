@@ -5,11 +5,13 @@ Status: temporary migration bucket for
 
 Do not add new runtime files under `apps/api/src/common`.
 
-Allowed temporary runtime owners:
+Moved platform runtime owners:
 
 - `http/` → `platform/http`
 - `prisma/` → `platform/database`
 - `security/` → `platform/security`
+
+Do not recreate `http/`, `prisma/`, or `security/` under `apps/api/src/common`.
 
 Known final-removal targets:
 

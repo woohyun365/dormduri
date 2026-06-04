@@ -1,5 +1,5 @@
 import type { SeasonProfileDraftRequest } from '@repo/shared/season-contract';
-import type { PrismaService } from '../../../src/common/prisma/prisma.service.js';
+import type { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import { toCompleteLifestyleColumnData } from '../../../src/common/lifestyle/lifestyle.persistence.js';
 import { formatKstDate, subtractDays } from '../../../src/seasons/season.utils.js';
 

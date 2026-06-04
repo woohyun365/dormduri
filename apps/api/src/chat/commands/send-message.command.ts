@@ -7,7 +7,7 @@ import { buildParticipantPairIdentity } from '../../matches/match.utils.js';
 import {
   isPrismaKnownRequestError,
   prismaErrorTargetIncludes,
-} from '../../common/prisma/prisma-error.js';
+} from '../../platform/database/prisma-error.js';
 import type { ChatUserContext } from '../application/chat-user-context.service.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';

@@ -7,7 +7,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { notificationCreatedRealtimeEventSchema } from '@repo/shared/notification-contract';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
   REALTIME_DISPATCH_METRICS_PORT,

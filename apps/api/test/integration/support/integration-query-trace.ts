@@ -1,5 +1,5 @@
 import type { Prisma } from '../../../src/generated/prisma/client.js';
-import type { PrismaService } from '../../../src/common/prisma/prisma.service.js';
+import type { PrismaService } from '../../../src/platform/database/prisma.service.js';
 
 interface QueryTraceState {
   active: boolean;

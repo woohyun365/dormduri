@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import authOperationsConfig from '../../config/auth-operations.config.js';
-import { RetentionWorkerPrismaService } from '../../common/prisma/prisma.service.js';
+import { RetentionWorkerPrismaService } from '../../platform/database/prisma.service.js';
 import {
   AuthOperationalCleanupRepository,
   type AuthCleanupBatchResult,

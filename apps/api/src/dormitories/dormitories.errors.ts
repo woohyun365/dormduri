@@ -1,4 +1,4 @@
-import { notFoundError } from '../common/http/api-error.js';
+import { notFoundError } from '../platform/http/api-error.js';
 
 export const dormitoriesErrors = {
   campusNotFound() {

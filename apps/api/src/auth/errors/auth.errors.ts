@@ -1,4 +1,4 @@
-import { tooManyRequestsError } from '../../common/http/api-error.js';
+import { tooManyRequestsError } from '../../platform/http/api-error.js';
 
 export const authErrors = {
   codeRequestThrottled(retryAfterSeconds: number) {

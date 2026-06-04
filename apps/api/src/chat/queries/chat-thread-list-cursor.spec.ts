@@ -1,4 +1,4 @@
-import { OpaqueTokenError } from '../../common/security/opaque-hmac-token.js';
+import { OpaqueTokenError } from '../../platform/security/opaque-hmac-token.js';
 import {
   buildChatThreadListCursorBoundary,
   createChatThreadListCursorOwner,

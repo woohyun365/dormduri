@@ -3,11 +3,11 @@ import type {
   RequestAccountDeletion,
 } from '@repo/shared/user-contract';
 import { verifyPasswordHash } from '../auth/application/auth-password-hash.js';
-import { badRequestError, conflictError } from '../common/http/api-error.js';
+import { badRequestError, conflictError } from '../platform/http/api-error.js';
 import type {
   PrismaService,
   RetentionWorkerPrismaService,
-} from '../common/prisma/prisma.service.js';
+} from '../platform/database/prisma.service.js';
 import {
   activateThreadRetentionJobsForArchivedThreads,
   createDeletionArchiveJobsTx,

@@ -1,7 +1,7 @@
 import type { MatchHistoryResponse } from '@repo/shared/match-contract';
 import type { PublicProfile, PublicProfileActionCapabilities } from '@repo/shared/profile-contract';
 import { formatKstDate, subtractDays } from '../seasons/season.utils.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../common/deidentification/deidentified-display.owner.js';
 import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import {

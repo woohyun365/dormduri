@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Campus, Gender } from '../generated/prisma/enums.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import { dormitoriesErrors } from './dormitories.errors.js';
 import {
   DormitorySelectableQueryService,

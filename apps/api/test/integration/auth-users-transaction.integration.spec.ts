@@ -5,7 +5,7 @@ import { signup as signupWithOwner } from '../../src/auth/auth-signup-owner.js';
 import { resetPassword as resetPasswordWithOwner } from '../../src/auth/auth-reset-password-owner.js';
 import { hashPassword, verifyPasswordHash } from '../../src/auth/auth-password.js';
 import { normalizeEmail, normalizeNickname } from '../../src/auth/auth.utils.js';
-import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import type { CurrentUserViewService } from '../../src/users/current-user-view.service.js';
 import { createUserUpdateOwner } from '../../src/users/user-update-owner.js';
 import type { ModerationService } from '../../src/common/moderation/moderation.service.js';

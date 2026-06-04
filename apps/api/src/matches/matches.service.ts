@@ -19,7 +19,7 @@ import {
 } from '../chat/application/ports/chat-match-thread-lifecycle.port.js';
 import { lifestyleColumnSelect } from '../common/lifestyle/lifestyle.persistence.js';
 import { ModerationService } from '../common/moderation/moderation.service.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import { createMatchContextOwner } from './match-context-owner.js';
 import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';

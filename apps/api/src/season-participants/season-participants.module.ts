@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { ChatLifecycleModule } from '../chat/lifecycle/chat-lifecycle.module.js';
-import { PrismaModule } from '../common/prisma/prisma.module.js';
+import { PrismaModule } from '../platform/database/prisma.module.js';
 import { DormitoriesModule } from '../dormitories/dormitories.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import {

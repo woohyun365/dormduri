@@ -1,7 +1,7 @@
 import { formatKstDate, subtractDays } from '../seasons/season.utils.js';
 import { buildParticipantPairIdentity } from './match.utils.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import {
   ROOMMATE_CONDITION_FIELDS,
   CORE_LIFESTYLE_FIELDS,

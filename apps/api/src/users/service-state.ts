@@ -1,7 +1,7 @@
 import type { SeasonState } from '@repo/shared/season-contract';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
 import type { Campus } from '../generated/prisma/enums.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 
 export interface CampusServiceState {

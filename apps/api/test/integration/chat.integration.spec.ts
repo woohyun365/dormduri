@@ -2,7 +2,7 @@ import request from 'supertest';
 import { AuthSessionService } from '../../src/auth/auth-session.service.js';
 import { ChatService } from '../../src/chat/application/chat.service.js';
 import { ChatRealtimeRateLimiterService } from '../../src/chat/realtime/chat-realtime-rate-limiter.service.js';
-import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
