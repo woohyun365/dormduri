@@ -11,18 +11,19 @@ import { ClearLoginFailuresCommand } from './login-attempts/clear-login-failures
 import { GetActiveLoginLockQuery } from './login-attempts/get-active-login-lock.query.js';
 import { LoginAttemptRepository } from './login-attempts/login-attempt.repository.js';
 import { RecordLoginFailureCommand } from './login-attempts/record-login-failure.command.js';
-import { AuthService } from './auth.service.js';
-import { AuthSessionService } from './auth-session.service.js';
+import { AuthService } from './application/auth.service.js';
+import { AuthUseCases } from './application/auth-use-cases.service.js';
+import { AuthSessionService } from './sessions/auth-session.service.js';
 import { AuthSignupValidationService } from './registration/auth-signup-validation.service.js';
 import { AuthVerificationService } from './verification/auth-verification.service.js';
 import { AuthVerificationEligibilityQuery } from './verification/auth-verification-eligibility.query.js';
 import { AuthVerificationStore } from './verification/verification-code.repository.js';
-import { AuthenticatedUserGuard } from './authenticated-user.guard.js';
-import { EMAIL_SENDER } from './email-sender.interface.js';
+import { AuthenticatedUserGuard } from './access/authenticated-user.guard.js';
+import { EMAIL_SENDER } from './adapters/email/email-sender.interface.js';
 import { AuthSecurityEventRepository } from './security-events/auth-security-event.repository.js';
 import { AuthSecurityEventService } from './security-events/auth-security-event.service.js';
-import { MonitoredEmailSenderService } from './monitored-email-sender.service.js';
-import { StubEmailSenderService } from './stub-email-sender.service.js';
+import { MonitoredEmailSenderService } from './adapters/email/monitored-email-sender.service.js';
+import { StubEmailSenderService } from './adapters/email/stub-email-sender.service.js';
 import { AuthActorContextResolver } from './application/auth-actor-context.resolver.js';
 import { AuthSessionRepository } from './sessions/auth-session.repository.js';
 import { CurrentSessionQuery } from './sessions/current-session.query.js';
@@ -48,6 +49,7 @@ import { RevokeSessionsCommand } from './sessions/revoke-sessions.command.js';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AuthUseCases,
     AuthVerificationService,
     AuthVerificationEligibilityQuery,
     AuthVerificationStore,

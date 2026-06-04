@@ -1,4 +1,4 @@
-import type { Campus, Gender } from '../generated/prisma/enums.js';
+import type { Campus, Gender } from '../../generated/prisma/enums.js';
 import type { CollegeCode } from '@repo/shared/college-contract';
 import type {
   ChangePasswordResponse,

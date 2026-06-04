@@ -1,11 +1,11 @@
-import type { LoginResult, SignupInput } from '../auth.types.js';
-import { isKnuEmail, normalizeEmail, normalizeNickname } from '../auth.utils.js';
+import type { LoginResult, SignupInput } from '../domain/auth.types.js';
+import { isKnuEmail, normalizeEmail, normalizeNickname } from '../domain/auth.utils.js';
 import type { AuthVerificationService } from '../verification/auth-verification.service.js';
-import type { AuthSessionService } from '../auth-session.service.js';
-import { toLoginSuccessResult } from '../auth-response.builder.js';
-import { toAuthSessionUserSummary } from '../auth-user-view.js';
+import type { AuthSessionService } from '../sessions/auth-session.service.js';
+import { toLoginSuccessResult } from '../mappers/auth-response.builder.js';
+import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
 import type { AuthSignupValidationService } from './auth-signup-validation.service.js';
-import { authFailures } from '../auth-failures.js';
+import { authFailures } from '../errors/auth-failures.js';
 import { hashPassword } from '../credentials/auth-password.js';
 import {
   acquireVerificationCodePurposeLock,

@@ -1,4 +1,4 @@
-import type { GenericSuccessResult, LoginResult } from '../auth.types.js';
+import type { GenericSuccessResult, LoginResult } from '../domain/auth.types.js';
 import type { SignupDraftValidationFieldErrors } from '@repo/shared/auth-response';
 
 interface AuthFailureOptions {

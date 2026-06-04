@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { LoginResult } from '../auth.types.js';
-import type { AuthRequestContext } from '../auth-request-context.js';
+import type { LoginResult } from '../domain/auth.types.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { ClearLoginFailuresCommand } from './clear-login-failures.command.js';
 import { GetActiveLoginLockQuery } from './get-active-login-lock.query.js';
 import { RecordLoginFailureCommand } from './record-login-failure.command.js';

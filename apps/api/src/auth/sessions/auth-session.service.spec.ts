@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import { AuthSessionService } from './auth-session.service.js';
-import { AuthSessionRepository } from './sessions/auth-session.repository.js';
-import { CurrentSessionQuery } from './sessions/current-session.query.js';
-import { IssueSessionCommand } from './sessions/issue-session.command.js';
-import { LogoutSessionCommand } from './sessions/logout-session.command.js';
-import { RenewSessionCommand } from './sessions/renew-session.command.js';
-import { RevokeSessionsCommand } from './sessions/revoke-sessions.command.js';
-import type { AuthSecurityEventInput } from './auth-security-event.types.js';
+import { AuthSessionRepository } from './auth-session.repository.js';
+import { CurrentSessionQuery } from './current-session.query.js';
+import { IssueSessionCommand } from './issue-session.command.js';
+import { LogoutSessionCommand } from './logout-session.command.js';
+import { RenewSessionCommand } from './renew-session.command.js';
+import { RevokeSessionsCommand } from './revoke-sessions.command.js';
+import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
 
 function hashTokenForTest(token: string) {
   return createHash('sha256').update(token).digest('hex');

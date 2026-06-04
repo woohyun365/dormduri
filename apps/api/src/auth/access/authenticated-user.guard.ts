@@ -10,7 +10,10 @@ import type { AuthCapability } from './auth-capability.js';
 import { resolveBearerAuthToken } from './auth-token.js';
 import { AuthActorContextResolver } from '../application/auth-actor-context.resolver.js';
 import type { AuthenticatedRequest } from '../application/auth-actor-context.types.js';
-import { hasAuthRequestContext, resolveAuthRequestContext } from '../auth-request-context.js';
+import {
+  hasAuthRequestContext,
+  resolveAuthRequestContext,
+} from '../domain/auth-request-context.js';
 
 @Injectable()
 export class AuthenticatedUserGuard implements CanActivate {

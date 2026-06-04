@@ -1,10 +1,10 @@
 import { RequestMethod } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
-import { AUTH_CAPABILITIES } from './auth-capability.js';
+import { AUTH_CAPABILITIES } from './access/auth-capability.js';
 import {
   AUTH_ACCESS_METADATA_KEY,
   AUTH_REQUIRED_CAPABILITIES_METADATA_KEY,
-} from './auth-access.decorator.js';
+} from './access/auth-access.decorator.js';
 import { ChatController } from '../chat/chat.controller.js';
 import { DormitoriesController } from '../dormitories/dormitories.controller.js';
 import { HealthController } from '../health/health.controller.js';

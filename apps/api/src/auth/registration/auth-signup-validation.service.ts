@@ -10,8 +10,8 @@ import {
   normalizeNickname,
   validateNicknameFormat,
   validatePasswordPolicy,
-} from '../auth.utils.js';
-import { authFailures } from '../auth-failures.js';
+} from '../domain/auth.utils.js';
+import { authFailures } from '../errors/auth-failures.js';
 
 @Injectable()
 export class AuthSignupValidationService {

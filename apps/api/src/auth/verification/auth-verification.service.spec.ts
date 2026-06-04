@@ -1,7 +1,7 @@
 import type { ConfigType } from '@nestjs/config';
 import { AuthVerificationService } from './auth-verification.service.js';
-import { VERIFICATION_CODE_MAX_ATTEMPTS } from '../auth.constants.js';
-import { hashVerificationCode } from '../auth.utils.js';
+import { VERIFICATION_CODE_MAX_ATTEMPTS } from '../domain/auth.constants.js';
+import { hashVerificationCode } from '../domain/auth.utils.js';
 import authConfig, { DEFAULT_VERIFICATION_CODE_HMAC_SECRET } from '../../config/auth.config.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
 

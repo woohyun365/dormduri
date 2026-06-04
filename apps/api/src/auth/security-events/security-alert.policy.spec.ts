@@ -1,7 +1,7 @@
 import {
   AUTH_SECURITY_ALERT_KINDS,
   evaluateAuthSecurityEventAlerts,
-} from './auth-security-alert.policy.js';
+} from './security-alert.policy.js';
 
 describe('auth security alert policy', () => {
   it('동일 email dimension의 login failure spike를 step-up/CAPTCHA 후보 trigger로 계산한다', () => {

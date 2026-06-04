@@ -1,5 +1,5 @@
 import { MonitoredEmailSenderService } from './monitored-email-sender.service.js';
-import type { AuthSecurityEventInput } from './auth-security-event.types.js';
+import type { AuthSecurityEventInput } from '../../security-events/auth-security-event.types.js';
 
 describe('MonitoredEmailSenderService', () => {
   const delegate = {

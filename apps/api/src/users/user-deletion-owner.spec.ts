@@ -1,4 +1,4 @@
-import { hashPassword } from '../auth/auth-password.js';
+import { hashPassword } from '../auth/application/auth-password-hash.js';
 import type { PrismaService } from '../common/prisma/prisma.service.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { createUserDeletionOwner } from './user-deletion-owner.js';

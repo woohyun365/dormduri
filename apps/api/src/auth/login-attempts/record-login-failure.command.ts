@@ -1,6 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
-import type { LoginResult } from '../auth.types.js';
-import type { AuthRequestContext } from '../auth-request-context.js';
+import type { LoginResult } from '../domain/auth.types.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,

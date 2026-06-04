@@ -4,8 +4,8 @@ import {
   AUTH_ACCESS_TOKEN_TTL_SECONDS,
   AUTH_SESSION_REMEMBER_ME_TTL_SECONDS,
   AUTH_SESSION_TTL_SECONDS,
-} from '../auth.constants.js';
-import type { AuthSessionIssueResult } from '../auth.types.js';
+} from '../domain/auth.constants.js';
+import type { AuthSessionIssueResult } from '../domain/auth.types.js';
 import { createOpaqueToken, hashOpaqueToken } from './opaque-token.js';
 import { AuthSessionRepository } from './auth-session.repository.js';
 

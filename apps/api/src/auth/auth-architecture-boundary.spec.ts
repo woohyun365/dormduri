@@ -7,7 +7,7 @@ const authRoot = join(apiSourceRoot, 'auth');
 
 const finalRootProductionFiles = ['auth.controller.ts', 'auth.module.ts'];
 
-const transitionRootCompatibilityFiles = [
+const removedRootCompatibilityFiles = [
   'auth-access.decorator.ts',
   'auth-password.ts',
   'auth-capability.ts',
@@ -34,15 +34,12 @@ const transitionRootCompatibilityFiles = [
   'email-sender.interface.ts',
   'monitored-email-sender.service.ts',
   'stub-email-sender.service.ts',
-];
-
-const transitionRootImplementationFiles = [
   'auth-request-context.ts',
   'auth-session.service.ts',
   'auth.constants.ts',
   'auth.types.ts',
   'auth.utils.ts',
-];
+] as const;
 
 function walkTypeScriptFiles(root: string): string[] {
   if (!existsSync(root)) {
@@ -96,7 +93,6 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'access',
       'adapters',
       'application',
-      'controllers',
       'credentials',
       'domain',
       'errors',
@@ -131,13 +127,13 @@ describe('Phase 8/9 auth architecture boundary', () => {
     const missingSessionSliceFiles = expectedSessionSliceFiles.filter(
       (file) => !existsSync(join(authRoot, 'sessions', file)),
     );
-    const rootSessionService = readSource(join(authRoot, 'auth-session.service.ts'));
+    const sessionService = readSource(join(authRoot, 'sessions/auth-session.service.ts'));
 
     expect(missingSessionSliceFiles).toEqual([]);
-    expect(rootSessionService).not.toContain('PrismaService');
-    expect(rootSessionService).not.toContain('createOpaqueToken');
-    expect(rootSessionService).not.toContain('parseOpaqueToken');
-    expect(rootSessionService).not.toContain('recordAuthSecurityEventSafely');
+    expect(sessionService).not.toContain('PrismaService');
+    expect(sessionService).not.toContain('createOpaqueToken');
+    expect(sessionService).not.toContain('parseOpaqueToken');
+    expect(sessionService).not.toContain('recordAuthSecurityEventSafely');
   });
 
   it('keeps session repository transaction-aware paths explicit', () => {
@@ -210,7 +206,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
 
   it('keeps external production code away from auth internal implementation directories', () => {
     const forbiddenAuthInternalImports =
-      /from\s+['"].*(?:\.\.\/)+auth\/(?:commands|repositories|domain|policies|adapters|sessions|verification|credentials|registration)(?:\/[^'"]*)?(?:\.js)?['"]/;
+      /from\s+['"].*(?:\.\.\/)+auth\/(?:commands|repositories|domain|policies|adapters|sessions|verification|credentials|registration|login-attempts|security-events)(?:\/[^'"]*)?(?:\.js)?['"]/;
 
     const externalSourceRoots = readdirSync(apiSourceRoot, { withFileTypes: true })
       .filter((entry) => entry.isDirectory() && entry.name !== 'auth' && entry.name !== 'generated')
@@ -223,54 +219,12 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('keeps root compatibility wrappers thin while imports migrate gradually', () => {
-    const expectedWrappers: Record<string, string> = {
-      'auth-access.decorator.ts': "export * from './access/auth-access.decorator.js';\n",
-      'auth-capability.ts': "export * from './access/auth-capability.js';\n",
-      'authenticated-user.decorator.ts':
-        "export * from './access/authenticated-user.decorator.js';\n",
-      'authenticated-user.guard.ts': "export * from './access/authenticated-user.guard.js';\n",
-      'auth.controller.ts': "export * from './controllers/auth.controller.js';\n",
-      'auth.service.ts': "export * from './application/auth.service.js';\n",
-      'auth-signup-owner.ts': "export * from './registration/signup.command.js';\n",
-      'auth-login-owner.ts': "export * from './credentials/login.command.js';\n",
-      'auth-login-attempt.service.ts':
-        "export * from './login-attempts/auth-login-attempt.service.js';\n",
-      'auth-reset-password-owner.ts': "export * from './credentials/reset-password.command.js';\n",
-      'auth-change-password-owner.ts':
-        "export * from './credentials/change-password.command.js';\n",
-      'auth-password.ts': "export * from './credentials/auth-password.js';\n",
-      'auth-signup-validation.service.ts':
-        "export * from './registration/auth-signup-validation.service.js';\n",
-      'auth-verification-lock.ts': "export * from './verification/auth-verification-lock.js';\n",
-      'auth-verification-proof.ts': "export * from './verification/auth-verification-proof.js';\n",
-      'auth-verification.service.ts':
-        "export * from './verification/auth-verification.service.js';\n",
-      'auth-verification.store.ts':
-        "export * from './verification/verification-code.repository.js';\n",
-      'email-sender.interface.ts': "export * from './adapters/email/email-sender.interface.js';\n",
-      'stub-email-sender.service.ts':
-        "export * from './adapters/email/stub-email-sender.service.js';\n",
-      'monitored-email-sender.service.ts':
-        "export * from './adapters/email/monitored-email-sender.service.js';\n",
-      'auth-security-alert.policy.ts':
-        "export * from './security-events/security-alert.policy.js';\n",
-      'auth-security-event.service.ts':
-        "export * from './security-events/auth-security-event.service.js';\n",
-      'auth-security-event.types.ts':
-        "export * from './security-events/auth-security-event.types.js';\n",
-      'auth-response.builder.ts': "export * from './mappers/auth-response.builder.js';\n",
-      'auth-user-view.ts': "export * from './mappers/auth-user-view.js';\n",
-      'auth-failures.ts': "export * from './errors/auth-failures.js';\n",
-      'auth.errors.ts': "export * from './errors/auth.errors.js';\n",
-    };
+  it('removes root compatibility wrappers after imports migrate to stable surfaces', () => {
+    const remainingRemovedRootFiles = removedRootCompatibilityFiles
+      .filter((file) => existsSync(join(authRoot, file)))
+      .map((file) => `src/auth/${file}`);
 
-    const mismatches = Object.entries(expectedWrappers).flatMap(([file, expectedSource]) => {
-      const source = readSource(join(authRoot, file));
-      return source === expectedSource ? [] : [file];
-    });
-
-    expect(mismatches).toEqual([]);
+    expect(remainingRemovedRootFiles).toEqual([]);
   });
 
   it('keeps auth free of season profile lifestyle parser ownership', () => {
@@ -294,11 +248,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
   });
 
   it('keeps the final root production file target explicit with shrinking transition debt', () => {
-    const allowedTransitionRootFiles = [
-      ...finalRootProductionFiles,
-      ...transitionRootCompatibilityFiles,
-      ...transitionRootImplementationFiles,
-    ].sort();
+    const allowedTransitionRootFiles = [...finalRootProductionFiles].sort();
     const rootFiles = rootProductionFileNames(authRoot);
     const unexpectedRootFiles = rootFiles.filter(
       (file) => !allowedTransitionRootFiles.includes(file),
@@ -309,6 +259,21 @@ describe('Phase 8/9 auth architecture boundary', () => {
 
     expect(unexpectedRootFiles).toEqual([]);
     expect(staleTransitionAllowlist).toEqual([]);
+  });
+
+  it('keeps root-level specs limited to final controller and architecture inventory guards', () => {
+    const allowedRootSpecFiles = [
+      'auth-architecture-boundary.spec.ts',
+      'auth-route-metadata.inventory.spec.ts',
+      'auth.controller.spec.ts',
+      'domain-context-route-metadata.inventory.spec.ts',
+    ];
+    const rootSpecFiles = walkTypeScriptFiles(authRoot)
+      .filter((path) => dirname(path) === authRoot && path.endsWith('.spec.ts'))
+      .map((path) => basename(path))
+      .sort();
+
+    expect(rootSpecFiles).toEqual(allowedRootSpecFiles.sort());
   });
 
   it('keeps AuthService final-facade migration debt explicit', () => {
@@ -326,14 +291,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
       .filter(([, forbidden]) => forbidden.test(source))
       .map(([label]) => label);
 
-    expect(offenders).toEqual([
-      'PrismaService dependency',
-      'command Prisma dependency forwarding',
-      'session internals dependency',
-      'verification internals dependency',
-      'login-attempt internals dependency',
-      'security-event write dependency',
-    ]);
+    expect(offenders).toEqual([]);
   });
 
   it('keeps external domains on the final public auth import surface or explicit transition surface', () => {
@@ -341,10 +299,9 @@ describe('Phase 8/9 auth architecture boundary', () => {
       /(?:^|\/)auth\/auth\.module(?:\.js)?$/,
       /(?:^|\/)auth\/access\/[^'"]+(?:\.js)?$/,
       /(?:^|\/)auth\/application\/auth-actor-context[^'"]*(?:\.js)?$/,
+      /(?:^|\/)auth\/application\/auth-password-hash(?:\.js)?$/,
     ];
     const transitionAllowedExternalAuthImports = [
-      /(?:^|\/)auth\/auth-password(?:\.js)?$/,
-      /(?:^|\/)auth\/auth\.utils(?:\.js)?$/,
       /(?:^|\/)auth\/operations\/auth-operational-cleanup\.service(?:\.js)?$/,
       /(?:^|\/)auth\/operations\/auth-operations-health\.service(?:\.js)?$/,
       /(?:^|\/)auth\/operations\/auth-operations\.module(?:\.js)?$/,
@@ -373,7 +330,7 @@ describe('Phase 8/9 auth architecture boundary', () => {
   });
 
   it('keeps optional auth controller routes away from direct Authorization header parsing', () => {
-    const source = readSource(join(authRoot, 'controllers/auth.controller.ts'));
+    const source = readSource(join(authRoot, 'auth.controller.ts'));
 
     expect(source).not.toContain("@Headers('authorization')");
     expect(source).not.toContain('headers.authorization');

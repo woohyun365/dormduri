@@ -1,0 +1,209 @@
+import { Injectable } from '@nestjs/common';
+import type {
+  GenericSuccessResult,
+  ChangePasswordResult,
+  LoginResult,
+  RenewSessionResult,
+  SessionStatusResult,
+  SignupInput,
+} from '../domain/auth.types.js';
+import { isKnuEmail, normalizeEmail } from '../domain/auth.utils.js';
+import { AuthVerificationService } from '../verification/auth-verification.service.js';
+import { AuthVerificationEligibilityQuery } from '../verification/auth-verification-eligibility.query.js';
+import { AuthSessionService } from '../sessions/auth-session.service.js';
+import { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
+import { ModerationService } from '../../common/moderation/moderation.service.js';
+import { AuthSignupValidationService } from '../registration/auth-signup-validation.service.js';
+import type { SignupDraftValidationResponse } from '@repo/shared/auth-response';
+import { authFailures } from '../errors/auth-failures.js';
+import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { signup } from '../registration/signup.command.js';
+import { login } from '../credentials/login.command.js';
+import { resetPassword } from '../credentials/reset-password.command.js';
+import { changePassword } from '../credentials/change-password.command.js';
+import type { AuthenticatedUserContext } from '../sessions/auth-session.service.js';
+import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
+import { hasAuthRequestContext, type AuthRequestContext } from '../domain/auth-request-context.js';
+
+@Injectable()
+export class AuthUseCases {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly verificationService: AuthVerificationService,
+    private readonly verificationEligibilityQuery: AuthVerificationEligibilityQuery,
+    private readonly sessionService: AuthSessionService,
+    private readonly loginAttemptService: AuthLoginAttemptService,
+    private readonly moderationService: ModerationService,
+    private readonly signupValidationService: AuthSignupValidationService,
+    private readonly securityEvents: AuthSecurityEventService,
+  ) {}
+
+  async sendSignupCode(
+    email: string,
+    requestIpOrContext: string | null | AuthRequestContext,
+  ): Promise<GenericSuccessResult> {
+    const emailNormalized = normalizeEmail(email);
+    if (!isKnuEmail(emailNormalized)) {
+      return authFailures.invalidKnuEmail();
+    }
+
+    const userExists = await this.verificationEligibilityQuery.signupUserExists(emailNormalized);
+
+    return this.verificationService.maybeSendSignupCode(
+      emailNormalized,
+      userExists,
+      requestIpOrContext,
+    );
+  }
+
+  async sendResetCode(
+    email: string,
+    requestIpOrContext: string | null | AuthRequestContext,
+  ): Promise<GenericSuccessResult> {
+    const emailNormalized = normalizeEmail(email);
+    const resetEligible =
+      await this.verificationEligibilityQuery.passwordResetEligible(emailNormalized);
+    return this.verificationService.maybeSendResetCode(
+      emailNormalized,
+      resetEligible,
+      requestIpOrContext,
+    );
+  }
+
+  async verifyEmailCode(
+    email: string,
+    code: string,
+    requestContext: AuthRequestContext = {},
+  ): Promise<GenericSuccessResult> {
+    if (!hasAuthRequestContext(requestContext)) {
+      return this.verificationService.verifyEmailCode(email, code);
+    }
+    return this.verificationService.verifyEmailCode(email, code, requestContext);
+  }
+
+  async verifyResetCode(
+    email: string,
+    code: string,
+    requestContext: AuthRequestContext = {},
+  ): Promise<GenericSuccessResult> {
+    const emailNormalized = normalizeEmail(email);
+    const resetEligible =
+      await this.verificationEligibilityQuery.passwordResetEligible(emailNormalized);
+
+    if (!resetEligible) {
+      return authFailures.verificationCodeInvalid();
+    }
+
+    if (!hasAuthRequestContext(requestContext)) {
+      return this.verificationService.verifyResetCode(email, code);
+    }
+    return this.verificationService.verifyResetCode(email, code, requestContext);
+  }
+
+  async getSession(
+    token: string | null,
+    requestContext: AuthRequestContext = {},
+  ): Promise<SessionStatusResult> {
+    if (!hasAuthRequestContext(requestContext)) {
+      return this.sessionService.getSession(token);
+    }
+    return this.sessionService.getSession(token, requestContext);
+  }
+
+  async validateSignupDraft(input: {
+    email: string;
+    password: string;
+    nickname: string;
+  }): Promise<SignupDraftValidationResponse> {
+    return this.signupValidationService.validateDraft(input);
+  }
+
+  async signup(input: SignupInput): Promise<LoginResult> {
+    return signup(
+      {
+        prisma: this.prisma,
+        verificationService: this.verificationService,
+        sessionService: this.sessionService,
+        signupValidationService: this.signupValidationService,
+      },
+      input,
+    );
+  }
+
+  async login(
+    email: string,
+    password: string,
+    rememberMe: boolean,
+    requestContext: AuthRequestContext = {},
+  ): Promise<LoginResult> {
+    return login(
+      {
+        prisma: this.prisma,
+        loginAttemptService: this.loginAttemptService,
+        sessionService: this.sessionService,
+        securityEvents: this.securityEvents,
+      },
+      email,
+      password,
+      rememberMe,
+      hasAuthRequestContext(requestContext) ? requestContext : undefined,
+    );
+  }
+
+  async resetPassword(
+    email: string,
+    newPassword: string,
+    requestContext: AuthRequestContext = {},
+  ): Promise<GenericSuccessResult> {
+    return resetPassword(
+      {
+        prisma: this.prisma,
+        verificationService: this.verificationService,
+        securityEvents: this.securityEvents,
+      },
+      email,
+      newPassword,
+      hasAuthRequestContext(requestContext) ? requestContext : undefined,
+    );
+  }
+
+  async changePassword(
+    authUser: AuthenticatedUserContext,
+    currentPassword: string,
+    newPassword: string,
+    requestContext: AuthRequestContext = {},
+  ): Promise<ChangePasswordResult> {
+    return changePassword(
+      {
+        prisma: this.prisma,
+        sessionService: this.sessionService,
+        securityEvents: this.securityEvents,
+      },
+      authUser,
+      currentPassword,
+      newPassword,
+      hasAuthRequestContext(requestContext) ? requestContext : undefined,
+    );
+  }
+
+  async renewSession(
+    renewalToken: string | null,
+    requestContext: AuthRequestContext = {},
+  ): Promise<RenewSessionResult> {
+    if (!hasAuthRequestContext(requestContext)) {
+      return this.sessionService.renewSession(renewalToken);
+    }
+    return this.sessionService.renewSession(renewalToken, requestContext);
+  }
+
+  async logout(
+    token: string | null,
+    renewalToken: string | null = null,
+    requestContext: AuthRequestContext = {},
+  ): Promise<GenericSuccessResult> {
+    if (!hasAuthRequestContext(requestContext)) {
+      return this.sessionService.logout(token, renewalToken);
+    }
+    return this.sessionService.logout(token, renewalToken, requestContext);
+  }
+}

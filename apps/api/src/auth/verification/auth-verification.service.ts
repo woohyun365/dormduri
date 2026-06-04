@@ -8,22 +8,22 @@ import {
   SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
   SIGNUP_VERIFIED_PROOF_TTL_SECONDS,
   VERIFICATION_CODE_MAX_ATTEMPTS,
-} from '../auth.constants.js';
-import { EMAIL_SENDER } from '../email-sender.interface.js';
-import type { EmailSender } from '../email-sender.interface.js';
-import type { GenericSuccessResult } from '../auth.types.js';
+} from '../domain/auth.constants.js';
+import { EMAIL_SENDER } from '../adapters/email/email-sender.interface.js';
+import type { EmailSender } from '../adapters/email/email-sender.interface.js';
+import type { GenericSuccessResult } from '../domain/auth.types.js';
 import {
   ensureMinDuration,
   generateVerificationCode,
   hashVerificationCode,
   normalizeEmail,
   safeTimeEquals,
-} from '../auth.utils.js';
+} from '../domain/auth.utils.js';
 import authConfig from '../../config/auth.config.js';
 import { AuthVerificationStore } from './verification-code.repository.js';
-import { authErrors } from '../auth.errors.js';
-import { authFailures } from '../auth-failures.js';
-import type { AuthRequestContext } from '../auth-request-context.js';
+import { authErrors } from '../errors/auth.errors.js';
+import { authFailures } from '../errors/auth-failures.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,

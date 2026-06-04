@@ -1,7 +1,7 @@
 import { Injectable, Optional } from '@nestjs/common';
-import { AUTH_ACCESS_TOKEN_TTL_SECONDS } from '../auth.constants.js';
-import type { AuthRequestContext } from '../auth-request-context.js';
-import type { RenewSessionResult } from '../auth.types.js';
+import { AUTH_ACCESS_TOKEN_TTL_SECONDS } from '../domain/auth.constants.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
+import type { RenewSessionResult } from '../domain/auth.types.js';
 import { authFailures } from '../errors/auth-failures.js';
 import {
   AuthSecurityEventService,

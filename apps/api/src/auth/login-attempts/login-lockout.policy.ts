@@ -1,6 +1,6 @@
-import { LOGIN_LOCKOUT_ATTEMPTS, LOGIN_LOCKOUT_TTL_SECONDS } from '../auth.constants.js';
-import type { LoginResult } from '../auth.types.js';
-import { authFailures } from '../auth-failures.js';
+import { LOGIN_LOCKOUT_ATTEMPTS, LOGIN_LOCKOUT_TTL_SECONDS } from '../domain/auth.constants.js';
+import type { LoginResult } from '../domain/auth.types.js';
+import { authFailures } from '../errors/auth-failures.js';
 
 export function isLoginLockoutThresholdReached(failureCount: number) {
   return failureCount >= LOGIN_LOCKOUT_ATTEMPTS;

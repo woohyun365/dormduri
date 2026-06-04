@@ -4,17 +4,17 @@ import type {
   GenericSuccessResult,
   RenewSessionResult,
   SessionStatusResult,
-} from './auth.types.js';
-import type { AuthRequestContext } from './auth-request-context.js';
-import { CurrentSessionQuery } from './sessions/current-session.query.js';
-import { IssueSessionCommand } from './sessions/issue-session.command.js';
-import { RenewSessionCommand } from './sessions/renew-session.command.js';
-import { LogoutSessionCommand } from './sessions/logout-session.command.js';
-import type { ResolvedAuthActorContext } from './application/auth-actor-context.types.js';
+} from '../domain/auth.types.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
+import { CurrentSessionQuery } from './current-session.query.js';
+import { IssueSessionCommand } from './issue-session.command.js';
+import { RenewSessionCommand } from './renew-session.command.js';
+import { LogoutSessionCommand } from './logout-session.command.js';
+import type { ResolvedAuthActorContext } from '../application/auth-actor-context.types.js';
 export type {
   AuthenticatedUserContext,
   ResolvedAuthActorContext,
-} from './application/auth-actor-context.types.js';
+} from '../application/auth-actor-context.types.js';
 
 @Injectable()
 export class AuthSessionService {

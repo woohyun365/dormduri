@@ -5,7 +5,7 @@ import {
   getActiveLoginLock,
   recordLoginFailure as recordLoginFailureSql,
 } from '../../generated/prisma/sql.js';
-import { LOGIN_LOCKOUT_ATTEMPTS, LOGIN_LOCKOUT_TTL_SECONDS } from '../auth.constants.js';
+import { LOGIN_LOCKOUT_ATTEMPTS, LOGIN_LOCKOUT_TTL_SECONDS } from '../domain/auth.constants.js';
 
 export interface ActiveLoginLockRecord {
   remainingSeconds: number | null;

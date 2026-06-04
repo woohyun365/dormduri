@@ -1,10 +1,10 @@
 import { Injectable, Optional } from '@nestjs/common';
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
 import { hasUserDisplayIdentity } from '../../common/account-identity-invariant.owner.js';
-import type { AuthSessionUserSummary, SessionStatusResult } from '../auth.types.js';
+import type { AuthSessionUserSummary, SessionStatusResult } from '../domain/auth.types.js';
 import { toAuthenticatedSessionResult } from '../mappers/auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../mappers/auth-user-view.js';
-import type { AuthRequestContext } from '../auth-request-context.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import { SELF_SERVICE_AUTH_CAPABILITIES } from '../access/auth-capability.js';
 import type { ResolvedAuthActorContext } from '../application/auth-actor-context.types.js';
 import {

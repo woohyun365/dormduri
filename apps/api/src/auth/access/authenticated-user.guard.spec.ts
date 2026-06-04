@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { AUTH_CAPABILITIES } from './auth-capability.js';
 import { OptionalAuth, Public, RequireCapability } from './auth-access.decorator.js';
 import { CurrentUser } from './authenticated-user.decorator.js';
-import type { AuthenticatedRequest } from './application/auth-actor-context.types.js';
+import type { AuthenticatedRequest } from '../application/auth-actor-context.types.js';
 import { AuthenticatedUserGuard } from './authenticated-user.guard.js';
 
 class GuardFixtureController {

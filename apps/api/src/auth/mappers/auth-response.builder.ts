@@ -1,4 +1,8 @@
-import type { LoginResult, SessionStatusResult, AuthSessionUserSummary } from '../auth.types.js';
+import type {
+  LoginResult,
+  SessionStatusResult,
+  AuthSessionUserSummary,
+} from '../domain/auth.types.js';
 
 export function toLoginSuccessResult(
   accessToken: string,

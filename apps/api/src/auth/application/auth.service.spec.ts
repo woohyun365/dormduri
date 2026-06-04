@@ -1,6 +1,7 @@
 import { hash as argonHash } from '@node-rs/argon2';
 import { AuthService } from './auth.service.js';
-import type { AuthSecurityEventInput } from './auth-security-event.types.js';
+import { AuthUseCases } from './auth-use-cases.service.js';
+import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
 
 describe('AuthService orchestration', () => {
   const prisma = {
@@ -66,7 +67,7 @@ describe('AuthService orchestration', () => {
     recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
   };
 
-  const service = new AuthService(
+  const useCases = new AuthUseCases(
     prisma as never,
     verificationService as never,
     verificationEligibilityQuery as never,
@@ -76,6 +77,7 @@ describe('AuthService orchestration', () => {
     signupValidationService as never,
     securityEvents as never,
   );
+  const service = new AuthService(useCases);
 
   beforeEach(() => {
     jest.clearAllMocks();

@@ -1,14 +1,17 @@
 import type { ChangePasswordResponse } from '@repo/shared/auth-response';
 import type { PrismaService } from '../../common/prisma/prisma.service.js';
-import type { AuthenticatedUserContext, AuthSessionService } from '../auth-session.service.js';
-import { authFailures } from '../auth-failures.js';
+import type {
+  AuthenticatedUserContext,
+  AuthSessionService,
+} from '../sessions/auth-session.service.js';
+import { authFailures } from '../errors/auth-failures.js';
 import { hashPassword, verifyPasswordHash } from './auth-password.js';
-import { validatePasswordPolicy } from '../auth.utils.js';
+import { validatePasswordPolicy } from '../domain/auth.utils.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
 } from '../security-events/auth-security-event.service.js';
-import type { AuthRequestContext } from '../auth-request-context.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
 
 const CHANGE_PASSWORD_SESSION_UNAVAILABLE =
   '[AuthChangePasswordOwner] current authenticated session unavailable';

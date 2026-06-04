@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CurrentSessionQuery } from '../sessions/current-session.query.js';
-import type { AuthRequestContext } from '../auth-request-context.js';
+import type { AuthRequestContext } from '../domain/auth-request-context.js';
 import type { ResolvedAuthActorContext } from './auth-actor-context.types.js';
 
 @Injectable()
