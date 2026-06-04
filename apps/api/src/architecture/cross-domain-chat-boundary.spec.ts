@@ -49,10 +49,10 @@ describe('Phase 10C cross-domain chat architecture boundary', () => {
     ).toEqual([]);
   });
 
-  it('keeps common lifecycle sweep on the chat lifecycle sweep port', () => {
+  it('keeps lifecycle sweep on the chat lifecycle sweep port', () => {
     expect(
       offendingFiles(
-        join(apiSourceRoot, 'common/lifecycle'),
+        join(apiSourceRoot, 'lifecycle'),
         /from\s+['"].*chat\/application\/chat\.service(?:\.js)?['"]|\bChatService\b/,
       ),
     ).toEqual([]);

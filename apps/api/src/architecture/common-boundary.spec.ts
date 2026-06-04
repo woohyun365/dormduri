@@ -13,7 +13,6 @@ const knownCommonRemovalTargets = {
   'account-identity-invariant.owner.ts': 'identity/account-identity-invariant',
   deidentification: 'privacy/deidentification',
   'domain-context': 'platform/domain-context plus domain-owned requirement types',
-  lifecycle: 'lifecycle or operations/lifecycle',
   lifestyle: 'season-participants/lifestyle',
 } as const;
 
@@ -88,7 +87,6 @@ describe('api common final structure boundary', () => {
 
     expect(undocumentedRuntimeOwners).toEqual([]);
     expect(knownCommonRemovalTargets).toMatchObject({
-      lifecycle: 'lifecycle or operations/lifecycle',
       lifestyle: 'season-participants/lifestyle',
     });
   });
@@ -133,6 +131,24 @@ describe('api common final structure boundary', () => {
     );
 
     expect(filesContaining(platformRoot, forbiddenDomainImport)).toEqual([]);
+  });
+
+  it('keeps lifecycle orchestration outside common and composes domain work through adapters', () => {
+    const lifecycleRoot = join(apiSourceRoot, 'lifecycle');
+    const runnerSource = readSource(join(lifecycleRoot, 'lifecycle-sweep-runner.ts'));
+    const serviceSource = readSource(join(lifecycleRoot, 'lifecycle-sweep.service.ts'));
+    const appModuleSource = readSource(join(apiSourceRoot, 'app.module.ts'));
+
+    expect(existsSync(join(commonRoot, 'lifecycle'))).toBe(false);
+    expect(existsSync(join(lifecycleRoot, 'lifecycle.module.ts'))).toBe(true);
+    expect(appModuleSource).toContain('LifecycleModule');
+    expect(runnerSource).not.toMatch(
+      /MatchesService|UsersService|SeasonParticipantsService|AuthOperationalCleanupService|ChatService/,
+    );
+    expect(serviceSource).not.toMatch(
+      /MatchesService|UsersService|SeasonParticipantsService|AuthOperationalCleanupService|ChatService/,
+    );
+    expect(existsSync(join(lifecycleRoot, 'adapters/lifecycle-sweep-tasks.adapter.ts'))).toBe(true);
   });
 
   it('keeps business @Global() usage banned outside platform database', () => {

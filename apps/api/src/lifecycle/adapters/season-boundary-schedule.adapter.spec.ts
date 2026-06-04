@@ -1,16 +1,17 @@
+import { BOUNDARY_JOB_PREFIX } from '../lifecycle-boundary-schedule.port.js';
 import {
-  BOUNDARY_JOB_PREFIX,
-  createLifecycleBoundaryJobBuilder,
-} from './lifecycle-boundary-job-builder.js';
+  SeasonBoundaryScheduleAdapter,
+  toBoundaryJobsForSeason,
+} from './season-boundary-schedule.adapter.js';
 
-describe('lifecycle-boundary-job-builder', () => {
+describe('SeasonBoundaryScheduleAdapter', () => {
   const prisma = {
     season: {
       findMany: jest.fn(),
     },
   };
 
-  const builder = createLifecycleBoundaryJobBuilder(prisma as never);
+  const adapter = new SeasonBoundaryScheduleAdapter(prisma as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -32,7 +33,7 @@ describe('lifecycle-boundary-job-builder', () => {
       },
     ]);
 
-    const jobs = await builder.buildBoundaryJobs(new Date('2026-05-15T00:00:00+09:00'));
+    const jobs = await adapter.buildBoundaryJobs(new Date('2026-05-15T00:00:00+09:00'));
 
     expect(jobs.map((job) => job.name)).toEqual([
       `${BOUNDARY_JOB_PREFIX}:season-1:matching-start`,
@@ -42,7 +43,7 @@ describe('lifecycle-boundary-job-builder', () => {
   });
 
   it('toBoundaryJobsForSeason은 KST 다음날 경계 이름을 유지한다', () => {
-    const jobs = builder.toBoundaryJobsForSeason(
+    const jobs = toBoundaryJobsForSeason(
       {
         id: 'season-2',
         preparationStartDate: '2026-05-01',

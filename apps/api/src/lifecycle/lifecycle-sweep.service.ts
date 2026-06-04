@@ -8,67 +8,38 @@ import {
 import type { ConfigType } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
+import lifecycleConfig from '../config/lifecycle.config.js';
 import {
-  CHAT_LIFECYCLE_SWEEP_PORT,
-  type ChatLifecycleSweepPort,
-  type ChatLifecycleSweepResult,
-} from '../../chat/application/ports/chat-lifecycle-sweep.port.js';
-import lifecycleConfig from '../../config/lifecycle.config.js';
-import { MatchesService } from '../../matches/matches.service.js';
-import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
-import { UsersService } from '../../users/users.service.js';
-import {
-  createLifecycleBoundaryJobBuilder,
   BOUNDARY_JOB_PREFIX,
-} from './lifecycle-boundary-job-builder.js';
+  type LifecycleBoundarySchedulePort,
+} from './lifecycle-boundary-schedule.port.js';
 import { createLifecycleSweepRunner } from './lifecycle-sweep-runner.js';
 import {
   PrismaService,
   RetentionWorkerPrismaService,
-} from '../../platform/database/prisma.service.js';
-import { RetentionObservabilityService } from '../../retention/retention-observability.js';
-import { AuthOperationalCleanupService } from '../../auth/operations/auth-operational-cleanup.service.js';
+} from '../platform/database/prisma.service.js';
+import { RetentionObservabilityService } from '../retention/retention-observability.js';
+import type { LifecycleSweepTaskPort } from './lifecycle-sweep-task.port.js';
+import { LIFECYCLE_BOUNDARY_SCHEDULE, LIFECYCLE_SWEEP_TASKS } from './lifecycle-sweep.tokens.js';
+import type { LifecycleSweepResult } from './lifecycle-sweep.types.js';
 
 const PERIODIC_INTERVAL_NAME = 'lifecycle-periodic-sweep';
 
-export interface LifecycleSweepResult {
-  ranAt: string;
-  matchTransitions: Awaited<ReturnType<MatchesService['sweepLifecycleTransitions']>>;
-  threadTransitions: ChatLifecycleSweepResult;
-  matchHistory: Awaited<ReturnType<MatchesService['sweepHistoryMaterialization']>>;
-  participantBackfill: Awaited<
-    ReturnType<SeasonParticipantsService['backfillCurrentSeasonParticipants']>
-  >;
-  threadRetentionActivationSweep: Awaited<
-    ReturnType<UsersService['activateThreadRetentionJobsForArchivedThreads']>
-  >;
-  archiveJobSweep: Awaited<ReturnType<UsersService['retryDueDeletionArchiveJobs']>>;
-  retainedIdentityDisposalSweep: Awaited<
-    ReturnType<UsersService['disposeExpiredRetainedIdentities']>
-  >;
-  retentionReviewJobSweep: Awaited<ReturnType<UsersService['retryDueRetentionReviewJobs']>>;
-  retentionAccessLogDisposalSweep: Awaited<
-    ReturnType<UsersService['disposeDueRetentionAccessLogs']>
-  >;
-  authCleanupSweep: Awaited<ReturnType<AuthOperationalCleanupService['runCleanupBatch']>>;
-}
+export type { LifecycleSweepResult } from './lifecycle-sweep.types.js';
 
 @Injectable()
 export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(LifecycleSweepService.name);
   private readonly runner;
-  private readonly boundaryJobBuilder;
   private running = false;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly retentionWorkerPrisma: RetentionWorkerPrismaService,
-    @Inject(CHAT_LIFECYCLE_SWEEP_PORT)
-    private readonly chatLifecycleSweep: ChatLifecycleSweepPort,
-    private readonly matchesService: MatchesService,
-    private readonly seasonParticipantsService: SeasonParticipantsService,
-    private readonly usersService: UsersService,
-    private readonly authOperationalCleanupService: AuthOperationalCleanupService,
+    @Inject(LIFECYCLE_SWEEP_TASKS)
+    lifecycleSweepTasks: readonly LifecycleSweepTaskPort[],
+    @Inject(LIFECYCLE_BOUNDARY_SCHEDULE)
+    private readonly boundarySchedule: LifecycleBoundarySchedulePort,
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly retentionObservability: RetentionObservabilityService,
     @Inject(lifecycleConfig.KEY)
@@ -78,13 +49,9 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
       prisma: this.prisma,
       retentionPrisma: this.retentionWorkerPrisma,
       retentionObservability: this.retentionObservability,
-      chatLifecycleSweep: this.chatLifecycleSweep,
-      matchesService: this.matchesService,
-      seasonParticipantsService: this.seasonParticipantsService,
-      usersService: this.usersService,
-      authOperationalCleanupService: this.authOperationalCleanupService,
+      tasks: lifecycleSweepTasks,
+      logger: this.logger,
     });
-    this.boundaryJobBuilder = createLifecycleBoundaryJobBuilder(this.prisma);
   }
 
   async onApplicationBootstrap() {
@@ -128,7 +95,7 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
     }
 
     const referenceNow = now ?? (await this.prisma.getDatabaseNow());
-    const desiredJobs = await this.boundaryJobBuilder.buildBoundaryJobs(referenceNow);
+    const desiredJobs = await this.boundarySchedule.buildBoundaryJobs(referenceNow);
 
     for (const existingName of this.schedulerRegistry.getCronJobs().keys()) {
       if (!existingName.startsWith(BOUNDARY_JOB_PREFIX)) {

@@ -1,7 +1,7 @@
 import request from 'supertest';
-import { AuthSessionService } from '../../src/auth/auth-session.service.js';
-import { hashPassword } from '../../src/auth/auth-password.js';
-import { LifecycleSweepService } from '../../src/common/lifecycle/lifecycle-sweep.service.js';
+import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
+import { hashPassword } from '../../src/auth/application/auth-password-hash.js';
+import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
 import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';

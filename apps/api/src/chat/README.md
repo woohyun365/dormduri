@@ -8,7 +8,7 @@ Issue #198 실시간 채팅 구현의 서버-side boundary map이다. 이 문서
 
 - `CHAT_MATCH_THREAD_LIFECYCLE_PORT`: match accept/unmatch transaction 안에서 matched/direct thread lifecycle을 갱신한다.
 - `CHAT_THREAD_WITHDRAWAL_PORT`: season participant withdrawal transaction 안에서 open direct thread를 read-only로 전환하고 realtime outbox를 append한다.
-- `CHAT_LIFECYCLE_SWEEP_PORT`: common lifecycle sweep에서 chat thread cutoff/season lifecycle을 수렴한다.
+- `CHAT_LIFECYCLE_SWEEP_PORT`: top-level lifecycle sweep에서 chat thread cutoff/season lifecycle을 수렴한다.
 - `REALTIME_*_PORT`: notification/health 등 외부 domain은 chat realtime concrete class 대신 generic realtime token을 사용한다.
 
 ## Directory responsibilities

@@ -1,13 +1,12 @@
+import { Injectable } from '@nestjs/common';
 import { toDateOnlyString } from '@repo/shared/date-primitives';
 import { subtractDays } from '../../seasons/season.utils.js';
-import type { PrismaService } from '../../platform/database/prisma.service.js';
-
-export const BOUNDARY_JOB_PREFIX = 'lifecycle-boundary';
-
-export interface LifecycleBoundaryJob {
-  name: string;
-  runAt: Date;
-}
+import { PrismaService } from '../../platform/database/prisma.service.js';
+import {
+  BOUNDARY_JOB_PREFIX,
+  type LifecycleBoundaryJob,
+  type LifecycleBoundarySchedulePort,
+} from '../lifecycle-boundary-schedule.port.js';
 
 interface BoundarySeasonRecord {
   id: string;
@@ -20,9 +19,12 @@ interface BoundarySeasonRecord {
   }>;
 }
 
-export function createLifecycleBoundaryJobBuilder(prisma: PrismaService) {
-  async function buildBoundaryJobs(referenceNow: Date): Promise<LifecycleBoundaryJob[]> {
-    const seasons = await prisma.season.findMany({
+@Injectable()
+export class SeasonBoundaryScheduleAdapter implements LifecycleBoundarySchedulePort {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async buildBoundaryJobs(referenceNow: Date): Promise<LifecycleBoundaryJob[]> {
+    const seasons = await this.prisma.season.findMany({
       where: {
         campus: {
           isOperated: true,
@@ -54,48 +56,43 @@ export function createLifecycleBoundaryJobBuilder(prisma: PrismaService) {
 
     return jobs;
   }
+}
 
-  function toBoundaryJobsForSeason(
-    season: BoundarySeasonRecord,
-    referenceNow: Date,
-  ): LifecycleBoundaryJob[] {
-    const jobs: LifecycleBoundaryJob[] = [];
+export function toBoundaryJobsForSeason(
+  season: BoundarySeasonRecord,
+  referenceNow: Date,
+): LifecycleBoundaryJob[] {
+  const jobs: LifecycleBoundaryJob[] = [];
 
+  pushBoundaryJob(
+    jobs,
+    `${BOUNDARY_JOB_PREFIX}:${season.id}:preparation-start`,
+    toKstBoundaryInstant(season.preparationStartDate),
+    referenceNow,
+  );
+  pushBoundaryJob(
+    jobs,
+    `${BOUNDARY_JOB_PREFIX}:${season.id}:matching-start`,
+    toKstBoundaryInstant(season.matchingStartDate),
+    referenceNow,
+  );
+  pushBoundaryJob(
+    jobs,
+    `${BOUNDARY_JOB_PREFIX}:${season.id}:season-end-next-day`,
+    toKstBoundaryInstant(subtractDays(season.seasonEndDate, -1)),
+    referenceNow,
+  );
+
+  for (const operation of season.dormitoryOperations) {
     pushBoundaryJob(
       jobs,
-      `${BOUNDARY_JOB_PREFIX}:${season.id}:preparation-start`,
-      toKstBoundaryInstant(season.preparationStartDate),
+      `${BOUNDARY_JOB_PREFIX}:${season.id}:room-selection-next-day:${operation.dormitoryId}`,
+      toKstBoundaryInstant(subtractDays(operation.roomSelectionDate, -1)),
       referenceNow,
     );
-    pushBoundaryJob(
-      jobs,
-      `${BOUNDARY_JOB_PREFIX}:${season.id}:matching-start`,
-      toKstBoundaryInstant(season.matchingStartDate),
-      referenceNow,
-    );
-    pushBoundaryJob(
-      jobs,
-      `${BOUNDARY_JOB_PREFIX}:${season.id}:season-end-next-day`,
-      toKstBoundaryInstant(subtractDays(season.seasonEndDate, -1)),
-      referenceNow,
-    );
-
-    for (const operation of season.dormitoryOperations) {
-      pushBoundaryJob(
-        jobs,
-        `${BOUNDARY_JOB_PREFIX}:${season.id}:room-selection-next-day:${operation.dormitoryId}`,
-        toKstBoundaryInstant(subtractDays(operation.roomSelectionDate, -1)),
-        referenceNow,
-      );
-    }
-
-    return jobs;
   }
 
-  return {
-    buildBoundaryJobs,
-    toBoundaryJobsForSeason,
-  };
+  return jobs;
 }
 
 function toBoundarySeasonRecord(season: {

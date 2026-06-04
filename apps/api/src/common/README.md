@@ -18,8 +18,11 @@ Known final-removal targets:
 - `account-identity-invariant.owner.ts` → `identity/account-identity-invariant`
 - `deidentification/` → `privacy/deidentification`
 - `domain-context/` → `platform/domain-context` plus domain-owned requirement types
-- `lifecycle/` → `lifecycle` or `operations/lifecycle`
 - `lifestyle/` → `season-participants/lifestyle`
+
+Moved orchestration owners:
+
+- `lifecycle/` → `lifecycle`
 
 Moved business capability owners:
 
