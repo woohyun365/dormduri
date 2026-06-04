@@ -8,20 +8,16 @@ import type {
   SeasonRegistrationFinalizeResponse,
 } from '@repo/shared/season-contract';
 import type { Prisma } from '../generated/prisma/client.js';
-import {
-  CHAT_THREAD_WITHDRAWAL_PORT,
-  type ChatThreadWithdrawalPort,
-} from '../chat/application/ports/chat-thread-withdrawal.port.js';
-import { PrismaService } from '../platform/database/prisma.service.js';
-import {
-  DORMITORY_SELECTION_CATALOG_PORT,
-  type DormitorySelectionCatalogPort,
-} from '../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { createSeasonParticipantPublicTargetOwner } from './season-participant-public-target.owner.js';
-import { createSeasonParticipantSourceOwner } from './season-participant-source-owner.js';
-import { createSeasonParticipantWriteOwner } from './season-participant-write-owner.js';
+import {
+  SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER,
+  SEASON_PARTICIPANT_SOURCE_OWNER,
+  SEASON_PARTICIPANT_WRITE_OWNER,
+  type SeasonParticipantPublicTargetOwner,
+  type SeasonParticipantSourceOwner,
+  type SeasonParticipantWriteOwner,
+} from './application/season-participant-use-case.tokens.js';
+import type { RegistrationSnapshotReader } from './season-participant-public-target.owner.js';
 import type {
   CurrentSeasonParticipantProfileRecord,
   CurrentSeasonParticipantRecord,
@@ -40,26 +36,14 @@ export type {
 
 @Injectable()
 export class SeasonParticipantsService {
-  private readonly sourceOwner = createSeasonParticipantSourceOwner();
-  private readonly writeOwner;
-  private readonly publicTargetOwner;
-
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
-    @Inject(DORMITORY_SELECTION_CATALOG_PORT)
-    private readonly dormitorySelectionCatalog: DormitorySelectionCatalogPort,
-    @Inject(CHAT_THREAD_WITHDRAWAL_PORT)
-    private readonly chatThreadWithdrawal: ChatThreadWithdrawalPort,
-  ) {
-    this.writeOwner = createSeasonParticipantWriteOwner({
-      prisma: this.prisma,
-      seasonsService: this.seasonsService,
-      dormitorySelectionCatalog: this.dormitorySelectionCatalog,
-      chatThreadWithdrawal: this.chatThreadWithdrawal,
-    });
-    this.publicTargetOwner = createSeasonParticipantPublicTargetOwner(this.prisma);
-  }
+    @Inject(SEASON_PARTICIPANT_WRITE_OWNER)
+    private readonly writeOwner: SeasonParticipantWriteOwner,
+    @Inject(SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER)
+    private readonly publicTargetOwner: SeasonParticipantPublicTargetOwner,
+    @Inject(SEASON_PARTICIPANT_SOURCE_OWNER)
+    private readonly sourceOwner: SeasonParticipantSourceOwner,
+  ) {}
 
   async ensureCurrentSeasonParticipant(
     user: SeasonParticipantEnsureInput,
@@ -142,14 +126,14 @@ export class SeasonParticipantsService {
 
   async hasRegistrationSnapshotForParticipant(
     participantId: string,
-    tx?: Prisma.TransactionClient | PrismaService,
+    tx?: RegistrationSnapshotReader,
   ): Promise<boolean> {
     return this.publicTargetOwner.hasRegistrationSnapshotForParticipant(participantId, tx);
   }
 
   async findRegistrationSnapshotParticipantIdSet(
     participantIds: readonly string[],
-    tx?: Prisma.TransactionClient | PrismaService,
+    tx?: RegistrationSnapshotReader,
   ): Promise<ReadonlySet<string>> {
     return this.publicTargetOwner.findRegistrationSnapshotParticipantIdSet(participantIds, tx);
   }

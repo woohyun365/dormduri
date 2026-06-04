@@ -103,6 +103,20 @@ describe('season-participants final structure boundary', () => {
     ]);
   });
 
+  it('keeps SeasonParticipantsService as provider-injected facade instead of direct dependency assembler', () => {
+    const serviceSource = readSource(
+      join(seasonParticipantsRoot, 'season-participants.service.ts'),
+    );
+
+    expect(serviceSource).toContain('SEASON_PARTICIPANT_WRITE_OWNER');
+    expect(serviceSource).toContain('SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER');
+    expect(serviceSource).toContain('SEASON_PARTICIPANT_SOURCE_OWNER');
+    expect(serviceSource).not.toMatch(/private readonly prisma: PrismaService/);
+    expect(serviceSource).not.toMatch(/private readonly seasonsService: SeasonsService/);
+    expect(serviceSource).not.toMatch(/private readonly dormitorySelectionCatalog/);
+    expect(serviceSource).not.toMatch(/createSeasonParticipantWriteOwner\(/);
+  });
+
   it('keeps season-participants independent from concrete DormitoriesService internals', () => {
     const concreteDormitoriesServiceImport =
       /from\s+['"][^'"]*dormitories\/dormitories\.service(?:\.js)?['"]/;

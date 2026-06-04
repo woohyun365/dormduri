@@ -1,7 +1,7 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';
 
-type RegistrationSnapshotReader =
+export type RegistrationSnapshotReader =
   | Pick<PrismaService, 'seasonParticipantProfileHistory'>
   | Pick<Prisma.TransactionClient, 'seasonParticipantProfileHistory'>;
 

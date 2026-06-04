@@ -7,6 +7,11 @@ import {
 } from './current-season-participation.controller.js';
 import { CurrentSeasonParticipantContextGuard } from './current-season-participant-context.guard.js';
 import { CurrentSeasonParticipationViewOwner } from './current-season-participation-view.owner.js';
+import {
+  SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER,
+  SEASON_PARTICIPANT_SOURCE_OWNER,
+  SEASON_PARTICIPANT_WRITE_OWNER,
+} from './application/season-participant-use-case.tokens.js';
 import { SeasonParticipantsModule } from './season-participants.module.js';
 import { SeasonParticipantsService } from './season-participants.service.js';
 
@@ -44,6 +49,9 @@ describe('SeasonParticipantsModule boundary wiring', () => {
         SeasonParticipantsService,
         CurrentSeasonParticipationViewOwner,
         CurrentSeasonParticipantContextGuard,
+        expect.objectContaining({ provide: SEASON_PARTICIPANT_WRITE_OWNER }),
+        expect.objectContaining({ provide: SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER }),
+        expect.objectContaining({ provide: SEASON_PARTICIPANT_SOURCE_OWNER }),
       ]),
     );
     expect(exports).toEqual(
@@ -53,5 +61,8 @@ describe('SeasonParticipantsModule boundary wiring', () => {
         CurrentSeasonParticipantContextGuard,
       ]),
     );
+    expect(exports).not.toContain(SEASON_PARTICIPANT_WRITE_OWNER);
+    expect(exports).not.toContain(SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER);
+    expect(exports).not.toContain(SEASON_PARTICIPANT_SOURCE_OWNER);
   });
 });

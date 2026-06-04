@@ -49,3 +49,5 @@ export function createSeasonParticipantSourceOwner() {
     },
   };
 }
+
+export type SeasonParticipantSourceOwner = ReturnType<typeof createSeasonParticipantSourceOwner>;

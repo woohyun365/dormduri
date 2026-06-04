@@ -40,3 +40,5 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
     deregisterCurrentSeasonParticipation: deregistrationOwner.deregisterCurrentSeasonParticipation,
   };
 }
+
+export type SeasonParticipantWriteOwner = ReturnType<typeof createSeasonParticipantWriteOwner>;
