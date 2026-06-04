@@ -1,1 +1,1 @@
-export * from './policies/security-alert.policy.js';
+export * from './security-events/security-alert.policy.js';

@@ -7,7 +7,7 @@ import { validatePasswordPolicy } from '../auth.utils.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
-} from '../auth-security-event.service.js';
+} from '../security-events/auth-security-event.service.js';
 import type { AuthRequestContext } from '../auth-request-context.js';
 
 const CHANGE_PASSWORD_SESSION_UNAVAILABLE =

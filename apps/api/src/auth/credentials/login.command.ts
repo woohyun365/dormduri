@@ -1,6 +1,6 @@
 import type { LoginResult } from '../auth.types.js';
 import type { PrismaService } from '../../common/prisma/prisma.service.js';
-import type { AuthLoginAttemptService } from '../auth-login-attempt.service.js';
+import type { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
 import type { AuthSessionService } from '../auth-session.service.js';
 import { toLoginSuccessResult } from '../auth-response.builder.js';
 import { toAuthSessionUserSummary } from '../auth-user-view.js';
@@ -10,7 +10,7 @@ import { hasUserDisplayIdentity } from '../../common/account-identity-invariant.
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
-} from '../auth-security-event.service.js';
+} from '../security-events/auth-security-event.service.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../auth-request-context.js';
 
 interface AuthLoginOwnerDeps {

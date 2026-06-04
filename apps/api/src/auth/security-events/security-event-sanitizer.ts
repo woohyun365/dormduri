@@ -3,7 +3,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import type {
   AuthSecurityEventInput,
   AuthSecurityEventSeverity,
-} from '../auth-security-event.types.js';
+} from './auth-security-event.types.js';
 
 const SENSITIVE_METADATA_KEY_PATTERN = /password|token|secret|code|credential|hash/i;
 

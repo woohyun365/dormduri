@@ -11,7 +11,7 @@ import { isKnuEmail, normalizeEmail } from '../auth.utils.js';
 import { AuthVerificationService } from '../verification/auth-verification.service.js';
 import { AuthVerificationEligibilityQuery } from '../verification/auth-verification-eligibility.query.js';
 import { AuthSessionService } from '../auth-session.service.js';
-import { AuthLoginAttemptService } from '../auth-login-attempt.service.js';
+import { AuthLoginAttemptService } from '../login-attempts/auth-login-attempt.service.js';
 import { ModerationService } from '../../common/moderation/moderation.service.js';
 import { AuthSignupValidationService } from '../registration/auth-signup-validation.service.js';
 import type { SignupDraftValidationResponse } from '@repo/shared/auth-response';
@@ -22,7 +22,7 @@ import { login } from '../credentials/login.command.js';
 import { resetPassword } from '../credentials/reset-password.command.js';
 import { changePassword } from '../credentials/change-password.command.js';
 import type { AuthenticatedUserContext } from '../auth-session.service.js';
-import { AuthSecurityEventService } from '../auth-security-event.service.js';
+import { AuthSecurityEventService } from '../security-events/auth-security-event.service.js';
 import { hasAuthRequestContext, type AuthRequestContext } from '../auth-request-context.js';
 
 @Injectable()

@@ -13,10 +13,13 @@ const transitionRootCompatibilityFiles = [
   'auth-capability.ts',
   'auth-change-password-owner.ts',
   'auth-failures.ts',
+  'auth-login-attempt.service.ts',
   'auth-login-owner.ts',
   'auth-reset-password-owner.ts',
   'auth-response.builder.ts',
   'auth-security-alert.policy.ts',
+  'auth-security-event.service.ts',
+  'auth-security-event.types.ts',
   'auth-signup-owner.ts',
   'auth-signup-validation.service.ts',
   'auth-user-view.ts',
@@ -34,10 +37,7 @@ const transitionRootCompatibilityFiles = [
 ];
 
 const transitionRootImplementationFiles = [
-  'auth-login-attempt.service.ts',
   'auth-request-context.ts',
-  'auth-security-event.service.ts',
-  'auth-security-event.types.ts',
   'auth-session.service.ts',
   'auth.constants.ts',
   'auth.types.ts',
@@ -100,12 +100,12 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'credentials',
       'domain',
       'errors',
+      'login-attempts',
       'mappers',
       'operations',
-      'policies',
       'queries',
       'registration',
-      'repositories',
+      'security-events',
       'sessions',
       'verification',
     ];
@@ -177,6 +177,37 @@ describe('Phase 8/9 auth architecture boundary', () => {
     expect(missingSliceFiles).toEqual([]);
   });
 
+  it('keeps login-attempt and security-event ownership in their slices', () => {
+    const expectedSliceFiles = {
+      'login-attempts': [
+        'auth-login-attempt.service.ts',
+        'clear-login-failures.command.ts',
+        'get-active-login-lock.query.ts',
+        'login-attempt.repository.ts',
+        'login-lockout.policy.ts',
+        'record-login-failure.command.ts',
+      ],
+      'security-events': [
+        'auth-security-event.repository.ts',
+        'auth-security-event.service.ts',
+        'auth-security-event.types.ts',
+        'security-alert.policy.ts',
+        'security-event-sanitizer.ts',
+      ],
+    } as const;
+
+    const missingSliceFiles = Object.entries(expectedSliceFiles).flatMap(([directory, files]) =>
+      files
+        .filter((file) => !existsSync(join(authRoot, directory, file)))
+        .map((file) => `${directory}/${file}`),
+    );
+
+    expect(missingSliceFiles).toEqual([]);
+    expect(existsSync(join(authRoot, 'repositories/security-event.repository.ts'))).toBe(false);
+    expect(existsSync(join(authRoot, 'policies/security-event-sanitizer.ts'))).toBe(false);
+    expect(existsSync(join(authRoot, 'policies/security-alert.policy.ts'))).toBe(false);
+  });
+
   it('keeps external production code away from auth internal implementation directories', () => {
     const forbiddenAuthInternalImports =
       /from\s+['"].*(?:\.\.\/)+auth\/(?:commands|repositories|domain|policies|adapters|sessions|verification|credentials|registration)(?:\/[^'"]*)?(?:\.js)?['"]/;
@@ -203,6 +234,8 @@ describe('Phase 8/9 auth architecture boundary', () => {
       'auth.service.ts': "export * from './application/auth.service.js';\n",
       'auth-signup-owner.ts': "export * from './registration/signup.command.js';\n",
       'auth-login-owner.ts': "export * from './credentials/login.command.js';\n",
+      'auth-login-attempt.service.ts':
+        "export * from './login-attempts/auth-login-attempt.service.js';\n",
       'auth-reset-password-owner.ts': "export * from './credentials/reset-password.command.js';\n",
       'auth-change-password-owner.ts':
         "export * from './credentials/change-password.command.js';\n",
@@ -220,7 +253,12 @@ describe('Phase 8/9 auth architecture boundary', () => {
         "export * from './adapters/email/stub-email-sender.service.js';\n",
       'monitored-email-sender.service.ts':
         "export * from './adapters/email/monitored-email-sender.service.js';\n",
-      'auth-security-alert.policy.ts': "export * from './policies/security-alert.policy.js';\n",
+      'auth-security-alert.policy.ts':
+        "export * from './security-events/security-alert.policy.js';\n",
+      'auth-security-event.service.ts':
+        "export * from './security-events/auth-security-event.service.js';\n",
+      'auth-security-event.types.ts':
+        "export * from './security-events/auth-security-event.types.js';\n",
       'auth-response.builder.ts': "export * from './mappers/auth-response.builder.js';\n",
       'auth-user-view.ts': "export * from './mappers/auth-user-view.js';\n",
       'auth-failures.ts': "export * from './errors/auth-failures.js';\n",

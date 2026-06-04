@@ -8,8 +8,8 @@ import { StubEmailSenderService } from './stub-email-sender.service.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
-} from '../../auth-security-event.service.js';
-import { AUTH_SECURITY_EVENT_METRICS } from '../../auth-security-event.types.js';
+} from '../../security-events/auth-security-event.service.js';
+import { AUTH_SECURITY_EVENT_METRICS } from '../../security-events/auth-security-event.types.js';
 
 function providerErrorCategory(error: unknown) {
   if (error instanceof Error) {

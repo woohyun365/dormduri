@@ -4,7 +4,7 @@ import type { GenericSuccessResult } from '../auth.types.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
-} from '../auth-security-event.service.js';
+} from '../security-events/auth-security-event.service.js';
 import { parseOpaqueToken, safeCompareTokenHash } from './opaque-token.js';
 import { AuthSessionRepository } from './auth-session.repository.js';
 import { RevokeSessionsCommand } from './revoke-sessions.command.js';

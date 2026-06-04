@@ -1,4 +1,4 @@
-import type { AuthSecurityEventType } from '../auth-security-event.types.js';
+import type { AuthSecurityEventType } from './auth-security-event.types.js';
 
 export const AUTH_SECURITY_ALERT_KINDS = {
   LOGIN_FAILURE_SPIKE: 'login-failure-spike',

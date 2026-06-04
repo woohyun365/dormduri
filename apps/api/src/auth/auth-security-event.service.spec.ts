@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { AuthSecurityEventService } from './auth-security-event.service.js';
 
 interface AuthSecurityEventCreateData {
@@ -92,5 +93,22 @@ describe('AuthSecurityEventService', () => {
       metricName: 'auth.mail.send.failure',
       providerErrorCategory: 'throttled',
     });
+  });
+
+  it('safe record 실패는 auth user flow를 막지 않는다', async () => {
+    repository.create.mockRejectedValueOnce(new Error('temporary audit store outage'));
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+
+    await expect(
+      service.recordSafely({
+        type: 'LOGIN_FAILURE',
+        emailNormalized: 'student@kangwon.ac.kr',
+        metadata: { reason: 'invalid_credentials' },
+      }),
+    ).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('failed to record event type=LOGIN_FAILURE'),
+    );
+    warnSpy.mockRestore();
   });
 });

@@ -10,7 +10,7 @@ import type { ResolvedAuthActorContext } from '../application/auth-actor-context
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
-} from '../auth-security-event.service.js';
+} from '../security-events/auth-security-event.service.js';
 import { parseOpaqueToken } from './opaque-token.js';
 import { AuthSessionRepository } from './auth-session.repository.js';
 import { resolveSessionRejectionReason } from './session-lifecycle.policy.js';

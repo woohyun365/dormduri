@@ -21,9 +21,10 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 - `sessions/`: opaque DB-backed session lifecycle. current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy를 함께 둔다.
 - `verification/`: verification code request/verify, proof consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
 - `credentials/`: password hash/verify helper와 login/reset/change password command를 함께 둔다.
+- `login-attempts/`: login failure counter, active lock query, failure record/clear command, lockout policy를 함께 둔다. 로그인 실패 5회 잠금 기준과 TTL은 behavior contract로 보존한다.
+- `security-events/`: audit/security event service, repository, sanitizer, alert policy, event types를 함께 둔다. raw email/IP/UA/token/password/code를 저장하지 않고, event 기록 실패는 user flow를 막지 않는 fail-safe boundary다.
 - `registration/`: signup command와 signup draft validation을 함께 둔다. Auth는 lifestyle/intro/profile parser를 소유하지 않는다.
 - `adapters/email/`: `EmailSender` contract, stub/provider adapter, monitored send wrapper.
-- `policies/`: pure policy/helper. Nest provider나 Prisma mutation을 넣지 않는다.
 - `mappers/`: shared response mapper and user/session presenter.
 - `errors/`: user-facing neutral/fail-closed error contract.
 - `operations/`: Redis gate, auth cleanup, metrics, health snapshot. Postgres authoritative 기준을 유지한다.
@@ -49,6 +50,7 @@ Auth 제품 완성 Phase 8 이후의 server-side boundary map이다. 이 문서�
 - Phase C 이후 session lifecycle은 `sessions/` slice가 소유하고, root `AuthSessionService`는 기존 call site 호환을 위한 thin facade로만 남긴다.
 - Phase D 이후 verification/credentials/registration use case는 각 slice가 소유하고, root files는 기존 import 호환 wrapper로만 남긴다.
 - Phase D-1/D-2 이후 auth-local lifestyle parser와 generic `commands/` directory는 제거되었다. 남은 root compatibility file은 exact `export *` re-export만 허용하며, removal trigger는 Phase F root wrapper cleanup이다.
+- Phase E 이후 login-attempt/security-event use case는 각각 `login-attempts/`, `security-events/` slice가 소유하고, root files는 기존 import 호환 wrapper로만 남긴다.
 - 외부 domain은 최종적으로 `auth/access/*`, `auth/application/auth-actor-context*`, `auth/auth.module`만 import해야 한다. 현재 root compatibility wrapper와 operations-only imports는 transition surface로만 허용한다.
 - policy/domain helper는 Nest provider와 `PrismaService`를 import하지 않는 pure boundary로 유지한다.
 

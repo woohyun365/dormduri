@@ -27,8 +27,8 @@ import type { AuthRequestContext } from '../auth-request-context.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
-} from '../auth-security-event.service.js';
-import { AUTH_SECURITY_EVENT_METRICS } from '../auth-security-event.types.js';
+} from '../security-events/auth-security-event.service.js';
+import { AUTH_SECURITY_EVENT_METRICS } from '../security-events/auth-security-event.types.js';
 
 const VERIFICATION_CODE_TTL_BY_PURPOSE = {
   SIGNUP: SIGNUP_VERIFICATION_CODE_TTL_SECONDS,

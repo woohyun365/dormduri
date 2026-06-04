@@ -1,5 +1,9 @@
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
 import type { AuthSecurityEventInput } from './auth-security-event.types.js';
+import { ClearLoginFailuresCommand } from './login-attempts/clear-login-failures.command.js';
+import { GetActiveLoginLockQuery } from './login-attempts/get-active-login-lock.query.js';
+import { LoginAttemptRepository } from './login-attempts/login-attempt.repository.js';
+import { RecordLoginFailureCommand } from './login-attempts/record-login-failure.command.js';
 
 describe('AuthLoginAttemptService', () => {
   const prisma = {
@@ -12,7 +16,12 @@ describe('AuthLoginAttemptService', () => {
     recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
   };
 
-  const service = new AuthLoginAttemptService(prisma as never, securityEvents as never);
+  const repository = new LoginAttemptRepository(prisma as never);
+  const service = new AuthLoginAttemptService(
+    new GetActiveLoginLockQuery(repository, securityEvents as never),
+    new RecordLoginFailureCommand(repository, securityEvents as never),
+    new ClearLoginFailuresCommand(repository),
+  );
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -33,6 +42,17 @@ describe('AuthLoginAttemptService', () => {
       locked: true,
       remainingSeconds: 120,
     });
+    expect(securityEvents.recordSafely).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'LOGIN_LOCKOUT',
+        emailNormalized: 'test@kangwon.ac.kr',
+        metadata: {
+          metricName: 'auth.login.lockout',
+          reason: 'active_lock',
+          remainingSeconds: 120,
+        },
+      }),
+    );
   });
 
   it('실패 횟수가 잠금 기준 미만이면 invalid credentials를 반환한다', async () => {

@@ -6,8 +6,8 @@ import { authFailures } from '../errors/auth-failures.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
-} from '../auth-security-event.service.js';
-import { AUTH_SECURITY_EVENT_METRICS } from '../auth-security-event.types.js';
+} from '../security-events/auth-security-event.service.js';
+import { AUTH_SECURITY_EVENT_METRICS } from '../security-events/auth-security-event.types.js';
 import { createOpaqueToken, hashOpaqueToken, parseOpaqueToken } from './opaque-token.js';
 import { AuthSessionRepository } from './auth-session.repository.js';
 import { isRenewalTokenReuse, resolveRenewalRejectionReason } from './session-lifecycle.policy.js';
