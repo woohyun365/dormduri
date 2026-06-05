@@ -15,6 +15,13 @@ const transitionalRootOwnerFiles = [
   'season-participant-backfill.owner.ts',
 ] as const;
 
+const allowedRootSpecFiles = [
+  'current-season-participation-view.owner.spec.ts',
+  'current-season-participation.controller.spec.ts',
+  'season-participant-backfill.owner.spec.ts',
+  'season-participants.module.spec.ts',
+] as const;
+
 const finalizingPhaseTwoDirectories = [
   'application',
   'capabilities',
@@ -190,6 +197,15 @@ describe('season-participants final structure boundary', () => {
       .sort();
 
     expect(rootOwnerFiles).toEqual([...transitionalRootOwnerFiles].sort());
+  });
+
+  it('keeps root spec surface limited until Phase 10 moves legacy owners', () => {
+    const rootSpecFiles = walkTypeScriptFiles(seasonParticipantsRoot)
+      .filter((path) => dirname(path) === seasonParticipantsRoot && path.endsWith('.spec.ts'))
+      .map((path) => rootRelativePath(path, seasonParticipantsRoot))
+      .sort();
+
+    expect(rootSpecFiles).toEqual([...allowedRootSpecFiles].sort());
   });
 
   it('keeps profile draft command isolated from dormitory-selection owner internals', () => {
