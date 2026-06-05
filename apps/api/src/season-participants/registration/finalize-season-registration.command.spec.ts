@@ -7,7 +7,7 @@ import {
   profile,
   seasonRuntimeRow,
   user,
-} from '../season-participants.owner.spec-fixtures.js';
+} from '../test-support/season-participants.spec-fixtures.js';
 
 describe('finalize-season-registration.command', () => {
   it('건물 선택 전 finalize는 registration 완료로 진행하지 않는다', async () => {

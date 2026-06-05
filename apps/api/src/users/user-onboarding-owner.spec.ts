@@ -1,6 +1,6 @@
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
 import { CurrentUserViewService } from './current-user-view.service.js';
-import { CurrentSeasonParticipationViewOwner } from '../season-participants/current-season-participation-view.owner.js';
+import { CurrentSeasonParticipationViewQuery } from '../season-participants/application/current-season-participation-view.query.js';
 import type { UserWithDisplayIdentityRecord } from './current-user-select.js';
 import { createUserOnboardingOwner } from './user-onboarding-owner.js';
 
@@ -151,7 +151,7 @@ describe('CurrentUserViewService onboarding read model', () => {
   const matchesService = {
     getCurrentActiveMatchSummaryForParticipant: jest.fn(),
   };
-  const currentSeasonParticipationViewOwner = new CurrentSeasonParticipationViewOwner(
+  const currentSeasonParticipationViewOwner = new CurrentSeasonParticipationViewQuery(
     prisma as never,
     seasonParticipantsService as never,
   );

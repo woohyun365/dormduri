@@ -4,9 +4,9 @@ import {
   objectContaining,
   participant,
   user,
-} from './season-participants.owner.spec-fixtures.js';
+} from '../test-support/season-participants.spec-fixtures.js';
 
-describe('season-participant-backfill.owner', () => {
+describe('backfill-current-season-participants.command', () => {
   it('backfill로 생성한 participant는 같은 transaction에서 JOINED lifecycle event를 append한다', async () => {
     const {
       service,

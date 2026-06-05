@@ -1,10 +1,10 @@
-import type { SeasonParticipantOwnerDeps } from './season-participant-owner-deps.js';
-import { buildSeasonParticipantCreateData } from './participants/season-participant-container.command.js';
-import type { SeasonParticipantBackfillResult } from './participants/season-participant-records.js';
-import type { SeasonParticipantLifecycleEventWriter } from './lifecycle/season-participant-lifecycle-event.writer.js';
+import type { SeasonParticipantUseCaseDeps } from '../application/season-participant-use-case.deps.js';
+import { buildSeasonParticipantCreateData } from '../participants/season-participant-container.command.js';
+import type { SeasonParticipantBackfillResult } from '../participants/season-participant-records.js';
+import type { SeasonParticipantLifecycleEventWriter } from './season-participant-lifecycle-event.writer.js';
 
-export function createSeasonParticipantBackfillOwner(
-  deps: SeasonParticipantOwnerDeps,
+export function createBackfillCurrentSeasonParticipantsCommand(
+  deps: SeasonParticipantUseCaseDeps,
   lifecycleEventWriter: SeasonParticipantLifecycleEventWriter,
 ) {
   async function backfillCurrentSeasonParticipants(
@@ -94,6 +94,6 @@ export function createSeasonParticipantBackfillOwner(
   return { backfillCurrentSeasonParticipants };
 }
 
-export type SeasonParticipantBackfillOwner = ReturnType<
-  typeof createSeasonParticipantBackfillOwner
+export type BackfillCurrentSeasonParticipantsCommand = ReturnType<
+  typeof createBackfillCurrentSeasonParticipantsCommand
 >;

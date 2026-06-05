@@ -2,7 +2,7 @@ import {
   currentParticipant,
   currentProfile,
   participant,
-} from '../season-participants.owner.spec-fixtures.js';
+} from '../test-support/season-participants.spec-fixtures.js';
 import { resolveSeasonProfileState } from './season-profile-draft.mapper.js';
 
 describe('season-profile-draft.mapper', () => {

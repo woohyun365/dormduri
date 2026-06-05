@@ -25,7 +25,7 @@ import {
 } from './current-season-participation.controller.js';
 import { CurrentSeasonParticipantContextGuard } from './context/current-season-participant-context.guard.js';
 import { CurrentSeasonParticipantContextResolver } from './context/current-season-participant-context.resolver.js';
-import { CurrentSeasonParticipationViewOwner } from './current-season-participation-view.owner.js';
+import { CurrentSeasonParticipationViewQuery } from './application/current-season-participation-view.query.js';
 import { createSeasonParticipantPublicTargetOwner } from './public-targets/registration-snapshot.query.js';
 import { createSeasonParticipantSourceOwner } from './participants/season-participant-source.policy.js';
 import { createSeasonParticipantWriteOwner } from './application/season-participant-write-owner.js';
@@ -36,7 +36,7 @@ import { SeasonParticipantsService } from './application/season-participants.ser
   controllers: [CurrentSeasonProfileController, CurrentSeasonParticipationController],
   providers: [
     SeasonParticipantsService,
-    CurrentSeasonParticipationViewOwner,
+    CurrentSeasonParticipationViewQuery,
     CurrentSeasonParticipantContextResolver,
     CurrentSeasonParticipantContextGuard,
     {
@@ -72,7 +72,7 @@ import { SeasonParticipantsService } from './application/season-participants.ser
   ],
   exports: [
     SeasonParticipantsService,
-    CurrentSeasonParticipationViewOwner,
+    CurrentSeasonParticipationViewQuery,
     CurrentSeasonParticipantContextGuard,
   ],
 })

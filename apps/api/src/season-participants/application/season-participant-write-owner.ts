@@ -1,10 +1,10 @@
-import { createSeasonParticipantBackfillOwner } from '../season-participant-backfill.owner.js';
+import { createBackfillCurrentSeasonParticipantsCommand } from '../lifecycle/backfill-current-season-participants.command.js';
 import { createSeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
 import { createDormitorySelectionReadinessEvaluator } from '../dormitory-selection/dormitory-selection-readiness.evaluator.js';
 import { createListCurrentSeasonSelectableDormitoriesQuery } from '../dormitory-selection/list-current-season-selectable-dormitories.query.js';
 import { createUpdateDormitorySelectionCommand } from '../dormitory-selection/update-dormitory-selection.command.js';
 import { createDeregisterSeasonParticipantCommand } from '../deregistration/deregister-season-participant.command.js';
-import type { SeasonParticipantOwnerDeps } from '../season-participant-owner-deps.js';
+import type { SeasonParticipantUseCaseDeps } from './season-participant-use-case.deps.js';
 import { createGetCurrentSeasonProfileQuery } from '../profile-draft/get-current-season-profile.query.js';
 import { createUpsertSeasonProfileDraftCommand } from '../profile-draft/upsert-season-profile-draft.command.js';
 import {
@@ -15,7 +15,7 @@ import { createFinalizeSeasonRegistrationCommand } from '../registration/finaliz
 import { createSeasonRegistrationReadinessEvaluator } from '../registration/season-registration-readiness.evaluator.js';
 import { createSeasonParticipantLifecycleEventWriter } from '../lifecycle/season-participant-lifecycle-event.writer.js';
 
-export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDeps) {
+export function createSeasonParticipantWriteOwner(deps: SeasonParticipantUseCaseDeps) {
   const containerOwner = createSeasonParticipantContainerOwner(deps);
   const lifecycleEventWriter = createSeasonParticipantLifecycleEventWriter();
   const profileDraftQuery = createGetCurrentSeasonProfileQuery(deps, containerOwner);
@@ -40,7 +40,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantOwnerDe
     registrationReadiness,
     lifecycleEventWriter,
   );
-  const backfillOwner = createSeasonParticipantBackfillOwner(deps, lifecycleEventWriter);
+  const backfillOwner = createBackfillCurrentSeasonParticipantsCommand(deps, lifecycleEventWriter);
   const deregistrationCommand = createDeregisterSeasonParticipantCommand(
     deps,
     lifecycleEventWriter,

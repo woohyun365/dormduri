@@ -1,5 +1,9 @@
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
-import { currentProfile, now, participant } from '../season-participants.owner.spec-fixtures.js';
+import {
+  currentProfile,
+  now,
+  participant,
+} from '../test-support/season-participants.spec-fixtures.js';
 import { toSeasonProfileHistoryCreateData } from './season-registration-history.mapper.js';
 
 describe('season-registration-history.mapper', () => {

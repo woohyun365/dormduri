@@ -7,7 +7,7 @@ import {
   participant,
   profile,
   seasonContext,
-} from '../season-participants.owner.spec-fixtures.js';
+} from '../test-support/season-participants.spec-fixtures.js';
 
 describe('upsert-season-profile-draft.command', () => {
   it('createOrUpdateSeasonProfileDraft()는 draft current row만 쓰고 history를 만들지 않는다', async () => {

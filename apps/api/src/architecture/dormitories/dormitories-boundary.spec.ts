@@ -77,6 +77,17 @@ function filesContaining(root: string, pattern: RegExp) {
     .sort();
 }
 
+function expectReadmeSections(path: string, sections: readonly string[]) {
+  expect(existsSync(path)).toBe(true);
+  const source = readSource(path);
+
+  for (const section of sections) {
+    expect(source).toContain(section);
+  }
+
+  return source;
+}
+
 describe('dormitories final structure boundary', () => {
   it('keeps dormitories independent from season-participants imports', () => {
     const forbiddenSeasonParticipantImport = /from\s+['"][^'"]*season-participants(?:\/|['"])/;
@@ -120,5 +131,24 @@ describe('dormitories final structure boundary', () => {
       DormitoriesService,
       DORMITORY_SELECTION_CATALOG_PORT,
     ]);
+  });
+
+  it('documents the final dormitories product boundary', () => {
+    const source = expectReadmeSections(join(dormitoriesRoot, 'README.md'), [
+      '## Public boundary',
+      '## Directory responsibilities',
+      '## Hard rules',
+      '## Architecture guard',
+      '## Where to change',
+      '## Useful verification',
+    ]);
+
+    expect(source).toContain('DORMITORY_SELECTION_CATALOG_PORT');
+    expect(source).toContain(
+      'Root production TypeScript file은 `dormitories.controller.ts`, `dormitories.module.ts`만 허용한다',
+    );
+    expect(source).toContain(
+      'concrete `DormitoriesService`가 아니라 `DORMITORY_SELECTION_CATALOG_PORT`만 사용한다',
+    );
   });
 });

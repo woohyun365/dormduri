@@ -10,15 +10,15 @@ import type { SeasonParticipantContainerOwner } from '../participants/season-par
 import {
   assertWritableSeasonContext,
   getVerifiedUserForSeasonAction,
-  type SeasonParticipantOwnerDeps,
-} from '../season-participant-owner-deps.js';
+  type SeasonParticipantUseCaseDeps,
+} from '../application/season-participant-use-case.deps.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import { buildDormitorySelectionDraftResponse } from './dormitory-selection.mapper.js';
 import { assertParticipantAllowsDormitorySelection } from './dormitory-selection.policy.js';
 import type { DormitorySelectionReadinessEvaluator } from './dormitory-selection-readiness.evaluator.js';
 
 export function createUpdateDormitorySelectionCommand(
-  deps: SeasonParticipantOwnerDeps,
+  deps: SeasonParticipantUseCaseDeps,
   containerOwner: SeasonParticipantContainerOwner,
   readiness: DormitorySelectionReadinessEvaluator,
 ) {

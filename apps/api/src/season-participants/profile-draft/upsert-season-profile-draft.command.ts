@@ -5,8 +5,8 @@ import type {
 import {
   assertWritableSeasonContext,
   getVerifiedUserForSeasonAction,
-  type SeasonParticipantOwnerDeps,
-} from '../season-participant-owner-deps.js';
+  type SeasonParticipantUseCaseDeps,
+} from '../application/season-participant-use-case.deps.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
@@ -19,7 +19,7 @@ import {
 } from './season-profile-draft.mapper.js';
 
 export function createUpsertSeasonProfileDraftCommand(
-  deps: SeasonParticipantOwnerDeps,
+  deps: SeasonParticipantUseCaseDeps,
   containerOwner: SeasonParticipantContainerOwner,
 ) {
   async function createOrUpdateSeasonProfileDraft(

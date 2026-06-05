@@ -1,6 +1,6 @@
 import { buildRoommateSearchCandidateWhere } from './roommate-search-candidate.owner.js';
 import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
-import { currentParticipant } from '../season-participants/season-participants.owner.spec-fixtures.js';
+import { currentParticipant } from '../season-participants/test-support/season-participants.spec-fixtures.js';
 
 const viewerContext = {
   viewer: {

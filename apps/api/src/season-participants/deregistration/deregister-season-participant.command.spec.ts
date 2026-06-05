@@ -5,7 +5,7 @@ import {
   participant,
   profile,
   seasonContext,
-} from '../season-participants.owner.spec-fixtures.js';
+} from '../test-support/season-participants.spec-fixtures.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 
 describe('deregister-season-participant.command', () => {

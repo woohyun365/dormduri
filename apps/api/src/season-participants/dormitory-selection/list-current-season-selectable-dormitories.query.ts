@@ -3,13 +3,13 @@ import type { SeasonParticipantContainerOwner } from '../participants/season-par
 import {
   assertWritableSeasonContext,
   getVerifiedUserForSeasonAction,
-  type SeasonParticipantOwnerDeps,
-} from '../season-participant-owner-deps.js';
+  type SeasonParticipantUseCaseDeps,
+} from '../application/season-participant-use-case.deps.js';
 import { buildSelectableDormitoriesResponse } from './dormitory-selection.mapper.js';
 import type { DormitorySelectionReadinessEvaluator } from './dormitory-selection-readiness.evaluator.js';
 
 export function createListCurrentSeasonSelectableDormitoriesQuery(
-  deps: SeasonParticipantOwnerDeps,
+  deps: SeasonParticipantUseCaseDeps,
   containerOwner: SeasonParticipantContainerOwner,
   readiness: DormitorySelectionReadinessEvaluator,
 ) {

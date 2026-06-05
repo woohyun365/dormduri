@@ -5,8 +5,8 @@ import {
 } from '../participants/season-participant-records.js';
 import {
   getVerifiedUserForSeasonAction,
-  type SeasonParticipantOwnerDeps,
-} from '../season-participant-owner-deps.js';
+  type SeasonParticipantUseCaseDeps,
+} from '../application/season-participant-use-case.deps.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import {
   assertDeregistrationSeasonContext,
@@ -16,7 +16,7 @@ import {
 import type { SeasonParticipantLifecycleEventWriter } from '../lifecycle/season-participant-lifecycle-event.writer.js';
 
 export function createDeregisterSeasonParticipantCommand(
-  deps: SeasonParticipantOwnerDeps,
+  deps: SeasonParticipantUseCaseDeps,
   lifecycleEventWriter: SeasonParticipantLifecycleEventWriter,
 ) {
   async function deregisterCurrentSeasonParticipation(

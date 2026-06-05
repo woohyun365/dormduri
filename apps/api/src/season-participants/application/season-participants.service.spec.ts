@@ -2,7 +2,7 @@ import { updateCurrentUserRequestSchema } from '@repo/shared/user-contract';
 import { validateSeasonProfileCompleteness } from '../profile-draft/season-profile-completeness.policy.js';
 import { createSeasonParticipantSourceOwner } from '../participants/season-participant-source.policy.js';
 import { SeasonParticipantsService } from './season-participants.service.js';
-import { currentProfile, participant } from '../season-participants.owner.spec-fixtures.js';
+import { currentProfile, participant } from '../test-support/season-participants.spec-fixtures.js';
 
 describe('SeasonParticipantsService facade', () => {
   const writeOwner = {

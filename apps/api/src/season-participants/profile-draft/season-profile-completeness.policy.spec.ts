@@ -1,4 +1,4 @@
-import { currentProfile } from '../season-participants.owner.spec-fixtures.js';
+import { currentProfile } from '../test-support/season-participants.spec-fixtures.js';
 import { validateSeasonProfileCompleteness } from './season-profile-completeness.policy.js';
 
 describe('season-profile-completeness.policy', () => {

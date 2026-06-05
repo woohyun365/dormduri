@@ -8,7 +8,7 @@ import {
   buildDisplayIdentityEditUnavailableReasons,
   isNicknameLockedByCurrentSeasonRegistration,
 } from './nickname-change-policy.owner.js';
-import { CurrentSeasonParticipationViewOwner } from '../season-participants/current-season-participation-view.owner.js';
+import { CurrentSeasonParticipationViewQuery } from '../season-participants/application/current-season-participation-view.query.js';
 import {
   buildUserWithDisplayIdentitySelect,
   mapUserWithDisplayIdentityProjection,
@@ -37,7 +37,7 @@ export class CurrentUserViewService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly seasonsService: SeasonsService,
-    private readonly currentSeasonParticipationViewOwner: CurrentSeasonParticipationViewOwner,
+    private readonly currentSeasonParticipationViewOwner: CurrentSeasonParticipationViewQuery,
     private readonly matchesService: MatchesService,
   ) {}
 

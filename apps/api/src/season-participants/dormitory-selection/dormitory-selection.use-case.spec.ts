@@ -7,7 +7,7 @@ import {
   participant,
   profile,
   seasonContext,
-} from '../season-participants.owner.spec-fixtures.js';
+} from '../test-support/season-participants.spec-fixtures.js';
 
 describe('dormitory-selection use cases', () => {
   it('complete profile 상태에서도 현재 시즌의 본인 campus/gender 기준 selectable dormitory list를 반환한다', async () => {

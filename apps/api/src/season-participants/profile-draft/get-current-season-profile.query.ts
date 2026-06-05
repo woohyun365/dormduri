@@ -2,8 +2,8 @@ import type { SeasonProfileDraftResponse } from '@repo/shared/season-contract';
 import {
   assertReadableSeasonContext,
   getVerifiedUserForSeasonAction,
-  type SeasonParticipantOwnerDeps,
-} from '../season-participant-owner-deps.js';
+  type SeasonParticipantUseCaseDeps,
+} from '../application/season-participant-use-case.deps.js';
 import type { SeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
 import {
   buildEmptySeasonProfileDraftResponse,
@@ -11,7 +11,7 @@ import {
 } from './season-profile-draft.mapper.js';
 
 export function createGetCurrentSeasonProfileQuery(
-  deps: SeasonParticipantOwnerDeps,
+  deps: SeasonParticipantUseCaseDeps,
   containerOwner: SeasonParticipantContainerOwner,
 ) {
   async function getCurrentSeasonProfile(

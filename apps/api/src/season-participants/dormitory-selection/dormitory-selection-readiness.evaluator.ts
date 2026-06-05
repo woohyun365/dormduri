@@ -7,10 +7,10 @@ import type {
   CurrentSeasonParticipantRecord,
   SeasonParticipantEnsureInput,
 } from '../participants/season-participant-records.js';
-import type { SeasonParticipantOwnerDeps } from '../season-participant-owner-deps.js';
+import type { SeasonParticipantUseCaseDeps } from '../application/season-participant-use-case.deps.js';
 import { hasParticipantDormitorySelection } from './dormitory-selection.policy.js';
 
-export function createDormitorySelectionReadinessEvaluator(deps: SeasonParticipantOwnerDeps) {
+export function createDormitorySelectionReadinessEvaluator(deps: SeasonParticipantUseCaseDeps) {
   async function listSelectableDormitoriesForParticipant(
     participant: CurrentSeasonParticipantRecord,
     seasonContext: CurrentSeasonContext,

@@ -39,7 +39,7 @@ import {
 } from '../realtime/realtime.tokens.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { CurrentSeasonParticipantContextGuard } from '../season-participants/context/current-season-participant-context.guard.js';
-import { CurrentSeasonParticipationViewOwner } from '../season-participants/current-season-participation-view.owner.js';
+import { CurrentSeasonParticipationViewQuery } from '../season-participants/application/current-season-participation-view.query.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
@@ -219,7 +219,7 @@ describe('affected API module boundary finalization', () => {
     expect(moduleMetadata(MatchesModule, 'exports')).toEqual([MatchesService]);
     expect(moduleMetadata(SeasonParticipantsModule, 'exports')).toEqual([
       SeasonParticipantsService,
-      CurrentSeasonParticipationViewOwner,
+      CurrentSeasonParticipationViewQuery,
       CurrentSeasonParticipantContextGuard,
     ]);
     expect(moduleMetadata(UsersModule, 'exports')).toEqual([UsersService]);

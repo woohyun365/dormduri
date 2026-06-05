@@ -1,12 +1,12 @@
-import { CurrentSeasonParticipationViewOwner } from './current-season-participation-view.owner.js';
+import { CurrentSeasonParticipationViewQuery } from './current-season-participation-view.query.js';
 import {
   now,
   participant,
   profile,
   seasonContext,
-} from './season-participants.owner.spec-fixtures.js';
+} from '../test-support/season-participants.spec-fixtures.js';
 
-describe('current-season-participation-view.owner', () => {
+describe('current-season-participation-view.query', () => {
   const prisma = {
     seasonParticipant: { findUnique: jest.fn() },
   };
@@ -16,7 +16,7 @@ describe('current-season-participation-view.owner', () => {
     hasSelectableDormitoriesForCurrentUser: jest.fn(),
     hasValidDormitorySelectionForCurrentParticipant: jest.fn(),
   };
-  const owner = new CurrentSeasonParticipationViewOwner(
+  const owner = new CurrentSeasonParticipationViewQuery(
     prisma as never,
     seasonParticipantsService as never,
   );

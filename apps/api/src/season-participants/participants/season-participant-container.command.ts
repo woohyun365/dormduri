@@ -1,5 +1,8 @@
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { SeasonParticipantOwnerDeps, DbClient } from '../season-participant-owner-deps.js';
+import type {
+  SeasonParticipantUseCaseDeps,
+  DbClient,
+} from '../application/season-participant-use-case.deps.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
@@ -27,7 +30,7 @@ export function buildSeasonParticipantCreateData(
   };
 }
 
-export function createSeasonParticipantContainerOwner(deps: SeasonParticipantOwnerDeps) {
+export function createSeasonParticipantContainerOwner(deps: SeasonParticipantUseCaseDeps) {
   async function ensureCurrentSeasonParticipant(
     user: SeasonParticipantEnsureInput,
     now: Date,

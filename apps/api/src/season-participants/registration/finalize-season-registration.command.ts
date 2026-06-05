@@ -7,8 +7,8 @@ import type { SeasonParticipantContainerOwner } from '../participants/season-par
 import {
   assertRegistrationSeasonContext,
   getVerifiedUserForSeasonAction,
-  type SeasonParticipantOwnerDeps,
-} from '../season-participant-owner-deps.js';
+  type SeasonParticipantUseCaseDeps,
+} from '../application/season-participant-use-case.deps.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import { buildCompletion } from '../capabilities/season-participation-capability.mapper.js';
 import { assertSeasonProfileCompleteForRegistration } from '../profile-draft/season-profile-completeness.policy.js';
@@ -17,7 +17,7 @@ import type { SeasonRegistrationReadinessEvaluator } from './season-registration
 import type { SeasonParticipantLifecycleEventWriter } from '../lifecycle/season-participant-lifecycle-event.writer.js';
 
 export function createFinalizeSeasonRegistrationCommand(
-  deps: SeasonParticipantOwnerDeps,
+  deps: SeasonParticipantUseCaseDeps,
   containerOwner: SeasonParticipantContainerOwner,
   readiness: SeasonRegistrationReadinessEvaluator,
   lifecycleEventWriter: SeasonParticipantLifecycleEventWriter,
