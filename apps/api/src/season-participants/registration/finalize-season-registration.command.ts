@@ -4,11 +4,9 @@ import {
   mapCurrentSeasonParticipantRecord,
 } from '../participants/season-participant-records.js';
 import type { SeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
-import {
-  assertRegistrationSeasonContext,
-  getVerifiedUserForSeasonAction,
-  type SeasonParticipantUseCaseDeps,
-} from '../application/season-participant-use-case.deps.js';
+import { getVerifiedUserForSeasonAction } from '../application/season-action-user.query.js';
+import { assertRegistrationSeasonContext } from '../application/season-context.query.js';
+import type { SeasonParticipantUseCaseDeps } from '../application/season-participant-use-case.deps.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import { buildCompletion } from '../capabilities/season-participation-capability.mapper.js';
 import { assertSeasonProfileCompleteForRegistration } from '../profile-draft/season-profile-completeness.policy.js';

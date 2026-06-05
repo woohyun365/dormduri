@@ -3,10 +3,8 @@ import {
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
 } from '../participants/season-participant-records.js';
-import {
-  getVerifiedUserForSeasonAction,
-  type SeasonParticipantUseCaseDeps,
-} from '../application/season-participant-use-case.deps.js';
+import { getVerifiedUserForSeasonAction } from '../application/season-action-user.query.js';
+import type { SeasonParticipantUseCaseDeps } from '../application/season-participant-use-case.deps.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import {
   assertDeregistrationSeasonContext,

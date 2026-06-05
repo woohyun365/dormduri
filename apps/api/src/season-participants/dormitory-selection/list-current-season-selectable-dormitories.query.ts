@@ -1,10 +1,8 @@
 import type { SelectableDormitoriesResponse } from '@repo/shared/season-contract';
 import type { SeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
-import {
-  assertWritableSeasonContext,
-  getVerifiedUserForSeasonAction,
-  type SeasonParticipantUseCaseDeps,
-} from '../application/season-participant-use-case.deps.js';
+import { getVerifiedUserForSeasonAction } from '../application/season-action-user.query.js';
+import { assertWritableSeasonContext } from '../application/season-context.query.js';
+import type { SeasonParticipantUseCaseDeps } from '../application/season-participant-use-case.deps.js';
 import { buildSelectableDormitoriesResponse } from './dormitory-selection.mapper.js';
 import type { DormitorySelectionReadinessEvaluator } from './dormitory-selection-readiness.evaluator.js';
 

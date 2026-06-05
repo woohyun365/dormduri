@@ -7,11 +7,9 @@ import {
   mapCurrentSeasonParticipantRecord,
 } from '../participants/season-participant-records.js';
 import type { SeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
-import {
-  assertWritableSeasonContext,
-  getVerifiedUserForSeasonAction,
-  type SeasonParticipantUseCaseDeps,
-} from '../application/season-participant-use-case.deps.js';
+import { getVerifiedUserForSeasonAction } from '../application/season-action-user.query.js';
+import { assertWritableSeasonContext } from '../application/season-context.query.js';
+import type { SeasonParticipantUseCaseDeps } from '../application/season-participant-use-case.deps.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import { buildDormitorySelectionDraftResponse } from './dormitory-selection.mapper.js';
 import { assertParticipantAllowsDormitorySelection } from './dormitory-selection.policy.js';

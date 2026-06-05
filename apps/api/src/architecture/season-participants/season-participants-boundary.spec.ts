@@ -1,23 +1,30 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { AuthModule } from '../../auth/auth.module.js';
+import { DormitoriesModule } from '../../dormitories/dormitories.module.js';
 import { dirname, join, relative, sep } from 'node:path';
 import { CurrentSeasonParticipantContextGuard } from '../../season-participants/context/current-season-participant-context.guard.js';
+import {
+  CurrentSeasonParticipationController,
+  CurrentSeasonProfileController,
+} from '../../season-participants/current-season-participation.controller.js';
 import { CurrentSeasonParticipationViewQuery } from '../../season-participants/application/current-season-participation-view.query.js';
 import { SeasonParticipantsModule } from '../../season-participants/season-participants.module.js';
+import { SEASON_PARTICIPANTS_EXPORTS } from '../../season-participants/composition/season-participants.exports.js';
+import { SEASON_PARTICIPANTS_PROVIDERS } from '../../season-participants/composition/season-participants.providers.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
+import { UsersModule } from '../../users/users.module.js';
 
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
 const seasonParticipantsRoot = join(apiSourceRoot, 'season-participants');
 const platformDomainContextRoot = join(apiSourceRoot, 'platform/domain-context');
 
-const allowedRootSpecFiles = [
-  'current-season-participation.controller.spec.ts',
-  'season-participants.module.spec.ts',
-] as const;
+const allowedRootSpecFiles = ['current-season-participation.controller.spec.ts'] as const;
 
 const finalizingPhaseTwoDirectories = [
   'application',
   'capabilities',
+  'composition',
   'context',
   'deregistration',
   'dormitory-selection',
@@ -33,12 +40,15 @@ const finalizingPhaseTwoDirectories = [
 
 const requiredPhaseTwoOneFiles = {
   application: [
+    'season-action-user.query.ts',
+    'season-context.query.ts',
     'season-participant-use-case.tokens.ts',
     'season-participant-write-owner.ts',
     'current-season-participation-view.query.ts',
     'season-participant-use-case.deps.ts',
     'season-participants.service.ts',
   ],
+  composition: ['season-participants.exports.ts', 'season-participants.providers.ts'],
   capabilities: [
     'current-user-capability-input.mapper.ts',
     'current-user-capabilities.policy.ts',
@@ -105,7 +115,10 @@ const requiredPhaseTwoOneFiles = {
   ],
 } as const;
 
-function moduleMetadata<T>(target: object, key: 'imports' | 'exports'): T[] {
+function moduleMetadata<T>(
+  target: object,
+  key: 'imports' | 'controllers' | 'providers' | 'exports',
+): T[] {
   return (Reflect.getMetadata(key, target) ?? []) as T[];
 }
 
@@ -207,13 +220,29 @@ describe('season-participants final structure boundary', () => {
     ]);
   });
 
-  it('keeps root spec surface limited to controller/module specs after final cleanup', () => {
+  it('keeps root spec surface limited to controller specs after final cleanup', () => {
     const rootSpecFiles = walkTypeScriptFiles(seasonParticipantsRoot)
       .filter((path) => dirname(path) === seasonParticipantsRoot && path.endsWith('.spec.ts'))
       .map((path) => rootRelativePath(path, seasonParticipantsRoot))
       .sort();
 
     expect(rootSpecFiles).toEqual([...allowedRootSpecFiles].sort());
+  });
+
+  it('keeps current season profile/participation controllers owned by SeasonParticipantsModule', () => {
+    const controllers = moduleMetadata<unknown>(SeasonParticipantsModule, 'controllers');
+    const imports = moduleMetadata<unknown>(SeasonParticipantsModule, 'imports');
+    const usersControllers = moduleMetadata<unknown>(UsersModule, 'controllers');
+
+    expect(controllers).toEqual(
+      expect.arrayContaining([
+        CurrentSeasonProfileController,
+        CurrentSeasonParticipationController,
+      ]),
+    );
+    expect(imports).toEqual(expect.arrayContaining([DormitoriesModule, AuthModule]));
+    expect(usersControllers).not.toContain(CurrentSeasonProfileController);
+    expect(usersControllers).not.toContain(CurrentSeasonParticipationController);
   });
 
   it('keeps profile draft command isolated from dormitory-selection owner internals', () => {
@@ -282,12 +311,38 @@ describe('season-participants final structure boundary', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('keeps SeasonParticipantsModule composition arrays as the provider/export source of truth', () => {
+    const moduleSource = readSource(join(seasonParticipantsRoot, 'season-participants.module.ts'));
+
+    expect(moduleSource).toContain('SEASON_PARTICIPANTS_PROVIDERS');
+    expect(moduleSource).toContain('SEASON_PARTICIPANTS_EXPORTS');
+    expect(moduleSource).not.toContain('useFactory:');
+    expect(moduleMetadata(SeasonParticipantsModule, 'providers')).toEqual(
+      SEASON_PARTICIPANTS_PROVIDERS,
+    );
+    expect(moduleMetadata(SeasonParticipantsModule, 'exports')).toEqual(
+      SEASON_PARTICIPANTS_EXPORTS,
+    );
+  });
+
   it('keeps SeasonParticipantsModule exports on the current public facade/context/view surface', () => {
     expect(moduleMetadata(SeasonParticipantsModule, 'exports')).toEqual([
       SeasonParticipantsService,
       CurrentSeasonParticipationViewQuery,
       CurrentSeasonParticipantContextGuard,
     ]);
+  });
+
+  it('keeps use-case deps file free of query helper implementation details after composition cleanup', () => {
+    const depsSource = readSource(
+      join(seasonParticipantsRoot, 'application/season-participant-use-case.deps.ts'),
+    );
+
+    expect(depsSource).toContain('export interface SeasonParticipantUseCaseDeps');
+    expect(depsSource).toContain('export type DbClient');
+    expect(depsSource).not.toContain('getVerifiedUserForSeasonAction');
+    expect(depsSource).not.toContain('assertWritableSeasonContext');
+    expect(depsSource).not.toContain('seasonContextSelect');
   });
 
   it('keeps SeasonParticipantsService as provider-injected facade instead of direct dependency assembler', () => {

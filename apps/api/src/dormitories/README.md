@@ -13,6 +13,7 @@
 ## Directory responsibilities
 
 - `application/`: controller-facing facade. Public catalog/detail/guide query를 조합하되 season participation write rule을 넣지 않는다.
+- `composition/`: `DormitoriesModule` provider/export grouping. Selection catalog port binding과 public module export surface를 module decorator에서 분리해 유지한다.
 - `catalog/`: dormitory list/detail query, repository, response mapper.
 - `guides/`: dormitory guide query와 guide response mapper.
 - `selection-catalog/`: season participation에서 사용하는 selectable dormitory port, Prisma adapter, eligibility policy, mapper.
@@ -31,6 +32,7 @@
 
 - Root production TypeScript file은 `dormitories.controller.ts`, `dormitories.module.ts`만 허용한다.
 - Public facade는 `application/dormitories.service.ts`가 소유한다.
+- `DormitoriesModule` provider/export list는 `composition/dormitories.providers.ts`, `composition/dormitories.exports.ts`가 소유한다.
 - Error contract는 `errors/dormitories.errors.ts`가 소유한다.
 - Shared contract behavior spec은 `contracts/dormitory-contract.spec.ts`가 소유한다.
 - Architecture fitness는 `architecture/dormitories/dormitories-boundary.spec.ts`와 `architecture/contracts/layout/*`가 소유한다.
@@ -41,6 +43,7 @@
 - List/detail read model: `catalog/`.
 - Guide read model: `guides/`.
 - Season participant selectable dormitory lookup: `selection-catalog/`.
+- Module provider/export wiring: `composition/`.
 - Shared response/schema contract: `packages/shared/src/dormitory/**` and `packages/shared/src/compat/dormitory-contract.ts`.
 
 ## Useful verification

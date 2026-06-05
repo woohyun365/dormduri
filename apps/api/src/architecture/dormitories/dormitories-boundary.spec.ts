@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { DormitoriesModule } from '../../dormitories/dormitories.module.js';
+import { DORMITORIES_EXPORTS } from '../../dormitories/composition/dormitories.exports.js';
+import { DORMITORIES_PROVIDERS } from '../../dormitories/composition/dormitories.providers.js';
 import { DormitoriesService } from '../../dormitories/application/dormitories.service.js';
 import { DORMITORY_SELECTION_CATALOG_PORT } from '../../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
 
@@ -14,6 +16,7 @@ const finalRootRuntimeFiles = ['dormitories.controller.ts', 'dormitories.module.
 const requiredFinalDirectories = [
   'application',
   'catalog',
+  'composition',
   'errors',
   'guides',
   'selection-catalog',
@@ -21,6 +24,7 @@ const requiredFinalDirectories = [
 
 const requiredPhaseOneSliceFiles = {
   application: ['dormitories.service.ts'],
+  composition: ['dormitories.exports.ts', 'dormitories.providers.ts'],
   catalog: [
     'dormitory-catalog.mapper.ts',
     'dormitory-catalog.query.ts',
@@ -36,7 +40,7 @@ const requiredPhaseOneSliceFiles = {
   ],
 } as const;
 
-function moduleMetadata<T>(target: object, key: 'imports' | 'exports'): T[] {
+function moduleMetadata<T>(target: object, key: 'imports' | 'providers' | 'exports'): T[] {
   return (Reflect.getMetadata(key, target) ?? []) as T[];
 }
 
@@ -124,6 +128,16 @@ describe('dormitories final structure boundary', () => {
       .sort();
 
     expect(rootOwnerFiles).toEqual([]);
+  });
+
+  it('keeps DormitoriesModule composition arrays as the provider/export source of truth', () => {
+    const moduleSource = readSource(join(dormitoriesRoot, 'dormitories.module.ts'));
+
+    expect(moduleSource).toContain('DORMITORIES_PROVIDERS');
+    expect(moduleSource).toContain('DORMITORIES_EXPORTS');
+    expect(moduleSource).not.toContain('useExisting: PrismaDormitorySelectionCatalogAdapter');
+    expect(moduleMetadata(DormitoriesModule, 'providers')).toEqual(DORMITORIES_PROVIDERS);
+    expect(moduleMetadata(DormitoriesModule, 'exports')).toEqual(DORMITORIES_EXPORTS);
   });
 
   it('keeps DormitoriesModule exports limited to the public facade and selection catalog port', () => {

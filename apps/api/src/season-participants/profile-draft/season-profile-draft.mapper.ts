@@ -23,7 +23,7 @@ import {
   toAdditionalProfileFromRecord,
   type CurrentSeasonParticipantRecord,
 } from '../participants/season-participant-records.js';
-import type { VerifiedSeasonActionUser } from '../application/season-participant-use-case.deps.js';
+import type { VerifiedSeasonActionUser } from '../application/season-action-user.query.js';
 import { validateSeasonProfileCompleteness } from './season-profile-completeness.policy.js';
 
 export function toSeasonProfileDraftColumnData(

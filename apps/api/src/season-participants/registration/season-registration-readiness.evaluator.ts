@@ -5,7 +5,7 @@ import { assertUserAccountIdentity } from '../../identity/account-identity-invar
 import { usersErrors } from '../../users/users.errors.js';
 import type { DormitorySelectionReadinessEvaluator } from '../dormitory-selection/dormitory-selection-readiness.evaluator.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
-import type { VerifiedSeasonActionUser } from '../application/season-participant-use-case.deps.js';
+import type { VerifiedSeasonActionUser } from '../application/season-action-user.query.js';
 import { assertSeasonProfileCompleteForRegistration } from '../profile-draft/season-profile-completeness.policy.js';
 import {
   assertParticipantAllowsRegistration,

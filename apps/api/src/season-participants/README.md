@@ -14,7 +14,8 @@
 
 ## Directory responsibilities
 
-- `application/`: public facade, current-user view query, use-case provider tokens/deps/composition.
+- `application/`: public facade, current-user view query, season action user query, season context assertion/query, use-case provider tokens/deps.
+- `composition/`: `SeasonParticipantsModule` provider/export grouping. Write/public-target/source owner factory providers와 public module export surface를 module decorator에서 분리해 유지한다.
 - `context/`: `@RequireCurrentSeasonParticipant()`, `@SeasonParticipant()` decorator/guard/resolver/types.
 - `profile-draft/`: current season profile draft read/write command, mapper, completeness/write-lock policy.
 - `dormitory-selection/`: selectable dormitory query, selection update command, readiness evaluator, mapper, selection write-lock policy.
@@ -36,6 +37,7 @@
 - Root production TypeScript file은 controller/module만 허용한다.
 - `.owner.ts` compatibility file을 새로 만들지 않는다.
 - `SeasonParticipantsService`는 provider-injected facade이며 direct dependency assembler가 아니다.
+- `season-participant-use-case.deps.ts`는 deps/type만 소유하고 DB-backed helper 구현은 owner-adjacent query files에 둔다.
 - `season-participants` production code는 concrete `DormitoriesService`를 import하지 않는다.
 - `dormitories` production code는 `season-participants`를 import하지 않는다.
 - public target policy는 pure policy로 유지하고 Prisma/Nest provider를 import하지 않는다.
@@ -48,12 +50,14 @@
 - Route/domain context inventory: `apps/api/src/architecture/domain-context/domain-context-route-matrix.spec.ts`.
 - Shared contract behavior: `contracts/season-participation-contract.spec.ts`.
 - Shared package layout fitness는 domain 내부가 아니라 `apps/api/src/architecture/contracts/layout/`가 소유한다.
-- Root spec surface는 controller/module spec만 허용한다. Slice behavior spec은 owner-adjacent directory에 둔다.
+- Root spec surface는 controller spec만 허용한다. Module/provider/export fitness는 architecture guard와 `composition/` source-of-truth가 소유한다. Slice behavior spec은 owner-adjacent directory에 둔다.
 
 ## Where to change
 
 - Route delegation: `current-season-participation.controller.ts`.
-- Facade method wiring: `application/season-participants.service.ts` and `application/season-participant-write-owner.ts`.
+- Facade method delegation: `application/season-participants.service.ts`.
+- Use-case composition and provider factory wiring: `application/season-participant-write-owner.ts` and `composition/`.
+- Verified season action user and season context assertion/query: `application/season-action-user.query.ts`, `application/season-context.query.ts`.
 - Current-user season segment: `application/current-season-participation-view.query.ts`.
 - Current-season participant guard/context: `context/`.
 - Profile draft behavior: `profile-draft/`.

@@ -1,9 +1,7 @@
 import type { SeasonProfileDraftResponse } from '@repo/shared/season-contract';
-import {
-  assertReadableSeasonContext,
-  getVerifiedUserForSeasonAction,
-  type SeasonParticipantUseCaseDeps,
-} from '../application/season-participant-use-case.deps.js';
+import { getVerifiedUserForSeasonAction } from '../application/season-action-user.query.js';
+import { assertReadableSeasonContext } from '../application/season-context.query.js';
+import type { SeasonParticipantUseCaseDeps } from '../application/season-participant-use-case.deps.js';
 import type { SeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
 import {
   buildEmptySeasonProfileDraftResponse,
