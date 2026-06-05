@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import {
-  dormitoryBathroomTypeSchema,
-  dormitoryRoomTypeSchema,
-} from './dormitory-contract-enums.js';
+import { dormitoryBathroomTypeSchema, dormitoryRoomTypeSchema } from './enums.js';
 
 export const dormitoryCommonRuleSchema = z.strictObject({
   emoji: z.string(),

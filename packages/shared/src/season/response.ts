@@ -1,12 +1,12 @@
 import { z } from 'zod';
-import { campusSchema } from './identity-contract.js';
+import { campusSchema } from '../identity-contract.js';
 import {
   dormitorySeasonOperationSchema,
   seasonRuntimeOverrideSchema,
   seasonScheduleSchema,
   seasonStateSchema,
   seasonSummarySchema,
-} from './season-contract-primitives.js';
+} from './primitives.js';
 
 export const currentSeasonResponseSchema = z.strictObject({
   campusCode: campusSchema,

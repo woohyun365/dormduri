@@ -1,0 +1,118 @@
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import * as legacySeasonContract from '@repo/shared/season-contract';
+import * as seasonContract from '@repo/shared/season';
+import * as seasonPrimitivesContract from '@repo/shared/season/primitives';
+import * as seasonResponseContract from '@repo/shared/season/response';
+
+const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const SHARED_SRC_DIR = path.resolve(CURRENT_DIR, '../../../../../packages/shared/src');
+const SHARED_PACKAGE_JSON_PATH = path.resolve(
+  CURRENT_DIR,
+  '../../../../../packages/shared/package.json',
+);
+
+describe('season shared contract', () => {
+  it('old season-contract subpath는 new season barrel과 같은 primitive/response surface를 re-export한다', () => {
+    expect(legacySeasonContract.seasonStateSchema).toBe(seasonContract.seasonStateSchema);
+    expect(legacySeasonContract.seasonRuntimeOverrideSchema).toBe(
+      seasonPrimitivesContract.seasonRuntimeOverrideSchema,
+    );
+    expect(legacySeasonContract.currentSeasonResponseSchema).toBe(
+      seasonResponseContract.currentSeasonResponseSchema,
+    );
+  });
+
+  it('season runtime/current-season response contract shape를 유지한다', () => {
+    expect(
+      seasonPrimitivesContract.seasonRuntimeOverrideSchema.parse({
+        active: false,
+        state: null,
+        reason: null,
+        startedAt: null,
+        endsAt: null,
+      }),
+    ).toMatchObject({ active: false, state: null });
+
+    expect(
+      seasonResponseContract.currentSeasonResponseSchema.parse({
+        campusCode: 'CHUNCHEON',
+        season: {
+          id: 'season-1',
+          name: '2026 1학기',
+          preparationStartDate: '2026-01-01',
+          matchingStartDate: '2026-01-28',
+          seasonEndDate: '2026-02-28',
+        },
+        operatedDormitories: [
+          {
+            dormitoryId: 'dasan',
+            isOperated: true,
+            roomSelectionDate: '2026-02-11',
+          },
+        ],
+        state: 'SEASON_MATCHING',
+        isActive: true,
+        isOpen: false,
+        isMatching: true,
+        isPostMatch: false,
+        daysUntilMatchingEnd: 3,
+        daysUntilSeasonEnd: 20,
+        schedule: {
+          preparationStart: '2026-01-01',
+          matchingStart: '2026-01-28',
+          matchingEnd: '2026-02-12',
+          seasonEnd: '2026-02-28',
+        },
+        override: {
+          active: false,
+          state: null,
+          reason: null,
+          startedAt: null,
+          endsAt: null,
+        },
+      }),
+    ).toMatchObject({ state: 'SEASON_MATCHING', isMatching: true });
+  });
+
+  it('season old compat는 compat directory만 소유하고 root legacy files를 남기지 않는다', () => {
+    const compat = readFileSync(path.join(SHARED_SRC_DIR, 'compat/season-contract.ts'), 'utf8');
+
+    expect(compat.trim()).toBe("export * from '../season/index.js';");
+    for (const legacyRootFile of [
+      'season-contract.ts',
+      'season-contract-primitives.ts',
+      'season-contract-response.ts',
+    ]) {
+      expect(existsSync(path.join(SHARED_SRC_DIR, legacyRootFile))).toBe(false);
+    }
+  });
+
+  it('season package exports는 old compat와 new granular subpath를 모두 제공한다', () => {
+    const packageJson = JSON.parse(readFileSync(SHARED_PACKAGE_JSON_PATH, 'utf8')) as {
+      exports: Record<string, { types: string; default: string }>;
+    };
+
+    expect(packageJson.exports['./season-contract']).toEqual({
+      types: './dist/compat/season-contract.d.ts',
+      default: './dist/compat/season-contract.js',
+    });
+    expect(packageJson.exports['./season']).toEqual({
+      types: './dist/season/index.d.ts',
+      default: './dist/season/index.js',
+    });
+    expect(packageJson.exports['./season/primitives']).toEqual({
+      types: './dist/season/primitives.d.ts',
+      default: './dist/season/primitives.js',
+    });
+    expect(packageJson.exports['./season/response']).toEqual({
+      types: './dist/season/response.d.ts',
+      default: './dist/season/response.js',
+    });
+    expect(packageJson.exports['./season/participation']).toEqual({
+      types: './dist/season/participation/index.d.ts',
+      default: './dist/season/participation/index.js',
+    });
+  });
+});

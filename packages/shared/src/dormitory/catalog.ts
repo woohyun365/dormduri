@@ -1,10 +1,7 @@
 import { z } from 'zod';
-import { campusMetaSchema } from './campus-contract.js';
-import { campusSchema } from './identity-contract.js';
-import {
-  dormitoryGenderPolicySchema,
-  dormitoryRoomTypeSchema,
-} from './dormitory-contract-enums.js';
+import { campusMetaSchema } from '../campus-contract.js';
+import { campusSchema } from '../identity-contract.js';
+import { dormitoryGenderPolicySchema, dormitoryRoomTypeSchema } from './enums.js';
 
 export const dormitoryItemSchema = z.strictObject({
   id: z.string(),
