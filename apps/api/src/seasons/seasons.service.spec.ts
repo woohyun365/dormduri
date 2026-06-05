@@ -259,6 +259,44 @@ describe('SeasonsService', () => {
     });
   });
 
+  it('기간이 지난 override는 current state 계산에 적용하지 않는다', async () => {
+    prisma.season.findMany.mockResolvedValue([
+      makeSeasonRow({
+        overrideState: 'OFF_SEASON',
+        overrideReason: '종료된 운영자 수동 비활성화',
+        overrideStartedAt: new Date('2026-01-01T00:00:00+09:00'),
+        overrideEndsAt: new Date('2026-01-31T23:59:59+09:00'),
+      }),
+    ]);
+
+    const result = await service.getCurrentSeason(
+      'CHUNCHEON',
+      new Date('2026-02-10T12:00:00+09:00'),
+    );
+
+    expect(result).toMatchObject({
+      state: 'SEASON_MATCHING',
+      isMatching: true,
+      override: {
+        active: false,
+        state: null,
+        reason: null,
+      },
+    });
+  });
+
+  it('기숙사별 매칭 윈도우 조회는 logical read당 DB 기준 시간을 한 번만 해석한다', async () => {
+    prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
+
+    const result = await service.getCurrentDormitoryMatchWindow('CHUNCHEON', 'dasan');
+
+    expect(result).toMatchObject({
+      dormitoryId: 'dasan',
+      canMatch: true,
+    });
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+  });
+
   it('기숙사별 매칭 윈도우를 반환한다', async () => {
     prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
 

@@ -179,13 +179,15 @@ export function toCurrentSeasonResponse(season: NormalizedSeasonRuntimeRow, now:
   const schedule = resolveSeasonSchedule(season);
   const state = getEffectiveSeasonState(season, now);
   const operatedDormitories = getOperatedDormitories(season.dormitoryOperations);
+  const hasActiveOverride = hasActiveSeasonOverride(season, now);
 
   const override: SeasonRuntimeOverride = {
-    active: hasActiveSeasonOverride(season, now),
-    state: season.overrideState,
-    reason: season.overrideReason,
-    startedAt: season.overrideStartedAt ? season.overrideStartedAt.toISOString() : null,
-    endsAt: season.overrideEndsAt ? season.overrideEndsAt.toISOString() : null,
+    active: hasActiveOverride,
+    state: hasActiveOverride ? season.overrideState : null,
+    reason: hasActiveOverride ? season.overrideReason : null,
+    startedAt:
+      hasActiveOverride && season.overrideStartedAt ? season.overrideStartedAt.toISOString() : null,
+    endsAt: hasActiveOverride && season.overrideEndsAt ? season.overrideEndsAt.toISOString() : null,
   };
 
   return {

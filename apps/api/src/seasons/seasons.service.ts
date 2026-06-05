@@ -93,7 +93,8 @@ export class SeasonsService {
   }
 
   async getCurrentDormitoryMatchWindow(campusCode: Campus, dormitoryId: string, now?: Date) {
-    const context = await this.getCurrentSeasonContext(campusCode, now);
+    const referenceNow = await this.resolveReferenceTime(now);
+    const context = await this.getCurrentSeasonContext(campusCode, referenceNow);
     if (!context) {
       return null;
     }
@@ -103,7 +104,6 @@ export class SeasonsService {
       return null;
     }
 
-    const referenceNow = await this.resolveReferenceTime(now);
     const nowDateOnly = formatKstDate(referenceNow);
 
     return {
