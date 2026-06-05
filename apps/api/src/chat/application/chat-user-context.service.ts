@@ -1,7 +1,7 @@
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
-import type { CurrentSeasonParticipantRecord } from '../../season-participants/season-participants.service.js';
-import type { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import type { CurrentSeasonParticipantRecord } from '../../season-participants/application/season-participants.service.js';
+import type { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import type { SeasonsService } from '../../seasons/seasons.service.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import type { ChatParticipantUserProjection } from '../persistence/chat-thread.select.js';

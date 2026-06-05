@@ -18,7 +18,7 @@ import {
   CHAT_THREAD_NOTIFICATION_WRITER,
   type ChatThreadNotificationWriter,
 } from '../../notifications/notifications.tokens.js';
-import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import { SeasonsService } from '../../seasons/seasons.service.js';
 import { createChatCommandService } from './chat-command.service.js';
 import { createChatUserContextService } from './chat-user-context.service.js';

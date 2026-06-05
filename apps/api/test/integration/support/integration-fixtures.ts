@@ -1,6 +1,7 @@
+import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { SeasonProfileDraftRequest } from '@repo/shared/season-contract';
 import type { PrismaService } from '../../../src/platform/database/prisma.service.js';
-import { toCompleteLifestyleColumnData } from '../../../src/season-participants/lifestyle/lifestyle-persistence.mapper.js';
+import { toCompleteLifestyleColumnData as mapCompleteLifestyleColumnData } from '../../../src/season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import { formatKstDate, subtractDays } from '../../../src/seasons/season.utils.js';
 
 export const DEFAULT_LIFESTYLE = {
@@ -27,6 +28,10 @@ export const DEFAULT_LIFESTYLE = {
   cleanExpectation: 'STRICT',
   drinkingTolerance: 'LOW_ONLY',
 } as const;
+
+export function toCompleteLifestyleColumnData(lifestyle: LifestyleData = DEFAULT_LIFESTYLE) {
+  return mapCompleteLifestyleColumnData(lifestyle);
+}
 
 export function buildCompleteSeasonProfileDraft(
   intro = '완성된 시즌 프로필',

@@ -28,7 +28,7 @@ import {
   disposeDueRetentionAccessLogs,
   type RetentionAccessLogDisposalResult,
 } from '../retention/retention-access-log-owner.js';
-import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
+import { isParticipantRegistered } from '../season-participants/policies/index.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { recordDisplayIdentityNicknameChangeAuditTx } from './display-identity-nickname-audit.owner.js';
 

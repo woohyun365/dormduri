@@ -10,18 +10,18 @@ import {
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantProfileRecord,
-} from '../season-participants/season-participant-records.js';
-import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+} from '../season-participants/participants/season-participant-records.js';
+import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import {
   canCurrentDormitoryMatch,
   hasOperatedAssignedDormitory,
   isParticipantRegistered,
-} from '../season-participants/season-participant-policy.js';
+} from '../season-participants/policies/index.js';
 import {
   buildPublicTargetPolicyTargetInput,
   buildPublicTargetPolicyViewerInput,
-} from '../season-participants/season-participant-gate-context.js';
-import { resolvePublicTargetPolicy } from '../season-participants/season-participant-policy.js';
+} from '../season-participants/public-target-policy/index.js';
+import { resolvePublicTargetPolicy } from '../season-participants/public-target-policy/index.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { resolveCampusServiceState } from '../users/service-state.js';
 import {

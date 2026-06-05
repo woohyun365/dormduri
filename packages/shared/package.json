@@ -80,16 +80,16 @@
       "default": "./dist/campus-contract.js"
     },
     "./dormitory-contract": {
-      "types": "./dist/dormitory-contract.d.ts",
-      "default": "./dist/dormitory-contract.js"
+      "types": "./dist/compat/dormitory-contract.d.ts",
+      "default": "./dist/compat/dormitory-contract.js"
     },
     "./date-primitives": {
       "types": "./dist/date-primitives.d.ts",
       "default": "./dist/date-primitives.js"
     },
     "./season-contract": {
-      "types": "./dist/season-contract.d.ts",
-      "default": "./dist/season-contract.js"
+      "types": "./dist/compat/season-contract.d.ts",
+      "default": "./dist/compat/season-contract.js"
     },
     "./college-contract": {
       "types": "./dist/college-contract.d.ts",
@@ -122,6 +122,38 @@
     "./notification-contract": {
       "types": "./dist/notifications/contract.d.ts",
       "default": "./dist/notifications/contract.js"
+    },
+    "./dormitory": {
+      "types": "./dist/dormitory/index.d.ts",
+      "default": "./dist/dormitory/index.js"
+    },
+    "./dormitory/enums": {
+      "types": "./dist/dormitory/enums.d.ts",
+      "default": "./dist/dormitory/enums.js"
+    },
+    "./dormitory/catalog": {
+      "types": "./dist/dormitory/catalog.d.ts",
+      "default": "./dist/dormitory/catalog.js"
+    },
+    "./dormitory/guide": {
+      "types": "./dist/dormitory/guide.d.ts",
+      "default": "./dist/dormitory/guide.js"
+    },
+    "./season": {
+      "types": "./dist/season/index.d.ts",
+      "default": "./dist/season/index.js"
+    },
+    "./season/primitives": {
+      "types": "./dist/season/primitives.d.ts",
+      "default": "./dist/season/primitives.js"
+    },
+    "./season/response": {
+      "types": "./dist/season/response.d.ts",
+      "default": "./dist/season/response.js"
+    },
+    "./season/participation": {
+      "types": "./dist/season/participation/index.d.ts",
+      "default": "./dist/season/participation/index.js"
     }
   },
   "scripts": {

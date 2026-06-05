@@ -8,7 +8,7 @@ import type {
 import type { RetentionAccessLogDisposalResult } from '../retention/retention-access-log-owner.js';
 import type { RetentionReviewJobSweepResult } from '../retention/retention-review-job-owner.js';
 import type { RetainedIdentityDisposalResult } from '../retention/retained-identity-owner.js';
-import type { SeasonParticipantBackfillResult } from '../season-participants/season-participant-records.js';
+import type { SeasonParticipantBackfillResult } from '../season-participants/participants/season-participant-records.js';
 
 interface MatchLifecycleTransitionSweepResult {
   expiredRequests: number;

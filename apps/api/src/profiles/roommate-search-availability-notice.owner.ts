@@ -2,7 +2,7 @@ import type {
   RoommateSearchAvailabilityNotice,
   RoommateSearchSummary,
 } from '@repo/shared/roommate-search-contract';
-import { isParticipantRegistered } from '../season-participants/season-participant-policy.js';
+import { isParticipantRegistered } from '../season-participants/policies/index.js';
 import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
 
 export function buildRoommateSearchAvailabilityNotices(input: {

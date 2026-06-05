@@ -7,7 +7,7 @@ import type {
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';
 import type { MatchesService } from '../matches/matches.service.js';
-import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 import { buildRoommateSearchAvailabilityNotices } from './roommate-search-availability-notice.owner.js';
 import { createRoommateSearchCandidateOwner } from './roommate-search-candidate.owner.js';

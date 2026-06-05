@@ -50,6 +50,9 @@ CREATE TYPE "ParticipantStatus" AS ENUM ('NOT_STARTED', 'DRAFT', 'ACTIVE', 'MATC
 CREATE TYPE "ParticipantHiddenReasonCode" AS ENUM ('POLICY_VIOLATION', 'SAFETY_REVIEW', 'ADMIN_REQUEST', 'OTHER');
 
 -- CreateEnum
+CREATE TYPE "SeasonParticipantLifecycleEventType" AS ENUM ('JOINED', 'ACTIVATED', 'WITHDRAWN', 'EXPIRED', 'DEACTIVATED', 'HIDDEN', 'UNHIDDEN', 'MATCHED', 'UNMATCHED');
+
+-- CreateEnum
 CREATE TYPE "MatchRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM', 'EXPIRED');
 
 -- CreateEnum
@@ -504,6 +507,23 @@ CREATE TABLE "SeasonParticipant" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SeasonParticipant_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SeasonParticipantLifecycleEvent" (
+    "id" TEXT NOT NULL,
+    "participantId" TEXT NOT NULL,
+    "seasonId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "eventType" "SeasonParticipantLifecycleEventType" NOT NULL,
+    "actorUserId" TEXT,
+    "actorType" TEXT,
+    "reason" TEXT,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SeasonParticipantLifecycleEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1188,6 +1208,21 @@ CREATE INDEX "SeasonParticipant_seasonId_participantStatus_idx" ON "SeasonPartic
 CREATE UNIQUE INDEX "SeasonParticipant_seasonId_userId_key" ON "SeasonParticipant"("seasonId", "userId");
 
 -- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_participantId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("participantId", "occurredAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_seasonId_eventType_occurred_idx" ON "SeasonParticipantLifecycleEvent"("seasonId", "eventType", "occurredAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_userId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("userId", "occurredAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_eventType_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("eventType", "occurredAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_createdAt_idx" ON "SeasonParticipantLifecycleEvent"("createdAt");
+
+-- CreateIndex
 CREATE INDEX "SeasonParticipantProfile_collegeCode_idx" ON "SeasonParticipantProfile"("collegeCode");
 
 -- CreateIndex
@@ -1553,6 +1588,9 @@ ALTER TABLE "SeasonParticipant" ADD CONSTRAINT "SeasonParticipant_seasonId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "SeasonParticipant" ADD CONSTRAINT "SeasonParticipant_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SeasonParticipantLifecycleEvent" ADD CONSTRAINT "SeasonParticipantLifecycleEvent_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonParticipantProfile" ADD CONSTRAINT "SeasonParticipantProfile_collegeCode_fkey" FOREIGN KEY ("collegeCode") REFERENCES "CollegeMaster"("code") ON DELETE SET NULL ON UPDATE CASCADE;

@@ -1,9 +1,9 @@
 import type { PrismaService } from '../platform/database/prisma.service.js';
-import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import type {
   CurrentSeasonParticipantRecord,
   SeasonParticipantEnsureInput,
-} from '../season-participants/season-participants.service.js';
+} from '../season-participants/application/season-participants.service.js';
 import type { SeasonsService } from '../seasons/seasons.service.js';
 
 export interface MatchParticipantUserProjection extends SeasonParticipantEnsureInput {

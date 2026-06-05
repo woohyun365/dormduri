@@ -1,8 +1,8 @@
-import { AuthLoginAttemptService } from '../../src/auth/auth-login-attempt.service.js';
+import { AuthLoginAttemptService } from '../../src/auth/login-attempts/auth-login-attempt.service.js';
 import { ChatService } from '../../src/chat/application/chat.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { MatchesService } from '../../src/matches/matches.service.js';
-import { SeasonParticipantsService } from '../../src/season-participants/season-participants.service.js';
+import { SeasonParticipantsService } from '../../src/season-participants/application/season-participants.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,

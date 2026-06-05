@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { dormitorySelectionStateSchema } from './dormitory-contract.js';
-import { seasonStateSchema } from './season-contract.js';
+import { dormitorySelectionStateSchema } from './dormitory/enums.js';
+import { seasonStateSchema } from './season/primitives.js';
 import {
   seasonParticipationCompletionStateSchema,
   seasonParticipationStateSchema,
-} from './season-participation-contract.js';
+} from './season/participation/index.js';
 import { activeMatchSummarySchema } from './match-contract.js';
 import {
   displayIdentityEditUnavailableReasonSchema,

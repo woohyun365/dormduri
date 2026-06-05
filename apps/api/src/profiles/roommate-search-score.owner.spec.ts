@@ -1,4 +1,4 @@
-import { completeLifestyle } from '../season-participants/season-participants.owner.spec-fixtures.js';
+import { completeLifestyle } from '../season-participants/test-support/season-participants.spec-fixtures.js';
 import { calculateQueryTimeRoommateSearchScore } from './roommate-search-score.owner.js';
 
 describe('roommate-search-score.owner', () => {

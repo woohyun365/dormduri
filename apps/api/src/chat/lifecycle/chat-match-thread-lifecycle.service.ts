@@ -1,7 +1,7 @@
 import type { Prisma } from '../../generated/prisma/client.js';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../platform/database/prisma.service.js';
-import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import { SeasonsService } from '../../seasons/seasons.service.js';
 import {
   formatKstDate,

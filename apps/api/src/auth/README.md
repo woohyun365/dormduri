@@ -16,6 +16,7 @@
 - `access/`: route-level auth access metadata, capability, current user decorator, authenticated user guard. Domain context guard와 합치지 않는다.
 - `application/`: controller-facing facade와 public actor context resolver/type boundary. Workflow orchestration bucket을 두지 않는다.
 - `composition/`: `AuthModule` provider/export grouping. Slice provider 목록과 public module export surface를 모듈 decorator에서 분리해 읽기 쉽게 유지한다.
+- `contracts/`: shared auth contract behavior regression spec. Shared package layout fitness는 architecture가 소유한다.
 - `domain/`: request context, constants/types/utils 같은 pure/domain helper. Opaque session token primitive는 `sessions/opaque-token.ts`가 canonical owner다.
 - `sessions/`: opaque DB-backed session lifecycle. `auth-session-use-cases.service.ts`, opaque token primitive, current actor/session query, issue/renew/logout/revoke command, repository, renewal/reuse/revoke policy를 함께 둔다.
 - `verification/`: `auth-verification-use-cases.service.ts`, verification code request/verify, proof consume, purpose lock, TypedSQL/Prisma repository를 함께 둔다.
@@ -100,7 +101,7 @@ pnpm --dir apps/api exec jest --watchman=false --runInBand \
   src/auth/registration/auth-signup-validation.service.spec.ts \
   src/auth/login-attempts/auth-login-attempt.service.spec.ts \
   src/auth/access/authenticated-user.guard.spec.ts
-pnpm typecheck
+pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed files without apps/api prefix>
 git diff --check
 ```

@@ -1,13 +1,16 @@
 import { MatchesService } from '../../src/matches/matches.service.js';
 import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { toCompleteLifestyleColumnData } from '../../src/season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from './support/integration-db.js';
-import { authContext, DEFAULT_LIFESTYLE } from './support/integration-fixtures.js';
+import {
+  toCompleteLifestyleColumnData,
+  authContext,
+  DEFAULT_LIFESTYLE,
+} from './support/integration-fixtures.js';
 
 describe('Match history integration', () => {
   jest.setTimeout(60_000);

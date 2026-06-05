@@ -5,7 +5,7 @@ import { createRoommateSearchTokenOwner } from './roommate-search-token-owner.js
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
-} from '../season-participants/season-participants.service.js';
+} from '../season-participants/application/season-participants.service.js';
 import { toCompleteLifestyleColumnData } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 
 const COMPLETE_LIFESTYLE: LifestyleData = {

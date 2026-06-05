@@ -6,7 +6,7 @@ import { DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY } from '../../platform/domain-
 import type { ChatThreadMemberContextRequirement } from '../../chat/context/chat-thread-context-requirement.js';
 import type { ActiveMatchParticipantContextRequirement } from '../../matches/context/active-match-context-requirement.js';
 import type { CurrentSeasonParticipantContextRequirement } from '../../season-participants/context/current-season-participant-context-requirement.js';
-import { CurrentSeasonParticipantContextGuard } from '../../season-participants/current-season-participant-context.guard.js';
+import { CurrentSeasonParticipantContextGuard } from '../../season-participants/context/current-season-participant-context.guard.js';
 import { ChatController } from '../../chat/chat.controller.js';
 import { ChatThreadContextGuard } from '../../chat/context/chat-thread-context.guard.js';
 import { MatchesController } from '../../matches/matches.controller.js';
