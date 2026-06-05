@@ -1,4 +1,4 @@
-import { formatKstDate, subtractDays } from '../seasons/season.utils.js';
+import { formatKstDate, subtractDays } from '../platform/time/kst-date.js';
 import { buildParticipantPairIdentity } from './match.utils.js';
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';

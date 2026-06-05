@@ -11,7 +11,7 @@ import {
 } from './match-transaction-helpers.js';
 import { buildParticipantPairIdentity } from './match.utils.js';
 import type { CurrentSeasonContext } from '../seasons/season.types.js';
-import { formatKstDate } from '../seasons/season.utils.js';
+import { formatKstDate } from '../platform/time/kst-date.js';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 
 export type TerminalMatchRequestStatus = 'REJECTED' | 'CANCELLED_BY_REQUESTER';

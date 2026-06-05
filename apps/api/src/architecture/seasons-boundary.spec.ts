@@ -8,32 +8,28 @@ import { SeasonsService } from '../seasons/seasons.service.js';
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
 const seasonsRoot = join(apiSourceRoot, 'seasons');
+const platformTimeRoot = join(apiSourceRoot, 'platform/time');
 
 const transitionalRootRuntimeFiles = [
   'season.types.ts',
-  'season.utils.ts',
   'seasons.controller.ts',
   'seasons.errors.ts',
   'seasons.module.ts',
   'seasons.service.ts',
 ] as const;
 
-const transitionalSeasonUtilsExternalImportAllowlist = [
+const requiredPhaseTwoRuntimeFiles = [
+  'current-season.mapper.ts',
+  'current-season.mapper.spec.ts',
+  'season-runtime.policy.ts',
+  'season-runtime.policy.spec.ts',
+  'season-runtime.types.ts',
+] as const;
+
+const transitionalRuntimeImportAllowlist = [
   'src/chat/lifecycle/chat-match-thread-lifecycle.service.ts',
-  'src/chat/lifecycle/chat-season-lifecycle.service.ts',
-  'src/chat/policies/chat-thread-permission.policy.ts',
   'src/chat/policies/chat-thread-policy.ts',
-  'src/dormitories/selection-catalog/dormitory-selection-eligibility.policy.ts',
-  'src/dormitories/selection-catalog/prisma-dormitory-selection-catalog.adapter.ts',
-  'src/lifecycle/adapters/season-boundary-schedule.adapter.ts',
-  'src/matches/match-history-materialization-owner.ts',
-  'src/matches/match-history-read-owner.ts',
-  'src/matches/match-read-model.ts',
-  'src/matches/match-request-step-owner.ts',
-  'src/matches/matches.service.ts',
   'src/season-participants/application/season-context.query.ts',
-  'src/season-participants/policies/season-participant-selection.policy.ts',
-  'src/users/academic-identity-correction-allowance.owner.ts',
 ] as const;
 
 function moduleMetadata<T>(
@@ -101,30 +97,43 @@ describe('seasons final structure boundary', () => {
     expect(rootRuntimeFiles).toEqual([...transitionalRootRuntimeFiles].sort());
   });
 
-  it('keeps future runtime and operations internals out of external production imports', () => {
-    const forbiddenInternalImport = /from\s+['"][^'"]*seasons\/(?:runtime|operations)\/[^'"]+['"]/;
+  it('keeps Phase 2 runtime and neutral time split in dedicated files', () => {
+    for (const file of requiredPhaseTwoRuntimeFiles) {
+      expect(existsSync(join(seasonsRoot, 'runtime', file))).toBe(true);
+    }
+    expect(existsSync(join(platformTimeRoot, 'kst-date.ts'))).toBe(true);
+    expect(existsSync(join(platformTimeRoot, 'kst-date.spec.ts'))).toBe(true);
+  });
+
+  it('keeps operations internals private and freezes transitional runtime imports', () => {
+    const forbiddenOperationsImport = /from\s+['"][^'"]*seasons\/operations\/[^'"]+['"]/;
+    const runtimeImport = /from\s+['"][^'"]*seasons\/runtime\/[^'"]+['"]/;
     const externalFiles = productionTypeScriptFiles(apiSourceRoot).filter(
       (path) => !path.startsWith(seasonsRoot),
     );
-    const offenders = externalFiles
-      .filter((path) => forbiddenInternalImport.test(readSource(path)))
+    const operationOffenders = externalFiles
+      .filter((path) => forbiddenOperationsImport.test(readSource(path)))
+      .map(relativeSourcePath)
+      .sort();
+    const runtimeOffenders = externalFiles
+      .filter((path) => runtimeImport.test(readSource(path)))
       .map(relativeSourcePath)
       .sort();
 
-    expect(offenders).toEqual([]);
+    expect(operationOffenders).toEqual([]);
+    expect(runtimeOffenders).toEqual([...transitionalRuntimeImportAllowlist].sort());
   });
 
-  it('keeps season.utils external imports frozen until platform time migration', () => {
+  it('keeps season.utils removed after Phase 2 canonical import migration', () => {
+    const seasonUtilsPath = join(seasonsRoot, 'season.utils.ts');
     const seasonUtilsImport = /from\s+['"][^'"]*seasons\/season\.utils(?:\.js)?['"]/;
-    const externalFiles = productionTypeScriptFiles(apiSourceRoot).filter(
-      (path) => !path.startsWith(seasonsRoot),
-    );
-    const offenders = externalFiles
+    const offenders = productionTypeScriptFiles(apiSourceRoot)
       .filter((path) => seasonUtilsImport.test(readSource(path)))
       .map(relativeSourcePath)
       .sort();
 
-    expect(offenders).toEqual([...transitionalSeasonUtilsExternalImportAllowlist].sort());
+    expect(existsSync(seasonUtilsPath)).toBe(false);
+    expect(offenders).toEqual([]);
   });
 
   it('documents the seasons product boundary and #208/#209 ownership', () => {

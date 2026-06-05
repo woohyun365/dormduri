@@ -8,7 +8,7 @@
 
 - `SeasonsModule`: public current season route와 season runtime provider wiring을 제공한다.
 - `GET /api/seasons/current?campus=...`: 운영 캠퍼스의 사용자용 current season snapshot을 반환한다.
-- `SeasonsService`: Phase 0 기준 compatibility facade다. Phase 2~4에서 runtime query/port로 내부 책임을 분리한다.
+- `SeasonsService`: current compatibility facade다. Phase 3~4에서 runtime query/repository/port로 내부 책임을 더 줄인다.
 - `SEASON_CONTEXT_PORT`: Phase 4 target public port다. 외부 도메인은 concrete `SeasonsService` 대신 이 port로 current context를 읽도록 전환한다.
 - shared season response/contract는 `packages/shared/src/season/**`가 canonical owner다. Shared layout 정리는 dormitories/season-participants plan Phase 9 수행 여부와 충돌하지 않게 Phase 8에서 검증한다.
 
@@ -25,9 +25,10 @@
 
 - `seasons.controller.ts`: public `GET /api/seasons/current` HTTP parsing, campus query validation, not-found mapping.
 - `seasons.module.ts`: current transitional provider/export wiring. Phase 7 이후 provider list가 커지면 composition 분리를 검토한다.
-- `seasons.service.ts`: current season query, reference time resolution, dormitory match window query를 함께 가진 compatibility facade. Phase 2~4에서 runtime query/repository/port로 분리한다.
-- `season.utils.ts`: KST date helper, schedule/state/override mapper. Phase 2에서 pure policy/helper를 분리하고 Phase 4에서 외부 direct import를 제거한다.
-- `season.types.ts`: current runtime context/internal row type. Phase 3~4에서 runtime/port type으로 이동한다.
+- `seasons.service.ts`: current season query facade. Phase 2 기준 mapper/policy/time helper는 이미 분리됐고, Phase 3에서 repository/query provider로 더 줄인다.
+- `season.types.ts`: current runtime context/internal row type의 transitional type surface. Phase 4 port migration에서 정리한다.
+- `runtime/`: season state policy, current season response mapper, normalized runtime row type. Phase 4 전까지 일부 legacy consumer가 좁은 allowlist로 참조할 수 있다.
+- `platform/time/kst-date.ts`: season-neutral KST local-date helper. `season.utils.ts` compatibility re-export는 두지 않는다.
 - `seasons.errors.ts`: user-facing seasons error contract.
 - `contracts/`: shared season contract behavior regression spec.
 
@@ -79,7 +80,7 @@
 
 최종 구조는 runtime read, operations mutation, ports, cache를 분리한다.
 
-- `runtime/`: current season query/repository/mapper/policy.
+- `runtime/`: current season query/repository/mapper/policy. Phase 2에서 policy/mapper/type split은 먼저 완료했다.
 - `operations/`: #208 schedule/override commands, operations controller, audit repository.
 - `ports/`: external domain-facing season context and boundary schedule ports.
 - `cache/`: #209 request/method-level memoization helper.
@@ -88,7 +89,7 @@
 ## Where to change
 
 - Public current season route parsing: `seasons.controller.ts`.
-- Current runtime read behavior before split: `seasons.service.ts`, `season.utils.ts`.
+- Current runtime read behavior: `seasons.service.ts`, `runtime/`, `platform/time/kst-date.ts`.
 - User-facing seasons error behavior: `seasons.errors.ts`.
 - Policy/source-of-truth semantics: `docs/04_policy/official/season-lifecycle.md`.
 - Final implementation sequencing: `.omx/plans/seasons-final-ideal-structure-refactor-plan.md`.

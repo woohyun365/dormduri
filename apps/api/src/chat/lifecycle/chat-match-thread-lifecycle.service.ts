@@ -3,11 +3,11 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import { SeasonsService } from '../../seasons/seasons.service.js';
+import { formatKstDate } from '../../platform/time/kst-date.js';
 import {
-  formatKstDate,
   normalizeSeasonRuntimeRow,
   toCurrentSeasonResponse,
-} from '../../seasons/season.utils.js';
+} from '../../seasons/runtime/current-season.mapper.js';
 import {
   type ActiveMatchCreatedChatLifecycleInput,
   type ActiveMatchUnmatchedChatLifecycleInput,

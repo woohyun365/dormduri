@@ -8,7 +8,7 @@ import type {
   ChatLifecycleSweepResult,
 } from '../application/ports/chat-lifecycle-sweep.port.js';
 import { createChatThreadSupportOwner } from '../policies/chat-thread-policy.js';
-import { formatKstDate } from '../../seasons/season.utils.js';
+import { formatKstDate } from '../../platform/time/kst-date.js';
 import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';
 import {
   ChatRealtimeOutboxService,

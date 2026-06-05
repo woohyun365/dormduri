@@ -1,6 +1,6 @@
 import type { ChatSendMessageUnavailableReason } from '@repo/shared/chat-contract';
 import type { SeasonState } from '@repo/shared/season-contract';
-import { formatKstDate } from '../../seasons/season.utils.js';
+import { formatKstDate } from '../../platform/time/kst-date.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
 export interface ChatSendMessageDecision {

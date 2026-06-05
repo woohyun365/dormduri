@@ -61,7 +61,7 @@ import {
   synchronizePendingUnmatchRequests,
 } from './match-unmatch-support.js';
 import { resolveMatchRequestExpiresAt } from './match.utils.js';
-import { formatKstDate } from '../seasons/season.utils.js';
+import { formatKstDate } from '../platform/time/kst-date.js';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 
 interface LifecycleTransitionResult {

@@ -12,11 +12,9 @@ import {
   buildPublicTargetPolicyViewerInput,
   toOperatedDormitoryIdSet,
 } from '../../season-participants/public-target-policy/index.js';
-import {
-  formatKstDate,
-  getEffectiveSeasonState,
-  normalizeSeasonRuntimeRow,
-} from '../../seasons/season.utils.js';
+import { formatKstDate } from '../../platform/time/kst-date.js';
+import { normalizeSeasonRuntimeRow } from '../../seasons/runtime/current-season.mapper.js';
+import { getEffectiveSeasonState } from '../../seasons/runtime/season-runtime.policy.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import type { ChatUserContext } from '../application/chat-user-context.service.js';
 import { parseLifestyleOrNull } from '../../profiles/profile.mapper.js';
