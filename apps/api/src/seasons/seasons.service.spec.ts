@@ -1,3 +1,6 @@
+import { CurrentSeasonContextQuery } from './runtime/current-season-context.query.js';
+import { DormitoryMatchWindowQuery } from './runtime/dormitory-match-window.query.js';
+import { SeasonRuntimeRepository } from './runtime/season-runtime.repository.js';
 import { SeasonsService } from './seasons.service.js';
 
 function makeSeasonRow(
@@ -57,7 +60,10 @@ describe('SeasonsService', () => {
     $queryRawTyped: jest.fn(),
   };
 
-  const service = new SeasonsService(prisma as never);
+  const repository = new SeasonRuntimeRepository(prisma as never);
+  const currentSeasonContextQuery = new CurrentSeasonContextQuery(repository);
+  const dormitoryMatchWindowQuery = new DormitoryMatchWindowQuery(currentSeasonContextQuery);
+  const service = new SeasonsService(currentSeasonContextQuery, dormitoryMatchWindowQuery);
 
   beforeEach(() => {
     jest.clearAllMocks();

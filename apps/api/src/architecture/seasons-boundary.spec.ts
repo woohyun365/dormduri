@@ -3,6 +3,9 @@ import { dirname, join, relative, sep } from 'node:path';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { SeasonsController } from '../seasons/seasons.controller.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
+import { CurrentSeasonContextQuery } from '../seasons/runtime/current-season-context.query.js';
+import { DormitoryMatchWindowQuery } from '../seasons/runtime/dormitory-match-window.query.js';
+import { SeasonRuntimeRepository } from '../seasons/runtime/season-runtime.repository.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 
 const apiRoot = process.cwd();
@@ -18,11 +21,15 @@ const transitionalRootRuntimeFiles = [
   'seasons.service.ts',
 ] as const;
 
-const requiredPhaseTwoRuntimeFiles = [
+const requiredRuntimeFiles = [
+  'current-season-context.query.ts',
   'current-season.mapper.ts',
   'current-season.mapper.spec.ts',
+  'dormitory-match-window.query.ts',
   'season-runtime.policy.ts',
   'season-runtime.policy.spec.ts',
+  'season-runtime.repository.ts',
+  'season-runtime.repository.spec.ts',
   'season-runtime.types.ts',
 ] as const;
 
@@ -81,10 +88,15 @@ function expectReadmeSections(path: string, sections: readonly string[]) {
 }
 
 describe('seasons final structure boundary', () => {
-  it('keeps SeasonsModule on the Phase 1 transitional public surface', () => {
+  it('keeps SeasonsModule on the Phase 3 query/repository provider surface', () => {
     expect(moduleMetadata(SeasonsModule, 'imports')).toEqual([PrismaModule]);
     expect(moduleMetadata(SeasonsModule, 'controllers')).toEqual([SeasonsController]);
-    expect(moduleMetadata(SeasonsModule, 'providers')).toEqual([SeasonsService]);
+    expect(moduleMetadata(SeasonsModule, 'providers')).toEqual([
+      SeasonsService,
+      SeasonRuntimeRepository,
+      CurrentSeasonContextQuery,
+      DormitoryMatchWindowQuery,
+    ]);
     expect(moduleMetadata(SeasonsModule, 'exports')).toEqual([SeasonsService]);
   });
 
@@ -97,8 +109,8 @@ describe('seasons final structure boundary', () => {
     expect(rootRuntimeFiles).toEqual([...transitionalRootRuntimeFiles].sort());
   });
 
-  it('keeps Phase 2 runtime and neutral time split in dedicated files', () => {
-    for (const file of requiredPhaseTwoRuntimeFiles) {
+  it('keeps runtime query, repository, mapper, policy, and neutral time split in dedicated files', () => {
+    for (const file of requiredRuntimeFiles) {
       expect(existsSync(join(seasonsRoot, 'runtime', file))).toBe(true);
     }
     expect(existsSync(join(platformTimeRoot, 'kst-date.ts'))).toBe(true);
@@ -122,6 +134,16 @@ describe('seasons final structure boundary', () => {
 
     expect(operationOffenders).toEqual([]);
     expect(runtimeOffenders).toEqual([...transitionalRuntimeImportAllowlist].sort());
+  });
+
+  it('keeps SeasonsService as a thin facade without Prisma/query-shape ownership', () => {
+    const source = readSource(join(seasonsRoot, 'seasons.service.ts'));
+
+    expect(source).toContain('CurrentSeasonContextQuery');
+    expect(source).toContain('DormitoryMatchWindowQuery');
+    expect(source).not.toMatch(
+      /PrismaService|prisma\.|\$queryRawTyped|getCurrentTimestamp|season\.findMany/,
+    );
   });
 
   it('keeps season.utils removed after Phase 2 canonical import migration', () => {
