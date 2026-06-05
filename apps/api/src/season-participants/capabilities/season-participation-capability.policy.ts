@@ -5,7 +5,9 @@ export function isParticipantRegistrationLocked(participant: CurrentSeasonPartic
   return Boolean(
     participant.participationIntent === 'DECLINED' ||
     participant.participantStatus === 'WITHDRAWN' ||
+    participant.participantStatus === 'EXPIRED' ||
     participant.withdrawnAt ||
+    participant.expiredAt ||
     participant.declinedAt,
   );
 }

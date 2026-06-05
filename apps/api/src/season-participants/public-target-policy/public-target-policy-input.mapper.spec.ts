@@ -106,25 +106,50 @@ describe('public-target-policy-input.mapper', () => {
     });
   });
 
-  it('target public target policy input은 OFF_SEASON이어도 hidden/deactivated target을 visible로 되살리지 않는다', () => {
-    const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
-    const result = buildPublicTargetPolicyTargetInput({
-      operatedDormitoryIds,
-      participant: makeParticipant({
-        hiddenByAdminAt: new Date('2026-02-01T00:00:00.000Z'),
-      }),
-      matched: false,
-      selection: {
-        dormitoryId: 'dasan',
-        dormitorySelectionState: 'ASSIGNED',
+  it.each([
+    [
+      'hidden projection',
+      { hiddenByAdminAt: new Date('2026-02-01T00:00:00.000Z') },
+      { visible: false, registered: true },
+    ],
+    [
+      'deactivated projection',
+      { deactivatedAt: new Date('2026-02-01T00:00:00.000Z') },
+      { visible: false, registered: true },
+    ],
+    [
+      'withdrawn terminal',
+      {
+        participantStatus: 'WITHDRAWN' as const,
+        withdrawnAt: new Date('2026-02-01T00:00:00.000Z'),
       },
-      registrationSnapshotExists: true,
-    });
+      { visible: false, registered: false },
+    ],
+    [
+      'expired terminal',
+      { participantStatus: 'EXPIRED' as const, expiredAt: new Date('2026-02-01T00:00:00.000Z') },
+      { visible: false, registered: false },
+    ],
+  ])(
+    'target public target policy input은 %s target을 fail-closed projection으로 매핑한다',
+    (_caseName, participantOverrides, expected) => {
+      const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);
+      const result = buildPublicTargetPolicyTargetInput({
+        operatedDormitoryIds,
+        participant: makeParticipant(participantOverrides),
+        matched: false,
+        selection: {
+          dormitoryId: 'dasan',
+          dormitorySelectionState: 'ASSIGNED',
+        },
+        registrationSnapshotExists: true,
+      });
 
-    expect(result.visible).toBe(false);
-    expect(result.hasOperatedAssignedDormitory).toBe(true);
-    expect(result.hasSeasonProfile).toBe(true);
-  });
+      expect(result).toMatchObject(expected);
+      expect(result.hasOperatedAssignedDormitory).toBe(true);
+      expect(result.hasSeasonProfile).toBe(true);
+    },
+  );
 
   it('profile 없는 registered target은 visibility 축은 열고 profile completeness 축에서 거부되게 분리한다', () => {
     const operatedDormitoryIds = toOperatedDormitoryIdSet(seasonContext);

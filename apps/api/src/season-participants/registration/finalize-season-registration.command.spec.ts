@@ -437,6 +437,31 @@ describe('finalize-season-registration.command', () => {
     expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
   });
 
+  it('expired participant 재등록 확정은 거부한다', async () => {
+    const {
+      service,
+      txSeasonParticipantUpsert,
+      txSeasonParticipantUpdate,
+      txSeasonParticipantProfileHistoryCreate,
+    } = createSeasonParticipantsServiceTestKit();
+    txSeasonParticipantUpsert.mockResolvedValue(
+      participant({
+        participationIntent: 'UNDECIDED',
+        participantStatus: 'EXPIRED',
+        expiredAt: now,
+        dormitorySelectionState: 'SELECTED',
+        dormitoryId: 'dasan',
+        profile: profile(),
+      }),
+    );
+
+    await expect(service.finalizeSeasonRegistration('user-1', now)).rejects.toMatchObject({
+      response: seasonParticipantsErrors.registrationNotAllowed().getResponse(),
+    });
+    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+    expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
+  });
+
   it('tx 내부 user deletedAt 재조회에서 inactive account를 감지하면 finalize mutation을 수행하지 않는다', async () => {
     const {
       service,

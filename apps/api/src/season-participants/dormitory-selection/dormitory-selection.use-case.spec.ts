@@ -159,6 +159,61 @@ describe('dormitory-selection use cases', () => {
     expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      'declined intent',
+      participant({
+        participationIntent: 'DECLINED',
+        declinedAt: now,
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    ],
+    [
+      'withdrawn status',
+      participant({
+        participantStatus: 'WITHDRAWN',
+        withdrawnAt: now,
+        profile: profile(),
+      }),
+    ],
+    [
+      'expired terminal',
+      participant({
+        participantStatus: 'EXPIRED',
+        expiredAt: now,
+        profile: profile(),
+      }),
+    ],
+    [
+      'deactivated participant',
+      participant({
+        deactivatedAt: now,
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    ],
+    [
+      'admin hidden participant',
+      participant({
+        hiddenByAdminAt: now,
+        participantStatus: 'DRAFT',
+        profile: profile(),
+      }),
+    ],
+  ])('%s 상태 participant는 dormitory selection write를 선차단한다', async (_label, blocked) => {
+    const { service, txSeasonParticipantUpsert, txSeasonParticipantUpdate } =
+      createSeasonParticipantsServiceTestKit();
+    txSeasonParticipantUpsert.mockResolvedValue(blocked);
+
+    await expect(
+      service.createOrUpdateDormitorySelection('user-1', { dormitoryId: 'dasan' }, now),
+    ).rejects.toMatchObject({
+      response: seasonParticipantsErrors.dormitorySelectionInvalid().getResponse(),
+    });
+    expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
+  });
+
   it('dormitory validation은 operated/campus/gender/cutoff/no selectable 조건을 닫는다', async () => {
     const {
       service,

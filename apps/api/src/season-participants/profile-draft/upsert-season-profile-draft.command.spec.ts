@@ -134,6 +134,14 @@ describe('upsert-season-profile-draft.command', () => {
       }),
     ],
     [
+      'expired terminal',
+      participant({
+        expiredAt: now,
+        participantStatus: 'EXPIRED',
+        profile: profile(),
+      }),
+    ],
+    [
       'deactivated participant',
       participant({
         deactivatedAt: now,

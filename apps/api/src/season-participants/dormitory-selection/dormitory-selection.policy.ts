@@ -1,17 +1,12 @@
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
 import { isParticipantRegistered } from '../policies/index.js';
+import { isParticipantLockedOrInactive } from '../capabilities/season-participation-capability.policy.js';
 
 export function assertParticipantAllowsDormitorySelection(
   participant: CurrentSeasonParticipantRecord,
 ) {
-  if (
-    isParticipantRegistered(participant) ||
-    participant.participationIntent === 'DECLINED' ||
-    participant.participantStatus === 'WITHDRAWN' ||
-    Boolean(participant.withdrawnAt || participant.declinedAt) ||
-    Boolean(participant.hiddenByAdminAt || participant.deactivatedAt)
-  ) {
+  if (isParticipantRegistered(participant) || isParticipantLockedOrInactive(participant)) {
     throw seasonParticipantsErrors.dormitorySelectionInvalid();
   }
 }

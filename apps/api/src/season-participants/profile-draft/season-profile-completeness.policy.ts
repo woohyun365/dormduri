@@ -5,6 +5,7 @@ import type {
   CurrentSeasonParticipantProfileRecord,
   CurrentSeasonParticipantRecord,
 } from '../participants/season-participant-records.js';
+import { isParticipantLockedOrInactive } from '../capabilities/season-participation-capability.policy.js';
 
 export type SeasonProfileCompletenessProfile =
   | CurrentSeasonParticipantProfileRecord
@@ -35,13 +36,7 @@ export function assertSeasonProfileCompleteForRegistration(
 export function assertParticipantAllowsProfileDraftWrite(
   participant: CurrentSeasonParticipantRecord,
 ) {
-  if (
-    isParticipantRegistered(participant) ||
-    participant.participationIntent === 'DECLINED' ||
-    participant.participantStatus === 'WITHDRAWN' ||
-    Boolean(participant.withdrawnAt || participant.declinedAt) ||
-    Boolean(participant.hiddenByAdminAt || participant.deactivatedAt)
-  ) {
+  if (isParticipantRegistered(participant) || isParticipantLockedOrInactive(participant)) {
     throw seasonParticipantsErrors.seasonProfileDraftNotAllowed();
   }
 }

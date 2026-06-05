@@ -59,6 +59,29 @@ describe('public-target-eligibility.policy', () => {
     });
   });
 
+  it.each([
+    [
+      'deleted/deidentified target',
+      baseTarget({ deletedOrDeidentified: true }),
+      'TARGET_DELETED_OR_DEIDENTIFIED' as const,
+    ],
+    [
+      'hidden/deactivated/terminal projection target',
+      baseTarget({ visible: false }),
+      'TARGET_NOT_VISIBLE' as const,
+    ],
+    [
+      'registered=false target',
+      baseTarget({ registered: false }),
+      'TARGET_NOT_REGISTERED' as const,
+    ],
+  ])('%s은 public target eligibility를 닫는다', (_caseName, target, unavailableReason) => {
+    expect(resolvePublicTargetEligibility(baseViewer(), target)).toEqual({
+      publicTarget: false,
+      unavailableReason,
+    });
+  });
+
   it('visible registered target도 profile이 없거나 incomplete하면 profile incomplete reason으로 닫는다', () => {
     for (const target of [
       baseTarget({ hasSeasonProfile: false, seasonProfileComplete: false }),

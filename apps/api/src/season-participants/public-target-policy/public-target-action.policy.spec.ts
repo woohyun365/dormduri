@@ -116,6 +116,33 @@ describe('public-target-action.policy', () => {
     });
   });
 
+  it.each([
+    ['hidden/deactivated projection', 'TARGET_NOT_VISIBLE' as const],
+    ['withdrawn/expired terminal projection', 'TARGET_NOT_VISIBLE' as const],
+    ['deleted/deidentified target', 'TARGET_DELETED_OR_DEIDENTIFIED' as const],
+  ])('%s target은 신규 bookmark/match/chat action을 fail-closed한다', (_caseName, reason) => {
+    expect(
+      resolvePublicTargetActions(
+        baseViewer({ seasonState: 'SEASON_MATCHING', currentDormitoryCanMatch: true }),
+        baseTarget({
+          visible: false,
+          deletedOrDeidentified: reason === 'TARGET_DELETED_OR_DEIDENTIFIED',
+        }),
+        { publicTarget: false, unavailableReason: reason },
+        baseIntermediate({ sameDormitoryDetailViewable: false }),
+      ),
+    ).toMatchObject({
+      canBookmark: false,
+      canRequestMatch: false,
+      canStartChat: false,
+      unavailableReasons: [
+        reason === 'TARGET_DELETED_OR_DEIDENTIFIED'
+          ? 'TARGET_DELETED_OR_DEIDENTIFIED'
+          : 'TARGET_NOT_PUBLIC',
+      ],
+    });
+  });
+
   it('SEASON_POST_MATCH matched result context는 result-read만 유지하고 신규 action을 닫는다', () => {
     expect(
       resolvePublicTargetActions(
