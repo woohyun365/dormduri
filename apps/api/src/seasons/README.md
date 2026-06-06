@@ -8,6 +8,9 @@
 
 - `SeasonsModule`: public current season route와 season runtime provider wiring을 제공한다.
 - `GET /api/seasons/current?campus=...`: 운영 캠퍼스의 사용자용 current season snapshot을 반환한다.
+- `PATCH /api/campuses/:campusCode/seasons/:seasonId/schedule`: `admin:season:operations:write` capability가 있는 운영 actor만 특정 campus의 season schedule을 optimistic concurrency로 수정한다.
+- `PATCH /api/campuses/:campusCode/seasons/:seasonId/override`: 특정 campus의 운영 override state/window/reason을 optimistic concurrency로 설정한다.
+- `DELETE /api/campuses/:campusCode/seasons/:seasonId/override`: 특정 campus의 override를 해제하고 audit event를 남긴다.
 - `SEASON_CONTEXT_PORT`: 외부 도메인의 public season context port다. current season context/state와 dormitory match window read만 제공한다.
 - `SeasonsService`: `SeasonContextPort` 구현체이자 controller-facing facade다. Prisma/query-shape ownership 없이 runtime query provider에 위임한다.
 - shared season response/contract는 `packages/shared/src/season/**`가 canonical owner다. Shared layout 정리는 dormitories/season-participants plan Phase 9 수행 여부와 충돌하지 않게 Phase 8에서 검증한다.
@@ -30,6 +33,7 @@
 - `runtime/`: current season context query, dormitory match window query, Prisma repository, season state policy, current season response mapper, normalized runtime row type. seasons module 내부 구현 상세다.
 - `platform/time/kst-date.ts`: season-neutral KST local-date helper. `season.utils.ts` compatibility re-export는 두지 않는다.
 - `seasons.errors.ts`: user-facing seasons error contract.
+- `operations/`: #208 schedule/override admin API controller, command, repository, audit repository, mapper, validation policy. mutation과 audit append는 같은 transaction 안에서 수행한다.
 - `contracts/`: shared season contract behavior regression spec.
 
 ## #208 operations scope
@@ -39,10 +43,12 @@
 포함:
 
 - schedule/override backend operations route와 command.
+- operations mutation은 route `campusCode + seasonId`를 모두 검증하며, `seasonId` 단독으로 다른 campus season을 수정하지 않는다.
 - overlap/invalid date/invalid override window validation.
 - optimistic concurrency 또는 equivalent lost-update guard.
 - schedule/override mutation transaction.
 - actor, reason, before/after snapshot을 포함한 operations audit append.
+- audit payload는 operation 대상 `campusCode`, actor id/capability snapshot, changed field, before/after season snapshot만 저장하고 session/gender 같은 불필요한 actor metadata를 남기지 않는다.
 - 운영 절차/incident 대응 README 또는 policy update.
 
 제외:
@@ -89,8 +95,10 @@
 ## Where to change
 
 - Public current season route parsing: `seasons.controller.ts`.
+- Admin operations route parsing: `operations/seasons-operations.controller.ts`.
 - External season context consumption: `ports/season-context.port.ts`.
 - Current runtime read behavior: `seasons.service.ts`, `runtime/`, `platform/time/kst-date.ts`.
+- Schedule/override mutation and audit behavior: `operations/`.
 - User-facing seasons error behavior: `seasons.errors.ts`.
 - Policy/source-of-truth semantics: `docs/04_policy/official/season-lifecycle.md`.
 - Final implementation sequencing: `.omx/plans/seasons-final-ideal-structure-refactor-plan.md`.

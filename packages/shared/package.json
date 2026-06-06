@@ -151,6 +151,10 @@
       "types": "./dist/season/response.d.ts",
       "default": "./dist/season/response.js"
     },
+    "./season/operations": {
+      "types": "./dist/season/operations.d.ts",
+      "default": "./dist/season/operations.js"
+    },
     "./season/participation": {
       "types": "./dist/season/participation/index.d.ts",
       "default": "./dist/season/participation/index.js"

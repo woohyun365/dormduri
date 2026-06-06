@@ -40,6 +40,9 @@ describe('migration baseline coverage', () => {
       `CREATE TYPE "SeasonOverrideState" AS ENUM ('OFF_SEASON', 'SEASON_OPEN', 'SEASON_MATCHING', 'SEASON_POST_MATCH');`,
     );
     expect(sql).toContain(
+      `CREATE TYPE "SeasonOperationAuditAction" AS ENUM ('UPDATE_SCHEDULE', 'UPDATE_OVERRIDE', 'CLEAR_OVERRIDE');`,
+    );
+    expect(sql).toContain(
       `CREATE TYPE "ProfileHistorySource" AS ENUM ('SEASON_REGISTRATION', 'SYSTEM_BACKFILL');`,
     );
     expect(sql).toContain(
@@ -117,6 +120,23 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE TABLE "UserAcademicIdentityChangeEvent"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfile"');
     expect(sql).toContain('CREATE TABLE "SeasonParticipantProfileHistory"');
+    expect(sql).toContain('CREATE TABLE "SeasonOperationAuditEvent"');
+    expect(sql).toContain('"campusCode" "Campus" NOT NULL');
+    expect(sql).toContain(
+      'CREATE INDEX "SeasonOperationAuditEvent_seasonId_createdAt_idx" ON "SeasonOperationAuditEvent"("seasonId", "createdAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "SeasonOperationAuditEvent_campusCode_createdAt_idx" ON "SeasonOperationAuditEvent"("campusCode", "createdAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "SeasonOperationAuditEvent_action_createdAt_idx" ON "SeasonOperationAuditEvent"("action", "createdAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "SeasonOperationAuditEvent_actorUserId_createdAt_idx" ON "SeasonOperationAuditEvent"("actorUserId", "createdAt")',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "SeasonOperationAuditEvent" ADD CONSTRAINT "SeasonOperationAuditEvent_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
+    );
 
     // These are not broad string-search guards. They pin removed DB-level artifacts
     // that would reintroduce old account-profile ownership or pre-RRPD retention tables.

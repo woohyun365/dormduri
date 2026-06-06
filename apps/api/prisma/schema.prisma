@@ -89,6 +89,12 @@ enum SeasonOverrideState {
   SEASON_POST_MATCH
 }
 
+enum SeasonOperationAuditAction {
+  UPDATE_SCHEDULE
+  UPDATE_OVERRIDE
+  CLEAR_OVERRIDE
+}
+
 enum SeasonParticipationIntent {
   UNDECIDED
   REGISTERED
@@ -563,31 +569,52 @@ model DormitoryGuide {
 }
 
 model Season {
-  id                   String                     @id @default(cuid())
-  campusCode           Campus                     @default(CHUNCHEON)
+  id                   String                      @id @default(cuid())
+  campusCode           Campus                      @default(CHUNCHEON)
   academicYear         Int
   semester             Int
   name                 String
-  preparationStartDate DateTime                   @db.Date
-  matchingStartDate    DateTime                   @db.Date
-  seasonEndDate        DateTime                   @db.Date
+  preparationStartDate DateTime                    @db.Date
+  matchingStartDate    DateTime                    @db.Date
+  seasonEndDate        DateTime                    @db.Date
   overrideState        SeasonOverrideState?
   overrideReason       String?
-  overrideStartedAt    DateTime?                  @db.Timestamptz(3)
-  overrideEndsAt       DateTime?                  @db.Timestamptz(3)
-  createdAt            DateTime                   @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
-  campus               CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  overrideStartedAt    DateTime?                   @db.Timestamptz(3)
+  overrideEndsAt       DateTime?                   @db.Timestamptz(3)
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                    @default(now()) @updatedAt @db.Timestamptz(3)
+  campus               CampusMaster                @relation(fields: [campusCode], references: [code], onDelete: Restrict)
   dormitoryOperations  SeasonDormitoryOperation[]
   participants         SeasonParticipant[]
   matchRequests        MatchRequest[]
   activeMatches        ActiveMatch[]
   matchHistoryEntries  SeasonMatchHistoryEntry[]
   conversationThreads  ConversationThread[]
+  operationAuditEvents SeasonOperationAuditEvent[]
 
   @@unique([campusCode, academicYear, semester])
   @@index([campusCode, matchingStartDate])
   @@index([campusCode, seasonEndDate])
+}
+
+model SeasonOperationAuditEvent {
+  id                String                     @id @default(cuid())
+  seasonId          String
+  campusCode        Campus
+  action            SeasonOperationAuditAction
+  actorUserId       String?
+  actorCapabilities Json?
+  reason            String?
+  previousSnapshot  Json
+  nextSnapshot      Json
+  metadata          Json?
+  createdAt         DateTime                   @default(now()) @db.Timestamptz(3)
+  season            Season                     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@index([seasonId, createdAt])
+  @@index([campusCode, createdAt])
+  @@index([action, createdAt])
+  @@index([actorUserId, createdAt])
 }
 
 model SeasonDormitoryOperation {

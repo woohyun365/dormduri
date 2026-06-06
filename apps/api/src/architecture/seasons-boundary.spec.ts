@@ -1,12 +1,18 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { PrismaModule } from '../platform/database/prisma.module.js';
+import { ClearSeasonOverrideCommand } from '../seasons/operations/clear-season-override.command.js';
+import { SeasonOperationsAuditRepository } from '../seasons/operations/season-operations-audit.repository.js';
+import { SeasonOperationsRepository } from '../seasons/operations/season-operations.repository.js';
+import { SeasonsOperationsController } from '../seasons/operations/seasons-operations.controller.js';
+import { UpdateSeasonOverrideCommand } from '../seasons/operations/update-season-override.command.js';
+import { UpdateSeasonScheduleCommand } from '../seasons/operations/update-season-schedule.command.js';
+import { SEASON_CONTEXT_PORT } from '../seasons/ports/season-context.port.js';
 import { SeasonsController } from '../seasons/seasons.controller.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { CurrentSeasonContextQuery } from '../seasons/runtime/current-season-context.query.js';
 import { DormitoryMatchWindowQuery } from '../seasons/runtime/dormitory-match-window.query.js';
 import { SeasonRuntimeRepository } from '../seasons/runtime/season-runtime.repository.js';
-import { SEASON_CONTEXT_PORT } from '../seasons/ports/season-context.port.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 
 const apiRoot = process.cwd();
@@ -31,6 +37,17 @@ const requiredRuntimeFiles = [
   'season-runtime.repository.ts',
   'season-runtime.repository.spec.ts',
   'season-runtime.types.ts',
+] as const;
+
+const requiredOperationsFiles = [
+  'clear-season-override.command.ts',
+  'season-operations-audit.repository.ts',
+  'season-operations.mapper.ts',
+  'season-operations.policy.ts',
+  'season-operations.repository.ts',
+  'seasons-operations.controller.ts',
+  'update-season-override.command.ts',
+  'update-season-schedule.command.ts',
 ] as const;
 
 function moduleMetadata<T>(
@@ -82,14 +99,22 @@ function expectReadmeSections(path: string, sections: readonly string[]) {
 }
 
 describe('seasons final structure boundary', () => {
-  it('keeps SeasonsModule on the Phase 3 query/repository provider surface', () => {
+  it('keeps SeasonsModule on the runtime port plus operations provider surface', () => {
     expect(moduleMetadata(SeasonsModule, 'imports')).toEqual([PrismaModule]);
-    expect(moduleMetadata(SeasonsModule, 'controllers')).toEqual([SeasonsController]);
+    expect(moduleMetadata(SeasonsModule, 'controllers')).toEqual([
+      SeasonsController,
+      SeasonsOperationsController,
+    ]);
     expect(moduleMetadata(SeasonsModule, 'providers')).toEqual([
       SeasonsService,
       SeasonRuntimeRepository,
       CurrentSeasonContextQuery,
       DormitoryMatchWindowQuery,
+      SeasonOperationsRepository,
+      SeasonOperationsAuditRepository,
+      UpdateSeasonScheduleCommand,
+      UpdateSeasonOverrideCommand,
+      ClearSeasonOverrideCommand,
       { provide: SEASON_CONTEXT_PORT, useExisting: SeasonsService },
     ]);
     expect(moduleMetadata(SeasonsModule, 'exports')).toEqual([SEASON_CONTEXT_PORT]);
@@ -110,6 +135,12 @@ describe('seasons final structure boundary', () => {
     }
     expect(existsSync(join(platformTimeRoot, 'kst-date.ts'))).toBe(true);
     expect(existsSync(join(platformTimeRoot, 'kst-date.spec.ts'))).toBe(true);
+  });
+
+  it('keeps admin operations commands, repositories, mapper, and controller in operations slice', () => {
+    for (const file of requiredOperationsFiles) {
+      expect(existsSync(join(seasonsRoot, 'operations', file))).toBe(true);
+    }
   });
 
   it('keeps operations/runtime internals private and migrates external consumers to the public season port', () => {

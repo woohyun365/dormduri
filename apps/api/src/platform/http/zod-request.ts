@@ -54,6 +54,23 @@ export function parseQueryValue<T>(
   });
 }
 
+export function parsePathParam<T>(
+  schema: SchemaParser<T>,
+  input: unknown,
+  options: {
+    code: string;
+    errorMessage: string;
+    fieldName: string;
+  },
+): T {
+  return parseSchemaInput(schema, input, {
+    code: options.code,
+    errorMessage: options.errorMessage,
+    source: 'param',
+    fieldName: options.fieldName,
+  });
+}
+
 export function parseOptionalQueryValue<T>(
   schema: SchemaParser<T>,
   input: unknown,

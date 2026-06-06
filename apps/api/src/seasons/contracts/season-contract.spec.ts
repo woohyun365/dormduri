@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as legacySeasonContract from '@repo/shared/season-contract';
 import * as seasonContract from '@repo/shared/season';
+import * as seasonOperationsContract from '@repo/shared/season/operations';
 import * as seasonPrimitivesContract from '@repo/shared/season/primitives';
 import * as seasonResponseContract from '@repo/shared/season/response';
 
@@ -21,6 +22,9 @@ describe('season shared contract', () => {
     );
     expect(legacySeasonContract.currentSeasonResponseSchema).toBe(
       seasonResponseContract.currentSeasonResponseSchema,
+    );
+    expect(legacySeasonContract.updateSeasonScheduleRequestSchema).toBe(
+      seasonOperationsContract.updateSeasonScheduleRequestSchema,
     );
   });
 
@@ -76,6 +80,53 @@ describe('season shared contract', () => {
     ).toMatchObject({ state: 'SEASON_MATCHING', isMatching: true });
   });
 
+  it('season operations contract는 schedule/override/concurrency/audit response shape를 고정한다', () => {
+    expect(
+      seasonOperationsContract.updateSeasonScheduleRequestSchema.parse({
+        expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+        preparationStartDate: '2026-02-01',
+        matchingStartDate: '2026-02-10',
+        seasonEndDate: '2026-02-28',
+        reason: 'academic calendar changed',
+      }),
+    ).toMatchObject({ matchingStartDate: '2026-02-10' });
+
+    expect(
+      seasonOperationsContract.updateSeasonOverrideRequestSchema.parse({
+        expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+        state: 'SEASON_MATCHING',
+        reason: 'incident response',
+        startsAt: '2026-02-10T00:00:00.000Z',
+        endsAt: null,
+      }),
+    ).toMatchObject({ state: 'SEASON_MATCHING', endsAt: null });
+
+    expect(
+      seasonOperationsContract.seasonOperationResponseSchema.parse({
+        auditEventId: 'audit-1',
+        action: 'UPDATE_SCHEDULE',
+        season: {
+          campusCode: 'CHUNCHEON',
+          season: {
+            id: 'season-1',
+            name: '2026 1학기',
+            preparationStartDate: '2026-02-01',
+            matchingStartDate: '2026-02-10',
+            seasonEndDate: '2026-02-28',
+          },
+          updatedAt: '2026-01-02T00:00:00.000Z',
+          override: {
+            active: false,
+            state: null,
+            reason: null,
+            startedAt: null,
+            endsAt: null,
+          },
+        },
+      }),
+    ).toMatchObject({ auditEventId: 'audit-1', action: 'UPDATE_SCHEDULE' });
+  });
+
   it('season old compat는 compat directory만 소유하고 root legacy files를 남기지 않는다', () => {
     const compat = readFileSync(path.join(SHARED_SRC_DIR, 'compat/season-contract.ts'), 'utf8');
 
@@ -109,6 +160,10 @@ describe('season shared contract', () => {
     expect(packageJson.exports['./season/response']).toEqual({
       types: './dist/season/response.d.ts',
       default: './dist/season/response.js',
+    });
+    expect(packageJson.exports['./season/operations']).toEqual({
+      types: './dist/season/operations.d.ts',
+      default: './dist/season/operations.js',
     });
     expect(packageJson.exports['./season/participation']).toEqual({
       types: './dist/season/participation/index.d.ts',
