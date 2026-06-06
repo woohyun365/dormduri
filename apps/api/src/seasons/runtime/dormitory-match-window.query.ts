@@ -1,14 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import type { Campus } from '../../generated/prisma/enums.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
+import type { SeasonContextCache } from '../cache/season-context-cache.js';
 import { CurrentSeasonContextQuery } from './current-season-context.query.js';
 
 @Injectable()
 export class DormitoryMatchWindowQuery {
   constructor(private readonly currentSeasonContextQuery: CurrentSeasonContextQuery) {}
 
-  async execute(campusCode: Campus, dormitoryId: string, now?: Date) {
-    const { context, referenceNow } = await this.currentSeasonContextQuery.resolve(campusCode, now);
+  async execute(campusCode: Campus, dormitoryId: string, now?: Date, cache?: SeasonContextCache) {
+    const { context, referenceNow } = await this.currentSeasonContextQuery.resolve(
+      campusCode,
+      now,
+      cache,
+    );
     if (!context) {
       return null;
     }

@@ -34,6 +34,7 @@
 - `platform/time/kst-date.ts`: season-neutral KST local-date helper. `season.utils.ts` compatibility re-export는 두지 않는다.
 - `seasons.errors.ts`: user-facing seasons error contract.
 - `operations/`: #208 schedule/override admin API controller, command, repository, audit repository, mapper, validation policy. mutation과 audit append는 같은 transaction 안에서 수행한다.
+- `cache/`: #209 request/method-level current season context memoization helper. cache instance를 명시적으로 넘긴 logical operation 안에서만 재사용하며 process/Redis cache가 아니다.
 - `contracts/`: shared season contract behavior regression spec.
 
 ## #208 operations scope
@@ -63,8 +64,8 @@
 
 포함:
 
-- 한 logical operation/request 안에서 동일 campus current season context를 재사용하는 request/method-level memoization.
-- cache key, invalidation point, stale read 허용 범위 문서화.
+- 한 logical operation/request 안에서 동일 `campusCode + referenceNow` current season context를 재사용하는 request/method-level memoization.
+- cache key, invalidation point, stale read 허용 범위 문서화. cache를 넘기지 않는 기존 호출은 호출마다 DB source-of-truth를 다시 확인한다.
 - cache hit/miss와 DB query count를 고정하는 targeted tests.
 
 제외:
@@ -89,7 +90,7 @@
 - `runtime/`: current season query/repository/mapper/policy. Phase 2에서 policy/mapper/type split을 완료했고 Phase 3에서 query/repository provider split을 완료했다.
 - `operations/`: #208 schedule/override commands, operations controller, audit repository.
 - `ports/`: external domain-facing season context and boundary schedule ports. Phase 4에서 `SEASON_CONTEXT_PORT`가 canonical external read boundary가 되었다.
-- `cache/`: #209 request/method-level memoization helper.
+- `cache/`: #209 request/method-level memoization helper. `createSeasonContextCache()`는 한 request/logical operation 안에서만 생성/전달한다.
 - `platform/time/`: KST date helper처럼 season-neutral time helper.
 
 ## Where to change
@@ -99,6 +100,7 @@
 - External season context consumption: `ports/season-context.port.ts`.
 - Current runtime read behavior: `seasons.service.ts`, `runtime/`, `platform/time/kst-date.ts`.
 - Schedule/override mutation and audit behavior: `operations/`.
+- Request/method-level memoization: `cache/`, `runtime/current-season-context.query.ts`, `runtime/dormitory-match-window.query.ts`, `ports/season-context.port.ts`.
 - User-facing seasons error behavior: `seasons.errors.ts`.
 - Policy/source-of-truth semantics: `docs/04_policy/official/season-lifecycle.md`.
 - Final implementation sequencing: `.omx/plans/seasons-final-ideal-structure-refactor-plan.md`.

@@ -1,5 +1,6 @@
 import type { CurrentSeasonResponse, SeasonState } from '@repo/shared/season-contract';
 import type { Campus } from '../../generated/prisma/enums.js';
+import type { SeasonContextCache } from '../cache/season-context-cache.js';
 import {
   normalizeSeasonRuntimeRow,
   toCurrentSeasonResponse,
@@ -24,17 +25,31 @@ export interface DormitoryMatchWindowContext {
 }
 
 export interface SeasonContextPort {
-  getCurrentSeason(campusCode: Campus, now?: Date): Promise<CurrentSeasonResponse | null>;
-  getCurrentSeasonContext(campusCode: Campus, now?: Date): Promise<CurrentSeasonContext | null>;
-  getCurrentSeasonState(campusCode: Campus, now?: Date): Promise<SeasonState | null>;
+  getCurrentSeason(
+    campusCode: Campus,
+    now?: Date,
+    cache?: SeasonContextCache,
+  ): Promise<CurrentSeasonResponse | null>;
+  getCurrentSeasonContext(
+    campusCode: Campus,
+    now?: Date,
+    cache?: SeasonContextCache,
+  ): Promise<CurrentSeasonContext | null>;
+  getCurrentSeasonState(
+    campusCode: Campus,
+    now?: Date,
+    cache?: SeasonContextCache,
+  ): Promise<SeasonState | null>;
   getCurrentDormitoryMatchWindow(
     campusCode: Campus,
     dormitoryId: string,
     now?: Date,
+    cache?: SeasonContextCache,
   ): Promise<DormitoryMatchWindowContext | null>;
 }
 
 export type { CurrentSeasonContext, NormalizedSeasonRuntimeRow, SeasonRuntimeRowInput };
+export { createSeasonContextCache, SeasonContextCache } from '../cache/season-context-cache.js';
 
 export {
   getEffectiveSeasonState,

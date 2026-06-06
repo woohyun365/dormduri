@@ -1,6 +1,7 @@
 import { CurrentSeasonContextQuery } from './runtime/current-season-context.query.js';
 import { DormitoryMatchWindowQuery } from './runtime/dormitory-match-window.query.js';
 import { SeasonRuntimeRepository } from './runtime/season-runtime.repository.js';
+import { createSeasonContextCache } from './cache/season-context-cache.js';
 import { SeasonsService } from './seasons.service.js';
 
 function makeSeasonRow(
@@ -301,6 +302,38 @@ describe('SeasonsService', () => {
       canMatch: true,
     });
     expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+  });
+
+  it('명시적 request cache를 공유하면 current season context DB read를 logical operation 안에서 재사용한다', async () => {
+    prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
+    const cache = createSeasonContextCache();
+
+    const currentSeason = await service.getCurrentSeason('CHUNCHEON', undefined, cache);
+    const state = await service.getCurrentSeasonState('CHUNCHEON', undefined, cache);
+    const window = await service.getCurrentDormitoryMatchWindow(
+      'CHUNCHEON',
+      'dasan',
+      undefined,
+      cache,
+    );
+
+    expect(currentSeason?.season.id).toBe('season-1');
+    expect(state).toBe('SEASON_MATCHING');
+    expect(window).toMatchObject({ dormitoryId: 'dasan', canMatch: true });
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+    expect(prisma.campusMaster.findUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.season.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('cache를 넘기지 않은 기존 호출은 request 간 stale cache를 공유하지 않는다', async () => {
+    prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
+
+    await service.getCurrentSeason('CHUNCHEON');
+    await service.getCurrentSeasonState('CHUNCHEON');
+
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(2);
+    expect(prisma.campusMaster.findUnique).toHaveBeenCalledTimes(2);
+    expect(prisma.season.findMany).toHaveBeenCalledTimes(2);
   });
 
   it('기숙사별 매칭 윈도우를 반환한다', async () => {

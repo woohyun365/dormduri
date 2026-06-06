@@ -50,6 +50,12 @@ const requiredOperationsFiles = [
   'update-season-schedule.command.ts',
 ] as const;
 
+const requiredCacheFiles = [
+  'season-context-cache.ts',
+  'season-context-cache.spec.ts',
+  'season-context-memoizer.ts',
+] as const;
+
 function moduleMetadata<T>(
   target: object,
   key: 'imports' | 'controllers' | 'providers' | 'exports',
@@ -141,6 +147,24 @@ describe('seasons final structure boundary', () => {
     for (const file of requiredOperationsFiles) {
       expect(existsSync(join(seasonsRoot, 'operations', file))).toBe(true);
     }
+  });
+
+  it('keeps request/method-level season context memoization in the cache slice', () => {
+    for (const file of requiredCacheFiles) {
+      expect(existsSync(join(seasonsRoot, 'cache', file))).toBe(true);
+    }
+
+    expect(existsSync(join(seasonsRoot, 'cache', 'redis-season-context-cache.ts'))).toBe(false);
+  });
+
+  it('keeps admin mutation operations independent from request cache state', () => {
+    const cacheImport = /from\s+['"](?:[^'"]*seasons\/cache\/|\.\.\/cache\/)[^'"]+['"]/;
+    const operationCacheOffenders = productionTypeScriptFiles(join(seasonsRoot, 'operations'))
+      .filter((path) => cacheImport.test(readSource(path)))
+      .map(relativeSourcePath)
+      .sort();
+
+    expect(operationCacheOffenders).toEqual([]);
   });
 
   it('keeps operations/runtime internals private and migrates external consumers to the public season port', () => {
