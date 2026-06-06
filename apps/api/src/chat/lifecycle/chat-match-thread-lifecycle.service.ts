@@ -1,13 +1,16 @@
 import type { Prisma } from '../../generated/prisma/client.js';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
-import { SeasonsService } from '../../seasons/seasons.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../../seasons/ports/season-context.port.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 import {
   normalizeSeasonRuntimeRow,
   toCurrentSeasonResponse,
-} from '../../seasons/runtime/current-season.mapper.js';
+} from '../../seasons/ports/season-context.port.js';
 import {
   type ActiveMatchCreatedChatLifecycleInput,
   type ActiveMatchUnmatchedChatLifecycleInput,
@@ -270,7 +273,8 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
 export class ChatMatchThreadLifecycleService implements ChatMatchThreadLifecyclePort {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
+    @Inject(SEASON_CONTEXT_PORT)
+    private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
   ) {}
 

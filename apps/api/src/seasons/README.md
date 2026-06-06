@@ -4,12 +4,12 @@
 
 ## Public boundary
 
-외부 domain은 현재 transitional baseline에서 `SeasonsService`를 사용하지만, 최종 구조에서는 season runtime port를 통해 current season context만 사용한다.
+외부 domain은 `SEASON_CONTEXT_PORT` / `SeasonContextPort`를 통해 current season context만 사용한다. `SeasonsService`는 module 내부 controller/facade 구현체이며 외부 도메인의 concrete dependency가 아니다.
 
 - `SeasonsModule`: public current season route와 season runtime provider wiring을 제공한다.
 - `GET /api/seasons/current?campus=...`: 운영 캠퍼스의 사용자용 current season snapshot을 반환한다.
-- `SeasonsService`: current compatibility facade다. Phase 3 기준 Prisma/query-shape ownership 없이 runtime query provider에 위임한다.
-- `SEASON_CONTEXT_PORT`: Phase 4 target public port다. 외부 도메인은 concrete `SeasonsService` 대신 이 port로 current context를 읽도록 전환한다.
+- `SEASON_CONTEXT_PORT`: 외부 도메인의 public season context port다. current season context/state와 dormitory match window read만 제공한다.
+- `SeasonsService`: `SeasonContextPort` 구현체이자 controller-facing facade다. Prisma/query-shape ownership 없이 runtime query provider에 위임한다.
 - shared season response/contract는 `packages/shared/src/season/**`가 canonical owner다. Shared layout 정리는 dormitories/season-participants plan Phase 9 수행 여부와 충돌하지 않게 Phase 8에서 검증한다.
 
 ## Source of truth
@@ -24,10 +24,10 @@
 ## Current directory responsibilities
 
 - `seasons.controller.ts`: public `GET /api/seasons/current` HTTP parsing, campus query validation, not-found mapping.
-- `seasons.module.ts`: current transitional provider/export wiring. Phase 7 이후 provider list가 커지면 composition 분리를 검토한다.
-- `seasons.service.ts`: controller/external consumer compatibility facade. Prisma, query shape, reference time resolution을 직접 소유하지 않는다.
-- `season.types.ts`: current runtime context/internal row type의 transitional type surface. Phase 4 port migration에서 정리한다.
-- `runtime/`: current season context query, dormitory match window query, Prisma repository, season state policy, current season response mapper, normalized runtime row type. Phase 4 전까지 일부 legacy consumer가 좁은 allowlist로 mapper/policy를 참조할 수 있다.
+- `seasons.module.ts`: runtime query/repository provider와 `SEASON_CONTEXT_PORT` export wiring. Phase 7 이후 provider list가 커지면 composition 분리를 검토한다.
+- `seasons.service.ts`: `SeasonContextPort` 구현체와 controller-facing facade. Prisma, query shape, reference time resolution을 직접 소유하지 않는다.
+- `ports/`: 외부 도메인-facing season context port와 current season context type/helper export surface. 외부 도메인은 `runtime/`을 직접 import하지 않는다.
+- `runtime/`: current season context query, dormitory match window query, Prisma repository, season state policy, current season response mapper, normalized runtime row type. seasons module 내부 구현 상세다.
 - `platform/time/kst-date.ts`: season-neutral KST local-date helper. `season.utils.ts` compatibility re-export는 두지 않는다.
 - `seasons.errors.ts`: user-facing seasons error contract.
 - `contracts/`: shared season contract behavior regression spec.
@@ -82,13 +82,14 @@
 
 - `runtime/`: current season query/repository/mapper/policy. Phase 2에서 policy/mapper/type split을 완료했고 Phase 3에서 query/repository provider split을 완료했다.
 - `operations/`: #208 schedule/override commands, operations controller, audit repository.
-- `ports/`: external domain-facing season context and boundary schedule ports.
+- `ports/`: external domain-facing season context and boundary schedule ports. Phase 4에서 `SEASON_CONTEXT_PORT`가 canonical external read boundary가 되었다.
 - `cache/`: #209 request/method-level memoization helper.
 - `platform/time/`: KST date helper처럼 season-neutral time helper.
 
 ## Where to change
 
 - Public current season route parsing: `seasons.controller.ts`.
+- External season context consumption: `ports/season-context.port.ts`.
 - Current runtime read behavior: `seasons.service.ts`, `runtime/`, `platform/time/kst-date.ts`.
 - User-facing seasons error behavior: `seasons.errors.ts`.
 - Policy/source-of-truth semantics: `docs/04_policy/official/season-lifecycle.md`.
@@ -97,7 +98,7 @@
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand src/seasons
+pnpm --dir apps/api exec jest --watchman=false --runInBand src/architecture/seasons-boundary.spec.ts src/seasons
 pnpm api:typecheck
 pnpm exec prettier --check apps/api/src/seasons/README.md docs/04_policy/official/season-lifecycle.md
 pnpm --dir apps/api exec eslint src/seasons/README.md

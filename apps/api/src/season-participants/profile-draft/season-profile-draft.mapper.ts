@@ -5,7 +5,7 @@ import type {
 } from '@repo/shared/season-contract';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import {
   lifestyleFieldNames,
   toLifestyleColumnData,

@@ -10,7 +10,7 @@ import {
   lockRequestRow,
 } from './match-transaction-helpers.js';
 import { buildParticipantPairIdentity } from './match.utils.js';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
 import { formatKstDate } from '../platform/time/kst-date.js';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 

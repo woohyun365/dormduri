@@ -6,7 +6,7 @@ import type {
 import type { RoommateSearchSummary } from '@repo/shared/roommate-search-contract';
 import { buildDirectionalMatchScoreProjection } from './match-score-projection.js';
 import { formatKstDate } from '../platform/time/kst-date.js';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
 import { resolvePublicCounterpartNickname } from '../privacy/deidentification/deidentified-display.policy.js';
 export type {

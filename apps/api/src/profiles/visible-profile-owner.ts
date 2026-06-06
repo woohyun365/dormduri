@@ -22,7 +22,7 @@ import {
   buildPublicTargetPolicyViewerInput,
 } from '../season-participants/public-target-policy/index.js';
 import { resolvePublicTargetPolicy } from '../season-participants/public-target-policy/index.js';
-import type { SeasonsService } from '../seasons/seasons.service.js';
+import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
 import { resolveCampusServiceState } from '../users/service-state.js';
 import {
   parseLifestyleOrNull,
@@ -38,7 +38,7 @@ import {
 
 interface VisibleProfileOwnerDeps {
   prisma: PrismaService;
-  seasonsService: SeasonsService;
+  seasonsService: SeasonContextPort;
   seasonParticipantsService: SeasonParticipantsService;
   matchesService: MatchesService;
 }

@@ -1,6 +1,6 @@
 import { toDateOnlyString } from '@repo/shared/date-primitives';
 import type { DormitoryGenderPolicy, Gender } from '../../generated/prisma/enums.js';
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 
 export function isDormitoryGenderCompatible(gender: Gender, genderPolicy: DormitoryGenderPolicy) {

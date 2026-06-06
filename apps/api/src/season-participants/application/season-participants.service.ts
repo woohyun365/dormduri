@@ -8,7 +8,7 @@ import type {
   SeasonRegistrationFinalizeResponse,
 } from '@repo/shared/season-contract';
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import {
   SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER,
   SEASON_PARTICIPANT_SOURCE_OWNER,

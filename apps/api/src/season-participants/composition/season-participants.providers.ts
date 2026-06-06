@@ -8,7 +8,10 @@ import {
   type DormitorySelectionCatalogPort,
 } from '../../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
-import { SeasonsService } from '../../seasons/seasons.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../../seasons/ports/season-context.port.js';
 import { CurrentSeasonParticipationViewQuery } from '../application/current-season-participation-view.query.js';
 import {
   SEASON_PARTICIPANT_PUBLIC_TARGET_OWNER,
@@ -31,19 +34,19 @@ export const SEASON_PARTICIPANTS_PROVIDERS: Provider[] = [
     provide: SEASON_PARTICIPANT_WRITE_OWNER,
     useFactory: (
       prisma: PrismaService,
-      seasonsService: SeasonsService,
+      seasonContextPort: SeasonContextPort,
       dormitorySelectionCatalog: DormitorySelectionCatalogPort,
       chatThreadWithdrawal: ChatThreadWithdrawalPort,
     ) =>
       createSeasonParticipantWriteOwner({
         prisma,
-        seasonsService,
+        seasonsService: seasonContextPort,
         dormitorySelectionCatalog,
         chatThreadWithdrawal,
       }),
     inject: [
       PrismaService,
-      SeasonsService,
+      SEASON_CONTEXT_PORT,
       DORMITORY_SELECTION_CATALOG_PORT,
       CHAT_THREAD_WITHDRAWAL_PORT,
     ],

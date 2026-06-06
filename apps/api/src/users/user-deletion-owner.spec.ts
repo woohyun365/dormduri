@@ -1,6 +1,6 @@
 import { hashPassword } from '../auth/application/auth-password-hash.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';
-import type { SeasonsService } from '../seasons/seasons.service.js';
+import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
 import { createUserDeletionOwner } from './user-deletion-owner.js';
 
 describe('createUserDeletionOwner', () => {
@@ -67,7 +67,7 @@ describe('createUserDeletionOwner', () => {
     } as unknown as PrismaService;
     const seasonsService = {
       getCurrentSeasonContext: jest.fn().mockResolvedValue(seasonContext),
-    } as unknown as SeasonsService;
+    } as unknown as SeasonContextPort;
 
     const owner = createUserDeletionOwner({
       prisma,

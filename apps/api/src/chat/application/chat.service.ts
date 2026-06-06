@@ -19,7 +19,10 @@ import {
   type ChatThreadNotificationWriter,
 } from '../../notifications/notifications.tokens.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
-import { SeasonsService } from '../../seasons/seasons.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../../seasons/ports/season-context.port.js';
 import { createChatCommandService } from './chat-command.service.js';
 import { createChatUserContextService } from './chat-user-context.service.js';
 import { chatErrors } from '../errors/chat.errors.js';
@@ -54,7 +57,8 @@ const noopChatThreadNotificationWriter: ChatThreadNotificationWriter = {
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
+    @Inject(SEASON_CONTEXT_PORT)
+    private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly chatSeasonLifecycle: ChatSeasonLifecycleService,
     @Inject(CHAT_THREAD_NOTIFICATION_WRITER)

@@ -3,7 +3,7 @@ import type {
   SelectableDormitoriesResponse,
   SelectableDormitory,
 } from '@repo/shared/season-contract';
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
 import {
   buildCompletionForParticipant,

@@ -1,5 +1,5 @@
 import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 
 export interface NormalizedSelectionState {

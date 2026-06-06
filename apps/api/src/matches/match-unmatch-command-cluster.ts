@@ -1,7 +1,7 @@
 import type { ActiveMatchActionResponse } from '@repo/shared/match-contract';
 import { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
 import { matchesErrors } from './matches.errors.js';
 import { toDetailedActiveMatchSummary, type ActiveMatchCommandRecord } from './match-read-model.js';
 import { activeMatchCommandSelect } from './match-selects.js';

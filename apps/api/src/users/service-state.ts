@@ -1,8 +1,8 @@
 import type { SeasonState } from '@repo/shared/season-contract';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
 import type { Campus } from '../generated/prisma/enums.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
 
 export interface CampusServiceState {
   campusOperated: boolean;
@@ -12,7 +12,7 @@ export interface CampusServiceState {
 
 export async function resolveCampusServiceState(
   prisma: PrismaService,
-  seasonsService: SeasonsService,
+  seasonsService: SeasonContextPort,
   campus: Campus,
   now: Date,
 ): Promise<CampusServiceState> {

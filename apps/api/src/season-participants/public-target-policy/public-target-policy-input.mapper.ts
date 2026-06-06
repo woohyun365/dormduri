@@ -1,6 +1,6 @@
 import type { SeasonState } from '@repo/shared/season-contract';
 import { isSeasonProfileComplete, lifestyleSchema } from '@repo/shared/lifestyle';
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,

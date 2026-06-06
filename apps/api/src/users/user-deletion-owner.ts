@@ -29,17 +29,17 @@ import {
   type RetentionAccessLogDisposalResult,
 } from '../retention/retention-access-log-owner.js';
 import { isParticipantRegistered } from '../season-participants/policies/index.js';
-import type { SeasonsService } from '../seasons/seasons.service.js';
+import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
 import { recordDisplayIdentityNicknameChangeAuditTx } from './display-identity-nickname-audit.owner.js';
 
 interface UserDeletionOwnerDeps {
   prisma: PrismaService;
   retentionWorkerPrisma: RetentionWorkerPrismaService;
-  seasonsService: SeasonsService;
+  seasonsService: SeasonContextPort;
 }
 
 type CurrentSeasonContext = NonNullable<
-  Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>
+  Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>
 >;
 
 const accountDeletionParticipantSelect = {

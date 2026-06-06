@@ -6,6 +6,7 @@ import { SeasonsModule } from '../seasons/seasons.module.js';
 import { CurrentSeasonContextQuery } from '../seasons/runtime/current-season-context.query.js';
 import { DormitoryMatchWindowQuery } from '../seasons/runtime/dormitory-match-window.query.js';
 import { SeasonRuntimeRepository } from '../seasons/runtime/season-runtime.repository.js';
+import { SEASON_CONTEXT_PORT } from '../seasons/ports/season-context.port.js';
 import { SeasonsService } from '../seasons/seasons.service.js';
 
 const apiRoot = process.cwd();
@@ -14,7 +15,6 @@ const seasonsRoot = join(apiSourceRoot, 'seasons');
 const platformTimeRoot = join(apiSourceRoot, 'platform/time');
 
 const transitionalRootRuntimeFiles = [
-  'season.types.ts',
   'seasons.controller.ts',
   'seasons.errors.ts',
   'seasons.module.ts',
@@ -31,12 +31,6 @@ const requiredRuntimeFiles = [
   'season-runtime.repository.ts',
   'season-runtime.repository.spec.ts',
   'season-runtime.types.ts',
-] as const;
-
-const transitionalRuntimeImportAllowlist = [
-  'src/chat/lifecycle/chat-match-thread-lifecycle.service.ts',
-  'src/chat/policies/chat-thread-policy.ts',
-  'src/season-participants/application/season-context.query.ts',
 ] as const;
 
 function moduleMetadata<T>(
@@ -96,8 +90,9 @@ describe('seasons final structure boundary', () => {
       SeasonRuntimeRepository,
       CurrentSeasonContextQuery,
       DormitoryMatchWindowQuery,
+      { provide: SEASON_CONTEXT_PORT, useExisting: SeasonsService },
     ]);
-    expect(moduleMetadata(SeasonsModule, 'exports')).toEqual([SeasonsService]);
+    expect(moduleMetadata(SeasonsModule, 'exports')).toEqual([SEASON_CONTEXT_PORT]);
   });
 
   it('keeps root runtime files on the documented transitional compatibility surface', () => {
@@ -117,7 +112,7 @@ describe('seasons final structure boundary', () => {
     expect(existsSync(join(platformTimeRoot, 'kst-date.spec.ts'))).toBe(true);
   });
 
-  it('keeps operations internals private and freezes transitional runtime imports', () => {
+  it('keeps operations/runtime internals private and migrates external consumers to the public season port', () => {
     const forbiddenOperationsImport = /from\s+['"][^'"]*seasons\/operations\/[^'"]+['"]/;
     const runtimeImport = /from\s+['"][^'"]*seasons\/runtime\/[^'"]+['"]/;
     const externalFiles = productionTypeScriptFiles(apiSourceRoot).filter(
@@ -133,12 +128,20 @@ describe('seasons final structure boundary', () => {
       .sort();
 
     expect(operationOffenders).toEqual([]);
-    expect(runtimeOffenders).toEqual([...transitionalRuntimeImportAllowlist].sort());
+    expect(runtimeOffenders).toEqual([]);
+
+    const concreteServiceImport = /from\s+['"][^'"]*seasons\/seasons\.service(?:\.js)?['"]/;
+    const concreteServiceOffenders = externalFiles
+      .filter((path) => concreteServiceImport.test(readSource(path)))
+      .map(relativeSourcePath)
+      .sort();
+    expect(concreteServiceOffenders).toEqual([]);
   });
 
-  it('keeps SeasonsService as a thin facade without Prisma/query-shape ownership', () => {
+  it('keeps SeasonsService as a thin facade that implements the public season context port', () => {
     const source = readSource(join(seasonsRoot, 'seasons.service.ts'));
 
+    expect(source).toContain('implements SeasonContextPort');
     expect(source).toContain('CurrentSeasonContextQuery');
     expect(source).toContain('DormitoryMatchWindowQuery');
     expect(source).not.toMatch(
@@ -146,15 +149,21 @@ describe('seasons final structure boundary', () => {
     );
   });
 
-  it('keeps season.utils removed after Phase 2 canonical import migration', () => {
+  it('keeps season.utils and season.types removed after canonical port migration', () => {
     const seasonUtilsPath = join(seasonsRoot, 'season.utils.ts');
+    const seasonTypesPath = join(seasonsRoot, 'season.types.ts');
+    const seasonTypesImport = /from\s+['"][^'"]*seasons\/season\.types(?:\.js)?['"]/;
     const seasonUtilsImport = /from\s+['"][^'"]*seasons\/season\.utils(?:\.js)?['"]/;
     const offenders = productionTypeScriptFiles(apiSourceRoot)
-      .filter((path) => seasonUtilsImport.test(readSource(path)))
+      .filter(
+        (path) =>
+          seasonUtilsImport.test(readSource(path)) || seasonTypesImport.test(readSource(path)),
+      )
       .map(relativeSourcePath)
       .sort();
 
     expect(existsSync(seasonUtilsPath)).toBe(false);
+    expect(existsSync(seasonTypesPath)).toBe(false);
     expect(offenders).toEqual([]);
   });
 

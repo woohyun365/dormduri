@@ -9,7 +9,7 @@ import {
   type ActiveMatchCommandRecord,
 } from './match-selects.js';
 import { synchronizePendingUnmatchRequests } from './match-unmatch-support.js';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
 
 export function createMatchActiveQueryOwner(prisma: PrismaService) {
   return {

@@ -22,7 +22,10 @@ import { ModerationService } from '../moderation/moderation.service.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { createMatchContextOwner } from './match-context-owner.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../seasons/ports/season-context.port.js';
 import { matchesErrors } from './matches.errors.js';
 import { createMatchActiveQueryOwner } from './match-active-query-owner.js';
 import { createMatchHistoryMaterializationOwner } from './match-history-materialization-owner.js';
@@ -98,7 +101,8 @@ type MatchRequestCreationParticipant = Prisma.SeasonParticipantGetPayload<{
 export class MatchesService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
+    @Inject(SEASON_CONTEXT_PORT)
+    private readonly seasonsService: SeasonContextPort,
     private readonly moderationService: ModerationService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     @Inject(CHAT_MATCH_THREAD_LIFECYCLE_PORT)
@@ -313,7 +317,7 @@ export class MatchesService {
   }
 
   async getCurrentActiveMatchSummaryForParticipant(
-    seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+    seasonContext: NonNullable<Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>>,
     participantId: string,
     now: Date,
   ): Promise<ActiveMatchSummary | null> {
@@ -347,7 +351,7 @@ export class MatchesService {
   }
 
   private async getSeasonContextForCampus(
-    cache: Map<Campus, Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+    cache: Map<Campus, Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>>,
     campusCode: Campus,
     now: Date,
   ) {
@@ -363,7 +367,7 @@ export class MatchesService {
 
   private async transitionActiveMatchLifecycle(
     activeMatchId: string,
-    seasonContext: Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>,
+    seasonContext: Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>,
     now: Date,
   ): Promise<LifecycleTransitionResult> {
     return this.prisma.runSerializableTransaction(async (tx) => {

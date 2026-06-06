@@ -42,7 +42,7 @@ import { CurrentSeasonParticipantContextGuard } from '../season-participants/con
 import { CurrentSeasonParticipationViewQuery } from '../season-participants/application/current-season-participation-view.query.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+import { SEASON_CONTEXT_PORT } from '../seasons/ports/season-context.port.js';
 import { CurrentUserViewModule } from '../users/current-user-view.module.js';
 import { CurrentUserViewService } from '../users/current-user-view.service.js';
 import { UsersModule } from '../users/users.module.js';
@@ -234,7 +234,7 @@ describe('affected API module boundary finalization', () => {
       DormitoriesService,
       DORMITORY_SELECTION_CATALOG_PORT,
     ]);
-    expect(moduleMetadata(SeasonsModule, 'exports')).toEqual([SeasonsService]);
+    expect(moduleMetadata(SeasonsModule, 'exports')).toEqual([SEASON_CONTEXT_PORT]);
     expect(moduleMetadata(ModerationModule, 'exports')).toEqual([ModerationService]);
     expect(moduleMetadata(LifecycleModule, 'exports')).toEqual([LifecycleSweepService]);
     expect(moduleMetadata(HealthModule, 'exports')).toEqual([]);
