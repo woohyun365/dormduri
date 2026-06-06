@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { ClearSeasonOverrideCommand } from '../seasons/operations/clear-season-override.command.js';
+import { SeasonOperationalMetricsService } from '../seasons/operations/season-operational-metrics.service.js';
 import { SeasonOperationsAuditRepository } from '../seasons/operations/season-operations-audit.repository.js';
 import { SeasonOperationsRepository } from '../seasons/operations/season-operations.repository.js';
 import { SeasonsOperationsController } from '../seasons/operations/seasons-operations.controller.js';
@@ -41,6 +42,8 @@ const requiredRuntimeFiles = [
 
 const requiredOperationsFiles = [
   'clear-season-override.command.ts',
+  'season-operational-metrics.service.ts',
+  'season-operational-metrics.service.spec.ts',
   'season-operations-audit.repository.ts',
   'season-operations.mapper.ts',
   'season-operations.policy.ts',
@@ -118,6 +121,7 @@ describe('seasons final structure boundary', () => {
       DormitoryMatchWindowQuery,
       SeasonOperationsRepository,
       SeasonOperationsAuditRepository,
+      SeasonOperationalMetricsService,
       UpdateSeasonScheduleCommand,
       UpdateSeasonOverrideCommand,
       ClearSeasonOverrideCommand,
@@ -229,6 +233,7 @@ describe('seasons final structure boundary', () => {
       '## Current directory responsibilities',
       '## #208 operations scope',
       '## #209 cache scope',
+      '## Phase 7 observability scope',
       '## Hard rules',
       '## Target direction',
       '## Where to change',
@@ -237,6 +242,9 @@ describe('seasons final structure boundary', () => {
 
     expect(source).toContain('override는 schedule/history/audit 원장이 아니다');
     expect(source).toContain('Redis/process cache는 관측된 병목이 생길 때 후속 issue로 다룬다');
+    expect(source).toContain(
+      'metric/log payload는 actor/session/reason/snapshot 원문을 포함하지 않는다',
+    );
     expect(source).toContain('BackOffice UI는 이 module 범위가 아니다');
   });
 });

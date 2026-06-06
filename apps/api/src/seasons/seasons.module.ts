@@ -4,6 +4,7 @@ import { SeasonsController } from './seasons.controller.js';
 import { SeasonsService } from './seasons.service.js';
 import { SEASON_CONTEXT_PORT } from './ports/season-context.port.js';
 import { ClearSeasonOverrideCommand } from './operations/clear-season-override.command.js';
+import { SeasonOperationalMetricsService } from './operations/season-operational-metrics.service.js';
 import { SeasonOperationsAuditRepository } from './operations/season-operations-audit.repository.js';
 import { SeasonOperationsRepository } from './operations/season-operations.repository.js';
 import { SeasonsOperationsController } from './operations/seasons-operations.controller.js';
@@ -23,6 +24,7 @@ import { SeasonRuntimeRepository } from './runtime/season-runtime.repository.js'
     DormitoryMatchWindowQuery,
     SeasonOperationsRepository,
     SeasonOperationsAuditRepository,
+    SeasonOperationalMetricsService,
     UpdateSeasonScheduleCommand,
     UpdateSeasonOverrideCommand,
     ClearSeasonOverrideCommand,

@@ -40,18 +40,26 @@ function createSubject() {
   const auditRepository = {
     append: jest.fn().mockResolvedValue({ id: 'audit-1' }),
   };
+  const metrics = {
+    recordOperation: jest.fn(),
+  };
 
   return {
     tx,
     repository,
     auditRepository,
-    command: new UpdateSeasonScheduleCommand(repository as never, auditRepository as never),
+    metrics,
+    command: new UpdateSeasonScheduleCommand(
+      repository as never,
+      auditRepository as never,
+      metrics as never,
+    ),
   };
 }
 
 describe('UpdateSeasonScheduleCommand', () => {
   it('expectedUpdatedAt optimistic concurrency와 audit append를 같은 transaction client로 수행한다', async () => {
-    const { tx, repository, auditRepository, command } = createSubject();
+    const { tx, repository, auditRepository, metrics, command } = createSubject();
 
     const result = await command.execute(
       'CHUNCHEON',
@@ -87,10 +95,15 @@ describe('UpdateSeasonScheduleCommand', () => {
       }),
     );
     expect(result).toMatchObject({ auditEventId: 'audit-1', action: 'UPDATE_SCHEDULE' });
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'UPDATE_SCHEDULE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'success',
+    });
   });
 
   it('version conflict는 audit를 남기지 않고 fail-closed 처리한다', async () => {
-    const { repository, auditRepository, command } = createSubject();
+    const { repository, auditRepository, metrics, command } = createSubject();
     repository.updateScheduleIfVersionMatches.mockResolvedValueOnce({ count: 0 });
 
     await expect(
@@ -107,10 +120,15 @@ describe('UpdateSeasonScheduleCommand', () => {
       ),
     ).rejects.toMatchObject({ response: { code: 'SEASONS_OPERATION_CONFLICT' } });
     expect(auditRepository.append).not.toHaveBeenCalled();
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'UPDATE_SCHEDULE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'conflict',
+    });
   });
 
   it('campusCode + seasonId로 season을 찾지 못하면 다른 campus season을 수정하지 않는다', async () => {
-    const { repository, auditRepository, command } = createSubject();
+    const { repository, auditRepository, metrics, command } = createSubject();
     repository.findByCampusAndId.mockReset().mockResolvedValueOnce(null);
 
     await expect(
@@ -128,10 +146,15 @@ describe('UpdateSeasonScheduleCommand', () => {
     ).rejects.toMatchObject({ response: { code: 'SEASONS_OPERATION_NOT_FOUND' } });
     expect(repository.updateScheduleIfVersionMatches).not.toHaveBeenCalled();
     expect(auditRepository.append).not.toHaveBeenCalled();
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'UPDATE_SCHEDULE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'not_found',
+    });
   });
 
   it('audit append 실패는 command 실패로 전파되어 transaction rollback 대상이 된다', async () => {
-    const { auditRepository, command } = createSubject();
+    const { auditRepository, metrics, command } = createSubject();
     auditRepository.append.mockRejectedValueOnce(new Error('audit write failed'));
 
     await expect(
@@ -147,5 +170,61 @@ describe('UpdateSeasonScheduleCommand', () => {
         actor as never,
       ),
     ).rejects.toThrow('audit write failed');
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'UPDATE_SCHEDULE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'audit_failure',
+    });
+  });
+
+  it('unexpected repository failure는 generic failure metric으로 기록한다', async () => {
+    const { repository, metrics, command } = createSubject();
+    repository.findByCampusAndId.mockReset().mockRejectedValueOnce(new Error('db unavailable'));
+
+    await expect(
+      command.execute(
+        'CHUNCHEON',
+        'season-1',
+        {
+          expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+          preparationStartDate: '2026-02-01',
+          matchingStartDate: '2026-02-12',
+          seasonEndDate: '2026-02-28',
+        },
+        actor as never,
+      ),
+    ).rejects.toThrow('db unavailable');
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'UPDATE_SCHEDULE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'failure',
+    });
+  });
+
+  it('invalid schedule은 mutation 전에 validation failure metric을 기록한다', async () => {
+    const { repository, auditRepository, metrics, command } = createSubject();
+
+    await expect(
+      Promise.resolve().then(() =>
+        command.execute(
+          'CHUNCHEON',
+          'season-1',
+          {
+            expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+            preparationStartDate: '2026-02-20',
+            matchingStartDate: '2026-02-12',
+            seasonEndDate: '2026-02-28',
+          },
+          actor as never,
+        ),
+      ),
+    ).rejects.toMatchObject({ response: { code: 'SEASONS_OPERATION_INVALID_SCHEDULE' } });
+    expect(repository.transaction).not.toHaveBeenCalled();
+    expect(auditRepository.append).not.toHaveBeenCalled();
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'UPDATE_SCHEDULE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'validation_failure',
+    });
   });
 });

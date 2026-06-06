@@ -74,6 +74,23 @@
 - stale season state를 product behavior로 허용하는 설계 변경.
 - mutation 후 invalidation 없이 오래 남는 cache.
 
+## Phase 7 observability scope
+
+Phase 7은 새 운영 route를 늘리지 않고 server-side metric/log privacy guard만 추가한다. 운영 dashboard, CloudWatch alarm, external health endpoint 구성은 별도 infra 작업이다.
+
+포함:
+
+- `operations/season-operational-metrics.service.ts`: current season query duration, request cache hit/miss/no-cache count, schedule/override operation outcome을 process-local in-memory snapshot으로 기록한다.
+- `runtime/current-season-context.query.ts`: request cache를 받은 logical operation의 hit/miss와 no-cache 호출을 metric hook으로 전달한다.
+- schedule/override/clear command: success, conflict, not found, validation failure, audit failure outcome을 metric hook으로 전달한다.
+- metric/log payload는 actor/session/reason/snapshot 원문을 포함하지 않는다. structured payload는 `action`, `campusCode`, `outcome`, `recordedAt` allowlist만 허용한다.
+
+제외:
+
+- `/health/seasons` 같은 상세 운영 endpoint 추가. 필요 시 protected capability route로만 별도 Phase/issue에서 추가한다.
+- Redis/process cache 도입. Phase 7 metric은 병목 관측 근거를 쌓기 위한 hook이지 source-of-truth나 cache 전략 변경이 아니다.
+- CloudWatch dashboard/alarm 실제 구성.
+
 ## Hard rules
 
 - Phase 1 architecture guard 전에는 production file move/refactor를 시작하지 않는다.
@@ -101,6 +118,7 @@
 - Current runtime read behavior: `seasons.service.ts`, `runtime/`, `platform/time/kst-date.ts`.
 - Schedule/override mutation and audit behavior: `operations/`.
 - Request/method-level memoization: `cache/`, `runtime/current-season-context.query.ts`, `runtime/dormitory-match-window.query.ts`, `ports/season-context.port.ts`.
+- Season runtime/operations observability: `operations/season-operational-metrics.service.ts`, `runtime/current-season-context.query.ts`, operation command specs.
 - User-facing seasons error behavior: `seasons.errors.ts`.
 - Policy/source-of-truth semantics: `docs/04_policy/official/season-lifecycle.md`.
 - Final implementation sequencing: `.omx/plans/seasons-final-ideal-structure-refactor-plan.md`.

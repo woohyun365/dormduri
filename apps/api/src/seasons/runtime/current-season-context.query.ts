@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import type { Campus } from '../../generated/prisma/enums.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 import type { SeasonContextCache } from '../cache/season-context-cache.js';
@@ -6,6 +6,7 @@ import {
   resolveMemoizedCurrentSeasonContext,
   resolveSeasonReferenceNow,
 } from '../cache/season-context-memoizer.js';
+import { SeasonOperationalMetricsService } from '../operations/season-operational-metrics.service.js';
 import { normalizeSeasonRuntimeRow, toCurrentSeasonResponse } from './current-season.mapper.js';
 import { hasActiveSeasonOverride } from './season-runtime.policy.js';
 import { SeasonRuntimeRepository } from './season-runtime.repository.js';
@@ -18,7 +19,10 @@ export interface ResolvedCurrentSeasonContext {
 
 @Injectable()
 export class CurrentSeasonContextQuery {
-  constructor(private readonly repository: SeasonRuntimeRepository) {}
+  constructor(
+    private readonly repository: SeasonRuntimeRepository,
+    @Optional() private readonly metrics?: SeasonOperationalMetricsService,
+  ) {}
 
   async execute(
     campusCode: Campus,
@@ -39,12 +43,27 @@ export class CurrentSeasonContextQuery {
       resolveReferenceNow: () => this.repository.resolveReferenceTime(now),
     });
 
-    return resolveMemoizedCurrentSeasonContext({
-      cache,
-      campusCode,
-      referenceNow,
-      load: () => this.resolveFresh(campusCode, referenceNow),
-    });
+    const cacheState = cache
+      ? cache.getCurrentSeasonContext({ campusCode, referenceNow })
+        ? 'hit'
+        : 'miss'
+      : 'none';
+    const startedAt = Date.now();
+
+    try {
+      return await resolveMemoizedCurrentSeasonContext({
+        cache,
+        campusCode,
+        referenceNow,
+        load: () => this.resolveFresh(campusCode, referenceNow),
+      });
+    } finally {
+      this.metrics?.recordCurrentSeasonQuery({
+        campusCode,
+        cache: cacheState,
+        durationMs: Date.now() - startedAt,
+      });
+    }
   }
 
   private async resolveFresh(

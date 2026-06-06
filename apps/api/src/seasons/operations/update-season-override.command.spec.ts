@@ -56,14 +56,21 @@ function createRepository(after: TestSeasonOperationRecord = afterOverride) {
   const auditRepository = {
     append: jest.fn().mockResolvedValue({ id: 'audit-1' }),
   };
+  const metrics = {
+    recordOperation: jest.fn(),
+  };
 
-  return { tx, repository, auditRepository };
+  return { tx, repository, auditRepository, metrics };
 }
 
 describe('season override commands', () => {
   it('override update는 version 조건 mutation과 audit를 같은 transaction client로 수행한다', async () => {
-    const { tx, repository, auditRepository } = createRepository();
-    const command = new UpdateSeasonOverrideCommand(repository as never, auditRepository as never);
+    const { tx, repository, auditRepository, metrics } = createRepository();
+    const command = new UpdateSeasonOverrideCommand(
+      repository as never,
+      auditRepository as never,
+      metrics as never,
+    );
 
     const result = await command.execute(
       'CHUNCHEON',
@@ -91,6 +98,11 @@ describe('season override commands', () => {
       expect.objectContaining({ client: tx, action: 'UPDATE_OVERRIDE' }),
     );
     expect(result).toMatchObject({ auditEventId: 'audit-1', action: 'UPDATE_OVERRIDE' });
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'UPDATE_OVERRIDE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'success',
+    });
   });
 
   it('override clear는 stored override를 null로 바꾸고 audit를 남긴다', async () => {
@@ -101,8 +113,12 @@ describe('season override commands', () => {
       overrideStartedAt: null,
       overrideEndsAt: null,
     };
-    const { tx, repository, auditRepository } = createRepository(cleared);
-    const command = new ClearSeasonOverrideCommand(repository as never, auditRepository as never);
+    const { tx, repository, auditRepository, metrics } = createRepository(cleared);
+    const command = new ClearSeasonOverrideCommand(
+      repository as never,
+      auditRepository as never,
+      metrics as never,
+    );
 
     const result = await command.execute(
       'CHUNCHEON',
@@ -123,5 +139,67 @@ describe('season override commands', () => {
       expect.objectContaining({ client: tx, action: 'CLEAR_OVERRIDE' }),
     );
     expect(result).toMatchObject({ auditEventId: 'audit-1', action: 'CLEAR_OVERRIDE' });
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'CLEAR_OVERRIDE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'success',
+    });
+  });
+
+  it('override update conflict와 validation failure metric을 기록한다', async () => {
+    const { repository, auditRepository, metrics } = createRepository();
+    const command = new UpdateSeasonOverrideCommand(
+      repository as never,
+      auditRepository as never,
+      metrics as never,
+    );
+
+    repository.updateOverrideIfVersionMatches.mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      command.execute(
+        'CHUNCHEON',
+        'season-1',
+        {
+          expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+          state: 'SEASON_MATCHING',
+          reason: 'incident response',
+          startsAt: '2026-02-10T00:00:00.000Z',
+          endsAt: '2026-02-12T00:00:00.000Z',
+        },
+        actor as never,
+      ),
+    ).rejects.toMatchObject({ response: { code: 'SEASONS_OPERATION_CONFLICT' } });
+    expect(auditRepository.append).not.toHaveBeenCalled();
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'UPDATE_OVERRIDE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'conflict',
+    });
+
+    metrics.recordOperation.mockClear();
+    await expect(
+      Promise.resolve().then(() =>
+        command.execute(
+          'CHUNCHEON',
+          'season-1',
+          {
+            expectedUpdatedAt: '2026-01-01T00:00:00.000Z',
+            state: 'SEASON_MATCHING',
+            reason: 'incident response',
+            startsAt: '2026-02-12T00:00:00.000Z',
+            endsAt: '2026-02-10T00:00:00.000Z',
+          },
+          actor as never,
+        ),
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'SEASONS_OPERATION_INVALID_OVERRIDE_WINDOW' },
+    });
+    expect(metrics.recordOperation).toHaveBeenCalledWith({
+      action: 'UPDATE_OVERRIDE',
+      campusCode: 'CHUNCHEON',
+      outcome: 'validation_failure',
+    });
   });
 });

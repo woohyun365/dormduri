@@ -2,6 +2,7 @@ import { CurrentSeasonContextQuery } from './runtime/current-season-context.quer
 import { DormitoryMatchWindowQuery } from './runtime/dormitory-match-window.query.js';
 import { SeasonRuntimeRepository } from './runtime/season-runtime.repository.js';
 import { createSeasonContextCache } from './cache/season-context-cache.js';
+import { SeasonOperationalMetricsService } from './operations/season-operational-metrics.service.js';
 import { SeasonsService } from './seasons.service.js';
 
 function makeSeasonRow(
@@ -322,6 +323,31 @@ describe('SeasonsService', () => {
     expect(window).toMatchObject({ dormitoryId: 'dasan', canMatch: true });
     expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
     expect(prisma.campusMaster.findUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.season.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('명시적 request cache 재사용은 cache hit/miss metric으로 관측 가능하다', async () => {
+    prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
+    const cache = createSeasonContextCache();
+    const metrics = new SeasonOperationalMetricsService();
+    const currentQuery = new CurrentSeasonContextQuery(repository, metrics);
+    const metricAwareService = new SeasonsService(
+      currentQuery,
+      new DormitoryMatchWindowQuery(currentQuery),
+    );
+
+    await metricAwareService.getCurrentSeason('CHUNCHEON', undefined, cache);
+    await metricAwareService.getCurrentSeasonState('CHUNCHEON', undefined, cache);
+
+    expect(metrics.snapshot().currentSeasonQueries).toMatchObject({
+      total: 2,
+      cacheMisses: 1,
+      cacheHits: 1,
+      noCache: 0,
+      lastCampusCode: 'CHUNCHEON',
+      lastCache: 'hit',
+    });
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
     expect(prisma.season.findMany).toHaveBeenCalledTimes(1);
   });
 
