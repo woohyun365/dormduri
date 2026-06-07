@@ -6,7 +6,7 @@ import type {
   SelectedDormitorySubmitRequest,
   DormitorySelectionDraftResponse,
   SeasonRegistrationFinalizeResponse,
-} from '@repo/shared/season-contract';
+} from '@repo/shared/season/participation';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import {

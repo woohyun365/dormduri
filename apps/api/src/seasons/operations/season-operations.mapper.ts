@@ -1,4 +1,5 @@
-import type { SeasonOperationResponse, SeasonRuntimeOverride } from '@repo/shared/season-contract';
+import type { SeasonOperationResponse } from '@repo/shared/season/operations';
+import type { SeasonRuntimeOverride } from '@repo/shared/season/runtime';
 import { toDateOnlyString, toIsoDateTimeString } from '@repo/shared/date-primitives';
 import type { Season, SeasonOperationAuditAction } from '../../generated/prisma/client.js';
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { dormitorySelectionStateSchema } from './dormitory/enums.js';
-import { seasonStateSchema } from './season/primitives.js';
+import { seasonStateSchema } from './season/runtime/primitives.js';
 import {
   seasonParticipationCompletionStateSchema,
   seasonParticipationStateSchema,

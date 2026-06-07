@@ -1,4 +1,4 @@
-import type { SeasonRegistrationFinalizeResponse } from '@repo/shared/season-contract';
+import type { SeasonRegistrationFinalizeResponse } from '@repo/shared/season/participation';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,

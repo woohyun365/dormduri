@@ -6,6 +6,7 @@ import * as seasonContract from '@repo/shared/season';
 import * as seasonOperationsContract from '@repo/shared/season/operations';
 import * as seasonPrimitivesContract from '@repo/shared/season/primitives';
 import * as seasonResponseContract from '@repo/shared/season/response';
+import * as seasonRuntimeContract from '@repo/shared/season/runtime';
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SHARED_SRC_DIR = path.resolve(CURRENT_DIR, '../../../../../packages/shared/src');
@@ -20,8 +21,15 @@ describe('season shared contract', () => {
     expect(legacySeasonContract.seasonRuntimeOverrideSchema).toBe(
       seasonPrimitivesContract.seasonRuntimeOverrideSchema,
     );
+    expect(seasonContract.seasonStateSchema).toBe(seasonRuntimeContract.seasonStateSchema);
+    expect(seasonPrimitivesContract.seasonStateSchema).toBe(
+      seasonRuntimeContract.seasonStateSchema,
+    );
     expect(legacySeasonContract.currentSeasonResponseSchema).toBe(
       seasonResponseContract.currentSeasonResponseSchema,
+    );
+    expect(seasonResponseContract.currentSeasonResponseSchema).toBe(
+      seasonRuntimeContract.currentSeasonResponseSchema,
     );
     expect(legacySeasonContract.updateSeasonScheduleRequestSchema).toBe(
       seasonOperationsContract.updateSeasonScheduleRequestSchema,
@@ -153,17 +161,21 @@ describe('season shared contract', () => {
       types: './dist/season/index.d.ts',
       default: './dist/season/index.js',
     });
+    expect(packageJson.exports['./season/runtime']).toEqual({
+      types: './dist/season/runtime/index.d.ts',
+      default: './dist/season/runtime/index.js',
+    });
     expect(packageJson.exports['./season/primitives']).toEqual({
-      types: './dist/season/primitives.d.ts',
-      default: './dist/season/primitives.js',
+      types: './dist/season/runtime/primitives.d.ts',
+      default: './dist/season/runtime/primitives.js',
     });
     expect(packageJson.exports['./season/response']).toEqual({
-      types: './dist/season/response.d.ts',
-      default: './dist/season/response.js',
+      types: './dist/season/runtime/response.d.ts',
+      default: './dist/season/runtime/response.js',
     });
     expect(packageJson.exports['./season/operations']).toEqual({
-      types: './dist/season/operations.d.ts',
-      default: './dist/season/operations.js',
+      types: './dist/season/operations/index.d.ts',
+      default: './dist/season/operations/index.js',
     });
     expect(packageJson.exports['./season/participation']).toEqual({
       types: './dist/season/participation/index.d.ts',

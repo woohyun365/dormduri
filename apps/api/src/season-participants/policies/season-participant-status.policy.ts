@@ -1,6 +1,6 @@
 import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
 import type { ParticipationIntent } from '@repo/shared/user-contract';
-import type { SeasonState } from '@repo/shared/season-contract';
+import type { SeasonState } from '@repo/shared/season/runtime';
 
 export interface ParticipantPolicyRecord {
   participationIntent: ParticipationIntent;

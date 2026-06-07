@@ -1,5 +1,5 @@
 import type { LocalDateString } from '@repo/shared/date-primitives';
-import type { SeasonState } from '@repo/shared/season-contract';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import { toKstEndMs, toKstStartMs } from '../../platform/time/kst-date.js';
 import type { SeasonOverrideSource, SeasonWindowSource } from './season-runtime.types.js';
 

@@ -1,6 +1,6 @@
 import type { PublicTargetResultReadContext } from '@repo/shared/profile-contract';
 import { calcViewerMatchScore } from '@repo/shared/match-score';
-import type { SeasonState } from '@repo/shared/season-contract';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 
 export function buildDirectionalMatchScoreProjection(

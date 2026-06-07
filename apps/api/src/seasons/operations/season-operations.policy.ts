@@ -1,7 +1,7 @@
 import type {
   UpdateSeasonOverrideRequest,
   UpdateSeasonScheduleRequest,
-} from '@repo/shared/season-contract';
+} from '@repo/shared/season/operations';
 import { seasonsErrors } from '../seasons.errors.js';
 
 export function assertValidSeasonSchedule(input: UpdateSeasonScheduleRequest) {

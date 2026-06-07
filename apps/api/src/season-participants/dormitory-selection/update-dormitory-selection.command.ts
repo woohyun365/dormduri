@@ -1,7 +1,7 @@
 import type {
   DormitorySelectionDraftResponse,
   SelectedDormitorySubmitRequest,
-} from '@repo/shared/season-contract';
+} from '@repo/shared/season/participation';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,

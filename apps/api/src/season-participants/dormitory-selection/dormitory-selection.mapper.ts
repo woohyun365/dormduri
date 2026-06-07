@@ -2,7 +2,7 @@ import type {
   DormitorySelectionDraftResponse,
   SelectableDormitoriesResponse,
   SelectableDormitory,
-} from '@repo/shared/season-contract';
+} from '@repo/shared/season/participation';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
 import {

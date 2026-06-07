@@ -3,7 +3,7 @@ import type {
   DormitorySeasonOperation,
   SeasonRuntimeOverride,
   SeasonState,
-} from '@repo/shared/season-contract';
+} from '@repo/shared/season/runtime';
 import type { LocalDateString } from '@repo/shared/date-primitives';
 import type { Campus } from '../../generated/prisma/enums.js';
 

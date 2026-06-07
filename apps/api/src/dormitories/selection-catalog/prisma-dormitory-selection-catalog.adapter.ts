@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { SelectableDormitory } from '@repo/shared/season-contract';
+import type { SelectableDormitory } from '@repo/shared/season/participation';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';

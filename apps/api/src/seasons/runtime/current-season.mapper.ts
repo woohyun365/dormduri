@@ -1,4 +1,4 @@
-import type { SeasonRuntimeOverride } from '@repo/shared/season-contract';
+import type { SeasonRuntimeOverride } from '@repo/shared/season/runtime';
 import { toDateOnlyString } from '@repo/shared/date-primitives';
 import { calcDaysUntilDate } from '../../platform/time/kst-date.js';
 import {

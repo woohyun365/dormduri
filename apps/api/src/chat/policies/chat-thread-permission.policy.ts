@@ -1,5 +1,5 @@
 import type { ChatSendMessageUnavailableReason } from '@repo/shared/chat-contract';
-import type { SeasonState } from '@repo/shared/season-contract';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 

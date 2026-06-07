@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema, localDateStringSchema } from '../date-primitives.js';
-import { campusSchema } from '../identity-contract.js';
+import { isoDateTimeStringSchema, localDateStringSchema } from '../../date-primitives.js';
+import { campusSchema } from '../../identity-contract.js';
 import {
   seasonRuntimeOverrideSchema,
   seasonStateSchema,
   seasonSummarySchema,
-} from './primitives.js';
+} from '../runtime/primitives.js';
 
 const expectedUpdatedAtSchema = isoDateTimeStringSchema;
 const operationReasonSchema = z.string().trim().min(1).max(500);

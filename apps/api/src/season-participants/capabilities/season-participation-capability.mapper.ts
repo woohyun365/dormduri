@@ -2,7 +2,7 @@ import type {
   SeasonParticipationCompletionState,
   SeasonRegistrationBlockReason,
   SelectableDormitory,
-} from '@repo/shared/season-contract';
+} from '@repo/shared/season/participation';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { hasParticipantDormitorySelection } from '../dormitory-selection/dormitory-selection.policy.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';

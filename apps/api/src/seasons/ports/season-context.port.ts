@@ -1,4 +1,4 @@
-import type { CurrentSeasonResponse, SeasonState } from '@repo/shared/season-contract';
+import type { CurrentSeasonResponse, SeasonState } from '@repo/shared/season/runtime';
 import type { Campus } from '../../generated/prisma/enums.js';
 import type { SeasonContextCache } from '../cache/season-context-cache.js';
 import {

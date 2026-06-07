@@ -1,4 +1,4 @@
-import type { SeasonProfileDraftRequest } from '@repo/shared/season-contract';
+import type { SeasonProfileDraftRequest } from '@repo/shared/season/participation';
 import { SeasonParticipantsService } from '../application/season-participants.service.js';
 import { toLifestyleColumnData } from '../lifestyle/lifestyle-persistence.mapper.js';
 import { createSeasonParticipantPublicTargetOwner } from '../public-targets/registration-snapshot.query.js';

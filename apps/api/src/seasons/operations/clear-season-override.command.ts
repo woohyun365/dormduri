@@ -1,5 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
-import type { ClearSeasonOverrideRequest } from '@repo/shared/season-contract';
+import type { ClearSeasonOverrideRequest } from '@repo/shared/season/operations';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { Campus } from '../../generated/prisma/enums.js';
 import { SeasonOperationAuditAction } from '../../generated/prisma/enums.js';
