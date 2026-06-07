@@ -1,4 +1,4 @@
-import type { SelectableDormitoriesResponse } from '@repo/shared/season-contract';
+import type { SelectableDormitoriesResponse } from '@repo/shared/season/participation';
 import type { SeasonParticipantContainerOwner } from '../participants/season-participant-container.command.js';
 import { getVerifiedUserForSeasonAction } from '../application/season-action-user.query.js';
 import { assertWritableSeasonContext } from '../application/season-context.query.js';

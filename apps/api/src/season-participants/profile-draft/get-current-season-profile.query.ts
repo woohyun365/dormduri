@@ -1,4 +1,4 @@
-import type { SeasonProfileDraftResponse } from '@repo/shared/season-contract';
+import type { SeasonProfileDraftResponse } from '@repo/shared/season/participation';
 import { getVerifiedUserForSeasonAction } from '../application/season-action-user.query.js';
 import { assertReadableSeasonContext } from '../application/season-context.query.js';
 import type { SeasonParticipantUseCaseDeps } from '../application/season-participant-use-case.deps.js';

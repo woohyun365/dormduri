@@ -27,7 +27,7 @@ import {
   prismaErrorTargetIncludes,
 } from '../platform/database/prisma-error.js';
 import { usersErrors } from './users.errors.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
 import { resolveNicknameChangePolicy } from './nickname-change-policy.owner.js';
 import {
   recordDisplayIdentityNicknameChangeAuditTx,
@@ -73,7 +73,7 @@ export interface DisplayIdentityNicknameOverrideResult {
 
 interface UserUpdateOwnerDeps {
   prisma: PrismaService;
-  seasonsService: SeasonsService;
+  seasonsService: SeasonContextPort;
   moderationService: ModerationService;
   currentUserViewService: CurrentUserViewService;
 }

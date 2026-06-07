@@ -1,12 +1,12 @@
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { Campus } from '../../generated/prisma/enums.js';
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
+import { formatKstDate } from '../../platform/time/kst-date.js';
 import {
-  formatKstDate,
-  hasActiveSeasonOverride,
   normalizeSeasonRuntimeRow,
   toCurrentSeasonResponse,
-} from '../../seasons/season.utils.js';
+} from '../../seasons/ports/season-context.port.js';
+import { hasActiveSeasonOverride } from '../../seasons/ports/season-context.port.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import type { DbClient, SeasonParticipantUseCaseDeps } from './season-participant-use-case.deps.js';
 

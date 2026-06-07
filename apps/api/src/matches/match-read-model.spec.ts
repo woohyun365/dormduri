@@ -6,7 +6,7 @@ import {
   type ActiveMatchCommandRecord,
   type MatchRequestRecord,
 } from './match-read-model.js';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
 import { toCompleteLifestyleColumnData } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 
 const COMPLETE_LIFESTYLE = {

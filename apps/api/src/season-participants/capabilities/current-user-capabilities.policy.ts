@@ -1,4 +1,4 @@
-import type { SeasonState } from '@repo/shared/season-contract';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { CurrentUserResponse } from '@repo/shared/user-contract';
 import type { DisplayIdentityEditUnavailableReason } from '@repo/shared/display-identity-contract';
 import type { AcademicIdentityEditUnavailableReason } from '@repo/shared/academic-identity-contract';

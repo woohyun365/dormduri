@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   AccountDeletionRequestAccepted,
   CurrentUserResponse,
@@ -12,7 +12,10 @@ import {
   PrismaService,
   RetentionWorkerPrismaService,
 } from '../platform/database/prisma.service.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../seasons/ports/season-context.port.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
 import {
   createUserUpdateOwner,
@@ -43,7 +46,8 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly retentionWorkerPrisma: RetentionWorkerPrismaService,
-    private readonly seasonsService: SeasonsService,
+    @Inject(SEASON_CONTEXT_PORT)
+    private readonly seasonsService: SeasonContextPort,
     private readonly moderationService: ModerationService,
     private readonly currentUserViewService: CurrentUserViewService,
   ) {

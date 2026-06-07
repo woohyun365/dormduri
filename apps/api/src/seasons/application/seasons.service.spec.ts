@@ -1,3 +1,8 @@
+import { CurrentSeasonContextQuery } from '../runtime/current-season-context.query.js';
+import { DormitoryMatchWindowQuery } from '../runtime/dormitory-match-window.query.js';
+import { SeasonRuntimeRepository } from '../runtime/season-runtime.repository.js';
+import { createSeasonContextCache } from '../cache/season-context-cache.js';
+import { SeasonOperationalMetricsService } from '../operations/season-operational-metrics.service.js';
 import { SeasonsService } from './seasons.service.js';
 
 function makeSeasonRow(
@@ -57,7 +62,10 @@ describe('SeasonsService', () => {
     $queryRawTyped: jest.fn(),
   };
 
-  const service = new SeasonsService(prisma as never);
+  const repository = new SeasonRuntimeRepository(prisma as never);
+  const currentSeasonContextQuery = new CurrentSeasonContextQuery(repository);
+  const dormitoryMatchWindowQuery = new DormitoryMatchWindowQuery(currentSeasonContextQuery);
+  const service = new SeasonsService(currentSeasonContextQuery, dormitoryMatchWindowQuery);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -257,6 +265,101 @@ describe('SeasonsService', () => {
         reason: '운영자 수동 비활성화',
       },
     });
+  });
+
+  it('기간이 지난 override는 current state 계산에 적용하지 않는다', async () => {
+    prisma.season.findMany.mockResolvedValue([
+      makeSeasonRow({
+        overrideState: 'OFF_SEASON',
+        overrideReason: '종료된 운영자 수동 비활성화',
+        overrideStartedAt: new Date('2026-01-01T00:00:00+09:00'),
+        overrideEndsAt: new Date('2026-01-31T23:59:59+09:00'),
+      }),
+    ]);
+
+    const result = await service.getCurrentSeason(
+      'CHUNCHEON',
+      new Date('2026-02-10T12:00:00+09:00'),
+    );
+
+    expect(result).toMatchObject({
+      state: 'SEASON_MATCHING',
+      isMatching: true,
+      override: {
+        active: false,
+        state: null,
+        reason: null,
+      },
+    });
+  });
+
+  it('기숙사별 매칭 윈도우 조회는 logical read당 DB 기준 시간을 한 번만 해석한다', async () => {
+    prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
+
+    const result = await service.getCurrentDormitoryMatchWindow('CHUNCHEON', 'dasan');
+
+    expect(result).toMatchObject({
+      dormitoryId: 'dasan',
+      canMatch: true,
+    });
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+  });
+
+  it('명시적 request cache를 공유하면 current season context DB read를 logical operation 안에서 재사용한다', async () => {
+    prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
+    const cache = createSeasonContextCache();
+
+    const currentSeason = await service.getCurrentSeason('CHUNCHEON', undefined, cache);
+    const state = await service.getCurrentSeasonState('CHUNCHEON', undefined, cache);
+    const window = await service.getCurrentDormitoryMatchWindow(
+      'CHUNCHEON',
+      'dasan',
+      undefined,
+      cache,
+    );
+
+    expect(currentSeason?.season.id).toBe('season-1');
+    expect(state).toBe('SEASON_MATCHING');
+    expect(window).toMatchObject({ dormitoryId: 'dasan', canMatch: true });
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+    expect(prisma.campusMaster.findUnique).toHaveBeenCalledTimes(1);
+    expect(prisma.season.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('명시적 request cache 재사용은 cache hit/miss metric으로 관측 가능하다', async () => {
+    prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
+    const cache = createSeasonContextCache();
+    const metrics = new SeasonOperationalMetricsService();
+    const currentQuery = new CurrentSeasonContextQuery(repository, metrics);
+    const metricAwareService = new SeasonsService(
+      currentQuery,
+      new DormitoryMatchWindowQuery(currentQuery),
+    );
+
+    await metricAwareService.getCurrentSeason('CHUNCHEON', undefined, cache);
+    await metricAwareService.getCurrentSeasonState('CHUNCHEON', undefined, cache);
+
+    expect(metrics.snapshot().currentSeasonQueries).toMatchObject({
+      total: 2,
+      cacheMisses: 1,
+      cacheHits: 1,
+      noCache: 0,
+      lastCampusCode: 'CHUNCHEON',
+      lastCache: 'hit',
+    });
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+    expect(prisma.season.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('cache를 넘기지 않은 기존 호출은 request 간 stale cache를 공유하지 않는다', async () => {
+    prisma.season.findMany.mockResolvedValue([makeSeasonRow()]);
+
+    await service.getCurrentSeason('CHUNCHEON');
+    await service.getCurrentSeasonState('CHUNCHEON');
+
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(2);
+    expect(prisma.campusMaster.findUnique).toHaveBeenCalledTimes(2);
+    expect(prisma.season.findMany).toHaveBeenCalledTimes(2);
   });
 
   it('기숙사별 매칭 윈도우를 반환한다', async () => {

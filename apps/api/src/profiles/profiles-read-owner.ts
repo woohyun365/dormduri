@@ -3,13 +3,13 @@ import type { AuthenticatedUserContext } from '../auth/application/auth-actor-co
 import type { PrismaService } from '../platform/database/prisma.service.js';
 import type { MatchesService } from '../matches/matches.service.js';
 import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
-import type { SeasonsService } from '../seasons/seasons.service.js';
+import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
 import { profilesErrors } from './profiles.errors.js';
 import { createVisibleProfileOwner } from './visible-profile-owner.js';
 
 interface ProfilesReadOwnerDeps {
   prisma: PrismaService;
-  seasonsService: SeasonsService;
+  seasonsService: SeasonContextPort;
   seasonParticipantsService: SeasonParticipantsService;
   matchesService: MatchesService;
 }

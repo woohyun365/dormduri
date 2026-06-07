@@ -14,4 +14,4 @@ export interface SchemaParser<T> {
   ): { success: true; data: T } | { success: false; error: { issues: readonly SchemaIssue[] } };
 }
 
-export type ParseSource = 'body' | 'query';
+export type ParseSource = 'body' | 'query' | 'param';

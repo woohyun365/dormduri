@@ -13,6 +13,7 @@ import { NotificationsController } from '../../notifications/notifications.contr
 import { ProfilesController } from '../../profiles/profiles.controller.js';
 import { RoommateSearchController } from '../../profiles/roommate-search.controller.js';
 import { SeasonsController } from '../../seasons/seasons.controller.js';
+import { SeasonsOperationsController } from '../../seasons/operations/seasons-operations.controller.js';
 import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
@@ -188,6 +189,30 @@ const expectedRoutes: ExpectedRoute[] = [
     method: RequestMethod.GET,
     path: 'api/seasons/current',
     access: 'public',
+  },
+  {
+    controller: SeasonsOperationsController,
+    handler: 'updateSchedule',
+    method: RequestMethod.PATCH,
+    path: 'api/campuses/:campusCode/seasons/:seasonId/schedule',
+    access: 'protected',
+    capabilities: ['admin:season:operations:write'],
+  },
+  {
+    controller: SeasonsOperationsController,
+    handler: 'updateOverride',
+    method: RequestMethod.PATCH,
+    path: 'api/campuses/:campusCode/seasons/:seasonId/override',
+    access: 'protected',
+    capabilities: ['admin:season:operations:write'],
+  },
+  {
+    controller: SeasonsOperationsController,
+    handler: 'clearOverride',
+    method: RequestMethod.DELETE,
+    path: 'api/campuses/:campusCode/seasons/:seasonId/override',
+    access: 'protected',
+    capabilities: ['admin:season:operations:write'],
   },
   {
     controller: DormitoriesController,

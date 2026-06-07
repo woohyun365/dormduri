@@ -1,4 +1,4 @@
-import type { SeasonState } from '@repo/shared/season-contract';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,

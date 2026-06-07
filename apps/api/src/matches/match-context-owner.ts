@@ -4,7 +4,7 @@ import type {
   CurrentSeasonParticipantRecord,
   SeasonParticipantEnsureInput,
 } from '../season-participants/application/season-participants.service.js';
-import type { SeasonsService } from '../seasons/seasons.service.js';
+import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
 
 export interface MatchParticipantUserProjection extends SeasonParticipantEnsureInput {
   id: string;
@@ -14,14 +14,14 @@ export interface MatchParticipantUserProjection extends SeasonParticipantEnsureI
 
 export interface MatchUserContext {
   user: MatchParticipantUserProjection;
-  seasonContext: Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>;
+  seasonContext: Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>;
   participant: CurrentSeasonParticipantRecord | null;
   selection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>;
 }
 
 interface MatchContextOwnerDeps {
   prisma: PrismaService;
-  seasonsService: SeasonsService;
+  seasonsService: SeasonContextPort;
   seasonParticipantsService: SeasonParticipantsService;
   requestTargetNotFound(): Error;
   requestSelfTargetNotAllowed(): Error;
@@ -89,7 +89,7 @@ export function createMatchContextOwner(deps: MatchContextOwnerDeps) {
     },
 
     findRoomSelectionDate(
-      seasonContext: NonNullable<Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>>,
+      seasonContext: NonNullable<Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>>,
       dormitoryId: string | null,
     ) {
       return (

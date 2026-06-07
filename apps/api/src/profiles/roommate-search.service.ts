@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import type {
   RoommateSearchManifestQuery,
@@ -7,7 +7,10 @@ import type {
   RoommateSearchResponse,
 } from '@repo/shared/roommate-search-contract';
 import { PrismaService } from '../platform/database/prisma.service.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../seasons/ports/season-context.port.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { createRoommateSearchOwner } from './roommate-search-owner.js';
@@ -18,7 +21,8 @@ export class RoommateSearchService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
+    @Inject(SEASON_CONTEXT_PORT)
+    private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly matchesService: MatchesService,
   ) {

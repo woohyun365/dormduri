@@ -1,4 +1,4 @@
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
 import { isParticipantRegistered } from '../policies/index.js';

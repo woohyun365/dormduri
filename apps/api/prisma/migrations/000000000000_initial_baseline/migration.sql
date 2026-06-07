@@ -41,6 +41,9 @@ CREATE TYPE "DormitoryBathroomType" AS ENUM ('SHARED', 'PRIVATE');
 CREATE TYPE "SeasonOverrideState" AS ENUM ('OFF_SEASON', 'SEASON_OPEN', 'SEASON_MATCHING', 'SEASON_POST_MATCH');
 
 -- CreateEnum
+CREATE TYPE "SeasonOperationAuditAction" AS ENUM ('UPDATE_SCHEDULE', 'UPDATE_OVERRIDE', 'CLEAR_OVERRIDE');
+
+-- CreateEnum
 CREATE TYPE "SeasonParticipationIntent" AS ENUM ('UNDECIDED', 'REGISTERED', 'DECLINED');
 
 -- CreateEnum
@@ -302,6 +305,23 @@ CREATE TABLE "Season" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Season_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SeasonOperationAuditEvent" (
+    "id" TEXT NOT NULL,
+    "seasonId" TEXT NOT NULL,
+    "campusCode" "Campus" NOT NULL,
+    "action" "SeasonOperationAuditAction" NOT NULL,
+    "actorUserId" TEXT,
+    "actorCapabilities" JSONB,
+    "reason" TEXT,
+    "previousSnapshot" JSONB NOT NULL,
+    "nextSnapshot" JSONB NOT NULL,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SeasonOperationAuditEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1084,6 +1104,19 @@ CREATE INDEX "Season_campusCode_seasonEndDate_idx" ON "Season"("campusCode", "se
 -- CreateIndex
 CREATE UNIQUE INDEX "Season_campusCode_academicYear_semester_key" ON "Season"("campusCode", "academicYear", "semester");
 
+
+-- CreateIndex
+CREATE INDEX "SeasonOperationAuditEvent_seasonId_createdAt_idx" ON "SeasonOperationAuditEvent"("seasonId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonOperationAuditEvent_campusCode_createdAt_idx" ON "SeasonOperationAuditEvent"("campusCode", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonOperationAuditEvent_action_createdAt_idx" ON "SeasonOperationAuditEvent"("action", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonOperationAuditEvent_actorUserId_createdAt_idx" ON "SeasonOperationAuditEvent"("actorUserId", "createdAt");
+
 -- CreateIndex
 CREATE INDEX "SeasonDormitoryOperation_seasonId_isOperated_roomSelectionD_idx" ON "SeasonDormitoryOperation"("seasonId", "isOperated", "roomSelectionDate");
 
@@ -1537,6 +1570,10 @@ ALTER TABLE "DormitoryGuide" ADD CONSTRAINT "DormitoryGuide_dormitoryId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "Season" ADD CONSTRAINT "Season_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+
+-- AddForeignKey
+ALTER TABLE "SeasonOperationAuditEvent" ADD CONSTRAINT "SeasonOperationAuditEvent_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonDormitoryOperation" ADD CONSTRAINT "SeasonDormitoryOperation_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;

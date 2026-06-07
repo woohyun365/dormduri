@@ -1,6 +1,6 @@
 import { emailRequestSchema, loginRequestSchema } from '@repo/shared/auth-contract';
 import { BadRequestException } from '@nestjs/common';
-import { parseQueryValue, parseRequestBody } from './zod-request.js';
+import { parsePathParam, parseQueryValue, parseRequestBody } from './zod-request.js';
 
 function getBadRequestResponse(error: unknown) {
   expect(error).toBeInstanceOf(BadRequestException);
@@ -118,6 +118,39 @@ describe('parseRequestBody', () => {
       expect(response.code).toBe('INVALID_QUERY');
       expect(response.fieldErrors?.campus).toEqual(['허용되지 않는 쿼리 파라미터 값입니다.']);
       expect(response.details?.some((detail) => detail.path === 'campus')).toBe(true);
+    }
+  });
+
+  it('path param parser는 경로 파라미터 기준 localized fieldErrors를 포함한다', () => {
+    const enumLikeSchema = {
+      safeParse: () =>
+        ({
+          success: false as const,
+          error: {
+            issues: [
+              {
+                path: [],
+                message: 'Invalid option',
+                code: 'invalid_value',
+              },
+            ],
+          },
+        }) as const,
+    };
+
+    try {
+      parsePathParam(enumLikeSchema, 'WRONG', {
+        code: 'INVALID_PARAM',
+        errorMessage: '경로 파라미터가 올바르지 않습니다.',
+        fieldName: 'campusCode',
+      });
+      throw new Error('Expected parsePathParam to throw');
+    } catch (error) {
+      const response = getBadRequestResponse(error);
+
+      expect(response.code).toBe('INVALID_PARAM');
+      expect(response.fieldErrors?.campusCode).toEqual(['허용되지 않는 경로 파라미터 값입니다.']);
+      expect(response.details?.some((detail) => detail.path === 'campusCode')).toBe(true);
     }
   });
 });

@@ -3,7 +3,7 @@ import {
   selectedDormitorySubmitRequestSchema,
   seasonRegistrationFinalizeRequestSchema,
   updateSeasonProfileRequestSchema,
-} from '@repo/shared/season-contract';
+} from '@repo/shared/season/participation';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';

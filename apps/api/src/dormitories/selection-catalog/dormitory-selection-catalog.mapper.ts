@@ -1,5 +1,5 @@
 import { toDateOnlyString } from '@repo/shared/date-primitives';
-import type { SelectableDormitory } from '@repo/shared/season-contract';
+import type { SelectableDormitory } from '@repo/shared/season/participation';
 import type { Campus, DormitoryGenderPolicy } from '../../generated/prisma/enums.js';
 
 export interface DormitorySelectionCatalogRecord {

@@ -1,7 +1,7 @@
-import type { SelectableDormitory } from '@repo/shared/season-contract';
+import type { SelectableDormitory } from '@repo/shared/season/participation';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 
 export const DORMITORY_SELECTION_CATALOG_PORT = Symbol('DORMITORY_SELECTION_CATALOG_PORT');
 

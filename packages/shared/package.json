@@ -144,16 +144,24 @@
       "default": "./dist/season/index.js"
     },
     "./season/primitives": {
-      "types": "./dist/season/primitives.d.ts",
-      "default": "./dist/season/primitives.js"
+      "types": "./dist/season/runtime/primitives.d.ts",
+      "default": "./dist/season/runtime/primitives.js"
     },
     "./season/response": {
-      "types": "./dist/season/response.d.ts",
-      "default": "./dist/season/response.js"
+      "types": "./dist/season/runtime/response.d.ts",
+      "default": "./dist/season/runtime/response.js"
+    },
+    "./season/operations": {
+      "types": "./dist/season/operations/index.d.ts",
+      "default": "./dist/season/operations/index.js"
     },
     "./season/participation": {
       "types": "./dist/season/participation/index.d.ts",
       "default": "./dist/season/participation/index.js"
+    },
+    "./season/runtime": {
+      "types": "./dist/season/runtime/index.d.ts",
+      "default": "./dist/season/runtime/index.js"
     }
   },
   "scripts": {

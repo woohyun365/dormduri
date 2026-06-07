@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
@@ -17,7 +17,10 @@ import {
   type UserDisplayIdentityRecord,
   type UserWithDisplayIdentityRecord,
 } from './current-user-select.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../seasons/ports/season-context.port.js';
 import { resolveCampusServiceState } from './service-state.js';
 import { assertUserAccountIdentity } from '../identity/account-identity-invariant.js';
 import { usersErrors } from './users.errors.js';
@@ -36,7 +39,8 @@ type CurrentUserResponseUserRecord = Omit<
 export class CurrentUserViewService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
+    @Inject(SEASON_CONTEXT_PORT)
+    private readonly seasonsService: SeasonContextPort,
     private readonly currentSeasonParticipationViewOwner: CurrentSeasonParticipationViewQuery,
     private readonly matchesService: MatchesService,
   ) {}

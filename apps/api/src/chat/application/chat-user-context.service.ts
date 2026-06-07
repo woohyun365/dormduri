@@ -2,7 +2,7 @@ import type { Prisma } from '../../generated/prisma/client.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { CurrentSeasonParticipantRecord } from '../../season-participants/application/season-participants.service.js';
 import type { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
-import type { SeasonsService } from '../../seasons/seasons.service.js';
+import type { SeasonContextPort } from '../../seasons/ports/season-context.port.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import type { ChatParticipantUserProjection } from '../persistence/chat-thread.select.js';
 
@@ -10,14 +10,14 @@ type ChatContextDbClient = Prisma.TransactionClient | PrismaService;
 
 export interface ChatUserContext {
   user: ChatParticipantUserProjection;
-  seasonContext: Awaited<ReturnType<SeasonsService['getCurrentSeasonContext']>>;
+  seasonContext: Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>;
   participant: CurrentSeasonParticipantRecord | null;
   selection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>;
 }
 
 interface ChatUserContextServiceDeps {
   prisma: PrismaService;
-  seasonsService: SeasonsService;
+  seasonsService: SeasonContextPort;
   seasonParticipantsService: SeasonParticipantsService;
 }
 

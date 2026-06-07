@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { toDateOnlyString } from '@repo/shared/date-primitives';
-import { subtractDays } from '../../seasons/season.utils.js';
+import { subtractDays } from '../../platform/time/kst-date.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   BOUNDARY_JOB_PREFIX,

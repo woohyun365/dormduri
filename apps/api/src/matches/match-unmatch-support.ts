@@ -4,7 +4,7 @@ import { matchesErrors } from './matches.errors.js';
 import { isUnmatchWindowOpen } from './match-read-model.js';
 import { activeMatchCommandSelect, type ActiveMatchCommandRecord } from './match-selects.js';
 import { acquireActiveMatchLock, lockActiveMatchRow } from './match-transaction-helpers.js';
-import type { CurrentSeasonContext } from '../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
 
 type MatchClient = Prisma.TransactionClient | PrismaService;
 

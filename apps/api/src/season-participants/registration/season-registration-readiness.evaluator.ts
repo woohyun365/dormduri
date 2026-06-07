@@ -1,6 +1,6 @@
-import type { SelectableDormitory } from '@repo/shared/season-contract';
+import type { SelectableDormitory } from '@repo/shared/season/participation';
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { CurrentSeasonContext } from '../../seasons/season.types.js';
+import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { assertUserAccountIdentity } from '../../identity/account-identity-invariant.js';
 import { usersErrors } from '../../users/users.errors.js';
 import type { DormitorySelectionReadinessEvaluator } from '../dormitory-selection/dormitory-selection-readiness.evaluator.js';
