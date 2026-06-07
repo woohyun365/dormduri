@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import type { Campus } from '../generated/prisma/enums.js';
-import type { SeasonContextCache } from './cache/season-context-cache.js';
-import { CurrentSeasonContextQuery } from './runtime/current-season-context.query.js';
-import { DormitoryMatchWindowQuery } from './runtime/dormitory-match-window.query.js';
-import type { CurrentSeasonContext, SeasonContextPort } from './ports/season-context.port.js';
 import type { CurrentSeasonResponse } from '@repo/shared/season/runtime';
+import type { Campus } from '../../generated/prisma/enums.js';
+import type { SeasonContextCache } from '../cache/season-context-cache.js';
+import type { CurrentSeasonContext, SeasonContextPort } from '../ports/season-context.port.js';
+import { CurrentSeasonContextQuery } from '../runtime/current-season-context.query.js';
+import { DormitoryMatchWindowQuery } from '../runtime/dormitory-match-window.query.js';
 
 @Injectable()
 export class SeasonsService implements SeasonContextPort {

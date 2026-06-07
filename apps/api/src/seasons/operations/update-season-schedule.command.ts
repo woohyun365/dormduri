@@ -3,7 +3,7 @@ import type { UpdateSeasonScheduleRequest } from '@repo/shared/season/operations
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { Campus } from '../../generated/prisma/enums.js';
 import { SeasonOperationAuditAction } from '../../generated/prisma/enums.js';
-import { seasonsErrors } from '../seasons.errors.js';
+import { seasonsErrors } from '../errors/seasons.errors.js';
 import type { SeasonOperationMetricOutcome } from './season-operational-metrics.service.js';
 import { SeasonOperationalMetricsService } from './season-operational-metrics.service.js';
 import { assertValidSeasonSchedule } from './season-operations.policy.js';

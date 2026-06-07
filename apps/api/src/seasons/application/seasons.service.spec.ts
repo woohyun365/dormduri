@@ -1,8 +1,8 @@
-import { CurrentSeasonContextQuery } from './runtime/current-season-context.query.js';
-import { DormitoryMatchWindowQuery } from './runtime/dormitory-match-window.query.js';
-import { SeasonRuntimeRepository } from './runtime/season-runtime.repository.js';
-import { createSeasonContextCache } from './cache/season-context-cache.js';
-import { SeasonOperationalMetricsService } from './operations/season-operational-metrics.service.js';
+import { CurrentSeasonContextQuery } from '../runtime/current-season-context.query.js';
+import { DormitoryMatchWindowQuery } from '../runtime/dormitory-match-window.query.js';
+import { SeasonRuntimeRepository } from '../runtime/season-runtime.repository.js';
+import { createSeasonContextCache } from '../cache/season-context-cache.js';
+import { SeasonOperationalMetricsService } from '../operations/season-operational-metrics.service.js';
 import { SeasonsService } from './seasons.service.js';
 
 function makeSeasonRow(

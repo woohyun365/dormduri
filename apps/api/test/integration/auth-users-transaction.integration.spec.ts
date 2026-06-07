@@ -10,7 +10,7 @@ import type { CurrentUserViewService } from '../../src/users/current-user-view.s
 import { createUserUpdateOwner } from '../../src/users/user-update-owner.js';
 import type { ModerationService } from '../../src/moderation/moderation.service.js';
 import { UsersService } from '../../src/users/users.service.js';
-import { SeasonsService } from '../../src/seasons/seasons.service.js';
+import { SeasonsService } from '../../src/seasons/application/seasons.service.js';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
 import { createIntegrationApp } from './support/integration-app.js';
 import {

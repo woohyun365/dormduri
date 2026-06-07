@@ -1,8 +1,8 @@
 import type { LifestyleData } from '@repo/shared/lifestyle';
-import type { SeasonProfileDraftRequest } from '@repo/shared/season-contract';
+import type { SeasonProfileDraftRequest } from '@repo/shared/season/participation';
 import type { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import { toCompleteLifestyleColumnData as mapCompleteLifestyleColumnData } from '../../../src/season-participants/lifestyle/lifestyle-persistence.mapper.js';
-import { formatKstDate, subtractDays } from '../../../src/seasons/season.utils.js';
+import { formatKstDate, subtractDays } from '../../../src/platform/time/kst-date.js';
 
 export const DEFAULT_LIFESTYLE = {
   bedtime: '22_24',

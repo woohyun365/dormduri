@@ -2,7 +2,7 @@ import type {
   UpdateSeasonOverrideRequest,
   UpdateSeasonScheduleRequest,
 } from '@repo/shared/season/operations';
-import { seasonsErrors } from '../seasons.errors.js';
+import { seasonsErrors } from '../errors/seasons.errors.js';
 
 export function assertValidSeasonSchedule(input: UpdateSeasonScheduleRequest) {
   if (input.preparationStartDate > input.matchingStartDate) {

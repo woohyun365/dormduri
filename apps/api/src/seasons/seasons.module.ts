@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { SeasonsController } from './seasons.controller.js';
-import { SeasonsService } from './seasons.service.js';
+import { SeasonsService } from './application/seasons.service.js';
 import { SEASON_CONTEXT_PORT } from './ports/season-context.port.js';
 import { ClearSeasonOverrideCommand } from './operations/clear-season-override.command.js';
 import { SeasonOperationalMetricsService } from './operations/season-operational-metrics.service.js';
