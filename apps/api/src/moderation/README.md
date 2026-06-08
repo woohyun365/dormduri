@@ -27,7 +27,7 @@
 - Text normalization/matching policy는 pure helper로 유지하고 Nest provider/Prisma client를 import하지 않는다.
 - Repository는 DB 조회만 담당하고, surface별 policy 판단이나 error message를 소유하지 않는다.
 - Short TTL cache는 best-effort optimization이다. Moderation term source-of-truth는 Postgres active terms다.
-- Redis/cache 도입은 observed bottleneck 또는 multi-instance cache consistency 요구가 생길 때 별도 issue로 다룬다.
+- Redis/cache 도입은 observed bottleneck 또는 multi-instance cache consistency 요구가 제품 운영 조건으로 확정될 때 moderation ops/cache owner가 다룬다.
 - Raw user text를 불필요하게 로그에 남기지 않는다.
 
 ## Architecture guard
@@ -49,7 +49,7 @@ Moderation boundary는 `apps/api/src/architecture/common-boundary.spec.ts`와 `a
 - Module import/export boundary: `moderation.module.ts` plus caller module imports.
 - Nickname policy integration: users/auth signup validation caller tests.
 - Intro/match request note integration: profiles/matches caller tests.
-- Redis/distributed cache or admin term management: not this module README's default path; create a follow-up design/issue first.
+- Redis/distributed cache or admin term management: keep outside this module's default path until a dedicated moderation ops/cache owner and contract are defined.
 
 ## Useful verification
 

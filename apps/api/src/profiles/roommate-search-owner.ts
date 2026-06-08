@@ -71,9 +71,20 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     const filteredDiscovery = filterRoommateSearchDiscoveryEntries(filteredEntries, {
       excludeMatchedTargets: shouldExcludeMatchedTargetsFromDiscovery(purpose),
     });
-    const filteredItems = filteredDiscovery.entries.map((entry) =>
-      responseOwner.toMaterializedItem({ entry, viewerContext, scope, purpose, now }),
-    );
+    const activeBookmarkMap = await loadActiveBookmarkMap(viewerContext, filteredDiscovery.entries);
+    const filteredItems = filteredDiscovery.entries.map((entry) => {
+      const item = responseOwner.toMaterializedItem({ entry, viewerContext, scope, purpose, now });
+      const bookmark = activeBookmarkMap.get(entry.targetParticipant.id);
+      return {
+        ...item,
+        summary: {
+          ...item.summary,
+          bookmark: bookmark
+            ? { bookmarked: true, bookmarkedAt: bookmark.bookmarkedAt.toISOString() }
+            : { bookmarked: false },
+        },
+      };
+    });
     const scoreThresholdItems = applyRoommateSearchScoreThreshold(filteredItems, query);
     const sortedItems = sortRoommateSearchItems(scoreThresholdItems, appliedSort);
     const queryDigest = tokenOwner.buildQueryDigest({
@@ -149,7 +160,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     query?: RoommateSearchQuery,
   ): Promise<ResolvedVisibleProfileEntry[]> {
     const candidates = await candidateOwner.findCandidates({ viewerContext, scope, query });
-    return visibleProfileOwner.materializeVisibleProfileEntries(
+    const visibleEntries = await visibleProfileOwner.materializeVisibleProfileEntries(
       viewerContext,
       candidates.map((candidate) =>
         visibleProfileOwner.mapTargetParticipantCandidate(
@@ -158,6 +169,73 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
           >[0],
         ),
       ),
+    );
+    return filterBlockedEntries(viewerContext, visibleEntries);
+  }
+
+  async function filterBlockedEntries(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+  ): Promise<ResolvedVisibleProfileEntry[]> {
+    if (entries.length === 0) {
+      return entries;
+    }
+
+    const targetUserIds = entries.map((entry) => entry.user.id);
+    const activeBlocks = await deps.prisma.userBlock.findMany({
+      where: {
+        unblockedAt: null,
+        OR: [
+          {
+            blockerUserId: viewerContext.viewer.id,
+            blockedUserId: { in: targetUserIds },
+          },
+          {
+            blockerUserId: { in: targetUserIds },
+            blockedUserId: viewerContext.viewer.id,
+          },
+        ],
+      },
+      select: {
+        blockerUserId: true,
+        blockedUserId: true,
+      },
+    });
+    const blockedTargetUserIds = new Set(
+      activeBlocks.map((block) =>
+        block.blockerUserId === viewerContext.viewer.id ? block.blockedUserId : block.blockerUserId,
+      ),
+    );
+
+    return entries.filter((entry) => !blockedTargetUserIds.has(entry.user.id));
+  }
+
+  async function loadActiveBookmarkMap(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+  ) {
+    if (!viewerContext.currentSeasonId || entries.length === 0) {
+      return new Map<string, { bookmarkedAt: Date }>();
+    }
+
+    const rows = await deps.prisma.userBookmark.findMany({
+      where: {
+        viewerUserId: viewerContext.viewer.id,
+        seasonId: viewerContext.currentSeasonId,
+        targetParticipantId: {
+          in: entries.map((entry) => entry.targetParticipant.id),
+        },
+        deletedAt: null,
+        expiredAt: null,
+      },
+      select: {
+        targetParticipantId: true,
+        bookmarkedAt: true,
+      },
+    });
+
+    return new Map(
+      rows.map((row) => [row.targetParticipantId, { bookmarkedAt: row.bookmarkedAt }]),
     );
   }
 

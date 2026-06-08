@@ -10,6 +10,7 @@ import { AuthOperationalCleanupService } from '../auth/operations/auth-operation
 import { AuthOperationalMetricsService } from '../auth/operations/auth-operational-metrics.service.js';
 import { AuthOperationsModule } from '../auth/operations/auth-operations.module.js';
 import { ChatModule } from '../chat/chat.module.js';
+import { CHAT_BLOCK_SIDE_EFFECT_PORT } from '../chat/application/ports/chat-block-side-effect.port.js';
 import { CHAT_LIFECYCLE_SWEEP_PORT } from '../chat/application/ports/chat-lifecycle-sweep.port.js';
 import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from '../chat/application/ports/chat-match-thread-lifecycle.port.js';
 import { CHAT_THREAD_WITHDRAWAL_PORT } from '../chat/application/ports/chat-thread-withdrawal.port.js';
@@ -21,12 +22,17 @@ import { HealthModule } from '../health/health.module.js';
 import { LifecycleModule } from '../lifecycle/lifecycle.module.js';
 import { LifecycleSweepService } from '../lifecycle/lifecycle-sweep.service.js';
 import { MatchesModule } from '../matches/matches.module.js';
+import { MATCH_BLOCK_SIDE_EFFECT_PORT } from '../matches/application/ports/match-block-side-effect.port.js';
 import { MatchesService } from '../matches/matches.service.js';
 import { ModerationModule } from '../moderation/moderation.module.js';
 import { ModerationService } from '../moderation/moderation.service.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
-import { CHAT_THREAD_NOTIFICATION_WRITER } from '../notifications/notifications.tokens.js';
-import { NotificationsService } from '../notifications/notifications.service.js';
+import { CreateNotificationCampaignCommand } from '../notifications/campaigns/create-notification-campaign.command.js';
+import { NotificationCampaignFanoutService } from '../notifications/campaigns/notification-campaign-fanout.service.js';
+import { MaterializeProfileMismatchFeedbackCommand } from '../notifications/commands/materialize-profile-mismatch-feedback.command.js';
+import { MaterializeReportOperatorAlertCommand } from '../notifications/commands/materialize-report-operator-alert.command.js';
+import { CHAT_THREAD_NOTIFICATION_WRITER } from '../notifications/application/ports/chat-thread-notification-writer.port.js';
+import { NOTIFICATION_WRITER } from '../notifications/application/ports/notification-writer.port.js';
 import { NotificationQueryService } from '../notifications/queries/notification-query.service.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { ProfilesModule } from '../profiles/profiles.module.js';
@@ -38,6 +44,11 @@ import {
   REALTIME_USER_ROOM_PUBLISHER_PORT,
 } from '../realtime/realtime.tokens.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
+import { SocialSafetyModule } from '../social-safety/social-safety.module.js';
+import { SupportModule } from '../support/support.module.js';
+import { BlockModule } from '../social-safety/blocks/block.module.js';
+import { ReportModule } from '../social-safety/reports/report.module.js';
+import { BookmarkModule } from '../social-safety/bookmarks/bookmark.module.js';
 import { CurrentSeasonParticipantContextGuard } from '../season-participants/context/current-season-participant-context.guard.js';
 import { CurrentSeasonParticipationViewQuery } from '../season-participants/application/current-season-participation-view.query.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
@@ -187,10 +198,17 @@ describe('affected API module boundary finalization', () => {
         ChatModule,
         MatchesModule,
         SeasonParticipantsModule,
+        SocialSafetyModule,
         UsersModule,
       ]),
     );
     expect(moduleMetadata(ModerationModule, 'imports')).toEqual([PrismaModule]);
+    expect(moduleMetadata(SocialSafetyModule, 'imports')).toEqual([
+      BookmarkModule,
+      BlockModule,
+      ReportModule,
+    ]);
+    expect(moduleMetadata(SupportModule, 'imports')).toEqual([PrismaModule, NotificationsModule]);
     expect(moduleMetadata(DormitoriesModule, 'imports')).toEqual([PrismaModule]);
     expect(moduleMetadata(SeasonsModule, 'imports')).toEqual([PrismaModule]);
   });
@@ -207,6 +225,7 @@ describe('affected API module boundary finalization', () => {
       AuthOperationsHealthService,
     ]);
     expect(moduleMetadata(ChatModule, 'exports')).toEqual([
+      CHAT_BLOCK_SIDE_EFFECT_PORT,
       CHAT_MATCH_THREAD_LIFECYCLE_PORT,
       CHAT_LIFECYCLE_SWEEP_PORT,
       ChatLifecycleModule,
@@ -216,7 +235,10 @@ describe('affected API module boundary finalization', () => {
       REALTIME_USER_ROOM_PUBLISHER_PORT,
     ]);
     expect(moduleMetadata(ChatLifecycleModule, 'exports')).toEqual([CHAT_THREAD_WITHDRAWAL_PORT]);
-    expect(moduleMetadata(MatchesModule, 'exports')).toEqual([MatchesService]);
+    expect(moduleMetadata(MatchesModule, 'exports')).toEqual([
+      MatchesService,
+      MATCH_BLOCK_SIDE_EFFECT_PORT,
+    ]);
     expect(moduleMetadata(SeasonParticipantsModule, 'exports')).toEqual([
       SeasonParticipantsService,
       CurrentSeasonParticipationViewQuery,
@@ -226,9 +248,13 @@ describe('affected API module boundary finalization', () => {
     expect(moduleMetadata(CurrentUserViewModule, 'exports')).toEqual([CurrentUserViewService]);
     expect(moduleMetadata(ProfilesModule, 'exports')).toEqual([ProfilesService]);
     expect(moduleMetadata(NotificationsModule, 'exports')).toEqual([
-      NotificationsService,
       NotificationQueryService,
+      NOTIFICATION_WRITER,
       CHAT_THREAD_NOTIFICATION_WRITER,
+      MaterializeProfileMismatchFeedbackCommand,
+      MaterializeReportOperatorAlertCommand,
+      CreateNotificationCampaignCommand,
+      NotificationCampaignFanoutService,
     ]);
     expect(moduleMetadata(DormitoriesModule, 'exports')).toEqual([
       DormitoriesService,
@@ -236,6 +262,12 @@ describe('affected API module boundary finalization', () => {
     ]);
     expect(moduleMetadata(SeasonsModule, 'exports')).toEqual([SEASON_CONTEXT_PORT]);
     expect(moduleMetadata(ModerationModule, 'exports')).toEqual([ModerationService]);
+    expect(moduleMetadata(SocialSafetyModule, 'exports')).toEqual([
+      BookmarkModule,
+      BlockModule,
+      ReportModule,
+    ]);
+    expect(moduleMetadata(SupportModule, 'exports')).toEqual([]);
     expect(moduleMetadata(LifecycleModule, 'exports')).toEqual([LifecycleSweepService]);
     expect(moduleMetadata(HealthModule, 'exports')).toEqual([]);
   });

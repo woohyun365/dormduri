@@ -1,6 +1,7 @@
 import type { AuthOperationalCleanupResult } from '../auth/operations/auth-operational-cleanup.service.js';
 import type { ChatLifecycleSweepResult } from '../chat/application/ports/chat-lifecycle-sweep.port.js';
 import type { MatchHistoryMaterializationResult } from '../matches/match-history-materialization-owner.js';
+import type { BookmarkExpirationSweepResult } from '../social-safety/bookmarks/application/bookmark-lifecycle.service.js';
 import type {
   ArchiveJobActivationResult,
   ArchiveJobSweepResult,
@@ -22,6 +23,7 @@ export interface LifecycleSweepResult {
   threadTransitions: ChatLifecycleSweepResult;
   matchHistory: MatchHistoryMaterializationResult;
   participantBackfill: SeasonParticipantBackfillResult[];
+  socialSafetyBookmarkCleanupSweep: BookmarkExpirationSweepResult;
   threadRetentionActivationSweep: ArchiveJobActivationResult;
   archiveJobSweep: ArchiveJobSweepResult;
   retainedIdentityDisposalSweep: RetainedIdentityDisposalResult;

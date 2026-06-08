@@ -5,6 +5,7 @@ import { MatchesModule } from '../matches/matches.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { RetentionObservabilityService } from '../retention/retention-observability.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
+import { SocialSafetyModule } from '../social-safety/social-safety.module.js';
 import { UsersModule } from '../users/users.module.js';
 import {
   LIFECYCLE_SWEEP_TASK_PROVIDERS,
@@ -12,6 +13,7 @@ import {
   ChatThreadLifecycleSweepTask,
   MatchHistoryMaterializationSweepTask,
   SeasonParticipantBackfillSweepTask,
+  SocialSafetyBookmarkCleanupSweepTask,
   ThreadRetentionActivationSweepTask,
   ArchiveJobRetrySweepTask,
   RetainedIdentityDisposalSweepTask,
@@ -30,6 +32,7 @@ import { LIFECYCLE_BOUNDARY_SCHEDULE, LIFECYCLE_SWEEP_TASKS } from './lifecycle-
     ChatModule,
     MatchesModule,
     SeasonParticipantsModule,
+    SocialSafetyModule,
     UsersModule,
   ],
   providers: [
@@ -47,6 +50,7 @@ import { LIFECYCLE_BOUNDARY_SCHEDULE, LIFECYCLE_SWEEP_TASKS } from './lifecycle-
         threadTransitions: ChatThreadLifecycleSweepTask,
         matchHistory: MatchHistoryMaterializationSweepTask,
         participantBackfill: SeasonParticipantBackfillSweepTask,
+        socialSafetyBookmarkCleanup: SocialSafetyBookmarkCleanupSweepTask,
         threadRetentionActivation: ThreadRetentionActivationSweepTask,
         archiveJob: ArchiveJobRetrySweepTask,
         retainedIdentityDisposal: RetainedIdentityDisposalSweepTask,
@@ -58,6 +62,7 @@ import { LIFECYCLE_BOUNDARY_SCHEDULE, LIFECYCLE_SWEEP_TASKS } from './lifecycle-
         threadTransitions,
         matchHistory,
         participantBackfill,
+        socialSafetyBookmarkCleanup,
         threadRetentionActivation,
         archiveJob,
         retainedIdentityDisposal,
@@ -70,6 +75,7 @@ import { LIFECYCLE_BOUNDARY_SCHEDULE, LIFECYCLE_SWEEP_TASKS } from './lifecycle-
         ChatThreadLifecycleSweepTask,
         MatchHistoryMaterializationSweepTask,
         SeasonParticipantBackfillSweepTask,
+        SocialSafetyBookmarkCleanupSweepTask,
         ThreadRetentionActivationSweepTask,
         ArchiveJobRetrySweepTask,
         RetainedIdentityDisposalSweepTask,

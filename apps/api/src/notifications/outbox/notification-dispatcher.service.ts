@@ -17,7 +17,7 @@ import {
 import {
   NOTIFICATION_REALTIME_PUBLISHER,
   type NotificationRealtimePublisherPort,
-} from '../notifications.tokens.js';
+} from '../application/ports/notification-realtime-publisher.port.js';
 import { isNotificationPayloadPrivacySafe } from '../policies/notification-payload.policy.js';
 import {
   type ClaimedNotificationOutboxEvent,

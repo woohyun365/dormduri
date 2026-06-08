@@ -14,6 +14,8 @@ import { ApiExceptionFilter } from './platform/http/api-exception.filter.js';
 import { MatchesModule } from './matches/matches.module.js';
 import { LifecycleModule } from './lifecycle/lifecycle.module.js';
 import { SeasonParticipantsModule } from './season-participants/season-participants.module.js';
+import { SocialSafetyModule } from './social-safety/social-safety.module.js';
+import { SupportModule } from './support/support.module.js';
 import appConfig from './config/app.config.js';
 import authConfig from './config/auth.config.js';
 import authOperationsConfig from './config/auth-operations.config.js';
@@ -53,6 +55,8 @@ import { envValidationSchema } from './config/env.validation.js';
     ProfilesModule,
     MatchesModule,
     LifecycleModule,
+    SocialSafetyModule,
+    SupportModule,
   ],
   providers: [
     {

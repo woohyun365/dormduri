@@ -1,4 +1,4 @@
-export type ReportReason = 'SPAM' | 'FAKE_INFO' | 'OFFENSIVE' | 'SCAM' | 'OTHER';
+import type { ReportReason } from '@repo/shared/social-safety/report';
 
 export interface Report {
   targetUserId: string;

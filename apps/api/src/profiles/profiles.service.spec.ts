@@ -153,6 +153,9 @@ describe('ProfilesService Step 6 public detail', () => {
     seasonParticipant: {
       findFirst: jest.fn(),
     },
+    userBlock: {
+      findFirst: jest.fn(),
+    },
   };
   const seasonsService = {
     getCurrentSeasonContext: jest.fn(),
@@ -176,6 +179,7 @@ describe('ProfilesService Step 6 public detail', () => {
     jest.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-02-10T03:00:00.000Z'));
     prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: true });
+    prisma.userBlock.findFirst.mockResolvedValue(null);
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),

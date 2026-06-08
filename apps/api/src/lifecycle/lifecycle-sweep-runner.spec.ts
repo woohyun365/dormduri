@@ -26,6 +26,10 @@ describe('createLifecycleSweepRunner', () => {
       makeTask('threadTransitions', 20, calls, { scannedCount: 2, updatedCount: 1 }),
       makeTask('matchHistory', 30, calls, { processedSeasons: 0, rebuiltEntries: 0 }),
       makeTask('participantBackfill', 40, calls, []),
+      makeTask('socialSafetyBookmarkCleanupSweep', 45, calls, {
+        scannedCount: 2,
+        expiredCount: 1,
+      }),
       makeTask('threadRetentionActivationSweep', 50, calls, { activatedCount: 0 }),
       makeTask('archiveJobSweep', 60, calls, {
         processedCount: 0,
@@ -63,6 +67,7 @@ describe('createLifecycleSweepRunner', () => {
       'threadTransitions',
       'matchHistory',
       'participantBackfill',
+      'socialSafetyBookmarkCleanupSweep',
       'threadRetentionActivationSweep',
       'archiveJobSweep',
       'retainedIdentityDisposalSweep',
@@ -73,6 +78,7 @@ describe('createLifecycleSweepRunner', () => {
     expect(result).toMatchObject({
       ranAt: now.toISOString(),
       threadTransitions: { scannedCount: 2, updatedCount: 1 },
+      socialSafetyBookmarkCleanupSweep: { scannedCount: 2, expiredCount: 1 },
       authCleanupSweep: {
         expiredSessions: 1,
         verificationCodes: 2,
@@ -98,6 +104,10 @@ describe('createLifecycleSweepRunner', () => {
       makeTask('threadTransitions', 20, [], { scannedCount: 0, updatedCount: 0 }),
       makeTask('matchHistory', 30, [], { processedSeasons: 0, rebuiltEntries: 0 }),
       makeTask('participantBackfill', 40, [], []),
+      makeTask('socialSafetyBookmarkCleanupSweep', 45, [], {
+        scannedCount: 0,
+        expiredCount: 0,
+      }),
       makeTask('threadRetentionActivationSweep', 50, [], { activatedCount: 0 }),
       makeTask('archiveJobSweep', 60, [], {
         processedCount: 0,

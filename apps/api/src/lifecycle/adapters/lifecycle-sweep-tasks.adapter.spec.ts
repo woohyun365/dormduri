@@ -9,6 +9,7 @@ import {
   RetentionAccessLogDisposalSweepTask,
   RetentionReviewJobRetrySweepTask,
   SeasonParticipantBackfillSweepTask,
+  SocialSafetyBookmarkCleanupSweepTask,
   ThreadRetentionActivationSweepTask,
 } from './lifecycle-sweep-tasks.adapter.js';
 
@@ -21,6 +22,7 @@ describe('lifecycle sweep task adapters', () => {
       ChatThreadLifecycleSweepTask,
       MatchHistoryMaterializationSweepTask,
       SeasonParticipantBackfillSweepTask,
+      SocialSafetyBookmarkCleanupSweepTask,
       ThreadRetentionActivationSweepTask,
       ArchiveJobRetrySweepTask,
       RetainedIdentityDisposalSweepTask,
@@ -55,39 +57,44 @@ describe('lifecycle sweep task adapters', () => {
         },
       ]),
     };
+    const bookmarkLifecycleService = {
+      expireEndedSeasonBookmarks: jest
+        .fn()
+        .mockResolvedValue({ scannedCount: 11, expiredCount: 10 }),
+    };
     const usersService = {
       activateThreadRetentionJobsForArchivedThreads: jest
         .fn()
-        .mockResolvedValue({ activatedCount: 11 }),
+        .mockResolvedValue({ activatedCount: 12 }),
       retryDueDeletionArchiveJobs: jest.fn().mockResolvedValue({
-        processedCount: 12,
-        succeededCount: 13,
-        retryScheduledCount: 14,
-        manualReviewCount: 15,
-        waitingConditionCount: 16,
+        processedCount: 13,
+        succeededCount: 14,
+        retryScheduledCount: 15,
+        manualReviewCount: 16,
+        waitingConditionCount: 17,
       }),
-      disposeExpiredRetainedIdentities: jest.fn().mockResolvedValue({ processedCount: 17 }),
+      disposeExpiredRetainedIdentities: jest.fn().mockResolvedValue({ processedCount: 19 }),
       retryDueRetentionReviewJobs: jest.fn().mockResolvedValue({
-        processedCount: 18,
-        succeededCount: 19,
-        retryScheduledCount: 20,
-        manualReviewCount: 21,
-        reviewedCount: 22,
-        minimizedCount: 23,
+        processedCount: 19,
+        succeededCount: 20,
+        retryScheduledCount: 21,
+        manualReviewCount: 22,
+        reviewedCount: 23,
+        minimizedCount: 24,
       }),
       disposeDueRetentionAccessLogs: jest.fn().mockResolvedValue({
-        processedCount: 24,
+        processedCount: 25,
         nextDueAt: null,
       }),
     };
     const authOperationalCleanupService = {
       runCleanupBatch: jest.fn().mockResolvedValue({
-        expiredSessions: 25,
-        verificationCodes: 26,
-        verificationRequestLogs: 27,
-        loginAttempts: 28,
-        securityEvents: 29,
-        cleanupLagSeconds: 30,
+        expiredSessions: 26,
+        verificationCodes: 27,
+        verificationRequestLogs: 28,
+        loginAttempts: 29,
+        securityEvents: 30,
+        cleanupLagSeconds: 31,
         ranAt: now.toISOString(),
       }),
     };
@@ -97,6 +104,7 @@ describe('lifecycle sweep task adapters', () => {
       new ChatThreadLifecycleSweepTask(chatLifecycleSweep as never),
       new MatchHistoryMaterializationSweepTask(matchesService as never),
       new SeasonParticipantBackfillSweepTask(seasonParticipantsService as never),
+      new SocialSafetyBookmarkCleanupSweepTask(bookmarkLifecycleService as never),
       new ThreadRetentionActivationSweepTask(usersService as never),
       new ArchiveJobRetrySweepTask(usersService as never),
       new RetainedIdentityDisposalSweepTask(usersService as never),
@@ -118,31 +126,32 @@ describe('lifecycle sweep task adapters', () => {
           existingCount: 10,
         },
       ],
-      { activatedCount: 11 },
+      { scannedCount: 11, expiredCount: 10 },
+      { activatedCount: 12 },
       {
-        processedCount: 12,
-        succeededCount: 13,
-        retryScheduledCount: 14,
-        manualReviewCount: 15,
-        waitingConditionCount: 16,
+        processedCount: 13,
+        succeededCount: 14,
+        retryScheduledCount: 15,
+        manualReviewCount: 16,
+        waitingConditionCount: 17,
       },
-      { processedCount: 17 },
+      { processedCount: 19 },
       {
-        processedCount: 18,
-        succeededCount: 19,
-        retryScheduledCount: 20,
-        manualReviewCount: 21,
-        reviewedCount: 22,
-        minimizedCount: 23,
+        processedCount: 19,
+        succeededCount: 20,
+        retryScheduledCount: 21,
+        manualReviewCount: 22,
+        reviewedCount: 23,
+        minimizedCount: 24,
       },
-      { processedCount: 24, nextDueAt: null },
+      { processedCount: 25, nextDueAt: null },
       {
-        expiredSessions: 25,
-        verificationCodes: 26,
-        verificationRequestLogs: 27,
-        loginAttempts: 28,
-        securityEvents: 29,
-        cleanupLagSeconds: 30,
+        expiredSessions: 26,
+        verificationCodes: 27,
+        verificationRequestLogs: 28,
+        loginAttempts: 29,
+        securityEvents: 30,
+        cleanupLagSeconds: 31,
         ranAt: now.toISOString(),
       },
     ]);
@@ -151,6 +160,7 @@ describe('lifecycle sweep task adapters', () => {
       'threadTransitions',
       'matchHistory',
       'participantBackfill',
+      'socialSafetyBookmarkCleanupSweep',
       'threadRetentionActivationSweep',
       'archiveJobSweep',
       'retainedIdentityDisposalSweep',
@@ -158,11 +168,12 @@ describe('lifecycle sweep task adapters', () => {
       'retentionAccessLogDisposalSweep',
       'authCleanupSweep',
     ]);
-    expect(tasks.map((task) => task.order)).toEqual([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
+    expect(tasks.map((task) => task.order)).toEqual([10, 20, 30, 40, 45, 50, 60, 70, 80, 90, 100]);
     expect(matchesService.sweepLifecycleTransitions).toHaveBeenCalledWith(now);
     expect(matchesService.sweepHistoryMaterialization).toHaveBeenCalledWith(now);
     expect(chatLifecycleSweep.sweepThreadLifecycle).toHaveBeenCalledWith(now);
     expect(seasonParticipantsService.backfillCurrentSeasonParticipants).toHaveBeenCalledWith(now);
+    expect(bookmarkLifecycleService.expireEndedSeasonBookmarks).toHaveBeenCalledWith(now);
     expect(usersService.activateThreadRetentionJobsForArchivedThreads).toHaveBeenCalledWith(now);
     expect(usersService.retryDueDeletionArchiveJobs).toHaveBeenCalledWith(now);
     expect(usersService.disposeExpiredRetainedIdentities).toHaveBeenCalledWith(now);

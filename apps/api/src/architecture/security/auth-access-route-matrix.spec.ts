@@ -6,10 +6,14 @@ import {
   AUTH_REQUIRED_CAPABILITIES_METADATA_KEY,
 } from '../../auth/access/auth-access.decorator.js';
 import { ChatController } from '../../chat/chat.controller.js';
+import { BlockController } from '../../social-safety/blocks/block.controller.js';
+import { ReportController } from '../../social-safety/reports/report.controller.js';
+import { BookmarkController } from '../../social-safety/bookmarks/bookmark.controller.js';
 import { DormitoriesController } from '../../dormitories/dormitories.controller.js';
 import { HealthController } from '../../health/health.controller.js';
 import { MatchesController } from '../../matches/matches.controller.js';
 import { NotificationsController } from '../../notifications/notifications.controller.js';
+import { SupportController } from '../../support/support.controller.js';
 import { ProfilesController } from '../../profiles/profiles.controller.js';
 import { RoommateSearchController } from '../../profiles/roommate-search.controller.js';
 import { SeasonsController } from '../../seasons/seasons.controller.js';
@@ -369,6 +373,131 @@ const expectedRoutes: ExpectedRoute[] = [
     access: 'protected',
   },
   {
+    controller: BookmarkController,
+    handler: 'list',
+    method: RequestMethod.GET,
+    path: 'api/bookmarks',
+    access: 'protected',
+  },
+  {
+    controller: BookmarkController,
+    handler: 'create',
+    method: RequestMethod.POST,
+    path: 'api/bookmarks/:targetUserId',
+    access: 'protected',
+  },
+  {
+    controller: BookmarkController,
+    handler: 'delete',
+    method: RequestMethod.DELETE,
+    path: 'api/bookmarks/:targetUserId',
+    access: 'protected',
+  },
+  {
+    controller: BlockController,
+    handler: 'list',
+    method: RequestMethod.GET,
+    path: 'api/blocks',
+    access: 'protected',
+  },
+  {
+    controller: BlockController,
+    handler: 'create',
+    method: RequestMethod.POST,
+    path: 'api/blocks/:targetUserId',
+    access: 'protected',
+  },
+  {
+    controller: BlockController,
+    handler: 'delete',
+    method: RequestMethod.DELETE,
+    path: 'api/blocks/:targetUserId',
+    access: 'protected',
+  },
+
+  {
+    controller: ReportController,
+    handler: 'create',
+    method: RequestMethod.POST,
+    path: 'api/reports',
+    access: 'protected',
+  },
+
+  {
+    controller: SupportController,
+    handler: 'listFaq',
+    method: RequestMethod.GET,
+    path: 'api/support/faq',
+    access: 'public',
+  },
+  {
+    controller: SupportController,
+    handler: 'getFaq',
+    method: RequestMethod.GET,
+    path: 'api/support/faq/:articleId',
+    access: 'public',
+  },
+  {
+    controller: SupportController,
+    handler: 'createTicket',
+    method: RequestMethod.POST,
+    path: 'api/support/tickets',
+    access: 'protected',
+  },
+  {
+    controller: SupportController,
+    handler: 'listOwnTickets',
+    method: RequestMethod.GET,
+    path: 'api/support/tickets',
+    access: 'protected',
+  },
+  {
+    controller: SupportController,
+    handler: 'getOwnTicket',
+    method: RequestMethod.GET,
+    path: 'api/support/tickets/:ticketId',
+    access: 'protected',
+  },
+  {
+    controller: SupportController,
+    handler: 'appendOwnMessage',
+    method: RequestMethod.POST,
+    path: 'api/support/tickets/:ticketId/messages',
+    access: 'protected',
+  },
+  {
+    controller: SupportController,
+    handler: 'listOperationTickets',
+    method: RequestMethod.GET,
+    path: 'api/operations/support/tickets',
+    access: 'protected',
+    capabilities: ['admin:support:read'],
+  },
+  {
+    controller: SupportController,
+    handler: 'getOperationTicket',
+    method: RequestMethod.GET,
+    path: 'api/operations/support/tickets/:ticketId',
+    access: 'protected',
+    capabilities: ['admin:support:read'],
+  },
+  {
+    controller: SupportController,
+    handler: 'replyAsOperator',
+    method: RequestMethod.POST,
+    path: 'api/operations/support/tickets/:ticketId/replies',
+    access: 'protected',
+    capabilities: ['admin:support:reply'],
+  },
+  {
+    controller: SupportController,
+    handler: 'resolveAsOperator',
+    method: RequestMethod.POST,
+    path: 'api/operations/support/tickets/:ticketId/resolve',
+    access: 'protected',
+    capabilities: ['admin:support:resolve'],
+  },
+  {
     controller: NotificationsController,
     handler: 'listNotifications',
     method: RequestMethod.GET,
@@ -380,6 +509,13 @@ const expectedRoutes: ExpectedRoute[] = [
     handler: 'getUnreadCount',
     method: RequestMethod.GET,
     path: 'api/notifications/unread-count',
+    access: 'protected',
+  },
+  {
+    controller: NotificationsController,
+    handler: 'markAllRead',
+    method: RequestMethod.POST,
+    path: 'api/notifications/read-all',
     access: 'protected',
   },
   {

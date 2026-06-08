@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ListNotificationsQuery,
+  MarkAllNotificationsReadResponse,
   MarkNotificationReadResponse,
   NotificationListResponse,
   NotificationUnreadCountResponse,
 } from '@repo/shared/notification-contract';
-import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { NotificationQueryService } from './queries/notification-query.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import { NotificationQueryService } from '../queries/notification-query.service.js';
 
 @Injectable()
 export class NotificationsService {
@@ -21,6 +22,10 @@ export class NotificationsService {
 
   getUnreadCount(authUser: AuthenticatedUserContext): Promise<NotificationUnreadCountResponse> {
     return this.queryService.getUnreadCount(authUser.id);
+  }
+
+  markAllRead(authUser: AuthenticatedUserContext): Promise<MarkAllNotificationsReadResponse> {
+    return this.queryService.markAllRead(authUser.id);
   }
 
   markRead(

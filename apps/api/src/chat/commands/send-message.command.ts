@@ -21,6 +21,15 @@ import type {
 
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
+function shouldReopenBlockClosedDirectThread(thread: ThreadRecord): boolean {
+  return (
+    thread.threadKind === 'DIRECT' &&
+    thread.activeMatchId === null &&
+    thread.status === 'READ_ONLY' &&
+    thread.closedReason === 'USER_BLOCKED'
+  );
+}
+
 export function createSendMessageCommand(deps: ChatCommandDeps) {
   return async function sendMessage(
     authUser: AuthenticatedUserContext,
@@ -245,6 +254,23 @@ export function createSendMessageCommand(deps: ChatCommandDeps) {
           data: {
             threadKind: 'MATCHED',
             activeMatchId: pairActiveMatch.id,
+            status: 'OPEN',
+            closedReason: null,
+            closedAt: null,
+          },
+          select: threadSelect,
+        });
+        await chatRealtimeOutbox.appendThreadUpdated(tx, {
+          threadId: thread.id,
+          status: thread.status,
+          closedReason: thread.closedReason,
+          recipientUserIds: [txViewerUser.id, txTargetUser.id],
+          occurredAt: now,
+        });
+      } else if (shouldReopenBlockClosedDirectThread(thread)) {
+        thread = await tx.conversationThread.update({
+          where: { id: thread.id },
+          data: {
             status: 'OPEN',
             closedReason: null,
             closedAt: null,

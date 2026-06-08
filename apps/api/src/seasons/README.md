@@ -19,7 +19,7 @@
 
 - 정책 source of truth: `docs/04_policy/official/season-lifecycle.md`.
 - 사용자용 current season은 운영 캠퍼스의 `Season` row 중 기준 시간이 `preparationStartDate` ~ `seasonEndDate`에 들어온 row에서 계산한다.
-- future season row는 preview/operations 준비 데이터이며 사용자용 current season으로 승격하지 않는다.
+- upcoming season row는 preview/operations 준비 데이터이며 사용자용 current season으로 승격하지 않는다.
 - 활성 override는 선택된 current season row의 effective state 계산에만 적용한다. override는 schedule/history/audit 원장이 아니다.
 - 운영 기숙사와 `roomSelectionDate`는 `SeasonDormitoryOperation`이 소유한다. 매칭 종료일은 운영 기숙사별 `roomSelectionDate`에서 계산하고, 시즌 종료는 campus `seasonEndDate`를 따른다.
 - Postgres가 authoritative source다. request/method-level memoization은 한 logical operation 안의 반복 조회 비용을 줄이는 최적화일 뿐 source-of-truth가 아니다.
@@ -39,17 +39,17 @@
 ## Hard rules
 
 - Root production TypeScript file은 `seasons.controller.ts`, `seasons.module.ts`만 허용한다.
-- Future season row만 있는 경우 사용자용 current season은 `null`이다.
+- Upcoming season row만 있는 경우 사용자용 current season은 `null`이다.
 - 비운영 캠퍼스는 사용자용 current season 리소스를 제공하지 않는다.
 - Override는 current state 계산에만 영향을 준다. Schedule, operated dormitory, history, audit source-of-truth를 대체하지 않는다.
 - Operations mutation은 route `campusCode + seasonId`를 모두 검증하며, `seasonId` 단독으로 다른 campus season을 수정하지 않는다.
 - Operations audit payload는 operation 대상 `campusCode`, actor id/capability snapshot, changed field, before/after season snapshot만 저장하고 session/gender 같은 불필요한 actor metadata를 남기지 않는다.
 - Metric/log payload는 actor/session/reason/snapshot 원문을 포함하지 않는다. Structured payload는 `action`, `campusCode`, `outcome`, `recordedAt` allowlist만 허용한다.
-- Redis/process-wide cache는 현재 source-of-truth나 기본 cache strategy가 아니다. 관측된 병목이 생길 때 별도 설계로 다룬다.
-- `/health/seasons` 같은 상세 운영 endpoint는 public endpoint로 추가하지 않는다. 필요하면 protected capability route로만 별도 구현한다.
-- BackOffice UI는 seasons API module 범위가 아니다.
+- Redis/process-wide cache는 source-of-truth나 기본 cache strategy가 아니다. 관측된 병목이 제품 운영 조건으로 확정될 때 seasons cache owner가 다룬다.
+- `/health/seasons` 같은 상세 운영 endpoint는 public endpoint로 추가하지 않는다. 필요하면 protected capability route가 소유한다.
+- seasons API module은 BackOffice UI를 소유하지 않는다.
 - 새 `forwardRef()`로 boundary 문제를 봉합하지 않는다.
-- Web rendering/hook/page/component 작업은 seasons API module 범위가 아니다.
+- seasons API module은 Web rendering/hook/page/component를 소유하지 않는다.
 
 ## Architecture guard
 

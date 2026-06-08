@@ -2,7 +2,7 @@ import { BadRequestException, Controller, Get, Param, Post, Query } from '@nestj
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { NotificationsService } from './notifications.service.js';
+import { NotificationsService } from './application/notifications.service.js';
 
 function parseNotificationListLimit(rawLimit: string | undefined): number | undefined {
   if (rawLimit === undefined) {
@@ -42,6 +42,11 @@ export class NotificationsController {
   @Get('unread-count')
   async getUnreadCount(@CurrentUser() authUser: AuthenticatedUserContext) {
     return this.notificationsService.getUnreadCount(authUser);
+  }
+
+  @Post('read-all')
+  async markAllRead(@CurrentUser() authUser: AuthenticatedUserContext) {
+    return this.notificationsService.markAllRead(authUser);
   }
 
   @Post(':notificationId/read')
