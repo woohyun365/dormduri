@@ -7,6 +7,7 @@ import { AuthOperationalCleanupService } from '../../auth/operations/auth-operat
 import { MatchesService } from '../../matches/matches.service.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import { UsersService } from '../../users/users.service.js';
+import { BookmarkLifecycleService } from '../../social-safety/bookmarks/application/bookmark-lifecycle.service.js';
 import type { LifecycleSweepTaskPort } from '../lifecycle-sweep-task.port.js';
 
 @Injectable()
@@ -57,6 +58,18 @@ export class SeasonParticipantBackfillSweepTask implements LifecycleSweepTaskPor
 
   run(now: Date) {
     return this.seasonParticipantsService.backfillCurrentSeasonParticipants(now);
+  }
+}
+
+@Injectable()
+export class SocialSafetyBookmarkCleanupSweepTask implements LifecycleSweepTaskPort<'socialSafetyBookmarkCleanupSweep'> {
+  readonly name = 'socialSafetyBookmarkCleanupSweep' as const;
+  readonly order = 45;
+
+  constructor(private readonly bookmarkLifecycleService: BookmarkLifecycleService) {}
+
+  run(now: Date) {
+    return this.bookmarkLifecycleService.expireEndedSeasonBookmarks(now);
   }
 }
 
@@ -137,6 +150,7 @@ export const LIFECYCLE_SWEEP_TASK_PROVIDERS = [
   ChatThreadLifecycleSweepTask,
   MatchHistoryMaterializationSweepTask,
   SeasonParticipantBackfillSweepTask,
+  SocialSafetyBookmarkCleanupSweepTask,
   ThreadRetentionActivationSweepTask,
   ArchiveJobRetrySweepTask,
   RetainedIdentityDisposalSweepTask,

@@ -6,6 +6,7 @@ import {
   AUTH_REQUIRED_CAPABILITIES_METADATA_KEY,
 } from '../../auth/access/auth-access.decorator.js';
 import { ChatController } from '../../chat/chat.controller.js';
+import { BookmarkController } from '../../social-safety/bookmarks/bookmark.controller.js';
 import { DormitoriesController } from '../../dormitories/dormitories.controller.js';
 import { HealthController } from '../../health/health.controller.js';
 import { MatchesController } from '../../matches/matches.controller.js';
@@ -366,6 +367,27 @@ const expectedRoutes: ExpectedRoute[] = [
     handler: 'cancelUnmatchRequest',
     method: RequestMethod.POST,
     path: 'api/matches/active/:id/unmatch-request/cancel',
+    access: 'protected',
+  },
+  {
+    controller: BookmarkController,
+    handler: 'list',
+    method: RequestMethod.GET,
+    path: 'api/bookmarks',
+    access: 'protected',
+  },
+  {
+    controller: BookmarkController,
+    handler: 'create',
+    method: RequestMethod.POST,
+    path: 'api/bookmarks/:targetUserId',
+    access: 'protected',
+  },
+  {
+    controller: BookmarkController,
+    handler: 'delete',
+    method: RequestMethod.DELETE,
+    path: 'api/bookmarks/:targetUserId',
     access: 'protected',
   },
   {

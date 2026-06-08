@@ -4,7 +4,7 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 
 ## Public boundary
 
-- `bookmarks`: viewer-private saved candidate relation을 소유한다. Public target projection은 읽지만 profile/match/chat concrete service에 직접 결합하지 않는다.
+- `bookmarks`: viewer-private saved candidate relation을 소유한다. Public target projection은 읽지만 profile/match/chat concrete service에 직접 결합하지 않는다. HTTP surface는 `GET /api/bookmarks`, `POST /api/bookmarks/:targetUserId`, `DELETE /api/bookmarks/:targetUserId`다.
 - `blocks`: viewer-specific block relation을 소유한다. Block create는 bookmark 제거와 non-matched direct thread close side-effect를 orchestration port로 요청한다.
 - `reports`: report intake 원장을 소유한다. Intake만으로 participant hidden/deactivated projection이나 계정 제재를 직접 변경하지 않는다.
 - `PARTICIPANT_VISIBILITY_WRITER_PORT`: 운영 검토/시스템 결정 이후 participant-level current visibility projection을 갱신해야 할 때 사용하는 boundary port다.
@@ -12,11 +12,11 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 ## Directory responsibilities
 
 - `application/ports/`: 외부 도메인 또는 후속 writer owner와 연결되는 port token/type. Concrete persistence나 Prisma write를 넣지 않는다.
-- `bookmarks/`: bookmark command/query/policy/repository owner. Target card는 public target/search projection allowlist만 사용한다.
-- `blocks/`: block command/query/policy/repository owner. Chat/thread side-effect는 chat port로 요청한다.
-- `reports/`: report intake command/query/policy/repository owner. Evidence/RRPD disclosure internals는 직접 import하지 않는다.
-- `composition/`: future module provider/export grouping.
-- `contracts/`: API/shared contract regression specs.
+- `social-safety.module.ts`: social-safety slice modules를 re-export한다. Product policy/use-case logic을 두지 않는다.
+- `bookmarks/`: 독립 bookmark slice다. root production TS는 `bookmark.module.ts`, `bookmark.controller.ts`만 둔다. `README.md`는 docs 예외이며, facade/use-case entrypoint는 `application/`, write use case는 `commands/`, read model은 `queries/`, DB-backed target evaluation은 `policies/`, Prisma access는 `repositories/`, response allowlist는 `presenters/`, probing-safe errors는 `errors/`가 소유한다.
+- `blocks/`: 독립 block slice다. root production TS는 `block.module.ts`, `block.controller.ts`만 둔다. `README.md`는 docs 예외이며, facade/use-case entrypoint는 `application/`, block/unblock/list, event history, bookmark/match/chat side-effect는 하위 디렉토리로 분리한다.
+- `reports/`: 독립 report intake slice다. root production TS는 `report.module.ts`, `report.controller.ts`만 둔다. `README.md`는 docs 예외이며, facade/use-case entrypoint는 `application/`, target resolver, risk/dedupe/privacy policy, retention bridge, notification publisher, persistence는 하위 디렉토리로 분리한다.
+- `contracts/`: API/shared contract regression specs가 필요해질 때 둔다. Architecture-wide layout specs는 `apps/api/src/architecture`를 우선한다.
 
 ## Hard rules
 
@@ -34,8 +34,10 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 
 ## Where to change
 
+- Bookmark API and season-end cleanup implementation: `bookmarks/` and `bookmarks/README.md`.
 - Report reason/shared contract: `packages/shared/src/social-safety/report.ts`.
 - Bookmark shared contract: `packages/shared/src/social-safety/bookmark.ts`.
+- Roommate-search bookmark state projection: `apps/api/src/profiles/roommate-search-owner.ts` reads active `UserBookmark` rows and exposes coarse `{ bookmarked, bookmarkedAt? }` metadata only for already-visible candidates.
 - Block shared contract: `packages/shared/src/social-safety/block.ts`.
 - Notification kind/payload handoff: `packages/shared/src/notifications/contract.ts` and notification writer port.
 - Participant visibility projection handoff: `application/ports/participant-visibility-writer.port.ts`.

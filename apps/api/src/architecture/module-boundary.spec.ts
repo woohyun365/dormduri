@@ -38,6 +38,8 @@ import {
   REALTIME_USER_ROOM_PUBLISHER_PORT,
 } from '../realtime/realtime.tokens.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
+import { SocialSafetyModule } from '../social-safety/social-safety.module.js';
+import { BookmarkModule } from '../social-safety/bookmarks/bookmark.module.js';
 import { CurrentSeasonParticipantContextGuard } from '../season-participants/context/current-season-participant-context.guard.js';
 import { CurrentSeasonParticipationViewQuery } from '../season-participants/application/current-season-participation-view.query.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
@@ -187,10 +189,12 @@ describe('affected API module boundary finalization', () => {
         ChatModule,
         MatchesModule,
         SeasonParticipantsModule,
+        SocialSafetyModule,
         UsersModule,
       ]),
     );
     expect(moduleMetadata(ModerationModule, 'imports')).toEqual([PrismaModule]);
+    expect(moduleMetadata(SocialSafetyModule, 'imports')).toEqual([BookmarkModule]);
     expect(moduleMetadata(DormitoriesModule, 'imports')).toEqual([PrismaModule]);
     expect(moduleMetadata(SeasonsModule, 'imports')).toEqual([PrismaModule]);
   });
@@ -236,6 +240,7 @@ describe('affected API module boundary finalization', () => {
     ]);
     expect(moduleMetadata(SeasonsModule, 'exports')).toEqual([SEASON_CONTEXT_PORT]);
     expect(moduleMetadata(ModerationModule, 'exports')).toEqual([ModerationService]);
+    expect(moduleMetadata(SocialSafetyModule, 'exports')).toEqual([BookmarkModule]);
     expect(moduleMetadata(LifecycleModule, 'exports')).toEqual([LifecycleSweepService]);
     expect(moduleMetadata(HealthModule, 'exports')).toEqual([]);
   });
