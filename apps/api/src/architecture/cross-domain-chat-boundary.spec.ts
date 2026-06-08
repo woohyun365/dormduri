@@ -97,14 +97,28 @@ describe('Phase 10C cross-domain chat architecture boundary', () => {
   });
 
   it('keeps ChatModule public exports on narrow ports instead of concrete facade/metrics classes', () => {
-    const source = readSource(join(apiSourceRoot, 'chat/chat.module.ts'));
-    const exportsBlock = source.match(/exports:\s*\[([\s\S]*?)\],\n\}/)?.[1] ?? '';
+    const source = readSource(join(apiSourceRoot, 'chat/composition/chat.exports.ts'));
 
-    expect(exportsBlock).toContain('CHAT_MATCH_THREAD_LIFECYCLE_PORT');
-    expect(exportsBlock).toContain('CHAT_LIFECYCLE_SWEEP_PORT');
-    expect(exportsBlock).toContain('REALTIME_DISPATCH_METRICS_PORT');
-    expect(exportsBlock).not.toMatch(/\bChatService\b/);
-    expect(exportsBlock).not.toMatch(/\bChatRealtimeMetricsService\b/);
+    expect(source).toContain('CHAT_MATCH_THREAD_LIFECYCLE_PORT');
+    expect(source).toContain('CHAT_LIFECYCLE_SWEEP_PORT');
+    expect(source).toContain('REALTIME_DISPATCH_METRICS_PORT');
+    expect(source).not.toMatch(/\bChatService\b/);
+    expect(source).not.toMatch(/\bChatRealtimeMetricsService\b/);
+  });
+
+  it('keeps future social-safety integration on chat ports instead of chat persistence or concrete services', () => {
+    expect(
+      existsSync(join(apiSourceRoot, 'chat/application/ports/chat-block-side-effect.port.ts')),
+    ).toBe(true);
+    expect(
+      offendingFiles(
+        join(apiSourceRoot, 'social-safety'),
+        /from\s+['"].*chat\/application\/chat\.service(?:\.js)?['"]|\bChatService\b|conversationThread\.(?:create|update|updateMany|delete|deleteMany|upsert)|conversationMessage\./,
+      ),
+    ).toEqual([]);
+    expect(
+      offendingFiles(join(apiSourceRoot, 'chat'), /from\s+['"].*(?:social-safety|support)\//),
+    ).toEqual([]);
   });
 
   it('keeps ChatService as a facade instead of direct chat table mutation/outbox owner', () => {
