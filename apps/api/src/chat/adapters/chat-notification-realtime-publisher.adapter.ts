@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { NotificationRealtimePublisherPort } from '../../notifications/notifications.tokens.js';
+import type { NotificationRealtimePublisherPort } from '../../notifications/application/ports/notification-realtime-publisher.port.js';
 import {
   REALTIME_USER_ROOM_PUBLISHER_PORT,
   type RealtimeUserRoomPublisherPort,

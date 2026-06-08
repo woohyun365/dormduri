@@ -22,13 +22,22 @@ describe('notification payload policy', () => {
     });
   });
 
-  it('message body / retained payload / full identity key는 거절한다', () => {
+  it('message body / report detail / block note / support body / retained payload / full identity key는 거절한다', () => {
     expect(() => assertNotificationPayloadAllowed({ body: '원문' })).toThrow(
       /forbidden payload key/,
     );
     expect(() =>
       assertNotificationPayloadAllowed({ nested: { retainedOriginalBody: 'retained 원문' } }),
     ).toThrow(/forbidden payload key/);
+    expect(() => assertNotificationPayloadAllowed({ reportDetail: '신고 상세' })).toThrow(
+      /forbidden payload key/,
+    );
+    expect(() => assertNotificationPayloadAllowed({ blockNote: '차단 메모' })).toThrow(
+      /forbidden payload key/,
+    );
+    expect(() => assertNotificationPayloadAllowed({ supportBody: '문의 본문' })).toThrow(
+      /forbidden payload key/,
+    );
     expect(
       isNotificationPayloadPrivacySafe({ user: { displayIdentity: { nickname: '닉네임' } } }),
     ).toBe(false);

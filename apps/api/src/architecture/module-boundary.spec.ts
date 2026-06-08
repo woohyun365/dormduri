@@ -25,8 +25,8 @@ import { MatchesService } from '../matches/matches.service.js';
 import { ModerationModule } from '../moderation/moderation.module.js';
 import { ModerationService } from '../moderation/moderation.service.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
-import { CHAT_THREAD_NOTIFICATION_WRITER } from '../notifications/notifications.tokens.js';
-import { NotificationsService } from '../notifications/notifications.service.js';
+import { CHAT_THREAD_NOTIFICATION_WRITER } from '../notifications/application/ports/chat-thread-notification-writer.port.js';
+import { NOTIFICATION_WRITER } from '../notifications/application/ports/notification-writer.port.js';
 import { NotificationQueryService } from '../notifications/queries/notification-query.service.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { ProfilesModule } from '../profiles/profiles.module.js';
@@ -226,8 +226,8 @@ describe('affected API module boundary finalization', () => {
     expect(moduleMetadata(CurrentUserViewModule, 'exports')).toEqual([CurrentUserViewService]);
     expect(moduleMetadata(ProfilesModule, 'exports')).toEqual([ProfilesService]);
     expect(moduleMetadata(NotificationsModule, 'exports')).toEqual([
-      NotificationsService,
       NotificationQueryService,
+      NOTIFICATION_WRITER,
       CHAT_THREAD_NOTIFICATION_WRITER,
     ]);
     expect(moduleMetadata(DormitoriesModule, 'exports')).toEqual([

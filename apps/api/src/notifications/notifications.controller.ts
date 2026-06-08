@@ -2,7 +2,7 @@ import { BadRequestException, Controller, Get, Param, Post, Query } from '@nestj
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { NotificationsService } from './notifications.service.js';
+import { NotificationsService } from './application/notifications.service.js';
 
 function parseNotificationListLimit(rawLimit: string | undefined): number | undefined {
   if (rawLimit === undefined) {

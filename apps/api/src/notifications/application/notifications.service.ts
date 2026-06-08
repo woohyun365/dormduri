@@ -5,8 +5,8 @@ import type {
   NotificationListResponse,
   NotificationUnreadCountResponse,
 } from '@repo/shared/notification-contract';
-import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { NotificationQueryService } from './queries/notification-query.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import { NotificationQueryService } from '../queries/notification-query.service.js';
 
 @Injectable()
 export class NotificationsService {

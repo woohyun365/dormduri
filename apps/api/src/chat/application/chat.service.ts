@@ -17,7 +17,7 @@ import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   CHAT_THREAD_NOTIFICATION_WRITER,
   type ChatThreadNotificationWriter,
-} from '../../notifications/notifications.tokens.js';
+} from '../../notifications/application/ports/chat-thread-notification-writer.port.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import {
   SEASON_CONTEXT_PORT,
