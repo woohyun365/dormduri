@@ -144,6 +144,20 @@ describe('Social-safety bookmark integration', () => {
     expect(createErrorBody).toMatchObject({ code: 'TARGET_NOT_BOOKMARKABLE' });
   });
 
+  it('other campus target은 probing-safe not bookmarkable로 닫힌다', async () => {
+    await prisma.user.update({
+      where: { id: 'target-user' },
+      data: { campus: 'SAMCHEOK' },
+    });
+
+    const createResponse = await request(httpServer)
+      .post('/api/bookmarks/target-user')
+      .set('Authorization', await authHeader())
+      .expect(404);
+    const createErrorBody: unknown = createResponse.body;
+    expect(createErrorBody).toMatchObject({ code: 'TARGET_NOT_BOOKMARKABLE' });
+  });
+
   it('SEASON_POST_MATCH에서는 신규 bookmark create가 닫힌다', async () => {
     await prisma.season.update({
       where: { id: 'season-integration' },
