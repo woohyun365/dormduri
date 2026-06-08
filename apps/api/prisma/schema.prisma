@@ -134,6 +134,57 @@ enum UserBlockEventType {
   UNBLOCKED
 }
 
+
+enum ReportTargetType {
+  PROFILE
+  MATCH_REQUEST
+  CHAT_THREAD
+  CHAT_MESSAGE
+  SUPPORT_TICKET
+}
+
+enum ReportReason {
+  SEXUAL_HARASSMENT
+  THREAT
+  PERSONAL_INFO_EXPOSURE
+  GENDER_IMPERSONATION
+  FALSE_PROFILE
+  SPAM_OR_AD
+  HATE_OR_DISCRIMINATION
+  OTHER
+}
+
+enum ReportRiskTier {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ReportStatus {
+  SUBMITTED
+  EVIDENCE_ONLY
+}
+
+enum ReportOptionalAction {
+  BLOCK_TARGET
+}
+
+enum ReportCaseEventType {
+  REPORT_SUBMITTED
+  REPORT_REPLAYED
+  REPORT_RECEIPT_NOTIFICATION_QUEUED
+  OPTIONAL_BLOCK_RESULT_RECORDED
+  RETENTION_REFERENCE_RECORDED
+  HIGH_RISK_ALERT_CANDIDATE_RECORDED
+  PROFILE_MISMATCH_FEEDBACK_CANDIDATE_RECORDED
+  UNVERIFIED_ATTACHMENT_POINTERS_RECORDED
+}
+
+enum ReportActorType {
+  USER
+  SYSTEM
+}
+
 enum MatchRequestStatus {
   PENDING
   ACCEPTED
@@ -965,6 +1016,59 @@ model UserBlockEvent {
   @@index([blockId, occurredAt, id])
   @@index([actorUserId, occurredAt, id])
   @@index([targetUserId, occurredAt, id])
+}
+
+
+model ReportCase {
+  id                               String          @id @default(uuid())
+  reporterUserId                   String
+  targetType                       ReportTargetType
+  targetId                         String
+  targetUserId                     String?
+  targetParticipantId              String?
+  targetThreadId                   String?
+  targetMessageId                  String?
+  targetMatchRequestId             String?
+  seasonId                         String?
+  reason                           ReportReason
+  riskTier                         ReportRiskTier
+  status                           ReportStatus    @default(SUBMITTED)
+  detail                           String?
+  evidenceAttachmentIds            Json?
+  evidenceAttachmentPolicy         String?
+  optionalBlockRequested           Boolean         @default(false)
+  optionalBlockResult              Json?
+  falseReportDisclaimerAcceptedAt  DateTime        @db.Timestamptz(3)
+  targetSnapshot                   Json
+  receivedAt                       DateTime        @default(now()) @db.Timestamptz(3)
+  createdAt                        DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt                        DateTime        @default(now()) @updatedAt @db.Timestamptz(3)
+  events                           ReportCaseEvent[]
+
+  @@index([reporterUserId, receivedAt, id])
+  @@index([targetType, targetId, status, receivedAt, id])
+  @@index([targetUserId, status, receivedAt, id])
+  @@index([status, riskTier, receivedAt, id])
+  @@index([targetParticipantId, status, receivedAt, id])
+  @@index([targetThreadId, status, receivedAt, id])
+  @@index([targetMessageId, status, receivedAt, id])
+  @@index([targetMatchRequestId, status, receivedAt, id])
+}
+
+model ReportCaseEvent {
+  id           String              @id @default(uuid())
+  reportCaseId String
+  actorUserId  String?
+  actorType    ReportActorType     @default(USER)
+  eventType    ReportCaseEventType
+  metadata     Json?
+  occurredAt   DateTime            @default(now()) @db.Timestamptz(3)
+  createdAt    DateTime            @default(now()) @db.Timestamptz(3)
+  reportCase   ReportCase          @relation(fields: [reportCaseId], references: [id], onDelete: Cascade)
+
+  @@index([reportCaseId, occurredAt, id])
+  @@index([actorUserId, occurredAt, id])
+  @@index([eventType, occurredAt, id])
 }
 
 model SeasonParticipantLifecycleEvent {

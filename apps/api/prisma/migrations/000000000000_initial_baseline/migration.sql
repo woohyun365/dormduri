@@ -59,6 +59,27 @@ CREATE TYPE "SeasonParticipantLifecycleEventType" AS ENUM ('JOINED', 'ACTIVATED'
 CREATE TYPE "UserBlockEventType" AS ENUM ('BLOCKED', 'UNBLOCKED');
 
 -- CreateEnum
+CREATE TYPE "ReportTargetType" AS ENUM ('PROFILE', 'MATCH_REQUEST', 'CHAT_THREAD', 'CHAT_MESSAGE', 'SUPPORT_TICKET');
+
+-- CreateEnum
+CREATE TYPE "ReportReason" AS ENUM ('SEXUAL_HARASSMENT', 'THREAT', 'PERSONAL_INFO_EXPOSURE', 'GENDER_IMPERSONATION', 'FALSE_PROFILE', 'SPAM_OR_AD', 'HATE_OR_DISCRIMINATION', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "ReportRiskTier" AS ENUM ('LOW', 'MEDIUM', 'HIGH');
+
+-- CreateEnum
+CREATE TYPE "ReportStatus" AS ENUM ('SUBMITTED', 'EVIDENCE_ONLY');
+
+-- CreateEnum
+CREATE TYPE "ReportOptionalAction" AS ENUM ('BLOCK_TARGET');
+
+-- CreateEnum
+CREATE TYPE "ReportCaseEventType" AS ENUM ('REPORT_SUBMITTED', 'REPORT_REPLAYED', 'REPORT_RECEIPT_NOTIFICATION_QUEUED', 'OPTIONAL_BLOCK_RESULT_RECORDED', 'RETENTION_REFERENCE_RECORDED', 'HIGH_RISK_ALERT_CANDIDATE_RECORDED', 'PROFILE_MISMATCH_FEEDBACK_CANDIDATE_RECORDED', 'UNVERIFIED_ATTACHMENT_POINTERS_RECORDED');
+
+-- CreateEnum
+CREATE TYPE "ReportActorType" AS ENUM ('USER', 'SYSTEM');
+
+-- CreateEnum
 CREATE TYPE "MatchRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM', 'EXPIRED');
 
 -- CreateEnum
@@ -575,6 +596,49 @@ CREATE TABLE "UserBlockEvent" (
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "UserBlockEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ReportCase" (
+    "id" TEXT NOT NULL,
+    "reporterUserId" TEXT NOT NULL,
+    "targetType" "ReportTargetType" NOT NULL,
+    "targetId" TEXT NOT NULL,
+    "targetUserId" TEXT,
+    "targetParticipantId" TEXT,
+    "targetThreadId" TEXT,
+    "targetMessageId" TEXT,
+    "targetMatchRequestId" TEXT,
+    "seasonId" TEXT,
+    "reason" "ReportReason" NOT NULL,
+    "riskTier" "ReportRiskTier" NOT NULL,
+    "status" "ReportStatus" NOT NULL DEFAULT 'SUBMITTED',
+    "detail" TEXT,
+    "evidenceAttachmentIds" JSONB,
+    "evidenceAttachmentPolicy" TEXT,
+    "optionalBlockRequested" BOOLEAN NOT NULL DEFAULT false,
+    "optionalBlockResult" JSONB,
+    "falseReportDisclaimerAcceptedAt" TIMESTAMPTZ(3) NOT NULL,
+    "targetSnapshot" JSONB NOT NULL,
+    "receivedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ReportCase_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ReportCaseEvent" (
+    "id" TEXT NOT NULL,
+    "reportCaseId" TEXT NOT NULL,
+    "actorUserId" TEXT,
+    "actorType" "ReportActorType" NOT NULL DEFAULT 'USER',
+    "eventType" "ReportCaseEventType" NOT NULL,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ReportCaseEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1319,6 +1383,44 @@ CREATE INDEX "UserBlockEvent_actorUserId_occurredAt_id_idx" ON "UserBlockEvent"(
 CREATE INDEX "UserBlockEvent_targetUserId_occurredAt_id_idx" ON "UserBlockEvent"("targetUserId", "occurredAt", "id");
 
 -- CreateIndex
+CREATE INDEX "ReportCase_reporterUserId_receivedAt_id_idx" ON "ReportCase"("reporterUserId", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetType_targetId_status_receivedAt_id_idx" ON "ReportCase"("targetType", "targetId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetUserId_status_receivedAt_id_idx" ON "ReportCase"("targetUserId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_status_riskTier_receivedAt_id_idx" ON "ReportCase"("status", "riskTier", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetParticipantId_status_receivedAt_id_idx" ON "ReportCase"("targetParticipantId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetThreadId_status_receivedAt_id_idx" ON "ReportCase"("targetThreadId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetMessageId_status_receivedAt_id_idx" ON "ReportCase"("targetMessageId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetMatchRequestId_status_receivedAt_id_idx" ON "ReportCase"("targetMatchRequestId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ReportCase_reporter_target_reason_open_key"
+  ON "ReportCase"("reporterUserId", "targetType", "targetId", "reason")
+  WHERE "status" IN ('SUBMITTED', 'EVIDENCE_ONLY');
+
+-- CreateIndex
+CREATE INDEX "ReportCaseEvent_reportCaseId_occurredAt_id_idx" ON "ReportCaseEvent"("reportCaseId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCaseEvent_actorUserId_occurredAt_id_idx" ON "ReportCaseEvent"("actorUserId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCaseEvent_eventType_occurredAt_id_idx" ON "ReportCaseEvent"("eventType", "occurredAt", "id");
+
+-- CreateIndex
 CREATE INDEX "SeasonParticipantLifecycleEvent_participantId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("participantId", "occurredAt");
 
 -- CreateIndex
@@ -1730,6 +1832,9 @@ ALTER TABLE "UserBlockEvent" ADD CONSTRAINT "UserBlockEvent_actorUserId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "UserBlockEvent" ADD CONSTRAINT "UserBlockEvent_targetUserId_fkey" FOREIGN KEY ("targetUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ReportCaseEvent" ADD CONSTRAINT "ReportCaseEvent_reportCaseId_fkey" FOREIGN KEY ("reportCaseId") REFERENCES "ReportCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonParticipantLifecycleEvent" ADD CONSTRAINT "SeasonParticipantLifecycleEvent_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;

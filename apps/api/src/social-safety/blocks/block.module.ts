@@ -37,5 +37,6 @@ import { BlockSideEffectService } from './side-effects/block-side-effect.service
     BlockPresenter,
     BlockSideEffectService,
   ],
+  exports: [BlockService],
 })
 export class BlockModule {}

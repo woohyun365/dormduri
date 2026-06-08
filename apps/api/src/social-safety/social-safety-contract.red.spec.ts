@@ -124,6 +124,17 @@ describe('Phase 1 expected-red social-safety shared contract', () => {
     });
   });
 
+  it('report create contract stays intake-only and includes optional block result', () => {
+    const reportContractPath = join(sharedSourceRoot, 'social-safety/report.ts');
+    const source = readOptional(reportContractPath);
+
+    expect(source).toContain('optionalAction');
+    expect(source).toContain('optionalActionResult');
+    expect(source).toContain("z.literal('RECEIVED')");
+    expect(source).toContain('BLOCK_TARGET');
+    expect(source).not.toContain("status: z.enum(['RECEIVED', 'UNDER_REVIEW', 'RESOLVED'])");
+  });
+
   it('adds report/support notification kinds without permitting raw sensitive notification payload fields', () => {
     const notificationContractPath = join(sharedSourceRoot, 'notifications/contract.ts');
     const source = readOptional(notificationContractPath);

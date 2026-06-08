@@ -59,6 +59,15 @@ export function toChatThreadCreatedNotificationPayload(input: {
   });
 }
 
+export function toReportReceivedNotificationPayload(input: { reportId: string; occurredAt: Date }) {
+  return assertAllowedPayload({
+    kind: 'REPORT_RECEIVED' as const,
+    reportId: input.reportId,
+    status: 'RECEIVED' as const,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
 function assertAllowedPayload<T>(payload: T): T {
   assertNotificationPayloadAllowed(payload);
   return payload;

@@ -12,7 +12,11 @@ import {
   listBlocksQuerySchema,
   NO_BLOCKS,
 } from '@repo/shared/social-safety/block';
-import { createReportRequestSchema } from '@repo/shared/social-safety/report';
+import {
+  createReportRequestSchema,
+  createReportResponseSchema,
+  reportReceiptSchema,
+} from '@repo/shared/social-safety/report';
 import { notificationPayloadSchema } from '@repo/shared/notification-contract';
 import { createSupportTicketRequestSchema } from '@repo/shared/support-contract';
 
@@ -142,9 +146,36 @@ describe('Phase 2 social-safety shared contract', () => {
         targetId: 'target-user-1',
         reason: 'SEXUAL_HARASSMENT',
         detail: null,
+        optionalAction: 'BLOCK_TARGET',
         falseReportDisclaimerAccepted: true,
       }),
-    ).toMatchObject({ reason: 'SEXUAL_HARASSMENT' });
+    ).toMatchObject({ reason: 'SEXUAL_HARASSMENT', optionalAction: 'BLOCK_TARGET' });
+    expect(
+      createReportResponseSchema.parse({
+        report: {
+          id: 'report-1',
+          targetType: 'PROFILE',
+          reason: 'FALSE_PROFILE',
+          receivedAt: serverTime,
+          status: 'RECEIVED',
+        },
+        received: true,
+        optionalActionResult: {
+          action: 'BLOCK_TARGET',
+          status: 'FAILED',
+          code: 'ACTIVE_MATCH_BLOCK_NOT_ALLOWED',
+        },
+      }),
+    ).toMatchObject({ report: { status: 'RECEIVED' }, received: true });
+    expect(() =>
+      reportReceiptSchema.parse({
+        id: 'report-1',
+        targetType: 'PROFILE',
+        reason: 'FALSE_PROFILE',
+        receivedAt: serverTime,
+        status: 'UNDER_REVIEW',
+      }),
+    ).toThrow();
     expect(() =>
       createReportRequestSchema.parse({
         targetType: 'PROFILE',

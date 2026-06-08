@@ -67,4 +67,28 @@ describe('Phase 2 social-safety Prisma baseline', () => {
     expect(source).toContain('"blockedAt" DESC, "id" DESC');
     expect(source).toContain('UserBlock_active_reverse_lookup_idx');
   });
+
+  it('keeps report intake models and event allowlist in Prisma schema', () => {
+    const source = read(schemaPath);
+
+    expect(source).toContain('enum ReportTargetType');
+    expect(source).toContain('enum ReportReason');
+    expect(source).toContain('enum ReportCaseEventType');
+    expect(source).toContain('model ReportCase');
+    expect(source).toContain('model ReportCaseEvent');
+    expect(source).toContain('PROFILE_MISMATCH_FEEDBACK_CANDIDATE_RECORDED');
+    expect(source).toContain('UNVERIFIED_ATTACHMENT_POINTERS_RECORDED');
+    expect(source).toContain('@@index([targetType, targetId, status, receivedAt, id])');
+  });
+
+  it('keeps report open dedupe and queue indexes in baseline SQL', () => {
+    const source = read(baselineMigrationPath);
+
+    expect(source).toContain('CREATE TABLE "ReportCase"');
+    expect(source).toContain('CREATE TABLE "ReportCaseEvent"');
+    expect(source).toContain('ReportCase_reporter_target_reason_open_key');
+    expect(source).toContain("WHERE \"status\" IN ('SUBMITTED', 'EVIDENCE_ONLY')");
+    expect(source).toContain('ReportCase_targetType_targetId_status_receivedAt_id_idx');
+    expect(source).toContain('ReportCaseEvent_reportCaseId_occurredAt_id_idx');
+  });
 });

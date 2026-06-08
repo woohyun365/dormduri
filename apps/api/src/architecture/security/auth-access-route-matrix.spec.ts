@@ -7,6 +7,7 @@ import {
 } from '../../auth/access/auth-access.decorator.js';
 import { ChatController } from '../../chat/chat.controller.js';
 import { BlockController } from '../../social-safety/blocks/block.controller.js';
+import { ReportController } from '../../social-safety/reports/report.controller.js';
 import { BookmarkController } from '../../social-safety/bookmarks/bookmark.controller.js';
 import { DormitoriesController } from '../../dormitories/dormitories.controller.js';
 import { HealthController } from '../../health/health.controller.js';
@@ -410,6 +411,14 @@ const expectedRoutes: ExpectedRoute[] = [
     handler: 'delete',
     method: RequestMethod.DELETE,
     path: 'api/blocks/:targetUserId',
+    access: 'protected',
+  },
+
+  {
+    controller: ReportController,
+    handler: 'create',
+    method: RequestMethod.POST,
+    path: 'api/reports',
     access: 'protected',
   },
   {

@@ -2,6 +2,7 @@ import {
   assertNotificationPayloadAllowed,
   isNotificationPayloadPrivacySafe,
   toChatThreadCreatedNotificationPayload,
+  toReportReceivedNotificationPayload,
 } from './notification-payload.policy.js';
 
 describe('notification payload policy', () => {
@@ -18,6 +19,20 @@ describe('notification payload policy', () => {
       threadId: 'thread-1',
       actorUserId: 'user-a',
       recipientUserId: 'user-b',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+  });
+
+  it('신고 접수 알림은 report pointer와 RECEIVED 상태만 포함한다', () => {
+    expect(
+      toReportReceivedNotificationPayload({
+        reportId: 'report-1',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'REPORT_RECEIVED',
+      reportId: 'report-1',
+      status: 'RECEIVED',
       occurredAt: '2026-06-02T00:00:00.000Z',
     });
   });
