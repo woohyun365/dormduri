@@ -1,21 +1,21 @@
 # Report intake slice
 
-`reports/`는 사용자 신고 접수 원장을 소유하는 독립 slice다. 이 slice는 intake-only이며, 운영자 decision, account sanction, participant visibility projection mutation은 후속 owner가 담당한다.
+`reports/`는 사용자 신고 접수 원장을 소유하는 독립 slice다. 이 slice는 intake-only이며, 운영자 review outcome, account sanction, participant visibility projection mutation은 dedicated review/enforcement/projection owners가 담당한다.
 
 ## Public boundary
 
 - `POST /api/reports`: target context, canonical report reason, optional block action, false report disclaimer를 받아 신고를 접수한다.
-- Create response는 접수 상태 `RECEIVED`만 반환한다. `UNDER_REVIEW`/`RESOLVED`는 decision workflow와 notification status update owner가 확장한다.
+- Create response는 접수 상태 `RECEIVED`만 반환한다. `UNDER_REVIEW`/`RESOLVED`는 review workflow와 notification status update owner가 소유한다.
 
 ## Target matrix
 
-| targetType       | Phase 5 의미                                                                | 대표 시나리오                                        |
-| ---------------- | --------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `PROFILE`        | 현재 시즌에서 reporter가 볼 수 있는 상대 profile/user pointer를 신고한다.   | 허위 profile, 부적절한 자기소개, 생활패턴 mismatch   |
-| `MATCH_REQUEST`  | reporter가 당사자인 match request pointer를 신고한다.                       | 매칭 요청 과정의 괴롭힘/차별/위협 신고               |
-| `CHAT_THREAD`    | reporter가 active member인 OPEN/READ_ONLY thread pointer를 신고한다.        | 특정 대화방 전체의 반복 괴롭힘/위협 신고             |
-| `CHAT_MESSAGE`   | reporter가 볼 수 있는 thread의 message pointer를 신고한다. Raw body는 제외. | 특정 메시지의 개인정보 노출/성희롱/위협 신고         |
-| `SUPPORT_TICKET` | Phase 7 support owner가 생기기 전까지 unsupported로 닫는다.                 | 운영/지원 응대 escalation 또는 support decision 감사 |
+| targetType       | 의미                                                                                         | 대표 시나리오                                      |
+| ---------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `PROFILE`        | 현재 시즌에서 reporter가 볼 수 있는 상대 profile/user pointer를 신고한다.                    | 허위 profile, 부적절한 자기소개, 생활패턴 mismatch |
+| `MATCH_REQUEST`  | reporter가 당사자인 match request pointer를 신고한다.                                        | 매칭 요청 과정의 괴롭힘/차별/위협 신고             |
+| `CHAT_THREAD`    | reporter가 active member인 OPEN/READ_ONLY thread pointer를 신고한다.                         | 특정 대화방 전체의 반복 괴롭힘/위협 신고           |
+| `CHAT_MESSAGE`   | reporter가 볼 수 있는 thread의 message pointer를 신고한다. Raw body는 제외.                  | 특정 메시지의 개인정보 노출/성희롱/위협 신고       |
+| `SUPPORT_TICKET` | report intake API에서는 지원하지 않는다. Support escalation은 support/review owner가 다룬다. | 운영/지원 응대 escalation 또는 support review 감사 |
 
 ## Directory map
 
@@ -32,7 +32,7 @@
 - `contracts/`: report shared/API contract regression spec. Root social-safety contract spec에 report assertion을 남기지 않는다.
 - `errors/`: probing-safe user-facing error mapping.
 
-`queries/`는 Phase 5 report intake slice에 두지 않는다. Reporter-facing report history와 운영자 queue/detail/status/decision read model은 #263 BackOffice/API operations owner에서 `admin/`, `operations/`, 또는 별도 backoffice prefix로 설계한다.
+`queries/`는 report intake slice에 두지 않는다. Reporter-facing report history와 운영자 queue/detail/status/review read model은 BackOffice/API operations owner가 `admin/`, `operations/`, 또는 dedicated backoffice prefix에서 소유한다.
 
 ## Hard rules
 
@@ -40,8 +40,8 @@
 - Report intake는 account sanction/enforcement action을 만들지 않는다.
 - Deleted/deidentified target report는 evidence-only/intake state로만 처리하고 RRPD raw payload를 복원하지 않는다.
 - Optional block 실패 또는 active match block reject는 report 접수를 rollback하지 않고 `optionalActionResult`와 event로만 기록한다.
-- `FALSE_PROFILE` lifestyle/profile mismatch는 Phase 5에서 feedback/prompt candidate event만 기록한다. 실제 notification delivery는 notification owner가 수행한다.
-- Decision/outcome/enforcement status/event는 #263/#264/#265 후속 owner가 확장한다.
+- `FALSE_PROFILE` lifestyle/profile mismatch는 feedback/prompt candidate event만 기록한다. Notification delivery는 notification owner가 수행한다.
+- Review outcome/enforcement status/event는 dedicated review/enforcement/projection owners가 확장한다.
 
 ## Where to change
 

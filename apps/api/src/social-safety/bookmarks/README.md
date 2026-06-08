@@ -28,7 +28,7 @@
 - Bookmark response는 hidden reason, deleted identity, registration snapshot raw data, retained/vault payload를 노출하지 않는다.
 - Bookmark list는 active row와 visible item을 구분한다. active row가 있지만 모두 숨겨졌으면 `NO_VISIBLE_BOOKMARKS`, active row가 없으면 `NO_BOOKMARKS`다.
 - Roommate-search bookmark metadata는 이미 visible한 candidate에만 coarse `{ bookmarked, bookmarkedAt? }`를 붙인다.
-- `MATCH_SCORE` list는 bounded active-bookmark scan으로 시작한다. 대량 ranking/EXPLAIN 튜닝은 운영 관측 후 별도 performance follow-up으로 다룬다.
+- `MATCH_SCORE` list는 bounded active-bookmark scan을 기본 전략으로 사용한다. 대량 ranking/EXPLAIN 튜닝은 production data 관측값이 생길 때 performance owner가 다룬다.
 
 ## Useful verification
 

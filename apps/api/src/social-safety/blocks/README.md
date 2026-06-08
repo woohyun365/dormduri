@@ -31,14 +31,14 @@
 ## Architecture guard
 
 - `apps/api/src/architecture/social-safety/social-safety-boundary.spec.ts`
-- `apps/api/src/architecture/social-safety/social-safety-prisma-baseline.spec.ts`
+- social-safety Prisma schema/index architecture guard
 - `apps/api/src/architecture/security/auth-access-route-matrix.spec.ts`
 - `apps/api/src/architecture/module-boundary.spec.ts`
 
 ## Where to change
 
 - API shape/response allowlist: `packages/shared/src/social-safety/block.ts` + `presenters/`.
-- Block relation/event persistence: `repositories/` + Prisma baseline SQL.
+- Block relation/event persistence: `repositories/` + Prisma schema/migration SQL.
 - Target availability: `policies/block-target-policy.evaluator.ts`.
 - Cross-domain side-effect handoff: `side-effects/block-side-effect.service.ts` and owner ports in `matches/` / `chat/`.
 - Shared contract regression: `contracts/block-contract.spec.ts`.

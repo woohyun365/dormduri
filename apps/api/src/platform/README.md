@@ -15,7 +15,7 @@
 
 ## Directory responsibilities
 
-- `database/`: Prisma module/service, Prisma error helper, DB role grant guard, migration baseline guard, updated-at ownership guard, connection pool budget logic. Domain SQL/query business owner는 이 디렉토리에 두지 않는다.
+- `database/`: Prisma module/service, Prisma error helper, DB role grant guard, migration guard, updated-at ownership guard, connection pool budget logic. Domain SQL/query business owner는 이 디렉토리에 두지 않는다.
 - `http/`: API exception filter, normalized API error factory, Zod request issue/extras/types/helper. Controller-facing request/response contract는 owning domain 또는 shared contract package가 소유한다.
 - `security/`: domain-neutral security primitive. Raw secret/logging 정책이나 auth session semantics를 소유하지 않는다.
 - `domain-context/`: generic metadata primitive. `current-season-participant`, `chat-thread-member`, `active-match-participant` 같은 product vocabulary를 소유하지 않는다.
@@ -27,7 +27,7 @@
 - `PrismaModule`만 `@Global()` 예외로 허용한다. 새 global business module로 DI 경계를 숨기지 않는다.
 - 새 `forwardRef()`로 module graph 문제를 봉합하지 않는다.
 - Platform helper는 product behavior, user-facing response/error code, route policy를 바꾸지 않는다.
-- Domain-specific TypedSQL/raw query는 해당 domain repository/query owner에 둔다. DB infra guard나 role/migration baseline만 `platform/database`에 둔다.
+- Domain-specific TypedSQL/raw query는 해당 domain repository/query owner에 둔다. DB infra guard나 role/migration guard만 `platform/database`에 둔다.
 - Crypto primitive는 raw token/password/code/IP/UA를 로그에 남기지 않는 상위 domain 정책을 전제로 제공한다. 민감값 저장/마스킹 정책은 owning domain에서 고정한다.
 
 ## Architecture guard
@@ -61,7 +61,7 @@ pnpm --dir apps/api exec jest --watchman=false --runInBand \
   src/platform/database/prisma.service.spec.ts \
   src/platform/database/auth-role-grants.spec.ts \
   src/platform/database/rrpd-role-grants.spec.ts \
-  src/platform/database/migration-baseline.spec.ts \
+  src/platform/database/*.spec.ts \
   src/platform/database/updated-at-ownership.spec.ts \
   src/platform/domain-context
 pnpm api:typecheck

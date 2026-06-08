@@ -49,7 +49,7 @@
 
 ## Operations signals
 
-아래 이름은 Phase 6 baseline에서 코드/README source-of-truth로 고정한 운영 관측 후보명이다. 실제 dashboard/alert rule과 sink secret provisioning은 배포 환경 후속으로 다룬다.
+아래 이름은 notifications module이 노출하는 운영 관측 후보명이다. 실제 dashboard/alert rule과 sink secret provisioning은 배포 환경 운영 설정이 소유한다.
 
 - `notification_campaign_lag`
 - `notification_outbox_pending`

@@ -6,14 +6,14 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 
 - `SupportModule`: support ticket/FAQ HTTP API provider wiring을 제공한다. 외부 도메인에 production provider를 export하지 않는다.
 - `support tickets`: 계정/시즌/매칭/신고 관련 사용자 문의 thread를 소유한다. 사용자는 본인 ticket만 list/detail/reply할 수 있다.
-- `appeals`: 제재·임시조치·신고 처리 결과에 대한 이의 신청 intake를 `APPEAL` category와 `appealCategory` metadata로 접수한다. 판단 owner는 incident-enforcement/review 후속이다.
+- `appeals`: 제재·임시조치·신고 처리 결과에 대한 이의 신청 intake를 `APPEAL` category와 `appealCategory` metadata로 접수한다. 판단은 incident-enforcement/review owner가 소유한다.
 - `FAQ`: published FAQ read model을 제공한다. `published=false` article은 public API에서 not found 또는 list 제외로 fail-closed 한다.
 - `support notifications`: notification outbox/repository/command concrete를 직접 import하지 않고 `NOTIFICATION_WRITER` port로 pointer-only in-app notification을 요청한다.
 
 ## Directory responsibilities
 
 - `application/`: `SupportService` controller-facing facade. Ticket command/query/FAQ query에만 위임한다.
-- `commands/`: ticket 생성, user follow-up, operator reply, resolve/close write use case. Ticket/message/status/notification 변경은 transaction 안에서 처리한다.
+- `commands/`: ticket 생성, user message append, operator reply, resolve/close write use case. Ticket/message/status/notification 변경은 transaction 안에서 처리한다.
 - `queries/`: own/operations ticket list/detail, FAQ published read model, cursor encode/decode owner.
 - `policies/`: status transition, support payload privacy, ownership helper. Notification internals나 Prisma mutation을 넣지 않는다.
 - `repositories/`: `SupportTicket`, `SupportTicketMessage`, `SupportFaqArticle` persistence owner. Notification/report/enforcement 판단을 하지 않는다.
@@ -28,10 +28,10 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 - Support production code는 retained vault/RRPD disclosure internals를 직접 import하지 않는다.
 - Support production code는 `notifications/outbox`, `notifications/commands`, `notifications/policies` concrete를 import하지 않는다. Generic `NOTIFICATION_WRITER` port만 사용한다.
 - Support notification payload에는 support body, reply body, email, raw appeal detail, RRPD payload를 넣지 않는다.
-- Email reply는 ticket별 optional consent field로만 저장한다. 실제 email provider delivery는 이 모듈의 현재 범위가 아니다.
-- Appeal intake는 review 요청이지 제재 decision mutation이 아니다.
+- Email reply는 ticket별 optional consent field로만 저장한다. Email provider delivery는 mail delivery owner가 소유한다.
+- Appeal intake는 review 요청이지 제재 outcome mutation이 아니다.
 - Operations API는 BackOffice UI가 아니라 capability-protected backend endpoint다.
-- Web rendering/hook/page/component 작업은 support API module 범위가 아니다.
+- support API module은 Web rendering/hook/page/component를 소유하지 않는다.
 
 ## Architecture guard
 
@@ -39,20 +39,20 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 - Contract spec은 `contracts/support-contract.spec.ts`가 소유한다.
 - Support root production file boundary, retained vault import guard, notification concrete import guard는 `apps/api/src/architecture/social-safety/social-safety-boundary.spec.ts`가 고정한다.
 - Route access matrix는 `apps/api/src/architecture/security/auth-access-route-matrix.spec.ts`가 고정한다.
-- Prisma model/index baseline은 `apps/api/src/architecture/social-safety/social-safety-prisma-baseline.spec.ts`가 고정한다.
+- Prisma model/index guard는 architecture social-safety persistence spec이 고정한다.
 
 ## Where to change
 
 - HTTP route parsing/delegation: `support.controller.ts`.
 - Controller-facing facade: `application/support.service.ts`.
-- Ticket create/follow-up/operator reply/resolve transaction behavior: `commands/`.
+- Ticket create/user message/operator reply/resolve transaction behavior: `commands/`.
 - Ticket list/detail and FAQ read behavior: `queries/`.
 - Ticket/message/FAQ persistence shape: `repositories/`.
 - Status transition and payload privacy rule: `policies/`.
 - User-facing response projection: `presenters/`.
 - In-app support notification handoff: `notifications/support-notification.service.ts`.
 - Shared request/response contracts: `packages/shared/src/support/contract.ts` and `contracts/support-contract.spec.ts`.
-- Persistence schema/baseline: `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/000000000000_initial_baseline/migration.sql`.
+- Persistence schema/migration SQL: `apps/api/prisma/schema.prisma` and the initial migration SQL.
 
 ## Route matrix
 
@@ -76,7 +76,7 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 pnpm --dir apps/api exec jest --watchman=false --runInBand \
   src/support \
   src/architecture/social-safety/social-safety-boundary.spec.ts \
-  src/architecture/social-safety/social-safety-prisma-baseline.spec.ts \
+  src/architecture/social-safety/*.spec.ts \
   src/architecture/security/auth-access-route-matrix.spec.ts \
   src/architecture/module-boundary.spec.ts
 pnpm api:typecheck

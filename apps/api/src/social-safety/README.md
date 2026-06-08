@@ -11,7 +11,7 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 
 ## Directory responsibilities
 
-- `application/ports/`: 외부 도메인 또는 후속 writer owner와 연결되는 port token/type. Concrete persistence나 Prisma write를 넣지 않는다.
+- `application/ports/`: 외부 도메인 또는 deferred writer owner와 연결되는 port token/type. Concrete persistence나 Prisma write를 넣지 않는다.
 - `social-safety.module.ts`: social-safety slice modules를 re-export한다. Product policy/use-case logic을 두지 않는다.
 - `bookmarks/`: 독립 bookmark slice다. root production TS는 `bookmark.module.ts`, `bookmark.controller.ts`만 둔다. `README.md`는 docs 예외이며, facade/use-case entrypoint는 `application/`, write use case는 `commands/`, read model은 `queries/`, DB-backed target evaluation은 `policies/`, Prisma access는 `repositories/`, response allowlist는 `presenters/`, probing-safe errors는 `errors/`가 소유한다.
 - `blocks/`: 독립 block slice다. root production TS는 `block.module.ts`, `block.controller.ts`만 둔다. `README.md`는 docs 예외이며, facade/use-case entrypoint는 `application/`, block/unblock/list, event history, bookmark/match/chat side-effect는 하위 디렉토리로 분리한다.
@@ -23,7 +23,7 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 - `social-safety` production code는 `ChatService`, `ProfilesService`, `MatchesService` concrete를 import하지 않는다.
 - `social-safety` production code는 chat table을 직접 mutate하지 않는다. Chat side-effect는 `CHAT_BLOCK_SIDE_EFFECT_PORT` 같은 purpose-specific port를 사용한다.
 - `social-safety` production code는 `SeasonParticipant.hiddenByAdminAt`, `hiddenReasonCode`, `deactivatedAt`를 직접 mutate하지 않는다. Projection 갱신은 participant visibility writer port를 통한다.
-- Report intake는 제재 decision이 아니다. Intake command는 participant hidden/deactivated projection을 변경하지 않는다.
+- Report intake는 제재 outcome이 아니다. Intake command는 participant hidden/deactivated projection을 변경하지 않는다.
 - Retained vault/RRPD disclosure internals는 report/support product path에서 직접 import하지 않는다.
 - User-facing report/bookmark/block response에는 hidden reason detail, raw lifecycle timestamp, retained/vault payload, deleted identity를 노출하지 않는다.
 
