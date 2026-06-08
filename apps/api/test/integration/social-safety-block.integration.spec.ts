@@ -163,6 +163,53 @@ describe('Social-safety block integration', () => {
     ).resolves.toBe(0);
   });
 
+  it('양방향 concurrent block은 각 방향 active row 1개와 event 1개로 수렴한다', async () => {
+    const viewerAuthorization = await authHeader();
+    const targetAuthorization = await authHeader('target-user', 'target@kangwon.ac.kr');
+
+    const [viewerBlocksTarget, targetBlocksViewer] = await Promise.all([
+      request(httpServer)
+        .post('/api/blocks/target-user')
+        .set('Authorization', viewerAuthorization)
+        .send({})
+        .expect(201),
+      request(httpServer)
+        .post('/api/blocks/viewer-user')
+        .set('Authorization', targetAuthorization)
+        .send({})
+        .expect(201),
+    ]);
+
+    expect(createBlockResponseSchema.parse(viewerBlocksTarget.body)).toMatchObject({
+      created: true,
+    });
+    expect(createBlockResponseSchema.parse(targetBlocksViewer.body)).toMatchObject({
+      created: true,
+    });
+    await expect(
+      prisma.userBlock.count({
+        where: {
+          unblockedAt: null,
+          OR: [
+            { blockerUserId: 'viewer-user', blockedUserId: 'target-user' },
+            { blockerUserId: 'target-user', blockedUserId: 'viewer-user' },
+          ],
+        },
+      }),
+    ).resolves.toBe(2);
+    await expect(
+      prisma.userBlockEvent.count({
+        where: {
+          eventType: 'BLOCKED',
+          OR: [
+            { actorUserId: 'viewer-user', targetUserId: 'target-user' },
+            { actorUserId: 'target-user', targetUserId: 'viewer-user' },
+          ],
+        },
+      }),
+    ).resolves.toBe(2);
+  });
+
   it('active match target block은 report/support CTA와 함께 fail-closed 된다', async () => {
     await seedActiveMatchFixture(prisma, {
       activeMatchId: 'active-match-block',
@@ -282,6 +329,86 @@ describe('Social-safety block integration', () => {
       closedReason: null,
       closedAt: null,
     });
+  });
+
+  it('unblock 이후 target이 먼저 send해도 기존 USER_BLOCKED direct thread를 lazy reopen한다', async () => {
+    await seedDirectThread();
+
+    await request(httpServer)
+      .post('/api/blocks/target-user')
+      .set('Authorization', await authHeader())
+      .send({})
+      .expect(201);
+    await request(httpServer)
+      .delete('/api/blocks/target-user')
+      .set('Authorization', await authHeader())
+      .send({})
+      .expect(200);
+
+    const targetSendResponse = await request(httpServer)
+      .post('/api/chat/messages')
+      .set('Authorization', await authHeader('target-user', 'target@kangwon.ac.kr'))
+      .send({
+        targetUserId: 'viewer-user',
+        body: 'target이 먼저 재개',
+        clientMessageId: 'target-first-resume-send',
+      })
+      .expect(201);
+
+    expect(targetSendResponse.body).toMatchObject({
+      createdThread: false,
+      thread: { id: 'direct-thread-block', status: 'OPEN', closedReason: null },
+    });
+    await expect(
+      prisma.conversationThread.count({
+        where: {
+          seasonId: 'season-integration',
+          pairKey: pairKey(),
+          status: { in: ['OPEN', 'READ_ONLY'] },
+        },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('reverse active block이 남아 있으면 unblock 이후 explicit send도 thread를 reopen하지 않는다', async () => {
+    await seedDirectThread();
+
+    await request(httpServer)
+      .post('/api/blocks/target-user')
+      .set('Authorization', await authHeader())
+      .send({})
+      .expect(201);
+    await request(httpServer)
+      .post('/api/blocks/viewer-user')
+      .set('Authorization', await authHeader('target-user', 'target@kangwon.ac.kr'))
+      .send({})
+      .expect(201);
+    await request(httpServer)
+      .delete('/api/blocks/target-user')
+      .set('Authorization', await authHeader())
+      .send({})
+      .expect(200);
+
+    const viewerSendResponse = await request(httpServer)
+      .post('/api/chat/messages')
+      .set('Authorization', await authHeader())
+      .send({
+        targetUserId: 'target-user',
+        body: 'reverse active block 중 send 차단',
+        clientMessageId: 'reverse-block-send-attempt',
+      })
+      .expect(409);
+    expect(viewerSendResponse.body).toMatchObject({ code: 'CHAT_MESSAGE_SEND_NOT_ALLOWED' });
+
+    await expect(
+      prisma.conversationThread.findUniqueOrThrow({ where: { id: 'direct-thread-block' } }),
+    ).resolves.toMatchObject({
+      status: 'READ_ONLY',
+      closedReason: 'USER_BLOCKED',
+    });
+    await expect(
+      prisma.conversationMessage.count({ where: { threadId: 'direct-thread-block' } }),
+    ).resolves.toBe(0);
   });
 
   it('block list는 visible target과 no-longer-visible target을 allowlist로 구분한다', async () => {
