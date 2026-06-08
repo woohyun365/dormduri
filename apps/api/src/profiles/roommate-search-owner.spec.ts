@@ -82,6 +82,9 @@ describe('roommate-search-owner bookmark integration', () => {
           .fn()
           .mockResolvedValue([{ targetParticipantId: 'visible-participant', bookmarkedAt: now }]),
       },
+      userBlock: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
     const seasonsService = {
       getCurrentSeasonContext: jest.fn().mockResolvedValue(seasonContext({ state: 'SEASON_OPEN' })),

@@ -408,6 +408,10 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     candidate: VisibleProfileTargetCandidate,
     detailEntryContext: ProfileDetailEntryTokenPayload | null = null,
   ): Promise<PublicProfile | null> {
+    if (await hasActiveBlockBetweenUsers(viewerContext.viewer.id, candidate.user.id)) {
+      return null;
+    }
+
     if (detailEntryContext) {
       if (
         detailEntryContext.seasonId !== viewerContext.currentSeasonId ||
@@ -525,6 +529,27 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       resultRead: publicTargetPolicy.resultRead,
       listSummaryVisible: publicTargetPolicy.exposure.listSummaryVisible,
     });
+  }
+
+  async function hasActiveBlockBetweenUsers(viewerUserId: string, targetUserId: string) {
+    const activeBlock = await deps.prisma.userBlock.findFirst({
+      where: {
+        unblockedAt: null,
+        OR: [
+          {
+            blockerUserId: viewerUserId,
+            blockedUserId: targetUserId,
+          },
+          {
+            blockerUserId: targetUserId,
+            blockedUserId: viewerUserId,
+          },
+        ],
+      },
+      select: { id: true },
+    });
+
+    return activeBlock !== null;
   }
 
   return {

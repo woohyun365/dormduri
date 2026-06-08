@@ -68,6 +68,8 @@ describe('chat architecture boundary', () => {
     expect(moduleSource).not.toMatch(/exports:\s*\[/);
     expect(providersSource).toContain('CHAT_REALTIME_PROVIDERS');
     expect(providersSource).toContain('CHAT_LIFECYCLE_PROVIDERS');
+    expect(providersSource).toContain('CHAT_BLOCK_SIDE_EFFECT_PORT');
+    expect(exportsSource).toContain('CHAT_BLOCK_SIDE_EFFECT_PORT');
     expect(exportsSource).toContain('CHAT_MATCH_THREAD_LIFECYCLE_PORT');
     expect(exportsSource).not.toMatch(/\bChatService\b|\bChatRealtimeMetricsService\b/);
   });

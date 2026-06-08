@@ -138,6 +138,33 @@ export class BookmarkRepository {
     return result.count > 0;
   }
 
+  async softDeleteActiveBetweenUsers(input: {
+    client: BookmarkRepositoryClient;
+    firstUserId: string;
+    secondUserId: string;
+    now: Date;
+  }): Promise<number> {
+    const result = await input.client.userBookmark.updateMany({
+      where: {
+        deletedAt: null,
+        expiredAt: null,
+        OR: [
+          {
+            viewerUserId: input.firstUserId,
+            targetUserId: input.secondUserId,
+          },
+          {
+            viewerUserId: input.secondUserId,
+            targetUserId: input.firstUserId,
+          },
+        ],
+      },
+      data: { deletedAt: input.now },
+    });
+
+    return result.count;
+  }
+
   countActiveForViewer(input: { viewerUserId: string; seasonId: string }): Promise<number> {
     return this.prisma.userBookmark.count({
       where: {

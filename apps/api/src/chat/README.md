@@ -10,7 +10,7 @@
 - `CHAT_MATCH_THREAD_LIFECYCLE_PORT`: match accept/unmatch transaction 안에서 matched/direct thread lifecycle을 갱신한다.
 - `CHAT_THREAD_WITHDRAWAL_PORT`: season participant withdrawal transaction 안에서 open direct thread를 read-only로 전환하고 realtime outbox를 append한다.
 - `CHAT_LIFECYCLE_SWEEP_PORT`: top-level lifecycle sweep에서 chat thread cutoff/season lifecycle을 수렴한다.
-- `CHAT_BLOCK_SIDE_EFFECT_PORT`: social-safety block create transaction이 non-matched direct thread close를 요청할 때 사용할 port contract다. 구현 provider/export는 block schema/closedReason contract가 준비되는 단계에서 연결한다.
+- `CHAT_BLOCK_SIDE_EFFECT_PORT`: social-safety block create transaction이 non-matched direct thread close를 요청할 때 사용하는 port contract다. 구현 provider/export는 `lifecycle/chat-block-side-effect.service.ts`와 `composition/`이 소유한다.
 - `REALTIME_*_PORT`: notification/health 등 외부 domain은 chat realtime concrete class 대신 generic realtime token을 사용한다.
 
 ## Directory responsibilities
@@ -57,7 +57,7 @@
 - Block create: `social-safety`는 같은 transaction 안에서 chat table을 직접 update하지 않고 `CHAT_BLOCK_SIDE_EFFECT_PORT.closeDirectThreadsForBlock(...)` contract를 통해 chat lifecycle owner에 위임한다.
 - Block side-effect 대상: 같은 season/pair의 non-matched direct `OPEN` thread만 close 대상이다. active match 종료는 matches/report/admin decision 경계가 소유한다.
 - Unblock: immediate reopen을 하지 않는다. unblock transaction은 block relation/event만 닫고, chat thread reopen은 사용자의 명시적 `GET /threads/with/:targetUserId` 또는 `POST /messages` send/resume path에서 lazy 처리한다.
-- Explicit resume/send: chat command/query authority가 active block 양방향 absence를 transaction 내부에서 recheck하고, block-closed non-archived direct thread 재사용 여부를 결정한다.
+- Explicit resume/send: pair entry query는 active block 양방향 존재 시 resume CTA를 fail-closed로 계산한다. send command는 transaction 내부에서 active block absence를 다시 확인한 뒤, block-closed non-archived direct thread를 새 thread보다 우선 lazy reopen한다.
 - Regression 위치: block side-effect adapter 테스트는 `lifecycle/`, send/resume 테스트는 `commands/`, pair entry projection 테스트는 `pairs/`에 둔다. `application/chat.service.spec.ts` god spec에 신규 social-safety/block regression을 추가하지 않는다.
 
 ## Where to change

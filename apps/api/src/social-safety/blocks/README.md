@@ -1,29 +1,42 @@
-# Block slice
+# Social-safety blocks
 
-`blocks/`는 viewer-specific block relation과 block event history를 소유하는 독립 slice다. Block은 상대 사용자에게 고지하지 않는 safety relation이며, match/chat/bookmark side-effect는 purpose-specific port 또는 adapter로 요청한다.
+## Public boundary
 
-## Planned public surface
+- `POST /api/blocks/:targetUserId`: 현재 시즌에서 visible/actionable한 상대를 active block relation으로 생성한다.
+- `DELETE /api/blocks/:targetUserId`: active block을 `unblockedAt`으로 닫는다. missing/already-unblocked는 idempotent success다.
+- `GET /api/blocks`: 내가 차단한 active relation 목록만 반환한다. 상대가 더 이상 노출 가능하지 않으면 `NO_LONGER_VISIBLE`로 coarse 표시한다.
 
-- `GET /api/blocks`: 내가 차단한 사용자 목록과 내 note를 조회한다.
-- `POST /api/blocks/:targetUserId`: target을 차단하고 필요한 side-effect를 idempotent하게 실행한다.
-- `DELETE /api/blocks/:targetUserId`: active block을 닫는다. Bookmark/request/thread를 즉시 restore하지 않는다.
+## Directory responsibilities
 
-## Directory map
-
-- `block.module.ts`: slice provider composition만 담당한다.
-- `block.controller.ts`: route, auth actor, param/query/body parse만 담당한다.
-- `application/block.service.ts`: thin facade.
-- `commands/`: block/unblock write use cases.
-- `queries/`: block list read model.
-- `policies/`: active match reject, note ownership, visibility/probing-safe decisions.
-- `repositories/`: `UserBlock`/`UserBlockEvent` persistence only.
-- `side-effects/`: bookmark removal, match pending cancel, chat direct thread close orchestration.
-- `presenters/`: block response allowlist.
-- `errors/`: probing-safe user-facing error mapping.
+- `block.module.ts` / `block.controller.ts`: root entrypoint. root에는 module/controller만 둔다.
+- `application/`: thin service facade.
+- `commands/`: block/unblock transaction orchestration.
+- `queries/`: cursor list read model.
+- `policies/`: target resolve, self/missing/deleted/current active match fail-closed 판단.
+- `repositories/`: `UserBlock` / `UserBlockEvent` persistence only.
+- `side-effects/`: bookmark cleanup, match pending cancel, chat direct-thread close port orchestration.
+- `presenters/`: shared contract allowlist response mapping.
+- `errors/`: probing-safe user-facing errors.
 
 ## Hard rules
 
-- Target에게 block/unblock 사실을 notification으로 보내지 않는다.
-- Active match block은 거부하고 report/support path로 분리한다.
-- Block create는 양방향 active bookmark를 soft-delete하지만 unblock은 bookmark/request/thread를 자동 restore하지 않는다.
-- Non-matched direct thread close/reopen authority는 chat이 소유한다. Social-safety는 close side-effect intent만 전달한다.
+- Target user에게 block notification을 보내지 않는다.
+- Active match 관계는 block으로 자동 종료하지 않고 `ACTIVE_MATCH_BLOCK_NOT_ALLOWED`로 닫는다.
+- Block create는 양방향 active bookmark를 soft-delete하지만 unblock은 bookmark/request/thread를 복원하지 않는다. unblock 이후 explicit chat resume/send는 chat owner가 active block absence를 다시 확인한 뒤 lazy 처리한다.
+- Pending match request와 direct chat thread close는 matches/chat owner port를 통해서만 수행한다.
+- Social-safety code는 `ChatService`, `MatchesService` concrete 또는 chat/match persistence를 직접 mutate하지 않는다.
+- Block note는 blocker-only private note이며 target 또는 public search/profile response에 노출하지 않는다.
+
+## Architecture guard
+
+- `apps/api/src/architecture/social-safety/social-safety-boundary.spec.ts`
+- `apps/api/src/architecture/social-safety/social-safety-prisma-baseline.spec.ts`
+- `apps/api/src/architecture/security/auth-access-route-matrix.spec.ts`
+- `apps/api/src/architecture/module-boundary.spec.ts`
+
+## Where to change
+
+- API shape/response allowlist: `packages/shared/src/social-safety/block.ts` + `presenters/`.
+- Block relation/event persistence: `repositories/` + Prisma baseline SQL.
+- Target availability: `policies/block-target-policy.evaluator.ts`.
+- Cross-domain side-effect handoff: `side-effects/block-side-effect.service.ts` and owner ports in `matches/` / `chat/`.

@@ -40,4 +40,31 @@ describe('Phase 2 social-safety Prisma baseline', () => {
     expect(source).toContain('"bookmarkedAt" DESC, "id" DESC');
     expect(source).toContain('UserBookmark_active_block_cleanup_idx');
   });
+
+  it('keeps UserBlock relation/event models and list indexes in Prisma schema', () => {
+    const source = read(schemaPath);
+
+    expect(source).toContain('enum UserBlockEventType');
+    expect(source).toContain('model UserBlock');
+    expect(source).toContain('blockerUserId');
+    expect(source).toContain('blockedUserId');
+    expect(source).toContain('unblockedAt');
+    expect(source).toContain('model UserBlockEvent');
+    expect(source).toContain('eventType    UserBlockEventType');
+    expect(source).toContain('@@index([blockerUserId, unblockedAt, blockedAt, id])');
+    expect(source).toContain('@@index([blockedUserId, unblockedAt, blockedAt, id])');
+  });
+
+  it('keeps active block dedupe and reverse lookup indexes in baseline SQL as partial indexes', () => {
+    const source = read(baselineMigrationPath);
+
+    expect(source).toContain('CREATE TABLE "UserBlock"');
+    expect(source).toContain('CREATE TABLE "UserBlockEvent"');
+    expect(source).toContain('UserBlock_blockerUserId_blockedUserId_active_key');
+    expect(source).toContain('ON "UserBlock"("blockerUserId", "blockedUserId")');
+    expect(source).toContain('WHERE "unblockedAt" IS NULL');
+    expect(source).toContain('UserBlock_active_list_cursor_idx');
+    expect(source).toContain('"blockedAt" DESC, "id" DESC');
+    expect(source).toContain('UserBlock_active_reverse_lookup_idx');
+  });
 });

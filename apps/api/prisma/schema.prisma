@@ -129,6 +129,11 @@ enum SeasonParticipantLifecycleEventType {
   UNMATCHED
 }
 
+enum UserBlockEventType {
+  BLOCKED
+  UNBLOCKED
+}
+
 enum MatchRequestStatus {
   PENDING
   ACCEPTED
@@ -199,6 +204,7 @@ enum ConversationThreadClosedReason {
   ROOM_SELECTION_CUTOFF
   SEASON_ENDED
   PARTICIPANT_WITHDRAWN
+  USER_BLOCKED
   MODERATION
   ADMIN_ACTION
 }
@@ -663,6 +669,10 @@ model User {
   notificationOutboxEvents NotificationOutboxEvent[]
   bookmarksCreated        UserBookmark[]                           @relation("UserBookmarkViewer")
   bookmarksReceived       UserBookmark[]                           @relation("UserBookmarkTarget")
+  blocksCreated           UserBlock[]                               @relation("UserBlockBlocker")
+  blocksReceived          UserBlock[]                               @relation("UserBlockBlocked")
+  blockEventsAuthored     UserBlockEvent[]                          @relation("UserBlockEventActor")
+  blockEventsTargeted     UserBlockEvent[]                          @relation("UserBlockEventTarget")
 }
 
 model UserDisplayIdentity {
@@ -918,6 +928,43 @@ model UserBookmark {
   @@index([targetUserId, seasonId, deletedAt, expiredAt])
   @@index([viewerUserId, targetUserId, seasonId, deletedAt, expiredAt])
   @@index([targetParticipantId, deletedAt, expiredAt])
+}
+
+model UserBlock {
+  id            String           @id @default(uuid())
+  blockerUserId String
+  blockedUserId String
+  note          String?
+  blockedAt     DateTime         @default(now()) @db.Timestamptz(3)
+  unblockedAt   DateTime?        @db.Timestamptz(3)
+  createdAt     DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime         @default(now()) @updatedAt @db.Timestamptz(3)
+  blocker       User             @relation("UserBlockBlocker", fields: [blockerUserId], references: [id], onDelete: Cascade)
+  blockedUser   User             @relation("UserBlockBlocked", fields: [blockedUserId], references: [id], onDelete: Cascade)
+  events        UserBlockEvent[]
+
+  @@index([blockerUserId, unblockedAt, blockedAt, id])
+  @@index([blockedUserId, unblockedAt, blockedAt, id])
+  @@index([blockerUserId, blockedUserId, unblockedAt])
+}
+
+model UserBlockEvent {
+  id           String             @id @default(uuid())
+  blockId      String
+  actorUserId  String
+  targetUserId String
+  eventType    UserBlockEventType
+  noteSnapshot String?
+  metadata     Json?
+  occurredAt   DateTime           @default(now()) @db.Timestamptz(3)
+  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+  block        UserBlock          @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  actor        User               @relation("UserBlockEventActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  target       User               @relation("UserBlockEventTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([blockId, occurredAt, id])
+  @@index([actorUserId, occurredAt, id])
+  @@index([targetUserId, occurredAt, id])
 }
 
 model SeasonParticipantLifecycleEvent {

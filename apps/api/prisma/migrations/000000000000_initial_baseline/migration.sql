@@ -56,6 +56,9 @@ CREATE TYPE "ParticipantHiddenReasonCode" AS ENUM ('POLICY_VIOLATION', 'SAFETY_R
 CREATE TYPE "SeasonParticipantLifecycleEventType" AS ENUM ('JOINED', 'ACTIVATED', 'WITHDRAWN', 'EXPIRED', 'DEACTIVATED', 'HIDDEN', 'UNHIDDEN', 'MATCHED', 'UNMATCHED');
 
 -- CreateEnum
+CREATE TYPE "UserBlockEventType" AS ENUM ('BLOCKED', 'UNBLOCKED');
+
+-- CreateEnum
 CREATE TYPE "MatchRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM', 'EXPIRED');
 
 -- CreateEnum
@@ -83,7 +86,7 @@ CREATE TYPE "ConversationThreadKind" AS ENUM ('DIRECT', 'MATCHED');
 CREATE TYPE "ConversationThreadStatus" AS ENUM ('OPEN', 'READ_ONLY', 'ARCHIVED');
 
 -- CreateEnum
-CREATE TYPE "ConversationThreadClosedReason" AS ENUM ('ACTIVE_MATCH_CREATED', 'ROOM_SELECTION_CUTOFF', 'SEASON_ENDED', 'PARTICIPANT_WITHDRAWN', 'MODERATION', 'ADMIN_ACTION');
+CREATE TYPE "ConversationThreadClosedReason" AS ENUM ('ACTIVE_MATCH_CREATED', 'ROOM_SELECTION_CUTOFF', 'SEASON_ENDED', 'PARTICIPANT_WITHDRAWN', 'USER_BLOCKED', 'MODERATION', 'ADMIN_ACTION');
 
 -- CreateEnum
 CREATE TYPE "ConversationThreadMemberState" AS ENUM ('ACTIVE', 'LEFT');
@@ -543,6 +546,35 @@ CREATE TABLE "UserBookmark" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "UserBookmark_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserBlock" (
+    "id" TEXT NOT NULL,
+    "blockerUserId" TEXT NOT NULL,
+    "blockedUserId" TEXT NOT NULL,
+    "note" TEXT,
+    "blockedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "unblockedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserBlock_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserBlockEvent" (
+    "id" TEXT NOT NULL,
+    "blockId" TEXT NOT NULL,
+    "actorUserId" TEXT NOT NULL,
+    "targetUserId" TEXT NOT NULL,
+    "eventType" "UserBlockEventType" NOT NULL,
+    "noteSnapshot" TEXT,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserBlockEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1269,6 +1301,24 @@ CREATE INDEX "UserBookmark_viewerUserId_targetUserId_seasonId_delet_idx" ON "Use
 CREATE INDEX "UserBookmark_targetParticipantId_deletedAt_expiredAt_idx" ON "UserBookmark"("targetParticipantId", "deletedAt", "expiredAt");
 
 -- CreateIndex
+CREATE INDEX "UserBlock_blockerUserId_unblockedAt_blockedAt_id_idx" ON "UserBlock"("blockerUserId", "unblockedAt", "blockedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBlock_blockedUserId_unblockedAt_blockedAt_id_idx" ON "UserBlock"("blockedUserId", "unblockedAt", "blockedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBlock_blockerUserId_blockedUserId_unblockedAt_idx" ON "UserBlock"("blockerUserId", "blockedUserId", "unblockedAt");
+
+-- CreateIndex
+CREATE INDEX "UserBlockEvent_blockId_occurredAt_id_idx" ON "UserBlockEvent"("blockId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBlockEvent_actorUserId_occurredAt_id_idx" ON "UserBlockEvent"("actorUserId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBlockEvent_targetUserId_occurredAt_id_idx" ON "UserBlockEvent"("targetUserId", "occurredAt", "id");
+
+-- CreateIndex
 CREATE INDEX "SeasonParticipantLifecycleEvent_participantId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("participantId", "occurredAt");
 
 -- CreateIndex
@@ -1667,6 +1717,21 @@ ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_targetParticipantId_fkey
 ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "UserBlock" ADD CONSTRAINT "UserBlock_blockerUserId_fkey" FOREIGN KEY ("blockerUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBlock" ADD CONSTRAINT "UserBlock_blockedUserId_fkey" FOREIGN KEY ("blockedUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBlockEvent" ADD CONSTRAINT "UserBlockEvent_blockId_fkey" FOREIGN KEY ("blockId") REFERENCES "UserBlock"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBlockEvent" ADD CONSTRAINT "UserBlockEvent_actorUserId_fkey" FOREIGN KEY ("actorUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBlockEvent" ADD CONSTRAINT "UserBlockEvent_targetUserId_fkey" FOREIGN KEY ("targetUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "SeasonParticipantLifecycleEvent" ADD CONSTRAINT "SeasonParticipantLifecycleEvent_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1856,3 +1921,15 @@ CREATE INDEX "UserBookmark_active_target_reverse_idx"
 CREATE INDEX "UserBookmark_active_block_cleanup_idx"
   ON "UserBookmark"("viewerUserId", "targetUserId", "seasonId")
   WHERE "deletedAt" IS NULL AND "expiredAt" IS NULL;
+
+CREATE UNIQUE INDEX "UserBlock_blockerUserId_blockedUserId_active_key"
+  ON "UserBlock"("blockerUserId", "blockedUserId")
+  WHERE "unblockedAt" IS NULL;
+
+CREATE INDEX "UserBlock_active_list_cursor_idx"
+  ON "UserBlock"("blockerUserId", "blockedAt" DESC, "id" DESC)
+  WHERE "unblockedAt" IS NULL;
+
+CREATE INDEX "UserBlock_active_reverse_lookup_idx"
+  ON "UserBlock"("blockedUserId", "blockerUserId")
+  WHERE "unblockedAt" IS NULL;

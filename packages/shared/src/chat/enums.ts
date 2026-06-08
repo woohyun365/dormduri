@@ -7,6 +7,7 @@ export const conversationThreadClosedReasonSchema = z.enum([
   'ROOM_SELECTION_CUTOFF',
   'SEASON_ENDED',
   'PARTICIPANT_WITHDRAWN',
+  'USER_BLOCKED',
   'MODERATION',
   'ADMIN_ACTION',
 ]);

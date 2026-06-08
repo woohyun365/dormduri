@@ -47,9 +47,18 @@ describe('Phase 1 expected-red social-safety/support architecture boundary', () 
 
   it('keeps social-safety away from concrete chat/profile/match services and direct chat persistence', () => {
     const forbidden =
-      /from\s+['"].*(?:chat\/application\/chat\.service|profiles\/.*service|matches\/.*service)|\bChatService\b|conversationThread\.(?:create|update|updateMany|delete|deleteMany|upsert)|conversationMessage\./;
+      /from\s+['"].*(?:chat\/application\/chat\.service|profiles\/.*service|matches\/.*service)|\bChatService\b|\bMatchesService\b|conversationThread\.(?:create|update|updateMany|delete|deleteMany|upsert)|conversationMessage\.|matchRequest\.(?:create|update|updateMany|delete|deleteMany|upsert)|activeMatch\.(?:create|update|updateMany|delete|deleteMany|upsert)/;
 
     expect(offendingFiles(socialSafetyRoot, forbidden)).toEqual([]);
+  });
+
+  it('keeps block slice root production files limited to module/controller entrypoints', () => {
+    const blockRoot = join(socialSafetyRoot, 'blocks');
+    const rootProductionFiles = readdirSync(blockRoot)
+      .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
+      .sort();
+
+    expect(rootProductionFiles).toEqual(['block.controller.ts', 'block.module.ts']);
   });
 
   it('keeps social-safety from mutating participant hidden/deactivated projection directly', () => {

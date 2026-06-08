@@ -10,10 +10,12 @@ import {
 } from '../../realtime/realtime.tokens.js';
 import { ChatNotificationRealtimePublisherAdapter } from '../adapters/chat-notification-realtime-publisher.adapter.js';
 import { ChatService } from '../application/chat.service.js';
+import { CHAT_BLOCK_SIDE_EFFECT_PORT } from '../application/ports/chat-block-side-effect.port.js';
 import { CHAT_LIFECYCLE_SWEEP_PORT } from '../application/ports/chat-lifecycle-sweep.port.js';
 import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from '../application/ports/chat-match-thread-lifecycle.port.js';
 import { ChatThreadContextGuard } from '../context/chat-thread-context.guard.js';
 import { ChatThreadContextResolver } from '../context/chat-thread-context.resolver.js';
+import { ChatBlockSideEffectService } from '../lifecycle/chat-block-side-effect.service.js';
 import { ChatMatchThreadLifecycleService } from '../lifecycle/chat-match-thread-lifecycle.service.js';
 import { ChatSeasonLifecycleService } from '../lifecycle/chat-season-lifecycle.service.js';
 import { ChatSubscriptionQueryService } from '../queries/chat-subscription-query.service.js';
@@ -33,8 +35,13 @@ export const CHAT_APPLICATION_PROVIDERS: Provider[] = [
 ];
 
 export const CHAT_LIFECYCLE_PROVIDERS: Provider[] = [
+  ChatBlockSideEffectService,
   ChatMatchThreadLifecycleService,
   ChatSeasonLifecycleService,
+  {
+    provide: CHAT_BLOCK_SIDE_EFFECT_PORT,
+    useExisting: ChatBlockSideEffectService,
+  },
   {
     provide: CHAT_MATCH_THREAD_LIFECYCLE_PORT,
     useExisting: ChatMatchThreadLifecycleService,

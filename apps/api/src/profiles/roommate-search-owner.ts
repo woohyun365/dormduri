@@ -160,7 +160,7 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
     query?: RoommateSearchQuery,
   ): Promise<ResolvedVisibleProfileEntry[]> {
     const candidates = await candidateOwner.findCandidates({ viewerContext, scope, query });
-    return visibleProfileOwner.materializeVisibleProfileEntries(
+    const visibleEntries = await visibleProfileOwner.materializeVisibleProfileEntries(
       viewerContext,
       candidates.map((candidate) =>
         visibleProfileOwner.mapTargetParticipantCandidate(
@@ -170,6 +170,44 @@ export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
         ),
       ),
     );
+    return filterBlockedEntries(viewerContext, visibleEntries);
+  }
+
+  async function filterBlockedEntries(
+    viewerContext: VisibleProfileViewerContext,
+    entries: ResolvedVisibleProfileEntry[],
+  ): Promise<ResolvedVisibleProfileEntry[]> {
+    if (entries.length === 0) {
+      return entries;
+    }
+
+    const targetUserIds = entries.map((entry) => entry.user.id);
+    const activeBlocks = await deps.prisma.userBlock.findMany({
+      where: {
+        unblockedAt: null,
+        OR: [
+          {
+            blockerUserId: viewerContext.viewer.id,
+            blockedUserId: { in: targetUserIds },
+          },
+          {
+            blockerUserId: { in: targetUserIds },
+            blockedUserId: viewerContext.viewer.id,
+          },
+        ],
+      },
+      select: {
+        blockerUserId: true,
+        blockedUserId: true,
+      },
+    });
+    const blockedTargetUserIds = new Set(
+      activeBlocks.map((block) =>
+        block.blockerUserId === viewerContext.viewer.id ? block.blockedUserId : block.blockerUserId,
+      ),
+    );
+
+    return entries.filter((entry) => !blockedTargetUserIds.has(entry.user.id));
   }
 
   async function loadActiveBookmarkMap(

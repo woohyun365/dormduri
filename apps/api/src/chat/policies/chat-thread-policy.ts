@@ -38,6 +38,15 @@ import {
 
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
 
+function isBlockClosedDirectThread(thread: ThreadRecord): boolean {
+  return (
+    thread.threadKind === 'DIRECT' &&
+    thread.activeMatchId === null &&
+    thread.status === 'READ_ONLY' &&
+    thread.closedReason === 'USER_BLOCKED'
+  );
+}
+
 interface ChatThreadSupportOwnerDeps {
   prisma: PrismaService;
   seasonParticipantsService: SeasonParticipantsService;
@@ -219,6 +228,19 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
         publicTargetPolicy.actions.unavailableReasons.includes('TARGET_DELETED_OR_DEIDENTIFIED')
           ? 'TARGET_DELETED_OR_DEIDENTIFIED'
           : 'DIRECT_ACTION_NOT_ALLOWED';
+      const activeBlock = await client.userBlock.findFirst({
+        where: {
+          unblockedAt: null,
+          OR: [
+            { blockerUserId: viewerContext.user.id, blockedUserId: targetUser.id },
+            { blockerUserId: targetUser.id, blockedUserId: viewerContext.user.id },
+          ],
+        },
+        select: { id: true },
+      });
+      if (activeBlock) {
+        return cannotSendMessageDecision('SAFETY_OR_VISIBILITY_RESTRICTED');
+      }
 
       if (thread) {
         const viewerMember = this.getThreadMember(thread, viewerParticipant.id);
@@ -227,6 +249,11 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
             return pairHasActiveMatch
               ? this.resolveMatchedPairThreadSendMessageDecision(thread, viewerParticipant.id, now)
               : this.resolveThreadSendMessageDecision(thread, viewerParticipant.id, now);
+          }
+          if (isBlockClosedDirectThread(thread)) {
+            return directThreadActionEligible
+              ? canSendMessageDecision()
+              : cannotSendMessageDecision(directThreadActionUnavailableReason);
           }
           const threadDecision = this.resolveThreadSendMessageDecision(
             thread,
@@ -247,6 +274,11 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
               : cannotSendMessageDecision(
                   thread.closedReason === 'SEASON_ENDED' ? 'SEASON_ENDED' : 'THREAD_READ_ONLY',
                 );
+          }
+          if (isBlockClosedDirectThread(thread)) {
+            return directThreadActionEligible
+              ? canSendMessageDecision()
+              : cannotSendMessageDecision(directThreadActionUnavailableReason);
           }
           return directThreadActionEligible && thread.status === 'OPEN'
             ? canSendMessageDecision()
