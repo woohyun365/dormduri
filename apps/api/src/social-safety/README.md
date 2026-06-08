@@ -36,6 +36,7 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 
 - Report reason/shared contract: `packages/shared/src/social-safety/report.ts`.
 - Bookmark shared contract: `packages/shared/src/social-safety/bookmark.ts`.
+- Block shared contract: `packages/shared/src/social-safety/block.ts`.
 - Notification kind/payload handoff: `packages/shared/src/notifications/contract.ts` and notification writer port.
 - Participant visibility projection handoff: `application/ports/participant-visibility-writer.port.ts`.
 

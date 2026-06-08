@@ -1,12 +1,16 @@
 import type { UserNotification } from '@repo/shared/notification-contract';
-import { notificationPayloadSchema } from '@repo/shared/notification-contract';
+import {
+  notificationKindSchema,
+  notificationPayloadSchema,
+  notificationSourceTypeSchema,
+} from '@repo/shared/notification-contract';
 
 export type UserNotificationRecord = {
   id: string;
   recipientUserId: string;
   actorUserId: string;
-  kind: 'CHAT_THREAD_CREATED';
-  sourceType: string;
+  kind: unknown;
+  sourceType: unknown;
   sourceId: string;
   payload: unknown;
   readAt: Date | null;
@@ -14,17 +18,16 @@ export type UserNotificationRecord = {
 };
 
 export function toUserNotification(record: UserNotificationRecord): UserNotification {
+  const kind = notificationKindSchema.parse(record.kind);
+  const sourceType = notificationSourceTypeSchema.parse(record.sourceType);
   const payload = notificationPayloadSchema.parse(record.payload);
-  if (record.sourceType !== 'CONVERSATION_THREAD') {
-    throw new Error(`[notification-presenter] unsupported sourceType: ${record.sourceType}`);
-  }
 
   return {
     id: record.id,
     recipientUserId: record.recipientUserId,
     actorUserId: record.actorUserId,
-    kind: record.kind,
-    sourceType: record.sourceType,
+    kind,
+    sourceType,
     sourceId: record.sourceId,
     payload,
     readAt: record.readAt?.toISOString() ?? null,

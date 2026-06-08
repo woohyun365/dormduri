@@ -95,7 +95,7 @@ CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISP
 CREATE TYPE "ConversationMessageTombstoneReason" AS ENUM ('ACCOUNT_DELETION_RETENTION', 'USER_MESSAGE_DELETED', 'MODERATION_POLICY_VIOLATION', 'ADMIN_ACTION', 'RETENTION_DISPOSED');
 
 -- CreateEnum
-CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED');
+CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED');
 
 -- CreateEnum
 CREATE TYPE "NotificationOutboxStatus" AS ENUM ('PENDING', 'PUBLISHED', 'FAILED');
@@ -527,6 +527,22 @@ CREATE TABLE "SeasonParticipant" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SeasonParticipant_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserBookmark" (
+    "id" TEXT NOT NULL,
+    "viewerUserId" TEXT NOT NULL,
+    "seasonId" TEXT NOT NULL,
+    "targetUserId" TEXT NOT NULL,
+    "targetParticipantId" TEXT NOT NULL,
+    "bookmarkedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deletedAt" TIMESTAMPTZ(3),
+    "expiredAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserBookmark_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1241,6 +1257,18 @@ CREATE INDEX "SeasonParticipant_seasonId_participantStatus_idx" ON "SeasonPartic
 CREATE UNIQUE INDEX "SeasonParticipant_seasonId_userId_key" ON "SeasonParticipant"("seasonId", "userId");
 
 -- CreateIndex
+CREATE INDEX "UserBookmark_viewerUserId_seasonId_deletedAt_expiredAt_b_idx" ON "UserBookmark"("viewerUserId", "seasonId", "deletedAt", "expiredAt", "bookmarkedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBookmark_targetUserId_seasonId_deletedAt_expiredAt_idx" ON "UserBookmark"("targetUserId", "seasonId", "deletedAt", "expiredAt");
+
+-- CreateIndex
+CREATE INDEX "UserBookmark_viewerUserId_targetUserId_seasonId_delet_idx" ON "UserBookmark"("viewerUserId", "targetUserId", "seasonId", "deletedAt", "expiredAt");
+
+-- CreateIndex
+CREATE INDEX "UserBookmark_targetParticipantId_deletedAt_expiredAt_idx" ON "UserBookmark"("targetParticipantId", "deletedAt", "expiredAt");
+
+-- CreateIndex
 CREATE INDEX "SeasonParticipantLifecycleEvent_participantId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("participantId", "occurredAt");
 
 -- CreateIndex
@@ -1627,6 +1655,18 @@ ALTER TABLE "SeasonParticipant" ADD CONSTRAINT "SeasonParticipant_seasonId_fkey"
 ALTER TABLE "SeasonParticipant" ADD CONSTRAINT "SeasonParticipant_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_viewerUserId_fkey" FOREIGN KEY ("viewerUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_targetUserId_fkey" FOREIGN KEY ("targetUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_targetParticipantId_fkey" FOREIGN KEY ("targetParticipantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "SeasonParticipantLifecycleEvent" ADD CONSTRAINT "SeasonParticipantLifecycleEvent_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1800,3 +1840,19 @@ CREATE UNIQUE INDEX "ConversationThread_seasonId_pairKey_live_key"
 CREATE UNIQUE INDEX "ActiveMatchUnmatchRequest_activeMatchId_participantId_pending_key"
   ON "ActiveMatchUnmatchRequest"("activeMatchId", "participantId")
   WHERE "status" = 'PENDING';
+
+CREATE UNIQUE INDEX "UserBookmark_viewerUserId_seasonId_targetParticipant_active_key"
+  ON "UserBookmark"("viewerUserId", "seasonId", "targetParticipantId")
+  WHERE "deletedAt" IS NULL AND "expiredAt" IS NULL;
+
+CREATE INDEX "UserBookmark_active_list_cursor_idx"
+  ON "UserBookmark"("viewerUserId", "seasonId", "bookmarkedAt" DESC, "id" DESC)
+  WHERE "deletedAt" IS NULL AND "expiredAt" IS NULL;
+
+CREATE INDEX "UserBookmark_active_target_reverse_idx"
+  ON "UserBookmark"("targetUserId", "seasonId")
+  WHERE "deletedAt" IS NULL AND "expiredAt" IS NULL;
+
+CREATE INDEX "UserBookmark_active_block_cleanup_idx"
+  ON "UserBookmark"("viewerUserId", "targetUserId", "seasonId")
+  WHERE "deletedAt" IS NULL AND "expiredAt" IS NULL;

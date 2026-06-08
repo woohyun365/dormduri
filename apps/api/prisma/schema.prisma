@@ -224,6 +224,12 @@ enum ConversationMessageTombstoneReason {
 
 enum NotificationKind {
   CHAT_THREAD_CREATED
+  REPORT_RECEIVED
+  REPORT_STATUS_UPDATED
+  SUPPORT_TICKET_CREATED
+  SUPPORT_TICKET_REPLIED
+  SUPPORT_TICKET_ACTION_REQUIRED
+  SUPPORT_APPEAL_RESOLVED
 }
 
 enum NotificationOutboxStatus {
@@ -591,6 +597,7 @@ model Season {
   matchHistoryEntries  SeasonMatchHistoryEntry[]
   conversationThreads  ConversationThread[]
   operationAuditEvents SeasonOperationAuditEvent[]
+  userBookmarks        UserBookmark[]
 
   @@unique([campusCode, academicYear, semester])
   @@index([campusCode, matchingStartDate])
@@ -654,6 +661,8 @@ model User {
   receivedNotifications    UserNotification[]                       @relation("UserNotificationRecipient")
   actedNotifications       UserNotification[]                       @relation("UserNotificationActor")
   notificationOutboxEvents NotificationOutboxEvent[]
+  bookmarksCreated        UserBookmark[]                           @relation("UserBookmarkViewer")
+  bookmarksReceived       UserBookmark[]                           @relation("UserBookmarkTarget")
 }
 
 model UserDisplayIdentity {
@@ -880,11 +889,35 @@ model SeasonParticipant {
   threadMembers                  ConversationThreadMember[]
   sentMessages                   ConversationMessage[]             @relation("ConversationMessageSender")
   lifecycleEvents                SeasonParticipantLifecycleEvent[]
+  receivedBookmarks              UserBookmark[]                    @relation("UserBookmarkTargetParticipant")
 
   @@unique([seasonId, userId])
   @@index([userId, seasonId])
   @@index([seasonId, dormitoryId, dormitorySelectionState])
   @@index([seasonId, participantStatus])
+}
+
+
+model UserBookmark {
+  id                  String            @id @default(uuid())
+  viewerUserId        String
+  seasonId            String
+  targetUserId        String
+  targetParticipantId String
+  bookmarkedAt        DateTime          @default(now()) @db.Timestamptz(3)
+  deletedAt           DateTime?         @db.Timestamptz(3)
+  expiredAt           DateTime?         @db.Timestamptz(3)
+  createdAt           DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
+  viewer              User              @relation("UserBookmarkViewer", fields: [viewerUserId], references: [id], onDelete: Cascade)
+  targetUser          User              @relation("UserBookmarkTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetParticipant   SeasonParticipant @relation("UserBookmarkTargetParticipant", fields: [targetParticipantId], references: [id], onDelete: Cascade)
+  season              Season            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@index([viewerUserId, seasonId, deletedAt, expiredAt, bookmarkedAt, id])
+  @@index([targetUserId, seasonId, deletedAt, expiredAt])
+  @@index([viewerUserId, targetUserId, seasonId, deletedAt, expiredAt])
+  @@index([targetParticipantId, deletedAt, expiredAt])
 }
 
 model SeasonParticipantLifecycleEvent {

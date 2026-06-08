@@ -54,7 +54,7 @@ vi.mock('../../ReportSheet', () => ({
     onSubmit: (reason: string, detail: string | null) => void;
   }) =>
     isOpen ? (
-      <button data-testid="report-sheet" onClick={() => onSubmit('SPAM', null)}>
+      <button data-testid="report-sheet" onClick={() => onSubmit('SPAM_OR_AD', null)}>
         report
       </button>
     ) : null,
@@ -164,7 +164,7 @@ describe('ProfileDetailDialogs', () => {
     );
 
     fireEvent.click(screen.getByTestId('report-sheet'));
-    expect(onReport).toHaveBeenCalledWith('user-1', 'SPAM', null);
+    expect(onReport).toHaveBeenCalledWith('user-1', 'SPAM_OR_AD', null);
     expect(onCloseReportSheet).toHaveBeenCalled();
     expect(onCloseSheet).toHaveBeenCalled();
   });

@@ -23,6 +23,10 @@ function readOptional(path: string) {
   return existsSync(path) ? readFileSync(path, 'utf8') : '';
 }
 
+function containsStringLiteral(source: string, value: string) {
+  return new RegExp(`["']${value}["']`).test(source);
+}
+
 describe('Phase 1 expected-red social-safety shared contract', () => {
   it('defines the official 8 report reasons and no longer accepts legacy Web-only reasons', () => {
     const reportContractPath = join(sharedSourceRoot, 'social-safety/report.ts');
@@ -32,7 +36,7 @@ describe('Phase 1 expected-red social-safety shared contract', () => {
       exists: existsSync(reportContractPath),
       missingReasons: canonicalReportReasons.filter((reason) => !source.includes(reason)),
       legacyReasonsStillPresent: legacyWebOnlyReportReasons.filter((reason) =>
-        source.includes(reason),
+        containsStringLiteral(source, reason),
       ),
     }).toEqual({
       exists: true,
@@ -44,14 +48,15 @@ describe('Phase 1 expected-red social-safety shared contract', () => {
   it('keeps the stale Web 5-reason type from remaining canonical', () => {
     const legacyWebSource = readOptional(join(webSourceRoot, 'types/report.ts'));
 
-    expect(legacyWebReportReasonMembers.every((reason) => legacyWebSource.includes(reason))).toBe(
-      false,
-    );
-    expect(legacyWebOnlyReportReasons.filter((reason) => legacyWebSource.includes(reason))).toEqual(
-      [],
-    );
-    expect(legacyWebSource).toContain('SEXUAL_HARASSMENT');
-    expect(legacyWebSource).toContain('HATE_OR_DISCRIMINATION');
+    expect(
+      legacyWebReportReasonMembers.every((reason) =>
+        containsStringLiteral(legacyWebSource, reason),
+      ),
+    ).toBe(false);
+    expect(
+      legacyWebOnlyReportReasons.filter((reason) => containsStringLiteral(legacyWebSource, reason)),
+    ).toEqual([]);
+    expect(legacyWebSource).toContain('@repo/shared/social-safety/report');
   });
 
   it('defines bookmark request/query/response contracts with privacy-safe list metadata', () => {
@@ -77,6 +82,39 @@ describe('Phase 1 expected-red social-safety shared contract', () => {
 
     expect({
       exists: existsSync(bookmarkContractPath),
+      missingSymbols: requiredSymbols.filter((symbol) => !source.includes(symbol)),
+      forbiddenSymbolsPresent: forbiddenSymbols.filter((symbol) => source.includes(symbol)),
+    }).toEqual({
+      exists: true,
+      missingSymbols: [],
+      forbiddenSymbolsPresent: [],
+    });
+  });
+
+  it('defines block request/query/response contracts with note ownership and coarse visibility', () => {
+    const blockContractPath = join(sharedSourceRoot, 'social-safety/block.ts');
+    const source = readOptional(blockContractPath);
+    const requiredSymbols = [
+      'CreateBlockRequest',
+      'DeleteBlockRequest',
+      'ListBlocksQuery',
+      'BlockListResponse',
+      'CreateBlockResponse',
+      'DeleteBlockResponse',
+      'BLOCK_NOTE_MAX_LENGTH',
+      'NO_BLOCKS',
+      'NO_LONGER_VISIBLE',
+    ];
+    const forbiddenSymbols = [
+      'blockedByCounterpart',
+      'hiddenReasonCode',
+      'hiddenReasonDetail',
+      'targetNotifiedAt',
+      'retainedVaultPayload',
+    ];
+
+    expect({
+      exists: existsSync(blockContractPath),
       missingSymbols: requiredSymbols.filter((symbol) => !source.includes(symbol)),
       forbiddenSymbolsPresent: forbiddenSymbols.filter((symbol) => source.includes(symbol)),
     }).toEqual({
