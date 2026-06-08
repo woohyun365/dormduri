@@ -54,6 +54,10 @@ figma_references/
 
 ## 문서 (위키로 관리)
 docs/*
+!docs/04_policy/
+docs/04_policy/*
+!docs/04_policy/official/
+!docs/04_policy/official/**
 
 ## 프로젝트 관리 문서 (README.md 제외)
 CLAUDE.md
