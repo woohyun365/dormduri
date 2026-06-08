@@ -81,6 +81,24 @@ describe('Phase 2 social-safety Prisma baseline', () => {
     expect(source).toContain('@@index([targetType, targetId, status, receivedAt, id])');
   });
 
+  it('keeps notification campaign and operator alert baseline models', () => {
+    const schema = read(schemaPath);
+    const migration = read(baselineMigrationPath);
+
+    expect(schema).toContain('enum NotificationCampaignStatus');
+    expect(schema).toContain('model NotificationCampaign');
+    expect(schema).toContain('model OperatorAlert');
+    expect(schema).toContain('OperatorAlertCategory');
+    expect(schema).toContain('PROFILE_MISMATCH_FEEDBACK');
+    expect(schema).toContain('SEASON_SYSTEM_NOTICE');
+    expect(migration).toContain('CREATE TABLE "NotificationCampaign"');
+    expect(migration).toContain('CREATE TABLE "OperatorAlert"');
+    expect(migration).toContain('NotificationCampaign_kind_sourceType_sourceId_key');
+    expect(migration).toContain('OperatorAlert_sourceType_sourceId_category_key');
+    expect(migration).toContain('PROFILE_MISMATCH_FEEDBACK');
+    expect(migration).toContain('SEASON_SYSTEM_NOTICE');
+  });
+
   it('keeps report open dedupe and queue indexes in baseline SQL', () => {
     const source = read(baselineMigrationPath);
 

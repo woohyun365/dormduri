@@ -80,6 +80,11 @@ describe('notifications architecture boundary', () => {
     expect(source).toContain('## Architecture guard');
     expect(source).toContain('NOTIFICATION_WRITER');
     expect(source).toContain('CHAT_THREAD_NOTIFICATION_WRITER');
+    expect(source).toContain('PROFILE_MISMATCH_FEEDBACK');
+    expect(source).toContain('OPERATOR_ALERT_SINK');
+    expect(source).toContain('campaigns/');
+    expect(source).toContain('OPERATOR_ALERT_DISCORD_WEBHOOK_URL');
+    expect(source).toContain('notification_campaign_lag');
     expect(source).toContain('report detail, block note, support body');
   });
 });

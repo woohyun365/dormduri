@@ -31,6 +31,8 @@
 - `presenters/`: receipt response allowlist.
 - `errors/`: probing-safe user-facing error mapping.
 
+`queries/`는 Phase 5 report intake slice에 두지 않는다. Reporter-facing report history와 운영자 queue/detail/status/decision read model은 #263 BackOffice/API operations owner에서 `admin/`, `operations/`, 또는 별도 backoffice prefix로 설계한다.
+
 ## Hard rules
 
 - Report intake는 participant `hiddenByAdminAt`, `hiddenReasonCode`, `deactivatedAt`를 직접 변경하지 않는다.

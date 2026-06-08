@@ -134,7 +134,6 @@ enum UserBlockEventType {
   UNBLOCKED
 }
 
-
 enum ReportTargetType {
   PROFILE
   MATCH_REQUEST
@@ -283,6 +282,8 @@ enum NotificationKind {
   CHAT_THREAD_CREATED
   REPORT_RECEIVED
   REPORT_STATUS_UPDATED
+  PROFILE_MISMATCH_FEEDBACK
+  SEASON_SYSTEM_NOTICE
   SUPPORT_TICKET_CREATED
   SUPPORT_TICKET_REPLIED
   SUPPORT_TICKET_ACTION_REQUIRED
@@ -293,6 +294,30 @@ enum NotificationOutboxStatus {
   PENDING
   PUBLISHED
   FAILED
+}
+
+enum NotificationCampaignStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum OperatorAlertStatus {
+  PENDING
+  DISPATCHED
+  FAILED
+  SKIPPED
+}
+
+enum OperatorAlertCategory {
+  HIGH_RISK_REPORT
+}
+
+enum OperatorAlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
 }
 
 enum RetainedVaultObjectTarget {
@@ -718,12 +743,12 @@ model User {
   receivedNotifications    UserNotification[]                       @relation("UserNotificationRecipient")
   actedNotifications       UserNotification[]                       @relation("UserNotificationActor")
   notificationOutboxEvents NotificationOutboxEvent[]
-  bookmarksCreated        UserBookmark[]                           @relation("UserBookmarkViewer")
-  bookmarksReceived       UserBookmark[]                           @relation("UserBookmarkTarget")
-  blocksCreated           UserBlock[]                               @relation("UserBlockBlocker")
-  blocksReceived          UserBlock[]                               @relation("UserBlockBlocked")
-  blockEventsAuthored     UserBlockEvent[]                          @relation("UserBlockEventActor")
-  blockEventsTargeted     UserBlockEvent[]                          @relation("UserBlockEventTarget")
+  bookmarksCreated         UserBookmark[]                           @relation("UserBookmarkViewer")
+  bookmarksReceived        UserBookmark[]                           @relation("UserBookmarkTarget")
+  blocksCreated            UserBlock[]                              @relation("UserBlockBlocker")
+  blocksReceived           UserBlock[]                              @relation("UserBlockBlocked")
+  blockEventsAuthored      UserBlockEvent[]                         @relation("UserBlockEventActor")
+  blockEventsTargeted      UserBlockEvent[]                         @relation("UserBlockEventTarget")
 }
 
 model UserDisplayIdentity {
@@ -958,7 +983,6 @@ model SeasonParticipant {
   @@index([seasonId, participantStatus])
 }
 
-
 model UserBookmark {
   id                  String            @id @default(uuid())
   viewerUserId        String
@@ -1018,32 +1042,31 @@ model UserBlockEvent {
   @@index([targetUserId, occurredAt, id])
 }
 
-
 model ReportCase {
-  id                               String          @id @default(uuid())
-  reporterUserId                   String
-  targetType                       ReportTargetType
-  targetId                         String
-  targetUserId                     String?
-  targetParticipantId              String?
-  targetThreadId                   String?
-  targetMessageId                  String?
-  targetMatchRequestId             String?
-  seasonId                         String?
-  reason                           ReportReason
-  riskTier                         ReportRiskTier
-  status                           ReportStatus    @default(SUBMITTED)
-  detail                           String?
-  evidenceAttachmentIds            Json?
-  evidenceAttachmentPolicy         String?
-  optionalBlockRequested           Boolean         @default(false)
-  optionalBlockResult              Json?
-  falseReportDisclaimerAcceptedAt  DateTime        @db.Timestamptz(3)
-  targetSnapshot                   Json
-  receivedAt                       DateTime        @default(now()) @db.Timestamptz(3)
-  createdAt                        DateTime        @default(now()) @db.Timestamptz(3)
-  updatedAt                        DateTime        @default(now()) @updatedAt @db.Timestamptz(3)
-  events                           ReportCaseEvent[]
+  id                              String            @id @default(uuid())
+  reporterUserId                  String
+  targetType                      ReportTargetType
+  targetId                        String
+  targetUserId                    String?
+  targetParticipantId             String?
+  targetThreadId                  String?
+  targetMessageId                 String?
+  targetMatchRequestId            String?
+  seasonId                        String?
+  reason                          ReportReason
+  riskTier                        ReportRiskTier
+  status                          ReportStatus      @default(SUBMITTED)
+  detail                          String?
+  evidenceAttachmentIds           Json?
+  evidenceAttachmentPolicy        String?
+  optionalBlockRequested          Boolean           @default(false)
+  optionalBlockResult             Json?
+  falseReportDisclaimerAcceptedAt DateTime          @db.Timestamptz(3)
+  targetSnapshot                  Json
+  receivedAt                      DateTime          @default(now()) @db.Timestamptz(3)
+  createdAt                       DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt                       DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
+  events                          ReportCaseEvent[]
 
   @@index([reporterUserId, receivedAt, id])
   @@index([targetType, targetId, status, receivedAt, id])
@@ -1444,6 +1467,49 @@ model UserNotification {
   @@index([recipientUserId, readAt, createdAt, id])
   @@index([recipientUserId, createdAt, id])
   @@index([actorUserId, createdAt, id])
+}
+
+model NotificationCampaign {
+  id             String                     @id @default(cuid())
+  kind           NotificationKind
+  sourceType     String
+  sourceId       String
+  payload        Json
+  targetSeasonId String?
+  status         NotificationCampaignStatus @default(PENDING)
+  cursorUserId   String?
+  chunkSize      Int                        @default(100)
+  enqueuedCount  Int                        @default(0)
+  processedCount Int                        @default(0)
+  lastError      String?
+  startedAt      DateTime?                  @db.Timestamptz(3)
+  completedAt    DateTime?                  @db.Timestamptz(3)
+  createdAt      DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@unique([kind, sourceType, sourceId])
+  @@index([status, createdAt, id])
+  @@index([targetSeasonId, status, createdAt, id])
+}
+
+model OperatorAlert {
+  id               String                @id @default(cuid())
+  sourceType       String
+  sourceId         String
+  category         OperatorAlertCategory
+  riskTier         ReportRiskTier?
+  severity         OperatorAlertSeverity
+  status           OperatorAlertStatus   @default(PENDING)
+  payload          Json
+  deliveryAttempts Int                   @default(0)
+  deliveredAt      DateTime?             @db.Timestamptz(3)
+  lastError        String?
+  createdAt        DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@unique([sourceType, sourceId, category])
+  @@index([status, createdAt, id])
+  @@index([category, riskTier, createdAt, id])
 }
 
 model NotificationOutboxEvent {

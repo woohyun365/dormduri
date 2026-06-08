@@ -60,7 +60,7 @@ Report intake는 신고 원장을 생성하고 접수 사실을 기록하는 단
 | `MEDIUM`  | 반복 신고, 개인정보 노출 의심, 혐오 표현       | 우선 검토 queue 후보                     |
 | `HIGH`    | 협박/위협, 성희롱, 스토킹, 자해/신체 안전 우려 | operator alert 후보, 즉시 보호 조치 검토 |
 
-Operator alert는 notification campaign이 아니라 운영자 확인을 요구하는 internal alert다. MVP에서 사용자 알림함에 operator alert raw payload를 싣지 않는다.
+Operator alert는 notification campaign이나 사용자 알림함이 아니라 운영자 확인을 요구하는 internal alert다. High-risk 신고 접수는 먼저 candidate event를 남기고, notification owner가 allowlist payload만 가진 `OperatorAlert` record/sink handoff로 materialize한다. MVP에서 사용자 알림함에 operator alert raw payload를 싣지 않는다.
 
 ## 제재 체계
 
@@ -336,6 +336,7 @@ User block은 viewer-specific relation이므로 participant-level hidden reason�
 
 | 날짜       | 변경 내용                                                                                                                                                                                                 | 관련 이슈          |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| 2026-06-08 | high-risk report candidate event를 user notification이 아닌 `OperatorAlert` record/sink handoff로 materialize하는 Phase 6 경계를 명시했다                                                                 | #220 / #196        |
 | 2026-06-08 | report intake-only 경계, 허위 신고 disclaimer, riskTier/operator alert 후보, support/notification handoff를 구현 baseline으로 보강했다                                                                    | #196 / #79 / #220  |
 | 2026-06-05 | `SeasonParticipant.hidden*`를 신고/차단 원장이 아닌 participant-level current visibility projection으로 정의하고, `ParticipantHiddenReasonCode` taxonomy와 #196 social-safety handoff boundary를 추가했다 | #222 / #223 / #196 |
 | 2026-05-26 | BE/DB 최종 retention 구조에 맞춰 RRPD disclosure 접근 로그 명칭을 통합 모델인 `RetentionAccessLog`로 정합화                                                                                               | #195               |

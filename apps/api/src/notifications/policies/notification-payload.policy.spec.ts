@@ -2,7 +2,9 @@ import {
   assertNotificationPayloadAllowed,
   isNotificationPayloadPrivacySafe,
   toChatThreadCreatedNotificationPayload,
+  toProfileMismatchFeedbackNotificationPayload,
   toReportReceivedNotificationPayload,
+  toSeasonSystemNoticeNotificationPayload,
 } from './notification-payload.policy.js';
 
 describe('notification payload policy', () => {
@@ -33,6 +35,37 @@ describe('notification payload policy', () => {
       kind: 'REPORT_RECEIVED',
       reportId: 'report-1',
       status: 'RECEIVED',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+  });
+
+  it('profile mismatch feedback 알림은 report pointer와 prompt code만 포함한다', () => {
+    expect(
+      toProfileMismatchFeedbackNotificationPayload({
+        reportId: 'report-1',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'PROFILE_MISMATCH_FEEDBACK',
+      reportId: 'report-1',
+      promptCode: 'PROFILE_REVIEW_NEXT_SEASON',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+  });
+
+  it('season system notice 알림은 campaign pointer와 notice code만 포함한다', () => {
+    expect(
+      toSeasonSystemNoticeNotificationPayload({
+        campaignId: 'campaign-1',
+        seasonId: 'season-1',
+        noticeCode: 'SEASON_REMINDER',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'SEASON_SYSTEM_NOTICE',
+      campaignId: 'campaign-1',
+      seasonId: 'season-1',
+      noticeCode: 'SEASON_REMINDER',
       occurredAt: '2026-06-02T00:00:00.000Z',
     });
   });

@@ -72,6 +72,21 @@ describe('NotificationQueryService', () => {
     expect(prisma.userNotification.findMany).not.toHaveBeenCalled();
   });
 
+  it('markAllRead는 recipient unread 알림만 bounded update한다', async () => {
+    const prisma = createPrismaMock();
+    prisma.userNotification.updateMany.mockResolvedValueOnce({ count: 2 });
+    const service = new NotificationQueryService(prisma as never);
+
+    await expect(service.markAllRead('user-b')).resolves.toEqual({
+      updatedCount: 2,
+      readAt: now.toISOString(),
+    });
+    expect(prisma.userNotification.updateMany).toHaveBeenCalledWith({
+      where: { recipientUserId: 'user-b', readAt: null },
+      data: { readAt: now, updatedAt: now },
+    });
+  });
+
   it('markRead는 recipient 소유 알림만 idempotent하게 읽음 처리한다', async () => {
     const prisma = createPrismaMock();
     prisma.userNotification.findFirst.mockResolvedValueOnce({

@@ -44,6 +44,11 @@ export class NotificationsController {
     return this.notificationsService.getUnreadCount(authUser);
   }
 
+  @Post('read-all')
+  async markAllRead(@CurrentUser() authUser: AuthenticatedUserContext) {
+    return this.notificationsService.markAllRead(authUser);
+  }
+
   @Post(':notificationId/read')
   async markRead(
     @CurrentUser() authUser: AuthenticatedUserContext,

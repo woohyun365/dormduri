@@ -55,6 +55,55 @@ describe('notification shared contract guards', () => {
     ).toBe(false);
   });
 
+  it('profile mismatch feedback과 read-all response contract를 허용한다', () => {
+    expect(
+      notificationContract.userNotificationSchema.safeParse({
+        id: 'notification-profile-feedback-1',
+        recipientUserId: 'target-user',
+        actorUserId: 'target-user',
+        kind: 'PROFILE_MISMATCH_FEEDBACK',
+        sourceType: 'REPORT_CASE',
+        sourceId: 'report-1',
+        payload: {
+          kind: 'PROFILE_MISMATCH_FEEDBACK',
+          reportId: 'report-1',
+          promptCode: 'PROFILE_REVIEW_NEXT_SEASON',
+          occurredAt,
+        },
+        readAt: null,
+        createdAt: occurredAt,
+      }).success,
+    ).toBe(true);
+
+    expect(
+      notificationContract.userNotificationSchema.safeParse({
+        id: 'notification-profile-feedback-1',
+        recipientUserId: 'target-user',
+        actorUserId: 'target-user',
+        kind: 'PROFILE_MISMATCH_FEEDBACK',
+        sourceType: 'REPORT_CASE',
+        sourceId: 'report-1',
+        payload: {
+          kind: 'PROFILE_MISMATCH_FEEDBACK',
+          reportId: 'report-1',
+          promptCode: 'PROFILE_REVIEW_NEXT_SEASON',
+          reporterUserId: 'reporter-user',
+          reportDetail: 'raw report detail',
+          occurredAt,
+        },
+        readAt: null,
+        createdAt: occurredAt,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      notificationContract.markAllNotificationsReadResponseSchema.parse({
+        updatedCount: 2,
+        readAt: occurredAt,
+      }),
+    ).toEqual({ updatedCount: 2, readAt: occurredAt });
+  });
+
   it('notification.created realtime event는 chat realtime event union에 포함된다', () => {
     const event = {
       schemaVersion: 1,

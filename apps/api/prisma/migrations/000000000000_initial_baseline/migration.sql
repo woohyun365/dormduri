@@ -119,10 +119,22 @@ CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISP
 CREATE TYPE "ConversationMessageTombstoneReason" AS ENUM ('ACCOUNT_DELETION_RETENTION', 'USER_MESSAGE_DELETED', 'MODERATION_POLICY_VIOLATION', 'ADMIN_ACTION', 'RETENTION_DISPOSED');
 
 -- CreateEnum
-CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED');
+CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'PROFILE_MISMATCH_FEEDBACK', 'SEASON_SYSTEM_NOTICE', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED');
 
 -- CreateEnum
 CREATE TYPE "NotificationOutboxStatus" AS ENUM ('PENDING', 'PUBLISHED', 'FAILED');
+
+-- CreateEnum
+CREATE TYPE "NotificationCampaignStatus" AS ENUM ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED');
+
+-- CreateEnum
+CREATE TYPE "OperatorAlertStatus" AS ENUM ('PENDING', 'DISPATCHED', 'FAILED', 'SKIPPED');
+
+-- CreateEnum
+CREATE TYPE "OperatorAlertCategory" AS ENUM ('HIGH_RISK_REPORT');
+
+-- CreateEnum
+CREATE TYPE "OperatorAlertSeverity" AS ENUM ('INFO', 'WARNING', 'CRITICAL');
 
 -- CreateEnum
 CREATE TYPE "RetainedVaultObjectTarget" AS ENUM ('CHAT_MESSAGE_BODY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY', 'NICKNAME_AUDIT_EVENT', 'ACADEMIC_IDENTITY_AUDIT_EVENT');
@@ -956,6 +968,47 @@ CREATE TABLE "UserNotification" (
 );
 
 -- CreateTable
+CREATE TABLE "NotificationCampaign" (
+    "id" TEXT NOT NULL,
+    "kind" "NotificationKind" NOT NULL,
+    "sourceType" TEXT NOT NULL,
+    "sourceId" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "targetSeasonId" TEXT,
+    "status" "NotificationCampaignStatus" NOT NULL DEFAULT 'PENDING',
+    "cursorUserId" TEXT,
+    "chunkSize" INTEGER NOT NULL DEFAULT 100,
+    "enqueuedCount" INTEGER NOT NULL DEFAULT 0,
+    "processedCount" INTEGER NOT NULL DEFAULT 0,
+    "lastError" TEXT,
+    "startedAt" TIMESTAMPTZ(3),
+    "completedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NotificationCampaign_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "OperatorAlert" (
+    "id" TEXT NOT NULL,
+    "sourceType" TEXT NOT NULL,
+    "sourceId" TEXT NOT NULL,
+    "category" "OperatorAlertCategory" NOT NULL,
+    "riskTier" "ReportRiskTier",
+    "severity" "OperatorAlertSeverity" NOT NULL,
+    "status" "OperatorAlertStatus" NOT NULL DEFAULT 'PENDING',
+    "payload" JSONB NOT NULL,
+    "deliveryAttempts" INTEGER NOT NULL DEFAULT 0,
+    "deliveredAt" TIMESTAMPTZ(3),
+    "lastError" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OperatorAlert_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "NotificationOutboxEvent" (
     "id" TEXT NOT NULL,
     "notificationId" TEXT NOT NULL,
@@ -1573,6 +1626,24 @@ CREATE INDEX "UserNotification_recipientUserId_createdAt_id_idx" ON "UserNotific
 
 -- CreateIndex
 CREATE INDEX "UserNotification_actorUserId_createdAt_id_idx" ON "UserNotification"("actorUserId", "createdAt", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NotificationCampaign_kind_sourceType_sourceId_key" ON "NotificationCampaign"("kind", "sourceType", "sourceId");
+
+-- CreateIndex
+CREATE INDEX "NotificationCampaign_status_createdAt_id_idx" ON "NotificationCampaign"("status", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "NotificationCampaign_targetSeasonId_status_createdAt_id_idx" ON "NotificationCampaign"("targetSeasonId", "status", "createdAt", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OperatorAlert_sourceType_sourceId_category_key" ON "OperatorAlert"("sourceType", "sourceId", "category");
+
+-- CreateIndex
+CREATE INDEX "OperatorAlert_status_createdAt_id_idx" ON "OperatorAlert"("status", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "OperatorAlert_category_riskTier_createdAt_id_idx" ON "OperatorAlert"("category", "riskTier", "createdAt", "id");
 
 -- CreateIndex
 CREATE INDEX "NotificationOutboxEvent_status_availableAt_createdAt_id_idx" ON "NotificationOutboxEvent"("status", "availableAt", "createdAt", "id");

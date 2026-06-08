@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ListNotificationsQuery,
+  MarkAllNotificationsReadResponse,
   MarkNotificationReadResponse,
   NotificationListResponse,
   NotificationUnreadCountResponse,
@@ -21,6 +22,10 @@ export class NotificationsService {
 
   getUnreadCount(authUser: AuthenticatedUserContext): Promise<NotificationUnreadCountResponse> {
     return this.queryService.getUnreadCount(authUser.id);
+  }
+
+  markAllRead(authUser: AuthenticatedUserContext): Promise<MarkAllNotificationsReadResponse> {
+    return this.queryService.markAllRead(authUser.id);
   }
 
   markRead(

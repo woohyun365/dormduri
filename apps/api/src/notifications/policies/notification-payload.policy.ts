@@ -68,6 +68,33 @@ export function toReportReceivedNotificationPayload(input: { reportId: string; o
   });
 }
 
+export function toProfileMismatchFeedbackNotificationPayload(input: {
+  reportId: string;
+  occurredAt: Date;
+}) {
+  return assertAllowedPayload({
+    kind: 'PROFILE_MISMATCH_FEEDBACK' as const,
+    reportId: input.reportId,
+    promptCode: 'PROFILE_REVIEW_NEXT_SEASON' as const,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
+export function toSeasonSystemNoticeNotificationPayload(input: {
+  campaignId: string;
+  seasonId?: string | null;
+  noticeCode: string;
+  occurredAt: Date;
+}) {
+  return assertAllowedPayload({
+    kind: 'SEASON_SYSTEM_NOTICE' as const,
+    campaignId: input.campaignId,
+    seasonId: input.seasonId ?? null,
+    noticeCode: input.noticeCode,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
 function assertAllowedPayload<T>(payload: T): T {
   assertNotificationPayloadAllowed(payload);
   return payload;

@@ -27,6 +27,10 @@ import { MatchesService } from '../matches/matches.service.js';
 import { ModerationModule } from '../moderation/moderation.module.js';
 import { ModerationService } from '../moderation/moderation.service.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
+import { CreateNotificationCampaignCommand } from '../notifications/campaigns/create-notification-campaign.command.js';
+import { NotificationCampaignFanoutService } from '../notifications/campaigns/notification-campaign-fanout.service.js';
+import { MaterializeProfileMismatchFeedbackCommand } from '../notifications/commands/materialize-profile-mismatch-feedback.command.js';
+import { MaterializeReportOperatorAlertCommand } from '../notifications/commands/materialize-report-operator-alert.command.js';
 import { CHAT_THREAD_NOTIFICATION_WRITER } from '../notifications/application/ports/chat-thread-notification-writer.port.js';
 import { NOTIFICATION_WRITER } from '../notifications/application/ports/notification-writer.port.js';
 import { NotificationQueryService } from '../notifications/queries/notification-query.service.js';
@@ -245,6 +249,10 @@ describe('affected API module boundary finalization', () => {
       NotificationQueryService,
       NOTIFICATION_WRITER,
       CHAT_THREAD_NOTIFICATION_WRITER,
+      MaterializeProfileMismatchFeedbackCommand,
+      MaterializeReportOperatorAlertCommand,
+      CreateNotificationCampaignCommand,
+      NotificationCampaignFanoutService,
     ]);
     expect(moduleMetadata(DormitoriesModule, 'exports')).toEqual([
       DormitoriesService,

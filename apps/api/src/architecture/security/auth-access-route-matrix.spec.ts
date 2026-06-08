@@ -437,6 +437,13 @@ const expectedRoutes: ExpectedRoute[] = [
   },
   {
     controller: NotificationsController,
+    handler: 'markAllRead',
+    method: RequestMethod.POST,
+    path: 'api/notifications/read-all',
+    access: 'protected',
+  },
+  {
+    controller: NotificationsController,
     handler: 'markRead',
     method: RequestMethod.POST,
     path: 'api/notifications/:notificationId/read',
