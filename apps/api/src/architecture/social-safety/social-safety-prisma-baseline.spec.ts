@@ -109,4 +109,24 @@ describe('Phase 2 social-safety Prisma baseline', () => {
     expect(source).toContain('ReportCase_targetType_targetId_status_receivedAt_id_idx');
     expect(source).toContain('ReportCaseEvent_reportCaseId_occurredAt_id_idx');
   });
+
+  it('keeps support ticket/FAQ models and indexes in Prisma baseline', () => {
+    const schema = read(schemaPath);
+    const migration = read(baselineMigrationPath);
+
+    expect(schema).toContain('enum SupportTicketCategory');
+    expect(schema).toContain('enum SupportTicketStatus');
+    expect(schema).toContain('enum SupportMessageSenderType');
+    expect(schema).toContain('enum SupportAppealCategory');
+    expect(schema).toContain('model SupportTicket');
+    expect(schema).toContain('model SupportTicketMessage');
+    expect(schema).toContain('model SupportFaqArticle');
+    expect(schema).toContain('@@index([requesterUserId, status, lastMessageAt, id])');
+    expect(schema).toContain('@@index([published, category, sortOrder, id])');
+    expect(migration).toContain('CREATE TABLE "SupportTicket"');
+    expect(migration).toContain('CREATE TABLE "SupportTicketMessage"');
+    expect(migration).toContain('CREATE TABLE "SupportFaqArticle"');
+    expect(migration).toContain('SupportTicket_requesterUserId_status_lastMessageAt_id_idx');
+    expect(migration).toContain('SupportFaqArticle_published_category_sortOrder_id_idx');
+  });
 });

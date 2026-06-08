@@ -5,6 +5,8 @@ import {
   toProfileMismatchFeedbackNotificationPayload,
   toReportReceivedNotificationPayload,
   toSeasonSystemNoticeNotificationPayload,
+  toSupportTicketCreatedNotificationPayload,
+  toSupportTicketRepliedNotificationPayload,
 } from './notification-payload.policy.js';
 
 describe('notification payload policy', () => {
@@ -66,6 +68,35 @@ describe('notification payload policy', () => {
       campaignId: 'campaign-1',
       seasonId: 'season-1',
       noticeCode: 'SEASON_REMINDER',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+  });
+
+  it('support ticket 알림은 ticket pointer/status만 포함한다', () => {
+    expect(
+      toSupportTicketCreatedNotificationPayload({
+        supportTicketId: 'ticket-1',
+        category: 'ACCOUNT',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'SUPPORT_TICKET_CREATED',
+      supportTicketId: 'ticket-1',
+      category: 'ACCOUNT',
+      status: 'OPEN',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+
+    expect(
+      toSupportTicketRepliedNotificationPayload({
+        supportTicketId: 'ticket-1',
+        status: 'WAITING_USER',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'SUPPORT_TICKET_REPLIED',
+      supportTicketId: 'ticket-1',
+      status: 'WAITING_USER',
       occurredAt: '2026-06-02T00:00:00.000Z',
     });
   });

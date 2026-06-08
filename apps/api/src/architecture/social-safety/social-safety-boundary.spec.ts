@@ -70,6 +70,29 @@ describe('Phase 1 expected-red social-safety/support architecture boundary', () 
     expect(rootProductionFiles).toEqual(['report.controller.ts', 'report.module.ts']);
   });
 
+  it('keeps support root production files limited to module/controller entrypoints', () => {
+    const rootProductionFiles = readdirSync(supportRoot)
+      .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
+      .sort();
+
+    expect(rootProductionFiles).toEqual(['support.controller.ts', 'support.module.ts']);
+  });
+
+  it('keeps support contract specs owned by contracts directory', () => {
+    expect(existsSync(join(supportRoot, 'support-contract.red.spec.ts'))).toBe(false);
+    expect(existsSync(join(supportRoot, 'contracts/support-contract.spec.ts'))).toBe(true);
+  });
+
+  it('keeps support away from notification internals and uses the generic writer port', () => {
+    const forbidden =
+      /from\s+['"].*(?:notifications\/(?:outbox|commands|policies)|notification-outbox|create-notification\.command)|\bCreateNotificationCommand\b|\bNotificationOutboxEvent\b/;
+
+    expect(offendingFiles(supportRoot, forbidden)).toEqual([]);
+    expect(
+      readSource(join(supportRoot, 'notifications/support-notification.service.ts')),
+    ).toContain('NOTIFICATION_WRITER');
+  });
+
   it('keeps social-safety contract specs owned by child domain contracts directories', () => {
     expect(existsSync(join(socialSafetyRoot, 'social-safety-contract.spec.ts'))).toBe(false);
     expect(existsSync(join(socialSafetyRoot, 'social-safety-contract.red.spec.ts'))).toBe(false);

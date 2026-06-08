@@ -44,6 +44,18 @@
 
 지원 ticket은 신고/제재 결정을 직접 수행하지 않는다. 신고 사유 판단, 제재 단계, 임시조치, 외부기관 이관은 [incident-enforcement.md](./incident-enforcement.md)가 소유한다.
 
+## API/access baseline
+
+| API                                                              | access                  | 정책                                                                           |
+| ---------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------ |
+| `GET /api/support/faq`, `GET /api/support/faq/:articleId`        | public                  | `published=true` FAQ만 반환하고 unpublished article은 숨긴다.                  |
+| `POST /api/support/tickets`                                      | protected               | 본인 ticket 생성 + 첫 사용자 메시지를 같은 transaction으로 기록한다.           |
+| `GET /api/support/tickets`, `GET /api/support/tickets/:ticketId` | protected               | 본인 ticket만 list/detail 조회할 수 있다.                                      |
+| `POST /api/support/tickets/:ticketId/messages`                   | protected               | `CLOSED`가 아니면 본인 follow-up을 append하고 `WAITING_OPERATOR`로 전환한다.   |
+| `GET /api/operations/support/tickets*`                           | `admin:support:read`    | 운영 queue/detail read. BackOffice UI가 아니라 backend protected API다.        |
+| `POST /api/operations/support/tickets/:ticketId/replies`         | `admin:support:reply`   | 운영자 답변 메시지를 append하고 `WAITING_USER`/`RESOLVED`/`CLOSED`로 전환한다. |
+| `POST /api/operations/support/tickets/:ticketId/resolve`         | `admin:support:resolve` | 메시지 추가 없이 `RESOLVED`/`CLOSED` 상태로 수렴한다.                          |
+
 ## Appeal policy
 
 - 이의 신청은 support ticket의 category로 접수하되, 판단 owner는 incident-enforcement review다.
@@ -92,13 +104,14 @@ MVP의 사용자 통지는 in-app notification이 primary다. Push와 native ema
 
 | 구현 항목                   | 관련 이슈                            |
 | --------------------------- | ------------------------------------ |
-| support ticket API/BFF      | #79                                  |
-| FAQ API/BFF                 | #220                                 |
+| support ticket API backend  | #79                                  |
+| FAQ API backend             | #220                                 |
 | support notification writer | #220 / #196                          |
 | appeal review workflow      | #79 / incident-enforcement follow-up |
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                     | 관련 이슈         |
-| ---------- | --------------------------------------------------------------------------------------------- | ----------------- |
-| 2026-06-08 | support ticket, appeal, FAQ, email optional consent, notification handoff baseline을 추가했다 | #79 / #220 / #196 |
+| 날짜       | 변경 내용                                                                                                | 관련 이슈         |
+| ---------- | -------------------------------------------------------------------------------------------------------- | ----------------- |
+| 2026-06-08 | support ticket/FAQ backend route, capability, self-only access, notification writer 구현 기준을 반영했다 | #79 / #220        |
+| 2026-06-08 | support ticket, appeal, FAQ, email optional consent, notification handoff baseline을 추가했다            | #79 / #220 / #196 |

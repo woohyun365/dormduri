@@ -80,6 +80,18 @@ CREATE TYPE "ReportCaseEventType" AS ENUM ('REPORT_SUBMITTED', 'REPORT_REPLAYED'
 CREATE TYPE "ReportActorType" AS ENUM ('USER', 'SYSTEM');
 
 -- CreateEnum
+CREATE TYPE "SupportTicketCategory" AS ENUM ('ACCOUNT', 'SEASON', 'MATCHING', 'REPORT_OR_BLOCK', 'APPEAL', 'BUG', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "SupportTicketStatus" AS ENUM ('OPEN', 'WAITING_USER', 'WAITING_OPERATOR', 'RESOLVED', 'CLOSED');
+
+-- CreateEnum
+CREATE TYPE "SupportMessageSenderType" AS ENUM ('USER', 'OPERATOR', 'SYSTEM');
+
+-- CreateEnum
+CREATE TYPE "SupportAppealCategory" AS ENUM ('SANCTION', 'TEMPORARY_RESTRICTION', 'REPORT_RESULT', 'CONTENT_ACTION');
+
+-- CreateEnum
 CREATE TYPE "MatchRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM', 'EXPIRED');
 
 -- CreateEnum
@@ -651,6 +663,50 @@ CREATE TABLE "ReportCaseEvent" (
     "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ReportCaseEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SupportTicket" (
+    "id" TEXT NOT NULL,
+    "requesterUserId" TEXT NOT NULL,
+    "category" "SupportTicketCategory" NOT NULL,
+    "subject" TEXT NOT NULL,
+    "status" "SupportTicketStatus" NOT NULL DEFAULT 'OPEN',
+    "relatedEntityId" TEXT,
+    "appealCategory" "SupportAppealCategory",
+    "emailReplyConsent" BOOLEAN NOT NULL DEFAULT false,
+    "lastMessageAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "closedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SupportTicket_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SupportTicketMessage" (
+    "id" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "senderType" "SupportMessageSenderType" NOT NULL,
+    "senderUserId" TEXT,
+    "body" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SupportTicketMessage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SupportFaqArticle" (
+    "id" TEXT NOT NULL,
+    "category" "SupportTicketCategory" NOT NULL,
+    "question" TEXT NOT NULL,
+    "answer" TEXT NOT NULL,
+    "published" BOOLEAN NOT NULL DEFAULT false,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SupportFaqArticle_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1474,6 +1530,27 @@ CREATE INDEX "ReportCaseEvent_actorUserId_occurredAt_id_idx" ON "ReportCaseEvent
 CREATE INDEX "ReportCaseEvent_eventType_occurredAt_id_idx" ON "ReportCaseEvent"("eventType", "occurredAt", "id");
 
 -- CreateIndex
+CREATE INDEX "SupportTicket_requesterUserId_status_lastMessageAt_id_idx" ON "SupportTicket"("requesterUserId", "status", "lastMessageAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportTicket_status_lastMessageAt_id_idx" ON "SupportTicket"("status", "lastMessageAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportTicket_category_status_lastMessageAt_id_idx" ON "SupportTicket"("category", "status", "lastMessageAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportTicketMessage_ticketId_createdAt_id_idx" ON "SupportTicketMessage"("ticketId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportTicketMessage_senderUserId_createdAt_id_idx" ON "SupportTicketMessage"("senderUserId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportFaqArticle_published_category_sortOrder_id_idx" ON "SupportFaqArticle"("published", "category", "sortOrder", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportFaqArticle_category_sortOrder_id_idx" ON "SupportFaqArticle"("category", "sortOrder", "id");
+
+-- CreateIndex
 CREATE INDEX "SeasonParticipantLifecycleEvent_participantId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("participantId", "occurredAt");
 
 -- CreateIndex
@@ -1906,6 +1983,15 @@ ALTER TABLE "UserBlockEvent" ADD CONSTRAINT "UserBlockEvent_targetUserId_fkey" F
 
 -- AddForeignKey
 ALTER TABLE "ReportCaseEvent" ADD CONSTRAINT "ReportCaseEvent_reportCaseId_fkey" FOREIGN KEY ("reportCaseId") REFERENCES "ReportCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_requesterUserId_fkey" FOREIGN KEY ("requesterUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SupportTicketMessage" ADD CONSTRAINT "SupportTicketMessage_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SupportTicketMessage" ADD CONSTRAINT "SupportTicketMessage_senderUserId_fkey" FOREIGN KEY ("senderUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonParticipantLifecycleEvent" ADD CONSTRAINT "SeasonParticipantLifecycleEvent_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;

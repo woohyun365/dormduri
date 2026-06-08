@@ -45,6 +45,7 @@ import {
 } from '../realtime/realtime.tokens.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SocialSafetyModule } from '../social-safety/social-safety.module.js';
+import { SupportModule } from '../support/support.module.js';
 import { BlockModule } from '../social-safety/blocks/block.module.js';
 import { ReportModule } from '../social-safety/reports/report.module.js';
 import { BookmarkModule } from '../social-safety/bookmarks/bookmark.module.js';
@@ -207,6 +208,7 @@ describe('affected API module boundary finalization', () => {
       BlockModule,
       ReportModule,
     ]);
+    expect(moduleMetadata(SupportModule, 'imports')).toEqual([PrismaModule, NotificationsModule]);
     expect(moduleMetadata(DormitoriesModule, 'imports')).toEqual([PrismaModule]);
     expect(moduleMetadata(SeasonsModule, 'imports')).toEqual([PrismaModule]);
   });
@@ -265,6 +267,7 @@ describe('affected API module boundary finalization', () => {
       BlockModule,
       ReportModule,
     ]);
+    expect(moduleMetadata(SupportModule, 'exports')).toEqual([]);
     expect(moduleMetadata(LifecycleModule, 'exports')).toEqual([LifecycleSweepService]);
     expect(moduleMetadata(HealthModule, 'exports')).toEqual([]);
   });

@@ -95,6 +95,46 @@ export function toSeasonSystemNoticeNotificationPayload(input: {
   });
 }
 
+export function toSupportTicketCreatedNotificationPayload(input: {
+  supportTicketId: string;
+  category: string;
+  occurredAt: Date;
+}) {
+  return assertAllowedPayload({
+    kind: 'SUPPORT_TICKET_CREATED' as const,
+    supportTicketId: input.supportTicketId,
+    category: input.category,
+    status: 'OPEN' as const,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
+export function toSupportTicketRepliedNotificationPayload(input: {
+  supportTicketId: string;
+  status: 'WAITING_USER' | 'RESOLVED' | 'CLOSED';
+  occurredAt: Date;
+}) {
+  return assertAllowedPayload({
+    kind: 'SUPPORT_TICKET_REPLIED' as const,
+    supportTicketId: input.supportTicketId,
+    status: input.status,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
+export function toSupportTicketActionRequiredNotificationPayload(input: {
+  supportTicketId: string;
+  actionCode: string;
+  occurredAt: Date;
+}) {
+  return assertAllowedPayload({
+    kind: 'SUPPORT_TICKET_ACTION_REQUIRED' as const,
+    supportTicketId: input.supportTicketId,
+    actionCode: input.actionCode,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
 function assertAllowedPayload<T>(payload: T): T {
   assertNotificationPayloadAllowed(payload);
   return payload;

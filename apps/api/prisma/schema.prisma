@@ -184,6 +184,37 @@ enum ReportActorType {
   SYSTEM
 }
 
+enum SupportTicketCategory {
+  ACCOUNT
+  SEASON
+  MATCHING
+  REPORT_OR_BLOCK
+  APPEAL
+  BUG
+  OTHER
+}
+
+enum SupportTicketStatus {
+  OPEN
+  WAITING_USER
+  WAITING_OPERATOR
+  RESOLVED
+  CLOSED
+}
+
+enum SupportMessageSenderType {
+  USER
+  OPERATOR
+  SYSTEM
+}
+
+enum SupportAppealCategory {
+  SANCTION
+  TEMPORARY_RESTRICTION
+  REPORT_RESULT
+  CONTENT_ACTION
+}
+
 enum MatchRequestStatus {
   PENDING
   ACCEPTED
@@ -749,6 +780,8 @@ model User {
   blocksReceived           UserBlock[]                              @relation("UserBlockBlocked")
   blockEventsAuthored      UserBlockEvent[]                         @relation("UserBlockEventActor")
   blockEventsTargeted      UserBlockEvent[]                         @relation("UserBlockEventTarget")
+  supportTicketsRequested  SupportTicket[]                          @relation("SupportTicketRequester")
+  supportMessagesAuthored  SupportTicketMessage[]                   @relation("SupportTicketMessageSender")
 }
 
 model UserDisplayIdentity {
@@ -1092,6 +1125,55 @@ model ReportCaseEvent {
   @@index([reportCaseId, occurredAt, id])
   @@index([actorUserId, occurredAt, id])
   @@index([eventType, occurredAt, id])
+}
+
+model SupportTicket {
+  id                String                @id @default(uuid())
+  requesterUserId   String
+  category          SupportTicketCategory
+  subject           String
+  status            SupportTicketStatus   @default(OPEN)
+  relatedEntityId   String?
+  appealCategory    SupportAppealCategory?
+  emailReplyConsent Boolean               @default(false)
+  lastMessageAt     DateTime              @default(now()) @db.Timestamptz(3)
+  closedAt          DateTime?             @db.Timestamptz(3)
+  createdAt         DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
+  requester         User                  @relation("SupportTicketRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  messages          SupportTicketMessage[]
+
+  @@index([requesterUserId, status, lastMessageAt, id])
+  @@index([status, lastMessageAt, id])
+  @@index([category, status, lastMessageAt, id])
+}
+
+model SupportTicketMessage {
+  id           String                   @id @default(uuid())
+  ticketId     String
+  senderType   SupportMessageSenderType
+  senderUserId String?
+  body         String
+  createdAt    DateTime                 @default(now()) @db.Timestamptz(3)
+  ticket       SupportTicket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderUser   User?                    @relation("SupportTicketMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt, id])
+  @@index([senderUserId, createdAt, id])
+}
+
+model SupportFaqArticle {
+  id        String                @id @default(uuid())
+  category  SupportTicketCategory
+  question  String
+  answer    String
+  published Boolean               @default(false)
+  sortOrder Int                   @default(0)
+  createdAt DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@index([published, category, sortOrder, id])
+  @@index([category, sortOrder, id])
 }
 
 model SeasonParticipantLifecycleEvent {

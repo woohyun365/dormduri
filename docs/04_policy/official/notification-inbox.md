@@ -61,6 +61,13 @@ User-facing 알림은 “상태가 바뀌었다/확인할 항목이 있다”를
 | retention/deletion         | [data-retention.md](./data-retention.md)의 notification inbox 보관 기준을 따른다              |
 | deleted/deidentified actor | notification payload의 actor 표시를 직접 신뢰하지 않고 owner read model에서 tombstone/degrade |
 
+### Support notification payload
+
+- `SUPPORT_TICKET_CREATED` payload는 `supportTicketId`, `category`, `status=OPEN`, `occurredAt`만 포함한다.
+- `SUPPORT_TICKET_REPLIED` payload는 `supportTicketId`, `status`, `occurredAt`만 포함한다.
+- `SUPPORT_TICKET_ACTION_REQUIRED`와 `SUPPORT_APPEAL_RESOLVED`는 contract/policy allowlist로 남기되, 실제 action-required/appeal-result delivery는 해당 owner 구현 시점에 연결한다.
+- support ticket body, reply body, email, raw appeal detail, RRPD payload는 notification payload에 넣지 않는다.
+
 ### Profile mismatch feedback
 
 허위 프로필 신고 중 생활패턴/주관적 필드 불일치는 제재 알림이 아니라 다음 시즌 프로필 재검토를 유도하는 feedback/prompt pointer다.
@@ -96,5 +103,6 @@ User-facing 알림은 “상태가 바뀌었다/확인할 항목이 있다”를
 
 | 날짜       | 변경 내용                                                                                                      | 관련 이슈   |
 | ---------- | -------------------------------------------------------------------------------------------------------------- | ----------- |
+| 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220  |
 | 2026-06-08 | `PROFILE_MISMATCH_FEEDBACK`, read-all, bounded campaign, operator alert 분리/disabled sink baseline을 추가했다 | #220 / #196 |
 | 2026-06-08 | in-app notification primary, Push 제외, generic writer/outbox, payload privacy baseline을 추가했다             | #196 / #220 |
