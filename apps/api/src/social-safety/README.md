@@ -16,7 +16,7 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 - `bookmarks/`: 독립 bookmark slice다. root production TS는 `bookmark.module.ts`, `bookmark.controller.ts`만 둔다. `README.md`는 docs 예외이며, facade/use-case entrypoint는 `application/`, write use case는 `commands/`, read model은 `queries/`, DB-backed target evaluation은 `policies/`, Prisma access는 `repositories/`, response allowlist는 `presenters/`, probing-safe errors는 `errors/`가 소유한다.
 - `blocks/`: 독립 block slice다. root production TS는 `block.module.ts`, `block.controller.ts`만 둔다. `README.md`는 docs 예외이며, facade/use-case entrypoint는 `application/`, block/unblock/list, event history, bookmark/match/chat side-effect는 하위 디렉토리로 분리한다.
 - `reports/`: 독립 report intake slice다. root production TS는 `report.module.ts`, `report.controller.ts`만 둔다. `README.md`는 docs 예외이며, facade/use-case entrypoint는 `application/`, target resolver, risk/dedupe/privacy policy, retention bridge, notification publisher, persistence는 하위 디렉토리로 분리한다.
-- `contracts/`: API/shared contract regression specs가 필요해질 때 둔다. Architecture-wide layout specs는 `apps/api/src/architecture`를 우선한다.
+- child `contracts/`: API/shared contract regression spec은 root가 아니라 `bookmarks/contracts/`, `blocks/contracts/`, `reports/contracts/`가 각각 소유한다. Architecture-wide layout specs는 `apps/api/src/architecture`를 우선한다.
 
 ## Hard rules
 
@@ -30,7 +30,7 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 ## Architecture guard
 
 - `apps/api/src/architecture/social-safety/social-safety-boundary.spec.ts`가 concrete service import, direct chat persistence, participant projection direct mutation, retained vault disclosure import를 금지한다.
-- Shared/API contract red specs는 `apps/api/src/social-safety/social-safety-contract.red.spec.ts`에서 고정한다.
+- Shared/API contract specs는 child `contracts/` 아래에서 고정한다.
 
 ## Where to change
 
@@ -45,7 +45,7 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api test -- src/social-safety/social-safety-contract.red.spec.ts src/architecture/social-safety/social-safety-boundary.spec.ts --runInBand
+pnpm --dir apps/api test -- src/social-safety/bookmarks/contracts/bookmark-contract.spec.ts src/social-safety/blocks/contracts/block-contract.spec.ts src/social-safety/reports/contracts/report-contract.spec.ts src/architecture/social-safety/social-safety-boundary.spec.ts --runInBand
 pnpm api:typecheck
 git diff --check
 ```

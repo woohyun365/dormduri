@@ -70,6 +70,20 @@ describe('Phase 1 expected-red social-safety/support architecture boundary', () 
     expect(rootProductionFiles).toEqual(['report.controller.ts', 'report.module.ts']);
   });
 
+  it('keeps social-safety contract specs owned by child domain contracts directories', () => {
+    expect(existsSync(join(socialSafetyRoot, 'social-safety-contract.spec.ts'))).toBe(false);
+    expect(existsSync(join(socialSafetyRoot, 'social-safety-contract.red.spec.ts'))).toBe(false);
+    expect(
+      existsSync(join(socialSafetyRoot, 'bookmarks/contracts/bookmark-contract.spec.ts')),
+    ).toBe(true);
+    expect(existsSync(join(socialSafetyRoot, 'blocks/contracts/block-contract.spec.ts'))).toBe(
+      true,
+    );
+    expect(existsSync(join(socialSafetyRoot, 'reports/contracts/report-contract.spec.ts'))).toBe(
+      true,
+    );
+  });
+
   it('keeps report intake from selecting raw chat message body or retained payloads', () => {
     const reportRoot = join(socialSafetyRoot, 'reports');
     const forbidden = /\bbody\s*:\s*true|retainedVaultObject|encryptedPayload|RetentionAccessLog/;

@@ -16,6 +16,7 @@
 - `repositories/`: `UserBlock` / `UserBlockEvent` persistence only.
 - `side-effects/`: bookmark cleanup, match pending cancel, chat direct-thread close port orchestration.
 - `presenters/`: shared contract allowlist response mapping.
+- `contracts/`: block shared/API contract regression spec. Root social-safety contract spec에 block assertion을 남기지 않는다.
 - `errors/`: probing-safe user-facing errors.
 
 ## Hard rules
@@ -40,3 +41,4 @@
 - Block relation/event persistence: `repositories/` + Prisma baseline SQL.
 - Target availability: `policies/block-target-policy.evaluator.ts`.
 - Cross-domain side-effect handoff: `side-effects/block-side-effect.service.ts` and owner ports in `matches/` / `chat/`.
+- Shared contract regression: `contracts/block-contract.spec.ts`.

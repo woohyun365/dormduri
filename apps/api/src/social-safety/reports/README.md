@@ -29,6 +29,7 @@
 - `retention/`: retention reference bridge. Retained vault disclosure internals import 금지.
 - `notifications/`: reporter receipt notification handoff. Raw report detail/body는 payload에 넣지 않는다.
 - `presenters/`: receipt response allowlist.
+- `contracts/`: report shared/API contract regression spec. Root social-safety contract spec에 report assertion을 남기지 않는다.
 - `errors/`: probing-safe user-facing error mapping.
 
 `queries/`는 Phase 5 report intake slice에 두지 않는다. Reporter-facing report history와 운영자 queue/detail/status/decision read model은 #263 BackOffice/API operations owner에서 `admin/`, `operations/`, 또는 별도 backoffice prefix로 설계한다.
@@ -41,3 +42,11 @@
 - Optional block 실패 또는 active match block reject는 report 접수를 rollback하지 않고 `optionalActionResult`와 event로만 기록한다.
 - `FALSE_PROFILE` lifestyle/profile mismatch는 Phase 5에서 feedback/prompt candidate event만 기록한다. 실제 notification delivery는 notification owner가 수행한다.
 - Decision/outcome/enforcement status/event는 #263/#264/#265 후속 owner가 확장한다.
+
+## Where to change
+
+- API shape/response allowlist: `packages/shared/src/social-safety/report.ts` + `presenters/`.
+- Report contract regression: `contracts/report-contract.spec.ts`.
+- Target pointer resolution: `resolvers/report-target-context.resolver.ts`.
+- Risk/profile-feedback/attachment policy: `policies/`.
+- Reporter receipt notification handoff: `notifications/`.

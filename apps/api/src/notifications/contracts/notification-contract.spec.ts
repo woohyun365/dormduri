@@ -104,6 +104,38 @@ describe('notification shared contract guards', () => {
     ).toEqual({ updatedCount: 2, readAt: occurredAt });
   });
 
+  it('support notification payload는 support body/email 같은 raw field를 허용하지 않는다', () => {
+    expect(
+      notificationContract.notificationPayloadSchema.parse({
+        kind: 'SUPPORT_TICKET_REPLIED',
+        supportTicketId: 'support-1',
+        status: 'RESOLVED',
+        occurredAt,
+      }),
+    ).toMatchObject({ kind: 'SUPPORT_TICKET_REPLIED', supportTicketId: 'support-1' });
+
+    expect(() =>
+      notificationContract.notificationPayloadSchema.parse({
+        kind: 'SUPPORT_TICKET_REPLIED',
+        supportTicketId: 'support-1',
+        status: 'RESOLVED',
+        occurredAt,
+        supportBody: 'raw body',
+      }),
+    ).toThrow();
+
+    expect(() =>
+      notificationContract.notificationPayloadSchema.parse({
+        kind: 'SUPPORT_TICKET_CREATED',
+        supportTicketId: 'support-1',
+        category: 'APPEAL',
+        status: 'OPEN',
+        occurredAt,
+        email: 'user@example.com',
+      }),
+    ).toThrow();
+  });
+
   it('notification.created realtime event는 chat realtime event union에 포함된다', () => {
     const event = {
       schemaVersion: 1,
