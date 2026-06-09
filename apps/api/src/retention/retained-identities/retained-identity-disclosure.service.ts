@@ -1,5 +1,5 @@
 import type { PrismaService } from '../../platform/database/prisma.service.js';
-import { createRetentionAccessLog } from '../retention-access-log-owner.js';
+import { createRetentionAccessLog } from '../access-logs/create-retention-access-log.command.js';
 import {
   decryptRetainedIdentifierPayload,
   resolveRetainedIdentityCipher,

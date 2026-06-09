@@ -1,6 +1,6 @@
 import { Prisma } from '../../generated/prisma/client.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
-import { createRetentionAccessLog } from '../retention-access-log-owner.js';
+import { createRetentionAccessLog } from '../access-logs/create-retention-access-log.command.js';
 import { disposeDueRetainedVaultObjects } from '../vault/retained-vault.service.js';
 import type { RetainedIdentityDisposalResult } from './retained-identity.types.js';
 

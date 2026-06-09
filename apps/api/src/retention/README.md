@@ -76,8 +76,8 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 - Retained vault payload parser/codec rules: `vault/retained-vault-payload-codecs.ts`.
 - Retained vault retain/disclose/dispose behavior: `vault/retained-vault.service.ts`.
 - Retention payload encryption envelope: `crypto/retention-cipher.ts`.
-- Access log create/disposal behavior: `access-logs/`.
-- Identity-link review scheduling/retry/handler: `review-jobs/`.
+- Access log create/disposal behavior: `access-logs/create-retention-access-log.command.ts`, `access-logs/retention-access-log-disposal.service.ts`, `access-logs/retention-access-log-disposal-review.command.ts`.
+- Identity-link review scheduling/retry/handler: `review-jobs/schedule-chat-identity-link-review-job.command.ts`, `review-jobs/retention-review-job-runner.service.ts`, `review-jobs/retention-review-job-transition.policy.ts`.
 - Retention sweep facade used by lifecycle: `application/`.
 - Backlog snapshot, metric, alert candidate signal: `observability/`.
 - Encryption helper/keyring adapter: `crypto/` and `vault/` keyring boundary.

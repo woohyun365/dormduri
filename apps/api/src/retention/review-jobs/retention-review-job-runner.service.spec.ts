@@ -1,4 +1,4 @@
-import { retryDueRetentionReviewJobs } from './retention-review-job-owner.js';
+import { retryDueRetentionReviewJobs } from './retention-review-job-runner.service.js';
 
 type RetentionReviewJobUpdateInput = {
   where: { id: string };
@@ -37,7 +37,7 @@ function createAccessLogDisposalStore(input: { nextDueAt?: Date | null }) {
   };
 }
 
-describe('retention review job owner', () => {
+describe('retention review job runner', () => {
   it('ACCESS_LOG_DISPOSAL job은 다음 due log가 있으면 같은 review job을 다시 예약한다', async () => {
     const now = new Date('2029-05-12T00:00:00.000Z');
     const nextDueAt = new Date('2029-06-01T00:00:00.000Z');

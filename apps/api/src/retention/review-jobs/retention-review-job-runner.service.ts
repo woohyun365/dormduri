@@ -1,84 +1,21 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import type { ArchiveJobStatus } from '../generated/prisma/enums.js';
-import type { PrismaService } from '../platform/database/prisma.service.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
+import { disposeDueRetentionAccessLogs } from '../access-logs/retention-access-log-disposal.service.js';
 import {
   createConversationRetainedBodyOwner,
   type ConversationRetainedBodyOwnerOptions,
-} from './conversation-retained-body-owner.js';
-import { disposeDueRetentionAccessLogs } from './retention-access-log-owner.js';
-
-const RETRY_BASE_DELAY_MS = 60 * 60 * 1_000;
-
-const retentionReviewJobSelect = {
-  id: true,
-  target: true,
-  sourceId: true,
-  attemptCount: true,
-  maxAttempts: true,
-  payload: true,
-  manualReviewRequired: true,
-} as const;
-
-type RetentionReviewJobWorkItem = Prisma.RetentionReviewJobGetPayload<{
-  select: typeof retentionReviewJobSelect;
-}>;
-
-export interface RetentionReviewJobSweepResult {
-  processedCount: number;
-  succeededCount: number;
-  retryScheduledCount: number;
-  manualReviewCount: number;
-  reviewedCount: number;
-  minimizedCount: number;
-}
-
-export interface RetentionReviewJobOwnerOptions {
-  conversationRetention?: ConversationRetainedBodyOwnerOptions;
-}
-
-export function createRetentionReviewJobOwner(
-  prisma: PrismaService,
-  options: RetentionReviewJobOwnerOptions = {},
-) {
-  return {
-    retryDueRetentionReviewJobs(now: Date): Promise<RetentionReviewJobSweepResult> {
-      return retryDueRetentionReviewJobs(prisma, now, options);
-    },
-  };
-}
-
-export async function scheduleChatIdentityLinkReviewJobTx(
-  tx: Prisma.TransactionClient,
-  input: {
-    threadId: string;
-    dueAt: Date;
-    archiveJobId: string;
-    retainedIdentityId?: string | null;
-    userId?: string | null;
-  },
-) {
-  await tx.retentionReviewJob.upsert({
-    where: {
-      target_sourceId: {
-        target: 'CHAT_IDENTITY_LINK',
-        sourceId: input.threadId,
-      },
-    },
-    update: {
-      status: 'PENDING',
-      dueAt: input.dueAt,
-      lastErrorCode: null,
-      manualReviewRequired: false,
-      payload: buildChatIdentityLinkReviewPayload(input) as Prisma.InputJsonValue,
-    },
-    create: {
-      target: 'CHAT_IDENTITY_LINK',
-      sourceId: input.threadId,
-      dueAt: input.dueAt,
-      payload: buildChatIdentityLinkReviewPayload(input) as Prisma.InputJsonValue,
-    },
-  });
-}
+} from '../conversation-retained-body-owner.js';
+import {
+  calculateRetentionReviewRetryDueAt,
+  failedManualReviewStatus,
+  normalizeRetentionReviewErrorCode,
+  shouldMarkRetentionReviewForManualReview,
+} from './retention-review-job-transition.policy.js';
+import {
+  retentionReviewJobSelect,
+  type RetentionReviewJobOwnerOptions,
+  type RetentionReviewJobSweepResult,
+  type RetentionReviewJobWorkItem,
+} from './retention-review-job.types.js';
 
 export async function retryDueRetentionReviewJobs(
   prisma: PrismaService,
@@ -133,7 +70,7 @@ export async function retryDueRetentionReviewJobs(
     }
 
     const attemptCount = job.attemptCount + 1;
-    if (attemptCount >= job.maxAttempts) {
+    if (shouldMarkRetentionReviewForManualReview({ attemptCount, maxAttempts: job.maxAttempts })) {
       await markReviewJobForManualReview(
         prisma,
         job,
@@ -150,7 +87,7 @@ export async function retryDueRetentionReviewJobs(
       data: {
         status: 'RETRY_SCHEDULED',
         attemptCount,
-        dueAt: new Date(now.getTime() + RETRY_BASE_DELAY_MS * Math.max(1, attemptCount)),
+        dueAt: calculateRetentionReviewRetryDueAt(now, attemptCount),
         lastAttemptAt: now,
         lastErrorCode: reviewResult.errorCode ?? 'RETENTION_REVIEW_ERROR',
       },
@@ -220,7 +157,7 @@ async function markReviewJobForManualReview(
   await prisma.retentionReviewJob.update({
     where: { id: job.id },
     data: {
-      status: 'FAILED_MANUAL_REVIEW' satisfies ArchiveJobStatus,
+      status: failedManualReviewStatus(),
       attemptCount,
       lastAttemptAt: now,
       lastErrorCode: errorCode,
@@ -229,27 +166,4 @@ async function markReviewJobForManualReview(
   });
 }
 
-function buildChatIdentityLinkReviewPayload(input: {
-  archiveJobId: string;
-  retainedIdentityId?: string | null;
-  userId?: string | null;
-}) {
-  return {
-    schemaVersion: 1,
-    source: 'THREAD_RETENTION',
-    archiveJobId: input.archiveJobId,
-    retainedIdentityId: input.retainedIdentityId ?? undefined,
-    userId: input.userId ?? undefined,
-  };
-}
-
-function normalizeRetentionReviewErrorCode(message: string) {
-  return (
-    message
-      .replace(/^\[[^\]]+\]\s*/, '')
-      .replace(/[^A-Z0-9]+/gi, '_')
-      .replace(/^_+|_+$/g, '')
-      .toUpperCase()
-      .slice(0, 80) || 'RETENTION_REVIEW_ERROR'
-  );
-}
+export type { ConversationRetainedBodyOwnerOptions };

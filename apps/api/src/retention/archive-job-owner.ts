@@ -16,7 +16,7 @@ import {
   createConversationRetainedBodyOwner,
   type ConversationRetainedBodyOwnerOptions,
 } from './conversation-retained-body-owner.js';
-import { scheduleChatIdentityLinkReviewJobTx } from './retention-review-job-owner.js';
+import { scheduleChatIdentityLinkReviewJobTx } from './review-jobs/schedule-chat-identity-link-review-job.command.js';
 
 const DEFAULT_MAX_ATTEMPTS = 5;
 const RETRY_BASE_DELAY_MS = 60 * 60 * 1_000;

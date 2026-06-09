@@ -5,8 +5,8 @@ import {
   retryDueArchiveJobs,
 } from '../../retention/archive-job-owner.js';
 import { disposeExpiredRetainedIdentities } from '../../retention/retained-identities/retained-identity-disposal.service.js';
-import { disposeDueRetentionAccessLogs } from '../../retention/retention-access-log-owner.js';
-import { retryDueRetentionReviewJobs } from '../../retention/retention-review-job-owner.js';
+import { disposeDueRetentionAccessLogs } from '../../retention/access-logs/retention-access-log-disposal.service.js';
+import { retryDueRetentionReviewJobs } from '../../retention/review-jobs/retention-review-job-runner.service.js';
 import type { UserRetentionSweepPort } from '../application/ports/user-retention-sweep.port.js';
 
 @Injectable()
