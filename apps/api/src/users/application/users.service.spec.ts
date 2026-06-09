@@ -1,5 +1,5 @@
 import { UsersService } from './users.service.js';
-import { usersErrors } from './users.errors.js';
+import { usersErrors } from '../users.errors.js';
 
 const NOW = new Date('2026-05-23T00:00:00.000Z');
 

@@ -46,7 +46,7 @@
 
 Users architecture fitness belongs under `apps/api/src/architecture/users/` and cross-cutting architecture specs.
 
-- Root production TypeScript surface는 controller/module/README와 intentional composition entrypoint 중심으로 수렴한다.
+- Root production TypeScript surface는 최종적으로 `users.controller.ts`, `users.module.ts`만 허용한다. 기존 root owner file은 이전 배치이며 새 behavior 확장 지점으로 사용하지 않는다.
 - 기존 root owner file은 새 behavior 확장 지점이 아니다.
 - Module provider/export list는 `composition/users.providers.ts`와 `composition/users.exports.ts`로 읽을 수 있어야 한다.
 - Lifecycle adapter는 broad controller-facing service behavior가 아니라 narrow users retention sweep surface에 의존해야 한다.
@@ -56,7 +56,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 ## Where to change users behavior
 
 - HTTP route parsing and delegation: `users.controller.ts`.
-- Controller-facing delegation: `users.service.ts` or the owning `application/` facade.
+- Controller-facing delegation: `application/users.service.ts`.
 - Current-user read model projection: `current-user/` owner files. Existing placement is `current-user-view.service.ts` and `current-user-select.ts`.
 - Display nickname self-service update: `identity/display/` owner files. Existing placement is `user-update-owner.ts`, `nickname-policy.ts`, and `nickname-change-policy.owner.ts`.
 - Academic identity correction: `identity/academic/` owner files. Existing placement is `user-update-owner.ts` and `academic-identity-correction-allowance.owner.ts`.

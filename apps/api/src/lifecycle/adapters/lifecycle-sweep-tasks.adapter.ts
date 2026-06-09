@@ -6,7 +6,7 @@ import {
 import { AuthOperationalCleanupService } from '../../auth/operations/auth-operational-cleanup.service.js';
 import { MatchesService } from '../../matches/matches.service.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
-import { UsersService } from '../../users/users.service.js';
+import { UsersService } from '../../users/application/users.service.js';
 import { BookmarkLifecycleService } from '../../social-safety/bookmarks/application/bookmark-lifecycle.service.js';
 import type { LifecycleSweepTaskPort } from '../lifecycle-sweep-task.port.js';
 

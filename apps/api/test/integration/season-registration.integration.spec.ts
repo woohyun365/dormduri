@@ -5,7 +5,7 @@ import { normalizeEmail } from '../../src/auth/domain/auth.utils.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { SeasonParticipantsService } from '../../src/season-participants/application/season-participants.service.js';
 import { seasonParticipantsErrors } from '../../src/season-participants/errors/season-participants.errors.js';
-import { UsersService } from '../../src/users/users.service.js';
+import { UsersService } from '../../src/users/application/users.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,

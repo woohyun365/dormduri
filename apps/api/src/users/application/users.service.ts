@@ -6,36 +6,36 @@ import type {
   RequestAccountDeletion,
   UpdateCurrentUserResponse,
 } from '@repo/shared/user-contract';
-import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { ModerationService } from '../moderation/moderation.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import { ModerationService } from '../../moderation/moderation.service.js';
 import {
   PrismaService,
   RetentionWorkerPrismaService,
-} from '../platform/database/prisma.service.js';
+} from '../../platform/database/prisma.service.js';
 import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
-} from '../seasons/ports/season-context.port.js';
-import { CurrentUserViewService } from './current-user-view.service.js';
+} from '../../seasons/ports/season-context.port.js';
+import { CurrentUserViewService } from '../current-user-view.service.js';
 import {
   createUserUpdateOwner,
   type DisplayIdentityNicknameOverrideInput,
   type DisplayIdentityNicknameOverrideResult,
   type UpdateCurrentUserInput,
-} from './user-update-owner.js';
+} from '../user-update-owner.js';
 import {
   listDisplayIdentityNicknameChangeAuditForOperations,
   type DisplayIdentityNicknameChangeAuditEntry,
-} from './display-identity-nickname-audit.owner.js';
-import { createUserDeletionOwner } from './user-deletion-owner.js';
-import { createUserOnboardingOwner } from './user-onboarding-owner.js';
+} from '../display-identity-nickname-audit.owner.js';
+import { createUserDeletionOwner } from '../user-deletion-owner.js';
+import { createUserOnboardingOwner } from '../user-onboarding-owner.js';
 import type {
   ArchiveJobActivationResult,
   ArchiveJobSweepResult,
-} from '../retention/archive-job-owner.js';
-import type { RetainedIdentityDisposalResult } from '../retention/retained-identity-owner.js';
-import type { RetentionReviewJobSweepResult } from '../retention/retention-review-job-owner.js';
-import type { RetentionAccessLogDisposalResult } from '../retention/retention-access-log-owner.js';
+} from '../../retention/archive-job-owner.js';
+import type { RetainedIdentityDisposalResult } from '../../retention/retained-identity-owner.js';
+import type { RetentionReviewJobSweepResult } from '../../retention/retention-review-job-owner.js';
+import type { RetentionAccessLogDisposalResult } from '../../retention/retention-access-log-owner.js';
 
 @Injectable()
 export class UsersService {
