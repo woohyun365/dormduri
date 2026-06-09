@@ -63,8 +63,9 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 
 ## Where to change retention behavior
 
-- Archive job claim/retry/manual-review transition: `archive-jobs/`.
-- Archive target handler registry and target payload dispatch: `archive-jobs/` + 각 owner domain의 `retention/` handler.
+- Archive job claim/retry/manual-review transition: `archive-jobs/archive-job-runner.service.ts`, `archive-jobs/archive-job.repository.ts`, `archive-jobs/archive-job-transition.policy.ts`.
+- Archive job creation and payload shape: `archive-jobs/create-deletion-archive-jobs.command.ts`, `archive-jobs/archive-job.payload.ts`.
+- Temporary archive target handler registry/dispatch before domain-owned handler migration: `archive-jobs/targets/archive-target-handlers.ts`.
 - Retained identity decision/hold priority: `retained-identities/retained-identity-decision.policy.ts`.
 - Retained identity snapshot transaction: `retained-identities/create-retained-identity-snapshot.command.ts`.
 - Retained identity metadata validation: `retained-identities/retained-identity-metadata.validator.ts`.

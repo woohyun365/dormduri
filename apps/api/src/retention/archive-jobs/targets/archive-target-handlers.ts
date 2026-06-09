@@ -1,70 +1,31 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import type {
-  ArchiveJobStatus,
-  ArchiveJobTarget,
-  LegalHoldReason,
-  RetentionCaseReason,
-} from '../generated/prisma/enums.js';
-import type { PrismaService } from '../platform/database/prisma.service.js';
-import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../privacy/deidentification/deidentified-display.policy.js';
-import { ensureRetentionCaseTx } from './vault/retention-case.repository.js';
+import type { Prisma } from '../../../generated/prisma/client.js';
+import type { LegalHoldReason, RetentionCaseReason } from '../../../generated/prisma/enums.js';
+import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../../../privacy/deidentification/deidentified-display.policy.js';
+import type { PrismaService } from '../../../platform/database/prisma.service.js';
+import { ensureRetentionCaseTx } from '../../vault/retention-case.repository.js';
 import {
   retainVaultPayloadTx,
   type RetainedVaultOwnerOptions,
-} from './vault/retained-vault.service.js';
+} from '../../vault/retained-vault.service.js';
+import type { createConversationRetainedBodyOwner } from '../../conversation-retained-body-owner.js';
+import { scheduleChatIdentityLinkReviewJobTx } from '../../review-jobs/schedule-chat-identity-link-review-job.command.js';
 import {
-  createConversationRetainedBodyOwner,
-  type ConversationRetainedBodyOwnerOptions,
-} from './conversation-retained-body-owner.js';
-import { scheduleChatIdentityLinkReviewJobTx } from './review-jobs/schedule-chat-identity-link-review-job.command.js';
+  buildJobMetadata,
+  buildVaultAad,
+  resolveChatIdentityReviewAfter,
+  toVaultJson,
+} from '../archive-job.payload.js';
+import {
+  normalizeArchiveErrorCode,
+  toArchiveStorageError,
+} from '../archive-job-transition.policy.js';
+import type {
+  ArchiveDeletionJobHandler,
+  ArchiveJobWorkItem,
+  ArchiveStorageResult,
+} from '../archive-job.types.js';
 
-const DEFAULT_MAX_ATTEMPTS = 5;
-const RETRY_BASE_DELAY_MS = 60 * 60 * 1_000;
-const CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS = 365 * 2;
-
-const deletionArchiveJobTargets = [
-  'SEASON_PROFILE_HISTORY',
-  'MATCH_HISTORY',
-  'THREAD_RETENTION',
-  'NICKNAME_AUDIT',
-  'ACADEMIC_IDENTITY_AUDIT',
-] satisfies ArchiveJobTarget[];
-
-const archiveJobWorkItemSelect = {
-  id: true,
-  target: true,
-  status: true,
-  retainedIdentityId: true,
-  userId: true,
-  seasonId: true,
-  participantId: true,
-  matchHistoryEntryId: true,
-  threadId: true,
-  attemptCount: true,
-  maxAttempts: true,
-  nextRunAt: true,
-  lastErrorCode: true,
-  manualReviewRequired: true,
-  payload: true,
-} as const;
-
-type ArchiveJobWorkItem = Prisma.ArchiveJobGetPayload<{
-  select: typeof archiveJobWorkItemSelect;
-}>;
-
-interface ArchiveDeletionJobHandlerContext {
-  prisma: PrismaService;
-  job: ArchiveJobWorkItem;
-  now: Date;
-  conversationRetention: ReturnType<typeof createConversationRetainedBodyOwner>;
-  retainedVaultOptions: RetainedVaultOwnerOptions;
-}
-
-type ArchiveDeletionJobHandler = (
-  context: ArchiveDeletionJobHandlerContext,
-) => Promise<ArchiveStorageResult>;
-
-const hotDbArchiveJobHandlers = {
+const archiveTargetHandlers = {
   THREAD_RETENTION: ({ prisma, job, now, conversationRetention }) =>
     archiveThreadRetentionJob(prisma, job, now, conversationRetention),
   NICKNAME_AUDIT: ({ prisma, job, now, retainedVaultOptions }) =>
@@ -75,330 +36,16 @@ const hotDbArchiveJobHandlers = {
     archiveSeasonProfileHistoryJob(prisma, job, now, retainedVaultOptions),
   MATCH_HISTORY: ({ prisma, job, now, retainedVaultOptions }) =>
     archiveMatchHistoryJob(prisma, job, now, retainedVaultOptions),
-} satisfies Partial<Record<ArchiveJobTarget, ArchiveDeletionJobHandler>>;
+} satisfies Partial<Record<ArchiveJobWorkItem['target'], ArchiveDeletionJobHandler>>;
 
-export interface ArchiveStorageResult {
-  ok: boolean;
-  errorCode?: string;
-  waitingCondition?: boolean;
-}
-
-export interface ArchiveJobOwnerOptions {
-  conversationRetention?: ConversationRetainedBodyOwnerOptions;
-  retainedVault?: RetainedVaultOwnerOptions;
-}
-
-export interface DeletionArchiveJobInput {
-  retainedIdentityId: string;
-  userId: string;
-  deletedAt: Date;
-}
-
-export interface ArchiveJobSweepResult {
-  processedCount: number;
-  succeededCount: number;
-  retryScheduledCount: number;
-  manualReviewCount: number;
-  waitingConditionCount: number;
-}
-
-export interface ArchiveJobActivationResult {
-  activatedCount: number;
-}
-
-export function createArchiveJobOwner(prisma: PrismaService, options: ArchiveJobOwnerOptions = {}) {
-  return {
-    async retryDueArchiveJobs(now: Date): Promise<ArchiveJobSweepResult> {
-      return retryDueArchiveJobs(prisma, now, options.conversationRetention, options.retainedVault);
-    },
-    async activateThreadRetentionJobsForArchivedThreads(
-      now: Date,
-    ): Promise<ArchiveJobActivationResult> {
-      return activateThreadRetentionJobsForArchivedThreads(prisma, now);
-    },
-  };
-}
-
-export async function createDeletionArchiveJobsTx(
-  tx: Prisma.TransactionClient,
-  input: DeletionArchiveJobInput,
-) {
-  const participantRows = await tx.seasonParticipant.findMany({
-    where: { userId: input.userId },
-    select: { id: true, seasonId: true },
-    orderBy: { id: 'asc' },
-  });
-  const participantIds = participantRows.map((participant) => participant.id);
-
-  const seasonProfileHistories =
-    participantIds.length > 0
-      ? await tx.seasonParticipantProfileHistory.findMany({
-          where: { participantId: { in: participantIds } },
-          select: { participantId: true, seasonId: true },
-          distinct: ['participantId'],
-          orderBy: [{ participantId: 'asc' }, { createdAt: 'desc' }],
-        })
-      : [];
-
-  const matchHistoryEntries =
-    participantIds.length > 0
-      ? await tx.seasonMatchHistoryEntry.findMany({
-          where: {
-            OR: [
-              { viewerParticipantId: { in: participantIds } },
-              { counterpartParticipantId: { in: participantIds } },
-            ],
-          },
-          select: { id: true, seasonId: true },
-          orderBy: { id: 'asc' },
-        })
-      : [];
-
-  const threads =
-    participantIds.length > 0
-      ? await tx.conversationThread.findMany({
-          where: {
-            OR: [
-              { participantAId: { in: participantIds } },
-              { participantBId: { in: participantIds } },
-            ],
-          },
-          select: {
-            id: true,
-            seasonId: true,
-            status: true,
-          },
-          orderBy: { id: 'asc' },
-        })
-      : [];
-
-  await tx.userDisplayIdentityNicknameChangeEvent.updateMany({
-    where: { userId: input.userId, retainedIdentityId: null },
-    data: { retainedIdentityId: input.retainedIdentityId },
-  });
-  await tx.userAcademicIdentityChangeEvent.updateMany({
-    where: { userId: input.userId, retainedIdentityId: null },
-    data: { retainedIdentityId: input.retainedIdentityId },
-  });
-
-  const jobs: Prisma.ArchiveJobCreateManyInput[] = [
-    buildArchiveJob({
-      target: 'NICKNAME_AUDIT',
-      retainedIdentityId: input.retainedIdentityId,
-      userId: input.userId,
-      deletedAt: input.deletedAt,
-    }),
-    buildArchiveJob({
-      target: 'ACADEMIC_IDENTITY_AUDIT',
-      retainedIdentityId: input.retainedIdentityId,
-      userId: input.userId,
-      deletedAt: input.deletedAt,
-    }),
-  ];
-
-  for (const history of seasonProfileHistories) {
-    jobs.push(
-      buildArchiveJob({
-        target: 'SEASON_PROFILE_HISTORY',
-        retainedIdentityId: input.retainedIdentityId,
-        userId: input.userId,
-        seasonId: history.seasonId,
-        participantId: history.participantId,
-        deletedAt: input.deletedAt,
-      }),
-    );
-  }
-
-  for (const entry of matchHistoryEntries) {
-    jobs.push(
-      buildArchiveJob({
-        target: 'MATCH_HISTORY',
-        retainedIdentityId: input.retainedIdentityId,
-        userId: input.userId,
-        seasonId: entry.seasonId,
-        matchHistoryEntryId: entry.id,
-        deletedAt: input.deletedAt,
-      }),
-    );
-  }
-
-  for (const thread of threads) {
-    jobs.push(
-      buildArchiveJob({
-        target: 'THREAD_RETENTION',
-        retainedIdentityId: input.retainedIdentityId,
-        userId: input.userId,
-        seasonId: thread.seasonId,
-        threadId: thread.id,
-        deletedAt: input.deletedAt,
-        status: thread.status === 'ARCHIVED' ? 'PENDING' : 'WAITING_CONDITION',
-        payload: {
-          retentionMode: 'CHAT_THREAD_ARCHIVE',
-          identityReviewAfter: addDays(
-            input.deletedAt,
-            CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS,
-          ).toISOString(),
-          waitingFor: thread.status === 'ARCHIVED' ? undefined : 'THREAD_ARCHIVED',
-        },
-      }),
-    );
-  }
-
-  const result = await tx.archiveJob.createMany({ data: jobs });
-  return { createdCount: result.count };
-}
-
-export async function activateThreadRetentionJobsForArchivedThreads(
-  prisma: Pick<PrismaService, 'archiveJob' | 'conversationThread'>,
-  now: Date,
-): Promise<ArchiveJobActivationResult> {
-  const waitingJobs = await prisma.archiveJob.findMany({
-    where: {
-      target: 'THREAD_RETENTION',
-      status: 'WAITING_CONDITION',
-      threadId: { not: null },
-    },
-    select: { id: true, threadId: true },
-    orderBy: [{ nextRunAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-  });
-
-  const threadIds = [
-    ...new Set(waitingJobs.flatMap((job) => (job.threadId ? [job.threadId] : []))),
-  ];
-  if (threadIds.length === 0) {
-    return { activatedCount: 0 };
-  }
-
-  const archivedThreads = await prisma.conversationThread.findMany({
-    where: { id: { in: threadIds }, status: 'ARCHIVED' },
-    select: { id: true },
-  });
-  const archivedThreadIds = new Set(archivedThreads.map((thread) => thread.id));
-  const activatedJobIds = waitingJobs
-    .filter((job) => job.threadId && archivedThreadIds.has(job.threadId))
-    .map((job) => job.id);
-
-  if (activatedJobIds.length === 0) {
-    return { activatedCount: 0 };
-  }
-
-  const result = await prisma.archiveJob.updateMany({
-    where: { id: { in: activatedJobIds } },
-    data: {
-      status: 'PENDING',
-      nextRunAt: now,
-      lastErrorCode: null,
-      manualReviewRequired: false,
-    },
-  });
-
-  return { activatedCount: result.count };
-}
-
-export async function retryDueArchiveJobs(
-  prisma: PrismaService,
-  now: Date,
-  conversationRetentionOptions: ConversationRetainedBodyOwnerOptions = {},
-  retainedVaultOptions: RetainedVaultOwnerOptions = {},
-): Promise<ArchiveJobSweepResult> {
-  const dueJobs = await prisma.archiveJob.findMany({
-    where: {
-      target: { in: deletionArchiveJobTargets },
-      status: { in: ['PENDING', 'RETRY_SCHEDULED'] },
-      nextRunAt: { lte: now },
-    },
-    select: archiveJobWorkItemSelect,
-    orderBy: [{ nextRunAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-  });
-
-  const result: ArchiveJobSweepResult = {
-    processedCount: 0,
-    succeededCount: 0,
-    retryScheduledCount: 0,
-    manualReviewCount: 0,
-    waitingConditionCount: 0,
-  };
-  const conversationRetention = createConversationRetainedBodyOwner(conversationRetentionOptions);
-
-  for (const job of dueJobs) {
-    result.processedCount += 1;
-
-    if (job.manualReviewRequired) {
-      await markArchiveJobForManualReview(prisma, job, now, 'MANUAL_REVIEW_REQUIRED');
-      result.manualReviewCount += 1;
-      continue;
-    }
-
-    const archiveResult = await archiveDeletionJob(
-      prisma,
-      job,
-      now,
-      conversationRetention,
-      retainedVaultOptions,
-    );
-
-    if (archiveResult.waitingCondition) {
-      await prisma.archiveJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'WAITING_CONDITION',
-          nextRunAt: now,
-          lastErrorCode: archiveResult.errorCode ?? 'WAITING_CONDITION',
-          manualReviewRequired: false,
-        },
-      });
-      result.waitingConditionCount += 1;
-      continue;
-    }
-
-    const attemptCount = job.attemptCount + 1;
-    if (archiveResult.ok) {
-      await prisma.archiveJob.update({
-        where: { id: job.id },
-        data: {
-          status: 'SUCCEEDED',
-          attemptCount,
-          lastAttemptAt: now,
-          lastSucceededAt: now,
-          lastErrorCode: null,
-          manualReviewRequired: false,
-        },
-      });
-      result.succeededCount += 1;
-      continue;
-    }
-
-    const lastErrorCode = archiveResult.errorCode ?? 'ARCHIVE_STORAGE_ERROR';
-    if (attemptCount >= job.maxAttempts) {
-      await markArchiveJobForManualReview(prisma, job, now, lastErrorCode, attemptCount);
-      result.manualReviewCount += 1;
-      continue;
-    }
-
-    await prisma.archiveJob.update({
-      where: { id: job.id },
-      data: {
-        status: 'RETRY_SCHEDULED',
-        attemptCount,
-        nextRunAt: resolveNextRetryAt(now, attemptCount),
-        lastAttemptAt: now,
-        lastErrorCode,
-      },
-    });
-    result.retryScheduledCount += 1;
-  }
-
-  return result;
-}
-
-async function archiveDeletionJob(
+export async function archiveDeletionJob(
   prisma: PrismaService,
   job: ArchiveJobWorkItem,
   now: Date,
   conversationRetention: ReturnType<typeof createConversationRetainedBodyOwner>,
   retainedVaultOptions: RetainedVaultOwnerOptions = {},
 ): Promise<ArchiveStorageResult> {
-  const handler = hotDbArchiveJobHandlers[job.target];
+  const handler = archiveTargetHandlers[job.target];
   if (!handler) {
     return { ok: false, errorCode: 'ARCHIVE_HANDLER_MISSING' };
   }
@@ -906,77 +553,6 @@ async function archiveThreadRetentionJobTx(
   });
 }
 
-function buildArchiveJob(input: {
-  target: ArchiveJobTarget;
-  retainedIdentityId: string;
-  userId: string;
-  deletedAt: Date;
-  seasonId?: string;
-  participantId?: string;
-  matchHistoryEntryId?: string;
-  threadId?: string;
-  status?: ArchiveJobStatus;
-  manualReviewRequired?: boolean;
-  payload?: Record<string, unknown>;
-}): Prisma.ArchiveJobCreateManyInput {
-  const manualReviewRequired = input.manualReviewRequired ?? false;
-  const status = input.status ?? (manualReviewRequired ? 'FAILED_MANUAL_REVIEW' : 'PENDING');
-
-  return {
-    target: input.target,
-    status,
-    retainedIdentityId: input.retainedIdentityId,
-    userId: input.userId,
-    seasonId: input.seasonId,
-    participantId: input.participantId,
-    matchHistoryEntryId: input.matchHistoryEntryId,
-    threadId: input.threadId,
-    attemptCount: 0,
-    maxAttempts: DEFAULT_MAX_ATTEMPTS,
-    nextRunAt: input.deletedAt,
-    manualReviewRequired,
-    lastErrorCode: manualReviewRequired ? 'MANUAL_REVIEW_REQUIRED' : undefined,
-    payload: buildArchiveJobPayload(input) as Prisma.InputJsonValue,
-  };
-}
-
-function buildArchiveJobPayload(input: {
-  target: ArchiveJobTarget;
-  deletedAt: Date;
-  payload?: Record<string, unknown>;
-}) {
-  return removeUndefinedValues({
-    schemaVersion: 1,
-    source: 'ACCOUNT_DELETE',
-    target: input.target,
-    deletedAt: input.deletedAt.toISOString(),
-    ...(input.payload ?? {}),
-  });
-}
-
-async function markArchiveJobForManualReview(
-  prisma: Pick<PrismaService, 'archiveJob'>,
-  job: Pick<ArchiveJobWorkItem, 'id' | 'attemptCount'>,
-  now: Date,
-  errorCode: string,
-  attemptCount: number = job.attemptCount,
-) {
-  await prisma.archiveJob.update({
-    where: { id: job.id },
-    data: {
-      status: 'FAILED_MANUAL_REVIEW' satisfies ArchiveJobStatus,
-      attemptCount,
-      lastAttemptAt: now,
-      lastErrorCode: errorCode,
-      manualReviewRequired: true,
-    },
-  });
-}
-
-function resolveNextRetryAt(now: Date, attemptCount: number) {
-  return new Date(now.getTime() + RETRY_BASE_DELAY_MS * Math.max(1, attemptCount));
-}
-
 async function loadRetainedIdentityForCase(
   tx: Prisma.TransactionClient,
   retainedIdentityId: string,
@@ -1050,82 +626,4 @@ function retentionHoldPriority(reason: string) {
     default:
       return 99;
   }
-}
-
-function toArchiveStorageError(error: unknown, fallback: string): ArchiveStorageResult {
-  return {
-    ok: false,
-    errorCode: error instanceof Error ? normalizeArchiveErrorCode(error.message) : fallback,
-  };
-}
-
-function buildJobMetadata(job: ArchiveJobWorkItem): Record<string, unknown> {
-  return removeUndefinedValues({
-    archiveJobId: job.id,
-    archiveJobTarget: job.target,
-    retainedIdentityId: job.retainedIdentityId,
-    userId: job.userId,
-    seasonId: job.seasonId,
-    participantId: job.participantId,
-    matchHistoryEntryId: job.matchHistoryEntryId,
-    threadId: job.threadId,
-  });
-}
-
-function buildVaultAad(target: string, sourceId: string) {
-  return `knu-roommate:retained-vault:${target}:v1:${sourceId}`;
-}
-
-function toVaultJson(value: unknown): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(toJsonSerializable(value))) as Prisma.InputJsonValue;
-}
-
-function toJsonSerializable(value: unknown): unknown {
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => toJsonSerializable(entry));
-  }
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-        key,
-        toJsonSerializable(entry),
-      ]),
-    );
-  }
-  return value;
-}
-
-function addDays(date: Date, days: number) {
-  return new Date(date.getTime() + days * 24 * 60 * 60 * 1_000);
-}
-
-function resolveChatIdentityReviewAfter(payload: unknown, fallbackFrom: Date) {
-  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
-    const identityReviewAfter = (payload as Record<string, unknown>).identityReviewAfter;
-    if (typeof identityReviewAfter === 'string') {
-      const parsed = new Date(identityReviewAfter);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-  }
-  return addDays(fallbackFrom, CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS);
-}
-
-function normalizeArchiveErrorCode(message: string) {
-  return (
-    message
-      .replace(/^\[[^\]]+\]\s*/, '')
-      .replace(/[^A-Z0-9]+/gi, '_')
-      .replace(/^_+|_+$/g, '')
-      .toUpperCase()
-      .slice(0, 80) || 'THREAD_RETENTION_ARCHIVE_ERROR'
-  );
-}
-
-function removeUndefinedValues(input: Record<string, unknown>) {
-  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }

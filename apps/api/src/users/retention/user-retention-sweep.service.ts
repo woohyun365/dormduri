@@ -3,7 +3,7 @@ import { RetentionWorkerPrismaService } from '../../platform/database/prisma.ser
 import {
   activateThreadRetentionJobsForArchivedThreads,
   retryDueArchiveJobs,
-} from '../../retention/archive-job-owner.js';
+} from '../../retention/archive-jobs/archive-job-runner.service.js';
 import { disposeExpiredRetainedIdentities } from '../../retention/retained-identities/retained-identity-disposal.service.js';
 import { disposeDueRetentionAccessLogs } from '../../retention/access-logs/retention-access-log-disposal.service.js';
 import { retryDueRetentionReviewJobs } from '../../retention/review-jobs/retention-review-job-runner.service.js';

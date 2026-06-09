@@ -1,7 +1,7 @@
 import type {
   ArchiveJobActivationResult,
   ArchiveJobSweepResult,
-} from '../../../retention/archive-job-owner.js';
+} from '../../../retention/archive-jobs/archive-job.types.js';
 import type { RetainedIdentityDisposalResult } from '../../../retention/retained-identities/retained-identity.types.js';
 import type { RetentionAccessLogDisposalResult } from '../../../retention/access-logs/retention-access-log.types.js';
 import type { RetentionReviewJobSweepResult } from '../../../retention/review-jobs/retention-review-job.types.js';

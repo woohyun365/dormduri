@@ -1,9 +1,9 @@
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import {
   activateThreadRetentionJobsForArchivedThreads,
-  createDeletionArchiveJobsTx,
   retryDueArchiveJobs,
-} from '../../src/retention/archive-job-owner.js';
+} from '../../src/retention/archive-jobs/archive-job-runner.service.js';
+import { createDeletionArchiveJobsTx } from '../../src/retention/archive-jobs/create-deletion-archive-jobs.command.js';
 import { createRetainedIdentityCipher } from '../../src/retention/retained-identities/retained-identity-cipher.js';
 import { createRetainedIdentityOwner } from '../../src/retention/retained-identities/retained-identity.service.js';
 import { createConversationRetainedBodyCipher } from '../../src/retention/conversation-retained-body-owner.js';
