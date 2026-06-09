@@ -1,0 +1,149 @@
+import { createUpdateDisplayIdentityCommand } from './update-display-identity.command.js';
+import { usersErrors } from '../../users.errors.js';
+
+const NOW = new Date('2026-05-21T00:00:00.000Z');
+const USER = {
+  id: 'user-1',
+  email: 'student@kangwon.ac.kr',
+  emailVerifiedAt: new Date('2026-05-01T00:00:00.000Z'),
+  deletedAt: null,
+  gender: 'M' as const,
+  campus: 'CHUNCHEON' as const,
+  displayIdentity: {
+    userId: 'user-1',
+    nickname: '기존닉네임',
+    nicknameNormalized: '기존닉네임',
+    nicknameChangedAt: null,
+    createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-05-01T00:00:00.000Z'),
+  },
+  academicIdentity: {
+    userId: 'user-1',
+    collegeCode: 'IT',
+    birthYear: 2002,
+    createdAt: new Date('2026-05-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-05-01T00:00:00.000Z'),
+  },
+  dismissedNotices: [],
+};
+
+type AuditCreateArgs = {
+  data: Record<string, unknown>;
+  select: { id: true };
+};
+
+describe('UpdateDisplayIdentityCommand', () => {
+  const prisma = {
+    getDatabaseNow: jest.fn(),
+    runSerializableTransaction: jest.fn(),
+  };
+  const seasonsService = {
+    getCurrentSeasonContext: jest.fn(),
+  };
+  const moderationService = {
+    validateNicknamePolicy: jest.fn(),
+  };
+  const getUserWithDisplayIdentity = jest.fn();
+  const command = createUpdateDisplayIdentityCommand({
+    prisma: prisma as never,
+    seasonsService: seasonsService as never,
+    moderationService: moderationService as never,
+    getUserWithDisplayIdentity,
+  });
+  const tx = {
+    seasonParticipant: { findUnique: jest.fn() },
+    userDisplayIdentity: {
+      findUnique: jest.fn(),
+      updateMany: jest.fn(),
+    },
+    userDisplayIdentityNicknameChangeEvent: { create: jest.fn() },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
+    moderationService.validateNicknamePolicy.mockResolvedValue(null);
+    tx.userDisplayIdentity.findUnique.mockResolvedValue(null);
+    tx.userDisplayIdentity.updateMany.mockResolvedValue({ count: 1 });
+    tx.userDisplayIdentityNicknameChangeEvent.create.mockResolvedValue({ id: 'event-1' });
+  });
+
+  it('same nickname no-op은 lock/cooldown/moderation보다 먼저 idempotent하게 반환한다', async () => {
+    const result = await command.applySelfServiceNicknameChange(
+      {
+        ...USER,
+        displayIdentity: {
+          ...USER.displayIdentity,
+          nicknameChangedAt: new Date('2026-05-20T23:59:00.000Z'),
+        },
+      },
+      command.parseDisplayIdentityNickname('기존닉네임'),
+      NOW,
+      tx as never,
+    );
+
+    expect(result).toEqual({ attempted: true, changed: false, noOpReason: 'SAME_NICKNAME' });
+    expect(seasonsService.getCurrentSeasonContext).not.toHaveBeenCalled();
+    expect(moderationService.validateNicknamePolicy).not.toHaveBeenCalled();
+    expect(tx.userDisplayIdentity.updateMany).not.toHaveBeenCalled();
+    expect(tx.userDisplayIdentityNicknameChangeEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('moderation에서 거부된 nickname은 update/audit 없이 기존 error를 유지한다', async () => {
+    moderationService.validateNicknamePolicy.mockResolvedValue(
+      '사용할 수 없는 단어가 포함되어 있습니다.',
+    );
+
+    await expect(
+      command.applySelfServiceNicknameChange(
+        USER,
+        command.parseDisplayIdentityNickname('탈퇴한사용자'),
+        NOW,
+        tx as never,
+      ),
+    ).rejects.toMatchObject({
+      response: usersErrors
+        .nicknameModerationRejected('사용할 수 없는 단어가 포함되어 있습니다.')
+        .getResponse(),
+    });
+
+    expect(tx.userDisplayIdentity.updateMany).not.toHaveBeenCalled();
+    expect(tx.userDisplayIdentityNicknameChangeEvent.create).not.toHaveBeenCalled();
+  });
+
+  it('self-service nickname 변경은 update와 audit append를 같은 tx client에 수행한다', async () => {
+    await expect(
+      command.applySelfServiceNicknameChange(
+        USER,
+        command.parseDisplayIdentityNickname('새닉네임'),
+        NOW,
+        tx as never,
+      ),
+    ).resolves.toEqual({ attempted: true, changed: true, noOpReason: null });
+
+    expect(tx.userDisplayIdentity.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', nicknameChangedAt: null },
+      data: {
+        nickname: '새닉네임',
+        nicknameNormalized: '새닉네임',
+        nicknameChangedAt: NOW,
+      },
+    });
+    const auditCreateMock = tx.userDisplayIdentityNicknameChangeEvent.create as jest.Mock<
+      unknown,
+      [AuditCreateArgs]
+    >;
+    const [auditCreateArgs] = auditCreateMock.mock.calls[0]!;
+    expect(auditCreateArgs.data).toMatchObject({
+      userId: 'user-1',
+      source: 'USER_SELF',
+      reason: 'USER_REQUEST',
+      actorType: 'USER',
+      actorId: 'user-1',
+      previousNickname: '기존닉네임',
+      nextNickname: '새닉네임',
+      changedAt: NOW,
+    });
+    expect(auditCreateArgs.select).toEqual({ id: true });
+  });
+});

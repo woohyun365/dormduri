@@ -7,32 +7,23 @@ import type {
 } from '@repo/shared/user-contract';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import {
-  normalizeNickname,
-  validateNicknameStructure as validateNicknameFormat,
-} from '@repo/shared/auth-policy';
 import { ModerationService } from '../moderation/moderation.service.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
-import { hasNicknameCooldown } from './nickname-policy.js';
 import {
   buildUserWithDisplayIdentitySelect,
   mapUserWithDisplayIdentityProjection,
   type UserAcademicIdentityRecord,
-  type UserDisplayIdentityRecord,
   type UserWithDisplayIdentityRecord,
 } from './current-user/current-user.select.js';
 import { CurrentUserViewService } from './current-user/current-user-view.service.js';
-import {
-  isPrismaKnownRequestError,
-  prismaErrorTargetIncludes,
-} from '../platform/database/prisma-error.js';
 import { usersErrors } from './users.errors.js';
 import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
-import { resolveNicknameChangePolicy } from './nickname-change-policy.owner.js';
+import { resolveNicknameChangePolicy } from './identity/display/display-identity-edit.policy.js';
 import {
-  recordDisplayIdentityNicknameChangeAuditTx,
-  type DisplayIdentityNicknameAuditReference,
-} from './display-identity-nickname-audit.owner.js';
+  createUpdateDisplayIdentityCommand,
+  type DisplayIdentityNicknameOverrideInput,
+  type DisplayIdentityNicknameOverrideResult,
+} from './identity/display/update-display-identity.command.js';
 import { consumeAcademicCollegeChangeAllowanceTx } from './academic-identity-correction-allowance.owner.js';
 
 export interface UpdateCurrentUserInput {
@@ -40,35 +31,6 @@ export interface UpdateCurrentUserInput {
     nickname: string;
   };
   academicIdentity?: UpdateCurrentUserAcademicIdentityRequest;
-}
-
-export type DisplayIdentityNicknameOverrideReason =
-  | 'REPORT_REVIEW'
-  | 'ENFORCEMENT_ACTION'
-  | 'SAFETY_INCIDENT'
-  | 'RESERVED_OR_BLOCKED_TERM'
-  | 'ADMIN_MANUAL';
-
-export interface DisplayIdentityNicknameOverrideInput extends DisplayIdentityNicknameAuditReference {
-  userId: string;
-  nickname: string;
-  actorId: string;
-  actorType?: 'ADMIN' | 'SYSTEM';
-  reason: DisplayIdentityNicknameOverrideReason;
-}
-
-export interface DisplayIdentityNicknameOverrideResult {
-  userId: string;
-  nickname: string;
-  nicknameNormalized: string;
-  nicknameChangedAt: string;
-  override: {
-    actorId: string;
-    actorType: 'ADMIN' | 'SYSTEM';
-    reason: DisplayIdentityNicknameOverrideReason;
-    appliedAt: string;
-    auditEventId: string;
-  };
 }
 
 interface UserUpdateOwnerDeps {
@@ -79,10 +41,6 @@ interface UserUpdateOwnerDeps {
 }
 
 type UserReadClient = Pick<PrismaService, 'user'> | Pick<Prisma.TransactionClient, 'user'>;
-type UserDisplayIdentityClient =
-  | Pick<PrismaService, 'userDisplayIdentity'>
-  | Pick<Prisma.TransactionClient, 'userDisplayIdentity'>;
-
 type AcademicIdentityClient =
   | Pick<
       PrismaService,
@@ -110,6 +68,13 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     return mapUserWithDisplayIdentityProjection(user);
   }
 
+  const displayIdentityCommand = createUpdateDisplayIdentityCommand({
+    prisma: deps.prisma,
+    seasonsService: deps.seasonsService,
+    moderationService: deps.moderationService,
+    getUserWithDisplayIdentity,
+  });
+
   async function updateCurrentUser(
     authUser: AuthenticatedUserContext,
     input: UpdateCurrentUserInput,
@@ -136,7 +101,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     }
 
     const parsedNickname = input.displayIdentity
-      ? parseDisplayIdentityNickname(input.displayIdentity.nickname)
+      ? displayIdentityCommand.parseDisplayIdentityNickname(input.displayIdentity.nickname)
       : null;
     const parsedAcademicIdentity = input.academicIdentity
       ? parseAcademicIdentity(input.academicIdentity)
@@ -160,7 +125,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       };
 
       if (parsedNickname) {
-        txDisplayIdentityMutation = await applyDisplayIdentityNicknameChange(
+        txDisplayIdentityMutation = await displayIdentityCommand.applySelfServiceNicknameChange(
           txUser,
           parsedNickname,
           now,
@@ -193,62 +158,6 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       displayIdentityMutation,
       academicIdentityMutation,
     );
-  }
-
-  async function applyDisplayIdentityNicknameChange(
-    txUser: UserWithDisplayIdentityRecord,
-    parsedNickname: { nickname: string; nicknameNormalized: string },
-    now: Date,
-    tx: Prisma.TransactionClient,
-  ): Promise<UpdateCurrentUserDisplayIdentityMutationResult> {
-    const displayIdentity = assertDisplayIdentity(txUser.displayIdentity);
-
-    if (isSameNickname(displayIdentity, parsedNickname)) {
-      return {
-        attempted: true,
-        changed: false,
-        noOpReason: 'SAME_NICKNAME',
-      };
-    }
-
-    const nicknamePolicy = await resolveNicknameChangePolicy(
-      {
-        prisma: deps.prisma,
-        seasonsService: deps.seasonsService,
-      },
-      txUser,
-      now,
-      tx,
-    );
-    if (nicknamePolicy.nicknameLockedBySeason) {
-      throw usersErrors.nicknameLockedBySeason();
-    }
-
-    if (hasNicknameCooldown(displayIdentity.nicknameChangedAt, now)) {
-      throw usersErrors.nicknameCooldownActive();
-    }
-
-    await assertNicknamePolicyAccepted(parsedNickname.nickname);
-    await assertNicknameAvailableForUser(parsedNickname, txUser.id, tx);
-    await updateDisplayIdentityNickname(txUser.id, displayIdentity, parsedNickname, now, tx);
-    await recordDisplayIdentityNicknameChangeAuditTx(tx, {
-      userId: txUser.id,
-      source: 'USER_SELF',
-      reason: 'USER_REQUEST',
-      actorType: 'USER',
-      actorId: txUser.id,
-      previousNickname: displayIdentity.nickname,
-      previousNicknameNormalized: displayIdentity.nicknameNormalized,
-      nextNickname: parsedNickname.nickname,
-      nextNicknameNormalized: parsedNickname.nicknameNormalized,
-      changedAt: now,
-    });
-
-    return {
-      attempted: true,
-      changed: true,
-      noOpReason: null,
-    };
   }
 
   async function applyAcademicIdentityChange(
@@ -328,91 +237,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
   async function overrideDisplayIdentityNicknameForPolicyEnforcement(
     input: DisplayIdentityNicknameOverrideInput,
   ): Promise<DisplayIdentityNicknameOverrideResult> {
-    const now = await deps.prisma.getDatabaseNow();
-    const parsedNickname = parseDisplayIdentityNickname(input.nickname);
-    await assertNicknamePolicyAccepted(parsedNickname.nickname);
-    let auditEventId: string | null = null;
-
-    await deps.prisma.runSerializableTransaction(async (tx) => {
-      const txUser = await getUserWithDisplayIdentity(input.userId, tx);
-      const displayIdentity = assertDisplayIdentity(txUser.displayIdentity);
-      await assertNicknameAvailableForUser(parsedNickname, input.userId, tx);
-
-      const nicknamePolicy = await resolveNicknameChangePolicy(
-        {
-          prisma: deps.prisma,
-          seasonsService: deps.seasonsService,
-        },
-        txUser,
-        now,
-        tx,
-      );
-
-      if (!isSameNickname(displayIdentity, parsedNickname)) {
-        await updateDisplayIdentityNickname(input.userId, displayIdentity, parsedNickname, now, tx);
-      }
-
-      let seasonProfileSnapshotUpdated = false;
-      if (nicknamePolicy.currentRegisteredParticipant) {
-        const snapshotUpdate = await tx.seasonParticipantProfile.updateMany({
-          where: { participantId: nicknamePolicy.currentRegisteredParticipant.id },
-          data: {
-            nicknameSnapshot: parsedNickname.nickname,
-            nicknameNormalizedSnapshot: parsedNickname.nicknameNormalized,
-          },
-        });
-        seasonProfileSnapshotUpdated = snapshotUpdate.count > 0;
-      }
-
-      const auditEvent = await recordDisplayIdentityNicknameChangeAuditTx(tx, {
-        userId: input.userId,
-        source: 'POLICY_ENFORCEMENT',
-        reason: input.reason,
-        actorType: input.actorType ?? 'ADMIN',
-        actorId: input.actorId,
-        previousNickname: displayIdentity.nickname,
-        previousNicknameNormalized: displayIdentity.nicknameNormalized,
-        nextNickname: parsedNickname.nickname,
-        nextNicknameNormalized: parsedNickname.nicknameNormalized,
-        seasonId: nicknamePolicy.currentRegisteredParticipant?.seasonId ?? null,
-        participantId: nicknamePolicy.currentRegisteredParticipant?.id ?? null,
-        seasonProfileSnapshotUpdated,
-        reportId: input.reportId,
-        moderationCaseId: input.moderationCaseId,
-        sanctionId: input.sanctionId,
-        approvalReference: input.approvalReference,
-        metadata: input.metadata,
-        changedAt: now,
-      });
-      auditEventId = auditEvent.id;
-    });
-
-    return {
-      userId: input.userId,
-      nickname: parsedNickname.nickname,
-      nicknameNormalized: parsedNickname.nicknameNormalized,
-      nicknameChangedAt: now.toISOString(),
-      override: {
-        actorId: input.actorId,
-        actorType: input.actorType ?? 'ADMIN',
-        reason: input.reason,
-        appliedAt: now.toISOString(),
-        auditEventId: auditEventId ?? '',
-      },
-    };
-  }
-
-  function parseDisplayIdentityNickname(nickname: string) {
-    const trimmedNickname = nickname.trim();
-    const formatError = validateNicknameFormat(trimmedNickname);
-    if (formatError) {
-      throw usersErrors.invalidNickname(formatError);
-    }
-
-    return {
-      nickname: trimmedNickname,
-      nicknameNormalized: normalizeNickname(trimmedNickname),
-    };
+    return displayIdentityCommand.overrideDisplayIdentityNicknameForPolicyEnforcement(input);
   }
 
   function parseAcademicIdentity(input: UpdateCurrentUserAcademicIdentityRequest) {
@@ -420,28 +245,6 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       collegeCode: input.collegeCode,
       birthYear: input.birthYear,
     };
-  }
-
-  async function assertNicknamePolicyAccepted(nickname: string) {
-    const nicknamePolicyError = await deps.moderationService.validateNicknamePolicy(nickname);
-    if (nicknamePolicyError) {
-      throw usersErrors.nicknameModerationRejected(nicknamePolicyError);
-    }
-  }
-
-  async function assertNicknameAvailableForUser(
-    parsedNickname: { nicknameNormalized: string },
-    userId: string,
-    client: UserDisplayIdentityClient = deps.prisma,
-  ) {
-    const existingNickname = await client.userDisplayIdentity.findUnique({
-      where: { nicknameNormalized: parsedNickname.nicknameNormalized },
-      select: { userId: true },
-    });
-
-    if (existingNickname && existingNickname.userId !== userId) {
-      throw usersErrors.nicknameAlreadyTaken();
-    }
   }
 
   async function assertBirthYearEditableBeforeRegistration(
@@ -488,39 +291,6 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     });
   }
 
-  async function updateDisplayIdentityNickname(
-    userId: string,
-    displayIdentity: UserDisplayIdentityRecord,
-    parsedNickname: { nickname: string; nicknameNormalized: string },
-    now: Date,
-    client: UserDisplayIdentityClient = deps.prisma,
-  ) {
-    try {
-      const updateResult = await client.userDisplayIdentity.updateMany({
-        where: {
-          userId,
-          nicknameChangedAt: displayIdentity.nicknameChangedAt,
-        },
-        data: {
-          nickname: parsedNickname.nickname,
-          nicknameNormalized: parsedNickname.nicknameNormalized,
-          nicknameChangedAt: now,
-        },
-      });
-
-      if (updateResult.count !== 1) {
-        throw usersErrors.nicknameCooldownActive();
-      }
-    } catch (error) {
-      if (isPrismaKnownRequestError(error, 'P2002')) {
-        if (prismaErrorTargetIncludes(error, 'nicknameNormalized')) {
-          throw usersErrors.nicknameAlreadyTaken();
-        }
-      }
-      throw error;
-    }
-  }
-
   return {
     updateCurrentUser,
     overrideDisplayIdentityNicknameForPolicyEnforcement,
@@ -543,25 +313,6 @@ function buildUpdateCurrentUserResponse(
       academicIdentity,
     },
   };
-}
-
-function assertDisplayIdentity(
-  displayIdentity: UserWithDisplayIdentityRecord['displayIdentity'],
-): UserDisplayIdentityRecord {
-  if (!displayIdentity) {
-    throw new Error('[UsersService] user display identity row is required');
-  }
-  return displayIdentity;
-}
-
-function isSameNickname(
-  displayIdentity: UserDisplayIdentityRecord,
-  parsedNickname: { nickname: string; nicknameNormalized: string },
-) {
-  return (
-    displayIdentity.nickname === parsedNickname.nickname &&
-    displayIdentity.nicknameNormalized === parsedNickname.nicknameNormalized
-  );
 }
 
 function assertAcademicIdentity(

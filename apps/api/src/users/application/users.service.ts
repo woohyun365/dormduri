@@ -17,16 +17,15 @@ import {
   type SeasonContextPort,
 } from '../../seasons/ports/season-context.port.js';
 import { CurrentUserViewService } from '../current-user/current-user-view.service.js';
-import {
-  createUserUpdateOwner,
-  type DisplayIdentityNicknameOverrideInput,
-  type DisplayIdentityNicknameOverrideResult,
-  type UpdateCurrentUserInput,
-} from '../user-update-owner.js';
+import { createUserUpdateOwner, type UpdateCurrentUserInput } from '../user-update-owner.js';
+import type {
+  DisplayIdentityNicknameOverrideInput,
+  DisplayIdentityNicknameOverrideResult,
+} from '../identity/display/update-display-identity.command.js';
 import {
   listDisplayIdentityNicknameChangeAuditForOperations,
   type DisplayIdentityNicknameChangeAuditEntry,
-} from '../display-identity-nickname-audit.owner.js';
+} from '../identity/audit/display-identity-nickname-audit.repository.js';
 import { createUserDeletionOwner } from '../user-deletion-owner.js';
 import { createUserOnboardingOwner } from '../user-onboarding-owner.js';
 import type {

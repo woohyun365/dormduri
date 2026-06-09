@@ -58,9 +58,9 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 - HTTP route parsing and delegation: `users.controller.ts`.
 - Controller-facing delegation: `application/users.service.ts`.
 - Current-user read model projection: `current-user/` owner files. Canonical placement is `current-user/current-user-view.service.ts`, `current-user/current-user.select.ts`, and `current-user/current-user.presenter.ts`.
-- Display nickname self-service update: `identity/display/` owner files. Existing placement is `user-update-owner.ts`, `nickname-policy.ts`, and `nickname-change-policy.owner.ts`.
+- Display nickname self-service update: `identity/display/` owner files. Canonical placement is `identity/display/update-display-identity.command.ts`, `identity/display/display-identity.repository.ts`, `identity/display/display-identity-edit.policy.ts`, and `identity/display/nickname-cooldown.policy.ts`.
 - Academic identity correction: `identity/academic/` owner files. Existing placement is `user-update-owner.ts` and `academic-identity-correction-allowance.owner.ts`.
-- Identity audit append/query: `identity/audit/` owner files. Existing placement is `display-identity-nickname-audit.owner.ts`.
+- Identity audit append/query: `identity/audit/` owner files. Display nickname audit canonical placement is `identity/audit/display-identity-nickname-audit.repository.ts`.
 - Onboarding notice dismiss/readback: `onboarding/` owner files. Existing placement is `user-onboarding-owner.ts`.
 - Account deletion and immediate de-identification: `account-deletion/` owner files. Existing placement is `user-deletion-owner.ts`.
 - Retention sweep adapter behavior: `retention/` owner files plus lifecycle adapter wiring.

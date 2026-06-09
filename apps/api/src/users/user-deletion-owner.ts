@@ -30,7 +30,7 @@ import {
 } from '../retention/retention-access-log-owner.js';
 import { isParticipantRegistered } from '../season-participants/policies/index.js';
 import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
-import { recordDisplayIdentityNicknameChangeAuditTx } from './display-identity-nickname-audit.owner.js';
+import { recordDisplayIdentityNicknameChangeAuditTx } from './identity/audit/display-identity-nickname-audit.repository.js';
 
 interface UserDeletionOwnerDeps {
   prisma: PrismaService;

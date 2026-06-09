@@ -3,11 +3,11 @@ import type { CurrentUserResponse } from '@repo/shared/user-contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { MatchesService } from '../../matches/matches.service.js';
-import { hasNicknameCooldown } from '../nickname-policy.js';
+import { hasNicknameCooldown } from '../identity/display/nickname-cooldown.policy.js';
 import {
   buildDisplayIdentityEditUnavailableReasons,
   isNicknameLockedByCurrentSeasonRegistration,
-} from '../nickname-change-policy.owner.js';
+} from '../identity/display/display-identity-edit.policy.js';
 import { CurrentSeasonParticipationViewQuery } from '../../season-participants/application/current-season-participation-view.query.js';
 import {
   SEASON_CONTEXT_PORT,

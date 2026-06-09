@@ -1,15 +1,15 @@
 import type { DisplayIdentityEditUnavailableReason } from '@repo/shared/display-identity-contract';
-import type { Campus } from '../generated/prisma/enums.js';
-import type { Prisma } from '../generated/prisma/client.js';
-import { PrismaService } from '../platform/database/prisma.service.js';
-import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
+import type { Campus } from '../../../generated/prisma/enums.js';
+import type { Prisma } from '../../../generated/prisma/client.js';
+import { PrismaService } from '../../../platform/database/prisma.service.js';
+import type { SeasonContextPort } from '../../../seasons/ports/season-context.port.js';
 import type { SeasonState } from '@repo/shared/season/runtime';
-import { isParticipantRegistered } from '../season-participants/policies/index.js';
+import { isParticipantRegistered } from '../../../season-participants/policies/index.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
-} from '../season-participants/participants/season-participant-records.js';
+} from '../../../season-participants/participants/season-participant-records.js';
 
 export interface NicknameChangePolicyUser {
   id: string;
