@@ -4,7 +4,8 @@ import { Prisma } from '../generated/prisma/client.js';
 import type { RetentionAccessReason } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';
 import { validateRetainedIdentityMetadata } from './retained-identity-metadata.validator.js';
-import { disposeDueRetainedVaultObjects, ensureRetentionCaseTx } from './retained-vault-owner.js';
+import { ensureRetentionCaseTx } from './vault/retention-case.repository.js';
+import { disposeDueRetainedVaultObjects } from './vault/retained-vault.service.js';
 import { createRetentionAccessLog } from './retention-access-log-owner.js';
 import {
   decryptJsonPayload,
@@ -12,7 +13,7 @@ import {
   type EncryptedRetentionPayload,
   type RetentionCipher,
   createRetentionCipher,
-} from './retention-cipher.js';
+} from './crypto/retention-cipher.js';
 
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1_000;
 const THREE_YEARS_DAYS = 365 * 3;

@@ -5,18 +5,23 @@ import {
   hasChatRealtimeOutboxTx,
 } from '../chat/outbox/chat-realtime-outbox.service.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';
-import type { RetentionCipher } from './retention-cipher.js';
-import { decryptJsonPayload, encryptJsonPayload } from './retention-cipher.js';
+import {
+  decryptJsonPayload,
+  encryptJsonPayload,
+  type RetentionCipher,
+} from './crypto/retention-cipher.js';
+import { ensureRetentionCaseTx } from './vault/retention-case.repository.js';
 import {
   createEnvRetentionVaultKeyring,
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
+  type RetentionVaultKeyring,
+} from './vault/retained-vault-keyring.js';
+import {
   discloseRetainedVaultPayload,
-  ensureRetentionCaseTx,
   hmacPayloadDigest,
   retainVaultPayloadTx,
-  type RetentionVaultKeyring,
-} from './retained-vault-owner.js';
+} from './vault/retained-vault.service.js';
 
 const CHAT_BODY_AAD_PREFIX = 'knu-roommate:chat-message-body:v1';
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();

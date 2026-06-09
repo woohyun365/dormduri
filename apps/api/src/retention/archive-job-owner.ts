@@ -7,11 +7,11 @@ import type {
 } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';
 import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../privacy/deidentification/deidentified-display.policy.js';
+import { ensureRetentionCaseTx } from './vault/retention-case.repository.js';
 import {
-  ensureRetentionCaseTx,
   retainVaultPayloadTx,
   type RetainedVaultOwnerOptions,
-} from './retained-vault-owner.js';
+} from './vault/retained-vault.service.js';
 import {
   createConversationRetainedBodyOwner,
   type ConversationRetainedBodyOwnerOptions,

@@ -1,19 +1,23 @@
-import { Prisma } from '../generated/prisma/client.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import {
   createEnvRetentionVaultKeyring,
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
-  discloseRetainedVaultPayload,
-  disposeDueRetainedVaultObjects,
-  ensureRetentionCaseTx,
+} from './retained-vault-keyring.js';
+import { ensureRetentionCaseTx } from './retention-case.repository.js';
+import {
   parseRetainedAcademicIdentityAuditPayload,
   parseRetainedMatchHistoryPayload,
   parseRetainedNicknameAuditPayload,
   parseRetainedSeasonProfileHistoryPayload,
+} from './retained-vault-payload-codecs.js';
+import {
+  discloseRetainedVaultPayload,
+  disposeDueRetainedVaultObjects,
   retainVaultPayloadTx,
-} from './retained-vault-owner.js';
+} from './retained-vault.service.js';
 
-describe('retained-vault-owner', () => {
+describe('retained-vault.service', () => {
   const now = new Date('2026-05-18T00:00:00.000Z');
   const cipher = createRetentionVaultCipher({
     key: Buffer.alloc(32, 31),

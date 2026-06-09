@@ -2,7 +2,7 @@ import { createDeletionArchiveJobsTx, retryDueArchiveJobs } from './archive-job-
 import {
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
-} from './retained-vault-owner.js';
+} from './vault/retained-vault-keyring.js';
 
 type ArchiveJobUpdateInput = { where: { id: string }; data: Record<string, unknown> };
 type ReviewJobUpsertInput = {

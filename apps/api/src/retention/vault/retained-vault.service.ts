@@ -1,55 +1,26 @@
 import { createHmac } from 'node:crypto';
-import { Prisma } from '../generated/prisma/client.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import type {
   RetainedVaultObjectTarget,
   RetainedVaultSubjectRole,
   RetentionAccessReason,
   RetentionCaseReason,
-} from '../generated/prisma/enums.js';
-import type { PrismaService } from '../platform/database/prisma.service.js';
-import { createRetentionAccessLog } from './retention-access-log-owner.js';
+} from '../../generated/prisma/enums.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
+import { createRetentionAccessLog } from '../retention-access-log-owner.js';
 import {
-  createRetentionCipher,
   decryptJsonPayload,
   encryptJsonPayload,
   type RetentionCipher,
-} from './retention-cipher.js';
+} from '../crypto/retention-cipher.js';
+import {
+  parseRetentionVaultKeyPurpose,
+  resolveRetentionVaultCipher,
+  type RetainedVaultOwnerOptions,
+  type RetentionVaultKeyPurpose,
+} from './retained-vault-keyring.js';
 
-const DEFAULT_VAULT_KEY_VERSION = 'local-v1';
-const POLICY_VERSION = 'rrpd-v1';
-
-export type RetentionVaultKeyPurpose =
-  | 'IDENTITY'
-  | 'CHAT_BODY'
-  | 'NICKNAME_AUDIT'
-  | 'ACADEMIC_IDENTITY_AUDIT'
-  | 'SEASON_PROFILE_HISTORY'
-  | 'MATCH_HISTORY';
-
-export interface RetentionVaultKeyring {
-  getCipher(purpose: RetentionVaultKeyPurpose): RetentionCipher | null;
-}
-
-export interface RetainedVaultOwnerOptions {
-  keyring?: RetentionVaultKeyring;
-}
-
-export interface EnsureRetentionCaseInput {
-  reason: RetentionCaseReason;
-  triggerUserId?: string | null;
-  triggerRetainedIdentityId?: string | null;
-  sourceTable?: string | null;
-  sourceId?: string | null;
-  retentionHoldUntil?: Date | null;
-  legalHoldReason?:
-    | 'LAW_ENFORCEMENT_REQUEST'
-    | 'INTERNAL_DISPUTE_REVIEW'
-    | 'SAFETY_INCIDENT'
-    | 'ADMIN_LEGAL_REVIEW'
-    | null;
-  approvalReference?: string | null;
-  metadata?: Record<string, unknown> | null;
-}
+export type { RetainedVaultOwnerOptions } from './retained-vault-keyring.js';
 
 export interface RetainVaultPayloadInput<TPayload> {
   target: RetainedVaultObjectTarget;
@@ -102,163 +73,6 @@ export interface RetainedVaultDisclosure<TPayload> {
 
 export interface RetainedVaultDisposalResult {
   processedCount: number;
-}
-
-export interface RetainedNicknameAuditPayload {
-  schemaVersion: 1;
-  event: Record<string, unknown>;
-}
-
-export interface RetainedAcademicIdentityAuditPayload {
-  schemaVersion: 1;
-  event: Record<string, unknown>;
-}
-
-export interface RetainedSeasonProfileHistoryPayload {
-  schemaVersion: 1;
-  history: Record<string, unknown>;
-}
-
-export interface RetainedMatchHistoryPayload {
-  schemaVersion: 1;
-  subjectRole: 'VIEWER' | 'COUNTERPART';
-  entry: Record<string, unknown>;
-}
-
-export function parseRetainedNicknameAuditPayload(payload: unknown): RetainedNicknameAuditPayload {
-  const candidate = asRecord(payload, '[retained-vault-owner] nickname audit payload invalid');
-  const event = asRecord(candidate.event, '[retained-vault-owner] nickname audit payload invalid');
-  if (candidate.schemaVersion !== 1 || typeof event.id !== 'string') {
-    throw new Error('[retained-vault-owner] nickname audit payload invalid');
-  }
-
-  return { schemaVersion: 1, event };
-}
-
-export function parseRetainedAcademicIdentityAuditPayload(
-  payload: unknown,
-): RetainedAcademicIdentityAuditPayload {
-  const candidate = asRecord(
-    payload,
-    '[retained-vault-owner] academic identity audit payload invalid',
-  );
-  const event = asRecord(
-    candidate.event,
-    '[retained-vault-owner] academic identity audit payload invalid',
-  );
-  if (
-    candidate.schemaVersion !== 1 ||
-    typeof event.id !== 'string' ||
-    typeof event.previousCollegeCode !== 'string' ||
-    typeof event.nextCollegeCode !== 'string'
-  ) {
-    throw new Error('[retained-vault-owner] academic identity audit payload invalid');
-  }
-
-  return { schemaVersion: 1, event };
-}
-
-export function parseRetainedSeasonProfileHistoryPayload(
-  payload: unknown,
-): RetainedSeasonProfileHistoryPayload {
-  const candidate = asRecord(payload, '[retained-vault-owner] profile history payload invalid');
-  const history = asRecord(
-    candidate.history,
-    '[retained-vault-owner] profile history payload invalid',
-  );
-  if (
-    candidate.schemaVersion !== 1 ||
-    typeof history.id !== 'string' ||
-    typeof history.participantId !== 'string'
-  ) {
-    throw new Error('[retained-vault-owner] profile history payload invalid');
-  }
-
-  return { schemaVersion: 1, history };
-}
-
-export function parseRetainedMatchHistoryPayload(payload: unknown): RetainedMatchHistoryPayload {
-  const candidate = asRecord(payload, '[retained-vault-owner] match history payload invalid');
-  const entry = asRecord(candidate.entry, '[retained-vault-owner] match history payload invalid');
-  if (
-    candidate.schemaVersion !== 1 ||
-    (candidate.subjectRole !== 'VIEWER' && candidate.subjectRole !== 'COUNTERPART') ||
-    typeof entry.id !== 'string'
-  ) {
-    throw new Error('[retained-vault-owner] match history payload invalid');
-  }
-
-  return { schemaVersion: 1, subjectRole: candidate.subjectRole, entry };
-}
-
-export function createRetentionVaultCipher(input: {
-  key: string | Buffer;
-  keyVersion: string;
-}): RetentionCipher {
-  return createRetentionCipher({
-    key: input.key,
-    keyVersion: input.keyVersion,
-    errorPrefix: '[retained-vault-owner]',
-  });
-}
-
-export function createStaticRetentionVaultKeyring(
-  ciphers: Partial<Record<RetentionVaultKeyPurpose, RetentionCipher | null>>,
-): RetentionVaultKeyring {
-  return {
-    getCipher(purpose) {
-      return ciphers[purpose] ?? null;
-    },
-  };
-}
-
-export function createEnvRetentionVaultKeyring(): RetentionVaultKeyring {
-  return {
-    getCipher(purpose) {
-      const key = process.env[`RETENTION_VAULT_${purpose}_ENCRYPTION_KEY_BASE64`]?.trim();
-      if (!key) {
-        return null;
-      }
-
-      const keyVersion =
-        process.env[`RETENTION_VAULT_${purpose}_KEY_VERSION`]?.trim() || DEFAULT_VAULT_KEY_VERSION;
-      return createRetentionVaultCipher({ key, keyVersion });
-    },
-  };
-}
-
-export async function ensureRetentionCaseTx(
-  tx: Prisma.TransactionClient,
-  input: EnsureRetentionCaseInput,
-) {
-  const existing = await tx.retentionCase.findFirst({
-    where: {
-      reason: input.reason,
-      triggerRetainedIdentityId: input.triggerRetainedIdentityId ?? null,
-      sourceTable: input.sourceTable ?? null,
-      sourceId: input.sourceId ?? null,
-    },
-    select: { id: true },
-  });
-  if (existing) {
-    return existing;
-  }
-
-  return tx.retentionCase.create({
-    data: {
-      reason: input.reason,
-      triggerUserId: input.triggerUserId ?? undefined,
-      triggerRetainedIdentityId: input.triggerRetainedIdentityId ?? undefined,
-      sourceTable: input.sourceTable ?? undefined,
-      sourceId: input.sourceId ?? undefined,
-      retentionHoldUntil: input.retentionHoldUntil ?? undefined,
-      legalHoldReason: input.legalHoldReason ?? undefined,
-      approvalReference: input.approvalReference ?? undefined,
-      policyVersion: POLICY_VERSION,
-      metadata: input.metadata ? (input.metadata as Prisma.InputJsonValue) : undefined,
-    },
-    select: { id: true },
-  });
 }
 
 export async function retainVaultPayloadTx<TPayload>(
@@ -524,27 +338,6 @@ async function maybeUpsertHold<TPayload>(
   });
 }
 
-function resolveRetentionVaultCipher(
-  keyring: RetentionVaultKeyring | undefined,
-  purpose: RetentionVaultKeyPurpose,
-) {
-  return (keyring ?? createEnvRetentionVaultKeyring()).getCipher(purpose);
-}
-
-function parseRetentionVaultKeyPurpose(value: string): RetentionVaultKeyPurpose {
-  if (
-    value === 'IDENTITY' ||
-    value === 'CHAT_BODY' ||
-    value === 'NICKNAME_AUDIT' ||
-    value === 'ACADEMIC_IDENTITY_AUDIT' ||
-    value === 'SEASON_PROFILE_HISTORY' ||
-    value === 'MATCH_HISTORY'
-  ) {
-    return value;
-  }
-  throw new Error('[retained-vault-owner] unsupported key purpose');
-}
-
 function assertDisclosureInput(input: {
   accessedBy: string;
   approvalReference: string;
@@ -559,13 +352,6 @@ function assertDisclosureInput(input: {
   if (!input.purpose.trim()) {
     throw new Error('[retained-vault-owner] purpose is required');
   }
-}
-
-function asRecord(value: unknown, errorMessage: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(errorMessage);
-  }
-  return value as Record<string, unknown>;
 }
 
 function stableStringify(value: unknown): string {

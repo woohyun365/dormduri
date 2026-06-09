@@ -67,7 +67,11 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 - Archive target handler registry and target payload dispatch: `archive-jobs/` + 각 owner domain의 `retention/` handler.
 - Retained identity snapshot/disclosure/disposal: `retained-identities/`.
 - Retained vault retain/disclose/dispose and payload codec: `vault/`.
-- Retention case/hold updates: `vault/`.
+- Retention case/hold updates: `vault/retention-case.repository.ts` and `vault/retained-vault.service.ts`.
+- Retained vault keyring/env key lookup: `vault/retained-vault-keyring.ts`.
+- Retained vault payload parser/codec rules: `vault/retained-vault-payload-codecs.ts`.
+- Retained vault retain/disclose/dispose behavior: `vault/retained-vault.service.ts`.
+- Retention payload encryption envelope: `crypto/retention-cipher.ts`.
 - Access log create/disposal behavior: `access-logs/`.
 - Identity-link review scheduling/retry/handler: `review-jobs/`.
 - Retention sweep facade used by lifecycle: `application/`.
