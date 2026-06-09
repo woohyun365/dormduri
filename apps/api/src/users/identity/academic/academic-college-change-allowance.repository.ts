@@ -1,8 +1,8 @@
-import type { Prisma } from '../generated/prisma/client.js';
-import type { Campus } from '../generated/prisma/enums.js';
-import { PrismaService } from '../platform/database/prisma.service.js';
-import { formatKstDate } from '../platform/time/kst-date.js';
-import { usersErrors } from './users.errors.js';
+import type { Prisma } from '../../../generated/prisma/client.js';
+import type { Campus } from '../../../generated/prisma/enums.js';
+import { PrismaService } from '../../../platform/database/prisma.service.js';
+import { formatKstDate } from '../../../platform/time/kst-date.js';
+import { usersErrors } from '../../users.errors.js';
 
 type AcademicIdentityAllowanceClient =
   | Pick<PrismaService, 'season' | 'userAcademicIdentityChangeAllowance'>
