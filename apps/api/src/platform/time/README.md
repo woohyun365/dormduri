@@ -22,7 +22,7 @@ Product domains may import these helpers when they need shared KST local-date be
 ## Architecture guard
 
 - Seasons, lifecycle, auth, and retention policies may consume platform time helpers, but own their product-specific state transitions.
-- Root compatibility date helper files are not introduced in product domain directories.
+- Product domain root에는 date helper forwarding file을 두지 않는다.
 
 ## Where to change time behavior
 

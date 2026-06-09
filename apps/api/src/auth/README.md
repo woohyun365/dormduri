@@ -7,8 +7,8 @@
 외부 domain production code는 auth 내부 command/repository/domain 구현을 직접 import하지 않는다. 필요한 surface는 아래로 제한한다.
 
 - `AuthModule`: auth guard/session/access provider wiring을 제공한다.
-- `access/` surface 또는 root compatibility wrapper: `@Public()`, `@OptionalAuth()`, `@RequireCapability()`, `@CurrentUser()`.
-- actor context public type/resolver surface: 외부 domain은 `AuthenticatedUserContext`와 `AuthActorContextResolver`만 사용한다. `AuthSessionService`는 auth 내부 compatibility facade다.
+- `access/` public surface: `@Public()`, `@OptionalAuth()`, `@RequireCapability()`, `@CurrentUser()`.
+- actor context public type/resolver surface: 외부 domain은 `AuthenticatedUserContext`와 `AuthActorContextResolver`만 사용한다. `AuthSessionService`는 auth 내부 session facade다.
 - `operations/`는 ops boundary다. `AuthOperationsModule`은 non-global module이며 필요한 module이 명시 import한다.
 
 ## Directory responsibilities

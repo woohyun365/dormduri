@@ -36,7 +36,7 @@
 ## Hard rules
 
 - Root production TypeScript file은 controller/module만 허용한다.
-- `.owner.ts` compatibility file을 새로 만들지 않는다.
+- root `.owner.ts` 파일로 경계를 우회하지 않는다.
 - `SeasonParticipantsService`는 provider-injected facade이며 direct dependency assembler가 아니다.
 - `season-participant-use-case.deps.ts`는 deps/type만 소유하고 DB-backed helper 구현은 owner-adjacent query files에 둔다.
 - `season-participants` production code는 concrete `DormitoriesService`를 import하지 않는다.

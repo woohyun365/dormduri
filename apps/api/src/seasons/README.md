@@ -34,7 +34,7 @@
 - `operations/`: schedule/override admin API controller, command, repository, audit repository, mapper, validation policy, operational metrics. Mutation과 audit append는 같은 transaction 안에서 수행한다.
 - `cache/`: request/method-level current season context memoization helper. Cache instance를 명시적으로 넘긴 logical operation 안에서만 재사용하며 process/Redis cache가 아니다.
 - `contracts/`: shared season contract behavior regression spec. Shared package layout fitness는 `apps/api/src/architecture/contracts/layout/season-shared-contract-layout.spec.ts`가 소유한다.
-- `platform/time/kst-date.ts`: season-neutral KST local-date helper. `season.utils.ts` compatibility re-export는 두지 않는다.
+- `platform/time/kst-date.ts`: season-neutral KST local-date helper. `season.utils.ts` root forwarding file은 두지 않는다.
 
 ## Hard rules
 
@@ -56,12 +56,12 @@
 Seasons architecture guard는 `apps/api/src/architecture/seasons-boundary.spec.ts`가 소유한다. Shared season contract layout guard는 `apps/api/src/architecture/contracts/layout/season-shared-contract-layout.spec.ts`가 소유한다.
 
 - Root production TypeScript file은 `seasons.controller.ts`, `seasons.module.ts`만 허용한다.
-- `SeasonsService`와 `seasonsErrors`는 root compatibility re-export 없이 각각 `application/`, `errors/`가 소유한다.
+- `SeasonsService`와 `seasonsErrors`는 root forwarding export 없이 각각 `application/`, `errors/`가 소유한다.
 - `SeasonsService`는 facade delegation 위주이며 direct Prisma query, query shape, reference time resolution을 소유하지 않는다.
 - External production code는 `seasons/operations/**`, `seasons/application/**`, `seasons/errors/**`를 직접 import하지 않는다. `seasons/runtime/**` 중 cross-domain 직접 import는 `campus-service-state.query.ts`로만 제한한다.
 - External production code는 `SEASON_CONTEXT_PORT` / `SeasonContextPort`로 current season context를 소비한다.
 - Operations code는 request cache slice를 import하지 않는다. Admin mutation과 request memoization boundary를 분리한다.
-- `season.utils.ts`와 `season.types.ts` root compatibility surface는 두지 않는다.
+- `season.utils.ts`와 `season.types.ts` root helper surface는 두지 않는다.
 - Shared season runtime/operations/participation contract owner는 `packages/shared/src/season/{runtime,operations,participation}/**`다.
 
 ## Where to change
