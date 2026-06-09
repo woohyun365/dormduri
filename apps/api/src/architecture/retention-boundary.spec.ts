@@ -30,6 +30,8 @@ const productDomainRoots = [
   'users',
 ] as const;
 
+const legacyUsersRetentionSweepPortName = ['USER', 'RETENTION', 'SWEEP', 'PORT'].join('_');
+
 function walkTypeScriptFiles(root: string): string[] {
   if (!existsSync(root)) {
     return [];
@@ -78,18 +80,18 @@ function existingRelativeFiles(root: string, files: readonly string[]) {
 }
 
 describe('retention final architecture boundary', () => {
-  it('expected-red Phase 3~8: keeps retention root production files on module surface only', () => {
+  it('expected-red observability split: keeps retention root production files on module surface only', () => {
     const rootProductionFiles = productionTypeScriptFiles(retentionRoot)
       .filter((path) => dirname(path) === retentionRoot)
       .map((path) => rootRelativePath(path, retentionRoot))
       .sort();
 
     expect({
-      expectedGreenPhase: 'Phase 3~8 root owner file split',
+      expectedGreenPhase: 'observability application split',
       currentRootProductionFiles: rootProductionFiles,
       expectedRootProductionFiles: [...finalRootProductionFiles],
     }).toEqual({
-      expectedGreenPhase: 'Phase 3~8 root owner file split',
+      expectedGreenPhase: 'observability application split',
       currentRootProductionFiles: [...finalRootProductionFiles].sort(),
       expectedRootProductionFiles: [...finalRootProductionFiles],
     });
@@ -140,7 +142,7 @@ describe('retention final architecture boundary', () => {
     });
   });
 
-  it('expected-red Phase 8: keeps lifecycle sweep tasks on RETENTION_SWEEP_PORT', () => {
+  it('keeps lifecycle sweep tasks on RETENTION_SWEEP_PORT', () => {
     const lifecycleSweepAdapterSource = readSource(
       join(lifecycleRoot, 'adapters/lifecycle-sweep-tasks.adapter.ts'),
     );
@@ -148,7 +150,7 @@ describe('retention final architecture boundary', () => {
     expect({
       expectedGreenPhase: 'Phase 8 RETENTION_SWEEP_PORT migration',
       userRetentionSweepPortReferences:
-        lifecycleSweepAdapterSource.match(/USER_RETENTION_SWEEP_PORT/g) ?? [],
+        lifecycleSweepAdapterSource.match(new RegExp(legacyUsersRetentionSweepPortName, 'g')) ?? [],
       usesRetentionSweepPort: /\bRETENTION_SWEEP_PORT\b/.test(lifecycleSweepAdapterSource),
       directUsersServiceReferences: sourceFilesContaining(
         lifecycleRoot,
@@ -162,7 +164,7 @@ describe('retention final architecture boundary', () => {
     });
   });
 
-  it('expected-red Phase 8: keeps users and lifecycle away from retention root owner functions', () => {
+  it('keeps users and lifecycle away from retention root owner functions', () => {
     const forbiddenRetentionRootOwnerImports =
       /from\s+['"][^'"]*retention\/(?:archive-job-owner|retained-identity-owner|retained-vault-owner|retention-access-log-owner|retention-review-job-owner|conversation-retained-body-owner)(?:\.js)?['"]/;
     const roots = [usersRoot, lifecycleRoot];

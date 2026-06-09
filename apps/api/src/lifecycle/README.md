@@ -12,7 +12,7 @@
 - `LIFECYCLE_BOUNDARY_SCHEDULE`: season boundary schedule provider token이다.
 - `LifecycleSweepTaskPort`: domain task adapter가 구현하는 port다. task별 DB transaction/ACID 책임은 owning domain service에 남는다.
 - Retention observability emission은 `RetentionModule`이 export하는 `RETENTION_OBSERVABILITY_PORT`를 통해 연결한다.
-- Users account deletion disposal은 `USER_RETENTION_SWEEP_PORT` narrow surface를 통해 연결한다.
+- Retention archive/review/disposal sweep은 `RetentionModule`이 export하는 `RETENTION_SWEEP_PORT` narrow surface를 통해 연결한다.
 - Social-safety bookmark expiration cleanup과 auth operational cleanup은 각 owning service를 lifecycle task adapter로 감싼다.
 
 ## Directory responsibilities
@@ -24,7 +24,7 @@
 - `lifecycle-boundary-schedule.port.ts`: season/date boundary cron job contract.
 - `lifecycle-sweep.tokens.ts`: DI token owner.
 - `lifecycle-sweep.types.ts`: sweep result/task result type owner.
-- `adapters/lifecycle-sweep-tasks.adapter.ts`: matches/chat/season-participants/users/auth/retention domain service를 ordered task port로 감싸는 composition adapter.
+- `adapters/lifecycle-sweep-tasks.adapter.ts`: matches/chat/season-participants/social-safety/retention/auth domain service·port를 ordered task port로 감싸는 composition adapter.
 - `adapters/season-boundary-schedule.adapter.ts`: season boundary schedule을 lifecycle port로 감싸는 adapter.
 
 ## Hard rules
@@ -55,7 +55,7 @@ Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps
 - Task ordering or task list composition: `adapters/lifecycle-sweep-tasks.adapter.ts` and `lifecycle.module.ts`.
 - Season boundary job calculation: `adapters/season-boundary-schedule.adapter.ts`.
 - Individual product convergence behavior: owning domain service/adapter, not lifecycle runner.
-- Users retention sweep contract: `users/application/ports/user-retention-sweep.port.ts`.
+- Retention sweep contract: `retention/application/ports/retention-sweep.port.ts` and `retention/application/retention-sweep.service.ts`.
 - Bookmark expiration cleanup contract: `social-safety/bookmarks/application/bookmark-lifecycle.service.ts`.
 - Auth operational cleanup behavior: `auth/operations`.
 - Sweep result type shape: `lifecycle-sweep.types.ts`.

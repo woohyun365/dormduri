@@ -1,4 +1,4 @@
-import { UserRetentionSweepService } from './user-retention-sweep.service.js';
+import { RetentionSweepService } from './retention-sweep.service.js';
 
 function makeRetentionWorkerPrisma() {
   return {
@@ -29,12 +29,12 @@ function makeRetentionWorkerPrisma() {
   };
 }
 
-describe('UserRetentionSweepService', () => {
+describe('RetentionSweepService', () => {
   const now = new Date('2026-06-01T00:00:00.000Z');
 
   it('retention owner functions를 RetentionWorkerPrismaService boundary로 위임한다', async () => {
     const retentionWorkerPrisma = makeRetentionWorkerPrisma();
-    const service = new UserRetentionSweepService(retentionWorkerPrisma as never);
+    const service = new RetentionSweepService(retentionWorkerPrisma as never);
 
     await expect(service.activateThreadRetentionJobsForArchivedThreads(now)).resolves.toEqual({
       activatedCount: 0,

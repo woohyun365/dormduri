@@ -3,14 +3,14 @@ import { RetentionWorkerPrismaService } from '../../platform/database/prisma.ser
 import {
   activateThreadRetentionJobsForArchivedThreads,
   retryDueArchiveJobs,
-} from '../../retention/archive-jobs/archive-job-runner.service.js';
-import { disposeExpiredRetainedIdentities } from '../../retention/retained-identities/retained-identity-disposal.service.js';
-import { disposeDueRetentionAccessLogs } from '../../retention/access-logs/retention-access-log-disposal.service.js';
-import { retryDueRetentionReviewJobs } from '../../retention/review-jobs/retention-review-job-runner.service.js';
-import type { UserRetentionSweepPort } from '../application/ports/user-retention-sweep.port.js';
+} from '../archive-jobs/archive-job-runner.service.js';
+import { disposeDueRetentionAccessLogs } from '../access-logs/retention-access-log-disposal.service.js';
+import { disposeExpiredRetainedIdentities } from '../retained-identities/retained-identity-disposal.service.js';
+import { retryDueRetentionReviewJobs } from '../review-jobs/retention-review-job-runner.service.js';
+import type { RetentionSweepPort } from './ports/retention-sweep.port.js';
 
 @Injectable()
-export class UserRetentionSweepService implements UserRetentionSweepPort {
+export class RetentionSweepService implements RetentionSweepPort {
   constructor(private readonly retentionWorkerPrisma: RetentionWorkerPrismaService) {}
 
   activateThreadRetentionJobsForArchivedThreads(now: Date) {

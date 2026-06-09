@@ -10,7 +10,6 @@
 - `UsersController`: `/api/users/me`, `/api/users/me/onboarding`, `/api/users/me/delete` HTTP route delegation을 소유한다.
 - `UsersService`: controller-facing facade다. 임의의 cross-domain user table access point가 아니며, route response/error behavior를 유지하는 얇은 delegation surface로 제한한다.
 - `CurrentUserViewModule` / `CurrentUserViewService`: current authenticated user read model assembly surface다. mutation owner가 아니다.
-- `USER_RETENTION_SWEEP_PORT`: lifecycle-facing account deletion retention sweep surface다. User-facing domain은 product read/write를 위해 이 port를 직접 호출하지 않는다.
 - Top-level `apps/api/src/identity`의 identity invariant helper는 pure shared-kernel이다. Persistence-backed account identity behavior는 users identity owner가 소유한다.
 - Account identity invariant HTTP mapping은 `platform/http/account-identity-invariant.error.ts`가 소유한다. Users route error namespace를 cross-domain invariant adapter로 사용하지 않는다.
 - Campus operated/current-season service-state projection은 `seasons/runtime/campus-service-state.query.ts`가 소유한다. Users는 current-user response assembly에서 이 stable query를 소비한다.
@@ -26,7 +25,6 @@
 - `identity/audit/`: display/academic identity change audit append/query helper.
 - `onboarding/`: dismissed notice command/query behavior.
 - `account-deletion/`: account deletion request, password-check bridge use, immediate de-identification, retained identity/archive job delegation.
-- `retention/`: lifecycle-facing users retention sweep port implementation.
 - `operations/`: admin/support/enforcement-facing nickname override command와 display nickname audit list query seam. Public controller는 노출하지 않는다.
 - `errors/`: users route and account self-service user-facing error contract.
 - `contracts/`: shared user contract behavior regression specs.
@@ -51,7 +49,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 
 - Root production TypeScript surface는 `users.controller.ts`, `users.module.ts`만 허용한다. Root owner file로 새 behavior를 확장하지 않는다.
 - Module provider/export list는 `composition/users.providers.ts`와 `composition/users.exports.ts`로 읽을 수 있어야 한다.
-- Lifecycle adapter는 broad controller-facing service behavior가 아니라 narrow users retention sweep surface에 의존해야 한다.
+- Lifecycle adapter는 users의 broad controller-facing service behavior나 users-owned retention sweep port에 의존하지 않는다. Retention sweep 실행은 `retention/application/ports/retention-sweep.port.ts`가 소유한다.
 - `season-participants` production code는 account identity invariant failure를 위해 users route error를 import하지 않아야 한다.
 - Shared user contract는 `packages/shared/src/user/**`와 `@repo/shared/user/**` canonical nested package layout을 사용한다.
 
@@ -66,7 +64,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 - Identity audit append/query: `identity/audit/` owner files. Display nickname audit canonical placement is `identity/audit/display-identity-nickname-audit.repository.ts`.
 - Onboarding notice dismiss/readback: `onboarding/dismiss-onboarding-notice.command.ts`, `onboarding/onboarding-notice.repository.ts`, `onboarding/onboarding-notice.policy.ts`.
 - Account deletion and immediate de-identification: `account-deletion/request-account-deletion.command.ts`, `account-deletion/account-deletion-precondition.policy.ts`, `account-deletion/account-deletion.repository.ts`, `account-deletion/account-deletion-deidentification.mapper.ts`.
-- Retention sweep adapter behavior: `retention/user-retention-sweep.service.ts`, `application/ports/user-retention-sweep.port.ts`, and lifecycle adapter wiring.
+- Account deletion retained identity/archive job creation: `account-deletion/request-account-deletion.command.ts` and retention nested command/port imports. Lifecycle sweep execution is owned by `retention/application/ports/retention-sweep.port.ts`.
 - Operations nickname override/audit query seam: `operations/override-display-identity-nickname.command.ts`, `operations/list-display-identity-nickname-audit.query.ts`. No public operations controller is exposed here.
 - Users-specific error contract: `errors/users.errors.ts`.
 

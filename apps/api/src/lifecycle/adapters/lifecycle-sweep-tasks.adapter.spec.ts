@@ -62,7 +62,7 @@ describe('lifecycle sweep task adapters', () => {
         .fn()
         .mockResolvedValue({ scannedCount: 11, expiredCount: 10 }),
     };
-    const userRetentionSweep = {
+    const retentionSweep = {
       activateThreadRetentionJobsForArchivedThreads: jest
         .fn()
         .mockResolvedValue({ activatedCount: 12 }),
@@ -105,11 +105,11 @@ describe('lifecycle sweep task adapters', () => {
       new MatchHistoryMaterializationSweepTask(matchesService as never),
       new SeasonParticipantBackfillSweepTask(seasonParticipantsService as never),
       new SocialSafetyBookmarkCleanupSweepTask(bookmarkLifecycleService as never),
-      new ThreadRetentionActivationSweepTask(userRetentionSweep as never),
-      new ArchiveJobRetrySweepTask(userRetentionSweep as never),
-      new RetainedIdentityDisposalSweepTask(userRetentionSweep as never),
-      new RetentionReviewJobRetrySweepTask(userRetentionSweep as never),
-      new RetentionAccessLogDisposalSweepTask(userRetentionSweep as never),
+      new ThreadRetentionActivationSweepTask(retentionSweep as never),
+      new ArchiveJobRetrySweepTask(retentionSweep as never),
+      new RetainedIdentityDisposalSweepTask(retentionSweep as never),
+      new RetentionReviewJobRetrySweepTask(retentionSweep as never),
+      new RetentionAccessLogDisposalSweepTask(retentionSweep as never),
       new AuthOperationalCleanupSweepTask(authOperationalCleanupService as never),
     ];
 
@@ -174,13 +174,11 @@ describe('lifecycle sweep task adapters', () => {
     expect(chatLifecycleSweep.sweepThreadLifecycle).toHaveBeenCalledWith(now);
     expect(seasonParticipantsService.backfillCurrentSeasonParticipants).toHaveBeenCalledWith(now);
     expect(bookmarkLifecycleService.expireEndedSeasonBookmarks).toHaveBeenCalledWith(now);
-    expect(userRetentionSweep.activateThreadRetentionJobsForArchivedThreads).toHaveBeenCalledWith(
-      now,
-    );
-    expect(userRetentionSweep.retryDueDeletionArchiveJobs).toHaveBeenCalledWith(now);
-    expect(userRetentionSweep.disposeExpiredRetainedIdentities).toHaveBeenCalledWith(now);
-    expect(userRetentionSweep.retryDueRetentionReviewJobs).toHaveBeenCalledWith(now);
-    expect(userRetentionSweep.disposeDueRetentionAccessLogs).toHaveBeenCalledWith(now);
+    expect(retentionSweep.activateThreadRetentionJobsForArchivedThreads).toHaveBeenCalledWith(now);
+    expect(retentionSweep.retryDueDeletionArchiveJobs).toHaveBeenCalledWith(now);
+    expect(retentionSweep.disposeExpiredRetainedIdentities).toHaveBeenCalledWith(now);
+    expect(retentionSweep.retryDueRetentionReviewJobs).toHaveBeenCalledWith(now);
+    expect(retentionSweep.disposeDueRetentionAccessLogs).toHaveBeenCalledWith(now);
     expect(authOperationalCleanupService.runCleanupBatch).toHaveBeenCalledWith(now);
   });
 });
