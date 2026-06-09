@@ -5,7 +5,7 @@ import { PrismaModule } from '../platform/database/prisma.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { USERS_EXPORTS } from './composition/users.exports.js';
 import { USERS_PROVIDERS } from './composition/users.providers.js';
-import { CurrentUserViewModule } from './current-user-view.module.js';
+import { CurrentUserViewModule } from './current-user/current-user-view.module.js';
 import { UsersController } from './users.controller.js';
 
 @Module({

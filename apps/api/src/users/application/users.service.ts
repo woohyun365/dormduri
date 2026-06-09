@@ -16,7 +16,7 @@ import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
 } from '../../seasons/ports/season-context.port.js';
-import { CurrentUserViewService } from '../current-user-view.service.js';
+import { CurrentUserViewService } from '../current-user/current-user-view.service.js';
 import {
   createUserUpdateOwner,
   type DisplayIdentityNicknameOverrideInput,

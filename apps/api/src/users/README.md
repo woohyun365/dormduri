@@ -57,7 +57,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 
 - HTTP route parsing and delegation: `users.controller.ts`.
 - Controller-facing delegation: `application/users.service.ts`.
-- Current-user read model projection: `current-user/` owner files. Existing placement is `current-user-view.service.ts` and `current-user-select.ts`.
+- Current-user read model projection: `current-user/` owner files. Canonical placement is `current-user/current-user-view.service.ts`, `current-user/current-user.select.ts`, and `current-user/current-user.presenter.ts`.
 - Display nickname self-service update: `identity/display/` owner files. Existing placement is `user-update-owner.ts`, `nickname-policy.ts`, and `nickname-change-policy.owner.ts`.
 - Academic identity correction: `identity/academic/` owner files. Existing placement is `user-update-owner.ts` and `academic-identity-correction-allowance.owner.ts`.
 - Identity audit append/query: `identity/audit/` owner files. Existing placement is `display-identity-nickname-audit.owner.ts`.

@@ -54,8 +54,8 @@ import { CurrentSeasonParticipationViewQuery } from '../season-participants/appl
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { SEASON_CONTEXT_PORT } from '../seasons/ports/season-context.port.js';
-import { CurrentUserViewModule } from '../users/current-user-view.module.js';
-import { CurrentUserViewService } from '../users/current-user-view.service.js';
+import { CurrentUserViewModule } from '../users/current-user/current-user-view.module.js';
+import { CurrentUserViewService } from '../users/current-user/current-user-view.service.js';
 import { UsersService } from '../users/application/users.service.js';
 import { USERS_EXPORTS } from '../users/composition/users.exports.js';
 import { USERS_PROVIDERS } from '../users/composition/users.providers.js';

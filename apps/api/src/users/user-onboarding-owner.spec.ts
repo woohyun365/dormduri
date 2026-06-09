@@ -1,7 +1,8 @@
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
-import { CurrentUserViewService } from './current-user-view.service.js';
+import { CurrentUserQuery } from './current-user/current-user.query.js';
+import { CurrentUserViewService } from './current-user/current-user-view.service.js';
 import { CurrentSeasonParticipationViewQuery } from '../season-participants/application/current-season-participation-view.query.js';
-import type { UserWithDisplayIdentityRecord } from './current-user-select.js';
+import type { UserWithDisplayIdentityRecord } from './current-user/current-user.select.js';
 import { createUserOnboardingOwner } from './user-onboarding-owner.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');
@@ -155,8 +156,10 @@ describe('CurrentUserViewService onboarding read model', () => {
     prisma as never,
     seasonParticipantsService as never,
   );
+  const currentUserQuery = new CurrentUserQuery(prisma as never);
   const currentUserViewService = new CurrentUserViewService(
     prisma as never,
+    currentUserQuery,
     seasonsService as never,
     currentSeasonParticipationViewOwner as never,
     matchesService as never,

@@ -1,5 +1,6 @@
 import { InternalServerErrorException } from '@nestjs/common';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
+import { CurrentUserQuery } from './current-user.query.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');
@@ -90,8 +91,10 @@ function createServiceTestKit() {
     buildCurrentUserSeasonParticipationSegment: jest.fn(),
   };
   const matchesService = { getCurrentActiveMatchSummaryForParticipant: jest.fn() };
+  const currentUserQuery = new CurrentUserQuery(prisma as never);
   const service = new CurrentUserViewService(
     prisma as never,
+    currentUserQuery,
     seasonsService as never,
     currentSeasonParticipationViewOwner as never,
     matchesService as never,

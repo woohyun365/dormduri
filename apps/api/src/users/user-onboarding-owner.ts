@@ -6,7 +6,7 @@ import {
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { isPrismaKnownRequestError } from '../platform/database/prisma-error.js';
-import { CurrentUserViewService } from './current-user-view.service.js';
+import { CurrentUserViewService } from './current-user/current-user-view.service.js';
 import { usersErrors } from './users.errors.js';
 
 interface UserOnboardingOwnerDeps {

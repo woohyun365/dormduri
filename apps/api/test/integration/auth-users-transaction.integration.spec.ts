@@ -6,7 +6,7 @@ import { resetPassword as resetPasswordWithOwner } from '../../src/auth/credenti
 import { hashPassword, verifyPasswordHash } from '../../src/auth/application/auth-password-hash.js';
 import { normalizeEmail, normalizeNickname } from '../../src/auth/domain/auth.utils.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import type { CurrentUserViewService } from '../../src/users/current-user-view.service.js';
+import type { CurrentUserViewService } from '../../src/users/current-user/current-user-view.service.js';
 import { createUserUpdateOwner } from '../../src/users/user-update-owner.js';
 import type { ModerationService } from '../../src/moderation/moderation.service.js';
 import { UsersService } from '../../src/users/application/users.service.js';

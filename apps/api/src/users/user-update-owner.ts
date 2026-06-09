@@ -20,8 +20,8 @@ import {
   type UserAcademicIdentityRecord,
   type UserDisplayIdentityRecord,
   type UserWithDisplayIdentityRecord,
-} from './current-user-select.js';
-import { CurrentUserViewService } from './current-user-view.service.js';
+} from './current-user/current-user.select.js';
+import { CurrentUserViewService } from './current-user/current-user-view.service.js';
 import {
   isPrismaKnownRequestError,
   prismaErrorTargetIncludes,
