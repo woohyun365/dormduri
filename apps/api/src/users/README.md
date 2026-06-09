@@ -10,7 +10,7 @@
 - `UsersController`: `/api/users/me`, `/api/users/me/onboarding`, `/api/users/me/delete` HTTP route delegation을 소유한다.
 - `UsersService`: controller-facing facade다. 임의의 cross-domain user table access point가 아니며, route response/error behavior를 유지하는 얇은 delegation surface로 제한한다.
 - `CurrentUserViewModule` / `CurrentUserViewService`: current authenticated user read model assembly surface다. mutation owner가 아니다.
-- Lifecycle-facing retention sweep method는 운영 sweep surface다. User-facing domain은 product read/write를 위해 이 method를 직접 호출하지 않는다.
+- `USER_RETENTION_SWEEP_PORT`: lifecycle-facing account deletion retention sweep surface다. User-facing domain은 product read/write를 위해 이 port를 직접 호출하지 않는다.
 - Top-level `apps/api/src/identity`의 identity invariant helper는 pure shared-kernel이다. Persistence-backed account identity behavior는 users identity owner가 소유한다.
 
 ## Directory responsibilities
@@ -62,8 +62,8 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 - Academic identity correction: `identity/academic/update-academic-identity.command.ts`, `academic-identity.repository.ts`, `academic-college-change-allowance.repository.ts`, `academic-identity-audit.repository.ts`.
 - Identity audit append/query: `identity/audit/` owner files. Display nickname audit canonical placement is `identity/audit/display-identity-nickname-audit.repository.ts`.
 - Onboarding notice dismiss/readback: `onboarding/dismiss-onboarding-notice.command.ts`, `onboarding/onboarding-notice.repository.ts`, `onboarding/onboarding-notice.policy.ts`.
-- Account deletion and immediate de-identification: `account-deletion/` owner files. Existing placement is `user-deletion-owner.ts`.
-- Retention sweep adapter behavior: `retention/` owner files plus lifecycle adapter wiring.
+- Account deletion and immediate de-identification: `account-deletion/request-account-deletion.command.ts`, `account-deletion/account-deletion-precondition.policy.ts`, `account-deletion/account-deletion.repository.ts`, `account-deletion/account-deletion-deidentification.mapper.ts`.
+- Retention sweep adapter behavior: `retention/user-retention-sweep.service.ts`, `application/ports/user-retention-sweep.port.ts`, and lifecycle adapter wiring.
 - Operations nickname override/audit query seam: `operations/` owner files. No public operations controller is exposed here.
 - Users-specific error contract: `errors/` owner files. Existing placement is `users.errors.ts`.
 

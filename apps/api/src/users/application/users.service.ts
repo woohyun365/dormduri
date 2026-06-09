@@ -26,15 +26,8 @@ import {
   listDisplayIdentityNicknameChangeAuditForOperations,
   type DisplayIdentityNicknameChangeAuditEntry,
 } from '../identity/audit/display-identity-nickname-audit.repository.js';
-import { createUserDeletionOwner } from '../user-deletion-owner.js';
+import { createRequestAccountDeletionCommand } from '../account-deletion/request-account-deletion.command.js';
 import { createDismissOnboardingNoticeCommand } from '../onboarding/dismiss-onboarding-notice.command.js';
-import type {
-  ArchiveJobActivationResult,
-  ArchiveJobSweepResult,
-} from '../../retention/archive-job-owner.js';
-import type { RetainedIdentityDisposalResult } from '../../retention/retained-identity-owner.js';
-import type { RetentionReviewJobSweepResult } from '../../retention/retention-review-job-owner.js';
-import type { RetentionAccessLogDisposalResult } from '../../retention/retention-access-log-owner.js';
 
 @Injectable()
 export class UsersService {
@@ -56,7 +49,7 @@ export class UsersService {
       moderationService: this.moderationService,
       currentUserViewService: this.currentUserViewService,
     });
-    this.deletionOwner = createUserDeletionOwner({
+    this.deletionOwner = createRequestAccountDeletionCommand({
       prisma: this.prisma,
       retentionWorkerPrisma: this.retentionWorkerPrisma,
       seasonsService: this.seasonsService,
@@ -102,27 +95,5 @@ export class UsersService {
     input: RequestAccountDeletion,
   ): Promise<AccountDeletionRequestAccepted> {
     return this.deletionOwner.requestAccountDeletion(authUser.id, input);
-  }
-
-  async activateThreadRetentionJobsForArchivedThreads(
-    now: Date,
-  ): Promise<ArchiveJobActivationResult> {
-    return this.deletionOwner.activateThreadRetentionJobsForArchivedThreads(now);
-  }
-
-  async retryDueDeletionArchiveJobs(now: Date): Promise<ArchiveJobSweepResult> {
-    return this.deletionOwner.retryDueDeletionArchiveJobs(now);
-  }
-
-  async disposeExpiredRetainedIdentities(now: Date): Promise<RetainedIdentityDisposalResult> {
-    return this.deletionOwner.disposeExpiredRetainedIdentities(now);
-  }
-
-  async retryDueRetentionReviewJobs(now: Date): Promise<RetentionReviewJobSweepResult> {
-    return this.deletionOwner.retryDueRetentionReviewJobs(now);
-  }
-
-  async disposeDueRetentionAccessLogs(now: Date): Promise<RetentionAccessLogDisposalResult> {
-    return this.deletionOwner.disposeDueRetentionAccessLogs(now);
   }
 }

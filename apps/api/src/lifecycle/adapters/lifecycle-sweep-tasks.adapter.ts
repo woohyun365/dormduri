@@ -6,7 +6,10 @@ import {
 import { AuthOperationalCleanupService } from '../../auth/operations/auth-operational-cleanup.service.js';
 import { MatchesService } from '../../matches/matches.service.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
-import { UsersService } from '../../users/application/users.service.js';
+import {
+  USER_RETENTION_SWEEP_PORT,
+  type UserRetentionSweepPort,
+} from '../../users/application/ports/user-retention-sweep.port.js';
 import { BookmarkLifecycleService } from '../../social-safety/bookmarks/application/bookmark-lifecycle.service.js';
 import type { LifecycleSweepTaskPort } from '../lifecycle-sweep-task.port.js';
 
@@ -78,10 +81,13 @@ export class ThreadRetentionActivationSweepTask implements LifecycleSweepTaskPor
   readonly name = 'threadRetentionActivationSweep' as const;
   readonly order = 50;
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    @Inject(USER_RETENTION_SWEEP_PORT)
+    private readonly userRetentionSweep: UserRetentionSweepPort,
+  ) {}
 
   run(now: Date) {
-    return this.usersService.activateThreadRetentionJobsForArchivedThreads(now);
+    return this.userRetentionSweep.activateThreadRetentionJobsForArchivedThreads(now);
   }
 }
 
@@ -90,10 +96,13 @@ export class ArchiveJobRetrySweepTask implements LifecycleSweepTaskPort<'archive
   readonly name = 'archiveJobSweep' as const;
   readonly order = 60;
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    @Inject(USER_RETENTION_SWEEP_PORT)
+    private readonly userRetentionSweep: UserRetentionSweepPort,
+  ) {}
 
   run(now: Date) {
-    return this.usersService.retryDueDeletionArchiveJobs(now);
+    return this.userRetentionSweep.retryDueDeletionArchiveJobs(now);
   }
 }
 
@@ -102,10 +111,13 @@ export class RetainedIdentityDisposalSweepTask implements LifecycleSweepTaskPort
   readonly name = 'retainedIdentityDisposalSweep' as const;
   readonly order = 70;
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    @Inject(USER_RETENTION_SWEEP_PORT)
+    private readonly userRetentionSweep: UserRetentionSweepPort,
+  ) {}
 
   run(now: Date) {
-    return this.usersService.disposeExpiredRetainedIdentities(now);
+    return this.userRetentionSweep.disposeExpiredRetainedIdentities(now);
   }
 }
 
@@ -114,10 +126,13 @@ export class RetentionReviewJobRetrySweepTask implements LifecycleSweepTaskPort<
   readonly name = 'retentionReviewJobSweep' as const;
   readonly order = 80;
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    @Inject(USER_RETENTION_SWEEP_PORT)
+    private readonly userRetentionSweep: UserRetentionSweepPort,
+  ) {}
 
   run(now: Date) {
-    return this.usersService.retryDueRetentionReviewJobs(now);
+    return this.userRetentionSweep.retryDueRetentionReviewJobs(now);
   }
 }
 
@@ -126,10 +141,13 @@ export class RetentionAccessLogDisposalSweepTask implements LifecycleSweepTaskPo
   readonly name = 'retentionAccessLogDisposalSweep' as const;
   readonly order = 90;
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    @Inject(USER_RETENTION_SWEEP_PORT)
+    private readonly userRetentionSweep: UserRetentionSweepPort,
+  ) {}
 
   run(now: Date) {
-    return this.usersService.disposeDueRetentionAccessLogs(now);
+    return this.userRetentionSweep.disposeDueRetentionAccessLogs(now);
   }
 }
 
