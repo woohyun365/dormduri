@@ -1,8 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  CreateSupportTicketRequest,
-  CreateSupportTicketResponse,
-} from '@repo/shared/support-contract';
+import type { CreateSupportTicketRequest, CreateSupportTicketResponse } from '@repo/shared/support';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { SupportNotificationService } from '../notifications/support-notification.service.js';

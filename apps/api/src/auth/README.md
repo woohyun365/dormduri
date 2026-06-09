@@ -76,7 +76,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - Shared response/user/session projection helpers: `mappers/`.
 - Operational cleanup, Redis gate metrics, and `/health/auth` snapshot: `operations/`.
 - Auth route access matrix, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `architecture/security/auth-access-route-matrix.spec.ts`, `architecture/domain-context/domain-context-route-matrix.spec.ts`, `architecture/auth-boundary.spec.ts`.
-- Shared auth request/response/policy/session contracts: `packages/shared/src/auth/**`; old public subpaths stay in `packages/shared/src/compat/**`.
+- Shared auth request/response/policy/session contracts: `packages/shared/src/auth/**`; public imports use `@repo/shared/auth` and granular `@repo/shared/auth/*` only.
 
 ## Useful verification
 

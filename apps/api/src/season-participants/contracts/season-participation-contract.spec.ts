@@ -7,7 +7,7 @@ import {
   type LifestyleData,
 } from '@repo/shared/lifestyle';
 import { additionalProfileSchema } from '@repo/shared/profile-contract';
-import * as legacySeasonContract from '@repo/shared/season-contract';
+import * as seasonContract from '@repo/shared/season';
 import * as seasonParticipationContract from '@repo/shared/season/participation';
 
 const CURRENT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -50,14 +50,14 @@ const COMPLETION_READY = {
 } as const;
 
 describe('season participation shared contract', () => {
-  it('old season-contract participation exports는 new season/participation barrel과 같은 schema surface를 re-export한다', () => {
-    expect(legacySeasonContract.seasonProfileDraftRequestSchema).toBe(
+  it('season canonical barrel participation exports는 season/participation barrel과 같은 schema surface를 제공한다', () => {
+    expect(seasonContract.seasonProfileDraftRequestSchema).toBe(
       seasonParticipationContract.seasonProfileDraftRequestSchema,
     );
-    expect(legacySeasonContract.selectableDormitoriesResponseSchema).toBe(
+    expect(seasonContract.selectableDormitoriesResponseSchema).toBe(
       seasonParticipationContract.selectableDormitoriesResponseSchema,
     );
-    expect(legacySeasonContract.seasonRegistrationFinalizeResponseSchema).toBe(
+    expect(seasonContract.seasonRegistrationFinalizeResponseSchema).toBe(
       seasonParticipationContract.seasonRegistrationFinalizeResponseSchema,
     );
   });
@@ -220,7 +220,7 @@ describe('season participation shared contract', () => {
     ).toMatchObject({ dormitorySelectionState: 'ASSIGNED' });
   });
 
-  it('season participation은 root legacy file 없이 season/participation owner와 season-contract compat가 소유한다', () => {
+  it('season participation은 root legacy file 없이 season/participation owner가 소유한다', () => {
     const packageJson = JSON.parse(readFileSync(SHARED_PACKAGE_JSON_PATH, 'utf8')) as {
       exports: Record<string, unknown>;
     };

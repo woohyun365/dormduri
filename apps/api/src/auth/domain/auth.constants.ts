@@ -4,7 +4,7 @@ import {
   RESET_PASSWORD_VERIFICATION_CODE_TTL_SECONDS,
   SIGNUP_VERIFICATION_CODE_TTL_SECONDS,
   SIGNUP_VERIFIED_PROOF_TTL_SECONDS,
-} from '@repo/shared/auth-policy';
+} from '@repo/shared/auth/policy';
 
 export const AUTH_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 export const LOGIN_LOCKOUT_ATTEMPTS = LOGIN_FAILURE_LIMIT;

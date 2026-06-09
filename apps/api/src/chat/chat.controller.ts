@@ -10,11 +10,11 @@ import {
   Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import type { LeaveConversationThreadResponse } from '@repo/shared/chat-contract';
+import type { LeaveConversationThreadResponse } from '@repo/shared/chat';
 import {
   sendConversationMessageRequestSchema,
   updateChatReadMarkerRequestSchema,
-} from '@repo/shared/chat-contract';
+} from '@repo/shared/chat';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';

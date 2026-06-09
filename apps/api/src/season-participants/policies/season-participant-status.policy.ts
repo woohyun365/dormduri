@@ -1,4 +1,4 @@
-import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
+import type { DormitorySelectionState } from '@repo/shared/dormitory';
 import type { ParticipationIntent } from '@repo/shared/user';
 import type { SeasonState } from '@repo/shared/season/runtime';
 

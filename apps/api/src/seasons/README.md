@@ -13,7 +13,7 @@
 - `DELETE /api/campuses/:campusCode/seasons/:seasonId/override`: 특정 campus의 override를 해제하고 audit event를 남긴다.
 - `SEASON_CONTEXT_PORT`: 외부 도메인의 public season context port다. current season context/state와 dormitory match window read만 제공한다.
 - `SeasonsService`: `application/` 내부 controller-facing facade이자 `SeasonContextPort` 구현체다. 외부 도메인의 concrete dependency가 아니다.
-- shared season contract는 `packages/shared/src/season/{runtime,operations,participation}/**`가 canonical owner다. `@repo/shared/season-contract` compatibility는 유지한다.
+- shared season contract는 `packages/shared/src/season/{runtime,operations,participation}/**`가 canonical owner이며 public import는 `@repo/shared/season`과 granular `@repo/shared/season/*`만 사용한다.
 
 ## Source of truth
 

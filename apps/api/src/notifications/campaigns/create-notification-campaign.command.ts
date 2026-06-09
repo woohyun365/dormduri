@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import type { NotificationKind, NotificationSourceType } from '@repo/shared/notification-contract';
+import type { NotificationKind, NotificationSourceType } from '@repo/shared/notifications';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { toSeasonSystemNoticeNotificationPayload } from '../policies/notification-payload.policy.js';

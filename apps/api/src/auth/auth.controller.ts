@@ -11,7 +11,7 @@ import {
   signupDraftValidationRequestSchema,
   signupRequestSchema,
   verificationCodeRequestSchema,
-} from '@repo/shared/auth-contract';
+} from '@repo/shared/auth/contract';
 import { parseRequestBody } from '../platform/http/zod-request.js';
 import { OptionalAuth, Public, RequireCapability } from './access/auth-access.decorator.js';
 import { AUTH_CAPABILITIES } from './access/auth-capability.js';

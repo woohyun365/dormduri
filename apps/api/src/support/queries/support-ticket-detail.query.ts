@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { SupportTicketDetailResponse } from '@repo/shared/support-contract';
+import type { SupportTicketDetailResponse } from '@repo/shared/support';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { supportErrors } from '../errors/support.errors.js';
 import { toSupportTicketDetailResponse } from '../presenters/support-ticket.presenter.js';

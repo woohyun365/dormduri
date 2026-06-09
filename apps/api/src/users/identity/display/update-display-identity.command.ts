@@ -2,7 +2,7 @@ import type { UpdateCurrentUserDisplayIdentityMutationResult } from '@repo/share
 import {
   normalizeNickname,
   validateNicknameStructure as validateNicknameFormat,
-} from '@repo/shared/auth-policy';
+} from '@repo/shared/auth/policy';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import type { ModerationService } from '../../../moderation/moderation.service.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';

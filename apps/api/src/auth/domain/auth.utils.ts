@@ -5,7 +5,7 @@ import {
   normalizeNickname as normalizeNicknameShared,
   validatePasswordStructure,
   validateNicknameStructure,
-} from '@repo/shared/auth-policy';
+} from '@repo/shared/auth/policy';
 
 export function normalizeEmail(email: string): string {
   return normalizeEmailShared(email);

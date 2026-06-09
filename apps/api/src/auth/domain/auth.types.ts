@@ -4,8 +4,8 @@ import type {
   ChangePasswordResponse,
   LoginResponse,
   RenewSessionResponse,
-} from '@repo/shared/auth-response';
-import type { SessionResponse } from '@repo/shared/session-contract';
+} from '@repo/shared/auth/response';
+import type { SessionResponse } from '@repo/shared/auth/session';
 import type { AuthenticatedSessionUser } from '@repo/shared/user';
 
 export interface SignupInput {

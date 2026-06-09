@@ -69,7 +69,7 @@
 - Deregistration behavior: `deregistration/`.
 - Lifecycle event/backfill behavior: `lifecycle/`.
 - Public exposure/action policy: `public-target-policy/`.
-- Shared contract: `packages/shared/src/season/participation/**` and `packages/shared/src/compat/season-contract.ts`.
+- Shared contract: `packages/shared/src/season/participation/**` and public imports from `@repo/shared/season/participation` or `@repo/shared/season`.
 
 ## Useful verification
 

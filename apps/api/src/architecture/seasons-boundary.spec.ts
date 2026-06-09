@@ -277,8 +277,11 @@ describe('seasons final structure boundary', () => {
     expect(source).toContain(
       'Metric/log payload는 actor/session/reason/snapshot 원문을 포함하지 않는다',
     );
-    const legacySeasonContractSpecifier = '@repo/shared/' + 'season-contract';
-    expect(source).toContain(`${legacySeasonContractSpecifier}\` compatibility는 유지한다`);
+    expect(source).toContain(
+      'shared season contract는 `packages/shared/src/season/{runtime,operations,participation}/**`가 canonical owner이며 public import는 `@repo/shared/season`과 granular `@repo/shared/season/*`만 사용한다',
+    );
+    const removedSeasonContractSpecifier = '@repo/shared/' + 'season-contract';
+    expect(source).not.toContain(removedSeasonContractSpecifier);
     expect(source).toContain('BackOffice UI는 seasons API module 범위가 아니다');
     expect(source).not.toMatch(/Phase \d|#208|#209|\.omx\/plans/);
   });

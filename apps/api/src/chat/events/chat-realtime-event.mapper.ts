@@ -1,5 +1,5 @@
-import type { ChatRealtimeEvent } from '@repo/shared/chat-realtime-events';
-import { chatRealtimeEventSchema } from '@repo/shared/chat-realtime-events';
+import type { ChatRealtimeEvent } from '@repo/shared/chat/realtime-events';
+import { chatRealtimeEventSchema } from '@repo/shared/chat/realtime-events';
 
 export const FORBIDDEN_CHAT_REALTIME_PAYLOAD_KEYS = [
   'retainedOriginalBody',

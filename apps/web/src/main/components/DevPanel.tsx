@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { DORMITORIES, UNASSIGNED_ID } from '@/constants/dormitory';
-import type { SessionResponse } from '@repo/shared/auth-response';
+import type { SessionResponse } from '@repo/shared/auth/response';
 import { authApi } from '@/api/auth';
 /**
  * 개발 환경 전용 플로팅 패널

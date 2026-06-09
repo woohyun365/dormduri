@@ -5,7 +5,7 @@ import type {
   SignupDraftValidationRequest,
   SignupRequest,
   VerificationCodeRequest,
-} from '@repo/shared/auth-contract';
+} from '@repo/shared/auth/contract';
 import type {
   DevAuthUsersResponse,
   LoginResponse,
@@ -14,8 +14,8 @@ import type {
   SignupDraftValidationResponse,
   SignupResponse,
   VerifyCodeResponse,
-} from '@repo/shared/auth-response';
-import { validateKnuEmailFormat, validatePasswordStructure } from '@repo/shared/auth-policy';
+} from '@repo/shared/auth/response';
+import { validateKnuEmailFormat, validatePasswordStructure } from '@repo/shared/auth/policy';
 
 async function requestJson<T>(
   path: string,

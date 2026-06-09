@@ -3,7 +3,7 @@ import type {
   ListSupportFaqQuery,
   SupportFaqDetailResponse,
   SupportFaqListResponse,
-} from '@repo/shared/support-contract';
+} from '@repo/shared/support';
 import { supportErrors } from '../errors/support.errors.js';
 import {
   toSupportFaqDetailResponse,

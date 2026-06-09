@@ -5,7 +5,7 @@ import type {
   MarkNotificationReadResponse,
   NotificationListResponse,
   NotificationUnreadCountResponse,
-} from '@repo/shared/notification-contract';
+} from '@repo/shared/notifications';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { NotificationQueryService } from '../queries/notification-query.service.js';
 

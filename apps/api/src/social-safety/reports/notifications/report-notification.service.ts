@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { NotificationPayload } from '@repo/shared/notification-contract';
+import type { NotificationPayload } from '@repo/shared/notifications';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import {
   NOTIFICATION_WRITER,

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { SupportTicketStatus } from '@repo/shared/support-contract';
+import type { SupportTicketStatus } from '@repo/shared/support';
 import type { Prisma } from '../../generated/prisma/client.js';
 import {
   NOTIFICATION_WRITER,

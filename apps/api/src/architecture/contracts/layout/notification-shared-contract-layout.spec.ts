@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 type PackageJson = {
-  exports: Record<string, { types: string; default: string }>;
+  exports: Record<string, { types: string; default: string } | undefined>;
 };
 
 function findRepoRoot() {
@@ -32,9 +32,14 @@ describe('shared notification contract layout', () => {
     }
   });
 
-  it('legacy root notification source file 없이 package exports가 기존 public path를 nested dist로 매핑한다', () => {
+  it('legacy root notification source/export 없이 canonical notifications package exports만 제공한다', () => {
     expect(existsSync(join(sharedSrc, 'notification-contract.ts'))).toBe(false);
-    expect(sharedPackageJson.exports['./notification-contract']).toEqual({
+    expect(sharedPackageJson.exports['./notification-contract']).toBeUndefined();
+    expect(sharedPackageJson.exports['./notifications']).toEqual({
+      types: './dist/notifications/index.d.ts',
+      default: './dist/notifications/index.js',
+    });
+    expect(sharedPackageJson.exports['./notifications/contract']).toEqual({
       types: './dist/notifications/contract.d.ts',
       default: './dist/notifications/contract.js',
     });

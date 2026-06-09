@@ -44,7 +44,7 @@
 - Guide read model: `guides/`.
 - Season participant selectable dormitory lookup: `selection-catalog/`.
 - Module provider/export wiring: `composition/`.
-- Shared response/schema contract: `packages/shared/src/dormitory/**` and `packages/shared/src/compat/dormitory-contract.ts`.
+- Shared response/schema contract: `packages/shared/src/dormitory/**` and public imports from `@repo/shared/dormitory` or granular `@repo/shared/dormitory/*`.
 
 ## Useful verification
 

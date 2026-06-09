@@ -1,7 +1,4 @@
-import type {
-  SupportFaqDetailResponse,
-  SupportFaqListResponse,
-} from '@repo/shared/support-contract';
+import type { SupportFaqDetailResponse, SupportFaqListResponse } from '@repo/shared/support';
 import type { SupportFaqRecord } from '../repositories/support-faq.repository.js';
 
 export function toSupportFaqItem(record: SupportFaqRecord) {

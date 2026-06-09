@@ -1,4 +1,4 @@
-import type { LeaveConversationThreadResponse } from '@repo/shared/chat-contract';
+import type { LeaveConversationThreadResponse } from '@repo/shared/chat';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import { ChatRealtimeOutboxService } from '../outbox/chat-realtime-outbox.service.js';

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { notificationPayloadSchema } from '@repo/shared/notification-contract';
+import { notificationPayloadSchema } from '@repo/shared/notifications';
 import {
   createReportRequestSchema,
   createReportResponseSchema,

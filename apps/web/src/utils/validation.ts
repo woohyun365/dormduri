@@ -2,7 +2,7 @@ import {
   validateKnuEmailFormat,
   validateNicknameStructure,
   validatePasswordStructure,
-} from '@repo/shared/auth-policy';
+} from '@repo/shared/auth/policy';
 
 export function validateKnuEmail(email: string): string {
   return validateKnuEmailFormat(email);

@@ -12,7 +12,7 @@ const EXCLUDED_API_DOMAIN_SEGMENTS = new Set([
   'profiles',
 ]);
 
-const COMPAT_EXPORTS = [
+const REMOVED_COMPAT_EXPORTS = [
   './auth-contract',
   './auth-policy',
   './auth-response',
@@ -22,22 +22,88 @@ const COMPAT_EXPORTS = [
   './session-contract',
 ] as const;
 
-const COMPAT_SOURCE_FILES = [
-  'auth-contract.ts',
-  'auth-policy.ts',
-  'auth-response.ts',
-  'chat-contract.ts',
-  'dormitory-contract.ts',
-  'season-contract.ts',
-  'session-contract.ts',
-] as const;
-
-const ROOT_STYLE_ALIAS_EXPORTS = [
+const REMOVED_ROOT_STYLE_ALIAS_EXPORTS = [
   './chat-realtime-contract',
   './chat-realtime-events',
   './notification-contract',
   './support-contract',
 ] as const;
+
+const CANONICAL_NESTED_EXPORTS: Record<string, PackageExportTarget> = {
+  './auth': { types: './dist/auth/index.d.ts', default: './dist/auth/index.js' },
+  './auth/contract': {
+    types: './dist/auth/contract/index.d.ts',
+    default: './dist/auth/contract/index.js',
+  },
+  './auth/policy': {
+    types: './dist/auth/policy/index.d.ts',
+    default: './dist/auth/policy/index.js',
+  },
+  './auth/response': {
+    types: './dist/auth/response/index.d.ts',
+    default: './dist/auth/response/index.js',
+  },
+  './auth/session': {
+    types: './dist/auth/session/index.d.ts',
+    default: './dist/auth/session/index.js',
+  },
+  './chat': { types: './dist/chat/index.d.ts', default: './dist/chat/index.js' },
+  './chat/realtime-contract': {
+    types: './dist/chat/realtime-contract.d.ts',
+    default: './dist/chat/realtime-contract.js',
+  },
+  './chat/realtime-events': {
+    types: './dist/chat/realtime-events.d.ts',
+    default: './dist/chat/realtime-events.js',
+  },
+  './dormitory': { types: './dist/dormitory/index.d.ts', default: './dist/dormitory/index.js' },
+  './dormitory/catalog': {
+    types: './dist/dormitory/catalog.d.ts',
+    default: './dist/dormitory/catalog.js',
+  },
+  './dormitory/enums': {
+    types: './dist/dormitory/enums.d.ts',
+    default: './dist/dormitory/enums.js',
+  },
+  './dormitory/guide': {
+    types: './dist/dormitory/guide.d.ts',
+    default: './dist/dormitory/guide.js',
+  },
+  './notifications': {
+    types: './dist/notifications/index.d.ts',
+    default: './dist/notifications/index.js',
+  },
+  './notifications/contract': {
+    types: './dist/notifications/contract.d.ts',
+    default: './dist/notifications/contract.js',
+  },
+  './season': { types: './dist/season/index.d.ts', default: './dist/season/index.js' },
+  './season/operations': {
+    types: './dist/season/operations/index.d.ts',
+    default: './dist/season/operations/index.js',
+  },
+  './season/participation': {
+    types: './dist/season/participation/index.d.ts',
+    default: './dist/season/participation/index.js',
+  },
+  './season/primitives': {
+    types: './dist/season/runtime/primitives.d.ts',
+    default: './dist/season/runtime/primitives.js',
+  },
+  './season/response': {
+    types: './dist/season/runtime/response.d.ts',
+    default: './dist/season/runtime/response.js',
+  },
+  './season/runtime': {
+    types: './dist/season/runtime/index.d.ts',
+    default: './dist/season/runtime/index.js',
+  },
+  './support': { types: './dist/support/index.d.ts', default: './dist/support/index.js' },
+  './support/contract': {
+    types: './dist/support/contract.d.ts',
+    default: './dist/support/contract.js',
+  },
+};
 
 const INCLUDED_NEUTRAL_ROOT_FILES = [
   'campus-contract.ts',
@@ -66,7 +132,7 @@ const EXCLUDED_OWNER_ROOT_FILES = [
   'roommate-search-contract.ts',
 ] as const;
 
-const TRANSITIONAL_PUBLIC_SPECIFIERS = [
+const REMOVED_PUBLIC_SPECIFIERS = [
   '@repo/shared/auth-contract',
   '@repo/shared/auth-policy',
   '@repo/shared/auth-response',
@@ -131,11 +197,13 @@ const repoRoot = findRepoRoot();
 const sharedSrc = join(repoRoot, 'packages/shared/src');
 const compatSrc = join(sharedSrc, 'compat');
 const apiSrc = join(repoRoot, 'apps/api/src');
+const apiTest = join(repoRoot, 'apps/api/test');
+const webSrc = join(repoRoot, 'apps/web/src');
 const ignoredSelf =
   'apps/api/src/architecture/contracts/layout/shared-contract-source-of-truth-layout.spec.ts';
 
 describe('shared contract source-of-truth layout', () => {
-  it('keeps current dist/compat public exports as a transitional allowlist only', () => {
+  it('removes dist/compat public exports after canonical nested migration', () => {
     const sharedPackageJson = readPackageJson();
 
     const compatExports = Object.entries(sharedPackageJson.exports)
@@ -143,45 +211,33 @@ describe('shared contract source-of-truth layout', () => {
       .map(([publicPath]) => publicPath)
       .sort();
 
-    expect(compatExports).toEqual([...COMPAT_EXPORTS].sort());
+    expect(compatExports).toEqual([]);
+    for (const publicPath of REMOVED_COMPAT_EXPORTS) {
+      expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
+    }
   });
 
-  it('keeps compat source files as a transitional allowlist only', () => {
-    const compatFiles = readdirSync(compatSrc, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
-      .map((entry) => entry.name)
-      .sort();
+  it('removes compat source files after canonical nested migration', () => {
+    const compatFiles = existsSync(compatSrc)
+      ? readdirSync(compatSrc, { withFileTypes: true })
+          .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+          .map((entry) => entry.name)
+          .sort()
+      : [];
 
-    expect(compatFiles).toEqual([...COMPAT_SOURCE_FILES].sort());
+    expect(compatFiles).toEqual([]);
   });
 
-  it('records root-style public alias exports that still need canonical handoff', () => {
+  it('removes root-style public alias exports when canonical nested exports exist', () => {
     const sharedPackageJson = readPackageJson();
 
-    const rootStyleAliasExports = ROOT_STYLE_ALIAS_EXPORTS.filter(
-      (publicPath) => sharedPackageJson.exports[publicPath] !== undefined,
-    ).sort();
+    for (const [publicPath, expectedTarget] of Object.entries(CANONICAL_NESTED_EXPORTS)) {
+      expect(sharedPackageJson.exports[publicPath]).toEqual(expectedTarget);
+    }
 
-    expect(rootStyleAliasExports).toEqual([...ROOT_STYLE_ALIAS_EXPORTS].sort());
-  });
-
-  it('records nested source owners that still miss canonical package exports', () => {
-    const sharedPackageJson = readPackageJson();
-    const canonicalExportGaps = [
-      { source: 'chat/index.ts', publicPath: './chat' },
-      { source: 'notifications/index.ts', publicPath: './notifications' },
-    ]
-      .filter(({ source, publicPath }) => {
-        return (
-          existsSync(join(sharedSrc, source)) && sharedPackageJson.exports[publicPath] === undefined
-        );
-      })
-      .map(({ publicPath, source }) => ({ publicPath, source }));
-
-    expect(canonicalExportGaps).toEqual([
-      { publicPath: './chat', source: 'chat/index.ts' },
-      { publicPath: './notifications', source: 'notifications/index.ts' },
-    ]);
+    for (const publicPath of REMOVED_ROOT_STYLE_ALIAS_EXPORTS) {
+      expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
+    }
   });
 
   it('keeps root shared files partitioned between neutral migration targets and excluded owners', () => {
@@ -195,13 +251,15 @@ describe('shared contract source-of-truth layout', () => {
     );
   });
 
-  it('observes included API source imports that still use transitional shared public paths', () => {
-    const transitionalImportOffenders = walkTypeScriptFiles(apiSrc)
+  it('keeps included API/Web/shared source free of removed shared public paths', () => {
+    const sourceRoots = [apiSrc, apiTest, webSrc, sharedSrc];
+    const removedImportOffenders = sourceRoots
+      .flatMap(walkTypeScriptFiles)
       .filter((path) => repoRelativePath(path) !== ignoredSelf)
-      .filter(isIncludedApiSource)
+      .filter((path) => !path.startsWith(apiSrc) || isIncludedApiSource(path))
       .flatMap((path) => {
         const source = readFileSync(path, 'utf8');
-        const specifiers = TRANSITIONAL_PUBLIC_SPECIFIERS.filter((specifier) =>
+        const specifiers = REMOVED_PUBLIC_SPECIFIERS.filter((specifier) =>
           source.includes(specifier),
         );
 
@@ -211,250 +269,6 @@ describe('shared contract source-of-truth layout', () => {
       })
       .sort((a, b) => a.path.localeCompare(b.path));
 
-    expect(transitionalImportOffenders).toEqual([
-      {
-        path: 'apps/api/src/auth/application/auth.service.ts',
-        specifiers: ['@repo/shared/auth-response'],
-      },
-      { path: 'apps/api/src/auth/auth.controller.ts', specifiers: ['@repo/shared/auth-contract'] },
-      {
-        path: 'apps/api/src/auth/contracts/auth-shared-contract.spec.ts',
-        specifiers: [
-          '@repo/shared/auth-contract',
-          '@repo/shared/auth-response',
-          '@repo/shared/session-contract',
-        ],
-      },
-      {
-        path: 'apps/api/src/auth/credentials/change-password.command.ts',
-        specifiers: ['@repo/shared/auth-response'],
-      },
-      {
-        path: 'apps/api/src/auth/domain/auth.constants.ts',
-        specifiers: ['@repo/shared/auth-policy'],
-      },
-      {
-        path: 'apps/api/src/auth/domain/auth.types.ts',
-        specifiers: ['@repo/shared/auth-response', '@repo/shared/session-contract'],
-      },
-      { path: 'apps/api/src/auth/domain/auth.utils.ts', specifiers: ['@repo/shared/auth-policy'] },
-      {
-        path: 'apps/api/src/auth/errors/auth-failures.ts',
-        specifiers: ['@repo/shared/auth-response'],
-      },
-      {
-        path: 'apps/api/src/auth/registration/auth-registration-use-cases.service.ts',
-        specifiers: ['@repo/shared/auth-response'],
-      },
-      {
-        path: 'apps/api/src/auth/registration/auth-signup-validation.service.ts',
-        specifiers: ['@repo/shared/auth-policy', '@repo/shared/auth-response'],
-      },
-      {
-        path: 'apps/api/src/chat/application/chat.service.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      { path: 'apps/api/src/chat/chat.controller.ts', specifiers: ['@repo/shared/chat-contract'] },
-      {
-        path: 'apps/api/src/chat/commands/chat-command.helpers.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/chat/commands/chat-command.types.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/chat/commands/leave-thread.command.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/chat/commands/send-message.command.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/chat/commands/update-read-marker.command.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/chat/contracts/chat-realtime-contract.spec.ts',
-        specifiers: [
-          '@repo/shared/chat-contract',
-          '@repo/shared/chat-realtime-contract',
-          '@repo/shared/chat-realtime-events',
-        ],
-      },
-      {
-        path: 'apps/api/src/chat/events/chat-realtime-event.mapper.ts',
-        specifiers: ['@repo/shared/chat-realtime-events'],
-      },
-      {
-        path: 'apps/api/src/chat/mappers/chat-thread-presenter.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/chat/pairs/chat-pair-entry.query.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/chat/policies/chat-thread-permission.policy.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/chat/queries/chat-thread-query.service.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/chat/realtime/chat-realtime.metrics.ts',
-        specifiers: ['@repo/shared/chat-contract'],
-      },
-      {
-        path: 'apps/api/src/dormitories/contracts/dormitory-contract.spec.ts',
-        specifiers: ['@repo/shared/dormitory-contract'],
-      },
-      {
-        path: 'apps/api/src/dormitories/guides/dormitory-guide.mapper.ts',
-        specifiers: ['@repo/shared/dormitory-contract'],
-      },
-      {
-        path: 'apps/api/src/notifications/application/notifications.service.ts',
-        specifiers: ['@repo/shared/notification-contract'],
-      },
-      {
-        path: 'apps/api/src/notifications/application/ports/notification-writer.port.ts',
-        specifiers: ['@repo/shared/notification-contract'],
-      },
-      {
-        path: 'apps/api/src/notifications/campaigns/create-notification-campaign.command.ts',
-        specifiers: ['@repo/shared/notification-contract'],
-      },
-      {
-        path: 'apps/api/src/notifications/campaigns/notification-campaign-fanout.service.ts',
-        specifiers: ['@repo/shared/notification-contract'],
-      },
-      {
-        path: 'apps/api/src/notifications/contracts/notification-contract.spec.ts',
-        specifiers: [
-          '@repo/shared/chat-contract',
-          '@repo/shared/chat-realtime-events',
-          '@repo/shared/notification-contract',
-        ],
-      },
-      {
-        path: 'apps/api/src/notifications/mappers/notification-presenter.ts',
-        specifiers: ['@repo/shared/notification-contract'],
-      },
-      {
-        path: 'apps/api/src/notifications/outbox/notification-dispatcher.service.ts',
-        specifiers: ['@repo/shared/notification-contract'],
-      },
-      {
-        path: 'apps/api/src/notifications/queries/notification-query.service.ts',
-        specifiers: ['@repo/shared/notification-contract'],
-      },
-      {
-        path: 'apps/api/src/platform/http/zod-request.spec.ts',
-        specifiers: ['@repo/shared/auth-contract'],
-      },
-      {
-        path: 'apps/api/src/season-participants/capabilities/current-user-capabilities.policy.ts',
-        specifiers: ['@repo/shared/dormitory-contract'],
-      },
-      {
-        path: 'apps/api/src/season-participants/contracts/season-participation-contract.spec.ts',
-        specifiers: ['@repo/shared/season-contract'],
-      },
-      {
-        path: 'apps/api/src/season-participants/policies/season-participant-selection.policy.ts',
-        specifiers: ['@repo/shared/dormitory-contract'],
-      },
-      {
-        path: 'apps/api/src/season-participants/policies/season-participant-status.policy.ts',
-        specifiers: ['@repo/shared/dormitory-contract'],
-      },
-      {
-        path: 'apps/api/src/season-participants/public-target-policy/public-target-policy.types.ts',
-        specifiers: ['@repo/shared/dormitory-contract'],
-      },
-      {
-        path: 'apps/api/src/seasons/contracts/season-contract.spec.ts',
-        specifiers: ['@repo/shared/season-contract'],
-      },
-      {
-        path: 'apps/api/src/social-safety/reports/contracts/report-contract.spec.ts',
-        specifiers: ['@repo/shared/notification-contract'],
-      },
-      {
-        path: 'apps/api/src/social-safety/reports/notifications/report-notification.service.ts',
-        specifiers: ['@repo/shared/notification-contract'],
-      },
-      {
-        path: 'apps/api/src/support/application/support.service.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/commands/append-support-ticket-message.command.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/commands/create-support-ticket.command.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/commands/reply-support-ticket.command.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/commands/resolve-support-ticket.command.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/contracts/support-contract.spec.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/notifications/support-notification.service.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/policies/support-ticket-status.policy.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/presenters/support-faq.presenter.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/presenters/support-ticket.presenter.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/queries/support-faq.query.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/queries/support-ticket-detail.query.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/queries/support-ticket-list.query.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/repositories/support-faq.repository.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/repositories/support-ticket.repository.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/support/support.controller.ts',
-        specifiers: ['@repo/shared/support-contract'],
-      },
-      {
-        path: 'apps/api/src/users/identity/display/update-display-identity.command.ts',
-        specifiers: ['@repo/shared/auth-policy'],
-      },
-    ]);
+    expect(removedImportOffenders).toEqual([]);
   });
 });

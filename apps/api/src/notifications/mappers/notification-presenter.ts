@@ -1,9 +1,9 @@
-import type { UserNotification } from '@repo/shared/notification-contract';
+import type { UserNotification } from '@repo/shared/notifications';
 import {
   notificationKindSchema,
   notificationPayloadSchema,
   notificationSourceTypeSchema,
-} from '@repo/shared/notification-contract';
+} from '@repo/shared/notifications';
 
 export type UserNotificationRecord = {
   id: string;

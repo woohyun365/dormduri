@@ -3,7 +3,7 @@ import {
   renewSessionRequestSchema,
   signupDraftValidationRequestSchema,
   signupRequestSchema,
-} from '@repo/shared/auth-contract';
+} from '@repo/shared/auth/contract';
 import {
   loginRequestSchema as granularLoginRequestSchema,
   signupDraftValidationRequestSchema as granularSignupDraftValidationRequestSchema,
@@ -13,10 +13,9 @@ import {
   changePasswordResponseSchema,
   loginResponseSchema,
   renewSessionResponseSchema,
-} from '@repo/shared/auth-response';
+} from '@repo/shared/auth/response';
 import { loginResponseSchema as granularLoginResponseSchema } from '@repo/shared/auth/response';
 import { sessionResponseSchema as granularSessionResponseSchema } from '@repo/shared/auth/session';
-import { sessionResponseSchema as legacySessionResponseSchema } from '@repo/shared/session-contract';
 
 const UNSUPPORTED_SIGNUP_PROFILE_PAYLOAD = {
   lifestyle: { bedtime: '22_24' },
@@ -57,7 +56,7 @@ describe('auth shared contract guards', () => {
     ).toBe(false);
   });
 
-  it('compat old subpath와 granular auth subpath를 동시에 제공한다', () => {
+  it('canonical granular auth subpath는 request/response/session schema surface를 제공한다', () => {
     const loginInput = {
       email: 'student@kangwon.ac.kr',
       password: 'pass1234',
@@ -81,9 +80,7 @@ describe('auth shared contract guards', () => {
         accessToken: opaqueAccessToken,
       }).success,
     ).toBe(true);
-    expect(granularSessionResponseSchema.parse(sessionResponse)).toEqual(
-      legacySessionResponseSchema.parse(sessionResponse),
-    );
+    expect(granularSessionResponseSchema.parse(sessionResponse)).toEqual(sessionResponse);
   });
 
   it('signup draft validation request는 legacy profile payload 없이 email/password/nickname만 받는다', () => {

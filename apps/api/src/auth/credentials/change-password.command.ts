@@ -1,4 +1,4 @@
-import type { ChangePasswordResponse } from '@repo/shared/auth-response';
+import type { ChangePasswordResponse } from '@repo/shared/auth/response';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type {
   AuthenticatedUserContext,

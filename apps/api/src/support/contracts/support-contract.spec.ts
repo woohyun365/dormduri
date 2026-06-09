@@ -9,7 +9,7 @@ import {
   supportFaqListResponseSchema,
   supportTicketDetailResponseSchema,
   supportTicketListResponseSchema,
-} from '@repo/shared/support-contract';
+} from '@repo/shared/support';
 
 describe('support shared/API contract', () => {
   it('APPEAL ticket은 appealCategory를 필수로 요구하고 일반 문의는 optional로 둔다', () => {

@@ -1,4 +1,4 @@
-import type { ConversationMessage, ConversationThreadSummary } from '@repo/shared/chat-contract';
+import type { ConversationMessage, ConversationThreadSummary } from '@repo/shared/chat';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 import type { ChatSendMessageDecision } from '../policies/chat-thread-permission.policy.js';
 

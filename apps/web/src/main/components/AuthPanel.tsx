@@ -7,7 +7,7 @@ import type {
   DevAuthPresetUserSummary,
   DevAuthUserSummary,
   SessionResponse,
-} from '@repo/shared/auth-response';
+} from '@repo/shared/auth/response';
 
 export function AuthPanel() {
   const [isOpen, setIsOpen] = useState(false);

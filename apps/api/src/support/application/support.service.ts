@@ -6,7 +6,7 @@ import type {
   ListSupportTicketsQuery,
   ReplySupportTicketRequest,
   ResolveSupportTicketRequest,
-} from '@repo/shared/support-contract';
+} from '@repo/shared/support';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { AppendSupportTicketMessageCommand } from '../commands/append-support-ticket-message.command.js';
 import { CreateSupportTicketCommand } from '../commands/create-support-ticket.command.js';

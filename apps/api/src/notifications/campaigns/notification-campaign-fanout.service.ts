@@ -3,7 +3,7 @@ import {
   notificationKindSchema,
   notificationPayloadSchema,
   notificationSourceTypeSchema,
-} from '@repo/shared/notification-contract';
+} from '@repo/shared/notifications';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   NOTIFICATION_WRITER,

@@ -11,10 +11,6 @@
     "node": ">=24 <25"
   },
   "exports": {
-    "./auth-contract": {
-      "types": "./dist/compat/auth-contract.d.ts",
-      "default": "./dist/compat/auth-contract.js"
-    },
     "./auth": {
       "types": "./dist/auth/index.d.ts",
       "default": "./dist/auth/index.js"
@@ -75,37 +71,17 @@
       "types": "./dist/profile-contract.d.ts",
       "default": "./dist/profile-contract.js"
     },
-    "./session-contract": {
-      "types": "./dist/compat/session-contract.d.ts",
-      "default": "./dist/compat/session-contract.js"
-    },
     "./lifestyle": {
       "types": "./dist/lifestyle.d.ts",
       "default": "./dist/lifestyle.js"
-    },
-    "./auth-policy": {
-      "types": "./dist/compat/auth-policy.d.ts",
-      "default": "./dist/compat/auth-policy.js"
-    },
-    "./auth-response": {
-      "types": "./dist/compat/auth-response.d.ts",
-      "default": "./dist/compat/auth-response.js"
     },
     "./campus-contract": {
       "types": "./dist/campus-contract.d.ts",
       "default": "./dist/campus-contract.js"
     },
-    "./dormitory-contract": {
-      "types": "./dist/compat/dormitory-contract.d.ts",
-      "default": "./dist/compat/dormitory-contract.js"
-    },
     "./date-primitives": {
       "types": "./dist/date-primitives.d.ts",
       "default": "./dist/date-primitives.js"
-    },
-    "./season-contract": {
-      "types": "./dist/compat/season-contract.d.ts",
-      "default": "./dist/compat/season-contract.js"
     },
     "./college-contract": {
       "types": "./dist/college-contract.d.ts",
@@ -123,19 +99,11 @@
       "types": "./dist/match-score.d.ts",
       "default": "./dist/match-score.js"
     },
-    "./chat-contract": {
-      "types": "./dist/compat/chat-contract.d.ts",
-      "default": "./dist/compat/chat-contract.js"
+    "./notifications": {
+      "types": "./dist/notifications/index.d.ts",
+      "default": "./dist/notifications/index.js"
     },
-    "./chat-realtime-contract": {
-      "types": "./dist/chat/realtime-contract.d.ts",
-      "default": "./dist/chat/realtime-contract.js"
-    },
-    "./chat-realtime-events": {
-      "types": "./dist/chat/realtime-events.d.ts",
-      "default": "./dist/chat/realtime-events.js"
-    },
-    "./notification-contract": {
+    "./notifications/contract": {
       "types": "./dist/notifications/contract.d.ts",
       "default": "./dist/notifications/contract.js"
     },
@@ -159,9 +127,21 @@
       "types": "./dist/support/index.d.ts",
       "default": "./dist/support/index.js"
     },
-    "./support-contract": {
+    "./support/contract": {
       "types": "./dist/support/contract.d.ts",
       "default": "./dist/support/contract.js"
+    },
+    "./chat": {
+      "types": "./dist/chat/index.d.ts",
+      "default": "./dist/chat/index.js"
+    },
+    "./chat/realtime-contract": {
+      "types": "./dist/chat/realtime-contract.d.ts",
+      "default": "./dist/chat/realtime-contract.js"
+    },
+    "./chat/realtime-events": {
+      "types": "./dist/chat/realtime-events.d.ts",
+      "default": "./dist/chat/realtime-events.js"
     },
     "./dormitory": {
       "types": "./dist/dormitory/index.d.ts",
