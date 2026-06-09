@@ -85,7 +85,9 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 pnpm exec prettier --check apps/api/src/users/README.md
 pnpm --dir apps/api exec jest --watchman=false --runInBand \
   src/users \
+  src/architecture/users/users-boundary.spec.ts \
   src/architecture/module-boundary.spec.ts \
+  src/architecture/common-boundary.spec.ts \
   src/architecture/security/auth-access-route-matrix.spec.ts
 pnpm api:typecheck
 git diff --check
