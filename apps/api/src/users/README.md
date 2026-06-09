@@ -17,9 +17,9 @@
 
 ## Directory responsibilities
 
-현재 directory에는 root owner file이 남아 있다. 새 코드는 root file을 확장하기보다 아래 responsibility owner를 따른다.
+새 코드는 아래 responsibility owner를 따른다.
 
-- `application/`: controller-facing facade와 public port type.
+- `application/`: controller-facing facade, update-current-user orchestration, public port type.
 - `current-user/`: current-user read model query, select, mapper, presenter, capability/service-state composition.
 - `identity/display/`: live display identity, nickname format/moderation/cooldown, registration snapshot lock, display nickname update.
 - `identity/academic/`: account academic identity correction, birth-year registration snapshot guard, college correction allowance.
@@ -27,7 +27,7 @@
 - `onboarding/`: dismissed notice command/query behavior.
 - `account-deletion/`: account deletion request, password-check bridge use, immediate de-identification, retained identity/archive job delegation.
 - `retention/`: lifecycle-facing users retention sweep port implementation.
-- `operations/`: admin/support/enforcement-facing nickname override와 audit query seam. Public controller는 노출하지 않는다.
+- `operations/`: admin/support/enforcement-facing nickname override command와 display nickname audit list query seam. Public controller는 노출하지 않는다.
 - `errors/`: users route and account self-service user-facing error contract.
 - `contracts/`: shared user contract behavior regression specs.
 - `composition/`: `UsersModule` provider/export grouping source of truth.
@@ -49,8 +49,7 @@
 
 Users architecture fitness belongs under `apps/api/src/architecture/users/` and cross-cutting architecture specs.
 
-- Root production TypeScript surface는 최종적으로 `users.controller.ts`, `users.module.ts`만 허용한다. 기존 root owner file은 이전 배치이며 새 behavior 확장 지점으로 사용하지 않는다.
-- 기존 root owner file은 새 behavior 확장 지점이 아니다.
+- Root production TypeScript surface는 `users.controller.ts`, `users.module.ts`만 허용한다. Root owner file로 새 behavior를 확장하지 않는다.
 - Module provider/export list는 `composition/users.providers.ts`와 `composition/users.exports.ts`로 읽을 수 있어야 한다.
 - Lifecycle adapter는 broad controller-facing service behavior가 아니라 narrow users retention sweep surface에 의존해야 한다.
 - `season-participants` production code는 account identity invariant failure를 위해 users route error를 import하지 않아야 한다.
@@ -68,8 +67,8 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 - Onboarding notice dismiss/readback: `onboarding/dismiss-onboarding-notice.command.ts`, `onboarding/onboarding-notice.repository.ts`, `onboarding/onboarding-notice.policy.ts`.
 - Account deletion and immediate de-identification: `account-deletion/request-account-deletion.command.ts`, `account-deletion/account-deletion-precondition.policy.ts`, `account-deletion/account-deletion.repository.ts`, `account-deletion/account-deletion-deidentification.mapper.ts`.
 - Retention sweep adapter behavior: `retention/user-retention-sweep.service.ts`, `application/ports/user-retention-sweep.port.ts`, and lifecycle adapter wiring.
-- Operations nickname override/audit query seam: `operations/` owner files. No public operations controller is exposed here.
-- Users-specific error contract: `errors/` owner files. Existing placement is `users.errors.ts`.
+- Operations nickname override/audit query seam: `operations/override-display-identity-nickname.command.ts`, `operations/list-display-identity-nickname-audit.query.ts`. No public operations controller is exposed here.
+- Users-specific error contract: `errors/users.errors.ts`.
 
 ## Policy references
 

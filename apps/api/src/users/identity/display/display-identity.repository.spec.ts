@@ -4,7 +4,7 @@ import {
   updateDisplayIdentityNickname,
   type ParsedDisplayIdentityNickname,
 } from './display-identity.repository.js';
-import { usersErrors } from '../../users.errors.js';
+import { usersErrors } from '../../errors/users.errors.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');
 const DISPLAY_IDENTITY = {

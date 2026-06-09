@@ -5,24 +5,15 @@ import type {
   UpdateCurrentUserDisplayIdentityMutationResult,
   UpdateCurrentUserResponse,
 } from '@repo/shared/user';
-import type { Prisma } from '../generated/prisma/client.js';
-import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { ModerationService } from '../moderation/moderation.service.js';
-import { PrismaService } from '../platform/database/prisma.service.js';
-import {
-  buildUserWithDisplayIdentitySelect,
-  mapUserWithDisplayIdentityProjection,
-  type UserWithDisplayIdentityRecord,
-} from './current-user/current-user.select.js';
-import { CurrentUserViewService } from './current-user/current-user-view.service.js';
-import { usersErrors } from './users.errors.js';
-import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
-import {
-  createUpdateDisplayIdentityCommand,
-  type DisplayIdentityNicknameOverrideInput,
-  type DisplayIdentityNicknameOverrideResult,
-} from './identity/display/update-display-identity.command.js';
-import { createUpdateAcademicIdentityCommand } from './identity/academic/update-academic-identity.command.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import { ModerationService } from '../../moderation/moderation.service.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
+import type { SeasonContextPort } from '../../seasons/ports/season-context.port.js';
+import { CurrentUserViewService } from '../current-user/current-user-view.service.js';
+import { usersErrors } from '../errors/users.errors.js';
+import { createUpdateAcademicIdentityCommand } from '../identity/academic/update-academic-identity.command.js';
+import { createUpdateDisplayIdentityCommand } from '../identity/display/update-display-identity.command.js';
+import { getUserWithDisplayIdentity } from './user-display-identity.reader.js';
 
 export interface UpdateCurrentUserInput {
   displayIdentity?: {
@@ -38,30 +29,11 @@ interface UserUpdateOwnerDeps {
   currentUserViewService: CurrentUserViewService;
 }
 
-type UserReadClient = Pick<PrismaService, 'user'> | Pick<Prisma.TransactionClient, 'user'>;
-
 export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
-  async function getUserWithDisplayIdentity(
-    userId: string,
-    client: UserReadClient = deps.prisma,
-  ): Promise<UserWithDisplayIdentityRecord> {
-    const user = await client.user.findUnique({
-      where: { id: userId },
-      select: buildUserWithDisplayIdentitySelect(),
-    });
-
-    if (!user) {
-      throw new Error('[UsersService] authenticated user not found');
-    }
-
-    return mapUserWithDisplayIdentityProjection(user);
-  }
-
   const displayIdentityCommand = createUpdateDisplayIdentityCommand({
     prisma: deps.prisma,
     seasonsService: deps.seasonsService,
     moderationService: deps.moderationService,
-    getUserWithDisplayIdentity,
   });
   const academicIdentityCommand = createUpdateAcademicIdentityCommand({
     prisma: deps.prisma,
@@ -73,7 +45,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     input: UpdateCurrentUserInput,
   ): Promise<UpdateCurrentUserResponse> {
     const now = await deps.prisma.getDatabaseNow();
-    const user = await getUserWithDisplayIdentity(authUser.id);
+    const user = await getUserWithDisplayIdentity(deps.prisma, authUser.id);
     let displayIdentityMutation: UpdateCurrentUserDisplayIdentityMutationResult = {
       attempted: false,
       changed: false,
@@ -101,7 +73,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
       : null;
 
     const transactionResult = await deps.prisma.runSerializableTransaction(async (tx) => {
-      const txUser = await getUserWithDisplayIdentity(authUser.id, tx);
+      const txUser = await getUserWithDisplayIdentity(tx, authUser.id);
       if (txUser.deletedAt) {
         throw usersErrors.accountAlreadyDeleted();
       }
@@ -145,7 +117,7 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
 
     return buildUpdateCurrentUserResponse(
       await deps.currentUserViewService.buildCurrentUserResponse(
-        await getUserWithDisplayIdentity(authUser.id),
+        await getUserWithDisplayIdentity(deps.prisma, authUser.id),
         now,
       ),
       displayIdentityMutation,
@@ -153,15 +125,8 @@ export function createUserUpdateOwner(deps: UserUpdateOwnerDeps) {
     );
   }
 
-  async function overrideDisplayIdentityNicknameForPolicyEnforcement(
-    input: DisplayIdentityNicknameOverrideInput,
-  ): Promise<DisplayIdentityNicknameOverrideResult> {
-    return displayIdentityCommand.overrideDisplayIdentityNicknameForPolicyEnforcement(input);
-  }
-
   return {
     updateCurrentUser,
-    overrideDisplayIdentityNicknameForPolicyEnforcement,
   };
 }
 

@@ -5,7 +5,7 @@ import type {
   UserAcademicIdentityRecord,
   UserWithDisplayIdentityRecord,
 } from '../../current-user/current-user.select.js';
-import { usersErrors } from '../../users.errors.js';
+import { usersErrors } from '../../errors/users.errors.js';
 
 export interface ParsedAcademicIdentity {
   collegeCode: string;

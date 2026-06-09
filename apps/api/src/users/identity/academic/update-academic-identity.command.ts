@@ -3,7 +3,7 @@ import type { Prisma } from '../../../generated/prisma/client.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { SeasonContextPort } from '../../../seasons/ports/season-context.port.js';
 import type { UserWithDisplayIdentityRecord } from '../../current-user/current-user.select.js';
-import { usersErrors } from '../../users.errors.js';
+import { usersErrors } from '../../errors/users.errors.js';
 import { consumeAcademicCollegeChangeAllowanceTx } from './academic-college-change-allowance.repository.js';
 import { recordAcademicIdentityChangeAuditTx } from './academic-identity-audit.repository.js';
 import {

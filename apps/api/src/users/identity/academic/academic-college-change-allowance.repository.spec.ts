@@ -1,5 +1,5 @@
 import { consumeAcademicCollegeChangeAllowanceTx } from './academic-college-change-allowance.repository.js';
-import { usersErrors } from '../../users.errors.js';
+import { usersErrors } from '../../errors/users.errors.js';
 
 const NOW = new Date('2026-05-23T00:00:00.000Z');
 

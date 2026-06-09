@@ -2,7 +2,7 @@ import {
   SERVICE_INTRO_NOTICE_KEY,
   type DismissCurrentUserOnboardingNoticeRequest,
 } from '@repo/shared/user';
-import { usersErrors } from '../users.errors.js';
+import { usersErrors } from '../errors/users.errors.js';
 
 export type SupportedOnboardingNoticeKey = typeof SERVICE_INTRO_NOTICE_KEY;
 

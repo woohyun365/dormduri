@@ -2,7 +2,7 @@ import {
   assertBirthYearEditableBeforeRegistration,
   updateAcademicIdentity,
 } from './academic-identity.repository.js';
-import { usersErrors } from '../../users.errors.js';
+import { usersErrors } from '../../errors/users.errors.js';
 
 function createClient() {
   return {

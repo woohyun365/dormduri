@@ -1,5 +1,5 @@
 import { createUpdateDisplayIdentityCommand } from './update-display-identity.command.js';
-import { usersErrors } from '../../users.errors.js';
+import { usersErrors } from '../../errors/users.errors.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');
 const USER = {
@@ -43,12 +43,10 @@ describe('UpdateDisplayIdentityCommand', () => {
   const moderationService = {
     validateNicknamePolicy: jest.fn(),
   };
-  const getUserWithDisplayIdentity = jest.fn();
   const command = createUpdateDisplayIdentityCommand({
     prisma: prisma as never,
     seasonsService: seasonsService as never,
     moderationService: moderationService as never,
-    getUserWithDisplayIdentity,
   });
   const tx = {
     seasonParticipant: { findUnique: jest.fn() },

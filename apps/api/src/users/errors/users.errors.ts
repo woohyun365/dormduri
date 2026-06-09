@@ -2,7 +2,7 @@ import {
   badRequestError,
   conflictError,
   unprocessableEntityError,
-} from '../platform/http/api-error.js';
+} from '../../platform/http/api-error.js';
 
 function fieldErrors(field: string, message: string) {
   return {

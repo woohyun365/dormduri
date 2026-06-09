@@ -17,15 +17,16 @@ import {
   type SeasonContextPort,
 } from '../../seasons/ports/season-context.port.js';
 import { CurrentUserViewService } from '../current-user/current-user-view.service.js';
-import { createUserUpdateOwner, type UpdateCurrentUserInput } from '../user-update-owner.js';
-import type {
-  DisplayIdentityNicknameOverrideInput,
-  DisplayIdentityNicknameOverrideResult,
-} from '../identity/display/update-display-identity.command.js';
+import { createUserUpdateOwner, type UpdateCurrentUserInput } from './user-update-owner.js';
+import {
+  createOverrideDisplayIdentityNicknameCommand,
+  type DisplayIdentityNicknameOverrideInput,
+  type DisplayIdentityNicknameOverrideResult,
+} from '../operations/override-display-identity-nickname.command.js';
 import {
   listDisplayIdentityNicknameChangeAuditForOperations,
   type DisplayIdentityNicknameChangeAuditEntry,
-} from '../identity/audit/display-identity-nickname-audit.repository.js';
+} from '../operations/list-display-identity-nickname-audit.query.js';
 import { createRequestAccountDeletionCommand } from '../account-deletion/request-account-deletion.command.js';
 import { createDismissOnboardingNoticeCommand } from '../onboarding/dismiss-onboarding-notice.command.js';
 
@@ -34,6 +35,7 @@ export class UsersService {
   private readonly updateOwner;
   private readonly deletionOwner;
   private readonly onboardingOwner;
+  private readonly nicknameOverrideOwner;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -48,6 +50,11 @@ export class UsersService {
       seasonsService: this.seasonsService,
       moderationService: this.moderationService,
       currentUserViewService: this.currentUserViewService,
+    });
+    this.nicknameOverrideOwner = createOverrideDisplayIdentityNicknameCommand({
+      prisma: this.prisma,
+      seasonsService: this.seasonsService,
+      moderationService: this.moderationService,
     });
     this.deletionOwner = createRequestAccountDeletionCommand({
       prisma: this.prisma,
@@ -74,7 +81,7 @@ export class UsersService {
   async overrideDisplayIdentityNicknameForPolicyEnforcement(
     input: DisplayIdentityNicknameOverrideInput,
   ): Promise<DisplayIdentityNicknameOverrideResult> {
-    return this.updateOwner.overrideDisplayIdentityNicknameForPolicyEnforcement(input);
+    return this.nicknameOverrideOwner.overrideDisplayIdentityNicknameForPolicyEnforcement(input);
   }
 
   async listDisplayIdentityNicknameChangeAuditForOperations(

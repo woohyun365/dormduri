@@ -5,7 +5,7 @@ import {
   prismaErrorTargetIncludes,
 } from '../../../platform/database/prisma-error.js';
 import type { UserDisplayIdentityRecord } from '../../current-user/current-user.select.js';
-import { usersErrors } from '../../users.errors.js';
+import { usersErrors } from '../../errors/users.errors.js';
 
 export interface ParsedDisplayIdentityNickname {
   nickname: string;
