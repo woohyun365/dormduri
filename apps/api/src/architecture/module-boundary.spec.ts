@@ -288,6 +288,34 @@ describe('affected API module boundary finalization', () => {
     ]);
   });
 
+  it('expected-red Phase 2: introduces RetentionModule composition source of truth before metadata imports', () => {
+    const retentionRoot = join(apiSourceRoot, 'retention');
+    const retentionModulePath = join(retentionRoot, 'retention.module.ts');
+    const compositionRoot = join(retentionRoot, 'composition');
+    const compositionFiles = [
+      'retention.providers.ts',
+      'retention.exports.ts',
+      'retention.tokens.ts',
+    ] as const;
+    const moduleSource = existsSync(retentionModulePath) ? readSource(retentionModulePath) : '';
+
+    expect({
+      expectedGreenPhase: 'Phase 2 RetentionModule + composition source-of-truth',
+      hasRetentionModule: existsSync(retentionModulePath),
+      missingCompositionFiles: compositionFiles.filter(
+        (file) => !existsSync(join(compositionRoot, file)),
+      ),
+      moduleUsesProviderSourceOfTruth: moduleSource.includes('RETENTION_PROVIDERS'),
+      moduleUsesExportSourceOfTruth: moduleSource.includes('RETENTION_EXPORTS'),
+    }).toEqual({
+      expectedGreenPhase: 'Phase 2 RetentionModule + composition source-of-truth',
+      hasRetentionModule: true,
+      missingCompositionFiles: [],
+      moduleUsesProviderSourceOfTruth: true,
+      moduleUsesExportSourceOfTruth: true,
+    });
+  });
+
   it('documents final platform, lifecycle, and moderation product boundaries', () => {
     const requiredSections = [
       '## Public boundary',
