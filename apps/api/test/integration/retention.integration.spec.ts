@@ -6,7 +6,7 @@ import {
 import { createDeletionArchiveJobsTx } from '../../src/retention/archive-jobs/create-deletion-archive-jobs.command.js';
 import { createRetainedIdentityCipher } from '../../src/retention/retained-identities/retained-identity-cipher.js';
 import { createRetainedIdentityOwner } from '../../src/retention/retained-identities/retained-identity.service.js';
-import { createConversationRetainedBodyCipher } from '../../src/retention/conversation-retained-body-owner.js';
+import { createConversationRetainedBodyCipher } from '../../src/chat/retention/conversation-retained-body.service.js';
 import {
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,

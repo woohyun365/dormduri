@@ -5,7 +5,7 @@ import {
   retainAndTombstoneThreadMessagesTx,
   reviewRetainedConversationIdentityLinksTx,
   tombstoneConversationMessageTx,
-} from './conversation-retained-body-owner.js';
+} from './conversation-retained-body.service.js';
 
 describe('conversation retained body owner', () => {
   const cipher = createConversationRetainedBodyCipher({

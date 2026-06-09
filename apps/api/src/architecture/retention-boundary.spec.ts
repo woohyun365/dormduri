@@ -181,6 +181,42 @@ describe('retention final architecture boundary', () => {
     });
   });
 
+  it('keeps archive target registry as thin dispatch without source row transformations', () => {
+    const registrySource = readSource(
+      join(retentionRoot, 'archive-jobs/targets/archive-target-handlers.ts'),
+    );
+    const expectedOwnerHandlerFiles = [
+      join(apiSourceRoot, 'users/identity/retention/nickname-audit-archive.handler.ts'),
+      join(apiSourceRoot, 'users/identity/retention/academic-identity-audit-archive.handler.ts'),
+      join(
+        apiSourceRoot,
+        'season-participants/retention/season-profile-history-archive.handler.ts',
+      ),
+      join(apiSourceRoot, 'matches/retention/match-history-archive.handler.ts'),
+      join(apiSourceRoot, 'chat/retention/thread-retention-archive.handler.ts'),
+      join(apiSourceRoot, 'chat/retention/conversation-retained-body.service.ts'),
+    ];
+
+    expect({
+      expectedGreenPhase: 'Phase 7 domain-owned archive handlers',
+      missingOwnerHandlerFiles: expectedOwnerHandlerFiles
+        .filter((file) => !existsSync(file))
+        .map(relativeSourcePath),
+      registryRetainsPayloadDirectly: /retainVaultPayloadTx|ensureRetentionCaseTx/.test(
+        registrySource,
+      ),
+      registryOwnsSourceRowTables:
+        /UserDisplayIdentityNicknameChangeEvent|UserAcademicIdentityChangeEvent|SeasonParticipantProfileHistory|SeasonMatchHistoryEntry|ConversationMessage/.test(
+          registrySource,
+        ),
+    }).toEqual({
+      expectedGreenPhase: 'Phase 7 domain-owned archive handlers',
+      missingOwnerHandlerFiles: [],
+      registryRetainsPayloadDirectly: false,
+      registryOwnsSourceRowTables: false,
+    });
+  });
+
   it('keeps product read paths away from retained payload disclosure/parser internals', () => {
     const forbiddenDisclosureOrParserImports =
       /from\s+['"][^'"]*retention\/(?:vault\/[^'"]*disclosure|retained-vault-owner|conversation-retained-body-owner)(?:\.js)?['"]/;

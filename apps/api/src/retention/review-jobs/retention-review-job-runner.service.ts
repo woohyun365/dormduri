@@ -3,7 +3,7 @@ import { disposeDueRetentionAccessLogs } from '../access-logs/retention-access-l
 import {
   createConversationRetainedBodyOwner,
   type ConversationRetainedBodyOwnerOptions,
-} from '../conversation-retained-body-owner.js';
+} from '../../chat/retention/conversation-retained-body.service.js';
 import {
   calculateRetentionReviewRetryDueAt,
   failedManualReviewStatus,

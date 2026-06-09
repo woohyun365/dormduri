@@ -1,5 +1,5 @@
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { ConversationRetainedBodyOwnerOptions } from '../conversation-retained-body-owner.js';
+import type { ConversationRetainedBodyOwnerOptions } from '../../chat/retention/conversation-retained-body.service.js';
 
 export const retentionReviewJobSelect = {
   id: true,

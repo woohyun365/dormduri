@@ -1,27 +1,27 @@
-import { Prisma } from '../generated/prisma/client.js';
-import type { RetentionAccessReason } from '../generated/prisma/enums.js';
+import { Prisma } from '../../generated/prisma/client.js';
+import type { RetentionAccessReason } from '../../generated/prisma/enums.js';
 import {
   ChatRealtimeOutboxService,
   hasChatRealtimeOutboxTx,
-} from '../chat/outbox/chat-realtime-outbox.service.js';
-import type { PrismaService } from '../platform/database/prisma.service.js';
+} from '../outbox/chat-realtime-outbox.service.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   decryptJsonPayload,
   encryptJsonPayload,
   type RetentionCipher,
-} from './crypto/retention-cipher.js';
-import { ensureRetentionCaseTx } from './vault/retention-case.repository.js';
+} from '../../retention/crypto/retention-cipher.js';
+import { ensureRetentionCaseTx } from '../../retention/vault/retention-case.repository.js';
 import {
   createEnvRetentionVaultKeyring,
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
   type RetentionVaultKeyring,
-} from './vault/retained-vault-keyring.js';
+} from '../../retention/vault/retained-vault-keyring.js';
 import {
   discloseRetainedVaultPayload,
   hmacPayloadDigest,
   retainVaultPayloadTx,
-} from './vault/retained-vault.service.js';
+} from '../../retention/vault/retained-vault.service.js';
 
 const CHAT_BODY_AAD_PREFIX = 'knu-roommate:chat-message-body:v1';
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();

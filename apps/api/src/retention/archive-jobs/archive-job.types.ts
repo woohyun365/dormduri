@@ -1,8 +1,8 @@
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { ArchiveJobTarget } from '../../generated/prisma/enums.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
-import type { createConversationRetainedBodyOwner } from '../conversation-retained-body-owner.js';
-import type { ConversationRetainedBodyOwnerOptions } from '../conversation-retained-body-owner.js';
+import type { createConversationRetainedBodyOwner } from '../../chat/retention/conversation-retained-body.service.js';
+import type { ConversationRetainedBodyOwnerOptions } from '../../chat/retention/conversation-retained-body.service.js';
 import type { RetainedVaultOwnerOptions } from '../vault/retained-vault.service.js';
 
 export const DEFAULT_ARCHIVE_JOB_MAX_ATTEMPTS = 5;

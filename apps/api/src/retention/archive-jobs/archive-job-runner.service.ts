@@ -2,7 +2,7 @@ import type { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   createConversationRetainedBodyOwner,
   type ConversationRetainedBodyOwnerOptions,
-} from '../conversation-retained-body-owner.js';
+} from '../../chat/retention/conversation-retained-body.service.js';
 import type { RetainedVaultOwnerOptions } from '../vault/retained-vault.service.js';
 import {
   activateWaitingArchiveJobs,

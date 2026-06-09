@@ -32,10 +32,10 @@
 
 Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소유한다. Source row의 의미와 redaction/tombstone/minimization 규칙은 원래 domain handler가 소유한다.
 
-- users identity: nickname audit, academic identity audit archive handler.
-- season-participants: season profile history archive handler.
-- matches: match history archive handler.
-- chat: thread retention, retained message body tombstone/disclosure handler.
+- users identity: `users/identity/retention/nickname-audit-archive.handler.ts`, `users/identity/retention/academic-identity-audit-archive.handler.ts`.
+- season-participants: `season-participants/retention/season-profile-history-archive.handler.ts`.
+- matches: `matches/retention/match-history-archive.handler.ts`.
+- chat: `chat/retention/thread-retention-archive.handler.ts`, `chat/retention/conversation-retained-body.service.ts`.
 
 이 구분은 같은 용어가 domain마다 다른 bounded context를 가질 수 있기 때문이다. Retention root가 chat/matches/users/season-participants의 policy와 write semantics를 흡수하지 않는다.
 
@@ -59,13 +59,13 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 - Product domain은 retained payload parser/disclosure concrete implementation을 import하지 않는다.
 - Lifecycle은 retention observability concrete provider를 직접 소유하지 않고 `RetentionModule`의 exported port를 주입받는다.
 - Lifecycle sweep task execution은 broad users service가 아니라 retention sweep port로 수렴한다.
-- Current transition surface에는 root owner files가 남아 있을 수 있다. 신규 수정은 위 owning slice와 public boundary로 수렴시킨다.
+- Current transition surface에는 `retention-observability.ts` root file이 남아 있다. 신규 수정은 위 owning slice와 public boundary로 수렴시킨다.
 
 ## Where to change retention behavior
 
 - Archive job claim/retry/manual-review transition: `archive-jobs/archive-job-runner.service.ts`, `archive-jobs/archive-job.repository.ts`, `archive-jobs/archive-job-transition.policy.ts`.
 - Archive job creation and payload shape: `archive-jobs/create-deletion-archive-jobs.command.ts`, `archive-jobs/archive-job.payload.ts`.
-- Temporary archive target handler registry/dispatch before domain-owned handler migration: `archive-jobs/targets/archive-target-handlers.ts`.
+- Archive target registry/dispatch only: `archive-jobs/targets/archive-target-handlers.ts`. Source row transformation은 각 owner domain handler에서 수정한다.
 - Retained identity decision/hold priority: `retained-identities/retained-identity-decision.policy.ts`.
 - Retained identity snapshot transaction: `retained-identities/create-retained-identity-snapshot.command.ts`.
 - Retained identity metadata validation: `retained-identities/retained-identity-metadata.validator.ts`.
@@ -78,7 +78,9 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 - Retained vault retain/disclose/dispose behavior: `vault/retained-vault.service.ts`.
 - Retention payload encryption envelope: `crypto/retention-cipher.ts`.
 - Access log create/disposal behavior: `access-logs/create-retention-access-log.command.ts`, `access-logs/retention-access-log-disposal.service.ts`, `access-logs/retention-access-log-disposal-review.command.ts`.
-- Identity-link review scheduling/retry/handler: `review-jobs/schedule-chat-identity-link-review-job.command.ts`, `review-jobs/retention-review-job-runner.service.ts`, `review-jobs/retention-review-job-transition.policy.ts`.
+- Identity-link review scheduling/retry transition: `review-jobs/schedule-chat-identity-link-review-job.command.ts`, `review-jobs/retention-review-job-runner.service.ts`, `review-jobs/retention-review-job-transition.policy.ts`.
+- Chat retained body tombstone/disclosure/identity-link minimization: `apps/api/src/chat/retention/conversation-retained-body.service.ts`.
+- Archive target source row transformations: users identity, season-participants, matches, chat `retention/` handlers listed above.
 - Retention sweep facade used by lifecycle: `application/`.
 - Backlog snapshot, metric, alert candidate signal: `observability/`.
 - Encryption helper/keyring adapter: `crypto/` and `vault/` keyring boundary.
