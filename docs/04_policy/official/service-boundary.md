@@ -118,16 +118,19 @@
 
 DB credential 경계도 서비스 책임에 포함한다. 일반 API runtime은 retained payload/identifier payload를 직접 조회하지 못해야 하며, archive/disposal/review는 retention worker credential, 승인 disclosure는 retention disclosure credential로 분리한다. 이 분리는 운영자 UI 존재 여부와 무관한 BE/DB 안전 경계다.
 
+각 domain의 source row 의미와 사용자-facing 최소화 규칙은 해당 owner domain이 소유한다. Retention boundary는 제한 보존 queue, vault, case, disclosure, access log, review/disposal 경계를 제공하지만, 일반 product API가 retained payload를 복원하거나 외부 domain semantics를 우회하는 통로가 아니다.
+
 운영 관측은 retained payload를 노출하지 않는 구조화 signal만 남긴다. manual review, retry exhaustion, key unavailable, disposal/review backlog, sweep latency는 운영자가 감지해야 하는 상태지만, product application 사용자에게 retained payload를 복원하거나 공개하는 근거가 되지 않는다.
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                 | 관련 이슈 |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 2026-05-26 | RRPD 접근 경계에 DB credential 분리와 retention 운영 관측/alert signal 책임을 추가                                                        | #195      |
-| 2026-05-25 | RRPD retained vault가 user-facing/product read path에서 복원되지 않고, 운영 disclosure도 승인/로그 기반으로 제한된다는 서비스 경계를 추가 | #195      |
-| 2026-03-14 | 면책 고지 시점에 "서비스 진입" 항목 추가 (비공식 서비스 고지 원칙)                                                                        | #141      |
-| 2026-03-14 | 면책 범위에 "생활패턴 설문 내용" 항목 추가 (설문 ≠ 학교 규정 면책)                                                                        | #142      |
+| 날짜       | 변경 내용                                                                                                                                       | 관련 이슈   |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 2026-06-09 | RRPD 접근 경계에 domain-owned source row semantics 원칙을 추가하고, retention boundary가 product API retained payload 복원 통로가 아니라고 명시 | #230 / #229 |
+| 2026-05-26 | RRPD 접근 경계에 DB credential 분리와 retention 운영 관측/alert signal 책임을 추가                                                              | #195        |
+| 2026-05-25 | RRPD retained vault가 user-facing/product read path에서 복원되지 않고, 운영 disclosure도 승인/로그 기반으로 제한된다는 서비스 경계를 추가       | #195        |
+| 2026-03-14 | 면책 고지 시점에 "서비스 진입" 항목 추가 (비공식 서비스 고지 원칙)                                                                              | #141        |
+| 2026-03-14 | 면책 범위에 "생활패턴 설문 내용" 항목 추가 (설문 ≠ 학교 규정 면책)                                                                              | #142        |
 
 ## 원문 소스
 
