@@ -1,6 +1,6 @@
-import * as chatContract from '@repo/shared/chat-contract';
-import * as chatRealtimeContract from '@repo/shared/chat-realtime-contract';
-import * as chatRealtimeEvents from '@repo/shared/chat-realtime-events';
+import * as chatContract from '@repo/shared/chat';
+import * as chatRealtimeContract from '@repo/shared/chat/realtime-contract';
+import * as chatRealtimeEvents from '@repo/shared/chat/realtime-events';
 
 type SchemaLike = {
   parse(input: unknown): unknown;

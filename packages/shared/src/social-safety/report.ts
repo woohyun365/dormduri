@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from '../date-primitives.js';
+import { isoDateTimeStringSchema } from '../date/primitives.js';
 
 export const reportReasonSchema = z.enum([
   'SEXUAL_HARASSMENT',

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { collegeCodeSchema } from './college-contract.js';
-import { LIFESTYLE_FIELD_OPTIONS } from './lifestyle.js';
+import { collegeCodeSchema } from './college/index.js';
+import { LIFESTYLE_FIELD_OPTIONS } from './lifestyle/index.js';
 import {
   profileGradeSchema,
   profileSourceSchema,

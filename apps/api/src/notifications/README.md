@@ -6,9 +6,9 @@
 
 외부 domain은 notification outbox/repository/dispatcher/payload internals를 import하지 않는다. 필요한 기능은 purpose-specific port token으로 사용한다.
 
-- `NotificationsModule`: notification HTTP read model, writer port, chat compatibility writer wiring을 제공한다.
+- `NotificationsModule`: notification HTTP read model, writer port, chat-specific writer adapter wiring을 제공한다.
 - `NOTIFICATION_WRITER`: social-safety/support/system/chat이 durable `UserNotification` + outbox append를 요청할 때 사용하는 generic writer port다.
-- `CHAT_THREAD_NOTIFICATION_WRITER`: chat thread created notification을 위한 compatibility adapter token이다. 내부 구현은 `NOTIFICATION_WRITER`를 호출한다.
+- `CHAT_THREAD_NOTIFICATION_WRITER`: chat thread created notification을 위한 adapter token이다. 내부 구현은 `NOTIFICATION_WRITER`를 호출한다.
 - `NotificationQueryService`: internal module export가 필요한 read facade다. User-facing HTTP route는 `NotificationsService`와 controller가 소유한다.
 - `NOTIFICATION_REALTIME_PUBLISHER`: notification outbox dispatcher가 realtime publish를 요청하는 port다. 현재 host는 chat realtime module이며, external domain은 dispatcher concrete를 직접 import하지 않는다.
 - `MaterializeProfileMismatchFeedbackCommand`: report 후보 event를 target user의 비처벌 `PROFILE_MISMATCH_FEEDBACK` 알림으로 materialize한다.
@@ -20,7 +20,7 @@
 ## Directory responsibilities
 
 - `application/`: controller-facing facade와 public port definitions. `NotificationsService`는 query delegation만 맡는다.
-- `application/ports/`: external domain이 import할 수 있는 notification writer/realtime/chat compatibility port token과 types.
+- `application/ports/`: external domain이 import할 수 있는 notification writer/realtime/chat adapter port token과 types.
 - `campaigns/`: season/system campaign row 생성과 bounded fanout worker logic. Root HTTP API나 BackOffice UI는 소유하지 않는다.
 - `commands/`: durable notification write use case. `create-notification.command.ts`가 generic writer source of truth이고 chat-specific command는 adapter다.
 - `composition/`: module provider/export summary와 dispatcher host provider handoff. External module은 outbox concrete가 아니라 composition provider를 사용한다.
@@ -35,8 +35,8 @@
 ## Hard rules
 
 - `chat`, `social-safety`, `support` production code는 `notifications/outbox`, `notifications/policies`, `notifications/mappers`, `notifications/commands`를 직접 import하지 않는다.
-- 외부 domain은 notification 생성 시 `NOTIFICATION_WRITER` 또는 compatibility token만 사용한다.
-- `CHAT_THREAD_NOTIFICATION_WRITER`는 compatibility adapter일 뿐 main writer가 아니다.
+- 외부 domain은 notification 생성 시 `NOTIFICATION_WRITER` 또는 chat-specific writer token만 사용한다.
+- `CHAT_THREAD_NOTIFICATION_WRITER`는 chat-specific adapter일 뿐 main writer가 아니다.
 - `PROFILE_MISMATCH_FEEDBACK`은 비처벌 feedback/prompt pointer다. reporter id, report detail, reason detail은 payload에 넣지 않는다.
 - Operator alert는 `UserNotification`이 아니며, source pointer/category/risk/severity만 sink로 전달한다.
 - Campaign fanout은 bounded chunk + idempotent append를 사용하고, 대량 단일 transaction insert를 만들지 않는다.

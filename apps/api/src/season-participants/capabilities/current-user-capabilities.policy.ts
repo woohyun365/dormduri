@@ -1,8 +1,8 @@
 import type { SeasonState } from '@repo/shared/season/runtime';
-import type { CurrentUserResponse } from '@repo/shared/user-contract';
-import type { DisplayIdentityEditUnavailableReason } from '@repo/shared/display-identity-contract';
-import type { AcademicIdentityEditUnavailableReason } from '@repo/shared/academic-identity-contract';
-import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
+import type { CurrentUserResponse } from '@repo/shared/user';
+import type { DisplayIdentityEditUnavailableReason } from '@repo/shared/user/identity/display';
+import type { AcademicIdentityEditUnavailableReason } from '@repo/shared/user/identity/academic';
+import type { DormitorySelectionState } from '@repo/shared/dormitory';
 
 export interface CurrentUserCapabilityInput {
   campusOperated: boolean;

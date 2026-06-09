@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { UsersController } from './users.controller.js';
 
 function getBadRequestResponse(error: unknown) {

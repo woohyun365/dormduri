@@ -54,15 +54,18 @@ import { CurrentSeasonParticipationViewQuery } from '../season-participants/appl
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { SEASON_CONTEXT_PORT } from '../seasons/ports/season-context.port.js';
-import { CurrentUserViewModule } from '../users/current-user-view.module.js';
-import { CurrentUserViewService } from '../users/current-user-view.service.js';
+import { CurrentUserViewModule } from '../users/current-user/current-user-view.module.js';
+import { CurrentUserViewService } from '../users/current-user/current-user-view.service.js';
+import { UsersService } from '../users/application/users.service.js';
+import { USER_RETENTION_SWEEP_PORT } from '../users/application/ports/user-retention-sweep.port.js';
+import { USERS_EXPORTS } from '../users/composition/users.exports.js';
+import { USERS_PROVIDERS } from '../users/composition/users.providers.js';
 import { UsersModule } from '../users/users.module.js';
-import { UsersService } from '../users/users.service.js';
 
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
 
-function moduleMetadata<T>(target: object, key: 'imports' | 'exports'): T[] {
+function moduleMetadata<T>(target: object, key: 'imports' | 'providers' | 'exports'): T[] {
   return (Reflect.getMetadata(key, target) ?? []) as T[];
 }
 
@@ -244,7 +247,12 @@ describe('affected API module boundary finalization', () => {
       CurrentSeasonParticipationViewQuery,
       CurrentSeasonParticipantContextGuard,
     ]);
-    expect(moduleMetadata(UsersModule, 'exports')).toEqual([UsersService]);
+    expect(moduleMetadata(UsersModule, 'providers')).toEqual(USERS_PROVIDERS);
+    expect(moduleMetadata(UsersModule, 'exports')).toEqual(USERS_EXPORTS);
+    expect(moduleMetadata(UsersModule, 'exports')).toEqual([
+      UsersService,
+      USER_RETENTION_SWEEP_PORT,
+    ]);
     expect(moduleMetadata(CurrentUserViewModule, 'exports')).toEqual([CurrentUserViewService]);
     expect(moduleMetadata(ProfilesModule, 'exports')).toEqual([ProfilesService]);
     expect(moduleMetadata(NotificationsModule, 'exports')).toEqual([

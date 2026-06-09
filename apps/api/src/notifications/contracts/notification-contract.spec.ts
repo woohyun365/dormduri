@@ -1,17 +1,14 @@
-import * as chatContract from '@repo/shared/chat-contract';
-import * as chatRealtimeEvents from '@repo/shared/chat-realtime-events';
-import * as notificationContract from '@repo/shared/notification-contract';
+import * as chatRealtimeEvents from '@repo/shared/chat/realtime-events';
+import * as notificationContract from '@repo/shared/notifications';
 
 describe('notification shared contract guards', () => {
   const occurredAt = '2026-06-02T00:00:00.000Z';
 
-  it('notification package exports는 chat-contract 통합 export와 같은 schema surface를 제공한다', () => {
-    expect(notificationContract.userNotificationSchema).toBe(chatContract.userNotificationSchema);
-    expect(notificationContract.notificationListResponseSchema).toBe(
-      chatContract.notificationListResponseSchema,
-    );
-    expect(notificationContract.notificationCreatedRealtimeEventSchema).toBe(
-      chatContract.notificationCreatedRealtimeEventSchema,
+  it('notification package exports는 notification schema surface를 제공한다', () => {
+    expect(typeof notificationContract.userNotificationSchema.parse).toBe('function');
+    expect(typeof notificationContract.notificationListResponseSchema.parse).toBe('function');
+    expect(typeof notificationContract.notificationCreatedRealtimeEventSchema.parse).toBe(
+      'function',
     );
   });
 

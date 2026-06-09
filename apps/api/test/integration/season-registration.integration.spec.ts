@@ -1,11 +1,11 @@
-import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { AuthService } from '../../src/auth/application/auth.service.js';
 import type { AuthenticatedUserContext } from '../../src/auth/sessions/auth-session.service.js';
 import { normalizeEmail } from '../../src/auth/domain/auth.utils.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { SeasonParticipantsService } from '../../src/season-participants/application/season-participants.service.js';
 import { seasonParticipantsErrors } from '../../src/season-participants/errors/season-participants.errors.js';
-import { UsersService } from '../../src/users/users.service.js';
+import { UsersService } from '../../src/users/application/users.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,

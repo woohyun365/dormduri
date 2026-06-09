@@ -11,10 +11,6 @@
     "node": ">=24 <25"
   },
   "exports": {
-    "./auth-contract": {
-      "types": "./dist/compat/auth-contract.d.ts",
-      "default": "./dist/compat/auth-contract.js"
-    },
     "./auth": {
       "types": "./dist/auth/index.d.ts",
       "default": "./dist/auth/index.js"
@@ -35,65 +31,45 @@
       "types": "./dist/auth/session/index.d.ts",
       "default": "./dist/auth/session/index.js"
     },
-    "./identity-contract": {
-      "types": "./dist/identity-contract.d.ts",
-      "default": "./dist/identity-contract.js"
+    "./user": {
+      "types": "./dist/user/index.d.ts",
+      "default": "./dist/user/index.js"
+    },
+    "./user/primitives": {
+      "types": "./dist/user/primitives.d.ts",
+      "default": "./dist/user/primitives.js"
+    },
+    "./user/current-user": {
+      "types": "./dist/user/current-user.d.ts",
+      "default": "./dist/user/current-user.js"
+    },
+    "./user/requests": {
+      "types": "./dist/user/requests.d.ts",
+      "default": "./dist/user/requests.js"
+    },
+    "./user/identity": {
+      "types": "./dist/user/identity/index.d.ts",
+      "default": "./dist/user/identity/index.js"
+    },
+    "./user/identity/display": {
+      "types": "./dist/user/identity/display.d.ts",
+      "default": "./dist/user/identity/display.js"
+    },
+    "./user/identity/academic": {
+      "types": "./dist/user/identity/academic.d.ts",
+      "default": "./dist/user/identity/academic.js"
+    },
+    "./user/identity/account": {
+      "types": "./dist/user/identity/account.d.ts",
+      "default": "./dist/user/identity/account.js"
     },
     "./profile-contract": {
       "types": "./dist/profile-contract.d.ts",
       "default": "./dist/profile-contract.js"
     },
-    "./user-contract": {
-      "types": "./dist/user-contract.d.ts",
-      "default": "./dist/user-contract.js"
-    },
-    "./display-identity-contract": {
-      "types": "./dist/display-identity-contract.d.ts",
-      "default": "./dist/display-identity-contract.js"
-    },
-    "./academic-identity-contract": {
-      "types": "./dist/academic-identity-contract.d.ts",
-      "default": "./dist/academic-identity-contract.js"
-    },
-    "./account-identity-contract": {
-      "types": "./dist/account-identity-contract.d.ts",
-      "default": "./dist/account-identity-contract.js"
-    },
-    "./session-contract": {
-      "types": "./dist/compat/session-contract.d.ts",
-      "default": "./dist/compat/session-contract.js"
-    },
     "./lifestyle": {
-      "types": "./dist/lifestyle.d.ts",
-      "default": "./dist/lifestyle.js"
-    },
-    "./auth-policy": {
-      "types": "./dist/compat/auth-policy.d.ts",
-      "default": "./dist/compat/auth-policy.js"
-    },
-    "./auth-response": {
-      "types": "./dist/compat/auth-response.d.ts",
-      "default": "./dist/compat/auth-response.js"
-    },
-    "./campus-contract": {
-      "types": "./dist/campus-contract.d.ts",
-      "default": "./dist/campus-contract.js"
-    },
-    "./dormitory-contract": {
-      "types": "./dist/compat/dormitory-contract.d.ts",
-      "default": "./dist/compat/dormitory-contract.js"
-    },
-    "./date-primitives": {
-      "types": "./dist/date-primitives.d.ts",
-      "default": "./dist/date-primitives.js"
-    },
-    "./season-contract": {
-      "types": "./dist/compat/season-contract.d.ts",
-      "default": "./dist/compat/season-contract.js"
-    },
-    "./college-contract": {
-      "types": "./dist/college-contract.d.ts",
-      "default": "./dist/college-contract.js"
+      "types": "./dist/lifestyle/index.d.ts",
+      "default": "./dist/lifestyle/index.js"
     },
     "./match-contract": {
       "types": "./dist/match-contract.d.ts",
@@ -107,19 +83,11 @@
       "types": "./dist/match-score.d.ts",
       "default": "./dist/match-score.js"
     },
-    "./chat-contract": {
-      "types": "./dist/compat/chat-contract.d.ts",
-      "default": "./dist/compat/chat-contract.js"
+    "./notifications": {
+      "types": "./dist/notifications/index.d.ts",
+      "default": "./dist/notifications/index.js"
     },
-    "./chat-realtime-contract": {
-      "types": "./dist/chat/realtime-contract.d.ts",
-      "default": "./dist/chat/realtime-contract.js"
-    },
-    "./chat-realtime-events": {
-      "types": "./dist/chat/realtime-events.d.ts",
-      "default": "./dist/chat/realtime-events.js"
-    },
-    "./notification-contract": {
+    "./notifications/contract": {
       "types": "./dist/notifications/contract.d.ts",
       "default": "./dist/notifications/contract.js"
     },
@@ -143,9 +111,21 @@
       "types": "./dist/support/index.d.ts",
       "default": "./dist/support/index.js"
     },
-    "./support-contract": {
+    "./support/contract": {
       "types": "./dist/support/contract.d.ts",
       "default": "./dist/support/contract.js"
+    },
+    "./chat": {
+      "types": "./dist/chat/index.d.ts",
+      "default": "./dist/chat/index.js"
+    },
+    "./chat/realtime-contract": {
+      "types": "./dist/chat/realtime-contract.d.ts",
+      "default": "./dist/chat/realtime-contract.js"
+    },
+    "./chat/realtime-events": {
+      "types": "./dist/chat/realtime-events.d.ts",
+      "default": "./dist/chat/realtime-events.js"
     },
     "./dormitory": {
       "types": "./dist/dormitory/index.d.ts",
@@ -186,6 +166,26 @@
     "./season/runtime": {
       "types": "./dist/season/runtime/index.d.ts",
       "default": "./dist/season/runtime/index.js"
+    },
+    "./campus": {
+      "types": "./dist/campus/index.d.ts",
+      "default": "./dist/campus/index.js"
+    },
+    "./college": {
+      "types": "./dist/college/index.d.ts",
+      "default": "./dist/college/index.js"
+    },
+    "./identity": {
+      "types": "./dist/identity/index.d.ts",
+      "default": "./dist/identity/index.js"
+    },
+    "./identity/primitives": {
+      "types": "./dist/identity/primitives.d.ts",
+      "default": "./dist/identity/primitives.js"
+    },
+    "./date": {
+      "types": "./dist/date/index.d.ts",
+      "default": "./dist/date/index.js"
     }
   },
   "scripts": {

@@ -5,7 +5,7 @@ import type {
   MarkNotificationReadResponse,
   NotificationListResponse,
   NotificationUnreadCountResponse,
-} from '@repo/shared/notification-contract';
+} from '@repo/shared/notifications';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { notificationErrors } from '../errors/notification.errors.js';
 import {

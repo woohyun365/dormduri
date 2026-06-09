@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from '../date-primitives.js';
+import { isoDateTimeStringSchema } from '../date/primitives.js';
 
 export const BLOCK_NOTE_MAX_LENGTH = 500;
 

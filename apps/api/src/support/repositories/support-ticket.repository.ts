@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { SupportTicketCategory, SupportTicketStatus } from '@repo/shared/support-contract';
+import type { SupportTicketCategory, SupportTicketStatus } from '@repo/shared/support';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { SupportMessageSenderType } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';

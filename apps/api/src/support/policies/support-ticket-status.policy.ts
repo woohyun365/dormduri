@@ -1,4 +1,4 @@
-import type { SupportTicketStatus } from '@repo/shared/support-contract';
+import type { SupportTicketStatus } from '@repo/shared/support';
 import { supportErrors } from '../errors/support.errors.js';
 
 const CLOSED_STATUSES = new Set<SupportTicketStatus>(['CLOSED']);

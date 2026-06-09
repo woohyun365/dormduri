@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type {
   ResolveSupportTicketRequest,
   ResolveSupportTicketResponse,
-} from '@repo/shared/support-contract';
+} from '@repo/shared/support';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { supportErrors } from '../errors/support.errors.js';

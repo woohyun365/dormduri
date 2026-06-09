@@ -1,5 +1,5 @@
-import { UsersService } from '../../src/users/users.service.js';
-import { usersErrors } from '../../src/users/users.errors.js';
+import { UsersService } from '../../src/users/application/users.service.js';
+import { usersErrors } from '../../src/users/errors/users.errors.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {

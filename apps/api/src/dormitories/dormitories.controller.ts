@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { campusSchema, genderSchema } from '@repo/shared/identity-contract';
+import { campusSchema, genderSchema } from '@repo/shared/identity/primitives';
 import { DormitoriesService } from './application/dormitories.service.js';
 import { Public } from '../auth/access/auth-access.decorator.js';
 import { parseOptionalQueryValue, parseQueryValue } from '../platform/http/zod-request.js';

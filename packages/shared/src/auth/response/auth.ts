@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   authenticatedSessionUserSchema,
   type AuthenticatedSessionUser,
-} from '../../user-contract.js';
+} from '../../user/primitives.js';
 import { genericErrorResponseSchema } from './base.js';
 
 const opaqueAuthTokenSchema = z

@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type {
   SignupDraftValidationFieldErrors,
   SignupDraftValidationResponse,
-} from '@repo/shared/auth-response';
-import { validateKnuEmailFormat } from '@repo/shared/auth-policy';
+} from '@repo/shared/auth/response';
+import { validateKnuEmailFormat } from '@repo/shared/auth/policy';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { ModerationService } from '../../moderation/moderation.service.js';
 import {

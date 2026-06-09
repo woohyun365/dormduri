@@ -1,5 +1,5 @@
 import type { SeasonRuntimeOverride } from '@repo/shared/season/runtime';
-import { toDateOnlyString } from '@repo/shared/date-primitives';
+import { toDateOnlyString } from '@repo/shared/date';
 import { calcDaysUntilDate } from '../../platform/time/kst-date.js';
 import {
   getEffectiveSeasonState,

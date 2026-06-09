@@ -2,7 +2,7 @@ import type {
   SupportTicketDetailResponse,
   SupportTicketListResponse,
   SupportTicketResponse,
-} from '@repo/shared/support-contract';
+} from '@repo/shared/support';
 import type {
   SupportTicketMessageRecord,
   SupportTicketRecord,

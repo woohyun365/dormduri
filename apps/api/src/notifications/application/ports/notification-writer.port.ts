@@ -2,7 +2,7 @@ import type {
   NotificationKind,
   NotificationPayload,
   NotificationSourceType,
-} from '@repo/shared/notification-contract';
+} from '@repo/shared/notifications';
 import type { Prisma } from '../../../generated/prisma/client.js';
 
 export const NOTIFICATION_WRITER = Symbol('NOTIFICATION_WRITER');

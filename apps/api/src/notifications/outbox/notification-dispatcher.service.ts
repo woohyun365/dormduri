@@ -6,7 +6,7 @@ import {
   OnModuleDestroy,
   Optional,
 } from '@nestjs/common';
-import { notificationCreatedRealtimeEventSchema } from '@repo/shared/notification-contract';
+import { notificationCreatedRealtimeEventSchema } from '@repo/shared/notifications';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,

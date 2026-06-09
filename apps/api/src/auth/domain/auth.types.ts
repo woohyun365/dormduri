@@ -1,12 +1,12 @@
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
-import type { CollegeCode } from '@repo/shared/college-contract';
+import type { CollegeCode } from '@repo/shared/college';
 import type {
   ChangePasswordResponse,
   LoginResponse,
   RenewSessionResponse,
-} from '@repo/shared/auth-response';
-import type { SessionResponse } from '@repo/shared/session-contract';
-import type { AuthenticatedSessionUser } from '@repo/shared/user-contract';
+} from '@repo/shared/auth/response';
+import type { SessionResponse } from '@repo/shared/auth/session';
+import type { AuthenticatedSessionUser } from '@repo/shared/user';
 
 export interface SignupInput {
   email: string;

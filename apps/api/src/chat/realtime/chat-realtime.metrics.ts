@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ChatRealtimeReplayFailureReason } from '@repo/shared/chat-contract';
+import type { ChatRealtimeReplayFailureReason } from '@repo/shared/chat';
 import type {
   RealtimeDispatchMetricsPort,
   RealtimeDispatcherName,

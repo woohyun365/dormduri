@@ -3,7 +3,7 @@ import {
   dormitoryContactSchema,
   dormitoryGuideResponseSchema,
   dormitoryGuidePayloadSchema,
-} from '@repo/shared/dormitory-contract';
+} from '@repo/shared/dormitory';
 
 export interface DormitoryGuideViewRecord {
   id: string;

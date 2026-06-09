@@ -1,3 +1,12 @@
+export type AccountIdentityInvariantSurface =
+  | 'current-user'
+  | 'registration-finalize'
+  | 'public-target-snapshot';
+
+export type AccountIdentityInvariantCode =
+  | 'USER_DISPLAY_IDENTITY_REQUIRED'
+  | 'USER_ACADEMIC_IDENTITY_REQUIRED';
+
 export type UserAccountIdentityContainer = {
   displayIdentity?: object | null;
   academicIdentity?: object | null;
@@ -35,9 +44,7 @@ export function assertUserAcademicIdentity<T extends { academicIdentity?: object
 
 export function assertUserAccountIdentity<T extends UserAccountIdentityContainer>(
   user: T,
-  errorFactory: (
-    invariant: 'USER_DISPLAY_IDENTITY_REQUIRED' | 'USER_ACADEMIC_IDENTITY_REQUIRED',
-  ) => Error,
+  errorFactory: (invariant: AccountIdentityInvariantCode) => Error,
 ): asserts user is T & {
   displayIdentity: NonNullable<T['displayIdentity']>;
   academicIdentity: NonNullable<T['academicIdentity']>;

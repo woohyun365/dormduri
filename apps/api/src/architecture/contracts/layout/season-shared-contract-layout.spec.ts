@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 
 type PackageJson = {
-  exports: Record<string, { types: string; default: string }>;
+  exports: Record<string, { types: string; default: string } | undefined>;
 };
 
 function findRepoRoot() {
@@ -22,7 +22,11 @@ function findRepoRoot() {
 const repoRoot = findRepoRoot();
 const sharedSrc = join(repoRoot, 'packages/shared/src');
 const apiSrc = join(repoRoot, 'apps/api/src');
-const legacySeasonContractSpecifier = '@repo/shared/' + 'season-contract';
+const removedSeasonContractSpecifier = '@repo/shared/' + 'season-contract';
+const ignoredSourceOfTruthSpecs = new Set([
+  'architecture/contracts/layout/season-shared-contract-layout.spec.ts',
+  'architecture/contracts/layout/shared-contract-source-of-truth-layout.spec.ts',
+]);
 const sharedPackageJson = JSON.parse(
   readFileSync(join(repoRoot, 'packages/shared/package.json'), 'utf8'),
 ) as PackageJson;
@@ -58,17 +62,12 @@ describe('shared season contract layout', () => {
       'season/participation/registration.ts',
       'season/participation/state.ts',
       'season/index.ts',
-      'compat/season-contract.ts',
     ]) {
       expect(existsSync(join(sharedSrc, relativePath))).toBe(true);
     }
   });
 
-  it('legacy root season files 없이 compat public path만 유지한다', () => {
-    expect(readFileSync(join(sharedSrc, 'compat/season-contract.ts'), 'utf8')).toBe(
-      "export * from '../season/index.js';\n",
-    );
-
+  it('legacy root/compat season files 없이 canonical season owner만 유지한다', () => {
     for (const relativePath of [
       'season-contract.ts',
       'season-contract-primitives.ts',
@@ -76,16 +75,14 @@ describe('shared season contract layout', () => {
       'season/primitives.ts',
       'season/response.ts',
       'season/operations.ts',
+      'compat/season-contract.ts',
     ]) {
       expect(existsSync(join(sharedSrc, relativePath))).toBe(false);
     }
   });
 
-  it('package exports는 old compat와 granular season axis를 모두 제공한다', () => {
-    expect(sharedPackageJson.exports['./season-contract']).toEqual({
-      types: './dist/compat/season-contract.d.ts',
-      default: './dist/compat/season-contract.js',
-    });
+  it('package exports는 canonical granular season axis만 제공한다', () => {
+    expect(sharedPackageJson.exports['./season-contract']).toBeUndefined();
     expect(sharedPackageJson.exports['./season']).toEqual({
       types: './dist/season/index.d.ts',
       default: './dist/season/index.js',
@@ -112,17 +109,13 @@ describe('shared season contract layout', () => {
     });
   });
 
-  it('API source는 behavior spec 외에 legacy season-contract aggregate를 직접 import하지 않는다', () => {
-    const allowedLegacyImports = [
-      'season-participants/contracts/season-participation-contract.spec.ts',
-      'seasons/contracts/season-contract.spec.ts',
-    ];
-    const legacyImportOffenders = walkTypeScriptFiles(apiSrc)
-      .filter((path) => readFileSync(path, 'utf8').includes(legacySeasonContractSpecifier))
+  it('API source는 removed season-contract aggregate를 import하지 않는다', () => {
+    const removedImportOffenders = walkTypeScriptFiles(apiSrc)
+      .filter((path) => !ignoredSourceOfTruthSpecs.has(sourceRelativePath(path)))
+      .filter((path) => readFileSync(path, 'utf8').includes(removedSeasonContractSpecifier))
       .map(sourceRelativePath)
-      .filter((path) => !allowedLegacyImports.includes(path))
       .sort();
 
-    expect(legacyImportOffenders).toEqual([]);
+    expect(removedImportOffenders).toEqual([]);
   });
 });

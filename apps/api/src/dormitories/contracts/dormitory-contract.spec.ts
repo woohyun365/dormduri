@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as legacyDormitoryContract from '@repo/shared/dormitory-contract';
 import * as dormitoryContract from '@repo/shared/dormitory';
 import * as dormitoryCatalogContract from '@repo/shared/dormitory/catalog';
 import * as dormitoryGuideContract from '@repo/shared/dormitory/guide';
@@ -15,14 +14,12 @@ const SHARED_PACKAGE_JSON_PATH = path.resolve(
 );
 
 describe('dormitory shared contract', () => {
-  it('old dormitory-contract subpath는 new dormitory barrel과 같은 schema surface를 re-export한다', () => {
-    expect(legacyDormitoryContract.dormitorySelectionStateSchema).toBe(
-      dormitoryContract.dormitorySelectionStateSchema,
-    );
-    expect(legacyDormitoryContract.dormitoryListResponseSchema).toBe(
+  it('dormitory canonical barrel은 granular catalog/guide/enums schema surface를 제공한다', () => {
+    expect(dormitoryContract.dormitorySelectionStateSchema).toBe(dormitorySelectionStateSchema);
+    expect(dormitoryContract.dormitoryListResponseSchema).toBe(
       dormitoryCatalogContract.dormitoryListResponseSchema,
     );
-    expect(legacyDormitoryContract.dormitoryGuideResponseSchema).toBe(
+    expect(dormitoryContract.dormitoryGuideResponseSchema).toBe(
       dormitoryGuideContract.dormitoryGuideResponseSchema,
     );
     expect(dormitorySelectionStateSchema.parse('SELECTED')).toBe('SELECTED');
@@ -73,29 +70,24 @@ describe('dormitory shared contract', () => {
     });
   });
 
-  it('dormitory old compat는 compat directory만 소유하고 root legacy files를 남기지 않는다', () => {
-    const compat = readFileSync(path.join(SHARED_SRC_DIR, 'compat/dormitory-contract.ts'), 'utf8');
-
-    expect(compat.trim()).toBe("export * from '../dormitory/index.js';");
+  it('dormitory legacy root/compat files를 남기지 않는다', () => {
     for (const legacyRootFile of [
       'dormitory-contract.ts',
       'dormitory-contract-enums.ts',
       'dormitory-contract-list.ts',
       'dormitory-contract-guide.ts',
+      'compat/dormitory-contract.ts',
     ]) {
       expect(existsSync(path.join(SHARED_SRC_DIR, legacyRootFile))).toBe(false);
     }
   });
 
-  it('dormitory package exports는 old compat와 new granular subpath를 모두 제공한다', () => {
+  it('dormitory package exports는 canonical granular subpath만 제공한다', () => {
     const packageJson = JSON.parse(readFileSync(SHARED_PACKAGE_JSON_PATH, 'utf8')) as {
       exports: Record<string, { types: string; default: string }>;
     };
 
-    expect(packageJson.exports['./dormitory-contract']).toEqual({
-      types: './dist/compat/dormitory-contract.d.ts',
-      default: './dist/compat/dormitory-contract.js',
-    });
+    expect(packageJson.exports['./dormitory-contract']).toBeUndefined();
     expect(packageJson.exports['./dormitory']).toEqual({
       types: './dist/dormitory/index.d.ts',
       default: './dist/dormitory/index.js',

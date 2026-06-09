@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 type PackageJson = {
-  exports: Record<string, { types: string; default: string }>;
+  exports: Record<string, { types: string; default: string } | undefined>;
 };
 
 function findRepoRoot() {
@@ -41,16 +41,12 @@ describe('shared auth contract layout', () => {
       'auth/session/contract.ts',
       'auth/session/index.ts',
       'auth/index.ts',
-      'compat/auth-contract.ts',
-      'compat/auth-policy.ts',
-      'compat/auth-response.ts',
-      'compat/session-contract.ts',
     ]) {
       expect(existsSync(join(sharedSrc, relativePath))).toBe(true);
     }
   });
 
-  it('legacy root auth source files 없이 package exports가 기존 public path를 compat dist로 매핑한다', () => {
+  it('legacy root auth source/export 없이 canonical auth package exports만 제공한다', () => {
     for (const relativePath of [
       'auth-contract-primitives.ts',
       'auth-contract-requests.ts',
@@ -63,26 +59,22 @@ describe('shared auth contract layout', () => {
       'auth-response-signup-validation.ts',
       'auth-response.ts',
       'session-contract.ts',
+      'compat/auth-contract.ts',
+      'compat/auth-policy.ts',
+      'compat/auth-response.ts',
+      'compat/session-contract.ts',
     ]) {
       expect(existsSync(join(sharedSrc, relativePath))).toBe(false);
     }
 
-    expect(sharedPackageJson.exports['./auth-contract']).toEqual({
-      types: './dist/compat/auth-contract.d.ts',
-      default: './dist/compat/auth-contract.js',
-    });
-    expect(sharedPackageJson.exports['./auth-policy']).toEqual({
-      types: './dist/compat/auth-policy.d.ts',
-      default: './dist/compat/auth-policy.js',
-    });
-    expect(sharedPackageJson.exports['./auth-response']).toEqual({
-      types: './dist/compat/auth-response.d.ts',
-      default: './dist/compat/auth-response.js',
-    });
-    expect(sharedPackageJson.exports['./session-contract']).toEqual({
-      types: './dist/compat/session-contract.d.ts',
-      default: './dist/compat/session-contract.js',
-    });
+    for (const publicPath of [
+      './auth-contract',
+      './auth-policy',
+      './auth-response',
+      './session-contract',
+    ]) {
+      expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
+    }
   });
 
   it('granular auth package exports는 contract/policy/response/session axis를 제공한다', () => {

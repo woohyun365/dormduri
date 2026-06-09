@@ -10,7 +10,7 @@ import type {
   SendConversationMessageRequest,
   SendConversationMessageResponse,
   UpdateChatReadMarkerRequest,
-} from '@repo/shared/chat-contract';
+} from '@repo/shared/chat';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';

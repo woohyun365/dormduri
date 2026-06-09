@@ -1,4 +1,4 @@
-import type { LocalDateString } from '@repo/shared/date-primitives';
+import type { LocalDateString } from '@repo/shared/date';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MATCH_REQUEST_TTL_DAYS = 5;

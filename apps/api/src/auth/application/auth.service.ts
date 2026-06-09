@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { SignupDraftValidationResponse } from '@repo/shared/auth-response';
+import type { SignupDraftValidationResponse } from '@repo/shared/auth/response';
 import { AuthCredentialUseCases } from '../credentials/auth-credential-use-cases.service.js';
 import type {
   ChangePasswordResult,

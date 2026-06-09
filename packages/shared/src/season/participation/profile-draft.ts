@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { lifestyleSchema } from '../../lifestyle.js';
+import { lifestyleSchema } from '../../lifestyle/index.js';
 import {
   additionalProfileSchema,
   seasonAdditionalProfileDraftSchema,

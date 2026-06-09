@@ -31,6 +31,8 @@ const requiredApplicationFiles = ['seasons.service.ts', 'seasons.service.spec.ts
 const requiredErrorFiles = ['seasons.errors.ts'] as const;
 
 const requiredRuntimeFiles = [
+  'campus-service-state.query.ts',
+  'campus-service-state.query.spec.ts',
   'current-season-context.query.ts',
   'current-season.mapper.ts',
   'current-season.mapper.spec.ts',
@@ -199,11 +201,15 @@ describe('seasons final structure boundary', () => {
   it('keeps operations/runtime internals private and migrates external consumers to the public season port', () => {
     const privateSeasonSliceImport =
       /from\s+['"][^'"]*seasons\/(?:application|errors|operations|runtime)\/[^'"]+['"]/;
+    const stableRuntimeImport = /seasons\/runtime\/campus-service-state\.query(?:\.js)?['"]/;
     const externalFiles = productionTypeScriptFiles(apiSourceRoot).filter(
       (path) => !path.startsWith(seasonsRoot),
     );
     const privateSliceOffenders = externalFiles
-      .filter((path) => privateSeasonSliceImport.test(readSource(path)))
+      .filter((path) => {
+        const source = readSource(path);
+        return privateSeasonSliceImport.test(source) && !stableRuntimeImport.test(source);
+      })
       .map(relativeSourcePath)
       .sort();
 
@@ -271,8 +277,11 @@ describe('seasons final structure boundary', () => {
     expect(source).toContain(
       'Metric/log payload는 actor/session/reason/snapshot 원문을 포함하지 않는다',
     );
-    const legacySeasonContractSpecifier = '@repo/shared/' + 'season-contract';
-    expect(source).toContain(`${legacySeasonContractSpecifier}\` compatibility는 유지한다`);
+    expect(source).toContain(
+      'shared season contract는 `packages/shared/src/season/{runtime,operations,participation}/**`가 canonical owner이며 public import는 `@repo/shared/season`과 granular `@repo/shared/season/*`만 사용한다',
+    );
+    const removedSeasonContractSpecifier = '@repo/shared/' + 'season-contract';
+    expect(source).not.toContain(removedSeasonContractSpecifier);
     expect(source).toContain('BackOffice UI는 seasons API module 범위가 아니다');
     expect(source).not.toMatch(/Phase \d|#208|#209|\.omx\/plans/);
   });

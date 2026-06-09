@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from '../date-primitives.js';
+import { isoDateTimeStringSchema } from '../date/primitives.js';
 
 export const bookmarkSortSchema = z.enum(['RECENT', 'MATCH_SCORE']);
 export const BookmarkSort = bookmarkSortSchema.enum;

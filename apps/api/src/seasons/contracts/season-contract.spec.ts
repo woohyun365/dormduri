@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as legacySeasonContract from '@repo/shared/season-contract';
 import * as seasonContract from '@repo/shared/season';
 import * as seasonOperationsContract from '@repo/shared/season/operations';
 import * as seasonPrimitivesContract from '@repo/shared/season/primitives';
@@ -16,22 +15,22 @@ const SHARED_PACKAGE_JSON_PATH = path.resolve(
 );
 
 describe('season shared contract', () => {
-  it('old season-contract subpath는 new season barrel과 같은 primitive/response surface를 re-export한다', () => {
-    expect(legacySeasonContract.seasonStateSchema).toBe(seasonContract.seasonStateSchema);
-    expect(legacySeasonContract.seasonRuntimeOverrideSchema).toBe(
+  it('season canonical barrel은 runtime/operations/participation schema surface를 제공한다', () => {
+    expect(seasonContract.seasonStateSchema).toBe(seasonRuntimeContract.seasonStateSchema);
+    expect(seasonContract.seasonRuntimeOverrideSchema).toBe(
       seasonPrimitivesContract.seasonRuntimeOverrideSchema,
     );
     expect(seasonContract.seasonStateSchema).toBe(seasonRuntimeContract.seasonStateSchema);
     expect(seasonPrimitivesContract.seasonStateSchema).toBe(
       seasonRuntimeContract.seasonStateSchema,
     );
-    expect(legacySeasonContract.currentSeasonResponseSchema).toBe(
+    expect(seasonContract.currentSeasonResponseSchema).toBe(
       seasonResponseContract.currentSeasonResponseSchema,
     );
     expect(seasonResponseContract.currentSeasonResponseSchema).toBe(
       seasonRuntimeContract.currentSeasonResponseSchema,
     );
-    expect(legacySeasonContract.updateSeasonScheduleRequestSchema).toBe(
+    expect(seasonContract.updateSeasonScheduleRequestSchema).toBe(
       seasonOperationsContract.updateSeasonScheduleRequestSchema,
     );
   });
@@ -135,28 +134,23 @@ describe('season shared contract', () => {
     ).toMatchObject({ auditEventId: 'audit-1', action: 'UPDATE_SCHEDULE' });
   });
 
-  it('season old compat는 compat directory만 소유하고 root legacy files를 남기지 않는다', () => {
-    const compat = readFileSync(path.join(SHARED_SRC_DIR, 'compat/season-contract.ts'), 'utf8');
-
-    expect(compat.trim()).toBe("export * from '../season/index.js';");
+  it('season legacy root/compat files를 남기지 않는다', () => {
     for (const legacyRootFile of [
       'season-contract.ts',
       'season-contract-primitives.ts',
       'season-contract-response.ts',
+      'compat/season-contract.ts',
     ]) {
       expect(existsSync(path.join(SHARED_SRC_DIR, legacyRootFile))).toBe(false);
     }
   });
 
-  it('season package exports는 old compat와 new granular subpath를 모두 제공한다', () => {
+  it('season package exports는 canonical granular subpath만 제공한다', () => {
     const packageJson = JSON.parse(readFileSync(SHARED_PACKAGE_JSON_PATH, 'utf8')) as {
       exports: Record<string, { types: string; default: string }>;
     };
 
-    expect(packageJson.exports['./season-contract']).toEqual({
-      types: './dist/compat/season-contract.d.ts',
-      default: './dist/compat/season-contract.js',
-    });
+    expect(packageJson.exports['./season-contract']).toBeUndefined();
     expect(packageJson.exports['./season']).toEqual({
       types: './dist/season/index.d.ts',
       default: './dist/season/index.js',

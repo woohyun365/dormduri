@@ -11,6 +11,8 @@
 - `LIFECYCLE_SWEEP_TASKS`: ordered domain sweep task list를 composition하는 DI token이다.
 - `LIFECYCLE_BOUNDARY_SCHEDULE`: season boundary schedule provider token이다.
 - `LifecycleSweepTaskPort`: domain task adapter가 구현하는 port다. task별 DB transaction/ACID 책임은 owning domain service에 남는다.
+- Users account deletion disposal은 `USER_RETENTION_SWEEP_PORT` narrow surface를 통해 연결한다.
+- Social-safety bookmark expiration cleanup과 auth operational cleanup은 각 owning service를 lifecycle task adapter로 감싼다.
 
 ## Directory responsibilities
 
@@ -51,6 +53,9 @@ Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps
 - Task ordering or task list composition: `adapters/lifecycle-sweep-tasks.adapter.ts` and `lifecycle.module.ts`.
 - Season boundary job calculation: `adapters/season-boundary-schedule.adapter.ts`.
 - Individual product convergence behavior: owning domain service/adapter, not lifecycle runner.
+- Users retention sweep contract: `users/application/ports/user-retention-sweep.port.ts`.
+- Bookmark expiration cleanup contract: `social-safety/bookmarks/application/bookmark-lifecycle.service.ts`.
+- Auth operational cleanup behavior: `auth/operations`.
 - Sweep result type shape: `lifecycle-sweep.types.ts`.
 
 ## Useful verification

@@ -1,4 +1,4 @@
-import { toDateOnlyString } from '@repo/shared/date-primitives';
+import { toDateOnlyString } from '@repo/shared/date';
 import type { SelectableDormitory } from '@repo/shared/season/participation';
 import type { Campus, DormitoryGenderPolicy } from '../../generated/prisma/enums.js';
 

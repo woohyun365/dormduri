@@ -7,8 +7,8 @@
 외부 domain production code는 auth 내부 command/repository/domain 구현을 직접 import하지 않는다. 필요한 surface는 아래로 제한한다.
 
 - `AuthModule`: auth guard/session/access provider wiring을 제공한다.
-- `access/` surface 또는 root compatibility wrapper: `@Public()`, `@OptionalAuth()`, `@RequireCapability()`, `@CurrentUser()`.
-- actor context public type/resolver surface: 외부 domain은 `AuthenticatedUserContext`와 `AuthActorContextResolver`만 사용한다. `AuthSessionService`는 auth 내부 compatibility facade다.
+- `access/` public surface: `@Public()`, `@OptionalAuth()`, `@RequireCapability()`, `@CurrentUser()`.
+- actor context public type/resolver surface: 외부 domain은 `AuthenticatedUserContext`와 `AuthActorContextResolver`만 사용한다. `AuthSessionService`는 auth 내부 session facade다.
 - `operations/`는 ops boundary다. `AuthOperationsModule`은 non-global module이며 필요한 module이 명시 import한다.
 
 ## Directory responsibilities
@@ -76,7 +76,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - Shared response/user/session projection helpers: `mappers/`.
 - Operational cleanup, Redis gate metrics, and `/health/auth` snapshot: `operations/`.
 - Auth route access matrix, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `architecture/security/auth-access-route-matrix.spec.ts`, `architecture/domain-context/domain-context-route-matrix.spec.ts`, `architecture/auth-boundary.spec.ts`.
-- Shared auth request/response/policy/session contracts: `packages/shared/src/auth/**`; old public subpaths stay in `packages/shared/src/compat/**`.
+- Shared auth request/response/policy/session contracts: `packages/shared/src/auth/**`; public imports use `@repo/shared/auth` and granular `@repo/shared/auth/*` only.
 
 ## Useful verification
 

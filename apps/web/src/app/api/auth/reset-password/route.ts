@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import type { ResetPasswordRequest } from '@repo/shared/auth-contract';
+import type { ResetPasswordRequest } from '@repo/shared/auth/contract';
 import {
   buildJsonResponse,
   clearAuthCookie,

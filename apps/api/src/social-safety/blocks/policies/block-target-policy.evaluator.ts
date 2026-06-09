@@ -15,7 +15,7 @@ import {
   type CurrentSeasonContext,
   type SeasonContextPort,
 } from '../../../seasons/ports/season-context.port.js';
-import { resolveCampusServiceState } from '../../../users/service-state.js';
+import { resolveCampusServiceState } from '../../../seasons/runtime/campus-service-state.query.js';
 import { blockErrors } from '../errors/block.errors.js';
 
 interface BlockViewerContext {

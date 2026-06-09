@@ -6,7 +6,7 @@ import {
   listSupportTicketsQuerySchema,
   replySupportTicketRequestSchema,
   resolveSupportTicketRequestSchema,
-} from '@repo/shared/support-contract';
+} from '@repo/shared/support';
 import { Public, RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';

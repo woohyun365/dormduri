@@ -1,5 +1,5 @@
 import type { GenericSuccessResult, LoginResult } from '../domain/auth.types.js';
-import type { SignupDraftValidationFieldErrors } from '@repo/shared/auth-response';
+import type { SignupDraftValidationFieldErrors } from '@repo/shared/auth/response';
 
 interface AuthFailureOptions {
   userActionable?: boolean;
