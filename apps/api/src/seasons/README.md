@@ -30,7 +30,7 @@
 - `application/`: `SeasonsService` facade와 해당 regression spec. Controller-facing shape와 `SEASON_CONTEXT_PORT` 구현을 제공하되 Prisma/query/policy ownership을 갖지 않는다.
 - `errors/`: user-facing seasons error contract. Controller/operations command가 같은 error mapper를 공유한다.
 - `ports/`: 외부 도메인-facing season context port와 current season context type/helper export surface. 외부 도메인은 `runtime/`을 직접 import하지 않는다.
-- `runtime/`: current season context query, campus service-state query, dormitory match window query, Prisma repository, season state policy, current season response mapper, normalized runtime row type. 대부분 Seasons module 내부 구현 상세이며, `campus-service-state.query.ts`만 users/profiles/social-safety read-model policy의 stable cross-domain helper로 허용한다.
+- `runtime/`: current season context query, campus service-state query, dormitory match window query, Prisma repository, season state policy, current season response mapper, normalized runtime row type. 대부분 Seasons module 내부 구현 상세이며, `campus-service-state.query.ts`만 users current-user projection과 profile/social-safety read-model policy의 stable cross-domain helper로 허용한다.
 - `operations/`: schedule/override admin API controller, command, repository, audit repository, mapper, validation policy, operational metrics. Mutation과 audit append는 같은 transaction 안에서 수행한다.
 - `cache/`: request/method-level current season context memoization helper. Cache instance를 명시적으로 넘긴 logical operation 안에서만 재사용하며 process/Redis cache가 아니다.
 - `contracts/`: shared season contract behavior regression spec. Shared package layout fitness는 `apps/api/src/architecture/contracts/layout/season-shared-contract-layout.spec.ts`가 소유한다.

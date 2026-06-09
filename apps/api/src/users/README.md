@@ -12,6 +12,8 @@
 - `CurrentUserViewModule` / `CurrentUserViewService`: current authenticated user read model assembly surface다. mutation owner가 아니다.
 - `USER_RETENTION_SWEEP_PORT`: lifecycle-facing account deletion retention sweep surface다. User-facing domain은 product read/write를 위해 이 port를 직접 호출하지 않는다.
 - Top-level `apps/api/src/identity`의 identity invariant helper는 pure shared-kernel이다. Persistence-backed account identity behavior는 users identity owner가 소유한다.
+- Account identity invariant HTTP mapping은 `platform/http/account-identity-invariant.error.ts`가 소유한다. Users route error namespace를 cross-domain invariant adapter로 사용하지 않는다.
+- Campus operated/current-season service-state projection은 `seasons/runtime/campus-service-state.query.ts`가 소유한다. Users는 current-user response assembly에서 이 stable query를 소비한다.
 
 ## Directory responsibilities
 
@@ -38,6 +40,7 @@
 - Account deletion fails closed for a current registered participant. Accepted deletion immediately de-identifies active account identity and must not restore retained payload through user-facing product paths.
 - Top-level `identity/` remains pure shared-kernel code. Do not add Nest providers, Prisma clients, HTTP adapters, or module wiring there.
 - Campus service-state resolution is seasons/runtime domain context vocabulary. Users consumes `seasons/runtime/campus-service-state.query.ts` for current-user projection, but must not own campus/season runtime state.
+- Account identity invariant failure uses identity pure vocabulary plus platform HTTP adapter. Users route errors remain users account self-service errors.
 - `ModerationModule` remains an explicit non-global dependency for public text validation such as nickname checks.
 - Do not hide dependency cycles with new `forwardRef()` or business `@Global()` modules.
 - New external-domain integrations must use narrow purpose-specific ports rather than importing `UsersService` as a broad user data facade.
@@ -58,6 +61,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 - HTTP route parsing and delegation: `users.controller.ts`.
 - Controller-facing delegation: `application/users.service.ts`.
 - Current-user read model projection: `current-user/` owner files. Canonical placement is `current-user/current-user-view.service.ts`, `current-user/current-user.select.ts`, and `current-user/current-user.presenter.ts`. Campus service-state projection comes from `seasons/runtime/campus-service-state.query.ts`.
+- Account identity invariant HTTP mapping: `platform/http/account-identity-invariant.error.ts`; pure invariant vocabulary: `identity/account-identity-invariant.ts`.
 - Display nickname self-service update: `identity/display/` owner files. Canonical placement is `identity/display/update-display-identity.command.ts`, `identity/display/display-identity.repository.ts`, `identity/display/display-identity-edit.policy.ts`, and `identity/display/nickname-cooldown.policy.ts`.
 - Academic identity correction: `identity/academic/update-academic-identity.command.ts`, `academic-identity.repository.ts`, `academic-college-change-allowance.repository.ts`, `academic-identity-audit.repository.ts`.
 - Identity audit append/query: `identity/audit/` owner files. Display nickname audit canonical placement is `identity/audit/display-identity-nickname-audit.repository.ts`.

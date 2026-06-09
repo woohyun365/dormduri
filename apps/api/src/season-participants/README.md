@@ -11,6 +11,7 @@
 - `CurrentSeasonParticipationViewQuery`: current-user response의 season participation segment를 만든다.
 - `CurrentSeasonParticipantContextGuard`: route-level current-season participant context를 준비한다.
 - `capabilities/index.ts`, `policies/index.ts`, `public-target-policy/index.ts`: 외부 domain이 사용할 수 있는 pure policy/capability barrel이다.
+- Registration readiness는 `identity/account-identity-invariant.ts` pure vocabulary와 `platform/http/account-identity-invariant.error.ts` HTTP adapter를 소비한다. Users route error namespace를 import하지 않는다.
 
 ## Directory responsibilities
 
@@ -43,6 +44,7 @@
 - public target policy는 pure policy로 유지하고 Prisma/Nest provider를 import하지 않는다.
 - hidden/deactivated/withdrawn/expired/deleted/deidentified projection은 profile draft, dormitory selection, registration, public target/action에서 fail-closed다.
 - `SeasonParticipantLifecycleEvent`는 audit/debug trace이며 current-state timestamp columns가 user-facing source of truth다.
+- Account identity invariant failure는 users route error가 아니라 identity shared-kernel vocabulary와 platform HTTP adapter로 표현한다.
 
 ## Architecture guard
 
@@ -63,6 +65,7 @@
 - Profile draft behavior: `profile-draft/`.
 - Dormitory selection behavior: `dormitory-selection/` plus `dormitories/selection-catalog/` port implementation.
 - Registration finalize behavior: `registration/`.
+- Registration account identity invariant mapping: `registration/season-registration-readiness.evaluator.ts`, `identity/account-identity-invariant.ts`, `platform/http/account-identity-invariant.error.ts`.
 - Deregistration behavior: `deregistration/`.
 - Lifecycle event/backfill behavior: `lifecycle/`.
 - Public exposure/action policy: `public-target-policy/`.

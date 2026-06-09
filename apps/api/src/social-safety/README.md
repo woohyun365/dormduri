@@ -4,8 +4,8 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 
 ## Public boundary
 
-- `bookmarks`: viewer-private saved candidate relation을 소유한다. Public target projection은 읽지만 profile/match/chat concrete service에 직접 결합하지 않는다. HTTP surface는 `GET /api/bookmarks`, `POST /api/bookmarks/:targetUserId`, `DELETE /api/bookmarks/:targetUserId`다.
-- `blocks`: viewer-specific block relation을 소유한다. Block create는 bookmark 제거와 non-matched direct thread close side-effect를 orchestration port로 요청한다.
+- `bookmarks`: viewer-private saved candidate relation을 소유한다. Public target projection은 읽지만 profile/match/chat concrete service에 직접 결합하지 않는다. Campus operated/current-season service-state는 `seasons/runtime/campus-service-state.query.ts`를 소비한다. HTTP surface는 `GET /api/bookmarks`, `POST /api/bookmarks/:targetUserId`, `DELETE /api/bookmarks/:targetUserId`다.
+- `blocks`: viewer-specific block relation을 소유한다. Block target policy는 campus operated/current-season service-state를 `seasons/runtime/campus-service-state.query.ts`로 확인한다. Block create는 bookmark 제거와 non-matched direct thread close side-effect를 orchestration port로 요청한다.
 - `reports`: report intake 원장을 소유한다. Intake만으로 participant hidden/deactivated projection이나 계정 제재를 직접 변경하지 않는다.
 - `PARTICIPANT_VISIBILITY_WRITER_PORT`: 운영 검토/시스템 결정 이후 participant-level current visibility projection을 갱신해야 할 때 사용하는 boundary port다.
 
@@ -26,6 +26,7 @@ Social-safety 도메인의 server-side boundary map이다. 이 문서는 bookmar
 - Report intake는 제재 outcome이 아니다. Intake command는 participant hidden/deactivated projection을 변경하지 않는다.
 - Retained vault/RRPD disclosure internals는 report/support product path에서 직접 import하지 않는다.
 - User-facing report/bookmark/block response에는 hidden reason detail, raw lifecycle timestamp, retained/vault payload, deleted identity를 노출하지 않는다.
+- Bookmark/block target policy는 users helper를 import하지 않고 seasons runtime service-state query와 owning target projection을 소비한다.
 
 ## Architecture guard
 
