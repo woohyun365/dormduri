@@ -1,4 +1,4 @@
-import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { dismissOnboardingNotice } from './onboarding-notice.repository.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');

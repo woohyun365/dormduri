@@ -3,7 +3,7 @@ import {
   dismissCurrentUserOnboardingNoticeRequestSchema,
   requestAccountDeletionSchema,
   updateCurrentUserRequestSchema,
-} from '@repo/shared/user-contract';
+} from '@repo/shared/user';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { AUTH_CAPABILITIES } from '../auth/access/auth-capability.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';

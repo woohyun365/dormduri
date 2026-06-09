@@ -1,4 +1,4 @@
-import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 
 const userDisplayIdentitySelect = {
   userId: true,

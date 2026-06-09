@@ -1,4 +1,4 @@
-import { updateCurrentUserRequestSchema } from '@repo/shared/user-contract';
+import { updateCurrentUserRequestSchema } from '@repo/shared/user';
 import { validateSeasonProfileCompleteness } from '../profile-draft/season-profile-completeness.policy.js';
 import { createSeasonParticipantSourceOwner } from '../participants/season-participant-source.policy.js';
 import { SeasonParticipantsService } from './season-participants.service.js';

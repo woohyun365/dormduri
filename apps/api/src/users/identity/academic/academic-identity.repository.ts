@@ -1,4 +1,4 @@
-import type { UpdateCurrentUserAcademicIdentityRequest } from '@repo/shared/user-contract';
+import type { UpdateCurrentUserAcademicIdentityRequest } from '@repo/shared/user';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import type {

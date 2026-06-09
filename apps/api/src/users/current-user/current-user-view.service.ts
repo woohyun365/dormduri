@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { CurrentUserResponse } from '@repo/shared/user-contract';
+import type { CurrentUserResponse } from '@repo/shared/user';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { MatchesService } from '../../matches/matches.service.js';

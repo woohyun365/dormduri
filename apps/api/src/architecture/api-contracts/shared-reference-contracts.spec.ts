@@ -17,16 +17,16 @@ import {
   dismissCurrentUserOnboardingNoticeRequestSchema,
   updateCurrentUserRequestSchema,
   updateCurrentUserResponseSchema,
-} from '@repo/shared/user-contract';
+} from '@repo/shared/user';
 import {
   displayIdentityEditUnavailableReasonSchema,
   userDisplayIdentitySchema,
-} from '@repo/shared/display-identity-contract';
-import { userAcademicIdentitySchema } from '@repo/shared/academic-identity-contract';
+} from '@repo/shared/user/identity/display';
+import { userAcademicIdentitySchema } from '@repo/shared/user/identity/academic';
 import {
   accountIdentityIncompleteErrorSchema,
   accountIdentitySchema,
-} from '@repo/shared/account-identity-contract';
+} from '@repo/shared/user/identity/account';
 import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match-contract';
 import {
   isLocalDateString,

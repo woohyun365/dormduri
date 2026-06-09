@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { userAcademicIdentitySchema } from './academic-identity-contract.js';
-import { userDisplayIdentitySchema } from './display-identity-contract.js';
+import { userAcademicIdentitySchema } from './academic.js';
+import { userDisplayIdentitySchema } from './display.js';
 
 export const accountIdentityInvariantSchema = z.enum([
   'USER_DISPLAY_IDENTITY_REQUIRED',

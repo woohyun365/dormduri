@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { collegeCodeSchema } from './college-contract.js';
-import { profileBirthYearSchema } from './profile-contract-fields.js';
+import { collegeCodeSchema } from '../../college-contract.js';
+import { profileBirthYearSchema } from '../../profile-contract-fields.js';
 
 export const academicIdentityEditUnavailableReasonSchema = z.enum([
   'CURRENT_SEASON_REGISTRATION_LOCK',

@@ -11,7 +11,7 @@ import { createUserUpdateOwner } from '../../src/users/user-update-owner.js';
 import type { ModerationService } from '../../src/moderation/moderation.service.js';
 import { UsersService } from '../../src/users/application/users.service.js';
 import { SeasonsService } from '../../src/seasons/application/seasons.service.js';
-import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,

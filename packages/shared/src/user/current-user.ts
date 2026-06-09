@@ -1,25 +1,25 @@
 import { z } from 'zod';
-import { dormitorySelectionStateSchema } from './dormitory/enums.js';
-import { seasonStateSchema } from './season/runtime/primitives.js';
+import { dormitorySelectionStateSchema } from '../dormitory/enums.js';
+import { seasonStateSchema } from '../season/runtime/primitives.js';
 import {
   seasonParticipationCompletionStateSchema,
   seasonParticipationStateSchema,
-} from './season/participation/index.js';
-import { activeMatchSummarySchema } from './match-contract.js';
+} from '../season/participation/index.js';
+import { activeMatchSummarySchema } from '../match-contract.js';
 import {
   displayIdentityEditUnavailableReasonSchema,
   userDisplayIdentitySchema,
-} from './display-identity-contract.js';
+} from './identity/display.js';
 import {
   academicIdentityEditUnavailableReasonSchema,
   userAcademicIdentitySchema,
-} from './academic-identity-contract.js';
-import { accountIdentityIncompleteErrorSchema } from './account-identity-contract.js';
+} from './identity/academic.js';
+import { accountIdentityIncompleteErrorSchema } from './identity/account.js';
 import {
   authenticatedSessionUserSchema,
   participationIntentSchema,
   selectionSourceSchema,
-} from './user-contract-primitives.js';
+} from './primitives.js';
 
 export const SERVICE_INTRO_NOTICE_KEY = 'service-intro' as const;
 export const dismissedNoticeKeySchema = z.literal(SERVICE_INTRO_NOTICE_KEY);

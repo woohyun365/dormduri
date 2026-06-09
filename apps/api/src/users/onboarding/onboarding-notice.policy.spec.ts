@@ -1,4 +1,4 @@
-import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { assertSupportedOnboardingNoticeKey } from './onboarding-notice.policy.js';
 
 type HttpErrorLike = {

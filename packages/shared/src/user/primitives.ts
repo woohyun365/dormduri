@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { campusSchema, genderSchema } from './identity-contract.js';
+import { campusSchema, genderSchema } from '../identity-contract.js';
 
 export const authenticatedSessionUserSchema = z.strictObject({
   id: z.string(),

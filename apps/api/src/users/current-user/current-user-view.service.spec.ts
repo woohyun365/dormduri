@@ -1,5 +1,5 @@
 import { InternalServerErrorException } from '@nestjs/common';
-import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { CurrentUserQuery } from './current-user.query.js';
 import { CurrentUserViewService } from './current-user-view.service.js';
 

@@ -4,7 +4,7 @@ import type {
   UpdateCurrentUserAcademicIdentityMutationResult,
   UpdateCurrentUserDisplayIdentityMutationResult,
   UpdateCurrentUserResponse,
-} from '@repo/shared/user-contract';
+} from '@repo/shared/user';
 import type { Prisma } from '../generated/prisma/client.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { ModerationService } from '../moderation/moderation.service.js';

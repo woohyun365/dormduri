@@ -54,7 +54,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 - Module provider/export list는 `composition/users.providers.ts`와 `composition/users.exports.ts`로 읽을 수 있어야 한다.
 - Lifecycle adapter는 broad controller-facing service behavior가 아니라 narrow users retention sweep surface에 의존해야 한다.
 - `season-participants` production code는 account identity invariant failure를 위해 users route error를 import하지 않아야 한다.
-- Shared user contract는 shared contract architecture spec이 소유하는 canonical nested package layout을 가져야 한다.
+- Shared user contract는 `packages/shared/src/user/**`와 `@repo/shared/user/**` canonical nested package layout을 사용한다.
 
 ## Where to change users behavior
 

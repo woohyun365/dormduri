@@ -5,7 +5,7 @@ import type {
   DismissCurrentUserOnboardingNoticeRequest,
   RequestAccountDeletion,
   UpdateCurrentUserResponse,
-} from '@repo/shared/user-contract';
+} from '@repo/shared/user';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { ModerationService } from '../../moderation/moderation.service.js';
 import {

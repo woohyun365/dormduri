@@ -6,7 +6,7 @@ import type {
   RenewSessionResponse,
 } from '@repo/shared/auth-response';
 import type { SessionResponse } from '@repo/shared/session-contract';
-import type { AuthenticatedSessionUser } from '@repo/shared/user-contract';
+import type { AuthenticatedSessionUser } from '@repo/shared/user';
 
 export interface SignupInput {
   email: string;

@@ -1,4 +1,4 @@
-import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user';
 import { createDismissOnboardingNoticeCommand } from './dismiss-onboarding-notice.command.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { campusSchema, genderSchema } from '../../identity-contract.js';
-import { userAcademicIdentitySchema } from '../../academic-identity-contract.js';
+import { userAcademicIdentitySchema } from '../../user/identity/academic.js';
 import {
   emailSchema,
   nicknameSchema,

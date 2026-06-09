@@ -1,7 +1,4 @@
-import type {
-  AccountDeletionRequestAccepted,
-  RequestAccountDeletion,
-} from '@repo/shared/user-contract';
+import type { AccountDeletionRequestAccepted, RequestAccountDeletion } from '@repo/shared/user';
 import { verifyPasswordHash } from '../../auth/application/auth-password-hash.js';
 import type {
   PrismaService,

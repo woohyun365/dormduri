@@ -1,4 +1,4 @@
-import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
+import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user';
 import type {
   UserAcademicIdentityRecord,
   UserDismissedNoticeRecord,

@@ -1,4 +1,4 @@
-import type { UpdateCurrentUserDisplayIdentityMutationResult } from '@repo/shared/user-contract';
+import type { UpdateCurrentUserDisplayIdentityMutationResult } from '@repo/shared/user';
 import {
   normalizeNickname,
   validateNicknameStructure as validateNicknameFormat,

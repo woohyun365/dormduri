@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { dormitorySelectionStateSchema } from '../../dormitory/enums.js';
-import { participationIntentSchema } from '../../user-contract-primitives.js';
+import { participationIntentSchema } from '../../user/primitives.js';
 
 export const seasonProfileStateSchema = z.enum([
   'NONE',

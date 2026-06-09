@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { authenticatedSessionUserSchema } from '../../user-contract.js';
+import { authenticatedSessionUserSchema } from '../../user/primitives.js';
 
 export const sessionResponseSchema = z.strictObject({
   authenticated: z.boolean(),

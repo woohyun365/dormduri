@@ -1,7 +1,7 @@
 import type {
   CurrentUserResponse,
   DismissCurrentUserOnboardingNoticeRequest,
-} from '@repo/shared/user-contract';
+} from '@repo/shared/user';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { CurrentUserViewService } from '../current-user/current-user-view.service.js';
