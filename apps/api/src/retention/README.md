@@ -65,7 +65,11 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 
 - Archive job claim/retry/manual-review transition: `archive-jobs/`.
 - Archive target handler registry and target payload dispatch: `archive-jobs/` + 각 owner domain의 `retention/` handler.
-- Retained identity snapshot/disclosure/disposal: `retained-identities/`.
+- Retained identity decision/hold priority: `retained-identities/retained-identity-decision.policy.ts`.
+- Retained identity snapshot transaction: `retained-identities/create-retained-identity-snapshot.command.ts`.
+- Retained identity metadata validation: `retained-identities/retained-identity-metadata.validator.ts`.
+- Retained identity identifier cipher/env key lookup: `retained-identities/retained-identity-cipher.ts`.
+- Retained identity disclosure/disposal behavior: `retained-identities/retained-identity-disclosure.service.ts`, `retained-identities/retained-identity-disposal.service.ts`.
 - Retained vault retain/disclose/dispose and payload codec: `vault/`.
 - Retention case/hold updates: `vault/retention-case.repository.ts` and `vault/retained-vault.service.ts`.
 - Retained vault keyring/env key lookup: `vault/retained-vault-keyring.ts`.

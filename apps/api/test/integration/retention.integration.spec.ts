@@ -4,19 +4,19 @@ import {
   createDeletionArchiveJobsTx,
   retryDueArchiveJobs,
 } from '../../src/retention/archive-job-owner.js';
-import {
-  createRetainedIdentityCipher,
-  createRetainedIdentityOwner,
-} from '../../src/retention/retained-identity-owner.js';
+import { createRetainedIdentityCipher } from '../../src/retention/retained-identities/retained-identity-cipher.js';
+import { createRetainedIdentityOwner } from '../../src/retention/retained-identities/retained-identity.service.js';
 import { createConversationRetainedBodyCipher } from '../../src/retention/conversation-retained-body-owner.js';
 import {
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
+} from '../../src/retention/vault/retained-vault-keyring.js';
+import { parseRetainedMatchHistoryPayload } from '../../src/retention/vault/retained-vault-payload-codecs.js';
+import {
   discloseRetainedVaultPayload,
-  ensureRetentionCaseTx,
-  parseRetainedMatchHistoryPayload,
   retainVaultPayloadTx,
-} from '../../src/retention/retained-vault-owner.js';
+} from '../../src/retention/vault/retained-vault.service.js';
+import { ensureRetentionCaseTx } from '../../src/retention/vault/retention-case.repository.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,

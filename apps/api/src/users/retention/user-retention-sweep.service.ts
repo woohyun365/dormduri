@@ -4,7 +4,7 @@ import {
   activateThreadRetentionJobsForArchivedThreads,
   retryDueArchiveJobs,
 } from '../../retention/archive-job-owner.js';
-import { disposeExpiredRetainedIdentities } from '../../retention/retained-identity-owner.js';
+import { disposeExpiredRetainedIdentities } from '../../retention/retained-identities/retained-identity-disposal.service.js';
 import { disposeDueRetentionAccessLogs } from '../../retention/retention-access-log-owner.js';
 import { retryDueRetentionReviewJobs } from '../../retention/retention-review-job-owner.js';
 import type { UserRetentionSweepPort } from '../application/ports/user-retention-sweep.port.js';
