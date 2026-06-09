@@ -27,7 +27,7 @@ import {
   type DisplayIdentityNicknameChangeAuditEntry,
 } from '../identity/audit/display-identity-nickname-audit.repository.js';
 import { createUserDeletionOwner } from '../user-deletion-owner.js';
-import { createUserOnboardingOwner } from '../user-onboarding-owner.js';
+import { createDismissOnboardingNoticeCommand } from '../onboarding/dismiss-onboarding-notice.command.js';
 import type {
   ArchiveJobActivationResult,
   ArchiveJobSweepResult,
@@ -61,7 +61,7 @@ export class UsersService {
       retentionWorkerPrisma: this.retentionWorkerPrisma,
       seasonsService: this.seasonsService,
     });
-    this.onboardingOwner = createUserOnboardingOwner({
+    this.onboardingOwner = createDismissOnboardingNoticeCommand({
       prisma: this.prisma,
       currentUserViewService: this.currentUserViewService,
     });

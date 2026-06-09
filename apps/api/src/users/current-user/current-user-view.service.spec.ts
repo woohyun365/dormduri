@@ -329,6 +329,20 @@ describe('CurrentUserViewService season composition boundary', () => {
     expect(result.match).toEqual({ hasActiveMatch: false, activeMatch: null });
   });
 
+  it('onboarding service-intro row가 없으면 dismissed=false/null을 반환한다', async () => {
+    const { service } = createServiceTestKit();
+
+    const result = await service.buildCurrentUserResponse(makeUser(), NOW);
+
+    expect(result.onboarding.dismissedNotices).toEqual([
+      {
+        noticeKey: SERVICE_INTRO_NOTICE_KEY,
+        dismissed: false,
+        dismissedAt: null,
+      },
+    ]);
+  });
+
   it('onboarding service-intro 상태는 season profile/registration segment와 독립이다', async () => {
     const { service, currentSeasonParticipationViewOwner } = createServiceTestKit();
     currentSeasonParticipationViewOwner.buildCurrentUserSeasonParticipationSegment.mockResolvedValueOnce(

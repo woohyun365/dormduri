@@ -61,7 +61,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 - Display nickname self-service update: `identity/display/` owner files. Canonical placement is `identity/display/update-display-identity.command.ts`, `identity/display/display-identity.repository.ts`, `identity/display/display-identity-edit.policy.ts`, and `identity/display/nickname-cooldown.policy.ts`.
 - Academic identity correction: `identity/academic/update-academic-identity.command.ts`, `academic-identity.repository.ts`, `academic-college-change-allowance.repository.ts`, `academic-identity-audit.repository.ts`.
 - Identity audit append/query: `identity/audit/` owner files. Display nickname audit canonical placement is `identity/audit/display-identity-nickname-audit.repository.ts`.
-- Onboarding notice dismiss/readback: `onboarding/` owner files. Existing placement is `user-onboarding-owner.ts`.
+- Onboarding notice dismiss/readback: `onboarding/dismiss-onboarding-notice.command.ts`, `onboarding/onboarding-notice.repository.ts`, `onboarding/onboarding-notice.policy.ts`.
 - Account deletion and immediate de-identification: `account-deletion/` owner files. Existing placement is `user-deletion-owner.ts`.
 - Retention sweep adapter behavior: `retention/` owner files plus lifecycle adapter wiring.
 - Operations nickname override/audit query seam: `operations/` owner files. No public operations controller is exposed here.
