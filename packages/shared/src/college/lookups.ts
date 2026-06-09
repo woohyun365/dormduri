@@ -1,6 +1,6 @@
-import type { Campus } from './identity-contract.js';
-import { COLLEGE_CATALOG } from './college-contract-catalog.js';
-import type { CollegeCode } from './college-contract-schema.js';
+import type { Campus } from '../identity/primitives.js';
+import { COLLEGE_CATALOG } from './catalog.js';
+import type { CollegeCode } from './schema.js';
 
 const COLLEGE_LABEL_BY_CODE: Record<CollegeCode, string> = Object.fromEntries(
   COLLEGE_CATALOG.map((item) => [item.code, item.nameKo]),

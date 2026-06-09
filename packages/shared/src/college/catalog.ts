@@ -1,4 +1,4 @@
-import type { CollegeCatalogItem, CollegeCode } from './college-contract-schema.js';
+import type { CollegeCatalogItem, CollegeCode } from './schema.js';
 
 export const CHUNCHEON_COLLEGE_CATALOG = [
   { code: 'IT', campusCode: 'CHUNCHEON', nameKo: 'IT대', sortOrder: 1, isActive: true },

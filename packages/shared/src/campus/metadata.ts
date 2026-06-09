@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { campusSchema } from './identity-contract.js';
+import { campusSchema } from '../identity/primitives.js';
 
 export const campusMetaSchema = z.strictObject({
   code: campusSchema,

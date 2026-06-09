@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from '../../date-primitives.js';
+import { isoDateTimeStringSchema } from '../../date/primitives.js';
 import { seasonParticipationCompletionStateSchema } from './state.js';
 
 export const seasonRegistrationFinalizeRequestSchema = z.strictObject({});

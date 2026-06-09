@@ -28,11 +28,7 @@ import {
   accountIdentitySchema,
 } from '@repo/shared/user/identity/account';
 import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match-contract';
-import {
-  isLocalDateString,
-  toDateOnlyString,
-  toIsoDateTimeString,
-} from '@repo/shared/date-primitives';
+import { isLocalDateString, toDateOnlyString, toIsoDateTimeString } from '@repo/shared/date';
 
 const VALID_LIFESTYLE: LifestyleData = {
   bedtime: '22_24',

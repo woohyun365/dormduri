@@ -1,4 +1,4 @@
-import { collegeCodeSchema, getCollegeLabel } from '@repo/shared/college-contract';
+import { collegeCodeSchema, getCollegeLabel } from '@repo/shared/college';
 
 describe('college contract', () => {
   it('arbitrary string college code를 거부한다', () => {

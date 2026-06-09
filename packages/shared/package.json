@@ -31,10 +31,6 @@
       "types": "./dist/auth/session/index.d.ts",
       "default": "./dist/auth/session/index.js"
     },
-    "./identity-contract": {
-      "types": "./dist/identity-contract.d.ts",
-      "default": "./dist/identity-contract.js"
-    },
     "./user": {
       "types": "./dist/user/index.d.ts",
       "default": "./dist/user/index.js"
@@ -72,20 +68,8 @@
       "default": "./dist/profile-contract.js"
     },
     "./lifestyle": {
-      "types": "./dist/lifestyle.d.ts",
-      "default": "./dist/lifestyle.js"
-    },
-    "./campus-contract": {
-      "types": "./dist/campus-contract.d.ts",
-      "default": "./dist/campus-contract.js"
-    },
-    "./date-primitives": {
-      "types": "./dist/date-primitives.d.ts",
-      "default": "./dist/date-primitives.js"
-    },
-    "./college-contract": {
-      "types": "./dist/college-contract.d.ts",
-      "default": "./dist/college-contract.js"
+      "types": "./dist/lifestyle/index.d.ts",
+      "default": "./dist/lifestyle/index.js"
     },
     "./match-contract": {
       "types": "./dist/match-contract.d.ts",
@@ -182,6 +166,26 @@
     "./season/runtime": {
       "types": "./dist/season/runtime/index.d.ts",
       "default": "./dist/season/runtime/index.js"
+    },
+    "./campus": {
+      "types": "./dist/campus/index.d.ts",
+      "default": "./dist/campus/index.js"
+    },
+    "./college": {
+      "types": "./dist/college/index.d.ts",
+      "default": "./dist/college/index.js"
+    },
+    "./identity": {
+      "types": "./dist/identity/index.d.ts",
+      "default": "./dist/identity/index.js"
+    },
+    "./identity/primitives": {
+      "types": "./dist/identity/primitives.d.ts",
+      "default": "./dist/identity/primitives.js"
+    },
+    "./date": {
+      "types": "./dist/date/index.d.ts",
+      "default": "./dist/date/index.js"
     }
   },
   "scripts": {

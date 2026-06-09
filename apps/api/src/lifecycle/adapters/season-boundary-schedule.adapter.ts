@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { toDateOnlyString } from '@repo/shared/date-primitives';
+import { toDateOnlyString } from '@repo/shared/date';
 import { subtractDays } from '../../platform/time/kst-date.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {

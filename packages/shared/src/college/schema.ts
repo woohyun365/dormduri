@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { campusSchema, type Campus } from './identity-contract.js';
+import { campusSchema, type Campus } from '../identity/primitives.js';
 
 export const collegeCodeSchema = z.enum([
   'IT',

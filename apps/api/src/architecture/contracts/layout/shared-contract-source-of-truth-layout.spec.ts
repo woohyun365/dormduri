@@ -27,6 +27,10 @@ const REMOVED_ROOT_STYLE_ALIAS_EXPORTS = [
   './chat-realtime-events',
   './notification-contract',
   './support-contract',
+  './campus-contract',
+  './college-contract',
+  './date-primitives',
+  './identity-contract',
 ] as const;
 
 const CANONICAL_NESTED_EXPORTS: Record<string, PackageExportTarget> = {
@@ -103,20 +107,16 @@ const CANONICAL_NESTED_EXPORTS: Record<string, PackageExportTarget> = {
     types: './dist/support/contract.d.ts',
     default: './dist/support/contract.js',
   },
+  './campus': { types: './dist/campus/index.d.ts', default: './dist/campus/index.js' },
+  './college': { types: './dist/college/index.d.ts', default: './dist/college/index.js' },
+  './date': { types: './dist/date/index.d.ts', default: './dist/date/index.js' },
+  './identity': { types: './dist/identity/index.d.ts', default: './dist/identity/index.js' },
+  './identity/primitives': {
+    types: './dist/identity/primitives.d.ts',
+    default: './dist/identity/primitives.js',
+  },
+  './lifestyle': { types: './dist/lifestyle/index.d.ts', default: './dist/lifestyle/index.js' },
 };
-
-const INCLUDED_NEUTRAL_ROOT_FILES = [
-  'campus-contract.ts',
-  'college-contract-catalog.ts',
-  'college-contract-lookups.ts',
-  'college-contract-schema.ts',
-  'college-contract.ts',
-  'date-primitives.ts',
-  'identity-contract.ts',
-  'lifestyle-options.ts',
-  'lifestyle-schema.ts',
-  'lifestyle.ts',
-] as const;
 
 const EXCLUDED_OWNER_ROOT_FILES = [
   'match-contract-enums.ts',
@@ -144,6 +144,10 @@ const REMOVED_PUBLIC_SPECIFIERS = [
   '@repo/shared/season-contract',
   '@repo/shared/session-contract',
   '@repo/shared/support-contract',
+  '@repo/shared/campus-contract',
+  '@repo/shared/college-contract',
+  '@repo/shared/date-primitives',
+  '@repo/shared/identity-contract',
 ] as const;
 
 function findRepoRoot() {
@@ -240,15 +244,13 @@ describe('shared contract source-of-truth layout', () => {
     }
   });
 
-  it('keeps root shared files partitioned between neutral migration targets and excluded owners', () => {
+  it('keeps root shared files limited to excluded owner files after neutral nested migration', () => {
     const rootTypeScriptFiles = readdirSync(sharedSrc, { withFileTypes: true })
       .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
       .map((entry) => entry.name)
       .sort();
 
-    expect(rootTypeScriptFiles).toEqual(
-      [...INCLUDED_NEUTRAL_ROOT_FILES, ...EXCLUDED_OWNER_ROOT_FILES].sort(),
-    );
+    expect(rootTypeScriptFiles).toEqual([...EXCLUDED_OWNER_ROOT_FILES].sort());
   });
 
   it('keeps included API/Web/shared source free of removed shared public paths', () => {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { dormitoryGenderPolicySchema, dormitoryRoomTypeSchema } from '../../dormitory/enums.js';
-import { campusSchema } from '../../identity-contract.js';
-import { localDateStringSchema } from '../../date-primitives.js';
+import { campusSchema } from '../../identity/primitives.js';
+import { localDateStringSchema } from '../../date/primitives.js';
 import { seasonStateSchema } from '../runtime/primitives.js';
 import { seasonParticipationCompletionStateSchema, seasonProfileStateSchema } from './state.js';
 

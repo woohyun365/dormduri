@@ -1,5 +1,5 @@
-import type { LifestyleData } from './lifestyle.js';
-import { isSeasonProfileComplete } from './lifestyle.js';
+import type { LifestyleData } from './lifestyle/index.js';
+import { isSeasonProfileComplete } from './lifestyle/index.js';
 
 const BEDTIME_ORDER = ['BEFORE_22', '22_24', '24_02', 'AFTER_02'] as const;
 const WAKE_ORDER = ['BEFORE_07', '07_08', '08_09', '09_10', 'AFTER_10'] as const;

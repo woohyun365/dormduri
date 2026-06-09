@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema, localDateStringSchema } from '../../date-primitives.js';
-import { campusSchema } from '../../identity-contract.js';
+import { isoDateTimeStringSchema, localDateStringSchema } from '../../date/primitives.js';
+import { campusSchema } from '../../identity/primitives.js';
 import {
   seasonRuntimeOverrideSchema,
   seasonStateSchema,

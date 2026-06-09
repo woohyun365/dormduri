@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from './date-primitives.js';
+import { isoDateTimeStringSchema } from './date/primitives.js';
 import { roommateSearchSummarySchema } from './roommate-search-contract.js';
 import {
   activeMatchEndReasonSchema,

@@ -3,7 +3,7 @@ import {
   getCollegeCatalog,
   getCollegeLabel,
   type CollegeCode,
-} from '@repo/shared/college-contract';
+} from '@repo/shared/college';
 
 export const COLLEGES = [...COLLEGE_CODES] as const;
 export const COLLEGE_OPTIONS = getCollegeCatalog('CHUNCHEON').map((item) => ({

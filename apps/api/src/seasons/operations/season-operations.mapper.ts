@@ -1,6 +1,6 @@
 import type { SeasonOperationResponse } from '@repo/shared/season/operations';
 import type { SeasonRuntimeOverride } from '@repo/shared/season/runtime';
-import { toDateOnlyString, toIsoDateTimeString } from '@repo/shared/date-primitives';
+import { toDateOnlyString, toIsoDateTimeString } from '@repo/shared/date';
 import type { Season, SeasonOperationAuditAction } from '../../generated/prisma/client.js';
 
 export type SeasonOperationSnapshotSource = Pick<

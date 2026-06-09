@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Param, Patch } from '@nestjs/common';
-import { campusSchema } from '@repo/shared/identity-contract';
+import { campusSchema } from '@repo/shared/identity/primitives';
 import {
   clearSeasonOverrideRequestSchema,
   updateSeasonOverrideRequestSchema,

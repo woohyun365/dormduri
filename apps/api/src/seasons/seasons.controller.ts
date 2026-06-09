@@ -1,5 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { campusSchema } from '@repo/shared/identity-contract';
+import { campusSchema } from '@repo/shared/identity/primitives';
 import { Public } from '../auth/access/auth-access.decorator.js';
 import { SeasonsService } from './application/seasons.service.js';
 import { parseQueryValue } from '../platform/http/zod-request.js';

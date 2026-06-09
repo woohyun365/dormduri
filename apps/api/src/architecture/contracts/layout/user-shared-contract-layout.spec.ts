@@ -95,7 +95,7 @@ describe('shared user contract layout', () => {
     }
   });
 
-  it('package exports는 canonical user subpath를 제공하고 campus/gender identity-contract를 유지한다', () => {
+  it('package exports는 canonical user subpath와 identity primitives subpath를 제공한다', () => {
     expect(sharedPackageJson.exports['./user']).toEqual({
       types: './dist/user/index.d.ts',
       default: './dist/user/index.js',
@@ -128,9 +128,10 @@ describe('shared user contract layout', () => {
       types: './dist/user/identity/account.d.ts',
       default: './dist/user/identity/account.js',
     });
-    expect(sharedPackageJson.exports['./identity-contract']).toEqual({
-      types: './dist/identity-contract.d.ts',
-      default: './dist/identity-contract.js',
+    expect(sharedPackageJson.exports['./identity-contract']).toBeUndefined();
+    expect(sharedPackageJson.exports['./identity/primitives']).toEqual({
+      types: './dist/identity/primitives.d.ts',
+      default: './dist/identity/primitives.js',
     });
   });
 

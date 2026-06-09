@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema, localDateStringSchema } from '../../date-primitives.js';
+import { isoDateTimeStringSchema, localDateStringSchema } from '../../date/primitives.js';
 
 export const seasonStateSchema = z.enum([
   'OFF_SEASON',

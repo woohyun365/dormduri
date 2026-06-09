@@ -1,6 +1,6 @@
 // @ts-expect-error -- seed reference data is plain JS and intentionally imported for regression coverage
 import { COLLEGE_MASTER_DATA } from '../../../prisma/seed-data/reference/college-reference-data.js';
-import { CHUNCHEON_COLLEGE_CATALOG, type CollegeCatalogItem } from '@repo/shared/college-contract';
+import { CHUNCHEON_COLLEGE_CATALOG, type CollegeCatalogItem } from '@repo/shared/college';
 
 const collegeMasterData = COLLEGE_MASTER_DATA as CollegeCatalogItem[];
 

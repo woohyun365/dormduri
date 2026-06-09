@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { campusSchema } from '../../identity-contract.js';
+import { campusSchema } from '../../identity/primitives.js';
 import {
   dormitorySeasonOperationSchema,
   seasonRuntimeOverrideSchema,

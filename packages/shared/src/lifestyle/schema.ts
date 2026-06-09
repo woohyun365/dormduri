@@ -3,7 +3,7 @@ import {
   CORE_LIFESTYLE_FIELDS,
   LIFESTYLE_FIELD_OPTIONS,
   ROOMMATE_CONDITION_FIELDS,
-} from './lifestyle-options.js';
+} from './options.js';
 
 const nullableEnum = <T extends readonly [string, ...string[]]>(values: T) =>
   z.enum(values).nullable();
