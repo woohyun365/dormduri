@@ -1,8 +1,6 @@
-import { InternalServerErrorException } from '@nestjs/common';
 import {
   badRequestError,
   conflictError,
-  createApiErrorBody,
   unprocessableEntityError,
 } from '../platform/http/api-error.js';
 
@@ -81,20 +79,6 @@ export const usersErrors = {
       'NICKNAME_MODERATION_REJECTED',
       message,
       fieldErrors('nickname', message),
-    );
-  },
-
-  accountIdentityIncomplete(
-    surface: 'current-user' | 'registration-finalize' | 'public-target-snapshot',
-    invariant:
-      | 'USER_DISPLAY_IDENTITY_REQUIRED'
-      | 'USER_ACADEMIC_IDENTITY_REQUIRED' = 'USER_DISPLAY_IDENTITY_REQUIRED',
-  ) {
-    return new InternalServerErrorException(
-      createApiErrorBody('ACCOUNT_IDENTITY_INCOMPLETE', '계정 identity가 누락되었습니다.', {
-        invariant,
-        surface,
-      }),
     );
   },
 };

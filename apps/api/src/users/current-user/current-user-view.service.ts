@@ -13,9 +13,9 @@ import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
 } from '../../seasons/ports/season-context.port.js';
-import { resolveCampusServiceState } from '../service-state.js';
+import { resolveCampusServiceState } from '../../seasons/runtime/campus-service-state.query.js';
 import { assertUserAccountIdentity } from '../../identity/account-identity-invariant.js';
-import { usersErrors } from '../users.errors.js';
+import { accountIdentityIncompleteError } from '../../platform/http/account-identity-invariant.error.js';
 import { CurrentUserQuery } from './current-user.query.js';
 import {
   buildCurrentUserCapabilitySegment,
@@ -48,7 +48,7 @@ export class CurrentUserViewService {
     now: Date,
   ): Promise<CurrentUserResponse> {
     assertUserAccountIdentity(user, (invariant) =>
-      usersErrors.accountIdentityIncomplete('current-user', invariant),
+      accountIdentityIncompleteError('current-user', invariant),
     );
 
     const serviceState = await resolveCampusServiceState(

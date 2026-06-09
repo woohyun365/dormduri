@@ -37,7 +37,7 @@
 - `users` does not own season profile lifestyle/condition/registration writes, public profile/search policy, match/chat action policy, notification inbox behavior, social-safety report review outcome, or account-level enforcement engine.
 - Account deletion fails closed for a current registered participant. Accepted deletion immediately de-identifies active account identity and must not restore retained payload through user-facing product paths.
 - Top-level `identity/` remains pure shared-kernel code. Do not add Nest providers, Prisma clients, HTTP adapters, or module wiring there.
-- Campus service-state resolution is seasons/runtime domain context vocabulary. Users may consume the result for current-user projection, but should not become the long-term owner of campus/season runtime state.
+- Campus service-state resolution is seasons/runtime domain context vocabulary. Users consumes `seasons/runtime/campus-service-state.query.ts` for current-user projection, but must not own campus/season runtime state.
 - `ModerationModule` remains an explicit non-global dependency for public text validation such as nickname checks.
 - Do not hide dependency cycles with new `forwardRef()` or business `@Global()` modules.
 - New external-domain integrations must use narrow purpose-specific ports rather than importing `UsersService` as a broad user data facade.
@@ -57,7 +57,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 
 - HTTP route parsing and delegation: `users.controller.ts`.
 - Controller-facing delegation: `application/users.service.ts`.
-- Current-user read model projection: `current-user/` owner files. Canonical placement is `current-user/current-user-view.service.ts`, `current-user/current-user.select.ts`, and `current-user/current-user.presenter.ts`.
+- Current-user read model projection: `current-user/` owner files. Canonical placement is `current-user/current-user-view.service.ts`, `current-user/current-user.select.ts`, and `current-user/current-user.presenter.ts`. Campus service-state projection comes from `seasons/runtime/campus-service-state.query.ts`.
 - Display nickname self-service update: `identity/display/` owner files. Canonical placement is `identity/display/update-display-identity.command.ts`, `identity/display/display-identity.repository.ts`, `identity/display/display-identity-edit.policy.ts`, and `identity/display/nickname-cooldown.policy.ts`.
 - Academic identity correction: `identity/academic/update-academic-identity.command.ts`, `academic-identity.repository.ts`, `academic-college-change-allowance.repository.ts`, `academic-identity-audit.repository.ts`.
 - Identity audit append/query: `identity/audit/` owner files. Display nickname audit canonical placement is `identity/audit/display-identity-nickname-audit.repository.ts`.

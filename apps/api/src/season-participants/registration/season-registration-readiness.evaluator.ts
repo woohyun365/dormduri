@@ -2,7 +2,7 @@ import type { SelectableDormitory } from '@repo/shared/season/participation';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
 import { assertUserAccountIdentity } from '../../identity/account-identity-invariant.js';
-import { usersErrors } from '../../users/users.errors.js';
+import { accountIdentityIncompleteError } from '../../platform/http/account-identity-invariant.error.js';
 import type { DormitorySelectionReadinessEvaluator } from '../dormitory-selection/dormitory-selection-readiness.evaluator.js';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
 import type { VerifiedSeasonActionUser } from '../application/season-action-user.query.js';
@@ -27,7 +27,7 @@ export function createSeasonRegistrationReadinessEvaluator(
     academicIdentity: NonNullable<VerifiedSeasonActionUser['academicIdentity']>;
   }> {
     assertUserAccountIdentity(input.user, (invariant) =>
-      usersErrors.accountIdentityIncomplete('registration-finalize', invariant),
+      accountIdentityIncompleteError('registration-finalize', invariant),
     );
     assertParticipantAllowsRegistration(input.participant);
     assertSeasonProfileCompleteForRegistration(input.participant.profile);
