@@ -7,6 +7,7 @@
 외부 domain production code는 retention 내부 owner 구현을 직접 import하지 않는다. 필요한 기능은 목적별 module/port surface를 통해 사용한다.
 
 - `RetentionModule`: retention worker/disclosure/observability provider wiring의 module surface다.
+- `RETENTION_OBSERVABILITY_PORT`: lifecycle sweep result를 metric/alert candidate signal로 변환하는 observability surface다.
 - `RETENTION_SWEEP_PORT`: lifecycle sweep이 archive/review/disposal job을 실행할 때 사용하는 narrow surface다.
 - `RETENTION_VAULT_PORT`: domain-owned archive handler가 원문 payload를 retained vault에 보관하거나 disposal 상태를 갱신할 때 사용하는 retained payload surface다.
 - `RETENTION_DISCLOSURE_PORT`: 승인 근거가 있는 운영 disclosure workflow만 사용하는 retained payload/identifier disclosure surface다.
@@ -56,7 +57,8 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 - RetentionModule provider/export wiring은 `composition/retention.providers.ts`, `composition/retention.exports.ts`, `composition/retention.tokens.ts`가 소유한다.
 - Cross-domain import/layout guard는 `apps/api/src/architecture/**`가 소유한다.
 - Product domain은 retained payload parser/disclosure concrete implementation을 import하지 않는다.
-- Lifecycle은 broad users service가 아니라 retention sweep port를 호출한다.
+- Lifecycle은 retention observability concrete provider를 직접 소유하지 않고 `RetentionModule`의 exported port를 주입받는다.
+- Lifecycle sweep task execution은 broad users service가 아니라 retention sweep port로 수렴한다.
 - Current transition surface에는 root owner files가 남아 있을 수 있다. 신규 수정은 위 owning slice와 public boundary로 수렴시킨다.
 
 ## Where to change retention behavior

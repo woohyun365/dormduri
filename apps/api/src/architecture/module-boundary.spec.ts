@@ -36,6 +36,9 @@ import { NOTIFICATION_WRITER } from '../notifications/application/ports/notifica
 import { NotificationQueryService } from '../notifications/queries/notification-query.service.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { ProfilesModule } from '../profiles/profiles.module.js';
+import { RETENTION_EXPORTS } from '../retention/composition/retention.exports.js';
+import { RETENTION_PROVIDERS } from '../retention/composition/retention.providers.js';
+import { RetentionModule } from '../retention/retention.module.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
@@ -202,10 +205,12 @@ describe('affected API module boundary finalization', () => {
         MatchesModule,
         SeasonParticipantsModule,
         SocialSafetyModule,
+        RetentionModule,
         UsersModule,
       ]),
     );
     expect(moduleMetadata(ModerationModule, 'imports')).toEqual([PrismaModule]);
+    expect(moduleMetadata(RetentionModule, 'imports')).toEqual([PrismaModule]);
     expect(moduleMetadata(SocialSafetyModule, 'imports')).toEqual([
       BookmarkModule,
       BlockModule,
@@ -247,6 +252,8 @@ describe('affected API module boundary finalization', () => {
       CurrentSeasonParticipationViewQuery,
       CurrentSeasonParticipantContextGuard,
     ]);
+    expect(moduleMetadata(RetentionModule, 'providers')).toEqual(RETENTION_PROVIDERS);
+    expect(moduleMetadata(RetentionModule, 'exports')).toEqual(RETENTION_EXPORTS);
     expect(moduleMetadata(UsersModule, 'providers')).toEqual(USERS_PROVIDERS);
     expect(moduleMetadata(UsersModule, 'exports')).toEqual(USERS_EXPORTS);
     expect(moduleMetadata(UsersModule, 'exports')).toEqual([
@@ -288,7 +295,7 @@ describe('affected API module boundary finalization', () => {
     ]);
   });
 
-  it('expected-red Phase 2: introduces RetentionModule composition source of truth before metadata imports', () => {
+  it('keeps RetentionModule composition source of truth available before metadata imports', () => {
     const retentionRoot = join(apiSourceRoot, 'retention');
     const retentionModulePath = join(retentionRoot, 'retention.module.ts');
     const compositionRoot = join(retentionRoot, 'composition');

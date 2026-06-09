@@ -95,7 +95,7 @@ describe('retention final architecture boundary', () => {
     });
   });
 
-  it('expected-red Phase 2: keeps RetentionModule provider/export composition as source of truth', () => {
+  it('keeps RetentionModule provider/export composition as source of truth', () => {
     const retentionModulePath = join(retentionRoot, 'retention.module.ts');
     const compositionRoot = join(retentionRoot, 'composition');
     const missingCompositionFiles = expectedRetentionCompositionFiles.filter(
@@ -122,23 +122,31 @@ describe('retention final architecture boundary', () => {
     });
   });
 
-  it('expected-red Phase 2 and Phase 8: keeps lifecycle on RetentionModule and RETENTION_SWEEP_PORT', () => {
+  it('keeps lifecycle module on RetentionModule instead of direct retention observability provider', () => {
     const lifecycleModuleSource = readSource(join(lifecycleRoot, 'lifecycle.module.ts'));
-    const lifecycleSweepAdapterSource = readSource(
-      join(lifecycleRoot, 'adapters/lifecycle-sweep-tasks.adapter.ts'),
-    );
 
     expect({
-      expectedGreenPhases: {
-        directObservabilityProvider: 'Phase 2 RetentionModule import/export wiring',
-        usersSweepPortMigration: 'Phase 8 RETENTION_SWEEP_PORT migration',
-      },
+      expectedGreenPhase: 'Phase 2 RetentionModule import/export wiring',
       directRetentionObservabilityImports: importSpecifiers(lifecycleModuleSource).filter(
         (specifier) => /retention\/retention-observability/.test(specifier),
       ),
       lifecycleModuleImportsRetentionModule: /retention\/retention\.module/.test(
         lifecycleModuleSource,
       ),
+    }).toEqual({
+      expectedGreenPhase: 'Phase 2 RetentionModule import/export wiring',
+      directRetentionObservabilityImports: [],
+      lifecycleModuleImportsRetentionModule: true,
+    });
+  });
+
+  it('expected-red Phase 8: keeps lifecycle sweep tasks on RETENTION_SWEEP_PORT', () => {
+    const lifecycleSweepAdapterSource = readSource(
+      join(lifecycleRoot, 'adapters/lifecycle-sweep-tasks.adapter.ts'),
+    );
+
+    expect({
+      expectedGreenPhase: 'Phase 8 RETENTION_SWEEP_PORT migration',
       userRetentionSweepPortReferences:
         lifecycleSweepAdapterSource.match(/USER_RETENTION_SWEEP_PORT/g) ?? [],
       usesRetentionSweepPort: /\bRETENTION_SWEEP_PORT\b/.test(lifecycleSweepAdapterSource),
@@ -147,12 +155,7 @@ describe('retention final architecture boundary', () => {
         /UsersService|users\.service/,
       ),
     }).toEqual({
-      expectedGreenPhases: {
-        directObservabilityProvider: 'Phase 2 RetentionModule import/export wiring',
-        usersSweepPortMigration: 'Phase 8 RETENTION_SWEEP_PORT migration',
-      },
-      directRetentionObservabilityImports: [],
-      lifecycleModuleImportsRetentionModule: true,
+      expectedGreenPhase: 'Phase 8 RETENTION_SWEEP_PORT migration',
       userRetentionSweepPortReferences: [],
       usesRetentionSweepPort: true,
       directUsersServiceReferences: [],

@@ -3,7 +3,7 @@ import { AuthOperationsModule } from '../auth/operations/auth-operations.module.
 import { ChatModule } from '../chat/chat.module.js';
 import { MatchesModule } from '../matches/matches.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
-import { RetentionObservabilityService } from '../retention/retention-observability.js';
+import { RetentionModule } from '../retention/retention.module.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SocialSafetyModule } from '../social-safety/social-safety.module.js';
 import { UsersModule } from '../users/users.module.js';
@@ -33,10 +33,10 @@ import { LIFECYCLE_BOUNDARY_SCHEDULE, LIFECYCLE_SWEEP_TASKS } from './lifecycle-
     MatchesModule,
     SeasonParticipantsModule,
     SocialSafetyModule,
+    RetentionModule,
     UsersModule,
   ],
   providers: [
-    RetentionObservabilityService,
     SeasonBoundaryScheduleAdapter,
     ...LIFECYCLE_SWEEP_TASK_PROVIDERS,
     {

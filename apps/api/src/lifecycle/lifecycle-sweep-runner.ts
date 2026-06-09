@@ -1,6 +1,6 @@
 import type { Logger } from '@nestjs/common';
 import type { ManagedPrismaClient, PrismaService } from '../platform/database/prisma.service.js';
-import type { RetentionObservabilityService } from '../retention/retention-observability.js';
+import type { RetentionObservabilityPort } from '../retention/composition/retention.tokens.js';
 import type { LifecycleSweepTaskPort } from './lifecycle-sweep-task.port.js';
 import type {
   LifecycleSweepResult,
@@ -11,7 +11,7 @@ import type {
 interface LifecycleSweepRunnerDeps {
   prisma: PrismaService;
   retentionPrisma: ManagedPrismaClient;
-  retentionObservability?: Pick<RetentionObservabilityService, 'emitSweep'>;
+  retentionObservability?: Pick<RetentionObservabilityPort, 'emitSweep'>;
   tasks: readonly LifecycleSweepTaskPort[];
   logger?: Pick<Logger, 'error'>;
 }
