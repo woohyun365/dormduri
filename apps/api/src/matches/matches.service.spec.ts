@@ -2,11 +2,13 @@ import { MatchesService } from './matches.service.js';
 import { matchesErrors } from './matches.errors.js';
 import { ActiveMatchViewQuery } from './active/queries/active-match-view.query.js';
 import { MatchRequestNoteModerationAdapter } from './requests/adapters/match-request-note-moderation.adapter.js';
+import { AcceptMatchRequestCommand } from './requests/commands/accept-match-request.command.js';
 import { CancelMatchRequestCommand } from './requests/commands/cancel-match-request.command.js';
 import { CreateMatchRequestCommand } from './requests/commands/create-match-request.command.js';
 import { RejectMatchRequestCommand } from './requests/commands/reject-match-request.command.js';
 import { ResolveTerminalMatchRequestCommand } from './requests/commands/resolve-terminal-match-request.command.js';
 import { MatchRequestCreationEvaluator } from './requests/eligibility/match-request-creation.evaluator.js';
+import { MatchRequestAcceptanceRepository } from './requests/persistence/match-request-acceptance.repository.js';
 import { MatchRequestRepository } from './requests/persistence/match-request.repository.js';
 import { ListCurrentSeasonRequestsQuery } from './requests/queries/list-current-season-requests.query.js';
 import type {
@@ -182,6 +184,7 @@ describe('MatchesService', () => {
   const activeMatchViewQuery = new ActiveMatchViewQuery(prisma as never);
   const noteModerationAdapter = new MatchRequestNoteModerationAdapter(moderationService as never);
   const matchRequestRepository = new MatchRequestRepository();
+  const matchRequestAcceptanceRepository = new MatchRequestAcceptanceRepository();
   const matchRequestCreationEvaluator = new MatchRequestCreationEvaluator(
     prisma as never,
     seasonsService as never,
@@ -211,6 +214,14 @@ describe('MatchesService', () => {
       prisma as never,
       matchRequestCreationEvaluator,
       matchRequestRepository,
+    ),
+    new AcceptMatchRequestCommand(
+      prisma as never,
+      seasonsService as never,
+      seasonParticipantsService as never,
+      chatMatchThreadLifecycle as never,
+      activeMatchViewQuery,
+      matchRequestAcceptanceRepository,
     ),
     new RejectMatchRequestCommand(resolveTerminalMatchRequestCommand),
     new CancelMatchRequestCommand(resolveTerminalMatchRequestCommand),

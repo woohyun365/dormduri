@@ -37,11 +37,6 @@ import { matchesErrors } from './matches.errors.js';
 import { createMatchHistoryMaterializationOwner } from './match-history-materialization-owner.js';
 import { createMatchHistoryReadOwner } from './match-history-read-owner.js';
 import { createMatchLifecycleOwner } from './match-lifecycle-owner.js';
-import { createMatchRequestCommandCluster } from './match-request-command-cluster.js';
-import {
-  executeAcceptMatchRequest,
-  loadAcceptableMatchRequest,
-} from './match-request-step-owner.js';
 import { activeMatchCommandSelect } from './match-selects.js';
 import { acquireActiveMatchLock, lockActiveMatchRow } from './match-transaction-helpers.js';
 import { createMatchUnmatchCommandCluster } from './match-unmatch-command-cluster.js';
@@ -50,11 +45,11 @@ import {
   reloadActiveMatchOrThrow,
   synchronizePendingUnmatchRequests,
 } from './match-unmatch-support.js';
+import { AcceptMatchRequestCommand } from './requests/commands/accept-match-request.command.js';
 import { CreateMatchRequestCommand } from './requests/commands/create-match-request.command.js';
 import { RejectMatchRequestCommand } from './requests/commands/reject-match-request.command.js';
 import { CancelMatchRequestCommand } from './requests/commands/cancel-match-request.command.js';
 import { ListCurrentSeasonRequestsQuery } from './requests/queries/list-current-season-requests.query.js';
-import { expireDuePendingRequests } from './requests/persistence/match-request-locks.js';
 
 interface LifecycleTransitionResult {
   expiredUnmatchRequests: number;
@@ -71,39 +66,12 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     private readonly activeMatchViewQuery: ActiveMatchViewQuery,
     private readonly listCurrentSeasonRequestsQuery: ListCurrentSeasonRequestsQuery,
     private readonly createMatchRequestCommand: CreateMatchRequestCommand,
+    private readonly acceptMatchRequestCommand: AcceptMatchRequestCommand,
     private readonly rejectMatchRequestCommand: RejectMatchRequestCommand,
     private readonly cancelMatchRequestCommand: CancelMatchRequestCommand,
     @Inject(CHAT_MATCH_THREAD_LIFECYCLE_PORT)
     private readonly chatMatchThreadLifecycle: ChatMatchThreadLifecyclePort,
   ) {}
-
-  private get requestCommandCluster() {
-    return createMatchRequestCommandCluster({
-      getDatabaseNow: () => this.prisma.getDatabaseNow(),
-      runSerializableTransaction: (callback) => this.prisma.runSerializableTransaction(callback),
-      getCurrentMatchContext: (userId, now) =>
-        this.contextOwner.getCurrentMatchContext(userId, now),
-      expireDuePendingRequests: (seasonId, now, tx) =>
-        expireDuePendingRequests(tx ?? this.prisma, seasonId, now),
-      loadAcceptableMatchRequest,
-      executeAcceptMatchRequest: (tx, input, now) =>
-        executeAcceptMatchRequest(tx, this.chatMatchThreadLifecycle, input, now),
-      getDetailedActiveMatchSummaryForViewer: (
-        client,
-        activeMatchId,
-        viewerParticipantId,
-        seasonContext,
-        now,
-      ) =>
-        this.activeMatchViewQuery.getDetailedActiveMatchSummaryForViewer(
-          client,
-          activeMatchId,
-          viewerParticipantId,
-          seasonContext,
-          now,
-        ),
-    });
-  }
 
   private get lifecycleOwner() {
     return createMatchLifecycleOwner({
@@ -195,7 +163,7 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     authUser: AuthenticatedUserContext,
     requestId: string,
   ): Promise<MatchRequestActionResponse> {
-    return this.requestCommandCluster.acceptMatchRequest(authUser, requestId);
+    return this.acceptMatchRequestCommand.execute(authUser, requestId);
   }
 
   async rejectMatchRequest(
