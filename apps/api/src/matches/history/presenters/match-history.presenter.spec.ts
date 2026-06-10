@@ -4,7 +4,7 @@ import {
   matchHistoryEntrySchema,
   matchHistorySeasonSummarySchema,
 } from '@repo/shared/match-contract';
-import { toMatchHistoryResponse, type MatchHistoryEntryRow } from './match-history-read-model.js';
+import { toMatchHistoryResponse, type MatchHistoryEntryRow } from './match-history.presenter.js';
 
 function findRepoRoot() {
   let current = process.cwd();

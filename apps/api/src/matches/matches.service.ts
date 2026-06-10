@@ -19,13 +19,9 @@ import {
   type SeasonContextPort,
 } from '../seasons/ports/season-context.port.js';
 import { ActiveMatchViewQuery } from './active/queries/active-match-view.query.js';
-import type {
-  MatchHistoryMaterializationPort,
-  MatchHistoryMaterializationResult,
-} from './application/ports/match-history-materialization.port.js';
 import { matchesErrors } from './matches.errors.js';
-import { createMatchHistoryMaterializationOwner } from './match-history-materialization-owner.js';
-import { createMatchHistoryReadOwner } from './match-history-read-owner.js';
+import { MatchHistoryMaterializationService } from './history/application/match-history-materialization.service.js';
+import { MatchHistoryQueryService } from './history/application/match-history-query.service.js';
 import { CancelUnmatchRequestCommand } from './active/commands/cancel-unmatch-request.command.js';
 import { RequestUnmatchCommand } from './active/commands/request-unmatch.command.js';
 import { AcceptMatchRequestCommand } from './requests/commands/accept-match-request.command.js';
@@ -35,7 +31,7 @@ import { CancelMatchRequestCommand } from './requests/commands/cancel-match-requ
 import { ListCurrentSeasonRequestsQuery } from './requests/queries/list-current-season-requests.query.js';
 
 @Injectable()
-export class MatchesService implements MatchHistoryMaterializationPort {
+export class MatchesService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SEASON_CONTEXT_PORT)
@@ -49,6 +45,8 @@ export class MatchesService implements MatchHistoryMaterializationPort {
     private readonly cancelMatchRequestCommand: CancelMatchRequestCommand,
     private readonly requestUnmatchCommand: RequestUnmatchCommand,
     private readonly cancelUnmatchRequestCommand: CancelUnmatchRequestCommand,
+    private readonly matchHistoryMaterializationService: MatchHistoryMaterializationService,
+    private readonly matchHistoryQueryService: MatchHistoryQueryService,
   ) {}
 
   private get contextOwner() {
@@ -59,14 +57,6 @@ export class MatchesService implements MatchHistoryMaterializationPort {
       requestTargetNotFound: () => matchesErrors.requestTargetNotFound(),
       requestSelfTargetNotAllowed: () => matchesErrors.requestSelfTargetNotAllowed(),
     });
-  }
-
-  private get historyMaterializationOwner() {
-    return createMatchHistoryMaterializationOwner(this.prisma);
-  }
-
-  private get historyReadOwner() {
-    return createMatchHistoryReadOwner(this.prisma);
   }
 
   async getCurrentActiveMatch(authUser: AuthenticatedUserContext): Promise<ActiveMatchResponse> {
@@ -94,8 +84,8 @@ export class MatchesService implements MatchHistoryMaterializationPort {
 
   async getMatchHistory(authUser: AuthenticatedUserContext): Promise<MatchHistoryResponse> {
     const now = await this.prisma.getDatabaseNow();
-    await this.historyMaterializationOwner.materializeEndedSeasonHistory(now, authUser.id);
-    return this.historyReadOwner.listPastSeasonHistoryForUser(authUser.id, now);
+    await this.matchHistoryMaterializationService.materializeEndedSeasonHistory(now, authUser.id);
+    return this.matchHistoryQueryService.listPastSeasonHistoryForUser(authUser.id, now);
   }
 
   async getMatchHistoryCounterpartProfile(
@@ -103,8 +93,12 @@ export class MatchesService implements MatchHistoryMaterializationPort {
     entryId: string,
   ): Promise<PublicProfile> {
     const now = await this.prisma.getDatabaseNow();
-    await this.historyMaterializationOwner.materializeEndedSeasonHistory(now, authUser.id);
-    return this.historyReadOwner.getFinalCounterpartProfileForEntry(authUser.id, entryId, now);
+    await this.matchHistoryMaterializationService.materializeEndedSeasonHistory(now, authUser.id);
+    return this.matchHistoryQueryService.getFinalCounterpartProfileForEntry(
+      authUser.id,
+      entryId,
+      now,
+    );
   }
 
   async createMatchRequest(
@@ -166,20 +160,6 @@ export class MatchesService implements MatchHistoryMaterializationPort {
       participantId,
       now,
     );
-  }
-
-  async materializeEndedSeasonHistory(
-    now: Date,
-    userId?: string,
-  ): Promise<MatchHistoryMaterializationResult> {
-    return this.historyMaterializationOwner.materializeEndedSeasonHistory(now, userId);
-  }
-
-  async materializeSeasonHistoryById(
-    seasonId: string,
-    now: Date,
-  ): Promise<MatchHistoryMaterializationResult> {
-    return this.historyMaterializationOwner.materializeSeasonHistoryById(seasonId, now);
   }
 
   async getLiveActiveMatchMapForParticipantIds(

@@ -1,12 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-describe('match history materialization owner', () => {
+describe('match history row builder', () => {
+  const sourcePath = join(
+    process.cwd(),
+    'src/matches/history/materialization/match-history-row.builder.ts',
+  );
+
   it('match history persistence는 chat thread closure snapshot을 저장하지 않는다', () => {
-    const source = readFileSync(
-      join(process.cwd(), 'src/matches/match-history-materialization-owner.ts'),
-      'utf8',
-    );
+    const source = readFileSync(sourcePath, 'utf8');
 
     expect(source).not.toContain('threadClosedReason');
     expect(source).not.toContain('threadClosedAt');
@@ -14,12 +16,11 @@ describe('match history materialization owner', () => {
     expect(source).not.toContain('closedAt: true');
   });
 
-  it('match history materialization은 chat thread conversation 여부를 읽지 않는다', () => {
-    const source = readFileSync(
-      join(process.cwd(), 'src/matches/match-history-materialization-owner.ts'),
-      'utf8',
-    );
+  it('request/match rows are built from match-owned participant/request/active-match source only', () => {
+    const source = readFileSync(sourcePath, 'utf8');
 
+    expect(source).toContain('buildRequestHistoryRow');
+    expect(source).toContain('buildMatchHistoryRow');
     expect(source).not.toContain('conversationThreads');
     expect(source).not.toContain('ConversationThread');
     expect(source).not.toContain('ConversationMessage');

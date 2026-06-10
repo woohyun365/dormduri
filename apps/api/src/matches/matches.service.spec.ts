@@ -207,6 +207,14 @@ describe('MatchesService', () => {
     seasonParticipantsService as never,
     matchRequestRepository,
   );
+  const matchHistoryMaterializationService = {
+    materializeEndedSeasonHistory: jest.fn(),
+    materializeSeasonHistoryById: jest.fn(),
+  };
+  const matchHistoryQueryService = {
+    listPastSeasonHistoryForUser: jest.fn(),
+    getFinalCounterpartProfileForEntry: jest.fn(),
+  };
 
   const service = new MatchesService(
     prisma as never,
@@ -242,6 +250,8 @@ describe('MatchesService', () => {
       seasonParticipantsService as never,
       activeMatchRepository,
     ),
+    matchHistoryMaterializationService as never,
+    matchHistoryQueryService as never,
   );
 
   beforeEach(() => {

@@ -14,7 +14,7 @@ Matches는 2인실 roommate match request, active match, unmatch, match history,
 - `MATCH_HISTORY_MATERIALIZATION_PORT`: lifecycle/retention sweep이 match history materialization을 요청하는 surface다.
 - `MATCH_BLOCK_SIDE_EFFECT_PORT`: social-safety block transaction이 affected pending match request cancel을 요청하는 side-effect surface다.
 
-외부 consumer는 concrete `MatchesService`에 의존하지 말고 위 port surface를 사용한다. `MatchesService`는 matches HTTP/controller facade와 Phase 8 전 history materialization compatibility provider로만 남는다.
+외부 consumer는 concrete `MatchesService`에 의존하지 말고 위 port surface를 사용한다. `MatchesService`는 matches HTTP/controller facade이며, history materialization/read 구현은 `history/` slice의 서비스와 repository가 소유한다.
 
 ## Owned responsibilities
 
@@ -49,7 +49,7 @@ Final subdirectory targets:
 - `context/`: active match/domain route context decorator, guard, resolver, and request context type.
 - `requests/`: match request create/list/accept/reject/cancel command, query, policy, preparation, presenter, repository.
 - `active/`: active match read, unmatch command/policy/persistence, lifecycle transition, active-match presenter/repository.
-- `history/`: history materialization, history read query/model, deleted/deidentified tombstone and RRPD handoff helpers.
+- `history/`: ended-season history materialization, source loading, row/score snapshot builders, persistence repository, read query/presenter, deleted/deidentified tombstone, RRPD archive handler.
 - `scoring/`: match score projection and shared score contract adapter.
 - `lifecycle/`: cross-domain side-effect implementations such as block side-effect and lifecycle sweep adapter.
 - `persistence/`: shared Prisma/TypedSQL infrastructure only when it is not owned by a narrower slice.
@@ -76,21 +76,21 @@ Final subdirectory targets:
 
 ## Where to change match behavior
 
-| Behavior                     | Current source                                                                                               | Final target                                                                                             | Notes                                                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| HTTP route delegation        | `matches.controller.ts`                                                                                      | `matches.controller.ts`                                                                                  | Controller stays root-only and delegates to application/provider surface.            |
-| Provider/export composition  | `matches.module.ts`                                                                                          | `composition/` + `matches.module.ts`                                                                     | Module decorator should read as imports/controllers/provider-export summary.         |
-| Request create/list          | `requests/commands`, `requests/queries`, `requests/eligibility`, `requests/policies`, `requests/persistence` | `requests/commands`, `requests/queries`, `requests/policies`, `requests/mappers`, `requests/persistence` | Keep requestability and stale-state checks close to command/repository boundary.     |
-| Request accept/reject/cancel | `requests/commands`, `requests/policies`, `requests/persistence`, `requests/presenters`                      | `requests/commands`, `requests/policies`, `requests/persistence`                                         | Accept path must preserve chat lifecycle port call inside the transaction.           |
-| Active match read/context    | `match-active-query-owner.ts`, `match-context-owner.ts`, `active-match-context.*`                            | `active/queries`, `context/`                                                                             | Context guard prepares coarse context; action-specific rules stay in command/policy. |
-| Unmatch request/cancel       | `active/commands`, `active/policies`, `active/persistence`                                                   | `active/commands`, `active/policies`, `active/persistence`                                               | Preserve active row lock, mutual unmatch transaction, and chat lifecycle port call.  |
-| Lifecycle sweep              | `active/lifecycle/active-match-lifecycle-sweep.service.ts`, `MATCH_LIFECYCLE_SWEEP_PORT`                     | `active/lifecycle`, `MATCH_LIFECYCLE_SWEEP_PORT`                                                         | Top-level lifecycle depends on the port, not concrete `MatchesService`.              |
-| History materialization      | `match-history-materialization-owner.ts`, `retention/match-history-archive.handler.ts`                       | `history/materialization`, `history/retention`                                                           | Retained payload stays out of hot user-facing history rows.                          |
-| History read                 | `match-history-read-owner.ts`, `match-history-read-model.ts`                                                 | `history/queries`, `history/mappers`                                                                     | Deleted/deidentified counterpart detail degrades to tombstone.                       |
-| Score projection             | `match-score-projection.ts`, `match-score.spec.ts`, `packages/shared/src/match-score.ts`                     | `scoring/`, `packages/shared/src/match/score.ts`                                                         | `perspectiveScore(viewer, target)` is the canonical user-facing score.               |
-| Transaction locks/selects    | `requests/persistence`, `active/persistence`, `apps/api/prisma/sql/lock*.sql`                                | owning slice `*/persistence`                                                                             | TypedSQL and Prisma select shapes stay infrastructure-local.                         |
-| User-facing errors           | `matches.errors.ts`                                                                                          | `errors/`                                                                                                | Refactor must not change response/error code behavior.                               |
-| Block side-effect            | `lifecycle/match-block-side-effect.service.ts`, `application/ports/match-block-side-effect.port.ts`          | `lifecycle/`, `application/ports/`                                                                       | Social-safety consumes the port; match request mutation remains match-owned.         |
+| Behavior                     | Current source                                                                                                   | Final target                                                                                             | Notes                                                                                |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| HTTP route delegation        | `matches.controller.ts`                                                                                          | `matches.controller.ts`                                                                                  | Controller stays root-only and delegates to application/provider surface.            |
+| Provider/export composition  | `matches.module.ts`                                                                                              | `composition/` + `matches.module.ts`                                                                     | Module decorator should read as imports/controllers/provider-export summary.         |
+| Request create/list          | `requests/commands`, `requests/queries`, `requests/eligibility`, `requests/policies`, `requests/persistence`     | `requests/commands`, `requests/queries`, `requests/policies`, `requests/mappers`, `requests/persistence` | Keep requestability and stale-state checks close to command/repository boundary.     |
+| Request accept/reject/cancel | `requests/commands`, `requests/policies`, `requests/persistence`, `requests/presenters`                          | `requests/commands`, `requests/policies`, `requests/persistence`                                         | Accept path must preserve chat lifecycle port call inside the transaction.           |
+| Active match read/context    | `match-active-query-owner.ts`, `match-context-owner.ts`, `active-match-context.*`                                | `active/queries`, `context/`                                                                             | Context guard prepares coarse context; action-specific rules stay in command/policy. |
+| Unmatch request/cancel       | `active/commands`, `active/policies`, `active/persistence`                                                       | `active/commands`, `active/policies`, `active/persistence`                                               | Preserve active row lock, mutual unmatch transaction, and chat lifecycle port call.  |
+| Lifecycle sweep              | `active/lifecycle/active-match-lifecycle-sweep.service.ts`, `MATCH_LIFECYCLE_SWEEP_PORT`                         | `active/lifecycle`, `MATCH_LIFECYCLE_SWEEP_PORT`                                                         | Top-level lifecycle depends on the port, not concrete `MatchesService`.              |
+| History materialization      | `history/application/match-history-materialization.service.ts`, `history/materialization`, `history/persistence` | `history/application`, `history/materialization`, `history/persistence`                                  | Retained payload stays out of hot user-facing history rows.                          |
+| History read                 | `history/application/match-history-query.service.ts`, `history/presenters/match-history.presenter.ts`            | `history/application`, `history/presenters`                                                              | Deleted/deidentified counterpart detail degrades to tombstone.                       |
+| Score projection             | `match-score-projection.ts`, `match-score.spec.ts`, `packages/shared/src/match-score.ts`                         | `scoring/`, `packages/shared/src/match/score.ts`                                                         | `perspectiveScore(viewer, target)` is the canonical user-facing score.               |
+| Transaction locks/selects    | `requests/persistence`, `active/persistence`, `apps/api/prisma/sql/lock*.sql`                                    | owning slice `*/persistence`                                                                             | TypedSQL and Prisma select shapes stay infrastructure-local.                         |
+| User-facing errors           | `matches.errors.ts`                                                                                              | `errors/`                                                                                                | Refactor must not change response/error code behavior.                               |
+| Block side-effect            | `lifecycle/match-block-side-effect.service.ts`, `application/ports/match-block-side-effect.port.ts`              | `lifecycle/`, `application/ports/`                                                                       | Social-safety consumes the port; match request mutation remains match-owned.         |
 
 ## Architecture guard expectation
 
@@ -113,8 +113,11 @@ pnpm --dir apps/api exec jest --watchman=false --runInBand \
   src/architecture/social-safety/social-safety-boundary.spec.ts \
   src/matches/matches.service.spec.ts \
   src/matches/matches.controller.spec.ts \
-  src/matches/match-history-materialization-owner.spec.ts \
-  src/matches/match-history-read-model.spec.ts \
+  src/matches/history/materialization/match-history-row.builder.spec.ts \
+  src/matches/history/materialization/match-history-score-snapshot.builder.spec.ts \
+  src/matches/history/application/match-history-materialization.service.spec.ts \
+  src/matches/history/application/match-history-query.service.spec.ts \
+  src/matches/history/presenters/match-history.presenter.spec.ts \
   src/matches/match-read-model.spec.ts \
   src/matches/match-score-projection.spec.ts \
   src/matches/match-score.spec.ts \

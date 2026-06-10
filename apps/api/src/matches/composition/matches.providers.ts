@@ -9,6 +9,9 @@ import { MATCH_ACTIVE_VIEW_PORT } from '../application/ports/match-active-view.p
 import { MATCH_BLOCK_SIDE_EFFECT_PORT } from '../application/ports/match-block-side-effect.port.js';
 import { MATCH_HISTORY_MATERIALIZATION_PORT } from '../application/ports/match-history-materialization.port.js';
 import { MATCH_LIFECYCLE_SWEEP_PORT } from '../application/ports/match-lifecycle-sweep.port.js';
+import { MatchHistoryMaterializationService } from '../history/application/match-history-materialization.service.js';
+import { MatchHistoryQueryService } from '../history/application/match-history-query.service.js';
+import { MatchHistoryRepository } from '../history/persistence/match-history.repository.js';
 import { MatchBlockSideEffectService } from '../lifecycle/match-block-side-effect.service.js';
 import { MatchesService } from '../matches.service.js';
 import { MatchRequestNoteModerationAdapter } from '../requests/adapters/match-request-note-moderation.adapter.js';
@@ -29,6 +32,9 @@ export const MATCHES_PROVIDERS = [
   ActiveMatchRepository,
   ActiveMatchLifecycleSweepService,
   ActiveMatchViewQuery,
+  MatchHistoryMaterializationService,
+  MatchHistoryQueryService,
+  MatchHistoryRepository,
   ListCurrentSeasonRequestsQuery,
   CreateMatchRequestCommand,
   AcceptMatchRequestCommand,
@@ -52,7 +58,7 @@ export const MATCHES_PROVIDERS = [
   },
   {
     provide: MATCH_HISTORY_MATERIALIZATION_PORT,
-    useExisting: MatchesService,
+    useExisting: MatchHistoryMaterializationService,
   },
   {
     provide: MATCH_BLOCK_SIDE_EFFECT_PORT,

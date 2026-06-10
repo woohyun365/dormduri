@@ -28,9 +28,6 @@ const requiredReadmeSections = [
 
 const rootProductionTransitionFiles: TransitionMap = {
   'match-context-owner.ts': 'Phase 3 context/active view split',
-  'match-history-materialization-owner.ts': 'Phase 8 history materialization split',
-  'match-history-read-model.ts': 'Phase 8 history read/presenter split',
-  'match-history-read-owner.ts': 'Phase 8 history read query split',
   'match-read-model.ts': 'Phase 3/4 active presenter split',
   'match-score-projection.ts': 'Phase 10 scoring/shared contract split',
   'match.utils.ts': 'Phase 5/8 shared match utility split',
@@ -39,8 +36,6 @@ const rootProductionTransitionFiles: TransitionMap = {
 };
 
 const rootSpecTransitionFiles: TransitionMap = {
-  'match-history-materialization-owner.spec.ts': 'Phase 8 history materialization spec split',
-  'match-history-read-model.spec.ts': 'Phase 8 history presenter spec split',
   'match-read-model.spec.ts': 'Phase 3/4 presenter spec split',
   'match-score-projection.spec.ts': 'Phase 10 scoring spec split',
   'match-score.spec.ts': 'Phase 10 shared score spec split',
@@ -216,7 +211,8 @@ describe('matches architecture boundary', () => {
     expect(providersSource).toContain('useExisting: ActiveMatchViewQuery');
     expect(providersSource).toContain('ActiveMatchLifecycleSweepService');
     expect(providersSource).toContain('useExisting: ActiveMatchLifecycleSweepService');
-    expect(providersSource).toContain('useExisting: MatchesService');
+    expect(providersSource).toContain('MatchHistoryMaterializationService');
+    expect(providersSource).toContain('useExisting: MatchHistoryMaterializationService');
     expect(exportsSource).not.toContain('MatchesService');
     expect(exportsSource).not.toContain('Temporary transition export');
   });
@@ -243,10 +239,9 @@ describe('matches architecture boundary', () => {
   });
 
   it('keeps match history materialization free of chat-derived state', () => {
-    const materializationFiles = [
-      join(matchesRoot, 'match-history-materialization-owner.ts'),
-      ...productionTypeScriptFiles(join(matchesRoot, 'history/materialization')),
-    ].filter((path) => existsSync(path));
+    const materializationFiles = productionTypeScriptFiles(
+      join(matchesRoot, 'history/materialization'),
+    ).filter((path) => existsSync(path));
 
     const offenders = materializationFiles
       .filter((path) =>

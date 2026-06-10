@@ -1,22 +1,22 @@
-import type { Prisma } from '../../generated/prisma/client.js';
-import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../../privacy/deidentification/deidentified-display.policy.js';
-import type { PrismaService } from '../../platform/database/prisma.service.js';
+import type { Prisma } from '../../../generated/prisma/client.js';
+import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../../../privacy/deidentification/deidentified-display.policy.js';
+import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import {
   buildJobMetadata,
   buildVaultAad,
   toVaultJson,
-} from '../../retention/archive-jobs/archive-job.payload.js';
-import { toArchiveStorageError } from '../../retention/archive-jobs/archive-job-transition.policy.js';
+} from '../../../retention/archive-jobs/archive-job.payload.js';
+import { toArchiveStorageError } from '../../../retention/archive-jobs/archive-job-transition.policy.js';
 import type {
   ArchiveJobWorkItem,
   ArchiveStorageResult,
-} from '../../retention/archive-jobs/archive-job.types.js';
-import { loadRetainedIdentityForCaseTx } from '../../retention/retained-identities/retained-identity-hold.query.js';
-import { ensureRetentionCaseTx } from '../../retention/vault/retention-case.repository.js';
+} from '../../../retention/archive-jobs/archive-job.types.js';
+import { loadRetainedIdentityForCaseTx } from '../../../retention/retained-identities/retained-identity-hold.query.js';
+import { ensureRetentionCaseTx } from '../../../retention/vault/retention-case.repository.js';
 import {
   retainVaultPayloadTx,
   type RetainedVaultOwnerOptions,
-} from '../../retention/vault/retained-vault.service.js';
+} from '../../../retention/vault/retained-vault.service.js';
 
 export async function archiveMatchHistoryJob(
   prisma: PrismaService,

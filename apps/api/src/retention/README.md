@@ -33,7 +33,7 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 
 - users identity: `users/identity/retention/nickname-audit-archive.handler.ts`, `users/identity/retention/academic-identity-audit-archive.handler.ts`.
 - season-participants: `season-participants/retention/season-profile-history-archive.handler.ts`.
-- matches: `matches/retention/match-history-archive.handler.ts`.
+- matches: `matches/history/retention/match-history-archive.handler.ts`.
 - chat: `chat/retention/thread-retention-archive.handler.ts`, `chat/retention/conversation-retained-body.service.ts`.
 
 이 구분은 같은 용어가 domain마다 다른 bounded context를 가질 수 있기 때문이다. Retention root가 chat/matches/users/season-participants의 policy와 write semantics를 흡수하지 않는다.

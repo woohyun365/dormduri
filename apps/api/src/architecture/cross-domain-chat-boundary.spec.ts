@@ -60,7 +60,7 @@ describe('Phase 10C cross-domain chat architecture boundary', () => {
 
   it('keeps match history materialization independent from chat persistence', () => {
     const source = readSource(
-      join(apiSourceRoot, 'matches/match-history-materialization-owner.ts'),
+      join(apiSourceRoot, 'matches/history/materialization/match-history-row.builder.ts'),
     );
 
     expect(source).not.toMatch(
