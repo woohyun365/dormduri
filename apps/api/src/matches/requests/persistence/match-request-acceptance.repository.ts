@@ -153,8 +153,8 @@ export class MatchRequestAcceptanceRepository {
     tx: Prisma.TransactionClient,
     request: MatchRequestRecord,
     now: Date,
-  ) {
-    await tx.matchRequest.updateMany({
+  ): Promise<number> {
+    const result = await tx.matchRequest.updateMany({
       where: {
         seasonId: request.seasonId,
         status: 'PENDING',
@@ -178,6 +178,8 @@ export class MatchRequestAcceptanceRepository {
         terminalAt: now,
       },
     });
+
+    return result.count;
   }
 
   private async loadPendingReceiverRequest(

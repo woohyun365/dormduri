@@ -1,6 +1,8 @@
 import { MatchesService } from '../matches.service.js';
 import { CancelUnmatchRequestCommand } from '../active/commands/cancel-unmatch-request.command.js';
 import { RequestUnmatchCommand } from '../active/commands/request-unmatch.command.js';
+import { ActiveMatchLifecycleEventRepository } from '../active/lifecycle-events/active-match-lifecycle-event.repository.js';
+import { ActiveMatchLifecycleEventWriter } from '../active/lifecycle-events/active-match-lifecycle-event.writer.js';
 import { ActiveMatchRepository } from '../active/persistence/active-match.repository.js';
 import { ActiveMatchViewQuery } from '../active/queries/active-match-view.query.js';
 import { MatchRequestNoteModerationAdapter } from '../requests/adapters/match-request-note-moderation.adapter.js';
@@ -143,6 +145,7 @@ export function createMatchesServiceSpecHarness() {
   const txActiveMatchUnmatchRequestFindMany = jest.fn();
   const txActiveMatchUnmatchRequestUpdate = jest.fn();
   const txActiveMatchUnmatchRequestUpdateMany = jest.fn();
+  const txActiveMatchLifecycleEventCreate = jest.fn();
   const txSeasonParticipantFindMany = jest.fn();
   const txSeasonParticipantUpdateMany = jest.fn();
   const txSeasonDormitoryOperationFindUnique = jest.fn();
@@ -187,6 +190,9 @@ export function createMatchesServiceSpecHarness() {
   };
 
   const activeMatchRepository = new ActiveMatchRepository();
+  const activeMatchLifecycleEventWriter = new ActiveMatchLifecycleEventWriter(
+    new ActiveMatchLifecycleEventRepository(),
+  );
   const activeMatchViewQuery = new ActiveMatchViewQuery(prisma as never, activeMatchRepository);
   const noteModerationAdapter = new MatchRequestNoteModerationAdapter(moderationService as never);
   const matchRequestRepository = new MatchRequestRepository();
@@ -236,6 +242,7 @@ export function createMatchesServiceSpecHarness() {
       chatMatchThreadLifecycle as never,
       activeMatchViewQuery,
       matchRequestAcceptanceRepository,
+      activeMatchLifecycleEventWriter,
     ),
     new RejectMatchRequestCommand(resolveTerminalMatchRequestCommand),
     new CancelMatchRequestCommand(resolveTerminalMatchRequestCommand),
@@ -467,6 +474,9 @@ export function createMatchesServiceSpecHarness() {
       terminalAt: new Date('2026-02-10T03:05:00.000Z'),
     });
     txActiveMatchUnmatchRequestUpdateMany.mockResolvedValue({ count: 1 });
+    txActiveMatchLifecycleEventCreate.mockResolvedValue({
+      id: 'active-match-lifecycle-event-1',
+    });
     txSeasonParticipantFindMany.mockResolvedValue([
       {
         id: 'participant-1',
@@ -507,6 +517,9 @@ export function createMatchesServiceSpecHarness() {
           update: txActiveMatchUnmatchRequestUpdate,
           updateMany: txActiveMatchUnmatchRequestUpdateMany,
         },
+        activeMatchLifecycleEvent: {
+          create: txActiveMatchLifecycleEventCreate,
+        },
         seasonParticipant: {
           findMany: txSeasonParticipantFindMany,
           updateMany: txSeasonParticipantUpdateMany,
@@ -539,6 +552,7 @@ export function createMatchesServiceSpecHarness() {
     txActiveMatchUnmatchRequestFindMany,
     txActiveMatchUnmatchRequestUpdate,
     txActiveMatchUnmatchRequestUpdateMany,
+    txActiveMatchLifecycleEventCreate,
     txSeasonParticipantFindMany,
     txSeasonParticipantUpdateMany,
     txSeasonDormitoryOperationFindUnique,
@@ -549,6 +563,7 @@ export function createMatchesServiceSpecHarness() {
     seasonParticipantsService,
     chatMatchThreadLifecycle,
     activeMatchRepository,
+    activeMatchLifecycleEventWriter,
     activeMatchViewQuery,
     matchRequestRepository,
     matchRequestAcceptanceRepository,

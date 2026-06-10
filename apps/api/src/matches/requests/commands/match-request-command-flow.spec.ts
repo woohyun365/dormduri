@@ -1,3 +1,4 @@
+import { Prisma } from '../../../generated/prisma/client.js';
 import { matchesErrors } from '../../matches.errors.js';
 import {
   createMatchesServiceSpecHarness,
@@ -18,8 +19,10 @@ describe('match request command flow', () => {
     txMatchRequestUpdateMany,
     txActiveMatchFindFirst,
     txActiveMatchCreate,
+    txActiveMatchLifecycleEventCreate,
     txSeasonParticipantFindMany,
     txSeasonParticipantUpdateMany,
+    txSeasonParticipantProfileHistoryCount,
   } = harness;
 
   beforeEach(() => {
@@ -270,8 +273,56 @@ describe('match request command flow', () => {
         terminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
       },
     });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const [lifecycleEventCreateCall] = txActiveMatchLifecycleEventCreate.mock.calls;
+    expect(lifecycleEventCreateCall).toBeDefined();
+    if (!lifecycleEventCreateCall) {
+      throw new Error('Expected active match lifecycle event create call');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    expect(lifecycleEventCreateCall[0]).toMatchObject({
+      data: {
+        activeMatchId: 'active-1',
+        eventType: 'ACTIVE_CREATED',
+        reason: 'MATCH_REQUEST_ACCEPTED',
+        actorType: 'USER',
+        actorUserId: 'user-2',
+        sourceMatchRequestId: 'request-1',
+        occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+        metadata: {
+          transitionOwner: 'match.accept',
+          previousStatus: 'NONE',
+          nextStatus: 'ACTIVE',
+          requestStatus: 'ACCEPTED',
+          canceledPendingMatchRequests: 1,
+        },
+      },
+    });
     expect(result.request.status).toBe('ACCEPTED');
     expect(result.activeMatch?.counterpartUserId).toBe('user-1');
+  });
+  it('수락 precondition terminal path는 ACTIVE와 lifecycle event를 만들지 않는다', async () => {
+    txSeasonParticipantProfileHistoryCount.mockResolvedValueOnce(0);
+
+    const result = await service.acceptMatchRequest(
+      {
+        id: 'user-2',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      'request-1',
+    );
+
+    expect(txActiveMatchCreate).not.toHaveBeenCalled();
+    expect(txActiveMatchLifecycleEventCreate).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      activeMatch: null,
+      request: {
+        id: 'request-1',
+        status: 'CANCELLED_BY_SYSTEM',
+        terminalReason: 'MATCH_PRECONDITION_FAILED',
+      },
+    });
   });
   it('거절은 terminal only이며 ACTIVE를 만들지 않는다', async () => {
     const result = await service.rejectMatchRequest(
@@ -331,6 +382,7 @@ describe('match request command flow', () => {
       response: matchesErrors.requestExpired().getResponse(),
     });
     expect(txActiveMatchCreate).not.toHaveBeenCalled();
+    expect(txActiveMatchLifecycleEventCreate).not.toHaveBeenCalled();
   });
   it('single-active invariant가 있으면 수락을 막는다', async () => {
     txActiveMatchFindFirst.mockResolvedValueOnce({ id: 'active-existing' });
@@ -347,6 +399,30 @@ describe('match request command flow', () => {
     ).rejects.toMatchObject({
       response: matchesErrors.activeMatchAlreadyExists().getResponse(),
     });
+    expect(txActiveMatchLifecycleEventCreate).not.toHaveBeenCalled();
+  });
+  it('active match unique race P2002가 발생하면 lifecycle event를 남기지 않는다', async () => {
+    txActiveMatchCreate.mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target: ['seasonId', 'pairKey'] },
+      }),
+    );
+
+    await expect(
+      service.acceptMatchRequest(
+        {
+          id: 'user-2',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'request-1',
+      ),
+    ).rejects.toMatchObject({
+      response: matchesErrors.activeMatchAlreadyExists().getResponse(),
+    });
+    expect(txActiveMatchLifecycleEventCreate).not.toHaveBeenCalled();
   });
   it('UNMATCHED 직후 같은 방향 재요청에도 2일 cooldown을 적용한다', async () => {
     txMatchRequestCount.mockResolvedValueOnce(0).mockResolvedValueOnce(0);

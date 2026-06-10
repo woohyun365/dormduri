@@ -134,6 +134,34 @@ describe('MatchesService integration', () => {
       },
     });
     expect(acceptedCount).toBe(1);
+
+    const [activeMatch] = liveActiveMatches;
+    if (!activeMatch) {
+      throw new Error('Expected a live active match');
+    }
+    const activeCreatedEvents = await prisma.activeMatchLifecycleEvent.findMany({
+      where: {
+        activeMatchId: activeMatch.id,
+        eventType: 'ACTIVE_CREATED',
+      },
+    });
+    expect(activeCreatedEvents).toHaveLength(1);
+    expect(activeCreatedEvents[0]).toMatchObject({
+      reason: 'MATCH_REQUEST_ACCEPTED',
+      actorType: 'USER',
+      actorUserId: 'user-b',
+    });
+    expect([requestA.request.id, requestB.request.id]).toContain(
+      activeCreatedEvents[0]?.sourceMatchRequestId,
+    );
+    expect(activeCreatedEvents[0]?.metadata).toEqual(
+      expect.objectContaining({
+        transitionOwner: 'match.accept',
+        previousStatus: 'NONE',
+        nextStatus: 'ACTIVE',
+        requestStatus: 'ACCEPTED',
+      }),
+    );
   });
 
   it('pending 생성 후 requester profile snapshot invariant가 깨지면 accept가 system cancel로 fail-closed 된다', async () => {
@@ -165,6 +193,11 @@ describe('MatchesService integration', () => {
         },
       }),
     ).resolves.toBeNull();
+    await expect(
+      prisma.activeMatchLifecycleEvent.count({
+        where: { sourceMatchRequestId: request.request.id },
+      }),
+    ).resolves.toBe(0);
   });
 
   it('withdrawn requester가 포함된 stale pending request는 accept race에서 active match를 만들지 않고 system cancel한다', async () => {

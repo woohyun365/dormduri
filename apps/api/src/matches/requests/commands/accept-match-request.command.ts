@@ -11,6 +11,7 @@ import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
 } from '../../../seasons/ports/season-context.port.js';
+import { ActiveMatchLifecycleEventWriter } from '../../active/lifecycle-events/active-match-lifecycle-event.writer.js';
 import { ActiveMatchViewQuery } from '../../active/queries/active-match-view.query.js';
 import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import { matchesErrors } from '../../matches.errors.js';
@@ -29,6 +30,7 @@ export class AcceptMatchRequestCommand {
     private readonly chatMatchThreadLifecycle: ChatMatchThreadLifecyclePort,
     private readonly activeMatchViewQuery: ActiveMatchViewQuery,
     private readonly acceptanceRepository: MatchRequestAcceptanceRepository,
+    private readonly lifecycleEventWriter: ActiveMatchLifecycleEventWriter,
   ) {}
 
   private get contextOwner() {
@@ -90,11 +92,26 @@ export class AcceptMatchRequestCommand {
         now,
       );
 
-      await this.acceptanceRepository.cancelOtherPendingRequestsAfterActiveMatch(
-        tx,
-        acceptedRequest,
-        now,
-      );
+      const canceledPendingMatchRequests =
+        await this.acceptanceRepository.cancelOtherPendingRequestsAfterActiveMatch(
+          tx,
+          acceptedRequest,
+          now,
+        );
+
+      await this.lifecycleEventWriter.recordActiveCreated(tx, {
+        activeMatchId: activeMatchRecord.id,
+        actorUserId: authUser.id,
+        sourceMatchRequestId: acceptedRequest.id,
+        occurredAt: now,
+        metadata: {
+          transitionOwner: 'match.accept',
+          previousStatus: 'NONE',
+          nextStatus: 'ACTIVE',
+          requestStatus: 'ACCEPTED',
+          canceledPendingMatchRequests,
+        },
+      });
 
       const activeMatchSummary =
         await this.activeMatchViewQuery.getDetailedActiveMatchSummaryForViewer(
