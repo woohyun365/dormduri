@@ -4,8 +4,8 @@ import type {
   PrismaService,
   RetentionWorkerPrismaService,
 } from '../../platform/database/prisma.service.js';
-import { createDeletionArchiveJobsTx } from '../../retention/archive-job-owner.js';
-import { createRetainedIdentitySnapshotTx } from '../../retention/retained-identity-owner.js';
+import { createDeletionArchiveJobsTx } from '../../retention/archive-jobs/create-deletion-archive-jobs.command.js';
+import { createRetainedIdentitySnapshotTx } from '../../retention/retained-identities/create-retained-identity-snapshot.command.js';
 import type { SeasonContextPort } from '../../seasons/ports/season-context.port.js';
 import { recordDisplayIdentityNicknameChangeAuditTx } from '../identity/audit/display-identity-nickname-audit.repository.js';
 import {

@@ -34,6 +34,7 @@ describe('shared contract layout spec boundary', () => {
       'architecture/contracts/layout/auth-shared-contract-layout.spec.ts',
       'architecture/contracts/layout/chat-shared-contract-layout.spec.ts',
       'architecture/contracts/layout/notification-shared-contract-layout.spec.ts',
+      'architecture/contracts/layout/retention-shared-contract-layout.spec.ts',
       'architecture/contracts/layout/season-shared-contract-layout.spec.ts',
       'architecture/contracts/layout/shared-contract-source-of-truth-layout.spec.ts',
       'architecture/contracts/layout/shared-neutral-contract-layout.spec.ts',

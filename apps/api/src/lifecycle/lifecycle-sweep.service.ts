@@ -18,7 +18,10 @@ import {
   PrismaService,
   RetentionWorkerPrismaService,
 } from '../platform/database/prisma.service.js';
-import { RetentionObservabilityService } from '../retention/retention-observability.js';
+import {
+  RETENTION_OBSERVABILITY_PORT,
+  type RetentionObservabilityPort,
+} from '../retention/composition/retention.tokens.js';
 import type { LifecycleSweepTaskPort } from './lifecycle-sweep-task.port.js';
 import { LIFECYCLE_BOUNDARY_SCHEDULE, LIFECYCLE_SWEEP_TASKS } from './lifecycle-sweep.tokens.js';
 import type { LifecycleSweepResult } from './lifecycle-sweep.types.js';
@@ -41,7 +44,8 @@ export class LifecycleSweepService implements OnApplicationBootstrap, OnModuleDe
     @Inject(LIFECYCLE_BOUNDARY_SCHEDULE)
     private readonly boundarySchedule: LifecycleBoundarySchedulePort,
     private readonly schedulerRegistry: SchedulerRegistry,
-    private readonly retentionObservability: RetentionObservabilityService,
+    @Inject(RETENTION_OBSERVABILITY_PORT)
+    private readonly retentionObservability: RetentionObservabilityPort,
     @Inject(lifecycleConfig.KEY)
     private readonly lifecycleSettings: ConfigType<typeof lifecycleConfig>,
   ) {

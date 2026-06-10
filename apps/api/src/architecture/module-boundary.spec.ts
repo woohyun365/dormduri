@@ -36,6 +36,9 @@ import { NOTIFICATION_WRITER } from '../notifications/application/ports/notifica
 import { NotificationQueryService } from '../notifications/queries/notification-query.service.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { ProfilesModule } from '../profiles/profiles.module.js';
+import { RETENTION_EXPORTS } from '../retention/composition/retention.exports.js';
+import { RETENTION_PROVIDERS } from '../retention/composition/retention.providers.js';
+import { RetentionModule } from '../retention/retention.module.js';
 import { ProfilesService } from '../profiles/profiles.service.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
@@ -57,7 +60,6 @@ import { SEASON_CONTEXT_PORT } from '../seasons/ports/season-context.port.js';
 import { CurrentUserViewModule } from '../users/current-user/current-user-view.module.js';
 import { CurrentUserViewService } from '../users/current-user/current-user-view.service.js';
 import { UsersService } from '../users/application/users.service.js';
-import { USER_RETENTION_SWEEP_PORT } from '../users/application/ports/user-retention-sweep.port.js';
 import { USERS_EXPORTS } from '../users/composition/users.exports.js';
 import { USERS_PROVIDERS } from '../users/composition/users.providers.js';
 import { UsersModule } from '../users/users.module.js';
@@ -202,10 +204,12 @@ describe('affected API module boundary finalization', () => {
         MatchesModule,
         SeasonParticipantsModule,
         SocialSafetyModule,
+        RetentionModule,
         UsersModule,
       ]),
     );
     expect(moduleMetadata(ModerationModule, 'imports')).toEqual([PrismaModule]);
+    expect(moduleMetadata(RetentionModule, 'imports')).toEqual([PrismaModule]);
     expect(moduleMetadata(SocialSafetyModule, 'imports')).toEqual([
       BookmarkModule,
       BlockModule,
@@ -247,12 +251,11 @@ describe('affected API module boundary finalization', () => {
       CurrentSeasonParticipationViewQuery,
       CurrentSeasonParticipantContextGuard,
     ]);
+    expect(moduleMetadata(RetentionModule, 'providers')).toEqual(RETENTION_PROVIDERS);
+    expect(moduleMetadata(RetentionModule, 'exports')).toEqual(RETENTION_EXPORTS);
     expect(moduleMetadata(UsersModule, 'providers')).toEqual(USERS_PROVIDERS);
     expect(moduleMetadata(UsersModule, 'exports')).toEqual(USERS_EXPORTS);
-    expect(moduleMetadata(UsersModule, 'exports')).toEqual([
-      UsersService,
-      USER_RETENTION_SWEEP_PORT,
-    ]);
+    expect(moduleMetadata(UsersModule, 'exports')).toEqual([UsersService]);
     expect(moduleMetadata(CurrentUserViewModule, 'exports')).toEqual([CurrentUserViewService]);
     expect(moduleMetadata(ProfilesModule, 'exports')).toEqual([ProfilesService]);
     expect(moduleMetadata(NotificationsModule, 'exports')).toEqual([
@@ -286,6 +289,34 @@ describe('affected API module boundary finalization', () => {
     expect(filesContaining(apiSourceRoot, /@Global\s*\(\s*\)/)).toEqual([
       'src/platform/database/prisma.module.ts',
     ]);
+  });
+
+  it('keeps RetentionModule composition source of truth available before metadata imports', () => {
+    const retentionRoot = join(apiSourceRoot, 'retention');
+    const retentionModulePath = join(retentionRoot, 'retention.module.ts');
+    const compositionRoot = join(retentionRoot, 'composition');
+    const compositionFiles = [
+      'retention.providers.ts',
+      'retention.exports.ts',
+      'retention.tokens.ts',
+    ] as const;
+    const moduleSource = existsSync(retentionModulePath) ? readSource(retentionModulePath) : '';
+
+    expect({
+      expectedGreenPhase: 'Phase 2 RetentionModule + composition source-of-truth',
+      hasRetentionModule: existsSync(retentionModulePath),
+      missingCompositionFiles: compositionFiles.filter(
+        (file) => !existsSync(join(compositionRoot, file)),
+      ),
+      moduleUsesProviderSourceOfTruth: moduleSource.includes('RETENTION_PROVIDERS'),
+      moduleUsesExportSourceOfTruth: moduleSource.includes('RETENTION_EXPORTS'),
+    }).toEqual({
+      expectedGreenPhase: 'Phase 2 RetentionModule + composition source-of-truth',
+      hasRetentionModule: true,
+      missingCompositionFiles: [],
+      moduleUsesProviderSourceOfTruth: true,
+      moduleUsesExportSourceOfTruth: true,
+    });
   });
 
   it('documents final platform, lifecycle, and moderation product boundaries', () => {

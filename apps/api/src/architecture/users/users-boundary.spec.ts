@@ -145,11 +145,13 @@ describe('users final structure boundary', () => {
     expect(filesContaining(seasonParticipantsRoot, forbiddenUsersErrorImport)).toEqual([]);
   });
 
-  it('keeps lifecycle sweep on a narrow users retention port', () => {
+  it('keeps lifecycle retention sweep outside the users public port surface', () => {
     const adapterPath = join(lifecycleRoot, 'adapters', 'lifecycle-sweep-tasks.adapter.ts');
     const source = readSource(adapterPath);
+    const legacyUsersRetentionSweepPortName = ['USER', 'RETENTION', 'SWEEP', 'PORT'].join('_');
 
-    expect(source).toContain('USER_RETENTION_SWEEP_PORT');
+    expect(source).toContain('RETENTION_SWEEP_PORT');
+    expect(source).not.toContain(legacyUsersRetentionSweepPortName);
     expect(source).not.toMatch(/UsersService|users\.service/);
   });
 

@@ -11,7 +11,8 @@
 - `LIFECYCLE_SWEEP_TASKS`: ordered domain sweep task list를 composition하는 DI token이다.
 - `LIFECYCLE_BOUNDARY_SCHEDULE`: season boundary schedule provider token이다.
 - `LifecycleSweepTaskPort`: domain task adapter가 구현하는 port다. task별 DB transaction/ACID 책임은 owning domain service에 남는다.
-- Users account deletion disposal은 `USER_RETENTION_SWEEP_PORT` narrow surface를 통해 연결한다.
+- Retention observability emission은 `RetentionModule`이 export하는 `RETENTION_OBSERVABILITY_PORT`를 통해 연결한다.
+- Retention archive/review/disposal sweep은 `RetentionModule`이 export하는 `RETENTION_SWEEP_PORT` narrow surface를 통해 연결한다.
 - Social-safety bookmark expiration cleanup과 auth operational cleanup은 각 owning service를 lifecycle task adapter로 감싼다.
 
 ## Directory responsibilities
@@ -23,7 +24,7 @@
 - `lifecycle-boundary-schedule.port.ts`: season/date boundary cron job contract.
 - `lifecycle-sweep.tokens.ts`: DI token owner.
 - `lifecycle-sweep.types.ts`: sweep result/task result type owner.
-- `adapters/lifecycle-sweep-tasks.adapter.ts`: matches/chat/season-participants/users/auth/retention domain service를 ordered task port로 감싸는 composition adapter.
+- `adapters/lifecycle-sweep-tasks.adapter.ts`: matches/chat/season-participants/social-safety/retention/auth domain service·port를 ordered task port로 감싸는 composition adapter.
 - `adapters/season-boundary-schedule.adapter.ts`: season boundary schedule을 lifecycle port로 감싸는 adapter.
 
 ## Hard rules
@@ -35,12 +36,21 @@
 - 새 `forwardRef()`나 business `@Global()` module로 cycle을 숨기지 않는다.
 - User-facing product behavior, response/error code, route policy는 lifecycle refactor로 변경하지 않는다.
 
+## Operational worker count
+
+- 현재 별도 worker binary는 없고, 같은 Nest app instance가 `LIFECYCLE_SWEEP_ENABLED=true`로 뜨면 lifecycle worker로 동작한다.
+- 따라서 운영상 worker 개수는 `LIFECYCLE_SWEEP_ENABLED=true`인 BE/API docker instance 개수와 같다.
+- 초기 운영은 API serving instance는 `LIFECYCLE_SWEEP_ENABLED=false`, 별도 worker deployment 1개만 `true`로 두는 구성을 우선한다.
+- `ArchiveJob`/`RetentionReviewJob`은 retention TypedSQL claim이 `FOR UPDATE SKIP LOCKED`를 사용하므로 worker instance를 2개 이상으로 늘려도 같은 queue row를 중복 claim하지 않아야 한다.
+- worker instance를 늘릴 때는 `DATABASE_POOL_MAX`, active Prisma role 수, RDS connection/IOPS budget을 함께 계산한다.
+
 ## Architecture guard
 
 Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps/api/src/architecture/module-boundary.spec.ts`, `apps/api/src/architecture/cross-domain-chat-boundary.spec.ts`가 고정한다.
 
 - `common/lifecycle`은 재생성하지 않는다.
 - `LifecycleModule`은 affected owner modules를 explicit import한다.
+- `RetentionModule`은 retention observability provider/export owner이며, lifecycle은 retention concrete provider를 직접 등록하지 않는다.
 - `LifecycleSweepService`와 runner는 domain concrete service names를 직접 소유하지 않는다.
 - Chat lifecycle은 `CHAT_LIFECYCLE_SWEEP_PORT`, match/chat/season side effect는 narrow port surface를 통해 연결한다.
 - `forwardRef()` regression은 금지한다.
@@ -53,7 +63,7 @@ Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps
 - Task ordering or task list composition: `adapters/lifecycle-sweep-tasks.adapter.ts` and `lifecycle.module.ts`.
 - Season boundary job calculation: `adapters/season-boundary-schedule.adapter.ts`.
 - Individual product convergence behavior: owning domain service/adapter, not lifecycle runner.
-- Users retention sweep contract: `users/application/ports/user-retention-sweep.port.ts`.
+- Retention sweep contract: `retention/application/ports/retention-sweep.port.ts` and `retention/application/retention-sweep.service.ts`.
 - Bookmark expiration cleanup contract: `social-safety/bookmarks/application/bookmark-lifecycle.service.ts`.
 - Auth operational cleanup behavior: `auth/operations`.
 - Sweep result type shape: `lifecycle-sweep.types.ts`.
