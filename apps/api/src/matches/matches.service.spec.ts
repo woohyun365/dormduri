@@ -1,5 +1,6 @@
 import { MatchesService } from './matches.service.js';
 import { matchesErrors } from './matches.errors.js';
+import { ActiveMatchViewQuery } from './active/queries/active-match-view.query.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
@@ -175,6 +176,7 @@ describe('MatchesService', () => {
     seasonsService as never,
     moderationService as never,
     seasonParticipantsService as never,
+    new ActiveMatchViewQuery(prisma as never),
     chatMatchThreadLifecycle as never,
   );
 

@@ -3,7 +3,7 @@ import { isSeasonProfileComplete, type LifestyleData } from '@repo/shared/lifest
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';
 import { resolveProfileDisplayName } from '../privacy/deidentification/deidentified-display.policy.js';
-import type { MatchesService } from '../matches/matches.service.js';
+import type { MatchActiveViewPort } from '../matches/application/ports/match-active-view.port.js';
 import { shouldExposePublicMatchScore } from '../matches/match-score-projection.js';
 import {
   currentSeasonParticipantSelect,
@@ -40,7 +40,7 @@ interface VisibleProfileOwnerDeps {
   prisma: PrismaService;
   seasonsService: SeasonContextPort;
   seasonParticipantsService: SeasonParticipantsService;
-  matchesService: MatchesService;
+  matchActiveView: MatchActiveViewPort;
 }
 
 export interface VisibleProfileViewerContext {
@@ -85,7 +85,7 @@ export interface ResolvedVisibleProfileEntry {
 }
 
 type ActiveMatchByParticipantId = Awaited<
-  ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>
+  ReturnType<MatchActiveViewPort['getCurrentActiveMatchByParticipantId']>
 >;
 type ActiveMatchByParticipantIdMap = Map<string, ActiveMatchByParticipantId>;
 
@@ -175,7 +175,9 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
   function resolveVisibleProfileEntry(
     candidate: VisibleProfileTargetCandidate,
     viewerContext: VisibleProfileViewerContext,
-    viewerActiveMatch: Awaited<ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>>,
+    viewerActiveMatch: Awaited<
+      ReturnType<MatchActiveViewPort['getCurrentActiveMatchByParticipantId']>
+    >,
     activeMatchMap: ActiveMatchByParticipantIdMap,
     registrationSnapshotParticipantIds: ReadonlySet<string>,
   ): ResolvedVisibleProfileEntry | null {
@@ -260,7 +262,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       );
 
     const activeMatchMap = viewerContext.currentSeasonId
-      ? await deps.matchesService.getLiveActiveMatchMapForParticipantIds(
+      ? await deps.matchActiveView.getLiveActiveMatchMapForParticipantIds(
           viewerContext.currentSeasonId,
           participantIds,
         )
@@ -430,7 +432,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
         candidate.participant.id,
       ]),
       viewerContext.currentSeasonId
-        ? deps.matchesService.getLiveActiveMatchMapForParticipantIds(
+        ? deps.matchActiveView.getLiveActiveMatchMapForParticipantIds(
             viewerContext.currentSeasonId,
             participantIds,
           )

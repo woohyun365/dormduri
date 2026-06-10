@@ -27,7 +27,7 @@ import {
   type CurrentSeasonContext,
   type SeasonContextPort,
 } from '../seasons/ports/season-context.port.js';
-import type { MatchActiveViewPort } from './application/ports/match-active-view.port.js';
+import { ActiveMatchViewQuery } from './active/queries/active-match-view.query.js';
 import type {
   MatchHistoryMaterializationPort,
   MatchHistoryMaterializationResult,
@@ -37,11 +37,10 @@ import type {
   MatchLifecycleSweepResult,
 } from './application/ports/match-lifecycle-sweep.port.js';
 import { matchesErrors } from './matches.errors.js';
-import { createMatchActiveQueryOwner } from './match-active-query-owner.js';
 import { createMatchHistoryMaterializationOwner } from './match-history-materialization-owner.js';
 import { createMatchHistoryReadOwner } from './match-history-read-owner.js';
 import { createMatchLifecycleOwner } from './match-lifecycle-owner.js';
-import { toDetailedActiveMatchSummary, toMatchRequestSummary } from './match-read-model.js';
+import { toMatchRequestSummary } from './match-read-model.js';
 import {
   createMatchRequestPreparationOwner,
   type PreparedMatchRequestCreation,
@@ -108,15 +107,14 @@ type MatchRequestCreationParticipant = Prisma.SeasonParticipantGetPayload<{
 }>;
 
 @Injectable()
-export class MatchesService
-  implements MatchActiveViewPort, MatchLifecycleSweepPort, MatchHistoryMaterializationPort
-{
+export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMaterializationPort {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
     private readonly moderationService: ModerationService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    private readonly activeMatchViewQuery: ActiveMatchViewQuery,
     @Inject(CHAT_MATCH_THREAD_LIFECYCLE_PORT)
     private readonly chatMatchThreadLifecycle: ChatMatchThreadLifecyclePort,
   ) {}
@@ -142,7 +140,7 @@ export class MatchesService
         seasonContext,
         now,
       ) =>
-        this.activeQueryOwner.getDetailedActiveMatchSummaryForViewer(
+        this.activeMatchViewQuery.getDetailedActiveMatchSummaryForViewer(
           client,
           activeMatchId,
           viewerParticipantId,
@@ -175,10 +173,6 @@ export class MatchesService
     });
   }
 
-  private get activeQueryOwner() {
-    return createMatchActiveQueryOwner(this.prisma);
-  }
-
   private get requestPreparationOwner() {
     return createMatchRequestPreparationOwner({
       getCurrentMatchContext: (userId, now) =>
@@ -188,7 +182,7 @@ export class MatchesService
       findRoomSelectionDate: (seasonContext, dormitoryId) =>
         this.contextOwner.findRoomSelectionDate(seasonContext, dormitoryId),
       getLiveActiveMatchMapForParticipantIds: (seasonId, participantIds) =>
-        this.activeQueryOwner.getLiveActiveMatchMapForParticipantIds(seasonId, participantIds),
+        this.activeMatchViewQuery.getLiveActiveMatchMapForParticipantIds(seasonId, participantIds),
       seasonParticipantsService: this.seasonParticipantsService,
       moderationService: this.moderationService,
     });
@@ -322,10 +316,7 @@ export class MatchesService
     seasonId: string,
     participantId: string,
   ): Promise<ActiveMatchSummary | null> {
-    const activeMatchMap = await this.getLiveActiveMatchMapForParticipantIds(seasonId, [
-      participantId,
-    ]);
-    return activeMatchMap.get(participantId) ?? null;
+    return this.activeMatchViewQuery.getCurrentActiveMatchByParticipantId(seasonId, participantId);
   }
 
   async getCurrentActiveMatchSummaryForParticipant(
@@ -333,18 +324,11 @@ export class MatchesService
     participantId: string,
     now: Date,
   ): Promise<ActiveMatchSummary | null> {
-    const activeMatch = await this.activeQueryOwner.getCurrentDetailedActiveMatchByParticipantId(
-      seasonContext.season.id,
-      participantId,
-    );
-    if (!activeMatch) return null;
-    const synchronizedActiveMatch = await synchronizePendingUnmatchRequests(
-      this.prisma,
-      activeMatch,
+    return this.activeMatchViewQuery.getCurrentActiveMatchSummaryForParticipant(
       seasonContext,
+      participantId,
       now,
     );
-    return toDetailedActiveMatchSummary(synchronizedActiveMatch, participantId, seasonContext, now);
   }
 
   async sweepLifecycleTransitions(now: Date): Promise<MatchLifecycleSweepResult> {
@@ -377,7 +361,10 @@ export class MatchesService
     seasonId: string,
     participantIds: string[],
   ): Promise<Map<string, ActiveMatchSummary>> {
-    return this.activeQueryOwner.getLiveActiveMatchMapForParticipantIds(seasonId, participantIds);
+    return this.activeMatchViewQuery.getLiveActiveMatchMapForParticipantIds(
+      seasonId,
+      participantIds,
+    );
   }
 
   private async getSeasonContextForCampus(

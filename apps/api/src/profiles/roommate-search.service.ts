@@ -12,7 +12,10 @@ import {
   type SeasonContextPort,
 } from '../seasons/ports/season-context.port.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
-import { MatchesService } from '../matches/matches.service.js';
+import {
+  MATCH_ACTIVE_VIEW_PORT,
+  type MatchActiveViewPort,
+} from '../matches/application/ports/match-active-view.port.js';
 import { createRoommateSearchOwner } from './roommate-search-owner.js';
 
 @Injectable()
@@ -24,13 +27,14 @@ export class RoommateSearchService {
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
-    private readonly matchesService: MatchesService,
+    @Inject(MATCH_ACTIVE_VIEW_PORT)
+    private readonly matchActiveView: MatchActiveViewPort,
   ) {
     this.searchOwner = createRoommateSearchOwner({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
       seasonParticipantsService: this.seasonParticipantsService,
-      matchesService: this.matchesService,
+      matchActiveView: this.matchActiveView,
     });
   }
 

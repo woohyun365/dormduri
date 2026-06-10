@@ -2,7 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { PublicProfile } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
-import { MatchesService } from '../matches/matches.service.js';
+import {
+  MATCH_ACTIVE_VIEW_PORT,
+  type MatchActiveViewPort,
+} from '../matches/application/ports/match-active-view.port.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import {
   SEASON_CONTEXT_PORT,
@@ -19,13 +22,14 @@ export class ProfilesService {
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
-    private readonly matchesService: MatchesService,
+    @Inject(MATCH_ACTIVE_VIEW_PORT)
+    private readonly matchActiveView: MatchActiveViewPort,
   ) {
     this.readOwner = createProfilesReadOwner({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
       seasonParticipantsService: this.seasonParticipantsService,
-      matchesService: this.matchesService,
+      matchActiveView: this.matchActiveView,
     });
   }
 

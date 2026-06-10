@@ -27,10 +27,6 @@ const requiredReadmeSections = [
 ] as const;
 
 const rootProductionTransitionFiles: TransitionMap = {
-  'active-match-context.decorator.ts': 'Phase 3 context migration',
-  'active-match-context.guard.ts': 'Phase 3 context migration',
-  'active-match-context.types.ts': 'Phase 3 context migration',
-  'match-active-query-owner.ts': 'Phase 3 active view query split',
   'match-context-owner.ts': 'Phase 3 context/active view split',
   'match-history-materialization-owner.ts': 'Phase 8 history materialization split',
   'match-history-read-model.ts': 'Phase 8 history read/presenter split',
@@ -51,7 +47,6 @@ const rootProductionTransitionFiles: TransitionMap = {
 };
 
 const rootSpecTransitionFiles: TransitionMap = {
-  'active-match-context.guard.spec.ts': 'Phase 3 context spec relocation',
   'match-history-materialization-owner.spec.ts': 'Phase 8 history materialization spec split',
   'match-history-read-model.spec.ts': 'Phase 8 history presenter spec split',
   'match-read-model.spec.ts': 'Phase 3/4 presenter spec split',
@@ -63,12 +58,6 @@ const rootSpecTransitionFiles: TransitionMap = {
 
 const concreteMatchesServiceTransitionConsumers: TransitionMap = {
   'src/lifecycle/adapters/lifecycle-sweep-tasks.adapter.ts': 'Phase 7 lifecycle sweep ports',
-  'src/profiles/profiles-read-owner.ts': 'Phase 3 active view port migration',
-  'src/profiles/profiles.service.ts': 'Phase 3 active view port migration',
-  'src/profiles/roommate-search-owner.ts': 'Phase 3 active view port migration',
-  'src/profiles/roommate-search.service.ts': 'Phase 3 active view port migration',
-  'src/profiles/visible-profile-owner.ts': 'Phase 3 active view port migration',
-  'src/users/current-user/current-user-view.service.ts': 'Phase 3 active view port migration',
 };
 
 const externalMatchMutationTransitionFiles: TransitionMap = {
@@ -213,7 +202,7 @@ describe('matches architecture boundary', () => {
     expect(concreteConsumers).toEqual(sortedKeys(concreteMatchesServiceTransitionConsumers));
   });
 
-  it('keeps Phase 2 match ports and composition source-of-truth while concrete export is temporary', () => {
+  it('keeps match ports and composition source-of-truth while concrete export is temporary', () => {
     const moduleSource = readSource(join(matchesRoot, 'matches.module.ts'));
     const providersSource = readSource(join(matchesRoot, 'composition/matches.providers.ts'));
     const exportsSource = readSource(join(matchesRoot, 'composition/matches.exports.ts'));
@@ -232,6 +221,9 @@ describe('matches architecture boundary', () => {
       expect(providersSource).toContain(finalPort);
       expect(exportsSource).toContain(finalPort);
     }
+    expect(existsSync(join(matchesRoot, 'active/queries/active-match-view.query.ts'))).toBe(true);
+    expect(providersSource).toContain('ActiveMatchViewQuery');
+    expect(providersSource).toContain('useExisting: ActiveMatchViewQuery');
     expect(providersSource).toContain('useExisting: MatchesService');
     expect(exportsSource).toContain('MatchesService');
     expect(exportsSource).toContain('Temporary transition export');

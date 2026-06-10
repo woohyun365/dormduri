@@ -1,5 +1,5 @@
-import type { AuthenticatedRequest } from '../auth/application/auth-actor-context.types.js';
-import type { ActiveMatchStatus } from '../generated/prisma/enums.js';
+import type { AuthenticatedRequest } from '../../../auth/application/auth-actor-context.types.js';
+import type { ActiveMatchStatus } from '../../../generated/prisma/enums.js';
 
 export interface ActiveMatchContext {
   activeMatchId: string;

@@ -4,11 +4,11 @@ import {
   DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,
   type DomainContextRequirementBase,
   isDomainContextRequirement,
-} from '../platform/domain-context/domain-context.decorator.js';
-import type { ActiveMatchParticipantContextRequirement } from './context/active-match-context-requirement.js';
-import { badRequestError, unauthorizedError } from '../platform/http/api-error.js';
-import { PrismaService } from '../platform/database/prisma.service.js';
-import { matchesErrors } from './matches.errors.js';
+} from '../../../platform/domain-context/domain-context.decorator.js';
+import type { ActiveMatchParticipantContextRequirement } from '../../context/active-match-context-requirement.js';
+import { badRequestError, unauthorizedError } from '../../../platform/http/api-error.js';
+import { PrismaService } from '../../../platform/database/prisma.service.js';
+import { matchesErrors } from '../../matches.errors.js';
 import {
   setActiveMatchContext,
   type ActiveMatchContextRequest,

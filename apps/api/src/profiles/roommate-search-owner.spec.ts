@@ -109,7 +109,7 @@ describe('roommate-search-owner bookmark integration', () => {
       prisma: prisma as never,
       seasonsService: seasonsService as never,
       seasonParticipantsService: seasonParticipantsService as never,
-      matchesService: matchesService as never,
+      matchActiveView: matchesService as never,
     });
 
     const result = await owner.search(authUser, { scope: 'SAME_BUILDING_ONLY', limit: 20 });

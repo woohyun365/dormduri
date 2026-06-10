@@ -1,6 +1,6 @@
 import { applyDecorators, createParamDecorator, ExecutionContext, UseGuards } from '@nestjs/common';
-import { RequireDomainContext } from '../platform/domain-context/domain-context.decorator.js';
-import type { ActiveMatchParticipantContextRequirement } from './context/active-match-context-requirement.js';
+import { RequireDomainContext } from '../../../platform/domain-context/domain-context.decorator.js';
+import type { ActiveMatchParticipantContextRequirement } from '../../context/active-match-context-requirement.js';
 import { ActiveMatchContextGuard } from './active-match-context.guard.js';
 import {
   getActiveMatchContext,
