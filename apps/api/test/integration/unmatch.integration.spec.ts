@@ -13,6 +13,7 @@ import {
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
 } from './support/integration-fixtures.js';
+import { expectLifecycleMetadataToExcludeSensitiveKeys } from './support/active-match-lifecycle-event-assertions.js';
 
 describe('MatchesService unmatch integration', () => {
   jest.setTimeout(60_000);
@@ -103,6 +104,15 @@ describe('MatchesService unmatch integration', () => {
       actorUserId: 'user-a',
     });
     expect(lifecycleEvents[0]?.sourceUnmatchRequestId).toBe(pendingRows[0]?.id);
+    expect(lifecycleEvents[0]?.metadata).toEqual(
+      expect.objectContaining({
+        transitionOwner: 'match.unmatch.request',
+        previousStatus: 'ACTIVE',
+        nextStatus: 'ACTIVE',
+        unmatchRequestStatus: 'PENDING',
+      }),
+    );
+    expectLifecycleMetadataToExcludeSensitiveKeys(lifecycleEvents[0]?.metadata);
   });
 
   it('양쪽이 동시에 unmatch 요청하면 ACTIVE가 UNMATCHED로 전이되고 matched thread가 direct로 내려간다', async () => {
@@ -148,6 +158,21 @@ describe('MatchesService unmatch integration', () => {
       actorType: 'USER',
     });
     expect(lifecycleEvents.at(-1)?.sourceUnmatchRequestId).toEqual(expect.any(String));
+    expect(activeMatch?.unmatchRequests.map((request) => request.id)).toContain(
+      lifecycleEvents.at(-1)?.sourceUnmatchRequestId,
+    );
+    expect(lifecycleEvents.at(-1)?.metadata).toEqual(
+      expect.objectContaining({
+        transitionOwner: 'match.unmatch.mutual',
+        previousStatus: 'ACTIVE',
+        nextStatus: 'UNMATCHED',
+        nextEndReason: 'UNMATCHED_BY_MUTUAL_CONSENT',
+        unmatchRequestStatus: 'FULFILLED_BY_MUTUAL_CONSENT',
+      }),
+    );
+    for (const lifecycleEvent of lifecycleEvents) {
+      expectLifecycleMetadataToExcludeSensitiveKeys(lifecycleEvent.metadata);
+    }
   });
 
   it('pending unmatch cancel 성공은 cancel lifecycle event를 남긴다', async () => {
@@ -180,6 +205,17 @@ describe('MatchesService unmatch integration', () => {
       actorUserId: 'user-a',
       sourceUnmatchRequestId: unmatchRequests[0]?.id,
     });
+    expect(lifecycleEvents[1]?.metadata).toEqual(
+      expect.objectContaining({
+        transitionOwner: 'match.unmatch.cancel',
+        previousStatus: 'ACTIVE',
+        nextStatus: 'ACTIVE',
+        unmatchRequestStatus: 'CANCELLED_BY_REQUESTER',
+      }),
+    );
+    for (const lifecycleEvent of lifecycleEvents) {
+      expectLifecycleMetadataToExcludeSensitiveKeys(lifecycleEvent.metadata);
+    }
   });
 
   it('season-ended boundary sweep는 pending unmatch expiry와 active match terminal event를 남기고 재실행 중복을 만들지 않는다', async () => {
@@ -241,11 +277,32 @@ describe('MatchesService unmatch integration', () => {
       actorType: 'SYSTEM',
       sourceUnmatchRequestId: activeMatch?.unmatchRequests[0]?.id,
     });
+    expect(sweepEvents[0]?.metadata).toEqual(
+      expect.objectContaining({
+        transitionOwner: 'match.season-end.expire-unmatch-request',
+        previousStatus: 'ACTIVE',
+        nextStatus: 'ACTIVE',
+        unmatchRequestStatus: 'EXPIRED_BY_CUTOFF',
+        expiredUnmatchRequestCount: 1,
+      }),
+    );
     expect(sweepEvents[1]).toMatchObject({
       reason: 'SEASON_ENDED_SWEEP',
       actorType: 'SYSTEM',
       sourceUnmatchRequestId: null,
     });
+    expect(sweepEvents[1]?.metadata).toEqual(
+      expect.objectContaining({
+        transitionOwner: 'match.season-end',
+        previousStatus: 'ACTIVE',
+        nextStatus: 'SEASON_ENDED',
+        nextEndReason: 'SEASON_ENDED',
+        expiredUnmatchRequestCount: 1,
+      }),
+    );
+    for (const lifecycleEvent of lifecycleEvents) {
+      expectLifecycleMetadataToExcludeSensitiveKeys(lifecycleEvent.metadata);
+    }
 
     const secondSweep = await lifecycleSweepService.runBoundarySweep(databaseNow);
     expect(secondSweep.matchTransitions).toMatchObject({

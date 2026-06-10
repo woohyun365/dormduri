@@ -120,6 +120,7 @@ Architecture guards should enforce the final product shape as refactor phases la
 - Root spec files are limited to controller behavior only after specs are moved to owning slices or architecture.
 - External production code does not import `matches/matches.service`.
 - `MatchesModule` exports narrow ports instead of concrete `MatchesService`.
+- ActiveMatch lifecycle event writer/repository remain matches-internal and are not exported or imported by external domains.
 - Pure policies do not import Nest providers, `PrismaService`, or mutable infrastructure.
 - `social-safety`, `profiles`, `users`, `lifecycle`, and `retention` do not mutate `matchRequest`/`activeMatch` tables directly outside match-owned ports.
 - Shared match imports use nested `@repo/shared/match` surfaces, not root flat compatibility exports.

@@ -87,6 +87,17 @@ const phase8_1ExtractedFiles = [
   'test-support/matches-service-spec.harness.ts',
 ] as const;
 
+const activeMatchLifecycleEventInternalConsumers = [
+  'src/matches/active/commands/cancel-unmatch-request.command.ts',
+  'src/matches/active/commands/request-unmatch.command.ts',
+  'src/matches/active/lifecycle/active-match-lifecycle-sweep.service.ts',
+  'src/matches/active/lifecycle-events/active-match-lifecycle-event.repository.ts',
+  'src/matches/active/lifecycle-events/active-match-lifecycle-event.writer.ts',
+  'src/matches/composition/matches.providers.ts',
+  'src/matches/requests/commands/accept-match-request.command.ts',
+  'src/matches/test-support/matches-service-spec.harness.ts',
+] as const;
+
 function walkTypeScriptFiles(root: string): string[] {
   if (!existsSync(root)) {
     return [];
@@ -245,6 +256,23 @@ describe('matches architecture boundary', () => {
     expect(providersSource).toContain('useExisting: MatchHistoryMaterializationService');
     expect(exportsSource).not.toContain('MatchesService');
     expect(exportsSource).not.toContain('Temporary transition export');
+  });
+
+  it('keeps ActiveMatch lifecycle event append internals private to matches owners', () => {
+    const lifecycleEventInternalPattern =
+      /from\s+['"][^'"]*matches\/active\/lifecycle-events\/[^'"]*['"]|\bActiveMatchLifecycleEvent(?:Writer|Repository)\b/;
+    const internalConsumers = productionTypeScriptFiles(matchesRoot)
+      .filter((path) => lifecycleEventInternalPattern.test(readSource(path)))
+      .map(apiRelative)
+      .sort();
+    const externalConsumers = externalFilesContaining(lifecycleEventInternalPattern);
+    const exportsSource = readSource(join(matchesRoot, 'composition/matches.exports.ts'));
+
+    expect(externalConsumers).toEqual([]);
+    expect(internalConsumers).toEqual([...activeMatchLifecycleEventInternalConsumers].sort());
+    expect(exportsSource).not.toMatch(
+      /ActiveMatchLifecycleEvent(?:Writer|Repository)|active\/lifecycle-events/,
+    );
   });
 
   it('keeps future request policies pure from Nest providers and Prisma infrastructure', () => {

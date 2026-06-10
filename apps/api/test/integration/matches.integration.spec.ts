@@ -13,6 +13,7 @@ import {
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
 } from './support/integration-fixtures.js';
+import { expectLifecycleMetadataToExcludeSensitiveKeys } from './support/active-match-lifecycle-event-assertions.js';
 
 describe('MatchesService integration', () => {
   jest.setTimeout(60_000);
@@ -162,6 +163,12 @@ describe('MatchesService integration', () => {
         requestStatus: 'ACCEPTED',
       }),
     );
+    expectLifecycleMetadataToExcludeSensitiveKeys(activeCreatedEvents[0]?.metadata);
+    await expect(
+      prisma.activeMatchLifecycleEvent.count({
+        where: { activeMatchId: activeMatch.id },
+      }),
+    ).resolves.toBe(1);
   });
 
   it('pending 생성 후 requester profile snapshot invariant가 깨지면 accept가 system cancel로 fail-closed 된다', async () => {
