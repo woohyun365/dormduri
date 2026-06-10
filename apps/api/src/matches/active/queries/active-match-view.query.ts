@@ -10,12 +10,15 @@ import {
   activeMatchCommandSelect,
   activeMatchSummarySelect,
   type ActiveMatchCommandRecord,
-} from '../../match-selects.js';
-import { synchronizePendingUnmatchRequests } from '../../match-unmatch-support.js';
+} from '../persistence/active-match.select.js';
+import { ActiveMatchRepository } from '../persistence/active-match.repository.js';
 
 @Injectable()
 export class ActiveMatchViewQuery implements MatchActiveViewPort {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly activeMatchRepository: ActiveMatchRepository,
+  ) {}
 
   async getCurrentActiveMatchByParticipantId(
     seasonId: string,
@@ -38,12 +41,13 @@ export class ActiveMatchViewQuery implements MatchActiveViewPort {
     );
     if (!activeMatch) return null;
 
-    const synchronizedActiveMatch = await synchronizePendingUnmatchRequests(
-      this.prisma,
-      activeMatch,
-      seasonContext,
-      now,
-    );
+    const synchronizedActiveMatch =
+      await this.activeMatchRepository.synchronizePendingUnmatchRequests(
+        this.prisma,
+        activeMatch,
+        seasonContext,
+        now,
+      );
 
     return toDetailedActiveMatchSummary(synchronizedActiveMatch, participantId, seasonContext, now);
   }
@@ -78,12 +82,13 @@ export class ActiveMatchViewQuery implements MatchActiveViewPort {
       throw matchesErrors.activeMatchNotFound();
     }
 
-    const synchronizedActiveMatch = await synchronizePendingUnmatchRequests(
-      client,
-      activeMatch,
-      seasonContext,
-      now,
-    );
+    const synchronizedActiveMatch =
+      await this.activeMatchRepository.synchronizePendingUnmatchRequests(
+        client,
+        activeMatch,
+        seasonContext,
+        now,
+      );
 
     return toDetailedActiveMatchSummary(
       synchronizedActiveMatch,

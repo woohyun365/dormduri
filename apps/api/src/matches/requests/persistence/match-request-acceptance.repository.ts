@@ -4,7 +4,10 @@ import { Prisma } from '../../../generated/prisma/client.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
 import { formatKstDate } from '../../../platform/time/kst-date.js';
 import { parseLifestyleOrNull } from '../../../profiles/profile.mapper.js';
-import { activeMatchSummarySelect, type ActiveMatchRecord } from '../../match-selects.js';
+import {
+  activeMatchSummarySelect,
+  type ActiveMatchRecord,
+} from '../../active/persistence/active-match.select.js';
 import { buildParticipantPairIdentity } from '../../match.utils.js';
 import { matchesErrors } from '../../matches.errors.js';
 import {

@@ -34,10 +34,6 @@ const rootProductionTransitionFiles: TransitionMap = {
   'match-lifecycle-owner.ts': 'Phase 7 lifecycle sweep port split',
   'match-read-model.ts': 'Phase 3/4 active presenter split',
   'match-score-projection.ts': 'Phase 10 scoring/shared contract split',
-  'match-selects.ts': 'Phase 3/6 active persistence select split',
-  'match-transaction-helpers.ts': 'Phase 6 active/unmatch persistence lock split',
-  'match-unmatch-command-cluster.ts': 'Phase 6 unmatch command split',
-  'match-unmatch-support.ts': 'Phase 6 unmatch policy/repository split',
   'match.utils.ts': 'Phase 5/8 shared match utility split',
   'matches.errors.ts': 'Phase 9 errors slice migration',
   'matches.service.ts': 'Phase 2/3 controller facade relocation',
@@ -227,11 +223,16 @@ describe('matches architecture boundary', () => {
   });
 
   it('keeps future request policies pure from Nest providers and Prisma infrastructure', () => {
-    const policyRoot = join(matchesRoot, 'requests/policies');
+    const policyRoots = [
+      join(matchesRoot, 'requests/policies'),
+      join(matchesRoot, 'active/policies'),
+    ];
     const forbidden =
       /from\s+['"].*(?:@nestjs|generated\/prisma|platform\/database)|\bPrismaService\b|\bInjectable\b/;
 
-    expect(filesContaining(policyRoot, forbidden)).toEqual([]);
+    for (const policyRoot of policyRoots) {
+      expect(filesContaining(policyRoot, forbidden)).toEqual([]);
+    }
   });
 
   it('tracks external direct match mutations until they are moved behind match-owned ports', () => {

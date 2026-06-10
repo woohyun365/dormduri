@@ -48,11 +48,11 @@ Final subdirectory targets:
 - `application/ports/`: public port tokens and interfaces for external consumers.
 - `context/`: active match/domain route context decorator, guard, resolver, and request context type.
 - `requests/`: match request create/list/accept/reject/cancel command, query, policy, preparation, presenter, repository.
-- `active/`: active match read, unmatch command, lifecycle transition, active-match presenter/repository.
+- `active/`: active match read, unmatch command/policy/persistence, lifecycle transition, active-match presenter/repository.
 - `history/`: history materialization, history read query/model, deleted/deidentified tombstone and RRPD handoff helpers.
 - `scoring/`: match score projection and shared score contract adapter.
 - `lifecycle/`: cross-domain side-effect implementations such as block side-effect and lifecycle sweep adapter.
-- `persistence/`: Prisma select shapes, TypedSQL row locks, advisory lock helpers, transaction helper.
+- `persistence/`: shared Prisma/TypedSQL infrastructure only when it is not owned by a narrower slice.
 - `errors/`: user-facing matches error contract.
 - `contracts/`: API-local shared match contract behavior regression specs when needed; shared package source-of-truth layout specs stay under architecture.
 
@@ -83,12 +83,12 @@ Final subdirectory targets:
 | Request create/list          | `requests/commands`, `requests/queries`, `requests/eligibility`, `requests/policies`, `requests/persistence` | `requests/commands`, `requests/queries`, `requests/policies`, `requests/mappers`, `requests/persistence` | Keep requestability and stale-state checks close to command/repository boundary.     |
 | Request accept/reject/cancel | `requests/commands`, `requests/policies`, `requests/persistence`, `requests/presenters`                      | `requests/commands`, `requests/policies`, `requests/persistence`                                         | Accept path must preserve chat lifecycle port call inside the transaction.           |
 | Active match read/context    | `match-active-query-owner.ts`, `match-context-owner.ts`, `active-match-context.*`                            | `active/queries`, `context/`                                                                             | Context guard prepares coarse context; action-specific rules stay in command/policy. |
-| Unmatch request/cancel       | `match-unmatch-command-cluster.ts`, `match-unmatch-support.ts`                                               | `active/commands`, `active/policies`, `active/repository`                                                | Preserve active row lock and stale lifecycle recheck.                                |
+| Unmatch request/cancel       | `active/commands`, `active/policies`, `active/persistence`                                                   | `active/commands`, `active/policies`, `active/persistence`                                               | Preserve active row lock, mutual unmatch transaction, and chat lifecycle port call.  |
 | Lifecycle sweep              | `match-lifecycle-owner.ts`, `matches.service.ts`                                                             | `active/lifecycle`, `lifecycle/`, `MATCH_LIFECYCLE_SWEEP_PORT`                                           | Top-level lifecycle should depend on a port, not concrete service.                   |
 | History materialization      | `match-history-materialization-owner.ts`, `retention/match-history-archive.handler.ts`                       | `history/materialization`, `history/retention`                                                           | Retained payload stays out of hot user-facing history rows.                          |
 | History read                 | `match-history-read-owner.ts`, `match-history-read-model.ts`                                                 | `history/queries`, `history/mappers`                                                                     | Deleted/deidentified counterpart detail degrades to tombstone.                       |
 | Score projection             | `match-score-projection.ts`, `match-score.spec.ts`, `packages/shared/src/match-score.ts`                     | `scoring/`, `packages/shared/src/match/score.ts`                                                         | `perspectiveScore(viewer, target)` is the canonical user-facing score.               |
-| Transaction locks/selects    | `match-transaction-helpers.ts`, `match-selects.ts`, `apps/api/prisma/sql/lock*.sql`                          | `persistence/`                                                                                           | TypedSQL and Prisma select shapes stay infrastructure-local.                         |
+| Transaction locks/selects    | `requests/persistence`, `active/persistence`, `apps/api/prisma/sql/lock*.sql`                                | owning slice `*/persistence`                                                                             | TypedSQL and Prisma select shapes stay infrastructure-local.                         |
 | User-facing errors           | `matches.errors.ts`                                                                                          | `errors/`                                                                                                | Refactor must not change response/error code behavior.                               |
 | Block side-effect            | `lifecycle/match-block-side-effect.service.ts`, `application/ports/match-block-side-effect.port.ts`          | `lifecycle/`, `application/ports/`                                                                       | Social-safety consumes the port; match request mutation remains match-owned.         |
 
@@ -119,7 +119,7 @@ pnpm --dir apps/api exec jest --watchman=false --runInBand \
   src/matches/match-score-projection.spec.ts \
   src/matches/match-score.spec.ts \
   src/matches/match.utils.spec.ts \
-  src/matches/active-match-context.guard.spec.ts
+  src/matches/active/context/active-match-context.guard.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed files without apps/api prefix>
 git diff --check

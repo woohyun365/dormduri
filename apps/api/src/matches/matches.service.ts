@@ -12,10 +12,6 @@ import type { PublicProfile } from '@repo/shared/profile-contract';
 import { Prisma } from '../generated/prisma/client.js';
 import type { Campus } from '../generated/prisma/enums.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import {
-  CHAT_MATCH_THREAD_LIFECYCLE_PORT,
-  type ChatMatchThreadLifecyclePort,
-} from '../chat/application/ports/chat-match-thread-lifecycle.port.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { createMatchContextOwner } from './match-context-owner.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
@@ -37,14 +33,9 @@ import { matchesErrors } from './matches.errors.js';
 import { createMatchHistoryMaterializationOwner } from './match-history-materialization-owner.js';
 import { createMatchHistoryReadOwner } from './match-history-read-owner.js';
 import { createMatchLifecycleOwner } from './match-lifecycle-owner.js';
-import { activeMatchCommandSelect } from './match-selects.js';
-import { acquireActiveMatchLock, lockActiveMatchRow } from './match-transaction-helpers.js';
-import { createMatchUnmatchCommandCluster } from './match-unmatch-command-cluster.js';
-import {
-  loadValidatedActiveMatchForUnmatch,
-  reloadActiveMatchOrThrow,
-  synchronizePendingUnmatchRequests,
-} from './match-unmatch-support.js';
+import { CancelUnmatchRequestCommand } from './active/commands/cancel-unmatch-request.command.js';
+import { RequestUnmatchCommand } from './active/commands/request-unmatch.command.js';
+import { ActiveMatchRepository } from './active/persistence/active-match.repository.js';
 import { AcceptMatchRequestCommand } from './requests/commands/accept-match-request.command.js';
 import { CreateMatchRequestCommand } from './requests/commands/create-match-request.command.js';
 import { RejectMatchRequestCommand } from './requests/commands/reject-match-request.command.js';
@@ -69,8 +60,9 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     private readonly acceptMatchRequestCommand: AcceptMatchRequestCommand,
     private readonly rejectMatchRequestCommand: RejectMatchRequestCommand,
     private readonly cancelMatchRequestCommand: CancelMatchRequestCommand,
-    @Inject(CHAT_MATCH_THREAD_LIFECYCLE_PORT)
-    private readonly chatMatchThreadLifecycle: ChatMatchThreadLifecyclePort,
+    private readonly requestUnmatchCommand: RequestUnmatchCommand,
+    private readonly cancelUnmatchRequestCommand: CancelUnmatchRequestCommand,
+    private readonly activeMatchRepository: ActiveMatchRepository,
   ) {}
 
   private get lifecycleOwner() {
@@ -90,19 +82,6 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
       seasonParticipantsService: this.seasonParticipantsService,
       requestTargetNotFound: () => matchesErrors.requestTargetNotFound(),
       requestSelfTargetNotAllowed: () => matchesErrors.requestSelfTargetNotAllowed(),
-    });
-  }
-
-  private get unmatchCommandCluster() {
-    return createMatchUnmatchCommandCluster({
-      getDatabaseNow: () => this.prisma.getDatabaseNow(),
-      runSerializableTransaction: (callback) => this.prisma.runSerializableTransaction(callback),
-      getCurrentMatchContext: (userId, now) =>
-        this.contextOwner.getCurrentMatchContext(userId, now),
-      loadValidatedActiveMatchForUnmatch,
-      reloadActiveMatchOrThrow,
-      handleActiveMatchUnmatched: (tx, input, now) =>
-        this.chatMatchThreadLifecycle.handleActiveMatchUnmatched(tx, input, now),
     });
   }
 
@@ -184,14 +163,14 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     authUser: AuthenticatedUserContext,
     activeMatchId: string,
   ): Promise<ActiveMatchActionResponse> {
-    return this.unmatchCommandCluster.requestUnmatch(authUser, activeMatchId);
+    return this.requestUnmatchCommand.execute(authUser, activeMatchId);
   }
 
   async cancelUnmatchRequest(
     authUser: AuthenticatedUserContext,
     activeMatchId: string,
   ): Promise<ActiveMatchActionResponse> {
-    return this.unmatchCommandCluster.cancelUnmatchRequest(authUser, activeMatchId);
+    return this.cancelUnmatchRequestCommand.execute(authUser, activeMatchId);
   }
 
   async getCurrentActiveMatchByParticipantId(
@@ -270,13 +249,10 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     now: Date,
   ): Promise<LifecycleTransitionResult> {
     return this.prisma.runSerializableTransaction(async (tx) => {
-      await acquireActiveMatchLock(tx, activeMatchId);
-      await lockActiveMatchRow(tx, activeMatchId);
-
-      const currentActiveMatch = await tx.activeMatch.findUnique({
-        where: { id: activeMatchId },
-        select: activeMatchCommandSelect,
-      });
+      const currentActiveMatch = await this.activeMatchRepository.lockAndFindActiveMatch(
+        tx,
+        activeMatchId,
+      );
 
       if (!currentActiveMatch || currentActiveMatch.status !== 'ACTIVE') {
         return { expiredUnmatchRequests: 0, seasonEndedActiveMatch: false };
@@ -296,12 +272,13 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
         return { expiredUnmatchRequests: 0, seasonEndedActiveMatch: false };
       }
 
-      const synchronizedActiveMatch = await synchronizePendingUnmatchRequests(
-        tx,
-        currentActiveMatch,
-        seasonContext,
-        now,
-      );
+      const synchronizedActiveMatch =
+        await this.activeMatchRepository.synchronizePendingUnmatchRequests(
+          tx,
+          currentActiveMatch,
+          seasonContext,
+          now,
+        );
       const pendingAfter = synchronizedActiveMatch.unmatchRequests.filter(
         (request) => request.status === 'PENDING',
       ).length;

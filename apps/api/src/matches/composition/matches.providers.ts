@@ -1,5 +1,8 @@
 import type { ModuleMetadata } from '@nestjs/common';
+import { CancelUnmatchRequestCommand } from '../active/commands/cancel-unmatch-request.command.js';
+import { RequestUnmatchCommand } from '../active/commands/request-unmatch.command.js';
 import { ActiveMatchContextGuard } from '../active/context/active-match-context.guard.js';
+import { ActiveMatchRepository } from '../active/persistence/active-match.repository.js';
 import { ActiveMatchViewQuery } from '../active/queries/active-match-view.query.js';
 import { MATCH_ACTIVE_VIEW_PORT } from '../application/ports/match-active-view.port.js';
 import { MATCH_BLOCK_SIDE_EFFECT_PORT } from '../application/ports/match-block-side-effect.port.js';
@@ -22,12 +25,15 @@ import { ListCurrentSeasonRequestsQuery } from '../requests/queries/list-current
 export const MATCHES_PROVIDERS = [
   MatchesService,
   ActiveMatchContextGuard,
+  ActiveMatchRepository,
   ActiveMatchViewQuery,
   ListCurrentSeasonRequestsQuery,
   CreateMatchRequestCommand,
   AcceptMatchRequestCommand,
   RejectMatchRequestCommand,
   CancelMatchRequestCommand,
+  RequestUnmatchCommand,
+  CancelUnmatchRequestCommand,
   ResolveTerminalMatchRequestCommand,
   MatchRequestCreationEvaluator,
   MatchRequestAcceptanceRepository,

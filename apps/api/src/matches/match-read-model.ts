@@ -1,11 +1,24 @@
 import type { ActiveMatchSummary, ActiveMatchUnmatchProgress } from '@repo/shared/match-contract';
 import { buildDirectionalMatchScoreProjection } from './match-score-projection.js';
-import { formatKstDate } from '../platform/time/kst-date.js';
 import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
+import {
+  findActiveMatchRoomSelectionDate,
+  isUnmatchWindowOpen,
+} from './active/policies/active-match-unmatch.policy.js';
 
-export type { ActiveMatchCommandRecord, ActiveMatchRecord } from './match-selects.js';
-import type { ActiveMatchCommandRecord, ActiveMatchRecord } from './match-selects.js';
+export {
+  findActiveMatchRoomSelectionDate,
+  isUnmatchWindowOpen,
+} from './active/policies/active-match-unmatch.policy.js';
+export type {
+  ActiveMatchCommandRecord,
+  ActiveMatchRecord,
+} from './active/persistence/active-match.select.js';
+import type {
+  ActiveMatchCommandRecord,
+  ActiveMatchRecord,
+} from './active/persistence/active-match.select.js';
 
 export function toActiveMatchSummary(
   activeMatch: ActiveMatchRecord,
@@ -111,40 +124,6 @@ export function toDetailedActiveMatchSummary(
           : null,
     },
   };
-}
-
-export function isUnmatchWindowOpen(
-  activeMatch: ActiveMatchCommandRecord,
-  seasonContext: CurrentSeasonContext,
-  now: Date,
-) {
-  const roomSelectionDate = findActiveMatchRoomSelectionDate(activeMatch, seasonContext);
-  if (!roomSelectionDate || seasonContext.state !== 'SEASON_MATCHING') {
-    return false;
-  }
-
-  return formatKstDate(now) <= roomSelectionDate;
-}
-
-export function findActiveMatchRoomSelectionDate(
-  activeMatch: ActiveMatchCommandRecord,
-  seasonContext: CurrentSeasonContext,
-) {
-  if (
-    activeMatch.participantA.dormitorySelectionState !== 'ASSIGNED' ||
-    activeMatch.participantB.dormitorySelectionState !== 'ASSIGNED' ||
-    !activeMatch.participantA.dormitoryId ||
-    !activeMatch.participantB.dormitoryId ||
-    activeMatch.participantA.dormitoryId !== activeMatch.participantB.dormitoryId
-  ) {
-    return null;
-  }
-
-  return (
-    seasonContext.operatedDormitories.find(
-      (item) => item.dormitoryId === activeMatch.participantA.dormitoryId,
-    )?.roomSelectionDate ?? null
-  );
 }
 
 function toInactiveUnmatchProgress(): ActiveMatchUnmatchProgress {

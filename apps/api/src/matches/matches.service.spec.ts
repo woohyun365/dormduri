@@ -1,5 +1,8 @@
 import { MatchesService } from './matches.service.js';
 import { matchesErrors } from './matches.errors.js';
+import { CancelUnmatchRequestCommand } from './active/commands/cancel-unmatch-request.command.js';
+import { RequestUnmatchCommand } from './active/commands/request-unmatch.command.js';
+import { ActiveMatchRepository } from './active/persistence/active-match.repository.js';
 import { ActiveMatchViewQuery } from './active/queries/active-match-view.query.js';
 import { MatchRequestNoteModerationAdapter } from './requests/adapters/match-request-note-moderation.adapter.js';
 import { AcceptMatchRequestCommand } from './requests/commands/accept-match-request.command.js';
@@ -181,7 +184,8 @@ describe('MatchesService', () => {
     handleActiveMatchUnmatched: jest.fn(),
   };
 
-  const activeMatchViewQuery = new ActiveMatchViewQuery(prisma as never);
+  const activeMatchRepository = new ActiveMatchRepository();
+  const activeMatchViewQuery = new ActiveMatchViewQuery(prisma as never, activeMatchRepository);
   const noteModerationAdapter = new MatchRequestNoteModerationAdapter(moderationService as never);
   const matchRequestRepository = new MatchRequestRepository();
   const matchRequestAcceptanceRepository = new MatchRequestAcceptanceRepository();
@@ -225,7 +229,20 @@ describe('MatchesService', () => {
     ),
     new RejectMatchRequestCommand(resolveTerminalMatchRequestCommand),
     new CancelMatchRequestCommand(resolveTerminalMatchRequestCommand),
-    chatMatchThreadLifecycle as never,
+    new RequestUnmatchCommand(
+      prisma as never,
+      seasonsService as never,
+      seasonParticipantsService as never,
+      chatMatchThreadLifecycle as never,
+      activeMatchRepository,
+    ),
+    new CancelUnmatchRequestCommand(
+      prisma as never,
+      seasonsService as never,
+      seasonParticipantsService as never,
+      activeMatchRepository,
+    ),
+    activeMatchRepository,
   );
 
   beforeEach(() => {
