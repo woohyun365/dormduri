@@ -116,62 +116,49 @@ const CANONICAL_NESTED_EXPORTS: Record<string, PackageExportTarget> = {
     default: './dist/identity/primitives.js',
   },
   './lifestyle': { types: './dist/lifestyle/index.d.ts', default: './dist/lifestyle/index.js' },
+  './match': { types: './dist/match/index.d.ts', default: './dist/match/index.js' },
+  './match/contract': {
+    types: './dist/match/contract/index.d.ts',
+    default: './dist/match/contract/index.js',
+  },
 };
 
 const EXCLUDED_OWNER_ROOT_FILES = [
-  'match-contract-enums.ts',
-  'match-contract-history.ts',
-  'match-contract-request.ts',
-  'match-contract-response.ts',
-  'match-contract-summary.ts',
-  'match-contract.ts',
-  'match-score.ts',
   'profile-contract-fields.ts',
   'profile-contract-public.ts',
   'profile-contract.ts',
   'roommate-search-contract.ts',
 ] as const;
 
-const MATCH_FLAT_CONTRACT_TRANSITION_EXPORTS: Record<string, PackageExportTarget> = {
-  './match-contract': {
-    types: './dist/match-contract.d.ts',
-    default: './dist/match-contract.js',
-  },
-  './match-score': {
-    types: './dist/match-score.d.ts',
-    default: './dist/match-score.js',
-  },
-};
-
-const MATCH_FLAT_CONTRACT_TRANSITION_ROOT_FILES = [
-  'match-contract-enums.ts',
-  'match-contract-history.ts',
-  'match-contract-request.ts',
-  'match-contract-response.ts',
-  'match-contract-summary.ts',
-  'match-contract.ts',
-  'match-score.ts',
+const REMOVED_MATCH_PUBLIC_EXPORTS = [
+  './match-contract',
+  './match-score',
+  './match/score',
 ] as const;
 
-const MATCH_CANONICAL_NESTED_EXPORTS = ['./match', './match/contract', './match/score'] as const;
-
-const REMOVED_PUBLIC_SPECIFIERS = [
-  '@repo/shared/auth-contract',
-  '@repo/shared/auth-policy',
-  '@repo/shared/auth-response',
-  '@repo/shared/chat-contract',
-  '@repo/shared/chat-realtime-contract',
-  '@repo/shared/chat-realtime-events',
-  '@repo/shared/dormitory-contract',
-  '@repo/shared/notification-contract',
-  '@repo/shared/season-contract',
-  '@repo/shared/session-contract',
-  '@repo/shared/support-contract',
-  '@repo/shared/campus-contract',
-  '@repo/shared/college-contract',
-  '@repo/shared/date-primitives',
-  '@repo/shared/identity-contract',
+const REMOVED_PUBLIC_SPECIFIER_SUFFIXES = [
+  'auth-contract',
+  'auth-policy',
+  'auth-response',
+  'chat-contract',
+  'chat-realtime-contract',
+  'chat-realtime-events',
+  'dormitory-contract',
+  'notification-contract',
+  'season-contract',
+  'session-contract',
+  'support-contract',
+  'campus-contract',
+  'college-contract',
+  'date-primitives',
+  'identity-contract',
+  'match-contract',
+  'match-score',
+  'match/score',
 ] as const;
+const REMOVED_PUBLIC_SPECIFIERS = REMOVED_PUBLIC_SPECIFIER_SUFFIXES.map(
+  (suffix) => `@repo/shared/${suffix}`,
+);
 
 function findRepoRoot() {
   let current = process.cwd();
@@ -267,7 +254,7 @@ describe('shared contract source-of-truth layout', () => {
     }
   });
 
-  it('tracks match flat contract as the explicit Phase 10 transition owner', () => {
+  it('keeps match contract on nested exports and removes shared score public export after Phase 10', () => {
     const sharedPackageJson = readPackageJson();
     const rootMatchFiles = readdirSync(sharedSrc, { withFileTypes: true })
       .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
@@ -275,13 +262,16 @@ describe('shared contract source-of-truth layout', () => {
       .filter((file) => file.startsWith('match-contract') || file === 'match-score.ts')
       .sort();
 
-    expect(rootMatchFiles).toEqual([...MATCH_FLAT_CONTRACT_TRANSITION_ROOT_FILES].sort());
-    for (const [publicPath, expectedTarget] of Object.entries(
-      MATCH_FLAT_CONTRACT_TRANSITION_EXPORTS,
-    )) {
-      expect(sharedPackageJson.exports[publicPath]).toEqual(expectedTarget);
-    }
-    for (const publicPath of MATCH_CANONICAL_NESTED_EXPORTS) {
+    expect(rootMatchFiles).toEqual([]);
+    expect(sharedPackageJson.exports['./match']).toEqual({
+      types: './dist/match/index.d.ts',
+      default: './dist/match/index.js',
+    });
+    expect(sharedPackageJson.exports['./match/contract']).toEqual({
+      types: './dist/match/contract/index.d.ts',
+      default: './dist/match/contract/index.js',
+    });
+    for (const publicPath of REMOVED_MATCH_PUBLIC_EXPORTS) {
       expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
     }
   });

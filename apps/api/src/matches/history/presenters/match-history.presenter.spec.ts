@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import {
   matchHistoryEntrySchema,
   matchHistorySeasonSummarySchema,
-} from '@repo/shared/match-contract';
+} from '@repo/shared/match/contract';
 import { toMatchHistoryResponse, type MatchHistoryEntryRow } from './match-history.presenter.js';
 
 function findRepoRoot() {
@@ -41,7 +41,7 @@ function makeHistoryEntryRow(overrides: Partial<MatchHistoryEntryRow> = {}): Mat
 describe('match history read model', () => {
   it('match history contract는 chat implementation을 import하지 않는다', () => {
     const source = readFileSync(
-      join(findRepoRoot(), 'packages/shared/src/match-contract-history.ts'),
+      join(findRepoRoot(), 'packages/shared/src/match/contract/history.ts'),
       'utf8',
     );
 

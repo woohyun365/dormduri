@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from './date/primitives.js';
-import { roommateSearchSummarySchema } from './roommate-search-contract.js';
+import { isoDateTimeStringSchema } from '../../date/primitives.js';
+import { roommateSearchSummarySchema } from '../../roommate-search-contract.js';
 import {
   activeMatchEndReasonSchema,
   activeMatchStatusSchema,
@@ -8,7 +8,7 @@ import {
   matchRequestStatusSchema,
   matchRequestTerminalReasonSchema,
   requestDirectionSchema,
-} from './match-contract-enums.js';
+} from './enums.js';
 
 export const activeMatchUnmatchProgressSchema = z.strictObject({
   state: activeMatchUnmatchProgressStateSchema,

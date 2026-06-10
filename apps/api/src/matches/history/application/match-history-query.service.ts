@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { MatchHistoryResponse } from '@repo/shared/match-contract';
+import type { MatchHistoryResponse } from '@repo/shared/match/contract';
 import type { PublicProfile, PublicProfileActionCapabilities } from '@repo/shared/profile-contract';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { formatKstDate } from '../../../platform/time/kst-date.js';

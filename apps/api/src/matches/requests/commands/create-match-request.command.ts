@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type {
   CreateMatchRequestRequest,
   MatchRequestActionResponse,
-} from '@repo/shared/match-contract';
+} from '@repo/shared/match/contract';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { toMatchRequestSummary } from '../presenters/match-request.presenter.js';

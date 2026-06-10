@@ -1,4 +1,4 @@
-import type { MatchRequestSummary } from '@repo/shared/match-contract';
+import type { MatchRequestSummary } from '@repo/shared/match/contract';
 import type { RoommateSearchSummary } from '@repo/shared/roommate-search-contract';
 import { resolvePublicCounterpartNickname } from '../../../privacy/deidentification/deidentified-display.policy.js';
 import type { MatchRequestRecord } from '../persistence/match-request.select.js';

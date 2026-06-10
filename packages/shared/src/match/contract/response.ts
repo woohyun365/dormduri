@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { activeMatchSummarySchema, matchRequestSummarySchema } from './match-contract-summary.js';
+import { activeMatchSummarySchema, matchRequestSummarySchema } from './summary.js';
 
 export const matchRequestListResponseSchema = z.strictObject({
   items: z.array(matchRequestSummarySchema),

@@ -4,7 +4,7 @@ import type { AuthenticatedUserContext } from '../auth/application/auth-actor-co
 import type { PrismaService } from '../platform/database/prisma.service.js';
 import { resolveProfileDisplayName } from '../privacy/deidentification/deidentified-display.policy.js';
 import type { MatchActiveViewPort } from '../matches/application/ports/match-active-view.port.js';
-import { shouldExposePublicMatchScore } from '../matches/match-score-projection.js';
+import type { MatchScoreProjectionPort } from '../matches/application/ports/match-score-projection.port.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
@@ -30,7 +30,6 @@ import {
   toTombstonePublicProfile,
   type ProfileViewRecord,
 } from './profile.mapper.js';
-import { calculateQueryTimeRoommateSearchScore } from './roommate-search-score.owner.js';
 import {
   createRoommateSearchTokenOwner,
   type ProfileDetailEntryTokenPayload,
@@ -41,6 +40,7 @@ interface VisibleProfileOwnerDeps {
   seasonsService: SeasonContextPort;
   seasonParticipantsService: SeasonParticipantsService;
   matchActiveView: MatchActiveViewPort;
+  matchScoreProjection: MatchScoreProjectionPort;
 }
 
 export interface VisibleProfileViewerContext {
@@ -217,13 +217,13 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     }
 
     const targetLifestyle = parseLifestyleOrNull(sourceProfile.lifestyle);
-    const scoreVisible = shouldExposePublicMatchScore({
+    const scoreVisible = deps.matchScoreProjection.shouldExposePublicMatchScore({
       seasonState: viewerContext.serviceState.seasonState,
       scoreVisible: publicTargetPolicy.exposure.scoreVisible,
       resultReadContext: publicTargetPolicy.resultRead.context,
     });
     const matchScore = scoreVisible
-      ? calculateQueryTimeRoommateSearchScore({
+      ? deps.matchScoreProjection.calculateQueryTimeRoommateSearchScore({
           viewerLifestyle: viewerContext.viewerLifestyle,
           targetLifestyle,
           scoreVisible,
@@ -479,13 +479,13 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       (hasDetailEntryContext || hasResultReadContext)
     ) {
       const targetLifestyle = parseLifestyleOrNull(sourceProfile.lifestyle);
-      const scoreVisible = shouldExposePublicMatchScore({
+      const scoreVisible = deps.matchScoreProjection.shouldExposePublicMatchScore({
         seasonState: viewerContext.serviceState.seasonState,
         scoreVisible: publicTargetPolicy.exposure.scoreVisible,
         resultReadContext: publicTargetPolicy.resultRead.context,
       });
       const matchScore = scoreVisible
-        ? calculateQueryTimeRoommateSearchScore({
+        ? deps.matchScoreProjection.calculateQueryTimeRoommateSearchScore({
             viewerLifestyle: viewerContext.viewerLifestyle,
             targetLifestyle,
             scoreVisible,

@@ -5,7 +5,7 @@ import {
   seasonParticipationCompletionStateSchema,
   seasonParticipationStateSchema,
 } from '../season/participation/index.js';
-import { activeMatchSummarySchema } from '../match-contract.js';
+import { activeMatchSummarySchema } from '../match/contract/index.js';
 import {
   displayIdentityEditUnavailableReasonSchema,
   userDisplayIdentitySchema,

@@ -11,10 +11,12 @@ import { MATCH_ACTIVE_VIEW_PORT } from '../application/ports/match-active-view.p
 import { MATCH_BLOCK_SIDE_EFFECT_PORT } from '../application/ports/match-block-side-effect.port.js';
 import { MATCH_HISTORY_MATERIALIZATION_PORT } from '../application/ports/match-history-materialization.port.js';
 import { MATCH_LIFECYCLE_SWEEP_PORT } from '../application/ports/match-lifecycle-sweep.port.js';
+import { MATCH_SCORE_PROJECTION_PORT } from '../application/ports/match-score-projection.port.js';
 import { MatchHistoryMaterializationService } from '../history/application/match-history-materialization.service.js';
 import { MatchHistoryQueryService } from '../history/application/match-history-query.service.js';
 import { MatchHistoryRepository } from '../history/persistence/match-history.repository.js';
 import { MatchBlockSideEffectService } from '../lifecycle/match-block-side-effect.service.js';
+import { MatchScoreProjectionService } from '../scoring/match-score-projection.js';
 import { MatchesService } from '../matches.service.js';
 import { MatchRequestNoteModerationAdapter } from '../requests/adapters/match-request-note-moderation.adapter.js';
 import { AcceptMatchRequestCommand } from '../requests/commands/accept-match-request.command.js';
@@ -52,6 +54,7 @@ export const MATCHES_PROVIDERS = [
   MatchRequestRepository,
   MatchRequestNoteModerationAdapter,
   MatchBlockSideEffectService,
+  MatchScoreProjectionService,
   {
     provide: MATCH_ACTIVE_VIEW_PORT,
     useExisting: ActiveMatchViewQuery,
@@ -67,6 +70,10 @@ export const MATCHES_PROVIDERS = [
   {
     provide: MATCH_BLOCK_SIDE_EFFECT_PORT,
     useExisting: MatchBlockSideEffectService,
+  },
+  {
+    provide: MATCH_SCORE_PROJECTION_PORT,
+    useExisting: MatchScoreProjectionService,
   },
   {
     provide: MATCH_REQUEST_NOTE_MODERATION_PORT,

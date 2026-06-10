@@ -69,7 +69,7 @@ describe('Phase 10C cross-domain chat architecture boundary', () => {
   });
 
   it('keeps shared match history contract independent from chat and notification contracts', () => {
-    const source = readSource(join(sharedSourceRoot, 'match-contract-history.ts'));
+    const source = readSource(join(sharedSourceRoot, 'match/contract/history.ts'));
 
     expect(source).not.toMatch(/from\s+['"].*(chat|notification|compat\/chat-contract)/);
   });

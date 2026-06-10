@@ -1,9 +1,6 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from './date/primitives.js';
-import {
-  activeMatchEndReasonSchema,
-  matchRequestTerminalReasonSchema,
-} from './match-contract-enums.js';
+import { isoDateTimeStringSchema } from '../../date/primitives.js';
+import { activeMatchEndReasonSchema, matchRequestTerminalReasonSchema } from './enums.js';
 
 export const matchHistoryStageSchema = z.enum(['SENT_REQUEST', 'RECEIVED_REQUEST', 'MATCH']);
 

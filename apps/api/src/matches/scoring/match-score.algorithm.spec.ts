@@ -1,4 +1,4 @@
-import { calcViewerMatchScore, canComputeMatchScore } from '@repo/shared/match-score';
+import { calcViewerMatchScore, canComputeMatchScore } from './match-score.algorithm.js';
 import {
   isLifestyleCoreComplete,
   isRoommateConditionComplete,
@@ -30,7 +30,7 @@ const COMPLETE_LIFESTYLE = {
   screenTolerance: 'LOW_OK',
 } as const;
 
-describe('shared match-score module', () => {
+describe('matches score algorithm', () => {
   it('핵심 프로필 / 룸메 조건 / 시즌 프로필 complete helper를 분리한다', () => {
     expect(isLifestyleCoreComplete(COMPLETE_LIFESTYLE)).toBe(true);
     expect(isRoommateConditionComplete(COMPLETE_LIFESTYLE)).toBe(true);

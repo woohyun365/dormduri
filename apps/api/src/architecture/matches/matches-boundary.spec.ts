@@ -27,14 +27,11 @@ const requiredReadmeSections = [
 ] as const;
 
 const rootProductionTransitionFiles: TransitionMap = {
-  'match-score-projection.ts': 'Phase 10 scoring/shared contract split',
   'matches.errors.ts': 'Phase 9 errors slice migration',
   'matches.service.ts': 'Phase 12 controller facade relocation',
 };
 
 const rootSpecTransitionFiles: TransitionMap = {
-  'match-score-projection.spec.ts': 'Phase 10 scoring spec split',
-  'match-score.spec.ts': 'Phase 10 shared score spec split',
   'matches.service.spec.ts': 'Phase 12 facade smoke spec relocation/removal',
 };
 
@@ -45,33 +42,36 @@ const externalMatchMutationTransitionFiles: TransitionMap = {
     'Phase 7 participant withdrawal match side-effect port decision',
 };
 
-const sharedMatchRootTransitionFiles = [
-  'match-contract-enums.ts',
-  'match-contract-history.ts',
-  'match-contract-request.ts',
-  'match-contract-response.ts',
-  'match-contract-summary.ts',
-  'match-contract.ts',
-  'match-score.ts',
+const removedSharedMatchFlatExports = [
+  './match-contract',
+  './match-score',
+  './match/score',
 ] as const;
 
-const sharedMatchFlatExports: Record<string, PackageExportTarget> = {
-  './match-contract': {
-    types: './dist/match-contract.d.ts',
-    default: './dist/match-contract.js',
+const finalSharedMatchExports: Record<string, PackageExportTarget> = {
+  './match': {
+    types: './dist/match/index.d.ts',
+    default: './dist/match/index.js',
   },
-  './match-score': {
-    types: './dist/match-score.d.ts',
-    default: './dist/match-score.js',
+  './match/contract': {
+    types: './dist/match/contract/index.d.ts',
+    default: './dist/match/contract/index.js',
   },
 };
 
-const finalSharedMatchExports = ['./match', './match/contract', './match/score'] as const;
+const phase10ScoringFiles = [
+  'scoring/match-score.algorithm.ts',
+  'scoring/match-score.algorithm.spec.ts',
+  'scoring/match-score-projection.ts',
+  'scoring/match-score-projection.spec.ts',
+  'application/ports/match-score-projection.port.ts',
+] as const;
 
 const phase2PortFiles = [
   'application/ports/match-active-view.port.ts',
   'application/ports/match-lifecycle-sweep.port.ts',
   'application/ports/match-history-materialization.port.ts',
+  'application/ports/match-score-projection.port.ts',
 ] as const;
 
 const phase8_1ExtractedFiles = [
@@ -122,10 +122,6 @@ function readSource(path: string) {
 
 function apiRelative(path: string) {
   return relative(apiRoot, path).split(sep).join('/');
-}
-
-function repoRelative(path: string) {
-  return relative(repoRoot, path).split(sep).join('/');
 }
 
 function rootTypeScriptFileNames(root: string, spec: boolean) {
@@ -220,6 +216,20 @@ describe('matches architecture boundary', () => {
     expect(countLines(join(matchesRoot, 'matches.service.spec.ts'))).toBeLessThanOrEqual(120);
   });
 
+  it('keeps Phase 10 score algorithm and projection in the scoring slice', () => {
+    for (const relativePath of phase10ScoringFiles) {
+      expect(existsSync(join(matchesRoot, relativePath))).toBe(true);
+    }
+
+    for (const removedRootFile of [
+      'match-score-projection.ts',
+      'match-score-projection.spec.ts',
+      'match-score.spec.ts',
+    ]) {
+      expect(existsSync(join(matchesRoot, removedRootFile))).toBe(false);
+    }
+  });
+
   it('keeps external production code off concrete MatchesService after port migration', () => {
     const concreteConsumers = externalFilesContaining(
       /from\s+['"][^'"]*matches\/matches\.service(?:\.js)?['"]|\bMatchesService\b/,
@@ -243,6 +253,7 @@ describe('matches architecture boundary', () => {
       'MATCH_LIFECYCLE_SWEEP_PORT',
       'MATCH_HISTORY_MATERIALIZATION_PORT',
       'MATCH_BLOCK_SIDE_EFFECT_PORT',
+      'MATCH_SCORE_PROJECTION_PORT',
     ]) {
       expect(providersSource).toContain(finalPort);
       expect(exportsSource).toContain(finalPort);
@@ -254,6 +265,8 @@ describe('matches architecture boundary', () => {
     expect(providersSource).toContain('useExisting: ActiveMatchLifecycleSweepService');
     expect(providersSource).toContain('MatchHistoryMaterializationService');
     expect(providersSource).toContain('useExisting: MatchHistoryMaterializationService');
+    expect(providersSource).toContain('MatchScoreProjectionService');
+    expect(providersSource).toContain('useExisting: MatchScoreProjectionService');
     expect(exportsSource).not.toContain('MatchesService');
     expect(exportsSource).not.toContain('Temporary transition export');
   });
@@ -313,7 +326,7 @@ describe('matches architecture boundary', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('tracks shared match flat contract as a Phase 10 transition owner', () => {
+  it('keeps shared match contract nested and score algorithm API-owned after Phase 10', () => {
     const rootMatchFiles = readdirSync(sharedSrc, { withFileTypes: true })
       .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
       .map((entry) => entry.name)
@@ -321,15 +334,14 @@ describe('matches architecture boundary', () => {
       .sort();
     const sharedPackageJson = readSharedPackageJson();
 
-    expect(rootMatchFiles).toEqual([...sharedMatchRootTransitionFiles].sort());
-    for (const [publicPath, expectedTarget] of Object.entries(sharedMatchFlatExports)) {
+    expect(rootMatchFiles).toEqual([]);
+    expect(existsSync(join(sharedSrc, 'match/contract/index.ts'))).toBe(true);
+    expect(existsSync(join(sharedSrc, 'match/contract/history.ts'))).toBe(true);
+    for (const [publicPath, expectedTarget] of Object.entries(finalSharedMatchExports)) {
       expect(sharedPackageJson.exports[publicPath]).toEqual(expectedTarget);
     }
-    for (const publicPath of finalSharedMatchExports) {
+    for (const publicPath of removedSharedMatchFlatExports) {
       expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
     }
-    expect(repoRelative(join(sharedSrc, 'match-contract.ts'))).toBe(
-      'packages/shared/src/match-contract.ts',
-    );
   });
 });

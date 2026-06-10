@@ -105,11 +105,16 @@ describe('roommate-search-owner bookmark integration', () => {
     const matchesService = {
       getLiveActiveMatchMapForParticipantIds: jest.fn().mockResolvedValue(new Map()),
     };
+    const matchScoreProjection = {
+      shouldExposePublicMatchScore: jest.fn().mockReturnValue(true),
+      calculateQueryTimeRoommateSearchScore: jest.fn().mockReturnValue(88),
+    };
     const owner = createRoommateSearchOwner({
       prisma: prisma as never,
       seasonsService: seasonsService as never,
       seasonParticipantsService: seasonParticipantsService as never,
       matchActiveView: matchesService as never,
+      matchScoreProjection: matchScoreProjection as never,
     });
 
     const result = await owner.search(authUser, { scope: 'SAME_BUILDING_ONLY', limit: 20 });

@@ -53,12 +53,16 @@ describe('BookmarkTargetPolicyEvaluator', () => {
     selectCanonicalSelection: jest.fn(),
     findRegistrationSnapshotParticipantIdSet: jest.fn(),
   };
+  const matchScoreProjection = {
+    calculateQueryTimeRoommateSearchScore: jest.fn(),
+  };
 
   function evaluator() {
     return new BookmarkTargetPolicyEvaluator(
       prisma as never,
       seasonsService as never,
       seasonParticipantsService as never,
+      matchScoreProjection as never,
     );
   }
 
@@ -86,6 +90,7 @@ describe('BookmarkTargetPolicyEvaluator', () => {
     seasonParticipantsService.findRegistrationSnapshotParticipantIdSet.mockResolvedValue(
       new Set(['target-participant']),
     );
+    matchScoreProjection.calculateQueryTimeRoommateSearchScore.mockReturnValue(92);
   });
 
   it('same-dorm visible target은 create target으로 resolve한다', async () => {

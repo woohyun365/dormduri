@@ -16,6 +16,10 @@ import {
   MATCH_ACTIVE_VIEW_PORT,
   type MatchActiveViewPort,
 } from '../matches/application/ports/match-active-view.port.js';
+import {
+  MATCH_SCORE_PROJECTION_PORT,
+  type MatchScoreProjectionPort,
+} from '../matches/application/ports/match-score-projection.port.js';
 import { createRoommateSearchOwner } from './roommate-search-owner.js';
 
 @Injectable()
@@ -29,12 +33,15 @@ export class RoommateSearchService {
     private readonly seasonParticipantsService: SeasonParticipantsService,
     @Inject(MATCH_ACTIVE_VIEW_PORT)
     private readonly matchActiveView: MatchActiveViewPort,
+    @Inject(MATCH_SCORE_PROJECTION_PORT)
+    private readonly matchScoreProjection: MatchScoreProjectionPort,
   ) {
     this.searchOwner = createRoommateSearchOwner({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
       seasonParticipantsService: this.seasonParticipantsService,
       matchActiveView: this.matchActiveView,
+      matchScoreProjection: this.matchScoreProjection,
     });
   }
 

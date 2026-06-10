@@ -4,7 +4,7 @@ import type {
   MatchHistorySeasonFinalResult,
   MatchHistorySeasonSummary,
   MatchHistoryStage,
-} from '@repo/shared/match-contract';
+} from '@repo/shared/match/contract';
 
 export interface MatchHistorySeasonRow {
   participantId: string;

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { ActiveMatchActionResponse } from '@repo/shared/match-contract';
+import type { ActiveMatchActionResponse } from '@repo/shared/match/contract';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
 import {
   CHAT_MATCH_THREAD_LIFECYCLE_PORT,

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ActiveMatchSummary } from '@repo/shared/match-contract';
+import type { ActiveMatchSummary } from '@repo/shared/match/contract';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';

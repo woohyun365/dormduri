@@ -8,7 +8,7 @@ import {
   toStoredBedtime,
   toStoredWakeTime,
 } from '../../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
-import { buildDirectionalMatchScoreProjection } from '../../match-score-projection.js';
+import { buildDirectionalMatchScoreProjection } from '../../scoring/match-score-projection.js';
 import type { SeasonHistoryParticipant } from './ended-season-history.loader.js';
 
 export function buildHistoryScoreSnapshot(

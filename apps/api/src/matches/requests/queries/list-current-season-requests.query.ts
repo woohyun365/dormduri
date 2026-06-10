@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { MatchRequestListResponse } from '@repo/shared/match-contract';
+import type { MatchRequestListResponse } from '@repo/shared/match/contract';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { SeasonParticipantsService } from '../../../season-participants/application/season-participants.service.js';

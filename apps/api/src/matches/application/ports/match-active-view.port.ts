@@ -1,4 +1,4 @@
-import type { ActiveMatchSummary } from '@repo/shared/match-contract';
+import type { ActiveMatchSummary } from '@repo/shared/match/contract';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
 
 export const MATCH_ACTIVE_VIEW_PORT = Symbol('MATCH_ACTIVE_VIEW_PORT');

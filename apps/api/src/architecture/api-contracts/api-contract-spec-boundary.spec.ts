@@ -49,7 +49,7 @@ describe('api contract spec boundary', () => {
     for (const allowedSpecifier of [
       '@repo/shared/profile-contract',
       '@repo/shared/roommate-search-contract',
-      '@repo/shared/match-contract',
+      '@repo/shared/match/contract',
     ]) {
       expect(source).toContain(allowedSpecifier);
     }
