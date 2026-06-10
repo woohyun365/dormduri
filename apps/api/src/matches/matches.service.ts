@@ -24,8 +24,18 @@ import { createMatchContextOwner } from './match-context-owner.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import {
   SEASON_CONTEXT_PORT,
+  type CurrentSeasonContext,
   type SeasonContextPort,
 } from '../seasons/ports/season-context.port.js';
+import type { MatchActiveViewPort } from './application/ports/match-active-view.port.js';
+import type {
+  MatchHistoryMaterializationPort,
+  MatchHistoryMaterializationResult,
+} from './application/ports/match-history-materialization.port.js';
+import type {
+  MatchLifecycleSweepPort,
+  MatchLifecycleSweepResult,
+} from './application/ports/match-lifecycle-sweep.port.js';
 import { matchesErrors } from './matches.errors.js';
 import { createMatchActiveQueryOwner } from './match-active-query-owner.js';
 import { createMatchHistoryMaterializationOwner } from './match-history-materialization-owner.js';
@@ -98,7 +108,9 @@ type MatchRequestCreationParticipant = Prisma.SeasonParticipantGetPayload<{
 }>;
 
 @Injectable()
-export class MatchesService {
+export class MatchesService
+  implements MatchActiveViewPort, MatchLifecycleSweepPort, MatchHistoryMaterializationPort
+{
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SEASON_CONTEXT_PORT)
@@ -317,7 +329,7 @@ export class MatchesService {
   }
 
   async getCurrentActiveMatchSummaryForParticipant(
-    seasonContext: NonNullable<Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>>,
+    seasonContext: CurrentSeasonContext,
     participantId: string,
     now: Date,
   ): Promise<ActiveMatchSummary | null> {
@@ -335,12 +347,30 @@ export class MatchesService {
     return toDetailedActiveMatchSummary(synchronizedActiveMatch, participantId, seasonContext, now);
   }
 
-  async sweepLifecycleTransitions(now: Date) {
+  async sweepLifecycleTransitions(now: Date): Promise<MatchLifecycleSweepResult> {
+    return this.sweepMatchLifecycleTransitions(now);
+  }
+
+  async sweepMatchLifecycleTransitions(now: Date): Promise<MatchLifecycleSweepResult> {
     return this.lifecycleOwner.sweepLifecycleTransitions(now);
   }
 
-  async sweepHistoryMaterialization(now: Date) {
-    return this.historyMaterializationOwner.materializeEndedSeasonHistory(now);
+  async sweepHistoryMaterialization(now: Date): Promise<MatchHistoryMaterializationResult> {
+    return this.materializeEndedSeasonHistory(now);
+  }
+
+  async materializeEndedSeasonHistory(
+    now: Date,
+    userId?: string,
+  ): Promise<MatchHistoryMaterializationResult> {
+    return this.historyMaterializationOwner.materializeEndedSeasonHistory(now, userId);
+  }
+
+  async materializeSeasonHistoryById(
+    seasonId: string,
+    now: Date,
+  ): Promise<MatchHistoryMaterializationResult> {
+    return this.historyMaterializationOwner.materializeSeasonHistoryById(seasonId, now);
   }
 
   async getLiveActiveMatchMapForParticipantIds(

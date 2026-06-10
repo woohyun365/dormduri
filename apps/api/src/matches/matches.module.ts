@@ -5,11 +5,9 @@ import { ModerationModule } from '../moderation/moderation.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
-import { ActiveMatchContextGuard } from './active-match-context.guard.js';
-import { MATCH_BLOCK_SIDE_EFFECT_PORT } from './application/ports/match-block-side-effect.port.js';
-import { MatchBlockSideEffectService } from './lifecycle/match-block-side-effect.service.js';
+import { MATCHES_EXPORTS } from './composition/matches.exports.js';
+import { MATCHES_PROVIDERS } from './composition/matches.providers.js';
 import { MatchesController } from './matches.controller.js';
-import { MatchesService } from './matches.service.js';
 
 @Module({
   imports: [
@@ -21,15 +19,7 @@ import { MatchesService } from './matches.service.js';
     AuthModule,
   ],
   controllers: [MatchesController],
-  providers: [
-    MatchesService,
-    ActiveMatchContextGuard,
-    MatchBlockSideEffectService,
-    {
-      provide: MATCH_BLOCK_SIDE_EFFECT_PORT,
-      useExisting: MatchBlockSideEffectService,
-    },
-  ],
-  exports: [MatchesService, MATCH_BLOCK_SIDE_EFFECT_PORT],
+  providers: MATCHES_PROVIDERS,
+  exports: MATCHES_EXPORTS,
 })
 export class MatchesModule {}

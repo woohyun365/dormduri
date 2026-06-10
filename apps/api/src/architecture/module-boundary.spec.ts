@@ -21,9 +21,9 @@ import { DORMITORY_SELECTION_CATALOG_PORT } from '../dormitories/selection-catal
 import { HealthModule } from '../health/health.module.js';
 import { LifecycleModule } from '../lifecycle/lifecycle.module.js';
 import { LifecycleSweepService } from '../lifecycle/lifecycle-sweep.service.js';
+import { MATCHES_EXPORTS } from '../matches/composition/matches.exports.js';
+import { MATCHES_PROVIDERS } from '../matches/composition/matches.providers.js';
 import { MatchesModule } from '../matches/matches.module.js';
-import { MATCH_BLOCK_SIDE_EFFECT_PORT } from '../matches/application/ports/match-block-side-effect.port.js';
-import { MatchesService } from '../matches/matches.service.js';
 import { ModerationModule } from '../moderation/moderation.module.js';
 import { ModerationService } from '../moderation/moderation.service.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
@@ -242,10 +242,8 @@ describe('affected API module boundary finalization', () => {
       REALTIME_USER_ROOM_PUBLISHER_PORT,
     ]);
     expect(moduleMetadata(ChatLifecycleModule, 'exports')).toEqual([CHAT_THREAD_WITHDRAWAL_PORT]);
-    expect(moduleMetadata(MatchesModule, 'exports')).toEqual([
-      MatchesService,
-      MATCH_BLOCK_SIDE_EFFECT_PORT,
-    ]);
+    expect(moduleMetadata(MatchesModule, 'providers')).toEqual(MATCHES_PROVIDERS);
+    expect(moduleMetadata(MatchesModule, 'exports')).toEqual(MATCHES_EXPORTS);
     expect(moduleMetadata(SeasonParticipantsModule, 'exports')).toEqual([
       SeasonParticipantsService,
       CurrentSeasonParticipationViewQuery,

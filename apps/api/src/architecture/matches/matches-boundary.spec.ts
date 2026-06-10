@@ -99,6 +99,12 @@ const sharedMatchFlatExports: Record<string, PackageExportTarget> = {
 
 const finalSharedMatchExports = ['./match', './match/contract', './match/score'] as const;
 
+const phase2PortFiles = [
+  'application/ports/match-active-view.port.ts',
+  'application/ports/match-lifecycle-sweep.port.ts',
+  'application/ports/match-history-materialization.port.ts',
+] as const;
+
 function walkTypeScriptFiles(root: string): string[] {
   if (!existsSync(root)) {
     return [];
@@ -207,18 +213,28 @@ describe('matches architecture boundary', () => {
     expect(concreteConsumers).toEqual(sortedKeys(concreteMatchesServiceTransitionConsumers));
   });
 
-  it('tracks current MatchesModule export mismatch until match ports become public surface', () => {
+  it('keeps Phase 2 match ports and composition source-of-truth while concrete export is temporary', () => {
     const moduleSource = readSource(join(matchesRoot, 'matches.module.ts'));
+    const providersSource = readSource(join(matchesRoot, 'composition/matches.providers.ts'));
+    const exportsSource = readSource(join(matchesRoot, 'composition/matches.exports.ts'));
 
-    expect(moduleSource).toContain('exports: [MatchesService, MATCH_BLOCK_SIDE_EFFECT_PORT]');
+    for (const relativePath of phase2PortFiles) {
+      expect(existsSync(join(matchesRoot, relativePath))).toBe(true);
+    }
+    expect(moduleSource).toContain('providers: MATCHES_PROVIDERS');
+    expect(moduleSource).toContain('exports: MATCHES_EXPORTS');
     for (const finalPort of [
       'MATCH_ACTIVE_VIEW_PORT',
       'MATCH_LIFECYCLE_SWEEP_PORT',
       'MATCH_HISTORY_MATERIALIZATION_PORT',
       'MATCH_BLOCK_SIDE_EFFECT_PORT',
     ]) {
-      expect(readSource(join(matchesRoot, 'README.md'))).toContain(finalPort);
+      expect(providersSource).toContain(finalPort);
+      expect(exportsSource).toContain(finalPort);
     }
+    expect(providersSource).toContain('useExisting: MatchesService');
+    expect(exportsSource).toContain('MatchesService');
+    expect(exportsSource).toContain('Temporary transition export');
   });
 
   it('keeps future request policies pure from Nest providers and Prisma infrastructure', () => {
