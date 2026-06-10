@@ -296,6 +296,36 @@ direct match request 수신 화면은 수신자가 수락/거절 전 최소한 �
 | 사용자-facing 과거 counterpart detail | 최종 매칭 상대(`MATCHED_SUCCESS`)만 허용. `UNMATCHED_AFTER_SUCCESS`는 “매칭 후 해제된 이력” summary로만 남기고 counterpart final detail을 열지 않음                                |
 | 사용자-facing 과거 counterpart score  | `MATCHED_SUCCESS` final counterpart detail에서만 `SeasonMatchHistoryEntry.matchScore` snapshot을 노출. 현재 profile로 재계산하지 않으며 tombstone detail에는 score를 포함하지 않음 |
 
+### ActiveMatch lifecycle event log
+
+`ActiveMatchLifecycleEvent`는 `ActiveMatch` relation의 상태 전이를 설명하기 위한 운영/audit/debug trace다. 사용자-facing current match, history, score, chat capability의 source of truth는 계속 `ActiveMatch`, `ActiveMatchUnmatchRequest`, `SeasonMatchHistoryEntry`, chat domain source row다. Event log를 replay해서 `ActiveMatch` current state나 `SeasonMatchHistoryEntry`를 rebuild하지 않으며, event sourcing/CQRS로 해석하지 않는다.
+
+| 항목                       | 정책                                                                                                                              |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| source of truth            | `ActiveMatch` current-state row가 active relation의 사용자-facing truth다. Event row는 상태 전이의 설명/감사/디버깅 trace다.      |
+| append boundary            | 상태 mutation owner가 같은 Prisma transaction 안에서 event를 append한다. mutation rollback 시 event도 남지 않아야 한다.           |
+| append 실패                | Audit event append 실패는 해당 state transition 실패로 처리한다. best-effort background logging으로 분리하지 않는다.              |
+| relation 단위              | event aggregate는 `ActiveMatch` relation-level 1 row per lifecycle event다. participant별 중복 event row를 만들지 않는다.         |
+| user-facing history와 관계 | `SeasonMatchHistoryEntry`는 사용자-facing season history/read model이고, lifecycle event는 internal operations/audit trace다.     |
+| retention/read path        | 운영 조회 convenience를 위한 trace이며, 일반 match/history API response나 roommate search capability 계산에 직접 사용하지 않는다. |
+
+권장 event taxonomy와 append point:
+
+| eventType                   | reason                           | actorType            | append point                                                        | source id                |
+| --------------------------- | -------------------------------- | -------------------- | ------------------------------------------------------------------- | ------------------------ |
+| `ACTIVE_CREATED`            | `MATCH_REQUEST_ACCEPTED`         | `USER`               | match request accept transaction에서 `activeMatch.create` 성공 후   | `sourceMatchRequestId`   |
+| `UNMATCH_REQUESTED`         | `USER_REQUESTED_UNMATCH`         | `USER`               | pending unmatch request 생성 후                                     | `sourceUnmatchRequestId` |
+| `UNMATCH_REQUEST_CANCELLED` | `USER_CANCELLED_UNMATCH_REQUEST` | `USER`               | viewer pending unmatch request cancel update 후                     | `sourceUnmatchRequestId` |
+| `UNMATCH_REQUEST_EXPIRED`   | `ROOM_SELECTION_CUTOFF`          | `SYSTEM`             | roomSelectionDate cutoff sweep가 pending request를 expire 처리한 후 | `sourceUnmatchRequestId` |
+| `UNMATCHED`                 | `MUTUAL_UNMATCH_CONSENT`         | `USER`               | 양쪽 pending 충족 후 `ActiveMatch.status = UNMATCHED` update 후     | null                     |
+| `SEASON_ENDED`              | `SEASON_ENDED_SWEEP`             | `SYSTEM`             | season-end sweep가 `ActiveMatch.status = SEASON_ENDED` update 후    | null                     |
+| `ADMIN_ENDED`               | `ADMIN_ACTION`                   | `ADMIN`              | future admin owner가 active match를 종료할 때                       | null                     |
+| `PARTICIPANT_WITHDRAWN`     | `WITHDRAWN_PARTICIPANT`          | `SYSTEM` 또는 `USER` | future withdrawal owner가 active match를 종료할 때                  | null                     |
+
+Metadata는 작은 allowlist snapshot만 허용한다. 허용 후보는 `transitionOwner`, `previousStatus`, `nextStatus`, `previousEndReason`, `nextEndReason`, `previousEndedAt`, `nextEndedAt`, `requestStatus`, `unmatchRequestStatus`, `expiredUnmatchRequestCount`, `canceledPendingMatchRequests`, `chatMatchedThreadUpdated`, `chatDirectThreadsMarkedReadOnly`, `chatDirectThreadsReopened`, `seasonState`, `roomSelectionDate`다.
+
+금지 payload: `MatchRequest.note` 원문, profile/lifestyle raw body, chat message body/retained body/vault payload, email/token/provider access token/phone number, raw request/response body, stack trace, raw Prisma error, internal audit payload, user-facing full identity snapshot. Unknown metadata key는 저장하지 않는다.
+
 ## 리스트 표현
 
 ### 상태별 리스트 원칙
@@ -427,6 +457,7 @@ direct match request 수신 화면은 수신자가 수락/거절 전 최소한 �
 
 | 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                               | 관련 이슈  |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 2026-06-10 | `ActiveMatchLifecycleEvent`를 `ActiveMatch` current-state를 대체하지 않는 운영/audit/debug trace로 정의하고, same-transaction append boundary와 metadata allowlist/no-PII 금지 payload를 명시                                                                                                                                                                                           | #227       |
 | 2026-06-02 | match history hot row/public API/retained payload에서 chat-derived `hadConversation`/conversation count를 제거하고, 대화 통계는 chat domain stats surface가 소유한다고 명시                                                                                                                                                                                                             | #198       |
 | 2026-06-02 | chat thread closure reason/closedAt은 chat domain source의 책임으로 두고, `SeasonMatchHistoryEntry` hot row와 match history retained payload에는 중복 저장하지 않는다고 명시                                                                                                                                                                                                            | #198       |
 | 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                                                                                                                                                                                                                                                     | #195       |
