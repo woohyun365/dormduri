@@ -11,6 +11,18 @@ import {
 import { acquireActiveMatchLock, lockActiveMatchRow } from './active-match-locks.js';
 import { activeMatchCommandSelect, type ActiveMatchCommandRecord } from './active-match.select.js';
 
+const activeMatchUnmatchRequestLifecycleSelect = {
+  id: true,
+  participantId: true,
+  status: true,
+  requestedAt: true,
+  terminalAt: true,
+} as const satisfies Prisma.ActiveMatchUnmatchRequestSelect;
+
+export type ActiveMatchUnmatchRequestLifecycleRecord = Prisma.ActiveMatchUnmatchRequestGetPayload<{
+  select: typeof activeMatchUnmatchRequestLifecycleSelect;
+}>;
+
 type MatchClient = Prisma.TransactionClient | PrismaService;
 
 @Injectable()
@@ -129,15 +141,16 @@ export class ActiveMatchRepository {
     activeMatchId: string,
     participantId: string,
     now: Date,
-  ) {
+  ): Promise<ActiveMatchUnmatchRequestLifecycleRecord> {
     try {
-      await tx.activeMatchUnmatchRequest.create({
+      return await tx.activeMatchUnmatchRequest.create({
         data: {
           activeMatchId,
           participantId,
           status: 'PENDING',
           requestedAt: now,
         },
+        select: activeMatchUnmatchRequestLifecycleSelect,
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -153,13 +166,7 @@ export class ActiveMatchRepository {
         activeMatchId,
         status: 'PENDING',
       },
-      select: {
-        id: true,
-        participantId: true,
-        requestedAt: true,
-        terminalAt: true,
-        status: true,
-      },
+      select: activeMatchUnmatchRequestLifecycleSelect,
     });
   }
 
@@ -214,13 +221,7 @@ export class ActiveMatchRepository {
         status: 'PENDING',
       },
       orderBy: [{ requestedAt: 'desc' }, { createdAt: 'desc' }],
-      select: {
-        id: true,
-        participantId: true,
-        status: true,
-        requestedAt: true,
-        terminalAt: true,
-      },
+      select: activeMatchUnmatchRequestLifecycleSelect,
     });
 
     return viewerPendingRequest ?? null;
@@ -230,13 +231,14 @@ export class ActiveMatchRepository {
     tx: Prisma.TransactionClient,
     unmatchRequestId: string,
     now: Date,
-  ) {
-    await tx.activeMatchUnmatchRequest.update({
+  ): Promise<ActiveMatchUnmatchRequestLifecycleRecord> {
+    return tx.activeMatchUnmatchRequest.update({
       where: { id: unmatchRequestId },
       data: {
         status: 'CANCELLED_BY_REQUESTER',
         terminalAt: now,
       },
+      select: activeMatchUnmatchRequestLifecycleSelect,
     });
   }
 }

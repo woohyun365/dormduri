@@ -90,6 +90,19 @@ describe('MatchesService unmatch integration', () => {
       where: { id: 'active-match-1' },
     });
     expect(activeMatch?.status).toBe('ACTIVE');
+
+    const lifecycleEvents = await prisma.activeMatchLifecycleEvent.findMany({
+      where: { activeMatchId: 'active-match-1' },
+      orderBy: [{ occurredAt: 'asc' }, { createdAt: 'asc' }],
+    });
+    expect(lifecycleEvents).toHaveLength(1);
+    expect(lifecycleEvents[0]).toMatchObject({
+      eventType: 'UNMATCH_REQUESTED',
+      reason: 'USER_REQUESTED_UNMATCH',
+      actorType: 'USER',
+      actorUserId: 'user-a',
+    });
+    expect(lifecycleEvents[0]?.sourceUnmatchRequestId).toBe(pendingRows[0]?.id);
   });
 
   it('양쪽이 동시에 unmatch 요청하면 ACTIVE가 UNMATCHED로 전이되고 matched thread가 direct로 내려간다', async () => {
@@ -120,6 +133,53 @@ describe('MatchesService unmatch integration', () => {
     });
     expect(thread?.threadKind).toBe('DIRECT');
     expect(thread?.activeMatchId).toBeNull();
+
+    const lifecycleEvents = await prisma.activeMatchLifecycleEvent.findMany({
+      where: { activeMatchId: 'active-match-1' },
+      orderBy: [{ occurredAt: 'asc' }, { createdAt: 'asc' }],
+    });
+    expect(lifecycleEvents.filter((event) => event.eventType === 'UNMATCH_REQUESTED')).toHaveLength(
+      2,
+    );
+    expect(lifecycleEvents.filter((event) => event.eventType === 'UNMATCHED')).toHaveLength(1);
+    expect(lifecycleEvents.at(-1)).toMatchObject({
+      eventType: 'UNMATCHED',
+      reason: 'MUTUAL_UNMATCH_CONSENT',
+      actorType: 'USER',
+    });
+    expect(lifecycleEvents.at(-1)?.sourceUnmatchRequestId).toEqual(expect.any(String));
+  });
+
+  it('pending unmatch cancel 성공은 cancel lifecycle event를 남긴다', async () => {
+    await service.requestUnmatch(authContext('user-a'), 'active-match-1');
+    await service.cancelUnmatchRequest(authContext('user-a'), 'active-match-1');
+
+    const unmatchRequests = await prisma.activeMatchUnmatchRequest.findMany({
+      where: {
+        activeMatchId: 'active-match-1',
+      },
+      orderBy: [{ createdAt: 'asc' }],
+    });
+    expect(unmatchRequests).toHaveLength(1);
+    expect(unmatchRequests[0]).toMatchObject({
+      participantId: 'participant-a',
+      status: 'CANCELLED_BY_REQUESTER',
+    });
+
+    const lifecycleEvents = await prisma.activeMatchLifecycleEvent.findMany({
+      where: { activeMatchId: 'active-match-1' },
+      orderBy: [{ occurredAt: 'asc' }, { createdAt: 'asc' }],
+    });
+    expect(lifecycleEvents.map((event) => event.eventType)).toEqual([
+      'UNMATCH_REQUESTED',
+      'UNMATCH_REQUEST_CANCELLED',
+    ]);
+    expect(lifecycleEvents[1]).toMatchObject({
+      reason: 'USER_CANCELLED_UNMATCH_REQUEST',
+      actorType: 'USER',
+      actorUserId: 'user-a',
+      sourceUnmatchRequestId: unmatchRequests[0]?.id,
+    });
   });
 
   it('unmatch는 ACTIVE 생성 때 닫힌 eligible direct thread를 다시 OPEN하고 outbox를 남긴다', async () => {

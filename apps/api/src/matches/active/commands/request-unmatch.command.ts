@@ -18,6 +18,7 @@ import {
   assertUnmatchActorAllowed,
   findViewerPendingUnmatchRequest,
 } from '../policies/active-match-unmatch.policy.js';
+import { ActiveMatchLifecycleEventWriter } from '../lifecycle-events/active-match-lifecycle-event.writer.js';
 import { ActiveMatchRepository } from '../persistence/active-match.repository.js';
 
 @Injectable()
@@ -30,6 +31,7 @@ export class RequestUnmatchCommand {
     @Inject(CHAT_MATCH_THREAD_LIFECYCLE_PORT)
     private readonly chatMatchThreadLifecycle: ChatMatchThreadLifecyclePort,
     private readonly activeMatchRepository: ActiveMatchRepository,
+    private readonly lifecycleEventWriter: ActiveMatchLifecycleEventWriter,
   ) {}
 
   private get contextOwner() {
@@ -73,12 +75,25 @@ export class RequestUnmatchCommand {
         throw matchesErrors.unmatchRequestAlreadySubmitted();
       }
 
-      await this.activeMatchRepository.createPendingUnmatchRequest(
+      const createdUnmatchRequest = await this.activeMatchRepository.createPendingUnmatchRequest(
         tx,
         synchronizedActiveMatch.id,
         participantId,
         now,
       );
+
+      await this.lifecycleEventWriter.recordUnmatchRequested(tx, {
+        activeMatchId: synchronizedActiveMatch.id,
+        actorUserId: authUser.id,
+        sourceUnmatchRequestId: createdUnmatchRequest.id,
+        occurredAt: now,
+        metadata: {
+          transitionOwner: 'match.unmatch.request',
+          previousStatus: 'ACTIVE',
+          nextStatus: 'ACTIVE',
+          unmatchRequestStatus: createdUnmatchRequest.status,
+        },
+      });
 
       const pendingUnmatchRequests = await this.activeMatchRepository.findPendingUnmatchRequests(
         tx,
@@ -112,6 +127,23 @@ export class RequestUnmatchCommand {
         { activeMatchId: synchronizedActiveMatch.id },
         now,
       );
+
+      await this.lifecycleEventWriter.recordUnmatched(tx, {
+        activeMatchId: synchronizedActiveMatch.id,
+        actorUserId: authUser.id,
+        sourceUnmatchRequestId: createdUnmatchRequest.id,
+        occurredAt: now,
+        metadata: {
+          transitionOwner: 'match.unmatch.mutual',
+          previousStatus: 'ACTIVE',
+          nextStatus: endedActiveMatch.status,
+          previousEndReason: null,
+          nextEndReason: endedActiveMatch.endReason,
+          unmatchRequestStatus: 'FULFILLED_BY_MUTUAL_CONSENT',
+          chatMatchedThreadUpdated: { attempted: true },
+          chatDirectThreadsReopened: { attempted: true, exactCountKnown: false },
+        },
+      });
 
       return {
         activeMatch: toDetailedActiveMatchSummary(

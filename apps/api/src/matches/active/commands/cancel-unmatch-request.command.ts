@@ -10,6 +10,7 @@ import {
 import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import { toDetailedActiveMatchSummary } from '../presenters/active-match.presenter.js';
 import { matchesErrors } from '../../matches.errors.js';
+import { ActiveMatchLifecycleEventWriter } from '../lifecycle-events/active-match-lifecycle-event.writer.js';
 import { ActiveMatchRepository } from '../persistence/active-match.repository.js';
 
 @Injectable()
@@ -20,6 +21,7 @@ export class CancelUnmatchRequestCommand {
     private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly activeMatchRepository: ActiveMatchRepository,
+    private readonly lifecycleEventWriter: ActiveMatchLifecycleEventWriter,
   ) {}
 
   private get contextOwner() {
@@ -64,11 +66,25 @@ export class CancelUnmatchRequestCommand {
         throw matchesErrors.unmatchRequestCancelNotAllowed();
       }
 
-      await this.activeMatchRepository.cancelViewerPendingUnmatchRequest(
-        tx,
-        viewerPendingRequest.id,
-        now,
-      );
+      const cancelledUnmatchRequest =
+        await this.activeMatchRepository.cancelViewerPendingUnmatchRequest(
+          tx,
+          viewerPendingRequest.id,
+          now,
+        );
+
+      await this.lifecycleEventWriter.recordUnmatchRequestCancelled(tx, {
+        activeMatchId: synchronizedActiveMatch.id,
+        actorUserId: authUser.id,
+        sourceUnmatchRequestId: cancelledUnmatchRequest.id,
+        occurredAt: now,
+        metadata: {
+          transitionOwner: 'match.unmatch.cancel',
+          previousStatus: 'ACTIVE',
+          nextStatus: 'ACTIVE',
+          unmatchRequestStatus: cancelledUnmatchRequest.status,
+        },
+      });
 
       const refreshedActiveMatch = await this.activeMatchRepository.reloadActiveMatchOrThrow(
         tx,
