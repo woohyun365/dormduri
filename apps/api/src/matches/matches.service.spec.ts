@@ -1,6 +1,14 @@
 import { MatchesService } from './matches.service.js';
 import { matchesErrors } from './matches.errors.js';
 import { ActiveMatchViewQuery } from './active/queries/active-match-view.query.js';
+import { MatchRequestNoteModerationAdapter } from './requests/adapters/match-request-note-moderation.adapter.js';
+import { CancelMatchRequestCommand } from './requests/commands/cancel-match-request.command.js';
+import { CreateMatchRequestCommand } from './requests/commands/create-match-request.command.js';
+import { RejectMatchRequestCommand } from './requests/commands/reject-match-request.command.js';
+import { ResolveTerminalMatchRequestCommand } from './requests/commands/resolve-terminal-match-request.command.js';
+import { MatchRequestCreationEvaluator } from './requests/eligibility/match-request-creation.evaluator.js';
+import { MatchRequestRepository } from './requests/persistence/match-request.repository.js';
+import { ListCurrentSeasonRequestsQuery } from './requests/queries/list-current-season-requests.query.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
@@ -171,12 +179,41 @@ describe('MatchesService', () => {
     handleActiveMatchUnmatched: jest.fn(),
   };
 
+  const activeMatchViewQuery = new ActiveMatchViewQuery(prisma as never);
+  const noteModerationAdapter = new MatchRequestNoteModerationAdapter(moderationService as never);
+  const matchRequestRepository = new MatchRequestRepository();
+  const matchRequestCreationEvaluator = new MatchRequestCreationEvaluator(
+    prisma as never,
+    seasonsService as never,
+    seasonParticipantsService as never,
+    activeMatchViewQuery,
+    noteModerationAdapter,
+  );
+  const listCurrentSeasonRequestsQuery = new ListCurrentSeasonRequestsQuery(
+    prisma as never,
+    seasonsService as never,
+    seasonParticipantsService as never,
+  );
+  const resolveTerminalMatchRequestCommand = new ResolveTerminalMatchRequestCommand(
+    prisma as never,
+    seasonsService as never,
+    seasonParticipantsService as never,
+    matchRequestRepository,
+  );
+
   const service = new MatchesService(
     prisma as never,
     seasonsService as never,
-    moderationService as never,
     seasonParticipantsService as never,
-    new ActiveMatchViewQuery(prisma as never),
+    activeMatchViewQuery,
+    listCurrentSeasonRequestsQuery,
+    new CreateMatchRequestCommand(
+      prisma as never,
+      matchRequestCreationEvaluator,
+      matchRequestRepository,
+    ),
+    new RejectMatchRequestCommand(resolveTerminalMatchRequestCommand),
+    new CancelMatchRequestCommand(resolveTerminalMatchRequestCommand),
     chatMatchThreadLifecycle as never,
   );
 

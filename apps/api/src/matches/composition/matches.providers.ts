@@ -7,11 +7,28 @@ import { MATCH_HISTORY_MATERIALIZATION_PORT } from '../application/ports/match-h
 import { MATCH_LIFECYCLE_SWEEP_PORT } from '../application/ports/match-lifecycle-sweep.port.js';
 import { MatchBlockSideEffectService } from '../lifecycle/match-block-side-effect.service.js';
 import { MatchesService } from '../matches.service.js';
+import { MatchRequestNoteModerationAdapter } from '../requests/adapters/match-request-note-moderation.adapter.js';
+import { CancelMatchRequestCommand } from '../requests/commands/cancel-match-request.command.js';
+import { CreateMatchRequestCommand } from '../requests/commands/create-match-request.command.js';
+import { RejectMatchRequestCommand } from '../requests/commands/reject-match-request.command.js';
+import { ResolveTerminalMatchRequestCommand } from '../requests/commands/resolve-terminal-match-request.command.js';
+import { MatchRequestCreationEvaluator } from '../requests/eligibility/match-request-creation.evaluator.js';
+import { MatchRequestRepository } from '../requests/persistence/match-request.repository.js';
+import { MATCH_REQUEST_NOTE_MODERATION_PORT } from '../requests/ports/match-request-note-moderation.port.js';
+import { ListCurrentSeasonRequestsQuery } from '../requests/queries/list-current-season-requests.query.js';
 
 export const MATCHES_PROVIDERS = [
   MatchesService,
   ActiveMatchContextGuard,
   ActiveMatchViewQuery,
+  ListCurrentSeasonRequestsQuery,
+  CreateMatchRequestCommand,
+  RejectMatchRequestCommand,
+  CancelMatchRequestCommand,
+  ResolveTerminalMatchRequestCommand,
+  MatchRequestCreationEvaluator,
+  MatchRequestRepository,
+  MatchRequestNoteModerationAdapter,
   MatchBlockSideEffectService,
   {
     provide: MATCH_ACTIVE_VIEW_PORT,
@@ -28,5 +45,9 @@ export const MATCHES_PROVIDERS = [
   {
     provide: MATCH_BLOCK_SIDE_EFFECT_PORT,
     useExisting: MatchBlockSideEffectService,
+  },
+  {
+    provide: MATCH_REQUEST_NOTE_MODERATION_PORT,
+    useExisting: MatchRequestNoteModerationAdapter,
   },
 ] satisfies NonNullable<ModuleMetadata['providers']>;

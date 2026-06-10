@@ -9,7 +9,6 @@ import type {
   MatchRequestListResponse,
 } from '@repo/shared/match-contract';
 import type { PublicProfile } from '@repo/shared/profile-contract';
-import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../generated/prisma/client.js';
 import type { Campus } from '../generated/prisma/enums.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
@@ -17,8 +16,6 @@ import {
   CHAT_MATCH_THREAD_LIFECYCLE_PORT,
   type ChatMatchThreadLifecyclePort,
 } from '../chat/application/ports/chat-match-thread-lifecycle.port.js';
-import { lifestyleColumnSelect } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
-import { ModerationService } from '../moderation/moderation.service.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { createMatchContextOwner } from './match-context-owner.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
@@ -40,71 +37,29 @@ import { matchesErrors } from './matches.errors.js';
 import { createMatchHistoryMaterializationOwner } from './match-history-materialization-owner.js';
 import { createMatchHistoryReadOwner } from './match-history-read-owner.js';
 import { createMatchLifecycleOwner } from './match-lifecycle-owner.js';
-import { toMatchRequestSummary } from './match-read-model.js';
-import {
-  createMatchRequestPreparationOwner,
-  type PreparedMatchRequestCreation,
-} from './match-request-preparation.js';
 import { createMatchRequestCommandCluster } from './match-request-command-cluster.js';
 import {
   executeAcceptMatchRequest,
-  executeTerminalMatchRequestUpdate,
-  getRequestTerminalNotAllowedError,
   loadAcceptableMatchRequest,
-  loadTerminableMatchRequest,
 } from './match-request-step-owner.js';
-import { activeMatchCommandSelect, matchRequestSummarySelect } from './match-selects.js';
-import {
-  acquireActiveMatchLock,
-  acquirePairLock,
-  acquireParticipantLocks,
-  assertDirectionCooldown,
-  assertDirectionLimit,
-  assertNoLiveActiveMatchForParticipants,
-  assertNoLivePendingPair,
-  assertPendingRequestLimit,
-  expireDuePendingRequests,
-  lockActiveMatchRow,
-} from './match-transaction-helpers.js';
+import { activeMatchCommandSelect } from './match-selects.js';
+import { acquireActiveMatchLock, lockActiveMatchRow } from './match-transaction-helpers.js';
 import { createMatchUnmatchCommandCluster } from './match-unmatch-command-cluster.js';
 import {
   loadValidatedActiveMatchForUnmatch,
   reloadActiveMatchOrThrow,
   synchronizePendingUnmatchRequests,
 } from './match-unmatch-support.js';
-import { resolveMatchRequestExpiresAt } from './match.utils.js';
-import { formatKstDate } from '../platform/time/kst-date.js';
-import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
+import { CreateMatchRequestCommand } from './requests/commands/create-match-request.command.js';
+import { RejectMatchRequestCommand } from './requests/commands/reject-match-request.command.js';
+import { CancelMatchRequestCommand } from './requests/commands/cancel-match-request.command.js';
+import { ListCurrentSeasonRequestsQuery } from './requests/queries/list-current-season-requests.query.js';
+import { expireDuePendingRequests } from './requests/persistence/match-request-locks.js';
 
 interface LifecycleTransitionResult {
   expiredUnmatchRequests: number;
   seasonEndedActiveMatch: boolean;
 }
-
-const matchRequestCreationParticipantSelect = {
-  id: true,
-  registeredAt: true,
-  dormitoryId: true,
-  dormitorySelectionState: true,
-  participationIntent: true,
-  participantStatus: true,
-  declinedAt: true,
-  withdrawnAt: true,
-  hiddenByAdminAt: true,
-  deactivatedAt: true,
-  user: {
-    select: {
-      deletedAt: true,
-    },
-  },
-  profile: {
-    select: lifestyleColumnSelect,
-  },
-} as const satisfies Prisma.SeasonParticipantSelect;
-
-type MatchRequestCreationParticipant = Prisma.SeasonParticipantGetPayload<{
-  select: typeof matchRequestCreationParticipantSelect;
-}>;
 
 @Injectable()
 export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMaterializationPort {
@@ -112,9 +67,12 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     private readonly prisma: PrismaService,
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
-    private readonly moderationService: ModerationService,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly activeMatchViewQuery: ActiveMatchViewQuery,
+    private readonly listCurrentSeasonRequestsQuery: ListCurrentSeasonRequestsQuery,
+    private readonly createMatchRequestCommand: CreateMatchRequestCommand,
+    private readonly rejectMatchRequestCommand: RejectMatchRequestCommand,
+    private readonly cancelMatchRequestCommand: CancelMatchRequestCommand,
     @Inject(CHAT_MATCH_THREAD_LIFECYCLE_PORT)
     private readonly chatMatchThreadLifecycle: ChatMatchThreadLifecyclePort,
   ) {}
@@ -123,9 +81,6 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     return createMatchRequestCommandCluster({
       getDatabaseNow: () => this.prisma.getDatabaseNow(),
       runSerializableTransaction: (callback) => this.prisma.runSerializableTransaction(callback),
-      prepareMatchRequestCreation: (requesterUserId, input, now) =>
-        this.requestPreparationOwner.prepareMatchRequestCreation(requesterUserId, input, now),
-      createPendingMatchRequest: (tx, input, now) => this.createPendingMatchRequest(tx, input, now),
       getCurrentMatchContext: (userId, now) =>
         this.contextOwner.getCurrentMatchContext(userId, now),
       expireDuePendingRequests: (seasonId, now, tx) =>
@@ -147,9 +102,6 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
           seasonContext,
           now,
         ),
-      getRequestTerminalNotAllowedError,
-      loadTerminableMatchRequest,
-      executeTerminalMatchRequestUpdate,
     });
   }
 
@@ -170,21 +122,6 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
       seasonParticipantsService: this.seasonParticipantsService,
       requestTargetNotFound: () => matchesErrors.requestTargetNotFound(),
       requestSelfTargetNotAllowed: () => matchesErrors.requestSelfTargetNotAllowed(),
-    });
-  }
-
-  private get requestPreparationOwner() {
-    return createMatchRequestPreparationOwner({
-      getCurrentMatchContext: (userId, now) =>
-        this.contextOwner.getCurrentMatchContext(userId, now),
-      getValidatedTargetUserForMatchRequest: (targetUserId, requesterUser) =>
-        this.contextOwner.getValidatedTargetUserForMatchRequest(targetUserId, requesterUser),
-      findRoomSelectionDate: (seasonContext, dormitoryId) =>
-        this.contextOwner.findRoomSelectionDate(seasonContext, dormitoryId),
-      getLiveActiveMatchMapForParticipantIds: (seasonId, participantIds) =>
-        this.activeMatchViewQuery.getLiveActiveMatchMapForParticipantIds(seasonId, participantIds),
-      seasonParticipantsService: this.seasonParticipantsService,
-      moderationService: this.moderationService,
     });
   }
 
@@ -229,30 +166,7 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
   async listCurrentSeasonRequests(
     authUser: AuthenticatedUserContext,
   ): Promise<MatchRequestListResponse> {
-    const now = await this.prisma.getDatabaseNow();
-    const context = await this.contextOwner.getCurrentMatchContext(authUser.id, now);
-
-    if (!context?.seasonContext || !context.participant) {
-      return { items: [] };
-    }
-
-    await expireDuePendingRequests(this.prisma, context.seasonContext.season.id, now);
-
-    const requests = await this.prisma.matchRequest.findMany({
-      where: {
-        seasonId: context.seasonContext.season.id,
-        OR: [
-          { requesterParticipantId: context.participant.id },
-          { receiverParticipantId: context.participant.id },
-        ],
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: matchRequestSummarySelect,
-    });
-
-    return {
-      items: requests.map((request) => toMatchRequestSummary(request, context.participant!.id)),
-    };
+    return this.listCurrentSeasonRequestsQuery.execute(authUser);
   }
 
   async getMatchHistory(authUser: AuthenticatedUserContext): Promise<MatchHistoryResponse> {
@@ -274,7 +188,7 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     authUser: AuthenticatedUserContext,
     input: CreateMatchRequestRequest,
   ): Promise<MatchRequestActionResponse> {
-    return this.requestCommandCluster.createMatchRequest(authUser, input);
+    return this.createMatchRequestCommand.execute(authUser, input);
   }
 
   async acceptMatchRequest(
@@ -288,14 +202,14 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     authUser: AuthenticatedUserContext,
     requestId: string,
   ): Promise<MatchRequestActionResponse> {
-    return this.requestCommandCluster.rejectMatchRequest(authUser, requestId);
+    return this.rejectMatchRequestCommand.execute(authUser, requestId);
   }
 
   async cancelMatchRequest(
     authUser: AuthenticatedUserContext,
     requestId: string,
   ): Promise<MatchRequestActionResponse> {
-    return this.requestCommandCluster.cancelMatchRequest(authUser, requestId);
+    return this.cancelMatchRequestCommand.execute(authUser, requestId);
   }
 
   async requestUnmatch(
@@ -464,147 +378,4 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
       seasonEndedActiveMatch: true,
     };
   }
-
-  private async createPendingMatchRequest(
-    tx: Prisma.TransactionClient,
-    input: PreparedMatchRequestCreation,
-    now: Date,
-  ) {
-    await this.assertCanCreatePendingMatchRequest(tx, input, now);
-
-    try {
-      return await tx.matchRequest.create({
-        data: {
-          seasonId: input.seasonId,
-          pairKey: input.pairIdentity.pairKey,
-          pairMinParticipantId: input.pairIdentity.pairMinParticipantId,
-          pairMaxParticipantId: input.pairIdentity.pairMaxParticipantId,
-          requesterParticipantId: input.requesterParticipantId,
-          receiverParticipantId: input.receiverParticipantId,
-          note: input.note,
-          status: 'PENDING',
-          expiresAt: resolveMatchRequestExpiresAt(now, input.requesterRoomSelectionDate),
-        },
-        select: matchRequestSummarySelect,
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw matchesErrors.requestAlreadyPending();
-      }
-      throw error;
-    }
-  }
-
-  private async assertCanCreatePendingMatchRequest(
-    tx: Prisma.TransactionClient,
-    input: PreparedMatchRequestCreation,
-    now: Date,
-  ) {
-    await acquirePairLock(tx, input.seasonId, input.pairIdentity.pairKey);
-    const sortedParticipants = [
-      input.pairIdentity.pairMinParticipantId,
-      input.pairIdentity.pairMaxParticipantId,
-    ] as const;
-    await acquireParticipantLocks(tx, input.seasonId, sortedParticipants);
-    await this.assertPreparedParticipantsStillRequestable(tx, input, sortedParticipants, now);
-    await expireDuePendingRequests(tx, input.seasonId, now);
-    await assertNoLivePendingPair(tx, input.seasonId, input.pairIdentity);
-    await assertNoLiveActiveMatchForParticipants(tx, input.seasonId, sortedParticipants);
-    await assertPendingRequestLimit(tx, input.seasonId, input.requesterParticipantId);
-    await assertDirectionLimit(
-      tx,
-      input.seasonId,
-      input.requesterParticipantId,
-      input.receiverParticipantId,
-    );
-    await assertDirectionCooldown(
-      tx,
-      input.seasonId,
-      input.requesterParticipantId,
-      input.receiverParticipantId,
-      now,
-    );
-  }
-
-  private async assertPreparedParticipantsStillRequestable(
-    tx: Prisma.TransactionClient,
-    input: PreparedMatchRequestCreation,
-    sortedParticipantIds: readonly [string, string],
-    now: Date,
-  ) {
-    const participants = await tx.seasonParticipant.findMany({
-      where: {
-        seasonId: input.seasonId,
-        id: { in: [input.requesterParticipantId, input.receiverParticipantId] },
-      },
-      select: matchRequestCreationParticipantSelect,
-    });
-    const participantById = new Map(
-      participants.map((participant) => [participant.id, participant]),
-    );
-    const requester = participantById.get(input.requesterParticipantId);
-    const receiver = participantById.get(input.receiverParticipantId);
-    if (
-      !requester ||
-      !receiver ||
-      !isMatchRequestCreationParticipantReady(requester) ||
-      !isMatchRequestCreationParticipantReady(receiver) ||
-      requester.dormitoryId === null ||
-      requester.dormitoryId !== receiver.dormitoryId
-    ) {
-      throw matchesErrors.requestNotAllowed();
-    }
-
-    const [operation, snapshotCount] = await Promise.all([
-      tx.seasonDormitoryOperation.findUnique({
-        where: {
-          seasonId_dormitoryId: {
-            seasonId: input.seasonId,
-            dormitoryId: requester.dormitoryId,
-          },
-        },
-        select: {
-          isOperated: true,
-          roomSelectionDate: true,
-        },
-      }),
-      tx.seasonParticipantProfileHistory.count({
-        where: {
-          seasonId: input.seasonId,
-          participantId: { in: [input.requesterParticipantId, input.receiverParticipantId] },
-          source: 'SEASON_REGISTRATION',
-          registeredAtSnapshot: { not: null },
-          redactedAt: null,
-        },
-      }),
-    ]);
-
-    if (
-      !operation?.isOperated ||
-      formatKstDate(now) > formatKstDate(operation.roomSelectionDate) ||
-      snapshotCount !== 2
-    ) {
-      throw matchesErrors.requestNotAllowed();
-    }
-  }
-}
-
-function isMatchRequestCreationParticipantReady(participant: MatchRequestCreationParticipant) {
-  const lifestyle = parseLifestyleOrNull(participant.profile ?? null);
-
-  return (
-    participant.participationIntent === 'REGISTERED' &&
-    participant.registeredAt !== null &&
-    participant.dormitorySelectionState === 'ASSIGNED' &&
-    participant.dormitoryId !== null &&
-    participant.declinedAt === null &&
-    participant.withdrawnAt === null &&
-    participant.participantStatus !== 'WITHDRAWN' &&
-    participant.participantStatus !== 'EXPIRED' &&
-    participant.hiddenByAdminAt === null &&
-    participant.deactivatedAt === null &&
-    participant.user.deletedAt === null &&
-    lifestyle !== null &&
-    isSeasonProfileComplete(lifestyle)
-  );
 }

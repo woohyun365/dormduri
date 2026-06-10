@@ -2,20 +2,21 @@ import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../generated/prisma/client.js';
 import type { ChatMatchThreadLifecyclePort } from '../chat/application/ports/chat-match-thread-lifecycle.port.js';
 import { matchesErrors } from './matches.errors.js';
-import type { MatchRequestRecord, ActiveMatchRecord } from './match-selects.js';
-import { activeMatchSummarySelect, matchRequestSummarySelect } from './match-selects.js';
+import type { ActiveMatchRecord } from './match-selects.js';
+import { activeMatchSummarySelect } from './match-selects.js';
+import {
+  matchRequestSummarySelect,
+  type MatchRequestRecord,
+} from './requests/persistence/match-request.select.js';
 import {
   acquireParticipantLocks,
   assertNoLiveActiveMatchForParticipants,
   lockRequestRow,
-} from './match-transaction-helpers.js';
+} from './requests/persistence/match-request-locks.js';
 import { buildParticipantPairIdentity } from './match.utils.js';
 import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
 import { formatKstDate } from '../platform/time/kst-date.js';
 import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
-
-export type TerminalMatchRequestStatus = 'REJECTED' | 'CANCELLED_BY_REQUESTER';
-export type TerminalMatchRequestReason = 'REJECTED_BY_RECEIVER' | 'CANCELLED_BY_REQUESTER';
 
 type MatchRequestParticipantState = MatchRequestRecord['requesterParticipant'];
 
@@ -125,73 +126,6 @@ function canParticipantsStillMatchInSeason(
   }
 
   return formatKstDate(now) <= operation.roomSelectionDate;
-}
-
-export function getRequestTerminalNotAllowedError(status: TerminalMatchRequestStatus) {
-  return status === 'REJECTED'
-    ? matchesErrors.requestRejectNotAllowed()
-    : matchesErrors.requestCancelNotAllowed();
-}
-
-export async function loadTerminableMatchRequest(
-  tx: Prisma.TransactionClient,
-  requestId: string,
-  actingParticipantId: string,
-  status: TerminalMatchRequestStatus,
-  now: Date,
-): Promise<MatchRequestRecord> {
-  await lockRequestRow(tx, requestId);
-
-  const request = (await tx.matchRequest.findUnique({
-    where: { id: requestId },
-    select: matchRequestSummarySelect,
-  })) as MatchRequestRecord | null;
-  if (!request) {
-    throw matchesErrors.requestNotFound();
-  }
-  if (request.status !== 'PENDING') {
-    throw matchesErrors.requestNotPending();
-  }
-  if (request.expiresAt.getTime() <= now.getTime()) {
-    await tx.matchRequest.update({
-      where: { id: request.id },
-      data: {
-        status: 'EXPIRED',
-        terminalReason: 'EXPIRED',
-        terminalAt: now,
-      },
-    });
-    throw matchesErrors.requestExpired();
-  }
-  if (status === 'REJECTED' && request.receiverParticipantId !== actingParticipantId) {
-    throw matchesErrors.requestRejectNotAllowed();
-  }
-  if (
-    status === 'CANCELLED_BY_REQUESTER' &&
-    request.requesterParticipantId !== actingParticipantId
-  ) {
-    throw matchesErrors.requestCancelNotAllowed();
-  }
-
-  return request;
-}
-
-export async function executeTerminalMatchRequestUpdate(
-  tx: Prisma.TransactionClient,
-  request: MatchRequestRecord,
-  status: TerminalMatchRequestStatus,
-  terminalReason: TerminalMatchRequestReason,
-  now: Date,
-): Promise<MatchRequestRecord> {
-  return (await tx.matchRequest.update({
-    where: { id: request.id },
-    data: {
-      status,
-      terminalReason,
-      terminalAt: now,
-    },
-    select: matchRequestSummarySelect,
-  })) as MatchRequestRecord;
 }
 
 export type AcceptableMatchRequestLoadResult =
