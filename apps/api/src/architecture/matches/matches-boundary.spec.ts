@@ -31,7 +31,6 @@ const rootProductionTransitionFiles: TransitionMap = {
   'match-history-materialization-owner.ts': 'Phase 8 history materialization split',
   'match-history-read-model.ts': 'Phase 8 history read/presenter split',
   'match-history-read-owner.ts': 'Phase 8 history read query split',
-  'match-lifecycle-owner.ts': 'Phase 7 lifecycle sweep port split',
   'match-read-model.ts': 'Phase 3/4 active presenter split',
   'match-score-projection.ts': 'Phase 10 scoring/shared contract split',
   'match.utils.ts': 'Phase 5/8 shared match utility split',
@@ -49,9 +48,7 @@ const rootSpecTransitionFiles: TransitionMap = {
   'matches.service.spec.ts': 'Phase 4~8 god spec split',
 };
 
-const concreteMatchesServiceTransitionConsumers: TransitionMap = {
-  'src/lifecycle/adapters/lifecycle-sweep-tasks.adapter.ts': 'Phase 7 lifecycle sweep ports',
-};
+const concreteMatchesServiceTransitionConsumers: TransitionMap = {};
 
 const externalMatchMutationTransitionFiles: TransitionMap = {
   'src/season-participants/deregistration/deregister-season-participant.command.ts':
@@ -187,7 +184,7 @@ describe('matches architecture boundary', () => {
     expect(rootSpecTransitionFiles['matches.service.spec.ts']).toContain('god spec split');
   });
 
-  it('tracks concrete MatchesService external consumers until active/lifecycle ports replace them', () => {
+  it('keeps external production code off concrete MatchesService after port migration', () => {
     const concreteConsumers = externalFilesContaining(
       /from\s+['"][^'"]*matches\/matches\.service(?:\.js)?['"]|\bMatchesService\b/,
     );
@@ -195,7 +192,7 @@ describe('matches architecture boundary', () => {
     expect(concreteConsumers).toEqual(sortedKeys(concreteMatchesServiceTransitionConsumers));
   });
 
-  it('keeps match ports and composition source-of-truth while concrete export is temporary', () => {
+  it('keeps match ports and composition source-of-truth without concrete service exports', () => {
     const moduleSource = readSource(join(matchesRoot, 'matches.module.ts'));
     const providersSource = readSource(join(matchesRoot, 'composition/matches.providers.ts'));
     const exportsSource = readSource(join(matchesRoot, 'composition/matches.exports.ts'));
@@ -217,9 +214,11 @@ describe('matches architecture boundary', () => {
     expect(existsSync(join(matchesRoot, 'active/queries/active-match-view.query.ts'))).toBe(true);
     expect(providersSource).toContain('ActiveMatchViewQuery');
     expect(providersSource).toContain('useExisting: ActiveMatchViewQuery');
+    expect(providersSource).toContain('ActiveMatchLifecycleSweepService');
+    expect(providersSource).toContain('useExisting: ActiveMatchLifecycleSweepService');
     expect(providersSource).toContain('useExisting: MatchesService');
-    expect(exportsSource).toContain('MatchesService');
-    expect(exportsSource).toContain('Temporary transition export');
+    expect(exportsSource).not.toContain('MatchesService');
+    expect(exportsSource).not.toContain('Temporary transition export');
   });
 
   it('keeps future request policies pure from Nest providers and Prisma infrastructure', () => {

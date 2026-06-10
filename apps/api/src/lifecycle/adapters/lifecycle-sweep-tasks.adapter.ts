@@ -4,7 +4,14 @@ import {
   type ChatLifecycleSweepPort,
 } from '../../chat/application/ports/chat-lifecycle-sweep.port.js';
 import { AuthOperationalCleanupService } from '../../auth/operations/auth-operational-cleanup.service.js';
-import { MatchesService } from '../../matches/matches.service.js';
+import {
+  MATCH_HISTORY_MATERIALIZATION_PORT,
+  type MatchHistoryMaterializationPort,
+} from '../../matches/application/ports/match-history-materialization.port.js';
+import {
+  MATCH_LIFECYCLE_SWEEP_PORT,
+  type MatchLifecycleSweepPort,
+} from '../../matches/application/ports/match-lifecycle-sweep.port.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import {
   RETENTION_SWEEP_PORT,
@@ -18,10 +25,13 @@ export class MatchLifecycleTransitionSweepTask implements LifecycleSweepTaskPort
   readonly name = 'matchTransitions' as const;
   readonly order = 10;
 
-  constructor(private readonly matchesService: MatchesService) {}
+  constructor(
+    @Inject(MATCH_LIFECYCLE_SWEEP_PORT)
+    private readonly matchLifecycleSweep: MatchLifecycleSweepPort,
+  ) {}
 
   run(now: Date) {
-    return this.matchesService.sweepLifecycleTransitions(now);
+    return this.matchLifecycleSweep.sweepMatchLifecycleTransitions(now);
   }
 }
 
@@ -45,10 +55,13 @@ export class MatchHistoryMaterializationSweepTask implements LifecycleSweepTaskP
   readonly name = 'matchHistory' as const;
   readonly order = 30;
 
-  constructor(private readonly matchesService: MatchesService) {}
+  constructor(
+    @Inject(MATCH_HISTORY_MATERIALIZATION_PORT)
+    private readonly matchHistoryMaterialization: MatchHistoryMaterializationPort,
+  ) {}
 
   run(now: Date) {
-    return this.matchesService.sweepHistoryMaterialization(now);
+    return this.matchHistoryMaterialization.materializeEndedSeasonHistory(now);
   }
 }
 

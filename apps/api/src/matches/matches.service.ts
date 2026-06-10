@@ -9,8 +9,6 @@ import type {
   MatchRequestListResponse,
 } from '@repo/shared/match-contract';
 import type { PublicProfile } from '@repo/shared/profile-contract';
-import { Prisma } from '../generated/prisma/client.js';
-import type { Campus } from '../generated/prisma/enums.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
 import { createMatchContextOwner } from './match-context-owner.js';
@@ -25,30 +23,19 @@ import type {
   MatchHistoryMaterializationPort,
   MatchHistoryMaterializationResult,
 } from './application/ports/match-history-materialization.port.js';
-import type {
-  MatchLifecycleSweepPort,
-  MatchLifecycleSweepResult,
-} from './application/ports/match-lifecycle-sweep.port.js';
 import { matchesErrors } from './matches.errors.js';
 import { createMatchHistoryMaterializationOwner } from './match-history-materialization-owner.js';
 import { createMatchHistoryReadOwner } from './match-history-read-owner.js';
-import { createMatchLifecycleOwner } from './match-lifecycle-owner.js';
 import { CancelUnmatchRequestCommand } from './active/commands/cancel-unmatch-request.command.js';
 import { RequestUnmatchCommand } from './active/commands/request-unmatch.command.js';
-import { ActiveMatchRepository } from './active/persistence/active-match.repository.js';
 import { AcceptMatchRequestCommand } from './requests/commands/accept-match-request.command.js';
 import { CreateMatchRequestCommand } from './requests/commands/create-match-request.command.js';
 import { RejectMatchRequestCommand } from './requests/commands/reject-match-request.command.js';
 import { CancelMatchRequestCommand } from './requests/commands/cancel-match-request.command.js';
 import { ListCurrentSeasonRequestsQuery } from './requests/queries/list-current-season-requests.query.js';
 
-interface LifecycleTransitionResult {
-  expiredUnmatchRequests: number;
-  seasonEndedActiveMatch: boolean;
-}
-
 @Injectable()
-export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMaterializationPort {
+export class MatchesService implements MatchHistoryMaterializationPort {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(SEASON_CONTEXT_PORT)
@@ -62,18 +49,7 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     private readonly cancelMatchRequestCommand: CancelMatchRequestCommand,
     private readonly requestUnmatchCommand: RequestUnmatchCommand,
     private readonly cancelUnmatchRequestCommand: CancelUnmatchRequestCommand,
-    private readonly activeMatchRepository: ActiveMatchRepository,
   ) {}
-
-  private get lifecycleOwner() {
-    return createMatchLifecycleOwner({
-      prisma: this.prisma,
-      getSeasonContextForCampus: (cache, campusCode, now) =>
-        this.getSeasonContextForCampus(cache, campusCode, now),
-      transitionActiveMatchLifecycle: (activeMatchId, seasonContext, now) =>
-        this.transitionActiveMatchLifecycle(activeMatchId, seasonContext, now),
-    });
-  }
 
   private get contextOwner() {
     return createMatchContextOwner({
@@ -192,18 +168,6 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
     );
   }
 
-  async sweepLifecycleTransitions(now: Date): Promise<MatchLifecycleSweepResult> {
-    return this.sweepMatchLifecycleTransitions(now);
-  }
-
-  async sweepMatchLifecycleTransitions(now: Date): Promise<MatchLifecycleSweepResult> {
-    return this.lifecycleOwner.sweepLifecycleTransitions(now);
-  }
-
-  async sweepHistoryMaterialization(now: Date): Promise<MatchHistoryMaterializationResult> {
-    return this.materializeEndedSeasonHistory(now);
-  }
-
   async materializeEndedSeasonHistory(
     now: Date,
     userId?: string,
@@ -226,101 +190,5 @@ export class MatchesService implements MatchLifecycleSweepPort, MatchHistoryMate
       seasonId,
       participantIds,
     );
-  }
-
-  private async getSeasonContextForCampus(
-    cache: Map<Campus, Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>>,
-    campusCode: Campus,
-    now: Date,
-  ) {
-    const cachedSeasonContext = cache.get(campusCode);
-    if (cachedSeasonContext !== undefined) {
-      return cachedSeasonContext;
-    }
-
-    const seasonContext = await this.seasonsService.getCurrentSeasonContext(campusCode, now);
-    cache.set(campusCode, seasonContext);
-    return seasonContext;
-  }
-
-  private async transitionActiveMatchLifecycle(
-    activeMatchId: string,
-    seasonContext: Awaited<ReturnType<SeasonContextPort['getCurrentSeasonContext']>>,
-    now: Date,
-  ): Promise<LifecycleTransitionResult> {
-    return this.prisma.runSerializableTransaction(async (tx) => {
-      const currentActiveMatch = await this.activeMatchRepository.lockAndFindActiveMatch(
-        tx,
-        activeMatchId,
-      );
-
-      if (!currentActiveMatch || currentActiveMatch.status !== 'ACTIVE') {
-        return { expiredUnmatchRequests: 0, seasonEndedActiveMatch: false };
-      }
-
-      const pendingBefore = currentActiveMatch.unmatchRequests.filter(
-        (request) => request.status === 'PENDING',
-      ).length;
-      const shouldSeasonEnd =
-        !seasonContext || seasonContext.season.id !== currentActiveMatch.seasonId;
-
-      if (shouldSeasonEnd) {
-        return this.endSeasonForActiveMatch(tx, currentActiveMatch.id, pendingBefore, now);
-      }
-
-      if (pendingBefore === 0) {
-        return { expiredUnmatchRequests: 0, seasonEndedActiveMatch: false };
-      }
-
-      const synchronizedActiveMatch =
-        await this.activeMatchRepository.synchronizePendingUnmatchRequests(
-          tx,
-          currentActiveMatch,
-          seasonContext,
-          now,
-        );
-      const pendingAfter = synchronizedActiveMatch.unmatchRequests.filter(
-        (request) => request.status === 'PENDING',
-      ).length;
-
-      return {
-        expiredUnmatchRequests: pendingBefore - pendingAfter,
-        seasonEndedActiveMatch: false,
-      };
-    });
-  }
-
-  private async endSeasonForActiveMatch(
-    tx: Prisma.TransactionClient,
-    activeMatchId: string,
-    pendingBefore: number,
-    now: Date,
-  ): Promise<LifecycleTransitionResult> {
-    const expiredPendingRequests = pendingBefore
-      ? await tx.activeMatchUnmatchRequest.updateMany({
-          where: {
-            activeMatchId,
-            status: 'PENDING',
-          },
-          data: {
-            status: 'EXPIRED_BY_CUTOFF',
-            terminalAt: now,
-          },
-        })
-      : { count: 0 };
-
-    await tx.activeMatch.update({
-      where: { id: activeMatchId },
-      data: {
-        status: 'SEASON_ENDED',
-        endedAt: now,
-        endReason: 'SEASON_ENDED',
-      },
-    });
-
-    return {
-      expiredUnmatchRequests: expiredPendingRequests.count,
-      seasonEndedActiveMatch: true,
-    };
   }
 }

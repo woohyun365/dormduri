@@ -14,7 +14,7 @@ Matches는 2인실 roommate match request, active match, unmatch, match history,
 - `MATCH_HISTORY_MATERIALIZATION_PORT`: lifecycle/retention sweep이 match history materialization을 요청하는 surface다.
 - `MATCH_BLOCK_SIDE_EFFECT_PORT`: social-safety block transaction이 affected pending match request cancel을 요청하는 side-effect surface다.
 
-현재 transition 상태에서는 `MatchesService` concrete export와 일부 외부 import가 남아 있다. 새 consumer는 concrete service에 의존하지 말고 위 port surface를 사용해야 한다.
+외부 consumer는 concrete `MatchesService`에 의존하지 말고 위 port surface를 사용한다. `MatchesService`는 matches HTTP/controller facade와 Phase 8 전 history materialization compatibility provider로만 남는다.
 
 ## Owned responsibilities
 
@@ -84,7 +84,7 @@ Final subdirectory targets:
 | Request accept/reject/cancel | `requests/commands`, `requests/policies`, `requests/persistence`, `requests/presenters`                      | `requests/commands`, `requests/policies`, `requests/persistence`                                         | Accept path must preserve chat lifecycle port call inside the transaction.           |
 | Active match read/context    | `match-active-query-owner.ts`, `match-context-owner.ts`, `active-match-context.*`                            | `active/queries`, `context/`                                                                             | Context guard prepares coarse context; action-specific rules stay in command/policy. |
 | Unmatch request/cancel       | `active/commands`, `active/policies`, `active/persistence`                                                   | `active/commands`, `active/policies`, `active/persistence`                                               | Preserve active row lock, mutual unmatch transaction, and chat lifecycle port call.  |
-| Lifecycle sweep              | `match-lifecycle-owner.ts`, `matches.service.ts`                                                             | `active/lifecycle`, `lifecycle/`, `MATCH_LIFECYCLE_SWEEP_PORT`                                           | Top-level lifecycle should depend on a port, not concrete service.                   |
+| Lifecycle sweep              | `active/lifecycle/active-match-lifecycle-sweep.service.ts`, `MATCH_LIFECYCLE_SWEEP_PORT`                     | `active/lifecycle`, `MATCH_LIFECYCLE_SWEEP_PORT`                                                         | Top-level lifecycle depends on the port, not concrete `MatchesService`.              |
 | History materialization      | `match-history-materialization-owner.ts`, `retention/match-history-archive.handler.ts`                       | `history/materialization`, `history/retention`                                                           | Retained payload stays out of hot user-facing history rows.                          |
 | History read                 | `match-history-read-owner.ts`, `match-history-read-model.ts`                                                 | `history/queries`, `history/mappers`                                                                     | Deleted/deidentified counterpart detail degrades to tombstone.                       |
 | Score projection             | `match-score-projection.ts`, `match-score.spec.ts`, `packages/shared/src/match-score.ts`                     | `scoring/`, `packages/shared/src/match/score.ts`                                                         | `perspectiveScore(viewer, target)` is the canonical user-facing score.               |
@@ -98,8 +98,8 @@ Architecture guards should enforce the final product shape as refactor phases la
 
 - Root production TypeScript files are limited to `matches.module.ts`, `matches.controller.ts`, and `README.md`.
 - Root spec files are limited to controller behavior only after specs are moved to owning slices or architecture.
-- External production code does not import `matches/matches.service` after port migration.
-- `MatchesModule` exports narrow ports instead of concrete `MatchesService` after consumer migration.
+- External production code does not import `matches/matches.service`.
+- `MatchesModule` exports narrow ports instead of concrete `MatchesService`.
 - Pure policies do not import Nest providers, `PrismaService`, or mutable infrastructure.
 - `social-safety`, `profiles`, `users`, `lifecycle`, and `retention` do not mutate `matchRequest`/`activeMatch` tables directly outside match-owned ports.
 - Shared match imports use nested `@repo/shared/match` surfaces, not root flat compatibility exports.

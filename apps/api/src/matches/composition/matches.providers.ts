@@ -2,6 +2,7 @@ import type { ModuleMetadata } from '@nestjs/common';
 import { CancelUnmatchRequestCommand } from '../active/commands/cancel-unmatch-request.command.js';
 import { RequestUnmatchCommand } from '../active/commands/request-unmatch.command.js';
 import { ActiveMatchContextGuard } from '../active/context/active-match-context.guard.js';
+import { ActiveMatchLifecycleSweepService } from '../active/lifecycle/active-match-lifecycle-sweep.service.js';
 import { ActiveMatchRepository } from '../active/persistence/active-match.repository.js';
 import { ActiveMatchViewQuery } from '../active/queries/active-match-view.query.js';
 import { MATCH_ACTIVE_VIEW_PORT } from '../application/ports/match-active-view.port.js';
@@ -26,6 +27,7 @@ export const MATCHES_PROVIDERS = [
   MatchesService,
   ActiveMatchContextGuard,
   ActiveMatchRepository,
+  ActiveMatchLifecycleSweepService,
   ActiveMatchViewQuery,
   ListCurrentSeasonRequestsQuery,
   CreateMatchRequestCommand,
@@ -46,7 +48,7 @@ export const MATCHES_PROVIDERS = [
   },
   {
     provide: MATCH_LIFECYCLE_SWEEP_PORT,
-    useExisting: MatchesService,
+    useExisting: ActiveMatchLifecycleSweepService,
   },
   {
     provide: MATCH_HISTORY_MATERIALIZATION_PORT,
