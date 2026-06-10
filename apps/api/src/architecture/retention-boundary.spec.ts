@@ -81,7 +81,7 @@ function existingRelativeFiles(root: string, files: readonly string[]) {
 }
 
 describe('retention final architecture boundary', () => {
-  it('expected-red observability split: keeps retention root production files on module surface only', () => {
+  it('keeps retention root production files on module surface only', () => {
     const rootProductionFiles = productionTypeScriptFiles(retentionRoot)
       .filter((path) => dirname(path) === retentionRoot)
       .map((path) => rootRelativePath(path, retentionRoot))
@@ -140,6 +140,22 @@ describe('retention final architecture boundary', () => {
       expectedGreenPhase: 'Phase 2 RetentionModule import/export wiring',
       directRetentionObservabilityImports: [],
       lifecycleModuleImportsRetentionModule: true,
+    });
+  });
+
+  it('keeps production source away from root retention observability imports', () => {
+    const forbiddenRootObservabilityImport =
+      /from\s+['"][^'"]*(?:retention\/retention-observability|\.\.\/retention-observability)(?:\.js)?['"]/;
+
+    expect({
+      expectedGreenPhase: 'Phase 11 nested retention observability slice',
+      directRootObservabilityImports: sourceFilesContaining(
+        apiSourceRoot,
+        forbiddenRootObservabilityImport,
+      ),
+    }).toEqual({
+      expectedGreenPhase: 'Phase 11 nested retention observability slice',
+      directRootObservabilityImports: [],
     });
   });
 

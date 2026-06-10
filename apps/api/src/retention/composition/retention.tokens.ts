@@ -2,7 +2,7 @@ import type {
   RetentionObservabilitySweepEmission,
   RetentionObservabilitySweepInput,
   RetentionOperationalAlert,
-} from '../retention-observability.js';
+} from '../observability/retention-observability.types.js';
 
 export const RETENTION_OBSERVABILITY_PORT = Symbol('RETENTION_OBSERVABILITY_PORT');
 

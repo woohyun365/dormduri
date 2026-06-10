@@ -1,7 +1,7 @@
 import type { Provider } from '@nestjs/common';
 import { RetentionSweepService } from '../application/retention-sweep.service.js';
 import { RETENTION_SWEEP_PORT } from '../application/ports/retention-sweep.port.js';
-import { RetentionObservabilityService } from '../retention-observability.js';
+import { RetentionObservabilityService } from '../observability/retention-observability.service.js';
 import { RETENTION_OBSERVABILITY_PORT } from './retention.tokens.js';
 
 export const RETENTION_SWEEP_PROVIDERS: Provider[] = [

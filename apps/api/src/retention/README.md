@@ -25,8 +25,7 @@
 - `crypto/`: retention payload encryption helper와 payload envelope format. Production key custody adapter는 이 boundary의 adapter로 붙는다.
 - `observability/`: backlog snapshot, structured metric, alert candidate signal. Retained payload 원문을 로그/metric에 넣지 않는다.
 - `composition/`: RetentionModule provider/export/token source of truth. Module decorator에서 긴 provider list를 직접 소유하지 않는다.
-- `contracts/`: retention behavior regression spec. Cross-domain layout/import fitness는 `apps/api/src/architecture/`가 소유한다.
-- `test-support/`: retention unit/integration fixture와 builder.
+- Retention unit/integration specs는 owning slice 옆에 둔다. Cross-domain layout/import fitness는 `apps/api/src/architecture/`가 소유한다.
 
 ## Domain-owned archive handlers
 
@@ -38,6 +37,42 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 - chat: `chat/retention/thread-retention-archive.handler.ts`, `chat/retention/conversation-retained-body.service.ts`.
 
 이 구분은 같은 용어가 domain마다 다른 bounded context를 가질 수 있기 때문이다. Retention root가 chat/matches/users/season-participants의 policy와 write semantics를 흡수하지 않는다.
+
+## Observability and operations runbook
+
+Retention observability는 lifecycle sweep 결과와 DB backlog를 count/status/error-code 중심의 metric과 alert candidate signal로 변환한다. 이 layer는 retained payload 원문, identifier payload, decrypt 결과, approval reference, disclosure purpose를 로그나 metric에 포함하지 않는다.
+
+### Metric/alert ownership
+
+- Metric owner: `observability/retention-metrics.ts`.
+- Backlog snapshot owner: `observability/retention-backlog-snapshot.query.ts`.
+- Alert candidate owner: `observability/retention-alerts.ts`.
+- Nest provider/log emission owner: `observability/retention-observability.service.ts`.
+- Public injection surface: `RETENTION_OBSERVABILITY_PORT`.
+
+### Alert triage
+
+- `RETENTION_ARCHIVE_MANUAL_REVIEW`: `ArchiveJob`이 manual-review 상태로 이동했다. target handler owner domain의 source row transformation, retry history, last error code를 확인한다.
+- `RETENTION_REVIEW_MANUAL_REVIEW`: identity-link review job이 manual review 상태다. review payload, approval policy, 대상 record의 retained/disposed state를 확인한다.
+- `RETENTION_RETRY_EXHAUSTED`: archive retry budget이 소진됐다. 같은 target의 반복 실패 원인, worker crash loop, TypedSQL claim lease, source handler idempotency를 확인한다.
+- `RETENTION_KEY_UNAVAILABLE`: retained body/keyring/KMS 후보 key를 찾지 못했다. env key, future KMS adapter, key rotation history, 해당 handler의 disclosure/decrypt path를 확인한다.
+- `RETENTION_BACKLOG_THRESHOLD_EXCEEDED`: due backlog가 운영 기준을 넘었다. worker 수, batch size, lease, DB pool, IOPS, query latency를 함께 확인한다.
+- `RETENTION_SWEEP_FAILED`: lifecycle sweep이 완료 전 실패했다. alert metadata는 mode와 sanitized error name만 남기며, 원문 error message는 retained payload/identifier 유입 가능성 때문에 기록하지 않는다.
+
+### Worker count and RDS signals
+
+`LIFECYCLE_SWEEP_ENABLED=true`인 runtime instance 수가 retention worker concurrency가 될 수 있다. 운영에서는 API serving replica와 worker 전용 replica/process를 분리하거나, 아래 지표를 기준으로 worker 수와 batch size를 조정한다.
+
+- Queue/backlog: due archive/review/access-log count, manual review count, retry exhausted count.
+- Runtime: sweep duration, processed count, retry/manual-review ratio, claim lease expiry frequency.
+- RDS: connection count, pool saturation, CPU, ReadIOPS/WriteIOPS, DiskQueueDepth, slow query/query latency.
+- Cost signal: worker 수 증가로 write amplification과 IOPS가 증가하면 batch size/interval 조정 또는 worker replica 분리를 우선 검토한다.
+
+### Follow-up boundaries
+
+- External alert delivery adapter는 #240 범위다. 현재 layer는 alert candidate를 생성하고 structured log로 남긴다.
+- Production KMS/secret adapter는 #232 또는 별도 secret management issue 범위다.
+- Production EXPLAIN/IOPS/load-test baseline은 운영 관측 issue에서 다룬다.
 
 ## Queue claim and disposal hardening
 
@@ -75,7 +110,7 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 - Product domain은 retained payload parser/disclosure concrete implementation을 import하지 않는다.
 - Lifecycle은 retention observability concrete provider를 직접 소유하지 않고 `RetentionModule`의 exported port를 주입받는다.
 - Lifecycle sweep task execution은 broad users service가 아니라 retention sweep port로 수렴한다.
-- Current transition surface에는 `retention-observability.ts` root file이 남아 있다. 신규 수정은 위 owning slice와 public boundary로 수렴시킨다.
+- Retention root production file은 `retention.module.ts`만 둔다. Observability, archive/review/access-log/disclosure/vault 책임은 각 owning slice 내부에 둔다.
 
 ## Where to change retention behavior
 
