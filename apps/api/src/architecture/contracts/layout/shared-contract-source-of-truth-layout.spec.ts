@@ -132,6 +132,29 @@ const EXCLUDED_OWNER_ROOT_FILES = [
   'roommate-search-contract.ts',
 ] as const;
 
+const MATCH_FLAT_CONTRACT_TRANSITION_EXPORTS: Record<string, PackageExportTarget> = {
+  './match-contract': {
+    types: './dist/match-contract.d.ts',
+    default: './dist/match-contract.js',
+  },
+  './match-score': {
+    types: './dist/match-score.d.ts',
+    default: './dist/match-score.js',
+  },
+};
+
+const MATCH_FLAT_CONTRACT_TRANSITION_ROOT_FILES = [
+  'match-contract-enums.ts',
+  'match-contract-history.ts',
+  'match-contract-request.ts',
+  'match-contract-response.ts',
+  'match-contract-summary.ts',
+  'match-contract.ts',
+  'match-score.ts',
+] as const;
+
+const MATCH_CANONICAL_NESTED_EXPORTS = ['./match', './match/contract', './match/score'] as const;
+
 const REMOVED_PUBLIC_SPECIFIERS = [
   '@repo/shared/auth-contract',
   '@repo/shared/auth-policy',
@@ -240,6 +263,25 @@ describe('shared contract source-of-truth layout', () => {
     }
 
     for (const publicPath of REMOVED_ROOT_STYLE_ALIAS_EXPORTS) {
+      expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
+    }
+  });
+
+  it('tracks match flat contract as the explicit Phase 10 transition owner', () => {
+    const sharedPackageJson = readPackageJson();
+    const rootMatchFiles = readdirSync(sharedSrc, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .map((entry) => entry.name)
+      .filter((file) => file.startsWith('match-contract') || file === 'match-score.ts')
+      .sort();
+
+    expect(rootMatchFiles).toEqual([...MATCH_FLAT_CONTRACT_TRANSITION_ROOT_FILES].sort());
+    for (const [publicPath, expectedTarget] of Object.entries(
+      MATCH_FLAT_CONTRACT_TRANSITION_EXPORTS,
+    )) {
+      expect(sharedPackageJson.exports[publicPath]).toEqual(expectedTarget);
+    }
+    for (const publicPath of MATCH_CANONICAL_NESTED_EXPORTS) {
       expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
     }
   });
