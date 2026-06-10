@@ -107,6 +107,15 @@ CREATE TYPE "ActiveMatchEndReason" AS ENUM ('UNMATCHED_BY_MUTUAL_CONSENT', 'SEAS
 CREATE TYPE "ActiveMatchUnmatchRequestStatus" AS ENUM ('PENDING', 'CANCELLED_BY_REQUESTER', 'EXPIRED_BY_CUTOFF', 'FULFILLED_BY_MUTUAL_CONSENT');
 
 -- CreateEnum
+CREATE TYPE "ActiveMatchLifecycleEventType" AS ENUM ('ACTIVE_CREATED', 'UNMATCH_REQUESTED', 'UNMATCH_REQUEST_CANCELLED', 'UNMATCH_REQUEST_EXPIRED', 'UNMATCHED', 'SEASON_ENDED', 'ADMIN_ENDED', 'PARTICIPANT_WITHDRAWN');
+
+-- CreateEnum
+CREATE TYPE "ActiveMatchLifecycleEventReason" AS ENUM ('MATCH_REQUEST_ACCEPTED', 'USER_REQUESTED_UNMATCH', 'USER_CANCELLED_UNMATCH_REQUEST', 'ROOM_SELECTION_CUTOFF', 'MUTUAL_UNMATCH_CONSENT', 'SEASON_ENDED_SWEEP', 'ADMIN_ACTION', 'WITHDRAWN_PARTICIPANT');
+
+-- CreateEnum
+CREATE TYPE "ActiveMatchLifecycleActorType" AS ENUM ('USER', 'SYSTEM', 'ADMIN');
+
+-- CreateEnum
 CREATE TYPE "SeasonMatchHistoryEntryType" AS ENUM ('REQUEST', 'MATCH');
 
 -- CreateEnum
@@ -859,6 +868,23 @@ CREATE TABLE "ActiveMatchUnmatchRequest" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ActiveMatchUnmatchRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ActiveMatchLifecycleEvent" (
+    "id" TEXT NOT NULL,
+    "activeMatchId" TEXT NOT NULL,
+    "eventType" "ActiveMatchLifecycleEventType" NOT NULL,
+    "reason" "ActiveMatchLifecycleEventReason" NOT NULL,
+    "actorType" "ActiveMatchLifecycleActorType" NOT NULL,
+    "actorUserId" TEXT,
+    "sourceMatchRequestId" TEXT,
+    "sourceUnmatchRequestId" TEXT,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ActiveMatchLifecycleEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1623,6 +1649,24 @@ CREATE INDEX "ActiveMatchUnmatchRequest_activeMatchId_status_requestedAt_idx" ON
 CREATE INDEX "ActiveMatchUnmatchRequest_participantId_status_requestedAt_idx" ON "ActiveMatchUnmatchRequest"("participantId", "status", "requestedAt");
 
 -- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_activeMatchId_occurredAt_id_idx" ON "ActiveMatchLifecycleEvent"("activeMatchId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_eventType_occurredAt_id_idx" ON "ActiveMatchLifecycleEvent"("eventType", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_actorUserId_occurredAt_id_idx" ON "ActiveMatchLifecycleEvent"("actorUserId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_sourceMatchRequestId_occurredAt_i_idx" ON "ActiveMatchLifecycleEvent"("sourceMatchRequestId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_sourceUnmatchRequestId_occurredAt_idx" ON "ActiveMatchLifecycleEvent"("sourceUnmatchRequestId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_createdAt_idx" ON "ActiveMatchLifecycleEvent"("createdAt");
+
+-- CreateIndex
 CREATE INDEX "SeasonMatchHistoryEntry_seasonId_viewerParticipantId_finali_idx" ON "SeasonMatchHistoryEntry"("seasonId", "viewerParticipantId", "finalizedAt");
 
 -- CreateIndex
@@ -2031,6 +2075,9 @@ ALTER TABLE "ActiveMatchUnmatchRequest" ADD CONSTRAINT "ActiveMatchUnmatchReques
 
 -- AddForeignKey
 ALTER TABLE "ActiveMatchUnmatchRequest" ADD CONSTRAINT "ActiveMatchUnmatchRequest_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ActiveMatchLifecycleEvent" ADD CONSTRAINT "ActiveMatchLifecycleEvent_activeMatchId_fkey" FOREIGN KEY ("activeMatchId") REFERENCES "ActiveMatch"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonMatchHistoryEntry" ADD CONSTRAINT "SeasonMatchHistoryEntry_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;

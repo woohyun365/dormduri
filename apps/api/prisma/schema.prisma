@@ -256,6 +256,34 @@ enum ActiveMatchUnmatchRequestStatus {
   FULFILLED_BY_MUTUAL_CONSENT
 }
 
+enum ActiveMatchLifecycleEventType {
+  ACTIVE_CREATED
+  UNMATCH_REQUESTED
+  UNMATCH_REQUEST_CANCELLED
+  UNMATCH_REQUEST_EXPIRED
+  UNMATCHED
+  SEASON_ENDED
+  ADMIN_ENDED
+  PARTICIPANT_WITHDRAWN
+}
+
+enum ActiveMatchLifecycleEventReason {
+  MATCH_REQUEST_ACCEPTED
+  USER_REQUESTED_UNMATCH
+  USER_CANCELLED_UNMATCH_REQUEST
+  ROOM_SELECTION_CUTOFF
+  MUTUAL_UNMATCH_CONSENT
+  SEASON_ENDED_SWEEP
+  ADMIN_ACTION
+  WITHDRAWN_PARTICIPANT
+}
+
+enum ActiveMatchLifecycleActorType {
+  USER
+  SYSTEM
+  ADMIN
+}
+
 enum SeasonMatchHistoryEntryType {
   REQUEST
   MATCH
@@ -1330,6 +1358,7 @@ model ActiveMatch {
   participantB         SeasonParticipant           @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
   createdFromRequest   MatchRequest                @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
   unmatchRequests      ActiveMatchUnmatchRequest[]
+  lifecycleEvents      ActiveMatchLifecycleEvent[]
   conversationThread   ConversationThread?
 
   @@index([seasonId, pairKey, endedAt])
@@ -1352,6 +1381,28 @@ model ActiveMatchUnmatchRequest {
 
   @@index([activeMatchId, status, requestedAt])
   @@index([participantId, status, requestedAt])
+}
+
+model ActiveMatchLifecycleEvent {
+  id                     String                          @id @default(uuid())
+  activeMatchId          String
+  eventType              ActiveMatchLifecycleEventType
+  reason                 ActiveMatchLifecycleEventReason
+  actorType              ActiveMatchLifecycleActorType
+  actorUserId            String?
+  sourceMatchRequestId   String?
+  sourceUnmatchRequestId String?
+  metadata               Json?
+  occurredAt             DateTime                        @default(now()) @db.Timestamptz(3)
+  createdAt              DateTime                        @default(now()) @db.Timestamptz(3)
+  activeMatch            ActiveMatch                     @relation(fields: [activeMatchId], references: [id], onDelete: Cascade)
+
+  @@index([activeMatchId, occurredAt, id])
+  @@index([eventType, occurredAt, id])
+  @@index([actorUserId, occurredAt, id])
+  @@index([sourceMatchRequestId, occurredAt, id])
+  @@index([sourceUnmatchRequestId, occurredAt, id])
+  @@index([createdAt])
 }
 
 model SeasonMatchHistoryEntry {
