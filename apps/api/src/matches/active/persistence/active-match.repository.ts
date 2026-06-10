@@ -82,16 +82,7 @@ export class ActiveMatchRepository {
       return activeMatch;
     }
 
-    await client.activeMatchUnmatchRequest.updateMany({
-      where: {
-        activeMatchId: activeMatch.id,
-        status: 'PENDING',
-      },
-      data: {
-        status: 'EXPIRED_BY_CUTOFF',
-        terminalAt: now,
-      },
-    });
+    await this.expirePendingUnmatchRequests(client, activeMatch.id, now);
 
     const refreshed = await client.activeMatch.findUnique({
       where: { id: activeMatch.id },
@@ -165,6 +156,24 @@ export class ActiveMatchRepository {
       where: {
         activeMatchId,
         status: 'PENDING',
+      },
+      select: activeMatchUnmatchRequestLifecycleSelect,
+    });
+  }
+
+  async expirePendingUnmatchRequests(
+    client: MatchClient,
+    activeMatchId: string,
+    now: Date,
+  ): Promise<ActiveMatchUnmatchRequestLifecycleRecord[]> {
+    return client.activeMatchUnmatchRequest.updateManyAndReturn({
+      where: {
+        activeMatchId,
+        status: 'PENDING',
+      },
+      data: {
+        status: 'EXPIRED_BY_CUTOFF',
+        terminalAt: now,
       },
       select: activeMatchUnmatchRequestLifecycleSelect,
     });

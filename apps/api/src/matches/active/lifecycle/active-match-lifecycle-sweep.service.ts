@@ -11,7 +11,13 @@ import type {
   MatchLifecycleSweepPort,
   MatchLifecycleSweepResult,
 } from '../../application/ports/match-lifecycle-sweep.port.js';
+import { ActiveMatchLifecycleEventWriter } from '../lifecycle-events/active-match-lifecycle-event.writer.js';
 import { ActiveMatchRepository } from '../persistence/active-match.repository.js';
+import type { ActiveMatchCommandRecord } from '../persistence/active-match.select.js';
+import {
+  findActiveMatchRoomSelectionDate,
+  isUnmatchWindowOpen,
+} from '../policies/active-match-unmatch.policy.js';
 
 interface LifecycleTransitionResult {
   expiredUnmatchRequests: number;
@@ -25,6 +31,7 @@ export class ActiveMatchLifecycleSweepService implements MatchLifecycleSweepPort
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
     private readonly activeMatchRepository: ActiveMatchRepository,
+    private readonly lifecycleEventWriter: ActiveMatchLifecycleEventWriter,
   ) {}
 
   async sweepMatchLifecycleTransitions(now: Date): Promise<MatchLifecycleSweepResult> {
@@ -123,26 +130,42 @@ export class ActiveMatchLifecycleSweepService implements MatchLifecycleSweepPort
         !seasonContext || seasonContext.season.id !== currentActiveMatch.seasonId;
 
       if (shouldSeasonEnd) {
-        return this.endSeasonForActiveMatch(tx, currentActiveMatch.id, pendingBefore, now);
+        return this.endSeasonForActiveMatch(tx, currentActiveMatch, seasonContext, now);
       }
 
       if (pendingBefore === 0) {
         return { expiredUnmatchRequests: 0, seasonEndedActiveMatch: false };
       }
 
-      const synchronizedActiveMatch =
-        await this.activeMatchRepository.synchronizePendingUnmatchRequests(
-          tx,
-          currentActiveMatch,
-          seasonContext,
-          now,
-        );
-      const pendingAfter = synchronizedActiveMatch.unmatchRequests.filter(
-        (request) => request.status === 'PENDING',
-      ).length;
+      if (isUnmatchWindowOpen(currentActiveMatch, seasonContext, now)) {
+        return { expiredUnmatchRequests: 0, seasonEndedActiveMatch: false };
+      }
+
+      const expiredPendingRequests = await this.activeMatchRepository.expirePendingUnmatchRequests(
+        tx,
+        currentActiveMatch.id,
+        now,
+      );
+      const roomSelectionDate = findActiveMatchRoomSelectionDate(currentActiveMatch, seasonContext);
+
+      for (const expiredPendingRequest of expiredPendingRequests) {
+        await this.lifecycleEventWriter.recordUnmatchRequestExpired(tx, {
+          activeMatchId: currentActiveMatch.id,
+          sourceUnmatchRequestId: expiredPendingRequest.id,
+          occurredAt: now,
+          metadata: {
+            transitionOwner: 'match.unmatch.expire',
+            previousStatus: 'ACTIVE',
+            nextStatus: 'ACTIVE',
+            unmatchRequestStatus: expiredPendingRequest.status,
+            expiredUnmatchRequestCount: expiredPendingRequests.length,
+            roomSelectionDate,
+          },
+        });
+      }
 
       return {
-        expiredUnmatchRequests: pendingBefore - pendingAfter,
+        expiredUnmatchRequests: expiredPendingRequests.length,
         seasonEndedActiveMatch: false,
       };
     });
@@ -150,25 +173,35 @@ export class ActiveMatchLifecycleSweepService implements MatchLifecycleSweepPort
 
   private async endSeasonForActiveMatch(
     tx: Prisma.TransactionClient,
-    activeMatchId: string,
-    pendingBefore: number,
+    activeMatch: ActiveMatchCommandRecord,
+    seasonContext: CurrentSeasonContext | null,
     now: Date,
   ): Promise<LifecycleTransitionResult> {
+    const pendingBefore = activeMatch.unmatchRequests.filter(
+      (request) => request.status === 'PENDING',
+    ).length;
     const expiredPendingRequests = pendingBefore
-      ? await tx.activeMatchUnmatchRequest.updateMany({
-          where: {
-            activeMatchId,
-            status: 'PENDING',
-          },
-          data: {
-            status: 'EXPIRED_BY_CUTOFF',
-            terminalAt: now,
-          },
-        })
-      : { count: 0 };
+      ? await this.activeMatchRepository.expirePendingUnmatchRequests(tx, activeMatch.id, now)
+      : [];
+
+    for (const expiredPendingRequest of expiredPendingRequests) {
+      await this.lifecycleEventWriter.recordUnmatchRequestExpired(tx, {
+        activeMatchId: activeMatch.id,
+        sourceUnmatchRequestId: expiredPendingRequest.id,
+        occurredAt: now,
+        metadata: {
+          transitionOwner: 'match.season-end.expire-unmatch-request',
+          previousStatus: 'ACTIVE',
+          nextStatus: 'ACTIVE',
+          unmatchRequestStatus: expiredPendingRequest.status,
+          expiredUnmatchRequestCount: expiredPendingRequests.length,
+          seasonState: seasonContext?.state ?? 'NO_CURRENT_SEASON',
+        },
+      });
+    }
 
     await tx.activeMatch.update({
-      where: { id: activeMatchId },
+      where: { id: activeMatch.id },
       data: {
         status: 'SEASON_ENDED',
         endedAt: now,
@@ -176,8 +209,22 @@ export class ActiveMatchLifecycleSweepService implements MatchLifecycleSweepPort
       },
     });
 
+    await this.lifecycleEventWriter.recordSeasonEnded(tx, {
+      activeMatchId: activeMatch.id,
+      occurredAt: now,
+      metadata: {
+        transitionOwner: 'match.season-end',
+        previousStatus: 'ACTIVE',
+        nextStatus: 'SEASON_ENDED',
+        previousEndReason: activeMatch.endReason,
+        nextEndReason: 'SEASON_ENDED',
+        expiredUnmatchRequestCount: expiredPendingRequests.length,
+        seasonState: seasonContext?.state ?? 'NO_CURRENT_SEASON',
+      },
+    });
+
     return {
-      expiredUnmatchRequests: expiredPendingRequests.count,
+      expiredUnmatchRequests: expiredPendingRequests.length,
       seasonEndedActiveMatch: true,
     };
   }

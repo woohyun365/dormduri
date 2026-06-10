@@ -182,6 +182,83 @@ describe('MatchesService unmatch integration', () => {
     });
   });
 
+  it('season-ended boundary sweep는 pending unmatch expiry와 active match terminal event를 남기고 재실행 중복을 만들지 않는다', async () => {
+    const databaseNow = await prisma.getDatabaseNow();
+    await service.requestUnmatch(authContext('user-a'), 'active-match-1');
+    await prisma.season.update({
+      where: { id: 'season-integration' },
+      data: {
+        seasonEndDate: new Date(databaseNow.getTime() - 24 * 60 * 60 * 1_000),
+      },
+    });
+    await prisma.seasonDormitoryOperation.update({
+      where: {
+        seasonId_dormitoryId: {
+          seasonId: 'season-integration',
+          dormitoryId: 'dasan',
+        },
+      },
+      data: {
+        roomSelectionDate: new Date(databaseNow.getTime() - 2 * 24 * 60 * 60 * 1_000),
+      },
+    });
+
+    const firstSweep = await lifecycleSweepService.runBoundarySweep(databaseNow);
+    expect(firstSweep.matchTransitions).toMatchObject({
+      expiredUnmatchRequests: 1,
+      seasonEndedActiveMatches: 1,
+    });
+
+    const activeMatch = await prisma.activeMatch.findUnique({
+      where: { id: 'active-match-1' },
+      include: {
+        unmatchRequests: true,
+      },
+    });
+    expect(activeMatch).toMatchObject({
+      status: 'SEASON_ENDED',
+      endReason: 'SEASON_ENDED',
+    });
+    expect(activeMatch?.unmatchRequests).toHaveLength(1);
+    expect(activeMatch?.unmatchRequests[0]).toMatchObject({
+      status: 'EXPIRED_BY_CUTOFF',
+    });
+
+    const lifecycleEvents = await prisma.activeMatchLifecycleEvent.findMany({
+      where: { activeMatchId: 'active-match-1' },
+      orderBy: [{ occurredAt: 'asc' }, { createdAt: 'asc' }],
+    });
+    expect(lifecycleEvents.map((event) => event.eventType)).toEqual(
+      expect.arrayContaining(['UNMATCH_REQUESTED', 'UNMATCH_REQUEST_EXPIRED', 'SEASON_ENDED']),
+    );
+    const sweepEvents = lifecycleEvents.filter((event) => event.eventType !== 'UNMATCH_REQUESTED');
+    expect(sweepEvents.map((event) => event.eventType)).toEqual([
+      'UNMATCH_REQUEST_EXPIRED',
+      'SEASON_ENDED',
+    ]);
+    expect(sweepEvents[0]).toMatchObject({
+      reason: 'ROOM_SELECTION_CUTOFF',
+      actorType: 'SYSTEM',
+      sourceUnmatchRequestId: activeMatch?.unmatchRequests[0]?.id,
+    });
+    expect(sweepEvents[1]).toMatchObject({
+      reason: 'SEASON_ENDED_SWEEP',
+      actorType: 'SYSTEM',
+      sourceUnmatchRequestId: null,
+    });
+
+    const secondSweep = await lifecycleSweepService.runBoundarySweep(databaseNow);
+    expect(secondSweep.matchTransitions).toMatchObject({
+      expiredUnmatchRequests: 0,
+      seasonEndedActiveMatches: 0,
+    });
+    await expect(
+      prisma.activeMatchLifecycleEvent.count({
+        where: { activeMatchId: 'active-match-1' },
+      }),
+    ).resolves.toBe(3);
+  });
+
   it('unmatch는 ACTIVE 생성 때 닫힌 eligible direct thread를 다시 OPEN하고 outbox를 남긴다', async () => {
     await seedRegisteredAssignedParticipant(prisma, {
       userId: 'user-c',
