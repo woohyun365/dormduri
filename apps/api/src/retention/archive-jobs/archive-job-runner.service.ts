@@ -6,8 +6,8 @@ import {
 import type { RetainedVaultOwnerOptions } from '../vault/retained-vault.service.js';
 import {
   activateWaitingArchiveJobs,
+  claimDueDeletionArchiveJobs,
   findArchivedConversationThreads,
-  findDueDeletionArchiveJobs,
   findWaitingThreadRetentionArchiveJobs,
   updateArchiveJob,
 } from './archive-job.repository.js';
@@ -18,6 +18,7 @@ import {
 } from './archive-job-transition.policy.js';
 import {
   type ArchiveJobActivationResult,
+  type ArchiveJobClaimOptions,
   type ArchiveJobSweepResult,
 } from './archive-job.types.js';
 import { archiveDeletionJob } from './targets/archive-target-handlers.js';
@@ -55,8 +56,9 @@ export async function retryDueArchiveJobs(
   now: Date,
   conversationRetentionOptions: ConversationRetainedBodyOwnerOptions = {},
   retainedVaultOptions: RetainedVaultOwnerOptions = {},
+  claimOptions: ArchiveJobClaimOptions = {},
 ): Promise<ArchiveJobSweepResult> {
-  const dueJobs = await findDueDeletionArchiveJobs(prisma, now);
+  const dueJobs = await claimDueDeletionArchiveJobs(prisma, now, claimOptions);
 
   const result: ArchiveJobSweepResult = {
     processedCount: 0,

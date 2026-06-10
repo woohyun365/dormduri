@@ -7,6 +7,9 @@ import type { RetainedVaultOwnerOptions } from '../vault/retained-vault.service.
 
 export const DEFAULT_ARCHIVE_JOB_MAX_ATTEMPTS = 5;
 export const CHAT_MESSAGE_IDENTITY_REVIEW_AFTER_DAYS = 365 * 2;
+export const DEFAULT_ARCHIVE_JOB_CLAIM_BATCH_SIZE = 50;
+export const MAX_ARCHIVE_JOB_CLAIM_BATCH_SIZE = 100;
+export const DEFAULT_ARCHIVE_JOB_CLAIM_LEASE_MS = 5 * 60 * 1000;
 
 export const deletionArchiveJobTargets = [
   'SEASON_PROFILE_HISTORY',
@@ -65,6 +68,11 @@ export interface ArchiveJobSweepResult {
 
 export interface ArchiveJobActivationResult {
   activatedCount: number;
+}
+
+export interface ArchiveJobClaimOptions {
+  batchSize?: number;
+  claimLeaseMs?: number;
 }
 
 export interface ArchiveDeletionJobHandlerContext {

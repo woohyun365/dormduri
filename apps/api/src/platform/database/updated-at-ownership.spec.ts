@@ -12,7 +12,10 @@ const LOGIN_ATTEMPT_SQL_PATH = path.resolve(
 const SQL_WRITE_FILES = [
   'claimChatRealtimeOutboxEvents.sql',
   'claimNotificationOutboxEvents.sql',
+  'claimRetentionArchiveJobs.sql',
+  'claimRetentionReviewJobs.sql',
   'consumeVerificationCodeProof.sql',
+  'disposeDueRetentionAccessLogs.sql',
   'markVerificationCodeVerified.sql',
   'recordLoginFailure.sql',
   'recordVerificationCodeFailure.sql',
@@ -20,6 +23,8 @@ const SQL_WRITE_FILES = [
 const UPDATED_AT_OWNED_WRITE_SQL_FILES = [
   'claimChatRealtimeOutboxEvents.sql',
   'claimNotificationOutboxEvents.sql',
+  'claimRetentionArchiveJobs.sql',
+  'claimRetentionReviewJobs.sql',
   'recordLoginFailure.sql',
 ] as const;
 

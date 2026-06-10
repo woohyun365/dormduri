@@ -1,17 +1,38 @@
 import type { Prisma } from '../../generated/prisma/client.js';
+import { claimRetentionArchiveJobs } from '../../generated/prisma/sql.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
-import { archiveJobWorkItemSelect, deletionArchiveJobTargets } from './archive-job.types.js';
+import {
+  DEFAULT_ARCHIVE_JOB_CLAIM_BATCH_SIZE,
+  DEFAULT_ARCHIVE_JOB_CLAIM_LEASE_MS,
+  MAX_ARCHIVE_JOB_CLAIM_BATCH_SIZE,
+  type ArchiveJobClaimOptions,
+  type ArchiveJobWorkItem,
+} from './archive-job.types.js';
 
-export function findDueDeletionArchiveJobs(prisma: PrismaService, now: Date) {
-  return prisma.archiveJob.findMany({
-    where: {
-      target: { in: deletionArchiveJobTargets },
-      status: { in: ['PENDING', 'RETRY_SCHEDULED'] },
-      nextRunAt: { lte: now },
-    },
-    select: archiveJobWorkItemSelect,
-    orderBy: [{ nextRunAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-  });
+type TypedQueryable = {
+  $queryRawTyped<T = unknown>(query: unknown): Promise<T[]>;
+};
+
+export function clampArchiveJobClaimBatchSize(batchSize?: number) {
+  const requested = batchSize ?? DEFAULT_ARCHIVE_JOB_CLAIM_BATCH_SIZE;
+  return Math.max(1, Math.min(requested, MAX_ARCHIVE_JOB_CLAIM_BATCH_SIZE));
+}
+
+export function resolveArchiveJobClaimLeaseUntil(now: Date, claimLeaseMs?: number) {
+  return new Date(now.getTime() + (claimLeaseMs ?? DEFAULT_ARCHIVE_JOB_CLAIM_LEASE_MS));
+}
+
+export async function claimDueDeletionArchiveJobs(
+  prisma: TypedQueryable,
+  now: Date,
+  options: ArchiveJobClaimOptions = {},
+): Promise<ArchiveJobWorkItem[]> {
+  const safeBatchSize = clampArchiveJobClaimBatchSize(options.batchSize);
+  const leaseUntil = resolveArchiveJobClaimLeaseUntil(now, options.claimLeaseMs);
+
+  return prisma.$queryRawTyped<claimRetentionArchiveJobs.Result>(
+    claimRetentionArchiveJobs(now, leaseUntil, safeBatchSize),
+  );
 }
 
 export function updateArchiveJob(

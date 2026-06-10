@@ -39,6 +39,22 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 
 이 구분은 같은 용어가 domain마다 다른 bounded context를 가질 수 있기 때문이다. Retention root가 chat/matches/users/season-participants의 policy와 write semantics를 흡수하지 않는다.
 
+## Queue claim and disposal hardening
+
+- `ArchiveJob` due processing은 `apps/api/prisma/sql/claimRetentionArchiveJobs.sql`의 TypedSQL `FOR UPDATE SKIP LOCKED` query로 bounded claim한다.
+  - 기본 batch size는 `50`, 최대값은 `100`이다.
+  - claim lease 기본값은 `5분`이며, claim 시 `nextRunAt`을 lease 만료 시각으로 이동해 다른 worker의 즉시 중복 처리를 막는다.
+  - owner code는 `archive-jobs/archive-job.repository.ts`와 `archive-jobs/archive-job-runner.service.ts`다.
+- `RetentionReviewJob` due processing은 `apps/api/prisma/sql/claimRetentionReviewJobs.sql`의 TypedSQL `FOR UPDATE SKIP LOCKED` query로 bounded claim한다.
+  - 기본 batch size는 `50`, 최대값은 `100`, claim lease 기본값은 `5분`이다.
+  - owner code는 `review-jobs/retention-review-job-runner.service.ts`다.
+- `RetentionAccessLog` disposal은 `apps/api/prisma/sql/disposeDueRetentionAccessLogs.sql`의 TypedSQL CTE update로 due rows를 bounded/minimized 처리한다.
+  - 기본 disposal batch size는 `100`, 최대값은 `500`이다.
+  - access log disposal은 raw retained payload를 읽지 않고 metadata field만 최소화한다.
+- `RetainedIdentity`와 `RetainedVaultObject` disposal은 bounded Prisma scan + conditional `updateMany`로 idempotent하게 처리한다.
+  - 기본 disposal batch size는 `100`, 최대값은 `500`이다.
+  - schema에 별도 claim column이 없으므로 duplicate worker race는 conditional update count로 흡수한다.
+
 ## Hard rules
 
 - Product/user-facing read path는 `RetainedVaultObject` 원문 payload를 복원하지 않는다.
@@ -64,6 +80,7 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 ## Where to change retention behavior
 
 - Archive job claim/retry/manual-review transition: `archive-jobs/archive-job-runner.service.ts`, `archive-jobs/archive-job.repository.ts`, `archive-jobs/archive-job-transition.policy.ts`.
+- Archive job claim SQL: `apps/api/prisma/sql/claimRetentionArchiveJobs.sql`.
 - Archive job creation and payload shape: `archive-jobs/create-deletion-archive-jobs.command.ts`, `archive-jobs/archive-job.payload.ts`.
 - Archive target registry/dispatch only: `archive-jobs/targets/archive-target-handlers.ts`. Source row transformation은 각 owner domain handler에서 수정한다.
 - Retained identity decision/hold priority: `retained-identities/retained-identity-decision.policy.ts`.
@@ -78,7 +95,9 @@ Retention core는 queue/case/vault/access-log/review/disclosure boundary를 소�
 - Retained vault retain/disclose/dispose behavior: `vault/retained-vault.service.ts`.
 - Retention payload encryption envelope: `crypto/retention-cipher.ts`.
 - Access log create/disposal behavior: `access-logs/create-retention-access-log.command.ts`, `access-logs/retention-access-log-disposal.service.ts`, `access-logs/retention-access-log-disposal-review.command.ts`.
+- Access log disposal SQL: `apps/api/prisma/sql/disposeDueRetentionAccessLogs.sql`.
 - Identity-link review scheduling/retry transition: `review-jobs/schedule-chat-identity-link-review-job.command.ts`, `review-jobs/retention-review-job-runner.service.ts`, `review-jobs/retention-review-job-transition.policy.ts`.
+- Retention review job claim SQL: `apps/api/prisma/sql/claimRetentionReviewJobs.sql`.
 - Chat retained body tombstone/disclosure/identity-link minimization: `apps/api/src/chat/retention/conversation-retained-body.service.ts`.
 - Archive target source row transformations: users identity, season-participants, matches, chat `retention/` handlers listed above.
 - Retention sweep facade used by lifecycle: `application/`.

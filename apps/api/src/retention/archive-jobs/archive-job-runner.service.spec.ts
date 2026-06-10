@@ -65,8 +65,8 @@ describe('archive job owner', () => {
       updates,
       tx,
       prisma: {
+        $queryRawTyped: jest.fn().mockResolvedValue([dueJob]),
         archiveJob: {
-          findMany: jest.fn().mockResolvedValue([dueJob]),
           update: jest.fn().mockImplementation((input: ArchiveJobUpdateInput) => {
             updates.push(input);
             return Promise.resolve(undefined);
@@ -290,26 +290,26 @@ describe('archive job owner', () => {
       },
     };
     const prisma = {
+      $queryRawTyped: jest.fn().mockResolvedValue([
+        {
+          id: 'job-academic',
+          target: 'ACADEMIC_IDENTITY_AUDIT',
+          status: 'PENDING',
+          retainedIdentityId: 'retained-1',
+          userId: 'user-1',
+          seasonId: null,
+          participantId: null,
+          matchHistoryEntryId: null,
+          threadId: null,
+          attemptCount: 0,
+          maxAttempts: 5,
+          nextRunAt: now,
+          lastErrorCode: null,
+          manualReviewRequired: false,
+          payload: { schemaVersion: 1 },
+        },
+      ]),
       archiveJob: {
-        findMany: jest.fn().mockResolvedValue([
-          {
-            id: 'job-academic',
-            target: 'ACADEMIC_IDENTITY_AUDIT',
-            status: 'PENDING',
-            retainedIdentityId: 'retained-1',
-            userId: 'user-1',
-            seasonId: null,
-            participantId: null,
-            matchHistoryEntryId: null,
-            threadId: null,
-            attemptCount: 0,
-            maxAttempts: 5,
-            nextRunAt: now,
-            lastErrorCode: null,
-            manualReviewRequired: false,
-            payload: { schemaVersion: 1 },
-          },
-        ]),
         update: jest.fn().mockImplementation((input: ArchiveJobUpdateInput) => {
           archiveUpdates.push(input);
           return Promise.resolve(undefined);

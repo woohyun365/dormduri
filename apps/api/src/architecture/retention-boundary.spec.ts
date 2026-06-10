@@ -4,6 +4,7 @@ import { dirname, join, relative, sep } from 'node:path';
 const apiRoot = process.cwd();
 const repoRoot = join(apiRoot, '..', '..');
 const apiSourceRoot = join(apiRoot, 'src');
+const sqlRoot = join(apiRoot, 'prisma/sql');
 const retentionRoot = join(apiSourceRoot, 'retention');
 const lifecycleRoot = join(apiSourceRoot, 'lifecycle');
 const usersRoot = join(apiSourceRoot, 'users');
@@ -161,6 +162,60 @@ describe('retention final architecture boundary', () => {
       userRetentionSweepPortReferences: [],
       usesRetentionSweepPort: true,
       directUsersServiceReferences: [],
+    });
+  });
+
+  it('keeps queue-like retention SQL bounded, ordered, and skip-locked', () => {
+    const archiveClaimSql = readSource(join(sqlRoot, 'claimRetentionArchiveJobs.sql'));
+    const reviewClaimSql = readSource(join(sqlRoot, 'claimRetentionReviewJobs.sql'));
+    const accessLogDisposalSql = readSource(join(sqlRoot, 'disposeDueRetentionAccessLogs.sql'));
+
+    expect({
+      expectedGreenPhase: 'Phase 9 retention queue claim/ACID hardening',
+      archiveClaim: {
+        skipLocked: /FOR UPDATE SKIP LOCKED/.test(archiveClaimSql),
+        deterministicOrder: /ORDER BY "nextRunAt" ASC, "createdAt" ASC, "id" ASC/.test(
+          archiveClaimSql,
+        ),
+        boundedLimit: /LIMIT \$3/.test(archiveClaimSql),
+        ownsUpdatedAt: /"updatedAt"\s*=\s*\$1/.test(archiveClaimSql),
+      },
+      reviewClaim: {
+        skipLocked: /FOR UPDATE SKIP LOCKED/.test(reviewClaimSql),
+        deterministicOrder: /ORDER BY "dueAt" ASC, "createdAt" ASC, "id" ASC/.test(reviewClaimSql),
+        boundedLimit: /LIMIT \$3/.test(reviewClaimSql),
+        ownsUpdatedAt: /"updatedAt"\s*=\s*\$1/.test(reviewClaimSql),
+      },
+      accessLogDisposal: {
+        skipLocked: /FOR UPDATE SKIP LOCKED/.test(accessLogDisposalSql),
+        deterministicOrder: /ORDER BY "logRetentionHoldUntil" ASC, "id" ASC/.test(
+          accessLogDisposalSql,
+        ),
+        boundedLimit: /LIMIT \$2/.test(accessLogDisposalSql),
+        avoidsRawPayloadColumns: !/"(?:encryptedIdentifierPayload|encryptedPayload|payload)"/.test(
+          accessLogDisposalSql,
+        ),
+      },
+    }).toEqual({
+      expectedGreenPhase: 'Phase 9 retention queue claim/ACID hardening',
+      archiveClaim: {
+        skipLocked: true,
+        deterministicOrder: true,
+        boundedLimit: true,
+        ownsUpdatedAt: true,
+      },
+      reviewClaim: {
+        skipLocked: true,
+        deterministicOrder: true,
+        boundedLimit: true,
+        ownsUpdatedAt: true,
+      },
+      accessLogDisposal: {
+        skipLocked: true,
+        deterministicOrder: true,
+        boundedLimit: true,
+        avoidsRawPayloadColumns: true,
+      },
     });
   });
 

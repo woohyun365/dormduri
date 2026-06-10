@@ -36,6 +36,14 @@
 - 새 `forwardRef()`나 business `@Global()` module로 cycle을 숨기지 않는다.
 - User-facing product behavior, response/error code, route policy는 lifecycle refactor로 변경하지 않는다.
 
+## Operational worker count
+
+- 현재 별도 worker binary는 없고, 같은 Nest app instance가 `LIFECYCLE_SWEEP_ENABLED=true`로 뜨면 lifecycle worker로 동작한다.
+- 따라서 운영상 worker 개수는 `LIFECYCLE_SWEEP_ENABLED=true`인 BE/API docker instance 개수와 같다.
+- 초기 운영은 API serving instance는 `LIFECYCLE_SWEEP_ENABLED=false`, 별도 worker deployment 1개만 `true`로 두는 구성을 우선한다.
+- `ArchiveJob`/`RetentionReviewJob`은 retention TypedSQL claim이 `FOR UPDATE SKIP LOCKED`를 사용하므로 worker instance를 2개 이상으로 늘려도 같은 queue row를 중복 claim하지 않아야 한다.
+- worker instance를 늘릴 때는 `DATABASE_POOL_MAX`, active Prisma role 수, RDS connection/IOPS budget을 함께 계산한다.
+
 ## Architecture guard
 
 Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps/api/src/architecture/module-boundary.spec.ts`, `apps/api/src/architecture/cross-domain-chat-boundary.spec.ts`가 고정한다.

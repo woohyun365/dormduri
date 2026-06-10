@@ -11,6 +11,10 @@ export const retentionReviewJobSelect = {
   manualReviewRequired: true,
 } as const;
 
+export const DEFAULT_RETENTION_REVIEW_JOB_CLAIM_BATCH_SIZE = 50;
+export const MAX_RETENTION_REVIEW_JOB_CLAIM_BATCH_SIZE = 100;
+export const DEFAULT_RETENTION_REVIEW_JOB_CLAIM_LEASE_MS = 5 * 60 * 1000;
+
 export type RetentionReviewJobWorkItem = Prisma.RetentionReviewJobGetPayload<{
   select: typeof retentionReviewJobSelect;
 }>;
@@ -26,4 +30,9 @@ export interface RetentionReviewJobSweepResult {
 
 export interface RetentionReviewJobOwnerOptions {
   conversationRetention?: ConversationRetainedBodyOwnerOptions;
+}
+
+export interface RetentionReviewJobClaimOptions {
+  batchSize?: number;
+  claimLeaseMs?: number;
 }

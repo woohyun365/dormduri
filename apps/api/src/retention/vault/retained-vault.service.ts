@@ -257,7 +257,9 @@ export async function disposeDueRetainedVaultObjects(
   prisma: Pick<PrismaService, 'retainedVaultObject' | 'retentionAccessLog'> &
     Partial<Pick<PrismaService, 'retentionReviewJob'>>,
   now: Date,
+  options: { batchSize?: number } = {},
 ): Promise<RetainedVaultDisposalResult> {
+  const safeBatchSize = clampRetainedVaultDisposalBatchSize(options.batchSize);
   const dueObjects = await prisma.retainedVaultObject.findMany({
     where: {
       state: 'RETAINED',
@@ -270,12 +272,13 @@ export async function disposeDueRetainedVaultObjects(
     },
     select: { id: true, target: true, subjectRetainedIdentityId: true },
     orderBy: [{ retainedAt: 'asc' }, { id: 'asc' }],
+    take: safeBatchSize,
   });
 
   let processedCount = 0;
   for (const object of dueObjects) {
-    await prisma.retainedVaultObject.update({
-      where: { id: object.id },
+    const updateResult = await prisma.retainedVaultObject.updateMany({
+      where: { id: object.id, state: 'RETAINED' },
       data: {
         encryptedPayload: Prisma.JsonNull,
         payloadDigest: null,
@@ -285,6 +288,9 @@ export async function disposeDueRetainedVaultObjects(
         disposalReason: 'RETENTION_HOLD_EXPIRED',
       },
     });
+    if (updateResult.count === 0) {
+      continue;
+    }
     await createRetentionAccessLog(prisma, {
       targetType: 'VAULT_OBJECT',
       retainedVaultObjectId: object.id,
@@ -302,6 +308,14 @@ export async function disposeDueRetainedVaultObjects(
   }
 
   return { processedCount };
+}
+
+const DEFAULT_RETAINED_VAULT_DISPOSAL_BATCH_SIZE = 100;
+const MAX_RETAINED_VAULT_DISPOSAL_BATCH_SIZE = 500;
+
+export function clampRetainedVaultDisposalBatchSize(batchSize?: number) {
+  const requested = batchSize ?? DEFAULT_RETAINED_VAULT_DISPOSAL_BATCH_SIZE;
+  return Math.max(1, Math.min(requested, MAX_RETAINED_VAULT_DISPOSAL_BATCH_SIZE));
 }
 
 export function hmacPayloadDigest(cipher: RetentionCipher, payload: unknown) {

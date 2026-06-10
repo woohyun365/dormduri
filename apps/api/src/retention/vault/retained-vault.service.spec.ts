@@ -338,9 +338,9 @@ describe('retained-vault.service', () => {
             subjectRetainedIdentityId: 'identity-a',
           },
         ]),
-        update: jest.fn().mockImplementation(({ data }) => {
+        updateMany: jest.fn().mockImplementation(({ data }) => {
           updatedObjects.push(data as Record<string, unknown>);
-          return Promise.resolve({ id: 'vault-1' });
+          return Promise.resolve({ count: 1 });
         }),
       },
       retentionAccessLog: {

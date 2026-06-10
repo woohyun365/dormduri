@@ -2,6 +2,11 @@ import { RetentionSweepService } from './retention-sweep.service.js';
 
 function makeRetentionWorkerPrisma() {
   return {
+    $queryRawTyped: jest
+      .fn()
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]),
     archiveJob: {
       findMany: jest.fn().mockResolvedValue([]),
       updateMany: jest.fn(),
@@ -11,19 +16,17 @@ function makeRetentionWorkerPrisma() {
     },
     retainedIdentity: {
       findMany: jest.fn().mockResolvedValue([]),
-      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     retainedVaultObject: {
       findMany: jest.fn().mockResolvedValue([]),
-      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     retentionAccessLog: {
-      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn(),
     },
     retentionReviewJob: {
-      findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn(),
     },
   };
@@ -62,26 +65,19 @@ describe('RetentionSweepService', () => {
       nextDueAt: null,
     });
 
-    type RetainedIdentityFindManyArgs = { where: { retentionDisposedAt: Date | null } };
-    type RetainedVaultObjectFindManyArgs = { where: { state: string } };
-    type RetentionReviewJobFindManyArgs = { where: { dueAt: { lte: Date } } };
-    type RetentionAccessLogUpdateManyArgs = { data: { logRetentionDisposedAt: Date } };
+    type RetainedIdentityFindManyArgs = { take: number; where: { retentionDisposedAt: null } };
+    type RetainedVaultObjectFindManyArgs = { take: number; where: { state: string } };
 
-    expect(retentionWorkerPrisma.archiveJob.findMany).toHaveBeenCalledTimes(2);
+    expect(retentionWorkerPrisma.$queryRawTyped).toHaveBeenCalledTimes(3);
+    expect(retentionWorkerPrisma.archiveJob.findMany).toHaveBeenCalledTimes(1);
     const [[retainedIdentityFindManyArgs]] = retentionWorkerPrisma.retainedIdentity.findMany.mock
       .calls as [[RetainedIdentityFindManyArgs]];
     expect(retainedIdentityFindManyArgs.where.retentionDisposedAt).toBeNull();
+    expect(retainedIdentityFindManyArgs.take).toBe(100);
 
     const [[retainedVaultObjectFindManyArgs]] = retentionWorkerPrisma.retainedVaultObject.findMany
       .mock.calls as [[RetainedVaultObjectFindManyArgs]];
     expect(retainedVaultObjectFindManyArgs.where.state).toBe('RETAINED');
-
-    const [[retentionReviewJobFindManyArgs]] = retentionWorkerPrisma.retentionReviewJob.findMany
-      .mock.calls as [[RetentionReviewJobFindManyArgs]];
-    expect(retentionReviewJobFindManyArgs.where.dueAt.lte).toBe(now);
-
-    const [[retentionAccessLogUpdateManyArgs]] = retentionWorkerPrisma.retentionAccessLog.updateMany
-      .mock.calls as [[RetentionAccessLogUpdateManyArgs]];
-    expect(retentionAccessLogUpdateManyArgs.data.logRetentionDisposedAt).toBe(now);
+    expect(retainedVaultObjectFindManyArgs.take).toBe(100);
   });
 });

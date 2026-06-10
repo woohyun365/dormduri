@@ -1,34 +1,44 @@
-import { Prisma } from '../../generated/prisma/client.js';
 import { disposeDueRetentionAccessLogs } from './retention-access-log-disposal.service.js';
 
 describe('disposeDueRetentionAccessLogs', () => {
-  it('due access log metadata를 최소화하고 다음 dueAt을 반환한다', async () => {
+  it('TypedSQL bounded batch로 due access log metadata를 최소화하고 다음 dueAt을 반환한다', async () => {
     const now = new Date('2029-01-01T00:00:00.000Z');
     const nextDueAt = new Date('2029-02-01T00:00:00.000Z');
     const prisma = {
+      $queryRawTyped: jest.fn().mockResolvedValue([{ id: 'log-1' }, { id: 'log-2' }]),
       retentionAccessLog: {
-        updateMany: jest.fn().mockResolvedValue({ count: 3 }),
         findFirst: jest.fn().mockResolvedValue({ logRetentionHoldUntil: nextDueAt }),
       },
     };
 
     await expect(disposeDueRetentionAccessLogs(prisma as never, now)).resolves.toEqual({
-      processedCount: 3,
+      processedCount: 2,
       nextDueAt,
     });
-    expect(prisma.retentionAccessLog.updateMany).toHaveBeenCalledWith({
+    expect(prisma.$queryRawTyped).toHaveBeenCalledTimes(1);
+    expect(prisma.retentionAccessLog.findFirst).toHaveBeenCalledWith({
       where: {
         logRetentionDisposedAt: null,
-        logRetentionHoldUntil: { not: null, lte: now },
+        logRetentionHoldUntil: { not: null, gt: now },
       },
-      data: {
-        accessedBy: null,
-        approvalReference: null,
-        purpose: null,
-        disclosedFields: Prisma.JsonNull,
-        logRetentionDisposedAt: now,
-        logRetentionDisposalReason: 'RETENTION_ACCESS_LOG_METADATA_MINIMIZED',
-      },
+      select: { logRetentionHoldUntil: true },
+      orderBy: { logRetentionHoldUntil: 'asc' },
     });
+  });
+
+  it('batch size를 안전 범위로 clamp한다', async () => {
+    const now = new Date('2029-01-01T00:00:00.000Z');
+    const prisma = {
+      $queryRawTyped: jest.fn().mockResolvedValue([]),
+      retentionAccessLog: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
+
+    await disposeDueRetentionAccessLogs(prisma as never, now, { batchSize: 10_000 });
+
+    const calls = prisma.$queryRawTyped.mock.calls as Array<[unknown]>;
+    const query = calls[0]?.[0] as { values?: unknown[] } | undefined;
+    expect(query?.values?.at(-1)).toBe(500);
   });
 });

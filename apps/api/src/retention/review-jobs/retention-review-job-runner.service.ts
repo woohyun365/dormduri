@@ -1,4 +1,5 @@
 import type { PrismaService } from '../../platform/database/prisma.service.js';
+import { claimRetentionReviewJobs } from '../../generated/prisma/sql.js';
 import { disposeDueRetentionAccessLogs } from '../access-logs/retention-access-log-disposal.service.js';
 import {
   createConversationRetainedBodyOwner,
@@ -11,25 +12,26 @@ import {
   shouldMarkRetentionReviewForManualReview,
 } from './retention-review-job-transition.policy.js';
 import {
-  retentionReviewJobSelect,
+  DEFAULT_RETENTION_REVIEW_JOB_CLAIM_BATCH_SIZE,
+  DEFAULT_RETENTION_REVIEW_JOB_CLAIM_LEASE_MS,
+  MAX_RETENTION_REVIEW_JOB_CLAIM_BATCH_SIZE,
+  type RetentionReviewJobClaimOptions,
   type RetentionReviewJobOwnerOptions,
   type RetentionReviewJobSweepResult,
   type RetentionReviewJobWorkItem,
 } from './retention-review-job.types.js';
 
+type TypedQueryable = {
+  $queryRawTyped<T = unknown>(query: unknown): Promise<T[]>;
+};
+
 export async function retryDueRetentionReviewJobs(
   prisma: PrismaService,
   now: Date,
   options: RetentionReviewJobOwnerOptions = {},
+  claimOptions: RetentionReviewJobClaimOptions = {},
 ): Promise<RetentionReviewJobSweepResult> {
-  const dueJobs = await prisma.retentionReviewJob.findMany({
-    where: {
-      status: { in: ['PENDING', 'RETRY_SCHEDULED'] },
-      dueAt: { lte: now },
-    },
-    select: retentionReviewJobSelect,
-    orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-  });
+  const dueJobs = await claimDueRetentionReviewJobs(prisma, now, claimOptions);
 
   const result: RetentionReviewJobSweepResult = {
     processedCount: 0,
@@ -96,6 +98,28 @@ export async function retryDueRetentionReviewJobs(
   }
 
   return result;
+}
+
+export function clampRetentionReviewJobClaimBatchSize(batchSize?: number) {
+  const requested = batchSize ?? DEFAULT_RETENTION_REVIEW_JOB_CLAIM_BATCH_SIZE;
+  return Math.max(1, Math.min(requested, MAX_RETENTION_REVIEW_JOB_CLAIM_BATCH_SIZE));
+}
+
+export function resolveRetentionReviewJobClaimLeaseUntil(now: Date, claimLeaseMs?: number) {
+  return new Date(now.getTime() + (claimLeaseMs ?? DEFAULT_RETENTION_REVIEW_JOB_CLAIM_LEASE_MS));
+}
+
+export async function claimDueRetentionReviewJobs(
+  prisma: TypedQueryable,
+  now: Date,
+  options: RetentionReviewJobClaimOptions = {},
+): Promise<RetentionReviewJobWorkItem[]> {
+  const safeBatchSize = clampRetentionReviewJobClaimBatchSize(options.batchSize);
+  const leaseUntil = resolveRetentionReviewJobClaimLeaseUntil(now, options.claimLeaseMs);
+
+  return prisma.$queryRawTyped<claimRetentionReviewJobs.Result>(
+    claimRetentionReviewJobs(now, leaseUntil, safeBatchSize),
+  );
 }
 
 async function runRetentionReviewJob(
