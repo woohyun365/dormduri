@@ -1,20 +1,11 @@
 import {
   addDays,
-  buildParticipantPairIdentity,
   isCooldownActive,
   resolveDormitoryRoomSelectionEnd,
   resolveMatchRequestExpiresAt,
-} from './match.utils.js';
+} from './match-request-expiration.policy.js';
 
-describe('match.utils', () => {
-  it('unordered participant pair를 deterministic key로 정렬한다', () => {
-    expect(buildParticipantPairIdentity('participant-b', 'participant-a')).toEqual({
-      pairMinParticipantId: 'participant-a',
-      pairMaxParticipantId: 'participant-b',
-      pairKey: 'participant-a:participant-b',
-    });
-  });
-
+describe('match request expiration policy', () => {
   it('request expiry는 5일 TTL과 roomSelectionDate 중 더 이른 시점을 사용한다', () => {
     const createdAt = new Date('2026-02-10T03:00:00.000Z');
 

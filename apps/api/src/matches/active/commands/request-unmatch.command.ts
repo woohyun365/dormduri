@@ -11,8 +11,8 @@ import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
 } from '../../../seasons/ports/season-context.port.js';
-import { createMatchContextOwner } from '../../match-context-owner.js';
-import { toDetailedActiveMatchSummary } from '../../match-read-model.js';
+import { createMatchContextOwner } from '../../context/match-context.resolver.js';
+import { toDetailedActiveMatchSummary } from '../presenters/active-match.presenter.js';
 import { matchesErrors } from '../../matches.errors.js';
 import {
   assertUnmatchActorAllowed,

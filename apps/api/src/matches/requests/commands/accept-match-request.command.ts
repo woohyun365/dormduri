@@ -12,7 +12,7 @@ import {
   type SeasonContextPort,
 } from '../../../seasons/ports/season-context.port.js';
 import { ActiveMatchViewQuery } from '../../active/queries/active-match-view.query.js';
-import { createMatchContextOwner } from '../../match-context-owner.js';
+import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import { matchesErrors } from '../../matches.errors.js';
 import { expireDuePendingRequests } from '../persistence/match-request-locks.js';
 import { MatchRequestAcceptanceRepository } from '../persistence/match-request-acceptance.repository.js';

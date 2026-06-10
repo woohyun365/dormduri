@@ -21,10 +21,10 @@ import {
   MATCH_ACTIVE_VIEW_PORT,
   type MatchActiveViewPort,
 } from '../../application/ports/match-active-view.port.js';
-import { createMatchContextOwner } from '../../match-context-owner.js';
-import type { MatchParticipantUserProjection } from '../../match-context-owner.js';
+import { createMatchContextOwner } from '../../context/match-context.resolver.js';
+import type { MatchParticipantUserProjection } from '../../context/match-context.resolver.js';
 import { matchesErrors } from '../../matches.errors.js';
-import { buildParticipantPairIdentity } from '../../match.utils.js';
+import { buildParticipantPairIdentity } from '../../persistence/match-pair-identity.js';
 import { canStartMatchRequestCreation } from '../policies/match-request-creation.policy.js';
 import {
   MATCH_REQUEST_NOTE_MODERATION_PORT,

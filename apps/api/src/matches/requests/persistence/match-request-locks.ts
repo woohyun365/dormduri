@@ -5,7 +5,7 @@ import {
   lockMatchRequestRow as lockMatchRequestRowSql,
 } from '../../../generated/prisma/sql.js';
 import { matchesErrors } from '../../matches.errors.js';
-import { isCooldownActive } from '../../match.utils.js';
+import { isCooldownActive } from '../policies/match-request-expiration.policy.js';
 
 export type PairIdentity = {
   pairKey: string;

@@ -3,9 +3,9 @@ import {
   isUnmatchWindowOpen,
   toDetailedActiveMatchSummary,
   type ActiveMatchCommandRecord,
-} from './match-read-model.js';
-import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
-import { toCompleteLifestyleColumnData } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
+} from './active-match.presenter.js';
+import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
+import { toCompleteLifestyleColumnData } from '../../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 
 const COMPLETE_LIFESTYLE = {
   bedtime: '22_24',

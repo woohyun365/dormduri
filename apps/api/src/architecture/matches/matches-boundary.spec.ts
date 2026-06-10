@@ -27,20 +27,15 @@ const requiredReadmeSections = [
 ] as const;
 
 const rootProductionTransitionFiles: TransitionMap = {
-  'match-context-owner.ts': 'Phase 3 context/active view split',
-  'match-read-model.ts': 'Phase 3/4 active presenter split',
   'match-score-projection.ts': 'Phase 10 scoring/shared contract split',
-  'match.utils.ts': 'Phase 5/8 shared match utility split',
   'matches.errors.ts': 'Phase 9 errors slice migration',
-  'matches.service.ts': 'Phase 2/3 controller facade relocation',
+  'matches.service.ts': 'Phase 12 controller facade relocation',
 };
 
 const rootSpecTransitionFiles: TransitionMap = {
-  'match-read-model.spec.ts': 'Phase 3/4 presenter spec split',
   'match-score-projection.spec.ts': 'Phase 10 scoring spec split',
   'match-score.spec.ts': 'Phase 10 shared score spec split',
-  'match.utils.spec.ts': 'Phase 4 utility/policy spec split',
-  'matches.service.spec.ts': 'Phase 4~8 god spec split',
+  'matches.service.spec.ts': 'Phase 12 facade smoke spec relocation/removal',
 };
 
 const concreteMatchesServiceTransitionConsumers: TransitionMap = {};
@@ -77,6 +72,19 @@ const phase2PortFiles = [
   'application/ports/match-active-view.port.ts',
   'application/ports/match-lifecycle-sweep.port.ts',
   'application/ports/match-history-materialization.port.ts',
+] as const;
+
+const phase8_1ExtractedFiles = [
+  'context/match-context.resolver.ts',
+  'active/presenters/active-match.presenter.ts',
+  'active/presenters/active-match.presenter.spec.ts',
+  'persistence/match-pair-identity.ts',
+  'persistence/match-pair-identity.spec.ts',
+  'requests/policies/match-request-expiration.policy.ts',
+  'requests/policies/match-request-expiration.policy.spec.ts',
+  'requests/commands/match-request-command-flow.spec.ts',
+  'active/commands/unmatch-command-flow.spec.ts',
+  'test-support/matches-service-spec.harness.ts',
 ] as const;
 
 function walkTypeScriptFiles(root: string): string[] {
@@ -147,6 +155,10 @@ function sortedKeys(map: TransitionMap) {
   return Object.keys(map).sort();
 }
 
+function countLines(path: string) {
+  return readSource(path).split('\n').length;
+}
+
 describe('matches architecture boundary', () => {
   it('keeps the product README as the matches boundary orientation source', () => {
     const readmePath = join(matchesRoot, 'README.md');
@@ -166,7 +178,7 @@ describe('matches architecture boundary', () => {
     );
 
     expect(transitionFiles).toEqual(sortedKeys(rootProductionTransitionFiles));
-    expect(rootProductionTransitionFiles['matches.service.ts']).toContain('Phase 2/3');
+    expect(rootProductionTransitionFiles['matches.service.ts']).toContain('Phase 12');
   });
 
   it('tracks root spec files as exact phase-owned transition violations', () => {
@@ -176,7 +188,25 @@ describe('matches architecture boundary', () => {
     );
 
     expect(transitionFiles).toEqual(sortedKeys(rootSpecTransitionFiles));
-    expect(rootSpecTransitionFiles['matches.service.spec.ts']).toContain('god spec split');
+    expect(rootSpecTransitionFiles['matches.service.spec.ts']).toContain('facade smoke spec');
+  });
+
+  it('keeps Phase 8-1 root-transition extractions in owning slices', () => {
+    for (const relativePath of phase8_1ExtractedFiles) {
+      expect(existsSync(join(matchesRoot, relativePath))).toBe(true);
+    }
+
+    for (const removedRootFile of [
+      'match-context-owner.ts',
+      'match-read-model.ts',
+      'match-read-model.spec.ts',
+      'match.utils.ts',
+      'match.utils.spec.ts',
+    ]) {
+      expect(existsSync(join(matchesRoot, removedRootFile))).toBe(false);
+    }
+
+    expect(countLines(join(matchesRoot, 'matches.service.spec.ts'))).toBeLessThanOrEqual(120);
   });
 
   it('keeps external production code off concrete MatchesService after port migration', () => {

@@ -5,7 +5,10 @@ import { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
 import type { MatchActiveViewPort } from '../../application/ports/match-active-view.port.js';
 import { matchesErrors } from '../../matches.errors.js';
-import { toActiveMatchSummary, toDetailedActiveMatchSummary } from '../../match-read-model.js';
+import {
+  toActiveMatchSummary,
+  toDetailedActiveMatchSummary,
+} from '../presenters/active-match.presenter.js';
 import {
   activeMatchCommandSelect,
   activeMatchSummarySelect,

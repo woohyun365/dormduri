@@ -1,10 +1,10 @@
-import type { PrismaService } from '../platform/database/prisma.service.js';
-import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
+import type { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import type {
   CurrentSeasonParticipantRecord,
   SeasonParticipantEnsureInput,
-} from '../season-participants/application/season-participants.service.js';
-import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
+} from '../../season-participants/application/season-participants.service.js';
+import type { SeasonContextPort } from '../../seasons/ports/season-context.port.js';
 
 export interface MatchParticipantUserProjection extends SeasonParticipantEnsureInput {
   id: string;

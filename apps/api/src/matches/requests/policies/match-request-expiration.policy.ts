@@ -3,28 +3,6 @@ import type { LocalDateString } from '@repo/shared/date';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MATCH_REQUEST_TTL_DAYS = 5;
 
-export function sortParticipantIds(leftParticipantId: string, rightParticipantId: string) {
-  return leftParticipantId <= rightParticipantId
-    ? ([leftParticipantId, rightParticipantId] as const)
-    : ([rightParticipantId, leftParticipantId] as const);
-}
-
-export function buildParticipantPairIdentity(
-  leftParticipantId: string,
-  rightParticipantId: string,
-) {
-  const [pairMinParticipantId, pairMaxParticipantId] = sortParticipantIds(
-    leftParticipantId,
-    rightParticipantId,
-  );
-
-  return {
-    pairMinParticipantId,
-    pairMaxParticipantId,
-    pairKey: `${pairMinParticipantId}:${pairMaxParticipantId}`,
-  };
-}
-
 export function addDays(referenceAt: Date, days: number) {
   return new Date(referenceAt.getTime() + days * DAY_MS);
 }

@@ -7,7 +7,7 @@ import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
 } from '../../../seasons/ports/season-context.port.js';
-import { createMatchContextOwner } from '../../match-context-owner.js';
+import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import { toMatchRequestSummary } from '../presenters/match-request.presenter.js';
 import { matchesErrors } from '../../matches.errors.js';
 import {

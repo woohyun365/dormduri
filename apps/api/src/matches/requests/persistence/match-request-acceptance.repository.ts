@@ -8,7 +8,7 @@ import {
   activeMatchSummarySelect,
   type ActiveMatchRecord,
 } from '../../active/persistence/active-match.select.js';
-import { buildParticipantPairIdentity } from '../../match.utils.js';
+import { buildParticipantPairIdentity } from '../../persistence/match-pair-identity.js';
 import { matchesErrors } from '../../matches.errors.js';
 import {
   acquireParticipantLocks,

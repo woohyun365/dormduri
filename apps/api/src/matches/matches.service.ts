@@ -11,7 +11,7 @@ import type {
 import type { PublicProfile } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../platform/database/prisma.service.js';
-import { createMatchContextOwner } from './match-context-owner.js';
+import { createMatchContextOwner } from './context/match-context.resolver.js';
 import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import {
   SEASON_CONTEXT_PORT,

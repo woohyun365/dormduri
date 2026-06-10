@@ -1,5 +1,5 @@
 import type { Prisma } from '../../../generated/prisma/client.js';
-import { buildParticipantPairIdentity } from '../../match.utils.js';
+import { buildParticipantPairIdentity } from '../../persistence/match-pair-identity.js';
 import type {
   SeasonHistoryParticipant,
   SeasonHistorySource,

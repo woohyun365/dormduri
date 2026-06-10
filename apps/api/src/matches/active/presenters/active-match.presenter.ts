@@ -1,24 +1,24 @@
 import type { ActiveMatchSummary, ActiveMatchUnmatchProgress } from '@repo/shared/match-contract';
-import { buildDirectionalMatchScoreProjection } from './match-score-projection.js';
-import type { CurrentSeasonContext } from '../seasons/ports/season-context.port.js';
-import { parseLifestyleOrNull } from '../profiles/profile.mapper.js';
+import { buildDirectionalMatchScoreProjection } from '../../match-score-projection.js';
+import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
+import { parseLifestyleOrNull } from '../../../profiles/profile.mapper.js';
 import {
   findActiveMatchRoomSelectionDate,
   isUnmatchWindowOpen,
-} from './active/policies/active-match-unmatch.policy.js';
+} from '../policies/active-match-unmatch.policy.js';
 
 export {
   findActiveMatchRoomSelectionDate,
   isUnmatchWindowOpen,
-} from './active/policies/active-match-unmatch.policy.js';
+} from '../policies/active-match-unmatch.policy.js';
 export type {
   ActiveMatchCommandRecord,
   ActiveMatchRecord,
-} from './active/persistence/active-match.select.js';
+} from '../persistence/active-match.select.js';
 import type {
   ActiveMatchCommandRecord,
   ActiveMatchRecord,
-} from './active/persistence/active-match.select.js';
+} from '../persistence/active-match.select.js';
 
 export function toActiveMatchSummary(
   activeMatch: ActiveMatchRecord,
