@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import {
   assertCurrentSeasonActiveMatch,
   assertUnmatchWindowOpen,

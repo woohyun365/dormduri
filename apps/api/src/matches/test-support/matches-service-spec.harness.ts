@@ -1,4 +1,4 @@
-import { MatchesService } from '../matches.service.js';
+import { MatchesService } from '../application/matches.service.js';
 import { CancelUnmatchRequestCommand } from '../active/commands/cancel-unmatch-request.command.js';
 import { RequestUnmatchCommand } from '../active/commands/request-unmatch.command.js';
 import { ActiveMatchLifecycleEventRepository } from '../active/lifecycle-events/active-match-lifecycle-event.repository.js';

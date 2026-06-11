@@ -10,7 +10,7 @@ import {
   RequireActiveMatchParticipant,
 } from './active/context/active-match-context.decorator.js';
 import type { ActiveMatchContext as ActiveMatchContextValue } from './active/context/active-match-context.types.js';
-import { MatchesService } from './matches.service.js';
+import { MatchesService } from './application/matches.service.js';
 
 @Controller('api/matches')
 @RequireCapability()

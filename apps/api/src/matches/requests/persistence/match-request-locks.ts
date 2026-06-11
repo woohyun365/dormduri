@@ -4,7 +4,7 @@ import {
   acquireTransactionAdvisoryLock,
   lockMatchRequestRow as lockMatchRequestRowSql,
 } from '../../../generated/prisma/sql.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import { isCooldownActive } from '../policies/match-request-expiration.policy.js';
 
 export type PairIdentity = {

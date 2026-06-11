@@ -2,7 +2,7 @@ import request from 'supertest';
 import { ChatService } from '../../src/chat/application/chat.service.js';
 import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { MatchesService } from '../../src/matches/matches.service.js';
+import { MatchesService } from '../../src/matches/application/matches.service.js';
 import { SeasonsService } from '../../src/seasons/application/seasons.service.js';
 import { formatKstDate, subtractDays } from '../../src/platform/time/kst-date.js';
 import { createIntegrationApp } from './support/integration-app.js';

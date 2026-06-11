@@ -31,14 +31,9 @@ const requiredReadmeSections = [
   '## Architecture guard expectation',
 ] as const;
 
-const rootProductionTransitionFiles: TransitionMap = {
-  'matches.errors.ts': 'Phase 9 errors slice migration',
-  'matches.service.ts': 'Phase 12 controller facade relocation',
-};
+const rootProductionTransitionFiles: TransitionMap = {};
 
-const rootSpecTransitionFiles: TransitionMap = {
-  'matches.service.spec.ts': 'Phase 12 facade smoke spec relocation/removal',
-};
+const rootSpecTransitionFiles: TransitionMap = {};
 
 const concreteMatchesServiceTransitionConsumers: TransitionMap = {};
 
@@ -90,6 +85,12 @@ const phase8_1ExtractedFiles = [
   'requests/commands/match-request-command-flow.spec.ts',
   'active/commands/unmatch-command-flow.spec.ts',
   'test-support/matches-service-spec.harness.ts',
+] as const;
+
+const phase12FinalCleanupFiles = [
+  'application/matches.service.ts',
+  'application/matches.service.spec.ts',
+  'errors/matches.errors.ts',
 ] as const;
 
 const activeMatchLifecycleEventInternalConsumers = [
@@ -190,7 +191,6 @@ describe('matches architecture boundary', () => {
     );
 
     expect(transitionFiles).toEqual(sortedKeys(rootProductionTransitionFiles));
-    expect(rootProductionTransitionFiles['matches.service.ts']).toContain('Phase 12');
   });
 
   it('tracks root spec files as exact phase-owned transition violations', () => {
@@ -200,7 +200,6 @@ describe('matches architecture boundary', () => {
     );
 
     expect(transitionFiles).toEqual(sortedKeys(rootSpecTransitionFiles));
-    expect(rootSpecTransitionFiles['matches.service.spec.ts']).toContain('facade smoke spec');
   });
 
   it('keeps Phase 8-1 root-transition extractions in owning slices', () => {
@@ -217,8 +216,24 @@ describe('matches architecture boundary', () => {
     ]) {
       expect(existsSync(join(matchesRoot, removedRootFile))).toBe(false);
     }
+  });
 
-    expect(countLines(join(matchesRoot, 'matches.service.spec.ts'))).toBeLessThanOrEqual(120);
+  it('keeps Phase 12 final root cleanup in owning slices', () => {
+    for (const relativePath of phase12FinalCleanupFiles) {
+      expect(existsSync(join(matchesRoot, relativePath))).toBe(true);
+    }
+
+    for (const removedRootFile of [
+      'matches.errors.ts',
+      'matches.service.ts',
+      'matches.service.spec.ts',
+    ]) {
+      expect(existsSync(join(matchesRoot, removedRootFile))).toBe(false);
+    }
+
+    expect(
+      countLines(join(matchesRoot, 'application/matches.service.spec.ts')),
+    ).toBeLessThanOrEqual(120);
   });
 
   it('keeps Phase 10 score algorithm and projection in the scoring slice', () => {

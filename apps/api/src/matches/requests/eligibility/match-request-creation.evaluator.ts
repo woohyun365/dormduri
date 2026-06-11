@@ -23,7 +23,7 @@ import {
 } from '../../application/ports/match-active-view.port.js';
 import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import type { MatchParticipantUserProjection } from '../../context/match-context.resolver.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import { buildParticipantPairIdentity } from '../../persistence/match-pair-identity.js';
 import { canStartMatchRequestCreation } from '../policies/match-request-creation.policy.js';
 import {

@@ -4,7 +4,7 @@ import type { Prisma } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
 import type { MatchActiveViewPort } from '../../application/ports/match-active-view.port.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import {
   toActiveMatchSummary,
   toDetailedActiveMatchSummary,

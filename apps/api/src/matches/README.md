@@ -15,7 +15,7 @@ Matches는 2인실 roommate match request, active match, unmatch, match history,
 - `MATCH_BLOCK_SIDE_EFFECT_PORT`: social-safety block transaction이 affected pending match request cancel을 요청하는 side-effect surface다.
 - `MATCH_SCORE_PROJECTION_PORT`: profiles/bookmarks 같은 consumer가 score visibility와 query-time score 계산을 요청하는 matches-owned score surface다.
 
-외부 consumer는 concrete `MatchesService`에 의존하지 말고 위 port surface를 사용한다. `MatchesService`는 matches HTTP/controller facade이며, history materialization/read 구현은 `history/` slice의 서비스와 repository가 소유한다.
+외부 consumer는 concrete `MatchesService`에 의존하지 말고 위 port surface를 사용한다. `application/matches.service.ts`의 `MatchesService`는 matches HTTP/controller facade이며, history materialization/read 구현은 `history/` slice의 서비스와 repository가 소유한다.
 
 ## Owned responsibilities
 
@@ -47,6 +47,7 @@ Final root production files stay small:
 Final subdirectory targets:
 
 - `composition/`: `MatchesModule` provider/export grouping.
+- `application/`: controller-facing `MatchesService` facade and application-level orchestration surfaces that are not public exports.
 - `application/ports/`: public port tokens and interfaces for external consumers.
 - `context/`: active match/domain route context decorator, guard, resolver, and request context type.
 - `requests/`: match request create/list/accept/reject/cancel command, query, policy, preparation, presenter, repository.
@@ -119,7 +120,7 @@ Metadata is allowlist-only. Do not store raw match request notes, profile/lifest
 | History read                 | `history/application/match-history-query.service.ts`, `history/presenters/match-history.presenter.ts`                 | `history/application`, `history/presenters`                                                                 | Deleted/deidentified counterpart detail degrades to tombstone.                                    |
 | Score projection             | `scoring/match-score.algorithm.ts`, `scoring/match-score-projection.ts`, `MATCH_SCORE_PROJECTION_PORT`                | `scoring/`, `application/ports/match-score-projection.port.ts`                                              | `perspectiveScore(viewer, target)` algorithm은 API matches-owned; shared는 DTO/schema만 소유한다. |
 | Transaction locks/selects    | `requests/persistence`, `active/persistence`, `persistence/match-pair-identity.ts`, `apps/api/prisma/sql/lock*.sql`   | owning slice `*/persistence`                                                                                | TypedSQL, pair identity, and Prisma select shapes stay infrastructure-local.                      |
-| User-facing errors           | `matches.errors.ts`                                                                                                   | `errors/`                                                                                                   | Refactor must not change response/error code behavior.                                            |
+| User-facing errors           | `errors/matches.errors.ts`                                                                                            | `errors/`                                                                                                   | Refactor must not change response/error code behavior.                                            |
 | Block side-effect            | `lifecycle/match-block-side-effect.service.ts`, `application/ports/match-block-side-effect.port.ts`                   | `lifecycle/`, `application/ports/`                                                                          | Social-safety consumes the port; match request mutation remains match-owned.                      |
 
 ## Architecture guard expectation
@@ -142,7 +143,7 @@ pnpm --dir apps/api exec jest --watchman=false --runInBand \
   src/architecture/module-boundary.spec.ts \
   src/architecture/cross-domain-chat-boundary.spec.ts \
   src/architecture/social-safety/social-safety-boundary.spec.ts \
-  src/matches/matches.service.spec.ts \
+  src/matches/application/matches.service.spec.ts \
   src/matches/matches.controller.spec.ts \
   src/matches/history/materialization/match-history-row.builder.spec.ts \
   src/matches/history/materialization/match-history-score-snapshot.builder.spec.ts \

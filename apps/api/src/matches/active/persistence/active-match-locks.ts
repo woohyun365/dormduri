@@ -3,7 +3,7 @@ import {
   acquireTransactionAdvisoryLock,
   lockActiveMatchRow as lockActiveMatchRowSql,
 } from '../../../generated/prisma/sql.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 
 export async function acquireActiveMatchLock(tx: Prisma.TransactionClient, activeMatchId: string) {
   await tx.$queryRawTyped(acquireTransactionAdvisoryLock('active_match_unmatch', activeMatchId));

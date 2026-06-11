@@ -59,7 +59,7 @@ pnpm --dir apps/api exec jest --watchman=false --runInBand \
   src/auth/registration/auth-signup-validation.service.spec.ts \
   src/users/users.service.spec.ts \
   src/users/user-deletion-owner.spec.ts \
-  src/matches/matches.service.spec.ts \
+  src/matches/application/matches.service.spec.ts \
   src/architecture/common-boundary.spec.ts \
   src/architecture/module-boundary.spec.ts
 pnpm api:typecheck

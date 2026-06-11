@@ -9,7 +9,7 @@ import {
 } from '../../../seasons/ports/season-context.port.js';
 import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import { toMatchRequestSummary } from '../presenters/match-request.presenter.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import {
   MatchRequestRepository,
   getRequestTerminalNotAllowedError,

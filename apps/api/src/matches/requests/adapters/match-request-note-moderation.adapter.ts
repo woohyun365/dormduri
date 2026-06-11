@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { CreateMatchRequestRequest } from '@repo/shared/match/contract';
 import { ModerationService } from '../../../moderation/moderation.service.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import type { MatchRequestNoteModerationPort } from '../ports/match-request-note-moderation.port.js';
 
 @Injectable()

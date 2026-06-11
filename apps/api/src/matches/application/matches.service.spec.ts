@@ -2,7 +2,7 @@ import {
   createMatchesServiceSpecHarness,
   makeParticipant,
   makeUserSeed,
-} from './test-support/matches-service-spec.harness.js';
+} from '../test-support/matches-service-spec.harness.js';
 
 describe('MatchesService facade', () => {
   const harness = createMatchesServiceSpecHarness();

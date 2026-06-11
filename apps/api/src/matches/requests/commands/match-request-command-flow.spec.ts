@@ -1,5 +1,5 @@
 import { Prisma } from '../../../generated/prisma/client.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import {
   createMatchesServiceSpecHarness,
   makeMatchRequestParticipant,

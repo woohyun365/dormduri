@@ -9,7 +9,7 @@ import {
   type ActiveMatchRecord,
 } from '../../active/persistence/active-match.select.js';
 import { buildParticipantPairIdentity } from '../../persistence/match-pair-identity.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import {
   acquireParticipantLocks,
   assertNoLiveActiveMatchForParticipants,

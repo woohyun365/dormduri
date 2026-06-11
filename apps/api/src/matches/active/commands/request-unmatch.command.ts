@@ -13,7 +13,7 @@ import {
 } from '../../../seasons/ports/season-context.port.js';
 import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import { toDetailedActiveMatchSummary } from '../presenters/active-match.presenter.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import {
   assertUnmatchActorAllowed,
   findViewerPendingUnmatchRequest,

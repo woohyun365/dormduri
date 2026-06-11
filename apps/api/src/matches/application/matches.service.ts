@@ -9,26 +9,26 @@ import type {
   MatchRequestListResponse,
 } from '@repo/shared/match/contract';
 import type { PublicProfile } from '@repo/shared/profile-contract';
-import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { PrismaService } from '../platform/database/prisma.service.js';
-import { createMatchContextOwner } from './context/match-context.resolver.js';
-import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
+import { createMatchContextOwner } from '../context/match-context.resolver.js';
+import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import {
   SEASON_CONTEXT_PORT,
   type CurrentSeasonContext,
   type SeasonContextPort,
-} from '../seasons/ports/season-context.port.js';
-import { ActiveMatchViewQuery } from './active/queries/active-match-view.query.js';
-import { matchesErrors } from './matches.errors.js';
-import { MatchHistoryMaterializationService } from './history/application/match-history-materialization.service.js';
-import { MatchHistoryQueryService } from './history/application/match-history-query.service.js';
-import { CancelUnmatchRequestCommand } from './active/commands/cancel-unmatch-request.command.js';
-import { RequestUnmatchCommand } from './active/commands/request-unmatch.command.js';
-import { AcceptMatchRequestCommand } from './requests/commands/accept-match-request.command.js';
-import { CreateMatchRequestCommand } from './requests/commands/create-match-request.command.js';
-import { RejectMatchRequestCommand } from './requests/commands/reject-match-request.command.js';
-import { CancelMatchRequestCommand } from './requests/commands/cancel-match-request.command.js';
-import { ListCurrentSeasonRequestsQuery } from './requests/queries/list-current-season-requests.query.js';
+} from '../../seasons/ports/season-context.port.js';
+import { ActiveMatchViewQuery } from '../active/queries/active-match-view.query.js';
+import { matchesErrors } from '../errors/matches.errors.js';
+import { MatchHistoryMaterializationService } from '../history/application/match-history-materialization.service.js';
+import { MatchHistoryQueryService } from '../history/application/match-history-query.service.js';
+import { CancelUnmatchRequestCommand } from '../active/commands/cancel-unmatch-request.command.js';
+import { RequestUnmatchCommand } from '../active/commands/request-unmatch.command.js';
+import { AcceptMatchRequestCommand } from '../requests/commands/accept-match-request.command.js';
+import { CreateMatchRequestCommand } from '../requests/commands/create-match-request.command.js';
+import { RejectMatchRequestCommand } from '../requests/commands/reject-match-request.command.js';
+import { CancelMatchRequestCommand } from '../requests/commands/cancel-match-request.command.js';
+import { ListCurrentSeasonRequestsQuery } from '../requests/queries/list-current-season-requests.query.js';
 
 @Injectable()
 export class MatchesService {

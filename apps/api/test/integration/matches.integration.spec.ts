@@ -1,4 +1,4 @@
-import { MatchesService } from '../../src/matches/matches.service.js';
+import { MatchesService } from '../../src/matches/application/matches.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {

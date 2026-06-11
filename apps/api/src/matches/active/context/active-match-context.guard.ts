@@ -8,7 +8,7 @@ import {
 import type { ActiveMatchParticipantContextRequirement } from '../../context/active-match-context-requirement.js';
 import { badRequestError, unauthorizedError } from '../../../platform/http/api-error.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import {
   setActiveMatchContext,
   type ActiveMatchContextRequest,

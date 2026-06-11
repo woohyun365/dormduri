@@ -17,7 +17,7 @@ import { MatchHistoryQueryService } from '../history/application/match-history-q
 import { MatchHistoryRepository } from '../history/persistence/match-history.repository.js';
 import { MatchBlockSideEffectService } from '../lifecycle/match-block-side-effect.service.js';
 import { MatchScoreProjectionService } from '../scoring/match-score-projection.js';
-import { MatchesService } from '../matches.service.js';
+import { MatchesService } from '../application/matches.service.js';
 import { MatchRequestNoteModerationAdapter } from '../requests/adapters/match-request-note-moderation.adapter.js';
 import { AcceptMatchRequestCommand } from '../requests/commands/accept-match-request.command.js';
 import { CancelMatchRequestCommand } from '../requests/commands/cancel-match-request.command.js';

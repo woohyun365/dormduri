@@ -1,4 +1,4 @@
-import { MatchesService } from '../../src/matches/matches.service.js';
+import { MatchesService } from '../../src/matches/application/matches.service.js';
 import { ChatService } from '../../src/chat/application/chat.service.js';
 import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';

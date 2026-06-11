@@ -9,7 +9,7 @@ import {
 } from '../../../seasons/ports/season-context.port.js';
 import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import { toDetailedActiveMatchSummary } from '../presenters/active-match.presenter.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import { ActiveMatchLifecycleEventWriter } from '../lifecycle-events/active-match-lifecycle-event.writer.js';
 import { ActiveMatchRepository } from '../persistence/active-match.repository.js';
 

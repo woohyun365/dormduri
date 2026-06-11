@@ -10,7 +10,7 @@ import {
 import { createMatchContextOwner } from '../../context/match-context.resolver.js';
 import { toMatchRequestSummary } from '../presenters/match-request.presenter.js';
 import { matchRequestSummarySelect } from '../persistence/match-request.select.js';
-import { matchesErrors } from '../../matches.errors.js';
+import { matchesErrors } from '../../errors/matches.errors.js';
 import { expireDuePendingRequests } from '../persistence/match-request-locks.js';
 
 @Injectable()
