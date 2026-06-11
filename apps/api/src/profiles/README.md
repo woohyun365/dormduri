@@ -22,7 +22,7 @@ The product boundary is:
 - `targets/`: public profile viewer context, target materialization, and block visibility read seam.
 - `mappers/`: public profile presenter and lifestyle read projection mapper.
 - `errors/`: user-facing profile error contract.
-- `contracts/`: shared profile contract behavior regression spec. Shared package layout fitness is owned by architecture specs.
+- `contracts/`: stable API-local public surfaces for profile readers, detail-entry token helpers, and presenter helpers. Shared package layout fitness is owned by architecture specs.
 - `test-support/`: profile fixtures only.
 
 `roommate-search` is a separate product boundary. Search summary list, manifest, scope, filters, sorting, cursor pagination, availability notice, bookmark metadata composition, and search response presentation belong in a top-level `roommate-search/` module rather than in `profiles/`.
@@ -77,11 +77,15 @@ For profile/roommate-search refactors, add the relevant targeted checks:
 
 ```bash
 pnpm --dir apps/api exec jest --watchman=false --runInBand \
+  src/architecture/profiles/profiles-boundary.spec.ts \
+  src/architecture/roommate-search/roommate-search-boundary.spec.ts \
+  src/architecture/module-boundary.spec.ts \
+  src/architecture/contracts/layout/shared-contract-source-of-truth-layout.spec.ts \
   src/profiles \
+  src/roommate-search \
   test/integration/roommate-search.integration.spec.ts \
-  test/integration/profile-match-score.integration.spec.ts \
-  src/architecture/api-contracts/shared-reference-contracts.spec.ts \
-  src/architecture/api-contracts/additional-profile-contract.spec.ts
+  test/integration/profile-match-score.integration.spec.ts
 pnpm api:typecheck
+pnpm --dir apps/api exec eslint src/profiles src/roommate-search
 git diff --check
 ```

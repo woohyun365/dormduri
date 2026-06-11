@@ -75,11 +75,14 @@ Architecture specs own cross-cutting fitness rules:
 
 ```bash
 pnpm --dir apps/api exec jest --watchman=false --runInBand \
+  src/architecture/roommate-search/roommate-search-boundary.spec.ts \
+  src/architecture/profiles/profiles-boundary.spec.ts \
+  src/architecture/module-boundary.spec.ts \
+  src/architecture/contracts/layout/shared-contract-source-of-truth-layout.spec.ts \
   src/roommate-search \
   test/integration/roommate-search.integration.spec.ts \
-  test/integration/profile-match-score.integration.spec.ts \
-  src/architecture/roommate-search/roommate-search-boundary.spec.ts
+  test/integration/profile-match-score.integration.spec.ts
 pnpm api:typecheck
-pnpm --dir apps/api exec eslint <changed files without apps/api prefix>
+pnpm --dir apps/api exec eslint src/roommate-search
 git diff --check
 ```
