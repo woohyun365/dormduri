@@ -7,7 +7,7 @@ import type {
 import type {
   ResolvedVisibleProfileEntry,
   VisibleProfileViewerContext,
-} from './visible-profile-owner.js';
+} from './targets/public-profile-target.types.js';
 import type {
   RoommateSearchCursorBoundary,
   RoommateSearchTokenOwner,

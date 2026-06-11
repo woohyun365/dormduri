@@ -1,101 +1,51 @@
-import type { PublicProfile, PublicProfileTombstoneReason } from '@repo/shared/profile-contract';
-import { isSeasonProfileComplete, type LifestyleData } from '@repo/shared/lifestyle';
-import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import type { PrismaService } from '../platform/database/prisma.service.js';
-import { resolveProfileDisplayName } from '../privacy/deidentification/deidentified-display.policy.js';
-import type { MatchActiveViewPort } from '../matches/application/ports/match-active-view.port.js';
-import type { MatchScoreProjectionPort } from '../matches/application/ports/match-score-projection.port.js';
+import type { PublicProfile } from '@repo/shared/profile-contract';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
+import { resolveProfileDisplayName } from '../../privacy/deidentification/deidentified-display.policy.js';
+import type { MatchActiveViewPort } from '../../matches/application/ports/match-active-view.port.js';
+import type { MatchScoreProjectionPort } from '../../matches/application/ports/match-score-projection.port.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
-  type CurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantProfileRecord,
-} from '../season-participants/participants/season-participant-records.js';
-import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
-import {
-  canCurrentDormitoryMatch,
-  hasOperatedAssignedDormitory,
-  isParticipantRegistered,
-} from '../season-participants/policies/index.js';
+} from '../../season-participants/participants/season-participant-records.js';
+import type { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import {
   buildPublicTargetPolicyTargetInput,
   buildPublicTargetPolicyViewerInput,
-} from '../season-participants/public-target-policy/index.js';
-import { resolvePublicTargetPolicy } from '../season-participants/public-target-policy/index.js';
-import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
-import { resolveCampusServiceState } from '../seasons/runtime/campus-service-state.query.js';
+} from '../../season-participants/public-target-policy/index.js';
+import { resolvePublicTargetPolicy } from '../../season-participants/public-target-policy/index.js';
+import type { SeasonContextPort } from '../../seasons/ports/season-context.port.js';
 import {
   parseLifestyleOrNull,
   toPublicProfile,
   toTombstonePublicProfile,
   type ProfileViewRecord,
-} from './profile.mapper.js';
+} from '../contracts/public-profile.presenter.js';
 import {
-  createRoommateSearchTokenOwner,
+  createProfileDetailEntryTokenCodec,
   type ProfileDetailEntryTokenPayload,
-} from './roommate-search-token-owner.js';
+} from '../details/profile-detail-entry-token.codec.js';
+import {
+  canRenderTombstoneDetail,
+  resolveProfileDetailTombstoneReason,
+} from '../details/profile-detail-tombstone.policy.js';
+import { createPublicProfileViewerContextQuery } from './public-profile-viewer-context.query.js';
+import type {
+  ActiveMatchByParticipantIdMap,
+  PublicProfileTargetCandidate,
+  PublicProfileViewerContext,
+  ResolvedPublicProfileEntry,
+  TargetParticipantQueryRecord,
+} from './public-profile-target.types.js';
 
-interface VisibleProfileOwnerDeps {
+interface PublicProfileTargetMaterializerDeps {
   prisma: PrismaService;
   seasonsService: SeasonContextPort;
   seasonParticipantsService: SeasonParticipantsService;
   matchActiveView: MatchActiveViewPort;
   matchScoreProjection: MatchScoreProjectionPort;
 }
-
-export interface VisibleProfileViewerContext {
-  viewer: {
-    id: string;
-    emailVerifiedAt: Date | null;
-    gender: 'M' | 'F';
-    campus: 'CHUNCHEON' | 'SAMCHEOK' | 'DOGYE';
-  };
-  viewerParticipant: CurrentSeasonParticipantRecord | null;
-  viewerSelection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>;
-  viewerLifestyle: LifestyleData | null;
-  viewerSeasonProfileComplete: boolean;
-  viewerHasOperatedAssignedDormitory: boolean;
-  currentSeasonId: string | null;
-  seasonReferenceYear: number | null;
-  serviceState: {
-    campusOperated: boolean;
-    seasonState: 'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING' | 'SEASON_POST_MATCH' | null;
-  };
-  operatedDormitoryIds: ReadonlySet<string>;
-  currentDormitoryCanMatch: boolean;
-}
-
-export interface VisibleProfileTargetCandidate {
-  user: {
-    id: string;
-    deletedAt: Date | null;
-  };
-  participant: CurrentSeasonParticipantRecord;
-}
-
-export interface ResolvedVisibleProfileEntry {
-  user: VisibleProfileTargetCandidate['user'];
-  targetParticipant: CurrentSeasonParticipantRecord;
-  targetDormitoryId: string | null;
-  sourceProfile: ProfileViewRecord;
-  publicTargetPolicy: ReturnType<typeof resolvePublicTargetPolicy>;
-  matchScore: number | null;
-  viewerMatched: boolean;
-  targetMatched: boolean;
-}
-
-type ActiveMatchByParticipantId = Awaited<
-  ReturnType<MatchActiveViewPort['getCurrentActiveMatchByParticipantId']>
->;
-type ActiveMatchByParticipantIdMap = Map<string, ActiveMatchByParticipantId>;
-
-const userForProfileVisibilitySelect = {
-  id: true,
-  emailVerifiedAt: true,
-  gender: true,
-  campus: true,
-  deletedAt: true,
-} as const;
 
 const targetParticipantSelect = {
   ...currentSeasonParticipantSelect,
@@ -107,80 +57,19 @@ const targetParticipantSelect = {
   },
 } as const;
 
-type TargetParticipantQueryRecord = CurrentSeasonParticipantRecord & {
-  user: { id: string; deletedAt: Date | null };
-};
-
-export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
-  const tokenOwner = createRoommateSearchTokenOwner();
-
-  async function loadViewerContext(
-    authUser: AuthenticatedUserContext,
-    now: Date,
-  ): Promise<VisibleProfileViewerContext> {
-    const viewer = await deps.prisma.user.findUnique({
-      where: { id: authUser.id },
-      select: userForProfileVisibilitySelect,
-    });
-    if (!viewer || viewer.deletedAt) {
-      throw new Error('[VisibleProfileOwner] authenticated viewer not found');
-    }
-
-    const serviceState = await resolveCampusServiceState(
-      deps.prisma,
-      deps.seasonsService,
-      viewer.campus,
-      now,
-    );
-    const viewerParticipant = await deps.seasonParticipantsService.ensureCurrentSeasonParticipant(
-      viewer,
-      now,
-    );
-    const viewerSelection =
-      deps.seasonParticipantsService.selectCanonicalSelection(viewerParticipant);
-    const operatedDormitoryIds = new Set(
-      serviceState.seasonContext?.operatedDormitories.map((item) => item.dormitoryId) ?? [],
-    );
-    const viewerLifestyle = parseLifestyleOrNull(viewerParticipant?.profile?.lifestyle ?? null);
-
-    return {
-      viewer,
-      viewerParticipant,
-      viewerSelection,
-      viewerLifestyle,
-      viewerSeasonProfileComplete:
-        viewerLifestyle !== null && isSeasonProfileComplete(viewerLifestyle),
-      viewerHasOperatedAssignedDormitory: hasOperatedAssignedDormitory(
-        operatedDormitoryIds,
-        viewerSelection.dormitorySelectionState,
-        viewerSelection.dormitoryId,
-      ),
-      currentSeasonId: serviceState.seasonContext?.season.id ?? null,
-      seasonReferenceYear: resolveSeasonReferenceYear(
-        serviceState.seasonContext?.season.seasonEndDate,
-      ),
-      serviceState: {
-        campusOperated: serviceState.campusOperated,
-        seasonState: serviceState.seasonState,
-      },
-      operatedDormitoryIds,
-      currentDormitoryCanMatch: canCurrentDormitoryMatch(
-        serviceState.seasonContext,
-        viewerSelection.dormitoryId,
-        now,
-      ),
-    };
-  }
+export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetMaterializerDeps) {
+  const viewerContextQuery = createPublicProfileViewerContextQuery(deps);
+  const tokenCodec = createProfileDetailEntryTokenCodec();
 
   function resolveVisibleProfileEntry(
-    candidate: VisibleProfileTargetCandidate,
-    viewerContext: VisibleProfileViewerContext,
+    candidate: PublicProfileTargetCandidate,
+    viewerContext: PublicProfileViewerContext,
     viewerActiveMatch: Awaited<
       ReturnType<MatchActiveViewPort['getCurrentActiveMatchByParticipantId']>
     >,
     activeMatchMap: ActiveMatchByParticipantIdMap,
     registrationSnapshotParticipantIds: ReadonlySet<string>,
-  ): ResolvedVisibleProfileEntry | null {
+  ): ResolvedPublicProfileEntry | null {
     const targetParticipant = candidate.participant;
     const sourceProfile = toProfileViewRecord(targetParticipant.profile ?? null);
     if (!sourceProfile || candidate.user.deletedAt) {
@@ -249,9 +138,9 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
   }
 
   async function materializeVisibleProfileEntries(
-    viewerContext: VisibleProfileViewerContext,
-    candidates: VisibleProfileTargetCandidate[],
-  ): Promise<ResolvedVisibleProfileEntry[]> {
+    viewerContext: PublicProfileViewerContext,
+    candidates: PublicProfileTargetCandidate[],
+  ): Promise<ResolvedPublicProfileEntry[]> {
     const participantIds = [
       viewerContext.viewerParticipant?.id ?? null,
       ...candidates.map((candidate) => candidate.participant.id),
@@ -266,7 +155,10 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
           viewerContext.currentSeasonId,
           participantIds,
         )
-      : new Map<string, ActiveMatchByParticipantId>();
+      : new Map<
+          string,
+          Awaited<ReturnType<MatchActiveViewPort['getCurrentActiveMatchByParticipantId']>>
+        >();
     const viewerActiveMatch = viewerContext.viewerParticipant
       ? (activeMatchMap.get(viewerContext.viewerParticipant.id) ?? null)
       : null;
@@ -281,7 +173,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
           registrationSnapshotParticipantIds,
         ),
       )
-      .filter((entry): entry is ResolvedVisibleProfileEntry => entry !== null)
+      .filter((entry): entry is ResolvedPublicProfileEntry => entry !== null)
       .sort((left, right) =>
         left.sourceProfile.nickname.localeCompare(right.sourceProfile.nickname, 'ko'),
       );
@@ -289,7 +181,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
 
   function mapTargetParticipantCandidate(
     record: TargetParticipantQueryRecord,
-  ): VisibleProfileTargetCandidate {
+  ): PublicProfileTargetCandidate {
     const { user, ...participant } = record;
 
     return {
@@ -304,8 +196,8 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     authUser: AuthenticatedUserContext,
     targetUserId: string,
     now: Date,
-  ): Promise<ResolvedVisibleProfileEntry | null> {
-    const viewerContext = await loadViewerContext(authUser, now);
+  ): Promise<ResolvedPublicProfileEntry | null> {
+    const viewerContext = await viewerContextQuery.loadViewerContext(authUser, now);
     if (
       !viewerContext.currentSeasonId ||
       !viewerContext.serviceState.campusOperated ||
@@ -337,7 +229,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     return entry ?? null;
   }
 
-  function toDetailPublicProfile(entry: ResolvedVisibleProfileEntry): PublicProfile | null {
+  function toDetailPublicProfile(entry: ResolvedPublicProfileEntry): PublicProfile | null {
     return toPublicProfile(
       {
         id: entry.user.id,
@@ -362,7 +254,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     options: { detailEntryToken?: string } = {},
   ): Promise<PublicProfile | null> {
     const detailEntryContext = options.detailEntryToken
-      ? tokenOwner.verifyDetailEntryToken({
+      ? tokenCodec.verify({
           token: options.detailEntryToken,
           viewerUserId: authUser.id,
           targetUserId,
@@ -373,7 +265,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       return null;
     }
 
-    const viewerContext = await loadViewerContext(authUser, now);
+    const viewerContext = await viewerContextQuery.loadViewerContext(authUser, now);
     if (
       !viewerContext.currentSeasonId ||
       !viewerContext.serviceState.campusOperated ||
@@ -406,8 +298,8 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
   }
 
   async function resolveTargetDetailProfile(
-    viewerContext: VisibleProfileViewerContext,
-    candidate: VisibleProfileTargetCandidate,
+    viewerContext: PublicProfileViewerContext,
+    candidate: PublicProfileTargetCandidate,
     detailEntryContext: ProfileDetailEntryTokenPayload | null = null,
   ): Promise<PublicProfile | null> {
     if (await hasActiveBlockBetweenUsers(viewerContext.viewer.id, candidate.user.id)) {
@@ -436,7 +328,12 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
             viewerContext.currentSeasonId,
             participantIds,
           )
-        : Promise.resolve(new Map<string, ActiveMatchByParticipantId>()),
+        : Promise.resolve(
+            new Map<
+              string,
+              Awaited<ReturnType<MatchActiveViewPort['getCurrentActiveMatchByParticipantId']>>
+            >(),
+          ),
     ]);
     const viewerActiveMatch = viewerContext.viewerParticipant
       ? (activeMatchMap.get(viewerContext.viewerParticipant.id) ?? null)
@@ -555,7 +452,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
   }
 
   return {
-    loadViewerContext,
+    loadViewerContext: viewerContextQuery.loadViewerContext,
     materializeVisibleProfileEntries,
     mapTargetParticipantCandidate,
     getResolvedProfileByUserId,
@@ -564,76 +461,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
   };
 }
 
-function resolveSeasonReferenceYear(seasonEndDate: string | null | undefined) {
-  if (!seasonEndDate) {
-    return null;
-  }
-
-  const parsed = Number(seasonEndDate.slice(0, 4));
-  return Number.isInteger(parsed) ? parsed : null;
-}
-
-function canRenderTombstoneDetail(
-  viewerContext: VisibleProfileViewerContext,
-  publicTargetPolicy: ReturnType<typeof resolvePublicTargetPolicy>,
-  hasDetailEntryContext: boolean,
-) {
-  if (publicTargetPolicy.relation.relationToViewer === 'MATCHED_PARTNER') {
-    return true;
-  }
-
-  if (!hasDetailEntryContext) {
-    return false;
-  }
-
-  return viewerContext.serviceState.seasonState !== null;
-}
-
-function resolveProfileDetailTombstoneReason(
-  candidate: VisibleProfileTargetCandidate,
-  sourceProfile: ProfileViewRecord | null,
-  eligibilityReason: string | null,
-  viewerContext: VisibleProfileViewerContext,
-  targetSelection: ReturnType<SeasonParticipantsService['selectCanonicalSelection']>,
-  hasDetailEntryContext: boolean,
-): PublicProfileTombstoneReason {
-  if (!hasDetailEntryContext) {
-    return 'DETAIL_CONTEXT_NO_LONGER_VALID';
-  }
-
-  if (
-    candidate.user.deletedAt !== null ||
-    eligibilityReason === 'TARGET_DELETED_OR_DEIDENTIFIED' ||
-    candidate.participant.hiddenByAdminAt !== null ||
-    candidate.participant.deactivatedAt !== null ||
-    candidate.participant.participantStatus === 'WITHDRAWN' ||
-    candidate.participant.participantStatus === 'EXPIRED' ||
-    !sourceProfile ||
-    eligibilityReason === 'TARGET_PROFILE_INCOMPLETE' ||
-    eligibilityReason === 'TARGET_REGISTRATION_SNAPSHOT_MISSING' ||
-    eligibilityReason === 'TARGET_NOT_REGISTERED'
-  ) {
-    return 'TARGET_NO_LONGER_DISCOVERABLE';
-  }
-
-  if (!isParticipantRegistered(viewerContext.viewerParticipant)) {
-    return 'DETAIL_REQUIRES_REGISTRATION';
-  }
-
-  if (!viewerContext.viewerHasOperatedAssignedDormitory) {
-    return 'DETAIL_REQUIRES_ASSIGNED_DORMITORY';
-  }
-
-  if (
-    viewerContext.viewerSelection.dormitoryId !== null &&
-    targetSelection.dormitoryId !== null &&
-    viewerContext.viewerSelection.dormitoryId !== targetSelection.dormitoryId
-  ) {
-    return 'DETAIL_NOT_AVAILABLE_DIFFERENT_DORMITORY';
-  }
-
-  return 'DETAIL_CONTEXT_NO_LONGER_VALID';
-}
+export const createVisibleProfileOwner = createPublicProfileTargetMaterializer;
 
 function toProfileViewRecord(
   profile: CurrentSeasonParticipantProfileRecord | null,

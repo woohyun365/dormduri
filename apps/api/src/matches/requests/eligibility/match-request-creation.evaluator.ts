@@ -16,7 +16,7 @@ import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
 } from '../../../seasons/ports/season-context.port.js';
-import { parseLifestyleOrNull } from '../../../profiles/profile.mapper.js';
+import { parseLifestyleOrNull } from '../../../profiles/contracts/public-profile.presenter.js';
 import {
   MATCH_ACTIVE_VIEW_PORT,
   type MatchActiveViewPort,

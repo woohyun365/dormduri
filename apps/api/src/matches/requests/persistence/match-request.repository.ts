@@ -3,7 +3,7 @@ import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import { Prisma } from '../../../generated/prisma/client.js';
 import { lifestyleColumnSelect } from '../../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import { formatKstDate } from '../../../platform/time/kst-date.js';
-import { parseLifestyleOrNull } from '../../../profiles/profile.mapper.js';
+import { parseLifestyleOrNull } from '../../../profiles/contracts/public-profile.presenter.js';
 import { matchesErrors } from '../../errors/matches.errors.js';
 import { matchRequestSummarySelect, type MatchRequestRecord } from './match-request.select.js';
 import { resolveMatchRequestExpiresAt } from '../policies/match-request-expiration.policy.js';

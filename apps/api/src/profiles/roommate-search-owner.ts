@@ -27,11 +27,11 @@ import {
   shouldExcludeMatchedTargetsFromDiscovery,
 } from './roommate-search-scope.owner.js';
 import { createRoommateSearchTokenOwner } from './roommate-search-token-owner.js';
-import {
-  createVisibleProfileOwner,
-  type ResolvedVisibleProfileEntry,
-  type VisibleProfileViewerContext,
-} from './visible-profile-owner.js';
+import { createPublicProfileTargetMaterializer } from './targets/public-profile-target.materializer.js';
+import type {
+  ResolvedVisibleProfileEntry,
+  VisibleProfileViewerContext,
+} from './targets/public-profile-target.types.js';
 
 interface RoommateSearchOwnerDeps {
   prisma: PrismaService;
@@ -42,7 +42,7 @@ interface RoommateSearchOwnerDeps {
 }
 
 export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
-  const visibleProfileOwner = createVisibleProfileOwner(deps);
+  const visibleProfileOwner = createPublicProfileTargetMaterializer(deps);
   const candidateOwner = createRoommateSearchCandidateOwner(deps);
   const tokenOwner = createRoommateSearchTokenOwner();
   const paginationOwner = createRoommateSearchPaginationOwner(tokenOwner);

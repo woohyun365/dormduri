@@ -42,7 +42,7 @@ import { ProfilesModule } from '../profiles/profiles.module.js';
 import { RETENTION_EXPORTS } from '../retention/composition/retention.exports.js';
 import { RETENTION_PROVIDERS } from '../retention/composition/retention.providers.js';
 import { RetentionModule } from '../retention/retention.module.js';
-import { ProfilesService } from '../profiles/profiles.service.js';
+import { PROFILE_PUBLIC_TARGET_READER_PORT } from '../profiles/contracts/profile-public-target-reader.port.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
   REALTIME_DISPATCH_METRICS_PORT,
@@ -285,7 +285,7 @@ describe('affected API module boundary finalization', () => {
     expect(moduleMetadata(UsersModule, 'exports')).toEqual(USERS_EXPORTS);
     expect(moduleMetadata(UsersModule, 'exports')).toEqual([UsersService]);
     expect(moduleMetadata(CurrentUserViewModule, 'exports')).toEqual([CurrentUserViewService]);
-    expect(moduleMetadata(ProfilesModule, 'exports')).toEqual([ProfilesService]);
+    expect(moduleMetadata(ProfilesModule, 'exports')).toEqual([PROFILE_PUBLIC_TARGET_READER_PORT]);
     expect(moduleMetadata(NotificationsModule, 'exports')).toEqual([
       NotificationQueryService,
       NOTIFICATION_WRITER,

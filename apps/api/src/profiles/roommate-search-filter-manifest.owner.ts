@@ -7,7 +7,7 @@ import type {
   RoommateSearchSort,
 } from '@repo/shared/roommate-search-contract';
 import { ROOMMATE_SEARCH_MIN_SCORE_PRESETS } from '@repo/shared/roommate-search-contract';
-import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
+import type { VisibleProfileViewerContext } from './targets/public-profile-target.types.js';
 
 const FILTER_POLICY_VERSION = 'roommate-search-filter-manifest-v1';
 const AGE_BAND_OPTIONS = ['19', '20', '21', '22', '23', '24', '25_PLUS'] as const;

@@ -1,5 +1,5 @@
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { ProfilesService } from '../../src/profiles/profiles.service.js';
+import { ProfilesService } from '../../src/profiles/application/profiles.service.js';
 import { RoommateSearchService } from '../../src/profiles/roommate-search.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {

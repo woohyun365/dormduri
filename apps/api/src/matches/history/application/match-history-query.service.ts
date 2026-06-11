@@ -8,7 +8,7 @@ import {
   mapProfileViewRecordFromColumns,
   toPublicProfile,
   toTombstonePublicProfile,
-} from '../../../profiles/profile.mapper.js';
+} from '../../../profiles/contracts/public-profile.presenter.js';
 import { lifestyleColumnSelect } from '../../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import { matchesErrors } from '../../errors/matches.errors.js';
 import { toSeasonEndBoundary } from '../materialization/match-history-materialization.policy.js';

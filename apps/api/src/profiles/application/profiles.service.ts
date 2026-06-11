@@ -1,25 +1,25 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { PublicProfile } from '@repo/shared/profile-contract';
-import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
-import { PrismaService } from '../platform/database/prisma.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   MATCH_ACTIVE_VIEW_PORT,
   type MatchActiveViewPort,
-} from '../matches/application/ports/match-active-view.port.js';
+} from '../../matches/application/ports/match-active-view.port.js';
 import {
   MATCH_SCORE_PROJECTION_PORT,
   type MatchScoreProjectionPort,
-} from '../matches/application/ports/match-score-projection.port.js';
-import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
+} from '../../matches/application/ports/match-score-projection.port.js';
+import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
-} from '../seasons/ports/season-context.port.js';
-import { createProfilesReadOwner } from './profiles-read-owner.js';
+} from '../../seasons/ports/season-context.port.js';
+import { createProfileDetailQuery } from '../details/profile-detail.query.js';
 
 @Injectable()
 export class ProfilesService {
-  private readonly readOwner;
+  private readonly profileDetailQuery;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -31,7 +31,7 @@ export class ProfilesService {
     @Inject(MATCH_SCORE_PROJECTION_PORT)
     private readonly matchScoreProjection: MatchScoreProjectionPort,
   ) {
-    this.readOwner = createProfilesReadOwner({
+    this.profileDetailQuery = createProfileDetailQuery({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
       seasonParticipantsService: this.seasonParticipantsService,
@@ -45,6 +45,6 @@ export class ProfilesService {
     targetUserId: string,
     options: { detailEntryToken?: string } = {},
   ): Promise<PublicProfile> {
-    return this.readOwner.getProfileByUserId(authUser, targetUserId, options);
+    return this.profileDetailQuery.getProfileByUserId(authUser, targetUserId, options);
   }
 }

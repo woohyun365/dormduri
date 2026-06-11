@@ -13,8 +13,8 @@ import type { LifestyleData } from '@repo/shared/lifestyle';
 import {
   type LifestyleColumns,
   toLifestyleFromColumns,
-} from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
-import { resolveProfileTombstoneDisplayName } from '../privacy/deidentification/deidentified-display.policy.js';
+} from '../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
+import { resolveProfileTombstoneDisplayName } from '../../privacy/deidentification/deidentified-display.policy.js';
 
 export interface ProfileViewRecord {
   nickname: string;
@@ -56,7 +56,7 @@ export function mapProfileViewRecordFromColumns(
 export function parseLifestyleOrThrow(lifestyle: unknown): LifestyleData {
   const parsed = parseLifestyleOrNull(lifestyle);
   if (!parsed) {
-    throw new Error('[profile.mapper] invalid lifestyle payload from persistence layer');
+    throw new Error('[public-profile.presenter] invalid lifestyle payload from persistence layer');
   }
 
   return parsed;

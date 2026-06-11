@@ -1,12 +1,12 @@
 import type { LifestyleData } from '@repo/shared/lifestyle';
-import { ProfilesService } from './profiles.service.js';
-import { profilesErrors } from './profiles.errors.js';
-import { createRoommateSearchTokenOwner } from './roommate-search-token-owner.js';
+import { ProfilesService } from '../application/profiles.service.js';
+import { profilesErrors } from '../errors/profile.errors.js';
+import { createRoommateSearchTokenOwner } from '../roommate-search-token-owner.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
-} from '../season-participants/application/season-participants.service.js';
-import { toCompleteLifestyleColumnData } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
+} from '../../season-participants/application/season-participants.service.js';
+import { toCompleteLifestyleColumnData } from '../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 
 const COMPLETE_LIFESTYLE: LifestyleData = {
   bedtime: '22_24',

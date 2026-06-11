@@ -1,4 +1,4 @@
-import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
+import type { VisibleProfileViewerContext } from './targets/public-profile-target.types.js';
 import { buildRoommateSearchManifest } from './roommate-search-filter-manifest.owner.js';
 
 const baseViewerContext = {

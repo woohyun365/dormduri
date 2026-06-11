@@ -4,7 +4,7 @@ import type {
 } from '@repo/shared/roommate-search-contract';
 import type { CurrentSeasonParticipantRecord } from '../season-participants/application/season-participants.service.js';
 import { isParticipantRegistered } from '../season-participants/policies/index.js';
-import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
+import type { VisibleProfileViewerContext } from './targets/public-profile-target.types.js';
 import { roommateSearchErrors } from './roommate-search.errors.js';
 
 export interface RoommateSearchScopeAvailability {

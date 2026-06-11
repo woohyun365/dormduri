@@ -11,7 +11,7 @@ import {
   toStoredBedtime,
   toStoredWakeTime,
 } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
-import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
+import type { VisibleProfileViewerContext } from './targets/public-profile-target.types.js';
 
 export interface RoommateSearchCandidateOwnerDeps {
   prisma: PrismaService;

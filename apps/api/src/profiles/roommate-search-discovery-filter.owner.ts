@@ -1,4 +1,4 @@
-import type { ResolvedVisibleProfileEntry } from './visible-profile-owner.js';
+import type { ResolvedVisibleProfileEntry } from './targets/public-profile-target.types.js';
 
 export interface RoommateSearchDiscoveryFilterResult {
   entries: ResolvedVisibleProfileEntry[];
