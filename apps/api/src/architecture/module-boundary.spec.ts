@@ -225,6 +225,27 @@ describe('affected API module boundary finalization', () => {
     expect(moduleMetadata(SeasonsModule, 'imports')).toEqual([PrismaModule]);
   });
 
+  it('keeps profile detail and roommate-search modules split by source boundary', () => {
+    const appModuleSource = readSource(join(apiSourceRoot, 'app.module.ts'));
+    const profilesModuleSource = readSource(join(apiSourceRoot, 'profiles/profiles.module.ts'));
+
+    expect({
+      expectedGreenPhase: 'Phase 3 ProfilesModule and RoommateSearchModule source split',
+      appImportsRoommateSearchModule: appModuleSource.includes('RoommateSearchModule'),
+      profilesModuleOwnsRoommateSearch: /RoommateSearchController|RoommateSearchService/.test(
+        profilesModuleSource,
+      ),
+      profilesModuleExportsConcreteProfilesService: /exports:\s*\[\s*ProfilesService/.test(
+        profilesModuleSource,
+      ),
+    }).toEqual({
+      expectedGreenPhase: 'Phase 3 ProfilesModule and RoommateSearchModule source split',
+      appImportsRoommateSearchModule: true,
+      profilesModuleOwnsRoommateSearch: false,
+      profilesModuleExportsConcreteProfilesService: false,
+    });
+  });
+
   it('keeps public exports as deliberate product surfaces and narrow ports', () => {
     expect(moduleMetadata(AuthModule, 'exports')).toEqual([
       AuthService,

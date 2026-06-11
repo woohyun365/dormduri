@@ -130,6 +130,34 @@ const EXCLUDED_OWNER_ROOT_FILES = [
   'roommate-search-contract.ts',
 ] as const;
 
+const PROFILE_SEARCH_ROOT_CONTRACT_FILES = [
+  'profile-contract-fields.ts',
+  'profile-contract-public.ts',
+  'profile-contract.ts',
+  'roommate-search-contract.ts',
+] as const;
+
+const PROFILE_SEARCH_CANONICAL_NESTED_EXPORTS: Record<string, PackageExportTarget> = {
+  './profile': { types: './dist/profile/index.d.ts', default: './dist/profile/index.js' },
+  './profile/contract': {
+    types: './dist/profile/contract/index.d.ts',
+    default: './dist/profile/contract/index.js',
+  },
+  './roommate-search': {
+    types: './dist/roommate-search/index.d.ts',
+    default: './dist/roommate-search/index.js',
+  },
+  './roommate-search/contract': {
+    types: './dist/roommate-search/contract/index.d.ts',
+    default: './dist/roommate-search/contract/index.js',
+  },
+};
+
+const PROFILE_SEARCH_REMOVED_PUBLIC_EXPORTS = [
+  './profile-contract',
+  './roommate-search-contract',
+] as const;
+
 const REMOVED_MATCH_PUBLIC_EXPORTS = [
   './match-contract',
   './match-score',
@@ -274,6 +302,43 @@ describe('shared contract source-of-truth layout', () => {
     for (const publicPath of REMOVED_MATCH_PUBLIC_EXPORTS) {
       expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
     }
+  });
+
+  it('keeps profile and roommate-search contracts on nested source files after migration', () => {
+    const profileSearchRootFiles = PROFILE_SEARCH_ROOT_CONTRACT_FILES.filter((file) =>
+      existsSync(join(sharedSrc, file)),
+    );
+
+    expect({
+      expectedGreenPhase: 'Phase 5 shared profile/roommate-search nested contract migration',
+      profileSearchRootFiles,
+    }).toEqual({
+      expectedGreenPhase: 'Phase 5 shared profile/roommate-search nested contract migration',
+      profileSearchRootFiles: [],
+    });
+  });
+
+  it('keeps profile and roommate-search public exports on nested package paths', () => {
+    const sharedPackageJson = readPackageJson();
+    const canonicalNestedExports = Object.fromEntries(
+      Object.keys(PROFILE_SEARCH_CANONICAL_NESTED_EXPORTS).map((publicPath) => [
+        publicPath,
+        sharedPackageJson.exports[publicPath],
+      ]),
+    );
+    const stillExportedRootPaths = PROFILE_SEARCH_REMOVED_PUBLIC_EXPORTS.filter(
+      (publicPath) => sharedPackageJson.exports[publicPath] !== undefined,
+    );
+
+    expect({
+      expectedGreenPhase: 'Phase 5 shared profile/roommate-search nested package exports',
+      canonicalNestedExports,
+      stillExportedRootPaths,
+    }).toEqual({
+      expectedGreenPhase: 'Phase 5 shared profile/roommate-search nested package exports',
+      canonicalNestedExports: PROFILE_SEARCH_CANONICAL_NESTED_EXPORTS,
+      stillExportedRootPaths: [],
+    });
   });
 
   it('keeps root shared files limited to excluded owner files after neutral nested migration', () => {
