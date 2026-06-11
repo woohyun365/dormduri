@@ -6,11 +6,10 @@ import { SeasonParticipantsModule } from '../season-participants/season-particip
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { PROFILES_EXPORTS, PROFILES_PROVIDERS } from './composition/profiles.providers.js';
 import { ProfilesController } from './profiles.controller.js';
-import { RoommateSearchController } from './roommate-search.controller.js';
 
 @Module({
   imports: [PrismaModule, SeasonsModule, SeasonParticipantsModule, MatchesModule, AuthModule],
-  controllers: [ProfilesController, RoommateSearchController],
+  controllers: [ProfilesController],
   providers: PROFILES_PROVIDERS,
   exports: PROFILES_EXPORTS,
 })

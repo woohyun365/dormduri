@@ -31,3 +31,12 @@ export interface ProfilePublicTargetReaderPort {
     options?: { detailEntryToken?: string },
   ): Promise<PublicProfile | null>;
 }
+
+export type {
+  PublicProfileTargetCandidate,
+  PublicProfileViewerContext,
+  ResolvedPublicProfileEntry,
+  TargetParticipantQueryRecord,
+  VisibleProfileViewerContext,
+  ResolvedVisibleProfileEntry,
+} from '../targets/public-profile-target.types.js';

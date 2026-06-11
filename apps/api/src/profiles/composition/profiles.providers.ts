@@ -15,7 +15,6 @@ import {
 } from '../../seasons/ports/season-context.port.js';
 import { ProfilesService } from '../application/profiles.service.js';
 import { PROFILE_PUBLIC_TARGET_READER_PORT } from '../contracts/profile-public-target-reader.port.js';
-import { RoommateSearchService } from '../roommate-search.service.js';
 import { createPublicProfileTargetMaterializer } from '../targets/public-profile-target.materializer.js';
 
 export const PROFILE_PUBLIC_TARGET_READER_PROVIDER: Provider = {
@@ -46,8 +45,6 @@ export const PROFILE_PUBLIC_TARGET_READER_PROVIDER: Provider = {
 export const PROFILES_PROVIDERS: Provider[] = [
   ProfilesService,
   PROFILE_PUBLIC_TARGET_READER_PROVIDER,
-  // RoommateSearchService stays here until Phase 3 extracts RoommateSearchModule.
-  RoommateSearchService,
 ];
 
 export const PROFILES_EXPORTS = [PROFILE_PUBLIC_TARGET_READER_PORT];

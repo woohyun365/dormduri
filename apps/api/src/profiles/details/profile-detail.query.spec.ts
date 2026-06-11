@@ -1,7 +1,7 @@
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import { ProfilesService } from '../application/profiles.service.js';
 import { profilesErrors } from '../errors/profile.errors.js';
-import { createRoommateSearchTokenOwner } from '../roommate-search-token-owner.js';
+import { createProfileDetailEntryTokenCodec } from '../contracts/profile-detail-entry-token.codec.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
@@ -124,7 +124,7 @@ function detailEntryToken(input: {
   targetParticipantId?: string;
   canViewFull?: boolean;
 }) {
-  return createRoommateSearchTokenOwner().signDetailEntryToken({
+  return createProfileDetailEntryTokenCodec().sign({
     viewerUserId: input.viewerUserId ?? 'user-1',
     targetUserId: input.targetUserId ?? 'peer-1',
     targetParticipantId: input.targetParticipantId ?? 'participant-target',

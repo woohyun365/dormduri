@@ -25,8 +25,6 @@ The product boundary is:
 - `contracts/`: shared profile contract behavior regression spec. Shared package layout fitness is owned by architecture specs.
 - `test-support/`: profile fixtures only.
 
-The current implementation still has root-level flat files and `*.owner.ts` helpers. Those files are implementation debt to be collapsed into the responsibilities above without changing route behavior, response shape, error code, token semantics, or DB semantics.
-
 `roommate-search` is a separate product boundary. Search summary list, manifest, scope, filters, sorting, cursor pagination, availability notice, bookmark metadata composition, and search response presentation belong in a top-level `roommate-search/` module rather than in `profiles/`.
 
 ## Hard rules
@@ -43,12 +41,12 @@ The current implementation still has root-level flat files and `*.owner.ts` help
 
 ## Architecture guard
 
-Architecture specs own cross-cutting fitness rules. The intended guards are:
+Architecture specs own cross-cutting fitness rules:
 
 - root production files allow only `profiles.module.ts` and `profiles.controller.ts`;
 - root `*.owner.ts` production files are not part of the final product layout;
 - external production code consumes profile public ports/surfaces instead of `details/`, `targets/`, or `mappers/` internals;
-- shared profile and roommate-search contracts use nested package paths rather than flat root contract files.
+- shared profile and roommate-search contract source-of-truth layout is guarded by architecture specs.
 
 ## Where to change profile behavior
 
@@ -64,7 +62,7 @@ Architecture specs own cross-cutting fitness rules. The intended guards are:
 - Match score authority: `apps/api/src/matches/scoring` and match score ports.
 - Bookmark/block relation authority: `apps/api/src/social-safety`.
 - Policy source of truth: `docs/04_policy/official/profile-model.md`, `docs/04_policy/official/roommate-searching.md`, and `docs/04_policy/official/season-participation.md`.
-- Shared API contract source of truth: nested `packages/shared/src/profile/**` and `packages/shared/src/roommate-search/**` surfaces.
+- Shared API contract source of truth: `packages/shared` profile and roommate-search contract surfaces.
 
 ## Useful verification
 

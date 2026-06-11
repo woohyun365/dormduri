@@ -8,6 +8,7 @@ import { PrismaModule } from './platform/database/prisma.module.js';
 import { DormitoriesModule } from './dormitories/dormitories.module.js';
 import { HealthModule } from './health/health.module.js';
 import { ProfilesModule } from './profiles/profiles.module.js';
+import { RoommateSearchModule } from './roommate-search/roommate-search.module.js';
 import { SeasonsModule } from './seasons/seasons.module.js';
 import { UsersModule } from './users/users.module.js';
 import { ApiExceptionFilter } from './platform/http/api-exception.filter.js';
@@ -53,6 +54,7 @@ import { envValidationSchema } from './config/env.validation.js';
     SeasonParticipantsModule,
     UsersModule,
     ProfilesModule,
+    RoommateSearchModule,
     MatchesModule,
     LifecycleModule,
     SocialSafetyModule,
