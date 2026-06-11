@@ -7,6 +7,7 @@ import { SeasonParticipantsModule } from '../season-participants/season-particip
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { MATCHES_EXPORTS } from './composition/matches.exports.js';
 import { MATCHES_PROVIDERS } from './composition/matches.providers.js';
+import { MatchLifecycleModule } from './lifecycle/match-lifecycle.module.js';
 import { MatchesController } from './matches.controller.js';
 
 @Module({
@@ -17,6 +18,7 @@ import { MatchesController } from './matches.controller.js';
     ChatModule,
     ModerationModule,
     AuthModule,
+    MatchLifecycleModule,
   ],
   controllers: [MatchesController],
   providers: MATCHES_PROVIDERS,

@@ -77,21 +77,12 @@ export function createDeregisterSeasonParticipantCommand(
         },
       });
 
-      const canceledPendingMatchRequests = await tx.matchRequest.updateMany({
-        where: {
+      const matchWithdrawalResult =
+        await deps.matchParticipantWithdrawal.cancelPendingRequestsForWithdrawnParticipant(tx, {
           seasonId: mappedParticipant.seasonId,
-          status: 'PENDING',
-          OR: [
-            { requesterParticipantId: mappedParticipant.id },
-            { receiverParticipantId: mappedParticipant.id },
-          ],
-        },
-        data: {
-          status: 'CANCELLED_BY_SYSTEM',
-          terminalReason: 'WITHDRAWN_PARTICIPANT',
-          terminalAt: referenceNow,
-        },
-      });
+          participantId: mappedParticipant.id,
+          now: referenceNow,
+        });
 
       const chatWithdrawalResult =
         await deps.chatThreadWithdrawal.markOpenDirectThreadsReadOnlyForWithdrawnParticipant(tx, {
@@ -104,7 +95,7 @@ export function createDeregisterSeasonParticipantCommand(
         participant: mappedParticipant,
         actorUserId: user.id,
         occurredAt: referenceNow,
-        canceledPendingMatchRequests: canceledPendingMatchRequests.count,
+        canceledPendingMatchRequests: matchWithdrawalResult.canceledPendingMatchRequests,
         chatThreadsMarkedReadOnly: chatWithdrawalResult.updatedThreadIds.length,
       });
     });

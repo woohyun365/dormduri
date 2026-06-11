@@ -91,6 +91,29 @@ describe('chat architecture boundary', () => {
     );
   });
 
+  it('keeps ChatService spec as a facade smoke spec instead of a god spec', () => {
+    const chatServiceSpecSource = readSource(join(chatRoot, 'application/chat.service.spec.ts'));
+    const serviceSpecLineCount = chatServiceSpecSource.split(/\r?\n/).length;
+    const ownerSpecPaths = [
+      'commands/send-message.command.spec.ts',
+      'commands/update-read-marker.command.spec.ts',
+      'commands/leave-thread.command.spec.ts',
+      'pairs/chat-pair-entry.query.spec.ts',
+      'queries/chat-thread-query.service.spec.ts',
+      'queries/chat-subscription-query.service.spec.ts',
+      'outbox/chat-realtime-replay.service.spec.ts',
+    ];
+
+    expect(serviceSpecLineCount).toBeLessThanOrEqual(500);
+    for (const ownerSpecPath of ownerSpecPaths) {
+      expect(existsSync(join(chatRoot, ownerSpecPath))).toBe(true);
+    }
+    expect(chatServiceSpecSource).toContain('ChatService facade');
+    expect(chatServiceSpecSource).not.toMatch(
+      /advisory lock|idempotent retry|read marker는|archive가 아닌 visible thread/,
+    );
+  });
+
   it('keeps realtime/outbox dependency direction away from application facade coupling', () => {
     const outboxRealtimeImports = productionTypeScriptFiles(join(chatRoot, 'outbox')).filter(
       (path) => /from\s+['"].*realtime\//.test(readSource(path)),

@@ -11,6 +11,7 @@
 - `CHAT_THREAD_WITHDRAWAL_PORT`: season participant withdrawal transaction 안에서 open direct thread를 read-only로 전환하고 realtime outbox를 append한다.
 - `CHAT_LIFECYCLE_SWEEP_PORT`: top-level lifecycle sweep에서 chat thread cutoff/season lifecycle을 수렴한다.
 - `CHAT_BLOCK_SIDE_EFFECT_PORT`: social-safety block create transaction이 non-matched direct thread close를 요청할 때 사용하는 port contract다. 구현 provider/export는 `lifecycle/chat-block-side-effect.service.ts`와 `composition/`이 소유한다.
+- `CHAT_REPORT_TARGET_CONTEXT_PORT`: social-safety report intake가 chat thread/message target context를 검증할 때 사용하는 port contract다. Chat은 report domain status/reason을 알지 않고, thread/message pointer와 allowlist snapshot만 반환한다.
 - `REALTIME_*_PORT`: notification/health 등 외부 domain은 chat realtime concrete class 대신 generic realtime token을 사용한다.
 
 ## Directory responsibilities
@@ -35,7 +36,7 @@
 
 - 외부 domain production code에서 `../chat/application/chat.service` import 금지.
 - `season-participants`와 `social-safety`에서 `conversationThread` / `conversationMessage` 직접 mutation 금지(direct chat table mutation outside chat 금지).
-- `social-safety`는 `ChatService` concrete가 아니라 chat port contract로만 block/report side-effect를 요청한다.
+- `social-safety`는 `ChatService` concrete가 아니라 chat port contract로만 block/report side-effect와 report target context를 요청한다.
 - `notifications`에서 `chat/realtime/*` concrete class나 `config/chat-realtime.config` 직접 import 금지.
 - `ChatThreadContextGuard`는 Prisma를 직접 조회하지 않고 `ChatThreadContextResolver`에 위임한다.
 - `leaveThread`의 user-facing `CHAT_THREAD_LEAVE_NOT_ALLOWED` behavior는 service/command path가 보존한다.
@@ -55,6 +56,7 @@
 ## Social-safety integration guide
 
 - Block create: `social-safety`는 같은 transaction 안에서 chat table을 직접 update하지 않고 `CHAT_BLOCK_SIDE_EFFECT_PORT.closeDirectThreadsForBlock(...)` contract를 통해 chat lifecycle owner에 위임한다.
+- Report target: `social-safety`는 chat thread/message table을 직접 read하지 않고 `CHAT_REPORT_TARGET_CONTEXT_PORT`를 통해 reportable thread/message pointer를 검증한다. Port 반환값에는 raw message body, retained vault payload, disclosure/audit internals를 포함하지 않는다.
 - Block side-effect 대상: 같은 season/pair의 non-matched direct `OPEN` thread만 close 대상이다. active match 종료는 matches/report/admin review 경계가 소유한다.
 - Unblock: immediate reopen을 하지 않는다. unblock transaction은 block relation/event만 닫고, chat thread reopen은 사용자의 명시적 `GET /threads/with/:targetUserId` 또는 `POST /messages` send/resume path에서 lazy 처리한다.
 - Explicit resume/send: pair entry query는 active block 양방향 존재 시 resume CTA를 fail-closed로 계산한다. send command는 transaction 내부에서 active block absence를 다시 확인한 뒤, block-closed non-archived direct thread를 새 thread보다 우선 lazy reopen한다.
@@ -69,6 +71,7 @@
 - Actor-target pair entry behavior: `pairs/`.
 - Route-level thread context metadata/guard/resolver: `context/`.
 - Match/season/participant withdrawal side effects: `lifecycle/`.
+- Report target context lookup for social-safety: `reports/`.
 - Realtime ticket/auth/gateway/dispatcher/metrics/rate-limit behavior: `realtime/`.
 - Transactional outbox and replay behavior: `outbox/`.
 - Realtime payload mapping: `events/`.

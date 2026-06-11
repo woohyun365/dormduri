@@ -1,8 +1,8 @@
 import type { UpdateCurrentUserDisplayIdentityMutationResult } from '@repo/shared/user';
 import {
-  normalizeNickname,
-  validateNicknameStructure as validateNicknameFormat,
-} from '@repo/shared/auth/policy';
+  normalizeDisplayIdentityNickname,
+  validateDisplayIdentityNicknameStructure,
+} from '@repo/shared/user/identity/display';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import type { ModerationService } from '../../../moderation/moderation.service.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
@@ -29,14 +29,14 @@ export interface UpdateDisplayIdentityCommandDeps {
 export function createUpdateDisplayIdentityCommand(deps: UpdateDisplayIdentityCommandDeps) {
   function parseDisplayIdentityNickname(nickname: string): ParsedDisplayIdentityNickname {
     const trimmedNickname = nickname.trim();
-    const formatError = validateNicknameFormat(trimmedNickname);
+    const formatError = validateDisplayIdentityNicknameStructure(trimmedNickname);
     if (formatError) {
       throw usersErrors.invalidNickname(formatError);
     }
 
     return {
       nickname: trimmedNickname,
-      nicknameNormalized: normalizeNickname(trimmedNickname),
+      nicknameNormalized: normalizeDisplayIdentityNickname(trimmedNickname),
     };
   }
 

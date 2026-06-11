@@ -1,3 +1,9 @@
+import { chatErrors } from '../errors/chat.errors.js';
+import {
+  createChatServiceSpecHarness,
+  makeThread,
+  type ChatServiceSpecHarness,
+} from '../test-support/chat-service-spec.harness.js';
 import { createChatThreadQueryService } from './chat-thread-query.service.js';
 
 type ThreadListFindManyInput = {
@@ -268,5 +274,291 @@ describe('ChatQueryOwner', () => {
       past: [],
     });
     expect(prisma.conversationThread.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('chat thread query regression', () => {
+  let prisma: ChatServiceSpecHarness['prisma'];
+  let seasonsService: ChatServiceSpecHarness['seasonsService'];
+  let service: ChatServiceSpecHarness['service'];
+
+  beforeEach(() => {
+    const harness = createChatServiceSpecHarness();
+    ({ prisma, seasonsService, service } = harness);
+  });
+
+  it('listThreads는 bounded pageInfo cursor를 반환하고 read path lifecycle mutation을 만들지 않는다', async () => {
+    prisma.conversationThread.findMany.mockResolvedValue(
+      Array.from({ length: 21 }, (_, index) =>
+        makeThread({
+          id: `thread-${String(index).padStart(2, '0')}`,
+          createdAt: new Date(
+            `2026-02-${String(10 - Math.floor(index / 3)).padStart(2, '0')}T03:00:00.000Z`,
+          ),
+          lastMessageAt: new Date(
+            `2026-02-${String(10 - Math.floor(index / 3)).padStart(2, '0')}T04:00:00.000Z`,
+          ),
+        }),
+      ),
+    );
+
+    const result = await service.listThreads(
+      {
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
+      { limit: 20 },
+    );
+
+    expect(result.items).toHaveLength(20);
+    expect(result.pageInfo.hasNextPage).toBe(true);
+    expect(typeof result.pageInfo.nextCursor).toBe('string');
+    expect(prisma.conversationThread.update).not.toHaveBeenCalled();
+
+    const nextCursor = result.pageInfo.nextCursor;
+    if (!nextCursor) {
+      throw new Error('Expected next cursor');
+    }
+
+    prisma.conversationThread.findMany.mockResolvedValueOnce([]);
+    await expect(
+      service.listThreads(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { cursor: nextCursor, limit: 20 },
+      ),
+    ).resolves.toEqual({
+      items: [],
+      pageInfo: {
+        hasNextPage: false,
+        nextCursor: null,
+      },
+    });
+  });
+  it('listThreads는 tampered/expired cursor를 bad request로 거절한다', async () => {
+    await expect(
+      service.listThreads(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { cursor: 'not-a-valid-cursor' },
+      ),
+    ).rejects.toMatchObject({
+      response: { code: 'CHAT_THREAD_LIST_CURSOR_INVALID' },
+    });
+
+    expect(prisma.conversationThread.findMany).not.toHaveBeenCalled();
+  });
+  it('thread detail은 lifecycle sync 결과 ARCHIVED가 된 thread를 not found로 숨긴다', async () => {
+    prisma.conversationThread.findFirst.mockResolvedValue(
+      makeThread({
+        status: 'READ_ONLY',
+        closedReason: 'SEASON_ENDED',
+        messages: [
+          {
+            id: 'message-1',
+            body: '지난 시즌 메시지',
+            sentAt: new Date('2026-02-10T03:00:00.000Z'),
+            senderParticipant: { userId: 'user-1' },
+          },
+        ],
+      }),
+    );
+    seasonsService.getCurrentSeasonContext.mockResolvedValue({
+      season: { id: 'season-2' },
+      state: 'SEASON_OPEN',
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2027-01-11' },
+      ],
+      schedule: {
+        preparationStart: '2027-01-01',
+        matchingStart: '2027-01-05',
+        matchingEnd: '2027-01-11',
+        seasonEnd: '2027-01-28',
+      },
+    });
+    prisma.conversationThread.update.mockResolvedValue(
+      makeThread({
+        status: 'ARCHIVED',
+        closedReason: 'SEASON_ENDED',
+        closedAt: new Date('2026-02-10T03:00:00.000Z'),
+        messages: [],
+      }),
+    );
+
+    await expect(
+      service.getThreadDetail(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'thread-1',
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.threadNotFound().getResponse(),
+    });
+    expect(prisma.conversationThread.update).not.toHaveBeenCalled();
+  });
+  it.each([
+    {
+      threadKind: 'DIRECT' as const,
+      activeMatchId: null,
+      activeMatch: null,
+      closedReason: 'ROOM_SELECTION_CUTOFF' as const,
+    },
+    {
+      threadKind: 'MATCHED' as const,
+      activeMatchId: 'active-1',
+      activeMatch: {
+        id: 'active-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        createdFromRequestId: 'request-1',
+        startedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endedAt: null,
+      },
+      closedReason: 'SEASON_ENDED' as const,
+    },
+  ])(
+    '다음 시즌 seasonOpenDate 직전까지 지난 시즌 $threadKind read-only thread는 목록에 남아 있다',
+    async ({ threadKind, activeMatchId, activeMatch, closedReason }) => {
+      prisma.conversationThread.findMany.mockResolvedValue([
+        makeThread({
+          threadKind,
+          activeMatchId,
+          activeMatch,
+          status: 'READ_ONLY',
+          closedReason,
+          season: {
+            ...makeThread().season,
+            seasonEndDate: new Date('2026-08-31T00:00:00.000Z'),
+          },
+        }),
+      ]);
+      seasonsService.getCurrentSeasonContext.mockImplementation((_campus: string, now: Date) =>
+        Promise.resolve(
+          now.getTime() >= new Date('2027-01-01T00:00:00+09:00').getTime()
+            ? {
+                season: { id: 'season-2' },
+                state: 'SEASON_OPEN',
+                operatedDormitories: [
+                  { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2027-01-11' },
+                ],
+                schedule: {
+                  preparationStart: '2027-01-01',
+                  matchingStart: '2027-01-05',
+                  matchingEnd: '2027-01-11',
+                  seasonEnd: '2027-01-28',
+                },
+              }
+            : null,
+        ),
+      );
+      prisma.getDatabaseNow.mockResolvedValueOnce(new Date('2026-12-31T14:59:59.000Z'));
+
+      const result = await service.listThreads({
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      });
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({
+        threadKind,
+        status: 'READ_ONLY',
+        canSendMessage: false,
+        sendMessageUnavailableReason:
+          closedReason === 'SEASON_ENDED' ? 'SEASON_ENDED' : 'THREAD_READ_ONLY',
+      });
+    },
+  );
+  it.each([
+    {
+      threadKind: 'DIRECT' as const,
+      activeMatchId: null,
+      activeMatch: null,
+      closedReason: 'ROOM_SELECTION_CUTOFF' as const,
+    },
+    {
+      threadKind: 'MATCHED' as const,
+      activeMatchId: 'active-1',
+      activeMatch: {
+        id: 'active-1',
+        participantAId: 'participant-1',
+        participantBId: 'participant-2',
+        createdFromRequestId: 'request-1',
+        startedAt: new Date('2026-02-10T03:00:00.000Z'),
+        endedAt: null,
+      },
+      closedReason: 'SEASON_ENDED' as const,
+    },
+  ])(
+    '다음 시즌 seasonOpenDate 00:00:00(KST)가 되면 지난 시즌 $threadKind thread는 archive되어 목록에서 사라진다',
+    async ({ threadKind, activeMatchId, activeMatch, closedReason }) => {
+      prisma.conversationThread.findMany.mockResolvedValue([
+        makeThread({
+          threadKind,
+          activeMatchId,
+          activeMatch,
+          status: 'READ_ONLY',
+          closedReason,
+        }),
+      ]);
+      prisma.conversationThread.update.mockResolvedValue(
+        makeThread({
+          threadKind,
+          activeMatchId,
+          activeMatch,
+          status: 'ARCHIVED',
+          closedReason: 'SEASON_ENDED',
+        }),
+      );
+      seasonsService.getCurrentSeasonContext.mockResolvedValue({
+        season: { id: 'season-2' },
+        state: 'SEASON_OPEN',
+        operatedDormitories: [
+          { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2027-01-11' },
+        ],
+        schedule: {
+          preparationStart: '2027-01-01',
+          matchingStart: '2027-01-05',
+          matchingEnd: '2027-01-11',
+          seasonEnd: '2027-01-28',
+        },
+      });
+      prisma.getDatabaseNow.mockResolvedValueOnce(new Date('2026-12-31T15:00:00.000Z'));
+
+      const result = await service.listThreads({
+        id: 'user-1',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      });
+
+      expect(result.items).toEqual([]);
+      expect(prisma.conversationThread.update).not.toHaveBeenCalled();
+    },
+  );
+  it('thread participant가 아닌 다른 auth user는 thread detail 접근이 막힌다', async () => {
+    prisma.conversationThread.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.getThreadDetail(
+        {
+          id: 'user-3',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'thread-1',
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.threadNotFound().getResponse(),
+    });
   });
 });

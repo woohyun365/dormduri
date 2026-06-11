@@ -7,6 +7,10 @@ import {
   DORMITORY_SELECTION_CATALOG_PORT,
   type DormitorySelectionCatalogPort,
 } from '../../dormitories/selection-catalog/dormitory-selection-catalog.port.js';
+import {
+  MATCH_PARTICIPANT_WITHDRAWAL_PORT,
+  type MatchParticipantWithdrawalPort,
+} from '../../matches/application/ports/match-participant-withdrawal.port.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   SEASON_CONTEXT_PORT,
@@ -37,18 +41,21 @@ export const SEASON_PARTICIPANTS_PROVIDERS: Provider[] = [
       seasonContextPort: SeasonContextPort,
       dormitorySelectionCatalog: DormitorySelectionCatalogPort,
       chatThreadWithdrawal: ChatThreadWithdrawalPort,
+      matchParticipantWithdrawal: MatchParticipantWithdrawalPort,
     ) =>
       createSeasonParticipantWriteOwner({
         prisma,
         seasonsService: seasonContextPort,
         dormitorySelectionCatalog,
         chatThreadWithdrawal,
+        matchParticipantWithdrawal,
       }),
     inject: [
       PrismaService,
       SEASON_CONTEXT_PORT,
       DORMITORY_SELECTION_CATALOG_PORT,
       CHAT_THREAD_WITHDRAWAL_PORT,
+      MATCH_PARTICIPANT_WITHDRAWAL_PORT,
     ],
   },
   {

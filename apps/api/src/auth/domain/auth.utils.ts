@@ -2,10 +2,12 @@ import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
 import {
   KNU_EMAIL_DOMAIN,
   normalizeEmail as normalizeEmailShared,
-  normalizeNickname as normalizeNicknameShared,
   validatePasswordStructure,
-  validateNicknameStructure,
 } from '@repo/shared/auth/policy';
+import {
+  normalizeDisplayIdentityNickname,
+  validateDisplayIdentityNicknameStructure,
+} from '@repo/shared/user/identity/display';
 
 export function normalizeEmail(email: string): string {
   return normalizeEmailShared(email);
@@ -16,7 +18,7 @@ export function isKnuEmail(email: string): boolean {
 }
 
 export function normalizeNickname(nickname: string): string {
-  return normalizeNicknameShared(nickname);
+  return normalizeDisplayIdentityNickname(nickname);
 }
 
 export function validatePasswordPolicy(password: string, email: string): string | null {
@@ -24,7 +26,7 @@ export function validatePasswordPolicy(password: string, email: string): string 
 }
 
 export function validateNicknameFormat(nickname: string): string | null {
-  return validateNicknameStructure(nickname) || null;
+  return validateDisplayIdentityNicknameStructure(nickname) || null;
 }
 
 export function generateVerificationCode(): string {

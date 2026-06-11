@@ -23,6 +23,7 @@
 - `identity/display/`: live display identity, nickname format/moderation/cooldown, registration snapshot lock, display nickname update.
 - `identity/academic/`: account academic identity correction, birth-year registration snapshot guard, college correction allowance.
 - `identity/audit/`: display/academic identity change audit append/query helper.
+- `identity/retention/`: nickname/academic identity audit archive handlers that transform users-owned source rows for retention archive jobs. Sweep scheduling and execution stay in `retention/application/ports/retention-sweep.port.ts`.
 - `onboarding/`: dismissed notice command/query behavior.
 - `account-deletion/`: account deletion request, password-check bridge use, immediate de-identification, retained identity/archive job delegation.
 - `operations/`: admin/support/enforcement-facing nickname override command와 display nickname audit list query seam. Public controller는 노출하지 않는다.
@@ -36,6 +37,7 @@
 - `users` does not own auth credential/session/password policy. Account deletion may use the auth password-hash bridge, but credential/session lifecycle stays in auth.
 - `users` does not own season profile lifestyle/condition/registration writes, public profile/search policy, match/chat action policy, notification inbox behavior, social-safety report review outcome, or account-level enforcement engine.
 - Account deletion fails closed for a current registered participant. Accepted deletion immediately de-identifies active account identity and must not restore retained payload through user-facing product paths.
+- Do not create root `users/retention/` as a placeholder or sweep owner. Users-owned retained source row transformations live under `identity/retention/`. Retention sweep execution is owned by `retention/application/ports/retention-sweep.port.ts`.
 - Top-level `identity/` remains pure shared-kernel code. Do not add Nest providers, Prisma clients, HTTP adapters, or module wiring there.
 - Campus service-state resolution is seasons/runtime domain context vocabulary. Users consumes `seasons/runtime/campus-service-state.query.ts` for current-user projection, but must not own campus/season runtime state.
 - Account identity invariant failure uses identity pure vocabulary plus platform HTTP adapter. Users route errors remain users account self-service errors.
@@ -48,6 +50,7 @@
 Users architecture fitness belongs under `apps/api/src/architecture/users/` and cross-cutting architecture specs.
 
 - Root production TypeScript surface는 `users.controller.ts`, `users.module.ts`만 허용한다. Root owner file로 새 behavior를 확장하지 않는다.
+- Root `users/retention/` directory is intentionally absent. Architecture guard expects users identity archive handlers under `identity/retention/` and retention sweep execution through `RETENTION_SWEEP_PORT`.
 - Module provider/export list는 `composition/users.providers.ts`와 `composition/users.exports.ts`로 읽을 수 있어야 한다.
 - Lifecycle adapter는 users의 broad controller-facing service behavior나 users-owned retention sweep port에 의존하지 않는다. Retention sweep 실행은 `retention/application/ports/retention-sweep.port.ts`가 소유한다.
 - `season-participants` production code는 account identity invariant failure를 위해 users route error를 import하지 않아야 한다.
@@ -62,6 +65,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 - Display nickname self-service update: `identity/display/` owner files. Canonical placement is `identity/display/update-display-identity.command.ts`, `identity/display/display-identity.repository.ts`, `identity/display/display-identity-edit.policy.ts`, and `identity/display/nickname-cooldown.policy.ts`.
 - Academic identity correction: `identity/academic/update-academic-identity.command.ts`, `academic-identity.repository.ts`, `academic-college-change-allowance.repository.ts`, `academic-identity-audit.repository.ts`.
 - Identity audit append/query: `identity/audit/` owner files. Display nickname audit canonical placement is `identity/audit/display-identity-nickname-audit.repository.ts`.
+- Identity audit retained payload archive handlers: `identity/retention/nickname-audit-archive.handler.ts`, `identity/retention/academic-identity-audit-archive.handler.ts`.
 - Onboarding notice dismiss/readback: `onboarding/dismiss-onboarding-notice.command.ts`, `onboarding/onboarding-notice.repository.ts`, `onboarding/onboarding-notice.policy.ts`.
 - Account deletion and immediate de-identification: `account-deletion/request-account-deletion.command.ts`, `account-deletion/account-deletion-precondition.policy.ts`, `account-deletion/account-deletion.repository.ts`, `account-deletion/account-deletion-deidentification.mapper.ts`.
 - Account deletion retained identity/archive job creation: `account-deletion/request-account-deletion.command.ts` and retention nested command/port imports. Lifecycle sweep execution is owned by `retention/application/ports/retention-sweep.port.ts`.

@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { nicknameSchema } from '../auth/contract/primitives.js';
 import { userAcademicIdentitySchema } from './identity/academic.js';
+import { displayIdentityNicknameSchema } from './identity/display.js';
 import { currentUserResponseSchema, dismissedNoticeKeySchema } from './current-user.js';
 
 export const updateCurrentUserDisplayIdentityRequestSchema = z.strictObject({
-  nickname: nicknameSchema,
+  nickname: displayIdentityNicknameSchema,
 });
 
 export const updateCurrentUserAcademicIdentityRequestSchema = userAcademicIdentitySchema;
