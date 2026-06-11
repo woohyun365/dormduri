@@ -7,12 +7,14 @@ import { SeasonsModule } from '../../seasons/seasons.module.js';
 import { BookmarkModule } from '../bookmarks/bookmark.module.js';
 import { BookmarkRepository } from '../bookmarks/repositories/bookmark.repository.js';
 import { BlockService } from './application/block.service.js';
+import { BLOCK_VISIBILITY_READER_PORT } from './application/ports/block-visibility-reader.port.js';
 import { BlockController } from './block.controller.js';
 import { CreateBlockCommand } from './commands/create-block.command.js';
 import { DeleteBlockCommand } from './commands/delete-block.command.js';
 import { BlockTargetPolicyEvaluator } from './policies/block-target-policy.evaluator.js';
 import { BlockPresenter } from './presenters/block.presenter.js';
 import { BlockListQuery } from './queries/block-list.query.js';
+import { BlockVisibilityQuery } from './queries/block-visibility.query.js';
 import { BlockRepository } from './repositories/block.repository.js';
 import { BlockSideEffectService } from './side-effects/block-side-effect.service.js';
 
@@ -31,12 +33,17 @@ import { BlockSideEffectService } from './side-effects/block-side-effect.service
     CreateBlockCommand,
     DeleteBlockCommand,
     BlockListQuery,
+    BlockVisibilityQuery,
+    {
+      provide: BLOCK_VISIBILITY_READER_PORT,
+      useExisting: BlockVisibilityQuery,
+    },
     BlockTargetPolicyEvaluator,
     BlockRepository,
     BookmarkRepository,
     BlockPresenter,
     BlockSideEffectService,
   ],
-  exports: [BlockService],
+  exports: [BlockService, BLOCK_VISIBILITY_READER_PORT],
 })
 export class BlockModule {}

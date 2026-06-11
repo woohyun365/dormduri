@@ -15,7 +15,7 @@ import { MatchesController } from '../../matches/matches.controller.js';
 import { NotificationsController } from '../../notifications/notifications.controller.js';
 import { SupportController } from '../../support/support.controller.js';
 import { ProfilesController } from '../../profiles/profiles.controller.js';
-import { RoommateSearchController } from '../../profiles/roommate-search.controller.js';
+import { RoommateSearchController } from '../../roommate-search/roommate-search.controller.js';
 import { SeasonsController } from '../../seasons/seasons.controller.js';
 import { SeasonsOperationsController } from '../../seasons/operations/seasons-operations.controller.js';
 import {

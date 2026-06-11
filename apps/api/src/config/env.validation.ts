@@ -76,7 +76,7 @@ import {
   DEFAULT_ROOMMATE_SEARCH_CURSOR_HMAC_SECRET,
   PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET_ENV,
   ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV,
-} from '../profiles/roommate-search-token-owner.js';
+} from '../roommate-search/pagination/roommate-search-token.codec.js';
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string().valid('development', 'test', 'production').default(DEFAULT_NODE_ENV),

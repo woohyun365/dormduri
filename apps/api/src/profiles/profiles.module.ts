@@ -4,15 +4,22 @@ import { MatchesModule } from '../matches/matches.module.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
+import { BlockModule } from '../social-safety/blocks/block.module.js';
+import { PROFILES_EXPORTS } from './composition/profiles.exports.js';
+import { PROFILES_PROVIDERS } from './composition/profiles.providers.js';
 import { ProfilesController } from './profiles.controller.js';
-import { ProfilesService } from './profiles.service.js';
-import { RoommateSearchController } from './roommate-search.controller.js';
-import { RoommateSearchService } from './roommate-search.service.js';
 
 @Module({
-  imports: [PrismaModule, SeasonsModule, SeasonParticipantsModule, MatchesModule, AuthModule],
-  controllers: [ProfilesController, RoommateSearchController],
-  providers: [ProfilesService, RoommateSearchService],
-  exports: [ProfilesService],
+  imports: [
+    PrismaModule,
+    SeasonsModule,
+    SeasonParticipantsModule,
+    MatchesModule,
+    AuthModule,
+    BlockModule,
+  ],
+  controllers: [ProfilesController],
+  providers: PROFILES_PROVIDERS,
+  exports: PROFILES_EXPORTS,
 })
 export class ProfilesModule {}

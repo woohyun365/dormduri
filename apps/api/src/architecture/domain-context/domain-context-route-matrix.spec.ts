@@ -11,7 +11,7 @@ import { ChatController } from '../../chat/chat.controller.js';
 import { ChatThreadContextGuard } from '../../chat/context/chat-thread-context.guard.js';
 import { MatchesController } from '../../matches/matches.controller.js';
 import { ActiveMatchContextGuard } from '../../matches/active/context/active-match-context.guard.js';
-import { RoommateSearchController } from '../../profiles/roommate-search.controller.js';
+import { RoommateSearchController } from '../../roommate-search/roommate-search.controller.js';
 import { ProfilesController } from '../../profiles/profiles.controller.js';
 
 const NEST_GUARDS_METADATA = '__guards__';

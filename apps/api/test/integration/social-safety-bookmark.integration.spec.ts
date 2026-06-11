@@ -3,7 +3,7 @@ import {
   deleteBookmarkResponseSchema,
   bookmarkListResponseSchema,
 } from '@repo/shared/social-safety/bookmark';
-import { roommateSearchResponseSchema } from '@repo/shared/roommate-search-contract';
+import { roommateSearchResponseSchema } from '@repo/shared/roommate-search/contract';
 import request from 'supertest';
 import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
 import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';

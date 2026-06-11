@@ -6,7 +6,7 @@ import {
   ROOMMATE_CONDITION_FIELDS,
   type LifestyleData,
 } from '@repo/shared/lifestyle';
-import { additionalProfileSchema } from '@repo/shared/profile-contract';
+import { additionalProfileSchema } from '@repo/shared/profile/contract';
 import * as seasonContract from '@repo/shared/season';
 import * as seasonParticipationContract from '@repo/shared/season/participation';
 

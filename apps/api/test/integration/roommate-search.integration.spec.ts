@@ -1,6 +1,6 @@
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { ProfilesService } from '../../src/profiles/profiles.service.js';
-import { RoommateSearchService } from '../../src/profiles/roommate-search.service.js';
+import { ProfilesService } from '../../src/profiles/application/profiles.service.js';
+import { RoommateSearchService } from '../../src/roommate-search/application/roommate-search.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -308,7 +308,7 @@ describe('RoommateSearchService integration', () => {
     });
   });
 
-  it('삭제 처리된 사용자는 search에서 제외하고 기존 summary entry detail 진입은 tombstone으로 degrade한다', async () => {
+  it('삭제/비식별 처리된 사용자는 search에서 제외하고 기존 summary entry detail 진입은 tombstone으로 degrade한다', async () => {
     await setSeasonState('SEASON_OPEN');
     const beforeDeletion = await service.search(authContext('user-a'), {
       scope: 'SAME_BUILDING_ONLY',
@@ -360,7 +360,7 @@ describe('RoommateSearchService integration', () => {
     });
   });
 
-  it.each(['WITHDRAWN', 'HIDDEN', 'DEACTIVATED'] as const)(
+  it.each(['WITHDRAWN', 'HIDDEN', 'DEACTIVATED', 'EXPIRED'] as const)(
     'target state %s 변경은 최신 public target policy로 search에서 제외하고 stale summary detail은 tombstone으로 닫는다',
     async (targetState) => {
       await setSeasonState('SEASON_OPEN');
@@ -384,10 +384,15 @@ describe('RoommateSearchService integration', () => {
           where: { id: 'participant-b' },
           data: { hiddenByAdminAt: now },
         });
-      } else {
+      } else if (targetState === 'DEACTIVATED') {
         await prisma.seasonParticipant.update({
           where: { id: 'participant-b' },
           data: { deactivatedAt: now },
+        });
+      } else {
+        await prisma.seasonParticipant.update({
+          where: { id: 'participant-b' },
+          data: { participantStatus: 'EXPIRED', expiredAt: now },
         });
       }
 
@@ -406,6 +411,46 @@ describe('RoommateSearchService integration', () => {
         tombstone: {
           reason: 'TARGET_NO_LONGER_DISCOVERABLE',
         },
+      });
+    },
+  );
+
+  it.each([
+    ['viewer blocks target', 'user-a', 'user-b'],
+    ['target blocks viewer', 'user-b', 'user-a'],
+  ] as const)(
+    'active block exclusion은 %s 방향에서도 search와 stale detail을 fail-closed한다',
+    async (_caseName, blockerUserId, blockedUserId) => {
+      await setSeasonState('SEASON_OPEN');
+      const beforeBlock = await service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        limit: 20,
+      });
+      const staleTargetEntry = beforeBlock.items.find(
+        (item) => item.profileSummary.nickname === '유저B',
+      );
+      expect(staleTargetEntry?.detailEntryToken).toEqual(expect.any(String));
+
+      await prisma.userBlock.create({
+        data: {
+          blockerUserId,
+          blockedUserId,
+          blockedAt: await prisma.getDatabaseNow(),
+        },
+      });
+
+      const latest = await service.search(authContext('user-a'), {
+        scope: 'SAME_BUILDING_ONLY',
+        limit: 20,
+      });
+      expect(latest.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+
+      await expect(
+        profilesService.getProfileByUserId(authContext('user-a'), 'user-b', {
+          detailEntryToken: staleTargetEntry?.detailEntryToken,
+        }),
+      ).rejects.toMatchObject({
+        response: { code: 'PROFILE_NOT_VISIBLE' },
       });
     },
   );
@@ -477,7 +522,7 @@ describe('RoommateSearchService integration', () => {
     expect(manifest?.sorts.options).toEqual(['NICKNAME', 'MATCH_SCORE']);
   });
 
-  it('preflight manifest endpoint와 search response는 같은 manifest owner 결과를 사용한다', async () => {
+  it('preflight manifest endpoint와 search response는 같은 manifest presenter 결과를 사용한다', async () => {
     await setSeasonState('SEASON_MATCHING');
 
     const preflight = await service.getManifest(authContext('user-a'), {

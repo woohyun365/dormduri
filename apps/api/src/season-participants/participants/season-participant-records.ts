@@ -8,7 +8,7 @@ import type {
   SeasonParticipationIntent,
 } from '../../generated/prisma/enums.js';
 import type { LifestyleData } from '@repo/shared/lifestyle';
-import type { SeasonAdditionalProfileDraft } from '@repo/shared/profile-contract';
+import type { SeasonAdditionalProfileDraft } from '@repo/shared/profile/contract';
 import type { ParticipantPolicyRecord } from '../policies/index.js';
 import {
   lifestyleColumnSelect,
