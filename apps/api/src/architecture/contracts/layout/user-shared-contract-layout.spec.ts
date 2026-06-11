@@ -72,6 +72,24 @@ describe('shared user contract layout', () => {
     }
   });
 
+  it('display identity nickname schema와 policy helper는 user identity display가 소유한다', () => {
+    const displayIdentitySource = readFileSync(join(sharedSrc, 'user/identity/display.ts'), 'utf8');
+    const userRequestsSource = readFileSync(join(sharedSrc, 'user/requests.ts'), 'utf8');
+
+    for (const expected of [
+      'displayIdentityNicknameSchema',
+      'DISPLAY_IDENTITY_NICKNAME_MIN_LENGTH',
+      'DISPLAY_IDENTITY_NICKNAME_MAX_LENGTH',
+      'DISPLAY_IDENTITY_NICKNAME_REGEX',
+      'normalizeDisplayIdentityNickname',
+      'validateDisplayIdentityNicknameStructure',
+    ]) {
+      expect(displayIdentitySource).toContain(expected);
+    }
+    expect(userRequestsSource).toContain("from './identity/display.js'");
+    expect(userRequestsSource).not.toContain('../auth/contract/primitives');
+  });
+
   it('legacy root user/account identity source files와 public exports를 남기지 않는다', () => {
     for (const relativePath of [
       `${userSegment}-${contractSegment}.ts`,

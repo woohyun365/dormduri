@@ -131,6 +131,20 @@ describe('Auth product architecture boundary', () => {
     expect(unapprovedImports.sort()).toEqual([]);
   });
 
+  it('keeps external production code off shared auth policy ownership', () => {
+    const externalSourceRoots = readdirSync(apiSourceRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name !== 'auth' && entry.name !== 'generated')
+      .map((entry) => join(apiSourceRoot, entry.name));
+
+    const sharedAuthPolicyConsumers = externalSourceRoots.flatMap((root) =>
+      productionTypeScriptFiles(root)
+        .filter((path) => /from\s+['"]@repo\/shared\/auth\/policy['"]/.test(readSource(path)))
+        .map(relativeSourcePath),
+    );
+
+    expect(sharedAuthPolicyConsumers.sort()).toEqual([]);
+  });
+
   it('keeps optional auth controller routes away from direct Authorization header parsing', () => {
     const source = readSource(join(authRoot, 'auth.controller.ts'));
 

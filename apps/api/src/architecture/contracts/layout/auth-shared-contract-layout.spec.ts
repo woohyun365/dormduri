@@ -46,6 +46,22 @@ describe('shared auth contract layout', () => {
     }
   });
 
+  it('auth policy는 display identity nickname schema/helper를 소유하지 않는다', () => {
+    const authPolicyConstants = readFileSync(join(sharedSrc, 'auth/policy/constants.ts'), 'utf8');
+    const authPolicyHelpers = readFileSync(join(sharedSrc, 'auth/policy/helpers.ts'), 'utf8');
+    const authContractPrimitives = readFileSync(
+      join(sharedSrc, 'auth/contract/primitives.ts'),
+      'utf8',
+    );
+    const authContractRequests = readFileSync(join(sharedSrc, 'auth/contract/requests.ts'), 'utf8');
+
+    expect(authPolicyConstants).not.toContain('NICKNAME_');
+    expect(authPolicyHelpers).not.toContain('normalizeNickname');
+    expect(authPolicyHelpers).not.toContain('validateNicknameStructure');
+    expect(authContractPrimitives).not.toContain('nicknameSchema');
+    expect(authContractRequests).toContain("from '../../user/identity/display.js'");
+  });
+
   it('legacy root auth source/export 없이 canonical auth package exports만 제공한다', () => {
     for (const relativePath of [
       'auth-contract-primitives.ts',
