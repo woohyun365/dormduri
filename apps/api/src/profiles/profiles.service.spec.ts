@@ -168,11 +168,16 @@ describe('ProfilesService Step 6 public detail', () => {
   const matchesService = {
     getLiveActiveMatchMapForParticipantIds: jest.fn(),
   };
+  const matchScoreProjection = {
+    shouldExposePublicMatchScore: jest.fn(),
+    calculateQueryTimeRoommateSearchScore: jest.fn(),
+  };
   const service = new ProfilesService(
     prisma as never,
     seasonsService as never,
     seasonParticipantsService as never,
     matchesService as never,
+    matchScoreProjection as never,
   );
 
   beforeEach(() => {
@@ -205,6 +210,8 @@ describe('ProfilesService Step 6 public detail', () => {
       new Set(['participant-target']),
     );
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
+    matchScoreProjection.shouldExposePublicMatchScore.mockReturnValue(true);
+    matchScoreProjection.calculateQueryTimeRoommateSearchScore.mockReturnValue(91);
   });
 
   it('같은 건물 registration complete target만 detail/score/action capability를 가진다', async () => {

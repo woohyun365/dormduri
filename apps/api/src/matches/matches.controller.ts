@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { createMatchRequestSchema } from '@repo/shared/match-contract';
+import { createMatchRequestSchema } from '@repo/shared/match/contract';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
@@ -8,9 +8,9 @@ import { parseRequestBody } from '../platform/http/zod-request.js';
 import {
   ActiveMatchContext,
   RequireActiveMatchParticipant,
-} from './active-match-context.decorator.js';
-import type { ActiveMatchContext as ActiveMatchContextValue } from './active-match-context.types.js';
-import { MatchesService } from './matches.service.js';
+} from './active/context/active-match-context.decorator.js';
+import type { ActiveMatchContext as ActiveMatchContextValue } from './active/context/active-match-context.types.js';
+import { MatchesService } from './application/matches.service.js';
 
 @Controller('api/matches')
 @RequireCapability()

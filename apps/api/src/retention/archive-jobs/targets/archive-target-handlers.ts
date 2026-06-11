@@ -1,5 +1,5 @@
 import { archiveThreadRetentionJob } from '../../../chat/retention/thread-retention-archive.handler.js';
-import { archiveMatchHistoryJob } from '../../../matches/retention/match-history-archive.handler.js';
+import { archiveMatchHistoryJob } from '../../../matches/history/retention/match-history-archive.handler.js';
 import type { PrismaService } from '../../../platform/database/prisma.service.js';
 import { archiveSeasonProfileHistoryJob } from '../../../season-participants/retention/season-profile-history-archive.handler.js';
 import { archiveAcademicIdentityAuditJob } from '../../../users/identity/retention/academic-identity-audit-archive.handler.js';

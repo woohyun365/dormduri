@@ -8,7 +8,10 @@ import type { AuthenticatedUserContext } from '../../../auth/application/auth-ac
 import type { Prisma } from '../../../generated/prisma/client.js';
 import type { Campus, Gender } from '../../../generated/prisma/enums.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
-import { calculateQueryTimeRoommateSearchScore } from '../../../profiles/roommate-search-score.owner.js';
+import {
+  MATCH_SCORE_PROJECTION_PORT,
+  type MatchScoreProjectionPort,
+} from '../../../matches/application/ports/match-score-projection.port.js';
 import { SeasonParticipantsService } from '../../../season-participants/application/season-participants.service.js';
 import {
   currentSeasonParticipantSelect,
@@ -95,6 +98,8 @@ export class BookmarkTargetPolicyEvaluator {
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    @Inject(MATCH_SCORE_PROJECTION_PORT)
+    private readonly matchScoreProjection: MatchScoreProjectionPort,
   ) {}
 
   async resolveCreateTarget(input: {
@@ -274,7 +279,7 @@ export class BookmarkTargetPolicyEvaluator {
       }),
     );
     const targetLifestyle = parseLifestyleOrNull(targetParticipant.profile?.lifestyle ?? null);
-    const matchScore = calculateQueryTimeRoommateSearchScore({
+    const matchScore = this.matchScoreProjection.calculateQueryTimeRoommateSearchScore({
       viewerLifestyle: input.viewerContext.viewerLifestyle,
       targetLifestyle,
       scoreVisible: policy.exposure.scoreVisible,

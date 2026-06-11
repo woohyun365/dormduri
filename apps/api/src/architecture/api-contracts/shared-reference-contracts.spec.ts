@@ -5,7 +5,7 @@ import {
   roommateSearchResponseSchema,
 } from '@repo/shared/roommate-search-contract';
 import { publicProfileSchema } from '@repo/shared/profile-contract';
-import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match-contract';
+import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match/contract';
 
 const SUMMARY_ITEM = {
   id: 'participant-1',

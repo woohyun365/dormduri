@@ -3,7 +3,7 @@ import type {
   SendConversationMessageResponse,
 } from '@repo/shared/chat';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
-import { buildParticipantPairIdentity } from '../../matches/match.utils.js';
+import { buildParticipantPairIdentity } from '../../matches/persistence/match-pair-identity.js';
 import {
   isPrismaKnownRequestError,
   prismaErrorTargetIncludes,

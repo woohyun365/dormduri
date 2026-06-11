@@ -52,7 +52,7 @@ Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps
 - `LifecycleModule`은 affected owner modules를 explicit import한다.
 - `RetentionModule`은 retention observability provider/export owner이며, lifecycle은 retention concrete provider를 직접 등록하지 않는다.
 - `LifecycleSweepService`와 runner는 domain concrete service names를 직접 소유하지 않는다.
-- Chat lifecycle은 `CHAT_LIFECYCLE_SWEEP_PORT`, match/chat/season side effect는 narrow port surface를 통해 연결한다.
+- Match lifecycle은 `MATCH_LIFECYCLE_SWEEP_PORT`, match history는 `MATCH_HISTORY_MATERIALIZATION_PORT`, chat lifecycle은 `CHAT_LIFECYCLE_SWEEP_PORT`, match/chat/season side effect는 narrow port surface를 통해 연결한다.
 - `forwardRef()` regression은 금지한다.
 
 ## Where to change lifecycle behavior
@@ -62,7 +62,7 @@ Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps
 - Ordered task execution and retention observability emission: `lifecycle-sweep-runner.ts`.
 - Task ordering or task list composition: `adapters/lifecycle-sweep-tasks.adapter.ts` and `lifecycle.module.ts`.
 - Season boundary job calculation: `adapters/season-boundary-schedule.adapter.ts`.
-- Individual product convergence behavior: owning domain service/adapter, not lifecycle runner.
+- Individual product convergence behavior: owning domain service/adapter, not lifecycle runner. Match active lifecycle convergence lives in `matches/active/lifecycle` behind `MATCH_LIFECYCLE_SWEEP_PORT`.
 - Retention sweep contract: `retention/application/ports/retention-sweep.port.ts` and `retention/application/retention-sweep.service.ts`.
 - Bookmark expiration cleanup contract: `social-safety/bookmarks/application/bookmark-lifecycle.service.ts`.
 - Auth operational cleanup behavior: `auth/operations`.

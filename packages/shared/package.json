@@ -71,17 +71,17 @@
       "types": "./dist/lifestyle/index.d.ts",
       "default": "./dist/lifestyle/index.js"
     },
-    "./match-contract": {
-      "types": "./dist/match-contract.d.ts",
-      "default": "./dist/match-contract.js"
+    "./match": {
+      "types": "./dist/match/index.d.ts",
+      "default": "./dist/match/index.js"
+    },
+    "./match/contract": {
+      "types": "./dist/match/contract/index.d.ts",
+      "default": "./dist/match/contract/index.js"
     },
     "./roommate-search-contract": {
       "types": "./dist/roommate-search-contract.d.ts",
       "default": "./dist/roommate-search-contract.js"
-    },
-    "./match-score": {
-      "types": "./dist/match-score.d.ts",
-      "default": "./dist/match-score.js"
     },
     "./notifications": {
       "types": "./dist/notifications/index.d.ts",

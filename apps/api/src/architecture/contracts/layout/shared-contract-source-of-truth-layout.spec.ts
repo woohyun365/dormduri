@@ -116,39 +116,49 @@ const CANONICAL_NESTED_EXPORTS: Record<string, PackageExportTarget> = {
     default: './dist/identity/primitives.js',
   },
   './lifestyle': { types: './dist/lifestyle/index.d.ts', default: './dist/lifestyle/index.js' },
+  './match': { types: './dist/match/index.d.ts', default: './dist/match/index.js' },
+  './match/contract': {
+    types: './dist/match/contract/index.d.ts',
+    default: './dist/match/contract/index.js',
+  },
 };
 
 const EXCLUDED_OWNER_ROOT_FILES = [
-  'match-contract-enums.ts',
-  'match-contract-history.ts',
-  'match-contract-request.ts',
-  'match-contract-response.ts',
-  'match-contract-summary.ts',
-  'match-contract.ts',
-  'match-score.ts',
   'profile-contract-fields.ts',
   'profile-contract-public.ts',
   'profile-contract.ts',
   'roommate-search-contract.ts',
 ] as const;
 
-const REMOVED_PUBLIC_SPECIFIERS = [
-  '@repo/shared/auth-contract',
-  '@repo/shared/auth-policy',
-  '@repo/shared/auth-response',
-  '@repo/shared/chat-contract',
-  '@repo/shared/chat-realtime-contract',
-  '@repo/shared/chat-realtime-events',
-  '@repo/shared/dormitory-contract',
-  '@repo/shared/notification-contract',
-  '@repo/shared/season-contract',
-  '@repo/shared/session-contract',
-  '@repo/shared/support-contract',
-  '@repo/shared/campus-contract',
-  '@repo/shared/college-contract',
-  '@repo/shared/date-primitives',
-  '@repo/shared/identity-contract',
+const REMOVED_MATCH_PUBLIC_EXPORTS = [
+  './match-contract',
+  './match-score',
+  './match/score',
 ] as const;
+
+const REMOVED_PUBLIC_SPECIFIER_SUFFIXES = [
+  'auth-contract',
+  'auth-policy',
+  'auth-response',
+  'chat-contract',
+  'chat-realtime-contract',
+  'chat-realtime-events',
+  'dormitory-contract',
+  'notification-contract',
+  'season-contract',
+  'session-contract',
+  'support-contract',
+  'campus-contract',
+  'college-contract',
+  'date-primitives',
+  'identity-contract',
+  'match-contract',
+  'match-score',
+  'match/score',
+] as const;
+const REMOVED_PUBLIC_SPECIFIERS = REMOVED_PUBLIC_SPECIFIER_SUFFIXES.map(
+  (suffix) => `@repo/shared/${suffix}`,
+);
 
 function findRepoRoot() {
   let current = process.cwd();
@@ -240,6 +250,28 @@ describe('shared contract source-of-truth layout', () => {
     }
 
     for (const publicPath of REMOVED_ROOT_STYLE_ALIAS_EXPORTS) {
+      expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
+    }
+  });
+
+  it('keeps match contract on nested exports and removes shared score public export after Phase 10', () => {
+    const sharedPackageJson = readPackageJson();
+    const rootMatchFiles = readdirSync(sharedSrc, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+      .map((entry) => entry.name)
+      .filter((file) => file.startsWith('match-contract') || file === 'match-score.ts')
+      .sort();
+
+    expect(rootMatchFiles).toEqual([]);
+    expect(sharedPackageJson.exports['./match']).toEqual({
+      types: './dist/match/index.d.ts',
+      default: './dist/match/index.js',
+    });
+    expect(sharedPackageJson.exports['./match/contract']).toEqual({
+      types: './dist/match/contract/index.d.ts',
+      default: './dist/match/contract/index.js',
+    });
+    for (const publicPath of REMOVED_MATCH_PUBLIC_EXPORTS) {
       expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
     }
   });

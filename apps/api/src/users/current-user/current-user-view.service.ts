@@ -2,7 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { CurrentUserResponse } from '@repo/shared/user';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
-import { MatchesService } from '../../matches/matches.service.js';
+import {
+  MATCH_ACTIVE_VIEW_PORT,
+  type MatchActiveViewPort,
+} from '../../matches/application/ports/match-active-view.port.js';
 import { hasNicknameCooldown } from '../identity/display/nickname-cooldown.policy.js';
 import {
   buildDisplayIdentityEditUnavailableReasons,
@@ -34,7 +37,8 @@ export class CurrentUserViewService {
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
     private readonly currentSeasonParticipationViewOwner: CurrentSeasonParticipationViewQuery,
-    private readonly matchesService: MatchesService,
+    @Inject(MATCH_ACTIVE_VIEW_PORT)
+    private readonly matchActiveView: MatchActiveViewPort,
   ) {}
 
   async getCurrentUser(authUser: AuthenticatedUserContext): Promise<CurrentUserResponse> {
@@ -74,7 +78,7 @@ export class CurrentUserViewService {
 
     const activeMatch =
       seasonSegment.participant && serviceState.seasonContext
-        ? await this.matchesService.getCurrentActiveMatchSummaryForParticipant(
+        ? await this.matchActiveView.getCurrentActiveMatchSummaryForParticipant(
             serviceState.seasonContext,
             seasonSegment.participant.id,
             now,

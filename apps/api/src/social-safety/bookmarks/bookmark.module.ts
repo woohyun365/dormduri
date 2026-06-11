@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { MatchesModule } from '../../matches/matches.module.js';
 import { PrismaModule } from '../../platform/database/prisma.module.js';
 import { SeasonParticipantsModule } from '../../season-participants/season-participants.module.js';
 import { SeasonsModule } from '../../seasons/seasons.module.js';
@@ -13,7 +14,7 @@ import { BookmarkListQuery } from './queries/bookmark-list.query.js';
 import { BookmarkRepository } from './repositories/bookmark.repository.js';
 
 @Module({
-  imports: [PrismaModule, SeasonsModule, SeasonParticipantsModule],
+  imports: [PrismaModule, SeasonsModule, SeasonParticipantsModule, MatchesModule],
   controllers: [BookmarkController],
   providers: [
     BookmarkService,

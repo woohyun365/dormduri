@@ -33,13 +33,15 @@ describe('lifecycle sweep task adapters', () => {
   });
 
   it('adapts each existing domain sweep call behind a named task port', async () => {
-    const matchesService = {
-      sweepLifecycleTransitions: jest.fn().mockResolvedValue({
+    const matchLifecycleSweep = {
+      sweepMatchLifecycleTransitions: jest.fn().mockResolvedValue({
         expiredRequests: 1,
         expiredUnmatchRequests: 2,
         seasonEndedActiveMatches: 3,
       }),
-      sweepHistoryMaterialization: jest
+    };
+    const matchHistoryMaterialization = {
+      materializeEndedSeasonHistory: jest
         .fn()
         .mockResolvedValue({ processedSeasons: 4, rebuiltEntries: 5 }),
     };
@@ -100,9 +102,9 @@ describe('lifecycle sweep task adapters', () => {
     };
 
     const tasks = [
-      new MatchLifecycleTransitionSweepTask(matchesService as never),
+      new MatchLifecycleTransitionSweepTask(matchLifecycleSweep as never),
       new ChatThreadLifecycleSweepTask(chatLifecycleSweep as never),
-      new MatchHistoryMaterializationSweepTask(matchesService as never),
+      new MatchHistoryMaterializationSweepTask(matchHistoryMaterialization as never),
       new SeasonParticipantBackfillSweepTask(seasonParticipantsService as never),
       new SocialSafetyBookmarkCleanupSweepTask(bookmarkLifecycleService as never),
       new ThreadRetentionActivationSweepTask(retentionSweep as never),
@@ -169,8 +171,8 @@ describe('lifecycle sweep task adapters', () => {
       'authCleanupSweep',
     ]);
     expect(tasks.map((task) => task.order)).toEqual([10, 20, 30, 40, 45, 50, 60, 70, 80, 90, 100]);
-    expect(matchesService.sweepLifecycleTransitions).toHaveBeenCalledWith(now);
-    expect(matchesService.sweepHistoryMaterialization).toHaveBeenCalledWith(now);
+    expect(matchLifecycleSweep.sweepMatchLifecycleTransitions).toHaveBeenCalledWith(now);
+    expect(matchHistoryMaterialization.materializeEndedSeasonHistory).toHaveBeenCalledWith(now);
     expect(chatLifecycleSweep.sweepThreadLifecycle).toHaveBeenCalledWith(now);
     expect(seasonParticipantsService.backfillCurrentSeasonParticipants).toHaveBeenCalledWith(now);
     expect(bookmarkLifecycleService.expireEndedSeasonBookmarks).toHaveBeenCalledWith(now);

@@ -265,7 +265,7 @@ describe('retention final architecture boundary', () => {
         apiSourceRoot,
         'season-participants/retention/season-profile-history-archive.handler.ts',
       ),
-      join(apiSourceRoot, 'matches/retention/match-history-archive.handler.ts'),
+      join(apiSourceRoot, 'matches/history/retention/match-history-archive.handler.ts'),
       join(apiSourceRoot, 'chat/retention/thread-retention-archive.handler.ts'),
       join(apiSourceRoot, 'chat/retention/conversation-retained-body.service.ts'),
     ];

@@ -6,7 +6,8 @@ import type {
 } from '@repo/shared/roommate-search-contract';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../platform/database/prisma.service.js';
-import type { MatchesService } from '../matches/matches.service.js';
+import type { MatchActiveViewPort } from '../matches/application/ports/match-active-view.port.js';
+import type { MatchScoreProjectionPort } from '../matches/application/ports/match-score-projection.port.js';
 import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
 import { buildRoommateSearchAvailabilityNotices } from './roommate-search-availability-notice.owner.js';
@@ -36,7 +37,8 @@ interface RoommateSearchOwnerDeps {
   prisma: PrismaService;
   seasonsService: SeasonContextPort;
   seasonParticipantsService: SeasonParticipantsService;
-  matchesService: MatchesService;
+  matchActiveView: MatchActiveViewPort;
+  matchScoreProjection: MatchScoreProjectionPort;
 }
 
 export function createRoommateSearchOwner(deps: RoommateSearchOwnerDeps) {
