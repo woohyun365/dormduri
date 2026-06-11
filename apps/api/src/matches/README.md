@@ -69,6 +69,15 @@ Final subdirectory targets:
 - Pending request expiration, room-selection cutoff, hidden/deactivated/withdrawn/expired/deleted/deidentified participant state, active match presence, and target visibility are fail-closed.
 - Redis/cache may be introduced only as an optimization/metric gate; it is not a correctness source for match state transitions.
 
+## Query/index and RDS cost guardrails
+
+- Match request list reads are participant-facing hot reads. Requester/receiver list paths have dedicated `seasonId + participantId + createdAt + id` indexes so `createdAt desc, id desc` ordering stays stable without changing response shape.
+- Pending request expiration keeps both global `expiresAt + status` and season-scoped `seasonId + status + expiresAt` indexes. Global lifecycle sweeps and season-local request actions therefore do not compete for one ambiguous index shape.
+- Same-pair pending duplicate checks use canonical `pairKey` with `seasonId + pairKey + status`; `pairMinParticipantId` / `pairMaxParticipantId` remain persisted audit/query fields, not the duplicate-check index owner.
+- Active match participant lookups continue to rely on participant-specific active indexes because `SeasonParticipant` ids are season-scoped. The all-active lifecycle sweep has a separate `status + endedAt + startedAt + id` index for deterministic batch ordering.
+- Match history user reads have a viewer-centric `viewerParticipantId + finalizedAt + createdAt + id` index. Whole-season history rebuild remains `deleteMany + createMany` for idempotency and simplicity; bounded rebuild should be introduced only after production-like season size, lock time, or IOPS evidence shows the need.
+- Local schema/index changes do not claim production RDS p95 or IOPS improvements by themselves. Production-like `EXPLAIN`, CloudWatch thresholds, and bounded materialization triggers belong in operational follow-up work.
+
 ## External domain boundaries
 
 - `seasons` / `season-participants`: provide current season, dormitory `roomSelectionDate`, registration/visibility/profile-complete inputs. Matches evaluates matchability for request/active/history flows, but does not own season registration.

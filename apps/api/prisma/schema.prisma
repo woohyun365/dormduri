@@ -1156,19 +1156,19 @@ model ReportCaseEvent {
 }
 
 model SupportTicket {
-  id                String                @id @default(uuid())
+  id                String                 @id @default(uuid())
   requesterUserId   String
   category          SupportTicketCategory
   subject           String
-  status            SupportTicketStatus   @default(OPEN)
+  status            SupportTicketStatus    @default(OPEN)
   relatedEntityId   String?
   appealCategory    SupportAppealCategory?
-  emailReplyConsent Boolean               @default(false)
-  lastMessageAt     DateTime              @default(now()) @db.Timestamptz(3)
-  closedAt          DateTime?             @db.Timestamptz(3)
-  createdAt         DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
-  requester         User                  @relation("SupportTicketRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  emailReplyConsent Boolean                @default(false)
+  lastMessageAt     DateTime               @default(now()) @db.Timestamptz(3)
+  closedAt          DateTime?              @db.Timestamptz(3)
+  createdAt         DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime               @default(now()) @updatedAt @db.Timestamptz(3)
+  requester         User                   @relation("SupportTicketRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
   messages          SupportTicketMessage[]
 
   @@index([requesterUserId, status, lastMessageAt, id])
@@ -1335,8 +1335,11 @@ model MatchRequest {
   createdActiveMatch     ActiveMatch?                @relation("ActiveMatchCreatedFromRequest")
 
   @@index([seasonId, requesterParticipantId, receiverParticipantId, createdAt])
+  @@index([seasonId, requesterParticipantId, createdAt, id])
   @@index([seasonId, receiverParticipantId, status])
+  @@index([seasonId, receiverParticipantId, createdAt, id])
   @@index([expiresAt, status])
+  @@index([seasonId, status, expiresAt])
   @@index([seasonId, pairKey, status])
 }
 
@@ -1365,6 +1368,7 @@ model ActiveMatch {
   @@index([participantAId, endedAt])
   @@index([participantBId, endedAt])
   @@index([seasonId, status, endedAt])
+  @@index([status, endedAt, startedAt, id])
 }
 
 model ActiveMatchUnmatchRequest {
@@ -1461,6 +1465,7 @@ model SeasonMatchHistoryEntry {
   retentionLinks                            SeasonMatchHistoryEntryRetentionLink[]
 
   @@index([seasonId, viewerParticipantId, finalizedAt])
+  @@index([viewerParticipantId, finalizedAt, createdAt, id])
   @@index([viewerParticipantId, counterpartParticipantId, finalizedAt])
   @@index([seasonId, pairKey, finalizedAt])
 }

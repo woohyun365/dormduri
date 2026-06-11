@@ -132,7 +132,7 @@ describe('match request command flow', () => {
     );
     expect(txMatchRequestCreate).not.toHaveBeenCalled();
   });
-  it('same-pair live pending duplicate를 차단한다', async () => {
+  it('same-pair live pending duplicate를 pairKey 기반으로 차단한다', async () => {
     txMatchRequestFindFirst.mockResolvedValueOnce({ id: 'request-existing' });
 
     await expect(
@@ -146,6 +146,14 @@ describe('match request command flow', () => {
       ),
     ).rejects.toMatchObject({
       response: matchesErrors.requestAlreadyPending().getResponse(),
+    });
+    expect(txMatchRequestFindFirst).toHaveBeenCalledWith({
+      where: {
+        seasonId: 'season-1',
+        pairKey: 'participant-1:participant-2',
+        status: 'PENDING',
+      },
+      select: { id: true },
     });
   });
   it('같은 방향 cooldown 2일을 적용한다', async () => {

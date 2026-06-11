@@ -71,8 +71,7 @@ export async function assertNoLivePendingPair(
   const existingPendingRequest = await tx.matchRequest.findFirst({
     where: {
       seasonId,
-      pairMinParticipantId: pairIdentity.pairMinParticipantId,
-      pairMaxParticipantId: pairIdentity.pairMaxParticipantId,
+      pairKey: pairIdentity.pairKey,
       status: 'PENDING',
     },
     select: { id: true },

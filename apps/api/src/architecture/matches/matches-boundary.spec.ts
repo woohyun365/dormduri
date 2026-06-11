@@ -11,6 +11,11 @@ const apiSourceRoot = join(apiRoot, 'src');
 const matchesRoot = join(apiSourceRoot, 'matches');
 const sharedRoot = join(repoRoot, 'packages/shared');
 const sharedSrc = join(sharedRoot, 'src');
+const prismaSchemaPath = join(apiRoot, 'prisma/schema.prisma');
+const baselineMigrationPath = join(
+  apiRoot,
+  'prisma/migrations/000000000000_initial_baseline/migration.sql',
+);
 
 const finalRootProductionFiles = ['matches.controller.ts', 'matches.module.ts'] as const;
 const finalRootSpecFiles = ['matches.controller.spec.ts'] as const;
@@ -342,6 +347,33 @@ describe('matches architecture boundary', () => {
     }
     for (const publicPath of removedSharedMatchFlatExports) {
       expect(sharedPackageJson.exports[publicPath]).toBeUndefined();
+    }
+  });
+
+  it('keeps Phase 11 matches query/index hardening in schema and baseline migration', () => {
+    const schema = readSource(prismaSchemaPath);
+    const baselineMigration = readSource(baselineMigrationPath);
+
+    for (const schemaIndex of [
+      '@@index([seasonId, requesterParticipantId, createdAt, id])',
+      '@@index([seasonId, receiverParticipantId, createdAt, id])',
+      '@@index([seasonId, status, expiresAt])',
+      '@@index([seasonId, pairKey, status])',
+      '@@index([status, endedAt, startedAt, id])',
+      '@@index([viewerParticipantId, finalizedAt, createdAt, id])',
+    ]) {
+      expect(schema).toContain(schemaIndex);
+    }
+
+    for (const migrationIndex of [
+      'ON "MatchRequest"("seasonId", "requesterParticipantId", "createdAt", "id")',
+      'ON "MatchRequest"("seasonId", "receiverParticipantId", "createdAt", "id")',
+      'ON "MatchRequest"("seasonId", "status", "expiresAt")',
+      'ON "MatchRequest"("seasonId", "pairKey", "status")',
+      'ON "ActiveMatch"("status", "endedAt", "startedAt", "id")',
+      'ON "SeasonMatchHistoryEntry"("viewerParticipantId", "finalizedAt", "createdAt", "id")',
+    ]) {
+      expect(baselineMigration).toContain(migrationIndex);
     }
   });
 });

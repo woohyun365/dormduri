@@ -1619,10 +1619,19 @@ CREATE INDEX "SeasonParticipantProfileHistory_redactedAt_idx" ON "SeasonParticip
 CREATE INDEX "MatchRequest_seasonId_requesterParticipantId_receiverPartic_idx" ON "MatchRequest"("seasonId", "requesterParticipantId", "receiverParticipantId", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "MatchRequest_seasonId_requesterParticipantId_createdAt_id_idx" ON "MatchRequest"("seasonId", "requesterParticipantId", "createdAt", "id");
+
+-- CreateIndex
 CREATE INDEX "MatchRequest_seasonId_receiverParticipantId_status_idx" ON "MatchRequest"("seasonId", "receiverParticipantId", "status");
 
 -- CreateIndex
+CREATE INDEX "MatchRequest_seasonId_receiverParticipantId_createdAt_id_idx" ON "MatchRequest"("seasonId", "receiverParticipantId", "createdAt", "id");
+
+-- CreateIndex
 CREATE INDEX "MatchRequest_expiresAt_status_idx" ON "MatchRequest"("expiresAt", "status");
+
+-- CreateIndex
+CREATE INDEX "MatchRequest_seasonId_status_expiresAt_idx" ON "MatchRequest"("seasonId", "status", "expiresAt");
 
 -- CreateIndex
 CREATE INDEX "MatchRequest_seasonId_pairKey_status_idx" ON "MatchRequest"("seasonId", "pairKey", "status");
@@ -1641,6 +1650,9 @@ CREATE INDEX "ActiveMatch_participantBId_endedAt_idx" ON "ActiveMatch"("particip
 
 -- CreateIndex
 CREATE INDEX "ActiveMatch_seasonId_status_endedAt_idx" ON "ActiveMatch"("seasonId", "status", "endedAt");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatch_status_endedAt_startedAt_id_idx" ON "ActiveMatch"("status", "endedAt", "startedAt", "id");
 
 -- CreateIndex
 CREATE INDEX "ActiveMatchUnmatchRequest_activeMatchId_status_requestedAt_idx" ON "ActiveMatchUnmatchRequest"("activeMatchId", "status", "requestedAt");
@@ -1668,6 +1680,9 @@ CREATE INDEX "ActiveMatchLifecycleEvent_createdAt_idx" ON "ActiveMatchLifecycleE
 
 -- CreateIndex
 CREATE INDEX "SeasonMatchHistoryEntry_seasonId_viewerParticipantId_finali_idx" ON "SeasonMatchHistoryEntry"("seasonId", "viewerParticipantId", "finalizedAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonMatchHistoryEntry_viewerParticipantId_finalizedAt_cre_idx" ON "SeasonMatchHistoryEntry"("viewerParticipantId", "finalizedAt", "createdAt", "id");
 
 -- CreateIndex
 CREATE INDEX "SeasonMatchHistoryEntry_viewerParticipantId_counterpartPart_idx" ON "SeasonMatchHistoryEntry"("viewerParticipantId", "counterpartParticipantId", "finalizedAt");
