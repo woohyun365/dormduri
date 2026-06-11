@@ -7,8 +7,8 @@ import type {
 import {
   signOpaqueHmacToken,
   verifyOpaqueHmacToken,
-} from '../common/security/opaque-hmac-token.js';
-import { stableStringify } from '../common/security/stable-json.js';
+} from '../platform/security/opaque-hmac-token.js';
+import { stableStringify } from '../platform/security/stable-json.js';
 
 export const ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV = 'ROOMMATE_SEARCH_CURSOR_HMAC_SECRET';
 export const PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET_ENV = 'PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET';

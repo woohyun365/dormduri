@@ -2,7 +2,7 @@ import {
   OpaqueTokenError,
   signOpaqueHmacToken,
   verifyOpaqueHmacToken,
-} from '../../common/security/opaque-hmac-token.js';
+} from '../../platform/security/opaque-hmac-token.js';
 
 export const NOTIFICATION_LIST_CURSOR_HMAC_SECRET_ENV = 'NOTIFICATION_LIST_CURSOR_HMAC_SECRET';
 export const DEFAULT_NOTIFICATION_LIST_CURSOR_HMAC_SECRET = 'local-notification-list-cursor-secret';

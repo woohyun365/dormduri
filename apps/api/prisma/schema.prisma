@@ -24,6 +24,30 @@ enum VerificationCodePurpose {
   RESET_PASSWORD
 }
 
+enum AuthSecurityEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGIN_LOCKOUT
+  VERIFICATION_CODE_REQUESTED
+  VERIFICATION_CODE_VERIFY_SUCCESS
+  VERIFICATION_CODE_VERIFY_FAILURE
+  RESET_PASSWORD_CONSUMED
+  CHANGE_PASSWORD_SUCCESS
+  SESSION_REFRESH_SUCCESS
+  SESSION_REVOKED
+  SESSION_REVOKE_ALL
+  SESSION_TOKEN_REUSE_DETECTED
+  OPAQUE_TRANSPORT_REJECTED
+  MAIL_SEND_SUCCESS
+  MAIL_SEND_FAILURE
+}
+
+enum AuthSecurityEventSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
 enum ModerationTermCategory {
   BLOCKED_TEXT
   RESERVED_NICKNAME
@@ -65,6 +89,12 @@ enum SeasonOverrideState {
   SEASON_POST_MATCH
 }
 
+enum SeasonOperationAuditAction {
+  UPDATE_SCHEDULE
+  UPDATE_OVERRIDE
+  CLEAR_OVERRIDE
+}
+
 enum SeasonParticipationIntent {
   UNDECIDED
   REGISTERED
@@ -85,6 +115,104 @@ enum ParticipantHiddenReasonCode {
   SAFETY_REVIEW
   ADMIN_REQUEST
   OTHER
+}
+
+enum SeasonParticipantLifecycleEventType {
+  JOINED
+  ACTIVATED
+  WITHDRAWN
+  EXPIRED
+  DEACTIVATED
+  HIDDEN
+  UNHIDDEN
+  MATCHED
+  UNMATCHED
+}
+
+enum UserBlockEventType {
+  BLOCKED
+  UNBLOCKED
+}
+
+enum ReportTargetType {
+  PROFILE
+  MATCH_REQUEST
+  CHAT_THREAD
+  CHAT_MESSAGE
+  SUPPORT_TICKET
+}
+
+enum ReportReason {
+  SEXUAL_HARASSMENT
+  THREAT
+  PERSONAL_INFO_EXPOSURE
+  GENDER_IMPERSONATION
+  FALSE_PROFILE
+  SPAM_OR_AD
+  HATE_OR_DISCRIMINATION
+  OTHER
+}
+
+enum ReportRiskTier {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ReportStatus {
+  SUBMITTED
+  EVIDENCE_ONLY
+}
+
+enum ReportOptionalAction {
+  BLOCK_TARGET
+}
+
+enum ReportCaseEventType {
+  REPORT_SUBMITTED
+  REPORT_REPLAYED
+  REPORT_RECEIPT_NOTIFICATION_QUEUED
+  OPTIONAL_BLOCK_RESULT_RECORDED
+  RETENTION_REFERENCE_RECORDED
+  HIGH_RISK_ALERT_CANDIDATE_RECORDED
+  PROFILE_MISMATCH_FEEDBACK_CANDIDATE_RECORDED
+  UNVERIFIED_ATTACHMENT_POINTERS_RECORDED
+}
+
+enum ReportActorType {
+  USER
+  SYSTEM
+}
+
+enum SupportTicketCategory {
+  ACCOUNT
+  SEASON
+  MATCHING
+  REPORT_OR_BLOCK
+  APPEAL
+  BUG
+  OTHER
+}
+
+enum SupportTicketStatus {
+  OPEN
+  WAITING_USER
+  WAITING_OPERATOR
+  RESOLVED
+  CLOSED
+}
+
+enum SupportMessageSenderType {
+  USER
+  OPERATOR
+  SYSTEM
+}
+
+enum SupportAppealCategory {
+  SANCTION
+  TEMPORARY_RESTRICTION
+  REPORT_RESULT
+  CONTENT_ACTION
 }
 
 enum MatchRequestStatus {
@@ -128,6 +256,34 @@ enum ActiveMatchUnmatchRequestStatus {
   FULFILLED_BY_MUTUAL_CONSENT
 }
 
+enum ActiveMatchLifecycleEventType {
+  ACTIVE_CREATED
+  UNMATCH_REQUESTED
+  UNMATCH_REQUEST_CANCELLED
+  UNMATCH_REQUEST_EXPIRED
+  UNMATCHED
+  SEASON_ENDED
+  ADMIN_ENDED
+  PARTICIPANT_WITHDRAWN
+}
+
+enum ActiveMatchLifecycleEventReason {
+  MATCH_REQUEST_ACCEPTED
+  USER_REQUESTED_UNMATCH
+  USER_CANCELLED_UNMATCH_REQUEST
+  ROOM_SELECTION_CUTOFF
+  MUTUAL_UNMATCH_CONSENT
+  SEASON_ENDED_SWEEP
+  ADMIN_ACTION
+  WITHDRAWN_PARTICIPANT
+}
+
+enum ActiveMatchLifecycleActorType {
+  USER
+  SYSTEM
+  ADMIN
+}
+
 enum SeasonMatchHistoryEntryType {
   REQUEST
   MATCH
@@ -157,6 +313,7 @@ enum ConversationThreadClosedReason {
   ROOM_SELECTION_CUTOFF
   SEASON_ENDED
   PARTICIPANT_WITHDRAWN
+  USER_BLOCKED
   MODERATION
   ADMIN_ACTION
 }
@@ -182,12 +339,44 @@ enum ConversationMessageTombstoneReason {
 
 enum NotificationKind {
   CHAT_THREAD_CREATED
+  REPORT_RECEIVED
+  REPORT_STATUS_UPDATED
+  PROFILE_MISMATCH_FEEDBACK
+  SEASON_SYSTEM_NOTICE
+  SUPPORT_TICKET_CREATED
+  SUPPORT_TICKET_REPLIED
+  SUPPORT_TICKET_ACTION_REQUIRED
+  SUPPORT_APPEAL_RESOLVED
 }
 
 enum NotificationOutboxStatus {
   PENDING
   PUBLISHED
   FAILED
+}
+
+enum NotificationCampaignStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum OperatorAlertStatus {
+  PENDING
+  DISPATCHED
+  FAILED
+  SKIPPED
+}
+
+enum OperatorAlertCategory {
+  HIGH_RISK_REPORT
+}
+
+enum OperatorAlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
 }
 
 enum RetainedVaultObjectTarget {
@@ -527,31 +716,53 @@ model DormitoryGuide {
 }
 
 model Season {
-  id                   String                     @id @default(cuid())
-  campusCode           Campus                     @default(CHUNCHEON)
+  id                   String                      @id @default(cuid())
+  campusCode           Campus                      @default(CHUNCHEON)
   academicYear         Int
   semester             Int
   name                 String
-  preparationStartDate DateTime                   @db.Date
-  matchingStartDate    DateTime                   @db.Date
-  seasonEndDate        DateTime                   @db.Date
+  preparationStartDate DateTime                    @db.Date
+  matchingStartDate    DateTime                    @db.Date
+  seasonEndDate        DateTime                    @db.Date
   overrideState        SeasonOverrideState?
   overrideReason       String?
-  overrideStartedAt    DateTime?                  @db.Timestamptz(3)
-  overrideEndsAt       DateTime?                  @db.Timestamptz(3)
-  createdAt            DateTime                   @default(now()) @db.Timestamptz(3)
-  updatedAt            DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
-  campus               CampusMaster               @relation(fields: [campusCode], references: [code], onDelete: Restrict)
+  overrideStartedAt    DateTime?                   @db.Timestamptz(3)
+  overrideEndsAt       DateTime?                   @db.Timestamptz(3)
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                    @default(now()) @updatedAt @db.Timestamptz(3)
+  campus               CampusMaster                @relation(fields: [campusCode], references: [code], onDelete: Restrict)
   dormitoryOperations  SeasonDormitoryOperation[]
   participants         SeasonParticipant[]
   matchRequests        MatchRequest[]
   activeMatches        ActiveMatch[]
   matchHistoryEntries  SeasonMatchHistoryEntry[]
   conversationThreads  ConversationThread[]
+  operationAuditEvents SeasonOperationAuditEvent[]
+  userBookmarks        UserBookmark[]
 
   @@unique([campusCode, academicYear, semester])
   @@index([campusCode, matchingStartDate])
   @@index([campusCode, seasonEndDate])
+}
+
+model SeasonOperationAuditEvent {
+  id                String                     @id @default(cuid())
+  seasonId          String
+  campusCode        Campus
+  action            SeasonOperationAuditAction
+  actorUserId       String?
+  actorCapabilities Json?
+  reason            String?
+  previousSnapshot  Json
+  nextSnapshot      Json
+  metadata          Json?
+  createdAt         DateTime                   @default(now()) @db.Timestamptz(3)
+  season            Season                     @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@index([seasonId, createdAt])
+  @@index([campusCode, createdAt])
+  @@index([action, createdAt])
+  @@index([actorUserId, createdAt])
 }
 
 model SeasonDormitoryOperation {
@@ -591,6 +802,14 @@ model User {
   receivedNotifications    UserNotification[]                       @relation("UserNotificationRecipient")
   actedNotifications       UserNotification[]                       @relation("UserNotificationActor")
   notificationOutboxEvents NotificationOutboxEvent[]
+  bookmarksCreated         UserBookmark[]                           @relation("UserBookmarkViewer")
+  bookmarksReceived        UserBookmark[]                           @relation("UserBookmarkTarget")
+  blocksCreated            UserBlock[]                              @relation("UserBlockBlocker")
+  blocksReceived           UserBlock[]                              @relation("UserBlockBlocked")
+  blockEventsAuthored      UserBlockEvent[]                         @relation("UserBlockEventActor")
+  blockEventsTargeted      UserBlockEvent[]                         @relation("UserBlockEventTarget")
+  supportTicketsRequested  SupportTicket[]                          @relation("SupportTicketRequester")
+  supportMessagesAuthored  SupportTicketMessage[]                   @relation("SupportTicketMessageSender")
 }
 
 model UserDisplayIdentity {
@@ -778,49 +997,232 @@ model ArchiveJob {
 }
 
 model SeasonParticipant {
-  id                             String                       @id @default(uuid())
+  id                             String                            @id @default(uuid())
   seasonId                       String
   userId                         String
-  participationIntent            SeasonParticipationIntent    @default(UNDECIDED)
-  registeredAt                   DateTime?                    @db.Timestamptz(3)
-  declinedAt                     DateTime?                    @db.Timestamptz(3)
+  participationIntent            SeasonParticipationIntent         @default(UNDECIDED)
+  registeredAt                   DateTime?                         @db.Timestamptz(3)
+  declinedAt                     DateTime?                         @db.Timestamptz(3)
   dormitoryId                    String?
-  dormitorySelectionState        DormitorySelectionState      @default(NOT_SELECTED)
-  participantStatus              ParticipantStatus            @default(NOT_STARTED)
+  dormitorySelectionState        DormitorySelectionState           @default(NOT_SELECTED)
+  participantStatus              ParticipantStatus                 @default(NOT_STARTED)
   campusCodeSnapshot             Campus
   genderSnapshot                 Gender
-  joinedAt                       DateTime                     @default(now()) @db.Timestamptz(3)
-  activatedAt                    DateTime?                    @db.Timestamptz(3)
-  matchedAt                      DateTime?                    @db.Timestamptz(3)
-  withdrawnAt                    DateTime?                    @db.Timestamptz(3)
-  expiredAt                      DateTime?                    @db.Timestamptz(3)
-  hiddenByAdminAt                DateTime?                    @db.Timestamptz(3)
+  joinedAt                       DateTime                          @default(now()) @db.Timestamptz(3)
+  activatedAt                    DateTime?                         @db.Timestamptz(3)
+  matchedAt                      DateTime?                         @db.Timestamptz(3)
+  withdrawnAt                    DateTime?                         @db.Timestamptz(3)
+  expiredAt                      DateTime?                         @db.Timestamptz(3)
+  hiddenByAdminAt                DateTime?                         @db.Timestamptz(3)
   hiddenReasonCode               ParticipantHiddenReasonCode?
   hiddenReasonDetail             String?
-  deactivatedAt                  DateTime?                    @db.Timestamptz(3)
-  createdAt                      DateTime                     @default(now()) @db.Timestamptz(3)
-  updatedAt                      DateTime                     @default(now()) @updatedAt @db.Timestamptz(3)
-  dormitory                      Dormitory?                   @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
-  season                         Season                       @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  user                           User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deactivatedAt                  DateTime?                         @db.Timestamptz(3)
+  createdAt                      DateTime                          @default(now()) @db.Timestamptz(3)
+  updatedAt                      DateTime                          @default(now()) @updatedAt @db.Timestamptz(3)
+  dormitory                      Dormitory?                        @relation(fields: [dormitoryId], references: [id], onDelete: SetNull)
+  season                         Season                            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  user                           User                              @relation(fields: [userId], references: [id], onDelete: Cascade)
   profile                        SeasonParticipantProfile?
-  sentMatchRequests              MatchRequest[]               @relation("MatchRequestRequester")
-  receivedMatchRequests          MatchRequest[]               @relation("MatchRequestReceiver")
-  activeMatchesAsA               ActiveMatch[]                @relation("ActiveMatchParticipantA")
-  activeMatchesAsB               ActiveMatch[]                @relation("ActiveMatchParticipantB")
+  sentMatchRequests              MatchRequest[]                    @relation("MatchRequestRequester")
+  receivedMatchRequests          MatchRequest[]                    @relation("MatchRequestReceiver")
+  activeMatchesAsA               ActiveMatch[]                     @relation("ActiveMatchParticipantA")
+  activeMatchesAsB               ActiveMatch[]                     @relation("ActiveMatchParticipantB")
   activeMatchUnmatchRequests     ActiveMatchUnmatchRequest[]
-  viewedMatchHistoryEntries      SeasonMatchHistoryEntry[]    @relation("SeasonMatchHistoryViewer")
-  counterpartMatchHistoryEntries SeasonMatchHistoryEntry[]    @relation("SeasonMatchHistoryCounterpart")
-  openedThreads                  ConversationThread[]         @relation("ConversationThreadOpenedBy")
-  threadsAsA                     ConversationThread[]         @relation("ConversationThreadParticipantA")
-  threadsAsB                     ConversationThread[]         @relation("ConversationThreadParticipantB")
+  viewedMatchHistoryEntries      SeasonMatchHistoryEntry[]         @relation("SeasonMatchHistoryViewer")
+  counterpartMatchHistoryEntries SeasonMatchHistoryEntry[]         @relation("SeasonMatchHistoryCounterpart")
+  openedThreads                  ConversationThread[]              @relation("ConversationThreadOpenedBy")
+  threadsAsA                     ConversationThread[]              @relation("ConversationThreadParticipantA")
+  threadsAsB                     ConversationThread[]              @relation("ConversationThreadParticipantB")
   threadMembers                  ConversationThreadMember[]
-  sentMessages                   ConversationMessage[]        @relation("ConversationMessageSender")
+  sentMessages                   ConversationMessage[]             @relation("ConversationMessageSender")
+  lifecycleEvents                SeasonParticipantLifecycleEvent[]
+  receivedBookmarks              UserBookmark[]                    @relation("UserBookmarkTargetParticipant")
 
   @@unique([seasonId, userId])
   @@index([userId, seasonId])
   @@index([seasonId, dormitoryId, dormitorySelectionState])
   @@index([seasonId, participantStatus])
+}
+
+model UserBookmark {
+  id                  String            @id @default(uuid())
+  viewerUserId        String
+  seasonId            String
+  targetUserId        String
+  targetParticipantId String
+  bookmarkedAt        DateTime          @default(now()) @db.Timestamptz(3)
+  deletedAt           DateTime?         @db.Timestamptz(3)
+  expiredAt           DateTime?         @db.Timestamptz(3)
+  createdAt           DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
+  viewer              User              @relation("UserBookmarkViewer", fields: [viewerUserId], references: [id], onDelete: Cascade)
+  targetUser          User              @relation("UserBookmarkTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  targetParticipant   SeasonParticipant @relation("UserBookmarkTargetParticipant", fields: [targetParticipantId], references: [id], onDelete: Cascade)
+  season              Season            @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+
+  @@index([viewerUserId, seasonId, deletedAt, expiredAt, bookmarkedAt, id])
+  @@index([targetUserId, seasonId, deletedAt, expiredAt])
+  @@index([viewerUserId, targetUserId, seasonId, deletedAt, expiredAt])
+  @@index([targetParticipantId, deletedAt, expiredAt])
+}
+
+model UserBlock {
+  id            String           @id @default(uuid())
+  blockerUserId String
+  blockedUserId String
+  note          String?
+  blockedAt     DateTime         @default(now()) @db.Timestamptz(3)
+  unblockedAt   DateTime?        @db.Timestamptz(3)
+  createdAt     DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime         @default(now()) @updatedAt @db.Timestamptz(3)
+  blocker       User             @relation("UserBlockBlocker", fields: [blockerUserId], references: [id], onDelete: Cascade)
+  blockedUser   User             @relation("UserBlockBlocked", fields: [blockedUserId], references: [id], onDelete: Cascade)
+  events        UserBlockEvent[]
+
+  @@index([blockerUserId, unblockedAt, blockedAt, id])
+  @@index([blockedUserId, unblockedAt, blockedAt, id])
+  @@index([blockerUserId, blockedUserId, unblockedAt])
+}
+
+model UserBlockEvent {
+  id           String             @id @default(uuid())
+  blockId      String
+  actorUserId  String
+  targetUserId String
+  eventType    UserBlockEventType
+  noteSnapshot String?
+  metadata     Json?
+  occurredAt   DateTime           @default(now()) @db.Timestamptz(3)
+  createdAt    DateTime           @default(now()) @db.Timestamptz(3)
+  block        UserBlock          @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  actor        User               @relation("UserBlockEventActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  target       User               @relation("UserBlockEventTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([blockId, occurredAt, id])
+  @@index([actorUserId, occurredAt, id])
+  @@index([targetUserId, occurredAt, id])
+}
+
+model ReportCase {
+  id                              String            @id @default(uuid())
+  reporterUserId                  String
+  targetType                      ReportTargetType
+  targetId                        String
+  targetUserId                    String?
+  targetParticipantId             String?
+  targetThreadId                  String?
+  targetMessageId                 String?
+  targetMatchRequestId            String?
+  seasonId                        String?
+  reason                          ReportReason
+  riskTier                        ReportRiskTier
+  status                          ReportStatus      @default(SUBMITTED)
+  detail                          String?
+  evidenceAttachmentIds           Json?
+  evidenceAttachmentPolicy        String?
+  optionalBlockRequested          Boolean           @default(false)
+  optionalBlockResult             Json?
+  falseReportDisclaimerAcceptedAt DateTime          @db.Timestamptz(3)
+  targetSnapshot                  Json
+  receivedAt                      DateTime          @default(now()) @db.Timestamptz(3)
+  createdAt                       DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt                       DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
+  events                          ReportCaseEvent[]
+
+  @@index([reporterUserId, receivedAt, id])
+  @@index([targetType, targetId, status, receivedAt, id])
+  @@index([targetUserId, status, receivedAt, id])
+  @@index([status, riskTier, receivedAt, id])
+  @@index([targetParticipantId, status, receivedAt, id])
+  @@index([targetThreadId, status, receivedAt, id])
+  @@index([targetMessageId, status, receivedAt, id])
+  @@index([targetMatchRequestId, status, receivedAt, id])
+}
+
+model ReportCaseEvent {
+  id           String              @id @default(uuid())
+  reportCaseId String
+  actorUserId  String?
+  actorType    ReportActorType     @default(USER)
+  eventType    ReportCaseEventType
+  metadata     Json?
+  occurredAt   DateTime            @default(now()) @db.Timestamptz(3)
+  createdAt    DateTime            @default(now()) @db.Timestamptz(3)
+  reportCase   ReportCase          @relation(fields: [reportCaseId], references: [id], onDelete: Cascade)
+
+  @@index([reportCaseId, occurredAt, id])
+  @@index([actorUserId, occurredAt, id])
+  @@index([eventType, occurredAt, id])
+}
+
+model SupportTicket {
+  id                String                 @id @default(uuid())
+  requesterUserId   String
+  category          SupportTicketCategory
+  subject           String
+  status            SupportTicketStatus    @default(OPEN)
+  relatedEntityId   String?
+  appealCategory    SupportAppealCategory?
+  emailReplyConsent Boolean                @default(false)
+  lastMessageAt     DateTime               @default(now()) @db.Timestamptz(3)
+  closedAt          DateTime?              @db.Timestamptz(3)
+  createdAt         DateTime               @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime               @default(now()) @updatedAt @db.Timestamptz(3)
+  requester         User                   @relation("SupportTicketRequester", fields: [requesterUserId], references: [id], onDelete: Cascade)
+  messages          SupportTicketMessage[]
+
+  @@index([requesterUserId, status, lastMessageAt, id])
+  @@index([status, lastMessageAt, id])
+  @@index([category, status, lastMessageAt, id])
+}
+
+model SupportTicketMessage {
+  id           String                   @id @default(uuid())
+  ticketId     String
+  senderType   SupportMessageSenderType
+  senderUserId String?
+  body         String
+  createdAt    DateTime                 @default(now()) @db.Timestamptz(3)
+  ticket       SupportTicket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderUser   User?                    @relation("SupportTicketMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt, id])
+  @@index([senderUserId, createdAt, id])
+}
+
+model SupportFaqArticle {
+  id        String                @id @default(uuid())
+  category  SupportTicketCategory
+  question  String
+  answer    String
+  published Boolean               @default(false)
+  sortOrder Int                   @default(0)
+  createdAt DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@index([published, category, sortOrder, id])
+  @@index([category, sortOrder, id])
+}
+
+model SeasonParticipantLifecycleEvent {
+  id            String                              @id @default(uuid())
+  participantId String
+  seasonId      String
+  userId        String
+  eventType     SeasonParticipantLifecycleEventType
+  actorUserId   String?
+  actorType     String?
+  reason        String?
+  metadata      Json?
+  occurredAt    DateTime                            @default(now()) @db.Timestamptz(3)
+  createdAt     DateTime                            @default(now()) @db.Timestamptz(3)
+  participant   SeasonParticipant                   @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([participantId, occurredAt])
+  @@index([seasonId, eventType, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([eventType, occurredAt])
+  @@index([createdAt])
 }
 
 model SeasonParticipantProfile {
@@ -933,8 +1335,11 @@ model MatchRequest {
   createdActiveMatch     ActiveMatch?                @relation("ActiveMatchCreatedFromRequest")
 
   @@index([seasonId, requesterParticipantId, receiverParticipantId, createdAt])
+  @@index([seasonId, requesterParticipantId, createdAt, id])
   @@index([seasonId, receiverParticipantId, status])
+  @@index([seasonId, receiverParticipantId, createdAt, id])
   @@index([expiresAt, status])
+  @@index([seasonId, status, expiresAt])
   @@index([seasonId, pairKey, status])
 }
 
@@ -956,12 +1361,14 @@ model ActiveMatch {
   participantB         SeasonParticipant           @relation("ActiveMatchParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
   createdFromRequest   MatchRequest                @relation("ActiveMatchCreatedFromRequest", fields: [createdFromRequestId], references: [id], onDelete: Restrict)
   unmatchRequests      ActiveMatchUnmatchRequest[]
+  lifecycleEvents      ActiveMatchLifecycleEvent[]
   conversationThread   ConversationThread?
 
   @@index([seasonId, pairKey, endedAt])
   @@index([participantAId, endedAt])
   @@index([participantBId, endedAt])
   @@index([seasonId, status, endedAt])
+  @@index([status, endedAt, startedAt, id])
 }
 
 model ActiveMatchUnmatchRequest {
@@ -978,6 +1385,28 @@ model ActiveMatchUnmatchRequest {
 
   @@index([activeMatchId, status, requestedAt])
   @@index([participantId, status, requestedAt])
+}
+
+model ActiveMatchLifecycleEvent {
+  id                     String                          @id @default(uuid())
+  activeMatchId          String
+  eventType              ActiveMatchLifecycleEventType
+  reason                 ActiveMatchLifecycleEventReason
+  actorType              ActiveMatchLifecycleActorType
+  actorUserId            String?
+  sourceMatchRequestId   String?
+  sourceUnmatchRequestId String?
+  metadata               Json?
+  occurredAt             DateTime                        @default(now()) @db.Timestamptz(3)
+  createdAt              DateTime                        @default(now()) @db.Timestamptz(3)
+  activeMatch            ActiveMatch                     @relation(fields: [activeMatchId], references: [id], onDelete: Cascade)
+
+  @@index([activeMatchId, occurredAt, id])
+  @@index([eventType, occurredAt, id])
+  @@index([actorUserId, occurredAt, id])
+  @@index([sourceMatchRequestId, occurredAt, id])
+  @@index([sourceUnmatchRequestId, occurredAt, id])
+  @@index([createdAt])
 }
 
 model SeasonMatchHistoryEntry {
@@ -1036,6 +1465,7 @@ model SeasonMatchHistoryEntry {
   retentionLinks                            SeasonMatchHistoryEntryRetentionLink[]
 
   @@index([seasonId, viewerParticipantId, finalizedAt])
+  @@index([viewerParticipantId, finalizedAt, createdAt, id])
   @@index([viewerParticipantId, counterpartParticipantId, finalizedAt])
   @@index([seasonId, pairKey, finalizedAt])
 }
@@ -1175,6 +1605,49 @@ model UserNotification {
   @@index([recipientUserId, readAt, createdAt, id])
   @@index([recipientUserId, createdAt, id])
   @@index([actorUserId, createdAt, id])
+}
+
+model NotificationCampaign {
+  id             String                     @id @default(cuid())
+  kind           NotificationKind
+  sourceType     String
+  sourceId       String
+  payload        Json
+  targetSeasonId String?
+  status         NotificationCampaignStatus @default(PENDING)
+  cursorUserId   String?
+  chunkSize      Int                        @default(100)
+  enqueuedCount  Int                        @default(0)
+  processedCount Int                        @default(0)
+  lastError      String?
+  startedAt      DateTime?                  @db.Timestamptz(3)
+  completedAt    DateTime?                  @db.Timestamptz(3)
+  createdAt      DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                   @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@unique([kind, sourceType, sourceId])
+  @@index([status, createdAt, id])
+  @@index([targetSeasonId, status, createdAt, id])
+}
+
+model OperatorAlert {
+  id               String                @id @default(cuid())
+  sourceType       String
+  sourceId         String
+  category         OperatorAlertCategory
+  riskTier         ReportRiskTier?
+  severity         OperatorAlertSeverity
+  status           OperatorAlertStatus   @default(PENDING)
+  payload          Json
+  deliveryAttempts Int                   @default(0)
+  deliveredAt      DateTime?             @db.Timestamptz(3)
+  lastError        String?
+  createdAt        DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@unique([sourceType, sourceId, category])
+  @@index([status, createdAt, id])
+  @@index([category, riskTier, createdAt, id])
 }
 
 model NotificationOutboxEvent {
@@ -1378,6 +1851,9 @@ model LoginAttempt {
   lastFailedAt    DateTime? @db.Timestamptz(3)
   createdAt       DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@index([lastFailedAt])
+  @@index([lockedUntil])
 }
 
 model VerificationCode {
@@ -1393,6 +1869,8 @@ model VerificationCode {
   requestIp       String?
 
   @@index([emailNormalized, purpose])
+  @@index([expiresAt])
+  @@index([consumedAt])
 }
 
 model VerificationCodeRequestLog {
@@ -1404,20 +1882,48 @@ model VerificationCodeRequestLog {
 
   @@index([emailNormalized, purpose, requestIp, createdAt])
   @@index([requestIp, createdAt])
+  @@index([createdAt])
 }
 
 model AuthSession {
-  id               String    @id @default(uuid())
-  userId           String
-  rememberMe       Boolean   @default(false)
-  refreshTokenHash String?
-  expiresAt        DateTime  @db.Timestamptz(3)
-  revokedAt        DateTime? @db.Timestamptz(3)
-  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                    String    @id @default(uuid())
+  userId                String
+  rememberMe            Boolean   @default(false)
+  sessionTokenHash      String?   @unique
+  sessionTokenExpiresAt DateTime? @db.Timestamptz(3)
+  refreshTokenHash      String?
+  expiresAt             DateTime  @db.Timestamptz(3)
+  revokedAt             DateTime? @db.Timestamptz(3)
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, revokedAt, expiresAt])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model AuthSecurityEvent {
+  id            String                    @id @default(uuid())
+  type          AuthSecurityEventType
+  severity      AuthSecurityEventSeverity @default(INFO)
+  actorUserId   String?
+  targetUserId  String?
+  sessionId     String?
+  emailHash     String?
+  requestIpHash String?
+  userAgentHash String?
+  metadata      Json?
+  createdAt     DateTime                  @default(now()) @db.Timestamptz(3)
+
+  @@index([type, createdAt])
+  @@index([severity, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([targetUserId, createdAt])
+  @@index([emailHash, type, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([createdAt])
 }
 
 model ModerationTerm {

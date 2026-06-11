@@ -1,17 +1,14 @@
-import * as chatContract from '@repo/shared/chat-contract';
-import * as chatRealtimeEvents from '@repo/shared/chat-realtime-events';
-import * as notificationContract from '@repo/shared/notification-contract';
+import * as chatRealtimeEvents from '@repo/shared/chat/realtime-events';
+import * as notificationContract from '@repo/shared/notifications';
 
 describe('notification shared contract guards', () => {
   const occurredAt = '2026-06-02T00:00:00.000Z';
 
-  it('notification package exports는 chat-contract 통합 export와 같은 schema surface를 제공한다', () => {
-    expect(notificationContract.userNotificationSchema).toBe(chatContract.userNotificationSchema);
-    expect(notificationContract.notificationListResponseSchema).toBe(
-      chatContract.notificationListResponseSchema,
-    );
-    expect(notificationContract.notificationCreatedRealtimeEventSchema).toBe(
-      chatContract.notificationCreatedRealtimeEventSchema,
+  it('notification package exports는 notification schema surface를 제공한다', () => {
+    expect(typeof notificationContract.userNotificationSchema.parse).toBe('function');
+    expect(typeof notificationContract.notificationListResponseSchema.parse).toBe('function');
+    expect(typeof notificationContract.notificationCreatedRealtimeEventSchema.parse).toBe(
+      'function',
     );
   });
 
@@ -53,6 +50,87 @@ describe('notification shared contract guards', () => {
         },
       }).success,
     ).toBe(false);
+  });
+
+  it('profile mismatch feedback과 read-all response contract를 허용한다', () => {
+    expect(
+      notificationContract.userNotificationSchema.safeParse({
+        id: 'notification-profile-feedback-1',
+        recipientUserId: 'target-user',
+        actorUserId: 'target-user',
+        kind: 'PROFILE_MISMATCH_FEEDBACK',
+        sourceType: 'REPORT_CASE',
+        sourceId: 'report-1',
+        payload: {
+          kind: 'PROFILE_MISMATCH_FEEDBACK',
+          reportId: 'report-1',
+          promptCode: 'PROFILE_REVIEW_NEXT_SEASON',
+          occurredAt,
+        },
+        readAt: null,
+        createdAt: occurredAt,
+      }).success,
+    ).toBe(true);
+
+    expect(
+      notificationContract.userNotificationSchema.safeParse({
+        id: 'notification-profile-feedback-1',
+        recipientUserId: 'target-user',
+        actorUserId: 'target-user',
+        kind: 'PROFILE_MISMATCH_FEEDBACK',
+        sourceType: 'REPORT_CASE',
+        sourceId: 'report-1',
+        payload: {
+          kind: 'PROFILE_MISMATCH_FEEDBACK',
+          reportId: 'report-1',
+          promptCode: 'PROFILE_REVIEW_NEXT_SEASON',
+          reporterUserId: 'reporter-user',
+          reportDetail: 'raw report detail',
+          occurredAt,
+        },
+        readAt: null,
+        createdAt: occurredAt,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      notificationContract.markAllNotificationsReadResponseSchema.parse({
+        updatedCount: 2,
+        readAt: occurredAt,
+      }),
+    ).toEqual({ updatedCount: 2, readAt: occurredAt });
+  });
+
+  it('support notification payload는 support body/email 같은 raw field를 허용하지 않는다', () => {
+    expect(
+      notificationContract.notificationPayloadSchema.parse({
+        kind: 'SUPPORT_TICKET_REPLIED',
+        supportTicketId: 'support-1',
+        status: 'RESOLVED',
+        occurredAt,
+      }),
+    ).toMatchObject({ kind: 'SUPPORT_TICKET_REPLIED', supportTicketId: 'support-1' });
+
+    expect(() =>
+      notificationContract.notificationPayloadSchema.parse({
+        kind: 'SUPPORT_TICKET_REPLIED',
+        supportTicketId: 'support-1',
+        status: 'RESOLVED',
+        occurredAt,
+        supportBody: 'raw body',
+      }),
+    ).toThrow();
+
+    expect(() =>
+      notificationContract.notificationPayloadSchema.parse({
+        kind: 'SUPPORT_TICKET_CREATED',
+        supportTicketId: 'support-1',
+        category: 'APPEAL',
+        status: 'OPEN',
+        occurredAt,
+        email: 'user@example.com',
+      }),
+    ).toThrow();
   });
 
   it('notification.created realtime event는 chat realtime event union에 포함된다', () => {

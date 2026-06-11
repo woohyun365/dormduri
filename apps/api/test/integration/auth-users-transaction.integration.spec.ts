@@ -1,25 +1,28 @@
 import { HttpException } from '@nestjs/common';
-import { AuthService } from '../../src/auth/auth.service.js';
-import { AuthSessionService } from '../../src/auth/auth-session.service.js';
-import { signup as signupWithOwner } from '../../src/auth/auth-signup-owner.js';
-import { resetPassword as resetPasswordWithOwner } from '../../src/auth/auth-reset-password-owner.js';
-import { hashPassword, verifyPasswordHash } from '../../src/auth/auth-password.js';
-import { normalizeEmail, normalizeNickname } from '../../src/auth/auth.utils.js';
-import { PrismaService } from '../../src/common/prisma/prisma.service.js';
-import type { CurrentUserViewService } from '../../src/users/current-user-view.service.js';
-import { createUserUpdateOwner } from '../../src/users/user-update-owner.js';
-import type { ModerationService } from '../../src/common/moderation/moderation.service.js';
-import { UsersService } from '../../src/users/users.service.js';
-import { SeasonsService } from '../../src/seasons/seasons.service.js';
-import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user-contract';
-import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
+import { AuthService } from '../../src/auth/application/auth.service.js';
+import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
+import { signup as signupWithOwner } from '../../src/auth/registration/signup.command.js';
+import { resetPassword as resetPasswordWithOwner } from '../../src/auth/credentials/reset-password.command.js';
+import { hashPassword, verifyPasswordHash } from '../../src/auth/application/auth-password-hash.js';
+import { normalizeEmail, normalizeNickname } from '../../src/auth/domain/auth.utils.js';
+import { PrismaService } from '../../src/platform/database/prisma.service.js';
+import type { CurrentUserViewService } from '../../src/users/current-user/current-user-view.service.js';
+import { createUserUpdateOwner } from '../../src/users/application/user-update-owner.js';
+import type { ModerationService } from '../../src/moderation/moderation.service.js';
+import { UsersService } from '../../src/users/application/users.service.js';
+import { SeasonsService } from '../../src/seasons/application/seasons.service.js';
+import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from './support/integration-db.js';
 import { withPrismaQueryTraceOnFailure } from './support/integration-query-trace.js';
-import { DEFAULT_LIFESTYLE, seedBaseSeasonFixtures } from './support/integration-fixtures.js';
+import {
+  toCompleteLifestyleColumnData,
+  DEFAULT_LIFESTYLE,
+  seedBaseSeasonFixtures,
+} from './support/integration-fixtures.js';
 
 type AuthContext = {
   id: string;
@@ -485,6 +488,71 @@ describe('Auth/users transaction rollback and race integration', () => {
           prisma.authSession.findUniqueOrThrow({
             where: { id: 'reset-post-update-rollback-session' },
           }),
+        ).resolves.toMatchObject({ revokedAt: null });
+      },
+    );
+
+    itWithQueryTrace(
+      'expired verified reset proof는 consume/password/session 변경 없이 restart required로 처리된다',
+      async () => {
+        const email = 'reset-expired-proof@kangwon.ac.kr';
+        const emailNormalized = normalizeEmail(email);
+        const userId = 'reset-expired-proof-user';
+        const oldPasswordHash = await hashPassword('OldPass1234');
+        const verificationCodeId = 'reset-expired-proof-code';
+        const databaseNow = await prisma.getDatabaseNow();
+
+        await seedUserWithDisplayIdentity({
+          id: userId,
+          email,
+          nickname: '만료리셋',
+          passwordHash: oldPasswordHash,
+        });
+        await prisma.authSession.create({
+          data: {
+            id: 'reset-expired-proof-session',
+            userId,
+            expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
+          },
+        });
+        await prisma.verificationCode.create({
+          data: {
+            id: verificationCodeId,
+            emailNormalized,
+            purpose: 'RESET_PASSWORD',
+            codeHash: 'hmac-sha256:expired-proof',
+            issuedAt: new Date(databaseNow.getTime() - 20 * 60 * 1000),
+            expiresAt: new Date(databaseNow.getTime() - 1000),
+            verifiedAt: new Date(databaseNow.getTime() - 10 * 60 * 1000),
+          },
+        });
+
+        await expect(
+          resetPasswordWithOwner(
+            {
+              prisma,
+              verificationService: {
+                findLatestVerifiedResetCode() {
+                  return Promise.resolve({ id: verificationCodeId });
+                },
+              },
+            },
+            email,
+            'NewPass1234',
+          ),
+        ).resolves.toMatchObject({
+          success: false,
+          code: 'AUTH_RESET_RESTART_REQUIRED',
+        });
+
+        await expect(
+          prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+        ).resolves.toMatchObject({
+          passwordHash: oldPasswordHash,
+        });
+        await expectVerificationConsumed(verificationCodeId, false);
+        await expect(
+          prisma.authSession.findUniqueOrThrow({ where: { id: 'reset-expired-proof-session' } }),
         ).resolves.toMatchObject({ revokedAt: null });
       },
     );

@@ -1,7 +1,12 @@
+import { createReportResponseSchema } from '@repo/shared/social-safety/report';
 import request from 'supertest';
-import { AuthSessionService } from '../../src/auth/auth-session.service.js';
+import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
 import { ChatService } from '../../src/chat/application/chat.service.js';
-import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { CreateNotificationCampaignCommand } from '../../src/notifications/campaigns/create-notification-campaign.command.js';
+import { NotificationCampaignFanoutService } from '../../src/notifications/campaigns/notification-campaign-fanout.service.js';
+import { MaterializeProfileMismatchFeedbackCommand } from '../../src/notifications/commands/materialize-profile-mismatch-feedback.command.js';
+import { MaterializeReportOperatorAlertCommand } from '../../src/notifications/commands/materialize-report-operator-alert.command.js';
+import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -40,6 +45,11 @@ type MarkNotificationReadBody = {
   };
 };
 
+type MarkAllNotificationsReadBody = {
+  updatedCount: number;
+  readAt: string;
+};
+
 function makeSendMessageInput(
   body: string,
   clientMessageId: string,
@@ -54,6 +64,10 @@ describe('Notifications integration', () => {
   let prisma: PrismaService;
   let chatService: ChatService;
   let authSessionService: AuthSessionService;
+  let materializeProfileMismatchFeedback: MaterializeProfileMismatchFeedbackCommand;
+  let materializeReportOperatorAlert: MaterializeReportOperatorAlertCommand;
+  let createNotificationCampaign: CreateNotificationCampaignCommand;
+  let notificationCampaignFanout: NotificationCampaignFanoutService;
   let httpServer: Parameters<typeof request>[0];
   let closeApp: (() => Promise<void>) | null = null;
   let cleanupDb: (() => Promise<void>) | null = null;
@@ -68,6 +82,10 @@ describe('Notifications integration', () => {
     prisma = prismaService;
     chatService = app.get(ChatService);
     authSessionService = app.get(AuthSessionService);
+    materializeProfileMismatchFeedback = app.get(MaterializeProfileMismatchFeedbackCommand);
+    materializeReportOperatorAlert = app.get(MaterializeReportOperatorAlertCommand);
+    createNotificationCampaign = app.get(CreateNotificationCampaignCommand);
+    notificationCampaignFanout = app.get(NotificationCampaignFanoutService);
   });
 
   afterAll(async () => {
@@ -177,6 +195,195 @@ describe('Notifications integration', () => {
     expect(await prisma.conversationThread.count()).toBe(0);
     expect(await prisma.userNotification.count()).toBe(0);
     expect(await prisma.notificationOutboxEvent.count()).toBe(0);
+  });
+
+  it('read-all은 authenticated recipient의 unread notification만 일괄 읽음 처리한다', async () => {
+    const occurredAt = await prisma.getDatabaseNow();
+    await prisma.userNotification.createMany({
+      data: [
+        {
+          id: 'notification-read-all-1',
+          recipientUserId: 'user-b',
+          actorUserId: 'user-a',
+          kind: 'REPORT_RECEIVED',
+          sourceType: 'REPORT_CASE',
+          sourceId: 'report-read-all-1',
+          payload: {
+            kind: 'REPORT_RECEIVED',
+            reportId: 'report-read-all-1',
+            status: 'RECEIVED',
+            occurredAt: occurredAt.toISOString(),
+          },
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+        },
+        {
+          id: 'notification-read-all-2',
+          recipientUserId: 'user-b',
+          actorUserId: 'user-a',
+          kind: 'REPORT_RECEIVED',
+          sourceType: 'REPORT_CASE',
+          sourceId: 'report-read-all-2',
+          payload: {
+            kind: 'REPORT_RECEIVED',
+            reportId: 'report-read-all-2',
+            status: 'RECEIVED',
+            occurredAt: occurredAt.toISOString(),
+          },
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+        },
+        {
+          id: 'notification-read-all-other',
+          recipientUserId: 'user-a',
+          actorUserId: 'user-b',
+          kind: 'REPORT_RECEIVED',
+          sourceType: 'REPORT_CASE',
+          sourceId: 'report-read-all-other',
+          payload: {
+            kind: 'REPORT_RECEIVED',
+            reportId: 'report-read-all-other',
+            status: 'RECEIVED',
+            occurredAt: occurredAt.toISOString(),
+          },
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+        },
+      ],
+    });
+    const userBToken = await issueAccessToken('user-b', 'user-b@kangwon.ac.kr');
+
+    const response = await request(httpServer)
+      .post('/api/notifications/read-all')
+      .set('Authorization', `Bearer ${userBToken}`)
+      .expect(201);
+    const body = response.body as MarkAllNotificationsReadBody;
+
+    expect(body.updatedCount).toBe(2);
+    expect(typeof body.readAt).toBe('string');
+    await expect(
+      prisma.userNotification.count({ where: { recipientUserId: 'user-b', readAt: null } }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.userNotification.count({ where: { recipientUserId: 'user-a', readAt: null } }),
+    ).resolves.toBe(1);
+  });
+
+  it('FALSE_PROFILE candidate는 target에게 비처벌 profile mismatch feedback 알림으로 materialize된다', async () => {
+    const userAToken = await issueAccessToken('user-a', 'user-a@kangwon.ac.kr');
+    const reportResponse = await request(httpServer)
+      .post('/api/reports')
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        targetType: 'PROFILE',
+        targetId: 'user-b',
+        reason: 'FALSE_PROFILE',
+        detail: 'feedback payload에 들어가면 안 되는 신고 상세',
+        falseReportDisclaimerAccepted: true,
+      })
+      .expect(201);
+    const report = createReportResponseSchema.parse(reportResponse.body).report;
+
+    await expect(materializeProfileMismatchFeedback.execute()).resolves.toEqual({
+      processedCount: 1,
+      createdCount: 1,
+      skippedCount: 0,
+    });
+    await expect(materializeProfileMismatchFeedback.execute()).resolves.toEqual({
+      processedCount: 1,
+      createdCount: 0,
+      skippedCount: 1,
+    });
+
+    const notification = await prisma.userNotification.findFirstOrThrow({
+      where: { recipientUserId: 'user-b', kind: 'PROFILE_MISMATCH_FEEDBACK' },
+    });
+    expect(notification).toMatchObject({
+      actorUserId: 'user-b',
+      sourceType: 'REPORT_CASE',
+      sourceId: report.id,
+    });
+    expect(notification.payload).toMatchObject({
+      kind: 'PROFILE_MISMATCH_FEEDBACK',
+      reportId: report.id,
+      promptCode: 'PROFILE_REVIEW_NEXT_SEASON',
+    });
+    const serializedPayload = JSON.stringify(notification.payload);
+    expect(serializedPayload).not.toContain('feedback payload');
+    expect(serializedPayload).not.toContain('user-a');
+  });
+
+  it('high-risk report candidate는 user notification이 아니라 operator alert record로 materialize된다', async () => {
+    const userAToken = await issueAccessToken('user-a', 'user-a@kangwon.ac.kr');
+    const reportResponse = await request(httpServer)
+      .post('/api/reports')
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        targetType: 'PROFILE',
+        targetId: 'user-b',
+        reason: 'THREAT',
+        detail: 'operator alert payload에 들어가면 안 되는 raw detail',
+        falseReportDisclaimerAccepted: true,
+      })
+      .expect(201);
+    const report = createReportResponseSchema.parse(reportResponse.body).report;
+
+    await expect(materializeReportOperatorAlert.execute()).resolves.toMatchObject({
+      processedCount: 1,
+      createdCount: 1,
+      skippedCount: 0,
+    });
+    await expect(materializeReportOperatorAlert.execute()).resolves.toMatchObject({
+      processedCount: 1,
+      createdCount: 0,
+      skippedCount: 1,
+    });
+
+    const alert = await prisma.operatorAlert.findFirstOrThrow({
+      where: { sourceType: 'REPORT_CASE', sourceId: report.id },
+    });
+    expect(alert).toMatchObject({
+      category: 'HIGH_RISK_REPORT',
+      riskTier: 'HIGH',
+      severity: 'CRITICAL',
+      status: 'SKIPPED',
+    });
+    const serializedPayload = JSON.stringify(alert.payload);
+    expect(serializedPayload).toContain(report.id);
+    expect(serializedPayload).not.toContain('raw detail');
+    await expect(
+      prisma.userNotification.count({ where: { kind: { not: 'REPORT_RECEIVED' } } }),
+    ).resolves.toBe(0);
+  });
+
+  it('notification campaign fanout은 season 대상자를 bounded/idempotent하게 materialize한다', async () => {
+    const campaign = await createNotificationCampaign.execute({
+      sourceType: 'SEASON',
+      sourceId: 'season-integration:notice:phase-6',
+      seasonId: 'season-integration',
+      noticeCode: 'SEASON_REMINDER',
+      chunkSize: 10,
+    });
+
+    await expect(notificationCampaignFanout.fanoutNextChunk(campaign.campaignId)).resolves.toEqual({
+      processedCount: 2,
+      createdCount: 2,
+      completed: true,
+    });
+    await expect(notificationCampaignFanout.fanoutNextChunk(campaign.campaignId)).resolves.toEqual({
+      processedCount: 0,
+      createdCount: 0,
+      completed: true,
+    });
+
+    await expect(
+      prisma.userNotification.count({ where: { kind: 'SEASON_SYSTEM_NOTICE' } }),
+    ).resolves.toBe(2);
+    await expect(
+      prisma.notificationOutboxEvent.count({
+        where: { notification: { kind: 'SEASON_SYSTEM_NOTICE' } },
+      }),
+    ).resolves.toBe(2);
   });
 
   it('notification list와 mark-read는 authenticated recipient scope로 동작한다', async () => {

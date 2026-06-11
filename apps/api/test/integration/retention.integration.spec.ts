@@ -1,22 +1,24 @@
-import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import {
   activateThreadRetentionJobsForArchivedThreads,
-  createDeletionArchiveJobsTx,
   retryDueArchiveJobs,
-} from '../../src/retention/archive-job-owner.js';
-import {
-  createRetainedIdentityCipher,
-  createRetainedIdentityOwner,
-} from '../../src/retention/retained-identity-owner.js';
-import { createConversationRetainedBodyCipher } from '../../src/retention/conversation-retained-body-owner.js';
+} from '../../src/retention/archive-jobs/archive-job-runner.service.js';
+import { claimDueDeletionArchiveJobs } from '../../src/retention/archive-jobs/archive-job.repository.js';
+import { createDeletionArchiveJobsTx } from '../../src/retention/archive-jobs/create-deletion-archive-jobs.command.js';
+import { createRetainedIdentityCipher } from '../../src/retention/retained-identities/retained-identity-cipher.js';
+import { createRetainedIdentityOwner } from '../../src/retention/retained-identities/retained-identity.service.js';
+import { claimDueRetentionReviewJobs } from '../../src/retention/review-jobs/retention-review-job-runner.service.js';
+import { createConversationRetainedBodyCipher } from '../../src/chat/retention/conversation-retained-body.service.js';
 import {
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
+} from '../../src/retention/vault/retained-vault-keyring.js';
+import { parseRetainedMatchHistoryPayload } from '../../src/retention/vault/retained-vault-payload-codecs.js';
+import {
   discloseRetainedVaultPayload,
-  ensureRetentionCaseTx,
-  parseRetainedMatchHistoryPayload,
   retainVaultPayloadTx,
-} from '../../src/retention/retained-vault-owner.js';
+} from '../../src/retention/vault/retained-vault.service.js';
+import { ensureRetentionCaseTx } from '../../src/retention/vault/retention-case.repository.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
@@ -134,6 +136,110 @@ describe('RetainedIdentity integration', () => {
         where: { participantId: 'participant-a' },
       }),
     ).resolves.toBe(historyCountBeforeRetention);
+  });
+
+  it('ArchiveJob due claim은 bounded batch와 lease로 중복 claim을 막는다', async () => {
+    const now = new Date('2029-05-12T00:00:00.000Z');
+    const leaseUntil = new Date('2029-05-12T00:01:00.000Z');
+
+    await prisma.archiveJob.createMany({
+      data: [
+        {
+          id: 'archive-claim-1',
+          target: 'NICKNAME_AUDIT',
+          status: 'PENDING',
+          nextRunAt: new Date('2029-05-11T00:00:00.000Z'),
+        },
+        {
+          id: 'archive-claim-2',
+          target: 'ACADEMIC_IDENTITY_AUDIT',
+          status: 'PENDING',
+          nextRunAt: new Date('2029-05-11T00:00:01.000Z'),
+        },
+      ],
+    });
+
+    const [firstClaim, secondClaim] = await Promise.all([
+      claimDueDeletionArchiveJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+      claimDueDeletionArchiveJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+    ]);
+
+    const claimedIds = [...firstClaim, ...secondClaim].map((job) => job.id).sort();
+    expect(claimedIds).toEqual(['archive-claim-1', 'archive-claim-2']);
+    expect(new Set(claimedIds).size).toBe(2);
+
+    const claimedJobs = await prisma.archiveJob.findMany({
+      where: { id: { in: claimedIds } },
+      select: { id: true, status: true, nextRunAt: true, lastAttemptAt: true },
+      orderBy: { id: 'asc' },
+    });
+    expect(claimedJobs).toEqual([
+      {
+        id: 'archive-claim-1',
+        status: 'RETRY_SCHEDULED',
+        nextRunAt: leaseUntil,
+        lastAttemptAt: now,
+      },
+      {
+        id: 'archive-claim-2',
+        status: 'RETRY_SCHEDULED',
+        nextRunAt: leaseUntil,
+        lastAttemptAt: now,
+      },
+    ]);
+  });
+
+  it('RetentionReviewJob due claim은 bounded batch와 lease로 중복 claim을 막는다', async () => {
+    const now = new Date('2029-05-12T00:00:00.000Z');
+    const leaseUntil = new Date('2029-05-12T00:01:00.000Z');
+
+    await prisma.retentionReviewJob.createMany({
+      data: [
+        {
+          id: 'review-claim-1',
+          target: 'ACCESS_LOG_DISPOSAL',
+          sourceId: 'access-log-disposal-claim-1',
+          status: 'PENDING',
+          dueAt: new Date('2029-05-11T00:00:00.000Z'),
+        },
+        {
+          id: 'review-claim-2',
+          target: 'CHAT_IDENTITY_LINK',
+          sourceId: 'thread-claim-2',
+          status: 'PENDING',
+          dueAt: new Date('2029-05-11T00:00:01.000Z'),
+        },
+      ],
+    });
+
+    const [firstClaim, secondClaim] = await Promise.all([
+      claimDueRetentionReviewJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+      claimDueRetentionReviewJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+    ]);
+
+    const claimedIds = [...firstClaim, ...secondClaim].map((job) => job.id).sort();
+    expect(claimedIds).toEqual(['review-claim-1', 'review-claim-2']);
+    expect(new Set(claimedIds).size).toBe(2);
+
+    const claimedJobs = await prisma.retentionReviewJob.findMany({
+      where: { id: { in: claimedIds } },
+      select: { id: true, status: true, dueAt: true, lastAttemptAt: true },
+      orderBy: { id: 'asc' },
+    });
+    expect(claimedJobs).toEqual([
+      {
+        id: 'review-claim-1',
+        status: 'RETRY_SCHEDULED',
+        dueAt: leaseUntil,
+        lastAttemptAt: now,
+      },
+      {
+        id: 'review-claim-2',
+        status: 'RETRY_SCHEDULED',
+        dueAt: leaseUntil,
+        lastAttemptAt: now,
+      },
+    ]);
   });
 
   it('legal hold가 있으면 일반 삭제 대신 LEGAL_HOLD retained identity로 분류한다', async () => {

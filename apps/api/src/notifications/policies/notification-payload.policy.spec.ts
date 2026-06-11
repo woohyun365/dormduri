@@ -2,6 +2,11 @@ import {
   assertNotificationPayloadAllowed,
   isNotificationPayloadPrivacySafe,
   toChatThreadCreatedNotificationPayload,
+  toProfileMismatchFeedbackNotificationPayload,
+  toReportReceivedNotificationPayload,
+  toSeasonSystemNoticeNotificationPayload,
+  toSupportTicketCreatedNotificationPayload,
+  toSupportTicketRepliedNotificationPayload,
 } from './notification-payload.policy.js';
 
 describe('notification payload policy', () => {
@@ -22,13 +27,96 @@ describe('notification payload policy', () => {
     });
   });
 
-  it('message body / retained payload / full identity key는 거절한다', () => {
+  it('신고 접수 알림은 report pointer와 RECEIVED 상태만 포함한다', () => {
+    expect(
+      toReportReceivedNotificationPayload({
+        reportId: 'report-1',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'REPORT_RECEIVED',
+      reportId: 'report-1',
+      status: 'RECEIVED',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+  });
+
+  it('profile mismatch feedback 알림은 report pointer와 prompt code만 포함한다', () => {
+    expect(
+      toProfileMismatchFeedbackNotificationPayload({
+        reportId: 'report-1',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'PROFILE_MISMATCH_FEEDBACK',
+      reportId: 'report-1',
+      promptCode: 'PROFILE_REVIEW_NEXT_SEASON',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+  });
+
+  it('season system notice 알림은 campaign pointer와 notice code만 포함한다', () => {
+    expect(
+      toSeasonSystemNoticeNotificationPayload({
+        campaignId: 'campaign-1',
+        seasonId: 'season-1',
+        noticeCode: 'SEASON_REMINDER',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'SEASON_SYSTEM_NOTICE',
+      campaignId: 'campaign-1',
+      seasonId: 'season-1',
+      noticeCode: 'SEASON_REMINDER',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+  });
+
+  it('support ticket 알림은 ticket pointer/status만 포함한다', () => {
+    expect(
+      toSupportTicketCreatedNotificationPayload({
+        supportTicketId: 'ticket-1',
+        category: 'ACCOUNT',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'SUPPORT_TICKET_CREATED',
+      supportTicketId: 'ticket-1',
+      category: 'ACCOUNT',
+      status: 'OPEN',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+
+    expect(
+      toSupportTicketRepliedNotificationPayload({
+        supportTicketId: 'ticket-1',
+        status: 'WAITING_USER',
+        occurredAt: new Date('2026-06-02T00:00:00.000Z'),
+      }),
+    ).toEqual({
+      kind: 'SUPPORT_TICKET_REPLIED',
+      supportTicketId: 'ticket-1',
+      status: 'WAITING_USER',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+  });
+
+  it('message body / report detail / block note / support body / retained payload / full identity key는 거절한다', () => {
     expect(() => assertNotificationPayloadAllowed({ body: '원문' })).toThrow(
       /forbidden payload key/,
     );
     expect(() =>
       assertNotificationPayloadAllowed({ nested: { retainedOriginalBody: 'retained 원문' } }),
     ).toThrow(/forbidden payload key/);
+    expect(() => assertNotificationPayloadAllowed({ reportDetail: '신고 상세' })).toThrow(
+      /forbidden payload key/,
+    );
+    expect(() => assertNotificationPayloadAllowed({ blockNote: '차단 메모' })).toThrow(
+      /forbidden payload key/,
+    );
+    expect(() => assertNotificationPayloadAllowed({ supportBody: '문의 본문' })).toThrow(
+      /forbidden payload key/,
+    );
     expect(
       isNotificationPayloadPrivacySafe({ user: { displayIdentity: { nickname: '닉네임' } } }),
     ).toBe(false);

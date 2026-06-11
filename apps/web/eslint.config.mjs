@@ -15,6 +15,22 @@ const eslintConfig = defineConfig([
   // Prettier 충돌 룰 OFF
   prettier,
 
+  {
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ['eslint.config.mjs'],
+        },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    settings: {
+      next: {
+        rootDir: import.meta.dirname,
+      },
+    },
+  },
+
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

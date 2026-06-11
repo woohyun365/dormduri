@@ -14,7 +14,7 @@ import {
   AUTH_FIXTURE_USERS,
 } from './seed-data/fixtures/auth-fixture-users.js';
 import { SEASON_FIXTURES } from './seed-data/fixtures/season-fixtures.js';
-import { getCollegeLabel } from '@repo/shared/college-contract';
+import { getCollegeLabel } from '@repo/shared/college';
 import pg from 'pg';
 
 const { Client } = pg;

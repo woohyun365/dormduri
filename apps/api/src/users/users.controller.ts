@@ -1,28 +1,31 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import {
   dismissCurrentUserOnboardingNoticeRequestSchema,
   requestAccountDeletionSchema,
   updateCurrentUserRequestSchema,
-} from '@repo/shared/user-contract';
-import { AuthenticatedUser } from '../auth/authenticated-user.decorator.js';
-import { AuthenticatedUserGuard } from '../auth/authenticated-user.guard.js';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import { parseRequestBody } from '../common/http/zod-request.js';
-import { UsersService } from './users.service.js';
+} from '@repo/shared/user';
+import { RequireCapability } from '../auth/access/auth-access.decorator.js';
+import { AUTH_CAPABILITIES } from '../auth/access/auth-capability.js';
+import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
+import { parseRequestBody } from '../platform/http/zod-request.js';
+import { UsersService } from './application/users.service.js';
 
 @Controller('api/users')
-@UseGuards(AuthenticatedUserGuard)
+@RequireCapability()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('me')
-  async getCurrentUser(@AuthenticatedUser() authUser: AuthenticatedUserContext) {
+  @RequireCapability(AUTH_CAPABILITIES.USER_READ_SELF)
+  async getCurrentUser(@CurrentUser() authUser: AuthenticatedUserContext) {
     return this.usersService.getCurrentUser(authUser);
   }
 
   @Patch('me')
+  @RequireCapability(AUTH_CAPABILITIES.USER_UPDATE_SELF)
   async updateCurrentUser(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Body() body: unknown,
   ) {
     const parsed = parseRequestBody(updateCurrentUserRequestSchema, body);
@@ -30,8 +33,9 @@ export class UsersController {
   }
 
   @Patch('me/onboarding')
+  @RequireCapability(AUTH_CAPABILITIES.USER_UPDATE_SELF)
   async dismissCurrentUserOnboardingNotice(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Body() body: unknown,
   ) {
     const parsed = parseRequestBody(dismissCurrentUserOnboardingNoticeRequestSchema, body);
@@ -39,8 +43,9 @@ export class UsersController {
   }
 
   @Post('me/delete')
+  @RequireCapability(AUTH_CAPABILITIES.USER_UPDATE_SELF)
   async requestAccountDeletion(
-    @AuthenticatedUser() authUser: AuthenticatedUserContext,
+    @CurrentUser() authUser: AuthenticatedUserContext,
     @Body() body: unknown,
   ) {
     const parsed = parseRequestBody(requestAccountDeletionSchema, body);

@@ -10,16 +10,19 @@ import type {
   SendConversationMessageRequest,
   SendConversationMessageResponse,
   UpdateChatReadMarkerRequest,
-} from '@repo/shared/chat-contract';
+} from '@repo/shared/chat';
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { AuthenticatedUserContext } from '../../auth/auth-session.service.js';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   CHAT_THREAD_NOTIFICATION_WRITER,
   type ChatThreadNotificationWriter,
-} from '../../notifications/notifications.tokens.js';
-import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
-import { SeasonsService } from '../../seasons/seasons.service.js';
+} from '../../notifications/application/ports/chat-thread-notification-writer.port.js';
+import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../../seasons/ports/season-context.port.js';
 import { createChatCommandService } from './chat-command.service.js';
 import { createChatUserContextService } from './chat-user-context.service.js';
 import { chatErrors } from '../errors/chat.errors.js';
@@ -32,6 +35,7 @@ import {
   createChatThreadListCursorOwner,
 } from '../queries/chat-thread-list-cursor.js';
 import { createChatThreadSupportOwner } from '../policies/chat-thread-policy.js';
+import { createChatPairEntryQuery } from '../pairs/chat-pair-entry.query.js';
 import { ChatRealtimeReplayService } from '../outbox/chat-realtime-replay.service.js';
 import {
   type ChatRealtimeEventType,
@@ -53,7 +57,8 @@ const noopChatThreadNotificationWriter: ChatThreadNotificationWriter = {
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
+    @Inject(SEASON_CONTEXT_PORT)
+    private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
     private readonly chatSeasonLifecycle: ChatSeasonLifecycleService,
     @Inject(CHAT_THREAD_NOTIFICATION_WRITER)
@@ -76,6 +81,33 @@ export class ChatService {
     return createChatThreadSupportOwner({
       prisma: this.prisma,
       seasonParticipantsService: this.seasonParticipantsService,
+    });
+  }
+
+  private get pairEntryQuery() {
+    return createChatPairEntryQuery({
+      getDatabaseNow: () => this.prisma.getDatabaseNow(),
+      getCurrentChatContext: (userId, now) => this.contextOwner.getCurrentChatContext(userId, now),
+      getValidatedTargetUser: (targetUserId, viewerUser) =>
+        this.contextOwner.getValidatedTargetUser(targetUserId, viewerUser),
+      getRequiredParticipant: (targetUser, seasonId) =>
+        this.contextOwner.getRequiredParticipant(targetUser, seasonId),
+      findThreadByPair: (seasonId, leftParticipantId, rightParticipantId) =>
+        this.queryOwner.findThreadByPair(seasonId, leftParticipantId, rightParticipantId),
+      resolveThreadLifecycleSnapshot: (thread, now) =>
+        this.chatSeasonLifecycle.resolveThreadLifecycleSnapshot(thread, now),
+      canSendMessageToPair: (viewerContext, targetUser, targetParticipant, thread, now) =>
+        this.threadSupportOwner.canSendMessageToPair(
+          viewerContext,
+          targetUser,
+          targetParticipant,
+          thread,
+          now,
+        ),
+      getThreadMember: (thread, viewerParticipantId) =>
+        this.threadSupportOwner.getThreadMember(thread, viewerParticipantId),
+      toThreadSummary: (thread, viewerParticipantId, sendMessageDecision) =>
+        toChatThreadSummary(thread, viewerParticipantId, sendMessageDecision),
     });
   }
 
@@ -135,61 +167,7 @@ export class ChatService {
     authUser: AuthenticatedUserContext,
     targetUserId: string,
   ): Promise<ConversationThreadEntryResponse> {
-    const now = await this.prisma.getDatabaseNow();
-    const viewerContext = await this.contextOwner.getCurrentChatContext(authUser.id, now);
-
-    if (!viewerContext?.seasonContext || !viewerContext.participant) {
-      return {
-        targetUserId,
-        thread: null,
-        canEnterChatUi: false,
-        canSendMessage: false,
-      };
-    }
-
-    const targetUser = await this.contextOwner.getValidatedTargetUser(
-      targetUserId,
-      viewerContext.user,
-    );
-    const targetParticipant = await this.contextOwner.getRequiredParticipant(
-      targetUser,
-      viewerContext.seasonContext.season.id,
-    );
-    const existingThread = await this.queryOwner.findThreadByPair(
-      viewerContext.seasonContext.season.id,
-      viewerContext.participant.id,
-      targetParticipant.id,
-    );
-    const synchronizedThread = existingThread
-      ? await this.chatSeasonLifecycle.resolveThreadLifecycleSnapshot(existingThread, now)
-      : null;
-    const sendMessageDecision = await this.threadSupportOwner.canSendMessageToPair(
-      viewerContext,
-      targetUser,
-      targetParticipant,
-      synchronizedThread,
-      now,
-    );
-
-    const viewerMemberState = synchronizedThread
-      ? (this.threadSupportOwner.getThreadMember(synchronizedThread, viewerContext.participant.id)
-          ?.memberState ?? null)
-      : null;
-    const visibleThread =
-      synchronizedThread &&
-      viewerMemberState === 'ACTIVE' &&
-      synchronizedThread.status !== 'ARCHIVED'
-        ? synchronizedThread
-        : null;
-
-    return {
-      targetUserId,
-      thread: visibleThread
-        ? toChatThreadSummary(visibleThread, viewerContext.participant.id, sendMessageDecision)
-        : null,
-      canEnterChatUi: visibleThread !== null || sendMessageDecision.canSendMessage,
-      canSendMessage: sendMessageDecision.canSendMessage,
-    };
+    return this.pairEntryQuery.getThreadEntry(authUser, targetUserId);
   }
 
   async listThreads(

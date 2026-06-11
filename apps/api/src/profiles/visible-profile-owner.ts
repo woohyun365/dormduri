@@ -1,36 +1,35 @@
 import type { PublicProfile, PublicProfileTombstoneReason } from '@repo/shared/profile-contract';
 import { isSeasonProfileComplete, type LifestyleData } from '@repo/shared/lifestyle';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
-import { resolveProfileDisplayName } from '../common/deidentification/deidentified-display.owner.js';
-import type { MatchesService } from '../matches/matches.service.js';
-import { shouldExposePublicMatchScore } from '../matches/match-score-projection.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
+import { resolveProfileDisplayName } from '../privacy/deidentification/deidentified-display.policy.js';
+import type { MatchActiveViewPort } from '../matches/application/ports/match-active-view.port.js';
+import type { MatchScoreProjectionPort } from '../matches/application/ports/match-score-projection.port.js';
 import {
   currentSeasonParticipantSelect,
   mapCurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantRecord,
   type CurrentSeasonParticipantProfileRecord,
-} from '../season-participants/season-participant-records.js';
-import type { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
+} from '../season-participants/participants/season-participant-records.js';
+import type { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
 import {
   canCurrentDormitoryMatch,
   hasOperatedAssignedDormitory,
   isParticipantRegistered,
-} from '../season-participants/season-participant-policy.js';
+} from '../season-participants/policies/index.js';
 import {
   buildPublicTargetPolicyTargetInput,
   buildPublicTargetPolicyViewerInput,
-} from '../season-participants/season-participant-gate-context.js';
-import { resolvePublicTargetPolicy } from '../season-participants/season-participant-policy.js';
-import type { SeasonsService } from '../seasons/seasons.service.js';
-import { resolveCampusServiceState } from '../users/service-state.js';
+} from '../season-participants/public-target-policy/index.js';
+import { resolvePublicTargetPolicy } from '../season-participants/public-target-policy/index.js';
+import type { SeasonContextPort } from '../seasons/ports/season-context.port.js';
+import { resolveCampusServiceState } from '../seasons/runtime/campus-service-state.query.js';
 import {
   parseLifestyleOrNull,
   toPublicProfile,
   toTombstonePublicProfile,
   type ProfileViewRecord,
 } from './profile.mapper.js';
-import { calculateQueryTimeRoommateSearchScore } from './roommate-search-score.owner.js';
 import {
   createRoommateSearchTokenOwner,
   type ProfileDetailEntryTokenPayload,
@@ -38,9 +37,10 @@ import {
 
 interface VisibleProfileOwnerDeps {
   prisma: PrismaService;
-  seasonsService: SeasonsService;
+  seasonsService: SeasonContextPort;
   seasonParticipantsService: SeasonParticipantsService;
-  matchesService: MatchesService;
+  matchActiveView: MatchActiveViewPort;
+  matchScoreProjection: MatchScoreProjectionPort;
 }
 
 export interface VisibleProfileViewerContext {
@@ -85,7 +85,7 @@ export interface ResolvedVisibleProfileEntry {
 }
 
 type ActiveMatchByParticipantId = Awaited<
-  ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>
+  ReturnType<MatchActiveViewPort['getCurrentActiveMatchByParticipantId']>
 >;
 type ActiveMatchByParticipantIdMap = Map<string, ActiveMatchByParticipantId>;
 
@@ -175,7 +175,9 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
   function resolveVisibleProfileEntry(
     candidate: VisibleProfileTargetCandidate,
     viewerContext: VisibleProfileViewerContext,
-    viewerActiveMatch: Awaited<ReturnType<MatchesService['getCurrentActiveMatchByParticipantId']>>,
+    viewerActiveMatch: Awaited<
+      ReturnType<MatchActiveViewPort['getCurrentActiveMatchByParticipantId']>
+    >,
     activeMatchMap: ActiveMatchByParticipantIdMap,
     registrationSnapshotParticipantIds: ReadonlySet<string>,
   ): ResolvedVisibleProfileEntry | null {
@@ -215,13 +217,13 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     }
 
     const targetLifestyle = parseLifestyleOrNull(sourceProfile.lifestyle);
-    const scoreVisible = shouldExposePublicMatchScore({
+    const scoreVisible = deps.matchScoreProjection.shouldExposePublicMatchScore({
       seasonState: viewerContext.serviceState.seasonState,
       scoreVisible: publicTargetPolicy.exposure.scoreVisible,
       resultReadContext: publicTargetPolicy.resultRead.context,
     });
     const matchScore = scoreVisible
-      ? calculateQueryTimeRoommateSearchScore({
+      ? deps.matchScoreProjection.calculateQueryTimeRoommateSearchScore({
           viewerLifestyle: viewerContext.viewerLifestyle,
           targetLifestyle,
           scoreVisible,
@@ -260,7 +262,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       );
 
     const activeMatchMap = viewerContext.currentSeasonId
-      ? await deps.matchesService.getLiveActiveMatchMapForParticipantIds(
+      ? await deps.matchActiveView.getLiveActiveMatchMapForParticipantIds(
           viewerContext.currentSeasonId,
           participantIds,
         )
@@ -408,6 +410,10 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
     candidate: VisibleProfileTargetCandidate,
     detailEntryContext: ProfileDetailEntryTokenPayload | null = null,
   ): Promise<PublicProfile | null> {
+    if (await hasActiveBlockBetweenUsers(viewerContext.viewer.id, candidate.user.id)) {
+      return null;
+    }
+
     if (detailEntryContext) {
       if (
         detailEntryContext.seasonId !== viewerContext.currentSeasonId ||
@@ -426,7 +432,7 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
         candidate.participant.id,
       ]),
       viewerContext.currentSeasonId
-        ? deps.matchesService.getLiveActiveMatchMapForParticipantIds(
+        ? deps.matchActiveView.getLiveActiveMatchMapForParticipantIds(
             viewerContext.currentSeasonId,
             participantIds,
           )
@@ -473,13 +479,13 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       (hasDetailEntryContext || hasResultReadContext)
     ) {
       const targetLifestyle = parseLifestyleOrNull(sourceProfile.lifestyle);
-      const scoreVisible = shouldExposePublicMatchScore({
+      const scoreVisible = deps.matchScoreProjection.shouldExposePublicMatchScore({
         seasonState: viewerContext.serviceState.seasonState,
         scoreVisible: publicTargetPolicy.exposure.scoreVisible,
         resultReadContext: publicTargetPolicy.resultRead.context,
       });
       const matchScore = scoreVisible
-        ? calculateQueryTimeRoommateSearchScore({
+        ? deps.matchScoreProjection.calculateQueryTimeRoommateSearchScore({
             viewerLifestyle: viewerContext.viewerLifestyle,
             targetLifestyle,
             scoreVisible,
@@ -525,6 +531,27 @@ export function createVisibleProfileOwner(deps: VisibleProfileOwnerDeps) {
       resultRead: publicTargetPolicy.resultRead,
       listSummaryVisible: publicTargetPolicy.exposure.listSummaryVisible,
     });
+  }
+
+  async function hasActiveBlockBetweenUsers(viewerUserId: string, targetUserId: string) {
+    const activeBlock = await deps.prisma.userBlock.findFirst({
+      where: {
+        unblockedAt: null,
+        OR: [
+          {
+            blockerUserId: viewerUserId,
+            blockedUserId: targetUserId,
+          },
+          {
+            blockerUserId: targetUserId,
+            blockedUserId: viewerUserId,
+          },
+        ],
+      },
+      select: { id: true },
+    });
+
+    return activeBlock !== null;
   }
 
   return {

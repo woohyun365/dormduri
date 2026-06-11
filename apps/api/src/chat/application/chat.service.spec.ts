@@ -4,7 +4,7 @@ import { chatErrors } from '../errors/chat.errors.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
-} from '../../season-participants/season-participants.service.js';
+} from '../../season-participants/application/season-participants.service.js';
 
 type UserSeed = {
   id: string;
@@ -200,6 +200,8 @@ describe('ChatService', () => {
   const txChatRealtimeOutboxEventCreate = jest.fn();
   const txChatRealtimeEventRecipientCreateMany = jest.fn();
   const txActiveMatchFindFirst = jest.fn();
+  const prismaUserBlockFindFirst = jest.fn();
+  const txUserBlockFindFirst = jest.fn();
   const appendChatThreadCreatedNotification = jest.fn();
 
   const prisma = {
@@ -211,6 +213,9 @@ describe('ChatService', () => {
     },
     activeMatch: {
       findFirst: jest.fn(),
+    },
+    userBlock: {
+      findFirst: prismaUserBlockFindFirst,
     },
     conversationThread: {
       count: jest.fn(),
@@ -307,6 +312,8 @@ describe('ChatService', () => {
     );
     seasonParticipantsService.hasRegistrationSnapshotForParticipant.mockResolvedValue(true);
     prisma.activeMatch.findFirst.mockResolvedValue(null);
+    prismaUserBlockFindFirst.mockResolvedValue(null);
+    txUserBlockFindFirst.mockResolvedValue(null);
     prisma.conversationThread.count.mockResolvedValue(0);
     prisma.conversationThread.findFirst.mockResolvedValue(null);
     prisma.conversationThread.findMany.mockResolvedValue([]);
@@ -388,6 +395,9 @@ describe('ChatService', () => {
         },
         activeMatch: {
           findFirst: txActiveMatchFindFirst,
+        },
+        userBlock: {
+          findFirst: txUserBlockFindFirst,
         },
       }),
     );
@@ -817,6 +827,54 @@ describe('ChatService', () => {
       response: chatErrors.messageSendNotAllowed().getResponse(),
     });
 
+    expect(txConversationThreadCreate).not.toHaveBeenCalled();
+    expect(txConversationMessageCreate).not.toHaveBeenCalled();
+  });
+
+  it('chat entry와 send는 active block이 양방향 중 하나라도 있으면 fail-closed 된다', async () => {
+    prismaUserBlockFindFirst.mockResolvedValueOnce({ id: 'block-root' });
+
+    await expect(
+      service.getThreadEntry(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        'user-2',
+      ),
+    ).resolves.toEqual({
+      targetUserId: 'user-2',
+      thread: null,
+      canEnterChatUi: false,
+      canSendMessage: false,
+    });
+
+    txUserBlockFindFirst.mockResolvedValueOnce({ id: 'block-tx' });
+
+    await expect(
+      service.sendMessage(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        makeSendMessageInput('active block race 차단', 'client-message-policy-block-race'),
+      ),
+    ).rejects.toMatchObject({
+      response: chatErrors.messageSendNotAllowed().getResponse(),
+    });
+
+    expect(txUserBlockFindFirst).toHaveBeenCalledWith({
+      where: {
+        unblockedAt: null,
+        OR: [
+          { blockerUserId: 'user-1', blockedUserId: 'user-2' },
+          { blockerUserId: 'user-2', blockedUserId: 'user-1' },
+        ],
+      },
+      select: { id: true },
+    });
     expect(txConversationThreadCreate).not.toHaveBeenCalled();
     expect(txConversationMessageCreate).not.toHaveBeenCalled();
   });

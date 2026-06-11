@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ListNotificationsQuery,
+  MarkAllNotificationsReadResponse,
   MarkNotificationReadResponse,
   NotificationListResponse,
   NotificationUnreadCountResponse,
-} from '@repo/shared/notification-contract';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
+} from '@repo/shared/notifications';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import { notificationErrors } from '../errors/notification.errors.js';
 import {
   toUserNotification,
@@ -100,6 +101,16 @@ export class NotificationQueryService {
     }
 
     return { notification: toUserNotification(notification) };
+  }
+
+  async markAllRead(userId: string): Promise<MarkAllNotificationsReadResponse> {
+    const now = await this.prisma.getDatabaseNow();
+    const result = await this.prisma.userNotification.updateMany({
+      where: { recipientUserId: userId, readAt: null },
+      data: { readAt: now, updatedAt: now },
+    });
+
+    return { updatedCount: result.count, readAt: now.toISOString() };
   }
 }
 

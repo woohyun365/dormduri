@@ -3,15 +3,18 @@ import {
   buildJsonResponse,
   clearAuthCookie,
   forwardAuthRequest,
+  getAuthRenewalTokenCookie,
+  getAuthTokenCookie,
   getForwardHeaders,
 } from '../_shared';
 
 export async function POST(request: NextRequest) {
-  const token = request.cookies.get('auth-token')?.value;
+  const token = getAuthTokenCookie(request);
+  const renewalToken = getAuthRenewalTokenCookie(request);
   const { response, json } = await forwardAuthRequest(
     'POST',
     '/auth/logout',
-    {},
+    renewalToken ? { renewalToken } : {},
     {
       headers: getForwardHeaders(request, token ? { Authorization: `Bearer ${token}` } : undefined),
     },

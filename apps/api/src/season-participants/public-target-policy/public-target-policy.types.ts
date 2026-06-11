@@ -5,8 +5,8 @@ import type {
   PublicTargetActionUnavailableReason,
   PublicTargetResultReadContext,
 } from '@repo/shared/profile-contract';
-import type { DormitorySelectionState } from '@repo/shared/dormitory-contract';
-import type { SeasonState } from '@repo/shared/season-contract';
+import type { DormitorySelectionState } from '@repo/shared/dormitory';
+import type { SeasonState } from '@repo/shared/season/runtime';
 
 export interface PublicTargetPolicyViewerInput {
   campusOperated: boolean;

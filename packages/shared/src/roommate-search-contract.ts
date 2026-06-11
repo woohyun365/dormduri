@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { collegeCodeSchema } from './college-contract.js';
-import { LIFESTYLE_FIELD_OPTIONS } from './lifestyle.js';
+import { collegeCodeSchema } from './college/index.js';
+import { LIFESTYLE_FIELD_OPTIONS } from './lifestyle/index.js';
 import {
   profileGradeSchema,
   profileSourceSchema,
@@ -231,6 +231,11 @@ export const roommateSearchProfileSummarySchema = z.strictObject({
   relationshipStyle: z.enum(LIFESTYLE_FIELD_OPTIONS.relationshipStyle).nullable(),
 });
 
+export const roommateSearchBookmarkStateSchema = z.strictObject({
+  bookmarked: z.boolean(),
+  bookmarkedAt: z.string().datetime().optional(),
+});
+
 export const roommateSearchSummarySchema = z
   .strictObject({
     id: z.string(),
@@ -240,6 +245,7 @@ export const roommateSearchSummarySchema = z
     actions: publicProfileActionCapabilitiesSchema,
     resultRead: publicTargetResultReadSchema,
     profileSummary: roommateSearchProfileSummarySchema,
+    bookmark: roommateSearchBookmarkStateSchema.optional(),
     detailEntryToken: z.string().optional(),
   })
   .extend({

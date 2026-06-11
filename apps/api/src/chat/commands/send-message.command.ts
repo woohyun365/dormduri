@@ -1,13 +1,13 @@
 import type {
   SendConversationMessageRequest,
   SendConversationMessageResponse,
-} from '@repo/shared/chat-contract';
-import type { AuthenticatedUserContext } from '../../auth/auth-session.service.js';
-import { buildParticipantPairIdentity } from '../../matches/match.utils.js';
+} from '@repo/shared/chat';
+import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import { buildParticipantPairIdentity } from '../../matches/persistence/match-pair-identity.js';
 import {
   isPrismaKnownRequestError,
   prismaErrorTargetIncludes,
-} from '../../common/prisma/prisma-error.js';
+} from '../../platform/database/prisma-error.js';
 import type { ChatUserContext } from '../application/chat-user-context.service.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';
@@ -20,6 +20,15 @@ import type {
 } from './chat-command.types.js';
 
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();
+
+function shouldReopenBlockClosedDirectThread(thread: ThreadRecord): boolean {
+  return (
+    thread.threadKind === 'DIRECT' &&
+    thread.activeMatchId === null &&
+    thread.status === 'READ_ONLY' &&
+    thread.closedReason === 'USER_BLOCKED'
+  );
+}
 
 export function createSendMessageCommand(deps: ChatCommandDeps) {
   return async function sendMessage(
@@ -245,6 +254,23 @@ export function createSendMessageCommand(deps: ChatCommandDeps) {
           data: {
             threadKind: 'MATCHED',
             activeMatchId: pairActiveMatch.id,
+            status: 'OPEN',
+            closedReason: null,
+            closedAt: null,
+          },
+          select: threadSelect,
+        });
+        await chatRealtimeOutbox.appendThreadUpdated(tx, {
+          threadId: thread.id,
+          status: thread.status,
+          closedReason: thread.closedReason,
+          recipientUserIds: [txViewerUser.id, txTargetUser.id],
+          occurredAt: now,
+        });
+      } else if (shouldReopenBlockClosedDirectThread(thread)) {
+        thread = await tx.conversationThread.update({
+          where: { id: thread.id },
+          data: {
             status: 'OPEN',
             closedReason: null,
             closedAt: null,

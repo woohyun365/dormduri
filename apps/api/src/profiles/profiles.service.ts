@@ -1,10 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { PublicProfile } from '@repo/shared/profile-contract';
-import type { AuthenticatedUserContext } from '../auth/auth-session.service.js';
-import { PrismaService } from '../common/prisma/prisma.service.js';
-import { MatchesService } from '../matches/matches.service.js';
-import { SeasonParticipantsService } from '../season-participants/season-participants.service.js';
-import { SeasonsService } from '../seasons/seasons.service.js';
+import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';
+import { PrismaService } from '../platform/database/prisma.service.js';
+import {
+  MATCH_ACTIVE_VIEW_PORT,
+  type MatchActiveViewPort,
+} from '../matches/application/ports/match-active-view.port.js';
+import {
+  MATCH_SCORE_PROJECTION_PORT,
+  type MatchScoreProjectionPort,
+} from '../matches/application/ports/match-score-projection.port.js';
+import { SeasonParticipantsService } from '../season-participants/application/season-participants.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../seasons/ports/season-context.port.js';
 import { createProfilesReadOwner } from './profiles-read-owner.js';
 
 @Injectable()
@@ -13,15 +23,20 @@ export class ProfilesService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
+    @Inject(SEASON_CONTEXT_PORT)
+    private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
-    private readonly matchesService: MatchesService,
+    @Inject(MATCH_ACTIVE_VIEW_PORT)
+    private readonly matchActiveView: MatchActiveViewPort,
+    @Inject(MATCH_SCORE_PROJECTION_PORT)
+    private readonly matchScoreProjection: MatchScoreProjectionPort,
   ) {
     this.readOwner = createProfilesReadOwner({
       prisma: this.prisma,
       seasonsService: this.seasonsService,
       seasonParticipantsService: this.seasonParticipantsService,
-      matchesService: this.matchesService,
+      matchActiveView: this.matchActiveView,
+      matchScoreProjection: this.matchScoreProjection,
     });
   }
 

@@ -1,24 +1,22 @@
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 import type { Prisma } from '../../generated/prisma/client.js';
-import type { PrismaService } from '../../common/prisma/prisma.service.js';
+import type { PrismaService } from '../../platform/database/prisma.service.js';
+import { buildCurrentUserCapabilities } from '../../season-participants/capabilities/index.js';
+import { canCurrentDormitoryMatch } from '../../season-participants/policies/index.js';
+import { resolvePublicTargetPolicy } from '../../season-participants/public-target-policy/index.js';
+import type { CurrentSeasonParticipantRecord } from '../../season-participants/application/season-participants.service.js';
+import type { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
+import { buildCurrentUserCapabilityInput } from '../../season-participants/capabilities/index.js';
 import {
-  buildCurrentUserCapabilities,
-  canCurrentDormitoryMatch,
-  resolvePublicTargetPolicy,
-} from '../../season-participants/season-participant-policy.js';
-import type { CurrentSeasonParticipantRecord } from '../../season-participants/season-participants.service.js';
-import type { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
-import {
-  buildCurrentUserCapabilityInput,
   buildPublicTargetPolicyTargetInput,
   buildPublicTargetPolicyViewerInput,
   toOperatedDormitoryIdSet,
-} from '../../season-participants/season-participant-gate-context.js';
+} from '../../season-participants/public-target-policy/index.js';
+import { formatKstDate } from '../../platform/time/kst-date.js';
 import {
-  formatKstDate,
   getEffectiveSeasonState,
   normalizeSeasonRuntimeRow,
-} from '../../seasons/season.utils.js';
+} from '../../seasons/ports/season-context.port.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import type { ChatUserContext } from '../application/chat-user-context.service.js';
 import { parseLifestyleOrNull } from '../../profiles/profile.mapper.js';
@@ -39,6 +37,15 @@ import {
 } from './chat-thread-permission.policy.js';
 
 type ChatDbClient = Prisma.TransactionClient | PrismaService;
+
+function isBlockClosedDirectThread(thread: ThreadRecord): boolean {
+  return (
+    thread.threadKind === 'DIRECT' &&
+    thread.activeMatchId === null &&
+    thread.status === 'READ_ONLY' &&
+    thread.closedReason === 'USER_BLOCKED'
+  );
+}
 
 interface ChatThreadSupportOwnerDeps {
   prisma: PrismaService;
@@ -221,6 +228,19 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
         publicTargetPolicy.actions.unavailableReasons.includes('TARGET_DELETED_OR_DEIDENTIFIED')
           ? 'TARGET_DELETED_OR_DEIDENTIFIED'
           : 'DIRECT_ACTION_NOT_ALLOWED';
+      const activeBlock = await client.userBlock.findFirst({
+        where: {
+          unblockedAt: null,
+          OR: [
+            { blockerUserId: viewerContext.user.id, blockedUserId: targetUser.id },
+            { blockerUserId: targetUser.id, blockedUserId: viewerContext.user.id },
+          ],
+        },
+        select: { id: true },
+      });
+      if (activeBlock) {
+        return cannotSendMessageDecision('SAFETY_OR_VISIBILITY_RESTRICTED');
+      }
 
       if (thread) {
         const viewerMember = this.getThreadMember(thread, viewerParticipant.id);
@@ -229,6 +249,11 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
             return pairHasActiveMatch
               ? this.resolveMatchedPairThreadSendMessageDecision(thread, viewerParticipant.id, now)
               : this.resolveThreadSendMessageDecision(thread, viewerParticipant.id, now);
+          }
+          if (isBlockClosedDirectThread(thread)) {
+            return directThreadActionEligible
+              ? canSendMessageDecision()
+              : cannotSendMessageDecision(directThreadActionUnavailableReason);
           }
           const threadDecision = this.resolveThreadSendMessageDecision(
             thread,
@@ -249,6 +274,11 @@ export function createChatThreadSupportOwner(deps: ChatThreadSupportOwnerDeps) {
               : cannotSendMessageDecision(
                   thread.closedReason === 'SEASON_ENDED' ? 'SEASON_ENDED' : 'THREAD_READ_ONLY',
                 );
+          }
+          if (isBlockClosedDirectThread(thread)) {
+            return directThreadActionEligible
+              ? canSendMessageDecision()
+              : cannotSendMessageDecision(directThreadActionUnavailableReason);
           }
           return directThreadActionEligible && thread.status === 'OPEN'
             ? canSendMessageDecision()

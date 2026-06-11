@@ -1,6 +1,8 @@
-import type { SignupProfileValidationRequest } from '@repo/shared/auth-contract';
+import type { SignupDraftValidationRequest } from '@repo/shared/auth/contract';
 import { createForwardPostHandler } from '../_post-route';
 
-export const POST = createForwardPostHandler<SignupProfileValidationRequest>(
-  '/auth/validate-signup-profile',
+// Deprecated BFF compatibility route for the old signup-profile naming.
+// Backend canonical route is /auth/validate-signup-draft; keep this only until React signup UI migrates.
+export const POST = createForwardPostHandler<SignupDraftValidationRequest>(
+  '/auth/validate-signup-draft',
 );

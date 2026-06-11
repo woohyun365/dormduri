@@ -1,14 +1,14 @@
-import { PrismaService } from '../../src/common/prisma/prisma.service.js';
-import type { LifestyleData } from '../../src/auth/lifestyle.schema.js';
+import { PrismaService } from '../../src/platform/database/prisma.service.js';
+import type { LifestyleData } from '@repo/shared/lifestyle';
 import { ProfilesService } from '../../src/profiles/profiles.service.js';
 import { RoommateSearchService } from '../../src/profiles/roommate-search.service.js';
-import { toCompleteLifestyleColumnData } from '../../src/common/lifestyle/lifestyle.persistence.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from './support/integration-db.js';
 import {
+  toCompleteLifestyleColumnData,
   authContext,
   DEFAULT_LIFESTYLE,
   seedActiveMatchFixture,

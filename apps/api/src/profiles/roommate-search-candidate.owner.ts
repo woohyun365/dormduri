@@ -3,14 +3,14 @@ import type {
   RoommateSearchQuery,
   RoommateSearchScope,
 } from '@repo/shared/roommate-search-contract';
-import type { PrismaService } from '../common/prisma/prisma.service.js';
+import type { PrismaService } from '../platform/database/prisma.service.js';
 import type { Prisma } from '../generated/prisma/client.js';
-import { currentSeasonParticipantSelect } from '../season-participants/season-participant-records.js';
+import { currentSeasonParticipantSelect } from '../season-participants/participants/season-participant-records.js';
 import {
   lifestyleFieldNames,
   toStoredBedtime,
   toStoredWakeTime,
-} from '../common/lifestyle/lifestyle.persistence.js';
+} from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import type { VisibleProfileViewerContext } from './visible-profile-owner.js';
 
 export interface RoommateSearchCandidateOwnerDeps {

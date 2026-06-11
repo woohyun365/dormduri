@@ -6,8 +6,8 @@ import {
   OnModuleDestroy,
   Optional,
 } from '@nestjs/common';
-import { notificationCreatedRealtimeEventSchema } from '@repo/shared/notification-contract';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
+import { notificationCreatedRealtimeEventSchema } from '@repo/shared/notifications';
+import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   REALTIME_DISPATCHER_CONFIG_PORT,
   REALTIME_DISPATCH_METRICS_PORT,
@@ -17,7 +17,7 @@ import {
 import {
   NOTIFICATION_REALTIME_PUBLISHER,
   type NotificationRealtimePublisherPort,
-} from '../notifications.tokens.js';
+} from '../application/ports/notification-realtime-publisher.port.js';
 import { isNotificationPayloadPrivacySafe } from '../policies/notification-payload.policy.js';
 import {
   type ClaimedNotificationOutboxEvent,

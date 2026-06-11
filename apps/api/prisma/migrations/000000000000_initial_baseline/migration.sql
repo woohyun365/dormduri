@@ -14,6 +14,12 @@ CREATE TYPE "Campus" AS ENUM ('CHUNCHEON', 'SAMCHEOK', 'DOGYE');
 CREATE TYPE "VerificationCodePurpose" AS ENUM ('SIGNUP', 'RESET_PASSWORD');
 
 -- CreateEnum
+CREATE TYPE "AuthSecurityEventType" AS ENUM ('LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGIN_LOCKOUT', 'VERIFICATION_CODE_REQUESTED', 'VERIFICATION_CODE_VERIFY_SUCCESS', 'VERIFICATION_CODE_VERIFY_FAILURE', 'RESET_PASSWORD_CONSUMED', 'CHANGE_PASSWORD_SUCCESS', 'SESSION_REFRESH_SUCCESS', 'SESSION_REVOKED', 'SESSION_REVOKE_ALL', 'SESSION_TOKEN_REUSE_DETECTED', 'OPAQUE_TRANSPORT_REJECTED', 'MAIL_SEND_SUCCESS', 'MAIL_SEND_FAILURE');
+
+-- CreateEnum
+CREATE TYPE "AuthSecurityEventSeverity" AS ENUM ('INFO', 'WARNING', 'CRITICAL');
+
+-- CreateEnum
 CREATE TYPE "ModerationTermCategory" AS ENUM ('BLOCKED_TEXT', 'RESERVED_NICKNAME');
 
 -- CreateEnum
@@ -35,6 +41,9 @@ CREATE TYPE "DormitoryBathroomType" AS ENUM ('SHARED', 'PRIVATE');
 CREATE TYPE "SeasonOverrideState" AS ENUM ('OFF_SEASON', 'SEASON_OPEN', 'SEASON_MATCHING', 'SEASON_POST_MATCH');
 
 -- CreateEnum
+CREATE TYPE "SeasonOperationAuditAction" AS ENUM ('UPDATE_SCHEDULE', 'UPDATE_OVERRIDE', 'CLEAR_OVERRIDE');
+
+-- CreateEnum
 CREATE TYPE "SeasonParticipationIntent" AS ENUM ('UNDECIDED', 'REGISTERED', 'DECLINED');
 
 -- CreateEnum
@@ -42,6 +51,45 @@ CREATE TYPE "ParticipantStatus" AS ENUM ('NOT_STARTED', 'DRAFT', 'ACTIVE', 'MATC
 
 -- CreateEnum
 CREATE TYPE "ParticipantHiddenReasonCode" AS ENUM ('POLICY_VIOLATION', 'SAFETY_REVIEW', 'ADMIN_REQUEST', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "SeasonParticipantLifecycleEventType" AS ENUM ('JOINED', 'ACTIVATED', 'WITHDRAWN', 'EXPIRED', 'DEACTIVATED', 'HIDDEN', 'UNHIDDEN', 'MATCHED', 'UNMATCHED');
+
+-- CreateEnum
+CREATE TYPE "UserBlockEventType" AS ENUM ('BLOCKED', 'UNBLOCKED');
+
+-- CreateEnum
+CREATE TYPE "ReportTargetType" AS ENUM ('PROFILE', 'MATCH_REQUEST', 'CHAT_THREAD', 'CHAT_MESSAGE', 'SUPPORT_TICKET');
+
+-- CreateEnum
+CREATE TYPE "ReportReason" AS ENUM ('SEXUAL_HARASSMENT', 'THREAT', 'PERSONAL_INFO_EXPOSURE', 'GENDER_IMPERSONATION', 'FALSE_PROFILE', 'SPAM_OR_AD', 'HATE_OR_DISCRIMINATION', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "ReportRiskTier" AS ENUM ('LOW', 'MEDIUM', 'HIGH');
+
+-- CreateEnum
+CREATE TYPE "ReportStatus" AS ENUM ('SUBMITTED', 'EVIDENCE_ONLY');
+
+-- CreateEnum
+CREATE TYPE "ReportOptionalAction" AS ENUM ('BLOCK_TARGET');
+
+-- CreateEnum
+CREATE TYPE "ReportCaseEventType" AS ENUM ('REPORT_SUBMITTED', 'REPORT_REPLAYED', 'REPORT_RECEIPT_NOTIFICATION_QUEUED', 'OPTIONAL_BLOCK_RESULT_RECORDED', 'RETENTION_REFERENCE_RECORDED', 'HIGH_RISK_ALERT_CANDIDATE_RECORDED', 'PROFILE_MISMATCH_FEEDBACK_CANDIDATE_RECORDED', 'UNVERIFIED_ATTACHMENT_POINTERS_RECORDED');
+
+-- CreateEnum
+CREATE TYPE "ReportActorType" AS ENUM ('USER', 'SYSTEM');
+
+-- CreateEnum
+CREATE TYPE "SupportTicketCategory" AS ENUM ('ACCOUNT', 'SEASON', 'MATCHING', 'REPORT_OR_BLOCK', 'APPEAL', 'BUG', 'OTHER');
+
+-- CreateEnum
+CREATE TYPE "SupportTicketStatus" AS ENUM ('OPEN', 'WAITING_USER', 'WAITING_OPERATOR', 'RESOLVED', 'CLOSED');
+
+-- CreateEnum
+CREATE TYPE "SupportMessageSenderType" AS ENUM ('USER', 'OPERATOR', 'SYSTEM');
+
+-- CreateEnum
+CREATE TYPE "SupportAppealCategory" AS ENUM ('SANCTION', 'TEMPORARY_RESTRICTION', 'REPORT_RESULT', 'CONTENT_ACTION');
 
 -- CreateEnum
 CREATE TYPE "MatchRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM', 'EXPIRED');
@@ -59,6 +107,15 @@ CREATE TYPE "ActiveMatchEndReason" AS ENUM ('UNMATCHED_BY_MUTUAL_CONSENT', 'SEAS
 CREATE TYPE "ActiveMatchUnmatchRequestStatus" AS ENUM ('PENDING', 'CANCELLED_BY_REQUESTER', 'EXPIRED_BY_CUTOFF', 'FULFILLED_BY_MUTUAL_CONSENT');
 
 -- CreateEnum
+CREATE TYPE "ActiveMatchLifecycleEventType" AS ENUM ('ACTIVE_CREATED', 'UNMATCH_REQUESTED', 'UNMATCH_REQUEST_CANCELLED', 'UNMATCH_REQUEST_EXPIRED', 'UNMATCHED', 'SEASON_ENDED', 'ADMIN_ENDED', 'PARTICIPANT_WITHDRAWN');
+
+-- CreateEnum
+CREATE TYPE "ActiveMatchLifecycleEventReason" AS ENUM ('MATCH_REQUEST_ACCEPTED', 'USER_REQUESTED_UNMATCH', 'USER_CANCELLED_UNMATCH_REQUEST', 'ROOM_SELECTION_CUTOFF', 'MUTUAL_UNMATCH_CONSENT', 'SEASON_ENDED_SWEEP', 'ADMIN_ACTION', 'WITHDRAWN_PARTICIPANT');
+
+-- CreateEnum
+CREATE TYPE "ActiveMatchLifecycleActorType" AS ENUM ('USER', 'SYSTEM', 'ADMIN');
+
+-- CreateEnum
 CREATE TYPE "SeasonMatchHistoryEntryType" AS ENUM ('REQUEST', 'MATCH');
 
 -- CreateEnum
@@ -71,7 +128,7 @@ CREATE TYPE "ConversationThreadKind" AS ENUM ('DIRECT', 'MATCHED');
 CREATE TYPE "ConversationThreadStatus" AS ENUM ('OPEN', 'READ_ONLY', 'ARCHIVED');
 
 -- CreateEnum
-CREATE TYPE "ConversationThreadClosedReason" AS ENUM ('ACTIVE_MATCH_CREATED', 'ROOM_SELECTION_CUTOFF', 'SEASON_ENDED', 'PARTICIPANT_WITHDRAWN', 'MODERATION', 'ADMIN_ACTION');
+CREATE TYPE "ConversationThreadClosedReason" AS ENUM ('ACTIVE_MATCH_CREATED', 'ROOM_SELECTION_CUTOFF', 'SEASON_ENDED', 'PARTICIPANT_WITHDRAWN', 'USER_BLOCKED', 'MODERATION', 'ADMIN_ACTION');
 
 -- CreateEnum
 CREATE TYPE "ConversationThreadMemberState" AS ENUM ('ACTIVE', 'LEFT');
@@ -83,10 +140,22 @@ CREATE TYPE "ConversationMessageBodyState" AS ENUM ('PLAIN', 'TOMBSTONED', 'DISP
 CREATE TYPE "ConversationMessageTombstoneReason" AS ENUM ('ACCOUNT_DELETION_RETENTION', 'USER_MESSAGE_DELETED', 'MODERATION_POLICY_VIOLATION', 'ADMIN_ACTION', 'RETENTION_DISPOSED');
 
 -- CreateEnum
-CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED');
+CREATE TYPE "NotificationKind" AS ENUM ('CHAT_THREAD_CREATED', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'PROFILE_MISMATCH_FEEDBACK', 'SEASON_SYSTEM_NOTICE', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED');
 
 -- CreateEnum
 CREATE TYPE "NotificationOutboxStatus" AS ENUM ('PENDING', 'PUBLISHED', 'FAILED');
+
+-- CreateEnum
+CREATE TYPE "NotificationCampaignStatus" AS ENUM ('PENDING', 'RUNNING', 'COMPLETED', 'FAILED');
+
+-- CreateEnum
+CREATE TYPE "OperatorAlertStatus" AS ENUM ('PENDING', 'DISPATCHED', 'FAILED', 'SKIPPED');
+
+-- CreateEnum
+CREATE TYPE "OperatorAlertCategory" AS ENUM ('HIGH_RISK_REPORT');
+
+-- CreateEnum
+CREATE TYPE "OperatorAlertSeverity" AS ENUM ('INFO', 'WARNING', 'CRITICAL');
 
 -- CreateEnum
 CREATE TYPE "RetainedVaultObjectTarget" AS ENUM ('CHAT_MESSAGE_BODY', 'SEASON_PROFILE_HISTORY', 'MATCH_HISTORY_ENTRY', 'NICKNAME_AUDIT_EVENT', 'ACADEMIC_IDENTITY_AUDIT_EVENT');
@@ -296,6 +365,23 @@ CREATE TABLE "Season" (
 );
 
 -- CreateTable
+CREATE TABLE "SeasonOperationAuditEvent" (
+    "id" TEXT NOT NULL,
+    "seasonId" TEXT NOT NULL,
+    "campusCode" "Campus" NOT NULL,
+    "action" "SeasonOperationAuditAction" NOT NULL,
+    "actorUserId" TEXT,
+    "actorCapabilities" JSONB,
+    "reason" TEXT,
+    "previousSnapshot" JSONB NOT NULL,
+    "nextSnapshot" JSONB NOT NULL,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SeasonOperationAuditEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "SeasonDormitoryOperation" (
     "seasonId" TEXT NOT NULL,
     "dormitoryId" TEXT NOT NULL,
@@ -501,6 +587,155 @@ CREATE TABLE "SeasonParticipant" (
 );
 
 -- CreateTable
+CREATE TABLE "UserBookmark" (
+    "id" TEXT NOT NULL,
+    "viewerUserId" TEXT NOT NULL,
+    "seasonId" TEXT NOT NULL,
+    "targetUserId" TEXT NOT NULL,
+    "targetParticipantId" TEXT NOT NULL,
+    "bookmarkedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deletedAt" TIMESTAMPTZ(3),
+    "expiredAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserBookmark_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserBlock" (
+    "id" TEXT NOT NULL,
+    "blockerUserId" TEXT NOT NULL,
+    "blockedUserId" TEXT NOT NULL,
+    "note" TEXT,
+    "blockedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "unblockedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserBlock_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "UserBlockEvent" (
+    "id" TEXT NOT NULL,
+    "blockId" TEXT NOT NULL,
+    "actorUserId" TEXT NOT NULL,
+    "targetUserId" TEXT NOT NULL,
+    "eventType" "UserBlockEventType" NOT NULL,
+    "noteSnapshot" TEXT,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "UserBlockEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ReportCase" (
+    "id" TEXT NOT NULL,
+    "reporterUserId" TEXT NOT NULL,
+    "targetType" "ReportTargetType" NOT NULL,
+    "targetId" TEXT NOT NULL,
+    "targetUserId" TEXT,
+    "targetParticipantId" TEXT,
+    "targetThreadId" TEXT,
+    "targetMessageId" TEXT,
+    "targetMatchRequestId" TEXT,
+    "seasonId" TEXT,
+    "reason" "ReportReason" NOT NULL,
+    "riskTier" "ReportRiskTier" NOT NULL,
+    "status" "ReportStatus" NOT NULL DEFAULT 'SUBMITTED',
+    "detail" TEXT,
+    "evidenceAttachmentIds" JSONB,
+    "evidenceAttachmentPolicy" TEXT,
+    "optionalBlockRequested" BOOLEAN NOT NULL DEFAULT false,
+    "optionalBlockResult" JSONB,
+    "falseReportDisclaimerAcceptedAt" TIMESTAMPTZ(3) NOT NULL,
+    "targetSnapshot" JSONB NOT NULL,
+    "receivedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ReportCase_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ReportCaseEvent" (
+    "id" TEXT NOT NULL,
+    "reportCaseId" TEXT NOT NULL,
+    "actorUserId" TEXT,
+    "actorType" "ReportActorType" NOT NULL DEFAULT 'USER',
+    "eventType" "ReportCaseEventType" NOT NULL,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ReportCaseEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SupportTicket" (
+    "id" TEXT NOT NULL,
+    "requesterUserId" TEXT NOT NULL,
+    "category" "SupportTicketCategory" NOT NULL,
+    "subject" TEXT NOT NULL,
+    "status" "SupportTicketStatus" NOT NULL DEFAULT 'OPEN',
+    "relatedEntityId" TEXT,
+    "appealCategory" "SupportAppealCategory",
+    "emailReplyConsent" BOOLEAN NOT NULL DEFAULT false,
+    "lastMessageAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "closedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SupportTicket_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SupportTicketMessage" (
+    "id" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "senderType" "SupportMessageSenderType" NOT NULL,
+    "senderUserId" TEXT,
+    "body" TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SupportTicketMessage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SupportFaqArticle" (
+    "id" TEXT NOT NULL,
+    "category" "SupportTicketCategory" NOT NULL,
+    "question" TEXT NOT NULL,
+    "answer" TEXT NOT NULL,
+    "published" BOOLEAN NOT NULL DEFAULT false,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SupportFaqArticle_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SeasonParticipantLifecycleEvent" (
+    "id" TEXT NOT NULL,
+    "participantId" TEXT NOT NULL,
+    "seasonId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "eventType" "SeasonParticipantLifecycleEventType" NOT NULL,
+    "actorUserId" TEXT,
+    "actorType" TEXT,
+    "reason" TEXT,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SeasonParticipantLifecycleEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "SeasonParticipantProfile" (
     "participantId" TEXT NOT NULL,
     "nicknameSnapshot" TEXT NOT NULL,
@@ -633,6 +868,23 @@ CREATE TABLE "ActiveMatchUnmatchRequest" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ActiveMatchUnmatchRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ActiveMatchLifecycleEvent" (
+    "id" TEXT NOT NULL,
+    "activeMatchId" TEXT NOT NULL,
+    "eventType" "ActiveMatchLifecycleEventType" NOT NULL,
+    "reason" "ActiveMatchLifecycleEventReason" NOT NULL,
+    "actorType" "ActiveMatchLifecycleActorType" NOT NULL,
+    "actorUserId" TEXT,
+    "sourceMatchRequestId" TEXT,
+    "sourceUnmatchRequestId" TEXT,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ActiveMatchLifecycleEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -795,6 +1047,47 @@ CREATE TABLE "UserNotification" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "UserNotification_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "NotificationCampaign" (
+    "id" TEXT NOT NULL,
+    "kind" "NotificationKind" NOT NULL,
+    "sourceType" TEXT NOT NULL,
+    "sourceId" TEXT NOT NULL,
+    "payload" JSONB NOT NULL,
+    "targetSeasonId" TEXT,
+    "status" "NotificationCampaignStatus" NOT NULL DEFAULT 'PENDING',
+    "cursorUserId" TEXT,
+    "chunkSize" INTEGER NOT NULL DEFAULT 100,
+    "enqueuedCount" INTEGER NOT NULL DEFAULT 0,
+    "processedCount" INTEGER NOT NULL DEFAULT 0,
+    "lastError" TEXT,
+    "startedAt" TIMESTAMPTZ(3),
+    "completedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NotificationCampaign_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "OperatorAlert" (
+    "id" TEXT NOT NULL,
+    "sourceType" TEXT NOT NULL,
+    "sourceId" TEXT NOT NULL,
+    "category" "OperatorAlertCategory" NOT NULL,
+    "riskTier" "ReportRiskTier",
+    "severity" "OperatorAlertSeverity" NOT NULL,
+    "status" "OperatorAlertStatus" NOT NULL DEFAULT 'PENDING',
+    "payload" JSONB NOT NULL,
+    "deliveryAttempts" INTEGER NOT NULL DEFAULT 0,
+    "deliveredAt" TIMESTAMPTZ(3),
+    "lastError" TEXT,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "OperatorAlert_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -997,6 +1290,8 @@ CREATE TABLE "AuthSession" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "rememberMe" BOOLEAN NOT NULL DEFAULT false,
+    "sessionTokenHash" TEXT,
+    "sessionTokenExpiresAt" TIMESTAMPTZ(3),
     "refreshTokenHash" TEXT,
     "expiresAt" TIMESTAMPTZ(3) NOT NULL,
     "revokedAt" TIMESTAMPTZ(3),
@@ -1004,6 +1299,23 @@ CREATE TABLE "AuthSession" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AuthSession_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AuthSecurityEvent" (
+    "id" TEXT NOT NULL,
+    "type" "AuthSecurityEventType" NOT NULL,
+    "severity" "AuthSecurityEventSeverity" NOT NULL DEFAULT 'INFO',
+    "actorUserId" TEXT,
+    "targetUserId" TEXT,
+    "sessionId" TEXT,
+    "emailHash" TEXT,
+    "requestIpHash" TEXT,
+    "userAgentHash" TEXT,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AuthSecurityEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1038,6 +1350,19 @@ CREATE INDEX "Season_campusCode_seasonEndDate_idx" ON "Season"("campusCode", "se
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Season_campusCode_academicYear_semester_key" ON "Season"("campusCode", "academicYear", "semester");
+
+
+-- CreateIndex
+CREATE INDEX "SeasonOperationAuditEvent_seasonId_createdAt_idx" ON "SeasonOperationAuditEvent"("seasonId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonOperationAuditEvent_campusCode_createdAt_idx" ON "SeasonOperationAuditEvent"("campusCode", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonOperationAuditEvent_action_createdAt_idx" ON "SeasonOperationAuditEvent"("action", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonOperationAuditEvent_actorUserId_createdAt_idx" ON "SeasonOperationAuditEvent"("actorUserId", "createdAt");
 
 -- CreateIndex
 CREATE INDEX "SeasonDormitoryOperation_seasonId_isOperated_roomSelectionD_idx" ON "SeasonDormitoryOperation"("seasonId", "isOperated", "roomSelectionDate");
@@ -1163,6 +1488,110 @@ CREATE INDEX "SeasonParticipant_seasonId_participantStatus_idx" ON "SeasonPartic
 CREATE UNIQUE INDEX "SeasonParticipant_seasonId_userId_key" ON "SeasonParticipant"("seasonId", "userId");
 
 -- CreateIndex
+CREATE INDEX "UserBookmark_viewerUserId_seasonId_deletedAt_expiredAt_b_idx" ON "UserBookmark"("viewerUserId", "seasonId", "deletedAt", "expiredAt", "bookmarkedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBookmark_targetUserId_seasonId_deletedAt_expiredAt_idx" ON "UserBookmark"("targetUserId", "seasonId", "deletedAt", "expiredAt");
+
+-- CreateIndex
+CREATE INDEX "UserBookmark_viewerUserId_targetUserId_seasonId_delet_idx" ON "UserBookmark"("viewerUserId", "targetUserId", "seasonId", "deletedAt", "expiredAt");
+
+-- CreateIndex
+CREATE INDEX "UserBookmark_targetParticipantId_deletedAt_expiredAt_idx" ON "UserBookmark"("targetParticipantId", "deletedAt", "expiredAt");
+
+-- CreateIndex
+CREATE INDEX "UserBlock_blockerUserId_unblockedAt_blockedAt_id_idx" ON "UserBlock"("blockerUserId", "unblockedAt", "blockedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBlock_blockedUserId_unblockedAt_blockedAt_id_idx" ON "UserBlock"("blockedUserId", "unblockedAt", "blockedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBlock_blockerUserId_blockedUserId_unblockedAt_idx" ON "UserBlock"("blockerUserId", "blockedUserId", "unblockedAt");
+
+-- CreateIndex
+CREATE INDEX "UserBlockEvent_blockId_occurredAt_id_idx" ON "UserBlockEvent"("blockId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBlockEvent_actorUserId_occurredAt_id_idx" ON "UserBlockEvent"("actorUserId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "UserBlockEvent_targetUserId_occurredAt_id_idx" ON "UserBlockEvent"("targetUserId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_reporterUserId_receivedAt_id_idx" ON "ReportCase"("reporterUserId", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetType_targetId_status_receivedAt_id_idx" ON "ReportCase"("targetType", "targetId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetUserId_status_receivedAt_id_idx" ON "ReportCase"("targetUserId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_status_riskTier_receivedAt_id_idx" ON "ReportCase"("status", "riskTier", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetParticipantId_status_receivedAt_id_idx" ON "ReportCase"("targetParticipantId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetThreadId_status_receivedAt_id_idx" ON "ReportCase"("targetThreadId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetMessageId_status_receivedAt_id_idx" ON "ReportCase"("targetMessageId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCase_targetMatchRequestId_status_receivedAt_id_idx" ON "ReportCase"("targetMatchRequestId", "status", "receivedAt", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ReportCase_reporter_target_reason_open_key"
+  ON "ReportCase"("reporterUserId", "targetType", "targetId", "reason")
+  WHERE "status" IN ('SUBMITTED', 'EVIDENCE_ONLY');
+
+-- CreateIndex
+CREATE INDEX "ReportCaseEvent_reportCaseId_occurredAt_id_idx" ON "ReportCaseEvent"("reportCaseId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCaseEvent_actorUserId_occurredAt_id_idx" ON "ReportCaseEvent"("actorUserId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ReportCaseEvent_eventType_occurredAt_id_idx" ON "ReportCaseEvent"("eventType", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportTicket_requesterUserId_status_lastMessageAt_id_idx" ON "SupportTicket"("requesterUserId", "status", "lastMessageAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportTicket_status_lastMessageAt_id_idx" ON "SupportTicket"("status", "lastMessageAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportTicket_category_status_lastMessageAt_id_idx" ON "SupportTicket"("category", "status", "lastMessageAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportTicketMessage_ticketId_createdAt_id_idx" ON "SupportTicketMessage"("ticketId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportTicketMessage_senderUserId_createdAt_id_idx" ON "SupportTicketMessage"("senderUserId", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportFaqArticle_published_category_sortOrder_id_idx" ON "SupportFaqArticle"("published", "category", "sortOrder", "id");
+
+-- CreateIndex
+CREATE INDEX "SupportFaqArticle_category_sortOrder_id_idx" ON "SupportFaqArticle"("category", "sortOrder", "id");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_participantId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("participantId", "occurredAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_seasonId_eventType_occurred_idx" ON "SeasonParticipantLifecycleEvent"("seasonId", "eventType", "occurredAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_userId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("userId", "occurredAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_eventType_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("eventType", "occurredAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonParticipantLifecycleEvent_createdAt_idx" ON "SeasonParticipantLifecycleEvent"("createdAt");
+
+-- CreateIndex
 CREATE INDEX "SeasonParticipantProfile_collegeCode_idx" ON "SeasonParticipantProfile"("collegeCode");
 
 -- CreateIndex
@@ -1190,10 +1619,19 @@ CREATE INDEX "SeasonParticipantProfileHistory_redactedAt_idx" ON "SeasonParticip
 CREATE INDEX "MatchRequest_seasonId_requesterParticipantId_receiverPartic_idx" ON "MatchRequest"("seasonId", "requesterParticipantId", "receiverParticipantId", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "MatchRequest_seasonId_requesterParticipantId_createdAt_id_idx" ON "MatchRequest"("seasonId", "requesterParticipantId", "createdAt", "id");
+
+-- CreateIndex
 CREATE INDEX "MatchRequest_seasonId_receiverParticipantId_status_idx" ON "MatchRequest"("seasonId", "receiverParticipantId", "status");
 
 -- CreateIndex
+CREATE INDEX "MatchRequest_seasonId_receiverParticipantId_createdAt_id_idx" ON "MatchRequest"("seasonId", "receiverParticipantId", "createdAt", "id");
+
+-- CreateIndex
 CREATE INDEX "MatchRequest_expiresAt_status_idx" ON "MatchRequest"("expiresAt", "status");
+
+-- CreateIndex
+CREATE INDEX "MatchRequest_seasonId_status_expiresAt_idx" ON "MatchRequest"("seasonId", "status", "expiresAt");
 
 -- CreateIndex
 CREATE INDEX "MatchRequest_seasonId_pairKey_status_idx" ON "MatchRequest"("seasonId", "pairKey", "status");
@@ -1214,13 +1652,37 @@ CREATE INDEX "ActiveMatch_participantBId_endedAt_idx" ON "ActiveMatch"("particip
 CREATE INDEX "ActiveMatch_seasonId_status_endedAt_idx" ON "ActiveMatch"("seasonId", "status", "endedAt");
 
 -- CreateIndex
+CREATE INDEX "ActiveMatch_status_endedAt_startedAt_id_idx" ON "ActiveMatch"("status", "endedAt", "startedAt", "id");
+
+-- CreateIndex
 CREATE INDEX "ActiveMatchUnmatchRequest_activeMatchId_status_requestedAt_idx" ON "ActiveMatchUnmatchRequest"("activeMatchId", "status", "requestedAt");
 
 -- CreateIndex
 CREATE INDEX "ActiveMatchUnmatchRequest_participantId_status_requestedAt_idx" ON "ActiveMatchUnmatchRequest"("participantId", "status", "requestedAt");
 
 -- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_activeMatchId_occurredAt_id_idx" ON "ActiveMatchLifecycleEvent"("activeMatchId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_eventType_occurredAt_id_idx" ON "ActiveMatchLifecycleEvent"("eventType", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_actorUserId_occurredAt_id_idx" ON "ActiveMatchLifecycleEvent"("actorUserId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_sourceMatchRequestId_occurredAt_i_idx" ON "ActiveMatchLifecycleEvent"("sourceMatchRequestId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_sourceUnmatchRequestId_occurredAt_idx" ON "ActiveMatchLifecycleEvent"("sourceUnmatchRequestId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "ActiveMatchLifecycleEvent_createdAt_idx" ON "ActiveMatchLifecycleEvent"("createdAt");
+
+-- CreateIndex
 CREATE INDEX "SeasonMatchHistoryEntry_seasonId_viewerParticipantId_finali_idx" ON "SeasonMatchHistoryEntry"("seasonId", "viewerParticipantId", "finalizedAt");
+
+-- CreateIndex
+CREATE INDEX "SeasonMatchHistoryEntry_viewerParticipantId_finalizedAt_cre_idx" ON "SeasonMatchHistoryEntry"("viewerParticipantId", "finalizedAt", "createdAt", "id");
 
 -- CreateIndex
 CREATE INDEX "SeasonMatchHistoryEntry_viewerParticipantId_counterpartPart_idx" ON "SeasonMatchHistoryEntry"("viewerParticipantId", "counterpartParticipantId", "finalizedAt");
@@ -1300,6 +1762,24 @@ CREATE INDEX "UserNotification_recipientUserId_createdAt_id_idx" ON "UserNotific
 
 -- CreateIndex
 CREATE INDEX "UserNotification_actorUserId_createdAt_id_idx" ON "UserNotification"("actorUserId", "createdAt", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NotificationCampaign_kind_sourceType_sourceId_key" ON "NotificationCampaign"("kind", "sourceType", "sourceId");
+
+-- CreateIndex
+CREATE INDEX "NotificationCampaign_status_createdAt_id_idx" ON "NotificationCampaign"("status", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "NotificationCampaign_targetSeasonId_status_createdAt_id_idx" ON "NotificationCampaign"("targetSeasonId", "status", "createdAt", "id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "OperatorAlert_sourceType_sourceId_category_key" ON "OperatorAlert"("sourceType", "sourceId", "category");
+
+-- CreateIndex
+CREATE INDEX "OperatorAlert_status_createdAt_id_idx" ON "OperatorAlert"("status", "createdAt", "id");
+
+-- CreateIndex
+CREATE INDEX "OperatorAlert_category_riskTier_createdAt_id_idx" ON "OperatorAlert"("category", "riskTier", "createdAt", "id");
 
 -- CreateIndex
 CREATE INDEX "NotificationOutboxEvent_status_availableAt_createdAt_id_idx" ON "NotificationOutboxEvent"("status", "availableAt", "createdAt", "id");
@@ -1398,7 +1878,19 @@ CREATE UNIQUE INDEX "RetentionReviewJob_target_sourceId_key" ON "RetentionReview
 CREATE UNIQUE INDEX "LoginAttempt_emailNormalized_key" ON "LoginAttempt"("emailNormalized");
 
 -- CreateIndex
+CREATE INDEX "LoginAttempt_lastFailedAt_idx" ON "LoginAttempt"("lastFailedAt");
+
+-- CreateIndex
+CREATE INDEX "LoginAttempt_lockedUntil_idx" ON "LoginAttempt"("lockedUntil");
+
+-- CreateIndex
 CREATE INDEX "VerificationCode_emailNormalized_purpose_idx" ON "VerificationCode"("emailNormalized", "purpose");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_expiresAt_idx" ON "VerificationCode"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "VerificationCode_consumedAt_idx" ON "VerificationCode"("consumedAt");
 
 -- CreateIndex
 CREATE INDEX "VerificationCodeRequestLog_emailNormalized_purpose_requestI_idx" ON "VerificationCodeRequestLog"("emailNormalized", "purpose", "requestIp", "createdAt");
@@ -1407,7 +1899,43 @@ CREATE INDEX "VerificationCodeRequestLog_emailNormalized_purpose_requestI_idx" O
 CREATE INDEX "VerificationCodeRequestLog_requestIp_createdAt_idx" ON "VerificationCodeRequestLog"("requestIp", "createdAt");
 
 -- CreateIndex
+CREATE INDEX "VerificationCodeRequestLog_createdAt_idx" ON "VerificationCodeRequestLog"("createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AuthSession_sessionTokenHash_key" ON "AuthSession"("sessionTokenHash");
+
+-- CreateIndex
 CREATE INDEX "AuthSession_userId_idx" ON "AuthSession"("userId");
+
+-- CreateIndex
+CREATE INDEX "AuthSession_userId_revokedAt_expiresAt_idx" ON "AuthSession"("userId", "revokedAt", "expiresAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSession_expiresAt_idx" ON "AuthSession"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSession_revokedAt_idx" ON "AuthSession"("revokedAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_type_createdAt_idx" ON "AuthSecurityEvent"("type", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_severity_createdAt_idx" ON "AuthSecurityEvent"("severity", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_actorUserId_createdAt_idx" ON "AuthSecurityEvent"("actorUserId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_targetUserId_createdAt_idx" ON "AuthSecurityEvent"("targetUserId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_emailHash_type_createdAt_idx" ON "AuthSecurityEvent"("emailHash", "type", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_sessionId_createdAt_idx" ON "AuthSecurityEvent"("sessionId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "AuthSecurityEvent_createdAt_idx" ON "AuthSecurityEvent"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "ModerationTerm_surface_category_isActive_idx" ON "ModerationTerm"("surface", "category", "isActive");
@@ -1429,6 +1957,10 @@ ALTER TABLE "DormitoryGuide" ADD CONSTRAINT "DormitoryGuide_dormitoryId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "Season" ADD CONSTRAINT "Season_campusCode_fkey" FOREIGN KEY ("campusCode") REFERENCES "CampusMaster"("code") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+
+-- AddForeignKey
+ALTER TABLE "SeasonOperationAuditEvent" ADD CONSTRAINT "SeasonOperationAuditEvent_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonDormitoryOperation" ADD CONSTRAINT "SeasonDormitoryOperation_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1482,6 +2014,48 @@ ALTER TABLE "SeasonParticipant" ADD CONSTRAINT "SeasonParticipant_seasonId_fkey"
 ALTER TABLE "SeasonParticipant" ADD CONSTRAINT "SeasonParticipant_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_viewerUserId_fkey" FOREIGN KEY ("viewerUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_targetUserId_fkey" FOREIGN KEY ("targetUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_targetParticipantId_fkey" FOREIGN KEY ("targetParticipantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBookmark" ADD CONSTRAINT "UserBookmark_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBlock" ADD CONSTRAINT "UserBlock_blockerUserId_fkey" FOREIGN KEY ("blockerUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBlock" ADD CONSTRAINT "UserBlock_blockedUserId_fkey" FOREIGN KEY ("blockedUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBlockEvent" ADD CONSTRAINT "UserBlockEvent_blockId_fkey" FOREIGN KEY ("blockId") REFERENCES "UserBlock"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBlockEvent" ADD CONSTRAINT "UserBlockEvent_actorUserId_fkey" FOREIGN KEY ("actorUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserBlockEvent" ADD CONSTRAINT "UserBlockEvent_targetUserId_fkey" FOREIGN KEY ("targetUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ReportCaseEvent" ADD CONSTRAINT "ReportCaseEvent_reportCaseId_fkey" FOREIGN KEY ("reportCaseId") REFERENCES "ReportCase"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SupportTicket" ADD CONSTRAINT "SupportTicket_requesterUserId_fkey" FOREIGN KEY ("requesterUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SupportTicketMessage" ADD CONSTRAINT "SupportTicketMessage_ticketId_fkey" FOREIGN KEY ("ticketId") REFERENCES "SupportTicket"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SupportTicketMessage" ADD CONSTRAINT "SupportTicketMessage_senderUserId_fkey" FOREIGN KEY ("senderUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SeasonParticipantLifecycleEvent" ADD CONSTRAINT "SeasonParticipantLifecycleEvent_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "SeasonParticipantProfile" ADD CONSTRAINT "SeasonParticipantProfile_collegeCode_fkey" FOREIGN KEY ("collegeCode") REFERENCES "CollegeMaster"("code") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1516,6 +2090,9 @@ ALTER TABLE "ActiveMatchUnmatchRequest" ADD CONSTRAINT "ActiveMatchUnmatchReques
 
 -- AddForeignKey
 ALTER TABLE "ActiveMatchUnmatchRequest" ADD CONSTRAINT "ActiveMatchUnmatchRequest_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ActiveMatchLifecycleEvent" ADD CONSTRAINT "ActiveMatchLifecycleEvent_activeMatchId_fkey" FOREIGN KEY ("activeMatchId") REFERENCES "ActiveMatch"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonMatchHistoryEntry" ADD CONSTRAINT "SeasonMatchHistoryEntry_seasonId_fkey" FOREIGN KEY ("seasonId") REFERENCES "Season"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1652,3 +2229,31 @@ CREATE UNIQUE INDEX "ConversationThread_seasonId_pairKey_live_key"
 CREATE UNIQUE INDEX "ActiveMatchUnmatchRequest_activeMatchId_participantId_pending_key"
   ON "ActiveMatchUnmatchRequest"("activeMatchId", "participantId")
   WHERE "status" = 'PENDING';
+
+CREATE UNIQUE INDEX "UserBookmark_viewerUserId_seasonId_targetParticipant_active_key"
+  ON "UserBookmark"("viewerUserId", "seasonId", "targetParticipantId")
+  WHERE "deletedAt" IS NULL AND "expiredAt" IS NULL;
+
+CREATE INDEX "UserBookmark_active_list_cursor_idx"
+  ON "UserBookmark"("viewerUserId", "seasonId", "bookmarkedAt" DESC, "id" DESC)
+  WHERE "deletedAt" IS NULL AND "expiredAt" IS NULL;
+
+CREATE INDEX "UserBookmark_active_target_reverse_idx"
+  ON "UserBookmark"("targetUserId", "seasonId")
+  WHERE "deletedAt" IS NULL AND "expiredAt" IS NULL;
+
+CREATE INDEX "UserBookmark_active_block_cleanup_idx"
+  ON "UserBookmark"("viewerUserId", "targetUserId", "seasonId")
+  WHERE "deletedAt" IS NULL AND "expiredAt" IS NULL;
+
+CREATE UNIQUE INDEX "UserBlock_blockerUserId_blockedUserId_active_key"
+  ON "UserBlock"("blockerUserId", "blockedUserId")
+  WHERE "unblockedAt" IS NULL;
+
+CREATE INDEX "UserBlock_active_list_cursor_idx"
+  ON "UserBlock"("blockerUserId", "blockedAt" DESC, "id" DESC)
+  WHERE "unblockedAt" IS NULL;
+
+CREATE INDEX "UserBlock_active_reverse_lookup_idx"
+  ON "UserBlock"("blockedUserId", "blockerUserId")
+  WHERE "unblockedAt" IS NULL;

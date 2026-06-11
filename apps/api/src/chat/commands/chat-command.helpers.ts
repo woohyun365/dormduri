@@ -1,4 +1,4 @@
-import type { SendConversationMessageRequest } from '@repo/shared/chat-contract';
+import type { SendConversationMessageRequest } from '@repo/shared/chat';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';

@@ -1,14 +1,17 @@
 import type { Prisma } from '../../generated/prisma/client.js';
-import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../common/prisma/prisma.service.js';
-import { SeasonsService } from '../../seasons/seasons.service.js';
-import { SeasonParticipantsService } from '../../season-participants/season-participants.service.js';
+import { Inject, Injectable } from '@nestjs/common';
+import { PrismaService } from '../../platform/database/prisma.service.js';
+import {
+  SEASON_CONTEXT_PORT,
+  type SeasonContextPort,
+} from '../../seasons/ports/season-context.port.js';
+import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import type {
   ChatLifecycleSweepPort,
   ChatLifecycleSweepResult,
 } from '../application/ports/chat-lifecycle-sweep.port.js';
 import { createChatThreadSupportOwner } from '../policies/chat-thread-policy.js';
-import { formatKstDate } from '../../seasons/season.utils.js';
+import { formatKstDate } from '../../platform/time/kst-date.js';
 import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';
 import {
   ChatRealtimeOutboxService,
@@ -20,7 +23,7 @@ const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
 interface ChatSeasonLifecycleOwnerDeps {
   prisma: PrismaService;
-  seasonsService: SeasonsService;
+  seasonsService: SeasonContextPort;
   findThreadRoomSelectionDate(thread: ThreadRecord): string | null;
 }
 
@@ -195,7 +198,8 @@ export function createChatSeasonLifecycleOwner(deps: ChatSeasonLifecycleOwnerDep
 export class ChatSeasonLifecycleService implements ChatLifecycleSweepPort {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly seasonsService: SeasonsService,
+    @Inject(SEASON_CONTEXT_PORT)
+    private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
   ) {}
 

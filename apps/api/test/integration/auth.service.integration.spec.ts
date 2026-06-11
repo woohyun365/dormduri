@@ -1,12 +1,17 @@
 import { hash as argonHash } from '@node-rs/argon2';
-import { AuthService } from '../../src/auth/auth.service.js';
-import { PrismaService } from '../../src/common/prisma/prisma.service.js';
+import { createHash } from 'node:crypto';
+import { AuthService } from '../../src/auth/application/auth.service.js';
+import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
 } from './support/integration-db.js';
 import { seedBaseSeasonFixtures } from './support/integration-fixtures.js';
+
+function hashTokenForTest(token: string) {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 describe('AuthService integration', () => {
   jest.setTimeout(60_000);
@@ -37,6 +42,59 @@ describe('AuthService integration', () => {
 
   beforeEach(async () => {
     await truncateIntegrationSchema(prisma);
+  });
+
+  it('login은 opaque access token hash를 AuthSession에 저장하고 logout 후 fail-closed 처리한다', async () => {
+    const email = 'opaque-login@kangwon.ac.kr';
+    const emailNormalized = email.toLowerCase();
+    const passwordHash = await argonHash('Pass1234', {
+      algorithm: 2,
+      memoryCost: 8192,
+      timeCost: 2,
+      parallelism: 1,
+      outputLen: 32,
+    });
+    const databaseNow = await prisma.getDatabaseNow();
+
+    await prisma.user.create({
+      data: {
+        id: 'opaque-login-user',
+        email,
+        emailNormalized,
+        passwordHash,
+        gender: 'M',
+        campus: 'CHUNCHEON',
+        emailVerifiedAt: databaseNow,
+        displayIdentity: {
+          create: {
+            nickname: '오페이크로그인',
+            nicknameNormalized: '오페이크로그인',
+          },
+        },
+      },
+    });
+
+    const result = await service.login(email, 'Pass1234', false);
+
+    expect(result.success).toBe(true);
+    expect(result.accessToken).toMatch(/^v1\.[^.]+\.[A-Za-z0-9_-]{43}$/);
+    expect(result.accessToken).not.toMatch(/^eyJ/);
+
+    const session = await prisma.authSession.findFirstOrThrow({
+      where: { userId: 'opaque-login-user' },
+    });
+    expect(session.sessionTokenHash).toBe(hashTokenForTest(result.accessToken ?? ''));
+    expect(session.sessionTokenHash).not.toBe(result.accessToken);
+
+    await expect(service.getSession(result.accessToken ?? null)).resolves.toMatchObject({
+      authenticated: true,
+      user: { id: 'opaque-login-user', email },
+    });
+
+    await expect(service.logout(result.accessToken ?? null)).resolves.toEqual({ success: true });
+    await expect(service.getSession(result.accessToken ?? null)).resolves.toEqual({
+      authenticated: false,
+    });
   });
 
   it('동시에 같은 signup verification proof를 소비해도 User/DisplayIdentity/AcademicIdentity 계정은 하나만 생성된다', async () => {

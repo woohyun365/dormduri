@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import type { SignupRequest } from '@repo/shared/auth-contract';
+import type { SignupRequest } from '@repo/shared/auth/contract';
 import {
   buildJsonResponse,
   forwardAuthRequest,

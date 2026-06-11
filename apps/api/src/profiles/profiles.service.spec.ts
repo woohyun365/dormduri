@@ -5,8 +5,8 @@ import { createRoommateSearchTokenOwner } from './roommate-search-token-owner.js
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
-} from '../season-participants/season-participants.service.js';
-import { toCompleteLifestyleColumnData } from '../common/lifestyle/lifestyle.persistence.js';
+} from '../season-participants/application/season-participants.service.js';
+import { toCompleteLifestyleColumnData } from '../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 
 const COMPLETE_LIFESTYLE: LifestyleData = {
   bedtime: '22_24',
@@ -153,6 +153,9 @@ describe('ProfilesService Step 6 public detail', () => {
     seasonParticipant: {
       findFirst: jest.fn(),
     },
+    userBlock: {
+      findFirst: jest.fn(),
+    },
   };
   const seasonsService = {
     getCurrentSeasonContext: jest.fn(),
@@ -165,17 +168,23 @@ describe('ProfilesService Step 6 public detail', () => {
   const matchesService = {
     getLiveActiveMatchMapForParticipantIds: jest.fn(),
   };
+  const matchScoreProjection = {
+    shouldExposePublicMatchScore: jest.fn(),
+    calculateQueryTimeRoommateSearchScore: jest.fn(),
+  };
   const service = new ProfilesService(
     prisma as never,
     seasonsService as never,
     seasonParticipantsService as never,
     matchesService as never,
+    matchScoreProjection as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-02-10T03:00:00.000Z'));
     prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: true });
+    prisma.userBlock.findFirst.mockResolvedValue(null);
     prisma.user.findUnique.mockResolvedValue({
       id: 'user-1',
       emailVerifiedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -201,6 +210,8 @@ describe('ProfilesService Step 6 public detail', () => {
       new Set(['participant-target']),
     );
     matchesService.getLiveActiveMatchMapForParticipantIds.mockResolvedValue(new Map());
+    matchScoreProjection.shouldExposePublicMatchScore.mockReturnValue(true);
+    matchScoreProjection.calculateQueryTimeRoommateSearchScore.mockReturnValue(91);
   });
 
   it('같은 건물 registration complete target만 detail/score/action capability를 가진다', async () => {

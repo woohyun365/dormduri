@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
-import type { LoginRequest } from '@repo/shared/auth-contract';
+import type { LoginRequest } from '@repo/shared/auth/contract';
 import {
   buildJsonResponse,
   forwardAuthRequest,
   getForwardHeaders,
-  setAuthCookie,
+  setAuthTransportCookies,
 } from '../_shared';
 
 export async function POST(request: NextRequest) {
@@ -25,7 +25,11 @@ export async function POST(request: NextRequest) {
   });
 
   if (json.success === true && typeof json.accessToken === 'string') {
-    setAuthCookie(nextResponse, json.accessToken, body.rememberMe === true);
+    setAuthTransportCookies(nextResponse, {
+      accessToken: json.accessToken,
+      rememberMe: body.rememberMe === true,
+      renewalToken: typeof json.renewalToken === 'string' ? json.renewalToken : undefined,
+    });
   }
 
   return nextResponse;

@@ -72,7 +72,7 @@ describe('useMainSocialState — 신고', () => {
   it('신고 시 토스트가 표시된다', () => {
     const { hook, toasts } = setup();
 
-    act(() => hook.result.current.handleReportUser('user-1', 'SPAM', null));
+    act(() => hook.result.current.handleReportUser('user-1', 'SPAM_OR_AD', null));
 
     expect(toasts).toContain('신고가 접수되었어요');
   });
@@ -80,8 +80,8 @@ describe('useMainSocialState — 신고', () => {
   it('이미 신고한 유저를 중복 신고하면 안내 토스트가 표시된다', () => {
     const { hook, toasts } = setup();
 
-    act(() => hook.result.current.handleReportUser('user-1', 'SPAM', null));
-    act(() => hook.result.current.handleReportUser('user-1', 'OFFENSIVE', '상세'));
+    act(() => hook.result.current.handleReportUser('user-1', 'SPAM_OR_AD', null));
+    act(() => hook.result.current.handleReportUser('user-1', 'HATE_OR_DISCRIMINATION', '상세'));
 
     expect(toasts.filter((t) => t === '이미 신고한 사용자예요')).toHaveLength(1);
   });
