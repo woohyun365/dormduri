@@ -10,7 +10,7 @@ External domain production code should not import roommate-search internals dire
 - `GET /api/roommate-search`: authenticated roommate discovery/result-read summary list.
 - `GET /api/roommate-search/manifest`: authenticated filter/scope manifest for the current viewer context.
 
-`roommate-search` owns search/list orchestration, manifest, scope/filter validation, score sorting, cursor pagination, availability notices, and bookmark metadata composition. It does not own profile detail materialization, season profile draft writes, match score authority, social-safety relation authority, or Web rendering.
+`roommate-search` owns search/list orchestration, manifest, scope/filter validation, result sorting, cursor pagination, availability notices, and bookmark metadata composition. It does not own profile detail materialization, season profile draft writes, match score authority, social-safety relation authority, or Web rendering.
 
 ## Directory responsibilities
 
@@ -25,8 +25,6 @@ External domain production code should not import roommate-search internals dire
 - `presentation/`: search response and availability notice presenters.
 - `integration/`: read-side composition that joins candidate, profile target, bookmark/block metadata, and presentation dependencies.
 - `errors/`: user-facing roommate-search error contract.
-- `contracts/`: module-local contract behavior specs or narrow public port surfaces only.
-- `test-support/`: shared roommate-search fixtures only.
 
 ## Hard rules
 

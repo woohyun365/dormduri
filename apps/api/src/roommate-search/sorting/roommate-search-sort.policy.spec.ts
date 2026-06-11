@@ -1,4 +1,4 @@
-import { sortByMatchScore, sortByNickname } from './roommate-search-score-sort.policy.js';
+import { sortByMatchScore, sortByNickname } from './roommate-search-sort.policy.js';
 
 const item = (input: {
   id: string;
@@ -18,7 +18,7 @@ const item = (input: {
   },
 });
 
-describe('roommate-search-score-sort.policy', () => {
+describe('roommate-search-sort.policy', () => {
   it('NICKNAME sort는 nicknameSortKey와 participantId로 deterministic ordering을 만든다', () => {
     expect(
       sortByNickname([

@@ -29,7 +29,7 @@ import {
   resolveRoommateSearchScopeContext,
   shouldExcludeMatchedTargetsFromDiscovery,
 } from '../scope/roommate-search-scope.policy.js';
-import { sortRoommateSearchItems } from '../sorting/roommate-search-score-sort.policy.js';
+import { sortRoommateSearchItems } from '../sorting/roommate-search-sort.policy.js';
 
 interface RoommateSearchReaderDeps {
   prisma: PrismaService;

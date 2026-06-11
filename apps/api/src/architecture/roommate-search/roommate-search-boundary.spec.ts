@@ -12,7 +12,6 @@ const finalRoommateSearchDirectories = [
   'application',
   'candidates',
   'composition',
-  'contracts',
   'errors',
   'filters',
   'integration',
@@ -21,7 +20,23 @@ const finalRoommateSearchDirectories = [
   'presentation',
   'scope',
   'sorting',
-  'test-support',
+] as const;
+
+const forbiddenRoommateSearchLayoutFiles = [
+  'candidates/roommate-search-candidate.repository.ts',
+  'contracts/roommate-search-contract.spec.ts',
+  'integration/block-search-visibility.reader.ts',
+  'integration/bookmark-search-metadata.reader.ts',
+  'manifest/roommate-search-manifest.builder.spec.ts',
+  'manifest/roommate-search-manifest.builder.ts',
+  'manifest/roommate-search-manifest-query.query.ts',
+  'pagination/roommate-search-cursor.codec.ts',
+  'pagination/roommate-search-pagination.policy.spec.ts',
+  'pagination/roommate-search-pagination.policy.ts',
+  'scope/roommate-search-purpose.policy.ts',
+  'sorting/roommate-search-score-sort.policy.spec.ts',
+  'sorting/roommate-search-score-sort.policy.ts',
+  'test-support/roommate-search.fixture.ts',
 ] as const;
 
 function walkTypeScriptFiles(root: string): string[] {
@@ -35,6 +50,20 @@ function walkTypeScriptFiles(root: string): string[] {
       return walkTypeScriptFiles(path);
     }
     return entry.isFile() && entry.name.endsWith('.ts') ? [path] : [];
+  });
+}
+
+function walkFiles(root: string): string[] {
+  if (!existsSync(root)) {
+    return [];
+  }
+
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      return walkFiles(path);
+    }
+    return entry.isFile() ? [path] : [];
   });
 }
 
@@ -70,6 +99,25 @@ describe('roommate-search final structure boundary', () => {
       hasRoommateSearchRoot: true,
       rootProductionFiles: ['roommate-search.controller.ts', 'roommate-search.module.ts'],
       missingFinalDirectories: [],
+    });
+  });
+
+  it('keeps obsolete roommate-search placeholder files out of the final tree', () => {
+    const existingForbiddenFiles = walkTypeScriptFiles(roommateSearchRoot)
+      .map((path) => rootRelativePath(path, roommateSearchRoot))
+      .filter((path) => forbiddenRoommateSearchLayoutFiles.some((forbidden) => forbidden === path))
+      .sort();
+
+    expect({
+      expectedGreenPhase: 'Phase 9-1 roommate-search target layout reconciliation',
+      existingForbiddenFiles,
+      hasResultSortPolicy: existsSync(
+        join(roommateSearchRoot, 'sorting', 'roommate-search-sort.policy.ts'),
+      ),
+    }).toEqual({
+      expectedGreenPhase: 'Phase 9-1 roommate-search target layout reconciliation',
+      existingForbiddenFiles: [],
+      hasResultSortPolicy: true,
     });
   });
 
@@ -142,6 +190,21 @@ describe('roommate-search final structure boundary', () => {
     }).toEqual({
       expectedGreenPhase: 'Phase 6 roommate-search owner symbol cleanup',
       ownerSymbolOffenders: [],
+    });
+  });
+
+  it('keeps roommate-search documentation centralized in the root README', () => {
+    const childReadmes = walkFiles(roommateSearchRoot)
+      .map((path) => rootRelativePath(path, roommateSearchRoot))
+      .filter((path) => path !== 'README.md' && path.endsWith('/README.md'))
+      .sort();
+
+    expect({
+      expectedGreenPhase: 'Phase 9-1 roommate-search root README only',
+      childReadmes,
+    }).toEqual({
+      expectedGreenPhase: 'Phase 9-1 roommate-search root README only',
+      childReadmes: [],
     });
   });
 });

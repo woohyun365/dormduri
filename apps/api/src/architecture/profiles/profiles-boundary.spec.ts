@@ -13,7 +13,23 @@ const finalProfileDirectories = [
   'errors',
   'mappers',
   'targets',
-  'test-support',
+] as const;
+
+const finalProfileContractFiles = [
+  'contracts/profile-detail-entry-token.codec.ts',
+  'contracts/profile-public-target-reader.port.ts',
+  'contracts/public-profile.presenter.ts',
+] as const;
+
+const forbiddenProfileLayoutFiles = [
+  'application/ports/profile-public-target-reader.port.ts',
+  'application/ports/profile-detail-reader.port.ts',
+  'contracts/profile-contract.spec.ts',
+  'mappers/lifestyle-public.mapper.ts',
+  'targets/public-profile-target-block-visibility.query.ts',
+  'targets/public-profile-target.mapper.ts',
+  'targets/public-profile-target.materializer.spec.ts',
+  'test-support/public-profile.fixture.ts',
 ] as const;
 
 const requiredReadmeSections = [
@@ -36,6 +52,20 @@ function walkTypeScriptFiles(root: string): string[] {
       return walkTypeScriptFiles(path);
     }
     return entry.isFile() && entry.name.endsWith('.ts') ? [path] : [];
+  });
+}
+
+function walkFiles(root: string): string[] {
+  if (!existsSync(root)) {
+    return [];
+  }
+
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      return walkFiles(path);
+    }
+    return entry.isFile() ? [path] : [];
   });
 }
 
@@ -130,6 +160,35 @@ describe('profiles final structure boundary', () => {
     });
   });
 
+  it('keeps profiles contracts limited to API-local public surfaces', () => {
+    const contractFiles = productionTypeScriptFiles(join(profilesRoot, 'contracts'))
+      .map((path) => rootRelativePath(path, profilesRoot))
+      .sort();
+
+    expect({
+      expectedGreenPhase: 'Phase 9-1 profiles final contract surface lock',
+      contractFiles,
+    }).toEqual({
+      expectedGreenPhase: 'Phase 9-1 profiles final contract surface lock',
+      contractFiles: [...finalProfileContractFiles].sort(),
+    });
+  });
+
+  it('keeps obsolete profile target-layout placeholders out of the final tree', () => {
+    const existingForbiddenFiles = walkTypeScriptFiles(profilesRoot)
+      .map((path) => rootRelativePath(path, profilesRoot))
+      .filter((path) => forbiddenProfileLayoutFiles.some((forbidden) => forbidden === path))
+      .sort();
+
+    expect({
+      expectedGreenPhase: 'Phase 9-1 profiles target layout reconciliation',
+      existingForbiddenFiles,
+    }).toEqual({
+      expectedGreenPhase: 'Phase 9-1 profiles target layout reconciliation',
+      existingForbiddenFiles: [],
+    });
+  });
+
   it('keeps external production code away from profile detail internals', () => {
     const forbiddenImportOffenders = productionTypeScriptFiles(apiSourceRoot)
       .filter((path) => !path.startsWith(profilesRoot))
@@ -166,5 +225,20 @@ describe('profiles final structure boundary', () => {
     expect(source).toContain('profile detail/read projection');
     expect(source).toContain('roommate-search');
     expect(source).toContain('SeasonParticipantProfile');
+  });
+
+  it('keeps profiles documentation centralized in the root README', () => {
+    const childReadmes = walkFiles(profilesRoot)
+      .map((path) => rootRelativePath(path, profilesRoot))
+      .filter((path) => path !== 'README.md' && path.endsWith('/README.md'))
+      .sort();
+
+    expect({
+      expectedGreenPhase: 'Phase 9-1 profiles root README only',
+      childReadmes,
+    }).toEqual({
+      expectedGreenPhase: 'Phase 9-1 profiles root README only',
+      childReadmes: [],
+    });
   });
 });

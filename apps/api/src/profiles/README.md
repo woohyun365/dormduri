@@ -16,14 +16,13 @@ External domain production code should not import profile detail internals direc
 
 The product boundary is:
 
-- `application/`: controller-facing facade and public port definitions.
+- `application/`: controller-facing facade. Public read surfaces live under `contracts/`.
 - `composition/`: provider/export grouping for `ProfilesModule`.
 - `details/`: `GET /api/profiles/:targetUserId` use case, detail entry token verification wrapper, latest policy recheck, and tombstone fallback.
 - `targets/`: public profile viewer context, target materialization, and block visibility read seam.
 - `mappers/`: public profile presenter and lifestyle read projection mapper.
 - `errors/`: user-facing profile error contract.
 - `contracts/`: stable API-local public surfaces for profile readers, detail-entry token helpers, and presenter helpers. Shared package layout fitness is owned by architecture specs.
-- `test-support/`: profile fixtures only.
 
 `roommate-search` is a separate product boundary. Search summary list, manifest, scope, filters, sorting, cursor pagination, availability notice, bookmark metadata composition, and search response presentation belong in a top-level `roommate-search/` module rather than in `profiles/`.
 
