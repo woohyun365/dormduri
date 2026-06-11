@@ -2,7 +2,7 @@ import { filterRoommateSearchDiscoveryEntries } from './roommate-search-discover
 
 const entry = (id: string, targetMatched: boolean) => ({ id, targetMatched }) as never;
 
-describe('roommate-search-discovery-filter.owner', () => {
+describe('roommate-search-discovery-filter.policy', () => {
   it('ACTIONABLE discovery에서는 active matched target을 제외하고 제외 여부를 표시한다', () => {
     const result = filterRoommateSearchDiscoveryEntries([entry('p-1', false), entry('p-2', true)], {
       excludeMatchedTargets: true,

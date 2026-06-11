@@ -451,8 +451,6 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
   };
 }
 
-export const createVisibleProfileOwner = createPublicProfileTargetMaterializer;
-
 function toProfileViewRecord(
   profile: CurrentSeasonParticipantProfileRecord | null,
 ): ProfileViewRecord | null {

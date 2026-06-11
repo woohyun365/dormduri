@@ -21,7 +21,7 @@ const viewerContext = {
   serviceState: { seasonState: 'SEASON_POST_MATCH' },
 } as never;
 
-describe('roommate-search-availability-notice.owner', () => {
+describe('roommate-search-availability-notice.presenter', () => {
   it('matched exclusion, actionability, viewer restriction, post-match, detail unavailable, empty result notice를 중복 없이 만든다', () => {
     const notices = buildRoommateSearchAvailabilityNotices({
       viewerContext,

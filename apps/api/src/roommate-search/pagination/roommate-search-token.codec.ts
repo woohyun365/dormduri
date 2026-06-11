@@ -52,7 +52,7 @@ export interface VerifiedRoommateSearchCursor {
   boundary: RoommateSearchCursorBoundary;
 }
 
-export interface RoommateSearchTokenOwner {
+export interface RoommateSearchTokenCodec {
   buildQueryDigest(input: {
     scope: RoommateSearchScope;
     sort: RoommateSearchSort;
@@ -94,7 +94,7 @@ export interface RoommateSearchTokenOwner {
   }): VerifiedProfileDetailEntryToken | null;
 }
 
-export function createRoommateSearchTokenOwner(): RoommateSearchTokenOwner {
+export function createRoommateSearchTokenCodec(): RoommateSearchTokenCodec {
   const cursorSecret = readSecret(
     ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV,
     DEFAULT_ROOMMATE_SEARCH_CURSOR_HMAC_SECRET,
@@ -124,7 +124,7 @@ export function createRoommateSearchTokenOwner(): RoommateSearchTokenOwner {
     verifyCursor(input) {
       const payload = verifyOpaqueHmacToken(input.token, cursorSecret);
       if (!isRoommateSearchCursorPayload(payload)) {
-        throw new Error('[roommate-search-token-owner] invalid cursor payload');
+        throw new Error('[roommate-search-token-codec] invalid cursor payload');
       }
       if (
         payload.viewerUserId !== input.viewerUserId ||
@@ -134,7 +134,7 @@ export function createRoommateSearchTokenOwner(): RoommateSearchTokenOwner {
         payload.queryDigest !== input.queryDigest ||
         payload.expiresAt < input.now.getTime()
       ) {
-        throw new Error('[roommate-search-token-owner] cursor context mismatch');
+        throw new Error('[roommate-search-token-codec] cursor context mismatch');
       }
 
       return { payload, boundary: payload.after };

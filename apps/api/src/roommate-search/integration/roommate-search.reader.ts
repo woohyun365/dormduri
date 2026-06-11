@@ -13,7 +13,7 @@ import type {
   ResolvedVisibleProfileEntry,
   VisibleProfileViewerContext,
 } from '../../profiles/contracts/profile-public-target-reader.port.js';
-import { createRoommateSearchCandidateOwner } from '../candidates/roommate-search-candidate.query.js';
+import { createRoommateSearchCandidateQuery } from '../candidates/roommate-search-candidate.query.js';
 import { filterRoommateSearchDiscoveryEntries } from '../filters/roommate-search-discovery-filter.policy.js';
 import {
   assertRoommateSearchQueryAllowed,
@@ -21,10 +21,10 @@ import {
 } from '../filters/roommate-search-query.policy.js';
 import { applyRoommateSearchScoreThreshold } from '../filters/roommate-search-score-threshold.policy.js';
 import { buildRoommateSearchManifest } from '../manifest/roommate-search-filter-manifest.presenter.js';
-import { createRoommateSearchPaginationOwner } from '../pagination/roommate-search-pagination.cursor.js';
-import { createRoommateSearchTokenOwner } from '../pagination/roommate-search-token.codec.js';
+import { createRoommateSearchPaginator } from '../pagination/roommate-search-pagination.cursor.js';
+import { createRoommateSearchTokenCodec } from '../pagination/roommate-search-token.codec.js';
 import { buildRoommateSearchAvailabilityNotices } from '../presentation/roommate-search-availability-notice.presenter.js';
-import { createRoommateSearchResponseOwner } from '../presentation/roommate-search-response.presenter.js';
+import { createRoommateSearchResponsePresenter } from '../presentation/roommate-search-response.presenter.js';
 import {
   resolveRoommateSearchScopeContext,
   shouldExcludeMatchedTargetsFromDiscovery,
@@ -39,10 +39,10 @@ interface RoommateSearchReaderDeps {
 }
 
 export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
-  const candidateOwner = createRoommateSearchCandidateOwner({ prisma: deps.prisma });
-  const tokenOwner = createRoommateSearchTokenOwner();
-  const paginationOwner = createRoommateSearchPaginationOwner(tokenOwner);
-  const responseOwner = createRoommateSearchResponseOwner(tokenOwner);
+  const candidateQuery = createRoommateSearchCandidateQuery({ prisma: deps.prisma });
+  const tokenCodec = createRoommateSearchTokenCodec();
+  const paginator = createRoommateSearchPaginator(tokenCodec);
+  const responsePresenter = createRoommateSearchResponsePresenter(tokenCodec);
 
   async function search(
     authUser: AuthenticatedUserContext,
@@ -71,7 +71,13 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
     });
     const activeBookmarkMap = await loadActiveBookmarkMap(viewerContext, filteredDiscovery.entries);
     const filteredItems = filteredDiscovery.entries.map((entry) => {
-      const item = responseOwner.toMaterializedItem({ entry, viewerContext, scope, purpose, now });
+      const item = responsePresenter.toMaterializedItem({
+        entry,
+        viewerContext,
+        scope,
+        purpose,
+        now,
+      });
       const bookmark = activeBookmarkMap.get(entry.targetParticipant.id);
       return {
         ...item,
@@ -85,12 +91,12 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
     });
     const scoreThresholdItems = applyRoommateSearchScoreThreshold(filteredItems, query);
     const sortedItems = sortRoommateSearchItems(scoreThresholdItems, appliedSort);
-    const queryDigest = tokenOwner.buildQueryDigest({
+    const queryDigest = tokenCodec.buildQueryDigest({
       scope,
       sort: appliedSort,
       query,
     });
-    const pageItems = paginationOwner.paginate({
+    const pageItems = paginator.paginate({
       items: sortedItems,
       query,
       viewerUserId: viewerContext.viewer.id,
@@ -105,7 +111,7 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
     return {
       scope,
       appliedSort,
-      resultSummary: responseOwner.summarize(filteredSummaries),
+      resultSummary: responsePresenter.summarize(filteredSummaries),
       scopeAvailability,
       manifest,
       pageInfo: pageItems.pageInfo,
@@ -157,7 +163,7 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
     scope: RoommateSearchScope,
     query?: RoommateSearchQuery,
   ): Promise<ResolvedVisibleProfileEntry[]> {
-    const candidates = await candidateOwner.findCandidates({ viewerContext, scope, query });
+    const candidates = await candidateQuery.findCandidates({ viewerContext, scope, query });
     const visibleEntries = await deps.publicProfileTargetReader.materializeVisibleProfileEntries(
       viewerContext,
       candidates.map((candidate) =>

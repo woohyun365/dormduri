@@ -32,7 +32,7 @@ const activeCollegeOptions = [
   { code: 'NURSING', label: '간호대' },
 ];
 
-describe('roommate-search-filter-manifest.owner', () => {
+describe('roommate-search-filter-manifest.presenter', () => {
   it('BROAD_PREVIEW manifest는 필터 field를 제공하지 않는다', () => {
     const manifest = buildRoommateSearchManifest({
       viewerContext: baseViewerContext,

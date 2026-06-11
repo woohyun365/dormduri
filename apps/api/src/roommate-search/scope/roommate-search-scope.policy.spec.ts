@@ -59,7 +59,7 @@ function viewerContext(
   };
 }
 
-describe('roommate-search-scope.owner', () => {
+describe('roommate-search-scope.policy', () => {
   it('OFF_SEASON은 모든 browse scope를 닫는다', () => {
     expect(
       resolveRoommateSearchScopeAvailability(

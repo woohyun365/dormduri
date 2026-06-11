@@ -129,4 +129,19 @@ describe('roommate-search final structure boundary', () => {
       directSocialSafetyTableReaders: [],
     });
   });
+
+  it('keeps legacy owner symbols out of roommate-search production code', () => {
+    const ownerSymbolOffenders = productionTypeScriptFiles(roommateSearchRoot)
+      .filter((path) => /Owner|owner/.test(readSource(path)))
+      .map((path) => rootRelativePath(path, roommateSearchRoot))
+      .sort();
+
+    expect({
+      expectedGreenPhase: 'Phase 6 roommate-search owner symbol cleanup',
+      ownerSymbolOffenders,
+    }).toEqual({
+      expectedGreenPhase: 'Phase 6 roommate-search owner symbol cleanup',
+      ownerSymbolOffenders: [],
+    });
+  });
 });

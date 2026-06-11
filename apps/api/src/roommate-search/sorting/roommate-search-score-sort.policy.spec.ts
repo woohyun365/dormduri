@@ -18,7 +18,7 @@ const item = (input: {
   },
 });
 
-describe('roommate-search-score-sort.owner', () => {
+describe('roommate-search-score-sort.policy', () => {
   it('NICKNAME sort는 nicknameSortKey와 participantId로 deterministic ordering을 만든다', () => {
     expect(
       sortByNickname([

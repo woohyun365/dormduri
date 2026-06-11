@@ -29,9 +29,9 @@ The product boundary is:
 
 ## Hard rules
 
-- `profiles` is not the `SeasonParticipantProfile` write owner. Current season profile draft/write/registration completeness stays in `season-participants`.
-- `profiles` is not the `UserDisplayIdentity` or `UserAcademicIdentity` owner. Account identity stays in `users`.
-- `profiles` is not the roommate-search summary/search owner. Search discovery and post-match cohort review belong to `roommate-search`.
+- `profiles` does not handle `SeasonParticipantProfile` writes. Current season profile draft/write/registration completeness stays in `season-participants`.
+- `profiles` does not handle `UserDisplayIdentity` or `UserAcademicIdentity`. Account identity stays in `users`.
+- `profiles` does not handle roommate-search summary/search. Search discovery and post-match cohort review belong to `roommate-search`.
 - Profile detail entry token is context proof, not authorization by itself. Detail reads must re-check latest public target policy at request time.
 - Full detail unavailability after a valid summary entry can degrade to a tombstone shell. Direct/probing access without valid context fails closed.
 - Do not restore retained vault payload for user-facing profile detail. Restricted recovery belongs to the retention/disclosure boundary.
@@ -44,7 +44,7 @@ The product boundary is:
 Architecture specs own cross-cutting fitness rules:
 
 - root production files allow only `profiles.module.ts` and `profiles.controller.ts`;
-- root `*.owner.ts` production files are not part of the final product layout;
+- root legacy responsibility-suffix production files are not part of the final product layout;
 - external production code consumes profile public ports/surfaces instead of `details/`, `targets/`, or `mappers/` internals;
 - shared profile and roommate-search contract source-of-truth layout is guarded by architecture specs.
 

@@ -1,11 +1,11 @@
-import { createRoommateSearchTokenOwner } from './roommate-search-token.codec.js';
+import { createRoommateSearchTokenCodec } from './roommate-search-token.codec.js';
 
-describe('roommate-search-token-owner', () => {
+describe('roommate-search-token-codec', () => {
   const now = new Date('2026-05-31T00:00:00.000Z');
 
   it('MATCH_SCORE cursor는 score boundary와 queryDigest를 포함해 검증된다', () => {
-    const owner = createRoommateSearchTokenOwner();
-    const token = owner.signCursor({
+    const codec = createRoommateSearchTokenCodec();
+    const token = codec.signCursor({
       viewerUserId: 'viewer',
       seasonId: 'season-1',
       scope: 'SAME_BUILDING_ONLY',
@@ -20,7 +20,7 @@ describe('roommate-search-token-owner', () => {
     });
 
     expect(
-      owner.verifyCursor({
+      codec.verifyCursor({
         token,
         viewerUserId: 'viewer',
         seasonId: 'season-1',
@@ -36,7 +36,7 @@ describe('roommate-search-token-owner', () => {
     });
 
     expect(() =>
-      owner.verifyCursor({
+      codec.verifyCursor({
         token,
         viewerUserId: 'viewer',
         seasonId: 'season-1',
@@ -49,8 +49,8 @@ describe('roommate-search-token-owner', () => {
   });
 
   it('cursor tamper와 expiry를 fail-closed한다', () => {
-    const owner = createRoommateSearchTokenOwner();
-    const token = owner.signCursor({
+    const codec = createRoommateSearchTokenCodec();
+    const token = codec.signCursor({
       viewerUserId: 'viewer',
       seasonId: 'season-1',
       scope: 'SAME_BUILDING_ONLY',
@@ -65,7 +65,7 @@ describe('roommate-search-token-owner', () => {
     const tampered = `${token.slice(0, -1)}x`;
 
     expect(() =>
-      owner.verifyCursor({
+      codec.verifyCursor({
         token: tampered,
         viewerUserId: 'viewer',
         seasonId: 'season-1',
@@ -77,7 +77,7 @@ describe('roommate-search-token-owner', () => {
     ).toThrow();
 
     expect(() =>
-      owner.verifyCursor({
+      codec.verifyCursor({
         token,
         viewerUserId: 'viewer',
         seasonId: 'season-1',

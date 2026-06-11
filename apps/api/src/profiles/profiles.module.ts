@@ -5,7 +5,8 @@ import { PrismaModule } from '../platform/database/prisma.module.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SeasonsModule } from '../seasons/seasons.module.js';
 import { BlockModule } from '../social-safety/blocks/block.module.js';
-import { PROFILES_EXPORTS, PROFILES_PROVIDERS } from './composition/profiles.providers.js';
+import { PROFILES_EXPORTS } from './composition/profiles.exports.js';
+import { PROFILES_PROVIDERS } from './composition/profiles.providers.js';
 import { ProfilesController } from './profiles.controller.js';
 
 @Module({

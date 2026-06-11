@@ -10,7 +10,7 @@ import type {
 } from '../../profiles/contracts/profile-public-target-reader.port.js';
 import type {
   RoommateSearchCursorBoundary,
-  RoommateSearchTokenOwner,
+  RoommateSearchTokenCodec,
 } from '../pagination/roommate-search-token.codec.js';
 
 export interface RoommateSearchMaterializedItem {
@@ -19,7 +19,7 @@ export interface RoommateSearchMaterializedItem {
   cursorBoundary: RoommateSearchCursorBoundary;
 }
 
-export function createRoommateSearchResponseOwner(tokenOwner: RoommateSearchTokenOwner) {
+export function createRoommateSearchResponsePresenter(tokenCodec: RoommateSearchTokenCodec) {
   return {
     toMaterializedItem(input: {
       entry: ResolvedVisibleProfileEntry;
@@ -42,7 +42,7 @@ export function createRoommateSearchResponseOwner(tokenOwner: RoommateSearchToke
         entry: input.entry,
         summary: {
           ...summary,
-          detailEntryToken: tokenOwner.signDetailEntryToken({
+          detailEntryToken: tokenCodec.signDetailEntryToken({
             viewerUserId: input.viewerContext.viewer.id,
             targetUserId: input.entry.user.id,
             targetParticipantId: input.entry.targetParticipant.id,
@@ -123,7 +123,7 @@ function toRoommateSearchSummary(
 
   if (typeof entry.matchScore !== 'number') {
     throw new Error(
-      '[roommate-search-response-owner] score-visible summary target must have matchScore',
+      '[roommate-search-response-presenter] score-visible summary target must have matchScore',
     );
   }
 

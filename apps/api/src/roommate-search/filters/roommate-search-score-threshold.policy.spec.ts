@@ -8,7 +8,7 @@ const item = (id: string, input: { scoreVisible: boolean; matchScore?: number })
   },
 });
 
-describe('roommate-search-score-threshold.owner', () => {
+describe('roommate-search-score-threshold.policy', () => {
   it('minScore가 없으면 score post-filter를 적용하지 않는다', () => {
     const items = [item('a', { scoreVisible: true, matchScore: 50 })];
 

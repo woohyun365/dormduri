@@ -6,17 +6,17 @@ import type {
 } from '@repo/shared/roommate-search/contract';
 import { roommateSearchErrors } from '../errors/roommate-search.errors.js';
 import {
-  createRoommateSearchTokenOwner,
+  createRoommateSearchTokenCodec,
   type RoommateSearchCursorBoundary,
-  type RoommateSearchTokenOwner,
+  type RoommateSearchTokenCodec,
 } from './roommate-search-token.codec.js';
 
 export interface RoommateSearchPaginationItem {
   cursorBoundary: RoommateSearchCursorBoundary;
 }
 
-export function createRoommateSearchPaginationOwner(
-  tokenOwner: RoommateSearchTokenOwner = createRoommateSearchTokenOwner(),
+export function createRoommateSearchPaginator(
+  tokenCodec: RoommateSearchTokenCodec = createRoommateSearchTokenCodec(),
 ) {
   return {
     paginate<T extends RoommateSearchPaginationItem>(input: {
@@ -34,7 +34,7 @@ export function createRoommateSearchPaginationOwner(
       }
 
       const startIndex = input.query.cursor
-        ? resolveCursorStartIndex(tokenOwner, {
+        ? resolveCursorStartIndex(tokenCodec, {
             cursor: input.query.cursor,
             items: input.items,
             viewerUserId: input.viewerUserId,
@@ -51,7 +51,7 @@ export function createRoommateSearchPaginationOwner(
       const lastItem = page.at(-1);
       const nextCursor =
         hasNextPage && lastItem
-          ? tokenOwner.signCursor({
+          ? tokenCodec.signCursor({
               viewerUserId: input.viewerUserId,
               seasonId: input.seasonId,
               scope: input.scope,
@@ -74,7 +74,7 @@ export function createRoommateSearchPaginationOwner(
 }
 
 function resolveCursorStartIndex<T extends RoommateSearchPaginationItem>(
-  tokenOwner: RoommateSearchTokenOwner,
+  tokenCodec: RoommateSearchTokenCodec,
   input: {
     cursor: string;
     items: T[];
@@ -87,7 +87,7 @@ function resolveCursorStartIndex<T extends RoommateSearchPaginationItem>(
   },
 ) {
   try {
-    const verified = tokenOwner.verifyCursor({
+    const verified = tokenCodec.verifyCursor({
       token: input.cursor,
       viewerUserId: input.viewerUserId,
       seasonId: input.seasonId,

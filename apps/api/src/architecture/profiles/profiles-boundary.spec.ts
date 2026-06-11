@@ -101,6 +101,21 @@ describe('profiles final structure boundary', () => {
     });
   });
 
+  it('keeps legacy owner symbols out of profiles production code', () => {
+    const ownerSymbolOffenders = productionTypeScriptFiles(profilesRoot)
+      .filter((path) => /Owner|owner/.test(readSource(path)))
+      .map((path) => rootRelativePath(path, profilesRoot))
+      .sort();
+
+    expect({
+      expectedGreenPhase: 'Phase 6 profiles owner symbol cleanup',
+      ownerSymbolOffenders,
+    }).toEqual({
+      expectedGreenPhase: 'Phase 6 profiles owner symbol cleanup',
+      ownerSymbolOffenders: [],
+    });
+  });
+
   it('keeps final profile detail slice directories present', () => {
     const missingFinalDirectories = finalProfileDirectories.filter(
       (directory) => !existsSync(join(profilesRoot, directory)),

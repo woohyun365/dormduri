@@ -13,7 +13,7 @@ import {
 } from '../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
 
-export interface RoommateSearchCandidateOwnerDeps {
+export interface RoommateSearchCandidateQueryDeps {
   prisma: PrismaService;
 }
 
@@ -31,7 +31,7 @@ export type RoommateSearchTargetParticipantQueryRecord = Prisma.SeasonParticipan
   select: typeof roommateSearchTargetParticipantSelect;
 }>;
 
-export function createRoommateSearchCandidateOwner(deps: RoommateSearchCandidateOwnerDeps) {
+export function createRoommateSearchCandidateQuery(deps: RoommateSearchCandidateQueryDeps) {
   return {
     findCandidates(input: {
       viewerContext: VisibleProfileViewerContext;

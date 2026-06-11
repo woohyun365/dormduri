@@ -33,7 +33,7 @@ const viewerContext = {
   currentDormitoryCanMatch: true,
 } satisfies VisibleProfileViewerContext;
 
-describe('roommate-search-candidate.owner', () => {
+describe('roommate-search-candidate.query', () => {
   it('SAME_BUILDING_ONLY candidate query는 registration complete public target 후보를 DB 조건으로 먼저 줄인다', () => {
     const where = buildRoommateSearchCandidateWhere({
       viewerContext,

@@ -39,6 +39,8 @@ import { NOTIFICATION_WRITER } from '../notifications/application/ports/notifica
 import { NotificationQueryService } from '../notifications/queries/notification-query.service.js';
 import { PrismaModule } from '../platform/database/prisma.module.js';
 import { ProfilesModule } from '../profiles/profiles.module.js';
+import { PROFILES_EXPORTS } from '../profiles/composition/profiles.exports.js';
+import { PROFILES_PROVIDERS } from '../profiles/composition/profiles.providers.js';
 import { RETENTION_EXPORTS } from '../retention/composition/retention.exports.js';
 import { RETENTION_PROVIDERS } from '../retention/composition/retention.providers.js';
 import { RetentionModule } from '../retention/retention.module.js';
@@ -49,6 +51,9 @@ import {
   REALTIME_METRICS_READER_PORT,
   REALTIME_USER_ROOM_PUBLISHER_PORT,
 } from '../realtime/realtime.tokens.js';
+import { RoommateSearchModule } from '../roommate-search/roommate-search.module.js';
+import { ROOMMATE_SEARCH_EXPORTS } from '../roommate-search/composition/roommate-search.exports.js';
+import { ROOMMATE_SEARCH_PROVIDERS } from '../roommate-search/composition/roommate-search.providers.js';
 import { SeasonParticipantsModule } from '../season-participants/season-participants.module.js';
 import { SocialSafetyModule } from '../social-safety/social-safety.module.js';
 import { SupportModule } from '../support/support.module.js';
@@ -285,7 +290,12 @@ describe('affected API module boundary finalization', () => {
     expect(moduleMetadata(UsersModule, 'exports')).toEqual(USERS_EXPORTS);
     expect(moduleMetadata(UsersModule, 'exports')).toEqual([UsersService]);
     expect(moduleMetadata(CurrentUserViewModule, 'exports')).toEqual([CurrentUserViewService]);
+    expect(moduleMetadata(ProfilesModule, 'providers')).toEqual(PROFILES_PROVIDERS);
+    expect(moduleMetadata(ProfilesModule, 'exports')).toEqual(PROFILES_EXPORTS);
     expect(moduleMetadata(ProfilesModule, 'exports')).toEqual([PROFILE_PUBLIC_TARGET_READER_PORT]);
+    expect(moduleMetadata(RoommateSearchModule, 'providers')).toEqual(ROOMMATE_SEARCH_PROVIDERS);
+    expect(moduleMetadata(RoommateSearchModule, 'exports')).toEqual(ROOMMATE_SEARCH_EXPORTS);
+    expect(moduleMetadata(RoommateSearchModule, 'exports')).toEqual([]);
     expect(moduleMetadata(NotificationsModule, 'exports')).toEqual([
       NotificationQueryService,
       NOTIFICATION_WRITER,

@@ -47,7 +47,7 @@ const actionableManifest: RoommateSearchManifest = {
   },
 };
 
-describe('roommate-search-query-policy.owner', () => {
+describe('roommate-search-query-policy', () => {
   it('manifest가 닫은 scope에서는 필터와 미지원 sort를 fail-closed한다', () => {
     const broadPreviewManifest: RoommateSearchManifest = {
       ...actionableManifest,
