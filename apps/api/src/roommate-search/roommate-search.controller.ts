@@ -2,7 +2,7 @@ import { Controller, Get, Query } from '@nestjs/common';
 import {
   roommateSearchManifestQuerySchema,
   roommateSearchQuerySchema,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import { RequireCapability } from '../auth/access/auth-access.decorator.js';
 import { CurrentUser } from '../auth/access/authenticated-user.decorator.js';
 import type { AuthenticatedUserContext } from '../auth/application/auth-actor-context.types.js';

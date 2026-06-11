@@ -1,4 +1,4 @@
-import type { RoommateSearchScope } from '@repo/shared/roommate-search-contract';
+import type { RoommateSearchScope } from '@repo/shared/roommate-search/contract';
 import {
   signOpaqueHmacToken,
   verifyOpaqueHmacToken,

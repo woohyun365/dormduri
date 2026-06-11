@@ -1,4 +1,4 @@
-import { publicLifestyleSchema } from '@repo/shared/profile-contract';
+import { publicLifestyleSchema } from '@repo/shared/profile/contract';
 import type {
   PublicProfile,
   PublicProfileAdditional,
@@ -8,7 +8,7 @@ import type {
   PublicTargetRelation,
   PublicTargetResultRead,
   PublicLifestyle,
-} from '@repo/shared/profile-contract';
+} from '@repo/shared/profile/contract';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import {
   type LifestyleColumns,

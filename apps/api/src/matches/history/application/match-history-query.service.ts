@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { MatchHistoryResponse } from '@repo/shared/match/contract';
-import type { PublicProfile, PublicProfileActionCapabilities } from '@repo/shared/profile-contract';
+import type { PublicProfile, PublicProfileActionCapabilities } from '@repo/shared/profile/contract';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { formatKstDate } from '../../../platform/time/kst-date.js';
 import { DEIDENTIFIED_USER_DISPLAY_NAME } from '../../../privacy/deidentification/deidentified-display.policy.js';

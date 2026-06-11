@@ -3,8 +3,8 @@ import {
   roommateSearchManifestResponseSchema,
   roommateSearchQuerySchema,
   roommateSearchResponseSchema,
-} from '@repo/shared/roommate-search-contract';
-import { publicProfileSchema } from '@repo/shared/profile-contract';
+} from '@repo/shared/roommate-search/contract';
+import { publicProfileSchema } from '@repo/shared/profile/contract';
 import { createMatchRequestSchema, matchRequestSummarySchema } from '@repo/shared/match/contract';
 
 const SUMMARY_ITEM = {

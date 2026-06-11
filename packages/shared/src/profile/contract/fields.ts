@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { LIFESTYLE_FIELD_OPTIONS } from './lifestyle/index.js';
-import { collegeCodeSchema } from './college/index.js';
+import { LIFESTYLE_FIELD_OPTIONS } from '../../lifestyle/index.js';
+import { collegeCodeSchema } from '../../college/index.js';
 
 const nullableEnum = <const T extends readonly [string, ...string[]]>(values: T) =>
   z.enum(values).nullable();

@@ -3,7 +3,7 @@ import type {
   RoommateSearchResponse,
   RoommateSearchScope,
   RoommateSearchSort,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import { roommateSearchErrors } from '../errors/roommate-search.errors.js';
 import {
   createRoommateSearchTokenOwner,

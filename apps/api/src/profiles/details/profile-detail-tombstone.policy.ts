@@ -1,4 +1,4 @@
-import type { PublicProfileTombstoneReason } from '@repo/shared/profile-contract';
+import type { PublicProfileTombstoneReason } from '@repo/shared/profile/contract';
 import { isParticipantRegistered } from '../../season-participants/policies/index.js';
 import type { ProfileViewRecord } from '../contracts/public-profile.presenter.js';
 import type {

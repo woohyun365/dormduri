@@ -3,7 +3,7 @@ import { lifestyleSchema } from '../../lifestyle/index.js';
 import {
   additionalProfileSchema,
   seasonAdditionalProfileDraftSchema,
-} from '../../profile-contract-fields.js';
+} from '../../profile/contract/fields.js';
 import { seasonParticipationCompletionStateSchema, seasonProfileStateSchema } from './state.js';
 
 export const seasonProfileDraftRequestSchema = z.strictObject({

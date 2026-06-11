@@ -4,7 +4,7 @@ import type {
   RoommateSearchManifestResponse,
   RoommateSearchQuery,
   RoommateSearchResponse,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {

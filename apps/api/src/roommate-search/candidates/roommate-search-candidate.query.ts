@@ -1,8 +1,8 @@
-import { PROFILE_MBTI_VALUES } from '@repo/shared/profile-contract';
+import { PROFILE_MBTI_VALUES } from '@repo/shared/profile/contract';
 import type {
   RoommateSearchQuery,
   RoommateSearchScope,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { currentSeasonParticipantSelect } from '../../season-participants/participants/season-participant-records.js';

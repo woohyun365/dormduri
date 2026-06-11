@@ -1,7 +1,7 @@
 import type {
   RoommateSearchAvailabilityNotice,
   RoommateSearchSummary,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import { isParticipantRegistered } from '../../season-participants/policies/index.js';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
 

@@ -1,7 +1,7 @@
 import type {
   RoommateSearchQuery,
   RoommateSearchSummary,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 
 export interface RoommateSearchScoreThresholdItem {
   summary: Pick<RoommateSearchSummary, 'matchScore'> & {

@@ -123,12 +123,7 @@ const CANONICAL_NESTED_EXPORTS: Record<string, PackageExportTarget> = {
   },
 };
 
-const EXCLUDED_OWNER_ROOT_FILES = [
-  'profile-contract-fields.ts',
-  'profile-contract-public.ts',
-  'profile-contract.ts',
-  'roommate-search-contract.ts',
-] as const;
+const EXCLUDED_OWNER_ROOT_FILES = [] as const;
 
 const PROFILE_SEARCH_ROOT_CONTRACT_FILES = [
   'profile-contract-fields.ts',
@@ -183,6 +178,8 @@ const REMOVED_PUBLIC_SPECIFIER_SUFFIXES = [
   'match-contract',
   'match-score',
   'match/score',
+  'profile-contract',
+  'roommate-search-contract',
 ] as const;
 const REMOVED_PUBLIC_SPECIFIERS = REMOVED_PUBLIC_SPECIFIER_SUFFIXES.map(
   (suffix) => `@repo/shared/${suffix}`,

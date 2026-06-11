@@ -1,4 +1,4 @@
-import type { PublicTargetResultReadContext } from '@repo/shared/profile-contract';
+import type { PublicTargetResultReadContext } from '@repo/shared/profile/contract';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import type { SeasonState } from '@repo/shared/season/runtime';
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { collegeCodeSchema } from './college/index.js';
-import { LIFESTYLE_FIELD_OPTIONS } from './lifestyle/index.js';
+import { collegeCodeSchema } from '../../college/index.js';
+import { LIFESTYLE_FIELD_OPTIONS } from '../../lifestyle/index.js';
 import {
   profileGradeSchema,
   profileSourceSchema,
@@ -9,7 +9,7 @@ import {
   publicTargetExposureSchema,
   publicTargetRelationSchema,
   publicTargetResultReadSchema,
-} from './profile-contract.js';
+} from '../../profile/contract/index.js';
 
 const nullableEnum = <const T extends readonly [string, ...string[]]>(values: T) =>
   z.enum(values).optional();

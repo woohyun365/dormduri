@@ -63,9 +63,13 @@
       "types": "./dist/user/identity/account.d.ts",
       "default": "./dist/user/identity/account.js"
     },
-    "./profile-contract": {
-      "types": "./dist/profile-contract.d.ts",
-      "default": "./dist/profile-contract.js"
+    "./profile": {
+      "types": "./dist/profile/index.d.ts",
+      "default": "./dist/profile/index.js"
+    },
+    "./profile/contract": {
+      "types": "./dist/profile/contract/index.d.ts",
+      "default": "./dist/profile/contract/index.js"
     },
     "./lifestyle": {
       "types": "./dist/lifestyle/index.d.ts",
@@ -79,9 +83,13 @@
       "types": "./dist/match/contract/index.d.ts",
       "default": "./dist/match/contract/index.js"
     },
-    "./roommate-search-contract": {
-      "types": "./dist/roommate-search-contract.d.ts",
-      "default": "./dist/roommate-search-contract.js"
+    "./roommate-search": {
+      "types": "./dist/roommate-search/index.d.ts",
+      "default": "./dist/roommate-search/index.js"
+    },
+    "./roommate-search/contract": {
+      "types": "./dist/roommate-search/contract/index.d.ts",
+      "default": "./dist/roommate-search/contract/index.js"
     },
     "./notifications": {
       "types": "./dist/notifications/index.d.ts",

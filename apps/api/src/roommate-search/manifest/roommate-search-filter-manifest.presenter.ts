@@ -1,12 +1,12 @@
 import { LIFESTYLE_FIELD_OPTIONS } from '@repo/shared/lifestyle';
-import { PROFILE_GRADE_VALUES } from '@repo/shared/profile-contract';
+import { PROFILE_GRADE_VALUES } from '@repo/shared/profile/contract';
 import type {
   RoommateSearchManifest,
   RoommateSearchPurpose,
   RoommateSearchScope,
   RoommateSearchSort,
-} from '@repo/shared/roommate-search-contract';
-import { ROOMMATE_SEARCH_MIN_SCORE_PRESETS } from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
+import { ROOMMATE_SEARCH_MIN_SCORE_PRESETS } from '@repo/shared/roommate-search/contract';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
 
 const FILTER_POLICY_VERSION = 'roommate-search-filter-manifest-v1';

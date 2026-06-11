@@ -1,4 +1,4 @@
-import type { PublicProfile } from '@repo/shared/profile-contract';
+import type { PublicProfile } from '@repo/shared/profile/contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { BlockVisibilityReaderPort } from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';

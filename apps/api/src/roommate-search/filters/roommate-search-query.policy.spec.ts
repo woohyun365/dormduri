@@ -1,4 +1,4 @@
-import type { RoommateSearchManifest } from '@repo/shared/roommate-search-contract';
+import type { RoommateSearchManifest } from '@repo/shared/roommate-search/contract';
 import { assertRoommateSearchQueryAllowed } from './roommate-search-query.policy.js';
 
 const actionableManifest: RoommateSearchManifest = {

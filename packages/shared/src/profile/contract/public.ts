@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { campusSchema, genderSchema } from './identity/primitives.js';
-import { publicProfileAdditionalSchema, publicLifestyleSchema } from './profile-contract-fields.js';
+import { campusSchema, genderSchema } from '../../identity/primitives.js';
+import { publicProfileAdditionalSchema, publicLifestyleSchema } from './fields.js';
 
 export const profileSourceSchema = z.enum(['SEASON_PARTICIPANT_PROFILE']);
 export const profileRelationToViewerSchema = z.enum(['GENERAL', 'MATCHED_PARTNER']);

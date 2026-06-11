@@ -3,7 +3,7 @@ import type {
   RoommateSearchQuery,
   RoommateSearchResponse,
   RoommateSearchScope,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { BlockVisibilityReaderPort } from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';

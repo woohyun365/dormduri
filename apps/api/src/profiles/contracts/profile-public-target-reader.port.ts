@@ -1,4 +1,4 @@
-import type { PublicProfile } from '@repo/shared/profile-contract';
+import type { PublicProfile } from '@repo/shared/profile/contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type {
   PublicProfileTargetCandidate,

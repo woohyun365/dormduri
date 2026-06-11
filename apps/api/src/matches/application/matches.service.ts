@@ -8,7 +8,7 @@ import type {
   MatchRequestActionResponse,
   MatchRequestListResponse,
 } from '@repo/shared/match/contract';
-import type { PublicProfile } from '@repo/shared/profile-contract';
+import type { PublicProfile } from '@repo/shared/profile/contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import { createMatchContextOwner } from '../context/match-context.resolver.js';

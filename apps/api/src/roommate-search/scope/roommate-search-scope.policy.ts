@@ -1,7 +1,7 @@
 import type {
   RoommateSearchPurpose,
   RoommateSearchScope,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import type { CurrentSeasonParticipantRecord } from '../../season-participants/application/season-participants.service.js';
 import { isParticipantRegistered } from '../../season-participants/policies/index.js';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';

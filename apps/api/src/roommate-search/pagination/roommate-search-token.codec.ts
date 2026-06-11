@@ -3,7 +3,7 @@ import type {
   RoommateSearchQuery,
   RoommateSearchScope,
   RoommateSearchSort,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import {
   signOpaqueHmacToken,
   verifyOpaqueHmacToken,

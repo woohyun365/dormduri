@@ -3,7 +3,7 @@ import type {
   RoommateSearchResponse,
   RoommateSearchScope,
   RoommateSearchSummary,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import type {
   ResolvedVisibleProfileEntry,
   VisibleProfileViewerContext,

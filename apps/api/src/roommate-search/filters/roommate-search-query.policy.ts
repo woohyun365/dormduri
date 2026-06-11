@@ -2,7 +2,7 @@ import type {
   RoommateSearchManifest,
   RoommateSearchQuery,
   RoommateSearchSort,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 import { roommateSearchErrors } from '../errors/roommate-search.errors.js';
 
 const FILTER_FIELDS = [

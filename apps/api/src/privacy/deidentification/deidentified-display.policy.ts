@@ -1,4 +1,4 @@
-import type { PublicProfileTombstoneReason } from '@repo/shared/profile-contract';
+import type { PublicProfileTombstoneReason } from '@repo/shared/profile/contract';
 
 export const DEIDENTIFIED_USER_DISPLAY_NAME = '탈퇴한 사용자';
 export const PROFILE_UNAVAILABLE_DISPLAY_NAME = '프로필 확인 불가';

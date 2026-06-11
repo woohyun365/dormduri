@@ -1,7 +1,7 @@
 import type {
   RoommateSearchSort,
   RoommateSearchSummary,
-} from '@repo/shared/roommate-search-contract';
+} from '@repo/shared/roommate-search/contract';
 
 export interface RoommateSearchSortBoundary {
   nicknameSortKey: string;
