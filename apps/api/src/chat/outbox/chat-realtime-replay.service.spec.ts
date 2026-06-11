@@ -1,3 +1,7 @@
+import {
+  createChatServiceSpecHarness,
+  type ChatServiceSpecHarness,
+} from '../test-support/chat-service-spec.harness.js';
 import { ChatRealtimeReplayService } from './chat-realtime-replay.service.js';
 
 describe('ChatRealtimeReplayService', () => {
@@ -78,6 +82,92 @@ describe('ChatRealtimeReplayService', () => {
     ).resolves.toEqual({
       status: 'resync_required',
       reason: 'PRIVACY_GUARD',
+    });
+  });
+});
+
+describe('chat realtime replay regression', () => {
+  let prismaQueryRawTyped: ChatServiceSpecHarness['prismaQueryRawTyped'];
+  let service: ChatServiceSpecHarness['service'];
+
+  beforeEach(() => {
+    const harness = createChatServiceSpecHarness();
+    ({ prismaQueryRawTyped, service } = harness);
+  });
+
+  it('replayRealtimeEvents는 authenticated user recipient event만 계약 envelope로 반환한다', async () => {
+    prismaQueryRawTyped.mockResolvedValueOnce([
+      {
+        eventId: 'event-1',
+        cursor: 'event-1:user-1',
+        eventType: 'chat.read_marker.updated',
+        schemaVersion: 1,
+        threadId: 'thread-1',
+        payload: {
+          threadId: 'thread-1',
+          lastReadMessageId: 'message-1',
+        },
+        occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+        recipientCreatedAt: new Date('2026-02-10T03:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      service.replayRealtimeEvents(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { after: null, limit: 10 },
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      events: [
+        {
+          schemaVersion: 1,
+          eventId: 'event-1',
+          eventType: 'chat.read_marker.updated',
+          occurredAt: '2026-02-10T03:00:00.000Z',
+          cursor: 'event-1:user-1',
+          threadId: 'thread-1',
+          payload: {
+            threadId: 'thread-1',
+            lastReadMessageId: 'message-1',
+          },
+        },
+      ],
+      nextCursor: 'event-1:user-1',
+      hasMore: false,
+    });
+  });
+  it('replayRealtimeEvents는 지원하지 않는 schema/event type이면 resync required로 수렴한다', async () => {
+    prismaQueryRawTyped.mockResolvedValueOnce([
+      {
+        eventId: 'event-unsupported',
+        cursor: 'event-unsupported:user-1',
+        eventType: 'chat.unknown',
+        schemaVersion: 1,
+        threadId: 'thread-1',
+        payload: {},
+        occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+        recipientCreatedAt: new Date('2026-02-10T03:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      service.replayRealtimeEvents(
+        {
+          id: 'user-1',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        { after: null, limit: 10 },
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      reason: 'SCHEMA_UNSUPPORTED',
+      resyncRequired: true,
     });
   });
 });
