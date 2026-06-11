@@ -13,6 +13,7 @@ import { ChatModule } from '../chat/chat.module.js';
 import { CHAT_BLOCK_SIDE_EFFECT_PORT } from '../chat/application/ports/chat-block-side-effect.port.js';
 import { CHAT_LIFECYCLE_SWEEP_PORT } from '../chat/application/ports/chat-lifecycle-sweep.port.js';
 import { CHAT_MATCH_THREAD_LIFECYCLE_PORT } from '../chat/application/ports/chat-match-thread-lifecycle.port.js';
+import { CHAT_REPORT_TARGET_CONTEXT_PORT } from '../chat/application/ports/chat-report-target-context.port.js';
 import { CHAT_THREAD_WITHDRAWAL_PORT } from '../chat/application/ports/chat-thread-withdrawal.port.js';
 import { ChatLifecycleModule } from '../chat/lifecycle/chat-lifecycle.module.js';
 import { DormitoriesModule } from '../dormitories/dormitories.module.js';
@@ -23,6 +24,8 @@ import { LifecycleModule } from '../lifecycle/lifecycle.module.js';
 import { LifecycleSweepService } from '../lifecycle/lifecycle-sweep.service.js';
 import { MATCHES_EXPORTS } from '../matches/composition/matches.exports.js';
 import { MATCHES_PROVIDERS } from '../matches/composition/matches.providers.js';
+import { MATCH_PARTICIPANT_WITHDRAWAL_PORT } from '../matches/application/ports/match-participant-withdrawal.port.js';
+import { MatchLifecycleModule } from '../matches/lifecycle/match-lifecycle.module.js';
 import { MatchesModule } from '../matches/matches.module.js';
 import { ModerationModule } from '../moderation/moderation.module.js';
 import { ModerationService } from '../moderation/moderation.service.js';
@@ -153,6 +156,7 @@ describe('affected API module boundary finalization', () => {
         ChatModule,
         ModerationModule,
         AuthModule,
+        MatchLifecycleModule,
       ]),
     );
     expect(moduleMetadata(SeasonParticipantsModule, 'imports')).toEqual(
@@ -162,6 +166,7 @@ describe('affected API module boundary finalization', () => {
         DormitoriesModule,
         AuthModule,
         ChatLifecycleModule,
+        MatchLifecycleModule,
       ]),
     );
     expect(moduleMetadata(ProfilesModule, 'imports')).toEqual(
@@ -235,6 +240,7 @@ describe('affected API module boundary finalization', () => {
       CHAT_BLOCK_SIDE_EFFECT_PORT,
       CHAT_MATCH_THREAD_LIFECYCLE_PORT,
       CHAT_LIFECYCLE_SWEEP_PORT,
+      CHAT_REPORT_TARGET_CONTEXT_PORT,
       ChatLifecycleModule,
       REALTIME_DISPATCHER_CONFIG_PORT,
       REALTIME_DISPATCH_METRICS_PORT,
@@ -242,6 +248,9 @@ describe('affected API module boundary finalization', () => {
       REALTIME_USER_ROOM_PUBLISHER_PORT,
     ]);
     expect(moduleMetadata(ChatLifecycleModule, 'exports')).toEqual([CHAT_THREAD_WITHDRAWAL_PORT]);
+    expect(moduleMetadata(MatchLifecycleModule, 'exports')).toEqual([
+      MATCH_PARTICIPANT_WITHDRAWAL_PORT,
+    ]);
     expect(moduleMetadata(MatchesModule, 'providers')).toEqual(MATCHES_PROVIDERS);
     expect(moduleMetadata(MatchesModule, 'exports')).toEqual(MATCHES_EXPORTS);
     expect(moduleMetadata(SeasonParticipantsModule, 'exports')).toEqual([

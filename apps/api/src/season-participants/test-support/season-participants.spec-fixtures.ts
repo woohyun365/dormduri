@@ -240,11 +240,17 @@ export function createSeasonParticipantsServiceTestKit() {
       .fn()
       .mockResolvedValue({ updatedThreadIds: [] }),
   };
+  const matchParticipantWithdrawal = {
+    cancelPendingRequestsForWithdrawnParticipant: jest
+      .fn()
+      .mockResolvedValue({ canceledPendingMatchRequests: 0 }),
+  };
   const writeOwner = createSeasonParticipantWriteOwner({
     prisma: prisma as never,
     seasonsService: seasonsService as never,
     dormitorySelectionCatalog: dormitoriesService as never,
     chatThreadWithdrawal,
+    matchParticipantWithdrawal,
   });
   const service = new SeasonParticipantsService(
     writeOwner,
@@ -273,7 +279,6 @@ export function createSeasonParticipantsServiceTestKit() {
   });
   txSeasonParticipantLifecycleEventCreate.mockResolvedValue({ id: 'lifecycle-event-1' });
   txSeasonParticipantLifecycleEventCreateMany.mockResolvedValue({ count: 0 });
-  tx.matchRequest.updateMany.mockResolvedValue({ count: 0 });
   dormitoriesService.listSelectableDormitoriesForSeasonParticipant.mockResolvedValue([
     {
       id: 'dasan',
@@ -314,6 +319,7 @@ export function createSeasonParticipantsServiceTestKit() {
     seasonsService,
     dormitoriesService,
     chatThreadWithdrawal,
+    matchParticipantWithdrawal,
     tx,
     txCampusMasterFindUnique,
     txSeasonFindMany,

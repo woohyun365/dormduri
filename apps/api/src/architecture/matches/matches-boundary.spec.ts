@@ -37,10 +37,7 @@ const rootSpecTransitionFiles: TransitionMap = {};
 
 const concreteMatchesServiceTransitionConsumers: TransitionMap = {};
 
-const externalMatchMutationTransitionFiles: TransitionMap = {
-  'src/season-participants/deregistration/deregister-season-participant.command.ts':
-    'Phase 7 participant withdrawal match side-effect port decision',
-};
+const externalMatchMutationTransitionFiles: TransitionMap = {};
 
 const removedSharedMatchFlatExports = [
   './match-contract',
@@ -72,6 +69,7 @@ const phase2PortFiles = [
   'application/ports/match-lifecycle-sweep.port.ts',
   'application/ports/match-history-materialization.port.ts',
   'application/ports/match-score-projection.port.ts',
+  'application/ports/match-participant-withdrawal.port.ts',
 ] as const;
 
 const phase8_1ExtractedFiles = [
@@ -262,6 +260,9 @@ describe('matches architecture boundary', () => {
     const moduleSource = readSource(join(matchesRoot, 'matches.module.ts'));
     const providersSource = readSource(join(matchesRoot, 'composition/matches.providers.ts'));
     const exportsSource = readSource(join(matchesRoot, 'composition/matches.exports.ts'));
+    const lifecycleModuleSource = readSource(
+      join(matchesRoot, 'lifecycle/match-lifecycle.module.ts'),
+    );
 
     for (const relativePath of phase2PortFiles) {
       expect(existsSync(join(matchesRoot, relativePath))).toBe(true);
@@ -287,6 +288,9 @@ describe('matches architecture boundary', () => {
     expect(providersSource).toContain('useExisting: MatchHistoryMaterializationService');
     expect(providersSource).toContain('MatchScoreProjectionService');
     expect(providersSource).toContain('useExisting: MatchScoreProjectionService');
+    expect(lifecycleModuleSource).toContain('MATCH_PARTICIPANT_WITHDRAWAL_PORT');
+    expect(lifecycleModuleSource).toContain('useExisting: MatchParticipantWithdrawalService');
+    expect(exportsSource).toContain('MatchLifecycleModule');
     expect(exportsSource).not.toContain('MatchesService');
     expect(exportsSource).not.toContain('Temporary transition export');
   });
