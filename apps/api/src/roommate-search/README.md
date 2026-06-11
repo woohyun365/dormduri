@@ -46,6 +46,15 @@ Architecture specs own cross-cutting fitness rules:
 - External production code should not import roommate-search slice internals unless a narrow public surface is explicitly exported.
 - Bookmark/block table authority should be accessed through social-safety-owned read surfaces rather than ad hoc interpretation in search code.
 
+## Query and cost boundaries
+
+- Candidate discovery starts from `SeasonParticipant`, not `User`. Keep season, campus, gender, registration, dormitory, participant-status, and profile-completeness filters in the candidate query so the broad search set is reduced before profile/social-safety composition.
+- Use `SeasonParticipant.campusCodeSnapshot` and `SeasonParticipant.genderSnapshot` for same-season cohort matching. The `User` relation is still selected/checked only for `deletedAt` because deleted/deidentified identity state is the fail-closed source of truth.
+- Bookmark and block lookups must be bounded to the visible target subset after profile target materialization. Do not ask social-safety ports for hidden/deactivated/withdrawn/expired/deleted targets or unmaterialized raw candidate rows.
+- Match score calculation authority remains in `matches/scoring`. Roommate-search may apply score sorting or `minScore` filtering only after visible summaries are materialized; it should not persist or cache score state here.
+- Do not add broad indexes only because a query is read-heavy. Add or change a Prisma index only when the actual `where`/`orderBy` shape and production-like `EXPLAIN`, RDS IOPS/CPU, or Performance Insights evidence show that existing indexes are insufficient.
+- Redis, materialized projection, or bounded score cache is a performance optimization, not a correctness source. Introduce it only with an owner, invalidation strategy, and measured candidate-count/latency threshold.
+
 ## Where to change roommate-search behavior
 
 - HTTP route parsing and controller delegation: `roommate-search.controller.ts`.

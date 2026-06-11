@@ -67,10 +67,10 @@ export function buildRoommateSearchCandidateWhere(input: {
       : {}),
     seasonId: input.viewerContext.currentSeasonId ?? '',
     userId: { not: input.viewerContext.viewer.id },
+    campusCodeSnapshot: input.viewerContext.viewer.campus,
+    genderSnapshot: input.viewerContext.viewer.gender,
     user: {
       deletedAt: null,
-      campus: input.viewerContext.viewer.campus,
-      gender: input.viewerContext.viewer.gender,
     },
     participationIntent: 'REGISTERED',
     registeredAt: { not: null },

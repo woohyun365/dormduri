@@ -51,6 +51,8 @@ describe('roommate-search-candidate.query', () => {
       id: { not: 'viewer-participant' },
       seasonId: 'season-1',
       userId: { not: 'viewer-user' },
+      campusCodeSnapshot: 'CHUNCHEON',
+      genderSnapshot: 'M',
       participationIntent: 'REGISTERED',
       registeredAt: { not: null },
       dormitorySelectionState: 'ASSIGNED',
@@ -60,10 +62,9 @@ describe('roommate-search-candidate.query', () => {
       deactivatedAt: null,
       user: {
         deletedAt: null,
-        campus: 'CHUNCHEON',
-        gender: 'M',
       },
     });
+    expect(where.user).toEqual({ deletedAt: null });
     const profileWhere = where.profile;
     if (
       !profileWhere ||
