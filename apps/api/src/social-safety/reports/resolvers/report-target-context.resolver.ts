@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type { ReportTargetType } from '@repo/shared/social-safety/report';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
+import { CHAT_REPORT_TARGET_CONTEXT_PORT } from '../../../chat/application/ports/chat-report-target-context.port.js';
+import type {
+  ChatReportTargetClient,
+  ChatReportTargetContextPort,
+} from '../../../chat/application/ports/chat-report-target-context.port.js';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 import { reportErrors } from '../errors/report.errors.js';
@@ -20,8 +25,9 @@ export interface ResolvedReportTargetContext {
 
 type ReportTargetResolverClient = Pick<
   Prisma.TransactionClient,
-  'seasonParticipant' | 'matchRequest' | 'conversationThread' | 'conversationMessage'
->;
+  'seasonParticipant' | 'matchRequest'
+> &
+  ChatReportTargetClient;
 
 const actorParticipantSelect = {
   id: true,
@@ -61,7 +67,11 @@ function actionableParticipantWhere(): Prisma.SeasonParticipantWhereInput {
 
 @Injectable()
 export class ReportTargetContextResolver {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CHAT_REPORT_TARGET_CONTEXT_PORT)
+    private readonly chatReportTargetContext: ChatReportTargetContextPort,
+  ) {}
 
   async resolve(input: {
     authUser: AuthenticatedUserContext;
@@ -222,51 +232,29 @@ export class ReportTargetContextResolver {
     actorParticipant: ActorParticipant,
     client?: ReportTargetResolverClient,
   ): Promise<ResolvedReportTargetContext> {
-    const db = client ?? this.prisma;
-    const thread = await db.conversationThread.findFirst({
-      where: {
-        id: targetId,
-        seasonId: actorParticipant.seasonId,
-        status: { in: ['OPEN', 'READ_ONLY'] },
-        members: {
-          some: {
-            participantId: actorParticipant.id,
-            memberState: 'ACTIVE',
-          },
-        },
-      },
-      select: {
-        id: true,
-        seasonId: true,
-        participantAId: true,
-        participantBId: true,
-        threadKind: true,
-        status: true,
-        closedReason: true,
-        participantA: { select: { id: true, userId: true } },
-        participantB: { select: { id: true, userId: true } },
-      },
+    const thread = await this.chatReportTargetContext.resolveThreadTarget({
+      actorParticipantId: actorParticipant.id,
+      seasonId: actorParticipant.seasonId,
+      threadId: targetId,
+      client,
     });
     if (!thread) {
       throw reportErrors.targetNotReportable();
     }
 
-    const counterpart =
-      thread.participantAId === actorParticipant.id ? thread.participantB : thread.participantA;
-
     return {
       targetType: 'CHAT_THREAD',
-      targetId: thread.id,
-      targetUserId: counterpart.userId,
-      targetParticipantId: counterpart.id,
-      targetThreadId: thread.id,
+      targetId: thread.threadId,
+      targetUserId: thread.counterpartUserId,
+      targetParticipantId: thread.counterpartParticipantId,
+      targetThreadId: thread.threadId,
       targetMessageId: null,
       targetMatchRequestId: null,
       seasonId: thread.seasonId,
       status: 'SUBMITTED',
       snapshot: {
         targetKind: 'CHAT_THREAD',
-        threadId: thread.id,
+        threadId: thread.threadId,
         threadKind: thread.threadKind,
         status: thread.status,
         closedReason: thread.closedReason,
@@ -281,37 +269,11 @@ export class ReportTargetContextResolver {
     actorParticipant: ActorParticipant,
     client?: ReportTargetResolverClient,
   ): Promise<ResolvedReportTargetContext> {
-    const db = client ?? this.prisma;
-    const message = await db.conversationMessage.findFirst({
-      where: {
-        id: targetId,
-        deletedAt: null,
-        thread: {
-          seasonId: actorParticipant.seasonId,
-          status: { in: ['OPEN', 'READ_ONLY'] },
-          members: {
-            some: {
-              participantId: actorParticipant.id,
-              memberState: 'ACTIVE',
-            },
-          },
-        },
-      },
-      select: {
-        id: true,
-        threadId: true,
-        senderParticipantId: true,
-        bodyState: true,
-        tombstoneReason: true,
-        thread: {
-          select: {
-            seasonId: true,
-            participantAId: true,
-            participantBId: true,
-          },
-        },
-        senderParticipant: { select: { id: true, userId: true } },
-      },
+    const message = await this.chatReportTargetContext.resolveMessageTarget({
+      actorParticipantId: actorParticipant.id,
+      seasonId: actorParticipant.seasonId,
+      messageId: targetId,
+      client,
     });
     if (!message) {
       throw reportErrors.targetNotReportable();
@@ -319,23 +281,23 @@ export class ReportTargetContextResolver {
 
     return {
       targetType: 'CHAT_MESSAGE',
-      targetId: message.id,
-      targetUserId: message.senderParticipant.userId,
-      targetParticipantId: message.senderParticipant.id,
+      targetId: message.messageId,
+      targetUserId: message.senderUserId,
+      targetParticipantId: message.senderParticipantId,
       targetThreadId: message.threadId,
-      targetMessageId: message.id,
+      targetMessageId: message.messageId,
       targetMatchRequestId: null,
-      seasonId: message.thread.seasonId,
+      seasonId: message.seasonId,
       status: 'SUBMITTED',
       snapshot: {
         targetKind: 'CHAT_MESSAGE',
-        messageId: message.id,
+        messageId: message.messageId,
         threadId: message.threadId,
         senderParticipantId: message.senderParticipantId,
         bodyState: message.bodyState,
         tombstoneReason: message.tombstoneReason,
-        participantAId: message.thread.participantAId,
-        participantBId: message.thread.participantBId,
+        participantAId: message.participantAId,
+        participantBId: message.participantBId,
       },
     };
   }
