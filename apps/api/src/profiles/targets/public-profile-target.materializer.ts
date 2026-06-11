@@ -1,6 +1,7 @@
 import type { PublicProfile } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
+import type { BlockVisibilityReaderPort } from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';
 import { resolveProfileDisplayName } from '../../privacy/deidentification/deidentified-display.policy.js';
 import type { MatchActiveViewPort } from '../../matches/application/ports/match-active-view.port.js';
 import type { MatchScoreProjectionPort } from '../../matches/application/ports/match-score-projection.port.js';
@@ -45,6 +46,7 @@ interface PublicProfileTargetMaterializerDeps {
   seasonParticipantsService: SeasonParticipantsService;
   matchActiveView: MatchActiveViewPort;
   matchScoreProjection: MatchScoreProjectionPort;
+  blockVisibilityReader: BlockVisibilityReaderPort;
 }
 
 const targetParticipantSelect = {
@@ -431,24 +433,12 @@ export function createPublicProfileTargetMaterializer(deps: PublicProfileTargetM
   }
 
   async function hasActiveBlockBetweenUsers(viewerUserId: string, targetUserId: string) {
-    const activeBlock = await deps.prisma.userBlock.findFirst({
-      where: {
-        unblockedAt: null,
-        OR: [
-          {
-            blockerUserId: viewerUserId,
-            blockedUserId: targetUserId,
-          },
-          {
-            blockerUserId: targetUserId,
-            blockedUserId: viewerUserId,
-          },
-        ],
-      },
-      select: { id: true },
+    const excludedTargetUserIds = await deps.blockVisibilityReader.getExcludedTargetUserIds({
+      viewerUserId,
+      targetUserIds: [targetUserId],
     });
 
-    return activeBlock !== null;
+    return excludedTargetUserIds.has(targetUserId);
   }
 
   return {

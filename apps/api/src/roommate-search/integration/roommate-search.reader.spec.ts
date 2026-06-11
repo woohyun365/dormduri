@@ -7,7 +7,6 @@ import {
   currentParticipant,
   currentProfile,
   profile,
-  objectContaining,
 } from '../../season-participants/test-support/season-participants.spec-fixtures.js';
 import { createRoommateSearchReader } from './roommate-search.reader.js';
 
@@ -104,14 +103,6 @@ describe('roommate-search.reader bookmark integration', () => {
           }),
         ]),
       },
-      userBookmark: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ targetParticipantId: 'visible-participant', bookmarkedAt: now }]),
-      },
-      userBlock: {
-        findMany: jest.fn().mockResolvedValue([]),
-      },
     };
     const context = viewerContext();
     const publicProfileTargetReader = {
@@ -157,29 +148,122 @@ describe('roommate-search.reader bookmark integration', () => {
             })),
       ),
     };
+    const bookmarkSearchMetadataReader = {
+      getActiveBookmarkMetadata: jest
+        .fn()
+        .mockResolvedValue(new Map([['visible-participant', { bookmarkedAt: now }]])),
+    };
+    const blockVisibilityReader = {
+      getExcludedTargetUserIds: jest.fn().mockResolvedValue(new Set()),
+    };
     const reader = createRoommateSearchReader({
       prisma: prisma as never,
       publicProfileTargetReader: publicProfileTargetReader as never,
+      bookmarkSearchMetadataReader: bookmarkSearchMetadataReader as never,
+      blockVisibilityReader: blockVisibilityReader as never,
     });
 
     const result = await reader.search(authUser, { scope: 'SAME_BUILDING_ONLY', limit: 20 });
 
-    expect(prisma.userBookmark.findMany).toHaveBeenCalledWith(
-      objectContaining({
-        where: objectContaining({
-          viewerUserId: 'viewer-user',
-          seasonId: 'season-1',
-          targetParticipantId: { in: ['visible-participant'] },
-          deletedAt: null,
-          expiredAt: null,
-        }),
-      }),
-    );
+    expect(blockVisibilityReader.getExcludedTargetUserIds).toHaveBeenCalledWith({
+      viewerUserId: 'viewer-user',
+      targetUserIds: ['visible-user'],
+    });
+    expect(bookmarkSearchMetadataReader.getActiveBookmarkMetadata).toHaveBeenCalledWith({
+      viewerUserId: 'viewer-user',
+      seasonId: 'season-1',
+      targetParticipantIds: ['visible-participant'],
+    });
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
       id: 'visible-user',
       bookmark: { bookmarked: true, bookmarkedAt: now.toISOString() },
     });
     expect(result.items.map((item) => item.id)).not.toContain('hidden-user');
+  });
+
+  it('active block exclusion은 social-safety block visibility port 결과만 사용한다', async () => {
+    const prisma = {
+      getDatabaseNow: jest.fn().mockResolvedValue(now),
+      collegeMaster: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      seasonParticipant: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([
+            targetRecord({ id: 'visible-participant', userId: 'visible-user', nickname: '가가' }),
+            targetRecord({ id: 'blocked-participant', userId: 'blocked-user', nickname: '나나' }),
+          ]),
+      },
+    };
+    const context = viewerContext();
+    const publicProfileTargetReader = {
+      loadViewerContext: jest.fn().mockResolvedValue(context),
+      mapTargetParticipantCandidate: jest.fn((record: TargetParticipantQueryRecord) => ({
+        participant: record,
+        user: record.user,
+      })),
+      materializeVisibleProfileEntries: jest.fn(
+        (_viewerContext: VisibleProfileViewerContext, candidates: PublicProfileTargetCandidate[]) =>
+          candidates.map((candidate) => ({
+            user: candidate.user,
+            targetParticipant: candidate.participant,
+            targetDormitoryId: candidate.participant.dormitoryId,
+            sourceProfile: {
+              nickname: candidate.participant.profile?.nicknameSnapshot ?? '닉네임',
+              nicknameNormalized:
+                candidate.participant.profile?.nicknameNormalizedSnapshot ?? '닉네임',
+              intro: '소개',
+              lifestyle: COMPLETE_LIFESTYLE,
+            },
+            publicTargetPolicy: {
+              sourceProfile: 'CURRENT_SEASON_PROFILE',
+              relation: { relationToViewer: 'GENERAL' },
+              exposure: {
+                detailViewable: true,
+                canViewFull: true,
+                scoreVisible: true,
+              },
+              actions: {
+                canBookmark: true,
+                canRequestMatch: true,
+              },
+              resultRead: {
+                canRead: true,
+                reason: null,
+              },
+            },
+            matchScore: 88,
+            viewerMatched: false,
+            targetMatched: false,
+          })),
+      ),
+    };
+    const bookmarkSearchMetadataReader = {
+      getActiveBookmarkMetadata: jest.fn().mockResolvedValue(new Map()),
+    };
+    const blockVisibilityReader = {
+      getExcludedTargetUserIds: jest.fn().mockResolvedValue(new Set(['blocked-user'])),
+    };
+    const reader = createRoommateSearchReader({
+      prisma: prisma as never,
+      publicProfileTargetReader: publicProfileTargetReader as never,
+      bookmarkSearchMetadataReader: bookmarkSearchMetadataReader as never,
+      blockVisibilityReader: blockVisibilityReader as never,
+    });
+
+    const result = await reader.search(authUser, { scope: 'SAME_BUILDING_ONLY', limit: 20 });
+
+    expect(blockVisibilityReader.getExcludedTargetUserIds).toHaveBeenCalledWith({
+      viewerUserId: 'viewer-user',
+      targetUserIds: ['visible-user', 'blocked-user'],
+    });
+    expect(bookmarkSearchMetadataReader.getActiveBookmarkMetadata).toHaveBeenCalledWith({
+      viewerUserId: 'viewer-user',
+      seasonId: 'season-1',
+      targetParticipantIds: ['visible-participant'],
+    });
+    expect(result.items.map((item) => item.id)).toEqual(['visible-user']);
   });
 });

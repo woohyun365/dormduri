@@ -6,6 +6,8 @@ import type {
 } from '@repo/shared/roommate-search-contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
+import type { BlockVisibilityReaderPort } from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';
+import type { BookmarkSearchMetadataReaderPort } from '../../social-safety/bookmarks/application/ports/bookmark-search-metadata-reader.port.js';
 import type {
   ProfilePublicTargetReaderPort,
   ResolvedVisibleProfileEntry,
@@ -32,6 +34,8 @@ import { sortRoommateSearchItems } from '../sorting/roommate-search-score-sort.p
 interface RoommateSearchReaderDeps {
   prisma: PrismaService;
   publicProfileTargetReader: ProfilePublicTargetReaderPort;
+  bookmarkSearchMetadataReader: BookmarkSearchMetadataReaderPort;
+  blockVisibilityReader: BlockVisibilityReaderPort;
 }
 
 export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
@@ -175,31 +179,10 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
       return entries;
     }
 
-    const targetUserIds = entries.map((entry) => entry.user.id);
-    const activeBlocks = await deps.prisma.userBlock.findMany({
-      where: {
-        unblockedAt: null,
-        OR: [
-          {
-            blockerUserId: viewerContext.viewer.id,
-            blockedUserId: { in: targetUserIds },
-          },
-          {
-            blockerUserId: { in: targetUserIds },
-            blockedUserId: viewerContext.viewer.id,
-          },
-        ],
-      },
-      select: {
-        blockerUserId: true,
-        blockedUserId: true,
-      },
+    const blockedTargetUserIds = await deps.blockVisibilityReader.getExcludedTargetUserIds({
+      viewerUserId: viewerContext.viewer.id,
+      targetUserIds: entries.map((entry) => entry.user.id),
     });
-    const blockedTargetUserIds = new Set(
-      activeBlocks.map((block) =>
-        block.blockerUserId === viewerContext.viewer.id ? block.blockedUserId : block.blockerUserId,
-      ),
-    );
 
     return entries.filter((entry) => !blockedTargetUserIds.has(entry.user.id));
   }
@@ -212,25 +195,11 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
       return new Map<string, { bookmarkedAt: Date }>();
     }
 
-    const rows = await deps.prisma.userBookmark.findMany({
-      where: {
-        viewerUserId: viewerContext.viewer.id,
-        seasonId: viewerContext.currentSeasonId,
-        targetParticipantId: {
-          in: entries.map((entry) => entry.targetParticipant.id),
-        },
-        deletedAt: null,
-        expiredAt: null,
-      },
-      select: {
-        targetParticipantId: true,
-        bookmarkedAt: true,
-      },
+    return deps.bookmarkSearchMetadataReader.getActiveBookmarkMetadata({
+      viewerUserId: viewerContext.viewer.id,
+      seasonId: viewerContext.currentSeasonId,
+      targetParticipantIds: entries.map((entry) => entry.targetParticipant.id),
     });
-
-    return new Map(
-      rows.map((row) => [row.targetParticipantId, { bookmarkedAt: row.bookmarkedAt }]),
-    );
   }
 
   async function loadActiveCollegeOptions(viewerContext: VisibleProfileViewerContext) {

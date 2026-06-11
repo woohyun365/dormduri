@@ -3,6 +3,10 @@ import type { PublicProfile } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
+  BLOCK_VISIBILITY_READER_PORT,
+  type BlockVisibilityReaderPort,
+} from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';
+import {
   MATCH_ACTIVE_VIEW_PORT,
   type MatchActiveViewPort,
 } from '../../matches/application/ports/match-active-view.port.js';
@@ -30,6 +34,8 @@ export class ProfilesService {
     private readonly matchActiveView: MatchActiveViewPort,
     @Inject(MATCH_SCORE_PROJECTION_PORT)
     private readonly matchScoreProjection: MatchScoreProjectionPort,
+    @Inject(BLOCK_VISIBILITY_READER_PORT)
+    private readonly blockVisibilityReader: BlockVisibilityReaderPort,
   ) {
     this.profileDetailQuery = createProfileDetailQuery({
       prisma: this.prisma,
@@ -37,6 +43,7 @@ export class ProfilesService {
       seasonParticipantsService: this.seasonParticipantsService,
       matchActiveView: this.matchActiveView,
       matchScoreProjection: this.matchScoreProjection,
+      blockVisibilityReader: this.blockVisibilityReader,
     });
   }
 

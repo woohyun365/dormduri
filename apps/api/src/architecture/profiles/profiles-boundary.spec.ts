@@ -125,6 +125,21 @@ describe('profiles final structure boundary', () => {
     expect(forbiddenImportOffenders).toEqual([]);
   });
 
+  it('keeps profiles away from direct social-safety relation table authority', () => {
+    const directSocialSafetyTableReaders = productionTypeScriptFiles(profilesRoot)
+      .filter((path) => /prisma\.(userBookmark|userBlock)\b/.test(readSource(path)))
+      .map(apiRelativePath)
+      .sort();
+
+    expect({
+      expectedGreenPhase: 'Phase 4 social-safety bookmark/block read port cleanup',
+      directSocialSafetyTableReaders,
+    }).toEqual({
+      expectedGreenPhase: 'Phase 4 social-safety bookmark/block read port cleanup',
+      directSocialSafetyTableReaders: [],
+    });
+  });
+
   it('documents profiles as a product boundary map', () => {
     const readmePath = join(profilesRoot, 'README.md');
     const source = readSource(readmePath);

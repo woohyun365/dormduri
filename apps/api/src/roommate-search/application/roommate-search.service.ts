@@ -8,6 +8,14 @@ import type {
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
+  BLOCK_VISIBILITY_READER_PORT,
+  type BlockVisibilityReaderPort,
+} from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';
+import {
+  BOOKMARK_SEARCH_METADATA_READER_PORT,
+  type BookmarkSearchMetadataReaderPort,
+} from '../../social-safety/bookmarks/application/ports/bookmark-search-metadata-reader.port.js';
+import {
   PROFILE_PUBLIC_TARGET_READER_PORT,
   type ProfilePublicTargetReaderPort,
 } from '../../profiles/contracts/profile-public-target-reader.port.js';
@@ -21,10 +29,16 @@ export class RoommateSearchService {
     private readonly prisma: PrismaService,
     @Inject(PROFILE_PUBLIC_TARGET_READER_PORT)
     private readonly publicProfileTargetReader: ProfilePublicTargetReaderPort,
+    @Inject(BOOKMARK_SEARCH_METADATA_READER_PORT)
+    private readonly bookmarkSearchMetadataReader: BookmarkSearchMetadataReaderPort,
+    @Inject(BLOCK_VISIBILITY_READER_PORT)
+    private readonly blockVisibilityReader: BlockVisibilityReaderPort,
   ) {
     this.reader = createRoommateSearchReader({
       prisma: this.prisma,
       publicProfileTargetReader: this.publicProfileTargetReader,
+      bookmarkSearchMetadataReader: this.bookmarkSearchMetadataReader,
+      blockVisibilityReader: this.blockVisibilityReader,
     });
   }
 

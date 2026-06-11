@@ -1,6 +1,7 @@
 import type { PublicProfile } from '@repo/shared/profile-contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
+import type { BlockVisibilityReaderPort } from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';
 import type { MatchActiveViewPort } from '../../matches/application/ports/match-active-view.port.js';
 import type { MatchScoreProjectionPort } from '../../matches/application/ports/match-score-projection.port.js';
 import type { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
@@ -14,6 +15,7 @@ interface ProfileDetailQueryDeps {
   seasonParticipantsService: SeasonParticipantsService;
   matchActiveView: MatchActiveViewPort;
   matchScoreProjection: MatchScoreProjectionPort;
+  blockVisibilityReader: BlockVisibilityReaderPort;
 }
 
 export function createProfileDetailQuery(deps: ProfileDetailQueryDeps) {

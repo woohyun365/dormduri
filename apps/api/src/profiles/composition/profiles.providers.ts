@@ -8,6 +8,10 @@ import {
   type MatchScoreProjectionPort,
 } from '../../matches/application/ports/match-score-projection.port.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
+import {
+  BLOCK_VISIBILITY_READER_PORT,
+  type BlockVisibilityReaderPort,
+} from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import {
   SEASON_CONTEXT_PORT,
@@ -25,6 +29,7 @@ export const PROFILE_PUBLIC_TARGET_READER_PROVIDER: Provider = {
     seasonParticipantsService: SeasonParticipantsService,
     matchActiveView: MatchActiveViewPort,
     matchScoreProjection: MatchScoreProjectionPort,
+    blockVisibilityReader: BlockVisibilityReaderPort,
   ) =>
     createPublicProfileTargetMaterializer({
       prisma,
@@ -32,6 +37,7 @@ export const PROFILE_PUBLIC_TARGET_READER_PROVIDER: Provider = {
       seasonParticipantsService,
       matchActiveView,
       matchScoreProjection,
+      blockVisibilityReader,
     }),
   inject: [
     PrismaService,
@@ -39,6 +45,7 @@ export const PROFILE_PUBLIC_TARGET_READER_PROVIDER: Provider = {
     SeasonParticipantsService,
     MATCH_ACTIVE_VIEW_PORT,
     MATCH_SCORE_PROJECTION_PORT,
+    BLOCK_VISIBILITY_READER_PORT,
   ],
 };
 
