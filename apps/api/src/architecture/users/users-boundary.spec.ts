@@ -21,10 +21,9 @@ const requiredFinalDirectories = [
   'identity',
   'onboarding',
   'operations',
-  'retention',
 ] as const;
 
-const requiredIdentitySubdirectories = ['academic', 'audit', 'display'] as const;
+const requiredIdentitySubdirectories = ['academic', 'audit', 'display', 'retention'] as const;
 
 function walkTypeScriptFiles(root: string): string[] {
   if (!existsSync(root)) {
@@ -95,6 +94,10 @@ describe('users final structure boundary', () => {
     expect(source).toContain(
       'Campus service-state resolution is seasons/runtime domain context vocabulary',
     );
+    expect(source).toContain('`identity/retention/`');
+    expect(source).toContain(
+      'Retention sweep execution is owned by `retention/application/ports/retention-sweep.port.ts`',
+    );
   });
 
   it('keeps root production files on the documented public surface', () => {
@@ -123,6 +126,8 @@ describe('users final structure boundary', () => {
     for (const directory of requiredIdentitySubdirectories) {
       expect(existsSync(join(usersRoot, 'identity', directory))).toBe(true);
     }
+
+    expect(existsSync(join(usersRoot, 'retention'))).toBe(false);
   });
 
   it('moves campus service-state ownership out of users', () => {
