@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import {
   AUTH_ACCESS_METADATA_KEY,
@@ -9,13 +10,13 @@ import { HealthService } from './health.service.js';
 describe('HealthController', () => {
   let healthController: HealthController;
   const healthService = {
-    getLiveness: jest.fn(),
-    getReadiness: jest.fn(),
-    getRealtimeOperations: jest.fn(),
+    getLiveness: vi.fn(),
+    getReadiness: vi.fn(),
+    getRealtimeOperations: vi.fn(),
   };
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     const app: TestingModule = await Test.createTestingModule({
       controllers: [HealthController],
       providers: [

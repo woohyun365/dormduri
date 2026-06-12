@@ -1,30 +1,31 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthRegistrationUseCases } from './auth-registration-use-cases.service.js';
 
 describe('AuthRegistrationUseCases', () => {
   const databaseNow = new Date('2026-04-23T00:00:00.000Z');
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
     user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
     },
     userDisplayIdentity: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
     verificationCode: {
-      updateMany: jest.fn(),
+      updateMany: vi.fn(),
     },
-    $queryRawTyped: jest.fn(),
+    $queryRawTyped: vi.fn(),
   };
   const verificationService = {
-    findLatestVerifiedSignupCode: jest.fn(),
+    findLatestVerifiedSignupCode: vi.fn(),
   };
   const sessionService = {
-    issueAuthResult: jest.fn(),
+    issueAuthResult: vi.fn(),
   };
   const signupValidationService = {
-    validateDraft: jest.fn(),
+    validateDraft: vi.fn(),
   };
   const useCases = new AuthRegistrationUseCases(
     prisma as never,
@@ -43,7 +44,7 @@ describe('AuthRegistrationUseCases', () => {
   } as const;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);

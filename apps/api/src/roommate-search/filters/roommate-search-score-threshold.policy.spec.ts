@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { applyRoommateSearchScoreThreshold } from './roommate-search-score-threshold.policy.js';
 
 const item = (id: string, input: { scoreVisible: boolean; matchScore?: number }) => ({

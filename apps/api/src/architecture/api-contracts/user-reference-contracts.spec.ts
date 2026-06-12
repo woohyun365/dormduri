@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import {
   SERVICE_INTRO_NOTICE_KEY,
   currentUserResponseSchema,

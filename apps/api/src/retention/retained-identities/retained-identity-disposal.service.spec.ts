@@ -1,23 +1,24 @@
+import { describe, expect, it, vi } from 'vitest';
 import { disposeExpiredRetainedIdentities } from './retained-identity-disposal.service.js';
 
 function makePrisma(input: { retainedIdentityUpdateCount: number; vaultUpdateCount?: number }) {
   return {
     retainedIdentity: {
-      findMany: jest.fn().mockResolvedValue([{ id: 'retained-1' }]),
-      updateMany: jest.fn().mockResolvedValue({ count: input.retainedIdentityUpdateCount }),
+      findMany: vi.fn().mockResolvedValue([{ id: 'retained-1' }]),
+      updateMany: vi.fn().mockResolvedValue({ count: input.retainedIdentityUpdateCount }),
     },
     retainedVaultObject: {
-      findMany: jest.fn().mockResolvedValue([
+      findMany: vi.fn().mockResolvedValue([
         {
           id: 'vault-1',
           target: 'NICKNAME_AUDIT_EVENT',
           subjectRetainedIdentityId: 'retained-1',
         },
       ]),
-      updateMany: jest.fn().mockResolvedValue({ count: input.vaultUpdateCount ?? 1 }),
+      updateMany: vi.fn().mockResolvedValue({ count: input.vaultUpdateCount ?? 1 }),
     },
     retentionAccessLog: {
-      create: jest.fn().mockResolvedValue({ id: 'log-1' }),
+      create: vi.fn().mockResolvedValue({ id: 'log-1' }),
     },
   };
 }

@@ -25,7 +25,7 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "removeComments": true,
-    "declaration": true
+    "declaration": false
   },
   "include": ["src/**/*.ts"]
 }

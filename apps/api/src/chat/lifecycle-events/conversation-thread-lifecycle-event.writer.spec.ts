@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { Prisma } from '../../generated/prisma/client.js';
 import {
   ConversationThreadClosedReason,
@@ -16,17 +17,22 @@ const occurredAt = new Date('2026-02-10T03:00:00.000Z');
 const tx = {} as Prisma.TransactionClient;
 
 describe('ConversationThreadLifecycleEventWriter', () => {
-  let create: jest.Mock<
-    Promise<unknown>,
-    [Prisma.TransactionClient, ConversationThreadLifecycleEventCreateInput]
+  let create: Mock<
+    (
+      arg0: Prisma.TransactionClient,
+      arg1: ConversationThreadLifecycleEventCreateInput,
+    ) => Promise<unknown>
   >;
   let writer: ConversationThreadLifecycleEventWriter;
 
   beforeEach(() => {
-    create = jest.fn<
-      Promise<unknown>,
-      [Prisma.TransactionClient, ConversationThreadLifecycleEventCreateInput]
-    >();
+    create =
+      vi.fn<
+        (
+          arg0: Prisma.TransactionClient,
+          arg1: ConversationThreadLifecycleEventCreateInput,
+        ) => Promise<unknown>
+      >();
     create.mockResolvedValue({ id: 'event-1' });
     writer = new ConversationThreadLifecycleEventWriter({
       create,

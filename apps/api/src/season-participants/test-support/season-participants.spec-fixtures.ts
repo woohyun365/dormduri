@@ -1,3 +1,4 @@
+import { expect, vi } from 'vitest';
 import type { SeasonProfileDraftRequest } from '@repo/shared/season/participation';
 import { SeasonParticipantsService } from '../application/season-participants.service.js';
 import { toLifestyleColumnData } from '../lifestyle/lifestyle-persistence.mapper.js';
@@ -182,19 +183,19 @@ export function currentParticipant(overrides: Record<string, unknown> = {}) {
   };
 }
 
-export function createSeasonParticipantsServiceTestKit() {
-  const txUserFindUnique = jest.fn();
-  const txSeasonParticipantUpsert = jest.fn();
-  const txSeasonParticipantCreateManyAndReturn = jest.fn();
-  const txSeasonParticipantUpdate = jest.fn();
-  const txSeasonParticipantFindUnique = jest.fn();
-  const txSeasonParticipantProfileUpsert = jest.fn();
-  const txSeasonParticipantProfileUpdate = jest.fn();
-  const txSeasonParticipantProfileHistoryCreate = jest.fn();
-  const txSeasonParticipantLifecycleEventCreate = jest.fn();
-  const txSeasonParticipantLifecycleEventCreateMany = jest.fn();
-  const txCampusMasterFindUnique = jest.fn();
-  const txSeasonFindMany = jest.fn();
+function createSeasonParticipantsServiceTestKitImpl() {
+  const txUserFindUnique = vi.fn();
+  const txSeasonParticipantUpsert = vi.fn();
+  const txSeasonParticipantCreateManyAndReturn = vi.fn();
+  const txSeasonParticipantUpdate = vi.fn();
+  const txSeasonParticipantFindUnique = vi.fn();
+  const txSeasonParticipantProfileUpsert = vi.fn();
+  const txSeasonParticipantProfileUpdate = vi.fn();
+  const txSeasonParticipantProfileHistoryCreate = vi.fn();
+  const txSeasonParticipantLifecycleEventCreate = vi.fn();
+  const txSeasonParticipantLifecycleEventCreateMany = vi.fn();
+  const txCampusMasterFindUnique = vi.fn();
+  const txSeasonFindMany = vi.fn();
   const tx = {
     campusMaster: { findUnique: txCampusMasterFindUnique },
     season: { findMany: txSeasonFindMany },
@@ -214,41 +215,41 @@ export function createSeasonParticipantsServiceTestKit() {
       create: txSeasonParticipantLifecycleEventCreate,
       createMany: txSeasonParticipantLifecycleEventCreateMany,
     },
-    activeMatch: { findFirst: jest.fn() },
-    matchRequest: { updateMany: jest.fn() },
+    activeMatch: { findFirst: vi.fn() },
+    matchRequest: { updateMany: vi.fn() },
   };
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
-    campusMaster: { findMany: jest.fn() },
-    user: { findMany: jest.fn(), findUnique: jest.fn() },
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
+    campusMaster: { findMany: vi.fn() },
+    user: { findMany: vi.fn(), findUnique: vi.fn() },
     seasonParticipant: {
-      upsert: jest.fn(),
-      findMany: jest.fn(),
-      createMany: jest.fn(),
-      findUnique: jest.fn(),
+      upsert: vi.fn(),
+      findMany: vi.fn(),
+      createMany: vi.fn(),
+      findUnique: vi.fn(),
     },
-    activeMatch: { findFirst: jest.fn() },
+    activeMatch: { findFirst: vi.fn() },
   };
-  const seasonsService = { getCurrentSeasonContext: jest.fn() };
+  const seasonsService = { getCurrentSeasonContext: vi.fn() };
   const dormitoriesService = {
-    listSelectableDormitoriesForSeasonParticipant: jest.fn(),
-    validateSelectableDormitoryForSeasonParticipant: jest.fn(),
+    listSelectableDormitoriesForSeasonParticipant: vi.fn(),
+    validateSelectableDormitoryForSeasonParticipant: vi.fn(),
   };
   const chatThreadWithdrawal = {
-    markOpenDirectThreadsReadOnlyForWithdrawnParticipant: jest
+    markOpenDirectThreadsReadOnlyForWithdrawnParticipant: vi
       .fn()
       .mockResolvedValue({ updatedThreadIds: [] }),
   };
   const matchParticipantWithdrawal = {
-    cancelPendingRequestsForWithdrawnParticipant: jest
+    cancelPendingRequestsForWithdrawnParticipant: vi
       .fn()
       .mockResolvedValue({ canceledPendingMatchRequests: 0 }),
   };
   const writeOwner = createSeasonParticipantWriteOwner({
     prisma: prisma as never,
     seasonsService: seasonsService as never,
-    dormitorySelectionCatalog: dormitoriesService as never,
+    dormitorySelectionCatalog: dormitoriesService,
     chatThreadWithdrawal,
     matchParticipantWithdrawal,
   });
@@ -334,4 +335,12 @@ export function createSeasonParticipantsServiceTestKit() {
     txSeasonParticipantLifecycleEventCreate,
     txSeasonParticipantLifecycleEventCreateMany,
   };
+}
+
+export type SeasonParticipantsServiceTestKit = ReturnType<
+  typeof createSeasonParticipantsServiceTestKitImpl
+>;
+
+export function createSeasonParticipantsServiceTestKit(): SeasonParticipantsServiceTestKit {
+  return createSeasonParticipantsServiceTestKitImpl();
 }

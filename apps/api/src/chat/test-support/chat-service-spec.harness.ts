@@ -1,3 +1,4 @@
+import { expect, vi } from 'vitest';
 import { ChatService } from '../application/chat.service.js';
 import { ChatSeasonLifecycleService } from '../lifecycle/chat-season-lifecycle.service.js';
 import { ConversationThreadLifecycleEventRepository } from '../lifecycle-events/conversation-thread-lifecycle-event.repository.js';
@@ -197,60 +198,60 @@ export function makeAuthUser(
   };
 }
 
-export function createChatServiceSpecHarness() {
-  const prismaQueryRawTyped = jest.fn();
-  const txQueryRawTyped = jest.fn();
-  const txUserFindUnique = jest.fn();
-  const txConversationThreadFindFirst = jest.fn();
-  const txConversationThreadCreate = jest.fn();
-  const txConversationThreadUpdate = jest.fn();
-  const txConversationThreadUpdateMany = jest.fn();
-  const txConversationThreadMemberCreateMany = jest.fn();
-  const txConversationThreadMemberUpdate = jest.fn();
-  const txConversationThreadMemberUpdateMany = jest.fn();
-  const txConversationThreadMemberCount = jest.fn();
-  const txConversationThreadMemberFindUnique = jest.fn();
-  const txConversationMessageFindUnique = jest.fn();
-  const txConversationMessageFindFirst = jest.fn();
-  const txConversationMessageCreate = jest.fn();
-  const txChatRealtimeOutboxEventCreate = jest.fn();
-  const txChatRealtimeEventRecipientCreateMany = jest.fn();
-  const txConversationThreadLifecycleEventCreate = jest.fn();
-  const txActiveMatchFindFirst = jest.fn();
-  const prismaUserBlockFindFirst = jest.fn();
-  const txUserBlockFindFirst = jest.fn();
-  const appendChatThreadCreatedNotification = jest.fn();
+function createChatServiceSpecHarnessImpl() {
+  const prismaQueryRawTyped = vi.fn();
+  const txQueryRawTyped = vi.fn();
+  const txUserFindUnique = vi.fn();
+  const txConversationThreadFindFirst = vi.fn();
+  const txConversationThreadCreate = vi.fn();
+  const txConversationThreadUpdate = vi.fn();
+  const txConversationThreadUpdateMany = vi.fn();
+  const txConversationThreadMemberCreateMany = vi.fn();
+  const txConversationThreadMemberUpdate = vi.fn();
+  const txConversationThreadMemberUpdateMany = vi.fn();
+  const txConversationThreadMemberCount = vi.fn();
+  const txConversationThreadMemberFindUnique = vi.fn();
+  const txConversationMessageFindUnique = vi.fn();
+  const txConversationMessageFindFirst = vi.fn();
+  const txConversationMessageCreate = vi.fn();
+  const txChatRealtimeOutboxEventCreate = vi.fn();
+  const txChatRealtimeEventRecipientCreateMany = vi.fn();
+  const txConversationThreadLifecycleEventCreate = vi.fn();
+  const txActiveMatchFindFirst = vi.fn();
+  const prismaUserBlockFindFirst = vi.fn();
+  const txUserBlockFindFirst = vi.fn();
+  const appendChatThreadCreatedNotification = vi.fn();
 
   const prisma = {
     $queryRawTyped: prismaQueryRawTyped,
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
     user: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
     activeMatch: {
-      findFirst: jest.fn(),
+      findFirst: vi.fn(),
     },
     userBlock: {
       findFirst: prismaUserBlockFindFirst,
     },
     conversationThread: {
-      count: jest.fn(),
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
-      findFirst: jest.fn(),
-      update: jest.fn(),
+      count: vi.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      update: vi.fn(),
     },
   };
   const seasonsService = {
-    getCurrentSeasonContext: jest.fn(),
+    getCurrentSeasonContext: vi.fn(),
   };
   const seasonParticipantsService = {
-    ensureCurrentSeasonParticipant: jest.fn(),
-    findCurrentSeasonParticipant: jest.fn(),
-    selectCanonicalSelection: jest.fn(),
-    pickCurrentSeasonParticipant: jest.fn(),
-    hasRegistrationSnapshotForParticipant: jest.fn(),
+    ensureCurrentSeasonParticipant: vi.fn(),
+    findCurrentSeasonParticipant: vi.fn(),
+    selectCanonicalSelection: vi.fn(),
+    pickCurrentSeasonParticipant: vi.fn(),
+    hasRegistrationSnapshotForParticipant: vi.fn(),
   };
 
   const conversationThreadLifecycleEventWriter = new ConversationThreadLifecycleEventWriter(
@@ -457,4 +458,8 @@ export function createChatServiceSpecHarness() {
   };
 }
 
-export type ChatServiceSpecHarness = ReturnType<typeof createChatServiceSpecHarness>;
+export type ChatServiceSpecHarness = ReturnType<typeof createChatServiceSpecHarnessImpl>;
+
+export function createChatServiceSpecHarness(): ChatServiceSpecHarness {
+  return createChatServiceSpecHarnessImpl();
+}

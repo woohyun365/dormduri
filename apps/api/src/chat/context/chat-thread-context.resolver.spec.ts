@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import { ChatThreadContextResolver } from './chat-thread-context.resolver.js';
 
@@ -29,13 +30,13 @@ function makeThread(overrides: Record<string, unknown> = {}) {
 describe('ChatThreadContextResolver', () => {
   const prisma = {
     conversationThread: {
-      findFirst: jest.fn(),
+      findFirst: vi.fn(),
     },
   };
   const resolver = new ChatThreadContextResolver(prisma as unknown as PrismaService);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.conversationThread.findFirst.mockResolvedValue(makeThread());
   });
 

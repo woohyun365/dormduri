@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException, RequestMethod } from '@nestjs/common';
 import {
   AUTH_ACCESS_METADATA_KEY,
@@ -48,9 +49,9 @@ describe('SeasonsOperationsController', () => {
     campus: 'CHUNCHEON',
     capabilities: [SEASON_OPERATIONS_WRITE_CAPABILITY],
   };
-  const updateSeasonScheduleCommand = { execute: jest.fn() };
-  const updateSeasonOverrideCommand = { execute: jest.fn() };
-  const clearSeasonOverrideCommand = { execute: jest.fn() };
+  const updateSeasonScheduleCommand = { execute: vi.fn() };
+  const updateSeasonOverrideCommand = { execute: vi.fn() };
+  const clearSeasonOverrideCommand = { execute: vi.fn() };
   const controller = new SeasonsOperationsController(
     updateSeasonScheduleCommand as never,
     updateSeasonOverrideCommand as never,
@@ -58,7 +59,7 @@ describe('SeasonsOperationsController', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('operations route shape와 admin capability metadata를 고정한다', () => {

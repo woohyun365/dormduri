@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BadRequestException,
   ConflictException,
@@ -87,13 +88,13 @@ function makeActorRequest(
 describe('ActiveMatchContextGuard', () => {
   const prisma = {
     activeMatch: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
   };
   const guard = new ActiveMatchContextGuard(prisma as never, new Reflector());
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.activeMatch.findUnique.mockResolvedValue(makeActiveMatch());
   });
 

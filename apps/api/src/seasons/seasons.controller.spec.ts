@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import { SeasonsController } from './seasons.controller.js';
 
@@ -25,13 +26,13 @@ function getBadRequestResponse(error: unknown) {
 
 describe('SeasonsController', () => {
   const seasonsService = {
-    getCurrentSeason: jest.fn(),
+    getCurrentSeason: vi.fn(),
   };
 
   const controller = new SeasonsController(seasonsService as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('invalid campus query는 fieldErrors/details를 포함한 bad request 예외를 던진다', async () => {

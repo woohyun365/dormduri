@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import { ProfilesService } from '../application/profiles.service.js';
 import { profilesErrors } from '../errors/profile.errors.js';
@@ -143,34 +144,34 @@ function detailEntryToken(input: {
 
 describe('ProfilesService Step 6 public detail', () => {
   const prisma = {
-    getDatabaseNow: jest.fn(),
+    getDatabaseNow: vi.fn(),
     campusMaster: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
     user: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
     seasonParticipant: {
-      findFirst: jest.fn(),
+      findFirst: vi.fn(),
     },
   };
   const seasonsService = {
-    getCurrentSeasonContext: jest.fn(),
+    getCurrentSeasonContext: vi.fn(),
   };
   const seasonParticipantsService = {
-    ensureCurrentSeasonParticipant: jest.fn(),
-    selectCanonicalSelection: jest.fn(),
-    findRegistrationSnapshotParticipantIdSet: jest.fn(),
+    ensureCurrentSeasonParticipant: vi.fn(),
+    selectCanonicalSelection: vi.fn(),
+    findRegistrationSnapshotParticipantIdSet: vi.fn(),
   };
   const matchesService = {
-    getLiveActiveMatchMapForParticipantIds: jest.fn(),
+    getLiveActiveMatchMapForParticipantIds: vi.fn(),
   };
   const matchScoreProjection = {
-    shouldExposePublicMatchScore: jest.fn(),
-    calculateQueryTimeRoommateSearchScore: jest.fn(),
+    shouldExposePublicMatchScore: vi.fn(),
+    calculateQueryTimeRoommateSearchScore: vi.fn(),
   };
   const blockVisibilityReader = {
-    getExcludedTargetUserIds: jest.fn(),
+    getExcludedTargetUserIds: vi.fn(),
   };
   const service = new ProfilesService(
     prisma as never,
@@ -178,11 +179,11 @@ describe('ProfilesService Step 6 public detail', () => {
     seasonParticipantsService as never,
     matchesService as never,
     matchScoreProjection as never,
-    blockVisibilityReader as never,
+    blockVisibilityReader,
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-02-10T03:00:00.000Z'));
     prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: true });
     blockVisibilityReader.getExcludedTargetUserIds.mockResolvedValue(new Set());

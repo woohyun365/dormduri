@@ -1,9 +1,10 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
 import { ApiExceptionFilter } from './api-exception.filter.js';
 import { tooManyRequestsError } from './api-error.js';
 
-function createHost(response: { status: jest.Mock; json: jest.Mock }): ArgumentsHost {
+function createHost(response: { status: Mock; json: Mock }): ArgumentsHost {
   return {
     switchToHttp: () => ({
       getRequest: () => ({
@@ -20,13 +21,13 @@ describe('ApiExceptionFilter', () => {
   const filter = new ApiExceptionFilter();
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('custom extras를 포함한 http exception을 공통 shape로 정규화한다', () => {
     const response = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
     };
 
     filter.catch(
@@ -51,8 +52,8 @@ describe('ApiExceptionFilter', () => {
 
   it('기본 Nest exception도 공통 shape로 정규화한다', () => {
     const response = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
     };
 
     filter.catch(new BadRequestException('요청 값이 잘못되었습니다.'), createHost(response));

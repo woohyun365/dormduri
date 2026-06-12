@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,8 +45,8 @@ describe('AuthOperationalCleanupRepository', () => {
   });
 
   it('TypedSQL cleanup query를 clamp된 batch size로 순차 실행하고 삭제 count를 집계한다', async () => {
-    const queryRawTyped = jest
-      .fn<Promise<Array<{ deletedCount: number }>>, [TypedSqlLike]>()
+    const queryRawTyped = vi
+      .fn<(arg0: TypedSqlLike) => Promise<Array<{ deletedCount: number }>>>()
       .mockResolvedValueOnce([{ deletedCount: 1 }])
       .mockResolvedValueOnce([{ deletedCount: 2 }])
       .mockResolvedValueOnce([{ deletedCount: 3 }])

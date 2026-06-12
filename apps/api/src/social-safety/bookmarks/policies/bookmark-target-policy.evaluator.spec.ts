@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SeasonParticipantsService } from '../../../season-participants/application/season-participants.service.js';
 import { bookmarkErrors } from '../errors/bookmark.errors.js';
 import { BookmarkTargetPolicyEvaluator } from './bookmark-target-policy.evaluator.js';
@@ -42,19 +43,19 @@ function targetParticipant(overrides: Record<string, unknown> = {}) {
 
 describe('BookmarkTargetPolicyEvaluator', () => {
   const prisma = {
-    campusMaster: { findUnique: jest.fn() },
-    user: { findUnique: jest.fn() },
-    seasonParticipant: { findFirst: jest.fn() },
-    activeMatch: { findMany: jest.fn() },
+    campusMaster: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn() },
+    seasonParticipant: { findFirst: vi.fn() },
+    activeMatch: { findMany: vi.fn() },
   };
-  const seasonsService = { getCurrentSeasonContext: jest.fn() };
+  const seasonsService = { getCurrentSeasonContext: vi.fn() };
   const seasonParticipantsService = {
-    findCurrentSeasonParticipant: jest.fn(),
-    selectCanonicalSelection: jest.fn(),
-    findRegistrationSnapshotParticipantIdSet: jest.fn(),
+    findCurrentSeasonParticipant: vi.fn(),
+    selectCanonicalSelection: vi.fn(),
+    findRegistrationSnapshotParticipantIdSet: vi.fn(),
   };
   const matchScoreProjection = {
-    calculateQueryTimeRoommateSearchScore: jest.fn(),
+    calculateQueryTimeRoommateSearchScore: vi.fn(),
   };
 
   function evaluator() {
@@ -67,7 +68,7 @@ describe('BookmarkTargetPolicyEvaluator', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: true });
     prisma.user.findUnique.mockResolvedValue(
       user({ id: 'viewer-user', campus: 'CHUNCHEON', gender: 'M', deletedAt: null }),
@@ -142,7 +143,7 @@ describe('BookmarkTargetPolicyEvaluator', () => {
           updatedAt: now,
           targetUser: { id: 'target-user', deletedAt: null },
           targetParticipant: targetParticipant({ hiddenByAdminAt: now }),
-        } as never,
+        },
       }),
     ).resolves.toBeNull();
   });

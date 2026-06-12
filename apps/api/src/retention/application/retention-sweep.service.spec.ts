@@ -1,33 +1,34 @@
+import { describe, expect, it, vi } from 'vitest';
 import { RetentionSweepService } from './retention-sweep.service.js';
 
 function makeRetentionWorkerPrisma() {
   return {
-    $queryRawTyped: jest
+    $queryRawTyped: vi
       .fn()
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]),
     archiveJob: {
-      findMany: jest.fn().mockResolvedValue([]),
-      updateMany: jest.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn(),
     },
     conversationThread: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
     retainedIdentity: {
-      findMany: jest.fn().mockResolvedValue([]),
-      updateMany: jest.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn(),
     },
     retainedVaultObject: {
-      findMany: jest.fn().mockResolvedValue([]),
-      updateMany: jest.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn(),
     },
     retentionAccessLog: {
-      findFirst: jest.fn().mockResolvedValue(null),
-      create: jest.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
+      create: vi.fn(),
     },
     retentionReviewJob: {
-      update: jest.fn(),
+      update: vi.fn(),
     },
   };
 }

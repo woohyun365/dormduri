@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { AuthOperationalMetricsService } from './auth-operational-metrics.service.js';
 
 describe('AuthOperationalMetricsService', () => {

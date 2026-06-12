@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { OpaqueTokenError } from '../../platform/security/opaque-hmac-token.js';
 import {
   buildChatThreadListCursorBoundary,

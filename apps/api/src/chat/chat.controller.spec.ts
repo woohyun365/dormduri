@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AUTH_ACCESS_METADATA_KEY } from '../auth/access/auth-access.decorator.js';
 import { ChatController } from './chat.controller.js';
@@ -32,26 +33,26 @@ async function expectBadRequest(action: () => Promise<unknown>) {
 
 describe('ChatController', () => {
   const chatService = {
-    listThreads: jest.fn(),
-    getConversationStats: jest.fn(),
-    getThreadEntry: jest.fn(),
-    getThreadDetail: jest.fn(),
-    leaveThread: jest.fn(),
-    updateReadMarker: jest.fn(),
-    replayRealtimeEvents: jest.fn(),
-    sendMessage: jest.fn(),
+    listThreads: vi.fn(),
+    getConversationStats: vi.fn(),
+    getThreadEntry: vi.fn(),
+    getThreadDetail: vi.fn(),
+    leaveThread: vi.fn(),
+    updateReadMarker: vi.fn(),
+    replayRealtimeEvents: vi.fn(),
+    sendMessage: vi.fn(),
   };
   const realtimeTicketService = {
-    issueTicketFromAccessToken: jest.fn(),
+    issueTicketFromAccessToken: vi.fn(),
   };
   const rateLimiter = {
-    resolveRequestIp: jest.fn(),
-    consumeMessageSend: jest.fn(),
-    consumeRealtimeTicket: jest.fn(),
+    resolveRequestIp: vi.fn(),
+    consumeMessageSend: vi.fn(),
+    consumeRealtimeTicket: vi.fn(),
   };
   const metrics = {
-    recordRateLimitRejection: jest.fn(),
-    recordReplayResyncRequired: jest.fn(),
+    recordRateLimitRejection: vi.fn(),
+    recordReplayResyncRequired: vi.fn(),
   };
 
   const controller = new ChatController(
@@ -69,7 +70,7 @@ describe('ChatController', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     rateLimiter.consumeMessageSend.mockReturnValue({
       allowed: true,
       retryAfterSeconds: 0,
@@ -105,7 +106,7 @@ describe('ChatController', () => {
   });
 
   it('thread list limit이 허용 범위를 벗어나면 bad request로 거절한다', async () => {
-    const response = await expectBadRequest(() => controller.getThreads(authUser as never, '51'));
+    const response = await expectBadRequest(() => controller.getThreads(authUser, '51'));
 
     expect(response.code).toBe('INVALID_QUERY');
     expect(chatService.listThreads).not.toHaveBeenCalled();
@@ -135,7 +136,7 @@ describe('ChatController', () => {
 
   it('빈 message body는 bad request를 던진다', async () => {
     const response = await expectBadRequest(() =>
-      controller.sendMessage(authUser as never, {
+      controller.sendMessage(authUser, {
         targetUserId: 'user-2',
         body: '   ',
         clientMessageId: 'client-message-empty-body',
@@ -146,7 +147,7 @@ describe('ChatController', () => {
 
   it('clientMessageId 없는 메시지 전송 요청은 bad request로 거절한다', async () => {
     const response = await expectBadRequest(() =>
-      controller.sendMessage(authUser as never, {
+      controller.sendMessage(authUser, {
         targetUserId: 'user-2',
         body: '안녕하세요',
       }),
@@ -159,7 +160,7 @@ describe('ChatController', () => {
 
   it('1,000자를 초과하는 메시지 본문은 bad request로 거절한다', async () => {
     const response = await expectBadRequest(() =>
-      controller.sendMessage(authUser as never, {
+      controller.sendMessage(authUser, {
         targetUserId: 'user-2',
         body: `${'가'.repeat(1000)}!`,
         clientMessageId: 'client-message-1',
@@ -288,7 +289,7 @@ describe('ChatController', () => {
 
   it('read marker 갱신 요청은 lastReadMessageId를 필수로 검증한다', async () => {
     const response = await expectBadRequest(() =>
-      controller.updateReadMarker(authUser as never, 'thread-1', {}),
+      controller.updateReadMarker(authUser, 'thread-1', {}),
     );
 
     expect(response.code).toBe('INVALID_REQUEST_BODY');
@@ -366,7 +367,7 @@ describe('ChatController', () => {
 
   it('replay limit이 허용 범위를 벗어나면 bad request로 거절한다', async () => {
     const response = await expectBadRequest(() =>
-      controller.replayRealtimeEvents(authUser as never, undefined, '101'),
+      controller.replayRealtimeEvents(authUser, undefined, '101'),
     );
 
     expect(response.code).toBe('INVALID_QUERY');

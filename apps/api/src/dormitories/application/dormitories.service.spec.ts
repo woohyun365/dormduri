@@ -1,12 +1,13 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DormitoriesService } from './dormitories.service.js';
 
 describe('DormitoriesService', () => {
   const dormitoryCatalogQuery = {
-    getDormitories: jest.fn(),
-    getDormitoryById: jest.fn(),
+    getDormitories: vi.fn(),
+    getDormitoryById: vi.fn(),
   };
   const dormitoryGuideQuery = {
-    getDormitoryGuide: jest.fn(),
+    getDormitoryGuide: vi.fn(),
   };
   const service = new DormitoriesService(
     dormitoryCatalogQuery as never,
@@ -14,7 +15,7 @@ describe('DormitoriesService', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('public catalog list는 DormitoryCatalogQuery로 위임한다', async () => {

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { buildRoommateSearchCandidateWhere } from './roommate-search-candidate.query.js';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
 import { currentParticipant } from '../../season-participants/test-support/season-participants.spec-fixtures.js';

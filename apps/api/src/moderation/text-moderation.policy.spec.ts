@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { matchesModerationTerm, normalizeForModeration } from './text-moderation.policy.js';
 
 describe('text moderation helpers', () => {

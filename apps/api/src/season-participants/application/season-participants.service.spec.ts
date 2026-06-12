@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { updateCurrentUserRequestSchema } from '@repo/shared/user';
 import { validateSeasonProfileCompleteness } from '../profile-draft/season-profile-completeness.policy.js';
 import { createSeasonParticipantSourceOwner } from '../participants/season-participant-source.policy.js';
@@ -6,23 +7,23 @@ import { currentProfile, participant } from '../test-support/season-participants
 
 describe('SeasonParticipantsService facade', () => {
   const writeOwner = {
-    ensureCurrentSeasonParticipant: jest.fn(),
-    createOrUpdateDormitorySelection: jest.fn(),
-    backfillCurrentSeasonParticipants: jest.fn(),
-    validateSeasonProfileCompleteness: jest.fn(),
+    ensureCurrentSeasonParticipant: vi.fn(),
+    createOrUpdateDormitorySelection: vi.fn(),
+    backfillCurrentSeasonParticipants: vi.fn(),
+    validateSeasonProfileCompleteness: vi.fn(),
   };
   const publicTargetOwner = {
-    hasRegistrationSnapshotForParticipant: jest.fn(),
-    findRegistrationSnapshotParticipantIdSet: jest.fn(),
+    hasRegistrationSnapshotForParticipant: vi.fn(),
+    findRegistrationSnapshotParticipantIdSet: vi.fn(),
   };
   const service = new SeasonParticipantsService(
     writeOwner as never,
-    publicTargetOwner as never,
+    publicTargetOwner,
     createSeasonParticipantSourceOwner(),
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     writeOwner.validateSeasonProfileCompleteness.mockImplementation(
       validateSeasonProfileCompleteness,
     );

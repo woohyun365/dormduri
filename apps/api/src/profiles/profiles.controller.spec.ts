@@ -1,8 +1,9 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProfilesController } from './profiles.controller.js';
 
 describe('ProfilesController', () => {
   const profilesService = {
-    getProfileByUserId: jest.fn(),
+    getProfileByUserId: vi.fn(),
   };
 
   const controller = new ProfilesController(profilesService as never);
@@ -15,7 +16,7 @@ describe('ProfilesController', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('public detail 조회를 ProfilesService로 위임한다', async () => {

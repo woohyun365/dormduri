@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
@@ -61,19 +62,19 @@ function makeThread(overrides: Record<string, unknown> = {}): ThreadRecord {
     members: [],
     messages: [],
     ...overrides,
-  } as ThreadRecord;
+  };
 }
 
 function createOutboxCapableTx(updatedThread: ThreadRecord) {
   return {
     conversationThread: {
-      update: jest.fn().mockResolvedValue(updatedThread),
+      update: vi.fn().mockResolvedValue(updatedThread),
     },
     chatRealtimeOutboxEvent: {
-      create: jest.fn().mockResolvedValue({ id: 'event-1' }),
+      create: vi.fn().mockResolvedValue({ id: 'event-1' }),
     },
     chatRealtimeEventRecipient: {
-      createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      createMany: vi.fn().mockResolvedValue({ count: 2 }),
     },
   };
 }
@@ -112,15 +113,15 @@ describe('ChatSeasonLifecycleOwner', () => {
     const thread = makeThread();
     const prisma = {
       conversationThread: {
-        update: jest.fn(),
+        update: vi.fn(),
       },
     };
     const owner = createChatSeasonLifecycleOwner({
       prisma: prisma as never,
       seasonsService: {
-        getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-1' } }),
+        getCurrentSeasonContext: vi.fn().mockResolvedValue({ season: { id: 'season-1' } }),
       } as never,
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue(null),
     });
 
     await expect(owner.resolveThreadLifecycleSnapshot(thread, now)).resolves.toMatchObject({
@@ -136,14 +137,14 @@ describe('ChatSeasonLifecycleOwner', () => {
     const beforeSeasonEnd = new Date('2026-02-10T03:00:00.000Z');
     const thread = makeThread();
     const tx = createOutboxCapableTx(thread);
-    const lifecycleEventAppend = jest.fn().mockResolvedValue({ id: 'thread-lifecycle-event-noop' });
+    const lifecycleEventAppend = vi.fn().mockResolvedValue({ id: 'thread-lifecycle-event-noop' });
     const owner = createChatSeasonLifecycleOwner({
       prisma: {} as never,
       lifecycleEventWriter: { append: lifecycleEventAppend },
       seasonsService: {
-        getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-1' } }),
+        getCurrentSeasonContext: vi.fn().mockResolvedValue({ season: { id: 'season-1' } }),
       } as never,
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue(null),
     });
 
     await expect(
@@ -164,15 +165,15 @@ describe('ChatSeasonLifecycleOwner', () => {
       closedAt: now,
     });
     const tx = createOutboxCapableTx(updatedThread);
-    const lifecycleEventAppend = jest.fn().mockResolvedValue({ id: 'thread-lifecycle-event-1' });
+    const lifecycleEventAppend = vi.fn().mockResolvedValue({ id: 'thread-lifecycle-event-1' });
     const seasonsService = {
-      getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-1' } }),
+      getCurrentSeasonContext: vi.fn().mockResolvedValue({ season: { id: 'season-1' } }),
     };
     const owner = createChatSeasonLifecycleOwner({
       prisma: {} as never,
       lifecycleEventWriter: { append: lifecycleEventAppend },
       seasonsService: seasonsService as never,
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue(null),
     });
 
     await expect(owner.synchronizeThreadLifecycle(thread, now, tx as never)).resolves.toBe(
@@ -263,16 +264,16 @@ describe('ChatSeasonLifecycleOwner', () => {
       closedAt: new Date('2026-02-28T03:00:00.000Z'),
     });
     const tx = createOutboxCapableTx(updatedThread);
-    const lifecycleEventAppend = jest
+    const lifecycleEventAppend = vi
       .fn()
       .mockResolvedValue({ id: 'thread-lifecycle-event-archive' });
     const owner = createChatSeasonLifecycleOwner({
       prisma: {} as never,
       lifecycleEventWriter: { append: lifecycleEventAppend },
       seasonsService: {
-        getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-2' } }),
+        getCurrentSeasonContext: vi.fn().mockResolvedValue({ season: { id: 'season-2' } }),
       } as never,
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue(null),
     });
 
     await expect(owner.synchronizeThreadLifecycle(thread, now, tx as never)).resolves.toBe(

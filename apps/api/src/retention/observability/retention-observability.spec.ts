@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { buildRetentionOperationalAlerts } from './retention-alerts.js';
 import { buildRetentionSweepEmission } from './retention-metrics.js';
@@ -20,7 +21,7 @@ const sensitiveRetentionLogKeys = [
 
 describe('retention-observability', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('manual review/retry exhaustion/key unavailable를 운영 alert로 분리한다', () => {
@@ -51,25 +52,25 @@ describe('retention-observability', () => {
   it('sweep result와 DB backlog를 metric signal로 변환한다', async () => {
     const prisma = {
       archiveJob: {
-        count: jest.fn().mockResolvedValue(7),
-        findMany: jest
+        count: vi.fn().mockResolvedValue(7),
+        findMany: vi
           .fn()
           .mockResolvedValue([
             { attemptCount: 5, maxAttempts: 5, lastErrorCode: 'CHAT_BODY_KEY_UNAVAILABLE' },
           ]),
       },
       retentionReviewJob: {
-        count: jest.fn().mockResolvedValue(2),
-        findMany: jest.fn().mockResolvedValue([]),
+        count: vi.fn().mockResolvedValue(2),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       retainedVaultObject: {
-        count: jest.fn().mockResolvedValueOnce(11).mockResolvedValueOnce(13),
+        count: vi.fn().mockResolvedValueOnce(11).mockResolvedValueOnce(13),
       },
       retainedIdentity: {
-        count: jest.fn().mockResolvedValue(17),
+        count: vi.fn().mockResolvedValue(17),
       },
       retentionAccessLog: {
-        count: jest.fn().mockResolvedValue(19),
+        count: vi.fn().mockResolvedValue(19),
       },
     };
 
@@ -95,9 +96,9 @@ describe('retention-observability', () => {
   });
 
   it('metric/alert logger payload를 allowlist shape와 민감값 없는 metadata로 제한한다', async () => {
-    const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
-    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-    const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     const service = new RetentionObservabilityService();
     const prisma = makeBacklogPrisma({ archiveDueCount: 101, keyUnavailableCount: 1 });
 
@@ -174,8 +175,8 @@ function metricValue(
 function makeBacklogPrisma(input: { archiveDueCount: number; keyUnavailableCount: number }) {
   return {
     archiveJob: {
-      count: jest.fn().mockResolvedValue(input.archiveDueCount),
-      findMany: jest.fn().mockResolvedValue(
+      count: vi.fn().mockResolvedValue(input.archiveDueCount),
+      findMany: vi.fn().mockResolvedValue(
         Array.from({ length: input.keyUnavailableCount }, () => ({
           attemptCount: 5,
           maxAttempts: 5,
@@ -184,17 +185,17 @@ function makeBacklogPrisma(input: { archiveDueCount: number; keyUnavailableCount
       ),
     },
     retentionReviewJob: {
-      count: jest.fn().mockResolvedValue(0),
-      findMany: jest.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     retainedVaultObject: {
-      count: jest.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(0),
+      count: vi.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(0),
     },
     retainedIdentity: {
-      count: jest.fn().mockResolvedValue(0),
+      count: vi.fn().mockResolvedValue(0),
     },
     retentionAccessLog: {
-      count: jest.fn().mockResolvedValue(0),
+      count: vi.fn().mockResolvedValue(0),
     },
   };
 }

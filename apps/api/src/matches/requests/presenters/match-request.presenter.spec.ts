@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { toCompleteLifestyleColumnData } from '../../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 import type { MatchRequestRecord } from '../persistence/match-request.select.js';
 import { toMatchRequestSummary } from './match-request.presenter.js';

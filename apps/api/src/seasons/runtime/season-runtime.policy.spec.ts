@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { getEffectiveSeasonState, hasActiveSeasonOverride } from './season-runtime.policy.js';
 import type { SeasonWindowSource } from './season-runtime.types.js';
 

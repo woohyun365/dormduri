@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { UsersService } from './users.service.js';
 
@@ -15,38 +16,38 @@ const authUser = {
 
 describe('UsersService facade boundary', () => {
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    user: { findUnique: jest.fn() },
-    userDisplayIdentity: { findUnique: jest.fn(), updateMany: jest.fn() },
-    userDisplayIdentityNicknameChangeEvent: { create: jest.fn(), findMany: jest.fn() },
-    userAcademicIdentity: { findUnique: jest.fn(), upsert: jest.fn(), updateMany: jest.fn() },
+    getDatabaseNow: vi.fn(),
+    user: { findUnique: vi.fn() },
+    userDisplayIdentity: { findUnique: vi.fn(), updateMany: vi.fn() },
+    userDisplayIdentityNicknameChangeEvent: { create: vi.fn(), findMany: vi.fn() },
+    userAcademicIdentity: { findUnique: vi.fn(), upsert: vi.fn(), updateMany: vi.fn() },
     userAcademicIdentityChangeAllowance: {
-      findUnique: jest.fn(),
-      upsert: jest.fn(),
-      updateMany: jest.fn(),
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+      updateMany: vi.fn(),
     },
-    userAcademicIdentityChangeEvent: { create: jest.fn(), findMany: jest.fn() },
-    seasonParticipantProfileHistory: { findFirst: jest.fn() },
-    seasonParticipant: { findUnique: jest.fn(), findMany: jest.fn(), updateMany: jest.fn() },
-    season: { findFirst: jest.fn() },
-    seasonParticipantProfile: { updateMany: jest.fn() },
-    userDismissedNotice: { upsert: jest.fn() },
-    retentionCase: { findFirst: jest.fn(), create: jest.fn() },
-    userPasswordCredential: { findUnique: jest.fn() },
-    retainedIdentityHold: { create: jest.fn() },
-    retainedIdentitySnapshot: { create: jest.fn() },
-    authSession: { updateMany: jest.fn() },
-    runSerializableTransaction: jest.fn(),
+    userAcademicIdentityChangeEvent: { create: vi.fn(), findMany: vi.fn() },
+    seasonParticipantProfileHistory: { findFirst: vi.fn() },
+    seasonParticipant: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
+    season: { findFirst: vi.fn() },
+    seasonParticipantProfile: { updateMany: vi.fn() },
+    userDismissedNotice: { upsert: vi.fn() },
+    retentionCase: { findFirst: vi.fn(), create: vi.fn() },
+    userPasswordCredential: { findUnique: vi.fn() },
+    retainedIdentityHold: { create: vi.fn() },
+    retainedIdentitySnapshot: { create: vi.fn() },
+    authSession: { updateMany: vi.fn() },
+    runSerializableTransaction: vi.fn(),
   };
   const seasonsService = {
-    getCurrentSeasonContext: jest.fn(),
+    getCurrentSeasonContext: vi.fn(),
   };
   const moderationService = {
-    validateNicknamePolicy: jest.fn(),
+    validateNicknamePolicy: vi.fn(),
   };
   const currentUserViewService = {
-    getCurrentUser: jest.fn(),
-    buildCurrentUserResponse: jest.fn(),
+    getCurrentUser: vi.fn(),
+    buildCurrentUserResponse: vi.fn(),
   };
 
   const service = new UsersService(
@@ -58,7 +59,7 @@ describe('UsersService facade boundary', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     currentUserViewService.getCurrentUser.mockResolvedValue({ current: true });
     currentUserViewService.buildCurrentUserResponse.mockResolvedValue({ currentUser: true });
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
@@ -118,9 +119,8 @@ describe('UsersService facade boundary', () => {
       service.dismissCurrentUserOnboardingNotice(authUser, { noticeKey: SERVICE_INTRO_NOTICE_KEY }),
     ).resolves.toEqual({ dismissed: true });
 
-    const upsertMock = prisma.userDismissedNotice.upsert as jest.Mock<
-      unknown,
-      [DismissedNoticeUpsertArgs]
+    const upsertMock = prisma.userDismissedNotice.upsert as Mock<
+      (arg0: DismissedNoticeUpsertArgs) => unknown
     >;
     const [upsertArgs] = upsertMock.mock.calls[0]!;
     expect(upsertArgs.where).toEqual({

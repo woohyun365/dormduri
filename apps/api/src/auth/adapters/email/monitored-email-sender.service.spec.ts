@@ -1,18 +1,19 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MonitoredEmailSenderService } from './monitored-email-sender.service.js';
 import type { AuthSecurityEventInput } from '../../security-events/auth-security-event.types.js';
 
 describe('MonitoredEmailSenderService', () => {
   const delegate = {
-    sendVerificationCode: jest.fn(),
-    sendPasswordResetCode: jest.fn(),
+    sendVerificationCode: vi.fn(),
+    sendPasswordResetCode: vi.fn(),
   };
   const securityEvents = {
-    record: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+    record: vi.fn<(arg0: AuthSecurityEventInput) => Promise<void>>().mockResolvedValue(undefined),
   };
   const service = new MonitoredEmailSenderService(delegate as never, securityEvents as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('signup mail success를 code 없이 security event/metric으로 남긴다', async () => {

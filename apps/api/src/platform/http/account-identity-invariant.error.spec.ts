@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { accountIdentityIncompleteError } from './account-identity-invariant.error.js';
 
 describe('accountIdentityIncompleteError', () => {

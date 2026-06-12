@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { hashVerificationCode, safeTimeEquals } from './auth.utils.js';
 
 describe('auth.utils verification code hashing', () => {

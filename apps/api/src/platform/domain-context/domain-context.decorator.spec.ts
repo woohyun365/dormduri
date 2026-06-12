@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import 'reflect-metadata';
 import {
   DOMAIN_CONTEXT_REQUIREMENTS_METADATA_KEY,

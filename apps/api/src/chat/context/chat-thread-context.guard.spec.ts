@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BadRequestException,
   NotFoundException,
@@ -71,7 +72,7 @@ function makeActorRequest(
 
 describe('ChatThreadContextGuard', () => {
   const resolver = {
-    resolveVisibleActiveMemberContext: jest.fn(),
+    resolveVisibleActiveMemberContext: vi.fn(),
   } satisfies Pick<ChatThreadContextResolver, 'resolveVisibleActiveMemberContext'>;
   const guard = new ChatThreadContextGuard(
     resolver as unknown as ChatThreadContextResolver,
@@ -79,7 +80,7 @@ describe('ChatThreadContextGuard', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     resolver.resolveVisibleActiveMemberContext.mockResolvedValue(makeChatThreadContext());
   });
 

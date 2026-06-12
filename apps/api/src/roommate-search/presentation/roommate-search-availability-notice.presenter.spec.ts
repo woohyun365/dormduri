@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { buildRoommateSearchAvailabilityNotices } from './roommate-search-availability-notice.presenter.js';
 
 const summary = (input: {

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import {
   ChatRealtimeRateLimiterService,
   resolveChatRealtimeRequestIp,
@@ -38,7 +39,7 @@ function createSettings(overrides: Record<string, unknown> = {}) {
 
 function createLimiter(overrides: Record<string, unknown> = {}) {
   let nowMs = 1_000;
-  const limiter = new ChatRealtimeRateLimiterService(createSettings(overrides) as never);
+  const limiter = new ChatRealtimeRateLimiterService(createSettings(overrides));
   limiter.setClockForTest(() => nowMs);
 
   return {

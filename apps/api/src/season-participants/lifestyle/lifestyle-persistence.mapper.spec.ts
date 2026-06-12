@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import {
   lifestyleColumnSelect,

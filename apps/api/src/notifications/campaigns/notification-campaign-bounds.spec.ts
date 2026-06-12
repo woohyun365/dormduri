@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import {
   NOTIFICATION_CAMPAIGN_DEFAULT_CHUNK_SIZE,
   NOTIFICATION_CAMPAIGN_MAX_CHUNK_SIZE,

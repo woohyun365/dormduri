@@ -1,15 +1,16 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthVerificationUseCases } from './auth-verification-use-cases.service.js';
 
 describe('AuthVerificationUseCases', () => {
   const verificationService = {
-    maybeSendSignupCode: jest.fn(),
-    maybeSendResetCode: jest.fn(),
-    verifyEmailCode: jest.fn(),
-    verifyResetCode: jest.fn(),
+    maybeSendSignupCode: vi.fn(),
+    maybeSendResetCode: vi.fn(),
+    verifyEmailCode: vi.fn(),
+    verifyResetCode: vi.fn(),
   };
   const verificationEligibilityQuery = {
-    signupUserExists: jest.fn(),
-    passwordResetEligible: jest.fn(),
+    signupUserExists: vi.fn(),
+    passwordResetEligible: vi.fn(),
   };
   const useCases = new AuthVerificationUseCases(
     verificationService as never,
@@ -17,7 +18,7 @@ describe('AuthVerificationUseCases', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('invalid KNU signup email은 eligibility/service 조회 없이 실패한다', async () => {

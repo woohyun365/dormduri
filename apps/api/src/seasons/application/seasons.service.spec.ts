@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CurrentSeasonContextQuery } from '../runtime/current-season-context.query.js';
 import { DormitoryMatchWindowQuery } from '../runtime/dormitory-match-window.query.js';
 import { SeasonRuntimeRepository } from '../runtime/season-runtime.repository.js';
@@ -54,12 +55,12 @@ function makeSeasonRow(
 describe('SeasonsService', () => {
   const prisma = {
     campusMaster: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
     season: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
-    $queryRawTyped: jest.fn(),
+    $queryRawTyped: vi.fn(),
   };
 
   const repository = new SeasonRuntimeRepository(prisma as never);
@@ -68,7 +69,7 @@ describe('SeasonsService', () => {
   const service = new SeasonsService(currentSeasonContextQuery, dormitoryMatchWindowQuery);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.campusMaster.findUnique.mockResolvedValue({ isOperated: true });
     prisma.$queryRawTyped.mockResolvedValue([{ now: new Date('2026-02-10T03:00:00.000Z') }]);
   });

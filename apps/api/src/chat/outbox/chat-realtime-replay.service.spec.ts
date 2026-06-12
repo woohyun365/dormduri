@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createChatServiceSpecHarness,
   type ChatServiceSpecHarness,
@@ -8,7 +9,7 @@ describe('ChatRealtimeReplayService', () => {
   it('after cursor가 user recipient에 없으면 CURSOR_INVALID resync로 수렴한다', async () => {
     const service = new ChatRealtimeReplayService({ replayWindowDays: 7 });
     const prisma = {
-      $queryRawTyped: jest.fn().mockResolvedValue([]),
+      $queryRawTyped: vi.fn().mockResolvedValue([]),
     };
 
     await expect(
@@ -27,7 +28,7 @@ describe('ChatRealtimeReplayService', () => {
   it('after cursor가 7일 replay window 밖이면 CURSOR_EXPIRED resync로 수렴한다', async () => {
     const service = new ChatRealtimeReplayService({ replayWindowDays: 7 });
     const prisma = {
-      $queryRawTyped: jest.fn().mockResolvedValue([
+      $queryRawTyped: vi.fn().mockResolvedValue([
         {
           cursor: 'cursor-expired',
           createdAt: new Date('2026-02-02T02:59:59.000Z'),
@@ -53,7 +54,7 @@ describe('ChatRealtimeReplayService', () => {
   it('payload privacy guard 위반 event는 replay 대신 resync required로 수렴한다', async () => {
     const service = new ChatRealtimeReplayService({ replayWindowDays: 7 });
     const prisma = {
-      $queryRawTyped: jest.fn().mockResolvedValue([
+      $queryRawTyped: vi.fn().mockResolvedValue([
         {
           eventId: 'event-unsafe',
           cursor: 'cursor-unsafe',

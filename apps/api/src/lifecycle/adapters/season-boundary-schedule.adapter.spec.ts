@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BOUNDARY_JOB_PREFIX } from '../lifecycle-boundary-schedule.port.js';
 import {
   SeasonBoundaryScheduleAdapter,
@@ -7,14 +8,14 @@ import {
 describe('SeasonBoundaryScheduleAdapter', () => {
   const prisma = {
     season: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
   };
 
   const adapter = new SeasonBoundaryScheduleAdapter(prisma as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('미래 경계 시점만 boundary job으로 생성한다', async () => {

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { RequestMethod } from '@nestjs/common';
 import { AuthController } from '../../auth/auth.controller.js';
 import { AUTH_CAPABILITIES } from '../../auth/access/auth-capability.js';

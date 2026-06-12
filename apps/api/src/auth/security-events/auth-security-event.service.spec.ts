@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { AuthSecurityEventService } from './auth-security-event.service.js';
 
@@ -15,12 +16,14 @@ interface AuthSecurityEventCreateData {
 
 describe('AuthSecurityEventService', () => {
   const repository = {
-    create: jest.fn<Promise<void>, [AuthSecurityEventCreateData]>().mockResolvedValue(undefined),
+    create: vi
+      .fn<(arg0: AuthSecurityEventCreateData) => Promise<void>>()
+      .mockResolvedValue(undefined),
   };
   const service = new AuthSecurityEventService(repository as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('raw email/IP/UA와 민감값 없이 hash dimension과 safe metadata만 저장한다', async () => {
@@ -97,7 +100,7 @@ describe('AuthSecurityEventService', () => {
 
   it('safe record 실패는 auth user flow를 막지 않는다', async () => {
     repository.create.mockRejectedValueOnce(new Error('temporary audit store outage'));
-    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
 
     await expect(
       service.recordSafely({

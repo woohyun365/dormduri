@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
@@ -56,34 +57,40 @@ function createTx(
 
   return {
     seasonParticipant: {
-      findMany: jest.fn<Promise<unknown[]>, [unknown]>().mockResolvedValue(participants),
+      findMany: vi.fn<(arg0: unknown) => Promise<unknown[]>>().mockResolvedValue(participants),
     },
     conversationThread: {
-      findMany: jest
-        .fn<Promise<unknown[]>, [unknown]>()
+      findMany: vi
+        .fn<(arg0: unknown) => Promise<unknown[]>>()
         .mockResolvedValueOnce(candidateThreads)
         .mockResolvedValueOnce(updatedThreads),
-      updateMany: jest.fn<Promise<{ count: number }>, [unknown]>().mockResolvedValue({
+      updateMany: vi.fn<(arg0: unknown) => Promise<{ count: number }>>().mockResolvedValue({
         count: updatedThreads.length,
       }),
     },
     chatRealtimeOutboxEvent: {
-      create: jest.fn<Promise<{ id: string }>, [unknown]>().mockResolvedValue({ id: 'event-1' }),
+      create: vi
+        .fn<(arg0: unknown) => Promise<{ id: string }>>()
+        .mockResolvedValue({ id: 'event-1' }),
     },
     chatRealtimeEventRecipient: {
-      createMany: jest.fn<Promise<{ count: number }>, [unknown]>().mockResolvedValue({ count: 2 }),
+      createMany: vi
+        .fn<(arg0: unknown) => Promise<{ count: number }>>()
+        .mockResolvedValue({ count: 2 }),
     },
   };
 }
 
 describe('ChatBlockSideEffectService', () => {
-  let lifecycleEventAppend: jest.Mock<Promise<unknown>, [unknown, unknown]>;
+  let lifecycleEventAppend: Mock<(arg0: unknown, arg1: unknown) => Promise<unknown>>;
   let service: ChatBlockSideEffectService;
 
   beforeEach(() => {
-    lifecycleEventAppend = jest.fn<Promise<unknown>, [unknown, unknown]>().mockResolvedValue({
-      id: 'thread-lifecycle-event-1',
-    });
+    lifecycleEventAppend = vi
+      .fn<(arg0: unknown, arg1: unknown) => Promise<unknown>>()
+      .mockResolvedValue({
+        id: 'thread-lifecycle-event-1',
+      });
     service = new ChatBlockSideEffectService({ append: lifecycleEventAppend });
   });
 

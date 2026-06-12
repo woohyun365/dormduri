@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActiveMatchLifecycleEventRepository } from '../lifecycle-events/active-match-lifecycle-event.repository.js';
 import { ActiveMatchLifecycleEventWriter } from '../lifecycle-events/active-match-lifecycle-event.writer.js';
 import { ActiveMatchRepository } from '../persistence/active-match.repository.js';
@@ -52,23 +53,23 @@ function expiredUnmatchRequest(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ActiveMatchLifecycleSweepService', () => {
-  const txQueryRawTyped = jest.fn();
-  const txActiveMatchFindUnique = jest.fn();
-  const txActiveMatchUpdate = jest.fn();
-  const txActiveMatchUnmatchRequestUpdateManyAndReturn = jest.fn();
-  const txActiveMatchLifecycleEventCreate = jest.fn();
+  const txQueryRawTyped = vi.fn();
+  const txActiveMatchFindUnique = vi.fn();
+  const txActiveMatchUpdate = vi.fn();
+  const txActiveMatchUnmatchRequestUpdateManyAndReturn = vi.fn();
+  const txActiveMatchLifecycleEventCreate = vi.fn();
 
   const prisma = {
     matchRequest: {
-      updateMany: jest.fn(),
+      updateMany: vi.fn(),
     },
     activeMatch: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
-    runSerializableTransaction: jest.fn(),
+    runSerializableTransaction: vi.fn(),
   };
   const seasonsService = {
-    getCurrentSeasonContext: jest.fn(),
+    getCurrentSeasonContext: vi.fn(),
   };
 
   const service = new ActiveMatchLifecycleSweepService(
@@ -79,7 +80,7 @@ describe('ActiveMatchLifecycleSweepService', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.matchRequest.updateMany.mockResolvedValue({ count: 0 });
     prisma.activeMatch.findMany.mockResolvedValue([]);
     seasonsService.getCurrentSeasonContext.mockResolvedValue({

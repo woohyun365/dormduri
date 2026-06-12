@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from 'vitest';
 import { Prisma } from '../../../generated/prisma/client.js';
 import { matchesErrors } from '../../errors/matches.errors.js';
 import {
@@ -201,13 +202,12 @@ describe('match request command flow', () => {
       { targetUserId: 'user-2', note: '안녕하세요' },
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const [createCall] = txMatchRequestCreate.mock.calls;
     expect(createCall).toBeDefined();
     if (!createCall) {
       throw new Error('Expected create call');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     expect(createCall[0]).toMatchObject({
       data: {
         pairKey: 'participant-1:participant-2',
@@ -229,13 +229,12 @@ describe('match request command flow', () => {
       'request-1',
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const [acceptedUpdateCall] = txMatchRequestUpdate.mock.calls;
     expect(acceptedUpdateCall).toBeDefined();
     if (!acceptedUpdateCall) {
       throw new Error('Expected accepted update call');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     expect(acceptedUpdateCall[0]).toMatchObject({
       where: { id: 'request-1' },
       data: {
@@ -243,13 +242,13 @@ describe('match request command flow', () => {
         terminalReason: 'ACCEPTED',
       },
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const [activeCreateCall] = txActiveMatchCreate.mock.calls;
     expect(activeCreateCall).toBeDefined();
     if (!activeCreateCall) {
       throw new Error('Expected active create call');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     expect(activeCreateCall[0]).toMatchObject({
       data: {
         seasonId: 'season-1',
@@ -258,36 +257,36 @@ describe('match request command flow', () => {
         status: 'ACTIVE',
       },
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const [participantUpdateCall] = txSeasonParticipantUpdateMany.mock.calls;
     expect(participantUpdateCall).toBeDefined();
     if (!participantUpdateCall) {
       throw new Error('Expected participant updateMany call');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     expect(participantUpdateCall[0]).toMatchObject({
       data: { participantStatus: 'MATCHED' },
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const systemCancelCall = txMatchRequestUpdateMany.mock.calls.at(-1);
     expect(systemCancelCall).toBeDefined();
     if (!systemCancelCall) {
       throw new Error('Expected system cancel updateMany call');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     expect(systemCancelCall[0]).toMatchObject({
       data: {
         status: 'CANCELLED_BY_SYSTEM',
         terminalReason: 'CANCELLED_BY_SYSTEM_ACTIVE_MATCH',
       },
     });
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     const [lifecycleEventCreateCall] = txActiveMatchLifecycleEventCreate.mock.calls;
     expect(lifecycleEventCreateCall).toBeDefined();
     if (!lifecycleEventCreateCall) {
       throw new Error('Expected active match lifecycle event create call');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+
     expect(lifecycleEventCreateCall[0]).toMatchObject({
       data: {
         activeMatchId: 'active-1',

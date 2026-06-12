@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { resolvePublicTargetRelation } from './public-target-relation.policy.js';
 import type {
   PublicTargetPolicyTargetInput,

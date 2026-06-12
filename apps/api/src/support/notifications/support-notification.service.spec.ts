@@ -1,10 +1,11 @@
+import { describe, expect, it, vi, type Mocked } from 'vitest';
 import { SupportNotificationService } from './support-notification.service.js';
 import type { NotificationWriterPort } from '../../notifications/application/ports/notification-writer.port.js';
 
 describe('SupportNotificationService', () => {
   it('ticket 생성 알림은 pointer/status payload만 writer에 넘긴다', async () => {
-    const writer: jest.Mocked<NotificationWriterPort> = {
-      appendNotification: jest
+    const writer: Mocked<NotificationWriterPort> = {
+      appendNotification: vi
         .fn()
         .mockResolvedValue({ notificationId: 'notification-1', created: true }),
     };
@@ -39,8 +40,8 @@ describe('SupportNotificationService', () => {
   });
 
   it('operator reply 알림은 body/email 없이 ticket status만 전달한다', async () => {
-    const writer: jest.Mocked<NotificationWriterPort> = {
-      appendNotification: jest
+    const writer: Mocked<NotificationWriterPort> = {
+      appendNotification: vi
         .fn()
         .mockResolvedValue({ notificationId: 'notification-1', created: true }),
     };

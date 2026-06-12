@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '../../generated/prisma/client.js';
 import { MatchParticipantWithdrawalService } from './match-participant-withdrawal.service.js';
 
@@ -7,7 +8,7 @@ describe('MatchParticipantWithdrawalService', () => {
   function createTx() {
     return {
       matchRequest: {
-        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
     };
   }

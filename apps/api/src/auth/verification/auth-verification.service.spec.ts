@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConfigType } from '@nestjs/config';
 import { AuthVerificationService } from './auth-verification.service.js';
 import { VERIFICATION_CODE_MAX_ATTEMPTS } from '../domain/auth.constants.js';
@@ -7,29 +8,31 @@ import type { AuthSecurityEventInput } from '../security-events/auth-security-ev
 
 describe('AuthVerificationService', () => {
   const verificationStore = {
-    findRetryAfterSeconds: jest.fn(),
-    findBackstopRetryAfterSeconds: jest.fn(),
-    createRequestLog: jest.fn(),
-    findLatestVerifiedSignupCode: jest.fn(),
-    findLatestVerifiedResetCode: jest.fn(),
-    consumeVerificationCode: jest.fn(),
-    invalidateActiveSignupCodes: jest.fn(),
-    replaceActiveSignupCode: jest.fn(),
-    replaceActiveResetCode: jest.fn(),
-    insertVerificationCode: jest.fn(),
-    findActiveVerificationRecord: jest.fn(),
-    markVerified: jest.fn(),
-    recordVerificationFailure: jest.fn(),
-    incrementFailedAttempts: jest.fn(),
-    failAndConsume: jest.fn(),
+    findRetryAfterSeconds: vi.fn(),
+    findBackstopRetryAfterSeconds: vi.fn(),
+    createRequestLog: vi.fn(),
+    findLatestVerifiedSignupCode: vi.fn(),
+    findLatestVerifiedResetCode: vi.fn(),
+    consumeVerificationCode: vi.fn(),
+    invalidateActiveSignupCodes: vi.fn(),
+    replaceActiveSignupCode: vi.fn(),
+    replaceActiveResetCode: vi.fn(),
+    insertVerificationCode: vi.fn(),
+    findActiveVerificationRecord: vi.fn(),
+    markVerified: vi.fn(),
+    recordVerificationFailure: vi.fn(),
+    incrementFailedAttempts: vi.fn(),
+    failAndConsume: vi.fn(),
   };
 
   const emailSender = {
-    sendVerificationCode: jest.fn(),
-    sendPasswordResetCode: jest.fn(),
+    sendVerificationCode: vi.fn(),
+    sendPasswordResetCode: vi.fn(),
   };
   const securityEvents = {
-    recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+    recordSafely: vi
+      .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
+      .mockResolvedValue(undefined),
   };
 
   const authSettings: ConfigType<typeof authConfig> = {
@@ -42,13 +45,13 @@ describe('AuthVerificationService', () => {
 
   const service = new AuthVerificationService(
     verificationStore as never,
-    emailSender as never,
+    emailSender,
     authSettings,
     securityEvents as never,
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     verificationStore.findRetryAfterSeconds.mockResolvedValue(null);
     verificationStore.findBackstopRetryAfterSeconds.mockResolvedValue(null);
     verificationStore.markVerified.mockResolvedValue(true);

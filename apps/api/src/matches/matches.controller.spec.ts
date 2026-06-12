@@ -1,19 +1,20 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ForbiddenException } from '@nestjs/common';
 import { AUTH_ACCESS_METADATA_KEY } from '../auth/access/auth-access.decorator.js';
 import { MatchesController } from './matches.controller.js';
 
 describe('MatchesController', () => {
   const matchesService = {
-    listCurrentSeasonRequests: jest.fn(),
-    createMatchRequest: jest.fn(),
-    acceptMatchRequest: jest.fn(),
-    rejectMatchRequest: jest.fn(),
-    cancelMatchRequest: jest.fn(),
-    getCurrentActiveMatch: jest.fn(),
-    getMatchHistory: jest.fn(),
-    getMatchHistoryCounterpartProfile: jest.fn(),
-    requestUnmatch: jest.fn(),
-    cancelUnmatchRequest: jest.fn(),
+    listCurrentSeasonRequests: vi.fn(),
+    createMatchRequest: vi.fn(),
+    acceptMatchRequest: vi.fn(),
+    rejectMatchRequest: vi.fn(),
+    cancelMatchRequest: vi.fn(),
+    getCurrentActiveMatch: vi.fn(),
+    getMatchHistory: vi.fn(),
+    getMatchHistoryCounterpartProfile: vi.fn(),
+    requestUnmatch: vi.fn(),
+    cancelUnmatchRequest: vi.fn(),
   };
   const controller = new MatchesController(matchesService as never);
   const authUser = {
@@ -23,7 +24,7 @@ describe('MatchesController', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('controller class는 protected auth metadata로 보호된다', () => {

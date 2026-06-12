@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { ChatRealtimePublisher } from './chat-realtime-publisher.js';
 
 function createServerMock() {
@@ -7,13 +8,13 @@ function createServerMock() {
     emits,
     socketsLeaveCalls,
     server: {
-      to: jest.fn((room: string) => ({
-        emit: jest.fn((eventName: string, payload: unknown) => {
+      to: vi.fn((room: string) => ({
+        emit: vi.fn((eventName: string, payload: unknown) => {
           emits.push({ room, eventName, payload });
         }),
       })),
-      in: jest.fn((sourceRoom: string) => ({
-        socketsLeave: jest.fn((targetRoom: string) => {
+      in: vi.fn((sourceRoom: string) => ({
+        socketsLeave: vi.fn((targetRoom: string) => {
           socketsLeaveCalls.push({ sourceRoom, targetRoom });
         }),
       })),

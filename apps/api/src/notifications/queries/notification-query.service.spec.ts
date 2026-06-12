@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { createNotificationListCursorOwner } from './notification-list-cursor.js';
 import { NotificationQueryService } from './notification-query.service.js';
 
@@ -5,12 +6,12 @@ const now = new Date('2026-06-02T00:00:00.000Z');
 
 function createPrismaMock() {
   return {
-    getDatabaseNow: jest.fn().mockResolvedValue(now),
+    getDatabaseNow: vi.fn().mockResolvedValue(now),
     userNotification: {
-      findMany: jest.fn().mockResolvedValue([]),
-      count: jest.fn().mockResolvedValue(0),
-      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      findFirst: vi.fn().mockResolvedValue(null),
     },
   };
 }

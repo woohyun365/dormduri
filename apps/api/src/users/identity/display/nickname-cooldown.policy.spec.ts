@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { hasNicknameCooldown } from './nickname-cooldown.policy.js';
 
 const NOW = new Date('2026-05-31T00:00:00.000Z');

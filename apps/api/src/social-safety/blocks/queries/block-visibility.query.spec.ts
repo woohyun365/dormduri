@@ -1,10 +1,11 @@
+import { describe, expect, it, vi } from 'vitest';
 import { BlockVisibilityQuery } from './block-visibility.query.js';
 
 describe('BlockVisibilityQuery', () => {
   it('viewer가 block한 target과 target이 viewer를 block한 경우를 모두 excluded set으로 반환한다', async () => {
     const prisma = {
       userBlock: {
-        findMany: jest.fn().mockResolvedValue([
+        findMany: vi.fn().mockResolvedValue([
           { blockerUserId: 'viewer-user', blockedUserId: 'target-a' },
           { blockerUserId: 'target-b', blockedUserId: 'viewer-user' },
         ]),
@@ -42,7 +43,7 @@ describe('BlockVisibilityQuery', () => {
   it('target subset이 비어 있으면 DB를 조회하지 않는다', async () => {
     const prisma = {
       userBlock: {
-        findMany: jest.fn(),
+        findMany: vi.fn(),
       },
     };
     const query = new BlockVisibilityQuery(prisma as never);

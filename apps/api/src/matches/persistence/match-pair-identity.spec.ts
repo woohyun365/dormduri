@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { buildParticipantPairIdentity } from './match-pair-identity.js';
 
 describe('match pair identity', () => {

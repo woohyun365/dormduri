@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
 import { ChatRealtimeDispatcherService } from './chat-realtime-dispatcher.service.js';
 import { ChatRealtimeMetricsService } from './chat-realtime.metrics.js';
@@ -31,10 +32,10 @@ function createDispatcher(input: {
   publishRejects?: Error;
 }) {
   const prisma = {
-    getDatabaseNow: jest.fn().mockResolvedValue(now),
-    $queryRawTyped: jest.fn(),
+    getDatabaseNow: vi.fn().mockResolvedValue(now),
+    $queryRawTyped: vi.fn(),
     chatRealtimeOutboxEvent: {
-      update: jest.fn().mockResolvedValue({ id: 'event-1' }),
+      update: vi.fn().mockResolvedValue({ id: 'event-1' }),
     },
   };
   for (const rows of input.queryRows ?? []) {
@@ -42,12 +43,12 @@ function createDispatcher(input: {
   }
   const publishError = input.publishRejects;
   const publisher = {
-    isBound: jest.fn().mockReturnValue(input.publisherBound ?? true),
+    isBound: vi.fn().mockReturnValue(input.publisherBound ?? true),
     publishOutboxEvent: publishError
-      ? jest.fn(() => {
+      ? vi.fn(() => {
           throw publishError;
         })
-      : jest.fn(() => undefined),
+      : vi.fn(() => undefined),
   };
   const metrics = new ChatRealtimeMetricsService();
   const settings = {
@@ -227,22 +228,22 @@ describe('ChatRealtimeDispatcherService', () => {
   it('dispatch tick이 겹쳐도 running guard로 같은 프로세스 안의 중복 claim을 막는다', async () => {
     const event = createClaimedEvent();
     const prisma = {
-      getDatabaseNow: jest.fn().mockResolvedValue(now),
-      $queryRawTyped: jest
+      getDatabaseNow: vi.fn().mockResolvedValue(now),
+      $queryRawTyped: vi
         .fn()
         .mockResolvedValueOnce([event])
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([{ deletedCount: 0 }]),
       chatRealtimeOutboxEvent: {
-        update: jest.fn().mockResolvedValue({ id: 'event-1' }),
+        update: vi.fn().mockResolvedValue({ id: 'event-1' }),
       },
     };
     const metrics = new ChatRealtimeMetricsService();
     let dispatcher: ChatRealtimeDispatcherService | null = null;
     let nestedDispatch: Promise<unknown> | null = null;
     const publisher = {
-      isBound: jest.fn().mockReturnValue(true),
-      publishOutboxEvent: jest.fn(() => {
+      isBound: vi.fn().mockReturnValue(true),
+      publishOutboxEvent: vi.fn(() => {
         if (!dispatcher) {
           throw new Error('dispatcher is required before publish');
         }
@@ -305,7 +306,7 @@ describe('ChatRealtimeDispatcherService', () => {
   });
 
   it('publish 실패는 business data를 롤백하지 않고 retry 가능한 outbox failure mark로 남기며 payload를 일반 로그에 남기지 않는다', async () => {
-    const loggerSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const loggerSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const { dispatcher, prisma, metrics } = createDispatcher({
       queryRows: [
         [
@@ -380,7 +381,7 @@ describe('ChatRealtimeDispatcherService', () => {
   });
 
   it('replay window prune 실패는 dispatch 결과를 깨지 않고 no-PII failure metric으로 남긴다', async () => {
-    const loggerSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const loggerSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const { dispatcher, prisma, metrics } = createDispatcher({
       queryRows: [[]],
     });

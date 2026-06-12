@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { DormitoriesModule } from '../../dormitories/dormitories.module.js';

@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BlockSideEffectService } from './block-side-effect.service.js';
 
 const now = new Date('2026-06-01T00:00:00.000Z');
@@ -5,25 +6,25 @@ const now = new Date('2026-06-01T00:00:00.000Z');
 describe('BlockSideEffectService', () => {
   const tx = {};
   const bookmarkRepository = {
-    softDeleteActiveBetweenUsers: jest.fn(),
+    softDeleteActiveBetweenUsers: vi.fn(),
   };
   const matchBlockSideEffectPort = {
-    cancelPendingRequestsForBlock: jest.fn(),
+    cancelPendingRequestsForBlock: vi.fn(),
   };
   const chatBlockSideEffectPort = {
-    closeDirectThreadsForBlock: jest.fn(),
+    closeDirectThreadsForBlock: vi.fn(),
   };
 
   function service() {
     return new BlockSideEffectService(
       bookmarkRepository as never,
-      matchBlockSideEffectPort as never,
-      chatBlockSideEffectPort as never,
+      matchBlockSideEffectPort,
+      chatBlockSideEffectPort,
     );
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     bookmarkRepository.softDeleteActiveBetweenUsers.mockResolvedValue(1);
     matchBlockSideEffectPort.cancelPendingRequestsForBlock.mockResolvedValue({
       cancelledRequestIds: ['match-request-1'],

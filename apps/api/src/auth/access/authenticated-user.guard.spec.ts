@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ForbiddenException, UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AUTH_CAPABILITIES } from './auth-capability.js';
@@ -82,7 +83,7 @@ function makeExecutionContext(
 
 describe('AuthenticatedUserGuard access metadata', () => {
   const authSessionService = {
-    resolveCurrentUserContext: jest.fn(),
+    resolveCurrentUserContext: vi.fn(),
   };
   const guard = new AuthenticatedUserGuard(authSessionService as never, new Reflector());
 
@@ -101,7 +102,7 @@ describe('AuthenticatedUserGuard access metadata', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('@Public route는 auth resolution 없이 통과한다', async () => {

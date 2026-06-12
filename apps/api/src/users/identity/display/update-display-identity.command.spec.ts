@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { createUpdateDisplayIdentityCommand } from './update-display-identity.command.js';
 import { usersErrors } from '../../errors/users.errors.js';
 
@@ -34,14 +35,14 @@ type AuditCreateArgs = {
 
 describe('UpdateDisplayIdentityCommand', () => {
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
   };
   const seasonsService = {
-    getCurrentSeasonContext: jest.fn(),
+    getCurrentSeasonContext: vi.fn(),
   };
   const moderationService = {
-    validateNicknamePolicy: jest.fn(),
+    validateNicknamePolicy: vi.fn(),
   };
   const command = createUpdateDisplayIdentityCommand({
     prisma: prisma as never,
@@ -49,16 +50,16 @@ describe('UpdateDisplayIdentityCommand', () => {
     moderationService: moderationService as never,
   });
   const tx = {
-    seasonParticipant: { findUnique: jest.fn() },
+    seasonParticipant: { findUnique: vi.fn() },
     userDisplayIdentity: {
-      findUnique: jest.fn(),
-      updateMany: jest.fn(),
+      findUnique: vi.fn(),
+      updateMany: vi.fn(),
     },
-    userDisplayIdentityNicknameChangeEvent: { create: jest.fn() },
+    userDisplayIdentityNicknameChangeEvent: { create: vi.fn() },
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     seasonsService.getCurrentSeasonContext.mockResolvedValue(null);
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
     tx.userDisplayIdentity.findUnique.mockResolvedValue(null);
@@ -127,9 +128,8 @@ describe('UpdateDisplayIdentityCommand', () => {
         nicknameChangedAt: NOW,
       },
     });
-    const auditCreateMock = tx.userDisplayIdentityNicknameChangeEvent.create as jest.Mock<
-      unknown,
-      [AuditCreateArgs]
+    const auditCreateMock = tx.userDisplayIdentityNicknameChangeEvent.create as Mock<
+      (arg0: AuditCreateArgs) => unknown
     >;
     const [auditCreateArgs] = auditCreateMock.mock.calls[0]!;
     expect(auditCreateArgs.data).toMatchObject({

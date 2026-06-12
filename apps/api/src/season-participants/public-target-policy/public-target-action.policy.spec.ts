@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { resolvePublicTargetActions } from './public-target-action.policy.js';
 import type {
   PublicTargetEligibilityDecision,

@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { MatchesService } from '../application/matches.service.js';
 import { CancelUnmatchRequestCommand } from '../active/commands/cancel-unmatch-request.command.js';
 import { RequestUnmatchCommand } from '../active/commands/request-unmatch.command.js';
@@ -128,65 +129,65 @@ export function makeParticipant(
   };
 }
 
-export function createMatchesServiceSpecHarness() {
-  const txQueryRaw = jest.fn();
-  const txQueryRawTyped = jest.fn();
-  const txMatchRequestFindFirst = jest.fn();
-  const txMatchRequestCount = jest.fn();
-  const txMatchRequestCreate = jest.fn();
-  const txMatchRequestFindUnique = jest.fn();
-  const txMatchRequestUpdate = jest.fn();
-  const txMatchRequestUpdateMany = jest.fn();
-  const txActiveMatchFindFirst = jest.fn();
-  const txActiveMatchFindUnique = jest.fn();
-  const txActiveMatchCreate = jest.fn();
-  const txActiveMatchUpdate = jest.fn();
-  const txActiveMatchUnmatchRequestCreate = jest.fn();
-  const txActiveMatchUnmatchRequestFindMany = jest.fn();
-  const txActiveMatchUnmatchRequestUpdate = jest.fn();
-  const txActiveMatchUnmatchRequestUpdateMany = jest.fn();
-  const txActiveMatchLifecycleEventCreate = jest.fn();
-  const txSeasonParticipantFindMany = jest.fn();
-  const txSeasonParticipantUpdateMany = jest.fn();
-  const txSeasonDormitoryOperationFindUnique = jest.fn();
-  const txSeasonParticipantProfileHistoryCount = jest.fn();
+function createMatchesServiceSpecHarnessImpl() {
+  const txQueryRaw = vi.fn();
+  const txQueryRawTyped = vi.fn();
+  const txMatchRequestFindFirst = vi.fn();
+  const txMatchRequestCount = vi.fn();
+  const txMatchRequestCreate = vi.fn();
+  const txMatchRequestFindUnique = vi.fn();
+  const txMatchRequestUpdate = vi.fn();
+  const txMatchRequestUpdateMany = vi.fn();
+  const txActiveMatchFindFirst = vi.fn();
+  const txActiveMatchFindUnique = vi.fn();
+  const txActiveMatchCreate = vi.fn();
+  const txActiveMatchUpdate = vi.fn();
+  const txActiveMatchUnmatchRequestCreate = vi.fn();
+  const txActiveMatchUnmatchRequestFindMany = vi.fn();
+  const txActiveMatchUnmatchRequestUpdate = vi.fn();
+  const txActiveMatchUnmatchRequestUpdateMany = vi.fn();
+  const txActiveMatchLifecycleEventCreate = vi.fn();
+  const txSeasonParticipantFindMany = vi.fn();
+  const txSeasonParticipantUpdateMany = vi.fn();
+  const txSeasonDormitoryOperationFindUnique = vi.fn();
+  const txSeasonParticipantProfileHistoryCount = vi.fn();
 
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    $transaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    $transaction: vi.fn(),
     user: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
     matchRequest: {
-      findMany: jest.fn(),
-      updateMany: jest.fn(),
+      findMany: vi.fn(),
+      updateMany: vi.fn(),
     },
     activeMatch: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      findUnique: vi.fn(),
     },
     activeMatchUnmatchRequest: {
-      updateMany: jest.fn(),
+      updateMany: vi.fn(),
     },
-    runSerializableTransaction: jest.fn(),
+    runSerializableTransaction: vi.fn(),
   };
   const seasonsService = {
-    getCurrentSeasonContext: jest.fn(),
+    getCurrentSeasonContext: vi.fn(),
   };
   const moderationService = {
-    moderatePublicText: jest.fn(),
+    moderatePublicText: vi.fn(),
   };
   const seasonParticipantsService = {
-    ensureCurrentSeasonParticipant: jest.fn(),
-    findCurrentSeasonParticipant: jest.fn(),
-    selectCanonicalSelection: jest.fn(),
-    hasRegistrationSnapshotForParticipant: jest.fn(),
+    ensureCurrentSeasonParticipant: vi.fn(),
+    findCurrentSeasonParticipant: vi.fn(),
+    selectCanonicalSelection: vi.fn(),
+    hasRegistrationSnapshotForParticipant: vi.fn(),
   };
 
   const chatMatchThreadLifecycle = {
-    handleActiveMatchCreated: jest.fn(),
-    handleActiveMatchUnmatched: jest.fn(),
+    handleActiveMatchCreated: vi.fn(),
+    handleActiveMatchUnmatched: vi.fn(),
   };
 
   const activeMatchRepository = new ActiveMatchRepository();
@@ -216,12 +217,12 @@ export function createMatchesServiceSpecHarness() {
     matchRequestRepository,
   );
   const matchHistoryMaterializationService = {
-    materializeEndedSeasonHistory: jest.fn(),
-    materializeSeasonHistoryById: jest.fn(),
+    materializeEndedSeasonHistory: vi.fn(),
+    materializeSeasonHistoryById: vi.fn(),
   };
   const matchHistoryQueryService = {
-    listPastSeasonHistoryForUser: jest.fn(),
-    getFinalCounterpartProfileForEntry: jest.fn(),
+    listPastSeasonHistoryForUser: vi.fn(),
+    getFinalCounterpartProfileForEntry: vi.fn(),
   };
 
   const service = new MatchesService(
@@ -239,7 +240,7 @@ export function createMatchesServiceSpecHarness() {
       prisma as never,
       seasonsService as never,
       seasonParticipantsService as never,
-      chatMatchThreadLifecycle as never,
+      chatMatchThreadLifecycle,
       activeMatchViewQuery,
       matchRequestAcceptanceRepository,
       activeMatchLifecycleEventWriter,
@@ -250,7 +251,7 @@ export function createMatchesServiceSpecHarness() {
       prisma as never,
       seasonsService as never,
       seasonParticipantsService as never,
-      chatMatchThreadLifecycle as never,
+      chatMatchThreadLifecycle,
       activeMatchRepository,
       activeMatchLifecycleEventWriter,
     ),
@@ -266,7 +267,7 @@ export function createMatchesServiceSpecHarness() {
   );
 
   const reset = () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-02-10T03:00:00.000Z'));
     seasonsService.getCurrentSeasonContext.mockResolvedValue({
       season: { id: 'season-1' },
@@ -576,4 +577,10 @@ export function createMatchesServiceSpecHarness() {
     matchHistoryQueryService,
     service,
   };
+}
+
+export type MatchesServiceSpecHarness = ReturnType<typeof createMatchesServiceSpecHarnessImpl>;
+
+export function createMatchesServiceSpecHarness(): MatchesServiceSpecHarness {
+  return createMatchesServiceSpecHarnessImpl();
 }

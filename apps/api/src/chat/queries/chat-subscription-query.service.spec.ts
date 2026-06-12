@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createChatServiceSpecHarness,
   type ChatServiceSpecHarness,
@@ -7,7 +8,7 @@ import { ChatSubscriptionQueryService } from './chat-subscription-query.service.
 function createPrismaMock(count: number) {
   return {
     conversationThread: {
-      count: jest.fn().mockResolvedValue(count),
+      count: vi.fn().mockResolvedValue(count),
     },
   };
 }

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { toAuthSessionUserSummary } from './auth-user-view.js';
 
 describe('auth user view boundary', () => {

@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   ConversationThreadLifecycleActorType,
   ConversationThreadLifecycleEventReason,
@@ -179,7 +180,7 @@ describe('send message command regression', () => {
           targetUserId: 'user-2',
           body: `${'가'.repeat(1000)}!`,
           clientMessageId: 'client-message-1',
-        } as never,
+        },
       ),
     ).rejects.toMatchObject({
       response: { code: 'CHAT_MESSAGE_BODY_TOO_LONG' },
@@ -214,7 +215,7 @@ describe('send message command regression', () => {
         targetUserId: 'user-2',
         body: '안녕하세요',
         clientMessageId: 'client-message-1',
-      } as never,
+      },
     );
 
     const messageLookupCalls = txConversationMessageFindUnique.mock.calls as Array<
@@ -266,7 +267,7 @@ describe('send message command regression', () => {
         targetUserId: 'user-2',
         body: '이미 저장된 메시지',
         clientMessageId: 'client-message-read-only-idempotent',
-      } as never,
+      },
     );
 
     expect(txConversationMessageCreate).not.toHaveBeenCalled();
@@ -303,7 +304,7 @@ describe('send message command regression', () => {
           targetUserId: 'user-2',
           body: '이미 저장된 메시지',
           clientMessageId: 'client-message-archived-idempotent',
-        } as never,
+        },
       ),
     ).rejects.toMatchObject({
       response: chatErrors.messageSendNotAllowed().getResponse(),
@@ -337,7 +338,7 @@ describe('send message command regression', () => {
           targetUserId: 'user-2',
           body: '새 본문',
           clientMessageId: 'client-message-1',
-        } as never,
+        },
       ),
     ).rejects.toMatchObject({
       response: { code: 'CHAT_MESSAGE_IDEMPOTENCY_CONFLICT' },
@@ -358,7 +359,7 @@ describe('send message command regression', () => {
         targetUserId: 'user-2',
         body: '안녕하세요',
         clientMessageId: 'client-message-1',
-      } as never,
+      },
     );
 
     const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<

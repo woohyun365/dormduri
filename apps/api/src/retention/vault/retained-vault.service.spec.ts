@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../../generated/prisma/client.js';
 import {
   createEnvRetentionVaultKeyring,
@@ -71,24 +72,24 @@ describe('retained-vault.service', () => {
     const upsertedHolds: Array<Record<string, unknown>> = [];
     const tx = {
       retentionCase: {
-        findFirst: jest.fn().mockResolvedValueOnce(null),
-        create: jest.fn().mockImplementation(({ data }) => {
+        findFirst: vi.fn().mockResolvedValueOnce(null),
+        create: vi.fn().mockImplementation(({ data }) => {
           createdCases.push(data as Record<string, unknown>);
           return Promise.resolve({ id: 'case-1' });
         }),
       },
       retainedVaultObject: {
-        findFirst: jest
+        findFirst: vi
           .fn()
           .mockResolvedValueOnce(null)
           .mockResolvedValueOnce({ id: 'vault-1', state: 'RETAINED' }),
-        create: jest.fn().mockImplementation(({ data }) => {
+        create: vi.fn().mockImplementation(({ data }) => {
           createdObjects.push(data as Record<string, unknown>);
           return Promise.resolve({ id: 'vault-1' });
         }),
       },
       retainedVaultObjectHold: {
-        upsert: jest.fn().mockImplementation((input) => {
+        upsert: vi.fn().mockImplementation((input) => {
           upsertedHolds.push(input as Record<string, unknown>);
           return Promise.resolve({ id: 'hold-1' });
         }),
@@ -187,7 +188,7 @@ describe('retained-vault.service', () => {
     const accessLogs: Array<Record<string, unknown>> = [];
     const prisma = {
       retainedVaultObject: {
-        findUnique: jest.fn().mockResolvedValue({
+        findUnique: vi.fn().mockResolvedValue({
           id: 'vault-1',
           target: 'NICKNAME_AUDIT_EVENT',
           sourceTable: 'UserDisplayIdentityNicknameChangeEvent',
@@ -203,7 +204,7 @@ describe('retained-vault.service', () => {
         }),
       },
       retentionAccessLog: {
-        create: jest.fn().mockImplementation(({ data }) => {
+        create: vi.fn().mockImplementation(({ data }) => {
           accessLogs.push(data as Record<string, unknown>);
           return Promise.resolve({ id: `log-${accessLogs.length}` });
         }),
@@ -331,20 +332,20 @@ describe('retained-vault.service', () => {
     const accessLogs: Array<Record<string, unknown>> = [];
     const prisma = {
       retainedVaultObject: {
-        findMany: jest.fn().mockResolvedValue([
+        findMany: vi.fn().mockResolvedValue([
           {
             id: 'vault-1',
             target: 'NICKNAME_AUDIT_EVENT',
             subjectRetainedIdentityId: 'identity-a',
           },
         ]),
-        updateMany: jest.fn().mockImplementation(({ data }) => {
+        updateMany: vi.fn().mockImplementation(({ data }) => {
           updatedObjects.push(data as Record<string, unknown>);
           return Promise.resolve({ count: 1 });
         }),
       },
       retentionAccessLog: {
-        create: jest.fn().mockImplementation(({ data }) => {
+        create: vi.fn().mockImplementation(({ data }) => {
           accessLogs.push(data as Record<string, unknown>);
           return Promise.resolve({ id: 'log-1' });
         }),
@@ -376,16 +377,16 @@ describe('retained-vault.service', () => {
 
   async function createEncryptedNicknamePayload() {
     let encryptedPayload: unknown;
-    const createRetainedVaultObject = jest.fn((input: { data: { encryptedPayload?: unknown } }) => {
+    const createRetainedVaultObject = vi.fn((input: { data: { encryptedPayload?: unknown } }) => {
       encryptedPayload = input.data.encryptedPayload;
       return Promise.resolve({ id: 'vault-1' });
     });
     const tx = {
       retainedVaultObject: {
-        findFirst: jest.fn().mockResolvedValue(null),
+        findFirst: vi.fn().mockResolvedValue(null),
         create: createRetainedVaultObject,
       },
-      retainedVaultObjectHold: { upsert: jest.fn().mockResolvedValue({ id: 'hold-1' }) },
+      retainedVaultObjectHold: { upsert: vi.fn().mockResolvedValue({ id: 'hold-1' }) },
     } as unknown as Prisma.TransactionClient;
 
     await retainVaultPayloadTx(

@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { BookmarkSearchMetadataQuery } from './bookmark-search-metadata.query.js';
 
 const now = new Date('2026-02-10T03:00:00.000Z');
@@ -6,7 +7,7 @@ describe('BookmarkSearchMetadataQuery', () => {
   it('visible search subset의 active bookmark metadata만 반환한다', async () => {
     const prisma = {
       userBookmark: {
-        findMany: jest.fn().mockResolvedValue([
+        findMany: vi.fn().mockResolvedValue([
           { targetParticipantId: 'participant-a', bookmarkedAt: now },
           {
             targetParticipantId: 'participant-b',
@@ -45,7 +46,7 @@ describe('BookmarkSearchMetadataQuery', () => {
   it('target subset이 비어 있으면 DB를 조회하지 않는다', async () => {
     const prisma = {
       userBookmark: {
-        findMany: jest.fn(),
+        findMany: vi.fn(),
       },
     };
     const query = new BookmarkSearchMetadataQuery(prisma as never);

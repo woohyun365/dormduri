@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import type {
   PublicProfileTargetCandidate,
   TargetParticipantQueryRecord,
@@ -88,12 +89,12 @@ function viewerContext(): VisibleProfileViewerContext {
 describe('roommate-search.reader bookmark integration', () => {
   it('visible search candidates만 bookmark metadata를 받고 hidden target은 bookmark로 되살아나지 않는다', async () => {
     const prisma = {
-      getDatabaseNow: jest.fn().mockResolvedValue(now),
+      getDatabaseNow: vi.fn().mockResolvedValue(now),
       collegeMaster: {
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       seasonParticipant: {
-        findMany: jest.fn().mockResolvedValue([
+        findMany: vi.fn().mockResolvedValue([
           targetRecord({ id: 'visible-participant', userId: 'visible-user', nickname: '가가' }),
           targetRecord({
             id: 'hidden-participant',
@@ -106,12 +107,12 @@ describe('roommate-search.reader bookmark integration', () => {
     };
     const context = viewerContext();
     const publicProfileTargetReader = {
-      loadViewerContext: jest.fn().mockResolvedValue(context),
-      mapTargetParticipantCandidate: jest.fn((record: TargetParticipantQueryRecord) => ({
+      loadViewerContext: vi.fn().mockResolvedValue(context),
+      mapTargetParticipantCandidate: vi.fn((record: TargetParticipantQueryRecord) => ({
         participant: record,
         user: record.user,
       })),
-      materializeVisibleProfileEntries: jest.fn(
+      materializeVisibleProfileEntries: vi.fn(
         (_viewerContext: VisibleProfileViewerContext, candidates: PublicProfileTargetCandidate[]) =>
           candidates
             .filter((candidate) => candidate.participant.id === 'visible-participant')
@@ -149,18 +150,18 @@ describe('roommate-search.reader bookmark integration', () => {
       ),
     };
     const bookmarkSearchMetadataReader = {
-      getActiveBookmarkMetadata: jest
+      getActiveBookmarkMetadata: vi
         .fn()
         .mockResolvedValue(new Map([['visible-participant', { bookmarkedAt: now }]])),
     };
     const blockVisibilityReader = {
-      getExcludedTargetUserIds: jest.fn().mockResolvedValue(new Set()),
+      getExcludedTargetUserIds: vi.fn().mockResolvedValue(new Set()),
     };
     const reader = createRoommateSearchReader({
       prisma: prisma as never,
       publicProfileTargetReader: publicProfileTargetReader as never,
-      bookmarkSearchMetadataReader: bookmarkSearchMetadataReader as never,
-      blockVisibilityReader: blockVisibilityReader as never,
+      bookmarkSearchMetadataReader: bookmarkSearchMetadataReader,
+      blockVisibilityReader: blockVisibilityReader,
     });
 
     const result = await reader.search(authUser, { scope: 'SAME_BUILDING_ONLY', limit: 20 });
@@ -184,12 +185,12 @@ describe('roommate-search.reader bookmark integration', () => {
 
   it('active block exclusion은 social-safety block visibility port 결과만 사용한다', async () => {
     const prisma = {
-      getDatabaseNow: jest.fn().mockResolvedValue(now),
+      getDatabaseNow: vi.fn().mockResolvedValue(now),
       collegeMaster: {
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       seasonParticipant: {
-        findMany: jest
+        findMany: vi
           .fn()
           .mockResolvedValue([
             targetRecord({ id: 'visible-participant', userId: 'visible-user', nickname: '가가' }),
@@ -199,12 +200,12 @@ describe('roommate-search.reader bookmark integration', () => {
     };
     const context = viewerContext();
     const publicProfileTargetReader = {
-      loadViewerContext: jest.fn().mockResolvedValue(context),
-      mapTargetParticipantCandidate: jest.fn((record: TargetParticipantQueryRecord) => ({
+      loadViewerContext: vi.fn().mockResolvedValue(context),
+      mapTargetParticipantCandidate: vi.fn((record: TargetParticipantQueryRecord) => ({
         participant: record,
         user: record.user,
       })),
-      materializeVisibleProfileEntries: jest.fn(
+      materializeVisibleProfileEntries: vi.fn(
         (_viewerContext: VisibleProfileViewerContext, candidates: PublicProfileTargetCandidate[]) =>
           candidates.map((candidate) => ({
             user: candidate.user,
@@ -241,16 +242,16 @@ describe('roommate-search.reader bookmark integration', () => {
       ),
     };
     const bookmarkSearchMetadataReader = {
-      getActiveBookmarkMetadata: jest.fn().mockResolvedValue(new Map()),
+      getActiveBookmarkMetadata: vi.fn().mockResolvedValue(new Map()),
     };
     const blockVisibilityReader = {
-      getExcludedTargetUserIds: jest.fn().mockResolvedValue(new Set(['blocked-user'])),
+      getExcludedTargetUserIds: vi.fn().mockResolvedValue(new Set(['blocked-user'])),
     };
     const reader = createRoommateSearchReader({
       prisma: prisma as never,
       publicProfileTargetReader: publicProfileTargetReader as never,
-      bookmarkSearchMetadataReader: bookmarkSearchMetadataReader as never,
-      blockVisibilityReader: blockVisibilityReader as never,
+      bookmarkSearchMetadataReader: bookmarkSearchMetadataReader,
+      blockVisibilityReader: blockVisibilityReader,
     });
 
     const result = await reader.search(authUser, { scope: 'SAME_BUILDING_ONLY', limit: 20 });
