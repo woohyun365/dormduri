@@ -1,5 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import {
+  ConversationThreadLifecycleEventMetadataPolicyError,
+  toConversationThreadLifecycleEventMetadata,
+} from './conversation-thread-lifecycle-event.payload.policy.js';
 
 const apiRoot = process.cwd();
 const payloadPolicyPath = join(
@@ -35,6 +39,39 @@ describe('conversation thread lifecycle event payload policy guard', () => {
 
     for (const forbiddenKey of forbiddenKeys) {
       expect(source).toContain(forbiddenKey);
+    }
+  });
+
+  it('returns sanitized scalar metadata and omits empty input', () => {
+    expect(toConversationThreadLifecycleEventMetadata(null)).toBeUndefined();
+    expect(toConversationThreadLifecycleEventMetadata({})).toBeUndefined();
+    expect(
+      toConversationThreadLifecycleEventMetadata({
+        sourceBlockId: 'block-1',
+        previousStatus: 'OPEN',
+        nextStatus: 'READ_ONLY',
+        nextClosedReason: null,
+      }),
+    ).toEqual({
+      sourceBlockId: 'block-1',
+      previousStatus: 'OPEN',
+      nextStatus: 'READ_ONLY',
+      nextClosedReason: null,
+    });
+  });
+
+  it('rejects nested forbidden keys, undefined, non-finite numbers, and nested objects', () => {
+    const invalidMetadataList = [
+      { previousStatus: 'OPEN', nested: { messageBody: 'raw text' } },
+      { previousStatus: undefined },
+      { previousStatus: Number.POSITIVE_INFINITY },
+      { previousStatus: { value: 'OPEN' } },
+    ];
+
+    for (const invalidMetadata of invalidMetadataList) {
+      expect(() => toConversationThreadLifecycleEventMetadata(invalidMetadata)).toThrow(
+        ConversationThreadLifecycleEventMetadataPolicyError,
+      );
     }
   });
 
