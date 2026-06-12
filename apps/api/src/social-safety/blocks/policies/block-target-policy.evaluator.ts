@@ -166,7 +166,7 @@ export class BlockTargetPolicyEvaluator {
         },
       },
       select: targetParticipantSelect,
-    }) as Promise<TargetParticipantRecord | null>;
+    });
   }
 
   private async hasActiveMatchBetweenParticipants(input: {

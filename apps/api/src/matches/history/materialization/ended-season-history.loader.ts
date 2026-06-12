@@ -173,5 +173,5 @@ export async function loadSeasonHistorySource(
     },
   });
 
-  return season as SeasonHistorySource | null;
+  return season;
 }

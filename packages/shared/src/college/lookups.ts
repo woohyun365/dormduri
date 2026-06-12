@@ -8,7 +8,7 @@ const COLLEGE_LABEL_BY_CODE: Record<CollegeCode, string> = Object.fromEntries(
 
 const COLLEGE_CODE_BY_LABEL: Record<string, CollegeCode> = Object.fromEntries(
   COLLEGE_CATALOG.map((item) => [item.nameKo, item.code]),
-) as Record<string, CollegeCode>;
+);
 
 export function getCollegeCatalog(campusCode: Campus) {
   return COLLEGE_CATALOG.filter((item) => item.campusCode === campusCode);

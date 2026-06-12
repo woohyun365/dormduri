@@ -116,18 +116,12 @@ function buildSeasonProfileWhere(
     ...(query.smokingBehavior !== undefined ? { smokingBehavior: query.smokingBehavior } : {}),
     ...(query.bedtime !== undefined
       ? {
-          bedtime: toStoredBedtime(query.bedtime) as Exclude<
-            ReturnType<typeof toStoredBedtime>,
-            null
-          >,
+          bedtime: toStoredBedtime(query.bedtime),
         }
       : {}),
     ...(query.wakeTime !== undefined
       ? {
-          wakeTime: toStoredWakeTime(query.wakeTime) as Exclude<
-            ReturnType<typeof toStoredWakeTime>,
-            null
-          >,
+          wakeTime: toStoredWakeTime(query.wakeTime),
         }
       : {}),
     ...(query.noiseSensitivity !== undefined ? { noiseSensitivity: query.noiseSensitivity } : {}),

@@ -20,7 +20,5 @@ export function toConversationThreadLifecycleTransitionMetadata(input: {
 function omitUndefinedMetadata(
   metadata: ConversationThreadLifecycleEventMetadataInput,
 ): ConversationThreadLifecycleEventMetadataInput {
-  return Object.fromEntries(
-    Object.entries(metadata).filter(([, value]) => value !== undefined),
-  ) as ConversationThreadLifecycleEventMetadataInput;
+  return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== undefined));
 }
