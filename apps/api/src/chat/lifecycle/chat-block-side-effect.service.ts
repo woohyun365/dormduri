@@ -110,6 +110,7 @@ export class ChatBlockSideEffectService implements ChatBlockSideEffectPort {
         eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
         reason: ConversationThreadLifecycleEventReason.USER_BLOCKED,
         sourceDomain: ConversationThreadLifecycleSourceDomain.SOCIAL_SAFETY,
+        sourceBlockId: input.sourceBlockId,
         occurredAt: input.occurredAt,
         metadata: toConversationThreadLifecycleTransitionMetadata({
           previous: { status: 'OPEN', threadKind: 'DIRECT', closedReason: null },

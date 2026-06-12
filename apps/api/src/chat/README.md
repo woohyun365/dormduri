@@ -55,12 +55,12 @@
 
 ## Social-safety integration guide
 
-- Block create: `social-safety`는 같은 transaction 안에서 chat table을 직접 update하지 않고 `CHAT_BLOCK_SIDE_EFFECT_PORT.closeDirectThreadsForBlock(...)` contract를 통해 chat lifecycle owner에 위임한다.
+- Block create: `social-safety`는 같은 transaction 안에서 chat table을 직접 update하지 않고 `CHAT_BLOCK_SIDE_EFFECT_PORT.closeDirectThreadsForBlock(...)` contract를 통해 chat lifecycle owner에 위임한다. 생성된 `UserBlock.id`는 `sourceBlockId` pointer로만 전달하며, block note/report/support 원문은 chat lifecycle metadata나 realtime payload에 넣지 않는다.
 - Report target: `social-safety`는 chat thread/message table을 직접 read하지 않고 `CHAT_REPORT_TARGET_CONTEXT_PORT`를 통해 reportable thread/message pointer를 검증한다. Port 반환값에는 raw message body, retained vault payload, disclosure/audit internals를 포함하지 않는다.
 - Block side-effect 대상: 같은 season/pair의 non-matched direct `OPEN` thread만 close 대상이다. active match 종료는 matches/report/admin review 경계가 소유한다.
 - Unblock: immediate reopen을 하지 않는다. unblock transaction은 block relation/event만 닫고, chat thread reopen은 사용자의 명시적 `GET /threads/with/:targetUserId` 또는 `POST /messages` send/resume path에서 lazy 처리한다.
 - Explicit resume/send: pair entry query는 active block 양방향 존재 시 resume CTA를 fail-closed로 계산한다. send command는 transaction 내부에서 active block absence를 다시 확인한 뒤, block-closed non-archived direct thread를 새 thread보다 우선 lazy reopen한다.
-- Regression 위치: block side-effect adapter 테스트는 `lifecycle/`, send/resume 테스트는 `commands/`, pair entry projection 테스트는 `pairs/`에 둔다. `application/chat.service.spec.ts` god spec에 신규 social-safety/block regression을 추가하지 않는다.
+- Regression 위치: block side-effect adapter 테스트는 `lifecycle/`, source pointer handoff 테스트는 `social-safety/blocks/{commands,side-effects}/`, send/resume 테스트는 `commands/`, pair entry projection 테스트는 `pairs/`에 둔다. `application/chat.service.spec.ts` god spec에 신규 social-safety/block regression을 추가하지 않는다.
 
 ## Where to change
 

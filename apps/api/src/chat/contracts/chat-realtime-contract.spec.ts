@@ -221,6 +221,7 @@ describe('chat realtime shared contract guards', () => {
           status: 'READ_ONLY',
           closedReason: 'MODERATION',
           lifecycleEventId: 'lifecycle-event-1',
+          sourceBlockId: 'block-1',
           sourceReportCaseId: 'report-case-1',
           sourceArchiveJobId: 'archive-job-1',
           metadata: {

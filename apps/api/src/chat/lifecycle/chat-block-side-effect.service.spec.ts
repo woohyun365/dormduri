@@ -95,6 +95,7 @@ describe('ChatBlockSideEffectService', () => {
         seasonId: 'season-1',
         blockerUserId: 'user-blocker',
         blockedUserId: 'user-blocked',
+        sourceBlockId: 'block-1',
         occurredAt,
       }),
     ).resolves.toEqual({ closedThreadIds: ['thread-1'] });
@@ -122,6 +123,7 @@ describe('ChatBlockSideEffectService', () => {
       eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
       reason: ConversationThreadLifecycleEventReason.USER_BLOCKED,
       sourceDomain: ConversationThreadLifecycleSourceDomain.SOCIAL_SAFETY,
+      sourceBlockId: 'block-1',
       occurredAt,
       metadata: {
         previousStatus: 'OPEN',
@@ -139,6 +141,7 @@ describe('ChatBlockSideEffectService', () => {
         seasonId: 'season-1',
         blockerUserId: 'user-blocker',
         blockedUserId: 'user-blocked',
+        sourceBlockId: 'block-1',
         occurredAt,
       }),
     ).resolves.toEqual({ closedThreadIds: [] });
@@ -149,6 +152,7 @@ describe('ChatBlockSideEffectService', () => {
         seasonId: 'season-1',
         blockerUserId: 'user-blocker',
         blockedUserId: 'user-blocked',
+        sourceBlockId: 'block-1',
         occurredAt,
       }),
     ).resolves.toEqual({ closedThreadIds: [] });

@@ -55,6 +55,7 @@ export class CreateBlockCommand {
           seasonId: target.viewerContext.seasonContext.season.id,
           blockerUserId: input.authUser.id,
           blockedUserId: target.targetUserId,
+          sourceBlockId: block.id,
           now,
         });
 
