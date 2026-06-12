@@ -59,6 +59,7 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
       reason: ConversationThreadLifecycleEventReason;
       now: Date;
       sourceActiveMatchId?: string;
+      sourceMatchRequestId?: string;
     },
   ) {
     await deps.lifecycleEventWriter?.append(tx, {
@@ -67,6 +68,7 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
       reason: input.reason,
       sourceDomain: ConversationThreadLifecycleSourceDomain.MATCHES,
       sourceActiveMatchId: input.sourceActiveMatchId,
+      sourceMatchRequestId: input.sourceMatchRequestId,
       occurredAt: input.now,
       metadata: toConversationThreadLifecycleTransitionMetadata({
         previous: input.previous,
@@ -102,6 +104,7 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
         participantAId: string;
         participantBId: string;
         activeMatchId: string;
+        sourceMatchRequestId?: string;
       },
       now: Date,
     ) {
@@ -136,6 +139,7 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
               : ConversationThreadLifecycleEventType.THREAD_KIND_CHANGED,
           reason: ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED,
           sourceActiveMatchId: input.activeMatchId,
+          sourceMatchRequestId: input.sourceMatchRequestId,
           now,
         });
       }
@@ -194,6 +198,7 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
           eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
           reason: ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED,
           sourceActiveMatchId: input.activeMatchId,
+          sourceMatchRequestId: input.sourceMatchRequestId,
           now,
         });
       }

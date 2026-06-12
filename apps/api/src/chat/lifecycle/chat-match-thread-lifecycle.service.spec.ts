@@ -149,6 +149,7 @@ describe('ChatMatchThreadLifecycleOwner', () => {
         participantAId: 'participant-1',
         participantBId: 'participant-2',
         activeMatchId: 'active-1',
+        sourceMatchRequestId: 'match-request-1',
       },
       now,
     );
@@ -226,6 +227,7 @@ describe('ChatMatchThreadLifecycleOwner', () => {
       reason: ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED,
       sourceDomain: ConversationThreadLifecycleSourceDomain.MATCHES,
       sourceActiveMatchId: 'active-1',
+      sourceMatchRequestId: 'match-request-1',
       occurredAt: now,
       metadata: {
         previousStatus: 'OPEN',

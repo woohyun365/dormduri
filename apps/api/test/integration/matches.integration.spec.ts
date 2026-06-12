@@ -420,6 +420,56 @@ describe('MatchesService integration', () => {
         }),
       ]),
     );
+
+    const activeMatchId = threadStates['thread-a-b-existing']?.activeMatchId;
+    if (!activeMatchId) {
+      throw new Error('Expected active match id on matched thread');
+    }
+
+    const lifecycleEvents = await prisma.conversationThreadLifecycleEvent.findMany({
+      where: {
+        threadId: { in: ['thread-a-b-existing', 'thread-a-c-other', 'thread-b-d-other'] },
+      },
+      orderBy: [{ threadId: 'asc' }],
+    });
+    expect(lifecycleEvents).toHaveLength(3);
+
+    const lifecycleByThread = new Map(lifecycleEvents.map((event) => [event.threadId, event]));
+    const matchedThreadLifecycleEvent = lifecycleByThread.get('thread-a-b-existing');
+    expect(matchedThreadLifecycleEvent).toMatchObject({
+      eventType: 'THREAD_KIND_CHANGED',
+      reason: 'MATCH_REQUEST_ACCEPTED',
+      sourceDomain: 'MATCHES',
+      sourceActiveMatchId: activeMatchId,
+      sourceMatchRequestId: request.request.id,
+    });
+    expect(matchedThreadLifecycleEvent?.metadata).toEqual(
+      expect.objectContaining({
+        previousThreadKind: 'DIRECT',
+        nextThreadKind: 'MATCHED',
+        previousStatus: 'OPEN',
+        nextStatus: 'OPEN',
+      }),
+    );
+    for (const threadId of ['thread-a-c-other', 'thread-b-d-other']) {
+      const closedThreadLifecycleEvent = lifecycleByThread.get(threadId);
+      expect(closedThreadLifecycleEvent).toMatchObject({
+        eventType: 'THREAD_READ_ONLY',
+        reason: 'MATCH_REQUEST_ACCEPTED',
+        sourceDomain: 'MATCHES',
+        sourceActiveMatchId: activeMatchId,
+        sourceMatchRequestId: request.request.id,
+      });
+      expect(closedThreadLifecycleEvent?.metadata).toEqual(
+        expect.objectContaining({
+          previousThreadKind: 'DIRECT',
+          nextThreadKind: 'DIRECT',
+          previousStatus: 'OPEN',
+          nextStatus: 'READ_ONLY',
+          nextClosedReason: 'ACTIVE_MATCH_CREATED',
+        }),
+      );
+    }
   });
 
   it('incomplete season participant profile은 raw nullable write가 가능해도 match request capability에서 닫힌다', async () => {

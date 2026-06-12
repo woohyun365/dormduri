@@ -8,6 +8,7 @@ export interface ActiveMatchCreatedChatLifecycleInput {
   participantAId: string;
   participantBId: string;
   activeMatchId: string;
+  sourceMatchRequestId?: string;
 }
 
 export interface ActiveMatchUnmatchedChatLifecycleInput {

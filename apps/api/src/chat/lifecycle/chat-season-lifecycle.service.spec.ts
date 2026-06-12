@@ -132,6 +132,30 @@ describe('ChatSeasonLifecycleOwner', () => {
     expect(prisma.conversationThread.update).not.toHaveBeenCalled();
   });
 
+  it('동기화 결과 변경이 없으면 thread/outbox/lifecycle event를 만들지 않는다', async () => {
+    const beforeSeasonEnd = new Date('2026-02-10T03:00:00.000Z');
+    const thread = makeThread();
+    const tx = createOutboxCapableTx(thread);
+    const lifecycleEventAppend = jest.fn().mockResolvedValue({ id: 'thread-lifecycle-event-noop' });
+    const owner = createChatSeasonLifecycleOwner({
+      prisma: {} as never,
+      lifecycleEventWriter: { append: lifecycleEventAppend },
+      seasonsService: {
+        getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-1' } }),
+      } as never,
+      findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
+    });
+
+    await expect(
+      owner.synchronizeThreadLifecycle(thread, beforeSeasonEnd, tx as never),
+    ).resolves.toBe(thread);
+
+    expect(tx.conversationThread.update).not.toHaveBeenCalled();
+    expect(tx.chatRealtimeOutboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.chatRealtimeEventRecipient.createMany).not.toHaveBeenCalled();
+    expect(lifecycleEventAppend).not.toHaveBeenCalled();
+  });
+
   it('season end로 MATCHED thread가 READ_ONLY가 되면 동일 mutation 경계에서 thread.updated outbox를 남긴다', async () => {
     const thread = makeThread();
     const updatedThread = makeThread({

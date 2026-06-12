@@ -377,6 +377,19 @@ describe('ChatService integration', () => {
     expect(persistedClientMessageIds.map((row) => row.clientMessageId)).toEqual(
       expect.arrayContaining(['client-message-concurrent-1', 'client-message-concurrent-2']),
     );
+
+    const lifecycleEvents = await prisma.conversationThreadLifecycleEvent.findMany({
+      where: { threadId: threads[0]?.id },
+    });
+    expect(lifecycleEvents).toHaveLength(1);
+    expect(lifecycleEvents[0]).toMatchObject({
+      threadId: threads[0]?.id,
+      eventType: 'THREAD_CREATED',
+      reason: 'DIRECT_MESSAGE_STARTED',
+      actorType: 'USER',
+      actorUserId: 'user-a',
+      sourceDomain: 'CHAT',
+    });
   });
 
   it('양쪽이 동시에 서로에게 첫 메시지를 보내도 thread는 하나만 생성되고 두 메시지가 남는다', async () => {
