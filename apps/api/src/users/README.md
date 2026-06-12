@@ -85,7 +85,7 @@ Users architecture fitness belongs under `apps/api/src/architecture/users/` and 
 
 ```bash
 pnpm exec prettier --check apps/api/src/users/README.md
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/users \
   src/architecture/users/users-boundary.spec.ts \
   src/architecture/module-boundary.spec.ts \

@@ -143,7 +143,7 @@ Architecture guards should enforce the final product shape as refactor phases la
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/module-boundary.spec.ts \
   src/architecture/cross-domain-chat-boundary.spec.ts \
   src/architecture/social-safety/social-safety-boundary.spec.ts \

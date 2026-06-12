@@ -144,7 +144,7 @@ Retention observability는 lifecycle sweep 결과와 DB backlog를 count/status/
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/retention-boundary.spec.ts \
   src/architecture/module-boundary.spec.ts \
   src/retention

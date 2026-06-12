@@ -30,7 +30,7 @@ Product read models may import this helper when they need a safe display label f
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand src/profiles src/social-safety src/users/account-deletion
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/profiles src/social-safety src/users/account-deletion
 pnpm exec prettier --check apps/api/src/privacy/deidentification/README.md
 pnpm api:typecheck
 git diff --check

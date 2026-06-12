@@ -90,7 +90,7 @@
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/cross-domain-chat-boundary.spec.ts \
   src/architecture/chat/chat-boundary.spec.ts \
   src/chat/context/chat-thread-context.guard.spec.ts \

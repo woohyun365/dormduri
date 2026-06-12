@@ -75,7 +75,7 @@
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/season-participants/season-participants-boundary.spec.ts \
   src/architecture/dormitories/dormitories-boundary.spec.ts \
   src/season-participants

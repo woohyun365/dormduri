@@ -59,7 +59,7 @@ Platform boundary는 `apps/api/src/architecture/common-boundary.spec.ts`와 `app
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/common-boundary.spec.ts \
   src/architecture/module-boundary.spec.ts \
   src/platform/http \

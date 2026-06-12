@@ -81,7 +81,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/auth-boundary.spec.ts \
   src/architecture/security/auth-access-route-matrix.spec.ts \
   src/architecture/domain-context/domain-context-route-matrix.spec.ts \
