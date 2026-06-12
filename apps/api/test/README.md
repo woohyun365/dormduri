@@ -37,6 +37,7 @@
 
 - Integration/e2e는 DB schema/env mutation이 있으므로 serial-safe config를 유지한다: `pool: 'forks'`, `fileParallelism: false`, CLI `--maxWorkers=1`.
 - Request fixture의 user-agent 문자열처럼 제품/테스트 데이터에 포함된 단순 문자열 `jest`는 runner API가 아니므로 금지 대상이 아니다.
+- `test:cov`가 생성하는 `apps/api/coverage/`는 generated artifact다. ESLint는 이 디렉터리를 lint하지 않고, coverage 품질 정책은 별도 threshold로만 다룬다.
 
 ## Where to change runner behavior
 

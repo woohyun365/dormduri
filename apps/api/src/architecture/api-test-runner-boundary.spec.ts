@@ -204,6 +204,17 @@ describe('API test runner boundary', () => {
     expect(e2eConfig).toContain('passWithNoTests: true');
   });
 
+  it('keeps API ESLint generated artifacts ignored and typed assertion cleanup explicit', () => {
+    const eslintConfig = readSource(join(apiRoot, 'eslint.config.mjs'));
+
+    expect(eslintConfig).toContain('globalIgnores');
+    expect(eslintConfig).toContain("'coverage/**'");
+    expect(eslintConfig).toContain("'src/generated/**'");
+    expect(eslintConfig).toContain("'dist/**'");
+    expect(eslintConfig).toContain('tseslint.configs.recommendedTypeChecked');
+    expect(eslintConfig).toContain("'@typescript-eslint/no-unnecessary-type-assertion': 'error'");
+  });
+
   it('keeps API source and integration tests off Jest runner APIs', () => {
     const violations = [...typeScriptFiles(apiSourceRoot), ...typeScriptFiles(apiTestRoot)]
       .flatMap((path) => {
