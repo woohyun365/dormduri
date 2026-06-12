@@ -23,16 +23,16 @@
     "start:debug": "export NODE_ENV=development && pnpm run prisma:generate && nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "pnpm --filter @repo/shared build && pnpm run prisma:generate && eslint",
-    "test": "pnpm --filter @repo/shared build && pnpm run prisma:generate && jest",
-    "test:integration": "pnpm --filter @repo/shared build && pnpm run prisma:generate && node --require ./test/integration/support/suppress-known-pg-warning.cjs ./node_modules/jest/bin/jest.js --config ./test/jest-integration.json --runInBand",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test": "pnpm --filter @repo/shared build && pnpm run prisma:generate && vitest run --config ./vitest.config.unit.ts --maxWorkers=50%",
+    "test:integration": "pnpm --filter @repo/shared build && pnpm run prisma:generate && vitest run --config ./vitest.config.integration.ts --maxWorkers=1",
+    "test:watch": "pnpm --filter @repo/shared build && pnpm run prisma:generate && vitest --config ./vitest.config.unit.ts --maxWorkers=50%",
+    "test:cov": "pnpm --filter @repo/shared build && pnpm run prisma:generate && vitest run --config ./vitest.config.unit.ts --coverage --maxWorkers=50%",
+    "test:debug": "pnpm --filter @repo/shared build && pnpm run prisma:generate && vitest run --inspectBrk --config ./vitest.config.unit.ts --maxWorkers=1",
+    "test:e2e": "pnpm --filter @repo/shared build && pnpm run prisma:generate && vitest run --config ./vitest.config.e2e.ts --maxWorkers=1",
     "prisma:seed:run": "pnpm --filter @repo/shared build && node prisma/seed.js",
-    "test:vitest:unit": "pnpm --filter @repo/shared build && pnpm run prisma:generate && vitest run --config ./vitest.config.unit.ts --maxWorkers=50%",
-    "test:vitest:integration": "pnpm --filter @repo/shared build && pnpm run prisma:generate && vitest run --config ./vitest.config.integration.ts --maxWorkers=1",
-    "test:vitest:e2e": "pnpm --filter @repo/shared build && pnpm run prisma:generate && vitest run --config ./vitest.config.e2e.ts --maxWorkers=1"
+    "test:vitest:unit": "pnpm run test",
+    "test:vitest:integration": "pnpm run test:integration",
+    "test:vitest:e2e": "pnpm run test:e2e"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.26",
@@ -66,10 +66,8 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/tsconfig": "workspace:*",
     "@swc/core": "^1.15.41",
-    "@swc/jest": "^0.2.39",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
-    "@types/jest": "^30.0.0",
     "@types/node": "^24.13.2",
     "@types/pg": "^8.15.6",
     "@types/supertest": "^7.2.0",
@@ -78,7 +76,6 @@
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^16.0.0",
-    "jest": "^30.4.0",
     "prettier": "^3.4.2",
     "prisma": "^7.8.0",
     "source-map-support": "^0.5.21",
@@ -91,49 +88,5 @@
     "unplugin-swc": "^1.5.9",
     "vite": "^8.0.16",
     "vitest": "^4.1.8"
-  },
-  "jest": {
-    "moduleFileExtensions": [
-      "js",
-      "json",
-      "ts"
-    ],
-    "rootDir": "src",
-    "testRegex": ".*\\.spec\\.ts$",
-    "extensionsToTreatAsEsm": [
-      ".ts"
-    ],
-    "transform": {
-      "^.+\\.(t|j)s$": [
-        "@swc/jest",
-        {
-          "jsc": {
-            "parser": {
-              "syntax": "typescript",
-              "decorators": true
-            },
-            "transform": {
-              "decoratorMetadata": true
-            },
-            "target": "es2022"
-          },
-          "module": {
-            "type": "es6"
-          }
-        }
-      ]
-    },
-    "moduleNameMapper": {
-      "^(\\.{1,2}/.*)\\.js$": "$1"
-    },
-    "collectCoverageFrom": [
-      "**/*.(t|j)s"
-    ],
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node",
-    "testPathIgnorePatterns": [
-      "/node_modules/",
-      "\\.vitest-smoke\\.spec\\.ts$"
-    ]
   }
 }
