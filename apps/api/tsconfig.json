@@ -17,7 +17,7 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
 
     /* Runtime types */
-    "types": ["jest", "node"],
+    "types": ["node"],
 
     /* Output */
     "target": "ES2023",

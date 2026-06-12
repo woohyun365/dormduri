@@ -1,5 +1,5 @@
 import swc from 'unplugin-swc';
-import { defineConfig, mergeConfig, type UserConfig } from 'vitest/config';
+import { defineConfig, mergeConfig, type ViteUserConfig } from 'vitest/config';
 
 const swcPlugin = swc.vite({
   module: { type: 'es6' },
@@ -35,9 +35,6 @@ const baseConfig = defineConfig({
   },
 });
 
-export function defineApiVitestConfig(config: UserConfig) {
-  // Vitest config typing is resolved through tooling-time generics here. Keep
-  // the local bridge narrow and leave runtime test validation to Vitest smoke.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+export function defineApiVitestConfig(config: ViteUserConfig) {
   return mergeConfig(baseConfig, defineConfig(config));
 }
