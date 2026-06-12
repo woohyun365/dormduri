@@ -75,7 +75,7 @@ export function toConversationThreadLifecycleEventMetadata(
     );
   }
 
-  return Object.keys(metadata).length > 0 ? (metadata as Prisma.InputJsonValue) : undefined;
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
 
 function sanitizeMetadataValue(key: string, value: unknown): string | number | boolean | null {

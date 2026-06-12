@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { UsersController } from './users.controller.js';
@@ -12,10 +13,10 @@ function getBadRequestResponse(error: unknown) {
 
 describe('UsersController', () => {
   const usersService = {
-    getCurrentUser: jest.fn(),
-    updateCurrentUser: jest.fn(),
-    dismissCurrentUserOnboardingNotice: jest.fn(),
-    requestAccountDeletion: jest.fn(),
+    getCurrentUser: vi.fn(),
+    updateCurrentUser: vi.fn(),
+    dismissCurrentUserOnboardingNotice: vi.fn(),
+    requestAccountDeletion: vi.fn(),
   };
   const controller = new UsersController(usersService as never);
   const authUser = {
@@ -25,7 +26,7 @@ describe('UsersController', () => {
   } as const;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('PATCH /api/users/me는 dormitory selection write payload를 받지 않는다', async () => {

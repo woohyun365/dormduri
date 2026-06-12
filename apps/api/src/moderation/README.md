@@ -54,7 +54,7 @@ Moderation boundary는 `apps/api/src/architecture/common-boundary.spec.ts`와 `a
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/moderation \
   src/auth/registration/auth-signup-validation.service.spec.ts \
   src/users/users.service.spec.ts \

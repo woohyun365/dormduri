@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../../../generated/prisma/client.js';
 import { BlockPresenter } from '../presenters/block.presenter.js';
 import { CreateBlockCommand } from './create-block.command.js';
@@ -36,19 +37,19 @@ function makeUniqueError() {
 describe('CreateBlockCommand', () => {
   const tx = {};
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
   };
   const repository = {
-    findActiveBetween: jest.fn(),
-    create: jest.fn(),
-    appendBlockedEvent: jest.fn<Promise<void>, [AppendBlockedEventInput]>(),
+    findActiveBetween: vi.fn(),
+    create: vi.fn(),
+    appendBlockedEvent: vi.fn<(arg0: AppendBlockedEventInput) => Promise<void>>(),
   };
   const targetPolicyEvaluator = {
-    resolveCreateTarget: jest.fn(),
+    resolveCreateTarget: vi.fn(),
   };
   const sideEffectService = {
-    applyBlockCreated: jest.fn(),
+    applyBlockCreated: vi.fn(),
   };
 
   function command() {
@@ -62,7 +63,7 @@ describe('CreateBlockCommand', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(now);
     prisma.runSerializableTransaction.mockImplementation((callback: (txArg: unknown) => unknown) =>
       callback(tx),

@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { createSeasonContextCache } from './season-context-cache.js';
 import {
   resolveMemoizedCurrentSeasonContext,
@@ -8,7 +9,7 @@ describe('SeasonContextCache', () => {
   it('logical operation 안에서 implicit referenceNow resolver를 한 번만 호출한다', async () => {
     const cache = createSeasonContextCache();
     const referenceNow = new Date('2026-02-10T03:00:00.000Z');
-    const resolveReferenceNow = jest.fn<Promise<Date>, []>().mockResolvedValue(referenceNow);
+    const resolveReferenceNow = vi.fn<() => Promise<Date>>().mockResolvedValue(referenceNow);
 
     await expect(resolveSeasonReferenceNow({ cache, resolveReferenceNow })).resolves.toBe(
       referenceNow,
@@ -23,7 +24,7 @@ describe('SeasonContextCache', () => {
   it('campusCode + referenceNow 단위로 current season context를 memoize한다', async () => {
     const cache = createSeasonContextCache();
     const referenceNow = new Date('2026-02-10T03:00:00.000Z');
-    const load = jest.fn().mockResolvedValue({ context: null, referenceNow });
+    const load = vi.fn().mockResolvedValue({ context: null, referenceNow });
 
     await resolveMemoizedCurrentSeasonContext({
       cache,
@@ -51,7 +52,7 @@ describe('SeasonContextCache', () => {
     const cache = createSeasonContextCache();
     const firstNow = new Date('2026-02-10T03:00:00.000Z');
     const secondNow = new Date('2026-02-11T03:00:00.000Z');
-    const load = jest.fn().mockResolvedValue({ context: null, referenceNow: firstNow });
+    const load = vi.fn().mockResolvedValue({ context: null, referenceNow: firstNow });
 
     await resolveMemoizedCurrentSeasonContext({
       cache,

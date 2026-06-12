@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CurrentSeasonParticipantContextResolver } from './current-season-participant-context.resolver.js';
 
 describe('CurrentSeasonParticipantContextResolver', () => {
@@ -17,12 +18,12 @@ describe('CurrentSeasonParticipantContextResolver', () => {
   } as const;
   const prisma = {
     user: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
-    getDatabaseNow: jest.fn(),
+    getDatabaseNow: vi.fn(),
   };
   const seasonParticipantsService = {
-    ensureCurrentSeasonParticipant: jest.fn(),
+    ensureCurrentSeasonParticipant: vi.fn(),
   };
   const resolver = new CurrentSeasonParticipantContextResolver(
     prisma as never,
@@ -30,7 +31,7 @@ describe('CurrentSeasonParticipantContextResolver', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.user.findUnique.mockResolvedValue(user);
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     seasonParticipantsService.ensureCurrentSeasonParticipant.mockResolvedValue({

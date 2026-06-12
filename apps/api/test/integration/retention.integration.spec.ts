@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import {
   activateThreadRetentionJobsForArchivedThreads,
@@ -30,8 +31,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('RetainedIdentity integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let closeApp: (() => Promise<void>) | null = null;
   let cleanupDb: (() => Promise<void>) | null = null;

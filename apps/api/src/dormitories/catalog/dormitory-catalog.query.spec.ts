@@ -1,15 +1,16 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DormitoryCatalogQuery } from './dormitory-catalog.query.js';
 
 describe('DormitoryCatalogQuery', () => {
   const dormitoryCatalogRepository = {
-    findCampus: jest.fn(),
-    listDormitories: jest.fn(),
-    findDormitoryDetail: jest.fn(),
+    findCampus: vi.fn(),
+    listDormitories: vi.fn(),
+    findDormitoryDetail: vi.fn(),
   };
   const query = new DormitoryCatalogQuery(dormitoryCatalogRepository as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('비운영 캠퍼스는 campus meta와 빈 items를 반환한다', async () => {

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import type { CurrentSeasonParticipantRecord } from '../participants/season-participant-records.js';
 import { currentParticipant, now } from '../test-support/season-participants.spec-fixtures.js';
 import {

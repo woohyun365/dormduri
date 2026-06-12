@@ -1,3 +1,4 @@
+import { describe, expect, it, vi, type Mocked } from 'vitest';
 import { ResolveSupportTicketCommand } from './resolve-support-ticket.command.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { SupportNotificationService } from '../notifications/support-notification.service.js';
@@ -23,25 +24,23 @@ describe('ResolveSupportTicketCommand', () => {
   it('resolve는 message 없이 status/closedAt을 수렴시키고 pointer-only notification을 요청한다', async () => {
     const tx = {} as never;
     const resolvedTicket = { ...existingTicket, status: 'RESOLVED' as const, closedAt: now };
-    const runSerializableTransaction = jest.fn((operation: (txArg: typeof tx) => unknown) =>
+    const runSerializableTransaction = vi.fn((operation: (txArg: typeof tx) => unknown) =>
       Promise.resolve(operation(tx)),
     );
     const prisma = {
-      getDatabaseNow: jest.fn().mockResolvedValue(now),
+      getDatabaseNow: vi.fn().mockResolvedValue(now),
       runSerializableTransaction,
     } as unknown as PrismaService;
-    const findById = jest.fn().mockResolvedValue(existingTicket);
-    const updateTicketStatus = jest.fn().mockResolvedValue(resolvedTicket);
+    const findById = vi.fn().mockResolvedValue(existingTicket);
+    const updateTicketStatus = vi.fn().mockResolvedValue(resolvedTicket);
     const repository = {
       findById,
       updateTicketStatus,
-    } as unknown as jest.Mocked<SupportTicketRepository>;
-    const appendTicketReplied = jest
-      .fn()
-      .mockResolvedValue({ notificationId: 'n-1', created: true });
+    } as unknown as Mocked<SupportTicketRepository>;
+    const appendTicketReplied = vi.fn().mockResolvedValue({ notificationId: 'n-1', created: true });
     const notificationService = {
       appendTicketReplied,
-    } as unknown as jest.Mocked<SupportNotificationService>;
+    } as unknown as Mocked<SupportNotificationService>;
     const command = new ResolveSupportTicketCommand(prisma, repository, notificationService);
 
     const response = await command.execute({

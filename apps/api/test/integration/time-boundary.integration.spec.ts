@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ChatService } from '../../src/chat/application/chat.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { MatchesService } from '../../src/matches/application/matches.service.js';
@@ -15,8 +16,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('KST boundary + DB now integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let seasonsService: SeasonsService;
   let chatService: ChatService;

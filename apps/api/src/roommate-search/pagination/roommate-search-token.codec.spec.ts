@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { createRoommateSearchTokenCodec } from './roommate-search-token.codec.js';
 
 describe('roommate-search-token-codec', () => {

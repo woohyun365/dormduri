@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type MockedFunction } from 'vitest';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import { ChatReportTargetContextResolver } from './chat-report-target-context.resolver.js';
 
@@ -7,10 +8,10 @@ function objectContaining(shape: Record<string, unknown>): unknown {
 
 const prisma = {
   conversationThread: {
-    findFirst: jest.fn(),
+    findFirst: vi.fn(),
   },
   conversationMessage: {
-    findFirst: jest.fn(),
+    findFirst: vi.fn(),
   },
 };
 
@@ -50,7 +51,7 @@ describe('ChatReportTargetContextResolver', () => {
   const resolver = new ChatReportTargetContextResolver(prisma as unknown as PrismaService);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.conversationThread.findFirst.mockResolvedValue(makeThread());
     prisma.conversationMessage.findFirst.mockResolvedValue(makeMessage());
   });
@@ -160,7 +161,7 @@ describe('ChatReportTargetContextResolver', () => {
       tombstoneReason: null,
     });
 
-    const messageFindFirst = prisma.conversationMessage.findFirst as jest.MockedFunction<
+    const messageFindFirst = prisma.conversationMessage.findFirst as MockedFunction<
       (args: { select?: Record<string, unknown>; where?: Record<string, unknown> }) => unknown
     >;
     const call = messageFindFirst.mock.calls[0]?.[0];

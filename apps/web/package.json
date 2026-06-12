@@ -7,8 +7,8 @@
     "build": "pnpm --filter @repo/shared build && next build",
     "start": "next start",
     "lint": "pnpm --filter @repo/shared build && eslint",
-    "test": "pnpm --filter @repo/shared build && NODE_OPTIONS=--no-webstorage vitest run",
-    "test:watch": "NODE_OPTIONS=--no-webstorage vitest"
+    "test": "pnpm --filter @repo/shared build && vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@repo/shared": "workspace:*",
@@ -26,15 +26,16 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^20",
+    "@types/node": "^24.13.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-react": "^6.0.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
-    "jsdom": "^28.1.0",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^4.0.18"
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
   }
 }

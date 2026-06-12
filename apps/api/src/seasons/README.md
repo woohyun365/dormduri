@@ -83,7 +83,7 @@ Seasons architecture guard는 `apps/api/src/architecture/seasons-boundary.spec.t
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/seasons-boundary.spec.ts \
   src/architecture/contracts/layout/season-shared-contract-layout.spec.ts \
   src/seasons/seasons.controller.spec.ts \

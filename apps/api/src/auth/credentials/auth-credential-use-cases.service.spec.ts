@@ -1,24 +1,25 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthCredentialUseCases } from './auth-credential-use-cases.service.js';
 
 describe('AuthCredentialUseCases', () => {
   const prisma = {
     user: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
   };
   const loginAttemptService = {
-    getActiveLock: jest.fn(),
-    recordLoginFailure: jest.fn(),
-    clearFailures: jest.fn(),
+    getActiveLock: vi.fn(),
+    recordLoginFailure: vi.fn(),
+    clearFailures: vi.fn(),
   };
   const sessionService = {
-    issueAuthResult: jest.fn(),
+    issueAuthResult: vi.fn(),
   };
   const verificationService = {
-    findLatestVerifiedResetCode: jest.fn(),
+    findLatestVerifiedResetCode: vi.fn(),
   };
   const securityEvents = {
-    recordSafely: jest.fn(),
+    recordSafely: vi.fn(),
   };
   const useCases = new AuthCredentialUseCases(
     prisma as never,
@@ -29,7 +30,7 @@ describe('AuthCredentialUseCases', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     loginAttemptService.getActiveLock.mockResolvedValue(null);
     loginAttemptService.recordLoginFailure.mockResolvedValue({
       success: false,

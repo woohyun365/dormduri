@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   ConversationThreadLifecycleActorType,
   ConversationThreadLifecycleEventReason,
@@ -167,9 +168,10 @@ describe('leave thread command regression', () => {
     });
 
     expect(txConversationThreadMemberUpdate).not.toHaveBeenCalled();
-    const outboxEventTypes = txChatRealtimeOutboxEventCreate.mock.calls.map(
-      (call: [{ data?: { eventType?: string } }]) => call[0].data?.eventType,
-    );
+    const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<
+      [{ data?: { eventType?: string } }]
+    >;
+    const outboxEventTypes = outboxCreateCalls.map((call) => call[0].data?.eventType);
     expect(outboxEventTypes).not.toContain('chat.member.left');
   });
   it.each([

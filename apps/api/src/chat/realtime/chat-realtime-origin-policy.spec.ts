@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   createChatRealtimeAllowRequest,
   isChatRealtimeRequestOriginAllowed,
@@ -70,11 +71,11 @@ describe('chat realtime origin policy', () => {
   });
 
   it('origin 허용 후 allowRequest pre-auth rate limit 초과 시 callback false를 반환한다', () => {
-    const preAuthRateLimit = jest.fn(() => false);
+    const preAuthRateLimit = vi.fn(() => false);
     const allowRequest = createChatRealtimeAllowRequest(['https://knu-roommate.example.com'], {
       preAuthRateLimit,
     });
-    const callback = jest.fn();
+    const callback = vi.fn();
     const request = {
       headers: {
         origin: 'https://knu-roommate.example.com',
@@ -91,7 +92,7 @@ describe('chat realtime origin policy', () => {
 
   it('Socket.IO allowRequest callback은 origin policy 결과를 반환한다', () => {
     const allowRequest = createChatRealtimeAllowRequest(['https://knu-roommate.example.com']);
-    const callback = jest.fn();
+    const callback = vi.fn();
 
     allowRequest(
       {

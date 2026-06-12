@@ -45,7 +45,7 @@ Product domains may import database platform services when they need runtime Pri
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/platform/database/prisma.service.spec.ts \
   src/platform/database/auth-role-grants.spec.ts \
   src/platform/database/rrpd-role-grants.spec.ts \

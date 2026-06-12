@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatRealtimeTicketService } from './chat-realtime-ticket.service.js';
 
 describe('ChatRealtimeTicketService', () => {
@@ -8,19 +9,19 @@ describe('ChatRealtimeTicketService', () => {
   };
   let nowMs: number;
   const authSessionService = {
-    resolveCurrentUserContext: jest.fn(),
+    resolveCurrentUserContext: vi.fn(),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.useFakeTimers();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
     nowMs = Date.parse('2026-02-10T03:00:00.000Z');
-    jest.setSystemTime(nowMs);
+    vi.setSystemTime(nowMs);
     authSessionService.resolveCurrentUserContext.mockResolvedValue(authUser);
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   function createService() {
@@ -56,7 +57,7 @@ describe('ChatRealtimeTicketService', () => {
     expect(issued).not.toBeNull();
 
     nowMs += 60_001;
-    jest.setSystemTime(nowMs);
+    vi.setSystemTime(nowMs);
 
     await expect(service.consumeTicket(issued?.ticket)).resolves.toBeNull();
   });

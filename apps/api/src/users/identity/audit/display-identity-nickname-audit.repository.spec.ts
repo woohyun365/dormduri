@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { recordDisplayIdentityNicknameChangeAuditTx } from './display-identity-nickname-audit.repository.js';
 
 const NOW = new Date('2026-05-21T00:00:00.000Z');
@@ -6,12 +7,12 @@ type AuditCreateArgs = { data: Record<string, unknown>; select: { id: true } };
 describe('display identity nickname audit repository', () => {
   const client = {
     userDisplayIdentityNicknameChangeEvent: {
-      create: jest.fn(),
+      create: vi.fn(),
     },
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     client.userDisplayIdentityNicknameChangeEvent.create.mockResolvedValue({ id: 'event-1' });
   });
 
@@ -29,9 +30,8 @@ describe('display identity nickname audit repository', () => {
       changedAt: NOW,
     });
 
-    const createMock = client.userDisplayIdentityNicknameChangeEvent.create as jest.Mock<
-      unknown,
-      [AuditCreateArgs]
+    const createMock = client.userDisplayIdentityNicknameChangeEvent.create as Mock<
+      (arg0: AuditCreateArgs) => unknown
     >;
     const [createArgs] = createMock.mock.calls[0]!;
     expect(createArgs.select).toEqual({ id: true });

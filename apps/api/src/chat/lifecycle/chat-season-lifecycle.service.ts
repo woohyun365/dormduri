@@ -135,7 +135,7 @@ export function createChatSeasonLifecycleOwner(deps: ChatSeasonLifecycleOwnerDep
       return;
     }
 
-    await deps.lifecycleEventWriter?.append(client as Prisma.TransactionClient, {
+    await deps.lifecycleEventWriter?.append(client, {
       threadId: input.next.id,
       eventType: lifecycleEvent.eventType,
       reason: lifecycleEvent.reason,
@@ -221,7 +221,7 @@ export function createChatSeasonLifecycleOwner(deps: ChatSeasonLifecycleOwnerDep
         );
       }
 
-      return updateThreadAndAppendOutbox(client, thread, nextData as Record<string, unknown>, now);
+      return updateThreadAndAppendOutbox(client, thread, nextData, now);
     },
 
     async sweepThreadLifecycle(now: Date) {

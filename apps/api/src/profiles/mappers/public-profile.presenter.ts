@@ -39,7 +39,7 @@ function parseEmbeddedLifestyle(input: unknown): LifestyleData | null {
     return null;
   }
 
-  return parseLifestyleOrNull((input as { lifestyle: unknown }).lifestyle);
+  return parseLifestyleOrNull(input.lifestyle);
 }
 
 export function mapProfileViewRecordFromColumns(

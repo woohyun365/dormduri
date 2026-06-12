@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../../../generated/prisma/client.js';
 import {
   assertNicknameAvailableForUser,
@@ -23,13 +24,13 @@ const PARSED_NICKNAME: ParsedDisplayIdentityNickname = {
 describe('display identity repository', () => {
   const client = {
     userDisplayIdentity: {
-      findUnique: jest.fn(),
-      updateMany: jest.fn(),
+      findUnique: vi.fn(),
+      updateMany: vi.fn(),
     },
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('다른 user가 같은 normalized nickname을 쓰면 DISPLAY_NICKNAME_TAKEN으로 fail-closed 한다', async () => {

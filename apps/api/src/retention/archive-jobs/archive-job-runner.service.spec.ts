@@ -1,3 +1,4 @@
+import { describe, expect, it, vi, type MockedFunction } from 'vitest';
 import { retryDueArchiveJobs } from './archive-job-runner.service.js';
 import { createDeletionArchiveJobsTx } from './create-deletion-archive-jobs.command.js';
 import {
@@ -30,14 +31,14 @@ describe('archive job owner', () => {
     const updates: ArchiveJobUpdateInput[] = [];
     const tx = {
       conversationMessage: {
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       retentionCase: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockResolvedValue({ id: 'case-chat' }),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 'case-chat' }),
       },
       retentionReviewJob: {
-        upsert: jest.fn().mockResolvedValue({ id: 'review-thread-1' }),
+        upsert: vi.fn().mockResolvedValue({ id: 'review-thread-1' }),
       },
     };
     const dueJob = {
@@ -65,15 +66,15 @@ describe('archive job owner', () => {
       updates,
       tx,
       prisma: {
-        $queryRawTyped: jest.fn().mockResolvedValue([dueJob]),
+        $queryRawTyped: vi.fn().mockResolvedValue([dueJob]),
         archiveJob: {
-          update: jest.fn().mockImplementation((input: ArchiveJobUpdateInput) => {
+          update: vi.fn().mockImplementation((input: ArchiveJobUpdateInput) => {
             updates.push(input);
             return Promise.resolve(undefined);
           }),
         },
         conversationThread: {
-          findUnique: jest
+          findUnique: vi
             .fn()
             .mockResolvedValue(
               job.threadStatus === null
@@ -83,7 +84,7 @@ describe('archive job owner', () => {
                   : { id: job.threadId ?? 'thread-1', status: job.threadStatus ?? 'ARCHIVED' },
             ),
         },
-        runSerializableTransaction: jest.fn(<T>(callback: (transaction: typeof tx) => T) =>
+        runSerializableTransaction: vi.fn(<T>(callback: (transaction: typeof tx) => T) =>
           callback(tx),
         ),
       },
@@ -102,7 +103,7 @@ describe('archive job owner', () => {
       retryScheduledCount: 0,
       manualReviewCount: 0,
     });
-    const reviewJobUpsert = store.tx.retentionReviewJob.upsert as jest.MockedFunction<
+    const reviewJobUpsert = store.tx.retentionReviewJob.upsert as MockedFunction<
       (input: ReviewJobUpsertInput) => Promise<{ id: string }>
     >;
     const reviewJobUpsertInput = reviewJobUpsert.mock.calls[0]?.[0];
@@ -176,30 +177,30 @@ describe('archive job owner', () => {
     const created: CreatedArchiveJob[] = [];
     const tx = {
       seasonParticipant: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'participant-1', seasonId: 'season-1' }]),
+        findMany: vi.fn().mockResolvedValue([{ id: 'participant-1', seasonId: 'season-1' }]),
       },
       seasonParticipantProfileHistory: {
-        findMany: jest
+        findMany: vi
           .fn()
           .mockResolvedValue([{ participantId: 'participant-1', seasonId: 'season-1' }]),
       },
       seasonMatchHistoryEntry: {
-        findMany: jest.fn().mockResolvedValue([{ id: 'match-history-1', seasonId: 'season-1' }]),
+        findMany: vi.fn().mockResolvedValue([{ id: 'match-history-1', seasonId: 'season-1' }]),
       },
       conversationThread: {
-        findMany: jest.fn().mockResolvedValue([
+        findMany: vi.fn().mockResolvedValue([
           { id: 'thread-1', seasonId: 'season-1', status: 'ARCHIVED' },
           { id: 'thread-2', seasonId: 'season-1', status: 'READ_ONLY' },
         ]),
       },
       userDisplayIdentityNicknameChangeEvent: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       userAcademicIdentityChangeEvent: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       archiveJob: {
-        createMany: jest.fn().mockImplementation(({ data }: { data: CreatedArchiveJob[] }) => {
+        createMany: vi.fn().mockImplementation(({ data }: { data: CreatedArchiveJob[] }) => {
           created.push(...data);
           return Promise.resolve({ count: data.length });
         }),
@@ -255,7 +256,7 @@ describe('archive job owner', () => {
     };
     const tx = {
       retainedIdentity: {
-        findUnique: jest.fn().mockResolvedValue({
+        findUnique: vi.fn().mockResolvedValue({
           holds: [
             {
               holdReason: 'ACCOUNT_DELETION',
@@ -267,30 +268,30 @@ describe('archive job owner', () => {
         }),
       },
       retentionCase: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockResolvedValue({ id: 'case-academic' }),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 'case-academic' }),
       },
       userAcademicIdentityChangeEvent: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
-        findMany: jest.fn().mockResolvedValue([event]),
-        update: jest.fn().mockImplementation((input: { data: Record<string, unknown> }) => {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findMany: vi.fn().mockResolvedValue([event]),
+        update: vi.fn().mockImplementation((input: { data: Record<string, unknown> }) => {
           eventUpdates.push(input.data);
           return Promise.resolve({ id: event.id });
         }),
       },
       retainedVaultObject: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
           vaultObjects.push(data);
           return Promise.resolve({ id: 'vault-academic-1' });
         }),
       },
       retainedVaultObjectHold: {
-        upsert: jest.fn().mockResolvedValue({ id: 'hold-academic' }),
+        upsert: vi.fn().mockResolvedValue({ id: 'hold-academic' }),
       },
     };
     const prisma = {
-      $queryRawTyped: jest.fn().mockResolvedValue([
+      $queryRawTyped: vi.fn().mockResolvedValue([
         {
           id: 'job-academic',
           target: 'ACADEMIC_IDENTITY_AUDIT',
@@ -310,12 +311,12 @@ describe('archive job owner', () => {
         },
       ]),
       archiveJob: {
-        update: jest.fn().mockImplementation((input: ArchiveJobUpdateInput) => {
+        update: vi.fn().mockImplementation((input: ArchiveJobUpdateInput) => {
           archiveUpdates.push(input);
           return Promise.resolve(undefined);
         }),
       },
-      runSerializableTransaction: jest.fn(<T>(callback: (transaction: typeof tx) => T) =>
+      runSerializableTransaction: vi.fn(<T>(callback: (transaction: typeof tx) => T) =>
         callback(tx),
       ),
     };

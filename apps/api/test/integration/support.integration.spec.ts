@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
@@ -37,8 +38,6 @@ interface SupportFaqListResponseBody {
 }
 
 describe('Support integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let authSessionService: AuthSessionService;
   let httpServer: Parameters<typeof request>[0];

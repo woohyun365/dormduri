@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { toOperatorAlertRecordPayload } from './operator-alert-payload.policy.js';
 
 describe('operator alert payload policy', () => {

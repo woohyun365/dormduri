@@ -1,15 +1,16 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthSessionUseCases } from './auth-session-use-cases.service.js';
 
 describe('AuthSessionUseCases', () => {
   const sessionService = {
-    getSession: jest.fn(),
-    renewSession: jest.fn(),
-    logout: jest.fn(),
+    getSession: vi.fn(),
+    renewSession: vi.fn(),
+    logout: vi.fn(),
   };
   const useCases = new AuthSessionUseCases(sessionService as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('request context가 없으면 session service에 legacy two-arg 이하 shape로 위임한다', async () => {

@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createReportResponseSchema } from '@repo/shared/social-safety/report';
 import request from 'supertest';
 import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
@@ -59,8 +60,6 @@ function makeSendMessageInput(
 }
 
 describe('Notifications integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let chatService: ChatService;
   let authSessionService: AuthSessionService;

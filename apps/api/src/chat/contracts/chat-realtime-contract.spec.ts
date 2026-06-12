@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import * as chatContract from '@repo/shared/chat';
 import * as chatRealtimeContract from '@repo/shared/chat/realtime-contract';
 import * as chatRealtimeEvents from '@repo/shared/chat/realtime-events';

@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 type OutboxServiceConstructor = new (...args: unknown[]) => Record<string, unknown>;
 
 type ChatRealtimeOutboxModule = {
@@ -44,8 +45,8 @@ describe('ChatRealtimeOutboxService red contract', () => {
       service,
       'appendMessageCreated',
     );
-    const createOutboxEvent = jest.fn().mockResolvedValue({ id: 'event-1' });
-    const createRecipients = jest.fn().mockResolvedValue({ count: 2 });
+    const createOutboxEvent = vi.fn().mockResolvedValue({ id: 'event-1' });
+    const createRecipients = vi.fn().mockResolvedValue({ count: 2 });
     const tx = {
       chatRealtimeOutboxEvent: { create: createOutboxEvent },
       chatRealtimeEventRecipient: { createMany: createRecipients },
@@ -95,8 +96,8 @@ describe('ChatRealtimeOutboxService red contract', () => {
       'appendMessageCreated',
     );
     const recipientFailure = new Error('recipient insert failed');
-    const createOutboxEvent = jest.fn().mockResolvedValue({ id: 'event-rollback' });
-    const createRecipients = jest.fn().mockRejectedValue(recipientFailure);
+    const createOutboxEvent = vi.fn().mockResolvedValue({ id: 'event-rollback' });
+    const createRecipients = vi.fn().mockRejectedValue(recipientFailure);
     const tx = {
       chatRealtimeOutboxEvent: { create: createOutboxEvent },
       chatRealtimeEventRecipient: { createMany: createRecipients },
@@ -133,10 +134,10 @@ describe('ChatRealtimeOutboxService red contract', () => {
       service,
       'appendMessageTombstoned',
     );
-    const createOutboxEvent = jest.fn().mockResolvedValue({ id: 'event-2' });
+    const createOutboxEvent = vi.fn().mockResolvedValue({ id: 'event-2' });
     const tx = {
       chatRealtimeOutboxEvent: { create: createOutboxEvent },
-      chatRealtimeEventRecipient: { createMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      chatRealtimeEventRecipient: { createMany: vi.fn().mockResolvedValue({ count: 2 }) },
     };
 
     await appendTombstone.call(service, tx, {
@@ -176,12 +177,12 @@ describe('ChatRealtimeOutboxService red contract', () => {
       service,
       'appendThreadArchived',
     );
-    const createOutboxEvent = jest
+    const createOutboxEvent = vi
       .fn()
       .mockResolvedValueOnce({ id: 'event-read' })
       .mockResolvedValueOnce({ id: 'event-left' })
       .mockResolvedValueOnce({ id: 'event-archive' });
-    const createRecipients = jest.fn().mockResolvedValue({ count: 1 });
+    const createRecipients = vi.fn().mockResolvedValue({ count: 1 });
     const tx = {
       chatRealtimeOutboxEvent: { create: createOutboxEvent },
       chatRealtimeEventRecipient: { createMany: createRecipients },
@@ -237,10 +238,10 @@ describe('ChatRealtimeOutboxService red contract', () => {
       service,
       'appendMessageCreated',
     );
-    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const tx = {
-      chatRealtimeOutboxEvent: { create: jest.fn().mockResolvedValue({ id: 'event-log' }) },
-      chatRealtimeEventRecipient: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      chatRealtimeOutboxEvent: { create: vi.fn().mockResolvedValue({ id: 'event-log' }) },
+      chatRealtimeEventRecipient: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
 
     try {

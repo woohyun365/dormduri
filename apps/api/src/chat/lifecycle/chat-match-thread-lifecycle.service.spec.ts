@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
@@ -73,7 +74,7 @@ function makeThread(overrides: Record<string, unknown> = {}): ThreadRecord {
     members: activeMembers,
     messages: [],
     ...overrides,
-  } as ThreadRecord;
+  };
 }
 
 type ThreadUpdateManyCall = [
@@ -120,24 +121,24 @@ describe('ChatMatchThreadLifecycleOwner', () => {
     });
     const tx = {
       conversationThread: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        findMany: jest
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi
           .fn()
           .mockResolvedValueOnce([affectedThread])
           .mockResolvedValueOnce([updatedAffectedThread]),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       chatRealtimeOutboxEvent: {
-        create: jest.fn().mockResolvedValue({ id: 'event-affected' }),
+        create: vi.fn().mockResolvedValue({ id: 'event-affected' }),
       },
       chatRealtimeEventRecipient: {
-        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
     };
-    const lifecycleEventAppend = jest.fn().mockResolvedValue({ id: 'thread-lifecycle-event-1' });
+    const lifecycleEventAppend = vi.fn().mockResolvedValue({ id: 'thread-lifecycle-event-1' });
     const owner = createChatMatchThreadLifecycleOwner({
       lifecycleEventWriter: { append: lifecycleEventAppend },
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
 
@@ -241,23 +242,21 @@ describe('ChatMatchThreadLifecycleOwner', () => {
     const staleCandidate = makeThread();
     const tx = {
       conversationThread: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        findMany: jest.fn().mockResolvedValueOnce([staleCandidate]).mockResolvedValueOnce([]),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValueOnce([staleCandidate]).mockResolvedValueOnce([]),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       chatRealtimeOutboxEvent: {
-        create: jest.fn().mockResolvedValue({ id: 'event-stale' }),
+        create: vi.fn().mockResolvedValue({ id: 'event-stale' }),
       },
       chatRealtimeEventRecipient: {
-        createMany: jest.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
     };
-    const lifecycleEventAppend = jest
-      .fn()
-      .mockResolvedValue({ id: 'thread-lifecycle-event-stale' });
+    const lifecycleEventAppend = vi.fn().mockResolvedValue({ id: 'thread-lifecycle-event-stale' });
     const owner = createChatMatchThreadLifecycleOwner({
       lifecycleEventWriter: { append: lifecycleEventAppend },
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
 
@@ -329,25 +328,25 @@ describe('ChatMatchThreadLifecycleOwner', () => {
     );
     const tx = {
       conversationThread: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        findMany: jest
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi
           .fn()
           .mockResolvedValueOnce(affectedThreads)
           .mockResolvedValueOnce(updatedThreads),
-        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
       chatRealtimeOutboxEvent: {
-        create: jest
+        create: vi
           .fn()
           .mockResolvedValueOnce({ id: 'event-thread-other-a' })
           .mockResolvedValueOnce({ id: 'event-thread-other-b' }),
       },
       chatRealtimeEventRecipient: {
-        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
     };
     const owner = createChatMatchThreadLifecycleOwner({
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
 
@@ -414,26 +413,26 @@ describe('ChatMatchThreadLifecycleOwner', () => {
     });
     const tx = {
       conversationThread: {
-        findFirst: jest.fn().mockResolvedValue(existingPairThread),
-        update: jest.fn().mockResolvedValue(updatedPairThread),
-        findMany: jest
+        findFirst: vi.fn().mockResolvedValue(existingPairThread),
+        update: vi.fn().mockResolvedValue(updatedPairThread),
+        findMany: vi
           .fn()
           .mockResolvedValueOnce([affectedThread])
           .mockResolvedValueOnce([updatedAffectedThread]),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       chatRealtimeOutboxEvent: {
-        create: jest
+        create: vi
           .fn()
           .mockResolvedValueOnce({ id: 'event-pair' })
           .mockResolvedValueOnce({ id: 'event-other' }),
       },
       chatRealtimeEventRecipient: {
-        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
     };
     const owner = createChatMatchThreadLifecycleOwner({
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
 
@@ -513,31 +512,31 @@ describe('ChatMatchThreadLifecycleOwner', () => {
     });
     const tx = {
       conversationThread: {
-        findFirst: jest.fn().mockResolvedValue(matchedThread),
-        update: jest.fn().mockResolvedValue(downgradedThread),
-        findMany: jest
+        findFirst: vi.fn().mockResolvedValue(matchedThread),
+        update: vi.fn().mockResolvedValue(downgradedThread),
+        findMany: vi
           .fn()
           .mockResolvedValueOnce([reopenCandidate])
           .mockResolvedValueOnce([reopenedThread]),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       chatRealtimeOutboxEvent: {
-        create: jest
+        create: vi
           .fn()
           .mockResolvedValueOnce({ id: 'event-matched' })
           .mockResolvedValueOnce({ id: 'event-reopened' }),
       },
       chatRealtimeEventRecipient: {
-        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
     };
-    const canReopenDirectThreadAfterUnmatch = jest.fn().mockResolvedValue(true);
-    const lifecycleEventAppend = jest
+    const canReopenDirectThreadAfterUnmatch = vi.fn().mockResolvedValue(true);
+    const lifecycleEventAppend = vi
       .fn()
       .mockResolvedValue({ id: 'thread-lifecycle-event-unmatch' });
     const owner = createChatMatchThreadLifecycleOwner({
       lifecycleEventWriter: { append: lifecycleEventAppend },
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
       canReopenDirectThreadAfterUnmatch,
     });
@@ -620,8 +619,8 @@ describe('ChatMatchThreadLifecycleOwner', () => {
     });
     const tx = {
       conversationThread: {
-        findFirst: jest.fn().mockResolvedValue(matchedThread),
-        update: jest.fn().mockResolvedValue(
+        findFirst: vi.fn().mockResolvedValue(matchedThread),
+        update: vi.fn().mockResolvedValue(
           makeThread({
             ...matchedThread,
             threadKind: 'DIRECT',
@@ -629,20 +628,20 @@ describe('ChatMatchThreadLifecycleOwner', () => {
             status: 'OPEN',
           }),
         ),
-        findMany: jest.fn().mockResolvedValueOnce([reopenCandidate]),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: vi.fn().mockResolvedValueOnce([reopenCandidate]),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       chatRealtimeOutboxEvent: {
-        create: jest.fn().mockResolvedValue({ id: 'event-matched' }),
+        create: vi.fn().mockResolvedValue({ id: 'event-matched' }),
       },
       chatRealtimeEventRecipient: {
-        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
     };
     const owner = createChatMatchThreadLifecycleOwner({
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
-      canReopenDirectThreadAfterUnmatch: jest.fn().mockResolvedValue(false),
+      canReopenDirectThreadAfterUnmatch: vi.fn().mockResolvedValue(false),
     });
 
     await owner.handleActiveMatchUnmatched(tx as never, { activeMatchId: 'active-1' }, now);
@@ -702,8 +701,8 @@ describe('ChatMatchThreadLifecycleOwner', () => {
     });
     const tx = {
       conversationThread: {
-        findFirst: jest.fn().mockResolvedValue(matchedThread),
-        update: jest.fn().mockResolvedValue(
+        findFirst: vi.fn().mockResolvedValue(matchedThread),
+        update: vi.fn().mockResolvedValue(
           makeThread({
             ...matchedThread,
             threadKind: 'DIRECT',
@@ -711,26 +710,26 @@ describe('ChatMatchThreadLifecycleOwner', () => {
             status: 'OPEN',
           }),
         ),
-        findMany: jest
+        findMany: vi
           .fn()
           .mockResolvedValueOnce([eligibleCandidate, cutoffCandidate])
           .mockResolvedValueOnce([reopenedThread]),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       chatRealtimeOutboxEvent: {
-        create: jest
+        create: vi
           .fn()
           .mockResolvedValueOnce({ id: 'event-matched' })
           .mockResolvedValueOnce({ id: 'event-reopened' }),
       },
       chatRealtimeEventRecipient: {
-        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
     };
-    const findThreadRoomSelectionDate = jest.fn((thread: ThreadRecord) =>
+    const findThreadRoomSelectionDate = vi.fn((thread: ThreadRecord) =>
       thread.id === 'thread-cutoff' ? '2026-02-09' : '2026-02-11',
     );
-    const canReopenDirectThreadAfterUnmatch = jest.fn().mockResolvedValue(true);
+    const canReopenDirectThreadAfterUnmatch = vi.fn().mockResolvedValue(true);
     const owner = createChatMatchThreadLifecycleOwner({
       findThreadRoomSelectionDate,
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
@@ -781,8 +780,8 @@ describe('ChatMatchThreadLifecycleOwner', () => {
     });
     const tx = {
       conversationThread: {
-        findFirst: jest.fn().mockResolvedValue(matchedThread),
-        update: jest.fn().mockResolvedValue(
+        findFirst: vi.fn().mockResolvedValue(matchedThread),
+        update: vi.fn().mockResolvedValue(
           makeThread({
             ...matchedThread,
             threadKind: 'DIRECT',
@@ -790,18 +789,18 @@ describe('ChatMatchThreadLifecycleOwner', () => {
             status: 'OPEN',
           }),
         ),
-        findMany: jest.fn().mockResolvedValueOnce([reopenCandidate]),
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        findMany: vi.fn().mockResolvedValueOnce([reopenCandidate]),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       chatRealtimeOutboxEvent: {
-        create: jest.fn().mockResolvedValue({ id: 'event-matched' }),
+        create: vi.fn().mockResolvedValue({ id: 'event-matched' }),
       },
       chatRealtimeEventRecipient: {
-        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
     };
     const owner = createChatMatchThreadLifecycleOwner({
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
 

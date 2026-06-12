@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { resolvePublicTargetEligibility } from './public-target-eligibility.policy.js';
 import type {
   PublicTargetPolicyTargetInput,

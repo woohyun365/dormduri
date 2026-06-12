@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthenticatedUserContext } from '../../../auth/application/auth-actor-context.types.js';
 import type { ChatReportTargetContextPort } from '../../../chat/application/ports/chat-report-target-context.port.js';
 import { normalizeApiError } from '../../../platform/http/api-error.js';
@@ -23,19 +24,15 @@ const actorParticipant = {
 
 const prisma = {
   seasonParticipant: {
-    findFirst: jest.fn(),
+    findFirst: vi.fn(),
   },
   matchRequest: {
-    findFirst: jest.fn(),
+    findFirst: vi.fn(),
   },
 };
 
-const resolveThreadTarget = jest.fn() as jest.MockedFunction<
-  ChatReportTargetContextPort['resolveThreadTarget']
->;
-const resolveMessageTarget = jest.fn() as jest.MockedFunction<
-  ChatReportTargetContextPort['resolveMessageTarget']
->;
+const resolveThreadTarget = vi.fn();
+const resolveMessageTarget = vi.fn();
 
 const chatReportTargetContext: ChatReportTargetContextPort = {
   resolveThreadTarget,
@@ -49,7 +46,7 @@ describe('ReportTargetContextResolver', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.seasonParticipant.findFirst.mockResolvedValue(actorParticipant);
     prisma.matchRequest.findFirst.mockResolvedValue(null);
     resolveThreadTarget.mockResolvedValue({
@@ -79,8 +76,8 @@ describe('ReportTargetContextResolver', () => {
   it('CHAT_THREAD target은 chat-owned port로 위임한 뒤 report context로 매핑한다', async () => {
     const tx = {
       ...prisma,
-      conversationThread: { findFirst: jest.fn() },
-      conversationMessage: { findFirst: jest.fn() },
+      conversationThread: { findFirst: vi.fn() },
+      conversationMessage: { findFirst: vi.fn() },
     };
 
     await expect(

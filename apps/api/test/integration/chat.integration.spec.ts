@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
 import { ChatService } from '../../src/chat/application/chat.service.js';
@@ -83,8 +84,6 @@ function getMethod<T extends (...args: unknown[]) => unknown>(
 }
 
 describe('ChatService integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let service: ChatService;
   let authSessionService: AuthSessionService;

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import type { RoommateSearchManifest } from '@repo/shared/roommate-search/contract';
 import { assertRoommateSearchQueryAllowed } from './roommate-search-query.policy.js';
 

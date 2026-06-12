@@ -1,3 +1,4 @@
+import { describe, expect, it, vi, type Mocked } from 'vitest';
 import { ReplySupportTicketCommand } from './reply-support-ticket.command.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
 import type { SupportNotificationService } from '../notifications/support-notification.service.js';
@@ -31,27 +32,25 @@ describe('ReplySupportTicketCommand', () => {
       body: '운영자 답변',
       createdAt: now,
     };
-    const runSerializableTransaction = jest.fn((operation: (txArg: typeof tx) => unknown) =>
+    const runSerializableTransaction = vi.fn((operation: (txArg: typeof tx) => unknown) =>
       Promise.resolve(operation(tx)),
     );
     const prisma = {
-      getDatabaseNow: jest.fn().mockResolvedValue(now),
+      getDatabaseNow: vi.fn().mockResolvedValue(now),
       runSerializableTransaction,
     } as unknown as PrismaService;
-    const findById = jest.fn().mockResolvedValue(existingTicket);
-    const createMessage = jest.fn().mockResolvedValue(message);
-    const updateTicketStatus = jest.fn().mockResolvedValue(updatedTicket);
+    const findById = vi.fn().mockResolvedValue(existingTicket);
+    const createMessage = vi.fn().mockResolvedValue(message);
+    const updateTicketStatus = vi.fn().mockResolvedValue(updatedTicket);
     const repository = {
       findById,
       createMessage,
       updateTicketStatus,
-    } as unknown as jest.Mocked<SupportTicketRepository>;
-    const appendTicketReplied = jest
-      .fn()
-      .mockResolvedValue({ notificationId: 'n-1', created: true });
+    } as unknown as Mocked<SupportTicketRepository>;
+    const appendTicketReplied = vi.fn().mockResolvedValue({ notificationId: 'n-1', created: true });
     const notificationService = {
       appendTicketReplied,
-    } as unknown as jest.Mocked<SupportNotificationService>;
+    } as unknown as Mocked<SupportNotificationService>;
     const command = new ReplySupportTicketCommand(prisma, repository, notificationService);
 
     const response = await command.execute({

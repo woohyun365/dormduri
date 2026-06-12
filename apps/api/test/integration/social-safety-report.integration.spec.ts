@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createReportResponseSchema } from '@repo/shared/social-safety/report';
 import request from 'supertest';
 import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
@@ -14,8 +15,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('Social-safety report intake integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let authSessionService: AuthSessionService;
   let httpServer: Parameters<typeof request>[0];

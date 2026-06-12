@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PrismaDormitorySelectionCatalogAdapter } from './prisma-dormitory-selection-catalog.adapter.js';
 
 function objectContaining(shape: Record<string, unknown>): unknown {
@@ -7,17 +8,17 @@ function objectContaining(shape: Record<string, unknown>): unknown {
 describe('PrismaDormitorySelectionCatalogAdapter', () => {
   const prisma = {
     campusMaster: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
     seasonDormitoryOperation: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
     },
   };
   const service = new PrismaDormitorySelectionCatalogAdapter(prisma as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('season participant용 selectable 조회는 snapshot 기준으로 cutoff를 적용하고 season contract item을 반환한다', async () => {
@@ -78,7 +79,7 @@ describe('PrismaDormitorySelectionCatalogAdapter', () => {
   it('season participant용 selectable 조회는 전달된 query client를 사용한다', async () => {
     const queryClient = {
       seasonDormitoryOperation: {
-        findMany: jest.fn().mockResolvedValue([
+        findMany: vi.fn().mockResolvedValue([
           {
             seasonId: 'season-1',
             dormitoryId: 'dasan',
@@ -123,7 +124,7 @@ describe('PrismaDormitorySelectionCatalogAdapter', () => {
   it('season participant용 validation은 query client와 compound key lookup을 사용한다', async () => {
     const tx = {
       seasonDormitoryOperation: {
-        findUnique: jest.fn().mockResolvedValue({
+        findUnique: vi.fn().mockResolvedValue({
           seasonId: 'season-1',
           dormitoryId: 'dasan',
           isOperated: true,

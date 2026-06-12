@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from 'vitest';
 import { chatErrors } from '../errors/chat.errors.js';
 import {
   createChatServiceSpecHarness,
@@ -150,9 +151,10 @@ describe('update read marker command regression', () => {
     });
     expect(prisma.runSerializableTransaction).toHaveBeenCalled();
     expect(txConversationThreadMemberUpdate).not.toHaveBeenCalled();
-    const outboxEventTypes = txChatRealtimeOutboxEventCreate.mock.calls.map(
-      (call: [{ data?: { eventType?: string } }]) => call[0].data?.eventType,
-    );
+    const outboxCreateCalls = txChatRealtimeOutboxEventCreate.mock.calls as Array<
+      [{ data?: { eventType?: string } }]
+    >;
+    const outboxEventTypes = outboxCreateCalls.map((call) => call[0].data?.eventType);
     expect(outboxEventTypes).not.toContain('chat.read_marker.updated');
   });
   it('read marker는 뒤로 이동할 수 없다', async () => {

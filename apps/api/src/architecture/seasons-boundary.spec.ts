@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { PrismaModule } from '../platform/database/prisma.module.js';

@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user';
 import { createDismissOnboardingNoticeCommand } from './dismiss-onboarding-notice.command.js';
 
@@ -11,13 +12,13 @@ const CURRENT_USER_RESPONSE = { ok: true } as unknown as CurrentUserResponse;
 
 describe('DismissOnboardingNoticeCommand', () => {
   const prisma = {
-    getDatabaseNow: jest.fn(),
+    getDatabaseNow: vi.fn(),
     userDismissedNotice: {
-      upsert: jest.fn(),
+      upsert: vi.fn(),
     },
   };
   const currentUserViewService = {
-    getCurrentUser: jest.fn(),
+    getCurrentUser: vi.fn(),
   };
   const command = createDismissOnboardingNoticeCommand({
     prisma: prisma as never,
@@ -25,7 +26,7 @@ describe('DismissOnboardingNoticeCommand', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(NOW);
     prisma.userDismissedNotice.upsert.mockResolvedValue({
       userId: AUTH_USER.id,

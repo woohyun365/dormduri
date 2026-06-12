@@ -109,7 +109,7 @@ export class MatchRequestAcceptanceRepository {
 
     let activeMatchRecord: ActiveMatchRecord;
     try {
-      activeMatchRecord = (await tx.activeMatch.create({
+      activeMatchRecord = await tx.activeMatch.create({
         data: {
           seasonId: input.request.seasonId,
           pairKey: input.pairIdentity.pairKey,
@@ -120,7 +120,7 @@ export class MatchRequestAcceptanceRepository {
           startedAt: now,
         },
         select: activeMatchSummarySelect,
-      })) as ActiveMatchRecord;
+      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw matchesErrors.activeMatchAlreadyExists();
@@ -188,10 +188,10 @@ export class MatchRequestAcceptanceRepository {
     receiverParticipantId: string,
     now: Date,
   ): Promise<MatchRequestRecord> {
-    const request = (await tx.matchRequest.findUnique({
+    const request = await tx.matchRequest.findUnique({
       where: { id: requestId },
       select: matchRequestSummarySelect,
-    })) as MatchRequestRecord | null;
+    });
     if (!request) {
       throw matchesErrors.requestNotFound();
     }
@@ -258,7 +258,7 @@ export class MatchRequestAcceptanceRepository {
     terminalReason: 'WITHDRAWN_PARTICIPANT' | 'MATCH_PRECONDITION_FAILED',
     now: Date,
   ): Promise<MatchRequestRecord> {
-    return (await tx.matchRequest.update({
+    return await tx.matchRequest.update({
       where: { id: request.id },
       data: {
         status: 'CANCELLED_BY_SYSTEM',
@@ -266,7 +266,7 @@ export class MatchRequestAcceptanceRepository {
         terminalAt: now,
       },
       select: matchRequestSummarySelect,
-    })) as MatchRequestRecord;
+    });
   }
 }
 

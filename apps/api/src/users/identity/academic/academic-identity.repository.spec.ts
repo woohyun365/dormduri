@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   assertBirthYearEditableBeforeRegistration,
   updateAcademicIdentity,
@@ -7,13 +8,13 @@ import { usersErrors } from '../../errors/users.errors.js';
 function createClient() {
   return {
     userAcademicIdentity: {
-      upsert: jest.fn(),
+      upsert: vi.fn(),
     },
     seasonParticipant: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
     seasonParticipantProfileHistory: {
-      findFirst: jest.fn(),
+      findFirst: vi.fn(),
     },
   };
 }

@@ -1,15 +1,16 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSeasonParticipantPublicTargetOwner } from './registration-snapshot.query.js';
 
 describe('registration-snapshot.query', () => {
   const prisma = {
     seasonParticipantProfileHistory: {
-      findMany: jest.fn(),
-      findFirst: jest.fn(),
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
     },
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('registration snapshot participant set은 SEASON_REGISTRATION + registeredAtSnapshot 조건만 본다', async () => {

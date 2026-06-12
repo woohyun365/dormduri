@@ -1,25 +1,26 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from './auth.service.js';
 
 describe('AuthService facade', () => {
   const verificationUseCases = {
-    sendSignupCode: jest.fn(),
-    sendResetCode: jest.fn(),
-    verifyEmailCode: jest.fn(),
-    verifyResetCode: jest.fn(),
+    sendSignupCode: vi.fn(),
+    sendResetCode: vi.fn(),
+    verifyEmailCode: vi.fn(),
+    verifyResetCode: vi.fn(),
   };
   const registrationUseCases = {
-    validateSignupDraft: jest.fn(),
-    signup: jest.fn(),
+    validateSignupDraft: vi.fn(),
+    signup: vi.fn(),
   };
   const credentialUseCases = {
-    login: jest.fn(),
-    resetPassword: jest.fn(),
-    changePassword: jest.fn(),
+    login: vi.fn(),
+    resetPassword: vi.fn(),
+    changePassword: vi.fn(),
   };
   const sessionUseCases = {
-    getSession: jest.fn(),
-    renewSession: jest.fn(),
-    logout: jest.fn(),
+    getSession: vi.fn(),
+    renewSession: vi.fn(),
+    logout: vi.fn(),
   };
   const service = new AuthService(
     verificationUseCases as never,
@@ -29,7 +30,7 @@ describe('AuthService facade', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('delegates verification and session read methods to their slice use-case providers', async () => {

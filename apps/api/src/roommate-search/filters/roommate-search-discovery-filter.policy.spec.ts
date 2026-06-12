@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { filterRoommateSearchDiscoveryEntries } from './roommate-search-discovery-filter.policy.js';
 
 const entry = (id: string, targetMatched: boolean) => ({ id, targetMatched }) as never;

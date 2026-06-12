@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import type { VisibleProfileViewerContext } from '../../profiles/contracts/profile-public-target-reader.port.js';
 import {
   resolveRoommateSearchScopeAvailability,

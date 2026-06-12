@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { resetPassword } from './reset-password.command.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
@@ -14,27 +15,29 @@ const hashPasswordForTest = (password: string) =>
 describe('resetPassword command', () => {
   const databaseNow = new Date('2026-04-23T00:00:00.000Z');
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
     user: {
-      findUnique: jest.fn(),
-      update: jest.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
     },
     authSession: {
-      updateMany: jest.fn(),
+      updateMany: vi.fn(),
     },
-    $queryRawTyped: jest.fn(),
+    $queryRawTyped: vi.fn(),
   };
   const verificationService = {
-    findLatestVerifiedResetCode: jest.fn(),
+    findLatestVerifiedResetCode: vi.fn(),
   };
   const securityEvents = {
-    recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+    recordSafely: vi
+      .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
+      .mockResolvedValue(undefined),
   };
   const deps = { prisma, verificationService, securityEvents };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(databaseNow);
     prisma.user.update.mockResolvedValue(undefined);
     prisma.authSession.updateMany.mockResolvedValue({ count: 1 });
@@ -137,7 +140,7 @@ describe('resetPassword command', () => {
         emailVerifiedAt: null,
       },
     ]) {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
       prisma.user.findUnique.mockResolvedValue(user);
 
       await expect(resetPassword(deps as never, user.email, 'NewPass1234')).resolves.toMatchObject({

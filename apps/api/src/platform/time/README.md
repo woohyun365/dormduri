@@ -34,7 +34,7 @@ Product domains may import these helpers when they need shared KST local-date be
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand src/platform/time/kst-date.spec.ts
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/platform/time/kst-date.spec.ts
 pnpm --dir apps/api exec eslint src/platform/time
 pnpm exec prettier --check apps/api/src/platform/time/README.md
 pnpm api:typecheck

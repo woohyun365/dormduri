@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthLoginAttemptService } from './auth-login-attempt.service.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
 import { ClearLoginFailuresCommand } from './clear-login-failures.command.js';
@@ -8,12 +9,14 @@ import { RecordLoginFailureCommand } from './record-login-failure.command.js';
 describe('AuthLoginAttemptService', () => {
   const prisma = {
     loginAttempt: {
-      deleteMany: jest.fn(),
+      deleteMany: vi.fn(),
     },
-    $queryRawTyped: jest.fn(),
+    $queryRawTyped: vi.fn(),
   };
   const securityEvents = {
-    recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+    recordSafely: vi
+      .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
+      .mockResolvedValue(undefined),
   };
 
   const repository = new LoginAttemptRepository(prisma as never);
@@ -24,7 +27,7 @@ describe('AuthLoginAttemptService', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('활성 잠금이 없으면 null을 반환한다', async () => {

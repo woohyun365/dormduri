@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { currentProfile } from '../test-support/season-participants.spec-fixtures.js';
 import { validateSeasonProfileCompleteness } from './season-profile-completeness.policy.js';
 

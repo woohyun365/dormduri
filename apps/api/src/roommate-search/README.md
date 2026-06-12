@@ -72,7 +72,7 @@ Architecture specs own cross-cutting fitness rules:
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/roommate-search/roommate-search-boundary.spec.ts \
   src/architecture/profiles/profiles-boundary.spec.ts \
   src/architecture/module-boundary.spec.ts \

@@ -1,14 +1,15 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModerationService } from './moderation.service.js';
 
 describe('ModerationService', () => {
   const repository = {
-    findActiveTerms: jest.fn(),
+    findActiveTerms: vi.fn(),
   };
 
   let service: ModerationService;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     service = new ModerationService(repository as never);
   });
 

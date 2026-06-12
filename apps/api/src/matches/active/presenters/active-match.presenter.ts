@@ -49,7 +49,7 @@ export function toActiveMatchSummary(
     status: activeMatch.status,
     startedAt: activeMatch.startedAt.toISOString(),
     endedAt: activeMatch.endedAt?.toISOString() ?? null,
-    endReason: activeMatch.endReason as ActiveMatchSummary['endReason'],
+    endReason: activeMatch.endReason,
     createdFromRequestId: activeMatch.createdFromRequestId,
     ...(typeof matchScore === 'number' ? { matchScore } : {}),
     unmatchProgress: toInactiveUnmatchProgress(),

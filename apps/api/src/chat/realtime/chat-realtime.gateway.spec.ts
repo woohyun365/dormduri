@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHAT_REALTIME_ERROR_EVENT_NAME } from './chat-realtime.constants.js';
 import { ChatRealtimeGateway } from './chat-realtime.gateway.js';
 import { ChatRealtimeMetricsService } from './chat-realtime.metrics.js';
@@ -25,10 +26,10 @@ type TestSocket = {
 };
 
 function createSocket(ticket: string | null = 'ticket-1'): TestSocket {
-  const join = jest.fn((_room: string) => Promise.resolve());
-  const leave = jest.fn((_room: string) => Promise.resolve());
-  const emit = jest.fn((_event: string, _payload: unknown) => undefined);
-  const disconnect = jest.fn((_close: boolean) => undefined);
+  const join = vi.fn((_room: string) => Promise.resolve());
+  const leave = vi.fn((_room: string) => Promise.resolve());
+  const emit = vi.fn((_event: string, _payload: unknown) => undefined);
+  const disconnect = vi.fn((_close: boolean) => undefined);
 
   return {
     id: 'socket-1',
@@ -65,25 +66,25 @@ describe('ChatRealtimeGateway', () => {
     campus: 'CHUNCHEON' as const,
   };
   const authService = {
-    consumeTicket: jest.fn(),
-    canSubscribeThread: jest.fn(),
+    consumeTicket: vi.fn(),
+    canSubscribeThread: vi.fn(),
   };
   const publisher = {
-    bindServer: jest.fn(),
+    bindServer: vi.fn(),
   };
   const rateLimiter = {
-    resolveRequestIp: jest.fn(),
-    consumeGatewayConnectIp: jest.fn(),
-    consumeGatewayConnectUser: jest.fn(),
-    tryRegisterUserSocket: jest.fn(),
-    unregisterUserSocket: jest.fn(),
-    consumeThreadSubscription: jest.fn(),
+    resolveRequestIp: vi.fn(),
+    consumeGatewayConnectIp: vi.fn(),
+    consumeGatewayConnectUser: vi.fn(),
+    tryRegisterUserSocket: vi.fn(),
+    unregisterUserSocket: vi.fn(),
+    consumeThreadSubscription: vi.fn(),
   };
   let metrics: ChatRealtimeMetricsService;
   let gateway: ChatRealtimeGateway;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     rateLimiter.consumeGatewayConnectIp.mockReturnValue({
       allowed: true,
       retryAfterSeconds: 0,
@@ -115,7 +116,7 @@ describe('ChatRealtimeGateway', () => {
   });
 
   it('afterInit은 publisher에 Socket.IO server를 bind한다', () => {
-    const server = { to: jest.fn() };
+    const server = { to: vi.fn() };
 
     gateway.afterInit(server as never);
 

@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { ProfilesService } from '../../src/profiles/application/profiles.service.js';
 import { RoommateSearchService } from '../../src/roommate-search/application/roommate-search.service.js';
@@ -16,8 +17,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('RoommateSearchService integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let profilesService: ProfilesService;
   let service: RoommateSearchService;

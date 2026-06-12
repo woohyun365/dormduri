@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { chatErrors } from '../errors/chat.errors.js';
 import {
   createChatServiceSpecHarness,
@@ -34,7 +35,7 @@ type ConversationStatsFindManyRow = {
 
 describe('ChatQueryOwner', () => {
   it('thread list는 bounded pagination과 deterministic order를 사용하고 message payload를 가져오지 않는다', async () => {
-    const findMany = jest.fn<Promise<ThreadListFindManyRow[]>, [ThreadListFindManyInput]>();
+    const findMany = vi.fn<(arg0: ThreadListFindManyInput) => Promise<ThreadListFindManyRow[]>>();
     findMany.mockResolvedValue([
       { id: 'thread-2', messages: undefined },
       { id: 'thread-1', messages: undefined },
@@ -42,7 +43,7 @@ describe('ChatQueryOwner', () => {
     ]);
     const prisma = {
       seasonParticipant: {
-        findMany: jest
+        findMany: vi
           .fn()
           .mockResolvedValue([
             { id: 'participant-viewer-current' },
@@ -81,7 +82,7 @@ describe('ChatQueryOwner', () => {
   });
 
   it('thread list cursor는 lastMessageAt/createdAt/id tie-breaker로 다음 page만 조회한다', async () => {
-    const findMany = jest.fn<Promise<ThreadListFindManyRow[]>, [ThreadListFindManyInput]>();
+    const findMany = vi.fn<(arg0: ThreadListFindManyInput) => Promise<ThreadListFindManyRow[]>>();
     findMany.mockResolvedValue([]);
     const prisma = {
       conversationThread: {
@@ -118,17 +119,17 @@ describe('ChatQueryOwner', () => {
   });
 
   it('subscribe authorization은 ACTIVE member와 non-archived thread만 pure count query로 확인한다', async () => {
-    const count = jest.fn().mockResolvedValue(1);
+    const count = vi.fn().mockResolvedValue(1);
     const prisma = {
       conversationThread: {
         count,
-        findFirst: jest.fn(),
-        findMany: jest.fn(),
-        update: jest.fn(),
-        updateMany: jest.fn(),
+        findFirst: vi.fn(),
+        findMany: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn(),
       },
       chatRealtimeOutboxEvent: {
-        create: jest.fn(),
+        create: vi.fn(),
       },
     };
     const owner = createChatThreadQueryService(prisma as never);
@@ -162,7 +163,7 @@ describe('ChatQueryOwner', () => {
   it('subscribe authorization count가 0이면 archived/left/deleted/inactive 상태를 fail-closed로 거절한다', async () => {
     const prisma = {
       conversationThread: {
-        count: jest.fn().mockResolvedValue(0),
+        count: vi.fn().mockResolvedValue(0),
       },
     };
     const owner = createChatThreadQueryService(prisma as never);
@@ -171,7 +172,8 @@ describe('ChatQueryOwner', () => {
   });
 
   it('conversation stats는 thread row 기준 시즌별 unique counterpart 수를 계산하고 message payload를 읽지 않는다', async () => {
-    const findMany = jest.fn<Promise<ConversationStatsFindManyRow[]>, [Record<string, unknown>]>();
+    const findMany =
+      vi.fn<(arg0: Record<string, unknown>) => Promise<ConversationStatsFindManyRow[]>>();
     findMany.mockResolvedValue([
       {
         seasonId: 'season-current',
@@ -200,7 +202,7 @@ describe('ChatQueryOwner', () => {
     ]);
     const prisma = {
       seasonParticipant: {
-        findMany: jest
+        findMany: vi
           .fn()
           .mockResolvedValue([
             { id: 'participant-viewer-current' },
@@ -252,10 +254,10 @@ describe('ChatQueryOwner', () => {
   it('conversation stats는 current season이 있으면 thread가 없어도 0 count를 반환한다', async () => {
     const prisma = {
       seasonParticipant: {
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       conversationThread: {
-        findMany: jest.fn(),
+        findMany: vi.fn(),
       },
     };
     const owner = createChatThreadQueryService(prisma as never);

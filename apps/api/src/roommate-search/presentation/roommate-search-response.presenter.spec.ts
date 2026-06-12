@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { createRoommateSearchResponsePresenter } from './roommate-search-response.presenter.js';
 import { createRoommateSearchTokenCodec } from '../pagination/roommate-search-token.codec.js';
 

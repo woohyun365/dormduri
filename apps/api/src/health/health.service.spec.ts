@@ -1,24 +1,25 @@
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { HealthService } from './health.service.js';
 
 describe('HealthService', () => {
-  let uptimeSpy: jest.SpyInstance<number, []>;
+  let uptimeSpy: MockInstance<() => number>;
 
   beforeEach(() => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-06-02T03:00:00.000Z'));
-    uptimeSpy = jest.spyOn(process, 'uptime').mockReturnValue(42);
+    vi.useFakeTimers().setSystemTime(new Date('2026-06-02T03:00:00.000Z'));
+    uptimeSpy = vi.spyOn(process, 'uptime').mockReturnValue(42);
   });
 
   afterEach(() => {
     uptimeSpy.mockRestore();
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('realtime operations는 DB probe 없이 no-PII metric snapshot을 반환한다', () => {
     const prisma = {
-      getDatabaseNow: jest.fn(),
+      getDatabaseNow: vi.fn(),
     };
     const metrics = {
-      snapshot: jest.fn(() => ({
+      snapshot: vi.fn(() => ({
         connectedSockets: 1,
         totalConnections: 1,
         dispatchers: {
@@ -33,7 +34,7 @@ describe('HealthService', () => {
       })),
     };
     const authOperationsHealth = {
-      getSnapshot: jest.fn(),
+      getSnapshot: vi.fn(),
     };
 
     const service = new HealthService(prisma as never, metrics, authOperationsHealth as never);
@@ -62,13 +63,13 @@ describe('HealthService', () => {
 
   it('auth operations는 realtime/DB probe 없이 Redis gate와 cleanup/RDS snapshot을 반환한다', () => {
     const prisma = {
-      getDatabaseNow: jest.fn(),
+      getDatabaseNow: vi.fn(),
     };
     const metrics = {
-      snapshot: jest.fn(),
+      snapshot: vi.fn(),
     };
     const authOperationsHealth = {
-      getSnapshot: jest.fn(() => ({
+      getSnapshot: vi.fn(() => ({
         redisGate: {
           decision: 'postgres_authoritative',
           sourceOfTruth: 'postgres',
@@ -82,11 +83,7 @@ describe('HealthService', () => {
       })),
     };
 
-    const service = new HealthService(
-      prisma as never,
-      metrics as never,
-      authOperationsHealth as never,
-    );
+    const service = new HealthService(prisma as never, metrics, authOperationsHealth as never);
 
     expect(service.getAuthOperations()).toMatchObject({
       status: 'ok',

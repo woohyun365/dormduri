@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { listDisplayIdentityNicknameChangeAuditForOperations } from './list-display-identity-nickname-audit.query.js';
 
 type AuditFindManyArgs = {
@@ -9,21 +10,20 @@ type AuditFindManyArgs = {
 describe('ListDisplayIdentityNicknameAuditQuery', () => {
   const client = {
     userDisplayIdentityNicknameChangeEvent: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     client.userDisplayIdentityNicknameChangeEvent.findMany.mockResolvedValue([]);
   });
 
   it('operations audit list는 userId 기준 최신순 ordering과 allowlisted select를 고정한다', async () => {
     await listDisplayIdentityNicknameChangeAuditForOperations(client as never, 'user-1');
 
-    const findManyMock = client.userDisplayIdentityNicknameChangeEvent.findMany as jest.Mock<
-      unknown,
-      [AuditFindManyArgs]
+    const findManyMock = client.userDisplayIdentityNicknameChangeEvent.findMany as Mock<
+      (arg0: AuditFindManyArgs) => unknown
     >;
     const [findManyArgs] = findManyMock.mock.calls[0]!;
     expect(findManyArgs.where).toEqual({ userId: 'user-1' });

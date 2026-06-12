@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { disposeDueRetentionAccessLogs } from './retention-access-log-disposal.service.js';
 
 describe('disposeDueRetentionAccessLogs', () => {
@@ -5,9 +6,9 @@ describe('disposeDueRetentionAccessLogs', () => {
     const now = new Date('2029-01-01T00:00:00.000Z');
     const nextDueAt = new Date('2029-02-01T00:00:00.000Z');
     const prisma = {
-      $queryRawTyped: jest.fn().mockResolvedValue([{ id: 'log-1' }, { id: 'log-2' }]),
+      $queryRawTyped: vi.fn().mockResolvedValue([{ id: 'log-1' }, { id: 'log-2' }]),
       retentionAccessLog: {
-        findFirst: jest.fn().mockResolvedValue({ logRetentionHoldUntil: nextDueAt }),
+        findFirst: vi.fn().mockResolvedValue({ logRetentionHoldUntil: nextDueAt }),
       },
     };
 
@@ -29,9 +30,9 @@ describe('disposeDueRetentionAccessLogs', () => {
   it('batch size를 안전 범위로 clamp한다', async () => {
     const now = new Date('2029-01-01T00:00:00.000Z');
     const prisma = {
-      $queryRawTyped: jest.fn().mockResolvedValue([]),
+      $queryRawTyped: vi.fn().mockResolvedValue([]),
       retentionAccessLog: {
-        findFirst: jest.fn().mockResolvedValue(null),
+        findFirst: vi.fn().mockResolvedValue(null),
       },
     };
 

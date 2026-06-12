@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { AuthOperationsHealthService } from './auth-operations-health.service.js';
 import { AuthOperationalMetricsService } from './auth-operational-metrics.service.js';
 

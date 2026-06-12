@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import {
   DEIDENTIFIED_USER_DISPLAY_NAME,
   PROFILE_UNAVAILABLE_DISPLAY_NAME,

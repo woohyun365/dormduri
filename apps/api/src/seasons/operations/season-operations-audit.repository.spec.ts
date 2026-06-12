@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { Campus, Gender } from '../../generated/prisma/enums.js';
 import { SeasonOperationsAuditRepository } from './season-operations-audit.repository.js';
 
@@ -38,7 +39,7 @@ interface AuditCreateInput {
 
 describe('SeasonOperationsAuditRepository', () => {
   it('운영 audit payload는 actor id/capability와 season snapshot allowlist만 저장한다', async () => {
-    const create = jest.fn<Promise<{ id: string }>, [AuditCreateInput]>().mockResolvedValue({
+    const create = vi.fn<(arg0: AuditCreateInput) => Promise<{ id: string }>>().mockResolvedValue({
       id: 'audit-1',
     });
     const client = {

@@ -1,12 +1,15 @@
-const mockCronJobs: Array<{
-  runAt: Date;
-  onTick: () => Promise<void>;
-  start: jest.Mock;
-}> = [];
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+const mockCronJobs = vi.hoisted(
+  (): Array<{
+    runAt: Date;
+    onTick: () => Promise<void>;
+    start: Mock;
+  }> => [],
+);
 
-jest.mock('cron', () => ({
-  CronJob: jest.fn().mockImplementation((runAt: Date, onTick: () => Promise<void>) => {
-    const job = { runAt, onTick, start: jest.fn() };
+vi.mock('cron', () => ({
+  CronJob: vi.fn(function CronJob(runAt: Date, onTick: () => Promise<void>) {
+    const job = { runAt, onTick, start: vi.fn() };
     mockCronJobs.push(job);
     return job;
   }),
@@ -18,13 +21,13 @@ import { LifecycleSweepService } from './lifecycle-sweep.service.js';
 describe('LifecycleSweepService', () => {
   beforeEach(() => {
     mockCronJobs.length = 0;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('refreshes only lifecycle boundary cron jobs through the boundary schedule port', async () => {
     const now = new Date('2026-06-01T00:00:00.000Z');
     const boundarySchedule = {
-      buildBoundaryJobs: jest.fn().mockResolvedValue([
+      buildBoundaryJobs: vi.fn().mockResolvedValue([
         {
           name: `${BOUNDARY_JOB_PREFIX}:season-1:matching-start`,
           runAt: new Date('2099-01-01T00:00:00.000Z'),
@@ -36,21 +39,21 @@ describe('LifecycleSweepService', () => {
       ['external-job', {}],
     ]);
     const schedulerRegistry = {
-      getCronJobs: jest.fn(() => cronJobs),
-      deleteCronJob: jest.fn((name: string) => cronJobs.delete(name)),
-      addCronJob: jest.fn((name: string, job: unknown) => cronJobs.set(name, job)),
-      doesExist: jest.fn().mockReturnValue(false),
-      addInterval: jest.fn(),
-      deleteInterval: jest.fn(),
+      getCronJobs: vi.fn(() => cronJobs),
+      deleteCronJob: vi.fn((name: string) => cronJobs.delete(name)),
+      addCronJob: vi.fn((name: string, job: unknown) => cronJobs.set(name, job)),
+      doesExist: vi.fn().mockReturnValue(false),
+      addInterval: vi.fn(),
+      deleteInterval: vi.fn(),
     };
     const service = new LifecycleSweepService(
-      { getDatabaseNow: jest.fn().mockResolvedValue(now) } as never,
+      { getDatabaseNow: vi.fn().mockResolvedValue(now) } as never,
       {} as never,
       [],
-      boundarySchedule as never,
+      boundarySchedule,
       schedulerRegistry as never,
-      { emitSweep: jest.fn(), emitSweepFailure: jest.fn() } as never,
-      { sweepEnabled: true, sweepIntervalMs: 1_000 } as never,
+      { emitSweep: vi.fn(), emitSweepFailure: vi.fn() },
+      { sweepEnabled: true, sweepIntervalMs: 1_000 },
     );
 
     await service.refreshBoundarySchedules(now);
@@ -69,23 +72,23 @@ describe('LifecycleSweepService', () => {
   });
 
   it('does not build boundary jobs when lifecycle sweep is disabled', async () => {
-    const boundarySchedule = { buildBoundaryJobs: jest.fn() };
+    const boundarySchedule = { buildBoundaryJobs: vi.fn() };
     const schedulerRegistry = {
-      getCronJobs: jest.fn(() => new Map()),
-      deleteCronJob: jest.fn(),
-      addCronJob: jest.fn(),
-      doesExist: jest.fn().mockReturnValue(false),
-      addInterval: jest.fn(),
-      deleteInterval: jest.fn(),
+      getCronJobs: vi.fn(() => new Map()),
+      deleteCronJob: vi.fn(),
+      addCronJob: vi.fn(),
+      doesExist: vi.fn().mockReturnValue(false),
+      addInterval: vi.fn(),
+      deleteInterval: vi.fn(),
     };
     const service = new LifecycleSweepService(
-      { getDatabaseNow: jest.fn() } as never,
+      { getDatabaseNow: vi.fn() } as never,
       {} as never,
       [],
-      boundarySchedule as never,
+      boundarySchedule,
       schedulerRegistry as never,
-      { emitSweep: jest.fn(), emitSweepFailure: jest.fn() } as never,
-      { sweepEnabled: false, sweepIntervalMs: 1_000 } as never,
+      { emitSweep: vi.fn(), emitSweepFailure: vi.fn() },
+      { sweepEnabled: false, sweepIntervalMs: 1_000 },
     );
 
     await service.refreshBoundarySchedules(new Date('2026-06-01T00:00:00.000Z'));
@@ -100,23 +103,23 @@ describe('LifecycleSweepService', () => {
       ['external-job', {}],
     ]);
     const schedulerRegistry = {
-      getCronJobs: jest.fn(() => cronJobs),
-      deleteCronJob: jest.fn((name: string) => cronJobs.delete(name)),
-      doesExist: jest.fn(
+      getCronJobs: vi.fn(() => cronJobs),
+      deleteCronJob: vi.fn((name: string) => cronJobs.delete(name)),
+      doesExist: vi.fn(
         (kind: string, name: string) => kind === 'interval' && name === 'lifecycle-periodic-sweep',
       ),
-      deleteInterval: jest.fn(),
-      addCronJob: jest.fn(),
-      addInterval: jest.fn(),
+      deleteInterval: vi.fn(),
+      addCronJob: vi.fn(),
+      addInterval: vi.fn(),
     };
     const service = new LifecycleSweepService(
-      { getDatabaseNow: jest.fn() } as never,
+      { getDatabaseNow: vi.fn() } as never,
       {} as never,
       [],
-      { buildBoundaryJobs: jest.fn() } as never,
+      { buildBoundaryJobs: vi.fn() },
       schedulerRegistry as never,
-      { emitSweep: jest.fn(), emitSweepFailure: jest.fn() } as never,
-      { sweepEnabled: true, sweepIntervalMs: 1_000 } as never,
+      { emitSweep: vi.fn(), emitSweepFailure: vi.fn() },
+      { sweepEnabled: true, sweepIntervalMs: 1_000 },
     );
 
     service.onModuleDestroy();

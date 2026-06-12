@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createUserUpdateOwner } from './user-update-owner.js';
 import { usersErrors } from '../errors/users.errors.js';
 
@@ -30,19 +31,19 @@ const USER = {
 
 describe('UserUpdateOwner', () => {
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
-    user: { findUnique: jest.fn() },
-    userDisplayIdentity: { findUnique: jest.fn(), updateMany: jest.fn() },
-    userDisplayIdentityNicknameChangeEvent: { create: jest.fn() },
-    seasonParticipant: { findUnique: jest.fn() },
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
+    user: { findUnique: vi.fn() },
+    userDisplayIdentity: { findUnique: vi.fn(), updateMany: vi.fn() },
+    userDisplayIdentityNicknameChangeEvent: { create: vi.fn() },
+    seasonParticipant: { findUnique: vi.fn() },
   };
-  const seasonsService = { getCurrentSeasonContext: jest.fn() };
-  const moderationService = { validateNicknamePolicy: jest.fn() };
-  const currentUserViewService = { buildCurrentUserResponse: jest.fn() };
+  const seasonsService = { getCurrentSeasonContext: vi.fn() };
+  const moderationService = { validateNicknamePolicy: vi.fn() };
+  const currentUserViewService = { buildCurrentUserResponse: vi.fn() };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-05-21T00:00:00.000Z'));
     prisma.user.findUnique.mockResolvedValue(USER);
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>

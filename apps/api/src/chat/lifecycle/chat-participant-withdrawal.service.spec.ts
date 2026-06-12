@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import {
   ConversationThreadLifecycleEventReason,
   ConversationThreadLifecycleEventType,
@@ -47,18 +48,18 @@ function thread(overrides: Record<string, unknown> = {}) {
 function createTx(input: { candidates?: unknown[]; updated?: unknown[] } = {}) {
   const candidateThreads = input.candidates ?? [thread({ status: 'OPEN', closedReason: null })];
   const updatedThreads = input.updated ?? [thread()];
-  const conversationThreadFindMany = jest
-    .fn<Promise<unknown[]>, [unknown]>()
+  const conversationThreadFindMany = vi
+    .fn<(arg0: unknown) => Promise<unknown[]>>()
     .mockResolvedValueOnce(candidateThreads)
     .mockResolvedValueOnce(updatedThreads);
-  const conversationThreadUpdateMany = jest
-    .fn<Promise<{ count: number }>, [unknown]>()
+  const conversationThreadUpdateMany = vi
+    .fn<(arg0: unknown) => Promise<{ count: number }>>()
     .mockResolvedValue({ count: updatedThreads.length });
-  const chatRealtimeOutboxEventCreate = jest
-    .fn<Promise<{ id: string }>, [unknown]>()
+  const chatRealtimeOutboxEventCreate = vi
+    .fn<(arg0: unknown) => Promise<{ id: string }>>()
     .mockResolvedValue({ id: 'event-1' });
-  const chatRealtimeEventRecipientCreateMany = jest
-    .fn<Promise<{ count: number }>, [unknown]>()
+  const chatRealtimeEventRecipientCreateMany = vi
+    .fn<(arg0: unknown) => Promise<{ count: number }>>()
     .mockResolvedValue({ count: 2 });
 
   return {
@@ -76,13 +77,15 @@ function createTx(input: { candidates?: unknown[]; updated?: unknown[] } = {}) {
 }
 
 describe('ChatParticipantWithdrawalService', () => {
-  let lifecycleEventAppend: jest.Mock<Promise<unknown>, [unknown, unknown]>;
+  let lifecycleEventAppend: Mock<(arg0: unknown, arg1: unknown) => Promise<unknown>>;
   let service: ChatParticipantWithdrawalService;
 
   beforeEach(() => {
-    lifecycleEventAppend = jest.fn<Promise<unknown>, [unknown, unknown]>().mockResolvedValue({
-      id: 'thread-lifecycle-event-1',
-    });
+    lifecycleEventAppend = vi
+      .fn<(arg0: unknown, arg1: unknown) => Promise<unknown>>()
+      .mockResolvedValue({
+        id: 'thread-lifecycle-event-1',
+      });
     service = new ChatParticipantWithdrawalService({ append: lifecycleEventAppend });
   });
 

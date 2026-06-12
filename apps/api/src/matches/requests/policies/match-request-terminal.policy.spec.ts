@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { canActorResolveTerminalMatchRequest } from './match-request-terminal.policy.js';
 
 describe('match request terminal policy', () => {

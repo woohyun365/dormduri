@@ -1,27 +1,28 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthVerificationStore } from './verification-code.repository.js';
 
 describe('AuthVerificationStore', () => {
-  const txQueryRawTyped = jest.fn<Promise<unknown[]>, [unknown]>();
-  const txVerificationCodeUpdateMany = jest.fn<Promise<{ count: number }>, [unknown]>();
-  const txVerificationCodeCreate = jest.fn<Promise<{ id: string }>, [unknown]>();
+  const txQueryRawTyped = vi.fn<(arg0: unknown) => Promise<unknown[]>>();
+  const txVerificationCodeUpdateMany = vi.fn<(arg0: unknown) => Promise<{ count: number }>>();
+  const txVerificationCodeCreate = vi.fn<(arg0: unknown) => Promise<{ id: string }>>();
 
   const prisma = {
-    getDatabaseNow: jest.fn(),
+    getDatabaseNow: vi.fn(),
     verificationCodeRequestLog: {
-      create: jest.fn(),
+      create: vi.fn(),
     },
     verificationCode: {
-      create: jest.fn(),
-      updateMany: jest.fn(),
+      create: vi.fn(),
+      updateMany: vi.fn(),
     },
-    $queryRawTyped: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    $queryRawTyped: vi.fn(),
+    runSerializableTransaction: vi.fn(),
   };
 
   const store = new AuthVerificationStore(prisma as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-04-23T00:00:00.000Z'));
     txQueryRawTyped.mockResolvedValue([{ lockAcquired: null }]);
     txVerificationCodeUpdateMany.mockResolvedValue({ count: 1 });
@@ -56,7 +57,7 @@ describe('AuthVerificationStore', () => {
   });
 
   it('backstop 제한 도달이면 oldestRequestAt 기준 retryAfterSeconds를 계산한다', async () => {
-    jest.spyOn(Date, 'now').mockReturnValue(new Date('2026-04-23T00:00:00.000Z').getTime());
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-04-23T00:00:00.000Z').getTime());
     prisma.$queryRawTyped.mockResolvedValue([
       {
         requestCount: 5,

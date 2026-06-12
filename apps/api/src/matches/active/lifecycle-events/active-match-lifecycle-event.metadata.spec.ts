@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { toActiveMatchLifecycleEventMetadata } from './active-match-lifecycle-event.metadata.js';
 
 class NonPlainMetadataValue {

@@ -39,7 +39,7 @@
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/profiles \
   src/social-safety \
   src/users/account-deletion

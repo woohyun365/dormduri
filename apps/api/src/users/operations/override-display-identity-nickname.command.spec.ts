@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { createOverrideDisplayIdentityNicknameCommand } from './override-display-identity-nickname.command.js';
 import { usersErrors } from '../errors/users.errors.js';
 
@@ -53,24 +54,24 @@ type AuditCreateArgs = {
 
 describe('OverrideDisplayIdentityNicknameCommand', () => {
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
   };
   const seasonsService = {
-    getCurrentSeasonContext: jest.fn(),
+    getCurrentSeasonContext: vi.fn(),
   };
   const moderationService = {
-    validateNicknamePolicy: jest.fn(),
+    validateNicknamePolicy: vi.fn(),
   };
   const tx = {
-    user: { findUnique: jest.fn() },
-    seasonParticipant: { findUnique: jest.fn() },
-    seasonParticipantProfile: { updateMany: jest.fn() },
+    user: { findUnique: vi.fn() },
+    seasonParticipant: { findUnique: vi.fn() },
+    seasonParticipantProfile: { updateMany: vi.fn() },
     userDisplayIdentity: {
-      findUnique: jest.fn(),
-      updateMany: jest.fn(),
+      findUnique: vi.fn(),
+      updateMany: vi.fn(),
     },
-    userDisplayIdentityNicknameChangeEvent: { create: jest.fn() },
+    userDisplayIdentityNicknameChangeEvent: { create: vi.fn() },
   };
   const command = createOverrideDisplayIdentityNicknameCommand({
     prisma: prisma as never,
@@ -79,7 +80,7 @@ describe('OverrideDisplayIdentityNicknameCommand', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(NOW);
     prisma.runSerializableTransaction.mockImplementation((callback: (client: unknown) => unknown) =>
       Promise.resolve(callback(tx)),
@@ -136,9 +137,8 @@ describe('OverrideDisplayIdentityNicknameCommand', () => {
         nicknameNormalizedSnapshot: '운영변경',
       },
     });
-    const auditCreateMock = tx.userDisplayIdentityNicknameChangeEvent.create as jest.Mock<
-      unknown,
-      [AuditCreateArgs]
+    const auditCreateMock = tx.userDisplayIdentityNicknameChangeEvent.create as Mock<
+      (arg0: AuditCreateArgs) => unknown
     >;
     const [auditCreateArgs] = auditCreateMock.mock.calls[0]!;
     expect(auditCreateArgs.data).toMatchObject({

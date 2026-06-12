@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AuthLoginAttemptService } from '../../src/auth/login-attempts/auth-login-attempt.service.js';
 import { ChatService } from '../../src/chat/application/chat.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
@@ -20,8 +21,6 @@ function waitMs(ms: number) {
 }
 
 describe('timestamp field integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let loginAttemptService: AuthLoginAttemptService;
   let seasonParticipantsService: SeasonParticipantsService;

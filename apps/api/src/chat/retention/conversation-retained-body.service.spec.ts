@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   conversationMessageTombstoneText,
   createConversationRetainedBodyCipher,
@@ -47,31 +48,31 @@ describe('conversation retained body owner', () => {
       vaultHolds,
       tx: {
         retentionCase: {
-          findFirst: jest.fn().mockResolvedValue(null),
-          create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
             const created = { id: 'retention-case-1', ...data };
             retentionCases.push(created);
             return Promise.resolve({ id: created.id });
           }),
         },
         retainedVaultObject: {
-          findFirst: jest.fn().mockResolvedValue(null),
-          create: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
             const created = { id: 'vault-object-1', ...data };
             vaultObjects.push(created);
             return Promise.resolve({ id: created.id });
           }),
         },
         retainedVaultObjectHold: {
-          upsert: jest.fn().mockImplementation((input: unknown) => {
+          upsert: vi.fn().mockImplementation((input: unknown) => {
             vaultHolds.push(input);
             return Promise.resolve(input);
           }),
         },
         conversationMessage: {
-          findMany: jest.fn().mockResolvedValue([message]),
-          findUnique: jest.fn().mockResolvedValue(message),
-          update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+          findMany: vi.fn().mockResolvedValue([message]),
+          findUnique: vi.fn().mockResolvedValue(message),
+          update: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
             if (typeof data.body === 'string') message.body = data.body;
             if (typeof data.bodyState === 'string') message.bodyState = data.bodyState as never;
             if (typeof data.tombstoneReason === 'string') {
@@ -186,7 +187,7 @@ describe('conversation retained body owner', () => {
     const logs: unknown[] = [];
     const prisma = {
       retainedVaultObject: {
-        findUnique: jest.fn().mockResolvedValue({
+        findUnique: vi.fn().mockResolvedValue({
           ...store.vaultObjects[0],
           id: 'vault-object-1',
           state: 'RETAINED',
@@ -194,7 +195,7 @@ describe('conversation retained body owner', () => {
         }),
       },
       retentionAccessLog: {
-        create: jest.fn().mockImplementation((input: unknown) => {
+        create: vi.fn().mockImplementation((input: unknown) => {
           logs.push(input);
           return Promise.resolve(input);
         }),
@@ -252,7 +253,7 @@ describe('conversation retained body owner', () => {
     const updates: Array<Record<string, unknown>> = [];
     const reviewTx = {
       conversationMessage: {
-        findMany: jest.fn().mockResolvedValue([
+        findMany: vi.fn().mockResolvedValue([
           {
             retainedVaultObject: {
               ...store.vaultObjects[0],
@@ -272,7 +273,7 @@ describe('conversation retained body owner', () => {
         ]),
       },
       retainedVaultObject: {
-        update: jest.fn().mockImplementation(({ data }) => {
+        update: vi.fn().mockImplementation(({ data }) => {
           updates.push(data as Record<string, unknown>);
           return Promise.resolve({ id: 'vault-object-1' });
         }),
@@ -331,7 +332,7 @@ describe('conversation retained body owner', () => {
     const updates: Array<Record<string, unknown>> = [];
     const reviewTx = {
       conversationMessage: {
-        findMany: jest.fn().mockResolvedValue([
+        findMany: vi.fn().mockResolvedValue([
           {
             retainedVaultObject: {
               ...store.vaultObjects[0],
@@ -351,7 +352,7 @@ describe('conversation retained body owner', () => {
         ]),
       },
       retainedVaultObject: {
-        update: jest.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+        update: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) => {
           updates.push(data);
           return Promise.resolve({ id: 'vault-object-1' });
         }),

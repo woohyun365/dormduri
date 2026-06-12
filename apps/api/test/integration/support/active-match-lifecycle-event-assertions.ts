@@ -1,3 +1,4 @@
+import { expect } from 'vitest';
 const sensitiveLifecycleMetadataKeys = [
   'note',
   'profile',

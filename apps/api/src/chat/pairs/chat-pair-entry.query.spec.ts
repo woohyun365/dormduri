@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { chatErrors } from '../errors/chat.errors.js';
 import type { CanonicalSelectionState } from '../../season-participants/application/season-participants.service.js';
 import {
@@ -64,20 +65,20 @@ function makeThread(overrides: Partial<ThreadRecord> = {}): ThreadRecord {
 describe('createChatPairEntryQuery', () => {
   const now = new Date('2026-06-03T00:00:00.000Z');
   const deps = {
-    getDatabaseNow: jest.fn(),
-    getCurrentChatContext: jest.fn(),
-    getValidatedTargetUser: jest.fn(),
-    getRequiredParticipant: jest.fn(),
-    findThreadByPair: jest.fn(),
-    resolveThreadLifecycleSnapshot: jest.fn(),
-    canSendMessageToPair: jest.fn(),
-    getThreadMember: jest.fn(),
-    toThreadSummary: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    getCurrentChatContext: vi.fn(),
+    getValidatedTargetUser: vi.fn(),
+    getRequiredParticipant: vi.fn(),
+    findThreadByPair: vi.fn(),
+    resolveThreadLifecycleSnapshot: vi.fn(),
+    canSendMessageToPair: vi.fn(),
+    getThreadMember: vi.fn(),
+    toThreadSummary: vi.fn(),
   };
   const query = createChatPairEntryQuery(deps);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     deps.getDatabaseNow.mockResolvedValue(now);
     deps.getCurrentChatContext.mockResolvedValue(makeViewerContext());
     deps.getValidatedTargetUser.mockResolvedValue({

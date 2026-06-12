@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import type { Prisma } from '../../generated/prisma/client.js';
 import {
   ConversationThreadLifecycleActorType,
@@ -14,7 +15,7 @@ const occurredAt = new Date('2026-02-10T03:00:00.000Z');
 
 describe('ConversationThreadLifecycleEventRepository', () => {
   it('caller-provided transaction client로 lifecycle event를 append한다', async () => {
-    const create = jest.fn().mockResolvedValue({
+    const create = vi.fn().mockResolvedValue({
       id: 'event-1',
       threadId: 'thread-1',
       eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,

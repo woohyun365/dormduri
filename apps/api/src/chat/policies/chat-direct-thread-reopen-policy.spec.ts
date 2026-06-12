@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { resolveDirectThreadReopenStaticDecision } from './chat-direct-thread-reopen-policy.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
@@ -65,7 +66,7 @@ function makeThread(overrides: Partial<ThreadRecord> = {}): ThreadRecord {
     ],
     messages: [],
     ...overrides,
-  } as ThreadRecord;
+  };
 }
 
 function decide(thread: ThreadRecord, roomSelectionDate = '2026-02-11') {

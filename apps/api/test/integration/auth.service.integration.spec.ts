@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { createHash } from 'node:crypto';
 import { AuthService } from '../../src/auth/application/auth.service.js';
@@ -14,8 +15,6 @@ function hashTokenForTest(token: string) {
 }
 
 describe('AuthService integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let service: AuthService;
   let closeApp: (() => Promise<void>) | null = null;

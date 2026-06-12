@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { evaluateAuthRedisGate } from './auth-redis-gate.policy.js';
 
 const settings = {

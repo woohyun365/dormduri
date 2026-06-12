@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { NotificationOutboxRepository } from './notification-outbox.repository.js';
 
 type TypedSqlLike = {
@@ -20,7 +21,7 @@ type NotificationOutboxUpdateCall = [
 describe('NotificationOutboxRepository', () => {
   it('publishable event claim은 SKIP LOCKED와 status/availableAt guard를 사용한다', async () => {
     const repository = new NotificationOutboxRepository();
-    const queryRawTyped = jest.fn<Promise<unknown[]>, [TypedSqlLike]>().mockResolvedValue([]);
+    const queryRawTyped = vi.fn<(arg0: TypedSqlLike) => Promise<unknown[]>>().mockResolvedValue([]);
     const now = new Date('2026-06-02T00:00:00.000Z');
 
     await repository.claimPublishableBatch({ $queryRawTyped: queryRawTyped } as never, {
@@ -41,19 +42,25 @@ describe('NotificationOutboxRepository', () => {
 
   it('markPublished와 markPublishFailed는 dispatcher가 상태 전이를 소유한다', async () => {
     const repository = new NotificationOutboxRepository();
-    const update = jest.fn<Promise<unknown>, [unknown]>().mockResolvedValue({});
+    const update = vi.fn<(arg0: unknown) => Promise<unknown>>().mockResolvedValue({});
     const now = new Date('2026-06-02T00:00:00.000Z');
 
-    await repository.markPublished({ notificationOutboxEvent: { update } } as never, {
-      eventId: 'event-1',
-      now,
-    });
-    await repository.markPublishFailed({ notificationOutboxEvent: { update } } as never, {
-      eventId: 'event-2',
-      now,
-      nextAvailableAt: new Date('2026-06-02T00:00:01.000Z'),
-      error: 'x'.repeat(2_000),
-    });
+    await repository.markPublished(
+      { notificationOutboxEvent: { update } },
+      {
+        eventId: 'event-1',
+        now,
+      },
+    );
+    await repository.markPublishFailed(
+      { notificationOutboxEvent: { update } },
+      {
+        eventId: 'event-2',
+        now,
+        nextAvailableAt: new Date('2026-06-02T00:00:01.000Z'),
+        error: 'x'.repeat(2_000),
+      },
+    );
 
     const [publishedCall, failedCall] = update.mock.calls as NotificationOutboxUpdateCall[];
     expect(publishedCall?.[0]).toMatchObject({

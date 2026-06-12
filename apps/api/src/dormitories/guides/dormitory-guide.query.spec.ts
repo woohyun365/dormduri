@@ -1,15 +1,16 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DormitoryGuideQuery } from './dormitory-guide.query.js';
 
 describe('DormitoryGuideQuery', () => {
   const prisma = {
     dormitory: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
   };
   const query = new DormitoryGuideQuery(prisma as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('건물 guide 응답에 공통 규칙과 연락처를 포함한다', async () => {

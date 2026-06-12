@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { buildCompletion } from './season-participation-capability.mapper.js';
 
 describe('season-participation-capability mapper', () => {

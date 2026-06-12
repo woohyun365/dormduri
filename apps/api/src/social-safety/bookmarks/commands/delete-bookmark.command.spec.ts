@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BookmarkPresenter } from '../presenters/bookmark.presenter.js';
 import { DeleteBookmarkCommand } from './delete-bookmark.command.js';
 
@@ -7,14 +8,14 @@ const authUser = { id: 'viewer-user', campus: 'CHUNCHEON', gender: 'M' } as neve
 describe('DeleteBookmarkCommand', () => {
   const tx = {};
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
   };
   const repository = {
-    softDeleteActiveByTargetUser: jest.fn(),
+    softDeleteActiveByTargetUser: vi.fn(),
   };
   const targetPolicyEvaluator = {
-    loadViewerContext: jest.fn(),
+    loadViewerContext: vi.fn(),
   };
 
   function command() {
@@ -27,7 +28,7 @@ describe('DeleteBookmarkCommand', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(now);
     prisma.runSerializableTransaction.mockImplementation((callback: (txArg: unknown) => unknown) =>
       callback(tx),

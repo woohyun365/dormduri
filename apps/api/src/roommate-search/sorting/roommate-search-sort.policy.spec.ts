@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { sortByMatchScore, sortByNickname } from './roommate-search-sort.policy.js';
 
 const item = (input: {

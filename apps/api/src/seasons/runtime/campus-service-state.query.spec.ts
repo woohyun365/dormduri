@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { resolveCampusServiceState } from './campus-service-state.query.js';
 
 const NOW = new Date('2026-06-01T00:00:00.000Z');
@@ -6,11 +7,11 @@ describe('resolveCampusServiceState', () => {
   it('비운영 campus는 season context 조회 없이 closed state를 반환한다', async () => {
     const prisma = {
       campusMaster: {
-        findUnique: jest.fn().mockResolvedValue({ isOperated: false }),
+        findUnique: vi.fn().mockResolvedValue({ isOperated: false }),
       },
     };
     const seasonsService = {
-      getCurrentSeasonContext: jest.fn(),
+      getCurrentSeasonContext: vi.fn(),
     };
 
     await expect(
@@ -30,11 +31,11 @@ describe('resolveCampusServiceState', () => {
   it('운영 campus에 current season이 없으면 OFF_SEASON segment를 반환한다', async () => {
     const prisma = {
       campusMaster: {
-        findUnique: jest.fn().mockResolvedValue({ isOperated: true }),
+        findUnique: vi.fn().mockResolvedValue({ isOperated: true }),
       },
     };
     const seasonsService = {
-      getCurrentSeasonContext: jest.fn().mockResolvedValue(null),
+      getCurrentSeasonContext: vi.fn().mockResolvedValue(null),
     };
 
     await expect(
@@ -55,11 +56,11 @@ describe('resolveCampusServiceState', () => {
     };
     const prisma = {
       campusMaster: {
-        findUnique: jest.fn().mockResolvedValue({ isOperated: true }),
+        findUnique: vi.fn().mockResolvedValue({ isOperated: true }),
       },
     };
     const seasonsService = {
-      getCurrentSeasonContext: jest.fn().mockResolvedValue(seasonContext),
+      getCurrentSeasonContext: vi.fn().mockResolvedValue(seasonContext),
     };
 
     await expect(

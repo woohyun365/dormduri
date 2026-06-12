@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatRealtimeAuthService } from './chat-realtime-auth.service.js';
 
 describe('ChatRealtimeAuthService', () => {
@@ -7,15 +8,15 @@ describe('ChatRealtimeAuthService', () => {
     campus: 'CHUNCHEON' as const,
   };
   const ticketService = {
-    consumeTicket: jest.fn(),
+    consumeTicket: vi.fn(),
   };
   const subscriptionQueryService = {
-    canSubscribeThreadForViewer: jest.fn(),
-    getThreadDetail: jest.fn(),
+    canSubscribeThreadForViewer: vi.fn(),
+    getThreadDetail: vi.fn(),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('consumeTicket은 ticket service 결과를 그대로 반환한다', async () => {

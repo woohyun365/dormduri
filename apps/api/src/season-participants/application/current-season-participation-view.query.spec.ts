@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CurrentSeasonParticipationViewQuery } from './current-season-participation-view.query.js';
 import {
   now,
@@ -8,13 +9,13 @@ import {
 
 describe('current-season-participation-view.query', () => {
   const prisma = {
-    seasonParticipant: { findUnique: jest.fn() },
+    seasonParticipant: { findUnique: vi.fn() },
   };
   const seasonParticipantsService = {
-    validateSeasonProfileCompleteness: jest.fn(),
-    hasSelectableDormitoriesForCurrentParticipant: jest.fn(),
-    hasSelectableDormitoriesForCurrentUser: jest.fn(),
-    hasValidDormitorySelectionForCurrentParticipant: jest.fn(),
+    validateSeasonProfileCompleteness: vi.fn(),
+    hasSelectableDormitoriesForCurrentParticipant: vi.fn(),
+    hasSelectableDormitoriesForCurrentUser: vi.fn(),
+    hasValidDormitorySelectionForCurrentParticipant: vi.fn(),
   };
   const owner = new CurrentSeasonParticipationViewQuery(
     prisma as never,
@@ -22,7 +23,7 @@ describe('current-season-participation-view.query', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     seasonParticipantsService.validateSeasonProfileCompleteness.mockReturnValue({ complete: true });
     seasonParticipantsService.hasSelectableDormitoriesForCurrentParticipant.mockResolvedValue(true);
     seasonParticipantsService.hasSelectableDormitoriesForCurrentUser.mockResolvedValue(true);

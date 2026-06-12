@@ -1,11 +1,12 @@
+import { describe, expect, it, vi, type Mocked } from 'vitest';
 import { CreateChatThreadNotificationCommand } from './create-chat-thread-notification.command.js';
 import type { NotificationWriterPort } from '../application/ports/notification-writer.port.js';
 
 const occurredAt = new Date('2026-06-02T00:00:00.000Z');
 
-function createWriterMock(): jest.Mocked<NotificationWriterPort> {
+function createWriterMock(): Mocked<NotificationWriterPort> {
   return {
-    appendNotification: jest
+    appendNotification: vi
       .fn()
       .mockResolvedValue({ notificationId: 'notification-1', created: true }),
   };

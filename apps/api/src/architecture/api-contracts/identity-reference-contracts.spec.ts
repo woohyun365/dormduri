@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { campusMetaSchema } from '@repo/shared/campus';
 import { campusSchema, genderSchema } from '@repo/shared/identity/primitives';
 

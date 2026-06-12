@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
 import { hashPassword } from '../../src/auth/application/auth-password-hash.js';
@@ -16,8 +17,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('account deletion + season de-registration integration', () => {
-  jest.setTimeout(60_000);
-
   const retainedVaultEnv = {
     RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64: Buffer.alloc(32, 20).toString('base64'),
     RETENTION_IDENTITY_KEY_VERSION: 'account-deletion-identity-v1',
@@ -50,7 +49,7 @@ describe('account deletion + season de-registration integration', () => {
         key,
         process.env[key as keyof typeof retainedVaultEnv],
       ]),
-    ) as Partial<Record<keyof typeof retainedVaultEnv, string | undefined>>;
+    );
     Object.assign(process.env, retainedVaultEnv);
 
     const sandbox = await createIntegrationDatabaseSandbox('account_deletion_integration');

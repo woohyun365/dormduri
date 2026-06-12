@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import type { LifecycleSweepTaskPort } from './lifecycle-sweep-task.port.js';
 import { createLifecycleSweepRunner } from './lifecycle-sweep-runner.js';
 
@@ -5,7 +6,7 @@ describe('createLifecycleSweepRunner', () => {
   it('runs ordered sweep tasks and preserves the lifecycle result shape', async () => {
     const now = new Date('2026-06-01T00:00:00.000Z');
     const retentionObservability = {
-      emitSweep: jest.fn().mockResolvedValue(undefined),
+      emitSweep: vi.fn().mockResolvedValue(undefined),
     };
     const calls: string[] = [];
     const tasks: LifecycleSweepTaskPort[] = [
@@ -54,7 +55,7 @@ describe('createLifecycleSweepRunner', () => {
     ];
 
     const runner = createLifecycleSweepRunner({
-      prisma: { getDatabaseNow: jest.fn().mockResolvedValue(now) } as never,
+      prisma: { getDatabaseNow: vi.fn().mockResolvedValue(now) } as never,
       retentionPrisma: {} as never,
       retentionObservability,
       tasks,
@@ -94,7 +95,7 @@ describe('createLifecycleSweepRunner', () => {
 
   it('does not fail lifecycle convergence when retention observability fails', async () => {
     const now = new Date('2026-06-01T00:00:00.000Z');
-    const logger = { error: jest.fn() };
+    const logger = { error: vi.fn() };
     const tasks: LifecycleSweepTaskPort[] = [
       makeTask('matchTransitions', 10, [], {
         expiredRequests: 0,
@@ -141,10 +142,10 @@ describe('createLifecycleSweepRunner', () => {
     ];
 
     const runner = createLifecycleSweepRunner({
-      prisma: { getDatabaseNow: jest.fn().mockResolvedValue(now) } as never,
+      prisma: { getDatabaseNow: vi.fn().mockResolvedValue(now) } as never,
       retentionPrisma: {} as never,
       retentionObservability: {
-        emitSweep: jest.fn().mockRejectedValue(new Error('observability down')),
+        emitSweep: vi.fn().mockRejectedValue(new Error('observability down')),
       },
       tasks,
       logger,

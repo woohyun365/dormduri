@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import {
   createSeasonParticipantsServiceTestKit,
@@ -56,7 +57,7 @@ describe('finalize-season-registration.command', () => {
     });
     expect(txSeasonParticipantProfileHistoryCreate).not.toHaveBeenCalled();
 
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     txUserFindUnique.mockResolvedValue({
       id: 'user-1',
       campus: 'CHUNCHEON',

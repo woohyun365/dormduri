@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { createChatRealtimeAllowRequestIpRateLimiter } from './chat-realtime-allow-request-limiter.js';
 
 function createRequest(ip = '203.0.113.10', remoteAddress = '10.0.0.10') {
@@ -16,7 +17,7 @@ describe('createChatRealtimeAllowRequestIpRateLimiter', () => {
       {
         CHAT_REALTIME_WS_CONNECT_IP_LIMIT: '2',
         CHAT_REALTIME_WS_CONNECT_IP_WINDOW_SECONDS: '60',
-      } as NodeJS.ProcessEnv,
+      },
       () => nowMs,
     );
 
@@ -32,7 +33,7 @@ describe('createChatRealtimeAllowRequestIpRateLimiter', () => {
     const limiter = createChatRealtimeAllowRequestIpRateLimiter({
       CHAT_REALTIME_WS_CONNECT_IP_LIMIT: '1',
       CHAT_REALTIME_WS_CONNECT_IP_WINDOW_SECONDS: '60',
-    } as NodeJS.ProcessEnv);
+    });
 
     expect(limiter(createRequest('203.0.113.10', '10.0.0.10'))).toBe(true);
     expect(limiter(createRequest('203.0.113.11', '10.0.0.10'))).toBe(false);
@@ -43,7 +44,7 @@ describe('createChatRealtimeAllowRequestIpRateLimiter', () => {
       CHAT_REALTIME_TRUST_PROXY: 'true',
       CHAT_REALTIME_WS_CONNECT_IP_LIMIT: '1',
       CHAT_REALTIME_WS_CONNECT_IP_WINDOW_SECONDS: '60',
-    } as NodeJS.ProcessEnv);
+    });
 
     expect(limiter(createRequest('203.0.113.10', '10.0.0.10'))).toBe(true);
     expect(limiter(createRequest('203.0.113.11', '10.0.0.10'))).toBe(true);

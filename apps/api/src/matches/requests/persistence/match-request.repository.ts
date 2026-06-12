@@ -95,10 +95,10 @@ export class MatchRequestRepository {
   ): Promise<MatchRequestRecord> {
     await lockRequestRow(tx, requestId);
 
-    const request = (await tx.matchRequest.findUnique({
+    const request = await tx.matchRequest.findUnique({
       where: { id: requestId },
       select: matchRequestSummarySelect,
-    })) as MatchRequestRecord | null;
+    });
     if (!request) {
       throw matchesErrors.requestNotFound();
     }
@@ -137,7 +137,7 @@ export class MatchRequestRepository {
     terminalReason: TerminalMatchRequestReason,
     now: Date,
   ): Promise<MatchRequestRecord> {
-    return (await tx.matchRequest.update({
+    return await tx.matchRequest.update({
       where: { id: request.id },
       data: {
         status,
@@ -145,7 +145,7 @@ export class MatchRequestRepository {
         terminalAt: now,
       },
       select: matchRequestSummarySelect,
-    })) as MatchRequestRecord;
+    });
   }
 
   private async assertCanCreatePendingMatchRequest(

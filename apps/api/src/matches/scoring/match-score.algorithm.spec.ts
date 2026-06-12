@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { calcViewerMatchScore, canComputeMatchScore } from './match-score.algorithm.js';
 import {
   isLifestyleCoreComplete,

@@ -37,7 +37,7 @@ Product domains may import these helpers when they need stable serialization or 
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand src/platform/security src/auth/sessions/opaque-token.spec.ts
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/platform/security src/auth/sessions/opaque-token.spec.ts
 pnpm --dir apps/api exec eslint src/platform/security
 pnpm exec prettier --check apps/api/src/platform/security/README.md
 pnpm api:typecheck
