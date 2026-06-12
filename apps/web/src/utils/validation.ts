@@ -1,8 +1,5 @@
-import {
-  validateKnuEmailFormat,
-  validateNicknameStructure,
-  validatePasswordStructure,
-} from '@repo/shared/auth/policy';
+import { validateKnuEmailFormat, validatePasswordStructure } from '@repo/shared/auth/policy';
+import { validateDisplayIdentityNicknameStructure } from '@repo/shared/user/identity';
 
 export function validateKnuEmail(email: string): string {
   return validateKnuEmailFormat(email);
@@ -18,5 +15,5 @@ export function validatePasswordConfirm(password: string, confirm: string): stri
 }
 
 export function validateNickname(value: string): string {
-  return validateNicknameStructure(value);
+  return validateDisplayIdentityNicknameStructure(value);
 }

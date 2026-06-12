@@ -33,7 +33,7 @@ export default defineConfig([
       sourceType: 'module',
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['prisma.config.ts'],
+          allowDefaultProject: ['prisma.config.ts', 'vitest.config.*.ts'],
         },
         tsconfigRootDir: import.meta.dirname,
       },
