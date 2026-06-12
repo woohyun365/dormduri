@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import type { LifestyleData } from '@repo/shared/lifestyle';
 import { ProfilesService } from '../../src/profiles/application/profiles.service.js';
@@ -29,8 +30,6 @@ const COMPLETE_CONDITION_LIFESTYLE = {
 } as const;
 
 describe('ProfilesService match score integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let profilesService: ProfilesService;
   let roommateSearchService: RoommateSearchService;

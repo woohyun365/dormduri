@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { AuthVerificationStore } from '../../src/auth/verification/verification-code.repository.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
@@ -8,8 +9,6 @@ import {
 } from './support/integration-db.js';
 
 describe('AuthVerificationStore integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let store: AuthVerificationStore;
   let closeApp: (() => Promise<void>) | null = null;

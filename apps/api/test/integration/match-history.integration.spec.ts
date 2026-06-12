@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MatchesService } from '../../src/matches/application/matches.service.js';
 import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
@@ -13,8 +14,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('Match history integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let matchesService: MatchesService;
   let lifecycleSweepService: LifecycleSweepService;

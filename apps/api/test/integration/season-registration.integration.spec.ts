@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { AuthService } from '../../src/auth/application/auth.service.js';
 import type { AuthenticatedUserContext } from '../../src/auth/sessions/auth-session.service.js';
@@ -22,8 +23,6 @@ import {
 import { withPrismaQueryTraceOnFailure } from './support/integration-query-trace.js';
 
 describe('Season registration split-flow integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let authService: AuthService;
   let seasonParticipantsService: SeasonParticipantsService;

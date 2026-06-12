@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   createBookmarkResponseSchema,
   deleteBookmarkResponseSchema,
@@ -5,6 +6,7 @@ import {
 } from '@repo/shared/social-safety/bookmark';
 import { roommateSearchResponseSchema } from '@repo/shared/roommate-search/contract';
 import request from 'supertest';
+import type { Prisma } from '../../src/generated/prisma/client.js';
 import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
 import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
@@ -20,8 +22,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('Social-safety bookmark integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let authSessionService: AuthSessionService;
   let lifecycleSweepService: LifecycleSweepService;
@@ -175,51 +175,84 @@ describe('Social-safety bookmark integration', () => {
     expect(createErrorBody).toMatchObject({ code: 'TARGET_NOT_BOOKMARKABLE' });
   });
 
-  it.each([
-    ['hidden', { hiddenByAdminAt: new Date('2026-06-08T00:00:00.000Z') }],
-    ['deactivated', { deactivatedAt: new Date('2026-06-08T00:00:00.000Z') }],
-    [
-      'withdrawn',
-      {
+  const invisibleTargetStates: Array<
+    | {
+        caseName: string;
+        kind: 'participant';
+        data: Prisma.SeasonParticipantUpdateInput;
+      }
+    | {
+        caseName: string;
+        kind: 'user';
+        data: { deletedAt: Date };
+      }
+  > = [
+    {
+      caseName: 'hidden',
+      kind: 'participant',
+      data: { hiddenByAdminAt: new Date('2026-06-08T00:00:00.000Z') },
+    },
+    {
+      caseName: 'deactivated',
+      kind: 'participant',
+      data: { deactivatedAt: new Date('2026-06-08T00:00:00.000Z') },
+    },
+    {
+      caseName: 'withdrawn',
+      kind: 'participant',
+      data: {
         participationIntent: 'DECLINED',
         participantStatus: 'WITHDRAWN',
         withdrawnAt: new Date('2026-06-08T00:00:00.000Z'),
       },
-    ],
-    ['expired', { participantStatus: 'EXPIRED', expiredAt: new Date('2026-06-08T00:00:00.000Z') }],
-    ['deleted/deidentified', { userDeletedAt: new Date('2026-06-08T00:00:00.000Z') }],
-  ])('%s target은 create와 list에서 fail-closed 된다', async (_caseName, state) => {
-    if ('userDeletedAt' in state) {
-      await prisma.user.update({
-        where: { id: 'target-user' },
-        data: { deletedAt: state.userDeletedAt },
-      });
-    } else {
-      await prisma.seasonParticipant.update({
-        where: { id: 'target-participant' },
-        data: state,
-      });
-    }
-    await seedActiveBookmark();
+    },
+    {
+      caseName: 'expired',
+      kind: 'participant',
+      data: { participantStatus: 'EXPIRED', expiredAt: new Date('2026-06-08T00:00:00.000Z') },
+    },
+    {
+      caseName: 'deleted/deidentified',
+      kind: 'user',
+      data: { deletedAt: new Date('2026-06-08T00:00:00.000Z') },
+    },
+  ];
 
-    const authorization = await authHeader();
-    const createResponse = await request(httpServer)
-      .post('/api/bookmarks/target-user')
-      .set('Authorization', authorization)
-      .expect(404);
-    const createErrorBody: unknown = createResponse.body;
-    expect(createErrorBody).toMatchObject({ code: 'TARGET_NOT_BOOKMARKABLE' });
+  it.each(invisibleTargetStates)(
+    '$caseName target은 create와 list에서 fail-closed 된다',
+    async (state) => {
+      if (state.kind === 'user') {
+        await prisma.user.update({
+          where: { id: 'target-user' },
+          data: state.data,
+        });
+      } else {
+        await prisma.seasonParticipant.update({
+          where: { id: 'target-participant' },
+          data: state.data,
+        });
+      }
+      await seedActiveBookmark();
 
-    const listResponse = await request(httpServer)
-      .get('/api/bookmarks')
-      .set('Authorization', authorization)
-      .expect(200);
-    const listBody = bookmarkListResponseSchema.parse(listResponse.body);
-    expect(listBody).toMatchObject({
-      items: [],
-      emptyState: { code: 'NO_VISIBLE_BOOKMARKS' },
-    });
-  });
+      const authorization = await authHeader();
+      const createResponse = await request(httpServer)
+        .post('/api/bookmarks/target-user')
+        .set('Authorization', authorization)
+        .expect(404);
+      const createErrorBody: unknown = createResponse.body;
+      expect(createErrorBody).toMatchObject({ code: 'TARGET_NOT_BOOKMARKABLE' });
+
+      const listResponse = await request(httpServer)
+        .get('/api/bookmarks')
+        .set('Authorization', authorization)
+        .expect(200);
+      const listBody = bookmarkListResponseSchema.parse(listResponse.body);
+      expect(listBody).toMatchObject({
+        items: [],
+        emptyState: { code: 'NO_VISIBLE_BOOKMARKS' },
+      });
+    },
+  );
 
   it('delete는 viewer 소유 active bookmark만 soft-delete하고 idempotent하게 닫는다', async () => {
     await seedActiveBookmark();

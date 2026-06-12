@@ -10,5 +10,6 @@ export default defineApiVitestConfig({
     testTimeout: 60_000,
     hookTimeout: 60_000,
     teardownTimeout: 60_000,
+    passWithNoTests: true,
   },
 });

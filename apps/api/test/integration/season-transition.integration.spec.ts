@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { ChatService } from '../../src/chat/application/chat.service.js';
 import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
@@ -17,8 +18,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('Season transition integration', () => {
-  jest.setTimeout(60_000);
-
   let appContext: Awaited<ReturnType<typeof createIntegrationApp>> | null = null;
   let prisma: PrismaService;
   let chatService: ChatService;

@@ -30,5 +30,5 @@ process.emitWarning = (warning, ...args) => {
     return;
   }
 
-  return originalEmitWarning(warning, ...args);
+  (originalEmitWarning as (...forwardedArgs: unknown[]) => void)(warning, ...args);
 };

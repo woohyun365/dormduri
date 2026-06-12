@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { UsersService } from '../../src/users/application/users.service.js';
 import { usersErrors } from '../../src/users/errors/users.errors.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
@@ -13,8 +14,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('UsersService integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let service: UsersService;
   let closeApp: (() => Promise<void>) | null = null;

@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   blockListResponseSchema,
   createBlockResponseSchema,
@@ -23,8 +24,6 @@ import {
 } from './support/integration-fixtures.js';
 
 describe('Social-safety block integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let authSessionService: AuthSessionService;
   let chatBlockSideEffectPort: ChatBlockSideEffectPort;

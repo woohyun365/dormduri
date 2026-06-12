@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { MatchesService } from '../../src/matches/application/matches.service.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
@@ -16,8 +17,6 @@ import {
 import { expectLifecycleMetadataToExcludeSensitiveKeys } from './support/active-match-lifecycle-event-assertions.js';
 
 describe('MatchesService integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let service: MatchesService;
   let closeApp: (() => Promise<void>) | null = null;

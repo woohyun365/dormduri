@@ -1,3 +1,4 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { HttpException } from '@nestjs/common';
 import { AuthService } from '../../src/auth/application/auth.service.js';
 import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
@@ -31,8 +32,6 @@ type AuthContext = {
 };
 
 describe('Auth/users transaction rollback and race integration', () => {
-  jest.setTimeout(60_000);
-
   let prisma: PrismaService;
   let authService: AuthService;
   let authSessionService: AuthSessionService;
@@ -1123,6 +1122,10 @@ function buildCurrentUserResponse(user: {
       nicknameSource: 'USER_DISPLAY_IDENTITY',
       nicknameChangedAt: user.displayIdentity.nicknameChangedAt?.toISOString() ?? null,
     },
+    academicIdentity: {
+      collegeCode: 'IT',
+      birthYear: 2002,
+    },
     seasonProfile: {
       hasCurrentSeason: false,
       hasParticipantRow: false,
@@ -1156,6 +1159,8 @@ function buildCurrentUserResponse(user: {
       canFinalizeSeasonRegistration: false,
       canEditDisplayIdentity: true,
       displayIdentityEditUnavailableReasons: [],
+      canEditAcademicIdentity: true,
+      academicIdentityEditUnavailableReasons: [],
       canBookmark: false,
       canRequestMatch: false,
       canStartChat: false,
