@@ -1,3 +1,9 @@
+import {
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
+import type { ConversationThreadLifecycleEventAppendInput } from '../lifecycle-events/conversation-thread-lifecycle-event.types.js';
 import { ChatParticipantWithdrawalService } from './chat-participant-withdrawal.service.js';
 
 const now = new Date('2026-06-01T00:00:00.000Z');
@@ -70,7 +76,15 @@ function createTx(input: { candidates?: unknown[]; updated?: unknown[] } = {}) {
 }
 
 describe('ChatParticipantWithdrawalService', () => {
-  const service = new ChatParticipantWithdrawalService();
+  let lifecycleEventAppend: jest.Mock<Promise<unknown>, [unknown, unknown]>;
+  let service: ChatParticipantWithdrawalService;
+
+  beforeEach(() => {
+    lifecycleEventAppend = jest.fn<Promise<unknown>, [unknown, unknown]>().mockResolvedValue({
+      id: 'thread-lifecycle-event-1',
+    });
+    service = new ChatParticipantWithdrawalService({ append: lifecycleEventAppend });
+  });
 
   it('withdrawn participant의 open direct thread를 read-only로 전환하고 outbox event를 append한다', async () => {
     const tx = createTx();
@@ -128,6 +142,24 @@ describe('ChatParticipantWithdrawalService', () => {
         expect.objectContaining({ userId: 'user-b', threadId: 'thread-1' }),
       ]),
     );
+    const lifecycleAppendCalls = lifecycleEventAppend.mock.calls as Array<
+      [unknown, ConversationThreadLifecycleEventAppendInput]
+    >;
+    const [lifecycleTx, lifecycleInput] = lifecycleAppendCalls[0] ?? [];
+    expect(lifecycleTx).toBe(tx);
+    expect(lifecycleInput).toMatchObject({
+      threadId: 'thread-1',
+      eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
+      reason: ConversationThreadLifecycleEventReason.PARTICIPANT_WITHDRAWN,
+      sourceDomain: ConversationThreadLifecycleSourceDomain.SEASON_PARTICIPANTS,
+      occurredAt: now,
+      metadata: {
+        previousStatus: 'OPEN',
+        nextStatus: 'READ_ONLY',
+        previousClosedReason: null,
+        nextClosedReason: 'PARTICIPANT_WITHDRAWN',
+      },
+    });
   });
 
   it('대상 open direct thread가 없으면 idempotent no-op이다', async () => {
@@ -143,5 +175,6 @@ describe('ChatParticipantWithdrawalService', () => {
 
     expect(tx.conversationThread.updateMany).not.toHaveBeenCalled();
     expect(tx.chatRealtimeOutboxEvent.create).not.toHaveBeenCalled();
+    expect(lifecycleEventAppend).not.toHaveBeenCalled();
   });
 });

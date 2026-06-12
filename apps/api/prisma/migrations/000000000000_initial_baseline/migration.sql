@@ -131,6 +131,18 @@ CREATE TYPE "ConversationThreadStatus" AS ENUM ('OPEN', 'READ_ONLY', 'ARCHIVED')
 CREATE TYPE "ConversationThreadClosedReason" AS ENUM ('ACTIVE_MATCH_CREATED', 'ROOM_SELECTION_CUTOFF', 'SEASON_ENDED', 'PARTICIPANT_WITHDRAWN', 'USER_BLOCKED', 'MODERATION', 'ADMIN_ACTION');
 
 -- CreateEnum
+CREATE TYPE "ConversationThreadLifecycleEventType" AS ENUM ('THREAD_CREATED', 'THREAD_KIND_CHANGED', 'THREAD_READ_ONLY', 'THREAD_REOPENED', 'THREAD_ARCHIVED');
+
+-- CreateEnum
+CREATE TYPE "ConversationThreadLifecycleEventReason" AS ENUM ('DIRECT_MESSAGE_STARTED', 'MATCH_REQUEST_ACCEPTED', 'ACTIVE_MATCH_ENDED', 'ROOM_SELECTION_CUTOFF', 'SEASON_ENDED_SWEEP', 'PARTICIPANT_WITHDRAWN', 'USER_BLOCKED', 'BOTH_MEMBERS_LEFT', 'MODERATION_ACTION', 'ADMIN_ACTION');
+
+-- CreateEnum
+CREATE TYPE "ConversationThreadLifecycleActorType" AS ENUM ('USER', 'SYSTEM', 'ADMIN');
+
+-- CreateEnum
+CREATE TYPE "ConversationThreadLifecycleSourceDomain" AS ENUM ('CHAT', 'MATCHES', 'SEASON_PARTICIPANTS', 'SOCIAL_SAFETY', 'RETENTION', 'ADMIN');
+
+-- CreateEnum
 CREATE TYPE "ConversationThreadMemberState" AS ENUM ('ACTIVE', 'LEFT');
 
 -- CreateEnum
@@ -963,6 +975,28 @@ CREATE TABLE "ConversationThread" (
 );
 
 -- CreateTable
+CREATE TABLE "ConversationThreadLifecycleEvent" (
+    "id" TEXT NOT NULL,
+    "threadId" TEXT NOT NULL,
+    "eventType" "ConversationThreadLifecycleEventType" NOT NULL,
+    "reason" "ConversationThreadLifecycleEventReason" NOT NULL,
+    "actorType" "ConversationThreadLifecycleActorType" NOT NULL DEFAULT 'SYSTEM',
+    "actorUserId" TEXT,
+    "sourceDomain" "ConversationThreadLifecycleSourceDomain" NOT NULL,
+    "sourceActiveMatchId" TEXT,
+    "sourceMatchRequestId" TEXT,
+    "sourceUnmatchRequestId" TEXT,
+    "sourceBlockId" TEXT,
+    "sourceReportCaseId" TEXT,
+    "sourceArchiveJobId" TEXT,
+    "metadata" JSONB,
+    "occurredAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConversationThreadLifecycleEvent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "ConversationThreadMember" (
     "threadId" TEXT NOT NULL,
     "participantId" TEXT NOT NULL,
@@ -1703,6 +1737,39 @@ CREATE INDEX "ConversationThread_participantAId_idx" ON "ConversationThread"("pa
 CREATE INDEX "ConversationThread_participantBId_idx" ON "ConversationThread"("participantBId");
 
 -- CreateIndex
+CREATE INDEX "CTLifecycleEvent_thread_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("threadId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_type_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("eventType", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_actor_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("actorUserId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_domain_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceDomain", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_active_match_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceActiveMatchId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_match_request_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceMatchRequestId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_unmatch_request_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceUnmatchRequestId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_block_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceBlockId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_report_case_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceReportCaseId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_archive_job_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceArchiveJobId", "occurredAt", "id");
+
+-- CreateIndex
+CREATE INDEX "CTLifecycleEvent_createdAt_idx" ON "ConversationThreadLifecycleEvent"("createdAt");
+
+-- CreateIndex
 CREATE INDEX "ConversationThreadMember_participantId_memberState_updatedAt_idx" ON "ConversationThreadMember"("participantId", "memberState", "updatedAt");
 CREATE INDEX "ConversationThreadMember_participantId_memberState_threadId_idx" ON "ConversationThreadMember"("participantId", "memberState", "threadId");
 
@@ -2117,6 +2184,9 @@ ALTER TABLE "ConversationThread" ADD CONSTRAINT "ConversationThread_openedByPart
 
 -- AddForeignKey
 ALTER TABLE "ConversationThread" ADD CONSTRAINT "ConversationThread_activeMatchId_fkey" FOREIGN KEY ("activeMatchId") REFERENCES "ActiveMatch"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ConversationThreadLifecycleEvent" ADD CONSTRAINT "ConversationThreadLifecycleEvent_threadId_fkey" FOREIGN KEY ("threadId") REFERENCES "ConversationThread"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ConversationThreadMember" ADD CONSTRAINT "ConversationThreadMember_threadId_fkey" FOREIGN KEY ("threadId") REFERENCES "ConversationThread"("id") ON DELETE CASCADE ON UPDATE CASCADE;

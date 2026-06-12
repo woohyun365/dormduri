@@ -18,6 +18,8 @@ import { ChatThreadContextGuard } from '../context/chat-thread-context.guard.js'
 import { ChatThreadContextResolver } from '../context/chat-thread-context.resolver.js';
 import { ChatReportTargetContextResolver } from '../reports/chat-report-target-context.resolver.js';
 import { ChatBlockSideEffectService } from '../lifecycle/chat-block-side-effect.service.js';
+import { ConversationThreadLifecycleEventRepository } from '../lifecycle-events/conversation-thread-lifecycle-event.repository.js';
+import { ConversationThreadLifecycleEventWriter } from '../lifecycle-events/conversation-thread-lifecycle-event.writer.js';
 import { ChatMatchThreadLifecycleService } from '../lifecycle/chat-match-thread-lifecycle.service.js';
 import { ChatSeasonLifecycleService } from '../lifecycle/chat-season-lifecycle.service.js';
 import { ChatSubscriptionQueryService } from '../queries/chat-subscription-query.service.js';
@@ -42,6 +44,8 @@ export const CHAT_APPLICATION_PROVIDERS: Provider[] = [
 ];
 
 export const CHAT_LIFECYCLE_PROVIDERS: Provider[] = [
+  ConversationThreadLifecycleEventRepository,
+  ConversationThreadLifecycleEventWriter,
   ChatBlockSideEffectService,
   ChatMatchThreadLifecycleService,
   ChatSeasonLifecycleService,

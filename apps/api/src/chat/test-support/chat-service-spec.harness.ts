@@ -1,5 +1,7 @@
 import { ChatService } from '../application/chat.service.js';
 import { ChatSeasonLifecycleService } from '../lifecycle/chat-season-lifecycle.service.js';
+import { ConversationThreadLifecycleEventRepository } from '../lifecycle-events/conversation-thread-lifecycle-event.repository.js';
+import { ConversationThreadLifecycleEventWriter } from '../lifecycle-events/conversation-thread-lifecycle-event.writer.js';
 import type {
   CanonicalSelectionState,
   CurrentSeasonParticipantRecord,
@@ -213,6 +215,7 @@ export function createChatServiceSpecHarness() {
   const txConversationMessageCreate = jest.fn();
   const txChatRealtimeOutboxEventCreate = jest.fn();
   const txChatRealtimeEventRecipientCreateMany = jest.fn();
+  const txConversationThreadLifecycleEventCreate = jest.fn();
   const txActiveMatchFindFirst = jest.fn();
   const prismaUserBlockFindFirst = jest.fn();
   const txUserBlockFindFirst = jest.fn();
@@ -250,10 +253,15 @@ export function createChatServiceSpecHarness() {
     hasRegistrationSnapshotForParticipant: jest.fn(),
   };
 
+  const conversationThreadLifecycleEventWriter = new ConversationThreadLifecycleEventWriter(
+    new ConversationThreadLifecycleEventRepository(),
+  );
+
   const chatSeasonLifecycle = new ChatSeasonLifecycleService(
     prisma as never,
     seasonsService as never,
     seasonParticipantsService as never,
+    conversationThreadLifecycleEventWriter,
   );
 
   const service = new ChatService(
@@ -264,6 +272,7 @@ export function createChatServiceSpecHarness() {
     {
       appendChatThreadCreated: appendChatThreadCreatedNotification,
     },
+    conversationThreadLifecycleEventWriter,
   );
 
   function expectMessageCreateClientMessageId(expectedClientMessageId: string) {
@@ -367,6 +376,7 @@ export function createChatServiceSpecHarness() {
   txConversationMessageFindFirst.mockResolvedValue(null);
   txChatRealtimeOutboxEventCreate.mockResolvedValue({ id: 'event-1' });
   txChatRealtimeEventRecipientCreateMany.mockResolvedValue({ count: 2 });
+  txConversationThreadLifecycleEventCreate.mockResolvedValue({ id: 'thread-lifecycle-event-1' });
   appendChatThreadCreatedNotification.mockResolvedValue({
     notificationId: 'notification-1',
     created: true,
@@ -402,6 +412,9 @@ export function createChatServiceSpecHarness() {
       chatRealtimeEventRecipient: {
         createMany: txChatRealtimeEventRecipientCreateMany,
       },
+      conversationThreadLifecycleEvent: {
+        create: txConversationThreadLifecycleEventCreate,
+      },
       activeMatch: {
         findFirst: txActiveMatchFindFirst,
       },
@@ -414,6 +427,7 @@ export function createChatServiceSpecHarness() {
   return {
     appendChatThreadCreatedNotification,
     chatSeasonLifecycle,
+    conversationThreadLifecycleEventWriter,
     expectMessageCreateClientMessageId,
     prisma,
     prismaQueryRawTyped,
@@ -424,6 +438,7 @@ export function createChatServiceSpecHarness() {
     txActiveMatchFindFirst,
     txChatRealtimeEventRecipientCreateMany,
     txChatRealtimeOutboxEventCreate,
+    txConversationThreadLifecycleEventCreate,
     txConversationMessageCreate,
     txConversationMessageFindFirst,
     txConversationMessageFindUnique,

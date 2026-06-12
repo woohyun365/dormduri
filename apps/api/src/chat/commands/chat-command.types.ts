@@ -13,6 +13,7 @@ import type {
 } from '../persistence/chat-thread.select.js';
 import type { CurrentSeasonParticipantRecord } from '../../season-participants/application/season-participants.service.js';
 import type { ChatSendMessageDecision } from '../policies/chat-thread-permission.policy.js';
+import type { ConversationThreadLifecycleEventAppendInput } from '../lifecycle-events/conversation-thread-lifecycle-event.types.js';
 
 export type ConversationMessageResponseRecord = {
   id: string;
@@ -121,6 +122,10 @@ export interface ChatCommandDeps {
   ): Promise<void>;
   acquireConversationThreadLeaveLock(tx: Prisma.TransactionClient, threadId: string): Promise<void>;
   findLeavableThread(userId: string, threadId: string): Promise<ThreadRecord | null>;
+  appendConversationThreadLifecycleEvent(
+    tx: Prisma.TransactionClient,
+    input: ConversationThreadLifecycleEventAppendInput,
+  ): Promise<unknown>;
   appendChatThreadCreatedNotification(
     tx: Prisma.TransactionClient,
     input: {

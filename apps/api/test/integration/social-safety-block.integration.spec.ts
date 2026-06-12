@@ -6,6 +6,10 @@ import {
 import { roommateSearchResponseSchema } from '@repo/shared/roommate-search/contract';
 import request from 'supertest';
 import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
+import {
+  CHAT_BLOCK_SIDE_EFFECT_PORT,
+  type ChatBlockSideEffectPort,
+} from '../../src/chat/application/ports/chat-block-side-effect.port.js';
 import { PrismaService } from '../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from './support/integration-app.js';
 import {
@@ -23,6 +27,7 @@ describe('Social-safety block integration', () => {
 
   let prisma: PrismaService;
   let authSessionService: AuthSessionService;
+  let chatBlockSideEffectPort: ChatBlockSideEffectPort;
   let httpServer: Parameters<typeof request>[0];
   let closeApp: (() => Promise<void>) | null = null;
   let cleanupDb: (() => Promise<void>) | null = null;
@@ -35,6 +40,7 @@ describe('Social-safety block integration', () => {
     closeApp = () => app.close();
     prisma = prismaService;
     authSessionService = app.get(AuthSessionService);
+    chatBlockSideEffectPort = app.get<ChatBlockSideEffectPort>(CHAT_BLOCK_SIDE_EFFECT_PORT);
     httpServer = app.getHttpServer() as Parameters<typeof request>[0];
   });
 
@@ -240,7 +246,8 @@ describe('Social-safety block integration', () => {
       .set('Authorization', await authHeader())
       .send({})
       .expect(201);
-    expect(createBlockResponseSchema.parse(createResponse.body)).toMatchObject({ created: true });
+    const createBody = createBlockResponseSchema.parse(createResponse.body);
+    expect(createBody).toMatchObject({ created: true });
 
     await expect(
       prisma.userBookmark.count({
@@ -266,6 +273,40 @@ describe('Social-safety block integration', () => {
       status: 'READ_ONLY',
       closedReason: 'USER_BLOCKED',
     });
+    await expect(
+      prisma.chatRealtimeOutboxEvent.count({
+        where: {
+          threadId: 'direct-thread-block',
+          eventType: 'chat.thread.updated',
+        },
+      }),
+    ).resolves.toBe(1);
+
+    const lifecycleEvents = await prisma.conversationThreadLifecycleEvent.findMany({
+      where: { threadId: 'direct-thread-block' },
+    });
+    expect(lifecycleEvents).toHaveLength(1);
+    expect(lifecycleEvents[0]).toMatchObject({
+      threadId: 'direct-thread-block',
+      eventType: 'THREAD_READ_ONLY',
+      reason: 'USER_BLOCKED',
+      sourceDomain: 'SOCIAL_SAFETY',
+      sourceBlockId: createBody.block.id,
+    });
+    expect(lifecycleEvents[0]?.metadata).toEqual(
+      expect.objectContaining({
+        previousStatus: 'OPEN',
+        nextStatus: 'READ_ONLY',
+        previousThreadKind: 'DIRECT',
+        nextThreadKind: 'DIRECT',
+        previousClosedReason: null,
+        nextClosedReason: 'USER_BLOCKED',
+      }),
+    );
+    const serializedLifecycleMetadata = JSON.stringify(lifecycleEvents[0]?.metadata ?? {});
+    for (const forbiddenKey of ['blockNote', 'reportDetail', 'messageBody', 'supportBody']) {
+      expect(serializedLifecycleMetadata).not.toContain(forbiddenKey);
+    }
 
     const searchResponse = await request(httpServer)
       .get('/api/roommate-search')
@@ -329,6 +370,47 @@ describe('Social-safety block integration', () => {
       closedReason: null,
       closedAt: null,
     });
+  });
+
+  it('block chat side-effect가 rollback되면 thread/outbox/lifecycle ghost row를 남기지 않는다', async () => {
+    await seedDirectThread();
+    const occurredAt = await prisma.getDatabaseNow();
+
+    await expect(
+      prisma.runSerializableTransaction(async (tx) => {
+        await chatBlockSideEffectPort.closeDirectThreadsForBlock(tx, {
+          seasonId: 'season-integration',
+          blockerUserId: 'viewer-user',
+          blockedUserId: 'target-user',
+          sourceBlockId: 'rollback-block-id',
+          occurredAt,
+        });
+        throw new Error('force rollback after block chat side-effect');
+      }),
+    ).rejects.toThrow('force rollback after block chat side-effect');
+
+    await expect(
+      prisma.conversationThread.findUniqueOrThrow({ where: { id: 'direct-thread-block' } }),
+    ).resolves.toMatchObject({
+      status: 'OPEN',
+      closedReason: null,
+      closedAt: null,
+    });
+    await expect(
+      prisma.chatRealtimeOutboxEvent.count({
+        where: {
+          threadId: 'direct-thread-block',
+          eventType: 'chat.thread.updated',
+        },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.conversationThreadLifecycleEvent.count({
+        where: {
+          OR: [{ threadId: 'direct-thread-block' }, { sourceBlockId: 'rollback-block-id' }],
+        },
+      }),
+    ).resolves.toBe(0);
   });
 
   it('unblock 이후 target이 먼저 send해도 기존 USER_BLOCKED direct thread를 lazy reopen한다', async () => {

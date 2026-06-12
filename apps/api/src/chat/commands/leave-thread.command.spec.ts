@@ -1,3 +1,9 @@
+import {
+  ConversationThreadLifecycleActorType,
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import {
   createChatServiceSpecHarness,
@@ -6,11 +12,27 @@ import {
   type ChatServiceSpecHarness,
 } from '../test-support/chat-service-spec.harness.js';
 
+type LifecycleEventCreateCall = [
+  {
+    data: {
+      threadId?: string;
+      eventType?: string;
+      reason?: string;
+      actorType?: string;
+      actorUserId?: string | null;
+      sourceDomain?: string;
+      occurredAt?: Date;
+      metadata?: Record<string, unknown> | null;
+    };
+  },
+];
+
 describe('leave thread command regression', () => {
   let prisma: ChatServiceSpecHarness['prisma'];
   let seasonsService: ChatServiceSpecHarness['seasonsService'];
   let service: ChatServiceSpecHarness['service'];
   let txChatRealtimeOutboxEventCreate: ChatServiceSpecHarness['txChatRealtimeOutboxEventCreate'];
+  let txConversationThreadLifecycleEventCreate: ChatServiceSpecHarness['txConversationThreadLifecycleEventCreate'];
   let txConversationThreadFindFirst: ChatServiceSpecHarness['txConversationThreadFindFirst'];
   let txConversationThreadMemberCount: ChatServiceSpecHarness['txConversationThreadMemberCount'];
   let txConversationThreadMemberUpdate: ChatServiceSpecHarness['txConversationThreadMemberUpdate'];
@@ -23,6 +45,7 @@ describe('leave thread command regression', () => {
       seasonsService,
       service,
       txChatRealtimeOutboxEventCreate,
+      txConversationThreadLifecycleEventCreate,
       txConversationThreadFindFirst,
       txConversationThreadMemberCount,
       txConversationThreadMemberUpdate,
@@ -77,6 +100,7 @@ describe('leave thread command regression', () => {
           userId: 'user-1',
         },
       });
+      expect(txConversationThreadLifecycleEventCreate).not.toHaveBeenCalled();
     },
   );
   it('leaveThread는 transaction 내부에서 member가 이미 LEFT가 된 race를 다시 확인해 거절한다', async () => {
@@ -192,6 +216,22 @@ describe('leave thread command regression', () => {
       expect(outboxCreateCalls.map((call) => call[0].data?.eventType)).toEqual(
         expect.arrayContaining(['chat.member.left', 'chat.thread.archived']),
       );
+      const lifecycleEventCreateCalls = txConversationThreadLifecycleEventCreate.mock
+        .calls as unknown as LifecycleEventCreateCall[];
+      const [threadArchivedLifecycleEvent] = lifecycleEventCreateCalls[0] ?? [];
+      expect(threadArchivedLifecycleEvent?.data).toMatchObject({
+        threadId: 'thread-1',
+        eventType: ConversationThreadLifecycleEventType.THREAD_ARCHIVED,
+        reason: ConversationThreadLifecycleEventReason.BOTH_MEMBERS_LEFT,
+        actorType: ConversationThreadLifecycleActorType.USER,
+        actorUserId: 'user-1',
+        sourceDomain: ConversationThreadLifecycleSourceDomain.CHAT,
+        occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+        metadata: {
+          previousThreadKind: threadKind,
+          nextStatus: 'ARCHIVED',
+        },
+      });
     },
   );
 });

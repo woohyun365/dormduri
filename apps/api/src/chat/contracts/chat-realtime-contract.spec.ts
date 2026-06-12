@@ -204,6 +204,34 @@ describe('chat realtime shared contract guards', () => {
     ).toBe(true);
   });
 
+  it('thread realtime event payload는 lifecycle audit/debug metadata를 노출하지 않는다', () => {
+    const eventSchema = getSchema('chatRealtimeEventSchema');
+    const occurredAt = '2026-02-10T03:00:00.000Z';
+
+    expect(
+      eventSchema.safeParse({
+        schemaVersion: 1,
+        eventId: 'event-thread-updated-with-lifecycle-metadata',
+        eventType: 'chat.thread.updated',
+        occurredAt,
+        cursor: 'cursor-thread-updated',
+        threadId: 'thread-1',
+        payload: {
+          threadId: 'thread-1',
+          status: 'READ_ONLY',
+          closedReason: 'MODERATION',
+          lifecycleEventId: 'lifecycle-event-1',
+          sourceBlockId: 'block-1',
+          sourceReportCaseId: 'report-case-1',
+          sourceArchiveJobId: 'archive-job-1',
+          metadata: {
+            reportDetail: '노출되면 안 되는 신고 상세',
+          },
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it('thread list contract는 bounded limit과 pageInfo cursor를 제공한다', () => {
     const querySchema = getSchema('listConversationThreadsQuerySchema');
     const responseSchema = getSchema('conversationThreadListResponseSchema');
