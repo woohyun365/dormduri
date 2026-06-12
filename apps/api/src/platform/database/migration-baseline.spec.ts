@@ -275,37 +275,37 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain('CREATE TABLE "ConversationThreadLifecycleEvent"');
     expect(sql).toContain('"threadId" TEXT NOT NULL');
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_threadId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("threadId", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_thread_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("threadId", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_eventType_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("eventType", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_type_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("eventType", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_actorUserId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("actorUserId", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_actor_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("actorUserId", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceDomain_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceDomain", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_domain_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceDomain", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceActiveMatchId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceActiveMatchId", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_active_match_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceActiveMatchId", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceMatchRequestId_occurredAt_idx" ON "ConversationThreadLifecycleEvent"("sourceMatchRequestId", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_match_request_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceMatchRequestId", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceUnmatchRequestId_occurredAt_idx" ON "ConversationThreadLifecycleEvent"("sourceUnmatchRequestId", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_unmatch_request_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceUnmatchRequestId", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceBlockId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceBlockId", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_block_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceBlockId", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceReportCaseId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceReportCaseId", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_report_case_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceReportCaseId", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceArchiveJobId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceArchiveJobId", "occurredAt", "id")',
+      'CREATE INDEX "CTLifecycleEvent_archive_job_occurred_id_idx" ON "ConversationThreadLifecycleEvent"("sourceArchiveJobId", "occurredAt", "id")',
     );
     expect(sql).toContain(
-      'CREATE INDEX "ConversationThreadLifecycleEvent_createdAt_idx" ON "ConversationThreadLifecycleEvent"("createdAt")',
+      'CREATE INDEX "CTLifecycleEvent_createdAt_idx" ON "ConversationThreadLifecycleEvent"("createdAt")',
     );
     expect(sql).toContain(
       'ALTER TABLE "ConversationThreadLifecycleEvent" ADD CONSTRAINT "ConversationThreadLifecycleEvent_threadId_fkey" FOREIGN KEY ("threadId") REFERENCES "ConversationThread"("id") ON DELETE CASCADE ON UPDATE CASCADE;',

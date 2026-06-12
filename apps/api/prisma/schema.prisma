@@ -318,6 +318,42 @@ enum ConversationThreadClosedReason {
   ADMIN_ACTION
 }
 
+enum ConversationThreadLifecycleEventType {
+  THREAD_CREATED
+  THREAD_KIND_CHANGED
+  THREAD_READ_ONLY
+  THREAD_REOPENED
+  THREAD_ARCHIVED
+}
+
+enum ConversationThreadLifecycleEventReason {
+  DIRECT_MESSAGE_STARTED
+  MATCH_REQUEST_ACCEPTED
+  ACTIVE_MATCH_ENDED
+  ROOM_SELECTION_CUTOFF
+  SEASON_ENDED_SWEEP
+  PARTICIPANT_WITHDRAWN
+  USER_BLOCKED
+  BOTH_MEMBERS_LEFT
+  MODERATION_ACTION
+  ADMIN_ACTION
+}
+
+enum ConversationThreadLifecycleActorType {
+  USER
+  SYSTEM
+  ADMIN
+}
+
+enum ConversationThreadLifecycleSourceDomain {
+  CHAT
+  MATCHES
+  SEASON_PARTICIPANTS
+  SOCIAL_SAFETY
+  RETENTION
+  ADMIN
+}
+
 enum ConversationThreadMemberState {
   ACTIVE
   LEFT
@@ -1471,31 +1507,64 @@ model SeasonMatchHistoryEntry {
 }
 
 model ConversationThread {
-  id                    String                          @id @default(uuid())
+  id                    String                             @id @default(uuid())
   seasonId              String
   pairKey               String
   participantAId        String
   participantBId        String
   openedByParticipantId String
   threadKind            ConversationThreadKind
-  activeMatchId         String?                         @unique
-  status                ConversationThreadStatus        @default(OPEN)
+  activeMatchId         String?                            @unique
+  status                ConversationThreadStatus           @default(OPEN)
   closedReason          ConversationThreadClosedReason?
-  closedAt              DateTime?                       @db.Timestamptz(3)
-  lastMessageAt         DateTime?                       @db.Timestamptz(3)
-  createdAt             DateTime                        @default(now()) @db.Timestamptz(3)
-  updatedAt             DateTime                        @default(now()) @updatedAt @db.Timestamptz(3)
-  season                Season                          @relation(fields: [seasonId], references: [id], onDelete: Cascade)
-  participantA          SeasonParticipant               @relation("ConversationThreadParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
-  participantB          SeasonParticipant               @relation("ConversationThreadParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
-  openedByParticipant   SeasonParticipant               @relation("ConversationThreadOpenedBy", fields: [openedByParticipantId], references: [id], onDelete: Cascade)
-  activeMatch           ActiveMatch?                    @relation(fields: [activeMatchId], references: [id], onDelete: SetNull)
+  closedAt              DateTime?                          @db.Timestamptz(3)
+  lastMessageAt         DateTime?                          @db.Timestamptz(3)
+  createdAt             DateTime                           @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                           @default(now()) @updatedAt @db.Timestamptz(3)
+  season                Season                             @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  participantA          SeasonParticipant                  @relation("ConversationThreadParticipantA", fields: [participantAId], references: [id], onDelete: Cascade)
+  participantB          SeasonParticipant                  @relation("ConversationThreadParticipantB", fields: [participantBId], references: [id], onDelete: Cascade)
+  openedByParticipant   SeasonParticipant                  @relation("ConversationThreadOpenedBy", fields: [openedByParticipantId], references: [id], onDelete: Cascade)
+  activeMatch           ActiveMatch?                       @relation(fields: [activeMatchId], references: [id], onDelete: SetNull)
   members               ConversationThreadMember[]
   messages              ConversationMessage[]
+  lifecycleEvents       ConversationThreadLifecycleEvent[]
 
   @@index([seasonId, pairKey, status])
   @@index([participantAId])
   @@index([participantBId])
+}
+
+model ConversationThreadLifecycleEvent {
+  id                     String                                  @id @default(uuid())
+  threadId               String
+  eventType              ConversationThreadLifecycleEventType
+  reason                 ConversationThreadLifecycleEventReason
+  actorType              ConversationThreadLifecycleActorType    @default(SYSTEM)
+  actorUserId            String?
+  sourceDomain           ConversationThreadLifecycleSourceDomain
+  sourceActiveMatchId    String?
+  sourceMatchRequestId   String?
+  sourceUnmatchRequestId String?
+  sourceBlockId          String?
+  sourceReportCaseId     String?
+  sourceArchiveJobId     String?
+  metadata               Json?
+  occurredAt             DateTime                                @default(now()) @db.Timestamptz(3)
+  createdAt              DateTime                                @default(now()) @db.Timestamptz(3)
+  thread                 ConversationThread                      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, occurredAt, id], map: "CTLifecycleEvent_thread_occurred_id_idx")
+  @@index([eventType, occurredAt, id], map: "CTLifecycleEvent_type_occurred_id_idx")
+  @@index([actorUserId, occurredAt, id], map: "CTLifecycleEvent_actor_occurred_id_idx")
+  @@index([sourceDomain, occurredAt, id], map: "CTLifecycleEvent_domain_occurred_id_idx")
+  @@index([sourceActiveMatchId, occurredAt, id], map: "CTLifecycleEvent_active_match_occurred_id_idx")
+  @@index([sourceMatchRequestId, occurredAt, id], map: "CTLifecycleEvent_match_request_occurred_id_idx")
+  @@index([sourceUnmatchRequestId, occurredAt, id], map: "CTLifecycleEvent_unmatch_request_occurred_id_idx")
+  @@index([sourceBlockId, occurredAt, id], map: "CTLifecycleEvent_block_occurred_id_idx")
+  @@index([sourceReportCaseId, occurredAt, id], map: "CTLifecycleEvent_report_case_occurred_id_idx")
+  @@index([sourceArchiveJobId, occurredAt, id], map: "CTLifecycleEvent_archive_job_occurred_id_idx")
+  @@index([createdAt], map: "CTLifecycleEvent_createdAt_idx")
 }
 
 model ConversationThreadMember {
