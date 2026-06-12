@@ -237,7 +237,9 @@ describe('migration baseline coverage', () => {
   });
 
   it('notification Phase 6-1.6 baseline은 read model/outbox table과 privacy-safe index를 포함한다', () => {
-    expect(sql).toContain('CREATE TYPE "NotificationKind" AS ENUM (\'CHAT_THREAD_CREATED\')');
+    expect(sql).toContain(
+      "CREATE TYPE \"NotificationKind\" AS ENUM ('CHAT_THREAD_CREATED', 'REPORT_RECEIVED', 'REPORT_STATUS_UPDATED', 'PROFILE_MISMATCH_FEEDBACK', 'SEASON_SYSTEM_NOTICE', 'SUPPORT_TICKET_CREATED', 'SUPPORT_TICKET_REPLIED', 'SUPPORT_TICKET_ACTION_REQUIRED', 'SUPPORT_APPEAL_RESOLVED')",
+    );
     expect(sql).toContain(
       "CREATE TYPE \"NotificationOutboxStatus\" AS ENUM ('PENDING', 'PUBLISHED', 'FAILED')",
     );
@@ -255,6 +257,60 @@ describe('migration baseline coverage', () => {
     expect(sql).toContain(
       'ALTER TABLE "NotificationOutboxEvent" ADD CONSTRAINT "NotificationOutboxEvent_notificationId_fkey" FOREIGN KEY ("notificationId") REFERENCES "UserNotification"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
     );
+  });
+
+  it('chat lifecycle event baseline은 audit/debug trace table과 minimal indexes를 포함하고 retention state model을 만들지 않는다', () => {
+    expect(sql).toContain(
+      `CREATE TYPE "ConversationThreadLifecycleEventType" AS ENUM ('THREAD_CREATED', 'THREAD_KIND_CHANGED', 'THREAD_READ_ONLY', 'THREAD_REOPENED', 'THREAD_ARCHIVED');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "ConversationThreadLifecycleEventReason" AS ENUM ('DIRECT_MESSAGE_STARTED', 'MATCH_REQUEST_ACCEPTED', 'ACTIVE_MATCH_ENDED', 'ROOM_SELECTION_CUTOFF', 'SEASON_ENDED_SWEEP', 'PARTICIPANT_WITHDRAWN', 'USER_BLOCKED', 'BOTH_MEMBERS_LEFT', 'MODERATION_ACTION', 'ADMIN_ACTION');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "ConversationThreadLifecycleActorType" AS ENUM ('USER', 'SYSTEM', 'ADMIN');`,
+    );
+    expect(sql).toContain(
+      `CREATE TYPE "ConversationThreadLifecycleSourceDomain" AS ENUM ('CHAT', 'MATCHES', 'SEASON_PARTICIPANTS', 'SOCIAL_SAFETY', 'RETENTION', 'ADMIN');`,
+    );
+    expect(sql).toContain('CREATE TABLE "ConversationThreadLifecycleEvent"');
+    expect(sql).toContain('"threadId" TEXT NOT NULL');
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_threadId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("threadId", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_eventType_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("eventType", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_actorUserId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("actorUserId", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceDomain_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceDomain", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceActiveMatchId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceActiveMatchId", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceMatchRequestId_occurredAt_idx" ON "ConversationThreadLifecycleEvent"("sourceMatchRequestId", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceUnmatchRequestId_occurredAt_idx" ON "ConversationThreadLifecycleEvent"("sourceUnmatchRequestId", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceBlockId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceBlockId", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceReportCaseId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceReportCaseId", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_sourceArchiveJobId_occurredAt_id_idx" ON "ConversationThreadLifecycleEvent"("sourceArchiveJobId", "occurredAt", "id")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "ConversationThreadLifecycleEvent_createdAt_idx" ON "ConversationThreadLifecycleEvent"("createdAt")',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "ConversationThreadLifecycleEvent" ADD CONSTRAINT "ConversationThreadLifecycleEvent_threadId_fkey" FOREIGN KEY ("threadId") REFERENCES "ConversationThread"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
+    );
+    expect(sql).not.toContain('ConversationThreadRetentionState');
   });
 
   it('match history baseline은 chat thread closure snapshot column을 포함하지 않는다', () => {

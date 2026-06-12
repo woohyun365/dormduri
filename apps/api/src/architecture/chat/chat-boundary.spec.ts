@@ -4,10 +4,16 @@ import { join, relative } from 'node:path';
 const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
 const chatRoot = join(apiSourceRoot, 'chat');
+const chatEventsRoot = join(chatRoot, 'events');
+const chatLifecycleEventsRoot = join(chatRoot, 'lifecycle-events');
 const notificationsRoot = join(apiSourceRoot, 'notifications');
 const sqlRoot = join(apiRoot, 'prisma/sql');
 
 function walkTypeScriptFiles(root: string): string[] {
+  if (!existsSync(root)) {
+    return [];
+  }
+
   return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
@@ -124,6 +130,38 @@ describe('chat architecture boundary', () => {
 
     expect(outboxRealtimeImports.map(relativeSourcePath)).toEqual([]);
     expect(realtimeChatServiceImports.map(relativeSourcePath)).toEqual([]);
+  });
+
+  it('keeps conversation thread lifecycle event trace in an internal lifecycle-events owner', () => {
+    const expectedLifecycleEventOwnerFiles = [
+      'conversation-thread-lifecycle-event.payload.policy.ts',
+      'conversation-thread-lifecycle-event.repository.ts',
+      'conversation-thread-lifecycle-event.types.ts',
+      'conversation-thread-lifecycle-event.writer.ts',
+    ];
+    const missingLifecycleEventOwnerFiles = expectedLifecycleEventOwnerFiles.filter(
+      (file) => !existsSync(join(chatLifecycleEventsRoot, file)),
+    );
+    const realtimeEventOwnerLeaks = productionTypeScriptFiles(chatEventsRoot).filter((path) =>
+      /ConversationThreadLifecycleEvent|LifecycleEventWriter|LifecycleEventRepository|lifecycle-event\.payload/.test(
+        readSource(path),
+      ),
+    );
+    const lifecycleEventOutboxCouplings = productionTypeScriptFiles(chatLifecycleEventsRoot).filter(
+      (path) =>
+        /from\s+['"].*(?:\.\.\/outbox|chat\/outbox)|ChatRealtimeOutbox|claimChatRealtime|Replay/.test(
+          readSource(path),
+        ),
+    );
+    const exportsSource = readSource(join(chatRoot, 'composition/chat.exports.ts'));
+
+    expect(existsSync(chatLifecycleEventsRoot)).toBe(true);
+    expect(missingLifecycleEventOwnerFiles).toEqual([]);
+    expect(realtimeEventOwnerLeaks.map(relativeSourcePath)).toEqual([]);
+    expect(lifecycleEventOutboxCouplings.map(relativeSourcePath)).toEqual([]);
+    expect(exportsSource).not.toMatch(
+      /ConversationThreadLifecycleEvent(?:Writer|Repository)|CHAT_THREAD_LIFECYCLE_EVENT/,
+    );
   });
 
   it('keeps chat and notification PostgreSQL static queries on TypedSQL assets', () => {
