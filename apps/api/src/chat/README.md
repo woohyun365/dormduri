@@ -24,6 +24,7 @@
 - `errors/`: chat user-facing error contract.
 - `events/`: realtime payload mapper allowlist. raw retained body, vault payload, internal audit data를 payload에 넣지 않는다.
 - `lifecycle/`: active match, participant withdrawal, season/cutoff lifecycle owner. 외부 domain에서 발생한 chat state side effect는 이 디렉토리의 port 구현으로 들어온다. social-safety block side-effect도 chat thread lifecycle authority를 유지하기 위해 이 경계로 들어온다.
+- `lifecycle-events/`: `ConversationThreadLifecycleEvent` append-only audit/debug trace owner. current thread state, realtime payload, retention workflow state를 대체하지 않고, same transaction 안에서 state mutation의 source pointer와 sanitized transition metadata만 남긴다.
 - `mappers/`: chat thread/message presenter and response projection helper.
 - `outbox/`: transactional outbox persistence, claim, replay owner. payload allowlist와 replay window/prune 정책을 유지한다.
 - `pairs/`: actor-target pair entry query/use-case. `GET /threads/with/:targetUserId`의 target validation, existing thread snapshot, send eligibility 조합을 소유하며 guard나 send transaction으로 분산하지 않는다.
@@ -33,6 +34,15 @@
 - `realtime/`: chat namespace/ticket/auth/subscribe/gateway adapter. domain-neutral publish/metrics/config token은 `apps/api/src/realtime`에 둔다.
 
 ## Hard rules
+
+### Lifecycle / realtime / retention source of truth
+
+- `ConversationThread.status`, `closedReason`, `closedAt`, `threadKind`, `activeMatchId`, `lastMessageAt`가 user-facing current thread state의 source of truth다. Read path와 realtime projection은 lifecycle event table로 current state를 rebuild하지 않는다.
+- `ConversationThreadLifecycleEvent`는 append-only audit/debug trace다. writer/repository는 create-only이며, event sourcing, read-model rebuild, public response, realtime payload source로 사용하지 않는다.
+- `ChatRealtimeOutboxEvent`는 socket/realtime delivery source of truth다. Lifecycle event는 realtime outbox를 대체하지 않고, realtime payload에도 노출하지 않는다.
+- Retention workflow state는 `ArchiveJob`, `RetainedVaultObject`, `RetentionCase`, `RetentionReviewJob` owner가 담당한다. `ConversationThreadRetentionState` table/model은 thread-level retention dashboard 필요성이 실제 운영 쿼리로 확인될 때만 별도 이슈에서 검토한다.
+- Lifecycle event metadata는 allowlist scalar만 허용한다. message body, retained vault payload, report detail, block note, support body, token/credential/stack/internal audit payload를 저장하지 않는다.
+- Source pointer는 owning domain row id만 저장한다. Direct start는 `sourceDomain=CHAT`, match accept/unmatch는 match-owned pointer, social-safety block은 `sourceBlockId=UserBlock.id`만 사용한다.
 
 - 외부 domain production code에서 `../chat/application/chat.service` import 금지.
 - `season-participants`와 `social-safety`에서 `conversationThread` / `conversationMessage` 직접 mutation 금지(direct chat table mutation outside chat 금지).

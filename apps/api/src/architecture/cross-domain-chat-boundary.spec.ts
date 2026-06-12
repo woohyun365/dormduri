@@ -175,6 +175,10 @@ describe('Phase 10C cross-domain chat architecture boundary', () => {
     const source = readSource(readmePath);
     expect(source).toContain('CHAT_MATCH_THREAD_LIFECYCLE_PORT');
     expect(source).toContain('CHAT_THREAD_WITHDRAWAL_PORT');
+    expect(source).toContain('ConversationThreadLifecycleEvent');
+    expect(source).toContain('append-only audit/debug trace');
+    expect(source).toContain('ChatRealtimeOutboxEvent');
+    expect(source).toContain('ConversationThreadRetentionState');
     expect(source).toContain('외부 domain production code');
     expect(source).toContain('direct chat table mutation outside chat');
   });
