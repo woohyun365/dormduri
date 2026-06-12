@@ -5,8 +5,22 @@ import { toConversationThreadLifecycleEventMetadata } from './conversation-threa
 import { ConversationThreadLifecycleEventRepository } from './conversation-thread-lifecycle-event.repository.js';
 import type { ConversationThreadLifecycleEventAppendInput } from './conversation-thread-lifecycle-event.types.js';
 
+export interface ConversationThreadLifecycleEventAppender {
+  append(
+    tx: Prisma.TransactionClient,
+    input: ConversationThreadLifecycleEventAppendInput,
+  ): Promise<unknown>;
+}
+
+export const noopConversationThreadLifecycleEventAppender: ConversationThreadLifecycleEventAppender =
+  {
+    append() {
+      return Promise.resolve(null);
+    },
+  };
+
 @Injectable()
-export class ConversationThreadLifecycleEventWriter {
+export class ConversationThreadLifecycleEventWriter implements ConversationThreadLifecycleEventAppender {
   constructor(private readonly repository: ConversationThreadLifecycleEventRepository) {}
 
   async append(tx: Prisma.TransactionClient, input: ConversationThreadLifecycleEventAppendInput) {

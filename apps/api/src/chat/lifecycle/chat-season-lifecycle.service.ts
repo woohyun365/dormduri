@@ -1,6 +1,11 @@
 import type { Prisma } from '../../generated/prisma/client.js';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../../platform/database/prisma.service.js';
+import {
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
 import {
   SEASON_CONTEXT_PORT,
   type SeasonContextPort,
@@ -13,6 +18,12 @@ import type {
 import { createChatThreadSupportOwner } from '../policies/chat-thread-policy.js';
 import { formatKstDate } from '../../platform/time/kst-date.js';
 import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';
+import { toConversationThreadLifecycleTransitionMetadata } from '../lifecycle-events/conversation-thread-lifecycle-event.transition.js';
+import {
+  type ConversationThreadLifecycleEventAppender,
+  ConversationThreadLifecycleEventWriter,
+  noopConversationThreadLifecycleEventAppender,
+} from '../lifecycle-events/conversation-thread-lifecycle-event.writer.js';
 import {
   ChatRealtimeOutboxService,
   hasChatRealtimeOutboxTx,
@@ -23,6 +34,7 @@ const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
 interface ChatSeasonLifecycleOwnerDeps {
   prisma: PrismaService;
+  lifecycleEventWriter?: ConversationThreadLifecycleEventAppender;
   seasonsService: SeasonContextPort;
   findThreadRoomSelectionDate(thread: ThreadRecord): string | null;
 }
@@ -83,6 +95,60 @@ export function createChatSeasonLifecycleOwner(deps: ChatSeasonLifecycleOwnerDep
     return nextData;
   }
 
+  function resolveThreadLifecycleEvent(input: { previous: ThreadRecord; next: ThreadRecord }): {
+    eventType: ConversationThreadLifecycleEventType;
+    reason: ConversationThreadLifecycleEventReason;
+  } | null {
+    if (input.next.status === 'ARCHIVED' && input.previous.status !== 'ARCHIVED') {
+      return {
+        eventType: ConversationThreadLifecycleEventType.THREAD_ARCHIVED,
+        reason: ConversationThreadLifecycleEventReason.SEASON_ENDED_SWEEP,
+      };
+    }
+    if (input.next.status === 'READ_ONLY' && input.previous.status !== 'READ_ONLY') {
+      return {
+        eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
+        reason:
+          input.next.closedReason === 'ROOM_SELECTION_CUTOFF'
+            ? ConversationThreadLifecycleEventReason.ROOM_SELECTION_CUTOFF
+            : ConversationThreadLifecycleEventReason.SEASON_ENDED_SWEEP,
+      };
+    }
+    if (input.next.threadKind !== input.previous.threadKind) {
+      return {
+        eventType: ConversationThreadLifecycleEventType.THREAD_KIND_CHANGED,
+        reason: ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED,
+      };
+    }
+    return null;
+  }
+
+  async function appendThreadLifecycleEventIfNeeded(
+    client: ChatDbClient,
+    input: { previous: ThreadRecord; next: ThreadRecord; now: Date },
+  ) {
+    const lifecycleEvent = resolveThreadLifecycleEvent({
+      previous: input.previous,
+      next: input.next,
+    });
+    if (!lifecycleEvent) {
+      return;
+    }
+
+    await deps.lifecycleEventWriter?.append(client as Prisma.TransactionClient, {
+      threadId: input.next.id,
+      eventType: lifecycleEvent.eventType,
+      reason: lifecycleEvent.reason,
+      sourceDomain: ConversationThreadLifecycleSourceDomain.CHAT,
+      sourceActiveMatchId: input.next.activeMatchId ?? input.previous.activeMatchId ?? undefined,
+      occurredAt: input.now,
+      metadata: toConversationThreadLifecycleTransitionMetadata({
+        previous: input.previous,
+        next: input.next,
+      }),
+    });
+  }
+
   async function appendLifecycleOutboxIfSupported(
     client: ChatDbClient,
     thread: ThreadRecord,
@@ -115,17 +181,18 @@ export function createChatSeasonLifecycleOwner(deps: ChatSeasonLifecycleOwnerDep
 
   async function updateThreadAndAppendOutbox(
     client: ChatDbClient,
-    threadId: string,
+    thread: ThreadRecord,
     data: Record<string, unknown>,
     now: Date,
   ) {
     const updated = await client.conversationThread.update({
-      where: { id: threadId },
+      where: { id: thread.id },
       data,
       select: threadSelect,
     });
 
     await appendLifecycleOutboxIfSupported(client, updated, now);
+    await appendThreadLifecycleEventIfNeeded(client, { previous: thread, next: updated, now });
 
     return updated;
   }
@@ -148,18 +215,13 @@ export function createChatSeasonLifecycleOwner(deps: ChatSeasonLifecycleOwnerDep
         return thread;
       }
 
-      if (client === deps.prisma && hasChatRealtimeOutboxTx(deps.prisma)) {
+      if (client === deps.prisma) {
         return deps.prisma.runSerializableTransaction((tx) =>
-          updateThreadAndAppendOutbox(tx, thread.id, nextData as Record<string, unknown>, now),
+          updateThreadAndAppendOutbox(tx, thread, nextData as Record<string, unknown>, now),
         );
       }
 
-      return updateThreadAndAppendOutbox(
-        client,
-        thread.id,
-        nextData as Record<string, unknown>,
-        now,
-      );
+      return updateThreadAndAppendOutbox(client, thread, nextData as Record<string, unknown>, now);
     },
 
     async sweepThreadLifecycle(now: Date) {
@@ -201,6 +263,9 @@ export class ChatSeasonLifecycleService implements ChatLifecycleSweepPort {
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    @Optional()
+    @Inject(ConversationThreadLifecycleEventWriter)
+    private readonly lifecycleEventWriter: ConversationThreadLifecycleEventAppender = noopConversationThreadLifecycleEventAppender,
   ) {}
 
   private get threadSupportOwner() {
@@ -213,6 +278,7 @@ export class ChatSeasonLifecycleService implements ChatLifecycleSweepPort {
   private get owner() {
     return createChatSeasonLifecycleOwner({
       prisma: this.prisma,
+      lifecycleEventWriter: this.lifecycleEventWriter,
       seasonsService: this.seasonsService,
       findThreadRoomSelectionDate: (thread) =>
         this.threadSupportOwner.findThreadRoomSelectionDate(thread),

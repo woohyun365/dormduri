@@ -1,3 +1,9 @@
+import {
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
+import type { ConversationThreadLifecycleEventAppendInput } from '../lifecycle-events/conversation-thread-lifecycle-event.types.js';
 import { createChatMatchThreadLifecycleOwner } from './chat-match-thread-lifecycle.service.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
@@ -128,7 +134,9 @@ describe('ChatMatchThreadLifecycleOwner', () => {
         createMany: jest.fn().mockResolvedValue({ count: 2 }),
       },
     };
+    const lifecycleEventAppend = jest.fn().mockResolvedValue({ id: 'thread-lifecycle-event-1' });
     const owner = createChatMatchThreadLifecycleOwner({
+      lifecycleEventWriter: { append: lifecycleEventAppend },
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
@@ -207,6 +215,24 @@ describe('ChatMatchThreadLifecycleOwner', () => {
         },
       ]),
     );
+    const lifecycleAppendCalls = lifecycleEventAppend.mock.calls as Array<
+      [unknown, ConversationThreadLifecycleEventAppendInput]
+    >;
+    const [lifecycleTx, lifecycleInput] = lifecycleAppendCalls[0] ?? [];
+    expect(lifecycleTx).toBe(tx);
+    expect(lifecycleInput).toMatchObject({
+      threadId: 'thread-other',
+      eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
+      reason: ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED,
+      sourceDomain: ConversationThreadLifecycleSourceDomain.MATCHES,
+      sourceActiveMatchId: 'active-1',
+      occurredAt: now,
+      metadata: {
+        previousStatus: 'OPEN',
+        nextStatus: 'READ_ONLY',
+        nextClosedReason: 'ACTIVE_MATCH_CREATED',
+      },
+    });
   });
 
   it('ACTIVE 생성 중 stale candidate가 실제 READ_ONLY로 갱신되지 않았으면 outbox event를 만들지 않는다', async () => {
@@ -224,7 +250,11 @@ describe('ChatMatchThreadLifecycleOwner', () => {
         createMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
+    const lifecycleEventAppend = jest
+      .fn()
+      .mockResolvedValue({ id: 'thread-lifecycle-event-stale' });
     const owner = createChatMatchThreadLifecycleOwner({
+      lifecycleEventWriter: { append: lifecycleEventAppend },
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
     });
@@ -260,6 +290,7 @@ describe('ChatMatchThreadLifecycleOwner', () => {
     });
     expect(tx.chatRealtimeOutboxEvent.create).not.toHaveBeenCalled();
     expect(tx.chatRealtimeEventRecipient.createMany).not.toHaveBeenCalled();
+    expect(lifecycleEventAppend).not.toHaveBeenCalled();
   });
 
   it('ACTIVE 생성으로 영향을 받는 open direct thread가 2개 이상이면 모두 READ_ONLY update 대상이 된다', async () => {
@@ -499,7 +530,11 @@ describe('ChatMatchThreadLifecycleOwner', () => {
       },
     };
     const canReopenDirectThreadAfterUnmatch = jest.fn().mockResolvedValue(true);
+    const lifecycleEventAppend = jest
+      .fn()
+      .mockResolvedValue({ id: 'thread-lifecycle-event-unmatch' });
     const owner = createChatMatchThreadLifecycleOwner({
+      lifecycleEventWriter: { append: lifecycleEventAppend },
       findThreadRoomSelectionDate: jest.fn().mockReturnValue('2026-02-11'),
       formatKstDate: (date: Date) => date.toISOString().slice(0, 10),
       canReopenDirectThreadAfterUnmatch,
@@ -536,6 +571,26 @@ describe('ChatMatchThreadLifecycleOwner', () => {
           closedReason: null,
         },
       },
+    });
+    const lifecycleAppendCalls = lifecycleEventAppend.mock.calls as Array<
+      [unknown, ConversationThreadLifecycleEventAppendInput]
+    >;
+    expect(lifecycleAppendCalls.map((call) => call[0])).toEqual([tx, tx]);
+    expect(lifecycleAppendCalls[0]?.[1]).toMatchObject({
+      threadId: 'thread-matched',
+      eventType: ConversationThreadLifecycleEventType.THREAD_KIND_CHANGED,
+      reason: ConversationThreadLifecycleEventReason.ACTIVE_MATCH_ENDED,
+      sourceDomain: ConversationThreadLifecycleSourceDomain.MATCHES,
+      sourceActiveMatchId: 'active-1',
+      occurredAt: now,
+    });
+    expect(lifecycleAppendCalls[1]?.[1]).toMatchObject({
+      threadId: 'thread-other',
+      eventType: ConversationThreadLifecycleEventType.THREAD_REOPENED,
+      reason: ConversationThreadLifecycleEventReason.ACTIVE_MATCH_ENDED,
+      sourceDomain: ConversationThreadLifecycleSourceDomain.MATCHES,
+      sourceActiveMatchId: 'active-1',
+      occurredAt: now,
     });
   });
 

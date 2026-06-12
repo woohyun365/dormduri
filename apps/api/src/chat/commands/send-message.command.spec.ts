@@ -1,3 +1,9 @@
+import {
+  ConversationThreadLifecycleActorType,
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import {
   createChatServiceSpecHarness,
@@ -8,6 +14,23 @@ import {
   makeSendMessageInput,
   type ChatServiceSpecHarness,
 } from '../test-support/chat-service-spec.harness.js';
+
+type LifecycleEventCreateCall = [
+  {
+    data: {
+      threadId?: string;
+      eventType?: string;
+      reason?: string;
+      actorType?: string;
+      actorUserId?: string | null;
+      sourceDomain?: string;
+      sourceActiveMatchId?: string | null;
+      sourceMatchRequestId?: string | null;
+      occurredAt?: Date;
+      metadata?: Record<string, unknown> | null;
+    };
+  },
+];
 
 describe('send message command regression', () => {
   let appendChatThreadCreatedNotification: ChatServiceSpecHarness['appendChatThreadCreatedNotification'];
@@ -21,6 +44,7 @@ describe('send message command regression', () => {
   let txChatRealtimeOutboxEventCreate: ChatServiceSpecHarness['txChatRealtimeOutboxEventCreate'];
   let txConversationMessageCreate: ChatServiceSpecHarness['txConversationMessageCreate'];
   let txConversationMessageFindUnique: ChatServiceSpecHarness['txConversationMessageFindUnique'];
+  let txConversationThreadLifecycleEventCreate: ChatServiceSpecHarness['txConversationThreadLifecycleEventCreate'];
   let txConversationThreadCreate: ChatServiceSpecHarness['txConversationThreadCreate'];
   let txConversationThreadFindFirst: ChatServiceSpecHarness['txConversationThreadFindFirst'];
   let txConversationThreadMemberCreateMany: ChatServiceSpecHarness['txConversationThreadMemberCreateMany'];
@@ -43,6 +67,7 @@ describe('send message command regression', () => {
       txChatRealtimeOutboxEventCreate,
       txConversationMessageCreate,
       txConversationMessageFindUnique,
+      txConversationThreadLifecycleEventCreate,
       txConversationThreadCreate,
       txConversationThreadFindFirst,
       txConversationThreadMemberCreateMany,
@@ -371,6 +396,22 @@ describe('send message command regression', () => {
       recipientUserId: 'user-2',
       occurredAt: new Date('2026-02-10T03:00:00.000Z'),
     });
+    const lifecycleEventCreateCalls = txConversationThreadLifecycleEventCreate.mock
+      .calls as unknown as LifecycleEventCreateCall[];
+    const [threadCreatedLifecycleEvent] = lifecycleEventCreateCalls[0] ?? [];
+    expect(threadCreatedLifecycleEvent?.data).toMatchObject({
+      threadId: 'thread-1',
+      eventType: ConversationThreadLifecycleEventType.THREAD_CREATED,
+      reason: ConversationThreadLifecycleEventReason.DIRECT_MESSAGE_STARTED,
+      actorType: ConversationThreadLifecycleActorType.USER,
+      actorUserId: 'user-1',
+      sourceDomain: ConversationThreadLifecycleSourceDomain.CHAT,
+      occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+      metadata: {
+        nextStatus: 'OPEN',
+        nextThreadKind: 'DIRECT',
+      },
+    });
     expect(result.createdThread).toBe(true);
   });
   it('새 thread 알림 append 실패는 send transaction을 성공으로 숨기지 않는다', async () => {
@@ -414,6 +455,7 @@ describe('send message command regression', () => {
     expect(txConversationThreadCreate).not.toHaveBeenCalled();
     expectMessageCreateClientMessageId('client-message-reuse-thread');
     expect(appendChatThreadCreatedNotification).not.toHaveBeenCalled();
+    expect(txConversationThreadLifecycleEventCreate).not.toHaveBeenCalled();
     expect(result.createdThread).toBe(false);
   });
   it('ActiveMatchStatus ACTIVE relation이 있으면 direct thread를 matched context로 승격한다', async () => {
@@ -464,6 +506,24 @@ describe('send message command regression', () => {
     });
     expectMessageCreateClientMessageId('client-message-active-match-upgrade');
     expect(appendChatThreadCreatedNotification).not.toHaveBeenCalled();
+    const lifecycleEventCreateCalls = txConversationThreadLifecycleEventCreate.mock
+      .calls as unknown as LifecycleEventCreateCall[];
+    const [threadKindChangedLifecycleEvent] = lifecycleEventCreateCalls[0] ?? [];
+    expect(threadKindChangedLifecycleEvent?.data).toMatchObject({
+      threadId: 'thread-1',
+      eventType: ConversationThreadLifecycleEventType.THREAD_KIND_CHANGED,
+      reason: ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED,
+      actorType: ConversationThreadLifecycleActorType.USER,
+      actorUserId: 'user-1',
+      sourceDomain: ConversationThreadLifecycleSourceDomain.MATCHES,
+      sourceActiveMatchId: 'active-1',
+      sourceMatchRequestId: 'request-1',
+      occurredAt: new Date('2026-02-10T03:00:00.000Z'),
+      metadata: {
+        previousThreadKind: 'DIRECT',
+        nextThreadKind: 'MATCHED',
+      },
+    });
     expect(result.thread.threadKind).toBe('MATCHED');
   });
   it('비매칭 thread는 roomSelectionDate 이후 read-only가 된다', async () => {

@@ -1,6 +1,11 @@
 import type { Prisma } from '../../generated/prisma/client.js';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { PrismaService } from '../../platform/database/prisma.service.js';
+import {
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import {
   SEASON_CONTEXT_PORT,
@@ -20,12 +25,19 @@ import { createChatUserContextService } from '../application/chat-user-context.s
 import { resolveDirectThreadReopenStaticDecision } from '../policies/chat-direct-thread-reopen-policy.js';
 import { createChatThreadSupportOwner } from '../policies/chat-thread-policy.js';
 import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';
+import { toConversationThreadLifecycleTransitionMetadata } from '../lifecycle-events/conversation-thread-lifecycle-event.transition.js';
+import {
+  type ConversationThreadLifecycleEventAppender,
+  ConversationThreadLifecycleEventWriter,
+  noopConversationThreadLifecycleEventAppender,
+} from '../lifecycle-events/conversation-thread-lifecycle-event.writer.js';
 import {
   ChatRealtimeOutboxService,
   hasChatRealtimeOutboxTx,
 } from '../outbox/chat-realtime-outbox.service.js';
 
 interface ChatMatchThreadLifecycleOwnerDeps {
+  lifecycleEventWriter?: ConversationThreadLifecycleEventAppender;
   findThreadRoomSelectionDate(thread: ThreadRecord): string | null;
   formatKstDate(date: Date): string;
   canReopenDirectThreadAfterUnmatch?(
@@ -38,6 +50,31 @@ interface ChatMatchThreadLifecycleOwnerDeps {
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
 export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecycleOwnerDeps) {
+  async function appendThreadLifecycleEvent(
+    tx: Prisma.TransactionClient,
+    input: {
+      thread: ThreadRecord;
+      previous: Partial<ThreadRecord> | null;
+      eventType: ConversationThreadLifecycleEventType;
+      reason: ConversationThreadLifecycleEventReason;
+      now: Date;
+      sourceActiveMatchId?: string;
+    },
+  ) {
+    await deps.lifecycleEventWriter?.append(tx, {
+      threadId: input.thread.id,
+      eventType: input.eventType,
+      reason: input.reason,
+      sourceDomain: ConversationThreadLifecycleSourceDomain.MATCHES,
+      sourceActiveMatchId: input.sourceActiveMatchId,
+      occurredAt: input.now,
+      metadata: toConversationThreadLifecycleTransitionMetadata({
+        previous: input.previous,
+        next: input.thread,
+      }),
+    });
+  }
+
   async function appendThreadUpdatedIfSupported(
     tx: Prisma.TransactionClient,
     thread: ThreadRecord,
@@ -90,6 +127,17 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
           select: threadSelect,
         });
         await appendThreadUpdatedIfSupported(tx, updatedPairThread, now);
+        await appendThreadLifecycleEvent(tx, {
+          thread: updatedPairThread,
+          previous: existingPairThread,
+          eventType:
+            existingPairThread.status !== 'OPEN' && updatedPairThread.status === 'OPEN'
+              ? ConversationThreadLifecycleEventType.THREAD_REOPENED
+              : ConversationThreadLifecycleEventType.THREAD_KIND_CHANGED,
+          reason: ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED,
+          sourceActiveMatchId: input.activeMatchId,
+          now,
+        });
       }
 
       const otherOpenThreadWhere = {
@@ -140,6 +188,14 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
 
       for (const affectedThread of updatedAffectedThreads) {
         await appendThreadUpdatedIfSupported(tx, affectedThread, now);
+        await appendThreadLifecycleEvent(tx, {
+          thread: affectedThread,
+          previous: { status: 'OPEN', threadKind: 'DIRECT', closedReason: null },
+          eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
+          reason: ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED,
+          sourceActiveMatchId: input.activeMatchId,
+          now,
+        });
       }
     },
 
@@ -188,6 +244,17 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
         select: threadSelect,
       });
       await appendThreadUpdatedIfSupported(tx, updatedThread, now);
+      await appendThreadLifecycleEvent(tx, {
+        thread: updatedThread,
+        previous: matchedThread,
+        eventType:
+          updatedThread.status === 'READ_ONLY'
+            ? ConversationThreadLifecycleEventType.THREAD_READ_ONLY
+            : ConversationThreadLifecycleEventType.THREAD_KIND_CHANGED,
+        reason: ConversationThreadLifecycleEventReason.ACTIVE_MATCH_ENDED,
+        sourceActiveMatchId: input.activeMatchId,
+        now,
+      });
 
       const reopenCandidates =
         typeof tx.conversationThread.findMany === 'function'
@@ -264,6 +331,18 @@ export function createChatMatchThreadLifecycleOwner(deps: ChatMatchThreadLifecyc
 
       for (const reopenedThread of reopenedThreads) {
         await appendThreadUpdatedIfSupported(tx, reopenedThread, now);
+        await appendThreadLifecycleEvent(tx, {
+          thread: reopenedThread,
+          previous: {
+            status: 'READ_ONLY',
+            threadKind: 'DIRECT',
+            closedReason: 'ACTIVE_MATCH_CREATED',
+          },
+          eventType: ConversationThreadLifecycleEventType.THREAD_REOPENED,
+          reason: ConversationThreadLifecycleEventReason.ACTIVE_MATCH_ENDED,
+          sourceActiveMatchId: input.activeMatchId,
+          now,
+        });
       }
     },
   };
@@ -276,6 +355,9 @@ export class ChatMatchThreadLifecycleService implements ChatMatchThreadLifecycle
     @Inject(SEASON_CONTEXT_PORT)
     private readonly seasonsService: SeasonContextPort,
     private readonly seasonParticipantsService: SeasonParticipantsService,
+    @Optional()
+    @Inject(ConversationThreadLifecycleEventWriter)
+    private readonly lifecycleEventWriter: ConversationThreadLifecycleEventAppender = noopConversationThreadLifecycleEventAppender,
   ) {}
 
   private get contextOwner() {
@@ -295,6 +377,7 @@ export class ChatMatchThreadLifecycleService implements ChatMatchThreadLifecycle
 
   private get owner() {
     return createChatMatchThreadLifecycleOwner({
+      lifecycleEventWriter: this.lifecycleEventWriter,
       findThreadRoomSelectionDate: (thread) =>
         this.threadSupportOwner.findThreadRoomSelectionDate(thread),
       formatKstDate,
