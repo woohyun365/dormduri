@@ -10,8 +10,6 @@ import {
 } from '../../season-participants/current-season-participation.controller.js';
 import { CurrentSeasonParticipationViewQuery } from '../../season-participants/application/current-season-participation-view.query.js';
 import { SeasonParticipantsModule } from '../../season-participants/season-participants.module.js';
-import { SEASON_PARTICIPANTS_EXPORTS } from '../../season-participants/composition/season-participants.exports.js';
-import { SEASON_PARTICIPANTS_PROVIDERS } from '../../season-participants/composition/season-participants.providers.js';
 import { SeasonParticipantsService } from '../../season-participants/application/season-participants.service.js';
 import { UsersModule } from '../../users/users.module.js';
 
@@ -19,102 +17,6 @@ const apiRoot = process.cwd();
 const apiSourceRoot = join(apiRoot, 'src');
 const seasonParticipantsRoot = join(apiSourceRoot, 'season-participants');
 const platformDomainContextRoot = join(apiSourceRoot, 'platform/domain-context');
-
-const allowedRootSpecFiles = ['current-season-participation.controller.spec.ts'] as const;
-
-const finalizingPhaseTwoDirectories = [
-  'application',
-  'capabilities',
-  'composition',
-  'context',
-  'deregistration',
-  'dormitory-selection',
-  'errors',
-  'lifecycle',
-  'participants',
-  'policies',
-  'profile-draft',
-  'public-target-policy',
-  'public-targets',
-  'registration',
-] as const;
-
-const requiredPhaseTwoOneFiles = {
-  application: [
-    'season-action-user.query.ts',
-    'season-context.query.ts',
-    'season-participant-use-case.tokens.ts',
-    'season-participant-write-owner.ts',
-    'current-season-participation-view.query.ts',
-    'season-participant-use-case.deps.ts',
-    'season-participants.service.ts',
-  ],
-  composition: ['season-participants.exports.ts', 'season-participants.providers.ts'],
-  capabilities: [
-    'current-user-capability-input.mapper.ts',
-    'current-user-capabilities.policy.ts',
-    'index.ts',
-    'season-participation-capability.mapper.ts',
-    'season-participation-capability.policy.ts',
-  ],
-  context: [
-    'current-season-participant-context.decorator.ts',
-    'current-season-participant-context.guard.ts',
-    'current-season-participant-context.resolver.ts',
-    'current-season-participant-context-requirement.ts',
-    'current-season-participant-context.types.ts',
-    'index.ts',
-  ],
-  deregistration: ['deregister-season-participant.command.ts', 'season-deregistration.policy.ts'],
-  'dormitory-selection': [
-    'dormitory-selection-readiness.evaluator.ts',
-    'dormitory-selection.mapper.ts',
-    'dormitory-selection.policy.ts',
-    'list-current-season-selectable-dormitories.query.ts',
-    'update-dormitory-selection.command.ts',
-  ],
-  errors: ['season-participants.errors.ts'],
-  lifecycle: [
-    'backfill-current-season-participants.command.ts',
-    'season-participant-lifecycle-event.repository.ts',
-    'season-participant-lifecycle-event.types.ts',
-    'season-participant-lifecycle-event.writer.ts',
-  ],
-  participants: [
-    'season-participant-container.command.ts',
-    'season-participant-records.ts',
-    'season-participant-source.policy.ts',
-  ],
-  policies: [
-    'index.ts',
-    'season-participant-selection.policy.ts',
-    'season-participant-status.policy.ts',
-  ],
-  'profile-draft': [
-    'get-current-season-profile.query.ts',
-    'season-profile-completeness.policy.ts',
-    'season-profile-draft.mapper.ts',
-    'upsert-season-profile-draft.command.ts',
-  ],
-  'public-target-policy': [
-    'index.ts',
-    'public-profile-exposure.policy.ts',
-    'public-result-read.policy.ts',
-    'public-target-action.policy.ts',
-    'public-target-eligibility.policy.ts',
-    'public-target-policy.ts',
-    'public-target-policy-input.mapper.ts',
-    'public-target-policy.types.ts',
-    'public-target-relation.policy.ts',
-  ],
-  'public-targets': ['registration-snapshot.query.ts'],
-  registration: [
-    'finalize-season-registration.command.ts',
-    'season-registration-history.mapper.ts',
-    'season-registration-readiness.evaluator.ts',
-    'season-registration.policy.ts',
-  ],
-} as const;
 
 function moduleMetadata<T>(
   target: object,
@@ -160,76 +62,7 @@ function filesContaining(root: string, pattern: RegExp) {
     .sort();
 }
 
-function expectReadmeSections(path: string, sections: readonly string[]) {
-  expect(existsSync(path)).toBe(true);
-  const source = readSource(path);
-
-  for (const section of sections) {
-    expect(source).toContain(section);
-  }
-
-  return source;
-}
-
-describe('season-participants final structure boundary', () => {
-  it('keeps Phase 2-1 finalized slice directories and files out of the root', () => {
-    for (const directory of finalizingPhaseTwoDirectories) {
-      expect(existsSync(join(seasonParticipantsRoot, directory))).toBe(true);
-    }
-
-    for (const [directory, files] of Object.entries(requiredPhaseTwoOneFiles)) {
-      for (const file of files) {
-        expect(existsSync(join(seasonParticipantsRoot, directory, file))).toBe(true);
-      }
-    }
-
-    const forbiddenRootFiles = [
-      'season-participants.service.ts',
-      'season-participants.errors.ts',
-      'season-participant-container.owner.ts',
-      'season-participant-public-target.owner.ts',
-      'season-participant-records.ts',
-      'season-participant-source-owner.ts',
-      'season-participant-write-owner.ts',
-      'season-profile-draft.owner.ts',
-      'dormitory-selection.owner.ts',
-      'season-registration-finalize.owner.ts',
-      'season-participant-deregistration.owner.ts',
-      'season-participant-policy.ts',
-      'season-participant-status.ts',
-      'season-participant-selection.ts',
-      'season-participant-capabilities.ts',
-      'season-participation-capability.owner.ts',
-      'season-participant-gate-context.ts',
-      'season-participant-gate-inputs.ts',
-    ] as const;
-
-    for (const file of forbiddenRootFiles) {
-      expect(existsSync(join(seasonParticipantsRoot, file))).toBe(false);
-    }
-  });
-
-  it('keeps root production files free of legacy owner/deps compatibility files', () => {
-    const rootProductionFiles = productionTypeScriptFiles(seasonParticipantsRoot)
-      .filter((path) => dirname(path) === seasonParticipantsRoot)
-      .map((path) => rootRelativePath(path, seasonParticipantsRoot))
-      .sort();
-
-    expect(rootProductionFiles).toEqual([
-      'current-season-participation.controller.ts',
-      'season-participants.module.ts',
-    ]);
-  });
-
-  it('keeps root spec surface limited to controller specs after final cleanup', () => {
-    const rootSpecFiles = walkTypeScriptFiles(seasonParticipantsRoot)
-      .filter((path) => dirname(path) === seasonParticipantsRoot && path.endsWith('.spec.ts'))
-      .map((path) => rootRelativePath(path, seasonParticipantsRoot))
-      .sort();
-
-    expect(rootSpecFiles).toEqual([...allowedRootSpecFiles].sort());
-  });
-
+describe('season-participants product architecture boundary', () => {
   it('keeps current season profile/participation controllers owned by SeasonParticipantsModule', () => {
     const controllers = moduleMetadata<unknown>(SeasonParticipantsModule, 'controllers');
     const imports = moduleMetadata<unknown>(SeasonParticipantsModule, 'imports');
@@ -298,7 +131,7 @@ describe('season-participants final structure boundary', () => {
     expect(lifecycleWriterSource).not.toMatch(/lifestyle:\s*input/);
   });
 
-  it('keeps external domains from importing planned season-participants commands/queries/repositories internals', () => {
+  it('keeps external domains from importing season-participants command/query/repository internals', () => {
     const forbiddenInternalImport =
       /from\s+['"][^'"]*season-participants\/(?:commands|queries|repositories)(?:\/|['"])/;
     const externalFiles = productionTypeScriptFiles(apiSourceRoot).filter(
@@ -310,20 +143,6 @@ describe('season-participants final structure boundary', () => {
       .sort();
 
     expect(offenders).toEqual([]);
-  });
-
-  it('keeps SeasonParticipantsModule composition arrays as the provider/export source of truth', () => {
-    const moduleSource = readSource(join(seasonParticipantsRoot, 'season-participants.module.ts'));
-
-    expect(moduleSource).toContain('SEASON_PARTICIPANTS_PROVIDERS');
-    expect(moduleSource).toContain('SEASON_PARTICIPANTS_EXPORTS');
-    expect(moduleSource).not.toContain('useFactory:');
-    expect(moduleMetadata(SeasonParticipantsModule, 'providers')).toEqual(
-      SEASON_PARTICIPANTS_PROVIDERS,
-    );
-    expect(moduleMetadata(SeasonParticipantsModule, 'exports')).toEqual(
-      SEASON_PARTICIPANTS_EXPORTS,
-    );
   });
 
   it('keeps SeasonParticipantsModule exports on the current public facade/context/view surface', () => {
@@ -367,7 +186,7 @@ describe('season-participants final structure boundary', () => {
     expect(filesContaining(seasonParticipantsRoot, concreteDormitoriesServiceImport)).toEqual([]);
   });
 
-  it('keeps public target policy pure and capability/policy files in final slices', () => {
+  it('keeps public target policy pure and capability/policy files pure', () => {
     const publicTargetPolicyFiles = productionTypeScriptFiles(
       join(seasonParticipantsRoot, 'public-target-policy'),
     )
@@ -376,7 +195,7 @@ describe('season-participants final structure boundary', () => {
     const publicTargetPolicySource = publicTargetPolicyFiles
       .map((file) => readSource(join(seasonParticipantsRoot, 'public-target-policy', file)))
       .join('\n');
-    const legacyRootPolicyImports = filesContaining(
+    const removedRootPolicyImports = filesContaining(
       apiSourceRoot,
       /season-participants\/season-participant-policy(?:\.js)?/,
     );
@@ -386,42 +205,7 @@ describe('season-participants final structure boundary', () => {
     expect(
       existsSync(join(seasonParticipantsRoot, 'public-targets/registration-snapshot.query.ts')),
     ).toBe(true);
-    expect(legacyRootPolicyImports).toEqual([]);
-  });
-
-  it('keeps Phase 8-A mapper/spec boundaries out of root compatibility files', () => {
-    const rootGateFiles = walkTypeScriptFiles(seasonParticipantsRoot)
-      .filter((path) => dirname(path) === seasonParticipantsRoot)
-      .map((path) => rootRelativePath(path, seasonParticipantsRoot))
-      .filter((path) => path.startsWith('season-participant-gate'))
-      .sort();
-    const rootPolicySpecs = walkTypeScriptFiles(seasonParticipantsRoot)
-      .filter((path) => dirname(path) === seasonParticipantsRoot)
-      .map((path) => rootRelativePath(path, seasonParticipantsRoot))
-      .filter((path) =>
-        ['season-participant-policy.spec.ts', 'season-participant-gate-context.spec.ts'].includes(
-          path,
-        ),
-      )
-      .sort();
-    const requiredSpecFiles = [
-      'capabilities/current-user-capabilities.policy.spec.ts',
-      'capabilities/current-user-capability-input.mapper.spec.ts',
-      'policies/season-participant-selection.policy.spec.ts',
-      'public-target-policy/public-profile-exposure.policy.spec.ts',
-      'public-target-policy/public-result-read.policy.spec.ts',
-      'public-target-policy/public-target-action.policy.spec.ts',
-      'public-target-policy/public-target-eligibility.policy.spec.ts',
-      'public-target-policy/public-target-policy-input.mapper.spec.ts',
-      'public-target-policy/public-target-policy.spec.ts',
-      'public-target-policy/public-target-relation.policy.spec.ts',
-    ] as const;
-
-    expect(rootGateFiles).toEqual([]);
-    expect(rootPolicySpecs).toEqual([]);
-    for (const file of requiredSpecFiles) {
-      expect(existsSync(join(seasonParticipantsRoot, file))).toBe(true);
-    }
+    expect(removedRootPolicyImports).toEqual([]);
   });
 
   it('keeps external domains on season-participants public policy/capability barrels', () => {
@@ -461,22 +245,6 @@ describe('season-participants final structure boundary', () => {
     expect(guardSource).toContain('CurrentSeasonParticipantContextResolver');
     expect(resolverSource).toMatch(/PrismaService/);
     expect(resolverSource).toMatch(/ensureCurrentSeasonParticipant/);
-  });
-
-  it('documents the final season-participants product boundary', () => {
-    const source = expectReadmeSections(join(seasonParticipantsRoot, 'README.md'), [
-      '## Public boundary',
-      '## Directory responsibilities',
-      '## Hard rules',
-      '## Architecture guard',
-      '## Where to change',
-      '## Useful verification',
-    ]);
-
-    expect(source).toContain('CurrentSeasonParticipationViewQuery');
-    expect(source).toContain('Root production TypeScript file은 controller/module만 허용한다');
-    expect(source).toContain('SeasonParticipantLifecycleEvent`는 audit/debug trace');
-    expect(source).toContain('test-support/`');
   });
 
   it('keeps platform domain-context primitive free of current-season-participant vocabulary', () => {

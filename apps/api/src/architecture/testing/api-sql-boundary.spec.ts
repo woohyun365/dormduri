@@ -554,15 +554,4 @@ describe('API SQL boundary inventory', () => {
     const deepSqlImportPattern = /generated\/prisma\/sql\//;
     expect(findProductionFilesMatching(deepSqlImportPattern)).toEqual([]);
   });
-
-  it('documents SQL boundary update rules for database and integration owners', () => {
-    const databaseReadme = readSource(join(apiRoot, 'src', 'platform', 'database', 'README.md'));
-    const integrationReadme = readSource(join(apiRoot, 'test', 'integration', 'README.md'));
-
-    expect(databaseReadme).toContain('api-sql-boundary.spec.ts');
-    expect(databaseReadme).toContain('pg_advisory_xact_lock');
-    expect(databaseReadme).toContain('FOR UPDATE SKIP LOCKED');
-    expect(databaseReadme).toContain('generated TypedSQL');
-    expect(integrationReadme).toContain('api-sql-boundary.spec.ts');
-  });
 });

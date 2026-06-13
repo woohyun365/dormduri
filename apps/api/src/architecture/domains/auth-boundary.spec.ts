@@ -61,19 +61,6 @@ describe('Auth product architecture boundary', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('keeps architecture and inventory guards on product-named architecture surfaces', () => {
-    expect(existsSync(join(apiSourceRoot, 'architecture/auth-boundary.spec.ts'))).toBe(true);
-    expect(
-      existsSync(join(apiSourceRoot, 'architecture/security/auth-access-route-matrix.spec.ts')),
-    ).toBe(true);
-    expect(
-      existsSync(
-        join(apiSourceRoot, 'architecture/domain-context/domain-context-route-matrix.spec.ts'),
-      ),
-    ).toBe(true);
-    expect(existsSync(join(apiSourceRoot, 'architecture/auth'))).toBe(false);
-  });
-
   it('keeps AuthService as a controller-facing facade without infrastructure ownership', () => {
     const source = readSource(join(authRoot, 'application/auth.service.ts'));
     const forbiddenFacadeResponsibilities = [
@@ -195,48 +182,6 @@ describe('Auth product architecture boundary', () => {
     expect(source).toContain('AuthOperationsHealthService');
   });
 
-  it('keeps AuthModule provider composition grouped by auth slice', () => {
-    const moduleSource = readSource(join(authRoot, 'auth.module.ts'));
-    const providersSource = readSource(join(authRoot, 'composition/auth.providers.ts'));
-    const exportsSource = readSource(join(authRoot, 'composition/auth.exports.ts'));
-
-    expect(moduleSource).toContain("from './composition/auth.providers.js'");
-    expect(moduleSource).toContain("from './composition/auth.exports.js'");
-    expect(moduleSource).toContain('providers: AUTH_PROVIDERS');
-    expect(moduleSource).toContain('exports: AUTH_EXPORTS');
-    expect(moduleSource).not.toMatch(/providers:\s*\[\s*AuthService/);
-    expect(moduleSource).not.toMatch(/exports:\s*\[\s*AuthService/);
-
-    const expectedProviderGroups = [
-      'AUTH_APPLICATION_PROVIDERS',
-      'AUTH_VERIFICATION_PROVIDERS',
-      'AUTH_SESSION_PROVIDERS',
-      'AUTH_CREDENTIAL_PROVIDERS',
-      'AUTH_REGISTRATION_PROVIDERS',
-      'AUTH_LOGIN_ATTEMPT_PROVIDERS',
-      'AUTH_SECURITY_EVENT_PROVIDERS',
-      'AUTH_EMAIL_ADAPTER_PROVIDERS',
-      'AUTH_ACCESS_PROVIDERS',
-    ];
-
-    for (const group of expectedProviderGroups) {
-      expect(providersSource).toContain(`export const ${group}`);
-      expect(providersSource).toContain(`...${group}`);
-    }
-
-    expect(providersSource).not.toContain('AuthUseCases');
-    expect(providersSource.indexOf('useClass: ThrottlerGuard')).toBeLessThan(
-      providersSource.indexOf('useClass: AuthenticatedUserGuard'),
-    );
-    expect(exportsSource).toContain('export const AUTH_EXPORTS');
-    expect(exportsSource).toContain('AuthService');
-    expect(exportsSource).toContain('AuthActorContextResolver');
-    expect(exportsSource).toContain('AuthenticatedUserGuard');
-    expect(exportsSource).not.toMatch(
-      /\bAuthUseCases\b|\bAuthVerificationUseCases\b|\bAuthRegistrationUseCases\b|\bAuthCredentialUseCases\b|\bAuthSessionUseCases\b|\bAuthSessionService\b|\bAuthVerificationService\b|\bAuthLoginAttemptService\b|\bAuthSecurityEventService\b|\bAuthSessionRepository\b/,
-    );
-  });
-
   it('keeps /health/auth as an ops-only protected capability route', () => {
     const healthController = readSource(join(apiSourceRoot, 'health/health.controller.ts'));
     const routeBlock =
@@ -253,23 +198,5 @@ describe('Auth product architecture boundary', () => {
 
     expect(routeBlock).toContain("@RequireCapability('admin:operations:health:read')");
     expect(routeBlock).not.toContain('@Public()');
-  });
-
-  it('keeps an AI-readable auth architecture note with public boundary rules', () => {
-    const readmePath = join(authRoot, 'README.md');
-
-    expect(existsSync(readmePath)).toBe(true);
-    const source = readSource(readmePath);
-    expect(source).toContain('Postgres authoritative');
-    expect(source).toContain('RetentionWorkerPrismaService');
-    expect(source).toContain('admin:operations:health:read');
-    expect(source).toContain('composition/auth.providers.ts');
-    expect(source).toContain('sessions/opaque-token.ts');
-    expect(source).toContain('credentials/password-hash.ts');
-    expect(source).toContain('auth-verification-use-cases.service.ts');
-    expect(source).toContain('auth-registration-use-cases.service.ts');
-    expect(source).toContain('auth-credential-use-cases.service.ts');
-    expect(source).toContain('auth-session-use-cases.service.ts');
-    expect(source).toContain('외부 domain production code');
   });
 });

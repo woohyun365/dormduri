@@ -13,7 +13,7 @@ function read(path: string) {
   return readFileSync(path, 'utf8');
 }
 
-describe('Phase 2 social-safety Prisma baseline', () => {
+describe('social-safety Prisma persistence baseline', () => {
   it('keeps UserBookmark model and relation/index fields in Prisma schema', () => {
     const source = read(schemaPath);
 

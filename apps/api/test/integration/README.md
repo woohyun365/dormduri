@@ -222,7 +222,7 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
 
 - When adding or moving an integration spec or `_support/` helper, update this README and `apps/api/src/architecture/testing/api-integration-structure.spec.ts` together.
 - When adding a `query-cost-guard`, use `expectPrismaQueryBudget(...)` around the product action only, keep params redacted, and document any intentionally high budget in the owning test.
-- When production code adds, removes, or moves a `runSerializableTransaction` call, update `apps/api/src/architecture/testing/api-acid-coverage.spec.ts` in the same change. Each registry entry must keep a concrete `coverageRefs` link to an existing unit spec, integration spec, README, or policy doc. If a coverage gap cannot be closed immediately, state it in Phase 4~7 또는 follow-up으로 명시.
+- When production code adds, removes, or moves a `runSerializableTransaction` call, update `apps/api/src/architecture/testing/api-acid-coverage.spec.ts` in the same change. Each registry entry must keep a concrete `coverageRefs` link to an existing unit spec, integration spec, README, or policy doc. If a coverage gap cannot be closed immediately, record the reason and owner in the current change summary or a follow-up issue before merging.
 - When adding or changing `apps/api/prisma/sql/*.sql`, update `apps/api/src/architecture/testing/api-sql-boundary.spec.ts` in the same change. `worker-claim`, `db-time-boundary`, and `transaction-infrastructure` coverage should keep generated TypedSQL, lock, and DB-time semantics explicit.
 - Keep DB-mutating integration/e2e suites serial-safe unless a test explicitly proves parallel safety.
 - Keep helper code under `_support/`; product behavior specs belong under their domain directory.

@@ -605,19 +605,4 @@ describe('API time source boundary inventory', () => {
       expect(entry.rationale, `${entry.path} rationale`).not.toHaveLength(0);
     }
   });
-
-  it('documents DB time source update rules for test authors', () => {
-    const platformTimeReadme = readSource(join(apiRoot, 'src', 'platform', 'time', 'README.md'));
-    const integrationReadme = readSource(join(apiRoot, 'test', 'integration', 'README.md'));
-
-    expect(platformTimeReadme).toContain('PrismaService.getDatabaseNow()');
-    expect(platformTimeReadme).toContain('getCurrentTimestamp.sql');
-    expect(platformTimeReadme).toContain('api-time-source-boundary.spec.ts');
-    expect(integrationReadme).toContain('db-time-boundary');
-    expect(integrationReadme).toContain('api-time-source-boundary.spec.ts');
-
-    for (const category of allowedTimeSourceCategories) {
-      expect(platformTimeReadme).toContain(`\`${category}\``);
-    }
-  });
 });

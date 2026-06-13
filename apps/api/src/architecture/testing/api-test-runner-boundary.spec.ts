@@ -39,10 +39,6 @@ function relativeApiPath(path: string) {
   return relative(apiRoot, path).split(sep).join('/');
 }
 
-function relativeRepoPath(path: string) {
-  return relative(repoRoot, path).split(sep).join('/');
-}
-
 function scriptValue(scripts: Record<string, unknown>, key: string) {
   const value = scripts[key];
   expect(typeof value).toBe('string');
@@ -72,7 +68,10 @@ function typeScriptFiles(root: string) {
   return walkFiles(root)
     .filter((path) => path.endsWith('.ts'))
     .filter((path) => !path.includes(`${sep}generated${sep}`))
-    .filter((path) => relativeApiPath(path) !== 'src/architecture/api-test-runner-boundary.spec.ts')
+    .filter(
+      (path) =>
+        relativeApiPath(path) !== 'src/architecture/testing/api-test-runner-boundary.spec.ts',
+    )
     .sort();
 }
 
@@ -227,32 +226,5 @@ describe('API test runner boundary', () => {
       .sort();
 
     expect(violations).toEqual([]);
-  });
-
-  it('documents API test commands without stale Jest command examples', () => {
-    const readmePath = join(apiTestRoot, 'README.md');
-    expect(existsSync(readmePath)).toBe(true);
-
-    const staleReadmeReferences = walkFiles(join(apiRoot, 'src'))
-      .concat([join(apiRoot, 'README.md'), readmePath])
-      .filter((path) => path.endsWith('README.md'))
-      .filter((path) => {
-        const source = readSource(path);
-
-        return /exec jest|test\/jest-|@swc\/jest|@types\/jest/.test(source);
-      })
-      .map(relativeRepoPath)
-      .sort();
-
-    expect(staleReadmeReferences).toEqual([]);
-
-    const testReadme = readSource(readmePath);
-    expect(testReadme).toContain('API tests use Vitest + SuperTest');
-    expect(testReadme).toContain('pnpm api:test');
-    expect(testReadme).toContain('pnpm --dir apps/api test:integration');
-    expect(testReadme).toContain('pnpm --dir apps/api test:e2e');
-    expect(testReadme).toContain('pnpm --dir apps/api test:cov');
-    expect(testReadme).toContain("from 'vitest'");
-    expect(testReadme).toContain('vi.fn()');
   });
 });

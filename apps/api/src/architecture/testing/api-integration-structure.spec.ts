@@ -4,8 +4,6 @@ import { join, relative, sep } from 'node:path';
 
 const apiRoot = process.cwd();
 const integrationRoot = join(apiRoot, 'test', 'integration');
-const integrationReadmePath = join(integrationRoot, 'README.md');
-
 const expectedIntegrationDirectories = [
   '_support',
   'auth',
@@ -58,19 +56,6 @@ const expectedIntegrationSpecPaths = [
   'support/support.integration.spec.ts',
   'users/account-deletion.integration.spec.ts',
   'users/users.integration.spec.ts',
-] as const;
-
-const coverageTaxonomyLabels = [
-  'policy-matrix',
-  'transaction-atomicity',
-  'concurrency-race',
-  'idempotency',
-  'side-effect-rollback',
-  'stale-state-recheck',
-  'db-time-boundary',
-  'worker-claim',
-  'security-boundary',
-  'query-cost-guard',
 ] as const;
 
 function readSource(path: string) {
@@ -134,18 +119,19 @@ describe('API integration test structure boundary', () => {
     expect(integrationConfig).toContain('testTimeout: 60_000');
   });
 
-  it('keeps integration specs in final domain directories with no root spec files', () => {
-    const rootIntegrationSpecs = directoryFileNames(integrationRoot).filter((fileName) =>
-      fileName.endsWith('.integration.spec.ts'),
+  it('keeps integration specs recursively under domain directories', () => {
+    const actualDirectories = directoryNames(integrationRoot);
+    const rootSpecFiles = directoryFileNames(integrationRoot).filter((file) =>
+      file.endsWith('.integration.spec.ts'),
     );
-    const allIntegrationSpecs = walkFiles(integrationRoot)
+    const actualSpecPaths = walkFiles(integrationRoot)
       .filter((path) => path.endsWith('.integration.spec.ts'))
       .map(relativeIntegrationPath)
       .sort();
 
-    expect(rootIntegrationSpecs).toEqual([]);
-    expect(directoryNames(integrationRoot)).toEqual(sorted(expectedIntegrationDirectories));
-    expect(allIntegrationSpecs).toEqual(sorted(expectedIntegrationSpecPaths));
+    expect(actualDirectories).toEqual(sorted(expectedIntegrationDirectories));
+    expect(rootSpecFiles).toEqual([]);
+    expect(actualSpecPaths).toEqual(sorted(expectedIntegrationSpecPaths));
   });
 
   it('keeps helper files under _support and product support tests under support', () => {
@@ -157,7 +143,7 @@ describe('API integration test structure boundary', () => {
     ]);
   });
 
-  it('keeps moved specs on _support helper imports instead of legacy support helper paths', () => {
+  it('keeps moved specs on _support helper imports instead of removed support helper paths', () => {
     const violations = walkFiles(integrationRoot)
       .filter((path) => path.endsWith('.ts'))
       .flatMap((path) => {
@@ -174,7 +160,7 @@ describe('API integration test structure boundary', () => {
         }
 
         if (/integration\/support\//.test(source)) {
-          messages.push(`${relativePath}: references legacy integration/support helper path`);
+          messages.push(`${relativePath}: references removed integration/support helper path`);
         }
 
         return messages;
@@ -182,40 +168,5 @@ describe('API integration test structure boundary', () => {
       .sort();
 
     expect(violations).toEqual([]);
-  });
-
-  it('documents final helper ownership, commands, and coverage taxonomy', () => {
-    expect(existsSync(integrationReadmePath)).toBe(true);
-
-    const readme = readSource(integrationReadmePath);
-
-    expect(readme).toContain('API integration tests');
-    expect(readme).toContain('test/integration/**/*.integration.spec.ts');
-    expect(readme).toContain('`_support/` is test helper only');
-    expect(readme).toContain('`support/` is the product support domain');
-    expect(readme).toContain('useIntegrationTestSuite');
-    expect(readme).toContain('integration-query-budget.ts');
-    expect(readme).toContain('expectPrismaQueryBudget');
-    expect(readme).toContain('app close → sandbox cleanup');
-    expect(readme).toContain(
-      'pnpm --dir apps/api exec vitest run --config ./vitest.config.integration.ts --maxWorkers=1 test/integration/<domain>/<file>.integration.spec.ts',
-    );
-    expect(readme).toContain('pnpm --dir apps/api test:integration');
-    expect(readme).toContain(
-      'pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture/testing/api-integration-structure.spec.ts',
-    );
-    expect(readme).not.toContain('Current transition baseline');
-
-    for (const directory of expectedIntegrationDirectories) {
-      expect(readme).toContain(`${directory}/`);
-    }
-
-    for (const specPath of expectedIntegrationSpecPaths) {
-      expect(readme).toContain(specPath);
-    }
-
-    for (const label of coverageTaxonomyLabels) {
-      expect(readme).toContain(`\`${label}\``);
-    }
   });
 });

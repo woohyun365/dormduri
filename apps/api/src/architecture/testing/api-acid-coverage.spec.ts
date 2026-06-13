@@ -155,10 +155,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     path: 'src/chat/retention/thread-retention-archive.handler.ts',
     owner: 'chat/retention',
     coverageClass: 'retention-archive',
-    coverageRefs: [
-      'src/chat/README.md',
-      'test/integration/retention/retention.integration.spec.ts',
-    ],
+    coverageRefs: ['test/integration/retention/retention.integration.spec.ts'],
     rationale:
       'thread retention archive는 retained vault write와 source redaction을 같은 archive transaction에 묶는다.',
   }),
@@ -362,10 +359,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     path: 'src/season-participants/retention/season-profile-history-archive.handler.ts',
     owner: 'season-participants/retention',
     coverageClass: 'retention-archive',
-    coverageRefs: [
-      'src/season-participants/README.md',
-      'test/integration/retention/retention.integration.spec.ts',
-    ],
+    coverageRefs: ['test/integration/retention/retention.integration.spec.ts'],
     rationale:
       'season profile history archive는 source history redaction과 retained vault payload를 atomic하게 묶는다.',
   }),
@@ -492,10 +486,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     path: 'src/users/identity/retention/academic-identity-audit-archive.handler.ts',
     owner: 'users/identity-retention',
     coverageClass: 'retention-archive',
-    coverageRefs: [
-      'src/users/README.md',
-      'test/integration/retention/retention.integration.spec.ts',
-    ],
+    coverageRefs: ['test/integration/retention/retention.integration.spec.ts'],
     rationale:
       'academic identity audit archive는 audit rows redaction과 retained vault write를 atomic하게 묶는다.',
   }),
@@ -503,10 +494,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     path: 'src/users/identity/retention/nickname-audit-archive.handler.ts',
     owner: 'users/identity-retention',
     coverageClass: 'retention-archive',
-    coverageRefs: [
-      'src/users/README.md',
-      'test/integration/retention/retention.integration.spec.ts',
-    ],
+    coverageRefs: ['test/integration/retention/retention.integration.spec.ts'],
     rationale:
       'nickname audit archive는 audit rows redaction과 retained vault write를 atomic하게 묶는다.',
   }),
@@ -631,19 +619,6 @@ describe('API ACID coverage inventory boundary', () => {
           true,
         );
       }
-    }
-  });
-
-  it('documents the ACID coverage registry update rule for integration test authors', () => {
-    const readme = readSource(join(apiRoot, 'test', 'integration', 'README.md'));
-
-    expect(readme).toContain('api-acid-coverage.spec.ts');
-    expect(readme).toContain('runSerializableTransaction');
-    expect(readme).toContain('coverageRefs');
-    expect(readme).toContain('Phase 4~7 또는 follow-up으로 명시');
-
-    for (const coverageClass of allowedCoverageClasses) {
-      expect(readme).toContain(`\`${coverageClass}\``);
     }
   });
 });

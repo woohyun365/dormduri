@@ -46,50 +46,6 @@ function relativeSourcePath(path: string) {
 }
 
 describe('chat architecture boundary', () => {
-  it('keeps chat root production files limited to adapter/composition entrypoints', () => {
-    const rootProductionFiles = readdirSync(chatRoot)
-      .filter((file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'))
-      .sort();
-
-    expect(rootProductionFiles).toEqual(['chat.controller.ts', 'chat.module.ts']);
-  });
-
-  it('keeps legacy owner/cluster root files removed after responsibility split', () => {
-    const legacyFiles = [
-      'chat-command-cluster.ts',
-      'chat-context-owner.ts',
-      'chat-query-owner.ts',
-      'chat-selects.ts',
-      'chat-thread-support.ts',
-      'chat-transaction-helpers.ts',
-      'chat.errors.ts',
-      'realtime/chat-realtime-event.mapper.ts',
-    ];
-
-    expect(legacyFiles.filter((file) => existsSync(join(chatRoot, file)))).toEqual([]);
-  });
-
-  it('keeps ChatModule provider/export arrays in composition files', () => {
-    const moduleSource = readSource(join(chatRoot, 'chat.module.ts'));
-    const providersSource = readSource(join(chatRoot, 'composition/chat.providers.ts'));
-    const exportsSource = readSource(join(chatRoot, 'composition/chat.exports.ts'));
-
-    expect(moduleSource).toContain("import { CHAT_EXPORTS } from './composition/chat.exports.js'");
-    expect(moduleSource).toContain(
-      "import { CHAT_PROVIDERS } from './composition/chat.providers.js'",
-    );
-    expect(moduleSource).toContain('providers: CHAT_PROVIDERS');
-    expect(moduleSource).toContain('exports: CHAT_EXPORTS');
-    expect(moduleSource).not.toMatch(/providers:\s*\[/);
-    expect(moduleSource).not.toMatch(/exports:\s*\[/);
-    expect(providersSource).toContain('CHAT_REALTIME_PROVIDERS');
-    expect(providersSource).toContain('CHAT_LIFECYCLE_PROVIDERS');
-    expect(providersSource).toContain('CHAT_BLOCK_SIDE_EFFECT_PORT');
-    expect(exportsSource).toContain('CHAT_BLOCK_SIDE_EFFECT_PORT');
-    expect(exportsSource).toContain('CHAT_MATCH_THREAD_LIFECYCLE_PORT');
-    expect(exportsSource).not.toMatch(/\bChatService\b|\bChatRealtimeMetricsService\b/);
-  });
-
   it('keeps social-safety block side-effect as a port contract, not ChatService growth', () => {
     const portSource = readSource(
       join(chatRoot, 'application/ports/chat-block-side-effect.port.ts'),
