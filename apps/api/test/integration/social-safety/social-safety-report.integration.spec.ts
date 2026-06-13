@@ -71,6 +71,13 @@ describe('Social-safety report intake integration', () => {
     return ['viewer-participant', 'target-participant'].sort().join(':');
   }
 
+  async function expectNoReportSideEffects() {
+    await expect(prisma.reportCase.count()).resolves.toBe(0);
+    await expect(prisma.reportCaseEvent.count()).resolves.toBe(0);
+    await expect(prisma.userNotification.count()).resolves.toBe(0);
+    await expect(prisma.notificationOutboxEvent.count()).resolves.toBe(0);
+  }
+
   async function seedPendingMatchRequest() {
     await prisma.matchRequest.create({
       data: {
@@ -292,7 +299,23 @@ describe('Social-safety report intake integration', () => {
       .expect(400);
 
     expect(response.body).toMatchObject({ code: 'REPORT_TARGET_NOT_SUPPORTED' });
-    await expect(prisma.reportCase.count()).resolves.toBe(0);
+    await expectNoReportSideEffects();
+  });
+
+  it('self profile target은 transaction 내부 target policy reject 후 report side effect를 남기지 않는다', async () => {
+    const response = await request(httpServer)
+      .post('/api/reports')
+      .set('Authorization', await authHeader())
+      .send({
+        targetType: 'PROFILE',
+        targetId: 'viewer-user',
+        reason: 'OTHER',
+        falseReportDisclaimerAccepted: true,
+      })
+      .expect(404);
+
+    expect(response.body).toMatchObject({ code: 'REPORT_TARGET_NOT_REPORTABLE' });
+    await expectNoReportSideEffects();
   });
 
   it('hidden target profile은 report intake에서 projection 변경 없이 probing-safe reject한다', async () => {
@@ -316,7 +339,7 @@ describe('Social-safety report intake integration', () => {
       .expect(404);
 
     expect(response.body).toMatchObject({ code: 'REPORT_TARGET_NOT_REPORTABLE' });
-    await expect(prisma.reportCase.count()).resolves.toBe(0);
+    await expectNoReportSideEffects();
     await expect(
       prisma.seasonParticipant.findUniqueOrThrow({ where: { id: 'target-participant' } }),
     ).resolves.toMatchObject({ hiddenReasonCode: 'SAFETY_REVIEW' });

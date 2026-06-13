@@ -92,4 +92,94 @@ describe('ReplySupportTicketCommand', () => {
       message: { id: 'message-1', senderType: 'OPERATOR' },
     });
   });
+
+  it('notification append 실패는 reply command 실패로 전파되어 transaction rollback 대상이 된다', async () => {
+    const tx = {} as never;
+    const updatedTicket = { ...existingTicket, status: 'WAITING_USER' as const, updatedAt: now };
+    const message = {
+      id: 'message-1',
+      ticketId: 'ticket-1',
+      senderType: 'OPERATOR' as const,
+      senderUserId: 'operator-1',
+      body: '운영자 답변',
+      createdAt: now,
+    };
+    const runSerializableTransaction = vi.fn((operation: (txArg: typeof tx) => unknown) =>
+      Promise.resolve(operation(tx)),
+    );
+    const prisma = {
+      getDatabaseNow: vi.fn().mockResolvedValue(now),
+      runSerializableTransaction,
+    } as unknown as PrismaService;
+    const findById = vi.fn().mockResolvedValue(existingTicket);
+    const createMessage = vi.fn().mockResolvedValue(message);
+    const updateTicketStatus = vi.fn().mockResolvedValue(updatedTicket);
+    const repository = {
+      findById,
+      createMessage,
+      updateTicketStatus,
+    } as unknown as Mocked<SupportTicketRepository>;
+    const appendTicketReplied = vi.fn().mockRejectedValue(new Error('notification append failed'));
+    const notificationService = {
+      appendTicketReplied,
+    } as unknown as Mocked<SupportNotificationService>;
+    const command = new ReplySupportTicketCommand(prisma, repository, notificationService);
+
+    await expect(
+      command.execute({
+        authUser: { id: 'operator-1', gender: 'M', campus: 'CHUNCHEON' },
+        ticketId: 'ticket-1',
+        request: { body: '운영자 답변', status: 'WAITING_USER' },
+      }),
+    ).rejects.toThrow('notification append failed');
+
+    expect(runSerializableTransaction).toHaveBeenCalledTimes(1);
+    expect(createMessage).toHaveBeenCalledTimes(1);
+    expect(updateTicketStatus).toHaveBeenCalledTimes(1);
+    expect(appendTicketReplied).toHaveBeenCalledTimes(1);
+  });
+
+  it('closed ticket policy rejection은 operator message/status/notification side effect를 만들지 않는다', async () => {
+    const tx = {} as never;
+    const runSerializableTransaction = vi.fn((operation: (txArg: typeof tx) => unknown) =>
+      Promise.resolve(operation(tx)),
+    );
+    const prisma = {
+      getDatabaseNow: vi.fn().mockResolvedValue(now),
+      runSerializableTransaction,
+    } as unknown as PrismaService;
+    const findById = vi.fn().mockResolvedValue({
+      ...existingTicket,
+      status: 'CLOSED' as const,
+      closedAt: now,
+    });
+    const createMessage = vi.fn();
+    const updateTicketStatus = vi.fn();
+    const repository = {
+      findById,
+      createMessage,
+      updateTicketStatus,
+    } as unknown as Mocked<SupportTicketRepository>;
+    const appendTicketReplied = vi.fn();
+    const notificationService = {
+      appendTicketReplied,
+    } as unknown as Mocked<SupportNotificationService>;
+    const command = new ReplySupportTicketCommand(prisma, repository, notificationService);
+
+    try {
+      await command.execute({
+        authUser: { id: 'operator-1', gender: 'M', campus: 'CHUNCHEON' },
+        ticketId: 'ticket-1',
+        request: { body: '운영자 답변', status: 'WAITING_USER' },
+      });
+      throw new Error('Expected closed ticket reply to fail');
+    } catch (error: unknown) {
+      const httpError = error as { getResponse: () => { code?: string } };
+      expect(httpError.getResponse()).toMatchObject({ code: 'SUPPORT_TICKET_CLOSED' });
+    }
+
+    expect(createMessage).not.toHaveBeenCalled();
+    expect(updateTicketStatus).not.toHaveBeenCalled();
+    expect(appendTicketReplied).not.toHaveBeenCalled();
+  });
 });

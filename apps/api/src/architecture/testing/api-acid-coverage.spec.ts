@@ -428,7 +428,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     owner: 'support/commands',
     coverageClass: 'side-effect-rollback',
     coverageRefs: [
-      'src/support/policies/support-ticket-status.policy.spec.ts',
+      'src/support/commands/append-support-ticket-message.command.spec.ts',
       'test/integration/support/support.integration.spec.ts',
     ],
     rationale:
@@ -439,7 +439,7 @@ const acidCoverageInventory: readonly AcidCoverageEntry[] = [
     owner: 'support/commands',
     coverageClass: 'side-effect-rollback',
     coverageRefs: [
-      'src/support/contracts/support-contract.spec.ts',
+      'src/support/commands/create-support-ticket.command.spec.ts',
       'test/integration/support/support.integration.spec.ts',
     ],
     rationale:
