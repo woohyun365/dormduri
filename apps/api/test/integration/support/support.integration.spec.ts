@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
+import { SupportService } from '../../../src/support/application/support.service.js';
 import {
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
@@ -41,6 +42,10 @@ describe('Support integration', () => {
 
   function authSessionService() {
     return suite.app.get(AuthSessionService);
+  }
+
+  function supportService() {
+    return suite.app.get(SupportService);
   }
 
   beforeEach(async () => {
@@ -118,6 +123,59 @@ describe('Support integration', () => {
       .expect(201);
     const replyBody = replyResponse.body as SupportTicketResponseBody;
     expect(replyBody.ticket.status).toBe('WAITING_OPERATOR');
+  });
+
+  it('user preflight 후 operator가 ticket을 close하면 stale append는 최신 status로 fail-closed 한다', async () => {
+    const userAToken = await issueAccessToken('user-a', 'user-a@kangwon.ac.kr');
+
+    const createResponse = await request(httpServer())
+      .post('/api/support/tickets')
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({
+        category: 'BUG',
+        subject: 'stale append 문의',
+        body: '닫히기 전 사용자가 본 문의입니다.',
+        emailReplyConsent: false,
+      })
+      .expect(201);
+    const createBody = createResponse.body as SupportTicketResponseBody;
+    const ticketId = createBody.ticket.id;
+
+    await request(httpServer())
+      .get(`/api/support/tickets/${ticketId}`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .expect(200);
+
+    await supportService().resolveAsOperator(
+      { id: 'user-b', gender: 'F', campus: 'CHUNCHEON' },
+      ticketId,
+      { status: 'CLOSED' },
+    );
+
+    await request(httpServer())
+      .post(`/api/support/tickets/${ticketId}/messages`)
+      .set('Authorization', `Bearer ${userAToken}`)
+      .send({ body: 'preflight 이후 stale follow-up입니다.' })
+      .expect(409)
+      .expect((response) => {
+        expect(response.body).toMatchObject({ code: 'SUPPORT_TICKET_CLOSED' });
+      });
+
+    await expect(suite.prisma.supportTicketMessage.count({ where: { ticketId } })).resolves.toBe(1);
+    const closedTicket = await suite.prisma.supportTicket.findUniqueOrThrow({
+      where: { id: ticketId },
+      select: { status: true, closedAt: true },
+    });
+    expect(closedTicket.status).toBe('CLOSED');
+    expect(closedTicket.closedAt).toBeInstanceOf(Date);
+    await expect(
+      suite.prisma.userNotification.count({ where: { sourceId: ticketId } }),
+    ).resolves.toBe(2);
+    await expect(
+      suite.prisma.notificationOutboxEvent.count({
+        where: { notification: { sourceId: ticketId } },
+      }),
+    ).resolves.toBe(2);
   });
 
   it('operations support API는 일반 self-service token으로 fail-closed 한다', async () => {

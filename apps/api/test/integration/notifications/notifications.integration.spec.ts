@@ -268,6 +268,84 @@ describe('Notifications integration', () => {
     ).resolves.toBe(1);
   });
 
+  it('동시 read-all retry는 recipient unread set 안에서 idempotent하게 수렴한다', async () => {
+    const occurredAt = await prisma.getDatabaseNow();
+    await prisma.userNotification.createMany({
+      data: [
+        {
+          id: 'notification-read-all-race-1',
+          recipientUserId: 'user-b',
+          actorUserId: 'user-a',
+          kind: 'REPORT_RECEIVED',
+          sourceType: 'REPORT_CASE',
+          sourceId: 'report-read-all-race-1',
+          payload: {
+            kind: 'REPORT_RECEIVED',
+            reportId: 'report-read-all-race-1',
+            status: 'RECEIVED',
+            occurredAt: occurredAt.toISOString(),
+          },
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+        },
+        {
+          id: 'notification-read-all-race-2',
+          recipientUserId: 'user-b',
+          actorUserId: 'user-a',
+          kind: 'REPORT_RECEIVED',
+          sourceType: 'REPORT_CASE',
+          sourceId: 'report-read-all-race-2',
+          payload: {
+            kind: 'REPORT_RECEIVED',
+            reportId: 'report-read-all-race-2',
+            status: 'RECEIVED',
+            occurredAt: occurredAt.toISOString(),
+          },
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+        },
+        {
+          id: 'notification-read-all-race-other',
+          recipientUserId: 'user-a',
+          actorUserId: 'user-b',
+          kind: 'REPORT_RECEIVED',
+          sourceType: 'REPORT_CASE',
+          sourceId: 'report-read-all-race-other',
+          payload: {
+            kind: 'REPORT_RECEIVED',
+            reportId: 'report-read-all-race-other',
+            status: 'RECEIVED',
+            occurredAt: occurredAt.toISOString(),
+          },
+          createdAt: occurredAt,
+          updatedAt: occurredAt,
+        },
+      ],
+    });
+    const userBToken = await issueAccessToken('user-b', 'user-b@kangwon.ac.kr');
+
+    const responses = await Promise.all([
+      request(httpServer)
+        .post('/api/notifications/read-all')
+        .set('Authorization', `Bearer ${userBToken}`),
+      request(httpServer)
+        .post('/api/notifications/read-all')
+        .set('Authorization', `Bearer ${userBToken}`),
+    ]);
+    const bodies = responses.map((response) => response.body as MarkAllNotificationsReadBody);
+
+    expect(responses.map((response) => response.status)).toEqual([201, 201]);
+    expect(bodies.map((body) => body.updatedCount).sort((a, b) => a - b)).toEqual([0, 2]);
+    expect(bodies.every((body) => typeof body.readAt === 'string')).toBe(true);
+    await expect(prisma.userNotification.count()).resolves.toBe(3);
+    await expect(
+      prisma.userNotification.count({ where: { recipientUserId: 'user-b', readAt: null } }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.userNotification.count({ where: { recipientUserId: 'user-a', readAt: null } }),
+    ).resolves.toBe(1);
+  });
+
   it('FALSE_PROFILE candidate는 target에게 비처벌 profile mismatch feedback 알림으로 materialize된다', async () => {
     const userAToken = await issueAccessToken('user-a', 'user-a@kangwon.ac.kr');
     const reportResponse = await request(httpServer)
@@ -450,5 +528,36 @@ describe('Notifications integration', () => {
       .get('/api/notifications/unread-count')
       .set('Authorization', `Bearer ${userBToken}`);
     expect(unreadAfter.body).toEqual({ unreadCount: 0 });
+  });
+
+  it('동일 notification mark-read retry는 concurrent 호출에서도 같은 read state로 수렴한다', async () => {
+    await chatService.sendMessage(
+      authContext('user-a'),
+      makeSendMessageInput('동시 읽음 처리 대상', 'notification-mark-read-race'),
+    );
+    const userBToken = await issueAccessToken('user-b', 'user-b@kangwon.ac.kr');
+    const notification = await prisma.userNotification.findFirstOrThrow({
+      where: { recipientUserId: 'user-b' },
+      select: { id: true },
+    });
+
+    const responses = await Promise.all([
+      request(httpServer)
+        .post(`/api/notifications/${notification.id}/read`)
+        .set('Authorization', `Bearer ${userBToken}`),
+      request(httpServer)
+        .post(`/api/notifications/${notification.id}/read`)
+        .set('Authorization', `Bearer ${userBToken}`),
+    ]);
+    const bodies = responses.map((response) => response.body as MarkNotificationReadBody);
+
+    expect(responses.map((response) => response.status)).toEqual([201, 201]);
+    expect(bodies).toHaveLength(2);
+    expect(bodies.every((body) => body.notification.id === notification.id)).toBe(true);
+    expect(bodies.every((body) => typeof body.notification.readAt === 'string')).toBe(true);
+    await expect(prisma.userNotification.count()).resolves.toBe(1);
+    await expect(
+      prisma.userNotification.count({ where: { recipientUserId: 'user-b', readAt: null } }),
+    ).resolves.toBe(0);
   });
 });

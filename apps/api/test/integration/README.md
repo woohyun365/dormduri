@@ -131,6 +131,27 @@ Use these labels when describing integration coverage or updating coverage inven
 | `wrapper-contract`           | Facade/repository/type wrappers expose the transaction boundary used by covered commands.  |
 | `transaction-infrastructure` | Platform helper owns Serializable isolation, retry, and transaction contract behavior.     |
 
+## Stale-state and concurrency matrix
+
+Integration tests for mutation-heavy flows should treat a successful list/detail/preflight read as
+non-authoritative. The mutation path must re-check the latest DB state, then either fail closed or
+converge idempotently.
+
+When adding this class of test, make the matrix explicit in the test body:
+
+1. Establish the visible preflight state, such as list/detail/read success.
+2. Change the authoritative state before the mutation, such as closed ticket, hidden target,
+   withdrawn participant, existing read marker, or duplicate request.
+3. Execute the stale mutation or duplicate retry.
+4. Assert the final product result: stable error code, accepted idempotent response, or one
+   deterministic serial outcome.
+5. Assert no ghost side effect exists: no extra message, notification, outbox, event, audit, or
+   duplicate aggregate row.
+
+Prefer colocating these specs with the product domain that owns the mutation. If another domain is
+only a side-effect target, assert its externally visible row counts or final state instead of
+reaching into its private implementation helpers.
+
 ## Commands
 
 Run a single integration file:
