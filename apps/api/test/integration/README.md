@@ -131,6 +131,18 @@ Use these labels when describing integration coverage or updating coverage inven
 | `wrapper-contract`           | Facade/repository/type wrappers expose the transaction boundary used by covered commands.  |
 | `transaction-infrastructure` | Platform helper owns Serializable isolation, retry, and transaction contract behavior.     |
 
+## DB time boundary matrix
+
+`db-time-boundary` coverage proves product time is evaluated through database/KST boundaries, not accidental application-clock persistence.
+
+When adding or changing time-sensitive integration tests:
+
+1. Resolve authoritative product time through `PrismaService.getDatabaseNow()`, `getCurrentTimestamp.sql`, or a domain API that already receives DB time.
+2. Use `platform/time` helpers only for KST local-date conversion and comparison.
+3. Assert visible product outcomes around the boundary, such as season state, chat writability, timestamp fill, TTL, or expiry behavior.
+4. If production code adds `new Date()` or `Date.now()`, update `src/architecture/testing/api-time-source-boundary.spec.ts` with owner, category, and rationale in the same change.
+5. Keep app-clock-only cases limited to response metadata, duration metrics, in-memory cache/rate-limit clocks, parsers, or injectable dispatcher defaults.
+
 ## Stale-state and concurrency matrix
 
 Integration tests for mutation-heavy flows should treat a successful list/detail/preflight read as
