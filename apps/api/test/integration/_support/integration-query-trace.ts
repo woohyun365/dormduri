@@ -1,6 +1,8 @@
 import type { Prisma } from '../../../src/generated/prisma/client.js';
 import type { PrismaService } from '../../../src/platform/database/prisma.service.js';
 
+export type PrismaQueryTraceEvent = Prisma.QueryEvent;
+
 interface QueryTraceState {
   active: boolean;
   events: Prisma.QueryEvent[];
@@ -12,6 +14,22 @@ const QUERY_TRACE_STATES = new WeakMap<PrismaService, QueryTraceState>();
 type QueryTraceablePrisma = PrismaService & {
   $on(eventType: 'query', callback: (event: Prisma.QueryEvent) => void): PrismaService;
 };
+
+export async function capturePrismaQueryTrace<T>(
+  prisma: PrismaService,
+  action: () => Promise<T> | T,
+): Promise<{ result: T; events: PrismaQueryTraceEvent[] }> {
+  const state = ensureQueryTraceState(prisma);
+  state.events = [];
+  state.active = true;
+
+  try {
+    const result = await action();
+    return { result, events: [...state.events] };
+  } finally {
+    state.active = false;
+  }
+}
 
 export async function withPrismaQueryTraceOnFailure<T>(
   prisma: PrismaService,
@@ -56,7 +74,7 @@ function ensureQueryTraceState(prisma: PrismaService): QueryTraceState {
   return state;
 }
 
-function printQueryTrace(testName: string, events: Prisma.QueryEvent[]) {
+export function formatPrismaQueryTrace(testName: string, events: readonly PrismaQueryTraceEvent[]) {
   const maxEvents = 80;
   const visibleEvents = events.slice(-maxEvents);
   const omitted = Math.max(events.length - visibleEvents.length, 0);
@@ -73,5 +91,9 @@ function printQueryTrace(testName: string, events: Prisma.QueryEvent[]) {
     ),
   ];
 
-  console.error(lines.join('\n'));
+  return lines.join('\n');
+}
+
+function printQueryTrace(testName: string, events: readonly PrismaQueryTraceEvent[]) {
+  console.error(formatPrismaQueryTrace(testName, events));
 }

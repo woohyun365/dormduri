@@ -9,6 +9,7 @@ import { MaterializeProfileMismatchFeedbackCommand } from '../../../src/notifica
 import { MaterializeReportOperatorAlertCommand } from '../../../src/notifications/commands/materialize-report-operator-alert.command.js';
 import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import { createIntegrationApp } from '../_support/integration-app.js';
+import { expectPrismaQueryBudget } from '../_support/integration-query-budget.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
@@ -477,9 +478,13 @@ describe('Notifications integration', () => {
     expect(senderList.status).toBe(200);
     expect(senderList.body).toMatchObject({ items: [] });
 
-    const recipientList = await request(httpServer)
-      .get('/api/notifications')
-      .set('Authorization', `Bearer ${userBToken}`);
+    const recipientList = await expectPrismaQueryBudget(
+      prisma,
+      'notifications recipient list',
+      () =>
+        request(httpServer).get('/api/notifications').set('Authorization', `Bearer ${userBToken}`),
+      { maxQueries: 12 },
+    );
     const recipientListBody = recipientList.body as NotificationListBody;
     expect(recipientList.status).toBe(200);
     expect(recipientListBody).toMatchObject({

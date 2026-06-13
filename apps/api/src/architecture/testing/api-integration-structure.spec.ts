@@ -28,6 +28,7 @@ const expectedHelperFiles = [
   'integration-app.ts',
   'integration-db.ts',
   'integration-fixtures.ts',
+  'integration-query-budget.ts',
   'integration-query-trace.ts',
   'integration-suite.ts',
 ] as const;
@@ -193,6 +194,8 @@ describe('API integration test structure boundary', () => {
     expect(readme).toContain('`_support/` is test helper only');
     expect(readme).toContain('`support/` is the product support domain');
     expect(readme).toContain('useIntegrationTestSuite');
+    expect(readme).toContain('integration-query-budget.ts');
+    expect(readme).toContain('expectPrismaQueryBudget');
     expect(readme).toContain('app close → sandbox cleanup');
     expect(readme).toContain(
       'pnpm --dir apps/api exec vitest run --config ./vitest.config.integration.ts --maxWorkers=1 test/integration/<domain>/<file>.integration.spec.ts',

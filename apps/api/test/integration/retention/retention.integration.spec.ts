@@ -21,6 +21,7 @@ import {
 } from '../../../src/retention/vault/retained-vault.service.js';
 import { ensureRetentionCaseTx } from '../../../src/retention/vault/retention-case.repository.js';
 import { createIntegrationApp } from '../_support/integration-app.js';
+import { expectPrismaQueryBudget } from '../_support/integration-query-budget.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
@@ -158,10 +159,16 @@ describe('RetainedIdentity integration', () => {
       ],
     });
 
-    const [firstClaim, secondClaim] = await Promise.all([
-      claimDueDeletionArchiveJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
-      claimDueDeletionArchiveJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
-    ]);
+    const [firstClaim, secondClaim] = await expectPrismaQueryBudget(
+      prisma,
+      'retention archive due claim race',
+      () =>
+        Promise.all([
+          claimDueDeletionArchiveJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+          claimDueDeletionArchiveJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+        ]),
+      { maxQueries: 8 },
+    );
 
     const claimedIds = [...firstClaim, ...secondClaim].map((job) => job.id).sort();
     expect(claimedIds).toEqual(['archive-claim-1', 'archive-claim-2']);
@@ -211,10 +218,16 @@ describe('RetainedIdentity integration', () => {
       ],
     });
 
-    const [firstClaim, secondClaim] = await Promise.all([
-      claimDueRetentionReviewJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
-      claimDueRetentionReviewJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
-    ]);
+    const [firstClaim, secondClaim] = await expectPrismaQueryBudget(
+      prisma,
+      'retention review due claim race',
+      () =>
+        Promise.all([
+          claimDueRetentionReviewJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+          claimDueRetentionReviewJobs(prisma, now, { batchSize: 1, claimLeaseMs: 60_000 }),
+        ]),
+      { maxQueries: 8 },
+    );
 
     const claimedIds = [...firstClaim, ...secondClaim].map((job) => job.id).sort();
     expect(claimedIds).toEqual(['review-claim-1', 'review-claim-2']);

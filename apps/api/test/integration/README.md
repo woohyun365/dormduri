@@ -20,6 +20,7 @@ apps/api/test/integration/
     integration-app.ts
     integration-db.ts
     integration-fixtures.ts
+    integration-query-budget.ts
     integration-query-trace.ts
     integration-suite.ts
   platform/
@@ -85,6 +86,19 @@ apps/api/test/integration/
 - `support/` is the product support domain integration directory.
 - Domain specs import helpers from `../_support/*`.
 - Avoid deep relative helper imports. If a future suite becomes deeper than one domain directory, add a small helper barrel under `_support/` instead of adding brittle path chains.
+
+## Query trace and local query budget helpers
+
+`integration-query-trace.ts` owns failure diagnostics: `withPrismaQueryTraceOnFailure(...)` captures Prisma query events only while the wrapped action runs and prints a redacted recent query trace when that action fails.
+
+`integration-query-budget.ts` owns bounded local cost smoke guards: `expectPrismaQueryBudget(...)` wraps a small deterministic integration action and fails when the counted query events exceed `maxQueries`. The helper redacts params, ignores transaction control statements by default, and is meant for obvious N+1 / unbounded query-count regressions in local fixtures. It is not an RDS benchmark.
+
+Use `query-cost-guard` coverage sparingly on stable list/claim paths:
+
+1. Seed a small deterministic fixture.
+2. Wrap only the product read/claim action, not the entire test setup.
+3. Keep `maxQueries` high enough to avoid incidental churn but low enough to catch per-row query growth.
+4. Do not enable `EXPLAIN` in the default suite. If a path needs database-plan evidence, keep it as an opt-in local follow-up such as `RUN_EXPLAIN_INTEGRATION=1`.
 
 ## Suite lifecycle helper
 
@@ -206,7 +220,8 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
 
 ## Update rules
 
-- When adding or moving an integration spec, update this README and `apps/api/src/architecture/testing/api-integration-structure.spec.ts` together.
+- When adding or moving an integration spec or `_support/` helper, update this README and `apps/api/src/architecture/testing/api-integration-structure.spec.ts` together.
+- When adding a `query-cost-guard`, use `expectPrismaQueryBudget(...)` around the product action only, keep params redacted, and document any intentionally high budget in the owning test.
 - When production code adds, removes, or moves a `runSerializableTransaction` call, update `apps/api/src/architecture/testing/api-acid-coverage.spec.ts` in the same change. Each registry entry must keep a concrete `coverageRefs` link to an existing unit spec, integration spec, README, or policy doc. If a coverage gap cannot be closed immediately, state it in Phase 4~7 또는 follow-up으로 명시.
 - When adding or changing `apps/api/prisma/sql/*.sql`, update `apps/api/src/architecture/testing/api-sql-boundary.spec.ts` in the same change. `worker-claim`, `db-time-boundary`, and `transaction-infrastructure` coverage should keep generated TypedSQL, lock, and DB-time semantics explicit.
 - Keep DB-mutating integration/e2e suites serial-safe unless a test explicitly proves parallel safety.

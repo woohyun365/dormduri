@@ -3,6 +3,7 @@ import { PrismaService } from '../../../src/platform/database/prisma.service.js'
 import { ProfilesService } from '../../../src/profiles/application/profiles.service.js';
 import { RoommateSearchService } from '../../../src/roommate-search/application/roommate-search.service.js';
 import { createIntegrationApp } from '../_support/integration-app.js';
+import { expectPrismaQueryBudget } from '../_support/integration-query-budget.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
@@ -267,20 +268,32 @@ describe('RoommateSearchService integration', () => {
   it('SEASON_OPEN CAMPUS_MERGED는 nickname cursor로 broad preview page를 이어준다', async () => {
     await setSeasonState('SEASON_OPEN');
 
-    const firstPage = await service.search(authContext('user-a'), {
-      scope: 'CAMPUS_MERGED',
-      limit: 1,
-    });
+    const firstPage = await expectPrismaQueryBudget(
+      prisma,
+      'roommate-search campus merged first page',
+      () =>
+        service.search(authContext('user-a'), {
+          scope: 'CAMPUS_MERGED',
+          limit: 1,
+        }),
+      { maxQueries: 30 },
+    );
     expect(firstPage.appliedSort).toBe('NICKNAME');
     expect(firstPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저B']);
     expect(firstPage.pageInfo.hasNextPage).toBe(true);
     expect(firstPage.pageInfo.nextCursor).toEqual(expect.any(String));
 
-    const secondPage = await service.search(authContext('user-a'), {
-      scope: 'CAMPUS_MERGED',
-      limit: 1,
-      cursor: firstPage.pageInfo.nextCursor ?? undefined,
-    });
+    const secondPage = await expectPrismaQueryBudget(
+      prisma,
+      'roommate-search campus merged cursor page',
+      () =>
+        service.search(authContext('user-a'), {
+          scope: 'CAMPUS_MERGED',
+          limit: 1,
+          cursor: firstPage.pageInfo.nextCursor ?? undefined,
+        }),
+      { maxQueries: 30 },
+    );
     expect(secondPage.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
     expect(secondPage.pageInfo).toEqual({
       hasNextPage: false,
