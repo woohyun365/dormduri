@@ -115,18 +115,21 @@ Keep explicit lifecycle hooks only when a suite has a special setup or cleanup r
 
 Use these labels when describing integration coverage or updating coverage inventory guards.
 
-| Label                   | Meaning                                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| `policy-matrix`         | Official policy state matrix allows/rejects actions deterministically.                     |
-| `transaction-atomicity` | A partial failure inside a transaction rolls back all related writes.                      |
-| `concurrency-race`      | Concurrent requests converge to one deterministic final state.                             |
-| `idempotency`           | Retry/replay does not create duplicate rows or duplicate effects.                          |
-| `side-effect-rollback`  | Rejected or rolled-back work leaves no ghost event/outbox/notification/audit row.          |
-| `stale-state-recheck`   | State read before a transaction is rechecked inside the transaction before mutation.       |
-| `db-time-boundary`      | Business time uses DB/KST/CURRENT_TIMESTAMP boundaries intentionally.                      |
-| `worker-claim`          | SKIP LOCKED, lease, or bounded claim paths do not double-claim work.                       |
-| `security-boundary`     | Route/capability/error/probing boundaries stay closed and non-leaky.                       |
-| `query-cost-guard`      | Test data catches N+1, scan, or write amplification regressions within bounded local data. |
+| Label                        | Meaning                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `policy-matrix`              | Official policy state matrix allows/rejects actions deterministically.                     |
+| `transaction-atomicity`      | A partial failure inside a transaction rolls back all related writes.                      |
+| `concurrency-race`           | Concurrent requests converge to one deterministic final state.                             |
+| `idempotency`                | Retry/replay does not create duplicate rows or duplicate effects.                          |
+| `side-effect-rollback`       | Rejected or rolled-back work leaves no ghost event/outbox/notification/audit row.          |
+| `stale-state-recheck`        | State read before a transaction is rechecked inside the transaction before mutation.       |
+| `db-time-boundary`           | Business time uses DB/KST/CURRENT_TIMESTAMP boundaries intentionally.                      |
+| `worker-claim`               | SKIP LOCKED, lease, or bounded claim paths do not double-claim work.                       |
+| `security-boundary`          | Route/capability/error/probing boundaries stay closed and non-leaky.                       |
+| `query-cost-guard`           | Test data catches N+1, scan, or write amplification regressions within bounded local data. |
+| `retention-archive`          | Retention/archive paths keep source redaction and retained vault writes atomic.            |
+| `wrapper-contract`           | Facade/repository/type wrappers expose the transaction boundary used by covered commands.  |
+| `transaction-infrastructure` | Platform helper owns Serializable isolation, retry, and transaction contract behavior.     |
 
 ## Commands
 
@@ -156,9 +159,16 @@ Run the integration structure guard:
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture/testing/api-integration-structure.spec.ts
 ```
 
+Run the ACID coverage inventory guard:
+
+```bash
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture/testing/api-acid-coverage.spec.ts
+```
+
 ## Update rules
 
 - When adding or moving an integration spec, update this README and `apps/api/src/architecture/testing/api-integration-structure.spec.ts` together.
+- When production code adds, removes, or moves a `runSerializableTransaction` call, update `apps/api/src/architecture/testing/api-acid-coverage.spec.ts` in the same change. Each registry entry must keep a concrete `coverageRefs` link to an existing unit spec, integration spec, README, or policy doc. If a coverage gap cannot be closed immediately, state it in Phase 4~7 또는 follow-up으로 명시.
 - Keep DB-mutating integration/e2e suites serial-safe unless a test explicitly proves parallel safety.
 - Keep helper code under `_support/`; product behavior specs belong under their domain directory.
 - Do not add runner-specific migration guidance here. The API test runner source of truth is `apps/api/test/README.md` and the runner guard under `apps/api/src/architecture/api-test-runner-boundary.spec.ts`.
