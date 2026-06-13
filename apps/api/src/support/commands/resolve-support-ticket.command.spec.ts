@@ -68,4 +68,39 @@ describe('ResolveSupportTicketCommand', () => {
     });
     expect(response).toMatchObject({ ticket: { id: 'ticket-1', status: 'RESOLVED' } });
   });
+
+  it('notification append 실패는 resolve command 실패로 전파되어 transaction rollback 대상이 된다', async () => {
+    const tx = {} as never;
+    const resolvedTicket = { ...existingTicket, status: 'RESOLVED' as const, closedAt: now };
+    const runSerializableTransaction = vi.fn((operation: (txArg: typeof tx) => unknown) =>
+      Promise.resolve(operation(tx)),
+    );
+    const prisma = {
+      getDatabaseNow: vi.fn().mockResolvedValue(now),
+      runSerializableTransaction,
+    } as unknown as PrismaService;
+    const findById = vi.fn().mockResolvedValue(existingTicket);
+    const updateTicketStatus = vi.fn().mockResolvedValue(resolvedTicket);
+    const repository = {
+      findById,
+      updateTicketStatus,
+    } as unknown as Mocked<SupportTicketRepository>;
+    const appendTicketReplied = vi.fn().mockRejectedValue(new Error('notification append failed'));
+    const notificationService = {
+      appendTicketReplied,
+    } as unknown as Mocked<SupportNotificationService>;
+    const command = new ResolveSupportTicketCommand(prisma, repository, notificationService);
+
+    await expect(
+      command.execute({
+        authUser: { id: 'operator-1', gender: 'M', campus: 'CHUNCHEON' },
+        ticketId: 'ticket-1',
+        request: { status: 'RESOLVED' },
+      }),
+    ).rejects.toThrow('notification append failed');
+
+    expect(runSerializableTransaction).toHaveBeenCalledTimes(1);
+    expect(updateTicketStatus).toHaveBeenCalledTimes(1);
+    expect(appendTicketReplied).toHaveBeenCalledTimes(1);
+  });
 });

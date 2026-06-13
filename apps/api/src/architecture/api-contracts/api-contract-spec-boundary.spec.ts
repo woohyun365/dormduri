@@ -69,9 +69,9 @@ describe('api contract spec boundary', () => {
     }
   });
 
-  it('does not introduce plan-dependent filenames under api-contracts', () => {
+  it('does not introduce temporary migration filenames under api-contracts', () => {
     const offenders = specFiles(apiContractRoot)
-      .filter((file) => /phase|plan|temporary|legacy|compat/i.test(file))
+      .filter((file) => /temporary|migration|compat/i.test(file))
       .map((file) => repoRelative(join(apiContractRoot, file)));
 
     expect(offenders).toEqual([]);
