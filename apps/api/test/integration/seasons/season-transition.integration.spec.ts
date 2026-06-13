@@ -1,21 +1,21 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
-import { ChatService } from '../../src/chat/application/chat.service.js';
-import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { MatchesService } from '../../src/matches/application/matches.service.js';
-import { SeasonsService } from '../../src/seasons/application/seasons.service.js';
-import { formatKstDate, subtractDays } from '../../src/platform/time/kst-date.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { ChatService } from '../../../src/chat/application/chat.service.js';
+import { LifecycleSweepService } from '../../../src/lifecycle/lifecycle-sweep.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { MatchesService } from '../../../src/matches/application/matches.service.js';
+import { SeasonsService } from '../../../src/seasons/application/seasons.service.js';
+import { formatKstDate, subtractDays } from '../../../src/platform/time/kst-date.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   authContext,
   seedActiveMatchFixture,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 describe('Season transition integration', () => {
   let appContext: Awaited<ReturnType<typeof createIntegrationApp>> | null = null;

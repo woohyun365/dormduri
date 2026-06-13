@@ -1,18 +1,18 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createReportResponseSchema } from '@repo/shared/social-safety/report';
 import request from 'supertest';
-import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   seedActiveMatchFixture,
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 describe('Social-safety report intake integration', () => {
   let prisma: PrismaService;

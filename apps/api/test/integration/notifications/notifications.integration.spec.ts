@@ -1,23 +1,23 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createReportResponseSchema } from '@repo/shared/social-safety/report';
 import request from 'supertest';
-import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
-import { ChatService } from '../../src/chat/application/chat.service.js';
-import { CreateNotificationCampaignCommand } from '../../src/notifications/campaigns/create-notification-campaign.command.js';
-import { NotificationCampaignFanoutService } from '../../src/notifications/campaigns/notification-campaign-fanout.service.js';
-import { MaterializeProfileMismatchFeedbackCommand } from '../../src/notifications/commands/materialize-profile-mismatch-feedback.command.js';
-import { MaterializeReportOperatorAlertCommand } from '../../src/notifications/commands/materialize-report-operator-alert.command.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
+import { ChatService } from '../../../src/chat/application/chat.service.js';
+import { CreateNotificationCampaignCommand } from '../../../src/notifications/campaigns/create-notification-campaign.command.js';
+import { NotificationCampaignFanoutService } from '../../../src/notifications/campaigns/notification-campaign-fanout.service.js';
+import { MaterializeProfileMismatchFeedbackCommand } from '../../../src/notifications/commands/materialize-profile-mismatch-feedback.command.js';
+import { MaterializeReportOperatorAlertCommand } from '../../../src/notifications/commands/materialize-report-operator-alert.command.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   authContext,
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 type SendConversationMessageRequest = {
   targetUserId: string;

@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { UsersService } from '../../src/users/application/users.service.js';
-import { usersErrors } from '../../src/users/errors/users.errors.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { UsersService } from '../../../src/users/application/users.service.js';
+import { usersErrors } from '../../../src/users/errors/users.errors.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   authContext,
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 describe('UsersService integration', () => {
   let prisma: PrismaService;

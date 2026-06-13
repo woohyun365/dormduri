@@ -1,20 +1,20 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
-import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
-import { hashPassword } from '../../src/auth/application/auth-password-hash.js';
-import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
+import { hashPassword } from '../../../src/auth/application/auth-password-hash.js';
+import { LifecycleSweepService } from '../../../src/lifecycle/lifecycle-sweep.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   toCompleteLifestyleColumnData,
   DEFAULT_LIFESTYLE,
   seedActiveMatchFixture,
   seedBaseSeasonFixtures,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 describe('account deletion + season de-registration integration', () => {
   const retainedVaultEnv = {

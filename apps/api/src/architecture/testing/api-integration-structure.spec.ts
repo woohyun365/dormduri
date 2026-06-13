@@ -1,47 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 
 const apiRoot = process.cwd();
 const integrationRoot = join(apiRoot, 'test', 'integration');
 const integrationReadmePath = join(integrationRoot, 'README.md');
 
-const expectedRootIntegrationSpecs = [
-  'account-deletion.integration.spec.ts',
-  'auth-users-transaction.integration.spec.ts',
-  'auth-verification.store.integration.spec.ts',
-  'auth.service.integration.spec.ts',
-  'chat.integration.spec.ts',
-  'integration-fixtures.integration.spec.ts',
-  'match-history.integration.spec.ts',
-  'matches.integration.spec.ts',
-  'migration-status.integration.spec.ts',
-  'notifications.integration.spec.ts',
-  'profile-match-score.integration.spec.ts',
-  'retention-db-access-control.integration.spec.ts',
-  'retention.integration.spec.ts',
-  'roommate-search.integration.spec.ts',
-  'season-registration.integration.spec.ts',
-  'season-transition.integration.spec.ts',
-  'social-safety-block.integration.spec.ts',
-  'social-safety-bookmark.integration.spec.ts',
-  'social-safety-report.integration.spec.ts',
-  'support.integration.spec.ts',
-  'time-boundary.integration.spec.ts',
-  'timestamps.integration.spec.ts',
-  'unmatch.integration.spec.ts',
-  'users.integration.spec.ts',
-] as const;
-
-const expectedCurrentHelperFiles = [
-  'active-match-lifecycle-event-assertions.ts',
-  'integration-app.ts',
-  'integration-db.ts',
-  'integration-fixtures.ts',
-  'integration-query-trace.ts',
-] as const;
-
-const expectedFinalIntegrationDirectories = [
+const expectedIntegrationDirectories = [
   '_support',
   'auth',
   'chat',
@@ -58,49 +23,39 @@ const expectedFinalIntegrationDirectories = [
   'users',
 ] as const;
 
-const integrationMoveMap = [
-  ['account-deletion.integration.spec.ts', 'users/account-deletion.integration.spec.ts'],
-  ['auth-users-transaction.integration.spec.ts', 'auth/auth-users-transaction.integration.spec.ts'],
-  [
-    'auth-verification.store.integration.spec.ts',
-    'auth/auth-verification.store.integration.spec.ts',
-  ],
-  ['auth.service.integration.spec.ts', 'auth/auth.service.integration.spec.ts'],
-  ['chat.integration.spec.ts', 'chat/chat.integration.spec.ts'],
-  ['integration-fixtures.integration.spec.ts', 'platform/integration-fixtures.integration.spec.ts'],
-  ['match-history.integration.spec.ts', 'matches/match-history.integration.spec.ts'],
-  ['matches.integration.spec.ts', 'matches/matches.integration.spec.ts'],
-  ['migration-status.integration.spec.ts', 'platform/migration-status.integration.spec.ts'],
-  ['notifications.integration.spec.ts', 'notifications/notifications.integration.spec.ts'],
-  ['profile-match-score.integration.spec.ts', 'profiles/profile-match-score.integration.spec.ts'],
-  [
-    'retention-db-access-control.integration.spec.ts',
-    'retention/retention-db-access-control.integration.spec.ts',
-  ],
-  ['retention.integration.spec.ts', 'retention/retention.integration.spec.ts'],
-  ['roommate-search.integration.spec.ts', 'roommate-search/roommate-search.integration.spec.ts'],
-  [
-    'season-registration.integration.spec.ts',
-    'season-participants/season-registration.integration.spec.ts',
-  ],
-  ['season-transition.integration.spec.ts', 'seasons/season-transition.integration.spec.ts'],
-  [
-    'social-safety-block.integration.spec.ts',
-    'social-safety/social-safety-block.integration.spec.ts',
-  ],
-  [
-    'social-safety-bookmark.integration.spec.ts',
-    'social-safety/social-safety-bookmark.integration.spec.ts',
-  ],
-  [
-    'social-safety-report.integration.spec.ts',
-    'social-safety/social-safety-report.integration.spec.ts',
-  ],
-  ['support.integration.spec.ts', 'support/support.integration.spec.ts'],
-  ['time-boundary.integration.spec.ts', 'platform/time-boundary.integration.spec.ts'],
-  ['timestamps.integration.spec.ts', 'platform/timestamps.integration.spec.ts'],
-  ['unmatch.integration.spec.ts', 'matches/unmatch.integration.spec.ts'],
-  ['users.integration.spec.ts', 'users/users.integration.spec.ts'],
+const expectedHelperFiles = [
+  'active-match-lifecycle-event-assertions.ts',
+  'integration-app.ts',
+  'integration-db.ts',
+  'integration-fixtures.ts',
+  'integration-query-trace.ts',
+] as const;
+
+const expectedIntegrationSpecPaths = [
+  'auth/auth-users-transaction.integration.spec.ts',
+  'auth/auth-verification.store.integration.spec.ts',
+  'auth/auth.service.integration.spec.ts',
+  'chat/chat.integration.spec.ts',
+  'matches/match-history.integration.spec.ts',
+  'matches/matches.integration.spec.ts',
+  'matches/unmatch.integration.spec.ts',
+  'notifications/notifications.integration.spec.ts',
+  'platform/integration-fixtures.integration.spec.ts',
+  'platform/migration-status.integration.spec.ts',
+  'platform/time-boundary.integration.spec.ts',
+  'platform/timestamps.integration.spec.ts',
+  'profiles/profile-match-score.integration.spec.ts',
+  'retention/retention-db-access-control.integration.spec.ts',
+  'retention/retention.integration.spec.ts',
+  'roommate-search/roommate-search.integration.spec.ts',
+  'season-participants/season-registration.integration.spec.ts',
+  'seasons/season-transition.integration.spec.ts',
+  'social-safety/social-safety-block.integration.spec.ts',
+  'social-safety/social-safety-bookmark.integration.spec.ts',
+  'social-safety/social-safety-report.integration.spec.ts',
+  'support/support.integration.spec.ts',
+  'users/account-deletion.integration.spec.ts',
+  'users/users.integration.spec.ts',
 ] as const;
 
 const coverageTaxonomyLabels = [
@@ -146,6 +101,26 @@ function directoryNames(root: string) {
     .sort();
 }
 
+function walkFiles(root: string): string[] {
+  if (!existsSync(root)) {
+    return [];
+  }
+
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(root, entry.name);
+
+    if (entry.isDirectory()) {
+      return walkFiles(path);
+    }
+
+    return entry.isFile() ? [path] : [];
+  });
+}
+
+function relativeIntegrationPath(path: string) {
+  return relative(integrationRoot, path).split(sep).join('/');
+}
+
 describe('API integration test structure boundary', () => {
   it('keeps Vitest integration discovery recursive and serial-safe', () => {
     const integrationConfig = readSource(join(apiRoot, 'vitest.config.integration.ts'));
@@ -157,42 +132,57 @@ describe('API integration test structure boundary', () => {
     expect(integrationConfig).toContain('testTimeout: 60_000');
   });
 
-  it('locks the current flat transition baseline before the domain directory split', () => {
+  it('keeps integration specs in final domain directories with no root spec files', () => {
     const rootIntegrationSpecs = directoryFileNames(integrationRoot).filter((fileName) =>
       fileName.endsWith('.integration.spec.ts'),
     );
+    const allIntegrationSpecs = walkFiles(integrationRoot)
+      .filter((path) => path.endsWith('.integration.spec.ts'))
+      .map(relativeIntegrationPath)
+      .sort();
 
-    expect(rootIntegrationSpecs).toEqual(sorted(expectedRootIntegrationSpecs));
-    expect(directoryNames(integrationRoot)).toEqual(['support']);
-    expect(existsSync(join(integrationRoot, '_support'))).toBe(false);
+    expect(rootIntegrationSpecs).toEqual([]);
+    expect(directoryNames(integrationRoot)).toEqual(sorted(expectedIntegrationDirectories));
+    expect(allIntegrationSpecs).toEqual(sorted(expectedIntegrationSpecPaths));
   });
 
-  it('keeps the current helper directory limited to integration-only helpers', () => {
-    expect(directoryFileNames(join(integrationRoot, 'support'))).toEqual(
-      sorted(expectedCurrentHelperFiles),
+  it('keeps helper files under _support and product support tests under support', () => {
+    expect(directoryFileNames(join(integrationRoot, '_support'))).toEqual(
+      sorted(expectedHelperFiles),
     );
+    expect(directoryFileNames(join(integrationRoot, 'support'))).toEqual([
+      'support.integration.spec.ts',
+    ]);
   });
 
-  it('locks the domain move map for the integration directory split', () => {
-    const fromFiles = integrationMoveMap.map(([from]) => from);
-    const targetFiles = integrationMoveMap.map(([, target]) => target);
-    const targetDirectories = targetFiles.map((target) => target.substring(0, target.indexOf('/')));
+  it('keeps moved specs on _support helper imports instead of legacy support helper paths', () => {
+    const violations = walkFiles(integrationRoot)
+      .filter((path) => path.endsWith('.ts'))
+      .flatMap((path) => {
+        const source = readSource(path);
+        const relativePath = relativeIntegrationPath(path);
+        const messages: string[] = [];
 
-    expect(sorted(fromFiles)).toEqual(sorted(expectedRootIntegrationSpecs));
-    expect(new Set(targetFiles).size).toBe(targetFiles.length);
-    expect(sorted([...new Set(targetDirectories), '_support'])).toEqual(
-      sorted(expectedFinalIntegrationDirectories),
-    );
+        if (/['"]\.\/support\//.test(source)) {
+          messages.push(`${relativePath}: uses ./support helper path`);
+        }
 
-    const readme = readSource(integrationReadmePath);
+        if (/['"]\.\.\/support\//.test(source)) {
+          messages.push(`${relativePath}: uses ../support helper path`);
+        }
 
-    for (const [from, target] of integrationMoveMap) {
-      expect(readme).toContain(`\`${from}\``);
-      expect(readme).toContain(`\`${target}\``);
-    }
+        if (/integration\/support\//.test(source)) {
+          messages.push(`${relativePath}: references legacy integration/support helper path`);
+        }
+
+        return messages;
+      })
+      .sort();
+
+    expect(violations).toEqual([]);
   });
 
-  it('documents helper ownership, commands, and coverage taxonomy', () => {
+  it('documents final helper ownership, commands, and coverage taxonomy', () => {
     expect(existsSync(integrationReadmePath)).toBe(true);
 
     const readme = readSource(integrationReadmePath);
@@ -208,13 +198,14 @@ describe('API integration test structure boundary', () => {
     expect(readme).toContain(
       'pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture/testing/api-integration-structure.spec.ts',
     );
+    expect(readme).not.toContain('Current transition baseline');
 
-    for (const helperFile of expectedCurrentHelperFiles) {
-      expect(readme).toContain(helperFile);
+    for (const directory of expectedIntegrationDirectories) {
+      expect(readme).toContain(`${directory}/`);
     }
 
-    for (const directory of expectedFinalIntegrationDirectories) {
-      expect(readme).toContain(`${directory}/`);
+    for (const specPath of expectedIntegrationSpecPaths) {
+      expect(readme).toContain(specPath);
     }
 
     for (const label of coverageTaxonomyLabels) {

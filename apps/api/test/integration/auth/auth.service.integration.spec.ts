@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { createHash } from 'node:crypto';
-import { AuthService } from '../../src/auth/application/auth.service.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { AuthService } from '../../../src/auth/application/auth.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
-import { seedBaseSeasonFixtures } from './support/integration-fixtures.js';
+} from '../_support/integration-db.js';
+import { seedBaseSeasonFixtures } from '../_support/integration-fixtures.js';
 
 function hashTokenForTest(token: string) {
   return createHash('sha256').update(token).digest('hex');

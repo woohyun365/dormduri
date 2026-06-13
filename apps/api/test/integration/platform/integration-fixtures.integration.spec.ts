@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_LIFESTYLE,
   toCompleteLifestyleColumnData,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 describe('integration fixtures', () => {
   it('complete lifestyle helper returns persisted columns without nullable values', () => {

@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import type { LifestyleData } from '@repo/shared/lifestyle';
-import { ProfilesService } from '../../src/profiles/application/profiles.service.js';
-import { RoommateSearchService } from '../../src/roommate-search/application/roommate-search.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { ProfilesService } from '../../../src/profiles/application/profiles.service.js';
+import { RoommateSearchService } from '../../../src/roommate-search/application/roommate-search.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   toCompleteLifestyleColumnData,
   authContext,
@@ -15,7 +15,7 @@ import {
   seedActiveMatchFixture,
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 const COMPLETE_CONDITION_LIFESTYLE = {
   ...DEFAULT_LIFESTYLE,

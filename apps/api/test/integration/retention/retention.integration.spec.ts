@@ -1,34 +1,34 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
 import {
   activateThreadRetentionJobsForArchivedThreads,
   retryDueArchiveJobs,
-} from '../../src/retention/archive-jobs/archive-job-runner.service.js';
-import { claimDueDeletionArchiveJobs } from '../../src/retention/archive-jobs/archive-job.repository.js';
-import { createDeletionArchiveJobsTx } from '../../src/retention/archive-jobs/create-deletion-archive-jobs.command.js';
-import { createRetainedIdentityCipher } from '../../src/retention/retained-identities/retained-identity-cipher.js';
-import { createRetainedIdentityOwner } from '../../src/retention/retained-identities/retained-identity.service.js';
-import { claimDueRetentionReviewJobs } from '../../src/retention/review-jobs/retention-review-job-runner.service.js';
-import { createConversationRetainedBodyCipher } from '../../src/chat/retention/conversation-retained-body.service.js';
+} from '../../../src/retention/archive-jobs/archive-job-runner.service.js';
+import { claimDueDeletionArchiveJobs } from '../../../src/retention/archive-jobs/archive-job.repository.js';
+import { createDeletionArchiveJobsTx } from '../../../src/retention/archive-jobs/create-deletion-archive-jobs.command.js';
+import { createRetainedIdentityCipher } from '../../../src/retention/retained-identities/retained-identity-cipher.js';
+import { createRetainedIdentityOwner } from '../../../src/retention/retained-identities/retained-identity.service.js';
+import { claimDueRetentionReviewJobs } from '../../../src/retention/review-jobs/retention-review-job-runner.service.js';
+import { createConversationRetainedBodyCipher } from '../../../src/chat/retention/conversation-retained-body.service.js';
 import {
   createRetentionVaultCipher,
   createStaticRetentionVaultKeyring,
-} from '../../src/retention/vault/retained-vault-keyring.js';
-import { parseRetainedMatchHistoryPayload } from '../../src/retention/vault/retained-vault-payload-codecs.js';
+} from '../../../src/retention/vault/retained-vault-keyring.js';
+import { parseRetainedMatchHistoryPayload } from '../../../src/retention/vault/retained-vault-payload-codecs.js';
 import {
   discloseRetainedVaultPayload,
   retainVaultPayloadTx,
-} from '../../src/retention/vault/retained-vault.service.js';
-import { ensureRetentionCaseTx } from '../../src/retention/vault/retention-case.repository.js';
-import { createIntegrationApp } from './support/integration-app.js';
+} from '../../../src/retention/vault/retained-vault.service.js';
+import { ensureRetentionCaseTx } from '../../../src/retention/vault/retention-case.repository.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 describe('RetainedIdentity integration', () => {
   let prisma: PrismaService;

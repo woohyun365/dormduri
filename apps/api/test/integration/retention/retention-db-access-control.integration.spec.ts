@@ -5,7 +5,7 @@ import { Client } from 'pg';
 import {
   createIntegrationDatabaseSandbox,
   type IntegrationDatabaseSandbox,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 
 describe('RRPD DB access control integration', () => {
   let sandbox: IntegrationDatabaseSandbox;

@@ -1,29 +1,32 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { HttpException } from '@nestjs/common';
-import { AuthService } from '../../src/auth/application/auth.service.js';
-import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
-import { signup as signupWithOwner } from '../../src/auth/registration/signup.command.js';
-import { resetPassword as resetPasswordWithOwner } from '../../src/auth/credentials/reset-password.command.js';
-import { hashPassword, verifyPasswordHash } from '../../src/auth/application/auth-password-hash.js';
-import { normalizeEmail, normalizeNickname } from '../../src/auth/domain/auth.utils.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import type { CurrentUserViewService } from '../../src/users/current-user/current-user-view.service.js';
-import { createUserUpdateOwner } from '../../src/users/application/user-update-owner.js';
-import type { ModerationService } from '../../src/moderation/moderation.service.js';
-import { UsersService } from '../../src/users/application/users.service.js';
-import { SeasonsService } from '../../src/seasons/application/seasons.service.js';
+import { AuthService } from '../../../src/auth/application/auth.service.js';
+import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
+import { signup as signupWithOwner } from '../../../src/auth/registration/signup.command.js';
+import { resetPassword as resetPasswordWithOwner } from '../../../src/auth/credentials/reset-password.command.js';
+import {
+  hashPassword,
+  verifyPasswordHash,
+} from '../../../src/auth/application/auth-password-hash.js';
+import { normalizeEmail, normalizeNickname } from '../../../src/auth/domain/auth.utils.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import type { CurrentUserViewService } from '../../../src/users/current-user/current-user-view.service.js';
+import { createUserUpdateOwner } from '../../../src/users/application/user-update-owner.js';
+import type { ModerationService } from '../../../src/moderation/moderation.service.js';
+import { UsersService } from '../../../src/users/application/users.service.js';
+import { SeasonsService } from '../../../src/seasons/application/seasons.service.js';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user';
-import { createIntegrationApp } from './support/integration-app.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
-import { withPrismaQueryTraceOnFailure } from './support/integration-query-trace.js';
+} from '../_support/integration-db.js';
+import { withPrismaQueryTraceOnFailure } from '../_support/integration-query-trace.js';
 import {
   toCompleteLifestyleColumnData,
   DEFAULT_LIFESTYLE,
   seedBaseSeasonFixtures,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 type AuthContext = {
   id: string;

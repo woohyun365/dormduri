@@ -1,20 +1,20 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { MatchesService } from '../../src/matches/application/matches.service.js';
-import { ChatService } from '../../src/chat/application/chat.service.js';
-import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { MatchesService } from '../../../src/matches/application/matches.service.js';
+import { ChatService } from '../../../src/chat/application/chat.service.js';
+import { LifecycleSweepService } from '../../../src/lifecycle/lifecycle-sweep.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   authContext,
   seedActiveMatchFixture,
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
-import { expectLifecycleMetadataToExcludeSensitiveKeys } from './support/active-match-lifecycle-event-assertions.js';
+} from '../_support/integration-fixtures.js';
+import { expectLifecycleMetadataToExcludeSensitiveKeys } from '../_support/active-match-lifecycle-event-assertions.js';
 
 describe('MatchesService unmatch integration', () => {
   let prisma: PrismaService;

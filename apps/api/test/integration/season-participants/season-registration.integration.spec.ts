@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
-import { AuthService } from '../../src/auth/application/auth.service.js';
-import type { AuthenticatedUserContext } from '../../src/auth/sessions/auth-session.service.js';
-import { normalizeEmail } from '../../src/auth/domain/auth.utils.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { SeasonParticipantsService } from '../../src/season-participants/application/season-participants.service.js';
-import { seasonParticipantsErrors } from '../../src/season-participants/errors/season-participants.errors.js';
-import { UsersService } from '../../src/users/application/users.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { AuthService } from '../../../src/auth/application/auth.service.js';
+import type { AuthenticatedUserContext } from '../../../src/auth/sessions/auth-session.service.js';
+import { normalizeEmail } from '../../../src/auth/domain/auth.utils.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { SeasonParticipantsService } from '../../../src/season-participants/application/season-participants.service.js';
+import { seasonParticipantsErrors } from '../../../src/season-participants/errors/season-participants.errors.js';
+import { UsersService } from '../../../src/users/application/users.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   buildCompleteSeasonProfileDraft,
   buildIncompleteSeasonProfileDraft,
@@ -19,8 +19,8 @@ import {
   moveSeasonDormitorySelectionCutoffToPastFixture,
   seedBaseSeasonFixtures,
   seedOperatedDormitoryFixture,
-} from './support/integration-fixtures.js';
-import { withPrismaQueryTraceOnFailure } from './support/integration-query-trace.js';
+} from '../_support/integration-fixtures.js';
+import { withPrismaQueryTraceOnFailure } from '../_support/integration-query-trace.js';
 
 describe('Season registration split-flow integration', () => {
   let prisma: PrismaService;

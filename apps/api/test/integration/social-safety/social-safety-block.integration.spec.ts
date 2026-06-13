@@ -6,22 +6,22 @@ import {
 } from '@repo/shared/social-safety/block';
 import { roommateSearchResponseSchema } from '@repo/shared/roommate-search/contract';
 import request from 'supertest';
-import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
+import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
 import {
   CHAT_BLOCK_SIDE_EFFECT_PORT,
   type ChatBlockSideEffectPort,
-} from '../../src/chat/application/ports/chat-block-side-effect.port.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+} from '../../../src/chat/application/ports/chat-block-side-effect.port.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   seedActiveMatchFixture,
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 describe('Social-safety block integration', () => {
   let prisma: PrismaService;

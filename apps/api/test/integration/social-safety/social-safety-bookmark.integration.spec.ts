@@ -6,20 +6,20 @@ import {
 } from '@repo/shared/social-safety/bookmark';
 import { roommateSearchResponseSchema } from '@repo/shared/roommate-search/contract';
 import request from 'supertest';
-import type { Prisma } from '../../src/generated/prisma/client.js';
-import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
-import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import type { Prisma } from '../../../src/generated/prisma/client.js';
+import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
+import { LifecycleSweepService } from '../../../src/lifecycle/lifecycle-sweep.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   seedBaseSeasonFixtures,
   seedOperatedDormitoryFixture,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 describe('Social-safety bookmark integration', () => {
   let prisma: PrismaService;

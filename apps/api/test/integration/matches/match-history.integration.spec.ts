@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { MatchesService } from '../../src/matches/application/matches.service.js';
-import { LifecycleSweepService } from '../../src/lifecycle/lifecycle-sweep.service.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { MatchesService } from '../../../src/matches/application/matches.service.js';
+import { LifecycleSweepService } from '../../../src/lifecycle/lifecycle-sweep.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   toCompleteLifestyleColumnData,
   authContext,
   DEFAULT_LIFESTYLE,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 describe('Match history integration', () => {
   let prisma: PrismaService;

@@ -1,20 +1,20 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
-import { AuthSessionService } from '../../src/auth/sessions/auth-session.service.js';
-import { ChatService } from '../../src/chat/application/chat.service.js';
-import { ChatRealtimeRateLimiterService } from '../../src/chat/realtime/chat-realtime-rate-limiter.service.js';
-import { PrismaService } from '../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from './support/integration-app.js';
+import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
+import { ChatService } from '../../../src/chat/application/chat.service.js';
+import { ChatRealtimeRateLimiterService } from '../../../src/chat/realtime/chat-realtime-rate-limiter.service.js';
+import { PrismaService } from '../../../src/platform/database/prisma.service.js';
+import { createIntegrationApp } from '../_support/integration-app.js';
 import {
   createIntegrationDatabaseSandbox,
   truncateIntegrationSchema,
-} from './support/integration-db.js';
+} from '../_support/integration-db.js';
 import {
   authContext,
   seedBaseSeasonFixtures,
   seedActiveMatchFixture,
   seedRegisteredAssignedParticipant,
-} from './support/integration-fixtures.js';
+} from '../_support/integration-fixtures.js';
 
 type FutureSendConversationMessageRequest = {
   targetUserId: string;
@@ -55,21 +55,21 @@ async function loadChatRealtimeExport(
 
 function loadChatRealtimeOutboxService(): Promise<Constructor> {
   return loadChatRealtimeExport(
-    '../../src/chat/outbox/chat-realtime-outbox.service.js',
+    '../../../src/chat/outbox/chat-realtime-outbox.service.js',
     'ChatRealtimeOutboxService',
   );
 }
 
 function loadChatRealtimeOutboxRepository(): Promise<Constructor> {
   return loadChatRealtimeExport(
-    '../../src/chat/outbox/chat-realtime-outbox.repository.js',
+    '../../../src/chat/outbox/chat-realtime-outbox.repository.js',
     'ChatRealtimeOutboxRepository',
   );
 }
 
 function loadChatRealtimeReplayService(): Promise<Constructor> {
   return loadChatRealtimeExport(
-    '../../src/chat/outbox/chat-realtime-replay.service.js',
+    '../../../src/chat/outbox/chat-realtime-replay.service.js',
     'ChatRealtimeReplayService',
   );
 }
