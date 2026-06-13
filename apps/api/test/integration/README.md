@@ -198,10 +198,17 @@ Run the ACID coverage inventory guard:
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture/testing/api-acid-coverage.spec.ts
 ```
 
+Run the SQL boundary inventory guard:
+
+```bash
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture/testing/api-sql-boundary.spec.ts src/platform/database
+```
+
 ## Update rules
 
 - When adding or moving an integration spec, update this README and `apps/api/src/architecture/testing/api-integration-structure.spec.ts` together.
 - When production code adds, removes, or moves a `runSerializableTransaction` call, update `apps/api/src/architecture/testing/api-acid-coverage.spec.ts` in the same change. Each registry entry must keep a concrete `coverageRefs` link to an existing unit spec, integration spec, README, or policy doc. If a coverage gap cannot be closed immediately, state it in Phase 4~7 또는 follow-up으로 명시.
+- When adding or changing `apps/api/prisma/sql/*.sql`, update `apps/api/src/architecture/testing/api-sql-boundary.spec.ts` in the same change. `worker-claim`, `db-time-boundary`, and `transaction-infrastructure` coverage should keep generated TypedSQL, lock, and DB-time semantics explicit.
 - Keep DB-mutating integration/e2e suites serial-safe unless a test explicitly proves parallel safety.
 - Keep helper code under `_support/`; product behavior specs belong under their domain directory.
 - Do not add runner-specific migration guidance here. The API test runner source of truth is `apps/api/test/README.md` and the runner guard under `apps/api/src/architecture/api-test-runner-boundary.spec.ts`.
