@@ -1,16 +1,11 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { AuthSessionService } from '../../../src/auth/sessions/auth-session.service.js';
-import { PrismaService } from '../../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from '../_support/integration-app.js';
-import {
-  createIntegrationDatabaseSandbox,
-  truncateIntegrationSchema,
-} from '../_support/integration-db.js';
 import {
   seedBaseSeasonFixtures,
   seedRegisteredAssignedParticipant,
 } from '../_support/integration-fixtures.js';
+import { useIntegrationTestSuite } from '../_support/integration-suite.js';
 
 interface SupportTicketResponseBody {
   ticket: {
@@ -38,42 +33,25 @@ interface SupportFaqListResponseBody {
 }
 
 describe('Support integration', () => {
-  let prisma: PrismaService;
-  let authSessionService: AuthSessionService;
-  let httpServer: Parameters<typeof request>[0];
-  let closeApp: (() => Promise<void>) | null = null;
-  let cleanupDb: (() => Promise<void>) | null = null;
+  const suite = useIntegrationTestSuite('support_integration');
 
-  beforeAll(async () => {
-    const sandbox = await createIntegrationDatabaseSandbox('support_integration');
-    cleanupDb = sandbox.cleanup;
+  function httpServer() {
+    return suite.app.getHttpServer() as Parameters<typeof request>[0];
+  }
 
-    const { app, prisma: prismaService } = await createIntegrationApp();
-    closeApp = () => app.close();
-    httpServer = app.getHttpServer() as Parameters<typeof request>[0];
-    prisma = prismaService;
-    authSessionService = app.get(AuthSessionService);
-  });
-
-  afterAll(async () => {
-    if (closeApp) {
-      await closeApp();
-    }
-    if (cleanupDb) {
-      await cleanupDb();
-    }
-  });
+  function authSessionService() {
+    return suite.app.get(AuthSessionService);
+  }
 
   beforeEach(async () => {
-    await truncateIntegrationSchema(prisma);
-    await seedBaseSeasonFixtures(prisma);
-    await seedRegisteredAssignedParticipant(prisma, {
+    await seedBaseSeasonFixtures(suite.prisma);
+    await seedRegisteredAssignedParticipant(suite.prisma, {
       userId: 'user-a',
       participantId: 'participant-a',
       email: 'user-a@kangwon.ac.kr',
       nickname: '유저A',
     });
-    await seedRegisteredAssignedParticipant(prisma, {
+    await seedRegisteredAssignedParticipant(suite.prisma, {
       userId: 'user-b',
       participantId: 'participant-b',
       email: 'user-b@kangwon.ac.kr',
@@ -82,7 +60,7 @@ describe('Support integration', () => {
   });
 
   async function issueAccessToken(userId: string, email: string) {
-    const issued = await authSessionService.issueAuthResult(userId, email, false);
+    const issued = await authSessionService().issueAuthResult(userId, email, false);
     return issued.accessToken;
   }
 
@@ -90,7 +68,7 @@ describe('Support integration', () => {
     const userAToken = await issueAccessToken('user-a', 'user-a@kangwon.ac.kr');
     const userBToken = await issueAccessToken('user-b', 'user-b@kangwon.ac.kr');
 
-    const createResponse = await request(httpServer)
+    const createResponse = await request(httpServer())
       .post('/api/support/tickets')
       .set('Authorization', `Bearer ${userAToken}`)
       .send({
@@ -105,18 +83,20 @@ describe('Support integration', () => {
     const createBody = createResponse.body as SupportTicketResponseBody;
     const ticket = createBody.ticket;
     expect(ticket).toMatchObject({ status: 'OPEN' });
-    expect(await prisma.supportTicketMessage.count({ where: { ticketId: ticket.id } })).toBe(1);
-    expect(await prisma.userNotification.count({ where: { sourceId: ticket.id } })).toBe(1);
-    expect(await prisma.notificationOutboxEvent.count()).toBe(1);
+    expect(await suite.prisma.supportTicketMessage.count({ where: { ticketId: ticket.id } })).toBe(
+      1,
+    );
+    expect(await suite.prisma.userNotification.count({ where: { sourceId: ticket.id } })).toBe(1);
+    expect(await suite.prisma.notificationOutboxEvent.count()).toBe(1);
 
-    const listResponse = await request(httpServer)
+    const listResponse = await request(httpServer())
       .get('/api/support/tickets')
       .set('Authorization', `Bearer ${userAToken}`)
       .expect(200);
     const listBody = listResponse.body as SupportTicketListResponseBody;
     expect(listBody.items).toHaveLength(1);
 
-    const detailResponse = await request(httpServer)
+    const detailResponse = await request(httpServer())
       .get(`/api/support/tickets/${ticket.id}`)
       .set('Authorization', `Bearer ${userAToken}`)
       .expect(200);
@@ -126,12 +106,12 @@ describe('Support integration', () => {
       body: '상세 내용은 ticket detail에만 남아야 합니다.',
     });
 
-    await request(httpServer)
+    await request(httpServer())
       .get(`/api/support/tickets/${ticket.id}`)
       .set('Authorization', `Bearer ${userBToken}`)
       .expect(404);
 
-    const replyResponse = await request(httpServer)
+    const replyResponse = await request(httpServer())
       .post(`/api/support/tickets/${ticket.id}/messages`)
       .set('Authorization', `Bearer ${userAToken}`)
       .send({ body: '추가 설명입니다.' })
@@ -143,14 +123,14 @@ describe('Support integration', () => {
   it('operations support API는 일반 self-service token으로 fail-closed 한다', async () => {
     const userAToken = await issueAccessToken('user-a', 'user-a@kangwon.ac.kr');
 
-    await request(httpServer)
+    await request(httpServer())
       .get('/api/operations/support/tickets')
       .set('Authorization', `Bearer ${userAToken}`)
       .expect(403);
   });
 
   it('FAQ API는 published article만 반환한다', async () => {
-    await prisma.supportFaqArticle.createMany({
+    await suite.prisma.supportFaqArticle.createMany({
       data: [
         {
           id: 'faq-public',
@@ -171,12 +151,12 @@ describe('Support integration', () => {
       ],
     });
 
-    const listResponse = await request(httpServer).get('/api/support/faq').expect(200);
+    const listResponse = await request(httpServer()).get('/api/support/faq').expect(200);
     const listBody = listResponse.body as SupportFaqListResponseBody;
     expect(listBody.items).toEqual([
       expect.objectContaining({ id: 'faq-public', question: '공개 질문' }),
     ]);
 
-    await request(httpServer).get('/api/support/faq/faq-hidden').expect(404);
+    await request(httpServer()).get('/api/support/faq/faq-hidden').expect(404);
   });
 });

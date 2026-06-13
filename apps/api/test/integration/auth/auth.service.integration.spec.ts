@@ -1,47 +1,20 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { createHash } from 'node:crypto';
 import { AuthService } from '../../../src/auth/application/auth.service.js';
-import { PrismaService } from '../../../src/platform/database/prisma.service.js';
-import { createIntegrationApp } from '../_support/integration-app.js';
-import {
-  createIntegrationDatabaseSandbox,
-  truncateIntegrationSchema,
-} from '../_support/integration-db.js';
 import { seedBaseSeasonFixtures } from '../_support/integration-fixtures.js';
+import { useIntegrationTestSuite } from '../_support/integration-suite.js';
 
 function hashTokenForTest(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
 describe('AuthService integration', () => {
-  let prisma: PrismaService;
-  let service: AuthService;
-  let closeApp: (() => Promise<void>) | null = null;
-  let cleanupDb: (() => Promise<void>) | null = null;
+  const suite = useIntegrationTestSuite('auth_service_integration');
 
-  beforeAll(async () => {
-    const sandbox = await createIntegrationDatabaseSandbox('auth_service_integration');
-    cleanupDb = sandbox.cleanup;
-
-    const { app, prisma: prismaService } = await createIntegrationApp();
-    closeApp = () => app.close();
-    prisma = prismaService;
-    service = app.get(AuthService);
-  });
-
-  afterAll(async () => {
-    if (closeApp) {
-      await closeApp();
-    }
-    if (cleanupDb) {
-      await cleanupDb();
-    }
-  });
-
-  beforeEach(async () => {
-    await truncateIntegrationSchema(prisma);
-  });
+  function authService() {
+    return suite.app.get(AuthService);
+  }
 
   it('login은 opaque access token hash를 AuthSession에 저장하고 logout 후 fail-closed 처리한다', async () => {
     const email = 'opaque-login@kangwon.ac.kr';
@@ -53,9 +26,9 @@ describe('AuthService integration', () => {
       parallelism: 1,
       outputLen: 32,
     });
-    const databaseNow = await prisma.getDatabaseNow();
+    const databaseNow = await suite.prisma.getDatabaseNow();
 
-    await prisma.user.create({
+    await suite.prisma.user.create({
       data: {
         id: 'opaque-login-user',
         email,
@@ -73,25 +46,27 @@ describe('AuthService integration', () => {
       },
     });
 
-    const result = await service.login(email, 'Pass1234', false);
+    const result = await authService().login(email, 'Pass1234', false);
 
     expect(result.success).toBe(true);
     expect(result.accessToken).toMatch(/^v1\.[^.]+\.[A-Za-z0-9_-]{43}$/);
     expect(result.accessToken).not.toMatch(/^eyJ/);
 
-    const session = await prisma.authSession.findFirstOrThrow({
+    const session = await suite.prisma.authSession.findFirstOrThrow({
       where: { userId: 'opaque-login-user' },
     });
     expect(session.sessionTokenHash).toBe(hashTokenForTest(result.accessToken ?? ''));
     expect(session.sessionTokenHash).not.toBe(result.accessToken);
 
-    await expect(service.getSession(result.accessToken ?? null)).resolves.toMatchObject({
+    await expect(authService().getSession(result.accessToken ?? null)).resolves.toMatchObject({
       authenticated: true,
       user: { id: 'opaque-login-user', email },
     });
 
-    await expect(service.logout(result.accessToken ?? null)).resolves.toEqual({ success: true });
-    await expect(service.getSession(result.accessToken ?? null)).resolves.toEqual({
+    await expect(authService().logout(result.accessToken ?? null)).resolves.toEqual({
+      success: true,
+    });
+    await expect(authService().getSession(result.accessToken ?? null)).resolves.toEqual({
       authenticated: false,
     });
   });
@@ -99,9 +74,9 @@ describe('AuthService integration', () => {
   it('동시에 같은 signup verification proof를 소비해도 User/DisplayIdentity/AcademicIdentity 계정은 하나만 생성된다', async () => {
     const email = 'signup-race@kangwon.ac.kr';
     const emailNormalized = email.toLowerCase();
-    const databaseNow = await prisma.getDatabaseNow();
+    const databaseNow = await suite.prisma.getDatabaseNow();
     await seedAcademicIdentityReferenceData();
-    await prisma.verificationCode.create({
+    await suite.prisma.verificationCode.create({
       data: {
         emailNormalized,
         purpose: 'SIGNUP',
@@ -123,8 +98,8 @@ describe('AuthService integration', () => {
     } as never;
 
     const settled = await Promise.allSettled([
-      service.signup(signupInput),
-      service.signup(signupInput),
+      authService().signup(signupInput),
+      authService().signup(signupInput),
     ]);
 
     const fulfilled = settled.filter((result) => result.status === 'fulfilled');
@@ -147,19 +122,19 @@ describe('AuthService integration', () => {
     }
 
     expect(
-      await prisma.user.count({
+      await suite.prisma.user.count({
         where: { emailNormalized },
       }),
     ).toBe(1);
     expect(
-      await prisma.userDisplayIdentity.count({
+      await suite.prisma.userDisplayIdentity.count({
         where: { user: { emailNormalized } },
       }),
     ).toBe(1);
     await expect(expectAcademicIdentityCount(emailNormalized)).resolves.toBe(1);
 
     expect(
-      await prisma.verificationCode.count({
+      await suite.prisma.verificationCode.count({
         where: {
           emailNormalized,
           purpose: 'SIGNUP',
@@ -170,8 +145,8 @@ describe('AuthService integration', () => {
   });
 
   async function seedAcademicIdentityReferenceData() {
-    await seedBaseSeasonFixtures(prisma);
-    await prisma.collegeMaster.upsert({
+    await seedBaseSeasonFixtures(suite.prisma);
+    await suite.prisma.collegeMaster.upsert({
       where: { code: 'IT' },
       create: {
         code: 'IT',
@@ -190,7 +165,7 @@ describe('AuthService integration', () => {
 
   async function expectAcademicIdentityCount(emailNormalized: string) {
     const academicIdentityDelegate = (
-      prisma as unknown as {
+      suite.prisma as unknown as {
         userAcademicIdentity?: {
           count(args: {
             where: {
@@ -220,9 +195,9 @@ describe('AuthService integration', () => {
       parallelism: 1,
       outputLen: 32,
     });
-    const databaseNow = await prisma.getDatabaseNow();
+    const databaseNow = await suite.prisma.getDatabaseNow();
 
-    await prisma.user.create({
+    await suite.prisma.user.create({
       data: {
         id: 'user-reset',
         email,
@@ -233,14 +208,14 @@ describe('AuthService integration', () => {
         emailVerifiedAt: databaseNow,
       },
     });
-    await prisma.authSession.create({
+    await suite.prisma.authSession.create({
       data: {
         id: 'session-reset',
         userId: 'user-reset',
         expiresAt: new Date(databaseNow.getTime() + 60 * 60 * 1000),
       },
     });
-    await prisma.verificationCode.create({
+    await suite.prisma.verificationCode.create({
       data: {
         emailNormalized,
         purpose: 'RESET_PASSWORD',
@@ -252,8 +227,8 @@ describe('AuthService integration', () => {
     });
 
     const settled = await Promise.allSettled([
-      service.resetPassword(email, 'NewPass1234'),
-      service.resetPassword(email, 'OtherPass1234'),
+      authService().resetPassword(email, 'NewPass1234'),
+      authService().resetPassword(email, 'OtherPass1234'),
     ]);
 
     const fulfilled = settled.filter((result) => result.status === 'fulfilled');
@@ -269,13 +244,13 @@ describe('AuthService integration', () => {
     expect(failureResults).toHaveLength(1);
     expect(failureResults[0]?.code).toBe('AUTH_RESET_RESTART_REQUIRED');
 
-    const updatedUser = await prisma.user.findUnique({
+    const updatedUser = await suite.prisma.user.findUnique({
       where: { id: 'user-reset' },
     });
     expect(updatedUser?.passwordHash).not.toBe(currentPasswordHash);
 
     expect(
-      await prisma.verificationCode.count({
+      await suite.prisma.verificationCode.count({
         where: {
           emailNormalized,
           purpose: 'RESET_PASSWORD',
@@ -285,7 +260,7 @@ describe('AuthService integration', () => {
     ).toBe(0);
 
     expect(
-      await prisma.authSession.count({
+      await suite.prisma.authSession.count({
         where: {
           userId: 'user-reset',
           revokedAt: null,

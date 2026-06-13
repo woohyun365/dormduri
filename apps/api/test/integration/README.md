@@ -21,6 +21,7 @@ apps/api/test/integration/
     integration-db.ts
     integration-fixtures.ts
     integration-query-trace.ts
+    integration-suite.ts
   platform/
     integration-fixtures.integration.spec.ts
     migration-status.integration.spec.ts
@@ -84,6 +85,31 @@ apps/api/test/integration/
 - `support/` is the product support domain integration directory.
 - Domain specs import helpers from `../_support/*`.
 - Avoid deep relative helper imports. If a future suite becomes deeper than one domain directory, add a small helper barrel under `_support/` instead of adding brittle path chains.
+
+## Suite lifecycle helper
+
+New integration specs should prefer `useIntegrationTestSuite` for the common Nest app and database sandbox lifecycle.
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { useIntegrationTestSuite } from '../_support/integration-suite.js';
+
+describe('Example integration', () => {
+  const suite = useIntegrationTestSuite('example_integration');
+
+  it('uses the shared app and prisma context', async () => {
+    expect(await suite.prisma.getDatabaseNow()).toBeInstanceOf(Date);
+  });
+});
+```
+
+The helper owns the standard order:
+
+1. `beforeAll`: create disposable PostgreSQL schema, then create the Nest app.
+2. `beforeEach`: truncate the current disposable schema by default.
+3. `afterAll`: app close → sandbox cleanup.
+
+Keep explicit lifecycle hooks only when a suite has a special setup or cleanup reason. If a suite adds its own `beforeEach`, declare it after `useIntegrationTestSuite(...)` so truncation runs before domain fixtures are seeded.
 
 ## Coverage taxonomy
 
