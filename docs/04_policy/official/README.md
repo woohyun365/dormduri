@@ -8,23 +8,24 @@
 
 ## 문서 구성
 
-| 문서                                                     | 도메인           | 최종 소유 규칙                                                                                           |
-| -------------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------- |
-| [account-authentication.md](./account-authentication.md) | 계정/인증        | id 체계, 이메일 인증, 로그인, 세션, 비밀번호, 회원가입 기본 단계                                         |
-| [access-eligibility.md](./access-eligibility.md)         | 이용 자격        | 누가 가입/매칭 참여 가능한지, 건물 배정 입력 의미, 건물/캠퍼스 변경 원칙                                 |
-| [season-lifecycle.md](./season-lifecycle.md)             | 시즌 운영        | 시즌 기간, 지원 건물, 시즌별 기능 on/off, 시즌 전환 데이터 처리                                          |
-| [season-participation.md](./season-participation.md)     | 시즌 참여        | 시즌 참여자 등록의 의미, `SeasonParticipantProfile` draft/final, registration 완료 조건, capability 용어 |
-| [profile-model.md](./profile-model.md)                   | 프로필 구조      | `UserDisplayIdentity`, `SeasonParticipantProfile`, profile history, 필드 레벨 노출                       |
-| [matching-lifecycle.md](./matching-lifecycle.md)         | 매칭 상태        | 호환도 계산, 신청/대화/확정 상태 전이, 북마크, 리스트 표현, 3인실 그룹 매칭                              |
-| [chat-lifecycle.md](./chat-lifecycle.md)                 | 채팅 상태        | 1:1 chat thread 생성/쓰기/read-only/archive, block/report/realtime/retention 경계                        |
-| [roommate-searching.md](./roommate-searching.md)         | 룸메이트 찾기 UX | 검색 scope, summary/detail/action capability, manifest/filter/sort/cursor 계약                           |
-| [service-boundary.md](./service-boundary.md)             | 서비스 책임 범위 | 채팅 포함 범위, 시스템 보장 한계, 면책, 분쟁 시 서비스 역할                                              |
-| [community-safety.md](./community-safety.md)             | 커뮤니티 안전    | 비속어/혐오 표현 필터, 개인정보 노출 가이드, 소수자 포용 원칙                                            |
-| [incident-enforcement.md](./incident-enforcement.md)     | 신고/제재 운영   | 신고 카테고리, 제재 사다리, 즉시 분리 트리거, 임시조치, 증거 판단, 고지 원칙                             |
-| [support-communication.md](./support-communication.md)   | 지원/문의        | support ticket, appeal, FAQ, email optional consent, support notification handoff                        |
-| [notification-inbox.md](./notification-inbox.md)         | 알림함           | in-app notification, writer/outbox, payload privacy, delivery channel 경계                               |
-| [data-retention.md](./data-retention.md)                 | 데이터 보유기간  | 데이터 분류별 보유기간, 파기 절차, 탈퇴 시 처리, 법적 근거                                               |
-| [legal-basis.md](./legal-basis.md)                       | 법적 근거        | 적용 법령 계층 구조, 서비스 행위별 법령 매핑, 접속기록 규율 대상 구분                                    |
+| 문서                                                                           | 도메인           | 최종 소유 규칙                                                                                           |
+| ------------------------------------------------------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------- |
+| [account-authentication.md](./account-authentication.md)                       | 계정/인증        | id 체계, 이메일 인증, 로그인, 세션, 비밀번호, 회원가입 기본 단계                                         |
+| [access-eligibility.md](./access-eligibility.md)                               | 이용 자격        | 누가 가입/매칭 참여 가능한지, 건물 배정 입력 의미, 건물/캠퍼스 변경 원칙                                 |
+| [season-lifecycle.md](./season-lifecycle.md)                                   | 시즌 운영        | 시즌 기간, 지원 건물, 시즌별 기능 on/off, 시즌 전환 데이터 처리                                          |
+| [season-participation.md](./season-participation.md)                           | 시즌 참여        | 시즌 참여자 등록의 의미, `SeasonParticipantProfile` draft/final, registration 완료 조건, capability 용어 |
+| [profile-model.md](./profile-model.md)                                         | 프로필 구조      | `UserDisplayIdentity`, `SeasonParticipantProfile`, profile history, 필드 레벨 노출                       |
+| [matching-lifecycle.md](./matching-lifecycle.md)                               | 매칭 상태        | 호환도 계산, 신청/대화/확정 상태 전이, 북마크, 리스트 표현, 3인실 그룹 매칭                              |
+| [chat-lifecycle.md](./chat-lifecycle.md)                                       | 채팅 상태        | 1:1 chat thread 생성/쓰기/read-only/archive, block/report/realtime/retention 경계                        |
+| [roommate-searching.md](./roommate-searching.md)                               | 룸메이트 찾기 UX | 검색 scope, summary/detail/action capability, manifest/filter/sort/cursor 계약                           |
+| [service-boundary.md](./service-boundary.md)                                   | 서비스 책임 범위 | 채팅 포함 범위, 시스템 보장 한계, 면책, 분쟁 시 서비스 역할                                              |
+| [community-safety.md](./community-safety.md)                                   | 커뮤니티 안전    | 비속어/혐오 표현 필터, 개인정보 노출 가이드, 소수자 포용 원칙                                            |
+| [incident-enforcement.md](./incident-enforcement.md)                           | 신고/제재 운영   | 신고 카테고리, 제재 사다리, 즉시 분리 트리거, 임시조치, 증거 판단, 고지 원칙                             |
+| [support-communication.md](./support-communication.md)                         | 지원/문의        | support ticket, appeal, FAQ, email optional consent, support notification handoff                        |
+| [runtime-observability-and-release.md](./runtime-observability-and-release.md) | 운영 관측/릴리즈 | 로그, 메트릭, 모니터링, stress test, release gate, 서버 스펙 선택 기준                                   |
+| [notification-inbox.md](./notification-inbox.md)                               | 알림함           | in-app notification, writer/outbox, payload privacy, delivery channel 경계                               |
+| [data-retention.md](./data-retention.md)                                       | 데이터 보유기간  | 데이터 분류별 보유기간, 파기 절차, 탈퇴 시 처리, 법적 근거                                               |
+| [legal-basis.md](./legal-basis.md)                                             | 법적 근거        | 적용 법령 계층 구조, 서비스 행위별 법령 매핑, 접속기록 규율 대상 구분                                    |
 
 ## 정리 원칙
 
@@ -41,6 +42,7 @@
 11. **신고 카테고리·제재 사다리·증거 판단·임시조치·고지 원칙은 `incident-enforcement.md`가 단독 소유한다.**
 12. **support ticket, appeal, FAQ, 이메일 회신 동의는 `support-communication.md`가 단독 소유한다.**
 13. **알림함, notification writer/outbox payload privacy, Push 제외 경계는 `notification-inbox.md`가 단독 소유한다.**
+14. **운영 관측, 로그, 메트릭, stress/release gate, 서버 스펙 선택 기준은 `runtime-observability-and-release.md`가 단독 소유한다.**
 
 ## 원문과의 대응
 
@@ -88,12 +90,13 @@
 
 ## 문서 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                           | 관련 이슈                |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
-| 2026-06-08 | chat-lifecycle.md, support-communication.md, notification-inbox.md를 official policy set에 추가하고 chat/support/notification owner 경계를 정리했다 | #79 / #196 / #198 / #220 |
-| 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                 | #195                     |
-| 2026-05-25 | RRPD retained vault 관련 policy owner mapping을 추가하고, data-retention/legal/profile/matching/chat/incident/service-boundary의 책임 분리를 정리   | #195                     |
-| 2026-05-20 | #195 2026-05-20 결정에 맞춰 README의 기본 프로필/`LIMITED/FULL` 설명을 `SeasonParticipantProfile`과 capability 용어로 갱신                          | #195                     |
+| 날짜       | 변경 내용                                                                                                                                           | 관련 이슈                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| 2026-06-13 | 운영 관측·로그·부하 테스트 정책 문서를 official policy set에 추가하고 runtime observability/release gate/server spec owner 경계를 정리했다          | logging-stress-test-infrastructure-plan |
+| 2026-06-08 | chat-lifecycle.md, support-communication.md, notification-inbox.md를 official policy set에 추가하고 chat/support/notification owner 경계를 정리했다 | #79 / #196 / #198 / #220                |
+| 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                 | #195                                    |
+| 2026-05-25 | RRPD retained vault 관련 policy owner mapping을 추가하고, data-retention/legal/profile/matching/chat/incident/service-boundary의 책임 분리를 정리   | #195                                    |
+| 2026-05-20 | #195 2026-05-20 결정에 맞춰 README의 기본 프로필/`LIMITED/FULL` 설명을 `SeasonParticipantProfile`과 capability 용어로 갱신                          | #195                                    |
 
 ## 사용 순서
 
@@ -111,5 +114,6 @@ Sprint 5 구현 이슈 생성 시에는 아래 순서로 읽는 것이 안전하
 10. `incident-enforcement.md`
 11. `support-communication.md`
 12. `notification-inbox.md`
-13. `data-retention.md`
-14. `legal-basis.md`
+13. `runtime-observability-and-release.md`
+14. `data-retention.md`
+15. `legal-basis.md`
