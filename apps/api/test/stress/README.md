@@ -15,9 +15,15 @@ apps/api/test/stress/
   safety/
     stress-target.guard.ts        # local/staging/production override guard
     stress-secret-redaction.ts    # report/log secret redaction helper
+  http/k6/
+    *.k6.js                       # k6 HTTP scenario scripts
+    k6-http-scenarios.ts          # Node-side scenario metadata/static validation
+    run-k6-scenario.mjs           # k6 CLI + summary parser runner
+  reports/
+    parse-k6-summary.ts           # k6 summary-export safe report parser
 ```
 
-Phase 5의 seed/reset runner는 **dry-run skeleton**이다. Prisma write/delete 연결은 후속 stress runtime phase에서 같은 guard와 marker-only scope 뒤에 붙인다.
+Phase 5의 seed/reset runner는 **dry-run skeleton**이다. Prisma write/delete 연결은 후속 stress runtime phase에서 같은 guard와 marker-only scope 뒤에 붙인다. Phase 6의 HTTP stress script는 k6 외부 CLI를 사용하며 npm dependency를 추가하지 않는다.
 
 ## Target guard
 
@@ -64,6 +70,13 @@ actor plan에는 seed에 필요한 email/password/token/session 값이 포함될
 pnpm --dir apps/api stress:fixture:plan
 STRESS_TARGET_URL=http://127.0.0.1:4000 pnpm --dir apps/api stress:fixture:seed
 STRESS_TARGET_URL=http://127.0.0.1:4000 pnpm --dir apps/api stress:fixture:reset
+
+STRESS_TARGET_URL=http://127.0.0.1:4000 pnpm --dir apps/api stress:http:smoke
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:baseline
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:peak
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:spike
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:soak
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:score-cohort
 ```
 
-`stress:fixture:seed`와 `stress:fixture:reset`은 Phase 5에서는 DB를 변경하지 않고 guarded dry-run summary만 출력한다.
+`stress:fixture:seed`와 `stress:fixture:reset`은 Phase 5에서는 DB를 변경하지 않고 guarded dry-run summary만 출력한다. `stress:http:*`는 `k6` CLI가 설치되어 있어야 실행되며, summary-export 결과를 safe report로 변환한다.

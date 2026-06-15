@@ -36,7 +36,13 @@
     "stress:fixture:plan": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' test/stress/fixtures/stress-fixture.plan.ts",
     "stress:fixture:seed": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' test/stress/fixtures/seed-stress-fixture.ts",
     "stress:fixture:reset": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' test/stress/fixtures/reset-stress-fixture.ts",
-    "test:stress": "vitest run --config ./vitest.config.stress.ts --maxWorkers=50%"
+    "test:stress": "vitest run --config ./vitest.config.stress.ts --maxWorkers=50%",
+    "stress:http:smoke": "node test/stress/http/k6/run-k6-scenario.mjs smoke",
+    "stress:http:baseline": "node test/stress/http/k6/run-k6-scenario.mjs baseline-250",
+    "stress:http:peak": "node test/stress/http/k6/run-k6-scenario.mjs peak-500",
+    "stress:http:spike": "node test/stress/http/k6/run-k6-scenario.mjs spike-500",
+    "stress:http:soak": "node test/stress/http/k6/run-k6-scenario.mjs soak-250",
+    "stress:http:score-cohort": "node test/stress/http/k6/run-k6-scenario.mjs score-cohort-946"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.26",
