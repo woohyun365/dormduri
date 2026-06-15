@@ -1,9 +1,11 @@
 import { Controller, Get, Header, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
+import { Public } from '../../../auth/access/auth-access.decorator.js';
 import { DEFAULT_METRICS_ROUTE } from '../../../config/observability.config.js';
 import { MetricsAuthGuard } from './metrics-auth.guard.js';
 import { PrometheusRegistryService } from './prometheus-registry.service.js';
 
+@Public()
 @Controller(DEFAULT_METRICS_ROUTE)
 @UseGuards(MetricsAuthGuard)
 export class MetricsController {

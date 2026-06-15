@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Response } from 'express';
+import { AUTH_ACCESS_METADATA_KEY } from '../../../auth/access/auth-access.decorator.js';
 import { MetricsController } from './metrics.controller.js';
 import type { PrometheusRegistryService } from './prometheus-registry.service.js';
 
 describe('MetricsController', () => {
+  it('bypasses the global authenticated-user guard so the metrics bearer guard owns access', () => {
+    expect(Reflect.getMetadata(AUTH_ACCESS_METADATA_KEY, MetricsController)).toBe('public');
+  });
+
   it('returns Prometheus text with registry content type', async () => {
     const type = vi.fn();
     const controller = new MetricsController({

@@ -4,8 +4,9 @@ services:
   prometheus:
     image: ${PROMETHEUS_IMAGE:-prom/prometheus:latest}
     restart: unless-stopped
-    command:
+    entrypoint:
       - /bin/sh
+    command:
       - /etc/prometheus/render-prometheus-config.sh
     environment:
       API_METRICS_SCHEME: ${API_METRICS_SCHEME:-http}

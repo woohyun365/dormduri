@@ -27,13 +27,13 @@ loki.source.docker "containers" {
 loki.process "api_json" {
   stage.json {
     expressions = {
-      level = "level"
+      level = "level",
     }
   }
 
   stage.labels {
     values = {
-      level = "level"
+      level = "level",
     }
   }
 

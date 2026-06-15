@@ -122,10 +122,14 @@ describe('observability infra', () => {
   });
 
   it('configures Prometheus to scrape the API internal metrics endpoint with a token file', () => {
+    const compose = readInfraFile('docker-compose.observability.yml');
     const prometheusConfig = readInfraFile('prometheus/prometheus.yml');
     const renderScript = readInfraFile('prometheus/render-prometheus-config.sh');
     const rules = readInfraFile('prometheus/rules/api-alerts.yml');
 
+    expect(compose).toContain('entrypoint:');
+    expect(compose).toContain('/bin/sh');
+    expect(compose).toContain('/etc/prometheus/render-prometheus-config.sh');
     expect(prometheusConfig).toContain('job_name: api');
     expect(prometheusConfig).toContain('metrics_path: /internal/metrics');
     expect(prometheusConfig).toContain(
@@ -184,6 +188,7 @@ describe('observability infra', () => {
     expect(alloy).toContain('loki.source.docker');
     expect(alloy).toContain('loki.process');
     expect(alloy).toContain('stage.label_keep');
+    expect(alloy).toContain('level = "level",');
     expect(alloy).toContain('values = ["service", "env", "container", "level"]');
 
     for (const forbiddenLabelName of forbiddenLabelNames) {
