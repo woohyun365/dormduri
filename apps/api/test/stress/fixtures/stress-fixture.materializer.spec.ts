@@ -136,6 +136,34 @@ describe('stress fixture DB materializer', () => {
       }),
     );
     expect(prisma.seasonParticipantProfile.createMany).toHaveBeenCalled();
+    const profileCreateInput = vi.mocked(prisma.seasonParticipantProfile.createMany).mock
+      .calls[0]?.[0];
+    const profileRow = Array.isArray(profileCreateInput?.data)
+      ? profileCreateInput.data[0]
+      : profileCreateInput?.data;
+    const profileRows = (
+      Array.isArray(profileCreateInput?.data) ? profileCreateInput.data : []
+    ) as Array<Record<string, unknown>>;
+    expect(profileRow).toEqual(
+      expect.not.objectContaining({
+        seasonId: expect.anything(),
+      }),
+    );
+    expect(profileRows.map((row) => row['grade'])).toContain('4+');
+    expect(profileRows.every((row) => ['1', '2', '3', '4+'].includes(String(row['grade'])))).toBe(
+      true,
+    );
+
+    expect(prisma.seasonParticipantProfileHistory.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            participantId: 'stress-materializer-participant-0001',
+            seasonId: 'stress-season-local',
+          }),
+        ]),
+      }),
+    );
     expect(prisma.conversationThread.createMany).toHaveBeenCalled();
   });
 

@@ -316,6 +316,7 @@ export async function materializeStressFixture(
       data: plan.actors.map((actor) => ({
         id: `${actor.profileId}-history`,
         ...buildProfileRow(plan, actor, now),
+        seasonId: plan.season.id,
         registeredAtSnapshot: now,
         source: 'SEASON_REGISTRATION',
       })),
@@ -532,16 +533,20 @@ function buildProfileRow(plan: StressFixturePlan, actor: StressActorPlanRow, _no
   const lifestyle = toCompleteLifestyleColumnData(DEFAULT_LIFESTYLE);
   return {
     participantId: actor.participantId,
-    seasonId: plan.season.id,
     nicknameSnapshot: `스트레스${actor.index.toString().padStart(4, '0')}`,
     nicknameNormalizedSnapshot: `${plan.marker}-nickname-${actor.index.toString().padStart(4, '0')}`,
     ...lifestyle,
     intro: `부하 테스트용 소개 ${actor.index}`,
     collegeCode: collegeCode(plan.marker),
-    grade: String((actor.index % 4) + 1),
+    grade: gradeValueForActor(actor.index),
     mbti: ['INTJ', 'ENFP', 'ISTP', 'ISFJ'][actor.index % 4],
     birthYear: 2000 + (actor.index % 7),
   };
+}
+
+function gradeValueForActor(index: number) {
+  const grade = (index % 4) + 1;
+  return grade >= 4 ? '4+' : String(grade);
 }
 
 function buildBookmarkRows(plan: StressFixturePlan, now: Date) {

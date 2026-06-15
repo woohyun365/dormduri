@@ -18,18 +18,18 @@ describe('Artillery realtime stress scripts static contract', () => {
 
       expect(source).toContain('engine: socketio');
       expect(source).toContain("processor: './processor.cjs'");
-      expect(source).toContain("target: '{{ $env.STRESS_TARGET_URL }}'");
+      expect(source).toContain("target: '{{ $env.STRESS_REALTIME_SOCKET_URL }}'");
     }
   });
 
-  it('Socket.IO /chat namespace와 handshake auth ticket flow만 사용한다', () => {
+  it('Socket.IO /chat namespace target과 handshake auth ticket flow만 사용한다', () => {
     for (const scenario of ARTILLERY_REALTIME_SCENARIOS) {
       const source = readScript(scenario.scriptFile);
 
-      expect(source).toContain("namespace: '/chat'");
-      expect(source).toContain("ticket: '{{ realtimeTicket }}'");
-      expect(source).toContain('captureRealtimeTicketResponse');
-      expect(source).toContain("url: '/api/chat/realtime/tickets'");
+      expect(source).toContain("target: '{{ $env.STRESS_REALTIME_SOCKET_URL }}'");
+      expect(source).toMatch(
+        /ticket:\s*'\{\{ (?:realtimeTicket|\$env\.STRESS_REALTIME_TICKET) \}\}'/u,
+      );
       expect(source).not.toMatch(/query:\s*.*ticket/iu);
       expect(source).not.toContain('Authorization:');
     }
@@ -39,15 +39,20 @@ describe('Artillery realtime stress scripts static contract', () => {
     for (const scenario of ARTILLERY_REALTIME_SCENARIOS) {
       const source = readScript(scenario.scriptFile);
 
-      expect(source).toContain("channel: 'chat.thread.subscribe'");
-      expect(source).toContain('recordRealtimeSubscribeAttempt');
-      expect(source).toContain('recordRealtimeSubscribeAck');
-      expect(source).toContain("channel: 'chat.thread.unsubscribe'");
-      expect(source).toContain('acknowledge:');
+      expect(source).toMatch(/chat\.thread\.subscribe|emitRealtimeSubscribe/u);
       expect(source).not.toContain("channel: 'chat.message.created'");
       expect(source).not.toContain("url: '/api/chat/messages'");
       expect(source).not.toContain("url: '/api/chat/threads/{{ threadId }}/read-marker'");
     }
+  });
+
+  it('local smoke는 pre-issued one-time ticket을 env로 넘겨 실제 handshake 전에 사용할 수 있다', () => {
+    const source = readScript('smoke.yml');
+
+    expect(source).toContain("ticket: '{{ $env.STRESS_REALTIME_TICKET }}'");
+    expect(source).toContain("threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'");
+    expect(source).not.toContain('payload:');
+    expect(source).toContain('maxVusers: 1');
   });
 
   it('runner는 외부 Artillery CLI와 token artifact, target guard를 요구한다', () => {
@@ -56,6 +61,11 @@ describe('Artillery realtime stress scripts static contract', () => {
     expect(source).toContain("spawnSync('artillery', ['version']");
     expect(source).toContain('STRESS_ACTOR_TOKENS_PATH');
     expect(source).toContain('STRESS_ARTILLERY_ACTOR_CSV_PATH');
+    expect(source).toContain('STRESS_REALTIME_TICKET');
+    expect(source).toContain('STRESS_REALTIME_THREAD_ID');
+    expect(source).toContain('STRESS_REALTIME_SOCKET_URL');
+    expect(source).toContain('/api/chat/realtime/tickets');
+    expect(source).toContain('Only the smoke realtime scenario is executable in Phase 7-1');
     expect(source).toContain('STRESS_ALLOW_PRODUCTION');
     expect(source).toContain('STRESS_ALLOWED_HOSTS');
     expect(source).toContain('parse-artillery-summary.ts');

@@ -24,7 +24,7 @@ apps/api/test/stress/
     run-k6-scenario.mjs           # k6 CLI + summary parser runner
   realtime/artillery/
     *.yml                         # Artillery Socket.IO scenario scripts
-    processor.cjs                 # ticket issue + subscribe ack metric hooks
+    processor.cjs                 # redaction + optional ticket/ack helper hooks
     run-artillery-scenario.mjs    # Artillery CLI + summary parser runner
   reports/
     parse-k6-summary.ts           # k6 summary-export safe report parser
@@ -43,7 +43,7 @@ Seed/reset runner는 기본적으로 **dry-run**이다. `STRESS_FIXTURE_APPLY=I_
 - `STRESS_ALLOW_PRODUCTION`: production-like host 또는 `NODE_ENV=production` 실행은 `I_UNDERSTAND` 값 없이는 실패한다. 단, fixture DB mutation은 production override가 있어도 계속 거부된다.
 - `STRESS_FIXTURE_APPLY`: `I_UNDERSTAND_STAGING_FIXTURE`일 때만 local/staging DB seed/reset/token login artifact 생성을 허용한다.
 - `STRESS_ACTOR_TOKENS_PATH`: k6가 읽을 actor token artifact 경로. 기본 생성 경로는 `test/stress/reports/.tmp-stress-actor-tokens.json`이다.
-- `STRESS_TOKEN_ACTOR_LIMIT`: token artifact에 로그인시킬 actor 수. 기본 32명이다.
+- `STRESS_TOKEN_ACTOR_LIMIT`: token artifact에 로그인시킬 actor 수. 기본 32명이다. local smoke에서는 `/api/auth/login` throttle을 피하기 위해 `3`처럼 작게 시작한다.
 
 기본 허용 대상은 localhost, `host.docker.internal`, RFC1918 private IPv4, 또는 `STRESS_ALLOWED_HOSTS`에 명시된 host다. public/production-like host는 explicit override 없이는 거부된다.
 
@@ -111,7 +111,7 @@ pnpm --dir apps/api stress:fixture:seed
 
 STRESS_TARGET_URL=http://127.0.0.1:4000 \
 STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE \
-STRESS_TOKEN_ACTOR_LIMIT=32 \
+STRESS_TOKEN_ACTOR_LIMIT=3 \
 pnpm --dir apps/api stress:fixture:tokens
 
 STRESS_TARGET_URL=http://127.0.0.1:4000 \
@@ -119,7 +119,7 @@ STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE \
 pnpm --dir apps/api stress:fixture:reset
 ```
 
-`stress:fixture:tokens`는 `/auth/login`을 호출해 access token artifact를 만들며, 파일은 `.tmp-*` local artifact로 git에 포함하지 않는다.
+`stress:fixture:tokens`는 `/auth/login`을 호출해 access token artifact를 만들며, 파일은 `.tmp-*` local artifact로 git에 포함하지 않는다. local 기본 throttling에서는 같은 IP의 짧은 시간 대량 로그인이 429가 될 수 있으므로 smoke는 `STRESS_TOKEN_ACTOR_LIMIT=3`으로 시작하고, 큰 cohort token 생성은 rate-limit window를 고려해 별도 runner에서 수행한다.
 
 ## Commands
 
@@ -135,8 +135,6 @@ STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:soak
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:score-cohort
 STRESS_TARGET_URL=http://127.0.0.1:4000 STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json pnpm --dir apps/api stress:realtime:smoke
-STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json pnpm --dir apps/api stress:realtime:baseline
-STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json pnpm --dir apps/api stress:realtime:peak
 ```
 
-`stress:fixture:seed`와 `stress:fixture:reset`은 기본값에서는 DB를 변경하지 않고 guarded dry-run summary만 출력한다. 인증 기반 mix를 실행하려면 local/staging DB에 fixture를 seed하고 `stress:fixture:tokens`로 만든 artifact 경로를 `STRESS_ACTOR_TOKENS_PATH`에 지정한다. `stress:http:*`는 `k6` CLI가 설치되어 있어야 실행되며, summary-export 결과를 safe report로 변환한다. `stress:realtime:*`는 Artillery CLI와 actor token artifact가 있어야 실행되며, Socket.IO ticket/subscribe 결과를 safe report로 변환한다.
+`stress:fixture:seed`와 `stress:fixture:reset`은 기본값에서는 DB를 변경하지 않고 guarded dry-run summary만 출력한다. 인증 기반 mix를 실행하려면 local/staging DB에 fixture를 seed하고 `stress:fixture:tokens`로 만든 artifact 경로를 `STRESS_ACTOR_TOKENS_PATH`에 지정한다. `stress:http:*`는 `k6` CLI가 설치되어 있어야 실행되며, summary-export 결과를 safe report로 변환한다. `STRESS_ACTOR_TOKENS_PATH`는 runner가 API root 기준 절대 경로로 정규화하므로 위처럼 상대 경로로 줄 수 있다. `stress:realtime:smoke`는 Artillery CLI와 actor token artifact가 있어야 실행되며, one-time realtime ticket을 runner가 사전 발급해 Socket.IO handshake auth에 주입한다. 대규모 realtime baseline/peak는 ticket-per-VU 발급/분배 전략이 별도로 필요하므로 release gate에서 다룬다.

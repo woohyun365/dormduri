@@ -1,5 +1,5 @@
 config:
-  target: '{{ $env.STRESS_TARGET_URL }}'
+  target: '{{ $env.STRESS_REALTIME_SOCKET_URL }}'
   processor: './processor.cjs'
   payload:
     path: '{{ $env.STRESS_ARTILLERY_ACTOR_CSV_PATH }}'
@@ -9,7 +9,7 @@ config:
       - participantId
       - targetUserId
       - threadId
-      - accessToken
+      - realtimeTicket
     order: sequence
     skipHeader: true
     cast: false
@@ -24,8 +24,8 @@ config:
       maxVusers: 250
   socketio:
     path: '/socket.io'
-    transports:
-      - websocket
+    extraHeaders:
+      Origin: '{{ $env.STRESS_REALTIME_ORIGIN }}'
     auth:
       ticket: '{{ realtimeTicket }}'
 scenarios:
@@ -33,30 +33,7 @@ scenarios:
     engine: socketio
     beforeScenario: validateRealtimeScenario
     flow:
-      - post:
-          url: '/api/chat/realtime/tickets'
-          beforeRequest: setRealtimeTicketRequest
-          afterResponse: captureRealtimeTicketResponse
-      - function: recordRealtimeSubscribeAttempt
-      - namespace: '/chat'
-        emit:
-          channel: 'chat.thread.subscribe'
-          data:
-            threadId: '{{ threadId }}'
-        acknowledge:
-          match:
-            json: '$.ok'
-            value: true
-      - function: recordRealtimeSubscribeAck
+      - function: emitRealtimeSubscribe
       - think: 15
-      - function: recordRealtimeUnsubscribeAttempt
-      - namespace: '/chat'
-        emit:
-          channel: 'chat.thread.unsubscribe'
-          data:
-            threadId: '{{ threadId }}'
-        acknowledge:
-          match:
-            json: '$.ok'
-            value: true
+      - function: emitRealtimeUnsubscribe
       - function: recordRealtimeDisconnect

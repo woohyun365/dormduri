@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const validScenarios = new Set(['smoke', 'baseline-250', 'peak-500']);
@@ -30,6 +30,8 @@ const actorCsvPath = resolve(
     `test/stress/reports/.tmp-${scenario}-artillery-actors.csv`,
 );
 const parserPath = resolve(apiRoot, 'test/stress/reports/parse-artillery-summary.ts');
+let stressTarget;
+let realtimeSmokeEnv = {};
 
 if (!existsSync(scriptPath)) {
   console.error(`Artillery realtime scenario script does not exist: ${scriptPath}`);
@@ -37,12 +39,14 @@ if (!existsSync(scriptPath)) {
 }
 
 try {
-  assertStressTargetAllowed(process.env);
-  writeRealtimeActorCsv({
+  stressTarget = assertStressTargetAllowed(process.env);
+  realtimeSmokeEnv = await prepareRealtimeSmokeEnvironment({
     artifactPath: process.env.STRESS_ACTOR_TOKENS_PATH
       ? resolve(apiRoot, process.env.STRESS_ACTOR_TOKENS_PATH)
       : '',
     csvPath: actorCsvPath,
+    targetUrl: stressTarget.targetUrl,
+    scenarioName: scenario,
   });
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
@@ -64,7 +68,10 @@ const artilleryRun = spawnSync('artillery', ['run', '--output', summaryPath, scr
   stdio: 'inherit',
   env: {
     ...process.env,
-    STRESS_ARTILLERY_ACTOR_CSV_PATH: actorCsvPath,
+    ...realtimeSmokeEnv,
+    STRESS_REALTIME_ORIGIN: process.env.STRESS_REALTIME_ORIGIN || stressTarget.origin,
+    STRESS_REALTIME_SOCKET_URL:
+      process.env.STRESS_REALTIME_SOCKET_URL || resolveRealtimeSocketUrl(stressTarget.targetUrl),
   },
 });
 const artilleryExitCode = typeof artilleryRun.status === 'number' ? artilleryRun.status : 1;
@@ -102,7 +109,13 @@ if (typeof parserRun.status === 'number') {
 console.error(`Failed to parse Artillery summary via ${pathToFileURL(parserPath).href}`);
 process.exit(1);
 
-function writeRealtimeActorCsv({ artifactPath, csvPath }) {
+async function prepareRealtimeSmokeEnvironment({ artifactPath, csvPath, targetUrl, scenarioName }) {
+  if (scenarioName !== 'smoke') {
+    throw new Error(
+      'Only the smoke realtime scenario is executable in Phase 7-1. baseline-250/peak-500 need a separate approved runner because chat realtime tickets are one-time handshake credentials and Artillery opens sockets before per-row payload values can be applied to auth.',
+    );
+  }
+
   if (!artifactPath || !existsSync(artifactPath)) {
     throw new Error(
       'STRESS_ACTOR_TOKENS_PATH must point to an existing local/staging token artifact before realtime stress runs.',
@@ -128,25 +141,51 @@ function writeRealtimeActorCsv({ artifactPath, csvPath }) {
   }
 
   mkdirSync(dirname(csvPath), { recursive: true });
+  const actor = chatActors[0];
+  const realtimeTicket = await issueRealtimeTicket({
+    actor,
+    targetUrl,
+  });
   writeFileSync(
     csvPath,
     [
-      'actorId,userId,participantId,targetUserId,threadId,accessToken',
-      ...chatActors.map((actor) =>
-        [
-          actor.actorId,
-          actor.userId,
-          actor.participantId,
-          actor.targetUserId,
-          actor.threadId,
-          actor.accessToken,
-        ]
-          .map(csvEscape)
-          .join(','),
-      ),
+      'actorId,userId,participantId,targetUserId,threadId',
+      [actor.actorId, actor.userId, actor.participantId, actor.targetUserId, actor.threadId]
+        .map(csvEscape)
+        .join(','),
     ].join('\n') + '\n',
     { mode: 0o600 },
   );
+
+  return {
+    STRESS_ARTILLERY_ACTOR_CSV_PATH: relative(dirname(scriptPath), csvPath),
+    STRESS_REALTIME_TICKET: realtimeTicket,
+    STRESS_REALTIME_THREAD_ID: actor.threadId,
+  };
+}
+
+async function issueRealtimeTicket({ actor, targetUrl }) {
+  const response = await fetch(`${targetUrl.href.replace(/\/$/u, '')}/api/chat/realtime/tickets`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${actor.accessToken}`,
+      'User-Agent': 'knu-roommate-artillery-realtime-stress-preflight',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Realtime ticket preflight failed with HTTP ${response.status}. Wait for local/staging rate-limit windows to reset before rerunning realtime smoke.`,
+    );
+  }
+
+  const body = await response.json();
+  if (!body || typeof body.ticket !== 'string' || !body.ticket) {
+    throw new Error('Realtime ticket preflight response did not contain ticket.');
+  }
+
+  return body.ticket;
 }
 
 function assertStressTargetAllowed(env) {
@@ -181,6 +220,19 @@ function assertStressTargetAllowed(env) {
       `Realtime stress target ${hostname} is production-like or not allowlisted. Set STRESS_ALLOWED_HOSTS for staging/private targets or STRESS_ALLOW_PRODUCTION=${productionOverrideValue} for an approved run.`,
     );
   }
+
+  return {
+    targetUrl: url,
+    origin: url.origin,
+  };
+}
+
+function resolveRealtimeSocketUrl(targetUrl) {
+  const socketUrl = new URL(targetUrl.href);
+  socketUrl.pathname = `${socketUrl.pathname.replace(/\/$/u, '')}/chat`;
+  socketUrl.search = '';
+  socketUrl.hash = '';
+  return socketUrl.href;
 }
 
 function parseAllowedHosts(input) {

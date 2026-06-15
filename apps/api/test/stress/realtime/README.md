@@ -5,7 +5,7 @@
 ## 책임 경계
 
 - k6 HTTP stress: `/health`, search/profile/match/chat/support/report 같은 HTTP request/transaction latency를 검증한다.
-- Artillery realtime stress: `/api/chat/realtime/tickets`로 one-time ticket을 발급하고 Socket.IO `/chat` namespace에 연결한 뒤 `chat.thread.subscribe`/`chat.thread.unsubscribe` ack latency와 failure budget을 검증한다.
+- Artillery realtime smoke: `/api/chat/realtime/tickets`로 one-time ticket을 사전 발급하고 Socket.IO `/chat` namespace에 연결한 뒤 `chat.thread.subscribe`/`chat.thread.unsubscribe` ack latency와 failure budget을 검증한다.
 - message send/read-marker write는 기본 realtime scenario에 넣지 않는다. 해당 write-heavy path는 k6 HTTP opt-in mix가 담당한다.
 
 ## 실행 전 조건
@@ -30,21 +30,16 @@ STRESS_TARGET_URL=http://127.0.0.1:4000 \
 STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json \
 pnpm --dir apps/api stress:realtime:smoke
 
-STRESS_TARGET_URL=https://staging.example.internal \
-STRESS_ALLOWED_HOSTS=staging.example.internal \
-STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json \
-pnpm --dir apps/api stress:realtime:baseline
-
-STRESS_TARGET_URL=https://staging.example.internal \
-STRESS_ALLOWED_HOSTS=staging.example.internal \
-STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json \
-pnpm --dir apps/api stress:realtime:peak
 ```
+
+`stress:realtime:smoke`는 runner가 token artifact의 chat actor 1명을 선택하고 one-time ticket 1개를 발급한 뒤 `STRESS_REALTIME_TICKET`/`STRESS_REALTIME_THREAD_ID`를 child Artillery process 환경변수로만 전달한다. Artillery Socket.IO engine은 handshake를 flow step보다 먼저 열기 때문에, per-row payload의 `realtimeTicket`을 handshake auth에 쓰는 방식은 smoke 기준으로 사용하지 않는다. `baseline-250.yml`/`peak-500.yml`은 target shape template이며, 실제 대규모 실행은 ticket-per-VU 발급/분배 전략을 release gate에서 확정한 뒤 수행한다.
 
 ## Safety
 
 - runner는 public/production-like host를 기본 거부한다.
 - token artifact가 없거나 chat thread id를 가진 actor가 없으면 실행하지 않는다.
-- runner가 token artifact를 Artillery CSV로 변환하지만, 결과 파일은 `reports/.tmp-*` ignored artifact다.
+- runner가 token artifact에서 actor metadata CSV를 만들지만, realtime ticket은 CSV에 쓰지 않는다. 결과 파일은 `reports/.tmp-*` ignored artifact다.
 - report/parser/processor output은 raw access token, realtime ticket, cookie를 남기지 않는다.
 - Socket.IO ticket은 URL query가 아니라 handshake `auth.ticket`으로 전달한다.
+- `STRESS_REALTIME_SOCKET_URL`을 지정하지 않으면 `$STRESS_TARGET_URL/chat`을 사용한다.
+- `STRESS_REALTIME_ORIGIN`을 지정하지 않으면 `$STRESS_TARGET_URL` origin을 사용한다.

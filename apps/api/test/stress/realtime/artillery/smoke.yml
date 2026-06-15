@@ -1,58 +1,34 @@
 config:
-  target: '{{ $env.STRESS_TARGET_URL }}'
+  target: '{{ $env.STRESS_REALTIME_SOCKET_URL }}'
   processor: './processor.cjs'
-  payload:
-    path: '{{ $env.STRESS_ARTILLERY_ACTOR_CSV_PATH }}'
-    fields:
-      - actorId
-      - userId
-      - participantId
-      - targetUserId
-      - threadId
-      - accessToken
-    order: sequence
-    skipHeader: true
-    cast: false
   phases:
     - name: realtime smoke
-      duration: 30
+      duration: 1
       arrivalRate: 1
-      maxVusers: 2
+      maxVusers: 1
   socketio:
     path: '/socket.io'
-    transports:
-      - websocket
+    extraHeaders:
+      Origin: '{{ $env.STRESS_REALTIME_ORIGIN }}'
     auth:
-      ticket: '{{ realtimeTicket }}'
+      ticket: '{{ $env.STRESS_REALTIME_TICKET }}'
 scenarios:
   - name: chat realtime smoke
     engine: socketio
-    beforeScenario: validateRealtimeScenario
     flow:
-      - post:
-          url: '/api/chat/realtime/tickets'
-          beforeRequest: setRealtimeTicketRequest
-          afterResponse: captureRealtimeTicketResponse
-      - function: recordRealtimeSubscribeAttempt
-      - namespace: '/chat'
-        emit:
+      - emit:
           channel: 'chat.thread.subscribe'
           data:
-            threadId: '{{ threadId }}'
+            threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'
         acknowledge:
-          match:
-            json: '$.ok'
-            value: true
-      - function: recordRealtimeSubscribeAck
-      - think: 1
-      - function: recordRealtimeUnsubscribeAttempt
-      - namespace: '/chat'
-        emit:
+          data:
+            ok: true
+            threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'
+      - emit:
           channel: 'chat.thread.unsubscribe'
           data:
-            threadId: '{{ threadId }}'
+            threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'
         acknowledge:
-          match:
-            json: '$.ok'
-            value: true
-      - function: recordRealtimeDisconnect
+          data:
+            ok: true
+            threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'

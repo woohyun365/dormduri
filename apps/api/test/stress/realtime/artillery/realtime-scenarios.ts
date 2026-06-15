@@ -16,7 +16,7 @@ export const ARTILLERY_REALTIME_SCENARIOS: readonly ArtilleryRealtimeScenarioDef
   {
     name: 'smoke',
     scriptFile: 'smoke.yml',
-    defaultDurationSeconds: 30,
+    defaultDurationSeconds: 1,
     arrivalRate: 1,
     maxSockets: 2,
     targetProfile: 'local',

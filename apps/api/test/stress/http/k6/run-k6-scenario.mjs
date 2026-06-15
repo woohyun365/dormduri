@@ -28,6 +28,7 @@ const summaryPath = resolve(
   process.env.STRESS_K6_SUMMARY_PATH || `test/stress/reports/.tmp-${scenario}-summary.json`,
 );
 const parserPath = resolve(apiRoot, 'test/stress/reports/parse-k6-summary.ts');
+const k6Env = normalizeK6Environment(process.env);
 
 if (!existsSync(scriptPath)) {
   console.error(`k6 scenario script does not exist: ${scriptPath}`);
@@ -46,7 +47,7 @@ mkdirSync(dirname(summaryPath), { recursive: true });
 
 const k6Run = spawnSync('k6', ['run', '--summary-export', summaryPath, scriptPath], {
   stdio: 'inherit',
-  env: process.env,
+  env: k6Env,
 });
 const k6ExitCode = typeof k6Run.status === 'number' ? k6Run.status : 1;
 
@@ -72,7 +73,7 @@ const parserRun = spawnSync(
   {
     cwd: apiRoot,
     stdio: 'inherit',
-    env: process.env,
+    env: k6Env,
   },
 );
 
@@ -82,3 +83,14 @@ if (typeof parserRun.status === 'number') {
 
 console.error(`Failed to parse k6 summary via ${pathToFileURL(parserPath).href}`);
 process.exit(1);
+
+function normalizeK6Environment(env) {
+  if (!env.STRESS_ACTOR_TOKENS_PATH || env.STRESS_ACTOR_TOKENS_PATH.startsWith('/')) {
+    return env;
+  }
+
+  return {
+    ...env,
+    STRESS_ACTOR_TOKENS_PATH: resolve(apiRoot, env.STRESS_ACTOR_TOKENS_PATH),
+  };
+}
