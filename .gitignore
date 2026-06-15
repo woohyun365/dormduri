@@ -67,6 +67,9 @@ REFACTOR-ANALYZE.md
 
 ## OS/기타
 .DS_Store
+# Deploy template files are safe to commit; local copies/secrets stay ignored.
+!infra/deploy/.env.api.example
+infra/deploy/.env.api
 # Observability template files are safe to commit; local copies/secrets stay ignored.
 !infra/observability/.env.observability.example
 infra/observability/.env.observability
