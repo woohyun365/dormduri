@@ -67,3 +67,8 @@ REFACTOR-ANALYZE.md
 
 ## OS/기타
 .DS_Store
+# Observability template files are safe to commit; local copies/secrets stay ignored.
+!infra/observability/.env.observability.example
+infra/observability/.env.observability
+infra/observability/prometheus/secrets/*
+!infra/observability/prometheus/secrets/*.example

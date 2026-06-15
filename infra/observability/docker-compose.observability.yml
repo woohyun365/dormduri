@@ -1,0 +1,88 @@
+name: knu-roommate-observability
+
+services:
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:latest}
+    restart: unless-stopped
+    command:
+      - /bin/sh
+      - /etc/prometheus/render-prometheus-config.sh
+    environment:
+      API_METRICS_SCHEME: ${API_METRICS_SCHEME:-http}
+      API_METRICS_TARGET: ${API_METRICS_TARGET:-host.docker.internal:4000}
+      OBSERVABILITY_ENV: ${OBSERVABILITY_ENV:-local}
+      PROMETHEUS_RETENTION: ${PROMETHEUS_RETENTION:-15d}
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.template:ro
+      - ./prometheus/render-prometheus-config.sh:/etc/prometheus/render-prometheus-config.sh:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ${API_METRICS_BEARER_TOKEN_FILE:-./prometheus/secrets/api-metrics-bearer-token.example}:/etc/prometheus/secrets/api-metrics-bearer-token:ro
+      - prometheus-data:/prometheus
+    ports:
+      - 127.0.0.1:${PROMETHEUS_PORT:-9090}:9090
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - observability
+
+  loki:
+    image: ${LOKI_IMAGE:-grafana/loki:latest}
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+    ports:
+      - 127.0.0.1:${LOKI_PORT:-3100}:3100
+    networks:
+      - observability
+
+  alloy:
+    image: ${ALLOY_IMAGE:-grafana/alloy:latest}
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    ports:
+      - 127.0.0.1:${ALLOY_PORT:-12345}:12345
+    depends_on:
+      - loki
+    networks:
+      - observability
+
+  grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana:latest}
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-local-only}
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - 127.0.0.1:${GRAFANA_PORT:-3001}:3000
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - observability
+
+networks:
+  observability:
+    name: ${OBSERVABILITY_NETWORK:-knu-roommate-observability}
+
+volumes:
+  prometheus-data:
+  loki-data:
+  alloy-data:
+  grafana-data:

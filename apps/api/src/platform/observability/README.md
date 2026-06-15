@@ -75,3 +75,8 @@ source-of-truth로 유지한다. Prometheus bridge는 운영 scrape surface일 �
 - Phase 1: logging foundation, request correlation, redaction, exception/prisma pool error logging.
 - Phase 2: `/internal/metrics`, Prometheus registry, bounded platform HTTP/exception metrics.
 - Phase 3: domain metrics bridge와 domain operation metric/log touch point.
+
+## Infra stack
+
+Local/staging Prometheus, Grafana, Loki, Alloy 구성은 repo root의 `infra/observability`가 소유한다.
+API code는 `/internal/metrics`와 JSON stdout log만 제공하고, stack 실행/노출/secret 관리는 infra runbook에서 다룬다.

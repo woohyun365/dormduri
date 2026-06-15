@@ -1,0 +1,70 @@
+groups:
+  - name: knu-roommate-api-observability
+    rules:
+      - alert: ApiHigh5xxRate
+        expr: |
+          sum(rate(api_http_requests_total{status_class="5xx"}[5m]))
+          /
+          clamp_min(sum(rate(api_http_requests_total[5m])), 1) > 0.02
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: API 5xx 비율이 5분 동안 2%를 초과했습니다.
+          runbook: infra/observability/README.md#alert-rule
+
+      - alert: ApiP95LatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(api_http_request_duration_seconds_bucket[5m]))
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: API p95 latency가 5분 동안 1초를 초과했습니다.
+          runbook: infra/observability/README.md#alert-rule
+
+      - alert: RealtimeOutboxLagHigh
+        expr: max(api_realtime_dispatch_oldest_claimed_outbox_lag_seconds) > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: Realtime outbox oldest claimed lag가 30초를 초과했습니다.
+          runbook: infra/observability/README.md#alert-rule
+
+      - alert: PrismaPoolWaitingHigh
+        expr: max(api_prisma_pool_connections{state="waiting"}) > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: Prisma pg pool waiting connection이 관측되었습니다.
+          runbook: infra/observability/README.md#alert-rule
+
+      - alert: RetentionReviewBacklogHigh
+        expr: |
+          sum(api_retention_backlog_total{target="review_jobs",state=~"due|manual_review"}) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: Retention review backlog가 남아 있습니다.
+          runbook: infra/observability/README.md#alert-rule
+
+      - alert: AuthCleanupLagHigh
+        expr: api_auth_cleanup_lag_seconds > 300
+        for: 10m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: Auth operational cleanup lag가 5분을 초과했습니다.
+          runbook: infra/observability/README.md#alert-rule

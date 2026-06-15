@@ -1,0 +1,51 @@
+// Local/staging Docker log pipeline for KNU Roommate API.
+// Keep Loki labels low-cardinality: service/env/container/level only.
+// requestId, actorHash, threadId, email, raw path, and payload data remain JSON fields, not labels.
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+    replacement   = "$1"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  labels     = { "service" = "api", "env" = "local" }
+  forward_to = [loki.process.api_json.receiver]
+}
+
+loki.process "api_json" {
+  stage.json {
+    expressions = {
+      level = "level"
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "level"
+    }
+  }
+
+  stage.label_keep {
+    values = ["service", "env", "container", "level"]
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
