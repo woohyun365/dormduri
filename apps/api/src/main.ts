@@ -5,9 +5,11 @@ import type { Express } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import appConfig from './config/app.config.js';
+import { AppLoggerService } from './platform/observability/logging/app-logger.service.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(AppLoggerService));
   const expressApp = app.getHttpAdapter().getInstance() as Express;
   const appSettings = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
   expressApp.set('trust proxy', true);

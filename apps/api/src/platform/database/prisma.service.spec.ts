@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import { Prisma } from '../../generated/prisma/client.js';
-import { calculatePrismaConnectionPoolBudget, PrismaService } from './prisma.service.js';
+import {
+  calculatePrismaConnectionPoolBudget,
+  PrismaService,
+  recordPrismaConnectionAdapterError,
+} from './prisma.service.js';
+import type { AppLoggerService } from '../observability/logging/app-logger.service.js';
 
 type TransactionCallback = (tx: unknown) => Promise<unknown>;
 type TransactionOptions = { isolationLevel?: unknown };
@@ -79,5 +84,35 @@ describe('calculatePrismaConnectionPoolBudget', () => {
       ],
       alertAtEstimatedConnections: 24,
     });
+  });
+});
+
+describe('recordPrismaConnectionAdapterError', () => {
+  it('records pg adapter errors without dumping raw error details', () => {
+    const write = vi.fn();
+    const logger = {
+      write,
+    } as unknown as AppLoggerService;
+    const error = new Error('connection string postgresql://user:password@db leaked');
+
+    recordPrismaConnectionAdapterError(logger, {
+      error,
+      label: 'PrismaService',
+      operation: 'pg_pool_error',
+    });
+
+    expect(write).toHaveBeenCalledWith(
+      'error',
+      {
+        context: 'PrismaService',
+        domain: 'system',
+        errorName: 'Error',
+        operation: 'pg_pool_error',
+        outcome: 'failure',
+      },
+      'database connection adapter error',
+    );
+    expect(JSON.stringify(write.mock.calls)).not.toContain('postgresql://');
+    expect(JSON.stringify(write.mock.calls)).not.toContain('password');
   });
 });

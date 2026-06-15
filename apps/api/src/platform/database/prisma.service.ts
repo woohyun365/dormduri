@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
 import databaseConfig from '../../config/database.config.js';
+import { AppLoggerService } from '../observability/logging/app-logger.service.js';
 
 type DatabaseSettings = ConfigType<typeof databaseConfig>;
 
@@ -19,6 +20,27 @@ interface ManagedPrismaClientSettings {
   connectionString: string;
   schema: string | null;
   applicationName: string;
+}
+
+export function recordPrismaConnectionAdapterError(
+  logger: AppLoggerService,
+  input: {
+    error: unknown;
+    label: string;
+    operation: 'pg_pool_error' | 'pg_connection_error';
+  },
+): void {
+  logger.write(
+    'error',
+    {
+      context: input.label,
+      domain: 'system',
+      errorName: input.error instanceof Error ? input.error.name : 'UnknownError',
+      operation: input.operation,
+      outcome: 'failure',
+    },
+    'database connection adapter error',
+  );
 }
 
 export interface PrismaConnectionPoolBudget {
@@ -136,6 +158,7 @@ export abstract class ManagedPrismaClient
     databaseSettings: DatabaseSettings,
     role: PrismaConnectionRole,
     label: string,
+    logger: AppLoggerService,
   ) {
     const roleSettings = resolveManagedPrismaClientSettings(databaseSettings, role);
     const pool = new Pool({
@@ -163,10 +186,18 @@ export abstract class ManagedPrismaClient
         schema: roleSettings.schema ?? undefined,
         disposeExternalPool: false,
         onPoolError: (error) => {
-          console.error(`[${label}] pg pool error`, error);
+          recordPrismaConnectionAdapterError(logger, {
+            error,
+            label,
+            operation: 'pg_pool_error',
+          });
         },
         onConnectionError: (error) => {
-          console.error(`[${label}] pg connection error`, error);
+          recordPrismaConnectionAdapterError(logger, {
+            error,
+            label,
+            operation: 'pg_connection_error',
+          });
         },
       }),
       ...(queryLogEvents ? { log: queryLogEvents } : {}),
@@ -227,8 +258,9 @@ export class PrismaService extends ManagedPrismaClient {
   constructor(
     @Inject(databaseConfig.KEY)
     databaseSettings: DatabaseSettings,
+    logger: AppLoggerService,
   ) {
-    super(databaseSettings, 'runtime', PrismaService.name);
+    super(databaseSettings, 'runtime', PrismaService.name, logger);
   }
 }
 
@@ -237,8 +269,9 @@ export class RetentionWorkerPrismaService extends ManagedPrismaClient {
   constructor(
     @Inject(databaseConfig.KEY)
     databaseSettings: DatabaseSettings,
+    logger: AppLoggerService,
   ) {
-    super(databaseSettings, 'retention_worker', RetentionWorkerPrismaService.name);
+    super(databaseSettings, 'retention_worker', RetentionWorkerPrismaService.name, logger);
   }
 }
 
@@ -247,7 +280,8 @@ export class RetentionDisclosurePrismaService extends ManagedPrismaClient {
   constructor(
     @Inject(databaseConfig.KEY)
     databaseSettings: DatabaseSettings,
+    logger: AppLoggerService,
   ) {
-    super(databaseSettings, 'retention_disclosure', RetentionDisclosurePrismaService.name);
+    super(databaseSettings, 'retention_disclosure', RetentionDisclosurePrismaService.name, logger);
   }
 }

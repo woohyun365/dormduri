@@ -1,10 +1,12 @@
-import { Catch, type ArgumentsHost, ExceptionFilter, Logger } from '@nestjs/common';
+import { Catch, type ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { normalizeApiError } from './api-error.js';
+import { AppLoggerService } from '../observability/logging/app-logger.service.js';
+import { mapExceptionToLogEvent } from '../observability/logging/exception-log.mapper.js';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(ApiExceptionFilter.name);
+  constructor(private readonly logger: AppLoggerService) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -23,41 +25,16 @@ export class ApiExceptionFilter implements ExceptionFilter {
       ...normalized.extras,
     };
 
-    this.logException(
-      request,
-      normalized.statusCode,
-      normalized.code,
-      normalized.error,
-      normalized.stack,
-    );
+    this.logException(request, normalized);
     response.status(normalized.statusCode).json(body);
   }
 
-  private logException(
-    request: Request,
-    statusCode: number,
-    code: string,
-    error: string,
-    stack?: string,
-  ) {
-    const summary = JSON.stringify({
-      method: request.method,
-      path: request.originalUrl ?? request.url,
-      statusCode,
-      code,
-      error,
-    });
-
-    if (statusCode >= 500) {
-      this.logger.error(summary, stack);
-      return;
+  private logException(request: Request, normalized: ReturnType<typeof normalizeApiError>) {
+    const { event, level, message } = mapExceptionToLogEvent(request, normalized);
+    try {
+      this.logger.write(level, event, message);
+    } catch {
+      // Logging must never affect product error responses.
     }
-
-    if (statusCode === 401 || statusCode === 403 || statusCode === 429) {
-      this.logger.warn(summary);
-      return;
-    }
-
-    this.logger.log(summary);
   }
 }

@@ -39,6 +39,12 @@ import {
   DEFAULT_LIFECYCLE_SWEEP_INTERVAL_MS,
 } from './lifecycle.config.js';
 import {
+  DEFAULT_LOG_HASH_SECRET,
+  DEFAULT_LOG_LEVEL,
+  DEFAULT_LOG_PRETTY,
+  DEFAULT_OBSERVABILITY_SERVICE_NAME,
+} from './observability.config.js';
+import {
   CHAT_REALTIME_ALLOWED_ORIGINS_ENV,
   CHAT_REALTIME_TRUST_PROXY_ENV,
   DEFAULT_CHAT_REALTIME_DISPATCHER_BATCH_SIZE,
@@ -143,6 +149,25 @@ export const envValidationSchema = Joi.object({
     .falsy('off')
     .default(DEFAULT_PRISMA_QUERY_LOG_EVENTS),
   PORT: Joi.number().integer().min(1).default(DEFAULT_PORT),
+  OBSERVABILITY_SERVICE_NAME: Joi.string().trim().default(DEFAULT_OBSERVABILITY_SERVICE_NAME),
+  LOG_LEVEL: Joi.string().valid('debug', 'info', 'warn', 'error').default(DEFAULT_LOG_LEVEL),
+  LOG_HASH_SECRET: Joi.string()
+    .trim()
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.required(),
+      otherwise: Joi.string().trim().default(DEFAULT_LOG_HASH_SECRET),
+    }),
+  LOG_PRETTY: Joi.boolean()
+    .truthy('1')
+    .truthy('true')
+    .truthy('yes')
+    .truthy('on')
+    .falsy('0')
+    .falsy('false')
+    .falsy('no')
+    .falsy('off')
+    .default(DEFAULT_LOG_PRETTY),
   VERIFICATION_CODE_HMAC_SECRET: Joi.string()
     .trim()
     .when('NODE_ENV', {
