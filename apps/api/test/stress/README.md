@@ -22,11 +22,16 @@ apps/api/test/stress/
     *.k6.js                       # k6 HTTP scenario scripts
     k6-http-scenarios.ts          # Node-side scenario metadata/static validation
     run-k6-scenario.mjs           # k6 CLI + summary parser runner
+  realtime/artillery/
+    *.yml                         # Artillery Socket.IO scenario scripts
+    processor.cjs                 # ticket issue + subscribe ack metric hooks
+    run-artillery-scenario.mjs    # Artillery CLI + summary parser runner
   reports/
     parse-k6-summary.ts           # k6 summary-export safe report parser
+    parse-artillery-summary.ts    # Artillery summary safe report parser
 ```
 
-Seed/reset runner는 기본적으로 **dry-run**이다. `STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE`가 있을 때만 local/staging target에서 marker-only fixture row를 만들거나 지운다. Phase 6 HTTP stress script는 k6 외부 CLI를 사용하며 npm dependency를 추가하지 않는다. Production API host에는 k6를 설치하지 않고, local 개발 머신/CI/별도 runner에서 실행한다.
+Seed/reset runner는 기본적으로 **dry-run**이다. `STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE`가 있을 때만 local/staging target에서 marker-only fixture row를 만들거나 지운다. Phase 6 HTTP stress script는 k6 외부 CLI를 사용하며 npm dependency를 추가하지 않는다. Production API host에는 k6/Artillery를 설치하지 않고, local 개발 머신/CI/별도 runner에서 실행한다.
 
 ## Target guard
 
@@ -81,6 +86,17 @@ k6 version
 
 운영 API instance에 k6를 설치해서 자기 자신을 때리는 구조는 권장하지 않는다. Staging/release 부하는 CI 또는 별도 runner에서 `STRESS_TARGET_URL`을 지정해 실행한다.
 
+## Local Artillery CLI
+
+Realtime Socket.IO stress는 Artillery CLI를 외부 binary로 사용한다. 이 repo는 Artillery를 npm dependency로 추가하지 않는다.
+
+```bash
+npm install -g artillery@latest
+artillery version
+```
+
+운영 API instance에 Artillery를 설치해서 자기 자신을 때리는 구조는 권장하지 않는다. Staging/release 부하는 CI 또는 별도 runner에서 실행한다.
+
 ## Authenticated fixture flow
 
 ```bash
@@ -118,6 +134,9 @@ STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:spike
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:soak
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:score-cohort
+STRESS_TARGET_URL=http://127.0.0.1:4000 STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json pnpm --dir apps/api stress:realtime:smoke
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json pnpm --dir apps/api stress:realtime:baseline
+STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json pnpm --dir apps/api stress:realtime:peak
 ```
 
-`stress:fixture:seed`와 `stress:fixture:reset`은 기본값에서는 DB를 변경하지 않고 guarded dry-run summary만 출력한다. 인증 기반 mix를 실행하려면 local/staging DB에 fixture를 seed하고 `stress:fixture:tokens`로 만든 artifact 경로를 `STRESS_ACTOR_TOKENS_PATH`에 지정한다. `stress:http:*`는 `k6` CLI가 설치되어 있어야 실행되며, summary-export 결과를 safe report로 변환한다.
+`stress:fixture:seed`와 `stress:fixture:reset`은 기본값에서는 DB를 변경하지 않고 guarded dry-run summary만 출력한다. 인증 기반 mix를 실행하려면 local/staging DB에 fixture를 seed하고 `stress:fixture:tokens`로 만든 artifact 경로를 `STRESS_ACTOR_TOKENS_PATH`에 지정한다. `stress:http:*`는 `k6` CLI가 설치되어 있어야 실행되며, summary-export 결과를 safe report로 변환한다. `stress:realtime:*`는 Artillery CLI와 actor token artifact가 있어야 실행되며, Socket.IO ticket/subscribe 결과를 safe report로 변환한다.

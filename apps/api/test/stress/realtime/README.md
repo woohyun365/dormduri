@@ -1,0 +1,50 @@
+# Realtime stress scripts
+
+`apps/api/test/stress/realtime`는 Chat Socket.IO `/chat` namespace의 ticket 인증, socket connect, thread subscribe/unsubscribe ack를 Artillery 외부 CLI로 검증한다.
+
+## 책임 경계
+
+- k6 HTTP stress: `/health`, search/profile/match/chat/support/report 같은 HTTP request/transaction latency를 검증한다.
+- Artillery realtime stress: `/api/chat/realtime/tickets`로 one-time ticket을 발급하고 Socket.IO `/chat` namespace에 연결한 뒤 `chat.thread.subscribe`/`chat.thread.unsubscribe` ack latency와 failure budget을 검증한다.
+- message send/read-marker write는 기본 realtime scenario에 넣지 않는다. 해당 write-heavy path는 k6 HTTP opt-in mix가 담당한다.
+
+## 실행 전 조건
+
+1. API가 local/staging target에서 실행 중이어야 한다.
+2. `STRESS_TARGET_URL`을 지정한다.
+3. `stress:fixture:seed`와 `stress:fixture:tokens`로 actor token artifact를 만든다.
+4. `STRESS_ACTOR_TOKENS_PATH`가 `.tmp-*` token artifact를 가리켜야 한다.
+5. 로컬/CI/별도 runner에 Artillery CLI가 설치되어 있어야 한다.
+
+```bash
+npm install -g artillery@latest
+artillery version
+```
+
+운영 API instance에 Artillery를 설치해서 자기 자신을 때리는 구조는 권장하지 않는다. Staging/release 부하는 CI 또는 별도 runner에서 실행한다.
+
+## Commands
+
+```bash
+STRESS_TARGET_URL=http://127.0.0.1:4000 \
+STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json \
+pnpm --dir apps/api stress:realtime:smoke
+
+STRESS_TARGET_URL=https://staging.example.internal \
+STRESS_ALLOWED_HOSTS=staging.example.internal \
+STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json \
+pnpm --dir apps/api stress:realtime:baseline
+
+STRESS_TARGET_URL=https://staging.example.internal \
+STRESS_ALLOWED_HOSTS=staging.example.internal \
+STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json \
+pnpm --dir apps/api stress:realtime:peak
+```
+
+## Safety
+
+- runner는 public/production-like host를 기본 거부한다.
+- token artifact가 없거나 chat thread id를 가진 actor가 없으면 실행하지 않는다.
+- runner가 token artifact를 Artillery CSV로 변환하지만, 결과 파일은 `reports/.tmp-*` ignored artifact다.
+- report/parser/processor output은 raw access token, realtime ticket, cookie를 남기지 않는다.
+- Socket.IO ticket은 URL query가 아니라 handshake `auth.ticket`으로 전달한다.

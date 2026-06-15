@@ -1,0 +1,62 @@
+config:
+  target: '{{ $env.STRESS_TARGET_URL }}'
+  processor: './processor.cjs'
+  payload:
+    path: '{{ $env.STRESS_ARTILLERY_ACTOR_CSV_PATH }}'
+    fields:
+      - actorId
+      - userId
+      - participantId
+      - targetUserId
+      - threadId
+      - accessToken
+    order: sequence
+    skipHeader: true
+    cast: false
+  phases:
+    - name: realtime baseline warmup
+      duration: 60
+      arrivalRate: 5
+      rampTo: 25
+    - name: realtime baseline 250 sockets
+      duration: 300
+      arrivalRate: 25
+      maxVusers: 250
+  socketio:
+    path: '/socket.io'
+    transports:
+      - websocket
+    auth:
+      ticket: '{{ realtimeTicket }}'
+scenarios:
+  - name: chat realtime baseline
+    engine: socketio
+    beforeScenario: validateRealtimeScenario
+    flow:
+      - post:
+          url: '/api/chat/realtime/tickets'
+          beforeRequest: setRealtimeTicketRequest
+          afterResponse: captureRealtimeTicketResponse
+      - function: recordRealtimeSubscribeAttempt
+      - namespace: '/chat'
+        emit:
+          channel: 'chat.thread.subscribe'
+          data:
+            threadId: '{{ threadId }}'
+        acknowledge:
+          match:
+            json: '$.ok'
+            value: true
+      - function: recordRealtimeSubscribeAck
+      - think: 15
+      - function: recordRealtimeUnsubscribeAttempt
+      - namespace: '/chat'
+        emit:
+          channel: 'chat.thread.unsubscribe'
+          data:
+            threadId: '{{ threadId }}'
+        acknowledge:
+          match:
+            json: '$.ok'
+            value: true
+      - function: recordRealtimeDisconnect

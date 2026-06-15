@@ -57,7 +57,11 @@ export default defineConfig([
     ...tseslint.configs.disableTypeChecked,
   },
   {
-    files: ['test/stress/http/k6/**/*.js', 'test/stress/http/k6/**/*.mjs'],
+    files: [
+      'test/stress/http/k6/**/*.js',
+      'test/stress/http/k6/**/*.mjs',
+      'test/stress/realtime/artillery/**/*.mjs',
+    ],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {
       globals: {
