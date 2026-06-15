@@ -94,6 +94,18 @@ Alloy는 Docker stdout log를 수집하고 Docker compose service metadata를 Lo
 {service="alloy"}
 ```
 
+## Stress release gate에서 보는 법
+
+API stress release gate는 `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`를 기준으로 실행한다. 결과 공유는 `apps/api/test/stress/reports/report-template.md`를 복사해 safe metric과 dashboard readout만 채운다.
+
+Stress window 동안 우선 확인할 항목은 다음과 같다.
+
+- Prometheus `api` target이 `UP`인지 확인한다.
+- Grafana `KNU API Overview`에서 5xx rate, HTTP p95/p99 latency, in-flight request를 확인한다.
+- Grafana `KNU API Realtime/Auth/Retention`에서 realtime socket/rejection/outbox lag, auth cleanup lag, retention backlog를 확인한다.
+- Loki는 API가 Dockerized `api` service로 실행될 때 `{service="api", level="error"}`를 확인한다. Host process API는 Docker log source가 아니므로 Loki API log가 없을 수 있다.
+- 2GB instance에서는 observability stack을 같은 host에 상시 올리기보다 local/별도 ops host에서 rehearsal한다. 4GB instance는 API와 stack을 함께 띄우는 rehearsal에 더 안전하다.
+
 ## Label / privacy policy
 
 Loki label은 low-cardinality 값만 허용한다.

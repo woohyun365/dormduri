@@ -6,6 +6,12 @@ const apiRoot = process.cwd();
 const repoRoot = join(apiRoot, '../..');
 const observabilityRoot = join(repoRoot, 'infra/observability');
 const dashboardsRoot = join(observabilityRoot, 'grafana/dashboards');
+const stressRoot = join(apiRoot, 'test/stress');
+const stressReleaseRunbookPath = join(
+  repoRoot,
+  'docs/06_trouble-shooting/observability/api-stress-release-runbook.md',
+);
+const stressReportTemplatePath = join(stressRoot, 'reports/report-template.md');
 
 const requiredFiles = [
   'docker-compose.observability.yml',
@@ -210,5 +216,22 @@ describe('observability infra', () => {
       const labelSelector = new RegExp(`[,{]\\s*${forbiddenLabelName}\\s*=`, 'u');
       expect(configText).not.toMatch(labelSelector);
     }
+  });
+
+  it('documents the stress release gate and safe report template', () => {
+    expect(existsSync(stressReleaseRunbookPath)).toBe(true);
+    expect(existsSync(stressReportTemplatePath)).toBe(true);
+
+    const runbook = readFileSync(stressReleaseRunbookPath, 'utf8');
+    const reportTemplate = readFileSync(stressReportTemplatePath, 'utf8');
+
+    expect(runbook).toContain('STRESS_ALLOWED_HOSTS');
+    expect(runbook).toContain('stress:fixture:reset');
+    expect(runbook).toContain('stress:realtime:smoke');
+    expect(runbook).toContain('one-time ticket');
+    expect(runbook).toContain('report-template.md');
+    expect(reportTemplate).toContain('Raw token/ticket/cookie/password/email omitted');
+    expect(reportTemplate).toContain('k6 safe parser summary');
+    expect(reportTemplate).toContain('Artillery safe parser summary');
   });
 });

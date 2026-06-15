@@ -97,6 +97,15 @@ artillery version
 
 운영 API instance에 Artillery를 설치해서 자기 자신을 때리는 구조는 권장하지 않는다. Staging/release 부하는 CI 또는 별도 runner에서 실행한다.
 
+## Release gate runbook / report
+
+Release 전 검증은 local smoke와 staging baseline/peak를 분리해서 기록한다. 운영자는 아래 문서를 기준으로 preflight, 실행 순서, dashboard readout, cleanup을 확인한다.
+
+- Runbook: `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`
+- Report template: `apps/api/test/stress/reports/report-template.md`
+
+Report에는 k6/Artillery safe parser 결과와 Grafana/Prometheus/Loki readout만 옮긴다. Raw access token, refresh token, realtime ticket, cookie, Authorization header, email/password, raw payload는 기록하지 않는다.
+
 ## Authenticated fixture flow
 
 ```bash
