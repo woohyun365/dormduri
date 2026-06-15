@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 const apiRoot = process.cwd();
+const srcRoot = join(apiRoot, 'src');
 const metricsRoot = join(apiRoot, 'src/platform/observability/metrics');
 
 const forbiddenLabelNames = [
@@ -47,6 +48,17 @@ function relativeApiPath(path: string) {
 }
 
 describe('API metrics boundary', () => {
+  it('keeps prom-client implementation details inside platform metrics', () => {
+    const offenders = walkTypeScriptFiles(srcRoot)
+      .filter((path) => !path.endsWith('.spec.ts'))
+      .filter((path) => !relativeApiPath(path).startsWith('src/platform/observability/metrics/'))
+      .filter((path) => readFileSync(path, 'utf8').includes('prom-client'))
+      .map(relativeApiPath)
+      .sort();
+
+    expect(offenders).toEqual([]);
+  });
+
   it('keeps metric definitions on bounded labels only', () => {
     const offenders = walkTypeScriptFiles(metricsRoot)
       .filter((path) => !path.endsWith('.spec.ts'))

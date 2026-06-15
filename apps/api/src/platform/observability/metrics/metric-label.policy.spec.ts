@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   MetricLabelPolicyError,
+  assertDomainMetricLabelNames,
   assertNoForbiddenMetricLabelNames,
+  normalizeDomainMetricLabelValue,
   normalizeExceptionMetricCode,
   normalizeMetricDomain,
   normalizeMetricMethod,
@@ -36,5 +38,16 @@ describe('metric label policy', () => {
     expect(normalizeExceptionMetricCode('auth code throttled')).toBe('AUTH_CODE_THROTTLED');
     expect(normalizeMetricDomain('Social Safety')).toBe('social_safety');
     expect(normalizeMetricDomain('')).toBe('platform');
+  });
+
+  it('keeps domain metric labels bounded and normalized', () => {
+    expect(() => assertDomainMetricLabelNames(['domain', 'operation', 'outcome'])).not.toThrow();
+    expect(() => assertDomainMetricLabelNames(['userId'])).toThrow(MetricLabelPolicyError);
+    expect(() => assertDomainMetricLabelNames(['rawPath'])).toThrow(MetricLabelPolicyError);
+    expect(() => assertDomainMetricLabelNames(['freeFormFilter'])).toThrow(
+      /Unknown domain metric label names/,
+    );
+    expect(normalizeDomainMetricLabelValue('MATCH_SCORE')).toBe('match_score');
+    expect(normalizeDomainMetricLabelValue('Manual Review / Retry')).toBe('manual_review_retry');
   });
 });

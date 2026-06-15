@@ -10,6 +10,7 @@
 - request 완료 로그와 exception 로그를 structured event로 남긴다.
 - `/internal/metrics` Prometheus scrape endpoint를 제공한다.
 - HTTP request total/duration/in-flight와 normalized exception counter를 bounded label로 기록한다.
+- domain operation metric은 platform-owned bridge를 통해 Prometheus registry에 기록한다.
 - 로그/metrics 기록 실패가 product request 실패로 전파되지 않게 한다.
 
 ## 로그 privacy
@@ -40,6 +41,7 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 - HTTP request metrics: `method`, `route`, `status_class`
 - Exception metrics: `code`, `status_class`, `domain`
 - In-flight gauge: `route`
+- Domain metrics: `domain`, `operation`, `outcome`, `dispatcher`, `scope`, `reason`, `campus`, `cache`, `target`, `state`, `action`, `sort`, `phase`
 
 다음 값은 label로 쓰지 않는다.
 
@@ -48,6 +50,25 @@ error code/name, hashed actor/session 같은 운영 필드만 담는다.
 - token/cookie/authorization/password 같은 credential성 값
 
 `route`는 Express route template 또는 `UNKNOWN_ROUTE`만 사용한다.
+
+## Domain metrics bridge
+
+도메인 코드는 `prom-client`를 직접 import하지 않는다. Prometheus metric이 필요한 도메인 module은
+`MetricsModule`을 명시적으로 import하고 `DOMAIN_METRICS_PORT`를 optional dependency로 받아 bounded
+metric만 기록한다.
+
+현재 bridge 범위:
+
+- chat realtime: socket 연결 수, dispatch batch, outbox lag, rejection, prune outcome
+- auth operations: cleanup deleted/failure/lag, Redis gate state
+- seasons operations: current season query/cache, 운영 schedule/override action outcome
+- retention: backlog gauge, sweep duration, review job count
+- Prisma platform: managed pg pool snapshot, Serializable transaction retry/exhausted
+- roommate-search: request duration/outcome, sort, candidate pipeline count
+
+각 도메인의 기존 in-memory snapshot(`/health/realtime`, `/health/auth` 등)은 health/readiness
+source-of-truth로 유지한다. Prometheus bridge는 운영 scrape surface일 뿐 snapshot을 대체하지
+않는다.
 
 ## Phase 경계
 

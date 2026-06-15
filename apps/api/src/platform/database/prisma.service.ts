@@ -1,4 +1,4 @@
-import { Inject, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
@@ -6,6 +6,10 @@ import { Prisma, PrismaClient } from '../../generated/prisma/client.js';
 import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
 import databaseConfig from '../../config/database.config.js';
 import { AppLoggerService } from '../observability/logging/app-logger.service.js';
+import {
+  PrismaPoolMetricsService,
+  type PrismaPoolMetricProvider,
+} from '../observability/metrics/prisma-pool-metrics.service.js';
 
 type DatabaseSettings = ConfigType<typeof databaseConfig>;
 
@@ -150,15 +154,17 @@ export function calculatePrismaConnectionPoolBudget(
 
 export abstract class ManagedPrismaClient
   extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy
+  implements OnModuleInit, OnModuleDestroy, PrismaPoolMetricProvider
 {
   private readonly pool: Pool;
+  private readonly unregisterPoolMetrics: (() => void) | null;
 
   protected constructor(
     databaseSettings: DatabaseSettings,
     role: PrismaConnectionRole,
     label: string,
     logger: AppLoggerService,
+    private readonly poolMetrics?: PrismaPoolMetricsService,
   ) {
     const roleSettings = resolveManagedPrismaClientSettings(databaseSettings, role);
     const pool = new Pool({
@@ -204,6 +210,7 @@ export abstract class ManagedPrismaClient
     });
 
     this.pool = pool;
+    this.unregisterPoolMetrics = this.poolMetrics?.registerPool(this) ?? null;
   }
 
   async onModuleInit() {
@@ -211,8 +218,17 @@ export abstract class ManagedPrismaClient
   }
 
   async onModuleDestroy() {
+    this.unregisterPoolMetrics?.();
     await this.$disconnect();
     await this.pool.end();
+  }
+
+  snapshotPoolMetrics() {
+    return {
+      total: this.pool.totalCount,
+      idle: this.pool.idleCount,
+      waiting: this.pool.waitingCount,
+    };
   }
 
   async runSerializableTransaction<T>(
@@ -228,6 +244,7 @@ export abstract class ManagedPrismaClient
         });
       } catch (error) {
         if (isRetryableTransactionConflict(error)) {
+          this.recordTransactionRetryMetric('retry');
           lastError =
             error instanceof Error
               ? error
@@ -239,6 +256,7 @@ export abstract class ManagedPrismaClient
       }
     }
 
+    this.recordTransactionRetryMetric('exhausted');
     throw lastError ?? new Error('[PrismaService] serializable transaction retry exhausted');
   }
 
@@ -251,6 +269,14 @@ export abstract class ManagedPrismaClient
 
     return row.now instanceof Date ? row.now : new Date(row.now);
   }
+
+  private recordTransactionRetryMetric(outcome: 'retry' | 'exhausted') {
+    try {
+      this.poolMetrics?.recordSerializableTransactionRetry(outcome);
+    } catch {
+      // Metrics recording must not affect transaction retry semantics.
+    }
+  }
 }
 
 @Injectable()
@@ -259,8 +285,10 @@ export class PrismaService extends ManagedPrismaClient {
     @Inject(databaseConfig.KEY)
     databaseSettings: DatabaseSettings,
     logger: AppLoggerService,
+    @Optional()
+    poolMetrics?: PrismaPoolMetricsService,
   ) {
-    super(databaseSettings, 'runtime', PrismaService.name, logger);
+    super(databaseSettings, 'runtime', PrismaService.name, logger, poolMetrics);
   }
 }
 
@@ -270,8 +298,16 @@ export class RetentionWorkerPrismaService extends ManagedPrismaClient {
     @Inject(databaseConfig.KEY)
     databaseSettings: DatabaseSettings,
     logger: AppLoggerService,
+    @Optional()
+    poolMetrics?: PrismaPoolMetricsService,
   ) {
-    super(databaseSettings, 'retention_worker', RetentionWorkerPrismaService.name, logger);
+    super(
+      databaseSettings,
+      'retention_worker',
+      RetentionWorkerPrismaService.name,
+      logger,
+      poolMetrics,
+    );
   }
 }
 
@@ -281,7 +317,15 @@ export class RetentionDisclosurePrismaService extends ManagedPrismaClient {
     @Inject(databaseConfig.KEY)
     databaseSettings: DatabaseSettings,
     logger: AppLoggerService,
+    @Optional()
+    poolMetrics?: PrismaPoolMetricsService,
   ) {
-    super(databaseSettings, 'retention_disclosure', RetentionDisclosurePrismaService.name, logger);
+    super(
+      databaseSettings,
+      'retention_disclosure',
+      RetentionDisclosurePrismaService.name,
+      logger,
+      poolMetrics,
+    );
   }
 }

@@ -6,6 +6,10 @@ import type {
 } from '@repo/shared/roommate-search/contract';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
 import type { PrismaService } from '../../platform/database/prisma.service.js';
+import {
+  recordDomainMetricSafely,
+  type DomainMetricsPort,
+} from '../../platform/observability/metrics/domain-metrics.port.js';
 import type { BlockVisibilityReaderPort } from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';
 import type { BookmarkSearchMetadataReaderPort } from '../../social-safety/bookmarks/application/ports/bookmark-search-metadata-reader.port.js';
 import type {
@@ -36,6 +40,7 @@ interface RoommateSearchReaderDeps {
   publicProfileTargetReader: ProfilePublicTargetReaderPort;
   bookmarkSearchMetadataReader: BookmarkSearchMetadataReaderPort;
   blockVisibilityReader: BlockVisibilityReaderPort;
+  metrics?: DomainMetricsPort;
 }
 
 export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
@@ -48,82 +53,96 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
     authUser: AuthenticatedUserContext,
     query: RoommateSearchQuery,
   ): Promise<RoommateSearchResponse> {
-    const now = await deps.prisma.getDatabaseNow();
-    const viewerContext = await deps.publicProfileTargetReader.loadViewerContext(authUser, now);
-    const { scopeAvailability, scope, purpose } = resolveRoommateSearchScopeContext(
-      viewerContext,
-      query.scope,
-    );
-    const activeCollegeOptions = await loadActiveCollegeOptions(viewerContext);
-    const manifest = buildRoommateSearchManifest({
-      viewerContext,
-      scope,
-      purpose,
-      appliedSort: 'NICKNAME',
-      activeCollegeOptions,
-    });
-    const queryPolicy = assertRoommateSearchQueryAllowed({ query, manifest });
+    const startedAt = performance.now();
+    let metricSort = 'unknown';
 
-    const appliedSort = queryPolicy.appliedSort;
-    const filteredEntries = await loadVisibleEntries(viewerContext, scope, query);
-    const filteredDiscovery = filterRoommateSearchDiscoveryEntries(filteredEntries, {
-      excludeMatchedTargets: shouldExcludeMatchedTargetsFromDiscovery(purpose),
-    });
-    const activeBookmarkMap = await loadActiveBookmarkMap(viewerContext, filteredDiscovery.entries);
-    const filteredItems = filteredDiscovery.entries.map((entry) => {
-      const item = responsePresenter.toMaterializedItem({
-        entry,
+    try {
+      const now = await deps.prisma.getDatabaseNow();
+      const viewerContext = await deps.publicProfileTargetReader.loadViewerContext(authUser, now);
+      const { scopeAvailability, scope, purpose } = resolveRoommateSearchScopeContext(
+        viewerContext,
+        query.scope,
+      );
+      const activeCollegeOptions = await loadActiveCollegeOptions(viewerContext);
+      const manifest = buildRoommateSearchManifest({
         viewerContext,
         scope,
         purpose,
+        appliedSort: 'NICKNAME',
+        activeCollegeOptions,
+      });
+      const queryPolicy = assertRoommateSearchQueryAllowed({ query, manifest });
+
+      const appliedSort = queryPolicy.appliedSort;
+      metricSort = appliedSort;
+      const filteredEntries = await loadVisibleEntries(viewerContext, scope, query);
+      const filteredDiscovery = filterRoommateSearchDiscoveryEntries(filteredEntries, {
+        excludeMatchedTargets: shouldExcludeMatchedTargetsFromDiscovery(purpose),
+      });
+      const activeBookmarkMap = await loadActiveBookmarkMap(
+        viewerContext,
+        filteredDiscovery.entries,
+      );
+      const filteredItems = filteredDiscovery.entries.map((entry) => {
+        const item = responsePresenter.toMaterializedItem({
+          entry,
+          viewerContext,
+          scope,
+          purpose,
+          now,
+        });
+        const bookmark = activeBookmarkMap.get(entry.targetParticipant.id);
+        return {
+          ...item,
+          summary: {
+            ...item.summary,
+            bookmark: bookmark
+              ? { bookmarked: true, bookmarkedAt: bookmark.bookmarkedAt.toISOString() }
+              : { bookmarked: false },
+          },
+        };
+      });
+      const scoreThresholdItems = applyRoommateSearchScoreThreshold(filteredItems, query);
+      recordRoommateSearchCandidateCount('score_filtered', scoreThresholdItems.length);
+      const sortedItems = sortRoommateSearchItems(scoreThresholdItems, appliedSort);
+      const queryDigest = tokenCodec.buildQueryDigest({
+        scope,
+        sort: appliedSort,
+        query,
+      });
+      const pageItems = paginator.paginate({
+        items: sortedItems,
+        query,
+        viewerUserId: viewerContext.viewer.id,
+        seasonId: viewerContext.currentSeasonId,
+        scope,
+        appliedSort,
+        queryDigest,
         now,
       });
-      const bookmark = activeBookmarkMap.get(entry.targetParticipant.id);
-      return {
-        ...item,
-        summary: {
-          ...item.summary,
-          bookmark: bookmark
-            ? { bookmarked: true, bookmarkedAt: bookmark.bookmarkedAt.toISOString() }
-            : { bookmarked: false },
-        },
-      };
-    });
-    const scoreThresholdItems = applyRoommateSearchScoreThreshold(filteredItems, query);
-    const sortedItems = sortRoommateSearchItems(scoreThresholdItems, appliedSort);
-    const queryDigest = tokenCodec.buildQueryDigest({
-      scope,
-      sort: appliedSort,
-      query,
-    });
-    const pageItems = paginator.paginate({
-      items: sortedItems,
-      query,
-      viewerUserId: viewerContext.viewer.id,
-      seasonId: viewerContext.currentSeasonId,
-      scope,
-      appliedSort,
-      queryDigest,
-      now,
-    });
-    const filteredSummaries = scoreThresholdItems.map((item) => item.summary);
+      const filteredSummaries = scoreThresholdItems.map((item) => item.summary);
 
-    return {
-      scope,
-      appliedSort,
-      resultSummary: responsePresenter.summarize(filteredSummaries),
-      scopeAvailability,
-      manifest,
-      pageInfo: pageItems.pageInfo,
-      availabilityNotices: buildRoommateSearchAvailabilityNotices({
-        viewerContext,
-        summaries: filteredSummaries,
-        matchedTargetsExcluded: filteredDiscovery.matchedTargetsExcluded,
-        filterResultEmpty:
-          hasEffectiveRoommateSearchFilter(query) && scoreThresholdItems.length === 0,
-      }),
-      items: pageItems.items.map((item) => item.summary),
-    };
+      recordRoommateSearchRequestMetric('success', metricSort, startedAt);
+      return {
+        scope,
+        appliedSort,
+        resultSummary: responsePresenter.summarize(filteredSummaries),
+        scopeAvailability,
+        manifest,
+        pageInfo: pageItems.pageInfo,
+        availabilityNotices: buildRoommateSearchAvailabilityNotices({
+          viewerContext,
+          summaries: filteredSummaries,
+          matchedTargetsExcluded: filteredDiscovery.matchedTargetsExcluded,
+          filterResultEmpty:
+            hasEffectiveRoommateSearchFilter(query) && scoreThresholdItems.length === 0,
+        }),
+        items: pageItems.items.map((item) => item.summary),
+      };
+    } catch (error) {
+      recordRoommateSearchRequestMetric('failure', metricSort, startedAt);
+      throw error;
+    }
   }
 
   async function getManifest(
@@ -164,6 +183,7 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
     query?: RoommateSearchQuery,
   ): Promise<ResolvedVisibleProfileEntry[]> {
     const candidates = await candidateQuery.findCandidates({ viewerContext, scope, query });
+    recordRoommateSearchCandidateCount('raw', candidates.length);
     const visibleEntries = await deps.publicProfileTargetReader.materializeVisibleProfileEntries(
       viewerContext,
       candidates.map((candidate) =>
@@ -174,7 +194,9 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
         ),
       ),
     );
-    return filterBlockedEntries(viewerContext, visibleEntries);
+    const unblockedEntries = await filterBlockedEntries(viewerContext, visibleEntries);
+    recordRoommateSearchCandidateCount('visible', unblockedEntries.length);
+    return unblockedEntries;
   }
 
   async function filterBlockedEntries(
@@ -231,4 +253,29 @@ export function createRoommateSearchReader(deps: RoommateSearchReaderDeps) {
     search,
     getManifest,
   };
+
+  function recordRoommateSearchRequestMetric(outcome: string, sort: string, startedAt: number) {
+    const durationSeconds = Math.max(0, performance.now() - startedAt) / 1000;
+    recordDomainMetricSafely(deps.metrics, (metrics) => {
+      metrics.incrementCounter({
+        name: 'api_roommate_search_requests_total',
+        labels: { outcome, sort },
+      });
+      metrics.observeHistogram({
+        name: 'api_roommate_search_duration_seconds',
+        labels: { outcome, sort },
+        value: durationSeconds,
+      });
+    });
+  }
+
+  function recordRoommateSearchCandidateCount(phase: string, count: number) {
+    recordDomainMetricSafely(deps.metrics, (metrics) =>
+      metrics.observeHistogram({
+        name: 'api_roommate_search_candidate_count',
+        labels: { phase },
+        value: count,
+      }),
+    );
+  }
 }

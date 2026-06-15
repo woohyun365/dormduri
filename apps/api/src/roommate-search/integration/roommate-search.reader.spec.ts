@@ -9,6 +9,7 @@ import {
   currentProfile,
   profile,
 } from '../../season-participants/test-support/season-participants.spec-fixtures.js';
+import type { DomainMetricsPort } from '../../platform/observability/metrics/domain-metrics.port.js';
 import { createRoommateSearchReader } from './roommate-search.reader.js';
 
 const now = new Date('2026-02-10T03:00:00.000Z');
@@ -157,11 +158,13 @@ describe('roommate-search.reader bookmark integration', () => {
     const blockVisibilityReader = {
       getExcludedTargetUserIds: vi.fn().mockResolvedValue(new Set()),
     };
+    const metrics = makeDomainMetrics();
     const reader = createRoommateSearchReader({
       prisma: prisma as never,
       publicProfileTargetReader: publicProfileTargetReader as never,
       bookmarkSearchMetadataReader: bookmarkSearchMetadataReader,
       blockVisibilityReader: blockVisibilityReader,
+      metrics,
     });
 
     const result = await reader.search(authUser, { scope: 'SAME_BUILDING_ONLY', limit: 20 });
@@ -181,6 +184,27 @@ describe('roommate-search.reader bookmark integration', () => {
       bookmark: { bookmarked: true, bookmarkedAt: now.toISOString() },
     });
     expect(result.items.map((item) => item.id)).not.toContain('hidden-user');
+    expect(metrics.observeHistogram).toHaveBeenCalledWith({
+      name: 'api_roommate_search_candidate_count',
+      labels: { phase: 'raw' },
+      value: 2,
+    });
+    expect(metrics.observeHistogram).toHaveBeenCalledWith({
+      name: 'api_roommate_search_candidate_count',
+      labels: { phase: 'visible' },
+      value: 1,
+    });
+    expect(metrics.observeHistogram).toHaveBeenCalledWith({
+      name: 'api_roommate_search_candidate_count',
+      labels: { phase: 'score_filtered' },
+      value: 1,
+    });
+    expect(metrics.incrementCounter).toHaveBeenCalledWith({
+      name: 'api_roommate_search_requests_total',
+      labels: { outcome: 'success', sort: 'MATCH_SCORE' },
+    });
+    expect(JSON.stringify(metrics.incrementCounter.mock.calls)).not.toContain('viewer-user');
+    expect(JSON.stringify(metrics.observeHistogram.mock.calls)).not.toContain('visible-user');
   });
 
   it('active block exclusion은 social-safety block visibility port 결과만 사용한다', async () => {
@@ -267,4 +291,51 @@ describe('roommate-search.reader bookmark integration', () => {
     });
     expect(result.items.map((item) => item.id)).toEqual(['visible-user']);
   });
+
+  it('metrics bridge failure does not fail roommate search', async () => {
+    const prisma = {
+      getDatabaseNow: vi.fn().mockResolvedValue(now),
+      collegeMaster: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      seasonParticipant: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    };
+    const context = viewerContext();
+    const publicProfileTargetReader = {
+      loadViewerContext: vi.fn().mockResolvedValue(context),
+      mapTargetParticipantCandidate: vi.fn(),
+      materializeVisibleProfileEntries: vi.fn().mockResolvedValue([]),
+    };
+    const metrics = makeDomainMetrics();
+    metrics.incrementCounter.mockImplementation(() => {
+      throw new Error('metric rejected');
+    });
+    const reader = createRoommateSearchReader({
+      prisma: prisma as never,
+      publicProfileTargetReader: publicProfileTargetReader as never,
+      bookmarkSearchMetadataReader: {
+        getActiveBookmarkMetadata: vi.fn().mockResolvedValue(new Map()),
+      },
+      blockVisibilityReader: {
+        getExcludedTargetUserIds: vi.fn().mockResolvedValue(new Set()),
+      },
+      metrics,
+    });
+
+    await expect(
+      reader.search(authUser, { scope: 'SAME_BUILDING_ONLY', limit: 20 }),
+    ).resolves.toMatchObject({
+      items: [],
+    });
+  });
 });
+
+function makeDomainMetrics() {
+  return {
+    incrementCounter: vi.fn(),
+    setGauge: vi.fn(),
+    observeHistogram: vi.fn(),
+  } satisfies DomainMetricsPort;
+}

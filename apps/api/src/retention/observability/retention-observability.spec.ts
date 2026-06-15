@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
+import type { DomainMetricsPort } from '../../platform/observability/metrics/domain-metrics.port.js';
 import { buildRetentionOperationalAlerts } from './retention-alerts.js';
 import { buildRetentionSweepEmission } from './retention-metrics.js';
 import { RetentionObservabilityService } from './retention-observability.service.js';
@@ -99,7 +100,8 @@ describe('retention-observability', () => {
     const logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
     const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    const service = new RetentionObservabilityService();
+    const domainMetrics = makeDomainMetrics();
+    const service = new RetentionObservabilityService(domainMetrics);
     const prisma = makeBacklogPrisma({ archiveDueCount: 101, keyUnavailableCount: 1 });
 
     await service.emitSweep({
@@ -144,6 +146,45 @@ describe('retention-observability', () => {
     const failureAlert = logPayloads.find(isRetentionSweepFailedLogPayload);
 
     expect(failureAlert?.metadata).toEqual({ mode: 'periodic', errorName: 'Error' });
+    expect(domainMetrics.setGauge).toHaveBeenCalledWith({
+      name: 'api_retention_backlog_total',
+      labels: { target: 'archive_jobs', state: 'due' },
+      value: 101,
+    });
+    expect(domainMetrics.observeHistogram).toHaveBeenCalledWith({
+      name: 'api_retention_sweep_duration_seconds',
+      labels: { target: 'all', outcome: 'success' },
+      value: 0.123,
+    });
+    expect(domainMetrics.observeHistogram).toHaveBeenCalledWith({
+      name: 'api_retention_sweep_duration_seconds',
+      labels: { target: 'all', outcome: 'failure' },
+      value: 0,
+    });
+    expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('identifierValue');
+    expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('encryptedPayload');
+  });
+
+  it('Prometheus bridge 기록 실패는 retention metric/alert logging을 깨지 않는다', async () => {
+    vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const domainMetrics = makeDomainMetrics();
+    domainMetrics.setGauge.mockImplementation(() => {
+      throw new Error('metric rejected');
+    });
+    const service = new RetentionObservabilityService(domainMetrics);
+
+    await expect(
+      service.emitSweep({
+        prisma: makeBacklogPrisma({ archiveDueCount: 1, keyUnavailableCount: 0 }) as never,
+        result: makeSweepResult({ accessLogDisposedCount: 0 }),
+        now: new Date('2026-05-26T00:00:00.000Z'),
+        durationMs: 1,
+      }),
+    ).resolves.toMatchObject({
+      snapshot: { archiveDueCount: 1 },
+    });
   });
 });
 
@@ -239,4 +280,12 @@ function isRetentionSweepFailedLogPayload(
   value: RetentionLogPayload,
 ): value is RetentionSweepFailedLogPayload {
   return value.type === 'RETENTION_SWEEP_FAILED';
+}
+
+function makeDomainMetrics() {
+  return {
+    incrementCounter: vi.fn(),
+    setGauge: vi.fn(),
+    observeHistogram: vi.fn(),
+  } satisfies DomainMetricsPort;
 }
