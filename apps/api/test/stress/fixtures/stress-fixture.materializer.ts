@@ -52,6 +52,8 @@ export interface StressFixtureMutationClient {
   readonly conversationThread: CreateManyModel & DeleteManyModel;
   readonly conversationThreadMember: CreateManyModel & DeleteManyModel;
   readonly conversationMessage: CreateManyModel & DeleteManyModel;
+  readonly chatRealtimeOutboxEvent: DeleteManyModel;
+  readonly chatRealtimeEventRecipient: DeleteManyModel;
   readonly userNotification: CreateManyModel & DeleteManyModel;
   readonly supportFaqArticle: CreateManyModel & DeleteManyModel;
   readonly supportTicket: CreateManyModel & DeleteManyModel;
@@ -388,16 +390,36 @@ export async function resetStressFixture(
 
   await runInTransaction(prisma, async (tx) => {
     await recordDelete(deleted, 'reportCaseEvent', () =>
-      tx.reportCaseEvent.deleteMany({ where: { reportCaseId: startsWith(plan.marker) } }),
+      tx.reportCaseEvent.deleteMany({
+        where: {
+          OR: [{ reportCaseId: startsWith(plan.marker) }, { actorUserId: { in: userIds } }],
+        },
+      }),
     );
     await recordDelete(deleted, 'reportCase', () =>
-      tx.reportCase.deleteMany({ where: { id: startsWith(plan.marker) } }),
+      tx.reportCase.deleteMany({
+        where: {
+          OR: [
+            { id: startsWith(plan.marker) },
+            { reporterUserId: { in: userIds } },
+            { targetUserId: { in: userIds } },
+          ],
+        },
+      }),
     );
     await recordDelete(deleted, 'supportTicketMessage', () =>
-      tx.supportTicketMessage.deleteMany({ where: { ticketId: startsWith(plan.marker) } }),
+      tx.supportTicketMessage.deleteMany({
+        where: {
+          OR: [{ ticketId: startsWith(plan.marker) }, { senderUserId: { in: userIds } }],
+        },
+      }),
     );
     await recordDelete(deleted, 'supportTicket', () =>
-      tx.supportTicket.deleteMany({ where: { id: startsWith(plan.marker) } }),
+      tx.supportTicket.deleteMany({
+        where: {
+          OR: [{ id: startsWith(plan.marker) }, { requesterUserId: { in: userIds } }],
+        },
+      }),
     );
     await recordDelete(deleted, 'supportFaqArticle', () =>
       tx.supportFaqArticle.deleteMany({ where: { id: startsWith(plan.marker) } }),
@@ -405,8 +427,25 @@ export async function resetStressFixture(
     await recordDelete(deleted, 'userNotification', () =>
       tx.userNotification.deleteMany({ where: { sourceId: startsWith(plan.marker) } }),
     );
+    await recordDelete(deleted, 'chatRealtimeEventRecipient', () =>
+      tx.chatRealtimeEventRecipient.deleteMany({ where: { threadId: startsWith(plan.marker) } }),
+    );
+    await recordDelete(deleted, 'chatRealtimeOutboxEvent', () =>
+      tx.chatRealtimeOutboxEvent.deleteMany({
+        where: {
+          OR: [{ threadId: startsWith(plan.marker) }, { aggregateId: startsWith(plan.marker) }],
+        },
+      }),
+    );
     await recordDelete(deleted, 'conversationMessage', () =>
-      tx.conversationMessage.deleteMany({ where: { threadId: startsWith(plan.marker) } }),
+      tx.conversationMessage.deleteMany({
+        where: {
+          OR: [
+            { threadId: startsWith(plan.marker) },
+            { senderParticipantId: { in: participantIds } },
+          ],
+        },
+      }),
     );
     await recordDelete(deleted, 'conversationThreadMember', () =>
       tx.conversationThreadMember.deleteMany({ where: { threadId: startsWith(plan.marker) } }),
@@ -415,10 +454,26 @@ export async function resetStressFixture(
       tx.conversationThread.deleteMany({ where: { id: startsWith(plan.marker) } }),
     );
     await recordDelete(deleted, 'matchRequest', () =>
-      tx.matchRequest.deleteMany({ where: { id: startsWith(plan.marker) } }),
+      tx.matchRequest.deleteMany({
+        where: {
+          OR: [
+            { id: startsWith(plan.marker) },
+            { requesterParticipantId: { in: participantIds } },
+            { receiverParticipantId: { in: participantIds } },
+          ],
+        },
+      }),
     );
     await recordDelete(deleted, 'userBookmark', () =>
-      tx.userBookmark.deleteMany({ where: { id: startsWith(plan.marker) } }),
+      tx.userBookmark.deleteMany({
+        where: {
+          OR: [
+            { id: startsWith(plan.marker) },
+            { viewerUserId: { in: userIds } },
+            { targetUserId: { in: userIds } },
+          ],
+        },
+      }),
     );
     await recordDelete(deleted, 'seasonParticipantProfileHistory', () =>
       tx.seasonParticipantProfileHistory.deleteMany({

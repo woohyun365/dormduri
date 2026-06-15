@@ -15,20 +15,8 @@ config:
 scenarios:
   - name: chat realtime smoke
     engine: socketio
+    beforeScenario: validateRealtimeScenario
     flow:
-      - emit:
-          channel: 'chat.thread.subscribe'
-          data:
-            threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'
-        acknowledge:
-          data:
-            ok: true
-            threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'
-      - emit:
-          channel: 'chat.thread.unsubscribe'
-          data:
-            threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'
-        acknowledge:
-          data:
-            ok: true
-            threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'
+      - function: emitRealtimeSubscribe
+      - function: emitRealtimeUnsubscribe
+      - function: recordRealtimeDisconnect

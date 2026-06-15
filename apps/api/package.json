@@ -46,7 +46,8 @@
     "stress:fixture:tokens": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' test/stress/fixtures/stress-fixture.auth-tokens.ts",
     "stress:realtime:smoke": "node test/stress/realtime/artillery/run-artillery-scenario.mjs smoke",
     "stress:realtime:baseline": "node test/stress/realtime/artillery/run-artillery-scenario.mjs baseline-250",
-    "stress:realtime:peak": "node test/stress/realtime/artillery/run-artillery-scenario.mjs peak-500"
+    "stress:realtime:peak": "node test/stress/realtime/artillery/run-artillery-scenario.mjs peak-500",
+    "stress:docker:smoke": "node test/stress/docker/run-dockerized-smoke.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.26",

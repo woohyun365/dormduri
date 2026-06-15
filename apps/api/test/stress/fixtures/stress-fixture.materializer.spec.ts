@@ -46,6 +46,8 @@ function createPrismaMock(): StressFixtureMutationClient {
     conversationThread: model(),
     conversationThreadMember: model(),
     conversationMessage: model(),
+    chatRealtimeOutboxEvent: model(),
+    chatRealtimeEventRecipient: model(),
     userNotification: model(),
     supportFaqArticle: model(),
     supportTicket: model(),
@@ -179,13 +181,33 @@ describe('stress fixture DB materializer', () => {
 
     const summary = await resetStressFixture(prisma, plan);
 
-    expect(summary.deleted.map((entry) => entry.model).slice(0, 5)).toEqual([
+    expect(summary.deleted.map((entry) => entry.model).slice(0, 7)).toEqual([
       'reportCaseEvent',
       'reportCase',
       'supportTicketMessage',
       'supportTicket',
       'supportFaqArticle',
+      'userNotification',
+      'chatRealtimeEventRecipient',
     ]);
+    expect(prisma.reportCase.deleteMany).toHaveBeenCalledWith({
+      where: {
+        OR: expect.arrayContaining([
+          { id: { startsWith: 'stress-materializer' } },
+          { reporterUserId: { in: expect.arrayContaining(['stress-materializer-user-0001']) } },
+          { targetUserId: { in: expect.arrayContaining(['stress-materializer-user-0001']) } },
+        ]),
+      },
+    });
+    expect(prisma.userBookmark.deleteMany).toHaveBeenCalledWith({
+      where: {
+        OR: expect.arrayContaining([
+          { id: { startsWith: 'stress-materializer' } },
+          { viewerUserId: { in: expect.arrayContaining(['stress-materializer-user-0001']) } },
+          { targetUserId: { in: expect.arrayContaining(['stress-materializer-user-0001']) } },
+        ]),
+      },
+    });
     expect(prisma.user.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: expect.arrayContaining(['stress-materializer-user-0001']) } },
     });

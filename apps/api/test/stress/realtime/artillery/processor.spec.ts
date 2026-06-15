@@ -73,6 +73,7 @@ describe('Artillery realtime processor', () => {
 
     processor.validateRealtimeScenario(context, events);
 
+    expect(context.vars.threadId).toBe('thread-1');
     expect(context.vars.realtimeTicket).toBe('ticket-1');
     expect(events.emit).toHaveBeenCalledWith('counter', 'stress.realtime.actor_selected', 1);
   });

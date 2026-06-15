@@ -17,6 +17,7 @@ function validateRealtimeScenario(context, events, done) {
     }
 
     context.vars.actorId = actorId;
+    context.vars.threadId = threadId;
     context.vars.realtimeTicket = realtimeTicket;
     emitCounter(events, 'stress.realtime.actor_selected', 1);
     finish(done);
@@ -155,7 +156,17 @@ function parseResponseBody(body) {
 
 function readContextVar(context, key) {
   const value = context && context.vars ? context.vars[key] : undefined;
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  const envFallback = {
+    threadId: process.env.STRESS_REALTIME_THREAD_ID,
+    realtimeTicket: process.env.STRESS_REALTIME_TICKET,
+  }[key];
+  return typeof envFallback === 'string' && envFallback.trim().length > 0
+    ? envFallback.trim()
+    : null;
 }
 
 function elapsedSince(startedAt) {

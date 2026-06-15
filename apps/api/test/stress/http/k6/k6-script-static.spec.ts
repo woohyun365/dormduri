@@ -49,6 +49,16 @@ describe('k6 HTTP stress scripts static contract', () => {
     expect(source).toContain('host.docker.internal');
   });
 
+  it('authenticated roommate-search stress path follows the current strict query contract', () => {
+    const source = readK6Script('common.js');
+
+    expect(source).toContain(
+      '/api/roommate-search?scope=SAME_BUILDING_ONLY&limit=20&sort=MATCH_SCORE',
+    );
+    expect(source).not.toContain('pageSize=');
+    expect(source).not.toContain('/api/roommate-search?campus=');
+  });
+
   it('write-heavy path는 token artifact와 명시 opt-in 없이는 실행하지 않는다', () => {
     const source = readK6Script('common.js');
 

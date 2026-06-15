@@ -96,7 +96,7 @@ export function readOptionalAuthenticatedMix(target, tags = {}) {
   if (choice < 12) {
     requestAuthenticatedRead(
       target,
-      '/api/roommate-search?campus=CHUNCHEON&pageSize=20&sort=MATCH_SCORE',
+      '/api/roommate-search?scope=SAME_BUILDING_ONLY&limit=20&sort=MATCH_SCORE',
       actor,
       { ...tags, endpoint: 'roommate-search', authenticated: 'true' },
     );

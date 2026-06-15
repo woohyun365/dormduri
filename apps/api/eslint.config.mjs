@@ -61,6 +61,7 @@ export default defineConfig([
       'test/stress/http/k6/**/*.js',
       'test/stress/http/k6/**/*.mjs',
       'test/stress/realtime/artillery/**/*.mjs',
+      'test/stress/docker/**/*.mjs',
     ],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: {

@@ -50,8 +50,11 @@ describe('Artillery realtime stress scripts static contract', () => {
     const source = readScript('smoke.yml');
 
     expect(source).toContain("ticket: '{{ $env.STRESS_REALTIME_TICKET }}'");
-    expect(source).toContain("threadId: '{{ $env.STRESS_REALTIME_THREAD_ID }}'");
+    expect(source).toContain('beforeScenario: validateRealtimeScenario');
+    expect(source).toContain('function: emitRealtimeSubscribe');
+    expect(source).toContain('function: emitRealtimeUnsubscribe');
     expect(source).not.toContain('payload:');
+    expect(source).not.toContain('acknowledge:');
     expect(source).toContain('maxVusers: 1');
   });
 
