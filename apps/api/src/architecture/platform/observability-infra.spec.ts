@@ -188,6 +188,8 @@ describe('observability infra', () => {
     expect(alloy).toContain('loki.source.docker');
     expect(alloy).toContain('loki.process');
     expect(alloy).toContain('stage.label_keep');
+    expect(alloy).toContain('__meta_docker_container_label_com_docker_compose_service');
+    expect(alloy).not.toContain('"service" = "api"');
     expect(alloy).toContain('level = "level",');
     expect(alloy).toContain('values = ["service", "env", "container", "level"]');
 

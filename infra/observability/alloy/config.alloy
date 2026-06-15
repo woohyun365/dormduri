@@ -15,12 +15,19 @@ discovery.relabel "containers" {
     target_label  = "container"
     replacement   = "$1"
   }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "(.+)"
+    target_label  = "service"
+    replacement   = "$1"
+  }
 }
 
 loki.source.docker "containers" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.containers.output
-  labels     = { "service" = "api", "env" = "local" }
+  labels     = { "env" = "local" }
   forward_to = [loki.process.api_json.receiver]
 }
 

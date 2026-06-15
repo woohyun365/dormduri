@@ -83,7 +83,16 @@ Grafana Explore에서 datasource `Loki`를 선택하고 다음 query를 실행�
 {service="api", level="error"}
 ```
 
-Alloy는 Docker stdout log를 수집한다. API가 compose 밖에서 `pnpm start:dev`로 실행되면 Docker log source가 아니므로 Loki에는 API log가 보이지 않을 수 있다. 이 경우 Prometheus/Grafana metrics만 확인하거나, API를 app compose와 같은 Docker daemon에서 실행한다.
+Alloy는 Docker stdout log를 수집하고 Docker compose service metadata를 Loki `service` label로 사용한다. API가 compose 밖에서 `pnpm start:dev`로 실행되면 Docker log source가 아니므로 Loki에는 API log가 보이지 않을 수 있다. 이 경우 Prometheus/Grafana metrics만 확인하거나, API를 app compose와 같은 Docker daemon에서 `api` service로 실행한다.
+
+관측 stack 자체의 Docker log를 확인할 때는 다음처럼 service label을 구분한다.
+
+```logql
+{service="prometheus"}
+{service="grafana"}
+{service="loki"}
+{service="alloy"}
+```
 
 ## Label / privacy policy
 
