@@ -32,7 +32,11 @@
     "prisma:seed:run": "pnpm --filter @repo/shared build && node prisma/seed.js",
     "test:vitest:unit": "pnpm run test",
     "test:vitest:integration": "pnpm run test:integration",
-    "test:vitest:e2e": "pnpm run test:e2e"
+    "test:vitest:e2e": "pnpm run test:e2e",
+    "stress:fixture:plan": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' test/stress/fixtures/stress-fixture.plan.ts",
+    "stress:fixture:seed": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' test/stress/fixtures/seed-stress-fixture.ts",
+    "stress:fixture:reset": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' test/stress/fixtures/reset-stress-fixture.ts",
+    "test:stress": "vitest run --config ./vitest.config.stress.ts --maxWorkers=50%"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.26",
