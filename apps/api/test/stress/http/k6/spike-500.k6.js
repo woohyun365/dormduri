@@ -37,6 +37,6 @@ export const options = {
 export default function spikeScenario() {
   readPublicApiMix(target, { profile: 'spike-500' });
   readOptionalAuthenticatedMix(target, { profile: 'spike-500' });
-  maybeRunWriteMix({ profile: 'spike-500' });
+  maybeRunWriteMix(target, { profile: 'spike-500' });
   pause(1);
 }

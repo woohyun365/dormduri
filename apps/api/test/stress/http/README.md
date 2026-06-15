@@ -7,7 +7,8 @@
 - API가 local/staging target에서 실행 중이어야 한다.
 - `STRESS_TARGET_URL`은 필수다.
 - public/production-like host는 `STRESS_ALLOWED_HOSTS` 또는 `STRESS_ALLOW_PRODUCTION=I_UNDERSTAND` 없이는 실패한다.
-- write-heavy mix는 실제 fixture seed integration 전까지 `STRESS_ENABLE_WRITE_MIX=true`를 주더라도 no-op/skip marker만 남긴다.
+- 인증 기반 read/write mix는 `stress:fixture:seed`와 `stress:fixture:tokens`로 만든 local `.tmp-*` token artifact를 `STRESS_ACTOR_TOKENS_PATH`에 지정했을 때만 실행된다.
+- write-heavy mix는 `STRESS_ENABLE_WRITE_MIX=true`를 추가로 지정한 local/staging 실행에서만 활성화한다. token artifact가 없으면 public smoke와 skip marker 중심으로 동작한다.
 
 ## Commands
 
@@ -18,6 +19,23 @@ STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:spike
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:soak
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:score-cohort
+```
+
+인증 기반 mix를 실행할 때는 먼저 marker-only fixture를 만들고 actor token artifact를 생성한다.
+
+```bash
+STRESS_TARGET_URL=http://127.0.0.1:4000 \
+STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE \
+pnpm --dir apps/api stress:fixture:seed
+
+STRESS_TARGET_URL=http://127.0.0.1:4000 \
+STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE \
+pnpm --dir apps/api stress:fixture:tokens
+
+STRESS_TARGET_URL=http://127.0.0.1:4000 \
+STRESS_ACTOR_TOKENS_PATH=test/stress/reports/.tmp-stress-actor-tokens.json \
+STRESS_ENABLE_WRITE_MIX=true \
+pnpm --dir apps/api stress:http:baseline
 ```
 
 각 command는 `k6 run --summary-export ...` 실행 후 `parse-k6-summary.ts`로 p95/p99/error/check/threshold report를 출력한다. threshold 실패나 k6 non-zero exit은 command failure로 보존한다.

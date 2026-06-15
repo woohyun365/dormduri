@@ -28,6 +28,6 @@ export const options = {
 export default function peakScenario() {
   readPublicApiMix(target, { profile: 'peak-500' });
   readOptionalAuthenticatedMix(target, { profile: 'peak-500' });
-  maybeRunWriteMix({ profile: 'peak-500' });
+  maybeRunWriteMix(target, { profile: 'peak-500' });
   pause(1);
 }

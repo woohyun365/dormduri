@@ -49,12 +49,15 @@ describe('k6 HTTP stress scripts static contract', () => {
     expect(source).toContain('host.docker.internal');
   });
 
-  it('write-heavy path는 fixture seed integration 전까지 명시 opt-in 없이는 실행하지 않는다', () => {
+  it('write-heavy path는 token artifact와 명시 opt-in 없이는 실행하지 않는다', () => {
     const source = readK6Script('common.js');
 
+    expect(source).toContain('STRESS_ACTOR_TOKENS_PATH');
     expect(source).toContain('STRESS_ENABLE_WRITE_MIX');
     expect(source).toContain('write-mix-disabled');
     expect(source).toContain('write-mix-not-seeded');
+    expect(source).toContain('bookmark-create');
+    expect(source).toContain('match-request-create');
   });
 
   it('k6 scripts와 runner는 secret을 console 출력하지 않는다', () => {

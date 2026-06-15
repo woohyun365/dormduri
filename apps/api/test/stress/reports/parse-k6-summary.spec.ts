@@ -63,6 +63,42 @@ describe('parseK6Summary', () => {
     ]);
   });
 
+  it('k6 v2 summary-export의 direct metric 값과 threshold tainted boolean을 해석한다', () => {
+    const report = parseK6Summary(
+      {
+        metrics: {
+          http_req_duration: { avg: 10, min: 1, max: 30, 'p(95)': 20, 'p(99)': 25 },
+          http_req_failed: { passes: 0, fails: 30, value: 0 },
+          checks: { passes: 60, fails: 0, value: 1 },
+          iterations: { count: 10 },
+          'http_req_failed{scenario:smoke}': {
+            passes: 0,
+            fails: 30,
+            value: 0,
+            thresholds: { 'rate<0.01': false },
+          },
+          'checks{scenario:smoke}': {
+            passes: 60,
+            fails: 0,
+            value: 1,
+            thresholds: { 'rate>0.99': false },
+          },
+        },
+      },
+      { scenarioName: 'smoke', k6ExitCode: 0 },
+    );
+
+    expect(report.status).toBe('passed');
+    expect(report.metrics.httpReqDuration).toMatchObject({ avg: 10, p95: 20, p99: 25 });
+    expect(report.metrics.httpReqFailed).toMatchObject({ rate: 0, passes: 0, fails: 30 });
+    expect(report.metrics.checks).toMatchObject({ rate: 1, passes: 60, fails: 0 });
+    expect(report.thresholds).toEqual([
+      { metric: 'http_req_failed{scenario:smoke}', expression: 'rate<0.01', ok: true },
+      { metric: 'checks{scenario:smoke}', expression: 'rate>0.99', ok: true },
+    ]);
+    expect(report.failedThresholds).toEqual([]);
+  });
+
   it('parser output은 raw secret payload를 포함하지 않는다', () => {
     const reportJson = JSON.stringify({
       ...passingSummary,

@@ -31,6 +31,6 @@ export const options = {
 export default function scoreCohortScenario() {
   readPublicApiMix(target, { profile: 'score-cohort-946', cohort: '946' });
   readOptionalAuthenticatedMix(target, { profile: 'score-cohort-946', cohort: '946' });
-  maybeRunWriteMix({ profile: 'score-cohort-946', cohort: '946' });
+  maybeRunWriteMix(target, { profile: 'score-cohort-946', cohort: '946' });
   pause(1);
 }

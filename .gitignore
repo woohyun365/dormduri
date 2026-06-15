@@ -72,3 +72,6 @@ REFACTOR-ANALYZE.md
 infra/observability/.env.observability
 infra/observability/prometheus/secrets/*
 !infra/observability/prometheus/secrets/*.example
+# Stress test local artifacts
+apps/api/test/stress/reports/.tmp-*
+apps/api/test/stress/fixtures/.tmp-*

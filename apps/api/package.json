@@ -42,7 +42,8 @@
     "stress:http:peak": "node test/stress/http/k6/run-k6-scenario.mjs peak-500",
     "stress:http:spike": "node test/stress/http/k6/run-k6-scenario.mjs spike-500",
     "stress:http:soak": "node test/stress/http/k6/run-k6-scenario.mjs soak-250",
-    "stress:http:score-cohort": "node test/stress/http/k6/run-k6-scenario.mjs score-cohort-946"
+    "stress:http:score-cohort": "node test/stress/http/k6/run-k6-scenario.mjs score-cohort-946",
+    "stress:fixture:tokens": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' test/stress/fixtures/stress-fixture.auth-tokens.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.26",

@@ -31,6 +31,6 @@ export const options = {
 export default function baselineScenario() {
   readPublicApiMix(target, { profile: 'baseline-250' });
   readOptionalAuthenticatedMix(target, { profile: 'baseline-250' });
-  maybeRunWriteMix({ profile: 'baseline-250' });
+  maybeRunWriteMix(target, { profile: 'baseline-250' });
   pause(1);
 }

@@ -10,8 +10,11 @@ apps/api/test/stress/
   fixtures/
     stress-fixture.config.ts      # cohort size, prefix, campus/season defaults
     stress-fixture.plan.ts        # deterministic actor/dormitory/cohort plan + safe summary
-    seed-stress-fixture.ts        # target guard 통과 후 dry-run seed summary
-    reset-stress-fixture.ts       # target guard 통과 후 marker-only reset dry-run summary
+    stress-fixture.apply-guard.ts # DB mutation explicit opt-in guard
+    stress-fixture.materializer.ts # local/staging fixture Prisma materializer/reset plan
+    stress-fixture.auth-tokens.ts # seeded actor login token artifact helper
+    seed-stress-fixture.ts        # default dry-run, explicit guard 통과 시 DB seed
+    reset-stress-fixture.ts       # default dry-run, explicit guard 통과 시 marker-only reset
   safety/
     stress-target.guard.ts        # local/staging/production override guard
     stress-secret-redaction.ts    # report/log secret redaction helper
@@ -23,7 +26,7 @@ apps/api/test/stress/
     parse-k6-summary.ts           # k6 summary-export safe report parser
 ```
 
-Phase 5의 seed/reset runner는 **dry-run skeleton**이다. Prisma write/delete 연결은 후속 stress runtime phase에서 같은 guard와 marker-only scope 뒤에 붙인다. Phase 6의 HTTP stress script는 k6 외부 CLI를 사용하며 npm dependency를 추가하지 않는다.
+Seed/reset runner는 기본적으로 **dry-run**이다. `STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE`가 있을 때만 local/staging target에서 marker-only fixture row를 만들거나 지운다. Phase 6 HTTP stress script는 k6 외부 CLI를 사용하며 npm dependency를 추가하지 않는다. Production API host에는 k6를 설치하지 않고, local 개발 머신/CI/별도 runner에서 실행한다.
 
 ## Target guard
 
@@ -32,7 +35,10 @@ Phase 5의 seed/reset runner는 **dry-run skeleton**이다. Prisma write/delete 
 - `STRESS_TARGET_URL`: seed/reset/stress 실행 대상 API URL. `http://127.0.0.1:4000`처럼 명시한다.
 - `STRESS_ENV`: `local`, `staging`, `production`. 기본값은 `local`이다.
 - `STRESS_ALLOWED_HOSTS`: 쉼표/공백 구분 allowlist. 스테이징 host는 여기에 명시한다.
-- `STRESS_ALLOW_PRODUCTION`: production-like host 또는 `NODE_ENV=production` 실행은 `I_UNDERSTAND` 값 없이는 실패한다.
+- `STRESS_ALLOW_PRODUCTION`: production-like host 또는 `NODE_ENV=production` 실행은 `I_UNDERSTAND` 값 없이는 실패한다. 단, fixture DB mutation은 production override가 있어도 계속 거부된다.
+- `STRESS_FIXTURE_APPLY`: `I_UNDERSTAND_STAGING_FIXTURE`일 때만 local/staging DB seed/reset/token login artifact 생성을 허용한다.
+- `STRESS_ACTOR_TOKENS_PATH`: k6가 읽을 actor token artifact 경로. 기본 생성 경로는 `test/stress/reports/.tmp-stress-actor-tokens.json`이다.
+- `STRESS_TOKEN_ACTOR_LIMIT`: token artifact에 로그인시킬 actor 수. 기본 32명이다.
 
 기본 허용 대상은 localhost, `host.docker.internal`, RFC1918 private IPv4, 또는 `STRESS_ALLOWED_HOSTS`에 명시된 host다. public/production-like host는 explicit override 없이는 거부된다.
 
@@ -64,6 +70,41 @@ actor plan에는 seed에 필요한 email/password/token/session 값이 포함될
 - cookie/session value
 - raw request/response payload 중 secret 포함 가능성이 있는 값
 
+## Local k6 CLI
+
+개발 머신에서는 k6 CLI를 로컬에 설치해 smoke를 바로 검증한다. 이 repo는 k6를 npm dependency로 추가하지 않는다.
+
+```bash
+brew install k6
+k6 version
+```
+
+운영 API instance에 k6를 설치해서 자기 자신을 때리는 구조는 권장하지 않는다. Staging/release 부하는 CI 또는 별도 runner에서 `STRESS_TARGET_URL`을 지정해 실행한다.
+
+## Authenticated fixture flow
+
+```bash
+# 1) 안전한 dry-run 계획 확인
+pnpm --dir apps/api stress:fixture:plan
+STRESS_TARGET_URL=http://127.0.0.1:4000 pnpm --dir apps/api stress:fixture:seed
+
+# 2) local/staging 전용 실제 seed/reset/token. production target에서는 실패한다.
+STRESS_TARGET_URL=http://127.0.0.1:4000 \
+STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE \
+pnpm --dir apps/api stress:fixture:seed
+
+STRESS_TARGET_URL=http://127.0.0.1:4000 \
+STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE \
+STRESS_TOKEN_ACTOR_LIMIT=32 \
+pnpm --dir apps/api stress:fixture:tokens
+
+STRESS_TARGET_URL=http://127.0.0.1:4000 \
+STRESS_FIXTURE_APPLY=I_UNDERSTAND_STAGING_FIXTURE \
+pnpm --dir apps/api stress:fixture:reset
+```
+
+`stress:fixture:tokens`는 `/auth/login`을 호출해 access token artifact를 만들며, 파일은 `.tmp-*` local artifact로 git에 포함하지 않는다.
+
 ## Commands
 
 ```bash
@@ -79,4 +120,4 @@ STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.
 STRESS_TARGET_URL=https://staging.example.internal STRESS_ALLOWED_HOSTS=staging.example.internal pnpm --dir apps/api stress:http:score-cohort
 ```
 
-`stress:fixture:seed`와 `stress:fixture:reset`은 Phase 5에서는 DB를 변경하지 않고 guarded dry-run summary만 출력한다. `stress:http:*`는 `k6` CLI가 설치되어 있어야 실행되며, summary-export 결과를 safe report로 변환한다.
+`stress:fixture:seed`와 `stress:fixture:reset`은 기본값에서는 DB를 변경하지 않고 guarded dry-run summary만 출력한다. 인증 기반 mix를 실행하려면 local/staging DB에 fixture를 seed하고 `stress:fixture:tokens`로 만든 artifact 경로를 `STRESS_ACTOR_TOKENS_PATH`에 지정한다. `stress:http:*`는 `k6` CLI가 설치되어 있어야 실행되며, summary-export 결과를 safe report로 변환한다.

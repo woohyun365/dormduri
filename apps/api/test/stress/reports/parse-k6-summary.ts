@@ -75,11 +75,11 @@ function readMetricSnapshot(
   metricName: string,
 ): K6MetricSnapshot {
   const metric = asOptionalRecord(metrics[metricName]);
-  const values = asOptionalRecord(metric?.values) ?? {};
+  const values = asOptionalRecord(metric?.values) ?? metric ?? {};
 
   return stripUndefined({
     count: readNumber(values, 'count'),
-    rate: readNumber(values, 'rate'),
+    rate: readNumber(values, 'rate') ?? readNumber(values, 'value'),
     p95: readNumber(values, 'p(95)'),
     p99: readNumber(values, 'p(99)'),
     avg: readNumber(values, 'avg'),
@@ -112,7 +112,7 @@ function redactReportString(value: string): string {
 
 function readThresholdOk(result: unknown): boolean {
   if (typeof result === 'boolean') {
-    return result;
+    return result === false;
   }
 
   const record = asOptionalRecord(result);

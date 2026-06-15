@@ -27,6 +27,6 @@ export const options = {
 export default function soakScenario() {
   readPublicApiMix(target, { profile: 'soak-250' });
   readOptionalAuthenticatedMix(target, { profile: 'soak-250' });
-  maybeRunWriteMix({ profile: 'soak-250' });
+  maybeRunWriteMix(target, { profile: 'soak-250' });
   pause(1);
 }

@@ -63,6 +63,9 @@ export default defineConfig([
       globals: {
         ...globals.node,
         __ENV: 'readonly',
+        __VU: 'readonly',
+        __ITER: 'readonly',
+        open: 'readonly',
       },
       parserOptions: {
         project: false,

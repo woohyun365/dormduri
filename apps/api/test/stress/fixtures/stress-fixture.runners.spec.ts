@@ -49,9 +49,14 @@ describe('stress fixture dry-run runners', () => {
     expect(summary.databaseMutation).toBe(false);
     expect(summary.marker).toBe('stress-runner');
     expect(summary.resetScope).toEqual([
+      'ReportCase.id startsWith stress-runner',
+      'SupportTicket.id startsWith stress-runner',
+      'ConversationThread.id startsWith stress-runner',
+      'MatchRequest.id startsWith stress-runner',
+      'UserBookmark.id startsWith stress-runner',
       'User.id startsWith stress-runner-user-',
       'SeasonParticipant.id startsWith stress-runner-participant-',
-      'SeasonParticipantProfile.id startsWith stress-runner-profile-',
+      'SeasonParticipantProfile.participantId startsWith stress-runner-participant-',
       'Dormitory.id startsWith stress-runner-dormitory-',
       'Season.id equals stress-season-runner',
     ]);

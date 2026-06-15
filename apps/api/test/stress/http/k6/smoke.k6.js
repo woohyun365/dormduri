@@ -21,6 +21,6 @@ export const options = {
 
 export default function smokeScenario() {
   readPublicApiMix(target, { profile: 'smoke' });
-  maybeRunWriteMix({ profile: 'smoke' });
+  maybeRunWriteMix(target, { profile: 'smoke' });
   pause(1);
 }
