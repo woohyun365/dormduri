@@ -47,7 +47,8 @@
     "stress:realtime:smoke": "node test/stress/realtime/artillery/run-artillery-scenario.mjs smoke",
     "stress:realtime:baseline": "node test/stress/realtime/artillery/run-artillery-scenario.mjs baseline-250",
     "stress:realtime:peak": "node test/stress/realtime/artillery/run-artillery-scenario.mjs peak-500",
-    "stress:docker:smoke": "node test/stress/docker/run-dockerized-smoke.mjs"
+    "stress:docker:smoke": "node test/stress/docker/run-dockerized-smoke.mjs",
+    "stress:docker:production-like": "node test/stress/docker/run-production-like-evidence.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.26",

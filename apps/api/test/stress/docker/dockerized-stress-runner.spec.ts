@@ -7,6 +7,13 @@ const source = readFileSync(
   resolve(process.cwd(), 'test/stress/docker/run-dockerized-smoke.mjs'),
   'utf8',
 );
+const productionLikeSource = readFileSync(
+  resolve(process.cwd(), 'test/stress/docker/run-production-like-evidence.mjs'),
+  'utf8',
+);
+const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as {
+  readonly scripts?: Record<string, string>;
+};
 
 describe('dockerized stress smoke runner', () => {
   it('keeps Phase 9-1 docker API/nginx smoke steps executable from one script', () => {
@@ -38,5 +45,27 @@ describe('dockerized stress smoke runner', () => {
     expect(source).toContain('cleanupRawArtifacts');
     expect(source).toContain('[REDACTED_STRESS_SECRET]');
     expect(source).not.toContain('console.log(metricsToken)');
+  });
+
+  it('exposes a Phase 9-2 production-like evidence profile with observability and DB readout', () => {
+    expect(productionLikeSource).toContain("STRESS_DOCKER_PROFILE = 'production-like'");
+    expect(source).toContain('api-production-like-stress-result-');
+    expect(source).toContain('docker-compose.api.override.example.yml');
+    expect(source).toContain('observability compose up');
+    expect(source).toContain('prometheus api up query');
+    expect(source).toContain(
+      "STRESS_COHORT_SIZE: process.env.STRESS_COHORT_SIZE || (productionLikeRun ? '946'",
+    );
+    expect(source).toContain('stress marker residue after reset');
+    expect(source).toContain('#247: 237/946 production-like cohort');
+  });
+
+  it('keeps package scripts explicit for smoke and production-like evidence runs', () => {
+    expect(packageJson.scripts?.['stress:docker:smoke']).toBe(
+      'node test/stress/docker/run-dockerized-smoke.mjs',
+    );
+    expect(packageJson.scripts?.['stress:docker:production-like']).toBe(
+      'node test/stress/docker/run-production-like-evidence.mjs',
+    );
   });
 });
