@@ -3,10 +3,14 @@ import type { Request, Response } from 'express';
 import { normalizeApiError } from './api-error.js';
 import { AppLoggerService } from '../observability/logging/app-logger.service.js';
 import { mapExceptionToLogEvent } from '../observability/logging/exception-log.mapper.js';
+import { HttpMetricsService } from '../observability/metrics/http-metrics.service.js';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
-  constructor(private readonly logger: AppLoggerService) {}
+  constructor(
+    private readonly logger: AppLoggerService,
+    private readonly metrics: HttpMetricsService,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -26,6 +30,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
     };
 
     this.logException(request, normalized);
+    this.recordExceptionMetric(normalized);
     response.status(normalized.statusCode).json(body);
   }
 
@@ -35,6 +40,18 @@ export class ApiExceptionFilter implements ExceptionFilter {
       this.logger.write(level, event, message);
     } catch {
       // Logging must never affect product error responses.
+    }
+  }
+
+  private recordExceptionMetric(normalized: ReturnType<typeof normalizeApiError>) {
+    try {
+      this.metrics.recordException({
+        code: normalized.code,
+        domain: 'platform',
+        statusCode: normalized.statusCode,
+      });
+    } catch {
+      // Metrics must never affect product error responses.
     }
   }
 }

@@ -16,6 +16,10 @@ function makeRequestContextService() {
     logHashSecret: 'test-secret',
     logLevel: 'info',
     logPretty: false,
+    metricsEnabled: true,
+    metricsBearerToken: 'metrics-secret',
+    metricsRoute: 'internal/metrics',
+    metricsHttpDurationBuckets: [0.05, 0.1, 0.2],
     serviceName: 'api',
   } satisfies ConfigType<typeof observabilityConfig>);
 }

@@ -9,6 +9,10 @@ const settings = {
   logHashSecret: 'test-secret',
   logLevel: 'debug',
   logPretty: false,
+  metricsEnabled: true,
+  metricsBearerToken: 'metrics-secret',
+  metricsRoute: 'internal/metrics',
+  metricsHttpDurationBuckets: [0.05, 0.1, 0.2],
   serviceName: 'api',
 } satisfies ConfigType<typeof observabilityConfig>;
 

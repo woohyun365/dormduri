@@ -42,6 +42,7 @@ import {
   DEFAULT_LOG_HASH_SECRET,
   DEFAULT_LOG_LEVEL,
   DEFAULT_LOG_PRETTY,
+  DEFAULT_METRICS_ENABLED,
   DEFAULT_OBSERVABILITY_SERVICE_NAME,
 } from './observability.config.js';
 import {
@@ -168,6 +169,23 @@ export const envValidationSchema = Joi.object({
     .falsy('no')
     .falsy('off')
     .default(DEFAULT_LOG_PRETTY),
+  METRICS_ENABLED: Joi.boolean()
+    .truthy('1')
+    .truthy('true')
+    .truthy('yes')
+    .truthy('on')
+    .falsy('0')
+    .falsy('false')
+    .falsy('no')
+    .falsy('off')
+    .default(DEFAULT_METRICS_ENABLED),
+  METRICS_BEARER_TOKEN: Joi.string()
+    .trim()
+    .when('NODE_ENV', {
+      is: 'production',
+      then: Joi.required(),
+      otherwise: Joi.string().trim().allow('').optional(),
+    }),
   VERIFICATION_CODE_HMAC_SECRET: Joi.string()
     .trim()
     .when('NODE_ENV', {

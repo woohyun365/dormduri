@@ -21,10 +21,14 @@ function createHost(response: { status: Mock; json: Mock }): ArgumentsHost {
 
 describe('ApiExceptionFilter', () => {
   const write = vi.fn();
+  const recordException = vi.fn();
   const logger = {
     write,
   } as unknown as AppLoggerService;
-  const filter = new ApiExceptionFilter(logger);
+  const metrics = {
+    recordException,
+  };
+  const filter = new ApiExceptionFilter(logger, metrics as never);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -65,6 +69,11 @@ describe('ApiExceptionFilter', () => {
       }),
       'http exception handled',
     );
+    expect(recordException).toHaveBeenCalledWith({
+      code: 'AUTH_CODE_REQUEST_THROTTLED',
+      domain: 'platform',
+      statusCode: 429,
+    });
   });
 
   it('기본 Nest exception도 공통 shape로 정규화한다', () => {
@@ -96,14 +105,22 @@ describe('ApiExceptionFilter', () => {
       }),
       'http exception handled',
     );
+    expect(recordException).toHaveBeenCalledWith({
+      code: 'BAD_REQUEST',
+      domain: 'platform',
+      statusCode: 400,
+    });
   });
 
   it('logger 실패가 error response 생성을 막지 않는다', () => {
-    const throwingFilter = new ApiExceptionFilter({
-      write: vi.fn(() => {
-        throw new Error('logger unavailable');
-      }),
-    } as unknown as AppLoggerService);
+    const throwingFilter = new ApiExceptionFilter(
+      {
+        write: vi.fn(() => {
+          throw new Error('logger unavailable');
+        }),
+      } as unknown as AppLoggerService,
+      { recordException: vi.fn() } as never,
+    );
     const response = {
       status: vi.fn().mockReturnThis(),
       json: vi.fn(),
