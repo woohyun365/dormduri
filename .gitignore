@@ -58,6 +58,11 @@ docs/*
 docs/04_policy/*
 !docs/04_policy/official/
 !docs/04_policy/official/**
+!docs/06_trouble-shooting/
+docs/06_trouble-shooting/*
+!docs/06_trouble-shooting/observability/
+docs/06_trouble-shooting/observability/*
+!docs/06_trouble-shooting/observability/slack-alert-runbook.md
 
 ## 프로젝트 관리 문서 (README.md 제외)
 CLAUDE.md
@@ -75,6 +80,8 @@ infra/deploy/.env.api
 infra/observability/.env.observability
 infra/observability/prometheus/secrets/*
 !infra/observability/prometheus/secrets/*.example
+infra/observability/alertmanager/alertmanager.yml
+infra/observability/alertmanager/*.local.yml
 # Stress test local artifacts
 apps/api/test/stress/reports/.tmp-*
 apps/api/test/stress/fixtures/.tmp-*

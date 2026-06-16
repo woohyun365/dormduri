@@ -5,12 +5,13 @@ API product behavior, route, response code, auth/session semantics는 이 stack�
 
 ## 구성
 
-| Component  | Local URL              | 역할                                             |
-| ---------- | ---------------------- | ------------------------------------------------ |
-| Prometheus | http://127.0.0.1:9090  | API `/internal/metrics` scrape와 alert rule 평가 |
-| Grafana    | http://127.0.0.1:3001  | Prometheus/Loki datasource와 dashboard           |
-| Loki       | http://127.0.0.1:3100  | structured JSON log 저장                         |
-| Alloy      | http://127.0.0.1:12345 | Docker stdout log 수집 후 Loki 전송              |
+| Component    | Local URL              | 역할                                             |
+| ------------ | ---------------------- | ------------------------------------------------ |
+| Prometheus   | http://127.0.0.1:9090  | API `/internal/metrics` scrape와 alert rule 평가 |
+| Alertmanager | http://127.0.0.1:9093  | Prometheus alert grouping과 Slack delivery       |
+| Grafana      | http://127.0.0.1:3001  | Prometheus/Loki datasource와 dashboard           |
+| Loki         | http://127.0.0.1:3100  | structured JSON log 저장                         |
+| Alloy        | http://127.0.0.1:12345 | Docker stdout log 수집 후 Loki 전송              |
 
 모든 UI/endpoint는 기본적으로 `127.0.0.1`에만 bind한다. 운영 public internet에 직접 노출하지 않는다.
 
@@ -117,9 +118,9 @@ Loki label은 low-cardinality 값만 허용한다.
 
 requestId 같은 추적 필드는 JSON field로 남을 수 있지만 Loki label로 승격하지 않는다. Prometheus label도 API code의 metric label policy를 따른다.
 
-## Alert rule
+## Alert rule / Slack delivery
 
-이 stack은 Prometheus-local rule만 제공한다. Slack/Alertmanager delivery는 별도 alert 연결 단계에서 다룬다.
+Prometheus rule은 Alertmanager로 route된다. Alertmanager는 기본적으로 no-op receiver로 기동하며, Slack delivery는 ignored local env에 webhook을 넣고 명시적으로 켠 경우에만 활성화된다.
 
 현재 rule:
 
@@ -129,6 +130,19 @@ requestId 같은 추적 필드는 JSON field로 남을 수 있지만 Loki label�
 - `PrismaPoolWaitingHigh`
 - `RetentionReviewBacklogHigh`
 - `AuthCleanupLagHigh`
+- `SlackAlertSmokeDisabled` — non-firing placeholder. 실제 발송은 `infra/observability/slack/send-alertmanager-smoke.sh`로 수행
+
+Slack delivery 활성화:
+
+```env
+SLACK_ALERTMANAGER_ENABLED=true
+SLACK_ALERT_WEBHOOK_URL=<SLACK_INCOMING_WEBHOOK_URL>
+SLACK_ALERT_CHANNEL=#knu-roommate-alerts-test
+```
+
+실제 webhook URL은 `infra/observability/.env.observability`에만 둔다. `infra/observability/.env.observability.example`, Alertmanager example, 문서, PR/이슈에는 secret 값을 남기지 않는다. 자세한 절차는 `infra/observability/slack/slack-setup-runbook.md`와 `docs/06_trouble-shooting/observability/slack-alert-runbook.md`를 따른다.
+
+Slack payload는 `alertname`, `service`, `env`, `severity`, bounded summary, runbook만 포함한다. userId/email/threadId/raw body/RRPD payload는 금지한다.
 
 ## Resource guidance
 

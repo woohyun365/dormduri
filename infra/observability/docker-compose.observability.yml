@@ -24,6 +24,8 @@ services:
       - 127.0.0.1:${PROMETHEUS_PORT:-9090}:9090
     extra_hosts:
       - host.docker.internal:host-gateway
+    depends_on:
+      - alertmanager
     networks:
       - observability
 
@@ -62,6 +64,27 @@ services:
     networks:
       - observability
 
+  alertmanager:
+    image: ${ALERTMANAGER_IMAGE:-prom/alertmanager:latest}
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+    command:
+      - /etc/alertmanager/render-alertmanager-config.sh
+    environment:
+      TZ: ${OBSERVABILITY_TZ:-KST-9}
+      OBSERVABILITY_ENV: ${OBSERVABILITY_ENV:-local}
+      SLACK_ALERTMANAGER_ENABLED: ${SLACK_ALERTMANAGER_ENABLED:-false}
+      SLACK_ALERT_WEBHOOK_URL: '${SLACK_ALERT_WEBHOOK_URL:-}'
+      SLACK_ALERT_CHANNEL: '${SLACK_ALERT_CHANNEL:-#knu-roommate-alerts}'
+    volumes:
+      - ./alertmanager:/etc/alertmanager:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - 127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093
+    networks:
+      - observability
+
   grafana:
     image: ${GRAFANA_IMAGE:-grafana/grafana:latest}
     restart: unless-stopped
@@ -94,3 +117,4 @@ volumes:
   loki-data:
   alloy-data:
   grafana-data:
+  alertmanager-data:

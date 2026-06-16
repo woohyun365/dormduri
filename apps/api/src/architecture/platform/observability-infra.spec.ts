@@ -12,6 +12,10 @@ const stressReleaseRunbookPath = join(
   'docs/06_trouble-shooting/observability/api-stress-release-runbook.md',
 );
 const stressReportTemplatePath = join(stressRoot, 'reports/report-template.md');
+const slackTroubleshootingRunbookPath = join(
+  repoRoot,
+  'docs/06_trouble-shooting/observability/slack-alert-runbook.md',
+);
 
 const requiredFiles = [
   'docker-compose.observability.yml',
@@ -19,6 +23,16 @@ const requiredFiles = [
   'prometheus/prometheus.yml',
   'prometheus/render-prometheus-config.sh',
   'prometheus/rules/api-alerts.yml',
+  'prometheus/rules/slack-alert-smoke.yml',
+  'alertmanager/render-alertmanager-config.sh',
+  'alertmanager/alertmanager.yml.template',
+  'alertmanager/alertmanager.noop.yml.template',
+  'alertmanager/alertmanager.yml.example',
+  'alertmanager/templates/slack.tmpl',
+  'alertmanager/README.md',
+  'slack/send-alertmanager-smoke.sh',
+  'slack/slack-setup-runbook.md',
+  'slack/slack-alert-payload.md',
   'prometheus/secrets/api-metrics-bearer-token.example',
   'grafana/provisioning/datasources/datasources.yml',
   'grafana/provisioning/dashboards/dashboards.yml',
@@ -116,10 +130,12 @@ describe('observability infra', () => {
     const compose = readInfraFile('docker-compose.observability.yml');
 
     expect(compose).toContain('prometheus:');
+    expect(compose).toContain('alertmanager:');
     expect(compose).toContain('grafana:');
     expect(compose).toContain('loki:');
     expect(compose).toContain('alloy:');
     expect(compose).toContain('127.0.0.1:${PROMETHEUS_PORT:-9090}:9090');
+    expect(compose).toContain('127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093');
     expect(compose).toContain('127.0.0.1:${GRAFANA_PORT:-3001}:3000');
     expect(compose).toContain('127.0.0.1:${LOKI_PORT:-3100}:3100');
     expect(compose).toContain('GF_AUTH_ANONYMOUS_ENABLED');
@@ -132,6 +148,7 @@ describe('observability infra', () => {
     const prometheusConfig = readInfraFile('prometheus/prometheus.yml');
     const renderScript = readInfraFile('prometheus/render-prometheus-config.sh');
     const rules = readInfraFile('prometheus/rules/api-alerts.yml');
+    const slackSmokeRules = readInfraFile('prometheus/rules/slack-alert-smoke.yml');
 
     expect(compose).toContain('entrypoint:');
     expect(compose).toContain('/bin/sh');
@@ -142,6 +159,8 @@ describe('observability infra', () => {
       'credentials_file: /etc/prometheus/secrets/api-metrics-bearer-token',
     );
     expect(prometheusConfig).toContain('__API_METRICS_TARGET__');
+    expect(prometheusConfig).toContain('alerting:');
+    expect(prometheusConfig).toContain('alertmanager:9093');
     expect(renderScript).toContain('API_METRICS_TARGET');
     expect(renderScript).toContain('/bin/prometheus');
     expect(rules).toContain('ApiHigh5xxRate');
@@ -150,6 +169,34 @@ describe('observability infra', () => {
     expect(rules).toContain('PrismaPoolWaitingHigh');
     expect(rules).toContain('RetentionReviewBacklogHigh');
     expect(rules).toContain('AuthCleanupLagHigh');
+    expect(slackSmokeRules).toContain('SlackAlertSmokeDisabled');
+    expect(slackSmokeRules).toContain('expr: vector(0) == 1');
+  });
+
+  it('routes alerts through Alertmanager without committing Slack webhook secrets', () => {
+    const compose = readInfraFile('docker-compose.observability.yml');
+    const envExample = readInfraFile('.env.observability.example');
+    const renderScript = readInfraFile('alertmanager/render-alertmanager-config.sh');
+    const slackTemplate = readInfraFile('alertmanager/alertmanager.yml.template');
+    const noopTemplate = readInfraFile('alertmanager/alertmanager.noop.yml.template');
+    const slackPayloadPolicy = readInfraFile('slack/slack-alert-payload.md');
+
+    expect(compose).toContain('SLACK_ALERTMANAGER_ENABLED');
+    expect(compose).toContain('SLACK_ALERT_WEBHOOK_URL');
+    expect(compose).toContain('SLACK_ALERT_CHANNEL');
+    expect(compose).toContain('/etc/alertmanager/render-alertmanager-config.sh');
+    expect(envExample).toContain('SLACK_ALERTMANAGER_ENABLED=false');
+    expect(envExample).toContain('SLACK_ALERT_WEBHOOK_URL=');
+    expect(envExample).not.toContain('hooks.slack.com/services/');
+    expect(renderScript).toContain('alertmanager.noop.yml.template');
+    expect(renderScript).toContain('alertmanager.yml.template');
+    expect(slackTemplate).toContain('slack_configs:');
+    expect(slackTemplate).toContain('__SLACK_ALERT_WEBHOOK_URL__');
+    expect(slackTemplate).toContain('__SLACK_ALERT_CHANNEL__');
+    expect(noopTemplate).toContain('receiver: noop');
+    expect(slackPayloadPolicy).toContain('Forbidden');
+    expect(slackPayloadPolicy).toContain('RRPD payload');
+    expect(readInfraFile('alertmanager/templates/slack.tmpl')).toContain('• *env*:');
   });
 
   it('provisions Grafana Prometheus/Loki datasources and dashboards from files', () => {
@@ -209,6 +256,8 @@ describe('observability infra', () => {
     const configText = [
       readInfraFile('prometheus/prometheus.yml'),
       readInfraFile('prometheus/rules/api-alerts.yml'),
+      readInfraFile('prometheus/rules/slack-alert-smoke.yml'),
+      readInfraFile('alertmanager/alertmanager.yml.template'),
       ...readDashboardFiles().map((dashboard) => dashboard.source),
     ].join('\n');
 
@@ -221,9 +270,11 @@ describe('observability infra', () => {
   it('documents the stress release gate and safe report template', () => {
     expect(existsSync(stressReleaseRunbookPath)).toBe(true);
     expect(existsSync(stressReportTemplatePath)).toBe(true);
+    expect(existsSync(slackTroubleshootingRunbookPath)).toBe(true);
 
     const runbook = readFileSync(stressReleaseRunbookPath, 'utf8');
     const reportTemplate = readFileSync(stressReportTemplatePath, 'utf8');
+    const slackRunbook = readFileSync(slackTroubleshootingRunbookPath, 'utf8');
 
     expect(runbook).toContain('STRESS_ALLOWED_HOSTS');
     expect(runbook).toContain('stress:fixture:reset');
@@ -233,5 +284,7 @@ describe('observability infra', () => {
     expect(reportTemplate).toContain('Raw token/ticket/cookie/password/email omitted');
     expect(reportTemplate).toContain('k6 safe parser summary');
     expect(reportTemplate).toContain('Artillery safe parser summary');
+    expect(slackRunbook).toContain('SLACK_ALERTMANAGER_ENABLED=true');
+    expect(slackRunbook).toContain('Payload privacy');
   });
 });
