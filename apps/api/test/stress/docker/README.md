@@ -8,6 +8,7 @@
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | `pnpm --dir apps/api stress:docker:smoke`           | 짧은 local smoke로 API/nginx compose, fixture, k6, Artillery wiring을 검증                                                                          | `.omx/reports/api-dockerized-stress-result-*.md`      |
 | `pnpm --dir apps/api stress:docker:production-like` | nginx + API container + local Postgres container + observability stack을 production-like rehearsal topology로 올리고 237/946 cohort evidence를 수집 | `.omx/reports/api-production-like-stress-result-*.md` |
+| `pnpm --dir apps/api stress:docker:237-ramp`        | 237명 cohort 기준 VU `25 → 50 → 100 → 237` ramp를 단계별로 실행하고 #247 cache 도입 여부 1차 판단 report를 남김                                     | `.omx/reports/api-237-ramp-decision-result-*.md`      |
 
 ## 공통 실행 대상
 
@@ -63,6 +64,39 @@ pnpm --dir apps/api stress:docker:production-like
 ```
 
 `STRESS_DOCKER_OBSERVABILITY=false`를 주면 observability stack 없이 API/nginx/Postgres readout만 수집한다. `STRESS_DOCKER_KEEP_UP=true`를 주면 실행 후 compose를 내리지 않는다.
+
+## 237 cohort ramp decision 실행
+
+```bash
+pnpm --dir apps/api stress:docker:237-ramp
+```
+
+237 ramp runner는 production-like runner를 단계별로 감싸서 다음을 실행한다.
+
+1. 237명 fixture / largest cohort 237 / token actor 50으로 seed와 token artifact를 생성한다.
+2. VU `25 → 50 → 100 → 237` 순서로 `smoke → authenticated baseline → score-cohort`를 실행한다.
+3. 각 단계마다 별도 report `.omx/reports/api-237-ramp-decision-vu*.md`를 남기고, 최종 누적 decision report를 `.omx/reports/api-237-ramp-decision-result-*.md`에 쓴다.
+4. `score p95 >= 300ms` 또는 `score p99 >= 1500ms`가 반복되면 #247 `MATCH_SCORE` bounded cache 승격 후보로 기록한다.
+5. runner 실패, `http_req_failed > 1%`, `checks < 98%`, `p95 >= 500ms`이면 다음 VU 단계로 올리지 않고 stop gate를 report에 남긴다.
+
+기본값은 read/score decision에 집중하기 위해 bounded write mix와 realtime smoke를 건너뛴다. 안정성이 확인된 뒤에만 아래 env를 명시한다.
+
+```bash
+STRESS_237_RAMP_ENABLE_WRITE_MIX=true \
+STRESS_237_RAMP_ENABLE_REALTIME_SMOKE=true \
+pnpm --dir apps/api stress:docker:237-ramp
+```
+
+로컬 검증이나 runbook dry-run은 다음처럼 낮출 수 있다.
+
+```bash
+STRESS_237_RAMP_PLAN_ONLY=true pnpm --dir apps/api stress:docker:237-ramp
+
+STRESS_237_RAMP_STAGES=25 \
+STRESS_237_RAMP_STAGE_DURATION=15s \
+STRESS_DOCKER_OBSERVABILITY=false \
+pnpm --dir apps/api stress:docker:237-ramp
+```
 
 ## 안전 경계
 

@@ -27,6 +27,10 @@ const runProfile =
   process.env.STRESS_DOCKER_PROFILE === 'production-like' ? 'production-like' : 'smoke';
 const productionLikeRun = runProfile === 'production-like';
 const useObservability = productionLikeRun && process.env.STRESS_DOCKER_OBSERVABILITY !== 'false';
+const skipBuild = process.env.STRESS_DOCKER_SKIP_BUILD === 'true';
+const skipWriteMix = process.env.STRESS_DOCKER_SKIP_WRITE_MIX === 'true';
+const skipRealtimeSmoke = process.env.STRESS_DOCKER_SKIP_REALTIME_SMOKE === 'true';
+const continueOnStressFailure = process.env.STRESS_DOCKER_CONTINUE_ON_STRESS_FAILURE === 'true';
 const targetUrl = process.env.STRESS_TARGET_URL || 'http://127.0.0.1:8080';
 const dockerProjectName = process.env.STRESS_DOCKER_COMPOSE_PROJECT || 'knu-roommate-api';
 const observabilityProjectName =
@@ -126,7 +130,15 @@ try {
     quiet: true,
     note: composeConfigNote(),
   });
-  runRequired('api compose build', buildApiComposeArgs('build', 'api'));
+  if (skipBuild) {
+    commandResults.push({
+      name: 'api compose build',
+      status: 'pass',
+      note: 'skipped by STRESS_DOCKER_SKIP_BUILD=true',
+    });
+  } else {
+    runRequired('api compose build', buildApiComposeArgs('build', 'api'));
+  }
   runRequired('api compose up', buildApiComposeArgs('up', '-d'));
 
   evidence.health = await waitForHttp(`${targetUrl}/health`, {
@@ -170,18 +182,22 @@ try {
     },
   });
   evidence.k6Smoke = parseJsonArtifact(k6SmokeSummaryPath);
-  runRequired('k6 authenticated baseline', ['pnpm', '--dir', 'apps/api', 'stress:http:baseline'], {
-    env: {
-      ...stressEnv,
-      STRESS_BASELINE_DURATION:
-        process.env.STRESS_BASELINE_DURATION || (productionLikeRun ? '2m' : '10s'),
-      STRESS_BASELINE_VUS: process.env.STRESS_BASELINE_VUS || (productionLikeRun ? '25' : '1'),
-      STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
-      STRESS_K6_SUMMARY_PATH: k6BaselineSummaryPath,
+  runStressCommand(
+    'k6 authenticated baseline',
+    ['pnpm', '--dir', 'apps/api', 'stress:http:baseline'],
+    {
+      env: {
+        ...stressEnv,
+        STRESS_BASELINE_DURATION:
+          process.env.STRESS_BASELINE_DURATION || (productionLikeRun ? '2m' : '10s'),
+        STRESS_BASELINE_VUS: process.env.STRESS_BASELINE_VUS || (productionLikeRun ? '25' : '1'),
+        STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
+        STRESS_K6_SUMMARY_PATH: k6BaselineSummaryPath,
+      },
     },
-  });
+  );
   evidence.k6Baseline = parseJsonArtifact(k6BaselineSummaryPath);
-  runRequired('k6 score cohort', ['pnpm', '--dir', 'apps/api', 'stress:http:score-cohort'], {
+  runStressCommand('k6 score cohort', ['pnpm', '--dir', 'apps/api', 'stress:http:score-cohort'], {
     env: {
       ...stressEnv,
       STRESS_SCORE_COHORT_DURATION:
@@ -193,30 +209,54 @@ try {
     },
   });
   evidence.k6Score = parseJsonArtifact(k6ScoreSummaryPath);
-  runRequired('k6 bounded write mix', ['pnpm', '--dir', 'apps/api', 'stress:http:baseline'], {
-    env: {
-      ...stressEnv,
-      STRESS_BASELINE_DURATION:
-        process.env.STRESS_WRITE_MIX_DURATION || (productionLikeRun ? '1m' : '10s'),
-      STRESS_BASELINE_VUS: process.env.STRESS_WRITE_MIX_VUS || (productionLikeRun ? '10' : '1'),
-      STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
-      STRESS_ENABLE_WRITE_MIX: 'true',
-      STRESS_K6_SUMMARY_PATH: k6WriteSummaryPath,
-    },
-  });
-  evidence.k6Write = parseJsonArtifact(k6WriteSummaryPath);
-  runOptional('artillery realtime smoke', ['pnpm', '--dir', 'apps/api', 'stress:realtime:smoke'], {
-    env: {
-      ...stressEnv,
-      STRESS_ARTILLERY_SUMMARY_PATH: artillerySummaryPath,
-      STRESS_ARTILLERY_ACTOR_CSV_PATH: artilleryActorCsvPath,
-      STRESS_REALTIME_SOCKET_URL: `${targetUrl.replace(/\/$/u, '')}/chat`,
-      STRESS_REALTIME_ORIGIN: new URL(targetUrl).origin,
-    },
-  });
-  evidence.artillerySmoke = existsSync(artillerySummaryPath)
-    ? parseJsonArtifact(artillerySummaryPath)
-    : null;
+  if (skipWriteMix) {
+    commandResults.push({
+      name: 'k6 bounded write mix',
+      status: 'pass',
+      note: 'skipped by STRESS_DOCKER_SKIP_WRITE_MIX=true',
+    });
+  } else {
+    runStressCommand(
+      'k6 bounded write mix',
+      ['pnpm', '--dir', 'apps/api', 'stress:http:baseline'],
+      {
+        env: {
+          ...stressEnv,
+          STRESS_BASELINE_DURATION:
+            process.env.STRESS_WRITE_MIX_DURATION || (productionLikeRun ? '1m' : '10s'),
+          STRESS_BASELINE_VUS: process.env.STRESS_WRITE_MIX_VUS || (productionLikeRun ? '10' : '1'),
+          STRESS_SLEEP_SECONDS: process.env.STRESS_SLEEP_SECONDS || '0.2',
+          STRESS_ENABLE_WRITE_MIX: 'true',
+          STRESS_K6_SUMMARY_PATH: k6WriteSummaryPath,
+        },
+      },
+    );
+    evidence.k6Write = parseJsonArtifact(k6WriteSummaryPath);
+  }
+  if (skipRealtimeSmoke) {
+    commandResults.push({
+      name: 'artillery realtime smoke',
+      status: 'pass',
+      note: 'skipped by STRESS_DOCKER_SKIP_REALTIME_SMOKE=true',
+    });
+  } else {
+    runOptional(
+      'artillery realtime smoke',
+      ['pnpm', '--dir', 'apps/api', 'stress:realtime:smoke'],
+      {
+        env: {
+          ...stressEnv,
+          STRESS_ARTILLERY_SUMMARY_PATH: artillerySummaryPath,
+          STRESS_ARTILLERY_ACTOR_CSV_PATH: artilleryActorCsvPath,
+          STRESS_REALTIME_SOCKET_URL: `${targetUrl.replace(/\/$/u, '')}/chat`,
+          STRESS_REALTIME_ORIGIN: new URL(targetUrl).origin,
+        },
+      },
+    );
+    evidence.artillerySmoke = existsSync(artillerySummaryPath)
+      ? parseJsonArtifact(artillerySummaryPath)
+      : null;
+  }
   if (useObservability) {
     evidence.observabilityReadiness = await fetchStatus('http://127.0.0.1:9090/-/ready');
     evidence.prometheusApiUp = await fetchStatus(
@@ -310,6 +350,7 @@ function ensureLocalApiEnvFile() {
       '# Local dockerized stress smoke env. Do not commit.',
       'NODE_ENV=production',
       'PORT=4000',
+      'TZ=Asia/Seoul',
       `DATABASE_URL=${containerDatabaseUrl}`,
       `DIRECT_URL=${containerDatabaseUrl}`,
       `MIGRATION_DATABASE_URL=${containerDatabaseUrl}`,
@@ -357,6 +398,9 @@ function ensureExistingApiEnvKeys() {
   if (!/^AUTH_THROTTLE_LIMIT=/mu.test(text)) {
     missingLines.push('AUTH_THROTTLE_LIMIT=5000');
   }
+  if (!/^TZ=/mu.test(text)) {
+    missingLines.push('TZ=Asia/Seoul');
+  }
 
   if (missingLines.length === 0) {
     return 'reused';
@@ -380,11 +424,13 @@ function ensureObservabilityLocalFiles() {
     '# Local production-like stress observability env. Do not commit.',
     'OBSERVABILITY_ENV=local',
     `OBSERVABILITY_NETWORK=${observabilityNetwork}`,
+    'OBSERVABILITY_TZ=KST-9',
     'API_METRICS_TARGET=api:4000',
     'API_METRICS_SCHEME=http',
     'API_METRICS_BEARER_TOKEN_FILE=./prometheus/secrets/api-metrics-bearer-token.local',
     'GRAFANA_ADMIN_USER=admin',
     'GRAFANA_ADMIN_PASSWORD=change-me-local-only',
+    'GF_DATE_FORMATS_DEFAULT_TIMEZONE=Asia/Seoul',
     'GRAFANA_PORT=3001',
     'PROMETHEUS_PORT=9090',
     'LOKI_PORT=3100',
@@ -398,7 +444,24 @@ function ensureObservabilityLocalFiles() {
     return 'created';
   }
 
-  return 'reused';
+  const current = readFileSync(observabilityEnvFile, 'utf8');
+  const missingLines = [];
+  if (!/^OBSERVABILITY_TZ=/mu.test(current)) {
+    missingLines.push('OBSERVABILITY_TZ=KST-9');
+  }
+  if (!/^GF_DATE_FORMATS_DEFAULT_TIMEZONE=/mu.test(current)) {
+    missingLines.push('GF_DATE_FORMATS_DEFAULT_TIMEZONE=Asia/Seoul');
+  }
+  if (missingLines.length === 0) {
+    return 'reused';
+  }
+
+  writeFileSync(
+    observabilityEnvFile,
+    `${current.replace(/\n?$/u, '\n')}\n# Added by dockerized stress smoke runner.\n${missingLines.join('\n')}\n`,
+    { mode: 0o600 },
+  );
+  return 'updated';
 }
 
 function readMetricsToken(envPath) {
@@ -493,6 +556,7 @@ function buildObservabilityEnv() {
     ...process.env,
     OBSERVABILITY_ENV: 'local',
     OBSERVABILITY_NETWORK: observabilityNetwork,
+    OBSERVABILITY_TZ: 'KST-9',
     API_METRICS_TARGET: 'api:4000',
     API_METRICS_SCHEME: 'http',
     API_METRICS_BEARER_TOKEN_FILE: './prometheus/secrets/api-metrics-bearer-token.local',
@@ -515,6 +579,15 @@ function runRequired(name, args, options = {}) {
 
 function runOptional(name, args, options = {}) {
   return runCommand(name, args, { ...options, required: false });
+}
+
+function runStressCommand(name, args, options = {}) {
+  return continueOnStressFailure
+    ? runOptional(name, args, {
+        ...options,
+        note: `${name} completed as warn-on-failure stress evidence step`,
+      })
+    : runRequired(name, args, options);
 }
 
 function runCommand(name, args, options = {}) {
@@ -701,6 +774,10 @@ function writeReport() {
     `- fixtureLargestCohortSize: ${buildStressEnv().STRESS_LARGEST_COHORT_SIZE}`,
     `- tokenActorLimit: ${buildStressEnv().STRESS_TOKEN_ACTOR_LIMIT}`,
     `- observabilityEnabled: ${useObservability ? 'true' : 'false'}`,
+    `- skippedBuild: ${skipBuild ? 'true' : 'false'}`,
+    `- skippedWriteMix: ${skipWriteMix ? 'true' : 'false'}`,
+    `- skippedRealtimeSmoke: ${skipRealtimeSmoke ? 'true' : 'false'}`,
+    `- continueOnStressFailure: ${continueOnStressFailure ? 'true' : 'false'}`,
     '- rawArtifacts: removed from ignored .tmp-* paths after report generation',
     '',
     '## Command results',

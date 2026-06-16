@@ -28,9 +28,10 @@ RUN pnpm deploy --legacy --filter api --prod /workspace/runtime
 FROM node:${NODE_VERSION} AS runtime
 ENV NODE_ENV=production
 ENV PORT=4000
+ENV TZ=Asia/Seoul
 WORKDIR /app
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl \
+  && apt-get install -y --no-install-recommends ca-certificates curl tzdata \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd --system knu \
   && useradd --system --gid knu --home-dir /app --shell /usr/sbin/nologin knu

@@ -480,7 +480,7 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "browser",
+  "timezone": "Asia/Seoul",
   "title": "KNU API Realtime/Auth/Retention",
   "uid": "knu-api-realtime-auth-retention",
   "version": 1,

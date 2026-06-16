@@ -28,6 +28,12 @@ export interface StressActorTokenArtifact {
   readonly actors: readonly StressActorTokenArtifactEntry[];
 }
 
+interface LoginStressActorInput {
+  readonly email: string;
+  readonly password: string;
+  readonly actorIndex: number;
+}
+
 interface LoginResponseShape {
   readonly success?: unknown;
   readonly accessToken?: unknown;
@@ -37,9 +43,8 @@ const DEFAULT_TOKEN_ARTIFACT_PATH = 'test/stress/reports/.tmp-stress-actor-token
 
 export async function buildStressActorTokenArtifact(
   env: NodeJS.ProcessEnv = process.env,
-  loginActor: (input: { readonly email: string; readonly password: string }) => Promise<string> = (
-    input,
-  ) => loginStressActor(env, input),
+  loginActor: (input: LoginStressActorInput) => Promise<string> = (input) =>
+    loginStressActor(env, input),
 ): Promise<StressActorTokenArtifact> {
   const guard = assertStressFixtureApplyAllowed(env);
   const plan = buildStressFixturePlan(createStressFixtureConfigFromEnv(env));
@@ -56,7 +61,11 @@ export async function buildStressActorTokenArtifact(
 
     actors.push({
       ...actorPlan,
-      accessToken: await loginActor({ email: actor.email, password: actor.password }),
+      accessToken: await loginActor({
+        email: actor.email,
+        password: actor.password,
+        actorIndex: actor.index,
+      }),
     });
   }
 
@@ -91,7 +100,7 @@ export function writeStressActorTokenArtifact(
 
 async function loginStressActor(
   env: NodeJS.ProcessEnv,
-  input: { readonly email: string; readonly password: string },
+  input: LoginStressActorInput,
 ): Promise<string> {
   const guard = assertStressFixtureApplyAllowed(env);
   const response = await fetch(`${guard.target.targetUrl.replace(/\/$/u, '')}/auth/login`, {
@@ -99,6 +108,7 @@ async function loginStressActor(
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
+      'X-Forwarded-For': resolveStressActorForwardedFor(input.actorIndex),
       'User-Agent': 'knu-roommate-stress-token-helper',
     },
     body: JSON.stringify({
@@ -118,6 +128,13 @@ async function loginStressActor(
   }
 
   return body.accessToken;
+}
+
+function resolveStressActorForwardedFor(actorIndex: number) {
+  const thirdOctet = Math.floor(actorIndex / 250);
+  const fourthOctet = (actorIndex % 250) + 1;
+
+  return `10.237.${thirdOctet}.${fourthOctet}`;
 }
 
 function parseActorLimit(input: string | undefined, max: number) {

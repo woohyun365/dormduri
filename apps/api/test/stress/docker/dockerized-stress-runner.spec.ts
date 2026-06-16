@@ -11,6 +11,10 @@ const productionLikeSource = readFileSync(
   resolve(process.cwd(), 'test/stress/docker/run-production-like-evidence.mjs'),
   'utf8',
 );
+const rampDecisionSource = readFileSync(
+  resolve(process.cwd(), 'test/stress/docker/run-237-ramp-decision.mjs'),
+  'utf8',
+);
 const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as {
   readonly scripts?: Record<string, string>;
 };
@@ -60,12 +64,35 @@ describe('dockerized stress smoke runner', () => {
     expect(source).toContain('#247: 237/946 production-like cohort');
   });
 
+  it('exposes a Phase 9-3 237 cohort ramp decision runner', () => {
+    expect(rampDecisionSource).toContain('api-237-ramp-decision-result-');
+    expect(rampDecisionSource).toContain("STRESS_COHORT_SIZE: '237'");
+    expect(rampDecisionSource).toContain("STRESS_LARGEST_COHORT_SIZE: '237'");
+    expect(rampDecisionSource).toContain(
+      "STRESS_TOKEN_ACTOR_LIMIT: process.env.STRESS_TOKEN_ACTOR_LIMIT || '50'",
+    );
+    expect(rampDecisionSource).toContain('vus: 25');
+    expect(rampDecisionSource).toContain('vus: 50');
+    expect(rampDecisionSource).toContain('vus: 100');
+    expect(rampDecisionSource).toContain('vus: 237');
+    expect(rampDecisionSource).toContain('score p95 >= 300ms or score p99 >= 1500ms');
+    expect(rampDecisionSource).toContain('p95 reached 500ms stop gate');
+    expect(rampDecisionSource).toContain('escalate #247 bounded cache design');
+    expect(rampDecisionSource).toContain('STRESS_DOCKER_SKIP_WRITE_MIX');
+    expect(rampDecisionSource).toContain('STRESS_DOCKER_SKIP_REALTIME_SMOKE');
+    expect(rampDecisionSource).toContain('STRESS_DOCKER_CONTINUE_ON_STRESS_FAILURE');
+    expect(source).toContain('continueOnStressFailure');
+  });
+
   it('keeps package scripts explicit for smoke and production-like evidence runs', () => {
     expect(packageJson.scripts?.['stress:docker:smoke']).toBe(
       'node test/stress/docker/run-dockerized-smoke.mjs',
     );
     expect(packageJson.scripts?.['stress:docker:production-like']).toBe(
       'node test/stress/docker/run-production-like-evidence.mjs',
+    );
+    expect(packageJson.scripts?.['stress:docker:237-ramp']).toBe(
+      'node test/stress/docker/run-237-ramp-decision.mjs',
     );
   });
 });

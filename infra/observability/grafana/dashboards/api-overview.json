@@ -314,7 +314,7 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "browser",
+  "timezone": "Asia/Seoul",
   "title": "KNU API Overview",
   "uid": "knu-api-overview",
   "version": 1,

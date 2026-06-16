@@ -14,6 +14,8 @@ API product behavior, route, response code, auth/session semantics는 이 stack�
 
 모든 UI/endpoint는 기본적으로 `127.0.0.1`에만 bind한다. 운영 public internet에 직접 노출하지 않는다.
 
+관측 container의 process timezone은 minimal image에서도 KST가 적용되도록 `OBSERVABILITY_TZ=KST-9`를 기본값으로 사용한다. Grafana dashboard/default timezone은 `Asia/Seoul`로 고정한다. API structured log의 `ts` 필드는 다른 시스템과의 correlation을 위해 UTC ISO(`Z`)를 유지하고, Grafana/Loki 화면과 nginx access log에서 KST로 표시한다.
+
 ## 사전 조건
 
 1. Docker Desktop 또는 OrbStack daemon이 실행 중이어야 한다.
