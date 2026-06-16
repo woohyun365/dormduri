@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    service: api
+    observability_stack: knu-roommate
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: api
+    scheme: __API_METRICS_SCHEME__
+    metrics_path: /internal/metrics
+    scrape_interval: 15s
+    scrape_timeout: 5s
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/api-metrics-bearer-token
+    static_configs:
+      - targets:
+          - __API_METRICS_TARGET__
+        labels:
+          service: api
+          env: __OBSERVABILITY_ENV__

@@ -1,0 +1,12 @@
+groups:
+  - name: knu-roommate-slack-alert-smoke
+    rules:
+      - alert: SlackAlertSmokeNonFiring
+        expr: vector(0) == 1
+        for: 0m
+        labels:
+          severity: info
+          service: api
+        annotations:
+          summary: Slack alert smoke guard is intentionally non-firing. Use the Alertmanager API smoke script for local delivery tests.
+          runbook: infra/observability/slack/slack-setup-runbook.md

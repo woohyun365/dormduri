@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common';
 import type { ArgumentsHost } from '@nestjs/common';
 import { ApiExceptionFilter } from './api-exception.filter.js';
 import { tooManyRequestsError } from './api-error.js';
+import type { AppLoggerService } from '../observability/logging/app-logger.service.js';
 
 function createHost(response: { status: Mock; json: Mock }): ArgumentsHost {
   return {
@@ -10,6 +11,7 @@ function createHost(response: { status: Mock; json: Mock }): ArgumentsHost {
       getRequest: () => ({
         method: 'GET',
         originalUrl: '/api/test',
+        route: { path: '/test' },
         url: '/api/test',
       }),
       getResponse: () => response,
@@ -18,7 +20,15 @@ function createHost(response: { status: Mock; json: Mock }): ArgumentsHost {
 }
 
 describe('ApiExceptionFilter', () => {
-  const filter = new ApiExceptionFilter();
+  const write = vi.fn();
+  const recordException = vi.fn();
+  const logger = {
+    write,
+  } as unknown as AppLoggerService;
+  const metrics = {
+    recordException,
+  };
+  const filter = new ApiExceptionFilter(logger, metrics as never);
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -48,6 +58,22 @@ describe('ApiExceptionFilter', () => {
         retryAfterSeconds: 5,
       }),
     );
+    expect(write).toHaveBeenCalledWith(
+      'warn',
+      expect.objectContaining({
+        errorCode: 'AUTH_CODE_REQUEST_THROTTLED',
+        operation: 'http_exception',
+        route: '/test',
+        statusClass: '4xx',
+        statusCode: 429,
+      }),
+      'http exception handled',
+    );
+    expect(recordException).toHaveBeenCalledWith({
+      code: 'AUTH_CODE_REQUEST_THROTTLED',
+      domain: 'platform',
+      statusCode: 429,
+    });
   });
 
   it('기본 Nest exception도 공통 shape로 정규화한다', () => {
@@ -66,6 +92,51 @@ describe('ApiExceptionFilter', () => {
         code: 'BAD_REQUEST',
         statusCode: 400,
         path: '/api/test',
+      }),
+    );
+    expect(write).toHaveBeenCalledWith(
+      'info',
+      expect.objectContaining({
+        errorCode: 'BAD_REQUEST',
+        operation: 'http_exception',
+        route: '/test',
+        statusClass: '4xx',
+        statusCode: 400,
+      }),
+      'http exception handled',
+    );
+    expect(recordException).toHaveBeenCalledWith({
+      code: 'BAD_REQUEST',
+      domain: 'platform',
+      statusCode: 400,
+    });
+  });
+
+  it('logger 실패가 error response 생성을 막지 않는다', () => {
+    const throwingFilter = new ApiExceptionFilter(
+      {
+        write: vi.fn(() => {
+          throw new Error('logger unavailable');
+        }),
+      } as unknown as AppLoggerService,
+      { recordException: vi.fn() } as never,
+    );
+    const response = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    expect(() =>
+      throwingFilter.catch(
+        new BadRequestException('요청 값이 잘못되었습니다.'),
+        createHost(response),
+      ),
+    ).not.toThrow();
+    expect(response.status).toHaveBeenCalledWith(400);
+    expect(response.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        code: 'BAD_REQUEST',
+        statusCode: 400,
       }),
     );
   });

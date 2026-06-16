@@ -23,7 +23,9 @@ import authOperationsConfig from './config/auth-operations.config.js';
 import chatRealtimeConfig from './config/chat-realtime.config.js';
 import databaseConfig from './config/database.config.js';
 import lifecycleConfig from './config/lifecycle.config.js';
+import observabilityConfig from './config/observability.config.js';
 import { envValidationSchema } from './config/env.validation.js';
+import { ObservabilityModule } from './platform/observability/observability.module.js';
 
 @Module({
   imports: [
@@ -37,6 +39,7 @@ import { envValidationSchema } from './config/env.validation.js';
         chatRealtimeConfig,
         databaseConfig,
         lifecycleConfig,
+        observabilityConfig,
       ],
       validationSchema: envValidationSchema,
       validationOptions: {
@@ -45,6 +48,7 @@ import { envValidationSchema } from './config/env.validation.js';
       },
     }),
     ScheduleModule.forRoot(),
+    ObservabilityModule,
     PrismaModule,
     AuthModule,
     ChatModule,

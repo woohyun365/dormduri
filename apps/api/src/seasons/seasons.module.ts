@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../platform/database/prisma.module.js';
+import { MetricsModule } from '../platform/observability/metrics/metrics.module.js';
 import { SeasonsController } from './seasons.controller.js';
 import { SeasonsService } from './application/seasons.service.js';
 import { SEASON_CONTEXT_PORT } from './ports/season-context.port.js';
@@ -15,7 +16,7 @@ import { DormitoryMatchWindowQuery } from './runtime/dormitory-match-window.quer
 import { SeasonRuntimeRepository } from './runtime/season-runtime.repository.js';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, MetricsModule],
   controllers: [SeasonsController, SeasonsOperationsController],
   providers: [
     SeasonsService,

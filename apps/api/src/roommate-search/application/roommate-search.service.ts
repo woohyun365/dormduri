@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type {
   RoommateSearchManifestQuery,
   RoommateSearchManifestResponse,
@@ -11,6 +11,10 @@ import {
   BLOCK_VISIBILITY_READER_PORT,
   type BlockVisibilityReaderPort,
 } from '../../social-safety/blocks/application/ports/block-visibility-reader.port.js';
+import {
+  DOMAIN_METRICS_PORT,
+  type DomainMetricsPort,
+} from '../../platform/observability/metrics/domain-metrics.port.js';
 import {
   BOOKMARK_SEARCH_METADATA_READER_PORT,
   type BookmarkSearchMetadataReaderPort,
@@ -33,12 +37,16 @@ export class RoommateSearchService {
     private readonly bookmarkSearchMetadataReader: BookmarkSearchMetadataReaderPort,
     @Inject(BLOCK_VISIBILITY_READER_PORT)
     private readonly blockVisibilityReader: BlockVisibilityReaderPort,
+    @Optional()
+    @Inject(DOMAIN_METRICS_PORT)
+    private readonly metrics?: DomainMetricsPort,
   ) {
     this.reader = createRoommateSearchReader({
       prisma: this.prisma,
       publicProfileTargetReader: this.publicProfileTargetReader,
       bookmarkSearchMetadataReader: this.bookmarkSearchMetadataReader,
       blockVisibilityReader: this.blockVisibilityReader,
+      metrics: this.metrics,
     });
   }
 

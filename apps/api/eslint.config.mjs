@@ -57,6 +57,28 @@ export default defineConfig([
     ...tseslint.configs.disableTypeChecked,
   },
   {
+    files: [
+      'test/stress/http/k6/**/*.js',
+      'test/stress/http/k6/**/*.mjs',
+      'test/stress/realtime/artillery/**/*.mjs',
+      'test/stress/docker/**/*.mjs',
+    ],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        __ENV: 'readonly',
+        __VU: 'readonly',
+        __ITER: 'readonly',
+        open: 'readonly',
+      },
+      parserOptions: {
+        project: false,
+        projectService: false,
+      },
+    },
+  },
+  {
     files: ['test/integration/support/integration-db.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',

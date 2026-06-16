@@ -9,6 +9,7 @@
     "dist",
     "**/*.spec.ts",
     "**/*.e2e-spec.ts",
-    "**/*.spec-fixtures.ts"
+    "**/*.spec-fixtures.ts",
+    "**/test-support/**"
   ]
 }

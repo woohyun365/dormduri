@@ -1,0 +1,12 @@
+{{ define "knu.slack.title" }}[{{ .Status | toUpper }}] {{ .CommonLabels.severity | toUpper }} {{ .CommonLabels.service }}/{{ .CommonLabels.alertname }}{{ end }}
+
+{{ define "knu.slack.text" }}
+{{ $env := .CommonLabels.env }}
+• *env*: {{ if $env }}{{ $env }}{{ else }}unknown{{ end }}
+{{ range .Alerts }}
+• *summary*: {{ .Annotations.summary }}
+• *runbook*: {{ if .Annotations.runbook }}{{ .Annotations.runbook }}{{ else }}infra/observability/README.md{{ end }}
+• *labels*: alertname={{ .Labels.alertname }}, service={{ .Labels.service }}, severity={{ .Labels.severity }}
+• *window*: check Grafana/Loki in KST display timezone; raw API log `ts` remains UTC ISO.
+{{ end }}
+{{ end }}

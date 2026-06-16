@@ -1,0 +1,41 @@
+config:
+  target: '{{ $env.STRESS_REALTIME_SOCKET_URL }}'
+  processor: './processor.cjs'
+  payload:
+    path: '{{ $env.STRESS_ARTILLERY_ACTOR_CSV_PATH }}'
+    fields:
+      - actorId
+      - userId
+      - participantId
+      - targetUserId
+      - threadId
+      - realtimeTicket
+    order: sequence
+    skipHeader: true
+    cast: false
+  phases:
+    - name: realtime peak ramp
+      duration: 120
+      arrivalRate: 10
+      rampTo: 50
+    - name: realtime peak 500 sockets
+      duration: 300
+      arrivalRate: 50
+      maxVusers: 500
+  socketio:
+    path: '/socket.io'
+    extraHeaders:
+      Origin: '{{ $env.STRESS_REALTIME_ORIGIN }}'
+    auth:
+      ticket: '{{ realtimeTicket }}'
+scenarios:
+  - name: chat realtime peak
+    engine: socketio
+    beforeScenario: validateRealtimeScenario
+    flow:
+      - function: emitRealtimeSubscribe
+      - think: 5
+      - function: emitRealtimeUnsubscribe
+      - think: 1
+      - function: emitRealtimeSubscribe
+      - function: recordRealtimeDisconnect

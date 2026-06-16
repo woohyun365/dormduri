@@ -228,6 +228,12 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
       'moderation cache expiry is process-local memoization and is not persisted product time.',
   }),
   entry({
+    path: 'src/platform/observability/logging/app-logger.service.ts',
+    owner: 'platform/observability',
+    category: 'response-timestamp',
+    rationale: 'structured logger emits operational log timestamps for observability only.',
+  }),
+  entry({
     path: 'src/notifications/outbox/notification-dispatcher.service.ts',
     owner: 'notifications/outbox',
     category: 'dispatcher-default',
