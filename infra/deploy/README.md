@@ -74,7 +74,7 @@ curl -fsS http://127.0.0.1:8080/health/ready
 
 ## 4GB 관측 포함형 실행
 
-관측 stack과 같은 host에서 rehearsal할 때는 app compose와 observability compose가 같은 external network를 공유한다.
+관측 stack과 같은 host에서 rehearsal할 때는 app compose와 observability compose가 같은 external network를 공유한다. 전체 점검 순서는 `infra/observability/rehearsal-checklist.md`를 기준으로 실행한다.
 
 ```bash
 docker network create knu-roommate-observability || true
@@ -132,4 +132,4 @@ docker compose -f infra/deploy/docker-compose.api.yml down
 - Compose에 production Postgres service를 정의하지 않는다.
 - API image에 `.env`, `.omx`, stress `.tmp-*`, observability local secret을 넣지 않는다.
 - Entry point는 필수 env 이름만 출력하고 값은 출력하지 않는다.
-- Slack/Alertmanager delivery는 이 디렉터리의 책임이 아니다. Alertmanager/Slack은 별도 단계에서 `infra/observability` 하위로 연결한다.
+- Slack/Alertmanager delivery secret과 receiver 설정은 `infra/observability`가 소유한다. `infra/deploy`는 API/nginx와 metrics endpoint를 제공하고, 전체 점검은 `infra/observability/rehearsal-checklist.md`를 따른다.

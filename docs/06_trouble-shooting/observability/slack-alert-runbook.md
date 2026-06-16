@@ -23,7 +23,7 @@ docker compose --env-file .env.observability -f docker-compose.observability.yml
 docker compose --env-file .env.observability -f docker-compose.observability.yml logs --tail=100 alertmanager
 ```
 
-4. smoke alert를 1회 재전송한다. Prometheus의 `SlackAlertSmokeDisabled` placeholder가 firing되면 `expr: vector(0) == 1` 유지 여부와 Prometheus reload 상태를 확인한다.
+4. smoke alert를 1회 재전송한다. Prometheus의 `SlackAlertSmokeNonFiring` non-firing guard가 firing되면 `expr: vector(0) == 1` 유지 여부와 Prometheus reload 상태를 확인한다.
 
 ```bash
 ./slack/send-alertmanager-smoke.sh

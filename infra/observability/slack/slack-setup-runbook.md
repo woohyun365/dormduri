@@ -51,7 +51,7 @@ docker compose --env-file .env.observability -f docker-compose.observability.yml
 
 ## 5. Slack delivery smoke
 
-Alertmanager API에 1회성 smoke alert를 직접 넣는다. Prometheus alert route는 config로 검증하고, Slack receiver delivery는 이 smoke로 확인한다. `slack-alert-smoke.yml`의 `SlackAlertSmokeDisabled` rule은 `vector(0) == 1`로 고정된 non-firing placeholder이며 Slack으로 발송되면 안 된다.
+Alertmanager API에 1회성 smoke alert를 직접 넣는다. Prometheus alert route는 config로 검증하고, Slack receiver delivery는 이 smoke로 확인한다. `slack-alert-smoke.yml`의 `SlackAlertSmokeNonFiring` rule은 `vector(0) == 1`로 고정된 non-firing guard이며 Slack으로 발송되면 안 된다.
 
 ```bash
 cd infra/observability

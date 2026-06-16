@@ -41,6 +41,7 @@ const requiredFiles = [
   'loki/loki.yml',
   'alloy/config.alloy',
   'README.md',
+  'rehearsal-checklist.md',
 ];
 
 const requiredMetricNames = [
@@ -169,7 +170,7 @@ describe('observability infra', () => {
     expect(rules).toContain('PrismaPoolWaitingHigh');
     expect(rules).toContain('RetentionReviewBacklogHigh');
     expect(rules).toContain('AuthCleanupLagHigh');
-    expect(slackSmokeRules).toContain('SlackAlertSmokeDisabled');
+    expect(slackSmokeRules).toContain('SlackAlertSmokeNonFiring');
     expect(slackSmokeRules).toContain('expr: vector(0) == 1');
   });
 
@@ -180,6 +181,7 @@ describe('observability infra', () => {
     const slackTemplate = readInfraFile('alertmanager/alertmanager.yml.template');
     const noopTemplate = readInfraFile('alertmanager/alertmanager.noop.yml.template');
     const slackPayloadPolicy = readInfraFile('slack/slack-alert-payload.md');
+    const rehearsalChecklist = readInfraFile('rehearsal-checklist.md');
 
     expect(compose).toContain('SLACK_ALERTMANAGER_ENABLED');
     expect(compose).toContain('SLACK_ALERT_WEBHOOK_URL');
@@ -197,6 +199,8 @@ describe('observability infra', () => {
     expect(slackPayloadPolicy).toContain('Forbidden');
     expect(slackPayloadPolicy).toContain('RRPD payload');
     expect(readInfraFile('alertmanager/templates/slack.tmpl')).toContain('• *env*:');
+    expect(rehearsalChecklist).toContain('SlackAlertSmokeNonFiring');
+    expect(rehearsalChecklist).toContain('alertmanager_notification_requests_failed_total');
   });
 
   it('provisions Grafana Prometheus/Loki datasources and dashboards from files', () => {
@@ -221,7 +225,7 @@ describe('observability infra', () => {
     }
   });
 
-  it('keeps dashboard queries aligned with Phase 2/3 API metric names', () => {
+  it('keeps dashboard queries aligned with API metric names', () => {
     const dashboardQueryText = readDashboardFiles()
       .flatMap((dashboard) => collectStrings(dashboard.parsed))
       .join('\n');
@@ -286,5 +290,19 @@ describe('observability infra', () => {
     expect(reportTemplate).toContain('Artillery safe parser summary');
     expect(slackRunbook).toContain('SLACK_ALERTMANAGER_ENABLED=true');
     expect(slackRunbook).toContain('Payload privacy');
+  });
+
+  it('documents a reproducible BE observability rehearsal sequence', () => {
+    const readme = readInfraFile('README.md');
+    const checklist = readInfraFile('rehearsal-checklist.md');
+
+    expect(readme).toContain('rehearsal-checklist.md');
+    expect(checklist).toContain('docker-compose.api.yml');
+    expect(checklist).toContain('/health/ready');
+    expect(checklist).toContain('/internal/metrics');
+    expect(checklist).toContain('api:4000');
+    expect(checklist).toContain('send-alertmanager-smoke.sh');
+    expect(checklist).toContain('stress:docker:smoke');
+    expect(checklist).toContain('#281');
   });
 });

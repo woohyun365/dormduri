@@ -97,6 +97,10 @@ Alloy는 Docker stdout log를 수집하고 Docker compose service metadata를 Lo
 {service="alloy"}
 ```
 
+## Release rehearsal checklist
+
+BE API/nginx compose와 observability compose를 함께 올려 release 전 연결성을 확인할 때는 `infra/observability/rehearsal-checklist.md`를 따른다. 이 checklist는 `/health/ready`, metrics bearer guard, Prometheus target, Alertmanager target, Slack smoke, Grafana/Loki readout, stress smoke 연결을 한 번에 확인하는 운영 점검 절차다.
+
 ## Stress release gate에서 보는 법
 
 API stress release gate는 `docs/06_trouble-shooting/observability/api-stress-release-runbook.md`를 기준으로 실행한다. 결과 공유는 `apps/api/test/stress/reports/report-template.md`를 복사해 safe metric과 dashboard readout만 채운다.
@@ -130,7 +134,7 @@ Prometheus rule은 Alertmanager로 route된다. Alertmanager는 기본적으로 
 - `PrismaPoolWaitingHigh`
 - `RetentionReviewBacklogHigh`
 - `AuthCleanupLagHigh`
-- `SlackAlertSmokeDisabled` — non-firing placeholder. 실제 발송은 `infra/observability/slack/send-alertmanager-smoke.sh`로 수행
+- `SlackAlertSmokeNonFiring` — non-firing guard. 실제 발송은 `infra/observability/slack/send-alertmanager-smoke.sh`로 수행
 
 Slack delivery 활성화:
 
