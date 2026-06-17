@@ -49,7 +49,8 @@
     "stress:realtime:peak": "node test/stress/realtime/artillery/run-artillery-scenario.mjs peak-500",
     "stress:docker:smoke": "node test/stress/docker/run-dockerized-smoke.mjs",
     "stress:docker:production-like": "node test/stress/docker/run-production-like-evidence.mjs",
-    "stress:docker:237-ramp": "node test/stress/docker/run-237-ramp-decision.mjs"
+    "stress:docker:237-ramp": "node test/stress/docker/run-237-ramp-decision.mjs",
+    "secrets:inventory": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/config/secrets/secret-inventory.cli.ts"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1070.0",

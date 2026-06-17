@@ -75,6 +75,15 @@ aws secretsmanager put-secret-value \
 
 ## Dry-run / smoke
 
+Secret inventory dry-run은 값을 읽거나 출력하지 않고, 코드 registry 기준 env key와 Secrets Manager name mapping만 확인한다.
+
+```bash
+SECRET_SOURCE=aws-secrets-manager \
+NODE_ENV=production \
+SECRET_NAME_PREFIX=/knu-roommate/production/api \
+pnpm --dir apps/api secrets:inventory
+```
+
 1. `.env.api`에는 `SECRET_SOURCE=aws-secrets-manager`, `SECRET_NAME_PREFIX=/knu-roommate/production/api`, AWS credential/role binding만 둔다.
 2. Materializer 또는 deploy script가 각 secret을 읽어 env key 이름으로만 report한다. 값은 출력하지 않는다.
 3. `env.validation.ts`가 production required secret과 placeholder/local default를 fail-fast하는지 확인한다.
