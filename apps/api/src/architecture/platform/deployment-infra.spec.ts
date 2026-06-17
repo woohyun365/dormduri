@@ -126,6 +126,7 @@ describe('deployment infra', () => {
     expect(apiConf).toContain('location /auth/');
     expect(apiConf).toContain('location /socket.io/');
     expect(apiConf).toContain('location = /health');
+    expect(apiConf).toContain('location = /health/live');
     expect(apiConf).toContain('location = /health/ready');
     expect(apiConf).toContain('location = /internal/metrics');
     expect(apiConf).toContain('proxy_set_header Upgrade $http_upgrade');

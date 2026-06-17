@@ -95,8 +95,9 @@ Production release는 아래 조건을 만족해야 한다.
 
 ## Health / Readiness / Metrics exposure 정책
 
-- `GET /health`는 process liveness 성격으로 유지한다.
-- `GET /health/ready`는 deploy routing에 사용할 readiness gate이며 DB, config, migration/schema baseline 같은 critical dependency를 timeout-bound로 확인해야 한다.
+- `GET /health`와 `GET /health/live`는 process liveness 성격으로 유지한다.
+- `GET /health/ready`는 deploy routing에 사용할 readiness gate이며 DB, runtime config, secret materialization, migration/schema baseline, email provider config 같은 critical dependency를 timeout-bound로 확인해야 한다.
+- Readiness failure는 HTTP 503과 bounded check code로 반환하고 secret value, DB URL, raw provider error, stack trace를 노출하지 않는다.
 - Ops-only health endpoint는 capability guard와 ingress boundary로 보호한다.
 - Metrics endpoint는 internal route, bearer token, ingress allowlist, bounded label 정책을 함께 만족해야 한다.
 - Provider transient failure는 degraded/operation failure로 기록할 수 있지만, provider config invalid는 production readiness failure로 분류한다.
@@ -142,9 +143,10 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                               | 관련 이슈                       |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다 | production deployment readiness |
-| 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다 | production deployment readiness |
-| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                          | production deployment readiness |
-| 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다     | production deployment readiness |
+| 날짜       | 변경 내용                                                                                                                                                | 관련 이슈                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-06-17 | Health live/ready contract를 분리하고 readiness bounded 503, DB/config/secret/migration/email provider check 기준을 production readiness 정책에 반영했다 | production deployment readiness |
+| 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다  | production deployment readiness |
+| 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다  | production deployment readiness |
+| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                           | production deployment readiness |
+| 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다      | production deployment readiness |

@@ -77,8 +77,11 @@ docker compose -f infra/deploy/docker-compose.api.yml up -d
 
 ```bash
 curl -fsS http://127.0.0.1:8080/health
+curl -fsS http://127.0.0.1:8080/health/live
 curl -fsS http://127.0.0.1:8080/health/ready
 ```
+
+`/health`와 `/health/live`는 process liveness만 확인한다. `/health/ready`는 DB, runtime config, secret materialization, Prisma migration baseline, email provider 설정을 lightweight/timeout-bound로 확인하며 실패하면 HTTP 503과 check name/code만 포함한 bounded body를 반환한다. Readiness body에는 secret value, DB URL, raw provider error, stack trace를 포함하지 않는다.
 
 ## 4GB 관측 포함형 실행
 
@@ -109,6 +112,7 @@ nginx는 다음 path만 API upstream으로 넘긴다.
 - `/auth/*`
 - `/socket.io/*`
 - `/health`
+- `/health/live`
 - `/health/ready`
 - `/internal/metrics`는 private allowlist + `Authorization` header forwarding만 허용
 
