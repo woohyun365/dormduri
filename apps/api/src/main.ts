@@ -5,6 +5,7 @@ import type { Express } from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import appConfig from './config/app.config.js';
+import httpConfig from './config/http.config.js';
 import { AppLoggerService } from './platform/observability/logging/app-logger.service.js';
 
 async function bootstrap() {
@@ -12,7 +13,8 @@ async function bootstrap() {
   app.useLogger(app.get(AppLoggerService));
   const expressApp = app.getHttpAdapter().getInstance() as Express;
   const appSettings = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
-  expressApp.set('trust proxy', true);
+  const httpSettings = app.get<ConfigType<typeof httpConfig>>(httpConfig.KEY);
+  expressApp.set('trust proxy', httpSettings.trustProxy);
   app.use(helmet());
   app.use(cookieParser());
   app.enableShutdownHooks();

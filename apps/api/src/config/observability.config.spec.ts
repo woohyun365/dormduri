@@ -17,11 +17,11 @@ function resetEnv() {
 function productionEnv(overrides: Record<string, string | undefined> = {}) {
   return {
     NODE_ENV: 'production',
-    DATABASE_URL: 'postgresql://api:password@localhost:5432/api',
-    DIRECT_URL: 'postgresql://api:password@localhost:5432/api',
-    RETENTION_WORKER_DATABASE_URL: 'postgresql://api:password@localhost:5432/api',
-    RETENTION_DISCLOSURE_DATABASE_URL: 'postgresql://api:password@localhost:5432/api',
-    MIGRATION_DATABASE_URL: 'postgresql://api:password@localhost:5432/api',
+    DATABASE_URL: 'postgresql://api:password@db.internal:5432/api',
+    DIRECT_URL: 'postgresql://api:password@db.internal:5432/api',
+    RETENTION_WORKER_DATABASE_URL: 'postgresql://api:password@db.internal:5432/api',
+    RETENTION_DISCLOSURE_DATABASE_URL: 'postgresql://api:password@db.internal:5432/api',
+    MIGRATION_DATABASE_URL: 'postgresql://api:password@db.internal:5432/api',
     LOG_HASH_SECRET: 'production-log-hash-secret',
     VERIFICATION_CODE_HMAC_SECRET: 'production-verification-secret',
     RETENTION_IDENTITY_ENCRYPTION_KEY_BASE64: validBase64Key,
@@ -29,6 +29,9 @@ function productionEnv(overrides: Record<string, string | undefined> = {}) {
     [ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV]: 'production-roommate-search-secret',
     [PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET_ENV]: 'production-profile-detail-secret',
     [CHAT_THREAD_LIST_CURSOR_HMAC_SECRET_ENV]: 'production-chat-thread-list-secret',
+    EMAIL_PROVIDER: 'ses',
+    SES_REGION: 'ap-northeast-2',
+    SES_FROM_EMAIL: 'no-reply@example.com',
     ...overrides,
   };
 }

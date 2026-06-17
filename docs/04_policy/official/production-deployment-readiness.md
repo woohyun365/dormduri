@@ -51,7 +51,9 @@ Production release는 아래 조건을 만족해야 한다.
 
 ## Config / Secret / KMS 정책
 
-- Production env key는 owner/category/required 여부가 추적 가능해야 한다.
+- Production env key는 `apps/api/src/config/env-keys` registry에서 owner/category/required/secret/default-forbidden 여부를 추적한다.
+- `apps/api/src/config/schema`는 owner별 Joi schema를 조합하고, public export `envValidationSchema`를 유지한다.
+- `infra/deploy/.env.api.example`은 production required key coverage를 확인하기 위한 template이며 실제 secret 원문을 포함하지 않는다.
 - Production boot는 critical secret이 없거나 placeholder/local default 값이면 fail-fast한다.
 - Secret 원문은 repository, Docker image layer, CI log, issue, report에 저장하지 않는다.
 - Production secret source는 AWS Secrets Manager 또는 동등 managed secret store를 기본 후보로 둔다.
@@ -139,4 +141,5 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 
 | 날짜       | 변경 내용                                                                                                                                           | 관련 이슈                       |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                      | production deployment readiness |
 | 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다 | production deployment readiness |

@@ -26,7 +26,7 @@ infra/deploy/
 - Package manager baseline: `pnpm@10.34.3`
 - Docker build context는 repo root다. API가 `@repo/shared` workspace package와 Prisma generated client를 필요로 하기 때문이다.
 - Docker image build는 DB에 접속해 `prisma generate --sql`을 실행하지 않는다. Release workspace에서 `apps/api/src/generated/prisma`가 최신인지 먼저 확인한다.
-- `DATABASE_URL`, `DIRECT_URL`, retention 전용 DB URL, cursor/HMAC secret, `LOG_HASH_SECRET`, `METRICS_BEARER_TOKEN`은 private `.env.api`에만 둔다.
+- `DATABASE_URL`, `DIRECT_URL`, retention 전용 DB URL, cursor/HMAC secret, `LOG_HASH_SECRET`, `METRICS_BEARER_TOKEN`, `EMAIL_PROVIDER`, `SES_*`, `SECRET_SOURCE`, `HTTP_*` 값은 private `.env.api`에만 둔다.
 - Production DB migration/db push는 container startup에서 자동 실행하지 않는다. 운영 migration은 별도 절차에서 수행한다.
 
 ## Env file
@@ -49,8 +49,13 @@ $EDITOR infra/deploy/.env.api
 - `ROOMMATE_SEARCH_CURSOR_HMAC_SECRET`
 - `PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET`
 - `CHAT_THREAD_LIST_CURSOR_HMAC_SECRET`
+- `EMAIL_PROVIDER` (`production`에서는 `ses`)
+- `SES_REGION`
+- `SES_FROM_EMAIL`
+- `SECRET_SOURCE`
+- `HTTP_TRUST_PROXY`
 
-`.env.api`는 커밋하지 않는다. `.env.api.example`의 `REPLACE_ME` 값으로 실제 운영을 실행하지 않는다.
+`.env.api`는 커밋하지 않는다. `.env.api.example`의 `REPLACE_ME`/`REPLACE_WITH_*` 값으로 실제 운영을 실행하지 않는다. `EMAIL_PROVIDER=ses`는 production provider 선택값이며, 실제 사용자 발송 전에는 SES sender adapter와 verified sender identity가 release gate에서 준비되어야 한다.
 
 ## 2GB 최소형 실행
 
@@ -65,7 +70,7 @@ docker compose -f infra/deploy/docker-compose.api.yml build api
 docker compose -f infra/deploy/docker-compose.api.yml up -d
 ```
 
-기본 nginx bind는 local smoke용 `127.0.0.1:8080`이다. Public ingress가 필요하면 명시적으로 `NGINX_HTTP_BIND=0.0.0.0 NGINX_HTTP_PORT=80`을 설정하거나 별도 private override를 작성한다.
+기본 nginx bind는 local smoke용 `127.0.0.1:8080`이다. nginx/LB 뒤에서 API를 실행하는 production-like 경로는 `HTTP_TRUST_PROXY=true`로 Express trust proxy를 명시한다. Public ingress가 필요하면 명시적으로 `NGINX_HTTP_BIND=0.0.0.0 NGINX_HTTP_PORT=80`을 설정하거나 별도 private override를 작성한다.
 
 ```bash
 curl -fsS http://127.0.0.1:8080/health

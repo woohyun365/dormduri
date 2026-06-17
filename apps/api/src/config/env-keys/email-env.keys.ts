@@ -1,0 +1,57 @@
+import { defineEnvKeys } from './env-key.definition.js';
+
+export const emailEnvKeys = defineEnvKeys([
+  {
+    key: 'EMAIL_PROVIDER',
+    owner: 'email',
+    category: 'email',
+    source: 'process-env',
+    defaultPolicy: 'production-required',
+    requiredInProduction: true,
+    description: 'Email provider selector. Production must use ses.',
+  },
+  {
+    key: 'SES_REGION',
+    owner: 'email',
+    category: 'email',
+    source: 'process-env',
+    defaultPolicy: 'production-required',
+    requiredInProduction: true,
+    forbidProductionPlaceholder: true,
+    description: 'AWS SES region used by the production email provider.',
+  },
+  {
+    key: 'SES_FROM_EMAIL',
+    owner: 'email',
+    category: 'email',
+    source: 'process-env',
+    defaultPolicy: 'production-required',
+    requiredInProduction: true,
+    forbidProductionPlaceholder: true,
+    description: 'Verified SES sender email address.',
+  },
+  {
+    key: 'SES_FROM_NAME',
+    owner: 'email',
+    category: 'email',
+    source: 'process-env',
+    defaultPolicy: 'optional',
+    description: 'Optional display name for SES sender.',
+  },
+  {
+    key: 'SES_REPLY_TO_EMAIL',
+    owner: 'email',
+    category: 'email',
+    source: 'process-env',
+    defaultPolicy: 'optional',
+    description: 'Optional reply-to email address for SES messages.',
+  },
+  {
+    key: 'SES_CONFIGURATION_SET',
+    owner: 'email',
+    category: 'email',
+    source: 'process-env',
+    defaultPolicy: 'optional',
+    description: 'Optional SES configuration set name.',
+  },
+] as const);
