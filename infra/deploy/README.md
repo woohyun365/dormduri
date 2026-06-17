@@ -20,7 +20,7 @@ infra/deploy/
     snippets/proxy-common.conf
 ```
 
-Secrets Manager materialization 절차는 sibling 문서 `infra/aws/secrets-manager-checklist.md`가 소유한다.
+Secrets Manager materialization 절차는 sibling 문서 `infra/aws/secrets-manager-checklist.md`가 소유한다. SES sender identity/DKIM/sandbox/production access 준비는 `infra/aws/ses-setup-checklist.md`가 소유한다.
 
 ## 사전 조건
 
@@ -58,7 +58,7 @@ $EDITOR infra/deploy/.env.api
 - `SECRET_NAME_PREFIX` (`SECRET_SOURCE=aws-secrets-manager` production 경로에서 필수)
 - `HTTP_TRUST_PROXY`
 
-`.env.api`는 커밋하지 않는다. `.env.api.example`의 `REPLACE_ME`/`REPLACE_WITH_*` 값으로 실제 운영을 실행하지 않는다. `SECRET_SOURCE=env`는 private env 직접 주입 경로이고, `SECRET_SOURCE=aws-secrets-manager`는 `/knu-roommate/<environment>/api/<ENV_KEY>` 형태의 Secrets Manager 값을 배포 시점에 env key로 materialize하는 경로다. Secret 생성/검증 절차와 값 미출력 inventory dry-run은 `infra/aws/secrets-manager-checklist.md`를 따른다. `EMAIL_PROVIDER=ses`는 production provider 선택값이며, 실제 사용자 발송 전에는 SES sender adapter와 verified sender identity가 release gate에서 준비되어야 한다.
+`.env.api`는 커밋하지 않는다. `.env.api.example`의 `REPLACE_ME`/`REPLACE_WITH_*` 값으로 실제 운영을 실행하지 않는다. `SECRET_SOURCE=env`는 private env 직접 주입 경로이고, `SECRET_SOURCE=aws-secrets-manager`는 `/knu-roommate/<environment>/api/<ENV_KEY>` 형태의 Secrets Manager 값을 배포 시점에 env key로 materialize하는 경로다. Secret 생성/검증 절차와 값 미출력 inventory dry-run은 `infra/aws/secrets-manager-checklist.md`를 따른다. `EMAIL_PROVIDER=ses`는 production provider 선택값이며, 실제 사용자 발송 전에는 `infra/aws/ses-setup-checklist.md`의 verified sender identity, DKIM, sandbox 해제 기준을 release gate로 확인한다.
 
 ## 2GB 최소형 실행
 

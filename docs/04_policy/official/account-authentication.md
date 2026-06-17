@@ -61,12 +61,14 @@
 
 - 이메일 인증 코드와 비밀번호 재설정 코드는 production에서 logger/stub output으로 전달하지 않는다.
 - `StubEmailSenderService`처럼 verification/reset code를 log에 출력하는 sender는 local/test/development 전용이다.
-- Production auth email sender는 SES 또는 동등한 실제 provider를 사용한다.
+- Production auth email sender는 `EMAIL_PROVIDER=ses` 경로의 SESv2 adapter 또는 동등한 실제 provider를 사용한다.
+- `EMAIL_SENDER` public port는 monitoring wrapper를 유지하고, concrete sender 선택은 stub/local과 SES/production delegate 경계에서 이뤄진다.
 - SES sender는 verified domain 또는 verified email address를 사용한다. Production 발송 전 domain identity와 DKIM 설정을 권장한다.
 - SES sandbox 상태에서는 수신자도 verified identity여야 하므로 실제 사용자 발송 전 production access 해제가 필요하다.
 - SES email sending 자체에는 static outbound IP가 필수 조건이 아니다.
 - `MonitoredEmailSenderService`는 provider success/failure를 security event와 metric으로 남기되, raw verification code, reset proof, auth token, provider credential을 metadata/log에 저장하지 않는다.
 - Provider config invalid는 production readiness failure로 본다. Provider transient failure는 auth email operation failure로 기록하고 alert/degraded 판단 입력으로 사용한다.
+- SES/AWS provider error는 `CONFIG_INVALID`, `ACCESS_DENIED`, `MESSAGE_REJECTED`, `THROTTLED`, `TRANSIENT`, `UNKNOWN` 같은 bounded category로만 보관한다.
 
 ### Auth 상태 / 정책 matrix
 
@@ -296,6 +298,7 @@ runtime 표현도 동일하게 fail-closed를 기본으로 한다.
 
 | 날짜       | 변경 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 관련 이슈                       |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-06-17 | SESv2 auth email sender adapter 기준을 반영했다. Production은 `EMAIL_PROVIDER=ses`와 monitored `EMAIL_SENDER` wrapper 뒤의 SES delegate를 사용하고, provider failure는 bounded category로만 기록한다.                                                                                                                                                                                                                                                                   | production deployment readiness |
 | 2026-06-17 | Production 이메일 발송 baseline을 추가했다. Stub/log sender는 local/test/development 전용이고, production은 SES 또는 동등 provider, verified identity, DKIM 권장, sandbox 해제 기준을 따른다고 명시했다                                                                                                                                                                                                                                                                 | production deployment readiness |
 | 2026-06-04 | Official policy standalone wording cleanup을 수행했다. 계획 단계 의존 표현을 제품 정책 언어로 바꾸고, opaque DB-backed session, Postgres authoritative, Web UX 후속 범위, operations health boundary를 독립 정책 문장으로 정리했다                                                                                                                                                                                                                                      | Auth 제품 완성                  |
 | 2026-06-04 | Auth 제품 정책 기준을 반영했다. 회원가입 Step 4는 auth API payload가 아니라 season profile draft journey이며, `/auth/signup`과 `/auth/validate-signup-draft`가 lifestyle/intro/profile object를 받지 않는다고 명시했다                                                                                                                                                                                                                                                  | Auth 제품 완성                  |

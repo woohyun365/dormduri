@@ -1,9 +1,17 @@
 import type { Provider } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import emailConfig from '../../config/email.config.js';
 import { AuthenticatedUserGuard } from '../access/authenticated-user.guard.js';
-import { EMAIL_SENDER } from '../adapters/email/email-sender.interface.js';
+import {
+  EMAIL_SENDER,
+  EMAIL_SENDER_DELEGATE,
+  type EmailSender,
+} from '../adapters/email/email-sender.interface.js';
+import { selectEmailSenderDelegate } from '../adapters/email/email-sender.provider.js';
 import { MonitoredEmailSenderService } from '../adapters/email/monitored-email-sender.service.js';
+import { SesEmailSenderService } from '../adapters/email/ses-email-sender.service.js';
 import { StubEmailSenderService } from '../adapters/email/stub-email-sender.service.js';
 import { AuthActorContextResolver } from '../application/auth-actor-context.resolver.js';
 import { AuthService } from '../application/auth.service.js';
@@ -72,6 +80,16 @@ export const AUTH_SECURITY_EVENT_PROVIDERS: Provider[] = [
 
 export const AUTH_EMAIL_ADAPTER_PROVIDERS: Provider[] = [
   StubEmailSenderService,
+  SesEmailSenderService,
+  {
+    provide: EMAIL_SENDER_DELEGATE,
+    inject: [emailConfig.KEY, StubEmailSenderService, SesEmailSenderService],
+    useFactory: (
+      settings: ConfigType<typeof emailConfig>,
+      stub: StubEmailSenderService,
+      ses: SesEmailSenderService,
+    ): EmailSender => selectEmailSenderDelegate(settings, { stub, ses }),
+  },
   MonitoredEmailSenderService,
   {
     provide: EMAIL_SENDER,

@@ -24,7 +24,7 @@
 - `login-attempts/`: login failure counter, active lock query, failure record/clear command, lockout policy를 함께 둔다. 로그인 실패 5회 잠금 기준과 TTL은 behavior contract로 보존한다.
 - `security-events/`: audit/security event service, repository, sanitizer, alert policy, event types를 함께 둔다. raw email/IP/UA/token/password/code를 저장하지 않고, event 기록 실패는 user flow를 막지 않는 fail-safe boundary다.
 - `registration/`: `auth-registration-use-cases.service.ts`, signup command와 signup draft validation을 함께 둔다. Auth는 lifestyle/intro/profile parser를 소유하지 않는다.
-- `adapters/email/`: `EmailSender` contract, stub/provider adapter, monitored send wrapper.
+- `adapters/email/`: `EmailSender` contract, local/test stub sender, SESv2 production sender, provider delegate selection, monitored send wrapper.
 - `mappers/`: shared response mapper and user/session presenter.
 - `errors/`: user-facing neutral/fail-closed error contract.
 - `operations/`: Redis gate, auth cleanup, metrics, health snapshot. Postgres authoritative 기준을 유지한다.
@@ -72,7 +72,7 @@ Auth architecture/inventory guard는 `apps/api/src/architecture/`의 product-nam
 - Signup draft validation and signup orchestration: `registration/`.
 - Login failure lockout and failure counter state: `login-attempts/`.
 - Audit/security event sanitize, persistence, and alert policy: `security-events/`.
-- Mail sending adapter and monitoring wrapper: `adapters/email/`.
+- Mail sending adapter, provider selection, SES payload mapping, bounded provider error category, and monitoring wrapper: `adapters/email/`.
 - Shared response/user/session projection helpers: `mappers/`.
 - Operational cleanup, Redis gate metrics, and `/health/auth` snapshot: `operations/`.
 - Auth route access matrix, domain context matrix, root-only/no-JWT/no-forwardRef architecture guard: `architecture/security/auth-access-route-matrix.spec.ts`, `architecture/domain-context/domain-context-route-matrix.spec.ts`, `architecture/auth-boundary.spec.ts`.

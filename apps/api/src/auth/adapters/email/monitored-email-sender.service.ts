@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import type {
   EmailSender,
   PasswordResetMailInput,
   VerificationCodeMailInput,
 } from './email-sender.interface.js';
-import { StubEmailSenderService } from './stub-email-sender.service.js';
+import { EMAIL_SENDER_DELEGATE } from './email-sender.interface.js';
+import { isEmailProviderCategorizedError } from './ses-email-error.js';
 import {
   AuthSecurityEventService,
   recordAuthSecurityEventSafely,
@@ -12,6 +13,10 @@ import {
 import { AUTH_SECURITY_EVENT_METRICS } from '../../security-events/auth-security-event.types.js';
 
 function providerErrorCategory(error: unknown) {
+  if (isEmailProviderCategorizedError(error)) {
+    return error.providerErrorCategory;
+  }
+
   if (error instanceof Error) {
     return error.name || 'Error';
   }
@@ -22,7 +27,7 @@ function providerErrorCategory(error: unknown) {
 @Injectable()
 export class MonitoredEmailSenderService implements EmailSender {
   constructor(
-    private readonly delegate: StubEmailSenderService,
+    @Inject(EMAIL_SENDER_DELEGATE) private readonly delegate: EmailSender,
     private readonly securityEvents: AuthSecurityEventService,
   ) {}
 

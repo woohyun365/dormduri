@@ -16,3 +16,4 @@ export interface EmailSender {
 }
 
 export const EMAIL_SENDER = Symbol('EMAIL_SENDER');
+export const EMAIL_SENDER_DELEGATE = Symbol('EMAIL_SENDER_DELEGATE');

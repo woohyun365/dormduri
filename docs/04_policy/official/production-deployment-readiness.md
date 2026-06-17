@@ -63,13 +63,15 @@ Production release는 아래 조건을 만족해야 한다.
 
 ## SES production email 정책
 
-- Production auth email sender는 local stub/log output이 아니라 SES 또는 동등한 실제 provider를 사용한다.
+- Production auth email sender는 local stub/log output이 아니라 `EMAIL_PROVIDER=ses` 경로의 SESv2 adapter 또는 동등한 실제 provider를 사용한다.
 - Sender identity는 verified domain 또는 verified email address여야 한다.
 - Production 발송 전 domain identity + DKIM 설정을 권장한다.
 - SES sandbox 상태에서는 수신자도 verified identity여야 하므로 실제 사용자 발송 전에 production access 해제가 필요하다.
 - SES email sending 자체에는 static outbound IP가 필수 조건이 아니다.
 - Verification/reset code, reset proof, auth token은 mail sender log나 security event metadata에 원문으로 저장하지 않는다.
 - Provider success/failure는 bounded security event와 metric으로 남기되, transient provider 장애와 provider config invalid 상태를 분리한다.
+- AWS/SES raw error message는 log/security event metadata에 저장하지 않고 `CONFIG_INVALID`, `ACCESS_DENIED`, `MESSAGE_REJECTED`, `THROTTLED`, `TRANSIENT`, `UNKNOWN` category만 남긴다.
+- 운영 identity/DKIM/sandbox/production access 준비는 `infra/aws/ses-setup-checklist.md`를 release gate로 사용한다.
 
 ## RDS / Migration / Role grant / Backup 정책
 
@@ -142,6 +144,7 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 
 | 날짜       | 변경 내용                                                                                                                                               | 관련 이슈                       |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다 | production deployment readiness |
 | 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다 | production deployment readiness |
 | 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                          | production deployment readiness |
 | 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다     | production deployment readiness |
