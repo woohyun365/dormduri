@@ -7,6 +7,7 @@
 관련 기준:
 
 - `infra/observability/rehearsal-checklist.md`
+- `infra/runbooks/production-release-checklist.md`
 - `infra/deploy/README.md`
 - [production-deployment-readiness.md](./production-deployment-readiness.md)
 
@@ -105,6 +106,7 @@
 - Production-like smoke는 nginx ingress, health/readiness, metrics guard, log 수집 경로를 함께 검증한다.
 - 237 ramp decision evidence는 현재 known peak에 가까운 read/write path 병목 판단 입력으로 사용한다.
 - Slack delivery smoke, Prometheus target up, Loki/Grafana readout은 운영 관측 경로가 release 가능한지 판단하는 입력이다.
+- `infra/runbooks/production-release-checklist.md`는 observability/stress evidence를 최종 `GO`, `NO-GO`, `GO with follow-up` 판단에 사용한다.
 - threshold fail은 release blocker로 본다.
 
 ## 성능 follow-up 분리 기준
@@ -138,5 +140,6 @@
 
 | 날짜       | 변경 내용                                                                                                                                           | 근거                            |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| 2026-06-17 | 운영 관측 baseline을 완료 상태로 정리하고, production deployment readiness 문서와 release evidence 입력, 성능 follow-up 분리 기준을 연결했다        | production deployment readiness |
 | 2026-06-13 | 운영 관측·로그·부하 테스트 정책을 신설하고, 2GB 최소형과 4GB 관측 포함형 서버 스펙 선택지, metrics/log privacy, stress release gate 기준을 정의했다 | logging-stress infrastructure   |
+| 2026-06-17 | 운영 관측 baseline을 완료 상태로 정리하고, production deployment readiness 문서와 release evidence 입력, 성능 follow-up 분리 기준을 연결했다        | production deployment readiness |
+| 2026-06-17 | Production release checklist가 observability/stress evidence를 최종 release decision 입력으로 사용한다는 기준을 추가했다                            | production deployment readiness |

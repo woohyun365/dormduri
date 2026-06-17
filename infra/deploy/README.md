@@ -23,6 +23,13 @@ infra/deploy/
 
 Secrets Manager materialization 절차는 sibling 문서 `infra/aws/secrets-manager-checklist.md`가 소유한다. SES sender identity/DKIM/sandbox/production access 준비는 `infra/aws/ses-setup-checklist.md`가 소유한다. RDS private network, automated backup/PITR, restore drill 준비는 `infra/aws/rds-setup-checklist.md`와 `infra/runbooks/backup-restore-drill.md`가 소유한다.
 
+## 운영 runbook
+
+- `infra/runbooks/production-release-checklist.md`: BE API + managed PostgreSQL production release의 최종 GO/NO-GO checklist다.
+- `infra/runbooks/api-production-deploy-runbook.md`: GitHub Actions와 manual fallback deploy 순서를 설명한다.
+- `infra/runbooks/backup-restore-drill.md`: restored DB 기반 backup/restore evidence를 남기는 절차다.
+- `infra/runbooks/incident-rollback.md`: app image rollback, DB/PITR restore escalation, readiness/metrics/observability 재확인 절차다.
+
 ## 사전 조건
 
 - Node runtime baseline: `node >=24 <25`
@@ -95,6 +102,18 @@ RETENTION_DISCLOSURE_DATABASE_URL='postgresql://...' \
 ```
 
 이 preflight가 끝난 뒤 API/nginx를 올리고 `/health/ready`를 final deploy gate로 확인한다. Production deploy path에서 `prisma db push`를 사용하지 않는다. 실제 RDS connection string에는 운영 SSL 정책에 맞춰 `sslmode=require` 또는 CA bundle 검증 옵션을 둔다.
+
+## Final release checklist
+
+Production deploy 전에는 `infra/runbooks/production-release-checklist.md`를 채워야 한다. Checklist는 아래 evidence를 하나의 decision record로 묶는다.
+
+- `pnpm check:api`, `pnpm build:api` local-equivalent CI evidence
+- `pnpm api:db:deploy:migrate`, `pnpm api:db:deploy:role-grants`, `pnpm api:db:deploy:smoke` DB deploy evidence
+- `pnpm api:db:restore-drill:smoke` restore drill evidence
+- `infra/deploy/scripts/api-release-smoke.sh` health/readiness/metrics guard evidence
+- `pnpm --dir apps/api stress:docker:smoke`, `pnpm --dir apps/api stress:docker:production-like`, `pnpm --dir apps/api stress:docker:237-ramp` observability/stress evidence
+
+Checklist decision이 `NO-GO`면 production workflow를 실행하지 않는다. `GO with follow-up`은 blocker가 아니라 운영 evidence 기반 개선 항목만 남은 경우에만 사용한다.
 
 ## GitHub Actions CI/CD
 

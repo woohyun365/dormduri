@@ -14,6 +14,8 @@
 - `infra/db/README.md`
 - `infra/aws/rds-setup-checklist.md`
 - `infra/runbooks/backup-restore-drill.md`
+- `infra/runbooks/production-release-checklist.md`
+- `infra/runbooks/incident-rollback.md`
 - `infra/observability/rehearsal-checklist.md`
 
 ## Production release 목표
@@ -138,6 +140,18 @@ GitHub Actions에서 AWS 접근이 필요하면 OIDC + AWS role을 기본 후보
 
 GitHub production environment, OIDC role, release runbook은 `infra/aws/github-actions-oidc-checklist.md`, `infra/aws/beginner-account-budget-checklist.md`, `infra/runbooks/api-production-deploy-runbook.md`를 따른다.
 
+## Final release checklist / rollback 정책
+
+Production release의 최종 판단은 `infra/runbooks/production-release-checklist.md`가 소유한다. 운영자는 release SHA, image tag, CI/CD, config/secret, SES, DB/RDS, backup/restore, ingress/TLS/CORS/cookie, health/readiness/metrics, observability/stress evidence를 하나의 checklist에 모아 `GO`, `NO-GO`, `GO with follow-up`으로 판정한다.
+
+- `GO`: 모든 release blocker가 닫혔고 manual evidence가 secret-free 형태로 남아 있다.
+- `GO with follow-up`: release safety를 깨지 않는 성능/운영 개선 후보만 남고 owner/issue/evidence가 명확하다.
+- `NO-GO`: critical config/secret, SES, migration, role grant, readiness, public metrics exposure, TLS/domain/CORS/cookie, backup restore drill, CI/CD gate 중 하나라도 실패했거나 evidence가 없다.
+
+장애나 release gate failure가 발생하면 `infra/runbooks/incident-rollback.md`를 사용한다. App code/ingress/readiness 문제는 previous safe image tag로 rollback하고, DB migration/schema/data 영향이 의심되면 자동 down migration이 아니라 RDS backup/PITR restore escalation으로 판단한다. Rollback 이후에도 `/health/ready`, `/internal/metrics`, Prometheus/Loki/Grafana, Slack alert, RDS CloudWatch 지표를 다시 확인한다.
+
+Release/incident evidence에는 workflow run id, commit SHA, image tag, bounded error category, health/metrics smoke status, restore drill evidence id만 남긴다. DB URL, token, HMAC secret, SES secret, raw provider error, request/response body는 남기지 않는다.
+
 ## Release blocker / follow-up 구분
 
 | 분류            | 항목                                                                                                                                                                                                                        |
@@ -165,12 +179,13 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 
 | 날짜       | 변경 내용                                                                                                                                                   | 관련 이슈                       |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| 2026-06-17 | RDS setup checklist, backup/restore drill runbook, restore drill smoke helper, manual restore drill workflow를 release gate에 반영했다                      | production deployment readiness |
-| 2026-06-17 | GitHub Actions API CI와 protected production deploy workflow, AWS OIDC checklist, dry-run release smoke/rollout boundary를 production CI/CD 정책에 반영했다 | production deployment readiness |
-| 2026-06-17 | HTTP REST CORS allowlist, future cookie policy helper, nginx direct TLS 예시를 production ingress 정책에 반영했다                                           | production deployment readiness |
-| 2026-06-17 | RDS/Prisma migrate deploy/role grant smoke를 API rollout 전 production DB deploy gate로 고정했다                                                            | production deployment readiness |
-| 2026-06-17 | Health live/ready contract를 분리하고 readiness bounded 503, DB/config/secret/migration/email provider check 기준을 production readiness 정책에 반영했다    | production deployment readiness |
-| 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다     | production deployment readiness |
-| 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다     | production deployment readiness |
-| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                              | production deployment readiness |
 | 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다         | production deployment readiness |
+| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                              | production deployment readiness |
+| 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다     | production deployment readiness |
+| 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다     | production deployment readiness |
+| 2026-06-17 | Health live/ready contract를 분리하고 readiness bounded 503, DB/config/secret/migration/email provider check 기준을 production readiness 정책에 반영했다    | production deployment readiness |
+| 2026-06-17 | RDS/Prisma migrate deploy/role grant smoke를 API rollout 전 production DB deploy gate로 고정했다                                                            | production deployment readiness |
+| 2026-06-17 | HTTP REST CORS allowlist, future cookie policy helper, nginx direct TLS 예시를 production ingress 정책에 반영했다                                           | production deployment readiness |
+| 2026-06-17 | GitHub Actions API CI와 protected production deploy workflow, AWS OIDC checklist, dry-run release smoke/rollout boundary를 production CI/CD 정책에 반영했다 | production deployment readiness |
+| 2026-06-17 | RDS setup checklist, backup/restore drill runbook, restore drill smoke helper, manual restore drill workflow를 release gate에 반영했다                      | production deployment readiness |
+| 2026-06-17 | Production release checklist와 incident rollback runbook을 최종 release GO/NO-GO gate로 연결했다                                                            | production deployment readiness |

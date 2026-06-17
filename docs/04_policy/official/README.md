@@ -94,12 +94,12 @@
 
 | 날짜       | 변경 내용                                                                                                                                           | 관련 이슈                               |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| 2026-06-17 | production-deployment-readiness.md를 official policy set에 추가하고 BE API/RDS production release readiness owner 경계를 정리했다                   | production deployment readiness         |
-| 2026-06-13 | 운영 관측·로그·부하 테스트 정책 문서를 official policy set에 추가하고 runtime observability/release gate/server spec owner 경계를 정리했다          | logging-stress-test-infrastructure-plan |
-| 2026-06-08 | chat-lifecycle.md, support-communication.md, notification-inbox.md를 official policy set에 추가하고 chat/support/notification owner 경계를 정리했다 | #79 / #196 / #198 / #220                |
-| 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                 | #195                                    |
-| 2026-05-25 | RRPD retained vault 관련 policy owner mapping을 추가하고, data-retention/legal/profile/matching/chat/incident/service-boundary의 책임 분리를 정리   | #195                                    |
 | 2026-05-20 | #195 2026-05-20 결정에 맞춰 README의 기본 프로필/`LIMITED/FULL` 설명을 `SeasonParticipantProfile`과 capability 용어로 갱신                          | #195                                    |
+| 2026-05-25 | RRPD retained vault 관련 policy owner mapping을 추가하고, data-retention/legal/profile/matching/chat/incident/service-boundary의 책임 분리를 정리   | #195                                    |
+| 2026-05-29 | 정책 문서의 날짜 고정/시간 의존 표현을 문서 본문, 날짜, 맥락 기준 표현으로 정리했다                                                                 | #195                                    |
+| 2026-06-08 | chat-lifecycle.md, support-communication.md, notification-inbox.md를 official policy set에 추가하고 chat/support/notification owner 경계를 정리했다 | #79 / #196 / #198 / #220                |
+| 2026-06-13 | 운영 관측·로그·부하 테스트 정책 문서를 official policy set에 추가하고 runtime observability/release gate/server spec owner 경계를 정리했다          | logging-stress-test-infrastructure-plan |
+| 2026-06-17 | production-deployment-readiness.md를 official policy set에 추가하고 BE API/RDS production release readiness owner 경계를 정리했다                   | production deployment readiness         |
 
 ## 사용 순서
 
