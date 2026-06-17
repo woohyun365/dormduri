@@ -19,6 +19,23 @@ jobs:
     name: API build/test gate
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      DATABASE_URL: postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public
+      DIRECT_URL: postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: knu_dev
+          POSTGRES_PASSWORD: knu_dev_password
+          POSTGRES_DB: knu_roommate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U knu_dev -d knu_roommate"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
@@ -40,6 +57,9 @@ jobs:
 
       - name: Build shared package
         run: pnpm shared:build
+
+      - name: Prepare CI database schema
+        run: pnpm --dir apps/api exec prisma migrate deploy --schema prisma/schema.prisma
 
       - name: Generate Prisma artifacts
         run: pnpm api:prisma:generate
