@@ -170,10 +170,52 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
     rationale: 'selection catalog derives UTC date bounds from explicit KST domain date input.',
   }),
   entry({
-    path: 'src/health/health.service.ts',
-    owner: 'health',
+    path: 'src/health/checks/database-health.check.ts',
+    owner: 'health/checks',
+    category: 'duration-metric',
+    rationale: 'readiness DB check uses process time only to report elapsed probe duration.',
+  }),
+  entry({
+    path: 'src/health/checks/email-provider-health.check.ts',
+    owner: 'health/checks',
+    category: 'duration-metric',
+    rationale:
+      'readiness email provider check uses process time only to report elapsed probe duration.',
+  }),
+  entry({
+    path: 'src/health/checks/health-check-result.ts',
+    owner: 'health/checks',
     category: 'response-timestamp',
-    rationale: 'health timestamp is response metadata only and is not persisted business time.',
+    rationale:
+      'readiness check result timestamp and elapsedMs are response metadata only, not persisted business time.',
+  }),
+  entry({
+    path: 'src/health/checks/migration-baseline-health.check.ts',
+    owner: 'health/checks',
+    category: 'duration-metric',
+    rationale:
+      'readiness migration baseline check uses process time only to report elapsed probe duration.',
+  }),
+  entry({
+    path: 'src/health/checks/runtime-config-health.check.ts',
+    owner: 'health/checks',
+    category: 'duration-metric',
+    rationale:
+      'readiness runtime config check uses process time only to report elapsed probe duration.',
+  }),
+  entry({
+    path: 'src/health/checks/secret-source-health.check.ts',
+    owner: 'health/checks',
+    category: 'duration-metric',
+    rationale:
+      'readiness secret source check uses process time only to report elapsed probe duration.',
+  }),
+  entry({
+    path: 'src/health/presenters/health-response.presenter.ts',
+    owner: 'health/presenters',
+    category: 'response-timestamp',
+    rationale:
+      'health response timestamp is response metadata only and is not persisted business time.',
   }),
   entry({
     path: 'src/lifecycle/adapters/season-boundary-schedule.adapter.ts',

@@ -187,6 +187,18 @@ const sqlAssetInventory: readonly SqlAssetInventoryEntry[] = [
     rationale: 'canonical database timestamp helper for product persistence time.',
   }),
   sqlEntry({
+    path: 'prisma/sql/getMigrationBaselineHealth.sql',
+    owner: 'health/checks',
+    category: 'typedsql-query',
+    requiredPatterns: [
+      /FROM\s+"_prisma_migrations"/i,
+      /COUNT\(\*\)\s+FILTER\s+\(WHERE\s+rolled_back_at\s+IS\s+NOT\s+NULL\)::int\s+AS\s+failed_count/i,
+      /COUNT\(\*\)\s+FILTER\s+\(WHERE\s+finished_at\s+IS\s+NULL\s+AND\s+rolled_back_at\s+IS\s+NULL\)::int\s+AS\s+incomplete_count/i,
+    ],
+    rationale:
+      'health readiness inspects Prisma migration metadata through generated TypedSQL instead of direct raw SQL.',
+  }),
+  sqlEntry({
     path: 'prisma/sql/getLatestVerifiedResetCode.sql',
     owner: 'auth/verification',
     category: 'db-time',

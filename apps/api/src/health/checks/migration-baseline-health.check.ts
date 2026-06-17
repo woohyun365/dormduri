@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { getMigrationBaselineHealth } from '../../generated/prisma/sql.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 import {
   DEFAULT_HEALTH_READINESS_TIMEOUT_MS,
@@ -7,11 +8,6 @@ import {
 } from './health-check.types.js';
 import { createHealthCheckResult } from './health-check-result.js';
 import { HealthReadinessTimeoutError, withReadinessTimeout } from './readiness-timeout.js';
-
-interface MigrationBaselineRow {
-  readonly failed_count: number | bigint;
-  readonly incomplete_count: number | bigint;
-}
 
 @Injectable()
 export class MigrationBaselineHealthCheck implements HealthReadinessCheck {
@@ -25,12 +21,7 @@ export class MigrationBaselineHealthCheck implements HealthReadinessCheck {
     try {
       const [row] = await withReadinessTimeout(
         this.name,
-        this.prisma.$queryRaw<MigrationBaselineRow[]>`
-          SELECT
-            COUNT(*) FILTER (WHERE rolled_back_at IS NOT NULL)::int AS failed_count,
-            COUNT(*) FILTER (WHERE finished_at IS NULL AND rolled_back_at IS NULL)::int AS incomplete_count
-          FROM "_prisma_migrations"
-        `,
+        this.prisma.$queryRawTyped(getMigrationBaselineHealth()),
         DEFAULT_HEALTH_READINESS_TIMEOUT_MS,
       );
 
@@ -79,6 +70,10 @@ export class MigrationBaselineHealthCheck implements HealthReadinessCheck {
   }
 }
 
-function toNumber(value: number | bigint): number {
+function toNumber(value: number | bigint | null): number {
+  if (value === null) {
+    throw new Error('Migration baseline count is null.');
+  }
+
   return typeof value === 'bigint' ? Number(value) : value;
 }
