@@ -5,6 +5,7 @@ import {
   ROOMMATE_SEARCH_CURSOR_HMAC_SECRET_ENV,
 } from '../roommate-search/pagination/roommate-search-token.codec.js';
 import { DEFAULT_LOG_HASH_SECRET } from './observability.config.js';
+import { SECRET_NAME_PREFIX_ENV } from './secrets/secret-name-prefix.constants.js';
 import { envValidationSchema } from './env.validation.js';
 
 const validBase64Key = Buffer.from('0123456789abcdef0123456789abcdef').toString('base64');
@@ -98,8 +99,37 @@ describe('envValidationSchema', () => {
   });
 
   it('allows only supported secret sources', () => {
-    expect(errorPaths(productionEnv({ SECRET_SOURCE: 'aws-secrets-manager' }))).toEqual([]);
+    expect(
+      errorPaths(
+        productionEnv({
+          SECRET_SOURCE: 'aws-secrets-manager',
+          [SECRET_NAME_PREFIX_ENV]: '/knu-roommate/production/api',
+        }),
+      ),
+    ).toEqual([]);
     expect(errorPaths(productionEnv({ SECRET_SOURCE: 'local-file' }))).toContain('SECRET_SOURCE');
+  });
+
+  it('requires a Secrets Manager name prefix when production selects aws-secrets-manager', () => {
+    expect(errorPaths(productionEnv({ SECRET_SOURCE: 'aws-secrets-manager' }))).toContain(
+      SECRET_NAME_PREFIX_ENV,
+    );
+    expect(
+      errorPaths(
+        productionEnv({
+          SECRET_SOURCE: 'aws-secrets-manager',
+          [SECRET_NAME_PREFIX_ENV]: 'knu-roommate/production/api',
+        }),
+      ),
+    ).toContain(SECRET_NAME_PREFIX_ENV);
+    expect(
+      errorPaths(
+        productionEnv({
+          SECRET_SOURCE: 'aws-secrets-manager',
+          [SECRET_NAME_PREFIX_ENV]: '/knu-roommate/production/api',
+        }),
+      ),
+    ).toEqual([]);
   });
 
   it('validates cookie SameSite values', () => {

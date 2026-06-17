@@ -20,13 +20,15 @@ infra/deploy/
     snippets/proxy-common.conf
 ```
 
+Secrets Manager materialization 절차는 sibling 문서 `infra/aws/secrets-manager-checklist.md`가 소유한다.
+
 ## 사전 조건
 
 - Node runtime baseline: `node >=24 <25`
 - Package manager baseline: `pnpm@10.34.3`
 - Docker build context는 repo root다. API가 `@repo/shared` workspace package와 Prisma generated client를 필요로 하기 때문이다.
 - Docker image build는 DB에 접속해 `prisma generate --sql`을 실행하지 않는다. Release workspace에서 `apps/api/src/generated/prisma`가 최신인지 먼저 확인한다.
-- `DATABASE_URL`, `DIRECT_URL`, retention 전용 DB URL, cursor/HMAC secret, `LOG_HASH_SECRET`, `METRICS_BEARER_TOKEN`, `EMAIL_PROVIDER`, `SES_*`, `SECRET_SOURCE`, `HTTP_*` 값은 private `.env.api`에만 둔다.
+- `DATABASE_URL`, `DIRECT_URL`, retention 전용 DB URL, cursor/HMAC secret, `LOG_HASH_SECRET`, `METRICS_BEARER_TOKEN`, `EMAIL_PROVIDER`, `SES_*`, `SECRET_SOURCE`, `SECRET_NAME_PREFIX`, `HTTP_*` 값은 private `.env.api` 또는 AWS Secrets Manager materialization 경로로만 주입한다.
 - Production DB migration/db push는 container startup에서 자동 실행하지 않는다. 운영 migration은 별도 절차에서 수행한다.
 
 ## Env file
@@ -53,9 +55,10 @@ $EDITOR infra/deploy/.env.api
 - `SES_REGION`
 - `SES_FROM_EMAIL`
 - `SECRET_SOURCE`
+- `SECRET_NAME_PREFIX` (`SECRET_SOURCE=aws-secrets-manager` production 경로에서 필수)
 - `HTTP_TRUST_PROXY`
 
-`.env.api`는 커밋하지 않는다. `.env.api.example`의 `REPLACE_ME`/`REPLACE_WITH_*` 값으로 실제 운영을 실행하지 않는다. `EMAIL_PROVIDER=ses`는 production provider 선택값이며, 실제 사용자 발송 전에는 SES sender adapter와 verified sender identity가 release gate에서 준비되어야 한다.
+`.env.api`는 커밋하지 않는다. `.env.api.example`의 `REPLACE_ME`/`REPLACE_WITH_*` 값으로 실제 운영을 실행하지 않는다. `SECRET_SOURCE=env`는 private env 직접 주입 경로이고, `SECRET_SOURCE=aws-secrets-manager`는 `/knu-roommate/<environment>/api/<ENV_KEY>` 형태의 Secrets Manager 값을 배포 시점에 env key로 materialize하는 경로다. Secret 생성/검증 절차는 `infra/aws/secrets-manager-checklist.md`를 따른다. `EMAIL_PROVIDER=ses`는 production provider 선택값이며, 실제 사용자 발송 전에는 SES sender adapter와 verified sender identity가 release gate에서 준비되어야 한다.
 
 ## 2GB 최소형 실행
 
@@ -136,5 +139,5 @@ docker compose -f infra/deploy/docker-compose.api.yml down
 
 - Compose에 production Postgres service를 정의하지 않는다.
 - API image에 `.env`, `.omx`, stress `.tmp-*`, observability local secret을 넣지 않는다.
-- Entry point는 필수 env 이름만 출력하고 값은 출력하지 않는다.
+- Entry point와 secret materializer는 필수 env/secret 이름만 출력하고 값은 출력하지 않는다.
 - Slack/Alertmanager delivery secret과 receiver 설정은 `infra/observability`가 소유한다. `infra/deploy`는 API/nginx와 metrics endpoint를 제공하고, 전체 점검은 `infra/observability/rehearsal-checklist.md`를 따른다.

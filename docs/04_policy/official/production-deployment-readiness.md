@@ -56,8 +56,9 @@ Production release는 아래 조건을 만족해야 한다.
 - `infra/deploy/.env.api.example`은 production required key coverage를 확인하기 위한 template이며 실제 secret 원문을 포함하지 않는다.
 - Production boot는 critical secret이 없거나 placeholder/local default 값이면 fail-fast한다.
 - Secret 원문은 repository, Docker image layer, CI log, issue, report에 저장하지 않는다.
-- Production secret source는 AWS Secrets Manager 또는 동등 managed secret store를 기본 후보로 둔다.
-- Secrets Manager encryption은 AWS managed KMS key 또는 customer managed KMS key 중 운영 비용·권한 모델에 맞게 선택한다.
+- Production secret source는 direct env injection(`SECRET_SOURCE=env`) 또는 AWS Secrets Manager materialization(`SECRET_SOURCE=aws-secrets-manager`)을 허용한다.
+- `SECRET_SOURCE=aws-secrets-manager` production 경로는 `SECRET_NAME_PREFIX=/knu-roommate/<environment>/api`를 기준으로 env key별 plain `SecretString`을 읽는다.
+- Secrets Manager encryption은 초기 production에서 AWS managed KMS key `aws/secretsmanager`를 기본으로 두고, customer-managed CMK는 별도 key policy/운영 절차가 준비된 뒤 전환한다.
 - App-level retention/RRPD/vault payload 암호화 key rotation은 production deployment readiness와 별도 보안/retention 설계에서 다룬다.
 
 ## SES production email 정책
@@ -130,7 +131,7 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 1. AWS 계정 결제 수단과 Budget alert를 설정한다.
 2. App instance, private network/VPC, RDS PostgreSQL subnet/security group을 준비한다.
 3. RDS automated backup, retention period, backup window를 설정한다.
-4. Secrets Manager secret과 KMS key 정책을 준비한다.
+4. Secrets Manager secret inventory, `SECRET_NAME_PREFIX`, IAM read policy, KMS key 정책을 준비한다.
 5. SES sender identity, DKIM, sandbox 해제 요청을 완료한다.
 6. Domain DNS와 TLS 인증서 발급 경로를 준비한다.
 7. GitHub environment, approval rule, AWS OIDC role 또는 과도기 deploy credential을 준비한다.
@@ -139,7 +140,8 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                           | 관련 이슈                       |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                      | production deployment readiness |
-| 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다 | production deployment readiness |
+| 날짜       | 변경 내용                                                                                                                                               | 관련 이슈                       |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다 | production deployment readiness |
+| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                          | production deployment readiness |
+| 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다     | production deployment readiness |
