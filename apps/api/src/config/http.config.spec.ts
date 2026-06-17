@@ -17,12 +17,22 @@ describe('httpConfig', () => {
     expect(readHttpTrustProxy({ HTTP_TRUST_PROXY: '0' })).toBe(false);
   });
 
-  it('parses comma-separated CORS origins', () => {
+  it('parses, canonicalizes, and deduplicates comma-separated CORS origins', () => {
     expect(
       readHttpCorsAllowedOrigins({
-        HTTP_CORS_ALLOWED_ORIGINS: ' https://app.example.com,https://admin.example.com , ',
+        HTTP_CORS_ALLOWED_ORIGINS:
+          ' https://app.example.com,https://admin.example.com,https://app.example.com/ , ',
       }),
     ).toEqual(['https://app.example.com', 'https://admin.example.com']);
+  });
+
+  it('rejects wildcard and non-origin CORS values', () => {
+    expect(() => readHttpCorsAllowedOrigins({ HTTP_CORS_ALLOWED_ORIGINS: '*' })).toThrow(
+      'wildcard origin',
+    );
+    expect(() =>
+      readHttpCorsAllowedOrigins({ HTTP_CORS_ALLOWED_ORIGINS: 'https://app.example.com/path' }),
+    ).toThrow('without path/query/hash/userinfo');
   });
 
   it('uses secure cookies by default only in production', () => {
@@ -36,7 +46,10 @@ describe('httpConfig', () => {
   it('normalizes cookie policy values', () => {
     expect(readHttpCookieSameSite({ HTTP_COOKIE_SAME_SITE: 'Strict' })).toBe('strict');
     expect(readHttpCookieSameSite({})).toBe('lax');
-    expect(readHttpCookieDomain({ HTTP_COOKIE_DOMAIN: ' .example.com ' })).toBe('.example.com');
+    expect(readHttpCookieDomain({ HTTP_COOKIE_DOMAIN: ' .Example.com ' })).toBe('.example.com');
+    expect(() => readHttpCookieDomain({ HTTP_COOKIE_DOMAIN: 'https://example.com' })).toThrow(
+      'domain name',
+    );
   });
 
   it('exposes parsed values through the Nest config namespace', () => {

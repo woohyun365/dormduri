@@ -132,10 +132,35 @@ describe('envValidationSchema', () => {
     ).toEqual([]);
   });
 
-  it('validates cookie SameSite values', () => {
+  it('validates cookie SameSite values and secure None policy', () => {
     expect(errorPaths(productionEnv({ HTTP_COOKIE_SAME_SITE: 'none' }))).toEqual([]);
+    expect(
+      errorPaths(productionEnv({ HTTP_COOKIE_SAME_SITE: 'none', HTTP_COOKIE_SECURE: 'false' })),
+    ).toContain('HTTP_COOKIE_SECURE');
     expect(errorPaths(productionEnv({ HTTP_COOKIE_SAME_SITE: 'cross-site' }))).toContain(
       'HTTP_COOKIE_SAME_SITE',
+    );
+  });
+
+  it('rejects wildcard and non-origin CORS values', () => {
+    expect(errorPaths(productionEnv({ HTTP_CORS_ALLOWED_ORIGINS: '*' }))).toContain(
+      'HTTP_CORS_ALLOWED_ORIGINS',
+    );
+    expect(
+      errorPaths(productionEnv({ HTTP_CORS_ALLOWED_ORIGINS: 'https://app.example.com/path' })),
+    ).toContain('HTTP_CORS_ALLOWED_ORIGINS');
+    expect(
+      errorPaths(
+        productionEnv({
+          HTTP_CORS_ALLOWED_ORIGINS: 'https://app.example.com, https://admin.example.com',
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it('rejects URL-shaped cookie domains', () => {
+    expect(errorPaths(productionEnv({ HTTP_COOKIE_DOMAIN: 'https://example.com' }))).toContain(
+      'HTTP_COOKIE_DOMAIN',
     );
   });
 });

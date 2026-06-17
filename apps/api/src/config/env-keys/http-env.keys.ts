@@ -15,7 +15,7 @@ export const httpEnvKeys = defineEnvKeys([
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'optional',
-    description: 'Comma-separated explicit CORS origin allowlist.',
+    description: 'Comma-separated explicit REST CORS origin allowlist. Wildcard is rejected.',
   },
   {
     key: 'HTTP_COOKIE_SECURE',
@@ -23,7 +23,7 @@ export const httpEnvKeys = defineEnvKeys([
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'safe-local-default',
-    description: 'Secure cookie default for production HTTP boundary.',
+    description: 'Secure cookie default for future production HTTP cookie surfaces.',
   },
   {
     key: 'HTTP_COOKIE_SAME_SITE',
@@ -31,7 +31,7 @@ export const httpEnvKeys = defineEnvKeys([
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'safe-local-default',
-    description: 'SameSite cookie default for production HTTP boundary.',
+    description: 'SameSite cookie default for future production HTTP cookie surfaces.',
   },
   {
     key: 'HTTP_COOKIE_DOMAIN',
@@ -39,6 +39,6 @@ export const httpEnvKeys = defineEnvKeys([
     category: 'ingress',
     source: 'process-env',
     defaultPolicy: 'optional',
-    description: 'Optional cookie domain for production API domain.',
+    description: 'Optional cookie domain for future production API cookie surfaces.',
   },
 ] as const);

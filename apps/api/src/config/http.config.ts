@@ -22,10 +22,14 @@ export function readHttpCorsAllowedOrigins(env: NodeJS.ProcessEnv = process.env)
     return [];
   }
 
-  return raw
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  return Array.from(
+    new Set(
+      raw
+        .split(',')
+        .map((origin) => normalizeHttpCorsOrigin(origin))
+        .filter((origin): origin is string => origin !== null),
+    ),
+  );
 }
 
 export function readHttpCookieSecure(env: NodeJS.ProcessEnv = process.env): boolean {
@@ -46,7 +50,52 @@ export function readHttpCookieSameSite(env: NodeJS.ProcessEnv = process.env): Ht
 }
 
 export function readHttpCookieDomain(env: NodeJS.ProcessEnv = process.env): string | null {
-  return env[HTTP_COOKIE_DOMAIN_ENV]?.trim() || null;
+  const value = env[HTTP_COOKIE_DOMAIN_ENV]?.trim();
+  if (!value) {
+    return null;
+  }
+
+  if (/\s/.test(value) || value.includes('://') || value.includes('/')) {
+    throw new Error(`[config] ${HTTP_COOKIE_DOMAIN_ENV} must be a domain name, not a URL/path.`);
+  }
+
+  return value.toLowerCase();
+}
+
+export function normalizeHttpCorsOrigin(origin: string): string | null {
+  const trimmed = origin.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed === '*') {
+    throw new Error(`[config] ${HTTP_CORS_ALLOWED_ORIGINS_ENV} must not contain wildcard origin.`);
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(`[config] ${HTTP_CORS_ALLOWED_ORIGINS_ENV} must contain absolute origins.`);
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`[config] ${HTTP_CORS_ALLOWED_ORIGINS_ENV} supports only http/https origins.`);
+  }
+
+  if (
+    parsed.pathname !== '/' ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.username ||
+    parsed.password
+  ) {
+    throw new Error(
+      `[config] ${HTTP_CORS_ALLOWED_ORIGINS_ENV} must contain origins without path/query/hash/userinfo.`,
+    );
+  }
+
+  return parsed.origin;
 }
 
 export default registerAs('http', () => ({

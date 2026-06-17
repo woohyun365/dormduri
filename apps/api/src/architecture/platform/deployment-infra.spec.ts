@@ -16,6 +16,7 @@ const requiredFiles = [
   'api/healthcheck.sh',
   'nginx/nginx.conf',
   'nginx/conf.d/api.conf',
+  'nginx/examples/api.tls.conf',
   'nginx/snippets/internal-metrics-allowlist.conf',
   'nginx/snippets/proxy-common.conf',
 ];
@@ -32,6 +33,22 @@ const requiredProductionEnvNames = [
   'ROOMMATE_SEARCH_CURSOR_HMAC_SECRET',
   'PROFILE_DETAIL_ENTRY_TOKEN_HMAC_SECRET',
   'CHAT_THREAD_LIST_CURSOR_HMAC_SECRET',
+];
+
+const ingressPolicyEnvNames = [
+  'HTTP_CORS_ALLOWED_ORIGINS',
+  'HTTP_COOKIE_SECURE',
+  'HTTP_COOKIE_SAME_SITE',
+  'HTTP_COOKIE_DOMAIN',
+  'CHAT_REALTIME_ALLOWED_ORIGINS',
+  'CHAT_REALTIME_TRUST_PROXY',
+];
+
+const nginxTlsExampleKnobNames = [
+  'NGINX_SERVER_NAME',
+  'NGINX_HTTPS_PORT',
+  'NGINX_TLS_CERT_PATH',
+  'NGINX_TLS_KEY_PATH',
 ];
 
 function readDeployFile(relativePath: string): string {
@@ -117,6 +134,28 @@ describe('deployment infra', () => {
     expect(entrypoint).not.toContain('echo "$value"');
   });
 
+  it('documents HTTP REST and realtime ingress policy env names in the deploy template', () => {
+    const envExample = readDeployFile('.env.api.example');
+
+    for (const envName of ingressPolicyEnvNames) {
+      expect(envExample).toContain(`${envName}=`);
+    }
+  });
+
+  it('documents direct nginx TLS example knobs without loading them in the base compose', () => {
+    const envExample = readDeployFile('.env.api.example');
+    const compose = readDeployFile('docker-compose.api.yml');
+
+    for (const envName of nginxTlsExampleKnobNames) {
+      expect(envExample).toContain(`${envName}=`);
+    }
+
+    expect(compose).toContain('${NGINX_HTTP_BIND:-127.0.0.1}');
+    expect(compose).toContain('${NGINX_HTTP_PORT:-8080}:80');
+    expect(compose).not.toContain('${NGINX_HTTPS_PORT');
+    expect(compose).not.toContain('NGINX_TLS_CERT_PATH');
+  });
+
   it('proxies public API/auth/health/socket paths and keeps metrics private', () => {
     const apiConf = readDeployFile('nginx/conf.d/api.conf');
     const allowlist = readDeployFile('nginx/snippets/internal-metrics-allowlist.conf');
@@ -136,5 +175,23 @@ describe('deployment infra', () => {
     expect(allowlist).toContain('deny all');
     expect(proxyCommon).toContain('X-Forwarded-For');
     expect(proxyCommon).toContain('X-Request-Id');
+  });
+
+  it('keeps the TLS/domain example outside the active nginx conf.d mount', () => {
+    const compose = readDeployFile('docker-compose.api.yml');
+    const tlsExample = readDeployFile('nginx/examples/api.tls.conf');
+
+    expect(compose).toContain('./nginx/conf.d:/etc/nginx/conf.d:ro');
+    expect(compose).not.toContain('./nginx/examples:/etc/nginx/conf.d');
+    expect(tlsExample).toContain('listen 443 ssl');
+    expect(tlsExample).toContain('http2 on');
+    expect(tlsExample).toContain('return 301 https://$host$request_uri');
+    expect(tlsExample).toContain(
+      'ssl_certificate /etc/letsencrypt/live/api.example.com/fullchain.pem',
+    );
+    expect(tlsExample).toContain('location /socket.io/');
+    expect(tlsExample).toContain('proxy_set_header Upgrade $http_upgrade');
+    expect(tlsExample).toContain('location = /internal/metrics');
+    expect(tlsExample).toContain('include /etc/nginx/snippets/internal-metrics-allowlist.conf');
   });
 });
