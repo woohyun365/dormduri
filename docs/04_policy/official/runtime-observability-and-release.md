@@ -2,17 +2,19 @@
 
 ## 문서 범위
 
-이 문서는 KNU Roommate API의 운영 관측, 로그, 모니터링, stress/load test, release gate, 서버 스펙 선택 기준을 다룬다.
+이 문서는 KNU Roommate API의 운영 관측, 로그, 모니터링, stress/load test, release gate, 서버 스펙 선택 기준을 다룬다. Production 배포 준비 전체 기준은 [production-deployment-readiness.md](./production-deployment-readiness.md)가 소유하고, 이 문서는 관측·부하·release evidence 입력을 소유한다.
 
-관련 구현 계획:
+관련 기준:
 
-- `.omx/plans/logging-stress-test-infrastructure-plan.md`
+- `infra/observability/rehearsal-checklist.md`
+- `infra/deploy/README.md`
+- [production-deployment-readiness.md](./production-deployment-readiness.md)
 
 ## 운영 목표
 
 - 사용자-facing 장애를 운영자가 빠르게 감지한다.
 - 개인정보/민감정보/retained payload가 로그·메트릭·dashboard에 노출되지 않게 한다.
-- 배포 전 staging에서 근거 있는 수치 기반 stress test를 실행한다.
+- 배포 전 local/staging에서 근거 있는 수치 기반 stress test를 실행한다.
 - 월 ₩30,000~70,000 예산 안에서 managed DB 운영성과 release 안정성을 확보한다.
 
 ## 서버 스펙 선택지
@@ -27,6 +29,18 @@
 ## 기본 결정
 
 초기 제품화 완료 기준은 **B. 관측 포함 운영형**을 추천한다. 단, 출시 직전 비용을 더 낮춰야 하면 A로 배포하되, Grafana/Loki/Prometheus는 운영자 local/별도 ops instance/managed service로 분리한다.
+
+## 완료된 관측 / 부하 baseline
+
+백엔드 release readiness의 관측 baseline은 아래 상태를 기준으로 한다.
+
+- API는 Pino 기반 structured JSON log와 request correlation을 사용한다.
+- `/internal/metrics`는 Prometheus pull model, bearer token guard, nginx internal boundary를 함께 사용한다.
+- Prometheus, Grafana, Loki, Alloy, Alertmanager, Slack Incoming Webhook rehearsal 경로가 존재한다.
+- Slack delivery smoke는 Alertmanager 경로가 실제 Slack channel까지 도달하는지 검증한다.
+- k6 HTTP stress runner와 Artillery Socket.IO smoke runner를 사용한다.
+- API/nginx Docker compose는 production-like local/staging rehearsal의 기준 실행 단위다.
+- Dockerized smoke, production-like smoke, 237 ramp decision result는 release evidence로 보존한다.
 
 ## 로그 정책
 
@@ -87,7 +101,20 @@
 - k6 HTTP smoke는 배포 전 필수다.
 - staging baseline/peak는 release 전 또는 시즌 전 checklist에서 실행한다.
 - Artillery Socket.IO smoke는 realtime 변경 배포 전 필수다.
+- API/nginx Dockerized smoke는 release candidate image의 기본 실행 가능성을 검증한다.
+- Production-like smoke는 nginx ingress, health/readiness, metrics guard, log 수집 경로를 함께 검증한다.
+- 237 ramp decision evidence는 현재 known peak에 가까운 read/write path 병목 판단 입력으로 사용한다.
+- Slack delivery smoke, Prometheus target up, Loki/Grafana readout은 운영 관측 경로가 release 가능한지 판단하는 입력이다.
 - threshold fail은 release blocker로 본다.
+
+## 성능 follow-up 분리 기준
+
+아래 항목은 release blocker가 아니라 evidence-based follow-up이다. 다만 release smoke에서 실제 장애나 SLO 미달로 관측되면 blocker로 승격한다.
+
+- #281, #247 같은 read path 최적화 후보.
+- 946 cohort long run.
+- RDS CloudWatch 장기 sizing.
+- Redis/ElastiCache, multi-node, read replica, WAF/CloudFront 고도화.
 
 ## 운영 도구 선택 기준
 
@@ -109,6 +136,7 @@
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                           | 근거                                    |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| 2026-06-13 | 운영 관측·로그·부하 테스트 정책을 신설하고, 2GB 최소형과 4GB 관측 포함형 서버 스펙 선택지, metrics/log privacy, stress release gate 기준을 정의했다 | logging-stress-test-infrastructure-plan |
+| 날짜       | 변경 내용                                                                                                                                           | 근거                            |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-06-17 | 운영 관측 baseline을 완료 상태로 정리하고, production deployment readiness 문서와 release evidence 입력, 성능 follow-up 분리 기준을 연결했다        | production deployment readiness |
+| 2026-06-13 | 운영 관측·로그·부하 테스트 정책을 신설하고, 2GB 최소형과 4GB 관측 포함형 서버 스펙 선택지, metrics/log privacy, stress release gate 기준을 정의했다 | logging-stress infrastructure   |
