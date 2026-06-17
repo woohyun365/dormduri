@@ -90,6 +90,28 @@ RETENTION_DISCLOSURE_DATABASE_URL='postgresql://...' \
 
 이 preflight가 끝난 뒤 API/nginx를 올리고 `/health/ready`를 final deploy gate로 확인한다. Production deploy path에서 `prisma db push`를 사용하지 않는다. 실제 RDS connection string에는 운영 SSL 정책에 맞춰 `sslmode=require` 또는 CA bundle 검증 옵션을 둔다.
 
+## GitHub Actions CI/CD
+
+API CI/CD workflow는 두 파일로 분리한다.
+
+- `.github/workflows/api-ci.yml`: PR과 `dev`/`main` push에서 install, shared build, Prisma artifact generation, `pnpm check:api`, `pnpm test:api`, `pnpm build:api`, deploy compose config를 실행한다. 이 workflow는 deploy permission이나 OIDC token permission을 갖지 않는다.
+- `.github/workflows/api-deploy-production.yml`: `workflow_dispatch`로만 실행하는 production deploy workflow다. GitHub `production` environment approval과 AWS OIDC role을 기본 경로로 사용하고, 기본 입력값 `dry_run=true`에서는 production resource를 변경하지 않는다.
+
+Production deploy workflow는 아래 순서를 유지한다.
+
+1. install/build/typecheck/lint/test preflight.
+2. Docker image build.
+3. `pnpm api:db:deploy:migrate`.
+4. `pnpm api:db:deploy:role-grants`.
+5. `pnpm api:db:deploy:smoke`.
+6. `infra/deploy/scripts/api-production-rollout.sh`.
+7. `infra/deploy/scripts/api-release-smoke.sh`.
+8. release evidence artifact upload.
+
+`infra/deploy/scripts/api-production-rollout.sh`는 `--dry-run`, `DEPLOY_TRANSPORT=ssm`, `DEPLOY_TRANSPORT=local`을 지원한다. 기본 production 후보는 SSM remote command이며, SSH key 또는 long-lived AWS access key를 기본값으로 두지 않는다. `infra/deploy/scripts/api-release-smoke.sh`는 `/health`, `/health/live`, `/health/ready`, `/internal/metrics` anonymous rejection, bearer authorized scrape를 확인하되 token 값을 출력하지 않는다.
+
+GitHub production environment 변수와 OIDC role 준비는 `infra/aws/github-actions-oidc-checklist.md`를 따른다. AWS 계정 비용/승인 안전장치는 `infra/aws/beginner-account-budget-checklist.md`를 따른다. 실제 release 절차와 rollback은 `infra/runbooks/api-production-deploy-runbook.md`를 따른다.
+
 ## 2GB 최소형 실행
 
 2GB instance에서는 API/nginx만 먼저 실행하고, Prometheus/Grafana/Loki/Alloy는 local 또는 별도 ops host에서 본다.

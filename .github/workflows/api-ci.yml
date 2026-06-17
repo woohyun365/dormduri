@@ -1,0 +1,57 @@
+name: API CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API build/test gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm through Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.3 --activate
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm shared:build
+
+      - name: Generate Prisma artifacts
+        run: pnpm api:prisma:generate
+
+      - name: API static checks
+        run: pnpm check:api
+
+      - name: API tests
+        run: pnpm test:api
+
+      - name: API production build
+        run: pnpm build:api
+
+      - name: Validate API deploy compose
+        run: docker compose -f infra/deploy/docker-compose.api.yml config >/tmp/knu-api-compose.yml

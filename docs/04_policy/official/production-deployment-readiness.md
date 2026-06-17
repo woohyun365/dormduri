@@ -111,19 +111,28 @@ Production release는 아래 조건을 만족해야 한다.
 
 ## CI/CD deploy gate 정책
 
-CI/CD는 아래 순서를 깨지 않는다.
+CI/CD는 PR/push 검증과 production deploy를 분리한다.
 
-1. Install/build/typecheck/lint/unit/integration/architecture tests.
+- `.github/workflows/api-ci.yml`은 PR과 `dev`/`main` push에서 install, shared build, Prisma artifact generation, `pnpm check:api`, `pnpm test:api`, `pnpm build:api`, deploy compose config를 실행한다. CI workflow는 deploy permission이나 `id-token: write` 권한을 갖지 않는다.
+- `.github/workflows/api-deploy-production.yml`은 `workflow_dispatch`로만 실행하고 GitHub `production` environment approval을 요구한다. 기본 입력값은 `dry_run=true`이며, non-dry-run production deploy는 `main` branch에서만 실행한다.
+
+Production deploy는 아래 순서를 깨지 않는다.
+
+1. Install/build/typecheck/lint/test preflight.
 2. Docker image build.
 3. Migration deploy.
-4. DB role grant smoke.
-5. API/nginx rollout.
-6. Health/readiness smoke.
-7. Metrics guard smoke.
-8. Slack/Alertmanager delivery smoke 또는 운영자가 명시적으로 승인한 skip 기록.
-9. Backup/restore drill evidence 확인.
+4. DB role grant apply.
+5. DB credential smoke.
+6. API/nginx rollout.
+7. Health/readiness smoke.
+8. Metrics guard smoke.
+9. Release evidence artifact upload.
+10. Slack/Alertmanager delivery smoke 또는 운영자가 명시적으로 승인한 skip 기록.
+11. Backup/restore drill evidence 확인.
 
-GitHub Actions에서 AWS 접근이 필요하면 OIDC + AWS role을 기본 후보로 둔다. SSH key 또는 long-lived cloud access key는 과도기 fallback이며 environment approval과 rotation 기준을 함께 둔다.
+GitHub Actions에서 AWS 접근이 필요하면 OIDC + AWS role을 기본 후보로 둔다. Workflow는 `contents: read`, `id-token: write` 최소 권한으로 AWS short-lived token을 요청한다. SSH key 또는 long-lived cloud access key는 과도기 fallback이며 environment approval과 rotation 기준을 함께 둔다.
+
+GitHub production environment, OIDC role, release runbook은 `infra/aws/github-actions-oidc-checklist.md`, `infra/aws/beginner-account-budget-checklist.md`, `infra/runbooks/api-production-deploy-runbook.md`를 따른다.
 
 ## Release blocker / follow-up 구분
 
@@ -150,12 +159,13 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                | 관련 이슈                       |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| 2026-06-17 | HTTP REST CORS allowlist, future cookie policy helper, nginx direct TLS 예시를 production ingress 정책에 반영했다                                        | production deployment readiness |
-| 2026-06-17 | RDS/Prisma migrate deploy/role grant smoke를 API rollout 전 production DB deploy gate로 고정했다                                                         | production deployment readiness |
-| 2026-06-17 | Health live/ready contract를 분리하고 readiness bounded 503, DB/config/secret/migration/email provider check 기준을 production readiness 정책에 반영했다 | production deployment readiness |
-| 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다  | production deployment readiness |
-| 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다  | production deployment readiness |
-| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                           | production deployment readiness |
-| 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다      | production deployment readiness |
+| 날짜       | 변경 내용                                                                                                                                                   | 관련 이슈                       |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-06-17 | GitHub Actions API CI와 protected production deploy workflow, AWS OIDC checklist, dry-run release smoke/rollout boundary를 production CI/CD 정책에 반영했다 | production deployment readiness |
+| 2026-06-17 | HTTP REST CORS allowlist, future cookie policy helper, nginx direct TLS 예시를 production ingress 정책에 반영했다                                           | production deployment readiness |
+| 2026-06-17 | RDS/Prisma migrate deploy/role grant smoke를 API rollout 전 production DB deploy gate로 고정했다                                                            | production deployment readiness |
+| 2026-06-17 | Health live/ready contract를 분리하고 readiness bounded 503, DB/config/secret/migration/email provider check 기준을 production readiness 정책에 반영했다    | production deployment readiness |
+| 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다     | production deployment readiness |
+| 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다     | production deployment readiness |
+| 2026-06-17 | Env key registry, owner별 schema split, HTTP/email/secret-source config baseline을 production readiness config 정책에 반영했다                              | production deployment readiness |
+| 2026-06-17 | BE API와 managed PostgreSQL production release readiness의 포함/제외, secret/SES/RDS/TLS/CI-CD/backup/release blocker 기준을 공식 정책으로 신설했다         | production deployment readiness |
