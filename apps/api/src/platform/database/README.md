@@ -37,6 +37,7 @@ Product-owned SQL lives under `apps/api/prisma/sql/*.sql` and is consumed throug
 - Do not import product domain services from platform database code.
 - New DB credential boundaries must account for RDS connection pool budget.
 - Migration and role grant guards describe infrastructure invariants, not user-facing policy.
+- Production migration/role grant execution scripts live in `infra/db`; platform database specs guard their invariants from the API source tree.
 
 ## Architecture guard
 

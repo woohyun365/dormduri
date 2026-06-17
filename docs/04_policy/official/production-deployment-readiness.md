@@ -77,9 +77,13 @@ Production release는 아래 조건을 만족해야 한다.
 
 - Production DB는 app instance와 같은 VPC/private network에서 접근 가능한 managed PostgreSQL을 기본으로 한다.
 - Public internet에 직접 열린 DB endpoint를 production 기본값으로 두지 않는다.
-- Migration은 app rollout 전에 `prisma migrate deploy` 흐름으로 적용한다.
+- Migration은 app rollout 전에 `MIGRATION_DATABASE_URL` 기반 one-off `prisma migrate deploy` 흐름으로 적용한다.
+- Production DB deploy path에서 `prisma db push`를 사용하지 않는다.
+- API container startup은 migration/role grant를 자동 실행하지 않는다.
 - Migration 실패나 role grant 실패는 app rollout blocker다.
-- Runtime, migration, retention/disclosure worker credential은 역할별 권한 분리를 유지한다.
+- Runtime, migration, retention/disclosure worker credential은 역할별 권한 분리를 유지한다. Role grant script는 password/LOGIN role/member 생성이 아니라 schema/table privilege baseline 적용을 소유한다.
+- Role grant apply 이후 runtime/retention/disclosure credential smoke를 수행하고, API/nginx rollout 뒤 `/health/ready`를 final deploy gate로 확인한다.
+- RDS SSL/TLS connection은 `sslmode=require` 또는 CA bundle 검증 옵션으로 운영 경로를 고정한다.
 - RDS CloudWatch/Database Insights에서 CPU, connection, memory, IOPS, queue, storage를 release checklist에 포함한다.
 - Backup/restore drill은 release 전 최소 1회 수행하고, restored DB에서 migration baseline과 role grant smoke가 통과해야 한다.
 
@@ -145,6 +149,7 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 
 | 날짜       | 변경 내용                                                                                                                                                | 관련 이슈                       |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-06-17 | RDS/Prisma migrate deploy/role grant smoke를 API rollout 전 production DB deploy gate로 고정했다                                                         | production deployment readiness |
 | 2026-06-17 | Health live/ready contract를 분리하고 readiness bounded 503, DB/config/secret/migration/email provider check 기준을 production readiness 정책에 반영했다 | production deployment readiness |
 | 2026-06-17 | SESv2 auth email sender adapter, production stub fail-fast, bounded provider error taxonomy, SES setup checklist를 production readiness 정책에 반영했다  | production deployment readiness |
 | 2026-06-17 | Secrets Manager reader/materializer boundary, env key별 secret name convention, AWS managed KMS 기본 정책을 production readiness config 정책에 반영했다  | production deployment readiness |

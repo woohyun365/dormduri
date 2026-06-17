@@ -60,6 +60,29 @@ $EDITOR infra/deploy/.env.api
 
 `.env.api`는 커밋하지 않는다. `.env.api.example`의 `REPLACE_ME`/`REPLACE_WITH_*` 값으로 실제 운영을 실행하지 않는다. `SECRET_SOURCE=env`는 private env 직접 주입 경로이고, `SECRET_SOURCE=aws-secrets-manager`는 `/knu-roommate/<environment>/api/<ENV_KEY>` 형태의 Secrets Manager 값을 배포 시점에 env key로 materialize하는 경로다. Secret 생성/검증 절차와 값 미출력 inventory dry-run은 `infra/aws/secrets-manager-checklist.md`를 따른다. `EMAIL_PROVIDER=ses`는 production provider 선택값이며, 실제 사용자 발송 전에는 `infra/aws/ses-setup-checklist.md`의 verified sender identity, DKIM, sandbox 해제 기준을 release gate로 확인한다.
 
+## Production DB deploy preflight
+
+API/nginx container startup은 migration이나 role grant를 자동 실행하지 않는다. App rollout 전에 `infra/db/README.md`의 DB deploy runbook을 먼저 수행한다.
+
+권장 순서:
+
+```bash
+# 1. Prisma migration deploy
+MIGRATION_DATABASE_URL='postgresql://...' pnpm api:db:deploy:migrate
+
+# 2. DB role grant apply
+MIGRATION_DATABASE_URL='postgresql://...' pnpm api:db:deploy:role-grants
+
+# 3. Runtime/retention/disclosure credential smoke
+MIGRATION_DATABASE_URL='postgresql://...' \
+DATABASE_URL='postgresql://...' \
+RETENTION_WORKER_DATABASE_URL='postgresql://...' \
+RETENTION_DISCLOSURE_DATABASE_URL='postgresql://...' \
+  pnpm api:db:deploy:smoke
+```
+
+이 preflight가 끝난 뒤 API/nginx를 올리고 `/health/ready`를 final deploy gate로 확인한다. Production deploy path에서 `prisma db push`를 사용하지 않는다. 실제 RDS connection string에는 운영 SSL 정책에 맞춰 `sslmode=require` 또는 CA bundle 검증 옵션을 둔다.
+
 ## 2GB 최소형 실행
 
 2GB instance에서는 API/nginx만 먼저 실행하고, Prometheus/Grafana/Loki/Alloy는 local 또는 별도 ops host에서 본다.

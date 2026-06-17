@@ -30,7 +30,10 @@
     "db:seed": "pnpm --dir apps/api exec prisma db seed --schema prisma/schema.prisma",
     "format": "prettier . -w",
     "check": "pnpm check:api && prettier . -c",
-    "prepare": "husky"
+    "prepare": "husky",
+    "api:db:deploy:migrate": "pnpm --dir apps/api db:deploy:migrate",
+    "api:db:deploy:role-grants": "pnpm --dir apps/api db:deploy:role-grants",
+    "api:db:deploy:smoke": "pnpm --dir apps/api db:deploy:smoke"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
