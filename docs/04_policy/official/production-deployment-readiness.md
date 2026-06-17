@@ -11,6 +11,9 @@
 - [data-retention.md](./data-retention.md)
 - [legal-basis.md](./legal-basis.md)
 - `infra/deploy/README.md`
+- `infra/db/README.md`
+- `infra/aws/rds-setup-checklist.md`
+- `infra/runbooks/backup-restore-drill.md`
 - `infra/observability/rehearsal-checklist.md`
 
 ## Production release 목표
@@ -85,7 +88,7 @@ Production release는 아래 조건을 만족해야 한다.
 - Role grant apply 이후 runtime/retention/disclosure credential smoke를 수행하고, API/nginx rollout 뒤 `/health/ready`를 final deploy gate로 확인한다.
 - RDS SSL/TLS connection은 `sslmode=require` 또는 CA bundle 검증 옵션으로 운영 경로를 고정한다.
 - RDS CloudWatch/Database Insights에서 CPU, connection, memory, IOPS, queue, storage를 release checklist에 포함한다.
-- Backup/restore drill은 release 전 최소 1회 수행하고, restored DB에서 migration baseline과 role grant smoke가 통과해야 한다.
+- Backup/restore drill은 release 전 최소 1회 수행하고, restored DB에서 migration baseline, role grant smoke, `/health/ready` smoke가 통과해야 한다. Evidence에는 release SHA, source DB identifier, restore source, restored DB identifier, RTO 실측, cleanup status를 secret 없이 남긴다.
 
 ## nginx / TLS / Domain / Cookie / CORS 정책
 
@@ -114,7 +117,8 @@ Production release는 아래 조건을 만족해야 한다.
 CI/CD는 PR/push 검증과 production deploy를 분리한다.
 
 - `.github/workflows/api-ci.yml`은 PR과 `dev`/`main` push에서 install, shared build, Prisma artifact generation, `pnpm check:api`, `pnpm test:api`, `pnpm build:api`, deploy compose config를 실행한다. CI workflow는 deploy permission이나 `id-token: write` 권한을 갖지 않는다.
-- `.github/workflows/api-deploy-production.yml`은 `workflow_dispatch`로만 실행하고 GitHub `production` environment approval을 요구한다. 기본 입력값은 `dry_run=true`이며, non-dry-run production deploy는 `main` branch에서만 실행한다.
+- `.github/workflows/api-deploy-production.yml`은 `workflow_dispatch`로만 실행하고 GitHub `production` environment approval을 요구한다. 기본 입력값은 `dry_run=true`이며, non-dry-run production deploy는 `main` branch와 `restore_drill_evidence_id` 입력을 요구한다.
+- `.github/workflows/api-restore-drill-manual.yml`은 `workflow_dispatch`로만 실행하는 backup/restore smoke workflow다. RDS restore 자체는 자동 생성하지 않고, restored DB credential smoke와 optional API readiness smoke evidence만 남긴다.
 
 Production deploy는 아래 순서를 깨지 않는다.
 
@@ -154,13 +158,14 @@ Follow-up 항목은 production release 이후에도 운영 evidence를 기반으
 5. SES sender identity, DKIM, sandbox 해제 요청을 완료한다.
 6. Domain DNS와 TLS 인증서 발급 경로를 준비한다.
 7. GitHub environment, approval rule, AWS OIDC role 또는 과도기 deploy credential을 준비한다.
-8. Release 전 backup/restore drill evidence를 남긴다.
+8. `infra/runbooks/backup-restore-drill.md` 기준으로 release 전 backup/restore drill evidence를 남긴다.
 9. Release 후 CloudWatch, app metrics, Slack alert, API/nginx logs를 확인한다.
 
 ## 변경 이력
 
 | 날짜       | 변경 내용                                                                                                                                                   | 관련 이슈                       |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| 2026-06-17 | RDS setup checklist, backup/restore drill runbook, restore drill smoke helper, manual restore drill workflow를 release gate에 반영했다                      | production deployment readiness |
 | 2026-06-17 | GitHub Actions API CI와 protected production deploy workflow, AWS OIDC checklist, dry-run release smoke/rollout boundary를 production CI/CD 정책에 반영했다 | production deployment readiness |
 | 2026-06-17 | HTTP REST CORS allowlist, future cookie policy helper, nginx direct TLS 예시를 production ingress 정책에 반영했다                                           | production deployment readiness |
 | 2026-06-17 | RDS/Prisma migrate deploy/role grant smoke를 API rollout 전 production DB deploy gate로 고정했다                                                            | production deployment readiness |

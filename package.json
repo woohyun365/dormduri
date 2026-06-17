@@ -33,7 +33,8 @@
     "prepare": "husky",
     "api:db:deploy:migrate": "pnpm --dir apps/api db:deploy:migrate",
     "api:db:deploy:role-grants": "pnpm --dir apps/api db:deploy:role-grants",
-    "api:db:deploy:smoke": "pnpm --dir apps/api db:deploy:smoke"
+    "api:db:deploy:smoke": "pnpm --dir apps/api db:deploy:smoke",
+    "api:db:restore-drill:smoke": "pnpm --dir apps/api db:restore-drill:smoke"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

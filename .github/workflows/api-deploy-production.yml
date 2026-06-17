@@ -12,6 +12,10 @@ on:
         description: API image tag to build/deploy. Defaults to the workflow commit SHA.
         type: string
         required: false
+      restore_drill_evidence_id:
+        description: Required for non-dry-run deploy; workflow run id or manual evidence id for the latest backup/restore drill.
+        type: string
+        required: false
       run_migrations:
         description: Run Prisma migrate deploy before rollout.
         type: boolean
@@ -45,6 +49,7 @@ jobs:
 
     env:
       API_IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+      RESTORE_DRILL_EVIDENCE_ID: ${{ inputs.restore_drill_evidence_id }}
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
       API_BASE_URL: ${{ vars.API_BASE_URL }}
@@ -107,6 +112,10 @@ jobs:
           fi
           if [ -z "${AWS_ROLE_TO_ASSUME:-}" ]; then
             echo 'missing required GitHub environment variable: AWS_ROLE_TO_ASSUME' >&2
+            exit 64
+          fi
+          if [ -z "${RESTORE_DRILL_EVIDENCE_ID:-}" ]; then
+            echo 'missing required input for non-dry-run deploy: restore_drill_evidence_id' >&2
             exit 64
           fi
 
@@ -195,6 +204,7 @@ jobs:
           run_role_grants=${{ inputs.run_role_grants }}
           run_smoke=${{ inputs.run_smoke }}
           deploy_transport=${DEPLOY_TRANSPORT}
+          restore_drill_evidence_id=${RESTORE_DRILL_EVIDENCE_ID}
           EOF
 
       - name: Upload release evidence

@@ -5,11 +5,12 @@
 ## Release order
 
 1. `main` branch의 release commit SHA를 확인한다.
-2. DB backup/PITR 상태와 최근 restore drill evidence를 확인한다.
+2. `infra/aws/rds-setup-checklist.md`와 `infra/runbooks/backup-restore-drill.md` 기준으로 DB backup/PITR 상태와 최근 backup/restore drill evidence를 확인한다.
 3. GitHub Actions `API CI` workflow가 통과했는지 확인한다.
 4. `API Production Deploy` workflow를 `dry_run=true`로 실행해 command boundary와 artifact 생성을 확인한다.
-5. 운영자가 `production` environment approval을 확인한 뒤 `dry_run=false`로 실행한다.
-6. Workflow가 아래 순서를 지키는지 확인한다.
+5. 운영자가 `production` environment approval을 확인한 뒤 `restore_drill_evidence_id`를 입력하고 `dry_run=false`로 실행한다.
+6. `API Restore Drill Manual` workflow의 dry-run 또는 운영자가 남긴 restore drill evidence가 release commit과 호환되는지 확인한다.
+7. Workflow가 아래 순서를 지키는지 확인한다.
    1. install/build/typecheck/lint/test
    2. Docker image build
    3. Prisma migration deploy
@@ -19,6 +20,20 @@
    7. `/health`, `/health/live`, `/health/ready` smoke
    8. `/internal/metrics` anonymous rejection + bearer authorized smoke
    9. release evidence artifact upload
+
+## Backup/restore drill gate
+
+Production deploy 전에 backup이 실제로 복구 가능한지 확인한다. 운영자는 `infra/runbooks/backup-restore-drill.md`에 따라 temporary restored DB를 만들고, 아래 smoke를 restored DB credential로 실행한다.
+
+```bash
+RESTORE_DRILL_MIGRATION_DATABASE_URL='postgresql://...' \
+RESTORE_DRILL_DATABASE_URL='postgresql://...' \
+RESTORE_DRILL_RETENTION_WORKER_DATABASE_URL='postgresql://...' \
+RESTORE_DRILL_RETENTION_DISCLOSURE_DATABASE_URL='postgresql://...' \
+  pnpm api:db:restore-drill:smoke
+```
+
+GitHub Actions를 사용할 때는 `.github/workflows/api-restore-drill-manual.yml`을 `dry_run=true`로 먼저 실행하고, restored DB secret set이 준비된 뒤 `dry_run=false` evidence를 남긴다. 이 workflow는 RDS restore resource를 자동 생성하지 않고, 운영자가 만든 restored DB에 대한 smoke와 secret-free artifact만 생성한다.
 
 ## Manual fallback
 
@@ -72,5 +87,8 @@ Release evidence에는 아래만 남긴다.
 - migration/role grant/smoke 실행 여부
 - health/metrics smoke status
 - rollback 여부
+- restore drill workflow run id 또는 manual evidence id
+- restored DB identifier와 restore source의 secret-free identifier
+- restore drill smoke status와 cleanup status
 
-DB URL, metrics bearer token, verification secret, HMAC secret, SES secret은 evidence에 남기지 않는다.
+DB URL, metrics bearer token, verification secret, HMAC secret, SES secret, restored DB password는 evidence에 남기지 않는다.

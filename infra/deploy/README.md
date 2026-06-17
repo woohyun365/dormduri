@@ -21,7 +21,7 @@ infra/deploy/
     snippets/proxy-common.conf
 ```
 
-Secrets Manager materialization 절차는 sibling 문서 `infra/aws/secrets-manager-checklist.md`가 소유한다. SES sender identity/DKIM/sandbox/production access 준비는 `infra/aws/ses-setup-checklist.md`가 소유한다.
+Secrets Manager materialization 절차는 sibling 문서 `infra/aws/secrets-manager-checklist.md`가 소유한다. SES sender identity/DKIM/sandbox/production access 준비는 `infra/aws/ses-setup-checklist.md`가 소유한다. RDS private network, automated backup/PITR, restore drill 준비는 `infra/aws/rds-setup-checklist.md`와 `infra/runbooks/backup-restore-drill.md`가 소유한다.
 
 ## 사전 조건
 
@@ -69,9 +69,15 @@ $EDITOR infra/deploy/.env.api
 
 ## Production DB deploy preflight
 
-API/nginx container startup은 migration이나 role grant를 자동 실행하지 않는다. App rollout 전에 `infra/db/README.md`의 DB deploy runbook을 먼저 수행한다.
+API/nginx container startup은 migration이나 role grant를 자동 실행하지 않는다. App rollout 전에 `infra/db/README.md`의 DB deploy runbook과 backup/restore drill evidence 확인을 먼저 수행한다.
 
 권장 순서:
+
+```bash
+# 0. Backup/restore drill evidence 확인
+pnpm api:db:restore-drill:smoke -- --dry-run
+# 실제 release evidence는 temporary restored DB에서 실행한 smoke 결과여야 한다.
+```
 
 ```bash
 # 1. Prisma migration deploy
@@ -95,22 +101,24 @@ RETENTION_DISCLOSURE_DATABASE_URL='postgresql://...' \
 API CI/CD workflow는 두 파일로 분리한다.
 
 - `.github/workflows/api-ci.yml`: PR과 `dev`/`main` push에서 install, shared build, Prisma artifact generation, `pnpm check:api`, `pnpm test:api`, `pnpm build:api`, deploy compose config를 실행한다. 이 workflow는 deploy permission이나 OIDC token permission을 갖지 않는다.
-- `.github/workflows/api-deploy-production.yml`: `workflow_dispatch`로만 실행하는 production deploy workflow다. GitHub `production` environment approval과 AWS OIDC role을 기본 경로로 사용하고, 기본 입력값 `dry_run=true`에서는 production resource를 변경하지 않는다.
+- `.github/workflows/api-deploy-production.yml`: `workflow_dispatch`로만 실행하는 production deploy workflow다. GitHub `production` environment approval과 AWS OIDC role을 기본 경로로 사용하고, 기본 입력값 `dry_run=true`에서는 production resource를 변경하지 않는다. `dry_run=false`에서는 `restore_drill_evidence_id` 입력을 요구한다.
+- `.github/workflows/api-restore-drill-manual.yml`: `workflow_dispatch`로만 실행하는 restore drill smoke workflow다. RDS restore 생성은 자동화하지 않고, 운영자가 만든 restored DB credential로 smoke와 secret-free evidence artifact만 생성한다.
 
 Production deploy workflow는 아래 순서를 유지한다.
 
-1. install/build/typecheck/lint/test preflight.
-2. Docker image build.
-3. `pnpm api:db:deploy:migrate`.
-4. `pnpm api:db:deploy:role-grants`.
-5. `pnpm api:db:deploy:smoke`.
-6. `infra/deploy/scripts/api-production-rollout.sh`.
-7. `infra/deploy/scripts/api-release-smoke.sh`.
-8. release evidence artifact upload.
+1. restore drill evidence 확인.
+2. install/build/typecheck/lint/test preflight.
+3. Docker image build.
+4. `pnpm api:db:deploy:migrate`.
+5. `pnpm api:db:deploy:role-grants`.
+6. `pnpm api:db:deploy:smoke`.
+7. `infra/deploy/scripts/api-production-rollout.sh`.
+8. `infra/deploy/scripts/api-release-smoke.sh`.
+9. release evidence artifact upload.
 
 `infra/deploy/scripts/api-production-rollout.sh`는 `--dry-run`, `DEPLOY_TRANSPORT=ssm`, `DEPLOY_TRANSPORT=local`을 지원한다. 기본 production 후보는 SSM remote command이며, SSH key 또는 long-lived AWS access key를 기본값으로 두지 않는다. `infra/deploy/scripts/api-release-smoke.sh`는 `/health`, `/health/live`, `/health/ready`, `/internal/metrics` anonymous rejection, bearer authorized scrape를 확인하되 token 값을 출력하지 않는다.
 
-GitHub production environment 변수와 OIDC role 준비는 `infra/aws/github-actions-oidc-checklist.md`를 따른다. AWS 계정 비용/승인 안전장치는 `infra/aws/beginner-account-budget-checklist.md`를 따른다. 실제 release 절차와 rollback은 `infra/runbooks/api-production-deploy-runbook.md`를 따른다.
+GitHub production environment 변수와 OIDC role 준비는 `infra/aws/github-actions-oidc-checklist.md`를 따른다. AWS 계정 비용/승인 안전장치는 `infra/aws/beginner-account-budget-checklist.md`를 따른다. 실제 release 절차와 rollback은 `infra/runbooks/api-production-deploy-runbook.md`를 따르고, backup/restore drill은 `infra/runbooks/backup-restore-drill.md`를 따른다.
 
 ## 2GB 최소형 실행
 

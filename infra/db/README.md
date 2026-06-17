@@ -16,7 +16,7 @@ Secret value는 command output, CI log, issue, report에 남기지 않는다. �
 
 ## Release order
 
-1. RDS automated backup/PITR 설정과 최근 snapshot 상태를 확인한다.
+1. `infra/aws/rds-setup-checklist.md` 기준으로 RDS automated backup/PITR 설정을 확인하고 `infra/runbooks/backup-restore-drill.md` 기준의 최근 restore drill evidence를 확인한다.
 2. App rollout 전에 migration/admin credential로 Prisma migration을 적용한다.
 
    ```bash
@@ -94,6 +94,23 @@ Smoke는 destructive DML/DDL을 하지 않는다. 다음을 확인한다.
 - retention worker credential은 retained identity/review job 작업 권한을 갖는다.
 - disclosure credential은 retained identity/access log/review job disclosure 권한을 갖는다.
 
+### Restore drill smoke
+
+```bash
+pnpm api:db:restore-drill:smoke
+```
+
+Restore drill smoke는 `RESTORE_DRILL_*` credential을 기존 role grant smoke의 `MIGRATION_DATABASE_URL`, `DATABASE_URL`, `RETENTION_WORKER_DATABASE_URL`, `RETENTION_DISCLOSURE_DATABASE_URL`로 매핑해 재사용한다. 이 smoke는 temporary restored DB에서 실행하며 production source DB를 수정하지 않는다. 실제 실행 전에는 `infra/runbooks/backup-restore-drill.md`에 따라 restored DB identifier, restore source, cleanup evidence를 준비한다.
+
+Required env for real smoke:
+
+- `RESTORE_DRILL_MIGRATION_DATABASE_URL`
+- `RESTORE_DRILL_DATABASE_URL`
+- `RESTORE_DRILL_RETENTION_WORKER_DATABASE_URL`
+- `RESTORE_DRILL_RETENTION_DISCLOSURE_DATABASE_URL`
+
+Secret value는 출력하지 않고 env key name과 pass/fail status만 남긴다.
+
 ## Dry-run
 
 DB 접속 없이 script shape와 required env boundary만 확인할 수 있다.
@@ -102,6 +119,7 @@ DB 접속 없이 script shape와 required env boundary만 확인할 수 있다.
 MIGRATION_DATABASE_URL='postgresql://redacted@example/db' pnpm --dir apps/api db:deploy:migrate -- --dry-run
 MIGRATION_DATABASE_URL='postgresql://redacted@example/db' pnpm --dir apps/api db:deploy:role-grants -- --dry-run
 pnpm --dir apps/api db:deploy:smoke -- --dry-run
+pnpm --dir apps/api db:restore-drill:smoke -- --dry-run
 ```
 
 Dry-run output도 secret value를 출력하지 않는다.
@@ -128,9 +146,9 @@ Prisma migration은 production에서 자동 down migration으로 되돌리지 �
 1. application image rollback.
 2. migration 영향 범위 확인.
 3. 필요한 경우 RDS snapshot/PITR restore.
-4. restored DB에서 migration baseline과 role grant smoke 재검증.
+4. restored DB에서 migration baseline, role grant smoke, `/health/ready` smoke를 재검증.
 
-Backup/restore drill 자체는 release readiness backup phase에서 별도 evidence로 남긴다.
+Backup/restore drill은 `infra/runbooks/backup-restore-drill.md` 기준으로 수행하고, RDS setup baseline은 `infra/aws/rds-setup-checklist.md` 기준으로 확인한다. Restore drill evidence 없이 production ready로 표시하지 않는다.
 
 ## Verification
 
@@ -141,8 +159,8 @@ pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorker
   src/platform/database/rrpd-role-grants.spec.ts \
   src/platform/database/migration-baseline.spec.ts
 pnpm --dir apps/api exec eslint src/architecture/platform/database-deploy.spec.ts
-sh -n infra/db/migrate-deploy.sh infra/db/apply-role-grants.sh infra/db/smoke-role-grants.sh
-pnpm prettier --check infra/db/README.md apps/api/src/architecture/platform/database-deploy.spec.ts
+sh -n infra/db/migrate-deploy.sh infra/db/apply-role-grants.sh infra/db/smoke-role-grants.sh infra/db/restore-drill-smoke.sh
+pnpm prettier --check infra/db/README.md apps/api/src/architecture/platform/database-deploy.spec.ts apps/api/src/architecture/platform/backup-restore-drill.spec.ts
 pnpm api:typecheck
 git diff --check
 ```

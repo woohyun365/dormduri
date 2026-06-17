@@ -1,0 +1,123 @@
+name: API Restore Drill Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate restore drill command boundaries without touching resources.
+        type: boolean
+        required: true
+        default: true
+      run_db_smoke:
+        description: Run restored DB credential smoke against operator-provided restored DB secrets.
+        type: boolean
+        required: true
+        default: true
+      run_http_smoke:
+        description: Run API readiness and metrics smoke against a restored-DB API endpoint.
+        type: boolean
+        required: true
+        default: false
+      restored_db_identifier:
+        description: Secret-free temporary restored DB identifier for evidence.
+        type: string
+        required: false
+      restore_source:
+        description: Secret-free PITR timestamp or snapshot identifier for evidence.
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-restore-drill-manual
+  cancel-in-progress: false
+
+jobs:
+  restore-drill:
+    name: Manual backup restore drill smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+
+    env:
+      API_BASE_URL: ${{ vars.RESTORE_DRILL_API_BASE_URL || vars.API_BASE_URL }}
+      RESTORED_DB_IDENTIFIER: ${{ inputs.restored_db_identifier }}
+      RESTORE_SOURCE: ${{ inputs.restore_source }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Enable pnpm through Corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.3 --activate
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install psql for real restored DB smoke
+        if: ${{ inputs.dry_run == false && inputs.run_db_smoke == true }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Validate restore drill smoke shape
+        run: sh -n infra/db/restore-drill-smoke.sh infra/db/smoke-role-grants.sh
+
+      - name: Restored DB credential smoke
+        if: ${{ inputs.run_db_smoke == true }}
+        env:
+          RESTORE_DRILL_MIGRATION_DATABASE_URL: ${{ secrets.RESTORE_DRILL_MIGRATION_DATABASE_URL }}
+          RESTORE_DRILL_DATABASE_URL: ${{ secrets.RESTORE_DRILL_DATABASE_URL }}
+          RESTORE_DRILL_RETENTION_WORKER_DATABASE_URL: ${{ secrets.RESTORE_DRILL_RETENTION_WORKER_DATABASE_URL }}
+          RESTORE_DRILL_RETENTION_DISCLOSURE_DATABASE_URL: ${{ secrets.RESTORE_DRILL_RETENTION_DISCLOSURE_DATABASE_URL }}
+          DB_GRANT_SCHEMA: ${{ vars.DB_GRANT_SCHEMA }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            pnpm api:db:restore-drill:smoke -- --dry-run
+          else
+            pnpm api:db:restore-drill:smoke
+          fi
+
+      - name: HTTP readiness and metrics smoke
+        if: ${{ inputs.run_http_smoke == true }}
+        env:
+          METRICS_BEARER_TOKEN: ${{ secrets.METRICS_BEARER_TOKEN }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            infra/deploy/scripts/api-release-smoke.sh --dry-run
+          else
+            infra/deploy/scripts/api-release-smoke.sh
+          fi
+
+      - name: Write restore drill evidence summary
+        run: |
+          mkdir -p restore-drill-evidence
+          cat > restore-drill-evidence/api-restore-drill-summary.txt <<EOF_SUMMARY
+          workflow=${GITHUB_WORKFLOW}
+          run_id=${GITHUB_RUN_ID}
+          sha=${GITHUB_SHA}
+          ref=${GITHUB_REF_NAME}
+          dry_run=${{ inputs.dry_run }}
+          run_db_smoke=${{ inputs.run_db_smoke }}
+          run_http_smoke=${{ inputs.run_http_smoke }}
+          restored_db_identifier=${RESTORED_DB_IDENTIFIER}
+          restore_source=${RESTORE_SOURCE}
+          evidence_note=secret values are intentionally excluded
+          EOF_SUMMARY
+
+      - name: Upload restore drill evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-restore-drill-evidence-${{ github.run_id }}
+          path: restore-drill-evidence/
+          retention-days: 14
