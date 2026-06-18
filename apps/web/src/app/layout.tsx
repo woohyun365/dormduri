@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import AuthPanelLoader from '@/components/AuthPanelLoader';
 import DevPanelLoader from '@/components/DevPanelLoader';
 import SeasonDevToolLoader from '@/components/SeasonDevToolLoader';
+import { WebVitalsReporter } from '@/observability/WebVitalsReporter';
 import './globals.css';
 import '../styles/knu.css';
 
@@ -36,6 +37,7 @@ export default function RootLayout({
         <AuthPanelLoader />
         <DevPanelLoader />
         <SeasonDevToolLoader />
+        <WebVitalsReporter />
       </body>
     </html>
   );

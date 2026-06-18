@@ -2,6 +2,7 @@
 
 import { Menu, X } from 'lucide-react';
 import Image from 'next/image';
+import type { Route } from 'next';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -35,16 +36,16 @@ export function LandingHeader() {
     { targetId: 'faq', label: 'FAQ' },
   ];
 
-  const NAV_ITEMS = [
+  const NAV_ITEMS: ReadonlyArray<{ href: Route; label: string; variant: 'outline' | 'primary' }> = [
     {
       href: '/login',
       label: '로그인',
-      variant: 'outline' as const,
+      variant: 'outline',
     },
     {
       href: '/signup',
       label: '회원가입',
-      variant: 'primary' as const,
+      variant: 'primary',
     },
   ];
 
