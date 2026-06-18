@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
@@ -47,8 +48,8 @@ describe('api contract spec boundary', () => {
     }
 
     for (const allowedSpecifier of [
-      '@repo/shared/profile-contract',
-      '@repo/shared/roommate-search-contract',
+      '@repo/shared/profile/contract',
+      '@repo/shared/roommate-search/contract',
       '@repo/shared/match/contract',
     ]) {
       expect(source).toContain(allowedSpecifier);
@@ -68,9 +69,9 @@ describe('api contract spec boundary', () => {
     }
   });
 
-  it('does not introduce plan-dependent filenames under api-contracts', () => {
+  it('does not introduce temporary migration filenames under api-contracts', () => {
     const offenders = specFiles(apiContractRoot)
-      .filter((file) => /phase|plan|temporary|legacy|compat/i.test(file))
+      .filter((file) => /temporary|migration|compat/i.test(file))
       .map((file) => repoRelative(join(apiContractRoot, file)));
 
     expect(offenders).toEqual([]);

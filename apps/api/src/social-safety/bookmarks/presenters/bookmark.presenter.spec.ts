@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { NO_BOOKMARKS, NO_VISIBLE_BOOKMARKS } from '@repo/shared/social-safety/bookmark';
 import { BookmarkPresenter } from './bookmark.presenter.js';
 

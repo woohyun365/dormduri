@@ -33,6 +33,7 @@ export class BlockSideEffectService {
     seasonId: string;
     blockerUserId: string;
     blockedUserId: string;
+    sourceBlockId: string;
     now: Date;
   }): Promise<BlockSideEffectResult> {
     const removedBookmarkCount = await this.bookmarkRepository.softDeleteActiveBetweenUsers({
@@ -51,6 +52,7 @@ export class BlockSideEffectService {
       seasonId: input.seasonId,
       blockerUserId: input.blockerUserId,
       blockedUserId: input.blockedUserId,
+      sourceBlockId: input.sourceBlockId,
       occurredAt: input.now,
     });
 

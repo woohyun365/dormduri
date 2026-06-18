@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import {
   AUTH_SECURITY_ALERT_KINDS,
   evaluateAuthSecurityEventAlerts,

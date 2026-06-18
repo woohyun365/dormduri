@@ -1,5 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Prisma } from '../../generated/prisma/client.js';
+import {
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
 import type {
   ChatBlockSideEffectInput,
   ChatBlockSideEffectPort,
@@ -10,11 +15,23 @@ import {
   hasChatRealtimeOutboxTx,
 } from '../outbox/chat-realtime-outbox.service.js';
 import { threadSelect } from '../persistence/chat-thread.select.js';
+import { toConversationThreadLifecycleTransitionMetadata } from '../lifecycle-events/conversation-thread-lifecycle-event.transition.js';
+import {
+  type ConversationThreadLifecycleEventAppender,
+  ConversationThreadLifecycleEventWriter,
+  noopConversationThreadLifecycleEventAppender,
+} from '../lifecycle-events/conversation-thread-lifecycle-event.writer.js';
 
 const chatRealtimeOutbox = new ChatRealtimeOutboxService();
 
 @Injectable()
 export class ChatBlockSideEffectService implements ChatBlockSideEffectPort {
+  constructor(
+    @Optional()
+    @Inject(ConversationThreadLifecycleEventWriter)
+    private readonly lifecycleEventWriter: ConversationThreadLifecycleEventAppender = noopConversationThreadLifecycleEventAppender,
+  ) {}
+
   async closeDirectThreadsForBlock(
     tx: Prisma.TransactionClient,
     input: ChatBlockSideEffectInput,
@@ -79,15 +96,26 @@ export class ChatBlockSideEffectService implements ChatBlockSideEffectPort {
     });
 
     for (const thread of updatedThreads) {
-      if (!hasChatRealtimeOutboxTx(tx)) {
-        continue;
+      if (hasChatRealtimeOutboxTx(tx)) {
+        await chatRealtimeOutbox.appendThreadUpdated(tx, {
+          threadId: thread.id,
+          status: thread.status,
+          closedReason: thread.closedReason,
+          recipientUserIds: [thread.participantA.userId, thread.participantB.userId],
+          occurredAt: input.occurredAt,
+        });
       }
-      await chatRealtimeOutbox.appendThreadUpdated(tx, {
+      await this.lifecycleEventWriter.append(tx, {
         threadId: thread.id,
-        status: thread.status,
-        closedReason: thread.closedReason,
-        recipientUserIds: [thread.participantA.userId, thread.participantB.userId],
+        eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
+        reason: ConversationThreadLifecycleEventReason.USER_BLOCKED,
+        sourceDomain: ConversationThreadLifecycleSourceDomain.SOCIAL_SAFETY,
+        sourceBlockId: input.sourceBlockId,
         occurredAt: input.occurredAt,
+        metadata: toConversationThreadLifecycleTransitionMetadata({
+          previous: { status: 'OPEN', threadKind: 'DIRECT', closedReason: null },
+          next: thread,
+        }),
       });
     }
 

@@ -1,4 +1,4 @@
-import type { PublicTargetActionUnavailableReason } from '@repo/shared/profile-contract';
+import type { PublicTargetActionUnavailableReason } from '@repo/shared/profile/contract';
 import type {
   PublicTargetActionDecision,
   PublicTargetEligibilityDecision,

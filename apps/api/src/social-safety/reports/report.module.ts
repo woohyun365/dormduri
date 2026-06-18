@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ChatModule } from '../../chat/chat.module.js';
 import { NotificationsModule } from '../../notifications/notifications.module.js';
 import { PrismaModule } from '../../platform/database/prisma.module.js';
 import { BlockModule } from '../blocks/block.module.js';
@@ -12,7 +13,7 @@ import { ReportRetentionReferenceService } from './retention/report-retention-re
 import { ReportController } from './report.controller.js';
 
 @Module({
-  imports: [PrismaModule, NotificationsModule, BlockModule],
+  imports: [PrismaModule, NotificationsModule, BlockModule, ChatModule],
   controllers: [ReportController],
   providers: [
     ReportIntakeService,

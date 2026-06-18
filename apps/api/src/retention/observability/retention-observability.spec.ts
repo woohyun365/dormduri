@@ -1,4 +1,6 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Logger } from '@nestjs/common';
+import type { DomainMetricsPort } from '../../platform/observability/metrics/domain-metrics.port.js';
 import { buildRetentionOperationalAlerts } from './retention-alerts.js';
 import { buildRetentionSweepEmission } from './retention-metrics.js';
 import { RetentionObservabilityService } from './retention-observability.service.js';
@@ -20,7 +22,7 @@ const sensitiveRetentionLogKeys = [
 
 describe('retention-observability', () => {
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('manual review/retry exhaustion/key unavailable를 운영 alert로 분리한다', () => {
@@ -51,25 +53,25 @@ describe('retention-observability', () => {
   it('sweep result와 DB backlog를 metric signal로 변환한다', async () => {
     const prisma = {
       archiveJob: {
-        count: jest.fn().mockResolvedValue(7),
-        findMany: jest
+        count: vi.fn().mockResolvedValue(7),
+        findMany: vi
           .fn()
           .mockResolvedValue([
             { attemptCount: 5, maxAttempts: 5, lastErrorCode: 'CHAT_BODY_KEY_UNAVAILABLE' },
           ]),
       },
       retentionReviewJob: {
-        count: jest.fn().mockResolvedValue(2),
-        findMany: jest.fn().mockResolvedValue([]),
+        count: vi.fn().mockResolvedValue(2),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       retainedVaultObject: {
-        count: jest.fn().mockResolvedValueOnce(11).mockResolvedValueOnce(13),
+        count: vi.fn().mockResolvedValueOnce(11).mockResolvedValueOnce(13),
       },
       retainedIdentity: {
-        count: jest.fn().mockResolvedValue(17),
+        count: vi.fn().mockResolvedValue(17),
       },
       retentionAccessLog: {
-        count: jest.fn().mockResolvedValue(19),
+        count: vi.fn().mockResolvedValue(19),
       },
     };
 
@@ -95,10 +97,11 @@ describe('retention-observability', () => {
   });
 
   it('metric/alert logger payload를 allowlist shape와 민감값 없는 metadata로 제한한다', async () => {
-    const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
-    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-    const errorSpy = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
-    const service = new RetentionObservabilityService();
+    const logSpy = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const warnSpy = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const domainMetrics = makeDomainMetrics();
+    const service = new RetentionObservabilityService(domainMetrics);
     const prisma = makeBacklogPrisma({ archiveDueCount: 101, keyUnavailableCount: 1 });
 
     await service.emitSweep({
@@ -143,6 +146,45 @@ describe('retention-observability', () => {
     const failureAlert = logPayloads.find(isRetentionSweepFailedLogPayload);
 
     expect(failureAlert?.metadata).toEqual({ mode: 'periodic', errorName: 'Error' });
+    expect(domainMetrics.setGauge).toHaveBeenCalledWith({
+      name: 'api_retention_backlog_total',
+      labels: { target: 'archive_jobs', state: 'due' },
+      value: 101,
+    });
+    expect(domainMetrics.observeHistogram).toHaveBeenCalledWith({
+      name: 'api_retention_sweep_duration_seconds',
+      labels: { target: 'all', outcome: 'success' },
+      value: 0.123,
+    });
+    expect(domainMetrics.observeHistogram).toHaveBeenCalledWith({
+      name: 'api_retention_sweep_duration_seconds',
+      labels: { target: 'all', outcome: 'failure' },
+      value: 0,
+    });
+    expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('identifierValue');
+    expect(JSON.stringify(domainMetrics.setGauge.mock.calls)).not.toContain('encryptedPayload');
+  });
+
+  it('Prometheus bridge 기록 실패는 retention metric/alert logging을 깨지 않는다', async () => {
+    vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const domainMetrics = makeDomainMetrics();
+    domainMetrics.setGauge.mockImplementation(() => {
+      throw new Error('metric rejected');
+    });
+    const service = new RetentionObservabilityService(domainMetrics);
+
+    await expect(
+      service.emitSweep({
+        prisma: makeBacklogPrisma({ archiveDueCount: 1, keyUnavailableCount: 0 }) as never,
+        result: makeSweepResult({ accessLogDisposedCount: 0 }),
+        now: new Date('2026-05-26T00:00:00.000Z'),
+        durationMs: 1,
+      }),
+    ).resolves.toMatchObject({
+      snapshot: { archiveDueCount: 1 },
+    });
   });
 });
 
@@ -174,8 +216,8 @@ function metricValue(
 function makeBacklogPrisma(input: { archiveDueCount: number; keyUnavailableCount: number }) {
   return {
     archiveJob: {
-      count: jest.fn().mockResolvedValue(input.archiveDueCount),
-      findMany: jest.fn().mockResolvedValue(
+      count: vi.fn().mockResolvedValue(input.archiveDueCount),
+      findMany: vi.fn().mockResolvedValue(
         Array.from({ length: input.keyUnavailableCount }, () => ({
           attemptCount: 5,
           maxAttempts: 5,
@@ -184,17 +226,17 @@ function makeBacklogPrisma(input: { archiveDueCount: number; keyUnavailableCount
       ),
     },
     retentionReviewJob: {
-      count: jest.fn().mockResolvedValue(0),
-      findMany: jest.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     retainedVaultObject: {
-      count: jest.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(0),
+      count: vi.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(0),
     },
     retainedIdentity: {
-      count: jest.fn().mockResolvedValue(0),
+      count: vi.fn().mockResolvedValue(0),
     },
     retentionAccessLog: {
-      count: jest.fn().mockResolvedValue(0),
+      count: vi.fn().mockResolvedValue(0),
     },
   };
 }
@@ -238,4 +280,12 @@ function isRetentionSweepFailedLogPayload(
   value: RetentionLogPayload,
 ): value is RetentionSweepFailedLogPayload {
   return value.type === 'RETENTION_SWEEP_FAILED';
+}
+
+function makeDomainMetrics() {
+  return {
+    incrementCounter: vi.fn(),
+    setGauge: vi.fn(),
+    observeHistogram: vi.fn(),
+  } satisfies DomainMetricsPort;
 }

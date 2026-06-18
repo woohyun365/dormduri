@@ -14,6 +14,7 @@ Matches는 2인실 roommate match request, active match, unmatch, match history,
 - `MATCH_HISTORY_MATERIALIZATION_PORT`: lifecycle/retention sweep이 match history materialization을 요청하는 surface다.
 - `MATCH_BLOCK_SIDE_EFFECT_PORT`: social-safety block transaction이 affected pending match request cancel을 요청하는 side-effect surface다.
 - `MATCH_SCORE_PROJECTION_PORT`: profiles/bookmarks 같은 consumer가 score visibility와 query-time score 계산을 요청하는 matches-owned score surface다.
+- `MatchLifecycleModule` / `MATCH_PARTICIPANT_WITHDRAWAL_PORT`: season-participants deregistration transaction이 withdrawn participant의 pending match request cancellation을 요청하는 side-effect surface다.
 
 외부 consumer는 concrete `MatchesService`에 의존하지 말고 위 port surface를 사용한다. `application/matches.service.ts`의 `MatchesService`는 matches HTTP/controller facade이며, history materialization/read 구현은 `history/` slice의 서비스와 repository가 소유한다.
 
@@ -25,6 +26,7 @@ Matches는 2인실 roommate match request, active match, unmatch, match history,
 - Match history materialization, read projection, deleted/deidentified counterpart tombstone, RRPD archive handoff.
 - `perspectiveScore(viewer, target)` 기반 score projection consumption/exposure decision.
 - External domain이 필요한 최소 match view/lifecycle/history/block side-effect port 제공.
+- Season participant withdrawal로 인한 pending match request cancellation state transition.
 - Match-specific user-facing error contract and response projection.
 
 ## Non-responsibilities
@@ -55,7 +57,7 @@ Final subdirectory targets:
 - `active/lifecycle-events/`: ActiveMatch lifecycle event metadata allowlist, repository, writer, and no-PII tests.
 - `history/`: ended-season history materialization, source loading, row/score snapshot builders, persistence repository, read query/presenter, deleted/deidentified tombstone, RRPD archive handler.
 - `scoring/`: API-owned match score algorithm, projection, and exposure decision. Shared package는 score algorithm을 소유하지 않는다.
-- `lifecycle/`: cross-domain side-effect implementations such as block side-effect and lifecycle sweep adapter.
+- `lifecycle/`: cross-domain side-effect implementations such as block side-effect, participant withdrawal side-effect, and lifecycle sweep adapter.
 - `persistence/`: shared Prisma/TypedSQL infrastructure only when it is not owned by a narrower slice.
 - `errors/`: user-facing matches error contract.
 - `contracts/`: API-local shared match contract behavior regression specs when needed; shared package source-of-truth layout specs stay under architecture.
@@ -81,7 +83,7 @@ Final subdirectory targets:
 
 ## External domain boundaries
 
-- `seasons` / `season-participants`: provide current season, dormitory `roomSelectionDate`, registration/visibility/profile-complete inputs. Matches evaluates matchability for request/active/history flows, but does not own season registration.
+- `seasons` / `season-participants`: provide current season, dormitory `roomSelectionDate`, registration/visibility/profile-complete inputs. Season-participant deregistration calls `MATCH_PARTICIPANT_WITHDRAWAL_PORT` inside its transaction when pending match requests must be canceled. Matches evaluates matchability for request/active/history flows, but does not own season registration.
 - `chat`: matches calls chat lifecycle ports on accept/unmatch/season transition. Chat owns thread/message/read-marker persistence and realtime outbox payloads.
 - `profiles` / `roommate-search` / `current-user`: consume active match and score/history projections through narrow read surfaces. They do not mutate match tables directly.
 - `social-safety`: owns block/report ledger. Block create may request pending match request cancellation through `MATCH_BLOCK_SIDE_EFFECT_PORT`; active match termination remains explicit match/admin policy work.
@@ -106,22 +108,23 @@ Metadata is allowlist-only. Do not store raw match request notes, profile/lifest
 
 ## Where to change match behavior
 
-| Behavior                     | Current source                                                                                                        | Final target                                                                                                | Notes                                                                                             |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| HTTP route delegation        | `matches.controller.ts`                                                                                               | `matches.controller.ts`                                                                                     | Controller stays root-only and delegates to application/provider surface.                         |
-| Provider/export composition  | `matches.module.ts`                                                                                                   | `composition/` + `matches.module.ts`                                                                        | Module decorator should read as imports/controllers/provider-export summary.                      |
-| Request create/list          | `requests/commands`, `requests/queries`, `requests/eligibility`, `requests/policies`, `requests/persistence`          | `requests/commands`, `requests/queries`, `requests/policies`, `requests/presenters`, `requests/persistence` | Keep requestability and stale-state checks close to command/repository boundary.                  |
-| Request accept/reject/cancel | `requests/commands`, `requests/policies`, `requests/persistence`, `requests/presenters`                               | `requests/commands`, `requests/policies`, `requests/persistence`                                            | Accept path must preserve chat lifecycle port call inside the transaction.                        |
-| Active match read/context    | `active/queries`, `active/presenters`, `context/match-context.resolver.ts`, `active/context/*`                        | `active/queries`, `active/presenters`, `context/`, `active/context/`                                        | Context guard/resolver prepares coarse context; action-specific rules stay in command/policy.     |
-| Unmatch request/cancel       | `active/commands`, `active/policies`, `active/persistence`                                                            | `active/commands`, `active/policies`, `active/persistence`                                                  | Preserve active row lock, mutual unmatch transaction, and chat lifecycle port call.               |
-| Lifecycle sweep              | `active/lifecycle/active-match-lifecycle-sweep.service.ts`, `MATCH_LIFECYCLE_SWEEP_PORT`                              | `active/lifecycle`, `MATCH_LIFECYCLE_SWEEP_PORT`                                                            | Top-level lifecycle depends on the port, not concrete `MatchesService`.                           |
-| Active lifecycle events      | `active/lifecycle-events`, `requests/commands/accept-match-request.command.ts`, `active/commands`, `active/lifecycle` | `active/lifecycle-events`                                                                                   | Audit/debug trace only; append in same transaction as the mutation; not event sourcing.           |
-| History materialization      | `history/application/match-history-materialization.service.ts`, `history/materialization`, `history/persistence`      | `history/application`, `history/materialization`, `history/persistence`                                     | Retained payload stays out of hot user-facing history rows.                                       |
-| History read                 | `history/application/match-history-query.service.ts`, `history/presenters/match-history.presenter.ts`                 | `history/application`, `history/presenters`                                                                 | Deleted/deidentified counterpart detail degrades to tombstone.                                    |
-| Score projection             | `scoring/match-score.algorithm.ts`, `scoring/match-score-projection.ts`, `MATCH_SCORE_PROJECTION_PORT`                | `scoring/`, `application/ports/match-score-projection.port.ts`                                              | `perspectiveScore(viewer, target)` algorithm은 API matches-owned; shared는 DTO/schema만 소유한다. |
-| Transaction locks/selects    | `requests/persistence`, `active/persistence`, `persistence/match-pair-identity.ts`, `apps/api/prisma/sql/lock*.sql`   | owning slice `*/persistence`                                                                                | TypedSQL, pair identity, and Prisma select shapes stay infrastructure-local.                      |
-| User-facing errors           | `errors/matches.errors.ts`                                                                                            | `errors/`                                                                                                   | Refactor must not change response/error code behavior.                                            |
-| Block side-effect            | `lifecycle/match-block-side-effect.service.ts`, `application/ports/match-block-side-effect.port.ts`                   | `lifecycle/`, `application/ports/`                                                                          | Social-safety consumes the port; match request mutation remains match-owned.                      |
+| Behavior                     | Current source                                                                                                        | Final target                                                                                                | Notes                                                                                                 |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| HTTP route delegation        | `matches.controller.ts`                                                                                               | `matches.controller.ts`                                                                                     | Controller stays root-only and delegates to application/provider surface.                             |
+| Provider/export composition  | `matches.module.ts`                                                                                                   | `composition/` + `matches.module.ts`                                                                        | Module decorator should read as imports/controllers/provider-export summary.                          |
+| Request create/list          | `requests/commands`, `requests/queries`, `requests/eligibility`, `requests/policies`, `requests/persistence`          | `requests/commands`, `requests/queries`, `requests/policies`, `requests/presenters`, `requests/persistence` | Keep requestability and stale-state checks close to command/repository boundary.                      |
+| Request accept/reject/cancel | `requests/commands`, `requests/policies`, `requests/persistence`, `requests/presenters`                               | `requests/commands`, `requests/policies`, `requests/persistence`                                            | Accept path must preserve chat lifecycle port call inside the transaction.                            |
+| Active match read/context    | `active/queries`, `active/presenters`, `context/match-context.resolver.ts`, `active/context/*`                        | `active/queries`, `active/presenters`, `context/`, `active/context/`                                        | Context guard/resolver prepares coarse context; action-specific rules stay in command/policy.         |
+| Unmatch request/cancel       | `active/commands`, `active/policies`, `active/persistence`                                                            | `active/commands`, `active/policies`, `active/persistence`                                                  | Preserve active row lock, mutual unmatch transaction, and chat lifecycle port call.                   |
+| Lifecycle sweep              | `active/lifecycle/active-match-lifecycle-sweep.service.ts`, `MATCH_LIFECYCLE_SWEEP_PORT`                              | `active/lifecycle`, `MATCH_LIFECYCLE_SWEEP_PORT`                                                            | Top-level lifecycle depends on the port, not concrete `MatchesService`.                               |
+| Active lifecycle events      | `active/lifecycle-events`, `requests/commands/accept-match-request.command.ts`, `active/commands`, `active/lifecycle` | `active/lifecycle-events`                                                                                   | Audit/debug trace only; append in same transaction as the mutation; not event sourcing.               |
+| History materialization      | `history/application/match-history-materialization.service.ts`, `history/materialization`, `history/persistence`      | `history/application`, `history/materialization`, `history/persistence`                                     | Retained payload stays out of hot user-facing history rows.                                           |
+| History read                 | `history/application/match-history-query.service.ts`, `history/presenters/match-history.presenter.ts`                 | `history/application`, `history/presenters`                                                                 | Deleted/deidentified counterpart detail degrades to tombstone.                                        |
+| Score projection             | `scoring/match-score.algorithm.ts`, `scoring/match-score-projection.ts`, `MATCH_SCORE_PROJECTION_PORT`                | `scoring/`, `application/ports/match-score-projection.port.ts`                                              | `perspectiveScore(viewer, target)` algorithm은 API matches-owned; shared는 DTO/schema만 소유한다.     |
+| Transaction locks/selects    | `requests/persistence`, `active/persistence`, `persistence/match-pair-identity.ts`, `apps/api/prisma/sql/lock*.sql`   | owning slice `*/persistence`                                                                                | TypedSQL, pair identity, and Prisma select shapes stay infrastructure-local.                          |
+| User-facing errors           | `errors/matches.errors.ts`                                                                                            | `errors/`                                                                                                   | Refactor must not change response/error code behavior.                                                |
+| Block side-effect            | `lifecycle/match-block-side-effect.service.ts`, `application/ports/match-block-side-effect.port.ts`                   | `lifecycle/`, `application/ports/`                                                                          | Social-safety consumes the port; match request mutation remains match-owned.                          |
+| Participant withdrawal       | `lifecycle/match-participant-withdrawal.service.ts`, `application/ports/match-participant-withdrawal.port.ts`         | `lifecycle/`, `application/ports/`                                                                          | Season-participants consumes the port with the active tx; match request mutation remains match-owned. |
 
 ## Architecture guard expectation
 
@@ -134,12 +137,13 @@ Architecture guards should enforce the final product shape as refactor phases la
 - ActiveMatch lifecycle event writer/repository remain matches-internal and are not exported or imported by external domains.
 - Pure policies do not import Nest providers, `PrismaService`, or mutable infrastructure.
 - `social-safety`, `profiles`, `users`, `lifecycle`, and `retention` do not mutate `matchRequest`/`activeMatch` tables directly outside match-owned ports.
+- `season-participants` does not mutate `matchRequest` directly; deregistration uses `MATCH_PARTICIPANT_WITHDRAWAL_PORT` with the active transaction client.
 - Shared match imports use nested `@repo/shared/match` surfaces, not root flat compatibility exports.
 
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/module-boundary.spec.ts \
   src/architecture/cross-domain-chat-boundary.spec.ts \
   src/architecture/social-safety/social-safety-boundary.spec.ts \

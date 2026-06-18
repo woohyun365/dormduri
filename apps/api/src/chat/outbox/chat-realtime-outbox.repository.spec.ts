@@ -1,10 +1,11 @@
+import { describe, expect, it, vi, type Mock } from 'vitest';
 type RepositoryConstructor = new (...args: unknown[]) => Record<string, unknown>;
 
 type ChatRealtimeOutboxRepositoryModule = {
   ChatRealtimeOutboxRepository?: RepositoryConstructor;
 };
 
-type TypedQueryMock = jest.Mock<Promise<unknown[]>, unknown[]>;
+type TypedQueryMock = Mock<(...args: unknown[]) => Promise<unknown[]>>;
 
 async function loadOutboxRepositoryModule(): Promise<ChatRealtimeOutboxRepositoryModule> {
   const modulePath = './chat-realtime-outbox.repository.js';
@@ -52,8 +53,8 @@ describe('ChatRealtimeOutboxRepository red contract', () => {
       'claimPublishableBatch',
     );
     const claimedRows = [{ id: 'event-1', eventType: 'chat.message.created', roomKeys: [] }];
-    const queryRawTyped = jest.fn().mockResolvedValue(claimedRows) as TypedQueryMock;
-    const queryRawUnsafe = jest.fn().mockResolvedValue(claimedRows) as TypedQueryMock;
+    const queryRawTyped = vi.fn().mockResolvedValue(claimedRows) as TypedQueryMock;
+    const queryRawUnsafe = vi.fn().mockResolvedValue(claimedRows) as TypedQueryMock;
     const prisma = { $queryRawTyped: queryRawTyped, $queryRawUnsafe: queryRawUnsafe };
 
     await expect(
@@ -88,7 +89,7 @@ describe('ChatRealtimeOutboxRepository red contract', () => {
       repository,
       'pruneExpired',
     );
-    const queryRawTyped = jest.fn().mockResolvedValue([{ deletedCount: 3 }]) as TypedQueryMock;
+    const queryRawTyped = vi.fn().mockResolvedValue([{ deletedCount: 3 }]) as TypedQueryMock;
     const prisma = { $queryRawTyped: queryRawTyped };
 
     await expect(
@@ -120,7 +121,7 @@ describe('ChatRealtimeOutboxRepository red contract', () => {
       repository,
       'markPublishFailed',
     );
-    const update = jest.fn().mockResolvedValue({ id: 'event-1' });
+    const update = vi.fn().mockResolvedValue({ id: 'event-1' });
     const prisma = {
       chatRealtimeOutboxEvent: { update },
     };

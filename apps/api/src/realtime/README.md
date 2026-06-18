@@ -37,7 +37,7 @@
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand src/architecture/common-boundary.spec.ts src/architecture/module-boundary.spec.ts
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture/common-boundary.spec.ts src/architecture/module-boundary.spec.ts
 pnpm --dir apps/api exec eslint src/realtime
 pnpm exec prettier --check apps/api/src/realtime/README.md
 pnpm api:typecheck

@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { emailRequestSchema, loginRequestSchema } from '@repo/shared/auth/contract';
 import { BadRequestException } from '@nestjs/common';
 import { parsePathParam, parseQueryValue, parseRequestBody } from './zod-request.js';

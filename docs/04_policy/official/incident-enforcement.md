@@ -336,16 +336,16 @@ User block은 viewer-specific relation이므로 participant-level hidden reason�
 
 | 날짜       | 변경 내용                                                                                                                                                                                                 | 관련 이슈          |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 2026-06-08 | high-risk report candidate event를 user notification이 아닌 `OperatorAlert` record/sink handoff로 materialize하는 Phase 6 경계를 명시했다                                                                 | #220 / #196        |
-| 2026-06-08 | report intake-only 경계, 허위 신고 disclaimer, riskTier/operator alert 후보, support/notification handoff를 구현 baseline으로 보강했다                                                                    | #196 / #79 / #220  |
-| 2026-06-05 | `SeasonParticipant.hidden*`를 신고/차단 원장이 아닌 participant-level current visibility projection으로 정의하고, `ParticipantHiddenReasonCode` taxonomy와 #196 social-safety handoff boundary를 추가했다 | #222 / #223 / #196 |
-| 2026-05-26 | BE/DB 최종 retention 구조에 맞춰 RRPD disclosure 접근 로그 명칭을 통합 모델인 `RetentionAccessLog`로 정합화                                                                                               | #195               |
-| 2026-05-25 | 신고/제재 운영 증거 접근에 RRPD disclosure 승인 사유, 접근 로그, product API 복원 금지 원칙을 추가                                                                                                        | #195               |
-| 2026-03-17 | 신규 작성                                                                                                                                                                                                 | #150               |
 | 2026-03-17 | 약관(terms.ts) 제9조 즉시 정지 트리거를 "즉시 영구정지"로 동기화                                                                                                                                          | #147               |
+| 2026-03-17 | 신규 작성                                                                                                                                                                                                 | #150               |
 | 2026-03-19 | 비의도적 불일치 대응 원칙 추가 (잠버릇 등 인지 불가 필드 고려)                                                                                                                                            | #157, #171         |
-| 2026-05-20 | #195 profile field 정리에 맞춰 공개 영역 임시조치 대상을 season profile `intro`와 매칭 요청 note 중심으로 정리                                                                                            | #195               |
 | 2026-05-14 | 탈퇴 후 신고 처리 기준을 채팅 90일 파기 전제에서 기본 archive + retained identity 제한 조회 + 접근 로그 구조로 갱신                                                                                       | #76 / #148 / #195  |
+| 2026-05-20 | #195 profile field 정리에 맞춰 공개 영역 임시조치 대상을 season profile `intro`와 매칭 요청 note 중심으로 정리                                                                                            | #195               |
+| 2026-05-25 | 신고/제재 운영 증거 접근에 RRPD disclosure 승인 사유, 접근 로그, product API 복원 금지 원칙을 추가                                                                                                        | #195               |
+| 2026-05-26 | BE/DB 최종 retention 구조에 맞춰 RRPD disclosure 접근 로그 명칭을 통합 모델인 `RetentionAccessLog`로 정합화                                                                                               | #195               |
+| 2026-06-05 | `SeasonParticipant.hidden*`를 신고/차단 원장이 아닌 participant-level current visibility projection으로 정의하고, `ParticipantHiddenReasonCode` taxonomy와 #196 social-safety handoff boundary를 추가했다 | #222 / #223 / #196 |
+| 2026-06-08 | report intake-only 경계, 허위 신고 disclaimer, riskTier/operator alert 후보, support/notification handoff를 구현 baseline으로 보강했다                                                                    | #196 / #79 / #220  |
+| 2026-06-08 | high-risk report candidate event를 user notification이 아닌 `OperatorAlert` record/sink handoff로 materialize하는 Phase 6 경계를 명시했다                                                                 | #220 / #196        |
 
 ## 원문 소스
 

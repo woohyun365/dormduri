@@ -1,13 +1,14 @@
+import { describe, expect, it, vi } from 'vitest';
 import { CHAT_REALTIME_EVENT_NAME } from '../realtime/chat-realtime.constants.js';
 import { ChatNotificationRealtimePublisherAdapter } from './chat-notification-realtime-publisher.adapter.js';
 
 describe('ChatNotificationRealtimePublisherAdapter', () => {
   it('notification.created event를 기존 chat realtime user room event channel로 위임한다', () => {
     const publisher = {
-      isBound: jest.fn(() => true),
-      publishToUserRoom: jest.fn(),
+      isBound: vi.fn(() => true),
+      publishToUserRoom: vi.fn(),
     };
-    const adapter = new ChatNotificationRealtimePublisherAdapter(publisher as never);
+    const adapter = new ChatNotificationRealtimePublisherAdapter(publisher);
 
     expect(adapter.isBound()).toBe(true);
     adapter.publishNotificationCreated({

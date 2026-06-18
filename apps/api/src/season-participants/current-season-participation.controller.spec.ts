@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import {
   CurrentSeasonParticipationController,
@@ -49,12 +50,12 @@ function makeSeasonProfileDraftRequest() {
 
 describe('CurrentSeasonParticipationController', () => {
   const seasonParticipantsService = {
-    getCurrentSeasonProfile: jest.fn(),
-    createOrUpdateSeasonProfileDraft: jest.fn(),
-    listSelectableDormitoriesForCurrentSeason: jest.fn(),
-    createOrUpdateDormitorySelection: jest.fn(),
-    finalizeSeasonRegistration: jest.fn(),
-    deregisterCurrentSeasonParticipation: jest.fn(),
+    getCurrentSeasonProfile: vi.fn(),
+    createOrUpdateSeasonProfileDraft: vi.fn(),
+    listSelectableDormitoriesForCurrentSeason: vi.fn(),
+    createOrUpdateDormitorySelection: vi.fn(),
+    finalizeSeasonRegistration: vi.fn(),
+    deregisterCurrentSeasonParticipation: vi.fn(),
   };
   const profileController = new CurrentSeasonProfileController(seasonParticipantsService as never);
   const participationController = new CurrentSeasonParticipationController(
@@ -67,7 +68,7 @@ describe('CurrentSeasonParticipationController', () => {
   } as const;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('POST dormitory-selection은 SELECTED draft 저장 owner로만 위임한다', async () => {

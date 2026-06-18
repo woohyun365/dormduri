@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildDisplayIdentityEditUnavailableReasons,
   isNicknameLockedByCurrentSeasonRegistration,
@@ -67,8 +68,8 @@ describe('display identity edit policy', () => {
   });
 
   it('current season이 없으면 participant query 없이 nickname lock을 비활성화한다', async () => {
-    const seasonsService = { getCurrentSeasonContext: jest.fn().mockResolvedValue(null) };
-    const client = { seasonParticipant: { findUnique: jest.fn() } };
+    const seasonsService = { getCurrentSeasonContext: vi.fn().mockResolvedValue(null) };
+    const client = { seasonParticipant: { findUnique: vi.fn() } };
 
     await expect(
       resolveNicknameChangePolicy(
@@ -84,13 +85,13 @@ describe('display identity edit policy', () => {
 
   it('current season registered participant는 nickname lock과 registered participant context를 반환한다', async () => {
     const seasonsService = {
-      getCurrentSeasonContext: jest.fn().mockResolvedValue({
+      getCurrentSeasonContext: vi.fn().mockResolvedValue({
         season: { id: 'season-1' },
         state: 'SEASON_OPEN',
       }),
     };
     const client = {
-      seasonParticipant: { findUnique: jest.fn().mockResolvedValue(currentParticipant()) },
+      seasonParticipant: { findUnique: vi.fn().mockResolvedValue(currentParticipant()) },
     };
 
     const result = await resolveNicknameChangePolicy(

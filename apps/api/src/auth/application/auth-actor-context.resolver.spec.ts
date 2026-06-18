@@ -1,13 +1,14 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthActorContextResolver } from './auth-actor-context.resolver.js';
 
 describe('AuthActorContextResolver', () => {
   const currentSessionQuery = {
-    resolveCurrentUserContext: jest.fn(),
+    resolveCurrentUserContext: vi.fn(),
   };
   const resolver = new AuthActorContextResolver(currentSessionQuery as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('access token actor context resolution을 CurrentSessionQuery에 위임한다', async () => {

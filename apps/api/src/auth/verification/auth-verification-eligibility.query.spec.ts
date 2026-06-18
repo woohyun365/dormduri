@@ -1,15 +1,16 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthVerificationEligibilityQuery } from './auth-verification-eligibility.query.js';
 
 describe('AuthVerificationEligibilityQuery', () => {
   const prisma = {
     user: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
   };
   const query = new AuthVerificationEligibilityQuery(prisma as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('signup code eligibility는 user 존재 여부만 조회한다', async () => {

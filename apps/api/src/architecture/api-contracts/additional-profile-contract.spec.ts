@@ -1,9 +1,10 @@
+import { describe, expect, it } from 'vitest';
 import {
   additionalProfileSchema,
   profileBirthYearSchema,
   profileGradeSchema,
   profileMbtiSchema,
-} from '@repo/shared/profile-contract';
+} from '@repo/shared/profile/contract';
 
 describe('additional profile contract', () => {
   it('season additional profile은 grade와 full MBTI만 소유한다', () => {

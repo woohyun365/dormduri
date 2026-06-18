@@ -1,6 +1,13 @@
 import type { LeaveConversationThreadResponse } from '@repo/shared/chat';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import {
+  ConversationThreadLifecycleActorType,
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
 import { chatErrors } from '../errors/chat.errors.js';
+import { toConversationThreadLifecycleTransitionMetadata } from '../lifecycle-events/conversation-thread-lifecycle-event.transition.js';
 import { ChatRealtimeOutboxService } from '../outbox/chat-realtime-outbox.service.js';
 import {
   findVisibleThreadForActiveMember,
@@ -83,6 +90,19 @@ export function createLeaveThreadCommand(deps: ChatCommandDeps) {
           closedAt: synchronizedThread.closedAt ?? now,
           closedReason: synchronizedThread.closedReason,
           recipientUserIds: getThreadRecipientUserIds(synchronizedThread),
+        });
+        await deps.appendConversationThreadLifecycleEvent(tx, {
+          threadId: synchronizedThread.id,
+          eventType: ConversationThreadLifecycleEventType.THREAD_ARCHIVED,
+          reason: ConversationThreadLifecycleEventReason.BOTH_MEMBERS_LEFT,
+          actorType: ConversationThreadLifecycleActorType.USER,
+          actorUserId: authUser.id,
+          sourceDomain: ConversationThreadLifecycleSourceDomain.CHAT,
+          occurredAt: now,
+          metadata: toConversationThreadLifecycleTransitionMetadata({
+            previous: synchronizedThread,
+            next: { ...synchronizedThread, status: 'ARCHIVED' },
+          }),
         });
         return { threadId: synchronizedThread.id, archived: true };
       }

@@ -1,11 +1,11 @@
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { NotificationOutboxDispatcherService } from './notification-dispatcher.service.js';
 import { ChatRealtimeMetricsService } from '../../chat/realtime/chat-realtime.metrics.js';
 
 type PublisherMock = {
-  isBound: jest.Mock<boolean, []>;
-  publishNotificationCreated: jest.Mock<
-    void,
-    [{ recipientUserId: string; event: Record<string, unknown> }]
+  isBound: Mock<() => boolean>;
+  publishNotificationCreated: Mock<
+    (arg0: { recipientUserId: string; event: Record<string, unknown> }) => void
   >;
 };
 
@@ -34,8 +34,8 @@ function createSettings(overrides: Partial<Record<string, number | boolean>> = {
 function createPrismaMock(eventPayload?: unknown) {
   const now = new Date('2026-06-02T00:00:00.000Z');
   return {
-    getDatabaseNow: jest.fn().mockResolvedValue(now),
-    $queryRawTyped: jest.fn().mockResolvedValue([
+    getDatabaseNow: vi.fn().mockResolvedValue(now),
+    $queryRawTyped: vi.fn().mockResolvedValue([
       {
         id: 'notification-event-1',
         notificationId: 'notification-1',
@@ -66,7 +66,7 @@ function createPrismaMock(eventPayload?: unknown) {
       },
     ]),
     notificationOutboxEvent: {
-      update: jest.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({}),
     },
   };
 }
@@ -77,16 +77,14 @@ describe('NotificationOutboxDispatcherService', () => {
     const metrics = new ChatRealtimeMetricsService();
     const now = new Date('2026-06-02T00:00:00.000Z');
     const publisher: PublisherMock = {
-      isBound: jest.fn(() => false),
-      publishNotificationCreated: jest.fn<
-        void,
-        [{ recipientUserId: string; event: Record<string, unknown> }]
-      >(),
+      isBound: vi.fn(() => false),
+      publishNotificationCreated:
+        vi.fn<(arg0: { recipientUserId: string; event: Record<string, unknown> }) => void>(),
     };
     const dispatcher = new NotificationOutboxDispatcherService(
       prisma as never,
       publisher,
-      createSettings() as never,
+      createSettings(),
       metrics,
     );
 
@@ -108,16 +106,14 @@ describe('NotificationOutboxDispatcherService', () => {
     const prisma = createPrismaMock();
     const metrics = new ChatRealtimeMetricsService();
     const publisher: PublisherMock = {
-      isBound: jest.fn(() => true),
-      publishNotificationCreated: jest.fn<
-        void,
-        [{ recipientUserId: string; event: Record<string, unknown> }]
-      >(),
+      isBound: vi.fn(() => true),
+      publishNotificationCreated:
+        vi.fn<(arg0: { recipientUserId: string; event: Record<string, unknown> }) => void>(),
     };
     const dispatcher = new NotificationOutboxDispatcherService(
       prisma as never,
       publisher,
-      createSettings() as never,
+      createSettings(),
       metrics,
     );
 
@@ -170,16 +166,14 @@ describe('NotificationOutboxDispatcherService', () => {
       },
     });
     const publisher: PublisherMock = {
-      isBound: jest.fn(() => true),
-      publishNotificationCreated: jest.fn<
-        void,
-        [{ recipientUserId: string; event: Record<string, unknown> }]
-      >(),
+      isBound: vi.fn(() => true),
+      publishNotificationCreated:
+        vi.fn<(arg0: { recipientUserId: string; event: Record<string, unknown> }) => void>(),
     };
     const dispatcher = new NotificationOutboxDispatcherService(
       prisma as never,
       publisher,
-      createSettings() as never,
+      createSettings(),
       metrics,
     );
 

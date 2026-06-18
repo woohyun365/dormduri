@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { seasonParticipantsErrors } from '../errors/season-participants.errors.js';
 import {
   createSeasonParticipantsServiceTestKit,

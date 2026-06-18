@@ -73,7 +73,7 @@ Support 도메인의 server-side boundary map이다. 이 문서는 다음 세션
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/support \
   src/architecture/social-safety/social-safety-boundary.spec.ts \
   src/architecture/social-safety/*.spec.ts \

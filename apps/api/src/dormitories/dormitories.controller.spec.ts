@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import { DormitoriesController } from './dormitories.controller.js';
 
@@ -26,15 +27,15 @@ function getBadRequestResponse(error: unknown) {
 
 describe('DormitoriesController', () => {
   const dormitoriesService = {
-    getDormitories: jest.fn(),
-    getDormitoryById: jest.fn(),
-    getDormitoryGuide: jest.fn(),
+    getDormitories: vi.fn(),
+    getDormitoryById: vi.fn(),
+    getDormitoryGuide: vi.fn(),
   };
 
   const controller = new DormitoriesController(dormitoriesService as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('invalid campus query는 fieldErrors/details를 포함한 bad request 예외를 던진다', async () => {

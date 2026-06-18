@@ -24,7 +24,7 @@
 - Target user에게 block notification을 보내지 않는다.
 - Active match 관계는 block으로 자동 종료하지 않고 `ACTIVE_MATCH_BLOCK_NOT_ALLOWED`로 닫는다.
 - Block create는 양방향 active bookmark를 soft-delete하지만 unblock은 bookmark/request/thread를 복원하지 않는다. unblock 이후 explicit chat resume/send는 chat owner가 active block absence를 다시 확인한 뒤 lazy 처리한다.
-- Pending match request와 direct chat thread close는 matches/chat owner port를 통해서만 수행한다.
+- Pending match request와 direct chat thread close는 matches/chat owner port를 통해서만 수행한다. Chat thread lifecycle audit에는 `UserBlock.id`만 `sourceBlockId` pointer로 전달하고, block note 원문은 social-safety block/event 원장에만 둔다.
 - Social-safety code는 `ChatService`, `MatchesService` concrete 또는 chat/match persistence를 직접 mutate하지 않는다.
 - Block note는 blocker-only private note이며 target 또는 public search/profile response에 노출하지 않는다.
 

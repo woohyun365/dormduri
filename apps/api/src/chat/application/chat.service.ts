@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type {
   ConversationThreadDetailResponse,
   ConversationThreadEntryResponse,
@@ -27,6 +27,11 @@ import { createChatCommandService } from './chat-command.service.js';
 import { createChatUserContextService } from './chat-user-context.service.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import { ChatSeasonLifecycleService } from '../lifecycle/chat-season-lifecycle.service.js';
+import {
+  type ConversationThreadLifecycleEventAppender,
+  ConversationThreadLifecycleEventWriter,
+  noopConversationThreadLifecycleEventAppender,
+} from '../lifecycle-events/conversation-thread-lifecycle-event.writer.js';
 import { toChatMessage, toChatThreadSummary } from '../mappers/chat-thread-presenter.js';
 import { createChatThreadQueryService } from '../queries/chat-thread-query.service.js';
 import {
@@ -63,6 +68,9 @@ export class ChatService {
     private readonly chatSeasonLifecycle: ChatSeasonLifecycleService,
     @Inject(CHAT_THREAD_NOTIFICATION_WRITER)
     private readonly chatThreadNotificationWriter: ChatThreadNotificationWriter = noopChatThreadNotificationWriter,
+    @Optional()
+    @Inject(ConversationThreadLifecycleEventWriter)
+    private readonly conversationThreadLifecycleEventWriter: ConversationThreadLifecycleEventAppender = noopConversationThreadLifecycleEventAppender,
   ) {}
 
   private get contextOwner() {
@@ -150,6 +158,8 @@ export class ChatService {
       acquireConversationThreadLeaveLock,
       findLeavableThread: (userId, threadId) =>
         this.queryOwner.findLeavableThread(userId, threadId),
+      appendConversationThreadLifecycleEvent: (tx, input) =>
+        this.conversationThreadLifecycleEventWriter.append(tx, input),
       appendChatThreadCreatedNotification: (tx, input) =>
         this.chatThreadNotificationWriter.appendChatThreadCreated(tx, input),
     });

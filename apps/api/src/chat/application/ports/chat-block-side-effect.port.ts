@@ -6,6 +6,7 @@ export interface ChatBlockSideEffectInput {
   seasonId: string;
   blockerUserId: string;
   blockedUserId: string;
+  sourceBlockId?: string;
   occurredAt: Date;
 }
 

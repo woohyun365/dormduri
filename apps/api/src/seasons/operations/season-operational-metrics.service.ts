@@ -1,5 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import type { Campus, SeasonOperationAuditAction } from '../../generated/prisma/enums.js';
+import {
+  DOMAIN_METRICS_PORT,
+  recordDomainMetricSafely,
+  type DomainMetricsPort,
+} from '../../platform/observability/metrics/domain-metrics.port.js';
 
 export type SeasonContextCacheMetricState = 'hit' | 'miss' | 'none';
 export type SeasonOperationMetricOutcome =
@@ -123,6 +128,12 @@ export function toSeasonOperationMetricPayload(
 
 @Injectable()
 export class SeasonOperationalMetricsService {
+  constructor(
+    @Optional()
+    @Inject(DOMAIN_METRICS_PORT)
+    private readonly domainMetrics?: DomainMetricsPort,
+  ) {}
+
   private currentSeasonQueries: CurrentSeasonQueryMetricsSnapshot = {
     total: 0,
     cacheHits: 0,
@@ -154,6 +165,18 @@ export class SeasonOperationalMetricsService {
     } else {
       this.currentSeasonQueries.noCache += 1;
     }
+    recordDomainMetricSafely(this.domainMetrics, (metrics) => {
+      const labels = { campus: input.campusCode, cache: input.cache };
+      metrics.incrementCounter({
+        name: 'api_seasons_current_query_total',
+        labels,
+      });
+      metrics.observeHistogram({
+        name: 'api_seasons_current_query_duration_seconds',
+        labels,
+        value: durationMs / 1000,
+      });
+    });
   }
 
   recordOperation(input: SeasonOperationMetricInput) {
@@ -177,6 +200,16 @@ export class SeasonOperationalMetricsService {
     actionMetrics.lastCampusCode = input.campusCode;
     actionMetrics.lastOutcome = input.outcome;
     actionMetrics.lastRecordedAt = recordedAt.toISOString();
+    recordDomainMetricSafely(this.domainMetrics, (metrics) =>
+      metrics.incrementCounter({
+        name: 'api_seasons_operation_total',
+        labels: {
+          action: input.action,
+          campus: input.campusCode,
+          outcome: input.outcome,
+        },
+      }),
+    );
   }
 
   snapshot(): SeasonOperationalMetricsSnapshot {

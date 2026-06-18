@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { validateRetainedIdentityMetadata } from './retained-identity-metadata.validator.js';
 
 describe('retained-identity-metadata.validator', () => {

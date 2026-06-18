@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ForbiddenException, UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RequireCurrentSeasonParticipant } from './current-season-participant-context.decorator.js';
@@ -76,12 +77,12 @@ function makeParticipant(
 
 describe('CurrentSeasonParticipantContextGuard', () => {
   const resolver = {
-    resolveForActor: jest.fn(),
+    resolveForActor: vi.fn(),
   };
   const guard = new CurrentSeasonParticipantContextGuard(resolver as never, new Reflector());
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     resolver.resolveForActor.mockResolvedValue(makeParticipant());
   });
 

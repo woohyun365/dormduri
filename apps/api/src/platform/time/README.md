@@ -19,6 +19,27 @@ Product domains may import these helpers when they need shared KST local-date be
 - Do not import Prisma, Nest scheduler, or product domain services.
 - Keep helper inputs/outputs explicit and deterministic.
 
+## Product time source-of-truth
+
+`platform/time` owns deterministic KST local-date conversion helpers only. Product/audit persistence must resolve authoritative "now" from the database boundary, not from an ad-hoc application clock.
+
+- Use `PrismaService.getDatabaseNow()` when application code needs the current persisted timestamp.
+- Use `apps/api/prisma/sql/getCurrentTimestamp.sql` when TypedSQL/raw SQL owns the timestamp comparison.
+- Use `formatKstDate`, `compareKstDate`, and KST parse helpers for date-only conversion after the owning domain has supplied the reference `Date`.
+- Do not add a new production `new Date()` or `Date.now()` usage without updating `src/architecture/testing/api-time-source-boundary.spec.ts` with owner, category, and rationale.
+
+Allowed time-source inventory categories:
+
+| Category             | Allowed use                                                                                           |
+| -------------------- | ----------------------------------------------------------------------------------------------------- |
+| `business-db-now`    | Canonical DB timestamp wrappers such as `PrismaService.getDatabaseNow()` and DB-now row parsing.      |
+| `cache-ttl`          | Process-local cache or rate-limit expiry that is not persisted product state.                         |
+| `date-arithmetic`    | TTL, lease, hold, KST, or cutoff calculations derived from an explicit DB/domain/reference time.      |
+| `dispatcher-default` | Worker/dispatcher fallback `now` values where callers can inject the authoritative clock.             |
+| `duration-metric`    | Elapsed-time or latency measurement.                                                                  |
+| `parser`             | Cursor, request, SQL row, retained payload, or date-string parsing.                                   |
+| `response-timestamp` | Error, health, metrics, or alert response/telemetry timestamps that are not business source-of-truth. |
+
 ## Architecture guard
 
 - Seasons, lifecycle, auth, and retention policies may consume platform time helpers, but own their product-specific state transitions.
@@ -34,7 +55,7 @@ Product domains may import these helpers when they need shared KST local-date be
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand src/platform/time/kst-date.spec.ts
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/platform/time/kst-date.spec.ts
 pnpm --dir apps/api exec eslint src/platform/time
 pnpm exec prettier --check apps/api/src/platform/time/README.md
 pnpm api:typecheck

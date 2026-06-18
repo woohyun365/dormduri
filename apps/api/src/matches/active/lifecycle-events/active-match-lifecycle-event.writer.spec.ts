@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import {
   ActiveMatchLifecycleActorType,
@@ -11,17 +12,19 @@ import type { ActiveMatchLifecycleEventCreateInput } from './active-match-lifecy
 describe('ActiveMatchLifecycleEventWriter', () => {
   const occurredAt = new Date('2026-02-10T03:00:00.000Z');
   const tx = {} as Prisma.TransactionClient;
-  let create: jest.Mock<
-    Promise<unknown>,
-    [Prisma.TransactionClient, ActiveMatchLifecycleEventCreateInput]
+  let create: Mock<
+    (arg0: Prisma.TransactionClient, arg1: ActiveMatchLifecycleEventCreateInput) => Promise<unknown>
   >;
   let writer: ActiveMatchLifecycleEventWriter;
 
   beforeEach(() => {
-    create = jest.fn<
-      Promise<unknown>,
-      [Prisma.TransactionClient, ActiveMatchLifecycleEventCreateInput]
-    >();
+    create =
+      vi.fn<
+        (
+          arg0: Prisma.TransactionClient,
+          arg1: ActiveMatchLifecycleEventCreateInput,
+        ) => Promise<unknown>
+      >();
     create.mockResolvedValue({});
     writer = new ActiveMatchLifecycleEventWriter({
       create,

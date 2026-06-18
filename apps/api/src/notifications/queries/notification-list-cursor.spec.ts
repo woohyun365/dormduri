@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { createNotificationListCursorOwner } from './notification-list-cursor.js';
 
 describe('createNotificationListCursorOwner', () => {

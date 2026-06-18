@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { AuthOperationalCleanupService } from './auth-operational-cleanup.service.js';
 
 describe('AuthOperationalCleanupService', () => {
@@ -13,9 +14,9 @@ describe('AuthOperationalCleanupService', () => {
   };
 
   it('retention worker credential로 cutoff별 batch cleanup을 실행하고 cleanup lag metric을 기록한다', async () => {
-    const prisma = { getDatabaseNow: jest.fn().mockResolvedValue(now) };
+    const prisma = { getDatabaseNow: vi.fn().mockResolvedValue(now) };
     const repository = {
-      pruneBatch: jest.fn().mockResolvedValue({
+      pruneBatch: vi.fn().mockResolvedValue({
         expiredSessions: 10,
         verificationCodes: 0,
         verificationRequestLogs: 0,
@@ -24,12 +25,12 @@ describe('AuthOperationalCleanupService', () => {
       }),
     };
     const metrics = {
-      recordCleanup: jest.fn(),
-      recordCleanupFailure: jest.fn(),
+      recordCleanup: vi.fn(),
+      recordCleanupFailure: vi.fn(),
     };
     const service = new AuthOperationalCleanupService(
       prisma as never,
-      repository as never,
+      repository,
       metrics as never,
       settings as never,
     );
@@ -66,15 +67,15 @@ describe('AuthOperationalCleanupService', () => {
   it('cleanup 실패는 failure metric을 남기고 원본 오류를 전파한다', async () => {
     const error = new Error('worker role denied');
     const repository = {
-      pruneBatch: jest.fn().mockRejectedValue(error),
+      pruneBatch: vi.fn().mockRejectedValue(error),
     };
     const metrics = {
-      recordCleanup: jest.fn(),
-      recordCleanupFailure: jest.fn(),
+      recordCleanup: vi.fn(),
+      recordCleanupFailure: vi.fn(),
     };
     const service = new AuthOperationalCleanupService(
-      { getDatabaseNow: jest.fn().mockResolvedValue(now) } as never,
-      repository as never,
+      { getDatabaseNow: vi.fn().mockResolvedValue(now) } as never,
+      repository,
       metrics as never,
       settings as never,
     );

@@ -1,20 +1,21 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthSignupValidationService } from './auth-signup-validation.service.js';
 
 describe('AuthSignupValidationService', () => {
   const prisma = {
     userDisplayIdentity: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
   };
 
   const moderationService = {
-    validateNicknamePolicy: jest.fn(),
+    validateNicknamePolicy: vi.fn(),
   };
 
   const service = new AuthSignupValidationService(prisma as never, moderationService as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     moderationService.validateNicknamePolicy.mockResolvedValue(null);
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
   });

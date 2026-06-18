@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import {
   resolveMatchedPairThreadSendMessageDecision,
@@ -69,7 +70,7 @@ function makeThread(overrides: Partial<ThreadRecord> = {}): ThreadRecord {
     ],
     messages: [],
     ...overrides,
-  } as ThreadRecord;
+  };
 }
 
 function resolveDirect(thread: ThreadRecord, roomSelectionDate: string | null) {

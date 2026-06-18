@@ -58,6 +58,11 @@ docs/*
 docs/04_policy/*
 !docs/04_policy/official/
 !docs/04_policy/official/**
+!docs/06_trouble-shooting/
+docs/06_trouble-shooting/*
+!docs/06_trouble-shooting/observability/
+docs/06_trouble-shooting/observability/*
+!docs/06_trouble-shooting/observability/slack-alert-runbook.md
 
 ## 프로젝트 관리 문서 (README.md 제외)
 CLAUDE.md
@@ -67,3 +72,16 @@ REFACTOR-ANALYZE.md
 
 ## OS/기타
 .DS_Store
+# Deploy template files are safe to commit; local copies/secrets stay ignored.
+!infra/deploy/.env.api.example
+infra/deploy/.env.api
+# Observability template files are safe to commit; local copies/secrets stay ignored.
+!infra/observability/.env.observability.example
+infra/observability/.env.observability
+infra/observability/prometheus/secrets/*
+!infra/observability/prometheus/secrets/*.example
+infra/observability/alertmanager/alertmanager.yml
+infra/observability/alertmanager/*.local.yml
+# Stress test local artifacts
+apps/api/test/stress/reports/.tmp-*
+apps/api/test/stress/fixtures/.tmp-*

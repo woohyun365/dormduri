@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { HttpException } from '@nestjs/common';
 import { decodeBookmarkListCursor, encodeBookmarkListCursor } from './bookmark-list.cursor.js';
 

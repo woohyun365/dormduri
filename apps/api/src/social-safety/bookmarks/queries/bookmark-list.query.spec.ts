@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BookmarkPresenter } from '../presenters/bookmark.presenter.js';
 import { BookmarkListQuery } from './bookmark-list.query.js';
 
@@ -23,14 +24,14 @@ function bookmarkRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe('BookmarkListQuery', () => {
-  const prisma = { getDatabaseNow: jest.fn() };
+  const prisma = { getDatabaseNow: vi.fn() };
   const repository = {
-    countActiveForViewer: jest.fn(),
-    findActiveForViewer: jest.fn(),
+    countActiveForViewer: vi.fn(),
+    findActiveForViewer: vi.fn(),
   };
   const targetPolicyEvaluator = {
-    loadViewerContext: jest.fn(),
-    resolveVisibleListItem: jest.fn(),
+    loadViewerContext: vi.fn(),
+    resolveVisibleListItem: vi.fn(),
   };
 
   function query() {
@@ -43,7 +44,7 @@ describe('BookmarkListQuery', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(now);
     targetPolicyEvaluator.loadViewerContext.mockResolvedValue({ currentSeasonId: 'season-1' });
     repository.countActiveForViewer.mockResolvedValue(1);

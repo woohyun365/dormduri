@@ -1,16 +1,17 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModerationRepository } from './moderation.repository.js';
 
 describe('ModerationRepository', () => {
   const prisma = {
     moderationTerm: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
   };
 
   let repository: ModerationRepository;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     repository = new ModerationRepository(prisma as never);
   });
 

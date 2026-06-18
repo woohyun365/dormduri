@@ -59,7 +59,7 @@ export function tooManyRequestsError(code: string, error: string, extras?: ApiEr
   return new HttpException(createApiErrorBody(code, error, extras), HttpStatus.TOO_MANY_REQUESTS);
 }
 
-interface NormalizedApiError {
+export interface NormalizedApiError {
   code: string;
   error: string;
   extras: ApiErrorExtras;

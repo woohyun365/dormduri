@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { resolvePublicProfileExposure } from './public-profile-exposure.policy.js';
 import type {
   PublicTargetEligibilityDecision,

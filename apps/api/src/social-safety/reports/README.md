@@ -23,7 +23,7 @@
 - `report.controller.ts`: route, auth actor, body parse만 담당한다.
 - `application/report-intake.service.ts`: HTTP-facing thin facade.
 - `commands/`: report intake write orchestration. Report success와 optional block result를 분리한다.
-- `resolvers/`: report target context resolver. Chat/message body나 retained payload를 읽지 않고 pointer만 snapshot한다.
+- `resolvers/`: report target context resolver. Profile/match request는 social-safety intake가 매핑하고, chat thread/message는 `CHAT_REPORT_TARGET_CONTEXT_PORT`에 위임한다. Chat/message body나 retained payload를 읽지 않고 pointer만 snapshot한다.
 - `policies/`: risk/dedupe/payload/privacy/optional action/attachment/profile feedback pure policy.
 - `repositories/`: `ReportCase`/`ReportCaseEvent` persistence only.
 - `retention/`: retention reference bridge. Retained vault disclosure internals import 금지.
@@ -47,6 +47,6 @@
 
 - API shape/response allowlist: `packages/shared/src/social-safety/report.ts` + `presenters/`.
 - Report contract regression: `contracts/report-contract.spec.ts`.
-- Target pointer resolution: `resolvers/report-target-context.resolver.ts`.
+- Target pointer resolution: `resolvers/report-target-context.resolver.ts`; chat thread/message target 검증은 chat `reports/` port 구현.
 - Risk/profile-feedback/attachment policy: `policies/`.
 - Reporter receipt notification handoff: `notifications/`.

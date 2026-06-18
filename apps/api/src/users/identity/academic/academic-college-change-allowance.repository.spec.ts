@@ -1,3 +1,4 @@
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { consumeAcademicCollegeChangeAllowanceTx } from './academic-college-change-allowance.repository.js';
 import { usersErrors } from '../../errors/users.errors.js';
 
@@ -21,12 +22,12 @@ type AllowanceUpsertArgs = {
 function createClient() {
   return {
     season: {
-      findFirst: jest.fn(),
+      findFirst: vi.fn(),
     },
     userAcademicIdentityChangeAllowance: {
-      findUnique: jest.fn(),
-      upsert: jest.fn(),
-      updateMany: jest.fn(),
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+      updateMany: vi.fn(),
     },
   };
 }
@@ -83,9 +84,8 @@ describe('academic college change allowance repository', () => {
       now: NOW,
     });
 
-    const upsertMock = client.userAcademicIdentityChangeAllowance.upsert as jest.Mock<
-      unknown,
-      [AllowanceUpsertArgs]
+    const upsertMock = client.userAcademicIdentityChangeAllowance.upsert as Mock<
+      (arg0: AllowanceUpsertArgs) => unknown
     >;
     const [upsertArgs] = upsertMock.mock.calls[0]!;
     expect(upsertArgs.update).toEqual({

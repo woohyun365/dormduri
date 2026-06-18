@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { AuthSessionService } from './auth-session.service.js';
 import { AuthSessionRepository } from './auth-session.repository.js';
@@ -31,15 +32,17 @@ const activeSessionUser = {
 describe('AuthSessionService', () => {
   const prisma = {
     authSession: {
-      create: jest.fn(),
-      findUnique: jest.fn(),
-      updateMany: jest.fn(),
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      updateMany: vi.fn(),
     },
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
   };
   const securityEvents = {
-    recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+    recordSafely: vi
+      .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
+      .mockResolvedValue(undefined),
   };
 
   const repository = new AuthSessionRepository(prisma as never);
@@ -60,7 +63,7 @@ describe('AuthSessionService', () => {
   );
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(new Date('2026-04-23T00:00:00.000Z'));
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({

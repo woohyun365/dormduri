@@ -1,0 +1,22 @@
+config:
+  target: '{{ $env.STRESS_REALTIME_SOCKET_URL }}'
+  processor: './processor.cjs'
+  phases:
+    - name: realtime smoke
+      duration: 1
+      arrivalRate: 1
+      maxVusers: 1
+  socketio:
+    path: '/socket.io'
+    extraHeaders:
+      Origin: '{{ $env.STRESS_REALTIME_ORIGIN }}'
+    auth:
+      ticket: '{{ $env.STRESS_REALTIME_TICKET }}'
+scenarios:
+  - name: chat realtime smoke
+    engine: socketio
+    beforeScenario: validateRealtimeScenario
+    flow:
+      - function: emitRealtimeSubscribe
+      - function: emitRealtimeUnsubscribe
+      - function: recordRealtimeDisconnect

@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BadRequestException, RequestMethod } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
 
@@ -32,26 +33,39 @@ function getBadRequestResponse(error: unknown) {
   };
 }
 
+type RouteHandler = object & ((...args: never[]) => unknown);
+
+function getAuthControllerHandler(methodName: keyof AuthController): RouteHandler {
+  const descriptor = Object.getOwnPropertyDescriptor(AuthController.prototype, methodName);
+  const handler: unknown = descriptor?.value;
+
+  if (typeof handler !== 'function') {
+    throw new Error(`Expected ${methodName} handler`);
+  }
+
+  return handler as RouteHandler;
+}
+
 describe('AuthController', () => {
   const authService = {
-    sendSignupCode: jest.fn(),
-    sendResetCode: jest.fn(),
-    verifyEmailCode: jest.fn(),
-    verifyResetCode: jest.fn(),
-    getSession: jest.fn(),
-    validateSignupDraft: jest.fn(),
-    signup: jest.fn(),
-    login: jest.fn(),
-    resetPassword: jest.fn(),
-    changePassword: jest.fn(),
-    renewSession: jest.fn(),
-    logout: jest.fn(),
+    sendSignupCode: vi.fn(),
+    sendResetCode: vi.fn(),
+    verifyEmailCode: vi.fn(),
+    verifyResetCode: vi.fn(),
+    getSession: vi.fn(),
+    validateSignupDraft: vi.fn(),
+    signup: vi.fn(),
+    login: vi.fn(),
+    resetPassword: vi.fn(),
+    changePassword: vi.fn(),
+    renewSession: vi.fn(),
+    logout: vi.fn(),
   };
 
   const controller = new AuthController(authService as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('body가 없을 때 bad request 예외를 던진다', async () => {
@@ -100,15 +114,7 @@ describe('AuthController', () => {
   });
 
   it('signup draft validation route는 /auth/validate-signup-draft로 노출된다', () => {
-    const descriptor = Object.getOwnPropertyDescriptor(
-      AuthController.prototype,
-      'validateSignupDraft',
-    ) as TypedPropertyDescriptor<(body: unknown) => Promise<unknown>> | undefined;
-    const handler = descriptor?.value;
-
-    if (!handler) {
-      throw new Error('Expected validateSignupDraft handler');
-    }
+    const handler = getAuthControllerHandler('validateSignupDraft');
 
     expect(Reflect.getMetadata(NEST_ROUTE_PATH_METADATA, handler)).toBe('validate-signup-draft');
     expect(Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, handler)).toBe(RequestMethod.POST);
@@ -155,19 +161,7 @@ describe('AuthController', () => {
       rememberMe: false,
     });
 
-    const descriptor = Object.getOwnPropertyDescriptor(
-      AuthController.prototype,
-      'changePassword',
-    ) as
-      | TypedPropertyDescriptor<
-          (body: unknown, authUser: unknown, request: unknown) => Promise<unknown>
-        >
-      | undefined;
-    const handler = descriptor?.value;
-
-    if (!handler) {
-      throw new Error('Expected changePassword handler');
-    }
+    const handler = getAuthControllerHandler('changePassword');
 
     expect(Reflect.getMetadata(NEST_ROUTE_PATH_METADATA, handler)).toBe('change-password');
     expect(Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, handler)).toBe(RequestMethod.POST);
@@ -203,14 +197,7 @@ describe('AuthController', () => {
       rememberMe: true,
     });
 
-    const descriptor = Object.getOwnPropertyDescriptor(AuthController.prototype, 'renewSession') as
-      | TypedPropertyDescriptor<(body: unknown, request: unknown) => Promise<unknown>>
-      | undefined;
-    const handler = descriptor?.value;
-
-    if (!handler) {
-      throw new Error('Expected renewSession handler');
-    }
+    const handler = getAuthControllerHandler('renewSession');
 
     expect(Reflect.getMetadata(NEST_ROUTE_PATH_METADATA, handler)).toBe('renew-session');
     expect(Reflect.getMetadata(NEST_ROUTE_METHOD_METADATA, handler)).toBe(RequestMethod.POST);

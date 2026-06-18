@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { InternalServerErrorException } from '@nestjs/common';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { CurrentUserQuery } from './current-user.query.js';
@@ -82,15 +83,15 @@ function makeSeasonSegment(overrides: Record<string, unknown> = {}) {
 
 function createServiceTestKit() {
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    user: { findUnique: jest.fn() },
-    campusMaster: { findUnique: jest.fn() },
+    getDatabaseNow: vi.fn(),
+    user: { findUnique: vi.fn() },
+    campusMaster: { findUnique: vi.fn() },
   };
-  const seasonsService = { getCurrentSeasonContext: jest.fn() };
+  const seasonsService = { getCurrentSeasonContext: vi.fn() };
   const currentSeasonParticipationViewOwner = {
-    buildCurrentUserSeasonParticipationSegment: jest.fn(),
+    buildCurrentUserSeasonParticipationSegment: vi.fn(),
   };
-  const matchesService = { getCurrentActiveMatchSummaryForParticipant: jest.fn() };
+  const matchesService = { getCurrentActiveMatchSummaryForParticipant: vi.fn() };
   const currentUserQuery = new CurrentUserQuery(prisma as never);
   const service = new CurrentUserViewService(
     prisma as never,

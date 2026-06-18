@@ -126,11 +126,11 @@ DB credential 경계도 서비스 책임에 포함한다. 일반 API runtime은 
 
 | 날짜       | 변경 내용                                                                                                                                       | 관련 이슈   |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| 2026-06-09 | RRPD 접근 경계에 domain-owned source row semantics 원칙을 추가하고, retention boundary가 product API retained payload 복원 통로가 아니라고 명시 | #230 / #229 |
-| 2026-05-26 | RRPD 접근 경계에 DB credential 분리와 retention 운영 관측/alert signal 책임을 추가                                                              | #195        |
-| 2026-05-25 | RRPD retained vault가 user-facing/product read path에서 복원되지 않고, 운영 disclosure도 승인/로그 기반으로 제한된다는 서비스 경계를 추가       | #195        |
-| 2026-03-14 | 면책 고지 시점에 "서비스 진입" 항목 추가 (비공식 서비스 고지 원칙)                                                                              | #141        |
 | 2026-03-14 | 면책 범위에 "생활패턴 설문 내용" 항목 추가 (설문 ≠ 학교 규정 면책)                                                                              | #142        |
+| 2026-03-14 | 면책 고지 시점에 "서비스 진입" 항목 추가 (비공식 서비스 고지 원칙)                                                                              | #141        |
+| 2026-05-25 | RRPD retained vault가 user-facing/product read path에서 복원되지 않고, 운영 disclosure도 승인/로그 기반으로 제한된다는 서비스 경계를 추가       | #195        |
+| 2026-05-26 | RRPD 접근 경계에 DB credential 분리와 retention 운영 관측/alert signal 책임을 추가                                                              | #195        |
+| 2026-06-09 | RRPD 접근 경계에 domain-owned source row semantics 원칙을 추가하고, retention boundary가 product API retained payload 복원 통로가 아니라고 명시 | #230 / #229 |
 
 ## 원문 소스
 

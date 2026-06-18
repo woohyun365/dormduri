@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import {
   createSeasonParticipantsServiceTestKit,
   now,
@@ -17,6 +18,7 @@ describe('deregister-season-participant.command', () => {
       txSeasonParticipantUpdate,
       txSeasonParticipantLifecycleEventCreate,
       chatThreadWithdrawal,
+      matchParticipantWithdrawal,
     } = createSeasonParticipantsServiceTestKit();
     const registeredParticipant = participant({
       participationIntent: 'REGISTERED',
@@ -28,7 +30,9 @@ describe('deregister-season-participant.command', () => {
     });
     prisma.seasonParticipant.findUnique.mockResolvedValue(registeredParticipant);
     prisma.activeMatch.findFirst.mockResolvedValue(null);
-    tx.matchRequest.updateMany.mockResolvedValueOnce({ count: 2 });
+    matchParticipantWithdrawal.cancelPendingRequestsForWithdrawnParticipant.mockResolvedValueOnce({
+      canceledPendingMatchRequests: 2,
+    });
     chatThreadWithdrawal.markOpenDirectThreadsReadOnlyForWithdrawnParticipant.mockResolvedValueOnce(
       {
         updatedThreadIds: ['thread-1', 'thread-2', 'thread-3'],
@@ -46,6 +50,13 @@ describe('deregister-season-participant.command', () => {
         participationIntent: 'DECLINED',
         participantStatus: 'WITHDRAWN',
       },
+    });
+    expect(
+      matchParticipantWithdrawal.cancelPendingRequestsForWithdrawnParticipant,
+    ).toHaveBeenCalledWith(tx, {
+      seasonId: 'season-1',
+      participantId: 'participant-1',
+      now,
     });
     expect(
       chatThreadWithdrawal.markOpenDirectThreadsReadOnlyForWithdrawnParticipant,
@@ -163,6 +174,7 @@ describe('deregister-season-participant.command', () => {
       txSeasonParticipantUpdate,
       txSeasonParticipantLifecycleEventCreate,
       chatThreadWithdrawal,
+      matchParticipantWithdrawal,
     } = createSeasonParticipantsServiceTestKit();
     prisma.seasonParticipant.findUnique.mockResolvedValue(
       participant({
@@ -184,7 +196,9 @@ describe('deregister-season-participant.command', () => {
     );
 
     expect(txSeasonParticipantUpdate).not.toHaveBeenCalled();
-    expect(tx.matchRequest.updateMany).not.toHaveBeenCalled();
+    expect(
+      matchParticipantWithdrawal.cancelPendingRequestsForWithdrawnParticipant,
+    ).not.toHaveBeenCalled();
     expect(txSeasonParticipantLifecycleEventCreate).not.toHaveBeenCalled();
     expect(
       chatThreadWithdrawal.markOpenDirectThreadsReadOnlyForWithdrawnParticipant,

@@ -3,6 +3,12 @@ import type {
   SendConversationMessageResponse,
 } from '@repo/shared/chat';
 import type { AuthenticatedUserContext } from '../../auth/application/auth-actor-context.types.js';
+import {
+  ConversationThreadLifecycleActorType,
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
 import { buildParticipantPairIdentity } from '../../matches/persistence/match-pair-identity.js';
 import {
   isPrismaKnownRequestError,
@@ -11,6 +17,7 @@ import {
 import type { ChatUserContext } from '../application/chat-user-context.service.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import { threadSelect, type ThreadRecord } from '../persistence/chat-thread.select.js';
+import { toConversationThreadLifecycleTransitionMetadata } from '../lifecycle-events/conversation-thread-lifecycle-event.transition.js';
 import { ChatRealtimeOutboxService } from '../outbox/chat-realtime-outbox.service.js';
 import { assertValidSendMessageInput } from './chat-command.helpers.js';
 import type {
@@ -243,12 +250,32 @@ export function createSendMessageCommand(deps: ChatCommandDeps) {
           ],
           skipDuplicates: true,
         });
+        await deps.appendConversationThreadLifecycleEvent(tx, {
+          threadId: thread.id,
+          eventType: ConversationThreadLifecycleEventType.THREAD_CREATED,
+          reason: pairActiveMatch
+            ? ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED
+            : ConversationThreadLifecycleEventReason.DIRECT_MESSAGE_STARTED,
+          actorType: ConversationThreadLifecycleActorType.USER,
+          actorUserId: authUser.id,
+          sourceDomain: pairActiveMatch
+            ? ConversationThreadLifecycleSourceDomain.MATCHES
+            : ConversationThreadLifecycleSourceDomain.CHAT,
+          sourceActiveMatchId: pairActiveMatch?.id,
+          sourceMatchRequestId: pairActiveMatch?.createdFromRequestId ?? undefined,
+          occurredAt: now,
+          metadata: toConversationThreadLifecycleTransitionMetadata({
+            previous: null,
+            next: thread,
+          }),
+        });
         createdThread = true;
       } else {
         thread = synchronizedThread;
       }
 
       if (pairActiveMatch && thread.threadKind !== 'MATCHED') {
+        const previousThread = thread;
         thread = await tx.conversationThread.update({
           where: { id: thread.id },
           data: {
@@ -267,7 +294,26 @@ export function createSendMessageCommand(deps: ChatCommandDeps) {
           recipientUserIds: [txViewerUser.id, txTargetUser.id],
           occurredAt: now,
         });
+        await deps.appendConversationThreadLifecycleEvent(tx, {
+          threadId: thread.id,
+          eventType:
+            previousThread.status !== 'OPEN' && thread.status === 'OPEN'
+              ? ConversationThreadLifecycleEventType.THREAD_REOPENED
+              : ConversationThreadLifecycleEventType.THREAD_KIND_CHANGED,
+          reason: ConversationThreadLifecycleEventReason.MATCH_REQUEST_ACCEPTED,
+          actorType: ConversationThreadLifecycleActorType.USER,
+          actorUserId: authUser.id,
+          sourceDomain: ConversationThreadLifecycleSourceDomain.MATCHES,
+          sourceActiveMatchId: pairActiveMatch.id,
+          sourceMatchRequestId: pairActiveMatch.createdFromRequestId ?? undefined,
+          occurredAt: now,
+          metadata: toConversationThreadLifecycleTransitionMetadata({
+            previous: previousThread,
+            next: thread,
+          }),
+        });
       } else if (shouldReopenBlockClosedDirectThread(thread)) {
+        const previousThread = thread;
         thread = await tx.conversationThread.update({
           where: { id: thread.id },
           data: {
@@ -283,6 +329,19 @@ export function createSendMessageCommand(deps: ChatCommandDeps) {
           closedReason: thread.closedReason,
           recipientUserIds: [txViewerUser.id, txTargetUser.id],
           occurredAt: now,
+        });
+        await deps.appendConversationThreadLifecycleEvent(tx, {
+          threadId: thread.id,
+          eventType: ConversationThreadLifecycleEventType.THREAD_REOPENED,
+          reason: ConversationThreadLifecycleEventReason.USER_BLOCKED,
+          actorType: ConversationThreadLifecycleActorType.USER,
+          actorUserId: authUser.id,
+          sourceDomain: ConversationThreadLifecycleSourceDomain.CHAT,
+          occurredAt: now,
+          metadata: toConversationThreadLifecycleTransitionMetadata({
+            previous: previousThread,
+            next: thread,
+          }),
         });
       }
       const shouldNotifyThreadCreated = createdThread && !pairActiveMatch;

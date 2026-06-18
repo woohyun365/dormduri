@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { buildCurrentUserCapabilities } from './current-user-capabilities.policy.js';
 
 describe('current-user-capabilities.policy', () => {

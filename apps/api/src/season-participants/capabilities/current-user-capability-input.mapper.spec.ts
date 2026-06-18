@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { buildCurrentUserCapabilityInput } from './current-user-capability-input.mapper.js';
 import { toOperatedDormitoryIdSet } from '../public-target-policy/index.js';
 import type { CurrentSeasonParticipantRecord } from '../application/season-participants.service.js';

@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CurrentUserQuery } from './current-user.query.js';
 
 const USER_ROW = {
@@ -45,14 +46,14 @@ type CurrentUserFindUniqueArgs = {
 };
 
 describe('CurrentUserQuery', () => {
-  const findUnique = jest.fn<Promise<typeof USER_ROW | null>, [CurrentUserFindUniqueArgs]>();
+  const findUnique = vi.fn<(arg0: CurrentUserFindUniqueArgs) => Promise<typeof USER_ROW | null>>();
   const prisma = {
     user: { findUnique },
   };
   const query = new CurrentUserQuery(prisma as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('current-user read model에 필요한 user/display/academic/onboarding projection만 조회한다', async () => {

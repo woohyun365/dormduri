@@ -40,7 +40,7 @@ Product domains may use this helper to attach route metadata for domain context 
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/platform/domain-context \
   src/architecture/domain-context/domain-context-route-matrix.spec.ts
 pnpm --dir apps/api exec eslint src/platform/domain-context

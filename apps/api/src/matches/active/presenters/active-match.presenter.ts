@@ -1,7 +1,7 @@
 import type { ActiveMatchSummary, ActiveMatchUnmatchProgress } from '@repo/shared/match/contract';
 import { buildDirectionalMatchScoreProjection } from '../../scoring/match-score-projection.js';
 import type { CurrentSeasonContext } from '../../../seasons/ports/season-context.port.js';
-import { parseLifestyleOrNull } from '../../../profiles/profile.mapper.js';
+import { parseLifestyleOrNull } from '../../../profiles/contracts/public-profile.presenter.js';
 import {
   findActiveMatchRoomSelectionDate,
   isUnmatchWindowOpen,
@@ -49,7 +49,7 @@ export function toActiveMatchSummary(
     status: activeMatch.status,
     startedAt: activeMatch.startedAt.toISOString(),
     endedAt: activeMatch.endedAt?.toISOString() ?? null,
-    endReason: activeMatch.endReason as ActiveMatchSummary['endReason'],
+    endReason: activeMatch.endReason,
     createdFromRequestId: activeMatch.createdFromRequestId,
     ...(typeof matchScore === 'number' ? { matchScore } : {}),
     unmatchProgress: toInactiveUnmatchProgress(),

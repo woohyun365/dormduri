@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { normalizeSeasonRuntimeRow, toCurrentSeasonResponse } from './current-season.mapper.js';
 
 describe('current season mapper', () => {

@@ -23,13 +23,13 @@ export async function scheduleChatIdentityLinkReviewJobTx(
       dueAt: input.dueAt,
       lastErrorCode: null,
       manualReviewRequired: false,
-      payload: buildChatIdentityLinkReviewPayload(input) as Prisma.InputJsonValue,
+      payload: buildChatIdentityLinkReviewPayload(input),
     },
     create: {
       target: 'CHAT_IDENTITY_LINK',
       sourceId: input.threadId,
       dueAt: input.dueAt,
-      payload: buildChatIdentityLinkReviewPayload(input) as Prisma.InputJsonValue,
+      payload: buildChatIdentityLinkReviewPayload(input),
     },
   });
 }

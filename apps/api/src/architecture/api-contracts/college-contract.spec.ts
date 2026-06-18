@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { collegeCodeSchema, getCollegeLabel } from '@repo/shared/college';
 
 describe('college contract', () => {

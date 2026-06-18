@@ -1,4 +1,4 @@
-import type { PublicTargetResultReadContext } from '@repo/shared/profile-contract';
+import type { PublicTargetResultReadContext } from '@repo/shared/profile/contract';
 import { Injectable } from '@nestjs/common';
 import { calcViewerMatchScore } from './match-score.algorithm.js';
 import type {

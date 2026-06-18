@@ -113,5 +113,5 @@ MVP의 사용자 통지는 in-app notification이 primary다. Push와 native ema
 
 | 날짜       | 변경 내용                                                                                                | 관련 이슈         |
 | ---------- | -------------------------------------------------------------------------------------------------------- | ----------------- |
-| 2026-06-08 | support ticket/FAQ backend route, capability, self-only access, notification writer 구현 기준을 반영했다 | #79 / #220        |
 | 2026-06-08 | support ticket, appeal, FAQ, email optional consent, notification handoff baseline을 추가했다            | #79 / #220 / #196 |
+| 2026-06-08 | support ticket/FAQ backend route, capability, self-only access, notification writer 구현 기준을 반영했다 | #79 / #220        |

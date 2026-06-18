@@ -1,3 +1,10 @@
+import { describe, expect, it, vi } from 'vitest';
+import {
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
+import type { ConversationThreadLifecycleEventAppendInput } from '../lifecycle-events/conversation-thread-lifecycle-event.types.js';
 import { createChatSeasonLifecycleOwner } from './chat-season-lifecycle.service.js';
 import type { ThreadRecord } from '../persistence/chat-thread.select.js';
 
@@ -55,19 +62,19 @@ function makeThread(overrides: Record<string, unknown> = {}): ThreadRecord {
     members: [],
     messages: [],
     ...overrides,
-  } as ThreadRecord;
+  };
 }
 
 function createOutboxCapableTx(updatedThread: ThreadRecord) {
   return {
     conversationThread: {
-      update: jest.fn().mockResolvedValue(updatedThread),
+      update: vi.fn().mockResolvedValue(updatedThread),
     },
     chatRealtimeOutboxEvent: {
-      create: jest.fn().mockResolvedValue({ id: 'event-1' }),
+      create: vi.fn().mockResolvedValue({ id: 'event-1' }),
     },
     chatRealtimeEventRecipient: {
-      createMany: jest.fn().mockResolvedValue({ count: 2 }),
+      createMany: vi.fn().mockResolvedValue({ count: 2 }),
     },
   };
 }
@@ -106,15 +113,15 @@ describe('ChatSeasonLifecycleOwner', () => {
     const thread = makeThread();
     const prisma = {
       conversationThread: {
-        update: jest.fn(),
+        update: vi.fn(),
       },
     };
     const owner = createChatSeasonLifecycleOwner({
       prisma: prisma as never,
       seasonsService: {
-        getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-1' } }),
+        getCurrentSeasonContext: vi.fn().mockResolvedValue({ season: { id: 'season-1' } }),
       } as never,
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue(null),
     });
 
     await expect(owner.resolveThreadLifecycleSnapshot(thread, now)).resolves.toMatchObject({
@@ -126,6 +133,30 @@ describe('ChatSeasonLifecycleOwner', () => {
     expect(prisma.conversationThread.update).not.toHaveBeenCalled();
   });
 
+  it('동기화 결과 변경이 없으면 thread/outbox/lifecycle event를 만들지 않는다', async () => {
+    const beforeSeasonEnd = new Date('2026-02-10T03:00:00.000Z');
+    const thread = makeThread();
+    const tx = createOutboxCapableTx(thread);
+    const lifecycleEventAppend = vi.fn().mockResolvedValue({ id: 'thread-lifecycle-event-noop' });
+    const owner = createChatSeasonLifecycleOwner({
+      prisma: {} as never,
+      lifecycleEventWriter: { append: lifecycleEventAppend },
+      seasonsService: {
+        getCurrentSeasonContext: vi.fn().mockResolvedValue({ season: { id: 'season-1' } }),
+      } as never,
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue(null),
+    });
+
+    await expect(
+      owner.synchronizeThreadLifecycle(thread, beforeSeasonEnd, tx as never),
+    ).resolves.toBe(thread);
+
+    expect(tx.conversationThread.update).not.toHaveBeenCalled();
+    expect(tx.chatRealtimeOutboxEvent.create).not.toHaveBeenCalled();
+    expect(tx.chatRealtimeEventRecipient.createMany).not.toHaveBeenCalled();
+    expect(lifecycleEventAppend).not.toHaveBeenCalled();
+  });
+
   it('season end로 MATCHED thread가 READ_ONLY가 되면 동일 mutation 경계에서 thread.updated outbox를 남긴다', async () => {
     const thread = makeThread();
     const updatedThread = makeThread({
@@ -134,13 +165,15 @@ describe('ChatSeasonLifecycleOwner', () => {
       closedAt: now,
     });
     const tx = createOutboxCapableTx(updatedThread);
+    const lifecycleEventAppend = vi.fn().mockResolvedValue({ id: 'thread-lifecycle-event-1' });
     const seasonsService = {
-      getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-1' } }),
+      getCurrentSeasonContext: vi.fn().mockResolvedValue({ season: { id: 'season-1' } }),
     };
     const owner = createChatSeasonLifecycleOwner({
       prisma: {} as never,
+      lifecycleEventWriter: { append: lifecycleEventAppend },
       seasonsService: seasonsService as never,
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue(null),
     });
 
     await expect(owner.synchronizeThreadLifecycle(thread, now, tx as never)).resolves.toBe(
@@ -198,6 +231,25 @@ describe('ChatSeasonLifecycleOwner', () => {
         expect.objectContaining({ eventId: 'event-1', userId: 'user-2', threadId: 'thread-1' }),
       ]),
     );
+    const lifecycleAppendCalls = lifecycleEventAppend.mock.calls as Array<
+      [unknown, ConversationThreadLifecycleEventAppendInput]
+    >;
+    const [lifecycleTx, lifecycleInput] = lifecycleAppendCalls[0] ?? [];
+    expect(lifecycleTx).toBe(tx);
+    expect(lifecycleInput).toMatchObject({
+      threadId: 'thread-1',
+      eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
+      reason: ConversationThreadLifecycleEventReason.SEASON_ENDED_SWEEP,
+      sourceDomain: ConversationThreadLifecycleSourceDomain.CHAT,
+      sourceActiveMatchId: 'active-1',
+      occurredAt: now,
+      metadata: {
+        previousStatus: 'OPEN',
+        nextStatus: 'READ_ONLY',
+        previousClosedReason: null,
+        nextClosedReason: 'SEASON_ENDED',
+      },
+    });
   });
 
   it('새 current season이 열리면 visible thread archive와 thread.archived outbox가 모순 없이 함께 남는다', async () => {
@@ -212,12 +264,16 @@ describe('ChatSeasonLifecycleOwner', () => {
       closedAt: new Date('2026-02-28T03:00:00.000Z'),
     });
     const tx = createOutboxCapableTx(updatedThread);
+    const lifecycleEventAppend = vi
+      .fn()
+      .mockResolvedValue({ id: 'thread-lifecycle-event-archive' });
     const owner = createChatSeasonLifecycleOwner({
       prisma: {} as never,
+      lifecycleEventWriter: { append: lifecycleEventAppend },
       seasonsService: {
-        getCurrentSeasonContext: jest.fn().mockResolvedValue({ season: { id: 'season-2' } }),
+        getCurrentSeasonContext: vi.fn().mockResolvedValue({ season: { id: 'season-2' } }),
       } as never,
-      findThreadRoomSelectionDate: jest.fn().mockReturnValue(null),
+      findThreadRoomSelectionDate: vi.fn().mockReturnValue(null),
     });
 
     await expect(owner.synchronizeThreadLifecycle(thread, now, tx as never)).resolves.toBe(
@@ -258,6 +314,19 @@ describe('ChatSeasonLifecycleOwner', () => {
         },
       },
       select: { id: true },
+    });
+    const lifecycleAppendCalls = lifecycleEventAppend.mock.calls as Array<
+      [unknown, ConversationThreadLifecycleEventAppendInput]
+    >;
+    const [lifecycleTx, lifecycleInput] = lifecycleAppendCalls[0] ?? [];
+    expect(lifecycleTx).toBe(tx);
+    expect(lifecycleInput).toMatchObject({
+      threadId: 'thread-1',
+      eventType: ConversationThreadLifecycleEventType.THREAD_ARCHIVED,
+      reason: ConversationThreadLifecycleEventReason.SEASON_ENDED_SWEEP,
+      sourceDomain: ConversationThreadLifecycleSourceDomain.CHAT,
+      sourceActiveMatchId: 'active-1',
+      occurredAt: now,
     });
   });
 });

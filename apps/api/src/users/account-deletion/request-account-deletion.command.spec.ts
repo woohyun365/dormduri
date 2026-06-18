@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { hashPassword } from '../../auth/application/auth-password-hash.js';
 import type {
   PrismaService,
@@ -45,13 +46,13 @@ async function makeDeps(
   const tx =
     options.tx ??
     ({
-      user: { findUnique: jest.fn() },
-      seasonParticipant: { findUnique: jest.fn() },
+      user: { findUnique: vi.fn() },
+      seasonParticipant: { findUnique: vi.fn() },
     } satisfies Record<string, unknown>);
   const prisma = {
-    getDatabaseNow: jest.fn().mockResolvedValue(NOW),
+    getDatabaseNow: vi.fn().mockResolvedValue(NOW),
     user: {
-      findUnique: jest.fn().mockResolvedValue({
+      findUnique: vi.fn().mockResolvedValue({
         id: 'user-1',
         campus: 'CHUNCHEON',
         passwordHash,
@@ -59,16 +60,16 @@ async function makeDeps(
       }),
     },
     seasonParticipant: {
-      findUnique: jest.fn().mockResolvedValue(options.precheckParticipant ?? null),
+      findUnique: vi.fn().mockResolvedValue(options.precheckParticipant ?? null),
     },
   };
   const retentionWorkerPrisma = {
-    runSerializableTransaction: jest.fn(async (callback: (client: typeof tx) => Promise<unknown>) =>
+    runSerializableTransaction: vi.fn(async (callback: (client: typeof tx) => Promise<unknown>) =>
       callback(tx),
     ),
   };
   const seasonsService = {
-    getCurrentSeasonContext: jest.fn().mockResolvedValue(options.seasonContext ?? null),
+    getCurrentSeasonContext: vi.fn().mockResolvedValue(options.seasonContext ?? null),
   };
 
   return {
@@ -138,11 +139,11 @@ describe('createRequestAccountDeletionCommand', () => {
       dormitorySelectionState: 'ASSIGNED',
       participantStatus: 'ACTIVE',
     });
-    const txParticipantFindUnique = jest.fn().mockResolvedValue(txRegisteredParticipant);
-    const retainedIdentityUpsert = jest.fn();
+    const txParticipantFindUnique = vi.fn().mockResolvedValue(txRegisteredParticipant);
+    const retainedIdentityUpsert = vi.fn();
     const tx = {
       user: {
-        findUnique: jest.fn().mockResolvedValue({
+        findUnique: vi.fn().mockResolvedValue({
           id: 'user-1',
           deletedAt: null,
           displayIdentity: {
@@ -179,14 +180,14 @@ describe('createRequestAccountDeletionCommand', () => {
   it('transaction user display identity가 없으면 기존 invariant error를 유지한다', async () => {
     const tx = {
       user: {
-        findUnique: jest.fn().mockResolvedValue({
+        findUnique: vi.fn().mockResolvedValue({
           id: 'user-1',
           deletedAt: null,
           displayIdentity: null,
         }),
       },
       seasonParticipant: {
-        findUnique: jest.fn(),
+        findUnique: vi.fn(),
       },
     };
     const { command } = await makeDeps({ tx });
@@ -200,7 +201,7 @@ describe('createRequestAccountDeletionCommand', () => {
     const retentionHoldUntil = new Date('2026-05-29T00:00:00.000Z');
     const tx = {
       user: {
-        findUnique: jest
+        findUnique: vi
           .fn()
           .mockResolvedValueOnce({
             id: 'user-1',
@@ -216,14 +217,14 @@ describe('createRequestAccountDeletionCommand', () => {
             emailNormalized: 'student@kangwon.ac.kr',
             deletedAt: null,
           }),
-        update: jest.fn().mockResolvedValue({ id: 'user-1' }),
+        update: vi.fn().mockResolvedValue({ id: 'user-1' }),
       },
       seasonParticipant: {
-        findUnique: jest.fn(),
-        findMany: jest.fn().mockResolvedValue([]),
+        findUnique: vi.fn(),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       retainedIdentity: {
-        upsert: jest.fn().mockResolvedValue({
+        upsert: vi.fn().mockResolvedValue({
           id: 'retained-1',
           originalUserId: 'user-1',
           anonymizedActorKey: 'anon-key',
@@ -232,45 +233,45 @@ describe('createRequestAccountDeletionCommand', () => {
         }),
       },
       retentionCase: {
-        findFirst: jest.fn().mockResolvedValue(null),
-        create: jest.fn().mockResolvedValue({ id: 'case-1' }),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 'case-1' }),
       },
       retainedIdentityHold: {
-        upsert: jest.fn().mockResolvedValue({ id: 'hold-1' }),
+        upsert: vi.fn().mockResolvedValue({ id: 'hold-1' }),
       },
       seasonParticipantProfileHistory: {
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       seasonMatchHistoryEntry: {
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       conversationThread: {
-        findMany: jest.fn().mockResolvedValue([]),
+        findMany: vi.fn().mockResolvedValue([]),
       },
       userDisplayIdentityNicknameChangeEvent: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
-        create: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
       },
       userAcademicIdentityChangeEvent: {
-        updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       archiveJob: {
-        createMany: jest.fn().mockResolvedValue({ count: 2 }),
+        createMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
       authSession: {
-        updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 2 }),
       },
       userDisplayIdentity: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       userAcademicIdentity: {
-        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       userAcademicIdentityChangeAllowance: {
-        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
       seasonParticipantProfile: {
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
     tx.retainedIdentity.upsert.mockImplementation(

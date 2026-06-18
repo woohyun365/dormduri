@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { retryDueRetentionReviewJobs } from './retention-review-job-runner.service.js';
 
 type RetentionReviewJobUpdateInput = {
@@ -8,13 +9,13 @@ type RetentionReviewJobUpdateInput = {
 function createAccessLogDisposalStore(input: { nextDueAt?: Date | null }) {
   const updates: RetentionReviewJobUpdateInput[] = [];
   const retentionReviewJob = {
-    update: jest.fn().mockImplementation((update: RetentionReviewJobUpdateInput) => {
+    update: vi.fn().mockImplementation((update: RetentionReviewJobUpdateInput) => {
       updates.push(update);
       return Promise.resolve(undefined);
     }),
   };
   const retentionAccessLog = {
-    findFirst: jest
+    findFirst: vi
       .fn()
       .mockResolvedValue(input.nextDueAt ? { logRetentionHoldUntil: input.nextDueAt } : null),
   };
@@ -30,7 +31,7 @@ function createAccessLogDisposalStore(input: { nextDueAt?: Date | null }) {
 
   return {
     prisma: {
-      $queryRawTyped: jest
+      $queryRawTyped: vi
         .fn()
         .mockResolvedValueOnce([claimedReviewJob])
         .mockResolvedValueOnce([{ id: 'log-1' }, { id: 'log-2' }]),

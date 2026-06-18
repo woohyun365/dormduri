@@ -1,0 +1,89 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { CallHandler, ExecutionContext } from '@nestjs/common';
+import type { Request, Response } from 'express';
+import { of } from 'rxjs';
+import { RequestLoggingInterceptor } from './request-logging.interceptor.js';
+import type { AppLoggerService } from './app-logger.service.js';
+
+function makeExecutionContext(request: Request, response: Response): ExecutionContext {
+  return {
+    getType: () => 'http',
+    switchToHttp: () => ({
+      getRequest: () => request,
+      getResponse: () => response,
+    }),
+  } as ExecutionContext;
+}
+
+function makeResponse(statusCode = 200) {
+  let finishHandler: (() => void) | null = null;
+  const response = {
+    statusCode,
+    once: vi.fn((_event: string, handler: () => void) => {
+      finishHandler = handler;
+      return response;
+    }),
+  } as unknown as Response;
+
+  return {
+    emitFinish: () => finishHandler?.(),
+    response,
+  };
+}
+
+describe('RequestLoggingInterceptor', () => {
+  it('records safe request completion metadata without body/header/cookie values', () => {
+    const write = vi.fn();
+    const interceptor = new RequestLoggingInterceptor({ write } as unknown as AppLoggerService);
+    const { emitFinish, response } = makeResponse(201);
+    const request = {
+      body: { password: 'secret' },
+      cookies: { accessToken: 'token' },
+      headers: { authorization: 'Bearer token' },
+      method: 'POST',
+      route: { path: '/auth/login' },
+    } as unknown as Request;
+
+    interceptor
+      .intercept(makeExecutionContext(request, response), { handle: () => of('ok') } as CallHandler)
+      .subscribe();
+    emitFinish();
+
+    expect(write).toHaveBeenCalledWith(
+      'info',
+      expect.objectContaining({
+        method: 'POST',
+        operation: 'http_request',
+        outcome: 'success',
+        route: '/auth/login',
+        statusClass: '2xx',
+        statusCode: 201,
+      }),
+      'http request completed',
+    );
+    expect(JSON.stringify(write.mock.calls[0])).not.toContain('secret');
+    expect(JSON.stringify(write.mock.calls[0])).not.toContain('Bearer token');
+  });
+
+  it('does not let logger failure affect request stream', () => {
+    const interceptor = new RequestLoggingInterceptor({
+      write: vi.fn(() => {
+        throw new Error('logger unavailable');
+      }),
+    } as unknown as AppLoggerService);
+    const { emitFinish, response } = makeResponse(500);
+    const request = {
+      method: 'GET',
+      route: { path: '/health' },
+    } as unknown as Request;
+
+    expect(() => {
+      interceptor
+        .intercept(makeExecutionContext(request, response), {
+          handle: () => of('ok'),
+        } as CallHandler)
+        .subscribe();
+      emitFinish();
+    }).not.toThrow();
+  });
+});

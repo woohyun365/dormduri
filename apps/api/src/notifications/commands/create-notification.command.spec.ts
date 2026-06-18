@@ -1,12 +1,13 @@
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { CreateNotificationCommand } from './create-notification.command.js';
 
 type TxMock = {
   userNotification: {
-    findUnique: jest.Mock;
-    create: jest.Mock;
+    findUnique: Mock;
+    create: Mock;
   };
   notificationOutboxEvent: {
-    create: jest.Mock;
+    create: Mock;
   };
 };
 
@@ -47,8 +48,8 @@ const occurredAt = new Date('2026-06-02T00:00:00.000Z');
 function createTxMock(): TxMock {
   return {
     userNotification: {
-      findUnique: jest.fn().mockResolvedValue(null),
-      create: jest.fn().mockResolvedValue({
+      findUnique: vi.fn().mockResolvedValue(null),
+      create: vi.fn().mockResolvedValue({
         id: 'notification-1',
         recipientUserId: 'user-b',
         actorUserId: 'user-a',
@@ -67,7 +68,7 @@ function createTxMock(): TxMock {
       }),
     },
     notificationOutboxEvent: {
-      create: jest.fn().mockResolvedValue({ id: 'notification-event-1' }),
+      create: vi.fn().mockResolvedValue({ id: 'notification-event-1' }),
     },
   };
 }

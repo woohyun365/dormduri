@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { buildSeasonParticipantLifecycleMetadataForTest } from './season-participant-lifecycle-event.writer.js';
 
 describe('season-participant-lifecycle-event.writer', () => {

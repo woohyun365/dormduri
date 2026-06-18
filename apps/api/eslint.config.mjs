@@ -2,15 +2,13 @@
 import eslint from '@eslint/js';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
-import { defineConfig } from 'eslint/config';
+import { defineConfig, globalIgnores } from 'eslint/config';
 
 import prettier from 'eslint-config-prettier/flat';
 import shared from '@repo/eslint-config/flat';
 
 export default defineConfig([
-  {
-    ignores: ['**/eslint.config.*', 'src/generated/**/*', 'dist/**/*'],
-  },
+  globalIgnores(['**/eslint.config.*', 'src/generated/**', 'dist/**', 'coverage/**']),
 
   // 기본 ESLint 추천
   eslint.configs.recommended,
@@ -33,7 +31,7 @@ export default defineConfig([
       sourceType: 'module',
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['prisma.config.ts'],
+          allowDefaultProject: ['prisma.config.ts', 'vitest.config.*.ts'],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -42,6 +40,9 @@ export default defineConfig([
 
   {
     rules: {
+      // Keep this explicit even though recommendedTypeChecked already enables it:
+      // Phase 6 final verification depends on no-op assertions staying lint errors.
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-floating-promises': 'warn',
       '@typescript-eslint/no-unsafe-argument': 'warn',
@@ -54,6 +55,28 @@ export default defineConfig([
   {
     files: ['test/**/*.cjs'],
     ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    files: [
+      'test/stress/http/k6/**/*.js',
+      'test/stress/http/k6/**/*.mjs',
+      'test/stress/realtime/artillery/**/*.mjs',
+      'test/stress/docker/**/*.mjs',
+    ],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        __ENV: 'readonly',
+        __VU: 'readonly',
+        __ITER: 'readonly',
+        open: 'readonly',
+      },
+      parserOptions: {
+        project: false,
+        projectService: false,
+      },
+    },
   },
   {
     files: ['test/integration/support/integration-db.ts'],

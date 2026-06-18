@@ -1,3 +1,10 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import {
+  ConversationThreadLifecycleEventReason,
+  ConversationThreadLifecycleEventType,
+  ConversationThreadLifecycleSourceDomain,
+} from '../../generated/prisma/enums.js';
+import type { ConversationThreadLifecycleEventAppendInput } from '../lifecycle-events/conversation-thread-lifecycle-event.types.js';
 import { ChatParticipantWithdrawalService } from './chat-participant-withdrawal.service.js';
 
 const now = new Date('2026-06-01T00:00:00.000Z');
@@ -41,18 +48,18 @@ function thread(overrides: Record<string, unknown> = {}) {
 function createTx(input: { candidates?: unknown[]; updated?: unknown[] } = {}) {
   const candidateThreads = input.candidates ?? [thread({ status: 'OPEN', closedReason: null })];
   const updatedThreads = input.updated ?? [thread()];
-  const conversationThreadFindMany = jest
-    .fn<Promise<unknown[]>, [unknown]>()
+  const conversationThreadFindMany = vi
+    .fn<(arg0: unknown) => Promise<unknown[]>>()
     .mockResolvedValueOnce(candidateThreads)
     .mockResolvedValueOnce(updatedThreads);
-  const conversationThreadUpdateMany = jest
-    .fn<Promise<{ count: number }>, [unknown]>()
+  const conversationThreadUpdateMany = vi
+    .fn<(arg0: unknown) => Promise<{ count: number }>>()
     .mockResolvedValue({ count: updatedThreads.length });
-  const chatRealtimeOutboxEventCreate = jest
-    .fn<Promise<{ id: string }>, [unknown]>()
+  const chatRealtimeOutboxEventCreate = vi
+    .fn<(arg0: unknown) => Promise<{ id: string }>>()
     .mockResolvedValue({ id: 'event-1' });
-  const chatRealtimeEventRecipientCreateMany = jest
-    .fn<Promise<{ count: number }>, [unknown]>()
+  const chatRealtimeEventRecipientCreateMany = vi
+    .fn<(arg0: unknown) => Promise<{ count: number }>>()
     .mockResolvedValue({ count: 2 });
 
   return {
@@ -70,7 +77,17 @@ function createTx(input: { candidates?: unknown[]; updated?: unknown[] } = {}) {
 }
 
 describe('ChatParticipantWithdrawalService', () => {
-  const service = new ChatParticipantWithdrawalService();
+  let lifecycleEventAppend: Mock<(arg0: unknown, arg1: unknown) => Promise<unknown>>;
+  let service: ChatParticipantWithdrawalService;
+
+  beforeEach(() => {
+    lifecycleEventAppend = vi
+      .fn<(arg0: unknown, arg1: unknown) => Promise<unknown>>()
+      .mockResolvedValue({
+        id: 'thread-lifecycle-event-1',
+      });
+    service = new ChatParticipantWithdrawalService({ append: lifecycleEventAppend });
+  });
 
   it('withdrawn participant의 open direct thread를 read-only로 전환하고 outbox event를 append한다', async () => {
     const tx = createTx();
@@ -128,6 +145,24 @@ describe('ChatParticipantWithdrawalService', () => {
         expect.objectContaining({ userId: 'user-b', threadId: 'thread-1' }),
       ]),
     );
+    const lifecycleAppendCalls = lifecycleEventAppend.mock.calls as Array<
+      [unknown, ConversationThreadLifecycleEventAppendInput]
+    >;
+    const [lifecycleTx, lifecycleInput] = lifecycleAppendCalls[0] ?? [];
+    expect(lifecycleTx).toBe(tx);
+    expect(lifecycleInput).toMatchObject({
+      threadId: 'thread-1',
+      eventType: ConversationThreadLifecycleEventType.THREAD_READ_ONLY,
+      reason: ConversationThreadLifecycleEventReason.PARTICIPANT_WITHDRAWN,
+      sourceDomain: ConversationThreadLifecycleSourceDomain.SEASON_PARTICIPANTS,
+      occurredAt: now,
+      metadata: {
+        previousStatus: 'OPEN',
+        nextStatus: 'READ_ONLY',
+        previousClosedReason: null,
+        nextClosedReason: 'PARTICIPANT_WITHDRAWN',
+      },
+    });
   });
 
   it('대상 open direct thread가 없으면 idempotent no-op이다', async () => {
@@ -143,5 +178,6 @@ describe('ChatParticipantWithdrawalService', () => {
 
     expect(tx.conversationThread.updateMany).not.toHaveBeenCalled();
     expect(tx.chatRealtimeOutboxEvent.create).not.toHaveBeenCalled();
+    expect(lifecycleEventAppend).not.toHaveBeenCalled();
   });
 });

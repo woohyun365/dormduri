@@ -4,7 +4,7 @@ import type {
   PublicProfileActionCapabilities,
   PublicTargetActionUnavailableReason,
   PublicTargetResultReadContext,
-} from '@repo/shared/profile-contract';
+} from '@repo/shared/profile/contract';
 import type { DormitorySelectionState } from '@repo/shared/dormitory';
 import type { SeasonState } from '@repo/shared/season/runtime';
 

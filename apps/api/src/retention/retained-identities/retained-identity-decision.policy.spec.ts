@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { resolveRetainedIdentityDecision } from './retained-identity-decision.policy.js';
 
 describe('retained-identity-decision.policy', () => {

@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import {
   ArchiveJobRetrySweepTask,
   AuthOperationalCleanupSweepTask,
@@ -34,22 +35,22 @@ describe('lifecycle sweep task adapters', () => {
 
   it('adapts each existing domain sweep call behind a named task port', async () => {
     const matchLifecycleSweep = {
-      sweepMatchLifecycleTransitions: jest.fn().mockResolvedValue({
+      sweepMatchLifecycleTransitions: vi.fn().mockResolvedValue({
         expiredRequests: 1,
         expiredUnmatchRequests: 2,
         seasonEndedActiveMatches: 3,
       }),
     };
     const matchHistoryMaterialization = {
-      materializeEndedSeasonHistory: jest
+      materializeEndedSeasonHistory: vi
         .fn()
         .mockResolvedValue({ processedSeasons: 4, rebuiltEntries: 5 }),
     };
     const chatLifecycleSweep = {
-      sweepThreadLifecycle: jest.fn().mockResolvedValue({ scannedCount: 6, updatedCount: 7 }),
+      sweepThreadLifecycle: vi.fn().mockResolvedValue({ scannedCount: 6, updatedCount: 7 }),
     };
     const seasonParticipantsService = {
-      backfillCurrentSeasonParticipants: jest.fn().mockResolvedValue([
+      backfillCurrentSeasonParticipants: vi.fn().mockResolvedValue([
         {
           campus: 'CHUNCHEON',
           seasonId: 'season-1',
@@ -60,23 +61,21 @@ describe('lifecycle sweep task adapters', () => {
       ]),
     };
     const bookmarkLifecycleService = {
-      expireEndedSeasonBookmarks: jest
-        .fn()
-        .mockResolvedValue({ scannedCount: 11, expiredCount: 10 }),
+      expireEndedSeasonBookmarks: vi.fn().mockResolvedValue({ scannedCount: 11, expiredCount: 10 }),
     };
     const retentionSweep = {
-      activateThreadRetentionJobsForArchivedThreads: jest
+      activateThreadRetentionJobsForArchivedThreads: vi
         .fn()
         .mockResolvedValue({ activatedCount: 12 }),
-      retryDueDeletionArchiveJobs: jest.fn().mockResolvedValue({
+      retryDueDeletionArchiveJobs: vi.fn().mockResolvedValue({
         processedCount: 13,
         succeededCount: 14,
         retryScheduledCount: 15,
         manualReviewCount: 16,
         waitingConditionCount: 17,
       }),
-      disposeExpiredRetainedIdentities: jest.fn().mockResolvedValue({ processedCount: 19 }),
-      retryDueRetentionReviewJobs: jest.fn().mockResolvedValue({
+      disposeExpiredRetainedIdentities: vi.fn().mockResolvedValue({ processedCount: 19 }),
+      retryDueRetentionReviewJobs: vi.fn().mockResolvedValue({
         processedCount: 19,
         succeededCount: 20,
         retryScheduledCount: 21,
@@ -84,13 +83,13 @@ describe('lifecycle sweep task adapters', () => {
         reviewedCount: 23,
         minimizedCount: 24,
       }),
-      disposeDueRetentionAccessLogs: jest.fn().mockResolvedValue({
+      disposeDueRetentionAccessLogs: vi.fn().mockResolvedValue({
         processedCount: 25,
         nextDueAt: null,
       }),
     };
     const authOperationalCleanupService = {
-      runCleanupBatch: jest.fn().mockResolvedValue({
+      runCleanupBatch: vi.fn().mockResolvedValue({
         expiredSessions: 26,
         verificationCodes: 27,
         verificationRequestLogs: 28,
@@ -102,16 +101,16 @@ describe('lifecycle sweep task adapters', () => {
     };
 
     const tasks = [
-      new MatchLifecycleTransitionSweepTask(matchLifecycleSweep as never),
-      new ChatThreadLifecycleSweepTask(chatLifecycleSweep as never),
+      new MatchLifecycleTransitionSweepTask(matchLifecycleSweep),
+      new ChatThreadLifecycleSweepTask(chatLifecycleSweep),
       new MatchHistoryMaterializationSweepTask(matchHistoryMaterialization as never),
       new SeasonParticipantBackfillSweepTask(seasonParticipantsService as never),
       new SocialSafetyBookmarkCleanupSweepTask(bookmarkLifecycleService as never),
-      new ThreadRetentionActivationSweepTask(retentionSweep as never),
-      new ArchiveJobRetrySweepTask(retentionSweep as never),
-      new RetainedIdentityDisposalSweepTask(retentionSweep as never),
-      new RetentionReviewJobRetrySweepTask(retentionSweep as never),
-      new RetentionAccessLogDisposalSweepTask(retentionSweep as never),
+      new ThreadRetentionActivationSweepTask(retentionSweep),
+      new ArchiveJobRetrySweepTask(retentionSweep),
+      new RetainedIdentityDisposalSweepTask(retentionSweep),
+      new RetentionReviewJobRetrySweepTask(retentionSweep),
+      new RetentionAccessLogDisposalSweepTask(retentionSweep),
       new AuthOperationalCleanupSweepTask(authOperationalCleanupService as never),
     ];
 

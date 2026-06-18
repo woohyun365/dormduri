@@ -1,21 +1,22 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCurrentTimestamp } from '../../generated/prisma/sql.js';
 import { SeasonRuntimeRepository, seasonRuntimeSelect } from './season-runtime.repository.js';
 
 describe('SeasonRuntimeRepository', () => {
   const prisma = {
     campusMaster: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
     season: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
-    $queryRawTyped: jest.fn(),
+    $queryRawTyped: vi.fn(),
   };
 
   const repository = new SeasonRuntimeRepository(prisma as never);
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('uses provided reference time without DB timestamp query', async () => {

@@ -208,7 +208,7 @@ export class BookmarkTargetPolicyEvaluator {
       target: {
         ...input.bookmark.targetParticipant,
         user: input.bookmark.targetUser,
-      } as TargetParticipantRecord,
+      },
     });
 
     return resolved.policy.exposure.listSummaryVisible ? resolved : null;
@@ -232,7 +232,7 @@ export class BookmarkTargetPolicyEvaluator {
         },
       },
       select: targetParticipantSelect,
-    }) as Promise<TargetParticipantRecord | null>;
+    });
   }
 
   private async resolveTargetForPolicy(input: {

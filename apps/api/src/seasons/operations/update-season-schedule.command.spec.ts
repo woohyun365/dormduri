@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { UpdateSeasonScheduleCommand } from './update-season-schedule.command.js';
 
 const actor = {
@@ -30,18 +31,18 @@ const afterSeason = {
 function createSubject() {
   const tx = { tx: true };
   const repository = {
-    transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(tx)),
-    findByCampusAndId: jest
+    transaction: vi.fn((callback: (tx: unknown) => unknown) => callback(tx)),
+    findByCampusAndId: vi
       .fn()
       .mockResolvedValueOnce(beforeSeason)
       .mockResolvedValueOnce(afterSeason),
-    updateScheduleIfVersionMatches: jest.fn().mockResolvedValue({ count: 1 }),
+    updateScheduleIfVersionMatches: vi.fn().mockResolvedValue({ count: 1 }),
   };
   const auditRepository = {
-    append: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+    append: vi.fn().mockResolvedValue({ id: 'audit-1' }),
   };
   const metrics = {
-    recordOperation: jest.fn(),
+    recordOperation: vi.fn(),
   };
 
   return {
@@ -51,7 +52,7 @@ function createSubject() {
     metrics,
     command: new UpdateSeasonScheduleCommand(
       repository as never,
-      auditRepository as never,
+      auditRepository,
       metrics as never,
     ),
   };

@@ -21,12 +21,23 @@ Product domains may import database platform services when they need runtime Pri
 - `migration-baseline.spec.ts`: migration baseline guard.
 - `updated-at-ownership.spec.ts`: `updatedAt` ownership guard.
 
+## SQL / TypedSQL boundary
+
+Product-owned SQL lives under `apps/api/prisma/sql/*.sql` and is consumed through generated TypedSQL exports from `src/generated/prisma/sql.js`. This keeps SQL review, generated result typing, and ownership in one place.
+
+- Add or move a SQL asset only with `prisma:generate` and `src/architecture/testing/api-sql-boundary.spec.ts` inventory updates.
+- Use `pg_advisory_xact_lock` for transaction-scoped advisory locks; session-scoped advisory locks are not allowed.
+- Worker claim SQL that uses `FOR UPDATE SKIP LOCKED` must stay bounded with `LIMIT`, deterministic `ORDER BY`, and explicit lease/update semantics.
+- SQL time functions such as `CURRENT_TIMESTAMP` and `NOW()` must be registered with owner/rationale in the SQL boundary guard.
+- Product code should call generated TypedSQL helpers via `$queryRawTyped(...)`; do not spread direct `$queryRaw` / `$executeRaw` string queries through product domains.
+
 ## Hard rules
 
 - Do not place domain SQL/read-model ownership here. Domain query/repository files live in the owning product module.
 - Do not import product domain services from platform database code.
 - New DB credential boundaries must account for RDS connection pool budget.
 - Migration and role grant guards describe infrastructure invariants, not user-facing policy.
+- Production migration/role grant execution scripts live in `infra/db`; platform database specs guard their invariants from the API source tree.
 
 ## Architecture guard
 
@@ -45,7 +56,7 @@ Product domains may import database platform services when they need runtime Pri
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/platform/database/prisma.service.spec.ts \
   src/platform/database/auth-role-grants.spec.ts \
   src/platform/database/rrpd-role-grants.spec.ts \

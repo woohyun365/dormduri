@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { mapDormitoryGuideResponse } from './dormitory-guide.mapper.js';
 
 describe('dormitory-guide.mapper', () => {

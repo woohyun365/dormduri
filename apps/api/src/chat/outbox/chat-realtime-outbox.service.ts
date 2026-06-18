@@ -245,7 +245,7 @@ export class ChatRealtimeOutboxService {
         aggregateType: 'conversation.message',
         aggregateId: input.messageId,
       },
-    }) as Promise<{ count: number }>;
+    });
   }
 
   private async appendEvent(tx: ChatRealtimeOutboxTx, input: OutboxEventInput) {

@@ -71,16 +71,16 @@ Lifecycle boundary는 `apps/api/src/architecture/common-boundary.spec.ts`, `apps
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/lifecycle \
   src/architecture/common-boundary.spec.ts \
   src/architecture/module-boundary.spec.ts \
   src/architecture/cross-domain-chat-boundary.spec.ts
-pnpm --dir apps/api exec jest --config ./test/jest-integration.json --watchman=false --runInBand \
-  test/integration/account-deletion.integration.spec.ts \
-  test/integration/match-history.integration.spec.ts \
-  test/integration/season-transition.integration.spec.ts \
-  test/integration/unmatch.integration.spec.ts
+pnpm --dir apps/api exec vitest run --config ./vitest.config.integration.ts --maxWorkers=1 \
+  test/integration/users/account-deletion.integration.spec.ts \
+  test/integration/matches/match-history.integration.spec.ts \
+  test/integration/seasons/season-transition.integration.spec.ts \
+  test/integration/matches/unmatch.integration.spec.ts
 pnpm api:typecheck
 pnpm --dir apps/api exec eslint <changed files without apps/api prefix>
 git diff --check

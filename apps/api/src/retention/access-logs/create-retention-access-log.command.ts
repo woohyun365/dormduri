@@ -1,4 +1,3 @@
-import { Prisma } from '../../generated/prisma/client.js';
 import { scheduleAccessLogDisposalReviewJob } from './retention-access-log-disposal-review.command.js';
 import type {
   CreateRetentionAccessLogInput,
@@ -28,7 +27,7 @@ export async function createRetentionAccessLog(
       approvalReference: input.approvalReference,
       purpose: input.purpose,
       result: input.result,
-      disclosedFields: input.disclosedFields as Prisma.InputJsonValue,
+      disclosedFields: input.disclosedFields,
       logRetentionHoldUntil: logRetentionHoldUntil ?? undefined,
       createdAt,
     },

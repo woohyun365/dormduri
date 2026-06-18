@@ -19,7 +19,7 @@ import {
 } from '../../seasons/ports/season-context.port.js';
 import { chatErrors } from '../errors/chat.errors.js';
 import type { ChatUserContext } from '../application/chat-user-context.service.js';
-import { parseLifestyleOrNull } from '../../profiles/profile.mapper.js';
+import { parseLifestyleOrNull } from '../../profiles/contracts/public-profile.presenter.js';
 import type {
   ChatParticipantUserProjection,
   ThreadRecord,

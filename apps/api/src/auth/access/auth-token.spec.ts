@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import { resolveBearerAuthToken } from './auth-token.js';
 
 describe('resolveBearerAuthToken', () => {

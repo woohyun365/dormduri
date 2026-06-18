@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hash as argonHash } from '@node-rs/argon2';
 import { login } from './login.command.js';
 import type { AuthSecurityEventInput } from '../security-events/auth-security-event.types.js';
@@ -14,19 +15,21 @@ const hashPasswordForTest = (password: string) =>
 describe('login command', () => {
   const prisma = {
     user: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
   };
   const loginAttemptService = {
-    getActiveLock: jest.fn(),
-    clearFailures: jest.fn(),
-    recordLoginFailure: jest.fn(),
+    getActiveLock: vi.fn(),
+    clearFailures: vi.fn(),
+    recordLoginFailure: vi.fn(),
   };
   const sessionService = {
-    issueAuthResult: jest.fn(),
+    issueAuthResult: vi.fn(),
   };
   const securityEvents = {
-    recordSafely: jest.fn<Promise<void>, [AuthSecurityEventInput]>().mockResolvedValue(undefined),
+    recordSafely: vi
+      .fn<(arg0: AuthSecurityEventInput) => Promise<void>>()
+      .mockResolvedValue(undefined),
   };
 
   const deps = {
@@ -37,7 +40,7 @@ describe('login command', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     loginAttemptService.getActiveLock.mockResolvedValue(null);
     loginAttemptService.recordLoginFailure.mockResolvedValue({
       success: false,

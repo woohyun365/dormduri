@@ -40,6 +40,7 @@
 - `SeasonParticipantsService`는 provider-injected facade이며 direct dependency assembler가 아니다.
 - `season-participant-use-case.deps.ts`는 deps/type만 소유하고 DB-backed helper 구현은 owner-adjacent query files에 둔다.
 - `season-participants` production code는 concrete `DormitoriesService`를 import하지 않는다.
+- `season-participants` production code는 `matchRequest`를 직접 mutate하지 않는다. 참여 취소 시 pending match request cancellation은 `MATCH_PARTICIPANT_WITHDRAWAL_PORT`에 active transaction client를 전달해 matches owner가 수행한다.
 - `dormitories` production code는 `season-participants`를 import하지 않는다.
 - public target policy는 pure policy로 유지하고 Prisma/Nest provider를 import하지 않는다.
 - hidden/deactivated/withdrawn/expired/deleted/deidentified projection은 profile draft, dormitory selection, registration, public target/action에서 fail-closed다.
@@ -66,7 +67,7 @@
 - Dormitory selection behavior: `dormitory-selection/` plus `dormitories/selection-catalog/` port implementation.
 - Registration finalize behavior: `registration/`.
 - Registration account identity invariant mapping: `registration/season-registration-readiness.evaluator.ts`, `identity/account-identity-invariant.ts`, `platform/http/account-identity-invariant.error.ts`.
-- Deregistration behavior: `deregistration/`.
+- Deregistration behavior: `deregistration/`; chat thread withdrawal과 pending match request cancellation은 owner ports로 위임하고 같은 transaction 안에서 lifecycle event count만 기록한다.
 - Lifecycle event/backfill behavior: `lifecycle/`.
 - Public exposure/action policy: `public-target-policy/`.
 - Shared contract: `packages/shared/src/season/participation/**` and public imports from `@repo/shared/season/participation` or `@repo/shared/season`.
@@ -74,7 +75,7 @@
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/architecture/season-participants/season-participants-boundary.spec.ts \
   src/architecture/dormitories/dormitories-boundary.spec.ts \
   src/season-participants

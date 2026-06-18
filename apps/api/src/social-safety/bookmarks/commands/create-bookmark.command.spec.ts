@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '../../../generated/prisma/client.js';
 import { BookmarkPresenter } from '../presenters/bookmark.presenter.js';
 import { CreateBookmarkCommand } from './create-bookmark.command.js';
@@ -32,17 +33,17 @@ function makeUniqueError() {
 describe('CreateBookmarkCommand', () => {
   const tx = {};
   const prisma = {
-    getDatabaseNow: jest.fn(),
-    runSerializableTransaction: jest.fn(),
+    getDatabaseNow: vi.fn(),
+    runSerializableTransaction: vi.fn(),
   };
   const repository = {
-    findActiveByParticipant: jest.fn(),
-    findRestorableByParticipant: jest.fn(),
-    restore: jest.fn(),
-    create: jest.fn(),
+    findActiveByParticipant: vi.fn(),
+    findRestorableByParticipant: vi.fn(),
+    restore: vi.fn(),
+    create: vi.fn(),
   };
   const targetPolicyEvaluator = {
-    resolveCreateTarget: jest.fn(),
+    resolveCreateTarget: vi.fn(),
   };
 
   function command() {
@@ -55,7 +56,7 @@ describe('CreateBookmarkCommand', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(now);
     prisma.runSerializableTransaction.mockImplementation((callback: (txArg: unknown) => unknown) =>
       callback(tx),

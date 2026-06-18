@@ -42,7 +42,7 @@ Product domains may import HTTP platform helpers for normalized error bodies, ex
 ## Useful verification
 
 ```bash
-pnpm --dir apps/api exec jest --watchman=false --runInBand \
+pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% \
   src/platform/http \
   src/identity/account-identity-invariant.spec.ts \
   src/season-participants/registration

@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { ClearSeasonOverrideCommand } from './clear-season-override.command.js';
 import { UpdateSeasonOverrideCommand } from './update-season-override.command.js';
 
@@ -48,16 +49,16 @@ const afterOverride: TestSeasonOperationRecord = {
 function createRepository(after: TestSeasonOperationRecord = afterOverride) {
   const tx = { tx: true };
   const repository = {
-    transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(tx)),
-    findByCampusAndId: jest.fn().mockResolvedValueOnce(beforeSeason).mockResolvedValueOnce(after),
-    updateOverrideIfVersionMatches: jest.fn().mockResolvedValue({ count: 1 }),
-    clearOverrideIfVersionMatches: jest.fn().mockResolvedValue({ count: 1 }),
+    transaction: vi.fn((callback: (tx: unknown) => unknown) => callback(tx)),
+    findByCampusAndId: vi.fn().mockResolvedValueOnce(beforeSeason).mockResolvedValueOnce(after),
+    updateOverrideIfVersionMatches: vi.fn().mockResolvedValue({ count: 1 }),
+    clearOverrideIfVersionMatches: vi.fn().mockResolvedValue({ count: 1 }),
   };
   const auditRepository = {
-    append: jest.fn().mockResolvedValue({ id: 'audit-1' }),
+    append: vi.fn().mockResolvedValue({ id: 'audit-1' }),
   };
   const metrics = {
-    recordOperation: jest.fn(),
+    recordOperation: vi.fn(),
   };
 
   return { tx, repository, auditRepository, metrics };
@@ -68,7 +69,7 @@ describe('season override commands', () => {
     const { tx, repository, auditRepository, metrics } = createRepository();
     const command = new UpdateSeasonOverrideCommand(
       repository as never,
-      auditRepository as never,
+      auditRepository,
       metrics as never,
     );
 
@@ -116,7 +117,7 @@ describe('season override commands', () => {
     const { tx, repository, auditRepository, metrics } = createRepository(cleared);
     const command = new ClearSeasonOverrideCommand(
       repository as never,
-      auditRepository as never,
+      auditRepository,
       metrics as never,
     );
 
@@ -150,7 +151,7 @@ describe('season override commands', () => {
     const { repository, auditRepository, metrics } = createRepository();
     const command = new UpdateSeasonOverrideCommand(
       repository as never,
-      auditRepository as never,
+      auditRepository,
       metrics as never,
     );
 

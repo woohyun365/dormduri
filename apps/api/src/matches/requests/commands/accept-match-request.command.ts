@@ -88,6 +88,7 @@ export class AcceptMatchRequestCommand {
           participantAId: acceptanceContext.pairIdentity.pairMinParticipantId,
           participantBId: acceptanceContext.pairIdentity.pairMaxParticipantId,
           activeMatchId: activeMatchRecord.id,
+          sourceMatchRequestId: acceptedRequest.id,
         },
         now,
       );

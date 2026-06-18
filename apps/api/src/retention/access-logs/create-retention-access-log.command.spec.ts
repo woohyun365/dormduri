@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { createRetentionAccessLog } from './create-retention-access-log.command.js';
 
 type AccessLogCreateArgs = { data: Record<string, unknown> };
@@ -8,12 +9,18 @@ type ReviewJobUpdateArgs = { where: unknown; data: Record<string, unknown> };
 function createPrismaDouble() {
   return {
     retentionAccessLog: {
-      create: jest.fn<Promise<undefined>, [AccessLogCreateArgs]>().mockResolvedValue(undefined),
+      create: vi
+        .fn<(arg0: AccessLogCreateArgs) => Promise<undefined>>()
+        .mockResolvedValue(undefined),
     },
     retentionReviewJob: {
-      findUnique: jest.fn<Promise<null>, [ReviewJobFindUniqueArgs]>().mockResolvedValue(null),
-      create: jest.fn<Promise<undefined>, [ReviewJobCreateArgs]>().mockResolvedValue(undefined),
-      update: jest.fn<Promise<undefined>, [ReviewJobUpdateArgs]>().mockResolvedValue(undefined),
+      findUnique: vi.fn<(arg0: ReviewJobFindUniqueArgs) => Promise<null>>().mockResolvedValue(null),
+      create: vi
+        .fn<(arg0: ReviewJobCreateArgs) => Promise<undefined>>()
+        .mockResolvedValue(undefined),
+      update: vi
+        .fn<(arg0: ReviewJobUpdateArgs) => Promise<undefined>>()
+        .mockResolvedValue(undefined),
     },
   };
 }

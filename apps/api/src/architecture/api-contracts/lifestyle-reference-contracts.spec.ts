@@ -1,3 +1,4 @@
+import { describe, expect, it } from 'vitest';
 import {
   CORE_LIFESTYLE_FIELDS,
   lifestyleSchema,

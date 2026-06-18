@@ -1,3 +1,4 @@
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { dismissOnboardingNotice } from './onboarding-notice.repository.js';
 
@@ -21,7 +22,7 @@ type DismissedNoticeUpsertArgs = {
 function createClient() {
   return {
     userDismissedNotice: {
-      upsert: jest.fn(),
+      upsert: vi.fn(),
     },
   };
 }
@@ -36,9 +37,8 @@ describe('onboarding notice repository', () => {
       dismissedAt: NOW,
     });
 
-    const upsertMock = client.userDismissedNotice.upsert as jest.Mock<
-      unknown,
-      [DismissedNoticeUpsertArgs]
+    const upsertMock = client.userDismissedNotice.upsert as Mock<
+      (arg0: DismissedNoticeUpsertArgs) => unknown
     >;
     const [upsertArgs] = upsertMock.mock.calls[0]!;
     expect(upsertArgs).toEqual({

@@ -1,12 +1,8 @@
 import { z } from 'zod';
 import { campusSchema, genderSchema } from '../../identity/primitives.js';
 import { userAcademicIdentitySchema } from '../../user/identity/academic.js';
-import {
-  emailSchema,
-  nicknameSchema,
-  passwordSchema,
-  verificationCodeSchema,
-} from './primitives.js';
+import { displayIdentityNicknameSchema } from '../../user/identity/display.js';
+import { emailSchema, passwordSchema, verificationCodeSchema } from './primitives.js';
 
 export const emailRequestSchema = z.strictObject({
   email: emailSchema,
@@ -26,14 +22,14 @@ export const loginRequestSchema = z.strictObject({
 export const signupDraftValidationRequestSchema = z.strictObject({
   email: emailSchema,
   password: passwordSchema,
-  nickname: nicknameSchema,
+  nickname: displayIdentityNicknameSchema,
 });
 
 export const signupRequestSchema = z
   .strictObject({
     email: emailSchema,
     password: passwordSchema,
-    nickname: nicknameSchema,
+    nickname: displayIdentityNicknameSchema,
     gender: genderSchema,
     campus: campusSchema,
   })

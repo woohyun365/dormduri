@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
+import {
+  DOMAIN_METRICS_PORT,
+  recordDomainMetricSafely,
+  type DomainMetricsPort,
+} from '../../platform/observability/metrics/domain-metrics.port.js';
 import type { AuthRedisGateEvaluation } from './auth-redis-gate.policy.js';
 
 export interface AuthCleanupMetricsInput {
@@ -52,6 +57,12 @@ function addDeletedCounts(
 
 @Injectable()
 export class AuthOperationalMetricsService {
+  constructor(
+    @Optional()
+    @Inject(DOMAIN_METRICS_PORT)
+    private readonly domainMetrics?: DomainMetricsPort,
+  ) {}
+
   private totalDeleted = emptyDeletedCounts();
   private lastDeletedCounts = emptyDeletedCounts();
   private lastCleanupLagSeconds = 0;
@@ -65,15 +76,43 @@ export class AuthOperationalMetricsService {
     this.lastDeletedCounts = { ...input.deletedCounts };
     this.lastCleanupLagSeconds = input.cleanupLagSeconds;
     this.lastRanAt = input.ranAt.toISOString();
+    recordDomainMetricSafely(this.domainMetrics, (metrics) => {
+      const deletedCountEntries = Object.entries(input.deletedCounts) as Array<
+        [keyof AuthCleanupDeletedCounts, number]
+      >;
+      for (const [target, value] of deletedCountEntries) {
+        metrics.incrementCounter({
+          name: 'api_auth_cleanup_deleted_total',
+          labels: { target },
+          value,
+        });
+      }
+      metrics.setGauge({
+        name: 'api_auth_cleanup_lag_seconds',
+        value: input.cleanupLagSeconds,
+      });
+    });
   }
 
   recordCleanupFailure(input: { now: Date }) {
     this.totalFailures += 1;
     this.lastFailureAt = input.now.toISOString();
+    recordDomainMetricSafely(this.domainMetrics, (metrics) =>
+      metrics.incrementCounter({ name: 'api_auth_cleanup_failures_total' }),
+    );
   }
 
   recordRedisGate(evaluation: AuthRedisGateEvaluation) {
     this.redisGate = evaluation;
+    recordDomainMetricSafely(this.domainMetrics, (metrics) => {
+      for (const state of ['postgres_authoritative', 'redis_candidate'] as const) {
+        metrics.setGauge({
+          name: 'api_auth_redis_gate_state',
+          labels: { state },
+          value: state === evaluation.decision ? 1 : 0,
+        });
+      }
+    });
   }
 
   snapshot(): AuthOperationsMetricsSnapshot {
