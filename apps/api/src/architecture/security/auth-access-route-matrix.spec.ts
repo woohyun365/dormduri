@@ -167,6 +167,13 @@ const expectedRoutes: ExpectedRoute[] = [
   },
   {
     controller: HealthController,
+    handler: 'getLive',
+    method: RequestMethod.GET,
+    path: 'health/live',
+    access: 'public',
+  },
+  {
+    controller: HealthController,
     handler: 'getReadiness',
     method: RequestMethod.GET,
     path: 'health/ready',

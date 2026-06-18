@@ -172,10 +172,10 @@ DB 계층에서는 최소 권한 원칙을 별도 credential로 보강한다. `a
 
 | 날짜       | 변경 내용                                                                                                                                                                          | 관련 이슈         |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| 2026-05-26 | RRPD 보호 기준에 DB role 기반 최소 권한(`app_runtime`/`retention_worker`/`retention_disclosure`)과 lifecycle observability/alerting의 법적 안전조치 해석을 추가                    | #195              |
-| 2026-05-26 | BE/DB 최종 구조에 맞춰 retained payload disclosure 로그 명칭을 `RetentionAccessLog`로 정합화하고, active account/profile 식별 정보와 retained identity anchor의 법적 경계를 최신화 | #195              |
-| 2026-05-25 | RRPD retained vault(`RetainedVaultObject`)의 법적 기준을 추가하고, 파기/분리 보관·안전조치·처리방침 공개·접근로그 요구를 nickname/profile/match/chat payload까지 확장              | #195              |
 | 2026-03-16 | 신규 작성                                                                                                                                                                          | #153              |
 | 2026-03-17 | 처리방침(privacy.ts) 접속기록 보유 대상을 "관리자/취급자"로 명확화                                                                                                                 | #147              |
 | 2026-05-04 | 법적 보존/분쟁 대응 보존 매핑과 보존 근거 우선순위 해석을 보강                                                                                                                     | #195              |
 | 2026-05-14 | retained identity 제한 조회의 국내법 기준(분리 저장·접근자 최소화·접근기록·처리방침 공개·암호키 기반 임시 식별)을 추가                                                             | #76 / #148 / #195 |
+| 2026-05-25 | RRPD retained vault(`RetainedVaultObject`)의 법적 기준을 추가하고, 파기/분리 보관·안전조치·처리방침 공개·접근로그 요구를 nickname/profile/match/chat payload까지 확장              | #195              |
+| 2026-05-26 | BE/DB 최종 구조에 맞춰 retained payload disclosure 로그 명칭을 `RetentionAccessLog`로 정합화하고, active account/profile 식별 정보와 retained identity anchor의 법적 경계를 최신화 | #195              |
+| 2026-05-26 | RRPD 보호 기준에 DB role 기반 최소 권한(`app_runtime`/`retention_worker`/`retention_disclosure`)과 lifecycle observability/alerting의 법적 안전조치 해석을 추가                    | #195              |

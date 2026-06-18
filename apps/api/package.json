@@ -49,9 +49,16 @@
     "stress:realtime:peak": "node test/stress/realtime/artillery/run-artillery-scenario.mjs peak-500",
     "stress:docker:smoke": "node test/stress/docker/run-dockerized-smoke.mjs",
     "stress:docker:production-like": "node test/stress/docker/run-production-like-evidence.mjs",
-    "stress:docker:237-ramp": "node test/stress/docker/run-237-ramp-decision.mjs"
+    "stress:docker:237-ramp": "node test/stress/docker/run-237-ramp-decision.mjs",
+    "secrets:inventory": "node --no-deprecation --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/config/secrets/secret-inventory.cli.ts",
+    "db:deploy:migrate": "../../infra/db/migrate-deploy.sh",
+    "db:deploy:role-grants": "../../infra/db/apply-role-grants.sh",
+    "db:deploy:smoke": "../../infra/db/smoke-role-grants.sh",
+    "db:restore-drill:smoke": "../../infra/db/restore-drill-smoke.sh"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1070.0",
+    "@aws-sdk/client-sesv2": "^3.1070.0",
     "@nestjs/common": "^11.1.26",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.26",

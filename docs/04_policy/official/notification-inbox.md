@@ -103,6 +103,6 @@ User-facing 알림은 “상태가 바뀌었다/확인할 항목이 있다”를
 
 | 날짜       | 변경 내용                                                                                                      | 관련 이슈   |
 | ---------- | -------------------------------------------------------------------------------------------------------------- | ----------- |
-| 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220  |
-| 2026-06-08 | `PROFILE_MISMATCH_FEEDBACK`, read-all, bounded campaign, operator alert 분리/disabled sink baseline을 추가했다 | #220 / #196 |
 | 2026-06-08 | in-app notification primary, Push 제외, generic writer/outbox, payload privacy baseline을 추가했다             | #196 / #220 |
+| 2026-06-08 | `PROFILE_MISMATCH_FEEDBACK`, read-all, bounded campaign, operator alert 분리/disabled sink baseline을 추가했다 | #220 / #196 |
+| 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220  |

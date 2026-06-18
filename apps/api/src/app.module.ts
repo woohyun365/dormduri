@@ -22,8 +22,11 @@ import authConfig from './config/auth.config.js';
 import authOperationsConfig from './config/auth-operations.config.js';
 import chatRealtimeConfig from './config/chat-realtime.config.js';
 import databaseConfig from './config/database.config.js';
+import emailConfig from './config/email.config.js';
+import httpConfig from './config/http.config.js';
 import lifecycleConfig from './config/lifecycle.config.js';
 import observabilityConfig from './config/observability.config.js';
+import secretSourceConfig from './config/secret-source.config.js';
 import { envValidationSchema } from './config/env.validation.js';
 import { ObservabilityModule } from './platform/observability/observability.module.js';
 
@@ -38,8 +41,11 @@ import { ObservabilityModule } from './platform/observability/observability.modu
         authOperationsConfig,
         chatRealtimeConfig,
         databaseConfig,
+        emailConfig,
+        httpConfig,
         lifecycleConfig,
         observabilityConfig,
+        secretSourceConfig,
       ],
       validationSchema: envValidationSchema,
       validationOptions: {

@@ -148,5 +148,5 @@ Lifecycle event metadata는 allowlist 기반 pointer만 저장한다.
 
 | 날짜       | 변경 내용                                                                                                                                                                   | 관련 이슈          |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 2026-06-12 | `ConversationThread` current row, lifecycle event trace, realtime outbox, retention workflow state의 책임 경계를 분리하고, lifecycle event metadata privacy 기준을 추가했다 | #228               |
 | 2026-06-08 | official policy set의 누락된 chat lifecycle source-of-truth를 추가하고 block/report/notification/retention 경계를 Phase 0 baseline에 맞춰 정리했다                          | #196 / #198 / #220 |
+| 2026-06-12 | `ConversationThread` current row, lifecycle event trace, realtime outbox, retention workflow state의 책임 경계를 분리하고, lifecycle event metadata privacy 기준을 추가했다 | #228               |
