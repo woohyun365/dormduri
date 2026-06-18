@@ -1,25 +1,19 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
-import nextVitals from 'eslint-config-next/core-web-vitals';
-import nextTs from 'eslint-config-next/typescript';
-import prettier from 'eslint-config-prettier/flat';
 
-import shared from '@repo/eslint-config/flat';
+import next from '@repo/eslint-config/next';
+import playwright from '@repo/eslint-config/playwright';
+import vitest from '@repo/eslint-config/vitest';
 
 const eslintConfig = defineConfig([
-  ...nextVitals,
-  ...nextTs,
-
-  // 공통 룰(override 최소)
-  ...shared,
-
-  // Prettier 충돌 룰 OFF
-  prettier,
+  ...next,
+  ...vitest,
+  ...playwright,
 
   {
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['eslint.config.mjs'],
+          allowDefaultProject: ['eslint.config.mjs', 'postcss.config.mjs', 'vitest.config.ts'],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -31,15 +25,41 @@ const eslintConfig = defineConfig([
     },
   },
 
+  {
+    files: ['src/**/*.{test,spec}.{ts,tsx}', 'src/**/__tests__/**/*.{ts,tsx}', 'src/test-setup.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: './tsconfig.test.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+
+  {
+    files: ['playwright.config.ts', 'e2e/**/*.ts', 'tests/e2e/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: './tsconfig.e2e.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
     '.next/**',
     'out/**',
     'build/**',
+    'coverage/**',
     'next-env.d.ts',
     // Test fixtures are dev-only data; exclude from lint
     'src/__fixtures__/**',
+    // Playwright runtime artifacts are regenerated locally/CI.
+    'playwright-report/**',
+    'test-results/**',
   ]),
 ]);
 

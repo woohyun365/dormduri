@@ -1,8 +1,9 @@
+import type { Route } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 interface LandingPrimaryCtaLinkProps {
-  href: string;
+  href: Route;
   children: ReactNode;
 }
 

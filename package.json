@@ -1,7 +1,7 @@
 {
   "name": "knu-roommate",
   "private": true,
-  "packageManager": "pnpm@10.34.3",
+  "packageManager": "pnpm@11.7.0",
   "engines": {
     "node": ">=24 <25"
   },
@@ -15,6 +15,12 @@
     "api:build": "pnpm --dir apps/api exec nest build",
     "api:test": "pnpm --dir apps/api test",
     "api:test:integration": "pnpm --dir apps/api test:integration",
+    "web:lint": "pnpm --dir apps/web lint",
+    "web:typecheck": "pnpm --dir apps/web typecheck",
+    "web:test": "pnpm --dir apps/web test",
+    "web:test:coverage": "pnpm --dir apps/web test:coverage",
+    "web:build": "pnpm --dir apps/web build",
+    "check:web": "pnpm web:lint && pnpm web:typecheck && pnpm web:test && pnpm web:build",
     "check:fast": "pnpm lint-staged",
     "check:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm shared:lint && pnpm api:lint && pnpm shared:typecheck && pnpm api:typecheck",
     "build:api": "pnpm shared:build && pnpm api:prisma:generate && pnpm api:build",
@@ -29,23 +35,25 @@
     "db:push": "pnpm --dir apps/api exec prisma db push --schema prisma/schema.prisma",
     "db:seed": "pnpm --dir apps/api exec prisma db seed --schema prisma/schema.prisma",
     "format": "prettier . -w",
-    "check": "pnpm check:api && prettier . -c",
+    "check": "pnpm check:api && pnpm check:web && prettier . -c",
     "prepare": "husky",
     "api:db:deploy:migrate": "pnpm --dir apps/api db:deploy:migrate",
     "api:db:deploy:role-grants": "pnpm --dir apps/api db:deploy:role-grants",
     "api:db:deploy:smoke": "pnpm --dir apps/api db:deploy:smoke",
-    "api:db:restore-drill:smoke": "pnpm --dir apps/api db:restore-drill:smoke"
+    "api:db:restore-drill:smoke": "pnpm --dir apps/api db:restore-drill:smoke",
+    "web:typecheck:e2e": "pnpm --dir apps/web typecheck:e2e",
+    "web:e2e": "pnpm --dir apps/web e2e"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/tsconfig": "workspace:*",
-    "@typescript-eslint/eslint-plugin": "^8.61.0",
-    "@typescript-eslint/parser": "^8.61.0",
-    "eslint": "^9.39.2",
-    "eslint-config-next": "16.1.4",
-    "eslint-config-prettier": "^10.1.8",
+    "@typescript-eslint/eslint-plugin": "catalog:",
+    "@typescript-eslint/parser": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-next": "catalog:",
+    "eslint-config-prettier": "catalog:",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "prettier": "^3.8.1"
+    "prettier": "catalog:"
   }
 }

@@ -84,8 +84,8 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.2.0",
-    "@eslint/js": "^9.18.0",
+    "@eslint/eslintrc": "catalog:",
+    "@eslint/js": "catalog:",
     "@nestjs/cli": "^11.0.21",
     "@nestjs/schematics": "^11.1.0",
     "@nestjs/testing": "^11.1.26",
@@ -97,22 +97,22 @@
     "@types/node": "^24.13.2",
     "@types/pg": "^8.15.6",
     "@types/supertest": "^7.2.0",
-    "@vitest/coverage-v8": "^4.1.8",
-    "eslint": "^9.18.0",
-    "eslint-config-prettier": "^10.0.1",
-    "eslint-plugin-prettier": "^5.2.2",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "eslint-plugin-prettier": "catalog:",
     "globals": "^16.0.0",
-    "prettier": "^3.4.2",
+    "prettier": "catalog:",
     "prisma": "^7.8.0",
     "source-map-support": "^0.5.21",
     "supertest": "^7.2.2",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.0",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
     "unplugin-swc": "^1.5.9",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.8"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }

@@ -1,7 +1,12 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  createBffRequest as createRequest,
+  firstFetchInit,
+  firstFetchInput,
+  stubJsonFetch,
+} from '../../../test/bff-route';
 import { GET as getBookmarks } from '../bookmarks/route';
 import {
   DELETE as deleteBookmark,
@@ -21,33 +26,6 @@ import { POST as markAllNotificationsRead } from '../notifications/read-all/rout
 import { POST as markNotificationRead } from '../notifications/[notificationId]/read/route';
 
 const AUTH_TOKEN = `v1.session-social-safety.${'a'.repeat(43)}`;
-
-function createRequest(path: string, init: ConstructorParameters<typeof NextRequest>[1] = {}) {
-  return new NextRequest(`http://localhost${path}`, init);
-}
-
-function stubJsonFetch(json: Record<string, unknown>, status = 200) {
-  const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
-    return new Response(JSON.stringify(json), {
-      status,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  });
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
-}
-
-function firstFetchInput(fetchMock: ReturnType<typeof stubJsonFetch>): string {
-  const input = fetchMock.mock.calls[0]?.[0];
-  if (!input) throw new Error('fetch was not called');
-  return String(input);
-}
-
-function firstFetchInit(fetchMock: ReturnType<typeof stubJsonFetch>): RequestInit {
-  const init = fetchMock.mock.calls[0]?.[1];
-  if (!init) throw new Error('fetch init was not provided');
-  return init;
-}
 
 describe('social-safety/support/notification BFF forwarding routes', () => {
   afterEach(() => {

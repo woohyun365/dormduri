@@ -1,15 +1,94 @@
-import { describe, expect, it } from 'vitest';
-import { buildJsonResponse, setAuthCookie, setAuthTransportCookies } from '../_shared';
+import { NextRequest } from 'next/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  buildJsonResponse,
+  forwardAuthRequest,
+  getForwardHeaders,
+  setAuthCookie,
+  setAuthTransportCookies,
+} from '../_shared';
 
 const ACCESS_TOKEN = `v1.session-access.${'c'.repeat(43)}`;
 const RENEWAL_TOKEN = `v1.session-renewal.${'d'.repeat(43)}`;
 
 describe('auth BFF shared helpers', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('upstream status를 보존한다', async () => {
     const upstream = new Response(JSON.stringify({ success: false }), { status: 429 });
     const response = buildJsonResponse(upstream, { success: false });
 
     expect(response.status).toBe(429);
+  });
+
+  it('auth upstream path는 /auth prefix 밖으로 나가지 않는다', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { response, json } = await forwardAuthRequest('GET', '/api/bookmarks');
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(502);
+    expect(json).toEqual({ success: false, code: 'BFF_UPSTREAM_URL_INVALID' });
+  });
+
+  it('malformed upstream JSON은 safe auth BFF response로 변환한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        return new Response('{"accessToken":"must-not-leak"', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }),
+    );
+
+    const { response, json } = await forwardAuthRequest('GET', '/auth/session');
+
+    expect(response.status).toBe(502);
+    expect(json).toEqual({ success: false, code: 'BFF_UPSTREAM_MALFORMED_JSON_RESPONSE' });
+  });
+
+  it('request sensitive headers는 전달하지 않고 extra Authorization만 명시적으로 허용한다', () => {
+    const request = new NextRequest('http://localhost/api/auth/session', {
+      headers: {
+        Authorization: 'Bearer caller-token',
+        Cookie: `auth-token=${ACCESS_TOKEN}`,
+        'x-api-key': 'caller-api-key',
+        'x-forwarded-for': '203.0.113.30',
+        'user-agent': 'vitest',
+      },
+    });
+
+    expect(
+      getForwardHeaders(request, {
+        Authorization: `Bearer ${ACCESS_TOKEN}`,
+        Cookie: 'must-not-forward',
+        'x-api-key': 'must-not-forward',
+      }),
+    ).toEqual({
+      Authorization: `Bearer ${ACCESS_TOKEN}`,
+      'x-forwarded-for': '203.0.113.30',
+      'user-agent': 'vitest',
+    });
+  });
+
+  it('buildJsonResponse는 token-like fields를 response body에서 제거한다', async () => {
+    const response = buildJsonResponse(new Response('{}', { status: 400 }), {
+      success: false,
+      error: 'invalid',
+      accessToken: 'must-not-leak',
+      renewalToken: 'must-not-leak',
+      nested: { authorization: 'must-not-leak', safe: true },
+    });
+
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: 'invalid',
+      nested: { safe: true },
+    });
   });
 
   it('rememberMe 미체크 시 session cookie를 설정한다', () => {

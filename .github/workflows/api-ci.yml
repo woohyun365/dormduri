@@ -49,7 +49,7 @@ jobs:
       - name: Enable pnpm through Corepack
         run: |
           corepack enable
-          corepack prepare pnpm@10.34.3 --activate
+          corepack prepare pnpm@11.7.0 --activate
           pnpm --version
 
       - name: Install dependencies

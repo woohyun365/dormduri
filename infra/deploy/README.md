@@ -1,6 +1,6 @@
 # API production deploy compose
 
-`infra/deploy`는 Web/Next.js를 제외한 **BE API + nginx** production-like 배포 단위를 정의한다. Local 개발 DB는 root `docker-compose.dev.yml`이 담당하고, 이 compose는 RDS/Managed PostgreSQL endpoint를 env로 받아 실행한다.
+`infra/deploy`는 Web/Next.js를 제외한 **BE API + nginx** production-like 배포 단위를 정의한다. Local 개발 DB는 root `docker-compose.dev.yml`이 담당하고, 이 compose는 RDS/Managed PostgreSQL endpoint를 env로 받아 실행한다. Web production deploy는 별도 Docker/ingress/CDN/runbook 설계가 필요한 범위이며, 이 디렉터리는 API ingress와 release smoke만 소유한다.
 
 ## 구조
 
@@ -33,7 +33,7 @@ Secrets Manager materialization 절차는 sibling 문서 `infra/aws/secrets-mana
 ## 사전 조건
 
 - Node runtime baseline: `node >=24 <25`
-- Package manager baseline: `pnpm@10.34.3`
+- Package manager baseline: `pnpm@11.7.0`
 - Docker build context는 repo root다. API가 `@repo/shared` workspace package와 Prisma generated client를 필요로 하기 때문이다.
 - Docker image build는 DB에 접속해 `prisma generate --sql`을 실행하지 않는다. Release workspace에서 `apps/api/src/generated/prisma`가 최신인지 먼저 확인한다.
 - `DATABASE_URL`, `DIRECT_URL`, retention 전용 DB URL, cursor/HMAC secret, `LOG_HASH_SECRET`, `METRICS_BEARER_TOKEN`, `EMAIL_PROVIDER`, `SES_*`, `SECRET_SOURCE`, `SECRET_NAME_PREFIX`, `HTTP_*` 값은 private `.env.api` 또는 AWS Secrets Manager materialization 경로로만 주입한다.
@@ -210,6 +210,19 @@ nginx는 다음 path만 API upstream으로 넘긴다.
 TLS example에서도 위 route boundary, WebSocket `Upgrade`/`Connection` forwarding, metrics private allowlist를 유지한다.
 
 `/internal/metrics`를 public internet에 직접 열지 않는다. allowlist는 `nginx/snippets/internal-metrics-allowlist.conf`에서 private/VPN/observability subnet만 추가한다.
+
+## Web / Next.js deploy boundary
+
+Web CI/test/config 기준은 `docs/07_tech/frontend/web-infra-ci-test-config.md`가 소유한다. `apps/web/next.config.ts`의 `output: 'standalone'`과 Playwright standalone smoke는 future Web runtime image 설계를 위한 근거일 뿐, 이 compose가 Web production deploy를 제공한다는 뜻은 아니다.
+
+Web production deploy를 추가할 때는 이 API compose에 암묵적으로 끼워 넣지 않고, 아래 책임을 별도 설계/검증 단위로 다룬다.
+
+- `infra/deploy/web/Dockerfile` 또는 동등한 standalone runtime image.
+- `infra/deploy/docker-compose.web.yml` 신규 생성 또는 API compose 확장 여부 결정.
+- nginx route 분리: `/api`, `/auth`, `/socket.io`, health/metrics는 API upstream, Web route/static asset은 Web upstream 또는 CDN origin.
+- static asset cache header, TLS/domain/CDN, rollback, release smoke script.
+- Web deploy GitHub Actions workflow, environment approval, OIDC, smoke evidence artifact.
+- Web Vitals/RUM ingestion과 API observability stack 연결 여부.
 
 ## Logs / rollback / cleanup
 

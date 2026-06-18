@@ -16,6 +16,15 @@ import type {
   VerifyCodeResponse,
 } from '@repo/shared/auth/response';
 import { validateKnuEmailFormat, validatePasswordStructure } from '@repo/shared/auth/policy';
+import type { LifestyleData } from '@/types/lifestyle';
+
+type SignupFormRequest = Pick<
+  SignupRequest,
+  'email' | 'password' | 'nickname' | 'gender' | 'campus'
+> & {
+  lifestyle?: LifestyleData;
+  intro?: string;
+};
 
 async function requestJson<T>(
   path: string,
@@ -100,7 +109,7 @@ export const authApi = {
     return authApi.validateSignupDraft(data);
   },
 
-  signup: async (data: SignupRequest): Promise<SignupResponse> => {
+  signup: async (data: SignupFormRequest): Promise<SignupResponse> => {
     const passwordErr = validatePasswordStructure(data.password, data.email);
     if (passwordErr) {
       return { success: false, error: passwordErr };

@@ -5,3 +5,6 @@
 **/coverage/**
 **/*.log
 pnpm-lock.yaml
+
+# Next.js generated typing artifact; Next rewrites quote style during build.
+**/next-env.d.ts
