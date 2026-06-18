@@ -1,6 +1,6 @@
 # Web App
 
-Next.js 기반 사용자 화면입니다. Web 변경은 API 데이터베이스나 Prisma 생성물 없이도 자체 CI 게이트를 통과해야 합니다.
+Next.js 기반 사용자 화면입니다. Web 변경은 API 데이터베이스나 Prisma 생성물 없이도 자체 CI 게이트를 통과해야 합니다. 상세 기준은 `docs/07_tech/frontend/web-infra-ci-test-config.md`를 source of truth로 봅니다.
 
 ## Local gate
 
@@ -19,10 +19,10 @@ pnpm check:web
 - `web:lint`: Web ESLint 규칙과 Next.js lint 구성을 확인합니다.
 - `web:typecheck`: shared package를 빌드한 뒤 Web product/test/e2e TypeScript 타입을 각각 확인합니다.
 - `web:test`: Vitest 기반 컴포넌트/훅/BFF route 테스트를 실행합니다.
-- `web:test:coverage`: Vitest coverage report(`apps/web/coverage/`)를 생성해 테스트 범위를 확인합니다.
+- `web:test:coverage`: Vitest coverage report(`apps/web/coverage/`)를 생성합니다.
 - `web:build`: shared package 빌드 후 Next.js production build를 실행합니다.
-- `web:e2e`: Playwright Chromium으로 production-like `next build` + standalone server browser smoke를 실행합니다.
-- `check:web`: Web PR gate와 같은 순서로 lint, typecheck, test, build를 실행합니다.
+- `web:e2e`: Playwright Chromium으로 production-like standalone browser smoke를 실행합니다.
+- `check:web`: Web PR 기본 gate와 같은 순서로 lint, typecheck, test, build를 실행합니다.
 
 Playwright browser가 로컬에 없으면 먼저 아래 명령을 실행합니다.
 
@@ -37,44 +37,19 @@ pnpm --dir apps/web exec playwright install chromium
 - Web CI는 DB service 없이 실행되므로 API 통합 검증은 API CI에서 담당합니다.
 - Web Playwright smoke도 Web-only 경계입니다. 실제 로그인 사용자/API-backed journey는 API 서버와 DB를 함께 띄우는 별도 full-stack E2E에서 다룹니다.
 
-## Next.js production-readiness baseline
+## Runtime and test references
 
-- `next.config.ts`는 `typedRoutes: true`로 내부 route drift를 TypeScript gate에서 먼저 드러냅니다. 외부 URL, `tel:`, `mailto:` 링크는 Next route 타입 대상이 아니므로 기존 anchor semantics를 유지합니다.
-- Web build는 `output: 'standalone'`으로 self-hosting/Docker runtime 후보에 필요한 `.next/standalone/` artifact를 생성합니다. 로컬에서는 `pnpm web:build` 후 아래 명령으로 artifact 존재를 확인할 수 있습니다.
+- Next production config: `apps/web/next.config.ts`
+- Runtime env parser: `apps/web/src/config/env.schema.ts`, `apps/web/src/config/env.ts`
+- BFF proxy/security helper: `apps/web/src/app/api/_bff/security.ts`, `apps/web/src/app/api/_bff/forward.ts`
+- Vitest config/setup: `apps/web/vitest.config.ts`, `apps/web/src/test-setup.ts`
+- Playwright config/spec: `apps/web/playwright.config.ts`, `apps/web/e2e/*`
+- Web Vitals seam: `apps/web/src/observability/*`
 
-```bash
-test -d apps/web/.next/standalone && echo "standalone artifact ready"
-```
-
-- standalone runtime은 `node .next/standalone/apps/web/server.js`로 실행합니다. 이때 `.next/static`과 `public` asset도 standalone tree에 함께 둬야 browser smoke가 실제 runtime과 같은 조건에서 통과합니다.
-- `experimental.webVitalsAttribution`은 CLS/INP/LCP 원인 분석에 필요한 browser-side attribution collection을 켭니다. 실제 외부 analytics 전송은 이 앱에 포함하지 않습니다.
-- Web Vitals reporter는 `src/observability/`에 두며, metric 이름/값과 attribution key 목록만 남깁니다. DOM selector, URL, element text 같은 attribution value는 전송하지 않습니다.
-- 로컬 디버그 로그가 필요할 때만 `NEXT_PUBLIC_WEB_VITALS_DEBUG=1`을 설정합니다. 기본값은 no-op입니다.
-- React Compiler는 기본 활성화하지 않습니다. 현재 단계는 typed route/build/E2E/Web Vitals gate로 나중에 측정 기반으로 켤 수 있는 준비 상태를 만드는 범위입니다.
-
-## Runtime env and BFF security baseline
-
-| Key                   | Runtime               | Required                       | Default                           | Notes                                                                                                                                 |
-| --------------------- | --------------------- | ------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `API_URL`             | server only           | production: yes / dev,test: no | dev,test: `http://localhost:4000` | BFF upstream base URL입니다. production runtime에서는 누락되거나 `localhost`, `127.0.0.1`, `0.0.0.0`, `::1`로 향하면 fail-fast합니다. |
-| `NEXT_PUBLIC_APP_URL` | server/browser public | production: yes / dev,test: no | dev,test: `http://localhost:3000` | absolute `http(s)` URL만 허용합니다. production runtime에서는 local fallback을 허용하지 않습니다.                                     |
-| `NEXT_PUBLIC_API_URL` | browser public        | no                             | `/api`                            | browser-facing API base입니다. 기본값은 same-origin BFF path이며, absolute external URL은 명시적으로 설정한 경우에만 허용합니다.      |
-
-- Env parsing은 `src/config/env.schema.ts`에 두고, runtime singleton은 `src/config/env.ts`에서만 노출합니다. 테스트는 pure parser를 직접 호출해 production misconfig를 검증합니다.
-- Generic BFF helper는 `/api/*`, auth BFF helper는 `/auth/*` upstream path만 조합합니다. helper가 prefix 밖 path나 absolute/open-proxy 형태 path를 받으면 upstream fetch를 수행하지 않고 safe error response로 닫습니다.
-- Forwarded request headers는 `x-forwarded-for`, `user-agent`, JSON `Content-Type`, cookie-derived `Authorization`만 유지합니다. Caller-supplied `cookie`, `authorization`, `x-api-key`, `host`, `content-length` 계열 header는 upstream을 덮어쓰지 못합니다.
-- Upstream JSON parse 실패 또는 non-JSON body는 token/secret 값을 그대로 노출하지 않고 safe BFF error shape로 변환합니다. Auth success token rotation은 response body가 아니라 httpOnly cookie transport로만 유지합니다.
-- Route별 full response allowlist redesign, CSRF/rate-limit/WAF/browser security header 전면 설계는 feature/security plan 범위에서 다룹니다.
-
-## Test authoring
+## Authoring rules
 
 - 컴포넌트 테스트는 가능한 한 `getByRole`, `getByLabelText`, accessible name 기반 query를 우선 사용합니다.
 - `data-testid`는 role/name으로 표현하기 어려운 상태나 구조 검증에 한정합니다.
-- Web typecheck는 product code와 Vitest test code를 분리해 실행하므로, 테스트 전용 global/type은 `tsconfig.test.json`에만 둡니다.
-- Playwright E2E 타입은 `tsconfig.e2e.json`에만 둡니다. Browser smoke spec은 `apps/web/e2e/` 아래에 작성합니다.
-- 컴포넌트 테스트는 `src/test/render.tsx`의 `renderWithProviders`를 우선 사용합니다. 지금은 provider가 없는 pass-through wrapper지만, 라우터/전역 provider가 생기면 한 곳에서 확장합니다.
-- BFF route 테스트는 `src/test/bff-route.ts`의 `createBffRequest`, `stubJsonFetch`, `firstFetchInput`, `firstFetchInit` helper를 우선 사용해 cookie/auth forwarding 검증 모양을 맞춥니다.
-- `src/test-setup.ts`는 Testing Library matcher와 jsdom 공통 gap(`matchMedia`, `scrollTo`, `scrollIntoView`)을 제공합니다. 개별 테스트에서 같은 mock을 반복하지 않습니다.
-- `src/__fixtures__/`는 dev/test 전용 fixture와 mock service 위치입니다. Coverage report에서는 제외하고, shared contract나 fixture shape 변경은 `src/__fixtures__/__tests__/`의 focused regression test로 드러나게 합니다.
-- Playwright는 role/name locator를 우선 사용하고, failure artifact는 `apps/web/playwright-report/`, `apps/web/test-results/`에 생성합니다.
+- 컴포넌트 테스트는 `src/test/render.tsx`의 `renderWithProviders`를 우선 사용합니다.
+- BFF route 테스트는 `src/test/bff-route.ts`의 `createBffRequest`, `stubJsonFetch`, `firstFetchInput`, `firstFetchInit` helper를 우선 사용합니다.
 - 인증 상태 파일은 secret에 준하는 runtime artifact로 취급해 `apps/web/playwright/.auth/`에 저장하고 git에는 올리지 않습니다.

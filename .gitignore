@@ -58,6 +58,11 @@ references/figma/web/src/
 
 ## 문서 (위키로 관리)
 docs/*
+!docs/07_tech/
+docs/07_tech/*
+!docs/07_tech/frontend/
+docs/07_tech/frontend/*
+!docs/07_tech/frontend/web-infra-ci-test-config.md
 !docs/04_policy/
 docs/04_policy/*
 !docs/04_policy/official/
