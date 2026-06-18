@@ -74,6 +74,23 @@ Web CI는 DB service 없이 실행된다. `pnpm web:e2e`도 Web standalone artif
 
 API 서버, DB, 실사용 auth fixture가 필요한 end-to-end journey는 별도 full-stack E2E로 다룬다. Web feature 계획에서 API-backed 흐름이 핵심 acceptance라면 `pnpm web:e2e` 통과만으로 완료 처리하지 말고 API test/e2e 또는 별도 full-stack gate를 명시한다.
 
+## Web CI/test/config와 production deploy 경계
+
+이 문서는 Web 개발/검증 기준을 고정하지만, production deploy 구현을 제공하지 않는다. `.github/workflows/web-ci.yml`은 lint, typecheck, Vitest, build, Playwright smoke를 실행하는 PR/push gate이며, production environment 승인, OIDC role, image publish, rollout, rollback을 수행하지 않는다.
+
+현재 repo의 `infra/deploy`는 **BE API + nginx** production-like 배포 단위다. 해당 compose/nginx 설정은 `/api`, `/auth`, `/socket.io`, health, metrics 같은 API-owned path만 upstream으로 넘기며 Web/Next.js server나 CDN/static asset route를 포함하지 않는다.
+
+`apps/web/next.config.ts`의 `output: 'standalone'`은 future Web runtime image 후보를 검증하기 위한 artifact shape다. `.next/standalone`이 생성되고 Playwright smoke가 통과해도, Web Dockerfile/compose/nginx/CDN/TLS/domain/workflow/runbook이 구현되었다는 의미는 아니다.
+
+Future Web production deploy는 별도 계획에서 아래 책임을 결정한다.
+
+- `infra/deploy/web/Dockerfile`: `.next/standalone` 기반 runtime image와 static/public asset 복사 규칙.
+- Web compose 또는 API compose 확장 여부: API와 Web을 같은 host/nginx 뒤에 둘지, Web을 별도 host/CDN behind origin으로 둘지 결정.
+- nginx/CDN route: API path는 API upstream, Web route는 SSR/static upstream, immutable static asset은 cache header/CDN 정책으로 분리.
+- TLS/domain/redirect/HSTS/CSP/보안 header 소유 위치.
+- Web release smoke script와 GitHub Actions deploy workflow: environment approval, OIDC, image/artifact publish, smoke evidence upload.
+- Web observability: PII-safe Web Vitals/RUM ingestion endpoint 또는 외부 analytics 경로와 API observability stack 연결 여부.
+
 ## Runtime env와 BFF 보안 경계
 
 | Key                   | Runtime               | Required                       | Default                           | Notes                                                                                               |
