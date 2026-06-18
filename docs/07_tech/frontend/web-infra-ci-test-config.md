@@ -108,6 +108,7 @@ Future Web production deploy는 별도 계획에서 아래 책임을 결정한�
 
 ## Next.js production baseline
 
+- `apps/web/next-env.d.ts`는 tracked generated typing artifact다. Next.js build가 route type import quote style을 재작성하므로 Prettier 대상에서는 제외하고, 파일 내용은 Next generated output과 일치시킨다.
 - `apps/web/next.config.ts`는 `typedRoutes: true`로 내부 route drift를 TypeScript gate에서 드러낸다. 외부 URL, `tel:`, `mailto:` 링크는 Next route 타입 대상이 아니므로 anchor semantics를 유지한다.
 - Web build는 `output: 'standalone'`으로 self-hosting/Docker runtime 후보에 필요한 `.next/standalone/` artifact를 생성한다.
 - standalone runtime은 `node .next/standalone/apps/web/server.js`로 실행한다. `.next/static`과 `public` asset도 standalone tree에 함께 둬야 browser smoke가 실제 runtime과 같은 조건에서 통과한다.
