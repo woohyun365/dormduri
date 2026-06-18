@@ -51,6 +51,7 @@ coverage
 
 ## Figma 참조 (코드 이식 후 불필요)
 figma_references/
+references/figma/web/src/
 
 ## 문서 (위키로 관리)
 docs/*
