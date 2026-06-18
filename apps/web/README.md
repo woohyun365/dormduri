@@ -52,6 +52,20 @@ test -d apps/web/.next/standalone && echo "standalone artifact ready"
 - 로컬 디버그 로그가 필요할 때만 `NEXT_PUBLIC_WEB_VITALS_DEBUG=1`을 설정합니다. 기본값은 no-op입니다.
 - React Compiler는 기본 활성화하지 않습니다. 현재 단계는 typed route/build/E2E/Web Vitals gate로 나중에 측정 기반으로 켤 수 있는 준비 상태를 만드는 범위입니다.
 
+## Runtime env and BFF security baseline
+
+| Key                   | Runtime               | Required                       | Default                           | Notes                                                                                                                                 |
+| --------------------- | --------------------- | ------------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `API_URL`             | server only           | production: yes / dev,test: no | dev,test: `http://localhost:4000` | BFF upstream base URL입니다. production runtime에서는 누락되거나 `localhost`, `127.0.0.1`, `0.0.0.0`, `::1`로 향하면 fail-fast합니다. |
+| `NEXT_PUBLIC_APP_URL` | server/browser public | production: yes / dev,test: no | dev,test: `http://localhost:3000` | absolute `http(s)` URL만 허용합니다. production runtime에서는 local fallback을 허용하지 않습니다.                                     |
+| `NEXT_PUBLIC_API_URL` | browser public        | no                             | `/api`                            | browser-facing API base입니다. 기본값은 same-origin BFF path이며, absolute external URL은 명시적으로 설정한 경우에만 허용합니다.      |
+
+- Env parsing은 `src/config/env.schema.ts`에 두고, runtime singleton은 `src/config/env.ts`에서만 노출합니다. 테스트는 pure parser를 직접 호출해 production misconfig를 검증합니다.
+- Generic BFF helper는 `/api/*`, auth BFF helper는 `/auth/*` upstream path만 조합합니다. helper가 prefix 밖 path나 absolute/open-proxy 형태 path를 받으면 upstream fetch를 수행하지 않고 safe error response로 닫습니다.
+- Forwarded request headers는 `x-forwarded-for`, `user-agent`, JSON `Content-Type`, cookie-derived `Authorization`만 유지합니다. Caller-supplied `cookie`, `authorization`, `x-api-key`, `host`, `content-length` 계열 header는 upstream을 덮어쓰지 못합니다.
+- Upstream JSON parse 실패 또는 non-JSON body는 token/secret 값을 그대로 노출하지 않고 safe BFF error shape로 변환합니다. Auth success token rotation은 response body가 아니라 httpOnly cookie transport로만 유지합니다.
+- Route별 full response allowlist redesign, CSRF/rate-limit/WAF/browser security header 전면 설계는 feature/security plan 범위에서 다룹니다.
+
 ## Test authoring
 
 - 컴포넌트 테스트는 가능한 한 `getByRole`, `getByLabelText`, accessible name 기반 query를 우선 사용합니다.

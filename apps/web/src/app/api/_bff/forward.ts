@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { webEnv } from '@/config/env';
+import { getWebEnv } from '@/config/env';
+import {
+  buildBffUpstreamUrl,
+  buildSafeBffErrorResponse,
+  filterForwardHeaderRecord,
+  readBffJsonResponse,
+} from './security';
 
-const API_URL = webEnv.apiUpstreamUrl;
 const AUTH_COOKIE_NAME = 'auth-token';
+const ALLOWED_BFF_METHODS = new Set(['GET', 'POST', 'DELETE']);
+const ALLOWED_BODY_MODES = new Set(['none', 'json']);
 
 type BffMethod = 'GET' | 'POST' | 'DELETE';
 type BodyMode = 'none' | 'json';
@@ -30,24 +37,24 @@ export function getBffForwardHeaders(
   request: NextRequest,
   options: { authenticated?: boolean; contentType?: string } = {},
 ): Record<string, string> {
-  const headers: Record<string, string> = {};
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  const userAgent = request.headers.get('user-agent');
-
-  if (forwardedFor) {
-    headers['x-forwarded-for'] = forwardedFor;
-  }
-  if (userAgent) {
-    headers['user-agent'] = userAgent;
-  }
-  if (options.contentType) {
-    headers['Content-Type'] = options.contentType;
-  }
+  const forwardedFor = request.headers.get('x-forwarded-for') ?? undefined;
+  const userAgent = request.headers.get('user-agent') ?? undefined;
+  const headers = filterForwardHeaderRecord({
+    'x-forwarded-for': forwardedFor,
+    'user-agent': userAgent,
+    ...(options.contentType ? { 'Content-Type': options.contentType } : {}),
+  });
 
   if (options.authenticated === true) {
     const token = getBffAuthTokenCookie(request);
     if (token) {
-      headers.Authorization = `Bearer ${token}`;
+      return filterForwardHeaderRecord(
+        {
+          ...headers,
+          Authorization: `Bearer ${token}`,
+        },
+        { allowAuthorization: true },
+      );
     }
   }
 
@@ -70,22 +77,20 @@ async function readJsonBody(request: NextRequest): Promise<string | undefined> {
   return text;
 }
 
-async function readJsonResponse(response: Response): Promise<Record<string, unknown>> {
-  if (response.status === 204 || response.status === 304) {
-    return {};
+function validateForwardInput(input: {
+  method: string;
+  bodyMode?: string;
+}): NextResponse | undefined {
+  const bodyMode = input.bodyMode ?? 'none';
+  if (!ALLOWED_BFF_METHODS.has(input.method)) {
+    return buildSafeBffErrorResponse('BFF_METHOD_NOT_ALLOWED', 405);
   }
 
-  const contentType = response.headers.get('content-type') ?? '';
-  if (!contentType.includes('application/json')) {
-    return {};
+  if (!ALLOWED_BODY_MODES.has(bodyMode)) {
+    return buildSafeBffErrorResponse('BFF_BODY_MODE_INVALID', 400);
   }
 
-  const text = await response.text();
-  if (text.trim().length === 0) {
-    return {};
-  }
-
-  return JSON.parse(text) as Record<string, unknown>;
+  return undefined;
 }
 
 export async function forwardBffRequest(input: {
@@ -96,13 +101,30 @@ export async function forwardBffRequest(input: {
   includeQuery?: boolean;
   bodyMode?: BodyMode;
 }): Promise<NextResponse> {
+  const invalidInputResponse = validateForwardInput(input);
+  if (invalidInputResponse) {
+    return invalidInputResponse;
+  }
+
   const body = input.bodyMode === 'json' ? await readJsonBody(input.request) : undefined;
   const contentType = body
     ? (input.request.headers.get('content-type') ?? 'application/json')
     : undefined;
   const upstreamPath =
     input.includeQuery === true ? appendRequestSearch(input.path, input.request) : input.path;
-  const response = await fetch(`${API_URL}${upstreamPath}`, {
+
+  let upstreamUrl: string;
+  try {
+    upstreamUrl = buildBffUpstreamUrl({
+      apiUpstreamUrl: getWebEnv().apiUpstreamUrl,
+      path: upstreamPath,
+      allowedPathPrefix: '/api',
+    });
+  } catch {
+    return buildSafeBffErrorResponse('BFF_UPSTREAM_URL_INVALID');
+  }
+
+  const response = await fetch(upstreamUrl, {
     method: input.method,
     headers: getBffForwardHeaders(input.request, {
       authenticated: input.authenticated,
@@ -116,6 +138,8 @@ export async function forwardBffRequest(input: {
     return new NextResponse(null, { status: response.status });
   }
 
-  const json = await readJsonResponse(response);
-  return NextResponse.json(json, { status: response.status });
+  const { response: safeResponse, json } = await readBffJsonResponse(response, {
+    redactSensitiveFields: true,
+  });
+  return NextResponse.json(json, { status: safeResponse.status });
 }
