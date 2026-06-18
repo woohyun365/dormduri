@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "pnpm --filter @repo/shared build && eslint",
     "test": "pnpm --filter @repo/shared build && vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "pnpm --filter @repo/shared build && tsc --noEmit",
+    "test:coverage": "pnpm --filter @repo/shared build && vitest run --coverage"
   },
   "dependencies": {
     "@repo/shared": "workspace:*",

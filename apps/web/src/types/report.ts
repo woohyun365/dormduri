@@ -1,4 +1,6 @@
-import type { ReportReason } from '@repo/shared/social-safety/report';
+import type { ReportReason as SharedReportReason } from '@repo/shared/social-safety/report';
+
+export type ReportReason = SharedReportReason;
 
 export interface Report {
   targetUserId: string;

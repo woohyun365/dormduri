@@ -14,6 +14,11 @@ import { authApi } from '@/api/auth';
  * auth 빠른 로그인/로그아웃은 AuthPanel로 분리했다.
  * production 빌드에서는 렌더링하지 않는다.
  */
+function getDevSessionDormitoryId(user: SessionResponse['user']): string | null {
+  if (!user || !('dormitoryId' in user)) return null;
+  return typeof user.dormitoryId === 'string' ? user.dormitoryId : null;
+}
+
 export function DevPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [sessionStatus, setSessionStatus] = useState<SessionResponse>({ authenticated: false });
@@ -90,11 +95,11 @@ export function DevPanel() {
     const userArg = {
       id: sessionStatus.user.id,
       nickname: sessionStatus.user.nickname,
-      dormitoryId: sessionStatus.user.dormitoryId,
+      dormitoryId: getDevSessionDormitoryId(sessionStatus.user),
       gender: sessionStatus.user.gender,
     };
     if (method === 'seedGroupFinalScenario') {
-      const dormId = sessionStatus.user.dormitoryId ?? 'toegye';
+      const dormId = getDevSessionDormitoryId(sessionStatus.user) ?? 'toegye';
       svc.seedGroupFinalScenario(
         userArg,
         {
@@ -156,7 +161,7 @@ export function DevPanel() {
         <div>
           <div className="text-gray-400 mb-1">건물</div>
           <select
-            value={sessionStatus.user.dormitoryId ?? ''}
+            value={getDevSessionDormitoryId(sessionStatus.user) ?? ''}
             onChange={(e) => handleDormitoryChange(e.target.value)}
             className="w-full bg-gray-700 text-white rounded px-2 py-1"
           >

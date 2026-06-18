@@ -18,6 +18,19 @@ export type {
   RenewSessionResponse,
   AuthenticatedSessionUser,
 } from './auth.js';
+
+export {
+  devAuthPresetUserSummarySchema,
+  devAuthPresetGroupSchema,
+  devAuthUserSummarySchema,
+  devAuthUsersResponseSchema,
+} from './dev-auth.js';
+export type {
+  DevAuthPresetUserSummary,
+  DevAuthPresetGroup,
+  DevAuthUserSummary,
+  DevAuthUsersResponse,
+} from './dev-auth.js';
 export {
   signupDraftValidationFieldErrorsSchema,
   signupDraftValidationResponseSchema,

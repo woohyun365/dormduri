@@ -21,6 +21,8 @@ const TONE_STYLES = {
   slate: 'bg-slate-100 border-slate-200 text-slate-900',
 } as const;
 
+const SIGNATURE_SEPARATOR = '\u001f';
+
 function ToneIcon({ tone }: { tone: PolicyCopy['tone'] }) {
   if (tone === 'amber') return <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />;
   if (tone === 'green') return <ShieldAlert className="h-4 w-4 text-green-600 flex-shrink-0" />;
@@ -32,21 +34,28 @@ export function PolicyHintBanner({ hint, hints }: PolicyHintBannerProps) {
   // 힌트 배열 결정: hints prop 우선, 없으면 hint 단건
   const items = hints && hints.length > 0 ? hints : hint ? [hint] : [];
 
-  const [index, setIndex] = useState(0);
-
-  // hints 변경 시 인덱스 리셋
-  useEffect(() => {
-    setIndex(0);
-  }, [items.length]);
+  const itemsSignature = items
+    .map(
+      (item) => `${item.tone}${SIGNATURE_SEPARATOR}${item.title}${SIGNATURE_SEPARATOR}${item.body}`,
+    )
+    .join(SIGNATURE_SEPARATOR);
+  const [rotation, setRotation] = useState({ signature: '', index: 0 });
+  const index = rotation.signature === itemsSignature ? rotation.index : 0;
 
   // 순환 타이머
   useEffect(() => {
     if (items.length <= 1) return;
     const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % items.length);
+      setRotation((prev) => {
+        const previousIndex = prev.signature === itemsSignature ? prev.index : 0;
+        return {
+          signature: itemsSignature,
+          index: (previousIndex + 1) % items.length,
+        };
+      });
     }, CYCLE_INTERVAL);
     return () => clearInterval(timer);
-  }, [items.length]);
+  }, [items.length, itemsSignature]);
 
   if (items.length === 0) return null;
 
@@ -76,7 +85,7 @@ export function PolicyHintBanner({ hint, hints }: PolicyHintBannerProps) {
                 {items.slice(0, 3).map((_, i) => (
                   <button
                     key={i}
-                    onClick={() => setIndex(i)}
+                    onClick={() => setRotation({ signature: itemsSignature, index: i })}
                     className={`rounded-full transition-all ${
                       i === index % items.length
                         ? 'w-4 h-1.5 bg-current opacity-60'

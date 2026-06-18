@@ -19,7 +19,7 @@ const eslintConfig = defineConfig([
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['eslint.config.mjs'],
+          allowDefaultProject: ['eslint.config.mjs', 'postcss.config.mjs'],
         },
         tsconfigRootDir: import.meta.dirname,
       },
@@ -37,6 +37,7 @@ const eslintConfig = defineConfig([
     '.next/**',
     'out/**',
     'build/**',
+    'coverage/**',
     'next-env.d.ts',
     // Test fixtures are dev-only data; exclude from lint
     'src/__fixtures__/**',
