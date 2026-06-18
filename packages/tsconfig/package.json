@@ -6,9 +6,15 @@
     "node": ">=24 <25"
   },
   "exports": {
-    "./base.json": "./base.json"
+    "./base.json": "./base.json",
+    "./next.json": "./next.json",
+    "./vitest.json": "./vitest.json",
+    "./playwright.json": "./playwright.json"
   },
   "files": [
-    "base.json"
+    "base.json",
+    "next.json",
+    "vitest.json",
+    "playwright.json"
   ]
 }

@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 import prettier from 'eslint-config-prettier/flat';
-import shared from '@repo/eslint-config/flat';
+import shared from '@repo/eslint-config/base';
 
 export default defineConfig([
   globalIgnores(['**/eslint.config.*', 'src/generated/**', 'dist/**', 'coverage/**']),

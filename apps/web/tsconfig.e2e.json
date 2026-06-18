@@ -1,0 +1,10 @@
+{
+  "extends": "@repo/tsconfig/playwright.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "playwright.config.ts", "e2e/**/*.ts", "tests/e2e/**/*.ts"],
+  "exclude": ["node_modules", ".next", "coverage"]
+}

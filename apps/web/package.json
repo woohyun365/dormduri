@@ -9,7 +9,9 @@
     "lint": "pnpm --filter @repo/shared build && eslint",
     "test": "pnpm --filter @repo/shared build && vitest run",
     "test:watch": "vitest",
-    "typecheck": "pnpm --filter @repo/shared build && tsc --noEmit",
+    "typecheck": "pnpm --filter @repo/shared build && pnpm typecheck:product && pnpm typecheck:test",
+    "typecheck:product": "tsc -p tsconfig.json --noEmit",
+    "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
     "test:coverage": "pnpm --filter @repo/shared build && vitest run --coverage"
   },
   "dependencies": {
