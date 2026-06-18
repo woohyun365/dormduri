@@ -36,6 +36,17 @@ const eslintConfig = defineConfig([
     },
   },
 
+  {
+    files: ['playwright.config.ts', 'e2e/**/*.ts', 'tests/e2e/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: './tsconfig.e2e.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -46,6 +57,9 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     // Test fixtures are dev-only data; exclude from lint
     'src/__fixtures__/**',
+    // Playwright runtime artifacts are regenerated locally/CI.
+    'playwright-report/**',
+    'test-results/**',
   ]),
 ]);
 

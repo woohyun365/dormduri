@@ -31,6 +31,9 @@ apps/api/src/generated/
 
 ## 테스트/커버리지 산출물
 coverage
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/playwright/.auth/
 
 ## Next.js 캐시/출력
 .next/
