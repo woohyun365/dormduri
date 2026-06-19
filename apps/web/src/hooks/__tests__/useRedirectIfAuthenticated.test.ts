@@ -29,7 +29,7 @@ describe('useRedirectIfAuthenticated', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it.fails('인증된 사용자는 /main으로 리다이렉트되고 isReadyToRender가 false다', () => {
+  it('인증된 사용자는 /main으로 리다이렉트되고 isReadyToRender가 false다', () => {
     mockUseCurrentUser.mockReturnValue({
       user: { id: '1', nickname: 'tester' } as ReturnType<typeof useCurrentUser>['user'],
       setUser: vi.fn(),

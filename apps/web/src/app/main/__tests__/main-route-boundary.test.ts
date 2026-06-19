@@ -2,13 +2,23 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const mainPagePath = path.join(process.cwd(), 'src', 'app', 'main', 'page.tsx');
+const readAppSource = (relativePath: string) =>
+  readFileSync(path.join(process.cwd(), 'src', 'app', relativePath), 'utf8');
 
 describe('main route boundary', () => {
-  it.fails('/main route가 authenticated app shell Main을 소유한다', () => {
-    const source = readFileSync(mainPagePath, 'utf8');
+  it('/main route가 authenticated app shell owner를 렌더링한다', () => {
+    const pageSource = readAppSource('main/page.tsx');
 
-    expect(source).toMatch(/@\/main\/Main|main\/Main/);
-    expect(source).toMatch(/<Main\b/);
+    expect(pageSource).toMatch(/\.\/MainRouteShell\.client/);
+    expect(pageSource).toMatch(/<MainRouteShell\s*\/?/);
+  });
+
+  it('/main client shell이 Main ownership과 session fallback을 소유한다', () => {
+    const shellSource = readAppSource('main/MainRouteShell.client.tsx');
+
+    expect(shellSource).toMatch(/@\/main\/Main|main\/Main/);
+    expect(shellSource).toMatch(/<Main\b/);
+    expect(shellSource).toMatch(/@\/hooks\/useCurrentUser|hooks\/useCurrentUser/);
+    expect(shellSource).toMatch(/router\.replace\(['"]\/login['"]\)/);
   });
 });

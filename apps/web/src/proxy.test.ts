@@ -13,7 +13,7 @@ describe('proxy route/session boundary', () => {
     vi.unstubAllGlobals();
   });
 
-  it.fails('인증 사용자가 auth route에 접근하면 /main으로 이동한다', async () => {
+  it('인증 사용자가 auth route에 접근하면 /main으로 이동한다', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => createSessionResponse(true)),

@@ -10,7 +10,7 @@ export function useRedirectIfAuthenticated() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace('/');
+      router.replace('/main');
     }
   }, [isLoading, user, router]);
 
