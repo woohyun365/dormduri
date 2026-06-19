@@ -5,7 +5,7 @@ test.describe('Web smoke', () => {
     await page.goto('/');
 
     await expect(
-      page.getByRole('heading', { name: /생활 패턴 맞는.*룸메를 미리 찾기/ }),
+      page.getByRole('heading', { name: /생활패턴이 맞는.*룸메 후보를 확인하세요/ }),
     ).toBeVisible();
     await expect(page.getByRole('link', { name: '로그인' }).first()).toBeVisible();
     await expect(page.getByRole('link', { name: '회원가입' }).first()).toBeVisible();

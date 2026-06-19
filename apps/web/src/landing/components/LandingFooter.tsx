@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { getLandingPolicyCopy } from '../content/landing-policy-copy';
 
 export function LandingFooter() {
   return (
@@ -19,10 +20,13 @@ export function LandingFooter() {
               <span className="text-xl font-bold text-[var(--knu-text-primary)]">KNU 룸메</span>
             </div>
             <p className="text-[var(--knu-text-secondary)] text-sm leading-relaxed">
-              강원대학교 춘천캠퍼스 기숙사 룸메이트 매칭 서비스
+              강원대학교 춘천캠퍼스 기숙사 룸메이트 탐색 도우미
             </p>
             <p className="text-[var(--knu-text-tertiary)] text-xs mt-1">
-              본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.
+              {getLandingPolicyCopy('service_independent_notice').copy}
+            </p>
+            <p className="text-[var(--knu-text-tertiary)] text-xs mt-1">
+              {getLandingPolicyCopy('profile_privacy_warning').copy}
             </p>
           </div>
 

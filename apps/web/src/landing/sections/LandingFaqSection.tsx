@@ -1,6 +1,6 @@
 import { Section } from '../components/Section';
 import { FAQItem } from '../components/FAQItem';
-import { landingFaqItems } from '../content/landingFaqItems';
+import { landingFallbackFaqItems } from '../content/landing-fallback-faq';
 
 export function LandingFaqSection() {
   return (
@@ -10,7 +10,7 @@ export function LandingFaqSection() {
           자주 묻는 질문
         </h2>
         <div className="divide-y divide-[var(--knu-border)]">
-          {landingFaqItems.map((item) => (
+          {landingFallbackFaqItems.map((item) => (
             <FAQItem key={item.question} question={item.question} answer={item.answer} />
           ))}
         </div>

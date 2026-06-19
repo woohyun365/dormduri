@@ -31,6 +31,7 @@ export function LandingHeader() {
   );
 
   const ANCHOR_ITEMS = [
+    { targetId: 'how-it-works', label: '이용 흐름' },
     { targetId: 'features', label: '서비스 소개' },
     { targetId: 'season', label: '시즌 정책' },
     { targetId: 'faq', label: 'FAQ' },

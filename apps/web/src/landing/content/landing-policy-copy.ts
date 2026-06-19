@@ -35,14 +35,14 @@ export const LANDING_POLICY_COPY = [
   },
   {
     id: 'school_system_not_connected',
-    copy: '서비스는 학교 시스템과 직접 연동하지 않으며, 사용자가 입력한 정보로 룸메이트 탐색을 돕습니다.',
+    copy: '서비스는 학교 시스템과 연동하지 않고, 사용자가 입력한 정보로 룸메이트 탐색을 돕습니다.',
     source: {
       path: 'docs/04_policy/official/service-boundary.md',
       section: '서비스 책임 범위',
       reason: '학교 시스템 일정과 권한을 보장하지 않는다는 boundary를 노출해야 한다.',
     },
     requiredSurface: ['hero', 'trust'],
-    testAnchor: '학교 시스템과 직접 연동하지 않으며',
+    testAnchor: '학교 시스템과 연동하지 않고',
   },
   {
     id: 'room_selection_not_guaranteed',
@@ -68,7 +68,7 @@ export const LANDING_POLICY_COPY = [
   },
   {
     id: 'profile_privacy_warning',
-    copy: '프로필과 채팅에는 연락처, SNS, 건강, 장애 여부 등 개인정보나 민감정보 입력을 권장하지 않습니다.',
+    copy: '프로필·채팅에는 연락처, SNS, 건강, 장애 여부 같은 개인정보·민감정보 입력을 권장하지 않습니다.',
     source: {
       path: 'docs/04_policy/official/data-retention.md',
       section: '채팅 데이터 분리 보관',
@@ -76,7 +76,7 @@ export const LANDING_POLICY_COPY = [
         '사용자 입력 본문에는 개인정보와 민감정보가 포함될 수 있으므로 공개 입력 surface에서 주의를 제공한다.',
     },
     requiredSurface: ['faq', 'footer', 'support'],
-    testAnchor: '개인정보나 민감정보 입력을 권장하지 않습니다',
+    testAnchor: '개인정보·민감정보 입력을 권장하지 않습니다',
   },
   {
     id: 'season_capability_boundary',
@@ -101,3 +101,13 @@ export const LANDING_POLICY_COPY = [
     testAnchor: '개인 문의, 신고, 이의신청 결과를 대체하지 않습니다',
   },
 ] as const satisfies readonly LandingPolicyCopy[];
+
+export function getLandingPolicyCopy(id: LandingPolicyCopyId): LandingPolicyCopy {
+  const copy = LANDING_POLICY_COPY.find((item) => item.id === id);
+
+  if (!copy) {
+    throw new Error(`Missing landing policy copy: ${id}`);
+  }
+
+  return copy;
+}

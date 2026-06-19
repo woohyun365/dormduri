@@ -8,6 +8,11 @@ import {
   LANDING_FALLBACK_FAQ_SOURCE_KIND,
   landingFallbackFaqItems,
 } from '../content/landing-fallback-faq';
+import {
+  LANDING_POLICY_LINKED_CONTENT_GROUPS,
+  landingSeasonPolicyCards,
+} from '../content/landing-copy';
+import { landingProfilePreviewItems } from '../content/landing-preview-fixtures';
 import type { LandingPolicyCopyId } from '../content/landing-content.types';
 
 const FORBIDDEN_PUBLIC_CONTENT_PATTERNS = [
@@ -99,6 +104,54 @@ describe('landing content policy contract', () => {
 
     for (const requiredId of LANDING_REQUIRED_POLICY_COPY_IDS) {
       expect(linkedPolicyIds.has(requiredId)).toBe(true);
+    }
+  });
+
+  it('keeps section content policy links pointed at tracked policy ids', () => {
+    const policyCopyIds = new Set<LandingPolicyCopyId>(LANDING_POLICY_COPY.map((copy) => copy.id));
+
+    for (const group of LANDING_POLICY_LINKED_CONTENT_GROUPS) {
+      for (const item of group) {
+        const linkedIds = 'policyCopyIds' in item ? item.policyCopyIds : [];
+
+        for (const policyCopyId of linkedIds) {
+          expect(policyCopyIds.has(policyCopyId)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('keeps the season cards aligned to the four-state policy model', () => {
+    expect(landingSeasonPolicyCards.map((card) => card.state)).toEqual([
+      'OFF_SEASON',
+      'SEASON_OPEN',
+      'SEASON_MATCHING',
+      'SEASON_POST_MATCH',
+    ]);
+
+    const seasonOpenCard = landingSeasonPolicyCards.find((card) => card.state === 'SEASON_OPEN');
+
+    expect(seasonOpenCard?.available).toContain('같은 기숙사 후보와 직접 대화');
+    expect(seasonOpenCard?.unavailable).toContain('매칭 요청·수락');
+    expect(seasonOpenCard?.description).toContain('매칭 요청·수락은 시즌 매칭 기간에만 열립니다.');
+  });
+
+  it('marks profile preview fixtures as examples instead of real users or guaranteed results', () => {
+    expect(landingProfilePreviewItems.length).toBeGreaterThanOrEqual(2);
+
+    for (const profile of landingProfilePreviewItems) {
+      expect(profile.displayDormitoryLabel).toMatch(/^(다온관|새롬관|이룸관) \((남|여)\)$/);
+      expect(profile.displayDormitoryLabel).not.toContain('예시');
+      expect(profile.profileSummary.intro).not.toContain('예시');
+      expect('message' in profile).toBe(false);
+      expect(profile.profileSummary.smokingBehavior).not.toBeNull();
+      expect(profile.profileSummary.sleepHabit).not.toBeNull();
+      expect(profile.profileSummary.relationshipStyle).not.toBeNull();
+      expect(profile.actions.canRequestMatch).toBe(true);
+      expect(profile.actions.canStartChat).toBe(true);
+      expect(profile.exposure.scoreVisible).toBe(true);
+      expect(profile.matchScore).toBeGreaterThan(0);
+      expect(profile.matchScore).toBeLessThanOrEqual(100);
     }
   });
 });

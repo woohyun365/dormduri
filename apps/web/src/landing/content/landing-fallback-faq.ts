@@ -7,7 +7,7 @@ export const landingFallbackFaqItems = [
     id: 'service-boundary-independent-service',
     question: 'KNU 룸메는 학교 공식 서비스인가요?',
     answer:
-      '아니요. KNU 룸메는 학교 공식 서비스가 아닌 독립 운영 서비스입니다. 학교 시스템과 직접 연동하지 않으며, 사용자가 입력한 정보를 바탕으로 룸메이트 탐색을 돕습니다.',
+      '아니요. KNU 룸메는 학교 공식 서비스가 아닌 독립 운영 서비스입니다. 학교 시스템과 연동하지 않고, 사용자가 입력한 정보로 룸메이트 탐색을 돕습니다.',
     policyCopyIds: ['service_independent_notice', 'school_system_not_connected'],
     source: {
       path: 'docs/04_policy/official/service-boundary.md',
@@ -46,7 +46,7 @@ export const landingFallbackFaqItems = [
     id: 'season-capability-boundary',
     question: '시즌에 따라 어떤 기능이 달라지나요?',
     answer:
-      '시즌 기능은 비시즌, 시즌 오픈, 시즌 매칭, 시즌 마감 정리 기간에 따라 달라집니다. 시즌 상태에 따라 프로필 작성, 탐색, 매칭 요청, 결과 확인 같은 기능이 열리거나 닫힙니다.',
+      '비시즌, 시즌 오픈, 시즌 매칭, 시즌 마감 정리 기간에 따라 프로필 작성, 탐색, 매칭 요청, 결과 확인 기능이 달라집니다.',
     policyCopyIds: ['season_capability_boundary'],
     source: {
       path: 'docs/04_policy/official/season-lifecycle.md',
@@ -59,7 +59,7 @@ export const landingFallbackFaqItems = [
     id: 'profile-privacy-warning',
     question: '프로필에 연락처나 민감정보를 적어도 되나요?',
     answer:
-      '권장하지 않습니다. 연락처, SNS, 건강, 장애 여부 등 개인정보나 민감정보는 프로필과 자기소개에 적지 말고, 필요한 경우 매칭 확정 후 직접 판단해 공유해주세요.',
+      '권장하지 않습니다. 연락처, SNS, 건강, 장애 여부 같은 개인정보·민감정보는 프로필과 자기소개에 적지 말고, 필요한 경우 매칭 확정 후 직접 판단해 공유해주세요.',
     policyCopyIds: ['profile_privacy_warning'],
     source: {
       path: 'docs/04_policy/official/data-retention.md',
@@ -82,5 +82,3 @@ export const landingFallbackFaqItems = [
     sortOrder: 60,
   },
 ] as const satisfies readonly LandingFallbackFaqItem[];
-
-export const landingFaqItems = landingFallbackFaqItems;

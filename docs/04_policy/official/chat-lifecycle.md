@@ -73,6 +73,8 @@
 | hidden/deactivated/withdrawn/expired/deleted/deidentified participant | 신규 chat action fail-closed                                                                        |
 | 양방향 active block 중 하나라도 존재                                  | 신규 send/resume fail-closed                                                                        |
 
+non-matched direct chat은 매칭 수락 전 상대를 알아보기 위한 대화 surface로 사용할 수 있다. 다만 match request 생성은 chat UI 자체가 아니라 `actions.canRequestMatch = true`인 프로필/탐색/상세 surface에서만 수행한다.
+
 쓰기 가능 여부는 realtime event가 아니라 DB 상태와 REST snapshot이 source of truth다. Realtime event가 누락되어도 client는 REST snapshot으로 수렴해야 한다.
 
 ## Leave / read marker / visibility
@@ -146,7 +148,8 @@ Lifecycle event metadata는 allowlist 기반 pointer만 저장한다.
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                                                                                   | 관련 이슈          |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 2026-06-08 | official policy set의 누락된 chat lifecycle source-of-truth를 추가하고 block/report/notification/retention 경계를 Phase 0 baseline에 맞춰 정리했다                          | #196 / #198 / #220 |
-| 2026-06-12 | `ConversationThread` current row, lifecycle event trace, realtime outbox, retention workflow state의 책임 경계를 분리하고, lifecycle event metadata privacy 기준을 추가했다 | #228               |
+| 날짜       | 변경 내용                                                                                                                                                                          | 관련 이슈              |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| 2026-06-08 | official policy set의 누락된 chat lifecycle source-of-truth를 추가하고 block/report/notification/retention 경계를 Phase 0 baseline에 맞춰 정리했다                                 | #196 / #198 / #220     |
+| 2026-06-12 | `ConversationThread` current row, lifecycle event trace, realtime outbox, retention workflow state의 책임 경계를 분리하고, lifecycle event metadata privacy 기준을 추가했다        | #228                   |
+| 2026-06-19 | non-matched direct chat이 매칭 수락 전 상대를 알아보는 대화 surface일 수 있지만, match request 생성은 chat UI가 아니라 허용된 프로필/탐색/상세 surface에서만 수행한다고 명확화했다 | #281 / Landing content |

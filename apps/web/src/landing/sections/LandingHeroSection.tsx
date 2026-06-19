@@ -1,47 +1,63 @@
+import { Mail, Sparkles } from 'lucide-react';
 import { Section } from '../components/Section';
 import { LandingPrimaryCtaLink } from '../components/LandingPrimaryCtaLink';
-import { MockupCard } from '../components/MockupCard';
+import { LandingProfilePreviewCard } from '../components/LandingProfilePreviewCard';
+import { LandingSentenceText } from '../components/LandingSentenceText';
 import { ScrollToButton } from '../components/ScrollToButton';
-import { Mail, Sparkles } from 'lucide-react';
+import { landingHeroCopy } from '../content/landing-copy';
+import { getLandingPolicyCopy } from '../content/landing-policy-copy';
+import { landingProfilePreviewItems } from '../content/landing-preview-fixtures';
 
 export function LandingHeroSection() {
   return (
-    <Section className="pt-16 md:pt-24 pb-16 md:pb-24">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+    <Section id="hero" className="pt-16 md:pt-24 pb-14 md:pb-20">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] gap-12 items-center">
         <div>
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--knu-primary-light)] rounded-full mb-6">
-            <Sparkles className="w-4 h-4 text-[var(--knu-primary)]" />
+            <Sparkles className="w-4 h-4 text-[var(--knu-primary)]" aria-hidden="true" />
             <span className="text-sm font-semibold text-[var(--knu-primary)]">
-              강원대학교 춘천캠퍼스 룸메이트 매칭 서비스
+              {landingHeroCopy.eyebrow}
             </span>
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[var(--knu-text-primary)] mb-6 leading-tight">
-            학기 시작 전,
-            <br />
-            생활 패턴 맞는
-            <br />
-            룸메를 미리 찾기
+            {landingHeroCopy.headlineLines.map((line) => (
+              <span key={line} className="block">
+                {line}
+              </span>
+            ))}
           </h1>
-          <p className="text-sm text-[var(--knu-text-secondary)] mb-6">
-            본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.
-          </p>
+          <LandingSentenceText
+            text={landingHeroCopy.description}
+            className="text-lg text-[var(--knu-text-secondary)] leading-relaxed mb-5 max-w-xl"
+          />
+          <ul className="space-y-2 mb-8 text-sm text-[var(--knu-text-secondary)]">
+            {landingHeroCopy.policyCopyIds.map((id) => (
+              <li key={id} className="flex gap-2">
+                <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[var(--knu-primary)] flex-shrink-0" />
+                <span>{getLandingPolicyCopy(id).copy}</span>
+              </li>
+            ))}
+          </ul>
           <div className="flex flex-col sm:flex-row gap-4">
-            <LandingPrimaryCtaLink href="/signup">
-              <Mail className="w-5 h-5" />
-              이메일로 시작하기
+            <LandingPrimaryCtaLink href={landingHeroCopy.primaryCta.href}>
+              <Mail className="w-5 h-5" aria-hidden="true" />
+              {landingHeroCopy.primaryCta.label}
             </LandingPrimaryCtaLink>
             <ScrollToButton
-              targetId="features"
+              targetId={landingHeroCopy.secondaryCta.targetId}
               className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 border-2 border-[var(--knu-border)] hover:border-[var(--knu-primary)] hover:bg-[var(--knu-primary-light)] text-[var(--knu-text-primary)] h-14 px-8 text-lg"
             >
-              서비스 소개 보기
+              {landingHeroCopy.secondaryCta.label}
             </ScrollToButton>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <MockupCard profileIndex={0} />
-          <MockupCard profileIndex={1} />
+        <div className="space-y-4" aria-label="룸메이트 후보 카드 예시">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
+            {landingProfilePreviewItems.map((profile) => (
+              <LandingProfilePreviewCard key={profile.id} profile={profile} />
+            ))}
+          </div>
         </div>
       </div>
     </Section>
