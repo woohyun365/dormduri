@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Web smoke', () => {
-  test('비로그인 사용자가 랜딩 게이트웨이를 볼 수 있다', async ({ page }) => {
+  test('비로그인 사용자가 공개 랜딩을 볼 수 있다', async ({ page }) => {
     await page.goto('/');
 
     await expect(
