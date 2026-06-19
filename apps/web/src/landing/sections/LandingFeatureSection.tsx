@@ -8,13 +8,11 @@ export function LandingFeatureSection() {
   return (
     <Section id="features" background="alt" className="py-16 md:py-24">
       <div className="text-center mb-12">
-        <p className="text-sm font-semibold text-[var(--knu-primary)] mb-3">서비스 기능</p>
-        <h2 className="text-3xl md:text-4xl font-bold text-[var(--knu-text-primary)] mb-4">
-          주요 기능
-        </h2>
+        <p className="text-sm font-semibold text-(--knu-primary) mb-3">서비스 기능</p>
+        <h2 className="text-3xl md:text-4xl font-bold text-(--knu-text-primary) mb-4">주요 기능</h2>
         <LandingSentenceText
           text="룸메이트 탐색에 필요한 기능만 선별해 제공합니다. 각 기능은 시즌 상태와 서비스 정책에 따라 이용 가능 여부가 달라집니다."
-          className="text-lg text-[var(--knu-text-secondary)] max-w-2xl mx-auto leading-relaxed"
+          className="text-lg text-(--knu-text-secondary) max-w-2xl mx-auto leading-relaxed"
         />
       </div>
 
@@ -29,10 +27,10 @@ export function LandingFeatureSection() {
         ))}
       </div>
 
-      <div className="mt-8 bg-white border-2 border-[var(--knu-border)] rounded-2xl p-6 text-center">
+      <div className="mt-8 bg-white border-2 border-(--knu-border) rounded-2xl p-6 text-center">
         <LandingSentenceText
           text={`${getLandingPolicyCopy('lifestyle_survey_disclaimer').copy} 또한 ${getLandingPolicyCopy('room_selection_not_guaranteed').copy}`}
-          className="text-sm text-[var(--knu-text-secondary)] leading-relaxed"
+          className="text-sm text-(--knu-text-secondary) leading-relaxed"
         />
       </div>
     </Section>

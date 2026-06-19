@@ -13,13 +13,13 @@ export function LandingHeroSection() {
     <Section id="hero" className="pt-16 md:pt-24 pb-14 md:pb-20">
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] gap-12 items-center">
         <div>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--knu-primary-light)] rounded-full mb-6">
-            <Sparkles className="w-4 h-4 text-[var(--knu-primary)]" aria-hidden="true" />
-            <span className="text-sm font-semibold text-[var(--knu-primary)]">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-(--knu-primary-light) rounded-full mb-6">
+            <Sparkles className="w-4 h-4 text-(--knu-primary)" aria-hidden="true" />
+            <span className="text-sm font-semibold text-(--knu-primary)">
               {landingHeroCopy.eyebrow}
             </span>
           </div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-[var(--knu-text-primary)] mb-6 leading-tight">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-(--knu-text-primary) mb-6 leading-tight">
             {landingHeroCopy.headlineLines.map((line) => (
               <span key={line} className="block">
                 {line}
@@ -28,12 +28,12 @@ export function LandingHeroSection() {
           </h1>
           <LandingSentenceText
             text={landingHeroCopy.description}
-            className="text-lg text-[var(--knu-text-secondary)] leading-relaxed mb-5 max-w-xl"
+            className="text-lg text-(--knu-text-secondary) leading-relaxed mb-5 max-w-xl"
           />
-          <ul className="space-y-2 mb-8 text-sm text-[var(--knu-text-secondary)]">
+          <ul className="space-y-2 mb-8 text-sm text-(--knu-text-secondary)">
             {landingHeroCopy.policyCopyIds.map((id) => (
               <li key={id} className="flex gap-2">
-                <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[var(--knu-primary)] flex-shrink-0" />
+                <span className="mt-2 h-1.5 w-1.5 rounded-full bg-(--knu-primary) shrink-0" />
                 <span>{getLandingPolicyCopy(id).copy}</span>
               </li>
             ))}
@@ -45,7 +45,7 @@ export function LandingHeroSection() {
             </LandingPrimaryCtaLink>
             <ScrollToButton
               targetId={landingHeroCopy.secondaryCta.targetId}
-              className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 border-2 border-[var(--knu-border)] hover:border-[var(--knu-primary)] hover:bg-[var(--knu-primary-light)] text-[var(--knu-text-primary)] h-14 px-8 text-lg"
+              className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 border-2 border-(--knu-border) hover:border-(--knu-primary) hover:bg-(--knu-primary-light) text-(--knu-text-primary) h-14 px-8 text-lg"
             >
               {landingHeroCopy.secondaryCta.label}
             </ScrollToButton>

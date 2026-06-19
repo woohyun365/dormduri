@@ -15,20 +15,18 @@ export function FAQItem({ question, answer }: FAQItemProps) {
   const buttonId = `faq-button-${id}`;
 
   return (
-    <div className="border-b border-[var(--knu-border)] last:border-0">
+    <div className="border-b border-(--knu-border) last:border-0">
       <button
         id={buttonId}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-controls={answerId}
-        className="w-full flex items-center justify-between py-5 text-left hover:text-[var(--knu-primary)] transition-colors"
+        className="w-full flex items-center justify-between py-5 text-left hover:text-(--knu-primary) transition-colors"
       >
-        <span className="font-semibold text-lg text-[var(--knu-text-primary)] pr-4">
-          {question}
-        </span>
+        <span className="font-semibold text-lg text-(--knu-text-primary) pr-4">{question}</span>
         <ChevronDown
-          className={`w-5 h-5 flex-shrink-0 text-[var(--knu-text-tertiary)] transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`w-5 h-5 shrink-0 text-(--knu-text-tertiary) transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
       {isOpen && (
@@ -36,7 +34,7 @@ export function FAQItem({ question, answer }: FAQItemProps) {
           id={answerId}
           role="region"
           aria-labelledby={buttonId}
-          className="pb-5 text-[var(--knu-text-secondary)] leading-relaxed whitespace-pre-line"
+          className="pb-5 text-(--knu-text-secondary) leading-relaxed whitespace-pre-line"
         >
           {answer}
         </div>

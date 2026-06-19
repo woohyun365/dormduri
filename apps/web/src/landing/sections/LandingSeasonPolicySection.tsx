@@ -6,7 +6,7 @@ import { getLandingPolicyCopy } from '../content/landing-policy-copy';
 
 const accentStyles = {
   neutral: {
-    border: 'border-[var(--knu-border)]',
+    border: 'border-(--knu-border)',
     iconBox: 'bg-gray-100',
     icon: 'text-gray-500',
     Icon: Clock,
@@ -18,8 +18,8 @@ const accentStyles = {
     Icon: Sparkles,
   },
   primary: {
-    border: 'border-[var(--knu-primary)]',
-    iconBox: 'bg-[var(--knu-primary)]',
+    border: 'border-(--knu-primary)',
+    iconBox: 'bg-(--knu-primary)',
     icon: 'text-white',
     Icon: CheckCircle,
   },
@@ -35,13 +35,13 @@ export function LandingSeasonPolicySection() {
   return (
     <Section id="season" className="py-16 md:py-24">
       <div className="text-center mb-10">
-        <Calendar className="w-12 h-12 text-[var(--knu-primary)] mx-auto mb-4" aria-hidden="true" />
-        <h2 className="text-3xl md:text-4xl font-bold text-[var(--knu-text-primary)] mb-4">
+        <Calendar className="w-12 h-12 text-(--knu-primary) mx-auto mb-4" aria-hidden="true" />
+        <h2 className="text-3xl md:text-4xl font-bold text-(--knu-text-primary) mb-4">
           시즌별로 열리는 기능이 달라요
         </h2>
         <LandingSentenceText
           text={`${getLandingPolicyCopy('season_capability_boundary').copy} 시즌 일정과 기능 허용 여부는 서비스 정책이 최종 판단합니다.`}
-          className="text-lg text-[var(--knu-text-secondary)] max-w-3xl mx-auto leading-relaxed"
+          className="text-lg text-(--knu-text-secondary) max-w-3xl mx-auto leading-relaxed"
         />
       </div>
 
@@ -60,21 +60,19 @@ export function LandingSeasonPolicySection() {
               >
                 <Icon className={`w-6 h-6 ${styles.icon}`} aria-hidden="true" />
               </div>
-              <h3 className="text-xl font-bold text-[var(--knu-text-primary)] mb-2">
-                {card.label}
-              </h3>
+              <h3 className="text-xl font-bold text-(--knu-text-primary) mb-2">{card.label}</h3>
               <LandingSentenceText
                 text={card.description}
-                className="text-sm text-[var(--knu-text-secondary)] leading-relaxed mb-4"
+                className="text-sm text-(--knu-text-secondary) leading-relaxed mb-4"
               />
-              <div className="space-y-4 text-sm text-[var(--knu-text-secondary)]">
+              <div className="space-y-4 text-sm text-(--knu-text-secondary)">
                 <div>
-                  <p className="font-semibold text-[var(--knu-text-primary)] mb-2">가능한 기능</p>
+                  <p className="font-semibold text-(--knu-text-primary) mb-2">가능한 기능</p>
                   <ul className="space-y-2">
                     {card.available.map((item) => (
                       <li key={item} className="flex items-start gap-2">
                         <CheckCircle
-                          className="w-4 h-4 text-[var(--knu-primary)] flex-shrink-0 mt-0.5"
+                          className="w-4 h-4 text-(--knu-primary) shrink-0 mt-0.5"
                           aria-hidden="true"
                         />
                         <span>{item}</span>
@@ -83,12 +81,12 @@ export function LandingSeasonPolicySection() {
                   </ul>
                 </div>
                 <div>
-                  <p className="font-semibold text-[var(--knu-text-primary)] mb-2">닫히는 기능</p>
+                  <p className="font-semibold text-(--knu-text-primary) mb-2">닫히는 기능</p>
                   <ul className="space-y-2">
                     {card.unavailable.map((item) => (
                       <li key={item} className="flex items-start gap-2">
                         <AlertCircle
-                          className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5"
+                          className="w-4 h-4 text-gray-400 shrink-0 mt-0.5"
                           aria-hidden="true"
                         />
                         <span>{item}</span>

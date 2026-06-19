@@ -38,27 +38,23 @@ export function LandingProfilePreviewCard({ profile }: LandingProfilePreviewCard
   const { nickname, intro } = profile.profileSummary;
 
   return (
-    <article className="bg-white border-2 border-[var(--knu-border)] rounded-2xl p-4 shadow-md hover:shadow-xl transition-all">
+    <article className="bg-white border-2 border-(--knu-border) rounded-2xl p-4 shadow-md hover:shadow-xl transition-all">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3 min-w-0">
           <div
-            className={`w-10 h-10 ${profile.avatarBg} rounded-full flex items-center justify-center text-sm font-bold ${profile.avatarText} flex-shrink-0`}
+            className={`w-10 h-10 ${profile.avatarBg} rounded-full flex items-center justify-center text-sm font-bold ${profile.avatarText} shrink-0`}
             aria-hidden="true"
           >
             {nickname.charAt(0)}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm text-[var(--knu-text-primary)] truncate">
-                {nickname}
-              </h3>
-              <span className="px-1.5 py-0.5 rounded-md bg-[var(--knu-primary-light)] text-[10px] font-bold text-[var(--knu-primary)]">
+              <h3 className="font-bold text-sm text-(--knu-text-primary) truncate">{nickname}</h3>
+              <span className="px-1.5 py-0.5 rounded-md bg-(--knu-primary-light) text-[10px] font-bold text-(--knu-primary)">
                 예시
               </span>
             </div>
-            <p className="text-xs text-[var(--knu-text-tertiary)]">
-              {profile.displayDormitoryLabel}
-            </p>
+            <p className="text-xs text-(--knu-text-tertiary)">{profile.displayDormitoryLabel}</p>
           </div>
         </div>
         {profile.exposure.scoreVisible && typeof profile.matchScore === 'number' ? (
@@ -78,10 +74,7 @@ export function LandingProfilePreviewCard({ profile }: LandingProfilePreviewCard
       </div>
 
       <div className="flex items-start gap-1.5 px-3 py-2 bg-blue-50 rounded-xl mb-3">
-        <MessageCircle
-          className="w-3.5 h-3.5 text-blue-500 flex-shrink-0 mt-0.5"
-          aria-hidden="true"
-        />
+        <MessageCircle className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" aria-hidden="true" />
         <p className="text-xs text-blue-700 font-medium leading-relaxed line-clamp-2">
           <span className="sr-only">자기소개: </span>
           {intro}
@@ -92,14 +85,14 @@ export function LandingProfilePreviewCard({ profile }: LandingProfilePreviewCard
         {actionBadges.map((badge) => (
           <span
             key={badge}
-            className="rounded-full bg-[var(--knu-primary-light)] px-2 py-1 text-[11px] font-semibold text-[var(--knu-primary)]"
+            className="rounded-full bg-(--knu-primary-light) px-2 py-1 text-[11px] font-semibold text-(--knu-primary)"
           >
             {badge}
           </span>
         ))}
       </div>
 
-      <p className="text-[11px] leading-relaxed text-[var(--knu-text-tertiary)]">
+      <p className="text-[11px] leading-relaxed text-(--knu-text-tertiary)">
         실제 사용자, 실제 점수, 매칭 또는 호실 선택 성공을 의미하지 않습니다.
       </p>
     </article>

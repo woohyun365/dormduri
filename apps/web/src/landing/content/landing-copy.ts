@@ -94,7 +94,7 @@ export const landingTrustBoundaryItems = [
   {
     id: 'independent-service',
     icon: Shield,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: '독립 운영 서비스',
     description: getLandingPolicyCopy('service_independent_notice').copy,
     policyCopyIds: ['service_independent_notice'],
@@ -156,21 +156,21 @@ export const landingFeatureItems = [
   {
     id: 'email-verification',
     icon: Mail,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: '학교 이메일 인증',
     description: '@kangwon.ac.kr 이메일 인증을 기준으로 가입 자격을 확인합니다.',
   },
   {
     id: 'candidate-search',
     icon: Search,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: '후보 탐색',
     description: '시즌과 내 상태에 맞는 후보 카드만 확인합니다.',
   },
   {
     id: 'lifestyle-compare',
     icon: Moon,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: '생활패턴 비교',
     description: '수면, 흡연, 청결, 소음 민감도 같은 호환성 정보를 참고합니다.',
     policyCopyIds: ['lifestyle_survey_disclaimer'],
@@ -178,14 +178,14 @@ export const landingFeatureItems = [
   {
     id: 'filter-and-sort',
     icon: Filter,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: '필터와 정렬',
     description: '선택 가능한 탐색 범위와 공개된 후보 정보를 기준으로 후보를 좁혀봅니다.',
   },
   {
     id: 'confirm-before-match',
     icon: UserCheck,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: '확인 후 매칭',
     description:
       '상대 프로필과 상태를 확인한 뒤 허용된 화면에서 매칭을 요청하고 수락 여부를 결정합니다.',
@@ -193,7 +193,7 @@ export const landingFeatureItems = [
   {
     id: 'in-service-chat',
     icon: MessageCircle,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: '서비스 내 대화',
     description:
       '같은 기숙사·등록 완료 조건을 만족하면 매칭 전에도 대화할 수 있습니다. 매칭 후에는 확정 상대와 계속 대화할 수 있습니다.',
@@ -202,14 +202,14 @@ export const landingFeatureItems = [
   {
     id: 'safety-controls',
     icon: Shield,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: '차단·신고 경계',
     description: '불편한 사용자는 차단하고, 정책 위반은 신고·지원 흐름으로 분리해 접수합니다.',
   },
   {
     id: 'transparent-boundary',
     icon: Info,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: '투명한 서비스 경계',
     description: '서비스가 돕는 범위와 학교 시스템이 결정하는 범위를 함께 안내합니다.',
     policyCopyIds: ['school_system_not_connected', 'room_selection_not_guaranteed'],
@@ -270,7 +270,7 @@ export const landingSafetySupportItems = [
   {
     id: 'faq-boundary',
     icon: HelpCircle,
-    iconColor: 'text-[var(--knu-primary)]',
+    iconColor: 'text-(--knu-primary)',
     title: 'FAQ는 공개 도움말',
     description: getLandingPolicyCopy('faq_is_not_support_ticket').copy,
     policyCopyIds: ['faq_is_not_support_ticket'],

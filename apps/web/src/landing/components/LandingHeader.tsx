@@ -63,21 +63,21 @@ export function LandingHeader() {
   const navStyles = {
     outline: {
       desktop:
-        'h-11 px-6 border-2 border-[var(--knu-border)] hover:border-[var(--knu-primary)] hover:text-[var(--knu-primary)] rounded-xl text-[var(--knu-text-secondary)] font-semibold transition-all inline-flex items-center',
+        'h-11 px-6 border-2 border-(--knu-border) hover:border-(--knu-primary) hover:text-(--knu-primary) rounded-xl text-(--knu-text-secondary) font-semibold transition-all inline-flex items-center',
       mobile:
-        'h-12 px-4 text-center border-2 border-[var(--knu-border)] text-[var(--knu-text-secondary)] hover:border-[var(--knu-primary)] hover:text-[var(--knu-primary)] rounded-xl font-semibold transition-all flex items-center justify-center',
+        'h-12 px-4 text-center border-2 border-(--knu-border) text-(--knu-text-secondary) hover:border-(--knu-primary) hover:text-(--knu-primary) rounded-xl font-semibold transition-all flex items-center justify-center',
     },
     primary: {
       desktop:
-        'h-11 px-6 bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white font-semibold rounded-xl transition-all shadow-sm inline-flex items-center',
+        'h-11 px-6 bg-(--knu-primary) hover:bg-(--knu-primary-hover) text-white font-semibold rounded-xl transition-all shadow-sm inline-flex items-center',
       mobile:
-        'h-12 px-4 bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white font-semibold rounded-xl transition-all flex items-center justify-center',
+        'h-12 px-4 bg-(--knu-primary) hover:bg-(--knu-primary-hover) text-white font-semibold rounded-xl transition-all flex items-center justify-center',
     },
   };
 
   return (
     <header
-      className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-[var(--knu-border)]"
+      className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-(--knu-border)"
       onKeyDown={handleKeyDown}
     >
       <div className="mx-auto max-w-7xl px-5 lg:px-8">
@@ -92,7 +92,7 @@ export function LandingHeader() {
                 height={36}
                 className="rounded-xl"
               />
-              <span className="text-xl font-bold text-[var(--knu-text-primary)]">KNU 룸메</span>
+              <span className="text-xl font-bold text-(--knu-text-primary)">KNU 룸메</span>
             </Link>
           </div>
 
@@ -104,7 +104,7 @@ export function LandingHeader() {
                   key={item.targetId}
                   type="button"
                   onClick={() => handleScrollTo(item.targetId)}
-                  className="text-sm text-[var(--knu-text-secondary)] hover:text-[var(--knu-primary)] font-medium transition-colors"
+                  className="text-sm text-(--knu-text-secondary) hover:text-(--knu-primary) font-medium transition-colors"
                 >
                   {item.label}
                 </button>
@@ -123,33 +123,33 @@ export function LandingHeader() {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden w-11 h-11 flex items-center justify-center rounded-xl hover:bg-[var(--knu-background-alt)] transition-colors"
+            className="lg:hidden w-11 h-11 flex items-center justify-center rounded-xl hover:bg-(--knu-background-alt) transition-colors"
             aria-label="메뉴"
             aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? (
-              <X className="w-6 h-6 text-[var(--knu-text-primary)]" />
+              <X className="w-6 h-6 text-(--knu-text-primary)" />
             ) : (
-              <Menu className="w-6 h-6 text-[var(--knu-text-primary)]" />
+              <Menu className="w-6 h-6 text-(--knu-text-primary)" />
             )}
           </button>
         </div>
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="lg:hidden py-4 border-t border-[var(--knu-border)]">
+          <div className="lg:hidden py-4 border-t border-(--knu-border)">
             <nav className="flex flex-col gap-2">
               {ANCHOR_ITEMS.map((item) => (
                 <button
                   key={item.targetId}
                   type="button"
                   onClick={() => handleScrollTo(item.targetId)}
-                  className="h-12 px-4 text-left text-[var(--knu-text-secondary)] hover:text-[var(--knu-primary)] font-medium transition-colors flex items-center"
+                  className="h-12 px-4 text-left text-(--knu-text-secondary) hover:text-(--knu-primary) font-medium transition-colors flex items-center"
                 >
                   {item.label}
                 </button>
               ))}
-              <div className="border-t border-[var(--knu-border)] mt-2 pt-2 flex flex-col gap-2">
+              <div className="border-t border-(--knu-border) mt-2 pt-2 flex flex-col gap-2">
                 {NAV_ITEMS.map((item) => (
                   <Link
                     key={item.href}
