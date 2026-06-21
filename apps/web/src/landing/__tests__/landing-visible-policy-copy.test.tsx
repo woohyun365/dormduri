@@ -51,6 +51,23 @@ describe('landing visible policy copy', () => {
     }
   });
 
+  it('첫 렌더에서 hero·정책 경계·CTA를 skeleton 없이 노출한다', () => {
+    const { container } = render(<Landing />);
+
+    expect(
+      screen.getByRole('heading', {
+        name: /학기 시작 전,\s*생활패턴이 맞는\s*룸메 후보를 확인하세요/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/독립 운영 서비스입니다/).length).toBeGreaterThan(0);
+    expect(screen.getByRole('link', { name: /이메일로 시작하기/ })).toHaveAttribute(
+      'href',
+      '/signup',
+    );
+    expect(container.textContent).not.toMatch(/서비스를 준비하고 있어요|loading app shell/i);
+    expect(container.querySelector('[data-testid="landing-faq-skeleton-row"]')).toBeNull();
+  });
+
   it('공개 화면에서 개발자 중심 용어를 노출하지 않는다', () => {
     const { container } = render(<Landing />);
 

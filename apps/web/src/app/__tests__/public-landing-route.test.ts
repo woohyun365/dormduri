@@ -1,9 +1,21 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const readAppSource = (relativePath: string) =>
   readFileSync(path.join(process.cwd(), 'src', 'app', relativePath), 'utf8');
+
+const collectSources = (directory: string): string[] =>
+  readdirSync(directory).flatMap((entry) => {
+    const absolutePath = path.join(directory, entry);
+    const stats = statSync(absolutePath);
+
+    if (stats.isDirectory()) {
+      return collectSources(absolutePath);
+    }
+
+    return /\.(tsx?|jsx?)$/.test(entry) ? [readFileSync(absolutePath, 'utf8')] : [];
+  });
 
 describe('public landing route boundary', () => {
   const pageSource = readAppSource('page.tsx');
@@ -20,5 +32,16 @@ describe('public landing route boundary', () => {
   it('root route는 public Landing shell을 직접 소유한다', () => {
     expect(pageSource).toMatch(/@\/landing\/(LandingPage|Landing)|landing\/(LandingPage|Landing)/);
     expect(pageSource).toMatch(/<Landing(Page)?\s*\/?/);
+  });
+
+  it('Landing source는 인증 앱 shell skeleton을 직접 소유하지 않는다', () => {
+    const landingSources = collectSources(path.join(process.cwd(), 'src', 'landing'));
+
+    for (const source of landingSources) {
+      expect(source).not.toMatch(/from\s+['"][^'"]*AppShellSkeleton/);
+      expect(source).not.toMatch(/from\s+['"][^'"]*GatewaySkeleton/);
+      expect(source).not.toMatch(/from\s+['"]@\/components\/Skeleton['"]/);
+      expect(source).not.toMatch(/from\s+['"][^'"]*components\/Skeleton['"]/);
+    }
   });
 });

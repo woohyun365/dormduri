@@ -39,12 +39,12 @@
 
 ## Directory responsibility
 
-| Directory     | Responsibility                                                  |
-| ------------- | --------------------------------------------------------------- |
-| `content/`    | 정책과 연결된 문구, 섹션 내용, 예시 화면 데이터, 비상 예비 FAQ  |
-| `sections/`   | page section composition and presentational grouping            |
-| `components/` | 재사용 화면 컴포넌트와 최소 상호작용 컴포넌트                   |
-| `__tests__/`  | 섹션 순서, 화면 정책 문구, 콘텐츠 정책, 접근성 중심 보호 테스트 |
+| Directory     | Responsibility                                                        |
+| ------------- | --------------------------------------------------------------------- |
+| `content/`    | 정책과 연결된 문구, 섹션 내용, 예시 화면 데이터, 비상 예비 FAQ        |
+| `sections/`   | page section composition and presentational grouping                  |
+| `components/` | 재사용 화면 컴포넌트, 최소 상호작용 컴포넌트, Landing scoped skeleton |
+| `__tests__/`  | 섹션 순서, 화면 정책 문구, 콘텐츠 정책, 접근성 중심 보호 테스트       |
 
 ## 콘텐츠 규칙
 
@@ -61,6 +61,8 @@
 - 공개 Landing 전체를 full-page skeleton 뒤에 숨기지 않는다.
 - 첫 화면 제목, 서비스 책임 고지, 주요 가입 버튼은 최초 렌더에서 바로 노출되어야 한다.
 - 동적 FAQ처럼 비동기 의존성이 있는 영역에만 해당 영역 전용 skeleton을 둔다.
+- `LandingFaqSkeleton`은 FAQ 영역 전용 loading block이다. 앱 인증 shell loading이나 전체 페이지 loading에 재사용하지 않는다.
+- skeleton row는 장식 요소로 숨기고, loading wrapper만 짧은 상태 문구와 `aria-busy`를 제공한다.
 - skeleton은 실제 content와 유사한 크기를 유지해 CLS를 줄인다.
 - skeleton animation은 `motion-reduce`를 존중해야 한다.
 
