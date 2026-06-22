@@ -1,4 +1,5 @@
 import type { Campus, Gender } from '@repo/shared/auth';
+import type { CollegeCode } from '@repo/shared/college';
 import type { SignupLegalAcceptances } from '@repo/shared/legal';
 import type { SignupStepId } from './signup-flow.types';
 
@@ -22,7 +23,7 @@ export interface SignupDraftSnapshot {
   readonly nickname: string;
   readonly gender: Gender | null;
   readonly campus: Campus | null;
-  readonly collegeCode?: string | null;
+  readonly collegeCode?: CollegeCode | null;
   readonly birthYear?: number | null;
 }
 
@@ -34,7 +35,7 @@ export interface SignupDraftInput {
   readonly nickname: string;
   readonly gender: Gender | null;
   readonly campus: Campus | null;
-  readonly collegeCode?: string | null;
+  readonly collegeCode?: CollegeCode | null;
   readonly birthYear?: number | null;
 }
 

@@ -109,8 +109,8 @@ vi.mock('../components/StepTermsAgreement', () => ({
   ),
 }));
 
-vi.mock('../components/StepBasicInfo', () => ({
-  StepBasicInfo: ({
+vi.mock('../components/AccountIdentityStep', () => ({
+  AccountIdentityStep: ({
     onNext,
     onBasicInfoChange,
   }: {
@@ -126,6 +126,8 @@ vi.mock('../components/StepBasicInfo', () => ({
           passwordConfirm: 'Test1234',
           gender: 'M',
           campus: 'CHUNCHEON',
+          collegeCode: 'IT',
+          birthYear: 2002,
         });
         onNext();
       }}
@@ -238,7 +240,15 @@ describe('Signup', () => {
         nickname: 'tester',
         gender: 'M',
         campus: 'CHUNCHEON',
+        collegeCode: 'IT',
+        birthYear: 2002,
         legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
+      }),
+    );
+    expect(mockSignup).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        lifestyle: expect.anything(),
+        intro: expect.anything(),
       }),
     );
     const completeButton = screen.getByTestId('step-complete');

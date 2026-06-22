@@ -6,13 +6,14 @@ import { AuthHeader } from '@/components/AuthHeader';
 import { ProgressBar } from '@/components/form/ProgressBar';
 import { StepEmailVerification } from './components/email-verification/StepEmailVerification';
 import { StepTermsAgreement, type TermsData } from './components/StepTermsAgreement';
-import { StepBasicInfo, type BasicInfoData } from './components/StepBasicInfo';
+import { AccountIdentityStep, type BasicInfoData } from './components/AccountIdentityStep';
 import { StepSleepPattern } from './components/StepSleepPattern';
 import { StepLivingPattern } from './components/StepLivingPattern';
 import { StepRoommateConditions } from './components/StepRoommateConditions';
 import type { LifestyleData } from '@/types/lifestyle';
 import { StepComplete } from './components/StepComplete';
 import { authApi } from '@/api/auth';
+import { createSignupRequest } from './model/signup-request.mapper';
 import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/Button';
@@ -43,6 +44,8 @@ export default function Signup() {
     passwordConfirm: '',
     gender: null,
     campus: null,
+    collegeCode: null,
+    birthYear: null,
   });
   const [intro, setIntro] = useState('');
   const [lifestyle, setLifestyle] = useState<LifestyleData>({
@@ -98,6 +101,8 @@ export default function Signup() {
       nickname: draft.nickname,
       gender: draft.gender,
       campus: draft.campus,
+      collegeCode: draft.collegeCode ?? null,
+      birthYear: draft.birthYear ?? null,
     }));
   }, []);
 
@@ -109,6 +114,8 @@ export default function Signup() {
     nickname: basicInfo.nickname,
     gender: basicInfo.gender,
     campus: basicInfo.campus,
+    collegeCode: basicInfo.collegeCode,
+    birthYear: basicInfo.birthYear,
     shouldClear: currentStep >= TOTAL_STEPS,
     onRestore: handleDraftRestore,
   });
@@ -186,16 +193,17 @@ export default function Signup() {
     setIsSubmitting(true);
     setSubmitError('');
     try {
-      const result = await authApi.signup({
+      const signupRequest = createSignupRequest({
         email,
         password: basicInfo.password,
         nickname: basicInfo.nickname,
         gender: basicInfo.gender!,
         campus: basicInfo.campus!,
+        collegeCode: basicInfo.collegeCode!,
+        birthYear: basicInfo.birthYear!,
         legalAcceptances: terms.legalAcceptances,
-        lifestyle,
-        intro,
       });
+      const result = await authApi.signup(signupRequest);
       if (result.success) {
         setCurrentStep(7);
       } else if (result.code === 'AUTH_LEGAL_ACCEPTANCE_STALE') {
@@ -275,7 +283,7 @@ export default function Signup() {
           />
         )}
         {currentStep === 3 && (
-          <StepBasicInfo
+          <AccountIdentityStep
             email={email}
             basicInfo={basicInfo}
             onBasicInfoChange={setBasicInfo}
@@ -308,7 +316,7 @@ export default function Signup() {
                 role="alert"
                 className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3"
               >
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm text-red-900 font-medium mb-3">{submitError}</p>
                   {isVerificationExpiredError ? (

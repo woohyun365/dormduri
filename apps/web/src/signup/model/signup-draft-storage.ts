@@ -1,4 +1,5 @@
 import type { Campus, Gender } from '@repo/shared/auth';
+import { collegeCodeSchema, type CollegeCode } from '@repo/shared/college';
 import type { SignupLegalAcceptances } from '@repo/shared/legal';
 import type { SignupStepId } from './signup-flow.types';
 import type {
@@ -43,10 +44,11 @@ function asNullableCampus(value: unknown): Campus | null {
   return value === 'CHUNCHEON' || value === 'SAMCHEOK' || value === 'DOGYE' ? value : null;
 }
 
-function asNullableString(value: unknown): string | null | undefined {
+function asNullableCollegeCode(value: unknown): CollegeCode | null | undefined {
   if (value === undefined) return undefined;
   if (value === null) return null;
-  return typeof value === 'string' ? value : undefined;
+  const parsed = collegeCodeSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
 }
 
 function asNullableNumber(value: unknown): number | null | undefined {
@@ -160,7 +162,7 @@ export function parseSignupDraft(raw: string): SignupDraftSnapshot | null {
 
   const isEmailVerified = asBoolean(parsed.isEmailVerified);
   const legacyCurrentStep = resolveLegacyStep(parsed, isEmailVerified);
-  const collegeCode = asNullableString(parsed.collegeCode);
+  const collegeCode = asNullableCollegeCode(parsed.collegeCode);
   const birthYear = asNullableNumber(parsed.birthYear);
 
   return {

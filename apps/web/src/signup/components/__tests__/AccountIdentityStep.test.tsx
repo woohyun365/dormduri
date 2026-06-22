@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { StepBasicInfo, type BasicInfoData } from '../StepBasicInfo';
+import { AccountIdentityStep, type BasicInfoData } from '../AccountIdentityStep';
 import { authApi } from '@/api/auth';
 
 vi.mock('lucide-react', () => ({
@@ -13,11 +13,11 @@ vi.mock('lucide-react', () => ({
 
 vi.mock('@/api/auth', () => ({
   authApi: {
-    validateSignupProfile: vi.fn(),
+    validateSignupDraft: vi.fn(),
   },
 }));
 
-const mockValidateSignupProfile = vi.mocked(authApi.validateSignupProfile);
+const mockValidateSignupDraft = vi.mocked(authApi.validateSignupDraft);
 
 const emptyBasicInfo: BasicInfoData = {
   nickname: '',
@@ -25,6 +25,8 @@ const emptyBasicInfo: BasicInfoData = {
   passwordConfirm: '',
   gender: null,
   campus: null,
+  collegeCode: null,
+  birthYear: null,
 };
 
 function renderWithState(overrides: { onNext?: () => void } = {}) {
@@ -34,7 +36,7 @@ function renderWithState(overrides: { onNext?: () => void } = {}) {
   function Wrapper() {
     const [basicInfo, setBasicInfo] = useState<BasicInfoData>(emptyBasicInfo);
     return (
-      <StepBasicInfo
+      <AccountIdentityStep
         email="test@kangwon.ac.kr"
         basicInfo={basicInfo}
         onBasicInfoChange={setBasicInfo}
@@ -47,9 +49,21 @@ function renderWithState(overrides: { onNext?: () => void } = {}) {
   return { ...render(<Wrapper />), onNext, onBack };
 }
 
-describe('StepBasicInfo', () => {
+function fillValidAccountIdentity() {
+  fireEvent.click(screen.getByRole('radio', { name: '춘천캠퍼스' }));
+  fireEvent.click(screen.getByRole('radio', { name: '남성' }));
+  fireEvent.change(screen.getByLabelText(/단과대/), { target: { value: 'IT' } });
+  fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '테스터' } });
+  fireEvent.change(screen.getAllByLabelText(/^비밀번호(?!.*확인)/)[0]!, {
+    target: { value: 'Test1234' },
+  });
+  fireEvent.change(screen.getByLabelText(/비밀번호 확인/), { target: { value: 'Test1234' } });
+  fireEvent.change(screen.getByLabelText(/출생연도/), { target: { value: '2002' } });
+}
+
+describe('AccountIdentityStep', () => {
   beforeEach(() => {
-    mockValidateSignupProfile.mockResolvedValue({ success: true });
+    mockValidateSignupDraft.mockResolvedValue({ success: true });
   });
 
   it('빈 필드에서 다음 클릭 시 유효성 검사 에러를 표시한다', async () => {
@@ -59,10 +73,12 @@ describe('StepBasicInfo', () => {
 
     expect(screen.getByText('캠퍼스를 선택해주세요.')).toBeInTheDocument();
     expect(screen.getByText('성별을 선택해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('단과대를 선택해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('출생연도를 입력해주세요.')).toBeInTheDocument();
     expect(onNext).not.toHaveBeenCalled();
   });
 
-  it('캠퍼스와 성별 선택이 가능하다', () => {
+  it('캠퍼스와 성별 선택이 가능하고 campus별 단과대 catalog를 노출한다', () => {
     renderWithState();
 
     fireEvent.click(screen.getByRole('radio', { name: '춘천캠퍼스' }));
@@ -73,28 +89,40 @@ describe('StepBasicInfo', () => {
       'true',
     );
     expect(screen.getByRole('radio', { name: '남성' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('option', { name: 'IT대' })).toBeInTheDocument();
   });
 
-  it('모든 필드를 채우면 onNext가 호출된다', async () => {
-    const { onNext } = renderWithState();
+  it('캠퍼스를 바꾸면 선택된 단과대가 새 campus catalog에 없을 때 초기화된다', () => {
+    renderWithState();
 
     fireEvent.click(screen.getByRole('radio', { name: '춘천캠퍼스' }));
-    fireEvent.click(screen.getByRole('radio', { name: '남성' }));
-    fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '테스터' } });
-    fireEvent.change(screen.getAllByLabelText(/^비밀번호(?!.*확인)/)[0]!, {
-      target: { value: 'Test1234' },
-    });
-    fireEvent.change(screen.getByLabelText(/비밀번호 확인/), { target: { value: 'Test1234' } });
+    fireEvent.change(screen.getByLabelText(/단과대/), { target: { value: 'IT' } });
+    expect(screen.getByLabelText(/단과대/)).toHaveValue('IT');
 
+    fireEvent.click(screen.getByRole('radio', { name: '삼척캠퍼스' }));
+
+    expect(screen.getByLabelText(/단과대/)).toHaveValue('');
+    expect(screen.getByLabelText(/단과대/)).toBeDisabled();
+  });
+
+  it('모든 필드를 채우면 validateSignupDraft 호출 후 onNext가 호출된다', async () => {
+    const { onNext } = renderWithState();
+
+    fillValidAccountIdentity();
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
     await waitFor(() => {
+      expect(mockValidateSignupDraft).toHaveBeenCalledWith({
+        email: 'test@kangwon.ac.kr',
+        nickname: '테스터',
+        password: 'Test1234',
+      });
       expect(onNext).toHaveBeenCalled();
     });
   });
 
   it('백엔드 닉네임 정책 오류를 즉시 표시한다', async () => {
-    mockValidateSignupProfile.mockResolvedValue({
+    mockValidateSignupDraft.mockResolvedValue({
       success: false,
       error: '입력값을 다시 확인해주세요.',
       fieldErrors: { nickname: '사용할 수 없는 표현이 포함되어 있습니다.' },
@@ -102,14 +130,8 @@ describe('StepBasicInfo', () => {
 
     const { onNext } = renderWithState();
 
-    fireEvent.click(screen.getByRole('radio', { name: '춘천캠퍼스' }));
-    fireEvent.click(screen.getByRole('radio', { name: '남성' }));
+    fillValidAccountIdentity();
     fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '섹스' } });
-    fireEvent.change(screen.getAllByLabelText(/^비밀번호(?!.*확인)/)[0]!, {
-      target: { value: 'Test1234' },
-    });
-    fireEvent.change(screen.getByLabelText(/비밀번호 확인/), { target: { value: 'Test1234' } });
-
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
     await waitFor(() => {
@@ -120,7 +142,7 @@ describe('StepBasicInfo', () => {
 
   it('닉네임만 입력한 상태에서 서버 금지어 오류가 있으면 닉네임에 우선 포커스한다', async () => {
     Element.prototype.scrollIntoView = vi.fn();
-    mockValidateSignupProfile.mockResolvedValue({
+    mockValidateSignupDraft.mockResolvedValue({
       success: false,
       error: '입력값을 다시 확인해주세요.',
       fieldErrors: {

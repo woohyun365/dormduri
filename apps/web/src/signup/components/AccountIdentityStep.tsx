@@ -1,6 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
+import { getCollegeCatalog, type CollegeCode } from '@repo/shared/college';
+import { MIN_PROFILE_BIRTH_YEAR, profileBirthYearSchema } from '@repo/shared/profile/contract';
 import { InputField } from '@/components/form/InputField';
 import { StepHeader } from '@/components/StepHeader';
 import { StepNavigation } from '@/components/form/StepNavigation';
@@ -22,9 +24,11 @@ export interface BasicInfoData {
   passwordConfirm: string;
   gender: 'M' | 'F' | null;
   campus: Campus | null;
+  collegeCode: CollegeCode | null;
+  birthYear: number | null;
 }
 
-interface StepBasicInfoProps {
+interface AccountIdentityStepProps {
   email: string;
   basicInfo: BasicInfoData;
   onBasicInfoChange: (data: BasicInfoData) => void;
@@ -32,24 +36,45 @@ interface StepBasicInfoProps {
   onBack: () => void;
 }
 
-export function StepBasicInfo({
+function hasCollegeInCampus(campus: Campus, collegeCode: CollegeCode | null): boolean {
+  if (!collegeCode) return false;
+  return getCollegeCatalog(campus).some((college) => college.code === collegeCode);
+}
+
+function validateBirthYear(birthYear: number | null): string {
+  if (birthYear === null) return '출생연도를 입력해주세요.';
+  const result = profileBirthYearSchema.safeParse(birthYear);
+  if (!result.success) {
+    return `${MIN_PROFILE_BIRTH_YEAR}년 이후의 출생연도를 입력해주세요.`;
+  }
+  return '';
+}
+
+export function AccountIdentityStep({
   email,
   basicInfo,
   onBasicInfoChange,
   onNext,
   onBack,
-}: StepBasicInfoProps) {
+}: AccountIdentityStepProps) {
+  const collegeSelectId = useId();
   const [campusError, setCampusError] = useState('');
   const [nicknameError, setNicknameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordConfirmError, setPasswordConfirmError] = useState('');
   const [genderError, setGenderError] = useState('');
+  const [collegeError, setCollegeError] = useState('');
+  const [birthYearError, setBirthYearError] = useState('');
   const [isCheckingPolicy, setIsCheckingPolicy] = useState(false);
   const campusRef = useRef<HTMLDivElement>(null);
   const genderRef = useRef<HTMLDivElement>(null);
+  const collegeRef = useRef<HTMLSelectElement>(null);
   const nicknameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const passwordConfirmRef = useRef<HTMLInputElement>(null);
+  const birthYearRef = useRef<HTMLInputElement>(null);
+
+  const collegeOptions = basicInfo.campus ? getCollegeCatalog(basicInfo.campus) : [];
 
   const handleNext = async () => {
     const campusErr = basicInfo.campus ? '' : '캠퍼스를 선택해주세요.';
@@ -60,11 +85,19 @@ export function StepBasicInfo({
       basicInfo.passwordConfirm,
     );
     const genderErr = basicInfo.gender ? '' : '성별을 선택해주세요.';
+    const collegeErr = basicInfo.collegeCode
+      ? ''
+      : basicInfo.campus && collegeOptions.length === 0
+        ? '선택한 캠퍼스에서 이용 가능한 단과대 정보가 없습니다. 춘천캠퍼스를 선택해주세요.'
+        : '단과대를 선택해주세요.';
+    const birthYearErr = validateBirthYear(basicInfo.birthYear);
 
     setCampusError(campusErr);
     setPasswordError(passwordErr);
     setPasswordConfirmError(passwordConfirmErr);
     setGenderError(genderErr);
+    setCollegeError(collegeErr);
+    setBirthYearError(birthYearErr);
 
     let nextNicknameError = nicknameFormatErr;
     let nextPasswordError = passwordErr;
@@ -72,7 +105,7 @@ export function StepBasicInfo({
 
     if (!nicknameFormatErr) {
       setIsCheckingPolicy(true);
-      const validation = await authApi.validateSignupProfile({
+      const validation = await authApi.validateSignupDraft({
         email,
         nickname: basicInfo.nickname,
         password: basicInfo.password,
@@ -107,6 +140,14 @@ export function StepBasicInfo({
       focusAndScroll(genderRef.current);
       return;
     }
+    if (collegeErr) {
+      focusAndScroll(collegeRef.current);
+      return;
+    }
+    if (birthYearErr) {
+      focusAndScroll(birthYearRef.current);
+      return;
+    }
 
     onBasicInfoChange({ ...basicInfo, nickname: basicInfo.nickname.trim() });
     onNext();
@@ -138,8 +179,16 @@ export function StepBasicInfo({
                 label={option.label}
                 selected={basicInfo.campus === option.value}
                 onClick={() => {
-                  onBasicInfoChange({ ...basicInfo, campus: option.value });
+                  const nextCollegeCode = hasCollegeInCampus(option.value, basicInfo.collegeCode)
+                    ? basicInfo.collegeCode
+                    : null;
+                  onBasicInfoChange({
+                    ...basicInfo,
+                    campus: option.value,
+                    collegeCode: nextCollegeCode,
+                  });
                   setCampusError('');
+                  setCollegeError('');
                 }}
                 role="radio"
                 aria-checked={basicInfo.campus === option.value}
@@ -182,6 +231,47 @@ export function StepBasicInfo({
             />
           </div>
           <FieldError message={genderError} />
+        </div>
+
+        <div>
+          <label
+            htmlFor={collegeSelectId}
+            className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-2"
+          >
+            단과대<span className="text-red-500 ml-1">*</span>
+          </label>
+          <select
+            ref={collegeRef}
+            id={collegeSelectId}
+            value={basicInfo.collegeCode ?? ''}
+            disabled={!basicInfo.campus || collegeOptions.length === 0}
+            aria-invalid={!!collegeError}
+            onChange={(event) => {
+              onBasicInfoChange({
+                ...basicInfo,
+                collegeCode: event.target.value ? (event.target.value as CollegeCode) : null,
+              });
+              setCollegeError('');
+            }}
+            className={`w-full h-12 px-4 rounded-xl border-2 transition-all outline-none ${
+              collegeError
+                ? 'border-red-300 bg-red-50 focus:border-red-500'
+                : 'border-[var(--knu-border)] bg-white focus:border-[var(--knu-primary)]'
+            } ${!basicInfo.campus || collegeOptions.length === 0 ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+          >
+            <option value="">
+              {basicInfo.campus ? '단과대를 선택해주세요' : '캠퍼스를 먼저 선택해주세요'}
+            </option>
+            {collegeOptions.map((college) => (
+              <option key={college.code} value={college.code}>
+                {college.nameKo}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-xs text-[var(--knu-text-secondary)]">
+            단과대와 출생연도는 시즌 등록 시 학적 정보로 사용됩니다.
+          </p>
+          <FieldError message={collegeError} />
         </div>
 
         <InputField
@@ -229,6 +319,26 @@ export function StepBasicInfo({
             setPasswordConfirmError('');
           }}
           error={passwordConfirmError}
+        />
+
+        <InputField
+          ref={birthYearRef}
+          label="출생연도"
+          type="number"
+          placeholder="예: 2003"
+          value={basicInfo.birthYear === null ? '' : String(basicInfo.birthYear)}
+          required
+          onChange={(value) => {
+            const trimmedValue = value.trim();
+            const nextBirthYear = trimmedValue === '' ? null : Number(trimmedValue);
+            onBasicInfoChange({
+              ...basicInfo,
+              birthYear: Number.isFinite(nextBirthYear) ? nextBirthYear : null,
+            });
+            setBirthYearError('');
+          }}
+          error={birthYearError}
+          helper={`${MIN_PROFILE_BIRTH_YEAR}년 이후 출생연도를 숫자로 입력해주세요.`}
         />
       </div>
 

@@ -5,6 +5,7 @@ import {
   type SignupRequest,
 } from '@repo/shared/auth';
 import type { SignupLegalAcceptances } from '@repo/shared/legal';
+import type { CollegeCode } from '@repo/shared/college';
 
 export interface SignupRequestMapperInput {
   readonly email: string;
@@ -12,7 +13,7 @@ export interface SignupRequestMapperInput {
   readonly nickname: string;
   readonly gender: Gender;
   readonly campus: Campus;
-  readonly collegeCode: string;
+  readonly collegeCode: CollegeCode;
   readonly birthYear: number;
   readonly legalAcceptances: SignupLegalAcceptances;
 }
