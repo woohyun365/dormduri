@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
 import { ProgressBar } from '@/components/form/ProgressBar';
@@ -33,7 +33,7 @@ export default function Signup() {
   const [terms, setTerms] = useState<TermsData>({
     agreeAge: false,
     agreeTerms: false,
-    agreePrivacy: false,
+    agreePersonalDataCollectionUse: false,
   });
   const [basicInfo, setBasicInfo] = useState<BasicInfoData>({
     nickname: '',
@@ -70,6 +70,8 @@ export default function Signup() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [legalNotice, setLegalNotice] = useState('');
+  const [legalRefreshNonce, setLegalRefreshNonce] = useState(0);
   const [resumeStepAfterVerification, setResumeStepAfterVerification] = useState<number | null>(
     null,
   );
@@ -89,7 +91,21 @@ export default function Signup() {
         setCurrentStep(step);
         if (draft.email) setEmail(draft.email);
         if (draft.isEmailVerified) setIsEmailVerified(true);
-        if (draft.terms) setTerms(draft.terms);
+        if (draft.terms) {
+          setTerms({
+            agreeAge: Boolean(draft.terms.agreeAge),
+            agreeTerms: Boolean(draft.terms.agreeTerms),
+            agreePersonalDataCollectionUse: Boolean(
+              draft.terms.agreePersonalDataCollectionUse ?? draft.terms.agreePrivacy,
+            ),
+            ...(draft.terms.legalAcceptances
+              ? { legalAcceptances: draft.terms.legalAcceptances }
+              : {}),
+            ...(draft.terms.legalBundleSource
+              ? { legalBundleSource: draft.terms.legalBundleSource }
+              : {}),
+          });
+        }
         setBasicInfo((prev) => ({
           ...prev,
           nickname: draft.nickname ?? '',
@@ -179,7 +195,33 @@ export default function Signup() {
     window.scrollTo(0, 0);
   };
 
+  const handleTermsChange = useCallback((nextTerms: TermsData) => {
+    setTerms(nextTerms);
+    if (nextTerms.agreeAge || nextTerms.agreeTerms || nextTerms.agreePersonalDataCollectionUse) {
+      setLegalNotice('');
+    }
+  }, []);
+
+  const handleLegalAcceptancesStale = () => {
+    setTerms({
+      agreeAge: false,
+      agreeTerms: false,
+      agreePersonalDataCollectionUse: false,
+    });
+    setLegalNotice(
+      '약관 또는 개인정보 동의 내용이 변경되었습니다. 최신 내용을 다시 확인하고 필수 항목에 다시 동의해주세요.',
+    );
+    setLegalRefreshNonce((prev) => prev + 1);
+    setCurrentStep(2);
+    window.scrollTo(0, 0);
+  };
+
   const handleSignupSubmit = async () => {
+    if (!terms.legalAcceptances) {
+      handleLegalAcceptancesStale();
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError('');
     try {
@@ -189,11 +231,14 @@ export default function Signup() {
         nickname: basicInfo.nickname,
         gender: basicInfo.gender!,
         campus: basicInfo.campus!,
+        legalAcceptances: terms.legalAcceptances,
         lifestyle,
         intro,
       });
       if (result.success) {
         setCurrentStep(7);
+      } else if (result.code === 'AUTH_LEGAL_ACCEPTANCE_STALE') {
+        handleLegalAcceptancesStale();
       } else {
         setSubmitError(result.error ?? '회원가입에 실패했습니다. 다시 시도해주세요.');
       }
@@ -261,9 +306,11 @@ export default function Signup() {
         {currentStep === 2 && (
           <StepTermsAgreement
             terms={terms}
-            onTermsChange={setTerms}
+            onTermsChange={handleTermsChange}
             onNext={handleNext}
             onBack={handleBack}
+            refreshNonce={legalRefreshNonce}
+            notice={legalNotice}
           />
         )}
         {currentStep === 3 && (

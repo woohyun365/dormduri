@@ -44,4 +44,19 @@ describe('web legal document boundary', () => {
       expect(source).not.toContain('@/signup/');
     }
   });
+
+  it('signup legal consent flow uses legal feature instead of legacy static modal/constants', () => {
+    const signupSources = [
+      readSource('signup/Signup.tsx'),
+      readSource('signup/components/StepTermsAgreement.tsx'),
+    ];
+
+    for (const source of signupSources) {
+      expect(source).not.toContain('@/constants/legal');
+      expect(source).not.toContain('@/components/legal/LegalContentModal');
+    }
+
+    expect(existsSync(join(webSrc, 'components/legal/LegalContentModal.tsx'))).toBe(false);
+    expect(existsSync(join(webSrc, 'constants/legal'))).toBe(false);
+  });
 });

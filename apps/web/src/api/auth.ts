@@ -20,7 +20,7 @@ import type { LifestyleData } from '@/types/lifestyle';
 
 type SignupFormRequest = Pick<
   SignupRequest,
-  'email' | 'password' | 'nickname' | 'gender' | 'campus'
+  'email' | 'password' | 'nickname' | 'gender' | 'campus' | 'legalAcceptances'
 > & {
   lifestyle?: LifestyleData;
   intro?: string;

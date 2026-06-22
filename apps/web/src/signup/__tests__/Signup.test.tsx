@@ -66,10 +66,38 @@ vi.mock('../components/email-verification/StepEmailVerification', () => ({
 }));
 
 vi.mock('../components/StepTermsAgreement', () => ({
-  StepTermsAgreement: ({ onNext }: { onNext: () => void }) => (
-    <button data-testid="step-2-next" onClick={onNext}>
-      next
-    </button>
+  StepTermsAgreement: ({
+    onNext,
+    onTermsChange,
+    notice,
+  }: {
+    onNext: () => void;
+    onTermsChange: (terms: Record<string, unknown>) => void;
+    notice?: string;
+  }) => (
+    <div>
+      {notice && <p role="status">{notice}</p>}
+      <button
+        data-testid="step-2-next"
+        onClick={() => {
+          onTermsChange({
+            agreeAge: true,
+            agreeTerms: true,
+            agreePersonalDataCollectionUse: true,
+            legalAcceptances: {
+              termsVersionId: 'terms-of-service-2026-06-22',
+              personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+              ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+              privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+            },
+            legalBundleSource: 'api',
+          });
+          onNext();
+        }}
+      >
+        next
+      </button>
+    </div>
   ),
 }));
 
@@ -141,6 +169,13 @@ vi.mock('@/components/AuthHeader', () => ({
 
 const mockSignup = vi.mocked(authApi.signup);
 
+const SIGNUP_LEGAL_ACCEPTANCES = {
+  termsVersionId: 'terms-of-service-2026-06-22',
+  personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+  ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+  privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+};
+
 function advanceToStep(step: number) {
   if (step >= 2) {
     fireEvent.click(screen.getByTestId('step-1-verify'));
@@ -187,6 +222,7 @@ describe('Signup', () => {
         nickname: 'tester',
         gender: 'M',
         campus: 'CHUNCHEON',
+        legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
       }),
     );
     const completeButton = screen.getByTestId('step-complete');
@@ -208,6 +244,25 @@ describe('Signup', () => {
     fireEvent.click(screen.getByTestId('logo'));
 
     expect(confirmSpy).toHaveBeenCalledWith('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
+  });
+
+  it('legal acceptance stale 실패 시 약관 단계로 되돌리고 재확인을 요구한다', async () => {
+    mockSignup.mockResolvedValueOnce({
+      success: false,
+      code: 'AUTH_LEGAL_ACCEPTANCE_STALE',
+      error: '약관 또는 개인정보 동의 내용이 변경되었습니다.',
+    });
+
+    render(<Signup />);
+    advanceToStep(6);
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('step-6-next'));
+    });
+
+    expect(screen.getByTestId('step-2-next')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('최신 내용을 다시 확인');
+    expect(mockSignup).toHaveBeenCalled();
   });
 
   it('회원가입 실패 시 에러 메시지와 재시도 버튼을 표시한다', async () => {
@@ -276,7 +331,12 @@ describe('Signup', () => {
           currentStep: 5,
           email: 'test@kangwon.ac.kr',
           isEmailVerified: true,
-          terms: { agreeAge: true, agreeTerms: true, agreePrivacy: true },
+          terms: {
+            agreeAge: true,
+            agreeTerms: true,
+            agreePersonalDataCollectionUse: true,
+            legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
+          },
           nickname: 'tester',
           gender: 'M',
           campus: 'CHUNCHEON',
@@ -298,7 +358,7 @@ describe('Signup', () => {
           currentStep: 2,
           email: 'test@kangwon.ac.kr',
           isEmailVerified: true,
-          terms: { agreeAge: false, agreeTerms: false, agreePrivacy: false },
+          terms: { agreeAge: false, agreeTerms: false, agreePersonalDataCollectionUse: false },
           nickname: '',
           gender: null,
           campus: null,
