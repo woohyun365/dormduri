@@ -10,6 +10,7 @@ import {
 import { COLLEGE_MASTER_DATA } from './seed-data/reference/college-reference-data.js';
 import { MODERATION_REFERENCE_ROWS } from './seed-data/reference/moderation-seed-data.js';
 import { SUPPORT_FAQ_REFERENCE_ROWS } from './seed-data/reference/support-faq-seed-data.js';
+import { LEGAL_DOCUMENT_REFERENCE_ROWS } from './seed-data/reference/legal-document-seed-data.js';
 import {
   AUTH_FIXTURE_SEED_PASSWORD,
   AUTH_FIXTURE_USERS,
@@ -502,6 +503,67 @@ async function seedSupportFaq(client) {
   }
 }
 
+async function seedLegalDocuments(client) {
+  for (const row of LEGAL_DOCUMENT_REFERENCE_ROWS) {
+    await client.query(
+      `
+        INSERT INTO "LegalDocumentVersion" (
+          id,
+          kind,
+          version,
+          title,
+          "summaryItems",
+          sections,
+          "changeSummary",
+          "publishedAt",
+          "effectiveAt",
+          "retiredAt",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES (
+          $1,
+          $2::"LegalDocumentKind",
+          $3,
+          $4,
+          $5::jsonb,
+          $6::jsonb,
+          $7,
+          $8::timestamptz,
+          $9::timestamptz,
+          $10::timestamptz,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (id)
+        DO UPDATE SET
+          kind = EXCLUDED.kind,
+          version = EXCLUDED.version,
+          title = EXCLUDED.title,
+          "summaryItems" = EXCLUDED."summaryItems",
+          sections = EXCLUDED.sections,
+          "changeSummary" = EXCLUDED."changeSummary",
+          "publishedAt" = EXCLUDED."publishedAt",
+          "effectiveAt" = EXCLUDED."effectiveAt",
+          "retiredAt" = EXCLUDED."retiredAt",
+          "updatedAt" = NOW()
+      `,
+      [
+        row.id,
+        row.kind,
+        row.version,
+        row.title,
+        JSON.stringify(row.summaryItems),
+        JSON.stringify(row.sections),
+        row.changeSummary ?? null,
+        row.publishedAt ?? null,
+        row.effectiveAt,
+        row.retiredAt ?? null,
+      ],
+    );
+  }
+}
+
 async function seedUsersData(client) {
   const passwordHash = await argonHash(AUTH_FIXTURE_SEED_PASSWORD, {
     algorithm: 2,
@@ -775,6 +837,7 @@ async function seed() {
     await seedColleges(client);
     await seedModerationTerms(client);
     await seedSupportFaq(client);
+    await seedLegalDocuments(client);
     await seedSeasons(client);
     await seedUsersData(client);
   } finally {

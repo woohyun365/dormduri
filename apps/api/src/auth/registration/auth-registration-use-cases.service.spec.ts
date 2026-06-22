@@ -1,3 +1,4 @@
+import { LegalDocumentKind } from '@repo/shared/legal';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthRegistrationUseCases } from './auth-registration-use-cases.service.js';
 
@@ -15,6 +16,12 @@ describe('AuthRegistrationUseCases', () => {
     },
     verificationCode: {
       updateMany: vi.fn(),
+    },
+    legalDocumentVersion: {
+      findFirst: vi.fn(),
+    },
+    legalAcceptanceRecord: {
+      createMany: vi.fn(),
     },
     $queryRawTyped: vi.fn(),
   };
@@ -41,6 +48,12 @@ describe('AuthRegistrationUseCases', () => {
     campus: 'CHUNCHEON',
     collegeCode: 'IT',
     birthYear: 2002,
+    legalAcceptances: {
+      termsVersionId: 'terms-of-service-2026-06-22',
+      personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+      ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+      privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+    },
   } as const;
 
   beforeEach(() => {
@@ -50,11 +63,27 @@ describe('AuthRegistrationUseCases', () => {
     prisma.userDisplayIdentity.findUnique.mockResolvedValue(null);
     prisma.$queryRawTyped.mockResolvedValue([{ id: 'code-1' }]);
     prisma.verificationCode.updateMany.mockResolvedValue({ count: 1 });
+    prisma.legalDocumentVersion.findFirst.mockImplementation(
+      ({ where }: { where: { kind: LegalDocumentKind } }) => {
+        const activeVersionIds: Record<LegalDocumentKind, string> = {
+          [LegalDocumentKind.TERMS_OF_SERVICE]: input.legalAcceptances.termsVersionId,
+          [LegalDocumentKind.PRIVACY_POLICY]: input.legalAcceptances.privacyPolicyVersionIdShown,
+          [LegalDocumentKind.PERSONAL_DATA_COLLECTION_USE_CONSENT]:
+            input.legalAcceptances.personalDataConsentVersionId,
+          [LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE]: input.legalAcceptances.ageNoticeVersionId,
+        };
+
+        return Promise.resolve({ id: activeVersionIds[where.kind] });
+      },
+    );
+    prisma.legalAcceptanceRecord.createMany.mockResolvedValue({ count: 4 });
     prisma.runSerializableTransaction.mockImplementation((callback: (tx: unknown) => unknown) =>
       callback({
         $queryRawTyped: prisma.$queryRawTyped,
         user: { create: prisma.user.create },
         verificationCode: { updateMany: prisma.verificationCode.updateMany },
+        legalDocumentVersion: { findFirst: prisma.legalDocumentVersion.findFirst },
+        legalAcceptanceRecord: { createMany: prisma.legalAcceptanceRecord.createMany },
       }),
     );
     verificationService.findLatestVerifiedSignupCode.mockResolvedValue({ id: 'code-1' });

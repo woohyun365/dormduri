@@ -260,6 +260,48 @@ describe('migration baseline coverage', () => {
     );
   });
 
+  it('legal document baseline은 공개 문서 version read model과 active lookup index를 포함한다', () => {
+    expect(sql).toContain(
+      `CREATE TYPE "LegalDocumentKind" AS ENUM ('TERMS_OF_SERVICE', 'PRIVACY_POLICY', 'PERSONAL_DATA_COLLECTION_USE_CONSENT', 'AGE_14_OR_ABOVE_NOTICE');`,
+    );
+    expect(sql).toContain('CREATE TABLE "LegalDocumentVersion"');
+    expect(sql).toContain('"kind" "LegalDocumentKind" NOT NULL');
+    expect(sql).toContain('"summaryItems" JSONB NOT NULL');
+    expect(sql).toContain('"sections" JSONB NOT NULL');
+    expect(sql).toContain('"publishedAt" TIMESTAMPTZ(3)');
+    expect(sql).toContain('"effectiveAt" TIMESTAMPTZ(3) NOT NULL');
+    expect(sql).toContain('"retiredAt" TIMESTAMPTZ(3)');
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "LegalDocumentVersion_kind_version_key" ON "LegalDocumentVersion"("kind", "version")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "LegalDocumentVersion_kind_publishedAt_effectiveAt_reti_idx" ON "LegalDocumentVersion"("kind", "publishedAt", "effectiveAt", "retiredAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "LegalDocumentVersion_kind_effectiveAt_id_idx" ON "LegalDocumentVersion"("kind", "effectiveAt", "id")',
+    );
+    expect(sql).toContain(`CREATE TYPE "LegalAcceptanceAction" AS ENUM ('AGREE', 'SHOW');`);
+    expect(sql).toContain('CREATE TABLE "LegalAcceptanceRecord"');
+    expect(sql).toContain('"documentVersionId" TEXT NOT NULL');
+    expect(sql).toContain('"action" "LegalAcceptanceAction" NOT NULL');
+    expect(sql).toContain('"source" TEXT NOT NULL DEFAULT \'SIGNUP\'');
+    expect(sql).toContain(
+      'CREATE UNIQUE INDEX "LegalAcceptanceRecord_userId_documentVersionId_key" ON "LegalAcceptanceRecord"("userId", "documentVersionId")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "LegalAcceptanceRecord_userId_kind_acceptedAt_idx" ON "LegalAcceptanceRecord"("userId", "kind", "acceptedAt")',
+    );
+    expect(sql).toContain(
+      'CREATE INDEX "LegalAcceptanceRecord_kind_acceptedAt_idx" ON "LegalAcceptanceRecord"("kind", "acceptedAt")',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "LegalAcceptanceRecord" ADD CONSTRAINT "LegalAcceptanceRecord_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;',
+    );
+    expect(sql).toContain(
+      'ALTER TABLE "LegalAcceptanceRecord" ADD CONSTRAINT "LegalAcceptanceRecord_documentVersionId_fkey" FOREIGN KEY ("documentVersionId") REFERENCES "LegalDocumentVersion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;',
+    );
+  });
+
   it('chat lifecycle event baseline은 audit/debug trace table과 minimal indexes를 포함하고 retention state model을 만들지 않는다', () => {
     expect(sql).toContain(
       `CREATE TYPE "ConversationThreadLifecycleEventType" AS ENUM ('THREAD_CREATED', 'THREAD_KIND_CHANGED', 'THREAD_READ_ONLY', 'THREAD_REOPENED', 'THREAD_ARCHIVED');`,

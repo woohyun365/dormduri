@@ -17,6 +17,11 @@ import {
   isPrismaKnownRequestError,
   prismaErrorTargetIncludes,
 } from '../../platform/database/prisma-error.js';
+import {
+  createSignupLegalAcceptanceRecords,
+  resolveSignupLegalAcceptances,
+  SIGNUP_LEGAL_ACCEPTANCE_STALE,
+} from '../../legal/commands/record-legal-acceptance.command.js';
 
 interface AuthSignupOwnerDeps {
   prisma: PrismaService;
@@ -77,6 +82,11 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
 
   try {
     const user = await deps.prisma.runSerializableTransaction(async (tx) => {
+      const legalAcceptances = await resolveSignupLegalAcceptances(
+        tx,
+        input.legalAcceptances,
+        emailVerifiedAt,
+      );
       const createdUser = await tx.user.create({
         data: {
           email: input.email.trim(),
@@ -129,6 +139,7 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
         emailVerifiedAt,
         SIGNUP_VERIFICATION_PROOF_UNAVAILABLE,
       );
+      await createSignupLegalAcceptanceRecords(tx, createdUser.id, legalAcceptances);
 
       return { ...createdUser, displayIdentity };
     });
@@ -155,6 +166,9 @@ export async function signup(deps: AuthSignupOwnerDeps, input: SignupInput): Pro
     }
     if (error instanceof Error && error.message === SIGNUP_VERIFICATION_PROOF_UNAVAILABLE) {
       return authFailures.signupVerificationRequired();
+    }
+    if (error instanceof Error && error.message === SIGNUP_LEGAL_ACCEPTANCE_STALE) {
+      return authFailures.legalAcceptanceStale();
     }
     throw error;
   }

@@ -12,6 +12,7 @@ import { ReportController } from '../../social-safety/reports/report.controller.
 import { BookmarkController } from '../../social-safety/bookmarks/bookmark.controller.js';
 import { DormitoriesController } from '../../dormitories/dormitories.controller.js';
 import { HealthController } from '../../health/health.controller.js';
+import { LegalController } from '../../legal/legal.controller.js';
 import { MatchesController } from '../../matches/matches.controller.js';
 import { NotificationsController } from '../../notifications/notifications.controller.js';
 import { SupportController } from '../../support/support.controller.js';
@@ -431,6 +432,20 @@ const expectedRoutes: ExpectedRoute[] = [
     access: 'protected',
   },
 
+  {
+    controller: LegalController,
+    handler: 'getActiveBundle',
+    method: RequestMethod.GET,
+    path: 'api/legal/documents/active-bundle',
+    access: 'public',
+  },
+  {
+    controller: LegalController,
+    handler: 'getActiveDocument',
+    method: RequestMethod.GET,
+    path: 'api/legal/documents/:kind/active',
+    access: 'public',
+  },
   {
     controller: SupportController,
     handler: 'listFaq',

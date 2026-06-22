@@ -75,6 +75,14 @@
       "types": "./dist/lifestyle/index.d.ts",
       "default": "./dist/lifestyle/index.js"
     },
+    "./legal": {
+      "types": "./dist/legal/index.d.ts",
+      "default": "./dist/legal/index.js"
+    },
+    "./legal/contract": {
+      "types": "./dist/legal/contract.d.ts",
+      "default": "./dist/legal/contract.js"
+    },
     "./match": {
       "types": "./dist/match/index.d.ts",
       "default": "./dist/match/index.js"

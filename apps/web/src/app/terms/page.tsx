@@ -1,19 +1,22 @@
 import type { Metadata } from 'next';
-import { LegalPage } from '@/components/LegalPage';
-import { TERMS_CONTENT } from '@/constants/legal';
+import { LegalDocumentKind } from '@repo/shared/legal';
+import { LegalDocumentLayout } from '@/legal/components/LegalDocumentLayout';
+import { LegalDocumentUnavailable } from '@/legal/components/LegalDocumentUnavailable';
+import { getLegalDocumentPageData } from '@/legal/api/legal-document.server';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: '이용약관 | KNU 룸메',
-  description: '강원대학교 학생 대상 독립 운영 룸메이트 매칭 서비스 이용약관',
+  title: '이용약관',
+  description: 'KNU 룸메 이용 조건과 서비스 운영 기준을 확인합니다.',
 };
 
-export default function TermsPage() {
-  return (
-    <LegalPage
-      title={TERMS_CONTENT.terms.title}
-      content={TERMS_CONTENT.terms.content}
-      effectiveDate={TERMS_CONTENT.terms.effectiveDate}
-      lastModified={TERMS_CONTENT.terms.lastModified}
-    />
-  );
+export default async function TermsPage() {
+  const result = await getLegalDocumentPageData(LegalDocumentKind.TERMS_OF_SERVICE);
+
+  if (result.status === 'unavailable') {
+    return <LegalDocumentUnavailable />;
+  }
+
+  return <LegalDocumentLayout document={result.document} source={result.source} />;
 }

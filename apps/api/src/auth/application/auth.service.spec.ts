@@ -88,6 +88,12 @@ describe('AuthService facade', () => {
       campus: 'CHUNCHEON',
       collegeCode: 'IT',
       birthYear: 2002,
+      legalAcceptances: {
+        termsVersionId: 'terms-of-service-2026-06-22',
+        personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+        ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+        privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+      },
     } as const;
     const authUser = {
       id: 'user-1',

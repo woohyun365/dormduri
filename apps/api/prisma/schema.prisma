@@ -220,6 +220,18 @@ enum SupportFaqSurface {
   SUPPORT_CENTER
 }
 
+enum LegalDocumentKind {
+  TERMS_OF_SERVICE
+  PRIVACY_POLICY
+  PERSONAL_DATA_COLLECTION_USE_CONSENT
+  AGE_14_OR_ABOVE_NOTICE
+}
+
+enum LegalAcceptanceAction {
+  AGREE
+  SHOW
+}
+
 enum MatchRequestStatus {
   PENDING
   ACCEPTED
@@ -851,6 +863,7 @@ model User {
   blockEventsTargeted      UserBlockEvent[]                         @relation("UserBlockEventTarget")
   supportTicketsRequested  SupportTicket[]                          @relation("SupportTicketRequester")
   supportMessagesAuthored  SupportTicketMessage[]                   @relation("SupportTicketMessageSender")
+  legalAcceptances         LegalAcceptanceRecord[]
 }
 
 model UserDisplayIdentity {
@@ -1257,6 +1270,44 @@ model SupportFaqPlacement {
 
   @@unique([articleId, surface])
   @@index([surface, sortOrder, articleId])
+}
+
+model LegalDocumentVersion {
+  id            String                  @id
+  kind          LegalDocumentKind
+  version       String
+  title         String
+  summaryItems  Json
+  sections      Json
+  changeSummary String?
+  publishedAt   DateTime?               @db.Timestamptz(3)
+  effectiveAt   DateTime                @db.Timestamptz(3)
+  retiredAt     DateTime?               @db.Timestamptz(3)
+  createdAt     DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime                @default(now()) @updatedAt @db.Timestamptz(3)
+  acceptances   LegalAcceptanceRecord[]
+
+  @@unique([kind, version])
+  @@index([kind, publishedAt, effectiveAt, retiredAt])
+  @@index([kind, effectiveAt, id])
+}
+
+model LegalAcceptanceRecord {
+  id                String                @id @default(uuid())
+  userId            String
+  documentVersionId String
+  kind              LegalDocumentKind
+  action            LegalAcceptanceAction
+  acceptedAt        DateTime              @default(now()) @db.Timestamptz(3)
+  source            String                @default("SIGNUP")
+  ipHash            String?
+  userAgentHash     String?
+  user              User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentVersion   LegalDocumentVersion  @relation(fields: [documentVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, documentVersionId])
+  @@index([userId, kind, acceptedAt])
+  @@index([kind, acceptedAt])
 }
 
 model SeasonParticipantLifecycleEvent {

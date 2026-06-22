@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { campusSchema, genderSchema } from '../../identity/primitives.js';
+import { signupLegalAcceptancesSchema } from '../../legal/contract.js';
 import { userAcademicIdentitySchema } from '../../user/identity/academic.js';
 import { displayIdentityNicknameSchema } from '../../user/identity/display.js';
 import { emailSchema, passwordSchema, verificationCodeSchema } from './primitives.js';
@@ -32,6 +33,7 @@ export const signupRequestSchema = z
     nickname: displayIdentityNicknameSchema,
     gender: genderSchema,
     campus: campusSchema,
+    legalAcceptances: signupLegalAcceptancesSchema,
   })
   .extend(userAcademicIdentitySchema.shape);
 

@@ -24,6 +24,13 @@ const UNSUPPORTED_SIGNUP_PROFILE_PAYLOAD = {
   additional: { grade: 2 },
 } as const;
 
+const SIGNUP_LEGAL_ACCEPTANCES = {
+  termsVersionId: 'terms-of-service-2026-06-22',
+  personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+  ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+  privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+} as const;
+
 describe('auth shared contract guards', () => {
   it('signup request는 display identity와 academic identity 입력을 받고 profile orchestration 필드를 받지 않는다', () => {
     const signupAccountIdentityInput = {
@@ -34,6 +41,7 @@ describe('auth shared contract guards', () => {
       campus: 'CHUNCHEON',
       collegeCode: 'IT',
       birthYear: 2002,
+      legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
     } as const;
 
     expect(signupRequestSchema.parse(signupAccountIdentityInput)).toMatchObject({
@@ -41,6 +49,23 @@ describe('auth shared contract guards', () => {
       collegeCode: 'IT',
       birthYear: 2002,
     });
+
+    expect(
+      signupRequestSchema.safeParse({
+        ...signupAccountIdentityInput,
+        legalAcceptances: undefined,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      signupRequestSchema.safeParse({
+        ...signupAccountIdentityInput,
+        legalAcceptances: {
+          ...SIGNUP_LEGAL_ACCEPTANCES,
+          privacyPolicyVersionIdShown: '',
+        },
+      }).success,
+    ).toBe(false);
 
     expect(
       signupRequestSchema.safeParse({
@@ -55,6 +80,24 @@ describe('auth shared contract guards', () => {
         ...UNSUPPORTED_SIGNUP_PROFILE_PAYLOAD,
       }).success,
     ).toBe(false);
+  });
+
+  it('signup request는 개인정보 수집·이용 동의와 개인정보 처리방침 표시 evidence를 분리한다', () => {
+    const parsed = signupRequestSchema.parse({
+      email: 'student@kangwon.ac.kr',
+      password: 'pass1234',
+      nickname: '테스터',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      collegeCode: 'IT',
+      birthYear: 2002,
+      legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
+    });
+
+    expect(parsed.legalAcceptances).toMatchObject({
+      personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+      privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
+    });
   });
 
   it('canonical granular auth subpath는 request/response/session schema surface를 제공한다', () => {

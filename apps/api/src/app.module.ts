@@ -14,6 +14,7 @@ import { UsersModule } from './users/users.module.js';
 import { ApiExceptionFilter } from './platform/http/api-exception.filter.js';
 import { MatchesModule } from './matches/matches.module.js';
 import { LifecycleModule } from './lifecycle/lifecycle.module.js';
+import { LegalModule } from './legal/legal.module.js';
 import { SeasonParticipantsModule } from './season-participants/season-participants.module.js';
 import { SocialSafetyModule } from './social-safety/social-safety.module.js';
 import { SupportModule } from './support/support.module.js';
@@ -67,6 +68,7 @@ import { ObservabilityModule } from './platform/observability/observability.modu
     RoommateSearchModule,
     MatchesModule,
     LifecycleModule,
+    LegalModule,
     SocialSafetyModule,
     SupportModule,
   ],
