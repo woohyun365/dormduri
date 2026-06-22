@@ -58,6 +58,15 @@
 - 예비 FAQ의 `question`과 `answer`는 일반 텍스트로 유지한다. raw HTML, markdown rendering, 내부 운영 key, retained payload 식별자는 포함하지 않는다.
 - 화면 문구가 공식 정책과 충돌하면 공식 정책 문서를 우선하고 Landing 문구를 갱신한다. 시즌 오픈에서도 등록 완료 후 같은 기숙사 후보와 비매칭 직접 대화가 가능할 수 있지만, 매칭 요청·수락은 시즌 매칭 기간에만 열린다고 설명한다. 등록 완료 후 프로필·기숙사 선택 정보 잠금은 시즌 오픈과 시즌 매칭 모두에 적용되는 것으로 설명한다.
 
+## Interaction and accessibility rule
+
+- `LandingHeader`는 공개 Landing의 hash section navigation, 로그인/회원가입 link, mobile menu keyboard behavior를 소유한다.
+- 섹션 이동은 `#how-it-works`, `#features`, `#season`, `#faq` hash link semantics를 유지한다. JavaScript enhancer는 mobile menu close와 optional scroll만 담당한다.
+- Smooth scroll enhancer는 `prefers-reduced-motion: reduce`를 존중해야 한다.
+- Mobile menu button은 `aria-expanded`와 `aria-controls`로 controlled menu를 가리켜야 하며, Escape close 후 focus를 menu button으로 되돌린다.
+- `FAQItem`은 heading 안의 disclosure button과 answer region 관계를 소유한다. Button은 `aria-expanded`/`aria-controls`, answer region은 `aria-labelledby`를 유지한다.
+- Header link/button과 FAQ disclosure는 role/name 기반 테스트로 찾을 수 있어야 하고, 최소 44px 전후의 touch target 또는 동등한 padding을 유지한다.
+
 ## Skeleton and loading rule
 
 - 공개 Landing 전체를 full-page skeleton 뒤에 숨기지 않는다.
