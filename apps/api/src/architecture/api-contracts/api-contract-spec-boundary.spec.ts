@@ -24,6 +24,7 @@ describe('api contract spec boundary', () => {
       'college-contract.spec.ts',
       'date-reference-contracts.spec.ts',
       'identity-reference-contracts.spec.ts',
+      'legal-contract.spec.ts',
       'lifestyle-reference-contracts.spec.ts',
       'shared-reference-contracts.spec.ts',
       'user-reference-contracts.spec.ts',
@@ -64,6 +65,7 @@ describe('api contract spec boundary', () => {
       'identity-reference-contracts.spec.ts',
       'college-contract.spec.ts',
       'additional-profile-contract.spec.ts',
+      'legal-contract.spec.ts',
     ]) {
       expect(existsSync(join(apiContractRoot, relativePath))).toBe(true);
     }

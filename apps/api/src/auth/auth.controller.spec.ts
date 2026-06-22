@@ -104,6 +104,14 @@ describe('AuthController', () => {
         nickname: '테스터',
         gender: 'M',
         campus: 'CHUNCHEON',
+        collegeCode: 'IT',
+        birthYear: 2002,
+        legalAcceptances: {
+          termsVersionId: 'terms-2026-06-22',
+          personalDataConsentVersionId: 'collection-use-2026-06-22',
+          ageNoticeVersionId: 'age-2026-06-22',
+          privacyPolicyVersionIdShown: 'privacy-2026-06-22',
+        },
         lifestyle: {},
         intro: '가입 단계 소개',
         additional: { grade: 2 },
@@ -111,6 +119,33 @@ describe('AuthController', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(authService.signup).not.toHaveBeenCalled();
+  });
+
+  it('signup body는 legal acceptance version id를 포함해 service로 위임한다', async () => {
+    authService.signup.mockResolvedValue({ success: true, accessToken: 'signup-token' });
+
+    const body = {
+      email: 'test@kangwon.ac.kr',
+      password: 'Test1234',
+      nickname: '테스터',
+      gender: 'M',
+      campus: 'CHUNCHEON',
+      collegeCode: 'IT',
+      birthYear: 2002,
+      legalAcceptances: {
+        termsVersionId: 'terms-2026-06-22',
+        personalDataConsentVersionId: 'collection-use-2026-06-22',
+        ageNoticeVersionId: 'age-2026-06-22',
+        privacyPolicyVersionIdShown: 'privacy-2026-06-22',
+      },
+    } as const;
+
+    await expect(controller.signup(body)).resolves.toEqual({
+      success: true,
+      accessToken: 'signup-token',
+    });
+
+    expect(authService.signup).toHaveBeenCalledWith(body);
   });
 
   it('signup draft validation route는 /auth/validate-signup-draft로 노출된다', () => {

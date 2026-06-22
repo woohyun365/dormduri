@@ -1,5 +1,6 @@
 import type { Campus, Gender } from '../../generated/prisma/enums.js';
 import type { CollegeCode } from '@repo/shared/college';
+import type { SignupLegalAcceptances } from '@repo/shared/legal/contract';
 import type {
   ChangePasswordResponse,
   LoginResponse,
@@ -16,6 +17,7 @@ export interface SignupInput {
   campus: Campus;
   collegeCode: CollegeCode;
   birthYear: number;
+  legalAcceptances: SignupLegalAcceptances;
 }
 
 export interface AuthSessionIssueResult {
