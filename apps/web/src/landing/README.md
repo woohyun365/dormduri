@@ -85,7 +85,15 @@
 - `robots.ts`와 `sitemap.ts`는 공개 정적 route와 private/API route boundary를 구분한다. `/main`과 `/api/`는 sitemap에 넣지 않는다.
 - Landing FAQ는 사용자 안내 목적이다. Google FAQ rich result가 유지되지 않는 현재 기준에서는 `FAQPage` JSON-LD를 추가하지 않는다.
 - Core Web Vitals debug는 `NEXT_PUBLIC_WEB_VITALS_DEBUG=1`일 때만 사용하고, payload는 metric id/name/value/rating/navigationType/attribution key 목록으로 제한한다.
-- Landing 성능 목표는 LCP 2.5s 이하, INP 200ms 이하, CLS 0.1 이하이며, Playwright/Lighthouse 기반 모바일 smoke는 Phase 7에서 별도로 확인한다.
+- Landing 성능 목표는 LCP 2.5s 이하, INP 200ms 이하, CLS 0.1 이하이다. Playwright desktop/mobile smoke는 공개 Landing, CTA, FAQ fallback, mobile menu, robots/sitemap runtime boundary를 확인한다. Lighthouse hard gate와 strict visual diff는 별도 후속 범위다.
+
+## E2E coverage rule
+
+- `apps/web/e2e/landing.spec.ts`는 Web-only standalone runtime의 Landing smoke를 소유한다.
+- E2E는 role/name/visible text locator를 우선하고, class나 DOM 구조 세부 구현에 의존하지 않는다.
+- Web-only E2E에서는 support API가 없어도 전체 page가 실패하지 않고 FAQ 영역만 fallback으로 degrade되는지를 확인한다.
+- Mobile smoke는 header menu open, mobile navigation visibility, hash link close behavior를 확인한다.
+- `/robots.txt`와 `/sitemap.xml` runtime output은 Landing SEO boundary smoke에서 확인한다.
 
 ## Security and observability rule
 

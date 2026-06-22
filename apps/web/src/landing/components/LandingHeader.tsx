@@ -30,7 +30,7 @@ const NAV_ITEMS: ReadonlyArray<{ href: Route; label: string; variant: 'outline' 
 ];
 
 const focusRingClass =
-  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)';
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)';
 
 const anchorLinkClass = `${focusRingClass} inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-(--knu-text-secondary) transition-colors hover:text-(--knu-primary)`;
 

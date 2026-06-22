@@ -21,7 +21,7 @@ pnpm check:web
 - `web:test`: Vitest 기반 컴포넌트/훅/BFF route 테스트를 실행합니다.
 - `web:test:coverage`: Vitest coverage report(`apps/web/coverage/`)를 생성합니다.
 - `web:build`: shared package 빌드 후 Next.js production build를 실행합니다.
-- `web:e2e`: Playwright Chromium으로 production-like standalone browser smoke를 실행합니다.
+- `web:e2e`: Playwright Chromium desktop/mobile project로 production-like standalone browser smoke를 실행합니다.
 - `check:web`: Web PR 기본 gate와 같은 순서로 lint, typecheck, test, build를 실행합니다.
 
 Playwright browser가 로컬에 없으면 먼저 아래 명령을 실행합니다.
@@ -45,14 +45,14 @@ pnpm --dir apps/web start
 
 브라우저에서 `/`를 열고 console의 `[web-vital]` payload가 metric `id/name/value/rating/navigationType/attributionKeys` 수준으로만 남는지 확인합니다.
 목표 budget은 LCP 2.5s 이하, INP 200ms 이하, CLS 0.1 이하입니다.
-Playwright trace나 Lighthouse를 이용한 모바일/시각 smoke는 Landing Phase 7 범위에서 다룹니다.
+Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/video는 실패 시 artifact로 남깁니다. Lighthouse hard gate와 strict visual diff는 별도 후속 범위입니다.
 
 ## Boundary notes
 
 - Figma에서 받은 TS/TSX 참조 소스는 app root가 아닌 `references/figma/web/`에 둡니다.
 - `references/figma/web/src/`는 generated reference source로 취급해 git 추적과 Web lint/type 대상에서 제외합니다.
 - Web CI는 DB service 없이 실행되므로 API 통합 검증은 API CI에서 담당합니다.
-- Web Playwright smoke도 Web-only 경계입니다. 실제 로그인 사용자/API-backed journey는 API 서버와 DB를 함께 띄우는 별도 full-stack E2E에서 다룹니다.
+- Web Playwright smoke도 Web-only 경계입니다. Landing E2E webServer는 support API 부재를 fallback으로 검증하기 위해 local invalid `API_URL`로 실행합니다. 실제 로그인 사용자/API-backed journey는 API 서버와 DB를 함께 띄우는 별도 full-stack E2E에서 다룹니다.
 
 ## Runtime and test references
 
