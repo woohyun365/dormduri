@@ -19,6 +19,11 @@ vi.mock('@/api/auth', () => ({
 
 const mockValidateSignupDraft = vi.mocked(authApi.validateSignupDraft);
 
+const CURRENT_YEAR = new Date().getFullYear();
+const MIN_SIGNUP_BIRTH_YEAR = CURRENT_YEAR - 30;
+const MAX_SIGNUP_BIRTH_YEAR = CURRENT_YEAR - 18;
+const VALID_SIGNUP_BIRTH_YEAR = CURRENT_YEAR - 24;
+
 const emptyBasicInfo: BasicInfoData = {
   nickname: '',
   password: '',
@@ -58,7 +63,9 @@ function fillValidAccountIdentity() {
     target: { value: 'Test1234' },
   });
   fireEvent.change(screen.getByLabelText(/비밀번호 확인/), { target: { value: 'Test1234' } });
-  fireEvent.change(screen.getByLabelText(/출생연도/), { target: { value: '2002' } });
+  fireEvent.change(screen.getByLabelText(/출생연도/), {
+    target: { value: String(VALID_SIGNUP_BIRTH_YEAR) },
+  });
 }
 
 describe('AccountIdentityStep', () => {
@@ -75,8 +82,28 @@ describe('AccountIdentityStep', () => {
     expect(screen.getByText('캠퍼스를 선택해주세요.')).toBeInTheDocument();
     expect(screen.getByText('성별을 선택해주세요.')).toBeInTheDocument();
     expect(screen.getByText('단과대를 선택해주세요.')).toBeInTheDocument();
-    expect(screen.getByText('출생연도를 입력해주세요.')).toBeInTheDocument();
+    expect(screen.getByText('출생연도를 선택해주세요.')).toBeInTheDocument();
     expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it('출생연도를 직접 입력 대신 선택 옵션으로 제공한다', () => {
+    renderWithState();
+
+    const birthYearSelect = screen.getByLabelText(/출생연도/);
+
+    expect(birthYearSelect.tagName).toBe('SELECT');
+    expect(screen.getByRole('option', { name: '출생연도를 선택해주세요' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('option', { name: `${VALID_SIGNUP_BIRTH_YEAR}년` }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: `${MIN_SIGNUP_BIRTH_YEAR}년` })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: `${MAX_SIGNUP_BIRTH_YEAR}년` })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: `${MIN_SIGNUP_BIRTH_YEAR - 1}년` }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: `${MAX_SIGNUP_BIRTH_YEAR + 1}년` }),
+    ).not.toBeInTheDocument();
   });
 
   it('캠퍼스와 성별 선택이 가능하고 campus별 단과대 catalog를 노출한다', () => {
@@ -125,7 +152,7 @@ describe('AccountIdentityStep', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
           collegeCode: 'IT',
-          birthYear: 2002,
+          birthYear: VALID_SIGNUP_BIRTH_YEAR,
         }),
       );
     });

@@ -20,15 +20,17 @@ import { validateKnuEmailFormat, validatePasswordStructure } from '@repo/shared/
 async function requestJson<T>(
   path: string,
   init: RequestInit,
-): Promise<{ status: number; data: T }> {
+): Promise<{ status: number; data: T; retryAfterSeconds?: number }> {
   const response = await fetch(path, {
     credentials: 'same-origin',
     ...init,
   });
+  const retryAfterSeconds = parseRetryAfterSeconds(response.headers.get('Retry-After'));
 
   return {
     status: response.status,
     data: (await response.json()) as T,
+    ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
   };
 }
 
@@ -43,7 +45,31 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
   return data;
 }
 
-function mapSendCodeError(
+function parseRetryAfterSeconds(value: string | null): number | undefined {
+  if (!value) return undefined;
+
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    return undefined;
+  }
+
+  return Math.ceil(numberValue);
+}
+
+function resolveRetryAfterSeconds(
+  data: { retryAfterSeconds?: number },
+  retryAfterSeconds?: number,
+): number | undefined {
+  const seconds =
+    typeof data.retryAfterSeconds === 'number' ? data.retryAfterSeconds : retryAfterSeconds;
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
+    return undefined;
+  }
+
+  return Math.ceil(seconds);
+}
+
+function mapAuthRequestError(
   status: number,
   data: {
     success?: boolean;
@@ -51,10 +77,12 @@ function mapSendCodeError(
     message?: string;
     retryAfterSeconds?: number;
   },
+  retryAfterSeconds?: number,
 ): string {
   if (status === 429) {
-    if (typeof data.retryAfterSeconds === 'number') {
-      return `너무 잦은 요청이에요. ${data.retryAfterSeconds}초 후 다시 시도해주세요.`;
+    const seconds = resolveRetryAfterSeconds(data, retryAfterSeconds);
+    if (typeof seconds === 'number') {
+      return `너무 잦은 요청이에요. ${seconds}초 후 다시 시도해주세요.`;
     }
     return '너무 잦은 요청이에요. 잠시 후 다시 시도해주세요.';
   }
@@ -81,7 +109,7 @@ export const authApi = {
     email: VerificationCodeRequest['email'],
     code: VerificationCodeRequest['code'],
   ): Promise<VerifyCodeResponse> => {
-    return postJson<VerifyCodeResponse>('/api/auth/verify-email-code', { email, code });
+    return verifyCode('/api/auth/verify-email-code', email, code);
   },
 
   validateSignupDraft: (
@@ -115,7 +143,7 @@ export const authApi = {
     email: VerificationCodeRequest['email'],
     code: VerificationCodeRequest['code'],
   ): Promise<VerifyCodeResponse> => {
-    return postJson<VerifyCodeResponse>('/api/auth/verify-reset-code', { email, code });
+    return verifyCode('/api/auth/verify-reset-code', email, code);
   },
 
   getSession: async (): Promise<SessionResponse> => {
@@ -153,13 +181,13 @@ export const authApi = {
 
   sendSignupCode: async (
     email: EmailRequest['email'],
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{ success: boolean; error?: string; retryAfterSeconds?: number }> => {
     const formatError = validateKnuEmailFormat(email);
     if (formatError) {
       return { success: false, error: formatError };
     }
 
-    const { status, data } = await requestJson<{
+    const { status, data, retryAfterSeconds } = await requestJson<{
       success?: boolean;
       error?: string;
       message?: string;
@@ -173,7 +201,12 @@ export const authApi = {
     });
 
     if (status >= 400 || data.success !== true) {
-      return { success: false, error: mapSendCodeError(status, data) };
+      const seconds = resolveRetryAfterSeconds(data, retryAfterSeconds);
+      return {
+        success: false,
+        error: mapAuthRequestError(status, data, retryAfterSeconds),
+        ...(seconds !== undefined ? { retryAfterSeconds: seconds } : {}),
+      };
     }
 
     return { success: true };
@@ -181,13 +214,13 @@ export const authApi = {
 
   sendResetCode: async (
     email: EmailRequest['email'],
-  ): Promise<{ success: boolean; error?: string }> => {
+  ): Promise<{ success: boolean; error?: string; retryAfterSeconds?: number }> => {
     const formatError = validateKnuEmailFormat(email);
     if (formatError) {
       return { success: false, error: formatError };
     }
 
-    const { status, data } = await requestJson<{
+    const { status, data, retryAfterSeconds } = await requestJson<{
       success?: boolean;
       error?: string;
       message?: string;
@@ -201,9 +234,42 @@ export const authApi = {
     });
 
     if (status >= 400 || data.success !== true) {
-      return { success: false, error: mapSendCodeError(status, data) };
+      const seconds = resolveRetryAfterSeconds(data, retryAfterSeconds);
+      return {
+        success: false,
+        error: mapAuthRequestError(status, data, retryAfterSeconds),
+        ...(seconds !== undefined ? { retryAfterSeconds: seconds } : {}),
+      };
     }
 
     return { success: true };
   },
 };
+
+async function verifyCode(
+  path: '/api/auth/verify-email-code' | '/api/auth/verify-reset-code',
+  email: VerificationCodeRequest['email'],
+  code: VerificationCodeRequest['code'],
+): Promise<VerifyCodeResponse> {
+  const { status, data, retryAfterSeconds } = await requestJson<VerifyCodeResponse>(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, code }),
+  });
+
+  if (status >= 400) {
+    const seconds = resolveRetryAfterSeconds(data, retryAfterSeconds);
+    return {
+      ...data,
+      success: false,
+      error: mapAuthRequestError(status, data, retryAfterSeconds),
+      ...(seconds !== undefined && data.retryAfterSeconds === undefined
+        ? { retryAfterSeconds: seconds }
+        : {}),
+    };
+  }
+
+  return data;
+}

@@ -234,10 +234,10 @@
 
 `UserAcademicIdentity`는 계정 레벨의 학업/연령 identity를 소유한다. 이 값은 닉네임처럼 사용자가 자신을 나타내는 기본 정보지만, season profile draft의 선택 필드가 아니다.
 
-| 필드          | 수집 시점              | 정책                                                                                                                                             |
-| ------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `collegeCode` | 회원가입/account setup | viewer campus의 active college catalog 안에서 선택한다. 전과/학적 변경 가능성을 고려해 registration 전 self-service correction allowance를 둔다  |
-| `birthYear`   | 회원가입/account setup | exact birth year로 저장한다. `ageBand`는 roommate-search filter에서 season reference year 기준으로 계산하는 derived value이며 DB 입력값이 아니다 |
+| 필드          | 수집 시점              | 정책                                                                                                                                                                                                                                                        |
+| ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `collegeCode` | 회원가입/account setup | viewer campus의 active college catalog 안에서 선택한다. 전과/학적 변경 가능성을 고려해 registration 전 self-service correction allowance를 둔다                                                                                                             |
+| `birthYear`   | 회원가입/account setup | exact birth year로 저장한다. 신규 입력/정정 UI guard는 현재 연도 기준 18~30세(`currentYear - 30` ~ `currentYear - 18`) 범위로 제한한다. `ageBand`는 roommate-search filter에서 season reference year 기준으로 계산하는 derived value이며 DB 입력값이 아니다 |
 
 Readiness / correction 규칙:
 
@@ -249,7 +249,7 @@ Readiness / correction 규칙:
 6. 해당 academic-cycle allowance를 모두 사용한 뒤 일반 사용자 `collegeCode` 변경을 요청하면 API는 `ACADEMIC_COLLEGE_CHANGE_ALLOWANCE_EXHAUSTED`를 반환한다. Campus의 current/upcoming academic cycle을 산출할 수 없으면 calendar year fallback 없이 `ACADEMIC_CORRECTION_CYCLE_UNAVAILABLE`로 fail-closed한다.
 7. `UserAcademicIdentity` 변경 정책은 nickname의 30일 cooldown을 재사용하지 않는다. Birth year는 최초 등록 전 snapshot-existence guard, college는 academic-cycle allowance라는 field-specific correction policy를 따른다. 다만 nickname과 academic identity 모두 registration 완료 후에는 season-facing snapshot과 live source 불일치를 막기 위한 **registration snapshot lock**을 공유한다.
 8. registration snapshot lock으로 일반 사용자 `UserAcademicIdentity` 변경이 막히면 API는 `ACADEMIC_IDENTITY_LOCKED_BY_REGISTRATION`을 반환한다. Nickname의 기존 `NICKNAME_LOCKED_BY_SEASON` code와 같은 잠금 축이지만, 변경 대상과 복구 UX가 다르므로 별도 code를 사용한다.
-9. 이미 저장된 `birthYear`는 해가 바뀌어 사용자의 계산 나이가 변해도 invalidate하지 않는다. 입력/수정 범위 검증은 신규 입력 시점의 guard다.
+9. 이미 저장된 `birthYear`는 해가 바뀌어 사용자의 계산 나이가 변해도 invalidate하지 않는다. 입력/수정 범위 검증은 신규 입력 시점의 guard다. 법적 최소 연령 고지는 만 14세 이상으로 유지하되, 서비스 대상이 대학생인 점을 반영해 회원가입/정정 UI는 현재 연도 기준 만 18~30세 출생연도만 선택하게 한다.
 10. `UserAcademicIdentityChangeAllowance`는 retained payload가 아니라 self-service correction을 제어하는 운영 상태다. 계정 삭제/비식별화 이후 product path에 남기지 않으며, `UserAcademicIdentity` live row와 함께 삭제/cascade된다. allowance row에는 tombstone display나 retained-vault payload를 만들지 않는다.
 
 ## Account identity invariant와 registration readiness

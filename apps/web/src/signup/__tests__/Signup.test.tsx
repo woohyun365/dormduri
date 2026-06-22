@@ -1,8 +1,9 @@
 import React from 'react';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Signup from '../Signup';
 import { authApi } from '@/api/auth';
+import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 
 const mockReplace = vi.fn();
 
@@ -127,7 +128,7 @@ vi.mock('../components/AccountIdentityStep', () => ({
           gender: 'M',
           campus: 'CHUNCHEON',
           collegeCode: 'IT',
-          birthYear: 2002,
+          birthYear: VALID_SIGNUP_BIRTH_YEAR,
         };
         onBasicInfoChange(accountIdentityFixture);
         void onNext(accountIdentityFixture);
@@ -155,6 +156,8 @@ vi.mock('@/components/AuthHeader', () => ({
 }));
 
 const mockSignup = vi.mocked(authApi.signup);
+const mockUseRedirectIfAuthenticated = vi.mocked(useRedirectIfAuthenticated);
+const VALID_SIGNUP_BIRTH_YEAR = new Date().getFullYear() - 24;
 
 const SIGNUP_LEGAL_ACCEPTANCES = {
   termsVersionId: 'terms-of-service-2026-06-22',
@@ -189,6 +192,7 @@ describe('Signup', () => {
     sessionStorage.clear();
     mockSignup.mockReset();
     mockSignup.mockResolvedValue({ success: true });
+    mockUseRedirectIfAuthenticated.mockReturnValue({ isReadyToRender: true });
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
   });
 
@@ -201,6 +205,38 @@ describe('Signup', () => {
     render(<Signup />);
 
     expect(screen.getByTestId('step-1-verify')).toBeInTheDocument();
+  });
+
+  it('인증 redirect와 draft restore 대기 중에는 접근 가능한 loading skeleton을 표시한다', () => {
+    mockUseRedirectIfAuthenticated.mockImplementation(() => ({ isReadyToRender: false }));
+
+    render(<Signup />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('회원가입 정보를 준비하고 있어요');
+    expect(screen.queryByTestId('step-1-verify')).not.toBeInTheDocument();
+  });
+
+  it('4단계 progress label과 현재 단계 aria-current를 표시한다', () => {
+    render(<Signup />);
+
+    expect(screen.getByText('단계 1/4')).toBeInTheDocument();
+    expect(screen.getByText('현재 단계: 학교 이메일 인증')).toBeInTheDocument();
+
+    let progressList = screen.getByRole('list', { name: '회원가입 진행 단계' });
+    expect(within(progressList).getByText('학교 이메일 인증').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+
+    advanceToStep(3);
+
+    expect(screen.getByText('단계 3/4')).toBeInTheDocument();
+    expect(screen.getByText('현재 단계: 계정 정보 입력')).toBeInTheDocument();
+    progressList = screen.getByRole('list', { name: '회원가입 진행 단계' });
+    expect(within(progressList).getByText('계정 정보 입력').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
   });
 
   it('4단계 계정 생성 플로우로 가입을 완료할 수 있다', async () => {
@@ -219,7 +255,7 @@ describe('Signup', () => {
         gender: 'M',
         campus: 'CHUNCHEON',
         collegeCode: 'IT',
-        birthYear: 2002,
+        birthYear: VALID_SIGNUP_BIRTH_YEAR,
         legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
       }),
     );
@@ -377,7 +413,7 @@ describe('Signup', () => {
           gender: 'M',
           campus: 'CHUNCHEON',
           collegeCode: 'IT',
-          birthYear: 2002,
+          birthYear: VALID_SIGNUP_BIRTH_YEAR,
           intro: '',
           lifestyle: {},
         }),

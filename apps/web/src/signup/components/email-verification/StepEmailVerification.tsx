@@ -29,7 +29,7 @@ export function StepEmailVerification({
   return (
     <div className="space-y-6">
       <StepHeader
-        icon={<Mail className="w-8 h-8 text-[var(--knu-primary)]" />}
+        icon={<Mail className="size-8 text-(--knu-primary)" />}
         title="이메일 인증"
         description="강원대학교 이메일로 인증해주세요"
       />
@@ -50,7 +50,7 @@ export function StepEmailVerification({
           />
           {isVerified && (
             <div className="absolute right-4 top-11 flex items-center gap-1 text-green-600">
-              <CheckCircle className="w-5 h-5" />
+              <CheckCircle className="size-5" />
               <span className="text-sm font-semibold">인증완료</span>
             </div>
           )}
@@ -59,23 +59,24 @@ export function StepEmailVerification({
         {!verification.isCodeSent && !isVerified && (
           <EmailVerificationRequestPanel
             isSending={verification.isSending}
+            retryAfterSeconds={verification.emailRetryAfterSeconds}
             onSendCode={verification.handleSendCode}
           />
         )}
 
         {!verification.isCodeSent && !isVerified && (
-          <p className="text-xs text-[var(--knu-text-tertiary)]">
+          <p className="text-xs text-(--knu-text-tertiary)">
             이미 계정이 있다면{' '}
             <Link
               href="/login"
-              className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
+              className="font-semibold text-(--knu-primary) hover:text-(--knu-primary-hover) transition-colors"
             >
               로그인
             </Link>
             이나{' '}
             <Link
               href="/password-reset"
-              className="font-semibold text-[var(--knu-primary)] hover:text-[var(--knu-primary-hover)] transition-colors"
+              className="font-semibold text-(--knu-primary) hover:text-(--knu-primary-hover) transition-colors"
             >
               비밀번호 찾기
             </Link>
@@ -91,6 +92,8 @@ export function StepEmailVerification({
             isVerifying={verification.isVerifying}
             isSending={verification.isSending}
             isCountdownActive={verification.isCountdownActive}
+            emailRetryAfterSeconds={verification.emailRetryAfterSeconds}
+            codeRetryAfterSeconds={verification.codeRetryAfterSeconds}
             countdown={verification.countdown}
             formatTime={verification.formatTime}
             onCodeChange={verification.handleCodeChange}

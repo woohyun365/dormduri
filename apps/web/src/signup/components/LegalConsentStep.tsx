@@ -153,7 +153,7 @@ export function LegalConsentStep({
   return (
     <div className="space-y-6">
       <StepHeader
-        icon={<FileText className="w-8 h-8 text-[var(--knu-primary)]" />}
+        icon={<FileText className="size-8 text-(--knu-primary)" />}
         title="필수 동의 확인"
         description="가입에 필요한 법적 안내와 동의 항목을 확인해주세요"
       />
@@ -198,7 +198,7 @@ export function LegalConsentStep({
 
         <FieldError message={error} />
 
-        <p className="text-xs text-[var(--knu-text-tertiary)] mt-2 keep-all">
+        <p className="text-xs text-(--knu-text-tertiary) mt-2 keep-all">
           본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다. 약관의 운영 주체는
           강원대학교가 아닌 서비스 운영자 개인입니다.
         </p>

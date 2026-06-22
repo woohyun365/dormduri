@@ -76,7 +76,7 @@ export function normalizeApiError(exception: unknown): NormalizedApiError {
       return {
         statusCode,
         code: defaultErrorCode(statusCode),
-        error: response,
+        error: statusCode === 429 ? defaultErrorMessage(statusCode) : response,
         extras: {},
         stack: exception.stack,
       };

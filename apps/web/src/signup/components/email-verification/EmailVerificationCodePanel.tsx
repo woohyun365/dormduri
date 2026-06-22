@@ -8,6 +8,8 @@ interface EmailVerificationCodePanelProps {
   isVerifying: boolean;
   isSending: boolean;
   isCountdownActive: boolean;
+  emailRetryAfterSeconds?: number;
+  codeRetryAfterSeconds?: number;
   countdown: number;
   formatTime: () => string;
   onCodeChange: (value: string) => void;
@@ -22,12 +24,17 @@ export function EmailVerificationCodePanel({
   isVerifying,
   isSending,
   isCountdownActive,
+  emailRetryAfterSeconds = 0,
+  codeRetryAfterSeconds = 0,
   countdown,
   formatTime,
   onCodeChange,
   onVerifyCode,
   onResendCode,
 }: EmailVerificationCodePanelProps) {
+  const isEmailRetryAfterActive = emailRetryAfterSeconds > 0;
+  const isCodeRetryAfterActive = codeRetryAfterSeconds > 0;
+
   return (
     <>
       <div className="relative">
@@ -63,17 +70,29 @@ export function EmailVerificationCodePanel({
           size="lg"
           fullWidth
           onClick={onResendCode}
-          disabled={isSending || isCountdownActive || isVerifying}
+          disabled={isSending || isCountdownActive || isVerifying || isEmailRetryAfterActive}
         >
-          재전송{isCountdownActive ? ` (${formatTime()})` : ''}
+          {isEmailRetryAfterActive
+            ? `${emailRetryAfterSeconds}초 후 재전송`
+            : `재전송${isCountdownActive ? ` (${formatTime()})` : ''}`}
         </Button>
-        <Button variant="primary" size="lg" fullWidth onClick={onVerifyCode} disabled={isVerifying}>
-          {isVerifying ? '확인 중...' : '인증 확인'}
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          onClick={onVerifyCode}
+          disabled={isVerifying || isCodeRetryAfterActive}
+        >
+          {isVerifying
+            ? '확인 중...'
+            : isCodeRetryAfterActive
+              ? `${codeRetryAfterSeconds}초 후 다시 확인`
+              : '인증 확인'}
         </Button>
       </div>
 
-      <div className="space-y-1 text-xs text-[var(--knu-text-tertiary)]">
-        <p className="font-medium text-[var(--knu-text-secondary)]">메일이 도착하지 않나요?</p>
+      <div className="space-y-1 text-xs text-(--knu-text-tertiary)">
+        <p className="font-medium text-(--knu-text-secondary)">메일이 도착하지 않나요?</p>
         <ul className="space-y-0.5">
           <li>· 요청한 이메일: {email}</li>
           <li>· 스팸 메일함을 확인해주세요.</li>

@@ -2,18 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthHeader } from '@/components/AuthHeader';
-import { ProgressBar } from '@/components/form/ProgressBar';
 import { StepEmailVerification } from './components/email-verification/StepEmailVerification';
 import { LegalConsentStep, type LegalConsentData } from './components/LegalConsentStep';
 import { AccountIdentityStep, type BasicInfoData } from './components/AccountIdentityStep';
 import { StepComplete } from './components/StepComplete';
+import { SignupLayout } from './components/SignupLayout';
+import { SignupStepFrame } from './components/SignupStepFrame';
+import { SignupProgress } from './components/SignupProgress';
+import { SignupLoadingSkeleton } from './components/SignupLoadingSkeleton';
+import { SignupGlobalAlert } from './components/SignupGlobalAlert';
 import { authApi } from '@/api/auth';
 import { createSignupRequest } from './model/signup-request.mapper';
 import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
-import { AlertCircle } from 'lucide-react';
-import { Button } from '@/components/Button';
-import Link from 'next/link';
 import { focusAndScroll } from '@/utils/focus';
 import { useSignupDraftStorage } from './hooks/useSignupDraftStorage';
 import { SIGNUP_DRAFT_STORAGE_KEY } from './model/signup-draft-storage';
@@ -97,14 +97,6 @@ export default function Signup() {
     if (!submitError) return;
     focusAndScroll(submitErrorRef.current);
   }, [submitError]);
-
-  // Prevent mobile pull-to-refresh on body (scroll container)
-  useEffect(() => {
-    document.body.style.overscrollBehaviorY = 'none';
-    return () => {
-      document.body.style.overscrollBehaviorY = '';
-    };
-  }, []);
 
   const isVerificationExpiredError = submitError === '이메일 인증을 먼저 완료해주세요.';
 
@@ -197,45 +189,45 @@ export default function Signup() {
   };
 
   if (!isReadyToRender || !isRestored) {
-    return <div className="min-h-screen bg-white" />;
+    return <SignupLoadingSkeleton />;
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <AuthHeader
-        onLogoClick={() => {
-          const hasProgress = isEmailVerified || basicInfo.nickname || basicInfo.password;
-          if (hasProgress && currentStep < TOTAL_STEPS) {
-            const confirmed = confirm('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
-            if (!confirmed) return false;
-          }
-          try {
-            sessionStorage.removeItem(SIGNUP_DRAFT_STORAGE_KEY);
-          } catch {
-            /* ignore */
-          }
-          return true;
-        }}
-      />
-
-      {currentStep < TOTAL_STEPS && (
-        <div className="bg-amber-50 border-b border-amber-200 px-5 py-2 text-center">
-          <p className="text-xs text-amber-800 keep-all">
-            본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.{' '}
-            <Link href="/terms" className="underline font-medium">
-              자세히 보기
-            </Link>
-          </p>
-        </div>
-      )}
-
-      <main className="mx-auto max-w-2xl px-5 py-8">
-        {currentStep < TOTAL_STEPS && (
-          <div className="mb-8">
-            <ProgressBar currentStep={currentStep} totalSteps={TOTAL_STEPS} />
-          </div>
-        )}
-
+    <SignupLayout
+      showServiceNotice={currentStep < TOTAL_STEPS}
+      onLogoClick={() => {
+        const hasProgress = isEmailVerified || basicInfo.nickname || basicInfo.password;
+        if (hasProgress && currentStep < TOTAL_STEPS) {
+          const confirmed = confirm('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
+          if (!confirmed) return false;
+        }
+        try {
+          sessionStorage.removeItem(SIGNUP_DRAFT_STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+        return true;
+      }}
+    >
+      <SignupStepFrame
+        progress={
+          currentStep < TOTAL_STEPS ? (
+            <SignupProgress currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+          ) : undefined
+        }
+        alert={
+          currentStep === ACCOUNT_IDENTITY_STEP && submitError ? (
+            <SignupGlobalAlert
+              ref={submitErrorRef}
+              message={submitError}
+              isVerificationExpiredError={isVerificationExpiredError}
+              isSubmitting={isSubmitting}
+              onRestartEmailVerification={handleRestartEmailVerification}
+              onRetry={() => handleSignupSubmit()}
+            />
+          ) : undefined
+        }
+      >
         {currentStep === 1 && (
           <StepEmailVerification
             email={email}
@@ -262,33 +254,6 @@ export default function Signup() {
         )}
         {currentStep === 3 && (
           <>
-            {submitError && (
-              <div
-                ref={submitErrorRef}
-                tabIndex={-1}
-                role="alert"
-                className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3"
-              >
-                <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm text-red-900 font-medium mb-3">{submitError}</p>
-                  {isVerificationExpiredError ? (
-                    <Button variant="outline" size="lg" onClick={handleRestartEmailVerification}>
-                      이메일 다시 인증하기
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={() => void handleSignupSubmit()}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? '처리 중...' : '다시 시도'}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
             <AccountIdentityStep
               email={email}
               basicInfo={basicInfo}
@@ -303,7 +268,7 @@ export default function Signup() {
         {currentStep === 4 && (
           <StepComplete nickname={basicInfo.nickname} onGoToHome={handleGoToHome} />
         )}
-      </main>
-    </div>
+      </SignupStepFrame>
+    </SignupLayout>
   );
 }
