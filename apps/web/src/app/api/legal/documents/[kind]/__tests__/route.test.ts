@@ -37,6 +37,7 @@ describe('legal document BFF route', () => {
       expect.not.objectContaining({ Authorization: expect.any(String) }),
     );
     expect(response.status).toBe(200);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
     await expect(response.json()).resolves.toMatchObject({ id: TERMS_DOCUMENT.id });
   });
 

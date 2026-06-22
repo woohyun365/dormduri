@@ -59,4 +59,21 @@ describe('web legal document boundary', () => {
     expect(existsSync(join(webSrc, 'components/legal/LegalContentModal.tsx'))).toBe(false);
     expect(existsSync(join(webSrc, 'constants/legal'))).toBe(false);
   });
+
+  it('public entry points expose user-facing legal links without internal planning copy', () => {
+    const entrySources = [
+      readSource('landing/components/LandingFooter.tsx'),
+      readSource('login/Login.tsx'),
+      readSource('signup/Signup.tsx'),
+    ];
+
+    for (const source of entrySources) {
+      expect(source).toContain('href="/terms"');
+      expect(source).not.toMatch(/\.omx|web-terms-privacy-refactor-plan/i);
+    }
+
+    expect(entrySources.join('\n')).toContain('href="/privacy"');
+    expect(entrySources.join('\n')).toMatch(/이용약관/);
+    expect(entrySources.join('\n')).toMatch(/개인정보처리방침|개인정보 처리방침/);
+  });
 });

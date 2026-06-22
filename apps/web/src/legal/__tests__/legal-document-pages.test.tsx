@@ -1,8 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LegalDocumentKind } from '@repo/shared/legal';
-import TermsPage from '@/app/terms/page';
-import PrivacyPage from '@/app/privacy/page';
+import TermsPage, { dynamic as termsDynamic } from '@/app/terms/page';
+import PrivacyPage, { dynamic as privacyDynamic } from '@/app/privacy/page';
 import { LEGAL_FALLBACK_DOCUMENTS } from '../content/legal-fallback-documents';
 
 function stubLegalDocumentFetch(document: unknown) {
@@ -22,6 +22,11 @@ describe('public legal document pages', () => {
     vi.unstubAllGlobals();
   });
 
+  it('/terms와 /privacy는 공개 legal page를 동적 렌더링으로 유지한다', () => {
+    expect(termsDynamic).toBe('force-dynamic');
+    expect(privacyDynamic).toBe('force-dynamic');
+  });
+
   it('/terms는 API document를 fallback보다 우선해 렌더링한다', async () => {
     stubLegalDocumentFetch({
       ...LEGAL_FALLBACK_DOCUMENTS[LegalDocumentKind.TERMS_OF_SERVICE],
@@ -30,11 +35,13 @@ describe('public legal document pages', () => {
       version: 'terms-api-version',
     });
 
-    render(await TermsPage());
+    const { container } = render(await TermsPage());
 
     expect(screen.getByRole('heading', { level: 1, name: 'API 이용약관' })).toBeInTheDocument();
     expect(screen.getByText('terms-api-version')).toBeInTheDocument();
     expect(screen.queryByText(/저장된 공개 안내/)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('h1')).toHaveLength(1);
+    expect(container).not.toHaveTextContent(/\.omx|draft|plan|apps\/web/i);
   });
 
   it('/privacy는 API 실패 시 seed-synced fallback document와 fallback notice를 렌더링한다', async () => {
@@ -54,5 +61,6 @@ describe('public legal document pages', () => {
     expect(screen.getByRole('navigation', { name: '문서 목차' })).toBeInTheDocument();
     expect(screen.getByText('서비스 처리 항목')).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
+    expect(container).not.toHaveTextContent(/\.omx|draft|plan|apps\/web/i);
   });
 });

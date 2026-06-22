@@ -68,6 +68,7 @@ describe('StepTermsAgreement', () => {
     expect(screen.getByText(/보유기간: 탈퇴/)).toBeInTheDocument();
     expect(screen.getByText(/거부권: 필수 수집/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '처리방침 보기' })).toBeInTheDocument();
+    expect(screen.getAllByRole('checkbox')).toHaveLength(4);
   });
 
   it('미동의 상태에서 다음 클릭 시 구체적인 에러를 표시한다', async () => {
@@ -90,6 +91,51 @@ describe('StepTermsAgreement', () => {
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
     expect(onNext).toHaveBeenCalled();
+  });
+
+  it('active bundle legal ids를 submit evidence로 유지한다', async () => {
+    const activeBundle = {
+      termsOfService: { ...legalBundle.termsOfService, id: 'terms-active-id' },
+      privacyPolicy: { ...legalBundle.privacyPolicy, id: 'privacy-active-id' },
+      personalDataCollectionUseConsent: {
+        ...legalBundle.personalDataCollectionUseConsent,
+        id: 'personal-data-active-id',
+      },
+      age14OrAboveNotice: { ...legalBundle.age14OrAboveNotice, id: 'age-active-id' },
+    };
+    stubBundleFetch(activeBundle);
+    const onNext = vi.fn<() => void>();
+    let latestTerms: TermsData = emptyTerms;
+
+    function Wrapper() {
+      const [terms, setTerms] = useState<TermsData>(emptyTerms);
+      return (
+        <StepTermsAgreement
+          terms={terms}
+          onTermsChange={(nextTerms) => {
+            latestTerms = nextTerms;
+            setTerms(nextTerms);
+          }}
+          onNext={onNext}
+          onBack={vi.fn()}
+        />
+      );
+    }
+
+    render(<Wrapper />);
+
+    await screen.findByLabelText('[필수] 이용약관에 동의합니다');
+    fireEvent.click(screen.getByRole('checkbox', { name: '필수 항목 전체 동의' }));
+    fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
+
+    expect(onNext).toHaveBeenCalled();
+    expect(latestTerms.legalAcceptances).toEqual({
+      termsVersionId: 'terms-active-id',
+      personalDataConsentVersionId: 'personal-data-active-id',
+      ageNoticeVersionId: 'age-active-id',
+      privacyPolicyVersionIdShown: 'privacy-active-id',
+    });
+    expect(latestTerms.legalBundleSource).toBe('api');
   });
 
   it('개별 항목을 모두 체크하면 다음으로 진행할 수 있다', async () => {
@@ -117,6 +163,43 @@ describe('StepTermsAgreement', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(document.activeElement).toBe(termsButton);
+  });
+
+  it('전문 보기 dialog는 close button과 Tab focus trap을 제공한다', async () => {
+    stubBundleFetch();
+    renderWithState();
+
+    const termsButton = (await screen.findAllByRole('button', { name: '전문 보기' }))[1]!;
+    termsButton.focus();
+    fireEvent.click(termsButton);
+
+    const dialog = screen.getByRole('dialog', { name: /KNU 룸메 이용약관/ });
+    const closeButton = screen.getByRole('button', { name: '문서 닫기' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.keyDown(dialog, { key: 'Tab' });
+    expect(closeButton).toHaveFocus();
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(closeButton).toHaveFocus();
+
+    fireEvent.click(closeButton);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(document.activeElement).toBe(termsButton);
+  });
+
+  it('summary card와 dialog는 모바일 화면에서 스크롤 가능한 최소 touch target class를 유지한다', async () => {
+    stubBundleFetch();
+    renderWithState();
+
+    const termsButton = (await screen.findAllByRole('button', { name: '전문 보기' }))[1]!;
+    expect(termsButton).toHaveClass('min-h-11');
+    fireEvent.click(termsButton);
+
+    const dialog = screen.getByRole('dialog', { name: /KNU 룸메 이용약관/ });
+    expect(dialog).toHaveClass('max-h-[86vh]', 'overflow-hidden');
+    expect(dialog.querySelector('.max-h-\\[68vh\\]')).not.toBeNull();
   });
 
   it('active bundle fetch 실패 시 seed-synced fallback 안내를 표시한다', async () => {
