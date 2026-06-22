@@ -1,19 +1,22 @@
 import type { Metadata } from 'next';
-import { LegalPage } from '@/components/LegalPage';
-import { TERMS_CONTENT } from '@/constants/legal';
+import { LegalDocumentKind } from '@repo/shared/legal';
+import { LegalDocumentLayout } from '@/legal/components/LegalDocumentLayout';
+import { LegalDocumentUnavailable } from '@/legal/components/LegalDocumentUnavailable';
+import { getLegalDocumentPageData } from '@/legal/api/legal-document.server';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: '개인정보 처리방침 | KNU 룸메',
-  description: '강원대학교 학생 대상 독립 운영 룸메이트 매칭 서비스 개인정보 처리방침',
+  description: 'KNU 룸메가 개인정보를 처리하고 보호하는 기준을 확인합니다.',
 };
 
-export default function PrivacyPage() {
-  return (
-    <LegalPage
-      title={TERMS_CONTENT.privacy.title}
-      content={TERMS_CONTENT.privacy.content}
-      effectiveDate={TERMS_CONTENT.privacy.effectiveDate}
-      lastModified={TERMS_CONTENT.privacy.lastModified}
-    />
-  );
+export default async function PrivacyPage() {
+  const result = await getLegalDocumentPageData(LegalDocumentKind.PRIVACY_POLICY);
+
+  if (result.status === 'unavailable') {
+    return <LegalDocumentUnavailable />;
+  }
+
+  return <LegalDocumentLayout document={result.document} source={result.source} />;
 }

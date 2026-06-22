@@ -1,0 +1,235 @@
+import {
+  LegalDocumentKind,
+  legalDocumentResponseSchema,
+  type LegalDocumentKind as LegalDocumentKindValue,
+  type LegalDocumentResponse,
+} from '@repo/shared/legal';
+
+const ACTIVE_LEGAL_EFFECTIVE_AT = '2026-06-22T00:00:00.000Z';
+
+function heading(text: string) {
+  return { type: 'heading' as const, level: 2 as const, text };
+}
+
+function paragraph(text: string) {
+  return { type: 'paragraph' as const, text };
+}
+
+function list(items: string[]) {
+  return { type: 'list' as const, ordered: false, items };
+}
+
+function table(headers: string[], rows: string[][], caption: string) {
+  return { type: 'table' as const, caption, headers, rows };
+}
+
+function callout(text: string, tone: 'INFO' | 'WARNING' = 'INFO') {
+  return { type: 'callout' as const, tone, text };
+}
+
+function fallbackDocument(document: LegalDocumentResponse): LegalDocumentResponse {
+  return legalDocumentResponseSchema.parse(document);
+}
+
+export const LEGAL_FALLBACK_DOCUMENTS = {
+  [LegalDocumentKind.TERMS_OF_SERVICE]: fallbackDocument({
+    id: 'terms-of-service-2026-06-22',
+    kind: LegalDocumentKind.TERMS_OF_SERVICE,
+    version: 'terms-2026-06-22',
+    title: 'KNU 룸메 이용약관',
+    effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
+    lastModifiedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
+    summaryItems: [
+      'KNU 룸메는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.',
+      '룸메이트 탐색과 매칭 요청을 돕지만 기숙사 배정이나 호실 선택을 보장하지 않습니다.',
+      '성희롱, 협박, 타인 개인정보 공개, 허위 정보, 혐오·차별 표현은 금지됩니다.',
+    ],
+    sections: [
+      heading('서비스 운영 주체'),
+      paragraph(
+        'KNU 룸메는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다. 학교 포털, 생활관 시스템, 기숙사 배정 절차와 직접 연동하지 않습니다.',
+      ),
+      heading('가입과 이용 자격'),
+      list([
+        '가입자는 만 14세 이상이어야 합니다.',
+        '회원가입 시 강원대학교 이메일 인증과 기본 계정 정보를 입력해야 합니다.',
+        '성별, 캠퍼스, 단과대, 출생연도 등 룸메이트 탐색에 필요한 정보는 사실에 맞게 입력해야 합니다.',
+      ]),
+      heading('서비스 범위'),
+      paragraph(
+        '서비스는 생활패턴과 룸메이트 조건을 비교해 상대를 탐색하고 매칭 요청, 채팅, 차단, 신고, 문의 기능을 제공합니다.',
+      ),
+      callout(
+        '실제 기숙사 배정, 호실 선택, 학교 생활관 규정 적용은 학교 또는 생활관 시스템에서 결정됩니다.',
+        'WARNING',
+      ),
+      heading('시즌과 매칭'),
+      list([
+        '시즌 상태에 따라 프로필 작성, 탐색, 매칭 요청, 결과 확인 기능이 달라질 수 있습니다.',
+        '매칭 요청은 상대방 수락 전까지 보장된 매칭이 아닙니다.',
+        '채팅은 상대를 알아보고 매칭 요청 여부를 판단하는 데 사용할 수 있습니다.',
+      ]),
+      heading('금지 행위와 운영 조치'),
+      list([
+        '성희롱, 협박, 반복적 괴롭힘, 혐오·차별 표현을 금지합니다.',
+        '타인의 연락처, 실명, 학번, SNS 등 개인정보를 동의 없이 공개할 수 없습니다.',
+        '성별 허위기재, 중요 프로필 정보 허위기재, 광고·스팸, 서비스 운영 방해를 금지합니다.',
+        '위반이 의심되면 신고 접수, 콘텐츠 제한, 계정 제한, 운영자 검토가 진행될 수 있습니다.',
+      ]),
+      heading('개인정보 공유 주의'),
+      paragraph(
+        '프로필과 채팅에는 연락처, 학번, SNS, 건강, 장애, 성생활 등 민감하거나 사생활 침해 우려가 큰 정보를 입력하지 않는 것을 권장합니다.',
+      ),
+      heading('탈퇴와 데이터 처리'),
+      paragraph(
+        '회원은 탈퇴를 요청할 수 있으며, 서비스는 관련 법령과 신고·분쟁 처리 목적에 필요한 보존 기준에 따라 정보를 삭제하거나 제한 보존 영역으로 분리합니다.',
+      ),
+      heading('약관 변경과 문의'),
+      paragraph(
+        '약관이 변경되면 적용일과 변경 요약을 안내합니다. 서비스 이용, 개인정보, 신고·문의와 관련한 요청은 서비스 내 문의 경로 또는 공개된 문의 연락처를 통해 접수할 수 있습니다.',
+      ),
+    ],
+    changeSummary:
+      '서비스 운영 주체, 시즌·매칭 범위, 금지 행위, 개인정보 공유 주의 기준을 정리했습니다.',
+  }),
+  [LegalDocumentKind.PRIVACY_POLICY]: fallbackDocument({
+    id: 'privacy-policy-2026-06-22',
+    kind: LegalDocumentKind.PRIVACY_POLICY,
+    version: 'privacy-2026-06-22',
+    title: 'KNU 룸메 개인정보 처리방침',
+    effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
+    lastModifiedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
+    summaryItems: [
+      '서비스 제공을 위해 계정, 인증, 시즌 프로필, 매칭·채팅·신고·문의 기록을 처리합니다.',
+      '회원 탈퇴 또는 목적 달성 시 지체 없이 삭제하되, 신고·분쟁·법령상 보존이 필요한 정보는 분리 보관합니다.',
+      '개인정보 처리방침은 공개 문서이며, 가입 동의는 별도의 개인정보 수집·이용 동의에서 확인합니다.',
+    ],
+    sections: [
+      heading('개인정보처리자와 문의'),
+      paragraph(
+        'KNU 룸메 운영자는 서비스 제공과 안전한 운영을 위해 필요한 범위에서 개인정보를 처리합니다. 개인정보 관련 문의는 서비스 내 문의 기능 또는 공개된 문의 연락처로 접수할 수 있습니다.',
+      ),
+      heading('처리하는 개인정보 항목'),
+      table(
+        ['구분', '항목'],
+        [
+          ['계정·인증', '이메일, 비밀번호 해시, 이메일 인증 기록, 로그인·세션 기록'],
+          [
+            '시즌 프로필',
+            '닉네임, 성별, 캠퍼스, 단과대, 출생연도, 생활패턴, 룸메이트 조건, 자기소개',
+          ],
+          ['서비스 이용 기록', '매칭 요청, 채팅, 차단, 북마크, 신고, 문의, 알림, 접속 로그'],
+          ['운영·보안 기록', '요청 시각, IP 또는 해시 처리된 식별자, 사용자 에이전트, 처리 결과'],
+        ],
+        '서비스 처리 항목',
+      ),
+      heading('처리 목적'),
+      list([
+        '강원대학교 이메일 기반 회원 식별과 계정 보호',
+        '룸메이트 탐색, 매칭 요청, 채팅, 시즌 참여 기능 제공',
+        '차단·신고·제재·문의 처리와 서비스 안전 유지',
+        '부정 이용 방지, 장애 대응, 보안 감사, 법적 분쟁 대응',
+      ]),
+      heading('보유 기간과 파기'),
+      table(
+        ['정보', '보유 기준'],
+        [
+          ['계정·프로필 활성 정보', '회원 탈퇴 또는 처리 목적 달성 시 삭제'],
+          ['인증 코드·로그인 제한 기록', '보안 정책에 따른 짧은 기간 보관 후 삭제'],
+          ['신고·제재·분쟁 관련 자료', '처리와 분쟁 대응에 필요한 기간 동안 제한 보존'],
+          ['접근·운영 로그', '보안 감사와 개인정보 처리시스템 접속기록 기준에 따라 보관'],
+        ],
+        '주요 보유 기준',
+      ),
+      paragraph(
+        '보존 근거가 있는 정보는 active 사용자 정보와 분리해 접근 권한과 접근 기록을 제한합니다.',
+      ),
+      heading('제3자 제공과 위탁'),
+      paragraph(
+        '서비스는 원칙적으로 개인정보를 제3자에게 판매하거나 임의 제공하지 않습니다. 다만 법령상 요청, 수사기관 협조, 신고·분쟁 처리에 필요한 경우 관련 법령에 따라 필요한 범위에서 처리할 수 있습니다.',
+      ),
+      heading('자동 수집 장치와 접속 기록'),
+      paragraph(
+        '서비스 품질, 보안, 세션 유지를 위해 쿠키 또는 유사한 저장 기술과 접속 기록을 사용할 수 있습니다. 사용자는 브라우저 설정으로 쿠키 저장을 제한할 수 있으나 일부 기능이 제한될 수 있습니다.',
+      ),
+      heading('정보주체 권리와 보호조치'),
+      list([
+        '회원은 본인 정보 조회, 정정, 삭제, 탈퇴를 요청할 수 있습니다.',
+        '서비스는 개인정보 접근 권한을 최소화하고, 보존 영역 접근 기록을 남기며, 필요한 기술적·관리적 보호조치를 적용합니다.',
+        '신고·분쟁·법령상 보존이 필요한 정보는 즉시 삭제 대신 제한 보존 후 보존 기간이 끝나면 파기합니다.',
+      ]),
+      heading('처리방침 변경'),
+      paragraph(
+        '개인정보 처리방침이 변경되면 변경일, 적용일, 주요 변경 내용을 서비스 화면 또는 공지 경로를 통해 안내합니다.',
+      ),
+    ],
+    changeSummary: '개인정보 항목, 처리 목적, 보유·파기, 제한 보존, 권리 행사 기준을 정리했습니다.',
+  }),
+  [LegalDocumentKind.PERSONAL_DATA_COLLECTION_USE_CONSENT]: fallbackDocument({
+    id: 'personal-data-collection-use-consent-2026-06-22',
+    kind: LegalDocumentKind.PERSONAL_DATA_COLLECTION_USE_CONSENT,
+    version: 'collection-use-2026-06-22',
+    title: '개인정보 수집·이용 동의',
+    effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
+    lastModifiedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
+    summaryItems: [
+      '회원가입과 룸메이트 탐색 기능 제공을 위해 필수 개인정보를 수집·이용합니다.',
+      '필수 항목 동의를 거부하면 회원가입과 서비스 이용이 제한됩니다.',
+      '자세한 처리 기준은 개인정보 처리방침에서 확인할 수 있습니다.',
+    ],
+    sections: [
+      heading('수집·이용 목적'),
+      list([
+        '회원가입, 이메일 인증, 로그인, 계정 보호',
+        '시즌 참여, 프로필 작성, 룸메이트 탐색, 매칭 요청과 채팅 기능 제공',
+        '신고, 차단, 문의, 제재 처리와 서비스 안전 유지',
+      ]),
+      heading('수집 항목'),
+      table(
+        ['구분', '항목'],
+        [
+          ['필수', '이메일, 비밀번호, 닉네임, 성별, 캠퍼스, 단과대, 출생연도'],
+          ['서비스 이용 중 필수', '시즌 프로필, 생활패턴, 룸메이트 조건, 매칭·채팅·신고·문의 기록'],
+          ['자동 생성', '인증, 세션, 접속, 보안 처리 기록'],
+        ],
+        '개인정보 수집·이용 항목',
+      ),
+      heading('보유·이용 기간'),
+      paragraph(
+        '회원 탈퇴 또는 처리 목적 달성 시 지체 없이 파기합니다. 다만 신고·분쟁·법령상 보존이 필요한 정보는 개인정보 처리방침의 제한 보존 기준에 따라 분리 보관 후 파기합니다.',
+      ),
+      heading('동의 거부권'),
+      paragraph(
+        '필수 개인정보 수집·이용에 동의하지 않을 권리가 있습니다. 다만 동의하지 않으면 회원가입과 룸메이트 탐색 서비스 이용이 제한됩니다.',
+      ),
+      callout(
+        '개인정보 처리방침은 공개 문서이며, 이 동의는 필수 개인정보 수집·이용에 대한 동의입니다.',
+      ),
+    ],
+    changeSummary:
+      '가입 단계 필수 개인정보 수집·이용 동의의 목적, 항목, 보유 기간, 거부권을 정리했습니다.',
+  }),
+  [LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE]: fallbackDocument({
+    id: 'age-14-or-above-notice-2026-06-22',
+    kind: LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE,
+    version: 'age-2026-06-22',
+    title: '만 14세 이상 확인',
+    effectiveAt: ACTIVE_LEGAL_EFFECTIVE_AT,
+    lastModifiedAt: ACTIVE_LEGAL_EFFECTIVE_AT,
+    summaryItems: [
+      'KNU 룸메 회원가입은 만 14세 이상 사용자만 진행할 수 있습니다.',
+      '만 14세 미만 사용자는 서비스를 이용할 수 없습니다.',
+    ],
+    sections: [
+      heading('연령 확인'),
+      paragraph(
+        '회원가입을 진행하는 사용자는 만 14세 이상이어야 합니다. 서비스는 대학생 이용을 전제로 설계되어 있으며, 만 14세 미만 사용자는 가입할 수 없습니다.',
+      ),
+      heading('확인 방법'),
+      paragraph(
+        '가입자는 회원가입 단계에서 만 14세 이상임을 확인해야 합니다. 허위로 확인한 경우 서비스 이용이 제한될 수 있습니다.',
+      ),
+    ],
+    changeSummary: '회원가입 전 만 14세 이상 확인 기준을 정리했습니다.',
+  }),
+} satisfies Record<LegalDocumentKindValue, LegalDocumentResponse>;
