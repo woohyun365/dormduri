@@ -16,8 +16,19 @@ Rules:
 - Treat privacy policy as a public notice/read evidence, not as a signup consent checkbox.
 - Do not store full legal document bodies in browser storage.
 - Keep user-facing copy free of plan, issue, internal file-path wording, raw legal version ids, and internal state names.
+- Render public version labels as user-friendly effective-date text, not raw ids such as
+  `privacy-YYYY-MM-DD`.
 - Keep Web fallback legal bodies in sync with the API legal seed source when changing public
   `/terms` or `/privacy` copy.
+- Keep the public page header regression protected: the brand link shows the KNU logo, the
+  secondary navigation action is `이전 화면으로`, and route metadata must not duplicate
+  `| KNU 룸메`.
+
+Release handoff:
+
+- Production legal copy still needs release decisions for the dedicated privacy/support contact,
+  production provider/entrustment table, and legal/privacy expert review evidence. Track those as
+  GitHub issues rather than inline TODO copy so public text does not expose internal uncertainty.
 
 Verification surface:
 

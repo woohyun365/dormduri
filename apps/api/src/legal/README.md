@@ -26,7 +26,13 @@ Legal 도메인의 server-side boundary map이다. 이 문서는 `apps/api/src/l
 - Public response에는 `publishedAt`, `retiredAt`, `createdAt` 같은 내부 운영 필드를 포함하지 않는다.
 - Legal document body는 raw HTML이 아니라 typed section JSON으로만 제공한다.
 - Signup acceptance 저장은 auth signup transaction에서 원자적으로 처리한다. Public read API는 user acceptance evidence를 조회하거나 노출하지 않는다.
+- Public seed copy와 Web fallback copy는 같은 사용자-facing 문안을 유지한다. Raw version id, 내부 상태명, plan/file path는 public response body에 넣지 않는다.
 - BackOffice legal editor, admin approval workflow, 기존 사용자 재동의 campaign은 현재 범위가 아니다.
+
+## Release handoff
+
+- Production 공개 전 개인정보/지원 문의 연락처, provider 위탁/국외이전 table, 법률/개인정보 검토 여부를 별도 GitHub issue로 확정한다.
+- 해당 값이 확정되기 전에는 seed에 거짓 provider/contact 확정값을 쓰지 않고, 운영 문의 경로처럼 일반화된 문구만 유지한다.
 
 ## Where to change
 
