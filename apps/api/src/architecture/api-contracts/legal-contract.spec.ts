@@ -111,22 +111,22 @@ describe('legal shared contract', () => {
   it('signup legal acceptance는 동의 version id와 개인정보 처리방침 표시 evidence id를 분리한다', () => {
     expect(
       signupLegalAcceptancesSchema.parse({
-        termsVersionId: 'terms-2026-06-22',
-        personalDataConsentVersionId: 'collection-use-2026-06-22',
-        ageNoticeVersionId: 'age-2026-06-22',
-        privacyPolicyVersionIdShown: 'privacy-2026-06-22',
+        termsVersionId: 'terms-of-service-2026-06-22',
+        personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+        ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+        privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
       }),
     ).toMatchObject({
-      personalDataConsentVersionId: 'collection-use-2026-06-22',
-      privacyPolicyVersionIdShown: 'privacy-2026-06-22',
+      personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+      privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
     });
 
     expect(
       signupLegalAcceptancesSchema.safeParse({
-        termsVersionId: 'terms-2026-06-22',
+        termsVersionId: 'terms-of-service-2026-06-22',
         personalDataConsentVersionId: '',
-        ageNoticeVersionId: 'age-2026-06-22',
-        privacyPolicyVersionIdShown: 'privacy-2026-06-22',
+        ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+        privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
       }).success,
     ).toBe(false);
   });

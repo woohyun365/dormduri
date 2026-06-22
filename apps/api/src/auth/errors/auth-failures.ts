@@ -66,6 +66,19 @@ export const authFailures = {
     );
   },
 
+  legalAcceptanceStale() {
+    return createFailure(
+      'AUTH_LEGAL_ACCEPTANCE_STALE',
+      '약관 또는 개인정보 동의 내용이 변경되었습니다. 화면을 새로고침한 뒤 다시 확인해주세요.',
+      {
+        fieldErrors: {
+          legalAcceptances:
+            '약관 또는 개인정보 동의 내용이 변경되었습니다. 화면을 새로고침한 뒤 다시 확인해주세요.',
+        },
+      },
+    );
+  },
+
   invalidCredentials(): LoginResult {
     return {
       ...createFailure('AUTH_INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다.'),

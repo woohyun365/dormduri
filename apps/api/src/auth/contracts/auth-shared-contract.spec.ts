@@ -25,10 +25,10 @@ const UNSUPPORTED_SIGNUP_PROFILE_PAYLOAD = {
 } as const;
 
 const SIGNUP_LEGAL_ACCEPTANCES = {
-  termsVersionId: 'terms-2026-06-22',
-  personalDataConsentVersionId: 'collection-use-2026-06-22',
-  ageNoticeVersionId: 'age-2026-06-22',
-  privacyPolicyVersionIdShown: 'privacy-2026-06-22',
+  termsVersionId: 'terms-of-service-2026-06-22',
+  personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+  ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
+  privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
 } as const;
 
 describe('auth shared contract guards', () => {
@@ -95,8 +95,8 @@ describe('auth shared contract guards', () => {
     });
 
     expect(parsed.legalAcceptances).toMatchObject({
-      personalDataConsentVersionId: 'collection-use-2026-06-22',
-      privacyPolicyVersionIdShown: 'privacy-2026-06-22',
+      personalDataConsentVersionId: 'personal-data-collection-use-consent-2026-06-22',
+      privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
     });
   });
 

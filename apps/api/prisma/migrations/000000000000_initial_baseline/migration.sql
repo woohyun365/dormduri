@@ -98,6 +98,9 @@ CREATE TYPE "SupportFaqSurface" AS ENUM ('LANDING', 'SUPPORT_CENTER');
 CREATE TYPE "LegalDocumentKind" AS ENUM ('TERMS_OF_SERVICE', 'PRIVACY_POLICY', 'PERSONAL_DATA_COLLECTION_USE_CONSENT', 'AGE_14_OR_ABOVE_NOTICE');
 
 -- CreateEnum
+CREATE TYPE "LegalAcceptanceAction" AS ENUM ('AGREE', 'SHOW');
+
+-- CreateEnum
 CREATE TYPE "MatchRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM', 'EXPIRED');
 
 -- CreateEnum
@@ -764,6 +767,21 @@ CREATE TABLE "LegalDocumentVersion" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "LegalDocumentVersion_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "LegalAcceptanceRecord" (
+    "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
+    "userId" TEXT NOT NULL,
+    "documentVersionId" TEXT NOT NULL,
+    "kind" "LegalDocumentKind" NOT NULL,
+    "action" "LegalAcceptanceAction" NOT NULL,
+    "acceptedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "source" TEXT NOT NULL DEFAULT 'SIGNUP',
+    "ipHash" TEXT,
+    "userAgentHash" TEXT,
+
+    CONSTRAINT "LegalAcceptanceRecord_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1662,6 +1680,15 @@ CREATE INDEX "LegalDocumentVersion_kind_publishedAt_effectiveAt_reti_idx" ON "Le
 CREATE INDEX "LegalDocumentVersion_kind_effectiveAt_id_idx" ON "LegalDocumentVersion"("kind", "effectiveAt", "id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "LegalAcceptanceRecord_userId_documentVersionId_key" ON "LegalAcceptanceRecord"("userId", "documentVersionId");
+
+-- CreateIndex
+CREATE INDEX "LegalAcceptanceRecord_userId_kind_acceptedAt_idx" ON "LegalAcceptanceRecord"("userId", "kind", "acceptedAt");
+
+-- CreateIndex
+CREATE INDEX "LegalAcceptanceRecord_kind_acceptedAt_idx" ON "LegalAcceptanceRecord"("kind", "acceptedAt");
+
+-- CreateIndex
 CREATE INDEX "SeasonParticipantLifecycleEvent_participantId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("participantId", "occurredAt");
 
 -- CreateIndex
@@ -2172,6 +2199,12 @@ ALTER TABLE "SupportTicketMessage" ADD CONSTRAINT "SupportTicketMessage_senderUs
 
 -- AddForeignKey
 ALTER TABLE "SupportFaqPlacement" ADD CONSTRAINT "SupportFaqPlacement_articleId_fkey" FOREIGN KEY ("articleId") REFERENCES "SupportFaqArticle"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "LegalAcceptanceRecord" ADD CONSTRAINT "LegalAcceptanceRecord_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "LegalAcceptanceRecord" ADD CONSTRAINT "LegalAcceptanceRecord_documentVersionId_fkey" FOREIGN KEY ("documentVersionId") REFERENCES "LegalDocumentVersion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonParticipantLifecycleEvent" ADD CONSTRAINT "SeasonParticipantLifecycleEvent_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
