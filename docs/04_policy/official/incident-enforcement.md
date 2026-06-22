@@ -251,9 +251,9 @@ ACTIVE ──(임시조치)──→ HIDDEN ──(이의 없음/30일)──→
 
 이 구조는 data-retention.md의 기본 무기한 archive + 탈퇴 시 식별 정보 비식별화 + 제한 retained identity vault 구조와 정합한다. 추가 보관이 필요한 경우에도 보존 사유와 접근 근거를 retained identity access log로 남긴다.
 
-## legal.ts 금지행위 조항 초안
+## 제품 이용약관 금지행위 조항 기준
 
-#147(Phase 1 정책 코드 반영)에서 legal.ts에 반영할 금지행위 목록이다.
+이 목록은 제품 이용약관과 신고/제재 사용자 안내에 반영해야 하는 금지행위 기준이다.
 
 ### 금지행위 목록
 
@@ -346,6 +346,7 @@ User block은 viewer-specific relation이므로 participant-level hidden reason�
 | 2026-06-05 | `SeasonParticipant.hidden*`를 신고/차단 원장이 아닌 participant-level current visibility projection으로 정의하고, `ParticipantHiddenReasonCode` taxonomy와 #196 social-safety handoff boundary를 추가했다 | #222 / #223 / #196 |
 | 2026-06-08 | report intake-only 경계, 허위 신고 disclaimer, riskTier/operator alert 후보, support/notification handoff를 구현 baseline으로 보강했다                                                                    | #196 / #79 / #220  |
 | 2026-06-08 | high-risk report candidate event를 user notification이 아닌 `OperatorAlert` record/sink handoff로 materialize하는 Phase 6 경계를 명시했다                                                                 | #220 / #196        |
+| 2026-06-22 | 구현 파일명에 묶인 금지행위 초안 표현을 제품 이용약관과 신고/제재 사용자 안내 기준으로 정리했다                                                                                                           | web terms/privacy  |
 
 ## 원문 소스
 
