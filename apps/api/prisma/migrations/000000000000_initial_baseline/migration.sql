@@ -92,6 +92,9 @@ CREATE TYPE "SupportMessageSenderType" AS ENUM ('USER', 'OPERATOR', 'SYSTEM');
 CREATE TYPE "SupportAppealCategory" AS ENUM ('SANCTION', 'TEMPORARY_RESTRICTION', 'REPORT_RESULT', 'CONTENT_ACTION');
 
 -- CreateEnum
+CREATE TYPE "SupportFaqSurface" AS ENUM ('LANDING', 'SUPPORT_CENTER');
+
+-- CreateEnum
 CREATE TYPE "MatchRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM', 'EXPIRED');
 
 -- CreateEnum
@@ -728,6 +731,18 @@ CREATE TABLE "SupportFaqArticle" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SupportFaqArticle_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SupportFaqPlacement" (
+    "id" TEXT NOT NULL,
+    "articleId" TEXT NOT NULL,
+    "surface" "SupportFaqSurface" NOT NULL,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SupportFaqPlacement_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1611,6 +1626,12 @@ CREATE INDEX "SupportFaqArticle_published_category_sortOrder_id_idx" ON "Support
 CREATE INDEX "SupportFaqArticle_category_sortOrder_id_idx" ON "SupportFaqArticle"("category", "sortOrder", "id");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "SupportFaqPlacement_articleId_surface_key" ON "SupportFaqPlacement"("articleId", "surface");
+
+-- CreateIndex
+CREATE INDEX "SupportFaqPlacement_surface_sortOrder_articleId_idx" ON "SupportFaqPlacement"("surface", "sortOrder", "articleId");
+
+-- CreateIndex
 CREATE INDEX "SeasonParticipantLifecycleEvent_participantId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("participantId", "occurredAt");
 
 -- CreateIndex
@@ -2118,6 +2139,9 @@ ALTER TABLE "SupportTicketMessage" ADD CONSTRAINT "SupportTicketMessage_ticketId
 
 -- AddForeignKey
 ALTER TABLE "SupportTicketMessage" ADD CONSTRAINT "SupportTicketMessage_senderUserId_fkey" FOREIGN KEY ("senderUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SupportFaqPlacement" ADD CONSTRAINT "SupportFaqPlacement_articleId_fkey" FOREIGN KEY ("articleId") REFERENCES "SupportFaqArticle"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SeasonParticipantLifecycleEvent" ADD CONSTRAINT "SeasonParticipantLifecycleEvent_participantId_fkey" FOREIGN KEY ("participantId") REFERENCES "SeasonParticipant"("id") ON DELETE CASCADE ON UPDATE CASCADE;

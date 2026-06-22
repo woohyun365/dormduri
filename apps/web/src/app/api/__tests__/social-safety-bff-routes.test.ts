@@ -208,14 +208,14 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
 
   it('support FAQ list/detail은 public route라 auth cookie가 있어도 Authorization을 전달하지 않는다', async () => {
     const fetchMock = stubJsonFetch({ items: [] });
-    const request = createRequest('/api/support/faq?category=ACCOUNT', {
+    const request = createRequest('/api/support/faq?category=ACCOUNT&surface=LANDING&ignored=1', {
       headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
     });
 
     await listSupportFaq(request);
 
     expect(firstFetchInput(fetchMock)).toBe(
-      'http://localhost:4000/api/support/faq?category=ACCOUNT',
+      'http://localhost:4000/api/support/faq?category=ACCOUNT&surface=LANDING',
     );
     expect(firstFetchInit(fetchMock)).toEqual(
       expect.objectContaining({
@@ -223,6 +223,21 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
         headers: expect.not.objectContaining({ Authorization: expect.any(String) }),
       }),
     );
+
+    vi.unstubAllGlobals();
+    const invalidFetchMock = stubJsonFetch({ shouldNotForward: true });
+    const invalidRequest = createRequest('/api/support/faq?surface=UNKNOWN', {
+      headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
+    });
+
+    const invalidResponse = await listSupportFaq(invalidRequest);
+
+    expect(invalidFetchMock).not.toHaveBeenCalled();
+    expect(invalidResponse.status).toBe(400);
+    await expect(invalidResponse.json()).resolves.toMatchObject({
+      success: false,
+      code: 'INVALID_SUPPORT_FAQ_QUERY',
+    });
 
     vi.unstubAllGlobals();
     const detailFetchMock = stubJsonFetch({ item: { id: 'faq-1' } });

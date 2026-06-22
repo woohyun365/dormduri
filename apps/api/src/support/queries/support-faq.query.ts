@@ -16,7 +16,12 @@ export class SupportFaqQuery {
   constructor(private readonly repository: SupportFaqRepository) {}
 
   async list(query: ListSupportFaqQuery): Promise<SupportFaqListResponse> {
-    const records = await this.repository.listPublished({ category: query.category });
+    const records = query.surface
+      ? await this.repository.listPublishedForSurface({
+          surface: query.surface,
+          category: query.category,
+        })
+      : await this.repository.listPublished({ category: query.category });
     return toSupportFaqListResponse(records);
   }
 

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { LandingHeader } from './components/LandingHeader';
 import { LandingFooter } from './components/LandingFooter';
 import { LandingHeroSection } from './sections/LandingHeroSection';
@@ -9,7 +10,11 @@ import { LandingSafetySupportSection } from './sections/LandingSafetySupportSect
 import { LandingFaqSection } from './sections/LandingFaqSection';
 import { LandingFinalCtaSection } from './sections/LandingFinalCtaSection';
 
-export default function Landing() {
+interface LandingProps {
+  faqSection?: ReactNode;
+}
+
+export default function Landing({ faqSection }: LandingProps = {}) {
   return (
     <div className="min-h-screen bg-white keep-all">
       <LandingHeader />
@@ -20,7 +25,7 @@ export default function Landing() {
         <LandingFeatureSection />
         <LandingSeasonPolicySection />
         <LandingSafetySupportSection />
-        <LandingFaqSection />
+        {faqSection ?? <LandingFaqSection />}
         <LandingFinalCtaSection />
       </main>
       <LandingFooter />

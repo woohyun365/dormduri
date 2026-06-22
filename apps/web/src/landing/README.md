@@ -22,7 +22,7 @@
 4. `LandingFeatureSection` — 탐색/비교/필터/매칭 전후 대화/안전 기능 요약.
 5. `LandingSeasonPolicySection` — 시즌 4-state와 기능 허용/제한 경계.
 6. `LandingSafetySupportSection` — 개인정보 입력 주의, FAQ와 개인 문의 책임 경계.
-7. `LandingFaqSection` — 비상 예비 FAQ를 렌더링한다. 동적 FAQ 조회는 별도 API 기준 데이터를 사용한다.
+7. `LandingFaqSection` — 지원 FAQ API의 Landing surface 데이터를 렌더링하고, 실패 시 비상 예비 FAQ로 대체한다.
 8. `LandingFinalCtaSection` — 정책 안내를 확인한 뒤 가입/로그인으로 이어지는 마지막 행동 버튼.
 
 ## Source of truth
@@ -39,19 +39,21 @@
 
 ## Directory responsibility
 
-| Directory     | Responsibility                                                        |
-| ------------- | --------------------------------------------------------------------- |
-| `content/`    | 정책과 연결된 문구, 섹션 내용, 예시 화면 데이터, 비상 예비 FAQ        |
-| `sections/`   | page section composition and presentational grouping                  |
-| `components/` | 재사용 화면 컴포넌트, 최소 상호작용 컴포넌트, Landing scoped skeleton |
-| `__tests__/`  | 섹션 순서, 화면 정책 문구, 콘텐츠 정책, 접근성 중심 보호 테스트       |
+| Directory     | Responsibility                                                               |
+| ------------- | ---------------------------------------------------------------------------- |
+| `content/`    | 정책과 연결된 문구, 섹션 내용, 예시 화면 데이터, 비상 예비 FAQ               |
+| `api/`        | 공개 support FAQ 조회 결과를 Landing view model로 검증·변환하는 read adapter |
+| `sections/`   | page section composition and presentational grouping                         |
+| `components/` | 재사용 화면 컴포넌트, 최소 상호작용 컴포넌트, Landing scoped skeleton        |
+| `__tests__/`  | 섹션 순서, 화면 정책 문구, 콘텐츠 정책, 접근성 중심 보호 테스트              |
 
 ## 콘텐츠 규칙
 
 - `content/landing-policy-copy.ts`는 Landing이 반드시 추적해야 하는 정책 문구 기준점을 소유한다.
 - `content/landing-copy.ts`는 첫 화면, 서비스 경계, 이용 순서, 기능, 시즌, 안전/문의, 마지막 행동 버튼의 화면 문구 모델을 소유한다. 여러 문장 안내는 문장 단위 줄바꿈을 적용해 한 문단 안에서 읽히도록 유지한다.
 - `content/landing-preview-fixtures.ts`는 화면 예시용 비식별 예시 데이터만 소유한다. 실제 사용자, 실제 점수, 매칭 또는 호실 선택 성공을 암시하지 않는다.
-- `content/landing-fallback-faq.ts`는 지원 FAQ API가 실패했을 때 사용하는 비상 예비 안내만 소유한다.
+- `api/landing-faq.api.ts`는 `surface=LANDING` 공개 FAQ 조회를 수행하고 shared response schema로 검증한 뒤, 실패·empty 상태를 비상 예비 FAQ로 degrade한다.
+- `content/landing-fallback-faq.ts`는 지원 FAQ API가 실패했을 때 사용하는 비상 예비 안내만 소유한다. 같은 제품 경계 FAQ는 API 기본 seed에도 `LANDING` surface로 제공된다.
 - 예비 FAQ는 운영 FAQ의 기준 데이터가 아니며, 개인 문의/신고/이의신청 결과를 포함하지 않는다.
 - 예비 FAQ의 `question`과 `answer`는 일반 텍스트로 유지한다. raw HTML, markdown rendering, 내부 운영 key, retained payload 식별자는 포함하지 않는다.
 - 화면 문구가 공식 정책과 충돌하면 공식 정책 문서를 우선하고 Landing 문구를 갱신한다. 시즌 오픈에서도 등록 완료 후 같은 기숙사 후보와 비매칭 직접 대화가 가능할 수 있지만, 매칭 요청·수락은 시즌 매칭 기간에만 열린다고 설명한다. 등록 완료 후 프로필·기숙사 선택 정보 잠금은 시즌 오픈과 시즌 매칭 모두에 적용되는 것으로 설명한다.
@@ -61,6 +63,7 @@
 - 공개 Landing 전체를 full-page skeleton 뒤에 숨기지 않는다.
 - 첫 화면 제목, 서비스 책임 고지, 주요 가입 버튼은 최초 렌더에서 바로 노출되어야 한다.
 - 동적 FAQ처럼 비동기 의존성이 있는 영역에만 해당 영역 전용 skeleton을 둔다.
+- FAQ API failure/empty 상태에서는 전체 페이지를 막지 않고 FAQ 영역만 비상 예비 안내로 degrade한다.
 - `LandingFaqSkeleton`은 FAQ 영역 전용 loading block이다. 앱 인증 shell loading이나 전체 페이지 loading에 재사용하지 않는다.
 - skeleton row는 장식 요소로 숨기고, loading wrapper만 짧은 상태 문구와 `aria-busy`를 제공한다.
 - skeleton은 실제 content와 유사한 크기를 유지해 CLS를 줄인다.

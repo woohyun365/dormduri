@@ -1,5 +1,12 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import Landing from '@/landing/Landing';
+import {
+  LandingDynamicFaqSection,
+  LandingFaqSectionSkeleton,
+} from '@/landing/sections/LandingFaqSection';
+
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: 'KNU 룸메 - 강원대 룸메이트 매칭',
@@ -7,5 +14,13 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <Landing />;
+  return (
+    <Landing
+      faqSection={
+        <Suspense fallback={<LandingFaqSectionSkeleton />}>
+          <LandingDynamicFaqSection />
+        </Suspense>
+      }
+    />
+  );
 }
