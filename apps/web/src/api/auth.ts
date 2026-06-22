@@ -90,16 +90,6 @@ export const authApi = {
     return postJson<SignupDraftValidationResponse>('/api/auth/validate-signup-draft', data);
   },
 
-  /**
-   * @deprecated Compatibility alias for the old signup basic-info naming.
-   * Use validateSignupDraft for new BFF/API code.
-   */
-  validateSignupProfile: (
-    data: SignupDraftValidationRequest,
-  ): Promise<SignupDraftValidationResponse> => {
-    return authApi.validateSignupDraft(data);
-  },
-
   signup: async (data: SignupRequest): Promise<SignupResponse> => {
     const passwordErr = validatePasswordStructure(data.password, data.email);
     if (passwordErr) {
