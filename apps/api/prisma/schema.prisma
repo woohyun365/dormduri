@@ -220,6 +220,13 @@ enum SupportFaqSurface {
   SUPPORT_CENTER
 }
 
+enum LegalDocumentKind {
+  TERMS_OF_SERVICE
+  PRIVACY_POLICY
+  PERSONAL_DATA_COLLECTION_USE_CONSENT
+  AGE_14_OR_ABOVE_NOTICE
+}
+
 enum MatchRequestStatus {
   PENDING
   ACCEPTED
@@ -1257,6 +1264,25 @@ model SupportFaqPlacement {
 
   @@unique([articleId, surface])
   @@index([surface, sortOrder, articleId])
+}
+
+model LegalDocumentVersion {
+  id            String            @id
+  kind          LegalDocumentKind
+  version       String
+  title         String
+  summaryItems  Json
+  sections      Json
+  changeSummary String?
+  publishedAt   DateTime?         @db.Timestamptz(3)
+  effectiveAt   DateTime          @db.Timestamptz(3)
+  retiredAt     DateTime?         @db.Timestamptz(3)
+  createdAt     DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@unique([kind, version])
+  @@index([kind, publishedAt, effectiveAt, retiredAt])
+  @@index([kind, effectiveAt, id])
 }
 
 model SeasonParticipantLifecycleEvent {

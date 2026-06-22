@@ -95,6 +95,9 @@ CREATE TYPE "SupportAppealCategory" AS ENUM ('SANCTION', 'TEMPORARY_RESTRICTION'
 CREATE TYPE "SupportFaqSurface" AS ENUM ('LANDING', 'SUPPORT_CENTER');
 
 -- CreateEnum
+CREATE TYPE "LegalDocumentKind" AS ENUM ('TERMS_OF_SERVICE', 'PRIVACY_POLICY', 'PERSONAL_DATA_COLLECTION_USE_CONSENT', 'AGE_14_OR_ABOVE_NOTICE');
+
+-- CreateEnum
 CREATE TYPE "MatchRequestStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED_BY_REQUESTER', 'CANCELLED_BY_SYSTEM', 'EXPIRED');
 
 -- CreateEnum
@@ -743,6 +746,24 @@ CREATE TABLE "SupportFaqPlacement" (
     "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SupportFaqPlacement_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "LegalDocumentVersion" (
+    "id" TEXT NOT NULL,
+    "kind" "LegalDocumentKind" NOT NULL,
+    "version" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "summaryItems" JSONB NOT NULL,
+    "sections" JSONB NOT NULL,
+    "changeSummary" TEXT,
+    "publishedAt" TIMESTAMPTZ(3),
+    "effectiveAt" TIMESTAMPTZ(3) NOT NULL,
+    "retiredAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "LegalDocumentVersion_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -1630,6 +1651,15 @@ CREATE UNIQUE INDEX "SupportFaqPlacement_articleId_surface_key" ON "SupportFaqPl
 
 -- CreateIndex
 CREATE INDEX "SupportFaqPlacement_surface_sortOrder_articleId_idx" ON "SupportFaqPlacement"("surface", "sortOrder", "articleId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "LegalDocumentVersion_kind_version_key" ON "LegalDocumentVersion"("kind", "version");
+
+-- CreateIndex
+CREATE INDEX "LegalDocumentVersion_kind_publishedAt_effectiveAt_reti_idx" ON "LegalDocumentVersion"("kind", "publishedAt", "effectiveAt", "retiredAt");
+
+-- CreateIndex
+CREATE INDEX "LegalDocumentVersion_kind_effectiveAt_id_idx" ON "LegalDocumentVersion"("kind", "effectiveAt", "id");
 
 -- CreateIndex
 CREATE INDEX "SeasonParticipantLifecycleEvent_participantId_occurredAt_idx" ON "SeasonParticipantLifecycleEvent"("participantId", "occurredAt");
