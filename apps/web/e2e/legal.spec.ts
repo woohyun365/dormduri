@@ -6,10 +6,20 @@ test.describe('Public legal documents', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: 'KNU 룸메 이용약관' })).toBeVisible();
     await expect(page.locator('h1')).toHaveCount(1);
-    await expect(page.getByRole('status')).toContainText('저장된 공개 안내를 표시');
+    await expect(page.getByRole('status')).toContainText('서비스에 함께 배포된 공개 문서');
+    await expect(page.getByRole('button', { name: '인쇄하기' })).toBeVisible();
     await expect(page.locator('body')).not.toContainText(
-      /\.omx|apps\/web|web-terms-privacy-refactor-plan/i,
+      /\.omx|apps\/web|web-terms-privacy-refactor-plan|terms-\d{4}-\d{2}-\d{2}|active 사용자/i,
     );
+  });
+
+  test('모바일 사용자는 본문 전에 접이식 문서 목차를 볼 수 있다', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/privacy');
+
+    await expect(page.getByText('문서 목차 먼저 보기')).toBeVisible();
+    await page.getByText('문서 목차 먼저 보기').click();
+    await expect(page.getByRole('navigation', { name: '문서 목차 먼저 보기' })).toBeVisible();
   });
 
   test('비로그인 사용자는 /privacy 공개 문서를 볼 수 있다', async ({ page }) => {
@@ -19,10 +29,10 @@ test.describe('Public legal documents', () => {
       page.getByRole('heading', { level: 1, name: 'KNU 룸메 개인정보 처리방침' }),
     ).toBeVisible();
     await expect(page.locator('h1')).toHaveCount(1);
-    await expect(page.getByRole('status')).toContainText('저장된 공개 안내를 표시');
+    await expect(page.getByRole('status')).toContainText('서비스에 함께 배포된 공개 문서');
     await expect(page.getByRole('navigation', { name: '문서 목차' })).toBeVisible();
     await expect(page.locator('body')).not.toContainText(
-      /\.omx|apps\/web|web-terms-privacy-refactor-plan/i,
+      /\.omx|apps\/web|web-terms-privacy-refactor-plan|privacy-\d{4}-\d{2}-\d{2}|active 사용자/i,
     );
   });
 });

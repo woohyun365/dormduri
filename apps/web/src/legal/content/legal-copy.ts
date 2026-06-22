@@ -24,15 +24,21 @@ export const LEGAL_DOCUMENT_ROUTE_LABELS = {
 
 export const LEGAL_DOCUMENT_COPY = {
   fallbackNotice:
-    '최신 문서 조회가 지연되어 저장된 공개 안내를 표시하고 있습니다. 잠시 후 다시 열면 최신 문서를 다시 확인합니다.',
+    '최신 문서 연결이 원활하지 않아 서비스에 함께 배포된 공개 문서를 표시하고 있습니다. 가입 또는 동의가 필요한 단계에서는 서버의 최신 문서 기준으로 다시 확인합니다.',
   unavailableTitle: '문서를 불러오지 못했습니다',
   unavailableDescription:
     '일시적으로 법적 문서를 확인할 수 없습니다. 잠시 후 다시 시도하거나 문의 채널로 알려주세요.',
   tableOfContentsLabel: '문서 목차',
+  mobileTableOfContentsLabel: '문서 목차 먼저 보기',
   summaryLabel: '주요 내용',
-  metadataVersionLabel: '문서 버전',
+  metadataVersionLabel: '시행본',
   metadataEffectiveLabel: '시행일',
   metadataUpdatedLabel: '최종 수정일',
   changeSummaryLabel: '변경 요약',
+  actionsLabel: '문서 활용 도구',
+  printActionLabel: '인쇄하기',
+  copyLinkActionLabel: '링크 복사',
+  copyLinkSuccessLabel: '현재 문서 링크를 복사했습니다.',
+  copyLinkUnavailableLabel: '브라우저에서 링크 복사를 지원하지 않습니다.',
   homeLinkLabel: 'KNU 룸메 홈으로',
 } as const;

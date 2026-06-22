@@ -1,8 +1,20 @@
 import type { ReactNode } from 'react';
 import type { LegalDocumentViewSection } from '../types/legal-document.types';
 
+function getHeadingClassName(level: 2 | 3 | 4): string {
+  if (level === 3) {
+    return 'scroll-mt-24 pt-2 text-lg font-semibold text-(--knu-text-primary) md:text-xl';
+  }
+
+  if (level === 4) {
+    return 'scroll-mt-24 pt-1 text-base font-semibold text-(--knu-text-primary)';
+  }
+
+  return 'scroll-mt-24 border-l-4 border-(--knu-primary) pl-3 text-xl font-bold text-(--knu-text-primary) md:text-2xl';
+}
+
 function renderHeading(section: Extract<LegalDocumentViewSection, { type: 'heading' }>): ReactNode {
-  const className = 'scroll-mt-24 text-xl font-bold text-(--knu-text-primary)';
+  const className = getHeadingClassName(section.level);
 
   if (section.level === 3) {
     return (

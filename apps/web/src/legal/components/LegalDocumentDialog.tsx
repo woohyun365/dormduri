@@ -87,7 +87,7 @@ export function LegalDocumentDialog({
               {viewModel.title}
             </h3>
             <p className="mt-1 text-xs text-(--knu-text-tertiary)">
-              버전 {viewModel.version} · 시행일 {viewModel.effectiveDateLabel}
+              {viewModel.versionLabel} · 시행일 {viewModel.effectiveDateLabel}
             </p>
           </div>
           <button

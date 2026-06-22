@@ -142,7 +142,7 @@ export const LEGAL_FALLBACK_DOCUMENTS = {
         '주요 보유 기준',
       ),
       paragraph(
-        '보존 근거가 있는 정보는 active 사용자 정보와 분리해 접근 권한과 접근 기록을 제한합니다.',
+        '보존 근거가 있는 정보는 현재 이용 중인 회원 정보와 분리해 접근 권한과 접근 기록을 제한합니다.',
       ),
       heading('제3자 제공과 위탁'),
       paragraph(

@@ -74,5 +74,6 @@ describe('legal document reference seed data', () => {
     expect(allText).not.toMatch(/<script|javascript:/i);
     expect(allText).not.toMatch(/Phase|phase|plan|issue|#\d+/i);
     expect(allText).not.toContain('개인정보 처리방침에 동의합니다');
+    expect(allText).not.toContain('active 사용자');
   });
 });

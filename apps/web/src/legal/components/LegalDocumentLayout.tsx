@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { LEGAL_DOCUMENT_COPY, LEGAL_DOCUMENT_ROUTE_LABELS } from '../content/legal-copy';
 import type { LegalDocumentSource, LegalDocumentViewModel } from '../types/legal-document.types';
+import { LegalDocumentActions } from './LegalDocumentActions';
 import { LegalDocumentSections } from './LegalDocumentSections';
 import { LegalDocumentToc } from './LegalDocumentToc';
 
@@ -75,7 +76,7 @@ export function LegalDocumentLayout({ document, source }: LegalDocumentLayoutPro
                 <dt className="font-semibold text-(--knu-text-primary)">
                   {LEGAL_DOCUMENT_COPY.metadataVersionLabel}
                 </dt>
-                <dd className="mt-1">{document.version}</dd>
+                <dd className="mt-1">{document.versionLabel}</dd>
               </div>
               <div>
                 <dt className="font-semibold text-(--knu-text-primary)">
@@ -92,22 +93,28 @@ export function LegalDocumentLayout({ document, source }: LegalDocumentLayoutPro
             </dl>
 
             {document.changeSummary && (
-              <p className="mt-6 rounded-2xl border border-(--knu-border) p-4 text-sm leading-6 text-(--knu-text-secondary)">
+              <p className="mt-6 rounded-2xl border border-(--knu-primary)/20 bg-(--knu-background-alt) p-4 text-sm leading-6 text-(--knu-text-secondary)">
                 <strong className="text-(--knu-text-primary)">
                   {LEGAL_DOCUMENT_COPY.changeSummaryLabel}:{' '}
                 </strong>
                 {document.changeSummary}
               </p>
             )}
+
+            <LegalDocumentActions />
           </section>
+
+          <div className="lg:hidden">
+            <LegalDocumentToc items={document.tocItems} variant="mobile" />
+          </div>
 
           <section className="space-y-6 rounded-3xl border border-(--knu-border) bg-white p-6 shadow-sm md:p-8">
             <LegalDocumentSections sections={document.sections} />
           </section>
         </article>
 
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <LegalDocumentToc items={document.tocItems} />
+        <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
+          <LegalDocumentToc items={document.tocItems} variant="desktop" />
         </aside>
       </main>
     </div>

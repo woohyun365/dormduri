@@ -13,11 +13,11 @@ Rules:
 - Signup consent must use active legal document ids for `terms`, `personal data collection/use consent`, `age notice`, and shown `privacy policy`.
 - Treat privacy policy as a public notice/read evidence, not as a signup consent checkbox.
 - Do not store full legal document bodies in browser storage.
-- Keep user-facing copy free of plan, issue, or internal file-path wording.
+- Keep user-facing copy free of plan, issue, internal file-path wording, raw legal version ids, and internal state names.
 
 Verification surface:
 
-- `/terms` and `/privacy` route tests must keep public access, single `<h1>`, API-first rendering, seed-synced fallback rendering, and `force-dynamic` behavior covered.
-- Playwright smoke should keep unauthenticated `/terms` and `/privacy` fallback rendering covered without requiring an API fixture.
+- `/terms` and `/privacy` route tests must keep public access, single `<h1>`, API-first rendering, seed-synced fallback rendering, user-facing version labels, mobile TOC placement, heading hierarchy, and `force-dynamic` behavior covered.
+- Playwright smoke should keep unauthenticated `/terms` and `/privacy` fallback rendering, public document actions, and internal-copy negative assertions covered without requiring an API fixture.
 - Signup legal tests must cover stale legal document ids, fallback ids, no full-body browser storage, and required consent separation from privacy-policy read evidence.
 - Dialog tests should keep the minimum accessibility contract covered: `role="dialog"`, `aria-modal`, ESC/close-button dismissal, focus restoration, focus trap, and mobile scroll/touch-target classes.

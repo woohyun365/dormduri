@@ -24,6 +24,7 @@ export type LegalDocumentViewModel = Omit<LegalDocumentResponse, 'sections'> & {
   kind: LegalDocumentKind;
   sections: LegalDocumentViewSection[];
   tocItems: LegalDocumentTocItem[];
+  versionLabel: string;
   effectiveDateLabel: string;
   lastModifiedDateLabel: string;
 };

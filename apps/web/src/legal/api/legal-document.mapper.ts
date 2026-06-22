@@ -10,6 +10,16 @@ function formatIsoDateLabel(value: string): string {
   return value.slice(0, 10);
 }
 
+function formatKoreanDateLabel(value: string): string {
+  const [year, month, day] = formatIsoDateLabel(value).split('-');
+
+  if (!year || !month || !day) {
+    return formatIsoDateLabel(value);
+  }
+
+  return `${year}년 ${Number(month)}월 ${Number(day)}일`;
+}
+
 function normalizeHeadingId(input: string, index: number): string {
   const slug = input
     .trim()
@@ -54,6 +64,7 @@ export function toLegalDocumentViewModel(document: LegalDocumentResponse): Legal
     ...document,
     sections,
     tocItems: sections.filter(isHeadingSection).map(toTocItem),
+    versionLabel: `${formatKoreanDateLabel(document.effectiveAt)} 시행본`,
     effectiveDateLabel: formatIsoDateLabel(document.effectiveAt),
     lastModifiedDateLabel: formatIsoDateLabel(document.lastModifiedAt),
   };
