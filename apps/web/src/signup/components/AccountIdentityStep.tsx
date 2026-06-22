@@ -32,8 +32,10 @@ interface AccountIdentityStepProps {
   email: string;
   basicInfo: BasicInfoData;
   onBasicInfoChange: (data: BasicInfoData) => void;
-  onNext: () => void;
+  onNext: (data: BasicInfoData) => void | Promise<void>;
   onBack: () => void;
+  nextLabel?: string;
+  disabled?: boolean;
 }
 
 function hasCollegeInCampus(campus: Campus, collegeCode: CollegeCode | null): boolean {
@@ -56,6 +58,8 @@ export function AccountIdentityStep({
   onBasicInfoChange,
   onNext,
   onBack,
+  nextLabel = '다음 단계',
+  disabled = false,
 }: AccountIdentityStepProps) {
   const collegeSelectId = useId();
   const [campusError, setCampusError] = useState('');
@@ -149,8 +153,9 @@ export function AccountIdentityStep({
       return;
     }
 
-    onBasicInfoChange({ ...basicInfo, nickname: basicInfo.nickname.trim() });
-    onNext();
+    const nextBasicInfo = { ...basicInfo, nickname: basicInfo.nickname.trim() };
+    onBasicInfoChange(nextBasicInfo);
+    await onNext(nextBasicInfo);
   };
 
   return (
@@ -345,8 +350,8 @@ export function AccountIdentityStep({
       <StepNavigation
         onBack={onBack}
         onNext={handleNext}
-        nextLabel={isCheckingPolicy ? '확인 중...' : '다음 단계'}
-        disabled={isCheckingPolicy}
+        nextLabel={isCheckingPolicy ? '확인 중...' : nextLabel}
+        disabled={isCheckingPolicy || disabled}
       />
     </div>
   );

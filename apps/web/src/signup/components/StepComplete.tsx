@@ -20,46 +20,52 @@ export function StepComplete({ nickname, onGoToHome }: StepCompleteProps) {
 
       <div>
         <h2 className="text-2xl md:text-3xl font-bold text-[var(--knu-text-primary)] mb-3">
-          회원가입 완료!
+          계정 생성 완료!
         </h2>
         <p className="text-lg text-[var(--knu-text-secondary)]">
-          <strong>{nickname}</strong>님, 환영합니다
+          <strong>{nickname}</strong>님, KNU 룸메에 오신 것을 환영합니다
         </p>
       </div>
 
       <div className="bg-[var(--knu-background-alt)] rounded-2xl p-6 text-left space-y-4">
         <div className="flex items-start gap-3">
-          <div className="w-6 h-6 bg-[var(--knu-primary)] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 bg-[var(--knu-primary)] rounded-full flex items-center justify-center shrink-0 mt-0.5">
             <span className="text-white text-sm font-bold">1</span>
           </div>
           <div>
-            <h4 className="font-semibold text-[var(--knu-text-primary)] mb-1">프로필 완성하기</h4>
+            <h4 className="font-semibold text-[var(--knu-text-primary)] mb-1">
+              시즌 프로필 준비하기
+            </h4>
             <p className="text-sm text-[var(--knu-text-secondary)]">
-              설정한 생활 패턴 정보는 언제든 수정할 수 있어요
+              생활패턴과 원하는 룸메 조건은 시즌 등록 화면에서 입력해요
             </p>
           </div>
         </div>
 
         <div className="flex items-start gap-3">
-          <div className="w-6 h-6 bg-[var(--knu-primary)] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 bg-[var(--knu-primary)] rounded-full flex items-center justify-center shrink-0 mt-0.5">
             <span className="text-white text-sm font-bold">2</span>
           </div>
           <div>
-            <h4 className="font-semibold text-[var(--knu-text-primary)] mb-1">룸메 탐색하기</h4>
+            <h4 className="font-semibold text-[var(--knu-text-primary)] mb-1">
+              기숙사 선택 확인하기
+            </h4>
             <p className="text-sm text-[var(--knu-text-secondary)]">
-              필터를 활용해 나와 맞는 룸메 후보를 찾아보세요
+              시즌 등록 시 사용할 기숙사 선택 정보를 먼저 저장할 수 있어요
             </p>
           </div>
         </div>
 
         <div className="flex items-start gap-3">
-          <div className="w-6 h-6 bg-[var(--knu-primary)] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 bg-[var(--knu-primary)] rounded-full flex items-center justify-center shrink-0 mt-0.5">
             <span className="text-white text-sm font-bold">3</span>
           </div>
           <div>
-            <h4 className="font-semibold text-[var(--knu-text-primary)] mb-1">시즌에 매칭하기</h4>
+            <h4 className="font-semibold text-[var(--knu-text-primary)] mb-1">
+              시즌에서 룸메 찾기
+            </h4>
             <p className="text-sm text-[var(--knu-text-secondary)]">
-              1~2월, 7~8월 시즌에 매칭 요청을 보낼 수 있어요
+              등록이 완료되면 후보를 확인하고 대화하거나 매칭 요청을 보낼 수 있어요
             </p>
           </div>
         </div>
@@ -67,7 +73,7 @@ export function StepComplete({ nickname, onGoToHome }: StepCompleteProps) {
 
       <div className="pt-4">
         <Button variant="primary" size="lg" fullWidth onClick={onGoToHome}>
-          룸메 찾으러 가기
+          메인으로 이동
         </Button>
       </div>
     </div>

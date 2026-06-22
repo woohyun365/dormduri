@@ -7,10 +7,6 @@ import { ProgressBar } from '@/components/form/ProgressBar';
 import { StepEmailVerification } from './components/email-verification/StepEmailVerification';
 import { StepTermsAgreement, type TermsData } from './components/StepTermsAgreement';
 import { AccountIdentityStep, type BasicInfoData } from './components/AccountIdentityStep';
-import { StepSleepPattern } from './components/StepSleepPattern';
-import { StepLivingPattern } from './components/StepLivingPattern';
-import { StepRoommateConditions } from './components/StepRoommateConditions';
-import type { LifestyleData } from '@/types/lifestyle';
 import { StepComplete } from './components/StepComplete';
 import { authApi } from '@/api/auth';
 import { createSignupRequest } from './model/signup-request.mapper';
@@ -22,8 +18,11 @@ import { focusAndScroll } from '@/utils/focus';
 import { useSignupDraftStorage } from './hooks/useSignupDraftStorage';
 import { SIGNUP_DRAFT_STORAGE_KEY } from './model/signup-draft-storage';
 import type { SignupDraftSnapshot } from './model/signup-draft.types';
+import { SIGNUP_STEP_COUNT } from './model/signup-flow.types';
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = SIGNUP_STEP_COUNT;
+const ACCOUNT_IDENTITY_STEP = 3;
+const COMPLETE_STEP = SIGNUP_STEP_COUNT;
 
 export default function Signup() {
   const router = useRouter();
@@ -47,32 +46,6 @@ export default function Signup() {
     collegeCode: null,
     birthYear: null,
   });
-  const [intro, setIntro] = useState('');
-  const [lifestyle, setLifestyle] = useState<LifestyleData>({
-    bedtime: null,
-    wakeTime: null,
-    sleepHabit: null,
-    sleepEnvironment: null,
-    screenUsage: null,
-    noiseSensitivity: null,
-    smokingBehavior: null,
-    indoorEating: null,
-    phoneBehavior: null,
-    earphoneUsage: null,
-    cleanLevel: null,
-    drinkingFrequency: null,
-    relationshipStyle: null,
-    temperatureSensitivity: null,
-    smokingTolerance: null,
-    phoneTolerance: null,
-    earphoneExpectation: null,
-    sleepEnvPreference: null,
-    screenTolerance: null,
-    indoorEatingTolerance: null,
-    cleanExpectation: null,
-    drinkingTolerance: null,
-  });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [legalNotice, setLegalNotice] = useState('');
@@ -158,7 +131,7 @@ export default function Signup() {
   const handleRestartEmailVerification = () => {
     setSubmitError('');
     setIsEmailVerified(false);
-    setResumeStepAfterVerification(6);
+    setResumeStepAfterVerification(ACCOUNT_IDENTITY_STEP);
     setCurrentStep(1);
     window.scrollTo(0, 0);
   };
@@ -184,28 +157,29 @@ export default function Signup() {
     window.scrollTo(0, 0);
   };
 
-  const handleSignupSubmit = async () => {
+  const handleSignupSubmit = async (nextBasicInfo = basicInfo) => {
     if (!terms.legalAcceptances) {
       handleLegalAcceptancesStale();
       return;
     }
 
+    setBasicInfo(nextBasicInfo);
     setIsSubmitting(true);
     setSubmitError('');
     try {
       const signupRequest = createSignupRequest({
         email,
-        password: basicInfo.password,
-        nickname: basicInfo.nickname,
-        gender: basicInfo.gender!,
-        campus: basicInfo.campus!,
-        collegeCode: basicInfo.collegeCode!,
-        birthYear: basicInfo.birthYear!,
+        password: nextBasicInfo.password,
+        nickname: nextBasicInfo.nickname,
+        gender: nextBasicInfo.gender!,
+        campus: nextBasicInfo.campus!,
+        collegeCode: nextBasicInfo.collegeCode!,
+        birthYear: nextBasicInfo.birthYear!,
         legalAcceptances: terms.legalAcceptances,
       });
       const result = await authApi.signup(signupRequest);
       if (result.success) {
-        setCurrentStep(7);
+        setCurrentStep(COMPLETE_STEP);
       } else if (result.code === 'AUTH_LEGAL_ACCEPTANCE_STALE') {
         handleLegalAcceptancesStale();
       } else {
@@ -283,31 +257,6 @@ export default function Signup() {
           />
         )}
         {currentStep === 3 && (
-          <AccountIdentityStep
-            email={email}
-            basicInfo={basicInfo}
-            onBasicInfoChange={setBasicInfo}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        )}
-        {currentStep === 4 && (
-          <StepSleepPattern
-            lifestyle={lifestyle}
-            onUpdate={(field, value) => setLifestyle((prev) => ({ ...prev, [field]: value }))}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        )}
-        {currentStep === 5 && (
-          <StepLivingPattern
-            lifestyle={lifestyle}
-            onUpdate={(field, value) => setLifestyle((prev) => ({ ...prev, [field]: value }))}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        )}
-        {currentStep === 6 && (
           <>
             {submitError && (
               <div
@@ -327,7 +276,7 @@ export default function Signup() {
                     <Button
                       variant="outline"
                       size="lg"
-                      onClick={handleSignupSubmit}
+                      onClick={() => void handleSignupSubmit()}
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? '처리 중...' : '다시 시도'}
@@ -336,18 +285,18 @@ export default function Signup() {
                 </div>
               </div>
             )}
-            <StepRoommateConditions
-              lifestyle={lifestyle}
-              onUpdate={(field, value) => setLifestyle((prev) => ({ ...prev, [field]: value }))}
-              intro={intro}
-              onIntroChange={setIntro}
+            <AccountIdentityStep
+              email={email}
+              basicInfo={basicInfo}
+              onBasicInfoChange={setBasicInfo}
               onNext={handleSignupSubmit}
               onBack={handleBack}
               disabled={isSubmitting}
+              nextLabel={isSubmitting ? '처리 중...' : '가입하기'}
             />
           </>
         )}
-        {currentStep === 7 && (
+        {currentStep === 4 && (
           <StepComplete nickname={basicInfo.nickname} onGoToHome={handleGoToHome} />
         )}
       </main>

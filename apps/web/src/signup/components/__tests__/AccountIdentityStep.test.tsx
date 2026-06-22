@@ -29,8 +29,8 @@ const emptyBasicInfo: BasicInfoData = {
   birthYear: null,
 };
 
-function renderWithState(overrides: { onNext?: () => void } = {}) {
-  const onNext = overrides.onNext ?? vi.fn<() => void>();
+function renderWithState(overrides: { onNext?: (data: BasicInfoData) => void } = {}) {
+  const onNext = overrides.onNext ?? vi.fn<(data: BasicInfoData) => void>();
   const onBack = vi.fn<() => void>();
 
   function Wrapper() {
@@ -63,6 +63,7 @@ function fillValidAccountIdentity() {
 
 describe('AccountIdentityStep', () => {
   beforeEach(() => {
+    mockValidateSignupDraft.mockReset();
     mockValidateSignupDraft.mockResolvedValue({ success: true });
   });
 
@@ -105,20 +106,45 @@ describe('AccountIdentityStep', () => {
     expect(screen.getByLabelText(/단과대/)).toBeDisabled();
   });
 
-  it('모든 필드를 채우면 validateSignupDraft 호출 후 onNext가 호출된다', async () => {
+  it('모든 필드를 채우면 validateSignupDraft 호출 후 정규화한 값으로 onNext가 호출된다', async () => {
     const { onNext } = renderWithState();
 
     fillValidAccountIdentity();
+    fireEvent.change(screen.getByLabelText(/닉네임/), { target: { value: '  테스터  ' } });
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
     await waitFor(() => {
       expect(mockValidateSignupDraft).toHaveBeenCalledWith({
         email: 'test@kangwon.ac.kr',
-        nickname: '테스터',
+        nickname: '  테스터  ',
         password: 'Test1234',
       });
-      expect(onNext).toHaveBeenCalled();
+      expect(onNext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nickname: '테스터',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+          collegeCode: 'IT',
+          birthYear: 2002,
+        }),
+      );
     });
+  });
+
+  it('제출 중이면 전달받은 label을 유지하면서 다음 버튼을 비활성화한다', () => {
+    render(
+      <AccountIdentityStep
+        email="test@kangwon.ac.kr"
+        basicInfo={emptyBasicInfo}
+        onBasicInfoChange={vi.fn()}
+        onNext={vi.fn()}
+        onBack={vi.fn()}
+        nextLabel="처리 중..."
+        disabled
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '처리 중...' })).toBeDisabled();
   });
 
   it('백엔드 닉네임 정책 오류를 즉시 표시한다', async () => {
