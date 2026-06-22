@@ -2,6 +2,33 @@ import { describe, expect, it, vi } from 'vitest';
 import { reportWebVital, sanitizeWebVitalMetric } from '../webVitals';
 
 describe('Web Vitals reporter seam', () => {
+  it.each(['LCP', 'INP', 'CLS'] as const)(
+    'keeps %s debug payload sanitized for landing performance smoke',
+    (name) => {
+      const sanitized = sanitizeWebVitalMetric({
+        id: `${name.toLowerCase()}-metric`,
+        name,
+        value: name === 'CLS' ? 0.02 : 180,
+        delta: name === 'CLS' ? 0.01 : 20,
+        rating: 'good',
+        navigationType: 'navigate',
+        attribution: {
+          element: '<section>사용자 입력 본문</section>',
+          interactionTarget: 'a[href="/signup?token=secret"]',
+          url: 'https://example.test/private?token=secret',
+        },
+      });
+
+      expect(sanitized).toMatchObject({
+        id: `${name.toLowerCase()}-metric`,
+        name,
+        attributionKeys: ['element', 'interactionTarget', 'url'],
+      });
+      expect(JSON.stringify(sanitized)).not.toContain('사용자 입력 본문');
+      expect(JSON.stringify(sanitized)).not.toContain('token=secret');
+    },
+  );
+
   it('keeps only metric fields and attribution keys', () => {
     expect(
       sanitizeWebVitalMetric({
@@ -46,7 +73,7 @@ describe('Web Vitals reporter seam', () => {
       id: 'metric-2',
       name: 'INP',
       value: 200,
-      attribution: { interactionTarget: 'button' },
+      attribution: { interactionTarget: 'button', interactionTargetElement: 'button text' },
     });
     expect(debugSpy).toHaveBeenCalledWith('[web-vital]', {
       id: 'metric-2',
@@ -55,8 +82,9 @@ describe('Web Vitals reporter seam', () => {
       delta: undefined,
       rating: undefined,
       navigationType: undefined,
-      attributionKeys: ['interactionTarget'],
+      attributionKeys: ['interactionTarget', 'interactionTargetElement'],
     });
+    expect(JSON.stringify(debugSpy.mock.calls)).not.toContain('button text');
 
     if (originalDebugEnv === undefined) delete process.env.NEXT_PUBLIC_WEB_VITALS_DEBUG;
     else process.env.NEXT_PUBLIC_WEB_VITALS_DEBUG = originalDebugEnv;

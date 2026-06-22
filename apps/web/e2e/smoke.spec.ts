@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Web smoke', () => {
-  test('비로그인 사용자가 랜딩 게이트웨이를 볼 수 있다', async ({ page }) => {
+  test('비로그인 사용자가 공개 랜딩을 볼 수 있다', async ({ page }) => {
     await page.goto('/');
 
     await expect(
-      page.getByRole('heading', { name: /생활 패턴 맞는.*룸메를 미리 찾기/ }),
+      page.getByRole('heading', { name: /생활패턴이 맞는.*룸메 후보를 확인하세요/ }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: '로그인' }).first()).toBeVisible();
-    await expect(page.getByRole('link', { name: '회원가입' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: '이메일로 시작하기' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '이용 흐름 보기' })).toBeVisible();
   });
 
   test('로그인 화면의 핵심 폼 컨트롤을 렌더링한다', async ({ page }) => {

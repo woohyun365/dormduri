@@ -29,6 +29,9 @@ export const supportAppealCategorySchema = z.enum([
 ]);
 export const SupportAppealCategory = supportAppealCategorySchema.enum;
 
+export const supportFaqSurfaceSchema = z.enum(['LANDING', 'SUPPORT_CENTER']);
+export const SupportFaqSurface = supportFaqSurfaceSchema.enum;
+
 export const supportMessageSenderTypeSchema = z.enum(['USER', 'OPERATOR', 'SYSTEM']);
 export const SupportMessageSenderType = supportMessageSenderTypeSchema.enum;
 
@@ -83,6 +86,7 @@ export const listSupportTicketsQuerySchema = z.strictObject({
 
 export const listSupportFaqQuerySchema = z.strictObject({
   category: supportTicketCategorySchema.optional().nullable(),
+  surface: supportFaqSurfaceSchema.optional().nullable(),
 });
 
 export const supportTicketMessageSchema = z.strictObject({
@@ -174,6 +178,7 @@ export type AppendSupportTicketMessageResponse = z.infer<
 export type ReplySupportTicketResponse = z.infer<typeof replySupportTicketResponseSchema>;
 export type ResolveSupportTicketResponse = z.infer<typeof resolveSupportTicketResponseSchema>;
 export type SupportTicketStatus = z.infer<typeof supportTicketStatusSchema>;
+export type SupportFaqSurface = z.infer<typeof supportFaqSurfaceSchema>;
 export type SupportFaqItem = z.infer<typeof supportFaqItemSchema>;
 export type SupportFaqListResponse = z.infer<typeof supportFaqListResponseSchema>;
 export type SupportFaqDetailResponse = z.infer<typeof supportFaqDetailResponseSchema>;

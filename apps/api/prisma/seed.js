@@ -9,6 +9,7 @@ import {
 } from './seed-data/reference/dormitory-seed-data.js';
 import { COLLEGE_MASTER_DATA } from './seed-data/reference/college-reference-data.js';
 import { MODERATION_REFERENCE_ROWS } from './seed-data/reference/moderation-seed-data.js';
+import { SUPPORT_FAQ_REFERENCE_ROWS } from './seed-data/reference/support-faq-seed-data.js';
 import {
   AUTH_FIXTURE_SEED_PASSWORD,
   AUTH_FIXTURE_USERS,
@@ -451,6 +452,56 @@ async function seedSeasons(client) {
   }
 }
 
+async function seedSupportFaq(client) {
+  for (const row of SUPPORT_FAQ_REFERENCE_ROWS) {
+    await client.query(
+      `
+        INSERT INTO "SupportFaqArticle" (
+          id,
+          category,
+          question,
+          answer,
+          published,
+          "sortOrder",
+          "createdAt",
+          "updatedAt"
+        )
+        VALUES ($1, $2::"SupportTicketCategory", $3, $4, $5, $6, NOW(), NOW())
+        ON CONFLICT (id)
+        DO UPDATE SET
+          category = EXCLUDED.category,
+          question = EXCLUDED.question,
+          answer = EXCLUDED.answer,
+          published = EXCLUDED.published,
+          "sortOrder" = EXCLUDED."sortOrder",
+          "updatedAt" = NOW()
+      `,
+      [row.id, row.category, row.question, row.answer, row.published, row.sortOrder],
+    );
+
+    for (const placement of row.placements ?? []) {
+      await client.query(
+        `
+          INSERT INTO "SupportFaqPlacement" (
+            id,
+            "articleId",
+            surface,
+            "sortOrder",
+            "createdAt",
+            "updatedAt"
+          )
+          VALUES (gen_random_uuid()::text, $1, $2::"SupportFaqSurface", $3, NOW(), NOW())
+          ON CONFLICT ("articleId", surface)
+          DO UPDATE SET
+            "sortOrder" = EXCLUDED."sortOrder",
+            "updatedAt" = NOW()
+        `,
+        [row.id, placement.surface, placement.sortOrder],
+      );
+    }
+  }
+}
+
 async function seedUsersData(client) {
   const passwordHash = await argonHash(AUTH_FIXTURE_SEED_PASSWORD, {
     algorithm: 2,
@@ -723,6 +774,7 @@ async function seed() {
     await seedCampusAndDormitories(client);
     await seedColleges(client);
     await seedModerationTerms(client);
+    await seedSupportFaq(client);
     await seedSeasons(client);
     await seedUsersData(client);
   } finally {

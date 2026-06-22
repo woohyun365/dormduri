@@ -3,8 +3,7 @@
 import { Skeleton, SkeletonCard } from './Skeleton';
 
 /**
- * Main 내부 데이터 로딩 시 표시하는 스켈레톤.
- * `/` 게이트웨이 초기 진입에는 `GatewaySkeleton`을 사용한다.
+ * 인증 앱 셸 내부 데이터 또는 session fallback 로딩 시 표시하는 스켈레톤.
  */
 export function AppShellSkeleton() {
   return (

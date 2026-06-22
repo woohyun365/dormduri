@@ -22,13 +22,17 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'desktop-chromium',
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'mobile-chromium',
+      use: { ...devices['Pixel 5'] },
     },
   ],
   webServer: {
     command:
-      'pnpm build && mkdir -p .next/standalone/apps/web/.next && cp -R .next/static .next/standalone/apps/web/.next/static && cp -R public .next/standalone/apps/web/public && HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/apps/web/server.js',
+      'API_URL=http://127.0.0.1:9 pnpm build && mkdir -p .next/standalone/apps/web/.next && cp -R .next/static .next/standalone/apps/web/.next/static && cp -R public .next/standalone/apps/web/public && API_URL=http://127.0.0.1:9 HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/apps/web/server.js',
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

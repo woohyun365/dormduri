@@ -91,7 +91,7 @@ describe('Login', () => {
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
-  it('로그인 성공 시 /로 리다이렉트한다', async () => {
+  it('로그인 성공 시 /main으로 리다이렉트한다', async () => {
     render(<Login />);
 
     fireEvent.change(screen.getByLabelText('이메일'), {
@@ -106,7 +106,7 @@ describe('Login', () => {
     });
 
     expect(mockLogin).toHaveBeenCalledWith('test@kangwon.ac.kr', 'password123', false);
-    expect(mockReplace).toHaveBeenCalledWith('/');
+    expect(mockReplace).toHaveBeenCalledWith('/main');
   });
 
   it('로그인 실패 시 에러 메시지를 표시한다', async () => {

@@ -48,7 +48,7 @@
 | `pnpm web:test`          | Vitest unit/component/BFF route test      | `src/**/*.{test,spec}.{ts,tsx}`를 대상으로 한다.                                              |
 | `pnpm web:test:coverage` | Vitest coverage 산출                      | `apps/web/coverage/`는 산출물이다.                                                            |
 | `pnpm web:build`         | shared build + Next production build      | `output: 'standalone'` artifact를 생성한다.                                                   |
-| `pnpm web:e2e`           | Playwright Chromium smoke                 | production-like standalone server smoke다.                                                    |
+| `pnpm web:e2e`           | Playwright Chromium desktop/mobile smoke  | production-like standalone server smoke다.                                                    |
 | `pnpm check:web`         | Web PR 기본 gate                          | lint, typecheck, test, build를 순차 실행한다. Browser smoke는 비용 때문에 별도 명령으로 둔다. |
 
 Playwright browser가 로컬에 없으면 아래를 먼저 실행한다.
@@ -66,11 +66,14 @@ pnpm --dir apps/web exec playwright install chromium
 - `apps/web/src/test-setup.ts`는 Testing Library matcher와 jsdom 공통 gap(`matchMedia`, `scrollTo`, `scrollIntoView`)을 제공한다. 개별 테스트에서 같은 mock을 반복하지 않는다.
 - `apps/web/src/__fixtures__/`는 dev/test fixture와 mock service 위치다. shared contract나 fixture shape 변경은 focused regression test로 드러나게 한다.
 - Playwright spec은 `apps/web/e2e/`에 둔다. Locator는 role/name 기반을 우선하고, 실패 산출물은 `apps/web/playwright-report/`, `apps/web/test-results/`에 생성된다.
+- 기본 browser smoke는 Chromium desktop/mobile project를 사용한다. Cross-browser matrix나 strict visual diff는 별도 CI/infra 후속 범위다.
 - 인증 상태 파일은 secret성 runtime artifact로 취급해 `apps/web/playwright/.auth/`에 저장하고 git에는 올리지 않는다.
 
 ## Web-only smoke와 full-stack E2E 경계
 
 Web CI는 DB service 없이 실행된다. `pnpm web:e2e`도 Web standalone artifact가 browser에서 정상 동작하는지 확인하는 smoke이며, 실제 로그인 사용자/API-backed journey를 보장하지 않는다.
+
+Landing E2E는 support API 부재가 전체 page failure가 아니라 FAQ fallback으로 수렴하는지 보기 위해 local invalid `API_URL`로 standalone server를 실행한다. 따라서 `pnpm web:e2e`는 공개 Landing의 degrade 경계와 browser runtime을 검증하지만, support API success path나 로그인 사용자 journey를 검증하지 않는다.
 
 API 서버, DB, 실사용 auth fixture가 필요한 end-to-end journey는 별도 full-stack E2E로 다룬다. Web feature 계획에서 API-backed 흐름이 핵심 acceptance라면 `pnpm web:e2e` 통과만으로 완료 처리하지 말고 API test/e2e 또는 별도 full-stack gate를 명시한다.
 

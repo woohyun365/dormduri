@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
   const isAuthenticated = await validateSession(request);
 
   if (isAuthRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/main', request.url));
   }
 
   if (isProtectedRoute && !isAuthenticated) {

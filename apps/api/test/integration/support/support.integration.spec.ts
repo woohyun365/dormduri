@@ -30,6 +30,7 @@ interface SupportFaqListResponseBody {
   items: Array<{
     id: string;
     question: string;
+    sortOrder: number;
   }>;
 }
 
@@ -216,5 +217,85 @@ describe('Support integration', () => {
     ]);
 
     await request(httpServer()).get('/api/support/faq/faq-hidden').expect(404);
+  });
+
+  it('FAQ API는 surface query가 있으면 published article의 placement만 반환한다', async () => {
+    await suite.prisma.supportFaqArticle.createMany({
+      data: [
+        {
+          id: 'faq-landing-second',
+          category: 'OTHER',
+          question: '랜딩 두 번째 질문',
+          answer: '랜딩 두 번째 답변',
+          published: true,
+          sortOrder: 200,
+        },
+        {
+          id: 'faq-landing-first',
+          category: 'SEASON',
+          question: '랜딩 첫 번째 질문',
+          answer: '랜딩 첫 번째 답변',
+          published: true,
+          sortOrder: 100,
+        },
+        {
+          id: 'faq-support-only',
+          category: 'OTHER',
+          question: '지원센터 전용 질문',
+          answer: '지원센터 전용 답변',
+          published: true,
+          sortOrder: 1,
+        },
+        {
+          id: 'faq-landing-hidden',
+          category: 'OTHER',
+          question: '비공개 랜딩 질문',
+          answer: '비공개 랜딩 답변',
+          published: false,
+          sortOrder: 1,
+        },
+      ],
+    });
+    await suite.prisma.supportFaqPlacement.createMany({
+      data: [
+        {
+          articleId: 'faq-landing-second',
+          surface: 'LANDING',
+          sortOrder: 20,
+        },
+        {
+          articleId: 'faq-landing-first',
+          surface: 'LANDING',
+          sortOrder: 10,
+        },
+        {
+          articleId: 'faq-support-only',
+          surface: 'SUPPORT_CENTER',
+          sortOrder: 1,
+        },
+        {
+          articleId: 'faq-landing-hidden',
+          surface: 'LANDING',
+          sortOrder: 1,
+        },
+      ],
+    });
+
+    const listResponse = await request(httpServer())
+      .get('/api/support/faq?surface=LANDING')
+      .expect(200);
+    const listBody = listResponse.body as SupportFaqListResponseBody;
+    expect(listBody.items).toEqual([
+      expect.objectContaining({ id: 'faq-landing-first', sortOrder: 10 }),
+      expect.objectContaining({ id: 'faq-landing-second', sortOrder: 20 }),
+    ]);
+
+    const filteredResponse = await request(httpServer())
+      .get('/api/support/faq?surface=LANDING&category=OTHER')
+      .expect(200);
+    const filteredBody = filteredResponse.body as SupportFaqListResponseBody;
+    expect(filteredBody.items).toEqual([
+      expect.objectContaining({ id: 'faq-landing-second', question: '랜딩 두 번째 질문' }),
+    ]);
   });
 });

@@ -215,6 +215,11 @@ enum SupportAppealCategory {
   CONTENT_ACTION
 }
 
+enum SupportFaqSurface {
+  LANDING
+  SUPPORT_CENTER
+}
+
 enum MatchRequestStatus {
   PENDING
   ACCEPTED
@@ -1227,17 +1232,31 @@ model SupportTicketMessage {
 }
 
 model SupportFaqArticle {
-  id        String                @id @default(uuid())
-  category  SupportTicketCategory
-  question  String
-  answer    String
-  published Boolean               @default(false)
-  sortOrder Int                   @default(0)
-  createdAt DateTime              @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
+  id         String                @id @default(uuid())
+  category   SupportTicketCategory
+  question   String
+  answer     String
+  published  Boolean               @default(false)
+  sortOrder  Int                   @default(0)
+  createdAt  DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime              @default(now()) @updatedAt @db.Timestamptz(3)
+  placements SupportFaqPlacement[]
 
   @@index([published, category, sortOrder, id])
   @@index([category, sortOrder, id])
+}
+
+model SupportFaqPlacement {
+  id        String            @id @default(uuid())
+  articleId String
+  surface   SupportFaqSurface
+  sortOrder Int               @default(0)
+  createdAt DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime          @default(now()) @updatedAt @db.Timestamptz(3)
+  article   SupportFaqArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, surface])
+  @@index([surface, sortOrder, articleId])
 }
 
 model SeasonParticipantLifecycleEvent {

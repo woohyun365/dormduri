@@ -1,22 +1,33 @@
+import type { ReactNode } from 'react';
 import { LandingHeader } from './components/LandingHeader';
 import { LandingFooter } from './components/LandingFooter';
 import { LandingHeroSection } from './sections/LandingHeroSection';
-import { LandingProblemSolutionSection } from './sections/LandingProblemSolutionSection';
-import { LandingFeaturesSection } from './sections/LandingFeaturesSection';
+import { LandingTrustBoundarySection } from './sections/LandingTrustBoundarySection';
+import { LandingHowItWorksSection } from './sections/LandingHowItWorksSection';
+import { LandingFeatureSection } from './sections/LandingFeatureSection';
 import { LandingSeasonPolicySection } from './sections/LandingSeasonPolicySection';
+import { LandingSafetySupportSection } from './sections/LandingSafetySupportSection';
 import { LandingFaqSection } from './sections/LandingFaqSection';
-import { LandingCtaSection } from './sections/LandingCtaSection';
+import { LandingFinalCtaSection } from './sections/LandingFinalCtaSection';
 
-export default function Landing() {
+interface LandingProps {
+  faqSection?: ReactNode;
+}
+
+export default function Landing({ faqSection }: LandingProps = {}) {
   return (
     <div className="min-h-screen bg-white keep-all">
       <LandingHeader />
-      <LandingHeroSection />
-      <LandingProblemSolutionSection />
-      <LandingFeaturesSection />
-      <LandingSeasonPolicySection />
-      <LandingFaqSection />
-      <LandingCtaSection />
+      <main>
+        <LandingHeroSection />
+        <LandingTrustBoundarySection />
+        <LandingHowItWorksSection />
+        <LandingFeatureSection />
+        <LandingSeasonPolicySection />
+        <LandingSafetySupportSection />
+        {faqSection ?? <LandingFaqSection />}
+        <LandingFinalCtaSection />
+      </main>
       <LandingFooter />
     </div>
   );

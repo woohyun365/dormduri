@@ -11,7 +11,7 @@ export function LandingPrimaryCtaLink({ href, children }: LandingPrimaryCtaLinkP
   return (
     <Link
       href={href}
-      className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white shadow-sm hover:shadow-md h-14 px-8 text-lg"
+      className="font-semibold transition-all rounded-xl inline-flex items-center justify-center gap-2 bg-(--knu-primary) hover:bg-(--knu-primary-hover) text-white shadow-sm hover:shadow-md h-14 px-8 text-lg"
     >
       {children}
     </Link>

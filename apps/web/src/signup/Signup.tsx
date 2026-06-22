@@ -159,7 +159,7 @@ export default function Signup() {
     setCurrentStep((prev) => Math.max(1, prev - 1));
     window.scrollTo(0, 0);
   };
-  const handleGoToHome = () => router.replace('/');
+  const handleGoToHome = () => router.replace('/main');
 
   const handleEmailVerified = () => {
     setIsEmailVerified(true);

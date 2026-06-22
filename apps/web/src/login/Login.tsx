@@ -63,7 +63,7 @@ export default function Login() {
     try {
       const result = await authApi.login(email, password, rememberMe);
       if (result.success) {
-        router.replace('/');
+        router.replace('/main');
       } else if (result.locked && result.remainingSeconds) {
         startLockout(result.remainingSeconds);
         setLockedEmail(email);

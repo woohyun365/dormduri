@@ -124,7 +124,11 @@ vi.mock('../components/StepRoommateConditions', () => ({
 }));
 
 vi.mock('../components/StepComplete', () => ({
-  StepComplete: () => <div data-testid="step-complete">가입 완료</div>,
+  StepComplete: ({ onGoToHome }: { onGoToHome: () => void }) => (
+    <button data-testid="step-complete" onClick={onGoToHome}>
+      가입 완료
+    </button>
+  ),
 }));
 
 vi.mock('@/components/AuthHeader', () => ({
@@ -185,7 +189,11 @@ describe('Signup', () => {
         campus: 'CHUNCHEON',
       }),
     );
-    expect(screen.getByTestId('step-complete')).toBeInTheDocument();
+    const completeButton = screen.getByTestId('step-complete');
+    expect(completeButton).toBeInTheDocument();
+
+    fireEvent.click(completeButton);
+    expect(mockReplace).toHaveBeenCalledWith('/main');
   });
 
   it('진행 중 로고 클릭 시 이탈 확인 다이얼로그를 표시한다', () => {

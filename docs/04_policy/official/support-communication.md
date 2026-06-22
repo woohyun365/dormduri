@@ -46,15 +46,15 @@
 
 ## API/access baseline
 
-| API                                                              | access                  | 정책                                                                           |
-| ---------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------ |
-| `GET /api/support/faq`, `GET /api/support/faq/:articleId`        | public                  | `published=true` FAQ만 반환하고 unpublished article은 숨긴다.                  |
-| `POST /api/support/tickets`                                      | protected               | 본인 ticket 생성 + 첫 사용자 메시지를 같은 transaction으로 기록한다.           |
-| `GET /api/support/tickets`, `GET /api/support/tickets/:ticketId` | protected               | 본인 ticket만 list/detail 조회할 수 있다.                                      |
-| `POST /api/support/tickets/:ticketId/messages`                   | protected               | `CLOSED`가 아니면 본인 follow-up을 append하고 `WAITING_OPERATOR`로 전환한다.   |
-| `GET /api/operations/support/tickets*`                           | `admin:support:read`    | 운영 queue/detail read. BackOffice UI가 아니라 backend protected API다.        |
-| `POST /api/operations/support/tickets/:ticketId/replies`         | `admin:support:reply`   | 운영자 답변 메시지를 append하고 `WAITING_USER`/`RESOLVED`/`CLOSED`로 전환한다. |
-| `POST /api/operations/support/tickets/:ticketId/resolve`         | `admin:support:resolve` | 메시지 추가 없이 `RESOLVED`/`CLOSED` 상태로 수렴한다.                          |
+| API                                                              | access                  | 정책                                                                                                                                |
+| ---------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/support/faq`, `GET /api/support/faq/:articleId`        | public                  | `published=true` FAQ만 반환하고 unpublished article은 숨긴다. `surface` query가 있으면 해당 공개 노출 위치에 배치된 FAQ만 반환한다. |
+| `POST /api/support/tickets`                                      | protected               | 본인 ticket 생성 + 첫 사용자 메시지를 같은 transaction으로 기록한다.                                                                |
+| `GET /api/support/tickets`, `GET /api/support/tickets/:ticketId` | protected               | 본인 ticket만 list/detail 조회할 수 있다.                                                                                           |
+| `POST /api/support/tickets/:ticketId/messages`                   | protected               | `CLOSED`가 아니면 본인 follow-up을 append하고 `WAITING_OPERATOR`로 전환한다.                                                        |
+| `GET /api/operations/support/tickets*`                           | `admin:support:read`    | 운영 queue/detail read. BackOffice UI가 아니라 backend protected API다.                                                             |
+| `POST /api/operations/support/tickets/:ticketId/replies`         | `admin:support:reply`   | 운영자 답변 메시지를 append하고 `WAITING_USER`/`RESOLVED`/`CLOSED`로 전환한다.                                                      |
+| `POST /api/operations/support/tickets/:ticketId/resolve`         | `admin:support:resolve` | 메시지 추가 없이 `RESOLVED`/`CLOSED` 상태로 수렴한다.                                                                               |
 
 ## Appeal policy
 
@@ -77,6 +77,7 @@
 
 - FAQ는 공개 도움말 콘텐츠이며 개인 사건/신고 결과를 포함하지 않는다.
 - FAQ 항목은 `question`, `answer`, `category`, `published`, `updatedAt`을 기본 속성으로 본다.
+- FAQ 공개 노출 위치는 article content와 분리해 관리한다. Landing 같은 공개 위치는 `published=true` article 중 해당 surface placement가 있는 항목만 노출한다.
 - FAQ는 support ticket을 대체하지 않는다. 사용자가 해결하지 못한 경우 ticket 생성으로 이어져야 한다.
 - 신고/제재/개인정보/탈퇴 FAQ는 각 official policy 문서의 source-of-truth를 요약해야 하며, 정책 owner와 충돌하면 policy 문서를 우선한다.
 
@@ -115,3 +116,4 @@ MVP의 사용자 통지는 in-app notification이 primary다. Push와 native ema
 | ---------- | -------------------------------------------------------------------------------------------------------- | ----------------- |
 | 2026-06-08 | support ticket, appeal, FAQ, email optional consent, notification handoff baseline을 추가했다            | #79 / #220 / #196 |
 | 2026-06-08 | support ticket/FAQ backend route, capability, self-only access, notification writer 구현 기준을 반영했다 | #79 / #220        |
+| 2026-06-22 | FAQ 공개 surface placement 기준을 추가해 Landing 노출과 support center 노출을 분리했다                   | Landing FAQ       |
