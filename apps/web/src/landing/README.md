@@ -78,6 +78,15 @@
 - skeleton은 실제 content와 유사한 크기를 유지해 CLS를 줄인다.
 - skeleton animation은 `motion-reduce`를 존중해야 한다.
 
+## SEO and performance rule
+
+- `/` route의 title, description, canonical, Open Graph, Twitter metadata는 `apps/web/src/app/metadata.ts`에서 관리한다.
+- Metadata 문구는 독립 운영 서비스 경계를 유지하고, 학교 공식 서비스로 오해될 표현을 피한다.
+- `robots.ts`와 `sitemap.ts`는 공개 정적 route와 private/API route boundary를 구분한다. `/main`과 `/api/`는 sitemap에 넣지 않는다.
+- Landing FAQ는 사용자 안내 목적이다. Google FAQ rich result가 유지되지 않는 현재 기준에서는 `FAQPage` JSON-LD를 추가하지 않는다.
+- Core Web Vitals debug는 `NEXT_PUBLIC_WEB_VITALS_DEBUG=1`일 때만 사용하고, payload는 metric id/name/value/rating/navigationType/attribution key 목록으로 제한한다.
+- Landing 성능 목표는 LCP 2.5s 이하, INP 200ms 이하, CLS 0.1 이하이며, Playwright/Lighthouse 기반 모바일 smoke는 Phase 7에서 별도로 확인한다.
+
 ## Security and observability rule
 
 - FAQ answer, profile copy, user-entered content를 analytics/debug log로 남기지 않는다.

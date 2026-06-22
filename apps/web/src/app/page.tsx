@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { createLandingMetadata } from './metadata';
 import { Suspense } from 'react';
 import Landing from '@/landing/Landing';
 import {
@@ -8,10 +9,7 @@ import {
 
 export const revalidate = 300;
 
-export const metadata: Metadata = {
-  title: 'KNU 룸메 - 강원대 룸메이트 매칭',
-  description: '강원대학교 기숙사 룸메이트 매칭 서비스',
-};
+export const metadata: Metadata = createLandingMetadata();
 
 export default function Home() {
   return (

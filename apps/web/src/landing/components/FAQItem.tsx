@@ -23,7 +23,7 @@ export function FAQItem({ question, answer }: FAQItemProps) {
           onClick={() => setIsOpen((current) => !current)}
           aria-expanded={isOpen}
           aria-controls={answerId}
-          className="flex min-h-14 w-full items-center justify-between rounded-lg py-5 text-left transition-colors hover:text-(--knu-primary) focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
+          className="flex min-h-14 w-full items-center justify-between rounded-lg py-5 text-left transition-colors hover:text-(--knu-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
         >
           <span className="pr-4 text-lg font-semibold text-(--knu-text-primary)">{question}</span>
           <ChevronDown

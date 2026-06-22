@@ -30,6 +30,23 @@ Playwright browser가 로컬에 없으면 먼저 아래 명령을 실행합니�
 pnpm --dir apps/web exec playwright install chromium
 ```
 
+## Public metadata and performance smoke
+
+Landing SEO/share metadata는 `apps/web/src/app/metadata.ts`가 소유합니다.
+`NEXT_PUBLIC_APP_URL`이 있으면 canonical/robots/sitemap URL의 기준 origin으로 사용하고, 로컬/CI에서는 `http://localhost:3000`으로 안전하게 degrade합니다.
+FAQ는 검색 rich result 목적의 `FAQPage` JSON-LD를 추가하지 않습니다. 공개 도움말 품질과 canonical/Open Graph/Twitter metadata를 우선합니다.
+
+Landing 성능 smoke는 production build 기준으로 확인합니다.
+
+```bash
+NEXT_PUBLIC_WEB_VITALS_DEBUG=1 pnpm web:build
+pnpm --dir apps/web start
+```
+
+브라우저에서 `/`를 열고 console의 `[web-vital]` payload가 metric `id/name/value/rating/navigationType/attributionKeys` 수준으로만 남는지 확인합니다.
+목표 budget은 LCP 2.5s 이하, INP 200ms 이하, CLS 0.1 이하입니다.
+Playwright trace나 Lighthouse를 이용한 모바일/시각 smoke는 Landing Phase 7 범위에서 다룹니다.
+
 ## Boundary notes
 
 - Figma에서 받은 TS/TSX 참조 소스는 app root가 아닌 `references/figma/web/`에 둡니다.

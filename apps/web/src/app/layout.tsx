@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { createRootMetadata } from './metadata';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'sonner';
 import AuthPanelLoader from '@/components/AuthPanelLoader';
@@ -18,11 +19,7 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
-  title: 'KNU 룸메',
-  description: '강원대학교 기숙사 룸메이트 매칭 서비스',
-  icons: { icon: '/knu_logo.svg' },
-};
+export const metadata: Metadata = createRootMetadata();
 
 export default function RootLayout({
   children,
