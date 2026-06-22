@@ -43,7 +43,7 @@
 | ------------- | ---------------------------------------------------------------------------- |
 | `content/`    | 정책과 연결된 문구, 섹션 내용, 예시 화면 데이터, 비상 예비 FAQ               |
 | `api/`        | 공개 support FAQ 조회 결과를 Landing view model로 검증·변환하는 read adapter |
-| `sections/`   | page section composition and presentational grouping                         |
+| `sections/`   | 페이지 섹션 조합과 표현 그룹                                                 |
 | `components/` | 재사용 화면 컴포넌트, 최소 상호작용 컴포넌트, Landing scoped skeleton        |
 | `__tests__/`  | 섹션 순서, 화면 정책 문구, 콘텐츠 정책, 접근성 중심 보호 테스트              |
 
@@ -94,6 +94,13 @@
 - Web-only E2E에서는 support API가 없어도 전체 page가 실패하지 않고 FAQ 영역만 fallback으로 degrade되는지를 확인한다.
 - Mobile smoke는 header menu open, mobile navigation visibility, hash link close behavior를 확인한다.
 - `/robots.txt`와 `/sitemap.xml` runtime output은 Landing SEO boundary smoke에서 확인한다.
+
+## Handoff and follow-up boundary
+
+- Landing의 현재 소유 파일과 검증 기준은 이 README와 `apps/web/e2e/landing.spec.ts`를 우선한다.
+- `pnpm web:e2e`는 Web standalone artifact의 desktop/mobile Chromium smoke이며, API/DB를 함께 띄우는 full-stack 검증이 아니다.
+- API-backed 로그인 사용자 journey, Safari/Firefox matrix, Lighthouse hard gate, strict visual diff, BackOffice FAQ editor는 Landing refactor의 미완료 violation이 아니라 별도 제품/인프라 후속 범위다.
+- Phase 문서나 계획 문구보다 현재 파일 구조와 테스트가 우선한다. 후속 작업은 이 경계를 변경할 때 README와 관련 E2E를 함께 갱신한다.
 
 ## Security and observability rule
 

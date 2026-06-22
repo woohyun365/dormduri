@@ -53,6 +53,7 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 - `references/figma/web/src/`는 generated reference source로 취급해 git 추적과 Web lint/type 대상에서 제외합니다.
 - Web CI는 DB service 없이 실행되므로 API 통합 검증은 API CI에서 담당합니다.
 - Web Playwright smoke도 Web-only 경계입니다. Landing E2E webServer는 support API 부재를 fallback으로 검증하기 위해 local invalid `API_URL`로 실행합니다. 실제 로그인 사용자/API-backed journey는 API 서버와 DB를 함께 띄우는 별도 full-stack E2E에서 다룹니다.
+- Web-only smoke의 후속 후보는 Safari/Firefox matrix, Lighthouse hard gate, strict visual diff, API-backed full-stack E2E입니다. 이 항목들은 현재 Web gate 실패가 아니라 별도 제품/인프라 backlog로 봅니다.
 
 ## Runtime and test references
 
