@@ -48,7 +48,7 @@ describe('web legal document boundary', () => {
   it('signup legal consent flow uses legal feature instead of legacy static modal/constants', () => {
     const signupSources = [
       readSource('signup/Signup.tsx'),
-      readSource('signup/components/StepTermsAgreement.tsx'),
+      readSource('signup/components/LegalConsentStep.tsx'),
     ];
 
     for (const source of signupSources) {
@@ -58,6 +58,7 @@ describe('web legal document boundary', () => {
 
     expect(existsSync(join(webSrc, 'components/legal/LegalContentModal.tsx'))).toBe(false);
     expect(existsSync(join(webSrc, 'constants/legal'))).toBe(false);
+    expect(existsSync(join(webSrc, 'signup/components/StepTermsAgreement.tsx'))).toBe(false);
   });
 
   it('public entry points expose user-facing legal links without internal planning copy', () => {

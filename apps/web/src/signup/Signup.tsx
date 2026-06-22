@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AuthHeader } from '@/components/AuthHeader';
 import { ProgressBar } from '@/components/form/ProgressBar';
 import { StepEmailVerification } from './components/email-verification/StepEmailVerification';
-import { StepTermsAgreement, type TermsData } from './components/StepTermsAgreement';
+import { LegalConsentStep, type LegalConsentData } from './components/LegalConsentStep';
 import { AccountIdentityStep, type BasicInfoData } from './components/AccountIdentityStep';
 import { StepComplete } from './components/StepComplete';
 import { authApi } from '@/api/auth';
@@ -32,7 +32,7 @@ export default function Signup() {
 
   const [email, setEmail] = useState('');
   const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [terms, setTerms] = useState<TermsData>({
+  const [legalConsent, setLegalConsent] = useState<LegalConsentData>({
     agreeAge: false,
     agreeTerms: false,
     agreePersonalDataCollectionUse: false,
@@ -60,7 +60,7 @@ export default function Signup() {
     setCurrentStep(draft.legacyCurrentStep);
     if (draft.email) setEmail(draft.email);
     if (draft.isEmailVerified) setIsEmailVerified(true);
-    setTerms({
+    setLegalConsent({
       agreeAge: draft.terms.agreeAge,
       agreeTerms: draft.terms.agreeTerms,
       agreePersonalDataCollectionUse: draft.terms.agreePersonalDataCollectionUse,
@@ -83,7 +83,7 @@ export default function Signup() {
     currentStep,
     email,
     isEmailVerified,
-    terms,
+    terms: legalConsent,
     nickname: basicInfo.nickname,
     gender: basicInfo.gender,
     campus: basicInfo.campus,
@@ -136,15 +136,19 @@ export default function Signup() {
     window.scrollTo(0, 0);
   };
 
-  const handleTermsChange = useCallback((nextTerms: TermsData) => {
-    setTerms(nextTerms);
-    if (nextTerms.agreeAge || nextTerms.agreeTerms || nextTerms.agreePersonalDataCollectionUse) {
+  const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
+    setLegalConsent(nextConsent);
+    if (
+      nextConsent.agreeAge ||
+      nextConsent.agreeTerms ||
+      nextConsent.agreePersonalDataCollectionUse
+    ) {
       setLegalNotice('');
     }
   }, []);
 
   const handleLegalAcceptancesStale = () => {
-    setTerms({
+    setLegalConsent({
       agreeAge: false,
       agreeTerms: false,
       agreePersonalDataCollectionUse: false,
@@ -158,7 +162,7 @@ export default function Signup() {
   };
 
   const handleSignupSubmit = async (nextBasicInfo = basicInfo) => {
-    if (!terms.legalAcceptances) {
+    if (!legalConsent.legalAcceptances) {
       handleLegalAcceptancesStale();
       return;
     }
@@ -175,7 +179,7 @@ export default function Signup() {
         campus: nextBasicInfo.campus!,
         collegeCode: nextBasicInfo.collegeCode!,
         birthYear: nextBasicInfo.birthYear!,
-        legalAcceptances: terms.legalAcceptances,
+        legalAcceptances: legalConsent.legalAcceptances,
       });
       const result = await authApi.signup(signupRequest);
       if (result.success) {
@@ -247,9 +251,9 @@ export default function Signup() {
           />
         )}
         {currentStep === 2 && (
-          <StepTermsAgreement
-            terms={terms}
-            onTermsChange={handleTermsChange}
+          <LegalConsentStep
+            legalConsent={legalConsent}
+            onLegalConsentChange={handleLegalConsentChange}
             onNext={handleNext}
             onBack={handleBack}
             refreshNonce={legalRefreshNonce}

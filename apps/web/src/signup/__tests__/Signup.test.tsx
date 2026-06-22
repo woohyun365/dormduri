@@ -65,14 +65,14 @@ vi.mock('../components/email-verification/StepEmailVerification', () => ({
   ),
 }));
 
-vi.mock('../components/StepTermsAgreement', () => ({
-  StepTermsAgreement: ({
+vi.mock('../components/LegalConsentStep', () => ({
+  LegalConsentStep: ({
     onNext,
-    onTermsChange,
+    onLegalConsentChange,
     notice,
   }: {
     onNext: () => void;
-    onTermsChange: (terms: Record<string, unknown>) => void;
+    onLegalConsentChange: (legalConsent: Record<string, unknown>) => void;
     notice?: string;
   }) => (
     <div>
@@ -93,7 +93,7 @@ vi.mock('../components/StepTermsAgreement', () => ({
                 ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
                 privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
               };
-          onTermsChange({
+          onLegalConsentChange({
             agreeAge: true,
             agreeTerms: true,
             agreePersonalDataCollectionUse: true,
