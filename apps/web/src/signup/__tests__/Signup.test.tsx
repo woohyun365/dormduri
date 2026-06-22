@@ -456,6 +456,20 @@ describe('Signup', () => {
       });
     });
 
+    it('legacy lifestyle 단계까지 진행해도 draft에는 intro/lifestyle을 저장하지 않는다', async () => {
+      render(<Signup />);
+
+      advanceToStep(6);
+
+      await waitFor(() => {
+        const rawDraft = sessionStorage.getItem('signup-draft');
+        expect(rawDraft).not.toBeNull();
+        expect(rawDraft).not.toContain('intro');
+        expect(rawDraft).not.toContain('lifestyle');
+        expect(rawDraft).not.toContain('bedtime');
+      });
+    });
+
     it('회원가입 완료(Step 7) 시 sessionStorage가 삭제된다', async () => {
       render(<Signup />);
 

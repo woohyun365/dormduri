@@ -18,9 +18,11 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/Button';
 import Link from 'next/link';
 import { focusAndScroll } from '@/utils/focus';
+import { useSignupDraftStorage } from './hooks/useSignupDraftStorage';
+import { SIGNUP_DRAFT_STORAGE_KEY } from './model/signup-draft-storage';
+import type { SignupDraftSnapshot } from './model/signup-draft.types';
 
 const TOTAL_STEPS = 7;
-const STORAGE_KEY = 'signup-draft';
 
 export default function Signup() {
   const router = useRouter();
@@ -76,81 +78,40 @@ export default function Signup() {
     null,
   );
 
-  const [isRestored, setIsRestored] = useState(false);
   const submitErrorRef = useRef<HTMLDivElement | null>(null);
 
-  // Restore from sessionStorage on mount
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const draft = JSON.parse(raw);
-        let step = draft.currentStep ?? 1;
-        if (step > 3) step = 3;
-        if (step > 1 && !draft.isEmailVerified) step = 1;
-        setCurrentStep(step);
-        if (draft.email) setEmail(draft.email);
-        if (draft.isEmailVerified) setIsEmailVerified(true);
-        if (draft.terms) {
-          setTerms({
-            agreeAge: Boolean(draft.terms.agreeAge),
-            agreeTerms: Boolean(draft.terms.agreeTerms),
-            agreePersonalDataCollectionUse: Boolean(
-              draft.terms.agreePersonalDataCollectionUse ?? draft.terms.agreePrivacy,
-            ),
-            ...(draft.terms.legalAcceptances
-              ? { legalAcceptances: draft.terms.legalAcceptances }
-              : {}),
-            ...(draft.terms.legalBundleSource
-              ? { legalBundleSource: draft.terms.legalBundleSource }
-              : {}),
-          });
-        }
-        setBasicInfo((prev) => ({
-          ...prev,
-          nickname: draft.nickname ?? '',
-          gender: draft.gender ?? null,
-          campus: draft.campus ?? null,
-        }));
-        if (draft.intro) setIntro(draft.intro);
-        if (draft.lifestyle) setLifestyle(draft.lifestyle);
-      }
-    } catch {
-      // Corrupted data — ignore
-    }
-    setIsRestored(true);
+  const handleDraftRestore = useCallback((draft: SignupDraftSnapshot) => {
+    setCurrentStep(draft.legacyCurrentStep);
+    if (draft.email) setEmail(draft.email);
+    if (draft.isEmailVerified) setIsEmailVerified(true);
+    setTerms({
+      agreeAge: draft.terms.agreeAge,
+      agreeTerms: draft.terms.agreeTerms,
+      agreePersonalDataCollectionUse: draft.terms.agreePersonalDataCollectionUse,
+      ...(draft.terms.legalAcceptances ? { legalAcceptances: draft.terms.legalAcceptances } : {}),
+      ...(draft.terms.legalBundleSource
+        ? { legalBundleSource: draft.terms.legalBundleSource }
+        : {}),
+    });
+    setBasicInfo((prev) => ({
+      ...prev,
+      nickname: draft.nickname,
+      gender: draft.gender,
+      campus: draft.campus,
+    }));
   }, []);
 
-  // Save to sessionStorage on state changes
-  useEffect(() => {
-    if (!isRestored) return;
-    if (currentStep >= TOTAL_STEPS) {
-      try {
-        sessionStorage.removeItem(STORAGE_KEY);
-      } catch {
-        /* ignore */
-      }
-      return;
-    }
-    try {
-      sessionStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          currentStep,
-          email,
-          isEmailVerified,
-          terms,
-          nickname: basicInfo.nickname,
-          gender: basicInfo.gender,
-          campus: basicInfo.campus,
-          intro,
-          lifestyle,
-        }),
-      );
-    } catch {
-      // Storage full or unavailable
-    }
-  }, [isRestored, currentStep, email, isEmailVerified, terms, basicInfo, intro, lifestyle]);
+  const { isRestored } = useSignupDraftStorage({
+    currentStep,
+    email,
+    isEmailVerified,
+    terms,
+    nickname: basicInfo.nickname,
+    gender: basicInfo.gender,
+    campus: basicInfo.campus,
+    shouldClear: currentStep >= TOTAL_STEPS,
+    onRestore: handleDraftRestore,
+  });
 
   useEffect(() => {
     if (!submitError) return;
@@ -263,7 +224,7 @@ export default function Signup() {
             if (!confirmed) return false;
           }
           try {
-            sessionStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem(SIGNUP_DRAFT_STORAGE_KEY);
           } catch {
             /* ignore */
           }
