@@ -22,6 +22,14 @@ type LegalDocumentSeedRow = {
 
 const legalDocumentRows = LEGAL_DOCUMENT_REFERENCE_ROWS as LegalDocumentSeedRow[];
 
+function findRow(kind: LegalDocumentKindValue): LegalDocumentSeedRow {
+  const row = legalDocumentRows.find((candidate) => candidate.kind === kind);
+  if (row === undefined) {
+    throw new Error(`Missing legal document seed row: ${kind}`);
+  }
+  return row;
+}
+
 function flattenText(value: unknown): string[] {
   if (typeof value === 'string') {
     return [value];
@@ -36,7 +44,7 @@ function flattenText(value: unknown): string[] {
 }
 
 describe('legal document reference seed data', () => {
-  it('가입에 필요한 네 종류의 active legal document seed를 제공한다', () => {
+  it('가입에 필요한 네 종류의 현재 게시 legal document seed를 제공한다', () => {
     expect(legalDocumentRows.map((row) => row.kind).sort()).toEqual(
       [
         LegalDocumentKind.AGE_14_OR_ABOVE_NOTICE,
@@ -75,5 +83,20 @@ describe('legal document reference seed data', () => {
     expect(allText).not.toMatch(/Phase|phase|plan|issue|#\d+/i);
     expect(allText).not.toContain('개인정보 처리방침에 동의합니다');
     expect(allText).not.toContain('active 사용자');
+    expect(allText).not.toMatch(
+      /user-facing|read model|payload|tombstone|cache|active 계정|ticket|공개 API/i,
+    );
+  });
+
+  it('이용약관과 개인정보 처리방침 seed는 공개 전문용 조문형 heading을 포함한다', () => {
+    const termsText = flattenText(findRow(LegalDocumentKind.TERMS_OF_SERVICE).sections).join('\n');
+    const privacyText = flattenText(findRow(LegalDocumentKind.PRIVACY_POLICY).sections).join('\n');
+
+    expect(termsText).toContain('제1조(목적)');
+    expect(termsText).toContain('제2조(정의)');
+    expect(termsText).toContain('제12조(문의 및 분쟁 처리)');
+    expect(privacyText).toContain('제1조(개인정보의 처리 목적)');
+    expect(privacyText).toContain('제2조(처리하는 개인정보 항목 및 보유기간)');
+    expect(privacyText).toContain('제11조(개인정보 처리방침의 변경)');
   });
 });

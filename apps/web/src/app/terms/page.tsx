@@ -7,7 +7,7 @@ import { getLegalDocumentPageData } from '@/legal/api/legal-document.server';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: '이용약관 | KNU 룸메',
+  title: '이용약관',
   description: 'KNU 룸메 이용 조건과 서비스 운영 기준을 확인합니다.',
 };
 

@@ -41,4 +41,6 @@ export const LEGAL_DOCUMENT_COPY = {
   copyLinkSuccessLabel: '현재 문서 링크를 복사했습니다.',
   copyLinkUnavailableLabel: '브라우저에서 링크 복사를 지원하지 않습니다.',
   homeLinkLabel: 'KNU 룸메 홈으로',
+  backActionLabel: '이전 화면으로',
+  backActionAriaLabel: '이전 화면으로 돌아가기',
 } as const;

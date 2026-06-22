@@ -1,7 +1,9 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { LEGAL_DOCUMENT_COPY, LEGAL_DOCUMENT_ROUTE_LABELS } from '../content/legal-copy';
 import type { LegalDocumentSource, LegalDocumentViewModel } from '../types/legal-document.types';
 import { LegalDocumentActions } from './LegalDocumentActions';
+import { LegalDocumentBackButton } from './LegalDocumentBackButton';
 import { LegalDocumentSections } from './LegalDocumentSections';
 import { LegalDocumentToc } from './LegalDocumentToc';
 
@@ -19,14 +21,19 @@ export function LegalDocumentLayout({ document, source }: LegalDocumentLayoutPro
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-5">
           <Link
             href="/"
-            className="text-base font-bold text-(--knu-text-primary)"
+            className="flex items-center gap-2 rounded-xl text-xl font-bold text-(--knu-text-primary)"
             aria-label={LEGAL_DOCUMENT_COPY.homeLinkLabel}
           >
-            KNU 룸메
+            <Image
+              src="/knu_logo.svg"
+              alt="KNU 룸메 로고"
+              width={36}
+              height={36}
+              className="rounded-xl"
+            />
+            <span>KNU 룸메</span>
           </Link>
-          <Link href="/" className="text-sm font-medium text-(--knu-primary)">
-            홈으로
-          </Link>
+          <LegalDocumentBackButton />
         </div>
       </header>
 

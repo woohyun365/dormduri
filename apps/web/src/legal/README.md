@@ -4,7 +4,9 @@
 
 - `api/`: legal document fetch, validation, and UI mapping helpers.
 - `components/`: accessible document layout, TOC, signup consent summary, document dialog, and unavailable states.
-- `content/`: seed-synced fallback documents and user-facing legal copy.
+- `content/`: seed-synced fallback documents and user-facing legal copy. Public `/terms` and
+  `/privacy` fallback bodies use formal article headings while signup consent summaries stay short
+  and user-friendly.
 - `types/`: Web-only view models derived from `@repo/shared/legal` contracts.
 
 Rules:
@@ -14,6 +16,8 @@ Rules:
 - Treat privacy policy as a public notice/read evidence, not as a signup consent checkbox.
 - Do not store full legal document bodies in browser storage.
 - Keep user-facing copy free of plan, issue, internal file-path wording, raw legal version ids, and internal state names.
+- Keep Web fallback legal bodies in sync with the API legal seed source when changing public
+  `/terms` or `/privacy` copy.
 
 Verification surface:
 

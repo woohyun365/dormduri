@@ -1,7 +1,11 @@
 import type { ReactNode } from 'react';
 import type { LegalDocumentViewSection } from '../types/legal-document.types';
 
-function getHeadingClassName(level: 2 | 3 | 4): string {
+function isArticleHeading(text: string): boolean {
+  return /^제\d+조\(.+\)$/.test(text);
+}
+
+function getHeadingClassName(level: 2 | 3 | 4, text: string): string {
   if (level === 3) {
     return 'scroll-mt-24 pt-2 text-lg font-semibold text-(--knu-text-primary) md:text-xl';
   }
@@ -10,11 +14,13 @@ function getHeadingClassName(level: 2 | 3 | 4): string {
     return 'scroll-mt-24 pt-1 text-base font-semibold text-(--knu-text-primary)';
   }
 
-  return 'scroll-mt-24 border-l-4 border-(--knu-primary) pl-3 text-xl font-bold text-(--knu-text-primary) md:text-2xl';
+  const articleClassName = isArticleHeading(text) ? 'border-t border-(--knu-border) pt-5 ' : '';
+
+  return `${articleClassName}scroll-mt-24 border-l-4 border-(--knu-primary) pl-3 text-xl font-bold text-(--knu-text-primary) md:text-2xl`;
 }
 
 function renderHeading(section: Extract<LegalDocumentViewSection, { type: 'heading' }>): ReactNode {
-  const className = getHeadingClassName(section.level);
+  const className = getHeadingClassName(section.level, section.text);
 
   if (section.level === 3) {
     return (
