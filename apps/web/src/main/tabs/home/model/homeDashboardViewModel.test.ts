@@ -1,0 +1,280 @@
+import { describe, expect, it } from 'vitest';
+import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import {
+  buildHomeDashboardViewModel,
+  toHomeActiveMatch,
+  toHomeSeasonContext,
+} from './homeDashboardViewModel';
+import type { UserProfile } from '@/types/profile';
+import type { MatchRequestSummary } from '@repo/shared/match/contract';
+
+const baseUser: UserProfile = {
+  id: 'user-1',
+  nickname: '춘천유저',
+  gender: 'M',
+  campus: 'CHUNCHEON',
+  dormitoryId: 'dasan',
+  lifestyle: {
+    smokingBehavior: 'NO',
+    sleepHabit: 'NONE',
+    relationshipStyle: 'CASUAL',
+  } as UserProfile['lifestyle'],
+  intro: '',
+  messageToRoommate: '잘 부탁해요',
+  additional: { college: 'IT', grade: '2', mbti: 'INTJ', birthYear: 2004 },
+};
+
+function createReceivedRequest(overrides: Partial<MatchRequestSummary> = {}): MatchRequestSummary {
+  return {
+    id: 'request-1',
+    seasonId: 'season-2026-1',
+    direction: 'RECEIVED',
+    counterpartUserId: 'user-2',
+    counterpartParticipantId: 'participant-2',
+    counterpartSummary: {
+      id: 'profile-2',
+      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+      relation: { type: 'GENERAL' },
+      exposure: {
+        listSummaryVisible: true,
+        detailViewable: true,
+        canViewFull: true,
+        scoreVisible: true,
+      },
+      actions: {
+        canBookmark: true,
+        canRequestMatch: true,
+        canStartChat: true,
+        unavailableReasons: [],
+      },
+      resultRead: {
+        resultReadable: false,
+        context: 'NONE',
+      },
+      profileSummary: {
+        nickname: '요청자',
+        intro: '안녕하세요',
+        smokingBehavior: 'NO',
+        sleepHabit: 'NONE',
+        relationshipStyle: 'CASUAL',
+      },
+    },
+    status: 'PENDING',
+    note: null,
+    createdAt: '2026-03-29T00:00:00.000Z',
+    expiresAt: '2026-06-23T12:00:00.000Z',
+    terminalAt: null,
+    acceptedAt: null,
+    terminalReason: null,
+    ...overrides,
+  };
+}
+
+describe('homeDashboardViewModel', () => {
+  it('maps dashboard season context without legacy widget calls', () => {
+    const dashboard = createHomeDashboardFixture();
+    const context = toHomeSeasonContext(dashboard, {
+      season: { name: 'fallback', roomSelectionDate: '2099-01-01' },
+      state: 'OFF_SEASON',
+      isOpen: false,
+      isMatching: false,
+      daysUntilEnd: 0,
+    });
+
+    expect(context).toEqual({
+      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
+      state: 'SEASON_OPEN',
+      isOpen: true,
+      isMatching: false,
+      daysUntilEnd: 30,
+    });
+  });
+
+  it('keeps fallback season context when dashboard has no current season', () => {
+    const dashboard = createHomeDashboardFixture({
+      season: {
+        hasCurrentSeason: false,
+        state: null,
+        summary: null,
+        schedule: null,
+        isOpen: false,
+        isMatching: false,
+        isPostMatch: false,
+        daysUntilMatchingEnd: null,
+        daysUntilSeasonEnd: null,
+      },
+    });
+    const fallback = {
+      season: { name: 'fallback', roomSelectionDate: '2099-01-01' },
+      state: 'OFF_SEASON' as const,
+      isOpen: false,
+      isMatching: false,
+      daysUntilEnd: 0,
+    };
+
+    expect(toHomeSeasonContext(dashboard, fallback)).toEqual(fallback);
+  });
+
+  it('builds matching summary from dashboard counts and recent received request names', () => {
+    const dashboard = createHomeDashboardFixture({
+      season: {
+        ...createHomeDashboardFixture().season,
+        state: 'SEASON_MATCHING',
+        isOpen: false,
+        isMatching: true,
+      },
+      matching: {
+        ...createHomeDashboardFixture().matching,
+        pendingSentCount: 1,
+        pendingReceivedCount: 1,
+        recentReceivedRequests: [createReceivedRequest()],
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      user: baseUser,
+      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
+      seasonState: 'SEASON_MATCHING',
+      daysUntilEnd: 7,
+      renderedAt: new Date('2026-06-22T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.matchingSummary.status).toBe('HAS_ACTIVITY');
+    expect(viewModel.matchingSummary.stats).toMatchObject({
+      sentRequests: 1,
+      receivedRequests: 1,
+      activeChats: 0,
+      expiringCount: 1,
+    });
+    expect(viewModel.matchingSummary.receivedRequesters).toEqual(['요청자']);
+    expect(viewModel.tip.unreadMessages).toBe(3);
+  });
+
+  it('uses dashboard selection as the Home building source of truth', () => {
+    const dashboard = createHomeDashboardFixture({
+      viewer: {
+        ...createHomeDashboardFixture().viewer,
+        selection: {
+          state: 'SELECTED',
+          dormitoryId: 'dasan',
+          source: 'SEASON_PARTICIPANT',
+        },
+      },
+    });
+    const localUnassignedUser = { ...baseUser, dormitoryId: null };
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      user: localUnassignedUser,
+      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
+      seasonState: 'SEASON_OPEN',
+      daysUntilEnd: 30,
+      renderedAt: new Date('2026-03-01T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.isUnassigned).toBe(false);
+    expect(viewModel.dormitory?.name).toBe('다산관');
+    expect(viewModel.preparation.hasBuilding).toBe(true);
+  });
+
+  it('keeps not-operated campus status from masking as a no-building gate', () => {
+    const dashboard = createHomeDashboardFixture({
+      viewer: {
+        ...createHomeDashboardFixture().viewer,
+        campusOperated: false,
+        selection: {
+          state: 'NOT_SELECTED',
+          dormitoryId: null,
+          source: null,
+        },
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      user: { ...baseUser, dormitoryId: null },
+      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
+      seasonState: 'SEASON_MATCHING',
+      daysUntilEnd: 7,
+      renderedAt: new Date('2026-04-01T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.isCampusOperated).toBe(false);
+    expect(viewModel.matchingSummary.status).toBe('NOT_OPERATED');
+    expect(viewModel.matchingSummary.gatingReason).toBeNull();
+    expect(viewModel.tip.seasonStatus).toBe('NOT_OPERATED');
+  });
+
+  it('closes next-season summary when dashboard has no current season schedule', () => {
+    const dashboard = createHomeDashboardFixture({
+      season: {
+        hasCurrentSeason: false,
+        state: null,
+        summary: null,
+        schedule: null,
+        isOpen: false,
+        isMatching: false,
+        isPostMatch: false,
+        daysUntilMatchingEnd: null,
+        daysUntilSeasonEnd: null,
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      user: baseUser,
+      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
+      seasonState: 'OFF_SEASON',
+      daysUntilEnd: 0,
+      renderedAt: new Date('2026-07-01T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.seasonSummary).toMatchObject({
+      daysUntilNext: 0,
+      nextSeasonDate: '',
+      nextSeasonName: '',
+    });
+  });
+
+  it('maps active match summary to Home active match view state', () => {
+    const dashboard = createHomeDashboardFixture({
+      viewer: {
+        ...createHomeDashboardFixture().viewer,
+        match: {
+          hasActiveMatch: true,
+          activeMatch: {
+            id: 'match-1',
+            seasonId: 'season-2026-1',
+            counterpartUserId: 'user-2',
+            counterpartParticipantId: 'participant-2',
+            counterpartNickname: '상대방',
+            status: 'ACTIVE',
+            startedAt: '2026-04-01T00:00:00.000Z',
+            endedAt: null,
+            endReason: null,
+            createdFromRequestId: 'request-1',
+            matchScore: 88,
+            unmatchProgress: {
+              state: 'NONE',
+              requestedByViewerAt: null,
+              requestedByCounterpartAt: null,
+              progressCount: 0,
+              requiredCount: 2,
+              canRequest: true,
+              canCancel: false,
+              availableUntil: null,
+            },
+          },
+        },
+      },
+    });
+
+    expect(toHomeActiveMatch(dashboard)).toMatchObject({
+      matchId: 'match-1',
+      partnerNickname: '상대방',
+      matchScore: 88,
+      scoreType: 'full',
+    });
+  });
+});

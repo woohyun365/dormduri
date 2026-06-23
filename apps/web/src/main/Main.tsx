@@ -26,12 +26,7 @@ import { seasonApi } from '@/api/season';
 import { homeApi } from '@/api/home';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
-import {
-  hasUpcomingSeasonWindow,
-  toLegacyActiveMatch,
-  toLegacyBuildingStats,
-  toLegacySeasonContext,
-} from './tabs/home/model/homeDashboardLegacyAdapter';
+import { toHomeSeasonContext } from './tabs/home/model/homeDashboardViewModel';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
 import type { TabId, UserProfile, RoommateProfile, MatchingNavOptions } from '@/types/profile';
@@ -180,7 +175,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     isMatching: data.isMatching,
     daysUntilEnd: data.daysUntilEnd,
   };
-  const seasonContextValue = toLegacySeasonContext(homeDashboard.dashboard, fallbackSeasonContext);
+  const seasonContextValue = toHomeSeasonContext(homeDashboard.dashboard, fallbackSeasonContext);
   const campusOperated =
     homeDashboard.dashboard?.viewer.campusOperated ?? isCampusOperated(profileState.user.campus);
   const featureFlags = getMainFeatureFlags({
@@ -188,9 +183,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     isOpen: seasonContextValue.isOpen,
     isMatching: seasonContextValue.isMatching,
   });
-  const homeActiveMatch = homeDashboard.dashboard
-    ? toLegacyActiveMatch(homeDashboard.dashboard)
-    : matchingState.activeMatch;
 
   return (
     <SeasonProvider value={seasonContextValue}>
@@ -222,16 +214,9 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               {!homeDashboard.loading && !homeDashboard.error && homeDashboard.dashboard && (
                 <HomeTab
                   user={profileState.user}
+                  dashboard={homeDashboard.dashboard}
                   onNavigate={handleNavigate}
-                  profiles={data.profiles}
-                  buildingStats={toLegacyBuildingStats(homeDashboard.dashboard.stats)}
-                  pastSeasonResult={undefined}
-                  isNextSeasonRegistered={hasUpcomingSeasonWindow(homeDashboard.dashboard)}
-                  unreadMessages={homeDashboard.dashboard.matching.unreadMessageCount}
-                  dashboardMatching={homeDashboard.dashboard.matching}
                   onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
-                  matchRequests={matchingState.matchRequests}
-                  activeMatch={homeActiveMatch}
                 />
               )}
             </>

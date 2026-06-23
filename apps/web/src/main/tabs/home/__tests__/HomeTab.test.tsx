@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import HomeTab from '../HomeTab';
-import type { UserProfile, RoommateProfile } from '@/types/profile';
-import type { BuildingStats } from '@/main/types/home';
+import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import type { UserProfile } from '@/types/profile';
 
 const baseLifestyle = {} as UserProfile['lifestyle'];
 const baseAdditional = { college: null, grade: null, mbti: null, birthYear: null };
@@ -20,19 +20,6 @@ const baseUser: UserProfile = {
   additional: baseAdditional,
 };
 
-const baseProfiles: Omit<RoommateProfile, 'matchScore'>[] = [];
-const buildingStats: BuildingStats = {
-  totalParticipants: 120,
-  assignedParticipants: 100,
-  buildingMatchable: 0,
-  buildingTotal: 0,
-  todayNewTotal: 5,
-  todayNewBuilding: 0,
-  totalMatchSuccess: 8,
-  buildingMatchSuccess: 0,
-  popularCondition: '-',
-};
-
 describe('HomeTab', () => {
   it('비운영 캠퍼스에서 홈 콘텐츠에 inert/aria-hidden을 적용한다', () => {
     render(
@@ -47,14 +34,13 @@ describe('HomeTab', () => {
       >
         <HomeTab
           user={baseUser}
+          dashboard={createHomeDashboardFixture({
+            viewer: {
+              ...createHomeDashboardFixture().viewer,
+              campusOperated: false,
+            },
+          })}
           onNavigate={vi.fn()}
-          profiles={baseProfiles}
-          buildingStats={buildingStats}
-          pastSeasonResult={undefined}
-          isNextSeasonRegistered={true}
-          unreadMessages={0}
-          matchRequests={[]}
-          activeMatch={null}
         />
       </SeasonProvider>,
     );
