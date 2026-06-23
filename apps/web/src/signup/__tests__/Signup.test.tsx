@@ -1,8 +1,9 @@
 import React from 'react';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Signup from '../Signup';
 import { authApi } from '@/api/auth';
+import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 
 const mockReplace = vi.fn();
 
@@ -65,14 +66,14 @@ vi.mock('../components/email-verification/StepEmailVerification', () => ({
   ),
 }));
 
-vi.mock('../components/StepTermsAgreement', () => ({
-  StepTermsAgreement: ({
+vi.mock('../components/LegalConsentStep', () => ({
+  LegalConsentStep: ({
     onNext,
-    onTermsChange,
+    onLegalConsentChange,
     notice,
   }: {
     onNext: () => void;
-    onTermsChange: (terms: Record<string, unknown>) => void;
+    onLegalConsentChange: (legalConsent: Record<string, unknown>) => void;
     notice?: string;
   }) => (
     <div>
@@ -93,7 +94,7 @@ vi.mock('../components/StepTermsAgreement', () => ({
                 ageNoticeVersionId: 'age-14-or-above-notice-2026-06-22',
                 privacyPolicyVersionIdShown: 'privacy-policy-2026-06-22',
               };
-          onTermsChange({
+          onLegalConsentChange({
             agreeAge: true,
             agreeTerms: true,
             agreePersonalDataCollectionUse: true,
@@ -109,52 +110,31 @@ vi.mock('../components/StepTermsAgreement', () => ({
   ),
 }));
 
-vi.mock('../components/StepBasicInfo', () => ({
-  StepBasicInfo: ({
+vi.mock('../components/AccountIdentityStep', () => ({
+  AccountIdentityStep: ({
     onNext,
     onBasicInfoChange,
   }: {
-    onNext: () => void;
+    onNext: (data: Record<string, unknown>) => void | Promise<void>;
     onBasicInfoChange: (data: Record<string, unknown>) => void;
   }) => (
     <button
       data-testid="step-3-next"
       onClick={() => {
-        onBasicInfoChange({
+        const accountIdentityFixture = {
           nickname: 'tester',
           password: 'Test1234',
           passwordConfirm: 'Test1234',
           gender: 'M',
           campus: 'CHUNCHEON',
-        });
-        onNext();
+          collegeCode: 'IT',
+          birthYear: VALID_SIGNUP_BIRTH_YEAR,
+        };
+        onBasicInfoChange(accountIdentityFixture);
+        void onNext(accountIdentityFixture);
       }}
     >
-      next
-    </button>
-  ),
-}));
-
-vi.mock('../components/StepSleepPattern', () => ({
-  StepSleepPattern: ({ onNext }: { onNext: () => void }) => (
-    <button data-testid="step-4-next" onClick={onNext}>
-      next
-    </button>
-  ),
-}));
-
-vi.mock('../components/StepLivingPattern', () => ({
-  StepLivingPattern: ({ onNext }: { onNext: () => void }) => (
-    <button data-testid="step-5-next" onClick={onNext}>
-      next
-    </button>
-  ),
-}));
-
-vi.mock('../components/StepRoommateConditions', () => ({
-  StepRoommateConditions: ({ onNext }: { onNext: () => void }) => (
-    <button data-testid="step-6-next" onClick={onNext}>
-      submit
+      가입하기
     </button>
   ),
 }));
@@ -176,6 +156,8 @@ vi.mock('@/components/AuthHeader', () => ({
 }));
 
 const mockSignup = vi.mocked(authApi.signup);
+const mockUseRedirectIfAuthenticated = vi.mocked(useRedirectIfAuthenticated);
+const VALID_SIGNUP_BIRTH_YEAR = new Date().getFullYear() - 24;
 
 const SIGNUP_LEGAL_ACCEPTANCES = {
   termsVersionId: 'terms-of-service-2026-06-22',
@@ -197,9 +179,12 @@ function advanceToStep(step: number) {
     fireEvent.click(screen.getByTestId('step-1-next'));
   }
   if (step >= 3) fireEvent.click(screen.getByTestId('step-2-next'));
-  if (step >= 4) fireEvent.click(screen.getByTestId('step-3-next'));
-  if (step >= 5) fireEvent.click(screen.getByTestId('step-4-next'));
-  if (step >= 6) fireEvent.click(screen.getByTestId('step-5-next'));
+}
+
+async function submitAccountIdentity() {
+  await act(async () => {
+    fireEvent.click(screen.getByTestId('step-3-next'));
+  });
 }
 
 describe('Signup', () => {
@@ -207,6 +192,7 @@ describe('Signup', () => {
     sessionStorage.clear();
     mockSignup.mockReset();
     mockSignup.mockResolvedValue({ success: true });
+    mockUseRedirectIfAuthenticated.mockReturnValue({ isReadyToRender: true });
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
   });
 
@@ -221,15 +207,45 @@ describe('Signup', () => {
     expect(screen.getByTestId('step-1-verify')).toBeInTheDocument();
   });
 
-  it('모든 단계를 순서대로 진행하여 가입을 완료할 수 있다', async () => {
+  it('인증 redirect와 draft restore 대기 중에는 접근 가능한 loading skeleton을 표시한다', () => {
+    mockUseRedirectIfAuthenticated.mockImplementation(() => ({ isReadyToRender: false }));
+
     render(<Signup />);
 
-    advanceToStep(6);
-    expect(screen.getByTestId('step-6-next')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('회원가입 정보를 준비하고 있어요');
+    expect(screen.queryByTestId('step-1-verify')).not.toBeInTheDocument();
+  });
 
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-6-next'));
-    });
+  it('4단계 progress label과 현재 단계 aria-current를 표시한다', () => {
+    render(<Signup />);
+
+    expect(screen.getByText('단계 1/4')).toBeInTheDocument();
+    expect(screen.getByText('현재 단계: 학교 이메일 인증')).toBeInTheDocument();
+
+    let progressList = screen.getByRole('list', { name: '회원가입 진행 단계' });
+    expect(within(progressList).getByText('학교 이메일 인증').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+
+    advanceToStep(3);
+
+    expect(screen.getByText('단계 3/4')).toBeInTheDocument();
+    expect(screen.getByText('현재 단계: 계정 정보 입력')).toBeInTheDocument();
+    progressList = screen.getByRole('list', { name: '회원가입 진행 단계' });
+    expect(within(progressList).getByText('계정 정보 입력').closest('li')).toHaveAttribute(
+      'aria-current',
+      'step',
+    );
+  });
+
+  it('4단계 계정 생성 플로우로 가입을 완료할 수 있다', async () => {
+    render(<Signup />);
+
+    advanceToStep(3);
+    expect(screen.getByTestId('step-3-next')).toBeInTheDocument();
+
+    await submitAccountIdentity();
 
     expect(mockSignup).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -238,7 +254,15 @@ describe('Signup', () => {
         nickname: 'tester',
         gender: 'M',
         campus: 'CHUNCHEON',
+        collegeCode: 'IT',
+        birthYear: VALID_SIGNUP_BIRTH_YEAR,
         legalAcceptances: SIGNUP_LEGAL_ACCEPTANCES,
+      }),
+    );
+    expect(mockSignup).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        lifestyle: expect.anything(),
+        intro: expect.anything(),
       }),
     );
     const completeButton = screen.getByTestId('step-complete');
@@ -253,7 +277,6 @@ describe('Signup', () => {
 
     render(<Signup />);
 
-    // Step 1 완료 → step 2 (isEmailVerified = true)
     fireEvent.click(screen.getByTestId('step-1-verify'));
     fireEvent.click(screen.getByTestId('step-1-next'));
 
@@ -270,11 +293,9 @@ describe('Signup', () => {
     });
 
     render(<Signup />);
-    advanceToStep(6);
+    advanceToStep(3);
 
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-6-next'));
-    });
+    await submitAccountIdentity();
 
     expect(screen.getByTestId('step-2-next')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('최신 내용을 다시 확인');
@@ -291,11 +312,9 @@ describe('Signup', () => {
       .mockResolvedValueOnce({ success: true });
 
     render(<Signup />);
-    advanceToStep(6);
+    advanceToStep(3);
 
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-6-next'));
-    });
+    await submitAccountIdentity();
 
     expect(screen.getByRole('status')).toHaveTextContent('최신 내용을 다시 확인');
 
@@ -305,18 +324,7 @@ describe('Signup', () => {
     await waitFor(() => {
       expect(sessionStorage.getItem('signup-draft')).toContain('terms-of-service-2026-06-23');
     });
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-3-next'));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-4-next'));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-5-next'));
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-6-next'));
-    });
+    await submitAccountIdentity();
 
     expect(mockSignup).toHaveBeenNthCalledWith(
       1,
@@ -333,24 +341,23 @@ describe('Signup', () => {
     expect(screen.getByTestId('step-complete')).toBeInTheDocument();
   });
 
-  it('회원가입 실패 시 에러 메시지와 재시도 버튼을 표시한다', async () => {
+  it('회원가입 실패 시 계정 정보 단계에 에러 메시지와 재시도 버튼을 표시한다', async () => {
     mockSignup.mockResolvedValue({
       success: false,
       error: '이미 가입된 이메일입니다.',
     });
 
     render(<Signup />);
-    advanceToStep(6);
+    advanceToStep(3);
 
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-6-next'));
-    });
+    await submitAccountIdentity();
 
     expect(screen.getByText('이미 가입된 이메일입니다.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeInTheDocument();
+    expect(screen.getByTestId('step-3-next')).toBeInTheDocument();
   });
 
-  it('이메일 인증 만료 에러가 나면 카드에 포커스하고 다시 인증 흐름으로 복귀시킨다', async () => {
+  it('이메일 인증 만료 에러가 나면 카드에 포커스하고 다시 인증 후 계정 정보 단계로 복귀시킨다', async () => {
     Element.prototype.scrollIntoView = vi.fn();
     mockSignup.mockResolvedValueOnce({
       success: false,
@@ -358,11 +365,9 @@ describe('Signup', () => {
     });
 
     render(<Signup />);
-    advanceToStep(6);
+    advanceToStep(3);
 
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-6-next'));
-    });
+    await submitAccountIdentity();
 
     const alert = screen.getByRole('alert');
     expect(alert).toHaveTextContent('이메일 인증을 먼저 완료해주세요.');
@@ -373,26 +378,25 @@ describe('Signup', () => {
     expect(screen.getByTestId('step-1-verify')).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('step-1-verify'));
-    expect(screen.getByTestId('step-6-next')).toBeInTheDocument();
+    expect(screen.getByTestId('step-3-next')).toBeInTheDocument();
   });
 
-  it('네트워크 오류 시 에러 메시지를 표시한다', async () => {
+  it('네트워크 오류 시 계정 정보 단계에 에러 메시지를 표시한다', async () => {
     mockSignup.mockRejectedValue(new Error('Network error'));
 
     render(<Signup />);
-    advanceToStep(6);
+    advanceToStep(3);
 
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('step-6-next'));
-    });
+    await submitAccountIdentity();
 
     expect(
       screen.getByText('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'),
     ).toBeInTheDocument();
+    expect(screen.getByTestId('step-3-next')).toBeInTheDocument();
   });
 
   describe('sessionStorage persist/restore', () => {
-    it('Step 4 이상에서 새로고침하면 비밀번호가 없으므로 Step 3으로 복원된다', () => {
+    it('legacy Step 4 이상에서 새로고침하면 Step 3으로 복원된다', () => {
       sessionStorage.setItem(
         'signup-draft',
         JSON.stringify({
@@ -408,6 +412,8 @@ describe('Signup', () => {
           nickname: 'tester',
           gender: 'M',
           campus: 'CHUNCHEON',
+          collegeCode: 'IT',
+          birthYear: VALID_SIGNUP_BIRTH_YEAR,
           intro: '',
           lifestyle: {},
         }),
@@ -415,7 +421,6 @@ describe('Signup', () => {
 
       render(<Signup />);
 
-      // Step 3으로 복원 (비밀번호 미저장 → fallback)
       expect(screen.getByTestId('step-3-next')).toBeInTheDocument();
     });
 
@@ -430,8 +435,6 @@ describe('Signup', () => {
           nickname: '',
           gender: null,
           campus: null,
-          intro: '',
-          lifestyle: {},
         }),
       );
 
@@ -456,13 +459,25 @@ describe('Signup', () => {
       });
     });
 
-    it('회원가입 완료(Step 7) 시 sessionStorage가 삭제된다', async () => {
+    it('계정 정보 단계까지 진행해도 draft에는 intro/lifestyle을 저장하지 않는다', async () => {
       render(<Signup />);
 
-      advanceToStep(6);
-      await act(async () => {
-        fireEvent.click(screen.getByTestId('step-6-next'));
+      advanceToStep(3);
+
+      await waitFor(() => {
+        const rawDraft = sessionStorage.getItem('signup-draft');
+        expect(rawDraft).not.toBeNull();
+        expect(rawDraft).not.toContain('intro');
+        expect(rawDraft).not.toContain('lifestyle');
+        expect(rawDraft).not.toContain('bedtime');
       });
+    });
+
+    it('회원가입 완료(Step 4) 시 sessionStorage가 삭제된다', async () => {
+      render(<Signup />);
+
+      advanceToStep(3);
+      await submitAccountIdentity();
 
       expect(screen.getByTestId('step-complete')).toBeInTheDocument();
       expect(sessionStorage.getItem('signup-draft')).toBeNull();
@@ -473,12 +488,10 @@ describe('Signup', () => {
 
       render(<Signup />);
 
-      // Step 2까지 진행 (draft 생성)
       fireEvent.click(screen.getByTestId('step-1-verify'));
       fireEvent.click(screen.getByTestId('step-1-next'));
       expect(sessionStorage.getItem('signup-draft')).not.toBeNull();
 
-      // 로고 클릭 이탈 확인
       fireEvent.click(screen.getByTestId('logo'));
 
       expect(sessionStorage.getItem('signup-draft')).toBeNull();

@@ -23,6 +23,16 @@ describe('auth BFF shared helpers', () => {
     expect(response.status).toBe(429);
   });
 
+  it('upstream Retry-After header를 보존한다', () => {
+    const upstream = new Response(JSON.stringify({ success: false }), {
+      status: 429,
+      headers: { 'Retry-After': '42' },
+    });
+    const response = buildJsonResponse(upstream, { success: false });
+
+    expect(response.headers.get('Retry-After')).toBe('42');
+  });
+
   it('auth upstream path는 /auth prefix 밖으로 나가지 않는다', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

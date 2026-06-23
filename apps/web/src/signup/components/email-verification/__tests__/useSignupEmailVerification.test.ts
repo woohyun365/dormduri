@@ -99,6 +99,35 @@ describe('useSignupEmailVerification', () => {
       expect(result.current.isSending).toBe(false);
     });
 
+    it('429 retryAfterSeconds가 있으면 전송 버튼 에러 문구를 1초씩 줄인다', async () => {
+      mockSendCode.mockResolvedValue({
+        success: false,
+        retryAfterSeconds: 3,
+      });
+      const { result } = renderEmailVerification();
+
+      await act(async () => {
+        await result.current.handleSendCode();
+      });
+
+      expect(result.current.emailError).toBe('너무 잦은 요청이에요. 3초 후 다시 시도해주세요.');
+      expect(result.current.emailRetryAfterSeconds).toBe(3);
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(result.current.emailError).toBe('너무 잦은 요청이에요. 2초 후 다시 시도해주세요.');
+      expect(result.current.emailRetryAfterSeconds).toBe(2);
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(result.current.emailError).toBe('');
+      expect(result.current.emailRetryAfterSeconds).toBe(0);
+    });
+
     it('네트워크 오류 시 에러 메시지를 표시한다', async () => {
       mockSendCode.mockRejectedValue(new Error('Network error'));
       const { result } = renderEmailVerification();
@@ -161,6 +190,42 @@ describe('useSignupEmailVerification', () => {
 
       expect(result.current.codeError).toBe('인증 코드가 올바르지 않습니다.');
       expect(onVerified).not.toHaveBeenCalled();
+    });
+
+    it('429 retryAfterSeconds가 있으면 인증 확인 에러 문구를 1초씩 줄인다', async () => {
+      mockVerifyCode.mockResolvedValue({
+        success: false,
+        code: 'TOO_MANY_REQUESTS',
+        retryAfterSeconds: 3,
+      });
+      const { result } = renderEmailVerification();
+      await sendCodeSuccessfully(result);
+
+      act(() => {
+        result.current.handleCodeChange('000000');
+      });
+
+      await act(async () => {
+        await result.current.handleVerifyCode();
+      });
+
+      expect(result.current.codeError).toBe('너무 잦은 요청이에요. 3초 후 다시 시도해주세요.');
+      expect(result.current.codeRetryAfterSeconds).toBe(3);
+      expect(onVerified).not.toHaveBeenCalled();
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(result.current.codeError).toBe('너무 잦은 요청이에요. 2초 후 다시 시도해주세요.');
+      expect(result.current.codeRetryAfterSeconds).toBe(2);
+
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(result.current.codeError).toBe('');
+      expect(result.current.codeRetryAfterSeconds).toBe(0);
     });
   });
 

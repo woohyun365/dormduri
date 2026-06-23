@@ -1,0 +1,159 @@
+import { NextRequest } from 'next/server';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { POST as postSignup } from '../signup/route';
+
+const ACCESS_TOKEN = `v1.session-signup-access.${'a'.repeat(43)}`;
+
+const VALID_SIGNUP_BODY = {
+  email: 'student@kangwon.ac.kr',
+  password: 'pass1234',
+  nickname: '테스터',
+  gender: 'M',
+  campus: 'CHUNCHEON',
+  collegeCode: 'IT',
+  birthYear: 2001,
+  legalAcceptances: {
+    termsVersionId: 'terms-2026-06-22',
+    personalDataConsentVersionId: 'personal-data-2026-06-22',
+    ageNoticeVersionId: 'age-2026-06-22',
+    privacyPolicyVersionIdShown: 'privacy-2026-06-22',
+  },
+};
+
+function request(body: unknown) {
+  return new NextRequest('http://localhost/api/auth/signup', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-forwarded-for': '203.0.113.10',
+      'user-agent': 'vitest',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+describe('auth signup BFF route', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('valid SignupRequest는 upstream auth signup으로 allowlist body만 전달하고 accessToken은 cookie로만 설정한다', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          accessToken: ACCESS_TOKEN,
+          user: {
+            id: 'user-1',
+            email: VALID_SIGNUP_BODY.email,
+            nickname: VALID_SIGNUP_BODY.nickname,
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await postSignup(request(VALID_SIGNUP_BODY));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:4000/auth/signup',
+      expect.objectContaining({
+        method: 'POST',
+        cache: 'no-store',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          'x-forwarded-for': '203.0.113.10',
+          'user-agent': 'vitest',
+        }),
+      }),
+    );
+    const fetchCalls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+    const [, forwardedInit] = fetchCalls[0]!;
+    const forwardedBody = JSON.parse(String(forwardedInit.body));
+    expect(forwardedBody).toEqual(VALID_SIGNUP_BODY);
+    expect(forwardedBody).not.toHaveProperty('lifestyle');
+    expect(forwardedBody).not.toHaveProperty('intro');
+
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      user: {
+        id: 'user-1',
+        email: VALID_SIGNUP_BODY.email,
+        nickname: VALID_SIGNUP_BODY.nickname,
+      },
+    });
+    expect(response.cookies.get('auth-token')?.value).toBe(ACCESS_TOKEN);
+  });
+
+  it('lifestyle/intro 같은 signup 외부 profile field는 upstream 전송 전에 거부한다', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await postSignup(
+      request({
+        ...VALID_SIGNUP_BODY,
+        lifestyle: { bedtime: 'BEFORE_12' },
+        intro: '가입 단계에서 보내면 안 되는 자기소개입니다.',
+      }),
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'INVALID_SIGNUP_REQUEST',
+      userActionable: true,
+      fieldErrors: {
+        lifestyle: 'FORBIDDEN_FIELD',
+        intro: 'FORBIDDEN_FIELD',
+      },
+    });
+  });
+
+  it('collegeCode/birthYear가 없으면 upstream 전송 전에 거부한다', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const body: Record<string, unknown> = { ...VALID_SIGNUP_BODY };
+    delete body.collegeCode;
+    delete body.birthYear;
+
+    const response = await postSignup(request(body));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'INVALID_SIGNUP_REQUEST',
+      userActionable: true,
+      fieldErrors: {
+        collegeCode: 'INVALID_FIELD',
+        birthYear: 'INVALID_FIELD',
+      },
+    });
+  });
+
+  it('malformed JSON body는 upstream 전송 전에 안전한 invalid request로 거부한다', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await postSignup(
+      new NextRequest('http://localhost/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{invalid-json',
+      }),
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'INVALID_SIGNUP_REQUEST',
+      userActionable: true,
+    });
+  });
+});

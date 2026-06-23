@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCountdown } from '@/hooks/useCountdown';
 import { validateKnuEmail } from '@/utils/validation';
 import { SIGNUP_VERIFICATION_CODE_TTL } from '@/constants/auth';
@@ -10,6 +10,8 @@ interface UseSignupEmailVerificationParams {
   email: string;
   onVerified: () => void;
 }
+
+type RetryAfterTarget = 'email' | 'code';
 
 export function useSignupEmailVerification({
   email,
@@ -22,6 +24,7 @@ export function useSignupEmailVerification({
   const [isSending, setIsSending] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [requestedEmail, setRequestedEmail] = useState('');
+  const [retryAfterTarget, setRetryAfterTarget] = useState<RetryAfterTarget | null>(null);
   const sendTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const sendRequestIdRef = useRef(0);
 
@@ -38,8 +41,44 @@ export function useSignupEmailVerification({
     stop: stopCountdown,
     formatTime,
   } = useCountdown(SIGNUP_VERIFICATION_CODE_TTL);
+  const {
+    countdown: retryAfterSeconds,
+    isActive: isRetryAfterActive,
+    start: startRetryAfter,
+    stop: stopRetryAfter,
+  } = useCountdown(0);
 
-  const handleSendCode = async () => {
+  const retryAfterMessage = useMemo(() => {
+    if (!isRetryAfterActive) return '';
+    return `너무 잦은 요청이에요. ${retryAfterSeconds}초 후 다시 시도해주세요.`;
+  }, [isRetryAfterActive, retryAfterSeconds]);
+
+  const visibleEmailError =
+    retryAfterTarget === 'email' && retryAfterMessage ? retryAfterMessage : emailError;
+  const visibleCodeError =
+    retryAfterTarget === 'code' && retryAfterMessage ? retryAfterMessage : codeError;
+  const emailRetryAfterSeconds = retryAfterTarget === 'email' ? retryAfterSeconds : 0;
+  const codeRetryAfterSeconds = retryAfterTarget === 'code' ? retryAfterSeconds : 0;
+
+  const startRetryAfterCountdown = useCallback(
+    (target: RetryAfterTarget, seconds: number | undefined): boolean => {
+      if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
+        return false;
+      }
+
+      setRetryAfterTarget(target);
+      startRetryAfter(Math.ceil(seconds));
+      return true;
+    },
+    [startRetryAfter],
+  );
+
+  const clearRetryAfterCountdown = useCallback(() => {
+    setRetryAfterTarget(null);
+    stopRetryAfter();
+  }, [stopRetryAfter]);
+
+  const handleSendCode = useCallback(async () => {
     if (isSending) return;
 
     const error = validateKnuEmail(email);
@@ -58,6 +97,7 @@ export function useSignupEmailVerification({
       if (requestId !== sendRequestIdRef.current) return;
 
       if (result.success) {
+        clearRetryAfterCountdown();
         setRequestedEmail(requestEmail);
         sendTimerRef.current = setTimeout(() => {
           if (requestId !== sendRequestIdRef.current) return;
@@ -66,16 +106,17 @@ export function useSignupEmailVerification({
           startCountdown();
         }, 1000);
       } else {
-        setEmailError(result.error ?? '인증 코드 전송에 실패했습니다.');
+        const hasRetryAfter = startRetryAfterCountdown('email', result.retryAfterSeconds);
+        setEmailError(hasRetryAfter ? '' : (result.error ?? '인증 코드 전송에 실패했습니다.'));
         setIsSending(false);
       }
     } catch {
       setEmailError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
       setIsSending(false);
     }
-  };
+  }, [clearRetryAfterCountdown, email, isSending, startCountdown, startRetryAfterCountdown]);
 
-  const handleVerifyCode = async () => {
+  const handleVerifyCode = useCallback(async () => {
     if (!verificationCode) {
       setCodeError('인증 코드를 입력해주세요.');
       return;
@@ -84,25 +125,35 @@ export function useSignupEmailVerification({
     try {
       const result = await authApi.verifyEmailCode(requestedEmail || email, verificationCode);
       if (result.success) {
+        clearRetryAfterCountdown();
         setCodeError('');
         onVerified();
         stopCountdown();
       } else {
-        setCodeError(result.error ?? '인증 코드가 올바르지 않습니다.');
+        const hasRetryAfter = startRetryAfterCountdown('code', result.retryAfterSeconds);
+        setCodeError(hasRetryAfter ? '' : (result.error ?? '인증 코드가 올바르지 않습니다.'));
       }
     } catch {
       setCodeError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setIsVerifying(false);
     }
-  };
+  }, [
+    clearRetryAfterCountdown,
+    email,
+    onVerified,
+    requestedEmail,
+    startRetryAfterCountdown,
+    stopCountdown,
+    verificationCode,
+  ]);
 
-  const handleCodeChange = (value: string) => {
+  const handleCodeChange = useCallback((value: string) => {
     setVerificationCode(value);
     setCodeError('');
-  };
+  }, []);
 
-  const handleEmailChange = () => {
+  const handleEmailChange = useCallback(() => {
     sendRequestIdRef.current += 1;
     if (sendTimerRef.current) {
       clearTimeout(sendTimerRef.current);
@@ -112,21 +163,25 @@ export function useSignupEmailVerification({
     setRequestedEmail('');
     setEmailError('');
     stopCountdown();
+    clearRetryAfterCountdown();
     setIsCodeSent(false);
     setVerificationCode('');
     setCodeError('');
-  };
+  }, [clearRetryAfterCountdown, stopCountdown]);
 
   return {
     verificationCode,
-    emailError,
-    codeError,
+    emailError: visibleEmailError,
+    codeError: visibleCodeError,
     isCodeSent,
     isSending,
     isVerifying,
     requestedEmail,
     isCountdownActive,
+    isRetryAfterActive,
     countdown,
+    emailRetryAfterSeconds,
+    codeRetryAfterSeconds,
     formatTime,
     handleSendCode,
     handleVerifyCode,

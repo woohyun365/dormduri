@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { StepTermsAgreement, type TermsData } from '../StepTermsAgreement';
+import { LegalConsentStep, type LegalConsentData } from '../LegalConsentStep';
 import { getFallbackLegalDocumentsBundle } from '@/legal/api/legal-documents-bundle.api';
 
 vi.mock('lucide-react', () => ({
@@ -10,7 +10,7 @@ vi.mock('lucide-react', () => ({
 }));
 
 const legalBundle = getFallbackLegalDocumentsBundle();
-const emptyTerms: TermsData = {
+const emptyLegalConsent: LegalConsentData = {
   agreeAge: false,
   agreeTerms: false,
   agreePersonalDataCollectionUse: false,
@@ -29,17 +29,19 @@ function stubBundleFetch(bundle: unknown = legalBundle, status = 200) {
 }
 
 function renderWithState(
-  overrides: { onNext?: () => void; notice?: string; initialTerms?: TermsData } = {},
+  overrides: { onNext?: () => void; notice?: string; initialLegalConsent?: LegalConsentData } = {},
 ) {
   const onNext = overrides.onNext ?? vi.fn<() => void>();
   const onBack = vi.fn<() => void>();
 
   function Wrapper() {
-    const [terms, setTerms] = useState<TermsData>(overrides.initialTerms ?? emptyTerms);
+    const [legalConsent, setLegalConsent] = useState<LegalConsentData>(
+      overrides.initialLegalConsent ?? emptyLegalConsent,
+    );
     return (
-      <StepTermsAgreement
-        terms={terms}
-        onTermsChange={setTerms}
+      <LegalConsentStep
+        legalConsent={legalConsent}
+        onLegalConsentChange={setLegalConsent}
         onNext={onNext}
         onBack={onBack}
         notice={overrides.notice}
@@ -50,9 +52,22 @@ function renderWithState(
   return { ...render(<Wrapper />), onNext, onBack };
 }
 
-describe('StepTermsAgreement', () => {
+describe('LegalConsentStep', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('legal bundle loading 중에는 다음 단계 CTA를 비활성화하고 이유를 안내한다', () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => await new Promise<Response>(() => {})),
+    );
+
+    renderWithState();
+
+    expect(screen.getByRole('status')).toHaveTextContent('최신 동의 항목을 불러오는 중');
+    expect(screen.getByRole('status')).toHaveTextContent('약관 정보가 준비되면');
+    expect(screen.getByRole('button', { name: '다음 단계' })).toBeDisabled();
   });
 
   it('개인정보 처리방침 동의 checkbox 대신 개인정보 수집·이용 동의 요약을 보여준다', async () => {
@@ -105,16 +120,16 @@ describe('StepTermsAgreement', () => {
     };
     stubBundleFetch(activeBundle);
     const onNext = vi.fn<() => void>();
-    let latestTerms: TermsData = emptyTerms;
+    let latestConsent: LegalConsentData = emptyLegalConsent;
 
     function Wrapper() {
-      const [terms, setTerms] = useState<TermsData>(emptyTerms);
+      const [legalConsent, setLegalConsent] = useState<LegalConsentData>(emptyLegalConsent);
       return (
-        <StepTermsAgreement
-          terms={terms}
-          onTermsChange={(nextTerms) => {
-            latestTerms = nextTerms;
-            setTerms(nextTerms);
+        <LegalConsentStep
+          legalConsent={legalConsent}
+          onLegalConsentChange={(nextConsent) => {
+            latestConsent = nextConsent;
+            setLegalConsent(nextConsent);
           }}
           onNext={onNext}
           onBack={vi.fn()}
@@ -129,13 +144,48 @@ describe('StepTermsAgreement', () => {
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
     expect(onNext).toHaveBeenCalled();
-    expect(latestTerms.legalAcceptances).toEqual({
+    expect(latestConsent.legalAcceptances).toEqual({
       termsVersionId: 'terms-active-id',
       personalDataConsentVersionId: 'personal-data-active-id',
       ageNoticeVersionId: 'age-active-id',
       privacyPolicyVersionIdShown: 'privacy-active-id',
     });
-    expect(latestTerms.legalBundleSource).toBe('api');
+    expect(latestConsent.legalBundleSource).toBe('api');
+  });
+
+  it('active bundle id가 바뀌면 기존 필수 동의 체크를 reset한다', async () => {
+    const activeBundle = {
+      termsOfService: { ...legalBundle.termsOfService, id: 'terms-new-id' },
+      privacyPolicy: { ...legalBundle.privacyPolicy, id: 'privacy-new-id' },
+      personalDataCollectionUseConsent: {
+        ...legalBundle.personalDataCollectionUseConsent,
+        id: 'personal-data-new-id',
+      },
+      age14OrAboveNotice: { ...legalBundle.age14OrAboveNotice, id: 'age-new-id' },
+    };
+    stubBundleFetch(activeBundle);
+
+    renderWithState({
+      initialLegalConsent: {
+        agreeAge: true,
+        agreeTerms: true,
+        agreePersonalDataCollectionUse: true,
+        legalAcceptances: {
+          termsVersionId: 'terms-old-id',
+          personalDataConsentVersionId: 'personal-data-old-id',
+          ageNoticeVersionId: 'age-old-id',
+          privacyPolicyVersionIdShown: 'privacy-old-id',
+        },
+        legalBundleSource: 'api',
+      },
+    });
+
+    await screen.findByLabelText('[필수] 이용약관에 동의합니다');
+
+    expect(screen.getByRole('checkbox', { name: '필수 항목 전체 동의' })).not.toBeChecked();
+    expect(screen.getByLabelText('[필수] 만 14세 이상입니다')).not.toBeChecked();
+    expect(screen.getByLabelText('[필수] 이용약관에 동의합니다')).not.toBeChecked();
+    expect(screen.getByLabelText('[필수] 개인정보 수집·이용에 동의합니다')).not.toBeChecked();
   });
 
   it('개별 항목을 모두 체크하면 다음으로 진행할 수 있다', async () => {
@@ -223,16 +273,16 @@ describe('StepTermsAgreement', () => {
       }),
     );
     const onNext = vi.fn<() => void>();
-    let latestTerms: TermsData = emptyTerms;
+    let latestConsent: LegalConsentData = emptyLegalConsent;
 
     function Wrapper() {
-      const [terms, setTerms] = useState<TermsData>(emptyTerms);
+      const [legalConsent, setLegalConsent] = useState<LegalConsentData>(emptyLegalConsent);
       return (
-        <StepTermsAgreement
-          terms={terms}
-          onTermsChange={(nextTerms) => {
-            latestTerms = nextTerms;
-            setTerms(nextTerms);
+        <LegalConsentStep
+          legalConsent={legalConsent}
+          onLegalConsentChange={(nextConsent) => {
+            latestConsent = nextConsent;
+            setLegalConsent(nextConsent);
           }}
           onNext={onNext}
           onBack={vi.fn()}
@@ -247,13 +297,13 @@ describe('StepTermsAgreement', () => {
     fireEvent.click(screen.getByRole('button', { name: '다음 단계' }));
 
     expect(onNext).toHaveBeenCalled();
-    expect(latestTerms.legalAcceptances).toEqual({
+    expect(latestConsent.legalAcceptances).toEqual({
       termsVersionId: legalBundle.termsOfService.id,
       personalDataConsentVersionId: legalBundle.personalDataCollectionUseConsent.id,
       ageNoticeVersionId: legalBundle.age14OrAboveNotice.id,
       privacyPolicyVersionIdShown: legalBundle.privacyPolicy.id,
     });
-    expect(latestTerms.legalBundleSource).toBe('fallback');
+    expect(latestConsent.legalBundleSource).toBe('fallback');
   });
 
   it('stale 안내가 전달되면 사용자에게 재확인을 요구한다', async () => {

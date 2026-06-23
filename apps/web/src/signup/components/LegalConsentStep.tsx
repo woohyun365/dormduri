@@ -14,7 +14,7 @@ import { LegalConsentSummaryCard } from '@/legal/components/LegalConsentSummaryC
 import { LegalDocumentDialog } from '@/legal/components/LegalDocumentDialog';
 import { FileText } from 'lucide-react';
 
-export interface TermsData {
+export interface LegalConsentData {
   agreeAge: boolean;
   agreeTerms: boolean;
   agreePersonalDataCollectionUse: boolean;
@@ -24,9 +24,9 @@ export interface TermsData {
   agreePrivacy?: boolean;
 }
 
-interface StepTermsAgreementProps {
-  terms: TermsData;
-  onTermsChange: (terms: TermsData) => void;
+interface LegalConsentStepProps {
+  legalConsent: LegalConsentData;
+  onLegalConsentChange: (legalConsent: LegalConsentData) => void;
   onNext: () => void;
   onBack: () => void;
   refreshNonce?: number;
@@ -56,25 +56,27 @@ function sameLegalAcceptances(
   );
 }
 
-function normalizeTerms(terms: TermsData): TermsData {
+function normalizeLegalConsent(legalConsent: LegalConsentData): LegalConsentData {
   return {
-    agreeAge: terms.agreeAge,
-    agreeTerms: terms.agreeTerms,
+    agreeAge: legalConsent.agreeAge,
+    agreeTerms: legalConsent.agreeTerms,
     agreePersonalDataCollectionUse:
-      terms.agreePersonalDataCollectionUse ?? terms.agreePrivacy ?? false,
-    ...(terms.legalAcceptances ? { legalAcceptances: terms.legalAcceptances } : {}),
-    ...(terms.legalBundleSource ? { legalBundleSource: terms.legalBundleSource } : {}),
+      legalConsent.agreePersonalDataCollectionUse ?? legalConsent.agreePrivacy ?? false,
+    ...(legalConsent.legalAcceptances ? { legalAcceptances: legalConsent.legalAcceptances } : {}),
+    ...(legalConsent.legalBundleSource
+      ? { legalBundleSource: legalConsent.legalBundleSource }
+      : {}),
   };
 }
 
-export function StepTermsAgreement({
-  terms,
-  onTermsChange,
+export function LegalConsentStep({
+  legalConsent,
+  onLegalConsentChange,
   onNext,
   onBack,
   refreshNonce = 0,
   notice,
-}: StepTermsAgreementProps) {
+}: LegalConsentStepProps) {
   const [error, setError] = useState('');
   const [bundleState, setBundleState] = useState<
     | { status: 'loading' }
@@ -85,11 +87,11 @@ export function StepTermsAgreement({
       }
   >({ status: 'loading' });
   const [viewingDocument, setViewingDocument] = useState<LegalDocumentResponse | null>(null);
-  const termsRef = useRef(terms);
+  const legalConsentRef = useRef(legalConsent);
 
   useEffect(() => {
-    termsRef.current = terms;
-  }, [terms]);
+    legalConsentRef.current = legalConsent;
+  }, [legalConsent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,17 +100,17 @@ export function StepTermsAgreement({
       if (cancelled) return;
 
       const nextAcceptances = toLegalAcceptances(result.bundle);
-      const currentTerms = normalizeTerms(termsRef.current);
+      const currentConsent = normalizeLegalConsent(legalConsentRef.current);
       const shouldResetChecks =
-        currentTerms.legalAcceptances !== undefined &&
-        !sameLegalAcceptances(currentTerms.legalAcceptances, nextAcceptances);
+        currentConsent.legalAcceptances !== undefined &&
+        !sameLegalAcceptances(currentConsent.legalAcceptances, nextAcceptances);
 
-      onTermsChange({
-        agreeAge: shouldResetChecks ? false : currentTerms.agreeAge,
-        agreeTerms: shouldResetChecks ? false : currentTerms.agreeTerms,
+      onLegalConsentChange({
+        agreeAge: shouldResetChecks ? false : currentConsent.agreeAge,
+        agreeTerms: shouldResetChecks ? false : currentConsent.agreeTerms,
         agreePersonalDataCollectionUse: shouldResetChecks
           ? false
-          : currentTerms.agreePersonalDataCollectionUse,
+          : currentConsent.agreePersonalDataCollectionUse,
         legalAcceptances: nextAcceptances,
         legalBundleSource: result.source,
       });
@@ -118,17 +120,17 @@ export function StepTermsAgreement({
     return () => {
       cancelled = true;
     };
-  }, [onTermsChange, refreshNonce]);
+  }, [onLegalConsentChange, refreshNonce]);
 
-  const normalizedTerms = normalizeTerms(terms);
+  const normalizedConsent = normalizeLegalConsent(legalConsent);
   const allAgreed =
-    normalizedTerms.agreeAge &&
-    normalizedTerms.agreeTerms &&
-    normalizedTerms.agreePersonalDataCollectionUse;
+    normalizedConsent.agreeAge &&
+    normalizedConsent.agreeTerms &&
+    normalizedConsent.agreePersonalDataCollectionUse;
 
   const handleAllAgree = (checked: boolean) => {
-    onTermsChange({
-      ...normalizedTerms,
+    onLegalConsentChange({
+      ...normalizedConsent,
       agreeAge: checked,
       agreeTerms: checked,
       agreePersonalDataCollectionUse: checked,
@@ -141,7 +143,7 @@ export function StepTermsAgreement({
       setError('필수 확인·동의 항목을 모두 체크해주세요.');
       return;
     }
-    if (!normalizedTerms.legalAcceptances) {
+    if (!normalizedConsent.legalAcceptances) {
       setError('최신 약관 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
       return;
     }
@@ -151,9 +153,9 @@ export function StepTermsAgreement({
   return (
     <div className="space-y-6">
       <StepHeader
-        icon={<FileText className="w-8 h-8 text-[var(--knu-primary)]" />}
-        title="약관 동의"
-        description="서비스 이용을 위한 약관에 동의해주세요"
+        icon={<FileText className="size-8 text-(--knu-primary)" />}
+        title="필수 동의 확인"
+        description="가입에 필요한 법적 안내와 동의 항목을 확인해주세요"
       />
 
       {notice && (
@@ -167,21 +169,27 @@ export function StepTermsAgreement({
 
       <div className="space-y-4">
         {bundleState.status === 'loading' ? (
-          <div role="status" className="rounded-2xl bg-(--knu-background-alt) p-5 text-sm">
-            최신 약관 정보를 불러오는 중입니다.
+          <div
+            role="status"
+            className="rounded-2xl bg-(--knu-background-alt) p-5 text-sm leading-6 text-(--knu-text-secondary)"
+          >
+            <p className="font-medium text-(--knu-text-primary)">
+              최신 동의 항목을 불러오는 중입니다.
+            </p>
+            <p className="mt-1">약관 정보가 준비되면 다음 단계로 이동할 수 있어요.</p>
           </div>
         ) : (
           <LegalConsentSummaryCard
             checks={{
-              agreeAge: normalizedTerms.agreeAge,
-              agreeTerms: normalizedTerms.agreeTerms,
-              agreePersonalDataCollectionUse: normalizedTerms.agreePersonalDataCollectionUse,
+              agreeAge: normalizedConsent.agreeAge,
+              agreeTerms: normalizedConsent.agreeTerms,
+              agreePersonalDataCollectionUse: normalizedConsent.agreePersonalDataCollectionUse,
             }}
             bundle={bundleState.bundle}
             source={bundleState.source}
             onToggleAll={handleAllAgree}
             onToggle={(field, checked) => {
-              onTermsChange({ ...normalizedTerms, [field]: checked });
+              onLegalConsentChange({ ...normalizedConsent, [field]: checked });
               if (checked) setError('');
             }}
             onOpenDocument={setViewingDocument}
@@ -190,7 +198,7 @@ export function StepTermsAgreement({
 
         <FieldError message={error} />
 
-        <p className="text-xs text-[var(--knu-text-tertiary)] mt-2 keep-all">
+        <p className="text-xs text-(--knu-text-tertiary) mt-2 keep-all">
           본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다. 약관의 운영 주체는
           강원대학교가 아닌 서비스 운영자 개인입니다.
         </p>

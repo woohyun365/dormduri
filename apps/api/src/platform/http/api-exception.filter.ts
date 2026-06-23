@@ -18,6 +18,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const normalized = normalizeApiError(exception);
     const path = request.originalUrl ?? request.url;
+    const retryAfterSeconds = resolveRetryAfterSeconds(response, normalized);
+    if (retryAfterSeconds !== undefined) {
+      setRetryAfterHeader(response, retryAfterSeconds);
+    }
 
     const body = {
       success: false as const,
@@ -27,6 +31,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       timestamp: new Date().toISOString(),
       path,
       ...normalized.extras,
+      ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
     };
 
     this.logException(request, normalized);
@@ -54,4 +59,43 @@ export class ApiExceptionFilter implements ExceptionFilter {
       // Metrics must never affect product error responses.
     }
   }
+}
+
+function resolveRetryAfterSeconds(
+  response: Response,
+  normalized: ReturnType<typeof normalizeApiError>,
+): number | undefined {
+  if (normalized.statusCode !== 429) return undefined;
+
+  const extrasRetryAfter = coercePositiveInteger(normalized.extras.retryAfterSeconds);
+  if (extrasRetryAfter !== undefined) return extrasRetryAfter;
+
+  return coercePositiveInteger(getRetryAfterHeader(response));
+}
+
+function getRetryAfterHeader(response: Response): unknown {
+  const readableResponse = response as unknown as { getHeader?: (name: string) => unknown };
+  return typeof readableResponse.getHeader === 'function'
+    ? readableResponse.getHeader('Retry-After')
+    : undefined;
+}
+
+function setRetryAfterHeader(response: Response, retryAfterSeconds: number): void {
+  const writableResponse = response as unknown as {
+    setHeader?: (name: string, value: number) => unknown;
+  };
+  if (typeof writableResponse.setHeader === 'function') {
+    writableResponse.setHeader('Retry-After', retryAfterSeconds);
+  }
+}
+
+function coercePositiveInteger(value: unknown): number | undefined {
+  const rawValue: unknown = Array.isArray(value) ? (value as readonly unknown[])[0] : value;
+  const numberValue = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+
+  if (!Number.isFinite(numberValue) || numberValue <= 0) {
+    return undefined;
+  }
+
+  return Math.ceil(numberValue);
 }

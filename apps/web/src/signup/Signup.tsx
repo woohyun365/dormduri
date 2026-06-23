@@ -2,25 +2,27 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthHeader } from '@/components/AuthHeader';
-import { ProgressBar } from '@/components/form/ProgressBar';
 import { StepEmailVerification } from './components/email-verification/StepEmailVerification';
-import { StepTermsAgreement, type TermsData } from './components/StepTermsAgreement';
-import { StepBasicInfo, type BasicInfoData } from './components/StepBasicInfo';
-import { StepSleepPattern } from './components/StepSleepPattern';
-import { StepLivingPattern } from './components/StepLivingPattern';
-import { StepRoommateConditions } from './components/StepRoommateConditions';
-import type { LifestyleData } from '@/types/lifestyle';
+import { LegalConsentStep, type LegalConsentData } from './components/LegalConsentStep';
+import { AccountIdentityStep, type BasicInfoData } from './components/AccountIdentityStep';
 import { StepComplete } from './components/StepComplete';
+import { SignupLayout } from './components/SignupLayout';
+import { SignupStepFrame } from './components/SignupStepFrame';
+import { SignupProgress } from './components/SignupProgress';
+import { SignupLoadingSkeleton } from './components/SignupLoadingSkeleton';
+import { SignupGlobalAlert } from './components/SignupGlobalAlert';
 import { authApi } from '@/api/auth';
+import { createSignupRequest } from './model/signup-request.mapper';
 import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
-import { AlertCircle } from 'lucide-react';
-import { Button } from '@/components/Button';
-import Link from 'next/link';
 import { focusAndScroll } from '@/utils/focus';
+import { useSignupDraftStorage } from './hooks/useSignupDraftStorage';
+import { SIGNUP_DRAFT_STORAGE_KEY } from './model/signup-draft-storage';
+import type { SignupDraftSnapshot } from './model/signup-draft.types';
+import { SIGNUP_STEP_COUNT } from './model/signup-flow.types';
 
-const TOTAL_STEPS = 7;
-const STORAGE_KEY = 'signup-draft';
+const TOTAL_STEPS = SIGNUP_STEP_COUNT;
+const ACCOUNT_IDENTITY_STEP = 3;
+const COMPLETE_STEP = SIGNUP_STEP_COUNT;
 
 export default function Signup() {
   const router = useRouter();
@@ -30,7 +32,7 @@ export default function Signup() {
 
   const [email, setEmail] = useState('');
   const [isEmailVerified, setIsEmailVerified] = useState(false);
-  const [terms, setTerms] = useState<TermsData>({
+  const [legalConsent, setLegalConsent] = useState<LegalConsentData>({
     agreeAge: false,
     agreeTerms: false,
     agreePersonalDataCollectionUse: false,
@@ -41,33 +43,9 @@ export default function Signup() {
     passwordConfirm: '',
     gender: null,
     campus: null,
+    collegeCode: null,
+    birthYear: null,
   });
-  const [intro, setIntro] = useState('');
-  const [lifestyle, setLifestyle] = useState<LifestyleData>({
-    bedtime: null,
-    wakeTime: null,
-    sleepHabit: null,
-    sleepEnvironment: null,
-    screenUsage: null,
-    noiseSensitivity: null,
-    smokingBehavior: null,
-    indoorEating: null,
-    phoneBehavior: null,
-    earphoneUsage: null,
-    cleanLevel: null,
-    drinkingFrequency: null,
-    relationshipStyle: null,
-    temperatureSensitivity: null,
-    smokingTolerance: null,
-    phoneTolerance: null,
-    earphoneExpectation: null,
-    sleepEnvPreference: null,
-    screenTolerance: null,
-    indoorEatingTolerance: null,
-    cleanExpectation: null,
-    drinkingTolerance: null,
-  });
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [legalNotice, setLegalNotice] = useState('');
@@ -76,94 +54,49 @@ export default function Signup() {
     null,
   );
 
-  const [isRestored, setIsRestored] = useState(false);
   const submitErrorRef = useRef<HTMLDivElement | null>(null);
 
-  // Restore from sessionStorage on mount
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const draft = JSON.parse(raw);
-        let step = draft.currentStep ?? 1;
-        if (step > 3) step = 3;
-        if (step > 1 && !draft.isEmailVerified) step = 1;
-        setCurrentStep(step);
-        if (draft.email) setEmail(draft.email);
-        if (draft.isEmailVerified) setIsEmailVerified(true);
-        if (draft.terms) {
-          setTerms({
-            agreeAge: Boolean(draft.terms.agreeAge),
-            agreeTerms: Boolean(draft.terms.agreeTerms),
-            agreePersonalDataCollectionUse: Boolean(
-              draft.terms.agreePersonalDataCollectionUse ?? draft.terms.agreePrivacy,
-            ),
-            ...(draft.terms.legalAcceptances
-              ? { legalAcceptances: draft.terms.legalAcceptances }
-              : {}),
-            ...(draft.terms.legalBundleSource
-              ? { legalBundleSource: draft.terms.legalBundleSource }
-              : {}),
-          });
-        }
-        setBasicInfo((prev) => ({
-          ...prev,
-          nickname: draft.nickname ?? '',
-          gender: draft.gender ?? null,
-          campus: draft.campus ?? null,
-        }));
-        if (draft.intro) setIntro(draft.intro);
-        if (draft.lifestyle) setLifestyle(draft.lifestyle);
-      }
-    } catch {
-      // Corrupted data — ignore
-    }
-    setIsRestored(true);
+  const handleDraftRestore = useCallback((draft: SignupDraftSnapshot) => {
+    setCurrentStep(draft.legacyCurrentStep);
+    if (draft.email) setEmail(draft.email);
+    if (draft.isEmailVerified) setIsEmailVerified(true);
+    setLegalConsent({
+      agreeAge: draft.terms.agreeAge,
+      agreeTerms: draft.terms.agreeTerms,
+      agreePersonalDataCollectionUse: draft.terms.agreePersonalDataCollectionUse,
+      ...(draft.terms.legalAcceptances ? { legalAcceptances: draft.terms.legalAcceptances } : {}),
+      ...(draft.terms.legalBundleSource
+        ? { legalBundleSource: draft.terms.legalBundleSource }
+        : {}),
+    });
+    setBasicInfo((prev) => ({
+      ...prev,
+      nickname: draft.nickname,
+      gender: draft.gender,
+      campus: draft.campus,
+      collegeCode: draft.collegeCode ?? null,
+      birthYear: draft.birthYear ?? null,
+    }));
   }, []);
 
-  // Save to sessionStorage on state changes
-  useEffect(() => {
-    if (!isRestored) return;
-    if (currentStep >= TOTAL_STEPS) {
-      try {
-        sessionStorage.removeItem(STORAGE_KEY);
-      } catch {
-        /* ignore */
-      }
-      return;
-    }
-    try {
-      sessionStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          currentStep,
-          email,
-          isEmailVerified,
-          terms,
-          nickname: basicInfo.nickname,
-          gender: basicInfo.gender,
-          campus: basicInfo.campus,
-          intro,
-          lifestyle,
-        }),
-      );
-    } catch {
-      // Storage full or unavailable
-    }
-  }, [isRestored, currentStep, email, isEmailVerified, terms, basicInfo, intro, lifestyle]);
+  const { isRestored } = useSignupDraftStorage({
+    currentStep,
+    email,
+    isEmailVerified,
+    terms: legalConsent,
+    nickname: basicInfo.nickname,
+    gender: basicInfo.gender,
+    campus: basicInfo.campus,
+    collegeCode: basicInfo.collegeCode,
+    birthYear: basicInfo.birthYear,
+    shouldClear: currentStep >= TOTAL_STEPS,
+    onRestore: handleDraftRestore,
+  });
 
   useEffect(() => {
     if (!submitError) return;
     focusAndScroll(submitErrorRef.current);
   }, [submitError]);
-
-  // Prevent mobile pull-to-refresh on body (scroll container)
-  useEffect(() => {
-    document.body.style.overscrollBehaviorY = 'none';
-    return () => {
-      document.body.style.overscrollBehaviorY = '';
-    };
-  }, []);
 
   const isVerificationExpiredError = submitError === '이메일 인증을 먼저 완료해주세요.';
 
@@ -190,20 +123,24 @@ export default function Signup() {
   const handleRestartEmailVerification = () => {
     setSubmitError('');
     setIsEmailVerified(false);
-    setResumeStepAfterVerification(6);
+    setResumeStepAfterVerification(ACCOUNT_IDENTITY_STEP);
     setCurrentStep(1);
     window.scrollTo(0, 0);
   };
 
-  const handleTermsChange = useCallback((nextTerms: TermsData) => {
-    setTerms(nextTerms);
-    if (nextTerms.agreeAge || nextTerms.agreeTerms || nextTerms.agreePersonalDataCollectionUse) {
+  const handleLegalConsentChange = useCallback((nextConsent: LegalConsentData) => {
+    setLegalConsent(nextConsent);
+    if (
+      nextConsent.agreeAge ||
+      nextConsent.agreeTerms ||
+      nextConsent.agreePersonalDataCollectionUse
+    ) {
       setLegalNotice('');
     }
   }, []);
 
   const handleLegalAcceptancesStale = () => {
-    setTerms({
+    setLegalConsent({
       agreeAge: false,
       agreeTerms: false,
       agreePersonalDataCollectionUse: false,
@@ -216,27 +153,29 @@ export default function Signup() {
     window.scrollTo(0, 0);
   };
 
-  const handleSignupSubmit = async () => {
-    if (!terms.legalAcceptances) {
+  const handleSignupSubmit = async (nextBasicInfo = basicInfo) => {
+    if (!legalConsent.legalAcceptances) {
       handleLegalAcceptancesStale();
       return;
     }
 
+    setBasicInfo(nextBasicInfo);
     setIsSubmitting(true);
     setSubmitError('');
     try {
-      const result = await authApi.signup({
+      const signupRequest = createSignupRequest({
         email,
-        password: basicInfo.password,
-        nickname: basicInfo.nickname,
-        gender: basicInfo.gender!,
-        campus: basicInfo.campus!,
-        legalAcceptances: terms.legalAcceptances,
-        lifestyle,
-        intro,
+        password: nextBasicInfo.password,
+        nickname: nextBasicInfo.nickname,
+        gender: nextBasicInfo.gender!,
+        campus: nextBasicInfo.campus!,
+        collegeCode: nextBasicInfo.collegeCode!,
+        birthYear: nextBasicInfo.birthYear!,
+        legalAcceptances: legalConsent.legalAcceptances,
       });
+      const result = await authApi.signup(signupRequest);
       if (result.success) {
-        setCurrentStep(7);
+        setCurrentStep(COMPLETE_STEP);
       } else if (result.code === 'AUTH_LEGAL_ACCEPTANCE_STALE') {
         handleLegalAcceptancesStale();
       } else {
@@ -250,45 +189,45 @@ export default function Signup() {
   };
 
   if (!isReadyToRender || !isRestored) {
-    return <div className="min-h-screen bg-white" />;
+    return <SignupLoadingSkeleton />;
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <AuthHeader
-        onLogoClick={() => {
-          const hasProgress = isEmailVerified || basicInfo.nickname || basicInfo.password;
-          if (hasProgress && currentStep < TOTAL_STEPS) {
-            const confirmed = confirm('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
-            if (!confirmed) return false;
-          }
-          try {
-            sessionStorage.removeItem(STORAGE_KEY);
-          } catch {
-            /* ignore */
-          }
-          return true;
-        }}
-      />
-
-      {currentStep < TOTAL_STEPS && (
-        <div className="bg-amber-50 border-b border-amber-200 px-5 py-2 text-center">
-          <p className="text-xs text-amber-800 keep-all">
-            본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.{' '}
-            <Link href="/terms" className="underline font-medium">
-              자세히 보기
-            </Link>
-          </p>
-        </div>
-      )}
-
-      <main className="mx-auto max-w-2xl px-5 py-8">
-        {currentStep < TOTAL_STEPS && (
-          <div className="mb-8">
-            <ProgressBar currentStep={currentStep} totalSteps={TOTAL_STEPS} />
-          </div>
-        )}
-
+    <SignupLayout
+      showServiceNotice={currentStep < TOTAL_STEPS}
+      onLogoClick={() => {
+        const hasProgress = isEmailVerified || basicInfo.nickname || basicInfo.password;
+        if (hasProgress && currentStep < TOTAL_STEPS) {
+          const confirmed = confirm('입력한 내용이 모두 사라집니다. 나가시겠습니까?');
+          if (!confirmed) return false;
+        }
+        try {
+          sessionStorage.removeItem(SIGNUP_DRAFT_STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+        return true;
+      }}
+    >
+      <SignupStepFrame
+        progress={
+          currentStep < TOTAL_STEPS ? (
+            <SignupProgress currentStep={currentStep} totalSteps={TOTAL_STEPS} />
+          ) : undefined
+        }
+        alert={
+          currentStep === ACCOUNT_IDENTITY_STEP && submitError ? (
+            <SignupGlobalAlert
+              ref={submitErrorRef}
+              message={submitError}
+              isVerificationExpiredError={isVerificationExpiredError}
+              isSubmitting={isSubmitting}
+              onRestartEmailVerification={handleRestartEmailVerification}
+              onRetry={() => handleSignupSubmit()}
+            />
+          ) : undefined
+        }
+      >
         {currentStep === 1 && (
           <StepEmailVerification
             email={email}
@@ -304,9 +243,9 @@ export default function Signup() {
           />
         )}
         {currentStep === 2 && (
-          <StepTermsAgreement
-            terms={terms}
-            onTermsChange={handleTermsChange}
+          <LegalConsentStep
+            legalConsent={legalConsent}
+            onLegalConsentChange={handleLegalConsentChange}
             onNext={handleNext}
             onBack={handleBack}
             refreshNonce={legalRefreshNonce}
@@ -314,74 +253,22 @@ export default function Signup() {
           />
         )}
         {currentStep === 3 && (
-          <StepBasicInfo
-            email={email}
-            basicInfo={basicInfo}
-            onBasicInfoChange={setBasicInfo}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        )}
-        {currentStep === 4 && (
-          <StepSleepPattern
-            lifestyle={lifestyle}
-            onUpdate={(field, value) => setLifestyle((prev) => ({ ...prev, [field]: value }))}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        )}
-        {currentStep === 5 && (
-          <StepLivingPattern
-            lifestyle={lifestyle}
-            onUpdate={(field, value) => setLifestyle((prev) => ({ ...prev, [field]: value }))}
-            onNext={handleNext}
-            onBack={handleBack}
-          />
-        )}
-        {currentStep === 6 && (
           <>
-            {submitError && (
-              <div
-                ref={submitErrorRef}
-                tabIndex={-1}
-                role="alert"
-                className="mb-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3"
-              >
-                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-sm text-red-900 font-medium mb-3">{submitError}</p>
-                  {isVerificationExpiredError ? (
-                    <Button variant="outline" size="lg" onClick={handleRestartEmailVerification}>
-                      이메일 다시 인증하기
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      onClick={handleSignupSubmit}
-                      disabled={isSubmitting}
-                    >
-                      {isSubmitting ? '처리 중...' : '다시 시도'}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-            <StepRoommateConditions
-              lifestyle={lifestyle}
-              onUpdate={(field, value) => setLifestyle((prev) => ({ ...prev, [field]: value }))}
-              intro={intro}
-              onIntroChange={setIntro}
+            <AccountIdentityStep
+              email={email}
+              basicInfo={basicInfo}
+              onBasicInfoChange={setBasicInfo}
               onNext={handleSignupSubmit}
               onBack={handleBack}
               disabled={isSubmitting}
+              nextLabel={isSubmitting ? '처리 중...' : '가입하기'}
             />
           </>
         )}
-        {currentStep === 7 && (
+        {currentStep === 4 && (
           <StepComplete nickname={basicInfo.nickname} onGoToHome={handleGoToHome} />
         )}
-      </main>
-    </div>
+      </SignupStepFrame>
+    </SignupLayout>
   );
 }
