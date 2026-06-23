@@ -1,10 +1,12 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Main from '../Main';
 import { seasonApi } from '@/api/season';
 import { profileApi } from '@/api/profile';
 import { homeApi } from '@/api/home';
+import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
 import type { UserProfile } from '@/types/profile';
 
 vi.mock('../components/BottomTabBar', () => ({
@@ -28,7 +30,14 @@ vi.mock('../components/MatchCelebrationModal', () => ({
 }));
 
 vi.mock('../tabs/home/HomeTab', () => ({
-  default: () => <section data-testid="main-home">home tab</section>,
+  default: ({ onOpenBuildingSelect }: { onOpenBuildingSelect?: () => void }) => (
+    <section data-testid="main-home">
+      home tab
+      <button type="button" onClick={onOpenBuildingSelect}>
+        기숙사 선택 시작
+      </button>
+    </section>
+  ),
 }));
 
 vi.mock('../tabs/roommate-list/RoommateListTab', () => ({
@@ -54,21 +63,6 @@ vi.mock('@/hooks/useOnboardingState', () => ({
     resetChecklist: vi.fn(),
     hasSeenTooltip: true,
     markTooltipSeen: vi.fn(),
-  }),
-}));
-
-vi.mock('../hooks/useMainProfileState', () => ({
-  useMainProfileState: (initialUser: UserProfile) => ({
-    user: initialUser,
-    showBuildingSelect: false,
-    setShowBuildingSelect: vi.fn(),
-    handleSelectDormitory: vi.fn(),
-    handleIntroChange: vi.fn(),
-    handleMessageChange: vi.fn(),
-    handleLifestyleChange: vi.fn(),
-    handleAdditionalChange: vi.fn(),
-    handleShowGuide: vi.fn(),
-    handleCloseGuide: vi.fn(),
   }),
 }));
 
@@ -149,26 +143,53 @@ describe('Main direct-action baseline', () => {
       daysUntilEnd: 14,
     });
     vi.spyOn(profileApi, 'getProfiles').mockResolvedValue([]);
+    vi.spyOn(homeApi, 'getDashboard').mockResolvedValue(createHomeDashboardFixture());
+    vi.spyOn(homeApi, 'getPastSeasons').mockResolvedValue([]);
     vi.spyOn(homeApi, 'getBuildingStats').mockResolvedValue(buildingStats);
     vi.spyOn(homeApi, 'getPastSeasonResult').mockResolvedValue(undefined);
-    vi.spyOn(homeApi, 'getPastSeasons').mockResolvedValue([]);
     vi.spyOn(homeApi, 'isNextSeasonRegistered').mockResolvedValue(false);
     vi.spyOn(homeApi, 'getUnreadMessages').mockResolvedValue(0);
   });
 
-  it('documents that Home currently auto-opens building selection for unassigned open-season users', async () => {
-    render(<Main initialUser={baseUser} />);
-
-    await screen.findByTestId('main-home');
-
-    expect(screen.getByRole('dialog', { name: '배정 건물 선택' })).toBeInTheDocument();
-  });
-
-  it.skip('target: Home entry does not force building selection; users start it through a direct CTA', async () => {
+  it('Home entry does not force building selection for unassigned open-season users', async () => {
     render(<Main initialUser={baseUser} />);
 
     await screen.findByTestId('main-home');
 
     expect(screen.queryByRole('dialog', { name: '배정 건물 선택' })).not.toBeInTheDocument();
+    expect(homeApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(homeApi.getBuildingStats).not.toHaveBeenCalled();
+    expect(homeApi.getPastSeasonResult).not.toHaveBeenCalled();
+    expect(homeApi.isNextSeasonRegistered).not.toHaveBeenCalled();
+    expect(homeApi.getUnreadMessages).not.toHaveBeenCalled();
+  });
+
+  it('opens building selection only after the explicit Home CTA', async () => {
+    const user = userEvent.setup();
+    render(<Main initialUser={baseUser} />);
+
+    await screen.findByTestId('main-home');
+    expect(screen.queryByRole('dialog', { name: '배정 건물 선택' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '기숙사 선택 시작' }));
+
+    expect(screen.getByRole('dialog', { name: '배정 건물 선택' })).toBeInTheDocument();
+  });
+
+  it('shows a retryable Home error state when the dashboard fetch fails', async () => {
+    const user = userEvent.setup();
+    vi.mocked(homeApi.getDashboard)
+      .mockRejectedValueOnce(new Error('raw upstream stack'))
+      .mockResolvedValueOnce(createHomeDashboardFixture());
+
+    render(<Main initialUser={baseUser} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('홈 정보를 불러오지 못했어요');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('raw upstream stack');
+
+    await user.click(screen.getByRole('button', { name: '다시 시도' }));
+
+    await screen.findByTestId('main-home');
+    expect(homeApi.getDashboard).toHaveBeenCalledTimes(2);
   });
 });

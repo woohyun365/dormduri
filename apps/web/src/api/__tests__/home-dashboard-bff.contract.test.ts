@@ -69,7 +69,7 @@ describe('home dashboard BFF contract', () => {
     });
   });
 
-  it('documents that legacy widget fallbacks remain isolated until Main migrates to dashboard', () => {
+  it('documents that legacy widget fallbacks remain isolated behind non-dashboard methods', () => {
     const source = readHomeApiSource();
 
     expect(source).toContain('/api/home/dashboard');

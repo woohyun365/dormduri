@@ -29,6 +29,7 @@ import type { TipSeasonStatus } from './DynamicTipBanner';
 import type { TabId, UserProfile, RoommateProfile, MatchingNavOptions } from '@/types/profile';
 import type { MatchRequest, ActiveMatch } from '@/types/match';
 import type { BuildingStats, PastSeasonResult } from '@/main/types/home';
+import type { HomeDashboardMatching } from '@repo/shared/home';
 
 interface HomeTabProps {
   user: UserProfile;
@@ -38,6 +39,7 @@ interface HomeTabProps {
   pastSeasonResult?: PastSeasonResult;
   isNextSeasonRegistered: boolean;
   unreadMessages: number;
+  dashboardMatching?: HomeDashboardMatching;
   onOpenBuildingSelect?: () => void;
   matchRequests: MatchRequest[];
   activeMatch: ActiveMatch | null;
@@ -61,6 +63,7 @@ export default function HomeTab({
   pastSeasonResult,
   isNextSeasonRegistered,
   unreadMessages,
+  dashboardMatching,
   onOpenBuildingSelect,
   matchRequests,
   activeMatch,
@@ -88,18 +91,28 @@ export default function HomeTab({
     );
     const conversations = matchRequests.filter((request) => request.status === 'IN_CONVERSATION');
 
-    const expiringCount = receivedPending.filter((request) => {
-      const remaining = new Date(request.expiresAt).getTime() - renderedAt;
-      return remaining > 0 && remaining <= 48 * 60 * 60 * 1000;
-    }).length;
+    const expiringCount = (dashboardMatching?.recentReceivedRequests ?? receivedPending).filter(
+      (request) => {
+        const remaining = new Date(request.expiresAt).getTime() - renderedAt;
+        return remaining > 0 && remaining <= 48 * 60 * 60 * 1000;
+      },
+    ).length;
 
-    const receivedRequesters = receivedPending
-      .map((request) => profiles.find((profile) => profile.id === request.fromUserId)?.nickname)
-      .filter((nickname): nickname is string => nickname != null);
+    const receivedRequesters = dashboardMatching
+      ? dashboardMatching.recentReceivedRequests
+          .map((request) => request.counterpartSummary.profileSummary.nickname)
+          .filter((nickname): nickname is string => nickname.length > 0)
+      : receivedPending
+          .map((request) => profiles.find((profile) => profile.id === request.fromUserId)?.nickname)
+          .filter((nickname): nickname is string => nickname != null);
 
     const overrides = readHomeMatchingSummaryOverrides();
-    const finalSent = overrides.sentRequests ?? sentPending.length;
-    const finalReceived = overrides.receivedRequests ?? receivedPending.length;
+    const finalSent =
+      overrides.sentRequests ?? dashboardMatching?.pendingSentCount ?? sentPending.length;
+    const finalReceived =
+      overrides.receivedRequests ??
+      dashboardMatching?.pendingReceivedCount ??
+      receivedPending.length;
     const finalChats = overrides.activeChats ?? conversations.length;
 
     let status: MatchingSummaryStatus;
@@ -129,7 +142,16 @@ export default function HomeTab({
         : undefined,
       receivedRequesters,
     };
-  }, [activeMatch, isCampusOperated, matchRequests, profiles, renderedAt, seasonState, user.id]);
+  }, [
+    activeMatch,
+    dashboardMatching,
+    isCampusOperated,
+    matchRequests,
+    profiles,
+    renderedAt,
+    seasonState,
+    user.id,
+  ]);
 
   const missingFields = getMissingOptionalFields(user);
   const optionalCompleted = 5 - missingFields.length;

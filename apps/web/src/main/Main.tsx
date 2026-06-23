@@ -19,16 +19,22 @@ import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
 import { useMainMatchingState } from './hooks/useMainMatchingState';
 import { useMainListViewState } from './hooks/useMainListViewState';
+import { useMainHomeDashboard } from './hooks/useMainHomeDashboard';
 import { UNASSIGNED_ID, isCampusOperated } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
 import { homeApi } from '@/api/home';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
+import {
+  hasUpcomingSeasonWindow,
+  toLegacyActiveMatch,
+  toLegacyBuildingStats,
+  toLegacySeasonContext,
+} from './tabs/home/model/homeDashboardLegacyAdapter';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
 import type { TabId, UserProfile, RoommateProfile, MatchingNavOptions } from '@/types/profile';
-import type { BuildingStats, PastSeasonResult } from './types/home';
 import type { PastSeasonData } from '@/types/match';
 
 export type { TabId, UserProfile } from '@/types/profile';
@@ -36,11 +42,7 @@ export type { TabId, UserProfile } from '@/types/profile';
 /** 서비스 레이어에서 로드하는 데이터 */
 interface MainData {
   profiles: Omit<RoommateProfile, 'matchScore'>[];
-  buildingStats: BuildingStats;
-  pastSeasonResult?: PastSeasonResult;
   pastSeasons: PastSeasonData[];
-  isNextSeasonRegistered: boolean;
-  unreadMessages: number;
   season: Season;
   isOpen: boolean;
   isMatching: boolean;
@@ -58,6 +60,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     return 'home';
   });
   const [data, setData] = useState<MainData | null>(null);
+  const homeDashboard = useMainHomeDashboard();
 
   const showToast = useCallback((msg: string) => toast(msg), []);
 
@@ -119,14 +122,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               dormitoryIdForFilter,
             );
 
-      const [buildingStats, pastSeasonResult, pastSeasons, isNextSeasonRegistered, unreadMessages] =
-        await Promise.all([
-          homeApi.getBuildingStats(profileState.user, profileResult),
-          homeApi.getPastSeasonResult(),
-          homeApi.getPastSeasons(),
-          homeApi.isNextSeasonRegistered(),
-          homeApi.getUnreadMessages(),
-        ]);
+      const pastSeasons = await homeApi.getPastSeasons();
 
       if (cancelled) return;
 
@@ -138,11 +134,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
       setData({
         profiles: profileResult,
-        buildingStats,
-        pastSeasonResult,
         pastSeasons,
-        isNextSeasonRegistered,
-        unreadMessages,
         season: season.season,
         isOpen: season.isOpen,
         isMatching: season.isMatching,
@@ -181,26 +173,31 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     );
   }
 
-  const seasonContextValue = {
+  const fallbackSeasonContext = {
     season: data.season,
     state: data.seasonState,
     isOpen: data.isOpen,
     isMatching: data.isMatching,
     daysUntilEnd: data.daysUntilEnd,
   };
-  const campusOperated = isCampusOperated(profileState.user.campus);
+  const seasonContextValue = toLegacySeasonContext(homeDashboard.dashboard, fallbackSeasonContext);
+  const campusOperated =
+    homeDashboard.dashboard?.viewer.campusOperated ?? isCampusOperated(profileState.user.campus);
   const featureFlags = getMainFeatureFlags({
     campusOperated,
-    isOpen: data.isOpen,
-    isMatching: data.isMatching,
+    isOpen: seasonContextValue.isOpen,
+    isMatching: seasonContextValue.isMatching,
   });
+  const homeActiveMatch = homeDashboard.dashboard
+    ? toLegacyActiveMatch(homeDashboard.dashboard)
+    : matchingState.activeMatch;
 
   return (
     <SeasonProvider value={seasonContextValue}>
       <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
         {campusOperated &&
-          (data.isOpen || data.isMatching) &&
-          (profileState.user.dormitoryId === null || profileState.showBuildingSelect) && (
+          (seasonContextValue.isOpen || seasonContextValue.isMatching) &&
+          profileState.showBuildingSelect && (
             <BuildingSelectModal
               campus={profileState.user.campus}
               gender={profileState.user.gender}
@@ -213,18 +210,31 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         {/* Conditional tab rendering */}
         <main>
           {activeTab === 'home' && (
-            <HomeTab
-              user={profileState.user}
-              onNavigate={handleNavigate}
-              profiles={data.profiles}
-              buildingStats={data.buildingStats}
-              pastSeasonResult={data.pastSeasonResult}
-              isNextSeasonRegistered={data.isNextSeasonRegistered}
-              unreadMessages={data.unreadMessages}
-              onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
-              matchRequests={matchingState.matchRequests}
-              activeMatch={matchingState.activeMatch}
-            />
+            <>
+              {homeDashboard.loading && <HomeTabSkeleton />}
+              {!homeDashboard.loading && homeDashboard.error && (
+                <HomeDashboardErrorState
+                  message={homeDashboard.error}
+                  refreshing={homeDashboard.refreshing}
+                  onRetry={homeDashboard.refetch}
+                />
+              )}
+              {!homeDashboard.loading && !homeDashboard.error && homeDashboard.dashboard && (
+                <HomeTab
+                  user={profileState.user}
+                  onNavigate={handleNavigate}
+                  profiles={data.profiles}
+                  buildingStats={toLegacyBuildingStats(homeDashboard.dashboard.stats)}
+                  pastSeasonResult={undefined}
+                  isNextSeasonRegistered={hasUpcomingSeasonWindow(homeDashboard.dashboard)}
+                  unreadMessages={homeDashboard.dashboard.matching.unreadMessageCount}
+                  dashboardMatching={homeDashboard.dashboard.matching}
+                  onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
+                  matchRequests={matchingState.matchRequests}
+                  activeMatch={homeActiveMatch}
+                />
+              )}
+            </>
           )}
           {activeTab === 'list' && (
             <RoommateListTab
@@ -339,6 +349,40 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         />
       </div>
     </SeasonProvider>
+  );
+}
+
+function HomeDashboardErrorState({
+  message,
+  refreshing,
+  onRetry,
+}: {
+  message: string;
+  refreshing: boolean;
+  onRetry: () => Promise<void>;
+}) {
+  return (
+    <section className="min-h-[50vh] px-5 py-12">
+      <div
+        role="alert"
+        className="max-w-md mx-auto rounded-2xl border border-red-100 bg-white p-5 text-center shadow-sm"
+      >
+        <h2 className="text-base font-bold text-[var(--knu-text-primary)]">
+          홈 정보를 불러오지 못했어요
+        </h2>
+        <p className="mt-2 text-sm text-[var(--knu-text-secondary)]">{message}</p>
+        <button
+          type="button"
+          onClick={() => {
+            void onRetry();
+          }}
+          disabled={refreshing}
+          className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--knu-primary)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--knu-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {refreshing ? '다시 불러오는 중...' : '다시 시도'}
+        </button>
+      </div>
+    </section>
   );
 }
 
