@@ -43,6 +43,13 @@ export class CurrentUserViewService {
 
   async getCurrentUser(authUser: AuthenticatedUserContext): Promise<CurrentUserResponse> {
     const now = await this.prisma.getDatabaseNow();
+    return this.getCurrentUserAt(authUser, now);
+  }
+
+  async getCurrentUserAt(
+    authUser: AuthenticatedUserContext,
+    now: Date,
+  ): Promise<CurrentUserResponse> {
     const user = await this.currentUserQuery.getUserWithDisplayIdentity(authUser.id);
     return this.buildCurrentUserResponse(user, now);
   }

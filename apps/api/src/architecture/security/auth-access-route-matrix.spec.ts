@@ -1,5 +1,44 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RequestMethod } from '@nestjs/common';
+
+const typedSqlMocks = vi.hoisted(() => {
+  const typedSqlFactory = vi.fn(() => ({}));
+
+  return {
+    acquireTransactionAdvisoryLock: typedSqlFactory,
+    claimChatRealtimeOutboxEvents: typedSqlFactory,
+    claimNotificationOutboxEvents: typedSqlFactory,
+    claimRetentionArchiveJobs: typedSqlFactory,
+    claimRetentionReviewJobs: typedSqlFactory,
+    consumeVerificationCodeProof: typedSqlFactory,
+    disposeDueRetentionAccessLogs: typedSqlFactory,
+    findChatRealtimeOutboxRecipients: typedSqlFactory,
+    findChatRealtimeReplayCursor: typedSqlFactory,
+    findChatRealtimeReplayEvents: typedSqlFactory,
+    getActiveLoginLock: typedSqlFactory,
+    getActiveVerificationRecord: typedSqlFactory,
+    getCurrentTimestamp: typedSqlFactory,
+    getLatestVerifiedResetCode: typedSqlFactory,
+    getLatestVerifiedSignupCode: typedSqlFactory,
+    getMigrationBaselineHealth: typedSqlFactory,
+    getVerificationBackstopRetryAfterSeconds: typedSqlFactory,
+    getVerificationRetryAfterSeconds: typedSqlFactory,
+    lockActiveMatchRow: typedSqlFactory,
+    lockMatchRequestRow: typedSqlFactory,
+    markVerificationCodeVerified: typedSqlFactory,
+    pruneExpiredAuthSessions: typedSqlFactory,
+    pruneExpiredChatRealtimeOutboxEvents: typedSqlFactory,
+    pruneExpiredVerificationCodes: typedSqlFactory,
+    pruneOldAuthSecurityEvents: typedSqlFactory,
+    pruneOldLoginAttempts: typedSqlFactory,
+    pruneOldVerificationCodeRequestLogs: typedSqlFactory,
+    recordLoginFailure: typedSqlFactory,
+    recordVerificationCodeFailure: typedSqlFactory,
+  };
+});
+
+vi.mock('../../generated/prisma/sql.js', () => typedSqlMocks);
+
 import { AuthController } from '../../auth/auth.controller.js';
 import { AUTH_CAPABILITIES } from '../../auth/access/auth-capability.js';
 import {
@@ -12,6 +51,7 @@ import { ReportController } from '../../social-safety/reports/report.controller.
 import { BookmarkController } from '../../social-safety/bookmarks/bookmark.controller.js';
 import { DormitoriesController } from '../../dormitories/dormitories.controller.js';
 import { HealthController } from '../../health/health.controller.js';
+import { HomeDashboardController } from '../../home-dashboard/home-dashboard.controller.js';
 import { LegalController } from '../../legal/legal.controller.js';
 import { MatchesController } from '../../matches/matches.controller.js';
 import { NotificationsController } from '../../notifications/notifications.controller.js';
@@ -195,6 +235,14 @@ const expectedRoutes: ExpectedRoute[] = [
     path: 'health/auth',
     access: 'protected',
     capabilities: ['admin:operations:health:read'],
+  },
+  {
+    controller: HomeDashboardController,
+    handler: 'getDashboard',
+    method: RequestMethod.GET,
+    path: 'api/home/dashboard',
+    access: 'protected',
+    capabilities: [AUTH_CAPABILITIES.USER_READ_SELF],
   },
   {
     controller: SeasonsController,
