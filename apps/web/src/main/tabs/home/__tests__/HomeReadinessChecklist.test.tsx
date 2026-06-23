@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import {
   buildReadinessChecklistItems,
@@ -38,18 +38,18 @@ describe('HomeReadinessChecklist', () => {
     const userEventInstance = userEvent.setup();
     const onNavigate = vi.fn();
     const onOpenBuildingSelect = vi.fn();
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       viewer: {
-        ...createHomeDashboardFixture().viewer,
+        ...createHomeDashboardTestResponse().viewer,
         selection: { state: 'NOT_SELECTED', dormitoryId: null, source: null },
         capabilities: {
-          ...createHomeDashboardFixture().viewer.capabilities,
+          ...createHomeDashboardTestResponse().viewer.capabilities,
           canCreateOrUpdateSeasonProfileDraft: true,
           canSelectDormitory: true,
           canEnterRoommateSearch: false,
         },
         seasonProfile: {
-          ...createHomeDashboardFixture().viewer.seasonProfile,
+          ...createHomeDashboardTestResponse().viewer.seasonProfile,
           registered: false,
           draftWritable: true,
           completion: {
@@ -84,7 +84,7 @@ describe('HomeReadinessChecklist', () => {
   });
 
   it('등록 완료 + 탐색 가능 상태는 완료 항목과 룸메 찾기 action을 함께 보여준다', () => {
-    const dashboard = createHomeDashboardFixture();
+    const dashboard = createHomeDashboardTestResponse();
     const items = buildReadinessChecklistItems({ dashboard, viewModel: buildViewModel(dashboard) });
 
     expect(items).toEqual(
@@ -98,7 +98,7 @@ describe('HomeReadinessChecklist', () => {
   });
 
   it('current season이 없으면 새 요청 CTA 대신 프로필 확인만 제안한다', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
         state: null,

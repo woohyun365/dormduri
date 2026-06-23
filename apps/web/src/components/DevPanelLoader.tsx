@@ -7,5 +7,6 @@ const DevPanel = dynamic(() => import('@/main/components/DevPanel').then((m) => 
 });
 
 export default function DevPanelLoader() {
+  if (process.env.NODE_ENV !== 'development') return null;
   return <DevPanel />;
 }

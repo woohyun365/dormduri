@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import { HomeOnboardingSheet } from '../components/HomeOnboardingSheet';
 import type { UserProfile } from '@/types/profile';
@@ -42,7 +42,7 @@ describe('HomeOnboardingSheet', () => {
     render(
       <HomeOnboardingSheet
         open
-        viewModel={buildViewModel(createHomeDashboardFixture())}
+        viewModel={buildViewModel(createHomeDashboardTestResponse())}
         onClose={vi.fn()}
         onDismissPermanently={onDismissPermanently}
         onNavigate={vi.fn()}
@@ -62,7 +62,7 @@ describe('HomeOnboardingSheet', () => {
     render(
       <HomeOnboardingSheet
         open
-        viewModel={buildViewModel(createHomeDashboardFixture())}
+        viewModel={buildViewModel(createHomeDashboardTestResponse())}
         onClose={onClose}
         onDismissPermanently={onDismissPermanently}
         onNavigate={vi.fn()}
@@ -81,7 +81,7 @@ describe('HomeOnboardingSheet', () => {
     render(
       <HomeOnboardingSheet
         open
-        viewModel={buildViewModel(createHomeDashboardFixture())}
+        viewModel={buildViewModel(createHomeDashboardTestResponse())}
         onClose={vi.fn()}
         onDismissPermanently={vi.fn()}
         onNavigate={vi.fn()}
@@ -100,17 +100,17 @@ describe('HomeOnboardingSheet', () => {
     const userEventInstance = userEvent.setup();
     const onClose = vi.fn();
     const onOpenBuildingSelect = vi.fn();
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       viewer: {
-        ...createHomeDashboardFixture().viewer,
+        ...createHomeDashboardTestResponse().viewer,
         selection: { state: 'NOT_SELECTED', dormitoryId: null, source: null },
         capabilities: {
-          ...createHomeDashboardFixture().viewer.capabilities,
+          ...createHomeDashboardTestResponse().viewer.capabilities,
           canSelectDormitory: true,
           canEnterRoommateSearch: false,
         },
         seasonProfile: {
-          ...createHomeDashboardFixture().viewer.seasonProfile,
+          ...createHomeDashboardTestResponse().viewer.seasonProfile,
           registered: false,
           completion: {
             profileCompletionRequired: false,

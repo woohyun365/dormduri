@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { HomeDashboardFetchError, homeApi } from '@/api/home';
 import { useMainHomeDashboard } from '../useMainHomeDashboard';
 
@@ -10,7 +10,7 @@ describe('useMainHomeDashboard', () => {
   });
 
   it('loads the home dashboard read model through homeApi.getDashboard', async () => {
-    const dashboard = createHomeDashboardFixture();
+    const dashboard = createHomeDashboardTestResponse();
     const getDashboard = vi.spyOn(homeApi, 'getDashboard').mockResolvedValue(dashboard);
 
     const { result } = renderHook(() => useMainHomeDashboard());
@@ -44,7 +44,7 @@ describe('useMainHomeDashboard', () => {
   });
 
   it('keeps the last successful dashboard while a retry fails with safe copy', async () => {
-    const dashboard = createHomeDashboardFixture();
+    const dashboard = createHomeDashboardTestResponse();
     const getDashboard = vi
       .spyOn(homeApi, 'getDashboard')
       .mockResolvedValueOnce(dashboard)

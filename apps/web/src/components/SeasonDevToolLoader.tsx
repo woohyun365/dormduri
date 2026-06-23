@@ -8,5 +8,6 @@ const HomeDevTool = dynamic(
 );
 
 export default function SeasonDevToolLoader() {
+  if (process.env.NODE_ENV !== 'development') return null;
   return <HomeDevTool />;
 }

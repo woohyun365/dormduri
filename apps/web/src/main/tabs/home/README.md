@@ -56,6 +56,7 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 | `components/BuildingStatsBar.tsx`, `components/DynamicTipBanner.tsx`      | season stats and contextual guide widgets                              |
 | `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry and static/dynamic guide copy               |
 | `model/`                                                                  | pure policy/view-model helpers and tests                               |
+| `../../test-support/home-dashboard.builder.ts`                            | Home/Main unit·component tests 전용 `HomeDashboardResponse` builder    |
 | `__tests__/`                                                              | component, state matrix, browser API fallback regression               |
 
 ## Error and security rule
@@ -91,13 +92,13 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 ## Playwright / browser smoke boundary
 
 현재 `apps/web/playwright.config.ts`는 Web-only standalone smoke를 위해 invalid local `API_URL`을 사용한다.
-Production-mode Web env guard는 local API upstream을 허용하지 않으므로, 로그인된 `/main` dashboard를 실제 browser에서 렌더링하려면 API server와 DB를 함께 띄우는 full-stack E2E fixture가 별도로 필요하다.
+Production-mode Web env guard는 local API upstream을 허용하지 않으므로, 로그인된 `/main` dashboard를 실제 browser에서 렌더링하려면 API server와 DB seed를 함께 띄우는 full-stack E2E가 별도로 필요하다.
 
 따라서 이번 Home refactor 범위의 browser evidence는 다음처럼 분리한다.
 
 - Web-only Playwright: public routes와 unauthenticated protected-route redirect를 검증한다.
-- Home logged-in behavior: Vitest component/hook/BFF route tests로 고정한다.
-- API-backed `/main` mobile/desktop smoke: full-stack E2E 후속 범위에서 다룬다.
+- Home logged-in behavior: Vitest component/hook/BFF route tests로 고정한다. 테스트 데이터는 `apps/web/src/main/test-support/home-dashboard.builder.ts`의 typed builder를 사용하고, runtime code는 `@/__fixtures__`를 직접 참조하지 않는다.
+- API-backed `/main` mobile/desktop smoke: full-stack E2E 후속 범위에서 DB seed 계정으로 다룬다.
 
 ## Handoff and follow-up boundary
 
@@ -106,3 +107,10 @@ Production-mode Web env guard는 local API upstream을 허용하지 않으므로
 - #244의 Home stale/error/security hardening은 Home scope에서 완료 후보다.
 - #243 RoommateList stale scope/filter UX, #245 Chat/Matching stale action reason UX, #108 broader timer/browser matrix는 Home Phase 8의 미완료 violation이 아니라 후속 범위다.
 - 로그인 사용자 full-stack Playwright, Safari/Firefox matrix, strict visual diff, BE mutation semantics 검증은 Web-only Home tab 마감 범위 밖이다.
+
+## Runtime fixture boundary
+
+- `/main` production runtime path는 `@/__fixtures__`를 direct/dynamic import하지 않는다.
+- `apps/web/src/__fixtures__` 아래 mock DB/matching service는 local development panel 또는 legacy unit test support 용도로만 남긴다.
+- Home dashboard unit/component tests는 global fixture data가 아니라 `main/test-support`의 typed builder로 shared contract shape만 만든다.
+- 실제 로그인 사용자 기준 browser/manual 검증은 DB seed 계정과 API server를 사용하는 Phase 8-4 full-stack smoke에서 다룬다.

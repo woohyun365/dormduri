@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import HomeTab from '../HomeTab';
-import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import type { UserProfile } from '@/types/profile';
 
 const baseLifestyle = {} as UserProfile['lifestyle'];
@@ -34,9 +34,9 @@ describe('HomeTab', () => {
       >
         <HomeTab
           user={baseUser}
-          dashboard={createHomeDashboardFixture({
+          dashboard={createHomeDashboardTestResponse({
             viewer: {
-              ...createHomeDashboardFixture().viewer,
+              ...createHomeDashboardTestResponse().viewer,
               campusOperated: false,
             },
           })}

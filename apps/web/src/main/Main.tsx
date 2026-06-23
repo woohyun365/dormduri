@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
@@ -60,10 +60,10 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   const showToast = useCallback((msg: string) => toast(msg), []);
 
   // 매칭 탭 서브탭 네비게이트 옵션
-  const matchingNavRef = useRef<MatchingNavOptions>({});
+  const [matchingNavOptions, setMatchingNavOptions] = useState<MatchingNavOptions>({});
 
   const handleNavigate = useCallback((tab: TabId, options?: MatchingNavOptions) => {
-    matchingNavRef.current = tab === 'matching' && options ? options : {};
+    setMatchingNavOptions(tab === 'matching' && options ? options : {});
     setActiveTab(tab);
   }, []);
 
@@ -103,7 +103,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
       // SEASON_OPEN + SEASON_MATCHING → 동일 건물 격리
       // UNASSIGNED → 빈 배열 (정책: 건물 미선택 유저는 탐색 불가)
-      // 건물 통계는 Mock Service Snapshot에서 독립 제공
+      // 건물 통계와 matching 요약은 Home dashboard/API owner가 제공한다.
       const isUnassignedId = currentDormitoryId === UNASSIGNED_ID;
       const dormitoryIdForFilter =
         season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
@@ -120,12 +120,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
       const pastSeasons = await homeApi.getPastSeasons();
 
       if (cancelled) return;
-
-      // 시즌 종료 시 매칭 상태 초기화 (AC-B03)
-      if (season.state === 'OFF_SEASON') {
-        const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
-        getMockMatchingService().clearState();
-      }
 
       setData({
         profiles: profileResult,
@@ -270,8 +264,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onEndConversation={matchingState.handleEndConversation}
               onEndMatch={matchingState.handleEndMatch}
               onNavigate={setActiveTab}
-              initialSection={matchingNavRef.current.section}
-              initialRequestTab={matchingNavRef.current.requestTab}
+              initialSection={matchingNavOptions.section}
+              initialRequestTab={matchingNavOptions.requestTab}
             />
           )}
           {activeTab === 'profile' && (

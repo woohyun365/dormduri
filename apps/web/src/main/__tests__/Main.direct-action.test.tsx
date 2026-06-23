@@ -6,7 +6,7 @@ import Main from '../Main';
 import { seasonApi } from '@/api/season';
 import { profileApi } from '@/api/profile';
 import { homeApi } from '@/api/home';
-import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import type { UserProfile } from '@/types/profile';
 
 vi.mock('../components/BottomTabBar', () => ({
@@ -143,7 +143,7 @@ describe('Main direct-action baseline', () => {
       daysUntilEnd: 14,
     });
     vi.spyOn(profileApi, 'getProfiles').mockResolvedValue([]);
-    vi.spyOn(homeApi, 'getDashboard').mockResolvedValue(createHomeDashboardFixture());
+    vi.spyOn(homeApi, 'getDashboard').mockResolvedValue(createHomeDashboardTestResponse());
     vi.spyOn(homeApi, 'getPastSeasons').mockResolvedValue([]);
     vi.spyOn(homeApi, 'getBuildingStats').mockResolvedValue(buildingStats);
     vi.spyOn(homeApi, 'getPastSeasonResult').mockResolvedValue(undefined);
@@ -180,7 +180,7 @@ describe('Main direct-action baseline', () => {
     const user = userEvent.setup();
     vi.mocked(homeApi.getDashboard)
       .mockRejectedValueOnce(new Error('raw upstream stack'))
-      .mockResolvedValueOnce(createHomeDashboardFixture());
+      .mockResolvedValueOnce(createHomeDashboardTestResponse());
 
     render(<Main initialUser={baseUser} />);
 

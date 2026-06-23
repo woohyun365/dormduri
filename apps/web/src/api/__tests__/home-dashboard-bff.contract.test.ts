@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { homeApi, HomeDashboardFetchError } from '../home';
 
 const HOME_API_SOURCE = resolve(process.cwd(), 'src/api/home.ts');
@@ -40,10 +40,10 @@ describe('home dashboard BFF contract', () => {
   });
 
   it('homeApi.getDashboard delegates to /api/home/dashboard with no-store and parses the shared contract', async () => {
-    const fixture = createHomeDashboardFixture();
-    const fetchMock = stubDashboardFetch(fixture);
+    const dashboard = createHomeDashboardTestResponse();
+    const fetchMock = stubDashboardFetch(dashboard);
 
-    await expect(homeApi.getDashboard()).resolves.toEqual(fixture);
+    await expect(homeApi.getDashboard()).resolves.toEqual(dashboard);
 
     expect(fetchMock).toHaveBeenCalledWith('/api/home/dashboard', {
       method: 'GET',

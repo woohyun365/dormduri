@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import { HomePrimaryStateCard } from '../components/HomePrimaryStateCard';
 import type { SeasonState } from '@/types/season';
@@ -25,7 +25,7 @@ const baseUser: UserProfile = {
 };
 
 function renderCard({
-  dashboard = createHomeDashboardFixture(),
+  dashboard = createHomeDashboardTestResponse(),
   seasonState = dashboard.season.state ?? 'OFF_SEASON',
   daysUntilEnd = dashboard.season.daysUntilMatchingEnd ?? 0,
   user = baseUser,
@@ -62,7 +62,7 @@ function renderCard({
 describe('HomePrimaryStateCard', () => {
   it('current season이 없으면 empty-success 상태와 프로필 CTA를 보여준다', async () => {
     const user = userEvent.setup();
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
         state: null,
@@ -86,12 +86,12 @@ describe('HomePrimaryStateCard', () => {
 
   it('시즌 오픈에서 건물 선택이 필요하면 명시 CTA로만 건물 선택을 연다', async () => {
     const user = userEvent.setup();
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       viewer: {
-        ...createHomeDashboardFixture().viewer,
+        ...createHomeDashboardTestResponse().viewer,
         selection: { state: 'NOT_SELECTED', dormitoryId: null, source: null },
         capabilities: {
-          ...createHomeDashboardFixture().viewer.capabilities,
+          ...createHomeDashboardTestResponse().viewer.capabilities,
           canSelectDormitory: true,
         },
       },
@@ -103,18 +103,18 @@ describe('HomePrimaryStateCard', () => {
   });
 
   it('시즌 매칭에서 건물 미배정이면 룸메 찾기가 아니라 건물 배정을 primary로 둔다', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       season: {
-        ...createHomeDashboardFixture().season,
+        ...createHomeDashboardTestResponse().season,
         state: 'SEASON_MATCHING',
         isOpen: false,
         isMatching: true,
       },
       viewer: {
-        ...createHomeDashboardFixture().viewer,
+        ...createHomeDashboardTestResponse().viewer,
         selection: { state: 'NOT_SELECTED', dormitoryId: null, source: null },
         capabilities: {
-          ...createHomeDashboardFixture().viewer.capabilities,
+          ...createHomeDashboardTestResponse().viewer.capabilities,
           canSelectDormitory: true,
         },
       },
@@ -130,18 +130,18 @@ describe('HomePrimaryStateCard', () => {
   });
 
   it('post-match에서는 신규 룸메 찾기 CTA 없이 결과 확인과 matched chat exception을 보여준다', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       season: {
-        ...createHomeDashboardFixture().season,
+        ...createHomeDashboardTestResponse().season,
         state: 'SEASON_POST_MATCH',
         isOpen: false,
         isMatching: false,
         isPostMatch: true,
       },
       viewer: {
-        ...createHomeDashboardFixture().viewer,
+        ...createHomeDashboardTestResponse().viewer,
         capabilities: {
-          ...createHomeDashboardFixture().viewer.capabilities,
+          ...createHomeDashboardTestResponse().viewer.capabilities,
           canStartChat: true,
         },
         match: {

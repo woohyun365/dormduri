@@ -1,6 +1,6 @@
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
-export function createHomeDashboardFixture(
+export function createHomeDashboardTestResponse(
   overrides: Partial<HomeDashboardResponse> = {},
 ): HomeDashboardResponse {
   const base: HomeDashboardResponse = {

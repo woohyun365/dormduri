@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import {
   buildHomeDashboardViewModel,
   toHomeActiveMatch,
@@ -72,7 +72,7 @@ function createReceivedRequest(overrides: Partial<MatchRequestSummary> = {}): Ma
 
 describe('homeDashboardViewModel', () => {
   it('maps dashboard season context without legacy widget calls', () => {
-    const dashboard = createHomeDashboardFixture();
+    const dashboard = createHomeDashboardTestResponse();
     const context = toHomeSeasonContext(dashboard, {
       season: { name: 'fallback', roomSelectionDate: '2099-01-01' },
       state: 'OFF_SEASON',
@@ -91,7 +91,7 @@ describe('homeDashboardViewModel', () => {
   });
 
   it('keeps fallback season context when dashboard has no current season', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
         state: null,
@@ -116,15 +116,15 @@ describe('homeDashboardViewModel', () => {
   });
 
   it('builds matching summary from dashboard counts and recent received request names', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       season: {
-        ...createHomeDashboardFixture().season,
+        ...createHomeDashboardTestResponse().season,
         state: 'SEASON_MATCHING',
         isOpen: false,
         isMatching: true,
       },
       matching: {
-        ...createHomeDashboardFixture().matching,
+        ...createHomeDashboardTestResponse().matching,
         pendingSentCount: 1,
         pendingReceivedCount: 1,
         recentReceivedRequests: [createReceivedRequest()],
@@ -153,9 +153,9 @@ describe('homeDashboardViewModel', () => {
   });
 
   it('uses dashboard selection as the Home building source of truth', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       viewer: {
-        ...createHomeDashboardFixture().viewer,
+        ...createHomeDashboardTestResponse().viewer,
         selection: {
           state: 'SELECTED',
           dormitoryId: 'dasan',
@@ -180,9 +180,9 @@ describe('homeDashboardViewModel', () => {
   });
 
   it('treats ASSIGNED dashboard selection as an assigned Home building state', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       viewer: {
-        ...createHomeDashboardFixture().viewer,
+        ...createHomeDashboardTestResponse().viewer,
         selection: {
           state: 'ASSIGNED',
           dormitoryId: 'dasan',
@@ -206,9 +206,9 @@ describe('homeDashboardViewModel', () => {
   });
 
   it('keeps not-operated campus status from masking as a no-building gate', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       viewer: {
-        ...createHomeDashboardFixture().viewer,
+        ...createHomeDashboardTestResponse().viewer,
         campusOperated: false,
         selection: {
           state: 'NOT_SELECTED',
@@ -234,7 +234,7 @@ describe('homeDashboardViewModel', () => {
   });
 
   it('closes next-season summary when dashboard has no current season schedule', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
         state: null,
@@ -266,16 +266,16 @@ describe('homeDashboardViewModel', () => {
   });
 
   it('keeps post-match stats focused on result-read summary counts', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       season: {
-        ...createHomeDashboardFixture().season,
+        ...createHomeDashboardTestResponse().season,
         state: 'SEASON_POST_MATCH',
         isOpen: false,
         isMatching: false,
         isPostMatch: true,
       },
       stats: {
-        ...createHomeDashboardFixture().stats,
+        ...createHomeDashboardTestResponse().stats,
         assignedParticipants: 190,
         totalMatchSuccess: 42,
         buildingMatchSuccess: 12,
@@ -296,9 +296,9 @@ describe('homeDashboardViewModel', () => {
   });
 
   it('maps active match summary to Home active match view state', () => {
-    const dashboard = createHomeDashboardFixture({
+    const dashboard = createHomeDashboardTestResponse({
       viewer: {
-        ...createHomeDashboardFixture().viewer,
+        ...createHomeDashboardTestResponse().viewer,
         match: {
           hasActiveMatch: true,
           activeMatch: {

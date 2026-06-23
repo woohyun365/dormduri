@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { createBffRequest, firstFetchInit, firstFetchInput, stubJsonFetch } from '@/test/bff-route';
 import { GET } from './route';
 
@@ -22,8 +22,8 @@ describe('home dashboard BFF route', () => {
   });
 
   it('cookie 인증을 Authorization으로 변환해서 upstream home dashboard를 no-store로 호출한다', async () => {
-    const fixture = createHomeDashboardFixture();
-    const fetchMock = stubJsonFetch(fixture);
+    const dashboard = createHomeDashboardTestResponse();
+    const fetchMock = stubJsonFetch(dashboard);
 
     const response = await GET(
       createBffRequest('/api/home/dashboard', {
@@ -36,7 +36,7 @@ describe('home dashboard BFF route', () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual(fixture);
+    await expect(response.json()).resolves.toEqual(dashboard);
     expect(firstFetchInput(fetchMock)).toBe('http://localhost:4000/api/home/dashboard');
     expect(firstFetchInit(fetchMock)).toMatchObject({
       method: 'GET',
@@ -106,7 +106,7 @@ describe('home dashboard BFF route', () => {
 
   it('public dashboard DTO 외 internal key가 섞이면 fail-closed한다', async () => {
     stubJsonFetch({
-      ...createHomeDashboardFixture(),
+      ...createHomeDashboardTestResponse(),
       internalAudit: { retentionState: 'hidden', secret: 'must-not-leak' },
     });
 
