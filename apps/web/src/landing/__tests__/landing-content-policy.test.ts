@@ -107,6 +107,17 @@ describe('landing content policy contract', () => {
     }
   });
 
+  it('keeps support boundary ids and reasons user-domain oriented instead of ticket jargon', () => {
+    const serializedLandingContent = JSON.stringify({
+      policy: LANDING_POLICY_COPY,
+      fallbackFaq: landingFallbackFaqItems,
+    });
+
+    expect(serializedLandingContent).toContain('faq_is_not_personal_support_request');
+    expect(serializedLandingContent).toContain('faq-personal-support-request-boundary');
+    expect(serializedLandingContent).not.toMatch(/support\s+ticket|faq_is_not_support_ticket/i);
+  });
+
   it('keeps section content policy links pointed at tracked policy ids', () => {
     const policyCopyIds = new Set<LandingPolicyCopyId>(LANDING_POLICY_COPY.map((copy) => copy.id));
 

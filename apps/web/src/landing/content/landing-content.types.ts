@@ -5,7 +5,7 @@ export type LandingPolicyCopyId =
   | 'lifestyle_survey_disclaimer'
   | 'profile_privacy_warning'
   | 'season_capability_boundary'
-  | 'faq_is_not_support_ticket';
+  | 'faq_is_not_personal_support_request';
 
 export type LandingPolicySurface = 'hero' | 'faq' | 'footer' | 'season' | 'trust' | 'support';
 

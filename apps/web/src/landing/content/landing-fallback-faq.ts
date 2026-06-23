@@ -69,15 +69,15 @@ export const landingFallbackFaqItems = [
     sortOrder: 50,
   },
   {
-    id: 'faq-not-support-ticket',
+    id: 'faq-personal-support-request-boundary',
     question: 'FAQ로 해결되지 않으면 어떻게 문의하나요?',
     answer:
       'FAQ는 공개 도움말입니다. 개인 계정, 시즌 참여, 신고, 이의신청처럼 본인 상황 확인이 필요한 문제는 로그인 후 문의 기능을 통해 별도로 접수해야 합니다.',
-    policyCopyIds: ['faq_is_not_support_ticket'],
+    policyCopyIds: ['faq_is_not_personal_support_request'],
     source: {
       path: 'docs/04_policy/official/support-communication.md',
       section: 'FAQ policy',
-      reason: 'FAQ는 support ticket을 대체하지 않고 개인 사건 결과를 포함하지 않는다.',
+      reason: 'FAQ는 개인 문의 접수를 대체하지 않고 개인 사건 결과를 포함하지 않는다.',
     },
     sortOrder: 60,
   },

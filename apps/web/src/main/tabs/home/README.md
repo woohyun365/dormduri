@@ -114,3 +114,5 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 - `apps/web/src/__fixtures__` 아래 mock DB/matching service는 local development panel 또는 legacy unit test support 용도로만 남긴다.
 - Home dashboard unit/component tests는 global fixture data가 아니라 `main/test-support`의 typed builder로 shared contract shape만 만든다.
 - 실제 로그인 사용자 기준 browser/manual 검증은 DB seed 계정과 API server를 사용하는 full-stack smoke에서 다룬다.
+- `src/main/tabs/home/__tests__/home-runtime-boundary.test.ts`는 production Home source에 global fixture,
+  test-support, story import가 섞이지 않는지 고정한다.

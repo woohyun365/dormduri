@@ -84,6 +84,9 @@ signup feature-local `api/` 아래로 옮기지 않는다.
 
 회원가입 성공으로 Step 4에 도달하면 draft는 삭제된다.
 복구 가능한 legacy step은 Step 3까지만 허용하고, 인증이 풀린 상태에서는 Step 1로 되돌린다.
+이전 브라우저 draft가 저장한 `terms.agreePrivacy`는 `model/signup-draft-storage.ts` parser에서만
+현재 `agreePersonalDataCollectionUse`로 복원한다.
+`LegalConsentStep` public component contract에는 이전 privacy checkbox compatibility field를 노출하지 않는다.
 
 ## Directory responsibility
 

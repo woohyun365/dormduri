@@ -58,6 +58,8 @@
 - `content/landing-fallback-faq.ts`는 지원 FAQ API가 실패했을 때 사용하는 비상 예비 안내만 소유한다. 같은 제품 경계 FAQ는 API 기본 seed에도 `LANDING` surface로 제공된다.
 - 예비 FAQ는 운영 FAQ의 기준 데이터가 아니며, 개인 문의/신고/이의신청 결과를 포함하지 않는다.
 - 예비 FAQ의 `question`과 `answer`는 일반 텍스트로 유지한다. raw HTML, markdown rendering, 내부 운영 key, retained payload 식별자는 포함하지 않는다.
+- Landing content ids와 source reason도 사용자 도메인에 맞춘 `personal_support_request` 경계를 사용한다.
+  내부 문구에 영문 ticket 중심의 운영자 용어를 새로 추가하지 않는다.
 - 화면 문구가 공식 정책과 충돌하면 공식 정책 문서를 우선하고 Landing 문구를 갱신한다. 시즌 오픈에서도 등록 완료 후 같은 기숙사 후보와 비매칭 직접 대화가 가능할 수 있지만, 매칭 요청·수락은 시즌 매칭 기간에만 열린다고 설명한다. 등록 완료 후 프로필·기숙사 선택 정보 잠금은 시즌 오픈과 시즌 매칭 모두에 적용되는 것으로 설명한다.
 
 ## Interaction and accessibility rule

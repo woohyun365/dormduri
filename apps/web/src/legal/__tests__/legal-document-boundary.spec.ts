@@ -61,6 +61,13 @@ describe('web legal document boundary', () => {
     expect(existsSync(join(webSrc, 'signup/components/StepTermsAgreement.tsx'))).toBe(false);
   });
 
+  it('signup legal component contract does not expose previous privacy consent compatibility', () => {
+    const legalConsentStepSource = readSource('signup/components/LegalConsentStep.tsx');
+
+    expect(legalConsentStepSource).not.toContain('@deprecated');
+    expect(legalConsentStepSource).not.toContain('agreePrivacy');
+  });
+
   it('public entry points expose user-facing legal links without internal planning copy', () => {
     const entrySources = [
       readSource('landing/components/LandingFooter.tsx'),

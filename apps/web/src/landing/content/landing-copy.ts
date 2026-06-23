@@ -272,8 +272,8 @@ export const landingSafetySupportItems = [
     icon: HelpCircle,
     iconColor: 'text-(--knu-primary)',
     title: 'FAQ는 공개 도움말',
-    description: getLandingPolicyCopy('faq_is_not_support_ticket').copy,
-    policyCopyIds: ['faq_is_not_support_ticket'],
+    description: getLandingPolicyCopy('faq_is_not_personal_support_request').copy,
+    policyCopyIds: ['faq_is_not_personal_support_request'],
   },
   {
     id: 'report-support',
@@ -282,7 +282,7 @@ export const landingSafetySupportItems = [
     title: '신고·문의는 별도 접수',
     description:
       '계정, 시즌 참여, 신고, 이의신청처럼 본인 상황 확인이 필요한 문제는 로그인 후 문의 기능으로 접수합니다.',
-    policyCopyIds: ['faq_is_not_support_ticket'],
+    policyCopyIds: ['faq_is_not_personal_support_request'],
   },
 ] as const satisfies readonly LandingIconCopyItem[];
 
