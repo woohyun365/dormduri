@@ -13,6 +13,9 @@ import { HomePrimaryStateCard } from './HomePrimaryStateCard';
 import { HomeStatsPanel } from './HomeStatsPanel';
 import { HomeActivityPanel } from './HomeActivityPanel';
 import { HomeStatusTip } from './HomeStatusTip';
+import { HomeReadinessChecklist } from './HomeReadinessChecklist';
+import { HomeOnboardingSheet } from './HomeOnboardingSheet';
+import { useHomeOnboardingNotice } from './hooks/useHomeOnboardingNotice';
 import { buildHomeDashboardViewModel } from './model/homeDashboardViewModel';
 import type { TabId, UserProfile, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
@@ -22,6 +25,7 @@ interface HomeTabProps {
   dashboard: HomeDashboardResponse;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   onOpenBuildingSelect?: () => void;
+  onDashboardRefresh?: () => Promise<void>;
 }
 
 export default function HomeTab({
@@ -29,9 +33,14 @@ export default function HomeTab({
   dashboard,
   onNavigate,
   onOpenBuildingSelect,
+  onDashboardRefresh,
 }: HomeTabProps) {
   const [renderedAt] = useState(() => Date.now());
   const { season, state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
+  const onboardingNotice = useHomeOnboardingNotice({
+    dashboard,
+    onDismissed: onDashboardRefresh,
+  });
   const viewModel = useMemo(
     () =>
       buildHomeDashboardViewModel({
@@ -160,10 +169,31 @@ export default function HomeTab({
                 onNavigateProfile={() => onNavigate('profile')}
               />
             }
-            tip={<HomeStatusTip viewModel={viewModel} seasonState={seasonState} />}
+            tip={
+              <>
+                <HomeReadinessChecklist
+                  dashboard={dashboard}
+                  viewModel={viewModel}
+                  onNavigate={onNavigate}
+                  onOpenBuildingSelect={onOpenBuildingSelect}
+                />
+                <HomeStatusTip viewModel={viewModel} seasonState={seasonState} />
+              </>
+            }
           />
         </div>
       </div>
+
+      <HomeOnboardingSheet
+        open={onboardingNotice.isOpen}
+        viewModel={viewModel}
+        dismissing={onboardingNotice.dismissing}
+        error={onboardingNotice.error}
+        onClose={onboardingNotice.closeForNow}
+        onDismissPermanently={onboardingNotice.dismissPermanently}
+        onNavigate={onNavigate}
+        onOpenBuildingSelect={onOpenBuildingSelect}
+      />
     </div>
   );
 }

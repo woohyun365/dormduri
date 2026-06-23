@@ -217,6 +217,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
                   dashboard={homeDashboard.dashboard}
                   onNavigate={handleNavigate}
                   onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
+                  onDashboardRefresh={homeDashboard.refetch}
                 />
               )}
             </>
