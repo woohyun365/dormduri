@@ -16,7 +16,7 @@ import {
   type HomeQuickAction,
   type HomeQuickActionIcon,
   type HomeQuickActionTarget,
-} from './model/homeActionPolicy';
+} from '../model/homeActionPolicy';
 
 interface HomeQuickMenuSectionProps {
   seasonState: SeasonState;
@@ -60,7 +60,7 @@ export function HomeQuickMenuSection({
 
   return (
     <div>
-      <h2 className="font-bold text-[var(--knu-text-primary)] mb-3">빠른 메뉴</h2>
+      <h2 className="font-bold text-(--knu-text-primary) mb-3">빠른 메뉴</h2>
       <div className="grid grid-cols-2 gap-3">
         {actions.map((action) => (
           <QuickActionCard
@@ -101,10 +101,10 @@ function QuickActionCard({ action, onClick }: { action: HomeQuickAction; onClick
       onClick={action.disabled ? undefined : onClick}
       disabled={Boolean(action.disabled)}
       aria-disabled={action.disabled ? 'true' : undefined}
-      className={`relative bg-white rounded-2xl border-2 border-[var(--knu-border)] p-4 text-left transition-all ${
+      className={`relative bg-white rounded-2xl border-2 border-(--knu-border) p-4 text-left transition-all ${
         action.disabled
           ? 'opacity-50 cursor-not-allowed'
-          : 'hover:border-[var(--knu-primary)] hover:shadow-sm'
+          : 'hover:border-(--knu-primary) hover:shadow-sm'
       }`}
     >
       <div
@@ -112,8 +112,8 @@ function QuickActionCard({ action, onClick }: { action: HomeQuickAction; onClick
       >
         <Icon className="w-5 h-5" />
       </div>
-      <h3 className="font-bold text-sm text-[var(--knu-text-primary)] mb-0.5">{action.label}</h3>
-      <p className="text-xs text-[var(--knu-text-tertiary)]">{action.description}</p>
+      <h3 className="font-bold text-sm text-(--knu-text-primary) mb-0.5">{action.label}</h3>
+      <p className="text-xs text-(--knu-text-tertiary)">{action.description}</p>
     </motion.button>
   );
 }

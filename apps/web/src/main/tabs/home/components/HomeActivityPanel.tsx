@@ -13,7 +13,7 @@ import { HomeMatchingSummary } from './HomeMatchingSummary';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { SeasonState } from '@/types/season';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
-import type { HomeDashboardViewModel } from './model/homeDashboardViewModel';
+import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
 interface HomeActivityPanelProps {
   viewModel: HomeDashboardViewModel;
@@ -129,21 +129,21 @@ function StaticActivityCard({
     <section className={sectionCard()} aria-labelledby="home-activity-title">
       <div className={sectionHeader}>
         <div>
-          <p className="text-xs font-bold text-[var(--knu-primary)] mb-1">{eyebrow}</p>
-          <h2 id="home-activity-title" className="font-bold text-[var(--knu-text-primary)]">
+          <p className="text-xs font-bold text-(--knu-primary) mb-1">{eyebrow}</p>
+          <h2 id="home-activity-title" className="font-bold text-(--knu-text-primary)">
             {title}
           </h2>
         </div>
-        <Icon className="w-5 h-5 text-[var(--knu-primary)]" aria-hidden="true" />
+        <Icon className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
       </div>
-      <p className="text-sm leading-relaxed text-[var(--knu-text-secondary)] mb-4">{body}</p>
+      <p className="text-sm leading-relaxed text-(--knu-text-secondary) mb-4">{body}</p>
       <div className="flex flex-col sm:flex-row gap-2">
         <motion.button
           type="button"
           onClick={onAction}
           whileHover={{ scale: 1.01 }}
           whileTap={{ scale: 0.98 }}
-          className="min-h-11 flex-1 rounded-xl bg-[var(--knu-background-alt)] hover:bg-gray-100 border border-[var(--knu-border)] px-4 py-2.5 text-sm font-bold text-[var(--knu-text-primary)] transition-colors flex items-center justify-center gap-2"
+          className="min-h-11 flex-1 rounded-xl bg-(--knu-background-alt) hover:bg-gray-100 border border-(--knu-border) px-4 py-2.5 text-sm font-bold text-(--knu-text-primary) transition-colors flex items-center justify-center gap-2"
         >
           <BarChart3 className="w-4 h-4" aria-hidden="true" />
           <span>{actionLabel}</span>
@@ -155,7 +155,7 @@ function StaticActivityCard({
             onClick={secondaryAction.onClick}
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
-            className="min-h-11 flex-1 rounded-xl bg-white hover:bg-[var(--knu-background-alt)] border border-[var(--knu-border)] px-4 py-2.5 text-sm font-bold text-[var(--knu-text-primary)] transition-colors flex items-center justify-center gap-2"
+            className="min-h-11 flex-1 rounded-xl bg-white hover:bg-(--knu-background-alt) border border-(--knu-border) px-4 py-2.5 text-sm font-bold text-(--knu-text-primary) transition-colors flex items-center justify-center gap-2"
           >
             <MessageCircle className="w-4 h-4" aria-hidden="true" />
             <span>{secondaryAction.label}</span>

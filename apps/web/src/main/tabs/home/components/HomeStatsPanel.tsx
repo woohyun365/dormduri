@@ -4,7 +4,7 @@ import { BarChart3, CheckCircle2, Users } from 'lucide-react';
 import { BuildingStatsBar } from './BuildingStatsBar';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { SeasonState } from '@/types/season';
-import type { HomeDashboardViewModel } from './model/homeDashboardViewModel';
+import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
 interface HomeStatsPanelProps {
   viewModel: HomeDashboardViewModel;
@@ -21,14 +21,14 @@ export function HomeStatsPanel({ viewModel, seasonState, daysUntilEnd }: HomeSta
     <section className={sectionCard('md:sticky md:top-4')} aria-labelledby="home-stats-title">
       <div className={sectionHeader}>
         <div>
-          <h2 id="home-stats-title" className="font-bold text-[var(--knu-text-primary)]">
+          <h2 id="home-stats-title" className="font-bold text-(--knu-text-primary)">
             시즌 통계
           </h2>
-          <p className="mt-1 text-xs text-[var(--knu-text-tertiary)]">
+          <p className="mt-1 text-xs text-(--knu-text-tertiary)">
             현재 시즌 참여 흐름을 안내용으로 보여드려요.
           </p>
         </div>
-        <BarChart3 className="w-5 h-5 text-[var(--knu-primary)]" aria-hidden="true" />
+        <BarChart3 className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
       </div>
       <BuildingStatsBar
         seasonState={seasonState}
@@ -66,12 +66,12 @@ function CompactStatsPanel({
     >
       <div className={sectionHeader}>
         <div>
-          <h2 id="home-compact-stats-title" className="font-bold text-[var(--knu-text-primary)]">
+          <h2 id="home-compact-stats-title" className="font-bold text-(--knu-text-primary)">
             {title}
           </h2>
-          <p className="mt-1 text-xs text-[var(--knu-text-tertiary)]">{helper}</p>
+          <p className="mt-1 text-xs text-(--knu-text-tertiary)">{helper}</p>
         </div>
-        <BarChart3 className="w-5 h-5 text-[var(--knu-primary)]" aria-hidden="true" />
+        <BarChart3 className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <StatCell
@@ -90,7 +90,7 @@ function CompactStatsPanel({
         />
       </div>
       {viewModel.dormitory && (
-        <p className="mt-3 text-xs text-[var(--knu-text-tertiary)]">
+        <p className="mt-3 text-xs text-(--knu-text-tertiary)">
           내 건물 {viewModel.dormitory.name} 기준 참여 {viewModel.statsBar.buildingCount}명
         </p>
       )}
@@ -114,16 +114,16 @@ function StatCell({
   const toneClass = tone === 'blue' ? 'bg-blue-50 text-blue-600' : 'bg-green-50 text-green-600';
 
   return (
-    <div className="rounded-xl border border-[var(--knu-border)] bg-[var(--knu-background-alt)] p-3">
-      <div className="flex items-center gap-1.5 text-xs text-[var(--knu-text-tertiary)] mb-2">
+    <div className="rounded-xl border border-(--knu-border) bg-(--knu-background-alt) p-3">
+      <div className="flex items-center gap-1.5 text-xs text-(--knu-text-tertiary) mb-2">
         <span className={`w-7 h-7 rounded-lg ${toneClass} flex items-center justify-center`}>
           <Icon className="w-4 h-4" aria-hidden="true" />
         </span>
         <span>{label}</span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-bold text-[var(--knu-text-primary)]">{value}</span>
-        <span className="text-sm text-[var(--knu-text-secondary)]">{unit}</span>
+        <span className="text-2xl font-bold text-(--knu-text-primary)">{value}</span>
+        <span className="text-sm text-(--knu-text-secondary)">{unit}</span>
       </div>
     </div>
   );

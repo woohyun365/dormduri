@@ -44,16 +44,19 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 
 ## Directory responsibility
 
-| File / directory                                                         | Responsibility                                                         |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| `HomeTab.tsx`                                                            | Home composition, dashboard view model 소비, section 조합, CTA routing |
-| `HomeDashboardLayout.tsx`                                                | mobile single-column / desktop two-column layout owner                 |
-| `HomePrimaryStateCard.tsx`                                               | 시즌·참여 상태별 primary next action card                              |
-| `HomeActivityPanel.tsx`, `HomeStatsPanel.tsx`, `HomeMatchingSummary.tsx` | dashboard summary and activity panels                                  |
-| `HomeReadinessChecklist.tsx`                                             | current-user capability와 registration 상태 기반 readiness checklist   |
-| `HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts`            | `service-intro` 안내 표시·닫기·영구 dismiss flow                       |
-| `model/`                                                                 | pure policy/view-model helpers and tests                               |
-| `__tests__/`                                                             | component, state matrix, browser API fallback regression               |
+| File / directory                                                          | Responsibility                                                         |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `HomeTab.tsx`                                                             | Home composition, dashboard view model 소비, section 조합, CTA routing |
+| `HomeDashboardLayout.tsx`                                                 | mobile single-column / desktop two-column layout owner                 |
+| `components/HomePrimaryStateCard.tsx`                                     | 시즌·참여 상태별 primary next action card                              |
+| `components/HomeActivityPanel.tsx`, `components/HomeStatsPanel.tsx`       | dashboard summary and activity panels                                  |
+| `components/HomeMatchingSummary.tsx`, `components/UrgentActionBanner.tsx` | matching/chat/request activity summary                                 |
+| `components/HomeReadinessChecklist.tsx`                                   | current-user capability와 registration 상태 기반 readiness checklist   |
+| `components/HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts`  | `service-intro` 안내 표시·닫기·영구 dismiss flow                       |
+| `components/BuildingStatsBar.tsx`, `components/DynamicTipBanner.tsx`      | season stats and contextual guide widgets                              |
+| `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry and static/dynamic guide copy               |
+| `model/`                                                                  | pure policy/view-model helpers and tests                               |
+| `__tests__/`                                                              | component, state matrix, browser API fallback regression               |
 
 ## Error and security rule
 

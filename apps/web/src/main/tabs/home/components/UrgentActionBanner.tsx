@@ -63,7 +63,7 @@ export function UrgentActionBanner({
             <motion.div
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ repeat: Infinity, duration: 2 }}
-              className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0"
+              className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center shrink-0"
             >
               <Clock className="w-5 h-5 text-white" />
             </motion.div>
@@ -71,7 +71,7 @@ export function UrgentActionBanner({
               <p className="font-bold text-sm">{req.nickname}님의 요청이 곧 만료돼요</p>
               <p className="text-xs opacity-90 mt-0.5">{req.hoursLeft}시간 후 만료</p>
             </div>
-            <ChevronRight className="w-5 h-5 opacity-80 flex-shrink-0" />
+            <ChevronRight className="w-5 h-5 opacity-80 shrink-0" />
           </div>
         </motion.button>
       ))}

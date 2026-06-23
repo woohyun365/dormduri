@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import type { SeasonState } from '@/types/season';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
-import type { HomeDashboardViewModel } from './model/homeDashboardViewModel';
+import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
 interface HomePrimaryStateCardProps {
   viewModel: HomeDashboardViewModel;
@@ -110,7 +110,7 @@ export function HomePrimaryStateCard({
     <motion.section
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white rounded-2xl border-2 border-[var(--knu-border)] keep-all overflow-hidden"
+      className="bg-white rounded-2xl border-2 border-(--knu-border) keep-all overflow-hidden"
       aria-labelledby="home-primary-state-title"
     >
       <div className={`bg-gradient-to-br ${tone.shell} border-b border-white/70 p-5`}>
@@ -131,11 +131,11 @@ export function HomePrimaryStateCard({
             </div>
             <h2
               id="home-primary-state-title"
-              className="text-xl font-extrabold leading-snug text-[var(--knu-text-primary)]"
+              className="text-xl font-extrabold leading-snug text-(--knu-text-primary)"
             >
               {content.title}
             </h2>
-            <p className="mt-2 text-sm leading-relaxed text-[var(--knu-text-secondary)]">
+            <p className="mt-2 text-sm leading-relaxed text-(--knu-text-secondary)">
               {content.body}
             </p>
           </div>
@@ -144,9 +144,7 @@ export function HomePrimaryStateCard({
 
       <div className="p-5 space-y-3">
         {content.helper && (
-          <p className="text-xs leading-relaxed text-[var(--knu-text-tertiary)]">
-            {content.helper}
-          </p>
+          <p className="text-xs leading-relaxed text-(--knu-text-tertiary)">{content.helper}</p>
         )}
         <div className="flex flex-col sm:flex-row gap-2">
           <ActionButton action={content.action} />
@@ -316,8 +314,8 @@ function ActionButton({ action }: { action: PrimaryAction }) {
   const Icon = action.icon;
   const className =
     variant === 'primary'
-      ? 'bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white shadow-sm shadow-blue-600/20'
-      : 'bg-white hover:bg-[var(--knu-background-alt)] text-[var(--knu-text-primary)] border border-[var(--knu-border)]';
+      ? 'bg-(--knu-primary) hover:bg-(--knu-primary-hover) text-white shadow-sm shadow-blue-600/20'
+      : 'bg-white hover:bg-(--knu-background-alt) text-(--knu-text-primary) border border-(--knu-border)';
 
   return (
     <motion.button

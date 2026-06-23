@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
-import { HomeOnboardingSheet } from '../HomeOnboardingSheet';
+import { HomeOnboardingSheet } from '../components/HomeOnboardingSheet';
 import type { UserProfile } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 

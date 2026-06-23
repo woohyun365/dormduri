@@ -4,7 +4,7 @@ import { Info, Lightbulb } from 'lucide-react';
 import { DynamicTipBanner } from './DynamicTipBanner';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { SeasonState } from '@/types/season';
-import type { HomeDashboardViewModel } from './model/homeDashboardViewModel';
+import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
 interface HomeStatusTipProps {
   viewModel: HomeDashboardViewModel;
@@ -16,8 +16,8 @@ export function HomeStatusTip({ viewModel, seasonState }: HomeStatusTipProps) {
     return (
       <section className={sectionCard()} data-testid="home-status-tip">
         <div className={sectionHeader}>
-          <h2 className="font-bold text-[var(--knu-text-primary)]">오늘의 안내</h2>
-          <Lightbulb className="w-5 h-5 text-[var(--knu-primary)]" aria-hidden="true" />
+          <h2 className="font-bold text-(--knu-text-primary)">오늘의 안내</h2>
+          <Lightbulb className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
         </div>
         <DynamicTipBanner
           seasonStatus={viewModel.tip.seasonStatus}
@@ -35,10 +35,10 @@ export function HomeStatusTip({ viewModel, seasonState }: HomeStatusTipProps) {
   return (
     <section className={sectionCard()} data-testid="home-status-tip">
       <div className={sectionHeader}>
-        <h2 className="font-bold text-[var(--knu-text-primary)]">이용 안내</h2>
-        <Info className="w-5 h-5 text-[var(--knu-primary)]" aria-hidden="true" />
+        <h2 className="font-bold text-(--knu-text-primary)">이용 안내</h2>
+        <Info className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
       </div>
-      <p className="text-sm leading-relaxed text-[var(--knu-text-secondary)]">{message}</p>
+      <p className="text-sm leading-relaxed text-(--knu-text-secondary)">{message}</p>
     </section>
   );
 }

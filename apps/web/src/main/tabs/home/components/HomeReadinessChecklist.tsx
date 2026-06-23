@@ -4,7 +4,7 @@ import { CheckCircle2, CircleAlert, CircleDashed } from 'lucide-react';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
-import type { HomeDashboardViewModel } from './model/homeDashboardViewModel';
+import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
 type ChecklistStatus = 'complete' | 'actionable' | 'locked';
 
@@ -38,12 +38,12 @@ export function HomeReadinessChecklist({
     <section className={sectionCard()} aria-labelledby="home-readiness-title">
       <div className={sectionHeader}>
         <div>
-          <p className="mb-1 text-xs font-bold text-[var(--knu-primary)]">준비 체크리스트</p>
-          <h2 id="home-readiness-title" className="font-bold text-[var(--knu-text-primary)]">
+          <p className="mb-1 text-xs font-bold text-(--knu-primary)">준비 체크리스트</p>
+          <h2 id="home-readiness-title" className="font-bold text-(--knu-text-primary)">
             다음 행동을 한눈에 확인해요
           </h2>
         </div>
-        <CheckCircle2 className="w-5 h-5 text-[var(--knu-primary)]" aria-hidden="true" />
+        <CheckCircle2 className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
       </div>
 
       <ol className="space-y-3">
@@ -172,7 +172,7 @@ function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () =
   const Icon = STATUS_ICON[item.status];
 
   return (
-    <li className="rounded-xl border border-[var(--knu-border)] bg-[var(--knu-background-alt)] p-3">
+    <li className="rounded-xl border border-(--knu-border) bg-(--knu-background-alt) p-3">
       <div className="flex items-start gap-3">
         <span
           className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${status.iconClass}`}
@@ -181,19 +181,19 @@ function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () =
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-bold text-[var(--knu-text-primary)]">{item.title}</h3>
+            <h3 className="text-sm font-bold text-(--knu-text-primary)">{item.title}</h3>
             <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.badgeClass}`}>
               {status.label}
             </span>
           </div>
-          <p className="mt-1 text-xs leading-relaxed text-[var(--knu-text-secondary)]">
+          <p className="mt-1 text-xs leading-relaxed text-(--knu-text-secondary)">
             {item.description}
           </p>
           {item.actionLabel && (
             <button
               type="button"
               onClick={onAction}
-              className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg bg-white px-3 text-xs font-bold text-[var(--knu-primary)] ring-1 ring-[var(--knu-border)] transition-colors hover:bg-blue-50"
+              className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg bg-white px-3 text-xs font-bold text-(--knu-primary) ring-1 ring-(--knu-border) transition-colors hover:bg-blue-50"
             >
               {item.actionLabel}
             </button>

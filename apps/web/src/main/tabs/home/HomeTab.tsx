@@ -7,14 +7,14 @@ import { getAvatarColor } from '@/utils/avatarColor';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { readHomeMatchingSummaryOverrides } from '@/main/utils/homeDevOverrides';
-import { HomeQuickMenuSection } from './HomeQuickMenuSection';
+import { HomeQuickMenuSection } from './components/HomeQuickMenuSection';
 import { HomeDashboardLayout } from './HomeDashboardLayout';
-import { HomePrimaryStateCard } from './HomePrimaryStateCard';
-import { HomeStatsPanel } from './HomeStatsPanel';
-import { HomeActivityPanel } from './HomeActivityPanel';
-import { HomeStatusTip } from './HomeStatusTip';
-import { HomeReadinessChecklist } from './HomeReadinessChecklist';
-import { HomeOnboardingSheet } from './HomeOnboardingSheet';
+import { HomePrimaryStateCard } from './components/HomePrimaryStateCard';
+import { HomeStatsPanel } from './components/HomeStatsPanel';
+import { HomeActivityPanel } from './components/HomeActivityPanel';
+import { HomeStatusTip } from './components/HomeStatusTip';
+import { HomeReadinessChecklist } from './components/HomeReadinessChecklist';
+import { HomeOnboardingSheet } from './components/HomeOnboardingSheet';
 import { useHomeOnboardingNotice } from './hooks/useHomeOnboardingNotice';
 import { buildHomeDashboardViewModel } from './model/homeDashboardViewModel';
 import type { TabId, UserProfile, MatchingNavOptions } from '@/types/profile';
@@ -59,7 +59,7 @@ export default function HomeTab({
     <div>
       <OfflineBanner />
 
-      <header className="bg-[var(--knu-primary)] text-white px-5 py-6">
+      <header className="bg-(--knu-primary) text-white px-5 py-6">
         <div className="max-w-md md:max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -114,10 +114,10 @@ export default function HomeTab({
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <ShieldAlert className="w-8 h-8 text-gray-400" />
               </div>
-              <p className="text-base font-bold text-[var(--knu-text-primary)] mb-1">
+              <p className="text-base font-bold text-(--knu-text-primary) mb-1">
                 서비스 운영 준비 중이에요!
               </p>
-              <p className="text-sm text-[var(--knu-text-secondary)]">조금만 기다려주세요.</p>
+              <p className="text-sm text-(--knu-text-secondary)">조금만 기다려주세요.</p>
             </div>
           </div>
         )}

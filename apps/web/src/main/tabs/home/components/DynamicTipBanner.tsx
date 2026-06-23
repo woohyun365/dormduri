@@ -211,7 +211,7 @@ export function DynamicTipBanner(props: DynamicTipBannerProps) {
             initial={{ scale: 0.8, rotate: -10 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
-            className="flex-shrink-0"
+            className="shrink-0"
           >
             <div
               className={`w-7 h-7 bg-gradient-to-br ${currentTip.iconBg} rounded-lg flex items-center justify-center`}
@@ -222,14 +222,14 @@ export function DynamicTipBanner(props: DynamicTipBannerProps) {
 
           {/* 텍스트 */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed whitespace-pre-line">
+            <p className="text-sm text-(--knu-text-secondary) leading-relaxed whitespace-pre-line">
               {currentTip.text}
             </p>
           </div>
 
           {/* Indicator dots (우측) */}
           {tips.length > 1 && (
-            <div className="flex items-center gap-1 flex-shrink-0 pt-0.5">
+            <div className="flex items-center gap-1 shrink-0 pt-0.5">
               {tips.map((_, index) => (
                 <motion.button
                   key={index}
@@ -241,7 +241,7 @@ export function DynamicTipBanner(props: DynamicTipBannerProps) {
                   }
                   className={`rounded-full transition-all ${
                     index === currentTipIndex % tips.length
-                      ? 'w-4 h-1.5 bg-[var(--knu-primary)]'
+                      ? 'w-4 h-1.5 bg-(--knu-primary)'
                       : 'w-1.5 h-1.5 bg-gray-300 hover:bg-gray-400'
                   }`}
                   whileHover={{ scale: 1.2 }}

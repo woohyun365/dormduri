@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { DynamicTipBanner } from '../DynamicTipBanner';
-import type { DynamicTipBannerProps } from '../DynamicTipBanner';
+import { DynamicTipBanner } from '../components/DynamicTipBanner';
+import type { DynamicTipBannerProps } from '../components/DynamicTipBanner';
 
 const defaultProps: DynamicTipBannerProps = {
   seasonStatus: 'SEASON_MATCHING',

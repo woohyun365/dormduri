@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createHomeDashboardFixture } from '@/__fixtures__/home-dashboard';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
-import { HomePrimaryStateCard } from '../HomePrimaryStateCard';
+import { HomePrimaryStateCard } from '../components/HomePrimaryStateCard';
 import type { SeasonState } from '@/types/season';
 import type { UserProfile } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';

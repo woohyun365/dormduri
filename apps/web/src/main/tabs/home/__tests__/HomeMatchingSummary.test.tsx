@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HomeMatchingSummary } from '../HomeMatchingSummary';
-import type { HomeMatchingSummaryProps } from '../HomeMatchingSummary';
+import { HomeMatchingSummary } from '../components/HomeMatchingSummary';
+import type { HomeMatchingSummaryProps } from '../components/HomeMatchingSummary';
 
 const defaultProps: HomeMatchingSummaryProps = {
   status: 'NO_ACTIVITY',

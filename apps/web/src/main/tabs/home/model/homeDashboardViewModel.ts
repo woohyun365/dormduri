@@ -12,8 +12,11 @@ import type { ActiveMatch } from '@/types/match';
 import type { UserProfile } from '@/types/profile';
 import type { SeasonState } from '@/types/season';
 import type { HomeDashboardResponse, HomeDashboardStats } from '@repo/shared/home';
-import type { MatchingSummaryActiveMatch, MatchingSummaryStatus } from '../HomeMatchingSummary';
-import type { TipSeasonStatus } from '../DynamicTipBanner';
+import type {
+  MatchingSummaryActiveMatch,
+  MatchingSummaryStatus,
+} from '../components/HomeMatchingSummary';
+import type { TipSeasonStatus } from '../components/DynamicTipBanner';
 
 export interface HomeMatchingSummaryOverrides {
   sentRequests?: number | null;

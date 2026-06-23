@@ -78,7 +78,7 @@ export function BuildingStatsBar({
           </div>
         </div>
 
-        <p className="text-xs text-[var(--knu-text-tertiary)] text-center mb-1">
+        <p className="text-xs text-(--knu-text-tertiary) text-center mb-1">
           주변에 룸메를 구하는 친구가 있다면 서비스를 공유해보세요!
         </p>
         <CopyLinkButton onClick={handleCopyLink} />
@@ -150,7 +150,7 @@ export function BuildingStatsBar({
               <span>내 건물</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
               <span className="text-sm font-bold text-amber-800">건물 미배정</span>
             </div>
           </div>
@@ -163,7 +163,7 @@ export function BuildingStatsBar({
       )}
 
       {/* 헬퍼 텍스트 + 링크 복사 */}
-      <p className="text-xs text-[var(--knu-text-tertiary)] text-center mb-1">
+      <p className="text-xs text-(--knu-text-tertiary) text-center mb-1">
         주변에 룸메를 구하는 친구가 있다면 서비스를 공유해보세요!
       </p>
       <CopyLinkButton onClick={handleCopyLink} />
@@ -268,7 +268,7 @@ function CopyLinkButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-center gap-1 text-xs font-medium text-[var(--knu-text-tertiary)] hover:text-[var(--knu-text-secondary)] py-2 transition-colors"
+      className="w-full flex items-center justify-center gap-1 text-xs font-medium text-(--knu-text-tertiary) hover:text-(--knu-text-secondary) py-2 transition-colors"
     >
       <span className="inline-flex items-center gap-1">
         <LinkIcon className="w-3 h-3" />

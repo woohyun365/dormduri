@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Building2, CheckCircle2, Search, Sparkles, UserRound, X } from 'lucide-react';
-import type { HomeDashboardViewModel } from './model/homeDashboardViewModel';
+import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 
 interface HomeOnboardingSheetProps {
@@ -130,7 +130,7 @@ export function HomeOnboardingSheet({
                 <p className="text-xs font-bold text-blue-700">처음 이용 안내</p>
                 <h2
                   id="home-onboarding-title"
-                  className="text-lg font-extrabold text-[var(--knu-text-primary)]"
+                  className="text-lg font-extrabold text-(--knu-text-primary)"
                 >
                   서비스 시작 전 알아두기
                 </h2>
@@ -140,7 +140,7 @@ export function HomeOnboardingSheet({
               ref={closeButtonRef}
               type="button"
               onClick={onClose}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/80 text-[var(--knu-text-secondary)] transition-colors hover:bg-white hover:text-[var(--knu-text-primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--knu-primary)]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/80 text-(--knu-text-secondary) transition-colors hover:bg-white hover:text-(--knu-text-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
               aria-label="서비스 안내 닫기"
             >
               <X className="h-5 w-5" aria-hidden="true" />
@@ -148,7 +148,7 @@ export function HomeOnboardingSheet({
           </div>
           <p
             id="home-onboarding-description"
-            className="text-sm leading-relaxed text-[var(--knu-text-secondary)]"
+            className="text-sm leading-relaxed text-(--knu-text-secondary)"
           >
             KNU 룸메는 시즌 상태에 따라 프로필 준비, 건물 선택, 룸메 탐색, 매칭 결과 확인을 순서대로
             안내해요. 홈에서는 지금 할 수 있는 행동만 직접 눌러 시작할 수 있어요.
@@ -164,16 +164,16 @@ export function HomeOnboardingSheet({
                   key={action.label}
                   type="button"
                   onClick={action.onClick}
-                  className="flex min-h-14 items-center gap-3 rounded-2xl border border-[var(--knu-border)] bg-[var(--knu-background-alt)] p-3 text-left transition-colors hover:border-[var(--knu-primary)] hover:bg-blue-50"
+                  className="flex min-h-14 items-center gap-3 rounded-2xl border border-(--knu-border) bg-(--knu-background-alt) p-3 text-left transition-colors hover:border-(--knu-primary) hover:bg-blue-50"
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[var(--knu-primary)] shadow-sm">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-(--knu-primary) shadow-sm">
                     <Icon className="h-4 w-4" aria-hidden="true" />
                   </span>
                   <span>
-                    <span className="block text-sm font-bold text-[var(--knu-text-primary)]">
+                    <span className="block text-sm font-bold text-(--knu-text-primary)">
                       {action.label}
                     </span>
-                    <span className="block text-xs leading-relaxed text-[var(--knu-text-tertiary)]">
+                    <span className="block text-xs leading-relaxed text-(--knu-text-tertiary)">
                       {action.description}
                     </span>
                   </span>
@@ -197,7 +197,7 @@ export function HomeOnboardingSheet({
             <button
               type="button"
               onClick={onClose}
-              className="min-h-11 rounded-xl border border-[var(--knu-border)] bg-white px-4 text-sm font-bold text-[var(--knu-text-secondary)] transition-colors hover:bg-[var(--knu-background-alt)]"
+              className="min-h-11 rounded-xl border border-(--knu-border) bg-white px-4 text-sm font-bold text-(--knu-text-secondary) transition-colors hover:bg-(--knu-background-alt)"
             >
               나중에 볼게요
             </button>
@@ -207,7 +207,7 @@ export function HomeOnboardingSheet({
                 void onDismissPermanently();
               }}
               disabled={dismissing}
-              className="min-h-11 rounded-xl bg-[var(--knu-primary)] px-4 text-sm font-bold text-white transition-colors hover:bg-[var(--knu-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-11 rounded-xl bg-(--knu-primary) px-4 text-sm font-bold text-white transition-colors hover:bg-(--knu-primary-hover) disabled:cursor-not-allowed disabled:opacity-60"
             >
               {dismissing ? '저장 중...' : '다시 보지 않기'}
             </button>

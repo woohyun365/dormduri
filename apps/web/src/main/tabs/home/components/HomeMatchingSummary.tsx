@@ -243,12 +243,12 @@ export function HomeMatchingSummary({
         className={sectionCard()}
       >
         <div className={sectionHeader}>
-          <h2 className="font-bold text-[var(--knu-text-primary)]">매칭 활동</h2>
-          <Lock className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+          <h2 className="font-bold text-(--knu-text-primary)">매칭 활동</h2>
+          <Lock className="w-5 h-5 text-(--knu-text-tertiary)" />
         </div>
         <div className={glassCard('amber', 'p-4 shadow-md')}>
           <div className="flex items-start gap-3 mb-3">
-            <div className="w-12 h-12 bg-amber-100/80 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-amber-100/80 rounded-full flex items-center justify-center shrink-0">
               <AlertTriangle className="w-6 h-6 text-amber-600" />
             </div>
             <div className="flex-1 min-w-0">
@@ -270,7 +270,7 @@ export function HomeMatchingSummary({
             <ChevronRight className="w-4 h-4" />
           </motion.button>
         </div>
-        <div className="mt-4 text-xs text-[var(--knu-text-tertiary)] text-center">
+        <div className="mt-4 text-xs text-(--knu-text-tertiary) text-center">
           💡 건물 배정 후 바로 매칭을 시작할 수 있어요!
         </div>
       </motion.div>
@@ -281,8 +281,8 @@ export function HomeMatchingSummary({
     <div className={sectionCard()}>
       {/* 헤더 */}
       <div className={sectionHeader}>
-        <h2 className="font-bold text-[var(--knu-text-primary)]">매칭 활동</h2>
-        <TrendingUp className="w-5 h-5 text-[var(--knu-primary)]" />
+        <h2 className="font-bold text-(--knu-text-primary)">매칭 활동</h2>
+        <TrendingUp className="w-5 h-5 text-(--knu-primary)" />
       </div>
 
       {/* 행동 유도 메시지 */}
@@ -292,7 +292,7 @@ export function HomeMatchingSummary({
           whileHover={isInactive ? undefined : { scale: 1.01 }}
           whileTap={isInactive ? undefined : { scale: 0.99 }}
           data-active-message-index={currentMessageIndex % messages.length}
-          className={`w-full mb-4 p-3 bg-[var(--knu-background-alt)] rounded-xl transition-colors ${
+          className={`w-full mb-4 p-3 bg-(--knu-background-alt) rounded-xl transition-colors ${
             isInactive ? 'cursor-default' : 'hover:bg-gray-100 cursor-pointer'
           }`}
         >
@@ -307,17 +307,15 @@ export function HomeMatchingSummary({
                   transition={{ duration: 0.3 }}
                   className="absolute inset-0 flex items-center gap-3"
                 >
-                  <currentMessage.icon
-                    className={`w-5 h-5 flex-shrink-0 ${currentMessage.iconColor}`}
-                  />
-                  <span className="text-sm font-medium text-[var(--knu-text-primary)] truncate">
+                  <currentMessage.icon className={`w-5 h-5 shrink-0 ${currentMessage.iconColor}`} />
+                  <span className="text-sm font-medium text-(--knu-text-primary) truncate">
                     {currentMessage.text}
                   </span>
                 </motion.div>
               </AnimatePresence>
             </div>
             {!isInactive && (
-              <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)] flex-shrink-0" />
+              <ChevronRight className="w-5 h-5 text-(--knu-text-tertiary) shrink-0" />
             )}
           </div>
 
@@ -328,7 +326,7 @@ export function HomeMatchingSummary({
                   key={index}
                   className={`rounded-full transition-all ${
                     index === currentMessageIndex % messages.length
-                      ? 'w-4 h-1.5 bg-[var(--knu-primary)]'
+                      ? 'w-4 h-1.5 bg-(--knu-primary)'
                       : 'w-1.5 h-1.5 bg-gray-300'
                   }`}
                 />
@@ -347,7 +345,7 @@ export function HomeMatchingSummary({
               onClick={() => onNavigate('matching', { requestTab: 'sent' })}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-amber-50 rounded-xl transition-colors group"
+              className="flex flex-col items-center p-3 bg-(--knu-background-alt) hover:bg-amber-50 rounded-xl transition-colors group"
             >
               <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                 <Clock className="w-5 h-5 text-amber-600" />
@@ -355,7 +353,7 @@ export function HomeMatchingSummary({
               <span className="text-xl font-bold text-amber-600">
                 {stats.sentRequests}/{maxPending}
               </span>
-              <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5 font-medium">
+              <span className="text-xs text-(--knu-text-tertiary) mt-0.5 font-medium">
                 보낸 요청
               </span>
               <span className="text-[10px] text-amber-600 mt-0.5">수락 대기 중</span>
@@ -377,7 +375,7 @@ export function HomeMatchingSummary({
               onClick={() => onNavigate('matching', { requestTab: 'received' })}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-purple-50 rounded-xl transition-colors group relative"
+              className="flex flex-col items-center p-3 bg-(--knu-background-alt) hover:bg-purple-50 rounded-xl transition-colors group relative"
             >
               {/* 펄스 (셀 전체) */}
               {stats.receivedRequests > 0 && (
@@ -395,7 +393,7 @@ export function HomeMatchingSummary({
                 value={stats.receivedRequests}
                 className="text-xl font-bold text-purple-600"
               />
-              <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5 font-medium">
+              <span className="text-xs text-(--knu-text-tertiary) mt-0.5 font-medium">
                 받은 요청
               </span>
               <span className="text-[10px] text-purple-600 mt-0.5">응답 필요</span>
@@ -415,15 +413,13 @@ export function HomeMatchingSummary({
               onClick={() => onNavigate('matching', { section: 'current' })}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex flex-col items-center p-3 bg-[var(--knu-background-alt)] hover:bg-teal-50 rounded-xl transition-colors group"
+              className="flex flex-col items-center p-3 bg-(--knu-background-alt) hover:bg-teal-50 rounded-xl transition-colors group"
             >
               <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                 <MessageCircle className="w-5 h-5 text-teal-600" />
               </div>
               <span className="text-xl font-bold text-teal-600">{stats.activeChats}</span>
-              <span className="text-xs text-[var(--knu-text-tertiary)] mt-0.5 font-medium">
-                대화 중
-              </span>
+              <span className="text-xs text-(--knu-text-tertiary) mt-0.5 font-medium">대화 중</span>
               <span className="text-[10px] text-teal-600 mt-0.5">진행 중</span>
             </motion.button>
           </div>
@@ -438,7 +434,7 @@ export function HomeMatchingSummary({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.25 }}
-                  className="absolute inset-0 text-xs text-[var(--knu-text-tertiary)]"
+                  className="absolute inset-0 text-xs text-(--knu-text-tertiary)"
                 >
                   💡 {internalTips[tipIndex % internalTips.length]}
                 </motion.p>
