@@ -68,6 +68,28 @@ describe('useHomeOnboardingNotice', () => {
     expect(result.current.error).toBeNull();
   });
 
+  it('dismiss 저장 성공 후 dashboard refetch가 실패해도 저장 실패로 표시하지 않는다', async () => {
+    const onDismissed = vi.fn(async () => {
+      throw new Error('raw refetch stack');
+    });
+    vi.mocked(currentUserApi.dismissOnboardingNotice).mockResolvedValue({} as never);
+    const { result } = renderHook(() =>
+      useHomeOnboardingNotice({ dashboard: createHomeDashboardFixture(), onDismissed }),
+    );
+
+    await act(async () => {
+      await result.current.dismissPermanently();
+    });
+
+    expect(currentUserApi.dismissOnboardingNotice).toHaveBeenCalledWith({
+      noticeKey: SERVICE_INTRO_NOTICE_KEY,
+    });
+    expect(onDismissed).toHaveBeenCalledOnce();
+    expect(result.current.isOpen).toBe(false);
+    expect(result.current.dismissing).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
   it('dismiss 저장 실패 시 raw error 대신 사용자용 오류를 유지하고 sheet를 열어둔다', async () => {
     vi.mocked(currentUserApi.dismissOnboardingNotice).mockRejectedValue(new Error('raw stack'));
     const { result } = renderHook(() =>

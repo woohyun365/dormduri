@@ -46,12 +46,19 @@ export function useHomeOnboardingNotice({
     setError(null);
     try {
       await currentUserApi.dismissOnboardingNotice({ noticeKey: SERVICE_INTRO_NOTICE_KEY });
-      setClosedForNow(true);
-      await onDismissed?.();
     } catch {
       setError(DISMISS_ERROR_MESSAGE);
-    } finally {
       setDismissing(false);
+      return;
+    }
+
+    setClosedForNow(true);
+    setDismissing(false);
+
+    try {
+      await onDismissed?.();
+    } catch {
+      // 저장은 이미 성공했으므로 refetch 실패를 dismiss 실패로 오해시키지 않는다.
     }
   }, [onDismissed]);
 

@@ -5,6 +5,17 @@ import { PATCH } from './route';
 
 const AUTH_TOKEN = `v1.session-user.${'a'.repeat(43)}`;
 
+function stubTextFetch(body: string, status = 200, contentType = 'text/plain') {
+  const fetchMock = vi.fn(async () => {
+    return new Response(body, {
+      status,
+      headers: { 'Content-Type': contentType },
+    });
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
 function makeCurrentUserResponse(
   overrides: Partial<CurrentUserResponse> = {},
 ): CurrentUserResponse {
@@ -146,6 +157,30 @@ describe('current-user onboarding BFF route', () => {
     await expect(response.json()).resolves.toEqual({
       success: false,
       code: 'BFF_UPSTREAM_SCHEMA_INVALID',
+    });
+  });
+
+  it('upstream non-json 응답은 body를 노출하지 않는 safe error로 변환한다', async () => {
+    stubTextFetch('raw upstream stack with cookie=must-not-leak', 200, 'text/html');
+
+    const response = await PATCH(createPatchRequest({ noticeKey: SERVICE_INTRO_NOTICE_KEY }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'BFF_UPSTREAM_NON_JSON_RESPONSE',
+    });
+  });
+
+  it('upstream malformed JSON 응답은 body를 노출하지 않는 safe error로 변환한다', async () => {
+    stubTextFetch('{"renewalToken":"must-not-leak"', 200, 'application/json');
+
+    const response = await PATCH(createPatchRequest({ noticeKey: SERVICE_INTRO_NOTICE_KEY }));
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      code: 'BFF_UPSTREAM_MALFORMED_JSON_RESPONSE',
     });
   });
 
