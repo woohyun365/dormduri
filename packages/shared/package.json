@@ -83,6 +83,10 @@
       "types": "./dist/legal/contract.d.ts",
       "default": "./dist/legal/contract.js"
     },
+    "./home": {
+      "types": "./dist/home/index.d.ts",
+      "default": "./dist/home/index.js"
+    },
     "./match": {
       "types": "./dist/match/index.d.ts",
       "default": "./dist/match/index.js"

@@ -145,6 +145,7 @@ describe('Main direct-action baseline', () => {
       state: 'SEASON_OPEN',
       isOpen: true,
       isMatching: false,
+      isPostMatch: false,
       daysUntilEnd: 14,
     });
     vi.spyOn(profileApi, 'getProfiles').mockResolvedValue([]);
