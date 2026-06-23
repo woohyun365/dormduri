@@ -2,12 +2,12 @@ import { useEffect } from 'react';
 import { Button } from '@/components/Button';
 import { CheckCircle, Info } from 'lucide-react';
 
-interface StepCompleteProps {
+interface SignupCompleteStepProps {
   nickname: string;
   onGoToHome: () => void;
 }
 
-export function StepComplete({ nickname, onGoToHome }: StepCompleteProps) {
+export function SignupCompleteStep({ nickname, onGoToHome }: SignupCompleteStepProps) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);

@@ -47,7 +47,7 @@ describe('web legal document boundary', () => {
 
   it('signup legal consent flow uses legal feature instead of legacy static modal/constants', () => {
     const signupSources = [
-      readSource('signup/Signup.tsx'),
+      readSource('signup/SignupPageClient.tsx'),
       readSource('signup/components/LegalConsentStep.tsx'),
     ];
 

@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { StepEmailVerification } from './components/email-verification/StepEmailVerification';
 import { LegalConsentStep, type LegalConsentData } from './components/LegalConsentStep';
 import { AccountIdentityStep, type BasicInfoData } from './components/AccountIdentityStep';
-import { StepComplete } from './components/StepComplete';
+import { SignupCompleteStep } from './components/SignupCompleteStep';
 import { SignupLayout } from './components/SignupLayout';
 import { SignupStepFrame } from './components/SignupStepFrame';
 import { SignupProgress } from './components/SignupProgress';
-import { SignupLoadingSkeleton } from './components/SignupLoadingSkeleton';
+import { SignupSkeleton } from './components/SignupSkeleton';
 import { SignupGlobalAlert } from './components/SignupGlobalAlert';
 import { authApi } from '@/api/auth';
 import { createSignupRequest } from './model/signup-request.mapper';
@@ -24,7 +24,7 @@ const TOTAL_STEPS = SIGNUP_STEP_COUNT;
 const ACCOUNT_IDENTITY_STEP = 3;
 const COMPLETE_STEP = SIGNUP_STEP_COUNT;
 
-export default function Signup() {
+export default function SignupPageClient() {
   const router = useRouter();
   const { isReadyToRender } = useRedirectIfAuthenticated();
 
@@ -189,7 +189,7 @@ export default function Signup() {
   };
 
   if (!isReadyToRender || !isRestored) {
-    return <SignupLoadingSkeleton />;
+    return <SignupSkeleton />;
   }
 
   return (
@@ -266,7 +266,7 @@ export default function Signup() {
           </>
         )}
         {currentStep === 4 && (
-          <StepComplete nickname={basicInfo.nickname} onGoToHome={handleGoToHome} />
+          <SignupCompleteStep nickname={basicInfo.nickname} onGoToHome={handleGoToHome} />
         )}
       </SignupStepFrame>
     </SignupLayout>

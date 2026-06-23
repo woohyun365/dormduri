@@ -1,6 +1,6 @@
 import { SignupLayout } from './SignupLayout';
 
-export function SignupLoadingSkeleton() {
+export function SignupSkeleton() {
   return (
     <SignupLayout showServiceNotice={false}>
       <div

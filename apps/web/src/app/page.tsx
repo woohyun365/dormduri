@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { createLandingMetadata } from './metadata';
 import { Suspense } from 'react';
-import Landing from '@/landing/Landing';
+import LandingPage from '@/landing/LandingPage';
 import {
   LandingDynamicFaqSection,
   LandingFaqSectionSkeleton,
@@ -13,7 +13,7 @@ export const metadata: Metadata = createLandingMetadata();
 
 export default function Home() {
   return (
-    <Landing
+    <LandingPage
       faqSection={
         <Suspense fallback={<LandingFaqSectionSkeleton />}>
           <LandingDynamicFaqSection />

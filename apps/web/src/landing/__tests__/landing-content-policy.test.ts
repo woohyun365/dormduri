@@ -12,7 +12,7 @@ import {
   LANDING_POLICY_LINKED_CONTENT_GROUPS,
   landingSeasonPolicyCards,
 } from '../content/landing-copy';
-import { landingProfilePreviewItems } from '../content/landing-preview-fixtures';
+import { landingProfilePreviewItems } from '../content/landing-profile-preview.examples';
 import type { LandingPolicyCopyId } from '../content/landing-content.types';
 
 const FORBIDDEN_PUBLIC_CONTENT_PATTERNS = [
@@ -136,7 +136,7 @@ describe('landing content policy contract', () => {
     expect(seasonOpenCard?.description).toContain('매칭 요청·수락은 시즌 매칭 기간에만 열립니다.');
   });
 
-  it('marks profile preview fixtures as examples instead of real users or guaranteed results', () => {
+  it('marks profile preview examples as examples instead of real users or guaranteed results', () => {
     expect(landingProfilePreviewItems.length).toBeGreaterThanOrEqual(2);
 
     for (const profile of landingProfilePreviewItems) {

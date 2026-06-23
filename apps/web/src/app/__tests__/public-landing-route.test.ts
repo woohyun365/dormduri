@@ -30,8 +30,8 @@ describe('public landing route boundary', () => {
   });
 
   it('root route는 public Landing shell을 직접 소유한다', () => {
-    expect(pageSource).toMatch(/@\/landing\/(LandingPage|Landing)|landing\/(LandingPage|Landing)/);
-    expect(pageSource).toMatch(/<Landing(Page)?\s*\/?/);
+    expect(pageSource).toContain('@/landing/LandingPage');
+    expect(pageSource).toMatch(/<LandingPage\s*\/?/);
   });
 
   it('Landing source는 인증 앱 shell skeleton을 직접 소유하지 않는다', () => {

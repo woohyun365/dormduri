@@ -10,11 +10,11 @@ import { LandingSafetySupportSection } from './sections/LandingSafetySupportSect
 import { LandingFaqSection } from './sections/LandingFaqSection';
 import { LandingFinalCtaSection } from './sections/LandingFinalCtaSection';
 
-interface LandingProps {
+interface LandingPageProps {
   faqSection?: ReactNode;
 }
 
-export default function Landing({ faqSection }: LandingProps = {}) {
+export default function LandingPage({ faqSection }: LandingPageProps = {}) {
   return (
     <div className="min-h-screen bg-white keep-all">
       <LandingHeader />

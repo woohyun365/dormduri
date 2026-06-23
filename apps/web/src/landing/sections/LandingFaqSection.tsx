@@ -1,6 +1,6 @@
 import { Section } from '../components/Section';
 import { FAQItem } from '../components/FAQItem';
-import { LandingFaqSkeleton } from '../components/LandingFaqSkeleton';
+import { LandingFaqSkeleton } from '../components/skeletons/LandingFaqSkeleton';
 import {
   getLandingFallbackFaqResult,
   getLandingFaqItems,

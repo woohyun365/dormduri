@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { LandingFaqSkeleton } from '../LandingFaqSkeleton';
+import { LandingFaqSkeleton } from '../skeletons/LandingFaqSkeleton';
 
 const readComponentSource = () =>
   readFileSync(
-    path.join(process.cwd(), 'src', 'landing', 'components', 'LandingFaqSkeleton.tsx'),
+    path.join(process.cwd(), 'src', 'landing', 'components', 'skeletons', 'LandingFaqSkeleton.tsx'),
     'utf8',
   );
 

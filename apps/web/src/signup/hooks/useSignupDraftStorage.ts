@@ -41,7 +41,7 @@ export function useSignupDraftStorage({
     if (draft) {
       onRestoreRef.current(draft);
     }
-    // sessionStorage restore gate: 기존 Signup shell은 draft 적용 전 빈 화면을 유지해야 한다.
+    // sessionStorage restore gate: 기존 SignupPageClient shell은 draft 적용 전 빈 화면을 유지해야 한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsRestored(true);
   }, [storageKey]);

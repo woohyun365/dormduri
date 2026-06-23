@@ -6,7 +6,7 @@ import { LandingSentenceText } from '../components/LandingSentenceText';
 import { ScrollToButton } from '../components/ScrollToButton';
 import { landingHeroCopy } from '../content/landing-copy';
 import { getLandingPolicyCopy } from '../content/landing-policy-copy';
-import { landingProfilePreviewItems } from '../content/landing-preview-fixtures';
+import { landingProfilePreviewItems } from '../content/landing-profile-preview.examples';
 
 export function LandingHeroSection() {
   return (

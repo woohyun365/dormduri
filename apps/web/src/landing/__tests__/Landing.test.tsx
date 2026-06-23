@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import Landing from '../Landing';
+import LandingPage from '../LandingPage';
 
 vi.mock('../components/LandingHeader', () => ({
   LandingHeader: () => <header data-testid="landing-header">Header</header>,
@@ -43,9 +43,9 @@ vi.mock('../sections/LandingFinalCtaSection', () => ({
   LandingFinalCtaSection: () => <section data-testid="final-cta">FinalCTA</section>,
 }));
 
-describe('Landing', () => {
+describe('LandingPage', () => {
   it('제품 서사 섹션이 올바른 순서로 렌더링된다', () => {
-    render(<Landing />);
+    render(<LandingPage />);
 
     const sections = [
       'landing-header',
@@ -79,7 +79,7 @@ describe('Landing', () => {
   });
 
   it('Header와 Footer가 각각 첫 번째와 마지막에 위치하고 본문은 main landmark 안에 있다', () => {
-    render(<Landing />);
+    render(<LandingPage />);
 
     const container = screen.getByTestId('landing-header').parentElement!;
     expect(container.firstElementChild).toBe(screen.getByTestId('landing-header'));

@@ -1,7 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { LEGAL_DOCUMENT_COPY, LEGAL_DOCUMENT_ROUTE_LABELS } from '../content/legal-copy';
-import type { LegalDocumentSource, LegalDocumentViewModel } from '../types/legal-document.types';
+import type { LegalDocumentSource, LegalDocumentViewModel } from '../model/legal-document.types';
 import { LegalDocumentActions } from './LegalDocumentActions';
 import { LegalDocumentBackButton } from './LegalDocumentBackButton';
 import { LegalDocumentSections } from './LegalDocumentSections';

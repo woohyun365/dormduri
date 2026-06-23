@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import Landing from '../Landing';
+import LandingPage from '../LandingPage';
 import { landingSectionHeadings } from '../content/landing-copy';
 import {
   LANDING_REQUIRED_POLICY_COPY_IDS,
@@ -43,7 +43,7 @@ beforeEach(() => {
 
 describe('landing visible policy copy', () => {
   it('핵심 정책 copy를 공개 화면에 노출한다', () => {
-    render(<Landing />);
+    render(<LandingPage />);
 
     for (const requiredId of LANDING_REQUIRED_POLICY_COPY_IDS) {
       const copy = getLandingPolicyCopy(requiredId);
@@ -52,7 +52,7 @@ describe('landing visible policy copy', () => {
   });
 
   it('첫 렌더에서 hero·정책 경계·CTA를 skeleton 없이 노출한다', () => {
-    const { container } = render(<Landing />);
+    const { container } = render(<LandingPage />);
 
     expect(
       screen.getByRole('heading', {
@@ -69,14 +69,14 @@ describe('landing visible policy copy', () => {
   });
 
   it('공개 화면에서 개발자 중심 용어를 노출하지 않는다', () => {
-    const { container } = render(<Landing />);
+    const { container } = render(<LandingPage />);
 
     expect(container.textContent).not.toMatch(/draft|scope|summary|capability|registration/i);
     expect(container.textContent).not.toMatch(/3-step flow|Product features|Safety & support/i);
   });
 
   it('섹션 heading과 preview disclaimer를 제품 서사 순서로 노출한다', () => {
-    render(<Landing />);
+    render(<LandingPage />);
 
     const headings = landingSectionHeadings.map((heading) => screen.getByText(new RegExp(heading)));
 

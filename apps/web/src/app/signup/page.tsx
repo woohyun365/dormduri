@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Signup from '@/signup/Signup';
+import SignupPageClient from '@/signup/SignupPageClient';
 
 export const metadata: Metadata = {
   title: 'KNU 룸메 - 회원가입',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function SignupPage() {
-  return <Signup />;
+  return <SignupPageClient />;
 }
