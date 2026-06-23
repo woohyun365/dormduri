@@ -65,7 +65,7 @@ describe('web legal document boundary', () => {
     const entrySources = [
       readSource('landing/components/LandingFooter.tsx'),
       readSource('login/Login.tsx'),
-      readSource('signup/Signup.tsx'),
+      readSource('signup/components/SignupLayout.tsx'),
     ];
 
     for (const source of entrySources) {
