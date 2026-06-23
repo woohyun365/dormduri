@@ -113,7 +113,7 @@ export function HomePrimaryStateCard({
       className="bg-white rounded-2xl border-2 border-(--knu-border) keep-all overflow-hidden"
       aria-labelledby="home-primary-state-title"
     >
-      <div className={`bg-gradient-to-br ${tone.shell} border-b border-white/70 p-5`}>
+      <div className={`bg-linear-to-br ${tone.shell} border-b border-white/70 p-5`}>
         <div className="flex items-start gap-4">
           <div
             className={`w-12 h-12 rounded-2xl ${tone.icon} flex items-center justify-center shrink-0`}

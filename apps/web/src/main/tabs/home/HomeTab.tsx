@@ -109,7 +109,7 @@ export default function HomeTab({
 
       <div className="relative">
         {!viewModel.isCampusOperated && (
-          <div className="absolute inset-0 z-10 backdrop-blur-[8px] bg-white/60 border border-white/30 flex items-center justify-center">
+          <div className="absolute inset-0 z-10 backdrop-blur-sm bg-white/60 border border-white/30 flex items-center justify-center">
             <div className="text-center px-8">
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <ShieldAlert className="w-8 h-8 text-gray-400" />
@@ -127,7 +127,7 @@ export default function HomeTab({
           inert={!viewModel.isCampusOperated}
           aria-hidden={!viewModel.isCampusOperated}
           className={
-            !viewModel.isCampusOperated ? 'pointer-events-none select-none grayscale-[50%]' : ''
+            !viewModel.isCampusOperated ? 'pointer-events-none select-none grayscale-50' : ''
           }
         >
           <HomeDashboardLayout

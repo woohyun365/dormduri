@@ -95,8 +95,8 @@ function generateMessages(
             iconColor: 'text-purple-600',
             text: (
               <>
-                <span className="inline-block max-w-[5rem] truncate align-bottom">{nickname}</span>
-                님 외 {stats.receivedRequests - 1}명이 매칭을 요청했어요
+                <span className="inline-block max-w-20 truncate align-bottom">{nickname}</span>님 외{' '}
+                {stats.receivedRequests - 1}명이 매칭을 요청했어요
               </>
             ),
           });
@@ -106,7 +106,7 @@ function generateMessages(
             iconColor: 'text-purple-600',
             text: (
               <>
-                <span className="inline-block max-w-[5rem] truncate align-bottom">{nickname}</span>
+                <span className="inline-block max-w-20 truncate align-bottom">{nickname}</span>
                 님이 매칭을 요청했어요
               </>
             ),

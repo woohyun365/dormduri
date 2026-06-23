@@ -120,7 +120,7 @@ export function HomeOnboardingSheet({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5"
       >
-        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-5">
+        <div className="bg-linear-to-br from-blue-50 to-cyan-50 p-5">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">

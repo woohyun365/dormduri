@@ -57,7 +57,7 @@ export function UrgentActionBanner({
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: index * 0.1 }}
           onClick={() => onNavigate('matching')}
-          className="w-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl p-4 text-white text-left hover:from-amber-600 hover:to-orange-600 transition-colors shadow-sm"
+          className="w-full bg-linear-to-r from-amber-500 to-orange-500 rounded-2xl p-4 text-white text-left hover:from-amber-600 hover:to-orange-600 transition-colors shadow-sm"
         >
           <div className="flex items-center gap-3">
             <motion.div

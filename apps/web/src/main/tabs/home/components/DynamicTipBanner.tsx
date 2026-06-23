@@ -195,7 +195,7 @@ export function DynamicTipBanner(props: DynamicTipBannerProps) {
   const Icon = currentTip.icon;
 
   return (
-    <div className="relative keep-all h-[3.5rem]">
+    <div className="relative keep-all h-14">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentTipIndex}
@@ -214,7 +214,7 @@ export function DynamicTipBanner(props: DynamicTipBannerProps) {
             className="shrink-0"
           >
             <div
-              className={`w-7 h-7 bg-gradient-to-br ${currentTip.iconBg} rounded-lg flex items-center justify-center`}
+              className={`w-7 h-7 bg-linear-to-br ${currentTip.iconBg} rounded-lg flex items-center justify-center`}
             >
               <Icon className={`w-4 h-4 ${currentTip.iconText}`} />
             </div>
