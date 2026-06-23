@@ -9,7 +9,7 @@
 - `DevPanel`과 `HomeDevTool`은 `process.env.NODE_ENV === 'development'`일 때만 loader가 렌더링하는 local-only surface다.
 - dev panel 내부의 `mock-db` / `mock-matching-service` 사용은 local scenario override 전용이며, Home/Main product correctness evidence로 사용하지 않는다.
 - Home/Main unit tests는 `test-support/*builder*`의 typed builders를 사용한다.
-- 로그인 사용자 mobile/desktop browser smoke는 API + DB seed 기반 full-stack Playwright 후속 phase에서 검증한다.
+- 로그인 사용자 mobile/desktop browser smoke는 `apps/web/playwright.fullstack.config.ts`의 API + DB seed 기반 full-stack Playwright lane에서 검증한다.
 
 ## Test-support rule
 

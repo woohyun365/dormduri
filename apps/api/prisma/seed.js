@@ -15,6 +15,7 @@ import {
   AUTH_FIXTURE_SEED_PASSWORD,
   AUTH_FIXTURE_USERS,
 } from './seed-data/fixtures/auth-fixture-users.js';
+import { seedHomeDashboardE2eFixtures } from './seed-data/fixtures/home-dashboard-e2e-fixtures.js';
 import { SEASON_FIXTURES } from './seed-data/fixtures/season-fixtures.js';
 import { getCollegeLabel } from '@repo/shared/college';
 import pg from 'pg';
@@ -24,6 +25,8 @@ const { Client } = pg;
 const DEFAULT_DATABASE_URL =
   'postgresql://postgres:postgres@localhost:5432/knu_roommate?schema=public';
 const DATABASE_URL = process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
+const DEFAULT_AUTH_FIXTURE_COLLEGE_CODE = 'IT';
+const DEFAULT_AUTH_FIXTURE_BIRTH_YEAR = 2002;
 
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
@@ -31,57 +34,6 @@ function normalizeEmail(email) {
 
 function normalizeNickname(nickname) {
   return nickname.trim().toLowerCase();
-}
-
-function toStoredBedtime(value) {
-  switch (value) {
-    case '22_24':
-      return 'BETWEEN_22_24';
-    case '24_02':
-      return 'BETWEEN_24_02';
-    default:
-      return value;
-  }
-}
-
-function toStoredWakeTime(value) {
-  switch (value) {
-    case '07_08':
-      return 'BETWEEN_07_08';
-    case '08_09':
-      return 'BETWEEN_08_09';
-    case '09_10':
-      return 'BETWEEN_09_10';
-    default:
-      return value;
-  }
-}
-
-function toStoredLifestyleColumns(lifestyle) {
-  return {
-    bedtime: toStoredBedtime(lifestyle.bedtime),
-    wakeTime: toStoredWakeTime(lifestyle.wakeTime),
-    sleepHabit: lifestyle.sleepHabit,
-    sleepEnvironment: lifestyle.sleepEnvironment,
-    screenUsage: lifestyle.screenUsage,
-    noiseSensitivity: lifestyle.noiseSensitivity,
-    smokingBehavior: lifestyle.smokingBehavior,
-    indoorEating: lifestyle.indoorEating,
-    phoneBehavior: lifestyle.phoneBehavior,
-    earphoneUsage: lifestyle.earphoneUsage,
-    cleanLevel: lifestyle.cleanLevel,
-    drinkingFrequency: lifestyle.drinkingFrequency,
-    relationshipStyle: lifestyle.relationshipStyle,
-    temperatureSensitivity: lifestyle.temperatureSensitivity,
-    smokingTolerance: lifestyle.smokingTolerance,
-    phoneTolerance: lifestyle.phoneTolerance,
-    earphoneExpectation: lifestyle.earphoneExpectation,
-    sleepEnvPreference: lifestyle.sleepEnvPreference,
-    screenTolerance: lifestyle.screenTolerance,
-    indoorEatingTolerance: lifestyle.indoorEatingTolerance,
-    cleanExpectation: lifestyle.cleanExpectation,
-    drinkingTolerance: lifestyle.drinkingTolerance,
-  };
 }
 
 function normalizeCollegeSeedValue(college) {
@@ -564,6 +516,54 @@ async function seedLegalDocuments(client) {
   }
 }
 
+async function seedUserAccountIdentities(
+  client,
+  { userId, nickname, nicknameNormalized, collegeCode, birthYear },
+) {
+  if (!collegeCode) {
+    throw new Error(`Auth fixture user requires college identity: ${userId}`);
+  }
+
+  await client.query(
+    `
+      INSERT INTO "UserDisplayIdentity" (
+        "userId",
+        nickname,
+        "nicknameNormalized",
+        "nicknameChangedAt",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES ($1, $2, $3, NULL, NOW(), NOW())
+      ON CONFLICT ("userId")
+      DO UPDATE SET
+        nickname = EXCLUDED.nickname,
+        "nicknameNormalized" = EXCLUDED."nicknameNormalized",
+        "updatedAt" = NOW()
+    `,
+    [userId, nickname, nicknameNormalized],
+  );
+
+  await client.query(
+    `
+      INSERT INTO "UserAcademicIdentity" (
+        "userId",
+        "collegeCode",
+        "birthYear",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES ($1, $2, $3, NOW(), NOW())
+      ON CONFLICT ("userId")
+      DO UPDATE SET
+        "collegeCode" = EXCLUDED."collegeCode",
+        "birthYear" = EXCLUDED."birthYear",
+        "updatedAt" = NOW()
+    `,
+    [userId, collegeCode, birthYear],
+  );
+}
+
 async function seedUsersData(client) {
   const passwordHash = await argonHash(AUTH_FIXTURE_SEED_PASSWORD, {
     algorithm: 2,
@@ -576,7 +576,10 @@ async function seedUsersData(client) {
   for (const seedUser of AUTH_FIXTURE_USERS) {
     const emailNormalized = normalizeEmail(seedUser.email);
     const nicknameNormalized = normalizeNickname(seedUser.nickname);
-    const collegeCode = normalizeCollegeSeedValue(seedUser.college ?? null);
+    const collegeCode = normalizeCollegeSeedValue(
+      seedUser.college ?? DEFAULT_AUTH_FIXTURE_COLLEGE_CODE,
+    );
+    const birthYear = seedUser.birthYear ?? DEFAULT_AUTH_FIXTURE_BIRTH_YEAR;
 
     const existing = await client.query(
       `
@@ -594,43 +597,8 @@ async function seedUsersData(client) {
       passwordHash,
       seedUser.gender,
       seedUser.campus,
-      seedUser.dormitoryId,
-      seedUser.dormitorySelectionState,
     ];
-
-    const storedLifestyle = toStoredLifestyleColumns(seedUser.lifestyle);
-    const profileValues = [
-      seedUser.nickname,
-      nicknameNormalized,
-      storedLifestyle.bedtime,
-      storedLifestyle.wakeTime,
-      storedLifestyle.sleepHabit,
-      storedLifestyle.sleepEnvironment,
-      storedLifestyle.screenUsage,
-      storedLifestyle.noiseSensitivity,
-      storedLifestyle.smokingBehavior,
-      storedLifestyle.indoorEating,
-      storedLifestyle.phoneBehavior,
-      storedLifestyle.earphoneUsage,
-      storedLifestyle.cleanLevel,
-      storedLifestyle.drinkingFrequency,
-      storedLifestyle.relationshipStyle,
-      storedLifestyle.temperatureSensitivity,
-      storedLifestyle.smokingTolerance,
-      storedLifestyle.phoneTolerance,
-      storedLifestyle.earphoneExpectation,
-      storedLifestyle.sleepEnvPreference,
-      storedLifestyle.screenTolerance,
-      storedLifestyle.indoorEatingTolerance,
-      storedLifestyle.cleanExpectation,
-      storedLifestyle.drinkingTolerance,
-      seedUser.intro,
-      seedUser.messageToRoommate ?? null,
-      collegeCode,
-      seedUser.grade ?? null,
-      seedUser.mbti ?? null,
-      seedUser.birthYear ?? null,
-    ];
+    const userId = existing.rows[0]?.id ?? randomUUID();
 
     if (existing.rowCount && existing.rows[0]?.id) {
       await client.query(
@@ -642,174 +610,40 @@ async function seedUsersData(client) {
             "passwordHash" = $3,
             gender = $4::"Gender",
             campus = $5::"Campus",
-            "dormitoryId" = $6,
-            "dormitorySelectionState" = $7::"DormitorySelectionState",
             "emailVerifiedAt" = NOW(),
+            "deletedAt" = NULL,
             "updatedAt" = NOW()
-          WHERE id = $8
+          WHERE id = $6
         `,
-        [...values, existing.rows[0].id],
+        [...values, userId],
       );
+    } else {
       await client.query(
         `
-          INSERT INTO "UserProfile" (
-            "userId",
-            nickname,
-            "nicknameNormalized",
-            bedtime,
-            "wakeTime",
-            "sleepHabit",
-            "sleepEnvironment",
-            "screenUsage",
-            "noiseSensitivity",
-            "smokingBehavior",
-            "indoorEating",
-            "phoneBehavior",
-            "earphoneUsage",
-            "cleanLevel",
-            "drinkingFrequency",
-            "relationshipStyle",
-            "temperatureSensitivity",
-            "smokingTolerance",
-            "phoneTolerance",
-            "earphoneExpectation",
-            "sleepEnvPreference",
-            "screenTolerance",
-            "indoorEatingTolerance",
-            "cleanExpectation",
-            "drinkingTolerance",
-            intro,
-            "messageToRoommate",
-            "collegeCode",
-            grade,
-            mbti,
-            "birthYear",
+          INSERT INTO "User" (
+            id,
+            email,
+            "emailNormalized",
+            "passwordHash",
+            gender,
+            campus,
+            "emailVerifiedAt",
             "createdAt",
             "updatedAt"
           )
-          VALUES (
-            $1, $2, $3,
-            $4::"LifestyleBedtime", $5::"LifestyleWakeTime", $6::"LifestyleSleepHabit", $7::"LifestyleSleepEnvironment",
-            $8::"LifestyleScreenUsage", $9::"LifestyleNoiseSensitivity", $10::"LifestyleSmokingBehavior", $11::"LifestyleIndoorEating",
-            $12::"LifestylePhoneBehavior", $13::"LifestyleEarphoneUsage", $14::"LifestyleCleanLevel", $15::"LifestyleDrinkingFrequency",
-            $16::"LifestyleRelationshipStyle", $17::"LifestyleTemperatureSensitivity", $18::"RoommateSmokingTolerance", $19::"RoommatePhoneTolerance",
-            $20::"RoommateEarphoneExpectation", $21::"RoommateSleepEnvPreference", $22::"RoommateScreenTolerance", $23::"RoommateIndoorEatingTolerance",
-            $24::"RoommateCleanExpectation", $25::"RoommateDrinkingTolerance",
-            $26, $27, $28, $29, $30, $31, NOW(), NOW()
-          )
-          ON CONFLICT ("userId")
-          DO UPDATE SET
-            nickname = EXCLUDED.nickname,
-            "nicknameNormalized" = EXCLUDED."nicknameNormalized",
-            bedtime = EXCLUDED.bedtime,
-            "wakeTime" = EXCLUDED."wakeTime",
-            "sleepHabit" = EXCLUDED."sleepHabit",
-            "sleepEnvironment" = EXCLUDED."sleepEnvironment",
-            "screenUsage" = EXCLUDED."screenUsage",
-            "noiseSensitivity" = EXCLUDED."noiseSensitivity",
-            "smokingBehavior" = EXCLUDED."smokingBehavior",
-            "indoorEating" = EXCLUDED."indoorEating",
-            "phoneBehavior" = EXCLUDED."phoneBehavior",
-            "earphoneUsage" = EXCLUDED."earphoneUsage",
-            "cleanLevel" = EXCLUDED."cleanLevel",
-            "drinkingFrequency" = EXCLUDED."drinkingFrequency",
-            "relationshipStyle" = EXCLUDED."relationshipStyle",
-            "temperatureSensitivity" = EXCLUDED."temperatureSensitivity",
-            "smokingTolerance" = EXCLUDED."smokingTolerance",
-            "phoneTolerance" = EXCLUDED."phoneTolerance",
-            "earphoneExpectation" = EXCLUDED."earphoneExpectation",
-            "sleepEnvPreference" = EXCLUDED."sleepEnvPreference",
-            "screenTolerance" = EXCLUDED."screenTolerance",
-            "indoorEatingTolerance" = EXCLUDED."indoorEatingTolerance",
-            "cleanExpectation" = EXCLUDED."cleanExpectation",
-            "drinkingTolerance" = EXCLUDED."drinkingTolerance",
-            intro = EXCLUDED.intro,
-            "messageToRoommate" = EXCLUDED."messageToRoommate",
-            "collegeCode" = EXCLUDED."collegeCode",
-            grade = EXCLUDED.grade,
-            mbti = EXCLUDED.mbti,
-            "birthYear" = EXCLUDED."birthYear",
-            "updatedAt" = NOW()
+          VALUES ($1, $2, $3, $4, $5::"Gender", $6::"Campus", NOW(), NOW(), NOW())
         `,
-        [existing.rows[0].id, ...profileValues],
+        [userId, ...values],
       );
-      continue;
     }
 
-    const userId = randomUUID();
-
-    await client.query(
-      `
-        INSERT INTO "User" (
-          id,
-          email,
-          "emailNormalized",
-          "passwordHash",
-          gender,
-          campus,
-          "dormitoryId",
-          "dormitorySelectionState",
-          "emailVerifiedAt",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES (
-          $1, $2, $3, $4, $5::"Gender", $6::"Campus", $7, $8::"DormitorySelectionState", NOW(), NOW(), NOW()
-        )
-      `,
-      [userId, ...values],
-    );
-
-    await client.query(
-      `
-        INSERT INTO "UserProfile" (
-          "userId",
-          nickname,
-          "nicknameNormalized",
-          bedtime,
-          "wakeTime",
-          "sleepHabit",
-          "sleepEnvironment",
-          "screenUsage",
-          "noiseSensitivity",
-          "smokingBehavior",
-          "indoorEating",
-          "phoneBehavior",
-          "earphoneUsage",
-          "cleanLevel",
-          "drinkingFrequency",
-          "relationshipStyle",
-          "temperatureSensitivity",
-          "smokingTolerance",
-          "phoneTolerance",
-          "earphoneExpectation",
-          "sleepEnvPreference",
-          "screenTolerance",
-          "indoorEatingTolerance",
-          "cleanExpectation",
-          "drinkingTolerance",
-          intro,
-          "messageToRoommate",
-          "collegeCode",
-          grade,
-          mbti,
-          "birthYear",
-          "createdAt",
-          "updatedAt"
-        )
-        VALUES (
-          $1, $2, $3,
-          $4::"LifestyleBedtime", $5::"LifestyleWakeTime", $6::"LifestyleSleepHabit", $7::"LifestyleSleepEnvironment",
-          $8::"LifestyleScreenUsage", $9::"LifestyleNoiseSensitivity", $10::"LifestyleSmokingBehavior", $11::"LifestyleIndoorEating",
-          $12::"LifestylePhoneBehavior", $13::"LifestyleEarphoneUsage", $14::"LifestyleCleanLevel", $15::"LifestyleDrinkingFrequency",
-          $16::"LifestyleRelationshipStyle", $17::"LifestyleTemperatureSensitivity", $18::"RoommateSmokingTolerance", $19::"RoommatePhoneTolerance",
-          $20::"RoommateEarphoneExpectation", $21::"RoommateSleepEnvPreference", $22::"RoommateScreenTolerance", $23::"RoommateIndoorEatingTolerance",
-          $24::"RoommateCleanExpectation", $25::"RoommateDrinkingTolerance",
-          $26, $27, $28, $29, $30, $31, NOW(), NOW()
-        )
-      `,
-      [userId, ...profileValues],
-    );
+    await seedUserAccountIdentities(client, {
+      userId,
+      nickname: seedUser.nickname,
+      nicknameNormalized,
+      collegeCode,
+      birthYear,
+    });
   }
 
   console.log('\n[seed] auth seed users ready');
@@ -840,6 +674,7 @@ async function seed() {
     await seedLegalDocuments(client);
     await seedSeasons(client);
     await seedUsersData(client);
+    await seedHomeDashboardE2eFixtures(client);
   } finally {
     await client.end();
   }

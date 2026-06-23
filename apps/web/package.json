@@ -14,7 +14,8 @@
     "typecheck:test": "tsc -p tsconfig.test.json --noEmit",
     "test:coverage": "pnpm --filter @repo/shared build && vitest run --coverage",
     "typecheck:e2e": "tsc -p tsconfig.e2e.json --noEmit",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:fullstack": "playwright test -c playwright.fullstack.config.ts"
   },
   "dependencies": {
     "@repo/shared": "workspace:*",

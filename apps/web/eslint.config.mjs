@@ -37,7 +37,12 @@ const eslintConfig = defineConfig([
   },
 
   {
-    files: ['playwright.config.ts', 'e2e/**/*.ts', 'tests/e2e/**/*.ts'],
+    files: [
+      'playwright.config.ts',
+      'playwright.fullstack.config.ts',
+      'e2e/**/*.ts',
+      'tests/e2e/**/*.ts',
+    ],
     languageOptions: {
       parserOptions: {
         projectService: false,
