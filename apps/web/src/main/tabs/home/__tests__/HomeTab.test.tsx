@@ -48,6 +48,6 @@ describe('HomeTab', () => {
     const content = screen.getByTestId('home-content');
     expect(content).toHaveAttribute('aria-hidden', 'true');
     expect(content).toHaveAttribute('inert');
-    expect(screen.getByText(/서비스 운영 준비 중이에요/)).toBeInTheDocument();
+    expect(screen.getByText('서비스 운영 준비 중이에요!')).toBeInTheDocument();
   });
 });

@@ -140,6 +140,7 @@ describe('homeDashboardViewModel', () => {
       renderedAt: new Date('2026-06-22T00:00:00.000Z').getTime(),
     });
 
+    expect(viewModel.hasCurrentSeason).toBe(true);
     expect(viewModel.matchingSummary.status).toBe('HAS_ACTIVITY');
     expect(viewModel.matchingSummary.stats).toMatchObject({
       sentRequests: 1,
@@ -176,6 +177,32 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.isUnassigned).toBe(false);
     expect(viewModel.dormitory?.name).toBe('다산관');
     expect(viewModel.preparation.hasBuilding).toBe(true);
+  });
+
+  it('treats ASSIGNED dashboard selection as an assigned Home building state', () => {
+    const dashboard = createHomeDashboardFixture({
+      viewer: {
+        ...createHomeDashboardFixture().viewer,
+        selection: {
+          state: 'ASSIGNED',
+          dormitoryId: 'dasan',
+          source: 'SEASON_PARTICIPANT',
+        },
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      user: { ...baseUser, dormitoryId: null },
+      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
+      seasonState: 'SEASON_MATCHING',
+      daysUntilEnd: 7,
+      renderedAt: new Date('2026-04-01T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.isUnassigned).toBe(false);
+    expect(viewModel.dormitory?.name).toBe('다산관');
+    expect(viewModel.matchingSummary.gatingReason).toBeNull();
   });
 
   it('keeps not-operated campus status from masking as a no-building gate', () => {
@@ -230,11 +257,42 @@ describe('homeDashboardViewModel', () => {
       renderedAt: new Date('2026-07-01T00:00:00.000Z').getTime(),
     });
 
+    expect(viewModel.hasCurrentSeason).toBe(false);
     expect(viewModel.seasonSummary).toMatchObject({
       daysUntilNext: 0,
       nextSeasonDate: '',
       nextSeasonName: '',
     });
+  });
+
+  it('keeps post-match stats focused on result-read summary counts', () => {
+    const dashboard = createHomeDashboardFixture({
+      season: {
+        ...createHomeDashboardFixture().season,
+        state: 'SEASON_POST_MATCH',
+        isOpen: false,
+        isMatching: false,
+        isPostMatch: true,
+      },
+      stats: {
+        ...createHomeDashboardFixture().stats,
+        assignedParticipants: 190,
+        totalMatchSuccess: 42,
+        buildingMatchSuccess: 12,
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      user: baseUser,
+      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
+      seasonState: 'SEASON_POST_MATCH',
+      daysUntilEnd: 0,
+      renderedAt: new Date('2026-05-01T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.statsBar.totalCount).toBe(190);
+    expect(viewModel.statsBar.matchSuccessCount).toBe(42);
   });
 
   it('maps active match summary to Home active match view state', () => {

@@ -46,7 +46,7 @@ export function createHomeDashboardFixture(
         canFinalizeRegistration: false,
       },
       selection: {
-        state: 'SELECTED',
+        state: 'ASSIGNED',
         dormitoryId: 'dasan',
         source: 'SEASON_PARTICIPANT',
       },

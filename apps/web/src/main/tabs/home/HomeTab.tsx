@@ -7,13 +7,12 @@ import { getAvatarColor } from '@/utils/avatarColor';
 import { useSeasonContext } from '@/contexts/SeasonContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { readHomeMatchingSummaryOverrides } from '@/main/utils/homeDevOverrides';
-import { HomeSeasonBanner } from './HomeSeasonBanner';
-import { HomeMatchingSummary } from './HomeMatchingSummary';
-import { SeasonPreparationCard } from './SeasonPreparationCard';
-import { SeasonSummaryCard } from './SeasonSummaryCard';
 import { HomeQuickMenuSection } from './HomeQuickMenuSection';
-import { BuildingStatsBar } from './BuildingStatsBar';
-import { DynamicTipBanner } from './DynamicTipBanner';
+import { HomeDashboardLayout } from './HomeDashboardLayout';
+import { HomePrimaryStateCard } from './HomePrimaryStateCard';
+import { HomeStatsPanel } from './HomeStatsPanel';
+import { HomeActivityPanel } from './HomeActivityPanel';
+import { HomeStatusTip } from './HomeStatusTip';
 import { buildHomeDashboardViewModel } from './model/homeDashboardViewModel';
 import type { TabId, UserProfile, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
@@ -52,7 +51,7 @@ export default function HomeTab({
       <OfflineBanner />
 
       <header className="bg-[var(--knu-primary)] text-white px-5 py-6">
-        <div className="max-w-md mx-auto">
+        <div className="max-w-md md:max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm opacity-90 mb-1">안녕하세요,</p>
@@ -118,83 +117,50 @@ export default function HomeTab({
           data-testid="home-content"
           inert={!viewModel.isCampusOperated}
           aria-hidden={!viewModel.isCampusOperated}
-          className={`max-w-md mx-auto px-5 py-5 space-y-5 ${
+          className={
             !viewModel.isCampusOperated ? 'pointer-events-none select-none grayscale-[50%]' : ''
-          }`}
+          }
         >
-          <HomeSeasonBanner
-            isUnassigned={viewModel.isUnassigned}
-            hasActiveMatch={viewModel.hasActiveMatch}
-          >
-            <BuildingStatsBar
-              seasonState={seasonState}
-              hasBuilding={viewModel.dormitory !== null}
-              buildingName={viewModel.dormitory?.name}
-              totalCount={viewModel.statsBar.totalCount}
-              buildingCount={viewModel.statsBar.buildingCount}
-              todayNewTotal={viewModel.statsBar.todayNewTotal}
-              todayNewBuilding={viewModel.statsBar.todayNewBuilding}
-              matchSuccessCount={viewModel.statsBar.matchSuccessCount}
-              urgency={viewModel.statsBar.urgency}
-              daysLeft={daysUntilEnd}
-            />
-          </HomeSeasonBanner>
-
-          {seasonState === 'SEASON_MATCHING' && (
-            <HomeMatchingSummary
-              status={viewModel.matchingSummary.status}
-              stats={viewModel.matchingSummary.stats}
-              activeMatch={viewModel.matchingSummary.activeMatch}
-              receivedRequesters={viewModel.matchingSummary.receivedRequesters}
-              gatingReason={viewModel.matchingSummary.gatingReason}
-              onGatedAction={() => onOpenBuildingSelect?.()}
-              onNavigate={onNavigate}
-            />
-          )}
-
-          {seasonState === 'SEASON_OPEN' && (
-            <SeasonPreparationCard
-              daysUntilStart={viewModel.preparation.daysUntilStart}
-              seasonStartDate={viewModel.preparation.seasonStartDate}
-              profileCompletion={viewModel.preparation.profileCompletion}
-              hasBuilding={viewModel.preparation.hasBuilding}
-              canSelectBuilding={viewModel.preparation.canSelectBuilding}
-              hasLifestylePattern={viewModel.preparation.hasLifestylePattern}
-              onNavigateProfile={() => onNavigate('profile')}
-              onOpenBuildingSelect={() => onOpenBuildingSelect?.()}
-              missingFields={viewModel.preparation.missingFields}
-            />
-          )}
-
-          {seasonState === 'OFF_SEASON' && (
-            <SeasonSummaryCard
-              pastSeasonName={viewModel.seasonSummary.pastSeasonName}
-              daysUntilNext={viewModel.seasonSummary.daysUntilNext}
-              nextSeasonDate={viewModel.seasonSummary.nextSeasonDate}
-              nextSeasonName={viewModel.seasonSummary.nextSeasonName}
-              pastSeasonResult={undefined}
-              onViewHistory={() => onNavigate('matching', { section: 'past' })}
-            />
-          )}
-
-          {seasonState === 'SEASON_MATCHING' && (
-            <DynamicTipBanner
-              seasonStatus={viewModel.tip.seasonStatus}
-              receivedRequests={viewModel.tip.receivedRequests}
-              sentRequests={viewModel.tip.sentRequests}
-              activeChats={viewModel.tip.activeChats}
-              unreadMessages={viewModel.tip.unreadMessages}
-            />
-          )}
-
-          <HomeQuickMenuSection
-            seasonState={seasonState}
-            canStartChat={dashboard.viewer.capabilities.canStartChat}
-            onNavigateList={() => onNavigate('list')}
-            onNavigateMatching={() => onNavigate('matching', { section: 'current' })}
-            onNavigateMatchingHistory={() => onNavigate('matching', { section: 'past' })}
-            onNavigateChat={() => onNavigate('chat')}
-            onNavigateProfile={() => onNavigate('profile')}
+          <HomeDashboardLayout
+            primary={
+              <HomePrimaryStateCard
+                viewModel={viewModel}
+                seasonState={seasonState}
+                daysUntilEnd={daysUntilEnd}
+                onNavigate={onNavigate}
+                onOpenBuildingSelect={onOpenBuildingSelect}
+              />
+            }
+            activity={
+              <HomeActivityPanel
+                viewModel={viewModel}
+                seasonState={seasonState}
+                onNavigate={onNavigate}
+                onOpenBuildingSelect={onOpenBuildingSelect}
+              />
+            }
+            stats={
+              <HomeStatsPanel
+                viewModel={viewModel}
+                seasonState={seasonState}
+                daysUntilEnd={daysUntilEnd}
+              />
+            }
+            quickActions={
+              <HomeQuickMenuSection
+                seasonState={seasonState}
+                hasCurrentSeason={viewModel.hasCurrentSeason}
+                canEnterRoommateSearch={viewModel.capabilities.canEnterRoommateSearch}
+                canStartChat={dashboard.viewer.capabilities.canStartChat}
+                canViewMatchHistory={viewModel.capabilities.canViewMatchHistory}
+                onNavigateList={() => onNavigate('list')}
+                onNavigateMatching={() => onNavigate('matching', { section: 'current' })}
+                onNavigateMatchingHistory={() => onNavigate('matching', { section: 'past' })}
+                onNavigateChat={() => onNavigate('chat')}
+                onNavigateProfile={() => onNavigate('profile')}
+              />
+            }
+            tip={<HomeStatusTip viewModel={viewModel} seasonState={seasonState} />}
           />
         </div>
       </div>

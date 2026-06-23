@@ -29,13 +29,22 @@ export interface HomeQuickAction {
 
 interface BuildHomeQuickActionsInput {
   seasonState: SeasonState;
+  hasCurrentSeason?: boolean;
+  canEnterRoommateSearch?: boolean;
   canStartChat?: boolean;
+  canViewMatchHistory?: boolean;
 }
 
 export function buildHomeQuickActions({
   seasonState,
+  hasCurrentSeason = true,
+  canEnterRoommateSearch = seasonState !== 'OFF_SEASON',
   canStartChat = seasonState === 'SEASON_MATCHING',
+  canViewMatchHistory = true,
 }: BuildHomeQuickActionsInput): HomeQuickAction[] {
+  if (!hasCurrentSeason) {
+    return [historyAction(!canViewMatchHistory), profileAction];
+  }
   if (seasonState === 'SEASON_MATCHING') {
     return [
       {
@@ -94,19 +103,14 @@ export function buildHomeQuickActions({
   if (seasonState === 'OFF_SEASON') {
     return [
       {
-        icon: 'eye',
-        label: '룸메 찾기',
-        description: '미리보기',
+        icon: canEnterRoommateSearch ? 'eye' : 'lock',
+        label: canEnterRoommateSearch ? '룸메 찾기' : '탐색 닫힘',
+        description: canEnterRoommateSearch ? '미리보기' : '비시즌',
         color: 'blue',
         target: 'list',
+        disabled: canEnterRoommateSearch ? undefined : true,
       },
-      {
-        icon: 'history',
-        label: '이전 기록',
-        description: '지난 시즌',
-        color: 'purple',
-        target: 'matching-history',
-      },
+      historyAction(!canViewMatchHistory),
       {
         icon: 'message-circle',
         label: '과거 대화',
@@ -144,6 +148,17 @@ export function buildHomeQuickActions({
     },
     profileAction,
   ];
+}
+
+function historyAction(disabled = false): HomeQuickAction {
+  return {
+    icon: 'history',
+    label: '이전 기록',
+    description: disabled ? '준비 중' : '지난 시즌',
+    color: 'purple',
+    target: 'matching-history',
+    disabled: disabled ? true : undefined,
+  };
 }
 
 const profileAction: HomeQuickAction = {

@@ -20,7 +20,10 @@ import {
 
 interface HomeQuickMenuSectionProps {
   seasonState: SeasonState;
+  hasCurrentSeason?: boolean;
+  canEnterRoommateSearch?: boolean;
   canStartChat?: boolean;
+  canViewMatchHistory?: boolean;
   onNavigateList: () => void;
   onNavigateMatching: () => void;
   onNavigateMatchingHistory: () => void;
@@ -30,14 +33,23 @@ interface HomeQuickMenuSectionProps {
 
 export function HomeQuickMenuSection({
   seasonState,
+  hasCurrentSeason,
+  canEnterRoommateSearch,
   canStartChat,
+  canViewMatchHistory,
   onNavigateList,
   onNavigateMatching,
   onNavigateMatchingHistory,
   onNavigateChat,
   onNavigateProfile,
 }: HomeQuickMenuSectionProps) {
-  const actions = buildHomeQuickActions({ seasonState, canStartChat });
+  const actions = buildHomeQuickActions({
+    seasonState,
+    hasCurrentSeason,
+    canEnterRoommateSearch,
+    canStartChat,
+    canViewMatchHistory,
+  });
   const handlers: Record<HomeQuickActionTarget, () => void> = {
     list: onNavigateList,
     'matching-current': onNavigateMatching,
@@ -87,6 +99,8 @@ function QuickActionCard({ action, onClick }: { action: HomeQuickAction; onClick
       whileHover={action.disabled ? undefined : { scale: 1.02 }}
       whileTap={action.disabled ? undefined : { scale: 0.98 }}
       onClick={action.disabled ? undefined : onClick}
+      disabled={Boolean(action.disabled)}
+      aria-disabled={action.disabled ? 'true' : undefined}
       className={`relative bg-white rounded-2xl border-2 border-[var(--knu-border)] p-4 text-left transition-all ${
         action.disabled
           ? 'opacity-50 cursor-not-allowed'

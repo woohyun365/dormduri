@@ -78,6 +78,7 @@ export interface HomeDashboardTipViewModel {
 }
 
 export interface HomeDashboardViewModel {
+  hasCurrentSeason: boolean;
   isCampusOperated: boolean;
   campusName: string;
   isUnassigned: boolean;
@@ -89,6 +90,12 @@ export interface HomeDashboardViewModel {
   preparation: HomeDashboardPreparationViewModel;
   seasonSummary: HomeDashboardSeasonSummaryViewModel;
   tip: HomeDashboardTipViewModel;
+  capabilities: {
+    canStartChat: boolean;
+    canViewMatchHistory: boolean;
+    canSelectDormitory: boolean;
+    canEnterRoommateSearch: boolean;
+  };
 }
 
 interface BuildHomeDashboardViewModelInput {
@@ -199,9 +206,12 @@ export function buildHomeDashboardViewModel({
 }: BuildHomeDashboardViewModelInput): HomeDashboardViewModel {
   const isCampusOperated = dashboard.viewer.campusOperated && isCampusOperatedFn(user.campus);
   const selectedDormitoryId = dashboard.viewer.selection.dormitoryId;
-  const isUnassigned =
-    dashboard.viewer.selection.state !== 'SELECTED' || !isDormitoryAssigned(selectedDormitoryId);
-  const dormitory = isDormitoryAssigned(selectedDormitoryId)
+  const hasDashboardAssignedDormitory =
+    (dashboard.viewer.selection.state === 'SELECTED' ||
+      dashboard.viewer.selection.state === 'ASSIGNED') &&
+    isDormitoryAssigned(selectedDormitoryId);
+  const isUnassigned = !hasDashboardAssignedDormitory;
+  const dormitory = hasDashboardAssignedDormitory
     ? (getDormitoryById(selectedDormitoryId) ?? null)
     : null;
   const activeMatch = toHomeActiveMatch(dashboard);
@@ -227,6 +237,7 @@ export function buildHomeDashboardViewModel({
   });
 
   return {
+    hasCurrentSeason: dashboard.season.hasCurrentSeason,
     isCampusOperated,
     campusName: CAMPUS_NAMES[user.campus],
     isUnassigned,
@@ -263,6 +274,12 @@ export function buildHomeDashboardViewModel({
       sentRequests: matchingSummary.stats.sentRequests,
       activeChats: matchingSummary.stats.activeChats,
       unreadMessages: dashboard.matching.unreadMessageCount,
+    },
+    capabilities: {
+      canStartChat: dashboard.viewer.capabilities.canStartChat,
+      canViewMatchHistory: dashboard.viewer.capabilities.canViewMatchHistory,
+      canSelectDormitory: dashboard.viewer.capabilities.canSelectDormitory,
+      canEnterRoommateSearch: dashboard.viewer.capabilities.canEnterRoommateSearch,
     },
   };
 }
@@ -319,7 +336,7 @@ function buildStatsBarViewModel({
     matchSuccessCount:
       seasonState === 'SEASON_MATCHING'
         ? stats.buildingMatchSuccess || stats.totalMatchSuccess
-        : seasonState === 'OFF_SEASON'
+        : seasonState === 'OFF_SEASON' || seasonState === 'SEASON_POST_MATCH'
           ? stats.totalMatchSuccess
           : 0,
     urgency:

@@ -27,11 +27,12 @@ describe('HomeQuickMenuSection', () => {
     expect(screen.getByText('현황 확인')).toBeDefined();
   });
 
-  it('비시즌 시 이전 기록과 과거 대화를 표시한다', () => {
+  it('비시즌 시 탐색은 닫고 이전 기록과 과거 대화를 표시한다', () => {
     render(<HomeQuickMenuSection {...defaultProps} seasonState="OFF_SEASON" />);
+    expect(screen.getByText('탐색 닫힘')).toBeDefined();
     expect(screen.getByText('이전 기록')).toBeDefined();
     expect(screen.getByText('과거 대화')).toBeDefined();
-    expect(screen.getByText('미리보기')).toBeDefined();
+    expect(screen.getByText('비시즌')).toBeDefined();
   });
 
   it('시즌 오픈 시 미리보기와 시즌 중 이용을 표시한다', () => {
@@ -58,6 +59,23 @@ describe('HomeQuickMenuSection', () => {
     const listButton = buttons.find((b) => b.textContent?.includes('룸메 찾기'));
     await user.click(listButton!);
     expect(onNavigateList).toHaveBeenCalledOnce();
+  });
+
+  it('disabled quick action은 클릭 핸들러를 호출하지 않는다', async () => {
+    const user = userEvent.setup();
+    const onNavigateList = vi.fn();
+    render(
+      <HomeQuickMenuSection
+        {...defaultProps}
+        seasonState="OFF_SEASON"
+        onNavigateList={onNavigateList}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /탐색 닫힘/ }));
+
+    expect(screen.getByRole('button', { name: /탐색 닫힘/ })).toBeDisabled();
+    expect(onNavigateList).not.toHaveBeenCalled();
   });
 
   it('매칭 현황 클릭 시 핸들러를 호출한다', async () => {
