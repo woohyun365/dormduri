@@ -39,3 +39,10 @@ catalog:
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
+
+# Storybook 10.4.6 transitive vite-tsconfig-paths -> tsconfck@3.1.6 has not
+# widened its TypeScript peer metadata for TypeScript 6 yet. Keep this exception
+# scoped to tsconfck only; remove it when upstream peer range supports TS 6.
+peerDependencyRules:
+  allowedVersions:
+    'tsconfck>typescript': '6'

@@ -14,6 +14,8 @@ pnpm web:test:coverage
 pnpm web:build
 pnpm web:e2e
 pnpm web:e2e:fullstack # optional: API/DB-backed /main smoke
+pnpm web:storybook # optional: HomeTab visual workshop
+pnpm web:storybook:build # optional: HomeTab Storybook static build
 pnpm check:web
 ```
 
@@ -24,6 +26,8 @@ pnpm check:web
 - `web:build`: shared package 빌드 후 Next.js production build를 실행합니다.
 - `web:e2e`: Playwright Chromium desktop/mobile project로 production-like standalone browser smoke를 실행합니다.
 - `web:e2e:fullstack`: local Postgres + API + Web dev server를 띄워 로그인 사용자 `/main` smoke를 실행합니다. 기본 PR gate가 아니라 manual/scheduled 후보입니다.
+- `web:storybook`: 로그인/DB 없이 HomeTab의 주요 시즌·매칭 UI 상태를 비교하는 visual workshop을 실행합니다.
+- `web:storybook:build`: HomeTab Storybook surface가 정적으로 빌드되는지 확인합니다. API/BFF/auth/DB 통합 정합성 근거는 아닙니다.
 - `check:web`: Web PR 기본 gate와 같은 순서로 lint, typecheck, test, build를 실행합니다.
 
 Playwright browser가 로컬에 없으면 먼저 아래 명령을 실행합니다.
@@ -56,6 +60,7 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 - Web CI는 DB service 없이 실행되므로 API 통합 검증은 API CI에서 담당합니다.
 - Web Playwright smoke도 기본은 Web-only 경계입니다. Landing E2E webServer는 support API 부재를 fallback으로 검증하기 위해 local invalid `API_URL`로 실행합니다.
 - 로그인 사용자 `/main` journey는 `playwright.fullstack.config.ts`가 API 서버와 DB seed를 함께 띄워 별도 full-stack lane에서 검증합니다. 이 lane은 Docker/API 의존성이 있어 manual/scheduled 후보입니다.
+- HomeTab Storybook은 visual state workshop입니다. Story data는 `src/main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `test-support`, `src/__fixtures__`를 import하면 안 됩니다.
 - Web-only smoke의 후속 후보는 Safari/Firefox matrix, Lighthouse hard gate, strict visual diff입니다. 이 항목들은 현재 Web gate 실패가 아니라 별도 제품/인프라 backlog로 봅니다.
 
 ## Runtime and test references
@@ -65,6 +70,7 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 - BFF proxy/security helper: `apps/web/src/app/api/_bff/security.ts`, `apps/web/src/app/api/_bff/forward.ts`
 - Vitest config/setup: `apps/web/vitest.config.ts`, `apps/web/src/test-setup.ts`
 - Playwright config/spec: `apps/web/playwright.config.ts`, `apps/web/playwright.fullstack.config.ts`, `apps/web/e2e/*`
+- Storybook config/spec: `apps/web/.storybook/*`, `apps/web/tsconfig.storybook.json`, `apps/web/src/main/tabs/home/__stories__/*`
 - Web Vitals seam: `apps/web/src/observability/*`
 
 ## Authoring rules
