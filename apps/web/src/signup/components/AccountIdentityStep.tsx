@@ -14,7 +14,7 @@ import { PasswordRequirementList } from '@/components/auth/PasswordRequirementLi
 import { NICKNAME_MAX } from '@/constants/ui';
 import { User } from 'lucide-react';
 import { focusAndScroll } from '@/utils/focus';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 
 import type { Campus } from '@/types/profile';
 

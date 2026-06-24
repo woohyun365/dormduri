@@ -45,7 +45,7 @@ Signup은 아래 데이터를 생성하거나 저장하지 않는다.
 
 | Surface                              | Responsibility                                                                                      |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| `apps/web/src/api/auth.ts`           | Web client wrapper. 429 `Retry-After`/`retryAfterSeconds`를 사용자 문구와 countdown metadata로 보존 |
+| `apps/web/src/auth/api/*`            | Web client wrapper. 429 `Retry-After`/`retryAfterSeconds`를 사용자 문구와 countdown metadata로 보존 |
 | `app/api/auth/send-signup-code`      | signup 이메일 인증 코드 요청 forward                                                                |
 | `app/api/auth/verify-email-code`     | signup 이메일 인증 코드 확인 forward                                                                |
 | `app/api/auth/validate-signup-draft` | canonical draft validation BFF. Legacy `validate-signup-profile` surface는 유지하지 않음            |
@@ -55,8 +55,8 @@ Signup은 아래 데이터를 생성하거나 저장하지 않는다.
 
 `/api/auth/signup` 응답은 upstream access token을 JSON body에 노출하지 않고 auth cookie로만 설정한다.
 Signup BFF는 request body를 cast-only로 통과시키지 않고 shared schema parse guard를 사용한다.
-`apps/web/src/api/auth.ts`는 login, password reset, signup이 함께 쓰는 Web auth client wrapper이므로
-signup feature-local `api/` 아래로 옮기지 않는다.
+`apps/web/src/auth/api/*`는 login, password reset, signup이 함께 쓰는 Web auth client wrapper이므로
+signup feature-local `api/` 아래로 옮기지 않고 auth public facade(`@/auth/api`)로 유지한다.
 
 ## Draft storage rule
 

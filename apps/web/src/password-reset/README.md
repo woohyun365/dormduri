@@ -44,7 +44,7 @@ It lets a user request a reset code through the Web BFF, verify the code, set a 
 
 ## Verification map
 
-- BFF/client route contract: `src/app/api/auth/__tests__/password-reset-route.test.ts`, `src/api/__tests__/auth.test.ts`.
+- BFF/client route contract: `src/app/api/auth/__tests__/password-reset-route.test.ts`, `src/auth/api/__tests__/auth-api.client.test.ts`.
 - Page flow and route handoff: `src/password-reset/__tests__/PasswordReset.test.tsx`.
 - New password form branches: `src/password-reset/components/__tests__/PasswordResetNewPasswordStep.test.tsx`.
 - Reducer invariants: `src/password-reset/model/__tests__/password-reset-flow.reducer.test.ts`.

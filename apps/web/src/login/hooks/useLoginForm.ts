@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 import { LOGIN_LOCKOUT_SECONDS } from '@/constants/auth';
 import { useCountdown } from '@/hooks/useCountdown';
 import {

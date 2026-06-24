@@ -433,7 +433,7 @@ export default function ProfileTab({
         isOpen={logoutDialog}
         onClose={() => setLogoutDialog(false)}
         onConfirm={async () => {
-          const { authApi } = await import('@/api/auth');
+          const { authApi } = await import('@/auth/api');
           await authApi.logout();
           window.location.replace('/');
         }}

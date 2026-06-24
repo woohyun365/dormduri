@@ -1,12 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const webSrc = join(process.cwd(), 'src');
 const readmePath = join(webSrc, 'auth', 'README.md');
+const boundaryTestPath = join(webSrc, 'auth', '__tests__', 'auth-boundary.imports.test.ts');
 
 const currentLegacyPaths = [
-  'api/auth.ts',
   'app/api/auth/_shared.ts',
   'app/api/auth/_post-route.ts',
   'app/api/auth/_request-guard.ts',
@@ -20,6 +20,8 @@ const currentLegacyPaths = [
   'signup',
   'password-reset',
 ] as const;
+
+const phase1RemovedPaths = ['api/auth.ts'] as const;
 
 const appRouterEntrypoints = [
   'app/api/auth/login/route.ts',
@@ -57,6 +59,21 @@ function readAuthReadme(): string {
   return readFileSync(readmePath, 'utf8');
 }
 
+function listSourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const absolutePath = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      return listSourceFiles(absolutePath);
+    }
+
+    if (!entry.isFile() || !/\.tsx?$/.test(entry.name)) {
+      return [];
+    }
+
+    return [absolutePath];
+  });
+}
+
 describe('web auth boundary migration ledger', () => {
   it('auth README documents final ownership, target structure, and migration rules', () => {
     expect(existsSync(readmePath)).toBe(true);
@@ -83,12 +100,31 @@ describe('web auth boundary migration ledger', () => {
     for (const relativePath of currentLegacyPaths) {
       expect(
         pathExists(relativePath),
-        `${relativePath} should be tracked as a Phase 0 legacy path`,
+        `${relativePath} should be tracked as a Phase 1 legacy path`,
       ).toBe(true);
     }
   });
 
-  it('keeps final forbidden import patterns discoverable without enforcing them in Phase 0', () => {
+  it('keeps Phase 1 auth API client migration complete without compatibility re-export', () => {
+    for (const relativePath of phase1RemovedPaths) {
+      expect(pathExists(relativePath), `${relativePath} should be removed after Phase 1`).toBe(
+        false,
+      );
+    }
+
+    expect(pathExists('auth/api/index.ts')).toBe(true);
+    expect(pathExists('auth/api/client.ts')).toBe(true);
+    expect(pathExists('auth/api/__tests__/auth-api.client.test.ts')).toBe(true);
+
+    const filesWithOldAuthImport = listSourceFiles(webSrc)
+      .filter((sourcePath) => sourcePath !== boundaryTestPath)
+      .filter((sourcePath) => readFileSync(sourcePath, 'utf8').includes('@/api/auth'))
+      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+
+    expect(filesWithOldAuthImport).toEqual([]);
+  });
+
+  it('keeps final forbidden import patterns discoverable without enforcing them in Phase 1', () => {
     expect(finalForbiddenImportPatterns).toContain('@/api/auth');
     expect(finalForbiddenImportPatterns).toContain('@/constants/auth');
     expect(finalForbiddenImportPatterns).toContain('@/components/AuthHeader');

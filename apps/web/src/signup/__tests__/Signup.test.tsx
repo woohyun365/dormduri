@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import SignupPageClient from '../SignupPageClient';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 
 const mockReplace = vi.fn();
@@ -29,7 +29,7 @@ vi.mock('@/hooks/useRedirectIfAuthenticated', () => ({
   useRedirectIfAuthenticated: vi.fn(() => ({ isReadyToRender: true })),
 }));
 
-vi.mock('@/api/auth', () => ({
+vi.mock('@/auth/api', () => ({
   authApi: { signup: vi.fn() },
 }));
 

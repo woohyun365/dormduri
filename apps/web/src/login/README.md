@@ -35,7 +35,7 @@ Login 화면은 fail-closed 결과를 일반 사용자 문구로만 표시한다
 
 | Surface                               | Responsibility                                                                                                           |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `apps/web/src/api/auth.ts`            | Web auth client wrapper. 429 `Retry-After`/`retryAfterSeconds`, non-JSON, safe BFF error를 UI가 처리 가능한 shape로 보존 |
+| `apps/web/src/auth/api/*`             | Web auth client wrapper. 429 `Retry-After`/`retryAfterSeconds`, non-JSON, safe BFF error를 UI가 처리 가능한 shape로 보존 |
 | `app/api/auth/login/route.ts`         | login body schema parse, upstream `/auth/login` forward, token response allowlist, auth cookie set                       |
 | `app/api/auth/session/route.ts`       | access cookie 실패 시 renewal cookie로 `/auth/renew-session` 후 session 재조회                                           |
 | `app/api/auth/_shared.ts`             | auth cookie serialize/delete, upstream token body redaction boundary                                                     |
@@ -87,7 +87,7 @@ CSS variable arbitrary value는 `text-[var(--knu-text-primary)]` 대신 `text-(-
 
 ```bash
 pnpm --dir apps/web exec vitest run src/login src/hooks/__tests__/useRedirectIfAuthenticated.test.ts
-pnpm --dir apps/web exec vitest run src/app/api/auth/__tests__/login-route.test.ts src/api/__tests__/auth.test.ts
+pnpm --dir apps/web exec vitest run src/app/api/auth/__tests__/login-route.test.ts src/auth/api/__tests__/auth-api.client.test.ts
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture
 pnpm web:typecheck
 pnpm --dir apps/web exec eslint src/app/login/page.tsx src/hooks/useCurrentUser.ts src/hooks/useRedirectIfAuthenticated.ts src/login src/app/main/__tests__/MainRouteShell.test.tsx src/proxy.test.ts e2e/smoke.spec.ts e2e/main-home.fullstack.spec.ts
@@ -111,12 +111,12 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts e2e/m
 
 ## Source of truth
 
-| 주제                                            | Source                                                             |
-| ----------------------------------------------- | ------------------------------------------------------------------ |
-| Auth/session policy                             | `docs/04_policy/official/account-authentication.md`                |
-| Production deployment/session transport wording | `docs/04_policy/official/production-deployment-readiness.md`       |
-| Web auth client/BFF helper                      | `apps/web/src/api/auth.ts`, `apps/web/src/app/api/auth/_shared.ts` |
-| Login refactor plan                             | `.omx/plans/web-login-page-refactor-plan.md`                       |
-| Signup structure benchmark                      | `apps/web/src/signup/README.md`                                    |
+| 주제                                            | Source                                                            |
+| ----------------------------------------------- | ----------------------------------------------------------------- |
+| Auth/session policy                             | `docs/04_policy/official/account-authentication.md`               |
+| Production deployment/session transport wording | `docs/04_policy/official/production-deployment-readiness.md`      |
+| Web auth client/BFF helper                      | `apps/web/src/auth/api/*`, `apps/web/src/app/api/auth/_shared.ts` |
+| Login refactor plan                             | `.omx/plans/web-login-page-refactor-plan.md`                      |
+| Signup structure benchmark                      | `apps/web/src/signup/README.md`                                   |
 
 정책 문서와 화면 문구가 충돌하면 정책 문서를 우선하고 login copy/test를 갱신한다.

@@ -11,7 +11,7 @@ import { SignupStepFrame } from './components/SignupStepFrame';
 import { SignupProgress } from './components/SignupProgress';
 import { SignupSkeleton } from './components/SignupSkeleton';
 import { SignupGlobalAlert } from './components/SignupGlobalAlert';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 import { createSignupRequest } from './model/signup-request.mapper';
 import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { focusAndScroll } from '@/utils/focus';

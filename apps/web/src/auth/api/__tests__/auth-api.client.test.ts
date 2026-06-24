@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { authApi } from '../auth';
+import { authApi } from '..';
 
 describe('authApi', () => {
   afterEach(() => {

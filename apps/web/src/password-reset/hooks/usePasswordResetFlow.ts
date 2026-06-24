@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 import {
   initialPasswordResetFlowState,
   passwordResetFlowReducer,

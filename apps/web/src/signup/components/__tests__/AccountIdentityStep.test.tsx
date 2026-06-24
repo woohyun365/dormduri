@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AccountIdentityStep, type BasicInfoData } from '../AccountIdentityStep';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 
 vi.mock('lucide-react', () => ({
   User: () => null,
@@ -11,7 +11,7 @@ vi.mock('lucide-react', () => ({
   EyeOff: () => null,
 }));
 
-vi.mock('@/api/auth', () => ({
+vi.mock('@/auth/api', () => ({
   authApi: {
     validateSignupDraft: vi.fn(),
   },

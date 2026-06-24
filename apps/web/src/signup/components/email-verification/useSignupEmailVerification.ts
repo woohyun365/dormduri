@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useCountdown } from '@/hooks/useCountdown';
 import { validateKnuEmail } from '@/utils/validation';
 import { SIGNUP_VERIFICATION_CODE_TTL } from '@/constants/auth';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 
 interface UseSignupEmailVerificationParams {
   email: string;

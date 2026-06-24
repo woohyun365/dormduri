@@ -1,9 +1,9 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useSignupEmailVerification } from '../useSignupEmailVerification';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 
-vi.mock('@/api/auth', () => ({
+vi.mock('@/auth/api', () => ({
   authApi: {
     sendSignupCode: vi.fn(),
     verifyEmailCode: vi.fn(),

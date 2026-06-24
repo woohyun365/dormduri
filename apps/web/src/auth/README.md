@@ -6,13 +6,12 @@ API/NestJS auth domain, DB/session/token/SES/Redis/BackOffice 구현은 이 경�
 
 ## Current baseline
 
-Phase 0 기준으로 이 directory에는 `to-user-profile.ts`만 존재한다.
-개별 화면 구현과 auth-wide helper는 아직 아래 legacy 위치에 남아 있다.
-이 경로들은 Phase 0에서 의도적으로 허용되는 migration ledger이며, 최종 구조가 아니다.
+Phase 1 기준으로 이 directory에는 `to-user-profile.ts`와 browser-side auth API client인 `api/*`가 존재한다.
+개별 화면 구현과 auth-wide BFF/helper/component/hook/model은 아직 아래 legacy 위치에 남아 있다.
+이 경로들은 Phase 1에서 의도적으로 허용되는 migration ledger이며, 최종 구조가 아니다.
 
 | Current path                                      | Current responsibility                                               | Target phase                      |
 | ------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------- |
-| `src/api/auth.ts`                                 | browser-side auth API client와 error/retry-after mapping             | Phase 1                           |
 | `src/app/api/auth/_shared.ts`                     | BFF upstream forwarding, cookie transport, token-like body redaction | Phase 2                           |
 | `src/app/api/auth/_post-route.ts`                 | generic auth mutation route adapter helper                           | Phase 2                           |
 | `src/app/api/auth/_request-guard.ts`              | strict JSON body parsing, request/response guard                     | Phase 2                           |
@@ -27,6 +26,13 @@ Phase 0 기준으로 이 directory에는 `to-user-profile.ts`만 존재한다.
 | `src/password-reset`                              | password reset flow implementation                                   | Phase 4                           |
 
 `useExpiryCountdown` is not tracked as an auth-only migration target because it has non-auth product usage.
+
+### Completed migration ledger
+
+| Removed path        | New owner path             | Completed phase |
+| ------------------- | -------------------------- | --------------- |
+| `src/api/auth.ts`   | `src/auth/api/*`           | Phase 1         |
+| `@/api/auth` import | `@/auth/api` public facade | Phase 1         |
 
 ## Final target structure
 
@@ -83,7 +89,8 @@ Private implementation areas should not be deep-imported by non-auth features:
 - `@/auth/flows/*/model/*`
 - `@/auth/components/*` except through an auth-owned facade if one is added.
 
-The current codebase still imports `@/api/auth`, `@/login`, `@/signup`, and `@/password-reset` during Phase 0.
+The Phase 1 codebase no longer imports `@/api/auth`; external consumers now use `@/auth/api`.
+`@/login`, `@/signup`, and `@/password-reset` remain migration inputs until the flow move phase.
 Those paths are migration inputs, not final public APIs.
 
 ## App Router exception
@@ -151,12 +158,12 @@ If an external feature still needs auth behavior, expose that behavior through t
 
 ## Verification map
 
-Phase 0 focused baseline:
+Phase 1 focused baseline:
 
 ```bash
 pnpm --dir apps/web exec vitest run \
+  src/auth/api \
   src/auth/__tests__/auth-boundary.imports.test.ts \
-  src/api/__tests__/auth.test.ts \
   src/app/api/auth/__tests__ \
   src/login \
   src/signup \
@@ -164,10 +171,11 @@ pnpm --dir apps/web exec vitest run \
 
 pnpm exec prettier --check --ignore-unknown \
   apps/web/src/auth/README.md \
+  apps/web/src/auth/api \
   apps/web/src/auth/__tests__/auth-boundary.imports.test.ts \
   .omx/plans/web-auth-boundary-final-refactor-plan.md
 
-pnpm --dir apps/web exec eslint src/auth/__tests__/auth-boundary.imports.test.ts
+pnpm --dir apps/web exec eslint src/auth
 pnpm api:typecheck
 git diff --check
 ```
@@ -181,6 +189,7 @@ Run Playwright only when route smoke, visible auth route behavior, or browser na
 - `.omx/plans/web-login-page-refactor-plan.md`
 - `.omx/plans/web-signup-page-refactor-plan.md`
 - `.omx/plans/web-password-reset-page-refactor-plan.md`
+- `apps/web/src/auth/api/*`
 - `apps/web/src/login/README.md`
 - `apps/web/src/signup/README.md`
 - `apps/web/src/password-reset/README.md`

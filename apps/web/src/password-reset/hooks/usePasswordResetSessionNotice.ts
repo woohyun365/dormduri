@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 
 export function usePasswordResetSessionNotice() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
