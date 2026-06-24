@@ -55,7 +55,9 @@ export default function PasswordResetPageClient() {
           onResetPassword={actions.resetPassword}
         />
       )}
-      {state.step === 'complete' && <PasswordResetCompleteStep onGoToLogin={actions.goToLogin} />}
+      {state.step === 'complete' && (
+        <PasswordResetCompleteStep onGoToLogin={actions.goToLoginAfterReset} />
+      )}
     </PasswordResetLayout>
   );
 }

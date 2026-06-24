@@ -7,8 +7,11 @@ import PasswordResetPageClient from '../PasswordResetPageClient';
 
 // --- Mocks ---
 
+const mockRouterPush = vi.fn();
+const mockRouterReplace = vi.fn();
+
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mockRouterPush, replace: mockRouterReplace }),
 }));
 
 vi.mock('next/image', () => ({
@@ -76,6 +79,8 @@ describe('PasswordResetPageClient', () => {
     mockVerifyCode.mockResolvedValue({ success: true });
     mockResetPassword.mockResolvedValue({ success: true });
     mockGetSession.mockResolvedValue({ authenticated: false });
+    mockRouterPush.mockClear();
+    mockRouterReplace.mockClear();
   });
 
   afterEach(() => {
@@ -270,6 +275,34 @@ describe('PasswordResetPageClient', () => {
       expect(mockResetPassword).toHaveBeenCalledWith('test@kangwon.ac.kr', 'Test1234');
       expect(screen.getByText('비밀번호 재설정 완료')).toBeInTheDocument();
       expect(screen.getByText(/기존 로그인 상태가 모두 종료되었어요/)).toBeInTheDocument();
+    });
+
+    it('완료 단계 CTA는 login reset success query로 replace 이동한다', async () => {
+      render(<PasswordResetPageClient />);
+
+      await fillAndSubmitEmail();
+      advanceToVerification();
+
+      fireEvent.change(screen.getByLabelText(/인증 코드/), { target: { value: '123456' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '확인' }));
+      });
+
+      fireEvent.change(screen.getByLabelText(/새 비밀번호/, { selector: 'input' }), {
+        target: { value: 'Test1234' },
+      });
+      fireEvent.change(screen.getByLabelText(/비밀번호 확인/, { selector: 'input' }), {
+        target: { value: 'Test1234' },
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '비밀번호 재설정' }));
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: '로그인하러 가기' }));
+
+      expect(mockRouterReplace).toHaveBeenCalledWith('/login?reset=success');
+      expect(mockRouterPush).not.toHaveBeenCalledWith('/login?reset=success');
     });
   });
 

@@ -316,6 +316,10 @@ export function usePasswordResetFlow() {
     router.push('/login');
   }, [router]);
 
+  const goToLoginAfterReset = useCallback(() => {
+    router.replace('/login?reset=success');
+  }, [router]);
+
   const changeVerificationCode = useCallback((verificationCode: string) => {
     setStatus((current) =>
       current?.title === '인증 코드를 확인하지 못했어요' || current?.isRetryAfter ? null : current,
@@ -342,6 +346,7 @@ export function usePasswordResetFlow() {
       restartEmailEntry,
       goBack,
       goToLogin,
+      goToLoginAfterReset,
       changeVerificationCode,
       verifyCode,
       changeNewPassword,
