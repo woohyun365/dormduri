@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import PasswordReset from '../PasswordReset';
+import PasswordResetPageClient from '../PasswordResetPageClient';
 import { authApi } from '@/api/auth';
 import { RESET_PASSWORD_VERIFICATION_CODE_TTL } from '@/constants/auth';
 
@@ -27,6 +27,9 @@ vi.mock('next/link', () => ({
 
 vi.mock('lucide-react', () => ({
   Mail: () => <span data-testid="icon-mail" />,
+  Lock: () => <span data-testid="icon-lock" />,
+  AlertCircle: () => <span data-testid="icon-alert-circle" />,
+  CheckCircle: () => <span data-testid="icon-check-circle" />,
   ChevronLeft: () => <span data-testid="icon-chevron-left" />,
   Eye: () => <span data-testid="icon-eye" />,
   EyeOff: () => <span data-testid="icon-eye-off" />,
@@ -41,6 +44,8 @@ vi.mock('@/api/auth', () => ({
 }));
 
 const mockSendCode = vi.mocked(authApi.sendResetCode);
+const mockVerifyCode = vi.mocked(authApi.verifyResetCode);
+const mockResetPassword = vi.mocked(authApi.resetPassword);
 
 // --- Helpers ---
 
@@ -62,10 +67,12 @@ function advanceToVerification() {
 
 // --- Tests ---
 
-describe('PasswordReset', () => {
+describe('PasswordResetPageClient', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mockSendCode.mockResolvedValue({ success: true });
+    mockVerifyCode.mockResolvedValue({ success: true });
+    mockResetPassword.mockResolvedValue({ success: true });
   });
 
   afterEach(() => {
@@ -75,7 +82,7 @@ describe('PasswordReset', () => {
 
   describe('T-1: 재전송 쿨다운 뒤로가기 우회 불가', () => {
     it('verification에서 뒤로가기 후 쿨다운 중 재전송이 차단된다', async () => {
-      render(<PasswordReset />);
+      render(<PasswordResetPageClient />);
 
       // 이메일 입력 → 전송
       await fillAndSubmitEmail();
@@ -98,7 +105,7 @@ describe('PasswordReset', () => {
 
   describe('T-2: 카운트다운 만료 메시지 노출', () => {
     it('카운트다운이 0이 되면 만료 안내 메시지가 표시된다', async () => {
-      render(<PasswordReset />);
+      render(<PasswordResetPageClient />);
 
       await fillAndSubmitEmail();
       advanceToVerification();
@@ -121,7 +128,7 @@ describe('PasswordReset', () => {
 
   describe('T-3: 재전송 중 버튼 비활성화 + 연타 차단', () => {
     it('쿨다운 중 재전송 버튼이 비활성화된다', async () => {
-      render(<PasswordReset />);
+      render(<PasswordResetPageClient />);
 
       await fillAndSubmitEmail();
       advanceToVerification();
@@ -130,7 +137,7 @@ describe('PasswordReset', () => {
     });
 
     it('쿨다운 만료 후 재전송 시 "전송 중..." 표시 후 카운트다운 재시작', async () => {
-      render(<PasswordReset />);
+      render(<PasswordResetPageClient />);
 
       await fillAndSubmitEmail();
       advanceToVerification();
@@ -174,7 +181,7 @@ describe('PasswordReset', () => {
     it('카운트다운 진행 중 unmount 시 에러가 발생하지 않는다', async () => {
       const consoleSpy = vi.spyOn(console, 'error');
 
-      const { unmount } = render(<PasswordReset />);
+      const { unmount } = render(<PasswordResetPageClient />);
 
       await fillAndSubmitEmail();
       advanceToVerification();
@@ -207,7 +214,7 @@ describe('PasswordReset', () => {
           }),
       );
 
-      render(<PasswordReset />);
+      render(<PasswordResetPageClient />);
 
       const emailInput = screen.getByLabelText('이메일');
       fireEvent.change(emailInput, { target: { value: 'first@kangwon.ac.kr' } });
@@ -228,6 +235,34 @@ describe('PasswordReset', () => {
 
       expect(screen.getByText('비밀번호 찾기')).toBeInTheDocument();
       expect(screen.queryByText('인증 코드 확인')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('T-6: 검증/재설정 side effect hook 통합', () => {
+    it('인증 코드 확인 후 새 비밀번호 제출이 hook을 통해 API를 호출하고 완료 화면으로 이동한다', async () => {
+      render(<PasswordResetPageClient />);
+
+      await fillAndSubmitEmail();
+      advanceToVerification();
+
+      fireEvent.change(screen.getByLabelText('인증 코드'), { target: { value: '123456' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '확인' }));
+      });
+
+      expect(mockVerifyCode).toHaveBeenCalledWith('test@kangwon.ac.kr', '123456');
+      expect(screen.getByText('새 비밀번호 설정')).toBeInTheDocument();
+
+      const passwordInputs = screen.getAllByLabelText(/비밀번호/);
+      fireEvent.change(passwordInputs[0]!, { target: { value: 'Test1234' } });
+      fireEvent.change(passwordInputs[1]!, { target: { value: 'Test1234' } });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '비밀번호 재설정' }));
+      });
+
+      expect(mockResetPassword).toHaveBeenCalledWith('test@kangwon.ac.kr', 'Test1234');
+      expect(screen.getByText('비밀번호 재설정 완료')).toBeInTheDocument();
     });
   });
 });

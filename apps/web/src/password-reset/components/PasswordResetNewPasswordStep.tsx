@@ -1,33 +1,48 @@
 'use client';
 
+import type { FormEvent } from 'react';
 import { useRef, useState } from 'react';
-import { InputField } from '@/components/form/InputField';
-import { Button } from '@/components/Button';
-import { StepHeader } from '@/components/StepHeader';
-import { validatePassword, validatePasswordConfirm } from '@/utils/validation';
-import { PasswordRequirementList } from '@/components/auth/PasswordRequirementList';
-import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/constants/auth';
-import { authApi } from '@/api/auth';
 import { AlertCircle, Lock } from 'lucide-react';
+import { Button } from '@/components/Button';
+import { PasswordRequirementList } from '@/components/auth/PasswordRequirementList';
+import { StepHeader } from '@/components/StepHeader';
+import { InputField } from '@/components/form/InputField';
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@/constants/auth';
 import { focusAndScroll } from '@/utils/focus';
+import { validatePassword, validatePasswordConfirm } from '@/utils/validation';
 
-interface StepNewPasswordProps {
-  email: string;
-  onResetComplete: () => void;
+interface PasswordResetActionResult {
+  success: boolean;
+  error?: string;
 }
 
-export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps) {
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+interface PasswordResetNewPasswordStepProps {
+  email: string;
+  newPassword: string;
+  confirmPassword: string;
+  isResetting: boolean;
+  onNewPasswordChange: (newPassword: string) => void;
+  onConfirmPasswordChange: (confirmPassword: string) => void;
+  onResetPassword: () => Promise<PasswordResetActionResult>;
+}
+
+export function PasswordResetNewPasswordStep({
+  email,
+  newPassword,
+  confirmPassword,
+  isResetting,
+  onNewPasswordChange,
+  onConfirmPasswordChange,
+  onResetPassword,
+}: PasswordResetNewPasswordStepProps) {
   const [passwordError, setPasswordError] = useState('');
   const [confirmError, setConfirmError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const passwordRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     const pwError = validatePassword(newPassword, email);
     const cfError = validatePasswordConfirm(newPassword, confirmPassword);
 
@@ -43,36 +58,25 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
       return;
     }
 
-    setIsLoading(true);
     setSubmitError('');
-    try {
-      const result = await authApi.resetPassword(email, newPassword);
-      if (result.success) {
-        onResetComplete();
-      } else {
-        setSubmitError(
-          result.error || '비밀번호 재설정에 실패했습니다. 잠시 후 다시 시도해주세요.',
-        );
-      }
-    } catch {
-      setSubmitError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-    } finally {
-      setIsLoading(false);
+    const result = await onResetPassword();
+    if (!result.success) {
+      setSubmitError(result.error || '비밀번호 재설정에 실패했습니다. 잠시 후 다시 시도해주세요.');
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <StepHeader
-        icon={<Lock className="w-8 h-8 text-[var(--knu-primary)]" />}
+        icon={<Lock className="h-8 w-8 text-[var(--knu-primary)]" />}
         title="새 비밀번호 설정"
         description="기존과 다른 새 비밀번호를 입력해주세요"
       />
 
       {submitError && (
-        <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-900 font-medium">{submitError}</p>
+        <div className="flex items-start gap-3 rounded-xl border-2 border-red-200 bg-red-50 p-4">
+          <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+          <p className="text-sm font-medium text-red-900">{submitError}</p>
         </div>
       )}
 
@@ -84,11 +88,11 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
           placeholder={`영문, 숫자 포함 ${PASSWORD_MIN_LENGTH}~${PASSWORD_MAX_LENGTH}자`}
           value={newPassword}
           onChange={(value) => {
-            setNewPassword(value);
+            onNewPasswordChange(value);
             setPasswordError('');
           }}
           error={passwordError}
-          disabled={isLoading}
+          disabled={isResetting}
         />
         <PasswordRequirementList password={newPassword} email={email} />
       </div>
@@ -100,15 +104,15 @@ export function StepNewPassword({ email, onResetComplete }: StepNewPasswordProps
         placeholder="비밀번호를 다시 입력해주세요"
         value={confirmPassword}
         onChange={(value) => {
-          setConfirmPassword(value);
+          onConfirmPasswordChange(value);
           setConfirmError('');
         }}
         error={confirmError}
-        disabled={isLoading}
+        disabled={isResetting}
       />
 
-      <Button variant="primary" size="lg" fullWidth type="submit" disabled={isLoading}>
-        {isLoading ? '처리 중...' : '비밀번호 재설정'}
+      <Button variant="primary" size="lg" fullWidth type="submit" disabled={isResetting}>
+        {isResetting ? '처리 중...' : '비밀번호 재설정'}
       </Button>
     </form>
   );

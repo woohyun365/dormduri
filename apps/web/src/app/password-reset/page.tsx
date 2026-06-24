@@ -1,5 +1,5 @@
-import PasswordReset from '@/password-reset/PasswordReset';
+import PasswordResetPageClient from '@/password-reset/PasswordResetPageClient';
 
 export default function PasswordResetPage() {
-  return <PasswordReset />;
+  return <PasswordResetPageClient />;
 }
