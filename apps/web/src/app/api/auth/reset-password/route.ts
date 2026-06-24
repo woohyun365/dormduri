@@ -1,19 +1,28 @@
 import { NextRequest } from 'next/server';
-import type { ResetPasswordRequest } from '@repo/shared/auth/contract';
+import { resetPasswordRequestSchema } from '@repo/shared/auth/contract';
 import {
   buildJsonResponse,
   clearAuthCookie,
   forwardAuthRequest,
   getForwardHeaders,
 } from '../_shared';
+import { parseStrictJsonRequest, pickAuthMutationResponseBody } from '../_request-guard';
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json()) as ResetPasswordRequest;
-  const { response, json } = await forwardAuthRequest('POST', '/auth/reset-password', body, {
+  const parsed = await parseStrictJsonRequest(
+    request,
+    resetPasswordRequestSchema,
+    'INVALID_RESET_PASSWORD_REQUEST',
+  );
+  if (!parsed.success) {
+    return parsed.response;
+  }
+
+  const { response, json } = await forwardAuthRequest('POST', '/auth/reset-password', parsed.data, {
     headers: getForwardHeaders(request),
   });
 
-  const nextResponse = buildJsonResponse(response, json);
+  const nextResponse = buildJsonResponse(response, pickAuthMutationResponseBody(json));
   if (json.success === true) {
     clearAuthCookie(nextResponse);
   }
