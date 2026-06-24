@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import Login from '@/login/Login';
+import LoginPageClient from '@/login/LoginPageClient';
 
 export const metadata: Metadata = {
   title: 'KNU 룸메 - 로그인',
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function LoginPage() {
-  return <Login />;
+  return <LoginPageClient />;
 }
