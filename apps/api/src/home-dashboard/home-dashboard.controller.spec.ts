@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { homeDashboardResponseSchema, type HomeDashboardResponse } from '@repo/shared/home';
 import { HomeDashboardController } from './home-dashboard.controller.js';
+import type { HomeDashboardQueryPort } from './home-dashboard.tokens.js';
 
 const authUser = {
   id: 'user-1',
@@ -11,12 +12,13 @@ const authUser = {
 describe('HomeDashboardController', () => {
   it('GET /api/home/dashboard는 read-only dashboard query로 위임하고 shared contract를 반환한다', async () => {
     const dashboard = makeHomeDashboardResponse();
-    const query = { execute: vi.fn().mockResolvedValue(dashboard) };
-    const controller = new HomeDashboardController(query as never);
+    const execute = vi.fn().mockResolvedValue(dashboard);
+    const query: HomeDashboardQueryPort = { execute };
+    const controller = new HomeDashboardController(query);
 
     await expect(controller.getDashboard(authUser)).resolves.toBe(dashboard);
 
-    expect(query.execute).toHaveBeenCalledWith(authUser);
+    expect(execute).toHaveBeenCalledWith(authUser);
     expect(homeDashboardResponseSchema.safeParse(dashboard).success).toBe(true);
   });
 });
