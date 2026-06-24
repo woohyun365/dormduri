@@ -47,6 +47,8 @@ describe('useLoginForm', () => {
 
     expect(onLogin).toHaveBeenCalledWith(VALID_EMAIL, VALID_PASSWORD, true);
     expect(onSuccess).toHaveBeenCalledWith('/main');
+    expect(result.current.redirectState).toEqual({ isRedirecting: true, target: '/main' });
+    expect(result.current.isSubmitDisabled).toBe(true);
   });
 
   it('pending 중 duplicate submit을 막는다', async () => {
@@ -77,6 +79,9 @@ describe('useLoginForm', () => {
     await act(async () => {
       resolveLogin({ success: true });
     });
+
+    expect(result.current.redirectState.isRedirecting).toBe(true);
+    expect(result.current.isSubmitDisabled).toBe(true);
   });
 
   it('locked response는 countdown과 disabled state를 시작한다', async () => {

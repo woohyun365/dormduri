@@ -19,6 +19,7 @@ interface LoginFormProps {
   fieldErrors: LoginFieldErrors;
   uiError: LoginUiErrorState | null;
   isSubmitting: boolean;
+  isRedirecting: boolean;
   isLocked: boolean;
   isSubmitDisabled: boolean;
   cooldownLabel: string;
@@ -36,6 +37,7 @@ export function LoginForm({
   fieldErrors,
   uiError,
   isSubmitting,
+  isRedirecting,
   isLocked,
   isSubmitDisabled,
   cooldownLabel,
@@ -49,6 +51,7 @@ export function LoginForm({
 }: LoginFormProps) {
   const emailInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  const isInteractionPending = isSubmitting || isRedirecting;
 
   useEffect(() => {
     if (invalidSubmitCount <= 0 || !lastInvalidField) return;
@@ -77,7 +80,7 @@ export function LoginForm({
           value={values.email}
           onChange={onEmailChange}
           error={fieldErrors.email}
-          disabled={isSubmitting}
+          disabled={isInteractionPending}
         />
 
         <InputField
@@ -90,7 +93,7 @@ export function LoginForm({
           value={values.password}
           onChange={onPasswordChange}
           error={fieldErrors.password}
-          disabled={isSubmitting}
+          disabled={isInteractionPending}
         />
 
         <div>
@@ -112,10 +115,16 @@ export function LoginForm({
             fullWidth
             type="submit"
             disabled={isSubmitDisabled}
-            aria-busy={isSubmitting ? 'true' : undefined}
+            aria-busy={isInteractionPending ? 'true' : undefined}
           >
             <Lock className="h-5 w-5" />
-            {isSubmitting ? '로그인 중...' : isLocked ? '계정 잠금 중' : '로그인'}
+            {isRedirecting
+              ? '홈으로 이동 중...'
+              : isSubmitting
+                ? '로그인 중...'
+                : isLocked
+                  ? '계정 잠금 중'
+                  : '로그인'}
           </Button>
         </div>
       </div>

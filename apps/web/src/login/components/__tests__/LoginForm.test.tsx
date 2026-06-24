@@ -25,6 +25,7 @@ function renderLoginForm(overrides: Partial<Parameters<typeof LoginForm>[0]> = {
     fieldErrors: {},
     uiError: null,
     isSubmitting: false,
+    isRedirecting: false,
     isLocked: false,
     isSubmitDisabled: false,
     cooldownLabel: '0:00',
@@ -112,5 +113,20 @@ describe('LoginForm', () => {
     expect(screen.getByText(/최대 7일 동안 다시 로그인하지 않아도 됩니다/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '계정 잠금 중' })).toBeDisabled();
     expect(screen.getAllByRole('alert')[0]).toHaveTextContent('남은 시간: 5:00');
+  });
+
+  it('로그인 성공 후 홈 이동 중 상태를 명시하고 입력을 잠근다', () => {
+    renderLoginForm({
+      isRedirecting: true,
+      isSubmitDisabled: true,
+    });
+
+    expect(screen.getByRole('button', { name: '홈으로 이동 중...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '홈으로 이동 중...' })).toHaveAttribute(
+      'aria-busy',
+      'true',
+    );
+    expect(screen.getByLabelText('이메일')).toBeDisabled();
+    expect(screen.getByLabelText('비밀번호')).toBeDisabled();
   });
 });

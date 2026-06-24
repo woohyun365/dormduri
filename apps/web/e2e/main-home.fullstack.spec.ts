@@ -16,6 +16,18 @@ async function loginThroughBff(page: Page, email: string) {
 }
 
 test.describe('authenticated /main Home dashboard full-stack smoke', () => {
+  test('로그인 UI 입력으로 session cookie를 받고 /main으로 이동한다', async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto('/login');
+
+    await page.getByRole('textbox', { name: '이메일' }).fill(homeViewerEmail);
+    await page.getByRole('textbox', { name: '비밀번호' }).fill(fixturePassword);
+    await page.getByRole('button', { name: '로그인' }).click();
+
+    await expect(page).toHaveURL(/\/main(?:$|\?)/);
+    await expect(page.getByRole('heading', { name: /홈스모크남님/ })).toBeVisible();
+  });
+
   test('renders seeded Home dashboard matrix for desktop/mobile users', async ({ page }) => {
     await loginThroughBff(page, homeViewerEmail);
 

@@ -46,6 +46,7 @@ export default function LoginPageClient() {
         fieldErrors={loginForm.fieldErrors}
         uiError={loginForm.uiError}
         isSubmitting={loginForm.isSubmitting}
+        isRedirecting={loginForm.redirectState.isRedirecting}
         isLocked={loginForm.isLocked}
         isSubmitDisabled={loginForm.isSubmitDisabled}
         cooldownLabel={loginForm.cooldownLabel}

@@ -22,6 +22,7 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts
 
 - `apps/web/playwright.fullstack.config.ts`를 사용한다.
 - local Postgres를 `docker-compose.dev.yml`로 띄우고, Prisma schema push/seed 후 API dev server와 Web dev server를 함께 실행한다.
+- `main-home.fullstack.spec.ts`는 BFF login helper로 Home dashboard matrix를 확인하고, 별도 케이스에서 실제 `/login` UI 입력 → session cookie → `/main` handoff도 확인한다.
 - 기본 DB URL은 `postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public`이다.
   다른 DB를 쓰려면 `HOME_E2E_DATABASE_URL`을 명시한다.
 - 기본 API/Web URL은 각각 `http://127.0.0.1:4000`, `http://127.0.0.1:3000`이다.

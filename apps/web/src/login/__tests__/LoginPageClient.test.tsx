@@ -112,6 +112,7 @@ describe('LoginPageClient', () => {
 
     expect(mockLogin).toHaveBeenCalledWith('test@kangwon.ac.kr', 'password123', false);
     expect(mockReplace).toHaveBeenCalledWith('/main');
+    expect(screen.getByRole('button', { name: '홈으로 이동 중...' })).toBeDisabled();
   });
 
   it('로그인 실패 시 에러 메시지를 표시한다', async () => {

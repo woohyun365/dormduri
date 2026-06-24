@@ -43,3 +43,8 @@ export type LoginFn = (
 export type LoginSubmitResult = Awaited<ReturnType<LoginFn>>;
 
 export type LoginSuccessHandler = (target: string) => void;
+
+export interface LoginRedirectState {
+  isRedirecting: boolean;
+  target: string | null;
+}

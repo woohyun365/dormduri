@@ -20,6 +20,7 @@ import type {
   LoginFormSubmitEvent,
   LoginFormValues,
   LoginInvalidField,
+  LoginRedirectState,
   LoginSuccessHandler,
   LoginUiErrorState,
 } from '../model/login-form.types';
@@ -35,6 +36,7 @@ export interface UseLoginFormResult {
   fieldErrors: LoginFieldErrors;
   uiError: LoginUiErrorState | null;
   isSubmitting: boolean;
+  redirectState: LoginRedirectState;
   isLocked: boolean;
   isThrottled: boolean;
   isSubmitDisabled: boolean;
@@ -56,6 +58,10 @@ export function useLoginForm({
   const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [uiError, setUiError] = useState<LoginUiErrorState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [redirectState, setRedirectState] = useState<LoginRedirectState>({
+    isRedirecting: false,
+    target: null,
+  });
   const [lockedEmail, setLockedEmail] = useState('');
   const [lastInvalidField, setLastInvalidField] = useState<LoginInvalidField | null>(null);
   const [invalidSubmitCount, setInvalidSubmitCount] = useState(0);
@@ -68,7 +74,7 @@ export function useLoginForm({
 
   const isLocked = uiError?.status === 'locked' && isCooldownActive && values.email === lockedEmail;
   const isThrottled = uiError?.status === 'throttled' && isCooldownActive;
-  const isSubmitDisabled = isSubmitting || isLocked || isThrottled;
+  const isSubmitDisabled = isSubmitting || redirectState.isRedirecting || isLocked || isThrottled;
 
   const clearInteractionError = useCallback(() => {
     setUiError(null);
@@ -117,6 +123,7 @@ export function useLoginForm({
       const response = await onLogin(values.email, values.password, values.rememberMe);
       if (response.success) {
         stopCooldown();
+        setRedirectState({ isRedirecting: true, target: redirectTarget });
         onSuccess?.(redirectTarget);
         return;
       }
@@ -151,6 +158,7 @@ export function useLoginForm({
       fieldErrors,
       uiError,
       isSubmitting,
+      redirectState,
       isLocked,
       isThrottled,
       isSubmitDisabled,
@@ -167,6 +175,7 @@ export function useLoginForm({
       fieldErrors,
       uiError,
       isSubmitting,
+      redirectState,
       isLocked,
       isThrottled,
       isSubmitDisabled,
