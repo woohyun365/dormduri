@@ -52,6 +52,21 @@ const eslintConfig = defineConfig([
     },
   },
 
+  {
+    files: [
+      '.storybook/**/*.{ts,tsx}',
+      'src/**/*.stories.{ts,tsx}',
+      'src/**/__stories__/**/*.{ts,tsx}',
+    ],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: './tsconfig.storybook.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -65,6 +80,8 @@ const eslintConfig = defineConfig([
     // Playwright runtime artifacts are regenerated locally/CI.
     'playwright-report/**',
     'test-results/**',
+    // Storybook static build output is generated locally/CI.
+    'storybook-static/**',
   ]),
 ]);
 

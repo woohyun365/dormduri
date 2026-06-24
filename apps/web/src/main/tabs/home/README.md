@@ -44,20 +44,22 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 
 ## Directory responsibility
 
-| File / directory                                                          | Responsibility                                                         |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `HomeTab.tsx`                                                             | Home composition, dashboard view model 소비, section 조합, CTA routing |
-| `HomeDashboardLayout.tsx`                                                 | mobile single-column / desktop two-column layout owner                 |
-| `components/HomePrimaryStateCard.tsx`                                     | 시즌·참여 상태별 primary next action card                              |
-| `components/HomeActivityPanel.tsx`, `components/HomeStatsPanel.tsx`       | dashboard summary and activity panels                                  |
-| `components/HomeMatchingSummary.tsx`, `components/UrgentActionBanner.tsx` | matching/chat/request activity summary                                 |
-| `components/HomeReadinessChecklist.tsx`                                   | current-user capability와 registration 상태 기반 readiness checklist   |
-| `components/HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts`  | `service-intro` 안내 표시·닫기·영구 dismiss flow                       |
-| `components/BuildingStatsBar.tsx`, `components/DynamicTipBanner.tsx`      | season stats and contextual guide widgets                              |
-| `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry and static/dynamic guide copy               |
-| `model/`                                                                  | pure policy/view-model helpers and tests                               |
-| `../../test-support/home-dashboard.builder.ts`                            | Home/Main unit·component tests 전용 `HomeDashboardResponse` builder    |
-| `__tests__/`                                                              | component, state matrix, browser API fallback regression               |
+| File / directory                                                          | Responsibility                                                                              |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `HomeTab.tsx`                                                             | Home composition, dashboard view model 소비, section 조합, CTA routing                      |
+| `HomeDashboardLayout.tsx`                                                 | mobile single-column / desktop two-column layout owner                                      |
+| `components/HomePrimaryStateCard.tsx`                                     | 시즌·참여 상태별 primary next action card                                                   |
+| `components/HomeActivityPanel.tsx`, `components/HomeStatsPanel.tsx`       | dashboard summary and activity panels                                                       |
+| `components/HomeDashboardErrorState.tsx`                                  | Home dashboard API/BFF failure safe retry state                                             |
+| `components/HomeMatchingSummary.tsx`, `components/UrgentActionBanner.tsx` | matching/chat/request activity summary                                                      |
+| `components/HomeReadinessChecklist.tsx`                                   | current-user capability와 registration 상태 기반 readiness checklist                        |
+| `components/HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts`  | `service-intro` 안내 표시·닫기·영구 dismiss flow                                            |
+| `components/BuildingStatsBar.tsx`, `components/DynamicTipBanner.tsx`      | season stats and contextual guide widgets                                                   |
+| `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry and static/dynamic guide copy                                    |
+| `model/`                                                                  | pure policy/view-model helpers and tests                                                    |
+| `../../test-support/home-dashboard.builder.ts`                            | Home/Main unit·component tests 및 Storybook story data 전용 `HomeDashboardResponse` builder |
+| `__stories__/`                                                            | HomeTab visual state workshop 전용 story surface                                            |
+| `__tests__/`                                                              | component, state matrix, browser API fallback regression                                    |
 
 ## Error and security rule
 
@@ -88,6 +90,17 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
   - Main shell에서 Home dashboard loading/error/success와 direct action wiring.
 - `apps/web/e2e/smoke.spec.ts`
   - Web-only Playwright protected route boundary: unauthenticated `/main` 접근은 `/login`으로 fail-closed.
+
+## Storybook visual workshop boundary
+
+HomeTab의 여러 시즌·매칭 상태를 빠르게 눈으로 비교할 때는 `apps/web/src/main/tabs/home/__stories__` 아래 Storybook story를 사용한다.
+Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visual state workshop**이다.
+
+- 실행: `pnpm --dir apps/web storybook`
+- 정적 빌드 검증: `pnpm --dir apps/web storybook:build`
+- 현재 story matrix는 비시즌, 현재 시즌 없음, 시즌 오픈 준비/등록 완료, 매칭 기간 건물 미배정, 받은/보낸 요청, 확정 매칭, 시즌 마감, 비운영 캠퍼스, `service-intro` 안내 열림, 로딩 skeleton, 오류 복구 상태를 포함한다.
+- story data는 `main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `main/test-support`, `src/__fixtures__`를 import하면 안 된다.
+- `storybook:build`는 visual workshop surface가 빌드 가능한지 확인할 뿐, API/BFF/auth/DB 정합성 완료 근거가 아니다.
 
 ## Playwright / browser smoke boundary
 

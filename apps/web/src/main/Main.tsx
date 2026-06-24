@@ -12,6 +12,7 @@ import ProfileTab from './tabs/profile/ProfileTab';
 import MatchingTab from './tabs/matching/MatchingTab';
 import ChatTab from './tabs/chat/ChatTab';
 import { HomeTabSkeleton } from '@/components/Skeleton';
+import { HomeDashboardErrorState } from './tabs/home/components/HomeDashboardErrorState';
 import { AppShellSkeleton } from '@/components/AppShellSkeleton';
 import { MatchingTabSkeleton } from './tabs/matching/MatchingTabSkeleton';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
@@ -329,40 +330,6 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         />
       </div>
     </SeasonProvider>
-  );
-}
-
-function HomeDashboardErrorState({
-  message,
-  refreshing,
-  onRetry,
-}: {
-  message: string;
-  refreshing: boolean;
-  onRetry: () => Promise<void>;
-}) {
-  return (
-    <section className="min-h-[50vh] px-5 py-12">
-      <div
-        role="alert"
-        className="max-w-md mx-auto rounded-2xl border border-red-100 bg-white p-5 text-center shadow-sm"
-      >
-        <h2 className="text-base font-bold text-[var(--knu-text-primary)]">
-          홈 정보를 불러오지 못했어요
-        </h2>
-        <p className="mt-2 text-sm text-[var(--knu-text-secondary)]">{message}</p>
-        <button
-          type="button"
-          onClick={() => {
-            void onRetry();
-          }}
-          disabled={refreshing}
-          className="mt-4 inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--knu-primary)] px-4 text-sm font-semibold text-white transition-colors hover:bg-[var(--knu-primary-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {refreshing ? '다시 불러오는 중...' : '다시 시도'}
-        </button>
-      </div>
-    </section>
   );
 }
 
