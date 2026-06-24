@@ -100,8 +100,8 @@ Production release는 아래 조건을 만족해야 한다.
 - Production TLS는 Let's Encrypt/Certbot 또는 동등한 인증서 발급 경로를 사용한다.
 - REST API CORS origin은 wildcard가 아니라 `HTTP_CORS_ALLOWED_ORIGINS`의 explicit allowlist로 둔다. Allowlist가 비어 있으면 permissive CORS를 활성화하지 않는다.
 - Socket.IO/realtime origin policy는 `CHAT_REALTIME_ALLOWED_ORIGINS`와 `CHAT_REALTIME_TRUST_PROXY`가 별도로 소유한다.
-- 현재 auth/session transport는 JSON response body token + `Authorization` header 기반이며 API는 `Set-Cookie`를 발급하지 않는다.
-- Cookie-backed transport가 도입되면 platform HTTP cookie policy helper를 사용하고 `httpOnly`, `secure`, `SameSite=Lax`, 명시적 path/maxAge/expiry를 기준으로 한다.
+- 현재 browser auth/session transport는 Web BFF가 API opaque access/renewal token response를 `httpOnly` cookie로 materialize하는 구조다. API upstream 자체는 `Set-Cookie` ownership을 갖지 않고, server-side forward path에서만 opaque token을 `Authorization` header로 전달한다.
+- Cookie-backed browser transport는 platform HTTP cookie policy helper를 사용하고 `httpOnly`, `secure`, `SameSite=Lax`, 명시적 path/maxAge/expiry를 기준으로 한다.
 - `SameSite=None`은 `secure=true` 없이는 허용하지 않는다. Cross-site cookie 요구는 실제 Web 배포 구조가 확정될 때 별도 decision으로 다룬다.
 - Local/proxy-behind-LB HTTP nginx baseline과 direct nginx TLS termination 예시는 분리한다. Placeholder certificate path가 base compose에 로드되면 안 된다.
 

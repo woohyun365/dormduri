@@ -1,12 +1,16 @@
 'use client';
 
+import type { InputHTMLAttributes } from 'react';
 import { forwardRef, useId, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { FieldError } from './FieldError';
 
 interface InputFieldProps {
   label: string;
+  name?: string;
   type?: 'text' | 'email' | 'password' | 'number';
+  inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode'];
+  autoComplete?: string;
   placeholder?: string;
   value: string;
   onChange: (value: string) => void;
@@ -20,7 +24,10 @@ interface InputFieldProps {
 export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function InputField(
   {
     label,
+    name,
     type = 'text',
+    inputMode,
+    autoComplete,
     placeholder,
     value,
     onChange,
@@ -50,7 +57,10 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
         <input
           ref={ref}
           id={id}
+          name={name}
           type={inputType}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}

@@ -71,7 +71,8 @@ describe('web legal document boundary', () => {
   it('public entry points expose user-facing legal links without internal planning copy', () => {
     const entrySources = [
       readSource('landing/components/LandingFooter.tsx'),
-      readSource('login/Login.tsx'),
+      readSource('login/components/LoginLayout.tsx'),
+      readSource('login/components/LoginSecondaryActions.tsx'),
       readSource('signup/components/SignupLayout.tsx'),
     ];
 
