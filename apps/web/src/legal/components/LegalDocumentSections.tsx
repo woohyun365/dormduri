@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { LegalDocumentViewSection } from '../types/legal-document.types';
+import type { LegalDocumentViewSection } from '../model/legal-document.types';
 
 function isArticleHeading(text: string): boolean {
   return /^제\d+조\(.+\)$/.test(text);

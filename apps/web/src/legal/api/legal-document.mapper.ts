@@ -4,7 +4,7 @@ import type {
   LegalDocumentTocItem,
   LegalDocumentViewModel,
   LegalDocumentViewSection,
-} from '../types/legal-document.types';
+} from '../model/legal-document.types';
 
 function formatIsoDateLabel(value: string): string {
   return value.slice(0, 10);

@@ -48,6 +48,7 @@ export interface SeasonApiResult {
   state: SeasonState;
   isOpen: boolean;
   isMatching: boolean;
+  isPostMatch: boolean;
   daysUntilEnd: number;
 }
 
@@ -64,13 +65,15 @@ export const seasonApi = {
         if (
           override === 'OFF_SEASON' ||
           override === 'SEASON_OPEN' ||
-          override === 'SEASON_MATCHING'
+          override === 'SEASON_MATCHING' ||
+          override === 'SEASON_POST_MATCH'
         ) {
           return {
             season,
             state: override,
             isOpen: override === 'SEASON_OPEN',
             isMatching: override === 'SEASON_MATCHING',
+            isPostMatch: override === 'SEASON_POST_MATCH',
             daysUntilEnd: override === 'OFF_SEASON' ? 0 : daysUntilEnd,
           };
         }
@@ -82,6 +85,7 @@ export const seasonApi = {
         state,
         isOpen: state === 'SEASON_OPEN',
         isMatching: state === 'SEASON_MATCHING',
+        isPostMatch: state === 'SEASON_POST_MATCH',
         daysUntilEnd,
       };
     }

@@ -5,7 +5,9 @@ import {
   formatKstDate,
   subtractDays,
   toKstEndMs,
+  toKstEndIso,
   toKstStartMs,
+  toKstStartIso,
 } from './kst-date.js';
 
 describe('KST date helpers', () => {
@@ -17,6 +19,8 @@ describe('KST date helpers', () => {
   it('resolves KST day boundaries for local date strings', () => {
     expect(new Date(toKstStartMs('2026-02-10')).toISOString()).toBe('2026-02-09T15:00:00.000Z');
     expect(new Date(toKstEndMs('2026-02-10')).toISOString()).toBe('2026-02-10T14:59:59.000Z');
+    expect(toKstStartIso('2026-02-10')).toBe('2026-02-09T15:00:00.000Z');
+    expect(toKstEndIso('2026-02-10')).toBe('2026-02-10T14:59:59.000Z');
   });
 
   it('handles month end and local-date arithmetic', () => {

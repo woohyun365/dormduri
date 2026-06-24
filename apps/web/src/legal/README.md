@@ -6,8 +6,9 @@
 - `components/`: accessible document layout, TOC, signup consent summary, document dialog, and unavailable states.
 - `content/`: seed-synced fallback documents and user-facing legal copy. Public `/terms` and
   `/privacy` fallback bodies use formal article headings while signup consent summaries stay short
-  and user-friendly.
-- `types/`: Web-only view models derived from `@repo/shared/legal` contracts.
+  and user-friendly. `content/legal-fallback-documents.ts` is the fallback document source.
+- `model/`: Web-only view models derived from `@repo/shared/legal` contracts. Add `hooks/` or
+  `fixtures/` only when a concrete runtime owner appears; do not create empty owner directories.
 
 Rules:
 

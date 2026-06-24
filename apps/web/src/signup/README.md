@@ -36,9 +36,9 @@ Signup은 아래 데이터를 생성하거나 저장하지 않는다.
 1. `StepEmailVerification` — 학교 이메일 인증 코드 발송·확인.
 2. `LegalConsentStep` — active legal bundle 조회, fallback 안내, 필수 동의 수집, stale legal reset.
 3. `AccountIdentityStep` — 닉네임, 비밀번호, 성별, 캠퍼스, 단과대, 출생연도 입력 후 signup submit.
-4. `StepComplete` — 계정 생성 완료와 가입 후 시즌 여정 안내.
+4. `SignupCompleteStep` — 계정 생성 완료와 가입 후 시즌 여정 안내.
 
-`Signup.tsx`는 route-level client shell로 단계 조합과 submit recovery만 담당한다.
+`SignupPageClient.tsx`는 route-level client shell로 단계 조합과 submit recovery만 담당한다.
 입력 저장, request mapping, flow 상태 규칙은 `hooks/`와 `model/` 아래의 작은 단위로 유지한다.
 
 ## API/BFF contract
@@ -55,6 +55,8 @@ Signup은 아래 데이터를 생성하거나 저장하지 않는다.
 
 `/api/auth/signup` 응답은 upstream access token을 JSON body에 노출하지 않고 auth cookie로만 설정한다.
 Signup BFF는 request body를 cast-only로 통과시키지 않고 shared schema parse guard를 사용한다.
+`apps/web/src/api/auth.ts`는 login, password reset, signup이 함께 쓰는 Web auth client wrapper이므로
+signup feature-local `api/` 아래로 옮기지 않는다.
 
 ## Draft storage rule
 
@@ -82,20 +84,25 @@ Signup BFF는 request body를 cast-only로 통과시키지 않고 shared schema 
 
 회원가입 성공으로 Step 4에 도달하면 draft는 삭제된다.
 복구 가능한 legacy step은 Step 3까지만 허용하고, 인증이 풀린 상태에서는 Step 1로 되돌린다.
+이전 브라우저 draft가 저장한 `terms.agreePrivacy`는 `model/signup-draft-storage.ts` parser에서만
+현재 `agreePersonalDataCollectionUse`로 복원한다.
+`LegalConsentStep` public component contract에는 이전 privacy checkbox compatibility field를 노출하지 않는다.
 
 ## Directory responsibility
 
-| Directory / file                 | Responsibility                                         |
-| -------------------------------- | ------------------------------------------------------ |
-| `Signup.tsx`                     | 4-step shell, auth redirect gate, submit/recovery glue |
-| `components/`                    | 단계별 화면, layout, progress, alert, loading UI       |
-| `components/email-verification/` | signup 이메일 인증 요청/확인 hook과 UI                 |
-| `hooks/useSignupDraftStorage.ts` | browser draft read/write lifecycle bridge              |
-| `model/signup-flow.*`            | step id/count와 reducer 규칙                           |
-| `model/signup-draft-storage.ts`  | draft serialization allowlist                          |
-| `model/signup-request.mapper.ts` | shared `SignupRequest` mapping                         |
-| `__tests__/`, `model/__tests__/` | flow, storage, mapper, shell regression                |
-| `components/__tests__/`          | step component interaction/accessibility regression    |
+| Directory / file                    | Responsibility                                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `SignupPageClient.tsx`              | 4-step shell, auth redirect gate, submit/recovery glue                                                    |
+| `components/`                       | 단계별 화면, layout, progress, alert, loading UI                                                          |
+| `components/SignupCompleteStep.tsx` | 가입 완료 후 season journey handoff                                                                       |
+| `components/SignupSkeleton.tsx`     | redirect/draft restore 대기 중 접근 가능한 loading UI                                                     |
+| `components/email-verification/`    | signup 이메일 인증 요청/확인 hook과 UI. 요청/확인 UI와 hook이 함께 움직이는 slice라 flat하게 풀지 않는다. |
+| `hooks/useSignupDraftStorage.ts`    | browser draft read/write lifecycle bridge                                                                 |
+| `model/signup-flow.*`               | step id/count와 reducer 규칙                                                                              |
+| `model/signup-draft-storage.ts`     | draft serialization allowlist                                                                             |
+| `model/signup-request.mapper.ts`    | shared `SignupRequest` mapping                                                                            |
+| `__tests__/`, `model/__tests__/`    | flow, storage, mapper, shell regression                                                                   |
+| `components/__tests__/`             | step component interaction/accessibility regression                                                       |
 
 ## Verification map
 
@@ -119,7 +126,7 @@ Signup BFF는 request body를 cast-only로 통과시키지 않고 shared schema 
   - required fields, current-year based birth year select, validation copy
 - `LegalConsentStep.test.tsx`
   - active/fallback legal bundle, stale legal id handling, dialog interaction
-- `StepComplete.test.tsx`
+- `SignupCompleteStep.test.tsx`
   - 가입 완료 후 season journey handoff, off-season copy, no `다시 보지 않음`
 - `app/api/auth/__tests__/signup-route.test.ts`
   - BFF schema guard, forbidden field reject, token body exposure 방지

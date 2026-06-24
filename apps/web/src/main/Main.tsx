@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { toast } from 'sonner';
 import { BottomTabBar } from './components/BottomTabBar';
 import { BuildingSelectModal } from './components/BuildingSelectModal';
@@ -12,6 +12,7 @@ import ProfileTab from './tabs/profile/ProfileTab';
 import MatchingTab from './tabs/matching/MatchingTab';
 import ChatTab from './tabs/chat/ChatTab';
 import { HomeTabSkeleton } from '@/components/Skeleton';
+import { HomeDashboardErrorState } from './tabs/home/components/HomeDashboardErrorState';
 import { AppShellSkeleton } from '@/components/AppShellSkeleton';
 import { MatchingTabSkeleton } from './tabs/matching/MatchingTabSkeleton';
 import { useOnboardingState } from '@/hooks/useOnboardingState';
@@ -19,16 +20,18 @@ import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
 import { useMainMatchingState } from './hooks/useMainMatchingState';
 import { useMainListViewState } from './hooks/useMainListViewState';
+import { useMainHomeDashboard } from './hooks/useMainHomeDashboard';
 import { UNASSIGNED_ID, isCampusOperated } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
 import { homeApi } from '@/api/home';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
+import { getMainTabDocumentTitle } from './utils/mainTabTitle';
+import { toHomeSeasonContext } from './tabs/home/model/homeDashboardViewModel';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
 import type { TabId, UserProfile, RoommateProfile, MatchingNavOptions } from '@/types/profile';
-import type { BuildingStats, PastSeasonResult } from './types/home';
 import type { PastSeasonData } from '@/types/match';
 
 export type { TabId, UserProfile } from '@/types/profile';
@@ -36,11 +39,7 @@ export type { TabId, UserProfile } from '@/types/profile';
 /** 서비스 레이어에서 로드하는 데이터 */
 interface MainData {
   profiles: Omit<RoommateProfile, 'matchScore'>[];
-  buildingStats: BuildingStats;
-  pastSeasonResult?: PastSeasonResult;
   pastSeasons: PastSeasonData[];
-  isNextSeasonRegistered: boolean;
-  unreadMessages: number;
   season: Season;
   isOpen: boolean;
   isMatching: boolean;
@@ -58,14 +57,15 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     return 'home';
   });
   const [data, setData] = useState<MainData | null>(null);
+  const homeDashboard = useMainHomeDashboard();
 
   const showToast = useCallback((msg: string) => toast(msg), []);
 
   // 매칭 탭 서브탭 네비게이트 옵션
-  const matchingNavRef = useRef<MatchingNavOptions>({});
+  const [matchingNavOptions, setMatchingNavOptions] = useState<MatchingNavOptions>({});
 
   const handleNavigate = useCallback((tab: TabId, options?: MatchingNavOptions) => {
-    matchingNavRef.current = tab === 'matching' && options ? options : {};
+    setMatchingNavOptions(tab === 'matching' && options ? options : {});
     setActiveTab(tab);
   }, []);
 
@@ -105,7 +105,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
 
       // SEASON_OPEN + SEASON_MATCHING → 동일 건물 격리
       // UNASSIGNED → 빈 배열 (정책: 건물 미선택 유저는 탐색 불가)
-      // 건물 통계는 Mock Service Snapshot에서 독립 제공
+      // 건물 통계와 matching 요약은 Home dashboard/API owner가 제공한다.
       const isUnassignedId = currentDormitoryId === UNASSIGNED_ID;
       const dormitoryIdForFilter =
         season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
@@ -119,30 +119,13 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               dormitoryIdForFilter,
             );
 
-      const [buildingStats, pastSeasonResult, pastSeasons, isNextSeasonRegistered, unreadMessages] =
-        await Promise.all([
-          homeApi.getBuildingStats(profileState.user, profileResult),
-          homeApi.getPastSeasonResult(),
-          homeApi.getPastSeasons(),
-          homeApi.isNextSeasonRegistered(),
-          homeApi.getUnreadMessages(),
-        ]);
+      const pastSeasons = await homeApi.getPastSeasons();
 
       if (cancelled) return;
 
-      // 시즌 종료 시 매칭 상태 초기화 (AC-B03)
-      if (season.state === 'OFF_SEASON') {
-        const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
-        getMockMatchingService().clearState();
-      }
-
       setData({
         profiles: profileResult,
-        buildingStats,
-        pastSeasonResult,
         pastSeasons,
-        isNextSeasonRegistered,
-        unreadMessages,
         season: season.season,
         isOpen: season.isOpen,
         isMatching: season.isMatching,
@@ -167,6 +150,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   useEffect(() => {
     window.scrollTo(0, 0);
     sessionStorage.setItem('activeTab', activeTab);
+    document.title = getMainTabDocumentTitle(activeTab);
   }, [activeTab]);
 
   // 데이터 로딩 중 — 탭바 먼저 표시 + 탭별 스켈레톤
@@ -181,26 +165,28 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
     );
   }
 
-  const seasonContextValue = {
+  const fallbackSeasonContext = {
     season: data.season,
     state: data.seasonState,
     isOpen: data.isOpen,
     isMatching: data.isMatching,
     daysUntilEnd: data.daysUntilEnd,
   };
-  const campusOperated = isCampusOperated(profileState.user.campus);
+  const seasonContextValue = toHomeSeasonContext(homeDashboard.dashboard, fallbackSeasonContext);
+  const campusOperated =
+    homeDashboard.dashboard?.viewer.campusOperated ?? isCampusOperated(profileState.user.campus);
   const featureFlags = getMainFeatureFlags({
     campusOperated,
-    isOpen: data.isOpen,
-    isMatching: data.isMatching,
+    isOpen: seasonContextValue.isOpen,
+    isMatching: seasonContextValue.isMatching,
   });
 
   return (
     <SeasonProvider value={seasonContextValue}>
       <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
         {campusOperated &&
-          (data.isOpen || data.isMatching) &&
-          (profileState.user.dormitoryId === null || profileState.showBuildingSelect) && (
+          (seasonContextValue.isOpen || seasonContextValue.isMatching) &&
+          profileState.showBuildingSelect && (
             <BuildingSelectModal
               campus={profileState.user.campus}
               gender={profileState.user.gender}
@@ -213,18 +199,25 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
         {/* Conditional tab rendering */}
         <main>
           {activeTab === 'home' && (
-            <HomeTab
-              user={profileState.user}
-              onNavigate={handleNavigate}
-              profiles={data.profiles}
-              buildingStats={data.buildingStats}
-              pastSeasonResult={data.pastSeasonResult}
-              isNextSeasonRegistered={data.isNextSeasonRegistered}
-              unreadMessages={data.unreadMessages}
-              onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
-              matchRequests={matchingState.matchRequests}
-              activeMatch={matchingState.activeMatch}
-            />
+            <>
+              {homeDashboard.loading && <HomeTabSkeleton />}
+              {!homeDashboard.loading && homeDashboard.error && (
+                <HomeDashboardErrorState
+                  message={homeDashboard.error}
+                  refreshing={homeDashboard.refreshing}
+                  onRetry={homeDashboard.refetch}
+                />
+              )}
+              {!homeDashboard.loading && !homeDashboard.error && homeDashboard.dashboard && (
+                <HomeTab
+                  user={profileState.user}
+                  dashboard={homeDashboard.dashboard}
+                  onNavigate={handleNavigate}
+                  onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
+                  onDashboardRefresh={homeDashboard.refetch}
+                />
+              )}
+            </>
           )}
           {activeTab === 'list' && (
             <RoommateListTab
@@ -274,8 +267,8 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
               onEndConversation={matchingState.handleEndConversation}
               onEndMatch={matchingState.handleEndMatch}
               onNavigate={setActiveTab}
-              initialSection={matchingNavRef.current.section}
-              initialRequestTab={matchingNavRef.current.requestTab}
+              initialSection={matchingNavOptions.section}
+              initialRequestTab={matchingNavOptions.requestTab}
             />
           )}
           {activeTab === 'profile' && (

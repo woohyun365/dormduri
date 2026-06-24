@@ -1,4 +1,5 @@
 import type { ActiveMatch } from '@/types/match';
+import type { SeasonState } from '@/types/season';
 
 export type PolicyTone = 'blue' | 'amber' | 'green' | 'slate';
 
@@ -90,21 +91,15 @@ export function getMatchingPolicyHint(params: {
  * getMatchingPolicyHints()는 "일반 정책 교육 팁" (순환 복수).
  */
 export function getMatchingPolicyHints(params: {
-  seasonState: 'OFF_SEASON' | 'SEASON_OPEN' | 'SEASON_MATCHING';
+  seasonState: SeasonState;
   activeMatch: ActiveMatch | null;
   sentPendingCount: number;
   receivedPendingCount: number;
   conversationsCount: number;
   daysUntilEnd: number;
 }): PolicyCopy[] {
-  const {
-    seasonState,
-    activeMatch,
-    sentPendingCount,
-    receivedPendingCount,
-    conversationsCount,
-    daysUntilEnd,
-  } = params;
+  const { seasonState, activeMatch, sentPendingCount, receivedPendingCount, conversationsCount } =
+    params;
   const hints: PolicyCopy[] = [];
 
   // --- OFF_SEASON ---
@@ -141,6 +136,23 @@ export function getMatchingPolicyHints(params: {
         tone: 'blue',
         title: '관심 있는 상대를 미리 북마크할 수 있어요',
         body: '매칭 시작 후 더 빠르게 요청할 수 있어요.',
+      },
+    );
+    return hints;
+  }
+
+  // --- SEASON_POST_MATCH ---
+  if (seasonState === 'SEASON_POST_MATCH') {
+    hints.push(
+      {
+        tone: 'green',
+        title: '이번 시즌 매칭 결과를 확인할 수 있어요',
+        body: '새 요청은 닫혔지만 이전 대화와 매칭 이력은 확인할 수 있어요.',
+      },
+      {
+        tone: 'slate',
+        title: '다음 시즌 전까지 프로필을 정리해 보세요',
+        body: '다음 시즌이 열리면 새로운 탐색과 요청을 다시 시작할 수 있어요.',
       },
     );
     return hints;

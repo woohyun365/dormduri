@@ -27,6 +27,14 @@ export function toKstEndMs(dateStr: LocalDateString): number {
   return new Date(`${dateStr}T23:59:59+09:00`).getTime();
 }
 
+export function toKstStartIso(dateStr: LocalDateString): string {
+  return new Date(toKstStartMs(dateStr)).toISOString();
+}
+
+export function toKstEndIso(dateStr: LocalDateString): string {
+  return new Date(toKstEndMs(dateStr)).toISOString();
+}
+
 export function calcDaysUntilDate(dateStr: LocalDateString, now: Date): number {
   const diff = toKstEndMs(dateStr) - now.getTime();
   return Math.max(0, Math.ceil(diff / DAY_MS));

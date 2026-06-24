@@ -2,7 +2,7 @@ import { MessageCircle } from 'lucide-react';
 import { Chip } from '@/components/Chip';
 import { LIFESTYLE_LABELS } from '@/constants/lifestyle';
 import { getMatchScoreColor } from '@/utils/matchScoreColor';
-import type { LandingProfilePreviewItem } from '../content/landing-preview-fixtures';
+import type { LandingProfilePreviewItem } from '../content/landing-profile-preview.examples';
 
 interface LandingProfilePreviewCardProps {
   profile: LandingProfilePreviewItem;

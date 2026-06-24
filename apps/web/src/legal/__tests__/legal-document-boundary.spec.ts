@@ -47,7 +47,7 @@ describe('web legal document boundary', () => {
 
   it('signup legal consent flow uses legal feature instead of legacy static modal/constants', () => {
     const signupSources = [
-      readSource('signup/Signup.tsx'),
+      readSource('signup/SignupPageClient.tsx'),
       readSource('signup/components/LegalConsentStep.tsx'),
     ];
 
@@ -59,6 +59,13 @@ describe('web legal document boundary', () => {
     expect(existsSync(join(webSrc, 'components/legal/LegalContentModal.tsx'))).toBe(false);
     expect(existsSync(join(webSrc, 'constants/legal'))).toBe(false);
     expect(existsSync(join(webSrc, 'signup/components/StepTermsAgreement.tsx'))).toBe(false);
+  });
+
+  it('signup legal component contract does not expose previous privacy consent compatibility', () => {
+    const legalConsentStepSource = readSource('signup/components/LegalConsentStep.tsx');
+
+    expect(legalConsentStepSource).not.toContain('@deprecated');
+    expect(legalConsentStepSource).not.toContain('agreePrivacy');
   });
 
   it('public entry points expose user-facing legal links without internal planning copy', () => {

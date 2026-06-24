@@ -5,6 +5,12 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "playwright.config.ts", "e2e/**/*.ts", "tests/e2e/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "playwright.config.ts",
+    "e2e/**/*.ts",
+    "tests/e2e/**/*.ts",
+    "playwright.fullstack.config.ts"
+  ],
   "exclude": ["node_modules", ".next", "coverage"]
 }

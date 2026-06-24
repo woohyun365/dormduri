@@ -1,7 +1,7 @@
 /**
  * 매칭 상태 관리 hook — thin layer.
- * matchingApi 호출 → setState → toast. 상태 전이 로직은 mock-matching-service에 위임.
- * Sprint 7: matchingApi 내부가 HTTP로 교체되어도 이 hook은 변경 없음.
+ * matchingApi 호출 → setState → toast. 상태 전이는 matching API adapter가 소유한다.
+ * 이 hook은 /main UI state와 toast만 얇게 연결한다.
  */
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { matchingApi } from '@/api/matching';

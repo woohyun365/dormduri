@@ -113,6 +113,23 @@ describe('signup draft storage', () => {
     });
   });
 
+  it('이전 draft의 privacy 동의 필드는 storage parser 안에서만 현재 개인정보 수집·이용 동의로 복원한다', () => {
+    const restored = parseSignupDraft(
+      JSON.stringify({
+        currentStep: 2,
+        email: 'tester@kangwon.ac.kr',
+        isEmailVerified: true,
+        terms: { agreeAge: true, agreeTerms: true, agreePrivacy: true },
+      }),
+    );
+
+    expect(restored?.terms).toMatchObject({
+      agreeAge: true,
+      agreeTerms: true,
+      agreePersonalDataCollectionUse: true,
+    });
+  });
+
   it('clearSignupDraft는 storage key를 삭제한다', () => {
     writeSignupDraft(storage, draftInput);
     clearSignupDraft(storage);

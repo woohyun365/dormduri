@@ -42,7 +42,10 @@
     "api:db:deploy:smoke": "pnpm --dir apps/api db:deploy:smoke",
     "api:db:restore-drill:smoke": "pnpm --dir apps/api db:restore-drill:smoke",
     "web:typecheck:e2e": "pnpm --dir apps/web typecheck:e2e",
-    "web:e2e": "pnpm --dir apps/web e2e"
+    "web:e2e": "pnpm --dir apps/web e2e",
+    "web:e2e:fullstack": "pnpm --dir apps/web e2e:fullstack",
+    "web:storybook": "pnpm --dir apps/web storybook",
+    "web:storybook:build": "pnpm --dir apps/web storybook:build"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",

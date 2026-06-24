@@ -15,6 +15,8 @@ catalog:
   '@eslint/js': 9.39.4
   '@playwright/test': 1.61.0
   '@tailwindcss/postcss': 4.3.1
+  '@storybook/addon-docs': 10.4.6
+  '@storybook/nextjs-vite': 10.4.6
   '@typescript-eslint/eslint-plugin': 8.61.1
   '@typescript-eslint/parser': 8.61.1
   '@vitejs/plugin-react': 6.0.2
@@ -27,6 +29,7 @@ catalog:
   prettier: 3.8.4
   react: 19.2.7
   react-dom: 19.2.7
+  storybook: 10.4.6
   tailwindcss: 4.3.1
   typescript: 6.0.3
   typescript-eslint: 8.61.1
@@ -36,3 +39,10 @@ catalog:
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
+
+# Storybook 10.4.6 transitive vite-tsconfig-paths -> tsconfck@3.1.6 has not
+# widened its TypeScript peer metadata for TypeScript 6 yet. Keep this exception
+# scoped to tsconfck only; remove it when upstream peer range supports TS 6.
+peerDependencyRules:
+  allowedVersions:
+    'tsconfck>typescript': '6'

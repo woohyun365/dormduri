@@ -11,7 +11,7 @@ export const LANDING_REQUIRED_POLICY_COPY_IDS = [
   'lifestyle_survey_disclaimer',
   'profile_privacy_warning',
   'season_capability_boundary',
-  'faq_is_not_support_ticket',
+  'faq_is_not_personal_support_request',
 ] as const satisfies readonly LandingPolicyCopyId[];
 
 export const LANDING_SEASON_STATE_LABELS = {
@@ -90,12 +90,12 @@ export const LANDING_POLICY_COPY = [
     testAnchor: '시즌 마감 정리 기간',
   },
   {
-    id: 'faq_is_not_support_ticket',
+    id: 'faq_is_not_personal_support_request',
     copy: 'FAQ는 공개 도움말이며 개인 문의, 신고, 이의신청 결과를 대체하지 않습니다.',
     source: {
       path: 'docs/04_policy/official/support-communication.md',
       section: 'FAQ policy',
-      reason: 'FAQ는 support ticket을 대체하지 않고, 개인 사건 결과를 포함하지 않는다.',
+      reason: 'FAQ는 개인 문의 접수를 대체하지 않고, 개인 사건 결과를 포함하지 않는다.',
     },
     requiredSurface: ['faq', 'support'],
     testAnchor: '개인 문의, 신고, 이의신청 결과를 대체하지 않습니다',

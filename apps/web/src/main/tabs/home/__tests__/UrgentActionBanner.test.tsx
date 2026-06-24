@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { UrgentActionBanner } from '../UrgentActionBanner';
+import { UrgentActionBanner } from '../components/UrgentActionBanner';
 import type { MatchRequest } from '@/types/match';
 import type { RoommateProfile } from '@/types/profile';
 

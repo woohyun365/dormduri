@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import Signup from '../Signup';
+import SignupPageClient from '../SignupPageClient';
 import { authApi } from '@/api/auth';
 import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 
@@ -139,8 +139,8 @@ vi.mock('../components/AccountIdentityStep', () => ({
   ),
 }));
 
-vi.mock('../components/StepComplete', () => ({
-  StepComplete: ({ onGoToHome }: { onGoToHome: () => void }) => (
+vi.mock('../components/SignupCompleteStep', () => ({
+  SignupCompleteStep: ({ onGoToHome }: { onGoToHome: () => void }) => (
     <button data-testid="step-complete" onClick={onGoToHome}>
       가입 완료
     </button>
@@ -187,7 +187,7 @@ async function submitAccountIdentity() {
   });
 }
 
-describe('Signup', () => {
+describe('SignupPageClient', () => {
   beforeEach(() => {
     sessionStorage.clear();
     mockSignup.mockReset();
@@ -202,7 +202,7 @@ describe('Signup', () => {
   });
 
   it('Step 1(이메일 인증)부터 시작한다', () => {
-    render(<Signup />);
+    render(<SignupPageClient />);
 
     expect(screen.getByTestId('step-1-verify')).toBeInTheDocument();
   });
@@ -210,14 +210,14 @@ describe('Signup', () => {
   it('인증 redirect와 draft restore 대기 중에는 접근 가능한 loading skeleton을 표시한다', () => {
     mockUseRedirectIfAuthenticated.mockImplementation(() => ({ isReadyToRender: false }));
 
-    render(<Signup />);
+    render(<SignupPageClient />);
 
     expect(screen.getByRole('status')).toHaveTextContent('회원가입 정보를 준비하고 있어요');
     expect(screen.queryByTestId('step-1-verify')).not.toBeInTheDocument();
   });
 
   it('4단계 progress label과 현재 단계 aria-current를 표시한다', () => {
-    render(<Signup />);
+    render(<SignupPageClient />);
 
     expect(screen.getByText('단계 1/4')).toBeInTheDocument();
     expect(screen.getByText('현재 단계: 학교 이메일 인증')).toBeInTheDocument();
@@ -240,7 +240,7 @@ describe('Signup', () => {
   });
 
   it('4단계 계정 생성 플로우로 가입을 완료할 수 있다', async () => {
-    render(<Signup />);
+    render(<SignupPageClient />);
 
     advanceToStep(3);
     expect(screen.getByTestId('step-3-next')).toBeInTheDocument();
@@ -275,7 +275,7 @@ describe('Signup', () => {
   it('진행 중 로고 클릭 시 이탈 확인 다이얼로그를 표시한다', () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
 
-    render(<Signup />);
+    render(<SignupPageClient />);
 
     fireEvent.click(screen.getByTestId('step-1-verify'));
     fireEvent.click(screen.getByTestId('step-1-next'));
@@ -292,7 +292,7 @@ describe('Signup', () => {
       error: '약관 또는 개인정보 동의 내용이 변경되었습니다.',
     });
 
-    render(<Signup />);
+    render(<SignupPageClient />);
     advanceToStep(3);
 
     await submitAccountIdentity();
@@ -311,7 +311,7 @@ describe('Signup', () => {
       })
       .mockResolvedValueOnce({ success: true });
 
-    render(<Signup />);
+    render(<SignupPageClient />);
     advanceToStep(3);
 
     await submitAccountIdentity();
@@ -347,7 +347,7 @@ describe('Signup', () => {
       error: '이미 가입된 이메일입니다.',
     });
 
-    render(<Signup />);
+    render(<SignupPageClient />);
     advanceToStep(3);
 
     await submitAccountIdentity();
@@ -364,7 +364,7 @@ describe('Signup', () => {
       error: '이메일 인증을 먼저 완료해주세요.',
     });
 
-    render(<Signup />);
+    render(<SignupPageClient />);
     advanceToStep(3);
 
     await submitAccountIdentity();
@@ -384,7 +384,7 @@ describe('Signup', () => {
   it('네트워크 오류 시 계정 정보 단계에 에러 메시지를 표시한다', async () => {
     mockSignup.mockRejectedValue(new Error('Network error'));
 
-    render(<Signup />);
+    render(<SignupPageClient />);
     advanceToStep(3);
 
     await submitAccountIdentity();
@@ -419,7 +419,7 @@ describe('Signup', () => {
         }),
       );
 
-      render(<Signup />);
+      render(<SignupPageClient />);
 
       expect(screen.getByTestId('step-3-next')).toBeInTheDocument();
     });
@@ -438,13 +438,13 @@ describe('Signup', () => {
         }),
       );
 
-      render(<Signup />);
+      render(<SignupPageClient />);
 
       expect(screen.getByTestId('step-2-next')).toBeInTheDocument();
     });
 
     it('약관 단계 draft에는 legal ids만 저장하고 문서 본문은 저장하지 않는다', async () => {
-      render(<Signup />);
+      render(<SignupPageClient />);
 
       advanceToStep(3);
 
@@ -460,7 +460,7 @@ describe('Signup', () => {
     });
 
     it('계정 정보 단계까지 진행해도 draft에는 intro/lifestyle을 저장하지 않는다', async () => {
-      render(<Signup />);
+      render(<SignupPageClient />);
 
       advanceToStep(3);
 
@@ -474,7 +474,7 @@ describe('Signup', () => {
     });
 
     it('회원가입 완료(Step 4) 시 sessionStorage가 삭제된다', async () => {
-      render(<Signup />);
+      render(<SignupPageClient />);
 
       advanceToStep(3);
       await submitAccountIdentity();
@@ -486,7 +486,7 @@ describe('Signup', () => {
     it('로고 클릭 이탈 시 sessionStorage가 삭제된다', () => {
       vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-      render(<Signup />);
+      render(<SignupPageClient />);
 
       fireEvent.click(screen.getByTestId('step-1-verify'));
       fireEvent.click(screen.getByTestId('step-1-next'));

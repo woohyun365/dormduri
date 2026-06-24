@@ -1,4 +1,4 @@
-import type { LegalDocumentTocItem } from '../types/legal-document.types';
+import type { LegalDocumentTocItem } from '../model/legal-document.types';
 import { LEGAL_DOCUMENT_COPY } from '../content/legal-copy';
 
 interface LegalDocumentTocProps {

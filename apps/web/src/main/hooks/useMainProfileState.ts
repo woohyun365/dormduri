@@ -26,18 +26,7 @@ export function useMainProfileState(initialUser: UserProfile, options: ProfileSt
 
   const handleSelectDormitory = useCallback(
     (dormitoryId: string) => {
-      setUser((prev) => {
-        const next = { ...prev, dormitoryId };
-        if (process.env.NODE_ENV === 'development') {
-          import('@/__fixtures__/mock-db').then(({ mockDb }) => {
-            const current = mockDb.getCurrentUser();
-            if (current) {
-              mockDb.updateUser(current.email, { dormitoryId });
-            }
-          });
-        }
-        return next;
-      });
+      setUser((prev) => ({ ...prev, dormitoryId }));
       if (dormitoryId === UNASSIGNED_ID) {
         showToast('건물 미배정으로 설정했어요');
       } else {

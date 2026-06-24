@@ -12,7 +12,7 @@ import {
   LANDING_POLICY_LINKED_CONTENT_GROUPS,
   landingSeasonPolicyCards,
 } from '../content/landing-copy';
-import { landingProfilePreviewItems } from '../content/landing-preview-fixtures';
+import { landingProfilePreviewItems } from '../content/landing-profile-preview.examples';
 import type { LandingPolicyCopyId } from '../content/landing-content.types';
 
 const FORBIDDEN_PUBLIC_CONTENT_PATTERNS = [
@@ -107,6 +107,17 @@ describe('landing content policy contract', () => {
     }
   });
 
+  it('keeps support boundary ids and reasons user-domain oriented instead of ticket jargon', () => {
+    const serializedLandingContent = JSON.stringify({
+      policy: LANDING_POLICY_COPY,
+      fallbackFaq: landingFallbackFaqItems,
+    });
+
+    expect(serializedLandingContent).toContain('faq_is_not_personal_support_request');
+    expect(serializedLandingContent).toContain('faq-personal-support-request-boundary');
+    expect(serializedLandingContent).not.toMatch(/support\s+ticket|faq_is_not_support_ticket/i);
+  });
+
   it('keeps section content policy links pointed at tracked policy ids', () => {
     const policyCopyIds = new Set<LandingPolicyCopyId>(LANDING_POLICY_COPY.map((copy) => copy.id));
 
@@ -136,7 +147,7 @@ describe('landing content policy contract', () => {
     expect(seasonOpenCard?.description).toContain('매칭 요청·수락은 시즌 매칭 기간에만 열립니다.');
   });
 
-  it('marks profile preview fixtures as examples instead of real users or guaranteed results', () => {
+  it('marks profile preview examples as examples instead of real users or guaranteed results', () => {
     expect(landingProfilePreviewItems.length).toBeGreaterThanOrEqual(2);
 
     for (const profile of landingProfilePreviewItems) {

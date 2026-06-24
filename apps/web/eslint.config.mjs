@@ -37,11 +37,31 @@ const eslintConfig = defineConfig([
   },
 
   {
-    files: ['playwright.config.ts', 'e2e/**/*.ts', 'tests/e2e/**/*.ts'],
+    files: [
+      'playwright.config.ts',
+      'playwright.fullstack.config.ts',
+      'e2e/**/*.ts',
+      'tests/e2e/**/*.ts',
+    ],
     languageOptions: {
       parserOptions: {
         projectService: false,
         project: './tsconfig.e2e.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+  },
+
+  {
+    files: [
+      '.storybook/**/*.{ts,tsx}',
+      'src/**/*.stories.{ts,tsx}',
+      'src/**/__stories__/**/*.{ts,tsx}',
+    ],
+    languageOptions: {
+      parserOptions: {
+        projectService: false,
+        project: './tsconfig.storybook.json',
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -60,6 +80,8 @@ const eslintConfig = defineConfig([
     // Playwright runtime artifacts are regenerated locally/CI.
     'playwright-report/**',
     'test-results/**',
+    // Storybook static build output is generated locally/CI.
+    'storybook-static/**',
   ]),
 ]);
 

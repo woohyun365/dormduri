@@ -7,6 +7,7 @@ import { ChatModule } from './chat/chat.module.js';
 import { PrismaModule } from './platform/database/prisma.module.js';
 import { DormitoriesModule } from './dormitories/dormitories.module.js';
 import { HealthModule } from './health/health.module.js';
+import { HomeDashboardModule } from './home-dashboard/home-dashboard.module.js';
 import { ProfilesModule } from './profiles/profiles.module.js';
 import { RoommateSearchModule } from './roommate-search/roommate-search.module.js';
 import { SeasonsModule } from './seasons/seasons.module.js';
@@ -61,6 +62,7 @@ import { ObservabilityModule } from './platform/observability/observability.modu
     ChatModule,
     DormitoriesModule,
     HealthModule,
+    HomeDashboardModule,
     SeasonsModule,
     SeasonParticipantsModule,
     UsersModule,

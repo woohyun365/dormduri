@@ -20,8 +20,6 @@ export interface LegalConsentData {
   agreePersonalDataCollectionUse: boolean;
   legalAcceptances?: SignupLegalAcceptances;
   legalBundleSource?: 'api' | 'fallback';
-  /** @deprecated signup draft compatibility for the previous privacy-policy consent field. */
-  agreePrivacy?: boolean;
 }
 
 interface LegalConsentStepProps {
@@ -60,8 +58,7 @@ function normalizeLegalConsent(legalConsent: LegalConsentData): LegalConsentData
   return {
     agreeAge: legalConsent.agreeAge,
     agreeTerms: legalConsent.agreeTerms,
-    agreePersonalDataCollectionUse:
-      legalConsent.agreePersonalDataCollectionUse ?? legalConsent.agreePrivacy ?? false,
+    agreePersonalDataCollectionUse: legalConsent.agreePersonalDataCollectionUse,
     ...(legalConsent.legalAcceptances ? { legalAcceptances: legalConsent.legalAcceptances } : {}),
     ...(legalConsent.legalBundleSource
       ? { legalBundleSource: legalConsent.legalBundleSource }

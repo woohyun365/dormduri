@@ -3,7 +3,7 @@ import { getWebEnv } from '@/config/env';
 import { LEGAL_FALLBACK_DOCUMENTS } from '../content/legal-fallback-documents';
 import { toLegalDocumentViewModel } from './legal-document.mapper';
 import { fetchLegalDocumentFromUrl } from './legal-document.api';
-import type { LegalDocumentLoadResult } from '../types/legal-document.types';
+import type { LegalDocumentLoadResult } from '../model/legal-document.types';
 
 function buildApiLegalDocumentUrl(kind: LegalDocumentKind): string {
   const baseUrl = new URL(getWebEnv().apiUpstreamUrl);

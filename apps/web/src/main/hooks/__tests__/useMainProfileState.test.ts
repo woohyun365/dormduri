@@ -3,14 +3,6 @@ import { renderHook, act } from '@testing-library/react';
 import { useMainProfileState } from '../useMainProfileState';
 import type { UserProfile } from '@/types/profile';
 
-// mock-db dynamic import를 무시
-vi.mock('@/__fixtures__/mock-db', () => ({
-  mockDb: {
-    getCurrentUser: () => null,
-    updateUser: vi.fn(),
-  },
-}));
-
 const baseLifestyle: UserProfile['lifestyle'] = {
   bedtime: '22_24',
   wakeTime: '07_08',
