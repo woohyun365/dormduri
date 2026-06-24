@@ -1,9 +1,9 @@
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import PasswordResetPageClient from '../PasswordResetPageClient';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authApi } from '@/api/auth';
 import { RESET_PASSWORD_VERIFICATION_CODE_TTL } from '@/constants/auth';
+import PasswordResetPageClient from '../PasswordResetPageClient';
 
 // --- Mocks ---
 
@@ -40,17 +40,19 @@ vi.mock('@/api/auth', () => ({
     sendResetCode: vi.fn(),
     verifyResetCode: vi.fn(),
     resetPassword: vi.fn(),
+    getSession: vi.fn(),
   },
 }));
 
 const mockSendCode = vi.mocked(authApi.sendResetCode);
 const mockVerifyCode = vi.mocked(authApi.verifyResetCode);
 const mockResetPassword = vi.mocked(authApi.resetPassword);
+const mockGetSession = vi.mocked(authApi.getSession);
 
 // --- Helpers ---
 
 async function fillAndSubmitEmail() {
-  const emailInput = screen.getByLabelText('이메일');
+  const emailInput = screen.getByLabelText(/학교 이메일/);
   fireEvent.change(emailInput, { target: { value: 'test@kangwon.ac.kr' } });
 
   const sendButton = screen.getByRole('button', { name: '인증 코드 전송' });
@@ -73,6 +75,7 @@ describe('PasswordResetPageClient', () => {
     mockSendCode.mockResolvedValue({ success: true });
     mockVerifyCode.mockResolvedValue({ success: true });
     mockResetPassword.mockResolvedValue({ success: true });
+    mockGetSession.mockResolvedValue({ authenticated: false });
   });
 
   afterEach(() => {
@@ -120,7 +123,7 @@ describe('PasswordResetPageClient', () => {
 
       // 만료 메시지 표시 + 타이머 소멸
       expect(
-        screen.getByText('인증 시간이 만료되었어요. 재전송 버튼을 눌러주세요.'),
+        screen.getByText('인증 시간이 만료됐어요. 재전송으로 새 코드를 받아주세요.'),
       ).toBeInTheDocument();
       expect(screen.queryByRole('timer')).not.toBeInTheDocument();
     });
@@ -216,7 +219,7 @@ describe('PasswordResetPageClient', () => {
 
       render(<PasswordResetPageClient />);
 
-      const emailInput = screen.getByLabelText('이메일');
+      const emailInput = screen.getByLabelText(/학교 이메일/);
       fireEvent.change(emailInput, { target: { value: 'first@kangwon.ac.kr' } });
 
       await act(async () => {
@@ -245,7 +248,7 @@ describe('PasswordResetPageClient', () => {
       await fillAndSubmitEmail();
       advanceToVerification();
 
-      fireEvent.change(screen.getByLabelText('인증 코드'), { target: { value: '123456' } });
+      fireEvent.change(screen.getByLabelText(/인증 코드/), { target: { value: '123456' } });
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: '확인' }));
       });
@@ -253,9 +256,12 @@ describe('PasswordResetPageClient', () => {
       expect(mockVerifyCode).toHaveBeenCalledWith('test@kangwon.ac.kr', '123456');
       expect(screen.getByText('새 비밀번호 설정')).toBeInTheDocument();
 
-      const passwordInputs = screen.getAllByLabelText(/비밀번호/);
-      fireEvent.change(passwordInputs[0]!, { target: { value: 'Test1234' } });
-      fireEvent.change(passwordInputs[1]!, { target: { value: 'Test1234' } });
+      fireEvent.change(screen.getByLabelText(/새 비밀번호/, { selector: 'input' }), {
+        target: { value: 'Test1234' },
+      });
+      fireEvent.change(screen.getByLabelText(/비밀번호 확인/, { selector: 'input' }), {
+        target: { value: 'Test1234' },
+      });
 
       await act(async () => {
         fireEvent.click(screen.getByRole('button', { name: '비밀번호 재설정' }));
@@ -263,6 +269,150 @@ describe('PasswordResetPageClient', () => {
 
       expect(mockResetPassword).toHaveBeenCalledWith('test@kangwon.ac.kr', 'Test1234');
       expect(screen.getByText('비밀번호 재설정 완료')).toBeInTheDocument();
+      expect(screen.getByText(/기존 로그인 상태가 모두 종료되었어요/)).toBeInTheDocument();
+    });
+  });
+
+  describe('T-7: Phase 2 visible status와 인증 상태 안내', () => {
+    it('send-code 성공은 toast 없이 화면 내 neutral status로 확인할 수 있다', async () => {
+      render(<PasswordResetPageClient />);
+
+      await fillAndSubmitEmail();
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        '입력한 이메일로 가입된 계정이 있는 경우 인증 코드가 발송돼요.',
+      );
+    });
+
+    it('send-code 429는 화면 내 alert와 1초씩 줄어드는 retry-after countdown으로 표시된다', async () => {
+      mockSendCode.mockResolvedValueOnce({ success: false, retryAfterSeconds: 3 });
+      render(<PasswordResetPageClient />);
+
+      await fillAndSubmitEmail();
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        '너무 잦은 요청이에요. 3초 후 다시 시도해주세요.',
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        '너무 잦은 요청이에요. 2초 후 다시 시도해주세요.',
+      );
+    });
+
+    it('로그인된 세션이면 재설정 flow를 막지 않는 안내를 표시한다', async () => {
+      mockGetSession.mockResolvedValueOnce({ authenticated: true });
+
+      render(<PasswordResetPageClient />);
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText(/현재 로그인된 상태입니다/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '인증 코드 전송' })).toBeEnabled();
+    });
+  });
+
+  describe('T-8: Phase 2 step hardening', () => {
+    it('verification code input은 one-time-code autocomplete와 numeric inputMode를 사용한다', async () => {
+      render(<PasswordResetPageClient />);
+
+      await fillAndSubmitEmail();
+      advanceToVerification();
+
+      const codeInput = screen.getByLabelText(/인증 코드/);
+      expect(codeInput).toHaveAttribute('autocomplete', 'one-time-code');
+      expect(codeInput).toHaveAttribute('inputmode', 'numeric');
+    });
+
+    it('step 전환 시 새 단계 heading으로 focus를 이동한다', async () => {
+      render(<PasswordResetPageClient />);
+
+      await fillAndSubmitEmail();
+      advanceToVerification();
+
+      expect(screen.getByRole('heading', { name: '인증 코드 확인' })).toHaveFocus();
+
+      fireEvent.change(screen.getByLabelText(/인증 코드/), { target: { value: '123456' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '확인' }));
+      });
+
+      expect(screen.getByRole('heading', { name: '새 비밀번호 설정' })).toHaveFocus();
+    });
+
+    it('reset-password fieldErrors.newPassword는 새 비밀번호 필드 오류로 표시된다', async () => {
+      mockResetPassword.mockResolvedValueOnce({
+        success: false,
+        code: 'AUTH_PASSWORD_UNCHANGED',
+        error: '현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.',
+        fieldErrors: {
+          newPassword: '현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.',
+        },
+      });
+
+      render(<PasswordResetPageClient />);
+
+      await fillAndSubmitEmail();
+      advanceToVerification();
+
+      fireEvent.change(screen.getByLabelText(/인증 코드/), { target: { value: '123456' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '확인' }));
+      });
+
+      fireEvent.change(screen.getByLabelText(/새 비밀번호/, { selector: 'input' }), {
+        target: { value: 'Test1234' },
+      });
+      fireEvent.change(screen.getByLabelText(/비밀번호 확인/, { selector: 'input' }), {
+        target: { value: 'Test1234' },
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '비밀번호 재설정' }));
+      });
+
+      expect(
+        screen.getByText('현재 비밀번호와 동일한 비밀번호는 사용할 수 없습니다.'),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('비밀번호 재설정 완료')).not.toBeInTheDocument();
+    });
+
+    it('AUTH_RESET_RESTART_REQUIRED는 처음부터 다시 진행 CTA를 노출한다', async () => {
+      mockResetPassword.mockResolvedValueOnce({
+        success: false,
+        code: 'AUTH_RESET_RESTART_REQUIRED',
+        error: '비밀번호 재설정 요청을 다시 진행해주세요.',
+      });
+
+      render(<PasswordResetPageClient />);
+
+      await fillAndSubmitEmail();
+      advanceToVerification();
+
+      fireEvent.change(screen.getByLabelText(/인증 코드/), { target: { value: '123456' } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '확인' }));
+      });
+
+      fireEvent.change(screen.getByLabelText(/새 비밀번호/, { selector: 'input' }), {
+        target: { value: 'Test1234' },
+      });
+      fireEvent.change(screen.getByLabelText(/비밀번호 확인/, { selector: 'input' }), {
+        target: { value: 'Test1234' },
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: '비밀번호 재설정' }));
+      });
+
+      expect(screen.getByRole('alert')).toHaveTextContent('재설정을 처음부터 다시 진행해주세요');
+      fireEvent.click(screen.getByRole('button', { name: '이메일부터 다시 진행하기' }));
+      expect(screen.getByText('비밀번호 찾기')).toBeInTheDocument();
     });
   });
 });

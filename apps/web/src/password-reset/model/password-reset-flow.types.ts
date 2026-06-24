@@ -30,3 +30,29 @@ export type PasswordResetFlowAction =
   | { type: 'backToEmail' }
   | { type: 'backToVerification' }
   | { type: 'restartEmailEntry' };
+
+export type PasswordResetStatusVariant = 'info' | 'success' | 'warning' | 'error';
+
+export type PasswordResetStatusAction = 'restart';
+
+export interface PasswordResetStatus {
+  variant: PasswordResetStatusVariant;
+  title: string;
+  message: string;
+  action?: PasswordResetStatusAction;
+  isRetryAfter?: boolean;
+}
+
+export interface PasswordResetFieldErrors {
+  code?: string;
+  newPassword?: string;
+}
+
+export interface PasswordResetActionResult {
+  success: boolean;
+  error?: string;
+  code?: string;
+  fieldErrors?: PasswordResetFieldErrors;
+  retryAfterSeconds?: number;
+  restartRequired?: boolean;
+}
