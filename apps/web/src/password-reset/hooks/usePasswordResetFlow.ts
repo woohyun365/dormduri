@@ -9,29 +9,22 @@ import type {
   PasswordResetActionResult,
   PasswordResetStatus,
 } from '../model/password-reset-flow.types';
+import {
+  createPasswordResetRetryAfterMessage,
+  PASSWORD_RESET_COPY,
+} from '../model/password-reset-copy';
+import {
+  isPasswordResetRestartRequired,
+  normalizeRetryAfterSeconds,
+} from '../model/password-reset-error.mapper';
 import { usePasswordResetCooldown } from './usePasswordResetCooldown';
-
-const DEFAULT_SERVER_ERROR = '일시적 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
-const DEFAULT_NETWORK_ERROR = '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-const RESET_RESTART_CODE = 'AUTH_RESET_RESTART_REQUIRED';
-
-function normalizePositiveSeconds(seconds: number | undefined): number | undefined {
-  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
-    return undefined;
-  }
-
-  return Math.ceil(seconds);
-}
-
-function isRestartRequired(code: string | undefined): boolean {
-  return code === RESET_RESTART_CODE;
-}
+import { usePasswordResetSessionNotice } from './usePasswordResetSessionNotice';
 
 export function usePasswordResetFlow() {
   const router = useRouter();
   const [state, dispatch] = useReducer(passwordResetFlowReducer, initialPasswordResetFlowState);
   const [status, setStatus] = useState<PasswordResetStatus | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated } = usePasswordResetSessionNotice();
   const cooldown = usePasswordResetCooldown();
   const retryAfter = usePasswordResetCooldown(0);
   const verificationStepTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,20 +36,20 @@ export function usePasswordResetFlow() {
 
     return {
       ...status,
-      message: `너무 잦은 요청이에요. ${retryAfter.countdown}초 후 다시 시도해주세요.`,
+      message: createPasswordResetRetryAfterMessage(retryAfter.countdown),
     };
   }, [retryAfter.countdown, retryAfter.isActive, status]);
 
   const startRetryAfterStatus = useCallback(
-    (seconds: number | undefined, title = '잠시 후 다시 시도해주세요'): boolean => {
-      const normalizedSeconds = normalizePositiveSeconds(seconds);
+    (seconds: number | undefined, title = PASSWORD_RESET_COPY.status.retryAfterTitle): boolean => {
+      const normalizedSeconds = normalizeRetryAfterSeconds(seconds);
       if (!normalizedSeconds) return false;
 
       retryAfter.start(normalizedSeconds);
       setStatus({
         variant: 'warning',
         title,
-        message: `너무 잦은 요청이에요. ${normalizedSeconds}초 후 다시 시도해주세요.`,
+        message: createPasswordResetRetryAfterMessage(normalizedSeconds),
         isRetryAfter: true,
       });
       return true;
@@ -74,27 +67,6 @@ export function usePasswordResetFlow() {
       clearTimeout(verificationStepTimeoutRef.current);
       verificationStepTimeoutRef.current = null;
     }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadSession() {
-      try {
-        const session = await authApi.getSession();
-        if (!cancelled && session.authenticated) {
-          setIsAuthenticated(true);
-        }
-      } catch {
-        // Password reset remains available when optional session check fails.
-      }
-    }
-
-    void loadSession();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -140,9 +112,8 @@ export function usePasswordResetFlow() {
         clearRetryAfterStatus();
         setStatus({
           variant: 'success',
-          title: '인증 코드 안내',
-          message:
-            '입력한 이메일로 가입된 계정이 있는 경우 인증 코드가 발송돼요. 메일함과 스팸함을 확인해주세요.',
+          title: PASSWORD_RESET_COPY.status.sendCodeSuccessTitle,
+          message: PASSWORD_RESET_COPY.status.sendCodeSuccessMessage,
         });
         dispatch({ type: 'sendCodeSucceeded', email: requestEmail });
         cooldown.start();
@@ -158,8 +129,8 @@ export function usePasswordResetFlow() {
       if (!hasRetryAfter) {
         setStatus({
           variant: 'error',
-          title: '인증 코드를 보낼 수 없어요',
-          message: result.error ?? DEFAULT_SERVER_ERROR,
+          title: PASSWORD_RESET_COPY.status.sendCodeFailureTitle,
+          message: result.error ?? PASSWORD_RESET_COPY.status.defaultServerError,
         });
       }
       dispatch({ type: 'sendCodeFailed' });
@@ -167,8 +138,8 @@ export function usePasswordResetFlow() {
       if (requestId !== sendRequestIdRef.current) return;
       setStatus({
         variant: 'error',
-        title: '네트워크를 확인해주세요',
-        message: DEFAULT_NETWORK_ERROR,
+        title: PASSWORD_RESET_COPY.status.networkTitle,
+        message: PASSWORD_RESET_COPY.status.defaultNetworkError,
       });
       dispatch({ type: 'sendCodeFailed' });
     }
@@ -203,14 +174,14 @@ export function usePasswordResetFlow() {
       if (!hasRetryAfter) {
         setStatus({
           variant: 'error',
-          title: '인증 코드를 확인하지 못했어요',
-          message: result.error ?? '인증 코드가 올바르지 않습니다.',
+          title: PASSWORD_RESET_COPY.status.verifyFailureTitle,
+          message: result.error ?? PASSWORD_RESET_COPY.status.verifyFailureMessage,
         });
       }
       dispatch({ type: 'verifyCodeFailed' });
       return {
         success: false,
-        error: result.error ?? '인증 코드가 올바르지 않습니다.',
+        error: result.error ?? PASSWORD_RESET_COPY.status.verifyFailureMessage,
         code: result.code,
         ...(codeFieldError ? { fieldErrors: { code: codeFieldError } } : {}),
         retryAfterSeconds: result.retryAfterSeconds,
@@ -218,11 +189,11 @@ export function usePasswordResetFlow() {
     } catch {
       setStatus({
         variant: 'error',
-        title: '네트워크를 확인해주세요',
-        message: DEFAULT_NETWORK_ERROR,
+        title: PASSWORD_RESET_COPY.status.networkTitle,
+        message: PASSWORD_RESET_COPY.status.defaultNetworkError,
       });
       dispatch({ type: 'verifyCodeFailed' });
-      return { success: false, error: DEFAULT_NETWORK_ERROR };
+      return { success: false, error: PASSWORD_RESET_COPY.status.defaultNetworkError };
     }
   }, [
     clearRetryAfterStatus,
@@ -251,7 +222,7 @@ export function usePasswordResetFlow() {
       }
 
       const hasRetryAfter = startRetryAfterStatus(result.retryAfterSeconds);
-      const restartRequired = isRestartRequired(result.code);
+      const restartRequired = isPasswordResetRestartRequired(result.code);
       const newPasswordFieldError = result.fieldErrors?.newPassword;
       const fieldErrors = newPasswordFieldError
         ? { newPassword: newPasswordFieldError }
@@ -259,24 +230,22 @@ export function usePasswordResetFlow() {
       if (restartRequired) {
         setStatus({
           variant: 'warning',
-          title: '재설정을 처음부터 다시 진행해주세요',
-          message:
-            result.error ??
-            '인증 시간이 만료되었거나 이미 사용된 요청입니다. 이메일 입력부터 다시 진행해주세요.',
+          title: PASSWORD_RESET_COPY.status.resetRestartTitle,
+          message: result.error ?? PASSWORD_RESET_COPY.status.resetRestartMessage,
           action: 'restart',
         });
       } else if (!hasRetryAfter && !newPasswordFieldError) {
         setStatus({
           variant: 'error',
-          title: '비밀번호를 변경하지 못했어요',
-          message: result.error ?? '비밀번호 재설정에 실패했습니다. 잠시 후 다시 시도해주세요.',
+          title: PASSWORD_RESET_COPY.status.resetFailureTitle,
+          message: result.error ?? PASSWORD_RESET_COPY.status.resetFailureMessage,
         });
       }
 
       dispatch({ type: 'resetPasswordFailed' });
       return {
         success: false,
-        error: result.error ?? '비밀번호 재설정에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        error: result.error ?? PASSWORD_RESET_COPY.status.resetFailureMessage,
         code: result.code,
         ...(fieldErrors ? { fieldErrors } : {}),
         retryAfterSeconds: result.retryAfterSeconds,
@@ -285,11 +254,11 @@ export function usePasswordResetFlow() {
     } catch {
       setStatus({
         variant: 'error',
-        title: '네트워크를 확인해주세요',
-        message: DEFAULT_NETWORK_ERROR,
+        title: PASSWORD_RESET_COPY.status.networkTitle,
+        message: PASSWORD_RESET_COPY.status.defaultNetworkError,
       });
       dispatch({ type: 'resetPasswordFailed' });
-      return { success: false, error: DEFAULT_NETWORK_ERROR };
+      return { success: false, error: PASSWORD_RESET_COPY.status.defaultNetworkError };
     }
   }, [
     clearRetryAfterStatus,
@@ -322,13 +291,17 @@ export function usePasswordResetFlow() {
 
   const changeVerificationCode = useCallback((verificationCode: string) => {
     setStatus((current) =>
-      current?.title === '인증 코드를 확인하지 못했어요' || current?.isRetryAfter ? null : current,
+      current?.title === PASSWORD_RESET_COPY.status.verifyFailureTitle || current?.isRetryAfter
+        ? null
+        : current,
     );
     dispatch({ type: 'verificationCodeChanged', verificationCode });
   }, []);
 
   const changeNewPassword = useCallback((newPassword: string) => {
-    setStatus((current) => (current?.title === '비밀번호를 변경하지 못했어요' ? null : current));
+    setStatus((current) =>
+      current?.title === PASSWORD_RESET_COPY.status.resetFailureTitle ? null : current,
+    );
     dispatch({ type: 'newPasswordChanged', newPassword });
   }, []);
 

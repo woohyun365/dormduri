@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import Link from 'next/link';
 import { AuthHeader } from '@/components/AuthHeader';
-import { ProgressBar } from '@/components/form/ProgressBar';
+import { PasswordResetAuthenticatedNotice } from './PasswordResetAuthenticatedNotice';
+import { PasswordResetProgress } from './PasswordResetProgress';
+import { PasswordResetServiceNotice } from './PasswordResetServiceNotice';
 import { PasswordResetStatusAlert } from './PasswordResetStatusAlert';
 import type { PasswordResetStatus } from '../model/password-reset-flow.types';
 
@@ -86,31 +87,14 @@ export function PasswordResetLayout({
             <p className="keep-all mt-3 text-sm leading-6 text-(--knu-text-secondary)">
               학교 이메일 인증으로 본인 확인을 마친 뒤 새 비밀번호를 설정합니다.
             </p>
-            <p className="keep-all mt-2 text-xs leading-5 text-(--knu-text-tertiary)">
-              본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.{' '}
-              <Link href="/terms" className="underline">
-                자세히 보기
-              </Link>
-            </p>
+            <PasswordResetServiceNotice />
           </div>
 
           <div className="rounded-3xl border-2 border-(--knu-border) bg-white p-5 shadow-sm sm:p-6 md:p-8">
-            {showProgress && (
-              <div className="mb-7">
-                <ProgressBar currentStep={currentStep} totalSteps={3} />
-              </div>
-            )}
+            {showProgress && <PasswordResetProgress currentStep={currentStep} />}
 
             <div className="space-y-5">
-              {isAuthenticated && (
-                <div
-                  role="status"
-                  className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-950"
-                >
-                  현재 로그인된 상태입니다. 현재 계정의 비밀번호 변경은 계정 설정에서 진행하고, 다른
-                  계정을 재설정하려면 이 화면에서 계속 진행할 수 있어요.
-                </div>
-              )}
+              {isAuthenticated && <PasswordResetAuthenticatedNotice />}
               <PasswordResetStatusAlert status={status} onRestart={onRestart} />
               {children}
             </div>
