@@ -106,13 +106,16 @@ function mapAuthRequestError(
   return data.error ?? data.message ?? '요청 처리에 실패했어요.';
 }
 
-function isSafeLoginServerError(status: number, data: { code?: string }): boolean {
+function isSafeAuthInfrastructureError(status: number, data: { code?: string }): boolean {
   return (
     status >= 500 ||
-    data.code === 'INVALID_LOGIN_REQUEST' ||
     data.code === 'BFF_RESPONSE_INVALID' ||
     data.code?.startsWith('BFF_UPSTREAM_') === true
   );
+}
+
+function isSafeLoginServerError(status: number, data: { code?: string }): boolean {
+  return isSafeAuthInfrastructureError(status, data) || data.code === 'INVALID_LOGIN_REQUEST';
 }
 
 function mapLoginError(
@@ -200,7 +203,32 @@ export const authApi = {
       return { success: false, error: passwordErr };
     }
 
-    return postJson<ResetPasswordResponse>('/api/auth/reset-password', { email, newPassword });
+    const { status, data, retryAfterSeconds } = await requestJson<ResetPasswordResponse>(
+      '/api/auth/reset-password',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, newPassword }),
+      },
+    );
+
+    if (status >= 400 || data.success !== true) {
+      const seconds = resolveRetryAfterSeconds(data, retryAfterSeconds);
+      return {
+        ...data,
+        success: false,
+        error: isSafeAuthInfrastructureError(status, data)
+          ? SERVER_ERROR_MESSAGE
+          : mapAuthRequestError(status, data, retryAfterSeconds),
+        ...(seconds !== undefined && data.retryAfterSeconds === undefined
+          ? { retryAfterSeconds: seconds }
+          : {}),
+      };
+    }
+
+    return data;
   },
 
   verifyResetCode: (

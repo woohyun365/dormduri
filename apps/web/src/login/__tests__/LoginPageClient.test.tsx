@@ -8,11 +8,16 @@ import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 const mockReplace = vi.fn();
 const mockPush = vi.fn();
 let nextTarget: string | null = null;
+let resetStatus: string | null = null;
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace, push: mockPush }),
   useSearchParams: () => ({
-    get: (key: string) => (key === 'next' ? nextTarget : null),
+    get: (key: string) => {
+      if (key === 'next') return nextTarget;
+      if (key === 'reset') return resetStatus;
+      return null;
+    },
   }),
 }));
 
@@ -38,6 +43,7 @@ vi.mock('lucide-react', () => ({
   Eye: () => <span data-testid="icon-eye" />,
   EyeOff: () => <span data-testid="icon-eye-off" />,
   Check: () => <span data-testid="icon-check-mark" />,
+  CheckCircle: () => <span data-testid="icon-check-circle" />,
 }));
 
 vi.mock('@/hooks/useRedirectIfAuthenticated', () => ({
@@ -57,6 +63,7 @@ describe('LoginPageClient', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     nextTarget = null;
+    resetStatus = null;
     mockLogin.mockResolvedValue({ success: true });
   });
 
@@ -82,6 +89,23 @@ describe('LoginPageClient', () => {
     expect(screen.getByLabelText('이메일')).toBeInTheDocument();
     expect(screen.getByLabelText('비밀번호')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '로그인' })).toBeInTheDocument();
+  });
+
+  it('reset=success query가 있으면 비밀번호 변경 후 재로그인 안내를 표시한다', () => {
+    resetStatus = 'success';
+
+    render(<LoginPageClient />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('비밀번호가 변경되었어요');
+    expect(screen.getByRole('status')).toHaveTextContent('새 비밀번호로 다시 로그인해주세요.');
+  });
+
+  it('허용되지 않은 reset query는 로그인 route status로 표시하지 않는다', () => {
+    resetStatus = 'unknown';
+
+    render(<LoginPageClient />);
+
+    expect(screen.queryByText('비밀번호가 변경되었어요')).not.toBeInTheDocument();
   });
 
   it('빈 필드 제출 시 유효성 검사 에러를 표시한다', async () => {

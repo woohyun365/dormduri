@@ -12,6 +12,7 @@ import {
   resolvePublicSiteUrl,
   SITE_NAME,
 } from '../metadata';
+import { metadata as passwordResetMetadata } from '../password-reset/page';
 import { createRobots, PUBLIC_ROBOTS_DISALLOW } from '../robots';
 import { createSitemap } from '../sitemap';
 
@@ -102,6 +103,14 @@ describe('web metadata baseline', () => {
     expect(urls.some((url) => url.includes('/api/'))).toBe(false);
     expect(urls.some((url) => url.endsWith('/main'))).toBe(false);
     expect(urls.some((url) => url.endsWith('/password-reset'))).toBe(false);
+  });
+
+  it('defines password reset route metadata while keeping it out of sitemap', () => {
+    expect(passwordResetMetadata.title).toBe('비밀번호 재설정');
+    expect(passwordResetMetadata.description).toContain('강원대학교 이메일 인증');
+    expect(PUBLIC_SITEMAP_ROUTES.map((route) => route.pathname as string)).not.toContain(
+      '/password-reset',
+    );
   });
 
   it('does not introduce FAQ rich-result JSON-LD for landing', () => {

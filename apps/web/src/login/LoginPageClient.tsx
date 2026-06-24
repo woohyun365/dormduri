@@ -2,19 +2,23 @@
 
 import { useCallback } from 'react';
 import type { Route } from 'next';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
 import { LoginAuthenticatedSkeleton } from './components/LoginAuthenticatedSkeleton';
 import { LoginForm } from './components/LoginForm';
+import { LoginRouteStatusAlert } from './components/LoginRouteStatusAlert';
 import { LoginLayout } from './components/LoginLayout';
 import { LoginLegalLinks, LoginSignupAction } from './components/LoginSecondaryActions';
 import { useLoginForm } from './hooks/useLoginForm';
 import { useLoginRedirectTarget } from './hooks/useLoginRedirectTarget';
+import { mapLoginRouteStatus } from './model/login-route-status';
 
 export default function LoginPageClient() {
   const router = useRouter();
   const { isReadyToRender } = useRedirectIfAuthenticated();
+  const searchParams = useSearchParams();
   const redirectTarget = useLoginRedirectTarget();
+  const routeStatus = mapLoginRouteStatus(searchParams);
   const loginForm = useLoginForm({
     redirectTarget,
     onSuccess: (target) => router.replace(target as Route),
@@ -41,6 +45,7 @@ export default function LoginPageClient() {
         </>
       }
     >
+      <LoginRouteStatusAlert status={loginForm.uiError ? null : routeStatus} />
       <LoginForm
         values={loginForm.values}
         fieldErrors={loginForm.fieldErrors}
