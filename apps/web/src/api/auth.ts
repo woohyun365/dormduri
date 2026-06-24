@@ -17,6 +17,8 @@ import type {
 } from '@repo/shared/auth/response';
 import { validateKnuEmailFormat, validatePasswordStructure } from '@repo/shared/auth/policy';
 
+const SERVER_ERROR_MESSAGE = '일시적 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+
 async function requestJson<T>(
   path: string,
   init: RequestInit,
@@ -27,9 +29,21 @@ async function requestJson<T>(
   });
   const retryAfterSeconds = parseRetryAfterSeconds(response.headers.get('Retry-After'));
 
+  let data: T;
+  try {
+    data = (await response.json()) as T;
+  } catch {
+    data = {
+      success: false,
+      code: 'BFF_RESPONSE_INVALID',
+      error: SERVER_ERROR_MESSAGE,
+      userActionable: true,
+    } as T;
+  }
+
   return {
     status: response.status,
-    data: (await response.json()) as T,
+    data,
     ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
   };
 }
@@ -87,22 +101,72 @@ function mapAuthRequestError(
     return '너무 잦은 요청이에요. 잠시 후 다시 시도해주세요.';
   }
   if (status >= 500) {
-    return '일시적 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+    return SERVER_ERROR_MESSAGE;
   }
   return data.error ?? data.message ?? '요청 처리에 실패했어요.';
 }
 
+function isSafeLoginServerError(status: number, data: { code?: string }): boolean {
+  return (
+    status >= 500 ||
+    data.code === 'INVALID_LOGIN_REQUEST' ||
+    data.code === 'BFF_RESPONSE_INVALID' ||
+    data.code?.startsWith('BFF_UPSTREAM_') === true
+  );
+}
+
+function mapLoginError(
+  status: number,
+  data: {
+    success?: boolean;
+    error?: string;
+    message?: string;
+    retryAfterSeconds?: number;
+    code?: string;
+  },
+  retryAfterSeconds?: number,
+): string {
+  if (isSafeLoginServerError(status, data)) {
+    return SERVER_ERROR_MESSAGE;
+  }
+
+  return mapAuthRequestError(status, data, retryAfterSeconds);
+}
+
 export const authApi = {
-  login: (
+  login: async (
     email: LoginRequest['email'],
     password: LoginRequest['password'],
     rememberMe: LoginRequest['rememberMe'] = false,
   ): Promise<LoginResponse> => {
-    return postJson<LoginResponse>('/api/auth/login', {
-      email,
-      password,
-      rememberMe,
-    });
+    const { status, data, retryAfterSeconds } = await requestJson<LoginResponse>(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          rememberMe,
+        }),
+      },
+    );
+
+    if (status >= 400 || data.success !== true) {
+      const seconds = resolveRetryAfterSeconds(data, retryAfterSeconds);
+      return {
+        ...data,
+        success: false,
+        error: mapLoginError(status, data, retryAfterSeconds),
+        ...(seconds !== undefined && data.retryAfterSeconds === undefined
+          ? { retryAfterSeconds: seconds }
+          : {}),
+      };
+    }
+
+    return data;
   },
 
   verifyEmailCode: (
