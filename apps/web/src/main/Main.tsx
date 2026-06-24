@@ -27,6 +27,7 @@ import { seasonApi } from '@/api/season';
 import { homeApi } from '@/api/home';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
+import { getMainTabDocumentTitle } from './utils/mainTabTitle';
 import { toHomeSeasonContext } from './tabs/home/model/homeDashboardViewModel';
 import type { Season } from '@/constants/season';
 import type { SeasonState } from '@/types/season';
@@ -149,6 +150,7 @@ function MainContent({ initialUser }: { initialUser: UserProfile }) {
   useEffect(() => {
     window.scrollTo(0, 0);
     sessionStorage.setItem('activeTab', activeTab);
+    document.title = getMainTabDocumentTitle(activeTab);
   }, [activeTab]);
 
   // 데이터 로딩 중 — 탭바 먼저 표시 + 탭별 스켈레톤
