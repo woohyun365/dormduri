@@ -19,6 +19,7 @@ import type {
   LoginFn,
   LoginFormSubmitEvent,
   LoginFormValues,
+  LoginInvalidField,
   LoginSuccessHandler,
   LoginUiErrorState,
 } from '../model/login-form.types';
@@ -38,6 +39,8 @@ export interface UseLoginFormResult {
   isThrottled: boolean;
   isSubmitDisabled: boolean;
   cooldownLabel: string;
+  lastInvalidField: LoginInvalidField | null;
+  invalidSubmitCount: number;
   setEmail: (value: string) => void;
   setPassword: (value: string) => void;
   setRememberMe: (value: boolean) => void;
@@ -54,6 +57,8 @@ export function useLoginForm({
   const [uiError, setUiError] = useState<LoginUiErrorState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lockedEmail, setLockedEmail] = useState('');
+  const [lastInvalidField, setLastInvalidField] = useState<LoginInvalidField | null>(null);
+  const [invalidSubmitCount, setInvalidSubmitCount] = useState(0);
   const {
     isActive: isCooldownActive,
     start: startCooldown,
@@ -101,9 +106,12 @@ export function useLoginForm({
     setUiError(null);
 
     if (hasLoginFieldErrors(nextFieldErrors)) {
+      setLastInvalidField(nextFieldErrors.email ? 'email' : 'password');
+      setInvalidSubmitCount((count) => count + 1);
       return;
     }
 
+    setLastInvalidField(null);
     setIsSubmitting(true);
     try {
       const response = await onLogin(values.email, values.password, values.rememberMe);
@@ -147,6 +155,8 @@ export function useLoginForm({
       isThrottled,
       isSubmitDisabled,
       cooldownLabel: formatCooldownTime(),
+      lastInvalidField,
+      invalidSubmitCount,
       setEmail,
       setPassword,
       setRememberMe,
@@ -161,6 +171,8 @@ export function useLoginForm({
       isThrottled,
       isSubmitDisabled,
       formatCooldownTime,
+      lastInvalidField,
+      invalidSubmitCount,
       setEmail,
       setPassword,
       setRememberMe,

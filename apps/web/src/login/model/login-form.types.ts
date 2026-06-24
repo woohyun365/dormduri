@@ -12,6 +12,8 @@ export interface LoginFieldErrors {
   password?: string;
 }
 
+export type LoginInvalidField = keyof LoginFieldErrors;
+
 export type LoginUiStatus =
   | 'idle'
   | 'submitting'

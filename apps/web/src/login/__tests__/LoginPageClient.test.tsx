@@ -67,11 +67,12 @@ describe('LoginPageClient', () => {
     mockPush.mockClear();
   });
 
-  it('isReadyToRender가 false이면 폼을 렌더링하지 않는다', () => {
+  it('isReadyToRender가 false이면 접근 가능한 session 확인 상태를 렌더링하고 폼은 숨긴다', () => {
     mockRedirectHook.mockReturnValueOnce({ isReadyToRender: false });
 
     render(<LoginPageClient />);
 
+    expect(screen.getByRole('status')).toHaveTextContent('로그인 상태를 확인하고 있어요');
     expect(screen.queryByLabelText('이메일')).not.toBeInTheDocument();
   });
 
@@ -166,9 +167,11 @@ describe('LoginPageClient', () => {
   it('rememberMe 체크 시 안내 문구를 표시한다', () => {
     render(<LoginPageClient />);
 
-    fireEvent.click(screen.getByLabelText('로그인 유지'));
+    fireEvent.click(screen.getByLabelText('로그인 유지(최대 7일)'));
 
-    expect(screen.getByText('브라우저를 닫아도 로그인 상태가 유지됩니다')).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/최대 7일 동안 다시 로그인하지 않아도 됩니다/).length,
+    ).toBeGreaterThan(0);
   });
 
   it('비밀번호 찾기와 회원가입 CTA를 route callback으로 분리한다', () => {

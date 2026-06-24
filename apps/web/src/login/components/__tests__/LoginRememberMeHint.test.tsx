@@ -9,9 +9,10 @@ describe('LoginRememberMeHint', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('visible=true이면 기존 로그인 유지 안내를 표시한다', () => {
+  it('visible=true이면 7일 유지와 개인 기기 권장 안내를 표시한다', () => {
     render(<LoginRememberMeHint visible />);
 
-    expect(screen.getByText('브라우저를 닫아도 로그인 상태가 유지됩니다')).toBeInTheDocument();
+    expect(screen.getByText(/개인 기기에서만 사용해주세요/)).toBeInTheDocument();
+    expect(screen.getByText(/최대 7일 동안 다시 로그인하지 않아도 됩니다/)).toBeInTheDocument();
   });
 });

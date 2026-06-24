@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Lock } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { Checkbox } from '@/components/form/Checkbox';
@@ -9,6 +10,7 @@ import type {
   LoginFieldErrors,
   LoginFormSubmitEvent,
   LoginFormValues,
+  LoginInvalidField,
   LoginUiErrorState,
 } from '../model/login-form.types';
 
@@ -20,6 +22,8 @@ interface LoginFormProps {
   isLocked: boolean;
   isSubmitDisabled: boolean;
   cooldownLabel: string;
+  lastInvalidField: LoginInvalidField | null;
+  invalidSubmitCount: number;
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onRememberMeChange: (value: boolean) => void;
@@ -35,12 +39,24 @@ export function LoginForm({
   isLocked,
   isSubmitDisabled,
   cooldownLabel,
+  lastInvalidField,
+  invalidSubmitCount,
   onEmailChange,
   onPasswordChange,
   onRememberMeChange,
   onPasswordResetClick,
   onSubmit,
 }: LoginFormProps) {
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (invalidSubmitCount <= 0 || !lastInvalidField) return;
+
+    const invalidInputRef = lastInvalidField === 'email' ? emailInputRef : passwordInputRef;
+    invalidInputRef.current?.focus();
+  }, [invalidSubmitCount, lastInvalidField]);
+
   return (
     <form
       onSubmit={onSubmit}
@@ -51,8 +67,12 @@ export function LoginForm({
 
       <div className="space-y-5">
         <InputField
+          ref={emailInputRef}
           label="이메일"
+          name="email"
           type="email"
+          inputMode="email"
+          autoComplete="email"
           placeholder="example@kangwon.ac.kr"
           value={values.email}
           onChange={onEmailChange}
@@ -61,8 +81,11 @@ export function LoginForm({
         />
 
         <InputField
+          ref={passwordInputRef}
           label="비밀번호"
+          name="password"
           type="password"
+          autoComplete="current-password"
           placeholder="비밀번호를 입력해주세요"
           value={values.password}
           onChange={onPasswordChange}
@@ -73,7 +96,7 @@ export function LoginForm({
         <div>
           <div className="flex items-center justify-between">
             <Checkbox
-              label="로그인 유지"
+              label="로그인 유지(최대 7일)"
               checked={values.rememberMe}
               onChange={onRememberMeChange}
             />
