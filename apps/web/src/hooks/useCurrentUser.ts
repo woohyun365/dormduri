@@ -8,7 +8,7 @@ import { toUserProfile } from '@/auth/to-user-profile';
 /**
  * 현재 로그인 유저를 반환하는 훅
  *
- * `/api/auth/session` BFF → NestJS JWT 검증 경로만 사용한다.
+ * `/api/auth/session` BFF → opaque cookie/session resolve 경로만 사용한다.
  * 미로그인 또는 세션 무효 시 user는 null을 반환한다.
  */
 export function useCurrentUser() {

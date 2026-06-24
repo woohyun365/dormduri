@@ -23,6 +23,7 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts
 - `apps/web/playwright.fullstack.config.ts`를 사용한다.
 - local Postgres를 `docker-compose.dev.yml`로 띄우고, Prisma schema push/seed 후 API dev server와 Web dev server를 함께 실행한다.
 - `main-home.fullstack.spec.ts`는 BFF login helper로 Home dashboard matrix를 확인하고, 별도 케이스에서 실제 `/login` UI 입력 → session cookie → `/main` handoff도 확인한다.
+- `/login` UI locator는 desktop help panel 문구와 label ambiguity가 생기지 않도록 `getByRole('textbox', { name: '이메일' })`처럼 role/name 기준으로 고정한다.
 - 기본 DB URL은 `postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public`이다.
   다른 DB를 쓰려면 `HOME_E2E_DATABASE_URL`을 명시한다.
 - 기본 API/Web URL은 각각 `http://127.0.0.1:4000`, `http://127.0.0.1:3000`이다.
@@ -42,4 +43,5 @@ Playwright auth storage state는 `apps/web/playwright/.auth/`에 생성되며 gi
 
 - Web-only smoke는 PR 기본 Web gate 후보로 가볍게 유지한다.
 - Full-stack smoke는 API/DB/Docker 의존성이 있으므로 local/manual 또는 별도 scheduled/label CI 후보로 둔다.
+- Full-stack/dev server 실행 후 `apps/web/next-env.d.ts`가 `.next/dev/types`로 바뀔 수 있다. 이 generated drift는 commit하지 않고 원복한다.
 - Home UI state를 빠르게 시각 비교하는 용도는 Storybook/visual workshop에서 다루고, 실제 auth/API/DB 정합성은 full-stack smoke가 담당한다.

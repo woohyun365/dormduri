@@ -5,11 +5,18 @@ import { ChevronLeft } from 'lucide-react';
 interface AuthHeaderProps {
   onBack?: () => void;
   showBack?: boolean;
+  /** Header 내부 컨테이너 폭/좌우 padding. 기본값은 인증 flow 공통 narrow layout이다. */
+  containerClassName?: string;
   /** 로고 클릭 시 커스텀 동작. false를 반환하면 이동을 취소한다. */
   onLogoClick?: () => boolean;
 }
 
-export function AuthHeader({ onBack, showBack = false, onLogoClick }: AuthHeaderProps) {
+export function AuthHeader({
+  onBack,
+  showBack = false,
+  containerClassName = 'mx-auto max-w-2xl px-5',
+  onLogoClick,
+}: AuthHeaderProps) {
   const handleLogoClick = (e: React.MouseEvent) => {
     if (onLogoClick && !onLogoClick()) {
       e.preventDefault();
@@ -17,16 +24,16 @@ export function AuthHeader({ onBack, showBack = false, onLogoClick }: AuthHeader
   };
 
   return (
-    <header className="sticky top-0 z-10 bg-white border-b border-[var(--knu-border)]">
-      <div className="mx-auto max-w-2xl px-5">
-        <div className="flex items-center h-16">
+    <header className="sticky top-0 z-10 border-b border-[var(--knu-border)] bg-white">
+      <div className={containerClassName}>
+        <div className="flex h-16 items-center">
           {showBack && (
             <button
               onClick={onBack}
-              className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-[var(--knu-background-alt)] transition-colors mr-2"
+              className="mr-2 flex h-10 w-10 items-center justify-center rounded-xl transition-colors hover:bg-[var(--knu-background-alt)]"
               aria-label="뒤로가기"
             >
-              <ChevronLeft className="w-6 h-6 text-[var(--knu-text-primary)]" />
+              <ChevronLeft className="h-6 w-6 text-[var(--knu-text-primary)]" />
             </button>
           )}
           <Link href="/" onClick={handleLogoClick} className="flex items-center gap-2">

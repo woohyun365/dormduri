@@ -64,7 +64,7 @@ export function LoginForm({
     <form
       onSubmit={onSubmit}
       noValidate
-      className="mb-6 rounded-2xl border-2 border-[var(--knu-border)] bg-white p-6 shadow-sm md:p-8"
+      className="mb-6 rounded-2xl border-2 border-(--knu-border) bg-white p-6 shadow-sm md:p-8"
     >
       <LoginStatusAlert error={uiError} cooldownLabel={cooldownLabel} />
 

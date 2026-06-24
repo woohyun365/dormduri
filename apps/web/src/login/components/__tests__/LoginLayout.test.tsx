@@ -38,6 +38,8 @@ describe('LoginLayout', () => {
       'href',
       '/privacy',
     );
+    const headerContainer = screen.getByRole('banner').firstElementChild;
+    expect(headerContainer).toHaveClass('max-w-5xl', 'lg:px-8');
   });
 
   it('desktop trust panel에 정책과 충돌하지 않는 안내를 제공한다', () => {

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import {
   LoginLegalLinks,
@@ -20,9 +21,11 @@ vi.mock('lucide-react', () => ({
 }));
 
 describe('LoginSecondaryActions', () => {
-  it('비밀번호 찾기와 회원가입 action을 callback으로 분리한다', () => {
+  it('비밀번호 찾기와 회원가입 action을 callback으로 분리한다', async () => {
     const onPasswordResetClick = vi.fn();
     const onSignupClick = vi.fn();
+
+    const user = userEvent.setup();
 
     render(
       <>
@@ -31,8 +34,8 @@ describe('LoginSecondaryActions', () => {
       </>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '비밀번호 찾기' }));
-    fireEvent.click(screen.getByRole('button', { name: '이메일로 회원가입' }));
+    await user.click(screen.getByRole('button', { name: '비밀번호 찾기' }));
+    await user.click(screen.getByRole('button', { name: '이메일로 회원가입' }));
 
     expect(onPasswordResetClick).toHaveBeenCalledTimes(1);
     expect(onSignupClick).toHaveBeenCalledTimes(1);
