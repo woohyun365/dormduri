@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { authApi } from '@/api/auth';
+import { authApi } from '@/auth/api';
 import type {
   DevAuthPresetGroup,
   DevAuthPresetUserSummary,

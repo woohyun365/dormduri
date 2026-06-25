@@ -1,7 +1,12 @@
-import { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { emailRequestSchema } from '@repo/shared/auth/contract';
-import { buildJsonResponse, forwardAuthRequest, getForwardHeaders } from '../_shared';
-import { parseStrictJsonRequest, pickAuthMutationResponseBody } from '../_request-guard';
+import {
+  buildJsonResponse,
+  forwardAuthRequest,
+  getForwardHeaders,
+  parseStrictJsonRequest,
+  pickAuthMutationResponseBody,
+} from '@/auth/bff';
 
 export async function POST(request: NextRequest) {
   const parsed = await parseStrictJsonRequest(

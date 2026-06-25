@@ -43,7 +43,7 @@ export function ContextualTip({ message, onDismiss, autoHideMs = 8000 }: Context
       onClick={handleClick}
       className="flex items-center gap-2.5 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl cursor-pointer transition-opacity hover:opacity-80"
     >
-      <Lightbulb className="w-4 h-4 text-blue-500 flex-shrink-0" />
+      <Lightbulb className="w-4 h-4 text-blue-500 shrink-0" />
       <p className="text-sm text-blue-800">{message}</p>
     </div>
   );

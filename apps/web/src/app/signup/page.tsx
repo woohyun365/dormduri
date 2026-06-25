@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import SignupPageClient from '@/signup/SignupPageClient';
+import SignupPageClient from '@/auth/flows/signup/SignupPageClient';
 
 export const metadata: Metadata = {
   title: '회원가입',

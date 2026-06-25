@@ -47,8 +47,8 @@ describe('web legal document boundary', () => {
 
   it('signup legal consent flow uses legal feature instead of legacy static modal/constants', () => {
     const signupSources = [
-      readSource('signup/SignupPageClient.tsx'),
-      readSource('signup/components/LegalConsentStep.tsx'),
+      readSource('auth/flows/signup/SignupPageClient.tsx'),
+      readSource('auth/flows/signup/components/LegalConsentStep.tsx'),
     ];
 
     for (const source of signupSources) {
@@ -58,11 +58,13 @@ describe('web legal document boundary', () => {
 
     expect(existsSync(join(webSrc, 'components/legal/LegalContentModal.tsx'))).toBe(false);
     expect(existsSync(join(webSrc, 'constants/legal'))).toBe(false);
-    expect(existsSync(join(webSrc, 'signup/components/StepTermsAgreement.tsx'))).toBe(false);
+    expect(existsSync(join(webSrc, 'auth/flows/signup/components/StepTermsAgreement.tsx'))).toBe(
+      false,
+    );
   });
 
   it('signup legal component contract does not expose previous privacy consent compatibility', () => {
-    const legalConsentStepSource = readSource('signup/components/LegalConsentStep.tsx');
+    const legalConsentStepSource = readSource('auth/flows/signup/components/LegalConsentStep.tsx');
 
     expect(legalConsentStepSource).not.toContain('@deprecated');
     expect(legalConsentStepSource).not.toContain('agreePrivacy');
@@ -71,9 +73,9 @@ describe('web legal document boundary', () => {
   it('public entry points expose user-facing legal links without internal planning copy', () => {
     const entrySources = [
       readSource('landing/components/LandingFooter.tsx'),
-      readSource('login/components/LoginLayout.tsx'),
-      readSource('login/components/LoginSecondaryActions.tsx'),
-      readSource('signup/components/SignupLayout.tsx'),
+      readSource('auth/flows/login/components/LoginLayout.tsx'),
+      readSource('auth/flows/login/components/LoginSecondaryActions.tsx'),
+      readSource('auth/flows/signup/components/SignupLayout.tsx'),
     ];
 
     for (const source of entrySources) {

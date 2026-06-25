@@ -18,7 +18,7 @@ describe('main route boundary', () => {
 
     expect(shellSource).toMatch(/@\/main\/Main|main\/Main/);
     expect(shellSource).toMatch(/<Main\b/);
-    expect(shellSource).toMatch(/@\/hooks\/useCurrentUser|hooks\/useCurrentUser/);
+    expect(shellSource).toMatch(/@\/auth\/hooks|auth\/hooks/);
     expect(shellSource).toMatch(/router\.replace\(['"]\/login['"]\)/);
   });
 });

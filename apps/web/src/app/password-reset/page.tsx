@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import PasswordResetPageClient from '@/password-reset/PasswordResetPageClient';
+import PasswordResetPageClient from '@/auth/flows/password-reset/PasswordResetPageClient';
 
 export const metadata: Metadata = {
   title: '비밀번호 재설정',

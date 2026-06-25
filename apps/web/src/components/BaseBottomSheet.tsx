@@ -41,16 +41,16 @@ export function BaseBottomSheet({
 
       <div className="relative w-full bg-white rounded-t-3xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-[var(--knu-border)] px-5 py-4 flex items-center justify-between rounded-t-3xl flex-shrink-0">
-          <h2 className="text-xl font-bold text-[var(--knu-text-primary)]">{title}</h2>
+        <div className="sticky top-0 bg-white border-b border-(--knu-border) px-5 py-4 flex items-center justify-between rounded-t-3xl shrink-0">
+          <h2 className="text-xl font-bold text-(--knu-text-primary)">{title}</h2>
           <div className="flex items-center gap-1">
             {headerRight}
             <button
               onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-[var(--knu-background-alt)] transition-colors"
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-(--knu-background-alt) transition-colors"
               aria-label="닫기"
             >
-              <X className="w-6 h-6 text-[var(--knu-text-secondary)]" />
+              <X className="w-6 h-6 text-(--knu-text-secondary)" />
             </button>
           </div>
         </div>
@@ -60,7 +60,7 @@ export function BaseBottomSheet({
 
         {/* Footer */}
         {footer && (
-          <div className="sticky bottom-0 bg-white border-t border-[var(--knu-border)] p-5 flex-shrink-0">
+          <div className="sticky bottom-0 bg-white border-t border-(--knu-border) p-5 shrink-0">
             {footer}
           </div>
         )}

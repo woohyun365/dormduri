@@ -38,11 +38,11 @@ export function ChipSelectField({
 
   return (
     <div>
-      <label className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-1">
+      <label className="block text-sm font-semibold text-(--knu-text-primary) mb-1">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </label>
-      {helperText && <p className="text-xs text-[var(--knu-text-secondary)] mb-3">{helperText}</p>}
+      {helperText && <p className="text-xs text-(--knu-text-secondary) mb-3">{helperText}</p>}
       <div
         className={`flex flex-wrap gap-2 ${!helperText ? 'mt-2' : ''}`}
         role="group"

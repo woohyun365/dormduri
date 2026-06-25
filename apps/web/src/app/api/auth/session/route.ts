@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import {
   buildJsonResponse,
   clearAuthCookie,
@@ -7,7 +7,7 @@ import {
   getAuthTokenCookie,
   getForwardHeaders,
   setAuthTransportCookies,
-} from '../_shared';
+} from '@/auth/bff';
 
 export async function GET(request: NextRequest) {
   const token = getAuthTokenCookie(request);

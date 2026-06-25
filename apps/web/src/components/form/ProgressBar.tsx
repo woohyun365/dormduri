@@ -8,7 +8,7 @@ export function ProgressBar({ currentStep, totalSteps }: ProgressBarProps) {
 
   return (
     <div className="w-full">
-      <div className="flex justify-between text-sm font-semibold text-[var(--knu-text-secondary)] mb-2">
+      <div className="flex justify-between text-sm font-semibold text-(--knu-text-secondary) mb-2">
         <span>
           단계 {currentStep}/{totalSteps}
         </span>
@@ -16,7 +16,7 @@ export function ProgressBar({ currentStep, totalSteps }: ProgressBarProps) {
       </div>
       <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
         <div
-          className="h-full bg-[var(--knu-primary)] transition-all duration-300 ease-out"
+          className="h-full bg-(--knu-primary) transition-all duration-300 ease-out"
           style={{ width: `${percentage}%` }}
         ></div>
       </div>

@@ -46,10 +46,7 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
 
   return (
     <div className="w-full">
-      <label
-        htmlFor={id}
-        className="block text-sm font-semibold text-[var(--knu-text-primary)] mb-2"
-      >
+      <label htmlFor={id} className="block text-sm font-semibold text-(--knu-text-primary) mb-2">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
@@ -72,7 +69,7 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
           className={`w-full h-12 px-4 rounded-xl border-2 transition-all ${
             error
               ? 'border-red-300 bg-red-50 focus:border-red-500'
-              : 'border-[var(--knu-border)] bg-white focus:border-[var(--knu-primary)]'
+              : 'border-(--knu-border) bg-white focus:border-(--knu-primary)'
           } ${disabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} outline-none`}
         />
         {type === 'password' && (
@@ -83,15 +80,15 @@ export const InputField = forwardRef<HTMLInputElement, InputFieldProps>(function
             className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"
           >
             {showPassword ? (
-              <EyeOff className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              <EyeOff className="w-5 h-5 text-(--knu-text-tertiary)" />
             ) : (
-              <Eye className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
+              <Eye className="w-5 h-5 text-(--knu-text-tertiary)" />
             )}
           </button>
         )}
       </div>
       <FieldError message={error} id={errorId} />
-      {helper && !error && <p className="text-sm text-[var(--knu-text-tertiary)] mt-2">{helper}</p>}
+      {helper && !error && <p className="text-sm text-(--knu-text-tertiary) mt-2">{helper}</p>}
     </div>
   );
 });
