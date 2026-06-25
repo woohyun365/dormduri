@@ -1,91 +1,37 @@
 # Web Auth Boundary
 
 `apps/web/src/auth`는 Web 클라이언트의 auth feature boundary다.
-최종 목표는 로그인, 회원가입, 비밀번호 재설정, auth API client, auth BFF helper, auth 전용 UI/hook/model을 이 경계 아래로 수렴시키는 것이다.
+로그인, 회원가입, 비밀번호 재설정, auth API client, auth BFF helper, auth 전용 UI/hook/model을 소유한다.
 API/NestJS auth domain, DB/session/token/SES/Redis/BackOffice 구현은 이 경계의 소유 범위가 아니다.
 
-## Current baseline
+Migration history는 commit과 `.omx/plans/web-auth-boundary-final-refactor-plan.md`에 남긴다.
+이 README는 새 작업자가 따라야 할 **최종 auth Web boundary contract**만 설명한다.
 
-Phase 5 기준으로 이 directory에는 `api/*`, `bff/*`, `components/*`, `hooks/*`, `model/*`, `flows/*`가 존재한다.
-Auth-wide component/hook/model은 root shared tree에서 제거되었고, auth session hook은 계정 identity만 반환한다.
-공개 auth 화면 구현도 `auth/flows/*` 아래로 이동했으므로 root `src/login`, `src/signup`, `src/password-reset` compatibility path를 두지 않는다.
-Strict final guard는 legacy import/path, root compatibility barrel export, non-auth deep import를 실제 source import/export statement 기준으로 차단한다.
-
-| Current path                    | Current responsibility                     |
-| ------------------------------- | ------------------------------------------ |
-| `src/auth/flows/login`          | login flow implementation                  |
-| `src/auth/flows/signup`         | signup flow implementation                 |
-| `src/auth/flows/password-reset` | password reset flow implementation         |
-| `src/auth/api`                  | browser-side auth API facade               |
-| `src/auth/bff`                  | App Router auth BFF helper facade          |
-| `src/auth/components`           | auth-only shared UI                        |
-| `src/auth/hooks`                | auth-only session/redirect/countdown hooks |
-| `src/auth/model`                | auth-wide policy constants/model helpers   |
-
-`useExpiryCountdown` is not tracked as an auth-only migration target because it has non-auth product usage.
-`CAMPUS_OPTIONS` lives under `src/auth/flows/signup/model/campus-options.ts` because it is signup/account identity UI data, not auth-wide policy.
-
-### Completed migration ledger
-
-| Removed path                              | New owner path                                                      | Completed phase |
-| ----------------------------------------- | ------------------------------------------------------------------- | --------------- |
-| `src/api/auth.ts`                         | `src/auth/api/*`                                                    | Phase 1         |
-| `@/api/auth` import                       | `@/auth/api` public facade                                          | Phase 1         |
-| `src/app/api/auth/_shared.ts`             | `src/auth/bff/auth-*`                                               | Phase 2         |
-| `src/app/api/auth/_post-route.ts`         | `src/auth/bff/auth-*`                                               | Phase 2         |
-| `src/app/api/auth/_request-guard.ts`      | `src/auth/bff/auth-*`                                               | Phase 2         |
-| `src/components/AuthHeader.tsx`           | `src/auth/components/*`                                             | Phase 3         |
-| `src/components/auth/*`                   | `src/auth/components/*`                                             | Phase 3         |
-| `src/hooks/useCurrentUser.ts`             | `src/auth/hooks/useAuthSession.ts`                                  | Phase 3-1       |
-| `src/hooks/useRedirectIfAuthenticated.ts` | `src/auth/hooks/*`                                                  | Phase 3         |
-| `src/hooks/useCountdown.ts`               | `src/auth/hooks/useAuthCountdown.ts`                                | Phase 3         |
-| `src/constants/auth.ts`                   | `src/auth/model/*`, `src/auth/flows/signup/model/campus-options.ts` | Phase 3         |
-| `src/login`                               | `src/auth/flows/login`                                              | Phase 4         |
-| `src/signup`                              | `src/auth/flows/signup`                                             | Phase 4         |
-| `src/password-reset`                      | `src/auth/flows/password-reset`                                     | Phase 4         |
-
-## Final target structure
+## Final directory contract
 
 ```text
 apps/web/src/auth/
   README.md
-  api/
-    client.ts
-    request-json.ts
-    error-mapper.ts
-    auth-api.types.ts
-    index.ts
-  bff/
-    auth-forward.ts
-    auth-cookies.ts
-    auth-request-guard.ts
-    auth-response.ts
-    auth-route-handlers.ts
-    index.ts
-  components/
-    AuthHeader.tsx
-    AuthPageShell.tsx
-    AuthFormCard.tsx
-    AuthStatusAlert.tsx
-    PasswordRequirementList.tsx
-  hooks/
-    useAuthSession.ts
-    useRedirectIfAuthenticated.ts
-    useAuthCountdown.ts
-  model/
-    policy-constants.ts
-    safe-redirect.ts
+  api/                 # browser-side auth API facade
+  bff/                 # App Router auth BFF helper facade
+  components/          # auth-only shared UI
+  hooks/               # auth-only session/redirect/countdown hooks
+  model/               # auth-wide policy constants/model helpers
   flows/
-    login/
-    signup/
-    password-reset/
+    login/             # login flow implementation
+    signup/            # signup flow implementation
+    password-reset/    # password reset flow implementation
 ```
 
-The exact internal file names may change when a later phase finds a smaller split.
-The boundary rule is stable: auth-owned browser, BFF, UI, hook, and model code should live under `auth/` unless Next.js requires a framework entrypoint elsewhere.
+내부 파일명은 리팩터링 과정에서 바뀔 수 있다.
+안정적으로 지켜야 하는 것은 `auth/api`, `auth/bff`, `auth/components`, `auth/hooks`, `auth/model`, `auth/flows/*`의 소유권과 import boundary다.
 
-## Auth session vs Main profile ownership
+`useExpiryCountdown`은 auth 외부 product usage가 있어 auth-only migration target으로 취급하지 않는다.
+`CAMPUS_OPTIONS`는 signup/account identity UI data이므로 `src/auth/flows/signup/model/campus-options.ts`에 둔다.
 
+## Ownership
+
+- `auth`는 Web auth UI와 account identity/session gate를 소유한다.
 - `useAuthSession`은 `/api/auth/session` 결과를 그대로 계정 identity로 다룬다. 반환 타입은 `AuthenticatedSessionUser | null` 범위이며 `UserProfile`이 아니다.
 - session 확인이 지연되거나 실패하면 auth 화면이 skeleton에 무한 대기하지 않도록 bounded timeout 후 unauthenticated state로 수렴한다.
 - `auth`는 Display Identity와 Academic Identity를 signup/account setup 입력 및 account/session response 표시 범위로만 다룬다. 생성·검증의 source-of-truth는 API auth/user identity owner다.
@@ -95,10 +41,10 @@ The boundary rule is stable: auth-owned browser, BFF, UI, hook, and model code s
 
 ## Public/private import rule
 
-External Web features should consume auth through a small public facade.
-The final public surface is expected to be one of the following:
+External Web features should consume auth through a small public facade:
 
 - `@/auth/api` for browser-side auth client calls such as login, logout, session, signup, and reset.
+- `@/auth/components`, `@/auth/hooks`, `@/auth/model` only for explicitly exported auth-wide UI/hook/model helpers.
 - `@/auth` only if a broader facade becomes necessary.
 
 Private implementation areas should not be deep-imported by non-auth features:
@@ -109,11 +55,9 @@ Private implementation areas should not be deep-imported by non-auth features:
 - `@/auth/flows/*/model/*`
 - `@/auth/components/*` except through an auth-owned facade if one is added.
 
-The Phase 5 guard rejects imports from `@/api/auth`, route-local `../_shared`, `../_post-route`, `../_request-guard` helpers, root auth shared paths such as `@/constants/auth`, `@/components/AuthHeader`, `@/components/auth`, `@/hooks/useCurrentUser`, `@/hooks/useRedirectIfAuthenticated`, and `@/hooks/useCountdown`, or root flow paths such as `@/login`, `@/signup`, and `@/password-reset`.
-External browser consumers use `@/auth/api`, `@/auth/components`, `@/auth/hooks`, and `@/auth/model` facades as appropriate.
+External browser consumers use public facades instead of deep private paths.
 App Router auth route adapters are the only non-auth files allowed to import the private `@/auth/bff` facade.
-`@/auth/hooks`의 session hook은 `SessionResponse.user` 계정 identity만 제공하며 `UserProfile`, 생활패턴, 기숙사, 시즌 참여 상태를 생성하지 않는다.
-`@/login`, `@/signup`, and `@/password-reset` are blocked compatibility paths. Use the App Router page entrypoints for routes and keep `@/auth/flows/*` imports inside auth-owned flow code or the thin App Router page adapters.
+App Router page adapters may import their single route client entrypoint under `@/auth/flows/*/*PageClient`.
 
 ## App Router exception
 
@@ -135,23 +79,30 @@ app/password-reset/page.tsx -> auth/flows/password-reset/PasswordResetPageClient
 app/api/auth/<route>/route.ts -> auth/bff helpers + route-local schema/policy
 ```
 
-Route handlers should preserve upstream status, `Retry-After`, cookie mutation, and token-like response redaction when their helpers move to `auth/bff`.
+Route handlers must preserve upstream status, `Retry-After`, cookie mutation, and token-like response redaction.
 
-## No compatibility re-export target
+## Blocked compatibility surfaces
 
 The final auth boundary does not keep compatibility re-export files only to preserve old import paths.
-Strict final guard keeps these legacy imports failing architecture guard checks:
+Architecture guard keeps these paths/imports blocked:
 
-- `@/api/auth`
-- `@/constants/auth`
-- `@/components/AuthHeader`
-- `@/components/auth`
-- `@/hooks/useCurrentUser`
-- `@/hooks/useRedirectIfAuthenticated`
-- `@/hooks/useCountdown`
-- `@/login`
-- `@/signup`
-- `@/password-reset`
+| Blocked surface                           | Replacement / owner                                                 |
+| ----------------------------------------- | ------------------------------------------------------------------- |
+| `src/api/auth.ts`, `@/api/auth`           | `src/auth/api/*`, `@/auth/api`                                      |
+| `src/app/api/auth/_shared.ts`             | `src/auth/bff/*`                                                    |
+| `src/app/api/auth/_post-route.ts`         | `src/auth/bff/*`                                                    |
+| `src/app/api/auth/_request-guard.ts`      | `src/auth/bff/*`                                                    |
+| `src/components/AuthHeader.tsx`           | `src/auth/components/*`                                             |
+| `src/components/auth/*`                   | `src/auth/components/*`                                             |
+| `src/hooks/useCurrentUser.ts`             | `src/auth/hooks/useAuthSession.ts`                                  |
+| `src/hooks/useRedirectIfAuthenticated.ts` | `src/auth/hooks/*`                                                  |
+| `src/hooks/useCountdown.ts`               | `src/auth/hooks/useAuthCountdown.ts`                                |
+| `src/constants/auth.ts`                   | `src/auth/model/*`, `src/auth/flows/signup/model/campus-options.ts` |
+| `src/login`, `@/login`                    | `src/auth/flows/login` + `app/login/page.tsx`                       |
+| `src/signup`, `@/signup`                  | `src/auth/flows/signup` + `app/signup/page.tsx`                     |
+| `src/password-reset`, `@/password-reset`  | `src/auth/flows/password-reset` + `app/password-reset/page.tsx`     |
+| `src/auth/to-user-profile.ts`             | Main/profile owner mock/dev profile mapping if needed               |
+| `src/auth/hooks/useCurrentUser.ts`        | `src/auth/hooks/useAuthSession.ts` account identity only            |
 
 If an external feature still needs auth behavior, expose that behavior through the auth public facade instead of adding a compatibility wrapper.
 
@@ -165,68 +116,63 @@ If an external feature still needs auth behavior, expose that behavior through t
 - Auth forms and status messages should be tested through accessible role/name/text queries.
 - Error/status UI should expose user-friendly copy and not raw upstream stack or provider messages.
 
-## Phase migration map
-
-| Phase     | Boundary outcome                                                                                           |
-| --------- | ---------------------------------------------------------------------------------------------------------- |
-| Phase 0   | This README and a passing architecture migration ledger exist. No product behavior changes.                |
-| Phase 1   | `src/api/auth.ts` is split into `auth/api/*`; external consumers use `@/auth/api`.                         |
-| Phase 2   | `app/api/auth/_*.ts` helper logic moves to `auth/bff/*`; route files stay thin App Router adapters.        |
-| Phase 3   | Auth-only root components, hooks, and constants move to `auth/components`, `auth/hooks`, and `auth/model`. |
-| Phase 3-1 | Auth session hook returns account identity only; Main/profile bootstrap owns `UserProfile`.                |
-| Phase 4   | `login`, `signup`, and `password-reset` implementations move to `auth/flows/*`.                            |
-| Phase 5   | Architecture guard switches from migration ledger to strict final import enforcement.                      |
-| Phase 6   | Auth UX smoke, accessibility, and security regression tests prove the moved boundary still works.          |
-| Phase 7   | Final docs/checkpoint clarify #260 close readiness and follow-up issues.                                   |
-
 ## Verification map
 
-Phase 5 focused baseline:
+Focused architecture and route boundary guard:
 
 ```bash
 pnpm --dir apps/web exec vitest run \
   src/auth/__tests__/auth-boundary.imports.test.ts \
   src/app/main/__tests__/main-route-boundary.test.ts
+```
 
-pnpm --dir apps/web exec vitest run \
-  src/auth/flows/login \
-  src/auth/flows/signup \
-  src/auth/flows/password-reset
+Auth regression suites:
 
+```bash
 pnpm --dir apps/web exec vitest run \
   src/app/api/auth/__tests__ \
   src/auth/api \
   src/auth/hooks \
-  src/auth/components
+  src/auth/components \
+  src/auth/flows/login \
+  src/auth/flows/signup \
+  src/auth/flows/password-reset
+```
 
-pnpm exec prettier --check --ignore-unknown \
-  apps/web/src/auth \
-  apps/web/src/app/login/page.tsx \
-  apps/web/src/app/signup/page.tsx \
-  apps/web/src/app/password-reset/page.tsx \
-  apps/web/src/api/profile.ts \
-  apps/web/src/api/profile-user.mapper.ts \
-  apps/web/src/main/hooks/useMainBootstrap.ts \
-  .omx/plans/web-auth-boundary-final-refactor-plan.md
+Web-only auth smoke:
 
+```bash
+pnpm --dir apps/web exec playwright test -c playwright.config.ts e2e/smoke.spec.ts
+```
+
+This smoke keeps `/login`, `/signup`, `/password-reset`, and unauthenticated `/main` redirect visible without requiring a live API/DB.
+Full API-backed signup/reset journeys belong to a separate full-stack E2E lane.
+
+Broader verification when auth boundary or route behavior changes:
+
+```bash
 pnpm --dir apps/web exec eslint src/auth src/app/api/auth src/app/login/page.tsx src/app/signup/page.tsx src/app/password-reset/page.tsx src/app/main
 pnpm web:typecheck
 pnpm api:typecheck
 git diff --check
 ```
 
-Phase 6 Web-only auth smoke:
+## Close readiness and follow-ups
 
-```bash
-pnpm --dir apps/web exec playwright test -c playwright.config.ts e2e/smoke.spec.ts
-```
+#260 can be considered close-ready when these final boundary checks pass:
 
-This smoke keeps `/login`, `/signup`, `/password-reset`, and unauthenticated `/main` redirect
-visible without requiring a live API/DB. Full API-backed signup/reset journeys belong to a
-separate full-stack E2E lane.
+- root auth API/component/hook/constant/flow compatibility surfaces are absent.
+- non-auth code cannot deep-import private auth BFF or flow internals.
+- App Router entries stay thin and are the only allowed framework exceptions.
+- auth session hook returns account identity only and does not synthesize Main/profile/season view models.
+- Web-only smoke proves public auth route shells and unauthenticated `/main` redirect.
+- BFF/security regression proves token-like redaction, cookie transport, `Retry-After`, and sensitive storage invariants.
 
-Later phases should add broader `pnpm web:lint`, `pnpm web:test`, and `pnpm web:build` as UI and flow imports move.
-Run Playwright only when route smoke, visible auth route behavior, or browser navigation surfaces are changed.
+Remaining follow-up candidates are explicitly outside this boundary cleanup:
+
+- full API-backed signup/reset E2E with mail code seam and DB seed.
+- `profileApi.getMyProfile()` non-development real endpoint implementation.
+- broader visual/manual QA for auth pages.
 
 ## Source documents
 
