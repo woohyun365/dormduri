@@ -87,6 +87,7 @@ The boundary rule is stable: auth-owned browser, BFF, UI, hook, and model code s
 ## Auth session vs Main profile ownership
 
 - `useAuthSession`은 `/api/auth/session` 결과를 그대로 계정 identity로 다룬다. 반환 타입은 `AuthenticatedSessionUser | null` 범위이며 `UserProfile`이 아니다.
+- session 확인이 지연되거나 실패하면 auth 화면이 skeleton에 무한 대기하지 않도록 bounded timeout 후 unauthenticated state로 수렴한다.
 - `auth`는 Display Identity와 Academic Identity를 signup/account setup 입력 및 account/session response 표시 범위로만 다룬다. 생성·검증의 source-of-truth는 API auth/user identity owner다.
 - `UserProfile`, 생활패턴, 자기소개, 기숙사 선택, 시즌 참여 상태는 Main/profile/season read path가 소유한다.
 - `/main`은 auth session gate 이후 profile/main bootstrap을 별도로 수행한다. profile이 없거나 실패하면 auth 성공으로 위장하지 않고 Main owner의 fallback/error state를 표시한다.
@@ -213,6 +214,16 @@ pnpm web:typecheck
 pnpm api:typecheck
 git diff --check
 ```
+
+Phase 6 Web-only auth smoke:
+
+```bash
+pnpm --dir apps/web exec playwright test -c playwright.config.ts e2e/smoke.spec.ts
+```
+
+This smoke keeps `/login`, `/signup`, `/password-reset`, and unauthenticated `/main` redirect
+visible without requiring a live API/DB. Full API-backed signup/reset journeys belong to a
+separate full-stack E2E lane.
 
 Later phases should add broader `pnpm web:lint`, `pnpm web:test`, and `pnpm web:build` as UI and flow imports move.
 Run Playwright only when route smoke, visible auth route behavior, or browser navigation surfaces are changed.

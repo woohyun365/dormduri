@@ -11,6 +11,9 @@ pnpm web:e2e
 - `apps/web/playwright.config.ts`를 사용한다.
 - production-like standalone Web server를 띄우고 `API_URL=http://127.0.0.1:9`로 고정한다.
 - 목적은 public route와 unauthenticated protected-route redirect를 API/DB 없이 확인하는 것이다.
+- auth route smoke는 `/login`, `/signup`, `/password-reset`의 shell 렌더링, 접근성 locator, public handoff link, neutral 안내 copy를 확인한다.
+- API/DB가 없는 lane이므로 `/api/auth/session`은 Playwright route/fetch smoke seam으로 `authenticated: false`를 반환하게 고정한다.
+  실제 이메일 인증 코드 발송, signup/reset happy path, cookie가 필요한 로그인 성공 journey는 full-stack lane 또는 별도 auth E2E에서 다룬다.
 
 ## Full-stack `/main` smoke
 

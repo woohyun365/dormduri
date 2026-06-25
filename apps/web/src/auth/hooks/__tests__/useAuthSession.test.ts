@@ -1,7 +1,7 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authApi } from '@/auth/api';
-import { useAuthSession } from '../useAuthSession';
+import { AUTH_SESSION_CHECK_TIMEOUT_MS, useAuthSession } from '../useAuthSession';
 
 vi.mock('@/auth/api', () => ({
   authApi: {
@@ -22,6 +22,10 @@ const sessionUser = {
 describe('useAuthSession', () => {
   beforeEach(() => {
     mockGetSession.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('authenticated session이면 account identity만 반환한다', async () => {
@@ -56,6 +60,26 @@ describe('useAuthSession', () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    expect(result.current.user).toBeNull();
+  });
+
+  it('session 확인이 지연되면 auth 화면 skeleton에 머물지 않도록 unauthenticated state로 수렴한다', async () => {
+    vi.useFakeTimers();
+    mockGetSession.mockImplementation(() => new Promise(() => undefined));
+
+    const { result } = renderHook(() => useAuthSession());
+
+    expect(result.current.isLoading).toBe(true);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(AUTH_SESSION_CHECK_TIMEOUT_MS);
+    });
+
+    expect(result.current.isLoading).toBe(false);
     expect(result.current.user).toBeNull();
   });
 });

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import type { AuthenticatedSessionUser } from '@repo/shared/auth/response';
 import { authApi } from '@/auth/api';
 
+export const AUTH_SESSION_CHECK_TIMEOUT_MS = 3_000;
+
 /**
  * 현재 auth session identity를 반환한다.
  *
@@ -16,10 +18,23 @@ export function useAuthSession() {
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    function createSessionCheckTimeout() {
+      return new Promise<Awaited<ReturnType<typeof authApi.getSession>>>((resolve) => {
+        timeoutId = setTimeout(() => {
+          resolve({ authenticated: false });
+        }, AUTH_SESSION_CHECK_TIMEOUT_MS);
+      });
+    }
 
     async function loadSession() {
       try {
-        const result = await authApi.getSession();
+        const result = await Promise.race([authApi.getSession(), createSessionCheckTimeout()]);
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
         if (cancelled) return;
 
         if (result.authenticated && result.user) {
@@ -28,6 +43,10 @@ export function useAuthSession() {
           return;
         }
       } catch {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
         // ignore and fall through to unauthenticated state
       }
 
@@ -41,6 +60,9 @@ export function useAuthSession() {
 
     return () => {
       cancelled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, []);
 
