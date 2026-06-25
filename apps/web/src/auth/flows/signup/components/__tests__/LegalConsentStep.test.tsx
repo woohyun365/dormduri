@@ -55,6 +55,9 @@ function renderWithState(
 describe('LegalConsentStep', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.clearAllMocks();
+    document.body.removeAttribute('style');
+    document.documentElement.removeAttribute('style');
   });
 
   it('legal bundle loading 중에는 다음 단계 CTA를 비활성화하고 이유를 안내한다', () => {
@@ -239,6 +242,44 @@ describe('LegalConsentStep', () => {
     expect(document.activeElement).toBe(termsButton);
   });
 
+  it('전문 보기 dialog는 외부 scroll을 잠그고 overlay close 후 기존 document style을 복원한다', async () => {
+    stubBundleFetch();
+    document.body.style.overflow = 'auto';
+    document.body.style.position = 'relative';
+    document.body.style.top = '1px';
+    document.body.style.left = '2px';
+    document.body.style.right = '3px';
+    document.body.style.width = 'calc(100% - 4px)';
+    document.documentElement.style.overflow = 'clip';
+    const scrollToMock = vi.mocked(window.scrollTo);
+    scrollToMock.mockClear();
+    renderWithState();
+
+    const termsButton = (await screen.findAllByRole('button', { name: '전문 보기' }))[1]!;
+    fireEvent.click(termsButton);
+
+    const dialog = screen.getByRole('dialog', { name: /KNU 룸메 이용약관/ });
+    expect(document.body.style.overflow).toBe('hidden');
+    expect(document.body.style.position).toBe('fixed');
+    expect(document.body.style.top).toBe('0px');
+    expect(document.body.style.left).toBe('0px');
+    expect(document.body.style.right).toBe('0px');
+    expect(document.body.style.width).toBe('100%');
+    expect(document.documentElement.style.overflow).toBe('hidden');
+
+    fireEvent.click(dialog.parentElement!);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(document.body.style.overflow).toBe('auto');
+    expect(document.body.style.position).toBe('relative');
+    expect(document.body.style.top).toBe('1px');
+    expect(document.body.style.left).toBe('2px');
+    expect(document.body.style.right).toBe('3px');
+    expect(document.body.style.width).toBe('calc(100% - 4px)');
+    expect(document.documentElement.style.overflow).toBe('clip');
+    expect(scrollToMock).toHaveBeenCalledWith(0, 0);
+  });
+
   it('summary card와 dialog는 모바일 화면에서 스크롤 가능한 최소 touch target class를 유지한다', async () => {
     stubBundleFetch();
     renderWithState();
@@ -248,8 +289,12 @@ describe('LegalConsentStep', () => {
     fireEvent.click(termsButton);
 
     const dialog = screen.getByRole('dialog', { name: /KNU 룸메 이용약관/ });
-    expect(dialog).toHaveClass('max-h-[86vh]', 'overflow-hidden');
-    expect(dialog.querySelector('.max-h-\\[68vh\\]')).not.toBeNull();
+    expect(dialog).toHaveClass('max-h-[86vh]', 'overscroll-contain', 'overflow-hidden');
+    expect(screen.getByTestId('legal-document-dialog-scroll-area')).toHaveClass(
+      'max-h-[68vh]',
+      'overscroll-contain',
+      'overflow-y-auto',
+    );
   });
 
   it('active bundle fetch 실패 시 seed-synced fallback 안내를 표시한다', async () => {

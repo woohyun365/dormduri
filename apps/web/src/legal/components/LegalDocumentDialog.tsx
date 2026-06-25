@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { X } from 'lucide-react';
 import type { LegalDocumentResponse } from '@repo/shared/legal';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { toLegalDocumentViewModel } from '../api/legal-document.mapper';
 import { LegalDocumentSections } from './LegalDocumentSections';
 
@@ -18,6 +19,8 @@ export function LegalDocumentDialog({
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const viewModel = useMemo(() => toLegalDocumentViewModel(legalDocument), [legalDocument]);
+
+  useBodyScrollLock(true);
 
   const handleClose = useCallback(() => {
     onClose();
@@ -66,7 +69,7 @@ export function LegalDocumentDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center overscroll-contain bg-black/50 sm:items-center"
       onClick={handleClose}
     >
       <div
@@ -74,7 +77,7 @@ export function LegalDocumentDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="legal-document-dialog-title"
-        className="max-h-[86vh] w-full max-w-3xl overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
+        className="max-h-[86vh] w-full max-w-3xl overscroll-contain overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 border-b border-(--knu-border) p-4">
@@ -100,7 +103,10 @@ export function LegalDocumentDialog({
           </button>
         </div>
 
-        <div className="max-h-[68vh] space-y-6 overflow-y-auto p-5">
+        <div
+          data-testid="legal-document-dialog-scroll-area"
+          className="max-h-[68vh] space-y-6 overscroll-contain overflow-y-auto p-5"
+        >
           {viewModel.summaryItems.length > 0 && (
             <section
               aria-labelledby="legal-dialog-summary-heading"
