@@ -7,9 +7,9 @@ import { Skeleton, SkeletonCard } from './Skeleton';
  */
 export function AppShellSkeleton() {
   return (
-    <div className="min-h-screen bg-[var(--knu-background-alt)]">
+    <div className="min-h-screen bg-(--knu-background-alt)">
       {/* 헤더 영역 */}
-      <div className="bg-[var(--knu-primary)] px-5 py-6">
+      <div className="bg-(--knu-primary) px-5 py-6">
         <div className="max-w-md mx-auto space-y-3">
           <Skeleton width="120px" height="16px" className="!bg-white/20 !rounded-lg" />
           <Skeleton width="180px" height="28px" className="!bg-white/20 !rounded-lg" />
@@ -30,7 +30,7 @@ export function AppShellSkeleton() {
 
       {/* 헬퍼 문구 */}
       <div className="text-center mt-4">
-        <p className="text-xs text-[var(--knu-text-tertiary)]">서비스를 준비하고 있어요</p>
+        <p className="text-xs text-(--knu-text-tertiary)">서비스를 준비하고 있어요</p>
       </div>
     </div>
   );

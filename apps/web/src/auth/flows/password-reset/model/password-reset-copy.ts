@@ -5,14 +5,16 @@ export const PASSWORD_RESET_COPY = {
   },
   authenticatedNotice:
     '현재 로그인된 상태입니다. 현재 계정의 비밀번호 변경은 계정 설정에서 진행하고, 다른 계정을 재설정하려면 이 화면에서 계속 진행할 수 있어요.',
+  emailHelp: {
+    prefix: '메일이 오지 않으면 ',
+    highlight: '주소와 스팸함',
+    suffix: '을 확인해주세요.',
+  },
   status: {
     defaultServerError: '일시적 서버 오류가 발생했어요. 잠시 후 다시 시도해주세요.',
     defaultNetworkError: '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
     networkTitle: '네트워크를 확인해주세요',
     retryAfterTitle: '잠시 후 다시 시도해주세요',
-    sendCodeSuccessTitle: '인증 코드 안내',
-    sendCodeSuccessMessage:
-      '입력한 이메일로 가입된 계정이 있는 경우 인증 코드가 발송돼요. 메일함과 스팸함을 확인해주세요.',
     sendCodeFailureTitle: '인증 코드를 보낼 수 없어요',
     verifyFailureTitle: '인증 코드를 확인하지 못했어요',
     verifyFailureMessage: '인증 코드가 올바르지 않습니다.',

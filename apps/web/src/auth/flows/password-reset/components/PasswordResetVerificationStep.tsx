@@ -71,8 +71,26 @@ export function PasswordResetVerificationStep({
         headingRef={headingRef}
         icon={<Mail className="h-8 w-8 text-(--knu-primary)" />}
         title="인증 코드 확인"
-        description={`${email} 메일함에서 6자리 코드를 확인해주세요`}
       />
+
+      <section
+        role="status"
+        aria-live="polite"
+        className="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-4 text-emerald-950"
+      >
+        <div className="flex items-start gap-3">
+          <span
+            aria-hidden="true"
+            className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500"
+          />
+          <div className="min-w-0 flex-1 space-y-1">
+            <h3 className="text-sm font-bold">인증 코드 안내</h3>
+            <p className="text-sm leading-6">
+              <span className="block break-all">발송 완료: {email}</span>
+            </p>
+          </div>
+        </div>
+      </section>
 
       <div className="relative">
         <InputField
@@ -107,13 +125,6 @@ export function PasswordResetVerificationStep({
           </p>
         )}
       </div>
-
-      {isActive && (
-        <p className="keep-all rounded-2xl bg-(--knu-background-alt) p-4 text-sm leading-6 text-(--knu-text-secondary)">
-          인증 코드는 {formatTime()} 동안 사용할 수 있어요. 보안을 위해 재전송은 만료 후에만
-          가능합니다.
-        </p>
-      )}
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button

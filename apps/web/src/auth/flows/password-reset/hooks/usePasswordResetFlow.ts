@@ -110,11 +110,6 @@ export function usePasswordResetFlow() {
 
       if (result.success) {
         clearRetryAfterStatus();
-        setStatus({
-          variant: 'success',
-          title: PASSWORD_RESET_COPY.status.sendCodeSuccessTitle,
-          message: PASSWORD_RESET_COPY.status.sendCodeSuccessMessage,
-        });
         dispatch({ type: 'sendCodeSucceeded', email: requestEmail });
         cooldown.start();
         clearVerificationStepTimeout();

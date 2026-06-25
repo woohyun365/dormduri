@@ -15,8 +15,9 @@ export function LoginLayout({ children, footer }: LoginLayoutProps) {
 
       <main className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center gap-8 px-5 py-10 md:py-16 lg:grid-cols-[minmax(0,1fr)_28rem] lg:px-8">
         <aside
+          data-testid="login-help-panel"
           aria-labelledby="login-help-title"
-          className="hidden rounded-3xl border-2 border-(--knu-border) bg-white p-8 shadow-sm lg:block"
+          className="hidden rounded-3xl border-2 border-(--knu-border) bg-white p-8 shadow-sm lg:mt-8 lg:block"
         >
           <p className="mb-3 text-sm font-semibold text-(--knu-primary)">KNU 룸메 로그인</p>
           <h2
@@ -25,10 +26,6 @@ export function LoginLayout({ children, footer }: LoginLayoutProps) {
           >
             강원대 이메일로 안전하게 이어서 사용하세요
           </h2>
-          <p className="keep-all mb-8 text-base leading-7 text-(--knu-text-secondary)">
-            본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다. 학교 이메일로 본인
-            확인을 마친 계정만 로그인할 수 있습니다.
-          </p>
 
           <dl className="space-y-5">
             <div className="rounded-2xl bg-(--knu-background-alt) p-5">
@@ -70,7 +67,10 @@ export function LoginLayout({ children, footer }: LoginLayoutProps) {
             <p className="text-(--knu-text-secondary)">KNU 룸메에 오신 것을 환영합니다</p>
             <p className="keep-all mt-2 text-xs text-(--knu-text-tertiary)">
               본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.{' '}
-              <Link href="/terms" className="underline">
+              <Link
+                href="/terms"
+                className="inline-block whitespace-nowrap underline sm:inline sm:whitespace-normal"
+              >
                 자세히 보기
               </Link>
             </p>

@@ -21,7 +21,10 @@ export function SignupLayout({
         <div className="border-b border-amber-200 bg-amber-50 px-5 py-2 text-center">
           <p className="keep-all text-xs text-amber-800">
             본 서비스는 강원대학교 공식 서비스가 아닌 독립 운영 서비스입니다.{' '}
-            <Link href="/terms" className="font-medium underline">
+            <Link
+              href="/terms"
+              className="inline-block whitespace-nowrap font-medium underline sm:inline sm:whitespace-normal"
+            >
               자세히 보기
             </Link>
           </p>

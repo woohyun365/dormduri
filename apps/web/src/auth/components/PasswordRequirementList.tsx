@@ -12,7 +12,7 @@ export function PasswordRequirementList({ password, email }: PasswordRequirement
     {
       met: password.length >= PASSWORD_MIN_LENGTH,
       label: `${PASSWORD_MIN_LENGTH}자 이상`,
-      failStyle: 'text-[var(--knu-text-tertiary)]',
+      failStyle: 'text-(--knu-text-tertiary)',
     },
     {
       met: password.length <= PASSWORD_MAX_LENGTH,
@@ -22,12 +22,12 @@ export function PasswordRequirementList({ password, email }: PasswordRequirement
     {
       met: /[a-zA-Z]/.test(password),
       label: '영문 포함',
-      failStyle: 'text-[var(--knu-text-tertiary)]',
+      failStyle: 'text-(--knu-text-tertiary)',
     },
     {
       met: /\d/.test(password),
       label: '숫자 포함',
-      failStyle: 'text-[var(--knu-text-tertiary)]',
+      failStyle: 'text-(--knu-text-tertiary)',
     },
     {
       met: password.toLowerCase() !== email.toLowerCase(),

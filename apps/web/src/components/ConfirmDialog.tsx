@@ -48,13 +48,13 @@ export function ConfirmDialog({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       <div className="relative bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
-        <h3 className="text-lg font-bold text-[var(--knu-text-primary)] mb-2">{title}</h3>
-        <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed whitespace-pre-line mb-4">
+        <h3 className="text-lg font-bold text-(--knu-text-primary) mb-2">{title}</h3>
+        <p className="text-sm text-(--knu-text-secondary) leading-relaxed whitespace-pre-line mb-4">
           {message}
         </p>
         {warning && (
           <div className="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 mb-4">
-            <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-xs font-medium text-amber-800 leading-relaxed">{warning}</p>
           </div>
         )}

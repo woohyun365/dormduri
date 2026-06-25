@@ -32,8 +32,8 @@ export function Chip({
       aria-checked={ariaChecked}
       className={`px-5 h-11 rounded-full font-medium text-sm transition-all whitespace-nowrap ${
         selected
-          ? 'bg-[var(--knu-primary)] text-white shadow-sm'
-          : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200 active:bg-gray-300'
+          ? 'bg-(--knu-primary) text-white shadow-sm'
+          : 'bg-(--knu-background-alt) text-(--knu-text-secondary) hover:bg-gray-200 active:bg-gray-300'
       }`}
     >
       {label}

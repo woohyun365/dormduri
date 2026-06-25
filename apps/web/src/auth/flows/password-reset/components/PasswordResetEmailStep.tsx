@@ -9,6 +9,7 @@ import { StepHeader } from '@/components/StepHeader';
 import { InputField } from '@/components/form/InputField';
 import { focusAndScroll } from '@/utils/focus';
 import { validateKnuEmail } from '@/utils/validation';
+import { PasswordResetEmailHelpMessage } from './PasswordResetEmailHelpMessage';
 
 interface PasswordResetEmailStepProps {
   email: string;
@@ -51,7 +52,7 @@ export function PasswordResetEmailStep({
         headingRef={headingRef}
         icon={<Mail className="h-8 w-8 text-(--knu-primary)" />}
         title="비밀번호 찾기"
-        description="가입된 계정이 있는 경우에만 인증 코드가 발송돼요"
+        description="강원대 이메일로 인증 코드를 받아요"
       />
 
       <InputField
@@ -70,9 +71,11 @@ export function PasswordResetEmailStep({
         required
       />
 
-      <div className="rounded-2xl bg-(--knu-background-alt) p-4 text-sm leading-6 text-(--knu-text-secondary)">
-        계정 존재 여부는 화면에 표시하지 않습니다. 메일이 오지 않으면 주소를 다시 확인하거나 잠시 후
-        재시도해주세요.
+      <div
+        data-testid="password-reset-mobile-email-help"
+        className="rounded-2xl bg-(--knu-background-alt) p-4 text-sm leading-6 text-(--knu-text-secondary) lg:hidden"
+      >
+        <PasswordResetEmailHelpMessage />
       </div>
 
       <Button variant="primary" size="lg" fullWidth type="submit" disabled={isSending}>

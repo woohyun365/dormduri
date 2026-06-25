@@ -24,16 +24,16 @@ export function AuthHeader({
   };
 
   return (
-    <header className="sticky top-0 z-10 border-b border-[var(--knu-border)] bg-white">
+    <header className="sticky top-0 z-10 border-b border-(--knu-border) bg-white">
       <div className={containerClassName}>
         <div className="flex h-16 items-center">
           {showBack && (
             <button
               onClick={onBack}
-              className="mr-2 flex h-10 w-10 items-center justify-center rounded-xl transition-colors hover:bg-[var(--knu-background-alt)]"
+              className="mr-2 flex h-10 w-10 items-center justify-center rounded-xl transition-colors hover:bg-(--knu-background-alt)"
               aria-label="뒤로가기"
             >
-              <ChevronLeft className="h-6 w-6 text-[var(--knu-text-primary)]" />
+              <ChevronLeft className="h-6 w-6 text-(--knu-text-primary)" />
             </button>
           )}
           <Link href="/" onClick={handleLogoClick} className="flex items-center gap-2">
@@ -44,7 +44,7 @@ export function AuthHeader({
               height={32}
               className="rounded-lg"
             />
-            <span className="text-lg font-bold text-[var(--knu-text-primary)]">KNU 룸메</span>
+            <span className="text-lg font-bold text-(--knu-text-primary)">KNU 룸메</span>
           </Link>
         </div>
       </div>

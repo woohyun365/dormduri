@@ -6,7 +6,7 @@ interface PasswordResetProgressProps {
 
 export function PasswordResetProgress({ currentStep }: PasswordResetProgressProps) {
   return (
-    <div className="mb-7">
+    <div className="mb-5 md:mb-7">
       <ProgressBar currentStep={currentStep} totalSteps={3} />
     </div>
   );

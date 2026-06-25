@@ -34,6 +34,12 @@ describe('LoginLayout', () => {
       screen.getAllByText(/강원대학교 공식 서비스가 아닌 독립 운영 서비스/).length,
     ).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: '로그인 폼 자리' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '자세히 보기' })).toHaveClass(
+      'inline-block',
+      'whitespace-nowrap',
+      'sm:inline',
+      'sm:whitespace-normal',
+    );
     expect(screen.getByRole('link', { name: '개인정보처리방침' })).toHaveAttribute(
       'href',
       '/privacy',
@@ -50,6 +56,7 @@ describe('LoginLayout', () => {
     );
 
     expect(screen.getByText('학교 이메일 로그인')).toBeInTheDocument();
+    expect(screen.getByTestId('login-help-panel')).toHaveClass('lg:mt-8');
     expect(screen.getByText('로그인 유지')).toBeInTheDocument();
     expect(screen.getByText(/최대 7일 동안 다시 로그인하지 않아도/)).toBeInTheDocument();
     expect(screen.getByText('비밀번호 재설정')).toBeInTheDocument();

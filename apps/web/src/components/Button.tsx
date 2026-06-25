@@ -23,11 +23,10 @@ export function Button({
 
   const variantStyles = {
     primary:
-      'bg-[var(--knu-primary)] hover:bg-[var(--knu-primary-hover)] text-white shadow-sm hover:shadow-md',
-    secondary:
-      'bg-[var(--knu-secondary)] hover:bg-[var(--knu-secondary-hover)] text-white shadow-sm',
+      'bg-(--knu-primary) hover:bg-(--knu-primary-hover) text-white shadow-sm hover:shadow-md',
+    secondary: 'bg-(--knu-secondary) hover:bg-(--knu-secondary-hover) text-white shadow-sm',
     outline:
-      'border-2 border-[var(--knu-border)] hover:border-[var(--knu-primary)] hover:bg-[var(--knu-primary-light)] text-[var(--knu-text-primary)] transition-all disabled:border-gray-200 disabled:text-gray-400',
+      'border-2 border-(--knu-border) hover:border-(--knu-primary) hover:bg-(--knu-primary-light) text-(--knu-text-primary) transition-all disabled:border-gray-200 disabled:text-gray-400',
     danger: 'bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow-md',
   };
 

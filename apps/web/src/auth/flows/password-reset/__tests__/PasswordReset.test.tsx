@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authApi } from '@/auth/api';
 import { RESET_PASSWORD_VERIFICATION_CODE_TTL } from '@/auth/model';
@@ -99,6 +99,16 @@ describe('PasswordResetPageClient', () => {
       // verification 단계로 전환
       advanceToVerification();
       expect(screen.getByText('인증 코드 확인')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: '인증 코드 안내' })).toBeInTheDocument();
+      const codeNotice = screen.getByRole('status');
+      expect(codeNotice).toHaveClass('border-emerald-200', 'bg-emerald-50');
+      expect(codeNotice).toHaveTextContent('발송 완료: test@kangwon.ac.kr');
+      expect(within(codeNotice).getByText('발송 완료: test@kangwon.ac.kr')).toHaveClass(
+        'block',
+        'break-all',
+      );
+      expect(screen.queryByText(/메일함에서 6자리 코드를 확인해주세요/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/인증 코드는 .* 동안 사용할 수 있어요/)).not.toBeInTheDocument();
 
       // 뒤로가기 → email 단계 복귀
       fireEvent.click(screen.getByLabelText('뒤로가기'));
@@ -307,14 +317,55 @@ describe('PasswordResetPageClient', () => {
   });
 
   describe('T-7: Phase 2 visible status와 인증 상태 안내', () => {
-    it('send-code 성공은 toast 없이 화면 내 neutral status로 확인할 수 있다', async () => {
+    it('email step은 mobile에서도 neutral response와 스팸함 확인 안내를 문장별로 표시한다', () => {
+      render(<PasswordResetPageClient />);
+
+      const mobileHelp = screen.getByTestId('password-reset-mobile-email-help');
+      expect(mobileHelp).toHaveTextContent('메일이 오지 않으면 주소와 스팸함을 확인해주세요.');
+      expect(within(mobileHelp).getByText('주소와 스팸함')).toHaveClass(
+        'font-semibold',
+        'text-(--knu-primary)',
+      );
+    });
+
+    it('password reset layout은 단계 전환 시 우측 content top anchor를 유지한다', () => {
+      render(<PasswordResetPageClient />);
+
+      expect(screen.getByTestId('password-reset-main-layout')).toHaveClass(
+        'items-start',
+        'gap-6',
+        'py-6',
+        'md:py-16',
+      );
+      expect(screen.getByTestId('password-reset-main-layout')).not.toHaveClass('md:items-center');
+      expect(screen.getByTestId('password-reset-help-panel')).toHaveClass('lg:mt-32');
+      expect(screen.getByTestId('password-reset-flow-card')).not.toHaveClass('lg:min-h-[38rem]');
+      expect(screen.getByTestId('password-reset-form-stack')).toHaveClass('space-y-5');
+      expect(screen.queryByTestId('password-reset-feedback-region')).not.toBeInTheDocument();
+      expect(screen.getByRole('link', { name: '자세히 보기' })).toHaveClass(
+        'inline-block',
+        'whitespace-nowrap',
+        'sm:inline',
+        'sm:whitespace-normal',
+      );
+    });
+
+    it('send-code 성공은 하단 feedback 대신 verification 단계의 안내 카드로 확인할 수 있다', async () => {
       render(<PasswordResetPageClient />);
 
       await fillAndSubmitEmail();
 
-      expect(screen.getByRole('status')).toHaveTextContent(
-        '입력한 이메일로 가입된 계정이 있는 경우 인증 코드가 발송돼요.',
+      expect(screen.queryByTestId('password-reset-feedback-region')).not.toBeInTheDocument();
+
+      advanceToVerification();
+
+      const codeNotice = screen.getByRole('status');
+      expect(codeNotice).toHaveTextContent('발송 완료: test@kangwon.ac.kr');
+      expect(within(codeNotice).getByText('발송 완료: test@kangwon.ac.kr')).toHaveClass(
+        'block',
+        'break-all',
       );
+      expect(screen.queryByTestId('password-reset-feedback-region')).not.toBeInTheDocument();
     });
 
     it('send-code 429는 화면 내 alert와 1초씩 줄어드는 retry-after countdown으로 표시된다', async () => {

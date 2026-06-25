@@ -6,7 +6,7 @@
 ## 제품 책임
 
 - 강원대학교 이메일 인증을 통해 가입 가능한 학교 메일 형식과 인증 코드 흐름을 안내한다.
-- 최신 이용약관, 개인정보 수집·이용 동의, 만 14세 이상 안내를 확인하고 필수 동의 evidence를 signup request에 포함한다.
+- 최신 이용약관, 개인정보 수집·이용 동의, 법적 만 14세 이상 안내를 확인하고 필수 동의 evidence를 signup request에 포함한다.
 - 계정 생성에 필요한 표시 이름과 account academic identity를 수집한다.
   - `nickname`
   - `gender`
@@ -16,6 +16,8 @@
   - `password`
 - `/api/auth/signup` BFF를 통해 shared `SignupRequest` shape만 upstream auth API로 전달한다.
 - 가입 완료 후에는 메인 화면에서 현재 시즌 상태, 시즌 프로필 준비, 기숙사 선택 후 룸메 찾기를 이어서 진행해야 함을 안내한다.
+- 출생연도 UI는 대학생 사용 맥락에 맞춰 `현재연도 - 30`부터 `현재연도 - 18`까지의 select option을 제공한다.
+  법적 자격 문구는 만 14세 이상 고지로 유지하지만, 화면 입력 UX는 대학생 기준의 실사용 범위를 우선한다.
 
 ## Non-owner boundary
 
@@ -94,6 +96,7 @@ signup feature-local `api/` 아래로 옮기지 않고 auth public facade(`@/aut
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `SignupPageClient.tsx`              | 4-step shell, auth redirect gate, submit/recovery glue                                                    |
 | `components/`                       | 단계별 화면, layout, progress, alert, loading UI                                                          |
+| `components/SignupLayout.tsx`       | 독립 운영 서비스 고지와 auth header shell. Mobile `자세히 보기` 링크는 한 단어 tap target으로 유지        |
 | `components/SignupCompleteStep.tsx` | 가입 완료 후 season journey handoff                                                                       |
 | `components/SignupSkeleton.tsx`     | redirect/draft restore 대기 중 접근 가능한 loading UI                                                     |
 | `components/email-verification/`    | signup 이메일 인증 요청/확인 hook과 UI. 요청/확인 UI와 hook이 함께 움직이는 slice라 flat하게 풀지 않는다. |
@@ -145,6 +148,12 @@ signup feature-local `api/` 아래로 옮기지 않고 auth public facade(`@/aut
 | College code catalog/schema  | `packages/shared/src/college/catalog.ts`, `packages/shared/src/college/schema.ts` |
 
 정책 문서와 화면 문구가 충돌하면 정책 문서를 우선하고 signup copy/test를 갱신한다.
+
+## Tailwind v4 class rule
+
+Signup 범위는 auth root README의 Tailwind v4 canonical class rule을 따른다.
+CSS variable shorthand가 가능한 값은 `text-(--knu-text-primary)`처럼 작성하고, 실제 arbitrary value가 필요한 layout 값만 bracket syntax를 유지한다.
+Mobile 독립 운영 서비스 고지의 `자세히 보기` 링크는 `inline-block whitespace-nowrap`을 유지해 좁은 화면에서 두 줄로 쪼개지지 않게 한다.
 
 ## Handoff and follow-up boundary
 

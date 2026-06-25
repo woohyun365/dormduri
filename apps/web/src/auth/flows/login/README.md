@@ -51,30 +51,31 @@ BFF route가 httpOnly cookie로만 browser session transport를 materialize한�
 `app/login/page.tsx`는 route shell만 소유하고, `apps/web/src/auth/flows/login` 아래의 root client/hook/model/component 경계도 signup benchmark와 같은 책임 단위를 유지한다.
 따라서 Phase 4에서는 추가 nested move나 대규모 rename을 하지 않는다.
 `LoginLayout`은 desktop에서 `AuthHeader` container 폭을 main grid와 같은 `max-w-5xl px-5 lg:px-8`로 맞춰 header 로고 좌측과 aside 좌측이 같은 기준선을 사용하게 한다.
+독립 운영 서비스 고지는 오른쪽 title/header 영역이 소유하고, 왼쪽 aside는 로그인 도움말만 소유한다.
+Desktop aside는 `lg:mt-8` offset으로 오른쪽 form title rhythm에 맞춘다.
 
-| Directory / file                                                              | Responsibility                                                                     |
-| ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `app/login/page.tsx`                                                          | route metadata, Suspense fallback, `LoginPageClient` composition only              |
-| `LoginPageClient.tsx`                                                         | auth redirect gate, router callback, login layout/form wiring                      |
-| `components/LoginLayout.tsx`                                                  | mobile/desktop layout, help panel, independent-service notice, PC header alignment |
-| `components/LoginForm.tsx`                                                    | controlled presentational form. API/router를 호출하지 않음                         |
-| `components/LoginStatusAlert.tsx`                                             | invalid/locked/throttled/network/server alert rendering                            |
-| `components/LoginRememberMeHint.tsx`                                          | rememberMe helper copy                                                             |
-| `components/LoginAuthenticatedSkeleton.tsx`                                   | session check/redirect pending accessible skeleton                                 |
-| `components/LoginSecondaryActions.tsx`                                        | password reset, signup, terms/privacy navigation actions                           |
-| `hooks/useLoginForm.ts`                                                       | submit orchestration, validation, countdown, redirect state                        |
-| `hooks/useLoginRedirectTarget.ts`                                             | safe `/main` redirect target helper                                                |
-| `model/login-form.*`                                                          | form values, field errors, validation types                                        |
-| `model/login-result.mapper.ts`                                                | BFF/API result to UI status/copy/countdown state                                   |
-| `model/login-redirect-target.ts`                                              | pure redirect allowlist helper                                                     |
-| `__tests__/`, `components/__tests__/`, `hooks/__tests__/`, `model/__tests__/` | shell/component/hook/model regression                                              |
+| Directory / file                                                              | Responsibility                                                                                |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `app/login/page.tsx`                                                          | route metadata, Suspense fallback, `LoginPageClient` composition only                         |
+| `LoginPageClient.tsx`                                                         | auth redirect gate, router callback, login layout/form wiring                                 |
+| `components/LoginLayout.tsx`                                                  | mobile/desktop layout, help panel, right-side independent-service notice, PC header alignment |
+| `components/LoginForm.tsx`                                                    | controlled presentational form. API/router를 호출하지 않음                                    |
+| `components/LoginStatusAlert.tsx`                                             | invalid/locked/throttled/network/server alert rendering                                       |
+| `components/LoginRememberMeHint.tsx`                                          | rememberMe helper copy                                                                        |
+| `components/LoginAuthenticatedSkeleton.tsx`                                   | session check/redirect pending accessible skeleton                                            |
+| `components/LoginSecondaryActions.tsx`                                        | password reset, signup, terms/privacy navigation actions                                      |
+| `hooks/useLoginForm.ts`                                                       | submit orchestration, validation, countdown, redirect state                                   |
+| `hooks/useLoginRedirectTarget.ts`                                             | safe `/main` redirect target helper                                                           |
+| `model/login-form.*`                                                          | form values, field errors, validation types                                                   |
+| `model/login-result.mapper.ts`                                                | BFF/API result to UI status/copy/countdown state                                              |
+| `model/login-redirect-target.ts`                                              | pure redirect allowlist helper                                                                |
+| `__tests__/`, `components/__tests__/`, `hooks/__tests__/`, `model/__tests__/` | shell/component/hook/model regression                                                         |
 
 ## Tailwind v4 class rule
 
-Login 범위는 Tailwind v4 canonical class suggestion을 따른다.
-CSS variable arbitrary value는 `text-[var(--knu-text-primary)]` 대신 `text-(--knu-text-primary)`처럼 작성한다.
-`bg-*`, `border-*`, variant prefix(`hover:text-*`)도 같은 규칙을 따른다.
-`min-h-[calc(...)]`, `lg:grid-cols-[...]`처럼 CSS variable shorthand가 아닌 arbitrary value는 기존 bracket syntax를 유지한다.
+Login 범위는 auth root README의 Tailwind v4 canonical class rule을 따른다.
+CSS variable shorthand가 가능한 값은 `text-(--knu-text-primary)`처럼 작성하고, `min-h-[calc(...)]`, `lg:grid-cols-[...]`처럼 실제 arbitrary value가 필요한 값만 bracket syntax를 유지한다.
+Mobile에서 `자세히 보기`가 두 줄로 쪼개지지 않도록 서비스 고지 링크는 `inline-block whitespace-nowrap`을 유지한다.
 
 ## Test interaction rule
 

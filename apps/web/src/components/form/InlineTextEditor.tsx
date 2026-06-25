@@ -48,22 +48,22 @@ export function InlineTextEditor({
           placeholder={placeholder}
           maxLength={maxLength}
           rows={rows}
-          className="w-full px-4 py-3 border-2 border-[var(--knu-border)] rounded-xl text-sm text-[var(--knu-text-primary)] placeholder:text-[var(--knu-text-tertiary)] focus:outline-none focus:border-[var(--knu-primary)] transition-colors resize-none"
+          className="w-full px-4 py-3 border-2 border-(--knu-border) rounded-xl text-sm text-(--knu-text-primary) placeholder:text-(--knu-text-tertiary) focus:outline-none focus:border-(--knu-primary) transition-colors resize-none"
         />
         <div className="flex items-center justify-between mt-2">
-          <span className="text-xs text-[var(--knu-text-tertiary)]">
+          <span className="text-xs text-(--knu-text-tertiary)">
             {draft.length}/{maxLength}
           </span>
           <div className="flex gap-2">
             <button
               onClick={handleCancel}
-              className="px-4 py-2 text-sm font-semibold text-[var(--knu-text-secondary)] bg-[var(--knu-background-alt)] rounded-xl"
+              className="px-4 py-2 text-sm font-semibold text-(--knu-text-secondary) bg-(--knu-background-alt) rounded-xl"
             >
               취소
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 text-sm font-semibold text-white bg-[var(--knu-primary)] rounded-xl hover:bg-[var(--knu-primary-hover)] transition-colors"
+              className="px-4 py-2 text-sm font-semibold text-white bg-(--knu-primary) rounded-xl hover:bg-(--knu-primary-hover) transition-colors"
             >
               저장
             </button>
@@ -76,10 +76,10 @@ export function InlineTextEditor({
   if (!value) {
     return (
       <div className="text-center py-2">
-        <p className="text-sm text-[var(--knu-text-tertiary)] mb-3">{placeholder}</p>
+        <p className="text-sm text-(--knu-text-tertiary) mb-3">{placeholder}</p>
         <button
           onClick={handleStartEdit}
-          className="px-4 py-2 text-sm font-semibold text-[var(--knu-primary)] bg-[var(--knu-primary-light)] rounded-xl"
+          className="px-4 py-2 text-sm font-semibold text-(--knu-primary) bg-(--knu-primary-light) rounded-xl"
         >
           작성하기
         </button>
@@ -89,10 +89,10 @@ export function InlineTextEditor({
 
   return (
     <div className="flex items-start justify-between">
-      <p className="text-sm text-[var(--knu-text-secondary)] leading-relaxed flex-1">{value}</p>
+      <p className="text-sm text-(--knu-text-secondary) leading-relaxed flex-1">{value}</p>
       <button
         onClick={handleStartEdit}
-        className="ml-3 text-sm font-semibold text-[var(--knu-primary)] flex-shrink-0"
+        className="ml-3 text-sm font-semibold text-(--knu-primary) shrink-0"
       >
         수정
       </button>

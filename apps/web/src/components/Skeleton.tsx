@@ -21,12 +21,9 @@ export function Skeleton({ width = '100%', height = '20px', className = '' }: Sk
 
 export function SkeletonCard({ height = '120px' }: { height?: string }) {
   return (
-    <div
-      className="bg-white rounded-2xl border-2 border-[var(--knu-border)] p-4"
-      style={{ height }}
-    >
+    <div className="bg-white rounded-2xl border-2 border-(--knu-border) p-4" style={{ height }}>
       <div className="flex items-start gap-3">
-        <Skeleton width="48px" height="48px" className="rounded-xl flex-shrink-0" />
+        <Skeleton width="48px" height="48px" className="rounded-xl shrink-0" />
         <div className="flex-1 space-y-2">
           <Skeleton width="60%" height="20px" />
           <Skeleton width="40%" height="16px" />

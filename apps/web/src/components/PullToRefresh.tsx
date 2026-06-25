@@ -34,7 +34,7 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
         style={{ y: useTransform(y, (val) => val - 50), opacity }}
       >
         <motion.div
-          className="w-10 h-10 bg-[var(--knu-primary)] rounded-full flex items-center justify-center shadow-lg"
+          className="w-10 h-10 bg-(--knu-primary) rounded-full flex items-center justify-center shadow-lg"
           style={{ rotate }}
         >
           <RefreshCw className="w-5 h-5 text-white" />
@@ -61,7 +61,7 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-            className="w-12 h-12 bg-[var(--knu-primary)] rounded-full flex items-center justify-center shadow-xl"
+            className="w-12 h-12 bg-(--knu-primary) rounded-full flex items-center justify-center shadow-xl"
           >
             <RefreshCw className="w-6 h-6 text-white" />
           </motion.div>

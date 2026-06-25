@@ -116,6 +116,16 @@ If an external feature still needs auth behavior, expose that behavior through t
 - Auth forms and status messages should be tested through accessible role/name/text queries.
 - Error/status UI should expose user-friendly copy and not raw upstream stack or provider messages.
 
+## Styling and layout invariants
+
+- Auth screens follow Tailwind CSS v4 canonical class suggestions.
+  Use CSS variable shorthand such as `text-(--knu-text-primary)`, `bg-(--knu-background-alt)`, and `border-(--knu-border)` instead of `text-[var(--knu-text-primary)]` style arbitrary values.
+- Use scale utilities such as `lg:mt-8` or `lg:mt-32` when the intended value already exists in Tailwind's spacing scale.
+  Keep bracket syntax for non-token values such as `min-h-[calc(...)]` and `lg:grid-cols-[...]`.
+- Login, signup, and password reset service-boundary notices keep `자세히 보기` as one mobile tap target with `inline-block whitespace-nowrap`, then relax to normal inline wrapping from `sm` upward.
+- Password reset layout keeps the right form card top-anchored while feedback grows downward.
+  The desktop help panel aligns to the right-side title area and does not own account-existence truth.
+
 ## Verification map
 
 Focused architecture and route boundary guard:
