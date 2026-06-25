@@ -6,7 +6,7 @@ const webSrc = join(process.cwd(), 'src');
 const readmePath = join(webSrc, 'auth', 'README.md');
 const boundaryTestPath = join(webSrc, 'auth', '__tests__', 'auth-boundary.imports.test.ts');
 
-const currentLegacyPaths = ['login', 'signup', 'password-reset'] as const;
+const phase4RemovedFlowPaths = ['login', 'signup', 'password-reset'] as const;
 
 const phase1RemovedPaths = ['api/auth.ts'] as const;
 
@@ -47,7 +47,28 @@ const authSharedEntrypoints = [
   'auth/hooks/__tests__/useRedirectIfAuthenticated.test.ts',
   'auth/model/index.ts',
   'auth/model/policy-constants.ts',
-  'signup/model/campus-options.ts',
+  'auth/flows/signup/model/campus-options.ts',
+] as const;
+
+const authFlowEntrypoints = [
+  'auth/flows/login/LoginPageClient.tsx',
+  'auth/flows/login/README.md',
+  'auth/flows/login/components/LoginForm.tsx',
+  'auth/flows/login/hooks/useLoginForm.ts',
+  'auth/flows/login/model/login-form.validation.ts',
+  'auth/flows/signup/SignupPageClient.tsx',
+  'auth/flows/signup/README.md',
+  'auth/flows/signup/components/AccountIdentityStep.tsx',
+  'auth/flows/signup/components/LegalConsentStep.tsx',
+  'auth/flows/signup/components/email-verification/StepEmailVerification.tsx',
+  'auth/flows/signup/hooks/useSignupDraftStorage.ts',
+  'auth/flows/signup/model/campus-options.ts',
+  'auth/flows/signup/model/signup-request.mapper.ts',
+  'auth/flows/password-reset/PasswordResetPageClient.tsx',
+  'auth/flows/password-reset/README.md',
+  'auth/flows/password-reset/components/PasswordResetEmailStep.tsx',
+  'auth/flows/password-reset/hooks/usePasswordResetFlow.ts',
+  'auth/flows/password-reset/model/password-reset-flow.reducer.ts',
 ] as const;
 
 const phase3ForbiddenImportPatterns = [
@@ -141,13 +162,28 @@ describe('web auth boundary migration ledger', () => {
     expect(readme).toContain('@/auth/api');
   });
 
-  it('tracks current legacy auth paths that later phases intentionally remove', () => {
-    for (const relativePath of currentLegacyPaths) {
-      expect(
-        pathExists(relativePath),
-        `${relativePath} should be tracked as a Phase 3 legacy flow path`,
-      ).toBe(true);
+  it('keeps Phase 4 auth flow directory move complete without root compatibility paths', () => {
+    for (const relativePath of phase4RemovedFlowPaths) {
+      expect(pathExists(relativePath), `${relativePath} should be removed after Phase 4`).toBe(
+        false,
+      );
     }
+
+    for (const relativePath of authFlowEntrypoints) {
+      expect(pathExists(relativePath), `${relativePath} should exist after Phase 4`).toBe(true);
+    }
+
+    const filesWithOldFlowImports = listSourceFiles(webSrc)
+      .filter((sourcePath) => sourcePath !== boundaryTestPath)
+      .filter((sourcePath) => {
+        const source = readFileSync(sourcePath, 'utf8');
+        return /(?:from|import)\s*\(?['"]@\/(?:login|signup|password-reset)(?:\/|['"])/.test(
+          source,
+        );
+      })
+      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+
+    expect(filesWithOldFlowImports).toEqual([]);
   });
 
   it('keeps Phase 1 auth API client migration complete without compatibility re-export', () => {
@@ -235,7 +271,7 @@ describe('web auth boundary migration ledger', () => {
     expect(filesWithProfileOwnedSource).toEqual([]);
   });
 
-  it('keeps final forbidden import patterns discoverable without enforcing flow moves before Phase 5', () => {
+  it('keeps final forbidden import patterns discoverable for Phase 5 strict guard', () => {
     expect(finalForbiddenImportPatterns).toContain('@/api/auth');
     expect(finalForbiddenImportPatterns).toContain('@/constants/auth');
     expect(finalForbiddenImportPatterns).toContain('@/components/AuthHeader');
@@ -261,6 +297,16 @@ describe('web auth boundary migration ledger', () => {
         `${relativePath} should remain an App Router entrypoint`,
       ).toBe(true);
     }
+
+    expect(readFileSync(join(webSrc, 'app', 'login', 'page.tsx'), 'utf8')).toContain(
+      '@/auth/flows/login/LoginPageClient',
+    );
+    expect(readFileSync(join(webSrc, 'app', 'signup', 'page.tsx'), 'utf8')).toContain(
+      '@/auth/flows/signup/SignupPageClient',
+    );
+    expect(readFileSync(join(webSrc, 'app', 'password-reset', 'page.tsx'), 'utf8')).toContain(
+      '@/auth/flows/password-reset/PasswordResetPageClient',
+    );
 
     const readme = readAuthReadme();
 

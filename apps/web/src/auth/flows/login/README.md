@@ -1,6 +1,6 @@
 # Web login
 
-`apps/web/src/login`은 공개 로그인 화면의 form state, 입력 검증, BFF login 호출, 로그인 후 `/main` handoff를 소유한다.
+`apps/web/src/auth/flows/login`은 공개 로그인 화면의 form state, 입력 검증, BFF login 호출, 로그인 후 `/main` handoff를 소유한다.
 세션 authority와 token family 정책은 API/Auth domain이 소유하고, Web login은 browser-visible state에 token 값을 저장하지 않는다.
 
 ## 제품 책임
@@ -48,7 +48,7 @@ BFF route가 httpOnly cookie로만 browser session transport를 materialize한�
 ## Directory responsibility
 
 현재 구조는 Phase 4 점검 기준으로 권장 구조와 일치한다.
-`app/login/page.tsx`는 route shell만 소유하고, `apps/web/src/login` 아래의 root client/hook/model/component 경계도 signup benchmark와 같은 책임 단위를 유지한다.
+`app/login/page.tsx`는 route shell만 소유하고, `apps/web/src/auth/flows/login` 아래의 root client/hook/model/component 경계도 signup benchmark와 같은 책임 단위를 유지한다.
 따라서 Phase 4에서는 추가 nested move나 대규모 rename을 하지 않는다.
 `LoginLayout`은 desktop에서 `AuthHeader` container 폭을 main grid와 같은 `max-w-5xl px-5 lg:px-8`로 맞춰 header 로고 좌측과 aside 좌측이 같은 기준선을 사용하게 한다.
 
@@ -86,13 +86,13 @@ CSS variable arbitrary value는 `text-[var(--knu-text-primary)]` 대신 `text-(-
 ## Verification map
 
 ```bash
-pnpm --dir apps/web exec vitest run src/login src/auth/hooks/__tests__/useRedirectIfAuthenticated.test.ts
+pnpm --dir apps/web exec vitest run src/auth/flows/login src/auth/hooks/__tests__/useRedirectIfAuthenticated.test.ts
 pnpm --dir apps/web exec vitest run src/app/api/auth/__tests__/login-route.test.ts src/auth/api/__tests__/auth-api.client.test.ts
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture
 pnpm web:typecheck
-pnpm --dir apps/web exec eslint src/app/login/page.tsx src/auth/hooks/useAuthSession.ts src/auth/hooks/useRedirectIfAuthenticated.ts src/login src/app/main/__tests__/MainRouteShell.test.tsx src/proxy.test.ts e2e/smoke.spec.ts e2e/main-home.fullstack.spec.ts
+pnpm --dir apps/web exec eslint src/app/login/page.tsx src/auth/hooks/useAuthSession.ts src/auth/hooks/useRedirectIfAuthenticated.ts src/auth/flows/login src/app/main/__tests__/MainRouteShell.test.tsx src/proxy.test.ts e2e/smoke.spec.ts e2e/main-home.fullstack.spec.ts
 pnpm api:typecheck
-pnpm exec prettier --check --ignore-unknown apps/web/src/app/login/page.tsx apps/web/src/auth/hooks/useAuthSession.ts apps/web/src/login apps/web/e2e docs/04_policy/official/production-deployment-readiness.md .omx/plans/web-login-page-refactor-plan.md
+pnpm exec prettier --check --ignore-unknown apps/web/src/app/login/page.tsx apps/web/src/auth/hooks/useAuthSession.ts apps/web/src/auth/flows/login apps/web/e2e docs/04_policy/official/production-deployment-readiness.md .omx/plans/web-login-page-refactor-plan.md
 pnpm --dir apps/web exec playwright test e2e/smoke.spec.ts --project=desktop-chromium
 git diff --check
 ```
@@ -117,6 +117,6 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts e2e/m
 | Production deployment/session transport wording | `docs/04_policy/official/production-deployment-readiness.md` |
 | Web auth client/BFF helper                      | `apps/web/src/auth/api/*`, `apps/web/src/auth/bff/*`         |
 | Login refactor plan                             | `.omx/plans/web-login-page-refactor-plan.md`                 |
-| Signup structure benchmark                      | `apps/web/src/signup/README.md`                              |
+| Signup structure benchmark                      | `apps/web/src/auth/flows/signup/README.md`                   |
 
 정책 문서와 화면 문구가 충돌하면 정책 문서를 우선하고 login copy/test를 갱신한다.

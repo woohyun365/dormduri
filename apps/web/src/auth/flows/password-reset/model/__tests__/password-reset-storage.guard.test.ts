@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PASSWORD_RESET_STORAGE_WRITE_PATTERNS } from '../password-reset-storage.guard';
 
-const passwordResetSourceDir = join(process.cwd(), 'src/password-reset');
+const passwordResetSourceDir = join(process.cwd(), 'src/auth/flows/password-reset');
 
 function collectSourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {

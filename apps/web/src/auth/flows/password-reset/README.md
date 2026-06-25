@@ -1,6 +1,6 @@
 # Password reset feature boundary
 
-`apps/web/src/password-reset` owns the public `/password-reset` recovery screen.
+`apps/web/src/auth/flows/password-reset` owns the public `/password-reset` recovery screen.
 It lets a user request a reset code through the Web BFF, verify the code, set a new password, and then hand off to `/login?reset=success`.
 
 ## Owned responsibilities
@@ -45,10 +45,10 @@ It lets a user request a reset code through the Web BFF, verify the code, set a 
 ## Verification map
 
 - BFF/client route contract: `src/app/api/auth/__tests__/password-reset-route.test.ts`, `src/auth/api/__tests__/auth-api.client.test.ts`.
-- Page flow and route handoff: `src/password-reset/__tests__/PasswordReset.test.tsx`.
-- New password form branches: `src/password-reset/components/__tests__/PasswordResetNewPasswordStep.test.tsx`.
-- Reducer invariants: `src/password-reset/model/__tests__/password-reset-flow.reducer.test.ts`.
-- Storage/history privacy guard: `src/password-reset/model/__tests__/password-reset-storage.guard.test.ts`.
+- Page flow and route handoff: `src/auth/flows/password-reset/__tests__/PasswordReset.test.tsx`.
+- New password form branches: `src/auth/flows/password-reset/components/__tests__/PasswordResetNewPasswordStep.test.tsx`.
+- Reducer invariants: `src/auth/flows/password-reset/model/__tests__/password-reset-flow.reducer.test.ts`.
+- Storage/history privacy guard: `src/auth/flows/password-reset/model/__tests__/password-reset-storage.guard.test.ts`.
 - Metadata/sitemap: `src/app/__tests__/metadata.test.ts`.
 
 Full-stack reset completion E2E is intentionally not part of this feature-local gate because it requires a reset-code fixture or mail provider stub.

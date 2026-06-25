@@ -1,4 +1,4 @@
-import type { Campus } from '@/types/profile';
+import type { Campus } from '@repo/shared/auth';
 
 export const CAMPUS_OPTIONS: { value: Campus; label: string }[] = [
   { value: 'CHUNCHEON', label: '춘천캠퍼스' },

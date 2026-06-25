@@ -6,34 +6,42 @@ API/NestJS auth domain, DB/session/token/SES/Redis/BackOffice 구현은 이 경�
 
 ## Current baseline
 
-Phase 3-1 기준으로 이 directory에는 `api/*`, `bff/*`, `components/*`, `hooks/*`, `model/*`가 존재한다.
-Auth-wide component/hook/model은 root shared tree에서 제거되었고, auth session hook은 계정 identity만 반환한다. 개별 화면 구현만 아직 아래 legacy flow 위치에 남아 있다.
-이 flow 경로들은 Phase 3에서 의도적으로 허용되는 migration ledger이며, 최종 구조가 아니다.
+Phase 4 기준으로 이 directory에는 `api/*`, `bff/*`, `components/*`, `hooks/*`, `model/*`, `flows/*`가 존재한다.
+Auth-wide component/hook/model은 root shared tree에서 제거되었고, auth session hook은 계정 identity만 반환한다.
+공개 auth 화면 구현도 `auth/flows/*` 아래로 이동했으므로 root `src/login`, `src/signup`, `src/password-reset` compatibility path를 두지 않는다.
 
-| Current path         | Current responsibility             | Target phase |
-| -------------------- | ---------------------------------- | ------------ |
-| `src/login`          | login flow implementation          | Phase 4      |
-| `src/signup`         | signup flow implementation         | Phase 4      |
-| `src/password-reset` | password reset flow implementation | Phase 4      |
+| Current path                    | Current responsibility                     |
+| ------------------------------- | ------------------------------------------ |
+| `src/auth/flows/login`          | login flow implementation                  |
+| `src/auth/flows/signup`         | signup flow implementation                 |
+| `src/auth/flows/password-reset` | password reset flow implementation         |
+| `src/auth/api`                  | browser-side auth API facade               |
+| `src/auth/bff`                  | App Router auth BFF helper facade          |
+| `src/auth/components`           | auth-only shared UI                        |
+| `src/auth/hooks`                | auth-only session/redirect/countdown hooks |
+| `src/auth/model`                | auth-wide policy constants/model helpers   |
 
 `useExpiryCountdown` is not tracked as an auth-only migration target because it has non-auth product usage.
-`CAMPUS_OPTIONS` is staged under `src/signup/model/campus-options.ts` until the signup flow moves in Phase 4 because it is signup/account identity UI data, not auth-wide policy.
+`CAMPUS_OPTIONS` lives under `src/auth/flows/signup/model/campus-options.ts` because it is signup/account identity UI data, not auth-wide policy.
 
 ### Completed migration ledger
 
-| Removed path                              | New owner path                                           | Completed phase |
-| ----------------------------------------- | -------------------------------------------------------- | --------------- |
-| `src/api/auth.ts`                         | `src/auth/api/*`                                         | Phase 1         |
-| `@/api/auth` import                       | `@/auth/api` public facade                               | Phase 1         |
-| `src/app/api/auth/_shared.ts`             | `src/auth/bff/auth-*`                                    | Phase 2         |
-| `src/app/api/auth/_post-route.ts`         | `src/auth/bff/auth-*`                                    | Phase 2         |
-| `src/app/api/auth/_request-guard.ts`      | `src/auth/bff/auth-*`                                    | Phase 2         |
-| `src/components/AuthHeader.tsx`           | `src/auth/components/*`                                  | Phase 3         |
-| `src/components/auth/*`                   | `src/auth/components/*`                                  | Phase 3         |
-| `src/hooks/useCurrentUser.ts`             | `src/auth/hooks/useAuthSession.ts`                       | Phase 3-1       |
-| `src/hooks/useRedirectIfAuthenticated.ts` | `src/auth/hooks/*`                                       | Phase 3         |
-| `src/hooks/useCountdown.ts`               | `src/auth/hooks/useAuthCountdown.ts`                     | Phase 3         |
-| `src/constants/auth.ts`                   | `src/auth/model/*`, `src/signup/model/campus-options.ts` | Phase 3         |
+| Removed path                              | New owner path                                                      | Completed phase |
+| ----------------------------------------- | ------------------------------------------------------------------- | --------------- |
+| `src/api/auth.ts`                         | `src/auth/api/*`                                                    | Phase 1         |
+| `@/api/auth` import                       | `@/auth/api` public facade                                          | Phase 1         |
+| `src/app/api/auth/_shared.ts`             | `src/auth/bff/auth-*`                                               | Phase 2         |
+| `src/app/api/auth/_post-route.ts`         | `src/auth/bff/auth-*`                                               | Phase 2         |
+| `src/app/api/auth/_request-guard.ts`      | `src/auth/bff/auth-*`                                               | Phase 2         |
+| `src/components/AuthHeader.tsx`           | `src/auth/components/*`                                             | Phase 3         |
+| `src/components/auth/*`                   | `src/auth/components/*`                                             | Phase 3         |
+| `src/hooks/useCurrentUser.ts`             | `src/auth/hooks/useAuthSession.ts`                                  | Phase 3-1       |
+| `src/hooks/useRedirectIfAuthenticated.ts` | `src/auth/hooks/*`                                                  | Phase 3         |
+| `src/hooks/useCountdown.ts`               | `src/auth/hooks/useAuthCountdown.ts`                                | Phase 3         |
+| `src/constants/auth.ts`                   | `src/auth/model/*`, `src/auth/flows/signup/model/campus-options.ts` | Phase 3         |
+| `src/login`                               | `src/auth/flows/login`                                              | Phase 4         |
+| `src/signup`                              | `src/auth/flows/signup`                                             | Phase 4         |
+| `src/password-reset`                      | `src/auth/flows/password-reset`                                     | Phase 4         |
 
 ## Final target structure
 
@@ -99,10 +107,9 @@ Private implementation areas should not be deep-imported by non-auth features:
 - `@/auth/flows/*/model/*`
 - `@/auth/components/*` except through an auth-owned facade if one is added.
 
-The Phase 3-1 codebase no longer imports `@/api/auth`, route-local `../_shared`, `../_post-route`, `../_request-guard` helpers, or root auth shared paths such as `@/constants/auth`, `@/components/AuthHeader`, `@/components/auth`, `@/hooks/useCurrentUser`, `@/hooks/useRedirectIfAuthenticated`, and `@/hooks/useCountdown`.
+The Phase 4 codebase no longer imports `@/api/auth`, route-local `../_shared`, `../_post-route`, `../_request-guard` helpers, root auth shared paths such as `@/constants/auth`, `@/components/AuthHeader`, `@/components/auth`, `@/hooks/useCurrentUser`, `@/hooks/useRedirectIfAuthenticated`, and `@/hooks/useCountdown`, or root flow paths such as `@/login`, `@/signup`, and `@/password-reset`.
 External browser consumers use `@/auth/api`, `@/auth/components`, `@/auth/hooks`, and `@/auth/model` facades as appropriate; App Router auth route adapters use the private `@/auth/bff` facade. `@/auth/hooks`의 session hook은 `SessionResponse.user` 계정 identity만 제공하며 `UserProfile`, 생활패턴, 기숙사, 시즌 참여 상태를 생성하지 않는다.
-`@/login`, `@/signup`, and `@/password-reset` remain migration inputs until the flow move phase.
-Those paths are migration inputs, not final public APIs.
+`@/login`, `@/signup`, and `@/password-reset` are removed compatibility paths. Use the App Router page entrypoints for routes and `@/auth/flows/*` only from auth-owned route adapters/tests/docs.
 
 ## App Router exception
 
@@ -170,29 +177,35 @@ If an external feature still needs auth behavior, expose that behavior through t
 
 ## Verification map
 
-Phase 3-1 focused baseline:
+Phase 4 focused baseline:
 
 ```bash
 pnpm --dir apps/web exec vitest run \
-  src/auth \
+  src/auth/__tests__/auth-boundary.imports.test.ts \
+  src/app/main/__tests__/main-route-boundary.test.ts
+
+pnpm --dir apps/web exec vitest run \
+  src/auth/flows/login \
+  src/auth/flows/signup \
+  src/auth/flows/password-reset
+
+pnpm --dir apps/web exec vitest run \
   src/app/api/auth/__tests__ \
-  src/login \
-  src/signup \
-  src/password-reset \
-  src/app/main/__tests__/MainRouteShell.test.tsx \
-  src/app/main/__tests__/main-route-boundary.test.ts \
-  src/api/__tests__/profile-user.mapper.test.ts
+  src/auth/api \
+  src/auth/hooks \
+  src/auth/components
 
 pnpm exec prettier --check --ignore-unknown \
   apps/web/src/auth \
-  apps/web/src/login/README.md \
-  apps/web/src/signup/model/campus-options.ts \
+  apps/web/src/app/login/page.tsx \
+  apps/web/src/app/signup/page.tsx \
+  apps/web/src/app/password-reset/page.tsx \
   apps/web/src/api/profile.ts \
   apps/web/src/api/profile-user.mapper.ts \
   apps/web/src/main/hooks/useMainBootstrap.ts \
   .omx/plans/web-auth-boundary-final-refactor-plan.md
 
-pnpm --dir apps/web exec eslint src/auth src/app/api/auth src/login src/signup src/password-reset src/app/main
+pnpm --dir apps/web exec eslint src/auth src/app/api/auth src/app/login/page.tsx src/app/signup/page.tsx src/app/password-reset/page.tsx src/app/main
 pnpm web:typecheck
 pnpm api:typecheck
 git diff --check
@@ -208,9 +221,9 @@ Run Playwright only when route smoke, visible auth route behavior, or browser na
 - `.omx/plans/web-signup-page-refactor-plan.md`
 - `.omx/plans/web-password-reset-page-refactor-plan.md`
 - `apps/web/src/auth/api/*`
-- `apps/web/src/login/README.md`
-- `apps/web/src/signup/README.md`
-- `apps/web/src/password-reset/README.md`
+- `apps/web/src/auth/flows/login/README.md`
+- `apps/web/src/auth/flows/signup/README.md`
+- `apps/web/src/auth/flows/password-reset/README.md`
 - `docs/04_policy/official/account-authentication.md`
 - `docs/04_policy/official/access-eligibility.md`
 - `docs/04_policy/official/legal-basis.md`

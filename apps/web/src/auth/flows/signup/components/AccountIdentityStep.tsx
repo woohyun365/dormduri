@@ -17,7 +17,7 @@ import { User } from 'lucide-react';
 import { focusAndScroll } from '@/utils/focus';
 import { authApi } from '@/auth/api';
 
-import type { Campus } from '@/types/profile';
+import type { Campus } from '@repo/shared/auth';
 
 export interface BasicInfoData {
   nickname: string;

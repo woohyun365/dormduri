@@ -1,6 +1,6 @@
 # Web signup
 
-`apps/web/src/signup`은 공개 회원가입 wizard의 화면 상태, 입력 검증, draft 저장, BFF 호출 조합을 소유한다.
+`apps/web/src/auth/flows/signup`은 공개 회원가입 wizard의 화면 상태, 입력 검증, draft 저장, BFF 호출 조합을 소유한다.
 회원가입은 계정 생성까지의 흐름이며, 룸메 시즌 프로필 작성이나 기숙사 선택을 직접 소유하지 않는다.
 
 ## 제품 책임

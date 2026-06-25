@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import LoginPageClient from '@/login/LoginPageClient';
+import LoginPageClient from '@/auth/flows/login/LoginPageClient';
 
 export const metadata: Metadata = {
   title: '로그인',
