@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import MainRouteShell from '../MainRouteShell.client';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useCurrentUser } from '@/auth/hooks';
 
 const mockReplace = vi.fn();
 
@@ -10,7 +10,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
-vi.mock('@/hooks/useCurrentUser', () => ({
+vi.mock('@/auth/hooks', () => ({
   useCurrentUser: vi.fn(),
 }));
 

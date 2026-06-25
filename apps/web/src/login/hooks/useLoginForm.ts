@@ -2,8 +2,8 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { authApi } from '@/auth/api';
-import { LOGIN_LOCKOUT_SECONDS } from '@/constants/auth';
-import { useCountdown } from '@/hooks/useCountdown';
+import { LOGIN_LOCKOUT_SECONDS } from '@/auth/model';
+import { useAuthCountdown } from '@/auth/hooks';
 import {
   hasLoginFieldErrors,
   INITIAL_LOGIN_FORM_VALUES,
@@ -70,7 +70,7 @@ export function useLoginForm({
     start: startCooldown,
     stop: stopCooldown,
     formatTime: formatCooldownTime,
-  } = useCountdown(LOGIN_LOCKOUT_SECONDS);
+  } = useAuthCountdown(LOGIN_LOCKOUT_SECONDS);
 
   const isLocked = uiError?.status === 'locked' && isCooldownActive && values.email === lockedEmail;
   const isThrottled = uiError?.status === 'throttled' && isCooldownActive;

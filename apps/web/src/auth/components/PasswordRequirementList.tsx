@@ -1,4 +1,4 @@
-import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/constants/auth';
+import { PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/auth/model';
 
 interface PasswordRequirementListProps {
   password: string;

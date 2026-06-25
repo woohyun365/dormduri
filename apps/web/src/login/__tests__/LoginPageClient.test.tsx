@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LoginPageClient from '../LoginPageClient';
 import { authApi } from '@/auth/api';
-import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
+import { useRedirectIfAuthenticated } from '@/auth/hooks';
 
 const mockReplace = vi.fn();
 const mockPush = vi.fn();
@@ -46,9 +46,14 @@ vi.mock('lucide-react', () => ({
   CheckCircle: () => <span data-testid="icon-check-circle" />,
 }));
 
-vi.mock('@/hooks/useRedirectIfAuthenticated', () => ({
-  useRedirectIfAuthenticated: vi.fn(() => ({ isReadyToRender: true })),
-}));
+vi.mock('@/auth/hooks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/auth/hooks')>();
+
+  return {
+    ...actual,
+    useRedirectIfAuthenticated: vi.fn(() => ({ isReadyToRender: true })),
+  };
+});
 
 vi.mock('@/auth/api', () => ({
   authApi: {

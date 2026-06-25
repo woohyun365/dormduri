@@ -6,33 +6,34 @@ API/NestJS auth domain, DB/session/token/SES/Redis/BackOffice 구현은 이 경�
 
 ## Current baseline
 
-Phase 2 기준으로 이 directory에는 `to-user-profile.ts`, browser-side auth API client인 `api/*`, Next.js auth route helper인 `bff/*`가 존재한다.
-개별 화면 구현과 auth-wide component/hook/model은 아직 아래 legacy 위치에 남아 있다.
-이 경로들은 Phase 2에서 의도적으로 허용되는 migration ledger이며, 최종 구조가 아니다.
+Phase 3 기준으로 이 directory에는 `api/*`, `bff/*`, `components/*`, `hooks/*`, `model/*`, `to-user-profile.ts`가 존재한다.
+Auth-wide component/hook/model은 root shared tree에서 제거되었고, 개별 화면 구현만 아직 아래 legacy flow 위치에 남아 있다.
+이 flow 경로들은 Phase 3에서 의도적으로 허용되는 migration ledger이며, 최종 구조가 아니다.
 
-| Current path                                      | Current responsibility                                          | Target phase                      |
-| ------------------------------------------------- | --------------------------------------------------------------- | --------------------------------- |
-| `src/components/AuthHeader.tsx`                   | auth-only brand header                                          | Phase 3                           |
-| `src/components/auth/PasswordRequirementList.tsx` | auth password policy UI                                         | Phase 3                           |
-| `src/hooks/useCurrentUser.ts`                     | auth session query hook used by route gates and main shell      | Phase 3                           |
-| `src/hooks/useRedirectIfAuthenticated.ts`         | auth page redirect gate                                         | Phase 3                           |
-| `src/hooks/useCountdown.ts`                       | auth verification/retry-after countdown helper                  | Phase 3 if auth-only remains true |
-| `src/constants/auth.ts`                           | auth policy constants plus signup-only account identity options | Phase 3                           |
-| `src/login`                                       | login flow implementation                                       | Phase 4                           |
-| `src/signup`                                      | signup flow implementation                                      | Phase 4                           |
-| `src/password-reset`                              | password reset flow implementation                              | Phase 4                           |
+| Current path         | Current responsibility             | Target phase |
+| -------------------- | ---------------------------------- | ------------ |
+| `src/login`          | login flow implementation          | Phase 4      |
+| `src/signup`         | signup flow implementation         | Phase 4      |
+| `src/password-reset` | password reset flow implementation | Phase 4      |
 
 `useExpiryCountdown` is not tracked as an auth-only migration target because it has non-auth product usage.
+`CAMPUS_OPTIONS` is staged under `src/signup/model/campus-options.ts` until the signup flow moves in Phase 4 because it is signup/account identity UI data, not auth-wide policy.
 
 ### Completed migration ledger
 
-| Removed path                         | New owner path             | Completed phase |
-| ------------------------------------ | -------------------------- | --------------- |
-| `src/api/auth.ts`                    | `src/auth/api/*`           | Phase 1         |
-| `@/api/auth` import                  | `@/auth/api` public facade | Phase 1         |
-| `src/app/api/auth/_shared.ts`        | `src/auth/bff/auth-*`      | Phase 2         |
-| `src/app/api/auth/_post-route.ts`    | `src/auth/bff/auth-*`      | Phase 2         |
-| `src/app/api/auth/_request-guard.ts` | `src/auth/bff/auth-*`      | Phase 2         |
+| Removed path                              | New owner path                                           | Completed phase |
+| ----------------------------------------- | -------------------------------------------------------- | --------------- |
+| `src/api/auth.ts`                         | `src/auth/api/*`                                         | Phase 1         |
+| `@/api/auth` import                       | `@/auth/api` public facade                               | Phase 1         |
+| `src/app/api/auth/_shared.ts`             | `src/auth/bff/auth-*`                                    | Phase 2         |
+| `src/app/api/auth/_post-route.ts`         | `src/auth/bff/auth-*`                                    | Phase 2         |
+| `src/app/api/auth/_request-guard.ts`      | `src/auth/bff/auth-*`                                    | Phase 2         |
+| `src/components/AuthHeader.tsx`           | `src/auth/components/*`                                  | Phase 3         |
+| `src/components/auth/*`                   | `src/auth/components/*`                                  | Phase 3         |
+| `src/hooks/useCurrentUser.ts`             | `src/auth/hooks/*`                                       | Phase 3         |
+| `src/hooks/useRedirectIfAuthenticated.ts` | `src/auth/hooks/*`                                       | Phase 3         |
+| `src/hooks/useCountdown.ts`               | `src/auth/hooks/useAuthCountdown.ts`                     | Phase 3         |
+| `src/constants/auth.ts`                   | `src/auth/model/*`, `src/signup/model/campus-options.ts` | Phase 3         |
 
 ## Final target structure
 
@@ -59,7 +60,7 @@ apps/web/src/auth/
     AuthStatusAlert.tsx
     PasswordRequirementList.tsx
   hooks/
-    useAuthSession.ts
+    useCurrentUser.ts
     useRedirectIfAuthenticated.ts
     useAuthCountdown.ts
   model/
@@ -90,8 +91,8 @@ Private implementation areas should not be deep-imported by non-auth features:
 - `@/auth/flows/*/model/*`
 - `@/auth/components/*` except through an auth-owned facade if one is added.
 
-The Phase 2 codebase no longer imports `@/api/auth` or route-local `../_shared`, `../_post-route`, `../_request-guard` helpers.
-External browser consumers use `@/auth/api`; App Router auth route adapters use the private `@/auth/bff` facade.
+The Phase 3 codebase no longer imports `@/api/auth`, route-local `../_shared`, `../_post-route`, `../_request-guard` helpers, or root auth shared paths such as `@/constants/auth`, `@/components/AuthHeader`, `@/components/auth`, `@/hooks/useCurrentUser`, `@/hooks/useRedirectIfAuthenticated`, and `@/hooks/useCountdown`.
+External browser consumers use `@/auth/api`, `@/auth/components`, `@/auth/hooks`, and `@/auth/model` facades as appropriate; App Router auth route adapters use the private `@/auth/bff` facade.
 `@/login`, `@/signup`, and `@/password-reset` remain migration inputs until the flow move phase.
 Those paths are migration inputs, not final public APIs.
 
@@ -120,7 +121,7 @@ Route handlers should preserve upstream status, `Retry-After`, cookie mutation, 
 ## No compatibility re-export target
 
 The final auth boundary should not keep compatibility re-export files only to preserve old import paths.
-Phase 5 should make these imports fail architecture guard checks:
+Phase 5 should keep these legacy imports failing architecture guard checks:
 
 - `@/api/auth`
 - `@/constants/auth`
@@ -128,7 +129,7 @@ Phase 5 should make these imports fail architecture guard checks:
 - `@/components/auth`
 - `@/hooks/useCurrentUser`
 - `@/hooks/useRedirectIfAuthenticated`
-- `@/hooks/useCountdown` if it remains auth-only
+- `@/hooks/useCountdown`
 - `@/login`
 - `@/signup`
 - `@/password-reset`
@@ -160,26 +161,25 @@ If an external feature still needs auth behavior, expose that behavior through t
 
 ## Verification map
 
-Phase 2 focused baseline:
+Phase 3 focused baseline:
 
 ```bash
 pnpm --dir apps/web exec vitest run \
-  src/auth/bff \
-  src/auth/api \
-  src/auth/__tests__/auth-boundary.imports.test.ts \
+  src/auth \
   src/app/api/auth/__tests__ \
   src/login \
   src/signup \
-  src/password-reset
+  src/password-reset \
+  src/app/main/__tests__/MainRouteShell.test.tsx \
+  src/app/main/__tests__/main-route-boundary.test.ts
 
 pnpm exec prettier --check --ignore-unknown \
-  apps/web/src/auth/README.md \
-  apps/web/src/auth/api \
-  apps/web/src/auth/bff \
-  apps/web/src/auth/__tests__/auth-boundary.imports.test.ts \
+  apps/web/src/auth \
+  apps/web/src/login/README.md \
+  apps/web/src/signup/model/campus-options.ts \
   .omx/plans/web-auth-boundary-final-refactor-plan.md
 
-pnpm --dir apps/web exec eslint src/auth src/app/api/auth
+pnpm --dir apps/web exec eslint src/auth src/app/api/auth src/login src/signup src/password-reset src/app/main
 pnpm web:typecheck
 pnpm api:typecheck
 git diff --check

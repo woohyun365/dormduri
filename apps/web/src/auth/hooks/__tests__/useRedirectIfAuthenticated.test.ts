@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { useRedirectIfAuthenticated } from '../useRedirectIfAuthenticated';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useCurrentUser } from '../useCurrentUser';
 
 const mockReplace = vi.fn();
 
@@ -9,7 +9,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
-vi.mock('@/hooks/useCurrentUser', () => ({
+vi.mock('../useCurrentUser', () => ({
   useCurrentUser: vi.fn(),
 }));
 

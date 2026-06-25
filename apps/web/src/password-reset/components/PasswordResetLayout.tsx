@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { AuthHeader } from '@/components/AuthHeader';
+import { AuthHeader } from '@/auth/components';
 import { PasswordResetAuthenticatedNotice } from './PasswordResetAuthenticatedNotice';
 import { PasswordResetProgress } from './PasswordResetProgress';
 import { PasswordResetServiceNotice } from './PasswordResetServiceNotice';

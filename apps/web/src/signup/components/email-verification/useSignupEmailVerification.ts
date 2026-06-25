@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useCountdown } from '@/hooks/useCountdown';
+import { useAuthCountdown } from '@/auth/hooks';
 import { validateKnuEmail } from '@/utils/validation';
-import { SIGNUP_VERIFICATION_CODE_TTL } from '@/constants/auth';
+import { SIGNUP_VERIFICATION_CODE_TTL } from '@/auth/model';
 import { authApi } from '@/auth/api';
 
 interface UseSignupEmailVerificationParams {
@@ -40,13 +40,13 @@ export function useSignupEmailVerification({
     start: startCountdown,
     stop: stopCountdown,
     formatTime,
-  } = useCountdown(SIGNUP_VERIFICATION_CODE_TTL);
+  } = useAuthCountdown(SIGNUP_VERIFICATION_CODE_TTL);
   const {
     countdown: retryAfterSeconds,
     isActive: isRetryAfterActive,
     start: startRetryAfter,
     stop: stopRetryAfter,
-  } = useCountdown(0);
+  } = useAuthCountdown(0);
 
   const retryAfterMessage = useMemo(() => {
     if (!isRetryAfterActive) return '';

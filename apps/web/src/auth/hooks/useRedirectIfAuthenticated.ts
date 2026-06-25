@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useCurrentUser } from './useCurrentUser';
 
 export function useRedirectIfAuthenticated() {
   const router = useRouter();

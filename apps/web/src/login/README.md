@@ -33,14 +33,14 @@ Login 화면은 fail-closed 결과를 일반 사용자 문구로만 표시한다
 
 ## API/BFF contract
 
-| Surface                               | Responsibility                                                                                                           |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `apps/web/src/auth/api/*`             | Web auth client wrapper. 429 `Retry-After`/`retryAfterSeconds`, non-JSON, safe BFF error를 UI가 처리 가능한 shape로 보존 |
-| `app/api/auth/login/route.ts`         | login body schema parse, upstream `/auth/login` forward, token response allowlist, auth cookie set                       |
-| `app/api/auth/session/route.ts`       | access cookie 실패 시 renewal cookie로 `/auth/renew-session` 후 session 재조회                                           |
-| `apps/web/src/auth/bff/*`             | auth cookie serialize/delete, upstream token body redaction boundary                                                     |
-| `hooks/useRedirectIfAuthenticated.ts` | `/api/auth/session` BFF 결과로 `/login` 접근자가 이미 인증된 경우 redirect gate 제공                                     |
-| `hooks/useLoginRedirectTarget.ts`     | `next` query를 `/main` allowlist로 normalize                                                                             |
+| Surface                                    | Responsibility                                                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `apps/web/src/auth/api/*`                  | Web auth client wrapper. 429 `Retry-After`/`retryAfterSeconds`, non-JSON, safe BFF error를 UI가 처리 가능한 shape로 보존 |
+| `app/api/auth/login/route.ts`              | login body schema parse, upstream `/auth/login` forward, token response allowlist, auth cookie set                       |
+| `app/api/auth/session/route.ts`            | access cookie 실패 시 renewal cookie로 `/auth/renew-session` 후 session 재조회                                           |
+| `apps/web/src/auth/bff/*`                  | auth cookie serialize/delete, upstream token body redaction boundary                                                     |
+| `auth/hooks/useRedirectIfAuthenticated.ts` | `/api/auth/session` BFF 결과로 `/login` 접근자가 이미 인증된 경우 redirect gate 제공                                     |
+| `hooks/useLoginRedirectTarget.ts`          | `next` query를 `/main` allowlist로 normalize                                                                             |
 
 Web login은 upstream access/renewal token을 React state, URL, log, response body에 노출하지 않는다.
 BFF route가 httpOnly cookie로만 browser session transport를 materialize한다.
@@ -86,13 +86,13 @@ CSS variable arbitrary value는 `text-[var(--knu-text-primary)]` 대신 `text-(-
 ## Verification map
 
 ```bash
-pnpm --dir apps/web exec vitest run src/login src/hooks/__tests__/useRedirectIfAuthenticated.test.ts
+pnpm --dir apps/web exec vitest run src/login src/auth/hooks/__tests__/useRedirectIfAuthenticated.test.ts
 pnpm --dir apps/web exec vitest run src/app/api/auth/__tests__/login-route.test.ts src/auth/api/__tests__/auth-api.client.test.ts
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture
 pnpm web:typecheck
-pnpm --dir apps/web exec eslint src/app/login/page.tsx src/hooks/useCurrentUser.ts src/hooks/useRedirectIfAuthenticated.ts src/login src/app/main/__tests__/MainRouteShell.test.tsx src/proxy.test.ts e2e/smoke.spec.ts e2e/main-home.fullstack.spec.ts
+pnpm --dir apps/web exec eslint src/app/login/page.tsx src/auth/hooks/useCurrentUser.ts src/auth/hooks/useRedirectIfAuthenticated.ts src/login src/app/main/__tests__/MainRouteShell.test.tsx src/proxy.test.ts e2e/smoke.spec.ts e2e/main-home.fullstack.spec.ts
 pnpm api:typecheck
-pnpm exec prettier --check --ignore-unknown apps/web/src/app/login/page.tsx apps/web/src/hooks/useCurrentUser.ts apps/web/src/login apps/web/e2e docs/04_policy/official/production-deployment-readiness.md .omx/plans/web-login-page-refactor-plan.md
+pnpm exec prettier --check --ignore-unknown apps/web/src/app/login/page.tsx apps/web/src/auth/hooks/useCurrentUser.ts apps/web/src/login apps/web/e2e docs/04_policy/official/production-deployment-readiness.md .omx/plans/web-login-page-refactor-plan.md
 pnpm --dir apps/web exec playwright test e2e/smoke.spec.ts --project=desktop-chromium
 git diff --check
 ```

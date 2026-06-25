@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { AuthHeader } from '@/components/AuthHeader';
+import { AuthHeader } from '@/auth/components';
 
 interface LoginLayoutProps {
   children: ReactNode;

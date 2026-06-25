@@ -3,7 +3,7 @@ import { render, screen, fireEvent, act, waitFor, within } from '@testing-librar
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import SignupPageClient from '../SignupPageClient';
 import { authApi } from '@/auth/api';
-import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
+import { useRedirectIfAuthenticated } from '@/auth/hooks';
 
 const mockReplace = vi.fn();
 
@@ -25,9 +25,14 @@ vi.mock('lucide-react', () => ({
   ChevronLeft: () => <span data-testid="icon-back" />,
 }));
 
-vi.mock('@/hooks/useRedirectIfAuthenticated', () => ({
-  useRedirectIfAuthenticated: vi.fn(() => ({ isReadyToRender: true })),
-}));
+vi.mock('@/auth/hooks', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/auth/hooks')>();
+
+  return {
+    ...actual,
+    useRedirectIfAuthenticated: vi.fn(() => ({ isReadyToRender: true })),
+  };
+});
 
 vi.mock('@/auth/api', () => ({
   authApi: { signup: vi.fn() },
@@ -147,7 +152,7 @@ vi.mock('../components/SignupCompleteStep', () => ({
   ),
 }));
 
-vi.mock('@/components/AuthHeader', () => ({
+vi.mock('@/auth/components', () => ({
   AuthHeader: ({ onLogoClick }: { onLogoClick?: () => boolean }) => (
     <button data-testid="logo" onClick={() => onLogoClick?.()}>
       Logo

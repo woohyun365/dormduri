@@ -2,7 +2,7 @@ import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authApi } from '@/auth/api';
-import { RESET_PASSWORD_VERIFICATION_CODE_TTL } from '@/constants/auth';
+import { RESET_PASSWORD_VERIFICATION_CODE_TTL } from '@/auth/model';
 import PasswordResetPageClient from '../PasswordResetPageClient';
 
 // --- Mocks ---

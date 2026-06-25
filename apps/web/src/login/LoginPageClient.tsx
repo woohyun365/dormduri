@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import type { Route } from 'next';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useRedirectIfAuthenticated } from '@/hooks/useRedirectIfAuthenticated';
+import { useRedirectIfAuthenticated } from '@/auth/hooks';
 import { LoginAuthenticatedSkeleton } from './components/LoginAuthenticatedSkeleton';
 import { LoginForm } from './components/LoginForm';
 import { LoginRouteStatusAlert } from './components/LoginRouteStatusAlert';

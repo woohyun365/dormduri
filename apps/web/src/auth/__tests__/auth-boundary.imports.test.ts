@@ -6,17 +6,7 @@ const webSrc = join(process.cwd(), 'src');
 const readmePath = join(webSrc, 'auth', 'README.md');
 const boundaryTestPath = join(webSrc, 'auth', '__tests__', 'auth-boundary.imports.test.ts');
 
-const currentLegacyPaths = [
-  'components/AuthHeader.tsx',
-  'components/auth/PasswordRequirementList.tsx',
-  'constants/auth.ts',
-  'hooks/useCurrentUser.ts',
-  'hooks/useRedirectIfAuthenticated.ts',
-  'hooks/useCountdown.ts',
-  'login',
-  'signup',
-  'password-reset',
-] as const;
+const currentLegacyPaths = ['login', 'signup', 'password-reset'] as const;
 
 const phase1RemovedPaths = ['api/auth.ts'] as const;
 
@@ -24,6 +14,39 @@ const phase2RemovedPaths = [
   'app/api/auth/_shared.ts',
   'app/api/auth/_post-route.ts',
   'app/api/auth/_request-guard.ts',
+] as const;
+
+const phase3RemovedPaths = [
+  'components/AuthHeader.tsx',
+  'components/auth/PasswordRequirementList.tsx',
+  'constants/auth.ts',
+  'hooks/useCurrentUser.ts',
+  'hooks/useRedirectIfAuthenticated.ts',
+  'hooks/useCountdown.ts',
+] as const;
+
+const authSharedEntrypoints = [
+  'auth/components/index.ts',
+  'auth/components/AuthHeader.tsx',
+  'auth/components/PasswordRequirementList.tsx',
+  'auth/components/__tests__/PasswordRequirementList.test.tsx',
+  'auth/hooks/index.ts',
+  'auth/hooks/useCurrentUser.ts',
+  'auth/hooks/useRedirectIfAuthenticated.ts',
+  'auth/hooks/useAuthCountdown.ts',
+  'auth/hooks/__tests__/useRedirectIfAuthenticated.test.ts',
+  'auth/model/index.ts',
+  'auth/model/policy-constants.ts',
+  'signup/model/campus-options.ts',
+] as const;
+
+const phase3ForbiddenImportPatterns = [
+  '@/constants/auth',
+  '@/components/AuthHeader',
+  '@/components/auth',
+  '@/hooks/useCurrentUser',
+  '@/hooks/useRedirectIfAuthenticated',
+  '@/hooks/useCountdown',
 ] as const;
 
 const authBffEntrypoints = [
@@ -114,7 +137,7 @@ describe('web auth boundary migration ledger', () => {
     for (const relativePath of currentLegacyPaths) {
       expect(
         pathExists(relativePath),
-        `${relativePath} should be tracked as a Phase 2 legacy path`,
+        `${relativePath} should be tracked as a Phase 3 legacy flow path`,
       ).toBe(true);
     }
   });
@@ -160,11 +183,38 @@ describe('web auth boundary migration ledger', () => {
     expect(filesWithOldBffHelperImports).toEqual([]);
   });
 
-  it('keeps final forbidden import patterns discoverable without enforcing them in Phase 2', () => {
+  it('keeps Phase 3 auth shared UI/hook/model migration complete without compatibility re-export', () => {
+    for (const relativePath of phase3RemovedPaths) {
+      expect(pathExists(relativePath), `${relativePath} should be removed after Phase 3`).toBe(
+        false,
+      );
+    }
+
+    for (const relativePath of authSharedEntrypoints) {
+      expect(pathExists(relativePath), `${relativePath} should exist after Phase 3`).toBe(true);
+    }
+
+    const filesWithOldAuthSharedImports = listSourceFiles(webSrc)
+      .filter((sourcePath) => sourcePath !== boundaryTestPath)
+      .filter((sourcePath) => {
+        const source = readFileSync(sourcePath, 'utf8');
+        return phase3ForbiddenImportPatterns.some((importPattern) =>
+          source.includes(importPattern),
+        );
+      })
+      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+
+    expect(filesWithOldAuthSharedImports).toEqual([]);
+  });
+
+  it('keeps final forbidden import patterns discoverable without enforcing flow moves before Phase 5', () => {
     expect(finalForbiddenImportPatterns).toContain('@/api/auth');
     expect(finalForbiddenImportPatterns).toContain('@/constants/auth');
     expect(finalForbiddenImportPatterns).toContain('@/components/AuthHeader');
     expect(finalForbiddenImportPatterns).toContain('@/components/auth');
+    expect(finalForbiddenImportPatterns).toContain('@/hooks/useCurrentUser');
+    expect(finalForbiddenImportPatterns).toContain('@/hooks/useRedirectIfAuthenticated');
+    expect(finalForbiddenImportPatterns).toContain('@/hooks/useCountdown');
     expect(finalForbiddenImportPatterns).toContain('@/login');
     expect(finalForbiddenImportPatterns).toContain('@/signup');
     expect(finalForbiddenImportPatterns).toContain('@/password-reset');

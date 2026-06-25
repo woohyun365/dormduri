@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { AuthHeader } from '@/components/AuthHeader';
+import { AuthHeader } from '@/auth/components';
 
 interface SignupLayoutProps {
   children: ReactNode;

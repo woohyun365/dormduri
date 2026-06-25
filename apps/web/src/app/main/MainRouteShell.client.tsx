@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShellSkeleton } from '@/components/AppShellSkeleton';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { useCurrentUser } from '@/auth/hooks';
 import Main from '@/main/Main';
 
 export default function MainRouteShell() {
