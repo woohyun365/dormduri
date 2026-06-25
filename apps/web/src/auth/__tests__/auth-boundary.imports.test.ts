@@ -27,6 +27,15 @@ const phase3RemovedPaths = [
 
 const phase31RemovedPaths = ['auth/to-user-profile.ts', 'auth/hooks/useCurrentUser.ts'] as const;
 
+const finalRemovedPaths = [
+  ...phase1RemovedPaths,
+  ...phase2RemovedPaths,
+  ...phase3RemovedPaths,
+  ...phase31RemovedPaths,
+  ...phase4RemovedFlowPaths,
+  'components/auth',
+] as const;
+
 const phase31ForbiddenAuthSourcePatterns = [
   '@/types/profile',
   '@/types/lifestyle',
@@ -92,15 +101,19 @@ const authBffEntrypoints = [
 ] as const;
 
 const appRouterEntrypoints = [
+  'app/api/auth/change-password/route.ts',
+  'app/api/auth/dev-users/route.ts',
   'app/api/auth/login/route.ts',
-  'app/api/auth/signup/route.ts',
-  'app/api/auth/session/route.ts',
   'app/api/auth/logout/route.ts',
-  'app/api/auth/send-signup-code/route.ts',
-  'app/api/auth/verify-email-code/route.ts',
-  'app/api/auth/send-reset-code/route.ts',
-  'app/api/auth/verify-reset-code/route.ts',
+  'app/api/auth/renew-session/route.ts',
   'app/api/auth/reset-password/route.ts',
+  'app/api/auth/send-reset-code/route.ts',
+  'app/api/auth/send-signup-code/route.ts',
+  'app/api/auth/session/route.ts',
+  'app/api/auth/signup/route.ts',
+  'app/api/auth/validate-signup-draft/route.ts',
+  'app/api/auth/verify-email-code/route.ts',
+  'app/api/auth/verify-reset-code/route.ts',
   'app/login/page.tsx',
   'app/signup/page.tsx',
   'app/password-reset/page.tsx',
@@ -117,6 +130,45 @@ const finalForbiddenImportPatterns = [
   '@/login',
   '@/signup',
   '@/password-reset',
+] as const;
+
+const rootCompatibilityBarrelRules = [
+  {
+    path: 'hooks/index.ts',
+    forbiddenSymbols: ['useCurrentUser', 'useRedirectIfAuthenticated', 'useCountdown'],
+  },
+  {
+    path: 'constants/index.ts',
+    forbiddenSymbols: [
+      'LOGIN_LOCKOUT_SECONDS',
+      'PASSWORD_MIN_LENGTH',
+      'PASSWORD_MAX_LENGTH',
+      'SIGNUP_VERIFICATION_CODE_TTL',
+      'RESET_PASSWORD_VERIFICATION_CODE_TTL',
+      'CAMPUS_OPTIONS',
+    ],
+  },
+] as const;
+
+const appRouterFlowPageImports = [
+  {
+    sourcePath: 'app/login/page.tsx',
+    importPath: '@/auth/flows/login/LoginPageClient',
+  },
+  {
+    sourcePath: 'app/signup/page.tsx',
+    importPath: '@/auth/flows/signup/SignupPageClient',
+  },
+  {
+    sourcePath: 'app/password-reset/page.tsx',
+    importPath: '@/auth/flows/password-reset/PasswordResetPageClient',
+  },
+] as const;
+
+const importStatementPatterns = [
+  /\bimport\s+(?:type\s+)?(?:[^'";]*?\s+from\s*)?['"]([^'"]+)['"]/g,
+  /\bexport\s+(?:type\s+)?[^'";]*?\s+from\s*['"]([^'"]+)['"]/g,
+  /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
 ] as const;
 
 function pathExists(relativePath: string): boolean {
@@ -142,6 +194,75 @@ function listSourceFiles(directory: string): string[] {
   });
 }
 
+function toRelativeSourcePath(sourcePath: string): string {
+  return sourcePath.replace(`${webSrc}/`, '');
+}
+
+function getImportSpecifiers(source: string): string[] {
+  return importStatementPatterns.flatMap((pattern) =>
+    Array.from(source.matchAll(pattern), (match) => match[1]).filter(
+      (importPath): importPath is string => importPath !== undefined,
+    ),
+  );
+}
+
+function getSourceFileImports(sourcePath: string): string[] {
+  return getImportSpecifiers(readFileSync(sourcePath, 'utf8'));
+}
+
+function isFinalForbiddenImport(importPath: string): boolean {
+  return finalForbiddenImportPatterns.some(
+    (forbiddenPath) => importPath === forbiddenPath || importPath.startsWith(`${forbiddenPath}/`),
+  );
+}
+
+function isAuthBoundarySource(relativePath: string): boolean {
+  return relativePath.startsWith('auth/');
+}
+
+function isAppAuthRouteAdapter(relativePath: string): boolean {
+  return relativePath.startsWith('app/api/auth/') && relativePath.endsWith('/route.ts');
+}
+
+function isAllowedAppRouterFlowPageImport(relativePath: string, importPath: string): boolean {
+  return appRouterFlowPageImports.some(
+    (allowedImport) =>
+      allowedImport.sourcePath === relativePath && allowedImport.importPath === importPath,
+  );
+}
+
+function isAuthFlowImport(importPath: string): boolean {
+  return importPath.startsWith('@/auth/flows/');
+}
+
+function isAuthFlowPrivateImport(importPath: string): boolean {
+  return /^@\/auth\/flows\/[^/]+\/(?:components|hooks|model)(?:\/|$)/.test(importPath);
+}
+
+function isAuthBffImport(importPath: string): boolean {
+  return importPath === '@/auth/bff' || importPath.startsWith('@/auth/bff/');
+}
+
+function isForbiddenPrivateAuthImport(relativePath: string, importPath: string): boolean {
+  if (isAuthBoundarySource(relativePath)) {
+    return false;
+  }
+
+  if (isAuthBffImport(importPath)) {
+    return !isAppAuthRouteAdapter(relativePath);
+  }
+
+  if (isAuthFlowPrivateImport(importPath)) {
+    return true;
+  }
+
+  if (isAuthFlowImport(importPath)) {
+    return !isAllowedAppRouterFlowPageImport(relativePath, importPath);
+  }
+
+  return false;
+}
+
 describe('web auth boundary migration ledger', () => {
   it('auth README documents final ownership, target structure, and migration rules', () => {
     expect(existsSync(readmePath)).toBe(true);
@@ -160,6 +281,25 @@ describe('web auth boundary migration ledger', () => {
     expect(readme).toContain('App Router exception');
     expect(readme).toContain('No compatibility re-export target');
     expect(readme).toContain('@/auth/api');
+    expect(readme).toContain('Strict final guard');
+  });
+
+  it('keeps all removed compatibility files, directories, and root barrel exports absent', () => {
+    for (const relativePath of finalRemovedPaths) {
+      expect(pathExists(relativePath), `${relativePath} should stay removed after Phase 5`).toBe(
+        false,
+      );
+    }
+
+    for (const barrelRule of rootCompatibilityBarrelRules) {
+      const source = readFileSync(join(webSrc, barrelRule.path), 'utf8');
+
+      for (const forbiddenSymbol of barrelRule.forbiddenSymbols) {
+        expect(source, `${barrelRule.path} should not re-export ${forbiddenSymbol}`).not.toContain(
+          forbiddenSymbol,
+        );
+      }
+    }
   });
 
   it('keeps Phase 4 auth flow directory move complete without root compatibility paths', () => {
@@ -181,7 +321,7 @@ describe('web auth boundary migration ledger', () => {
           source,
         );
       })
-      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+      .map(toRelativeSourcePath);
 
     expect(filesWithOldFlowImports).toEqual([]);
   });
@@ -200,7 +340,7 @@ describe('web auth boundary migration ledger', () => {
     const filesWithOldAuthImport = listSourceFiles(webSrc)
       .filter((sourcePath) => sourcePath !== boundaryTestPath)
       .filter((sourcePath) => readFileSync(sourcePath, 'utf8').includes('@/api/auth'))
-      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+      .map(toRelativeSourcePath);
 
     expect(filesWithOldAuthImport).toEqual([]);
   });
@@ -222,7 +362,7 @@ describe('web auth boundary migration ledger', () => {
           /\.\.\/_shared|\.\.\/_post-route|\.\.\/_request-guard|\.\/_shared/,
         ),
       )
-      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+      .map(toRelativeSourcePath);
 
     expect(filesWithOldBffHelperImports).toEqual([]);
   });
@@ -246,7 +386,7 @@ describe('web auth boundary migration ledger', () => {
           source.includes(importPattern),
         );
       })
-      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+      .map(toRelativeSourcePath);
 
     expect(filesWithOldAuthSharedImports).toEqual([]);
   });
@@ -266,28 +406,39 @@ describe('web auth boundary migration ledger', () => {
         const source = readFileSync(sourcePath, 'utf8');
         return phase31ForbiddenAuthSourcePatterns.some((pattern) => source.includes(pattern));
       })
-      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+      .map(toRelativeSourcePath);
 
     expect(filesWithProfileOwnedSource).toEqual([]);
   });
 
-  it('keeps final forbidden import patterns discoverable for Phase 5 strict guard', () => {
-    expect(finalForbiddenImportPatterns).toContain('@/api/auth');
-    expect(finalForbiddenImportPatterns).toContain('@/constants/auth');
-    expect(finalForbiddenImportPatterns).toContain('@/components/AuthHeader');
-    expect(finalForbiddenImportPatterns).toContain('@/components/auth');
-    expect(finalForbiddenImportPatterns).toContain('@/hooks/useCurrentUser');
-    expect(finalForbiddenImportPatterns).toContain('@/hooks/useRedirectIfAuthenticated');
-    expect(finalForbiddenImportPatterns).toContain('@/hooks/useCountdown');
-    expect(finalForbiddenImportPatterns).toContain('@/login');
-    expect(finalForbiddenImportPatterns).toContain('@/signup');
-    expect(finalForbiddenImportPatterns).toContain('@/password-reset');
+  it('strictly rejects final forbidden compatibility imports in source files', () => {
+    const filesWithFinalForbiddenImports = listSourceFiles(webSrc)
+      .filter((sourcePath) => sourcePath !== boundaryTestPath)
+      .map((sourcePath) => ({
+        sourcePath: toRelativeSourcePath(sourcePath),
+        imports: getSourceFileImports(sourcePath).filter(isFinalForbiddenImport),
+      }))
+      .filter((sourceFile) => sourceFile.imports.length > 0);
 
-    const readme = readAuthReadme();
+    expect(filesWithFinalForbiddenImports).toEqual([]);
+  });
 
-    for (const importPattern of finalForbiddenImportPatterns) {
-      expect(readme).toContain(importPattern);
-    }
+  it('blocks non-auth deep imports of private auth BFF and flow internals', () => {
+    const filesWithForbiddenPrivateImports = listSourceFiles(webSrc)
+      .filter((sourcePath) => sourcePath !== boundaryTestPath)
+      .map((sourcePath) => {
+        const relativePath = toRelativeSourcePath(sourcePath);
+
+        return {
+          sourcePath: relativePath,
+          imports: getSourceFileImports(sourcePath).filter((importPath) =>
+            isForbiddenPrivateAuthImport(relativePath, importPath),
+          ),
+        };
+      })
+      .filter((sourceFile) => sourceFile.imports.length > 0);
+
+    expect(filesWithForbiddenPrivateImports).toEqual([]);
   });
 
   it('keeps framework entrypoints under app while documenting them as thin adapters', () => {

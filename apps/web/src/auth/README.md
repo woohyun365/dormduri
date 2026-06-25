@@ -6,9 +6,10 @@ API/NestJS auth domain, DB/session/token/SES/Redis/BackOffice 구현은 이 경�
 
 ## Current baseline
 
-Phase 4 기준으로 이 directory에는 `api/*`, `bff/*`, `components/*`, `hooks/*`, `model/*`, `flows/*`가 존재한다.
+Phase 5 기준으로 이 directory에는 `api/*`, `bff/*`, `components/*`, `hooks/*`, `model/*`, `flows/*`가 존재한다.
 Auth-wide component/hook/model은 root shared tree에서 제거되었고, auth session hook은 계정 identity만 반환한다.
 공개 auth 화면 구현도 `auth/flows/*` 아래로 이동했으므로 root `src/login`, `src/signup`, `src/password-reset` compatibility path를 두지 않는다.
+Strict final guard는 legacy import/path, root compatibility barrel export, non-auth deep import를 실제 source import/export statement 기준으로 차단한다.
 
 | Current path                    | Current responsibility                     |
 | ------------------------------- | ------------------------------------------ |
@@ -107,9 +108,11 @@ Private implementation areas should not be deep-imported by non-auth features:
 - `@/auth/flows/*/model/*`
 - `@/auth/components/*` except through an auth-owned facade if one is added.
 
-The Phase 4 codebase no longer imports `@/api/auth`, route-local `../_shared`, `../_post-route`, `../_request-guard` helpers, root auth shared paths such as `@/constants/auth`, `@/components/AuthHeader`, `@/components/auth`, `@/hooks/useCurrentUser`, `@/hooks/useRedirectIfAuthenticated`, and `@/hooks/useCountdown`, or root flow paths such as `@/login`, `@/signup`, and `@/password-reset`.
-External browser consumers use `@/auth/api`, `@/auth/components`, `@/auth/hooks`, and `@/auth/model` facades as appropriate; App Router auth route adapters use the private `@/auth/bff` facade. `@/auth/hooks`의 session hook은 `SessionResponse.user` 계정 identity만 제공하며 `UserProfile`, 생활패턴, 기숙사, 시즌 참여 상태를 생성하지 않는다.
-`@/login`, `@/signup`, and `@/password-reset` are removed compatibility paths. Use the App Router page entrypoints for routes and `@/auth/flows/*` only from auth-owned route adapters/tests/docs.
+The Phase 5 guard rejects imports from `@/api/auth`, route-local `../_shared`, `../_post-route`, `../_request-guard` helpers, root auth shared paths such as `@/constants/auth`, `@/components/AuthHeader`, `@/components/auth`, `@/hooks/useCurrentUser`, `@/hooks/useRedirectIfAuthenticated`, and `@/hooks/useCountdown`, or root flow paths such as `@/login`, `@/signup`, and `@/password-reset`.
+External browser consumers use `@/auth/api`, `@/auth/components`, `@/auth/hooks`, and `@/auth/model` facades as appropriate.
+App Router auth route adapters are the only non-auth files allowed to import the private `@/auth/bff` facade.
+`@/auth/hooks`의 session hook은 `SessionResponse.user` 계정 identity만 제공하며 `UserProfile`, 생활패턴, 기숙사, 시즌 참여 상태를 생성하지 않는다.
+`@/login`, `@/signup`, and `@/password-reset` are blocked compatibility paths. Use the App Router page entrypoints for routes and keep `@/auth/flows/*` imports inside auth-owned flow code or the thin App Router page adapters.
 
 ## App Router exception
 
@@ -135,8 +138,8 @@ Route handlers should preserve upstream status, `Retry-After`, cookie mutation, 
 
 ## No compatibility re-export target
 
-The final auth boundary should not keep compatibility re-export files only to preserve old import paths.
-Phase 5 should keep these legacy imports failing architecture guard checks:
+The final auth boundary does not keep compatibility re-export files only to preserve old import paths.
+Strict final guard keeps these legacy imports failing architecture guard checks:
 
 - `@/api/auth`
 - `@/constants/auth`
@@ -177,7 +180,7 @@ If an external feature still needs auth behavior, expose that behavior through t
 
 ## Verification map
 
-Phase 4 focused baseline:
+Phase 5 focused baseline:
 
 ```bash
 pnpm --dir apps/web exec vitest run \
