@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isoDateTimeStringSchema } from '../date/primitives.js';
+import { isoDateTimeStringSchema, localDateStringSchema } from '../date/primitives.js';
 import { dormitorySelectionStateSchema } from '../dormitory/enums.js';
 import { activeMatchSummarySchema, matchRequestSummarySchema } from '../match/contract/index.js';
 import {
@@ -11,7 +11,9 @@ import {
   currentUserSeasonProfileStateSchema,
   dismissedNoticeStateSchema,
 } from '../user/current-user.js';
-import { selectionSourceSchema } from '../user/primitives.js';
+import { authenticatedSessionUserSchema, selectionSourceSchema } from '../user/primitives.js';
+import { userDisplayIdentitySchema } from '../user/identity/display.js';
+import { userAcademicIdentitySchema } from '../user/identity/academic.js';
 
 export const homeDashboardSeasonSchema = z.strictObject({
   hasCurrentSeason: z.boolean(),
@@ -35,8 +37,15 @@ export const homeDashboardViewerCapabilitiesSchema = z.strictObject({
   canViewMatchHistory: z.boolean(),
 });
 
+export const homeDashboardViewerIdentitySchema = z.strictObject({
+  user: authenticatedSessionUserSchema,
+  displayIdentity: userDisplayIdentitySchema,
+  academicIdentity: userAcademicIdentitySchema,
+});
+
 export const homeDashboardViewerSchema = z.strictObject({
   campusOperated: z.boolean(),
+  identity: homeDashboardViewerIdentitySchema,
   seasonProfile: currentUserSeasonProfileStateSchema,
   selection: z.strictObject({
     state: dormitorySelectionStateSchema,
@@ -64,6 +73,30 @@ export const homeDashboardStatsSchema = z.strictObject({
   buildingMatchSuccess: z.number().int().nonnegative(),
 });
 
+export const homeDashboardSeasonHistorySummarySchema = z.strictObject({
+  lastSeason: z
+    .strictObject({
+      id: z.string(),
+      name: z.string(),
+      totalParticipants: z.number().int().nonnegative(),
+      totalMatchSuccess: z.number().int().nonnegative(),
+      viewerHadRegistration: z.boolean(),
+      viewerHadMatchSuccess: z.boolean(),
+    })
+    .nullable(),
+});
+
+export const homeDashboardNextSeasonPreviewSchema = z
+  .strictObject({
+    id: z.string(),
+    name: z.string(),
+    preparationStartDate: localDateStringSchema,
+    matchingStartDate: localDateStringSchema,
+    seasonEndDate: localDateStringSchema,
+    visibleToUser: z.boolean(),
+  })
+  .nullable();
+
 export const homeDashboardMatchingSchema = z.strictObject({
   pendingSentCount: z.number().int().nonnegative(),
   pendingReceivedCount: z.number().int().nonnegative(),
@@ -77,12 +110,19 @@ export const homeDashboardResponseSchema = z.strictObject({
   viewer: homeDashboardViewerSchema,
   stats: homeDashboardStatsSchema,
   matching: homeDashboardMatchingSchema,
+  seasonHistorySummary: homeDashboardSeasonHistorySummarySchema,
+  nextSeasonPreview: homeDashboardNextSeasonPreviewSchema,
   generatedAt: isoDateTimeStringSchema,
 });
 
 export type HomeDashboardSeason = z.infer<typeof homeDashboardSeasonSchema>;
 export type HomeDashboardViewerCapabilities = z.infer<typeof homeDashboardViewerCapabilitiesSchema>;
+export type HomeDashboardViewerIdentity = z.infer<typeof homeDashboardViewerIdentitySchema>;
 export type HomeDashboardViewer = z.infer<typeof homeDashboardViewerSchema>;
 export type HomeDashboardStats = z.infer<typeof homeDashboardStatsSchema>;
 export type HomeDashboardMatching = z.infer<typeof homeDashboardMatchingSchema>;
+export type HomeDashboardSeasonHistorySummary = z.infer<
+  typeof homeDashboardSeasonHistorySummarySchema
+>;
+export type HomeDashboardNextSeasonPreview = z.infer<typeof homeDashboardNextSeasonPreviewSchema>;
 export type HomeDashboardResponse = z.infer<typeof homeDashboardResponseSchema>;

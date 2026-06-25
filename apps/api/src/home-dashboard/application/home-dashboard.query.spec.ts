@@ -6,8 +6,13 @@ vi.mock('../../platform/database/prisma.service.js', () => ({
 import { homeDashboardResponseSchema } from '@repo/shared/home';
 import { HomeDashboardQuery } from './home-dashboard.query.js';
 import { HomeDashboardCountsQuery } from './home-dashboard-counts.query.js';
+import { HomeDashboardHistoryQuery } from './home-dashboard-history.query.js';
+import { HomeDashboardNextSeasonQuery } from './home-dashboard-next-season.query.js';
 import { HomeDashboardPresenter } from './home-dashboard.presenter.js';
-import { makeCurrentUserResponse, makeSeasonContext } from './home-dashboard.test-fixtures.js';
+import {
+  makeCurrentUserResponse,
+  makeSeasonContext,
+} from '../test-support/home-dashboard.spec-fixtures.js';
 
 const now = new Date('2026-02-10T03:00:00.000Z');
 const authUser = {
@@ -19,6 +24,9 @@ const authUser = {
 function createPrismaMock() {
   return {
     getDatabaseNow: vi.fn().mockResolvedValue(now),
+    season: {
+      findMany: vi.fn(),
+    },
     seasonParticipant: {
       findFirst: vi.fn(),
       count: vi.fn(),
@@ -52,17 +60,22 @@ describe('HomeDashboardQuery', () => {
     getCurrentSeasonContext: vi.fn(),
   };
   const countsQuery = new HomeDashboardCountsQuery(prisma as never);
+  const historyQuery = new HomeDashboardHistoryQuery(prisma as never);
+  const nextSeasonQuery = new HomeDashboardNextSeasonQuery(prisma as never);
   const query = new HomeDashboardQuery(
     prisma as never,
     currentUserViewService as never,
     seasonsService as never,
     countsQuery,
+    historyQuery,
+    nextSeasonQuery,
     new HomeDashboardPresenter(),
   );
 
   beforeEach(() => {
     vi.clearAllMocks();
     prisma.getDatabaseNow.mockResolvedValue(now);
+    prisma.season.findMany.mockResolvedValue([]);
     prisma.seasonParticipant.count.mockResolvedValue(0);
     prisma.activeMatch.count.mockResolvedValue(0);
     prisma.activeMatch.findMany.mockResolvedValue([]);
@@ -90,6 +103,8 @@ describe('HomeDashboardQuery', () => {
     expect(seasonsService.getCurrentSeasonContext).toHaveBeenCalledWith('CHUNCHEON', now);
     expect(homeDashboardResponseSchema.safeParse(response).success).toBe(true);
     expect(response.generatedAt).toBe(now.toISOString());
+    expect(response.seasonHistorySummary.lastSeason).toBeNull();
+    expect(response.nextSeasonPreview).toBeNull();
   });
 
   it('current season이 없으면 stats/matching을 fail-closed empty로 반환한다', async () => {
@@ -184,6 +199,7 @@ describe('HomeDashboardQuery', () => {
     });
     expect(response.matching.recentReceivedRequests).toHaveLength(1);
     expect(response.viewer.capabilities.canViewMatchHistory).toBe(true);
+    expect(response.viewer.identity.user.id).toBe('user-1');
   });
 });
 

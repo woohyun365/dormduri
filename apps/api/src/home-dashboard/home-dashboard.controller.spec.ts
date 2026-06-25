@@ -38,6 +38,25 @@ function makeHomeDashboardResponse(): HomeDashboardResponse {
     },
     viewer: {
       campusOperated: true,
+      identity: {
+        user: {
+          id: 'user-1',
+          email: 'user1@kangwon.ac.kr',
+          nickname: '감자룸메',
+          gender: 'M',
+          campus: 'CHUNCHEON',
+        },
+        displayIdentity: {
+          userId: 'user-1',
+          nickname: '감자룸메',
+          nicknameSource: 'USER_DISPLAY_IDENTITY',
+          nicknameChangedAt: null,
+        },
+        academicIdentity: {
+          collegeCode: 'IT',
+          birthYear: 2002,
+        },
+      },
       seasonProfile: {
         hasCurrentSeason: false,
         hasParticipantRow: false,
@@ -80,6 +99,8 @@ function makeHomeDashboardResponse(): HomeDashboardResponse {
       totalMatchSuccess: 0,
       buildingMatchSuccess: 0,
     },
+    seasonHistorySummary: { lastSeason: null },
+    nextSeasonPreview: null,
     matching: {
       pendingSentCount: 0,
       pendingReceivedCount: 0,

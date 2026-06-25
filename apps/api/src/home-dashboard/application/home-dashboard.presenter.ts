@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import {
   homeDashboardResponseSchema,
   type HomeDashboardMatching,
+  type HomeDashboardNextSeasonPreview,
   type HomeDashboardResponse,
+  type HomeDashboardSeasonHistorySummary,
   type HomeDashboardStats,
 } from '@repo/shared/home';
 import type { CurrentUserResponse } from '@repo/shared/user';
@@ -13,6 +15,8 @@ interface BuildHomeDashboardResponseInput {
   seasonContext: CurrentSeasonContext | null;
   stats: HomeDashboardStats;
   matching: HomeDashboardMatching;
+  seasonHistorySummary: HomeDashboardSeasonHistorySummary;
+  nextSeasonPreview: HomeDashboardNextSeasonPreview;
   canViewMatchHistory: boolean;
   generatedAt: Date;
 }
@@ -49,6 +53,11 @@ export class HomeDashboardPresenter {
           },
       viewer: {
         campusOperated: input.currentUser.serviceState.campusOperated,
+        identity: {
+          user: input.currentUser.user,
+          displayIdentity: input.currentUser.displayIdentity,
+          academicIdentity: input.currentUser.academicIdentity,
+        },
         seasonProfile: input.currentUser.seasonProfile,
         selection: input.currentUser.selection,
         match: input.currentUser.match,
@@ -67,6 +76,8 @@ export class HomeDashboardPresenter {
       },
       stats: input.stats,
       matching: input.matching,
+      seasonHistorySummary: input.seasonHistorySummary,
+      nextSeasonPreview: input.nextSeasonPreview,
       generatedAt: input.generatedAt.toISOString(),
     };
 
