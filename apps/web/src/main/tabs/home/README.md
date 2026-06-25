@@ -2,11 +2,14 @@
 
 `apps/web/src/main/tabs/home`은 로그인 사용자가 `/main` 진입 후 처음 보는 Home dashboard 화면을 소유한다.
 Home은 현재 사용자에게 “지금 할 수 있는 다음 행동”을 안내하는 read-model screen이며, 실제 권한 판단과 mutation 성공 여부는 API와 각 도메인 owner가 최종 결정한다.
+이번 final pass의 핵심은 `/login`, `/signup`, `/password-reset` 이후 `/main` 첫 렌더링이 legacy profile mock/bootstrap을 기다리지 않고 Home dashboard read model만으로 안전하게 시작되도록 고정하는 것이다.
 
 ## 제품 책임
 
 - `HomeDashboardResponse`를 기준으로 현재 시즌, 내 시즌 참여 상태, 건물 선택 상태, 매칭 요약, 준비 체크리스트를 렌더링한다.
 - `GET /api/home/dashboard` Web BFF를 통해 Home 전용 dashboard read model을 가져온다.
+- Home first render는 `profileApi.getMyProfile()`이나 global fixture/mock DB를 요구하지 않는다.
+- 계정 표시 identity와 시즌 프로필 준비 상태는 Home dashboard/current-user contract의 allowlist DTO에서 분리해 소비한다.
 - `viewer.onboarding.dismissedNotices`와 `PATCH /api/users/me/onboarding`을 통해 `service-intro` 안내 닫힘 상태를 반영한다.
 - 시즌 상태별로 다음 행동을 안내한다.
   - `OFF_SEASON`: 타인 탐색과 새 매칭 요청은 열지 않고 프로필 정비와 이전 기록 확인 중심으로 안내한다.
@@ -124,6 +127,7 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 ## Runtime fixture boundary
 
 - `/main` production runtime path는 `@/__fixtures__`를 direct/dynamic import하지 않는다.
+- `/main` Home first render path는 `profileApi.getMyProfile()` failure/null을 Home render blocker로 삼지 않는다.
 - `apps/web/src/__fixtures__` 아래 mock DB/matching service는 local development panel 또는 legacy unit test support 용도로만 남긴다.
 - Home dashboard unit/component tests는 global fixture data가 아니라 `main/test-support`의 typed builder로 shared contract shape만 만든다.
 - 실제 로그인 사용자 기준 browser/manual 검증은 DB seed 계정과 API server를 사용하는 full-stack smoke에서 다룬다.

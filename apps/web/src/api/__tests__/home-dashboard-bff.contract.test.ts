@@ -22,6 +22,54 @@ function stubDashboardFetch(json: unknown, status = 200, contentType = 'applicat
   return fetchMock;
 }
 
+function createFinalPassDashboardResponse(): unknown {
+  const dashboard = createHomeDashboardTestResponse();
+
+  return {
+    ...dashboard,
+    viewer: {
+      ...dashboard.viewer,
+      identity: {
+        user: {
+          id: 'user-1',
+          email: 'home-e2e-viewer@kangwon.ac.kr',
+          nickname: '홈유저',
+          gender: 'F',
+          campus: 'CHUNCHEON',
+        },
+        displayIdentity: {
+          userId: 'user-1',
+          nickname: '홈유저',
+          nicknameSource: 'USER_DISPLAY_IDENTITY',
+          nicknameChangedAt: null,
+        },
+        academicIdentity: {
+          collegeCode: 'ARTS_ENGINEERING',
+          birthYear: 2001,
+        },
+      },
+    },
+    seasonHistorySummary: {
+      lastSeason: {
+        id: 'season-2026-01',
+        name: '2026년 1학기',
+        totalParticipants: 237,
+        totalMatchSuccess: 42,
+        viewerHadRegistration: true,
+        viewerHadMatchSuccess: false,
+      },
+    },
+    nextSeasonPreview: {
+      id: 'season-2026-02',
+      name: '2026년 2학기',
+      preparationStartDate: '2026-08-20',
+      matchingStartDate: '2026-09-01',
+      seasonEndDate: '2026-12-20',
+      visibleToUser: true,
+    },
+  };
+}
+
 describe('home dashboard BFF contract', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -66,6 +114,41 @@ describe('home dashboard BFF contract', () => {
 
     await expect(homeApi.getDashboard()).rejects.toMatchObject({
       code: 'HOME_DASHBOARD_UPSTREAM_INVALID',
+    });
+  });
+
+  it('accepts the final Home dashboard contract fields needed for auth to Home first render', async () => {
+    const dashboard = createFinalPassDashboardResponse();
+    stubDashboardFetch(dashboard);
+
+    await expect(homeApi.getDashboard()).resolves.toMatchObject({
+      viewer: {
+        identity: {
+          user: {
+            id: 'user-1',
+            nickname: '홈유저',
+            campus: 'CHUNCHEON',
+          },
+          displayIdentity: {
+            nickname: '홈유저',
+          },
+          academicIdentity: {
+            collegeCode: 'ARTS_ENGINEERING',
+            birthYear: 2001,
+          },
+        },
+      },
+      seasonHistorySummary: {
+        lastSeason: {
+          id: 'season-2026-01',
+          totalParticipants: 237,
+          totalMatchSuccess: 42,
+        },
+      },
+      nextSeasonPreview: {
+        id: 'season-2026-02',
+        visibleToUser: true,
+      },
     });
   });
 

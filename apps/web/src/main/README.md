@@ -3,6 +3,12 @@
 `apps/web/src/main`은 로그인 후 `/main` shell과 tab orchestration을 소유한다.
 각 tab의 세부 product behavior는 `tabs/*` owner가 담당하고, `Main.tsx`는 session user, tab state, shared modal/sheet, owner callback wiring만 얇게 연결한다.
 
+## Home first render boundary
+
+- `/login`, `/signup`, `/password-reset` 이후 `/main` 첫 화면은 auth session gate 통과 후 Home dashboard read model에서 시작한다.
+- Home first render는 legacy `profileApi.getMyProfile()` 결과나 global fixture/mock DB를 기다리지 않는다.
+- non-Home tab이 과도기적으로 legacy profile/mock API를 필요로 하더라도 `MainLegacyTabAdapter` 같은 명시 boundary 안에서 lazy load되어야 한다.
+
 ## Runtime fixture boundary
 
 - production `/main` runtime path는 `@/__fixtures__`를 직접 import하지 않는다.
