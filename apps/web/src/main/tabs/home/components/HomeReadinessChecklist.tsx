@@ -110,6 +110,9 @@ export function buildReadinessChecklistItems({
   const buildingReady =
     seasonProfile.registered || !seasonProfile.completion.dormitorySelectionRequired;
   const registrationReady = seasonProfile.registered;
+  const registrationUnavailableDescription = getRegistrationUnavailableDescription(
+    seasonProfile.completion.registrationUnavailableReasons,
+  );
 
   return [
     {
@@ -145,7 +148,8 @@ export function buildReadinessChecklistItems({
       title: registrationReady ? '시즌 등록 완료' : '시즌 등록을 마무리해요',
       description: registrationReady
         ? '현재 시즌 참여 등록이 완료되어 시즌 상태에 맞는 기능을 이용할 수 있어요.'
-        : '생활패턴과 건물 선택이 준비되면 시즌 등록을 확정할 수 있어요.',
+        : (registrationUnavailableDescription ??
+          '생활패턴과 건물 선택이 준비되면 시즌 등록을 확정할 수 있어요.'),
       status: registrationReady
         ? 'complete'
         : capabilities.canFinalizeSeasonRegistration || seasonProfile.canFinalizeRegistration
@@ -165,6 +169,46 @@ export function buildReadinessChecklistItems({
       actionTarget: capabilities.canEnterRoommateSearch ? 'list' : undefined,
     },
   ];
+}
+
+function getRegistrationUnavailableDescription(
+  reasons: HomeDashboardResponse['viewer']['seasonProfile']['completion']['registrationUnavailableReasons'],
+): string | null {
+  if (reasons.length === 0) return null;
+
+  if (reasons.includes('NO_CURRENT_SEASON') || reasons.includes('SEASON_NOT_OPEN')) {
+    return '현재는 시즌 등록이 열려 있지 않아요. 새 시즌 일정이 열리면 등록을 다시 안내할게요.';
+  }
+
+  if (reasons.includes('UNSUPPORTED_CAMPUS')) {
+    return '현재 캠퍼스는 아직 시즌 등록을 지원하지 않아요. 운영이 열리면 홈에서 안내할게요.';
+  }
+
+  if (reasons.includes('PROFILE_INCOMPLETE')) {
+    return '생활패턴과 원하는 룸메 조건을 먼저 채워야 시즌 등록을 확정할 수 있어요.';
+  }
+
+  if (reasons.includes('DORMITORY_SELECTION_REQUIRED')) {
+    return '배정 건물을 선택해야 시즌 등록을 확정할 수 있어요.';
+  }
+
+  if (reasons.includes('NO_SELECTABLE_DORMITORY')) {
+    return '현재 선택 가능한 운영 기숙사가 없어 시즌 등록을 확정할 수 없어요.';
+  }
+
+  if (reasons.includes('DORMITORY_SELECTION_CLOSED')) {
+    return '기숙사 선택 가능 기간이 지나 시즌 등록을 확정할 수 없어요.';
+  }
+
+  if (reasons.includes('WITHDRAWN_OR_DECLINED_LOCK')) {
+    return '이미 시즌 참여를 철회했거나 참여하지 않기로 선택해 이번 시즌 등록이 잠겨 있어요.';
+  }
+
+  if (reasons.includes('ACCOUNT_OR_PARTICIPANT_INACTIVE')) {
+    return '계정 또는 시즌 참여 상태를 확인해야 등록을 진행할 수 있어요.';
+  }
+
+  return '현재 상태에서는 시즌 등록을 확정할 수 없어요.';
 }
 
 function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () => void }) {

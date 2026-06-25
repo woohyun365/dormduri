@@ -5,41 +5,21 @@ import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashbo
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import { HomePrimaryStateCard } from '../components/HomePrimaryStateCard';
 import type { SeasonState } from '@/types/season';
-import type { UserProfile } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
-
-const baseUser: UserProfile = {
-  id: 'user-1',
-  nickname: '춘천유저',
-  gender: 'M',
-  campus: 'CHUNCHEON',
-  dormitoryId: 'dasan',
-  lifestyle: {
-    smokingBehavior: 'NO',
-    sleepHabit: 'NONE',
-    relationshipStyle: 'CASUAL',
-  } as UserProfile['lifestyle'],
-  intro: '',
-  messageToRoommate: '잘 부탁해요',
-  additional: { college: 'IT', grade: '2', mbti: 'INTJ', birthYear: 2004 },
-};
 
 function renderCard({
   dashboard = createHomeDashboardTestResponse(),
   seasonState = dashboard.season.state ?? 'OFF_SEASON',
   daysUntilEnd = dashboard.season.daysUntilMatchingEnd ?? 0,
-  user = baseUser,
 }: {
   dashboard?: HomeDashboardResponse;
   seasonState?: SeasonState;
   daysUntilEnd?: number;
-  user?: UserProfile;
 } = {}) {
   const onNavigate = vi.fn();
   const onOpenBuildingSelect = vi.fn();
   const viewModel = buildHomeDashboardViewModel({
     dashboard,
-    user,
     season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
     seasonState,
     daysUntilEnd,
@@ -93,6 +73,18 @@ describe('HomePrimaryStateCard', () => {
         capabilities: {
           ...createHomeDashboardTestResponse().viewer.capabilities,
           canSelectDormitory: true,
+        },
+        seasonProfile: {
+          ...createHomeDashboardTestResponse().viewer.seasonProfile,
+          registered: false,
+          completion: {
+            profileCompletionRequired: false,
+            dormitorySelectionRequired: true,
+            registrationUnavailable: true,
+            registrationUnavailableReasons: ['DORMITORY_SELECTION_REQUIRED'],
+          },
+          canSelectDormitory: true,
+          canFinalizeRegistration: false,
         },
       },
     });

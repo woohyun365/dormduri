@@ -193,9 +193,9 @@ function resolvePrimaryContent({
   }
 
   if (seasonState === 'SEASON_OPEN') {
-    const needsLifestyle = !viewModel.preparation.hasLifestylePattern;
+    const needsSeasonProfile = !viewModel.preparation.hasSeasonProfile;
     const needsBuilding = !viewModel.preparation.hasBuilding;
-    const action = needsLifestyle
+    const action = needsSeasonProfile
       ? { label: '생활패턴 입력하기', icon: UserRound, onClick: goProfile }
       : needsBuilding && viewModel.preparation.canSelectBuilding
         ? { label: '배정 건물 입력하기', icon: Building2, onClick: openBuildingSelect }

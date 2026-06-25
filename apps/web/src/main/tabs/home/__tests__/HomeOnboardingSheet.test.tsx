@@ -4,29 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import { HomeOnboardingSheet } from '../components/HomeOnboardingSheet';
-import type { UserProfile } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
-
-const user: UserProfile = {
-  id: 'user-1',
-  nickname: '춘천유저',
-  gender: 'M',
-  campus: 'CHUNCHEON',
-  dormitoryId: null,
-  lifestyle: {
-    smokingBehavior: 'NO',
-    sleepHabit: 'NONE',
-    relationshipStyle: 'CASUAL',
-  } as UserProfile['lifestyle'],
-  intro: '',
-  messageToRoommate: null,
-  additional: { college: null, grade: null, mbti: null, birthYear: null },
-};
 
 function buildViewModel(dashboard: HomeDashboardResponse) {
   return buildHomeDashboardViewModel({
     dashboard,
-    user,
     season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
     seasonState: dashboard.season.state ?? 'OFF_SEASON',
     daysUntilEnd: dashboard.season.daysUntilMatchingEnd ?? 0,

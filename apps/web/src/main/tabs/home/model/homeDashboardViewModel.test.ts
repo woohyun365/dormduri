@@ -5,24 +5,7 @@ import {
   toHomeActiveMatch,
   toHomeSeasonContext,
 } from './homeDashboardViewModel';
-import type { UserProfile } from '@/types/profile';
 import type { MatchRequestSummary } from '@repo/shared/match/contract';
-
-const baseUser: UserProfile = {
-  id: 'user-1',
-  nickname: '춘천유저',
-  gender: 'M',
-  campus: 'CHUNCHEON',
-  dormitoryId: 'dasan',
-  lifestyle: {
-    smokingBehavior: 'NO',
-    sleepHabit: 'NONE',
-    relationshipStyle: 'CASUAL',
-  } as UserProfile['lifestyle'],
-  intro: '',
-  messageToRoommate: '잘 부탁해요',
-  additional: { college: 'IT', grade: '2', mbti: 'INTJ', birthYear: 2004 },
-};
 
 function createReceivedRequest(overrides: Partial<MatchRequestSummary> = {}): MatchRequestSummary {
   return {
@@ -133,7 +116,6 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: baseUser,
       season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
       seasonState: 'SEASON_MATCHING',
       daysUntilEnd: 7,
@@ -163,11 +145,8 @@ describe('homeDashboardViewModel', () => {
         },
       },
     });
-    const localUnassignedUser = { ...baseUser, dormitoryId: null };
-
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: localUnassignedUser,
       season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
       seasonState: 'SEASON_OPEN',
       daysUntilEnd: 30,
@@ -193,7 +172,6 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: { ...baseUser, dormitoryId: null },
       season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
       seasonState: 'SEASON_MATCHING',
       daysUntilEnd: 7,
@@ -220,7 +198,6 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: { ...baseUser, dormitoryId: null },
       season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
       seasonState: 'SEASON_MATCHING',
       daysUntilEnd: 7,
@@ -233,7 +210,7 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.tip.seasonStatus).toBe('NOT_OPERATED');
   });
 
-  it('closes next-season summary when dashboard has no current season schedule', () => {
+  it('uses visible next-season preview even when there is no current season schedule', () => {
     const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
@@ -250,7 +227,6 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: baseUser,
       season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
       seasonState: 'OFF_SEASON',
       daysUntilEnd: 0,
@@ -259,9 +235,9 @@ describe('homeDashboardViewModel', () => {
 
     expect(viewModel.hasCurrentSeason).toBe(false);
     expect(viewModel.seasonSummary).toMatchObject({
-      daysUntilNext: 0,
-      nextSeasonDate: '',
-      nextSeasonName: '',
+      daysUntilNext: 50,
+      nextSeasonDate: '2026.08.20',
+      nextSeasonName: '2026년 2학기',
     });
   });
 
@@ -284,7 +260,6 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: baseUser,
       season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
       seasonState: 'SEASON_POST_MATCH',
       daysUntilEnd: 0,

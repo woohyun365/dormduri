@@ -3,22 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { SeasonProvider } from '@/contexts/SeasonContext';
 import HomeTab from '../HomeTab';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
-import type { UserProfile } from '@/types/profile';
-
-const baseLifestyle = {} as UserProfile['lifestyle'];
-const baseAdditional = { college: null, grade: null, mbti: null, birthYear: null };
-
-const baseUser: UserProfile = {
-  id: 'user-1',
-  nickname: '삼척유저',
-  gender: 'M',
-  campus: 'SAMCHEOK',
-  dormitoryId: null,
-  lifestyle: baseLifestyle,
-  intro: '',
-  messageToRoommate: null,
-  additional: baseAdditional,
-};
 
 describe('HomeTab', () => {
   it('비운영 캠퍼스에서 홈 콘텐츠에 inert/aria-hidden을 적용한다', () => {
@@ -33,11 +17,22 @@ describe('HomeTab', () => {
         }}
       >
         <HomeTab
-          user={baseUser}
           dashboard={createHomeDashboardTestResponse({
             viewer: {
               ...createHomeDashboardTestResponse().viewer,
               campusOperated: false,
+              identity: {
+                ...createHomeDashboardTestResponse().viewer.identity,
+                user: {
+                  ...createHomeDashboardTestResponse().viewer.identity.user,
+                  nickname: '삼척유저',
+                  campus: 'SAMCHEOK',
+                },
+                displayIdentity: {
+                  ...createHomeDashboardTestResponse().viewer.identity.displayIdentity,
+                  nickname: '삼척유저',
+                },
+              },
             },
           })}
           onNavigate={vi.fn()}

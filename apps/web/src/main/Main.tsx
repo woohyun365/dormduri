@@ -34,10 +34,11 @@ import {
   toMainLegacyUserProfile,
 } from './utils/mainDashboardAdapters';
 import { toHomeSeasonContext } from './tabs/home/model/homeDashboardViewModel';
+import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
 import type { MatchingNavOptions, TabId } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
-export type { TabId, UserProfile } from '@/types/profile';
+export type { TabId } from '@/types/profile';
 
 const LEGACY_DATA_TABS = new Set<TabId>(['list', 'matching', 'chat']);
 
@@ -129,17 +130,154 @@ function MainDashboardContent({
   dashboard: HomeDashboardResponse;
   homeDashboard: UseMainHomeDashboardResult;
 }) {
-  const initialUser = useMemo(() => toMainLegacyUserProfile(dashboard), [dashboard]);
-  const showToast = useCallback((msg: string) => toast(msg), []);
-
   const [matchingNavOptions, setMatchingNavOptions] = useState<MatchingNavOptions>({});
-
   const handleNavigate = useCallback(
     (tab: TabId, options?: MatchingNavOptions) => {
       setMatchingNavOptions(tab === 'matching' && options ? options : {});
       onTabChange(tab);
     },
     [onTabChange],
+  );
+  const fallbackSeasonContext = toMainFallbackSeasonContext(dashboard);
+  const seasonContextValue = toHomeSeasonContext(dashboard, fallbackSeasonContext);
+  const campusOperated = dashboard.viewer.campusOperated;
+  const featureFlags = getMainFeatureFlags({
+    campusOperated,
+    isOpen: seasonContextValue.isOpen,
+    isMatching: seasonContextValue.isMatching,
+  });
+
+  if (activeTab === 'home') {
+    return (
+      <MainHomeDashboardContent
+        activeTab={activeTab}
+        dashboard={dashboard}
+        homeDashboard={homeDashboard}
+        onNavigate={handleNavigate}
+        seasonContextValue={seasonContextValue}
+        campusOperated={campusOperated}
+        featureFlags={featureFlags}
+      />
+    );
+  }
+
+  return (
+    <MainLegacyDashboardContent
+      activeTab={activeTab}
+      onTabChange={onTabChange}
+      dashboard={dashboard}
+      onNavigate={handleNavigate}
+      matchingNavOptions={matchingNavOptions}
+      seasonContextValue={seasonContextValue}
+      campusOperated={campusOperated}
+      featureFlags={featureFlags}
+    />
+  );
+}
+
+function MainHomeDashboardContent({
+  activeTab,
+  dashboard,
+  homeDashboard,
+  onNavigate,
+  seasonContextValue,
+  campusOperated,
+  featureFlags,
+}: {
+  activeTab: TabId;
+  dashboard: HomeDashboardResponse;
+  homeDashboard: UseMainHomeDashboardResult;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+  seasonContextValue: ReturnType<typeof toHomeSeasonContext>;
+  campusOperated: boolean;
+  featureFlags: ReturnType<typeof getMainFeatureFlags>;
+}) {
+  const [showBuildingSelect, setShowBuildingSelect] = useState(false);
+  const showToast = useCallback((msg: string) => toast(msg), []);
+  const viewerUser = dashboard.viewer.identity.user;
+
+  const handleSelectDormitory = useCallback(
+    (dormitoryId: string) => {
+      setShowBuildingSelect(false);
+      if (dormitoryId === UNASSIGNED_ID) {
+        showToast('건물 미배정으로 설정했어요');
+        return;
+      }
+      const dormitory = getDormitoryById(dormitoryId);
+      showToast(dormitory ? `${dormitory.name}(으)로 설정했어요` : '건물이 설정되었어요');
+    },
+    [showToast],
+  );
+
+  return (
+    <SeasonProvider value={seasonContextValue}>
+      <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
+        {campusOperated &&
+          (seasonContextValue.isOpen || seasonContextValue.isMatching) &&
+          showBuildingSelect && (
+            <BuildingSelectModal
+              campus={viewerUser.campus}
+              gender={viewerUser.gender}
+              onSelect={handleSelectDormitory}
+              onClose={() => setShowBuildingSelect(false)}
+            />
+          )}
+        <main>
+          {homeDashboard.loading && <HomeTabSkeleton />}
+          {!homeDashboard.loading && homeDashboard.error && (
+            <HomeDashboardErrorState
+              message={homeDashboard.error}
+              refreshing={homeDashboard.refreshing}
+              onRetry={homeDashboard.refetch}
+            />
+          )}
+          {!homeDashboard.loading && !homeDashboard.error && homeDashboard.dashboard && (
+            <HomeTab
+              dashboard={homeDashboard.dashboard}
+              onNavigate={onNavigate}
+              onOpenBuildingSelect={() => setShowBuildingSelect(true)}
+              onDashboardRefresh={homeDashboard.refetch}
+            />
+          )}
+        </main>
+
+        <BottomTabBar
+          activeTab={activeTab}
+          onTabChange={onNavigate}
+          disabledTabs={featureFlags.disabledTabs}
+        />
+      </div>
+    </SeasonProvider>
+  );
+}
+
+function MainLegacyDashboardContent({
+  activeTab,
+  onTabChange,
+  dashboard,
+  onNavigate,
+  matchingNavOptions,
+  seasonContextValue,
+  campusOperated,
+  featureFlags,
+}: {
+  activeTab: TabId;
+  onTabChange: Dispatch<SetStateAction<TabId>>;
+  dashboard: HomeDashboardResponse;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+  matchingNavOptions: MatchingNavOptions;
+  seasonContextValue: ReturnType<typeof toHomeSeasonContext>;
+  campusOperated: boolean;
+  featureFlags: ReturnType<typeof getMainFeatureFlags>;
+}) {
+  const initialUser = useMemo(() => toMainLegacyUserProfile(dashboard), [dashboard]);
+  const showToast = useCallback((msg: string) => toast(msg), []);
+
+  const handleNavigate = useCallback(
+    (tab: TabId, options?: MatchingNavOptions) => {
+      onNavigate(tab, options);
+    },
+    [onNavigate],
   );
 
   const { hasSeenGuide, markGuideSeen, resetChecklist, hasSeenTooltip, markTooltipSeen } =
@@ -170,15 +308,6 @@ function MainDashboardContent({
 
   const listViewState = useMainListViewState();
 
-  const fallbackSeasonContext = toMainFallbackSeasonContext(dashboard);
-  const seasonContextValue = toHomeSeasonContext(dashboard, fallbackSeasonContext);
-  const campusOperated = dashboard.viewer.campusOperated;
-  const featureFlags = getMainFeatureFlags({
-    campusOperated,
-    isOpen: seasonContextValue.isOpen,
-    isMatching: seasonContextValue.isMatching,
-  });
-
   function renderLegacyDataFallback() {
     if (!needsLegacyData || legacyData) return null;
 
@@ -205,28 +334,7 @@ function MainDashboardContent({
             />
           )}
         <main>
-          {activeTab === 'home' && (
-            <>
-              {homeDashboard.loading && <HomeTabSkeleton />}
-              {!homeDashboard.loading && homeDashboard.error && (
-                <HomeDashboardErrorState
-                  message={homeDashboard.error}
-                  refreshing={homeDashboard.refreshing}
-                  onRetry={homeDashboard.refetch}
-                />
-              )}
-              {!homeDashboard.loading && !homeDashboard.error && homeDashboard.dashboard && (
-                <HomeTab
-                  user={profileState.user}
-                  dashboard={homeDashboard.dashboard}
-                  onNavigate={handleNavigate}
-                  onOpenBuildingSelect={() => profileState.setShowBuildingSelect(true)}
-                  onDashboardRefresh={homeDashboard.refetch}
-                />
-              )}
-            </>
-          )}
-          {activeTab !== 'home' && renderLegacyDataFallback()}
+          {renderLegacyDataFallback()}
           {activeTab === 'list' && legacyData && (
             <RoommateListTab
               user={profileState.user}

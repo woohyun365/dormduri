@@ -243,11 +243,11 @@ function buildOnboardingActions({
     ];
   }
 
-  if (!viewModel.preparation.hasLifestylePattern) {
+  if (!viewModel.preparation.hasSeasonProfile) {
     return [
       {
-        label: '생활패턴 먼저 입력',
-        description: '수면·생활패턴과 원하는 룸메 조건을 채워 시즌 등록을 준비해요.',
+        label: '시즌 프로필 먼저 입력',
+        description: '시즌 참여에 필요한 생활패턴과 조건을 채워 등록을 준비해요.',
         icon: UserRound,
         onClick: () => {
           onClose();

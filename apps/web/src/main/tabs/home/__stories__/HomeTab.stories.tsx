@@ -13,7 +13,6 @@ function HomeTabStorySurface({ scenario }: HomeTabStorySurfaceProps) {
   return (
     <SeasonProvider value={scenario.seasonContext}>
       <HomeTab
-        user={scenario.user}
         dashboard={scenario.dashboard}
         onNavigate={() => undefined}
         onOpenBuildingSelect={() => undefined}
