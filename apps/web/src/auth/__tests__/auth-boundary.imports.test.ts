@@ -7,9 +7,6 @@ const readmePath = join(webSrc, 'auth', 'README.md');
 const boundaryTestPath = join(webSrc, 'auth', '__tests__', 'auth-boundary.imports.test.ts');
 
 const currentLegacyPaths = [
-  'app/api/auth/_shared.ts',
-  'app/api/auth/_post-route.ts',
-  'app/api/auth/_request-guard.ts',
   'components/AuthHeader.tsx',
   'components/auth/PasswordRequirementList.tsx',
   'constants/auth.ts',
@@ -22,6 +19,23 @@ const currentLegacyPaths = [
 ] as const;
 
 const phase1RemovedPaths = ['api/auth.ts'] as const;
+
+const phase2RemovedPaths = [
+  'app/api/auth/_shared.ts',
+  'app/api/auth/_post-route.ts',
+  'app/api/auth/_request-guard.ts',
+] as const;
+
+const authBffEntrypoints = [
+  'auth/bff/index.ts',
+  'auth/bff/auth-forward.ts',
+  'auth/bff/auth-response.ts',
+  'auth/bff/auth-cookies.ts',
+  'auth/bff/auth-request-guard.ts',
+  'auth/bff/auth-route-handlers.ts',
+  'auth/bff/__tests__/auth-forward-response.test.ts',
+  'auth/bff/__tests__/auth-route-handlers.test.ts',
+] as const;
 
 const appRouterEntrypoints = [
   'app/api/auth/login/route.ts',
@@ -100,7 +114,7 @@ describe('web auth boundary migration ledger', () => {
     for (const relativePath of currentLegacyPaths) {
       expect(
         pathExists(relativePath),
-        `${relativePath} should be tracked as a Phase 1 legacy path`,
+        `${relativePath} should be tracked as a Phase 2 legacy path`,
       ).toBe(true);
     }
   });
@@ -124,7 +138,29 @@ describe('web auth boundary migration ledger', () => {
     expect(filesWithOldAuthImport).toEqual([]);
   });
 
-  it('keeps final forbidden import patterns discoverable without enforcing them in Phase 1', () => {
+  it('keeps Phase 2 auth BFF helper migration complete without app route helper files', () => {
+    for (const relativePath of phase2RemovedPaths) {
+      expect(pathExists(relativePath), `${relativePath} should be removed after Phase 2`).toBe(
+        false,
+      );
+    }
+
+    for (const relativePath of authBffEntrypoints) {
+      expect(pathExists(relativePath), `${relativePath} should exist after Phase 2`).toBe(true);
+    }
+
+    const filesWithOldBffHelperImports = listSourceFiles(join(webSrc, 'app', 'api', 'auth'))
+      .filter((sourcePath) =>
+        readFileSync(sourcePath, 'utf8').match(
+          /\.\.\/_shared|\.\.\/_post-route|\.\.\/_request-guard|\.\/_shared/,
+        ),
+      )
+      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+
+    expect(filesWithOldBffHelperImports).toEqual([]);
+  });
+
+  it('keeps final forbidden import patterns discoverable without enforcing them in Phase 2', () => {
     expect(finalForbiddenImportPatterns).toContain('@/api/auth');
     expect(finalForbiddenImportPatterns).toContain('@/constants/auth');
     expect(finalForbiddenImportPatterns).toContain('@/components/AuthHeader');

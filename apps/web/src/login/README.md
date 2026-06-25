@@ -38,7 +38,7 @@ Login 화면은 fail-closed 결과를 일반 사용자 문구로만 표시한다
 | `apps/web/src/auth/api/*`             | Web auth client wrapper. 429 `Retry-After`/`retryAfterSeconds`, non-JSON, safe BFF error를 UI가 처리 가능한 shape로 보존 |
 | `app/api/auth/login/route.ts`         | login body schema parse, upstream `/auth/login` forward, token response allowlist, auth cookie set                       |
 | `app/api/auth/session/route.ts`       | access cookie 실패 시 renewal cookie로 `/auth/renew-session` 후 session 재조회                                           |
-| `app/api/auth/_shared.ts`             | auth cookie serialize/delete, upstream token body redaction boundary                                                     |
+| `apps/web/src/auth/bff/*`             | auth cookie serialize/delete, upstream token body redaction boundary                                                     |
 | `hooks/useRedirectIfAuthenticated.ts` | `/api/auth/session` BFF 결과로 `/login` 접근자가 이미 인증된 경우 redirect gate 제공                                     |
 | `hooks/useLoginRedirectTarget.ts`     | `next` query를 `/main` allowlist로 normalize                                                                             |
 
@@ -111,12 +111,12 @@ pnpm --dir apps/web exec playwright test -c playwright.fullstack.config.ts e2e/m
 
 ## Source of truth
 
-| 주제                                            | Source                                                            |
-| ----------------------------------------------- | ----------------------------------------------------------------- |
-| Auth/session policy                             | `docs/04_policy/official/account-authentication.md`               |
-| Production deployment/session transport wording | `docs/04_policy/official/production-deployment-readiness.md`      |
-| Web auth client/BFF helper                      | `apps/web/src/auth/api/*`, `apps/web/src/app/api/auth/_shared.ts` |
-| Login refactor plan                             | `.omx/plans/web-login-page-refactor-plan.md`                      |
-| Signup structure benchmark                      | `apps/web/src/signup/README.md`                                   |
+| 주제                                            | Source                                                       |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| Auth/session policy                             | `docs/04_policy/official/account-authentication.md`          |
+| Production deployment/session transport wording | `docs/04_policy/official/production-deployment-readiness.md` |
+| Web auth client/BFF helper                      | `apps/web/src/auth/api/*`, `apps/web/src/auth/bff/*`         |
+| Login refactor plan                             | `.omx/plans/web-login-page-refactor-plan.md`                 |
+| Signup structure benchmark                      | `apps/web/src/signup/README.md`                              |
 
 정책 문서와 화면 문구가 충돌하면 정책 문서를 우선하고 login copy/test를 갱신한다.

@@ -6,7 +6,7 @@ import {
   getForwardHeaders,
   setAuthCookie,
   setAuthTransportCookies,
-} from '../_shared';
+} from '@/auth/bff';
 
 const ACCESS_TOKEN = `v1.session-access.${'c'.repeat(43)}`;
 const RENEWAL_TOKEN = `v1.session-renewal.${'d'.repeat(43)}`;

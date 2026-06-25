@@ -7,7 +7,7 @@ type StrictRequestIssue = {
   keys?: readonly string[];
 };
 
-type StrictRequestSchema<TBody> = {
+export type StrictRequestSchema<TBody> = {
   safeParse: (
     value: unknown,
   ) =>

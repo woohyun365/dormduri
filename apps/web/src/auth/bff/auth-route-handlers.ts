@@ -1,11 +1,12 @@
 import type { NextRequest } from 'next/server';
+import { getAuthTokenCookie, setAuthTransportCookies } from './auth-cookies';
+import { forwardAuthRequest, getForwardHeaders } from './auth-forward';
 import {
-  buildJsonResponse,
-  forwardAuthRequest,
-  getAuthTokenCookie,
-  getForwardHeaders,
-  setAuthTransportCookies,
-} from './_shared';
+  parseStrictJsonRequest,
+  pickAuthMutationResponseBody,
+  type StrictRequestSchema,
+} from './auth-request-guard';
+import { buildJsonResponse } from './auth-response';
 
 export function createForwardPostHandler<TBody extends Record<string, unknown>>(path: string) {
   return async function POST(request: NextRequest) {
@@ -15,6 +16,25 @@ export function createForwardPostHandler<TBody extends Record<string, unknown>>(
     });
 
     return buildJsonResponse(response, json);
+  };
+}
+
+export function createStrictForwardPostHandler<TBody extends Record<string, unknown>>(input: {
+  path: string;
+  schema: StrictRequestSchema<TBody>;
+  invalidCode: string;
+}) {
+  return async function POST(request: NextRequest) {
+    const parsed = await parseStrictJsonRequest(request, input.schema, input.invalidCode);
+    if (!parsed.success) {
+      return parsed.response;
+    }
+
+    const { response, json } = await forwardAuthRequest('POST', input.path, parsed.data, {
+      headers: getForwardHeaders(request),
+    });
+
+    return buildJsonResponse(response, pickAuthMutationResponseBody(json));
   };
 }
 

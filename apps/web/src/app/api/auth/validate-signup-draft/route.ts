@@ -1,6 +1,8 @@
-import type { SignupDraftValidationRequest } from '@repo/shared/auth/contract';
-import { createForwardPostHandler } from '../_post-route';
+import { signupDraftValidationRequestSchema } from '@repo/shared/auth/contract';
+import { createStrictForwardPostHandler } from '@/auth/bff';
 
-export const POST = createForwardPostHandler<SignupDraftValidationRequest>(
-  '/auth/validate-signup-draft',
-);
+export const POST = createStrictForwardPostHandler({
+  path: '/auth/validate-signup-draft',
+  schema: signupDraftValidationRequestSchema,
+  invalidCode: 'INVALID_SIGNUP_DRAFT_REQUEST',
+});

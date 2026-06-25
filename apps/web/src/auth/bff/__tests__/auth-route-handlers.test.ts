@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createAuthenticatedForwardPostHandler } from '../_post-route';
+import { createAuthenticatedForwardPostHandler } from '@/auth/bff';
 
 const CURRENT_ACCESS_TOKEN = `v1.session-current-access.${'c'.repeat(43)}`;
 const ROTATED_ACCESS_TOKEN = `v1.session-rotated-access.${'a'.repeat(43)}`;
