@@ -75,7 +75,25 @@ describe('HomeQuickMenuSection', () => {
     await user.click(screen.getByRole('button', { name: /탐색 닫힘/ }));
 
     expect(screen.getByRole('button', { name: /탐색 닫힘/ })).toBeDisabled();
+    expect(screen.getByText('비시즌에는 타인 탐색과 새 매칭 요청이 닫혀 있어요.')).toBeVisible();
     expect(onNavigateList).not.toHaveBeenCalled();
+  });
+
+  it('disabled reason을 aria-describedby로 연결한다', () => {
+    render(
+      <HomeQuickMenuSection
+        {...defaultProps}
+        seasonState="SEASON_MATCHING"
+        canEnterRoommateSearch={false}
+        canStartChat={false}
+      />,
+    );
+
+    const searchButton = screen.getByRole('button', { name: /탐색 대기/ });
+    const reason = screen.getByText('등록 완료와 건물 선택 조건을 만족해야 룸메 탐색이 열려요.');
+    expect(searchButton).toBeDisabled();
+    expect(searchButton).toHaveAttribute('aria-describedby', reason.id);
+    expect(screen.getByText('채팅은 등록 완료 후 정책 조건을 만족할 때 열려요.')).toBeVisible();
   });
 
   it('매칭 현황 클릭 시 핸들러를 호출한다', async () => {

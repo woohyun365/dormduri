@@ -138,6 +138,14 @@ export default function HomeTab({
                 onOpenBuildingSelect={onOpenBuildingSelect}
               />
             }
+            readiness={
+              <HomeReadinessChecklist
+                dashboard={dashboard}
+                viewModel={viewModel}
+                onNavigate={onNavigate}
+                onOpenBuildingSelect={onOpenBuildingSelect}
+              />
+            }
             activity={
               <HomeActivityPanel
                 viewModel={viewModel}
@@ -167,17 +175,7 @@ export default function HomeTab({
                 onNavigateProfile={() => onNavigate('profile')}
               />
             }
-            tip={
-              <>
-                <HomeReadinessChecklist
-                  dashboard={dashboard}
-                  viewModel={viewModel}
-                  onNavigate={onNavigate}
-                  onOpenBuildingSelect={onOpenBuildingSelect}
-                />
-                <HomeStatusTip viewModel={viewModel} seasonState={seasonState} />
-              </>
-            }
+            tip={<HomeStatusTip viewModel={viewModel} seasonState={seasonState} />}
           />
         </div>
       </div>

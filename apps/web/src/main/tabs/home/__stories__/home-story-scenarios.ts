@@ -118,6 +118,15 @@ function createNoCurrentSeasonDashboard(): HomeDashboardResponse {
   };
 }
 
+function createNoCurrentSeasonWithoutHistoryDashboard(): HomeDashboardResponse {
+  return {
+    ...createNoCurrentSeasonDashboard(),
+    seasonHistorySummary: {
+      lastSeason: null,
+    },
+  };
+}
+
 function createOpenIncompleteDashboard(): HomeDashboardResponse {
   const base = createDashboard('SEASON_OPEN');
 
@@ -175,6 +184,35 @@ function createUnassignedDashboard(): HomeDashboardResponse {
         canEnterRoommateSearch: false,
         canSelectDormitory: true,
         canRequestMatch: false,
+      },
+    },
+  };
+}
+
+function createRegistrationUnavailableDashboard(): HomeDashboardResponse {
+  const base = createDashboard('SEASON_OPEN');
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      seasonProfile: {
+        ...base.viewer.seasonProfile,
+        registered: false,
+        completion: {
+          profileCompletionRequired: false,
+          dormitorySelectionRequired: false,
+          registrationUnavailable: true,
+          registrationUnavailableReasons: ['DORMITORY_SELECTION_CLOSED'],
+        },
+        canFinalizeRegistration: false,
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: false,
+        canFinalizeSeasonRegistration: false,
+        canRequestMatch: false,
+        canStartChat: false,
       },
     },
   };
@@ -264,9 +302,15 @@ export const homeStoryScenarios = {
     seasonContext: createSeasonContext('OFF_SEASON', 0),
   },
   noCurrentSeason: {
-    title: '현재 시즌 없음',
-    description: '활성 시즌이 없을 때 새 시즌 일정을 기다리도록 안내합니다.',
+    title: '2026-01 지난 기록 + 2026-02 준비 preview',
+    description: '활성 시즌이 없을 때 지난 시즌 요약과 다음 시즌 준비 일정을 함께 안내합니다.',
     dashboard: createNoCurrentSeasonDashboard(),
+    seasonContext: createSeasonContext('OFF_SEASON', 0),
+  },
+  noHistoryNoCurrentSeason: {
+    title: '현재 시즌 없음 / 기록 없음',
+    description: '완료된 시즌 기록이 아직 없을 때 fallback copy와 다음 시즌 preview만 보여줍니다.',
+    dashboard: createNoCurrentSeasonWithoutHistoryDashboard(),
     seasonContext: createSeasonContext('OFF_SEASON', 0),
   },
   seasonOpenProfileIncomplete: {
@@ -286,6 +330,13 @@ export const homeStoryScenarios = {
     description: '건물 배정이 없어 탐색과 요청이 잠긴 상태의 안내입니다.',
     dashboard: createUnassignedDashboard(),
     seasonContext: createSeasonContext('SEASON_MATCHING', 25),
+  },
+  registrationUnavailable: {
+    title: '시즌 오픈 / 등록 불가 reason',
+    description:
+      '등록 불가 reason이 있을 때 checklist와 quick action이 사용자용 사유를 보여줍니다.',
+    dashboard: createRegistrationUnavailableDashboard(),
+    seasonContext: createSeasonContext('SEASON_OPEN', 0),
   },
   matchingPendingReceived: {
     title: '매칭 기간 / 받은 요청 있음',
@@ -404,6 +455,12 @@ export const homeStoryScenarios = {
         },
       };
     })(),
+    seasonContext: createSeasonContext('SEASON_OPEN', 0),
+  },
+  onboardingNoticeDismissed: {
+    title: '서비스 시작 안내 닫힘',
+    description: 'service-intro를 이미 다시 보지 않기로 닫은 사용자의 기본 Home 상태입니다.',
+    dashboard: createDashboard('SEASON_OPEN'),
     seasonContext: createSeasonContext('SEASON_OPEN', 0),
   },
 } satisfies Record<string, HomeStoryScenario>;

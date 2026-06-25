@@ -62,11 +62,12 @@ export function HomeQuickMenuSection({
     <div>
       <h2 className="font-bold text-(--knu-text-primary) mb-3">빠른 메뉴</h2>
       <div className="grid grid-cols-2 gap-3">
-        {actions.map((action) => (
+        {actions.map((action, index) => (
           <QuickActionCard
             key={`${action.target}:${action.label}`}
             action={action}
             onClick={handlers[action.target]}
+            reasonId={`home-quick-action-${index}-reason`}
           />
         ))}
       </div>
@@ -91,8 +92,17 @@ const ICONS: Record<HomeQuickActionIcon, React.ElementType> = {
   user: UserIcon,
 };
 
-function QuickActionCard({ action, onClick }: { action: HomeQuickAction; onClick: () => void }) {
+function QuickActionCard({
+  action,
+  onClick,
+  reasonId,
+}: {
+  action: HomeQuickAction;
+  onClick: () => void;
+  reasonId: string;
+}) {
   const Icon = ICONS[action.icon];
+  const describedBy = action.disabledReason ? reasonId : undefined;
 
   return (
     <motion.button
@@ -101,6 +111,7 @@ function QuickActionCard({ action, onClick }: { action: HomeQuickAction; onClick
       onClick={action.disabled ? undefined : onClick}
       disabled={Boolean(action.disabled)}
       aria-disabled={action.disabled ? 'true' : undefined}
+      aria-describedby={describedBy}
       className={`relative bg-white rounded-2xl border-2 border-(--knu-border) p-4 text-left transition-all ${
         action.disabled
           ? 'opacity-50 cursor-not-allowed'
@@ -114,6 +125,11 @@ function QuickActionCard({ action, onClick }: { action: HomeQuickAction; onClick
       </div>
       <h3 className="font-bold text-sm text-(--knu-text-primary) mb-0.5">{action.label}</h3>
       <p className="text-xs text-(--knu-text-tertiary)">{action.description}</p>
+      {action.disabledReason && (
+        <p id={reasonId} className="mt-2 text-[11px] leading-relaxed text-amber-700">
+          {action.disabledReason}
+        </p>
+      )}
     </motion.button>
   );
 }

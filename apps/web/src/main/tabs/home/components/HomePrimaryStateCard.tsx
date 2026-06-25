@@ -184,11 +184,13 @@ function resolvePrimaryContent({
     return {
       eyebrow: '시즌 대기',
       title: '현재 진행 중인 시즌이 없어요',
-      body: '새 시즌 일정이 열리면 프로필 준비, 건물 선택, 매칭 활동을 이 화면에서 순서대로 안내할게요.',
+      body: '새 시즌 일정이 열리면 시즌 프로필 준비, 건물 선택, 등록 확정, 매칭 활동을 이 화면에서 순서대로 안내할게요.',
       icon: CalendarDays,
       tone: 'slate',
       action: { label: '내 프로필 확인', icon: UserRound, onClick: goProfile },
-      helper: '비시즌에는 타인 탐색과 새 매칭 요청이 열리지 않아요.',
+      helper: viewModel.seasonSummary.nextSeasonName
+        ? `${viewModel.seasonSummary.nextSeasonName} 준비 일정이 공개되면 홈에서 다시 알려드릴게요.`
+        : '비시즌에는 타인 탐색과 새 매칭 요청이 열리지 않아요.',
     };
   }
 
@@ -204,7 +206,7 @@ function resolvePrimaryContent({
     return {
       eyebrow: '시즌 오픈',
       title: '시즌 프로필을 준비해요',
-      body: '생활패턴과 건물 선택을 정리하고 시즌 등록을 마치면 매칭 기간에 같은 건물 후보와 더 정확히 연결될 수 있어요.',
+      body: '생활패턴과 건물 선택을 정리하고 시즌 등록을 마치면 같은 건물 후보 요약을 확인할 수 있어요. 새 매칭 요청은 매칭 기간에 열려요.',
       icon: Sparkles,
       tone: needsBuilding ? 'amber' : 'blue',
       action,
@@ -218,7 +220,7 @@ function resolvePrimaryContent({
       return {
         eyebrow: '건물 필요',
         title: '건물 배정 후 매칭을 시작해요',
-        body: '건물을 선택해야 같은 건물 기준의 룸메 후보를 보고 매칭 요청을 보낼 수 있어요.',
+        body: '시즌 등록과 건물 선택이 준비되어야 같은 건물 기준의 룸메 후보를 보고 매칭 요청을 보낼 수 있어요.',
         icon: Building2,
         tone: 'amber',
         action: { label: '건물 배정하기', icon: Building2, onClick: openBuildingSelect },
@@ -276,7 +278,7 @@ function resolvePrimaryContent({
       title: viewModel.hasActiveMatch ? '확정 결과를 확인해요' : '이번 시즌 결과를 정리해요',
       body: viewModel.hasActiveMatch
         ? `${viewModel.activeMatch?.partnerNickname ?? '상대'}님과의 확정 결과를 확인할 수 있어요. 새 매칭 요청은 닫혔고, 확정된 대화는 정책이 허용하는 기간에만 이어질 수 있어요.`
-        : '새 룸메 탐색과 매칭 요청은 닫혔어요. 이번 시즌 기록과 이전 시즌 결과를 확인할 수 있어요.',
+        : '새 룸메 탐색과 매칭 요청은 닫혔어요. 이번 시즌 결과와 이전 시즌 기록을 확인할 수 있어요.',
       icon: History,
       tone: 'purple',
       action: { label: '시즌 결과 보기', icon: History, onClick: goPastMatching },

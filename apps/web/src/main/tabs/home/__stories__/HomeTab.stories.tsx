@@ -62,12 +62,14 @@ function createStory(scenario: HomeStoryScenario): Story {
 
 export const OffSeason = createStory(homeStoryScenarios.offSeason);
 export const NoCurrentSeason = createStory(homeStoryScenarios.noCurrentSeason);
+export const NoHistoryNoCurrentSeason = createStory(homeStoryScenarios.noHistoryNoCurrentSeason);
 export const SeasonOpenProfileIncomplete = createStory(
   homeStoryScenarios.seasonOpenProfileIncomplete,
 );
 export const SeasonOpenRegisteredAssigned = createStory(
   homeStoryScenarios.seasonOpenRegisteredAssigned,
 );
+export const RegistrationUnavailable = createStory(homeStoryScenarios.registrationUnavailable);
 export const SeasonMatchingNoBuilding = createStory(homeStoryScenarios.matchingNoBuilding);
 export const SeasonMatchingPendingReceived = createStory(
   homeStoryScenarios.matchingPendingReceived,
@@ -77,6 +79,7 @@ export const ActiveMatchUnreadChat = createStory(homeStoryScenarios.activeMatchU
 export const PostMatchHistory = createStory(homeStoryScenarios.postMatchHistory);
 export const NonOperatedCampus = createStory(homeStoryScenarios.nonOperatedCampus);
 export const OnboardingNoticeOpen = createStory(homeStoryScenarios.onboardingNoticeOpen);
+export const OnboardingNoticeDismissed = createStory(homeStoryScenarios.onboardingNoticeDismissed);
 
 export const LoadingSkeleton: Story = {
   name: '로딩 스켈레톤',

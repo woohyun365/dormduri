@@ -36,6 +36,37 @@ describe('HomeOnboardingSheet', () => {
     expect(onDismissPermanently).toHaveBeenCalledOnce();
   });
 
+  it('current season이 없으면 강제 tour 대신 새 시즌 전 안내를 보여준다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        hasCurrentSeason: false,
+        state: null,
+        summary: null,
+        schedule: null,
+        isOpen: false,
+        isMatching: false,
+        isPostMatch: false,
+        daysUntilMatchingEnd: null,
+        daysUntilSeasonEnd: null,
+      },
+    });
+
+    render(
+      <HomeOnboardingSheet
+        open
+        viewModel={buildViewModel(dashboard)}
+        onClose={vi.fn()}
+        onDismissPermanently={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole('dialog', { name: '새 시즌 전 홈에서 할 수 있는 일' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/진행 중인 시즌이 없을 때는 프로필을 정비/)).toBeInTheDocument();
+  });
+
   it('Escape는 저장 없이 이번 화면에서만 닫는다', async () => {
     const userEventInstance = userEvent.setup();
     const onClose = vi.fn();

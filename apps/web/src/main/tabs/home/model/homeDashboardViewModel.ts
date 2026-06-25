@@ -66,9 +66,11 @@ export interface HomeDashboardPreparationViewModel {
 
 export interface HomeDashboardSeasonSummaryViewModel {
   pastSeasonName: string;
+  lastSeason: HomeDashboardResponse['seasonHistorySummary']['lastSeason'];
   daysUntilNext: number;
   nextSeasonDate: string;
   nextSeasonName: string;
+  hasNextSeasonPreview: boolean;
 }
 
 export interface HomeDashboardTipViewModel {
@@ -470,13 +472,15 @@ function buildSeasonSummaryViewModel({
   const nextSeason = dashboard.nextSeasonPreview?.visibleToUser
     ? dashboard.nextSeasonPreview
     : null;
+  const lastSeason = dashboard.seasonHistorySummary.lastSeason;
   const nextSeasonStart = nextSeason?.preparationStartDate ?? null;
   const nextSeasonStartTs = nextSeasonStart
     ? new Date(`${nextSeasonStart}T00:00:00+09:00`).getTime()
     : null;
 
   return {
-    pastSeasonName: dashboard.seasonHistorySummary.lastSeason?.name ?? season.name,
+    pastSeasonName: lastSeason?.name ?? season.name,
+    lastSeason,
     daysUntilNext:
       nextSeasonStartTs !== null
         ? calcDaysUntilTimestamp(nextSeasonStartTs, renderedAt)
@@ -491,6 +495,7 @@ function buildSeasonSummaryViewModel({
           : '',
     nextSeasonName:
       nextSeason?.name ?? (schedule.hasUpcomingSeasonWindow ? getNextSeasonName(season.name) : ''),
+    hasNextSeasonPreview: nextSeason !== null || schedule.hasUpcomingSeasonWindow,
   };
 }
 

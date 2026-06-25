@@ -16,6 +16,8 @@ Home은 현재 사용자에게 “지금 할 수 있는 다음 행동”을 안�
   - `SEASON_OPEN`: 생활패턴, 건물 선택, 시즌 등록 준비를 안내하되 매칭 요청은 열지 않는다.
   - `SEASON_MATCHING`: dashboard capability가 허용할 때 같은 건물 후보 탐색, 대화, 매칭 요청 진입을 안내한다.
   - `SEASON_POST_MATCH`: 새 요청 대신 확정 결과, 과거 기록, 허용된 대화 확인 중심으로 안내한다.
+- 모바일 Home content order는 `primary → readiness → tip → activity → stats → quickActions`로 고정한다.
+  데스크톱에서는 주요 행동(`primary`, `activity`, `quickActions`)과 보조 정보(`readiness`, `stats`, `tip`)를 2-column으로 분리한다.
 - 비운영 캠퍼스에서는 Home content를 inert/aria-hidden 처리하고 계정 정보 확인 정도의 대기 UX만 제공한다.
 - Home 진입만으로 건물 선택 modal을 자동으로 열지 않는다. 건물 선택은 명시 CTA를 통해서만 시작한다.
 
@@ -52,13 +54,13 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 | `HomeTab.tsx`                                                             | Home composition, dashboard view model 소비, section 조합, CTA routing                      |
 | `HomeDashboardLayout.tsx`                                                 | mobile single-column / desktop two-column layout owner                                      |
 | `components/HomePrimaryStateCard.tsx`                                     | 시즌·참여 상태별 primary next action card                                                   |
-| `components/HomeActivityPanel.tsx`, `components/HomeStatsPanel.tsx`       | dashboard summary and activity panels                                                       |
+| `components/HomeActivityPanel.tsx`, `components/HomeStatsPanel.tsx`       | dashboard activity, current season stats, past season history, next season preview panels   |
 | `components/HomeDashboardErrorState.tsx`                                  | Home dashboard API/BFF failure safe retry state                                             |
 | `components/HomeMatchingSummary.tsx`, `components/UrgentActionBanner.tsx` | matching/chat/request activity summary                                                      |
 | `components/HomeReadinessChecklist.tsx`                                   | current-user capability와 registration 상태 기반 readiness checklist                        |
 | `components/HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts`  | `service-intro` 안내 표시·닫기·영구 dismiss flow                                            |
 | `components/BuildingStatsBar.tsx`, `components/DynamicTipBanner.tsx`      | season stats and contextual guide widgets                                                   |
-| `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry and static/dynamic guide copy                                    |
+| `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry, disabled reason, static/dynamic guide copy                      |
 | `model/`                                                                  | pure policy/view-model helpers and tests                                                    |
 | `../../test-support/home-dashboard.builder.ts`                            | Home/Main unit·component tests 및 Storybook story data 전용 `HomeDashboardResponse` builder |
 | `__stories__/`                                                            | HomeTab visual state workshop 전용 story surface                                            |
@@ -101,7 +103,7 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 
 - 실행: `pnpm --dir apps/web storybook`
 - 정적 빌드 검증: `pnpm --dir apps/web storybook:build`
-- 현재 story matrix는 비시즌, 현재 시즌 없음, 시즌 오픈 준비/등록 완료, 매칭 기간 건물 미배정, 받은/보낸 요청, 확정 매칭, 시즌 마감, 비운영 캠퍼스, `service-intro` 안내 열림, 로딩 skeleton, 오류 복구 상태를 포함한다.
+- 현재 story matrix는 비시즌, 현재 시즌 없음 + 지난 기록/다음 시즌 preview, 현재 시즌 없음 + 기록 없음, 시즌 오픈 준비/등록 완료/등록 불가 reason, 매칭 기간 건물 미배정, 받은/보낸 요청, 확정 매칭, 시즌 마감, 비운영 캠퍼스, `service-intro` 안내 열림/닫힘, 로딩 skeleton, 오류 복구 상태를 포함한다.
 - story data는 `main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `main/test-support`, `src/__fixtures__`를 import하면 안 된다.
 - `storybook:build`는 visual workshop surface가 빌드 가능한지 확인할 뿐, API/BFF/auth/DB 정합성 완료 근거가 아니다.
 
