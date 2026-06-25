@@ -90,9 +90,9 @@ pnpm --dir apps/web exec vitest run src/login src/auth/hooks/__tests__/useRedire
 pnpm --dir apps/web exec vitest run src/app/api/auth/__tests__/login-route.test.ts src/auth/api/__tests__/auth-api.client.test.ts
 pnpm --dir apps/api exec vitest run --config ./vitest.config.unit.ts --maxWorkers=50% src/architecture
 pnpm web:typecheck
-pnpm --dir apps/web exec eslint src/app/login/page.tsx src/auth/hooks/useCurrentUser.ts src/auth/hooks/useRedirectIfAuthenticated.ts src/login src/app/main/__tests__/MainRouteShell.test.tsx src/proxy.test.ts e2e/smoke.spec.ts e2e/main-home.fullstack.spec.ts
+pnpm --dir apps/web exec eslint src/app/login/page.tsx src/auth/hooks/useAuthSession.ts src/auth/hooks/useRedirectIfAuthenticated.ts src/login src/app/main/__tests__/MainRouteShell.test.tsx src/proxy.test.ts e2e/smoke.spec.ts e2e/main-home.fullstack.spec.ts
 pnpm api:typecheck
-pnpm exec prettier --check --ignore-unknown apps/web/src/app/login/page.tsx apps/web/src/auth/hooks/useCurrentUser.ts apps/web/src/login apps/web/e2e docs/04_policy/official/production-deployment-readiness.md .omx/plans/web-login-page-refactor-plan.md
+pnpm exec prettier --check --ignore-unknown apps/web/src/app/login/page.tsx apps/web/src/auth/hooks/useAuthSession.ts apps/web/src/login apps/web/e2e docs/04_policy/official/production-deployment-readiness.md .omx/plans/web-login-page-refactor-plan.md
 pnpm --dir apps/web exec playwright test e2e/smoke.spec.ts --project=desktop-chromium
 git diff --check
 ```

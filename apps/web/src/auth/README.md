@@ -6,8 +6,8 @@ API/NestJS auth domain, DB/session/token/SES/Redis/BackOffice 구현은 이 경�
 
 ## Current baseline
 
-Phase 3 기준으로 이 directory에는 `api/*`, `bff/*`, `components/*`, `hooks/*`, `model/*`, `to-user-profile.ts`가 존재한다.
-Auth-wide component/hook/model은 root shared tree에서 제거되었고, 개별 화면 구현만 아직 아래 legacy flow 위치에 남아 있다.
+Phase 3-1 기준으로 이 directory에는 `api/*`, `bff/*`, `components/*`, `hooks/*`, `model/*`가 존재한다.
+Auth-wide component/hook/model은 root shared tree에서 제거되었고, auth session hook은 계정 identity만 반환한다. 개별 화면 구현만 아직 아래 legacy flow 위치에 남아 있다.
 이 flow 경로들은 Phase 3에서 의도적으로 허용되는 migration ledger이며, 최종 구조가 아니다.
 
 | Current path         | Current responsibility             | Target phase |
@@ -30,7 +30,7 @@ Auth-wide component/hook/model은 root shared tree에서 제거되었고, 개별
 | `src/app/api/auth/_request-guard.ts`      | `src/auth/bff/auth-*`                                    | Phase 2         |
 | `src/components/AuthHeader.tsx`           | `src/auth/components/*`                                  | Phase 3         |
 | `src/components/auth/*`                   | `src/auth/components/*`                                  | Phase 3         |
-| `src/hooks/useCurrentUser.ts`             | `src/auth/hooks/*`                                       | Phase 3         |
+| `src/hooks/useCurrentUser.ts`             | `src/auth/hooks/useAuthSession.ts`                       | Phase 3-1       |
 | `src/hooks/useRedirectIfAuthenticated.ts` | `src/auth/hooks/*`                                       | Phase 3         |
 | `src/hooks/useCountdown.ts`               | `src/auth/hooks/useAuthCountdown.ts`                     | Phase 3         |
 | `src/constants/auth.ts`                   | `src/auth/model/*`, `src/signup/model/campus-options.ts` | Phase 3         |
@@ -60,7 +60,7 @@ apps/web/src/auth/
     AuthStatusAlert.tsx
     PasswordRequirementList.tsx
   hooks/
-    useCurrentUser.ts
+    useAuthSession.ts
     useRedirectIfAuthenticated.ts
     useAuthCountdown.ts
   model/
@@ -74,6 +74,14 @@ apps/web/src/auth/
 
 The exact internal file names may change when a later phase finds a smaller split.
 The boundary rule is stable: auth-owned browser, BFF, UI, hook, and model code should live under `auth/` unless Next.js requires a framework entrypoint elsewhere.
+
+## Auth session vs Main profile ownership
+
+- `useAuthSession`은 `/api/auth/session` 결과를 그대로 계정 identity로 다룬다. 반환 타입은 `AuthenticatedSessionUser | null` 범위이며 `UserProfile`이 아니다.
+- `auth`는 Display Identity와 Academic Identity를 signup/account setup 입력 및 account/session response 표시 범위로만 다룬다. 생성·검증의 source-of-truth는 API auth/user identity owner다.
+- `UserProfile`, 생활패턴, 자기소개, 기숙사 선택, 시즌 참여 상태는 Main/profile/season read path가 소유한다.
+- `/main`은 auth session gate 이후 profile/main bootstrap을 별도로 수행한다. profile이 없거나 실패하면 auth 성공으로 위장하지 않고 Main owner의 fallback/error state를 표시한다.
+- `auth/to-user-profile.ts` 같은 compatibility mapper는 두지 않는다. mock/dev profile 변환이 필요하면 profile/main owner 쪽에 둔다.
 
 ## Public/private import rule
 
@@ -91,8 +99,8 @@ Private implementation areas should not be deep-imported by non-auth features:
 - `@/auth/flows/*/model/*`
 - `@/auth/components/*` except through an auth-owned facade if one is added.
 
-The Phase 3 codebase no longer imports `@/api/auth`, route-local `../_shared`, `../_post-route`, `../_request-guard` helpers, or root auth shared paths such as `@/constants/auth`, `@/components/AuthHeader`, `@/components/auth`, `@/hooks/useCurrentUser`, `@/hooks/useRedirectIfAuthenticated`, and `@/hooks/useCountdown`.
-External browser consumers use `@/auth/api`, `@/auth/components`, `@/auth/hooks`, and `@/auth/model` facades as appropriate; App Router auth route adapters use the private `@/auth/bff` facade.
+The Phase 3-1 codebase no longer imports `@/api/auth`, route-local `../_shared`, `../_post-route`, `../_request-guard` helpers, or root auth shared paths such as `@/constants/auth`, `@/components/AuthHeader`, `@/components/auth`, `@/hooks/useCurrentUser`, `@/hooks/useRedirectIfAuthenticated`, and `@/hooks/useCountdown`.
+External browser consumers use `@/auth/api`, `@/auth/components`, `@/auth/hooks`, and `@/auth/model` facades as appropriate; App Router auth route adapters use the private `@/auth/bff` facade. `@/auth/hooks`의 session hook은 `SessionResponse.user` 계정 identity만 제공하며 `UserProfile`, 생활패턴, 기숙사, 시즌 참여 상태를 생성하지 않는다.
 `@/login`, `@/signup`, and `@/password-reset` remain migration inputs until the flow move phase.
 Those paths are migration inputs, not final public APIs.
 
@@ -148,20 +156,21 @@ If an external feature still needs auth behavior, expose that behavior through t
 
 ## Phase migration map
 
-| Phase   | Boundary outcome                                                                                           |
-| ------- | ---------------------------------------------------------------------------------------------------------- |
-| Phase 0 | This README and a passing architecture migration ledger exist. No product behavior changes.                |
-| Phase 1 | `src/api/auth.ts` is split into `auth/api/*`; external consumers use `@/auth/api`.                         |
-| Phase 2 | `app/api/auth/_*.ts` helper logic moves to `auth/bff/*`; route files stay thin App Router adapters.        |
-| Phase 3 | Auth-only root components, hooks, and constants move to `auth/components`, `auth/hooks`, and `auth/model`. |
-| Phase 4 | `login`, `signup`, and `password-reset` implementations move to `auth/flows/*`.                            |
-| Phase 5 | Architecture guard switches from migration ledger to strict final import enforcement.                      |
-| Phase 6 | Auth UX smoke, accessibility, and security regression tests prove the moved boundary still works.          |
-| Phase 7 | Final docs/checkpoint clarify #260 close readiness and follow-up issues.                                   |
+| Phase     | Boundary outcome                                                                                           |
+| --------- | ---------------------------------------------------------------------------------------------------------- |
+| Phase 0   | This README and a passing architecture migration ledger exist. No product behavior changes.                |
+| Phase 1   | `src/api/auth.ts` is split into `auth/api/*`; external consumers use `@/auth/api`.                         |
+| Phase 2   | `app/api/auth/_*.ts` helper logic moves to `auth/bff/*`; route files stay thin App Router adapters.        |
+| Phase 3   | Auth-only root components, hooks, and constants move to `auth/components`, `auth/hooks`, and `auth/model`. |
+| Phase 3-1 | Auth session hook returns account identity only; Main/profile bootstrap owns `UserProfile`.                |
+| Phase 4   | `login`, `signup`, and `password-reset` implementations move to `auth/flows/*`.                            |
+| Phase 5   | Architecture guard switches from migration ledger to strict final import enforcement.                      |
+| Phase 6   | Auth UX smoke, accessibility, and security regression tests prove the moved boundary still works.          |
+| Phase 7   | Final docs/checkpoint clarify #260 close readiness and follow-up issues.                                   |
 
 ## Verification map
 
-Phase 3 focused baseline:
+Phase 3-1 focused baseline:
 
 ```bash
 pnpm --dir apps/web exec vitest run \
@@ -171,12 +180,16 @@ pnpm --dir apps/web exec vitest run \
   src/signup \
   src/password-reset \
   src/app/main/__tests__/MainRouteShell.test.tsx \
-  src/app/main/__tests__/main-route-boundary.test.ts
+  src/app/main/__tests__/main-route-boundary.test.ts \
+  src/api/__tests__/profile-user.mapper.test.ts
 
 pnpm exec prettier --check --ignore-unknown \
   apps/web/src/auth \
   apps/web/src/login/README.md \
   apps/web/src/signup/model/campus-options.ts \
+  apps/web/src/api/profile.ts \
+  apps/web/src/api/profile-user.mapper.ts \
+  apps/web/src/main/hooks/useMainBootstrap.ts \
   .omx/plans/web-auth-boundary-final-refactor-plan.md
 
 pnpm --dir apps/web exec eslint src/auth src/app/api/auth src/login src/signup src/password-reset src/app/main

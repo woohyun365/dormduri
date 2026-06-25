@@ -25,13 +25,23 @@ const phase3RemovedPaths = [
   'hooks/useCountdown.ts',
 ] as const;
 
+const phase31RemovedPaths = ['auth/to-user-profile.ts', 'auth/hooks/useCurrentUser.ts'] as const;
+
+const phase31ForbiddenAuthSourcePatterns = [
+  '@/types/profile',
+  '@/types/lifestyle',
+  'UserProfile',
+  'toUserProfile',
+  'to-user-profile',
+] as const;
+
 const authSharedEntrypoints = [
   'auth/components/index.ts',
   'auth/components/AuthHeader.tsx',
   'auth/components/PasswordRequirementList.tsx',
   'auth/components/__tests__/PasswordRequirementList.test.tsx',
   'auth/hooks/index.ts',
-  'auth/hooks/useCurrentUser.ts',
+  'auth/hooks/useAuthSession.ts',
   'auth/hooks/useRedirectIfAuthenticated.ts',
   'auth/hooks/useAuthCountdown.ts',
   'auth/hooks/__tests__/useRedirectIfAuthenticated.test.ts',
@@ -132,8 +142,6 @@ describe('web auth boundary migration ledger', () => {
   });
 
   it('tracks current legacy auth paths that later phases intentionally remove', () => {
-    expect(pathExists('auth/to-user-profile.ts')).toBe(true);
-
     for (const relativePath of currentLegacyPaths) {
       expect(
         pathExists(relativePath),
@@ -205,6 +213,26 @@ describe('web auth boundary migration ledger', () => {
       .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
 
     expect(filesWithOldAuthSharedImports).toEqual([]);
+  });
+
+  it('keeps Phase 3-1 auth session identity separated from profile/main view models', () => {
+    for (const relativePath of phase31RemovedPaths) {
+      expect(pathExists(relativePath), `${relativePath} should be removed after Phase 3-1`).toBe(
+        false,
+      );
+    }
+
+    expect(pathExists('auth/hooks/useAuthSession.ts')).toBe(true);
+
+    const filesWithProfileOwnedSource = listSourceFiles(join(webSrc, 'auth'))
+      .filter((sourcePath) => sourcePath !== boundaryTestPath)
+      .filter((sourcePath) => {
+        const source = readFileSync(sourcePath, 'utf8');
+        return phase31ForbiddenAuthSourcePatterns.some((pattern) => source.includes(pattern));
+      })
+      .map((sourcePath) => sourcePath.replace(`${webSrc}/`, ''));
+
+    expect(filesWithProfileOwnedSource).toEqual([]);
   });
 
   it('keeps final forbidden import patterns discoverable without enforcing flow moves before Phase 5', () => {

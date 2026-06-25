@@ -1,7 +1,7 @@
 // TODO: BE API 연동 시 실제 endpoint로 교체
 
 import type { Campus, RoommateProfile, UserProfile } from '@/types/profile';
-import { toUserProfile } from '@/auth/to-user-profile';
+import { toProfileUserProfile } from './profile-user.mapper';
 
 async function getMockData() {
   if (process.env.NODE_ENV === 'development') {
@@ -35,7 +35,7 @@ export const profileApi = {
     const mock = await getMockData();
     if (mock) {
       const user = mock.mockDb.getCurrentUser();
-      return user ? toUserProfile(user) : null;
+      return user ? toProfileUserProfile(user) : null;
     }
     // TODO: GET /api/users/me
     return null;

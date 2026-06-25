@@ -1,3 +1,3 @@
 export { useAuthCountdown } from './useAuthCountdown';
-export { useCurrentUser } from './useCurrentUser';
+export { useAuthSession } from './useAuthSession';
 export { useRedirectIfAuthenticated } from './useRedirectIfAuthenticated';

@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { useRedirectIfAuthenticated } from '../useRedirectIfAuthenticated';
-import { useCurrentUser } from '../useCurrentUser';
+import { useAuthSession } from '../useAuthSession';
 
 const mockReplace = vi.fn();
 
@@ -9,19 +9,20 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
-vi.mock('../useCurrentUser', () => ({
-  useCurrentUser: vi.fn(),
+vi.mock('../useAuthSession', () => ({
+  useAuthSession: vi.fn(),
 }));
 
-const mockUseCurrentUser = vi.mocked(useCurrentUser);
+const mockUseAuthSession = vi.mocked(useAuthSession);
 
 describe('useRedirectIfAuthenticated', () => {
   afterEach(() => {
     mockReplace.mockClear();
+    mockUseAuthSession.mockReset();
   });
 
   it('로딩 중이면 isReadyToRender가 false이고 리다이렉트하지 않는다', () => {
-    mockUseCurrentUser.mockReturnValue({ user: null, setUser: vi.fn(), isLoading: true });
+    mockUseAuthSession.mockReturnValue({ user: null, isLoading: true });
 
     const { result } = renderHook(() => useRedirectIfAuthenticated());
 
@@ -29,10 +30,15 @@ describe('useRedirectIfAuthenticated', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('인증된 사용자는 /main으로 리다이렉트되고 isReadyToRender가 false다', () => {
-    mockUseCurrentUser.mockReturnValue({
-      user: { id: '1', nickname: 'tester' } as ReturnType<typeof useCurrentUser>['user'],
-      setUser: vi.fn(),
+  it('인증된 session identity는 /main으로 리다이렉트되고 isReadyToRender가 false다', () => {
+    mockUseAuthSession.mockReturnValue({
+      user: {
+        id: '1',
+        email: 'tester@kangwon.ac.kr',
+        nickname: 'tester',
+        gender: 'M',
+        campus: 'CHUNCHEON',
+      },
       isLoading: false,
     });
 
@@ -43,7 +49,7 @@ describe('useRedirectIfAuthenticated', () => {
   });
 
   it('비인증 사용자는 isReadyToRender가 true이고 리다이렉트하지 않는다', () => {
-    mockUseCurrentUser.mockReturnValue({ user: null, setUser: vi.fn(), isLoading: false });
+    mockUseAuthSession.mockReturnValue({ user: null, isLoading: false });
 
     const { result } = renderHook(() => useRedirectIfAuthenticated());
 

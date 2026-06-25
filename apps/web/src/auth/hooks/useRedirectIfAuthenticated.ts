@@ -2,11 +2,11 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCurrentUser } from './useCurrentUser';
+import { useAuthSession } from './useAuthSession';
 
 export function useRedirectIfAuthenticated() {
   const router = useRouter();
-  const { user, isLoading } = useCurrentUser();
+  const { user, isLoading } = useAuthSession();
 
   useEffect(() => {
     if (!isLoading && user) {
