@@ -8,6 +8,7 @@ Home은 현재 사용자에게 “지금 할 수 있는 다음 행동”을 안�
 
 - `HomeDashboardResponse`를 기준으로 현재 시즌, 내 시즌 참여 상태, 건물 선택 상태, 매칭 요약, 준비 체크리스트를 렌더링한다.
 - `GET /api/home/dashboard` Web BFF를 통해 Home 전용 dashboard read model을 가져온다.
+- Web client의 `homeApi` public surface는 `getDashboard()` 하나로 고정한다. `getBuildingStats`, `getPastSeasonResult`, `getPastSeasons` 같은 legacy widget/mock method는 Home 완료 범위로 복원하지 않는다.
 - Home first render는 `profileApi.getMyProfile()`이나 global fixture/mock DB를 요구하지 않는다.
 - 계정 표시 identity와 시즌 프로필 준비 상태는 Home dashboard/current-user contract의 allowlist DTO에서 분리해 소비한다.
 - `viewer.onboarding.dismissedNotices`와 `PATCH /api/users/me/onboarding`을 통해 `service-intro` 안내 닫힘 상태를 반영한다.
@@ -37,7 +38,7 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 
 | 주제                          | Source                                                                                                                                        |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Home dashboard read model     | `packages/shared/src/home/dashboard.ts`, `apps/web/src/api/home.ts`, `apps/web/src/app/api/home/dashboard/route.ts`                           |
+| Home dashboard read model     | `packages/shared/src/home/dashboard.ts`, `apps/web/src/api/home.ts` (`getDashboard()` only), `apps/web/src/app/api/home/dashboard/route.ts`   |
 | Current-user onboarding state | `packages/shared/src/user/current-user.ts`, `apps/web/src/api/current-user.ts`, `apps/web/src/app/api/users/me/onboarding/route.ts`           |
 | Home dashboard fetch state    | `apps/web/src/main/hooks/useMainHomeDashboard.ts`                                                                                             |
 | Dashboard → Home view model   | `apps/web/src/main/tabs/home/model/homeDashboardViewModel.ts`                                                                                 |
@@ -82,7 +83,7 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 - `src/main/hooks/__tests__/useMainHomeDashboard.test.tsx`
   - dashboard fetch success/error/retry state, status별 safe copy, previous success preservation.
 - `src/api/__tests__/home-dashboard-bff.contract.test.ts`
-  - `homeApi.getDashboard` no-store fetch, shared schema parse, upstream error fallback 금지.
+  - `homeApi.getDashboard` no-store fetch, shared schema parse, upstream error fallback 금지, legacy widget/mock method 복원 금지.
 - `src/app/api/home/dashboard/route.test.ts`
   - BFF auth forward, schema guard, non-json/malformed JSON safe error, internal key fail-closed.
 - `src/app/api/users/me/onboarding/route.test.ts`, `src/api/__tests__/current-user.test.ts`
@@ -171,7 +172,7 @@ pnpm --dir apps/api prisma:seed:run
 
 - `/main` production runtime path는 `@/__fixtures__`를 direct/dynamic import하지 않는다.
 - `/main` Home first render path는 `profileApi.getMyProfile()` failure/null을 Home render blocker로 삼지 않는다.
-- `apps/web/src/__fixtures__` 아래 mock DB/matching service는 local development panel 또는 legacy unit test support 용도로만 남긴다.
+- `apps/web/src/__fixtures__` 아래 mock DB/matching service는 local development panel 또는 legacy unit test support 용도로만 남긴다. Home API client는 이 mock surface를 import하지 않는다.
 - Home dashboard unit/component tests는 global fixture data가 아니라 `main/test-support`의 typed builder로 shared contract shape만 만든다.
 - 실제 로그인 사용자 기준 browser/manual 검증은 DB seed 계정과 API server를 사용하는 full-stack smoke에서 다룬다.
 - `src/main/tabs/home/__tests__/home-runtime-boundary.test.ts`는 production Home source에 global fixture,

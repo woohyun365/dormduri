@@ -118,18 +118,6 @@ vi.mock('../hooks/useMainListViewState', () => ({
   }),
 }));
 
-const buildingStats = {
-  totalParticipants: 0,
-  assignedParticipants: 0,
-  buildingMatchable: 0,
-  buildingTotal: 0,
-  todayNewTotal: 0,
-  todayNewBuilding: 0,
-  totalMatchSuccess: 0,
-  buildingMatchSuccess: 0,
-  popularCondition: '-',
-};
-
 describe('Main direct-action baseline', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -143,12 +131,7 @@ describe('Main direct-action baseline', () => {
       daysUntilEnd: 14,
     });
     vi.spyOn(homeApi, 'getDashboard').mockResolvedValue(createHomeDashboardTestResponse());
-    vi.spyOn(homeApi, 'getPastSeasons').mockResolvedValue([]);
     vi.spyOn(profileApi, 'getProfiles').mockResolvedValue([]);
-    vi.spyOn(homeApi, 'getBuildingStats').mockResolvedValue(buildingStats);
-    vi.spyOn(homeApi, 'getPastSeasonResult').mockResolvedValue(undefined);
-    vi.spyOn(homeApi, 'isNextSeasonRegistered').mockResolvedValue(false);
-    vi.spyOn(homeApi, 'getUnreadMessages').mockResolvedValue(0);
   });
 
   it('Home entry does not force building selection for unassigned open-season users', async () => {
@@ -159,11 +142,6 @@ describe('Main direct-action baseline', () => {
     expect(screen.queryByRole('dialog', { name: '배정 건물 선택' })).not.toBeInTheDocument();
     expect(homeApi.getDashboard).toHaveBeenCalledTimes(1);
     expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
-    expect(homeApi.getPastSeasons).not.toHaveBeenCalled();
-    expect(homeApi.getBuildingStats).not.toHaveBeenCalled();
-    expect(homeApi.getPastSeasonResult).not.toHaveBeenCalled();
-    expect(homeApi.isNextSeasonRegistered).not.toHaveBeenCalled();
-    expect(homeApi.getUnreadMessages).not.toHaveBeenCalled();
   });
 
   it('opens building selection only after the explicit Home CTA', async () => {
@@ -185,13 +163,12 @@ describe('Main direct-action baseline', () => {
     await screen.findByTestId('main-home');
     expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
     expect(profileApi.getProfiles).not.toHaveBeenCalled();
-    expect(homeApi.getPastSeasons).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
 
     await waitFor(() => expect(seasonApi.getCurrentSeason).toHaveBeenCalledTimes(1));
     expect(profileApi.getProfiles).toHaveBeenCalledWith('CHUNCHEON', 'F', 'dasan');
-    expect(homeApi.getPastSeasons).toHaveBeenCalledTimes(1);
+    expect(homeApi.getDashboard).toHaveBeenCalledTimes(1);
   });
 
   it('shows a retryable Home error state when the dashboard fetch fails', async () => {

@@ -75,11 +75,8 @@ describe('home dashboard BFF contract', () => {
     vi.unstubAllGlobals();
   });
 
-  it('homeApi keeps legacy widget methods while exposing the dashboard read-model method', () => {
-    expect(homeApi).toHaveProperty('getBuildingStats');
-    expect(homeApi).toHaveProperty('getPastSeasonResult');
-    expect(homeApi).toHaveProperty('isNextSeasonRegistered');
-    expect(homeApi).toHaveProperty('getDashboard');
+  it('homeApi exposes only the dashboard read-model method', () => {
+    expect(Object.keys(homeApi)).toEqual(['getDashboard']);
     expect(typeof homeApi.getDashboard).toBe('function');
   });
 
@@ -152,12 +149,13 @@ describe('home dashboard BFF contract', () => {
     });
   });
 
-  it('documents that legacy widget fallbacks remain isolated behind non-dashboard methods', () => {
+  it('keeps the Home dashboard client free of legacy mock and widget fallbacks', () => {
     const source = readHomeApiSource();
 
     expect(source).toContain('/api/home/dashboard');
-    expect(source).toContain('totalParticipants: 0');
-    expect(source).toContain('?? true');
-    expect(source).toContain('?? 0');
+    expect(source).not.toMatch(
+      /@\/__fixtures__|getMockData|mock-home-service|getBuildingStats|getPastSeasonResult|isNextSeasonRegistered|getUnreadMessages|getPastSeasons/,
+    );
+    expect(source).not.toContain('totalParticipants: 0');
   });
 });

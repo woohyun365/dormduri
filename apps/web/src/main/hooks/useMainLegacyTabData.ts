@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
 import { seasonApi } from '@/api/season';
-import { homeApi } from '@/api/home';
 import type { Season } from '@/constants/season';
 import type { PastSeasonData } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
@@ -82,12 +81,17 @@ export function useMainLegacyTabData({
         const isUnassignedId = currentDormitoryId === UNASSIGNED_ID;
         const dormitoryIdForFilter =
           season.isOpen || season.isMatching ? (isUnassignedId ? null : currentDormitoryId) : null;
-        const [profiles, pastSeasons] = await Promise.all([
+        const profiles =
           (season.isOpen || season.isMatching) && isUnassignedId
-            ? Promise.resolve([])
-            : profileApi.getProfiles(currentUser.campus, currentUser.gender, dormitoryIdForFilter),
-          homeApi.getPastSeasons(),
-        ]);
+            ? []
+            : await profileApi.getProfiles(
+                currentUser.campus,
+                currentUser.gender,
+                dormitoryIdForFilter,
+              );
+        // Past season history is no longer loaded through homeApi.
+        // Keep the non-Home legacy tab contract stable until Phase 8 moves it to an owner API.
+        const pastSeasons: PastSeasonData[] = [];
 
         if (cancelled) return;
 

@@ -6,12 +6,14 @@
 ## Home first render boundary
 
 - `/login`, `/signup`, `/password-reset` 이후 `/main` 첫 화면은 auth session gate 통과 후 Home dashboard read model에서 시작한다.
+- `apps/web/src/api/home.ts`는 `homeApi.getDashboard()`만 노출하는 dashboard-only BFF client다. legacy widget/mock method를 다시 추가하지 않는다.
 - Home first render는 legacy `profileApi.getMyProfile()` 결과나 global fixture/mock DB를 기다리지 않는다.
 - non-Home tab이 과도기적으로 legacy profile/mock API를 필요로 하더라도 `MainLegacyTabAdapter` 같은 명시 boundary 안에서 lazy load되어야 한다.
 
 ## Runtime fixture boundary
 
 - production `/main` runtime path는 `@/__fixtures__`를 직접 import하지 않는다.
+- `apps/web/src/api/home.ts`는 global fixture/mock dynamic import를 갖지 않는다.
 - `DevPanel`과 `HomeDevTool`은 `process.env.NODE_ENV === 'development'`일 때만 loader가 렌더링하는 local-only surface다.
 - dev panel 내부의 `mock-db` / `mock-matching-service` 사용은 local scenario override 전용이며, Home/Main product correctness evidence로 사용하지 않는다.
 - Home/Main unit tests는 `test-support/*builder*`의 typed builders를 사용한다.
