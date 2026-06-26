@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import HomeTab from '../HomeTab';
 import { HomeDashboardErrorState } from '../components/HomeDashboardErrorState';
@@ -11,14 +10,12 @@ interface HomeTabStorySurfaceProps {
 
 function HomeTabStorySurface({ scenario }: HomeTabStorySurfaceProps) {
   return (
-    <SeasonProvider value={scenario.seasonContext}>
-      <HomeTab
-        dashboard={scenario.dashboard}
-        onNavigate={() => undefined}
-        onOpenBuildingSelect={() => undefined}
-        onDashboardRefresh={async () => undefined}
-      />
-    </SeasonProvider>
+    <HomeTab
+      dashboard={scenario.dashboard}
+      onNavigate={() => undefined}
+      onOpenBuildingSelect={() => undefined}
+      onDashboardRefresh={async () => undefined}
+    />
   );
 }
 

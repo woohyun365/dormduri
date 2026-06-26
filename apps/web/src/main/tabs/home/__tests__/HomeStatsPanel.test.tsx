@@ -3,35 +3,26 @@ import { describe, expect, it } from 'vitest';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import { HomeStatsPanel } from '../components/HomeStatsPanel';
-import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
-function renderStats({
-  dashboard,
-  seasonState,
-  daysUntilEnd = 0,
-}: {
-  dashboard: HomeDashboardResponse;
-  seasonState: SeasonState;
-  daysUntilEnd?: number;
-}) {
+function renderStats({ dashboard }: { dashboard: HomeDashboardResponse }) {
   const viewModel = buildHomeDashboardViewModel({
     dashboard,
-    season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-    seasonState,
-    daysUntilEnd,
     renderedAt: new Date('2026-07-01T00:00:00+09:00').getTime(),
   });
 
   render(
-    <HomeStatsPanel viewModel={viewModel} seasonState={seasonState} daysUntilEnd={daysUntilEnd} />,
+    <HomeStatsPanel
+      viewModel={viewModel}
+      seasonState={viewModel.seasonState}
+      daysUntilEnd={viewModel.daysUntilEnd}
+    />,
   );
 }
 
 describe('HomeStatsPanel', () => {
   it('current season이 없으면 지난 시즌 이름과 다음 시즌 preview를 함께 보여준다', () => {
     renderStats({
-      seasonState: 'OFF_SEASON',
       dashboard: createHomeDashboardTestResponse({
         season: {
           hasCurrentSeason: false,
@@ -56,7 +47,6 @@ describe('HomeStatsPanel', () => {
 
   it('완료된 시즌 기록이 없으면 누적 기록 없음 fallback을 보여준다', () => {
     renderStats({
-      seasonState: 'OFF_SEASON',
       dashboard: createHomeDashboardTestResponse({
         season: {
           hasCurrentSeason: false,
@@ -81,7 +71,6 @@ describe('HomeStatsPanel', () => {
 
   it('post-match에서는 신규 action이 아니라 result-read 요약임을 설명한다', () => {
     renderStats({
-      seasonState: 'SEASON_POST_MATCH',
       dashboard: createHomeDashboardTestResponse({
         season: {
           ...createHomeDashboardTestResponse().season,

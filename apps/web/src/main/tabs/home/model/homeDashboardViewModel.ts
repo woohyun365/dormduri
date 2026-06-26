@@ -3,10 +3,8 @@ import {
   getDormitoryById,
   isCampusOperated as isCampusOperatedFn,
 } from '@/constants/dormitory';
-import { calcSeasonDates, type Season } from '@/main/season/seasonFallback';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { calcDaysUntilTimestamp, formatDateDot } from '@/main/tabs/home/model/homeDateDisplay';
-import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
 import type { ActiveMatch } from '@/types/match';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse, HomeDashboardStats } from '@repo/shared/home';
@@ -15,12 +13,6 @@ import type {
   MatchingSummaryStatus,
 } from '../components/HomeMatchingSummary';
 import type { TipSeasonStatus } from '../components/DynamicTipBanner';
-
-export interface HomeMatchingSummaryOverrides {
-  sentRequests?: number | null;
-  receivedRequests?: number | null;
-  activeChats?: number | null;
-}
 
 export interface HomeDashboardScheduleViewModel {
   matchStartFormatted: string;
@@ -93,6 +85,10 @@ export interface HomeDashboardViewerIdentityViewModel {
 
 export interface HomeDashboardViewModel {
   hasCurrentSeason: boolean;
+  seasonState: SeasonState;
+  daysUntilEnd: number;
+  isSeasonOpen: boolean;
+  isSeasonMatching: boolean;
   isCampusOperated: boolean;
   campusName: string;
   viewerIdentity: HomeDashboardViewerIdentityViewModel;
@@ -115,46 +111,10 @@ export interface HomeDashboardViewModel {
 
 interface BuildHomeDashboardViewModelInput {
   dashboard: HomeDashboardResponse;
-  season: Season;
-  seasonState: SeasonState;
-  daysUntilEnd: number;
   renderedAt: number;
-  matchingOverrides?: HomeMatchingSummaryOverrides;
-}
-
-interface SeasonContextFallback {
-  season: Season;
-  state: SeasonState;
-  isOpen: boolean;
-  isMatching: boolean;
-  daysUntilEnd: number;
 }
 
 const MS_48_HOURS = 48 * 60 * 60 * 1000;
-
-export function toHomeSeasonContext(
-  dashboard: HomeDashboardResponse | null,
-  fallback: SeasonContextFallback,
-): SeasonContextValue {
-  if (!dashboard?.season.hasCurrentSeason || !dashboard.season.state) {
-    return fallback;
-  }
-
-  return {
-    season: {
-      name: dashboard.season.summary?.name ?? fallback.season.name,
-      roomSelectionDate:
-        dashboard.season.schedule?.matchingEnd ?? fallback.season.roomSelectionDate,
-    },
-    state: dashboard.season.state,
-    isOpen: dashboard.season.isOpen,
-    isMatching: dashboard.season.isMatching,
-    daysUntilEnd:
-      dashboard.season.daysUntilMatchingEnd ??
-      dashboard.season.daysUntilSeasonEnd ??
-      fallback.daysUntilEnd,
-  };
-}
 
 export function toHomeActiveMatch(dashboard: HomeDashboardResponse): ActiveMatch | null {
   const activeMatch = dashboard.matching.activeMatch ?? dashboard.viewer.match.activeMatch;
@@ -193,12 +153,11 @@ export function hasHomeUpcomingSeasonWindow(dashboard: HomeDashboardResponse): b
 
 export function buildHomeDashboardViewModel({
   dashboard,
-  season,
-  seasonState,
-  daysUntilEnd,
   renderedAt,
-  matchingOverrides,
 }: BuildHomeDashboardViewModelInput): HomeDashboardViewModel {
+  const seasonState = dashboard.season.state ?? 'OFF_SEASON';
+  const daysUntilEnd =
+    dashboard.season.daysUntilMatchingEnd ?? dashboard.season.daysUntilSeasonEnd ?? 0;
   const viewerIdentity = buildHomeViewerIdentityViewModel(dashboard);
   const isCampusOperated =
     dashboard.viewer.campusOperated && isCampusOperatedFn(viewerIdentity.campus);
@@ -220,7 +179,6 @@ export function buildHomeDashboardViewModel({
   const profileCompletion = buildSeasonProfileCompletion({ seasonProfile });
   const schedule = buildScheduleViewModel({
     dashboard,
-    season,
     renderedAt,
     profileCompletion,
   });
@@ -231,11 +189,14 @@ export function buildHomeDashboardViewModel({
     isUnassigned,
     activeMatch,
     renderedAt,
-    matchingOverrides,
   });
 
   return {
     hasCurrentSeason: dashboard.season.hasCurrentSeason,
+    seasonState,
+    daysUntilEnd,
+    isSeasonOpen: dashboard.season.isOpen,
+    isSeasonMatching: dashboard.season.isMatching,
     isCampusOperated,
     campusName: viewerIdentity.campusName,
     viewerIdentity,
@@ -262,7 +223,6 @@ export function buildHomeDashboardViewModel({
     },
     seasonSummary: buildSeasonSummaryViewModel({
       dashboard,
-      season,
       schedule,
       renderedAt,
     }),
@@ -321,26 +281,32 @@ function buildSeasonProfileCompletion({
 
 function buildScheduleViewModel({
   dashboard,
-  season,
   renderedAt,
   profileCompletion,
 }: {
   dashboard: HomeDashboardResponse;
-  season: Season;
   renderedAt: number;
   profileCompletion: number;
 }): HomeDashboardScheduleViewModel {
-  const fallbackDates = calcSeasonDates(season.roomSelectionDate);
-  const openStart = dashboard.season.schedule?.preparationStart ?? fallbackDates.openStart;
-  const matchStart = dashboard.season.schedule?.matchingStart ?? fallbackDates.matchStart;
-  const openStartTs = new Date(`${openStart}T00:00:00+09:00`).getTime();
-  const matchStartTs = new Date(`${matchStart}T00:00:00+09:00`).getTime();
+  const openStart =
+    dashboard.season.schedule?.preparationStart ??
+    (dashboard.nextSeasonPreview?.visibleToUser
+      ? dashboard.nextSeasonPreview.preparationStartDate
+      : null);
+  const matchStart =
+    dashboard.season.schedule?.matchingStart ??
+    (dashboard.nextSeasonPreview?.visibleToUser
+      ? dashboard.nextSeasonPreview.matchingStartDate
+      : null);
+  const openStartTs = openStart ? new Date(`${openStart}T00:00:00+09:00`).getTime() : null;
+  const matchStartTs = matchStart ? new Date(`${matchStart}T00:00:00+09:00`).getTime() : null;
 
   return {
-    matchStartFormatted: formatDateDot(matchStart),
-    openStartFormatted: formatDateDot(openStart),
-    daysUntilMatchStart: calcDaysUntilTimestamp(matchStartTs, renderedAt),
-    daysUntilOpenStart: calcDaysUntilTimestamp(openStartTs, renderedAt),
+    matchStartFormatted: matchStart ? formatDateDot(matchStart) : '',
+    openStartFormatted: openStart ? formatDateDot(openStart) : '',
+    daysUntilMatchStart:
+      matchStartTs === null ? 0 : calcDaysUntilTimestamp(matchStartTs, renderedAt),
+    daysUntilOpenStart: openStartTs === null ? 0 : calcDaysUntilTimestamp(openStartTs, renderedAt),
     hasUpcomingSeasonWindow: hasHomeUpcomingSeasonWindow(dashboard),
     profileCompletion,
   };
@@ -385,7 +351,6 @@ function buildMatchingSummaryViewModel({
   isUnassigned,
   activeMatch,
   renderedAt,
-  matchingOverrides,
 }: {
   dashboard: HomeDashboardResponse;
   seasonState: SeasonState;
@@ -393,7 +358,6 @@ function buildMatchingSummaryViewModel({
   isUnassigned: boolean;
   activeMatch: ActiveMatch | null;
   renderedAt: number;
-  matchingOverrides?: HomeMatchingSummaryOverrides;
 }): HomeDashboardMatchingSummaryViewModel {
   const receivedPending = dashboard.matching.recentReceivedRequests;
   const expiringCount = receivedPending.filter((request) => {
@@ -403,10 +367,9 @@ function buildMatchingSummaryViewModel({
   const receivedRequesters = receivedPending
     .map((request) => request.counterpartSummary.profileSummary.nickname)
     .filter((nickname): nickname is string => nickname.length > 0);
-  const sentRequests = matchingOverrides?.sentRequests ?? dashboard.matching.pendingSentCount;
-  const receivedRequests =
-    matchingOverrides?.receivedRequests ?? dashboard.matching.pendingReceivedCount;
-  const activeChats = matchingOverrides?.activeChats ?? 0;
+  const sentRequests = dashboard.matching.pendingSentCount;
+  const receivedRequests = dashboard.matching.pendingReceivedCount;
+  const activeChats = 0;
 
   let status: MatchingSummaryStatus;
   if (!isCampusOperated) status = 'NOT_OPERATED';
@@ -460,12 +423,10 @@ function buildTipSeasonStatus({
 
 function buildSeasonSummaryViewModel({
   dashboard,
-  season,
   schedule,
   renderedAt,
 }: {
   dashboard: HomeDashboardResponse;
-  season: Season;
   schedule: HomeDashboardScheduleViewModel;
   renderedAt: number;
 }): HomeDashboardSeasonSummaryViewModel {
@@ -479,7 +440,7 @@ function buildSeasonSummaryViewModel({
     : null;
 
   return {
-    pastSeasonName: lastSeason?.name ?? season.name,
+    pastSeasonName: lastSeason?.name ?? dashboard.season.summary?.name ?? '지난 시즌',
     lastSeason,
     daysUntilNext:
       nextSeasonStartTs !== null
@@ -494,7 +455,10 @@ function buildSeasonSummaryViewModel({
           ? schedule.openStartFormatted
           : '',
     nextSeasonName:
-      nextSeason?.name ?? (schedule.hasUpcomingSeasonWindow ? getNextSeasonName(season.name) : ''),
+      nextSeason?.name ??
+      (schedule.hasUpcomingSeasonWindow
+        ? getNextSeasonName(dashboard.season.summary?.name ?? '')
+        : ''),
     hasNextSeasonPreview: nextSeason !== null || schedule.hasUpcomingSeasonWindow,
   };
 }

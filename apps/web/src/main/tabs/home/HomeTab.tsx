@@ -4,9 +4,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, Building2, Calendar, School, ShieldAlert } from 'lucide-react';
 import { getAvatarColor } from '@/utils/avatarColor';
-import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { readHomeMatchingSummaryOverrides } from '@/main/utils/homeDevOverrides';
 import { HomeQuickMenuSection } from './components/HomeQuickMenuSection';
 import { HomeDashboardLayout } from './HomeDashboardLayout';
 import { HomePrimaryStateCard } from './components/HomePrimaryStateCard';
@@ -34,7 +32,6 @@ export default function HomeTab({
   onDashboardRefresh,
 }: HomeTabProps) {
   const [renderedAt] = useState(() => Date.now());
-  const { season, state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
   const onboardingNotice = useHomeOnboardingNotice({
     dashboard,
     onDismissed: onDashboardRefresh,
@@ -43,14 +40,11 @@ export default function HomeTab({
     () =>
       buildHomeDashboardViewModel({
         dashboard,
-        season,
-        seasonState,
-        daysUntilEnd,
         renderedAt,
-        matchingOverrides: readHomeMatchingSummaryOverrides(),
       }),
-    [dashboard, daysUntilEnd, renderedAt, season, seasonState],
+    [dashboard, renderedAt],
   );
+  const { seasonState, daysUntilEnd } = viewModel;
   const avatarColor = getAvatarColor(viewModel.viewerIdentity.nickname);
 
   return (
@@ -95,7 +89,7 @@ export default function HomeTab({
                 </span>
               ) : null}
             </div>
-            {isMatching && daysUntilEnd > 0 && (
+            {viewModel.isSeasonMatching && daysUntilEnd > 0 && (
               <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
                 <Calendar className="w-3 h-3" />
                 <span>D-{daysUntilEnd}</span>

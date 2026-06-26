@@ -20,9 +20,6 @@ function renderCard({
   const onOpenBuildingSelect = vi.fn();
   const viewModel = buildHomeDashboardViewModel({
     dashboard,
-    season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-    seasonState,
-    daysUntilEnd,
     renderedAt: new Date('2026-03-20T00:00:00+09:00').getTime(),
   });
 

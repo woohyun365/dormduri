@@ -22,8 +22,8 @@
 
 ## Main-owned shared surfaces
 
-- Season context는 `apps/web/src/main/contexts/SeasonContext.tsx`가 소유한다. root `contexts/SeasonContext` compatibility path를 만들지 않는다.
-- Season fallback/legacy schedule helper는 `apps/web/src/main/season/seasonFallback.ts`와 `apps/web/src/main/legacy/seasonLegacyClient.ts`에 한정한다.
+- Season context는 non-Home legacy tab bridge가 소유한다. HomeTab production path는 `SeasonContext`를 소비하지 않고 `HomeDashboardResponse`의 `season` read model만 사용한다.
+- Season fallback/legacy schedule helper는 Home first render 근거가 아니다. 남은 `apps/web/src/main/season/seasonFallback.ts`와 `apps/web/src/main/legacy/seasonLegacyClient.ts`는 non-Home legacy tab 전환 debt에만 한정한다.
 - `SeasonState`는 `@repo/shared/season/runtime`에서 직접 import한다. `apps/web/src/types/season.ts` re-export를 다시 만들지 않는다.
 - Main local guide/tooltip localStorage state는 `apps/web/src/main/hooks/useMainLocalOnboardingState.ts`가 소유한다. Home `service-intro` dismissed state와 중복되는 checklist dismissed state를 두지 않는다.
 - Home `service-intro` dismissed mutation client는 `apps/web/src/main/tabs/home/api/home-onboarding-notice.api.ts`가 소유한다. root `apps/web/src/api/current-user.ts` 같은 넓은 compatibility path를 다시 만들지 않는다.

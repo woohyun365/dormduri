@@ -19,6 +19,10 @@ const FORBIDDEN_RUNTIME_PATTERNS = [
   importPath('@', '/main/dev-only/fixtures'),
   importPath('src/', '__fixtures__'),
   importPath('main/', 'test-support'),
+  importPath('@', '/main/contexts/SeasonContext'),
+  importPath('@', '/main/season/seasonFallback'),
+  importPath('@', '/main/utils/homeDevOverrides'),
+  'readHomeMatchingSummaryOverrides',
   '__stories__',
   '.stories',
 ] as const;
@@ -110,5 +114,14 @@ describe('Home runtime boundary', () => {
     expect(source).not.toContain('user.lifestyle');
     expect(source).not.toContain('isLifestyleRequiredComplete');
     expect(source).toContain('seasonProfile');
+  });
+
+  it('Home view model is derived from HomeDashboardResponse without raw season fallback inputs', () => {
+    const source = readFileSync(join(homeRoot, 'model/homeDashboardViewModel.ts'), 'utf8');
+
+    expect(source).toContain('dashboard.season.state');
+    expect(source).not.toContain('SeasonContextValue');
+    expect(source).not.toContain('calcSeasonDates');
+    expect(source).not.toContain('matchingOverrides');
   });
 });

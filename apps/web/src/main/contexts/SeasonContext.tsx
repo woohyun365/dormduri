@@ -1,11 +1,15 @@
 'use client';
 
 import { createContext, useContext } from 'react';
-import type { Season } from '@/main/season/seasonFallback';
 import type { SeasonState } from '@repo/shared/season/runtime';
 
+export interface MainRuntimeSeason {
+  name: string;
+  roomSelectionDate: string;
+}
+
 export interface SeasonContextValue {
-  season: Season;
+  season: MainRuntimeSeason;
   state: SeasonState;
   isOpen: boolean;
   isMatching: boolean;

@@ -1,5 +1,4 @@
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
-import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
@@ -10,7 +9,6 @@ export interface HomeStoryScenario {
   title: string;
   description: string;
   dashboard: HomeDashboardResponse;
-  seasonContext: SeasonContextValue;
 }
 
 const ISO_NOW = '2026-04-05T09:00:00.000Z';
@@ -21,19 +19,6 @@ const SERVICE_INTRO_DISMISSED = [
     dismissedAt: '2026-04-01T00:00:00.000Z',
   },
 ];
-
-function createSeasonContext(state: SeasonState, daysUntilEnd: number): SeasonContextValue {
-  return {
-    season: {
-      name: '2026년 1학기',
-      roomSelectionDate: '2026-04-30',
-    },
-    state,
-    isOpen: state === 'SEASON_OPEN' || state === 'SEASON_MATCHING',
-    isMatching: state === 'SEASON_MATCHING',
-    daysUntilEnd,
-  };
-}
 
 function createDashboard(
   state: SeasonState,
@@ -299,44 +284,37 @@ export const homeStoryScenarios = {
     title: '비시즌 / 다음 시즌 준비',
     description: '새 매칭 요청 없이 이전 기록과 프로필 정비만 안내하는 기본 비시즌 상태입니다.',
     dashboard: createDashboard('OFF_SEASON'),
-    seasonContext: createSeasonContext('OFF_SEASON', 0),
   },
   noCurrentSeason: {
     title: '2026-01 지난 기록 + 2026-02 준비 preview',
     description: '활성 시즌이 없을 때 지난 시즌 요약과 다음 시즌 준비 일정을 함께 안내합니다.',
     dashboard: createNoCurrentSeasonDashboard(),
-    seasonContext: createSeasonContext('OFF_SEASON', 0),
   },
   noHistoryNoCurrentSeason: {
     title: '현재 시즌 없음 / 기록 없음',
     description: '완료된 시즌 기록이 아직 없을 때 fallback copy와 다음 시즌 preview만 보여줍니다.',
     dashboard: createNoCurrentSeasonWithoutHistoryDashboard(),
-    seasonContext: createSeasonContext('OFF_SEASON', 0),
   },
   seasonOpenProfileIncomplete: {
     title: '시즌 오픈 / 프로필 준비 필요',
     description: '생활패턴과 건물 선택이 남아 있어 등록 준비 CTA를 우선 노출합니다.',
     dashboard: createOpenIncompleteDashboard(),
-    seasonContext: createSeasonContext('SEASON_OPEN', 0),
   },
   seasonOpenRegisteredAssigned: {
     title: '시즌 오픈 / 등록 완료',
     description: '등록은 끝났지만 매칭 요청은 아직 열리지 않은 준비 완료 상태입니다.',
     dashboard: createDashboard('SEASON_OPEN'),
-    seasonContext: createSeasonContext('SEASON_OPEN', 0),
   },
   matchingNoBuilding: {
     title: '매칭 기간 / 건물 미배정',
     description: '건물 배정이 없어 탐색과 요청이 잠긴 상태의 안내입니다.',
     dashboard: createUnassignedDashboard(),
-    seasonContext: createSeasonContext('SEASON_MATCHING', 25),
   },
   registrationUnavailable: {
     title: '시즌 오픈 / 등록 불가 reason',
     description:
       '등록 불가 reason이 있을 때 checklist와 quick action이 사용자용 사유를 보여줍니다.',
     dashboard: createRegistrationUnavailableDashboard(),
-    seasonContext: createSeasonContext('SEASON_OPEN', 0),
   },
   matchingPendingReceived: {
     title: '매칭 기간 / 받은 요청 있음',
@@ -353,7 +331,6 @@ export const homeStoryScenarios = {
         ],
       },
     }),
-    seasonContext: createSeasonContext('SEASON_MATCHING', 25),
   },
   matchingPendingSent: {
     title: '매칭 기간 / 보낸 요청 대기',
@@ -367,7 +344,6 @@ export const homeStoryScenarios = {
         recentReceivedRequests: [],
       },
     }),
-    seasonContext: createSeasonContext('SEASON_MATCHING', 14),
   },
   activeMatchUnreadChat: {
     title: '매칭 확정 / 읽지 않은 채팅',
@@ -392,13 +368,11 @@ export const homeStoryScenarios = {
         },
       });
     })(),
-    seasonContext: createSeasonContext('SEASON_MATCHING', 12),
   },
   postMatchHistory: {
     title: '시즌 마감 / 결과 확인',
     description: '새 요청은 닫히고 결과·이전 기록 중심으로 이동하는 post-match 상태입니다.',
     dashboard: createDashboard('SEASON_POST_MATCH'),
-    seasonContext: createSeasonContext('SEASON_POST_MATCH', 0),
   },
   nonOperatedCampus: {
     title: '비운영 캠퍼스',
@@ -432,7 +406,6 @@ export const homeStoryScenarios = {
         },
       },
     }),
-    seasonContext: createSeasonContext('OFF_SEASON', 0),
   },
   onboardingNoticeOpen: {
     title: '서비스 시작 안내 열림',
@@ -455,12 +428,10 @@ export const homeStoryScenarios = {
         },
       };
     })(),
-    seasonContext: createSeasonContext('SEASON_OPEN', 0),
   },
   onboardingNoticeDismissed: {
     title: '서비스 시작 안내 닫힘',
     description: 'service-intro를 이미 다시 보지 않기로 닫은 사용자의 기본 Home 상태입니다.',
     dashboard: createDashboard('SEASON_OPEN'),
-    seasonContext: createSeasonContext('SEASON_OPEN', 0),
   },
 } satisfies Record<string, HomeStoryScenario>;

@@ -12,9 +12,6 @@ import type { HomeDashboardResponse } from '@repo/shared/home';
 function buildViewModel(dashboard: HomeDashboardResponse) {
   return buildHomeDashboardViewModel({
     dashboard,
-    season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-    seasonState: dashboard.season.state ?? 'OFF_SEASON',
-    daysUntilEnd: dashboard.season.daysUntilMatchingEnd ?? 0,
     renderedAt: new Date('2026-03-20T00:00:00+09:00').getTime(),
   });
 }

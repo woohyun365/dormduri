@@ -100,6 +100,7 @@ export default function ProfileTab({
         <BuildingSelectModal
           campus={user.campus}
           gender={user.gender}
+          seasonSelectionLocked={isOpen || isMatching}
           onSelect={(id) => {
             onDormitoryChange(id);
             setShowBuildingModal(false);

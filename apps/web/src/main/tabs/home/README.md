@@ -8,6 +8,7 @@ Home은 현재 사용자에게 “지금 할 수 있는 다음 행동”을 안�
 
 - `HomeDashboardResponse`를 기준으로 현재 시즌, 내 시즌 참여 상태, 건물 선택 상태, 매칭 요약, 준비 체크리스트를 렌더링한다.
 - `GET /api/home/dashboard` Web BFF를 통해 Home 전용 dashboard read model을 가져온다.
+- Home production path는 `SeasonContext`, `seasonFallback`, `homeDevOverrides`를 import하지 않는다. 시즌 상태와 D-day는 `HomeDashboardResponse.season`만 source-of-truth로 삼는다.
 - Web client의 `homeDashboardApi` public surface는 `getDashboard()` 하나로 고정한다. `getBuildingStats`, `getPastSeasonResult`, `getPastSeasons` 같은 legacy widget/mock method는 Home 완료 범위로 복원하지 않는다.
 - Home first render는 `profileApi.getMyProfile()`이나 global fixture/mock DB를 요구하지 않는다.
 - 계정 표시 identity와 시즌 프로필 준비 상태는 Home dashboard/current-user contract의 allowlist DTO에서 분리해 소비한다.
@@ -178,4 +179,4 @@ pnpm --dir apps/api prisma:seed:run
 - Home dashboard unit/component tests는 global fixture data가 아니라 `main/test-support`의 typed builder로 shared contract shape만 만든다.
 - 실제 로그인 사용자 기준 browser/manual 검증은 DB seed 계정과 API server를 사용하는 full-stack smoke에서 다룬다.
 - `src/main/tabs/home/__tests__/home-runtime-boundary.test.ts`는 production Home source에 global fixture,
-  test-support, story import가 섞이지 않는지 고정한다.
+  test-support, story, raw SeasonContext, FE-local season fallback, dev override import가 섞이지 않는지 고정한다.

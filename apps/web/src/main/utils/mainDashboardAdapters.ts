@@ -1,6 +1,5 @@
-import type { Season } from '@/main/season/seasonFallback';
+import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
 import type { LifestyleData } from '@/types/lifestyle';
-import type { SeasonState } from '@repo/shared/season/runtime';
 import type { UserProfile } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
@@ -50,13 +49,7 @@ export function toMainLegacyUserProfile(dashboard: HomeDashboardResponse): UserP
   };
 }
 
-export function toMainFallbackSeasonContext(dashboard: HomeDashboardResponse): {
-  season: Season;
-  state: SeasonState;
-  isOpen: boolean;
-  isMatching: boolean;
-  daysUntilEnd: number;
-} {
+export function toMainSeasonContext(dashboard: HomeDashboardResponse): SeasonContextValue {
   const schedule = dashboard.season.schedule;
   const currentSeason = dashboard.season.summary;
   const nextSeason = dashboard.nextSeasonPreview;

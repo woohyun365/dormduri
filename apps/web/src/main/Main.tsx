@@ -29,11 +29,7 @@ import { useMainLegacyTabData } from './hooks/useMainLegacyTabData';
 import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
 import { getMainTabDocumentTitle } from './utils/mainTabTitle';
-import {
-  toMainFallbackSeasonContext,
-  toMainLegacyUserProfile,
-} from './utils/mainDashboardAdapters';
-import { toHomeSeasonContext } from './tabs/home/model/homeDashboardViewModel';
+import { toMainSeasonContext, toMainLegacyUserProfile } from './utils/mainDashboardAdapters';
 import { getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
 import type { MatchingNavOptions, TabId } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
@@ -138,8 +134,7 @@ function MainDashboardContent({
     },
     [onTabChange],
   );
-  const fallbackSeasonContext = toMainFallbackSeasonContext(dashboard);
-  const seasonContextValue = toHomeSeasonContext(dashboard, fallbackSeasonContext);
+  const seasonContextValue = toMainSeasonContext(dashboard);
   const campusOperated = dashboard.viewer.campusOperated;
   const featureFlags = getMainFeatureFlags({
     campusOperated,
@@ -154,7 +149,6 @@ function MainDashboardContent({
         dashboard={dashboard}
         homeDashboard={homeDashboard}
         onNavigate={handleNavigate}
-        seasonContextValue={seasonContextValue}
         campusOperated={campusOperated}
         featureFlags={featureFlags}
       />
@@ -180,7 +174,6 @@ function MainHomeDashboardContent({
   dashboard,
   homeDashboard,
   onNavigate,
-  seasonContextValue,
   campusOperated,
   featureFlags,
 }: {
@@ -188,7 +181,6 @@ function MainHomeDashboardContent({
   dashboard: HomeDashboardResponse;
   homeDashboard: UseMainHomeDashboardResult;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
-  seasonContextValue: ReturnType<typeof toHomeSeasonContext>;
   campusOperated: boolean;
   featureFlags: ReturnType<typeof getMainFeatureFlags>;
 }) {
@@ -210,44 +202,43 @@ function MainHomeDashboardContent({
   );
 
   return (
-    <SeasonProvider value={seasonContextValue}>
-      <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
-        {campusOperated &&
-          (seasonContextValue.isOpen || seasonContextValue.isMatching) &&
-          showBuildingSelect && (
-            <BuildingSelectModal
-              campus={viewerUser.campus}
-              gender={viewerUser.gender}
-              onSelect={handleSelectDormitory}
-              onClose={() => setShowBuildingSelect(false)}
-            />
-          )}
-        <main>
-          {homeDashboard.loading && <HomeTabSkeleton />}
-          {!homeDashboard.loading && homeDashboard.error && (
-            <HomeDashboardErrorState
-              message={homeDashboard.error}
-              refreshing={homeDashboard.refreshing}
-              onRetry={homeDashboard.refetch}
-            />
-          )}
-          {!homeDashboard.loading && !homeDashboard.error && homeDashboard.dashboard && (
-            <HomeTab
-              dashboard={homeDashboard.dashboard}
-              onNavigate={onNavigate}
-              onOpenBuildingSelect={() => setShowBuildingSelect(true)}
-              onDashboardRefresh={homeDashboard.refetch}
-            />
-          )}
-        </main>
+    <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
+      {campusOperated &&
+        (dashboard.season.isOpen || dashboard.season.isMatching) &&
+        showBuildingSelect && (
+          <BuildingSelectModal
+            campus={viewerUser.campus}
+            gender={viewerUser.gender}
+            seasonSelectionLocked={dashboard.season.isOpen || dashboard.season.isMatching}
+            onSelect={handleSelectDormitory}
+            onClose={() => setShowBuildingSelect(false)}
+          />
+        )}
+      <main>
+        {homeDashboard.loading && <HomeTabSkeleton />}
+        {!homeDashboard.loading && homeDashboard.error && (
+          <HomeDashboardErrorState
+            message={homeDashboard.error}
+            refreshing={homeDashboard.refreshing}
+            onRetry={homeDashboard.refetch}
+          />
+        )}
+        {!homeDashboard.loading && !homeDashboard.error && homeDashboard.dashboard && (
+          <HomeTab
+            dashboard={homeDashboard.dashboard}
+            onNavigate={onNavigate}
+            onOpenBuildingSelect={() => setShowBuildingSelect(true)}
+            onDashboardRefresh={homeDashboard.refetch}
+          />
+        )}
+      </main>
 
-        <BottomTabBar
-          activeTab={activeTab}
-          onTabChange={onNavigate}
-          disabledTabs={featureFlags.disabledTabs}
-        />
-      </div>
-    </SeasonProvider>
+      <BottomTabBar
+        activeTab={activeTab}
+        onTabChange={onNavigate}
+        disabledTabs={featureFlags.disabledTabs}
+      />
+    </div>
   );
 }
 
@@ -266,7 +257,7 @@ function MainLegacyDashboardContent({
   dashboard: HomeDashboardResponse;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   matchingNavOptions: MatchingNavOptions;
-  seasonContextValue: ReturnType<typeof toHomeSeasonContext>;
+  seasonContextValue: ReturnType<typeof toMainSeasonContext>;
   campusOperated: boolean;
   featureFlags: ReturnType<typeof getMainFeatureFlags>;
 }) {
@@ -327,6 +318,7 @@ function MainLegacyDashboardContent({
             <BuildingSelectModal
               campus={profileState.user.campus}
               gender={profileState.user.gender}
+              seasonSelectionLocked={seasonContextValue.isOpen || seasonContextValue.isMatching}
               onSelect={(dormitoryId) => {
                 profileState.handleSelectDormitory(dormitoryId);
                 profileState.setShowBuildingSelect(false);
