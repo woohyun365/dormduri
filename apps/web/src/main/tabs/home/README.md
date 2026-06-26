@@ -14,7 +14,7 @@ Home은 현재 사용자에게 “지금 할 수 있는 다음 행동”을 안�
 - 계정 표시 identity와 시즌 프로필 준비 상태는 Home dashboard/current-user contract의 allowlist DTO에서 분리해 소비한다.
 - `viewer.onboarding.dismissedNotices`와 `PATCH /api/users/me/onboarding`을 통해 `service-intro` 안내 닫힘 상태를 반영한다.
 - 시즌 상태별로 다음 행동을 안내한다.
-  - `OFF_SEASON`: 타인 탐색과 새 매칭 요청은 열지 않고 프로필 정비와 이전 기록 확인 중심으로 안내한다.
+  - `OFF_SEASON`: 타인 탐색과 새 매칭 요청은 열지 않고 다음 시즌 일정, 이전 기록, 내 정보 확인 중심으로 안내한다.
   - `SEASON_OPEN`: 생활패턴, 건물 선택, 시즌 등록 준비를 안내하되 매칭 요청은 열지 않는다.
   - `SEASON_MATCHING`: dashboard capability가 허용할 때 같은 건물 후보 탐색, 대화, 매칭 요청 진입을 안내한다.
   - `SEASON_POST_MATCH`: 새 요청 대신 확정 결과, 과거 기록, 허용된 대화 확인 중심으로 안내한다.

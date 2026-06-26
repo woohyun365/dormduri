@@ -103,12 +103,58 @@ function createNoCurrentSeasonDashboard(): HomeDashboardResponse {
   };
 }
 
-function createNoCurrentSeasonWithoutHistoryDashboard(): HomeDashboardResponse {
+function createNoCurrentSeasonWithoutParticipationHistoryDashboard(): HomeDashboardResponse {
+  const base = createNoCurrentSeasonDashboard();
+
+  return {
+    ...base,
+    seasonHistorySummary: {
+      lastSeason: base.seasonHistorySummary.lastSeason
+        ? {
+            ...base.seasonHistorySummary.lastSeason,
+            viewerHadRegistration: false,
+            viewerHadMatchSuccess: false,
+            viewerActivity: {
+              sentRequestCount: 0,
+              receivedRequestCount: 0,
+              conversationCount: 0,
+              finalResult: 'NOT_PARTICIPATED',
+              matchedPartnerNickname: null,
+            },
+          }
+        : null,
+    },
+  };
+}
+
+function createNoCurrentSeasonWithMatchedHistoryDashboard(): HomeDashboardResponse {
+  const base = createNoCurrentSeasonDashboard();
+
+  return {
+    ...base,
+    seasonHistorySummary: {
+      lastSeason: base.seasonHistorySummary.lastSeason
+        ? {
+            ...base.seasonHistorySummary.lastSeason,
+            viewerHadRegistration: true,
+            viewerHadMatchSuccess: true,
+            viewerActivity: {
+              sentRequestCount: 3,
+              receivedRequestCount: 2,
+              conversationCount: 4,
+              finalResult: 'MATCHED',
+              matchedPartnerNickname: '민지',
+            },
+          }
+        : null,
+    },
+  };
+}
+
+function createNoCurrentSeasonWithoutNextSeasonDashboard(): HomeDashboardResponse {
   return {
     ...createNoCurrentSeasonDashboard(),
-    seasonHistorySummary: {
-      lastSeason: null,
-    },
+    nextSeasonPreview: null,
   };
 }
 
@@ -148,6 +194,54 @@ function createOpenIncompleteDashboard(): HomeDashboardResponse {
         canRequestMatch: false,
         canStartChat: false,
       },
+    },
+  };
+}
+
+function createOpenRegistrationPendingDashboard(): HomeDashboardResponse {
+  const base = createDashboard('SEASON_OPEN');
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      seasonProfile: {
+        ...base.viewer.seasonProfile,
+        intent: 'UNDECIDED',
+        registered: false,
+        profileExists: true,
+        profileState: 'DRAFT',
+        completion: {
+          profileCompletionRequired: false,
+          dormitorySelectionRequired: false,
+          registrationUnavailable: false,
+          registrationUnavailableReasons: [],
+        },
+        draftWritable: true,
+        canSelectDormitory: false,
+        canFinalizeRegistration: true,
+      },
+      selection: {
+        state: 'SELECTED',
+        dormitoryId: 'dasan',
+        source: 'SEASON_PARTICIPANT',
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: false,
+        canCreateOrUpdateSeasonProfileDraft: true,
+        canSelectDormitory: false,
+        canFinalizeSeasonRegistration: true,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+    },
+    matching: {
+      ...base.matching,
+      pendingSentCount: 0,
+      pendingReceivedCount: 0,
+      unreadMessageCount: 0,
+      recentReceivedRequests: [],
     },
   };
 }
@@ -280,25 +374,36 @@ function createReceivedRequest(nickname: string, index: number): MatchRequestSum
 }
 
 export const homeStoryScenarios = {
-  offSeason: {
-    title: '비시즌 / 다음 시즌 준비',
-    description: '새 매칭 요청 없이 이전 기록과 프로필 정비만 안내하는 기본 비시즌 상태입니다.',
-    dashboard: createDashboard('OFF_SEASON'),
-  },
-  noCurrentSeason: {
-    title: '2026-01 지난 기록 + 2026-02 준비 preview',
+  offSeasonNextSeason: {
+    title: 'Off season + next Season',
     description: '활성 시즌이 없을 때 지난 시즌 요약과 다음 시즌 준비 일정을 함께 안내합니다.',
     dashboard: createNoCurrentSeasonDashboard(),
   },
-  noHistoryNoCurrentSeason: {
-    title: '현재 시즌 없음 / 기록 없음',
-    description: '완료된 시즌 기록이 아직 없을 때 fallback copy와 다음 시즌 preview만 보여줍니다.',
-    dashboard: createNoCurrentSeasonWithoutHistoryDashboard(),
+  offSeasonNoNextSeason: {
+    title: 'Off Season + no next Season',
+    description:
+      '새 학기 이후 다음 시즌 공식 일정이 아직 등록되지 않았을 때 따뜻한 비시즌 안내를 보여줍니다.',
+    dashboard: createNoCurrentSeasonWithoutNextSeasonDashboard(),
+  },
+  offSeasonNextSeasonNoHistory: {
+    title: 'Off season + No history',
+    description: '다음 시즌 preview는 있지만 사용자가 이전 시즌에 참여하지 않은 상태를 보여줍니다.',
+    dashboard: createNoCurrentSeasonWithoutParticipationHistoryDashboard(),
+  },
+  offSeasonNextSeasonActiveMatchedHistory: {
+    title: 'Off season + active matched history',
+    description: '다음 시즌 preview와 함께 사용자의 이전 시즌 매칭 성공 이력을 보여줍니다.',
+    dashboard: createNoCurrentSeasonWithMatchedHistoryDashboard(),
   },
   seasonOpenProfileIncomplete: {
     title: '시즌 오픈 / 프로필 준비 필요',
     description: '생활패턴과 건물 선택이 남아 있어 등록 준비 CTA를 우선 노출합니다.',
     dashboard: createOpenIncompleteDashboard(),
+  },
+  seasonOpenRegistrationPending: {
+    title: '시즌 오픈 / 시즌 등록 전',
+    description: '생활패턴과 건물 선택은 끝났지만 최종 시즌 등록을 아직 누르지 않은 상태입니다.',
+    dashboard: createOpenRegistrationPendingDashboard(),
   },
   seasonOpenRegisteredAssigned: {
     title: '시즌 오픈 / 등록 완료',

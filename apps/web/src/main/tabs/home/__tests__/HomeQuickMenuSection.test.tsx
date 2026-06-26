@@ -27,12 +27,12 @@ describe('HomeQuickMenuSection', () => {
     expect(screen.getByText('현황 확인')).toBeDefined();
   });
 
-  it('비시즌 시 탐색은 닫고 이전 기록과 과거 대화를 표시한다', () => {
+  it('비시즌 시 가능한 읽기 전용 행동만 표시한다', () => {
     render(<HomeQuickMenuSection {...defaultProps} seasonState="OFF_SEASON" />);
-    expect(screen.getByText('탐색 닫힘')).toBeDefined();
     expect(screen.getByText('이전 기록')).toBeDefined();
-    expect(screen.getByText('과거 대화')).toBeDefined();
-    expect(screen.getByText('비시즌')).toBeDefined();
+    expect(screen.getByText('내 정보')).toBeDefined();
+    expect(screen.queryByText('탐색 닫힘')).toBeNull();
+    expect(screen.queryByText('과거 대화')).toBeNull();
   });
 
   it('시즌 오픈 시 미리보기와 시즌 중 이용을 표시한다', () => {
@@ -61,8 +61,7 @@ describe('HomeQuickMenuSection', () => {
     expect(onNavigateList).toHaveBeenCalledOnce();
   });
 
-  it('disabled quick action은 클릭 핸들러를 호출하지 않는다', async () => {
-    const user = userEvent.setup();
+  it('비시즌에는 닫힌 탐색 disabled action을 렌더링하지 않는다', () => {
     const onNavigateList = vi.fn();
     render(
       <HomeQuickMenuSection
@@ -72,10 +71,7 @@ describe('HomeQuickMenuSection', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: /탐색 닫힘/ }));
-
-    expect(screen.getByRole('button', { name: /탐색 닫힘/ })).toBeDisabled();
-    expect(screen.getByText('비시즌에는 타인 탐색과 새 매칭 요청이 닫혀 있어요.')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /탐색 닫힘/ })).not.toBeInTheDocument();
     expect(onNavigateList).not.toHaveBeenCalled();
   });
 

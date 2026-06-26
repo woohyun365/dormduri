@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { toDateOnlyString } from '@repo/shared/date';
-import type { HomeDashboardSeasonHistorySummary } from '@repo/shared/home';
+import type {
+  HomeDashboardLastSeasonViewerFinalResult,
+  HomeDashboardSeasonHistorySummary,
+} from '@repo/shared/home';
 import type { Prisma } from '../../generated/prisma/client.js';
 import type { Campus } from '../../generated/prisma/enums.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
@@ -46,32 +49,92 @@ export class HomeDashboardHistoryQuery {
       return { lastSeason: null };
     }
 
-    const [totalParticipants, totalMatchSuccess, viewerRegistrationCount, viewerMatchCount] =
-      await Promise.all([
-        this.prisma.seasonParticipant.count({
-          where: buildRegisteredParticipantWhere(lastSeason.id),
-        }),
-        this.prisma.seasonMatchHistoryEntry.count({
-          where: buildSuccessfulHistoryWhere(lastSeason.id),
-        }),
-        this.prisma.seasonParticipant.count({
-          where: {
-            ...buildRegisteredParticipantWhere(lastSeason.id),
-            userId: input.userId,
-          },
-          take: 1,
-        }),
-        this.prisma.seasonMatchHistoryEntry.count({
-          where: {
-            ...buildSuccessfulHistoryWhere(lastSeason.id),
-            viewerParticipant: {
-              userId: input.userId,
-              user: { deletedAt: null },
-            },
-          },
-          take: 1,
-        }),
-      ]);
+    const viewerHistoryWhere = buildViewerHistoryWhere(lastSeason.id, input.userId);
+    const [
+      totalParticipants,
+      totalMatchSuccess,
+      matchedPairRows,
+      operatedDormitoryCount,
+      viewerRegistrationCount,
+      viewerSentRequestCount,
+      viewerReceivedRequestCount,
+      viewerConversationCount,
+      viewerMatchedSuccessCount,
+      viewerUnmatchedAfterSuccessCount,
+      viewerLatestMatchRow,
+    ] = await Promise.all([
+      this.prisma.seasonParticipant.count({
+        where: buildRegisteredParticipantWhere(lastSeason.id),
+      }),
+      this.prisma.seasonMatchHistoryEntry.count({
+        where: buildSuccessfulHistoryWhere(lastSeason.id),
+      }),
+      this.prisma.seasonMatchHistoryEntry.groupBy({
+        by: ['pairKey'],
+        where: buildSuccessfulHistoryWhere(lastSeason.id),
+      }),
+      this.prisma.seasonDormitoryOperation.count({
+        where: { seasonId: lastSeason.id, isOperated: true },
+      }),
+      this.prisma.seasonParticipant.count({
+        where: {
+          ...buildRegisteredParticipantWhere(lastSeason.id),
+          userId: input.userId,
+        },
+        take: 1,
+      }),
+      this.prisma.seasonMatchHistoryEntry.count({
+        where: {
+          ...viewerHistoryWhere,
+          entryType: 'REQUEST',
+          viewerRequested: true,
+        },
+      }),
+      this.prisma.seasonMatchHistoryEntry.count({
+        where: {
+          ...viewerHistoryWhere,
+          entryType: 'REQUEST',
+          viewerRequested: false,
+        },
+      }),
+      this.prisma.seasonMatchHistoryEntry.count({
+        where: {
+          ...viewerHistoryWhere,
+          entryType: 'MATCH',
+        },
+      }),
+      this.prisma.seasonMatchHistoryEntry.count({
+        where: {
+          ...viewerHistoryWhere,
+          entryType: 'MATCH',
+          entryResult: 'MATCHED_SUCCESS',
+        },
+        take: 1,
+      }),
+      this.prisma.seasonMatchHistoryEntry.count({
+        where: {
+          ...viewerHistoryWhere,
+          entryType: 'MATCH',
+          entryResult: 'UNMATCHED_AFTER_SUCCESS',
+        },
+        take: 1,
+      }),
+      this.prisma.seasonMatchHistoryEntry.findFirst({
+        where: {
+          ...viewerHistoryWhere,
+          entryType: 'MATCH',
+          entryResult: { in: ['MATCHED_SUCCESS', 'UNMATCHED_AFTER_SUCCESS'] },
+        },
+        orderBy: [{ matchedAt: 'desc' }, { finalizedAt: 'desc' }],
+        select: {
+          counterpartNicknameSnapshot: true,
+          counterpartRedactedAt: true,
+        },
+      }),
+    ]);
+
+    const viewerHadRegistration = viewerRegistrationCount > 0;
+    const viewerHadMatchSuccess = viewerMatchedSuccessCount > 0;
 
     return {
       lastSeason: {
@@ -79,11 +142,60 @@ export class HomeDashboardHistoryQuery {
         name: lastSeason.name,
         totalParticipants,
         totalMatchSuccess,
-        viewerHadRegistration: viewerRegistrationCount > 0,
-        viewerHadMatchSuccess: viewerMatchCount > 0,
+        viewerHadRegistration,
+        viewerHadMatchSuccess,
+        viewerActivity: {
+          sentRequestCount: viewerSentRequestCount,
+          receivedRequestCount: viewerReceivedRequestCount,
+          conversationCount: viewerConversationCount,
+          finalResult: resolveViewerFinalResult({
+            viewerHadRegistration,
+            viewerHadMatchSuccess,
+            viewerHadUnmatchedAfterSuccess: viewerUnmatchedAfterSuccessCount > 0,
+          }),
+          matchedPartnerNickname:
+            viewerLatestMatchRow?.counterpartRedactedAt === null
+              ? viewerLatestMatchRow.counterpartNicknameSnapshot
+              : null,
+        },
+        aggregate: {
+          matchedPairCount: matchedPairRows.length,
+          operatedDormitoryCount,
+        },
       },
     };
   }
+}
+
+function buildViewerHistoryWhere(
+  seasonId: string,
+  userId: string,
+): Prisma.SeasonMatchHistoryEntryWhereInput {
+  return {
+    seasonId,
+    viewerRedactedAt: null,
+    viewerParticipant: {
+      userId,
+      user: { deletedAt: null },
+    },
+  };
+}
+
+function resolveViewerFinalResult(input: {
+  viewerHadRegistration: boolean;
+  viewerHadMatchSuccess: boolean;
+  viewerHadUnmatchedAfterSuccess: boolean;
+}): HomeDashboardLastSeasonViewerFinalResult {
+  if (!input.viewerHadRegistration) {
+    return 'NOT_PARTICIPATED';
+  }
+  if (input.viewerHadMatchSuccess) {
+    return 'MATCHED';
+  }
+  if (input.viewerHadUnmatchedAfterSuccess) {
+    return 'UNMATCHED_AFTER_SUCCESS';
+  }
+  return 'NO_MATCH';
 }
 
 function buildSuccessfulHistoryWhere(seasonId: string): Prisma.SeasonMatchHistoryEntryWhereInput {

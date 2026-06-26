@@ -57,11 +57,39 @@ function createStory(scenario: HomeStoryScenario): Story {
   };
 }
 
-export const OffSeason = createStory(homeStoryScenarios.offSeason);
-export const NoCurrentSeason = createStory(homeStoryScenarios.noCurrentSeason);
-export const NoHistoryNoCurrentSeason = createStory(homeStoryScenarios.noHistoryNoCurrentSeason);
+export const OffSeasonNextSeason: Story = {
+  name: 'Off season + next Season',
+  args: { scenario: homeStoryScenarios.offSeasonNextSeason },
+  parameters: {
+    docs: {
+      description: {
+        story: homeStoryScenarios.offSeasonNextSeason.description,
+      },
+    },
+  },
+};
+export const OffSeasonNoNextSeason: Story = {
+  name: 'Off Season + no next Season',
+  args: { scenario: homeStoryScenarios.offSeasonNoNextSeason },
+  parameters: {
+    docs: {
+      description: {
+        story: homeStoryScenarios.offSeasonNoNextSeason.description,
+      },
+    },
+  },
+};
+export const OffSeasonNextSeasonNoHistory = createStory(
+  homeStoryScenarios.offSeasonNextSeasonNoHistory,
+);
+export const OffSeasonNextSeasonActiveMatchedHistory = createStory(
+  homeStoryScenarios.offSeasonNextSeasonActiveMatchedHistory,
+);
 export const SeasonOpenProfileIncomplete = createStory(
   homeStoryScenarios.seasonOpenProfileIncomplete,
+);
+export const SeasonOpenRegistrationPending = createStory(
+  homeStoryScenarios.seasonOpenRegistrationPending,
 );
 export const SeasonOpenRegisteredAssigned = createStory(
   homeStoryScenarios.seasonOpenRegisteredAssigned,
@@ -80,7 +108,7 @@ export const OnboardingNoticeDismissed = createStory(homeStoryScenarios.onboardi
 
 export const LoadingSkeleton: Story = {
   name: '로딩 스켈레톤',
-  args: { scenario: homeStoryScenarios.offSeason },
+  args: { scenario: homeStoryScenarios.offSeasonNextSeason },
   render: () => <HomeTabSkeleton />,
   parameters: {
     docs: {
@@ -93,7 +121,7 @@ export const LoadingSkeleton: Story = {
 
 export const ErrorRecovery: Story = {
   name: '오류 복구',
-  args: { scenario: homeStoryScenarios.offSeason },
+  args: { scenario: homeStoryScenarios.offSeasonNextSeason },
   render: () => (
     <HomeDashboardErrorState
       message="일시적으로 홈 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요."

@@ -9,9 +9,10 @@ import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 interface HomeStatusTipProps {
   viewModel: HomeDashboardViewModel;
   seasonState: SeasonState;
+  onOpenOnboarding?: () => void;
 }
 
-export function HomeStatusTip({ viewModel, seasonState }: HomeStatusTipProps) {
+export function HomeStatusTip({ viewModel, seasonState, onOpenOnboarding }: HomeStatusTipProps) {
   if (viewModel.hasCurrentSeason && seasonState === 'SEASON_MATCHING') {
     return (
       <section className={sectionCard()} data-testid="home-status-tip">
@@ -26,6 +27,7 @@ export function HomeStatusTip({ viewModel, seasonState }: HomeStatusTipProps) {
           activeChats={viewModel.tip.activeChats}
           unreadMessages={viewModel.tip.unreadMessages}
         />
+        <OnboardingReplayButton onClick={onOpenOnboarding} />
       </section>
     );
   }
@@ -39,6 +41,7 @@ export function HomeStatusTip({ viewModel, seasonState }: HomeStatusTipProps) {
         <Info className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
       </div>
       <p className="text-sm leading-relaxed text-(--knu-text-secondary)">{message}</p>
+      <OnboardingReplayButton onClick={onOpenOnboarding} />
     </section>
   );
 }
@@ -48,7 +51,9 @@ function resolveStaticTip(viewModel: HomeDashboardViewModel, seasonState: Season
     return '운영 캠퍼스가 열리면 시즌 일정과 참여 상태를 이 홈 화면에서 안내합니다.';
   }
   if (!viewModel.hasCurrentSeason) {
-    return '진행 중인 시즌이 없어도 프로필은 미리 정비할 수 있어요.';
+    return viewModel.seasonSummary.hasNextSeasonPreview
+      ? '다음 시즌 일정이 공개되어 있어요.'
+      : '새 학기, 좋은 룸메이트와 함께하고 있길 바라요.';
   }
   if (seasonState === 'SEASON_OPEN') {
     return '등록 전에는 생활패턴과 건물 선택을 정비할 수 있고, 등록 후에는 시즌 프로필이 잠겨요.';
@@ -56,5 +61,19 @@ function resolveStaticTip(viewModel: HomeDashboardViewModel, seasonState: Season
   if (seasonState === 'SEASON_POST_MATCH') {
     return '시즌 마감 정리 기간에는 새 요청보다 결과 확인과 확정된 관계 안내가 우선입니다.';
   }
-  return '비시즌에는 타인 탐색이 닫히고, 다음 시즌 준비와 이전 기록 확인을 중심으로 이용합니다.';
+  return '비시즌에는 타인 탐색이 닫히고, 다음 시즌 일정과 이전 기록 확인을 중심으로 이용합니다.';
+}
+
+function OnboardingReplayButton({ onClick }: { onClick?: () => void }) {
+  if (!onClick) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-4 inline-flex min-h-10 items-center justify-center rounded-xl border border-(--knu-border) bg-white px-4 text-sm font-bold text-(--knu-primary) transition-colors hover:border-(--knu-primary) hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
+    >
+      이용 안내 다시 보기
+    </button>
+  );
 }

@@ -57,15 +57,33 @@ function createFinalPassDashboardResponse(): unknown {
         totalMatchSuccess: 42,
         viewerHadRegistration: true,
         viewerHadMatchSuccess: false,
+        viewerActivity: {
+          sentRequestCount: 2,
+          receivedRequestCount: 1,
+          conversationCount: 0,
+          finalResult: 'NO_MATCH',
+          matchedPartnerNickname: null,
+        },
+        aggregate: {
+          matchedPairCount: 21,
+          operatedDormitoryCount: 5,
+        },
       },
     },
     nextSeasonPreview: {
       id: 'season-2026-02',
       name: '2026년 2학기',
-      preparationStartDate: '2026-08-20',
-      matchingStartDate: '2026-09-01',
-      seasonEndDate: '2026-12-20',
+      preparationStartDate: '2026-07-23',
+      matchingStartDate: '2026-08-01',
+      seasonEndDate: '2026-08-31',
       visibleToUser: true,
+      operatedDormitories: [
+        { dormitoryId: 'daon', isOperated: true, roomSelectionDate: '2026-08-06' },
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-08-06' },
+        { dormitoryId: 'irum', isOperated: true, roomSelectionDate: '2026-08-06' },
+        { dormitoryId: 'saerom', isOperated: true, roomSelectionDate: '2026-08-06' },
+        { dormitoryId: 'yeji', isOperated: true, roomSelectionDate: '2026-08-06' },
+      ],
     },
   };
 }
@@ -140,6 +158,17 @@ describe('home dashboard BFF contract', () => {
           id: 'season-2026-01',
           totalParticipants: 237,
           totalMatchSuccess: 42,
+          viewerActivity: {
+            sentRequestCount: 2,
+            receivedRequestCount: 1,
+            conversationCount: 0,
+            finalResult: 'NO_MATCH',
+            matchedPartnerNickname: null,
+          },
+          aggregate: {
+            matchedPairCount: 21,
+            operatedDormitoryCount: 5,
+          },
         },
       },
       nextSeasonPreview: {

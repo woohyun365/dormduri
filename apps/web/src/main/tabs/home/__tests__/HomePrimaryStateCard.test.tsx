@@ -37,8 +37,7 @@ function renderCard({
 }
 
 describe('HomePrimaryStateCard', () => {
-  it('current season이 없으면 empty-success 상태와 프로필 CTA를 보여준다', async () => {
-    const user = userEvent.setup();
+  it('current season이 없으면 다음 시즌 preview와 이전 시즌 요약만 보여준다', () => {
     const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
@@ -55,10 +54,49 @@ describe('HomePrimaryStateCard', () => {
     const { onNavigate } = renderCard({ dashboard, seasonState: 'OFF_SEASON' });
 
     expect(
-      screen.getByRole('heading', { name: '현재 진행 중인 시즌이 없어요' }),
+      screen.getByRole('heading', { name: '2026년 2학기 준비가 곧 시작돼요' }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /내 프로필 확인/ }));
-    expect(onNavigate).toHaveBeenCalledWith('profile');
+    expect(screen.queryByText(/지난 2025년 2학기: 참여 210명/)).not.toBeInTheDocument();
+    expect(screen.getByText('이전 시즌 요약')).toBeInTheDocument();
+    expect(screen.getByText('지난 참여')).toBeInTheDocument();
+    expect(screen.getByText('210명')).toBeInTheDocument();
+    expect(screen.getByText('매칭 완료')).toBeInTheDocument();
+    expect(screen.getByText('19쌍')).toBeInTheDocument();
+    expect(screen.queryByText('내 요청')).not.toBeInTheDocument();
+    expect(screen.getByText('시즌 오픈:')).toBeInTheDocument();
+    expect(screen.getByText('2026.07.23')).toBeInTheDocument();
+    expect(screen.getByText('D-125')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /지난 시즌 기록 보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /내 정보 확인/ })).not.toBeInTheDocument();
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it('current season과 다음 시즌 preview가 없으면 새 학기 응원 문구를 보여준다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        hasCurrentSeason: false,
+        state: null,
+        summary: null,
+        schedule: null,
+        isOpen: false,
+        isMatching: false,
+        isPostMatch: false,
+        daysUntilMatchingEnd: null,
+        daysUntilSeasonEnd: null,
+      },
+      nextSeasonPreview: null,
+    });
+
+    renderCard({ dashboard, seasonState: 'OFF_SEASON' });
+
+    expect(screen.getByText('2025년 2학기 시즌 매칭 종료')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '다음 시즌에 만나요.' })).toBeInTheDocument();
+    expect(
+      screen.getByText('다음 시즌 일정은 학교 공식 일정에 맞춰 등록될 예정이에요.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('시즌 오픈:')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /지난 시즌 기록 보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /내 정보 확인/ })).not.toBeInTheDocument();
   });
 
   it('시즌 오픈에서 건물 선택이 필요하면 명시 CTA로만 건물 선택을 연다', async () => {

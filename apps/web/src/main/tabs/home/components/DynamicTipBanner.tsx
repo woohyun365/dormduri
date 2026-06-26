@@ -76,7 +76,7 @@ function generateTips({
   if (seasonStatus === 'OFF_SEASON') {
     tips.push({
       icon: Calendar,
-      text: '비시즌에도 프로필을 완성해두면\n다음 시즌에 바로 매칭을 시작할 수 있어요.',
+      text: '비시즌에는 지난 기록과 내 정보를 확인할 수 있어요.\n다음 시즌 일정이 열리면 홈에서 다시 안내할게요.',
       iconBg: 'from-blue-100 to-cyan-100',
       iconText: 'text-blue-600',
     });

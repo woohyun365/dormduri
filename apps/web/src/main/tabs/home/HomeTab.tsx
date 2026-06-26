@@ -51,8 +51,8 @@ export default function HomeTab({
     <div>
       <OfflineBanner />
 
-      <header className="bg-(--knu-primary) text-white px-5 py-6">
-        <div className="max-w-md md:max-w-5xl mx-auto">
+      <header className="bg-(--knu-primary) py-6 text-white">
+        <div className="mx-auto max-w-md px-5 md:max-w-5xl">
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm opacity-90 mb-1">안녕하세요,</p>
@@ -169,7 +169,13 @@ export default function HomeTab({
                 onNavigateProfile={() => onNavigate('profile')}
               />
             }
-            tip={<HomeStatusTip viewModel={viewModel} seasonState={seasonState} />}
+            tip={
+              <HomeStatusTip
+                viewModel={viewModel}
+                seasonState={seasonState}
+                onOpenOnboarding={onboardingNotice.openManually}
+              />
+            }
           />
         </div>
       </div>
@@ -179,7 +185,8 @@ export default function HomeTab({
         viewModel={viewModel}
         dismissing={onboardingNotice.dismissing}
         error={onboardingNotice.error}
-        onClose={onboardingNotice.closeForNow}
+        onClose={onboardingNotice.dismissForSession}
+        onDismissForToday={onboardingNotice.dismissForToday}
         onDismissPermanently={onboardingNotice.dismissPermanently}
         onNavigate={onNavigate}
         onOpenBuildingSelect={onOpenBuildingSelect}

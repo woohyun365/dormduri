@@ -222,8 +222,8 @@ describe('homeDashboardViewModel', () => {
 
     expect(viewModel.hasCurrentSeason).toBe(false);
     expect(viewModel.seasonSummary).toMatchObject({
-      daysUntilNext: 50,
-      nextSeasonDate: '2026.08.20',
+      daysUntilNext: 22,
+      nextSeasonDate: '2026.07.23',
       nextSeasonName: '2026년 2학기',
     });
   });

@@ -12,6 +12,7 @@ interface HomeOnboardingSheetProps {
   dismissing?: boolean;
   error?: string | null;
   onClose: () => void;
+  onDismissForToday: () => void;
   onDismissPermanently: () => Promise<void> | void;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   onOpenBuildingSelect?: () => void;
@@ -24,12 +25,18 @@ interface OnboardingAction {
   onClick: () => void;
 }
 
+interface OnboardingSupportMessage {
+  title: string;
+  description: string;
+}
+
 export function HomeOnboardingSheet({
   open,
   viewModel,
   dismissing = false,
   error,
   onClose,
+  onDismissForToday,
   onDismissPermanently,
   onNavigate,
   onOpenBuildingSelect,
@@ -38,7 +45,7 @@ export function HomeOnboardingSheet({
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const shouldReduceMotion = useReducedMotion();
-  const intro = resolveOnboardingIntro(viewModel);
+  const supportMessage = resolveOnboardingSupportMessage(viewModel);
   const actions = useMemo(
     () =>
       buildOnboardingActions({
@@ -108,10 +115,46 @@ export function HomeOnboardingSheet({
     };
   }, [onClose, open]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const scrollY = window.scrollY;
+    const bodyStyle = document.body.style;
+    const htmlStyle = document.documentElement.style;
+    const previousBodyStyle = {
+      position: bodyStyle.position,
+      top: bodyStyle.top,
+      left: bodyStyle.left,
+      right: bodyStyle.right,
+      width: bodyStyle.width,
+      overflow: bodyStyle.overflow,
+    };
+    const previousHtmlOverflow = htmlStyle.overflow;
+
+    htmlStyle.overflow = 'hidden';
+    bodyStyle.position = 'fixed';
+    bodyStyle.top = `-${scrollY}px`;
+    bodyStyle.left = '0';
+    bodyStyle.right = '0';
+    bodyStyle.width = '100%';
+    bodyStyle.overflow = 'hidden';
+
+    return () => {
+      htmlStyle.overflow = previousHtmlOverflow;
+      bodyStyle.position = previousBodyStyle.position;
+      bodyStyle.top = previousBodyStyle.top;
+      bodyStyle.left = previousBodyStyle.left;
+      bodyStyle.right = previousBodyStyle.right;
+      bodyStyle.width = previousBodyStyle.width;
+      bodyStyle.overflow = previousBodyStyle.overflow;
+      window.scrollTo(0, scrollY);
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 px-4 py-4 md:items-center">
+    <div className="fixed inset-0 z-120 flex items-end justify-center overflow-hidden overscroll-none bg-slate-950/35 px-0 pb-0 pt-4 sm:px-4 sm:pb-4 md:items-center md:py-4">
       <motion.section
         ref={dialogRef}
         role="dialog"
@@ -121,21 +164,21 @@ export function HomeOnboardingSheet({
         initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 24, scale: 0.98 }}
         animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
         transition={shouldReduceMotion ? { duration: 0 } : undefined}
-        className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5"
+        className="flex h-[min(560px,calc(100dvh-1rem))] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-[min(640px,calc(100dvh-2rem))] sm:rounded-3xl"
       >
-        <div className="bg-linear-to-br from-blue-50 to-cyan-50 p-5">
+        <div className="shrink-0 bg-linear-to-br from-blue-50 to-cyan-50 p-5">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
                 <Sparkles className="h-5 w-5" aria-hidden="true" />
               </span>
               <div>
-                <p className="text-xs font-bold text-blue-700">처음 이용 안내</p>
+                <p className="text-xs font-bold text-blue-700">이용 안내</p>
                 <h2
                   id="home-onboarding-title"
                   className="text-lg font-extrabold text-(--knu-text-primary)"
                 >
-                  {intro.title}
+                  {supportMessage.title}
                 </h2>
               </div>
             </div>
@@ -149,15 +192,23 @@ export function HomeOnboardingSheet({
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
-          <p
-            id="home-onboarding-description"
-            className="text-sm leading-relaxed text-(--knu-text-secondary)"
-          >
-            {intro.description}
-          </p>
         </div>
 
-        <div className="space-y-4 p-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5">
+          <div
+            id="home-onboarding-description"
+            className="flex items-start gap-2 rounded-2xl border border-blue-200 bg-blue-50 p-3 text-xs leading-relaxed text-blue-800"
+          >
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="space-y-1">
+              {supportMessage.description.split('\n').map((line) => (
+                <span key={line} className="block">
+                  {line}
+                </span>
+              ))}
+            </span>
+          </div>
+
           <div className="grid gap-2">
             {actions.map((action) => {
               const Icon = action.icon;
@@ -184,24 +235,24 @@ export function HomeOnboardingSheet({
             })}
           </div>
 
-          <div className="rounded-2xl bg-blue-50 p-3 text-xs leading-relaxed text-blue-800">
-            <CheckCircle2 className="mr-1 inline h-4 w-4 align-text-bottom" aria-hidden="true" />
-            안내를 닫아도 홈의 준비 체크리스트에서 다음 행동을 계속 확인할 수 있어요.
-          </div>
-
           {error && (
             <p role="alert" className="rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">
               {error}
             </p>
           )}
+        </div>
 
+        <div className="shrink-0 border-t border-(--knu-border) bg-white p-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <p className="mb-3 text-xs leading-relaxed text-(--knu-text-tertiary)">
+            자동 안내만 숨겨요. 필요하면 홈에서 다시 열 수 있어요.
+          </p>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={onDismissForToday}
               className="min-h-11 rounded-xl border border-(--knu-border) bg-white px-4 text-sm font-bold text-(--knu-text-secondary) transition-colors hover:bg-(--knu-background-alt)"
             >
-              나중에 볼게요
+              오늘 하루 보지 않기
             </button>
             <button
               type="button"
@@ -220,23 +271,20 @@ export function HomeOnboardingSheet({
   );
 }
 
-function resolveOnboardingIntro(viewModel: HomeDashboardViewModel): {
-  title: string;
-  description: string;
-} {
+function resolveOnboardingSupportMessage(
+  viewModel: HomeDashboardViewModel,
+): OnboardingSupportMessage {
   if (!viewModel.isCampusOperated) {
     return {
-      title: '운영이 열리면 홈에서 안내할게요',
-      description:
-        '현재 캠퍼스는 운영 준비 중이에요. 계정 정보는 확인할 수 있고, 운영이 열리면 시즌 일정과 참여 흐름을 홈에서 다시 보여드릴게요.',
+      title: '운영이 열리면 알려드릴게요',
+      description: '현재 캠퍼스는 운영 준비 중이에요.\n운영이 열리면 홈에서 다시 안내할게요.',
     };
   }
 
   if (!viewModel.hasCurrentSeason) {
     return {
-      title: '새 시즌 전 홈에서 할 수 있는 일',
-      description:
-        '진행 중인 시즌이 없을 때는 프로필을 정비하고 지난 기록을 확인하는 데 집중해요. 새 시즌이 열리면 준비 체크리스트가 등록 흐름을 순서대로 안내합니다.',
+      title: '새 시즌 전 이용 안내',
+      description: '비시즌에는 다음 시즌 일정과 이전 기록을 확인할 수 있어요.',
     };
   }
 
@@ -244,14 +292,14 @@ function resolveOnboardingIntro(viewModel: HomeDashboardViewModel): {
     return {
       title: '시즌 등록까지 차례대로 준비해요',
       description:
-        'KNU 룸메는 생활패턴 입력, 건물 선택, 시즌 등록 확정 순서로 준비 상태를 확인해요. 등록 전에는 탐색과 대화가 일부 제한될 수 있어요.',
+        '생활패턴과 건물 선택을 마치면 시즌 등록을 완료할 수 있어요.\n안내를 닫아도 홈의 준비 체크리스트에서 다음 행동을 계속 확인할 수 있어요.',
     };
   }
 
   return {
     title: '서비스 시작 전 알아두기',
     description:
-      'KNU 룸메는 시즌 상태에 따라 프로필 준비, 건물 선택, 룸메 탐색, 매칭 결과 확인을 순서대로 안내해요. 홈에서는 지금 할 수 있는 행동만 직접 눌러 시작할 수 있어요.',
+      '지금 이용할 수 있는 기능만 보여드려요.\n안내를 닫아도 홈의 준비 체크리스트에서 다음 행동을 계속 확인할 수 있어요.',
   };
 }
 
@@ -266,11 +314,11 @@ function buildOnboardingActions({
   onOpenBuildingSelect?: () => void;
   onClose: () => void;
 }): OnboardingAction[] {
-  if (!viewModel.isCampusOperated || !viewModel.hasCurrentSeason) {
+  if (!viewModel.isCampusOperated) {
     return [
       {
-        label: '내 프로필 확인',
-        description: '운영 또는 새 시즌이 열리기 전에는 내 정보와 이전 기록 중심으로 확인해요.',
+        label: '내 정보 확인',
+        description: '운영 전에는 계정 정보와 기본 안내를 확인할 수 있어요.',
         icon: UserRound,
         onClick: () => {
           onClose();
@@ -280,11 +328,34 @@ function buildOnboardingActions({
     ];
   }
 
+  if (!viewModel.hasCurrentSeason) {
+    return [
+      {
+        label: '이전 프로필 이력 확인',
+        description: '프로필 탭에서 내 정보와 이전 프로필 이력을 확인해요.',
+        icon: UserRound,
+        onClick: () => {
+          onClose();
+          onNavigate('profile');
+        },
+      },
+      {
+        label: '이전 시즌 활동 기록 확인',
+        description: '매칭 현황에서 지난 시즌 요청과 결과를 확인해요.',
+        icon: CheckCircle2,
+        onClick: () => {
+          onClose();
+          onNavigate('matching', { section: 'past' });
+        },
+      },
+    ];
+  }
+
   if (!viewModel.preparation.hasSeasonProfile) {
     return [
       {
         label: '시즌 프로필 먼저 입력',
-        description: '시즌 참여에 필요한 생활패턴과 조건을 채워 등록을 준비해요.',
+        description: '생활패턴과 원하는 조건을 입력해요.',
         icon: UserRound,
         onClick: () => {
           onClose();
@@ -298,7 +369,7 @@ function buildOnboardingActions({
     return [
       {
         label: '건물 선택하기',
-        description: '건물을 선택해야 같은 건물 기준의 후보 탐색과 매칭 요청이 가능해요.',
+        description: '건물을 선택하면 같은 건물 후보를 볼 수 있어요.',
         icon: Building2,
         onClick: () => {
           onClose();
@@ -307,7 +378,7 @@ function buildOnboardingActions({
       },
       {
         label: '프로필 다시 확인',
-        description: '등록 전에 생활패턴과 표시 정보를 한 번 더 확인해요.',
+        description: '등록 전 정보를 한 번 더 확인해요.',
         icon: UserRound,
         onClick: () => {
           onClose();
@@ -321,7 +392,7 @@ function buildOnboardingActions({
     return [
       {
         label: '룸메 후보 보기',
-        description: '같은 건물 기준으로 후보를 확인하고 대화나 매칭 요청을 시작해요.',
+        description: '같은 건물 후보를 확인해요.',
         icon: Search,
         onClick: () => {
           onClose();
@@ -330,7 +401,7 @@ function buildOnboardingActions({
       },
       {
         label: '매칭 현황 확인',
-        description: '보낸 요청과 받은 요청, 확정 결과를 함께 확인할 수 있어요.',
+        description: '요청과 확정 결과를 확인해요.',
         icon: CheckCircle2,
         onClick: () => {
           onClose();
@@ -343,7 +414,7 @@ function buildOnboardingActions({
   return [
     {
       label: '내 프로필 확인',
-      description: '현재 시즌 상태에서 가능한 다음 행동을 프로필 화면에서 확인해요.',
+      description: '가능한 다음 행동을 확인해요.',
       icon: UserRound,
       onClick: () => {
         onClose();

@@ -1,12 +1,13 @@
 'use client';
 
-import { CheckCircle2, CircleAlert, CircleDashed } from 'lucide-react';
+import { CalendarDays, CheckCircle2, CircleAlert, CircleDashed } from 'lucide-react';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
+import { formatDateDot } from '../model/homeDateDisplay';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
-type ChecklistStatus = 'complete' | 'actionable' | 'locked';
+type ChecklistStatus = 'complete' | 'actionable' | 'locked' | 'info';
 
 type ChecklistActionTarget = 'profile' | 'building' | 'list';
 
@@ -33,17 +34,24 @@ export function HomeReadinessChecklist({
   onOpenBuildingSelect,
 }: HomeReadinessChecklistProps) {
   const items = buildReadinessChecklistItems({ dashboard, viewModel });
+  const isSchedulePreview = !viewModel.hasCurrentSeason && viewModel.isCampusOperated;
 
   return (
     <section className={sectionCard()} aria-labelledby="home-readiness-title">
       <div className={sectionHeader}>
         <div>
-          <p className="mb-1 text-xs font-bold text-(--knu-primary)">준비 체크리스트</p>
+          <p className="mb-1 text-xs font-bold text-(--knu-primary)">
+            {isSchedulePreview ? '시즌 일정' : '준비 체크리스트'}
+          </p>
           <h2 id="home-readiness-title" className="font-bold text-(--knu-text-primary)">
-            다음 행동을 한눈에 확인해요
+            {isSchedulePreview ? '다음 시즌 안내를 확인해요' : '다음 행동을 한눈에 확인해요'}
           </h2>
         </div>
-        <CheckCircle2 className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
+        {isSchedulePreview ? (
+          <CalendarDays className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
+        ) : (
+          <CheckCircle2 className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
+        )}
       </div>
 
       <ol className="space-y-3">
@@ -90,15 +98,43 @@ export function buildReadinessChecklistItems({
   }
 
   if (!viewModel.hasCurrentSeason) {
+    const preview = dashboard.nextSeasonPreview?.visibleToUser ? dashboard.nextSeasonPreview : null;
+
+    if (!preview) {
+      return [
+        {
+          id: 'no-next-season',
+          title: '다음 시즌 일정 등록 전',
+          description: '시즌 준비 중이에요. 다음 시즌에 만나요.',
+          status: 'locked',
+        },
+      ];
+    }
+
     return [
       {
-        id: 'no-current-season',
-        title: '새 시즌 일정 대기',
-        description:
-          '현재는 새 시즌 참여 등록이 열려 있지 않아요. 프로필을 정비하고 다음 안내를 기다려 주세요.',
+        id: 'next-season-schedule',
+        title: `${preview.name} 시즌 시작`,
+        description: `${formatDateDot(preview.preparationStartDate)} 부터 시즌에 참여할 수 있어요.`,
         status: 'locked',
-        actionLabel: '내 프로필 확인',
-        actionTarget: 'profile',
+      },
+      {
+        id: 'next-season-profile',
+        title: '시즌 프로필 준비',
+        description: '시즌이 열리면 생활패턴과 원하는 룸메 조건을 입력할 수 있어요.',
+        status: 'locked',
+      },
+      {
+        id: 'next-season-building',
+        title: '배정된 기숙사 선택',
+        description: '자신이 이번 학기 배정된 기숙사 건물을 등록해요.',
+        status: 'locked',
+      },
+      {
+        id: 'next-season-matching',
+        title: '시즌 참여 등록',
+        description: '생활패턴과 배정 건물을 확인한 뒤 시즌 참여를 확정해요.',
+        status: 'locked',
       },
     ];
   }
@@ -252,6 +288,7 @@ const STATUS_ICON: Record<ChecklistStatus, typeof CheckCircle2> = {
   complete: CheckCircle2,
   actionable: CircleDashed,
   locked: CircleAlert,
+  info: CalendarDays,
 };
 
 const STATUS_COPY: Record<
@@ -272,5 +309,10 @@ const STATUS_COPY: Record<
     label: '대기',
     iconClass: 'bg-amber-50 text-amber-700',
     badgeClass: 'bg-amber-50 text-amber-800',
+  },
+  info: {
+    label: '확인 가능',
+    iconClass: 'bg-slate-100 text-slate-600',
+    badgeClass: 'bg-slate-100 text-slate-700',
   },
 };

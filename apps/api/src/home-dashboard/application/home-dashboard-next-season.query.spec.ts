@@ -61,6 +61,9 @@ describe('HomeDashboardNextSeasonQuery', () => {
       matchingStartDate: '2026-09-01',
       seasonEndDate: '2026-12-20',
       visibleToUser: true,
+      operatedDormitories: [
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-08-20' },
+      ],
     });
     expect(prisma.season.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -90,5 +93,12 @@ function makeSeasonRow({
     matchingStartDate: new Date(`${matching}T00:00:00.000Z`),
     seasonEndDate: new Date(`${end}T00:00:00.000Z`),
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    dormitoryOperations: [
+      {
+        dormitoryId: 'dasan',
+        isOperated: true,
+        roomSelectionDate: new Date(`${preparation}T00:00:00.000Z`),
+      },
+    ],
   };
 }

@@ -57,7 +57,8 @@ export function toMainSeasonContext(dashboard: HomeDashboardResponse): SeasonCon
   return {
     season: {
       name: currentSeason?.name ?? nextSeason?.name ?? '',
-      roomSelectionDate: schedule?.matchingEnd ?? nextSeason?.seasonEndDate ?? '',
+      roomSelectionDate:
+        schedule?.matchingEnd ?? nextSeason?.operatedDormitories?.[0]?.roomSelectionDate ?? '',
     },
     state: dashboard.season.state ?? 'OFF_SEASON',
     isOpen: dashboard.season.isOpen,

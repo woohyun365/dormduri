@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart3, CalendarDays, CheckCircle2, History, Users } from 'lucide-react';
+import { BarChart3, CheckCircle2, History, Users } from 'lucide-react';
 import { BuildingStatsBar } from './BuildingStatsBar';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { SeasonState } from '@repo/shared/season/runtime';
@@ -77,27 +77,26 @@ function CompactStatsPanel({
         <StatCell
           icon={Users}
           label={summary.participantLabel}
-          value={viewModel.statsBar.totalCount}
+          value={summary.participantValue}
           unit="명"
           tone="blue"
         />
         <StatCell
           icon={CheckCircle2}
-          label="매칭 성공"
-          value={viewModel.statsBar.matchSuccessCount}
-          unit="명"
+          label={summary.matchSuccessLabel}
+          value={summary.matchSuccessValue}
+          unit={summary.matchSuccessUnit}
           tone="green"
         />
       </div>
+      {summary.extraText && (
+        <p className="mt-3 text-xs leading-relaxed text-(--knu-text-tertiary)">
+          {summary.extraText}
+        </p>
+      )}
       {viewModel.dormitory && (
         <p className="mt-3 text-xs text-(--knu-text-tertiary)">
           내 건물 {viewModel.dormitory.name} 기준 참여 {viewModel.statsBar.buildingCount}명
-        </p>
-      )}
-      {summary.nextSeasonText && (
-        <p className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-blue-700">
-          <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span>{summary.nextSeasonText}</span>
         </p>
       )}
     </section>
@@ -112,14 +111,14 @@ function resolveCompactStatsSummary(
   helper: string;
   body: string;
   participantLabel: string;
+  participantValue: number;
+  matchSuccessLabel: string;
+  matchSuccessValue: number;
+  matchSuccessUnit: string;
   icon: React.ElementType;
-  nextSeasonText?: string;
+  extraText?: string;
 } {
   const lastSeason = viewModel.seasonSummary.lastSeason;
-  const nextSeasonText =
-    viewModel.seasonSummary.hasNextSeasonPreview && viewModel.seasonSummary.nextSeasonName
-      ? `${viewModel.seasonSummary.nextSeasonName} 준비는 ${viewModel.seasonSummary.nextSeasonDate}부터 안내할게요.`
-      : undefined;
 
   if (seasonState === 'SEASON_POST_MATCH') {
     return {
@@ -127,8 +126,11 @@ function resolveCompactStatsSummary(
       helper: '신규 요청은 닫고, 결과 확인과 기록 조회 중심으로 보여드려요.',
       body: `${viewModel.seasonSummary.pastSeasonName} 결과를 기준으로 참여와 매칭 성공 현황을 확인할 수 있어요.`,
       participantLabel: '시즌 참여',
+      participantValue: viewModel.statsBar.totalCount,
+      matchSuccessLabel: '매칭 성공',
+      matchSuccessValue: viewModel.statsBar.matchSuccessCount,
+      matchSuccessUnit: '명',
       icon: BarChart3,
-      nextSeasonText,
     };
   }
 
@@ -138,18 +140,25 @@ function resolveCompactStatsSummary(
       helper: '아직 누적 시즌 기록이 없을 때는 다음 시즌 안내를 먼저 보여드려요.',
       body: '아직 완료된 시즌 기록이 없어요. 새 시즌이 열리면 참여 현황과 매칭 결과가 이 영역에 쌓입니다.',
       participantLabel: '누적 참여',
+      participantValue: 0,
+      matchSuccessLabel: '매칭 성공',
+      matchSuccessValue: 0,
+      matchSuccessUnit: '명',
       icon: History,
-      nextSeasonText,
     };
   }
 
   return {
     title: '지난 시즌 요약',
-    helper: '진행 중인 시즌이 없을 때는 지난 시즌 기록과 다음 시즌 일정을 보여드려요.',
-    body: `${lastSeason.name}에는 ${lastSeason.totalParticipants}명이 참여했고 ${lastSeason.totalMatchSuccess}명이 매칭에 성공했어요.`,
+    helper: '한 눈에 알아보기',
+    body: `${lastSeason.name} 참여 흐름과 매칭 결과를 한눈에 확인해보세요.`,
     participantLabel: '지난 참여',
+    participantValue: lastSeason.totalParticipants,
+    matchSuccessLabel: '매칭 완료',
+    matchSuccessValue: lastSeason.aggregate.matchedPairCount,
+    matchSuccessUnit: '쌍',
     icon: History,
-    nextSeasonText,
+    extraText: `운영 기숙사 ${lastSeason.aggregate.operatedDormitoryCount}곳 기준 · 매칭 유저 ${lastSeason.totalMatchSuccess}명`,
   };
 }
 

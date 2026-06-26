@@ -21,9 +21,9 @@ describe('DynamicTipBanner', () => {
     expect(screen.getByText(/매칭이 확정되었어요/)).toBeDefined();
   });
 
-  it('비시즌 시 프로필 완성 팁을 표시한다', () => {
+  it('비시즌 시 지난 기록과 일정 안내 팁을 표시한다', () => {
     render(<DynamicTipBanner {...defaultProps} seasonStatus="OFF_SEASON" />);
-    expect(screen.getByText(/비시즌에도 프로필을/)).toBeDefined();
+    expect(screen.getByText(/비시즌에는 지난 기록과 내 정보를/)).toBeDefined();
   });
 
   it('시즌 오픈 시 준비 팁을 표시한다', () => {

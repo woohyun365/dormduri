@@ -157,7 +157,7 @@ function generateMessages(
       messages.push({
         icon: Info,
         iconColor: 'text-gray-500',
-        text: '매칭 시즌이 곧 시작돼요. 프로필을 준비해보세요',
+        text: '매칭 시즌이 곧 시작돼요. 시즌 프로필을 준비해보세요',
       });
       break;
   }

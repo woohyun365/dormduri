@@ -116,7 +116,7 @@ describe('HomeReadinessChecklist', () => {
     );
   });
 
-  it('current season이 없으면 새 요청 CTA 대신 프로필 확인만 제안한다', () => {
+  it('current season이 없고 다음 시즌이 있으면 일정 등록 완료와 다음 진행 대기를 보여준다', () => {
     const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
@@ -139,8 +139,13 @@ describe('HomeReadinessChecklist', () => {
       />,
     );
 
-    expect(screen.getByText('새 시즌 일정 대기')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '내 프로필 확인' })).toBeInTheDocument();
+    expect(screen.getByText('2026년 2학기 시즌 시작')).toBeInTheDocument();
+    expect(screen.queryByText('완료')).not.toBeInTheDocument();
+    expect(screen.getByText('시즌 프로필 준비')).toBeInTheDocument();
+    expect(screen.getByText('배정된 기숙사 선택')).toBeInTheDocument();
+    expect(screen.getByText('시즌 참여 등록')).toBeInTheDocument();
+    expect(screen.getAllByText('대기')).toHaveLength(4);
+    expect(screen.queryByText('지난 시즌 한눈에')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '룸메 찾기' })).not.toBeInTheDocument();
   });
 });

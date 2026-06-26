@@ -47,6 +47,10 @@ function createPrismaMock() {
     },
     seasonMatchHistoryEntry: {
       count: vi.fn(),
+      groupBy: vi.fn(),
+    },
+    seasonDormitoryOperation: {
+      count: vi.fn(),
     },
   };
 }
@@ -84,6 +88,8 @@ describe('HomeDashboardQuery', () => {
     prisma.conversationThreadMember.findMany.mockResolvedValue([]);
     prisma.conversationMessage.count.mockResolvedValue(0);
     prisma.seasonMatchHistoryEntry.count.mockResolvedValue(0);
+    prisma.seasonMatchHistoryEntry.groupBy.mockResolvedValue([]);
+    prisma.seasonDormitoryOperation.count.mockResolvedValue(0);
   });
 
   it('DB now 하나를 current-user/season/count composition에 주입한다', async () => {

@@ -49,7 +49,7 @@ export function buildHomeQuickActions({
         !canViewMatchHistory,
         !canViewMatchHistory ? '이전 시즌 기록을 아직 불러올 수 없어요.' : undefined,
       ),
-      profileAction,
+      accountInfoAction,
     ];
   }
   if (seasonState === 'SEASON_MATCHING') {
@@ -120,31 +120,11 @@ export function buildHomeQuickActions({
 
   if (seasonState === 'OFF_SEASON') {
     return [
-      {
-        icon: canEnterRoommateSearch ? 'eye' : 'lock',
-        label: canEnterRoommateSearch ? '룸메 찾기' : '탐색 닫힘',
-        description: canEnterRoommateSearch ? '미리보기' : '비시즌',
-        disabledReason: canEnterRoommateSearch
-          ? undefined
-          : '비시즌에는 타인 탐색과 새 매칭 요청이 닫혀 있어요.',
-        color: 'blue',
-        target: 'list',
-        disabled: canEnterRoommateSearch ? undefined : true,
-      },
       historyAction(
         !canViewMatchHistory,
         !canViewMatchHistory ? '이전 시즌 기록을 아직 불러올 수 없어요.' : undefined,
       ),
-      {
-        icon: 'message-circle',
-        label: '과거 대화',
-        description: '기록 보기',
-        disabledReason: '비시즌에는 새 대화 시작과 대화 쓰기가 닫혀 있어요.',
-        color: 'green',
-        target: 'chat',
-        disabled: true,
-      },
-      profileAction,
+      accountInfoAction,
     ];
   }
 
@@ -196,6 +176,14 @@ const profileAction: HomeQuickAction = {
   icon: 'user',
   label: '내 프로필',
   description: '확인·수정',
+  color: 'orange',
+  target: 'profile',
+};
+
+const accountInfoAction: HomeQuickAction = {
+  icon: 'user',
+  label: '내 정보',
+  description: '계정 확인',
   color: 'orange',
   target: 'profile',
 };

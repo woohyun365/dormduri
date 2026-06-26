@@ -23,6 +23,7 @@ describe('HomeOnboardingSheet', () => {
         open
         viewModel={buildViewModel(createHomeDashboardTestResponse())}
         onClose={vi.fn()}
+        onDismissForToday={vi.fn()}
         onDismissPermanently={onDismissPermanently}
         onNavigate={vi.fn()}
       />,
@@ -53,15 +54,16 @@ describe('HomeOnboardingSheet', () => {
         open
         viewModel={buildViewModel(dashboard)}
         onClose={vi.fn()}
+        onDismissForToday={vi.fn()}
         onDismissPermanently={vi.fn()}
         onNavigate={vi.fn()}
       />,
     );
 
-    expect(
-      screen.getByRole('dialog', { name: '새 시즌 전 홈에서 할 수 있는 일' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/진행 중인 시즌이 없을 때는 프로필을 정비/)).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '새 시즌 전 이용 안내' })).toBeInTheDocument();
+    expect(screen.getByText(/비시즌에는 다음 시즌 일정과 이전 기록/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /이전 프로필 이력 확인/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /이전 시즌 활동 기록 확인/ })).toBeInTheDocument();
   });
 
   it('Escape는 저장 없이 이번 화면에서만 닫는다', async () => {
@@ -74,6 +76,7 @@ describe('HomeOnboardingSheet', () => {
         open
         viewModel={buildViewModel(createHomeDashboardTestResponse())}
         onClose={onClose}
+        onDismissForToday={vi.fn()}
         onDismissPermanently={onDismissPermanently}
         onNavigate={vi.fn()}
       />,
@@ -93,6 +96,7 @@ describe('HomeOnboardingSheet', () => {
         open
         viewModel={buildViewModel(createHomeDashboardTestResponse())}
         onClose={vi.fn()}
+        onDismissForToday={vi.fn()}
         onDismissPermanently={vi.fn()}
         onNavigate={vi.fn()}
       />,
@@ -138,6 +142,7 @@ describe('HomeOnboardingSheet', () => {
         open
         viewModel={buildViewModel(dashboard)}
         onClose={onClose}
+        onDismissForToday={vi.fn()}
         onDismissPermanently={vi.fn()}
         onNavigate={vi.fn()}
         onOpenBuildingSelect={onOpenBuildingSelect}

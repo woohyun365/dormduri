@@ -3,6 +3,7 @@ import { isoDateTimeStringSchema, localDateStringSchema } from '../date/primitiv
 import { dormitorySelectionStateSchema } from '../dormitory/enums.js';
 import { activeMatchSummarySchema, matchRequestSummarySchema } from '../match/contract/index.js';
 import {
+  dormitorySeasonOperationSchema,
   seasonScheduleSchema,
   seasonStateSchema,
   seasonSummarySchema,
@@ -73,6 +74,13 @@ export const homeDashboardStatsSchema = z.strictObject({
   buildingMatchSuccess: z.number().int().nonnegative(),
 });
 
+export const homeDashboardLastSeasonViewerFinalResultSchema = z.enum([
+  'NOT_PARTICIPATED',
+  'NO_MATCH',
+  'MATCHED',
+  'UNMATCHED_AFTER_SUCCESS',
+]);
+
 export const homeDashboardSeasonHistorySummarySchema = z.strictObject({
   lastSeason: z
     .strictObject({
@@ -82,6 +90,17 @@ export const homeDashboardSeasonHistorySummarySchema = z.strictObject({
       totalMatchSuccess: z.number().int().nonnegative(),
       viewerHadRegistration: z.boolean(),
       viewerHadMatchSuccess: z.boolean(),
+      viewerActivity: z.strictObject({
+        sentRequestCount: z.number().int().nonnegative(),
+        receivedRequestCount: z.number().int().nonnegative(),
+        conversationCount: z.number().int().nonnegative(),
+        finalResult: homeDashboardLastSeasonViewerFinalResultSchema,
+        matchedPartnerNickname: z.string().nullable(),
+      }),
+      aggregate: z.strictObject({
+        matchedPairCount: z.number().int().nonnegative(),
+        operatedDormitoryCount: z.number().int().nonnegative(),
+      }),
     })
     .nullable(),
 });
@@ -94,6 +113,7 @@ export const homeDashboardNextSeasonPreviewSchema = z
     matchingStartDate: localDateStringSchema,
     seasonEndDate: localDateStringSchema,
     visibleToUser: z.boolean(),
+    operatedDormitories: z.array(dormitorySeasonOperationSchema),
   })
   .nullable();
 
@@ -120,6 +140,9 @@ export type HomeDashboardViewerCapabilities = z.infer<typeof homeDashboardViewer
 export type HomeDashboardViewerIdentity = z.infer<typeof homeDashboardViewerIdentitySchema>;
 export type HomeDashboardViewer = z.infer<typeof homeDashboardViewerSchema>;
 export type HomeDashboardStats = z.infer<typeof homeDashboardStatsSchema>;
+export type HomeDashboardLastSeasonViewerFinalResult = z.infer<
+  typeof homeDashboardLastSeasonViewerFinalResultSchema
+>;
 export type HomeDashboardMatching = z.infer<typeof homeDashboardMatchingSchema>;
 export type HomeDashboardSeasonHistorySummary = z.infer<
   typeof homeDashboardSeasonHistorySummarySchema

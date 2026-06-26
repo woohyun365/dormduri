@@ -21,19 +21,9 @@ describe('homeActionPolicy', () => {
   it('keeps off-season actions read-only and closes roommate search when capability is closed', () => {
     const actions = buildHomeQuickActions({ seasonState: 'OFF_SEASON' });
 
-    expect(actions.map((action) => action.label)).toEqual([
-      '탐색 닫힘',
-      '이전 기록',
-      '과거 대화',
-      '내 프로필',
-    ]);
-    expect(actions.find((action) => action.label === '탐색 닫힘')).toMatchObject({
-      disabled: true,
-      target: 'list',
-    });
-    expect(actions.find((action) => action.label === '과거 대화')).toMatchObject({
-      disabled: true,
-    });
+    expect(actions.map((action) => action.label)).toEqual(['이전 기록', '내 정보']);
+    expect(actions.some((action) => action.target === 'list')).toBe(false);
+    expect(actions.some((action) => action.target === 'chat')).toBe(false);
   });
 
   it('does not expose roommate search when there is no current season', () => {
@@ -42,7 +32,7 @@ describe('homeActionPolicy', () => {
       hasCurrentSeason: false,
     });
 
-    expect(actions.map((action) => action.label)).toEqual(['이전 기록', '내 프로필']);
+    expect(actions.map((action) => action.label)).toEqual(['이전 기록', '내 정보']);
     expect(actions.some((action) => action.target === 'list')).toBe(false);
   });
 

@@ -1,0 +1,165 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
+import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
+import { HomeActivityPanel } from '../components/HomeActivityPanel';
+import type { HomeDashboardResponse } from '@repo/shared/home';
+
+function renderActivity(dashboard: HomeDashboardResponse) {
+  const viewModel = buildHomeDashboardViewModel({
+    dashboard,
+    renderedAt: new Date('2026-07-01T00:00:00+09:00').getTime(),
+  });
+
+  render(
+    <HomeActivityPanel
+      viewModel={viewModel}
+      seasonState={viewModel.seasonState}
+      onNavigate={vi.fn()}
+    />,
+  );
+}
+
+describe('HomeActivityPanel', () => {
+  it('비시즌에는 지난 시즌 viewer activity aggregate를 compact하게 보여준다', () => {
+    renderActivity(
+      createHomeDashboardTestResponse({
+        season: {
+          hasCurrentSeason: false,
+          state: null,
+          summary: null,
+          schedule: null,
+          isOpen: false,
+          isMatching: false,
+          isPostMatch: false,
+          daysUntilMatchingEnd: null,
+          daysUntilSeasonEnd: null,
+        },
+      }),
+    );
+
+    expect(
+      screen.getByRole('heading', { name: '이전 시즌 참여 기록이 있어요' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('매칭 미성사')).toBeInTheDocument();
+    expect(screen.getByText('지난 시즌에는 확정된 매칭이 없었어요.')).toBeInTheDocument();
+    expect(screen.getByText('받은 요청')).toBeInTheDocument();
+    expect(screen.getByText('보낸 요청')).toBeInTheDocument();
+    expect(screen.getByText('대화')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /지난 기록 보기/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /내 정보 확인/ })).toBeInTheDocument();
+  });
+
+  it('비시즌 matched history 상태에서는 상대 닉네임이 있는 성공 카드를 보여준다', () => {
+    const base = createHomeDashboardTestResponse();
+
+    renderActivity(
+      createHomeDashboardTestResponse({
+        season: {
+          hasCurrentSeason: false,
+          state: null,
+          summary: null,
+          schedule: null,
+          isOpen: false,
+          isMatching: false,
+          isPostMatch: false,
+          daysUntilMatchingEnd: null,
+          daysUntilSeasonEnd: null,
+        },
+        seasonHistorySummary: {
+          lastSeason: base.seasonHistorySummary.lastSeason
+            ? {
+                ...base.seasonHistorySummary.lastSeason,
+                viewerHadRegistration: true,
+                viewerHadMatchSuccess: true,
+                viewerActivity: {
+                  sentRequestCount: 3,
+                  receivedRequestCount: 2,
+                  conversationCount: 4,
+                  finalResult: 'MATCHED',
+                  matchedPartnerNickname: '민지',
+                },
+              }
+            : null,
+        },
+      }),
+    );
+
+    expect(screen.getByText('이전 시즌 활동 요약')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '이전 시즌에 매칭이 확정됐어요' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('민지')).toHaveClass('font-extrabold');
+    expect(screen.getByText(/님과 매칭이 성사되었어요/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /지난 기록 보기/ })).toBeInTheDocument();
+  });
+
+  it('비시즌 no history 상태에서는 행동 버튼 없이 다음 시즌 참여 안내만 보여준다', () => {
+    const base = createHomeDashboardTestResponse();
+
+    renderActivity(
+      createHomeDashboardTestResponse({
+        season: {
+          hasCurrentSeason: false,
+          state: null,
+          summary: null,
+          schedule: null,
+          isOpen: false,
+          isMatching: false,
+          isPostMatch: false,
+          daysUntilMatchingEnd: null,
+          daysUntilSeasonEnd: null,
+        },
+        seasonHistorySummary: {
+          lastSeason: base.seasonHistorySummary.lastSeason
+            ? {
+                ...base.seasonHistorySummary.lastSeason,
+                viewerHadRegistration: false,
+                viewerHadMatchSuccess: false,
+                viewerActivity: {
+                  sentRequestCount: 0,
+                  receivedRequestCount: 0,
+                  conversationCount: 0,
+                  finalResult: 'NOT_PARTICIPATED',
+                  matchedPartnerNickname: null,
+                },
+              }
+            : null,
+        },
+      }),
+    );
+
+    expect(
+      screen.getByRole('heading', { name: '이전 시즌에 참여하지 않았어요' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/다음 시즌이 열리면 참여해보세요/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /지난 기록 보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /내 정보 확인/ })).not.toBeInTheDocument();
+  });
+
+  it('완료 시즌 기록이 없으면 새 시즌 활동 대기 상태를 보여준다', () => {
+    renderActivity(
+      createHomeDashboardTestResponse({
+        season: {
+          hasCurrentSeason: false,
+          state: null,
+          summary: null,
+          schedule: null,
+          isOpen: false,
+          isMatching: false,
+          isPostMatch: false,
+          daysUntilMatchingEnd: null,
+          daysUntilSeasonEnd: null,
+        },
+        seasonHistorySummary: { lastSeason: null },
+      }),
+    );
+
+    expect(
+      screen.getByRole('heading', { name: '새 시즌이 열리면 활동이 표시돼요' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/일정이 확정되면 필요한 행동을 홈에서 안내할게요/)).toBeInTheDocument();
+  });
+});
