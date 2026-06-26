@@ -118,6 +118,26 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 - Home logged-in behavior: Vitest component/hook/BFF route tests로 빠르게 고정한다. 테스트 데이터는 `apps/web/src/main/test-support/home-dashboard.builder.ts`의 typed builder를 사용하고, runtime code는 `@/__fixtures__`를 직접 참조하지 않는다.
 - API-backed `/main` mobile/desktop smoke: `home-e2e-viewer@kangwon.ac.kr` seed 계정으로 current season, active match, pending request, unread chat, non-operated campus fail-closed matrix를 검증한다.
 
+## Full-stack seed matrix
+
+Home full-stack smoke의 DB source는 `apps/api/prisma/seed-data/fixtures/home-dashboard-e2e-fixtures.js`와 `auth-fixture-users.js`가 소유한다.
+기본 seed는 `HOME_E2E_SEED_MODE=current-matching`이며, `home-e2e-viewer@kangwon.ac.kr`로 로그인하면 현재 시즌 매칭 상태, 확정 매칭, 받은 요청, unread chat, 2026-01 지난 시즌 요약을 함께 확인할 수 있다.
+
+개발/수동 검증용 계정의 비밀번호는 공통으로 `1q2w3e4r`이다.
+
+| 계정                                | 검증 목적                                                             |
+| ----------------------------------- | --------------------------------------------------------------------- |
+| `home-e2e-viewer@kangwon.ac.kr`     | 기본 `/main` Home smoke: active match, pending received, unread chat  |
+| `home-e2e-history@kangwon.ac.kr`    | 지난 시즌 등록 이력은 있으나 성공 매칭은 없는 viewer boolean 분기     |
+| `home-e2e-open@kangwon.ac.kr`       | `HOME_E2E_SEED_MODE=season-open` 전환 시 시즌 오픈 상태 수동 검증     |
+| `home-e2e-postmatch@kangwon.ac.kr`  | `HOME_E2E_SEED_MODE=post-match` 전환 시 시즌 마감 정리 상태 수동 검증 |
+| `home-e2e-incomplete@kangwon.ac.kr` | registration/profile/building 준비 미완료 reason 수동 검증 후보       |
+| `test-samcheok-m@kangwon.ac.kr`     | 비운영 캠퍼스 fail-closed Home UX                                     |
+
+운영 기숙사 seed matrix는 `dasan`, `yeji`, `saerom`, `irum`, `daon`마다 10명 이상의 `SeasonParticipant`와 프로필을 만든다.
+`HOME_E2E_SEED_MODE=future-preview`는 같은 `2026-02` 시즌 row를 future schedule로 전환해 “현재 시즌 없음 + 다음 시즌 preview” 상태를 재현한다.
+Prisma `Season`의 unique key가 `(campusCode, academicYear, semester)`이므로 future preview와 current mode는 같은 DB 상태에서 동시에 유지하지 않는다.
+
 ## Handoff and follow-up boundary
 
 - #197의 Home dashboard API-first 전환 범위는 Home tab 기준으로 완료 후보지만, 다른 main tab의 mock/API 전환이 남아 있으면 이슈 전체 close 여부는 별도 판단한다.
