@@ -1,6 +1,6 @@
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
-import type { SeasonContextValue } from '@/contexts/SeasonContext';
-import type { SeasonState } from '@/types/season';
+import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
 type ActiveMatchSummary = NonNullable<HomeDashboardResponse['matching']['activeMatch']>;

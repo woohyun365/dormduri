@@ -16,7 +16,7 @@ import { HomeTabSkeleton } from '@/components/Skeleton';
 import { HomeDashboardErrorState } from './tabs/home/components/HomeDashboardErrorState';
 import { AppShellSkeleton } from '@/components/AppShellSkeleton';
 import { MatchingTabSkeleton } from './tabs/matching/MatchingTabSkeleton';
-import { useOnboardingState } from '@/hooks/useOnboardingState';
+import { useMainLocalOnboardingState } from '@/main/hooks/useMainLocalOnboardingState';
 import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
 import { useMainMatchingState } from './hooks/useMainMatchingState';
@@ -26,7 +26,7 @@ import {
   type UseMainHomeDashboardResult,
 } from './hooks/useMainHomeDashboard';
 import { useMainLegacyTabData } from './hooks/useMainLegacyTabData';
-import { SeasonProvider } from '@/contexts/SeasonContext';
+import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
 import { getMainTabDocumentTitle } from './utils/mainTabTitle';
 import {
@@ -280,8 +280,8 @@ function MainLegacyDashboardContent({
     [onNavigate],
   );
 
-  const { hasSeenGuide, markGuideSeen, resetChecklist, hasSeenTooltip, markTooltipSeen } =
-    useOnboardingState(initialUser.nickname);
+  const { hasSeenGuide, markGuideSeen, hasSeenTooltip, markTooltipSeen } =
+    useMainLocalOnboardingState(initialUser.id);
 
   const profileState = useMainProfileState(initialUser, {
     showToast,
@@ -396,7 +396,6 @@ function MainLegacyDashboardContent({
               onLifestyleChange={profileState.handleLifestyleChange}
               onAdditionalChange={profileState.handleAdditionalChange}
               onShowGuide={profileState.handleShowGuide}
-              onResetChecklist={resetChecklist}
               blockedUsers={socialState.blockedUsers}
               onUnblock={socialState.handleUnblockUser}
             />

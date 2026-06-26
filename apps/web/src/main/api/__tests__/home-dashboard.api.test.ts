@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
-import { homeApi, HomeDashboardFetchError } from '../home';
+import { homeDashboardApi, HomeDashboardFetchError } from '../home-dashboard.api';
 
-const HOME_API_SOURCE = resolve(process.cwd(), 'src/api/home.ts');
+const HOME_API_SOURCE = resolve(process.cwd(), 'src/main/api/home-dashboard.api.ts');
 const HOME_DASHBOARD_ROUTE_SOURCE = resolve(process.cwd(), 'src/app/api/home/dashboard/route.ts');
 
 function readHomeApiSource() {
@@ -75,20 +75,20 @@ describe('home dashboard BFF contract', () => {
     vi.unstubAllGlobals();
   });
 
-  it('homeApi exposes only the dashboard read-model method', () => {
-    expect(Object.keys(homeApi)).toEqual(['getDashboard']);
-    expect(typeof homeApi.getDashboard).toBe('function');
+  it('homeDashboardApi exposes only the dashboard read-model method', () => {
+    expect(Object.keys(homeDashboardApi)).toEqual(['getDashboard']);
+    expect(typeof homeDashboardApi.getDashboard).toBe('function');
   });
 
   it('Web exposes a same-origin /api/home/dashboard route handler', () => {
     expect(existsSync(HOME_DASHBOARD_ROUTE_SOURCE)).toBe(true);
   });
 
-  it('homeApi.getDashboard delegates to /api/home/dashboard with no-store and parses the shared contract', async () => {
+  it('homeDashboardApi.getDashboard delegates to /api/home/dashboard with no-store and parses the shared contract', async () => {
     const dashboard = createHomeDashboardTestResponse();
     const fetchMock = stubDashboardFetch(dashboard);
 
-    await expect(homeApi.getDashboard()).resolves.toEqual(dashboard);
+    await expect(homeDashboardApi.getDashboard()).resolves.toEqual(dashboard);
 
     expect(fetchMock).toHaveBeenCalledWith('/api/home/dashboard', {
       method: 'GET',
@@ -97,19 +97,19 @@ describe('home dashboard BFF contract', () => {
     });
   });
 
-  it('homeApi.getDashboard does not convert upstream errors into zero/empty dashboard fallbacks', async () => {
+  it('homeDashboardApi.getDashboard does not convert upstream errors into zero/empty dashboard fallbacks', async () => {
     stubDashboardFetch({ success: false, code: 'UPSTREAM_ERROR' }, 500);
 
-    await expect(homeApi.getDashboard()).rejects.toBeInstanceOf(HomeDashboardFetchError);
-    await expect(homeApi.getDashboard()).rejects.toMatchObject({
+    await expect(homeDashboardApi.getDashboard()).rejects.toBeInstanceOf(HomeDashboardFetchError);
+    await expect(homeDashboardApi.getDashboard()).rejects.toMatchObject({
       code: 'HOME_DASHBOARD_UPSTREAM_UNAVAILABLE',
     });
   });
 
-  it('homeApi.getDashboard rejects schema drift instead of returning a partial dashboard', async () => {
+  it('homeDashboardApi.getDashboard rejects schema drift instead of returning a partial dashboard', async () => {
     stubDashboardFetch({ season: { state: 'SEASON_OPEN' } });
 
-    await expect(homeApi.getDashboard()).rejects.toMatchObject({
+    await expect(homeDashboardApi.getDashboard()).rejects.toMatchObject({
       code: 'HOME_DASHBOARD_UPSTREAM_INVALID',
     });
   });
@@ -118,7 +118,7 @@ describe('home dashboard BFF contract', () => {
     const dashboard = createFinalPassDashboardResponse();
     stubDashboardFetch(dashboard);
 
-    await expect(homeApi.getDashboard()).resolves.toMatchObject({
+    await expect(homeDashboardApi.getDashboard()).resolves.toMatchObject({
       viewer: {
         identity: {
           user: {

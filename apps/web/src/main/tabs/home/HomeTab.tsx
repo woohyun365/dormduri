@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, Building2, Calendar, School, ShieldAlert } from 'lucide-react';
 import { getAvatarColor } from '@/utils/avatarColor';
-import { useSeasonContext } from '@/contexts/SeasonContext';
+import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { readHomeMatchingSummaryOverrides } from '@/main/utils/homeDevOverrides';
 import { HomeQuickMenuSection } from './components/HomeQuickMenuSection';

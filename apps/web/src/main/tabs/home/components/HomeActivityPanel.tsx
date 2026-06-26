@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { HomeMatchingSummary } from './HomeMatchingSummary';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 

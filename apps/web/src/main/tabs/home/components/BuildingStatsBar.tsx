@@ -3,7 +3,7 @@
 import { motion } from 'motion/react';
 import { AlertTriangle, Link as LinkIcon, Megaphone, Sparkles, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import {
   glassCard,
   statLabel,

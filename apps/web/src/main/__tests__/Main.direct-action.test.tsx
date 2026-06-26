@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Main from '../Main';
-import { seasonApi } from '@/api/season';
-import { homeApi } from '@/api/home';
+import { seasonApi } from '@/main/legacy/seasonLegacyClient';
+import { homeDashboardApi } from '@/main/api/home-dashboard.api';
 import { profileApi } from '@/api/profile';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 
@@ -68,11 +68,10 @@ vi.mock('../tabs/chat/ChatTab', () => ({
   default: () => null,
 }));
 
-vi.mock('@/hooks/useOnboardingState', () => ({
-  useOnboardingState: () => ({
+vi.mock('@/main/hooks/useMainLocalOnboardingState', () => ({
+  useMainLocalOnboardingState: () => ({
     hasSeenGuide: true,
     markGuideSeen: vi.fn(),
-    resetChecklist: vi.fn(),
     hasSeenTooltip: vi.fn(() => true),
     markTooltipSeen: vi.fn(),
   }),
@@ -130,7 +129,7 @@ describe('Main direct-action baseline', () => {
       isPostMatch: false,
       daysUntilEnd: 14,
     });
-    vi.spyOn(homeApi, 'getDashboard').mockResolvedValue(createHomeDashboardTestResponse());
+    vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(createHomeDashboardTestResponse());
     vi.spyOn(profileApi, 'getProfiles').mockResolvedValue([]);
   });
 
@@ -140,7 +139,7 @@ describe('Main direct-action baseline', () => {
     await screen.findByTestId('main-home');
 
     expect(screen.queryByRole('dialog', { name: '배정 건물 선택' })).not.toBeInTheDocument();
-    expect(homeApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
     expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
   });
 
@@ -168,12 +167,12 @@ describe('Main direct-action baseline', () => {
 
     await waitFor(() => expect(seasonApi.getCurrentSeason).toHaveBeenCalledTimes(1));
     expect(profileApi.getProfiles).toHaveBeenCalledWith('CHUNCHEON', 'F', 'dasan');
-    expect(homeApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
   });
 
   it('shows a retryable Home error state when the dashboard fetch fails', async () => {
     const user = userEvent.setup();
-    vi.mocked(homeApi.getDashboard)
+    vi.mocked(homeDashboardApi.getDashboard)
       .mockRejectedValueOnce(new Error('raw upstream stack'))
       .mockResolvedValueOnce(createHomeDashboardTestResponse());
 
@@ -185,6 +184,6 @@ describe('Main direct-action baseline', () => {
     await user.click(screen.getByRole('button', { name: '다시 시도' }));
 
     await screen.findByTestId('main-home');
-    expect(homeApi.getDashboard).toHaveBeenCalledTimes(2);
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(2);
   });
 });

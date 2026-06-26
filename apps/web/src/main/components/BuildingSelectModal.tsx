@@ -8,7 +8,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { getAvailableDormitories, getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
-import { useSeasonContext } from '@/contexts/SeasonContext';
+import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import type { Campus } from '@/types/profile';
 
 interface BuildingSelectModalProps {

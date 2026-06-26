@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY, type CurrentUserResponse } from '@repo/shared/user';
-import { currentUserApi, CurrentUserMutationError } from '../current-user';
+import {
+  homeOnboardingNoticeApi,
+  HomeOnboardingNoticeMutationError,
+} from '../home-onboarding-notice.api';
 
 function makeCurrentUserResponse(): CurrentUserResponse {
   return {
@@ -87,18 +90,20 @@ function stubFetch(json: unknown, status = 200, contentType = 'application/json'
   return fetchMock;
 }
 
-describe('currentUserApi', () => {
+describe('homeOnboardingNoticeApi', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it('dismissOnboardingNotice는 same-origin BFF PATCH와 shared request contract를 사용한다', async () => {
+  it('service-intro notice dismiss 전용 method만 노출한다', () => {
+    expect(Object.keys(homeOnboardingNoticeApi)).toEqual(['dismissServiceIntroNotice']);
+  });
+
+  it('dismissServiceIntroNotice는 same-origin BFF PATCH와 shared request contract를 사용한다', async () => {
     const currentUser = makeCurrentUserResponse();
     const fetchMock = stubFetch(currentUser);
 
-    await expect(
-      currentUserApi.dismissOnboardingNotice({ noticeKey: SERVICE_INTRO_NOTICE_KEY }),
-    ).resolves.toEqual(currentUser);
+    await expect(homeOnboardingNoticeApi.dismissServiceIntroNotice()).resolves.toEqual(currentUser);
 
     expect(fetchMock).toHaveBeenCalledWith('/api/users/me/onboarding', {
       method: 'PATCH',
@@ -111,24 +116,28 @@ describe('currentUserApi', () => {
     });
   });
 
-  it('응답 schema drift를 current-user mutation error로 변환한다', async () => {
+  it('응답 schema drift를 Home onboarding notice mutation error로 변환한다', async () => {
     stubFetch({ onboarding: { dismissedNotices: [{ dismissed: true }] } });
 
-    await expect(
-      currentUserApi.dismissOnboardingNotice({ noticeKey: SERVICE_INTRO_NOTICE_KEY }),
-    ).rejects.toMatchObject({
-      name: 'CurrentUserMutationError',
-      code: 'CURRENT_USER_UPSTREAM_INVALID',
+    await expect(homeOnboardingNoticeApi.dismissServiceIntroNotice()).rejects.toMatchObject({
+      name: 'HomeOnboardingNoticeMutationError',
+      code: 'HOME_ONBOARDING_NOTICE_UPSTREAM_INVALID',
     });
   });
 
-  it('허용되지 않은 notice key는 fetch 전에 거부한다', async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
+  it('네트워크 실패를 Home onboarding notice mutation error로 변환한다', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('network down');
+      }),
+    );
 
-    await expect(
-      currentUserApi.dismissOnboardingNotice({ noticeKey: 'legacy-onboarding' } as never),
-    ).rejects.toBeInstanceOf(CurrentUserMutationError);
-    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(homeOnboardingNoticeApi.dismissServiceIntroNotice()).rejects.toBeInstanceOf(
+      HomeOnboardingNoticeMutationError,
+    );
+    await expect(homeOnboardingNoticeApi.dismissServiceIntroNotice()).rejects.toMatchObject({
+      code: 'HOME_ONBOARDING_NOTICE_UPSTREAM_UNAVAILABLE',
+    });
   });
 });

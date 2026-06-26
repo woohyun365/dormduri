@@ -3,7 +3,7 @@
 import { BarChart3, CalendarDays, CheckCircle2, History, Users } from 'lucide-react';
 import { BuildingStatsBar } from './BuildingStatsBar';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
 interface HomeStatsPanelProps {

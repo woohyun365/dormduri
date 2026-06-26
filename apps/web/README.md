@@ -60,7 +60,7 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 - Web CI는 DB service 없이 실행되므로 API 통합 검증은 API CI에서 담당합니다.
 - Web Playwright smoke도 기본은 Web-only 경계입니다. Landing E2E webServer는 support API 부재를 fallback으로 검증하기 위해 local invalid `API_URL`로 실행합니다.
 - 로그인 사용자 `/main` journey는 `playwright.fullstack.config.ts`가 API 서버와 DB seed를 함께 띄워 별도 full-stack lane에서 검증합니다. 이 lane은 Docker/API 의존성이 있어 manual/scheduled 후보입니다.
-- HomeTab Storybook은 visual state workshop입니다. Story data는 `src/main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `test-support`, `src/__fixtures__`를 import하면 안 됩니다.
+- HomeTab Storybook은 visual state workshop입니다. Story data는 `src/main/test-support` typed builder를 재사용할 수 있지만, production Home runtime source가 `__stories__`, `test-support`, `src/main/dev-only/fixtures`를 import하면 안 됩니다.
 - Web-only smoke의 후속 후보는 Safari/Firefox matrix, Lighthouse hard gate, strict visual diff입니다. 이 항목들은 현재 Web gate 실패가 아니라 별도 제품/인프라 backlog로 봅니다.
 
 ## Runtime and test references

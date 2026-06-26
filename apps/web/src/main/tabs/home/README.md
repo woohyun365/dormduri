@@ -8,7 +8,7 @@ Home은 현재 사용자에게 “지금 할 수 있는 다음 행동”을 안�
 
 - `HomeDashboardResponse`를 기준으로 현재 시즌, 내 시즌 참여 상태, 건물 선택 상태, 매칭 요약, 준비 체크리스트를 렌더링한다.
 - `GET /api/home/dashboard` Web BFF를 통해 Home 전용 dashboard read model을 가져온다.
-- Web client의 `homeApi` public surface는 `getDashboard()` 하나로 고정한다. `getBuildingStats`, `getPastSeasonResult`, `getPastSeasons` 같은 legacy widget/mock method는 Home 완료 범위로 복원하지 않는다.
+- Web client의 `homeDashboardApi` public surface는 `getDashboard()` 하나로 고정한다. `getBuildingStats`, `getPastSeasonResult`, `getPastSeasons` 같은 legacy widget/mock method는 Home 완료 범위로 복원하지 않는다.
 - Home first render는 `profileApi.getMyProfile()`이나 global fixture/mock DB를 요구하지 않는다.
 - 계정 표시 identity와 시즌 프로필 준비 상태는 Home dashboard/current-user contract의 allowlist DTO에서 분리해 소비한다.
 - `viewer.onboarding.dismissedNotices`와 `PATCH /api/users/me/onboarding`을 통해 `service-intro` 안내 닫힘 상태를 반영한다.
@@ -36,15 +36,15 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 
 ## Source of truth
 
-| 주제                          | Source                                                                                                                                        |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Home dashboard read model     | `packages/shared/src/home/dashboard.ts`, `apps/web/src/api/home.ts` (`getDashboard()` only), `apps/web/src/app/api/home/dashboard/route.ts`   |
-| Current-user onboarding state | `packages/shared/src/user/current-user.ts`, `apps/web/src/api/current-user.ts`, `apps/web/src/app/api/users/me/onboarding/route.ts`           |
-| Home dashboard fetch state    | `apps/web/src/main/hooks/useMainHomeDashboard.ts`                                                                                             |
-| Dashboard → Home view model   | `apps/web/src/main/tabs/home/model/homeDashboardViewModel.ts`                                                                                 |
-| Home quick action policy      | `apps/web/src/main/tabs/home/model/homeActionPolicy.ts`                                                                                       |
-| Season policy                 | `docs/04_policy/official/season-lifecycle.md`, `docs/04_policy/official/season-participation.md`                                              |
-| Search/matching/chat policy   | `docs/04_policy/official/roommate-searching.md`, `docs/04_policy/official/matching-lifecycle.md`, `docs/04_policy/official/chat-lifecycle.md` |
+| 주제                         | Source                                                                                                                                                           |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home dashboard read model    | `packages/shared/src/home/dashboard.ts`, `apps/web/src/main/api/home-dashboard.api.ts` (`getDashboard()` only), `apps/web/src/app/api/home/dashboard/route.ts`   |
+| Home onboarding notice state | `packages/shared/src/user/current-user.ts`, `apps/web/src/main/tabs/home/api/home-onboarding-notice.api.ts`, `apps/web/src/app/api/users/me/onboarding/route.ts` |
+| Home dashboard fetch state   | `apps/web/src/main/hooks/useMainHomeDashboard.ts`                                                                                                                |
+| Dashboard → Home view model  | `apps/web/src/main/tabs/home/model/homeDashboardViewModel.ts`                                                                                                    |
+| Home quick action policy     | `apps/web/src/main/tabs/home/model/homeActionPolicy.ts`                                                                                                          |
+| Season policy                | `docs/04_policy/official/season-lifecycle.md`, `docs/04_policy/official/season-participation.md`                                                                 |
+| Search/matching/chat policy  | `docs/04_policy/official/roommate-searching.md`, `docs/04_policy/official/matching-lifecycle.md`, `docs/04_policy/official/chat-lifecycle.md`                    |
 
 정책 문서와 Home 문구가 충돌하면 정책 문서를 우선하고 Home copy/test를 갱신한다.
 
@@ -60,6 +60,7 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 | `components/HomeMatchingSummary.tsx`, `components/UrgentActionBanner.tsx` | matching/chat/request activity summary                                                      |
 | `components/HomeReadinessChecklist.tsx`                                   | current-user capability와 registration 상태 기반 readiness checklist                        |
 | `components/HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts`  | `service-intro` 안내 표시·닫기·영구 dismiss flow                                            |
+| `api/home-onboarding-notice.api.ts`                                       | Home `service-intro` dismissed notice mutation client                                       |
 | `components/BuildingStatsBar.tsx`, `components/DynamicTipBanner.tsx`      | season stats and contextual guide widgets                                                   |
 | `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry, disabled reason, static/dynamic guide copy                      |
 | `model/`                                                                  | pure policy/view-model helpers and tests                                                    |
@@ -82,12 +83,12 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 
 - `src/main/hooks/__tests__/useMainHomeDashboard.test.tsx`
   - dashboard fetch success/error/retry state, status별 safe copy, previous success preservation.
-- `src/api/__tests__/home-dashboard-bff.contract.test.ts`
-  - `homeApi.getDashboard` no-store fetch, shared schema parse, upstream error fallback 금지, legacy widget/mock method 복원 금지.
+- `src/main/api/__tests__/home-dashboard.api.test.ts`
+  - `homeDashboardApi.getDashboard` no-store fetch, shared schema parse, upstream error fallback 금지, legacy widget/mock method 복원 금지.
 - `src/app/api/home/dashboard/route.test.ts`
   - BFF auth forward, schema guard, non-json/malformed JSON safe error, internal key fail-closed.
-- `src/app/api/users/me/onboarding/route.test.ts`, `src/api/__tests__/current-user.test.ts`
-  - onboarding dismiss request/response schema guard and safe error boundary.
+- `src/app/api/users/me/onboarding/route.test.ts`, `src/main/tabs/home/api/__tests__/home-onboarding-notice.api.test.ts`
+  - service-intro onboarding dismiss request/response schema guard and safe error boundary.
 - `src/main/tabs/home/model/*.test.ts`
   - dashboard view model and quick action policy matrix.
 - `src/main/tabs/home/__tests__/*.test.tsx`
@@ -105,7 +106,7 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 - 실행: `pnpm --dir apps/web storybook`
 - 정적 빌드 검증: `pnpm --dir apps/web storybook:build`
 - 현재 story matrix는 비시즌, 현재 시즌 없음 + 지난 기록/다음 시즌 preview, 현재 시즌 없음 + 기록 없음, 시즌 오픈 준비/등록 완료/등록 불가 reason, 매칭 기간 건물 미배정, 받은/보낸 요청, 확정 매칭, 시즌 마감, 비운영 캠퍼스, `service-intro` 안내 열림/닫힘, 로딩 skeleton, 오류 복구 상태를 포함한다.
-- story data는 `main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `main/test-support`, `src/__fixtures__`를 import하면 안 된다.
+- story data는 `main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `main/test-support`, `main/dev-only/fixtures`를 import하면 안 된다.
 - `storybook:build`는 visual workshop surface가 빌드 가능한지 확인할 뿐, API/BFF/auth/DB 정합성 완료 근거가 아니다.
 
 ## Playwright / browser smoke boundary
@@ -116,7 +117,7 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 따라서 Home browser evidence는 다음처럼 분리한다.
 
 - Web-only Playwright: public routes와 unauthenticated protected-route redirect를 검증한다.
-- Home logged-in behavior: Vitest component/hook/BFF route tests로 빠르게 고정한다. 테스트 데이터는 `apps/web/src/main/test-support/home-dashboard.builder.ts`의 typed builder를 사용하고, runtime code는 `@/__fixtures__`를 직접 참조하지 않는다.
+- Home logged-in behavior: Vitest component/hook/BFF route tests로 빠르게 고정한다. 테스트 데이터는 `apps/web/src/main/test-support/home-dashboard.builder.ts`의 typed builder를 사용하고, Home runtime code는 `@/main/dev-only/fixtures`를 직접 참조하지 않는다.
 - API-backed `/main` mobile/desktop smoke: `home-e2e-viewer@kangwon.ac.kr` seed 계정으로 current season, active match, pending request, unread chat, non-operated campus fail-closed matrix를 검증한다.
 
 Phase 6 full-stack matrix는 아래 명령으로 실행한다.
@@ -170,9 +171,10 @@ pnpm --dir apps/api prisma:seed:run
 
 ## Runtime fixture boundary
 
-- `/main` production runtime path는 `@/__fixtures__`를 direct/dynamic import하지 않는다.
+- `/main` Home first render path와 Home API client는 `@/main/dev-only/fixtures`를 direct/dynamic import하지 않는다.
 - `/main` Home first render path는 `profileApi.getMyProfile()` failure/null을 Home render blocker로 삼지 않는다.
-- `apps/web/src/__fixtures__` 아래 mock DB/matching service는 local development panel 또는 legacy unit test support 용도로만 남긴다. Home API client는 이 mock surface를 import하지 않는다.
+- root `apps/web/src/__fixtures__`는 제거됐고, mock DB/matching service는 `apps/web/src/main/dev-only/fixtures` local development/test-support boundary로 이동했다. Home API client는 이 mock surface를 import하지 않는다.
+- `SeasonState`는 `@repo/shared/season/runtime`을 직접 import하며, Web-local season compatibility re-export는 사용하지 않는다.
 - Home dashboard unit/component tests는 global fixture data가 아니라 `main/test-support`의 typed builder로 shared contract shape만 만든다.
 - 실제 로그인 사용자 기준 browser/manual 검증은 DB seed 계정과 API server를 사용하는 full-stack smoke에서 다룬다.
 - `src/main/tabs/home/__tests__/home-runtime-boundary.test.ts`는 production Home source에 global fixture,

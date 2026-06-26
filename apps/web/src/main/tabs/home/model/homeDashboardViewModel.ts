@@ -3,12 +3,12 @@ import {
   getDormitoryById,
   isCampusOperated as isCampusOperatedFn,
 } from '@/constants/dormitory';
-import { calcSeasonDates, type Season } from '@/constants/season';
+import { calcSeasonDates, type Season } from '@/main/season/seasonFallback';
 import { isDormitoryAssigned } from '@/utils/dormitory';
-import { calcDaysUntilTimestamp, formatDateDot } from '@/utils/date';
-import type { SeasonContextValue } from '@/contexts/SeasonContext';
+import { calcDaysUntilTimestamp, formatDateDot } from '@/main/tabs/home/model/homeDateDisplay';
+import type { SeasonContextValue } from '@/main/contexts/SeasonContext';
 import type { ActiveMatch } from '@/types/match';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse, HomeDashboardStats } from '@repo/shared/home';
 import type {
   MatchingSummaryActiveMatch,

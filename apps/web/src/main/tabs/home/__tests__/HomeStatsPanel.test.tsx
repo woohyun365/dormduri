@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import { HomeStatsPanel } from '../components/HomeStatsPanel';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
 function renderStats({

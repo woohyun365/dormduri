@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { HomeDashboardFetchError, homeApi } from '@/api/home';
+import { HomeDashboardFetchError, homeDashboardApi } from '@/main/api/home-dashboard.api';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
 const HOME_DASHBOARD_ERROR_MESSAGE =
@@ -62,7 +62,7 @@ export function useMainHomeDashboard(): UseMainHomeDashboardResult {
     }
 
     try {
-      const dashboard = await homeApi.getDashboard();
+      const dashboard = await homeDashboardApi.getDashboard();
       if (requestIdRef.current !== requestId) return;
       setState({ dashboard, status: 'success', error: null });
     } catch (error) {

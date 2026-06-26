@@ -10,22 +10,40 @@ const mainHomeFirstRenderSourceRoots = [
   join(process.cwd(), 'src/main/hooks/useMainHomeDashboard.ts'),
   homeRoot,
 ] as const;
+
+function importPath(...parts: string[]): string {
+  return parts.join('');
+}
+
 const FORBIDDEN_RUNTIME_PATTERNS = [
-  '@/__fixtures__',
-  'src/__fixtures__',
-  'main/test-support',
+  importPath('@', '/main/dev-only/fixtures'),
+  importPath('src/', '__fixtures__'),
+  importPath('main/', 'test-support'),
   '__stories__',
   '.stories',
 ] as const;
 const FORBIDDEN_HOME_FIRST_RENDER_PATTERNS = [
-  '@/__fixtures__',
-  'src/__fixtures__',
-  '@/api/profile',
+  importPath('@', '/main/dev-only/fixtures'),
+  importPath('src/', '__fixtures__'),
+  importPath('@', '/api/profile'),
+  importPath('@', '/api/home'),
+  importPath('@', '/api/current-user'),
   'profileApi',
   'getMyProfile',
   'getMockData',
   'mockDb',
   'useMainBootstrap',
+] as const;
+const REMOVED_ROOT_COMPATIBILITY_PATHS = [
+  join(process.cwd(), 'src', '__fixtures__'),
+  join(process.cwd(), 'src', 'api', 'home.ts'),
+  join(process.cwd(), 'src', 'api', 'current-user.ts'),
+  join(process.cwd(), 'src', 'api', 'season.ts'),
+  join(process.cwd(), 'src', 'constants', 'season.ts'),
+  join(process.cwd(), 'src', 'contexts', 'SeasonContext.tsx'),
+  join(process.cwd(), 'src', 'hooks', 'useOnboardingState.ts'),
+  join(process.cwd(), 'src', 'types', 'season.ts'),
+  join(process.cwd(), 'src', 'utils', 'date.ts'),
 ] as const;
 
 function listRuntimeSourceFiles(root: string): string[] {
@@ -75,6 +93,14 @@ describe('Home runtime boundary', () => {
       });
 
     expect(violations).toEqual([]);
+  });
+
+  it('removed root compatibility files are not reintroduced as Home dependencies', () => {
+    const reintroduced = REMOVED_ROOT_COMPATIBILITY_PATHS.filter(
+      (path) => statSync(path, { throwIfNoEntry: false }) !== undefined,
+    );
+
+    expect(reintroduced).toEqual([]);
   });
 
   it('Home dashboard view model does not calculate readiness from legacy UserProfile lifestyle', () => {

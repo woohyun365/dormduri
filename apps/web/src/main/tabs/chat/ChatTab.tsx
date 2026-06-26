@@ -14,7 +14,7 @@ import {
   Users,
 } from 'lucide-react';
 import { isCampusOperated } from '@/constants/dormitory';
-import { useSeasonContext } from '@/contexts/SeasonContext';
+import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import { getAvatarColor } from '@/utils/avatarColor';
 import { MatchingBadge } from '@/main/components/matching/MatchingBadge';
 import { ProfileDetailSheet } from '@/main/components/profile-detail/ProfileDetailSheet';

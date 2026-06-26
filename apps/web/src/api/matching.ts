@@ -12,13 +12,13 @@ export interface MatchingResult {
 
 async function getService() {
   const { getMockMatchingService, MockMatchingService } =
-    await import('@/__fixtures__/mock-matching-service');
+    await import('@/main/dev-only/fixtures/mock-matching-service');
   const service = getMockMatchingService();
 
   // DevPanel 프리셋 적용 (초기 로드 시)
   const preset = MockMatchingService.getPresetOverride();
   if (preset) {
-    const { mockDb } = await import('@/__fixtures__/mock-db');
+    const { mockDb } = await import('@/main/dev-only/fixtures/mock-db');
     const user = mockDb.getCurrentUser();
     if (user) {
       service.initFromPreset(preset, user.id);

@@ -15,7 +15,7 @@ import {
   Sparkles,
   UserRound,
 } from 'lucide-react';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 

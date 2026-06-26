@@ -1,11 +1,12 @@
 // TODO: BE API 연동 시 실제 endpoint로 교체
 
-import type { Season } from '@/constants/season';
-import type { SeasonState } from '@/types/season';
+import type { Season } from '@/main/season/seasonFallback';
+import type { SeasonState } from '@repo/shared/season/runtime';
 
 async function getMockData() {
   if (process.env.NODE_ENV === 'development') {
-    const { CURRENT_SEASON, getSeasonState, calcDaysUntilEnd } = await import('@/constants/season');
+    const { CURRENT_SEASON, getSeasonState, calcDaysUntilEnd } =
+      await import('@/main/season/seasonFallback');
     return { CURRENT_SEASON, getSeasonState, calcDaysUntilEnd };
   }
   return null;

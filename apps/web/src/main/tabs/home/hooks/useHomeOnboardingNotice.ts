@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { SERVICE_INTRO_NOTICE_KEY, type DismissedNoticeState } from '@repo/shared/user';
-import { currentUserApi } from '@/api/current-user';
+import { homeOnboardingNoticeApi } from '@/main/tabs/home/api/home-onboarding-notice.api';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
 const DISMISS_ERROR_MESSAGE =
@@ -45,7 +45,7 @@ export function useHomeOnboardingNotice({
     setDismissing(true);
     setError(null);
     try {
-      await currentUserApi.dismissOnboardingNotice({ noticeKey: SERVICE_INTRO_NOTICE_KEY });
+      await homeOnboardingNoticeApi.dismissServiceIntroNotice();
     } catch {
       setError(DISMISS_ERROR_MESSAGE);
       setDismissing(false);

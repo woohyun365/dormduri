@@ -2,7 +2,7 @@
 
 import { motion } from 'motion/react';
 import { AlertTriangle, Building2, Calendar, School } from 'lucide-react';
-import { useSeasonContext } from '@/contexts/SeasonContext';
+import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import { getDormitoryById, CAMPUS_NAMES } from '@/constants/dormitory';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { UNASSIGNED_ID } from '@/constants/dormitory';

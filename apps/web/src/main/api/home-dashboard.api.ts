@@ -64,6 +64,6 @@ async function fetchHomeDashboard(): Promise<HomeDashboardResponse> {
   return parsed.data;
 }
 
-export const homeApi = {
+export const homeDashboardApi = {
   getDashboard: fetchHomeDashboard,
 };

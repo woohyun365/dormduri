@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { UNASSIGNED_ID } from '@/constants/dormitory';
 import { profileApi } from '@/api/profile';
-import { seasonApi } from '@/api/season';
-import type { Season } from '@/constants/season';
+import { seasonApi } from '@/main/legacy/seasonLegacyClient';
+import type { Season } from '@/main/season/seasonFallback';
 import type { PastSeasonData } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 
 const MAIN_LEGACY_DATA_ERROR_MESSAGE = '탭 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
 
@@ -89,7 +89,7 @@ export function useMainLegacyTabData({
                 currentUser.gender,
                 dormitoryIdForFilter,
               );
-        // Past season history is no longer loaded through homeApi.
+        // Past season history is no longer loaded through homeDashboardApi.
         // Keep the non-Home legacy tab contract stable until Phase 8 moves it to an owner API.
         const pastSeasons: PastSeasonData[] = [];
 

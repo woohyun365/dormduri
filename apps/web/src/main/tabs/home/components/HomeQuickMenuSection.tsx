@@ -10,7 +10,7 @@ import {
   Lock,
   User as UserIcon,
 } from 'lucide-react';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import {
   buildHomeQuickActions,
   type HomeQuickAction,

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { SeasonProvider } from '@/contexts/SeasonContext';
+import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import HomeTab from '../HomeTab';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 

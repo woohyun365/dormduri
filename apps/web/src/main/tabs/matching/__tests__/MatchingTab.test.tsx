@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import MatchingTab from '../MatchingTab';
-import { SeasonProvider } from '@/contexts/SeasonContext';
+import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import type { ActiveMatch, MatchRequest } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
 

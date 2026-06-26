@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings, ChevronDown, ChevronUp } from 'lucide-react';
-import type { SeasonState } from '@/types/season';
-import { mockDb } from '@/__fixtures__/mock-db';
+import type { SeasonState } from '@repo/shared/season/runtime';
+import { mockDb } from '@/main/dev-only/fixtures/mock-db';
 import {
   MATCH_SENT_OVERRIDE_KEY,
   MATCH_RECEIVED_OVERRIDE_KEY,
@@ -116,7 +116,8 @@ export function HomeDevTool() {
 
     // 매칭 통계 오버라이드가 있으면 MockMatchingService에도 동기화
     if (sentCount !== null || receivedCount !== null || chatsCount !== null) {
-      const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
+      const { getMockMatchingService } =
+        await import('@/main/dev-only/fixtures/mock-matching-service');
       const currentUser = mockDb.getCurrentUser();
       if (currentUser) {
         getMockMatchingService().initFromCounts(currentUser.id, {

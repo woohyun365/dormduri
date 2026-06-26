@@ -1,8 +1,8 @@
 'use client';
 
 import { createContext, useContext } from 'react';
-import type { Season } from '@/constants/season';
-import type { SeasonState } from '@/types/season';
+import type { Season } from '@/main/season/seasonFallback';
+import type { SeasonState } from '@repo/shared/season/runtime';
 
 export interface SeasonContextValue {
   season: Season;

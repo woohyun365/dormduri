@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { SeasonProvider } from '@/contexts/SeasonContext';
+import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import HomeTab from '../HomeTab';
 import { HomeDashboardErrorState } from '../components/HomeDashboardErrorState';

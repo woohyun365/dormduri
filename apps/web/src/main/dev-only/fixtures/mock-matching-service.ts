@@ -1116,7 +1116,6 @@ export class MockMatchingService {
     const now = new Date().toISOString();
     const members = this.state.activeMatch.groupMembers ?? [];
     const coreIds = members.slice(0, 2).map((member) => member.userId);
-    const candidateId = members.length >= 3 ? members[members.length - 1]?.userId : null;
     // GROUP_FINAL: 전원 동등 Member. 아무나 이탈 가능, 나머지 1명 동의
     const isGroupFinalMemberLeave =
       this.state.activeMatch.kind === 'group' &&

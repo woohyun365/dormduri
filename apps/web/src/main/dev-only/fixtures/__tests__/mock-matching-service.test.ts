@@ -10,6 +10,12 @@ beforeEach(() => {
 
 describe('mockMatchingService initFromCounts', () => {
   it('홈 DevTool 카운트 기반 생성 시 같은 건물 fixture를 우선 사용한다', () => {
+    const lifestyle = mockRawProfiles[0]?.lifestyle;
+
+    if (!lifestyle) {
+      throw new Error('mockRawProfiles fixture must include at least one lifestyle');
+    }
+
     mockDb.setCurrentUser({
       id: 'dev-user',
       email: 'dev@kangwon.ac.kr',
@@ -18,7 +24,7 @@ describe('mockMatchingService initFromCounts', () => {
       gender: 'M',
       campus: 'CHUNCHEON',
       dormitoryId: 'dasan',
-      lifestyle: {} as any,
+      lifestyle,
       intro: '',
     });
 

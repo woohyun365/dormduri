@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useSeasonContext } from '@/contexts/SeasonContext';
+import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import { DEFAULT_FILTERS } from '../../components/BottomSheet';
 import { BottomSheet } from '../../components/BottomSheet';
 import { ProfileDetailSheet } from '../../components/profile-detail/ProfileDetailSheet';

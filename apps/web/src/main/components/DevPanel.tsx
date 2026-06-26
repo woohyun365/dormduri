@@ -56,9 +56,9 @@ export function DevPanel() {
   if (process.env.NODE_ENV !== 'development') return null;
 
   async function handleClearAll() {
-    const { mockDb } = await import('@/__fixtures__/mock-db');
+    const { mockDb } = await import('@/main/dev-only/fixtures/mock-db');
     const { getMockMatchingService, MockMatchingService } =
-      await import('@/__fixtures__/mock-matching-service');
+      await import('@/main/dev-only/fixtures/mock-matching-service');
     mockDb.clearAll();
     getMockMatchingService().clearState();
     MockMatchingService.setPresetOverride('auto');
@@ -90,7 +90,8 @@ export function DevPanel() {
       | 'seedGroupFinalScenario',
   ) {
     if (!sessionStatus.user) return;
-    const { getMockMatchingService } = await import('@/__fixtures__/mock-matching-service');
+    const { getMockMatchingService } =
+      await import('@/main/dev-only/fixtures/mock-matching-service');
     const svc = getMockMatchingService();
     const userArg = {
       id: sessionStatus.user.id,

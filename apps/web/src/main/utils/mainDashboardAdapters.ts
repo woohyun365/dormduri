@@ -1,6 +1,6 @@
-import type { Season } from '@/constants/season';
+import type { Season } from '@/main/season/seasonFallback';
 import type { LifestyleData } from '@/types/lifestyle';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { UserProfile } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
