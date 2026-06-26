@@ -243,6 +243,8 @@ export const AUTH_FIXTURE_USERS = [
     intro: '홈 full-stack smoke에서 등록 준비 미완료 reason을 확인하는 사용자입니다.',
     note: 'Home dashboard incomplete readiness fixture',
     lifestyle: relaxedLifestyle,
+    grade: 2,
+    mbti: 'ISTJ',
   },
   ...HOME_E2E_MATRIX_USERS,
   {

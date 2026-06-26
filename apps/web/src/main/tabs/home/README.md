@@ -118,6 +118,16 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 - Home logged-in behavior: Vitest component/hook/BFF route tests로 빠르게 고정한다. 테스트 데이터는 `apps/web/src/main/test-support/home-dashboard.builder.ts`의 typed builder를 사용하고, runtime code는 `@/__fixtures__`를 직접 참조하지 않는다.
 - API-backed `/main` mobile/desktop smoke: `home-e2e-viewer@kangwon.ac.kr` seed 계정으로 current season, active match, pending request, unread chat, non-operated campus fail-closed matrix를 검증한다.
 
+Phase 6 full-stack matrix는 아래 명령으로 실행한다.
+
+```bash
+pnpm --dir apps/web e2e:fullstack -- main-home.fullstack.spec.ts
+```
+
+이 spec은 실제 로그인 UI smoke 1개를 유지하되, mode/account matrix 검증은 테스트 전용 `AuthSession`을 DB에 직접 seed해 로그인 rate-limit 검증과 분리한다.
+Seed mode 전환은 `apps/web/e2e/support/home-e2e-seed.ts`가 소유하고, spec 종료 시 `current-matching`으로 복원한다.
+Playwright helper는 API seed script를 직접 실행해 테스트 중 `@repo/shared` build output을 지우지 않도록 한다.
+
 ## Full-stack seed matrix
 
 Home full-stack smoke의 DB source는 `apps/api/prisma/seed-data/fixtures/home-dashboard-e2e-fixtures.js`와 `auth-fixture-users.js`가 소유한다.
@@ -137,6 +147,17 @@ Home full-stack smoke의 DB source는 `apps/api/prisma/seed-data/fixtures/home-d
 운영 기숙사 seed matrix는 `dasan`, `yeji`, `saerom`, `irum`, `daon`마다 10명 이상의 `SeasonParticipant`와 프로필을 만든다.
 `HOME_E2E_SEED_MODE=future-preview`는 같은 `2026-02` 시즌 row를 future schedule로 전환해 “현재 시즌 없음 + 다음 시즌 preview” 상태를 재현한다.
 Prisma `Season`의 unique key가 `(campusCode, academicYear, semester)`이므로 future preview와 current mode는 같은 DB 상태에서 동시에 유지하지 않는다.
+
+수동으로 특정 mode를 확인할 때는 아래처럼 local DB URL을 지정해 seed를 다시 넣을 수 있다.
+
+```bash
+HOME_E2E_SEED_MODE=future-preview \
+DATABASE_URL='postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public' \
+DIRECT_URL='postgresql://knu_dev:knu_dev_password@localhost:5432/knu_roommate?schema=public' \
+pnpm --dir apps/api prisma:seed:run
+```
+
+수동 seed 후에는 다른 smoke와 로컬 개발 상태를 위해 `HOME_E2E_SEED_MODE=current-matching`으로 복원한다.
 
 ## Handoff and follow-up boundary
 

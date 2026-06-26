@@ -6,6 +6,7 @@ const HOME_E2E_VIEWER_EMAIL = 'home-e2e-viewer@kangwon.ac.kr';
 const HOME_E2E_REQUESTER_EMAIL = 'home-e2e-requester@kangwon.ac.kr';
 const HOME_E2E_ACTIVE_COUNTERPART_EMAIL = 'home-e2e-active@kangwon.ac.kr';
 const HOME_E2E_HISTORY_EMAIL = 'home-e2e-history@kangwon.ac.kr';
+const HOME_E2E_INCOMPLETE_EMAIL = 'home-e2e-incomplete@kangwon.ac.kr';
 
 const HOME_E2E_SEED_MODE = process.env.HOME_E2E_SEED_MODE ?? 'current-matching';
 const HOME_E2E_SUPPORTED_SEED_MODES = new Set([
@@ -48,6 +49,7 @@ const HOME_E2E_PARTICIPANTS = {
   pastViewer: 'home-e2e-past-viewer-participant',
   pastCounterpart: 'home-e2e-past-counterpart-participant',
   pastHistoryOnly: 'home-e2e-past-history-only-participant',
+  incomplete: 'home-e2e-incomplete-participant',
 };
 const HOME_E2E_PENDING_REQUEST_ID = 'home-e2e-pending-received-request';
 const HOME_E2E_ACTIVE_REQUEST_ID = 'home-e2e-active-request';
@@ -303,9 +305,13 @@ async function upsertParticipant(
     status,
     dormitoryId = user.fixture.dormitoryId ?? 'dasan',
     dormitorySelectionState = user.fixture.dormitorySelectionState ?? 'ASSIGNED',
+    participationIntent = 'REGISTERED',
     registeredAt = new Date(),
   },
 ) {
+  const joinedAt = registeredAt ?? new Date();
+  const activatedAt = status === 'ACTIVE' || status === 'MATCHED' ? joinedAt : null;
+
   await client.query(
     `
       INSERT INTO "SeasonParticipant" (
@@ -329,16 +335,16 @@ async function upsertParticipant(
         $1,
         $2,
         $3,
-        'REGISTERED'::"SeasonParticipationIntent",
-        $4::timestamptz,
-        $5,
-        $6::"DormitorySelectionState",
-        $7::"ParticipantStatus",
-        $8::"Campus",
-        $9::"Gender",
-        $4::timestamptz,
-        $4::timestamptz,
-        CASE WHEN $7::"ParticipantStatus" = 'MATCHED'::"ParticipantStatus" THEN $4::timestamptz ELSE NULL END,
+        $4::"SeasonParticipationIntent",
+        $5::timestamptz,
+        $6,
+        $7::"DormitorySelectionState",
+        $8::"ParticipantStatus",
+        $9::"Campus",
+        $10::"Gender",
+        $11::timestamptz,
+        $12::timestamptz,
+        CASE WHEN $8::"ParticipantStatus" = 'MATCHED'::"ParticipantStatus" THEN $12::timestamptz ELSE NULL END,
         NOW(),
         NOW()
       )
@@ -353,6 +359,7 @@ async function upsertParticipant(
         "participantStatus" = EXCLUDED."participantStatus",
         "campusCodeSnapshot" = EXCLUDED."campusCodeSnapshot",
         "genderSnapshot" = EXCLUDED."genderSnapshot",
+        "joinedAt" = EXCLUDED."joinedAt",
         "activatedAt" = EXCLUDED."activatedAt",
         "matchedAt" = EXCLUDED."matchedAt",
         "withdrawnAt" = NULL,
@@ -367,12 +374,15 @@ async function upsertParticipant(
       id,
       seasonId,
       user.id,
-      registeredAt.toISOString(),
+      participationIntent,
+      registeredAt?.toISOString() ?? null,
       dormitoryId,
       dormitorySelectionState,
       status,
       user.campus,
       user.gender,
+      joinedAt.toISOString(),
+      activatedAt?.toISOString() ?? null,
     ],
   );
 
@@ -838,6 +848,7 @@ async function seedHomeDashboardE2eFixtures(client) {
   const viewer = await findSeedUser(client, HOME_E2E_VIEWER_EMAIL);
   const requester = await findSeedUser(client, HOME_E2E_REQUESTER_EMAIL);
   const activeCounterpart = await findSeedUser(client, HOME_E2E_ACTIVE_COUNTERPART_EMAIL);
+  const incompleteViewer = await findSeedUser(client, HOME_E2E_INCOMPLETE_EMAIL);
 
   await upsertParticipant(client, {
     id: HOME_E2E_PARTICIPANTS.viewer,
@@ -856,6 +867,16 @@ async function seedHomeDashboardE2eFixtures(client) {
     seasonId,
     user: activeCounterpart,
     status: 'MATCHED',
+  });
+  await upsertParticipant(client, {
+    id: HOME_E2E_PARTICIPANTS.incomplete,
+    seasonId,
+    user: incompleteViewer,
+    status: 'DRAFT',
+    dormitoryId: null,
+    dormitorySelectionState: 'NOT_SELECTED',
+    participationIntent: 'UNDECIDED',
+    registeredAt: null,
   });
   await upsertDormitoryMatrixParticipants(client, seasonId, {
     idPrefix: 'home-e2e-current-matrix',
