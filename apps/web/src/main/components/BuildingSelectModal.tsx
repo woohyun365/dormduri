@@ -8,12 +8,12 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { getAvailableDormitories, getDormitoryById, UNASSIGNED_ID } from '@/constants/dormitory';
-import { useSeasonContext } from '@/contexts/SeasonContext';
 import type { Campus } from '@/types/profile';
 
 interface BuildingSelectModalProps {
   campus: Campus;
   gender: 'M' | 'F';
+  seasonSelectionLocked?: boolean;
   onSelect: (dormitoryId: string) => void;
   onClose?: () => void;
 }
@@ -21,10 +21,10 @@ interface BuildingSelectModalProps {
 export function BuildingSelectModal({
   campus,
   gender,
+  seasonSelectionLocked = false,
   onSelect,
   onClose,
 }: BuildingSelectModalProps) {
-  const { isOpen, isMatching } = useSeasonContext();
   useBodyScrollLock(true);
   const containerRef = useFocusTrap(true, onClose ?? (() => {}));
 
@@ -35,12 +35,12 @@ export function BuildingSelectModal({
 
   // 건물 선택 시 경고 카드로 스크롤
   useEffect(() => {
-    if (selectedId && selectedId !== UNASSIGNED_ID && (isOpen || isMatching)) {
+    if (selectedId && selectedId !== UNASSIGNED_ID && seasonSelectionLocked) {
       requestAnimationFrame(() => {
         warningRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
     }
-  }, [selectedId, isOpen, isMatching]);
+  }, [selectedId, seasonSelectionLocked]);
 
   const selectedDorm =
     selectedId && selectedId !== UNASSIGNED_ID ? getDormitoryById(selectedId) : null;
@@ -48,7 +48,7 @@ export function BuildingSelectModal({
   const handleConfirm = () => {
     if (!selectedId) return;
     // 시즌 중 건물 선택 (UNASSIGNED 제외)은 ConfirmDialog로 최종 확인
-    if ((isOpen || isMatching) && selectedId !== UNASSIGNED_ID) {
+    if (seasonSelectionLocked && selectedId !== UNASSIGNED_ID) {
       setShowConfirm(true);
     } else {
       onSelect(selectedId);
@@ -161,7 +161,7 @@ export function BuildingSelectModal({
                   )}
                 </button>
                 {/* 시즌 경고 — 선택된 건물 바로 아래 */}
-                {(isOpen || isMatching) && selectedId === dorm.id && (
+                {seasonSelectionLocked && selectedId === dorm.id && (
                   <div
                     ref={warningRef}
                     className="mt-2 flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl"

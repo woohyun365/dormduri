@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SeasonProvider } from '@/contexts/SeasonContext';
+import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import ChatTab from '../ChatTab';
 import type { ActiveMatch, MatchRequest } from '@/types/match';
 import type { RoommateProfile, UserProfile } from '@/types/profile';

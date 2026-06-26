@@ -1,3 +1,7 @@
+import type {
+  HomeDashboardNextSeasonPreview,
+  HomeDashboardSeasonHistorySummary,
+} from '@repo/shared/home';
 import type { CurrentUserResponse } from '@repo/shared/user';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { CurrentSeasonContext } from '../../seasons/ports/season-context.port.js';
@@ -124,5 +128,29 @@ export function makeSeasonContext(overrides: { state?: SeasonState } = {}): Curr
       startedAt: null,
       endsAt: null,
     },
+  };
+}
+
+export function makeSeasonHistorySummary(): HomeDashboardSeasonHistorySummary {
+  return {
+    lastSeason: {
+      id: 'season-previous',
+      name: '2025학년도 2학기',
+      totalParticipants: 120,
+      totalMatchSuccess: 36,
+      viewerHadRegistration: true,
+      viewerHadMatchSuccess: false,
+    },
+  };
+}
+
+export function makeNextSeasonPreview(): HomeDashboardNextSeasonPreview {
+  return {
+    id: 'season-next',
+    name: '2026학년도 2학기',
+    preparationStartDate: '2026-08-01',
+    matchingStartDate: '2026-08-20',
+    seasonEndDate: '2026-12-20',
+    visibleToUser: true,
   };
 }

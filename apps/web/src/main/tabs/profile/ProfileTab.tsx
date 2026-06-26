@@ -13,7 +13,6 @@ import {
   ExternalLink,
   LogOut,
   Ban,
-  RotateCcw,
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -34,7 +33,7 @@ import { ProfileLifestyleSection } from './ProfileLifestyleSection';
 import { ProfileAdditionalSection } from './ProfileAdditionalSection';
 import type { AdditionalProfile } from '@/types/additional-profile';
 import type { LifestyleData } from '@/types/lifestyle';
-import { useSeasonContext } from '@/contexts/SeasonContext';
+import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import type { UserProfile, RoommateProfile } from '@/types/profile';
 import type { BlockedUser } from '@/types/report';
 
@@ -46,7 +45,6 @@ interface ProfileTabProps {
   onLifestyleChange: (lifestyle: LifestyleData) => void;
   onAdditionalChange: (additional: AdditionalProfile) => void;
   onShowGuide?: () => void;
-  onResetChecklist?: () => void;
   blockedUsers?: BlockedUser[];
   onUnblock?: (userId: string, nickname: string) => void;
 }
@@ -59,7 +57,6 @@ export default function ProfileTab({
   onLifestyleChange,
   onAdditionalChange,
   onShowGuide,
-  onResetChecklist,
   blockedUsers = [],
   onUnblock,
 }: ProfileTabProps) {
@@ -103,6 +100,7 @@ export default function ProfileTab({
         <BuildingSelectModal
           campus={user.campus}
           gender={user.gender}
+          seasonSelectionLocked={isOpen || isMatching}
           onSelect={(id) => {
             onDormitoryChange(id);
             setShowBuildingModal(false);
@@ -290,20 +288,6 @@ export default function ProfileTab({
                   <Building2 className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
                   <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
                     기숙사 안내 다시 보기
-                  </span>
-                </div>
-                <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-              </button>
-            )}
-            {onResetChecklist && (
-              <button
-                onClick={onResetChecklist}
-                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <RotateCcw className="w-5 h-5 text-[var(--knu-text-tertiary)]" />
-                  <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-                    시작 가이드 다시 보기
                   </span>
                 </div>
                 <ChevronRight className="w-5 h-5 text-[var(--knu-text-tertiary)]" />

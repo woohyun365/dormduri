@@ -13,7 +13,7 @@ pnpm web:test
 pnpm web:test:coverage
 pnpm web:build
 pnpm web:e2e
-pnpm web:e2e:fullstack # optional: API/DB-backed /main smoke
+pnpm web:e2e:fullstack # optional/final-readiness: API/DB-backed /main smoke
 pnpm web:storybook # optional: HomeTab visual workshop
 pnpm web:storybook:build # optional: HomeTab Storybook static build
 pnpm check:web
@@ -25,7 +25,7 @@ pnpm check:web
 - `web:test:coverage`: Vitest coverage report(`apps/web/coverage/`)를 생성합니다.
 - `web:build`: shared package 빌드 후 Next.js production build를 실행합니다.
 - `web:e2e`: Playwright Chromium desktop/mobile project로 production-like standalone browser smoke를 실행합니다.
-- `web:e2e:fullstack`: local Postgres + API + Web dev server를 띄워 로그인 사용자 `/main` smoke를 실행합니다. 기본 PR gate가 아니라 manual/scheduled 후보입니다.
+- `web:e2e:fullstack`: local Postgres + API + Web dev server를 띄워 로그인 사용자 `/main` smoke를 실행합니다. 기본 PR gate는 아니지만 `/main`/Home/Auth handoff를 마감할 때는 final-readiness evidence로 실행합니다.
 - `web:storybook`: 로그인/DB 없이 HomeTab의 주요 시즌·매칭 UI 상태를 비교하는 visual workshop을 실행합니다.
 - `web:storybook:build`: HomeTab Storybook surface가 정적으로 빌드되는지 확인합니다. API/BFF/auth/DB 통합 정합성 근거는 아닙니다.
 - `check:web`: Web PR 기본 gate와 같은 순서로 lint, typecheck, test, build를 실행합니다.
@@ -59,8 +59,9 @@ Playwright는 desktop/mobile Chromium smoke를 제공하고, trace/screenshot/vi
 - `references/figma/web/src/`는 generated reference source로 취급해 git 추적과 Web lint/type 대상에서 제외합니다.
 - Web CI는 DB service 없이 실행되므로 API 통합 검증은 API CI에서 담당합니다.
 - Web Playwright smoke도 기본은 Web-only 경계입니다. Landing E2E webServer는 support API 부재를 fallback으로 검증하기 위해 local invalid `API_URL`로 실행합니다.
-- 로그인 사용자 `/main` journey는 `playwright.fullstack.config.ts`가 API 서버와 DB seed를 함께 띄워 별도 full-stack lane에서 검증합니다. 이 lane은 Docker/API 의존성이 있어 manual/scheduled 후보입니다.
-- HomeTab Storybook은 visual state workshop입니다. Story data는 `src/main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `test-support`, `src/__fixtures__`를 import하면 안 됩니다.
+- 로그인 사용자 `/main` journey는 `playwright.fullstack.config.ts`가 API 서버와 DB seed를 함께 띄워 별도 full-stack lane에서 검증합니다. 이 lane은 Docker/API 의존성이 있어 상시 PR gate보다는 manual/scheduled 또는 final-readiness 후보입니다.
+- HomeTab Storybook은 visual state workshop입니다. Story data는 `src/main/test-support` typed builder를 재사용할 수 있지만, production Home runtime source가 `__stories__`, `test-support`, `src/main/dev-only/fixtures`를 import하면 안 됩니다.
+- `web:storybook:build`가 생성하는 `apps/web/storybook-static/`은 검증 산출물이므로 버전 관리하지 않습니다.
 - Web-only smoke의 후속 후보는 Safari/Firefox matrix, Lighthouse hard gate, strict visual diff입니다. 이 항목들은 현재 Web gate 실패가 아니라 별도 제품/인프라 backlog로 봅니다.
 
 ## Runtime and test references

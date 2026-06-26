@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { Building2, CheckCircle2, Search, Sparkles, UserRound, X } from 'lucide-react';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
@@ -37,6 +37,8 @@ export function HomeOnboardingSheet({
   const dialogRef = useRef<HTMLElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const shouldReduceMotion = useReducedMotion();
+  const intro = resolveOnboardingIntro(viewModel);
   const actions = useMemo(
     () =>
       buildOnboardingActions({
@@ -116,8 +118,9 @@ export function HomeOnboardingSheet({
         aria-modal="true"
         aria-labelledby="home-onboarding-title"
         aria-describedby="home-onboarding-description"
-        initial={{ opacity: 0, y: 24, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+        initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, y: 24, scale: 0.98 }}
+        animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+        transition={shouldReduceMotion ? { duration: 0 } : undefined}
         className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5"
       >
         <div className="bg-linear-to-br from-blue-50 to-cyan-50 p-5">
@@ -132,7 +135,7 @@ export function HomeOnboardingSheet({
                   id="home-onboarding-title"
                   className="text-lg font-extrabold text-(--knu-text-primary)"
                 >
-                  서비스 시작 전 알아두기
+                  {intro.title}
                 </h2>
               </div>
             </div>
@@ -150,8 +153,7 @@ export function HomeOnboardingSheet({
             id="home-onboarding-description"
             className="text-sm leading-relaxed text-(--knu-text-secondary)"
           >
-            KNU 룸메는 시즌 상태에 따라 프로필 준비, 건물 선택, 룸메 탐색, 매칭 결과 확인을 순서대로
-            안내해요. 홈에서는 지금 할 수 있는 행동만 직접 눌러 시작할 수 있어요.
+            {intro.description}
           </p>
         </div>
 
@@ -218,6 +220,41 @@ export function HomeOnboardingSheet({
   );
 }
 
+function resolveOnboardingIntro(viewModel: HomeDashboardViewModel): {
+  title: string;
+  description: string;
+} {
+  if (!viewModel.isCampusOperated) {
+    return {
+      title: '운영이 열리면 홈에서 안내할게요',
+      description:
+        '현재 캠퍼스는 운영 준비 중이에요. 계정 정보는 확인할 수 있고, 운영이 열리면 시즌 일정과 참여 흐름을 홈에서 다시 보여드릴게요.',
+    };
+  }
+
+  if (!viewModel.hasCurrentSeason) {
+    return {
+      title: '새 시즌 전 홈에서 할 수 있는 일',
+      description:
+        '진행 중인 시즌이 없을 때는 프로필을 정비하고 지난 기록을 확인하는 데 집중해요. 새 시즌이 열리면 준비 체크리스트가 등록 흐름을 순서대로 안내합니다.',
+    };
+  }
+
+  if (!viewModel.preparation.registrationReady) {
+    return {
+      title: '시즌 등록까지 차례대로 준비해요',
+      description:
+        'KNU 룸메는 생활패턴 입력, 건물 선택, 시즌 등록 확정 순서로 준비 상태를 확인해요. 등록 전에는 탐색과 대화가 일부 제한될 수 있어요.',
+    };
+  }
+
+  return {
+    title: '서비스 시작 전 알아두기',
+    description:
+      'KNU 룸메는 시즌 상태에 따라 프로필 준비, 건물 선택, 룸메 탐색, 매칭 결과 확인을 순서대로 안내해요. 홈에서는 지금 할 수 있는 행동만 직접 눌러 시작할 수 있어요.',
+  };
+}
+
 function buildOnboardingActions({
   viewModel,
   onNavigate,
@@ -243,11 +280,11 @@ function buildOnboardingActions({
     ];
   }
 
-  if (!viewModel.preparation.hasLifestylePattern) {
+  if (!viewModel.preparation.hasSeasonProfile) {
     return [
       {
-        label: '생활패턴 먼저 입력',
-        description: '수면·생활패턴과 원하는 룸메 조건을 채워 시즌 등록을 준비해요.',
+        label: '시즌 프로필 먼저 입력',
+        description: '시즌 참여에 필요한 생활패턴과 조건을 채워 등록을 준비해요.',
         icon: UserRound,
         onClick: () => {
           onClose();

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { homeDashboardResponseSchema, type HomeDashboardMatching } from '@repo/shared/home';
 import { HomeDashboardPresenter } from './home-dashboard.presenter.js';
-import { makeCurrentUserResponse, makeSeasonContext } from './home-dashboard.test-fixtures.js';
+import {
+  makeCurrentUserResponse,
+  makeNextSeasonPreview,
+  makeSeasonContext,
+  makeSeasonHistorySummary,
+} from '../test-support/home-dashboard.spec-fixtures.js';
 
 describe('HomeDashboardPresenter', () => {
   it('current-user와 season context를 HomeDashboardResponse allowlist로 매핑한다', () => {
@@ -20,6 +25,8 @@ describe('HomeDashboardPresenter', () => {
         buildingMatchSuccess: 2,
       },
       matching: makeEmptyMatching(),
+      seasonHistorySummary: makeSeasonHistorySummary(),
+      nextSeasonPreview: makeNextSeasonPreview(),
       canViewMatchHistory: true,
       generatedAt: new Date('2026-02-10T03:00:00.000Z'),
     });
@@ -30,6 +37,17 @@ describe('HomeDashboardPresenter', () => {
       state: 'SEASON_POST_MATCH',
       isPostMatch: true,
     });
+    expect(response.viewer.identity).toMatchObject({
+      user: { id: 'user-1', email: 'user1@kangwon.ac.kr', nickname: '감자룸메' },
+      displayIdentity: { userId: 'user-1', nickname: '감자룸메' },
+      academicIdentity: { collegeCode: 'IT', birthYear: 2002 },
+    });
+    expect(response.seasonHistorySummary.lastSeason).toMatchObject({
+      id: 'season-previous',
+      totalParticipants: 120,
+      totalMatchSuccess: 36,
+    });
+    expect(response.nextSeasonPreview).toMatchObject({ id: 'season-next', visibleToUser: true });
     expect(response.viewer.capabilities).toMatchObject({
       canRequestMatch: false,
       canStartChat: false,
@@ -53,6 +71,8 @@ describe('HomeDashboardPresenter', () => {
         buildingMatchSuccess: 0,
       },
       matching: makeEmptyMatching(),
+      seasonHistorySummary: makeSeasonHistorySummary(),
+      nextSeasonPreview: makeNextSeasonPreview(),
       canViewMatchHistory: false,
       generatedAt: new Date('2026-02-10T03:00:00.000Z'),
     });
@@ -83,6 +103,8 @@ describe('HomeDashboardPresenter', () => {
         buildingMatchSuccess: 0,
       },
       matching: makeEmptyMatching(),
+      seasonHistorySummary: makeSeasonHistorySummary(),
+      nextSeasonPreview: makeNextSeasonPreview(),
       canViewMatchHistory: false,
       generatedAt: new Date('2026-02-10T03:00:00.000Z'),
     });
@@ -94,6 +116,10 @@ describe('HomeDashboardPresenter', () => {
     expect(serialized).not.toContain('retention');
     expect(serialized).not.toContain('moderation');
     expect(serialized).not.toContain('hiddenReasonDetail');
+    expect(serialized).not.toContain('sessionToken');
+    expect(serialized).not.toContain('refreshToken');
+    expect(serialized).not.toContain('passwordHash');
+    expect(serialized).not.toContain('audit');
   });
 });
 

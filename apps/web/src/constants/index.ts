@@ -9,7 +9,6 @@ export {
   NICKNAME_MAX,
   PROFILE_COMPLETION,
 } from './ui';
-export { CURRENT_SEASON } from './season';
 export {
   DORMITORIES,
   UNASSIGNED_ID,

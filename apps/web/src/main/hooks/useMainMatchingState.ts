@@ -19,6 +19,7 @@ export function useMainMatchingState(
   showToast: (msg: string) => void,
   currentUser: Pick<UserProfile, 'id' | 'nickname' | 'dormitoryId' | 'lifestyle'>,
   profiles: Omit<RoommateProfile, 'matchScore'>[],
+  enabled = true,
 ) {
   const currentUserId = currentUser.id;
   const userLifestyle = currentUser.lifestyle;
@@ -33,13 +34,20 @@ export function useMainMatchingState(
 
   // --- Initial load from API ---
   const refresh = useCallback(async () => {
+    if (!enabled) return;
+
     const result = await matchingApi.getState(currentUserId);
     setMatchRequests(result.requests);
     setActiveMatch(result.activeMatch);
-  }, [currentUserId]);
+  }, [currentUserId, enabled]);
 
   useEffect(() => {
     let cancelled = false;
+    if (!enabled)
+      return () => {
+        cancelled = true;
+      };
+
     (async () => {
       await refresh();
       if (!cancelled) setIsLoaded(true);
@@ -47,7 +55,7 @@ export function useMainMatchingState(
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [enabled, refresh]);
 
   // --- Actions (delegate to API, update state from response) ---
 

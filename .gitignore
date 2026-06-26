@@ -34,6 +34,7 @@ coverage
 apps/web/playwright-report/
 apps/web/test-results/
 apps/web/playwright/.auth/
+apps/web/storybook-static/
 
 ## Next.js 캐시/출력
 .next/

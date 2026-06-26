@@ -1,28 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
-import {
-  buildHomeDashboardViewModel,
-  toHomeActiveMatch,
-  toHomeSeasonContext,
-} from './homeDashboardViewModel';
-import type { UserProfile } from '@/types/profile';
+import { buildHomeDashboardViewModel, toHomeActiveMatch } from './homeDashboardViewModel';
 import type { MatchRequestSummary } from '@repo/shared/match/contract';
-
-const baseUser: UserProfile = {
-  id: 'user-1',
-  nickname: '춘천유저',
-  gender: 'M',
-  campus: 'CHUNCHEON',
-  dormitoryId: 'dasan',
-  lifestyle: {
-    smokingBehavior: 'NO',
-    sleepHabit: 'NONE',
-    relationshipStyle: 'CASUAL',
-  } as UserProfile['lifestyle'],
-  intro: '',
-  messageToRoommate: '잘 부탁해요',
-  additional: { college: 'IT', grade: '2', mbti: 'INTJ', birthYear: 2004 },
-};
 
 function createReceivedRequest(overrides: Partial<MatchRequestSummary> = {}): MatchRequestSummary {
   return {
@@ -71,26 +50,23 @@ function createReceivedRequest(overrides: Partial<MatchRequestSummary> = {}): Ma
 }
 
 describe('homeDashboardViewModel', () => {
-  it('maps dashboard season context without legacy widget calls', () => {
+  it('derives Home season runtime only from dashboard response', () => {
     const dashboard = createHomeDashboardTestResponse();
-    const context = toHomeSeasonContext(dashboard, {
-      season: { name: 'fallback', roomSelectionDate: '2099-01-01' },
-      state: 'OFF_SEASON',
-      isOpen: false,
-      isMatching: false,
-      daysUntilEnd: 0,
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      renderedAt: new Date('2026-03-01T00:00:00.000Z').getTime(),
     });
 
-    expect(context).toEqual({
-      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-      state: 'SEASON_OPEN',
-      isOpen: true,
-      isMatching: false,
+    expect(viewModel).toMatchObject({
+      hasCurrentSeason: true,
+      seasonState: 'SEASON_OPEN',
       daysUntilEnd: 30,
+      isSeasonOpen: true,
+      isSeasonMatching: false,
     });
   });
 
-  it('keeps fallback season context when dashboard has no current season', () => {
+  it('does not invent a current-season schedule when dashboard has no current season', () => {
     const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
@@ -103,16 +79,25 @@ describe('homeDashboardViewModel', () => {
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
       },
+      nextSeasonPreview: null,
     });
-    const fallback = {
-      season: { name: 'fallback', roomSelectionDate: '2099-01-01' },
-      state: 'OFF_SEASON' as const,
-      isOpen: false,
-      isMatching: false,
-      daysUntilEnd: 0,
-    };
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      renderedAt: new Date('2026-07-01T00:00:00.000Z').getTime(),
+    });
 
-    expect(toHomeSeasonContext(dashboard, fallback)).toEqual(fallback);
+    expect(viewModel).toMatchObject({
+      hasCurrentSeason: false,
+      seasonState: 'OFF_SEASON',
+      daysUntilEnd: 0,
+      isSeasonOpen: false,
+      isSeasonMatching: false,
+      seasonSummary: {
+        nextSeasonDate: '',
+        nextSeasonName: '',
+        hasNextSeasonPreview: false,
+      },
+    });
   });
 
   it('builds matching summary from dashboard counts and recent received request names', () => {
@@ -133,10 +118,6 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: baseUser,
-      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-      seasonState: 'SEASON_MATCHING',
-      daysUntilEnd: 7,
       renderedAt: new Date('2026-06-22T00:00:00.000Z').getTime(),
     });
 
@@ -163,14 +144,8 @@ describe('homeDashboardViewModel', () => {
         },
       },
     });
-    const localUnassignedUser = { ...baseUser, dormitoryId: null };
-
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: localUnassignedUser,
-      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-      seasonState: 'SEASON_OPEN',
-      daysUntilEnd: 30,
       renderedAt: new Date('2026-03-01T00:00:00.000Z').getTime(),
     });
 
@@ -193,10 +168,6 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: { ...baseUser, dormitoryId: null },
-      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-      seasonState: 'SEASON_MATCHING',
-      daysUntilEnd: 7,
       renderedAt: new Date('2026-04-01T00:00:00.000Z').getTime(),
     });
 
@@ -220,10 +191,6 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: { ...baseUser, dormitoryId: null },
-      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-      seasonState: 'SEASON_MATCHING',
-      daysUntilEnd: 7,
       renderedAt: new Date('2026-04-01T00:00:00.000Z').getTime(),
     });
 
@@ -233,7 +200,7 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.tip.seasonStatus).toBe('NOT_OPERATED');
   });
 
-  it('closes next-season summary when dashboard has no current season schedule', () => {
+  it('uses visible next-season preview even when there is no current season schedule', () => {
     const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
@@ -250,18 +217,14 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: baseUser,
-      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-      seasonState: 'OFF_SEASON',
-      daysUntilEnd: 0,
       renderedAt: new Date('2026-07-01T00:00:00.000Z').getTime(),
     });
 
     expect(viewModel.hasCurrentSeason).toBe(false);
     expect(viewModel.seasonSummary).toMatchObject({
-      daysUntilNext: 0,
-      nextSeasonDate: '',
-      nextSeasonName: '',
+      daysUntilNext: 50,
+      nextSeasonDate: '2026.08.20',
+      nextSeasonName: '2026년 2학기',
     });
   });
 
@@ -284,10 +247,6 @@ describe('homeDashboardViewModel', () => {
 
     const viewModel = buildHomeDashboardViewModel({
       dashboard,
-      user: baseUser,
-      season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-      seasonState: 'SEASON_POST_MATCH',
-      daysUntilEnd: 0,
       renderedAt: new Date('2026-05-01T00:00:00.000Z').getTime(),
     });
 

@@ -7,28 +7,11 @@ import {
   buildReadinessChecklistItems,
   HomeReadinessChecklist,
 } from '../components/HomeReadinessChecklist';
-import type { UserProfile } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
-
-const user: UserProfile = {
-  id: 'user-1',
-  nickname: '춘천유저',
-  gender: 'M',
-  campus: 'CHUNCHEON',
-  dormitoryId: null,
-  lifestyle: {} as UserProfile['lifestyle'],
-  intro: '',
-  messageToRoommate: null,
-  additional: { college: null, grade: null, mbti: null, birthYear: null },
-};
 
 function buildViewModel(dashboard: HomeDashboardResponse) {
   return buildHomeDashboardViewModel({
     dashboard,
-    user,
-    season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-    seasonState: dashboard.season.state ?? 'OFF_SEASON',
-    daysUntilEnd: dashboard.season.daysUntilMatchingEnd ?? 0,
     renderedAt: new Date('2026-03-20T00:00:00+09:00').getTime(),
   });
 }
@@ -93,6 +76,42 @@ describe('HomeReadinessChecklist', () => {
         expect.objectContaining({ id: 'building', status: 'complete' }),
         expect.objectContaining({ id: 'registration', status: 'complete' }),
         expect.objectContaining({ id: 'matching', status: 'actionable', actionLabel: '룸메 찾기' }),
+      ]),
+    );
+  });
+
+  it('registrationUnavailableReasons가 있으면 등록 불가 이유를 사용자 문구로 표시한다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      viewer: {
+        ...createHomeDashboardTestResponse().viewer,
+        capabilities: {
+          ...createHomeDashboardTestResponse().viewer.capabilities,
+          canFinalizeSeasonRegistration: false,
+        },
+        seasonProfile: {
+          ...createHomeDashboardTestResponse().viewer.seasonProfile,
+          registered: false,
+          completion: {
+            profileCompletionRequired: false,
+            dormitorySelectionRequired: false,
+            registrationUnavailable: true,
+            registrationUnavailableReasons: ['SEASON_NOT_OPEN'],
+          },
+          canFinalizeRegistration: false,
+        },
+      },
+    });
+
+    const items = buildReadinessChecklistItems({ dashboard, viewModel: buildViewModel(dashboard) });
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'registration',
+          status: 'locked',
+          description:
+            '현재는 시즌 등록이 열려 있지 않아요. 새 시즌 일정이 열리면 등록을 다시 안내할게요.',
+        }),
       ]),
     );
   });

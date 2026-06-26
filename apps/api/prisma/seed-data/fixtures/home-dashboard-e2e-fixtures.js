@@ -1,22 +1,65 @@
-import { AUTH_FIXTURE_USERS } from './auth-fixture-users.js';
+import { AUTH_FIXTURE_USERS, HOME_E2E_MATRIX_USERS } from './auth-fixture-users.js';
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 const HOME_E2E_VIEWER_EMAIL = 'home-e2e-viewer@kangwon.ac.kr';
 const HOME_E2E_REQUESTER_EMAIL = 'home-e2e-requester@kangwon.ac.kr';
 const HOME_E2E_ACTIVE_COUNTERPART_EMAIL = 'home-e2e-active@kangwon.ac.kr';
+const HOME_E2E_HISTORY_EMAIL = 'home-e2e-history@kangwon.ac.kr';
+const HOME_E2E_INCOMPLETE_EMAIL = 'home-e2e-incomplete@kangwon.ac.kr';
 
-const HOME_E2E_SEASON_NAME = 'Home full-stack smoke season';
+const HOME_E2E_SEED_MODE = process.env.HOME_E2E_SEED_MODE ?? 'current-matching';
+const HOME_E2E_SUPPORTED_SEED_MODES = new Set([
+  'current-matching',
+  'season-open',
+  'post-match',
+  'future-preview',
+]);
+const HOME_E2E_CURRENT_SEASON = {
+  id: 'home-e2e-season',
+  academicYear: 2026,
+  semester: 2,
+  name: '2026년 2학기 Home full-stack smoke',
+};
+const HOME_E2E_PAST_SEASON = {
+  academicYear: 2026,
+  semester: 1,
+  name: '2026년 1학기',
+};
+const HOME_E2E_NEXT_SEASON = {
+  academicYear: 2026,
+  semester: 2,
+  name: '2026년 2학기',
+  preparationStartDate: '2026-08-20',
+  matchingStartDate: '2026-09-01',
+  roomSelectionDate: '2026-09-15',
+  seasonEndDate: '2026-12-20',
+};
+const HOME_E2E_DORMITORY_MATRIX = [
+  { dormitoryId: 'dasan', expectedMinimumParticipants: 10 },
+  { dormitoryId: 'yeji', expectedMinimumParticipants: 10 },
+  { dormitoryId: 'saerom', expectedMinimumParticipants: 10 },
+  { dormitoryId: 'irum', expectedMinimumParticipants: 10 },
+  { dormitoryId: 'daon', expectedMinimumParticipants: 10 },
+];
 const HOME_E2E_PARTICIPANTS = {
   viewer: 'home-e2e-viewer-participant',
   requester: 'home-e2e-requester-participant',
   activeCounterpart: 'home-e2e-active-counterpart-participant',
+  pastViewer: 'home-e2e-past-viewer-participant',
+  pastCounterpart: 'home-e2e-past-counterpart-participant',
+  pastHistoryOnly: 'home-e2e-past-history-only-participant',
+  incomplete: 'home-e2e-incomplete-participant',
 };
 const HOME_E2E_PENDING_REQUEST_ID = 'home-e2e-pending-received-request';
 const HOME_E2E_ACTIVE_REQUEST_ID = 'home-e2e-active-request';
 const HOME_E2E_ACTIVE_MATCH_ID = 'home-e2e-active-match';
 const HOME_E2E_THREAD_ID = 'home-e2e-active-thread';
 const HOME_E2E_MESSAGE_ID = 'home-e2e-active-unread-message';
+const HOME_E2E_PAST_MATCH_REQUEST_ID = 'home-e2e-past-match-request';
+const HOME_E2E_PAST_ACTIVE_MATCH_ID = 'home-e2e-past-active-match';
+const HOME_E2E_PAST_HISTORY_VIEWER_ID = 'home-e2e-past-history-viewer-entry';
+const HOME_E2E_PAST_HISTORY_COUNTERPART_ID = 'home-e2e-past-history-counterpart-entry';
 
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
@@ -80,6 +123,54 @@ function addHours(date, hours) {
   return next;
 }
 
+function getSeedMode() {
+  if (!HOME_E2E_SUPPORTED_SEED_MODES.has(HOME_E2E_SEED_MODE)) {
+    throw new Error(
+      `Unsupported HOME_E2E_SEED_MODE: ${HOME_E2E_SEED_MODE}. Supported modes: ${[
+        ...HOME_E2E_SUPPORTED_SEED_MODES,
+      ].join(', ')}`,
+    );
+  }
+
+  return HOME_E2E_SEED_MODE;
+}
+
+function getCurrentSeasonSchedule(now, mode) {
+  if (mode === 'future-preview') {
+    return {
+      preparationStartDate: HOME_E2E_NEXT_SEASON.preparationStartDate,
+      matchingStartDate: HOME_E2E_NEXT_SEASON.matchingStartDate,
+      roomSelectionDate: HOME_E2E_NEXT_SEASON.roomSelectionDate,
+      seasonEndDate: HOME_E2E_NEXT_SEASON.seasonEndDate,
+    };
+  }
+
+  if (mode === 'season-open') {
+    return {
+      preparationStartDate: toKstDateString(addDays(now, -1)),
+      matchingStartDate: toKstDateString(addDays(now, 14)),
+      roomSelectionDate: toKstDateString(addDays(now, 28)),
+      seasonEndDate: toKstDateString(addDays(now, 45)),
+    };
+  }
+
+  if (mode === 'post-match') {
+    return {
+      preparationStartDate: toKstDateString(addDays(now, -45)),
+      matchingStartDate: toKstDateString(addDays(now, -30)),
+      roomSelectionDate: toKstDateString(addDays(now, -1)),
+      seasonEndDate: toKstDateString(addDays(now, 14)),
+    };
+  }
+
+  return {
+    preparationStartDate: toKstDateString(addDays(now, -14)),
+    matchingStartDate: toKstDateString(addDays(now, -1)),
+    roomSelectionDate: toKstDateString(addDays(now, 14)),
+    seasonEndDate: toKstDateString(addDays(now, 30)),
+  };
+}
+
 function buildPairKey(participantAId, participantBId) {
   return [participantAId, participantBId].sort().join(':');
 }
@@ -105,11 +196,8 @@ async function findSeedUser(client, email) {
 
 async function upsertHomeSeason(client) {
   const now = new Date();
-  const academicYear = Number.parseInt(toKstDateString(now).slice(0, 4), 10);
-  const preparationStartDate = toKstDateString(addDays(now, -14));
-  const matchingStartDate = toKstDateString(addDays(now, -1));
-  const roomSelectionDate = toKstDateString(addDays(now, 14));
-  const seasonEndDate = toKstDateString(addDays(now, 30));
+  const mode = getSeedMode();
+  const schedule = getCurrentSeasonSchedule(now, mode);
 
   await client.query(
     `
@@ -130,14 +218,14 @@ async function upsertHomeSeason(client) {
         "updatedAt"
       )
       VALUES (
-        'home-e2e-season',
-        'CHUNCHEON'::"Campus",
         $1,
-        2,
+        'CHUNCHEON'::"Campus",
         $2,
-        $3::date,
+        2,
+        $3,
         $4::date,
         $5::date,
+        $6::date,
         NULL,
         NULL,
         NULL,
@@ -157,7 +245,14 @@ async function upsertHomeSeason(client) {
         "overrideEndsAt" = NULL,
         "updatedAt" = NOW()
     `,
-    [academicYear, HOME_E2E_SEASON_NAME, preparationStartDate, matchingStartDate, seasonEndDate],
+    [
+      HOME_E2E_CURRENT_SEASON.id,
+      HOME_E2E_CURRENT_SEASON.academicYear,
+      mode === 'future-preview' ? HOME_E2E_NEXT_SEASON.name : HOME_E2E_CURRENT_SEASON.name,
+      schedule.preparationStartDate,
+      schedule.matchingStartDate,
+      schedule.seasonEndDate,
+    ],
   );
 
   const seasonResult = await client.query(
@@ -169,14 +264,14 @@ async function upsertHomeSeason(client) {
         AND semester = 2
       LIMIT 1
     `,
-    [academicYear],
+    [HOME_E2E_CURRENT_SEASON.academicYear],
   );
   const seasonId = seasonResult.rows[0]?.id;
   if (!seasonId) {
     throw new Error('Home dashboard e2e season lookup failed');
   }
 
-  for (const dormitoryId of ['dasan', 'yeji', 'saerom']) {
+  for (const { dormitoryId } of HOME_E2E_DORMITORY_MATRIX) {
     await client.query(
       `
         INSERT INTO "SeasonDormitoryOperation" (
@@ -194,14 +289,29 @@ async function upsertHomeSeason(client) {
           "roomSelectionDate" = EXCLUDED."roomSelectionDate",
           "updatedAt" = NOW()
       `,
-      [seasonId, dormitoryId, roomSelectionDate],
+      [seasonId, dormitoryId, schedule.roomSelectionDate],
     );
   }
 
   return seasonId;
 }
 
-async function upsertParticipant(client, { id, seasonId, user, status }) {
+async function upsertParticipant(
+  client,
+  {
+    id,
+    seasonId,
+    user,
+    status,
+    dormitoryId = user.fixture.dormitoryId ?? 'dasan',
+    dormitorySelectionState = user.fixture.dormitorySelectionState ?? 'ASSIGNED',
+    participationIntent = 'REGISTERED',
+    registeredAt = new Date(),
+  },
+) {
+  const joinedAt = registeredAt ?? new Date();
+  const activatedAt = status === 'ACTIVE' || status === 'MATCHED' ? joinedAt : null;
+
   await client.query(
     `
       INSERT INTO "SeasonParticipant" (
@@ -225,16 +335,16 @@ async function upsertParticipant(client, { id, seasonId, user, status }) {
         $1,
         $2,
         $3,
-        'REGISTERED'::"SeasonParticipationIntent",
-        NOW(),
-        'dasan',
-        'ASSIGNED'::"DormitorySelectionState",
-        $4::"ParticipantStatus",
-        $5::"Campus",
-        $6::"Gender",
-        NOW(),
-        NOW(),
-        CASE WHEN $4::"ParticipantStatus" = 'MATCHED'::"ParticipantStatus" THEN NOW() ELSE NULL END,
+        $4::"SeasonParticipationIntent",
+        $5::timestamptz,
+        $6,
+        $7::"DormitorySelectionState",
+        $8::"ParticipantStatus",
+        $9::"Campus",
+        $10::"Gender",
+        $11::timestamptz,
+        $12::timestamptz,
+        CASE WHEN $8::"ParticipantStatus" = 'MATCHED'::"ParticipantStatus" THEN $12::timestamptz ELSE NULL END,
         NOW(),
         NOW()
       )
@@ -249,6 +359,7 @@ async function upsertParticipant(client, { id, seasonId, user, status }) {
         "participantStatus" = EXCLUDED."participantStatus",
         "campusCodeSnapshot" = EXCLUDED."campusCodeSnapshot",
         "genderSnapshot" = EXCLUDED."genderSnapshot",
+        "joinedAt" = EXCLUDED."joinedAt",
         "activatedAt" = EXCLUDED."activatedAt",
         "matchedAt" = EXCLUDED."matchedAt",
         "withdrawnAt" = NULL,
@@ -259,7 +370,20 @@ async function upsertParticipant(client, { id, seasonId, user, status }) {
         "deactivatedAt" = NULL,
         "updatedAt" = NOW()
     `,
-    [id, seasonId, user.id, status, user.campus, user.gender],
+    [
+      id,
+      seasonId,
+      user.id,
+      participationIntent,
+      registeredAt?.toISOString() ?? null,
+      dormitoryId,
+      dormitorySelectionState,
+      status,
+      user.campus,
+      user.gender,
+      joinedAt.toISOString(),
+      activatedAt?.toISOString() ?? null,
+    ],
   );
 
   const storedLifestyle = toStoredLifestyleColumns(user.fixture.lifestyle);
@@ -378,6 +502,142 @@ async function upsertParticipant(client, { id, seasonId, user, status }) {
   );
 }
 
+async function lookupSeedSeason(client, { academicYear, semester }) {
+  const result = await client.query(
+    `
+      SELECT id
+      FROM "Season"
+      WHERE "campusCode" = 'CHUNCHEON'::"Campus"
+        AND "academicYear" = $1
+        AND semester = $2
+      LIMIT 1
+    `,
+    [academicYear, semester],
+  );
+  const seasonId = result.rows[0]?.id;
+
+  if (!seasonId) {
+    throw new Error(`Home dashboard e2e seed season not found: ${academicYear}-${semester}`);
+  }
+
+  return seasonId;
+}
+
+async function upsertDormitoryMatrixParticipants(client, seasonId, { idPrefix, registeredAt }) {
+  for (const seedUser of HOME_E2E_MATRIX_USERS) {
+    const user = await findSeedUser(client, seedUser.email);
+    await upsertParticipant(client, {
+      id: `${idPrefix}-${seedUser.key}`,
+      seasonId,
+      user,
+      status: 'ACTIVE',
+      dormitoryId: seedUser.dormitoryId,
+      dormitorySelectionState: 'ASSIGNED',
+      registeredAt,
+    });
+  }
+}
+
+async function upsertSeasonMatchHistoryEntry(
+  client,
+  {
+    id,
+    seasonId,
+    viewerParticipantId,
+    counterpartParticipantId,
+    viewerRequested,
+    sourceRequestId,
+    sourceActiveMatchId,
+    counterpartNicknameSnapshot,
+    viewerDormitoryIdSnapshot,
+    finalizedAt,
+  },
+) {
+  const pairKey = buildPairKey(viewerParticipantId, counterpartParticipantId);
+
+  await client.query(
+    `
+      INSERT INTO "SeasonMatchHistoryEntry" (
+        id,
+        "seasonId",
+        "viewerParticipantId",
+        "counterpartParticipantId",
+        "pairKey",
+        "entryType",
+        "entryResult",
+        "viewerRequested",
+        "sourceRequestId",
+        "sourceActiveMatchId",
+        "createdFromRequestId",
+        "counterpartNicknameSnapshot",
+        "counterpartRedactedAt",
+        "viewerRedactedAt",
+        "viewerDormitoryIdSnapshot",
+        "matchedAt",
+        "unmatchedAt",
+        "finalizedAt",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        'MATCH'::"SeasonMatchHistoryEntryType",
+        'MATCHED_SUCCESS'::"SeasonMatchHistoryEntryResult",
+        $6,
+        $7,
+        $8,
+        $7,
+        $9,
+        NULL,
+        NULL,
+        $10,
+        $11::timestamptz,
+        NULL,
+        $11::timestamptz,
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (id)
+      DO UPDATE SET
+        "seasonId" = EXCLUDED."seasonId",
+        "viewerParticipantId" = EXCLUDED."viewerParticipantId",
+        "counterpartParticipantId" = EXCLUDED."counterpartParticipantId",
+        "pairKey" = EXCLUDED."pairKey",
+        "entryType" = EXCLUDED."entryType",
+        "entryResult" = EXCLUDED."entryResult",
+        "viewerRequested" = EXCLUDED."viewerRequested",
+        "sourceRequestId" = EXCLUDED."sourceRequestId",
+        "sourceActiveMatchId" = EXCLUDED."sourceActiveMatchId",
+        "createdFromRequestId" = EXCLUDED."createdFromRequestId",
+        "counterpartNicknameSnapshot" = EXCLUDED."counterpartNicknameSnapshot",
+        "counterpartRedactedAt" = NULL,
+        "viewerRedactedAt" = NULL,
+        "viewerDormitoryIdSnapshot" = EXCLUDED."viewerDormitoryIdSnapshot",
+        "matchedAt" = EXCLUDED."matchedAt",
+        "unmatchedAt" = NULL,
+        "finalizedAt" = EXCLUDED."finalizedAt",
+        "updatedAt" = NOW()
+    `,
+    [
+      id,
+      seasonId,
+      viewerParticipantId,
+      counterpartParticipantId,
+      pairKey,
+      viewerRequested,
+      sourceRequestId,
+      sourceActiveMatchId,
+      counterpartNicknameSnapshot,
+      viewerDormitoryIdSnapshot,
+      finalizedAt.toISOString(),
+    ],
+  );
+}
+
 async function upsertMatchRequest(client, input) {
   const pairKey = buildPairKey(input.requesterParticipantId, input.receiverParticipantId);
   const [pairMinParticipantId, pairMaxParticipantId] = pairKey.split(':');
@@ -451,11 +711,144 @@ async function upsertMatchRequest(client, input) {
   );
 }
 
+async function seedPastSeasonHistoryFixtures(client) {
+  const pastSeasonId = await lookupSeedSeason(client, HOME_E2E_PAST_SEASON);
+  const viewer = await findSeedUser(client, HOME_E2E_VIEWER_EMAIL);
+  const activeCounterpart = await findSeedUser(client, HOME_E2E_ACTIVE_COUNTERPART_EMAIL);
+  const historyOnlyViewer = await findSeedUser(client, HOME_E2E_HISTORY_EMAIL);
+  const registeredAt = new Date('2026-01-15T03:00:00.000Z');
+  const finalizedAt = new Date('2026-02-20T03:00:00.000Z');
+
+  await upsertDormitoryMatrixParticipants(client, pastSeasonId, {
+    idPrefix: 'home-e2e-past-matrix',
+    registeredAt,
+  });
+  await upsertParticipant(client, {
+    id: HOME_E2E_PARTICIPANTS.pastViewer,
+    seasonId: pastSeasonId,
+    user: viewer,
+    status: 'MATCHED',
+    dormitoryId: 'dasan',
+    registeredAt,
+  });
+  await upsertParticipant(client, {
+    id: HOME_E2E_PARTICIPANTS.pastCounterpart,
+    seasonId: pastSeasonId,
+    user: activeCounterpart,
+    status: 'MATCHED',
+    dormitoryId: 'dasan',
+    registeredAt,
+  });
+  await upsertParticipant(client, {
+    id: HOME_E2E_PARTICIPANTS.pastHistoryOnly,
+    seasonId: pastSeasonId,
+    user: historyOnlyViewer,
+    status: 'ACTIVE',
+    dormitoryId: 'dasan',
+    registeredAt,
+  });
+
+  await upsertMatchRequest(client, {
+    id: HOME_E2E_PAST_MATCH_REQUEST_ID,
+    seasonId: pastSeasonId,
+    requesterParticipantId: HOME_E2E_PARTICIPANTS.pastViewer,
+    receiverParticipantId: HOME_E2E_PARTICIPANTS.pastCounterpart,
+    note: '홈 스모크 지난 시즌 성공 요청입니다.',
+    status: 'ACCEPTED',
+    terminalReason: 'ACCEPTED',
+    createdAt: addHours(finalizedAt, -12),
+    expiresAt: addHours(finalizedAt, 12),
+    terminalAt: finalizedAt,
+    acceptedAt: finalizedAt,
+  });
+
+  await client.query(
+    `
+      INSERT INTO "ActiveMatch" (
+        id,
+        "seasonId",
+        "pairKey",
+        "participantAId",
+        "participantBId",
+        "createdFromRequestId",
+        status,
+        "startedAt",
+        "endedAt",
+        "endReason",
+        "createdAt",
+        "updatedAt"
+      )
+      VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        'SEASON_ENDED'::"ActiveMatchStatus",
+        $7::timestamptz,
+        $8::timestamptz,
+        'SEASON_ENDED'::"ActiveMatchEndReason",
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (id)
+      DO UPDATE SET
+        "seasonId" = EXCLUDED."seasonId",
+        "pairKey" = EXCLUDED."pairKey",
+        "participantAId" = EXCLUDED."participantAId",
+        "participantBId" = EXCLUDED."participantBId",
+        "createdFromRequestId" = EXCLUDED."createdFromRequestId",
+        status = EXCLUDED.status,
+        "startedAt" = EXCLUDED."startedAt",
+        "endedAt" = EXCLUDED."endedAt",
+        "endReason" = EXCLUDED."endReason",
+        "updatedAt" = NOW()
+    `,
+    [
+      HOME_E2E_PAST_ACTIVE_MATCH_ID,
+      pastSeasonId,
+      buildPairKey(HOME_E2E_PARTICIPANTS.pastViewer, HOME_E2E_PARTICIPANTS.pastCounterpart),
+      HOME_E2E_PARTICIPANTS.pastViewer,
+      HOME_E2E_PARTICIPANTS.pastCounterpart,
+      HOME_E2E_PAST_MATCH_REQUEST_ID,
+      finalizedAt.toISOString(),
+      finalizedAt.toISOString(),
+    ],
+  );
+
+  await upsertSeasonMatchHistoryEntry(client, {
+    id: HOME_E2E_PAST_HISTORY_VIEWER_ID,
+    seasonId: pastSeasonId,
+    viewerParticipantId: HOME_E2E_PARTICIPANTS.pastViewer,
+    counterpartParticipantId: HOME_E2E_PARTICIPANTS.pastCounterpart,
+    viewerRequested: true,
+    sourceRequestId: HOME_E2E_PAST_MATCH_REQUEST_ID,
+    sourceActiveMatchId: HOME_E2E_PAST_ACTIVE_MATCH_ID,
+    counterpartNicknameSnapshot: activeCounterpart.fixture.nickname,
+    viewerDormitoryIdSnapshot: 'dasan',
+    finalizedAt,
+  });
+  await upsertSeasonMatchHistoryEntry(client, {
+    id: HOME_E2E_PAST_HISTORY_COUNTERPART_ID,
+    seasonId: pastSeasonId,
+    viewerParticipantId: HOME_E2E_PARTICIPANTS.pastCounterpart,
+    counterpartParticipantId: HOME_E2E_PARTICIPANTS.pastViewer,
+    viewerRequested: false,
+    sourceRequestId: HOME_E2E_PAST_MATCH_REQUEST_ID,
+    sourceActiveMatchId: HOME_E2E_PAST_ACTIVE_MATCH_ID,
+    counterpartNicknameSnapshot: viewer.fixture.nickname,
+    viewerDormitoryIdSnapshot: 'dasan',
+    finalizedAt,
+  });
+}
+
 async function seedHomeDashboardE2eFixtures(client) {
   const seasonId = await upsertHomeSeason(client);
   const viewer = await findSeedUser(client, HOME_E2E_VIEWER_EMAIL);
   const requester = await findSeedUser(client, HOME_E2E_REQUESTER_EMAIL);
   const activeCounterpart = await findSeedUser(client, HOME_E2E_ACTIVE_COUNTERPART_EMAIL);
+  const incompleteViewer = await findSeedUser(client, HOME_E2E_INCOMPLETE_EMAIL);
 
   await upsertParticipant(client, {
     id: HOME_E2E_PARTICIPANTS.viewer,
@@ -474,6 +867,20 @@ async function seedHomeDashboardE2eFixtures(client) {
     seasonId,
     user: activeCounterpart,
     status: 'MATCHED',
+  });
+  await upsertParticipant(client, {
+    id: HOME_E2E_PARTICIPANTS.incomplete,
+    seasonId,
+    user: incompleteViewer,
+    status: 'DRAFT',
+    dormitoryId: null,
+    dormitorySelectionState: 'NOT_SELECTED',
+    participationIntent: 'UNDECIDED',
+    registeredAt: null,
+  });
+  await upsertDormitoryMatrixParticipants(client, seasonId, {
+    idPrefix: 'home-e2e-current-matrix',
+    registeredAt: new Date(),
   });
 
   const now = new Date();
@@ -681,7 +1088,17 @@ async function seedHomeDashboardE2eFixtures(client) {
     ],
   );
 
-  console.log('[seed] home dashboard e2e fixture ready');
+  await seedPastSeasonHistoryFixtures(client);
+
+  console.log(
+    `[seed] home dashboard e2e fixture ready (mode: ${getSeedMode()}, operated dormitories: ${HOME_E2E_DORMITORY_MATRIX.length})`,
+  );
 }
 
-export { seedHomeDashboardE2eFixtures };
+export {
+  HOME_E2E_CURRENT_SEASON,
+  HOME_E2E_DORMITORY_MATRIX,
+  HOME_E2E_NEXT_SEASON,
+  HOME_E2E_PAST_SEASON,
+  seedHomeDashboardE2eFixtures,
+};

@@ -1,16 +1,28 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Main from '../Main';
-import { seasonApi } from '@/api/season';
+import { seasonApi } from '@/main/legacy/seasonLegacyClient';
+import { homeDashboardApi } from '@/main/api/home-dashboard.api';
 import { profileApi } from '@/api/profile';
-import { homeApi } from '@/api/home';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
-import type { UserProfile } from '@/types/profile';
 
 vi.mock('../components/BottomTabBar', () => ({
-  BottomTabBar: () => <nav aria-label="하단 탭">Bottom tabs</nav>,
+  BottomTabBar: ({
+    onTabChange,
+  }: {
+    onTabChange: (tab: 'home' | 'list' | 'matching' | 'chat' | 'profile') => void;
+  }) => (
+    <nav aria-label="하단 탭">
+      <button type="button" onClick={() => onTabChange('home')}>
+        홈
+      </button>
+      <button type="button" onClick={() => onTabChange('list')}>
+        룸메이트 찾기
+      </button>
+    </nav>
+  ),
 }));
 
 vi.mock('../components/BuildingSelectModal', () => ({
@@ -56,12 +68,11 @@ vi.mock('../tabs/chat/ChatTab', () => ({
   default: () => null,
 }));
 
-vi.mock('@/hooks/useOnboardingState', () => ({
-  useOnboardingState: () => ({
+vi.mock('@/main/hooks/useMainLocalOnboardingState', () => ({
+  useMainLocalOnboardingState: () => ({
     hasSeenGuide: true,
     markGuideSeen: vi.fn(),
-    resetChecklist: vi.fn(),
-    hasSeenTooltip: true,
+    hasSeenTooltip: vi.fn(() => true),
     markTooltipSeen: vi.fn(),
   }),
 }));
@@ -106,30 +117,6 @@ vi.mock('../hooks/useMainListViewState', () => ({
   }),
 }));
 
-const baseUser: UserProfile = {
-  id: 'user-1',
-  nickname: '춘천유저',
-  gender: 'M',
-  campus: 'CHUNCHEON',
-  dormitoryId: null,
-  lifestyle: {} as UserProfile['lifestyle'],
-  intro: '',
-  messageToRoommate: null,
-  additional: { college: null, grade: null, mbti: null, birthYear: null },
-};
-
-const buildingStats = {
-  totalParticipants: 0,
-  assignedParticipants: 0,
-  buildingMatchable: 0,
-  buildingTotal: 0,
-  todayNewTotal: 0,
-  todayNewBuilding: 0,
-  totalMatchSuccess: 0,
-  buildingMatchSuccess: 0,
-  popularCondition: '-',
-};
-
 describe('Main direct-action baseline', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -142,31 +129,23 @@ describe('Main direct-action baseline', () => {
       isPostMatch: false,
       daysUntilEnd: 14,
     });
+    vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(createHomeDashboardTestResponse());
     vi.spyOn(profileApi, 'getProfiles').mockResolvedValue([]);
-    vi.spyOn(homeApi, 'getDashboard').mockResolvedValue(createHomeDashboardTestResponse());
-    vi.spyOn(homeApi, 'getPastSeasons').mockResolvedValue([]);
-    vi.spyOn(homeApi, 'getBuildingStats').mockResolvedValue(buildingStats);
-    vi.spyOn(homeApi, 'getPastSeasonResult').mockResolvedValue(undefined);
-    vi.spyOn(homeApi, 'isNextSeasonRegistered').mockResolvedValue(false);
-    vi.spyOn(homeApi, 'getUnreadMessages').mockResolvedValue(0);
   });
 
   it('Home entry does not force building selection for unassigned open-season users', async () => {
-    render(<Main initialUser={baseUser} />);
+    render(<Main />);
 
     await screen.findByTestId('main-home');
 
     expect(screen.queryByRole('dialog', { name: '배정 건물 선택' })).not.toBeInTheDocument();
-    expect(homeApi.getDashboard).toHaveBeenCalledTimes(1);
-    expect(homeApi.getBuildingStats).not.toHaveBeenCalled();
-    expect(homeApi.getPastSeasonResult).not.toHaveBeenCalled();
-    expect(homeApi.isNextSeasonRegistered).not.toHaveBeenCalled();
-    expect(homeApi.getUnreadMessages).not.toHaveBeenCalled();
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+    expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
   });
 
   it('opens building selection only after the explicit Home CTA', async () => {
     const user = userEvent.setup();
-    render(<Main initialUser={baseUser} />);
+    render(<Main />);
 
     await screen.findByTestId('main-home');
     expect(screen.queryByRole('dialog', { name: '배정 건물 선택' })).not.toBeInTheDocument();
@@ -176,13 +155,28 @@ describe('Main direct-action baseline', () => {
     expect(screen.getByRole('dialog', { name: '배정 건물 선택' })).toBeInTheDocument();
   });
 
+  it('loads legacy roommate data lazily only after moving to a non-Home tab', async () => {
+    const user = userEvent.setup();
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
+    expect(profileApi.getProfiles).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
+
+    await waitFor(() => expect(seasonApi.getCurrentSeason).toHaveBeenCalledTimes(1));
+    expect(profileApi.getProfiles).toHaveBeenCalledWith('CHUNCHEON', 'F', 'dasan');
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(1);
+  });
+
   it('shows a retryable Home error state when the dashboard fetch fails', async () => {
     const user = userEvent.setup();
-    vi.mocked(homeApi.getDashboard)
+    vi.mocked(homeDashboardApi.getDashboard)
       .mockRejectedValueOnce(new Error('raw upstream stack'))
       .mockResolvedValueOnce(createHomeDashboardTestResponse());
 
-    render(<Main initialUser={baseUser} />);
+    render(<Main />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('홈 정보를 불러오지 못했어요');
     expect(screen.getByRole('alert')).not.toHaveTextContent('raw upstream stack');
@@ -190,6 +184,6 @@ describe('Main direct-action baseline', () => {
     await user.click(screen.getByRole('button', { name: '다시 시도' }));
 
     await screen.findByTestId('main-home');
-    expect(homeApi.getDashboard).toHaveBeenCalledTimes(2);
+    expect(homeDashboardApi.getDashboard).toHaveBeenCalledTimes(2);
   });
 });

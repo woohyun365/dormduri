@@ -28,6 +28,25 @@ export function createHomeDashboardTestResponse(
     },
     viewer: {
       campusOperated: true,
+      identity: {
+        user: {
+          id: 'user-1',
+          email: 'home-user@kangwon.ac.kr',
+          nickname: '홈유저',
+          gender: 'F',
+          campus: 'CHUNCHEON',
+        },
+        displayIdentity: {
+          userId: 'user-1',
+          nickname: '홈유저',
+          nicknameSource: 'USER_DISPLAY_IDENTITY',
+          nicknameChangedAt: null,
+        },
+        academicIdentity: {
+          collegeCode: 'IT',
+          birthYear: 2002,
+        },
+      },
       seasonProfile: {
         hasCurrentSeason: true,
         hasParticipantRow: true,
@@ -82,6 +101,24 @@ export function createHomeDashboardTestResponse(
       todayNewBuilding: 3,
       totalMatchSuccess: 42,
       buildingMatchSuccess: 12,
+    },
+    seasonHistorySummary: {
+      lastSeason: {
+        id: 'season-2025-2',
+        name: '2025년 2학기',
+        totalParticipants: 210,
+        totalMatchSuccess: 38,
+        viewerHadRegistration: true,
+        viewerHadMatchSuccess: false,
+      },
+    },
+    nextSeasonPreview: {
+      id: 'season-2026-2',
+      name: '2026년 2학기',
+      preparationStartDate: '2026-08-20',
+      matchingStartDate: '2026-09-01',
+      seasonEndDate: '2026-12-20',
+      visibleToUser: true,
     },
     matching: {
       pendingSentCount: 1,

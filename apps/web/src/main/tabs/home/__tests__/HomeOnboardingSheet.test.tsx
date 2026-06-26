@@ -4,32 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import { HomeOnboardingSheet } from '../components/HomeOnboardingSheet';
-import type { UserProfile } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
-
-const user: UserProfile = {
-  id: 'user-1',
-  nickname: '춘천유저',
-  gender: 'M',
-  campus: 'CHUNCHEON',
-  dormitoryId: null,
-  lifestyle: {
-    smokingBehavior: 'NO',
-    sleepHabit: 'NONE',
-    relationshipStyle: 'CASUAL',
-  } as UserProfile['lifestyle'],
-  intro: '',
-  messageToRoommate: null,
-  additional: { college: null, grade: null, mbti: null, birthYear: null },
-};
 
 function buildViewModel(dashboard: HomeDashboardResponse) {
   return buildHomeDashboardViewModel({
     dashboard,
-    user,
-    season: { name: '2026년 1학기', roomSelectionDate: '2026-04-30' },
-    seasonState: dashboard.season.state ?? 'OFF_SEASON',
-    daysUntilEnd: dashboard.season.daysUntilMatchingEnd ?? 0,
     renderedAt: new Date('2026-03-20T00:00:00+09:00').getTime(),
   });
 }
@@ -52,6 +31,37 @@ describe('HomeOnboardingSheet', () => {
     expect(screen.getByRole('dialog', { name: '서비스 시작 전 알아두기' })).toBeInTheDocument();
     await userEventInstance.click(screen.getByRole('button', { name: '다시 보지 않기' }));
     expect(onDismissPermanently).toHaveBeenCalledOnce();
+  });
+
+  it('current season이 없으면 강제 tour 대신 새 시즌 전 안내를 보여준다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        hasCurrentSeason: false,
+        state: null,
+        summary: null,
+        schedule: null,
+        isOpen: false,
+        isMatching: false,
+        isPostMatch: false,
+        daysUntilMatchingEnd: null,
+        daysUntilSeasonEnd: null,
+      },
+    });
+
+    render(
+      <HomeOnboardingSheet
+        open
+        viewModel={buildViewModel(dashboard)}
+        onClose={vi.fn()}
+        onDismissPermanently={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole('dialog', { name: '새 시즌 전 홈에서 할 수 있는 일' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/진행 중인 시즌이 없을 때는 프로필을 정비/)).toBeInTheDocument();
   });
 
   it('Escape는 저장 없이 이번 화면에서만 닫는다', async () => {

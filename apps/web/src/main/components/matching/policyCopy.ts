@@ -1,5 +1,5 @@
 import type { ActiveMatch } from '@/types/match';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 
 export type PolicyTone = 'blue' | 'amber' | 'green' | 'slate';
 

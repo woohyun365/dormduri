@@ -2,12 +2,12 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SERVICE_INTRO_NOTICE_KEY } from '@repo/shared/user';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
-import { currentUserApi } from '@/api/current-user';
+import { homeOnboardingNoticeApi } from '@/main/tabs/home/api/home-onboarding-notice.api';
 import { isServiceIntroNoticeDismissed, useHomeOnboardingNotice } from '../useHomeOnboardingNotice';
 
-vi.mock('@/api/current-user', () => ({
-  currentUserApi: {
-    dismissOnboardingNotice: vi.fn(),
+vi.mock('@/main/tabs/home/api/home-onboarding-notice.api', () => ({
+  homeOnboardingNoticeApi: {
+    dismissServiceIntroNotice: vi.fn(),
   },
 }));
 
@@ -51,7 +51,7 @@ describe('useHomeOnboardingNotice', () => {
 
   it('다시 보지 않기는 BFF mutation 성공 후 dashboard refetch callback을 호출한다', async () => {
     const onDismissed = vi.fn(async () => undefined);
-    vi.mocked(currentUserApi.dismissOnboardingNotice).mockResolvedValue({} as never);
+    vi.mocked(homeOnboardingNoticeApi.dismissServiceIntroNotice).mockResolvedValue({} as never);
     const { result } = renderHook(() =>
       useHomeOnboardingNotice({ dashboard: createHomeDashboardTestResponse(), onDismissed }),
     );
@@ -60,9 +60,7 @@ describe('useHomeOnboardingNotice', () => {
       await result.current.dismissPermanently();
     });
 
-    expect(currentUserApi.dismissOnboardingNotice).toHaveBeenCalledWith({
-      noticeKey: SERVICE_INTRO_NOTICE_KEY,
-    });
+    expect(homeOnboardingNoticeApi.dismissServiceIntroNotice).toHaveBeenCalledWith();
     expect(onDismissed).toHaveBeenCalledOnce();
     expect(result.current.isOpen).toBe(false);
     expect(result.current.error).toBeNull();
@@ -72,7 +70,7 @@ describe('useHomeOnboardingNotice', () => {
     const onDismissed = vi.fn(async () => {
       throw new Error('raw refetch stack');
     });
-    vi.mocked(currentUserApi.dismissOnboardingNotice).mockResolvedValue({} as never);
+    vi.mocked(homeOnboardingNoticeApi.dismissServiceIntroNotice).mockResolvedValue({} as never);
     const { result } = renderHook(() =>
       useHomeOnboardingNotice({ dashboard: createHomeDashboardTestResponse(), onDismissed }),
     );
@@ -81,9 +79,7 @@ describe('useHomeOnboardingNotice', () => {
       await result.current.dismissPermanently();
     });
 
-    expect(currentUserApi.dismissOnboardingNotice).toHaveBeenCalledWith({
-      noticeKey: SERVICE_INTRO_NOTICE_KEY,
-    });
+    expect(homeOnboardingNoticeApi.dismissServiceIntroNotice).toHaveBeenCalledWith();
     expect(onDismissed).toHaveBeenCalledOnce();
     expect(result.current.isOpen).toBe(false);
     expect(result.current.dismissing).toBe(false);
@@ -91,7 +87,9 @@ describe('useHomeOnboardingNotice', () => {
   });
 
   it('dismiss 저장 실패 시 raw error 대신 사용자용 오류를 유지하고 sheet를 열어둔다', async () => {
-    vi.mocked(currentUserApi.dismissOnboardingNotice).mockRejectedValue(new Error('raw stack'));
+    vi.mocked(homeOnboardingNoticeApi.dismissServiceIntroNotice).mockRejectedValue(
+      new Error('raw stack'),
+    );
     const { result } = renderHook(() =>
       useHomeOnboardingNotice({ dashboard: createHomeDashboardTestResponse() }),
     );

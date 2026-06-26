@@ -3,26 +3,16 @@ import {
   getDormitoryById,
   isCampusOperated as isCampusOperatedFn,
 } from '@/constants/dormitory';
-import { calcSeasonDates, type Season } from '@/constants/season';
 import { isDormitoryAssigned } from '@/utils/dormitory';
-import { calcDaysUntilTimestamp, formatDateDot } from '@/utils/date';
-import { isLifestyleRequiredComplete } from '@/utils/lifestyle';
-import type { SeasonContextValue } from '@/contexts/SeasonContext';
+import { calcDaysUntilTimestamp, formatDateDot } from '@/main/tabs/home/model/homeDateDisplay';
 import type { ActiveMatch } from '@/types/match';
-import type { UserProfile } from '@/types/profile';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse, HomeDashboardStats } from '@repo/shared/home';
 import type {
   MatchingSummaryActiveMatch,
   MatchingSummaryStatus,
 } from '../components/HomeMatchingSummary';
 import type { TipSeasonStatus } from '../components/DynamicTipBanner';
-
-export interface HomeMatchingSummaryOverrides {
-  sentRequests?: number | null;
-  receivedRequests?: number | null;
-  activeChats?: number | null;
-}
 
 export interface HomeDashboardScheduleViewModel {
   matchStartFormatted: string;
@@ -61,15 +51,18 @@ export interface HomeDashboardPreparationViewModel {
   profileCompletion: number;
   hasBuilding: boolean;
   canSelectBuilding: boolean;
-  hasLifestylePattern: boolean;
-  missingFields: string[];
+  hasSeasonProfile: boolean;
+  registrationReady: boolean;
+  registrationUnavailableReasons: HomeDashboardResponse['viewer']['seasonProfile']['completion']['registrationUnavailableReasons'];
 }
 
 export interface HomeDashboardSeasonSummaryViewModel {
   pastSeasonName: string;
+  lastSeason: HomeDashboardResponse['seasonHistorySummary']['lastSeason'];
   daysUntilNext: number;
   nextSeasonDate: string;
   nextSeasonName: string;
+  hasNextSeasonPreview: boolean;
 }
 
 export interface HomeDashboardTipViewModel {
@@ -80,10 +73,25 @@ export interface HomeDashboardTipViewModel {
   unreadMessages: number;
 }
 
+export interface HomeDashboardViewerIdentityViewModel {
+  userId: string;
+  nickname: string;
+  avatarInitial: string;
+  gender: HomeDashboardResponse['viewer']['identity']['user']['gender'];
+  genderLabel: string;
+  campus: HomeDashboardResponse['viewer']['identity']['user']['campus'];
+  campusName: string;
+}
+
 export interface HomeDashboardViewModel {
   hasCurrentSeason: boolean;
+  seasonState: SeasonState;
+  daysUntilEnd: number;
+  isSeasonOpen: boolean;
+  isSeasonMatching: boolean;
   isCampusOperated: boolean;
   campusName: string;
+  viewerIdentity: HomeDashboardViewerIdentityViewModel;
   isUnassigned: boolean;
   dormitory: NonNullable<ReturnType<typeof getDormitoryById>> | null;
   hasActiveMatch: boolean;
@@ -103,55 +111,10 @@ export interface HomeDashboardViewModel {
 
 interface BuildHomeDashboardViewModelInput {
   dashboard: HomeDashboardResponse;
-  user: UserProfile;
-  season: Season;
-  seasonState: SeasonState;
-  daysUntilEnd: number;
   renderedAt: number;
-  matchingOverrides?: HomeMatchingSummaryOverrides;
 }
-
-interface SeasonContextFallback {
-  season: Season;
-  state: SeasonState;
-  isOpen: boolean;
-  isMatching: boolean;
-  daysUntilEnd: number;
-}
-
-const HOME_OPTIONAL_FIELD_LABELS = [
-  ['messageToRoommate', '룸메에게 한마디'],
-  ['college', '단대'],
-  ['grade', '학년'],
-  ['mbti', 'MBTI'],
-  ['birthYear', '출생연도'],
-] as const;
 
 const MS_48_HOURS = 48 * 60 * 60 * 1000;
-
-export function toHomeSeasonContext(
-  dashboard: HomeDashboardResponse | null,
-  fallback: SeasonContextFallback,
-): SeasonContextValue {
-  if (!dashboard?.season.hasCurrentSeason || !dashboard.season.state) {
-    return fallback;
-  }
-
-  return {
-    season: {
-      name: dashboard.season.summary?.name ?? fallback.season.name,
-      roomSelectionDate:
-        dashboard.season.schedule?.matchingEnd ?? fallback.season.roomSelectionDate,
-    },
-    state: dashboard.season.state,
-    isOpen: dashboard.season.isOpen,
-    isMatching: dashboard.season.isMatching,
-    daysUntilEnd:
-      dashboard.season.daysUntilMatchingEnd ??
-      dashboard.season.daysUntilSeasonEnd ??
-      fallback.daysUntilEnd,
-  };
-}
 
 export function toHomeActiveMatch(dashboard: HomeDashboardResponse): ActiveMatch | null {
   const activeMatch = dashboard.matching.activeMatch ?? dashboard.viewer.match.activeMatch;
@@ -188,26 +151,16 @@ export function hasHomeUpcomingSeasonWindow(dashboard: HomeDashboardResponse): b
   return dashboard.season.hasCurrentSeason && dashboard.season.schedule !== null;
 }
 
-export function getHomeMissingOptionalFields(user: UserProfile): string[] {
-  const fields: string[] = [];
-  if (!user.messageToRoommate) fields.push('룸메에게 한마디');
-  if (!user.additional.college) fields.push('단대');
-  if (!user.additional.grade) fields.push('학년');
-  if (!user.additional.mbti) fields.push('MBTI');
-  if (!user.additional.birthYear) fields.push('출생연도');
-  return fields;
-}
-
 export function buildHomeDashboardViewModel({
   dashboard,
-  user,
-  season,
-  seasonState,
-  daysUntilEnd,
   renderedAt,
-  matchingOverrides,
 }: BuildHomeDashboardViewModelInput): HomeDashboardViewModel {
-  const isCampusOperated = dashboard.viewer.campusOperated && isCampusOperatedFn(user.campus);
+  const seasonState = dashboard.season.state ?? 'OFF_SEASON';
+  const daysUntilEnd =
+    dashboard.season.daysUntilMatchingEnd ?? dashboard.season.daysUntilSeasonEnd ?? 0;
+  const viewerIdentity = buildHomeViewerIdentityViewModel(dashboard);
+  const isCampusOperated =
+    dashboard.viewer.campusOperated && isCampusOperatedFn(viewerIdentity.campus);
   const selectedDormitoryId = dashboard.viewer.selection.dormitoryId;
   const hasDashboardAssignedDormitory =
     (dashboard.viewer.selection.state === 'SELECTED' ||
@@ -218,16 +171,16 @@ export function buildHomeDashboardViewModel({
     ? (getDormitoryById(selectedDormitoryId) ?? null)
     : null;
   const activeMatch = toHomeActiveMatch(dashboard);
-  const missingFields = getHomeMissingOptionalFields(user);
-  const optionalCompleted = HOME_OPTIONAL_FIELD_LABELS.length - missingFields.length;
-  const hasLifestyle = isLifestyleRequiredComplete(user.lifestyle);
+  const seasonProfile = dashboard.viewer.seasonProfile;
+  const hasSeasonProfile =
+    seasonProfile.registered || !seasonProfile.completion.profileCompletionRequired;
+  const hasBuilding = !seasonProfile.completion.dormitorySelectionRequired;
+  const registrationReady = seasonProfile.registered;
+  const profileCompletion = buildSeasonProfileCompletion({ seasonProfile });
   const schedule = buildScheduleViewModel({
     dashboard,
-    season,
     renderedAt,
-    hasLifestyle,
-    hasBuilding: dormitory !== null,
-    optionalCompleted,
+    profileCompletion,
   });
   const matchingSummary = buildMatchingSummaryViewModel({
     dashboard,
@@ -236,13 +189,17 @@ export function buildHomeDashboardViewModel({
     isUnassigned,
     activeMatch,
     renderedAt,
-    matchingOverrides,
   });
 
   return {
     hasCurrentSeason: dashboard.season.hasCurrentSeason,
+    seasonState,
+    daysUntilEnd,
+    isSeasonOpen: dashboard.season.isOpen,
+    isSeasonMatching: dashboard.season.isMatching,
     isCampusOperated,
-    campusName: CAMPUS_NAMES[user.campus],
+    campusName: viewerIdentity.campusName,
+    viewerIdentity,
     isUnassigned,
     dormitory,
     hasActiveMatch: activeMatch !== null,
@@ -257,14 +214,17 @@ export function buildHomeDashboardViewModel({
       daysUntilStart: schedule.daysUntilMatchStart,
       seasonStartDate: schedule.matchStartFormatted,
       profileCompletion: schedule.profileCompletion,
-      hasBuilding: dormitory !== null,
-      canSelectBuilding: dashboard.viewer.capabilities.canSelectDormitory,
-      hasLifestylePattern: hasLifestyle,
-      missingFields,
+      hasBuilding,
+      canSelectBuilding:
+        dashboard.viewer.capabilities.canSelectDormitory || seasonProfile.canSelectDormitory,
+      hasSeasonProfile,
+      registrationReady,
+      registrationUnavailableReasons: seasonProfile.completion.registrationUnavailableReasons,
     },
     seasonSummary: buildSeasonSummaryViewModel({
-      season,
+      dashboard,
       schedule,
+      renderedAt,
     }),
     tip: {
       seasonStatus: buildTipSeasonStatus({
@@ -287,37 +247,68 @@ export function buildHomeDashboardViewModel({
   };
 }
 
-function buildScheduleViewModel({
-  dashboard,
-  season,
-  renderedAt,
-  hasLifestyle,
-  hasBuilding,
-  optionalCompleted,
-}: {
-  dashboard: HomeDashboardResponse;
-  season: Season;
-  renderedAt: number;
-  hasLifestyle: boolean;
-  hasBuilding: boolean;
-  optionalCompleted: number;
-}): HomeDashboardScheduleViewModel {
-  const fallbackDates = calcSeasonDates(season.roomSelectionDate);
-  const openStart = dashboard.season.schedule?.preparationStart ?? fallbackDates.openStart;
-  const matchStart = dashboard.season.schedule?.matchingStart ?? fallbackDates.matchStart;
-  const openStartTs = new Date(`${openStart}T00:00:00+09:00`).getTime();
-  const matchStartTs = new Date(`${matchStart}T00:00:00+09:00`).getTime();
-  const lifestyleScore = hasLifestyle ? 40 : 0;
-  const buildingScore = hasBuilding ? 30 : 0;
-  const optionalScore = (optionalCompleted / HOME_OPTIONAL_FIELD_LABELS.length) * 30;
+function buildHomeViewerIdentityViewModel(
+  dashboard: HomeDashboardResponse,
+): HomeDashboardViewerIdentityViewModel {
+  const user = dashboard.viewer.identity.user;
+  const nickname = dashboard.viewer.identity.displayIdentity.nickname || user.nickname;
 
   return {
-    matchStartFormatted: formatDateDot(matchStart),
-    openStartFormatted: formatDateDot(openStart),
-    daysUntilMatchStart: calcDaysUntilTimestamp(matchStartTs, renderedAt),
-    daysUntilOpenStart: calcDaysUntilTimestamp(openStartTs, renderedAt),
+    userId: user.id,
+    nickname,
+    avatarInitial: nickname.charAt(0) || '룸',
+    gender: user.gender,
+    genderLabel: user.gender === 'M' ? '남' : '여',
+    campus: user.campus,
+    campusName: CAMPUS_NAMES[user.campus],
+  };
+}
+
+function buildSeasonProfileCompletion({
+  seasonProfile,
+}: {
+  seasonProfile: HomeDashboardResponse['viewer']['seasonProfile'];
+}): number {
+  if (!seasonProfile.hasCurrentSeason) return 0;
+  if (seasonProfile.registered) return 100;
+
+  const profileScore = seasonProfile.completion.profileCompletionRequired ? 0 : 50;
+  const buildingScore = seasonProfile.completion.dormitorySelectionRequired ? 0 : 30;
+  const registrationScore = seasonProfile.completion.registrationUnavailable ? 0 : 20;
+
+  return profileScore + buildingScore + registrationScore;
+}
+
+function buildScheduleViewModel({
+  dashboard,
+  renderedAt,
+  profileCompletion,
+}: {
+  dashboard: HomeDashboardResponse;
+  renderedAt: number;
+  profileCompletion: number;
+}): HomeDashboardScheduleViewModel {
+  const openStart =
+    dashboard.season.schedule?.preparationStart ??
+    (dashboard.nextSeasonPreview?.visibleToUser
+      ? dashboard.nextSeasonPreview.preparationStartDate
+      : null);
+  const matchStart =
+    dashboard.season.schedule?.matchingStart ??
+    (dashboard.nextSeasonPreview?.visibleToUser
+      ? dashboard.nextSeasonPreview.matchingStartDate
+      : null);
+  const openStartTs = openStart ? new Date(`${openStart}T00:00:00+09:00`).getTime() : null;
+  const matchStartTs = matchStart ? new Date(`${matchStart}T00:00:00+09:00`).getTime() : null;
+
+  return {
+    matchStartFormatted: matchStart ? formatDateDot(matchStart) : '',
+    openStartFormatted: openStart ? formatDateDot(openStart) : '',
+    daysUntilMatchStart:
+      matchStartTs === null ? 0 : calcDaysUntilTimestamp(matchStartTs, renderedAt),
+    daysUntilOpenStart: openStartTs === null ? 0 : calcDaysUntilTimestamp(openStartTs, renderedAt),
     hasUpcomingSeasonWindow: hasHomeUpcomingSeasonWindow(dashboard),
-    profileCompletion: Math.round(lifestyleScore + buildingScore + optionalScore),
+    profileCompletion,
   };
 }
 
@@ -360,7 +351,6 @@ function buildMatchingSummaryViewModel({
   isUnassigned,
   activeMatch,
   renderedAt,
-  matchingOverrides,
 }: {
   dashboard: HomeDashboardResponse;
   seasonState: SeasonState;
@@ -368,7 +358,6 @@ function buildMatchingSummaryViewModel({
   isUnassigned: boolean;
   activeMatch: ActiveMatch | null;
   renderedAt: number;
-  matchingOverrides?: HomeMatchingSummaryOverrides;
 }): HomeDashboardMatchingSummaryViewModel {
   const receivedPending = dashboard.matching.recentReceivedRequests;
   const expiringCount = receivedPending.filter((request) => {
@@ -378,10 +367,9 @@ function buildMatchingSummaryViewModel({
   const receivedRequesters = receivedPending
     .map((request) => request.counterpartSummary.profileSummary.nickname)
     .filter((nickname): nickname is string => nickname.length > 0);
-  const sentRequests = matchingOverrides?.sentRequests ?? dashboard.matching.pendingSentCount;
-  const receivedRequests =
-    matchingOverrides?.receivedRequests ?? dashboard.matching.pendingReceivedCount;
-  const activeChats = matchingOverrides?.activeChats ?? 0;
+  const sentRequests = dashboard.matching.pendingSentCount;
+  const receivedRequests = dashboard.matching.pendingReceivedCount;
+  const activeChats = 0;
 
   let status: MatchingSummaryStatus;
   if (!isCampusOperated) status = 'NOT_OPERATED';
@@ -434,17 +422,44 @@ function buildTipSeasonStatus({
 }
 
 function buildSeasonSummaryViewModel({
-  season,
+  dashboard,
   schedule,
+  renderedAt,
 }: {
-  season: Season;
+  dashboard: HomeDashboardResponse;
   schedule: HomeDashboardScheduleViewModel;
+  renderedAt: number;
 }): HomeDashboardSeasonSummaryViewModel {
+  const nextSeason = dashboard.nextSeasonPreview?.visibleToUser
+    ? dashboard.nextSeasonPreview
+    : null;
+  const lastSeason = dashboard.seasonHistorySummary.lastSeason;
+  const nextSeasonStart = nextSeason?.preparationStartDate ?? null;
+  const nextSeasonStartTs = nextSeasonStart
+    ? new Date(`${nextSeasonStart}T00:00:00+09:00`).getTime()
+    : null;
+
   return {
-    pastSeasonName: season.name,
-    daysUntilNext: schedule.hasUpcomingSeasonWindow ? schedule.daysUntilOpenStart : 0,
-    nextSeasonDate: schedule.hasUpcomingSeasonWindow ? schedule.openStartFormatted : '',
-    nextSeasonName: schedule.hasUpcomingSeasonWindow ? getNextSeasonName(season.name) : '',
+    pastSeasonName: lastSeason?.name ?? dashboard.season.summary?.name ?? '지난 시즌',
+    lastSeason,
+    daysUntilNext:
+      nextSeasonStartTs !== null
+        ? calcDaysUntilTimestamp(nextSeasonStartTs, renderedAt)
+        : schedule.hasUpcomingSeasonWindow
+          ? schedule.daysUntilOpenStart
+          : 0,
+    nextSeasonDate:
+      nextSeasonStart !== null
+        ? formatDateDot(nextSeasonStart)
+        : schedule.hasUpcomingSeasonWindow
+          ? schedule.openStartFormatted
+          : '',
+    nextSeasonName:
+      nextSeason?.name ??
+      (schedule.hasUpcomingSeasonWindow
+        ? getNextSeasonName(dashboard.season.summary?.name ?? '')
+        : ''),
+    hasNextSeasonPreview: nextSeason !== null || schedule.hasUpcomingSeasonWindow,
   };
 }
 

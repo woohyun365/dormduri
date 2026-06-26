@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
-import { HomeDashboardFetchError, homeApi } from '@/api/home';
+import { HomeDashboardFetchError, homeDashboardApi } from '@/main/api/home-dashboard.api';
 import { useMainHomeDashboard } from '../useMainHomeDashboard';
 
 describe('useMainHomeDashboard', () => {
@@ -9,9 +9,9 @@ describe('useMainHomeDashboard', () => {
     vi.restoreAllMocks();
   });
 
-  it('loads the home dashboard read model through homeApi.getDashboard', async () => {
+  it('loads the home dashboard read model through homeDashboardApi.getDashboard', async () => {
     const dashboard = createHomeDashboardTestResponse();
-    const getDashboard = vi.spyOn(homeApi, 'getDashboard').mockResolvedValue(dashboard);
+    const getDashboard = vi.spyOn(homeDashboardApi, 'getDashboard').mockResolvedValue(dashboard);
 
     const { result } = renderHook(() => useMainHomeDashboard());
 
@@ -24,7 +24,7 @@ describe('useMainHomeDashboard', () => {
   });
 
   it('auth/permission dashboard failures use a safe re-login copy without leaking raw upstream details', async () => {
-    vi.spyOn(homeApi, 'getDashboard').mockRejectedValue(
+    vi.spyOn(homeDashboardApi, 'getDashboard').mockRejectedValue(
       new HomeDashboardFetchError(
         'HOME_DASHBOARD_UPSTREAM_UNAVAILABLE',
         'raw AUTH_REQUIRED body with accessToken=secret',
@@ -46,7 +46,7 @@ describe('useMainHomeDashboard', () => {
   it('keeps the last successful dashboard while a retry fails with safe copy', async () => {
     const dashboard = createHomeDashboardTestResponse();
     const getDashboard = vi
-      .spyOn(homeApi, 'getDashboard')
+      .spyOn(homeDashboardApi, 'getDashboard')
       .mockResolvedValueOnce(dashboard)
       .mockRejectedValueOnce(
         new HomeDashboardFetchError('HOME_DASHBOARD_UPSTREAM_UNAVAILABLE', 'raw 500 stack', 500),
@@ -68,7 +68,7 @@ describe('useMainHomeDashboard', () => {
   });
 
   it('keeps dashboard failures as a retryable safe UI message', async () => {
-    vi.spyOn(homeApi, 'getDashboard').mockRejectedValue(new Error('raw upstream stack'));
+    vi.spyOn(homeDashboardApi, 'getDashboard').mockRejectedValue(new Error('raw upstream stack'));
 
     const { result } = renderHook(() => useMainHomeDashboard());
 

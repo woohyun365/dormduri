@@ -20,7 +20,7 @@ import {
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ReportSheet } from '@/main/components/ReportSheet';
 import { getAvatarColor } from '@/utils/avatarColor';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { ReportReason } from '@/types/report';
 import {
   formatChatDateDivider,

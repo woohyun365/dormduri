@@ -4,7 +4,7 @@ import { useMainMatchingState } from '../useMainMatchingState';
 import {
   resetMockMatchingService,
   getMockMatchingService,
-} from '@/__fixtures__/mock-matching-service';
+} from '@/main/dev-only/fixtures/mock-matching-service';
 import type { RoommateProfile, UserProfile } from '@/types/profile';
 
 const mockProfiles: Omit<RoommateProfile, 'matchScore'>[] = [

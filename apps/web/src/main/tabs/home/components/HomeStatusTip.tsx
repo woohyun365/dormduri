@@ -3,7 +3,7 @@
 import { Info, Lightbulb } from 'lucide-react';
 import { DynamicTipBanner } from './DynamicTipBanner';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
 interface HomeStatusTipProps {

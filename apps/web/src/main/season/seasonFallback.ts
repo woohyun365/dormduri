@@ -1,4 +1,4 @@
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 
 export interface Season {
   name: string;

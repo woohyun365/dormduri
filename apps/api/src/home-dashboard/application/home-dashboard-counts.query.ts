@@ -239,7 +239,9 @@ export class HomeDashboardCountsQuery {
   }
 }
 
-function buildRegisteredParticipantWhere(seasonId: string): Prisma.SeasonParticipantWhereInput {
+export function buildRegisteredParticipantWhere(
+  seasonId: string,
+): Prisma.SeasonParticipantWhereInput {
   return {
     seasonId,
     registeredAt: { not: null },

@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
-import { SeasonProvider } from '@/contexts/SeasonContext';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import HomeTab from '../HomeTab';
 import { HomeDashboardErrorState } from '../components/HomeDashboardErrorState';
@@ -11,15 +10,12 @@ interface HomeTabStorySurfaceProps {
 
 function HomeTabStorySurface({ scenario }: HomeTabStorySurfaceProps) {
   return (
-    <SeasonProvider value={scenario.seasonContext}>
-      <HomeTab
-        user={scenario.user}
-        dashboard={scenario.dashboard}
-        onNavigate={() => undefined}
-        onOpenBuildingSelect={() => undefined}
-        onDashboardRefresh={async () => undefined}
-      />
-    </SeasonProvider>
+    <HomeTab
+      dashboard={scenario.dashboard}
+      onNavigate={() => undefined}
+      onOpenBuildingSelect={() => undefined}
+      onDashboardRefresh={async () => undefined}
+    />
   );
 }
 
@@ -63,12 +59,14 @@ function createStory(scenario: HomeStoryScenario): Story {
 
 export const OffSeason = createStory(homeStoryScenarios.offSeason);
 export const NoCurrentSeason = createStory(homeStoryScenarios.noCurrentSeason);
+export const NoHistoryNoCurrentSeason = createStory(homeStoryScenarios.noHistoryNoCurrentSeason);
 export const SeasonOpenProfileIncomplete = createStory(
   homeStoryScenarios.seasonOpenProfileIncomplete,
 );
 export const SeasonOpenRegisteredAssigned = createStory(
   homeStoryScenarios.seasonOpenRegisteredAssigned,
 );
+export const RegistrationUnavailable = createStory(homeStoryScenarios.registrationUnavailable);
 export const SeasonMatchingNoBuilding = createStory(homeStoryScenarios.matchingNoBuilding);
 export const SeasonMatchingPendingReceived = createStory(
   homeStoryScenarios.matchingPendingReceived,
@@ -78,6 +76,7 @@ export const ActiveMatchUnreadChat = createStory(homeStoryScenarios.activeMatchU
 export const PostMatchHistory = createStory(homeStoryScenarios.postMatchHistory);
 export const NonOperatedCampus = createStory(homeStoryScenarios.nonOperatedCampus);
 export const OnboardingNoticeOpen = createStory(homeStoryScenarios.onboardingNoticeOpen);
+export const OnboardingNoticeDismissed = createStory(homeStoryScenarios.onboardingNoticeDismissed);
 
 export const LoadingSkeleton: Story = {
   name: '로딩 스켈레톤',

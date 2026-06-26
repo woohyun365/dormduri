@@ -4,9 +4,7 @@ import { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { AlertTriangle, Building2, Calendar, School, ShieldAlert } from 'lucide-react';
 import { getAvatarColor } from '@/utils/avatarColor';
-import { useSeasonContext } from '@/contexts/SeasonContext';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { readHomeMatchingSummaryOverrides } from '@/main/utils/homeDevOverrides';
 import { HomeQuickMenuSection } from './components/HomeQuickMenuSection';
 import { HomeDashboardLayout } from './HomeDashboardLayout';
 import { HomePrimaryStateCard } from './components/HomePrimaryStateCard';
@@ -17,11 +15,10 @@ import { HomeReadinessChecklist } from './components/HomeReadinessChecklist';
 import { HomeOnboardingSheet } from './components/HomeOnboardingSheet';
 import { useHomeOnboardingNotice } from './hooks/useHomeOnboardingNotice';
 import { buildHomeDashboardViewModel } from './model/homeDashboardViewModel';
-import type { TabId, UserProfile, MatchingNavOptions } from '@/types/profile';
+import type { TabId, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
 interface HomeTabProps {
-  user: UserProfile;
   dashboard: HomeDashboardResponse;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   onOpenBuildingSelect?: () => void;
@@ -29,14 +26,12 @@ interface HomeTabProps {
 }
 
 export default function HomeTab({
-  user,
   dashboard,
   onNavigate,
   onOpenBuildingSelect,
   onDashboardRefresh,
 }: HomeTabProps) {
   const [renderedAt] = useState(() => Date.now());
-  const { season, state: seasonState, isMatching, daysUntilEnd } = useSeasonContext();
   const onboardingNotice = useHomeOnboardingNotice({
     dashboard,
     onDismissed: onDashboardRefresh,
@@ -45,15 +40,12 @@ export default function HomeTab({
     () =>
       buildHomeDashboardViewModel({
         dashboard,
-        user,
-        season,
-        seasonState,
-        daysUntilEnd,
         renderedAt,
-        matchingOverrides: readHomeMatchingSummaryOverrides(),
       }),
-    [dashboard, daysUntilEnd, renderedAt, season, seasonState, user],
+    [dashboard, renderedAt],
   );
+  const { seasonState, daysUntilEnd } = viewModel;
+  const avatarColor = getAvatarColor(viewModel.viewerIdentity.nickname);
 
   return (
     <div>
@@ -64,21 +56,21 @@ export default function HomeTab({
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-sm opacity-90 mb-1">안녕하세요,</p>
-              <h1 className="text-2xl font-bold">{user.nickname}님</h1>
+              <h1 className="text-2xl font-bold">{viewModel.viewerIdentity.nickname}님</h1>
             </div>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => onNavigate('profile')}
-              className={`w-14 h-14 ${getAvatarColor(user.nickname).bg} rounded-full flex items-center justify-center text-2xl font-bold ${getAvatarColor(user.nickname).text} cursor-pointer`}
+              className={`w-14 h-14 ${avatarColor.bg} rounded-full flex items-center justify-center text-2xl font-bold ${avatarColor.text} cursor-pointer`}
             >
-              {user.nickname.charAt(0)}
+              {viewModel.viewerIdentity.avatarInitial}
             </motion.button>
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm opacity-90">
               <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold">
-                {user.gender === 'M' ? '남' : '여'}
+                {viewModel.viewerIdentity.genderLabel}
               </span>
               {viewModel.dormitory ? (
                 <span className="flex items-center gap-1 px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold">
@@ -97,7 +89,7 @@ export default function HomeTab({
                 </span>
               ) : null}
             </div>
-            {isMatching && daysUntilEnd > 0 && (
+            {viewModel.isSeasonMatching && daysUntilEnd > 0 && (
               <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
                 <Calendar className="w-3 h-3" />
                 <span>D-{daysUntilEnd}</span>
@@ -140,6 +132,14 @@ export default function HomeTab({
                 onOpenBuildingSelect={onOpenBuildingSelect}
               />
             }
+            readiness={
+              <HomeReadinessChecklist
+                dashboard={dashboard}
+                viewModel={viewModel}
+                onNavigate={onNavigate}
+                onOpenBuildingSelect={onOpenBuildingSelect}
+              />
+            }
             activity={
               <HomeActivityPanel
                 viewModel={viewModel}
@@ -169,17 +169,7 @@ export default function HomeTab({
                 onNavigateProfile={() => onNavigate('profile')}
               />
             }
-            tip={
-              <>
-                <HomeReadinessChecklist
-                  dashboard={dashboard}
-                  viewModel={viewModel}
-                  onNavigate={onNavigate}
-                  onOpenBuildingSelect={onOpenBuildingSelect}
-                />
-                <HomeStatusTip viewModel={viewModel} seasonState={seasonState} />
-              </>
-            }
+            tip={<HomeStatusTip viewModel={viewModel} seasonState={seasonState} />}
           />
         </div>
       </div>

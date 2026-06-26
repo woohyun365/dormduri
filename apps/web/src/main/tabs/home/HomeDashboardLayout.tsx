@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 
 interface HomeDashboardLayoutProps {
   primary: ReactNode;
+  readiness: ReactNode;
   activity: ReactNode;
   stats: ReactNode;
   quickActions: ReactNode;
@@ -12,6 +13,7 @@ interface HomeDashboardLayoutProps {
 
 export function HomeDashboardLayout({
   primary,
+  readiness,
   activity,
   stats,
   quickActions,
@@ -19,15 +21,33 @@ export function HomeDashboardLayout({
 }: HomeDashboardLayoutProps) {
   return (
     <div data-testid="home-dashboard-layout" className="max-w-md md:max-w-5xl mx-auto px-5 py-5">
-      <div className="grid gap-5 md:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)] md:items-start">
-        <main className="space-y-5" aria-label="홈 주요 상태">
-          {primary}
-          {activity}
-          {quickActions}
+      <div
+        data-testid="home-dashboard-section-grid"
+        className="grid gap-5 md:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.8fr)] md:items-start"
+      >
+        <main className="contents md:block md:space-y-5" aria-label="홈 주요 상태">
+          <div data-testid="home-section-primary" className="order-1">
+            {primary}
+          </div>
+          <div data-testid="home-section-activity" className="order-4 md:mt-5">
+            {activity}
+          </div>
+          <div data-testid="home-section-quick-actions" className="order-6 md:mt-5">
+            {quickActions}
+          </div>
         </main>
-        <aside className="space-y-5" aria-label="홈 보조 정보">
-          {stats}
-          {tip}
+        <aside className="contents md:block md:space-y-5" aria-label="홈 보조 정보">
+          <div data-testid="home-section-readiness" className="order-2">
+            {readiness}
+          </div>
+          <div data-testid="home-section-stats" className="order-5 md:mt-5">
+            {stats}
+          </div>
+          {tip && (
+            <div data-testid="home-section-tip" className="order-3 md:mt-5">
+              {tip}
+            </div>
+          )}
         </aside>
       </div>
     </div>

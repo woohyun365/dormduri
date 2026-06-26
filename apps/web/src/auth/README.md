@@ -36,7 +36,7 @@ apps/web/src/auth/
 - session 확인이 지연되거나 실패하면 auth 화면이 skeleton에 무한 대기하지 않도록 bounded timeout 후 unauthenticated state로 수렴한다.
 - `auth`는 Display Identity와 Academic Identity를 signup/account setup 입력 및 account/session response 표시 범위로만 다룬다. 생성·검증의 source-of-truth는 API auth/user identity owner다.
 - `UserProfile`, 생활패턴, 자기소개, 기숙사 선택, 시즌 참여 상태는 Main/profile/season read path가 소유한다.
-- `/main`은 auth session gate 이후 profile/main bootstrap을 별도로 수행한다. profile이 없거나 실패하면 auth 성공으로 위장하지 않고 Main owner의 fallback/error state를 표시한다.
+- `/main`은 auth session gate 이후 Home dashboard/current-user read path를 Main owner가 별도로 수행한다. profile/season 데이터를 auth 성공 조건으로 합성하지 않고, 각 Main/profile/season owner가 자신의 fallback/error state를 표시한다.
 - `auth/to-user-profile.ts` 같은 compatibility mapper는 두지 않는다. mock/dev profile 변환이 필요하면 profile/main owner 쪽에 둔다.
 
 ## Public/private import rule

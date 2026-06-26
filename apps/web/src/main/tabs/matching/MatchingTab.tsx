@@ -41,7 +41,7 @@ import {
 } from '../../components/matching/historyDisplay';
 import { getMatchingPolicyHints } from '../../components/matching/policyCopy';
 import type { SortOption } from '../../components/matching/SortToggle';
-import { useSeasonContext } from '@/contexts/SeasonContext';
+import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import { doesRequestTargetUser, isRequestExpired } from '@/utils/matchRequest';
 import { calcMatchScoreWithGating } from '@/utils/matchScore';
 import { matchingHistoryCardBorder, matchingStageBackground } from '@/main/styles/matching';
@@ -104,7 +104,7 @@ export default function MatchingTab({
   onRejectRequest,
   onConfirmMatch,
   onRevokeConfirmMatch,
-  onFinalizePairGroup,
+  onFinalizePairGroup: _onFinalizePairGroup,
   onEndConversation,
   onEndMatch,
   onNavigate,

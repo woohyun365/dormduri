@@ -5,8 +5,8 @@ import { toProfileUserProfile } from './profile-user.mapper';
 
 async function getMockData() {
   if (process.env.NODE_ENV === 'development') {
-    const { mockRawProfiles } = await import('@/__fixtures__/profiles');
-    const { mockDb } = await import('@/__fixtures__/mock-db');
+    const { mockRawProfiles } = await import('@/main/dev-only/fixtures/profiles');
+    const { mockDb } = await import('@/main/dev-only/fixtures/mock-db');
     return { mockRawProfiles, mockDb };
   }
   return null;

@@ -1,9 +1,9 @@
 'use client';
 
-import { BarChart3, CheckCircle2, Users } from 'lucide-react';
+import { BarChart3, CalendarDays, CheckCircle2, History, Users } from 'lucide-react';
 import { BuildingStatsBar } from './BuildingStatsBar';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
-import type { SeasonState } from '@/types/season';
+import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
 interface HomeStatsPanelProps {
@@ -53,11 +53,8 @@ function CompactStatsPanel({
   viewModel: HomeDashboardViewModel;
   seasonState: SeasonState;
 }) {
-  const title = seasonState === 'SEASON_POST_MATCH' ? '시즌 결과 요약' : '서비스 현황';
-  const helper =
-    seasonState === 'SEASON_POST_MATCH'
-      ? '신규 요청은 닫혔고, 결과 확인과 기록 조회 중심으로 보여드려요.'
-      : '진행 중인 시즌이 없을 때는 누적 현황만 참고용으로 보여드려요.';
+  const summary = resolveCompactStatsSummary(viewModel, seasonState);
+  const SummaryIcon = summary.icon;
 
   return (
     <section
@@ -67,16 +64,19 @@ function CompactStatsPanel({
       <div className={sectionHeader}>
         <div>
           <h2 id="home-compact-stats-title" className="font-bold text-(--knu-text-primary)">
-            {title}
+            {summary.title}
           </h2>
-          <p className="mt-1 text-xs text-(--knu-text-tertiary)">{helper}</p>
+          <p className="mt-1 text-xs text-(--knu-text-tertiary)">{summary.helper}</p>
         </div>
-        <BarChart3 className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
+        <SummaryIcon className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
       </div>
+      <p className="mb-3 rounded-xl bg-(--knu-background-alt) p-3 text-xs leading-relaxed text-(--knu-text-secondary)">
+        {summary.body}
+      </p>
       <div className="grid grid-cols-2 gap-3">
         <StatCell
           icon={Users}
-          label="시즌 참여"
+          label={summary.participantLabel}
           value={viewModel.statsBar.totalCount}
           unit="명"
           tone="blue"
@@ -94,8 +94,63 @@ function CompactStatsPanel({
           내 건물 {viewModel.dormitory.name} 기준 참여 {viewModel.statsBar.buildingCount}명
         </p>
       )}
+      {summary.nextSeasonText && (
+        <p className="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-blue-700">
+          <CalendarDays className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>{summary.nextSeasonText}</span>
+        </p>
+      )}
     </section>
   );
+}
+
+function resolveCompactStatsSummary(
+  viewModel: HomeDashboardViewModel,
+  seasonState: SeasonState,
+): {
+  title: string;
+  helper: string;
+  body: string;
+  participantLabel: string;
+  icon: React.ElementType;
+  nextSeasonText?: string;
+} {
+  const lastSeason = viewModel.seasonSummary.lastSeason;
+  const nextSeasonText =
+    viewModel.seasonSummary.hasNextSeasonPreview && viewModel.seasonSummary.nextSeasonName
+      ? `${viewModel.seasonSummary.nextSeasonName} 준비는 ${viewModel.seasonSummary.nextSeasonDate}부터 안내할게요.`
+      : undefined;
+
+  if (seasonState === 'SEASON_POST_MATCH') {
+    return {
+      title: '시즌 결과 요약',
+      helper: '신규 요청은 닫고, 결과 확인과 기록 조회 중심으로 보여드려요.',
+      body: `${viewModel.seasonSummary.pastSeasonName} 결과를 기준으로 참여와 매칭 성공 현황을 확인할 수 있어요.`,
+      participantLabel: '시즌 참여',
+      icon: BarChart3,
+      nextSeasonText,
+    };
+  }
+
+  if (!lastSeason) {
+    return {
+      title: '서비스 현황',
+      helper: '아직 누적 시즌 기록이 없을 때는 다음 시즌 안내를 먼저 보여드려요.',
+      body: '아직 완료된 시즌 기록이 없어요. 새 시즌이 열리면 참여 현황과 매칭 결과가 이 영역에 쌓입니다.',
+      participantLabel: '누적 참여',
+      icon: History,
+      nextSeasonText,
+    };
+  }
+
+  return {
+    title: '지난 시즌 요약',
+    helper: '진행 중인 시즌이 없을 때는 지난 시즌 기록과 다음 시즌 일정을 보여드려요.',
+    body: `${lastSeason.name}에는 ${lastSeason.totalParticipants}명이 참여했고 ${lastSeason.totalMatchSuccess}명이 매칭에 성공했어요.`,
+    participantLabel: '지난 참여',
+    icon: History,
+    nextSeasonText,
+  };
 }
 
 function StatCell({
