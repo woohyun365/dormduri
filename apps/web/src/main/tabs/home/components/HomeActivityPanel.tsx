@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   BarChart3,
@@ -12,10 +13,14 @@ import {
   Search,
   Send,
   UserRound,
+  X,
   XCircle,
 } from 'lucide-react';
 import { HomeMatchingSummary } from './HomeMatchingSummary';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
+import { Z_INDEX } from '@/constants/ui';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
@@ -50,13 +55,7 @@ export function HomeActivityPanel({
   if (!viewModel.hasCurrentSeason) {
     const offSeasonActivity = resolveOffSeasonActivityContent(viewModel);
 
-    return (
-      <OffSeasonActivityCard
-        viewModel={viewModel}
-        content={offSeasonActivity}
-        onNavigate={onNavigate}
-      />
-    );
+    return <OffSeasonActivityCard viewModel={viewModel} content={offSeasonActivity} />;
   }
 
   if (seasonState === 'SEASON_OPEN') {
@@ -146,25 +145,19 @@ function resolveOffSeasonActivityContent(viewModel: HomeDashboardViewModel): {
   };
 }
 
+type OffSeasonDetailModalKind = 'activity' | 'profile';
+
 function OffSeasonActivityCard({
   viewModel,
   content,
-  onNavigate,
 }: {
   viewModel: HomeDashboardViewModel;
   content: ReturnType<typeof resolveOffSeasonActivityContent>;
-  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
 }) {
+  const [detailModal, setDetailModal] = useState<OffSeasonDetailModalKind | null>(null);
   const lastSeason = viewModel.seasonSummary.lastSeason;
   const Icon = content.icon;
   const isNoParticipationHistory = Boolean(lastSeason && !lastSeason.viewerHadRegistration);
-  const primaryActionLabel = viewModel.capabilities.canViewMatchHistory
-    ? '지난 기록 보기'
-    : '내 정보 확인';
-  const onPrimaryAction = () =>
-    viewModel.capabilities.canViewMatchHistory
-      ? onNavigate('matching', { section: 'past' })
-      : onNavigate('profile');
 
   return (
     <section className={sectionCard()} aria-labelledby="home-activity-title">
@@ -215,30 +208,190 @@ function OffSeasonActivityCard({
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <motion.button
             type="button"
-            onClick={onPrimaryAction}
+            onClick={() => setDetailModal('activity')}
             whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.98 }}
             className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-(--knu-border) bg-(--knu-background-alt) px-4 py-2.5 text-sm font-bold text-(--knu-text-primary) transition-colors hover:bg-gray-100"
           >
             <BarChart3 className="h-4 w-4" aria-hidden="true" />
-            <span>{primaryActionLabel}</span>
-            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+            <span>이전 시즌 상세 보기</span>
           </motion.button>
           {viewModel.capabilities.canViewMatchHistory && (
             <motion.button
               type="button"
-              onClick={() => onNavigate('profile')}
+              onClick={() => setDetailModal('profile')}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
               className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-(--knu-border) bg-white px-4 py-2.5 text-sm font-bold text-(--knu-text-primary) transition-colors hover:bg-(--knu-background-alt)"
             >
               <UserRound className="h-4 w-4" aria-hidden="true" />
-              <span>내 정보 확인</span>
+              <span>이전 시즌 프로필 확인</span>
             </motion.button>
           )}
         </div>
       )}
+
+      <OffSeasonDetailModal
+        kind={detailModal}
+        viewModel={viewModel}
+        onClose={() => setDetailModal(null)}
+      />
     </section>
+  );
+}
+
+function OffSeasonDetailModal({
+  kind,
+  viewModel,
+  onClose,
+}: {
+  kind: OffSeasonDetailModalKind | null;
+  viewModel: HomeDashboardViewModel;
+  onClose: () => void;
+}) {
+  const isOpen = kind !== null;
+  useBodyScrollLock(isOpen);
+  const containerRef = useFocusTrap(isOpen, onClose);
+
+  if (!isOpen) return null;
+
+  const lastSeason = viewModel.seasonSummary.lastSeason;
+  const title = kind === 'activity' ? '이전 시즌 상세 보기' : '이전 시즌 프로필 확인';
+  const description =
+    kind === 'activity'
+      ? '직전 시즌의 내 요청, 대화, 매칭 결과를 요약해서 보여드려요.'
+      : '직전 시즌 참여 상태와 현재 계정 기준 프로필 정보를 함께 확인해요.';
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center px-5"
+      style={{ zIndex: Z_INDEX.bottomSheet }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      ref={containerRef}
+      tabIndex={-1}
+    >
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <p className="mb-1 text-xs font-bold text-(--knu-primary)">직전 시즌</p>
+            <h3 className="text-lg font-extrabold text-(--knu-text-primary)">{title}</h3>
+            <p className="mt-1 text-sm leading-relaxed text-(--knu-text-secondary)">
+              {description}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-(--knu-background-alt)"
+            aria-label="닫기"
+          >
+            <X className="h-5 w-5 text-(--knu-text-secondary)" aria-hidden="true" />
+          </button>
+        </div>
+
+        {kind === 'activity' ? (
+          <OffSeasonActivityDetail lastSeason={lastSeason} />
+        ) : (
+          <OffSeasonProfileDetail viewModel={viewModel} lastSeason={lastSeason} />
+        )}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 min-h-11 w-full rounded-xl bg-(--knu-primary) px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-(--knu-primary-dark)"
+        >
+          확인
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OffSeasonActivityDetail({
+  lastSeason,
+}: {
+  lastSeason: HomeDashboardViewModel['seasonSummary']['lastSeason'];
+}) {
+  if (!lastSeason) {
+    return <EmptyDetailCard message="아직 확인할 수 있는 이전 시즌 활동이 없어요." />;
+  }
+
+  const activity = lastSeason.viewerActivity;
+
+  return (
+    <div className="space-y-3">
+      <DetailRow label="시즌" value={lastSeason.name} />
+      <DetailRow label="내 결과" value={resolveViewerActivityTitle(activity.finalResult)} />
+      <div className="grid grid-cols-3 gap-2">
+        <DetailMetric label="보낸 요청" value={activity.sentRequestCount} />
+        <DetailMetric label="받은 요청" value={activity.receivedRequestCount} />
+        <DetailMetric label="대화" value={activity.conversationCount} />
+      </div>
+      {activity.matchedPartnerNickname && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          <span className="font-extrabold text-green-700">{activity.matchedPartnerNickname}</span>
+          님과 매칭이 성사되었어요.
+        </div>
+      )}
+      <p className="text-xs leading-relaxed text-(--knu-text-tertiary)">
+        전체 참여 {lastSeason.totalParticipants}명 · 매칭 완료 {lastSeason.totalMatchSuccess}쌍 ·
+        운영 건물 {lastSeason.aggregate.operatedDormitoryCount}개
+      </p>
+    </div>
+  );
+}
+
+function OffSeasonProfileDetail({
+  viewModel,
+  lastSeason,
+}: {
+  viewModel: HomeDashboardViewModel;
+  lastSeason: HomeDashboardViewModel['seasonSummary']['lastSeason'];
+}) {
+  if (!lastSeason) {
+    return <EmptyDetailCard message="이전 시즌 프로필로 연결할 시즌 참여 기록이 없어요." />;
+  }
+
+  return (
+    <div className="space-y-3">
+      <DetailRow label="참여 시즌" value={lastSeason.name} />
+      <DetailRow label="닉네임" value={viewModel.viewerIdentity.nickname} />
+      <DetailRow label="성별" value={viewModel.viewerIdentity.genderLabel} />
+      <DetailRow label="캠퍼스" value={viewModel.viewerIdentity.campusName} />
+      <div className="rounded-xl border border-(--knu-border) bg-(--knu-background-alt) px-4 py-3 text-xs leading-relaxed text-(--knu-text-secondary)">
+        이전 시즌 생활패턴 상세는 별도 이력 화면으로 확장될 예정이에요. 지금은 홈에서 확인 가능한
+        직전 시즌 참여 상태와 계정 기준 정보를 먼저 보여드려요.
+      </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-(--knu-border) px-4 py-3">
+      <span className="text-sm font-semibold text-(--knu-text-secondary)">{label}</span>
+      <span className="text-sm font-bold text-(--knu-text-primary)">{value}</span>
+    </div>
+  );
+}
+
+function DetailMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl bg-(--knu-background-alt) p-3 text-center">
+      <p className="text-lg font-extrabold text-(--knu-primary)">{value}</p>
+      <p className="text-xs text-(--knu-text-tertiary)">{label}</p>
+    </div>
+  );
+}
+
+function EmptyDetailCard({ message }: { message: string }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-(--knu-text-secondary)">
+      {message}
+    </div>
   );
 }
 

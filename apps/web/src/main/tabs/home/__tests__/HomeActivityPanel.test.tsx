@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
@@ -6,6 +7,7 @@ import { HomeActivityPanel } from '../components/HomeActivityPanel';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
 function renderActivity(dashboard: HomeDashboardResponse) {
+  const onNavigate = vi.fn();
   const viewModel = buildHomeDashboardViewModel({
     dashboard,
     renderedAt: new Date('2026-07-01T00:00:00+09:00').getTime(),
@@ -15,14 +17,17 @@ function renderActivity(dashboard: HomeDashboardResponse) {
     <HomeActivityPanel
       viewModel={viewModel}
       seasonState={viewModel.seasonState}
-      onNavigate={vi.fn()}
+      onNavigate={onNavigate}
     />,
   );
+
+  return { onNavigate };
 }
 
 describe('HomeActivityPanel', () => {
-  it('비시즌에는 지난 시즌 viewer activity aggregate를 compact하게 보여준다', () => {
-    renderActivity(
+  it('비시즌에는 지난 시즌 viewer activity aggregate를 compact하게 보여준다', async () => {
+    const user = userEvent.setup();
+    const { onNavigate } = renderActivity(
       createHomeDashboardTestResponse({
         season: {
           hasCurrentSeason: false,
@@ -48,8 +53,17 @@ describe('HomeActivityPanel', () => {
     expect(screen.getByText('대화')).toBeInTheDocument();
     expect(screen.getByText('1')).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /지난 기록 보기/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /내 정보 확인/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /이전 시즌 상세 보기/ }));
+    expect(screen.getByRole('dialog', { name: '이전 시즌 상세 보기' })).toBeInTheDocument();
+    expect(
+      screen.getByText('직전 시즌의 내 요청, 대화, 매칭 결과를 요약해서 보여드려요.'),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '확인' }));
+
+    await user.click(screen.getByRole('button', { name: /이전 시즌 프로필 확인/ }));
+    expect(screen.getByRole('dialog', { name: '이전 시즌 프로필 확인' })).toBeInTheDocument();
+    expect(screen.getByText('닉네임')).toBeInTheDocument();
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 
   it('비시즌 matched history 상태에서는 상대 닉네임이 있는 성공 카드를 보여준다', () => {
@@ -93,7 +107,7 @@ describe('HomeActivityPanel', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('민지')).toHaveClass('font-extrabold');
     expect(screen.getByText(/님과 매칭이 성사되었어요/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /지난 기록 보기/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /이전 시즌 상세 보기/ })).toBeInTheDocument();
   });
 
   it('비시즌 no history 상태에서는 행동 버튼 없이 다음 시즌 참여 안내만 보여준다', () => {
@@ -135,8 +149,8 @@ describe('HomeActivityPanel', () => {
       screen.getByRole('heading', { name: '이전 시즌에 참여하지 않았어요' }),
     ).toBeInTheDocument();
     expect(screen.getByText(/다음 시즌이 열리면 참여해보세요/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /지난 기록 보기/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /내 정보 확인/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /이전 시즌 상세 보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /이전 시즌 프로필 확인/ })).not.toBeInTheDocument();
   });
 
   it('완료 시즌 기록이 없으면 새 시즌 활동 대기 상태를 보여준다', () => {

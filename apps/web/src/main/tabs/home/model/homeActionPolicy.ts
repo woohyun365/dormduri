@@ -41,16 +41,9 @@ export function buildHomeQuickActions({
   hasCurrentSeason = true,
   canEnterRoommateSearch = seasonState !== 'OFF_SEASON',
   canStartChat = seasonState === 'SEASON_MATCHING',
-  canViewMatchHistory = true,
 }: BuildHomeQuickActionsInput): HomeQuickAction[] {
   if (!hasCurrentSeason) {
-    return [
-      historyAction(
-        !canViewMatchHistory,
-        !canViewMatchHistory ? '이전 시즌 기록을 아직 불러올 수 없어요.' : undefined,
-      ),
-      accountInfoAction,
-    ];
+    return [historyAction(), accountInfoAction];
   }
   if (seasonState === 'SEASON_MATCHING') {
     return [
@@ -119,13 +112,7 @@ export function buildHomeQuickActions({
   }
 
   if (seasonState === 'OFF_SEASON') {
-    return [
-      historyAction(
-        !canViewMatchHistory,
-        !canViewMatchHistory ? '이전 시즌 기록을 아직 불러올 수 없어요.' : undefined,
-      ),
-      accountInfoAction,
-    ];
+    return [historyAction(), accountInfoAction];
   }
 
   return [

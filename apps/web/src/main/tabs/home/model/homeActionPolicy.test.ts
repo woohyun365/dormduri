@@ -36,6 +36,21 @@ describe('homeActionPolicy', () => {
     expect(actions.some((action) => action.target === 'list')).toBe(false);
   });
 
+  it('keeps off-season history CTA enabled even when no history exists yet', () => {
+    const actions = buildHomeQuickActions({
+      seasonState: 'OFF_SEASON',
+      hasCurrentSeason: false,
+      canViewMatchHistory: false,
+    });
+
+    expect(actions[0]).toMatchObject({
+      label: '이전 기록',
+      target: 'matching-history',
+      disabled: undefined,
+      disabledReason: undefined,
+    });
+  });
+
   it('does not expose new roommate search as a post-match primary action', () => {
     const actions = buildHomeQuickActions({
       seasonState: 'SEASON_POST_MATCH',
