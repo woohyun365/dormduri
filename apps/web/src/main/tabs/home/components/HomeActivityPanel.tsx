@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import {
   BarChart3,
+  Building2,
   CalendarDays,
+  ClipboardCheck,
   CheckCircle2,
   ChevronRight,
   History,
@@ -30,6 +32,13 @@ interface HomeActivityPanelProps {
   seasonState: SeasonState;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   onOpenBuildingSelect?: () => void;
+}
+
+interface StaticActivityAction {
+  label: string;
+  onClick: () => void;
+  icon?: React.ElementType;
+  trailingIcon?: boolean;
 }
 
 export function HomeActivityPanel({
@@ -59,16 +68,13 @@ export function HomeActivityPanel({
   }
 
   if (seasonState === 'SEASON_OPEN') {
-    return (
-      <StaticActivityCard
-        eyebrow="탐색 준비"
-        title="후보 탐색은 준비 상태로 열려요"
-        body="시즌 오픈 기간에는 프로필과 건물 선택을 준비하고, 매칭 요청은 매칭 기간에 시작돼요."
-        icon={Search}
-        actionLabel="시즌 프로필 확인"
-        onAction={() => onNavigate('profile')}
-      />
-    );
+    const seasonOpenActivity = resolveSeasonOpenActivityContent({
+      viewModel,
+      onNavigate,
+      onOpenBuildingSelect,
+    });
+
+    return <StaticActivityCard {...seasonOpenActivity} />;
   }
 
   if (seasonState === 'SEASON_POST_MATCH') {
@@ -84,11 +90,20 @@ export function HomeActivityPanel({
             : '마감 정리 기간에는 새 매칭 요청이 아니라 이번 시즌 결과와 이전 기록을 확인하는 흐름이에요.'
         }
         icon={viewModel.hasActiveMatch ? MessageCircle : History}
-        actionLabel="시즌 결과 보기"
-        onAction={() => onNavigate('matching', { section: 'past' })}
+        action={{
+          label: '시즌 결과 보기',
+          onClick: () => onNavigate('matching', { section: 'past' }),
+          icon: History,
+          trailingIcon: true,
+        }}
         secondaryAction={
           viewModel.capabilities.canStartChat
-            ? { label: '채팅 보기', onClick: () => onNavigate('chat') }
+            ? {
+                label: '채팅 보기',
+                onClick: () => onNavigate('chat'),
+                icon: MessageCircle,
+                trailingIcon: true,
+              }
             : undefined
         }
       />
@@ -101,14 +116,140 @@ export function HomeActivityPanel({
       title="이전 기록 중심으로 확인해요"
       body="비시즌에는 타인 탐색과 새 매칭 요청이 닫혀요. 지금은 과거 매칭 기록과 내 정보 확인만 이용할 수 있어요."
       icon={History}
-      actionLabel={viewModel.capabilities.canViewMatchHistory ? '이전 기록 보기' : '내 정보 확인'}
-      onAction={() =>
-        viewModel.capabilities.canViewMatchHistory
-          ? onNavigate('matching', { section: 'past' })
-          : onNavigate('profile')
-      }
+      action={{
+        label: viewModel.capabilities.canViewMatchHistory ? '이전 기록 보기' : '내 정보 확인',
+        onClick: () =>
+          viewModel.capabilities.canViewMatchHistory
+            ? onNavigate('matching', { section: 'past' })
+            : onNavigate('profile'),
+        icon: viewModel.capabilities.canViewMatchHistory ? History : UserRound,
+        trailingIcon: true,
+      }}
     />
   );
+}
+
+function resolveSeasonOpenActivityContent({
+  viewModel,
+  onNavigate,
+  onOpenBuildingSelect,
+}: {
+  viewModel: HomeDashboardViewModel;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+  onOpenBuildingSelect?: () => void;
+}): {
+  eyebrow: string;
+  title: string;
+  body: string;
+  icon: React.ElementType;
+  action?: StaticActivityAction;
+  secondaryAction?: StaticActivityAction;
+} {
+  const reasons = viewModel.preparation.registrationUnavailableReasons;
+  const needsSeasonProfile = !viewModel.preparation.hasSeasonProfile;
+  const needsDormitory = !viewModel.preparation.hasBuilding;
+  const profileAction: StaticActivityAction = {
+    label: '생활패턴·룸메 조건 설정',
+    onClick: () => onNavigate('profile'),
+    icon: UserRound,
+    trailingIcon: true,
+  };
+  const dormitoryAction: StaticActivityAction = {
+    label: '배정된 기숙사 설정',
+    onClick: () => onOpenBuildingSelect?.(),
+    icon: Building2,
+  };
+  const profileReviewAction: StaticActivityAction = {
+    label: '시즌 프로필 확인',
+    onClick: () => onNavigate('profile'),
+    icon: UserRound,
+    trailingIcon: true,
+  };
+
+  if (reasons.includes('NO_SELECTABLE_DORMITORY')) {
+    return {
+      eyebrow: '탐색 준비',
+      title: '운영 기숙사 정보를 기다리고 있어요',
+      body: needsSeasonProfile
+        ? '운영 정보가 등록되기 전에도 생활패턴과 룸메 조건은 먼저 준비할 수 있어요.'
+        : '운영 정보가 등록되면 배정된 기숙사 설정과 시즌 참여를 이어서 안내할게요.',
+      icon: Search,
+      action: needsSeasonProfile ? profileAction : undefined,
+    };
+  }
+
+  if (viewModel.preparation.registrationReady && viewModel.capabilities.canEnterRoommateSearch) {
+    return {
+      eyebrow: '탐색 준비',
+      title: '룸메 후보를 미리 알아볼 수 있어요',
+      body: '시즌 참여를 마쳤어요. 같은 기숙사 룸메 후보를 보고 매칭 시즌 전에도 먼저 대화할 수 있어요.',
+      icon: Search,
+      action: {
+        label: '룸메 후보 보기',
+        onClick: () => onNavigate('list'),
+        icon: Search,
+        trailingIcon: true,
+      },
+      secondaryAction: profileReviewAction,
+    };
+  }
+
+  if (viewModel.preparation.registrationReady) {
+    return {
+      eyebrow: '탐색 준비',
+      title: '매칭 시작 전 정보를 확인해요',
+      body: '시즌 참여가 완료됐어요. 매칭 시즌이 열리기 전까지 시즌 프로필과 기숙사 정보를 확인할 수 있어요.',
+      icon: Search,
+      action: profileReviewAction,
+    };
+  }
+
+  if (!viewModel.preparation.registrationReady && reasons.length === 0) {
+    return {
+      eyebrow: '탐색 준비',
+      title: '시즌 참여 신청만 남았어요',
+      body: '준비한 시즌 프로필과 배정된 기숙사 정보로 시즌 참여를 마무리할 수 있어요.',
+      icon: ClipboardCheck,
+      action: {
+        label: '시즌 참여 신청하기',
+        onClick: () => onNavigate('profile'),
+        icon: ClipboardCheck,
+        trailingIcon: true,
+      },
+      secondaryAction: profileReviewAction,
+    };
+  }
+
+  if (needsSeasonProfile || needsDormitory) {
+    return {
+      eyebrow: '탐색 준비',
+      title: '시즌 참여 조건을 설정해요',
+      body: '시즌 프로필과 배정된 기숙사를 준비하면 시즌 참여 신청으로 이어져요.',
+      icon: Search,
+      action: profileAction,
+      secondaryAction: viewModel.preparation.canSelectBuilding ? dormitoryAction : undefined,
+    };
+  }
+
+  if (reasons.includes('DORMITORY_SELECTION_CLOSED')) {
+    return {
+      eyebrow: '탐색 준비',
+      title: '시즌 참여 상태를 확인해요',
+      body: '기숙사 선택 기간이 지나 이번 시즌 참여 신청을 마칠 수 없어요. 입력한 정보는 내 정보에서 확인할 수 있어요.',
+      icon: Search,
+      action: profileReviewAction,
+    };
+  }
+
+  return {
+    eyebrow: '탐색 준비',
+    title: '시즌 참여 상태를 확인해요',
+    body: '현재 상태에서는 바로 시즌 참여 신청을 마칠 수 없어요. 필요한 정보를 확인해주세요.',
+    icon: Search,
+    action: reasons.includes('DORMITORY_SELECTION_REQUIRED')
+      ? dormitoryAction
+      : profileReviewAction,
+  };
 }
 
 function resolveOffSeasonActivityContent(viewModel: HomeDashboardViewModel): {
@@ -123,7 +264,7 @@ function resolveOffSeasonActivityContent(viewModel: HomeDashboardViewModel): {
     return {
       eyebrow: '이전 시즌 활동 요약',
       title: '새 시즌이 열리면 활동이 표시돼요',
-      body: '지금은 새 매칭 요청과 채팅 시작이 닫혀 있어요. 일정이 확정되면 필요한 행동을 홈에서 안내할게요.',
+      body: '아직 시작된 시즌이 없어요.\n시즌 일정이 등록되면 참여 방법을 안내할게요.',
       icon: CalendarDays,
     };
   }
@@ -157,7 +298,7 @@ function OffSeasonActivityCard({
   const [detailModal, setDetailModal] = useState<OffSeasonDetailModalKind | null>(null);
   const lastSeason = viewModel.seasonSummary.lastSeason;
   const Icon = content.icon;
-  const isNoParticipationHistory = Boolean(lastSeason && !lastSeason.viewerHadRegistration);
+  const canShowDetailActions = Boolean(lastSeason?.viewerHadRegistration);
 
   return (
     <section className={sectionCard()} aria-labelledby="home-activity-title">
@@ -199,12 +340,12 @@ function OffSeasonActivityCard({
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-relaxed text-(--knu-text-secondary)">
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-relaxed whitespace-pre-line text-(--knu-text-secondary) sm:whitespace-normal">
           {content.body}
         </div>
       )}
 
-      {!isNoParticipationHistory && (
+      {canShowDetailActions && (
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <motion.button
             type="button"
@@ -498,25 +639,49 @@ function resolveViewerActivityTitle(
   }
 }
 
+function StaticActivityButton({
+  action,
+  variant,
+}: {
+  action: StaticActivityAction;
+  variant: 'primary' | 'secondary';
+}) {
+  const ActionIcon = action.icon ?? BarChart3;
+  const className =
+    variant === 'primary'
+      ? 'bg-(--knu-background-alt) hover:bg-gray-100 border-(--knu-border)'
+      : 'bg-white hover:bg-(--knu-background-alt) border-(--knu-border)';
+
+  return (
+    <motion.button
+      type="button"
+      onClick={action.onClick}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.98 }}
+      className={`min-h-11 flex-1 rounded-xl border px-4 py-2.5 text-sm font-bold text-(--knu-text-primary) transition-colors flex items-center justify-center gap-2 ${className}`}
+    >
+      <ActionIcon className="w-4 h-4" aria-hidden="true" />
+      <span>{action.label}</span>
+      {action.trailingIcon && <ChevronRight className="w-4 h-4" aria-hidden="true" />}
+    </motion.button>
+  );
+}
+
 function StaticActivityCard({
   eyebrow,
   title,
   body,
   icon: Icon,
-  actionLabel,
-  onAction,
+  action,
   secondaryAction,
 }: {
   eyebrow: string;
   title: string;
   body: string;
   icon: React.ElementType;
-  actionLabel: string;
-  onAction: () => void;
-  secondaryAction?: { label: string; onClick: () => void; icon?: React.ElementType };
+  action?: StaticActivityAction;
+  secondaryAction?: StaticActivityAction;
 }) {
-  const SecondaryIcon = secondaryAction?.icon ?? MessageCircle;
-
   return (
     <section className={sectionCard()} aria-labelledby="home-activity-title">
       <div className={sectionHeader}>
@@ -529,31 +694,12 @@ function StaticActivityCard({
         <Icon className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
       </div>
       <p className="text-sm leading-relaxed text-(--knu-text-secondary) mb-4">{body}</p>
-      <div className="flex flex-col sm:flex-row gap-2">
-        <motion.button
-          type="button"
-          onClick={onAction}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.98 }}
-          className="min-h-11 flex-1 rounded-xl bg-(--knu-background-alt) hover:bg-gray-100 border border-(--knu-border) px-4 py-2.5 text-sm font-bold text-(--knu-text-primary) transition-colors flex items-center justify-center gap-2"
-        >
-          <BarChart3 className="w-4 h-4" aria-hidden="true" />
-          <span>{actionLabel}</span>
-          <ChevronRight className="w-4 h-4" aria-hidden="true" />
-        </motion.button>
-        {secondaryAction && (
-          <motion.button
-            type="button"
-            onClick={secondaryAction.onClick}
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
-            className="min-h-11 flex-1 rounded-xl bg-white hover:bg-(--knu-background-alt) border border-(--knu-border) px-4 py-2.5 text-sm font-bold text-(--knu-text-primary) transition-colors flex items-center justify-center gap-2"
-          >
-            <SecondaryIcon className="w-4 h-4" aria-hidden="true" />
-            <span>{secondaryAction.label}</span>
-          </motion.button>
-        )}
-      </div>
+      {(action || secondaryAction) && (
+        <div className="flex flex-col sm:flex-row gap-2">
+          {action && <StaticActivityButton action={action} variant="primary" />}
+          {secondaryAction && <StaticActivityButton action={secondaryAction} variant="secondary" />}
+        </div>
+      )}
     </section>
   );
 }

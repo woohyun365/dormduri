@@ -282,17 +282,21 @@ function resolveOnboardingSupportMessage(
   }
 
   if (!viewModel.hasCurrentSeason) {
+    const hasLastSeason = viewModel.seasonSummary.lastSeason !== null;
+
     return {
-      title: '새 시즌 전 이용 안내',
-      description: '비시즌에는 다음 시즌 일정과 이전 기록을 확인할 수 있어요.',
+      title: '시즌 전 이용 안내',
+      description: hasLastSeason
+        ? '지금은 내 정보와 이전 기록을 확인할 수 있어요.\n시즌이 열리면 프로필 작성과 시즌 참여 신청을 홈에서 안내할게요.'
+        : '지금은 내 정보를 확인할 수 있어요.\n시즌이 열리면 프로필 작성과 시즌 참여 신청을 홈에서 안내할게요.',
     };
   }
 
   if (!viewModel.preparation.registrationReady) {
     return {
-      title: '시즌 등록까지 차례대로 준비해요',
+      title: '시즌 참여 신청까지 차례대로 준비해요',
       description:
-        '생활패턴과 건물 선택을 마치면 시즌 등록을 완료할 수 있어요.\n안내를 닫아도 홈의 준비 체크리스트에서 다음 행동을 계속 확인할 수 있어요.',
+        '생활패턴과 건물 선택을 마치면 시즌 참여 신청을 마무리할 수 있어요.\n안내를 닫아도 홈의 준비 체크리스트에서 다음 행동을 계속 확인할 수 있어요.',
     };
   }
 
@@ -329,10 +333,26 @@ function buildOnboardingActions({
   }
 
   if (!viewModel.hasCurrentSeason) {
+    const hasLastSeason = viewModel.seasonSummary.lastSeason !== null;
+
+    if (!hasLastSeason) {
+      return [
+        {
+          label: '내 정보 확인',
+          description: '프로필 탭에서 닉네임과 학교 정보를 확인해요.',
+          icon: UserRound,
+          onClick: () => {
+            onClose();
+            onNavigate('profile');
+          },
+        },
+      ];
+    }
+
     return [
       {
-        label: '이전 프로필 이력 확인',
-        description: '프로필 탭에서 내 정보와 이전 프로필 이력을 확인해요.',
+        label: '내 정보와 이전 프로필 확인',
+        description: '프로필 탭에서 내 정보와 지난 시즌 프로필을 확인해요.',
         icon: UserRound,
         onClick: () => {
           onClose();
@@ -340,7 +360,7 @@ function buildOnboardingActions({
         },
       },
       {
-        label: '이전 시즌 활동 기록 확인',
+        label: '이전 시즌 활동 보기',
         description: '매칭 현황에서 지난 시즌 요청과 결과를 확인해요.',
         icon: CheckCircle2,
         onClick: () => {
@@ -378,7 +398,7 @@ function buildOnboardingActions({
       },
       {
         label: '프로필 다시 확인',
-        description: '등록 전 정보를 한 번 더 확인해요.',
+        description: '신청 전 정보를 한 번 더 확인해요.',
         icon: UserRound,
         onClick: () => {
           onClose();

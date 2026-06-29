@@ -106,10 +106,14 @@ describe('HomeQuickMenuSection', () => {
     );
 
     const searchButton = screen.getByRole('button', { name: /탐색 대기/ });
-    const reason = screen.getByText('등록 완료와 건물 선택 조건을 만족해야 룸메 탐색이 열려요.');
+    const reason = screen.getByText(
+      '시즌 참여 신청과 건물 선택 조건을 만족해야 룸메 탐색이 열려요.',
+    );
     expect(searchButton).toBeDisabled();
     expect(searchButton).toHaveAttribute('aria-describedby', reason.id);
-    expect(screen.getByText('채팅은 등록 완료 후 정책 조건을 만족할 때 열려요.')).toBeVisible();
+    expect(
+      screen.getByText('채팅은 시즌 참여 신청 후 정책 조건을 만족할 때 열려요.'),
+    ).toBeVisible();
   });
 
   it('매칭 현황 클릭 시 핸들러를 호출한다', async () => {

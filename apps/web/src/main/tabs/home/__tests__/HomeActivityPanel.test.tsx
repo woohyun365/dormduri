@@ -8,6 +8,7 @@ import type { HomeDashboardResponse } from '@repo/shared/home';
 
 function renderActivity(dashboard: HomeDashboardResponse) {
   const onNavigate = vi.fn();
+  const onOpenBuildingSelect = vi.fn();
   const viewModel = buildHomeDashboardViewModel({
     dashboard,
     renderedAt: new Date('2026-07-01T00:00:00+09:00').getTime(),
@@ -18,13 +19,90 @@ function renderActivity(dashboard: HomeDashboardResponse) {
       viewModel={viewModel}
       seasonState={viewModel.seasonState}
       onNavigate={onNavigate}
+      onOpenBuildingSelect={onOpenBuildingSelect}
     />,
   );
 
-  return { onNavigate };
+  return { onNavigate, onOpenBuildingSelect };
 }
 
 describe('HomeActivityPanel', () => {
+  it('시즌 오픈 탐색 준비 섹션에서 시즌 프로필과 기숙사 설정 CTA를 제공한다', async () => {
+    const user = userEvent.setup();
+    const { onNavigate, onOpenBuildingSelect } = renderActivity(
+      createHomeDashboardTestResponse({
+        viewer: {
+          ...createHomeDashboardTestResponse().viewer,
+          selection: { state: 'NOT_SELECTED', dormitoryId: null, source: null },
+          capabilities: {
+            ...createHomeDashboardTestResponse().viewer.capabilities,
+            canEnterRoommateSearch: true,
+            canCreateOrUpdateSeasonProfileDraft: true,
+            canSelectDormitory: true,
+            canFinalizeSeasonRegistration: false,
+            canRequestMatch: false,
+            canStartChat: false,
+          },
+          seasonProfile: {
+            ...createHomeDashboardTestResponse().viewer.seasonProfile,
+            registered: false,
+            profileExists: true,
+            profileState: 'DRAFT',
+            completion: {
+              profileCompletionRequired: true,
+              dormitorySelectionRequired: true,
+              registrationUnavailable: true,
+              registrationUnavailableReasons: [
+                'PROFILE_INCOMPLETE',
+                'DORMITORY_SELECTION_REQUIRED',
+              ],
+            },
+            draftWritable: true,
+            canSelectDormitory: true,
+            canFinalizeRegistration: false,
+          },
+        },
+      }),
+    );
+
+    expect(screen.getByText('탐색 준비')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '시즌 참여 조건을 설정해요' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /생활패턴·룸메 조건 설정/ }));
+    expect(onNavigate).toHaveBeenCalledWith('profile');
+
+    await user.click(screen.getByRole('button', { name: /배정된 기숙사 설정/ }));
+    expect(onOpenBuildingSelect).toHaveBeenCalledOnce();
+  });
+
+  it('시즌 오픈 탐색 준비 섹션에서 참여 완료 후 룸메 후보와 프로필 CTA를 제공한다', async () => {
+    const user = userEvent.setup();
+    const { onNavigate } = renderActivity(
+      createHomeDashboardTestResponse({
+        viewer: {
+          ...createHomeDashboardTestResponse().viewer,
+          capabilities: {
+            ...createHomeDashboardTestResponse().viewer.capabilities,
+            canEnterRoommateSearch: true,
+            canRequestMatch: false,
+            canStartChat: true,
+          },
+        },
+      }),
+    );
+
+    expect(screen.getByText('탐색 준비')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '룸메 후보를 미리 알아볼 수 있어요' }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /룸메 후보 보기/ }));
+    expect(onNavigate).toHaveBeenCalledWith('list');
+
+    await user.click(screen.getByRole('button', { name: /시즌 프로필 확인/ }));
+    expect(onNavigate).toHaveBeenCalledWith('profile');
+  });
+
   it('비시즌에는 지난 시즌 viewer activity aggregate를 compact하게 보여준다', async () => {
     const user = userEvent.setup();
     const { onNavigate } = renderActivity(
@@ -174,6 +252,9 @@ describe('HomeActivityPanel', () => {
     expect(
       screen.getByRole('heading', { name: '새 시즌이 열리면 활동이 표시돼요' }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/일정이 확정되면 필요한 행동을 홈에서 안내할게요/)).toBeInTheDocument();
+    expect(screen.getByText(/아직 시작된 시즌이 없어요/)).toBeInTheDocument();
+    expect(screen.getByText(/시즌 일정이 등록되면 참여 방법을 안내할게요/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /이전 시즌 상세 보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /이전 시즌 프로필 확인/ })).not.toBeInTheDocument();
   });
 });

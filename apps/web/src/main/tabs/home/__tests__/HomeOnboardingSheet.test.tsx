@@ -60,10 +60,47 @@ describe('HomeOnboardingSheet', () => {
       />,
     );
 
-    expect(screen.getByRole('dialog', { name: '새 시즌 전 이용 안내' })).toBeInTheDocument();
-    expect(screen.getByText(/비시즌에는 다음 시즌 일정과 이전 기록/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /이전 프로필 이력 확인/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /이전 시즌 활동 기록 확인/ })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '시즌 전 이용 안내' })).toBeInTheDocument();
+    expect(screen.getByText('지금은 내 정보와 이전 기록을 확인할 수 있어요.')).toBeInTheDocument();
+    expect(
+      screen.getByText('시즌이 열리면 프로필 작성과 시즌 참여 신청을 홈에서 안내할게요.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /내 정보와 이전 프로필 확인/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /이전 시즌 활동 보기/ })).toBeInTheDocument();
+  });
+
+  it('이전 시즌 기록이 없으면 비시즌 안내에서 과거 기록 CTA를 제거한다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        hasCurrentSeason: false,
+        state: null,
+        summary: null,
+        schedule: null,
+        isOpen: false,
+        isMatching: false,
+        isPostMatch: false,
+        daysUntilMatchingEnd: null,
+        daysUntilSeasonEnd: null,
+      },
+      seasonHistorySummary: { lastSeason: null },
+    });
+
+    render(
+      <HomeOnboardingSheet
+        open
+        viewModel={buildViewModel(dashboard)}
+        onClose={vi.fn()}
+        onDismissForToday={vi.fn()}
+        onDismissPermanently={vi.fn()}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('dialog', { name: '시즌 전 이용 안내' })).toBeInTheDocument();
+    expect(screen.getByText('지금은 내 정보를 확인할 수 있어요.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /내 정보 확인/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /이전 시즌 활동/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /이전 프로필/ })).not.toBeInTheDocument();
   });
 
   it('Escape는 저장 없이 이번 화면에서만 닫는다', async () => {

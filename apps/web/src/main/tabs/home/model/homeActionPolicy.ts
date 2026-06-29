@@ -50,10 +50,10 @@ export function buildHomeQuickActions({
       {
         icon: canEnterRoommateSearch ? 'users' : 'lock',
         label: canEnterRoommateSearch ? '룸메 찾기' : '탐색 대기',
-        description: canEnterRoommateSearch ? '룸메 탐색' : '등록·건물 확인',
+        description: canEnterRoommateSearch ? '룸메 탐색' : '신청·건물 확인',
         disabledReason: canEnterRoommateSearch
           ? undefined
-          : '등록 완료와 건물 선택 조건을 만족해야 룸메 탐색이 열려요.',
+          : '시즌 참여 신청과 건물 선택 조건을 만족해야 룸메 탐색이 열려요.',
         color: 'blue',
         target: 'list',
         disabled: canEnterRoommateSearch ? undefined : true,
@@ -71,7 +71,7 @@ export function buildHomeQuickActions({
         description: canStartChat ? '대화 보기' : '조건 충족 후',
         disabledReason: canStartChat
           ? undefined
-          : '채팅은 등록 완료 후 정책 조건을 만족할 때 열려요.',
+          : '채팅은 시즌 참여 신청 후 정책 조건을 만족할 때 열려요.',
         color: 'green',
         target: 'chat',
         disabled: canStartChat ? undefined : true,
@@ -119,10 +119,10 @@ export function buildHomeQuickActions({
     {
       icon: canEnterRoommateSearch ? 'eye' : 'lock',
       label: canEnterRoommateSearch ? '룸메 찾기' : '탐색 대기',
-      description: canEnterRoommateSearch ? '미리보기' : '등록 후',
+      description: canEnterRoommateSearch ? '미리보기' : '신청 후',
       disabledReason: canEnterRoommateSearch
         ? undefined
-        : '시즌 등록이 완료되어야 후보 요약을 확인할 수 있어요.',
+        : '시즌 참여 신청을 마쳐야 룸메 후보를 볼 수 있어요.',
       color: 'blue',
       target: 'list',
       disabled: canEnterRoommateSearch ? undefined : true,
@@ -138,7 +138,7 @@ export function buildHomeQuickActions({
       icon: 'lock',
       label: '채팅',
       description: '시즌 중 이용',
-      disabledReason: '채팅은 등록 완료 후 정책 조건을 만족할 때 열려요.',
+      disabledReason: '채팅은 시즌 참여 신청 후 정책 조건을 만족할 때 열려요.',
       color: 'green',
       target: 'chat',
       disabled: true,

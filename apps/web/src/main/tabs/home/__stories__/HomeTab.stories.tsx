@@ -79,20 +79,36 @@ export const OffSeasonNoNextSeason: Story = {
     },
   },
 };
-export const OffSeasonNextSeasonNoHistory = createStory(
-  homeStoryScenarios.offSeasonNextSeasonNoHistory,
+export const OffSeasonNextSeasonNoServiceHistory = createStory(
+  homeStoryScenarios.offSeasonNextSeasonNoServiceHistory,
 );
-export const OffSeasonNextSeasonActiveMatchedHistory = createStory(
-  homeStoryScenarios.offSeasonNextSeasonActiveMatchedHistory,
+export const OffSeasonNextSeasonNoUserHistory = createStory(
+  homeStoryScenarios.offSeasonNextSeasonNoUserHistory,
 );
-export const SeasonOpenProfileIncomplete = createStory(
-  homeStoryScenarios.seasonOpenProfileIncomplete,
+export const OffSeasonNextSeasonUserMatchedHistory = createStory(
+  homeStoryScenarios.offSeasonNextSeasonUserMatchedHistory,
 );
-export const SeasonOpenRegistrationPending = createStory(
-  homeStoryScenarios.seasonOpenRegistrationPending,
+export const OffSeasonNoNextSeasonNoServiceHistory = createStory(
+  homeStoryScenarios.offSeasonNoNextSeasonNoServiceHistory,
 );
-export const SeasonOpenRegisteredAssigned = createStory(
-  homeStoryScenarios.seasonOpenRegisteredAssigned,
+export const SeasonOpenProfileAndDormitoryRequired = createStory(
+  homeStoryScenarios.seasonOpenProfileAndDormitoryRequired,
+);
+export const SeasonOpenDormitoryRequired = createStory(
+  homeStoryScenarios.seasonOpenDormitoryRequired,
+);
+export const SeasonOpenProfileRequired = createStory(homeStoryScenarios.seasonOpenProfileRequired);
+export const SeasonOpenRegistrationReady = createStory(
+  homeStoryScenarios.seasonOpenRegistrationReady,
+);
+export const SeasonOpenRegisteredPreview = createStory(
+  homeStoryScenarios.seasonOpenRegisteredPreview,
+);
+export const SeasonOpenNoOperatedDormitoriesProfileIncomplete = createStory(
+  homeStoryScenarios.seasonOpenNoOperatedDormitoriesProfileIncomplete,
+);
+export const SeasonOpenNoOperatedDormitoriesProfileComplete = createStory(
+  homeStoryScenarios.seasonOpenNoOperatedDormitoriesProfileComplete,
 );
 export const RegistrationUnavailable = createStory(homeStoryScenarios.registrationUnavailable);
 export const SeasonMatchingNoBuilding = createStory(homeStoryScenarios.matchingNoBuilding);

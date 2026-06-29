@@ -60,7 +60,7 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel).toMatchObject({
       hasCurrentSeason: true,
       seasonState: 'SEASON_OPEN',
-      daysUntilEnd: 30,
+      daysUntilEnd: 54,
       isSeasonOpen: true,
       isSeasonMatching: false,
     });

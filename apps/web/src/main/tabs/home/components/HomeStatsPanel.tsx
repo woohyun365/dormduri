@@ -136,9 +136,9 @@ function resolveCompactStatsSummary(
 
   if (!lastSeason) {
     return {
-      title: '서비스 현황',
-      helper: '아직 누적 시즌 기록이 없을 때는 다음 시즌 안내를 먼저 보여드려요.',
-      body: '아직 완료된 시즌 기록이 없어요. 새 시즌이 열리면 참여 현황과 매칭 결과가 이 영역에 쌓입니다.',
+      title: '지난 시즌 요약',
+      helper: '한 눈에 알아보기',
+      body: '아직 완료된 시즌 기록이 없어요.',
       participantLabel: '누적 참여',
       participantValue: 0,
       matchSuccessLabel: '매칭 성공',

@@ -102,6 +102,7 @@ export interface HomeDashboardViewModel {
   seasonSummary: HomeDashboardSeasonSummaryViewModel;
   tip: HomeDashboardTipViewModel;
   capabilities: {
+    canRequestMatch: boolean;
     canStartChat: boolean;
     canViewMatchHistory: boolean;
     canSelectDormitory: boolean;
@@ -239,6 +240,7 @@ export function buildHomeDashboardViewModel({
       unreadMessages: dashboard.matching.unreadMessageCount,
     },
     capabilities: {
+      canRequestMatch: dashboard.viewer.capabilities.canRequestMatch,
       canStartChat: dashboard.viewer.capabilities.canStartChat,
       canViewMatchHistory: dashboard.viewer.capabilities.canViewMatchHistory,
       canSelectDormitory: dashboard.viewer.capabilities.canSelectDormitory,

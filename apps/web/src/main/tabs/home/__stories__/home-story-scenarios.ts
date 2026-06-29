@@ -151,6 +151,22 @@ function createNoCurrentSeasonWithMatchedHistoryDashboard(): HomeDashboardRespon
   };
 }
 
+function createNoCurrentSeasonWithNextSeasonNoServiceHistoryDashboard(): HomeDashboardResponse {
+  const base = createNoCurrentSeasonDashboard();
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      capabilities: {
+        ...base.viewer.capabilities,
+        canViewMatchHistory: false,
+      },
+    },
+    seasonHistorySummary: { lastSeason: null },
+  };
+}
+
 function createNoCurrentSeasonWithoutNextSeasonDashboard(): HomeDashboardResponse {
   return {
     ...createNoCurrentSeasonDashboard(),
@@ -158,7 +174,23 @@ function createNoCurrentSeasonWithoutNextSeasonDashboard(): HomeDashboardRespons
   };
 }
 
-function createOpenIncompleteDashboard(): HomeDashboardResponse {
+function createNoCurrentSeasonWithoutNextSeasonNoServiceHistoryDashboard(): HomeDashboardResponse {
+  const base = createNoCurrentSeasonWithoutNextSeasonDashboard();
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      capabilities: {
+        ...base.viewer.capabilities,
+        canViewMatchHistory: false,
+      },
+    },
+    seasonHistorySummary: { lastSeason: null },
+  };
+}
+
+function createOpenProfileAndDormitoryRequiredDashboard(): HomeDashboardResponse {
   const base = createDashboard('SEASON_OPEN');
 
   return {
@@ -187,7 +219,7 @@ function createOpenIncompleteDashboard(): HomeDashboardResponse {
       },
       capabilities: {
         ...base.viewer.capabilities,
-        canEnterRoommateSearch: false,
+        canEnterRoommateSearch: true,
         canCreateOrUpdateSeasonProfileDraft: true,
         canSelectDormitory: true,
         canFinalizeSeasonRegistration: false,
@@ -198,7 +230,89 @@ function createOpenIncompleteDashboard(): HomeDashboardResponse {
   };
 }
 
-function createOpenRegistrationPendingDashboard(): HomeDashboardResponse {
+function createOpenDormitoryRequiredDashboard(): HomeDashboardResponse {
+  const base = createDashboard('SEASON_OPEN');
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      seasonProfile: {
+        ...base.viewer.seasonProfile,
+        intent: 'UNDECIDED',
+        registered: false,
+        profileExists: true,
+        profileState: 'DRAFT',
+        completion: {
+          profileCompletionRequired: false,
+          dormitorySelectionRequired: true,
+          registrationUnavailable: true,
+          registrationUnavailableReasons: ['DORMITORY_SELECTION_REQUIRED'],
+        },
+        draftWritable: true,
+        canSelectDormitory: true,
+        canFinalizeRegistration: false,
+      },
+      selection: {
+        state: 'NOT_SELECTED',
+        dormitoryId: null,
+        source: null,
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: true,
+        canCreateOrUpdateSeasonProfileDraft: true,
+        canSelectDormitory: true,
+        canFinalizeSeasonRegistration: false,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+    },
+  };
+}
+
+function createOpenProfileRequiredDashboard(): HomeDashboardResponse {
+  const base = createDashboard('SEASON_OPEN');
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      seasonProfile: {
+        ...base.viewer.seasonProfile,
+        intent: 'UNDECIDED',
+        registered: false,
+        profileExists: true,
+        profileState: 'DRAFT',
+        completion: {
+          profileCompletionRequired: true,
+          dormitorySelectionRequired: false,
+          registrationUnavailable: true,
+          registrationUnavailableReasons: ['PROFILE_INCOMPLETE'],
+        },
+        draftWritable: true,
+        canSelectDormitory: true,
+        canFinalizeRegistration: false,
+      },
+      selection: {
+        state: 'SELECTED',
+        dormitoryId: 'dasan',
+        source: 'SEASON_PARTICIPANT',
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: true,
+        canCreateOrUpdateSeasonProfileDraft: true,
+        canSelectDormitory: true,
+        canFinalizeSeasonRegistration: false,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+    },
+  };
+}
+
+function createOpenRegistrationReadyDashboard(): HomeDashboardResponse {
   const base = createDashboard('SEASON_OPEN');
 
   return {
@@ -218,7 +332,7 @@ function createOpenRegistrationPendingDashboard(): HomeDashboardResponse {
           registrationUnavailableReasons: [],
         },
         draftWritable: true,
-        canSelectDormitory: false,
+        canSelectDormitory: true,
         canFinalizeRegistration: true,
       },
       selection: {
@@ -228,9 +342,9 @@ function createOpenRegistrationPendingDashboard(): HomeDashboardResponse {
       },
       capabilities: {
         ...base.viewer.capabilities,
-        canEnterRoommateSearch: false,
+        canEnterRoommateSearch: true,
         canCreateOrUpdateSeasonProfileDraft: true,
-        canSelectDormitory: false,
+        canSelectDormitory: true,
         canFinalizeSeasonRegistration: true,
         canRequestMatch: false,
         canStartChat: false,
@@ -263,6 +377,83 @@ function createUnassignedDashboard(): HomeDashboardResponse {
         canEnterRoommateSearch: false,
         canSelectDormitory: true,
         canRequestMatch: false,
+      },
+    },
+  };
+}
+
+function createOpenRegisteredPreviewDashboard(): HomeDashboardResponse {
+  const base = createDashboard('SEASON_OPEN');
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: true,
+        canRequestMatch: false,
+        canStartChat: true,
+      },
+    },
+    matching: {
+      ...base.matching,
+      pendingSentCount: 0,
+      pendingReceivedCount: 0,
+      unreadMessageCount: 0,
+      recentReceivedRequests: [],
+    },
+  };
+}
+
+function createOpenNoOperatedDormitoriesDashboard({
+  profileComplete,
+}: {
+  profileComplete: boolean;
+}): HomeDashboardResponse {
+  const base = createDashboard('SEASON_OPEN');
+
+  return {
+    ...base,
+    stats: {
+      ...base.stats,
+      buildingTotal: 0,
+      buildingMatchable: 0,
+      todayNewBuilding: 0,
+      buildingMatchSuccess: 0,
+    },
+    viewer: {
+      ...base.viewer,
+      seasonProfile: {
+        ...base.viewer.seasonProfile,
+        intent: 'UNDECIDED',
+        registered: false,
+        profileExists: true,
+        profileState: 'DRAFT',
+        completion: {
+          profileCompletionRequired: !profileComplete,
+          dormitorySelectionRequired: true,
+          registrationUnavailable: true,
+          registrationUnavailableReasons: profileComplete
+            ? ['NO_SELECTABLE_DORMITORY']
+            : ['PROFILE_INCOMPLETE', 'NO_SELECTABLE_DORMITORY'],
+        },
+        draftWritable: true,
+        canSelectDormitory: false,
+        canFinalizeRegistration: false,
+      },
+      selection: {
+        state: 'NOT_SELECTED',
+        dormitoryId: null,
+        source: null,
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: false,
+        canSelectDormitory: false,
+        canFinalizeSeasonRegistration: false,
+        canRequestMatch: false,
+        canStartChat: false,
       },
     },
   };
@@ -385,30 +576,69 @@ export const homeStoryScenarios = {
       '새 학기 이후 다음 시즌 공식 일정이 아직 등록되지 않았을 때 따뜻한 비시즌 안내를 보여줍니다.',
     dashboard: createNoCurrentSeasonWithoutNextSeasonDashboard(),
   },
-  offSeasonNextSeasonNoHistory: {
-    title: 'Off season + No history',
-    description: '다음 시즌 preview는 있지만 사용자가 이전 시즌에 참여하지 않은 상태를 보여줍니다.',
+  offSeasonNextSeasonNoServiceHistory: {
+    title: 'Off season + next Season + no service history',
+    description:
+      '첫 서비스 릴리즈처럼 다음 시즌 preview는 있지만 완료된 서비스 시즌 기록이 아직 없는 상태입니다.',
+    dashboard: createNoCurrentSeasonWithNextSeasonNoServiceHistoryDashboard(),
+  },
+  offSeasonNextSeasonNoUserHistory: {
+    title: 'Off season + next Season + no user history',
+    description:
+      '다음 시즌 preview와 직전 시즌 기록은 있지만 사용자가 이전 시즌에 참여하지 않은 상태를 보여줍니다.',
     dashboard: createNoCurrentSeasonWithoutParticipationHistoryDashboard(),
   },
-  offSeasonNextSeasonActiveMatchedHistory: {
-    title: 'Off season + active matched history',
+  offSeasonNextSeasonUserMatchedHistory: {
+    title: 'Off season + next Season + user matched history',
     description: '다음 시즌 preview와 함께 사용자의 이전 시즌 매칭 성공 이력을 보여줍니다.',
     dashboard: createNoCurrentSeasonWithMatchedHistoryDashboard(),
   },
-  seasonOpenProfileIncomplete: {
-    title: '시즌 오픈 / 프로필 준비 필요',
-    description: '생활패턴과 건물 선택이 남아 있어 등록 준비 CTA를 우선 노출합니다.',
-    dashboard: createOpenIncompleteDashboard(),
+  offSeasonNoNextSeasonNoServiceHistory: {
+    title: 'Off season + no next Season + no service history',
+    description:
+      '활성 시즌, 다음 시즌 preview, 완료된 서비스 시즌 기록이 모두 없을 때 안전한 fallback을 확인합니다.',
+    dashboard: createNoCurrentSeasonWithoutNextSeasonNoServiceHistoryDashboard(),
   },
-  seasonOpenRegistrationPending: {
-    title: '시즌 오픈 / 시즌 등록 전',
-    description: '생활패턴과 건물 선택은 끝났지만 최종 시즌 등록을 아직 누르지 않은 상태입니다.',
-    dashboard: createOpenRegistrationPendingDashboard(),
+  seasonOpenProfileAndDormitoryRequired: {
+    title: '시즌 오픈 / 생활패턴·기숙사 필요',
+    description:
+      '시즌 프로필 설정과 기숙사 선택이 모두 남아 있지만 룸메 후보 미리보기 진입은 가능한 상태입니다.',
+    dashboard: createOpenProfileAndDormitoryRequiredDashboard(),
   },
-  seasonOpenRegisteredAssigned: {
-    title: '시즌 오픈 / 등록 완료',
-    description: '등록은 끝났지만 매칭 요청은 아직 열리지 않은 준비 완료 상태입니다.',
-    dashboard: createDashboard('SEASON_OPEN'),
+  seasonOpenDormitoryRequired: {
+    title: '시즌 오픈 / 기숙사 필요',
+    description:
+      '시즌 프로필은 준비됐고 실제 기숙사 선택이 남아 있는 시즌 참여 신청 전 상태입니다.',
+    dashboard: createOpenDormitoryRequiredDashboard(),
+  },
+  seasonOpenProfileRequired: {
+    title: '시즌 오픈 / 시즌 프로필 설정 필요',
+    description: '기숙사 draft는 저장됐지만 시즌 프로필 보강이 남아 있는 상태입니다.',
+    dashboard: createOpenProfileRequiredDashboard(),
+  },
+  seasonOpenRegistrationReady: {
+    title: '시즌 오픈 / 참여 신청 가능',
+    description:
+      '시즌 프로필과 기숙사 선택은 끝났고 시즌 참여 신청만 남은 registration candidate 상태입니다.',
+    dashboard: createOpenRegistrationReadyDashboard(),
+  },
+  seasonOpenRegisteredPreview: {
+    title: '시즌 오픈 / 참여 완료·룸메 후보 미리보기',
+    description:
+      '시즌 참여 신청 완료 상태의 조건 섹션은 유지하고, 통계·별도 상태 chip은 HomeStatsPanel로 분리한 상태입니다.',
+    dashboard: createOpenRegisteredPreviewDashboard(),
+  },
+  seasonOpenNoOperatedDormitoriesProfileIncomplete: {
+    title: '시즌 오픈 / 운영 기숙사 준비 중·시즌 프로필 미완료',
+    description:
+      'current season은 있지만 선택 가능한 운영 기숙사가 없고 시즌 프로필 설정도 남아 있는 상태입니다.',
+    dashboard: createOpenNoOperatedDormitoriesDashboard({ profileComplete: false }),
+  },
+  seasonOpenNoOperatedDormitoriesProfileComplete: {
+    title: '시즌 오픈 / 운영 기숙사 준비 중·시즌 프로필 완료',
+    description:
+      '시즌 프로필은 준비됐지만 선택 가능한 운영 기숙사가 없어 시즌 참여 신청을 마칠 수 없는 상태입니다.',
+    dashboard: createOpenNoOperatedDormitoriesDashboard({ profileComplete: true }),
   },
   matchingNoBuilding: {
     title: '매칭 기간 / 건물 미배정',

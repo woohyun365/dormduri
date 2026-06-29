@@ -66,7 +66,7 @@ describe('HomeReadinessChecklist', () => {
     expect(onOpenBuildingSelect).toHaveBeenCalledOnce();
   });
 
-  it('등록 완료 + 탐색 가능 상태는 완료 항목과 룸메 찾기 action을 함께 보여준다', () => {
+  it('시즌 참여 신청 완료 + 탐색 가능 상태는 완료 항목과 룸메 찾기 action을 함께 보여준다', () => {
     const dashboard = createHomeDashboardTestResponse();
     const items = buildReadinessChecklistItems({ dashboard, viewModel: buildViewModel(dashboard) });
 
@@ -80,7 +80,7 @@ describe('HomeReadinessChecklist', () => {
     );
   });
 
-  it('registrationUnavailableReasons가 있으면 등록 불가 이유를 사용자 문구로 표시한다', () => {
+  it('registrationUnavailableReasons가 있으면 신청 불가 이유를 사용자 문구로 표시한다', () => {
     const dashboard = createHomeDashboardTestResponse({
       viewer: {
         ...createHomeDashboardTestResponse().viewer,
@@ -110,13 +110,13 @@ describe('HomeReadinessChecklist', () => {
           id: 'registration',
           status: 'locked',
           description:
-            '현재는 시즌 등록이 열려 있지 않아요. 새 시즌 일정이 열리면 등록을 다시 안내할게요.',
+            '현재는 시즌 참여 신청이 열려 있지 않아요. 새 시즌 일정이 열리면 신청 흐름을 다시 안내할게요.',
         }),
       ]),
     );
   });
 
-  it('current season이 없고 다음 시즌이 있으면 일정 등록 완료와 다음 진행 대기를 보여준다', () => {
+  it('current season이 없고 다음 시즌이 있으면 일정 공개 전 상태와 다음 진행 대기를 보여준다', () => {
     const dashboard = createHomeDashboardTestResponse({
       season: {
         hasCurrentSeason: false,
@@ -143,7 +143,7 @@ describe('HomeReadinessChecklist', () => {
     expect(screen.queryByText('완료')).not.toBeInTheDocument();
     expect(screen.getByText('시즌 프로필 준비')).toBeInTheDocument();
     expect(screen.getByText('배정된 기숙사 선택')).toBeInTheDocument();
-    expect(screen.getByText('시즌 참여 등록')).toBeInTheDocument();
+    expect(screen.getByText('시즌 참여 신청')).toBeInTheDocument();
     expect(screen.getAllByText('대기')).toHaveLength(4);
     expect(screen.queryByText('지난 시즌 한눈에')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '룸메 찾기' })).not.toBeInTheDocument();

@@ -104,7 +104,7 @@ export function buildReadinessChecklistItems({
       return [
         {
           id: 'no-next-season',
-          title: '다음 시즌 일정 등록 전',
+          title: '다음 시즌 일정 공개 전',
           description: '시즌 준비 중이에요. 다음 시즌에 만나요.',
           status: 'locked',
         },
@@ -132,8 +132,8 @@ export function buildReadinessChecklistItems({
       },
       {
         id: 'next-season-matching',
-        title: '시즌 참여 등록',
-        description: '생활패턴과 배정 건물을 확인한 뒤 시즌 참여를 확정해요.',
+        title: '시즌 참여 신청',
+        description: '생활패턴과 기숙사 설정을 확인한 뒤 시즌 참여 신청을 마무리해요.',
         status: 'locked',
       },
     ];
@@ -156,7 +156,7 @@ export function buildReadinessChecklistItems({
       title: profileReady ? '생활패턴 준비 완료' : '생활패턴을 먼저 채워요',
       description: profileReady
         ? '시즌 참여에 필요한 생활패턴과 조건이 준비되어 있어요.'
-        : '수면·생활패턴과 원하는 룸메 조건을 채우면 등록 준비가 진행돼요.',
+        : '수면·생활패턴과 원하는 룸메 조건을 채우면 신청 준비가 진행돼요.',
       status: profileReady
         ? 'complete'
         : capabilities.canCreateOrUpdateSeasonProfileDraft || seasonProfile.draftWritable
@@ -181,17 +181,17 @@ export function buildReadinessChecklistItems({
     },
     {
       id: 'registration',
-      title: registrationReady ? '시즌 등록 완료' : '시즌 등록을 마무리해요',
+      title: registrationReady ? '시즌 참여 신청 완료' : '시즌 참여 신청을 마무리해요',
       description: registrationReady
-        ? '현재 시즌 참여 등록이 완료되어 시즌 상태에 맞는 기능을 이용할 수 있어요.'
+        ? '이번 시즌 참여 신청이 완료되어 시즌 상태에 맞는 기능을 이용할 수 있어요.'
         : (registrationUnavailableDescription ??
-          '생활패턴과 건물 선택이 준비되면 시즌 등록을 확정할 수 있어요.'),
+          '생활패턴과 건물 선택이 준비되면 시즌 참여 신청을 마무리할 수 있어요.'),
       status: registrationReady
         ? 'complete'
         : capabilities.canFinalizeSeasonRegistration || seasonProfile.canFinalizeRegistration
           ? 'actionable'
           : 'locked',
-      actionLabel: registrationReady ? undefined : '등록 상태 확인',
+      actionLabel: registrationReady ? undefined : '신청 상태 확인',
       actionTarget: registrationReady ? undefined : 'profile',
     },
     {
@@ -199,7 +199,7 @@ export function buildReadinessChecklistItems({
       title: capabilities.canEnterRoommateSearch ? '룸메 탐색 가능' : '룸메 탐색 대기',
       description: capabilities.canEnterRoommateSearch
         ? '이제 같은 건물 후보를 확인하고 대화나 매칭 요청을 시작할 수 있어요.'
-        : '시즌 상태와 등록 상태가 맞아야 룸메 탐색이 열려요.',
+        : '시즌 상태와 참여 신청 상태가 맞아야 룸메 탐색이 열려요.',
       status: capabilities.canEnterRoommateSearch ? 'actionable' : 'locked',
       actionLabel: capabilities.canEnterRoommateSearch ? '룸메 찾기' : undefined,
       actionTarget: capabilities.canEnterRoommateSearch ? 'list' : undefined,
@@ -213,38 +213,38 @@ function getRegistrationUnavailableDescription(
   if (reasons.length === 0) return null;
 
   if (reasons.includes('NO_CURRENT_SEASON') || reasons.includes('SEASON_NOT_OPEN')) {
-    return '현재는 시즌 등록이 열려 있지 않아요. 새 시즌 일정이 열리면 등록을 다시 안내할게요.';
+    return '현재는 시즌 참여 신청이 열려 있지 않아요. 새 시즌 일정이 열리면 신청 흐름을 다시 안내할게요.';
   }
 
   if (reasons.includes('UNSUPPORTED_CAMPUS')) {
-    return '현재 캠퍼스는 아직 시즌 등록을 지원하지 않아요. 운영이 열리면 홈에서 안내할게요.';
+    return '현재 캠퍼스는 아직 시즌 참여 신청을 지원하지 않아요. 운영이 열리면 홈에서 안내할게요.';
   }
 
   if (reasons.includes('PROFILE_INCOMPLETE')) {
-    return '생활패턴과 원하는 룸메 조건을 먼저 채워야 시즌 등록을 확정할 수 있어요.';
+    return '생활패턴과 원하는 룸메 조건을 먼저 채워야 시즌 참여 신청을 마무리할 수 있어요.';
   }
 
   if (reasons.includes('DORMITORY_SELECTION_REQUIRED')) {
-    return '배정 건물을 선택해야 시즌 등록을 확정할 수 있어요.';
+    return '배정 건물을 선택해야 시즌 참여 신청을 마무리할 수 있어요.';
   }
 
   if (reasons.includes('NO_SELECTABLE_DORMITORY')) {
-    return '현재 선택 가능한 운영 기숙사가 없어 시즌 등록을 확정할 수 없어요.';
+    return '현재 선택 가능한 운영 기숙사가 없어 시즌 참여 신청을 마무리할 수 없어요.';
   }
 
   if (reasons.includes('DORMITORY_SELECTION_CLOSED')) {
-    return '기숙사 선택 가능 기간이 지나 시즌 등록을 확정할 수 없어요.';
+    return '기숙사 선택 가능 기간이 지나 시즌 참여 신청을 마무리할 수 없어요.';
   }
 
   if (reasons.includes('WITHDRAWN_OR_DECLINED_LOCK')) {
-    return '이미 시즌 참여를 철회했거나 참여하지 않기로 선택해 이번 시즌 등록이 잠겨 있어요.';
+    return '이미 시즌 참여를 철회했거나 참여하지 않기로 선택해 이번 시즌 신청을 다시 진행할 수 없어요.';
   }
 
   if (reasons.includes('ACCOUNT_OR_PARTICIPANT_INACTIVE')) {
-    return '계정 또는 시즌 참여 상태를 확인해야 등록을 진행할 수 있어요.';
+    return '계정 또는 시즌 참여 상태를 확인해야 신청을 진행할 수 있어요.';
   }
 
-  return '현재 상태에서는 시즌 등록을 확정할 수 없어요.';
+  return '현재 상태에서는 시즌 참여 신청을 마무리할 수 없어요.';
 }
 
 function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () => void }) {

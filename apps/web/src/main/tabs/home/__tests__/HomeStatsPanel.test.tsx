@@ -68,7 +68,8 @@ describe('HomeStatsPanel', () => {
       }),
     });
 
-    expect(screen.getByRole('heading', { name: '서비스 현황' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '지난 시즌 요약' })).toBeInTheDocument();
+    expect(screen.getByText(/한 눈에 알아보기/)).toBeInTheDocument();
     expect(screen.getByText(/아직 완료된 시즌 기록이 없어요/)).toBeInTheDocument();
   });
 
