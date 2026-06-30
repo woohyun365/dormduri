@@ -37,6 +37,7 @@ export class HomeDashboardPresenter {
             isPostMatch: seasonContext.isPostMatch,
             daysUntilMatchingEnd: seasonContext.daysUntilMatchingEnd,
             daysUntilSeasonEnd: seasonContext.daysUntilSeasonEnd,
+            operatedDormitories: seasonContext.operatedDormitories,
           }
         : {
             hasCurrentSeason: false,
@@ -50,6 +51,7 @@ export class HomeDashboardPresenter {
             isPostMatch: false,
             daysUntilMatchingEnd: null,
             daysUntilSeasonEnd: null,
+            operatedDormitories: [],
           },
       viewer: {
         campusOperated: input.currentUser.serviceState.campusOperated,

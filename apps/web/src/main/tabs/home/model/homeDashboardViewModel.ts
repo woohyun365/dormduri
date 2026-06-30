@@ -65,6 +65,12 @@ export interface HomeDashboardSeasonSummaryViewModel {
   hasNextSeasonPreview: boolean;
 }
 
+export interface HomeDashboardOperatedDormitoryViewModel {
+  id: string;
+  name: string;
+  roomSelectionDate: string;
+}
+
 export interface HomeDashboardTipViewModel {
   seasonStatus: TipSeasonStatus;
   receivedRequests: number;
@@ -100,6 +106,7 @@ export interface HomeDashboardViewModel {
   matchingSummary: HomeDashboardMatchingSummaryViewModel;
   preparation: HomeDashboardPreparationViewModel;
   seasonSummary: HomeDashboardSeasonSummaryViewModel;
+  operatedDormitories: HomeDashboardOperatedDormitoryViewModel[];
   tip: HomeDashboardTipViewModel;
   capabilities: {
     canRequestMatch: boolean;
@@ -227,6 +234,7 @@ export function buildHomeDashboardViewModel({
       schedule,
       renderedAt,
     }),
+    operatedDormitories: buildOperatedDormitoryViewModel(dashboard),
     tip: {
       seasonStatus: buildTipSeasonStatus({
         seasonState,
@@ -421,6 +429,27 @@ function buildTipSeasonStatus({
   if (seasonState === 'SEASON_OPEN') return 'SEASON_OPEN';
   if (isUnassigned) return 'SEASON_MATCHING_NO_BUILDING';
   return 'SEASON_MATCHING';
+}
+
+function buildOperatedDormitoryViewModel(
+  dashboard: HomeDashboardResponse,
+): HomeDashboardOperatedDormitoryViewModel[] {
+  const preview = dashboard.nextSeasonPreview?.visibleToUser ? dashboard.nextSeasonPreview : null;
+  const operations = dashboard.season.hasCurrentSeason
+    ? dashboard.season.operatedDormitories
+    : (preview?.operatedDormitories ?? []);
+
+  return operations
+    .filter((operation) => operation.isOperated)
+    .map((operation) => {
+      const dormitory = getDormitoryById(operation.dormitoryId);
+
+      return {
+        id: operation.dormitoryId,
+        name: dormitory?.name ?? operation.dormitoryId,
+        roomSelectionDate: formatDateDot(operation.roomSelectionDate),
+      };
+    });
 }
 
 function buildSeasonSummaryViewModel({

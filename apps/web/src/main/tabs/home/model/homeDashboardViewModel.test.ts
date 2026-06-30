@@ -78,6 +78,7 @@ describe('homeDashboardViewModel', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
       nextSeasonPreview: null,
     });
@@ -200,6 +201,22 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.tip.seasonStatus).toBe('NOT_OPERATED');
   });
 
+  it('current season 운영 기숙사가 없으면 nextSeasonPreview로 보정하지 않는다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...createHomeDashboardTestResponse().season,
+        operatedDormitories: [],
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      renderedAt: new Date('2026-07-01T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.operatedDormitories).toEqual([]);
+  });
+
   it('uses visible next-season preview even when there is no current season schedule', () => {
     const dashboard = createHomeDashboardTestResponse({
       season: {
@@ -212,6 +229,7 @@ describe('homeDashboardViewModel', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
     });
 

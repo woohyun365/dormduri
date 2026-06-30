@@ -25,6 +25,7 @@ import {
   useMainHomeDashboard,
   type UseMainHomeDashboardResult,
 } from './hooks/useMainHomeDashboard';
+import { seasonParticipationApi } from './api/season-participation.api';
 import { useMainLegacyTabData } from './hooks/useMainLegacyTabData';
 import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
@@ -185,6 +186,7 @@ function MainHomeDashboardContent({
   featureFlags: ReturnType<typeof getMainFeatureFlags>;
 }) {
   const [showBuildingSelect, setShowBuildingSelect] = useState(false);
+  const [isDeregisteringSeasonParticipation, setDeregisteringSeasonParticipation] = useState(false);
   const showToast = useCallback((msg: string) => toast(msg), []);
   const viewerUser = dashboard.viewer.identity.user;
 
@@ -200,6 +202,22 @@ function MainHomeDashboardContent({
     },
     [showToast],
   );
+
+  const handleDeregisterSeasonParticipation = useCallback(async () => {
+    if (isDeregisteringSeasonParticipation) return;
+
+    setDeregisteringSeasonParticipation(true);
+    try {
+      await seasonParticipationApi.deregisterCurrentSeasonParticipation();
+      showToast('시즌 참여를 철회했어요.');
+      await homeDashboard.refetch();
+    } catch (error) {
+      showToast('시즌 참여 철회를 완료하지 못했어요. 잠시 후 다시 시도해주세요.');
+      throw error;
+    } finally {
+      setDeregisteringSeasonParticipation(false);
+    }
+  }, [homeDashboard, isDeregisteringSeasonParticipation, showToast]);
 
   return (
     <div className="min-h-screen bg-(--knu-background-alt) pb-20">
@@ -229,6 +247,7 @@ function MainHomeDashboardContent({
             onNavigate={onNavigate}
             onOpenBuildingSelect={() => setShowBuildingSelect(true)}
             onDashboardRefresh={homeDashboard.refetch}
+            onDeregisterSeasonParticipation={handleDeregisterSeasonParticipation}
           />
         )}
       </main>

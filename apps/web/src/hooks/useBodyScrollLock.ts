@@ -29,6 +29,12 @@ function getScrollbarWidth() {
   return Math.max(0, window.innerWidth - documentWidth);
 }
 
+function shouldCompensateScrollbar() {
+  const scrollbarGutter = window.getComputedStyle(document.documentElement).scrollbarGutter;
+
+  return !scrollbarGutter.includes('stable');
+}
+
 function applyBodyScrollLock() {
   const body = document.body;
   const documentElement = document.documentElement;
@@ -55,7 +61,7 @@ function applyBodyScrollLock() {
   body.style.width = '100%';
   documentElement.style.overflow = 'hidden';
 
-  if (scrollbarWidth > 0) {
+  if (scrollbarWidth > 0 && shouldCompensateScrollbar()) {
     const currentPaddingRight = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;
     body.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`;
   }

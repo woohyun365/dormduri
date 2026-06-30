@@ -55,10 +55,33 @@ describe('HomeQuickMenuSection', () => {
     expect(onNavigateMatchingHistory).toHaveBeenCalledOnce();
   });
 
-  it('시즌 오픈 시 미리보기와 시즌 중 이용을 표시한다', () => {
-    render(<HomeQuickMenuSection {...defaultProps} seasonState="SEASON_OPEN" />);
-    expect(screen.getByText('미리보기')).toBeDefined();
-    expect(screen.getByText('시즌 중 이용')).toBeDefined();
+  it('시즌 오픈 시 룸메 찾기와 채팅을 탭 이동 CTA로 표시한다', async () => {
+    const user = userEvent.setup();
+    const onNavigateList = vi.fn();
+    const onNavigateChat = vi.fn();
+    render(
+      <HomeQuickMenuSection
+        {...defaultProps}
+        seasonState="SEASON_OPEN"
+        canEnterRoommateSearch={false}
+        canStartChat={false}
+        onNavigateList={onNavigateList}
+        onNavigateChat={onNavigateChat}
+      />,
+    );
+
+    const searchButton = screen.getByRole('button', { name: /룸메 찾기/ });
+    const chatButton = screen.getByRole('button', { name: /채팅/ });
+    expect(searchButton).not.toBeDisabled();
+    expect(chatButton).not.toBeDisabled();
+    expect(screen.getByText('후보 목록 확인')).toBeInTheDocument();
+    expect(screen.getByText('대화 목록 확인')).toBeInTheDocument();
+    expect(screen.getByText('기숙사·조건 설정')).toBeInTheDocument();
+
+    await user.click(searchButton);
+    await user.click(chatButton);
+    expect(onNavigateList).toHaveBeenCalledOnce();
+    expect(onNavigateChat).toHaveBeenCalledOnce();
   });
 
   it('채팅 버튼 클릭 시 핸들러를 호출한다', async () => {
@@ -95,25 +118,31 @@ describe('HomeQuickMenuSection', () => {
     expect(onNavigateList).not.toHaveBeenCalled();
   });
 
-  it('disabled reason을 aria-describedby로 연결한다', () => {
+  it('매칭 시즌도 HomeTab에서 blocked하지 않고 대상 탭으로 위임한다', async () => {
+    const user = userEvent.setup();
+    const onNavigateList = vi.fn();
+    const onNavigateChat = vi.fn();
     render(
       <HomeQuickMenuSection
         {...defaultProps}
         seasonState="SEASON_MATCHING"
         canEnterRoommateSearch={false}
         canStartChat={false}
+        onNavigateList={onNavigateList}
+        onNavigateChat={onNavigateChat}
       />,
     );
 
-    const searchButton = screen.getByRole('button', { name: /탐색 대기/ });
-    const reason = screen.getByText(
-      '시즌 참여 신청과 건물 선택 조건을 만족해야 룸메 탐색이 열려요.',
-    );
-    expect(searchButton).toBeDisabled();
-    expect(searchButton).toHaveAttribute('aria-describedby', reason.id);
-    expect(
-      screen.getByText('채팅은 시즌 참여 신청 후 정책 조건을 만족할 때 열려요.'),
-    ).toBeVisible();
+    const searchButton = screen.getByRole('button', { name: /룸메 찾기/ });
+    const chatButton = screen.getByRole('button', { name: /채팅/ });
+    expect(searchButton).not.toBeDisabled();
+    expect(chatButton).not.toBeDisabled();
+    expect(screen.queryByText(/조건을 만족해야/)).not.toBeInTheDocument();
+
+    await user.click(searchButton);
+    await user.click(chatButton);
+    expect(onNavigateList).toHaveBeenCalledOnce();
+    expect(onNavigateChat).toHaveBeenCalledOnce();
   });
 
   it('매칭 현황 클릭 시 핸들러를 호출한다', async () => {

@@ -56,6 +56,7 @@ describe('HomePrimaryStateCard', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
     });
     const { onNavigate } = renderCard({ dashboard, seasonState: 'OFF_SEASON' });
@@ -97,6 +98,7 @@ describe('HomePrimaryStateCard', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
       nextSeasonPreview: null,
     });
@@ -125,6 +127,7 @@ describe('HomePrimaryStateCard', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
       nextSeasonPreview: null,
       seasonHistorySummary: { lastSeason: null },
@@ -150,6 +153,7 @@ describe('HomePrimaryStateCard', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
       nextSeasonPreview: null,
       seasonHistorySummary: { lastSeason: null },
@@ -545,7 +549,7 @@ describe('HomePrimaryStateCard', () => {
       '시즌 프로필필요생활패턴·룸메 조건 설정기숙사보류운영 정보 대기',
     );
     expect(
-      screen.getByText('운영 정보가 등록되기 전에도 생활패턴은 먼저 준비할 수 있어요.'),
+      screen.getByText('운영 정보가 등록되기 전에도 시즌 프로필은 먼저 준비할 수 있어요.'),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /생활패턴·룸메 조건 설정/ }),

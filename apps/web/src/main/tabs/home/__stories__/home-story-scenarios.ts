@@ -63,6 +63,7 @@ function createNoCurrentSeasonDashboard(): HomeDashboardResponse {
       isPostMatch: false,
       daysUntilMatchingEnd: null,
       daysUntilSeasonEnd: null,
+      operatedDormitories: [],
     },
     viewer: {
       ...base.viewer,
@@ -406,6 +407,19 @@ function createOpenRegisteredPreviewDashboard(): HomeDashboardResponse {
   };
 }
 
+function createOpenNoMatchingSeasonDashboard(): HomeDashboardResponse {
+  const base = createOpenRegisteredPreviewDashboard();
+
+  return {
+    ...base,
+    season: {
+      ...base.season,
+      schedule: null,
+    },
+    nextSeasonPreview: null,
+  };
+}
+
 function createOpenNoOperatedDormitoriesDashboard({
   profileComplete,
 }: {
@@ -415,11 +429,19 @@ function createOpenNoOperatedDormitoriesDashboard({
 
   return {
     ...base,
+    season: {
+      ...base.season,
+      operatedDormitories: [],
+    },
     stats: {
       ...base.stats,
+      totalParticipants: 0,
+      assignedParticipants: 0,
       buildingTotal: 0,
       buildingMatchable: 0,
+      todayNewTotal: 0,
       todayNewBuilding: 0,
+      totalMatchSuccess: 0,
       buildingMatchSuccess: 0,
     },
     viewer: {
@@ -627,6 +649,12 @@ export const homeStoryScenarios = {
     description:
       '시즌 참여 신청 완료 상태의 조건 섹션은 유지하고, 통계·별도 상태 chip은 HomeStatsPanel로 분리한 상태입니다.',
     dashboard: createOpenRegisteredPreviewDashboard(),
+  },
+  seasonOpenNoMatchingSeason: {
+    title: 'Season Open No Matching Season',
+    description:
+      '시즌 오픈 상태이지만 매칭 시작일이 아직 확정되지 않았을 때 날짜 fallback과 준비 안내를 확인합니다.',
+    dashboard: createOpenNoMatchingSeasonDashboard(),
   },
   seasonOpenNoOperatedDormitoriesProfileIncomplete: {
     title: '시즌 오픈 / 운영 기숙사 준비 중·시즌 프로필 미완료',

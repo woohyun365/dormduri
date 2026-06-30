@@ -44,7 +44,7 @@ export function HomeDashboardLayout({
             {stats}
           </div>
           {tip && (
-            <div data-testid="home-section-tip" className="order-3 md:mt-5">
+            <div data-testid="home-section-tip" className="order-7 md:mt-5">
               {tip}
             </div>
           )}

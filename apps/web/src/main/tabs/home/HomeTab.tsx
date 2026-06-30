@@ -23,6 +23,7 @@ interface HomeTabProps {
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   onOpenBuildingSelect?: () => void;
   onDashboardRefresh?: () => Promise<void>;
+  onDeregisterSeasonParticipation?: () => Promise<void>;
 }
 
 export default function HomeTab({
@@ -30,6 +31,7 @@ export default function HomeTab({
   onNavigate,
   onOpenBuildingSelect,
   onDashboardRefresh,
+  onDeregisterSeasonParticipation,
 }: HomeTabProps) {
   const [renderedAt] = useState(() => Date.now());
   const onboardingNotice = useHomeOnboardingNotice({
@@ -146,6 +148,7 @@ export default function HomeTab({
                 seasonState={seasonState}
                 onNavigate={onNavigate}
                 onOpenBuildingSelect={onOpenBuildingSelect}
+                onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
               />
             }
             stats={

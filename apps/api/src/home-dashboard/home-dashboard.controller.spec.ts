@@ -35,6 +35,7 @@ function makeHomeDashboardResponse(): HomeDashboardResponse {
       isPostMatch: false,
       daysUntilMatchingEnd: null,
       daysUntilSeasonEnd: null,
+      operatedDormitories: [],
     },
     viewer: {
       campusOperated: true,

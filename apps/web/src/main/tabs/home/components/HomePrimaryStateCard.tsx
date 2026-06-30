@@ -746,14 +746,14 @@ function resolveSeasonOpenPrimaryContent({
       icon: Building2,
       tone: 'amber',
       action: needsSeasonProfile
-        ? { label: '생활패턴·룸메 조건 설정', icon: ClipboardList, onClick: goProfile }
+        ? { label: '시즌 프로필 설정', icon: ClipboardList, onClick: goProfile }
         : undefined,
       steps,
       dateRows,
       notice: {
         tone: 'warning',
         text: needsSeasonProfile
-          ? '운영 정보가 등록되기 전에도 생활패턴은 먼저 준비할 수 있어요.'
+          ? '운영 정보가 등록되기 전에도 시즌 프로필은 먼저 준비할 수 있어요.'
           : '운영 정보가 등록되면 기숙사 선택을 안내할게요.',
       },
     };

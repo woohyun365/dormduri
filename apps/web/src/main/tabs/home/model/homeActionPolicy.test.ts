@@ -2,14 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { buildHomeQuickActions } from './homeActionPolicy';
 
 describe('homeActionPolicy', () => {
-  it('keeps open season actions preview/readiness oriented until matching opens', () => {
-    expect(
-      buildHomeQuickActions({ seasonState: 'SEASON_OPEN' }).map((action) => action.label),
-    ).toEqual(['룸메 찾기', '이전 기록', '채팅', '내 프로필']);
-    expect(buildHomeQuickActions({ seasonState: 'SEASON_OPEN' })[2]).toMatchObject({
-      description: '시즌 중 이용',
-      disabled: true,
-    });
+  it('keeps open season actions as navigation CTAs without HomeTab-level blocking', () => {
+    const actions = buildHomeQuickActions({ seasonState: 'SEASON_OPEN' });
+
+    expect(actions.map((action) => action.label)).toEqual([
+      '룸메 찾기',
+      '이전 기록',
+      '채팅',
+      '시즌 프로필',
+    ]);
+    expect(actions.map((action) => action.description)).toEqual([
+      '후보 목록 확인',
+      '지난 활동 확인',
+      '대화 목록 확인',
+      '기숙사·조건 설정',
+    ]);
+    expect(actions[2]).not.toHaveProperty('disabled');
   });
 
   it('keeps matching season actions focused on search, current matching, chat, and profile', () => {
@@ -46,8 +54,6 @@ describe('homeActionPolicy', () => {
     expect(actions[0]).toMatchObject({
       label: '이전 기록',
       target: 'matching-history',
-      disabled: undefined,
-      disabledReason: undefined,
     });
   });
 
@@ -65,9 +71,9 @@ describe('homeActionPolicy', () => {
     ]);
     expect(actions.some((action) => action.label === '룸메 찾기')).toBe(false);
     expect(actions.find((action) => action.label === '과거 대화')).toMatchObject({
-      disabled: true,
       target: 'chat',
     });
+    expect(actions.find((action) => action.label === '과거 대화')).not.toHaveProperty('disabled');
   });
 
   it('keeps post-match chat available when the dashboard capability allows it', () => {
@@ -75,7 +81,6 @@ describe('homeActionPolicy', () => {
 
     expect(actions.find((action) => action.target === 'chat')).toMatchObject({
       label: '채팅',
-      disabled: undefined,
     });
   });
 });

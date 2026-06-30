@@ -63,7 +63,7 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 | `components/HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts`  | `service-intro` 안내 표시·닫기·영구 dismiss flow                                                          |
 | `api/home-onboarding-notice.api.ts`                                       | Home `service-intro` dismissed notice mutation client                                                     |
 | `components/BuildingStatsBar.tsx`, `components/DynamicTipBanner.tsx`      | season stats and contextual guide widgets                                                                 |
-| `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry, disabled reason, static/dynamic guide copy                                    |
+| `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry, target-tab responsibility handoff, static/dynamic guide copy                  |
 | `model/`                                                                  | pure policy/view-model helpers and tests                                                                  |
 | `../../test-support/home-dashboard.builder.ts`                            | Home/Main unit·component tests 및 Storybook story data 전용 `HomeDashboardResponse` builder               |
 | `__stories__/`                                                            | HomeTab visual state workshop 전용 story surface                                                          |

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   History,
   Inbox,
+  ListChecks,
   MessageCircle,
   Search,
   Send,
@@ -32,6 +33,7 @@ interface HomeActivityPanelProps {
   seasonState: SeasonState;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   onOpenBuildingSelect?: () => void;
+  onDeregisterSeasonParticipation?: () => Promise<void>;
 }
 
 interface StaticActivityAction {
@@ -39,6 +41,31 @@ interface StaticActivityAction {
   onClick: () => void;
   icon?: React.ElementType;
   trailingIcon?: boolean;
+  emphasis?: 'primary' | 'secondary';
+  buttonTone?: StaticActivityTone;
+}
+
+type StaticActivityTone =
+  | 'default'
+  | 'openRequired'
+  | 'openReady'
+  | 'openRegistered'
+  | 'openWaiting';
+
+type SeasonOpenModalKind =
+  | 'profile-composition'
+  | 'registration-confirmation'
+  | 'withdrawal-policy'
+  | 'profile-view';
+
+interface StaticActivityMetric {
+  label: string;
+  value: string;
+  helper: string;
+  icon: React.ElementType;
+  tone?: 'neutral' | 'participant' | 'buildingOpen' | 'buildingLocked';
+  todayNewCount?: number;
+  onClick?: () => void;
 }
 
 export function HomeActivityPanel({
@@ -46,7 +73,11 @@ export function HomeActivityPanel({
   seasonState,
   onNavigate,
   onOpenBuildingSelect,
+  onDeregisterSeasonParticipation,
 }: HomeActivityPanelProps) {
+  const [isOperatedDormitoryListOpen, setOperatedDormitoryListOpen] = useState(false);
+  const [seasonOpenModal, setSeasonOpenModal] = useState<SeasonOpenModalKind | null>(null);
+
   if (viewModel.hasCurrentSeason && seasonState === 'SEASON_MATCHING') {
     return (
       <HomeMatchingSummary
@@ -71,10 +102,27 @@ export function HomeActivityPanel({
     const seasonOpenActivity = resolveSeasonOpenActivityContent({
       viewModel,
       onNavigate,
-      onOpenBuildingSelect,
+      onOpenOperatedDormitoryList: () => setOperatedDormitoryListOpen(true),
+      onOpenSeasonOpenModal: setSeasonOpenModal,
     });
 
-    return <StaticActivityCard {...seasonOpenActivity} />;
+    return (
+      <>
+        <StaticActivityCard {...seasonOpenActivity} />
+        <OperatedDormitoryListModal
+          isOpen={isOperatedDormitoryListOpen}
+          viewModel={viewModel}
+          onClose={() => setOperatedDormitoryListOpen(false)}
+        />
+        <SeasonOpenActionModal
+          kind={seasonOpenModal}
+          viewModel={viewModel}
+          onNavigate={onNavigate}
+          onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
+          onClose={() => setSeasonOpenModal(null)}
+        />
+      </>
+    );
   }
 
   if (seasonState === 'SEASON_POST_MATCH') {
@@ -129,133 +177,213 @@ export function HomeActivityPanel({
   );
 }
 
+const SEASON_OPEN_ACTIVITY_EYEBROW = '탐색 준비';
+
 function resolveSeasonOpenActivityContent({
   viewModel,
   onNavigate,
-  onOpenBuildingSelect,
+  onOpenOperatedDormitoryList,
+  onOpenSeasonOpenModal,
 }: {
   viewModel: HomeDashboardViewModel;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
-  onOpenBuildingSelect?: () => void;
+  onOpenOperatedDormitoryList: () => void;
+  onOpenSeasonOpenModal: (kind: SeasonOpenModalKind) => void;
 }): {
   eyebrow: string;
   title: string;
-  body: string;
+  body?: string;
   icon: React.ElementType;
+  tone?: StaticActivityTone;
+  metrics?: StaticActivityMetric[];
   action?: StaticActivityAction;
   secondaryAction?: StaticActivityAction;
 } {
   const reasons = viewModel.preparation.registrationUnavailableReasons;
   const needsSeasonProfile = !viewModel.preparation.hasSeasonProfile;
   const needsDormitory = !viewModel.preparation.hasBuilding;
+  const overviewMetrics = buildSeasonOpenExplorationMetrics({
+    viewModel,
+    canUseSameDormitory:
+      viewModel.preparation.registrationReady && viewModel.capabilities.canEnterRoommateSearch,
+    onOpenOperatedDormitoryList,
+  });
   const profileAction: StaticActivityAction = {
-    label: '생활패턴·룸메 조건 설정',
+    label: '시즌 프로필/기숙사 설정',
     onClick: () => onNavigate('profile'),
     icon: UserRound,
     trailingIcon: true,
   };
-  const dormitoryAction: StaticActivityAction = {
-    label: '배정된 기숙사 설정',
-    onClick: () => onOpenBuildingSelect?.(),
-    icon: Building2,
+  const noOperatedDormitoryProfileAction: StaticActivityAction = {
+    label: '시즌 프로필 설정',
+    onClick: () => onNavigate('profile'),
+    icon: UserRound,
+    trailingIcon: true,
+  };
+  const profileCompositionAction: StaticActivityAction = {
+    label: '시즌 프로필 구성 확인',
+    onClick: () => onOpenSeasonOpenModal('profile-composition'),
+    icon: ListChecks,
   };
   const profileReviewAction: StaticActivityAction = {
-    label: '시즌 프로필 확인',
-    onClick: () => onNavigate('profile'),
+    label: '시즌 프로필 보기',
+    onClick: () => onOpenSeasonOpenModal('profile-view'),
     icon: UserRound,
-    trailingIcon: true,
   };
 
   if (reasons.includes('NO_SELECTABLE_DORMITORY')) {
     return {
-      eyebrow: '탐색 준비',
-      title: '운영 기숙사 정보를 기다리고 있어요',
-      body: needsSeasonProfile
-        ? '운영 정보가 등록되기 전에도 생활패턴과 룸메 조건은 먼저 준비할 수 있어요.'
-        : '운영 정보가 등록되면 배정된 기숙사 설정과 시즌 참여를 이어서 안내할게요.',
+      eyebrow: SEASON_OPEN_ACTIVITY_EYEBROW,
+      title: '이번 시즌 현황',
       icon: Search,
-      action: needsSeasonProfile ? profileAction : undefined,
+      tone: 'openWaiting',
+      metrics: overviewMetrics,
+      action: needsSeasonProfile ? noOperatedDormitoryProfileAction : undefined,
     };
   }
 
   if (viewModel.preparation.registrationReady && viewModel.capabilities.canEnterRoommateSearch) {
     return {
-      eyebrow: '탐색 준비',
-      title: '룸메 후보를 미리 알아볼 수 있어요',
-      body: '시즌 참여를 마쳤어요. 같은 기숙사 룸메 후보를 보고 매칭 시즌 전에도 먼저 대화할 수 있어요.',
+      eyebrow: SEASON_OPEN_ACTIVITY_EYEBROW,
+      title: '이번 시즌 현황',
       icon: Search,
+      tone: 'openRegistered',
+      metrics: overviewMetrics,
       action: {
-        label: '룸메 후보 보기',
-        onClick: () => onNavigate('list'),
-        icon: Search,
-        trailingIcon: true,
+        ...profileReviewAction,
+        emphasis: 'secondary',
+        buttonTone: 'openReady',
       },
-      secondaryAction: profileReviewAction,
+      secondaryAction: {
+        label: '시즌 참여 철회하기',
+        onClick: () => onOpenSeasonOpenModal('withdrawal-policy'),
+        icon: XCircle,
+        emphasis: 'secondary',
+      },
     };
   }
 
   if (viewModel.preparation.registrationReady) {
     return {
-      eyebrow: '탐색 준비',
-      title: '매칭 시작 전 정보를 확인해요',
-      body: '시즌 참여가 완료됐어요. 매칭 시즌이 열리기 전까지 시즌 프로필과 기숙사 정보를 확인할 수 있어요.',
+      eyebrow: SEASON_OPEN_ACTIVITY_EYEBROW,
+      title: '이번 시즌 현황',
       icon: Search,
-      action: profileReviewAction,
+      tone: 'openRegistered',
+      metrics: overviewMetrics,
+      action: {
+        ...profileReviewAction,
+        emphasis: 'secondary',
+        buttonTone: 'openReady',
+      },
     };
   }
 
   if (!viewModel.preparation.registrationReady && reasons.length === 0) {
     return {
-      eyebrow: '탐색 준비',
-      title: '시즌 참여 신청만 남았어요',
-      body: '준비한 시즌 프로필과 배정된 기숙사 정보로 시즌 참여를 마무리할 수 있어요.',
-      icon: ClipboardCheck,
+      eyebrow: SEASON_OPEN_ACTIVITY_EYEBROW,
+      title: '이번 시즌 현황',
+      icon: Search,
+      tone: 'openReady',
+      metrics: overviewMetrics,
       action: {
-        label: '시즌 참여 신청하기',
-        onClick: () => onNavigate('profile'),
-        icon: ClipboardCheck,
-        trailingIcon: true,
+        ...profileAction,
+        emphasis: 'secondary',
       },
-      secondaryAction: profileReviewAction,
+      secondaryAction: {
+        label: '시즌 참여 신청하기',
+        onClick: () => onOpenSeasonOpenModal('registration-confirmation'),
+        icon: ClipboardCheck,
+        emphasis: 'primary',
+      },
     };
   }
 
   if (needsSeasonProfile || needsDormitory) {
     return {
-      eyebrow: '탐색 준비',
-      title: '시즌 참여 조건을 설정해요',
-      body: '시즌 프로필과 배정된 기숙사를 준비하면 시즌 참여 신청으로 이어져요.',
+      eyebrow: SEASON_OPEN_ACTIVITY_EYEBROW,
+      title: '이번 시즌 현황',
       icon: Search,
+      tone: 'openRequired',
+      metrics: overviewMetrics,
       action: profileAction,
-      secondaryAction: viewModel.preparation.canSelectBuilding ? dormitoryAction : undefined,
+      secondaryAction: viewModel.preparation.canSelectBuilding
+        ? profileCompositionAction
+        : undefined,
     };
   }
 
   if (reasons.includes('DORMITORY_SELECTION_CLOSED')) {
     return {
-      eyebrow: '탐색 준비',
-      title: '시즌 참여 상태를 확인해요',
-      body: '기숙사 선택 기간이 지나 이번 시즌 참여 신청을 마칠 수 없어요. 입력한 정보는 내 정보에서 확인할 수 있어요.',
+      eyebrow: SEASON_OPEN_ACTIVITY_EYEBROW,
+      title: '이번 시즌 현황',
       icon: Search,
+      tone: 'openWaiting',
+      metrics: overviewMetrics,
       action: profileReviewAction,
     };
   }
 
   return {
-    eyebrow: '탐색 준비',
-    title: '시즌 참여 상태를 확인해요',
-    body: '현재 상태에서는 바로 시즌 참여 신청을 마칠 수 없어요. 필요한 정보를 확인해주세요.',
+    eyebrow: SEASON_OPEN_ACTIVITY_EYEBROW,
+    title: '이번 시즌 현황',
     icon: Search,
+    tone: 'openWaiting',
+    metrics: overviewMetrics,
     action: reasons.includes('DORMITORY_SELECTION_REQUIRED')
-      ? dormitoryAction
+      ? profileCompositionAction
       : profileReviewAction,
   };
+}
+
+function buildSeasonOpenExplorationMetrics({
+  viewModel,
+  canUseSameDormitory,
+  onOpenOperatedDormitoryList,
+}: {
+  viewModel: HomeDashboardViewModel;
+  canUseSameDormitory: boolean;
+  onOpenOperatedDormitoryList: () => void;
+}): StaticActivityMetric[] {
+  const operatedDormitoryCount = viewModel.operatedDormitories.length;
+
+  return [
+    {
+      label: '참여자',
+      value: formatPersonCount(viewModel.statsBar.totalCount),
+      helper: `${viewModel.campusName} 전체`,
+      icon: UserRound,
+      tone: 'participant',
+      todayNewCount: viewModel.statsBar.todayNewTotal,
+    },
+    {
+      label: '내 건물 참여자',
+      value: canUseSameDormitory ? formatPersonCount(viewModel.statsBar.buildingCount) : '-',
+      helper: canUseSameDormitory
+        ? `${viewModel.dormitory?.name ?? '내 건물'} 기준`
+        : '시즌 참여 시 공개',
+      icon: Building2,
+      tone: canUseSameDormitory ? 'buildingOpen' : 'buildingLocked',
+      todayNewCount: canUseSameDormitory ? viewModel.statsBar.todayNewBuilding : 0,
+    },
+    {
+      label: '운영 기숙사 리스트',
+      value: `${operatedDormitoryCount}곳`,
+      helper: '클릭 시 확인 가능',
+      icon: ListChecks,
+      tone: 'neutral',
+      onClick: onOpenOperatedDormitoryList,
+    },
+  ];
+}
+
+function formatPersonCount(count: number): string {
+  return `${Math.max(0, count)}명`;
 }
 
 function resolveOffSeasonActivityContent(viewModel: HomeDashboardViewModel): {
   eyebrow: string;
   title: string;
-  body: string;
+  body?: string;
   icon: React.ElementType;
 } {
   const lastSeason = viewModel.seasonSummary.lastSeason;
@@ -284,6 +412,356 @@ function resolveOffSeasonActivityContent(viewModel: HomeDashboardViewModel): {
     body: `보낸 요청 ${lastSeason.viewerActivity.sentRequestCount}건 · 받은 요청 ${lastSeason.viewerActivity.receivedRequestCount}건 · 대화 ${lastSeason.viewerActivity.conversationCount}건`,
     icon: lastSeason.viewerActivity.conversationCount > 0 ? MessageCircle : History,
   };
+}
+
+function OperatedDormitoryListModal({
+  isOpen,
+  viewModel,
+  onClose,
+}: {
+  isOpen: boolean;
+  viewModel: HomeDashboardViewModel;
+  onClose: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <HomeResponsiveSheet
+      eyebrow="시즌 오픈"
+      title="운영 기숙사 리스트"
+      description="이번 시즌에 선택할 수 있는 기숙사와 호실 선택 기준일이에요."
+      icon={Building2}
+      onClose={onClose}
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="min-h-11 flex-1 rounded-xl bg-(--knu-primary) px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-(--knu-primary-dark)"
+        >
+          확인
+        </button>
+      }
+    >
+      {viewModel.operatedDormitories.length > 0 ? (
+        <div className="space-y-2">
+          {viewModel.operatedDormitories.map((dormitory) => (
+            <div
+              key={dormitory.id}
+              className="flex items-center justify-between gap-3 rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-extrabold text-(--knu-text-primary)">
+                  {dormitory.name}
+                </p>
+                <p className="mt-0.5 text-xs text-(--knu-text-tertiary)">
+                  호실 선택일 {dormitory.roomSelectionDate}
+                </p>
+              </div>
+              <Building2 className="size-4 shrink-0 text-sky-600" aria-hidden="true" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyDetailCard message="아직 등록된 운영 기숙사 정보가 없어요." />
+      )}
+    </HomeResponsiveSheet>
+  );
+}
+
+function SeasonOpenActionModal({
+  kind,
+  viewModel,
+  onNavigate,
+  onDeregisterSeasonParticipation,
+  onClose,
+}: {
+  kind: SeasonOpenModalKind | null;
+  viewModel: HomeDashboardViewModel;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+  onDeregisterSeasonParticipation?: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [isSubmitting, setSubmitting] = useState(false);
+
+  if (!kind) return null;
+
+  const content = getSeasonOpenModalContent(kind, viewModel);
+  const SummaryIcon = content.icon;
+  const canRunDestructiveAction =
+    Boolean(content.destructiveActionLabel) && Boolean(onDeregisterSeasonParticipation);
+
+  const navigateToProfile = () => {
+    onClose();
+    onNavigate('profile');
+  };
+
+  const handleDestructiveAction = async () => {
+    if (!onDeregisterSeasonParticipation || !content.destructiveActionLabel) return;
+
+    setSubmitting(true);
+    let shouldClose = false;
+    try {
+      await onDeregisterSeasonParticipation();
+      shouldClose = true;
+    } catch {
+      // Parent action owns the user-facing error toast; keep the modal open for retry.
+    } finally {
+      setSubmitting(false);
+    }
+
+    if (shouldClose) {
+      onClose();
+    }
+  };
+
+  return (
+    <HomeResponsiveSheet
+      eyebrow={content.eyebrow}
+      title={content.title}
+      description={content.description}
+      icon={content.icon}
+      onClose={onClose}
+      footer={
+        <>
+          {content.showProfileAction && (
+            <button
+              type="button"
+              onClick={navigateToProfile}
+              className="min-h-11 flex-1 rounded-xl border border-sky-200 bg-white px-4 py-2.5 text-sm font-bold text-sky-900 transition-colors hover:bg-sky-50"
+            >
+              시즌 프로필/기숙사 설정
+            </button>
+          )}
+          {content.destructiveActionLabel && (
+            <button
+              type="button"
+              onClick={handleDestructiveAction}
+              disabled={!canRunDestructiveAction || isSubmitting}
+              className="min-h-11 flex-1 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-900 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? '처리 중...' : content.destructiveActionLabel}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-11 flex-1 rounded-xl bg-(--knu-primary) px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-(--knu-primary-dark)"
+          >
+            확인
+          </button>
+        </>
+      }
+    >
+      <div className="mb-4 flex items-center gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white text-sky-700 ring-1 ring-sky-100">
+          <SummaryIcon className="size-5" aria-hidden="true" />
+        </span>
+        <p className="text-sm leading-relaxed whitespace-pre-line text-sky-900">
+          {content.summary}
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        {content.rows.map((row) => (
+          <DetailRow key={row.label} label={row.label} value={row.value} />
+        ))}
+      </div>
+
+      {content.notes.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {content.notes.map((note) => (
+            <div
+              key={note}
+              className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-(--knu-text-secondary)"
+            >
+              {note}
+            </div>
+          ))}
+        </div>
+      )}
+    </HomeResponsiveSheet>
+  );
+}
+
+function getSeasonOpenModalContent(
+  kind: SeasonOpenModalKind,
+  viewModel: HomeDashboardViewModel,
+): {
+  eyebrow: string;
+  title: string;
+  description: string;
+  summary: string;
+  icon: React.ElementType;
+  rows: Array<{ label: string; value: string }>;
+  notes: string[];
+  showProfileAction: boolean;
+  destructiveActionLabel?: string;
+} {
+  const rows = buildSeasonProfileCompositionRows(viewModel);
+
+  switch (kind) {
+    case 'profile-composition':
+      return {
+        eyebrow: '구성 확인',
+        title: '시즌 프로필 구성을 확인해요',
+        description:
+          '시즌 참여 전에 필요한 생활패턴, 룸메 조건, 기숙사 설정 상태를 한 번에 확인해요.',
+        summary:
+          '기숙사 설정은 프로필 탭에서 관리해요.\n홈에서는 현재 구성 상태를 확인하는 역할만 해요.',
+        icon: ListChecks,
+        rows,
+        notes: [
+          '시즌 프로필과 기숙사는 서로 독립적으로 준비할 수 있고, 신청 전까지 수정할 수 있어요.',
+        ],
+        showProfileAction: true,
+      };
+    case 'registration-confirmation':
+      return {
+        eyebrow: '신청 전 확인',
+        title: '시즌 참여 신청 전 확인',
+        description: '현재 입력된 시즌 프로필과 기숙사 설정을 확인한 뒤 시즌 참여 신청을 진행해요.',
+        summary: '신청을 완료하면 같은 기숙사 룸메 후보에게 내 시즌 프로필이 표시돼요.',
+        icon: ClipboardCheck,
+        rows: [...rows, { label: '신청 상태', value: '신청 가능' }],
+        notes: [
+          '신청 완료 후에는 이번 시즌 기준으로 시즌 프로필과 기숙사 설정이 잠겨요.',
+          '매칭 신청은 매칭 기간에 열리고, 시즌 오픈 기간에는 같은 기숙사 후보 확인과 대화가 가능해요.',
+        ],
+        showProfileAction: true,
+      };
+    case 'withdrawal-policy':
+      return {
+        eyebrow: '철회 안내',
+        title: '시즌 참여 철회 정책',
+        description:
+          '철회는 현재 시즌 참여 상태와 대화/요청 흐름에 영향을 주므로 정책을 먼저 확인해주세요.',
+        summary: '철회하면 이번 시즌 참여자 풀에서 빠지고 같은 시즌 재참여가 제한돼요.',
+        icon: XCircle,
+        rows: [
+          { label: '현재 상태', value: '시즌 참여 완료' },
+          { label: '철회 가능 시점', value: '시즌 오픈·매칭 기간' },
+          { label: '재참여', value: '같은 시즌 재참여 불가' },
+        ],
+        notes: [
+          '철회 시 진행 중인 요청과 비매칭 대화는 철회 상태로 정리돼요.',
+          '이미 확정된 매칭이 있으면 사용자가 직접 철회할 수 없고 별도 안내가 필요해요.',
+        ],
+        showProfileAction: false,
+        destructiveActionLabel: '시즌 참여 철회하기',
+      };
+    case 'profile-view':
+      return {
+        eyebrow: '시즌 프로필',
+        title: '이번 시즌 프로필 보기',
+        description: '같은 기숙사 룸메 후보에게 표시되는 이번 시즌 기준 정보를 확인해요.',
+        summary: '신청한 시즌 프로필과 기숙사 설정이 이번 시즌 탐색 기준으로 사용돼요.',
+        icon: UserRound,
+        rows: [
+          { label: '닉네임', value: viewModel.viewerIdentity.nickname },
+          { label: '성별', value: viewModel.viewerIdentity.genderLabel },
+          { label: '캠퍼스', value: viewModel.viewerIdentity.campusName },
+          { label: '기숙사', value: resolveDormitoryLabel(viewModel) },
+        ],
+        notes: ['등록 완료 후에는 시즌 프로필과 기숙사 설정을 홈에서 직접 수정하지 않아요.'],
+        showProfileAction: false,
+      };
+  }
+}
+
+function buildSeasonProfileCompositionRows(
+  viewModel: HomeDashboardViewModel,
+): Array<{ label: string; value: string }> {
+  const profileValue = viewModel.preparation.hasSeasonProfile ? '준비 완료' : '설정 필요';
+
+  return [
+    { label: '생활패턴', value: profileValue },
+    { label: '룸메 조건', value: profileValue },
+    { label: '기숙사', value: resolveDormitoryLabel(viewModel) },
+  ];
+}
+
+function resolveDormitoryLabel(viewModel: HomeDashboardViewModel): string {
+  if (viewModel.dormitory) return viewModel.dormitory.name;
+  if (viewModel.preparation.registrationUnavailableReasons.includes('NO_SELECTABLE_DORMITORY')) {
+    return '운영 정보 대기';
+  }
+  return viewModel.preparation.hasBuilding ? '설정 완료' : '설정 필요';
+}
+
+function HomeResponsiveSheet({
+  eyebrow,
+  title,
+  description,
+  icon: Icon,
+  children,
+  footer,
+  onClose,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+  footer: React.ReactNode;
+  onClose: () => void;
+}) {
+  useBodyScrollLock(true);
+  const containerRef = useFocusTrap(true, onClose);
+
+  return (
+    <div
+      className="fixed inset-0 flex items-end justify-center overflow-hidden overscroll-none bg-slate-950/40 px-0 pb-0 pt-4 sm:px-4 sm:pb-4 md:items-center md:py-4"
+      style={{ zIndex: Z_INDEX.bottomSheet }}
+    >
+      <button
+        type="button"
+        aria-label={`${title} 닫기`}
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+      />
+      <motion.div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        initial={{ opacity: 0, y: 24, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="relative flex h-[min(620px,calc(100dvh-1rem))] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[min(680px,calc(100dvh-2rem))] sm:rounded-3xl"
+      >
+        <div className="shrink-0 bg-linear-to-br from-blue-50 to-cyan-50 p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
+                <Icon className="size-5" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-blue-700">{eyebrow}</p>
+                <h3 className="text-lg font-extrabold text-(--knu-text-primary)">{title}</h3>
+                <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-(--knu-text-secondary)">
+                  {description}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/80 text-(--knu-text-secondary) transition-colors hover:bg-white hover:text-(--knu-text-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
+              aria-label="닫기"
+            >
+              <X className="size-5" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">{children}</div>
+
+        <div className="shrink-0 border-t border-(--knu-border) bg-white p-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="flex flex-col gap-2 sm:flex-row">{footer}</div>
+        </div>
+      </motion.div>
+    </div>
+  );
 }
 
 type OffSeasonDetailModalKind = 'activity' | 'profile';
@@ -390,11 +868,7 @@ function OffSeasonDetailModal({
   viewModel: HomeDashboardViewModel;
   onClose: () => void;
 }) {
-  const isOpen = kind !== null;
-  useBodyScrollLock(isOpen);
-  const containerRef = useFocusTrap(isOpen, onClose);
-
-  if (!isOpen) return null;
+  if (!kind) return null;
 
   const lastSeason = viewModel.seasonSummary.lastSeason;
   const title = kind === 'activity' ? '이전 시즌 상세 보기' : '이전 시즌 프로필 확인';
@@ -404,50 +878,28 @@ function OffSeasonDetailModal({
       : '직전 시즌 참여 상태와 현재 계정 기준 프로필 정보를 함께 확인해요.';
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center px-5"
-      style={{ zIndex: Z_INDEX.bottomSheet }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      ref={containerRef}
-      tabIndex={-1}
-    >
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <p className="mb-1 text-xs font-bold text-(--knu-primary)">직전 시즌</p>
-            <h3 className="text-lg font-extrabold text-(--knu-text-primary)">{title}</h3>
-            <p className="mt-1 text-sm leading-relaxed text-(--knu-text-secondary)">
-              {description}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-(--knu-background-alt)"
-            aria-label="닫기"
-          >
-            <X className="h-5 w-5 text-(--knu-text-secondary)" aria-hidden="true" />
-          </button>
-        </div>
-
-        {kind === 'activity' ? (
-          <OffSeasonActivityDetail lastSeason={lastSeason} />
-        ) : (
-          <OffSeasonProfileDetail viewModel={viewModel} lastSeason={lastSeason} />
-        )}
-
+    <HomeResponsiveSheet
+      eyebrow="직전 시즌"
+      title={title}
+      description={description}
+      icon={kind === 'activity' ? BarChart3 : UserRound}
+      onClose={onClose}
+      footer={
         <button
           type="button"
           onClick={onClose}
-          className="mt-5 min-h-11 w-full rounded-xl bg-(--knu-primary) px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-(--knu-primary-dark)"
+          className="min-h-11 flex-1 rounded-xl bg-(--knu-primary) px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-(--knu-primary-dark)"
         >
           확인
         </button>
-      </div>
-    </div>
+      }
+    >
+      {kind === 'activity' ? (
+        <OffSeasonActivityDetail lastSeason={lastSeason} />
+      ) : (
+        <OffSeasonProfileDetail viewModel={viewModel} lastSeason={lastSeason} />
+      )}
+    </HomeResponsiveSheet>
   );
 }
 
@@ -642,15 +1094,15 @@ function resolveViewerActivityTitle(
 function StaticActivityButton({
   action,
   variant,
+  tone,
 }: {
   action: StaticActivityAction;
   variant: 'primary' | 'secondary';
+  tone: StaticActivityTone;
 }) {
   const ActionIcon = action.icon ?? BarChart3;
-  const className =
-    variant === 'primary'
-      ? 'bg-(--knu-background-alt) hover:bg-gray-100 border-(--knu-border)'
-      : 'bg-white hover:bg-(--knu-background-alt) border-(--knu-border)';
+  const resolvedVariant = action.emphasis ?? variant;
+  const className = getStaticActivityButtonClassName(resolvedVariant, action.buttonTone ?? tone);
 
   return (
     <motion.button
@@ -658,13 +1110,39 @@ function StaticActivityButton({
       onClick={action.onClick}
       whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.98 }}
-      className={`min-h-11 flex-1 rounded-xl border px-4 py-2.5 text-sm font-bold text-(--knu-text-primary) transition-colors flex items-center justify-center gap-2 ${className}`}
+      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors ${className}`}
     >
-      <ActionIcon className="w-4 h-4" aria-hidden="true" />
+      <ActionIcon className="size-4" aria-hidden="true" />
       <span>{action.label}</span>
-      {action.trailingIcon && <ChevronRight className="w-4 h-4" aria-hidden="true" />}
+      {action.trailingIcon && <ChevronRight className="size-4" aria-hidden="true" />}
     </motion.button>
   );
+}
+
+function getStaticActivityButtonClassName(
+  variant: 'primary' | 'secondary',
+  tone: StaticActivityTone,
+): string {
+  if (variant === 'secondary') {
+    if (tone === 'openRegistered') {
+      return 'border-amber-200 bg-amber-50/70 text-amber-800 hover:bg-amber-100/80';
+    }
+    if (tone === 'openReady' || tone === 'openRequired') {
+      return 'border-sky-200 bg-sky-50 text-sky-900 hover:bg-sky-100';
+    }
+    return 'border-(--knu-border) bg-white text-(--knu-text-primary) hover:bg-(--knu-background-alt)';
+  }
+
+  if (tone === 'openRegistered') {
+    return 'border-cyan-500 bg-cyan-500 text-white hover:bg-cyan-600';
+  }
+  if (tone === 'openReady') {
+    return 'border-emerald-300 bg-emerald-100 text-emerald-900 hover:bg-emerald-200';
+  }
+  if (tone === 'openRequired') {
+    return 'border-sky-600 bg-sky-600 text-white hover:bg-sky-700';
+  }
+  return 'border-(--knu-border) bg-(--knu-background-alt) text-(--knu-text-primary) hover:bg-gray-100';
 }
 
 function StaticActivityCard({
@@ -672,34 +1150,156 @@ function StaticActivityCard({
   title,
   body,
   icon: Icon,
+  tone = 'default',
+  metrics,
   action,
   secondaryAction,
 }: {
   eyebrow: string;
   title: string;
-  body: string;
+  body?: string;
   icon: React.ElementType;
+  tone?: StaticActivityTone;
+  metrics?: StaticActivityMetric[];
   action?: StaticActivityAction;
   secondaryAction?: StaticActivityAction;
 }) {
+  const toneClassName = STATIC_ACTIVITY_TONE_CLASS_NAMES[tone];
+
   return (
-    <section className={sectionCard()} aria-labelledby="home-activity-title">
+    <section className={sectionCard(toneClassName.section)} aria-labelledby="home-activity-title">
       <div className={sectionHeader}>
         <div>
-          <p className="text-xs font-bold text-(--knu-primary) mb-1">{eyebrow}</p>
+          <p className={`mb-1 text-xs font-bold ${toneClassName.eyebrow}`}>{eyebrow}</p>
           <h2 id="home-activity-title" className="font-bold text-(--knu-text-primary)">
             {title}
           </h2>
         </div>
-        <Icon className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
+        <span
+          className={`flex size-10 items-center justify-center rounded-2xl ${toneClassName.iconBox}`}
+          aria-hidden="true"
+        >
+          <Icon className="size-5" />
+        </span>
       </div>
-      <p className="text-sm leading-relaxed text-(--knu-text-secondary) mb-4">{body}</p>
+      {body && <p className="mb-4 text-sm leading-relaxed text-(--knu-text-secondary)">{body}</p>}
+      {metrics && metrics.length > 0 && (
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {metrics.map((metric) => (
+            <StaticActivityMetricCell key={metric.label} metric={metric} />
+          ))}
+        </div>
+      )}
       {(action || secondaryAction) && (
-        <div className="flex flex-col sm:flex-row gap-2">
-          {action && <StaticActivityButton action={action} variant="primary" />}
-          {secondaryAction && <StaticActivityButton action={secondaryAction} variant="secondary" />}
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {action && <StaticActivityButton action={action} variant="primary" tone={tone} />}
+          {secondaryAction && (
+            <StaticActivityButton action={secondaryAction} variant="secondary" tone={tone} />
+          )}
         </div>
       )}
     </section>
   );
+}
+
+const STATIC_ACTIVITY_TONE_CLASS_NAMES: Record<
+  StaticActivityTone,
+  { section: string; eyebrow: string; iconBox: string }
+> = {
+  default: {
+    section: '',
+    eyebrow: 'text-(--knu-primary)',
+    iconBox: 'bg-blue-50 text-(--knu-primary)',
+  },
+  openRequired: {
+    section: 'border-sky-100 bg-sky-50 shadow-sm',
+    eyebrow: 'text-sky-700',
+    iconBox: 'bg-white text-sky-600 ring-1 ring-sky-100',
+  },
+  openReady: {
+    section: 'border-blue-100 bg-blue-50 shadow-sm',
+    eyebrow: 'text-sky-800',
+    iconBox: 'bg-white text-sky-700 ring-1 ring-blue-100',
+  },
+  openRegistered: {
+    section: 'border-cyan-100 bg-cyan-50 shadow-sm',
+    eyebrow: 'text-cyan-700',
+    iconBox: 'bg-white text-cyan-700 ring-1 ring-cyan-100',
+  },
+  openWaiting: {
+    section: 'border-slate-200 bg-slate-50 shadow-sm',
+    eyebrow: 'text-slate-700',
+    iconBox: 'bg-white text-slate-600 ring-1 ring-slate-200',
+  },
+};
+
+const STATIC_ACTIVITY_METRIC_CLASS_NAMES: Record<
+  NonNullable<StaticActivityMetric['tone']>,
+  { cell: string; icon: string; value: string }
+> = {
+  neutral: {
+    cell: 'backdrop-blur-md rounded-xl border border-slate-200 bg-slate-50/85 p-3 shadow-sm',
+    icon: 'text-slate-500',
+    value: 'text-slate-800',
+  },
+  participant: {
+    cell: 'backdrop-blur-md rounded-xl border border-cyan-200 bg-cyan-50/90 p-3 shadow-sm',
+    icon: 'text-cyan-600',
+    value: 'text-cyan-900',
+  },
+  buildingOpen: {
+    cell: 'backdrop-blur-md rounded-xl border border-blue-200/70 bg-blue-50/80 p-3 shadow-sm',
+    icon: 'text-blue-600',
+    value: 'text-blue-900',
+  },
+  buildingLocked: {
+    cell: 'backdrop-blur-md rounded-xl border border-blue-200/70 bg-blue-50/80 p-3 shadow-sm',
+    icon: 'text-blue-600',
+    value: 'text-blue-900',
+  },
+};
+
+function StaticActivityMetricCell({ metric }: { metric: StaticActivityMetric }) {
+  const MetricIcon = metric.icon;
+  const toneClassName = STATIC_ACTIVITY_METRIC_CLASS_NAMES[metric.tone ?? 'neutral'];
+  const content = (
+    <>
+      <div className="mb-1 flex items-center gap-1.5">
+        <MetricIcon className={`size-3.5 ${toneClassName.icon}`} aria-hidden="true" />
+        <p className="text-[11px] font-bold text-(--knu-text-tertiary)">{metric.label}</p>
+        {metric.onClick && (
+          <ChevronRight className="ml-auto size-3 text-(--knu-text-tertiary)" aria-hidden="true" />
+        )}
+      </div>
+      <p className={`flex items-baseline gap-1 text-sm font-extrabold ${toneClassName.value}`}>
+        <span>{metric.value}</span>
+        {metric.todayNewCount !== undefined && metric.todayNewCount > 0 && (
+          <motion.span
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="text-xs font-bold text-green-600"
+          >
+            (+{metric.todayNewCount}명)
+          </motion.span>
+        )}
+      </p>
+      <p className="mt-0.5 text-[11px] text-(--knu-text-tertiary)">{metric.helper}</p>
+    </>
+  );
+
+  const className = toneClassName.cell;
+
+  if (metric.onClick) {
+    return (
+      <button
+        type="button"
+        onClick={metric.onClick}
+        className={`${className} text-left transition-transform hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, CheckCircle2, CircleAlert, CircleDashed } from 'lucide-react';
+import { CalendarDays, CheckCircle2, CircleDashed, Clock3 } from 'lucide-react';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
@@ -11,11 +11,16 @@ type ChecklistStatus = 'complete' | 'actionable' | 'locked' | 'info';
 
 type ChecklistActionTarget = 'profile' | 'building' | 'list';
 
+type ChecklistIcon = 'clock' | 'progress';
+type ChecklistTone = 'amber';
+
 interface ChecklistItem {
   id: string;
   title: string;
   description: string;
   status: ChecklistStatus;
+  icon?: ChecklistIcon;
+  tone?: ChecklistTone;
   actionLabel?: string;
   actionTarget?: ChecklistActionTarget;
 }
@@ -41,10 +46,10 @@ export function HomeReadinessChecklist({
       <div className={sectionHeader}>
         <div>
           <p className="mb-1 text-xs font-bold text-(--knu-primary)">
-            {isSchedulePreview ? '시즌 일정' : '준비 체크리스트'}
+            {isSchedulePreview ? '시즌 일정' : '시즌 참여 준비'}
           </p>
           <h2 id="home-readiness-title" className="font-bold text-(--knu-text-primary)">
-            {isSchedulePreview ? '다음 시즌 안내를 확인해요' : '다음 행동을 한눈에 확인해요'}
+            {isSchedulePreview ? '다음 시즌 안내를 확인해요' : '신청 전 필요한 항목을 확인해요'}
           </h2>
         </div>
         {isSchedulePreview ? (
@@ -107,6 +112,7 @@ export function buildReadinessChecklistItems({
           title: '다음 시즌 일정 공개 전',
           description: '시즌 준비 중이에요. 다음 시즌에 만나요.',
           status: 'locked',
+          icon: 'clock',
         },
       ];
     }
@@ -117,24 +123,28 @@ export function buildReadinessChecklistItems({
         title: `${preview.name} 시즌 시작`,
         description: `${formatDateDot(preview.preparationStartDate)} 부터 시즌에 참여할 수 있어요.`,
         status: 'locked',
+        icon: 'clock',
       },
       {
         id: 'next-season-profile',
         title: '시즌 프로필 준비',
         description: '시즌이 열리면 생활패턴과 원하는 룸메 조건을 입력할 수 있어요.',
         status: 'locked',
+        icon: 'clock',
       },
       {
         id: 'next-season-building',
         title: '배정된 기숙사 선택',
         description: '자신이 이번 학기 배정된 기숙사 건물을 등록해요.',
         status: 'locked',
+        icon: 'clock',
       },
       {
         id: 'next-season-matching',
         title: '시즌 참여 신청',
         description: '생활패턴과 기숙사 설정을 확인한 뒤 시즌 참여 신청을 마무리해요.',
         status: 'locked',
+        icon: 'clock',
       },
     ];
   }
@@ -146,123 +156,83 @@ export function buildReadinessChecklistItems({
   const buildingReady =
     seasonProfile.registered || !seasonProfile.completion.dormitorySelectionRequired;
   const registrationReady = seasonProfile.registered;
-  const registrationUnavailableDescription = getRegistrationUnavailableDescription(
-    seasonProfile.completion.registrationUnavailableReasons,
-  );
+  const currentSeasonName = dashboard.season.summary?.name ?? '이번 시즌';
 
   return [
     {
+      id: 'matching-season',
+      title: `${currentSeasonName} 시즌 매칭`,
+      description: viewModel.preparation.seasonStartDate
+        ? `${viewModel.preparation.seasonStartDate} 부터 매칭에 참여할 수 있어요.`
+        : '시즌 참여 후 매칭 기간에 요청을 보낼 수 있어요.',
+      status: 'locked',
+      icon: 'clock',
+      tone: registrationReady ? 'amber' : undefined,
+    },
+    {
       id: 'profile',
-      title: profileReady ? '생활패턴 준비 완료' : '생활패턴을 먼저 채워요',
-      description: profileReady
-        ? '시즌 참여에 필요한 생활패턴과 조건이 준비되어 있어요.'
-        : '수면·생활패턴과 원하는 룸메 조건을 채우면 신청 준비가 진행돼요.',
+      title: '시즌 프로필 준비',
+      description: '생활패턴과 원하는 룸메 조건을 입력할 수 있어요.',
       status: profileReady
         ? 'complete'
         : capabilities.canCreateOrUpdateSeasonProfileDraft || seasonProfile.draftWritable
           ? 'actionable'
           : 'locked',
-      actionLabel: profileReady ? undefined : '생활패턴 입력',
+      icon: 'progress',
+      actionLabel: profileReady ? undefined : '시즌 프로필 설정',
       actionTarget: profileReady ? undefined : 'profile',
     },
     {
       id: 'building',
-      title: buildingReady ? '건물 선택 완료' : '배정 건물을 선택해요',
-      description: buildingReady
-        ? '같은 건물 기준으로 룸메 탐색과 매칭 흐름을 안내할 수 있어요.'
-        : '건물을 선택해야 같은 건물 후보 탐색과 매칭 요청이 가능해져요.',
+      title: '배정된 기숙사 선택',
+      description: '자신이 이번 학기 배정된 기숙사 건물을 등록해요.',
       status: buildingReady
         ? 'complete'
         : capabilities.canSelectDormitory || seasonProfile.canSelectDormitory
           ? 'actionable'
           : 'locked',
-      actionLabel: buildingReady ? undefined : '건물 선택',
+      icon: 'progress',
+      actionLabel: buildingReady ? undefined : '기숙사 설정',
       actionTarget: buildingReady ? undefined : 'building',
     },
     {
       id: 'registration',
-      title: registrationReady ? '시즌 참여 신청 완료' : '시즌 참여 신청을 마무리해요',
-      description: registrationReady
-        ? '이번 시즌 참여 신청이 완료되어 시즌 상태에 맞는 기능을 이용할 수 있어요.'
-        : (registrationUnavailableDescription ??
-          '생활패턴과 건물 선택이 준비되면 시즌 참여 신청을 마무리할 수 있어요.'),
+      title: '시즌 참여 신청',
+      description: '생활패턴과 기숙사 설정을 확인한 뒤 시즌 참여 신청을 마무리해요.',
       status: registrationReady
         ? 'complete'
         : capabilities.canFinalizeSeasonRegistration || seasonProfile.canFinalizeRegistration
           ? 'actionable'
           : 'locked',
-      actionLabel: registrationReady ? undefined : '신청 상태 확인',
+      icon: 'progress',
+      actionLabel: registrationReady ? undefined : '시즌 참여 신청',
       actionTarget: registrationReady ? undefined : 'profile',
-    },
-    {
-      id: 'matching',
-      title: capabilities.canEnterRoommateSearch ? '룸메 탐색 가능' : '룸메 탐색 대기',
-      description: capabilities.canEnterRoommateSearch
-        ? '이제 같은 건물 후보를 확인하고 대화나 매칭 요청을 시작할 수 있어요.'
-        : '시즌 상태와 참여 신청 상태가 맞아야 룸메 탐색이 열려요.',
-      status: capabilities.canEnterRoommateSearch ? 'actionable' : 'locked',
-      actionLabel: capabilities.canEnterRoommateSearch ? '룸메 찾기' : undefined,
-      actionTarget: capabilities.canEnterRoommateSearch ? 'list' : undefined,
     },
   ];
 }
 
-function getRegistrationUnavailableDescription(
-  reasons: HomeDashboardResponse['viewer']['seasonProfile']['completion']['registrationUnavailableReasons'],
-): string | null {
-  if (reasons.length === 0) return null;
-
-  if (reasons.includes('NO_CURRENT_SEASON') || reasons.includes('SEASON_NOT_OPEN')) {
-    return '현재는 시즌 참여 신청이 열려 있지 않아요. 새 시즌 일정이 열리면 신청 흐름을 다시 안내할게요.';
-  }
-
-  if (reasons.includes('UNSUPPORTED_CAMPUS')) {
-    return '현재 캠퍼스는 아직 시즌 참여 신청을 지원하지 않아요. 운영이 열리면 홈에서 안내할게요.';
-  }
-
-  if (reasons.includes('PROFILE_INCOMPLETE')) {
-    return '생활패턴과 원하는 룸메 조건을 먼저 채워야 시즌 참여 신청을 마무리할 수 있어요.';
-  }
-
-  if (reasons.includes('DORMITORY_SELECTION_REQUIRED')) {
-    return '배정 건물을 선택해야 시즌 참여 신청을 마무리할 수 있어요.';
-  }
-
-  if (reasons.includes('NO_SELECTABLE_DORMITORY')) {
-    return '현재 선택 가능한 운영 기숙사가 없어 시즌 참여 신청을 마무리할 수 없어요.';
-  }
-
-  if (reasons.includes('DORMITORY_SELECTION_CLOSED')) {
-    return '기숙사 선택 가능 기간이 지나 시즌 참여 신청을 마무리할 수 없어요.';
-  }
-
-  if (reasons.includes('WITHDRAWN_OR_DECLINED_LOCK')) {
-    return '이미 시즌 참여를 철회했거나 참여하지 않기로 선택해 이번 시즌 신청을 다시 진행할 수 없어요.';
-  }
-
-  if (reasons.includes('ACCOUNT_OR_PARTICIPANT_INACTIVE')) {
-    return '계정 또는 시즌 참여 상태를 확인해야 신청을 진행할 수 있어요.';
-  }
-
-  return '현재 상태에서는 시즌 참여 신청을 마무리할 수 없어요.';
-}
-
 function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () => void }) {
   const status = STATUS_COPY[item.status];
-  const Icon = STATUS_ICON[item.status];
+  const visual = item.tone ? TONE_COPY[item.tone] : status;
+  const Icon =
+    item.status === 'complete'
+      ? STATUS_ICON.complete
+      : item.icon
+        ? CHECKLIST_ICON[item.icon]
+        : STATUS_ICON[item.status];
 
   return (
-    <li className="rounded-xl border border-(--knu-border) bg-(--knu-background-alt) p-3">
+    <li className={`rounded-xl border p-3 ${visual.itemClass}`}>
       <div className="flex items-start gap-3">
         <span
-          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${status.iconClass}`}
+          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${visual.iconClass}`}
         >
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-bold text-(--knu-text-primary)">{item.title}</h3>
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${status.badgeClass}`}>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${visual.badgeClass}`}>
               {status.label}
             </span>
           </div>
@@ -287,32 +257,52 @@ function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () =
 const STATUS_ICON: Record<ChecklistStatus, typeof CheckCircle2> = {
   complete: CheckCircle2,
   actionable: CircleDashed,
-  locked: CircleAlert,
+  locked: Clock3,
   info: CalendarDays,
+};
+
+const CHECKLIST_ICON: Record<ChecklistIcon, typeof CheckCircle2> = {
+  clock: Clock3,
+  progress: CircleDashed,
 };
 
 const STATUS_COPY: Record<
   ChecklistStatus,
-  { label: string; iconClass: string; badgeClass: string }
+  { label: string; iconClass: string; badgeClass: string; itemClass: string }
 > = {
   complete: {
     label: '완료',
     iconClass: 'bg-green-50 text-green-600',
     badgeClass: 'bg-green-50 text-green-700',
+    itemClass: 'border-(--knu-border) bg-(--knu-background-alt)',
   },
   actionable: {
     label: '진행 가능',
-    iconClass: 'bg-blue-50 text-blue-600',
-    badgeClass: 'bg-blue-50 text-blue-700',
+    iconClass: 'bg-amber-50 text-amber-700',
+    badgeClass: 'bg-amber-50 text-amber-800',
+    itemClass: 'border-(--knu-border) bg-(--knu-background-alt)',
   },
   locked: {
     label: '대기',
-    iconClass: 'bg-amber-50 text-amber-700',
-    badgeClass: 'bg-amber-50 text-amber-800',
+    iconClass: 'bg-slate-100 text-slate-600',
+    badgeClass: 'bg-slate-100 text-slate-700',
+    itemClass: 'border-(--knu-border) bg-(--knu-background-alt)',
   },
   info: {
     label: '확인 가능',
     iconClass: 'bg-slate-100 text-slate-600',
     badgeClass: 'bg-slate-100 text-slate-700',
+    itemClass: 'border-(--knu-border) bg-(--knu-background-alt)',
+  },
+};
+
+const TONE_COPY: Record<
+  ChecklistTone,
+  { iconClass: string; badgeClass: string; itemClass: string }
+> = {
+  amber: {
+    iconClass: 'bg-amber-100 text-amber-700',
+    badgeClass: 'bg-amber-100 text-amber-800',
+    itemClass: 'border-amber-100 bg-amber-50/70',
   },
 };

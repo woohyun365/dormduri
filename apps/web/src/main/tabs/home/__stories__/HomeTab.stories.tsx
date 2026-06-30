@@ -104,6 +104,9 @@ export const SeasonOpenRegistrationReady = createStory(
 export const SeasonOpenRegisteredPreview = createStory(
   homeStoryScenarios.seasonOpenRegisteredPreview,
 );
+export const SeasonOpenNoMatchingSeason = createStory(
+  homeStoryScenarios.seasonOpenNoMatchingSeason,
+);
 export const SeasonOpenNoOperatedDormitoriesProfileIncomplete = createStory(
   homeStoryScenarios.seasonOpenNoOperatedDormitoriesProfileIncomplete,
 );

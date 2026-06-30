@@ -18,6 +18,7 @@ function renderTip({ hasCurrentSeason = false }: { hasCurrentSeason?: boolean } 
           isPostMatch: false,
           daysUntilMatchingEnd: null,
           daysUntilSeasonEnd: null,
+          operatedDormitories: [],
         },
   });
   const viewModel = buildHomeDashboardViewModel({

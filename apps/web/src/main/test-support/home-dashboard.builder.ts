@@ -25,6 +25,13 @@ export function createHomeDashboardTestResponse(
       isPostMatch: false,
       daysUntilMatchingEnd: 54,
       daysUntilSeasonEnd: 65,
+      operatedDormitories: [
+        { dormitoryId: 'daon', isOperated: true, roomSelectionDate: '2026-08-06' },
+        { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-08-06' },
+        { dormitoryId: 'irum', isOperated: true, roomSelectionDate: '2026-08-06' },
+        { dormitoryId: 'saerom', isOperated: true, roomSelectionDate: '2026-08-06' },
+        { dormitoryId: 'yeji', isOperated: true, roomSelectionDate: '2026-08-06' },
+      ],
     },
     viewer: {
       campusOperated: true,

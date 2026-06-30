@@ -34,6 +34,7 @@ describe('HomeStatsPanel', () => {
           isPostMatch: false,
           daysUntilMatchingEnd: null,
           daysUntilSeasonEnd: null,
+          operatedDormitories: [],
         },
       }),
     });
@@ -61,6 +62,7 @@ describe('HomeStatsPanel', () => {
           isPostMatch: false,
           daysUntilMatchingEnd: null,
           daysUntilSeasonEnd: null,
+          operatedDormitories: [],
         },
         seasonHistorySummary: {
           lastSeason: null,

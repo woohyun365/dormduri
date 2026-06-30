@@ -26,6 +26,7 @@ export const homeDashboardSeasonSchema = z.strictObject({
   isPostMatch: z.boolean(),
   daysUntilMatchingEnd: z.number().int().nonnegative().nullable(),
   daysUntilSeasonEnd: z.number().int().nonnegative().nullable(),
+  operatedDormitories: z.array(dormitorySeasonOperationSchema),
 });
 
 export const homeDashboardViewerCapabilitiesSchema = z.strictObject({

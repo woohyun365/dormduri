@@ -46,6 +46,7 @@ describe('HomeOnboardingSheet', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
     });
 
@@ -81,6 +82,7 @@ describe('HomeOnboardingSheet', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
       seasonHistorySummary: { lastSeason: null },
     });

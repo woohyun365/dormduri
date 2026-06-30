@@ -57,30 +57,69 @@ describe('HomeReadinessChecklist', () => {
     );
 
     expect(
-      screen.getByRole('heading', { name: '다음 행동을 한눈에 확인해요' }),
+      screen.getByRole('heading', { name: '신청 전 필요한 항목을 확인해요' }),
     ).toBeInTheDocument();
-    await userEventInstance.click(screen.getByRole('button', { name: '생활패턴 입력' }));
-    await userEventInstance.click(screen.getByRole('button', { name: '건물 선택' }));
+    expect(screen.getByText('시즌 참여 준비')).toBeInTheDocument();
+    await userEventInstance.click(screen.getByRole('button', { name: '시즌 프로필 설정' }));
+    await userEventInstance.click(screen.getByRole('button', { name: '기숙사 설정' }));
 
     expect(onNavigate).toHaveBeenCalledWith('profile');
     expect(onOpenBuildingSelect).toHaveBeenCalledOnce();
   });
 
-  it('시즌 참여 신청 완료 + 탐색 가능 상태는 완료 항목과 룸메 찾기 action을 함께 보여준다', () => {
+  it('시즌 참여 신청 완료 상태는 신청 준비 항목만 완료로 보여준다', () => {
     const dashboard = createHomeDashboardTestResponse();
     const items = buildReadinessChecklistItems({ dashboard, viewModel: buildViewModel(dashboard) });
 
-    expect(items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: 'profile', status: 'complete' }),
-        expect.objectContaining({ id: 'building', status: 'complete' }),
-        expect.objectContaining({ id: 'registration', status: 'complete' }),
-        expect.objectContaining({ id: 'matching', status: 'actionable', actionLabel: '룸메 찾기' }),
-      ]),
+    expect(items).toEqual([
+      expect.objectContaining({
+        id: 'matching-season',
+        title: '2026년 2학기 시즌 매칭',
+        description: '2026.08.01 부터 매칭에 참여할 수 있어요.',
+        icon: 'clock',
+        tone: 'amber',
+      }),
+      expect.objectContaining({ id: 'profile', title: '시즌 프로필 준비', status: 'complete' }),
+      expect.objectContaining({ id: 'building', title: '배정된 기숙사 선택', status: 'complete' }),
+      expect.objectContaining({ id: 'registration', title: '시즌 참여 신청', status: 'complete' }),
+    ]);
+    expect(items.some((item) => item.id === 'matching')).toBe(false);
+  });
+
+  it('시즌 참여 신청 전 매칭 시즌 preview는 amber 강조 없이 대기 상태로 둔다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      viewer: {
+        ...createHomeDashboardTestResponse().viewer,
+        seasonProfile: {
+          ...createHomeDashboardTestResponse().viewer.seasonProfile,
+          registered: false,
+          completion: {
+            profileCompletionRequired: false,
+            dormitorySelectionRequired: false,
+            registrationUnavailable: false,
+            registrationUnavailableReasons: [],
+          },
+          canFinalizeRegistration: true,
+        },
+        capabilities: {
+          ...createHomeDashboardTestResponse().viewer.capabilities,
+          canFinalizeSeasonRegistration: true,
+        },
+      },
+    });
+    const items = buildReadinessChecklistItems({ dashboard, viewModel: buildViewModel(dashboard) });
+
+    expect(items[0]).toEqual(
+      expect.objectContaining({
+        id: 'matching-season',
+        title: '2026년 2학기 시즌 매칭',
+        status: 'locked',
+        tone: undefined,
+      }),
     );
   });
 
-  it('registrationUnavailableReasons가 있으면 신청 불가 이유를 사용자 문구로 표시한다', () => {
+  it('registrationUnavailableReasons가 있어도 시즌 참여 신청 문구는 일정한 준비 흐름으로 표시한다', () => {
     const dashboard = createHomeDashboardTestResponse({
       viewer: {
         ...createHomeDashboardTestResponse().viewer,
@@ -108,9 +147,10 @@ describe('HomeReadinessChecklist', () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: 'registration',
+          title: '시즌 참여 신청',
           status: 'locked',
-          description:
-            '현재는 시즌 참여 신청이 열려 있지 않아요. 새 시즌 일정이 열리면 신청 흐름을 다시 안내할게요.',
+          icon: 'progress',
+          description: '생활패턴과 기숙사 설정을 확인한 뒤 시즌 참여 신청을 마무리해요.',
         }),
       ]),
     );
@@ -128,6 +168,7 @@ describe('HomeReadinessChecklist', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
     });
 
@@ -145,6 +186,13 @@ describe('HomeReadinessChecklist', () => {
     expect(screen.getByText('배정된 기숙사 선택')).toBeInTheDocument();
     expect(screen.getByText('시즌 참여 신청')).toBeInTheDocument();
     expect(screen.getAllByText('대기')).toHaveLength(4);
+    const items = buildReadinessChecklistItems({ dashboard, viewModel: buildViewModel(dashboard) });
+    expect(items).toEqual([
+      expect.objectContaining({ id: 'next-season-schedule', icon: 'clock' }),
+      expect.objectContaining({ id: 'next-season-profile', icon: 'clock' }),
+      expect.objectContaining({ id: 'next-season-building', icon: 'clock' }),
+      expect.objectContaining({ id: 'next-season-matching', icon: 'clock' }),
+    ]);
     expect(screen.queryByText('지난 시즌 한눈에')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '룸메 찾기' })).not.toBeInTheDocument();
   });
