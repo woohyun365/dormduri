@@ -38,6 +38,15 @@ describe('HomeTab', () => {
     const content = screen.getByTestId('home-content');
     expect(content).toHaveAttribute('aria-hidden', 'true');
     expect(content).toHaveAttribute('inert');
-    expect(screen.getByText('서비스 운영 준비 중이에요!')).toBeInTheDocument();
+    expect(screen.getByText('해당 캠퍼스는 서비스 운영 준비 중이에요!')).toBeInTheDocument();
+    expect(screen.getByTestId('home-non-operated-overlay')).toHaveClass(
+      'absolute',
+      'overflow-hidden',
+      'overscroll-none',
+    );
+    expect(screen.getByTestId('home-dashboard-container')).toHaveClass(
+      'h-[calc(100dvh-14rem)]',
+      'overflow-hidden',
+    );
   });
 });

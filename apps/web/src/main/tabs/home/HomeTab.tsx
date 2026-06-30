@@ -49,6 +49,10 @@ export default function HomeTab({
   const { seasonState, daysUntilEnd } = viewModel;
   const avatarColor = getAvatarColor(viewModel.viewerIdentity.nickname);
 
+  const dashboardContainerClassName = !viewModel.isCampusOperated
+    ? 'relative h-[calc(100dvh-14rem)] min-h-80 overflow-hidden overscroll-none md:h-auto md:min-h-0 md:overflow-visible'
+    : 'relative';
+
   return (
     <div>
       <OfflineBanner />
@@ -101,15 +105,18 @@ export default function HomeTab({
         </div>
       </header>
 
-      <div className="relative">
+      <div data-testid="home-dashboard-container" className={dashboardContainerClassName}>
         {!viewModel.isCampusOperated && (
-          <div className="absolute inset-0 z-10 backdrop-blur-sm bg-white/60 border border-white/30 flex items-center justify-center">
-            <div className="text-center px-8">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <ShieldAlert className="w-8 h-8 text-gray-400" />
+          <div
+            data-testid="home-non-operated-overlay"
+            className="absolute inset-0 z-10 flex touch-none items-center justify-center overflow-hidden border border-white/30 bg-white/70 overscroll-none backdrop-blur-sm"
+          >
+            <div className="px-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+                <ShieldAlert className="h-8 w-8 text-gray-400" />
               </div>
-              <p className="text-base font-bold text-(--knu-text-primary) mb-1">
-                서비스 운영 준비 중이에요!
+              <p className="mb-1 text-base font-bold text-(--knu-text-primary)">
+                해당 캠퍼스는 서비스 운영 준비 중이에요!
               </p>
               <p className="text-sm text-(--knu-text-secondary)">조금만 기다려주세요.</p>
             </div>
