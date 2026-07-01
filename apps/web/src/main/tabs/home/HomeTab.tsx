@@ -154,7 +154,6 @@ export default function HomeTab({
                 viewModel={viewModel}
                 seasonState={seasonState}
                 onNavigate={onNavigate}
-                onOpenBuildingSelect={onOpenBuildingSelect}
                 onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
               />
             }

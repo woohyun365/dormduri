@@ -14,7 +14,7 @@ import {
   Info,
   AlertTriangle,
   Lock,
-  Building2,
+  ClipboardList,
 } from 'lucide-react';
 import { AnimatedCounter } from '@/components/AnimatedCounter';
 import { sectionCard, sectionHeader, glassCard } from '@/main/styles/home';
@@ -51,7 +51,7 @@ export interface HomeMatchingSummaryProps {
   stats: MatchingSummaryStats;
   activeMatch?: MatchingSummaryActiveMatch;
   receivedRequesters?: string[];
-  gatingReason?: 'no_building' | null;
+  gatingReason?: 'registration_required' | null;
   onGatedAction?: () => void;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
 }
@@ -235,7 +235,7 @@ export function HomeMatchingSummary({
   }, [internalTips.length]);
 
   // 게이팅 상태
-  if (gatingReason === 'no_building') {
+  if (gatingReason === 'registration_required') {
     return (
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -252,9 +252,9 @@ export function HomeMatchingSummary({
               <AlertTriangle className="w-6 h-6 text-amber-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-amber-900 mb-1">건물 배정이 필요해요</h3>
+              <h3 className="font-bold text-amber-900 mb-1">시즌 참여가 필요해요</h3>
               <p className="text-sm text-amber-700 leading-relaxed">
-                건물을 배정해야 매칭을 시작할 수 있어요
+                시즌 프로필과 기숙사를 준비한 뒤 참여 신청을 완료하면 매칭 활동을 시작할 수 있어요
               </p>
             </div>
           </div>
@@ -265,13 +265,13 @@ export function HomeMatchingSummary({
             whileTap={{ scale: 0.98 }}
             className="w-full backdrop-blur-sm bg-amber-600/90 hover:bg-amber-700/90 border border-amber-500/50 text-white font-medium py-2.5 px-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20"
           >
-            <Building2 className="w-4 h-4" />
-            <span>건물 배정하기</span>
+            <ClipboardList className="w-4 h-4" />
+            <span>시즌 참여 준비하기</span>
             <ChevronRight className="w-4 h-4" />
           </motion.button>
         </div>
         <div className="mt-4 text-xs text-(--knu-text-tertiary) text-center">
-          💡 건물 배정 후 바로 매칭을 시작할 수 있어요!
+          💡 시즌 참여 완료 후 같은 기숙사 룸메 후보와 상호작용할 수 있어요.
         </div>
       </motion.div>
     );

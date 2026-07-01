@@ -154,6 +154,18 @@ describe('HomeReadinessChecklist', () => {
         }),
       ]),
     );
+
+    render(
+      <HomeReadinessChecklist
+        dashboard={dashboard}
+        viewModel={buildViewModel(dashboard)}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('시즌 참여 신청')).toBeInTheDocument();
+    expect(screen.getAllByText('대기').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: '시즌 참여 신청' })).not.toBeInTheDocument();
   });
 
   it('current season이 없고 다음 시즌이 있으면 일정 공개 전 상태와 다음 진행 대기를 보여준다', () => {

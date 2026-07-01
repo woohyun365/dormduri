@@ -114,12 +114,26 @@ export const SeasonOpenNoOperatedDormitoriesProfileComplete = createStory(
   homeStoryScenarios.seasonOpenNoOperatedDormitoriesProfileComplete,
 );
 export const RegistrationUnavailable = createStory(homeStoryScenarios.registrationUnavailable);
-export const SeasonMatchingNoBuilding = createStory(homeStoryScenarios.matchingNoBuilding);
-export const SeasonMatchingPendingReceived = createStory(
-  homeStoryScenarios.matchingPendingReceived,
+export const SeasonMatchingProfileAndDormitoryRequired = createStory(
+  homeStoryScenarios.seasonMatchingProfileAndDormitoryRequired,
 );
-export const SeasonMatchingPendingSent = createStory(homeStoryScenarios.matchingPendingSent);
-export const ActiveMatchUnreadChat = createStory(homeStoryScenarios.activeMatchUnreadChat);
+export const SeasonMatchingProfileRequired = createStory(
+  homeStoryScenarios.seasonMatchingProfileRequired,
+);
+export const SeasonMatchingDormitoryRequired = createStory(
+  homeStoryScenarios.seasonMatchingDormitoryRequired,
+);
+export const SeasonMatchingRegistrationReady = createStory(
+  homeStoryScenarios.seasonMatchingRegistrationReady,
+);
+export const SeasonMatchingRegisteredNoActivity = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredNoActivity,
+);
+export const SeasonMatchingReceivedPending = createStory(
+  homeStoryScenarios.seasonMatchingReceivedPending,
+);
+export const SeasonMatchingSentPending = createStory(homeStoryScenarios.seasonMatchingSentPending);
+export const SeasonMatchingActiveMatch = createStory(homeStoryScenarios.seasonMatchingActiveMatch);
 export const PostMatchHistory = createStory(homeStoryScenarios.postMatchHistory);
 export const NonOperatedCampus = createStory(homeStoryScenarios.nonOperatedCampus);
 export const OnboardingNoticeOpen = createStory(homeStoryScenarios.onboardingNoticeOpen);

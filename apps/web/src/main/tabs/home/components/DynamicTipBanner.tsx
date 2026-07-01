@@ -18,7 +18,7 @@ import {
 
 export type TipSeasonStatus =
   | 'SEASON_MATCHING'
-  | 'SEASON_MATCHING_NO_BUILDING'
+  | 'SEASON_MATCHING_REGISTRATION_REQUIRED'
   | 'SEASON_OPEN'
   | 'OFF_SEASON'
   | 'NOT_OPERATED'
@@ -94,8 +94,8 @@ function generateTips({
     return tips;
   }
 
-  // #3-b 시즌 매칭 + 건물 미배정 → 숨김 (MatchingSummary 게이팅 UI에서 안내)
-  if (seasonStatus === 'SEASON_MATCHING_NO_BUILDING') {
+  // #3-b 시즌 매칭 + registration 전 → 숨김 (MatchingSummary 게이팅 UI에서 안내)
+  if (seasonStatus === 'SEASON_MATCHING_REGISTRATION_REQUIRED') {
     return tips;
   }
 

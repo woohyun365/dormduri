@@ -214,6 +214,7 @@ export function buildReadinessChecklistItems({
 function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () => void }) {
   const status = STATUS_COPY[item.status];
   const visual = item.tone ? TONE_COPY[item.tone] : status;
+  const shouldRenderAction = item.status !== 'locked' && Boolean(item.actionLabel);
   const Icon =
     item.status === 'complete'
       ? STATUS_ICON.complete
@@ -239,7 +240,7 @@ function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () =
           <p className="mt-1 text-xs leading-relaxed text-(--knu-text-secondary)">
             {item.description}
           </p>
-          {item.actionLabel && (
+          {shouldRenderAction && (
             <button
               type="button"
               onClick={onAction}

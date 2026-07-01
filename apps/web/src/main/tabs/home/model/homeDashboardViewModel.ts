@@ -42,7 +42,7 @@ export interface HomeDashboardMatchingSummaryViewModel {
   };
   activeMatch?: MatchingSummaryActiveMatch;
   receivedRequesters: string[];
-  gatingReason: 'no_building' | null;
+  gatingReason: 'registration_required' | null;
 }
 
 export interface HomeDashboardPreparationViewModel {
@@ -194,7 +194,7 @@ export function buildHomeDashboardViewModel({
     dashboard,
     seasonState,
     isCampusOperated,
-    isUnassigned,
+    registrationReady,
     activeMatch,
     renderedAt,
   });
@@ -239,7 +239,7 @@ export function buildHomeDashboardViewModel({
       seasonStatus: buildTipSeasonStatus({
         seasonState,
         isCampusOperated,
-        isUnassigned,
+        registrationReady,
         hasActiveMatch: activeMatch !== null,
       }),
       receivedRequests: matchingSummary.stats.receivedRequests,
@@ -358,14 +358,14 @@ function buildMatchingSummaryViewModel({
   dashboard,
   seasonState,
   isCampusOperated,
-  isUnassigned,
+  registrationReady,
   activeMatch,
   renderedAt,
 }: {
   dashboard: HomeDashboardResponse;
   seasonState: SeasonState;
   isCampusOperated: boolean;
-  isUnassigned: boolean;
+  registrationReady: boolean;
   activeMatch: ActiveMatch | null;
   renderedAt: number;
 }): HomeDashboardMatchingSummaryViewModel {
@@ -408,26 +408,31 @@ function buildMatchingSummaryViewModel({
       : undefined,
     receivedRequesters,
     gatingReason:
-      isCampusOperated && seasonState === 'SEASON_MATCHING' && isUnassigned ? 'no_building' : null,
+      isCampusOperated &&
+      seasonState === 'SEASON_MATCHING' &&
+      !registrationReady &&
+      activeMatch === null
+        ? 'registration_required'
+        : null,
   };
 }
 
 function buildTipSeasonStatus({
   seasonState,
   isCampusOperated,
-  isUnassigned,
+  registrationReady,
   hasActiveMatch,
 }: {
   seasonState: SeasonState;
   isCampusOperated: boolean;
-  isUnassigned: boolean;
+  registrationReady: boolean;
   hasActiveMatch: boolean;
 }): TipSeasonStatus {
   if (!isCampusOperated) return 'NOT_OPERATED';
   if (hasActiveMatch) return 'ACTIVE_MATCH';
   if (seasonState === 'OFF_SEASON') return 'OFF_SEASON';
   if (seasonState === 'SEASON_OPEN') return 'SEASON_OPEN';
-  if (isUnassigned) return 'SEASON_MATCHING_NO_BUILDING';
+  if (!registrationReady) return 'SEASON_MATCHING_REGISTRATION_REQUIRED';
   return 'SEASON_MATCHING';
 }
 

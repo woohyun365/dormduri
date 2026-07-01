@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   UserRound,
   UserRoundCheck,
+  Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { SeasonState } from '@repo/shared/season/runtime';
@@ -259,8 +260,11 @@ export function HomePrimaryStateCard({
   });
   const tone = TONE_STYLES[content.tone];
   const Icon = content.icon;
+  const isSeasonPreparationState =
+    seasonState === 'SEASON_OPEN' ||
+    (seasonState === 'SEASON_MATCHING' && Boolean(content.steps?.length));
   const shouldRenderActions =
-    seasonState !== 'SEASON_OPEN' && (content.action || content.secondaryAction);
+    !isSeasonPreparationState && (content.action || content.secondaryAction);
 
   return (
     <motion.section
@@ -576,40 +580,19 @@ function resolvePrimaryContent({
       goProfile,
       goList,
       openBuildingSelect,
+      phaseLabel: '시즌 오픈',
     });
   }
 
   if (seasonState === 'SEASON_MATCHING') {
-    if (viewModel.isUnassigned) {
-      return {
-        eyebrow: '기숙사 필요',
-        title: '건물 배정 후 매칭을 시작해요',
-        body: '시즌 참여 신청과 기숙사 선택이 준비되어야 같은 기숙사 기준의 룸메 후보를 보고 매칭 요청을 보낼 수 있어요.',
-        icon: Building2,
-        tone: 'amber',
-        action: { label: '건물 배정하기', icon: Building2, onClick: openBuildingSelect },
-        insights: [
-          {
-            label: '건물',
-            value: '미배정',
-            icon: Building2,
-            iconClassName: 'bg-amber-50 text-amber-600',
-          },
-          {
-            label: '탐색',
-            value: '대기',
-            icon: Search,
-            iconClassName: 'bg-slate-100 text-slate-600',
-          },
-          {
-            label: '종료',
-            value: daysUntilEnd > 0 ? `D-${daysUntilEnd}` : '마감 임박',
-            icon: Clock3,
-            iconClassName: 'bg-blue-50 text-blue-600',
-          },
-        ],
-        helper: daysUntilEnd > 0 ? `매칭 종료까지 D-${daysUntilEnd}` : undefined,
-      };
+    if (!viewModel.preparation.registrationReady) {
+      return resolveSeasonOpenPrimaryContent({
+        viewModel,
+        goProfile,
+        goList,
+        openBuildingSelect,
+        phaseLabel: '시즌 매칭',
+      });
     }
 
     if (viewModel.hasActiveMatch) {
@@ -723,11 +706,13 @@ function resolveSeasonOpenPrimaryContent({
   goProfile,
   goList,
   openBuildingSelect,
+  phaseLabel,
 }: {
   viewModel: HomeDashboardViewModel;
   goProfile: () => void;
   goList: () => void;
   openBuildingSelect: () => void;
+  phaseLabel: '시즌 오픈' | '시즌 매칭';
 }): PrimaryContent {
   const reasons = viewModel.preparation.registrationUnavailableReasons;
   const hasReason = (
@@ -741,7 +726,7 @@ function resolveSeasonOpenPrimaryContent({
 
   if (hasReason('NO_SELECTABLE_DORMITORY')) {
     return {
-      eyebrow: '시즌 오픈 · 운영 준비',
+      eyebrow: `${phaseLabel} · 운영 준비`,
       title: '운영 기숙사 정보가 준비 중이에요',
       icon: Building2,
       tone: 'amber',
@@ -761,7 +746,7 @@ function resolveSeasonOpenPrimaryContent({
 
   if (needsSeasonProfile && needsBuilding) {
     return {
-      eyebrow: '시즌 오픈 · 준비 시작',
+      eyebrow: `${phaseLabel} · 준비 시작`,
       title: '시즌 참여를 준비해요',
       icon: ClipboardList,
       tone: 'openRequired',
@@ -776,8 +761,12 @@ function resolveSeasonOpenPrimaryContent({
         : undefined,
       steps,
       dateRows,
-      policyHints: buildSeasonOpenPolicyHints(viewModel, 'profile-and-dormitory-required'),
-      policyHintAriaLabel: '시즌 오픈 안내',
+      policyHints: buildSeasonOpenPolicyHints(
+        viewModel,
+        'profile-and-dormitory-required',
+        phaseLabel,
+      ),
+      policyHintAriaLabel: `${phaseLabel} 안내`,
     };
   }
 
@@ -787,7 +776,7 @@ function resolveSeasonOpenPrimaryContent({
     viewModel.preparation.canSelectBuilding
   ) {
     return {
-      eyebrow: '시즌 오픈 · 기숙사 선택',
+      eyebrow: `${phaseLabel} · 기숙사 선택`,
       title: '시즌 참여를 준비해요',
       icon: ClipboardList,
       tone: 'openRequired',
@@ -800,14 +789,14 @@ function resolveSeasonOpenPrimaryContent({
       },
       steps,
       dateRows,
-      policyHints: buildSeasonOpenPolicyHints(viewModel, 'dormitory-required'),
-      policyHintAriaLabel: '시즌 오픈 안내',
+      policyHints: buildSeasonOpenPolicyHints(viewModel, 'dormitory-required', phaseLabel),
+      policyHintAriaLabel: `${phaseLabel} 안내`,
     };
   }
 
   if (needsSeasonProfile && viewModel.preparation.hasBuilding) {
     return {
-      eyebrow: '시즌 오픈 · 시즌 프로필',
+      eyebrow: `${phaseLabel} · 시즌 프로필`,
       title: '시즌 참여를 준비해요',
       icon: ClipboardList,
       tone: 'openRequired',
@@ -820,14 +809,14 @@ function resolveSeasonOpenPrimaryContent({
       },
       steps,
       dateRows,
-      policyHints: buildSeasonOpenPolicyHints(viewModel, 'profile-required'),
-      policyHintAriaLabel: '시즌 오픈 안내',
+      policyHints: buildSeasonOpenPolicyHints(viewModel, 'profile-required', phaseLabel),
+      policyHintAriaLabel: `${phaseLabel} 안내`,
     };
   }
 
   if (!isRegistered && reasons.length === 0) {
     return {
-      eyebrow: '시즌 오픈 · 준비 완료',
+      eyebrow: `${phaseLabel} · 준비 완료`,
       title: '시즌 참여 신청만 남았어요',
       icon: ClipboardCheck,
       tone: 'openPrep',
@@ -840,8 +829,8 @@ function resolveSeasonOpenPrimaryContent({
       },
       steps,
       dateRows,
-      policyHints: buildSeasonOpenPolicyHints(viewModel, 'registration-ready'),
-      policyHintAriaLabel: '시즌 오픈 안내',
+      policyHints: buildSeasonOpenPolicyHints(viewModel, 'registration-ready', phaseLabel),
+      policyHintAriaLabel: `${phaseLabel} 안내`,
     };
   }
 
@@ -851,7 +840,7 @@ function resolveSeasonOpenPrimaryContent({
     !viewModel.capabilities.canRequestMatch
   ) {
     return {
-      eyebrow: '시즌 오픈 · 참여 완료',
+      eyebrow: `${phaseLabel} · 참여 완료`,
       title: '룸메 후보를 미리 알아보세요',
       icon: Search,
       tone: 'cyan',
@@ -864,22 +853,22 @@ function resolveSeasonOpenPrimaryContent({
       },
       steps,
       dateRows,
-      policyHints: buildSeasonOpenPolicyHints(viewModel, 'registered-summary'),
-      policyHintAriaLabel: '시즌 오픈 안내',
+      policyHints: buildSeasonOpenPolicyHints(viewModel, 'registered-summary', phaseLabel),
+      policyHintAriaLabel: `${phaseLabel} 안내`,
     };
   }
 
   if (isRegistered) {
     return {
-      eyebrow: '시즌 오픈 · 참여 완료',
+      eyebrow: `${phaseLabel} · 참여 완료`,
       title: '매칭 시작을 기다리고 있어요',
       icon: CheckCircle2,
       tone: 'cyan',
       action: { label: '시즌 프로필 확인', icon: UserRound, onClick: goProfile },
       steps,
       dateRows,
-      policyHints: buildSeasonOpenPolicyHints(viewModel, 'registered-summary'),
-      policyHintAriaLabel: '시즌 오픈 안내',
+      policyHints: buildSeasonOpenPolicyHints(viewModel, 'registered-summary', phaseLabel),
+      policyHintAriaLabel: `${phaseLabel} 안내`,
     };
   }
 
@@ -889,6 +878,7 @@ function resolveSeasonOpenPrimaryContent({
     openBuildingSelect,
     steps,
     dateRows,
+    phaseLabel,
   });
 }
 
@@ -939,27 +929,37 @@ function buildSeasonOpenTaskSteps(viewModel: HomeDashboardViewModel): PrimaryTas
 function buildSeasonOpenPolicyHints(
   viewModel: HomeDashboardViewModel,
   context: SeasonOpenPolicyHintContext,
+  phaseLabel: '시즌 오픈' | '시즌 매칭',
 ): PrimaryPolicyHint[] {
   const contextualHint = buildSeasonOpenContextualHint(context);
+  const matchingActionHint: PrimaryPolicyHint =
+    phaseLabel === '시즌 오픈'
+      ? {
+          label: '매칭 시스템',
+          text: '매칭 신청과 수락은 시즌 매칭 기간에만 열려요.',
+          icon: Clock3,
+          iconClassName: 'text-amber-700',
+        }
+      : {
+          label: '매칭 요청',
+          text: '시즌 참여 후 같은 기숙사 참여자와 매칭 요청을 주고받을 수 있어요.',
+          icon: Users,
+          iconClassName: 'text-purple-600',
+        };
   const commonHints: PrimaryPolicyHint[] = [
     {
       label: '룸메 후보 탐색',
-      text: '시즌 참여 후 같은 기숙사 룸메 후보를 확인할 수 있어요.',
+      text: '시즌 참여 후 같은 기숙사 참여자를 확인할 수 있어요.',
       icon: Search,
       iconClassName: 'text-cyan-600',
     },
     {
       label: '대화 시작',
-      text: '시즌 참여 후 같은 기숙사 룸메 후보와 먼저 대화할 수 있어요.',
+      text: '시즌 참여 후 같은 기숙사 참여자와 먼저 대화할 수 있어요.',
       icon: MessageCircle,
       iconClassName: 'text-blue-600',
     },
-    {
-      label: '매칭 신청',
-      text: '매칭 신청과 수락은 시즌 매칭 기간에만 열려요.',
-      icon: Clock3,
-      iconClassName: 'text-amber-700',
-    },
+    matchingActionHint,
   ];
 
   if (context === 'registered-summary') {
@@ -1030,12 +1030,14 @@ function buildSeasonOpenBlockedContent({
   openBuildingSelect,
   steps,
   dateRows,
+  phaseLabel,
 }: {
   viewModel: HomeDashboardViewModel;
   goProfile: () => void;
   openBuildingSelect: () => void;
   steps: PrimaryTaskStep[];
   dateRows: PrimaryDateRow[] | undefined;
+  phaseLabel: '시즌 오픈' | '시즌 매칭';
 }): PrimaryContent {
   const reasons = viewModel.preparation.registrationUnavailableReasons;
   const hasReason = (
@@ -1045,7 +1047,7 @@ function buildSeasonOpenBlockedContent({
 
   if (hasReason('DORMITORY_SELECTION_CLOSED')) {
     return {
-      eyebrow: '시즌 오픈 · 확인 필요',
+      eyebrow: `${phaseLabel} · 확인 필요`,
       title: '기숙사 선택 기간이 지났어요',
       body: '이번 시즌 기숙사 선택 가능 기간이 지나 시즌 참여 신청을 마칠 수 없어요.',
       icon: Clock3,
@@ -1059,7 +1061,7 @@ function buildSeasonOpenBlockedContent({
 
   if (hasReason('WITHDRAWN_OR_DECLINED_LOCK')) {
     return {
-      eyebrow: '시즌 오픈 · 확인 필요',
+      eyebrow: `${phaseLabel} · 확인 필요`,
       title: '이번 시즌 참여가 제한됐어요',
       body: '이미 참여를 철회했거나 참여하지 않기로 선택해 이번 시즌 참여 신청을 다시 진행할 수 없어요.',
       icon: ShieldAlert,
@@ -1072,7 +1074,7 @@ function buildSeasonOpenBlockedContent({
 
   if (hasReason('UNSUPPORTED_CAMPUS')) {
     return {
-      eyebrow: '시즌 오픈 · 확인 필요',
+      eyebrow: `${phaseLabel} · 확인 필요`,
       title: '현재 캠퍼스는 준비 중이에요',
       body: `${viewModel.campusName} 캠퍼스는 아직 이번 시즌 참여 신청을 지원하지 않아요.`,
       icon: Building2,
@@ -1083,7 +1085,7 @@ function buildSeasonOpenBlockedContent({
   }
 
   return {
-    eyebrow: '시즌 오픈 · 확인 필요',
+    eyebrow: `${phaseLabel} · 확인 필요`,
     title: '시즌 참여 신청 상태를 확인해요',
     body: '현재 상태에서는 바로 시즌 참여 신청을 마칠 수 없어요. 필요한 정보를 확인해주세요.',
     icon: Info,

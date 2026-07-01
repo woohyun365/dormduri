@@ -191,7 +191,7 @@ describe('HomePrimaryStateCard', () => {
     }
   });
 
-  it('시즌 오픈 정책 배너는 상태별 안내와 요약, 대화, 매칭 신청 정책을 순환한다', async () => {
+  it('시즌 오픈 정책 배너는 상태별 안내와 후보 탐색, 대화, 매칭 시스템 정책을 순환한다', async () => {
     const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
     const dashboard = createHomeDashboardTestResponse({
       viewer: {
@@ -246,7 +246,7 @@ describe('HomePrimaryStateCard', () => {
 
       await act(async () => rotatePolicyHint?.());
       await waitFor(() =>
-        expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('매칭 신청'),
+        expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('매칭 시스템'),
       );
       expect(screen.getByText('매칭 신청과 수락은 시즌 매칭 기간에만 열려요.')).toBeInTheDocument();
     } finally {
@@ -501,7 +501,7 @@ describe('HomePrimaryStateCard', () => {
       '참여 신청완료룸메 후보 보기 가능',
     );
     expect(cardSection).not.toHaveTextContent('매칭 신청대기');
-    expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('룸메 후보');
+    expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('참여자');
     expect(screen.getAllByRole('button', { name: /시즌 오픈 안내/ })).toHaveLength(4);
   });
 
@@ -610,7 +610,8 @@ describe('HomePrimaryStateCard', () => {
     expect(screen.queryByRole('button', { name: /배정된 기숙사 설정/ })).not.toBeInTheDocument();
   });
 
-  it('시즌 매칭에서 건물 미배정이면 룸메 찾기가 아니라 건물 배정을 primary로 둔다', () => {
+  it('시즌 매칭에서 registration 전이면 기숙사 단독이 아니라 시즌 참여 준비를 primary로 둔다', async () => {
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
     const dashboard = createHomeDashboardTestResponse({
       season: {
         ...createHomeDashboardTestResponse().season,
@@ -620,21 +621,61 @@ describe('HomePrimaryStateCard', () => {
       },
       viewer: {
         ...createHomeDashboardTestResponse().viewer,
+        seasonProfile: {
+          ...createHomeDashboardTestResponse().viewer.seasonProfile,
+          intent: 'UNDECIDED',
+          registered: false,
+          profileExists: true,
+          profileState: 'DRAFT',
+          completion: {
+            profileCompletionRequired: false,
+            dormitorySelectionRequired: true,
+            registrationUnavailable: true,
+            registrationUnavailableReasons: ['DORMITORY_SELECTION_REQUIRED'],
+          },
+          draftWritable: true,
+          canSelectDormitory: true,
+          canFinalizeRegistration: false,
+        },
         selection: { state: 'NOT_SELECTED', dormitoryId: null, source: null },
         capabilities: {
           ...createHomeDashboardTestResponse().viewer.capabilities,
+          canFinalizeSeasonRegistration: false,
+          canRequestMatch: false,
+          canStartChat: false,
           canSelectDormitory: true,
         },
       },
     });
 
-    renderCard({ dashboard, seasonState: 'SEASON_MATCHING', daysUntilEnd: 7 });
+    try {
+      renderCard({ dashboard, seasonState: 'SEASON_MATCHING', daysUntilEnd: 7 });
 
-    expect(
-      screen.getByRole('heading', { name: '건물 배정 후 매칭을 시작해요' }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /건물 배정하기/ })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /룸메 찾기/ })).not.toBeInTheDocument();
+      expect(screen.getByText('시즌 매칭 · 기숙사 선택')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: '시즌 참여를 준비해요' })).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /생활패턴·룸메 조건 설정/ }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /배정된 기숙사 설정/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /룸메 찾기/ })).not.toBeInTheDocument();
+
+      const rotationCall = setIntervalSpy.mock.calls.find(([, delay]) => delay === 5000);
+      const rotatePolicyHint = rotationCall?.[0] as (() => void) | undefined;
+
+      expect(rotatePolicyHint).toBeDefined();
+
+      await act(async () => rotatePolicyHint?.());
+      await act(async () => rotatePolicyHint?.());
+      await act(async () => rotatePolicyHint?.());
+      await waitFor(() =>
+        expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('매칭 요청'),
+      );
+      expect(
+        screen.getByText('시즌 참여 후 같은 기숙사 참여자와 매칭 요청을 주고받을 수 있어요.'),
+      ).toBeInTheDocument();
+    } finally {
+      setIntervalSpy.mockRestore();
+    }
   });
 
   it('post-match에서는 신규 룸메 찾기 CTA 없이 결과 확인과 matched chat exception을 보여준다', () => {

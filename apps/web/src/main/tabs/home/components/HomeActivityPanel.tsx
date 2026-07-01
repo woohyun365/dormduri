@@ -32,7 +32,6 @@ interface HomeActivityPanelProps {
   viewModel: HomeDashboardViewModel;
   seasonState: SeasonState;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
-  onOpenBuildingSelect?: () => void;
   onDeregisterSeasonParticipation?: () => Promise<void>;
 }
 
@@ -72,11 +71,41 @@ export function HomeActivityPanel({
   viewModel,
   seasonState,
   onNavigate,
-  onOpenBuildingSelect,
   onDeregisterSeasonParticipation,
 }: HomeActivityPanelProps) {
   const [isOperatedDormitoryListOpen, setOperatedDormitoryListOpen] = useState(false);
   const [seasonOpenModal, setSeasonOpenModal] = useState<SeasonOpenModalKind | null>(null);
+
+  if (
+    viewModel.hasCurrentSeason &&
+    seasonState === 'SEASON_MATCHING' &&
+    !viewModel.preparation.registrationReady
+  ) {
+    const seasonMatchingPreparationActivity = resolveSeasonOpenActivityContent({
+      viewModel,
+      onNavigate,
+      onOpenOperatedDormitoryList: () => setOperatedDormitoryListOpen(true),
+      onOpenSeasonOpenModal: setSeasonOpenModal,
+    });
+
+    return (
+      <>
+        <StaticActivityCard {...seasonMatchingPreparationActivity} />
+        <OperatedDormitoryListModal
+          isOpen={isOperatedDormitoryListOpen}
+          viewModel={viewModel}
+          onClose={() => setOperatedDormitoryListOpen(false)}
+        />
+        <SeasonOpenActionModal
+          kind={seasonOpenModal}
+          viewModel={viewModel}
+          onNavigate={onNavigate}
+          onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
+          onClose={() => setSeasonOpenModal(null)}
+        />
+      </>
+    );
+  }
 
   if (viewModel.hasCurrentSeason && seasonState === 'SEASON_MATCHING') {
     return (
@@ -86,7 +115,7 @@ export function HomeActivityPanel({
         activeMatch={viewModel.matchingSummary.activeMatch}
         receivedRequesters={viewModel.matchingSummary.receivedRequesters}
         gatingReason={viewModel.matchingSummary.gatingReason}
-        onGatedAction={() => onOpenBuildingSelect?.()}
+        onGatedAction={() => onNavigate('profile')}
         onNavigate={onNavigate}
       />
     );
@@ -348,9 +377,9 @@ function buildSeasonOpenExplorationMetrics({
 
   return [
     {
-      label: '참여자',
+      label: '이번 시즌 참여자',
       value: formatPersonCount(viewModel.statsBar.totalCount),
-      helper: `${viewModel.campusName} 전체`,
+      helper: `${viewModel.campusName} 기준`,
       icon: UserRound,
       tone: 'participant',
       todayNewCount: viewModel.statsBar.todayNewTotal,

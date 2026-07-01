@@ -69,6 +69,14 @@ describe('HomeMatchingSummary', () => {
     expect(screen.getByText(/매칭 요청이 없어요/)).toBeDefined();
   });
 
+  it('registration 전 매칭 기간은 시즌 참여 준비 gate를 표시한다', () => {
+    render(<HomeMatchingSummary {...defaultProps} gatingReason="registration_required" />);
+
+    expect(screen.getByText('시즌 참여가 필요해요')).toBeDefined();
+    expect(screen.getByRole('button', { name: /시즌 참여 준비하기/ })).toBeDefined();
+    expect(screen.queryByText('보낸 요청')).toBeNull();
+  });
+
   it('HAS_ACTIVITY에서 통계 그리드를 표시한다', () => {
     render(
       <HomeMatchingSummary

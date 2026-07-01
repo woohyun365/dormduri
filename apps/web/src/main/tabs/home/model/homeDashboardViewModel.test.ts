@@ -177,7 +177,51 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.matchingSummary.gatingReason).toBeNull();
   });
 
-  it('keeps not-operated campus status from masking as a no-building gate', () => {
+  it('시즌 매칭 registration 전 상태를 registration-required gate로 표현한다', () => {
+    const base = createHomeDashboardTestResponse();
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...base.season,
+        state: 'SEASON_MATCHING',
+        isOpen: true,
+        isMatching: true,
+      },
+      viewer: {
+        ...base.viewer,
+        seasonProfile: {
+          ...base.viewer.seasonProfile,
+          intent: 'UNDECIDED',
+          registered: false,
+          profileExists: true,
+          profileState: 'DRAFT',
+          completion: {
+            profileCompletionRequired: false,
+            dormitorySelectionRequired: true,
+            registrationUnavailable: true,
+            registrationUnavailableReasons: ['DORMITORY_SELECTION_REQUIRED'],
+          },
+          draftWritable: true,
+          canSelectDormitory: true,
+          canFinalizeRegistration: false,
+        },
+        selection: {
+          state: 'NOT_SELECTED',
+          dormitoryId: null,
+          source: null,
+        },
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      renderedAt: new Date('2026-04-01T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.matchingSummary.gatingReason).toBe('registration_required');
+    expect(viewModel.tip.seasonStatus).toBe('SEASON_MATCHING_REGISTRATION_REQUIRED');
+  });
+
+  it('keeps not-operated campus status from masking as a registration-required gate', () => {
     const dashboard = createHomeDashboardTestResponse({
       viewer: {
         ...createHomeDashboardTestResponse().viewer,

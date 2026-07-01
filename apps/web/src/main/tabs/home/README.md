@@ -106,7 +106,7 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 
 - 실행: `pnpm --dir apps/web storybook`
 - 정적 빌드 검증: `pnpm --dir apps/web storybook:build`
-- 현재 story matrix는 비시즌, 현재 시즌 없음 + 지난 기록/다음 시즌 preview, 현재 시즌 없음 + 기록 없음, 시즌 오픈 준비/등록 완료/등록 불가 reason, 매칭 기간 건물 미배정, 받은/보낸 요청, 확정 매칭, 시즌 마감, 비운영 캠퍼스, `service-intro` 안내 열림/닫힘, 로딩 skeleton, 오류 복구 상태를 포함한다.
+- 현재 story matrix는 비시즌, 현재 시즌 없음 + 지난 기록/다음 시즌 preview, 현재 시즌 없음 + 기록 없음, 시즌 오픈 준비/등록 완료/등록 불가 reason, 시즌 매칭 registration 전 준비 4종(profile+dormitory/profile/dormitory/registration-ready), registered no-activity, registered received/sent pending request, registered active match, 시즌 마감, 비운영 캠퍼스, `service-intro` 안내 열림/닫힘, 로딩 skeleton, 오류 복구 상태를 포함한다.
 - story data는 `main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `main/test-support`, `main/dev-only/fixtures`를 import하면 안 된다.
 - `storybook:build`는 visual workshop surface가 빌드 가능한지 확인할 뿐, API/BFF/auth/DB 정합성 완료 근거가 아니다.
 

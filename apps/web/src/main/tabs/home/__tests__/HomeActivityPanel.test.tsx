@@ -11,7 +11,6 @@ function renderActivity(
   options: { onDeregisterSeasonParticipation?: () => Promise<void> } = {},
 ) {
   const onNavigate = vi.fn();
-  const onOpenBuildingSelect = vi.fn();
   const onDeregisterSeasonParticipation =
     options.onDeregisterSeasonParticipation ?? vi.fn().mockResolvedValue(undefined);
   const viewModel = buildHomeDashboardViewModel({
@@ -24,18 +23,17 @@ function renderActivity(
       viewModel={viewModel}
       seasonState={viewModel.seasonState}
       onNavigate={onNavigate}
-      onOpenBuildingSelect={onOpenBuildingSelect}
       onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
     />,
   );
 
-  return { onNavigate, onOpenBuildingSelect, onDeregisterSeasonParticipation };
+  return { onNavigate, onDeregisterSeasonParticipation };
 }
 
 describe('HomeActivityPanel', () => {
   it('시즌 오픈 required 상태에서 설정 이동 CTA와 구성 확인 modal을 제공한다', async () => {
     const user = userEvent.setup();
-    const { onNavigate, onOpenBuildingSelect } = renderActivity(
+    const { onNavigate } = renderActivity(
       createHomeDashboardTestResponse({
         viewer: {
           ...createHomeDashboardTestResponse().viewer,
@@ -73,11 +71,11 @@ describe('HomeActivityPanel', () => {
 
     expect(screen.getByText('탐색 준비')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '이번 시즌 현황' })).toBeInTheDocument();
-    expect(screen.getByText('참여자')).toBeInTheDocument();
+    expect(screen.getByText('이번 시즌 참여자')).toBeInTheDocument();
     expect(screen.getByText('내 건물 참여자')).toBeInTheDocument();
     expect(screen.getByText('운영 기숙사 리스트')).toBeInTheDocument();
     expect(screen.getByText('190명')).toBeInTheDocument();
-    expect(screen.getByText('춘천캠퍼스 전체')).toBeInTheDocument();
+    expect(screen.getByText('춘천캠퍼스 기준')).toBeInTheDocument();
     expect(screen.getByText('-')).toBeInTheDocument();
     expect(screen.getByText('시즌 참여 시 공개')).toBeInTheDocument();
     expect(screen.getByText('5곳')).toBeInTheDocument();
@@ -90,12 +88,66 @@ describe('HomeActivityPanel', () => {
     expect(screen.getByText('생활패턴')).toBeInTheDocument();
     expect(screen.getByText('룸메 조건')).toBeInTheDocument();
     expect(screen.getAllByText('설정 필요').length).toBeGreaterThanOrEqual(2);
-    expect(onOpenBuildingSelect).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: '확인' }));
 
     await user.click(screen.getByRole('button', { name: /운영 기숙사 리스트/ }));
     expect(screen.getByRole('dialog', { name: '운영 기숙사 리스트' })).toBeInTheDocument();
     expect(screen.getByText('다온관')).toBeInTheDocument();
+  });
+
+  it('시즌 매칭 required 상태에서도 시즌 오픈의 탐색 준비 섹션 패턴을 사용한다', async () => {
+    const user = userEvent.setup();
+    const { onNavigate } = renderActivity(
+      createHomeDashboardTestResponse({
+        season: {
+          ...createHomeDashboardTestResponse().season,
+          state: 'SEASON_MATCHING',
+          isOpen: false,
+          isMatching: true,
+        },
+        viewer: {
+          ...createHomeDashboardTestResponse().viewer,
+          selection: { state: 'NOT_SELECTED', dormitoryId: null, source: null },
+          capabilities: {
+            ...createHomeDashboardTestResponse().viewer.capabilities,
+            canEnterRoommateSearch: false,
+            canCreateOrUpdateSeasonProfileDraft: true,
+            canSelectDormitory: true,
+            canFinalizeSeasonRegistration: false,
+            canRequestMatch: false,
+            canStartChat: false,
+          },
+          seasonProfile: {
+            ...createHomeDashboardTestResponse().viewer.seasonProfile,
+            registered: false,
+            profileExists: true,
+            profileState: 'DRAFT',
+            completion: {
+              profileCompletionRequired: false,
+              dormitorySelectionRequired: true,
+              registrationUnavailable: true,
+              registrationUnavailableReasons: ['DORMITORY_SELECTION_REQUIRED'],
+            },
+            draftWritable: true,
+            canSelectDormitory: true,
+            canFinalizeRegistration: false,
+          },
+        },
+      }),
+    );
+
+    expect(screen.getByText('탐색 준비')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '이번 시즌 현황' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '매칭 활동' })).not.toBeInTheDocument();
+    expect(screen.getByText('이번 시즌 참여자')).toBeInTheDocument();
+    expect(screen.getByText('내 건물 참여자')).toBeInTheDocument();
+    expect(screen.getByText('시즌 참여 시 공개')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /시즌 프로필\/기숙사 설정/ }));
+    expect(onNavigate).toHaveBeenCalledWith('profile');
+
+    await user.click(screen.getByRole('button', { name: /시즌 프로필 구성 확인/ }));
+    expect(screen.getByRole('dialog', { name: '시즌 프로필 구성을 확인해요' })).toBeInTheDocument();
   });
 
   it('시즌 오픈 ready 상태에서 신청 전 확인 modal과 프로필 설정 이동 CTA를 제공한다', async () => {
@@ -163,7 +215,7 @@ describe('HomeActivityPanel', () => {
 
     expect(screen.getByText('탐색 준비')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '이번 시즌 현황' })).toBeInTheDocument();
-    expect(screen.getByText('참여자')).toBeInTheDocument();
+    expect(screen.getByText('이번 시즌 참여자')).toBeInTheDocument();
     expect(screen.getByText('내 건물 참여자')).toBeInTheDocument();
     expect(screen.getByText('운영 기숙사 리스트')).toBeInTheDocument();
     expect(screen.getByText('190명')).toBeInTheDocument();

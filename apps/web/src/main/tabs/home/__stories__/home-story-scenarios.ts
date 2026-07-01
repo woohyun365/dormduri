@@ -361,24 +361,51 @@ function createOpenRegistrationReadyDashboard(): HomeDashboardResponse {
   };
 }
 
-function createUnassignedDashboard(): HomeDashboardResponse {
+function createMatchingPreparationDashboard(
+  dashboard: HomeDashboardResponse,
+): HomeDashboardResponse {
+  const base = createDashboard('SEASON_MATCHING');
+
+  return {
+    ...dashboard,
+    season: base.season,
+    matching: {
+      ...dashboard.matching,
+      pendingSentCount: 0,
+      pendingReceivedCount: 0,
+      unreadMessageCount: 0,
+      recentReceivedRequests: [],
+    },
+  };
+}
+
+function createMatchingProfileAndDormitoryRequiredDashboard(): HomeDashboardResponse {
+  return createMatchingPreparationDashboard(createOpenProfileAndDormitoryRequiredDashboard());
+}
+
+function createMatchingDormitoryRequiredDashboard(): HomeDashboardResponse {
+  return createMatchingPreparationDashboard(createOpenDormitoryRequiredDashboard());
+}
+
+function createMatchingProfileRequiredDashboard(): HomeDashboardResponse {
+  return createMatchingPreparationDashboard(createOpenProfileRequiredDashboard());
+}
+
+function createMatchingRegistrationReadyDashboard(): HomeDashboardResponse {
+  return createMatchingPreparationDashboard(createOpenRegistrationReadyDashboard());
+}
+
+function createMatchingRegisteredNoActivityDashboard(): HomeDashboardResponse {
   const base = createDashboard('SEASON_MATCHING');
 
   return {
     ...base,
-    viewer: {
-      ...base.viewer,
-      selection: {
-        state: 'UNASSIGNED',
-        dormitoryId: null,
-        source: 'SEASON_PARTICIPANT',
-      },
-      capabilities: {
-        ...base.viewer.capabilities,
-        canEnterRoommateSearch: false,
-        canSelectDormitory: true,
-        canRequestMatch: false,
-      },
+    matching: {
+      ...base.matching,
+      pendingSentCount: 0,
+      pendingReceivedCount: 0,
+      unreadMessageCount: 0,
+      recentReceivedRequests: [],
     },
   };
 }
@@ -668,20 +695,46 @@ export const homeStoryScenarios = {
       '시즌 프로필은 준비됐지만 선택 가능한 운영 기숙사가 없어 시즌 참여 신청을 마칠 수 없는 상태입니다.',
     dashboard: createOpenNoOperatedDormitoriesDashboard({ profileComplete: true }),
   },
-  matchingNoBuilding: {
-    title: '매칭 기간 / 건물 미배정',
-    description: '건물 배정이 없어 탐색과 요청이 잠긴 상태의 안내입니다.',
-    dashboard: createUnassignedDashboard(),
-  },
   registrationUnavailable: {
     title: '시즌 오픈 / 등록 불가 reason',
     description:
       '등록 불가 reason이 있을 때 checklist와 quick action이 사용자용 사유를 보여줍니다.',
     dashboard: createRegistrationUnavailableDashboard(),
   },
-  matchingPendingReceived: {
-    title: '매칭 기간 / 받은 요청 있음',
-    description: '받은 요청이 있어 응답 CTA와 expiring summary를 확인하는 상태입니다.',
+  seasonMatchingProfileAndDormitoryRequired: {
+    title: 'Season Matching / profile + dormitory required',
+    description:
+      '매칭 기간에 유입된 사용자가 시즌 프로필과 기숙사 설정을 모두 마쳐야 시즌 참여 신청을 진행할 수 있는 상태입니다.',
+    dashboard: createMatchingProfileAndDormitoryRequiredDashboard(),
+  },
+  seasonMatchingProfileRequired: {
+    title: 'Season Matching / profile required',
+    description:
+      '기숙사 draft는 저장됐지만 시즌 프로필 보강이 남아 있어 시즌 참여 신청 전 준비가 필요한 상태입니다.',
+    dashboard: createMatchingProfileRequiredDashboard(),
+  },
+  seasonMatchingDormitoryRequired: {
+    title: 'Season Matching / dormitory required',
+    description:
+      '시즌 프로필은 준비됐고 기숙사 설정이 남아 있어 시즌 참여 신청 전 준비가 필요한 상태입니다.',
+    dashboard: createMatchingDormitoryRequiredDashboard(),
+  },
+  seasonMatchingRegistrationReady: {
+    title: 'Season Matching / registration ready',
+    description:
+      '매칭 기간 중 시즌 프로필과 기숙사 설정이 끝났고 시즌 참여 신청만 남은 registration candidate 상태입니다.',
+    dashboard: createMatchingRegistrationReadyDashboard(),
+  },
+  seasonMatchingRegisteredNoActivity: {
+    title: 'Season Matching / registered + no activity',
+    description:
+      '시즌 참여와 기숙사 확정이 끝났고 active match나 pending request가 없어 룸메 후보 탐색을 시작할 수 있는 상태입니다.',
+    dashboard: createMatchingRegisteredNoActivityDashboard(),
+  },
+  seasonMatchingReceivedPending: {
+    title: 'Season Matching / registered + received PENDING',
+    description:
+      '시즌 참여 완료 상태에서 받은 PENDING 요청을 검토하고 수락/거절 흐름으로 진입하는 상태입니다.',
     dashboard: createDashboard('SEASON_MATCHING', {
       matching: {
         ...createDashboard('SEASON_MATCHING').matching,
@@ -695,9 +748,9 @@ export const homeStoryScenarios = {
       },
     }),
   },
-  matchingPendingSent: {
-    title: '매칭 기간 / 보낸 요청 대기',
-    description: '보낸 요청은 있지만 아직 수락된 매칭은 없는 진행 상태입니다.',
+  seasonMatchingSentPending: {
+    title: 'Season Matching / registered + sent PENDING',
+    description: '같은 기숙사 룸메 후보에게 보낸 PENDING 요청의 응답을 기다리는 상태입니다.',
     dashboard: createDashboard('SEASON_MATCHING', {
       matching: {
         ...createDashboard('SEASON_MATCHING').matching,
@@ -708,9 +761,10 @@ export const homeStoryScenarios = {
       },
     }),
   },
-  activeMatchUnreadChat: {
-    title: '매칭 확정 / 읽지 않은 채팅',
-    description: '확정된 룸메와 unread chat이 있는 상태의 결과·채팅 CTA를 확인합니다.',
+  seasonMatchingActiveMatch: {
+    title: 'Season Matching / registered + live ActiveMatch + unread chat',
+    description:
+      'live ActiveMatch가 있어 신규 후보 action은 닫히고 확정 룸메 대화·결과 확인이 유지되는 상태입니다.',
     dashboard: (() => {
       const activeMatch = createActiveMatch();
       return createDashboard('SEASON_MATCHING', {
@@ -719,6 +773,11 @@ export const homeStoryScenarios = {
           match: {
             hasActiveMatch: true,
             activeMatch,
+          },
+          capabilities: {
+            ...createDashboard('SEASON_MATCHING').viewer.capabilities,
+            canRequestMatch: false,
+            canStartChat: true,
           },
         },
         matching: {
