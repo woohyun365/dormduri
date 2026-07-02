@@ -304,6 +304,7 @@ describe('HomeReadinessChecklist', () => {
     expect(screen.getByText('매칭 상대 채팅 유지')).toBeInTheDocument();
     expect(screen.getByText('비매칭 대화 정리')).toBeInTheDocument();
     expect(screen.getByText('유지')).toBeInTheDocument();
-    expect(screen.getAllByText('닫힘').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('닫힘')).toBeInTheDocument();
+    expect(screen.getAllByText('확인')).toHaveLength(2);
   });
 });

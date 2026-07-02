@@ -96,6 +96,8 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
   - dashboard view model and quick action policy matrix.
 - `src/main/tabs/home/__tests__/*.test.tsx`
   - state cards, layout, readiness checklist, registered matching guide, operations fallback, browser API fallback. Onboarding sheet는 default render가 아닌 compatibility component 단위로만 고정한다.
+- `src/main/tabs/home/__tests__/home-runtime-boundary.test.ts`, `src/main/tabs/home/__tests__/home-componentization-baseline.test.ts`
+  - Home runtime source의 legacy fixture/root API/story/test-support import 금지, section component 직접 browser/network I/O 금지, public facade entry point 유지.
 - `src/main/__tests__/Main.direct-action.test.tsx`
   - Main shell에서 Home dashboard loading/error/success와 direct action wiring.
 - `apps/web/e2e/smoke.spec.ts`
@@ -181,7 +183,9 @@ pnpm --dir apps/api prisma:seed:run
 - Home dashboard unit/component tests는 global fixture data가 아니라 `main/test-support`의 typed builder로 shared contract shape만 만든다.
 - 실제 로그인 사용자 기준 browser/manual 검증은 DB seed 계정과 API server를 사용하는 full-stack smoke에서 다룬다.
 - `src/main/tabs/home/__tests__/home-runtime-boundary.test.ts`는 production Home source에 global fixture,
-  test-support, story, raw SeasonContext, FE-local season fallback, dev override import가 섞이지 않는지 고정한다.
+  test-support, story, root legacy API, raw SeasonContext, FE-local season fallback, dev override import가 섞이지 않는지 고정한다.
+- Home section components는 직접 `fetch`, `XMLHttpRequest`, `navigator.sendBeacon`을 호출하지 않는다. API/BFF 호출은 `main/api`, Home-local `api/`, 또는 hook owner가 소유한다.
+- `src/main/tabs/home/__tests__/home-componentization-baseline.test.ts`는 componentization 중에도 기존 public section facade entry point를 유지하도록 고정한다.
 
 ## Matching activity contract
 
