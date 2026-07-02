@@ -157,8 +157,20 @@ export const SeasonMatchingActiveMatchCounterpartCancelRequest = createStory(
 export const SeasonMatchingActiveMatchSelfCancelRequest = createStory(
   homeStoryScenarios.seasonMatchingActiveMatchSelfCancelRequest,
 );
-export const PostMatchHistory = createStory(homeStoryScenarios.postMatchHistory);
-export const RegistrationUnavailable = createStory(homeStoryScenarios.registrationUnavailable);
+export const PostMatchNotRegistered = createStory(homeStoryScenarios.postMatchNotRegistered);
+export const PostMatchDeregistered = createStory(homeStoryScenarios.postMatchDeregistered);
+export const PostMatchMatched = createStory(homeStoryScenarios.postMatchMatched);
+export const PostMatchUnmatched = createStory(homeStoryScenarios.postMatchUnmatched);
+export const PostMatchRegisteredNotMatched = createStory(
+  homeStoryScenarios.postMatchRegisteredNotMatched,
+);
+export const PostMatchUserHistory = createStory(homeStoryScenarios.postMatchUserHistory);
+export const PostMatchRegistrationUnavailable = createStory(
+  homeStoryScenarios.postMatchRegistrationUnavailable,
+);
+export const SeasonMatchingRegistrationUnavailable = createStory(
+  homeStoryScenarios.seasonMatchingRegistrationUnavailable,
+);
 export const NonOperatedCampus = createStory(homeStoryScenarios.nonOperatedCampus);
 export const LoadingSkeleton: Story = {
   name: '로딩 스켈레톤',

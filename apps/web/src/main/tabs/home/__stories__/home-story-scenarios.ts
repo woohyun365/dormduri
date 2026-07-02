@@ -515,8 +515,8 @@ function createOpenNoOperatedDormitoriesDashboard({
   };
 }
 
-function createRegistrationUnavailableDashboard(): HomeDashboardResponse {
-  const base = createDashboard('SEASON_OPEN');
+function createSeasonMatchingRegistrationUnavailableDashboard(): HomeDashboardResponse {
+  const base = createDashboard('SEASON_MATCHING');
 
   return {
     ...base,
@@ -617,6 +617,263 @@ function createMatchingUnmatchedDashboard(): HomeDashboardResponse {
         canEnterRoommateSearch: true,
         canRequestMatch: true,
         canStartChat: true,
+      },
+    },
+  };
+}
+
+function createPostMatchBaseDashboard(): HomeDashboardResponse {
+  const base = createDashboard('SEASON_POST_MATCH');
+
+  return {
+    ...base,
+    season: {
+      ...base.season,
+      state: 'SEASON_POST_MATCH',
+      isOpen: false,
+      isMatching: false,
+      isPostMatch: true,
+      daysUntilMatchingEnd: null,
+      daysUntilSeasonEnd: 24,
+      schedule: base.season.schedule
+        ? {
+            ...base.season.schedule,
+            matchingEnd: '2026-08-06',
+            seasonEnd: '2026-08-31',
+          }
+        : base.season.schedule,
+    },
+    viewer: {
+      ...base.viewer,
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: true,
+        canCreateOrUpdateSeasonProfileDraft: false,
+        canSelectDormitory: false,
+        canFinalizeSeasonRegistration: false,
+        canRequestMatch: false,
+        canStartChat: false,
+        canViewMatchHistory: true,
+      },
+      match: {
+        hasActiveMatch: false,
+        activeMatch: null,
+      },
+    },
+    matching: {
+      ...base.matching,
+      pendingSentCount: 0,
+      pendingReceivedCount: 0,
+      activeChatThreadCount: 0,
+      unreadMessageCount: 0,
+      activeMatch: null,
+      recentReceivedRequests: [],
+    },
+    nextSeasonPreview: null,
+  };
+}
+
+function createPostMatchNotRegisteredDashboard(): HomeDashboardResponse {
+  const base = createPostMatchBaseDashboard();
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      seasonProfile: {
+        ...base.viewer.seasonProfile,
+        hasParticipantRow: false,
+        intent: null,
+        registered: false,
+        profileExists: false,
+        profileState: 'NONE',
+        completion: {
+          profileCompletionRequired: false,
+          dormitorySelectionRequired: false,
+          registrationUnavailable: true,
+          registrationUnavailableReasons: ['SEASON_NOT_OPEN'],
+        },
+        draftWritable: false,
+        canSelectDormitory: false,
+        canFinalizeRegistration: false,
+      },
+      selection: {
+        state: 'NOT_SELECTED',
+        dormitoryId: null,
+        source: null,
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canViewMatchHistory: false,
+      },
+    },
+    seasonHistorySummary: {
+      lastSeason: base.seasonHistorySummary.lastSeason
+        ? {
+            ...base.seasonHistorySummary.lastSeason,
+            viewerHadRegistration: false,
+            viewerHadMatchSuccess: false,
+            viewerActivity: {
+              sentRequestCount: 0,
+              receivedRequestCount: 0,
+              conversationCount: 0,
+              finalResult: 'NOT_PARTICIPATED',
+              matchedPartnerNickname: null,
+            },
+          }
+        : null,
+    },
+  };
+}
+
+function createPostMatchDeregisteredDashboard(): HomeDashboardResponse {
+  const base = createPostMatchBaseDashboard();
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      seasonProfile: {
+        ...base.viewer.seasonProfile,
+        intent: 'DECLINED',
+        registered: false,
+        profileExists: true,
+        profileState: 'COMPLETE',
+        completion: {
+          profileCompletionRequired: false,
+          dormitorySelectionRequired: false,
+          registrationUnavailable: true,
+          registrationUnavailableReasons: ['WITHDRAWN_OR_DECLINED_LOCK'],
+        },
+        draftWritable: false,
+        canSelectDormitory: false,
+        canFinalizeRegistration: false,
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: false,
+      },
+    },
+  };
+}
+
+function createPostMatchMatchedDashboard(): HomeDashboardResponse {
+  const base = createPostMatchBaseDashboard();
+  const activeMatch = createActiveMatch({
+    unmatchProgress: {
+      state: 'NONE',
+      requestedByViewerAt: null,
+      requestedByCounterpartAt: null,
+      progressCount: 0,
+      requiredCount: 2,
+      canRequest: false,
+      canCancel: false,
+      availableUntil: null,
+    },
+  });
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      match: {
+        hasActiveMatch: true,
+        activeMatch,
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canStartChat: true,
+      },
+    },
+    matching: {
+      ...base.matching,
+      activeChatThreadCount: 1,
+      unreadMessageCount: 2,
+      activeMatch,
+    },
+  };
+}
+
+function createPostMatchUnmatchedDashboard(): HomeDashboardResponse {
+  const base = createPostMatchBaseDashboard();
+
+  return {
+    ...base,
+    matching: {
+      ...base.matching,
+      activeChatThreadCount: 1,
+    },
+    seasonHistorySummary: {
+      lastSeason: base.seasonHistorySummary.lastSeason
+        ? {
+            ...base.seasonHistorySummary.lastSeason,
+            viewerHadRegistration: true,
+            viewerHadMatchSuccess: true,
+            viewerActivity: {
+              sentRequestCount: 2,
+              receivedRequestCount: 1,
+              conversationCount: 3,
+              finalResult: 'UNMATCHED_AFTER_SUCCESS',
+              matchedPartnerNickname: null,
+            },
+          }
+        : null,
+    },
+  };
+}
+
+function createPostMatchRegisteredNotMatchedDashboard(): HomeDashboardResponse {
+  const base = createPostMatchBaseDashboard();
+
+  return {
+    ...base,
+    seasonHistorySummary: {
+      lastSeason: base.seasonHistorySummary.lastSeason
+        ? {
+            ...base.seasonHistorySummary.lastSeason,
+            viewerHadRegistration: true,
+            viewerHadMatchSuccess: false,
+            viewerActivity: {
+              sentRequestCount: 3,
+              receivedRequestCount: 2,
+              conversationCount: 4,
+              finalResult: 'NO_MATCH',
+              matchedPartnerNickname: null,
+            },
+          }
+        : null,
+    },
+  };
+}
+
+function createPostMatchRegistrationUnavailableDashboard(): HomeDashboardResponse {
+  const base = createPostMatchBaseDashboard();
+
+  return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      seasonProfile: {
+        ...base.viewer.seasonProfile,
+        intent: 'UNDECIDED',
+        registered: false,
+        profileExists: true,
+        profileState: 'COMPLETE',
+        completion: {
+          profileCompletionRequired: false,
+          dormitorySelectionRequired: false,
+          registrationUnavailable: true,
+          registrationUnavailableReasons: ['SEASON_NOT_OPEN'],
+        },
+        draftWritable: false,
+        canSelectDormitory: false,
+        canFinalizeRegistration: false,
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canFinalizeSeasonRegistration: false,
+        canRequestMatch: false,
+        canStartChat: false,
       },
     },
   };
@@ -1142,16 +1399,52 @@ export const homeStoryScenarios = {
       },
     }),
   }),
-  postMatchHistory: {
-    title: '시즌 마감 / 결과 확인',
-    description: '새 요청은 닫히고 결과·이전 기록 중심으로 이동하는 post-match 상태입니다.',
-    dashboard: createDashboard('SEASON_POST_MATCH'),
-  },
-  registrationUnavailable: {
-    title: '시즌 오픈 / 등록 불가 reason',
+  postMatchNotRegistered: {
+    title: 'Post Match / not registered',
     description:
-      '등록 불가 reason이 있을 때 checklist와 quick action이 사용자용 사유를 보여줍니다.',
-    dashboard: createRegistrationUnavailableDashboard(),
+      '시즌 마감 정리 기간에 이번 시즌 참여 기록이 없는 사용자는 신규 registration·match action 없이 summary/result 안내만 확인합니다.',
+    dashboard: createPostMatchNotRegisteredDashboard(),
+  },
+  postMatchDeregistered: {
+    title: 'Post Match / final de-registered',
+    description:
+      '시즌 오픈·매칭 중 참여 철회/거절로 같은 시즌 재참여가 잠긴 상태가 post-match까지 유지되는지 확인합니다.',
+    dashboard: createPostMatchDeregisteredDashboard(),
+  },
+  postMatchMatched: {
+    title: 'Post Match / registered + matched',
+    description:
+      '확정 매칭 관계는 seasonEndDate 전까지 결과 확인과 matched chat write 예외가 유지되지만 신규 action과 unmatch는 닫힙니다.',
+    dashboard: createPostMatchMatchedDashboard(),
+  },
+  postMatchUnmatched: {
+    title: 'Post Match / registered + unmatched after success',
+    description:
+      '매칭 성공 후 roomSelectionDate 전에 상호 해제되어 최종 결과는 summary history로만 남는 상태입니다.',
+    dashboard: createPostMatchUnmatchedDashboard(),
+  },
+  postMatchRegisteredNotMatched: {
+    title: 'Post Match / registered + not matched',
+    description: '시즌 참여는 완료했지만 최종 확정 매칭 없이 마감 정리 기간에 들어온 상태입니다.',
+    dashboard: createPostMatchRegisteredNotMatchedDashboard(),
+  },
+  postMatchUserHistory: {
+    title: 'Post Match / user history base',
+    description:
+      '기존 사용자 이력과 post-match result-read 안내를 함께 비교하기 위한 기본 상태입니다.',
+    dashboard: createPostMatchBaseDashboard(),
+  },
+  postMatchRegistrationUnavailable: {
+    title: 'Post Match / registration unavailable after cutoff',
+    description:
+      'roomSelectionDate 이후 post-match에 진입하면 registration finalize는 동일하게 닫히므로, “during register” 예외와 registration-unavailable은 하나의 cutoff 상태로 압축합니다.',
+    dashboard: createPostMatchRegistrationUnavailableDashboard(),
+  },
+  seasonMatchingRegistrationUnavailable: {
+    title: 'Season Matching / registration closed after dormitory cutoff',
+    description:
+      '전체 시즌은 매칭 기간이지만 사용자의 선택 가능 기숙사 roomSelectionDate가 지나 시즌 참여 신청이 닫힌 상태입니다.',
+    dashboard: createSeasonMatchingRegistrationUnavailableDashboard(),
   },
   nonOperatedCampus: {
     title: '비운영 캠퍼스',

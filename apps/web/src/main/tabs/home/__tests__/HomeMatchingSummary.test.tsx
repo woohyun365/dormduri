@@ -83,10 +83,11 @@ describe('HomeMatchingSummary', () => {
     );
 
     expect(screen.getByRole('heading', { name: '확정된 룸메이트' })).toBeInTheDocument();
-    expect(screen.getByText('민지님')).toBeInTheDocument();
+    expect(screen.getByText('민지')).toBeInTheDocument();
     expect(screen.getByText('해제 진행')).toBeInTheDocument();
     expect(screen.getByText('0/2')).toBeInTheDocument();
     expect(screen.getByText('호실 선택일')).toBeInTheDocument();
+    expect(screen.queryByText(/확정된 룸메이트예요/)).not.toBeInTheDocument();
     expect(screen.getByText('08.06')).toBeInTheDocument();
     expect(screen.getByText('다온관 기준')).toBeInTheDocument();
     expect(screen.queryByText('확정 대화')).not.toBeInTheDocument();

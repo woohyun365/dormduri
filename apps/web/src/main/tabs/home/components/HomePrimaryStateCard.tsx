@@ -62,7 +62,13 @@ interface PrimaryInsight {
   value: string;
   icon: LucideIcon;
   iconClassName: string;
-  tone?: 'neutral' | 'participant' | 'buildingOpen' | 'buildingLocked' | 'matchSuccess';
+  tone?:
+    | 'neutral'
+    | 'participant'
+    | 'buildingOpen'
+    | 'buildingLocked'
+    | 'matchSuccess'
+    | 'matchedResult';
   helper?: string;
   todayNewCount?: number;
   onClick?: () => void;
@@ -87,7 +93,7 @@ interface PrimaryProgress {
   tone?: PrimaryDeadlineTone;
 }
 
-type PrimaryDeadlineTone = 'normal' | 'warning' | 'critical';
+type PrimaryDeadlineTone = 'normal' | 'warning' | 'critical' | 'closed';
 
 interface PrimarySuccessHighlight {
   count: number;
@@ -264,6 +270,12 @@ const DEADLINE_TONE_STYLES: Record<
     badge: 'bg-red-500',
     panel: 'border-red-100 bg-red-50/55',
   },
+  closed: {
+    fill: 'bg-slate-500',
+    text: 'text-slate-700',
+    badge: 'bg-slate-500',
+    panel: 'border-slate-200 bg-slate-50/80',
+  },
 };
 
 const PRIMARY_INSIGHT_TONE_CLASS_NAMES: Record<
@@ -294,6 +306,11 @@ const PRIMARY_INSIGHT_TONE_CLASS_NAMES: Record<
     cell: 'backdrop-blur-md rounded-xl border border-indigo-200 bg-indigo-50/85 p-3 shadow-sm',
     icon: 'text-indigo-600',
     value: 'text-indigo-900',
+  },
+  matchedResult: {
+    cell: 'backdrop-blur-md rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 shadow-sm',
+    icon: 'text-emerald-600',
+    value: 'text-emerald-900',
   },
 };
 
@@ -922,8 +939,6 @@ function resolvePrimaryContent({
 }): PrimaryContent {
   const goProfile = () => onNavigate('profile');
   const goList = () => onNavigate('list');
-  const goPastMatching = () => onNavigate('matching', { section: 'past' });
-  const goChat = () => onNavigate('chat');
   const openBuildingSelect = () => onOpenBuildingSelect?.();
 
   if (!viewModel.isCampusOperated) {
@@ -1009,21 +1024,10 @@ function resolvePrimaryContent({
   }
 
   if (seasonState === 'SEASON_POST_MATCH') {
-    return {
-      eyebrow: '시즌 마감 정리',
-      title: viewModel.hasActiveMatch ? '확정 결과를 확인해요' : '이번 시즌 결과를 정리해요',
-      body: viewModel.hasActiveMatch
-        ? `${viewModel.activeMatch?.partnerNickname ?? '상대'}님과의 확정 결과를 확인할 수 있어요. 새 매칭 요청은 닫혔고, 확정된 대화는 정책이 허용하는 기간에만 이어질 수 있어요.`
-        : '새 룸메 탐색과 매칭 요청은 닫혔어요. 이번 시즌 결과와 이전 시즌 기록을 확인할 수 있어요.',
-      icon: History,
-      tone: 'purple',
-      action: { label: '시즌 결과 보기', icon: History, onClick: goPastMatching },
-      secondaryAction: viewModel.capabilities.canStartChat
-        ? { label: '채팅 보기', icon: MessageCircle, onClick: goChat, variant: 'secondary' }
-        : undefined,
-      insights: buildPostMatchInsights(viewModel),
-      helper: '시즌 마감 정리 기간에는 신규 요청이 아니라 결과 확인 중심으로 이용해 주세요.',
-    };
+    return resolvePostMatchPrimaryContent({
+      viewModel,
+      daysUntilEnd,
+    });
   }
 
   return {
@@ -1047,6 +1051,110 @@ function resolvePrimaryContent({
     policyHints: buildOffSeasonPolicyHints(viewModel),
     policyHintAriaLabel: '비시즌 안내',
   };
+}
+
+type PostMatchPrimaryOutcome =
+  | 'not-registered'
+  | 'deregistered'
+  | 'matched'
+  | 'unmatched-after-success'
+  | 'not-matched'
+  | 'history';
+
+function resolvePostMatchPrimaryContent({
+  viewModel,
+  daysUntilEnd,
+}: {
+  viewModel: HomeDashboardViewModel;
+  daysUntilEnd: number;
+}): PrimaryContent {
+  const outcome = resolvePostMatchPrimaryOutcome(viewModel);
+  const baseContent = {
+    icon: History,
+    dateRows: buildPostMatchDateRows(viewModel, daysUntilEnd),
+    insights: buildPostMatchInsights(viewModel, outcome),
+    insightTitle: '이번 시즌 요약',
+    insightSubtitle: `${viewModel.campusName} · 남/여 전체 기준`,
+    policyHints: buildPostMatchPolicyHints(viewModel),
+    policyHintAriaLabel: '마감 정리 기간 안내',
+  } satisfies Partial<PrimaryContent>;
+
+  if (outcome === 'matched') {
+    return {
+      ...baseContent,
+      eyebrow: '시즌 마감 정리 · 매칭 종료',
+      title: `${viewModel.currentSeasonName} 매칭이 종료됐어요.`,
+      icon: UserRoundCheck,
+      tone: 'purple',
+    };
+  }
+
+  if (outcome === 'deregistered') {
+    return {
+      ...baseContent,
+      eyebrow: '시즌 마감 정리 · 매칭 종료',
+      title: `${viewModel.currentSeasonName} 매칭이 종료됐어요.`,
+      icon: XCircle,
+      tone: 'purple',
+    };
+  }
+
+  if (outcome === 'not-registered') {
+    return {
+      ...baseContent,
+      eyebrow: '시즌 마감 정리 · 매칭 종료',
+      title: `${viewModel.currentSeasonName} 매칭이 종료됐어요.`,
+      icon: Clock3,
+      tone: 'purple',
+    };
+  }
+
+  if (outcome === 'unmatched-after-success') {
+    return {
+      ...baseContent,
+      eyebrow: '시즌 마감 정리 · 매칭 종료',
+      title: `${viewModel.currentSeasonName} 매칭이 종료됐어요.`,
+      icon: History,
+      tone: 'purple',
+    };
+  }
+
+  if (outcome === 'not-matched') {
+    return {
+      ...baseContent,
+      eyebrow: '시즌 마감 정리 · 매칭 종료',
+      title: `${viewModel.currentSeasonName} 매칭이 종료됐어요.`,
+      icon: History,
+      tone: 'purple',
+    };
+  }
+
+  return {
+    ...baseContent,
+    eyebrow: '시즌 마감 정리 · 매칭 종료',
+    title: `${viewModel.currentSeasonName} 매칭이 종료됐어요.`,
+    icon: History,
+    tone: 'purple',
+  };
+}
+
+function resolvePostMatchPrimaryOutcome(
+  viewModel: HomeDashboardViewModel,
+): PostMatchPrimaryOutcome {
+  const reasons = viewModel.preparation.registrationUnavailableReasons;
+  const lastSeason = viewModel.seasonSummary.lastSeason;
+
+  if (viewModel.hasActiveMatch) return 'matched';
+  if (reasons.includes('WITHDRAWN_OR_DECLINED_LOCK')) return 'deregistered';
+  if (!viewModel.preparation.registrationReady && !lastSeason?.viewerHadRegistration) {
+    return 'not-registered';
+  }
+  if (lastSeason?.viewerActivity.finalResult === 'UNMATCHED_AFTER_SUCCESS') {
+    return 'unmatched-after-success';
+  }
+  if (lastSeason?.viewerActivity.finalResult === 'NO_MATCH') return 'not-matched';
+
+  return 'history';
 }
 
 function resolveSeasonMatchingRegisteredPrimaryContent({
@@ -1457,13 +1565,17 @@ function buildSeasonOpenDateRows(
   phaseLabel: '시즌 오픈' | '시즌 매칭',
 ): PrimaryDateRow[] | undefined {
   if (phaseLabel === '시즌 매칭') {
+    const isParticipationLocked = viewModel.preparation.registrationUnavailableReasons.includes(
+      'WITHDRAWN_OR_DECLINED_LOCK',
+    );
+
     return [
       {
         label: '매칭 시즌',
         value: `${viewModel.preparation.seasonStartDate ?? '시즌 매칭'} ~`,
         strongValue: '진행 중',
-        badge: '참여 가능',
-        tone: 'normal',
+        badge: isParticipationLocked ? '참여 불가' : '참여 가능',
+        tone: isParticipationLocked ? 'closed' : 'normal',
         hideValueOnNarrow: true,
         hideBadgeOnNarrow: true,
       },
@@ -1523,9 +1635,9 @@ function buildSeasonOpenBlockedContent({
 
   if (hasReason('WITHDRAWN_OR_DECLINED_LOCK')) {
     return {
-      eyebrow: `${phaseLabel} · 확인 필요`,
+      eyebrow: `${phaseLabel} · 참여 제한`,
       title: '이번 시즌 참여가 제한됐어요',
-      body: '이미 참여를 철회했거나 참여하지 않기로 선택해 이번 시즌 참여 신청을 다시 진행할 수 없어요.',
+      body: '시즌 참여 철회 후 재참여는 불가능해요',
       icon: ShieldAlert,
       tone: 'slate',
       steps,
@@ -1795,50 +1907,163 @@ function buildSeasonMatchingRegisteredPolicyHints(): PrimaryPolicyHint[] {
   ];
 }
 
-function buildPostMatchInsights(viewModel: HomeDashboardViewModel): PrimaryInsight[] {
-  const lastSeason = viewModel.seasonSummary.lastSeason;
+function buildPostMatchDateRows(
+  viewModel: HomeDashboardViewModel,
+  daysUntilEnd: number,
+): PrimaryDateRow[] | undefined {
+  const matchingWindow = viewModel.matchingWindow;
+  const rows: PrimaryDateRow[] = [];
 
-  if (!lastSeason) {
-    return [
-      {
-        label: '새 요청',
-        value: '닫힘',
-        icon: Clock3,
-        iconClassName: 'bg-slate-100 text-slate-600',
-      },
-      {
-        label: '결과',
-        value: viewModel.hasActiveMatch ? '확정' : '정리',
-        icon: History,
-        iconClassName: 'bg-purple-50 text-purple-600',
-      },
-      {
-        label: '기록',
-        value: '확인 가능',
-        icon: History,
-        iconClassName: 'bg-blue-50 text-blue-600',
-      },
-    ];
+  if (matchingWindow) {
+    rows.push({
+      label: '매칭 시즌',
+      value: `${matchingWindow.matchingStartDate} ~ ${matchingWindow.roomSelectionDate}`,
+      badge: '종료',
+      tone: 'closed',
+    });
   }
+
+  if (viewModel.seasonEndDate) {
+    rows.push({
+      label: '시즌 종료',
+      value: viewModel.seasonEndDate,
+      badge: daysUntilEnd > 0 ? `D-${daysUntilEnd}` : '오늘',
+      tone: daysUntilEnd <= 3 ? 'critical' : daysUntilEnd <= 7 ? 'warning' : 'normal',
+    });
+  }
+
+  return rows;
+}
+
+function buildPostMatchInsights(
+  viewModel: HomeDashboardViewModel,
+  outcome: PostMatchPrimaryOutcome,
+): PrimaryInsight[] {
+  const result = resolvePostMatchResultCopy(viewModel, outcome);
 
   return [
     {
-      label: '지난 참여',
-      value: `${lastSeason.totalParticipants}명`,
+      label: '이번 시즌 참여자',
+      value: `${viewModel.statsBar.totalCount}명`,
+      helper: `${viewModel.campusName} 기준`,
       icon: UserRound,
       iconClassName: 'bg-blue-50 text-blue-600',
+      tone: 'participant',
     },
     {
-      label: '성공',
-      value: `${lastSeason.aggregate.matchedPairCount}쌍`,
+      label: '매칭 완료',
+      value: formatPostMatchPairCount(viewModel.statsBar.matchSuccessCount),
+      helper: `${viewModel.campusName} 기준`,
       icon: CheckCircle2,
       iconClassName: 'bg-green-50 text-green-600',
+      tone: 'matchSuccess',
     },
     {
-      label: '운영',
-      value: `${lastSeason.aggregate.operatedDormitoryCount}곳`,
-      icon: Building2,
-      iconClassName: 'bg-cyan-50 text-cyan-600',
+      label: '내 결과',
+      value: result.value,
+      helper: result.helper,
+      icon: result.icon,
+      iconClassName: result.iconClassName,
+      tone: result.tone,
+    },
+  ];
+}
+
+function resolvePostMatchResultCopy(
+  viewModel: HomeDashboardViewModel,
+  outcome: PostMatchPrimaryOutcome,
+): {
+  value: string;
+  helper: string;
+  icon: LucideIcon;
+  iconClassName: string;
+  tone: NonNullable<PrimaryInsight['tone']>;
+} {
+  switch (outcome) {
+    case 'matched':
+      return {
+        value: '매칭 확정',
+        helper: `${viewModel.activeMatch?.partnerNickname ?? '상대'}님`,
+        icon: UserRoundCheck,
+        iconClassName: 'bg-emerald-50 text-emerald-600',
+        tone: 'matchedResult',
+      };
+    case 'deregistered':
+      return {
+        value: '참여 철회',
+        helper: '시즌 매칭 종료',
+        icon: XCircle,
+        iconClassName: 'bg-slate-100 text-slate-600',
+        tone: 'neutral',
+      };
+    case 'not-registered':
+      return {
+        value: '미참여',
+        helper: '시즌 매칭 종료',
+        icon: Clock3,
+        iconClassName: 'bg-slate-100 text-slate-600',
+        tone: 'neutral',
+      };
+    case 'unmatched-after-success':
+      return {
+        value: '매칭 종료',
+        helper: '기록 확인',
+        icon: History,
+        iconClassName: 'bg-purple-50 text-purple-600',
+        tone: 'buildingOpen',
+      };
+    case 'not-matched':
+      return {
+        value: '미성사',
+        helper: '활동 기록',
+        icon: History,
+        iconClassName: 'bg-slate-100 text-slate-600',
+        tone: 'neutral',
+      };
+    case 'history':
+      return {
+        value: '기록 확인',
+        helper: '결과 조회',
+        icon: History,
+        iconClassName: 'bg-purple-50 text-purple-600',
+        tone: 'buildingOpen',
+      };
+  }
+}
+
+function formatPostMatchPairCount(matchSuccessParticipantCount: number): string {
+  return `${Math.floor(matchSuccessParticipantCount / 2)}쌍`;
+}
+
+function buildPostMatchPolicyHints(viewModel: HomeDashboardViewModel): PrimaryPolicyHint[] {
+  return [
+    {
+      label: '매칭 시즌 종료',
+      text: '시즌 참여·새 대화 시작·매칭 요청은 닫혀요.',
+      icon: XCircle,
+      iconClassName: 'text-slate-600',
+    },
+    {
+      label: '결과 확인',
+      text: '매칭 결과와 이번 시즌 기록을 확인하는 기간이에요.',
+      icon: History,
+      iconClassName: 'text-purple-600',
+    },
+    {
+      label: viewModel.capabilities.canStartChat ? '매칭 대화 유지' : '대화 정리',
+      text: viewModel.capabilities.canStartChat
+        ? '매칭된 상대와의 채팅은 시즌 종료일 전까지 가능해요.'
+        : '매칭되지 않은 상대와의 채팅은 더 이상 불가능해요.',
+      icon: MessageCircle,
+      iconClassName: viewModel.capabilities.canStartChat ? 'text-blue-600' : 'text-slate-600',
+    },
+    {
+      label: '시즌 종료 안내',
+      text: viewModel.activeMatch
+        ? '시즌 종료일 전까지 룸메와 기숙사 생활 규칙을 미리 의논해보세요.'
+        : '다음 학기에는 서비스를 통해 룸메이트 매칭해보세요.',
+      icon: CalendarDays,
+      iconClassName: 'text-cyan-600',
     },
   ];
 }

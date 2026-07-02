@@ -280,7 +280,6 @@ function ActiveMatchSummaryCard({
   const progress = activeMatch.unmatchProgress;
   const canSubmitUnmatch = progress.canRequest || progress.canCancel;
   const progressLabel = `${progress.progressCount}/${progress.requiredCount}`;
-  const matchedDate = formatKoreanMonthDay(activeMatch.matchedAt);
 
   const handleConfirmUnmatch = async () => {
     setSubmitting(true);
@@ -319,12 +318,8 @@ function ActiveMatchSummaryCard({
           <div className="min-w-0 flex-1">
             <p className="text-xs font-bold text-indigo-700">현재 매칭 상대</p>
             <h3 className="mt-0.5 truncate text-xl font-extrabold text-(--knu-text-primary)">
-              {activeMatch.nickname}님
+              {activeMatch.nickname}
             </h3>
-            <p className="mt-1 text-sm leading-relaxed text-(--knu-text-secondary)">
-              {matchedDate}부터 확정된 룸메이트예요. 호실 선택 전까지 필요한 내용을 함께
-              확인해보세요.
-            </p>
           </div>
         </div>
 
@@ -689,17 +684,6 @@ function resolveUnmatchProgressHelper(progress: ActiveMatchUnmatchProgress): str
     return '해제 완료';
   }
   return progress.canRequest ? '요청 가능' : '요청 닫힘';
-}
-
-function formatKoreanMonthDay(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '매칭 확정일';
-  }
-  return new Intl.DateTimeFormat('ko-KR', {
-    month: 'long',
-    day: 'numeric',
-  }).format(date);
 }
 
 function formatProfileValue(value: string | null | undefined): string {

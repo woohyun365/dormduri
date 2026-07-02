@@ -517,4 +517,70 @@ describe('HomeActivityPanel', () => {
     expect(screen.queryByRole('button', { name: /이전 시즌 상세 보기/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /이전 시즌 프로필 확인/ })).not.toBeInTheDocument();
   });
+
+  it('post-match matched 상태에서는 결과 확인 metrics와 채팅 CTA를 보여준다', () => {
+    const activeMatch = {
+      id: 'match-1',
+      seasonId: 'season-2026-1',
+      counterpartUserId: 'user-2',
+      counterpartParticipantId: 'participant-2',
+      counterpartNickname: '감자친구',
+      status: 'ACTIVE' as const,
+      startedAt: '2026-08-03T00:00:00.000Z',
+      endedAt: null,
+      endReason: null,
+      createdFromRequestId: 'request-1',
+      matchScore: 91,
+      unmatchProgress: {
+        state: 'NONE' as const,
+        requestedByViewerAt: null,
+        requestedByCounterpartAt: null,
+        progressCount: 0,
+        requiredCount: 2 as const,
+        canRequest: false,
+        canCancel: false,
+        availableUntil: null,
+      },
+    };
+    const { onNavigate } = renderActivity(
+      createHomeDashboardTestResponse({
+        season: {
+          ...createHomeDashboardTestResponse().season,
+          state: 'SEASON_POST_MATCH',
+          isOpen: false,
+          isMatching: false,
+          isPostMatch: true,
+          daysUntilMatchingEnd: null,
+          daysUntilSeasonEnd: 24,
+        },
+        viewer: {
+          ...createHomeDashboardTestResponse().viewer,
+          capabilities: {
+            ...createHomeDashboardTestResponse().viewer.capabilities,
+            canStartChat: true,
+            canRequestMatch: false,
+            canFinalizeSeasonRegistration: false,
+          },
+          match: { hasActiveMatch: true, activeMatch },
+        },
+        matching: {
+          ...createHomeDashboardTestResponse().matching,
+          activeMatch,
+        },
+      }),
+    );
+
+    expect(
+      screen.getByRole('heading', { name: '이번 시즌 활동 기록을 확인해요' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('이번 시즌 활동 요약')).toBeInTheDocument();
+    expect(screen.getByText('현재 매칭 상대')).toBeInTheDocument();
+    expect(screen.getByText('감자친구')).toBeInTheDocument();
+    expect(screen.getByText('시즌 종료일')).toBeInTheDocument();
+    expect(screen.getByText('2026.08.31')).toBeInTheDocument();
+    expect(screen.getByText('채팅')).toBeInTheDocument();
+
+    screen.getByRole('button', { name: /채팅 바로가기/ }).click();
+    expect(onNavigate).toHaveBeenCalledWith('chat');
+  });
 });

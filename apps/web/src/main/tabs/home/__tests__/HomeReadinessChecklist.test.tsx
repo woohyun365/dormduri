@@ -240,4 +240,70 @@ describe('HomeReadinessChecklist', () => {
     expect(screen.queryByText('지난 시즌 한눈에')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '룸메 찾기' })).not.toBeInTheDocument();
   });
+
+  it('post-match에서는 신청 준비 대신 결과 확인 안내 항목을 보여준다', () => {
+    const activeMatch = {
+      id: 'match-1',
+      seasonId: 'season-2026-1',
+      counterpartUserId: 'user-2',
+      counterpartParticipantId: 'participant-2',
+      counterpartNickname: '감자친구',
+      status: 'ACTIVE' as const,
+      startedAt: '2026-08-03T00:00:00.000Z',
+      endedAt: null,
+      endReason: null,
+      createdFromRequestId: 'request-1',
+      matchScore: 91,
+      unmatchProgress: {
+        state: 'NONE' as const,
+        requestedByViewerAt: null,
+        requestedByCounterpartAt: null,
+        progressCount: 0,
+        requiredCount: 2 as const,
+        canRequest: false,
+        canCancel: false,
+        availableUntil: null,
+      },
+    };
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...createHomeDashboardTestResponse().season,
+        state: 'SEASON_POST_MATCH',
+        isOpen: false,
+        isMatching: false,
+        isPostMatch: true,
+      },
+      viewer: {
+        ...createHomeDashboardTestResponse().viewer,
+        capabilities: {
+          ...createHomeDashboardTestResponse().viewer.capabilities,
+          canStartChat: true,
+          canFinalizeSeasonRegistration: false,
+          canRequestMatch: false,
+        },
+        match: { hasActiveMatch: true, activeMatch },
+      },
+      matching: {
+        ...createHomeDashboardTestResponse().matching,
+        activeMatch,
+      },
+    });
+
+    render(
+      <HomeReadinessChecklist
+        dashboard={dashboard}
+        viewModel={buildViewModel(dashboard)}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('마감 정리 안내')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '결과 확인 항목을 확인해요' })).toBeInTheDocument();
+    expect(screen.getByText('새 참여·매칭 요청 종료')).toBeInTheDocument();
+    expect(screen.getByText('이번 시즌 활동 확인')).toBeInTheDocument();
+    expect(screen.getByText('매칭 상대 채팅 유지')).toBeInTheDocument();
+    expect(screen.getByText('비매칭 대화 정리')).toBeInTheDocument();
+    expect(screen.getByText('유지')).toBeInTheDocument();
+    expect(screen.getAllByText('닫힘').length).toBeGreaterThanOrEqual(2);
+  });
 });

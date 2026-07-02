@@ -51,7 +51,9 @@ type StaticActivityTone =
   | 'openRequired'
   | 'openReady'
   | 'openRegistered'
-  | 'openWaiting';
+  | 'openWaiting'
+  | 'postMatch'
+  | 'postMatchMatched';
 
 type SeasonOpenModalKind =
   | 'profile-composition'
@@ -64,7 +66,7 @@ interface StaticActivityMetric {
   value: string;
   helper: string;
   icon: React.ElementType;
-  tone?: 'neutral' | 'participant' | 'buildingOpen' | 'buildingLocked';
+  tone?: 'neutral' | 'participant' | 'buildingOpen' | 'buildingLocked' | 'matchSuccess' | 'result';
   todayNewCount?: number;
   onClick?: () => void;
 }
@@ -169,34 +171,13 @@ export function HomeActivityPanel({
   }
 
   if (seasonState === 'SEASON_POST_MATCH') {
+    const postMatchActivity = resolvePostMatchActivityContent({ viewModel, onNavigate });
+
     return (
-      <StaticActivityCard
-        eyebrow="결과 확인"
-        title={
-          viewModel.hasActiveMatch ? '확정 매칭 결과가 있어요' : '시즌 기록을 확인할 수 있어요'
-        }
-        body={
-          viewModel.hasActiveMatch
-            ? '현재 확정된 매칭 결과와 허용된 matched chat만 유지돼요. 새 탐색이나 새 매칭 요청은 열리지 않아요.'
-            : '마감 정리 기간에는 새 매칭 요청이 아니라 이번 시즌 결과와 이전 기록을 확인하는 흐름이에요.'
-        }
-        icon={viewModel.hasActiveMatch ? MessageCircle : History}
-        action={{
-          label: '시즌 결과 보기',
-          onClick: () => onNavigate('matching', { section: 'past' }),
-          icon: History,
-          trailingIcon: true,
-        }}
-        secondaryAction={
-          viewModel.capabilities.canStartChat
-            ? {
-                label: '채팅 보기',
-                onClick: () => onNavigate('chat'),
-                icon: MessageCircle,
-                trailingIcon: true,
-              }
-            : undefined
-        }
+      <PostMatchActivityCard
+        viewModel={viewModel}
+        content={postMatchActivity}
+        onNavigate={onNavigate}
       />
     );
   }
@@ -218,6 +199,197 @@ export function HomeActivityPanel({
       }}
     />
   );
+}
+
+type PostMatchActivityOutcome =
+  | 'not-registered'
+  | 'deregistered'
+  | 'matched'
+  | 'unmatched-after-success'
+  | 'not-matched'
+  | 'history';
+
+function resolvePostMatchActivityContent({
+  viewModel,
+  onNavigate,
+}: {
+  viewModel: HomeDashboardViewModel;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+}): {
+  eyebrow: string;
+  title: string;
+  body?: string;
+  icon: React.ElementType;
+  tone?: StaticActivityTone;
+  metrics?: StaticActivityMetric[];
+  action?: StaticActivityAction;
+  secondaryAction?: StaticActivityAction;
+  outcome: PostMatchActivityOutcome;
+} {
+  const outcome = resolvePostMatchActivityOutcome(viewModel);
+  const metrics = buildPostMatchActivityMetrics({ viewModel, outcome, onNavigate });
+
+  if (outcome === 'matched') {
+    return {
+      eyebrow: '이번 시즌 활동 요약',
+      title: '이번 시즌 활동 기록을 확인해요',
+      icon: BarChart3,
+      tone: 'postMatchMatched',
+      outcome,
+      metrics,
+    };
+  }
+
+  if (outcome === 'not-registered') {
+    return {
+      eyebrow: '이번 시즌 활동 요약',
+      title: '이번 시즌에 참여하지 않았어요',
+      icon: BarChart3,
+      tone: 'postMatch',
+      outcome,
+      metrics,
+    };
+  }
+
+  if (outcome === 'deregistered') {
+    return {
+      eyebrow: '이번 시즌 활동 요약',
+      title: '이번 시즌 참여를 철회했어요',
+      icon: BarChart3,
+      tone: 'postMatch',
+      outcome,
+      metrics,
+    };
+  }
+
+  if (outcome === 'unmatched-after-success') {
+    return {
+      eyebrow: '이번 시즌 활동 요약',
+      title: '이번 시즌 활동 기록을 확인해요',
+      icon: BarChart3,
+      tone: 'postMatch',
+      outcome,
+      metrics,
+    };
+  }
+
+  return {
+    eyebrow: '이번 시즌 활동 요약',
+    title: '이번 시즌 활동 기록을 확인해요',
+    icon: BarChart3,
+    tone: 'postMatch',
+    outcome,
+    metrics,
+  };
+}
+
+function resolvePostMatchActivityOutcome(
+  viewModel: HomeDashboardViewModel,
+): PostMatchActivityOutcome {
+  const reasons = viewModel.preparation.registrationUnavailableReasons;
+  const lastSeason = viewModel.seasonSummary.lastSeason;
+
+  if (viewModel.hasActiveMatch) return 'matched';
+  if (reasons.includes('WITHDRAWN_OR_DECLINED_LOCK')) return 'deregistered';
+  if (!viewModel.preparation.registrationReady && !lastSeason?.viewerHadRegistration) {
+    return 'not-registered';
+  }
+  if (lastSeason?.viewerActivity.finalResult === 'UNMATCHED_AFTER_SUCCESS') {
+    return 'unmatched-after-success';
+  }
+  if (lastSeason?.viewerActivity.finalResult === 'NO_MATCH') return 'not-matched';
+
+  return 'history';
+}
+
+function buildPostMatchActivityMetrics({
+  viewModel,
+  outcome,
+  onNavigate,
+}: {
+  viewModel: HomeDashboardViewModel;
+  outcome: PostMatchActivityOutcome;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+}): StaticActivityMetric[] {
+  if (outcome === 'matched') {
+    return [
+      {
+        label: '매칭 상대',
+        value: viewModel.activeMatch?.partnerNickname ?? '상대',
+        helper: '결과 확인 가능',
+        icon: CheckCircle2,
+        tone: 'matchSuccess',
+      },
+      {
+        label: '채팅',
+        value: viewModel.capabilities.canStartChat ? '가능' : '닫힘',
+        helper: viewModel.capabilities.canStartChat ? '시즌 종료 전까지' : '정책에 따라 제한',
+        icon: MessageCircle,
+        tone: viewModel.capabilities.canStartChat ? 'buildingOpen' : 'neutral',
+      },
+      {
+        label: '시즌 종료',
+        value: viewModel.daysUntilEnd > 0 ? `D-${viewModel.daysUntilEnd}` : '오늘',
+        helper: '이후 과거 기록 정리',
+        icon: CalendarDays,
+        tone: 'result',
+      },
+    ];
+  }
+
+  const activity = viewModel.seasonSummary.lastSeason?.viewerActivity;
+  if (activity && viewModel.seasonSummary.lastSeason?.viewerHadRegistration) {
+    return [
+      {
+        label: '보낸 요청',
+        value: `${activity.sentRequestCount}건`,
+        helper: '보낸 요청 보기',
+        icon: Send,
+        tone: 'participant',
+        onClick: () => onNavigate('matching', { requestTab: 'sent' }),
+      },
+      {
+        label: '받은 요청',
+        value: `${activity.receivedRequestCount}건`,
+        helper: '받은 요청 보기',
+        icon: Inbox,
+        tone: 'result',
+        onClick: () => onNavigate('matching', { requestTab: 'received' }),
+      },
+      {
+        label: '대화',
+        value: `${activity.conversationCount}건`,
+        helper: '대화 기록 보기',
+        icon: MessageCircle,
+        tone: 'buildingOpen',
+        onClick: () => onNavigate('matching', { section: 'current' }),
+      },
+    ];
+  }
+
+  return [
+    {
+      label: '참여 상태',
+      value: outcome === 'deregistered' ? '철회' : '미참여',
+      helper: outcome === 'deregistered' ? '시즌 참여 종료' : '이번 시즌 기록 없음',
+      icon: UserRound,
+      tone: 'neutral',
+    },
+    {
+      label: '새 요청',
+      value: '닫힘',
+      helper: '매칭 시즌 종료',
+      icon: Send,
+      tone: 'neutral',
+    },
+    {
+      label: '새 채팅',
+      value: '닫힘',
+      helper: '매칭 시즌 종료',
+      icon: MessageCircle,
+      tone: 'neutral',
+    },
+  ];
 }
 
 const SEASON_OPEN_ACTIVITY_EYEBROW = '탐색 준비';
@@ -807,6 +979,386 @@ function HomeResponsiveSheet({
   );
 }
 
+type PostMatchDetailModalKind = 'activity' | 'profile';
+
+function PostMatchActivityCard({
+  viewModel,
+  content,
+  onNavigate,
+}: {
+  viewModel: HomeDashboardViewModel;
+  content: ReturnType<typeof resolvePostMatchActivityContent>;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+}) {
+  const [detailModal, setDetailModal] = useState<PostMatchDetailModalKind | null>(null);
+  const Icon = content.icon;
+  const canShowDetailActions =
+    content.outcome !== 'not-registered' && content.outcome !== 'matched';
+
+  return (
+    <section className={sectionCard()} aria-labelledby="home-activity-title">
+      <div className={sectionHeader}>
+        <div>
+          <p className="mb-1 text-xs font-bold text-(--knu-primary)">{content.eyebrow}</p>
+          <h2 id="home-activity-title" className="font-bold text-(--knu-text-primary)">
+            {content.title}
+          </h2>
+        </div>
+        <Icon className="h-5 w-5 text-(--knu-primary)" aria-hidden="true" />
+      </div>
+
+      {content.outcome === 'matched' ? (
+        <PostMatchMatchedSummaryCard viewModel={viewModel} onNavigate={onNavigate} />
+      ) : (
+        content.metrics &&
+        content.metrics.length > 0 && <PostMatchActivityMetricGrid metrics={content.metrics} />
+      )}
+
+      {canShowDetailActions && (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <PostMatchActivityButton
+            icon={BarChart3}
+            label="이번 시즌 상세 보기"
+            variant="primary"
+            onClick={() => setDetailModal('activity')}
+          />
+          <PostMatchActivityButton
+            icon={UserRound}
+            label="이번 시즌 프로필 확인"
+            variant="secondary"
+            onClick={() => setDetailModal('profile')}
+          />
+        </div>
+      )}
+
+      <PostMatchDetailModal
+        kind={detailModal}
+        viewModel={viewModel}
+        onClose={() => setDetailModal(null)}
+      />
+    </section>
+  );
+}
+
+function PostMatchActivityMetricGrid({ metrics }: { metrics: StaticActivityMetric[] }) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {metrics.map((metric) => (
+        <PostMatchActivityMetricCell key={metric.label} metric={metric} />
+      ))}
+    </div>
+  );
+}
+
+function PostMatchActivityMetricCell({ metric }: { metric: StaticActivityMetric }) {
+  const MetricIcon = metric.icon;
+  const tone = resolvePostMatchMetricTone(metric);
+  const toneClassName = {
+    purple: {
+      card: 'bg-(--knu-background-alt) hover:bg-purple-50',
+      icon: 'bg-purple-100 text-purple-600',
+      value: 'text-purple-600',
+    },
+    amber: {
+      card: 'bg-(--knu-background-alt) hover:bg-amber-50',
+      icon: 'bg-amber-100 text-amber-600',
+      value: 'text-amber-600',
+    },
+    teal: {
+      card: 'bg-(--knu-background-alt) hover:bg-teal-50',
+      icon: 'bg-teal-100 text-teal-600',
+      value: 'text-teal-600',
+    },
+    slate: {
+      card: 'bg-(--knu-background-alt) hover:bg-slate-50',
+      icon: 'bg-slate-100 text-slate-600',
+      value: 'text-slate-700',
+    },
+  }[tone];
+  const content = (
+    <>
+      <div
+        className={`mb-2 flex size-10 items-center justify-center rounded-full transition-transform group-hover:scale-110 ${toneClassName.icon}`}
+      >
+        <MetricIcon className="size-5" aria-hidden="true" />
+      </div>
+      <span className={`text-lg font-bold ${toneClassName.value}`}>{metric.value}</span>
+      <span className="mt-0.5 text-xs font-medium text-(--knu-text-tertiary)">{metric.label}</span>
+      <span className={`mt-0.5 text-[10px] ${toneClassName.value}`}>{metric.helper}</span>
+    </>
+  );
+  const className = `group relative flex flex-col items-center rounded-xl p-3 text-center transition-colors ${toneClassName.card}`;
+
+  if (metric.onClick) {
+    return (
+      <motion.button
+        type="button"
+        onClick={metric.onClick}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className={className}
+      >
+        {content}
+      </motion.button>
+    );
+  }
+
+  return <div className={className}>{content}</div>;
+}
+
+function resolvePostMatchMetricTone(
+  metric: StaticActivityMetric,
+): 'purple' | 'amber' | 'teal' | 'slate' {
+  if (metric.label.includes('받은')) return 'purple';
+  if (metric.label.includes('보낸')) return 'amber';
+  if (metric.label.includes('대화')) return 'teal';
+  return 'slate';
+}
+
+function PostMatchMatchedSummaryCard({
+  viewModel,
+  onNavigate,
+}: {
+  viewModel: HomeDashboardViewModel;
+  onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
+}) {
+  const [isProfileOpen, setProfileOpen] = useState(false);
+  const activeMatch = viewModel.matchingSummary.activeMatch;
+  const nickname = activeMatch?.nickname ?? viewModel.activeMatch?.partnerNickname ?? '상대';
+  const matchScore = activeMatch?.matchScore ?? viewModel.activeMatch?.matchScore ?? 0;
+
+  return (
+    <div className="rounded-3xl border border-emerald-100 bg-linear-to-br from-emerald-50 via-white to-cyan-50 p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-lg shadow-emerald-500/20">
+          <CheckCircle2 className="size-6" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold text-emerald-700">현재 매칭 상대</p>
+          <h3 className="mt-0.5 truncate text-xl font-extrabold text-(--knu-text-primary)">
+            {nickname}
+          </h3>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <PostMatchMatchedMetric
+          icon={UserRound}
+          label="매칭도"
+          value={`${matchScore}%`}
+          helper="프로필 기준"
+          tone="emerald"
+        />
+        <PostMatchMatchedMetric
+          icon={CalendarDays}
+          label="시즌 종료일"
+          value={viewModel.seasonEndDate || '확인 필요'}
+          helper="매칭 대화 유지 기준"
+          tone="cyan"
+        />
+        <PostMatchMatchedMetric
+          icon={MessageCircle}
+          label="채팅"
+          value={viewModel.capabilities.canStartChat ? '가능' : '닫힘'}
+          helper={viewModel.capabilities.canStartChat ? '시즌 종료 전까지' : '정책에 따라 제한'}
+          tone={viewModel.capabilities.canStartChat ? 'blue' : 'slate'}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setProfileOpen(true)}
+          className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+        >
+          <UserRound className="size-4" aria-hidden="true" />
+          상대 프로필 보기
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate('chat')}
+          className="flex items-center justify-center gap-2 rounded-2xl border border-cyan-200 bg-white px-4 py-3 text-sm font-bold text-cyan-700 transition-colors hover:bg-cyan-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+        >
+          <MessageCircle className="size-4" aria-hidden="true" />
+          채팅 바로가기
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+
+      {isProfileOpen && activeMatch && (
+        <PostMatchCounterpartProfileModal
+          activeMatch={activeMatch}
+          onClose={() => setProfileOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function PostMatchCounterpartProfileModal({
+  activeMatch,
+  onClose,
+}: {
+  activeMatch: NonNullable<HomeDashboardViewModel['matchingSummary']['activeMatch']>;
+  onClose: () => void;
+}) {
+  const summary = activeMatch.counterpartSummary?.profileSummary;
+  const intro = summary?.intro.trim() || '아직 소개 문구가 없어요.';
+
+  return (
+    <HomeResponsiveSheet
+      eyebrow="매칭 상대 프로필"
+      title={`${activeMatch.nickname}님`}
+      description="현재 확정된 매칭 상대의 시즌 프로필을 확인해요."
+      icon={UserRound}
+      onClose={onClose}
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="min-h-11 flex-1 rounded-xl bg-(--knu-primary) px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-(--knu-primary-dark)"
+        >
+          확인했어요
+        </button>
+      }
+    >
+      <div className="space-y-3">
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+          <p className="text-xs font-bold text-emerald-700">소개</p>
+          <p className="mt-2 text-sm leading-relaxed text-slate-700">{intro}</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <DetailRow label="닉네임" value={activeMatch.nickname} />
+          <DetailRow label="매칭도" value={`${activeMatch.matchScore}%`} />
+          <DetailRow label="흡연" value={formatProfileValue(summary?.smokingBehavior)} />
+          <DetailRow label="수면" value={formatProfileValue(summary?.sleepHabit)} />
+        </div>
+      </div>
+    </HomeResponsiveSheet>
+  );
+}
+
+function PostMatchMatchedMetric({
+  icon: Icon,
+  label,
+  value,
+  helper,
+  tone,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  helper: string;
+  tone: 'emerald' | 'cyan' | 'blue' | 'slate';
+}) {
+  const toneClassName = {
+    emerald: 'border-emerald-100 bg-emerald-50/75 text-emerald-700',
+    cyan: 'border-cyan-100 bg-cyan-50/75 text-cyan-700',
+    blue: 'border-blue-100 bg-blue-50/75 text-blue-700',
+    slate: 'border-slate-200 bg-white/80 text-slate-700',
+  }[tone];
+
+  return (
+    <div className={`rounded-2xl border p-3 ${toneClassName}`}>
+      <div className="flex items-center gap-2">
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
+        <span className="text-xs font-bold">{label}</span>
+      </div>
+      <p className="mt-2 text-lg font-extrabold">{value}</p>
+      <p className="mt-0.5 text-[11px] font-medium opacity-80">{helper}</p>
+    </div>
+  );
+}
+
+function PostMatchActivityButton({
+  icon: Icon,
+  label,
+  onClick,
+  variant,
+}: {
+  icon: React.ElementType;
+  label: string;
+  onClick: () => void;
+  variant: 'primary' | 'secondary';
+}) {
+  const className =
+    variant === 'primary'
+      ? 'border-(--knu-border) bg-(--knu-background-alt) text-(--knu-text-primary) hover:bg-gray-100'
+      : 'border-(--knu-border) bg-white text-(--knu-text-primary) hover:bg-(--knu-background-alt)';
+
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.98 }}
+      className={`flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors ${className}`}
+    >
+      <Icon className="h-4 w-4" aria-hidden="true" />
+      <span>{label}</span>
+    </motion.button>
+  );
+}
+
+function PostMatchDetailModal({
+  kind,
+  viewModel,
+  onClose,
+}: {
+  kind: PostMatchDetailModalKind | null;
+  viewModel: HomeDashboardViewModel;
+  onClose: () => void;
+}) {
+  if (!kind) return null;
+
+  const title = kind === 'activity' ? '이번 시즌 상세 보기' : '이번 시즌 프로필 확인';
+  const description =
+    kind === 'activity'
+      ? '이번 시즌의 내 요청, 대화, 매칭 결과를 요약해서 보여드려요.'
+      : '이번 시즌 참여 상태와 현재 계정 기준 프로필 정보를 함께 확인해요.';
+
+  return (
+    <HomeResponsiveSheet
+      eyebrow="이번 시즌"
+      title={title}
+      description={description}
+      icon={kind === 'activity' ? BarChart3 : UserRound}
+      onClose={onClose}
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="min-h-11 flex-1 rounded-xl bg-(--knu-primary) px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-(--knu-primary-dark)"
+        >
+          확인
+        </button>
+      }
+    >
+      {kind === 'activity' ? (
+        <OffSeasonActivityDetail lastSeason={viewModel.seasonSummary.lastSeason} />
+      ) : (
+        <PostMatchProfileDetail viewModel={viewModel} />
+      )}
+    </HomeResponsiveSheet>
+  );
+}
+
+function PostMatchProfileDetail({ viewModel }: { viewModel: HomeDashboardViewModel }) {
+  return (
+    <div className="space-y-3">
+      <DetailRow label="참여 시즌" value={viewModel.currentSeasonName} />
+      <DetailRow label="닉네임" value={viewModel.viewerIdentity.nickname} />
+      <DetailRow label="성별" value={viewModel.viewerIdentity.genderLabel} />
+      <DetailRow label="캠퍼스" value={viewModel.viewerIdentity.campusName} />
+      <DetailRow label="기숙사" value={viewModel.dormitory?.name ?? '미선택'} />
+      <div className="rounded-xl border border-(--knu-border) bg-(--knu-background-alt) px-4 py-3 text-xs leading-relaxed text-(--knu-text-secondary)">
+        이번 시즌 생활패턴 상세는 별도 이력 화면으로 확장될 예정이에요. 지금은 홈에서 확인 가능한
+        참여 상태와 계정 기준 정보를 먼저 보여드려요.
+      </div>
+    </div>
+  );
+}
+
 type OffSeasonDetailModalKind = 'activity' | 'profile';
 
 function OffSeasonActivityCard({
@@ -1086,8 +1638,8 @@ function ActivityStatCell({
 }: {
   icon: React.ElementType;
   label: string;
-  value: number;
-  tone: 'purple' | 'blue' | 'green';
+  value: number | string;
+  tone: 'purple' | 'blue' | 'green' | 'gray';
 }) {
   const toneClass = {
     purple: {
@@ -1101,6 +1653,10 @@ function ActivityStatCell({
     green: {
       icon: 'bg-green-100 text-green-600',
       value: 'text-green-600',
+    },
+    gray: {
+      icon: 'bg-slate-100 text-slate-600',
+      value: 'text-slate-700',
     },
   }[tone];
 
@@ -1274,6 +1830,16 @@ const STATIC_ACTIVITY_TONE_CLASS_NAMES: Record<
     eyebrow: 'text-slate-700',
     iconBox: 'bg-white text-slate-600 ring-1 ring-slate-200',
   },
+  postMatch: {
+    section: 'border-purple-100 bg-purple-50/70 shadow-sm',
+    eyebrow: 'text-purple-700',
+    iconBox: 'bg-white text-purple-700 ring-1 ring-purple-100',
+  },
+  postMatchMatched: {
+    section: 'border-emerald-100 bg-emerald-50/80 shadow-sm',
+    eyebrow: 'text-emerald-700',
+    iconBox: 'bg-white text-emerald-700 ring-1 ring-emerald-100',
+  },
 };
 
 const STATIC_ACTIVITY_METRIC_CLASS_NAMES: Record<
@@ -1299,6 +1865,16 @@ const STATIC_ACTIVITY_METRIC_CLASS_NAMES: Record<
     cell: 'backdrop-blur-md rounded-xl border border-blue-200/70 bg-blue-50/80 p-3 shadow-sm',
     icon: 'text-blue-600',
     value: 'text-blue-900',
+  },
+  matchSuccess: {
+    cell: 'backdrop-blur-md rounded-xl border border-emerald-200 bg-emerald-50/85 p-3 shadow-sm',
+    icon: 'text-emerald-600',
+    value: 'text-emerald-900',
+  },
+  result: {
+    cell: 'backdrop-blur-md rounded-xl border border-purple-200 bg-purple-50/80 p-3 shadow-sm',
+    icon: 'text-purple-600',
+    value: 'text-purple-900',
   },
 };
 
@@ -1345,4 +1921,19 @@ function StaticActivityMetricCell({ metric }: { metric: StaticActivityMetric }) 
   }
 
   return <div className={className}>{content}</div>;
+}
+
+function formatProfileValue(value: string | null | undefined): string {
+  if (!value) return '미입력';
+  const labels: Record<string, string> = {
+    NO: '비흡연',
+    YES: '흡연',
+    NONE: '해당 없음',
+    CLOSE: '가까운 교류',
+    RESPECTFUL: '적당한 거리',
+    QUIET: '조용한 편',
+    LATE: '늦은 편',
+    EARLY: '이른 편',
+  };
+  return labels[value] ?? value.replaceAll('_', ' ').toLowerCase();
 }

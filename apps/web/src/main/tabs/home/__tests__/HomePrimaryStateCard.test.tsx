@@ -9,7 +9,7 @@ import type { HomeDashboardResponse } from '@repo/shared/home';
 function renderCard({
   dashboard = createHomeDashboardTestResponse(),
   seasonState = dashboard.season.state ?? 'OFF_SEASON',
-  daysUntilEnd = dashboard.season.daysUntilMatchingEnd ?? 0,
+  daysUntilEnd = dashboard.season.daysUntilMatchingEnd ?? dashboard.season.daysUntilSeasonEnd ?? 0,
   onDeregisterSeasonParticipation = vi.fn(),
   renderedAt = new Date('2026-03-20T00:00:00+09:00').getTime(),
 }: {
@@ -446,9 +446,11 @@ describe('HomePrimaryStateCard', () => {
 
     renderCard({ dashboard, seasonState: 'SEASON_OPEN' });
 
+    expect(screen.getByText('시즌 오픈 · 참여 제한')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: '이번 시즌 참여가 제한됐어요' }),
     ).toBeInTheDocument();
+    expect(screen.getByText('시즌 참여 철회 후 재참여는 불가능해요')).toBeInTheDocument();
     expect(
       screen.getByText('시즌 재참여가 필요한 경우에 문의하기를 이용해주세요.'),
     ).toBeInTheDocument();
@@ -905,6 +907,8 @@ describe('HomePrimaryStateCard', () => {
         isOpen: false,
         isMatching: false,
         isPostMatch: true,
+        daysUntilMatchingEnd: null,
+        daysUntilSeasonEnd: 24,
       },
       viewer: {
         ...createHomeDashboardTestResponse().viewer,
@@ -943,9 +947,21 @@ describe('HomePrimaryStateCard', () => {
 
     renderCard({ dashboard, seasonState: 'SEASON_POST_MATCH' });
 
-    expect(screen.getByRole('heading', { name: '확정 결과를 확인해요' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /시즌 결과 보기/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /채팅 보기/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '2026년 2학기 매칭이 종료됐어요.' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('시즌 마감 정리 · 매칭 종료')).toBeInTheDocument();
+    expect(screen.getByText('이번 시즌 요약')).toBeInTheDocument();
+    expect(screen.getByText('매칭 완료')).toBeInTheDocument();
+    expect(screen.getByText('21쌍')).toBeInTheDocument();
+    expect(screen.getByText('매칭 시즌:')).toBeInTheDocument();
+    expect(screen.getByText('2026.08.01 ~ 2026.08.06')).toBeInTheDocument();
+    expect(screen.getByText('종료')).toBeInTheDocument();
+    expect(screen.getByText('2026.08.31')).toBeInTheDocument();
+    expect(screen.getByText('D-24')).toBeInTheDocument();
+    expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('매칭 시즌 종료');
+    expect(screen.queryByRole('button', { name: /채팅 바로가기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /시즌 결과 보기/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /룸메 찾기/ })).not.toBeInTheDocument();
   });
 });

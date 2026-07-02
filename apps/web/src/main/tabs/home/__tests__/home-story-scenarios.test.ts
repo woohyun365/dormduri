@@ -132,3 +132,107 @@ describe('homeStoryScenarios active match matrix', () => {
     });
   });
 });
+
+describe('homeStoryScenarios post-match matrix', () => {
+  const postMatchScenarioKeys = [
+    'postMatchNotRegistered',
+    'postMatchDeregistered',
+    'postMatchMatched',
+    'postMatchUnmatched',
+    'postMatchRegisteredNotMatched',
+    'postMatchUserHistory',
+    'postMatchRegistrationUnavailable',
+  ] as const;
+
+  it('exposes policy-based post-match story fixtures without a separate during-register duplicate', () => {
+    expect(postMatchScenarioKeys).toHaveLength(7);
+
+    postMatchScenarioKeys.forEach((key) => {
+      expect(homeStoryScenarios[key]).toBeDefined();
+      expect(homeStoryScenarios[key].dashboard.season.state).toBe('SEASON_POST_MATCH');
+      expect(homeStoryScenarios[key].dashboard.season.isPostMatch).toBe(true);
+      expect(homeStoryScenarios[key].dashboard.viewer.capabilities.canRequestMatch).toBe(false);
+      expect(
+        homeStoryScenarios[key].dashboard.viewer.capabilities.canFinalizeSeasonRegistration,
+      ).toBe(false);
+    });
+
+    expect(homeStoryScenarios).not.toHaveProperty('postMatchDuringRegister');
+  });
+
+  it('post-match not registered and de-registered states keep registration unavailable reasons explicit', () => {
+    expect(homeStoryScenarios.postMatchNotRegistered.dashboard.viewer.seasonProfile).toMatchObject({
+      registered: false,
+      hasParticipantRow: false,
+      completion: {
+        registrationUnavailable: true,
+        registrationUnavailableReasons: ['SEASON_NOT_OPEN'],
+      },
+    });
+    expect(homeStoryScenarios.postMatchNotRegistered.dashboard.viewer.capabilities).toMatchObject({
+      canEnterRoommateSearch: true,
+      canViewMatchHistory: false,
+    });
+
+    expect(homeStoryScenarios.postMatchDeregistered.dashboard.viewer.seasonProfile).toMatchObject({
+      intent: 'DECLINED',
+      registered: false,
+      completion: {
+        registrationUnavailable: true,
+        registrationUnavailableReasons: ['WITHDRAWN_OR_DECLINED_LOCK'],
+      },
+    });
+    expect(homeStoryScenarios.postMatchDeregistered.dashboard.viewer.capabilities).toMatchObject({
+      canEnterRoommateSearch: false,
+    });
+  });
+
+  it('post-match matched state preserves result-read active match and matched chat only', () => {
+    const dashboard = homeStoryScenarios.postMatchMatched.dashboard;
+
+    expect(dashboard.viewer.seasonProfile.registered).toBe(true);
+    expect(dashboard.viewer.match.hasActiveMatch).toBe(true);
+    expect(dashboard.matching.activeMatch).toMatchObject({
+      status: 'ACTIVE',
+      unmatchProgress: {
+        canRequest: false,
+        canCancel: false,
+        availableUntil: null,
+      },
+    });
+    expect(dashboard.viewer.capabilities).toMatchObject({
+      canStartChat: true,
+      canRequestMatch: false,
+    });
+  });
+
+  it('post-match unmatched and not-matched states distinguish final history semantics', () => {
+    expect(
+      homeStoryScenarios.postMatchUnmatched.dashboard.seasonHistorySummary.lastSeason
+        ?.viewerActivity.finalResult,
+    ).toBe('UNMATCHED_AFTER_SUCCESS');
+    expect(
+      homeStoryScenarios.postMatchRegisteredNotMatched.dashboard.seasonHistorySummary.lastSeason
+        ?.viewerActivity.finalResult,
+    ).toBe('NO_MATCH');
+  });
+
+  it('post-match registration unavailable represents the roomSelectionDate cutoff/during-register case as one state', () => {
+    const dashboard = homeStoryScenarios.postMatchRegistrationUnavailable.dashboard;
+
+    expect(dashboard.viewer.seasonProfile).toMatchObject({
+      intent: 'UNDECIDED',
+      registered: false,
+      profileExists: true,
+      profileState: 'COMPLETE',
+      completion: {
+        registrationUnavailable: true,
+        registrationUnavailableReasons: ['SEASON_NOT_OPEN'],
+      },
+      canFinalizeRegistration: false,
+    });
+    expect(homeStoryScenarios.postMatchRegistrationUnavailable.description).toContain(
+      'during register',
+    );
+  });
+});

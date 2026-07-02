@@ -108,6 +108,8 @@ export interface HomeDashboardViewerIdentityViewModel {
 export interface HomeDashboardViewModel {
   hasCurrentSeason: boolean;
   seasonState: SeasonState;
+  currentSeasonName: string;
+  seasonEndDate: string;
   daysUntilEnd: number;
   isSeasonOpen: boolean;
   isSeasonMatching: boolean;
@@ -228,6 +230,11 @@ export function buildHomeDashboardViewModel({
   return {
     hasCurrentSeason: dashboard.season.hasCurrentSeason,
     seasonState,
+    currentSeasonName:
+      dashboard.season.summary?.name ??
+      dashboard.seasonHistorySummary.lastSeason?.name ??
+      '이번 시즌',
+    seasonEndDate: resolveCurrentSeasonEndDate(dashboard),
     daysUntilEnd,
     isSeasonOpen: dashboard.season.isOpen,
     isSeasonMatching: dashboard.season.isMatching,
@@ -584,6 +591,13 @@ function calculateProgressPercent({
   const ratio = Math.min(1, Math.max(0, elapsed / duration));
 
   return Math.round(ratio * 100);
+}
+
+function resolveCurrentSeasonEndDate(dashboard: HomeDashboardResponse): string {
+  const rawSeasonEnd =
+    dashboard.season.schedule?.seasonEnd ?? dashboard.season.summary?.seasonEndDate ?? null;
+
+  return rawSeasonEnd ? formatDateDot(rawSeasonEnd) : '';
 }
 
 function buildSeasonSummaryViewModel({

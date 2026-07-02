@@ -1,17 +1,34 @@
 'use client';
 
-import { CalendarDays, CheckCircle2, CircleDashed, Clock3, Lock } from 'lucide-react';
+import {
+  CalendarDays,
+  CheckCircle2,
+  CircleDashed,
+  Clock3,
+  History,
+  Lock,
+  MessageCircle,
+  XCircle,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import { formatDateDot } from '../model/homeDateDisplay';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
-type ChecklistStatus = 'complete' | 'actionable' | 'locked' | 'blocked';
+type ChecklistStatus =
+  | 'complete'
+  | 'actionable'
+  | 'locked'
+  | 'blocked'
+  | 'readonly'
+  | 'closed'
+  | 'maintained';
 
 type ChecklistActionTarget = 'profile' | 'building' | 'list';
 
-type ChecklistIcon = 'clock' | 'progress' | 'lock';
+type ChecklistIcon = 'clock' | 'progress' | 'lock' | 'history' | 'chat' | 'closed';
 type ChecklistTone = 'amber';
 
 interface ChecklistItem {
@@ -35,20 +52,27 @@ interface HomeReadinessChecklistProps {
 export function HomeReadinessChecklist({ dashboard, viewModel }: HomeReadinessChecklistProps) {
   const items = buildReadinessChecklistItems({ dashboard, viewModel });
   const isSchedulePreview = !viewModel.hasCurrentSeason && viewModel.isCampusOperated;
+  const isPostMatch = viewModel.seasonState === 'SEASON_POST_MATCH';
 
   return (
     <section className={sectionCard()} aria-labelledby="home-readiness-title">
       <div className={sectionHeader}>
         <div>
           <p className="mb-1 text-xs font-bold text-(--knu-primary)">
-            {isSchedulePreview ? '시즌 일정' : '시즌 참여 준비'}
+            {isSchedulePreview ? '시즌 일정' : isPostMatch ? '마감 정리 안내' : '시즌 참여 준비'}
           </p>
           <h2 id="home-readiness-title" className="font-bold text-(--knu-text-primary)">
-            {isSchedulePreview ? '다음 시즌 안내를 확인해요' : '신청 전 필요한 항목을 확인해요'}
+            {isSchedulePreview
+              ? '다음 시즌 안내를 확인해요'
+              : isPostMatch
+                ? '결과 확인 항목을 확인해요'
+                : '신청 전 필요한 항목을 확인해요'}
           </h2>
         </div>
         {isSchedulePreview ? (
           <CalendarDays className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
+        ) : isPostMatch ? (
+          <History className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
         ) : (
           <CheckCircle2 className="w-5 h-5 text-(--knu-primary)" aria-hidden="true" />
         )}
@@ -130,6 +154,10 @@ export function buildReadinessChecklistItems({
     ];
   }
 
+  if (dashboard.season.state === 'SEASON_POST_MATCH') {
+    return buildPostMatchChecklistItems({ dashboard });
+  }
+
   const seasonProfile = dashboard.viewer.seasonProfile;
   const capabilities = dashboard.viewer.capabilities;
   const profileReady =
@@ -198,6 +226,47 @@ export function buildReadinessChecklistItems({
   ];
 }
 
+function buildPostMatchChecklistItems({
+  dashboard,
+}: {
+  dashboard: HomeDashboardResponse;
+}): ChecklistItem[] {
+  const hasMatchedChat =
+    dashboard.viewer.capabilities.canStartChat &&
+    (dashboard.viewer.match.hasActiveMatch || dashboard.matching.activeMatch !== null);
+
+  return [
+    {
+      id: 'post-match-actions-closed',
+      title: '새 참여·매칭 요청 종료',
+      description: '시즌 참여·매칭 요청은 마감 정리 기간에 닫혀요.',
+      status: 'closed',
+      icon: 'closed',
+    },
+    {
+      id: 'post-match-activity-read',
+      title: '이번 시즌 활동 확인',
+      description: '시즌 참여 여부와 요청·대화·매칭 결과를 확인해요.',
+      status: 'readonly',
+      icon: 'history',
+    },
+    {
+      id: 'post-match-matched-chat',
+      title: '매칭 상대 채팅 유지',
+      description: '매칭된 룸메와의 채팅은 시즌 종료일까지 가능해요.',
+      status: hasMatchedChat ? 'maintained' : 'closed',
+      icon: 'chat',
+    },
+    {
+      id: 'post-match-nonmatched-chat-closed',
+      title: '비매칭 대화 정리',
+      description: '매칭 상대 외의 대화는 읽기 전용으로 변경돼요.',
+      status: 'readonly',
+      icon: 'chat',
+    },
+  ];
+}
+
 function ReadinessItem({ item }: { item: ChecklistItem }) {
   const status = STATUS_COPY[item.status];
   const visual = item.tone ? TONE_COPY[item.tone] : status;
@@ -232,17 +301,23 @@ function ReadinessItem({ item }: { item: ChecklistItem }) {
   );
 }
 
-const STATUS_ICON: Record<ChecklistStatus, typeof CheckCircle2> = {
+const STATUS_ICON: Record<ChecklistStatus, LucideIcon> = {
   complete: CheckCircle2,
   actionable: CircleDashed,
   locked: Clock3,
   blocked: Lock,
+  readonly: History,
+  closed: XCircle,
+  maintained: MessageCircle,
 };
 
-const CHECKLIST_ICON: Record<ChecklistIcon, typeof CheckCircle2> = {
+const CHECKLIST_ICON: Record<ChecklistIcon, LucideIcon> = {
   clock: Clock3,
   progress: CircleDashed,
   lock: Lock,
+  history: History,
+  chat: MessageCircle,
+  closed: XCircle,
 };
 
 const STATUS_COPY: Record<
@@ -272,6 +347,24 @@ const STATUS_COPY: Record<
     iconClass: 'bg-rose-50 text-rose-600',
     badgeClass: 'bg-rose-50 text-rose-700',
     itemClass: 'border-rose-100 bg-rose-50/60',
+  },
+  readonly: {
+    label: '확인',
+    iconClass: 'bg-purple-50 text-purple-600',
+    badgeClass: 'bg-purple-50 text-purple-700',
+    itemClass: 'border-purple-100 bg-purple-50/50',
+  },
+  closed: {
+    label: '닫힘',
+    iconClass: 'bg-slate-100 text-slate-600',
+    badgeClass: 'bg-slate-100 text-slate-700',
+    itemClass: 'border-slate-200 bg-slate-50/70',
+  },
+  maintained: {
+    label: '유지',
+    iconClass: 'bg-blue-50 text-blue-600',
+    badgeClass: 'bg-blue-50 text-blue-700',
+    itemClass: 'border-blue-100 bg-blue-50/50',
   },
 };
 
