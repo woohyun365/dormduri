@@ -3,7 +3,7 @@
 import { X } from 'lucide-react';
 import type { ElementType, ReactNode } from 'react';
 
-export type HomeDialogTone = 'blue' | 'indigo';
+export type HomeDialogTone = 'blue' | 'indigo' | 'amber';
 
 type DialogIcon = ElementType<{ className?: string; 'aria-hidden'?: boolean }>;
 
@@ -30,6 +30,11 @@ const HEADER_TONE_CLASS_NAME: Record<
     header: 'bg-linear-to-br from-indigo-50 to-cyan-50',
     icon: 'bg-indigo-100 text-indigo-600',
     eyebrow: 'text-indigo-700',
+  },
+  amber: {
+    header: 'bg-linear-to-br from-amber-50 to-orange-50',
+    icon: 'bg-amber-100 text-amber-700',
+    eyebrow: 'text-amber-700',
   },
 };
 
