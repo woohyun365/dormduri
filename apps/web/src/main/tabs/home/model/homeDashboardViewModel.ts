@@ -4,7 +4,11 @@ import {
   isCampusOperated as isCampusOperatedFn,
 } from '@/constants/dormitory';
 import { isDormitoryAssigned } from '@/utils/dormitory';
-import { calcDaysUntilTimestamp, formatDateDot } from '@/main/tabs/home/model/homeDateDisplay';
+import {
+  calcDaysUntilTimestamp,
+  formatDateDot,
+  formatDateMonthDayDot,
+} from '@/main/tabs/home/model/homeDateDisplay';
 import type { ActiveMatch } from '@/types/match';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse, HomeDashboardStats } from '@repo/shared/home';
@@ -29,6 +33,7 @@ export interface HomeDashboardStatsBarViewModel {
   todayNewTotal: number;
   todayNewBuilding: number;
   matchSuccessCount: number;
+  todayMatchSuccessCount: number;
   urgency: 'normal' | 'warning' | 'critical';
 }
 
@@ -69,6 +74,7 @@ export interface HomeDashboardOperatedDormitoryViewModel {
   id: string;
   name: string;
   roomSelectionDate: string;
+  roomSelectionDateRaw: string;
 }
 
 export interface HomeDashboardTipViewModel {
@@ -77,6 +83,16 @@ export interface HomeDashboardTipViewModel {
   sentRequests: number;
   activeChats: number;
   unreadMessages: number;
+}
+
+export interface HomeDashboardMatchingWindowViewModel {
+  matchingStartDate: string;
+  matchingStartDateShort: string;
+  roomSelectionDate: string;
+  roomSelectionDateShort: string;
+  roomSelectionDormitoryName: string;
+  daysUntilRoomSelection: number;
+  progressPercent: number;
 }
 
 export interface HomeDashboardViewerIdentityViewModel {
@@ -107,6 +123,7 @@ export interface HomeDashboardViewModel {
   preparation: HomeDashboardPreparationViewModel;
   seasonSummary: HomeDashboardSeasonSummaryViewModel;
   operatedDormitories: HomeDashboardOperatedDormitoryViewModel[];
+  matchingWindow: HomeDashboardMatchingWindowViewModel | null;
   tip: HomeDashboardTipViewModel;
   capabilities: {
     canRequestMatch: boolean;
@@ -178,6 +195,7 @@ export function buildHomeDashboardViewModel({
   const dormitory = hasDashboardAssignedDormitory
     ? (getDormitoryById(selectedDormitoryId) ?? null)
     : null;
+  const rawActiveMatch = dashboard.matching.activeMatch ?? dashboard.viewer.match.activeMatch;
   const activeMatch = toHomeActiveMatch(dashboard);
   const seasonProfile = dashboard.viewer.seasonProfile;
   const hasSeasonProfile =
@@ -196,6 +214,14 @@ export function buildHomeDashboardViewModel({
     isCampusOperated,
     registrationReady,
     activeMatch,
+    rawActiveMatch,
+    renderedAt,
+  });
+  const operatedDormitories = buildOperatedDormitoryViewModel(dashboard);
+  const matchingWindow = buildMatchingWindowViewModel({
+    dashboard,
+    dormitoryName: dormitory?.name ?? null,
+    selectedDormitoryId,
     renderedAt,
   });
 
@@ -234,7 +260,8 @@ export function buildHomeDashboardViewModel({
       schedule,
       renderedAt,
     }),
-    operatedDormitories: buildOperatedDormitoryViewModel(dashboard),
+    operatedDormitories,
+    matchingWindow,
     tip: {
       seasonStatus: buildTipSeasonStatus({
         seasonState,
@@ -343,6 +370,10 @@ function buildStatsBarViewModel({
         : seasonState === 'OFF_SEASON' || seasonState === 'SEASON_POST_MATCH'
           ? stats.totalMatchSuccess
           : 0,
+    todayMatchSuccessCount:
+      seasonState === 'SEASON_MATCHING'
+        ? stats.todayMatchSuccessBuilding || stats.todayMatchSuccessTotal
+        : 0,
     urgency:
       seasonState === 'SEASON_MATCHING'
         ? daysUntilEnd <= 3
@@ -360,6 +391,7 @@ function buildMatchingSummaryViewModel({
   isCampusOperated,
   registrationReady,
   activeMatch,
+  rawActiveMatch,
   renderedAt,
 }: {
   dashboard: HomeDashboardResponse;
@@ -367,6 +399,7 @@ function buildMatchingSummaryViewModel({
   isCampusOperated: boolean;
   registrationReady: boolean;
   activeMatch: ActiveMatch | null;
+  rawActiveMatch: HomeDashboardResponse['matching']['activeMatch'];
   renderedAt: number;
 }): HomeDashboardMatchingSummaryViewModel {
   const receivedPending = dashboard.matching.recentReceivedRequests;
@@ -379,7 +412,7 @@ function buildMatchingSummaryViewModel({
     .filter((nickname): nickname is string => nickname.length > 0);
   const sentRequests = dashboard.matching.pendingSentCount;
   const receivedRequests = dashboard.matching.pendingReceivedCount;
-  const activeChats = 0;
+  const activeChats = dashboard.matching.activeChatThreadCount;
 
   let status: MatchingSummaryStatus;
   if (!isCampusOperated) status = 'NOT_OPERATED';
@@ -399,8 +432,28 @@ function buildMatchingSummaryViewModel({
     },
     activeMatch: activeMatch
       ? {
-          nickname: activeMatch.partnerNickname,
-          matchScore: activeMatch.matchScore,
+          id: rawActiveMatch?.id ?? activeMatch.matchId,
+          counterpartUserId: rawActiveMatch?.counterpartUserId ?? activeMatch.partnerUserId,
+          counterpartParticipantId: rawActiveMatch?.counterpartParticipantId ?? '',
+          nickname:
+            rawActiveMatch?.counterpartSummary?.profileSummary.nickname ??
+            rawActiveMatch?.counterpartNickname ??
+            activeMatch.partnerNickname,
+          matchScore: rawActiveMatch?.matchScore ?? activeMatch.matchScore,
+          matchedAt: rawActiveMatch?.startedAt ?? activeMatch.matchedAt,
+          unmatchProgress: rawActiveMatch?.unmatchProgress ?? {
+            state: 'NONE',
+            requestedByViewerAt: null,
+            requestedByCounterpartAt: null,
+            progressCount: 0,
+            requiredCount: 2,
+            canRequest: false,
+            canCancel: false,
+            availableUntil: null,
+          },
+          ...(rawActiveMatch?.counterpartSummary
+            ? { counterpartSummary: rawActiveMatch.counterpartSummary }
+            : {}),
           groupStage: activeMatch.groupStage,
           groupMemberCount: activeMatch.groupMemberCount,
           groupCapacity: activeMatch.groupCapacity,
@@ -453,8 +506,84 @@ function buildOperatedDormitoryViewModel(
         id: operation.dormitoryId,
         name: dormitory?.name ?? operation.dormitoryId,
         roomSelectionDate: formatDateDot(operation.roomSelectionDate),
+        roomSelectionDateRaw: operation.roomSelectionDate,
       };
     });
+}
+
+function buildMatchingWindowViewModel({
+  dashboard,
+  dormitoryName,
+  selectedDormitoryId,
+  renderedAt,
+}: {
+  dashboard: HomeDashboardResponse;
+  dormitoryName: string | null;
+  selectedDormitoryId: string | null;
+  renderedAt: number;
+}): HomeDashboardMatchingWindowViewModel | null {
+  if (!dashboard.season.hasCurrentSeason || !dashboard.season.schedule?.matchingStart) {
+    return null;
+  }
+
+  const selectedDormitoryOperation =
+    selectedDormitoryId === null
+      ? null
+      : (dashboard.season.operatedDormitories.find(
+          (operation) => operation.dormitoryId === selectedDormitoryId && operation.isOperated,
+        ) ?? null);
+  const roomSelectionDate =
+    selectedDormitoryOperation?.roomSelectionDate ?? dashboard.season.schedule.matchingEnd ?? null;
+
+  if (!roomSelectionDate) {
+    return null;
+  }
+
+  const matchingStartTs = toKstStartOfDayTimestamp(dashboard.season.schedule.matchingStart);
+  const roomSelectionEndTs = toKstEndOfDayTimestamp(roomSelectionDate);
+  const progressPercent = calculateProgressPercent({
+    startTs: matchingStartTs,
+    endTs: roomSelectionEndTs,
+    currentTs: renderedAt,
+  });
+
+  return {
+    matchingStartDate: formatDateDot(dashboard.season.schedule.matchingStart),
+    matchingStartDateShort: formatDateMonthDayDot(dashboard.season.schedule.matchingStart),
+    roomSelectionDate: formatDateDot(roomSelectionDate),
+    roomSelectionDateShort: formatDateMonthDayDot(roomSelectionDate),
+    roomSelectionDormitoryName:
+      dormitoryName ??
+      (selectedDormitoryOperation ? selectedDormitoryOperation.dormitoryId : '기숙사'),
+    daysUntilRoomSelection: calcDaysUntilTimestamp(roomSelectionEndTs, renderedAt),
+    progressPercent,
+  };
+}
+
+function toKstStartOfDayTimestamp(date: string): number {
+  return new Date(`${date}T00:00:00+09:00`).getTime();
+}
+
+function toKstEndOfDayTimestamp(date: string): number {
+  return new Date(`${date}T23:59:59.999+09:00`).getTime();
+}
+
+function calculateProgressPercent({
+  startTs,
+  endTs,
+  currentTs,
+}: {
+  startTs: number;
+  endTs: number;
+  currentTs: number;
+}): number {
+  const duration = endTs - startTs;
+  if (duration <= 0) return 100;
+
+  const elapsed = currentTs - startTs;
+  const ratio = Math.min(1, Math.max(0, elapsed / duration));
+
+  return Math.round(ratio * 100);
 }
 
 function buildSeasonSummaryViewModel({

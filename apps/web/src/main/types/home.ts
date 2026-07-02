@@ -5,6 +5,8 @@ export interface BuildingStatsSnapshot {
   todayNewBuilding: number;
   totalMatchSuccess: number;
   buildingMatchSuccess: number;
+  todayMatchSuccessTotal: number;
+  todayMatchSuccessBuilding: number;
 }
 
 export type PastSeasonPreset = 'none' | 'failed' | 'matched';

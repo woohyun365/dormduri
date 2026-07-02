@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowRight,
-  BarChart3,
   Building2,
   CalendarDays,
   CheckCircle2,
@@ -13,14 +12,20 @@ import {
   Clock3,
   History,
   Info,
+  Megaphone,
   MessageCircle,
   Search,
   ShieldAlert,
   UserRound,
   UserRoundCheck,
   Users,
+  X,
+  XCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { Z_INDEX } from '@/constants/ui';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
@@ -31,6 +36,7 @@ interface HomePrimaryStateCardProps {
   daysUntilEnd: number;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   onOpenBuildingSelect?: () => void;
+  onDeregisterSeasonParticipation?: () => Promise<void>;
 }
 
 type PrimaryTone =
@@ -39,6 +45,7 @@ type PrimaryTone =
   | 'amber'
   | 'purple'
   | 'cyan'
+  | 'red'
   | 'openRequired'
   | 'openPrep'
   | 'slate';
@@ -47,7 +54,7 @@ interface PrimaryAction {
   label: string;
   icon: React.ElementType;
   onClick: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'warning';
 }
 
 interface PrimaryInsight {
@@ -55,12 +62,37 @@ interface PrimaryInsight {
   value: string;
   icon: LucideIcon;
   iconClassName: string;
+  tone?: 'neutral' | 'participant' | 'buildingOpen' | 'buildingLocked' | 'matchSuccess';
+  helper?: string;
+  todayNewCount?: number;
+  onClick?: () => void;
 }
 
 interface PrimaryDateRow {
   label: string;
   value: string;
+  strongValue?: string;
   badge?: string;
+  pill?: string;
+  tone?: PrimaryDeadlineTone;
+  hideValueOnNarrow?: boolean;
+  hidePillOnNarrow?: boolean;
+  hideBadgeOnNarrow?: boolean;
+}
+
+interface PrimaryProgress {
+  label: string;
+  value: string;
+  percent: number;
+  tone?: PrimaryDeadlineTone;
+}
+
+type PrimaryDeadlineTone = 'normal' | 'warning' | 'critical';
+
+interface PrimarySuccessHighlight {
+  count: number;
+  text: string;
+  urgency: 'normal' | 'warning' | 'critical';
 }
 
 type PrimaryTaskStepStatus = 'complete' | 'actionable' | 'locked' | 'blocked';
@@ -104,8 +136,11 @@ interface PrimaryContent {
   notice?: PrimaryNotice;
   insights?: PrimaryInsight[];
   insightTitle?: string;
+  insightSubtitle?: string;
   dateSectionTitle?: string;
   dateRows?: PrimaryDateRow[];
+  progress?: PrimaryProgress;
+  successHighlight?: PrimarySuccessHighlight;
   meta?: string;
   helper?: string;
   policyHints?: PrimaryPolicyHint[];
@@ -165,6 +200,13 @@ const TONE_STYLES: Record<
     icon: 'text-cyan-700',
     accent: 'text-cyan-800',
   },
+  red: {
+    surface: 'bg-linear-to-r from-red-50 to-orange-50',
+    border: 'border-red-200',
+    status: 'bg-red-500',
+    icon: 'text-red-600',
+    accent: 'text-red-700',
+  },
   openRequired: {
     surface: 'bg-linear-to-r from-slate-50 via-sky-50 to-cyan-50',
     border: 'border-sky-200',
@@ -194,6 +236,66 @@ const NO_NEXT_SEASON_TITLE = '다음 시즌에 만나요.';
 const NO_NEXT_SEASON_BODY = '다음 시즌 일정은 학교 공식 일정에 맞춰 등록될 예정이에요.';
 const POLICY_HINT_ROTATION_MS = 5000;
 const POLICY_HINT_SIGNATURE_SEPARATOR = '\u001f';
+
+const DEADLINE_TONE_STYLES: Record<
+  PrimaryDeadlineTone,
+  {
+    fill: string;
+    text: string;
+    badge: string;
+    panel: string;
+  }
+> = {
+  normal: {
+    fill: 'bg-blue-500',
+    text: 'text-blue-700',
+    badge: 'bg-blue-500',
+    panel: 'border-blue-100 bg-blue-50/55',
+  },
+  warning: {
+    fill: 'bg-amber-500',
+    text: 'text-amber-700',
+    badge: 'bg-amber-500',
+    panel: 'border-amber-100 bg-amber-50/55',
+  },
+  critical: {
+    fill: 'bg-red-500',
+    text: 'text-red-700',
+    badge: 'bg-red-500',
+    panel: 'border-red-100 bg-red-50/55',
+  },
+};
+
+const PRIMARY_INSIGHT_TONE_CLASS_NAMES: Record<
+  NonNullable<PrimaryInsight['tone']>,
+  { cell: string; icon: string; value: string }
+> = {
+  neutral: {
+    cell: 'backdrop-blur-md rounded-xl border border-slate-200 bg-slate-50/85 p-3 shadow-sm',
+    icon: 'text-slate-500',
+    value: 'text-slate-800',
+  },
+  participant: {
+    cell: 'backdrop-blur-md rounded-xl border border-cyan-200 bg-cyan-50/90 p-3 shadow-sm',
+    icon: 'text-cyan-600',
+    value: 'text-cyan-900',
+  },
+  buildingOpen: {
+    cell: 'backdrop-blur-md rounded-xl border border-blue-200/70 bg-blue-50/80 p-3 shadow-sm',
+    icon: 'text-blue-600',
+    value: 'text-blue-900',
+  },
+  buildingLocked: {
+    cell: 'backdrop-blur-md rounded-xl border border-blue-200/70 bg-blue-50/80 p-3 shadow-sm',
+    icon: 'text-blue-600',
+    value: 'text-blue-900',
+  },
+  matchSuccess: {
+    cell: 'backdrop-blur-md rounded-xl border border-indigo-200 bg-indigo-50/85 p-3 shadow-sm',
+    icon: 'text-indigo-600',
+    value: 'text-indigo-900',
+  },
+};
 
 const TASK_STEP_STATUS_COPY: Record<
   PrimaryTaskStepStatus,
@@ -250,13 +352,16 @@ export function HomePrimaryStateCard({
   daysUntilEnd,
   onNavigate,
   onOpenBuildingSelect,
+  onDeregisterSeasonParticipation,
 }: HomePrimaryStateCardProps) {
+  const [isWithdrawalSheetOpen, setWithdrawalSheetOpen] = useState(false);
   const content = resolvePrimaryContent({
     viewModel,
     seasonState,
     daysUntilEnd,
     onNavigate,
     onOpenBuildingSelect,
+    onOpenWithdrawalSheet: () => setWithdrawalSheetOpen(true),
   });
   const tone = TONE_STYLES[content.tone];
   const Icon = content.icon;
@@ -325,60 +430,104 @@ export function HomePrimaryStateCard({
             </div>
           </div>
         )}
+        {content.progress && <PrimaryProgressBar progress={content.progress} />}
+        {content.progress && content.dateRows && content.dateRows.length > 0 && (
+          <PrimaryDateRows title={content.dateSectionTitle} rows={content.dateRows} />
+        )}
         {content.insights && content.insights.length > 0 && (
           <div className="border-t border-white/40 pt-3">
             {content.insightTitle && (
-              <p className={`mb-2 text-xs font-bold ${tone.accent}`}>{content.insightTitle}</p>
+              <div className="mb-2">
+                <p className={`text-xs font-bold ${tone.accent}`}>{content.insightTitle}</p>
+                {content.insightSubtitle && (
+                  <p className="mt-1 text-xs leading-relaxed text-(--knu-text-tertiary)">
+                    {content.insightSubtitle}
+                  </p>
+                )}
+              </div>
             )}
-            <dl
-              className={`grid gap-3 ${content.insights.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}
+            <div
+              className={`grid gap-3 ${content.insights.length === 2 ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}
             >
               {content.insights.map((insight) => {
                 const InsightIcon = insight.icon;
-
-                return (
-                  <div
-                    key={insight.label}
-                    className="rounded-xl border border-white/70 bg-white/75 p-3 text-center shadow-sm shadow-slate-200/60 backdrop-blur-sm"
-                  >
-                    <dt className="flex flex-col items-center gap-1.5 text-xs text-(--knu-text-tertiary)">
+                const compactTone = insight.tone
+                  ? PRIMARY_INSIGHT_TONE_CLASS_NAMES[insight.tone]
+                  : null;
+                const compactBody = compactTone ? (
+                  <>
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <InsightIcon className={`size-3.5 ${compactTone.icon}`} aria-hidden="true" />
+                      <p className="text-[11px] font-bold text-(--knu-text-tertiary)">
+                        {insight.label}
+                      </p>
+                    </div>
+                    <p
+                      className={`flex items-baseline gap-1 text-sm font-extrabold ${compactTone.value}`}
+                    >
+                      <span>{insight.value}</span>
+                      {insight.todayNewCount !== undefined && insight.todayNewCount > 0 && (
+                        <motion.span
+                          animate={{ scale: [1, 1.1, 1] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="text-xs font-bold text-green-600"
+                        >
+                          (+{insight.todayNewCount}명)
+                        </motion.span>
+                      )}
+                    </p>
+                    {insight.helper && (
+                      <p className="mt-0.5 text-[11px] text-(--knu-text-tertiary)">
+                        {insight.helper}
+                      </p>
+                    )}
+                  </>
+                ) : null;
+                const centeredBody = (
+                  <>
+                    <span className="flex flex-col items-center gap-1.5 text-xs text-(--knu-text-tertiary)">
                       <span
                         className={`flex h-7 w-7 items-center justify-center rounded-full ${insight.iconClassName}`}
                       >
                         <InsightIcon className="h-3.5 w-3.5" aria-hidden="true" />
                       </span>
                       <span>{insight.label}</span>
-                    </dt>
-                    <dd className="mt-1 text-base font-bold text-(--knu-text-primary)">
-                      {insight.value}
-                    </dd>
+                    </span>
+                    <span className="mt-1 block text-base font-bold text-(--knu-text-primary)">
+                      <span>{insight.value}</span>
+                      {insight.todayNewCount !== undefined && insight.todayNewCount > 0 && (
+                        <motion.span
+                          animate={{ scale: [1, 1.12, 1] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="ml-1 inline-flex items-center rounded-full bg-green-50 px-1.5 py-0.5 text-[11px] font-extrabold text-green-600 ring-1 ring-green-100"
+                        >
+                          (+{insight.todayNewCount}명)
+                        </motion.span>
+                      )}
+                    </span>
+                    {insight.helper && (
+                      <p className="mt-0.5 text-[11px] text-(--knu-text-tertiary)">
+                        {insight.helper}
+                      </p>
+                    )}
+                  </>
+                );
+                const metricBody = compactBody ?? centeredBody;
+                const metricClassName = compactTone
+                  ? compactTone.cell
+                  : 'rounded-xl border border-white/70 bg-white/75 p-3 text-center shadow-sm shadow-slate-200/60 backdrop-blur-sm transition-colors';
+
+                return (
+                  <div key={insight.label} className={metricClassName}>
+                    {metricBody}
                   </div>
                 );
               })}
-            </dl>
-          </div>
-        )}
-        {content.dateRows && content.dateRows.length > 0 && (
-          <div className="space-y-2 rounded-xl border border-white/70 bg-white/70 p-3 shadow-sm shadow-slate-200/50 backdrop-blur-sm">
-            {content.dateSectionTitle && (
-              <p className="text-xs font-bold text-slate-700">{content.dateSectionTitle}</p>
-            )}
-            <div className="space-y-1.5">
-              {content.dateRows.map((row) => (
-                <div key={row.label} className="flex items-center justify-between gap-3 text-xs">
-                  <span className="font-semibold text-slate-700">{row.label}:</span>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-slate-700">{row.value}</span>
-                    {row.badge && (
-                      <span className="rounded-full bg-blue-500 px-2 py-0.5 text-xs font-bold text-white">
-                        {row.badge}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
+        )}
+        {!content.progress && content.dateRows && content.dateRows.length > 0 && (
+          <PrimaryDateRows title={content.dateSectionTitle} rows={content.dateRows} />
         )}
         {content.notice && (
           <div
@@ -391,6 +540,9 @@ export function HomePrimaryStateCard({
             </span>
             <p>{content.notice.text}</p>
           </div>
+        )}
+        {content.successHighlight && (
+          <PrimarySuccessHighlightText highlight={content.successHighlight} />
         )}
         {content.policyHints && content.policyHints.length > 0 ? (
           <PrimaryPolicyHintRotator
@@ -414,7 +566,257 @@ export function HomePrimaryStateCard({
           </div>
         )}
       </div>
+      {isWithdrawalSheetOpen && (
+        <PrimaryWithdrawalSheet
+          onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
+          onClose={() => setWithdrawalSheetOpen(false)}
+        />
+      )}
     </motion.section>
+  );
+}
+
+function PrimaryProgressBar({ progress }: { progress: PrimaryProgress }) {
+  const progressTone = DEADLINE_TONE_STYLES[progress.tone ?? 'normal'];
+
+  return (
+    <div
+      className={`rounded-xl border p-3 shadow-sm shadow-slate-200/50 backdrop-blur-sm ${DEADLINE_TONE_STYLES.normal.panel}`}
+    >
+      <div className="mb-1.5 flex items-center justify-between gap-3">
+        <span className="text-xs text-(--knu-text-tertiary)">{progress.label}</span>
+        <span className={`text-xs font-bold ${progressTone.text}`}>{progress.value}</span>
+      </div>
+      <div className="relative h-2.5 overflow-hidden rounded-full bg-white shadow-inner ring-1 ring-blue-100/80">
+        <motion.div
+          className={`absolute inset-y-0 left-0 rounded-full ${progressTone.fill}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${progress.percent}%` }}
+          transition={{ duration: 1, ease: 'easeOut' }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PrimaryDateRows({ title, rows }: { title?: string; rows: PrimaryDateRow[] }) {
+  const sectionTone = rows.find((row) => row.tone)?.tone;
+  const sectionClassName = sectionTone
+    ? DEADLINE_TONE_STYLES[sectionTone].panel
+    : 'border-white/70 bg-white/70';
+
+  return (
+    <div
+      className={`space-y-2 rounded-xl border p-3 shadow-sm shadow-slate-200/50 backdrop-blur-sm ${sectionClassName}`}
+    >
+      {title && <p className="text-xs font-bold text-slate-700">{title}</p>}
+      <div className="space-y-1.5">
+        {rows.map((row) => {
+          const rowTone = row.tone ? DEADLINE_TONE_STYLES[row.tone] : null;
+
+          return (
+            <div key={row.label} className="flex items-center justify-between gap-3 text-xs">
+              <span className={`font-semibold ${rowTone?.text ?? 'text-slate-700'}`}>
+                {row.label}:
+              </span>
+              <div className="flex min-w-0 items-center gap-2">
+                {row.pill && (
+                  <span
+                    className={`${row.hidePillOnNarrow ? 'hidden min-[360px]:inline-flex' : 'inline-flex'} shrink-0 rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-bold ring-1 ring-white/80 ${rowTone?.text ?? 'text-slate-700'}`}
+                  >
+                    {row.pill}
+                  </span>
+                )}
+                <span
+                  className={`${row.hideValueOnNarrow ? 'hidden min-[360px]:inline' : 'inline'} truncate ${rowTone?.text ?? 'text-slate-700'}`}
+                >
+                  {row.value}
+                </span>
+                {row.strongValue && (
+                  <strong
+                    className={`shrink-0 font-extrabold ${rowTone?.text ?? 'text-slate-800'}`}
+                  >
+                    {row.strongValue}
+                  </strong>
+                )}
+                {row.badge && (
+                  <span
+                    className={`${row.hideBadgeOnNarrow ? 'hidden min-[360px]:inline-flex' : 'inline-flex'} rounded-full px-2 py-0.5 text-xs font-bold text-white ${rowTone?.badge ?? 'bg-blue-500'}`}
+                  >
+                    {row.badge}
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PrimarySuccessHighlightText({ highlight }: { highlight: PrimarySuccessHighlight }) {
+  const tone =
+    highlight.urgency === 'critical'
+      ? {
+          text: 'text-rose-900',
+          number: 'text-rose-600',
+          colors: ['#e11d48', '#9f1239', '#e11d48'],
+        }
+      : highlight.urgency === 'warning'
+        ? {
+            text: 'text-amber-950',
+            number: 'text-amber-700',
+            colors: ['#b45309', '#92400e', '#b45309'],
+          }
+        : {
+            text: 'text-indigo-900/80',
+            number: 'text-purple-600',
+            colors: ['#9333ea', '#6b21a8', '#9333ea'],
+          };
+
+  return (
+    <motion.p
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0, scale: [1, 1.012, 1] }}
+      transition={{
+        opacity: { duration: 0.35 },
+        y: { duration: 0.35 },
+        scale: { duration: 2.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 },
+      }}
+      className={`rounded-xl px-3 py-2.5 text-sm font-semibold ${tone.text}`}
+    >
+      <Megaphone className="mr-1 inline-block h-3.5 w-3.5 align-text-bottom" />
+      {highlight.text}{' '}
+      <motion.span
+        animate={{ color: tone.colors }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+        className={`text-base font-extrabold ${tone.number}`}
+      >
+        {highlight.count}명
+      </motion.span>
+      이 룸메 매칭을 확정했어요.
+    </motion.p>
+  );
+}
+
+function PrimaryWithdrawalSheet({
+  onDeregisterSeasonParticipation,
+  onClose,
+}: {
+  onDeregisterSeasonParticipation?: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [isSubmitting, setSubmitting] = useState(false);
+  const canSubmit = Boolean(onDeregisterSeasonParticipation);
+  const containerRef = useFocusTrap(true, onClose);
+
+  useBodyScrollLock(true);
+
+  const handleDeregister = async () => {
+    if (!onDeregisterSeasonParticipation) return;
+
+    setSubmitting(true);
+    let shouldClose = false;
+    try {
+      await onDeregisterSeasonParticipation();
+      shouldClose = true;
+    } catch {
+      // Parent action owns the user-facing error toast; keep the sheet open for retry.
+    } finally {
+      setSubmitting(false);
+    }
+
+    if (shouldClose) onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 flex items-end justify-center overflow-hidden overscroll-none bg-slate-950/40 px-0 pb-0 pt-4 sm:px-4 sm:pb-4 md:items-center md:py-4"
+      style={{ zIndex: Z_INDEX.bottomSheet }}
+    >
+      <button
+        type="button"
+        aria-label="시즌 참여 철회 닫기"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+      />
+      <motion.div
+        ref={containerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="시즌 참여 철회"
+        tabIndex={-1}
+        initial={{ opacity: 0, y: 24, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="relative flex h-[min(560px,calc(100dvh-1rem))] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[min(620px,calc(100dvh-2rem))] sm:rounded-3xl"
+      >
+        <div className="flex items-start gap-3 border-b border-(--knu-border) px-5 py-4">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+            <XCircle className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-amber-700">시즌 참여</p>
+            <h3 className="mt-0.5 text-lg font-extrabold text-(--knu-text-primary)">
+              시즌 참여 철회
+            </h3>
+            <p className="mt-1 text-sm leading-relaxed text-(--knu-text-secondary)">
+              철회 전 이번 시즌 참여 상태와 매칭 활동에 미치는 영향을 확인해주세요.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="시즌 참여 철회 닫기"
+            className="rounded-full p-2 text-(--knu-text-tertiary) transition-colors hover:bg-gray-100 hover:text-(--knu-text-primary)"
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+          <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
+            철회하면 이번 시즌 참여자 풀에서 빠지고 같은 시즌에는 다시 참여할 수 없어요.
+          </div>
+          <dl className="space-y-2">
+            <DetailRow label="현재 상태" value="시즌 참여 완료" />
+            <DetailRow label="적용 시즌" value="현재 시즌" />
+            <DetailRow label="재참여" value="같은 시즌 재참여 불가" />
+          </dl>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-(--knu-text-secondary)">
+            진행 중인 요청과 비매칭 대화는 철회 상태로 정리돼요. 이미 확정된 매칭이 있으면 사용자가
+            직접 철회할 수 없고 별도 안내가 필요해요.
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-(--knu-border) bg-white px-5 py-4 sm:flex-row">
+          <button
+            type="button"
+            onClick={handleDeregister}
+            disabled={!canSubmit || isSubmitting}
+            className="min-h-11 flex-1 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-900 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSubmitting ? '처리 중...' : '시즌 참여 철회하기'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-11 flex-1 rounded-xl bg-(--knu-primary) px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-(--knu-primary-dark)"
+          >
+            닫기
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+      <dt className="text-xs font-bold text-(--knu-text-tertiary)">{label}</dt>
+      <dd className="text-right text-sm font-bold text-(--knu-text-primary)">{value}</dd>
+    </div>
   );
 }
 
@@ -514,10 +916,12 @@ function resolvePrimaryContent({
   daysUntilEnd,
   onNavigate,
   onOpenBuildingSelect,
-}: HomePrimaryStateCardProps): PrimaryContent {
+  onOpenWithdrawalSheet,
+}: Omit<HomePrimaryStateCardProps, 'onDeregisterSeasonParticipation'> & {
+  onOpenWithdrawalSheet?: () => void;
+}): PrimaryContent {
   const goProfile = () => onNavigate('profile');
   const goList = () => onNavigate('list');
-  const goCurrentMatching = () => onNavigate('matching', { section: 'current' });
   const goPastMatching = () => onNavigate('matching', { section: 'past' });
   const goChat = () => onNavigate('chat');
   const openBuildingSelect = () => onOpenBuildingSelect?.();
@@ -568,6 +972,7 @@ function resolvePrimaryContent({
       tone: 'slate',
       insights: buildOffSeasonInsights(viewModel),
       insightTitle: buildOffSeasonInsights(viewModel).length > 0 ? '이전 시즌 요약' : undefined,
+      insightSubtitle: buildOffSeasonInsightSubtitle(viewModel),
       dateRows: hasNextSeasonPreview ? buildOffSeasonDateRows(viewModel) : undefined,
       policyHints: buildOffSeasonPolicyHints(viewModel),
       policyHintAriaLabel: '비시즌 안내',
@@ -595,70 +1000,12 @@ function resolvePrimaryContent({
       });
     }
 
-    if (viewModel.hasActiveMatch) {
-      return {
-        eyebrow: '매칭 확정',
-        title: '확정된 룸메 결과를 확인해요',
-        body: `${viewModel.activeMatch?.partnerNickname ?? '상대'}님과 매칭이 확정되어 있어요. 호실 선택은 학교 시스템에서 진행해 주세요.`,
-        icon: CheckCircle2,
-        tone: 'green',
-        action: { label: '매칭 현황 보기', icon: BarChart3, onClick: goCurrentMatching },
-        secondaryAction: viewModel.capabilities.canStartChat
-          ? { label: '채팅 보기', icon: MessageCircle, onClick: goChat, variant: 'secondary' }
-          : undefined,
-        insights: [
-          {
-            label: '상대',
-            value: viewModel.activeMatch?.partnerNickname ?? '확정',
-            icon: UserRound,
-            iconClassName: 'bg-green-50 text-green-600',
-          },
-          {
-            label: '상태',
-            value: '매칭 확정',
-            icon: CheckCircle2,
-            iconClassName: 'bg-green-50 text-green-600',
-          },
-          {
-            label: '종료',
-            value: daysUntilEnd > 0 ? `D-${daysUntilEnd}` : '정리 중',
-            icon: Clock3,
-            iconClassName: 'bg-blue-50 text-blue-600',
-          },
-        ],
-        helper: daysUntilEnd > 0 ? `시즌 매칭 종료까지 D-${daysUntilEnd}` : undefined,
-      };
-    }
-
-    if (viewModel.matchingSummary.stats.receivedRequests > 0) {
-      return {
-        eyebrow: '응답 필요',
-        title: '도착한 매칭 요청을 확인해요',
-        body: `받은 요청 ${viewModel.matchingSummary.stats.receivedRequests}건이 있어요. 상대 프로필을 확인하고 수락 여부를 결정해보세요.`,
-        icon: MessageCircle,
-        tone: 'purple',
-        action: { label: '받은 요청 보기', icon: BarChart3, onClick: goCurrentMatching },
-        insights: buildMatchingInsights(viewModel, daysUntilEnd),
-        helper: daysUntilEnd > 0 ? `매칭 종료까지 D-${daysUntilEnd}` : undefined,
-      };
-    }
-
-    return {
-      eyebrow: '매칭 진행 중',
-      title: '같은 기숙사 룸메 후보를 찾아보세요',
-      body: '생활패턴이 잘 맞는 후보를 보고 대화하거나 매칭 요청을 보낼 수 있어요.',
-      icon: Search,
-      tone: 'blue',
-      action: { label: '룸메 찾기', icon: Search, onClick: goList },
-      secondaryAction: {
-        label: '매칭 현황 보기',
-        icon: BarChart3,
-        onClick: goCurrentMatching,
-        variant: 'secondary',
-      },
-      insights: buildMatchingInsights(viewModel, daysUntilEnd),
-      helper: daysUntilEnd > 0 ? `매칭 종료까지 D-${daysUntilEnd}` : undefined,
-    };
+    return resolveSeasonMatchingRegisteredPrimaryContent({
+      viewModel,
+      daysUntilEnd,
+      goList,
+      onOpenWithdrawalSheet,
+    });
   }
 
   if (seasonState === 'SEASON_POST_MATCH') {
@@ -693,11 +1040,94 @@ function resolvePrimaryContent({
     tone: 'slate',
     insights: buildOffSeasonInsights(viewModel),
     insightTitle: buildOffSeasonInsights(viewModel).length > 0 ? '이전 시즌 요약' : undefined,
+    insightSubtitle: buildOffSeasonInsightSubtitle(viewModel),
     dateRows: viewModel.seasonSummary.hasNextSeasonPreview
       ? buildOffSeasonDateRows(viewModel)
       : undefined,
     policyHints: buildOffSeasonPolicyHints(viewModel),
     policyHintAriaLabel: '비시즌 안내',
+  };
+}
+
+function resolveSeasonMatchingRegisteredPrimaryContent({
+  viewModel,
+  daysUntilEnd,
+  goList,
+  onOpenWithdrawalSheet,
+}: {
+  viewModel: HomeDashboardViewModel;
+  daysUntilEnd: number;
+  goList: () => void;
+  onOpenWithdrawalSheet?: () => void;
+}): PrimaryContent {
+  const matchingWindow = viewModel.matchingWindow;
+  const progressTone = resolveMatchingProgressTone(matchingWindow?.progressPercent);
+  const progress = matchingWindow
+    ? {
+        label: '시즌 진행률',
+        value: `${matchingWindow.progressPercent}%`,
+        percent: matchingWindow.progressPercent,
+        tone: progressTone,
+      }
+    : undefined;
+  const dateRows = buildSeasonMatchingDateRows(viewModel);
+  const insights = buildSeasonMatchingMetrics(viewModel);
+  const successHighlight = buildSeasonMatchingSuccessHighlight(viewModel, daysUntilEnd);
+  const policyHints = viewModel.hasActiveMatch
+    ? buildSeasonMatchingActiveMatchPolicyHints()
+    : buildSeasonMatchingRegisteredPolicyHints();
+  const base = {
+    eyebrow: '시즌 매칭 · 매칭 현황',
+    progress,
+    dateRows,
+    insights,
+    insightTitle: '이번 시즌 현황',
+    successHighlight,
+    policyHints,
+    policyHintAriaLabel: '시즌 매칭 안내',
+    title: viewModel.hasActiveMatch
+      ? '호실 선택은 학교 서비스를 이용해요.'
+      : '나와 잘 맞는 룸메이트를 찾아보세요.',
+    icon: CalendarDays,
+    tone: 'blue',
+  } satisfies Partial<PrimaryContent>;
+
+  if (viewModel.hasActiveMatch) {
+    return {
+      ...base,
+      title: '확정된 룸메이트와 남은 일정을 확인해요.',
+    };
+  }
+
+  const withdrawalAction: PrimaryAction | undefined = onOpenWithdrawalSheet
+    ? {
+        label: '시즌 참여 철회하기',
+        icon: XCircle,
+        onClick: onOpenWithdrawalSheet,
+        variant: 'warning',
+      }
+    : undefined;
+
+  if (viewModel.matchingSummary.stats.receivedRequests > 0) {
+    return {
+      ...base,
+      action: { label: '룸메이트 찾기', icon: Search, onClick: goList },
+      secondaryAction: withdrawalAction,
+    };
+  }
+
+  if (viewModel.matchingSummary.stats.sentRequests > 0) {
+    return {
+      ...base,
+      action: { label: '룸메이트 찾기', icon: Search, onClick: goList },
+      secondaryAction: withdrawalAction,
+    };
+  }
+
+  return {
+    ...base,
+    action: { label: '룸메이트 찾기', icon: Search, onClick: goList },
+    secondaryAction: withdrawalAction,
   };
 }
 
@@ -722,7 +1152,7 @@ function resolveSeasonOpenPrimaryContent({
   const needsBuilding = !viewModel.preparation.hasBuilding;
   const isRegistered = viewModel.preparation.registrationReady;
   const steps = buildSeasonOpenTaskSteps(viewModel);
-  const dateRows = buildSeasonOpenDateRows(viewModel);
+  const dateRows = buildSeasonOpenDateRows(viewModel, phaseLabel);
 
   if (hasReason('NO_SELECTABLE_DORMITORY')) {
     return {
@@ -888,6 +1318,7 @@ function buildSeasonOpenTaskSteps(viewModel: HomeDashboardViewModel): PrimaryTas
   const profileReady = viewModel.preparation.hasSeasonProfile;
   const buildingReady = viewModel.preparation.hasBuilding;
   const registrationReady = viewModel.preparation.registrationReady;
+  const participationLocked = reasons.includes('WITHDRAWN_OR_DECLINED_LOCK');
   const registrationActionable =
     profileReady && buildingReady && !registrationReady && reasons.length === 0;
 
@@ -914,14 +1345,28 @@ function buildSeasonOpenTaskSteps(viewModel: HomeDashboardViewModel): PrimaryTas
     },
     {
       id: 'registration',
-      label: '참여 신청',
-      status: registrationReady ? 'complete' : registrationActionable ? 'actionable' : 'locked',
-      statusLabel: registrationReady ? '완료' : registrationActionable ? '가능' : '대기',
+      label: '시즌 참여 신청',
+      status: registrationReady
+        ? 'complete'
+        : participationLocked
+          ? 'blocked'
+          : registrationActionable
+            ? 'actionable'
+            : 'locked',
+      statusLabel: registrationReady
+        ? '완료'
+        : participationLocked
+          ? '불가'
+          : registrationActionable
+            ? '가능'
+            : '대기',
       helper: registrationReady
         ? '룸메 후보 보기 가능'
-        : registrationActionable
-          ? '지금 신청 가능'
-          : '조건 완료 후 가능',
+        : participationLocked
+          ? '문의하기에서 확인'
+          : registrationActionable
+            ? '지금 신청 가능'
+            : '조건 완료 후 가능',
     },
   ];
 }
@@ -1007,7 +1452,24 @@ function buildSeasonOpenContextualHint(context: SeasonOpenPolicyHintContext): Pr
   }
 }
 
-function buildSeasonOpenDateRows(viewModel: HomeDashboardViewModel): PrimaryDateRow[] | undefined {
+function buildSeasonOpenDateRows(
+  viewModel: HomeDashboardViewModel,
+  phaseLabel: '시즌 오픈' | '시즌 매칭',
+): PrimaryDateRow[] | undefined {
+  if (phaseLabel === '시즌 매칭') {
+    return [
+      {
+        label: '매칭 시즌',
+        value: `${viewModel.preparation.seasonStartDate ?? '시즌 매칭'} ~`,
+        strongValue: '진행 중',
+        badge: '참여 가능',
+        tone: 'normal',
+        hideValueOnNarrow: true,
+        hideBadgeOnNarrow: true,
+      },
+    ];
+  }
+
   if (!viewModel.preparation.seasonStartDate) {
     return undefined;
   }
@@ -1068,7 +1530,7 @@ function buildSeasonOpenBlockedContent({
       tone: 'slate',
       steps,
       dateRows,
-      notice: { tone: 'warning', text: '상태 변경이 필요하면 운영 안내를 확인해주세요.' },
+      notice: { tone: 'warning', text: '시즌 재참여가 필요한 경우에 문의하기를 이용해주세요.' },
     };
   }
 
@@ -1154,6 +1616,16 @@ function buildOffSeasonInsights(viewModel: HomeDashboardViewModel): PrimaryInsig
   ];
 }
 
+function buildOffSeasonInsightSubtitle(viewModel: HomeDashboardViewModel): string | undefined {
+  const lastSeason = viewModel.seasonSummary.lastSeason;
+
+  if (!lastSeason) {
+    return undefined;
+  }
+
+  return `${viewModel.campusName} · 남/여 전체 기준`;
+}
+
 function buildOffSeasonDateRows(viewModel: HomeDashboardViewModel): PrimaryDateRow[] {
   return [
     {
@@ -1164,28 +1636,161 @@ function buildOffSeasonDateRows(viewModel: HomeDashboardViewModel): PrimaryDateR
   ];
 }
 
-function buildMatchingInsights(
+function resolveMatchingProgressTone(progressPercent?: number): PrimaryDeadlineTone {
+  if (progressPercent !== undefined && progressPercent >= 90) return 'critical';
+  if (progressPercent !== undefined && progressPercent >= 70) return 'warning';
+
+  return 'normal';
+}
+
+function buildSeasonMatchingDateRows(
   viewModel: HomeDashboardViewModel,
-  daysUntilEnd: number,
-): PrimaryInsight[] {
+): PrimaryDateRow[] | undefined {
+  const matchingWindow = viewModel.matchingWindow;
+  if (!matchingWindow) {
+    return undefined;
+  }
+
   return [
     {
-      label: '받은 요청',
-      value: `${viewModel.matchingSummary.stats.receivedRequests}건`,
+      label: '매칭 시즌',
+      value: `${matchingWindow.matchingStartDate} ~ ${matchingWindow.roomSelectionDate}`,
+      tone: 'normal',
+    },
+    {
+      label: '호실 선택일',
+      value: matchingWindow.roomSelectionDate,
+      pill: `${matchingWindow.roomSelectionDormitoryName} 기준`,
+      tone: 'normal',
+      hidePillOnNarrow: true,
+      badge:
+        matchingWindow.daysUntilRoomSelection > 0
+          ? `D-${matchingWindow.daysUntilRoomSelection}`
+          : '오늘',
+    },
+  ];
+}
+
+function buildSeasonMatchingMetrics(viewModel: HomeDashboardViewModel): PrimaryInsight[] {
+  return [
+    {
+      label: '이번 시즌 참여자',
+      value: `${viewModel.statsBar.totalCount}명`,
+      helper: `${viewModel.campusName} 기준`,
+      icon: UserRound,
+      iconClassName: 'bg-cyan-50 text-cyan-600',
+      tone: 'participant',
+      todayNewCount: viewModel.statsBar.todayNewTotal,
+    },
+    {
+      label: '내 건물 참여자',
+      value: `${viewModel.statsBar.buildingCount}명`,
+      helper: `${viewModel.dormitory?.name ?? '내 건물'} 기준`,
+      icon: Building2,
+      iconClassName: 'bg-blue-50 text-blue-600',
+      tone: 'buildingOpen',
+      todayNewCount: viewModel.statsBar.todayNewBuilding,
+    },
+    {
+      label: '매칭 성공',
+      value: `${viewModel.statsBar.matchSuccessCount}명`,
+      helper: `${viewModel.campusName} 기준`,
+      icon: Users,
+      iconClassName: 'bg-indigo-50 text-indigo-600',
+      tone: 'matchSuccess',
+      todayNewCount: viewModel.statsBar.todayMatchSuccessCount,
+    },
+  ];
+}
+
+function buildSeasonMatchingSuccessHighlight(
+  viewModel: HomeDashboardViewModel,
+  daysUntilEnd: number,
+): PrimarySuccessHighlight | undefined {
+  const count = viewModel.statsBar.matchSuccessCount;
+  if (count <= 0) {
+    return undefined;
+  }
+
+  if (daysUntilEnd <= 3) {
+    return {
+      count,
+      text: `시즌 종료까지 D-${daysUntilEnd},`,
+      urgency: 'critical',
+    };
+  }
+
+  if (daysUntilEnd <= 7) {
+    return {
+      count,
+      text: `시즌 종료까지 D-${daysUntilEnd},`,
+      urgency: 'warning',
+    };
+  }
+
+  return {
+    count,
+    text: '이번 시즌, 벌써',
+    urgency: 'normal',
+  };
+}
+
+function buildSeasonMatchingActiveMatchPolicyHints(): PrimaryPolicyHint[] {
+  return [
+    {
+      label: '매칭 확정',
+      text: `룸메이트 매칭이 확정됐어요. 다른 유저와의 대화·매칭 요청은 닫혀요.`,
+      icon: UserRoundCheck,
+      iconClassName: 'text-indigo-600',
+    },
+    {
+      label: '호실 선택',
+      text: '실제 호실 선택은 룸메와 학교 홈페이지에서 진행해요.',
+      icon: Building2,
+      iconClassName: 'text-cyan-600',
+    },
+    {
+      label: '채팅',
+      text: '매칭 상대와의 채팅은 시즌 종료일까지 이어질 수 있어요.',
       icon: MessageCircle,
-      iconClassName: 'bg-purple-50 text-purple-600',
+      iconClassName: 'text-blue-600',
     },
     {
-      label: '보낸 요청',
-      value: `${viewModel.matchingSummary.stats.sentRequests}건`,
-      icon: ArrowRight,
-      iconClassName: 'bg-blue-50 text-blue-600',
+      label: '매칭 해제',
+      text: '해제는 양쪽이 요청해야 완료돼요. 상대와 원활한 소통으로 해결해요.',
+      icon: ShieldAlert,
+      iconClassName: 'text-rose-500',
+    },
+  ];
+}
+
+function buildSeasonMatchingRegisteredPolicyHints(): PrimaryPolicyHint[] {
+  const roomSelectionText = '매칭을 확정하면 다른 사용자와의 대화·매칭 요청은 종료돼요.';
+
+  return [
+    {
+      label: '룸메 후보 탐색',
+      text: '생활 습관이 잘 맞는 룸메 후보를 먼저 탐색해요.',
+      icon: Search,
+      iconClassName: 'text-cyan-600',
     },
     {
-      label: '종료',
-      value: daysUntilEnd > 0 ? `D-${daysUntilEnd}` : '마감 임박',
-      icon: Clock3,
-      iconClassName: 'bg-blue-50 text-blue-600',
+      label: '대화로 확인',
+      text: '생활 습관 외에도 대화하며 서로 잘 맞는지 확인해요.',
+      icon: MessageCircle,
+      iconClassName: 'text-blue-600',
+    },
+    {
+      label: '매칭 요청',
+      text: '상대에게 매칭 신청을 보내고, 받은 요청은 수락·거절할 수 있어요.',
+      icon: Users,
+      iconClassName: 'text-purple-600',
+    },
+    {
+      label: '확정 전 유의',
+      text: roomSelectionText,
+      icon: Info,
+      iconClassName: 'text-amber-500',
     },
   ];
 }
@@ -1280,7 +1885,9 @@ function ActionButton({ action }: { action: PrimaryAction }) {
   const className =
     variant === 'primary'
       ? 'bg-white/85 hover:bg-white border border-white/80 text-(--knu-text-primary) shadow-sm shadow-slate-200/60 backdrop-blur-sm'
-      : 'bg-white/55 hover:bg-white/80 text-(--knu-text-primary) border border-white/70 shadow-sm shadow-slate-200/40 backdrop-blur-sm';
+      : variant === 'warning'
+        ? 'bg-amber-50/80 hover:bg-amber-100 text-amber-900 border border-amber-200 shadow-sm shadow-amber-100/50 backdrop-blur-sm'
+        : 'bg-white/55 hover:bg-white/80 text-(--knu-text-primary) border border-white/70 shadow-sm shadow-slate-200/40 backdrop-blur-sm';
 
   return (
     <motion.button

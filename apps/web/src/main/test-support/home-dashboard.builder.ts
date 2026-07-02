@@ -108,6 +108,8 @@ export function createHomeDashboardTestResponse(
       todayNewBuilding: 3,
       totalMatchSuccess: 42,
       buildingMatchSuccess: 12,
+      todayMatchSuccessTotal: 8,
+      todayMatchSuccessBuilding: 4,
     },
     seasonHistorySummary: {
       lastSeason: {
@@ -148,6 +150,7 @@ export function createHomeDashboardTestResponse(
     matching: {
       pendingSentCount: 1,
       pendingReceivedCount: 2,
+      activeChatThreadCount: 1,
       unreadMessageCount: 3,
       activeMatch: null,
       recentReceivedRequests: [],

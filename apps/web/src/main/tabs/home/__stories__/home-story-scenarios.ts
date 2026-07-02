@@ -9,6 +9,7 @@ export interface HomeStoryScenario {
   title: string;
   description: string;
   dashboard: HomeDashboardResponse;
+  renderedAt?: number;
 }
 
 const ISO_NOW = '2026-04-05T09:00:00.000Z';
@@ -355,6 +356,7 @@ function createOpenRegistrationReadyDashboard(): HomeDashboardResponse {
       ...base.matching,
       pendingSentCount: 0,
       pendingReceivedCount: 0,
+      activeChatThreadCount: 0,
       unreadMessageCount: 0,
       recentReceivedRequests: [],
     },
@@ -373,6 +375,7 @@ function createMatchingPreparationDashboard(
       ...dashboard.matching,
       pendingSentCount: 0,
       pendingReceivedCount: 0,
+      activeChatThreadCount: 0,
       unreadMessageCount: 0,
       recentReceivedRequests: [],
     },
@@ -404,6 +407,7 @@ function createMatchingRegisteredNoActivityDashboard(): HomeDashboardResponse {
       ...base.matching,
       pendingSentCount: 0,
       pendingReceivedCount: 0,
+      activeChatThreadCount: 0,
       unreadMessageCount: 0,
       recentReceivedRequests: [],
     },
@@ -428,6 +432,7 @@ function createOpenRegisteredPreviewDashboard(): HomeDashboardResponse {
       ...base.matching,
       pendingSentCount: 0,
       pendingReceivedCount: 0,
+      activeChatThreadCount: 0,
       unreadMessageCount: 0,
       recentReceivedRequests: [],
     },
@@ -470,6 +475,8 @@ function createOpenNoOperatedDormitoriesDashboard({
       todayNewBuilding: 0,
       totalMatchSuccess: 0,
       buildingMatchSuccess: 0,
+      todayMatchSuccessTotal: 0,
+      todayMatchSuccessBuilding: 0,
     },
     viewer: {
       ...base.viewer,
@@ -537,13 +544,120 @@ function createRegistrationUnavailableDashboard(): HomeDashboardResponse {
   };
 }
 
-function createActiveMatch(): ActiveMatchSummary {
+function createDeregisteredDashboard(
+  state: Extract<SeasonState, 'SEASON_OPEN' | 'SEASON_MATCHING'>,
+): HomeDashboardResponse {
+  const base = createDashboard(state);
+
   return {
+    ...base,
+    viewer: {
+      ...base.viewer,
+      seasonProfile: {
+        ...base.viewer.seasonProfile,
+        intent: 'DECLINED',
+        registered: false,
+        profileExists: true,
+        profileState: 'COMPLETE',
+        completion: {
+          profileCompletionRequired: false,
+          dormitorySelectionRequired: false,
+          registrationUnavailable: true,
+          registrationUnavailableReasons: ['WITHDRAWN_OR_DECLINED_LOCK'],
+        },
+        draftWritable: false,
+        canSelectDormitory: false,
+        canFinalizeRegistration: false,
+      },
+      match: {
+        hasActiveMatch: false,
+        activeMatch: null,
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: false,
+        canCreateOrUpdateSeasonProfileDraft: false,
+        canSelectDormitory: false,
+        canFinalizeSeasonRegistration: false,
+        canRequestMatch: false,
+        canStartChat: false,
+      },
+    },
+    matching: {
+      ...base.matching,
+      pendingSentCount: 0,
+      pendingReceivedCount: 0,
+      activeChatThreadCount: 0,
+      unreadMessageCount: 0,
+      activeMatch: null,
+      recentReceivedRequests: [],
+    },
+  };
+}
+
+function createMatchingUnmatchedDashboard(): HomeDashboardResponse {
+  const base = createMatchingRegisteredNoActivityDashboard();
+
+  return {
+    ...base,
+    matching: {
+      ...base.matching,
+      activeChatThreadCount: 1,
+      unreadMessageCount: 0,
+      activeMatch: null,
+    },
+    viewer: {
+      ...base.viewer,
+      match: {
+        hasActiveMatch: false,
+        activeMatch: null,
+      },
+      capabilities: {
+        ...base.viewer.capabilities,
+        canEnterRoommateSearch: true,
+        canRequestMatch: true,
+        canStartChat: true,
+      },
+    },
+  };
+}
+
+function createActiveMatch(overrides: Partial<ActiveMatchSummary> = {}): ActiveMatchSummary {
+  const base: ActiveMatchSummary = {
     id: 'active-match-1',
     seasonId: 'season-2026-1',
     counterpartUserId: 'partner-user-1',
     counterpartParticipantId: 'partner-participant-1',
     counterpartNickname: '민지',
+    counterpartSummary: {
+      id: 'partner-user-1',
+      sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
+      relation: { type: 'MATCHED_PARTNER' },
+      exposure: {
+        listSummaryVisible: true,
+        detailViewable: true,
+        canViewFull: true,
+        scoreVisible: true,
+      },
+      actions: {
+        canBookmark: false,
+        canRequestMatch: false,
+        canStartChat: true,
+        unavailableReasons: ['VIEWER_ALREADY_MATCHED'],
+      },
+      resultRead: {
+        resultReadable: true,
+        context: 'CURRENT_MATCHED_PARTNER',
+      },
+      profileSummary: {
+        nickname: '민지',
+        intro: '아침형 생활패턴이고, 조용한 방 분위기를 선호해요.',
+        smokingBehavior: 'NO',
+        sleepHabit: 'NONE',
+        relationshipStyle: 'CLOSE',
+      },
+      matchScore: 92,
+    },
     status: 'ACTIVE',
     startedAt: '2026-04-04T12:00:00.000Z',
     endedAt: null,
@@ -561,15 +675,74 @@ function createActiveMatch(): ActiveMatchSummary {
       availableUntil: '2026-04-30T14:59:59.000Z',
     },
   };
+
+  return {
+    ...base,
+    ...overrides,
+    unmatchProgress: {
+      ...base.unmatchProgress,
+      ...(overrides.unmatchProgress ?? {}),
+    },
+  };
 }
 
-function createReceivedRequest(nickname: string, index: number): MatchRequestSummary {
+function createSeasonMatchingActiveMatchScenario({
+  title,
+  description,
+  activeMatch,
+}: {
+  title: string;
+  description: string;
+  activeMatch: ActiveMatchSummary;
+}): HomeStoryScenario {
+  const base = createDashboard('SEASON_MATCHING');
+
   return {
-    id: `received-request-${index}`,
+    title,
+    description,
+    dashboard: createDashboard('SEASON_MATCHING', {
+      viewer: {
+        ...base.viewer,
+        match: {
+          hasActiveMatch: true,
+          activeMatch,
+        },
+        capabilities: {
+          ...base.viewer.capabilities,
+          canRequestMatch: false,
+          canStartChat: true,
+        },
+      },
+      matching: {
+        ...base.matching,
+        pendingSentCount: 0,
+        pendingReceivedCount: 0,
+        activeChatThreadCount: 1,
+        unreadMessageCount: 5,
+        activeMatch,
+        recentReceivedRequests: [],
+      },
+    }),
+  };
+}
+
+function createReceivedRequest(
+  nickname: string,
+  index: number,
+  fixture?: {
+    requestId?: string;
+    counterpartUserId?: string;
+    counterpartParticipantId?: string;
+    detailEntryToken?: string;
+  },
+): MatchRequestSummary {
+  return {
+    id: fixture?.requestId ?? `received-request-${index}`,
     seasonId: 'season-2026-1',
     direction: 'RECEIVED',
-    counterpartUserId: `counterpart-user-${index}`,
-    counterpartParticipantId: `counterpart-participant-${index}`,
+    counterpartUserId: fixture?.counterpartUserId ?? `counterpart-user-${index}`,
+    counterpartParticipantId:
+      fixture?.counterpartParticipantId ?? `counterpart-participant-${index}`,
     counterpartSummary: {
       id: `counterpart-profile-${index}`,
       sourceProfile: 'SEASON_PARTICIPANT_PROFILE',
@@ -600,7 +773,7 @@ function createReceivedRequest(nickname: string, index: number): MatchRequestSum
       bookmark: {
         bookmarked: false,
       },
-      detailEntryToken: `story-token-${index}`,
+      detailEntryToken: fixture?.detailEntryToken ?? `story-token-${index}`,
       matchScore: 88 - index,
     },
     status: 'PENDING',
@@ -610,6 +783,162 @@ function createReceivedRequest(nickname: string, index: number): MatchRequestSum
     terminalAt: null,
     acceptedAt: null,
     terminalReason: null,
+  };
+}
+
+type SentPendingBucket = '0' | '1' | '3';
+type ReceivedPendingBucket = '0' | '1+';
+type ChattingBucket = '0' | '1+';
+
+interface MatchingPendingMatrixInput {
+  sentBucket: SentPendingBucket;
+  receivedBucket: ReceivedPendingBucket;
+  chattingBucket: ChattingBucket;
+}
+
+interface MatchingReceivedRequesterFixture {
+  userId: string;
+  participantId: string;
+  nickname: string;
+}
+
+interface MatchingPendingMatrixBeFixture {
+  key: string;
+  email: string;
+  nickname: string;
+  viewerUserId: string;
+  viewerParticipantId: string;
+  sentTargetParticipantIds: string[];
+  receivedRequesters: MatchingReceivedRequesterFixture[];
+  activeChatThreadIds: string[];
+  unreadMessageCount: number;
+}
+
+function resolveSentPendingCount(bucket: SentPendingBucket): number {
+  if (bucket === '3') {
+    return 3;
+  }
+
+  if (bucket === '1') {
+    return 1;
+  }
+
+  return 0;
+}
+
+function resolveReceivedPendingCount(bucket: ReceivedPendingBucket): number {
+  return bucket === '1+' ? 2 : 0;
+}
+
+function createMatchingPendingMatrixKey({
+  sentBucket,
+  receivedBucket,
+  chattingBucket,
+}: MatchingPendingMatrixInput): string {
+  return `${sentBucket}-${receivedBucket}-${chattingBucket}`.replace(/\+/g, 'p');
+}
+
+function createMatchingPendingMatrixBeFixture(
+  input: MatchingPendingMatrixInput,
+): MatchingPendingMatrixBeFixture {
+  const key = createMatchingPendingMatrixKey(input);
+  const sentCount = resolveSentPendingCount(input.sentBucket);
+  const receivedCount = resolveReceivedPendingCount(input.receivedBucket);
+  const activeChatThreadCount = input.chattingBucket === '1+' ? 2 : 0;
+  const nickname = `S${input.sentBucket}R${input.receivedBucket}C${input.chattingBucket}`
+    .replace(/\+/g, 'plus')
+    .replace(/-/g, 'to');
+  const receivedNicknames = ['서연', '지우', '하린'];
+
+  return {
+    key,
+    email: `home-${key}@kangwon.ac.kr`,
+    nickname,
+    viewerUserId: `story-${key}-user`,
+    viewerParticipantId: `story-${key}-participant`,
+    // BE HomeDashboardCountsQuery 기준:
+    // - sent는 viewer가 requester인 PENDING matchRequest count
+    // - received는 viewer가 receiver인 PENDING matchRequest count + recentReceivedRequests
+    // - chatting은 viewer가 속한 active conversationThread count
+    sentTargetParticipantIds: Array.from(
+      { length: sentCount },
+      (_, index) => `story-${key}-sent-target-participant-${index + 1}`,
+    ),
+    receivedRequesters: Array.from({ length: receivedCount }, (_, index) => ({
+      userId: `story-${key}-received-user-${index + 1}`,
+      participantId: `story-${key}-received-participant-${index + 1}`,
+      nickname: receivedNicknames[index] ?? `후보${index + 1}`,
+    })),
+    activeChatThreadIds: Array.from(
+      { length: activeChatThreadCount },
+      (_, index) => `story-${key}-thread-${index + 1}`,
+    ),
+    unreadMessageCount: activeChatThreadCount > 0 ? 2 : 0,
+  };
+}
+
+function applyStoryViewerAccount(
+  dashboard: HomeDashboardResponse,
+  fixture: MatchingPendingMatrixBeFixture,
+): HomeDashboardResponse {
+  return {
+    ...dashboard,
+    viewer: {
+      ...dashboard.viewer,
+      identity: {
+        ...dashboard.viewer.identity,
+        user: {
+          ...dashboard.viewer.identity.user,
+          id: fixture.viewerUserId,
+          email: fixture.email,
+          nickname: fixture.nickname,
+        },
+        displayIdentity: {
+          ...dashboard.viewer.identity.displayIdentity,
+          userId: fixture.viewerUserId,
+          nickname: fixture.nickname,
+        },
+      },
+    },
+  };
+}
+
+function createMatchingRegisteredPendingDashboard(
+  input: MatchingPendingMatrixInput,
+): HomeDashboardResponse {
+  const fixture = createMatchingPendingMatrixBeFixture(input);
+  const base = applyStoryViewerAccount(createMatchingRegisteredNoActivityDashboard(), fixture);
+
+  return {
+    ...base,
+    matching: {
+      ...base.matching,
+      pendingSentCount: fixture.sentTargetParticipantIds.length,
+      pendingReceivedCount: fixture.receivedRequesters.length,
+      activeChatThreadCount: fixture.activeChatThreadIds.length,
+      unreadMessageCount: fixture.unreadMessageCount,
+      recentReceivedRequests: fixture.receivedRequesters.map((requester, index) =>
+        createReceivedRequest(requester.nickname, index + 1, {
+          requestId: `story-${fixture.key}-received-request-${index + 1}`,
+          counterpartUserId: requester.userId,
+          counterpartParticipantId: requester.participantId,
+          detailEntryToken: `story-${fixture.key}-received-token-${index + 1}`,
+        }),
+      ),
+    },
+  };
+}
+
+function createMatchingPendingMatrixScenario(input: MatchingPendingMatrixInput): HomeStoryScenario {
+  const sentLabel = `S ${input.sentBucket}`;
+  const receivedLabel = `R ${input.receivedBucket}`;
+  const chatLabel = `C ${input.chattingBucket}`;
+
+  return {
+    title: `Season Matching / registered + ${sentLabel} + ${receivedLabel} + ${chatLabel}`,
+    description:
+      'S=보낸 요청, R=받은 요청, C=활성 대화 조합이 PrimaryCard와 매칭 활동 CTA에 미치는 영향을 비교합니다. 각 scenario는 서로 다른 viewer 계정 fixture를 사용합니다.',
+    dashboard: createMatchingRegisteredPendingDashboard(input),
   };
 }
 
@@ -677,6 +1006,11 @@ export const homeStoryScenarios = {
       '시즌 참여 신청 완료 상태의 조건 섹션은 유지하고, 통계·별도 상태 chip은 HomeStatsPanel로 분리한 상태입니다.',
     dashboard: createOpenRegisteredPreviewDashboard(),
   },
+  seasonOpenDeregistered: {
+    title: 'Season Open / after season de-registration',
+    description: '시즌 오픈 기간에 시즌 참여를 철회한 뒤 같은 시즌 재참여가 제한되는 상태입니다.',
+    dashboard: createDeregisteredDashboard('SEASON_OPEN'),
+  },
   seasonOpenNoMatchingSeason: {
     title: 'Season Open No Matching Season',
     description:
@@ -694,12 +1028,6 @@ export const homeStoryScenarios = {
     description:
       '시즌 프로필은 준비됐지만 선택 가능한 운영 기숙사가 없어 시즌 참여 신청을 마칠 수 없는 상태입니다.',
     dashboard: createOpenNoOperatedDormitoriesDashboard({ profileComplete: true }),
-  },
-  registrationUnavailable: {
-    title: '시즌 오픈 / 등록 불가 reason',
-    description:
-      '등록 불가 reason이 있을 때 checklist와 quick action이 사용자용 사유를 보여줍니다.',
-    dashboard: createRegistrationUnavailableDashboard(),
   },
   seasonMatchingProfileAndDormitoryRequired: {
     title: 'Season Matching / profile + dormitory required',
@@ -731,70 +1059,99 @@ export const homeStoryScenarios = {
       '시즌 참여와 기숙사 확정이 끝났고 active match나 pending request가 없어 룸메 후보 탐색을 시작할 수 있는 상태입니다.',
     dashboard: createMatchingRegisteredNoActivityDashboard(),
   },
-  seasonMatchingReceivedPending: {
-    title: 'Season Matching / registered + received PENDING',
+  seasonMatchingRegisteredProgress40: {
+    title: 'Season Matching / registered + 40% progress',
     description:
-      '시즌 참여 완료 상태에서 받은 PENDING 요청을 검토하고 수락/거절 흐름으로 진입하는 상태입니다.',
-    dashboard: createDashboard('SEASON_MATCHING', {
-      matching: {
-        ...createDashboard('SEASON_MATCHING').matching,
-        pendingSentCount: 0,
-        pendingReceivedCount: 2,
-        unreadMessageCount: 1,
-        recentReceivedRequests: [
-          createReceivedRequest('서연', 1),
-          createReceivedRequest('지우', 2),
-        ],
+      '매칭 시작일과 호실 선택일 사이 40% 지점의 진행률, 일정, 통계 card contrast를 고정 비교합니다.',
+    dashboard: createMatchingRegisteredNoActivityDashboard(),
+    renderedAt: new Date('2026-08-03T09:36:00+09:00').getTime(),
+  },
+  seasonMatchingRegisteredProgress75: {
+    title: 'Season Matching / registered + 75% progress',
+    description:
+      '매칭 기간이 70% 이상 지난 시점에는 ProgressBar만 warning tone으로 변하고 PrimaryCard 색상은 유지되는지 확인합니다.',
+    dashboard: createMatchingRegisteredNoActivityDashboard(),
+    renderedAt: new Date('2026-08-05T12:00:00+09:00').getTime(),
+  },
+  seasonMatchingRegisteredProgress92: {
+    title: 'Season Matching / registered + 92% progress',
+    description:
+      '호실 선택일에 가까운 90% 이상 진행 시점에는 ProgressBar만 critical tone으로 변하고 PrimaryCard 색상은 유지되는지 확인합니다.',
+    dashboard: createMatchingRegisteredNoActivityDashboard(),
+    renderedAt: new Date('2026-08-06T12:30:00+09:00').getTime(),
+  },
+  seasonMatchingDeregistered: {
+    title: 'Season Matching / after season de-registration',
+    description:
+      '시즌 매칭 기간에 시즌 참여를 철회한 뒤 탐색·요청·채팅 진입이 닫히고 재참여 제한 안내가 노출되는 상태입니다.',
+    dashboard: createDeregisteredDashboard('SEASON_MATCHING'),
+  },
+  seasonMatchingUnmatched: {
+    title: 'Season Matching / after unmatched',
+    description:
+      '확정 매칭이 상호 해제로 종료되어 activeMatch는 없고, 다시 룸메 후보를 탐색할 수 있는 상태입니다.',
+    dashboard: createMatchingUnmatchedDashboard(),
+  },
+  seasonMatchingRegisteredS1R0C1: createMatchingPendingMatrixScenario({
+    sentBucket: '1',
+    receivedBucket: '0',
+    chattingBucket: '1+',
+  }),
+  seasonMatchingRegisteredS1R1C1: createMatchingPendingMatrixScenario({
+    sentBucket: '1',
+    receivedBucket: '1+',
+    chattingBucket: '1+',
+  }),
+  seasonMatchingActiveMatch: createSeasonMatchingActiveMatchScenario({
+    title: 'Season Matching / active match',
+    description:
+      '확정 매칭이 있고 아직 해제 요청이 없는 기본 ActiveMatch 상태입니다. 신규 후보 action은 닫히고 확정 룸메 대화·결과 확인이 유지됩니다.',
+    activeMatch: createActiveMatch(),
+  }),
+  seasonMatchingActiveMatchCounterpartCancelRequest: createSeasonMatchingActiveMatchScenario({
+    title: 'Season Matching / active match + counterpart cancel request',
+    description:
+      '상대가 먼저 매칭 해제를 요청한 상태입니다. BE unmatchProgress 기준 WAITING_FOR_ME/canRequest=true 조합을 검토합니다.',
+    activeMatch: createActiveMatch({
+      unmatchProgress: {
+        state: 'WAITING_FOR_ME',
+        requestedByViewerAt: null,
+        requestedByCounterpartAt: '2026-04-05T01:30:00.000Z',
+        progressCount: 1,
+        requiredCount: 2,
+        canRequest: true,
+        canCancel: false,
+        availableUntil: '2026-04-30T14:59:59.000Z',
       },
     }),
-  },
-  seasonMatchingSentPending: {
-    title: 'Season Matching / registered + sent PENDING',
-    description: '같은 기숙사 룸메 후보에게 보낸 PENDING 요청의 응답을 기다리는 상태입니다.',
-    dashboard: createDashboard('SEASON_MATCHING', {
-      matching: {
-        ...createDashboard('SEASON_MATCHING').matching,
-        pendingSentCount: 3,
-        pendingReceivedCount: 0,
-        unreadMessageCount: 0,
-        recentReceivedRequests: [],
+  }),
+  seasonMatchingActiveMatchSelfCancelRequest: createSeasonMatchingActiveMatchScenario({
+    title: 'Season Matching / active match + self cancel request',
+    description:
+      '내가 먼저 매칭 해제를 요청한 상태입니다. BE unmatchProgress 기준 WAITING_FOR_COUNTERPART/canCancel=true 조합을 검토합니다.',
+    activeMatch: createActiveMatch({
+      unmatchProgress: {
+        state: 'WAITING_FOR_COUNTERPART',
+        requestedByViewerAt: '2026-04-05T01:30:00.000Z',
+        requestedByCounterpartAt: null,
+        progressCount: 1,
+        requiredCount: 2,
+        canRequest: false,
+        canCancel: true,
+        availableUntil: '2026-04-30T14:59:59.000Z',
       },
     }),
-  },
-  seasonMatchingActiveMatch: {
-    title: 'Season Matching / registered + live ActiveMatch + unread chat',
-    description:
-      'live ActiveMatch가 있어 신규 후보 action은 닫히고 확정 룸메 대화·결과 확인이 유지되는 상태입니다.',
-    dashboard: (() => {
-      const activeMatch = createActiveMatch();
-      return createDashboard('SEASON_MATCHING', {
-        viewer: {
-          ...createDashboard('SEASON_MATCHING').viewer,
-          match: {
-            hasActiveMatch: true,
-            activeMatch,
-          },
-          capabilities: {
-            ...createDashboard('SEASON_MATCHING').viewer.capabilities,
-            canRequestMatch: false,
-            canStartChat: true,
-          },
-        },
-        matching: {
-          ...createDashboard('SEASON_MATCHING').matching,
-          pendingSentCount: 0,
-          pendingReceivedCount: 0,
-          unreadMessageCount: 5,
-          activeMatch,
-          recentReceivedRequests: [],
-        },
-      });
-    })(),
-  },
+  }),
   postMatchHistory: {
     title: '시즌 마감 / 결과 확인',
     description: '새 요청은 닫히고 결과·이전 기록 중심으로 이동하는 post-match 상태입니다.',
     dashboard: createDashboard('SEASON_POST_MATCH'),
+  },
+  registrationUnavailable: {
+    title: '시즌 오픈 / 등록 불가 reason',
+    description:
+      '등록 불가 reason이 있을 때 checklist와 quick action이 사용자용 사유를 보여줍니다.',
+    dashboard: createRegistrationUnavailableDashboard(),
   },
   nonOperatedCampus: {
     title: '비운영 캠퍼스',
@@ -828,32 +1185,5 @@ export const homeStoryScenarios = {
         },
       },
     }),
-  },
-  onboardingNoticeOpen: {
-    title: '서비스 시작 안내 열림',
-    description: '계정 단위 service-intro 안내를 아직 닫지 않은 사용자의 bottom sheet 상태입니다.',
-    dashboard: (() => {
-      const base = createDashboard('SEASON_OPEN');
-      return {
-        ...base,
-        viewer: {
-          ...base.viewer,
-          onboarding: {
-            dismissedNotices: [
-              {
-                noticeKey: 'service-intro' as const,
-                dismissed: false,
-                dismissedAt: null,
-              },
-            ],
-          },
-        },
-      };
-    })(),
-  },
-  onboardingNoticeDismissed: {
-    title: '서비스 시작 안내 닫힘',
-    description: 'service-intro를 이미 다시 보지 않기로 닫은 사용자의 기본 Home 상태입니다.',
-    dashboard: createDashboard('SEASON_OPEN'),
   },
 } satisfies Record<string, HomeStoryScenario>;

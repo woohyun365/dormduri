@@ -6,18 +6,16 @@ interface HomeDashboardLayoutProps {
   primary: ReactNode;
   readiness: ReactNode;
   activity: ReactNode;
-  stats: ReactNode;
   quickActions: ReactNode;
-  tip?: ReactNode;
+  operations: ReactNode;
 }
 
 export function HomeDashboardLayout({
   primary,
   readiness,
   activity,
-  stats,
   quickActions,
-  tip,
+  operations,
 }: HomeDashboardLayoutProps) {
   return (
     <div data-testid="home-dashboard-layout" className="max-w-md md:max-w-5xl mx-auto px-5 py-5">
@@ -40,14 +38,9 @@ export function HomeDashboardLayout({
           <div data-testid="home-section-readiness" className="order-2">
             {readiness}
           </div>
-          <div data-testid="home-section-stats" className="order-5 md:mt-5">
-            {stats}
+          <div data-testid="home-section-operations" className="order-5 md:mt-5">
+            {operations}
           </div>
-          {tip && (
-            <div data-testid="home-section-tip" className="order-7 md:mt-5">
-              {tip}
-            </div>
-          )}
         </aside>
       </div>
     </div>

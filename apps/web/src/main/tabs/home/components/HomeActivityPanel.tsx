@@ -33,6 +33,8 @@ interface HomeActivityPanelProps {
   seasonState: SeasonState;
   onNavigate: (tab: TabId, options?: MatchingNavOptions) => void;
   onDeregisterSeasonParticipation?: () => Promise<void>;
+  onRequestActiveMatchUnmatch?: (activeMatchId: string) => Promise<void>;
+  onCancelActiveMatchUnmatchRequest?: (activeMatchId: string) => Promise<void>;
 }
 
 interface StaticActivityAction {
@@ -72,6 +74,8 @@ export function HomeActivityPanel({
   seasonState,
   onNavigate,
   onDeregisterSeasonParticipation,
+  onRequestActiveMatchUnmatch,
+  onCancelActiveMatchUnmatchRequest,
 }: HomeActivityPanelProps) {
   const [isOperatedDormitoryListOpen, setOperatedDormitoryListOpen] = useState(false);
   const [seasonOpenModal, setSeasonOpenModal] = useState<SeasonOpenModalKind | null>(null);
@@ -108,14 +112,24 @@ export function HomeActivityPanel({
   }
 
   if (viewModel.hasCurrentSeason && seasonState === 'SEASON_MATCHING') {
+    const activeMatchRoomSelection = viewModel.matchingWindow
+      ? {
+          date: viewModel.matchingWindow.roomSelectionDateShort,
+          dormitoryName: viewModel.matchingWindow.roomSelectionDormitoryName,
+        }
+      : undefined;
+
     return (
       <HomeMatchingSummary
         status={viewModel.matchingSummary.status}
         stats={viewModel.matchingSummary.stats}
         activeMatch={viewModel.matchingSummary.activeMatch}
+        {...(activeMatchRoomSelection ? { activeMatchRoomSelection } : {})}
         receivedRequesters={viewModel.matchingSummary.receivedRequesters}
         gatingReason={viewModel.matchingSummary.gatingReason}
         onGatedAction={() => onNavigate('profile')}
+        onRequestUnmatch={onRequestActiveMatchUnmatch}
+        onCancelUnmatchRequest={onCancelActiveMatchUnmatchRequest}
         onNavigate={onNavigate}
       />
     );

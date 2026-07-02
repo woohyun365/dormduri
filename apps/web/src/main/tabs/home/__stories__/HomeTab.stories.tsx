@@ -15,6 +15,8 @@ function HomeTabStorySurface({ scenario }: HomeTabStorySurfaceProps) {
       onNavigate={() => undefined}
       onOpenBuildingSelect={() => undefined}
       onDashboardRefresh={async () => undefined}
+      onDeregisterSeasonParticipation={async () => undefined}
+      {...(scenario.renderedAt ? { renderedAtOverride: scenario.renderedAt } : {})}
     />
   );
 }
@@ -104,6 +106,7 @@ export const SeasonOpenRegistrationReady = createStory(
 export const SeasonOpenRegisteredPreview = createStory(
   homeStoryScenarios.seasonOpenRegisteredPreview,
 );
+export const SeasonOpenDeregistered = createStory(homeStoryScenarios.seasonOpenDeregistered);
 export const SeasonOpenNoMatchingSeason = createStory(
   homeStoryScenarios.seasonOpenNoMatchingSeason,
 );
@@ -113,7 +116,6 @@ export const SeasonOpenNoOperatedDormitoriesProfileIncomplete = createStory(
 export const SeasonOpenNoOperatedDormitoriesProfileComplete = createStory(
   homeStoryScenarios.seasonOpenNoOperatedDormitoriesProfileComplete,
 );
-export const RegistrationUnavailable = createStory(homeStoryScenarios.registrationUnavailable);
 export const SeasonMatchingProfileAndDormitoryRequired = createStory(
   homeStoryScenarios.seasonMatchingProfileAndDormitoryRequired,
 );
@@ -129,16 +131,35 @@ export const SeasonMatchingRegistrationReady = createStory(
 export const SeasonMatchingRegisteredNoActivity = createStory(
   homeStoryScenarios.seasonMatchingRegisteredNoActivity,
 );
-export const SeasonMatchingReceivedPending = createStory(
-  homeStoryScenarios.seasonMatchingReceivedPending,
+export const SeasonMatchingRegisteredProgress40 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredProgress40,
 );
-export const SeasonMatchingSentPending = createStory(homeStoryScenarios.seasonMatchingSentPending);
+export const SeasonMatchingRegisteredProgress75 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredProgress75,
+);
+export const SeasonMatchingRegisteredProgress92 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredProgress92,
+);
+export const SeasonMatchingDeregistered = createStory(
+  homeStoryScenarios.seasonMatchingDeregistered,
+);
+export const SeasonMatchingUnmatched = createStory(homeStoryScenarios.seasonMatchingUnmatched);
+export const SeasonMatchingRegisteredS1R0C1 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredS1R0C1,
+);
+export const SeasonMatchingRegisteredS1R1C1 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredS1R1C1,
+);
 export const SeasonMatchingActiveMatch = createStory(homeStoryScenarios.seasonMatchingActiveMatch);
+export const SeasonMatchingActiveMatchCounterpartCancelRequest = createStory(
+  homeStoryScenarios.seasonMatchingActiveMatchCounterpartCancelRequest,
+);
+export const SeasonMatchingActiveMatchSelfCancelRequest = createStory(
+  homeStoryScenarios.seasonMatchingActiveMatchSelfCancelRequest,
+);
 export const PostMatchHistory = createStory(homeStoryScenarios.postMatchHistory);
+export const RegistrationUnavailable = createStory(homeStoryScenarios.registrationUnavailable);
 export const NonOperatedCampus = createStory(homeStoryScenarios.nonOperatedCampus);
-export const OnboardingNoticeOpen = createStory(homeStoryScenarios.onboardingNoticeOpen);
-export const OnboardingNoticeDismissed = createStory(homeStoryScenarios.onboardingNoticeDismissed);
-
 export const LoadingSkeleton: Story = {
   name: '로딩 스켈레톤',
   args: { scenario: homeStoryScenarios.offSeasonNextSeason },

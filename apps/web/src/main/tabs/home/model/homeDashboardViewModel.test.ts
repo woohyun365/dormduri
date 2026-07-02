@@ -113,6 +113,7 @@ describe('homeDashboardViewModel', () => {
         ...createHomeDashboardTestResponse().matching,
         pendingSentCount: 1,
         pendingReceivedCount: 1,
+        activeChatThreadCount: 2,
         recentReceivedRequests: [createReceivedRequest()],
       },
     });
@@ -127,7 +128,7 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.matchingSummary.stats).toMatchObject({
       sentRequests: 1,
       receivedRequests: 1,
-      activeChats: 0,
+      activeChats: 2,
       expiringCount: 1,
     });
     expect(viewModel.matchingSummary.receivedRequesters).toEqual(['요청자']);
@@ -221,6 +222,41 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.tip.seasonStatus).toBe('SEASON_MATCHING_REGISTRATION_REQUIRED');
   });
 
+  it('시즌 매칭 기간은 선택 기숙사의 호실 선택일 기준으로 계산한다', () => {
+    const base = createHomeDashboardTestResponse();
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...base.season,
+        state: 'SEASON_MATCHING',
+        isOpen: false,
+        isMatching: true,
+      },
+      viewer: {
+        ...base.viewer,
+        selection: {
+          state: 'ASSIGNED',
+          dormitoryId: 'dasan',
+          source: 'SEASON_PARTICIPANT',
+        },
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      renderedAt: new Date('2026-08-03T00:00:00+09:00').getTime(),
+    });
+
+    expect(viewModel.matchingWindow).toEqual({
+      matchingStartDate: '2026.08.01',
+      matchingStartDateShort: '08.01',
+      roomSelectionDate: '2026.08.06',
+      roomSelectionDateShort: '08.06',
+      roomSelectionDormitoryName: '다산관',
+      daysUntilRoomSelection: 4,
+      progressPercent: 33,
+    });
+  });
+
   it('keeps not-operated campus status from masking as a registration-required gate', () => {
     const dashboard = createHomeDashboardTestResponse({
       viewer: {
@@ -304,6 +340,8 @@ describe('homeDashboardViewModel', () => {
         assignedParticipants: 190,
         totalMatchSuccess: 42,
         buildingMatchSuccess: 12,
+        todayMatchSuccessTotal: 8,
+        todayMatchSuccessBuilding: 4,
       },
     });
 
@@ -314,6 +352,7 @@ describe('homeDashboardViewModel', () => {
 
     expect(viewModel.statsBar.totalCount).toBe(190);
     expect(viewModel.statsBar.matchSuccessCount).toBe(42);
+    expect(viewModel.statsBar.todayMatchSuccessCount).toBe(0);
   });
 
   it('maps active match summary to Home active match view state', () => {

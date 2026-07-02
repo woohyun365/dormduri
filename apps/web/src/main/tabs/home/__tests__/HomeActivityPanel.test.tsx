@@ -262,6 +262,8 @@ describe('HomeActivityPanel', () => {
           todayNewBuilding: 0,
           totalMatchSuccess: 0,
           buildingMatchSuccess: 0,
+          todayMatchSuccessTotal: 0,
+          todayMatchSuccessBuilding: 0,
         },
         viewer: {
           ...createHomeDashboardTestResponse().viewer,
@@ -318,6 +320,8 @@ describe('HomeActivityPanel', () => {
           todayNewBuilding: 0,
           totalMatchSuccess: 0,
           buildingMatchSuccess: 0,
+          todayMatchSuccessTotal: 0,
+          todayMatchSuccessBuilding: 0,
         },
         viewer: {
           ...createHomeDashboardTestResponse().viewer,

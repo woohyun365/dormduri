@@ -1,17 +1,17 @@
 'use client';
 
-import { CalendarDays, CheckCircle2, CircleDashed, Clock3 } from 'lucide-react';
+import { CalendarDays, CheckCircle2, CircleDashed, Clock3, Lock } from 'lucide-react';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import { formatDateDot } from '../model/homeDateDisplay';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
 
-type ChecklistStatus = 'complete' | 'actionable' | 'locked' | 'info';
+type ChecklistStatus = 'complete' | 'actionable' | 'locked' | 'blocked';
 
 type ChecklistActionTarget = 'profile' | 'building' | 'list';
 
-type ChecklistIcon = 'clock' | 'progress';
+type ChecklistIcon = 'clock' | 'progress' | 'lock';
 type ChecklistTone = 'amber';
 
 interface ChecklistItem {
@@ -32,12 +32,7 @@ interface HomeReadinessChecklistProps {
   onOpenBuildingSelect?: () => void;
 }
 
-export function HomeReadinessChecklist({
-  dashboard,
-  viewModel,
-  onNavigate,
-  onOpenBuildingSelect,
-}: HomeReadinessChecklistProps) {
+export function HomeReadinessChecklist({ dashboard, viewModel }: HomeReadinessChecklistProps) {
   const items = buildReadinessChecklistItems({ dashboard, viewModel });
   const isSchedulePreview = !viewModel.hasCurrentSeason && viewModel.isCampusOperated;
 
@@ -61,21 +56,7 @@ export function HomeReadinessChecklist({
 
       <ol className="space-y-3">
         {items.map((item) => (
-          <ReadinessItem
-            key={item.id}
-            item={item}
-            onAction={() => {
-              if (item.actionTarget === 'building') {
-                onOpenBuildingSelect?.();
-                return;
-              }
-              if (item.actionTarget === 'list') {
-                onNavigate('list');
-                return;
-              }
-              onNavigate('profile');
-            }}
-          />
+          <ReadinessItem key={item.id} item={item} />
         ))}
       </ol>
     </section>
@@ -156,6 +137,8 @@ export function buildReadinessChecklistItems({
   const buildingReady =
     seasonProfile.registered || !seasonProfile.completion.dormitorySelectionRequired;
   const registrationReady = seasonProfile.registered;
+  const registrationUnavailableReasons = seasonProfile.completion.registrationUnavailableReasons;
+  const participationLocked = registrationUnavailableReasons.includes('WITHDRAWN_OR_DECLINED_LOCK');
   const currentSeasonName = dashboard.season.summary?.name ?? '이번 시즌';
 
   return [
@@ -198,23 +181,26 @@ export function buildReadinessChecklistItems({
     {
       id: 'registration',
       title: '시즌 참여 신청',
-      description: '생활패턴과 기숙사 설정을 확인한 뒤 시즌 참여 신청을 마무리해요.',
+      description: participationLocked
+        ? '시즌 재참여가 필요한 경우 문의하기를 이용해주세요.'
+        : '생활패턴과 기숙사 설정을 확인한 뒤 시즌 참여 신청을 마무리해요.',
       status: registrationReady
         ? 'complete'
-        : capabilities.canFinalizeSeasonRegistration || seasonProfile.canFinalizeRegistration
-          ? 'actionable'
-          : 'locked',
-      icon: 'progress',
-      actionLabel: registrationReady ? undefined : '시즌 참여 신청',
-      actionTarget: registrationReady ? undefined : 'profile',
+        : participationLocked
+          ? 'blocked'
+          : capabilities.canFinalizeSeasonRegistration || seasonProfile.canFinalizeRegistration
+            ? 'actionable'
+            : 'locked',
+      icon: participationLocked ? 'lock' : 'progress',
+      actionLabel: registrationReady || participationLocked ? undefined : '시즌 참여 신청',
+      actionTarget: registrationReady || participationLocked ? undefined : 'profile',
     },
   ];
 }
 
-function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () => void }) {
+function ReadinessItem({ item }: { item: ChecklistItem }) {
   const status = STATUS_COPY[item.status];
   const visual = item.tone ? TONE_COPY[item.tone] : status;
-  const shouldRenderAction = item.status !== 'locked' && Boolean(item.actionLabel);
   const Icon =
     item.status === 'complete'
       ? STATUS_ICON.complete
@@ -240,15 +226,6 @@ function ReadinessItem({ item, onAction }: { item: ChecklistItem; onAction: () =
           <p className="mt-1 text-xs leading-relaxed text-(--knu-text-secondary)">
             {item.description}
           </p>
-          {shouldRenderAction && (
-            <button
-              type="button"
-              onClick={onAction}
-              className="mt-2 inline-flex min-h-9 items-center justify-center rounded-lg bg-white px-3 text-xs font-bold text-(--knu-primary) ring-1 ring-(--knu-border) transition-colors hover:bg-blue-50"
-            >
-              {item.actionLabel}
-            </button>
-          )}
         </div>
       </div>
     </li>
@@ -259,12 +236,13 @@ const STATUS_ICON: Record<ChecklistStatus, typeof CheckCircle2> = {
   complete: CheckCircle2,
   actionable: CircleDashed,
   locked: Clock3,
-  info: CalendarDays,
+  blocked: Lock,
 };
 
 const CHECKLIST_ICON: Record<ChecklistIcon, typeof CheckCircle2> = {
   clock: Clock3,
   progress: CircleDashed,
+  lock: Lock,
 };
 
 const STATUS_COPY: Record<
@@ -289,11 +267,11 @@ const STATUS_COPY: Record<
     badgeClass: 'bg-slate-100 text-slate-700',
     itemClass: 'border-(--knu-border) bg-(--knu-background-alt)',
   },
-  info: {
-    label: '확인 가능',
-    iconClass: 'bg-slate-100 text-slate-600',
-    badgeClass: 'bg-slate-100 text-slate-700',
-    itemClass: 'border-(--knu-border) bg-(--knu-background-alt)',
+  blocked: {
+    label: '불가',
+    iconClass: 'bg-rose-50 text-rose-600',
+    badgeClass: 'bg-rose-50 text-rose-700',
+    itemClass: 'border-rose-100 bg-rose-50/60',
   },
 };
 

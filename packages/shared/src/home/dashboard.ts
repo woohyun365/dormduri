@@ -64,6 +64,14 @@ export const homeDashboardViewerSchema = z.strictObject({
   }),
 });
 
+const matchSuccessParticipantCountSchema = z
+  .number()
+  .int()
+  .nonnegative()
+  .refine((value) => value % 2 === 0, {
+    message: 'Match success participant count must be even.',
+  });
+
 export const homeDashboardStatsSchema = z.strictObject({
   totalParticipants: z.number().int().nonnegative(),
   assignedParticipants: z.number().int().nonnegative(),
@@ -71,8 +79,10 @@ export const homeDashboardStatsSchema = z.strictObject({
   buildingMatchable: z.number().int().nonnegative(),
   todayNewTotal: z.number().int().nonnegative(),
   todayNewBuilding: z.number().int().nonnegative(),
-  totalMatchSuccess: z.number().int().nonnegative(),
-  buildingMatchSuccess: z.number().int().nonnegative(),
+  totalMatchSuccess: matchSuccessParticipantCountSchema,
+  buildingMatchSuccess: matchSuccessParticipantCountSchema,
+  todayMatchSuccessTotal: matchSuccessParticipantCountSchema,
+  todayMatchSuccessBuilding: matchSuccessParticipantCountSchema,
 });
 
 export const homeDashboardLastSeasonViewerFinalResultSchema = z.enum([
@@ -121,6 +131,7 @@ export const homeDashboardNextSeasonPreviewSchema = z
 export const homeDashboardMatchingSchema = z.strictObject({
   pendingSentCount: z.number().int().nonnegative(),
   pendingReceivedCount: z.number().int().nonnegative(),
+  activeChatThreadCount: z.number().int().nonnegative(),
   unreadMessageCount: z.number().int().nonnegative(),
   activeMatch: activeMatchSummarySchema.nullable(),
   recentReceivedRequests: z.array(matchRequestSummarySchema),

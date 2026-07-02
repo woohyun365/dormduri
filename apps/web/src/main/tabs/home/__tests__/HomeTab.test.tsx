@@ -4,6 +4,29 @@ import HomeTab from '../HomeTab';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 
 describe('HomeTab', () => {
+  it('매칭 등록 완료 상태에서는 checklist 대신 안내 패널과 운영 센터를 렌더링한다', () => {
+    render(
+      <HomeTab
+        dashboard={createHomeDashboardTestResponse({
+          season: {
+            ...createHomeDashboardTestResponse().season,
+            state: 'SEASON_MATCHING',
+            isOpen: true,
+            isMatching: true,
+          },
+        })}
+        onNavigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('매칭 전에 알아두면 좋아요')).toBeInTheDocument();
+    expect(screen.getByText('필요한 소식을 확인해요')).toBeInTheDocument();
+    expect(screen.queryByText('시즌 통계')).not.toBeInTheDocument();
+    expect(screen.queryByText('오늘의 안내')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('home-section-stats')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('home-section-tip')).not.toBeInTheDocument();
+  });
+
   it('비운영 캠퍼스에서 홈 콘텐츠에 inert/aria-hidden을 적용한다', () => {
     render(
       <HomeTab

@@ -43,6 +43,7 @@ export const activeMatchSummarySchema = z.strictObject({
   counterpartUserId: z.string(),
   counterpartParticipantId: z.string(),
   counterpartNickname: z.string().optional(),
+  counterpartSummary: roommateSearchSummarySchema.optional(),
   status: activeMatchStatusSchema,
   startedAt: isoDateTimeStringSchema,
   endedAt: isoDateTimeStringSchema.nullable(),

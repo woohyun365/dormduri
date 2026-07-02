@@ -12,14 +12,14 @@ Home은 현재 사용자에게 “지금 할 수 있는 다음 행동”을 안�
 - Web client의 `homeDashboardApi` public surface는 `getDashboard()` 하나로 고정한다. `getBuildingStats`, `getPastSeasonResult`, `getPastSeasons` 같은 legacy widget/mock method는 Home 완료 범위로 복원하지 않는다.
 - Home first render는 `profileApi.getMyProfile()`이나 global fixture/mock DB를 요구하지 않는다.
 - 계정 표시 identity와 시즌 프로필 준비 상태는 Home dashboard/current-user contract의 allowlist DTO에서 분리해 소비한다.
-- `viewer.onboarding.dismissedNotices`와 `PATCH /api/users/me/onboarding`을 통해 `service-intro` 안내 닫힘 상태를 반영한다.
+- 체크리스트, 매칭 안내, operations surface가 Home 안내 역할을 대체하므로 `service-intro` onboarding sheet는 기본 Home 렌더링에서 mount하지 않는다. 기존 dismiss API/hook/component는 후속 정리 전까지 호환 surface로만 보존한다.
 - 시즌 상태별로 다음 행동을 안내한다.
   - `OFF_SEASON`: 타인 탐색과 새 매칭 요청은 열지 않고 다음 시즌 일정, 이전 기록, 내 정보 확인 중심으로 안내한다.
   - `SEASON_OPEN`: 생활패턴, 건물 선택, 시즌 등록 준비를 안내하되 매칭 요청은 열지 않는다.
   - `SEASON_MATCHING`: dashboard capability가 허용할 때 같은 건물 후보 탐색, 대화, 매칭 요청 진입을 안내한다.
   - `SEASON_POST_MATCH`: 새 요청 대신 확정 결과, 과거 기록, 허용된 대화 확인 중심으로 안내한다.
-- 모바일 Home content order는 `primary → readiness → tip → activity → stats → quickActions`로 고정한다.
-  데스크톱에서는 주요 행동(`primary`, `activity`, `quickActions`)과 보조 정보(`readiness`, `stats`, `tip`)를 2-column으로 분리한다.
+- 모바일 Home content order는 `primary → readiness → activity → operations → quickActions`로 고정한다.
+  데스크톱에서는 주요 행동(`primary`, `activity`, `quickActions`)과 보조 정보(`readiness`, `operations`)를 2-column으로 분리한다.
 - 비운영 캠퍼스에서는 Home content를 inert/aria-hidden 처리하고 계정 정보 확인 정도의 대기 UX만 제공한다.
 - Home 진입만으로 건물 선택 modal을 자동으로 열지 않는다. 건물 선택은 명시 CTA를 통해서만 시작한다.
 
@@ -37,46 +37,48 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 
 ## Source of truth
 
-| 주제                         | Source                                                                                                                                                           |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Home dashboard read model    | `packages/shared/src/home/dashboard.ts`, `apps/web/src/main/api/home-dashboard.api.ts` (`getDashboard()` only), `apps/web/src/app/api/home/dashboard/route.ts`   |
-| Home onboarding notice state | `packages/shared/src/user/current-user.ts`, `apps/web/src/main/tabs/home/api/home-onboarding-notice.api.ts`, `apps/web/src/app/api/users/me/onboarding/route.ts` |
-| Home dashboard fetch state   | `apps/web/src/main/hooks/useMainHomeDashboard.ts`                                                                                                                |
-| Dashboard → Home view model  | `apps/web/src/main/tabs/home/model/homeDashboardViewModel.ts`                                                                                                    |
-| Home quick action policy     | `apps/web/src/main/tabs/home/model/homeActionPolicy.ts`                                                                                                          |
-| Season policy                | `docs/04_policy/official/season-lifecycle.md`, `docs/04_policy/official/season-participation.md`                                                                 |
-| Search/matching/chat policy  | `docs/04_policy/official/roommate-searching.md`, `docs/04_policy/official/matching-lifecycle.md`, `docs/04_policy/official/chat-lifecycle.md`                    |
+| 주제                                 | Source                                                                                                                                                           |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home dashboard read model            | `packages/shared/src/home/dashboard.ts`, `apps/web/src/main/api/home-dashboard.api.ts` (`getDashboard()` only), `apps/web/src/app/api/home/dashboard/route.ts`   |
+| Home onboarding notice compatibility | `packages/shared/src/user/current-user.ts`, `apps/web/src/main/tabs/home/api/home-onboarding-notice.api.ts`, `apps/web/src/app/api/users/me/onboarding/route.ts` |
+| Home dashboard fetch state           | `apps/web/src/main/hooks/useMainHomeDashboard.ts`                                                                                                                |
+| Dashboard → Home view model          | `apps/web/src/main/tabs/home/model/homeDashboardViewModel.ts`                                                                                                    |
+| Home quick action policy             | `apps/web/src/main/tabs/home/model/homeActionPolicy.ts`                                                                                                          |
+| Season policy                        | `docs/04_policy/official/season-lifecycle.md`, `docs/04_policy/official/season-participation.md`                                                                 |
+| Search/matching/chat policy          | `docs/04_policy/official/roommate-searching.md`, `docs/04_policy/official/matching-lifecycle.md`, `docs/04_policy/official/chat-lifecycle.md`                    |
 
 정책 문서와 Home 문구가 충돌하면 정책 문서를 우선하고 Home copy/test를 갱신한다.
 
 ## Directory responsibility
 
-| File / directory                                                          | Responsibility                                                                                            |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `HomeTab.tsx`                                                             | Home composition, dashboard view model 소비, section 조합, CTA routing                                    |
-| `HomeDashboardLayout.tsx`                                                 | mobile single-column / desktop two-column layout owner                                                    |
-| `components/HomePrimaryStateCard.tsx`                                     | 시즌·참여 상태별 primary next action card                                                                 |
-| `components/HomeActivityPanel.tsx`, `components/HomeStatsPanel.tsx`       | dashboard activity, current season stats, past season history, next season preview panels                 |
-| `components/HomeDashboardErrorState.tsx`                                  | Home dashboard API/BFF failure safe retry state                                                           |
-| `components/HomeMatchingSummary.tsx`, `components/UrgentActionBanner.tsx` | matching/request activity summary. active chat count는 dashboard contract 확장 전까지 `0`으로 fail-closed |
-| `components/HomeReadinessChecklist.tsx`                                   | current-user capability와 registration 상태 기반 readiness checklist                                      |
-| `components/HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts`  | `service-intro` 안내 표시·닫기·영구 dismiss flow                                                          |
-| `api/home-onboarding-notice.api.ts`                                       | Home `service-intro` dismissed notice mutation client                                                     |
-| `components/BuildingStatsBar.tsx`, `components/DynamicTipBanner.tsx`      | season stats and contextual guide widgets                                                                 |
-| `components/HomeQuickMenuSection.tsx`, `components/HomeStatusTip.tsx`     | owner tab navigation entry, target-tab responsibility handoff, static/dynamic guide copy                  |
-| `model/`                                                                  | pure policy/view-model helpers and tests                                                                  |
-| `../../test-support/home-dashboard.builder.ts`                            | Home/Main unit·component tests 및 Storybook story data 전용 `HomeDashboardResponse` builder               |
-| `__stories__/`                                                            | HomeTab visual state workshop 전용 story surface                                                          |
-| `__tests__/`                                                              | component, state matrix, browser API fallback regression                                                  |
+| File / directory                                                          | Responsibility                                                                                                          |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `HomeTab.tsx`                                                             | Home composition, dashboard view model 소비, section 조합, CTA routing                                                  |
+| `HomeDashboardLayout.tsx`                                                 | mobile single-column / desktop two-column layout owner                                                                  |
+| `components/HomePrimaryStateCard.tsx`                                     | 시즌·참여 상태별 primary next action card                                                                               |
+| `components/HomeActivityPanel.tsx`                                        | dashboard activity, current/past season action surface, next season preview panels                                      |
+| `components/HomeMatchingRegisteredGuidePanel.tsx`                         | `SEASON_MATCHING + registered` user-facing policy guide; checklist replacement for registered matching                  |
+| `components/HomeOperationsPanel.tsx`                                      | 공지사항/알림함/문의하기 operations surface. Unsupported feeds render fallback without mock rows                        |
+| `components/HomeDashboardErrorState.tsx`                                  | Home dashboard API/BFF failure safe retry state                                                                         |
+| `components/HomeMatchingSummary.tsx`, `components/UrgentActionBanner.tsx` | matching/request activity summary. active chat count는 dashboard contract 확장 전까지 `0`으로 fail-closed               |
+| `components/HomeReadinessChecklist.tsx`                                   | current-user capability와 registration 상태 기반 readiness checklist                                                    |
+| `components/HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts`  | Home default render에서는 사용하지 않는 `service-intro` compatibility surface. 후속 정리 전까지 직접 회귀 테스트만 유지 |
+| `api/home-onboarding-notice.api.ts`                                       | Home `service-intro` dismissed notice mutation compatibility client                                                     |
+| `components/BuildingStatsBar.tsx`, `components/DynamicTipBanner.tsx`      | legacy standalone widgets kept only for direct regression tests / future cleanup decision                               |
+| `components/HomeQuickMenuSection.tsx`                                     | owner tab navigation entry and target-tab responsibility handoff                                                        |
+| `model/`                                                                  | pure policy/view-model helpers and tests                                                                                |
+| `../../test-support/home-dashboard.builder.ts`                            | Home/Main unit·component tests 및 Storybook story data 전용 `HomeDashboardResponse` builder                             |
+| `__stories__/`                                                            | HomeTab visual state workshop 전용 story surface                                                                        |
+| `__tests__/`                                                              | component, state matrix, browser API fallback regression                                                                |
 
 ## Error and security rule
 
 - Client는 `/api/home/dashboard` 실패를 zero/empty dashboard fallback으로 바꾸지 않는다.
 - 사용자에게는 raw upstream body, stack, token, cookie, internal code를 노출하지 않고 safe copy와 `다시 시도` CTA를 보여준다.
 - BFF route는 shared schema로 dashboard DTO를 strict parse하고, public contract 외 key가 섞이면 fail-closed한다.
-- `PATCH /api/users/me/onboarding`은 allowlisted notice key만 forward한다.
-- 안내 dismiss mutation이 성공하면 dashboard refetch가 실패해도 dismiss 실패로 표시하지 않는다. 다음 fetch/retry가 최신 상태 수렴을 담당한다.
-- Browser API가 실패할 수 있는 동작은 사용자-facing fallback copy를 둔다. 현재 Home scope의 copy-link 동작은 `BuildingStatsBar`에서 안전 toast로 degrade한다.
+- `PATCH /api/users/me/onboarding`은 allowlisted notice key만 forward한다. 이 route는 현재 Home 기본 렌더링이 아니라 compatibility/API guard 범위다.
+- 안내 dismiss mutation이 성공하면 dashboard refetch가 실패해도 dismiss 실패로 표시하지 않는다. 다음 fetch/retry가 최신 상태 수렴을 담당한다. 단, HomeTab 기본 render path는 더 이상 이 mutation을 호출하지 않는다.
+- Browser/API가 실패할 수 있는 동작은 사용자-facing fallback copy를 둔다. 현재 Home operations surface는 공지사항 전용 API가 없으면 fake rows를 만들지 않고 empty fallback을 렌더링한다.
 
 ## Test map
 
@@ -89,11 +91,11 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 - `src/app/api/home/dashboard/route.test.ts`
   - BFF auth forward, schema guard, non-json/malformed JSON safe error, internal key fail-closed.
 - `src/app/api/users/me/onboarding/route.test.ts`, `src/main/tabs/home/api/__tests__/home-onboarding-notice.api.test.ts`
-  - service-intro onboarding dismiss request/response schema guard and safe error boundary.
+  - Home default render에서 분리된 service-intro dismiss compatibility request/response schema guard and safe error boundary.
 - `src/main/tabs/home/model/*.test.ts`
   - dashboard view model and quick action policy matrix.
 - `src/main/tabs/home/__tests__/*.test.tsx`
-  - state cards, layout, readiness checklist, onboarding sheet, browser API fallback.
+  - state cards, layout, readiness checklist, registered matching guide, operations fallback, browser API fallback. Onboarding sheet는 default render가 아닌 compatibility component 단위로만 고정한다.
 - `src/main/__tests__/Main.direct-action.test.tsx`
   - Main shell에서 Home dashboard loading/error/success와 direct action wiring.
 - `apps/web/e2e/smoke.spec.ts`
@@ -106,7 +108,7 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 
 - 실행: `pnpm --dir apps/web storybook`
 - 정적 빌드 검증: `pnpm --dir apps/web storybook:build`
-- 현재 story matrix는 비시즌, 현재 시즌 없음 + 지난 기록/다음 시즌 preview, 현재 시즌 없음 + 기록 없음, 시즌 오픈 준비/등록 완료/등록 불가 reason, 시즌 매칭 registration 전 준비 4종(profile+dormitory/profile/dormitory/registration-ready), registered no-activity, registered received/sent pending request, registered active match, 시즌 마감, 비운영 캠퍼스, `service-intro` 안내 열림/닫힘, 로딩 skeleton, 오류 복구 상태를 포함한다.
+- 현재 story matrix는 비시즌, 현재 시즌 없음 + 지난 기록/다음 시즌 preview, 현재 시즌 없음 + 기록 없음, 시즌 오픈 준비/등록 완료/철회/등록 불가 reason, 시즌 매칭 registration 전 준비 4종(profile+dormitory/profile/dormitory/registration-ready), registered 기본/진행률/압축 S-R-C 2종/매칭 해제 후/active match 해제 요청 matrix, 시즌 마감, 비운영 캠퍼스, 로딩 skeleton, 오류 복구 상태를 포함한다.
 - story data는 `main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `main/test-support`, `main/dev-only/fixtures`를 import하면 안 된다.
 - `storybook:build`는 visual workshop surface가 빌드 가능한지 확인할 뿐, API/BFF/auth/DB 정합성 완료 근거가 아니다.
 
@@ -165,7 +167,7 @@ pnpm --dir apps/api prisma:seed:run
 ## Handoff and follow-up boundary
 
 - #197의 Home dashboard API-first 전환 범위는 Home tab 기준으로 완료 후보지만, 다른 main tab의 mock/API 전환이 남아 있으면 이슈 전체 close 여부는 별도 판단한다.
-- #221의 `service-intro` Home onboarding persistence는 Home scope에서 완료 후보다.
+- #221의 `service-intro` Home onboarding persistence는 API/hook/component compatibility surface로만 남아 있으며, 기본 HomeTab 렌더링과 Storybook visual matrix에서는 제외했다.
 - #244의 Home stale/error/security hardening은 Home scope에서 완료 후보다.
 - #243 RoommateList stale scope/filter UX, #245 Chat/Matching stale action reason UX, #108 broader timer/browser matrix는 Home final pass의 미완료 violation이 아니라 후속 범위다.
 - Safari/Firefox matrix, strict visual diff, BE mutation semantics 검증은 Web-only Home tab 마감 범위 밖이다. 로그인 사용자 full-stack Playwright는 manual/scheduled 또는 final-readiness lane으로 제공한다.
@@ -181,7 +183,7 @@ pnpm --dir apps/api prisma:seed:run
 - `src/main/tabs/home/__tests__/home-runtime-boundary.test.ts`는 production Home source에 global fixture,
   test-support, story, raw SeasonContext, FE-local season fallback, dev override import가 섞이지 않는지 고정한다.
 
-## Known limitation
+## Matching activity contract
 
-- Home dashboard contract는 아직 현재 사용자의 active chat count를 제공하지 않는다.
-  따라서 `HomeMatchingSummary.stats.activeChats`는 `0`으로 fail-closed하며, 실제 active chat count UX가 필요하면 shared/API dashboard contract 확장 이슈로 분리한다.
+- Home dashboard contract는 `pendingSentCount`, `pendingReceivedCount`, `activeChatThreadCount`, `unreadMessageCount`를 분리해서 제공한다.
+  HomeTab의 매칭 활동 섹션은 S/R/C Storybook matrix에서 `S=보낸 요청`, `R=받은 요청`, `C=활성 채팅방` 조합을 이 contract 기반으로 검증한다.

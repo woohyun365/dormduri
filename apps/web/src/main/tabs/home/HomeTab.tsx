@@ -8,12 +8,10 @@ import { OfflineBanner } from '@/components/OfflineBanner';
 import { HomeQuickMenuSection } from './components/HomeQuickMenuSection';
 import { HomeDashboardLayout } from './HomeDashboardLayout';
 import { HomePrimaryStateCard } from './components/HomePrimaryStateCard';
-import { HomeStatsPanel } from './components/HomeStatsPanel';
 import { HomeActivityPanel } from './components/HomeActivityPanel';
-import { HomeStatusTip } from './components/HomeStatusTip';
 import { HomeReadinessChecklist } from './components/HomeReadinessChecklist';
-import { HomeOnboardingSheet } from './components/HomeOnboardingSheet';
-import { useHomeOnboardingNotice } from './hooks/useHomeOnboardingNotice';
+import { HomeMatchingRegisteredGuidePanel } from './components/HomeMatchingRegisteredGuidePanel';
+import { HomeOperationsPanel } from './components/HomeOperationsPanel';
 import { buildHomeDashboardViewModel } from './model/homeDashboardViewModel';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
@@ -24,6 +22,7 @@ interface HomeTabProps {
   onOpenBuildingSelect?: () => void;
   onDashboardRefresh?: () => Promise<void>;
   onDeregisterSeasonParticipation?: () => Promise<void>;
+  renderedAtOverride?: number;
 }
 
 export default function HomeTab({
@@ -32,12 +31,9 @@ export default function HomeTab({
   onOpenBuildingSelect,
   onDashboardRefresh,
   onDeregisterSeasonParticipation,
+  renderedAtOverride,
 }: HomeTabProps) {
-  const [renderedAt] = useState(() => Date.now());
-  const onboardingNotice = useHomeOnboardingNotice({
-    dashboard,
-    onDismissed: onDashboardRefresh,
-  });
+  const [renderedAt] = useState(() => renderedAtOverride ?? Date.now());
   const viewModel = useMemo(
     () =>
       buildHomeDashboardViewModel({
@@ -48,6 +44,30 @@ export default function HomeTab({
   );
   const { seasonState, daysUntilEnd } = viewModel;
   const avatarColor = getAvatarColor(viewModel.viewerIdentity.nickname);
+
+  const postActiveMatchUnmatchAction = async (
+    activeMatchId: string,
+    action: 'request' | 'cancel',
+  ) => {
+    const suffix = action === 'cancel' ? '/cancel' : '';
+    const response = await fetch(
+      `/api/matches/active/${encodeURIComponent(activeMatchId)}/unmatch-request${suffix}`,
+      { method: 'POST' },
+    );
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+      throw new Error(payload?.message ?? '매칭 해제 요청을 처리하지 못했어요.');
+    }
+
+    await onDashboardRefresh?.();
+  };
+
+  const handleRequestActiveMatchUnmatch = (activeMatchId: string) =>
+    postActiveMatchUnmatchAction(activeMatchId, 'request');
+
+  const handleCancelActiveMatchUnmatchRequest = (activeMatchId: string) =>
+    postActiveMatchUnmatchAction(activeMatchId, 'cancel');
 
   const dashboardContainerClassName = !viewModel.isCampusOperated
     ? 'relative h-[calc(100dvh-14rem)] min-h-80 overflow-hidden overscroll-none md:h-auto md:min-h-0 md:overflow-visible'
@@ -139,15 +159,20 @@ export default function HomeTab({
                 daysUntilEnd={daysUntilEnd}
                 onNavigate={onNavigate}
                 onOpenBuildingSelect={onOpenBuildingSelect}
+                onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
               />
             }
             readiness={
-              <HomeReadinessChecklist
-                dashboard={dashboard}
-                viewModel={viewModel}
-                onNavigate={onNavigate}
-                onOpenBuildingSelect={onOpenBuildingSelect}
-              />
+              seasonState === 'SEASON_MATCHING' && viewModel.preparation.registrationReady ? (
+                <HomeMatchingRegisteredGuidePanel viewModel={viewModel} />
+              ) : (
+                <HomeReadinessChecklist
+                  dashboard={dashboard}
+                  viewModel={viewModel}
+                  onNavigate={onNavigate}
+                  onOpenBuildingSelect={onOpenBuildingSelect}
+                />
+              )
             }
             activity={
               <HomeActivityPanel
@@ -155,15 +180,11 @@ export default function HomeTab({
                 seasonState={seasonState}
                 onNavigate={onNavigate}
                 onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
+                onRequestActiveMatchUnmatch={handleRequestActiveMatchUnmatch}
+                onCancelActiveMatchUnmatchRequest={handleCancelActiveMatchUnmatchRequest}
               />
             }
-            stats={
-              <HomeStatsPanel
-                viewModel={viewModel}
-                seasonState={seasonState}
-                daysUntilEnd={daysUntilEnd}
-              />
-            }
+            operations={<HomeOperationsPanel />}
             quickActions={
               <HomeQuickMenuSection
                 seasonState={seasonState}
@@ -178,28 +199,9 @@ export default function HomeTab({
                 onNavigateProfile={() => onNavigate('profile')}
               />
             }
-            tip={
-              <HomeStatusTip
-                viewModel={viewModel}
-                seasonState={seasonState}
-                onOpenOnboarding={onboardingNotice.openManually}
-              />
-            }
           />
         </div>
       </div>
-
-      <HomeOnboardingSheet
-        open={onboardingNotice.isOpen}
-        viewModel={viewModel}
-        dismissing={onboardingNotice.dismissing}
-        error={onboardingNotice.error}
-        onClose={onboardingNotice.dismissForSession}
-        onDismissForToday={onboardingNotice.dismissForToday}
-        onDismissPermanently={onboardingNotice.dismissPermanently}
-        onNavigate={onNavigate}
-        onOpenBuildingSelect={onOpenBuildingSelect}
-      />
     </div>
   );
 }

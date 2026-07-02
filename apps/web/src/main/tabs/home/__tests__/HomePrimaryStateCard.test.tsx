@@ -10,16 +10,20 @@ function renderCard({
   dashboard = createHomeDashboardTestResponse(),
   seasonState = dashboard.season.state ?? 'OFF_SEASON',
   daysUntilEnd = dashboard.season.daysUntilMatchingEnd ?? 0,
+  onDeregisterSeasonParticipation = vi.fn(),
+  renderedAt = new Date('2026-03-20T00:00:00+09:00').getTime(),
 }: {
   dashboard?: HomeDashboardResponse;
   seasonState?: SeasonState;
   daysUntilEnd?: number;
+  onDeregisterSeasonParticipation?: () => Promise<void>;
+  renderedAt?: number;
 } = {}) {
   const onNavigate = vi.fn();
   const onOpenBuildingSelect = vi.fn();
   const viewModel = buildHomeDashboardViewModel({
     dashboard,
-    renderedAt: new Date('2026-03-20T00:00:00+09:00').getTime(),
+    renderedAt,
   });
 
   render(
@@ -29,10 +33,11 @@ function renderCard({
       daysUntilEnd={daysUntilEnd}
       onNavigate={onNavigate}
       onOpenBuildingSelect={onOpenBuildingSelect}
+      onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
     />,
   );
 
-  return { onNavigate, onOpenBuildingSelect };
+  return { onNavigate, onOpenBuildingSelect, onDeregisterSeasonParticipation };
 }
 
 function getCardSection(headingName: string) {
@@ -70,6 +75,7 @@ describe('HomePrimaryStateCard', () => {
     expect(screen.getByText('210명')).toBeInTheDocument();
     expect(screen.getByText('매칭 완료')).toBeInTheDocument();
     expect(screen.getByText('19쌍')).toBeInTheDocument();
+    expect(screen.getByText('춘천캠퍼스 · 남/여 전체 기준')).toBeInTheDocument();
     expect(screen.queryByText('내 요청')).not.toBeInTheDocument();
     expect(screen.queryByText('시즌 일정을 확인해주세요.')).not.toBeInTheDocument();
     expect(screen.getByText('시즌 오픈:')).toBeInTheDocument();
@@ -284,7 +290,7 @@ describe('HomePrimaryStateCard', () => {
       '시즌 프로필완료생활패턴·룸메 조건 설정기숙사필요배정된 기숙사 설정',
     );
     expect(screen.getByLabelText('시즌 참여 신청 상태')).toHaveTextContent(
-      '참여 신청대기조건 완료 후 가능',
+      '시즌 참여 신청대기조건 완료 후 가능',
     );
     expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('시즌 참여 준비');
     expect(screen.getAllByRole('button', { name: /시즌 오픈 안내/ })).toHaveLength(4);
@@ -338,7 +344,7 @@ describe('HomePrimaryStateCard', () => {
       '시즌 프로필필요생활패턴·룸메 조건 설정기숙사완료배정된 기숙사 설정',
     );
     expect(screen.getByLabelText('시즌 참여 신청 상태')).toHaveTextContent(
-      '참여 신청대기조건 완료 후 가능',
+      '시즌 참여 신청대기조건 완료 후 가능',
     );
     expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('시즌 참여 준비');
     expect(screen.getAllByRole('button', { name: /시즌 오픈 안내/ })).toHaveLength(4);
@@ -397,7 +403,7 @@ describe('HomePrimaryStateCard', () => {
       '시즌 프로필필요생활패턴·룸메 조건 설정기숙사필요배정된 기숙사 설정',
     );
     expect(screen.getByLabelText('시즌 참여 신청 상태')).toHaveTextContent(
-      '참여 신청대기조건 완료 후 가능',
+      '시즌 참여 신청대기조건 완료 후 가능',
     );
     expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('시즌 참여 준비');
     expect(screen.getAllByRole('button', { name: /시즌 오픈 안내/ })).toHaveLength(4);
@@ -406,6 +412,49 @@ describe('HomePrimaryStateCard', () => {
       screen.queryByRole('button', { name: /생활패턴·룸메 조건 설정/ }),
     ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /배정된 기숙사 설정/ })).not.toBeInTheDocument();
+  });
+
+  it('시즌 참여 철회 후에는 PrimaryCard 참여 신청 상태를 불가로 보여준다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      viewer: {
+        ...createHomeDashboardTestResponse().viewer,
+        capabilities: {
+          ...createHomeDashboardTestResponse().viewer.capabilities,
+          canEnterRoommateSearch: false,
+          canFinalizeSeasonRegistration: false,
+          canRequestMatch: false,
+          canStartChat: false,
+        },
+        seasonProfile: {
+          ...createHomeDashboardTestResponse().viewer.seasonProfile,
+          intent: 'DECLINED',
+          registered: false,
+          profileExists: true,
+          profileState: 'COMPLETE',
+          completion: {
+            profileCompletionRequired: false,
+            dormitorySelectionRequired: false,
+            registrationUnavailable: true,
+            registrationUnavailableReasons: ['WITHDRAWN_OR_DECLINED_LOCK'],
+          },
+          draftWritable: false,
+          canSelectDormitory: false,
+          canFinalizeRegistration: false,
+        },
+      },
+    });
+
+    renderCard({ dashboard, seasonState: 'SEASON_OPEN' });
+
+    expect(
+      screen.getByRole('heading', { name: '이번 시즌 참여가 제한됐어요' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('시즌 재참여가 필요한 경우에 문의하기를 이용해주세요.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('시즌 참여 신청 상태')).toHaveTextContent(
+      '시즌 참여 신청불가문의하기에서 확인',
+    );
   });
 
   it('시즌 오픈에서 참여 신청만 남으면 신청 CTA를 보여준다', () => {
@@ -452,7 +501,7 @@ describe('HomePrimaryStateCard', () => {
       '시즌 프로필완료생활패턴·룸메 조건 설정기숙사완료배정된 기숙사 설정',
     );
     expect(screen.getByLabelText('시즌 참여 신청 상태')).toHaveTextContent(
-      '참여 신청가능지금 신청 가능',
+      '시즌 참여 신청가능지금 신청 가능',
     );
     expect(screen.queryByRole('button', { name: /시즌 참여 신청하기/ })).not.toBeInTheDocument();
     expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('시즌 참여 신청');
@@ -474,6 +523,7 @@ describe('HomePrimaryStateCard', () => {
         ...createHomeDashboardTestResponse().matching,
         pendingSentCount: 0,
         pendingReceivedCount: 0,
+        activeChatThreadCount: 0,
         unreadMessageCount: 0,
       },
     });
@@ -498,7 +548,7 @@ describe('HomePrimaryStateCard', () => {
       '시즌 프로필완료생활패턴·룸메 조건 설정기숙사완료배정된 기숙사 설정',
     );
     expect(screen.getByLabelText('시즌 참여 신청 상태')).toHaveTextContent(
-      '참여 신청완료룸메 후보 보기 가능',
+      '시즌 참여 신청완료룸메 후보 보기 가능',
     );
     expect(cardSection).not.toHaveTextContent('매칭 신청대기');
     expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('참여자');
@@ -653,6 +703,11 @@ describe('HomePrimaryStateCard', () => {
 
       expect(screen.getByText('시즌 매칭 · 기숙사 선택')).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: '시즌 참여를 준비해요' })).toBeInTheDocument();
+      expect(screen.getByText('매칭 시즌:')).toBeInTheDocument();
+      expect(screen.getByText('2026.08.01 ~')).toBeInTheDocument();
+      expect(screen.getByText('진행 중')).toHaveClass('font-extrabold');
+      expect(screen.getByText('참여 가능')).toHaveClass('bg-blue-500');
+      expect(screen.queryByText(/이미 매칭 시즌이 시작됐어요/)).not.toBeInTheDocument();
       expect(
         screen.queryByRole('button', { name: /생활패턴·룸메 조건 설정/ }),
       ).not.toBeInTheDocument();
@@ -676,6 +731,170 @@ describe('HomePrimaryStateCard', () => {
     } finally {
       setIntervalSpy.mockRestore();
     }
+  });
+
+  it('시즌 매칭 registered 상태는 기숙사별 호실 선택일과 시즌 현황을 PrimaryCard에서 보여준다', async () => {
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...createHomeDashboardTestResponse().season,
+        state: 'SEASON_MATCHING',
+        isOpen: false,
+        isMatching: true,
+      },
+    });
+
+    try {
+      const { onNavigate, onDeregisterSeasonParticipation } = renderCard({
+        dashboard,
+        seasonState: 'SEASON_MATCHING',
+        daysUntilEnd: 20,
+      });
+
+      expect(screen.getByText('시즌 매칭 · 매칭 현황')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: '나와 잘 맞는 룸메이트를 찾아보세요.' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/받은 요청 2건이 있어요/)).not.toBeInTheDocument();
+      expect(getCardSection('나와 잘 맞는 룸메이트를 찾아보세요.')).toHaveClass(
+        'from-blue-50',
+        'to-purple-50',
+        'border-blue-200',
+      );
+      expect(screen.getByText('시즌 진행률')).toBeInTheDocument();
+      expect(screen.getByText('0%')).toBeInTheDocument();
+      expect(screen.queryByText('매칭 일정')).not.toBeInTheDocument();
+      expect(screen.getByText('매칭 시즌:')).toBeInTheDocument();
+      expect(screen.getByText('2026.08.01 ~ 2026.08.06')).toBeInTheDocument();
+      expect(screen.queryByText('참여 가능')).not.toBeInTheDocument();
+      expect(screen.getByText('호실 선택일:')).toBeInTheDocument();
+      expect(screen.getAllByText('다산관 기준')[0]).toHaveClass('text-blue-700');
+      expect(screen.getByText('2026.08.06')).toHaveClass('text-blue-700');
+      expect(screen.queryByText('다산관 08.06')).not.toBeInTheDocument();
+      expect(screen.getByText('D-140')).toHaveClass('bg-blue-500');
+
+      expect(screen.getByText('이번 시즌 현황')).toBeInTheDocument();
+      expect(screen.getByText('이번 시즌 참여자')).toBeInTheDocument();
+      expect(screen.getByText('190명')).toBeInTheDocument();
+      expect(screen.getAllByText('춘천캠퍼스 기준').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText('내 건물 참여자')).toBeInTheDocument();
+      expect(screen.getByText('41명')).toBeInTheDocument();
+      expect(screen.getAllByText('다산관 기준').length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText('매칭 성공')).toBeInTheDocument();
+      expect(screen.getAllByText('12명').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('(+4명)').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('춘천캠퍼스 기준').length).toBeGreaterThanOrEqual(2);
+      expect(screen.queryByText('운영 기숙사 리스트')).not.toBeInTheDocument();
+      expect(screen.queryByText('클릭 시 확인 가능')).not.toBeInTheDocument();
+      expect(screen.getByText(/이번 시즌, 벌써/)).toBeInTheDocument();
+      expect(screen.getAllByText('12명').length).toBeGreaterThanOrEqual(2);
+
+      expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('룸메 후보 탐색');
+      expect(screen.getAllByRole('button', { name: /시즌 매칭 안내/ })).toHaveLength(4);
+      expect(
+        screen.getByText('생활 습관이 잘 맞는 룸메 후보를 먼저 탐색해요.'),
+      ).toBeInTheDocument();
+
+      await act(async () => {
+        screen.getByRole('button', { name: /룸메이트 찾기/ }).click();
+      });
+      expect(onNavigate).toHaveBeenCalledWith('list');
+
+      await act(async () => {
+        screen.getByRole('button', { name: /시즌 참여 철회하기/ }).click();
+      });
+      expect(screen.getByRole('dialog', { name: '시즌 참여 철회' })).toBeInTheDocument();
+      expect(screen.getByText('같은 시즌 재참여 불가')).toBeInTheDocument();
+
+      await act(async () => {
+        screen.getAllByRole('button', { name: '시즌 참여 철회하기' }).at(-1)?.click();
+      });
+      expect(onDeregisterSeasonParticipation).toHaveBeenCalledTimes(1);
+    } finally {
+      setIntervalSpy.mockRestore();
+    }
+  });
+
+  it('시즌 매칭 registered 진행률 tone은 PrimaryCard 색상이 아니라 ProgressBar 값만 바꾼다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...createHomeDashboardTestResponse().season,
+        state: 'SEASON_MATCHING',
+        isOpen: false,
+        isMatching: true,
+      },
+    });
+
+    renderCard({
+      dashboard,
+      seasonState: 'SEASON_MATCHING',
+      daysUntilEnd: 4,
+      renderedAt: new Date('2026-08-05T12:00:00+09:00').getTime(),
+    });
+
+    expect(getCardSection('나와 잘 맞는 룸메이트를 찾아보세요.')).toHaveClass(
+      'from-blue-50',
+      'to-purple-50',
+      'border-blue-200',
+    );
+    expect(screen.getByText('75%')).toHaveClass('text-amber-700');
+    expect(screen.getByText('D-2')).toHaveClass('bg-blue-500');
+  });
+
+  it('시즌 매칭 active match 상태는 확정 후 안내 title을 보여준다', () => {
+    const activeMatch = {
+      id: 'match-1',
+      seasonId: 'season-2026-1',
+      counterpartUserId: 'user-2',
+      counterpartParticipantId: 'participant-2',
+      counterpartNickname: '감자친구',
+      status: 'ACTIVE' as const,
+      startedAt: '2026-04-01T00:00:00.000Z',
+      endedAt: null,
+      endReason: null,
+      createdFromRequestId: 'request-1',
+      matchScore: 91,
+      unmatchProgress: {
+        state: 'NONE' as const,
+        requestedByViewerAt: null,
+        requestedByCounterpartAt: null,
+        progressCount: 0,
+        requiredCount: 2 as const,
+        canRequest: false,
+        canCancel: false,
+        availableUntil: null,
+      },
+    };
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...createHomeDashboardTestResponse().season,
+        state: 'SEASON_MATCHING',
+        isOpen: false,
+        isMatching: true,
+      },
+      viewer: {
+        ...createHomeDashboardTestResponse().viewer,
+        match: {
+          hasActiveMatch: true,
+          activeMatch,
+        },
+      },
+      matching: {
+        ...createHomeDashboardTestResponse().matching,
+        activeMatch,
+      },
+    });
+
+    renderCard({ dashboard, seasonState: 'SEASON_MATCHING' });
+
+    expect(screen.getByText('시즌 매칭 · 매칭 현황')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: '확정된 룸메이트와 남은 일정을 확인해요.' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /매칭 현황 보기/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /채팅 보기/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId('home-primary-policy-hint')).toHaveTextContent('매칭 확정');
+    expect(screen.getByText(/룸메이트 매칭이 확정됐어요/)).toBeInTheDocument();
   });
 
   it('post-match에서는 신규 룸메 찾기 CTA 없이 결과 확인과 matched chat exception을 보여준다', () => {
