@@ -17,19 +17,16 @@ import {
   TrendingUp,
   UserRound,
   UserRoundCheck,
-  X,
   XCircle,
   Zap,
 } from 'lucide-react';
 import { AnimatedCounter } from '@/components/AnimatedCounter';
-import { Z_INDEX } from '@/constants/ui';
-import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
-import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { HomeResponsiveDialog } from '../overlays/HomeResponsiveDialog';
 import { sectionCard, sectionHeader, glassCard } from '@/main/styles/home';
 import type { ActiveMatchUnmatchProgress } from '@repo/shared/match/contract';
 import type { RoommateSearchSummary } from '@repo/shared/roommate-search/contract';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
-import type { ComponentType, ReactNode, Ref } from 'react';
+import type { ComponentType } from 'react';
 
 // --- Types ---
 
@@ -453,14 +450,11 @@ function ActiveMatchProfileModal({
   activeMatch: MatchingSummaryActiveMatch;
   onClose: () => void;
 }) {
-  const containerRef = useFocusTrap(true, onClose);
-  useBodyScrollLock(true);
   const summary = activeMatch.counterpartSummary?.profileSummary;
   const intro = summary?.intro.trim() || '아직 소개 문구가 없어요.';
 
   return (
     <HomeResponsiveDialog
-      focusRef={containerRef}
       label="상대 프로필"
       icon={UserRound}
       eyebrow="매칭 상대 프로필"
@@ -521,13 +515,10 @@ function UnmatchActionModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  const containerRef = useFocusTrap(true, onClose);
-  useBodyScrollLock(true);
   const isCancel = mode === 'cancel-unmatch';
 
   return (
     <HomeResponsiveDialog
-      focusRef={containerRef}
       label={isCancel ? '매칭 해제 요청 철회' : '매칭 해제 요청'}
       icon={isCancel ? XCircle : ShieldAlert}
       eyebrow="상호 합의 해제"
@@ -582,81 +573,6 @@ function UnmatchActionModal({
         )}
       </div>
     </HomeResponsiveDialog>
-  );
-}
-
-function HomeResponsiveDialog({
-  focusRef,
-  label,
-  icon: Icon,
-  eyebrow,
-  title,
-  description,
-  children,
-  footer,
-  onClose,
-}: {
-  focusRef: Ref<HTMLDivElement>;
-  label: string;
-  icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean }>;
-  eyebrow: string;
-  title: string;
-  description: string;
-  children: ReactNode;
-  footer: ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 flex items-end justify-center overflow-hidden overscroll-none bg-slate-950/40 px-0 pb-0 pt-4 sm:px-4 sm:pb-4 md:items-center md:py-4"
-      style={{ zIndex: Z_INDEX.bottomSheet }}
-    >
-      <button
-        type="button"
-        aria-label={`${label} 닫기`}
-        className="absolute inset-0"
-        onClick={onClose}
-      />
-      <motion.div
-        ref={focusRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        tabIndex={-1}
-        initial={{ opacity: 0, y: 24, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="relative flex h-[min(620px,calc(100dvh-1rem))] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[min(680px,calc(100dvh-2rem))] sm:rounded-3xl"
-      >
-        <div className="shrink-0 bg-linear-to-br from-indigo-50 to-cyan-50 p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
-                <Icon className="size-5" aria-hidden={true} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-indigo-700">{eyebrow}</p>
-                <h3 className="text-lg font-extrabold text-(--knu-text-primary)">{title}</h3>
-                <p className="mt-1 text-sm leading-relaxed text-(--knu-text-secondary)">
-                  {description}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/80 text-(--knu-text-secondary) transition-colors hover:bg-white hover:text-(--knu-text-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
-              aria-label="닫기"
-            >
-              <X className="size-5" aria-hidden={true} />
-            </button>
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">{children}</div>
-        <div className="shrink-0 border-t border-(--knu-border) bg-white p-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <div className="flex flex-col gap-2 sm:flex-row">{footer}</div>
-        </div>
-      </motion.div>
-    </div>
   );
 }
 

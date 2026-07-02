@@ -6,7 +6,7 @@ import { AlertTriangle, Building2, Calendar, School, ShieldAlert } from 'lucide-
 import { getAvatarColor } from '@/utils/avatarColor';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { HomeQuickMenuSection } from './components/HomeQuickMenuSection';
-import { HomeDashboardLayout } from './HomeDashboardLayout';
+import { HomeDashboardLayout } from './layout/HomeDashboardLayout';
 import { HomePrimaryStateCard } from './components/HomePrimaryStateCard';
 import { HomeActivityPanel } from './components/HomeActivityPanel';
 import { HomeReadinessChecklist } from './components/HomeReadinessChecklist';

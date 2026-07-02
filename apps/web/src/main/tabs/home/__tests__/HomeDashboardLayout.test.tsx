@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { HomeDashboardLayout } from '../HomeDashboardLayout';
+import { HomeDashboardLayout } from '../layout/HomeDashboardLayout';
 
 describe('HomeDashboardLayout', () => {
   it('모바일 단일 컬럼 identity와 desktop dashboard grid owner class를 가진다', () => {

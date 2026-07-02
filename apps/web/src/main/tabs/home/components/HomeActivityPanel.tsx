@@ -16,14 +16,11 @@ import {
   Search,
   Send,
   UserRound,
-  X,
   XCircle,
 } from 'lucide-react';
 import { HomeMatchingSummary } from './HomeMatchingSummary';
+import { HomeResponsiveSheet } from '../overlays/HomeResponsiveSheet';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
-import { Z_INDEX } from '@/constants/ui';
-import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
-import { useFocusTrap } from '@/hooks/useFocusTrap';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
@@ -901,82 +898,6 @@ function resolveDormitoryLabel(viewModel: HomeDashboardViewModel): string {
     return '운영 정보 대기';
   }
   return viewModel.preparation.hasBuilding ? '설정 완료' : '설정 필요';
-}
-
-function HomeResponsiveSheet({
-  eyebrow,
-  title,
-  description,
-  icon: Icon,
-  children,
-  footer,
-  onClose,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  children: React.ReactNode;
-  footer: React.ReactNode;
-  onClose: () => void;
-}) {
-  useBodyScrollLock(true);
-  const containerRef = useFocusTrap(true, onClose);
-
-  return (
-    <div
-      className="fixed inset-0 flex items-end justify-center overflow-hidden overscroll-none bg-slate-950/40 px-0 pb-0 pt-4 sm:px-4 sm:pb-4 md:items-center md:py-4"
-      style={{ zIndex: Z_INDEX.bottomSheet }}
-    >
-      <button
-        type="button"
-        aria-label={`${title} 닫기`}
-        className="absolute inset-0 cursor-default"
-        onClick={onClose}
-      />
-      <motion.div
-        ref={containerRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabIndex={-1}
-        initial={{ opacity: 0, y: 24, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="relative flex h-[min(620px,calc(100dvh-1rem))] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[min(680px,calc(100dvh-2rem))] sm:rounded-3xl"
-      >
-        <div className="shrink-0 bg-linear-to-br from-blue-50 to-cyan-50 p-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
-                <Icon className="size-5" aria-hidden="true" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-bold text-blue-700">{eyebrow}</p>
-                <h3 className="text-lg font-extrabold text-(--knu-text-primary)">{title}</h3>
-                <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-(--knu-text-secondary)">
-                  {description}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/80 text-(--knu-text-secondary) transition-colors hover:bg-white hover:text-(--knu-text-primary) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary)"
-              aria-label="닫기"
-            >
-              <X className="size-5" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">{children}</div>
-
-        <div className="shrink-0 border-t border-(--knu-border) bg-white p-5 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <div className="flex flex-col gap-2 sm:flex-row">{footer}</div>
-        </div>
-      </motion.div>
-    </div>
-  );
 }
 
 type PostMatchDetailModalKind = 'activity' | 'profile';

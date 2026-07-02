@@ -45,6 +45,7 @@ const FORBIDDEN_HOME_FIRST_RENDER_PATTERNS = [
 ] as const;
 const HOME_SECTION_RUNTIME_ROOTS = [
   join(homeRoot, 'components'),
+  join(homeRoot, 'layout'),
   join(homeRoot, 'sections'),
   join(homeRoot, 'overlays'),
   join(homeRoot, 'profile-modals'),
