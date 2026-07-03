@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { ListGlobalNoticesQuery } from '@repo/shared/notices';
-import { GlobalNoticeQuery } from './queries/global-notice.query.js';
+import { GlobalNoticeQuery } from '../queries/global-notice.query.js';
 
 @Injectable()
 export class NoticesService {

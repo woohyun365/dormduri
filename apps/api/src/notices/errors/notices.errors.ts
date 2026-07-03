@@ -1,4 +1,4 @@
-import { badRequestError, notFoundError } from '../platform/http/api-error.js';
+import { badRequestError, notFoundError } from '../../platform/http/api-error.js';
 
 export const noticeErrors = {
   invalidListCursor() {

@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../platform/database/prisma.module.js';
+import { NOTICES_EXPORTS } from './composition/notices.exports.js';
+import { NOTICES_PROVIDERS } from './composition/notices.providers.js';
 import { NoticesController } from './notices.controller.js';
-import { NoticesService } from './notices.service.js';
-import { GlobalNoticeQuery } from './queries/global-notice.query.js';
-import { GlobalNoticeRepository } from './repositories/global-notice.repository.js';
 
 @Module({
   imports: [PrismaModule],
   controllers: [NoticesController],
-  providers: [NoticesService, GlobalNoticeQuery, GlobalNoticeRepository],
+  providers: NOTICES_PROVIDERS,
+  exports: NOTICES_EXPORTS,
 })
 export class NoticesModule {}

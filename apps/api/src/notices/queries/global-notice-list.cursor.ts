@@ -1,4 +1,4 @@
-import { noticeErrors } from '../errors.js';
+import { noticeErrors } from '../errors/notices.errors.js';
 import type {
   GlobalNoticeCursorBoundary,
   GlobalNoticeRecord,

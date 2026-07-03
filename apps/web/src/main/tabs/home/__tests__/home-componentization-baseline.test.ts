@@ -164,6 +164,9 @@ describe('Home matching componentization boundary', () => {
       const operationsFiles = [
         'api/home-operations.api.ts',
         'model/operations/homeOperationsViewModel.ts',
+        'model/operations/noticePreview.mapper.ts',
+        'model/operations/notificationPreview.mapper.ts',
+        'model/operations/supportPreview.mapper.ts',
       ];
 
       expect(

@@ -4,11 +4,11 @@ import type {
   GlobalNoticeListResponse,
   ListGlobalNoticesQuery,
 } from '@repo/shared/notices';
-import { noticeErrors } from '../errors.js';
+import { noticeErrors } from '../errors/notices.errors.js';
 import {
   toGlobalNoticeDetailResponse,
   toGlobalNoticeListResponse,
-} from '../presenters/global-notice.presenter.js';
+} from '../mappers/global-notice.presenter.js';
 import { GlobalNoticeRepository } from '../repositories/global-notice.repository.js';
 import {
   decodeGlobalNoticeListCursor,

@@ -7,7 +7,7 @@ import {
 } from '@repo/shared/notices';
 import type { GlobalNoticeRecord } from '../repositories/global-notice.repository.js';
 
-function toPreview(record: GlobalNoticeRecord): GlobalNoticePreview {
+function toGlobalNoticePreview(record: GlobalNoticeRecord): GlobalNoticePreview {
   return {
     id: record.id,
     title: record.title,
@@ -21,9 +21,9 @@ function toPreview(record: GlobalNoticeRecord): GlobalNoticePreview {
   };
 }
 
-function toNotice(record: GlobalNoticeRecord): GlobalNotice {
+function toGlobalNotice(record: GlobalNoticeRecord): GlobalNotice {
   return {
-    ...toPreview(record),
+    ...toGlobalNoticePreview(record),
     body: record.body,
   };
 }
@@ -35,7 +35,7 @@ export function toGlobalNoticeListResponse(input: {
 }): GlobalNoticeListResponse {
   const visibleRecords = input.records.slice(0, input.limit);
   return {
-    items: visibleRecords.map(toPreview),
+    items: visibleRecords.map(toGlobalNoticePreview),
     pageInfo: {
       hasNextPage: input.records.length > input.limit,
       nextCursor: input.nextCursor,
@@ -46,5 +46,5 @@ export function toGlobalNoticeListResponse(input: {
 export function toGlobalNoticeDetailResponse(
   record: GlobalNoticeRecord,
 ): GlobalNoticeDetailResponse {
-  return { notice: toNotice(record) };
+  return { notice: toGlobalNotice(record) };
 }
