@@ -111,6 +111,14 @@
       "types": "./dist/notifications/contract.d.ts",
       "default": "./dist/notifications/contract.js"
     },
+    "./notices": {
+      "types": "./dist/notices/index.d.ts",
+      "default": "./dist/notices/index.js"
+    },
+    "./notices/contract": {
+      "types": "./dist/notices/contract.d.ts",
+      "default": "./dist/notices/contract.js"
+    },
     "./social-safety": {
       "types": "./dist/social-safety/index.d.ts",
       "default": "./dist/social-safety/index.js"

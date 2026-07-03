@@ -55,6 +55,7 @@ import { HomeDashboardController } from '../../home-dashboard/home-dashboard.con
 import { LegalController } from '../../legal/legal.controller.js';
 import { MatchesController } from '../../matches/matches.controller.js';
 import { NotificationsController } from '../../notifications/notifications.controller.js';
+import { NoticesController } from '../../notices/notices.controller.js';
 import { SupportController } from '../../support/support.controller.js';
 import { ProfilesController } from '../../profiles/profiles.controller.js';
 import { RoommateSearchController } from '../../roommate-search/roommate-search.controller.js';
@@ -567,6 +568,21 @@ const expectedRoutes: ExpectedRoute[] = [
     path: 'api/operations/support/tickets/:ticketId/resolve',
     access: 'protected',
     capabilities: ['admin:support:resolve'],
+  },
+
+  {
+    controller: NoticesController,
+    handler: 'listGlobalNotices',
+    method: RequestMethod.GET,
+    path: 'api/notices',
+    access: 'public',
+  },
+  {
+    controller: NoticesController,
+    handler: 'getGlobalNotice',
+    method: RequestMethod.GET,
+    path: 'api/notices/:noticeId',
+    access: 'public',
   },
   {
     controller: NotificationsController,

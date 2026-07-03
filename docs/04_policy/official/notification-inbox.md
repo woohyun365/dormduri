@@ -49,6 +49,15 @@ Notification payload는 allowlist DTO이며, 아래 raw/민감값을 넣지 않�
 
 User-facing 알림은 “상태가 바뀌었다/확인할 항목이 있다”를 알려주는 pointer다. 상세 본문과 증거는 각 owner API에서 다시 권한을 확인하고 제공한다.
 
+## Global notice vs inbox
+
+| Surface                 | 의미                                           | payload/body 정책                                                              | 읽기 경계                                          |
+| ----------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------- |
+| Global notice           | 운영자가 모든 사용자에게 공개하는 1:N 공지사항 | 목록 preview는 title/summary/severity만 제공하고 본문은 detail에서 조회한다    | `GET /api/notices*` public read path               |
+| User notification inbox | 특정 사용자에게 전달된 개인 알림 pointer       | support/report/chat 본문 원문 없이 owner resource id와 상태 pointer만 포함한다 | `GET /api/notifications*` protected self-only path |
+
+Global notice는 개인 알림함의 `SEASON_SYSTEM_NOTICE` filter로 대체하지 않는다. 개인 알림함은 “내가 확인해야 할 상태 변화”를 소유하고, global notice는 “모든 사용자에게 공개된 운영 공지”를 소유한다. Home 같은 dashboard surface는 두 feed를 UI에서 함께 배치할 수 있지만 contract/API/BFF 경계는 분리한다.
+
 ## Inbox behavior
 
 | 기능                       | 정책                                                                                          |
@@ -101,8 +110,9 @@ User-facing 알림은 “상태가 바뀌었다/확인할 항목이 있다”를
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                      | 관련 이슈   |
-| ---------- | -------------------------------------------------------------------------------------------------------------- | ----------- |
-| 2026-06-08 | in-app notification primary, Push 제외, generic writer/outbox, payload privacy baseline을 추가했다             | #196 / #220 |
-| 2026-06-08 | `PROFILE_MISMATCH_FEEDBACK`, read-all, bounded campaign, operator alert 분리/disabled sink baseline을 추가했다 | #220 / #196 |
-| 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220  |
+| 날짜       | 변경 내용                                                                                                      | 관련 이슈    |
+| ---------- | -------------------------------------------------------------------------------------------------------------- | ------------ |
+| 2026-06-08 | in-app notification primary, Push 제외, generic writer/outbox, payload privacy baseline을 추가했다             | #196 / #220  |
+| 2026-06-08 | `PROFILE_MISMATCH_FEEDBACK`, read-all, bounded campaign, operator alert 분리/disabled sink baseline을 추가했다 | #220 / #196  |
+| 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220   |
+| 2026-07-03 | global notice와 개인 notification inbox의 API/preview/body 경계를 분리했다                                     | Home Phase 6 |

@@ -159,6 +159,21 @@ describe('Home matching componentization boundary', () => {
     ).toEqual(matchingFiles.map(() => true));
   });
 
+  describe('Home operations componentization boundary', () => {
+    it('keeps operations data fetching and preview mapping outside section components', () => {
+      const operationsFiles = [
+        'api/home-operations.api.ts',
+        'model/operations/homeOperationsViewModel.ts',
+      ];
+
+      expect(
+        operationsFiles.map((relativePath) =>
+          statSync(join(homeRoot, relativePath), { throwIfNoEntry: false })?.isFile(),
+        ),
+      ).toEqual(operationsFiles.map(() => true));
+    });
+  });
+
   it('keeps unmatch dialogs on shared responsive overlay primitives without direct network I/O', () => {
     const dialogSource = readHomeSource('sections/matching/UnmatchActionDialog.tsx');
     const activeMatchSource = readHomeSource('sections/matching/ActiveMatchSummaryCard.tsx');

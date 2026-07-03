@@ -69,6 +69,8 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 | `components/HomeMatchingSummary.tsx`                                     | 기존 import 경로를 유지하는 compatibility facade. 실제 matching summary 구현은 `sections/matching/`이 소유한다.                                                                                        |
 | `sections/matching/`                                                     | registered matching summary, active match card, counterpart profile trigger, unmatch request/cancel dialog, matching metric/action primitives. Section component는 직접 network I/O를 수행하지 않는다. |
 | `api/home-active-match.api.ts`                                           | active match unmatch request/cancel BFF client. `HomeTab`은 성공 후 dashboard refresh만 소유한다.                                                                                                      |
+| `api/home-operations.api.ts`                                             | global notice, personal notification, support FAQ/ticket BFF client. shared schema로 response를 재검증하고 raw body/stack을 사용자-facing error로 노출하지 않는다.                                     |
+| `model/operations/homeOperationsViewModel.ts`                            | 공지사항/알림/문의 preview mapper. notice body와 support message body를 Home preview에 섞지 않고 pointer/summary만 반환한다.                                                                           |
 | `components/UrgentActionBanner.tsx`                                      | legacy/request activity banner compatibility surface. active chat count는 dashboard contract 확장 전까지 `0`으로 fail-closed                                                                           |
 | `components/HomeReadinessChecklist.tsx`                                  | current-user capability와 registration 상태 기반 readiness checklist                                                                                                                                   |
 | `components/HomeOnboardingSheet.tsx`, `hooks/useHomeOnboardingNotice.ts` | Home default render에서는 사용하지 않는 `service-intro` compatibility surface. 후속 정리 전까지 직접 회귀 테스트만 유지                                                                                |
@@ -79,6 +81,14 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 | `../../test-support/home-dashboard.builder.ts`                           | Home/Main unit·component tests 및 Storybook story data 전용 `HomeDashboardResponse` builder                                                                                                            |
 | `__stories__/`                                                           | HomeTab visual state workshop 전용 story surface                                                                                                                                                       |
 | `__tests__/`                                                             | component, state matrix, browser API fallback regression                                                                                                                                               |
+
+## Operations API boundary
+
+- Global notice는 개인 알림함의 `SEASON_SYSTEM_NOTICE` filter가 아니라 `GET /api/notices*` read path를 사용한다.
+- `GlobalNotice` list response는 Home preview용 `title/summary/severity/publishedAt`만 반환하고, `body`는 detail route에서만 조회한다.
+- Personal notification은 pointer-only payload로 유지한다. support ticket 본문은 notification payload나 Home preview에 넣지 않고 support ticket detail API에서 본인 권한으로 다시 조회한다.
+- Home operations client는 Web BFF 응답을 shared schema로 재검증한다. section component는 직접 `fetch`하지 않는다.
+- Operations API 실패는 Phase 7 UI에서 Home core dashboard render와 독립적인 empty/error surface로 수렴시킨다.
 
 ## Error and security rule
 
