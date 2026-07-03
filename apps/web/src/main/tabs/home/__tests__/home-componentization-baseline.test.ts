@@ -8,6 +8,7 @@ import { HomeResponsiveSheet } from '../overlays/HomeResponsiveSheet';
 import { HomeMatchingSummary } from '../components/HomeMatchingSummary';
 import { HomeMatchingSummary as MatchingSectionHomeMatchingSummary } from '../sections/matching/HomeMatchingSummary';
 import { HomeOperationsPanel } from '../components/HomeOperationsPanel';
+import { useHomeOperations } from '../hooks/useHomeOperations';
 import { HomePrimaryStateCard } from '../components/HomePrimaryStateCard';
 import { HomePrimaryStateCard as PrimarySectionHomePrimaryStateCard } from '../sections/primary/HomePrimaryStateCard';
 import { HomeActivityPanel as ActivitySectionHomeActivityPanel } from '../sections/activity/HomeActivityPanel';
@@ -18,6 +19,7 @@ describe('Home componentization baseline', () => {
     expect(HomeActivityPanel).toEqual(expect.any(Function));
     expect(HomeMatchingSummary).toEqual(expect.any(Function));
     expect(HomeOperationsPanel).toEqual(expect.any(Function));
+    expect(useHomeOperations).toEqual(expect.any(Function));
     expect(HomeDashboardLayout).toEqual(expect.any(Function));
     expect(HomeResponsiveSheet).toEqual(expect.any(Function));
     expect(HomeResponsiveDialog).toEqual(expect.any(Function));
@@ -160,9 +162,28 @@ describe('Home matching componentization boundary', () => {
   });
 
   describe('Home operations componentization boundary', () => {
-    it('keeps operations data fetching and preview mapping outside section components', () => {
+    it('keeps HomeOperationsPanel public component as a thin compatibility facade', () => {
+      const facadeSource = readHomeSource('components/HomeOperationsPanel.tsx');
+
+      expect(facadeSource).toContain('../sections/operations/HomeOperationsSurface');
+      expect(facadeSource).not.toContain('useState');
+      expect(facadeSource).not.toContain('fetch(');
+      expect(facadeSource).not.toContain('useBodyScrollLock');
+    });
+
+    it('keeps operations hook, owner sections, and preview mapping in the Home operations boundary', () => {
       const operationsFiles = [
         'api/home-operations.api.ts',
+        'hooks/useHomeOperations.ts',
+        'sections/operations/HomeOperationsSurface.tsx',
+        'sections/operations/HomeNoticeBanner.tsx',
+        'sections/operations/NotificationInboxPreview.tsx',
+        'sections/operations/SupportCenterEntry.tsx',
+        'sections/operations/SupportTicketListPreview.tsx',
+        'sections/operations/SupportTicketDetailSheet.tsx',
+        'sections/operations/SupportTicketMessageComposer.tsx',
+        'sections/operations/OperationsPanelSkeleton.tsx',
+        'sections/operations/OperationsPanelErrorState.tsx',
         'model/operations/homeOperationsViewModel.ts',
         'model/operations/noticePreview.mapper.ts',
         'model/operations/notificationPreview.mapper.ts',

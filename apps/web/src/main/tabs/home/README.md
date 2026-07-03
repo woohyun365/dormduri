@@ -64,11 +64,13 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 | `profile-modals/`                                                        | 시즌 프로필/상대 프로필 detail presenter와 Home-local profile detail hooks. Hook은 Home-local API client만 호출하고 section/dialog component에 raw fetch를 노출하지 않는다.                            |
 | `api/home-profile-detail.api.ts`                                         | current season profile, match history, public/counterpart profile BFF client. shared schema로 response를 재검증하고 section component 직접 fetch를 대체한다.                                           |
 | `components/HomeMatchingRegisteredGuidePanel.tsx`                        | `SEASON_MATCHING + registered` user-facing policy guide; checklist replacement for registered matching                                                                                                 |
-| `components/HomeOperationsPanel.tsx`                                     | 공지사항/알림함/문의하기 operations surface. Unsupported feeds render fallback without mock rows                                                                                                       |
+| `components/HomeOperationsPanel.tsx`                                     | 기존 import 경로를 유지하는 compatibility facade. 실제 operations UI는 `sections/operations/`가 소유한다.                                                                                              |
 | `components/HomeDashboardErrorState.tsx`                                 | Home dashboard API/BFF failure safe retry state                                                                                                                                                        |
 | `components/HomeMatchingSummary.tsx`                                     | 기존 import 경로를 유지하는 compatibility facade. 실제 matching summary 구현은 `sections/matching/`이 소유한다.                                                                                        |
 | `sections/matching/`                                                     | registered matching summary, active match card, counterpart profile trigger, unmatch request/cancel dialog, matching metric/action primitives. Section component는 직접 network I/O를 수행하지 않는다. |
 | `api/home-active-match.api.ts`                                           | active match unmatch request/cancel BFF client. `HomeTab`은 성공 후 dashboard refresh만 소유한다.                                                                                                      |
+| `hooks/useHomeOperations.ts`                                             | global notice, personal notification, support ticket/FAQ를 Home core dashboard와 독립적으로 progressive fetch한다. feed별 partial failure와 detail/reply action을 section-local state로 수렴한다.      |
+| `sections/operations/`                                                   | 공지사항 banner, 개인 알림함 preview, 문의/FAQ/ticket detail sheet/message composer를 소유한다. 직접 `fetch`하지 않고 `useHomeOperations`와 Home overlay primitive만 사용한다.                         |
 | `api/home-operations.api.ts`                                             | global notice, personal notification, support FAQ/ticket BFF client. shared schema로 response를 재검증하고 raw body/stack을 사용자-facing error로 노출하지 않는다.                                     |
 | `model/operations/homeOperationsViewModel.ts`                            | 공지사항/알림/문의 preview view-model assembler. notice body와 support message body를 Home preview에 섞지 않고 mapper 결과만 조합한다.                                                                 |
 | `model/operations/{notice,notification,support}Preview.mapper.ts`        | operations feed별 preview projection owner. global notice는 summary-only, personal notification은 pointer-only, support ticket은 timeline/body 제외 preview만 반환한다.                                |
@@ -89,7 +91,9 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 - `GlobalNotice` list response는 Home preview용 `title/summary/severity/publishedAt`만 반환하고, `body`는 detail route에서만 조회한다.
 - Personal notification은 pointer-only payload로 유지한다. support ticket 본문은 notification payload나 Home preview에 넣지 않고 support ticket detail API에서 본인 권한으로 다시 조회한다.
 - Home operations client는 Web BFF 응답을 shared schema로 재검증한다. section component는 직접 `fetch`하지 않는다.
-- Operations API 실패는 Phase 7 UI에서 Home core dashboard render와 독립적인 empty/error surface로 수렴시킨다.
+- Operations API 실패는 Home core dashboard render와 독립적인 feed-local empty/error surface로 수렴시킨다. 전체 operations feed가 실패해도 primary/readiness/activity/quick action render를 막지 않는다.
+- `useHomeOperations`는 list feed를 병렬로 불러오고, 공지 본문과 support message timeline은 사용자가 detail sheet를 열 때만 조회한다.
+- `sections/operations`는 preview/detail 표시와 CTA를 소유하지만 직접 network/browser I/O를 수행하지 않는다.
 
 ## Error and security rule
 
