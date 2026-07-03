@@ -18,8 +18,8 @@ Home은 현재 사용자에게 “지금 할 수 있는 다음 행동”을 안�
   - `SEASON_OPEN`: 생활패턴, 건물 선택, 시즌 등록 준비를 안내하되 매칭 요청은 열지 않는다.
   - `SEASON_MATCHING`: dashboard capability가 허용할 때 같은 건물 후보 탐색, 대화, 매칭 요청 진입을 안내한다.
   - `SEASON_POST_MATCH`: 새 요청 대신 확정 결과, 과거 기록, 허용된 대화 확인 중심으로 안내한다.
-- 모바일 Home content order는 `primary → readiness → activity → operations → quickActions`로 고정한다.
-  데스크톱에서는 주요 행동(`primary`, `activity`, `quickActions`)과 보조 정보(`readiness`, `operations`)를 2-column으로 분리한다.
+- 모바일 Home content order는 `notice → primary → readiness → activity → quickActions → assistance`로 고정한다.
+  데스크톱에서는 공지사항을 dashboard grid 상단 full-width banner로 분리하고, 주요 행동(`primary`, `activity`, `quickActions`)과 보조 정보(`readiness`, `assistance`)를 2-column으로 배치한다.
 - 비운영 캠퍼스에서는 Home content를 inert/aria-hidden 처리하고 계정 정보 확인 정도의 대기 UX만 제공한다.
 - Home 진입만으로 건물 선택 modal을 자동으로 열지 않는다. 건물 선택은 명시 CTA를 통해서만 시작한다.
 
@@ -52,32 +52,32 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 
 ## Directory responsibility
 
-| File / directory                                                  | Responsibility                                                                                                                                                                                         |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `HomeTab.tsx`                                                     | Home dashboard view model 소비, section 조합, CTA routing. Header/avatar/non-operated overlay 세부 JSX는 layout owner에 위임한다.                                                                      |
-| `layout/HomeDashboardLayout.tsx`                                  | mobile single-column / desktop two-column layout frame owner                                                                                                                                           |
-| `layout/HomeDashboardErrorState.tsx`                              | Home dashboard API/BFF failure safe retry state                                                                                                                                                        |
-| `layout/HomeHeader.tsx`                                           | viewer identity header/avatar/chip/D-day presentation owner                                                                                                                                            |
-| `layout/HomeSectionGrid.tsx`                                      | mobile order와 desktop two-column section grid owner                                                                                                                                                   |
-| `layout/HomeNonOperatedOverlay.tsx`                               | non-operated campus inert overlay owner. Header/bottom navigation을 덮지 않는 대기 UX만 담당한다.                                                                                                      |
-| `overlays/`                                                       | Home-local responsive dialog/sheet/header/action bar primitives. Focus trap, body scroll lock, safe-area footer, mobile bottom sheet/desktop dialog chrome를 공통 소유                                 |
-| `sections/primary/`                                               | 시즌 상태별 primary card strategy, pure primary content builder, progress/date/task/policy hint/withdrawal sheet primitive                                                                             |
-| `sections/activity/`                                              | 시즌 상태별 activity section, current/past season content builder, metric primitive, profile/activity modal dialog boundary. Dialog chrome/trigger owner이며 직접 network I/O를 수행하지 않는다.       |
-| `profile-modals/`                                                 | 시즌 프로필/상대 프로필 detail presenter와 Home-local profile detail hooks. Hook은 Home-local API client만 호출하고 section/dialog component에 raw fetch를 노출하지 않는다.                            |
-| `api/home-profile-detail.api.ts`                                  | current season profile, match history, public/counterpart profile BFF client. shared schema로 response를 재검증하고 section component 직접 fetch를 대체한다.                                           |
-| `sections/matching/`                                              | registered matching summary, active match card, counterpart profile trigger, unmatch request/cancel dialog, matching metric/action primitives. Section component는 직접 network I/O를 수행하지 않는다. |
-| `api/home-active-match.api.ts`                                    | active match unmatch request/cancel BFF client. `HomeTab`은 성공 후 dashboard refresh만 소유한다.                                                                                                      |
-| `hooks/useHomeOperations.ts`                                      | global notice, personal notification, support ticket/FAQ를 Home core dashboard와 독립적으로 progressive fetch한다. feed별 partial failure와 detail/reply action을 section-local state로 수렴한다.      |
-| `sections/operations/`                                            | 공지사항 banner, 개인 알림함 preview, 문의/FAQ/ticket detail sheet/message composer를 소유한다. 직접 `fetch`하지 않고 `useHomeOperations`와 Home overlay primitive만 사용한다.                         |
-| `api/home-operations.api.ts`                                      | global notice, personal notification, support FAQ/ticket BFF client. shared schema로 response를 재검증하고 raw body/stack을 사용자-facing error로 노출하지 않는다.                                     |
-| `model/operations/homeOperationsViewModel.ts`                     | 공지사항/알림/문의 preview view-model assembler. notice body와 support message body를 Home preview에 섞지 않고 mapper 결과만 조합한다.                                                                 |
-| `model/operations/{notice,notification,support}Preview.mapper.ts` | operations feed별 preview projection owner. global notice는 summary-only, personal notification은 pointer-only, support ticket은 timeline/body 제외 preview만 반환한다.                                |
-| `sections/readiness/`                                             | season schedule/readiness/post-match guide sections. current-user capability와 registration 상태 기반 checklist 및 registered matching guide를 소유한다.                                               |
-| `sections/quick-actions/`                                         | owner tab navigation entry와 target-tab responsibility handoff. Home에서는 단순 CTA만 제공하고 tab별 blocked 책임을 갖지 않는다.                                                                       |
-| `model/`                                                          | pure policy/view-model helpers and tests                                                                                                                                                               |
-| `../../test-support/home-dashboard.builder.ts`                    | Home/Main unit·component tests 및 Storybook story data 전용 `HomeDashboardResponse` builder                                                                                                            |
-| `__stories__/`                                                    | HomeTab visual state workshop 전용 story surface                                                                                                                                                       |
-| `__tests__/`                                                      | component, state matrix, browser API fallback regression                                                                                                                                               |
+| File / directory                                                  | Responsibility                                                                                                                                                                                                                                             |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HomeTab.tsx`                                                     | Home dashboard view model 소비, section 조합, CTA routing. Header/avatar/non-operated overlay 세부 JSX는 layout owner에 위임한다.                                                                                                                          |
+| `layout/HomeDashboardLayout.tsx`                                  | notice full-width slot, mobile single-column / desktop two-column layout frame owner                                                                                                                                                                       |
+| `layout/HomeDashboardErrorState.tsx`                              | Home dashboard API/BFF failure safe retry state                                                                                                                                                                                                            |
+| `layout/HomeHeader.tsx`                                           | viewer identity header/avatar/chip/D-day presentation owner                                                                                                                                                                                                |
+| `layout/HomeSectionGrid.tsx`                                      | notice → primary/readiness/activity/quickActions/assistance order와 desktop right rail section grid owner                                                                                                                                                  |
+| `layout/HomeNonOperatedOverlay.tsx`                               | non-operated campus inert overlay owner. Header/bottom navigation을 덮지 않는 대기 UX만 담당한다.                                                                                                                                                          |
+| `overlays/`                                                       | Home-local responsive dialog/sheet/header/action bar primitives. Focus trap, body scroll lock, safe-area footer, mobile bottom sheet/desktop dialog chrome를 공통 소유                                                                                     |
+| `sections/primary/`                                               | 시즌 상태별 primary card strategy, pure primary content builder, progress/date/task/policy hint/withdrawal sheet primitive                                                                                                                                 |
+| `sections/activity/`                                              | 시즌 상태별 activity section, current/past season content builder, metric primitive, profile/activity modal dialog boundary. Dialog chrome/trigger owner이며 직접 network I/O를 수행하지 않는다.                                                           |
+| `profile-modals/`                                                 | 시즌 프로필/상대 프로필 detail presenter와 Home-local profile detail hooks. Hook은 Home-local API client만 호출하고 section/dialog component에 raw fetch를 노출하지 않는다.                                                                                |
+| `api/home-profile-detail.api.ts`                                  | current season profile, match history, public/counterpart profile BFF client. shared schema로 response를 재검증하고 section component 직접 fetch를 대체한다.                                                                                               |
+| `sections/matching/`                                              | registered matching summary, active match card, counterpart profile trigger, unmatch request/cancel dialog, matching metric/action primitives. Section component는 직접 network I/O를 수행하지 않는다.                                                     |
+| `api/home-active-match.api.ts`                                    | active match unmatch request/cancel BFF client. `HomeTab`은 성공 후 dashboard refresh만 소유한다.                                                                                                                                                          |
+| `hooks/useHomeOperations.ts`                                      | global notice, personal notification, support ticket/FAQ를 Home core dashboard와 독립적으로 progressive fetch한다. feed별 partial failure와 detail/reply action을 section-local state로 수렴한다.                                                          |
+| `sections/operations/`                                            | 공지사항 top banner, 개인 알림함 CTA/preview, 문의하기·문의내역 ticket detail sheet/message composer를 소유한다. 단일 ‘운영 센터’ 카드로 묶지 않고 surface별 IA를 분리한다. 직접 `fetch`하지 않고 `useHomeOperations`와 Home overlay primitive만 사용한다. |
+| `api/home-operations.api.ts`                                      | global notice, personal notification, support FAQ/ticket BFF client. shared schema로 response를 재검증하고 raw body/stack을 사용자-facing error로 노출하지 않는다.                                                                                         |
+| `model/operations/homeOperationsViewModel.ts`                     | 공지사항/알림/문의 preview view-model assembler. notice body와 support message body를 Home preview에 섞지 않고 mapper 결과만 조합한다.                                                                                                                     |
+| `model/operations/{notice,notification,support}Preview.mapper.ts` | operations feed별 preview projection owner. global notice는 summary-only, personal notification은 pointer-only, support ticket은 timeline/body 제외 preview만 반환한다.                                                                                    |
+| `sections/readiness/`                                             | season schedule/readiness/post-match guide sections. current-user capability와 registration 상태 기반 checklist 및 registered matching guide를 소유한다.                                                                                                   |
+| `sections/quick-actions/`                                         | owner tab navigation entry와 target-tab responsibility handoff. Home에서는 단순 CTA만 제공하고 tab별 blocked 책임을 갖지 않는다.                                                                                                                           |
+| `model/`                                                          | pure policy/view-model helpers and tests                                                                                                                                                                                                                   |
+| `../../test-support/home-dashboard.builder.ts`                    | Home/Main unit·component tests 및 Storybook story data 전용 `HomeDashboardResponse` builder                                                                                                                                                                |
+| `__stories__/`                                                    | HomeTab visual state workshop 전용 story surface                                                                                                                                                                                                           |
+| `__tests__/`                                                      | component, state matrix, browser API fallback regression                                                                                                                                                                                                   |
 
 ## Operations API boundary
 
@@ -86,6 +86,8 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 - Personal notification은 pointer-only payload로 유지한다. support ticket 본문은 notification payload나 Home preview에 넣지 않고 support ticket detail API에서 본인 권한으로 다시 조회한다.
 - Home operations client는 Web BFF 응답을 shared schema로 재검증한다. section component는 직접 `fetch`하지 않는다.
 - Operations API 실패는 Home core dashboard render와 독립적인 feed-local empty/error surface로 수렴시킨다. 전체 operations feed가 실패해도 primary/readiness/activity/quick action render를 막지 않는다.
+- 공지사항은 Home content 최상단 banner로만 노출한다. 공지가 없거나 notice feed가 로딩/실패 중이면 Home을 밀지 않도록 top banner를 렌더링하지 않는다.
+- 알림함과 문의하기는 보조 `assistance` slot에서 각각 독립 card로 노출한다. support ticket 답변 알림은 알림함 preview에서 ticket detail sheet로 handoff한다.
 - `useHomeOperations`는 list feed를 병렬로 불러오고, 공지 본문과 support message timeline은 사용자가 detail sheet를 열 때만 조회한다.
 - `sections/operations`는 preview/detail 표시와 CTA를 소유하지만 직접 network/browser I/O를 수행하지 않는다.
 
@@ -114,9 +116,9 @@ Home CTA는 각 owner tab으로 이동하거나 해당 owner가 제공한 callba
 - `src/main/tabs/home/model/*.test.ts`
   - dashboard view model and quick action policy matrix.
 - `src/main/tabs/home/__tests__/*.test.tsx`
-  - state cards, layout/header/grid, readiness checklist, registered matching guide, operations fallback, browser API fallback.
+  - state cards, layout/header/grid, readiness checklist, registered matching guide, notice/notification/support surface, browser API fallback.
 - `src/main/tabs/home/__tests__/home-runtime-boundary.test.ts`, `src/main/tabs/home/__tests__/home-componentization-baseline.test.ts`
-  - Home runtime source의 legacy fixture/root API/story/test-support import 금지, section component 직접 browser/network I/O 금지, public facade 및 overlay/layout entry point 유지.
+  - Home runtime source의 legacy fixture/root API/story/test-support import 금지, section component 직접 browser/network I/O 금지, 삭제된 compatibility facade 재도입 방지, overlay/layout entry point 유지를 고정한다.
 - `src/main/__tests__/Main.direct-action.test.tsx`
   - Main shell에서 Home dashboard loading/error/success와 direct action wiring.
 - `apps/web/e2e/smoke.spec.ts`
@@ -129,7 +131,7 @@ Storybook은 로그인 세션, DB seed, API server를 대체하지 않는 **visu
 
 - 실행: `pnpm --dir apps/web storybook`
 - 정적 빌드 검증: `pnpm --dir apps/web storybook:build`
-- 현재 story matrix는 비시즌, 현재 시즌 없음 + 지난 기록/다음 시즌 preview, 현재 시즌 없음 + 기록 없음, 시즌 오픈 준비/등록 완료/철회/등록 불가 reason, 시즌 매칭 registration 전 준비 4종(profile+dormitory/profile/dormitory/registration-ready), registered 기본/진행률/압축 S-R-C 2종/매칭 해제 후/active match 해제 요청 matrix, 시즌 마감 정리 기간 7종(not registered/final de-registered/matched/unmatched/not matched/user history/registration unavailable cutoff), 비운영 캠퍼스, 로딩 skeleton, 오류 복구 상태를 포함한다.
+- 현재 story matrix는 비시즌, 현재 시즌 없음 + 지난 기록/다음 시즌 preview, 현재 시즌 없음 + 기록 없음, 시즌 오픈 준비/등록 완료/철회/등록 불가 reason, 시즌 매칭 registration 전 준비 4종(profile+dormitory/profile/dormitory/registration-ready), registered 기본/진행률/압축 S-R-C 2종/매칭 해제 후/active match 해제 요청 matrix, 시즌 마감 정리 기간 7종(not registered/final de-registered/matched/unmatched/not matched/user history/registration unavailable cutoff), notice/notification/support operations state 4종, profile fallback state, 비운영 캠퍼스, 로딩 skeleton, 오류 복구 상태를 포함한다.
 - story data는 `main/test-support` typed builder를 재사용할 수 있지만, production runtime source가 `__stories__`, `main/test-support`, `main/dev-only/fixtures`를 import하면 안 된다.
 - `storybook:build`는 visual workshop surface가 빌드 가능한지 확인할 뿐, API/BFF/auth/DB 정합성 완료 근거가 아니다.
 
@@ -204,7 +206,7 @@ pnpm --dir apps/api prisma:seed:run
 - `src/main/tabs/home/__tests__/home-runtime-boundary.test.ts`는 production Home source에 global fixture,
   test-support, story, root legacy API, raw SeasonContext, FE-local season fallback, dev override import가 섞이지 않는지 고정한다.
 - Home section components는 직접 `fetch`, `XMLHttpRequest`, `navigator.sendBeacon`을 호출하지 않는다. API/BFF 호출은 `main/api`, Home-local `api/`, 또는 hook owner가 소유한다.
-- `src/main/tabs/home/__tests__/home-componentization-baseline.test.ts`는 componentization 중에도 기존 public section facade entry point를 유지하도록 고정한다.
+- `src/main/tabs/home/__tests__/home-componentization-baseline.test.ts`는 componentization 중에도 section/layout/overlay owner entry point를 유지하고, 삭제된 import-only compatibility facade가 재도입되지 않도록 고정한다.
 
 ## Matching activity contract
 

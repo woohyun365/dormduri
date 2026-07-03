@@ -79,55 +79,60 @@ export default function HomeTab({
             !viewModel.isCampusOperated ? 'pointer-events-none select-none grayscale-50' : ''
           }
         >
-          <HomeDashboardLayout
-            primary={
-              <HomePrimaryStateCard
-                viewModel={viewModel}
-                seasonState={seasonState}
-                daysUntilEnd={daysUntilEnd}
-                onNavigate={onNavigate}
-                onOpenBuildingSelect={onOpenBuildingSelect}
-                onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
+          <HomeOperationsSurface>
+            {({ notice, assistance }) => (
+              <HomeDashboardLayout
+                notice={notice}
+                primary={
+                  <HomePrimaryStateCard
+                    viewModel={viewModel}
+                    seasonState={seasonState}
+                    daysUntilEnd={daysUntilEnd}
+                    onNavigate={onNavigate}
+                    onOpenBuildingSelect={onOpenBuildingSelect}
+                    onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
+                  />
+                }
+                readiness={
+                  seasonState === 'SEASON_MATCHING' && viewModel.preparation.registrationReady ? (
+                    <HomeMatchingRegisteredGuidePanel viewModel={viewModel} />
+                  ) : (
+                    <HomeReadinessChecklist
+                      dashboard={dashboard}
+                      viewModel={viewModel}
+                      onNavigate={onNavigate}
+                      onOpenBuildingSelect={onOpenBuildingSelect}
+                    />
+                  )
+                }
+                activity={
+                  <HomeActivityPanel
+                    viewModel={viewModel}
+                    seasonState={seasonState}
+                    onNavigate={onNavigate}
+                    onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
+                    onRequestActiveMatchUnmatch={handleRequestActiveMatchUnmatch}
+                    onCancelActiveMatchUnmatchRequest={handleCancelActiveMatchUnmatchRequest}
+                  />
+                }
+                assistance={assistance}
+                quickActions={
+                  <HomeQuickMenuSection
+                    seasonState={seasonState}
+                    hasCurrentSeason={viewModel.hasCurrentSeason}
+                    canEnterRoommateSearch={viewModel.capabilities.canEnterRoommateSearch}
+                    canStartChat={dashboard.viewer.capabilities.canStartChat}
+                    canViewMatchHistory={viewModel.capabilities.canViewMatchHistory}
+                    onNavigateList={() => onNavigate('list')}
+                    onNavigateMatching={() => onNavigate('matching', { section: 'current' })}
+                    onNavigateMatchingHistory={() => onNavigate('matching', { section: 'past' })}
+                    onNavigateChat={() => onNavigate('chat')}
+                    onNavigateProfile={() => onNavigate('profile')}
+                  />
+                }
               />
-            }
-            readiness={
-              seasonState === 'SEASON_MATCHING' && viewModel.preparation.registrationReady ? (
-                <HomeMatchingRegisteredGuidePanel viewModel={viewModel} />
-              ) : (
-                <HomeReadinessChecklist
-                  dashboard={dashboard}
-                  viewModel={viewModel}
-                  onNavigate={onNavigate}
-                  onOpenBuildingSelect={onOpenBuildingSelect}
-                />
-              )
-            }
-            activity={
-              <HomeActivityPanel
-                viewModel={viewModel}
-                seasonState={seasonState}
-                onNavigate={onNavigate}
-                onDeregisterSeasonParticipation={onDeregisterSeasonParticipation}
-                onRequestActiveMatchUnmatch={handleRequestActiveMatchUnmatch}
-                onCancelActiveMatchUnmatchRequest={handleCancelActiveMatchUnmatchRequest}
-              />
-            }
-            operations={<HomeOperationsSurface />}
-            quickActions={
-              <HomeQuickMenuSection
-                seasonState={seasonState}
-                hasCurrentSeason={viewModel.hasCurrentSeason}
-                canEnterRoommateSearch={viewModel.capabilities.canEnterRoommateSearch}
-                canStartChat={dashboard.viewer.capabilities.canStartChat}
-                canViewMatchHistory={viewModel.capabilities.canViewMatchHistory}
-                onNavigateList={() => onNavigate('list')}
-                onNavigateMatching={() => onNavigate('matching', { section: 'current' })}
-                onNavigateMatchingHistory={() => onNavigate('matching', { section: 'past' })}
-                onNavigateChat={() => onNavigate('chat')}
-                onNavigateProfile={() => onNavigate('profile')}
-              />
-            }
-          />
+            )}
+          </HomeOperationsSurface>
         </div>
       </div>
     </div>

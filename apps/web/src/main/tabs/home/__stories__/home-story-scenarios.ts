@@ -1,6 +1,7 @@
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse } from '@repo/shared/home';
+import type { HomeStoryOperationsMode, HomeStoryProfileMode } from './home-story-api-fixtures';
 
 type ActiveMatchSummary = NonNullable<HomeDashboardResponse['matching']['activeMatch']>;
 type MatchRequestSummary = HomeDashboardResponse['matching']['recentReceivedRequests'][number];
@@ -10,6 +11,8 @@ export interface HomeStoryScenario {
   description: string;
   dashboard: HomeDashboardResponse;
   renderedAt?: number;
+  operationsMode?: HomeStoryOperationsMode;
+  profileMode?: HomeStoryProfileMode;
 }
 
 const ISO_NOW = '2026-04-05T09:00:00.000Z';
@@ -1445,6 +1448,53 @@ export const homeStoryScenarios = {
     description:
       '전체 시즌은 매칭 기간이지만 사용자의 선택 가능 기숙사 roomSelectionDate가 지나 시즌 참여 신청이 닫힌 상태입니다.',
     dashboard: createSeasonMatchingRegistrationUnavailableDashboard(),
+  },
+
+  operationsLoaded: {
+    title: 'Operations / loaded feeds',
+    description:
+      '공지사항, 개인 알림, 문의/FAQ preview가 모두 성공한 operations surface 상태입니다. 공지 카드와 문의 ticket을 클릭해 detail sheet를 수동 확인합니다.',
+    dashboard: createDashboard('SEASON_OPEN'),
+    operationsMode: 'loaded',
+  },
+  operationsEmpty: {
+    title: 'Operations / empty feeds',
+    description:
+      '공지·알림·문의 feed가 모두 비어 있을 때 Home core는 유지되고 알림함/문의하기 empty fallback만 노출되는 상태입니다.',
+    dashboard: createDashboard('SEASON_OPEN'),
+    operationsMode: 'empty',
+  },
+  operationsPartialError: {
+    title: 'Operations / partial error',
+    description:
+      '공지사항과 문의 feed는 성공하지만 개인 알림함만 실패한 feed-local partial error 상태입니다.',
+    dashboard: createDashboard('SEASON_OPEN'),
+    operationsMode: 'partial-error',
+  },
+  operationsAllError: {
+    title: 'Operations / all feeds error',
+    description:
+      '공지·알림·문의 feed가 모두 실패해도 Home core dashboard 렌더링은 막지 않고 알림함/문의하기 section-local 복구 UI만 보여줍니다.',
+    dashboard: createDashboard('SEASON_OPEN'),
+    operationsMode: 'all-error',
+  },
+  profileCounterpartError: {
+    title: 'Profile modal / counterpart error fallback',
+    description:
+      '확정 룸메 상대 프로필 detail API가 실패했을 때 modal이 safe fallback copy를 보여주는지 확인합니다.',
+    dashboard: createSeasonMatchingActiveMatchScenario({
+      title: 'Profile modal / counterpart error fallback base',
+      description: '상대 프로필 API error fixture를 붙이기 위한 active match dashboard입니다.',
+      activeMatch: createActiveMatch(),
+    }).dashboard,
+    profileMode: 'counterpart-error',
+  },
+  profileHistoryCounterpartError: {
+    title: 'Profile modal / history counterpart error fallback',
+    description:
+      '이전 시즌 상세 보기에서 상대 프로필 detail API가 실패했을 때 safe fallback copy를 확인합니다.',
+    dashboard: createNoCurrentSeasonWithMatchedHistoryDashboard(),
+    profileMode: 'history-counterpart-error',
   },
   nonOperatedCampus: {
     title: '비운영 캠퍼스',

@@ -1,6 +1,6 @@
 export function OperationsPanelSkeleton() {
   return (
-    <div className="space-y-3" aria-label="운영 센터 로딩 중">
+    <div className="space-y-3" aria-label="알림과 문의 로딩 중">
       {[0, 1, 2].map((index) => (
         <div
           key={index}

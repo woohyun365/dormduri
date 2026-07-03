@@ -95,10 +95,11 @@ describe('HomeOperationsSurface', () => {
     mockOperations();
   });
 
-  it('실제 operations preview를 공지/알림/문의 surface로 렌더링한다', () => {
+  it('공지사항 배너와 알림함·문의하기 surface를 분리해서 렌더링한다', () => {
     render(<HomeOperationsSurface />);
 
-    expect(screen.getByText('공지·알림·문의 상태를 확인해요')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '공지사항' })).toBeInTheDocument();
+    expect(screen.getByLabelText('알림함과 문의하기')).toBeInTheDocument();
     expect(screen.getByText('운영 안내')).toBeInTheDocument();
     expect(screen.getByText('문의 답변이 도착했어요')).toBeInTheDocument();
     expect(screen.getByText('읽지 않은 알림 1개')).toBeInTheDocument();
@@ -117,7 +118,7 @@ describe('HomeOperationsSurface', () => {
     expect(actions.openSupportTicketDetail).toHaveBeenCalledWith('ticket-1');
   });
 
-  it('partial error는 운영 센터 전체가 아니라 feed-local retry surface로 표시한다', async () => {
+  it('partial error는 공지사항 배너를 유지하고 feed-local retry surface로 표시한다', async () => {
     const user = userEvent.setup();
     mockOperations({
       feedStatus: { notice: 'success', notification: 'error', support: 'success' },

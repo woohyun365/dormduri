@@ -1,16 +1,19 @@
 'use client';
 
-import { Megaphone, MessageSquareText, RefreshCw } from 'lucide-react';
-import { sectionCard, sectionHeader } from '@/main/styles/home';
+import type { ReactNode } from 'react';
+import { Megaphone } from 'lucide-react';
 import { useHomeOperations } from '../../hooks/useHomeOperations';
 import type { HomeOperationsDetailState } from '../../hooks/useHomeOperations';
 import { HomeResponsiveSheet } from '../../overlays/HomeResponsiveSheet';
-import { HomeNoticeBanner } from './HomeNoticeBanner';
-import { NotificationInboxPreview } from './NotificationInboxPreview';
+import { HomeInboxSupportSection } from './HomeInboxSupportSection';
+import { HomeNoticeSurface } from './HomeNoticeSurface';
 import { OperationsPanelSkeleton } from './OperationsPanelSkeleton';
-import { SupportCenterEntry } from './SupportCenterEntry';
 import { SupportTicketDetailSheet } from './SupportTicketDetailSheet';
-import { SupportTicketListPreview } from './SupportTicketListPreview';
+
+export type HomeOperationsSurfaces = Readonly<{
+  notice: ReactNode;
+  assistance: ReactNode;
+}>;
 
 function NoticeDetailSheet({
   detail,
@@ -28,7 +31,7 @@ function NoticeDetailSheet({
   return (
     <HomeResponsiveSheet
       label="공지사항"
-      eyebrow="운영 센터"
+      eyebrow="공지사항"
       title={title}
       description={description}
       icon={Megaphone}
@@ -74,7 +77,11 @@ function NoticeDetailSheet({
   );
 }
 
-export function HomeOperationsSurface() {
+export function HomeOperationsSurface({
+  children,
+}: {
+  children?: (surfaces: HomeOperationsSurfaces) => ReactNode;
+}) {
   const operations = useHomeOperations();
   const hasLoadedData =
     operations.viewModel.globalNotices.length > 0 ||
@@ -86,85 +93,53 @@ export function HomeOperationsSurface() {
     operations.feedStatus.notification === 'error' &&
     operations.feedStatus.support === 'error';
 
+  const notice = (
+    <HomeNoticeSurface
+      notices={operations.viewModel.globalNotices}
+      status={operations.feedStatus.notice}
+      onOpenNotice={(noticeId) => void operations.openNoticeDetail(noticeId)}
+    />
+  );
+
+  const assistance =
+    operations.loading && !hasLoadedData ? (
+      <OperationsPanelSkeleton />
+    ) : (
+      <HomeInboxSupportSection
+        notifications={operations.viewModel.notifications}
+        unreadCount={operations.unreadCount}
+        notificationStatus={operations.feedStatus.notification}
+        notificationError={operations.errors.notification}
+        supportStatus={operations.feedStatus.support}
+        supportError={operations.errors.support}
+        faqs={operations.faqs}
+        tickets={operations.viewModel.supportTickets}
+        allFeedsFailed={allFeedsFailed}
+        onOpenSupportTicket={(notification) => {
+          if (notification.supportTicketId) {
+            void operations.openSupportTicketDetail(notification.supportTicketId);
+          }
+          void operations.markNotificationRead(notification);
+        }}
+        onMarkNotificationRead={(notification) =>
+          void operations.markNotificationRead(notification)
+        }
+        onMarkAllNotificationsRead={() => void operations.markAllNotificationsRead()}
+        onOpenTicket={(ticketId) => void operations.openSupportTicketDetail(ticketId)}
+        onRetry={() => void operations.refresh()}
+      />
+    );
+
   return (
     <>
-      <section className={sectionCard()} aria-labelledby="home-operations-title">
-        <div className={sectionHeader}>
-          <div>
-            <p className="mb-1 text-xs font-bold text-(--knu-primary)">운영 센터</p>
-            <h2 id="home-operations-title" className="font-bold text-(--knu-text-primary)">
-              공지·알림·문의 상태를 확인해요
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            {operations.refreshing && (
-              <RefreshCw
-                className="size-4 animate-spin text-(--knu-text-tertiary)"
-                aria-hidden="true"
-              />
-            )}
-            <MessageSquareText className="size-5 text-(--knu-primary)" aria-hidden="true" />
-          </div>
+      {children ? (
+        children({ notice, assistance })
+      ) : (
+        <div className="space-y-3">
+          {notice}
+          {assistance}
         </div>
-
-        {operations.loading && !hasLoadedData ? (
-          <OperationsPanelSkeleton />
-        ) : (
-          <div className="space-y-3">
-            {allFeedsFailed && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
-                <p className="text-xs font-bold text-amber-800">
-                  운영 센터 정보를 불러오지 못했어요. 홈의 다른 기능은 계속 사용할 수 있어요.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => void operations.refresh()}
-                  className="mt-2 inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-amber-800 shadow-sm transition-colors hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
-                >
-                  <RefreshCw className="size-3" aria-hidden="true" />
-                  다시 시도
-                </button>
-              </div>
-            )}
-
-            <HomeNoticeBanner
-              notices={operations.viewModel.globalNotices}
-              status={operations.feedStatus.notice}
-              error={operations.errors.notice}
-              onOpenNotice={(noticeId) => void operations.openNoticeDetail(noticeId)}
-              onRetry={() => void operations.refresh()}
-            />
-
-            <NotificationInboxPreview
-              notifications={operations.viewModel.notifications}
-              unreadCount={operations.unreadCount}
-              status={operations.feedStatus.notification}
-              error={operations.errors.notification}
-              onOpenSupportTicket={(notification) => {
-                if (notification.supportTicketId) {
-                  void operations.openSupportTicketDetail(notification.supportTicketId);
-                }
-                void operations.markNotificationRead(notification);
-              }}
-              onMarkRead={(notification) => void operations.markNotificationRead(notification)}
-              onMarkAllRead={() => void operations.markAllNotificationsRead()}
-              onRetry={() => void operations.refresh()}
-            />
-
-            <SupportCenterEntry
-              faqs={operations.faqs}
-              status={operations.feedStatus.support}
-              error={operations.errors.support}
-              onRetry={() => void operations.refresh()}
-            />
-
-            <SupportTicketListPreview
-              tickets={operations.viewModel.supportTickets}
-              onOpenTicket={(ticketId) => void operations.openSupportTicketDetail(ticketId)}
-            />
-          </div>
-        )}
-      </section>
+      )}
 
       {operations.detail?.kind === 'notice' && (
         <NoticeDetailSheet detail={operations.detail} onClose={operations.closeDetail} />

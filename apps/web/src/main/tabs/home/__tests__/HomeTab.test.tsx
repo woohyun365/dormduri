@@ -4,7 +4,7 @@ import HomeTab from '../HomeTab';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 
 describe('HomeTab', () => {
-  it('매칭 등록 완료 상태에서는 checklist 대신 안내 패널과 운영 센터를 렌더링한다', () => {
+  it('매칭 등록 완료 상태에서는 checklist 대신 안내 패널과 분리된 공지/도움 slot을 렌더링한다', () => {
     render(
       <HomeTab
         dashboard={createHomeDashboardTestResponse({
@@ -20,7 +20,8 @@ describe('HomeTab', () => {
     );
 
     expect(screen.getByText('매칭 전에 알아두면 좋아요')).toBeInTheDocument();
-    expect(screen.getByText('공지·알림·문의 상태를 확인해요')).toBeInTheDocument();
+    expect(screen.getByTestId('home-section-notice')).toBeInTheDocument();
+    expect(screen.getByTestId('home-section-assistance')).toBeInTheDocument();
     expect(screen.queryByText('시즌 통계')).not.toBeInTheDocument();
     expect(screen.queryByText('오늘의 안내')).not.toBeInTheDocument();
     expect(screen.queryByTestId('home-section-stats')).not.toBeInTheDocument();

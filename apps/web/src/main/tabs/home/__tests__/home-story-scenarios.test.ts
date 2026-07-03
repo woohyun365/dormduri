@@ -1,5 +1,21 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { homeStoryScenarios } from '../__stories__/home-story-scenarios';
+
+describe('HomeTab Storybook source boundary', () => {
+  it('uses owner paths and the story API fixture layer instead of deleted component facades', () => {
+    const storySource = readFileSync(
+      join(process.cwd(), 'src/main/tabs/home/__stories__/HomeTab.stories.tsx'),
+      'utf8',
+    );
+
+    expect(storySource).toContain('./home-story-api-fixtures');
+    expect(storySource).toContain('../layout/HomeDashboardErrorState');
+    expect(storySource).not.toContain('../components/');
+    expect(storySource).not.toContain('useHomeProfileDetailStoryApiFixtures');
+  });
+});
 
 describe('homeStoryScenarios S/R/C matrix', () => {
   const matrixScenarioKeys = [
@@ -234,5 +250,42 @@ describe('homeStoryScenarios post-match matrix', () => {
     expect(homeStoryScenarios.postMatchRegistrationUnavailable.description).toContain(
       'during register',
     );
+  });
+});
+
+describe('homeStoryScenarios operations and modal fixture matrix', () => {
+  const operationScenarioKeys = [
+    'operationsLoaded',
+    'operationsEmpty',
+    'operationsPartialError',
+    'operationsAllError',
+  ] as const;
+
+  it('exposes Storybook-only operations feed states without backend dependency', () => {
+    expect(operationScenarioKeys.map((key) => homeStoryScenarios[key].operationsMode)).toEqual([
+      'loaded',
+      'empty',
+      'partial-error',
+      'all-error',
+    ]);
+
+    operationScenarioKeys.forEach((key) => {
+      expect(homeStoryScenarios[key].dashboard.season.state).toBe('SEASON_OPEN');
+      expect(homeStoryScenarios[key].title).toContain('Operations');
+    });
+  });
+
+  it('keeps profile modal fallback stories explicit and story-only', () => {
+    expect(homeStoryScenarios.profileCounterpartError.profileMode).toBe('counterpart-error');
+    expect(homeStoryScenarios.profileHistoryCounterpartError.profileMode).toBe(
+      'history-counterpart-error',
+    );
+    expect(
+      homeStoryScenarios.profileCounterpartError.dashboard.matching.activeMatch,
+    ).not.toBeNull();
+    expect(
+      homeStoryScenarios.profileHistoryCounterpartError.dashboard.seasonHistorySummary.lastSeason
+        ?.viewerHadMatchSuccess,
+    ).toBe(true);
   });
 });
