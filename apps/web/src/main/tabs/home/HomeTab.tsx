@@ -1,17 +1,16 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { motion } from 'motion/react';
-import { AlertTriangle, Building2, Calendar, School, ShieldAlert } from 'lucide-react';
-import { getAvatarColor } from '@/utils/avatarColor';
 import { OfflineBanner } from '@/components/OfflineBanner';
-import { HomeQuickMenuSection } from './components/HomeQuickMenuSection';
+import { HomeQuickMenuSection } from './sections/quick-actions/HomeQuickMenuSection';
 import { HomeDashboardLayout } from './layout/HomeDashboardLayout';
-import { HomePrimaryStateCard } from './components/HomePrimaryStateCard';
-import { HomeActivityPanel } from './components/HomeActivityPanel';
-import { HomeReadinessChecklist } from './components/HomeReadinessChecklist';
-import { HomeMatchingRegisteredGuidePanel } from './components/HomeMatchingRegisteredGuidePanel';
-import { HomeOperationsPanel } from './components/HomeOperationsPanel';
+import { HomeHeader } from './layout/HomeHeader';
+import { HomeNonOperatedOverlay } from './layout/HomeNonOperatedOverlay';
+import { HomePrimaryStateCard } from './sections/primary/HomePrimaryStateCard';
+import { HomeActivityPanel } from './sections/activity/HomeActivityPanel';
+import { HomeReadinessChecklist } from './sections/readiness/HomeReadinessChecklist';
+import { HomeMatchingRegisteredGuidePanel } from './sections/readiness/HomeMatchingRegisteredGuidePanel';
+import { HomeOperationsSurface } from './sections/operations/HomeOperationsSurface';
 import { homeActiveMatchApi } from './api/home-active-match.api';
 import { buildHomeDashboardViewModel } from './model/homeDashboardViewModel';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
@@ -44,8 +43,6 @@ export default function HomeTab({
     [dashboard, renderedAt],
   );
   const { seasonState, daysUntilEnd } = viewModel;
-  const avatarColor = getAvatarColor(viewModel.viewerIdentity.nickname);
-
   const handleRequestActiveMatchUnmatch = async (activeMatchId: string) => {
     await homeActiveMatchApi.requestUnmatch(activeMatchId);
     await onDashboardRefresh?.();
@@ -64,71 +61,15 @@ export default function HomeTab({
     <div>
       <OfflineBanner />
 
-      <header className="bg-(--knu-primary) py-6 text-white">
-        <div className="mx-auto max-w-md px-5 md:max-w-5xl">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm opacity-90 mb-1">안녕하세요,</p>
-              <h1 className="text-2xl font-bold">{viewModel.viewerIdentity.nickname}님</h1>
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onNavigate('profile')}
-              className={`w-14 h-14 ${avatarColor.bg} rounded-full flex items-center justify-center text-2xl font-bold ${avatarColor.text} cursor-pointer`}
-            >
-              {viewModel.viewerIdentity.avatarInitial}
-            </motion.button>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm opacity-90">
-              <span className="px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold">
-                {viewModel.viewerIdentity.genderLabel}
-              </span>
-              {viewModel.dormitory ? (
-                <span className="flex items-center gap-1 px-2 py-0.5 bg-white/20 rounded-full text-xs font-semibold">
-                  <Building2 className="w-3.5 h-3.5" />
-                  {viewModel.dormitory.name} · {viewModel.dormitory.roomType}인실
-                </span>
-              ) : seasonState === 'OFF_SEASON' || !viewModel.isCampusOperated ? (
-                <span className="flex items-center gap-1">
-                  <School className="w-3.5 h-3.5" />
-                  {viewModel.campusName}
-                </span>
-              ) : viewModel.isUnassigned ? (
-                <span className="flex items-center gap-1 opacity-75">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  건물 미배정
-                </span>
-              ) : null}
-            </div>
-            {viewModel.isSeasonMatching && daysUntilEnd > 0 && (
-              <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1 rounded-full text-xs font-semibold">
-                <Calendar className="w-3 h-3" />
-                <span>D-{daysUntilEnd}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
+      <HomeHeader
+        viewModel={viewModel}
+        seasonState={seasonState}
+        daysUntilEnd={daysUntilEnd}
+        onNavigateProfile={() => onNavigate('profile')}
+      />
 
       <div data-testid="home-dashboard-container" className={dashboardContainerClassName}>
-        {!viewModel.isCampusOperated && (
-          <div
-            data-testid="home-non-operated-overlay"
-            className="absolute inset-0 z-10 flex touch-none items-center justify-center overflow-hidden border border-white/30 bg-white/70 overscroll-none backdrop-blur-sm"
-          >
-            <div className="px-8 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-                <ShieldAlert className="h-8 w-8 text-gray-400" />
-              </div>
-              <p className="mb-1 text-base font-bold text-(--knu-text-primary)">
-                해당 캠퍼스는 서비스 운영 준비 중이에요!
-              </p>
-              <p className="text-sm text-(--knu-text-secondary)">조금만 기다려주세요.</p>
-            </div>
-          </div>
-        )}
+        {!viewModel.isCampusOperated && <HomeNonOperatedOverlay />}
 
         <div
           data-testid="home-content"
@@ -171,7 +112,7 @@ export default function HomeTab({
                 onCancelActiveMatchUnmatchRequest={handleCancelActiveMatchUnmatchRequest}
               />
             }
-            operations={<HomeOperationsPanel />}
+            operations={<HomeOperationsSurface />}
             quickActions={
               <HomeQuickMenuSection
                 seasonState={seasonState}

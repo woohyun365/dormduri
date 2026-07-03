@@ -1260,7 +1260,7 @@ export const homeStoryScenarios = {
   seasonOpenRegisteredPreview: {
     title: '시즌 오픈 / 참여 완료·룸메 후보 미리보기',
     description:
-      '시즌 참여 신청 완료 상태의 조건 섹션은 유지하고, 통계·별도 상태 chip은 HomeStatsPanel로 분리한 상태입니다.',
+      '시즌 참여 신청 완료 상태의 조건 섹션은 유지하고, 별도 통계 chip 없이 활동 섹션과 빠른 메뉴로 진입점을 분리한 상태입니다.',
     dashboard: createOpenRegisteredPreviewDashboard(),
   },
   seasonOpenDeregistered: {

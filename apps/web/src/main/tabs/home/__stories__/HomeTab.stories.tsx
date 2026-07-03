@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import HomeTab from '../HomeTab';
-import { HomeDashboardErrorState } from '../components/HomeDashboardErrorState';
+import { HomeDashboardErrorState } from '../layout/HomeDashboardErrorState';
 import { homeStoryScenarios, type HomeStoryScenario } from './home-story-scenarios';
 import {
   createMatchHistoryResponse,

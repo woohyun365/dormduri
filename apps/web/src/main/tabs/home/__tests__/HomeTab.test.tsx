@@ -20,7 +20,7 @@ describe('HomeTab', () => {
     );
 
     expect(screen.getByText('매칭 전에 알아두면 좋아요')).toBeInTheDocument();
-    expect(screen.getByText('필요한 소식을 확인해요')).toBeInTheDocument();
+    expect(screen.getByText('공지·알림·문의 상태를 확인해요')).toBeInTheDocument();
     expect(screen.queryByText('시즌 통계')).not.toBeInTheDocument();
     expect(screen.queryByText('오늘의 안내')).not.toBeInTheDocument();
     expect(screen.queryByTestId('home-section-stats')).not.toBeInTheDocument();

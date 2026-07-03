@@ -1,8 +1,8 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HomeMatchingSummary } from '../components/HomeMatchingSummary';
-import type { HomeMatchingSummaryProps } from '../components/HomeMatchingSummary';
+import { HomeMatchingSummary } from '../sections/matching/HomeMatchingSummary';
+import type { HomeMatchingSummaryProps } from '../sections/matching/HomeMatchingSummary';
 import { createPublicProfileFull } from '@/test/home-profile-detail-fixtures';
 
 function stubPublicProfileFetch() {

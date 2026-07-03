@@ -13,7 +13,7 @@ import ProfileTab from './tabs/profile/ProfileTab';
 import MatchingTab from './tabs/matching/MatchingTab';
 import ChatTab from './tabs/chat/ChatTab';
 import { HomeTabSkeleton } from '@/components/Skeleton';
-import { HomeDashboardErrorState } from './tabs/home/components/HomeDashboardErrorState';
+import { HomeDashboardErrorState } from './tabs/home/layout/HomeDashboardErrorState';
 import { AppShellSkeleton } from '@/components/AppShellSkeleton';
 import { MatchingTabSkeleton } from './tabs/matching/MatchingTabSkeleton';
 import { useMainLocalOnboardingState } from '@/main/hooks/useMainLocalOnboardingState';

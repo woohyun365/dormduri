@@ -5,7 +5,7 @@ import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import {
   buildReadinessChecklistItems,
   HomeReadinessChecklist,
-} from '../components/HomeReadinessChecklist';
+} from '../sections/readiness/HomeReadinessChecklist';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 
 function buildViewModel(dashboard: HomeDashboardResponse) {

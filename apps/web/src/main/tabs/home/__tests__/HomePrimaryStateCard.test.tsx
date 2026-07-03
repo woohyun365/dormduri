@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
-import { HomePrimaryStateCard } from '../components/HomePrimaryStateCard';
+import { HomePrimaryStateCard } from '../sections/primary/HomePrimaryStateCard';
 import type { SeasonState } from '@repo/shared/season/runtime';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 

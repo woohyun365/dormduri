@@ -15,8 +15,8 @@ import type { HomeDashboardResponse, HomeDashboardStats } from '@repo/shared/hom
 import type {
   MatchingSummaryActiveMatch,
   MatchingSummaryStatus,
-} from '../components/HomeMatchingSummary';
-import type { TipSeasonStatus } from '../components/DynamicTipBanner';
+} from '../sections/matching/HomeMatchingSummary';
+import type { TipSeasonStatus } from './homeStatusTipTypes';
 
 export interface HomeDashboardScheduleViewModel {
   matchStartFormatted: string;

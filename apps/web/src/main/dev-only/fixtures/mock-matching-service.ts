@@ -81,7 +81,7 @@ function createPresetData(preset: MatchPreset, userId: string): MatchingState {
   const far = '2099-01-01T00:00:00.000Z';
   const farExp = '2099-01-06T00:00:00.000Z';
   const past = '2020-01-01T00:00:00.000Z';
-  // UrgentActionBanner 테스트용: 12시간 후 만료
+  // 만료 임박 요청 테스트용: 12시간 후 만료
   const urgentExp = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString();
   const base = {
     rejectedAt: null,

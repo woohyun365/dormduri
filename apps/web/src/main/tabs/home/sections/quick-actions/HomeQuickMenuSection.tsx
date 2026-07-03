@@ -8,7 +8,7 @@ import {
   type HomeQuickAction,
   type HomeQuickActionIcon,
   type HomeQuickActionTarget,
-} from '../model/homeActionPolicy';
+} from '../../model/homeActionPolicy';
 
 interface HomeQuickMenuSectionProps {
   seasonState: SeasonState;

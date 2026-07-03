@@ -1,31 +1,39 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HomeActivityPanel } from '../components/HomeActivityPanel';
+import { HomeActivityPanel } from '../sections/activity/HomeActivityPanel';
 import { HomeDashboardLayout } from '../layout/HomeDashboardLayout';
+import { HomeDashboardErrorState } from '../layout/HomeDashboardErrorState';
+import { HomeHeader } from '../layout/HomeHeader';
+import { HomeNonOperatedOverlay } from '../layout/HomeNonOperatedOverlay';
+import { HomeSectionGrid } from '../layout/HomeSectionGrid';
 import { HomeResponsiveDialog } from '../overlays/HomeResponsiveDialog';
 import { HomeResponsiveSheet } from '../overlays/HomeResponsiveSheet';
-import { HomeMatchingSummary } from '../components/HomeMatchingSummary';
-import { HomeMatchingSummary as MatchingSectionHomeMatchingSummary } from '../sections/matching/HomeMatchingSummary';
-import { HomeOperationsPanel } from '../components/HomeOperationsPanel';
+import { HomeMatchingSummary } from '../sections/matching/HomeMatchingSummary';
+import { HomeOperationsSurface } from '../sections/operations/HomeOperationsSurface';
+import { HomeReadinessChecklist } from '../sections/readiness/HomeReadinessChecklist';
+import { HomeMatchingRegisteredGuidePanel } from '../sections/readiness/HomeMatchingRegisteredGuidePanel';
+import { HomeQuickMenuSection } from '../sections/quick-actions/HomeQuickMenuSection';
 import { useHomeOperations } from '../hooks/useHomeOperations';
-import { HomePrimaryStateCard } from '../components/HomePrimaryStateCard';
-import { HomePrimaryStateCard as PrimarySectionHomePrimaryStateCard } from '../sections/primary/HomePrimaryStateCard';
-import { HomeActivityPanel as ActivitySectionHomeActivityPanel } from '../sections/activity/HomeActivityPanel';
+import { HomePrimaryStateCard } from '../sections/primary/HomePrimaryStateCard';
 
 describe('Home componentization baseline', () => {
-  it('keeps public Home section facade entry points stable before internal file moves', () => {
+  it('keeps Home section owner entry points available without component compatibility facades', () => {
     expect(HomePrimaryStateCard).toEqual(expect.any(Function));
     expect(HomeActivityPanel).toEqual(expect.any(Function));
     expect(HomeMatchingSummary).toEqual(expect.any(Function));
-    expect(HomeOperationsPanel).toEqual(expect.any(Function));
+    expect(HomeOperationsSurface).toEqual(expect.any(Function));
+    expect(HomeReadinessChecklist).toEqual(expect.any(Function));
+    expect(HomeMatchingRegisteredGuidePanel).toEqual(expect.any(Function));
+    expect(HomeQuickMenuSection).toEqual(expect.any(Function));
     expect(useHomeOperations).toEqual(expect.any(Function));
     expect(HomeDashboardLayout).toEqual(expect.any(Function));
+    expect(HomeDashboardErrorState).toEqual(expect.any(Function));
+    expect(HomeHeader).toEqual(expect.any(Function));
+    expect(HomeNonOperatedOverlay).toEqual(expect.any(Function));
+    expect(HomeSectionGrid).toEqual(expect.any(Function));
     expect(HomeResponsiveSheet).toEqual(expect.any(Function));
     expect(HomeResponsiveDialog).toEqual(expect.any(Function));
-    expect(PrimarySectionHomePrimaryStateCard).toEqual(expect.any(Function));
-    expect(ActivitySectionHomeActivityPanel).toEqual(expect.any(Function));
-    expect(MatchingSectionHomeMatchingSummary).toEqual(expect.any(Function));
   });
 });
 
@@ -35,16 +43,66 @@ function readHomeSource(relativePath: string): string {
   return readFileSync(join(homeRoot, relativePath), 'utf8');
 }
 
-describe('Home primary componentization boundary', () => {
-  it('keeps HomePrimaryStateCard public component as a thin compatibility facade', () => {
-    const facadeSource = readHomeSource('components/HomePrimaryStateCard.tsx');
+function homePathExists(relativePath: string): boolean {
+  return statSync(join(homeRoot, relativePath), { throwIfNoEntry: false })?.isFile() ?? false;
+}
 
-    expect(facadeSource).toContain('../sections/primary/HomePrimaryStateCard');
-    expect(facadeSource).not.toContain('resolvePrimaryContent');
-    expect(facadeSource).not.toContain('useState');
-    expect(facadeSource).not.toContain('motion.section');
+describe('Home shell componentization boundary', () => {
+  it('keeps HomeTab focused on composition while header and non-operated overlay live in layout', () => {
+    const homeTabSource = readHomeSource('HomeTab.tsx');
+
+    expect(homeTabSource).toContain('./layout/HomeHeader');
+    expect(homeTabSource).toContain('./layout/HomeNonOperatedOverlay');
+    expect(homeTabSource).not.toContain('getAvatarColor');
+    expect(homeTabSource).not.toContain('motion.button');
+    expect(homeTabSource).not.toContain('ShieldAlert');
   });
 
+  it('keeps shell layout owner files in the layout boundary', () => {
+    const layoutFiles = [
+      'layout/HomeDashboardLayout.tsx',
+      'layout/HomeHeader.tsx',
+      'layout/HomeNonOperatedOverlay.tsx',
+      'layout/HomeSectionGrid.tsx',
+    ];
+
+    expect(layoutFiles.map(homePathExists)).toEqual(layoutFiles.map(() => true));
+  });
+});
+
+describe('Home stale compatibility cleanup boundary', () => {
+  it('removes legacy standalone widgets and Home-local service-intro compatibility files from Home runtime', () => {
+    const removedFiles = [
+      'components/BuildingStatsBar.tsx',
+      'components/DynamicTipBanner.tsx',
+      'components/HomeStatsPanel.tsx',
+      'components/HomeStatusTip.tsx',
+      'components/UrgentActionBanner.tsx',
+      'components/HomeOnboardingSheet.tsx',
+      'components/HomePrimaryStateCard.tsx',
+      'components/HomeActivityPanel.tsx',
+      'components/HomeMatchingSummary.tsx',
+      'components/HomeOperationsPanel.tsx',
+      'components/HomeDashboardErrorState.tsx',
+      'components/HomeReadinessChecklist.tsx',
+      'components/HomeMatchingRegisteredGuidePanel.tsx',
+      'components/HomeQuickMenuSection.tsx',
+      'hooks/useHomeOnboardingNotice.ts',
+      'api/home-onboarding-notice.api.ts',
+    ];
+
+    expect(removedFiles.map(homePathExists)).toEqual(removedFiles.map(() => false));
+  });
+
+  it('keeps Home dashboard view model free from component-owned tip types', () => {
+    const viewModelSource = readHomeSource('model/homeDashboardViewModel.ts');
+
+    expect(viewModelSource).toContain('./homeStatusTipTypes');
+    expect(viewModelSource).not.toContain('../components/DynamicTipBanner');
+  });
+});
+
+describe('Home primary componentization boundary', () => {
   it('keeps season-state primary strategies in the primary section boundary', () => {
     const stateFiles = [
       'sections/primary/states/OffSeasonPrimaryCard.tsx',
@@ -71,15 +129,6 @@ describe('Home primary componentization boundary', () => {
 });
 
 describe('Home activity componentization boundary', () => {
-  it('keeps HomeActivityPanel public component as a thin compatibility facade', () => {
-    const facadeSource = readHomeSource('components/HomeActivityPanel.tsx');
-
-    expect(facadeSource).toContain('../sections/activity/HomeActivityPanel');
-    expect(facadeSource).not.toContain('resolveSeasonOpenActivityContent');
-    expect(facadeSource).not.toContain('useState');
-    expect(facadeSource).not.toContain('HomeResponsiveSheet');
-  });
-
   it('keeps activity state sections and dialogs inside the activity section boundary', () => {
     const activityFiles = [
       'sections/activity/HomeActivityPanel.tsx',
@@ -124,16 +173,29 @@ describe('Home activity componentization boundary', () => {
   });
 });
 
-describe('Home matching componentization boundary', () => {
-  it('keeps HomeMatchingSummary public component as a thin compatibility facade', () => {
-    const facadeSource = readHomeSource('components/HomeMatchingSummary.tsx');
+describe('Home readiness and quick-action componentization boundary', () => {
+  it('removes import-only readiness and quick-action compatibility facades', () => {
+    const removedFacadeFiles = [
+      'components/HomeReadinessChecklist.tsx',
+      'components/HomeMatchingRegisteredGuidePanel.tsx',
+      'components/HomeQuickMenuSection.tsx',
+    ];
 
-    expect(facadeSource).toContain('../sections/matching/HomeMatchingSummary');
-    expect(facadeSource).not.toContain('useState');
-    expect(facadeSource).not.toContain('fetch(');
-    expect(facadeSource).not.toContain('HomeResponsiveDialog');
+    expect(removedFacadeFiles.map(homePathExists)).toEqual(removedFacadeFiles.map(() => false));
   });
 
+  it('keeps readiness and quick-action owners inside their section boundaries', () => {
+    const sectionFiles = [
+      'sections/readiness/HomeReadinessChecklist.tsx',
+      'sections/readiness/HomeMatchingRegisteredGuidePanel.tsx',
+      'sections/quick-actions/HomeQuickMenuSection.tsx',
+    ];
+
+    expect(sectionFiles.map(homePathExists)).toEqual(sectionFiles.map(() => true));
+  });
+});
+
+describe('Home matching componentization boundary', () => {
   it('keeps active match mutation I/O outside HomeTab composition', () => {
     const homeTabSource = readHomeSource('HomeTab.tsx');
 
@@ -162,15 +224,6 @@ describe('Home matching componentization boundary', () => {
   });
 
   describe('Home operations componentization boundary', () => {
-    it('keeps HomeOperationsPanel public component as a thin compatibility facade', () => {
-      const facadeSource = readHomeSource('components/HomeOperationsPanel.tsx');
-
-      expect(facadeSource).toContain('../sections/operations/HomeOperationsSurface');
-      expect(facadeSource).not.toContain('useState');
-      expect(facadeSource).not.toContain('fetch(');
-      expect(facadeSource).not.toContain('useBodyScrollLock');
-    });
-
     it('keeps operations hook, owner sections, and preview mapping in the Home operations boundary', () => {
       const operationsFiles = [
         'api/home-operations.api.ts',

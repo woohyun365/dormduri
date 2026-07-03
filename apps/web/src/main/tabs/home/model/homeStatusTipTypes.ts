@@ -1,0 +1,7 @@
+export type TipSeasonStatus =
+  | 'SEASON_MATCHING'
+  | 'SEASON_MATCHING_REGISTRATION_REQUIRED'
+  | 'SEASON_OPEN'
+  | 'OFF_SEASON'
+  | 'NOT_OPERATED'
+  | 'ACTIVE_MATCH';

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
-import { HomeMatchingRegisteredGuidePanel } from '../components/HomeMatchingRegisteredGuidePanel';
+import { HomeMatchingRegisteredGuidePanel } from '../sections/readiness/HomeMatchingRegisteredGuidePanel';
 
 describe('HomeMatchingRegisteredGuidePanel', () => {
   it('매칭 등록 완료 사용자에게 정책 기반 안내를 보여준다', () => {

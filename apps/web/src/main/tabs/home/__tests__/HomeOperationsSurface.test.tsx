@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { HomeOperationsPanel } from '../components/HomeOperationsPanel';
+import { HomeOperationsSurface } from '../sections/operations/HomeOperationsSurface';
 import { useHomeOperations } from '../hooks/useHomeOperations';
 import type { HomeOperationsState } from '../hooks/useHomeOperations';
 
@@ -89,14 +89,14 @@ function mockOperations(overrides: Partial<HomeOperationsState> = {}) {
   });
 }
 
-describe('HomeOperationsPanel', () => {
+describe('HomeOperationsSurface', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockOperations();
   });
 
   it('실제 operations preview를 공지/알림/문의 surface로 렌더링한다', () => {
-    render(<HomeOperationsPanel />);
+    render(<HomeOperationsSurface />);
 
     expect(screen.getByText('공지·알림·문의 상태를 확인해요')).toBeInTheDocument();
     expect(screen.getByText('운영 안내')).toBeInTheDocument();
@@ -108,7 +108,7 @@ describe('HomeOperationsPanel', () => {
 
   it('공지와 문의 preview 클릭 시 detail action을 호출한다', async () => {
     const user = userEvent.setup();
-    render(<HomeOperationsPanel />);
+    render(<HomeOperationsSurface />);
 
     await user.click(screen.getByRole('button', { name: /운영 안내/ }));
     expect(actions.openNoticeDetail).toHaveBeenCalledWith('notice-1');
@@ -125,7 +125,7 @@ describe('HomeOperationsPanel', () => {
       viewModel: { ...baseState.viewModel, notifications: [] },
     });
 
-    render(<HomeOperationsPanel />);
+    render(<HomeOperationsSurface />);
 
     expect(screen.getByText('운영 안내')).toBeInTheDocument();
     expect(screen.getByText('알림함을 불러오지 못했어요.')).toBeInTheDocument();
@@ -169,7 +169,7 @@ describe('HomeOperationsPanel', () => {
       },
     });
 
-    render(<HomeOperationsPanel />);
+    render(<HomeOperationsSurface />);
 
     const dialog = screen.getByRole('dialog', { name: '문의 내역' });
     expect(within(dialog).getByText('확인 중입니다.')).toBeInTheDocument();

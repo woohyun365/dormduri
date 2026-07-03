@@ -2,7 +2,7 @@
 
 import { History, UserRound } from 'lucide-react';
 import { StaticActivityCard } from './StaticActivityCard';
-import { HomeMatchingSummary } from '../../components/HomeMatchingSummary';
+import { HomeMatchingSummary } from '../matching/HomeMatchingSummary';
 import { OffSeasonActivitySection } from './states/OffSeasonActivitySection';
 import { PostMatchActivitySection } from './states/PostMatchActivitySection';
 import { SeasonMatchingPreparationActivitySection } from './states/SeasonMatchingPreparationActivitySection';

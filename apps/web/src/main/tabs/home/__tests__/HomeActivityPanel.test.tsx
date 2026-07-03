@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
-import { HomeActivityPanel } from '../components/HomeActivityPanel';
+import { HomeActivityPanel } from '../sections/activity/HomeActivityPanel';
 import type { HomeDashboardResponse } from '@repo/shared/home';
 import {
   createPreviousSeasonProfileResponse,

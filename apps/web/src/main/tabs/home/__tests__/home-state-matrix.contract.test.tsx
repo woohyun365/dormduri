@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { HomeQuickMenuSection } from '../components/HomeQuickMenuSection';
+import { HomeQuickMenuSection } from '../sections/quick-actions/HomeQuickMenuSection';
 
 const handlers = {
   onNavigateList: vi.fn(),

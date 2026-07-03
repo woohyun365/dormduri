@@ -3,7 +3,7 @@
 import { HelpCircle, MessageCircle, School, ShieldAlert, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { sectionCard, sectionHeader } from '@/main/styles/home';
-import type { HomeDashboardViewModel } from '../model/homeDashboardViewModel';
+import type { HomeDashboardViewModel } from '../../model/homeDashboardViewModel';
 
 interface HomeMatchingRegisteredGuidePanelProps {
   viewModel: HomeDashboardViewModel;
