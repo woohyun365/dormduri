@@ -6,6 +6,7 @@ import { HomeDashboardLayout } from '../layout/HomeDashboardLayout';
 import { HomeResponsiveDialog } from '../overlays/HomeResponsiveDialog';
 import { HomeResponsiveSheet } from '../overlays/HomeResponsiveSheet';
 import { HomeMatchingSummary } from '../components/HomeMatchingSummary';
+import { HomeMatchingSummary as MatchingSectionHomeMatchingSummary } from '../sections/matching/HomeMatchingSummary';
 import { HomeOperationsPanel } from '../components/HomeOperationsPanel';
 import { HomePrimaryStateCard } from '../components/HomePrimaryStateCard';
 import { HomePrimaryStateCard as PrimarySectionHomePrimaryStateCard } from '../sections/primary/HomePrimaryStateCard';
@@ -22,6 +23,7 @@ describe('Home componentization baseline', () => {
     expect(HomeResponsiveDialog).toEqual(expect.any(Function));
     expect(PrimarySectionHomePrimaryStateCard).toEqual(expect.any(Function));
     expect(ActivitySectionHomeActivityPanel).toEqual(expect.any(Function));
+    expect(MatchingSectionHomeMatchingSummary).toEqual(expect.any(Function));
   });
 });
 
@@ -117,5 +119,52 @@ describe('Home activity componentization boundary', () => {
       expect(source).not.toContain('useFocusTrap');
       expect(source).not.toContain('Z_INDEX');
     }
+  });
+});
+
+describe('Home matching componentization boundary', () => {
+  it('keeps HomeMatchingSummary public component as a thin compatibility facade', () => {
+    const facadeSource = readHomeSource('components/HomeMatchingSummary.tsx');
+
+    expect(facadeSource).toContain('../sections/matching/HomeMatchingSummary');
+    expect(facadeSource).not.toContain('useState');
+    expect(facadeSource).not.toContain('fetch(');
+    expect(facadeSource).not.toContain('HomeResponsiveDialog');
+  });
+
+  it('keeps active match mutation I/O outside HomeTab composition', () => {
+    const homeTabSource = readHomeSource('HomeTab.tsx');
+
+    expect(homeTabSource).toContain('./api/home-active-match.api');
+    expect(homeTabSource).not.toContain('/api/matches/active/');
+    expect(homeTabSource).not.toContain('fetch(');
+  });
+
+  it('keeps matching summary owner files inside the matching section boundary', () => {
+    const matchingFiles = [
+      'sections/matching/HomeMatchingSummary.tsx',
+      'sections/matching/ActiveMatchSummaryCard.tsx',
+      'sections/matching/ActiveMatchProfileTrigger.tsx',
+      'sections/matching/UnmatchActionDialog.tsx',
+      'sections/matching/MatchingMetricCard.tsx',
+      'sections/matching/MatchingActionList.tsx',
+      'sections/matching/model/matchingSummaryContent.ts',
+      'api/home-active-match.api.ts',
+    ];
+
+    expect(
+      matchingFiles.map((relativePath) =>
+        statSync(join(homeRoot, relativePath), { throwIfNoEntry: false })?.isFile(),
+      ),
+    ).toEqual(matchingFiles.map(() => true));
+  });
+
+  it('keeps unmatch dialogs on shared responsive overlay primitives without direct network I/O', () => {
+    const dialogSource = readHomeSource('sections/matching/UnmatchActionDialog.tsx');
+    const activeMatchSource = readHomeSource('sections/matching/ActiveMatchSummaryCard.tsx');
+
+    expect(dialogSource).toContain('../../overlays/HomeResponsiveDialog');
+    expect(dialogSource).not.toContain('fetch(');
+    expect(activeMatchSource).not.toContain('fetch(');
   });
 });

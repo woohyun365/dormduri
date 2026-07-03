@@ -12,6 +12,7 @@ import { HomeActivityPanel } from './components/HomeActivityPanel';
 import { HomeReadinessChecklist } from './components/HomeReadinessChecklist';
 import { HomeMatchingRegisteredGuidePanel } from './components/HomeMatchingRegisteredGuidePanel';
 import { HomeOperationsPanel } from './components/HomeOperationsPanel';
+import { homeActiveMatchApi } from './api/home-active-match.api';
 import { buildHomeDashboardViewModel } from './model/homeDashboardViewModel';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardResponse } from '@repo/shared/home';
@@ -45,29 +46,15 @@ export default function HomeTab({
   const { seasonState, daysUntilEnd } = viewModel;
   const avatarColor = getAvatarColor(viewModel.viewerIdentity.nickname);
 
-  const postActiveMatchUnmatchAction = async (
-    activeMatchId: string,
-    action: 'request' | 'cancel',
-  ) => {
-    const suffix = action === 'cancel' ? '/cancel' : '';
-    const response = await fetch(
-      `/api/matches/active/${encodeURIComponent(activeMatchId)}/unmatch-request${suffix}`,
-      { method: 'POST' },
-    );
-
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-      throw new Error(payload?.message ?? '매칭 해제 요청을 처리하지 못했어요.');
-    }
-
+  const handleRequestActiveMatchUnmatch = async (activeMatchId: string) => {
+    await homeActiveMatchApi.requestUnmatch(activeMatchId);
     await onDashboardRefresh?.();
   };
 
-  const handleRequestActiveMatchUnmatch = (activeMatchId: string) =>
-    postActiveMatchUnmatchAction(activeMatchId, 'request');
-
-  const handleCancelActiveMatchUnmatchRequest = (activeMatchId: string) =>
-    postActiveMatchUnmatchAction(activeMatchId, 'cancel');
+  const handleCancelActiveMatchUnmatchRequest = async (activeMatchId: string) => {
+    await homeActiveMatchApi.cancelUnmatchRequest(activeMatchId);
+    await onDashboardRefresh?.();
+  };
 
   const dashboardContainerClassName = !viewModel.isCampusOperated
     ? 'relative h-[calc(100dvh-14rem)] min-h-80 overflow-hidden overscroll-none md:h-auto md:min-h-0 md:overflow-visible'
