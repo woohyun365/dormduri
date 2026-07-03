@@ -1,8 +1,21 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HomeMatchingSummary } from '../components/HomeMatchingSummary';
 import type { HomeMatchingSummaryProps } from '../components/HomeMatchingSummary';
+import { createPublicProfileFull } from '@/test/home-profile-detail-fixtures';
+
+function stubPublicProfileFetch() {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify(createPublicProfileFull({ nickname: '민지' })), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    ),
+  );
+}
 
 const defaultProps: HomeMatchingSummaryProps = {
   status: 'NO_ACTIVITY',
@@ -63,6 +76,10 @@ const activeMatch: NonNullable<HomeMatchingSummaryProps['activeMatch']> = {
 };
 
 describe('HomeMatchingSummary', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('registration 전 매칭 기간은 시즌 참여 준비 gate를 표시한다', () => {
     render(<HomeMatchingSummary {...defaultProps} gatingReason="registration_required" />);
 
@@ -73,6 +90,7 @@ describe('HomeMatchingSummary', () => {
 
   it('ACTIVE_MATCH에서 확정 상대, 프로필 모달 CTA, 해제 진행률을 표시한다', async () => {
     const user = userEvent.setup();
+    stubPublicProfileFetch();
     render(
       <HomeMatchingSummary
         {...defaultProps}
@@ -102,7 +120,10 @@ describe('HomeMatchingSummary', () => {
     await user.click(screen.getByRole('button', { name: /상대 프로필 보기/ }));
 
     expect(screen.getByRole('dialog', { name: '상대 프로필' })).toBeInTheDocument();
-    expect(screen.getByText('아침형 생활패턴이고 조용한 방을 선호해요.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('아침형 생활패턴이고 조용한 방을 선호해요.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('생활패턴·기본 정보')).toBeInTheDocument();
   });
 
   it('ACTIVE_MATCH에서 매칭 해제 요청을 확인 modal로 보낸다', async () => {

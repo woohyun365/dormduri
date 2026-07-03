@@ -1,6 +1,8 @@
 import { UserRound } from 'lucide-react';
 import { HomeResponsiveSheet } from '../../../overlays/HomeResponsiveSheet';
-import { DetailRow, formatProfileValue } from '../ActivityDetailRows';
+import { formatProfileValue } from '../ActivityDetailRows';
+import { PublicProfileDetailContent } from '../../../profile-modals/HomeProfileDetailContent';
+import { usePublicProfileDetail } from '../../../profile-modals/useHomeProfileDetail';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
 
 export function PostMatchCounterpartProfileModal({
@@ -11,7 +13,7 @@ export function PostMatchCounterpartProfileModal({
   onClose: () => void;
 }) {
   const summary = activeMatch.counterpartSummary?.profileSummary;
-  const intro = summary?.intro.trim() || '아직 소개 문구가 없어요.';
+  const profileState = usePublicProfileDetail(activeMatch.counterpartUserId, true);
 
   return (
     <HomeResponsiveSheet
@@ -30,18 +32,16 @@ export function PostMatchCounterpartProfileModal({
         </button>
       }
     >
-      <div className="space-y-3">
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-          <p className="text-xs font-bold text-emerald-700">소개</p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{intro}</p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <DetailRow label="닉네임" value={activeMatch.nickname} />
-          <DetailRow label="매칭도" value={`${activeMatch.matchScore}%`} />
-          <DetailRow label="흡연" value={formatProfileValue(summary?.smokingBehavior)} />
-          <DetailRow label="수면" value={formatProfileValue(summary?.sleepHabit)} />
-        </div>
-      </div>
+      <PublicProfileDetailContent
+        state={profileState}
+        fallbackNickname={activeMatch.nickname}
+        fallbackRows={[
+          { label: '닉네임', value: activeMatch.nickname },
+          { label: '매칭도', value: `${activeMatch.matchScore}%` },
+          { label: '흡연', value: formatProfileValue(summary?.smokingBehavior) },
+          { label: '수면', value: formatProfileValue(summary?.sleepHabit) },
+        ]}
+      />
     </HomeResponsiveSheet>
   );
 }

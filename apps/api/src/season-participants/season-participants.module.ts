@@ -10,6 +10,7 @@ import { SEASON_PARTICIPANTS_PROVIDERS } from './composition/season-participants
 import {
   CurrentSeasonParticipationController,
   CurrentSeasonProfileController,
+  PreviousSeasonProfileController,
 } from './current-season-participation.controller.js';
 
 @Module({
@@ -21,7 +22,11 @@ import {
     ChatLifecycleModule,
     MatchLifecycleModule,
   ],
-  controllers: [CurrentSeasonProfileController, CurrentSeasonParticipationController],
+  controllers: [
+    CurrentSeasonProfileController,
+    PreviousSeasonProfileController,
+    CurrentSeasonParticipationController,
+  ],
   providers: SEASON_PARTICIPANTS_PROVIDERS,
   exports: SEASON_PARTICIPANTS_EXPORTS,
 })

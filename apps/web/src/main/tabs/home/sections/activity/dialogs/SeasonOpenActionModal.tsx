@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { ClipboardCheck, ListChecks, UserRound, XCircle } from 'lucide-react';
 import { HomeResponsiveSheet } from '../../../overlays/HomeResponsiveSheet';
 import { DetailRow } from '../ActivityDetailRows';
+import { SeasonProfileDetailContent } from '../../../profile-modals/HomeProfileDetailContent';
+import { useCurrentSeasonProfileDetail } from '../../../profile-modals/useHomeProfileDetail';
 import type { TabId, MatchingNavOptions } from '@/types/profile';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
 import type { SeasonOpenModalKind } from '../model/activityTypes';
@@ -20,6 +22,11 @@ export function SeasonOpenActionModal({
   onClose: () => void;
 }) {
   const [isSubmitting, setSubmitting] = useState(false);
+  const shouldLoadSeasonProfile =
+    kind === 'profile-composition' ||
+    kind === 'registration-confirmation' ||
+    kind === 'profile-view';
+  const seasonProfileState = useCurrentSeasonProfileDetail(shouldLoadSeasonProfile);
 
   if (!kind) return null;
 
@@ -104,6 +111,10 @@ export function SeasonOpenActionModal({
           <DetailRow key={row.label} label={row.label} value={row.value} />
         ))}
       </div>
+
+      {shouldLoadSeasonProfile && (
+        <SeasonProfileDetailContent state={seasonProfileState} fallbackRows={content.rows} />
+      )}
 
       {content.notes.length > 0 && (
         <div className="mt-4 space-y-2">

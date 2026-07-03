@@ -1,5 +1,7 @@
 import { BarChart3, UserRound } from 'lucide-react';
 import { HomeResponsiveSheet } from '../../../overlays/HomeResponsiveSheet';
+import { PreviousSeasonProfileDetailContent } from '../../../profile-modals/HomeProfileDetailContent';
+import { usePreviousSeasonProfileDetail } from '../../../profile-modals/useHomeProfileDetail';
 import { DetailMetric, DetailRow, EmptyDetailCard } from '../ActivityDetailRows';
 import { resolveViewerActivityTitle } from '../model/activityContent';
 import type { HomeDashboardViewModel } from '../../../model/homeDashboardViewModel';
@@ -14,9 +16,13 @@ export function OffSeasonDetailModal({
   viewModel: HomeDashboardViewModel;
   onClose: () => void;
 }) {
+  const lastSeason = viewModel.seasonSummary.lastSeason;
+  const previousSeasonProfileState = usePreviousSeasonProfileDetail(
+    kind === 'profile' && Boolean(lastSeason),
+  );
+
   if (!kind) return null;
 
-  const lastSeason = viewModel.seasonSummary.lastSeason;
   const title = kind === 'activity' ? '이전 시즌 상세 보기' : '이전 시즌 프로필 확인';
   const description =
     kind === 'activity'
@@ -43,7 +49,11 @@ export function OffSeasonDetailModal({
       {kind === 'activity' ? (
         <OffSeasonActivityDetail lastSeason={lastSeason} />
       ) : (
-        <OffSeasonProfileDetail viewModel={viewModel} lastSeason={lastSeason} />
+        <OffSeasonProfileDetail
+          viewModel={viewModel}
+          lastSeason={lastSeason}
+          profileState={previousSeasonProfileState}
+        />
       )}
     </HomeResponsiveSheet>
   );
@@ -86,24 +96,24 @@ export function OffSeasonActivityDetail({
 function OffSeasonProfileDetail({
   viewModel,
   lastSeason,
+  profileState,
 }: {
   viewModel: HomeDashboardViewModel;
   lastSeason: HomeDashboardViewModel['seasonSummary']['lastSeason'];
+  profileState: ReturnType<typeof usePreviousSeasonProfileDetail>;
 }) {
+  const fallbackRows = lastSeason
+    ? [
+        { label: '참여 시즌', value: lastSeason.name },
+        { label: '닉네임', value: viewModel.viewerIdentity.nickname },
+        { label: '성별', value: viewModel.viewerIdentity.genderLabel },
+        { label: '캠퍼스', value: viewModel.viewerIdentity.campusName },
+      ]
+    : [];
+
   if (!lastSeason) {
     return <EmptyDetailCard message="이전 시즌 프로필로 연결할 시즌 참여 기록이 없어요." />;
   }
 
-  return (
-    <div className="space-y-3">
-      <DetailRow label="참여 시즌" value={lastSeason.name} />
-      <DetailRow label="닉네임" value={viewModel.viewerIdentity.nickname} />
-      <DetailRow label="성별" value={viewModel.viewerIdentity.genderLabel} />
-      <DetailRow label="캠퍼스" value={viewModel.viewerIdentity.campusName} />
-      <div className="rounded-xl border border-(--knu-border) bg-(--knu-background-alt) px-4 py-3 text-xs leading-relaxed text-(--knu-text-secondary)">
-        이전 시즌 생활패턴 상세는 별도 이력 화면으로 확장될 예정이에요. 지금은 홈에서 확인 가능한
-        직전 시즌 참여 상태와 계정 기준 정보를 먼저 보여드려요.
-      </div>
-    </div>
-  );
+  return <PreviousSeasonProfileDetailContent state={profileState} fallbackRows={fallbackRows} />;
 }

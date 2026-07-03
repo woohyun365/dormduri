@@ -1,15 +1,45 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createHomeDashboardTestResponse } from '@/main/test-support/home-dashboard.builder';
 import { buildHomeDashboardViewModel } from '../model/homeDashboardViewModel';
 import { HomeActivityPanel } from '../components/HomeActivityPanel';
 import type { HomeDashboardResponse } from '@repo/shared/home';
+import {
+  createPreviousSeasonProfileResponse,
+  createPublicProfileFull,
+  createSeasonProfileDraftResponse,
+} from '@/test/home-profile-detail-fixtures';
+
+function stubHomeProfileDetailFetch() {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/seasons/previous/profile')) {
+        return new Response(JSON.stringify(createPreviousSeasonProfileResponse()), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (url.includes('/api/profiles/')) {
+        return new Response(JSON.stringify(createPublicProfileFull()), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify(createSeasonProfileDraftResponse()), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }),
+  );
+}
 
 function renderActivity(
   dashboard: HomeDashboardResponse,
   options: { onDeregisterSeasonParticipation?: () => Promise<void> } = {},
 ) {
+  stubHomeProfileDetailFetch();
   const onNavigate = vi.fn();
   const onDeregisterSeasonParticipation =
     options.onDeregisterSeasonParticipation ?? vi.fn().mockResolvedValue(undefined);
@@ -31,6 +61,10 @@ function renderActivity(
 }
 
 describe('HomeActivityPanel', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('시즌 오픈 required 상태에서 설정 이동 CTA와 구성 확인 modal을 제공한다', async () => {
     const user = userEvent.setup();
     const { onNavigate } = renderActivity(
@@ -240,6 +274,9 @@ describe('HomeActivityPanel', () => {
     expect(
       screen.getByText('같은 기숙사 룸메 후보에게 표시되는 이번 시즌 기준 정보를 확인해요.'),
     ).toBeInTheDocument();
+    expect(await screen.findByText('생활패턴·룸메 조건')).toBeInTheDocument();
+    expect(screen.getByText('22~24시')).toBeInTheDocument();
+    expect(screen.getByText('2학년')).toBeInTheDocument();
     expect(onNavigate).not.toHaveBeenCalledWith('list');
   });
 
@@ -397,7 +434,9 @@ describe('HomeActivityPanel', () => {
 
     await user.click(screen.getByRole('button', { name: /이전 시즌 프로필 확인/ }));
     expect(screen.getByRole('dialog', { name: '이전 시즌 프로필 확인' })).toBeInTheDocument();
-    expect(screen.getByText('닉네임')).toBeInTheDocument();
+    expect(await screen.findByText('나의 직전 시즌 프로필')).toBeInTheDocument();
+    expect(screen.getByText('다산관')).toBeInTheDocument();
+    expect(screen.getByText('생활패턴·룸메 조건')).toBeInTheDocument();
     expect(onNavigate).not.toHaveBeenCalled();
   });
 

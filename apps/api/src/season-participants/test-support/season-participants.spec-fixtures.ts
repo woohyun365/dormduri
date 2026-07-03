@@ -228,7 +228,9 @@ function createSeasonParticipantsServiceTestKitImpl() {
       findMany: vi.fn(),
       createMany: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
     },
+    seasonParticipantProfileHistory: { findFirst: vi.fn() },
     activeMatch: { findFirst: vi.fn() },
   };
   const seasonsService = { getCurrentSeasonContext: vi.fn() };

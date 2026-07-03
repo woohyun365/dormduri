@@ -1,14 +1,23 @@
+import { useEffect } from 'react';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import HomeTab from '../HomeTab';
 import { HomeDashboardErrorState } from '../components/HomeDashboardErrorState';
 import { homeStoryScenarios, type HomeStoryScenario } from './home-story-scenarios';
+import {
+  createMatchHistoryResponse,
+  createPreviousSeasonProfileResponse,
+  createPublicProfileFull,
+  createSeasonProfileDraftResponse,
+} from '@/test/home-profile-detail-fixtures';
 
 interface HomeTabStorySurfaceProps {
   scenario: HomeStoryScenario;
 }
 
 function HomeTabStorySurface({ scenario }: HomeTabStorySurfaceProps) {
+  useHomeProfileDetailStoryApiFixtures();
+
   return (
     <HomeTab
       dashboard={scenario.dashboard}
@@ -19,6 +28,112 @@ function HomeTabStorySurface({ scenario }: HomeTabStorySurfaceProps) {
       {...(scenario.renderedAt ? { renderedAtOverride: scenario.renderedAt } : {})}
     />
   );
+}
+
+type StoryFetchStore = {
+  originalFetch: typeof fetch;
+  refCount: number;
+};
+
+const HOME_PROFILE_DETAIL_STORY_FETCH_KEY = '__knuHomeProfileDetailStoryFetch__';
+
+function useHomeProfileDetailStoryApiFixtures() {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const globalStore = globalThis as typeof globalThis & {
+      [HOME_PROFILE_DETAIL_STORY_FETCH_KEY]?: StoryFetchStore;
+    };
+
+    if (globalStore[HOME_PROFILE_DETAIL_STORY_FETCH_KEY]) {
+      globalStore[HOME_PROFILE_DETAIL_STORY_FETCH_KEY].refCount += 1;
+      return () => {
+        const store = globalStore[HOME_PROFILE_DETAIL_STORY_FETCH_KEY];
+        if (!store) return;
+        store.refCount -= 1;
+        if (store.refCount <= 0) {
+          window.fetch = store.originalFetch;
+          delete globalStore[HOME_PROFILE_DETAIL_STORY_FETCH_KEY];
+        }
+      };
+    }
+
+    const originalFetch = window.fetch.bind(window);
+    globalStore[HOME_PROFILE_DETAIL_STORY_FETCH_KEY] = {
+      originalFetch: window.fetch,
+      refCount: 1,
+    };
+
+    window.fetch = async (input, init) => {
+      const pathname = resolveStoryFetchPathname(input);
+
+      if (pathname === '/api/seasons/current/profile') {
+        return createStoryJsonResponse(
+          createSeasonProfileDraftResponse({
+            state: 'REGISTRATION_FINALIZED',
+            draftWritable: false,
+            intro: '조용한 생활을 선호하고 서로의 생활 리듬을 존중하는 룸메를 찾고 있어요.',
+          }),
+        );
+      }
+
+      if (pathname === '/api/seasons/previous/profile') {
+        return createStoryJsonResponse(createPreviousSeasonProfileResponse());
+      }
+
+      if (pathname === '/api/matches/history') {
+        return createStoryJsonResponse(createMatchHistoryResponse());
+      }
+
+      if (/^\/api\/matches\/history\/entries\/[^/]+\/counterpart-profile$/.test(pathname)) {
+        return createStoryJsonResponse(
+          createPublicProfileFull({
+            id: 'history-counterpart-user',
+            nickname: '민지',
+            intro: '지난 시즌에 생활패턴이 잘 맞았던 룸메 후보예요.',
+            matchScore: 91,
+          }),
+        );
+      }
+
+      if (/^\/api\/profiles\/[^/]+$/.test(pathname)) {
+        return createStoryJsonResponse(
+          createPublicProfileFull({
+            id: decodeURIComponent(pathname.split('/').at(-1) ?? 'partner-user-1'),
+            nickname: '민지',
+            intro: '아침형 생활패턴이고, 조용한 방 분위기를 선호해요.',
+            matchScore: 92,
+          }),
+        );
+      }
+
+      return originalFetch(input, init);
+    };
+
+    return () => {
+      const store = globalStore[HOME_PROFILE_DETAIL_STORY_FETCH_KEY];
+      if (!store) return;
+      store.refCount -= 1;
+      if (store.refCount <= 0) {
+        window.fetch = store.originalFetch;
+        delete globalStore[HOME_PROFILE_DETAIL_STORY_FETCH_KEY];
+      }
+    };
+  }, []);
+}
+
+function resolveStoryFetchPathname(input: Parameters<typeof fetch>[0]): string {
+  const rawUrl =
+    typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+  return new URL(rawUrl, window.location.origin).pathname;
+}
+
+function createStoryJsonResponse(json: unknown): Response {
+  return new Response(JSON.stringify(json), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
 }
 
 const meta = {

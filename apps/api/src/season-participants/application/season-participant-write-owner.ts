@@ -6,6 +6,7 @@ import { createUpdateDormitorySelectionCommand } from '../dormitory-selection/up
 import { createDeregisterSeasonParticipantCommand } from '../deregistration/deregister-season-participant.command.js';
 import type { SeasonParticipantUseCaseDeps } from './season-participant-use-case.deps.js';
 import { createGetCurrentSeasonProfileQuery } from '../profile-draft/get-current-season-profile.query.js';
+import { createGetPreviousSeasonProfileQuery } from '../profile-history/get-previous-season-profile.query.js';
 import { createUpsertSeasonProfileDraftCommand } from '../profile-draft/upsert-season-profile-draft.command.js';
 import {
   assertSeasonProfileCompleteForRegistration,
@@ -19,6 +20,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantUseCase
   const containerOwner = createSeasonParticipantContainerOwner(deps);
   const lifecycleEventWriter = createSeasonParticipantLifecycleEventWriter();
   const profileDraftQuery = createGetCurrentSeasonProfileQuery(deps, containerOwner);
+  const previousProfileQuery = createGetPreviousSeasonProfileQuery(deps);
   const profileDraftCommand = createUpsertSeasonProfileDraftCommand(deps, containerOwner);
   const dormitorySelectionReadiness = createDormitorySelectionReadinessEvaluator(deps);
   const dormitorySelectionQuery = createListCurrentSeasonSelectableDormitoriesQuery(
@@ -50,6 +52,7 @@ export function createSeasonParticipantWriteOwner(deps: SeasonParticipantUseCase
     ensureCurrentSeasonParticipant: containerOwner.ensureCurrentSeasonParticipant,
     findCurrentSeasonParticipant: containerOwner.findCurrentSeasonParticipant,
     getCurrentSeasonProfile: profileDraftQuery.getCurrentSeasonProfile,
+    getPreviousSeasonProfile: previousProfileQuery.getPreviousSeasonProfile,
     createOrUpdateSeasonProfileDraft: profileDraftCommand.createOrUpdateSeasonProfileDraft,
     validateSeasonProfileCompleteness,
     assertSeasonProfileCompleteForRegistration,

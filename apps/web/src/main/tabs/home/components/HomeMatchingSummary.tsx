@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { AnimatedCounter } from '@/components/AnimatedCounter';
 import { HomeResponsiveDialog } from '../overlays/HomeResponsiveDialog';
+import { PublicProfileDetailContent } from '../profile-modals/HomeProfileDetailContent';
+import { usePublicProfileDetail } from '../profile-modals/useHomeProfileDetail';
 import { sectionCard, sectionHeader, glassCard } from '@/main/styles/home';
 import type { ActiveMatchUnmatchProgress } from '@repo/shared/match/contract';
 import type { RoommateSearchSummary } from '@repo/shared/roommate-search/contract';
@@ -451,7 +453,7 @@ function ActiveMatchProfileModal({
   onClose: () => void;
 }) {
   const summary = activeMatch.counterpartSummary?.profileSummary;
-  const intro = summary?.intro.trim() || '아직 소개 문구가 없어요.';
+  const profileState = usePublicProfileDetail(activeMatch.counterpartUserId, true);
 
   return (
     <HomeResponsiveDialog
@@ -472,31 +474,22 @@ function ActiveMatchProfileModal({
       }
     >
       <div className="space-y-3">
-        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4">
-          <p className="text-xs font-bold text-indigo-700">소개</p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{intro}</p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <ProfileSummaryItem label="매칭도" value={`${activeMatch.matchScore}%`} />
-          <ProfileSummaryItem label="확인 맥락" value="현재 매칭 상대" />
-          <ProfileSummaryItem label="흡연" value={formatProfileValue(summary?.smokingBehavior)} />
-          <ProfileSummaryItem label="수면" value={formatProfileValue(summary?.sleepHabit)} />
-        </div>
+        <PublicProfileDetailContent
+          state={profileState}
+          fallbackNickname={activeMatch.nickname}
+          fallbackRows={[
+            { label: '매칭도', value: `${activeMatch.matchScore}%` },
+            { label: '확인 맥락', value: '현재 매칭 상대' },
+            { label: '흡연', value: formatProfileValue(summary?.smokingBehavior) },
+            { label: '수면', value: formatProfileValue(summary?.sleepHabit) },
+          ]}
+        />
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
           상대 프로필은 매칭 결과 확인을 위한 읽기 전용 정보예요. 새 매칭 신청이나 북마크 기능은
           확정 매칭 중에는 열리지 않아요.
         </div>
       </div>
     </HomeResponsiveDialog>
-  );
-}
-
-function ProfileSummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3">
-      <p className="text-[11px] font-bold text-slate-500">{label}</p>
-      <p className="mt-1 text-sm font-bold text-(--knu-text-primary)">{value}</p>
-    </div>
   );
 }
 

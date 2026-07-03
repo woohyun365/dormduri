@@ -88,6 +88,11 @@ describe('Home activity componentization boundary', () => {
       'sections/activity/dialogs/PostMatchDetailModal.tsx',
       'sections/activity/dialogs/PostMatchCounterpartProfileModal.tsx',
       'sections/activity/dialogs/OffSeasonDetailModal.tsx',
+      'profile-modals/HomeProfileDetailContent.tsx',
+      'profile-modals/useHomeProfileDetail.ts',
+      'api/home-profile-detail.api.ts',
+      'model/profile/seasonProfileDisplay.mapper.ts',
+      'model/profile/profileDetailDisplay.mapper.ts',
     ];
 
     expect(

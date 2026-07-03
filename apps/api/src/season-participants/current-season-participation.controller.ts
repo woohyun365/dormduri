@@ -40,6 +40,17 @@ export class CurrentSeasonProfileController {
   }
 }
 
+@Controller('api/seasons/previous/profile')
+@RequireCapability()
+export class PreviousSeasonProfileController {
+  constructor(private readonly seasonParticipantsService: SeasonParticipantsService) {}
+
+  @Get()
+  async getPreviousSeasonProfile(@CurrentUser() authUser: AuthenticatedUserContext) {
+    return this.seasonParticipantsService.getPreviousSeasonProfile(authUser.id);
+  }
+}
+
 @Controller('api/seasons/current/participation')
 @RequireCapability()
 export class CurrentSeasonParticipationController {
