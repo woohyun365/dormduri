@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeOperationsSurface } from '../sections/operations/HomeOperationsSurface';
@@ -13,12 +13,6 @@ const iso = '2026-07-03T00:00:00.000Z';
 
 const actions = {
   refresh: vi.fn(async () => undefined),
-  openNoticeDetail: vi.fn(async () => undefined),
-  openSupportTicketDetail: vi.fn(async () => undefined),
-  closeDetail: vi.fn(),
-  markNotificationRead: vi.fn(async () => undefined),
-  markAllNotificationsRead: vi.fn(async () => undefined),
-  appendSupportTicketMessage: vi.fn(async () => undefined),
 };
 
 const baseState: HomeOperationsState = {
@@ -75,7 +69,6 @@ const baseState: HomeOperationsState = {
       },
     ],
   },
-  detail: null,
 };
 
 function mockOperations(overrides: Partial<HomeOperationsState> = {}) {
@@ -107,15 +100,22 @@ describe('HomeOperationsSurface', () => {
     expect(screen.getByText('버그 문의')).toBeInTheDocument();
   });
 
-  it('공지와 문의 preview 클릭 시 detail action을 호출한다', async () => {
-    const user = userEvent.setup();
+  it('공지와 문의 preview는 dedicated page link로 연결한다', () => {
     render(<HomeOperationsSurface />);
 
-    await user.click(screen.getByRole('button', { name: /운영 안내/ }));
-    expect(actions.openNoticeDetail).toHaveBeenCalledWith('notice-1');
-
-    await user.click(screen.getByRole('button', { name: /버그 문의/ }));
-    expect(actions.openSupportTicketDetail).toHaveBeenCalledWith('ticket-1');
+    expect(screen.getByRole('link', { name: /운영 안내/ })).toHaveAttribute(
+      'href',
+      '/notices/notice-1',
+    );
+    expect(screen.getByRole('link', { name: /버그 문의/ })).toHaveAttribute(
+      'href',
+      '/support?ticketId=ticket-1',
+    );
+    expect(
+      screen
+        .getAllByRole('link', { name: /문의하기/ })
+        .some((link) => link.getAttribute('href') === '/support'),
+    ).toBe(true);
   });
 
   it('partial error는 공지사항 배너를 유지하고 feed-local retry surface로 표시한다', async () => {
@@ -133,51 +133,5 @@ describe('HomeOperationsSurface', () => {
 
     await user.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(actions.refresh).toHaveBeenCalled();
-  });
-
-  it('support ticket detail sheet에서 message timeline과 follow-up composer를 제공한다', async () => {
-    const user = userEvent.setup();
-    mockOperations({
-      detail: {
-        kind: 'supportTicket',
-        status: 'success',
-        submittingMessage: false,
-        messageError: null,
-        detail: {
-          ticket: {
-            id: 'ticket-1',
-            category: 'BUG',
-            subject: '버그 문의',
-            status: 'WAITING_USER',
-            relatedEntityId: null,
-            appealCategory: null,
-            emailReplyConsent: false,
-            lastMessageAt: iso,
-            closedAt: null,
-            createdAt: iso,
-            updatedAt: iso,
-          },
-          messages: [
-            {
-              id: 'message-1',
-              ticketId: 'ticket-1',
-              senderType: 'OPERATOR',
-              createdAt: iso,
-              body: '확인 중입니다.',
-            },
-          ],
-        },
-      },
-    });
-
-    render(<HomeOperationsSurface />);
-
-    const dialog = screen.getByRole('dialog', { name: '문의 내역' });
-    expect(within(dialog).getByText('확인 중입니다.')).toBeInTheDocument();
-
-    await user.type(within(dialog).getByLabelText('추가 메시지'), '추가 정보입니다.');
-    await user.click(within(dialog).getByRole('button', { name: /추가 메시지/ }));
-
-    expect(actions.appendSupportTicketMessage).toHaveBeenCalledWith('추가 정보입니다.');
   });
 });

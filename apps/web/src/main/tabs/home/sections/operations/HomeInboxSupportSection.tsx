@@ -20,10 +20,6 @@ export function HomeInboxSupportSection({
   faqs,
   tickets,
   allFeedsFailed,
-  onOpenSupportTicket,
-  onMarkNotificationRead,
-  onMarkAllNotificationsRead,
-  onOpenTicket,
   onRetry,
 }: {
   notifications: HomeNotificationPreview[];
@@ -35,10 +31,6 @@ export function HomeInboxSupportSection({
   faqs: SupportFaqItem[];
   tickets: HomeSupportTicketPreview[];
   allFeedsFailed: boolean;
-  onOpenSupportTicket: (notification: HomeNotificationPreview) => void;
-  onMarkNotificationRead: (notification: HomeNotificationPreview) => void;
-  onMarkAllNotificationsRead: () => void;
-  onOpenTicket: (ticketId: string) => void;
   onRetry: () => void;
 }) {
   return (
@@ -64,9 +56,6 @@ export function HomeInboxSupportSection({
         unreadCount={unreadCount}
         status={notificationStatus}
         error={notificationError}
-        onOpenSupportTicket={onOpenSupportTicket}
-        onMarkRead={onMarkNotificationRead}
-        onMarkAllRead={onMarkAllNotificationsRead}
         onRetry={onRetry}
       />
 
@@ -77,7 +66,7 @@ export function HomeInboxSupportSection({
         onRetry={onRetry}
       />
 
-      <SupportTicketListPreview tickets={tickets} onOpenTicket={onOpenTicket} />
+      <SupportTicketListPreview tickets={tickets} />
     </div>
   );
 }

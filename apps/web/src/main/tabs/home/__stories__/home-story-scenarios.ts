@@ -1453,7 +1453,7 @@ export const homeStoryScenarios = {
   operationsLoaded: {
     title: 'Operations / loaded feeds',
     description:
-      '공지사항, 개인 알림, 문의/FAQ preview가 모두 성공한 operations surface 상태입니다. 공지 카드와 문의 ticket을 클릭해 detail sheet를 수동 확인합니다.',
+      '공지사항, 개인 알림, 문의/FAQ preview가 모두 성공한 operations surface 상태입니다. 공지/알림/문의 CTA가 전용 page로 이동하는지 확인합니다.',
     dashboard: createDashboard('SEASON_OPEN'),
     operationsMode: 'loaded',
   },

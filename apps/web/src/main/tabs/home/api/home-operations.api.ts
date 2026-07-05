@@ -1,37 +1,23 @@
 import {
-  globalNoticeDetailResponseSchema,
   globalNoticeListResponseSchema,
-  type GlobalNoticeDetailResponse,
   type GlobalNoticeListResponse,
   type ListGlobalNoticesQuery,
 } from '@repo/shared/notices';
 import {
-  markAllNotificationsReadResponseSchema,
-  markNotificationReadResponseSchema,
   notificationListResponseSchema,
   notificationUnreadCountResponseSchema,
   type ListNotificationsQuery,
-  type MarkAllNotificationsReadResponse,
-  type MarkNotificationReadResponse,
   type NotificationListResponse,
   type NotificationUnreadCountResponse,
 } from '@repo/shared/notifications';
 import {
-  appendSupportTicketMessageRequestSchema,
-  appendSupportTicketMessageResponseSchema,
   listSupportFaqQuerySchema,
   listSupportTicketsQuerySchema,
-  supportFaqDetailResponseSchema,
   supportFaqListResponseSchema,
-  supportTicketDetailResponseSchema,
   supportTicketListResponseSchema,
-  type AppendSupportTicketMessageRequest,
-  type AppendSupportTicketMessageResponse,
   type ListSupportFaqQuery,
   type ListSupportTicketsQuery,
-  type SupportFaqDetailResponse,
   type SupportFaqListResponse,
-  type SupportTicketDetailResponse,
   type SupportTicketListResponse,
 } from '@repo/shared/support';
 export class HomeOperationsFetchError extends Error {
@@ -164,13 +150,6 @@ async function listGlobalNotices(
   return fetchAndParse(buildGlobalNoticeListPath(query), globalNoticeListResponseSchema);
 }
 
-async function getGlobalNotice(noticeId: string): Promise<GlobalNoticeDetailResponse> {
-  return fetchAndParse(
-    `/api/notices/${encodeURIComponent(noticeId)}`,
-    globalNoticeDetailResponseSchema,
-  );
-}
-
 async function listNotifications(
   query: Partial<ListNotificationsQuery> = {},
 ): Promise<NotificationListResponse> {
@@ -181,31 +160,10 @@ async function getNotificationUnreadCount(): Promise<NotificationUnreadCountResp
   return fetchAndParse('/api/notifications/unread-count', notificationUnreadCountResponseSchema);
 }
 
-async function markNotificationRead(notificationId: string): Promise<MarkNotificationReadResponse> {
-  return fetchAndParse(
-    `/api/notifications/${encodeURIComponent(notificationId)}/read`,
-    markNotificationReadResponseSchema,
-    { method: 'POST' },
-  );
-}
-
-async function markAllNotificationsRead(): Promise<MarkAllNotificationsReadResponse> {
-  return fetchAndParse('/api/notifications/read-all', markAllNotificationsReadResponseSchema, {
-    method: 'POST',
-  });
-}
-
 async function listSupportFaq(
   query: Partial<ListSupportFaqQuery> = { surface: 'SUPPORT_CENTER' },
 ): Promise<SupportFaqListResponse> {
   return fetchAndParse(buildSupportFaqPath(query), supportFaqListResponseSchema);
-}
-
-async function getSupportFaq(articleId: string): Promise<SupportFaqDetailResponse> {
-  return fetchAndParse(
-    `/api/support/faq/${encodeURIComponent(articleId)}`,
-    supportFaqDetailResponseSchema,
-  );
 }
 
 async function listSupportTickets(
@@ -214,35 +172,10 @@ async function listSupportTickets(
   return fetchAndParse(buildSupportTicketListPath(query), supportTicketListResponseSchema);
 }
 
-async function getSupportTicket(ticketId: string): Promise<SupportTicketDetailResponse> {
-  return fetchAndParse(
-    `/api/support/tickets/${encodeURIComponent(ticketId)}`,
-    supportTicketDetailResponseSchema,
-  );
-}
-
-async function appendSupportTicketMessage(
-  ticketId: string,
-  request: AppendSupportTicketMessageRequest,
-): Promise<AppendSupportTicketMessageResponse> {
-  const body = appendSupportTicketMessageRequestSchema.parse(request);
-  return fetchAndParse(
-    `/api/support/tickets/${encodeURIComponent(ticketId)}/messages`,
-    appendSupportTicketMessageResponseSchema,
-    { method: 'POST', body: JSON.stringify(body) },
-  );
-}
-
 export const homeOperationsApi = {
   listGlobalNotices,
-  getGlobalNotice,
   listNotifications,
   getNotificationUnreadCount,
-  markNotificationRead,
-  markAllNotificationsRead,
   listSupportFaq,
-  getSupportFaq,
   listSupportTickets,
-  getSupportTicket,
-  appendSupportTicketMessage,
 };

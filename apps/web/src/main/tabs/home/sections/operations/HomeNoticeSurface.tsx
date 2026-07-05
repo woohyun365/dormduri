@@ -1,3 +1,5 @@
+import type { Route } from 'next';
+import Link from 'next/link';
 import { AlertTriangle, Megaphone, Siren, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { HomeGlobalNoticePreview } from '../../model/operations/homeOperationsViewModel';
@@ -35,11 +37,9 @@ const NOTICE_SURFACE_STYLE: Record<
 export function HomeNoticeSurface({
   notices,
   status,
-  onOpenNotice,
 }: {
   notices: HomeGlobalNoticePreview[];
   status: 'idle' | 'loading' | 'success' | 'error';
-  onOpenNotice: (noticeId: string) => void;
 }) {
   if (status !== 'success') return null;
 
@@ -51,10 +51,9 @@ export function HomeNoticeSurface({
 
   return (
     <section aria-label="공지사항" className="overflow-hidden rounded-3xl">
-      <button
-        type="button"
-        onClick={() => onOpenNotice(primaryNotice.id)}
-        className={`group w-full rounded-3xl border p-4 text-left shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary) md:p-5 ${style.card}`}
+      <Link
+        href={`/notices/${encodeURIComponent(primaryNotice.id)}` as Route}
+        className={`group block w-full rounded-3xl border p-4 text-left shadow-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--knu-primary) md:p-5 ${style.card}`}
       >
         <span className="flex items-start gap-3 md:items-center md:gap-4">
           <span
@@ -79,10 +78,10 @@ export function HomeNoticeSurface({
             </span>
           </span>
           <span className="hidden shrink-0 rounded-full bg-white/80 px-3 py-1.5 text-xs font-extrabold text-(--knu-primary) shadow-sm transition-colors group-hover:bg-white md:inline-flex">
-            자세히 보기
+            공지 보기
           </span>
         </span>
-      </button>
+      </Link>
     </section>
   );
 }

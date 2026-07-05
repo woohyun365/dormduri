@@ -234,8 +234,6 @@ describe('Home matching componentization boundary', () => {
         'sections/operations/NotificationInboxPreview.tsx',
         'sections/operations/SupportCenterEntry.tsx',
         'sections/operations/SupportTicketListPreview.tsx',
-        'sections/operations/SupportTicketDetailSheet.tsx',
-        'sections/operations/SupportTicketMessageComposer.tsx',
         'sections/operations/OperationsPanelSkeleton.tsx',
         'sections/operations/OperationsPanelErrorState.tsx',
         'model/operations/homeOperationsViewModel.ts',
