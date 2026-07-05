@@ -15,6 +15,20 @@ describe('HomeTab Storybook source boundary', () => {
     expect(storySource).not.toContain('../components/');
     expect(storySource).not.toContain('useHomeProfileDetailStoryApiFixtures');
   });
+
+  it('keeps dedicated operations page flow stories connected through HomeTab entries', () => {
+    const storySource = readFileSync(
+      join(process.cwd(), 'src/main/tabs/home/__stories__/HomeOperationsPageFlow.stories.tsx'),
+      'utf8',
+    );
+
+    expect(storySource).toContain("title: 'Main/HomeTab/Operations Pages'");
+    expect(storySource).toContain('NoticesPageClient');
+    expect(storySource).toContain('NotificationsPageClient');
+    expect(storySource).toContain('SupportPageClient');
+    expect(storySource).toContain('resolveStoryRouteFromHref');
+    expect(storySource).toContain('/support?ticketId=');
+  });
 });
 
 describe('homeStoryScenarios S/R/C matrix', () => {

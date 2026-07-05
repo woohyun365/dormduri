@@ -26,9 +26,13 @@ const DEFAULT_FORM_VALUES: SupportTicketFormValues = {
   emailReplyConsent: false,
 };
 
-export default function SupportPageClient() {
+export default function SupportPageClient({
+  initialTicketIdOverride,
+}: {
+  initialTicketIdOverride?: string | null;
+} = {}) {
   const searchParams = useSearchParams();
-  const initialTicketId = searchParams.get('ticketId');
+  const initialTicketId = initialTicketIdOverride ?? searchParams.get('ticketId');
   const [status, setStatus] = useState<PageStatus>('loading');
   const [error, setError] = useState<string | null>(null);
   const [faqs, setFaqs] = useState<SupportFaqItem[]>([]);
