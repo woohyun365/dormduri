@@ -95,6 +95,60 @@ export function toSeasonSystemNoticeNotificationPayload(input: {
   });
 }
 
+export function toMatchRequestReceivedNotificationPayload(input: {
+  matchRequestId: string;
+  seasonId: string;
+  occurredAt: Date;
+}) {
+  return assertAllowedPayload({
+    kind: 'MATCH_REQUEST_RECEIVED' as const,
+    matchRequestId: input.matchRequestId,
+    seasonId: input.seasonId,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
+export function toMatchRequestAcceptedNotificationPayload(input: {
+  matchRequestId: string;
+  activeMatchId: string;
+  seasonId: string;
+  occurredAt: Date;
+}) {
+  return assertAllowedPayload({
+    kind: 'MATCH_REQUEST_ACCEPTED' as const,
+    matchRequestId: input.matchRequestId,
+    activeMatchId: input.activeMatchId,
+    seasonId: input.seasonId,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
+export function toMatchRequestRejectedNotificationPayload(input: {
+  matchRequestId: string;
+  seasonId: string;
+  occurredAt: Date;
+}) {
+  return assertAllowedPayload({
+    kind: 'MATCH_REQUEST_REJECTED' as const,
+    matchRequestId: input.matchRequestId,
+    seasonId: input.seasonId,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
+export function toActiveMatchCreatedNotificationPayload(input: {
+  activeMatchId: string;
+  seasonId: string;
+  occurredAt: Date;
+}) {
+  return assertAllowedPayload({
+    kind: 'ACTIVE_MATCH_CREATED' as const,
+    activeMatchId: input.activeMatchId,
+    seasonId: input.seasonId,
+    occurredAt: input.occurredAt.toISOString(),
+  });
+}
+
 export function toSupportTicketCreatedNotificationPayload(input: {
   supportTicketId: string;
   category: string;

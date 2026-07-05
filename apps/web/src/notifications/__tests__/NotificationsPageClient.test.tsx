@@ -45,14 +45,12 @@ describe('NotificationsPageClient', () => {
     vi.mocked(notificationsPageApi.markAllRead).mockResolvedValue({ updatedCount: 1, readAt: iso });
   });
 
-  it('pointer-only 알림 목록과 unread count를 표시한다', async () => {
+  it('알림 목록과 unread count를 사용자 문구로 표시한다', async () => {
     render(<NotificationsPageClient />);
 
     expect(await screen.findByText('문의 답변이 도착했어요')).toBeInTheDocument();
     expect(screen.getByText('읽지 않은 알림 1개')).toBeInTheDocument();
-    expect(
-      screen.getByText('답변 본문은 문의 내역에서 다시 권한 확인 후 보여드려요.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('문의 답변은 문의 내역에서 확인할 수 있어요.')).toBeInTheDocument();
   });
 
   it('모두 읽음 action 후 unread count를 0으로 갱신한다', async () => {

@@ -4,6 +4,7 @@ import HomeTab from '../HomeTab';
 import NoticesPageClient from '@/notices/NoticesPageClient';
 import NotificationsPageClient from '@/notifications/NotificationsPageClient';
 import SupportPageClient from '@/support/SupportPageClient';
+import type { HomeStoryOperationsMode } from './home-story-api-fixtures';
 import { homeStoryScenarios } from './home-story-scenarios';
 import { useHomeStoryApiFixtures } from './home-story-api-fixtures';
 
@@ -15,6 +16,7 @@ type StoryRoute =
 
 interface OperationsPageFlowProps {
   initialRoute: StoryRoute;
+  operationsMode: HomeStoryOperationsMode;
 }
 
 function resolveStoryRouteFromHref(href: string): StoryRoute | null {
@@ -42,11 +44,11 @@ function resolveStoryRouteFromHref(href: string): StoryRoute | null {
   return null;
 }
 
-function OperationsPageFlow({ initialRoute }: OperationsPageFlowProps) {
+function OperationsPageFlow({ initialRoute, operationsMode }: OperationsPageFlowProps) {
   const [route, setRoute] = useState<StoryRoute>(initialRoute);
 
   useHomeStoryApiFixtures({
-    operationsMode: 'loaded',
+    operationsMode,
     profileMode: 'default',
   });
 
@@ -90,7 +92,7 @@ function OperationsPageFlow({ initialRoute }: OperationsPageFlowProps) {
 
       {route.kind === 'home' && (
         <HomeTab
-          dashboard={homeStoryScenarios.operationsLoaded.dashboard}
+          dashboard={homeStoryScenarios.seasonOpenRegisteredPreview.dashboard}
           onNavigate={() => undefined}
           onOpenBuildingSelect={() => undefined}
           onDashboardRefresh={async () => undefined}
@@ -111,14 +113,13 @@ const meta = {
     docs: {
       description: {
         component:
-          'HomeTab의 공지사항/알림함/문의하기 preview entry가 전용 SPA page(/notices, /notifications, /support)로 이어지는 흐름을 확인하는 story입니다. Storybook 안에서는 실제 route 이동 대신 story-local route state로 page를 전환합니다.',
+          'HomeTab의 공지사항/알림함/문의하기 entry가 전용 SPA page(/notices, /notifications, /support)로 이어지는 흐름을 확인하는 story입니다. Storybook 안에서는 실제 route 이동 대신 story-local route state로 page를 전환합니다.',
       },
     },
   },
   argTypes: {
-    initialRoute: {
-      table: { disable: true },
-    },
+    initialRoute: { table: { disable: true } },
+    operationsMode: { table: { disable: true } },
   },
 } satisfies Meta<typeof OperationsPageFlow>;
 
@@ -126,30 +127,138 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
-export const HomeEntryFlow: Story = {
-  name: 'HomeTab entry → dedicated pages',
-  args: { initialRoute: { kind: 'home', label: 'HomeTab' } },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          'HomeTab에서 공지 배너, 알림함, 문의하기/문의 내역 CTA를 클릭하면 각각 /notices, /notifications, /support page surface로 전환되는지 확인합니다.',
+function createOperationsPageStory(
+  name: string,
+  initialRoute: StoryRoute,
+  operationsMode: HomeStoryOperationsMode,
+  description: string,
+): Story {
+  return {
+    name,
+    args: { initialRoute, operationsMode },
+    parameters: {
+      docs: {
+        description: { story: description },
       },
     },
-  },
-};
+  };
+}
 
-export const NoticesPage: Story = {
-  name: '/notices page',
-  args: { initialRoute: { kind: 'notices', label: '/notices' } },
-};
+export const HomeEntryFlow = createOperationsPageStory(
+  'HomeTab entry → dedicated pages',
+  { kind: 'home', label: 'HomeTab' },
+  'loaded',
+  'HomeTab은 공지사항/알림함/문의하기 route entry와 unread count만 보여주고, 목록/상세/error 상태는 전용 page가 담당합니다.',
+);
 
-export const NotificationsPage: Story = {
-  name: '/notifications page',
-  args: { initialRoute: { kind: 'notifications', label: '/notifications' } },
-};
+export const NoticesWithOneNotice = createOperationsPageStory(
+  'Notices / one notice',
+  { kind: 'notices', label: '/notices' },
+  'loaded',
+  '공지사항 page에서 공개 공지 1개와 상세 article을 확인합니다.',
+);
 
-export const SupportPage: Story = {
-  name: '/support page',
-  args: { initialRoute: { kind: 'support', label: '/support' } },
-};
+export const NoticesEmpty = createOperationsPageStory(
+  'Notices / empty',
+  { kind: 'notices', label: '/notices' },
+  'notices-empty',
+  '공개된 공지사항이 없을 때 전용 page empty state를 확인합니다.',
+);
+
+export const NoticesError = createOperationsPageStory(
+  'Notices / error',
+  { kind: 'notices', label: '/notices' },
+  'notices-error',
+  '공지사항 fetch 실패는 HomeTab이 아니라 /notices page error state에서 처리합니다.',
+);
+
+export const NotificationsSupportReplied = createOperationsPageStory(
+  'Notifications / support reply',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-support-replied',
+  '문의 답변 알림이 문의하기 handoff와 함께 표시되는지 확인합니다.',
+);
+
+export const NotificationsMatchRequestReceived = createOperationsPageStory(
+  'Notifications / match request received',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-match-request-received',
+  '새롭게 받은 매칭 요청 알림이 매칭 탭 확인 안내로 표시되는지 확인합니다.',
+);
+
+export const NotificationsMatchRequestAccepted = createOperationsPageStory(
+  'Notifications / sent request accepted',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-match-request-accepted',
+  '보낸 매칭 요청이 수락되어 매칭이 확정된 알림 copy를 확인합니다.',
+);
+
+export const NotificationsMatchRequestRejected = createOperationsPageStory(
+  'Notifications / sent request rejected',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-match-request-rejected',
+  '보낸 매칭 요청이 거절된 상태를 사용자에게 중립적으로 안내하는지 확인합니다.',
+);
+
+export const NotificationsActiveMatchCreated = createOperationsPageStory(
+  'Notifications / active match created',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-active-match-created',
+  '매칭 성공 알림이 매칭 결과 확인 안내로 표시되는지 확인합니다.',
+);
+
+export const NotificationsReportStatusUpdated = createOperationsPageStory(
+  'Notifications / report status updated',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-report-status-updated',
+  '신고 처리 상태 변경 알림이 민감한 신고 원문 없이 표시되는지 확인합니다.',
+);
+
+export const NotificationsSeasonSystemNotice = createOperationsPageStory(
+  'Notifications / season notice',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-season-system-notice',
+  '시즌 운영 안내 알림이 공지사항과 분리된 개인 알림으로 표시되는지 확인합니다.',
+);
+
+export const NotificationsChatThreadCreated = createOperationsPageStory(
+  'Notifications / chat thread created',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-chat-thread-created',
+  '새 대화 시작 알림이 대화 탭 확인 안내로 표시되는지 확인합니다.',
+);
+
+export const NotificationsEmpty = createOperationsPageStory(
+  'Notifications / empty',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-empty',
+  '알림이 없을 때 알림함 전용 empty state를 확인합니다.',
+);
+
+export const NotificationsError = createOperationsPageStory(
+  'Notifications / error',
+  { kind: 'notifications', label: '/notifications' },
+  'notifications-error',
+  '알림함 fetch 실패는 HomeTab이 아니라 /notifications page error state에서 처리합니다.',
+);
+
+export const SupportWithTicket = createOperationsPageStory(
+  'Support / ticket thread',
+  { kind: 'support', label: '/support', ticketId: 'story-support-ticket-1' },
+  'loaded',
+  '문의하기 page에서 FAQ, 내 문의 목록, 선택된 ticket thread를 확인합니다.',
+);
+
+export const SupportEmpty = createOperationsPageStory(
+  'Support / empty',
+  { kind: 'support', label: '/support' },
+  'support-empty',
+  'FAQ와 문의 내역이 비어 있을 때 고객센터 page empty state를 확인합니다.',
+);
+
+export const SupportError = createOperationsPageStory(
+  'Support / error',
+  { kind: 'support', label: '/support' },
+  'support-error',
+  '문의하기 fetch 실패는 HomeTab이 아니라 /support page error state에서 처리합니다.',
+);

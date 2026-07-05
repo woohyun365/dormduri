@@ -177,14 +177,7 @@ export const PostMatchRegistrationUnavailable = createStory(
 export const SeasonMatchingRegistrationUnavailable = createStory(
   homeStoryScenarios.seasonMatchingRegistrationUnavailable,
 );
-export const OperationsLoaded = createStory(homeStoryScenarios.operationsLoaded);
-export const OperationsEmpty = createStory(homeStoryScenarios.operationsEmpty);
-export const OperationsPartialError = createStory(homeStoryScenarios.operationsPartialError);
-export const OperationsAllError = createStory(homeStoryScenarios.operationsAllError);
 export const ProfileCounterpartError = createStory(homeStoryScenarios.profileCounterpartError);
-export const ProfileHistoryCounterpartError = createStory(
-  homeStoryScenarios.profileHistoryCounterpartError,
-);
 export const NonOperatedCampus = createStory(homeStoryScenarios.nonOperatedCampus);
 export const LoadingSkeleton: Story = {
   name: '로딩 스켈레톤',

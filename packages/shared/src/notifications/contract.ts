@@ -7,6 +7,10 @@ export const notificationKindSchema = z.enum([
   'REPORT_STATUS_UPDATED',
   'PROFILE_MISMATCH_FEEDBACK',
   'SEASON_SYSTEM_NOTICE',
+  'MATCH_REQUEST_RECEIVED',
+  'MATCH_REQUEST_ACCEPTED',
+  'MATCH_REQUEST_REJECTED',
+  'ACTIVE_MATCH_CREATED',
   'SUPPORT_TICKET_CREATED',
   'SUPPORT_TICKET_REPLIED',
   'SUPPORT_TICKET_ACTION_REQUIRED',
@@ -15,6 +19,8 @@ export const notificationKindSchema = z.enum([
 export const notificationSourceTypeSchema = z.enum([
   'CONVERSATION_THREAD',
   'REPORT_CASE',
+  'MATCH_REQUEST',
+  'ACTIVE_MATCH',
   'SUPPORT_TICKET',
   'SEASON',
   'SYSTEM',
@@ -49,6 +55,31 @@ export const seasonSystemNoticeNotificationPayloadSchema = z.strictObject({
   campaignId: z.string().min(1),
   seasonId: z.string().min(1).nullable().optional(),
   noticeCode: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const matchRequestReceivedNotificationPayloadSchema = z.strictObject({
+  matchRequestId: z.string().min(1),
+  seasonId: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const matchRequestAcceptedNotificationPayloadSchema = z.strictObject({
+  matchRequestId: z.string().min(1),
+  activeMatchId: z.string().min(1),
+  seasonId: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const matchRequestRejectedNotificationPayloadSchema = z.strictObject({
+  matchRequestId: z.string().min(1),
+  seasonId: z.string().min(1),
+  occurredAt: isoDateTimeStringSchema,
+});
+
+export const activeMatchCreatedNotificationPayloadSchema = z.strictObject({
+  activeMatchId: z.string().min(1),
+  seasonId: z.string().min(1),
   occurredAt: isoDateTimeStringSchema,
 });
 
@@ -93,6 +124,18 @@ export const notificationPayloadSchema = z.discriminatedUnion('kind', [
   }),
   seasonSystemNoticeNotificationPayloadSchema.extend({
     kind: z.literal('SEASON_SYSTEM_NOTICE'),
+  }),
+  matchRequestReceivedNotificationPayloadSchema.extend({
+    kind: z.literal('MATCH_REQUEST_RECEIVED'),
+  }),
+  matchRequestAcceptedNotificationPayloadSchema.extend({
+    kind: z.literal('MATCH_REQUEST_ACCEPTED'),
+  }),
+  matchRequestRejectedNotificationPayloadSchema.extend({
+    kind: z.literal('MATCH_REQUEST_REJECTED'),
+  }),
+  activeMatchCreatedNotificationPayloadSchema.extend({
+    kind: z.literal('ACTIVE_MATCH_CREATED'),
   }),
   supportTicketCreatedNotificationPayloadSchema.extend({
     kind: z.literal('SUPPORT_TICKET_CREATED'),
@@ -173,6 +216,18 @@ export type ProfileMismatchFeedbackNotificationPayload = z.infer<
 >;
 export type SeasonSystemNoticeNotificationPayload = z.infer<
   typeof seasonSystemNoticeNotificationPayloadSchema
+>;
+export type MatchRequestReceivedNotificationPayload = z.infer<
+  typeof matchRequestReceivedNotificationPayloadSchema
+>;
+export type MatchRequestAcceptedNotificationPayload = z.infer<
+  typeof matchRequestAcceptedNotificationPayloadSchema
+>;
+export type MatchRequestRejectedNotificationPayload = z.infer<
+  typeof matchRequestRejectedNotificationPayloadSchema
+>;
+export type ActiveMatchCreatedNotificationPayload = z.infer<
+  typeof activeMatchCreatedNotificationPayloadSchema
 >;
 export type SupportTicketCreatedNotificationPayload = z.infer<
   typeof supportTicketCreatedNotificationPayloadSchema

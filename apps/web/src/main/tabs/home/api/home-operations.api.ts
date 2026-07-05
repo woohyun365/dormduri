@@ -1,25 +1,8 @@
 import {
-  globalNoticeListResponseSchema,
-  type GlobalNoticeListResponse,
-  type ListGlobalNoticesQuery,
-} from '@repo/shared/notices';
-import {
-  notificationListResponseSchema,
   notificationUnreadCountResponseSchema,
-  type ListNotificationsQuery,
-  type NotificationListResponse,
   type NotificationUnreadCountResponse,
 } from '@repo/shared/notifications';
-import {
-  listSupportFaqQuerySchema,
-  listSupportTicketsQuerySchema,
-  supportFaqListResponseSchema,
-  supportTicketListResponseSchema,
-  type ListSupportFaqQuery,
-  type ListSupportTicketsQuery,
-  type SupportFaqListResponse,
-  type SupportTicketListResponse,
-} from '@repo/shared/support';
+
 export class HomeOperationsFetchError extends Error {
   constructor(
     public readonly code:
@@ -36,18 +19,6 @@ export class HomeOperationsFetchError extends Error {
 type Schema<T> = {
   safeParse(value: unknown): { success: true; data: T } | { success: false };
 };
-
-type QueryValue = string | number | boolean | null | undefined;
-
-function buildQueryString(query: Record<string, QueryValue>): string {
-  const searchParams = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value === null || value === undefined || value === '') continue;
-    searchParams.set(key, String(value));
-  }
-  const search = searchParams.toString();
-  return search ? `?${search}` : '';
-}
 
 async function readOperationsJson(response: Response): Promise<unknown> {
   const contentType = response.headers.get('content-type') ?? '';
@@ -113,69 +84,10 @@ async function fetchAndParse<T>(path: string, schema: Schema<T>, init?: RequestI
   return parsed.data;
 }
 
-function buildGlobalNoticeListPath(query: Partial<ListGlobalNoticesQuery> = {}) {
-  return `/api/notices${buildQueryString({
-    limit: query.limit,
-    cursor: query.cursor,
-    severity: query.severity,
-    relatedSeasonId: query.relatedSeasonId,
-  })}`;
-}
-
-function buildNotificationListPath(query: Partial<ListNotificationsQuery> = {}) {
-  return `/api/notifications${buildQueryString({ limit: query.limit, cursor: query.cursor })}`;
-}
-
-function buildSupportFaqPath(query: Partial<ListSupportFaqQuery> = {}) {
-  const parsed = listSupportFaqQuerySchema.parse(query);
-  return `/api/support/faq${buildQueryString({
-    category: parsed.category,
-    surface: parsed.surface,
-  })}`;
-}
-
-function buildSupportTicketListPath(query: Partial<ListSupportTicketsQuery> = {}) {
-  const parsed = listSupportTicketsQuerySchema.parse(query);
-  return `/api/support/tickets${buildQueryString({
-    status: parsed.status,
-    category: parsed.category,
-    cursor: parsed.cursor,
-    limit: parsed.limit,
-  })}`;
-}
-
-async function listGlobalNotices(
-  query: Partial<ListGlobalNoticesQuery> = {},
-): Promise<GlobalNoticeListResponse> {
-  return fetchAndParse(buildGlobalNoticeListPath(query), globalNoticeListResponseSchema);
-}
-
-async function listNotifications(
-  query: Partial<ListNotificationsQuery> = {},
-): Promise<NotificationListResponse> {
-  return fetchAndParse(buildNotificationListPath(query), notificationListResponseSchema);
-}
-
 async function getNotificationUnreadCount(): Promise<NotificationUnreadCountResponse> {
   return fetchAndParse('/api/notifications/unread-count', notificationUnreadCountResponseSchema);
 }
 
-async function listSupportFaq(
-  query: Partial<ListSupportFaqQuery> = { surface: 'SUPPORT_CENTER' },
-): Promise<SupportFaqListResponse> {
-  return fetchAndParse(buildSupportFaqPath(query), supportFaqListResponseSchema);
-}
-
-async function listSupportTickets(
-  query: Partial<ListSupportTicketsQuery> = {},
-): Promise<SupportTicketListResponse> {
-  return fetchAndParse(buildSupportTicketListPath(query), supportTicketListResponseSchema);
-}
-
 export const homeOperationsApi = {
-  listGlobalNotices,
-  listNotifications,
   getNotificationUnreadCount,
-  listSupportFaq,
-  listSupportTickets,
 };

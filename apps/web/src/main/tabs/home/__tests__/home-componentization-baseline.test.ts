@@ -233,13 +233,6 @@ describe('Home matching componentization boundary', () => {
         'sections/operations/HomeInboxSupportSection.tsx',
         'sections/operations/NotificationInboxPreview.tsx',
         'sections/operations/SupportCenterEntry.tsx',
-        'sections/operations/SupportTicketListPreview.tsx',
-        'sections/operations/OperationsPanelSkeleton.tsx',
-        'sections/operations/OperationsPanelErrorState.tsx',
-        'model/operations/homeOperationsViewModel.ts',
-        'model/operations/noticePreview.mapper.ts',
-        'model/operations/notificationPreview.mapper.ts',
-        'model/operations/supportPreview.mapper.ts',
       ];
 
       expect(
@@ -248,6 +241,22 @@ describe('Home matching componentization boundary', () => {
         ),
       ).toEqual(operationsFiles.map(() => true));
     });
+  });
+
+  it('keeps Home operations free from page-owned list/detail compatibility files', () => {
+    const removedOperationsFiles = [
+      'sections/operations/SupportTicketListPreview.tsx',
+      'sections/operations/OperationsPanelSkeleton.tsx',
+      'sections/operations/OperationsPanelErrorState.tsx',
+      'model/operations/homeOperationsViewModel.ts',
+      'model/operations/noticePreview.mapper.ts',
+      'model/operations/notificationPreview.mapper.ts',
+      'model/operations/supportPreview.mapper.ts',
+    ];
+
+    expect(removedOperationsFiles.map(homePathExists)).toEqual(
+      removedOperationsFiles.map(() => false),
+    );
   });
 
   it('keeps unmatch dialogs on shared responsive overlay primitives without direct network I/O', () => {

@@ -28,6 +28,30 @@ describe('HomeTab Storybook source boundary', () => {
     expect(storySource).toContain('SupportPageClient');
     expect(storySource).toContain('resolveStoryRouteFromHref');
     expect(storySource).toContain('/support?ticketId=');
+    expect(storySource).toContain('Notifications / match request received');
+    expect(storySource).toContain('Notifications / sent request accepted');
+    expect(storySource).toContain('Notifications / sent request rejected');
+    expect(storySource).toContain('Notifications / active match created');
+    expect(storySource).toContain('Notifications / support reply');
+    expect(storySource).toContain('Notifications / report status updated');
+    expect(storySource).toContain('Notifications / season notice');
+    expect(storySource).toContain('Notifications / chat thread created');
+    expect(storySource).toContain('Notifications / empty');
+    expect(storySource).toContain('Notifications / error');
+    expect(storySource).toContain('Notices / empty');
+    expect(storySource).toContain('Support / error');
+  });
+
+  it('does not expose operations error states as HomeTab scenarios', () => {
+    const storySource = readFileSync(
+      join(process.cwd(), 'src/main/tabs/home/__stories__/HomeTab.stories.tsx'),
+      'utf8',
+    );
+
+    expect(storySource).not.toContain('OperationsPartialError');
+    expect(storySource).not.toContain('OperationsAllError');
+    expect(homeStoryScenarios).not.toHaveProperty('operationsPartialError');
+    expect(homeStoryScenarios).not.toHaveProperty('operationsAllError');
   });
 });
 
@@ -267,39 +291,11 @@ describe('homeStoryScenarios post-match matrix', () => {
   });
 });
 
-describe('homeStoryScenarios operations and modal fixture matrix', () => {
-  const operationScenarioKeys = [
-    'operationsLoaded',
-    'operationsEmpty',
-    'operationsPartialError',
-    'operationsAllError',
-  ] as const;
-
-  it('exposes Storybook-only operations feed states without backend dependency', () => {
-    expect(operationScenarioKeys.map((key) => homeStoryScenarios[key].operationsMode)).toEqual([
-      'loaded',
-      'empty',
-      'partial-error',
-      'all-error',
-    ]);
-
-    operationScenarioKeys.forEach((key) => {
-      expect(homeStoryScenarios[key].dashboard.season.state).toBe('SEASON_OPEN');
-      expect(homeStoryScenarios[key].title).toContain('Operations');
-    });
-  });
-
-  it('keeps profile modal fallback stories explicit and story-only', () => {
+describe('homeStoryScenarios modal fixture matrix', () => {
+  it('keeps active match counterpart profile fallback story explicit and story-only', () => {
     expect(homeStoryScenarios.profileCounterpartError.profileMode).toBe('counterpart-error');
-    expect(homeStoryScenarios.profileHistoryCounterpartError.profileMode).toBe(
-      'history-counterpart-error',
-    );
     expect(
       homeStoryScenarios.profileCounterpartError.dashboard.matching.activeMatch,
     ).not.toBeNull();
-    expect(
-      homeStoryScenarios.profileHistoryCounterpartError.dashboard.seasonHistorySummary.lastSeason
-        ?.viewerHadMatchSuccess,
-    ).toBe(true);
   });
 });

@@ -102,6 +102,66 @@ describe('notification shared contract guards', () => {
     ).toEqual({ updatedCount: 2, readAt: occurredAt });
   });
 
+  it('matching notification payload는 request/active match pointer만 허용한다', () => {
+    expect(
+      notificationContract.userNotificationSchema.safeParse({
+        id: 'notification-match-request-1',
+        recipientUserId: 'receiver-user',
+        actorUserId: 'requester-user',
+        kind: 'MATCH_REQUEST_RECEIVED',
+        sourceType: 'MATCH_REQUEST',
+        sourceId: 'match-request-1',
+        payload: {
+          kind: 'MATCH_REQUEST_RECEIVED',
+          matchRequestId: 'match-request-1',
+          seasonId: 'season-2026-02',
+          occurredAt,
+        },
+        readAt: null,
+        createdAt: occurredAt,
+      }).success,
+    ).toBe(true);
+
+    expect(
+      notificationContract.userNotificationSchema.safeParse({
+        id: 'notification-match-success-1',
+        recipientUserId: 'matched-user',
+        actorUserId: 'counterpart-user',
+        kind: 'ACTIVE_MATCH_CREATED',
+        sourceType: 'ACTIVE_MATCH',
+        sourceId: 'active-match-1',
+        payload: {
+          kind: 'ACTIVE_MATCH_CREATED',
+          activeMatchId: 'active-match-1',
+          seasonId: 'season-2026-02',
+          occurredAt,
+        },
+        readAt: null,
+        createdAt: occurredAt,
+      }).success,
+    ).toBe(true);
+
+    expect(
+      notificationContract.userNotificationSchema.safeParse({
+        id: 'notification-match-request-raw-1',
+        recipientUserId: 'receiver-user',
+        actorUserId: 'requester-user',
+        kind: 'MATCH_REQUEST_RECEIVED',
+        sourceType: 'MATCH_REQUEST',
+        sourceId: 'match-request-1',
+        payload: {
+          kind: 'MATCH_REQUEST_RECEIVED',
+          matchRequestId: 'match-request-1',
+          seasonId: 'season-2026-02',
+          nickname: '알림 payload에 저장하지 않는 닉네임',
+          occurredAt,
+        },
+        readAt: null,
+        createdAt: occurredAt,
+      }).success,
+    ).toBe(false);
+  });
+
   it('support notification payload는 support body/email 같은 raw field를 허용하지 않는다', () => {
     expect(
       notificationContract.notificationPayloadSchema.parse({

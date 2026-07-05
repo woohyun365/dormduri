@@ -1,73 +1,27 @@
 import type { Route } from 'next';
 import Link from 'next/link';
-import { HelpCircle, LifeBuoy } from 'lucide-react';
-import type { SupportFaqItem } from '@repo/shared/support';
-import { OperationsPanelErrorState } from './OperationsPanelErrorState';
+import { LifeBuoy } from 'lucide-react';
 
-export function SupportCenterEntry({
-  faqs,
-  status,
-  error,
-  onRetry,
-}: {
-  faqs: SupportFaqItem[];
-  status: 'idle' | 'loading' | 'success' | 'error';
-  error?: string;
-  onRetry: () => void;
-}) {
-  if (status === 'error') {
-    return (
-      <OperationsPanelErrorState
-        message={error ?? '문의 안내를 불러오지 못했어요.'}
-        onRetry={onRetry}
-      />
-    );
-  }
-
+export function SupportCenterEntry() {
   return (
-    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/45 p-3">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <Link
-          href={'/support' as Route}
-          className="flex min-w-0 items-center gap-2 rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
-        >
+    <Link
+      href={'/support' as Route}
+      className="block rounded-2xl border border-emerald-100 bg-emerald-50/45 p-3 transition-colors hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+    >
+      <span className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
             <LifeBuoy className="size-4" aria-hidden="true" />
           </span>
-          <span>
+          <span className="min-w-0">
             <span className="block text-sm font-extrabold text-(--knu-text-primary)">문의하기</span>
             <span className="block text-[11px] text-(--knu-text-tertiary)">
-              답변과 추가 확인은 문의 내역에서 이어져요.
+              FAQ와 내 문의 내역을 확인해요.
             </span>
           </span>
-        </Link>
-        <Link
-          href={'/support' as Route}
-          className="shrink-0 text-[11px] font-extrabold text-emerald-700"
-        >
-          문의하기
-        </Link>
-      </div>
-
-      {faqs.length > 0 ? (
-        <div className="space-y-1.5">
-          {faqs.map((faq) => (
-            <div key={faq.id} className="flex items-start gap-2 rounded-xl bg-white/75 px-3 py-2">
-              <HelpCircle
-                className="mt-0.5 size-3.5 shrink-0 text-emerald-700"
-                aria-hidden="true"
-              />
-              <p className="text-xs font-bold leading-relaxed text-(--knu-text-secondary)">
-                {faq.question}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="rounded-xl bg-white/70 px-3 py-2 text-xs font-bold text-(--knu-text-secondary)">
-          자주 묻는 질문은 준비 중이에요.
-        </p>
-      )}
-    </div>
+        </span>
+        <span className="shrink-0 text-[11px] font-extrabold text-emerald-700">바로가기</span>
+      </span>
+    </Link>
   );
 }

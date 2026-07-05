@@ -23,14 +23,15 @@
 
 ## Notification owner matrix
 
-| 이벤트 계열                        | owner                                | writer 사용                                | payload 허용 범위                                      |
-| ---------------------------------- | ------------------------------------ | ------------------------------------------ | ------------------------------------------------------ |
-| chat thread created                | chat                                 | chat compatibility writer → generic writer | thread id, actor/recipient id, occurredAt              |
-| report status / enforcement notice | social-safety / incident-enforcement | generic writer                             | report/ticket id, status category, generic reason code |
-| profile mismatch feedback          | social-safety → notifications        | generic writer                             | report id, feedback prompt code, occurredAt            |
-| support ticket update              | support                              | generic writer                             | support ticket id, category, status/action code        |
-| season lifecycle notice            | seasons/lifecycle                    | generic writer                             | season id/campus/dormitory id, notice kind, deadline   |
-| system notice                      | operations/system                    | generic writer                             | notice id, title key, severity                         |
+| 이벤트 계열                         | owner                                | writer 사용                                | payload 허용 범위                                        |
+| ----------------------------------- | ------------------------------------ | ------------------------------------------ | -------------------------------------------------------- |
+| chat thread created                 | chat                                 | chat compatibility writer → generic writer | thread id, actor/recipient id, occurredAt                |
+| match request / active match notice | matching                             | generic writer                             | match request id, active match id, season id, occurredAt |
+| report status / enforcement notice  | social-safety / incident-enforcement | generic writer                             | report/ticket id, status category, generic reason code   |
+| profile mismatch feedback           | social-safety → notifications        | generic writer                             | report id, feedback prompt code, occurredAt              |
+| support ticket update               | support                              | generic writer                             | support ticket id, category, status/action code          |
+| season lifecycle notice             | seasons/lifecycle                    | generic writer                             | season id/campus/dormitory id, notice kind, deadline     |
+| system notice                       | operations/system                    | generic writer                             | notice id, title key, severity                           |
 
 Notification writer는 durable `UserNotification` row와 outbox append를 같은 transaction boundary에서 수행한다. 외부 도메인은 notification outbox/repository/dispatcher concrete를 직접 import하지 않는다.
 
@@ -57,6 +58,17 @@ User-facing 알림은 “상태가 바뀌었다/확인할 항목이 있다”를
 | User notification inbox | 특정 사용자에게 전달된 개인 알림 pointer       | support/report/chat 본문 원문 없이 owner resource id와 상태 pointer만 포함한다 | `GET /api/notifications*` protected self-only path |
 
 Global notice는 개인 알림함의 `SEASON_SYSTEM_NOTICE` filter로 대체하지 않는다. 개인 알림함은 “내가 확인해야 할 상태 변화”를 소유하고, global notice는 “모든 사용자에게 공개된 운영 공지”를 소유한다. Home 같은 dashboard surface는 두 feed를 UI에서 함께 배치할 수 있지만 contract/API/BFF 경계는 분리한다.
+
+### Matching notification payload
+
+Matching 알림은 “요청/수락/거절/매칭 확정이 발생했다”는 상태 변화 pointer만 제공한다. 닉네임, 시즌 프로필 요약, 요청 메시지 원문, 채팅 내용은 matching/chat owner API에서 권한 확인 후 조회한다.
+
+| kind                     | sourceType      | payload allowlist                                           | 사용자 의미                             |
+| ------------------------ | --------------- | ----------------------------------------------------------- | --------------------------------------- |
+| `MATCH_REQUEST_RECEIVED` | `MATCH_REQUEST` | `matchRequestId`, `seasonId`, `occurredAt`                  | 새롭게 받은 매칭 요청이 있음            |
+| `MATCH_REQUEST_ACCEPTED` | `MATCH_REQUEST` | `matchRequestId`, `activeMatchId`, `seasonId`, `occurredAt` | 보낸 매칭 요청이 수락되어 매칭이 확정됨 |
+| `MATCH_REQUEST_REJECTED` | `MATCH_REQUEST` | `matchRequestId`, `seasonId`, `occurredAt`                  | 보낸 매칭 요청이 거절됨                 |
+| `ACTIVE_MATCH_CREATED`   | `ACTIVE_MATCH`  | `activeMatchId`, `seasonId`, `occurredAt`                   | 매칭 성공 상태가 생성됨                 |
 
 ## Inbox behavior
 
@@ -110,9 +122,10 @@ Global notice는 개인 알림함의 `SEASON_SYSTEM_NOTICE` filter로 대체하�
 
 ## 변경 이력
 
-| 날짜       | 변경 내용                                                                                                      | 관련 이슈    |
-| ---------- | -------------------------------------------------------------------------------------------------------------- | ------------ |
-| 2026-06-08 | in-app notification primary, Push 제외, generic writer/outbox, payload privacy baseline을 추가했다             | #196 / #220  |
-| 2026-06-08 | `PROFILE_MISMATCH_FEEDBACK`, read-all, bounded campaign, operator alert 분리/disabled sink baseline을 추가했다 | #220 / #196  |
-| 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220   |
-| 2026-07-03 | global notice와 개인 notification inbox의 API/preview/body 경계를 분리했다                                     | Home Phase 6 |
+| 날짜       | 변경 내용                                                                                                      | 관련 이슈     |
+| ---------- | -------------------------------------------------------------------------------------------------------------- | ------------- |
+| 2026-06-08 | in-app notification primary, Push 제외, generic writer/outbox, payload privacy baseline을 추가했다             | #196 / #220   |
+| 2026-06-08 | `PROFILE_MISMATCH_FEEDBACK`, read-all, bounded campaign, operator alert 분리/disabled sink baseline을 추가했다 | #220 / #196   |
+| 2026-06-08 | support ticket created/replied pointer-only notification payload 구현 기준을 반영했다                          | #79 / #220    |
+| 2026-07-03 | global notice와 개인 notification inbox의 API/preview/body 경계를 분리했다                                     | Home Phase 6  |
+| 2026-07-05 | matching request/status notification kind와 pointer-only payload 기준, Storybook 시나리오를 추가했다           | Home Phase 10 |

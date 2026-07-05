@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import type { GlobalNotice, GlobalNoticePreview } from '@repo/shared/notices';
 import type { UserNotification } from '@repo/shared/notifications';
 import type { SupportFaqItem, SupportTicketResponse } from '@repo/shared/support';
@@ -9,8 +9,23 @@ import {
   createSeasonProfileDraftResponse,
 } from '@/test/home-profile-detail-fixtures';
 
-export type HomeStoryOperationsMode = 'loaded' | 'empty' | 'partial-error' | 'all-error';
-export type HomeStoryProfileMode = 'default' | 'counterpart-error' | 'history-counterpart-error';
+export type HomeStoryOperationsMode =
+  | 'loaded'
+  | 'notices-empty'
+  | 'notices-error'
+  | 'notifications-empty'
+  | 'notifications-error'
+  | 'notifications-match-request-received'
+  | 'notifications-match-request-accepted'
+  | 'notifications-match-request-rejected'
+  | 'notifications-active-match-created'
+  | 'notifications-support-replied'
+  | 'notifications-report-status-updated'
+  | 'notifications-season-system-notice'
+  | 'notifications-chat-thread-created'
+  | 'support-empty'
+  | 'support-error';
+export type HomeStoryProfileMode = 'default' | 'counterpart-error';
 
 export interface HomeStoryApiFixtureOptions {
   operationsMode?: HomeStoryOperationsMode;
@@ -25,6 +40,7 @@ type StoryFetchStore = {
 
 const HOME_STORY_FETCH_KEY = '__knuHomeTabStoryFetch__';
 const ISO_NOW = '2026-07-03T00:00:00.000Z';
+const useStoryFetchEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 const defaultFixtureOptions: Required<HomeStoryApiFixtureOptions> = {
   operationsMode: 'loaded',
@@ -34,7 +50,7 @@ const defaultFixtureOptions: Required<HomeStoryApiFixtureOptions> = {
 export function useHomeStoryApiFixtures(options: HomeStoryApiFixtureOptions = {}) {
   const { operationsMode, profileMode } = options;
 
-  useEffect(() => {
+  useStoryFetchEffect(() => {
     if (typeof window === 'undefined') return;
 
     const globalStore = globalThis as typeof globalThis & {
@@ -138,21 +154,6 @@ function resolveProfileFixtureResponse(
     return createStoryJsonResponse(createMatchHistoryResponse());
   }
 
-  if (/^\/api\/matches\/history\/entries\/[^/]+\/counterpart-profile$/.test(request.pathname)) {
-    if (profileMode === 'history-counterpart-error') {
-      return createStoryJsonResponse({ message: 'history counterpart unavailable' }, 404);
-    }
-
-    return createStoryJsonResponse(
-      createPublicProfileFull({
-        id: 'history-counterpart-user',
-        nickname: '민지',
-        intro: '지난 시즌에 생활패턴이 잘 맞았던 룸메 후보예요.',
-        matchScore: 91,
-      }),
-    );
-  }
-
   if (/^\/api\/profiles\/[^/]+$/.test(request.pathname)) {
     if (profileMode === 'counterpart-error') {
       return createStoryJsonResponse({ message: 'counterpart profile unavailable' }, 404);
@@ -183,18 +184,22 @@ function resolveOperationsFixtureResponse(
     return null;
   }
 
-  if (operationsMode === 'all-error') {
-    return createStoryJsonResponse({ message: 'operations unavailable' }, 503);
-  }
-
   if (request.pathname === '/api/notices' && request.method === 'GET') {
+    if (operationsMode === 'notices-error') {
+      return createStoryJsonResponse({ message: 'notices unavailable' }, 503);
+    }
+
     return createStoryJsonResponse({
-      items: operationsMode === 'empty' ? [] : [createNoticePreview()],
+      items: operationsMode === 'notices-empty' ? [] : [createNoticePreview()],
       pageInfo: { hasNextPage: false, nextCursor: null },
     });
   }
 
   if (/^\/api\/notices\/[^/]+$/.test(request.pathname) && request.method === 'GET') {
+    if (operationsMode === 'notices-error') {
+      return createStoryJsonResponse({ message: 'notice unavailable' }, 503);
+    }
+
     const notice = createNoticeDetail(
       decodeURIComponent(request.pathname.split('/').at(-1) ?? 'notice-1'),
     );
@@ -202,41 +207,61 @@ function resolveOperationsFixtureResponse(
   }
 
   if (request.pathname === '/api/notifications' && request.method === 'GET') {
-    if (operationsMode === 'partial-error') {
+    if (operationsMode === 'notifications-error') {
       return createStoryJsonResponse({ message: 'notifications unavailable' }, 503);
     }
 
     return createStoryJsonResponse({
-      items: operationsMode === 'empty' ? [] : [createNotification()],
+      items: createNotificationItems(operationsMode),
       pageInfo: { hasNextPage: false, nextCursor: null },
     });
   }
 
   if (request.pathname === '/api/notifications/unread-count' && request.method === 'GET') {
-    if (operationsMode === 'partial-error') {
+    if (operationsMode === 'notifications-error') {
       return createStoryJsonResponse({ message: 'notifications unavailable' }, 503);
     }
 
-    return createStoryJsonResponse({ unreadCount: operationsMode === 'empty' ? 0 : 1 });
+    return createStoryJsonResponse({
+      unreadCount: createNotificationItems(operationsMode).length,
+    });
   }
 
   if (/^\/api\/notifications\/[^/]+\/read$/.test(request.pathname) && request.method === 'POST') {
-    return createStoryJsonResponse({ notification: { ...createNotification(), readAt: ISO_NOW } });
+    const [notification] = createNotificationItems(operationsMode);
+    if (!notification) {
+      return createStoryJsonResponse({ message: 'notification not found' }, 404);
+    }
+
+    return createStoryJsonResponse({
+      notification: { ...notification, readAt: ISO_NOW },
+    });
   }
 
   if (request.pathname === '/api/notifications/read-all' && request.method === 'POST') {
-    return createStoryJsonResponse({ updatedCount: 1, readAt: ISO_NOW });
+    return createStoryJsonResponse({
+      updatedCount: createNotificationItems(operationsMode).length,
+      readAt: ISO_NOW,
+    });
   }
 
   if (request.pathname === '/api/support/faq' && request.method === 'GET') {
+    if (operationsMode === 'support-error') {
+      return createStoryJsonResponse({ message: 'support unavailable' }, 503);
+    }
+
     return createStoryJsonResponse({
-      items: operationsMode === 'empty' ? [] : [createSupportFaq()],
+      items: operationsMode === 'support-empty' ? [] : [createSupportFaq()],
     });
   }
 
   if (request.pathname === '/api/support/tickets' && request.method === 'GET') {
+    if (operationsMode === 'support-error') {
+      return createStoryJsonResponse({ message: 'support unavailable' }, 503);
+    }
+
     return createStoryJsonResponse({
-      items: operationsMode === 'empty' ? [] : [createSupportTicket()],
+      items: operationsMode === 'support-empty' ? [] : [createSupportTicket()],
       pageInfo: { hasNextPage: false, nextCursor: null },
     });
   }
@@ -245,6 +270,10 @@ function resolveOperationsFixtureResponse(
     /^\/api\/support\/tickets\/[^/]+\/messages$/.test(request.pathname) &&
     request.method === 'POST'
   ) {
+    if (operationsMode === 'support-error') {
+      return createStoryJsonResponse({ message: 'support unavailable' }, 503);
+    }
+
     return createStoryJsonResponse({
       ticket: { ...createSupportTicket(), status: 'WAITING_OPERATOR', lastMessageAt: ISO_NOW },
       message: {
@@ -258,6 +287,10 @@ function resolveOperationsFixtureResponse(
   }
 
   if (/^\/api\/support\/tickets\/[^/]+$/.test(request.pathname) && request.method === 'GET') {
+    if (operationsMode === 'support-error') {
+      return createStoryJsonResponse({ message: 'support unavailable' }, 503);
+    }
+
     return createStoryJsonResponse({
       ticket: createSupportTicket(),
       messages: [
@@ -297,23 +330,135 @@ function createNoticeDetail(noticeId: string): GlobalNotice {
   };
 }
 
-function createNotification(): UserNotification {
-  return {
+function createNotificationItems(operationsMode: HomeStoryOperationsMode): UserNotification[] {
+  if (operationsMode === 'notifications-empty') return [];
+
+  return [createNotification(operationsMode)];
+}
+
+function createNotification(operationsMode: HomeStoryOperationsMode): UserNotification {
+  const base = {
     id: 'story-notification-1',
     recipientUserId: 'story-user-1',
-    actorUserId: 'story-operator-1',
-    kind: 'SUPPORT_TICKET_REPLIED',
-    sourceType: 'SUPPORT_TICKET',
-    sourceId: 'story-support-ticket-1',
-    payload: {
-      kind: 'SUPPORT_TICKET_REPLIED',
-      supportTicketId: 'story-support-ticket-1',
-      status: 'WAITING_USER',
-      occurredAt: ISO_NOW,
-    },
+    actorUserId: 'story-actor-1',
     readAt: null,
     createdAt: ISO_NOW,
-  };
+  } satisfies Pick<
+    UserNotification,
+    'id' | 'recipientUserId' | 'actorUserId' | 'readAt' | 'createdAt'
+  >;
+
+  switch (operationsMode) {
+    case 'notifications-match-request-received':
+      return {
+        ...base,
+        kind: 'MATCH_REQUEST_RECEIVED',
+        sourceType: 'MATCH_REQUEST',
+        sourceId: 'story-match-request-received-1',
+        payload: {
+          kind: 'MATCH_REQUEST_RECEIVED',
+          matchRequestId: 'story-match-request-received-1',
+          seasonId: 'season-2026-02',
+          occurredAt: ISO_NOW,
+        },
+      };
+    case 'notifications-match-request-accepted':
+      return {
+        ...base,
+        kind: 'MATCH_REQUEST_ACCEPTED',
+        sourceType: 'MATCH_REQUEST',
+        sourceId: 'story-match-request-accepted-1',
+        payload: {
+          kind: 'MATCH_REQUEST_ACCEPTED',
+          matchRequestId: 'story-match-request-accepted-1',
+          activeMatchId: 'story-active-match-1',
+          seasonId: 'season-2026-02',
+          occurredAt: ISO_NOW,
+        },
+      };
+    case 'notifications-match-request-rejected':
+      return {
+        ...base,
+        kind: 'MATCH_REQUEST_REJECTED',
+        sourceType: 'MATCH_REQUEST',
+        sourceId: 'story-match-request-rejected-1',
+        payload: {
+          kind: 'MATCH_REQUEST_REJECTED',
+          matchRequestId: 'story-match-request-rejected-1',
+          seasonId: 'season-2026-02',
+          occurredAt: ISO_NOW,
+        },
+      };
+    case 'notifications-active-match-created':
+      return {
+        ...base,
+        kind: 'ACTIVE_MATCH_CREATED',
+        sourceType: 'ACTIVE_MATCH',
+        sourceId: 'story-active-match-1',
+        payload: {
+          kind: 'ACTIVE_MATCH_CREATED',
+          activeMatchId: 'story-active-match-1',
+          seasonId: 'season-2026-02',
+          occurredAt: ISO_NOW,
+        },
+      };
+    case 'notifications-report-status-updated':
+      return {
+        ...base,
+        kind: 'REPORT_STATUS_UPDATED',
+        sourceType: 'REPORT_CASE',
+        sourceId: 'story-report-1',
+        payload: {
+          kind: 'REPORT_STATUS_UPDATED',
+          reportId: 'story-report-1',
+          status: 'RESOLVED',
+          occurredAt: ISO_NOW,
+        },
+      };
+    case 'notifications-season-system-notice':
+      return {
+        ...base,
+        kind: 'SEASON_SYSTEM_NOTICE',
+        sourceType: 'SEASON',
+        sourceId: 'season-2026-02',
+        payload: {
+          kind: 'SEASON_SYSTEM_NOTICE',
+          campaignId: 'story-season-campaign-1',
+          seasonId: 'season-2026-02',
+          noticeCode: 'SEASON_MATCHING_OPEN',
+          occurredAt: ISO_NOW,
+        },
+      };
+    case 'notifications-chat-thread-created':
+      return {
+        ...base,
+        kind: 'CHAT_THREAD_CREATED',
+        sourceType: 'CONVERSATION_THREAD',
+        sourceId: 'story-thread-1',
+        payload: {
+          kind: 'CHAT_THREAD_CREATED',
+          threadId: 'story-thread-1',
+          actorUserId: 'story-actor-1',
+          recipientUserId: 'story-user-1',
+          occurredAt: ISO_NOW,
+        },
+      };
+    case 'notifications-support-replied':
+    default:
+      return {
+        ...base,
+        actorUserId: 'story-operator-1',
+        kind: 'SUPPORT_TICKET_REPLIED',
+        sourceType: 'SUPPORT_TICKET',
+        sourceId: 'story-support-ticket-1',
+        payload: {
+          kind: 'SUPPORT_TICKET_REPLIED',
+          supportTicketId: 'story-support-ticket-1',
+          status: 'WAITING_USER',
+          occurredAt: ISO_NOW,
+        },
+      };
+  }
 }
 
 function createSupportTicket(): SupportTicketResponse {

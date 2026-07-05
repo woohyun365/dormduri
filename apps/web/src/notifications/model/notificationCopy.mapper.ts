@@ -57,6 +57,14 @@ function resolveNotificationTitle(notification: UserNotification): string {
       return '시즌 프로필을 다시 확인해주세요';
     case 'SEASON_SYSTEM_NOTICE':
       return '시즌 운영 안내가 있어요';
+    case 'MATCH_REQUEST_RECEIVED':
+      return '새 매칭 요청이 도착했어요';
+    case 'MATCH_REQUEST_ACCEPTED':
+      return '보낸 매칭 요청이 수락됐어요';
+    case 'MATCH_REQUEST_REJECTED':
+      return '보낸 매칭 요청이 거절됐어요';
+    case 'ACTIVE_MATCH_CREATED':
+      return '룸메 매칭이 확정됐어요';
     default:
       return '확인할 알림이 있어요';
   }
@@ -67,7 +75,7 @@ function resolveNotificationBody(notification: UserNotification): string {
     case 'SUPPORT_TICKET_CREATED':
       return '문의 내역에서 접수 상태를 확인할 수 있어요.';
     case 'SUPPORT_TICKET_REPLIED':
-      return '답변 본문은 문의 내역에서 다시 권한 확인 후 보여드려요.';
+      return '문의 답변은 문의 내역에서 확인할 수 있어요.';
     case 'SUPPORT_TICKET_ACTION_REQUIRED':
       return '문의 내역에서 운영팀이 요청한 추가 확인을 확인해주세요.';
     case 'SUPPORT_APPEAL_RESOLVED':
@@ -82,6 +90,14 @@ function resolveNotificationBody(notification: UserNotification): string {
       return '다음 시즌 참여 전 시즌 프로필 내용을 다시 확인해주세요.';
     case 'SEASON_SYSTEM_NOTICE':
       return '시즌 운영과 관련해 확인할 안내가 있어요.';
+    case 'MATCH_REQUEST_RECEIVED':
+      return '받은 요청에서 상대의 정보를 확인하고 수락 여부를 결정할 수 있어요.';
+    case 'MATCH_REQUEST_ACCEPTED':
+      return '상대가 요청을 수락해 매칭이 확정됐어요. 채팅에서 필요한 내용을 함께 확인해보세요.';
+    case 'MATCH_REQUEST_REJECTED':
+      return '이번 요청은 거절됐어요. 다른 룸메 후보를 계속 찾아볼 수 있어요.';
+    case 'ACTIVE_MATCH_CREATED':
+      return '매칭 상대와 호실 선택 전까지 필요한 내용을 함께 확인해보세요.';
     default:
       return '필요한 내용을 확인해주세요.';
   }
@@ -90,8 +106,11 @@ function resolveNotificationBody(notification: UserNotification): string {
 function resolveNotificationHelper(notification: UserNotification): string {
   if (notification.sourceType === 'SUPPORT_TICKET') return '문의 내역으로 이동';
   if (notification.sourceType === 'CONVERSATION_THREAD') return '대화 탭에서 확인';
+  if (notification.sourceType === 'MATCH_REQUEST') return '매칭 탭에서 확인';
+  if (notification.sourceType === 'ACTIVE_MATCH') return '매칭 결과 확인';
   if (notification.sourceType === 'REPORT_CASE') return '신고 처리 상태';
-  return '상세 owner 화면에서 확인';
+  if (notification.sourceType === 'SEASON') return '시즌 안내 확인';
+  return '관련 화면에서 확인';
 }
 
 function extractSupportTicketId(notification: UserNotification): string | null {

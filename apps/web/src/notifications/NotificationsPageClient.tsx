@@ -104,11 +104,10 @@ export default function NotificationsPageClient() {
         <section className="rounded-3xl border border-purple-100 bg-gradient-to-br from-purple-50 via-white to-violet-50 p-6 shadow-sm md:p-8">
           <p className="text-sm font-extrabold text-purple-700">알림함</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-(--knu-text-primary) md:text-4xl">
-            내가 확인해야 할 상태 변화를 모아봐요
+            내 알림을 한곳에서 확인해요
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-7 text-(--knu-text-secondary) md:text-base">
-            알림은 상세 본문을 직접 노출하지 않는 pointer예요. 문의 답변은 문의하기에서, 대화와 매칭
-            상태는 각 탭에서 확인해주세요.
+            자세한 내용을 확인할 수 있어요.
           </p>
         </section>
 

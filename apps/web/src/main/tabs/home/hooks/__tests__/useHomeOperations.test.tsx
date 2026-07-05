@@ -5,124 +5,32 @@ import { useHomeOperations } from '../useHomeOperations';
 
 vi.mock('../../api/home-operations.api', () => ({
   homeOperationsApi: {
-    listGlobalNotices: vi.fn(),
-    listNotifications: vi.fn(),
     getNotificationUnreadCount: vi.fn(),
-    listSupportFaq: vi.fn(),
-    listSupportTickets: vi.fn(),
   },
 }));
-
-const iso = '2026-07-03T00:00:00.000Z';
-
-const notice = {
-  id: 'notice-1',
-  title: '운영 안내',
-  summary: '서비스 운영 안내입니다.',
-  severity: 'WARNING' as const,
-  relatedSeasonId: null,
-  publishedAt: iso,
-  expiresAt: null,
-  createdAt: iso,
-  updatedAt: iso,
-};
-
-const notification = {
-  id: 'notification-1',
-  recipientUserId: 'user-1',
-  actorUserId: 'user-1',
-  kind: 'SUPPORT_TICKET_REPLIED' as const,
-  sourceType: 'SUPPORT_TICKET' as const,
-  sourceId: 'ticket-1',
-  payload: {
-    kind: 'SUPPORT_TICKET_REPLIED' as const,
-    supportTicketId: 'ticket-1',
-    status: 'WAITING_USER' as const,
-    occurredAt: iso,
-  },
-  readAt: null,
-  createdAt: iso,
-};
-
-const ticket = {
-  id: 'ticket-1',
-  category: 'BUG' as const,
-  subject: '버그 문의',
-  status: 'WAITING_USER' as const,
-  relatedEntityId: null,
-  appealCategory: null,
-  emailReplyConsent: false,
-  lastMessageAt: iso,
-  closedAt: null,
-  createdAt: iso,
-  updatedAt: iso,
-};
-
-const faq = {
-  id: 'faq-1',
-  category: 'BUG' as const,
-  question: '오류가 나면 어떻게 하나요?',
-  answer: '문의하기를 이용해주세요.',
-  published: true,
-  sortOrder: 1,
-  updatedAt: iso,
-};
-
-function setupSuccessApi() {
-  vi.mocked(homeOperationsApi.listGlobalNotices).mockResolvedValue({
-    items: [notice],
-    pageInfo: { hasNextPage: false, nextCursor: null },
-  });
-  vi.mocked(homeOperationsApi.listNotifications).mockResolvedValue({
-    items: [notification],
-    pageInfo: { hasNextPage: false, nextCursor: null },
-  });
-  vi.mocked(homeOperationsApi.getNotificationUnreadCount).mockResolvedValue({ unreadCount: 1 });
-  vi.mocked(homeOperationsApi.listSupportTickets).mockResolvedValue({
-    items: [ticket],
-    pageInfo: { hasNextPage: false, nextCursor: null },
-  });
-  vi.mocked(homeOperationsApi.listSupportFaq).mockResolvedValue({ items: [faq] });
-}
 
 describe('useHomeOperations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    setupSuccessApi();
+    vi.mocked(homeOperationsApi.getNotificationUnreadCount).mockResolvedValue({ unreadCount: 1 });
   });
 
-  it('공지/알림/문의 feed를 병렬로 불러와 preview view model로 수렴한다', async () => {
+  it('HomeTab entry에 필요한 unread count만 best-effort로 불러온다', async () => {
     const { result } = renderHook(() => useHomeOperations());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.viewModel.globalNotices).toEqual([
-      expect.objectContaining({ id: 'notice-1', title: '운영 안내' }),
-    ]);
-    expect(result.current.viewModel.notifications).toEqual([
-      expect.objectContaining({ id: 'notification-1', supportTicketId: 'ticket-1', read: false }),
-    ]);
-    expect(result.current.viewModel.supportTickets).toEqual([
-      expect.objectContaining({ id: 'ticket-1', subject: '버그 문의' }),
-    ]);
-    expect(result.current.unreadCount).toBe(1);
-    expect(result.current.faqs).toEqual([faq]);
+    expect(homeOperationsApi.getNotificationUnreadCount).toHaveBeenCalledTimes(1);
+    expect(result.current.unreadNotificationCount).toBe(1);
   });
 
-  it('부분 실패는 실패 feed만 error로 두고 성공 feed는 유지한다', async () => {
-    vi.mocked(homeOperationsApi.listNotifications).mockRejectedValue(
-      new Error('notification down'),
-    );
+  it('count fetch가 실패해도 error state 대신 fallback 상태로 수렴한다', async () => {
+    vi.mocked(homeOperationsApi.getNotificationUnreadCount).mockRejectedValue(new Error('down'));
 
     const { result } = renderHook(() => useHomeOperations());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.feedStatus.notice).toBe('success');
-    expect(result.current.feedStatus.notification).toBe('error');
-    expect(result.current.feedStatus.support).toBe('success');
-    expect(result.current.viewModel.globalNotices).toHaveLength(1);
-    expect(result.current.viewModel.notifications).toEqual([]);
-    expect(result.current.errors.notification).toBe('알림함을 불러오지 못했어요.');
+    expect(result.current.unreadNotificationCount).toBeNull();
   });
 });
