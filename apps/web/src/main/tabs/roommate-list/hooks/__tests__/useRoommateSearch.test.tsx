@@ -133,6 +133,40 @@ describe('useRoommateSearch', () => {
     expect(result.current.query.sort).toBe('NICKNAME');
   });
 
+  it('loadMore cursor가 INVALID_ROOMMATE_SEARCH_QUERY로 닫히면 stale cursor 없이 retry한다', async () => {
+    const client: RoommateSearchClientPort = {
+      getRoommateSearchManifest: vi.fn(async () => createManifestResponse(createManifest())),
+      getRoommateSearch: vi
+        .fn()
+        .mockResolvedValueOnce(createSearchResponse({ nextCursor: 'expired-cursor' }))
+        .mockRejectedValueOnce(
+          createRoommateApiError({ code: 'INVALID_ROOMMATE_SEARCH_QUERY', status: 400 }),
+        )
+        .mockResolvedValueOnce(
+          createSearchResponse({ items: [createSummary('cursor-recovered')], nextCursor: null }),
+        ),
+    };
+
+    const { result } = renderHook(() =>
+      useRoommateSearch({
+        client,
+        initialQuery: { scope: 'SAME_BUILDING_ONLY', sort: 'MATCH_SCORE' },
+      }),
+    );
+    await waitFor(() => expect(result.current.nextCursor).toBe('expired-cursor'));
+
+    await act(async () => {
+      await result.current.loadMore();
+    });
+
+    await waitFor(() =>
+      expect(result.current.items.map((item) => item.id)).toEqual(['cursor-recovered']),
+    );
+    expect(paramsFromCall(client, 1).get('cursor')).toBe('expired-cursor');
+    expect(paramsFromCall(client, 2).has('cursor')).toBe(false);
+    expect(result.current.statusMessage).toContain('최신 정책');
+  });
+
   it('INVALID_ROOMMATE_SEARCH_QUERY는 manifest refetch 후 sanitize하고 one-shot retry한다', async () => {
     const client: RoommateSearchClientPort = {
       getRoommateSearchManifest: vi

@@ -57,6 +57,24 @@ describe('roommateSearchState', () => {
     expect(success.items.map((item) => item.id)).toEqual(['campus-1']);
   });
 
+  it('manifest가 scope를 조정하면 cursor와 items를 reset한다', () => {
+    const current = applyRoommateSearchSuccess(
+      createInitialRoommateSearchSnapshot({ scope: 'SAME_BUILDING_ONLY', sort: 'MATCH_SCORE' }),
+      createSearchResponse({ items: [createSummary('old')], nextCursor: 'cursor-old' }),
+      'replace',
+    );
+    const updated = applyRoommateSearchManifestLoaded(
+      current,
+      createManifestResponse(createCampusMergedManifest()),
+    );
+
+    expect(updated.query.scope).toBe('CAMPUS_MERGED');
+    expect(updated.query.sort).toBe('NICKNAME');
+    expect(updated.nextCursor).toBeNull();
+    expect(updated.items).toEqual([]);
+    expect(updated.statusMessage).toContain('조정');
+  });
+
   it('invalid query recovery는 최신 manifest로 sanitize하고 safe status copy를 남긴다', () => {
     const snapshot = createInitialRoommateSearchSnapshot({
       scope: 'SAME_BUILDING_ONLY',

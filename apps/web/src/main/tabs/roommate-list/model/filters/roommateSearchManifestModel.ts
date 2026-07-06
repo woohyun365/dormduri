@@ -111,10 +111,11 @@ export function sanitizeRoommateSearchQueryForManifest(
   const removed = new Set<RoommateSearchCriteriaFilterKey>();
   const sanitizedFilters = sanitizeFilters(query.filters, manifest, removed);
   const sort = sanitizeSort(query.sort, manifest, sanitizedFilters);
+  const scopeChanged = query.scope !== manifest.scope;
   const sortChanged = sort !== query.sort;
   const compactedFilters = compactRoommateSearchFilterCriteria(sanitizedFilters);
   const removedFilterKeys = [...removed];
-  const changed = sortChanged || removedFilterKeys.length > 0;
+  const changed = scopeChanged || sortChanged || removedFilterKeys.length > 0;
 
   return {
     query: {

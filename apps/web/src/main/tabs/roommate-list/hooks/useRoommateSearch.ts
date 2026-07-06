@@ -102,7 +102,6 @@ export function useRoommateSearch(options: UseRoommateSearchOptions = {}): UseRo
     async (
       query: RoommateSearchQueryCriteria,
       mode: RoommateSearchResultMode,
-      cursor: string | null,
       controller: AbortController,
       sequence: number,
     ) => {
@@ -120,7 +119,7 @@ export function useRoommateSearch(options: UseRoommateSearchOptions = {}): UseRo
         setSnapshot(loadingSearch);
 
         const response = await client.getRoommateSearch(
-          buildRoommateSearchQueryParams(recovered.query, { limit, cursor }),
+          buildRoommateSearchQueryParams(recovered.query, { limit }),
           { signal: controller.signal },
         );
         if (!isCurrent()) return;
@@ -196,7 +195,7 @@ export function useRoommateSearch(options: UseRoommateSearchOptions = {}): UseRo
           isRoommateApiError(error) &&
           error.code === 'INVALID_ROOMMATE_SEARCH_QUERY'
         ) {
-          await recoverAndRetry(query, mode, cursor, controller, sequence);
+          await recoverAndRetry(query, mode, controller, sequence);
           return;
         }
 
@@ -222,7 +221,7 @@ export function useRoommateSearch(options: UseRoommateSearchOptions = {}): UseRo
       loadMore: async () => {
         const cursor = snapshotRef.current.nextCursor;
         if (!cursor) return;
-        await runSearch(snapshotRef.current.query, 'append', cursor, false);
+        await runSearch(snapshotRef.current.query, 'append', cursor);
       },
       changeScope: async (scope: RoommateSearchScope) => {
         const next = applyRoommateSearchScopeChange(snapshotRef.current, scope);
