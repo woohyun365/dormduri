@@ -20,7 +20,6 @@ import { useMainLocalOnboardingState } from '@/main/hooks/useMainLocalOnboarding
 import { useMainProfileState } from './hooks/useMainProfileState';
 import { useMainSocialState } from './hooks/useMainSocialState';
 import { useMainMatchingState } from './hooks/useMainMatchingState';
-import { useMainListViewState } from './hooks/useMainListViewState';
 import {
   useMainHomeDashboard,
   type UseMainHomeDashboardResult,
@@ -37,7 +36,7 @@ import type { HomeDashboardResponse } from '@repo/shared/home';
 
 export type { TabId } from '@/types/profile';
 
-const LEGACY_DATA_TABS = new Set<TabId>(['list', 'matching', 'chat']);
+const LEGACY_DATA_TABS = new Set<TabId>(['matching', 'chat']);
 
 function MainShellFrame({
   activeTab,
@@ -290,8 +289,7 @@ function MainLegacyDashboardContent({
     [onNavigate],
   );
 
-  const { hasSeenGuide, markGuideSeen, hasSeenTooltip, markTooltipSeen } =
-    useMainLocalOnboardingState(initialUser.id);
+  const { hasSeenGuide, markGuideSeen } = useMainLocalOnboardingState(initialUser.id);
 
   const profileState = useMainProfileState(initialUser, {
     showToast,
@@ -315,8 +313,11 @@ function MainLegacyDashboardContent({
     legacyData?.profiles ?? [],
     needsLegacyData,
   );
-
-  const listViewState = useMainListViewState();
+  const legacyProfiles = legacyData?.profiles ?? [];
+  const legacyPastSeasons = legacyData?.pastSeasons ?? [];
+  const legacyMatchRequests = matchingState.matchRequests;
+  const legacyActiveMatch = matchingState.activeMatch;
+  const legacyBlockedUserIds = socialState.blockedUserIds;
 
   function renderLegacyDataFallback() {
     if (!needsLegacyData || legacyData) return null;
@@ -346,45 +347,16 @@ function MainLegacyDashboardContent({
           )}
         <main>
           {renderLegacyDataFallback()}
-          {activeTab === 'list' && legacyData && (
-            <RoommateListTab
-              user={profileState.user}
-              onNavigate={onTabChange}
-              profiles={legacyData.profiles}
-              sortMode={listViewState.sortMode}
-              onSortModeChange={listViewState.setSortMode}
-              filters={listViewState.filters}
-              onFiltersChange={listViewState.setFilters}
-              viewMode={listViewState.viewMode}
-              onViewModeChange={listViewState.setViewMode}
-              isCampusOperated={campusOperated}
-              blockedUserIds={socialState.blockedUserIds}
-              onBlock={socialState.handleBlockUser}
-              onReport={socialState.handleReportUser}
-              matchRequests={matchingState.matchRequests}
-              activeMatch={matchingState.activeMatch}
-              onSendRequest={
-                featureFlags.canSendMatchRequest ? matchingState.handleSendRequest : undefined
-              }
-              bookmarkedUserIds={socialState.bookmarkedUserIds}
-              onToggleBookmark={
-                featureFlags.canToggleBookmark ? socialState.handleToggleBookmark : undefined
-              }
-              showProfileBanner={listViewState.showProfileBanner}
-              onDismissProfileBanner={listViewState.dismissProfileBanner}
-              showMatchScoreTip={!hasSeenTooltip('matchScore')}
-              onDismissMatchScoreTip={() => markTooltipSeen('matchScore')}
-              showMatchRequestTip={!hasSeenTooltip('matchRequest')}
-              onDismissMatchRequestTip={() => markTooltipSeen('matchRequest')}
-            />
+          {activeTab === 'list' && (
+            <RoommateListTab user={profileState.user} onNavigate={handleNavigate} />
           )}
           {activeTab === 'matching' && legacyData && (
             <MatchingTab
               user={profileState.user}
-              matchRequests={matchingState.matchRequests}
-              activeMatch={matchingState.activeMatch}
-              profiles={legacyData.profiles}
-              pastSeasons={legacyData.pastSeasons}
+              matchRequests={legacyMatchRequests}
+              activeMatch={legacyActiveMatch}
+              profiles={legacyProfiles}
+              pastSeasons={legacyPastSeasons}
               onCancelRequest={matchingState.handleCancelRequest}
               onAcceptRequest={matchingState.handleAcceptRequest}
               onRejectRequest={matchingState.handleRejectRequest}
@@ -414,10 +386,10 @@ function MainLegacyDashboardContent({
           {activeTab === 'chat' && legacyData && (
             <ChatTab
               user={profileState.user}
-              profiles={legacyData.profiles}
-              matchRequests={matchingState.matchRequests}
-              activeMatch={matchingState.activeMatch}
-              blockedUserIds={socialState.blockedUserIds}
+              profiles={legacyProfiles}
+              matchRequests={legacyMatchRequests}
+              activeMatch={legacyActiveMatch}
+              blockedUserIds={legacyBlockedUserIds}
               onBlock={socialState.handleBlockUser}
               onReport={socialState.handleReportUser}
               onConfirmMatch={matchingState.handleConfirmMatch}
