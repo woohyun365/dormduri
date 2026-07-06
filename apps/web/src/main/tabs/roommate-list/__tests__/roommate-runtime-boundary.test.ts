@@ -17,9 +17,16 @@ const FORBIDDEN_ROOMMATE_RUNTIME_PATTERNS = [
   'mockRawProfiles',
   'mockDb',
   'calcMatchScoreWithGating',
+  'ProfileDetailSheet',
   'DEFAULT_FILTERS',
   'FilterState',
   '@/main/components/BottomSheet',
+  'drinkingFrequency',
+  'drinkingTolerance',
+  'targetCondition',
+  'viewerValue',
+  'targetValue',
+  'matrixKey',
   'bookmarkedUserIds',
   'blockedUserIds',
   'displayCount',
@@ -55,6 +62,17 @@ const PHASE5_SPLIT_FILES = [
   'api/roommateActions.client.ts',
   'hooks/useRoommateBookmarkList.ts',
   'sections/bookmarks/RoommateBookmarkResultsSection.tsx',
+] as const;
+
+const PHASE7_SPLIT_FILES = [
+  'api/roommateProfileDetail.client.ts',
+  'hooks/useRoommateProfileDetail.ts',
+  'overlays/RoommateProfileDetailDialog.tsx',
+  'components/CompatibilityRadar.tsx',
+  'components/CompatibilityAxisList.tsx',
+  'model/compatibility/compatibilityChart.mapper.ts',
+  'model/compatibility/compatibilityCopy.ts',
+  'model/compatibility/compatibilityPrivacy.policy.ts',
 ] as const;
 
 const FORBIDDEN_PHASE4_SHELL_INTERNALS = [
@@ -163,5 +181,24 @@ describe('RoommateTab runtime boundary', () => {
     expect(actionClientSource).toContain('/api/bookmarks');
     expect(actionClientSource).toContain('bookmarkListResponseSchema');
     expect(bookmarkHookSource).toContain('getRoommateBookmarkList');
+  });
+
+  it('Phase 7 keeps profile detail and compatibility UI behind RoommateTab owner files', () => {
+    const missingFiles = PHASE7_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
+      (file) => !existsSync(file),
+    );
+    const detailClientSource = readFileSync(
+      join(roommateRoot, 'api/roommateProfileDetail.client.ts'),
+      'utf8',
+    );
+    const compatibilityMapperSource = readFileSync(
+      join(roommateRoot, 'model/compatibility/compatibilityChart.mapper.ts'),
+      'utf8',
+    );
+
+    expect(missingFiles).toEqual([]);
+    expect(detailClientSource).toContain('/api/profiles/');
+    expect(detailClientSource).toContain('publicProfileSchema');
+    expect(compatibilityMapperSource).toContain('PublicProfileCompatibility');
   });
 });

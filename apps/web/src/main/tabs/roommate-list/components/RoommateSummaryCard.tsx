@@ -1,11 +1,23 @@
 import type { RoommateSummaryCardViewModel } from '../model/search/roommateSearchViewModel';
 
+interface RoommateSummaryCardDetailAction {
+  readonly enabled: boolean;
+  readonly label: string;
+  readonly accessibilityLabel: string;
+  readonly onOpen: () => void;
+}
+
 interface RoommateSummaryCardProps {
   readonly item: RoommateSummaryCardViewModel;
+  readonly detailAction?: RoommateSummaryCardDetailAction;
   readonly onBookmarkToggle?: (targetUserId: string, bookmarked: boolean) => void;
 }
 
-export function RoommateSummaryCard({ item, onBookmarkToggle }: RoommateSummaryCardProps) {
+export function RoommateSummaryCard({
+  item,
+  detailAction,
+  onBookmarkToggle,
+}: RoommateSummaryCardProps) {
   const headingId = `roommate-summary-${item.id}`;
 
   return (
@@ -65,6 +77,18 @@ export function RoommateSummaryCard({ item, onBookmarkToggle }: RoommateSummaryC
           {item.actionStateLabel}
         </span>
       </div>
+
+      {detailAction ? (
+        <button
+          type="button"
+          aria-label={detailAction.accessibilityLabel}
+          disabled={!detailAction.enabled}
+          onClick={detailAction.onOpen}
+          className="mt-4 w-full rounded-2xl bg-[var(--knu-primary)] py-3 text-sm font-semibold text-white transition-all hover:bg-[var(--knu-primary-dark)] disabled:cursor-not-allowed disabled:bg-[var(--knu-background-alt)] disabled:text-[var(--knu-text-secondary)]"
+        >
+          {detailAction.label}
+        </button>
+      ) : null}
 
       {item.bookmarkAction ? (
         <button

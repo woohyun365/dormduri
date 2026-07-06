@@ -63,4 +63,20 @@ describe('RoommateSearchResultsSection', () => {
     expect(screen.getByText('더 이상 표시할 요약 정보가 없어요.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
   });
+
+  it('detail 가능한 search card만 detail open callback을 호출한다', async () => {
+    const onOpenDetail = vi.fn();
+    render(
+      <RoommateSearchResultsSection
+        items={cards}
+        canLoadMore={false}
+        onLoadMore={vi.fn()}
+        onOpenDetail={onOpenDetail}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '첫 번째 상세 보기' }));
+    expect(onOpenDetail).toHaveBeenCalledWith(cards[0]);
+    expect(screen.getByRole('button', { name: '두 번째 상세 보기를 열 수 없음' })).toBeDisabled();
+  });
 });

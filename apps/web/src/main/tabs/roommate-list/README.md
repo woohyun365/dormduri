@@ -3,7 +3,7 @@
 `apps/web/src/main/tabs/roommate-list`는 로그인 사용자가 `/main`의 룸메이트 찾기 탭에서 후보 summary list를 탐색하고, 정상 search entry에서 detail/action으로 이어지는 UX를 소유한다.
 RoommateTab은 정책과 API contract를 화면에 반영하는 Web feature owner이며, 최종 권한 판단과 mutation 성공 여부는 BE owner API가 결정한다.
 
-현재 Phase 5 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 `useRoommateBookmarkList` 기반 관심 목록 mode를 분리해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark list/action은 제품 경로로 연결됐고, profile detail/tombstone 및 match/chat/block/report mutation 연결은 후속 Phase 범위다.
+현재 Phase 7 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 `useRoommateBookmarkList` 기반 관심 목록 mode를 분리해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark list/action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Match/chat/block/report mutation 연결은 후속 Phase 범위다.
 
 이 repo에는 현재 활성 `DESIGN.md`가 없다. `docs/00_archive/01_development/DESIGN.md`와 `docs/03_planning/**`의 과거 설계 문서는 참고 자료이고, RoommateTab feature boundary의 현재 설계 source는 `.omx/plans/web-main-roommate-tab-refactor-plan.md`와 이 README다.
 
@@ -145,6 +145,32 @@ Boundary rules:
 - Axis payload는 shared allowlist id/score/bucket만 포함한다. `viewerValue`, `targetValue`, condition field, DB field name, matrix/debug key는 BFF schema에서 거부된다.
 - 음주 항목은 public axis로 렌더하지 않는다. API는 `hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }]`만 내려주며, Phase 7 copy mapper는 raw 음주 값을 추론할 수 있는 문구를 만들지 않는다.
 
+## Phase 7 profile detail modal / compatibility UI
+
+Phase 7에서 RoommateTab은 search summary card의 detail action을 `useRoommateProfileDetail`과 `RoommateProfileDetailDialog`로 연결한다. Detail source는 summary card view model의 `targetUserId`, `nickname`, `detailEntryToken` snapshot뿐이며 token은 DOM, storage, error copy에 렌더링하지 않는다.
+
+| 파일                                                 | 책임                                                                                                                                      |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `api/roommateProfileDetail.client.ts`                | `/api/profiles/:targetUserId?detailEntryToken=...` BFF를 호출하고 `publicProfileSchema`로 FULL/TOMBSTONE 응답을 재검증한다.               |
+| `hooks/useRoommateProfileDetail.ts`                  | selected target, loading/success/error/closed state, AbortController, stale response guard, retry/close/unmount를 memory-only로 관리한다. |
+| `model/compatibility/compatibilityCopy.ts`           | shared compatibility axis id/bucket/hidden notice code를 안전한 한글 copy로 변환한다.                                                     |
+| `model/compatibility/compatibilityChart.mapper.ts`   | `PublicProfileCompatibility`를 radar point와 text list view model로 변환하되 score matrix나 raw field 비교를 재구현하지 않는다.           |
+| `model/compatibility/compatibilityPrivacy.policy.ts` | copy/view model에 hidden/raw/debug key가 섞였는지 테스트가 검증할 수 있는 guard helper를 제공한다.                                        |
+| `components/CompatibilityRadar.tsx`                  | 새 chart dependency 없이 repo-native SVG radar를 보조 시각화로 렌더링한다.                                                                |
+| `components/CompatibilityAxisList.tsx`               | screen reader/readable text fallback으로 모든 축 label, bucket, score를 표시한다.                                                         |
+| `overlays/RoommateProfileDetailDialog.tsx`           | FULL/TOMBSTONE/loading/error 상태, public rows, compatibility visualization, privacy note, Phase 8 action handoff copy를 표시한다.        |
+
+Detail modal rules:
+
+- `item.detailViewable && item.detailEntryToken`인 search card만 detail action이 enabled다.
+- Token이 없는 summary/bookmark source는 direct/probing fetch를 하지 않는다.
+- Close 또는 unmount 시 진행 중인 detail request를 abort하고 selected target snapshot을 보존하지 않는다.
+- 404/`PROFILE_NOT_VISIBLE`/entry error는 target 존재 여부나 raw code를 노출하지 않는 generic copy와 목록 새로고침 CTA로 닫는다.
+- FULL detail은 `matchScore` badge와 `compatibility` radar/list를 표시하되, `compatibility`가 없으면 score/detail 공개 상태에 맞는 안내만 표시한다.
+- TOMBSTONE detail은 retained payload를 복원하지 않고 tombstone display/message와 disabled action copy만 표시하며 compatibility/radar를 렌더링하지 않는다.
+- `CompatibilityRadar`는 보조 시각화이고, 정보 전달 source는 `CompatibilityAxisList`다.
+- Detail action CTA는 Phase 7에서 mutation을 실행하지 않고 `actions` 기반 copy만 표시한다. 실제 match/chat/block/report 연결은 Phase 8 scope다.
+
 ## Accessibility acceptance
 
 Phase 0은 modal/sheet 구현을 바꾸지 않지만, 이후 Phase의 acceptance를 아래로 고정한다.
@@ -197,6 +223,7 @@ Phase 3에서 제품 화면은 legacy local list state 대신 `hooks/useRoommate
 Phase 4에서 search shell은 contract-derived view model, header/control/state/results/card components로 분리했다.
 Phase 5에서 manifest filter sheet와 bookmark owner list/action mode를 추가했다.
 Phase 6에서 shared/API/BFF profile detail compatibility contract와 privacy guard를 추가했다.
+Phase 7에서 search summary entry 기반 detail modal과 compatibility visualization UI를 추가했다.
 
 Phase 4 layout/state split guard:
 
@@ -245,6 +272,23 @@ pnpm --dir apps/web exec vitest run \
   src/main/tabs/roommate-list/__tests__/RoommateListTab.search-shell.test.tsx
 ```
 
+Phase 7 profile detail modal / compatibility UI guard:
+
+```bash
+pnpm --dir apps/web exec vitest run \
+  src/main/tabs/roommate-list/__tests__/roommate-runtime-boundary.test.ts \
+  src/main/tabs/roommate-list/api/__tests__/roommateProfileDetail.client.test.ts \
+  src/main/tabs/roommate-list/model/compatibility/__tests__/compatibilityCopy.test.ts \
+  src/main/tabs/roommate-list/model/compatibility/__tests__/compatibilityChart.mapper.test.ts \
+  src/main/tabs/roommate-list/hooks/__tests__/useRoommateProfileDetail.test.tsx \
+  src/main/tabs/roommate-list/components/__tests__/CompatibilityRadar.test.tsx \
+  src/main/tabs/roommate-list/components/__tests__/CompatibilityAxisList.test.tsx \
+  src/main/tabs/roommate-list/overlays/__tests__/RoommateProfileDetailDialog.test.tsx \
+  src/main/tabs/roommate-list/components/__tests__/RoommateSummaryCard.test.tsx \
+  src/main/tabs/roommate-list/sections/results/__tests__/RoommateSearchResultsSection.test.tsx \
+  src/main/tabs/roommate-list/__tests__/RoommateListTab.search-shell.test.tsx
+```
+
 ## Phase checkpoint rule
 
 각 Phase 완료 후 `.omx/plans/web-main-roommate-tab-refactor-plan.md`의 checkpoint에는 아래를 기록한다.
@@ -271,8 +315,10 @@ pnpm --dir apps/web exec vitest run \
 - Result list와 bookmark list는 cursor `더 보기` button만 사용하며 local `displayCount`/client slicing을 다시 만들지 않는다.
 - Phase 5에서 상세 필터는 manifest-driven field만 submit하고, bookmark mode는 `/api/bookmarks` owner list를 사용한다.
 - Bookmark action은 owner BFF POST/DELETE로 연결됐고 duplicate pending/optimistic rollback을 hook에서 관리한다.
+- Phase 7에서 search card detail action은 `detailEntryToken`이 있는 source만 열고, profile detail BFF 응답을 FULL/TOMBSTONE/error modal 상태로 렌더링한다.
+- Compatibility UI는 shared allowlist payload만 radar/list view model로 변환하며 raw hidden key, condition value, matrix/debug key를 runtime/source/DOM에 노출하지 않는다.
 
-남은 범위는 Phase 6+로 넘긴다: profile detail/tombstone, compatibility shared/API/BFF contract, match/chat/block/report mutation UX 연결.
+남은 범위는 Phase 8+로 넘긴다: match/chat/block/report mutation UX 연결, detail modal action CTA 실제 owner API 연결, Storybook/visual regression matrix.
 
 ## Handoff
 
@@ -281,4 +327,6 @@ pnpm --dir apps/web exec vitest run \
 - Phase 3은 Main list branch의 legacy bootstrap과 old props bridge를 제거했고, RoommateTab shell을 search hook source로 전환했다.
 - Phase 4는 현재 shell을 contract-safe sections/components로 분리하고 state matrix UI를 정돈했다.
 - Phase 5는 manifest filter sheet와 `/api/bookmarks` owner list/action mode를 제품 경로로 연결했다.
+- Phase 6은 shared/API/BFF profile detail compatibility contract를 추가했다.
+- Phase 7은 RoommateTab detail modal과 repo-native compatibility visualization을 제품 경로로 연결했다.
 - Phase 10은 남은 compatibility bridge와 금지 패턴을 final guard로 닫는다.

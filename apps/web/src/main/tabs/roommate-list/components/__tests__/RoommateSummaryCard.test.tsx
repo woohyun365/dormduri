@@ -75,4 +75,37 @@ describe('RoommateSummaryCard', () => {
 
     expect(onBookmarkToggle).toHaveBeenCalledWith('target-1', true);
   });
+
+  it('detail action은 token 있는 detail-viewable card만 연다', async () => {
+    const onOpenDetail = vi.fn();
+    const { rerender } = render(
+      <RoommateSummaryCard
+        item={baseCard}
+        detailAction={{
+          enabled: true,
+          label: '상세 보기',
+          accessibilityLabel: '테스트 룸메이트 상세 보기',
+          onOpen: () => onOpenDetail(baseCard),
+        }}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '테스트 룸메이트 상세 보기' }));
+    expect(onOpenDetail).toHaveBeenCalledWith(baseCard);
+
+    rerender(
+      <RoommateSummaryCard
+        item={baseCard}
+        detailAction={{
+          enabled: false,
+          label: '상세 보기 불가',
+          accessibilityLabel: '테스트 룸메이트 상세 보기를 열 수 없음',
+          onOpen: () => onOpenDetail(baseCard),
+        }}
+      />,
+    );
+    expect(
+      screen.getByRole('button', { name: '테스트 룸메이트 상세 보기를 열 수 없음' }),
+    ).toBeDisabled();
+  });
 });

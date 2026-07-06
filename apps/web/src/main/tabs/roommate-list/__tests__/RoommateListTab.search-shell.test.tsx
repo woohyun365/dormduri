@@ -10,6 +10,10 @@ import {
   useRoommateBookmarkList,
   type UseRoommateBookmarkListResult,
 } from '../hooks/useRoommateBookmarkList';
+import {
+  useRoommateProfileDetail,
+  type UseRoommateProfileDetailResult,
+} from '../hooks/useRoommateProfileDetail';
 import { useRoommateSearch, type UseRoommateSearchResult } from '../hooks/useRoommateSearch';
 import { mapRoommateSearchManifest } from '../model/filters/roommateSearchManifestModel';
 import { mapRoommateSearchAvailabilityNotices } from '../model/search/roommateSearchNotices';
@@ -25,9 +29,13 @@ vi.mock('../hooks/useRoommateSearch', () => ({
 vi.mock('../hooks/useRoommateBookmarkList', () => ({
   useRoommateBookmarkList: vi.fn(),
 }));
+vi.mock('../hooks/useRoommateProfileDetail', () => ({
+  useRoommateProfileDetail: vi.fn(),
+}));
 
 const useRoommateSearchMock = vi.mocked(useRoommateSearch);
 const useRoommateBookmarkListMock = vi.mocked(useRoommateBookmarkList);
+const useRoommateProfileDetailMock = vi.mocked(useRoommateProfileDetail);
 
 const viewer: UserProfile = {
   id: 'viewer-1',
@@ -152,6 +160,22 @@ function createBookmarkResult(
   };
 }
 
+function createProfileDetailResult(
+  overrides: Partial<UseRoommateProfileDetailResult> = {},
+): UseRoommateProfileDetailResult {
+  return {
+    status: 'closed',
+    target: null,
+    profile: null,
+    error: null,
+    isOpen: false,
+    open: vi.fn(),
+    close: vi.fn(),
+    retry: vi.fn(),
+    ...overrides,
+  } as UseRoommateProfileDetailResult;
+}
+
 function renderRoommateListTab(
   season: SeasonContextValue = openSeason,
   props: Partial<React.ComponentProps<typeof RoommateListTab>> = {},
@@ -167,7 +191,9 @@ describe('RoommateListTab search shell', () => {
   beforeEach(() => {
     useRoommateSearchMock.mockReset();
     useRoommateBookmarkListMock.mockReset();
+    useRoommateProfileDetailMock.mockReset();
     useRoommateBookmarkListMock.mockReturnValue(createBookmarkResult());
+    useRoommateProfileDetailMock.mockReturnValue(createProfileDetailResult());
   });
 
   it('loading state를 status role로 표시한다', () => {
@@ -273,6 +299,53 @@ describe('RoommateListTab search shell', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '전체 해제' }));
     expect(resetFilters).toHaveBeenCalledTimes(1);
+  });
+
+  it('search summary detail action은 detailEntryToken이 있는 target snapshot으로 detail dialog를 연다', async () => {
+    const openDetail = vi.fn();
+    const summary = createSummary('target-detail');
+    useRoommateSearchMock.mockReturnValue(createSearchResult({ items: [summary] }));
+    useRoommateProfileDetailMock.mockReturnValue(createProfileDetailResult({ open: openDetail }));
+
+    renderRoommateListTab();
+
+    await userEvent.click(screen.getByRole('button', { name: '테스트-target-detail 상세 보기' }));
+    expect(openDetail).toHaveBeenCalledWith({
+      targetUserId: 'target-detail',
+      nickname: '테스트-target-detail',
+      detailEntryToken: 'detail-token-target-detail',
+    });
+  });
+
+  it('bookmark action은 detail dialog를 열지 않는다', async () => {
+    const openDetail = vi.fn();
+    const toggleBookmark = vi.fn(async () => {});
+    const summary = createSummary('target-bookmark');
+    useRoommateSearchMock.mockReturnValue(createSearchResult({ items: [summary] }));
+    useRoommateBookmarkListMock.mockReturnValue(createBookmarkResult({ toggleBookmark }));
+    useRoommateProfileDetailMock.mockReturnValue(createProfileDetailResult({ open: openDetail }));
+
+    renderRoommateListTab();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: '테스트-target-bookmark 관심 목록 저장' }),
+    );
+    expect(toggleBookmark).toHaveBeenCalledWith('target-bookmark', false);
+    expect(openDetail).not.toHaveBeenCalled();
+  });
+
+  it('token 없는 summary item은 direct detail fetch를 시도하지 않는다', async () => {
+    const openDetail = vi.fn();
+    const summary = { ...createSummary('target-no-token'), detailEntryToken: undefined };
+    useRoommateSearchMock.mockReturnValue(createSearchResult({ items: [summary] }));
+    useRoommateProfileDetailMock.mockReturnValue(createProfileDetailResult({ open: openDetail }));
+
+    renderRoommateListTab();
+
+    expect(
+      screen.getByRole('button', { name: '테스트-target-no-token 상세 보기를 열 수 없음' }),
+    ).toBeDisabled();
+    expect(openDetail).not.toHaveBeenCalled();
   });
 
   it('관심 목록 mode는 search page local filter가 아니라 bookmark hook 결과를 표시한다', async () => {

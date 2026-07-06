@@ -6,12 +6,15 @@ import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { RoommateListBannerGroup } from './RoommateListBannerGroup';
 import { useRoommateBookmarkList } from './hooks/useRoommateBookmarkList';
+import { useRoommateProfileDetail } from './hooks/useRoommateProfileDetail';
 import { useRoommateSearch, type UseRoommateSearchResult } from './hooks/useRoommateSearch';
 import {
   mapBookmarkListItemsToCardViewModels,
   mapRoommateSearchItemsToCardViewModels,
+  type RoommateSummaryCardViewModel,
 } from './model/search/roommateSearchViewModel';
 import { RoommateFilterSheet } from './overlays/RoommateFilterSheet';
+import { RoommateProfileDetailDialog } from './overlays/RoommateProfileDetailDialog';
 import { RoommateBookmarkResultsSection } from './sections/bookmarks/RoommateBookmarkResultsSection';
 import { RoommateSearchFilterBar } from './sections/filters/RoommateSearchFilterBar';
 import { RoommateSearchHeader } from './sections/header/RoommateSearchHeader';
@@ -54,6 +57,7 @@ export default function RoommateListTab({
   const searchClosed = closedMessage !== null;
   const search = useRoommateSearch({ autoLoad: !searchClosed });
   const bookmarks = useRoommateBookmarkList({ autoLoad: !searchClosed && mode === 'bookmarks' });
+  const detail = useRoommateProfileDetail();
   const assignedDormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
     : null;
@@ -139,6 +143,7 @@ export default function RoommateListTab({
             items={searchCardItems}
             canLoadMore={search.canLoadMore}
             onLoadMore={() => void search.loadMore()}
+            onOpenDetail={(item) => detail.open(toDetailTarget(item))}
             onBookmarkToggle={(targetUserId, bookmarked) =>
               void bookmarks.toggleBookmark(targetUserId, bookmarked)
             }
@@ -154,8 +159,22 @@ export default function RoommateListTab({
         onClose={() => setFilterSheetOpen(false)}
         onApply={(filters) => void search.applyFilters(filters)}
       />
+      <RoommateProfileDetailDialog
+        state={detail}
+        onClose={detail.close}
+        onRetry={detail.retry}
+        onRefreshList={() => void search.refresh()}
+      />
     </div>
   );
+}
+
+function toDetailTarget(item: RoommateSummaryCardViewModel) {
+  return {
+    targetUserId: item.targetUserId,
+    nickname: item.nickname,
+    detailEntryToken: item.detailEntryToken,
+  };
 }
 
 function RoommateListModeSwitch({
