@@ -1,6 +1,13 @@
-import type { PublicTargetResultReadContext } from '@repo/shared/profile/contract';
+import type {
+  PublicProfileCompatibility,
+  PublicTargetResultReadContext,
+} from '@repo/shared/profile/contract';
 import { Injectable } from '@nestjs/common';
-import { calcViewerMatchScore } from './match-score.algorithm.js';
+import {
+  buildPublicProfileCompatibility as buildPublicProfileCompatibilityFromScoreOwner,
+  calcViewerMatchScore,
+  canComputeMatchScore,
+} from './match-score.algorithm.js';
 import type {
   MatchScoreProjectionPort,
   MatchScoreProjectionVisibilityInput,
@@ -17,6 +24,25 @@ export function buildDirectionalMatchScoreProjection(
   }
 
   return calcViewerMatchScore(viewerLifestyle, targetLifestyle);
+}
+
+export function buildPublicProfileCompatibility(input: {
+  viewerLifestyle: LifestyleData | null;
+  targetLifestyle: LifestyleData | null;
+  scoreVisible: boolean;
+}): PublicProfileCompatibility | null {
+  if (!input.scoreVisible || !input.viewerLifestyle || !input.targetLifestyle) {
+    return null;
+  }
+
+  if (!canComputeMatchScore(input.viewerLifestyle, input.targetLifestyle)) {
+    return null;
+  }
+
+  return buildPublicProfileCompatibilityFromScoreOwner(
+    input.viewerLifestyle,
+    input.targetLifestyle,
+  );
 }
 
 export function shouldExposePublicMatchScore(input: {
@@ -58,5 +84,13 @@ export class MatchScoreProjectionService implements MatchScoreProjectionPort {
     }
 
     return buildDirectionalMatchScoreProjection(input.viewerLifestyle, input.targetLifestyle);
+  }
+
+  buildPublicProfileCompatibility(input: {
+    viewerLifestyle: LifestyleData | null;
+    targetLifestyle: LifestyleData | null;
+    scoreVisible: boolean;
+  }): PublicProfileCompatibility | null {
+    return buildPublicProfileCompatibility(input);
   }
 }

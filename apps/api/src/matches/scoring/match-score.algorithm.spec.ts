@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { calcViewerMatchScore, canComputeMatchScore } from './match-score.algorithm.js';
+import {
+  buildPublicProfileCompatibility,
+  calcViewerMatchScore,
+  canComputeMatchScore,
+} from './match-score.algorithm.js';
 import {
   isLifestyleCoreComplete,
   isRoommateConditionComplete,
@@ -88,6 +92,47 @@ describe('matches score algorithm', () => {
     expect(scoreA).not.toBeNull();
     expect(scoreB).not.toBeNull();
     expect(scoreA).not.toBe(scoreB);
+  });
+
+  it('public compatibility breakdown은 overall score와 allowlist axis만 노출한다', () => {
+    const compatibility = buildPublicProfileCompatibility(COMPLETE_LIFESTYLE, {
+      ...COMPLETE_LIFESTYLE,
+      cleanLevel: 'WHEN_DIRTY',
+      cleanExpectation: 'FLEXIBLE',
+      wakeTime: 'FLEXIBLE',
+    });
+
+    expect(compatibility.overallScore).toBe(
+      calcViewerMatchScore(COMPLETE_LIFESTYLE, {
+        ...COMPLETE_LIFESTYLE,
+        cleanLevel: 'WHEN_DIRTY',
+        cleanExpectation: 'FLEXIBLE',
+        wakeTime: 'FLEXIBLE',
+      }),
+    );
+    expect(compatibility.axes.map((axis) => axis.id)).toEqual([
+      'SMOKING',
+      'SLEEP_HABIT',
+      'PHONE',
+      'EARPHONE',
+      'SLEEP_ENVIRONMENT',
+      'SCREEN_USAGE',
+      'CLEAN_LEVEL',
+      'INDOOR_EATING',
+      'BEDTIME',
+      'WAKE_TIME',
+      'TEMPERATURE',
+      'RELATIONSHIP',
+    ]);
+    expect(compatibility.axes.map((axis) => axis.id)).not.toContain('DRINKING');
+    expect(compatibility.hiddenAxisNotices).toEqual([{ code: 'DRINKING_EXCLUDED_BY_POLICY' }]);
+    expect(compatibility.axes.find((axis) => axis.id === 'WAKE_TIME')).toMatchObject({
+      score: null,
+      bucket: 'UNKNOWN',
+    });
+    expect(JSON.stringify(compatibility)).not.toContain('drinkingFrequency');
+    expect(JSON.stringify(compatibility)).not.toContain('drinkingTolerance');
+    expect(JSON.stringify(compatibility)).not.toContain('targetCondition');
   });
 
   it('viewer 또는 target 시즌 프로필이 incomplete면 score를 생성하지 않는다', () => {

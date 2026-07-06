@@ -126,6 +126,14 @@ export function createPublicProfileFull(
       temperatureSensitivity: 'NORMAL',
     },
     matchScore: 92,
+    compatibility: {
+      overallScore: 92,
+      axes: [
+        { id: 'SMOKING', score: 100, bucket: 'HIGH' },
+        { id: 'CLEAN_LEVEL', score: 50, bucket: 'MEDIUM' },
+      ],
+      hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
+    },
     ...overrides,
   };
 }

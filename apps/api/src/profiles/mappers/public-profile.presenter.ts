@@ -1,8 +1,13 @@
-import { publicLifestyleSchema } from '@repo/shared/profile/contract';
+import {
+  publicLifestyleSchema,
+  publicProfileDetailLifestyleSchema,
+} from '@repo/shared/profile/contract';
 import type {
   PublicProfile,
   PublicProfileAdditional,
   PublicProfileActionCapabilities,
+  PublicProfileCompatibility,
+  PublicProfileDetailLifestyle,
   PublicProfileTombstone,
   PublicProfileTombstoneReason,
   PublicTargetRelation,
@@ -102,6 +107,26 @@ export function toPublicLifestyle(lifestyle: LifestyleData): PublicLifestyle {
   });
 }
 
+export function toPublicProfileDetailLifestyle(
+  lifestyle: LifestyleData,
+): PublicProfileDetailLifestyle {
+  return publicProfileDetailLifestyleSchema.parse({
+    bedtime: lifestyle.bedtime,
+    wakeTime: lifestyle.wakeTime,
+    sleepHabit: lifestyle.sleepHabit,
+    sleepEnvironment: lifestyle.sleepEnvironment,
+    screenUsage: lifestyle.screenUsage,
+    noiseSensitivity: lifestyle.noiseSensitivity,
+    smokingBehavior: lifestyle.smokingBehavior,
+    indoorEating: lifestyle.indoorEating,
+    phoneBehavior: lifestyle.phoneBehavior,
+    earphoneUsage: lifestyle.earphoneUsage,
+    cleanLevel: lifestyle.cleanLevel,
+    relationshipStyle: lifestyle.relationshipStyle,
+    temperatureSensitivity: lifestyle.temperatureSensitivity,
+  });
+}
+
 export function toPublicProfile(
   user: PublicProfileUserRecord,
   profile: ProfileViewRecord,
@@ -111,6 +136,7 @@ export function toPublicProfile(
     resultRead: PublicTargetResultRead;
     scoreVisible: boolean;
     matchScore?: number;
+    compatibility?: PublicProfileCompatibility;
   },
 ): PublicProfile {
   return {
@@ -128,13 +154,18 @@ export function toPublicProfile(
     resultRead: options.resultRead,
     gender: user.gender,
     campus: user.campus,
-    lifestyle: toPublicLifestyle(parseLifestyleOrThrow(profile.lifestyle)),
+    lifestyle: toPublicProfileDetailLifestyle(parseLifestyleOrThrow(profile.lifestyle)),
     nickname: profile.nickname,
     intro: profile.intro,
     additional: toAdditionalProfile(profile),
     ...(typeof options.matchScore === 'number'
       ? {
           matchScore: options.matchScore,
+        }
+      : {}),
+    ...(options.compatibility
+      ? {
+          compatibility: options.compatibility,
         }
       : {}),
   };

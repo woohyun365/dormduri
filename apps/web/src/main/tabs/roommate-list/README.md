@@ -30,18 +30,19 @@ RoommateTab은 아래 흐름을 직접 소유하지 않는다.
 
 ## Source of truth
 
-| 주제                          | Source of truth                                                                                                                                       |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Search summary list           | `GET /api/roommate-search`, `GET /api/roommate-search/manifest`, `packages/shared/src/roommate-search/contract/index.ts`                              |
-| Search policy/copy terms      | `docs/04_policy/official/roommate-searching.md`                                                                                                       |
-| Season/search capability      | `docs/04_policy/official/season-participation.md`, roommate-search response `scopeAvailability`, item `exposure`/`actions`                            |
-| Profile detail                | `GET /api/profiles/:userId?detailEntryToken=...`, `packages/shared/src/profile/contract/public.ts`, `apps/web/src/app/api/profiles/[userId]/route.ts` |
-| Bookmark list/action          | `packages/shared/src/social-safety/bookmark.ts`, `apps/web/src/app/api/bookmarks/**`                                                                  |
-| Block list/action             | `packages/shared/src/social-safety/block.ts`, `apps/web/src/app/api/blocks/**`                                                                        |
-| Report action                 | `packages/shared/src/social-safety/report.ts`, `apps/web/src/app/api/reports/route.ts`                                                                |
-| Match request action          | `apps/api/src/matches/matches.controller.ts`, Phase 8에서 추가할 `apps/web/src/app/api/matches/requests/**` BFF                                       |
-| Public profile field exposure | `docs/04_policy/official/profile-model.md`, `packages/shared/src/profile/contract/public.ts`                                                          |
-| Incident/safety copy          | `docs/04_policy/official/incident-enforcement.md`, social-safety shared contracts                                                                     |
+| 주제                           | Source of truth                                                                                                                                       |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Search summary list            | `GET /api/roommate-search`, `GET /api/roommate-search/manifest`, `packages/shared/src/roommate-search/contract/index.ts`                              |
+| Search policy/copy terms       | `docs/04_policy/official/roommate-searching.md`                                                                                                       |
+| Season/search capability       | `docs/04_policy/official/season-participation.md`, roommate-search response `scopeAvailability`, item `exposure`/`actions`                            |
+| Profile detail                 | `GET /api/profiles/:userId?detailEntryToken=...`, `packages/shared/src/profile/contract/public.ts`, `apps/web/src/app/api/profiles/[userId]/route.ts` |
+| Profile compatibility contract | `packages/shared/src/profile/contract/compatibility.ts`, `apps/api/src/matches/scoring/**`, `apps/api/src/profiles/**`                                |
+| Bookmark list/action           | `packages/shared/src/social-safety/bookmark.ts`, `apps/web/src/app/api/bookmarks/**`                                                                  |
+| Block list/action              | `packages/shared/src/social-safety/block.ts`, `apps/web/src/app/api/blocks/**`                                                                        |
+| Report action                  | `packages/shared/src/social-safety/report.ts`, `apps/web/src/app/api/reports/route.ts`                                                                |
+| Match request action           | `apps/api/src/matches/matches.controller.ts`, Phase 8에서 추가할 `apps/web/src/app/api/matches/requests/**` BFF                                       |
+| Public profile field exposure  | `docs/04_policy/official/profile-model.md`, `packages/shared/src/profile/contract/public.ts`                                                          |
+| Incident/safety copy           | `docs/04_policy/official/incident-enforcement.md`, social-safety shared contracts                                                                     |
 
 정책 문서와 RoommateTab copy/test가 충돌하면 정책 문서를 우선하고 RoommateTab README/copy/test를 갱신한다. 정책 의미 자체를 바꿔야 할 때는 해당 정책 문서의 변경 이력도 함께 갱신한다.
 
@@ -132,6 +133,18 @@ Bookmark owner rule:
 - Search card의 bookmark action은 `/api/bookmarks/:targetUserId` owner mutation으로 연결하고 duplicate pending 동안 disabled된다.
 - Optimistic bookmark overlay는 UI hint이며 실패 시 이전 상태로 rollback된다. 최종 relation truth는 owner API response/refetch다.
 
+## Phase 6 profile detail compatibility contract
+
+Phase 6에서 profile detail response는 FULL detail에 한해 optional `compatibility`를 받을 수 있다. RoommateTab/Web BFF는 shared `publicProfileSchema`를 parse한 결과만 사용하고, Web feature code에서 scoring matrix나 raw lifestyle 비교를 재구현하지 않는다.
+
+Boundary rules:
+
+- `compatibility`는 `exposure.scoreVisible=true`이고 API가 `matchScore`를 계산할 수 있는 FULL detail에만 포함된다.
+- TOMBSTONE 또는 `scoreVisible=false` detail에는 `compatibility`가 없다.
+- `compatibility.overallScore`는 detail `matchScore`와 같은 값이어야 한다.
+- Axis payload는 shared allowlist id/score/bucket만 포함한다. `viewerValue`, `targetValue`, condition field, DB field name, matrix/debug key는 BFF schema에서 거부된다.
+- 음주 항목은 public axis로 렌더하지 않는다. API는 `hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }]`만 내려주며, Phase 7 copy mapper는 raw 음주 값을 추론할 수 있는 문구를 만들지 않는다.
+
 ## Accessibility acceptance
 
 Phase 0은 modal/sheet 구현을 바꾸지 않지만, 이후 Phase의 acceptance를 아래로 고정한다.
@@ -183,6 +196,7 @@ Phase 2에서 manifest-driven query/model/hook foundation을 추가했다.
 Phase 3에서 제품 화면은 legacy local list state 대신 `hooks/useRoommateSearch.ts`를 사용한다.
 Phase 4에서 search shell은 contract-derived view model, header/control/state/results/card components로 분리했다.
 Phase 5에서 manifest filter sheet와 bookmark owner list/action mode를 추가했다.
+Phase 6에서 shared/API/BFF profile detail compatibility contract와 privacy guard를 추가했다.
 
 Phase 4 layout/state split guard:
 

@@ -154,7 +154,8 @@ Public contract는 `LIMITED/FULL` exposure enum을 쓰지 않고 아래 capabili
 - 정상 summary entry에서 진입했지만 full detail을 볼 수 없는 target은 `detailEntryToken` 검증 후 tombstone shell로 안내할 수 있다.
 - `detailEntryToken`이 없거나 위조/만료/다른 viewer·season·target에 대해 재사용되면 direct/probing 접근으로 보고 `404 PROFILE_NOT_VISIBLE`로 닫는다.
 - `matchScore`는 `exposure.scoreVisible = true` target에만 포함한다.
-- `drinkingFrequency`, `drinkingTolerance`는 public non-exposure 필드이므로 summary와 detail 둘 다에서 보이지 않는다.
+- `compatibility` 상세 payload는 `exposure.scoreVisible = true`이고 full detail이 열린 경우에만 포함한다. Payload는 shared allowlist axis id, normalized score/bucket, hidden notice code만 포함하며 raw lifestyle value, viewer/target condition value, scoring matrix/debug key를 포함하지 않는다.
+- `drinkingFrequency`, `drinkingTolerance`는 public non-exposure 필드이므로 summary와 detail 둘 다에서 보이지 않는다. Compatibility에서도 음주 축은 public axis로 노출하지 않고 정책상 제외 notice code만 제공한다.
 - 타인의 roommate condition fields는 detail에 노출하지 않는다.
 - 미등록 viewer 또는 selection-required viewer는 시즌 기간 등록 완료 target summary를 볼 수 있으나, detail/score/match/chat action은 닫힌다.
 
@@ -238,6 +239,7 @@ Roommate-search는 UI가 현재 scope에서 어떤 필터/정렬을 열 수 있�
 
 | 날짜       | 변경 내용                                                                                                                                                                                                                                                                                              | 관련 이슈          |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ |
+| 2026-07-06 | profile detail compatibility payload를 `scoreVisible=true` full detail 전용 allowlist contract로 명시하고, 음주 raw 값과 타인의 roommate condition field는 상세/호환도 payload 어디에도 노출하지 않는다고 보강했다                                                                                     | #195               |
 | 2026-05-12 | 문서 신설. `룸메이트 찾기 탭`의 검색 scope(`CAMPUS_MERGED`, `SAME_BUILDING_ONLY`), 시즌 상태별 노출 해석, `LIMITED/FULL`별 필터 가능 범위, `FULL` 전용 detail/score 규칙을 정리                                                                                                                        | #195               |
 | 2026-05-13 | search summary와 profile detail owner를 분리하고, 시즌 중 target cohort를 season participant로 한정. `SEASON_OPEN`의 merged 허용, `SEASON_MATCHING/POST_MATCH`의 registered viewer same-building only, 시즌 미참여 viewer merged LIMITED summary 규칙을 반영                                           | #195               |
 | 2026-05-20 | #195 2026-05-20 결정에 맞춰 OFF_SEASON 타인 browse를 비활성화하고 search root를 `SeasonParticipant`로 고정했다. `LIMITED/FULL` 결과 모드를 제거하고 `relation`/`exposure`/`actions`/`resultRead` capability로 카드·상세·점수·액션을 분리했으며, summary-only filter는 visible summary field로 제한했다 | #195               |

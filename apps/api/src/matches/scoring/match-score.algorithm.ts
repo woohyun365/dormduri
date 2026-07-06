@@ -1,4 +1,10 @@
 import type { LifestyleData } from '@repo/shared/lifestyle';
+import type {
+  PublicProfileCompatibility,
+  PublicProfileCompatibilityAxisId,
+  PublicProfileCompatibilityBucket,
+  PublicProfileCompatibilityHiddenNoticeCode,
+} from '@repo/shared/profile/contract';
 import { isSeasonProfileComplete } from '@repo/shared/lifestyle';
 
 const BEDTIME_ORDER = ['BEFORE_22', '22_24', '24_02', 'AFTER_02'] as const;
@@ -72,6 +78,12 @@ interface PairResult {
   weight: number;
 }
 
+interface CompatibilityPairDefinition {
+  result: PairResult | null;
+  publicAxisId?: PublicProfileCompatibilityAxisId;
+  hiddenNoticeCode?: PublicProfileCompatibilityHiddenNoticeCode;
+}
+
 function indexDistance(order: readonly string[], a: string, b: string): number {
   const ia = order.indexOf(a);
   const ib = order.indexOf(b);
@@ -119,40 +131,164 @@ function scoreWakeTimePair(a: string | null, b: string | null): PairResult | nul
   return { score: 1.0 - dist / 4, weight: T4 };
 }
 
-export function perspectiveMatchScore(evaluator: LifestyleData, target: LifestyleData): number {
-  const pairs: Array<PairResult | null> = [
-    scoreCrossPair(evaluator.smokingTolerance, target.smokingBehavior, SMOKING_MATRIX, T1),
-    scoreCrossPair(evaluator.drinkingTolerance, target.drinkingFrequency, DRINKING_MATRIX, T3),
-    scoreCrossPair(evaluator.noiseSensitivity, target.sleepHabit, SLEEP_HABIT_MATRIX, T1),
-    scoreCrossPair(evaluator.phoneTolerance, target.phoneBehavior, PHONE_MATRIX, T2),
-    scoreCrossPair(evaluator.earphoneExpectation, target.earphoneUsage, EARPHONE_MATRIX, T2),
-    scoreCrossPair(evaluator.sleepEnvPreference, target.sleepEnvironment, SLEEP_ENV_MATRIX, T2),
-    scoreCrossPair(evaluator.screenTolerance, target.screenUsage, SCREEN_USAGE_MATRIX, T2),
-    scoreCrossPair(evaluator.cleanExpectation, target.cleanLevel, CLEAN_MATRIX, T3),
-    scoreCrossPair(evaluator.indoorEatingTolerance, target.indoorEating, INDOOR_EATING_MATRIX, T3),
-    scoreDistancePair(evaluator.bedtime, target.bedtime, BEDTIME_ORDER, 3, T3),
-    scoreWakeTimePair(evaluator.wakeTime, target.wakeTime),
-    scoreDistancePair(
-      evaluator.temperatureSensitivity,
-      target.temperatureSensitivity,
-      TEMPERATURE_ORDER,
-      2,
-      T2,
-    ),
-    scoreMatchPair(evaluator.relationshipStyle, target.relationshipStyle, T4),
+function buildCompatibilityPairDefinitions(
+  evaluator: LifestyleData,
+  target: LifestyleData,
+): CompatibilityPairDefinition[] {
+  return [
+    {
+      publicAxisId: 'SMOKING',
+      result: scoreCrossPair(
+        evaluator.smokingTolerance,
+        target.smokingBehavior,
+        SMOKING_MATRIX,
+        T1,
+      ),
+    },
+    {
+      hiddenNoticeCode: 'DRINKING_EXCLUDED_BY_POLICY',
+      result: scoreCrossPair(
+        evaluator.drinkingTolerance,
+        target.drinkingFrequency,
+        DRINKING_MATRIX,
+        T3,
+      ),
+    },
+    {
+      publicAxisId: 'SLEEP_HABIT',
+      result: scoreCrossPair(evaluator.noiseSensitivity, target.sleepHabit, SLEEP_HABIT_MATRIX, T1),
+    },
+    {
+      publicAxisId: 'PHONE',
+      result: scoreCrossPair(evaluator.phoneTolerance, target.phoneBehavior, PHONE_MATRIX, T2),
+    },
+    {
+      publicAxisId: 'EARPHONE',
+      result: scoreCrossPair(
+        evaluator.earphoneExpectation,
+        target.earphoneUsage,
+        EARPHONE_MATRIX,
+        T2,
+      ),
+    },
+    {
+      publicAxisId: 'SLEEP_ENVIRONMENT',
+      result: scoreCrossPair(
+        evaluator.sleepEnvPreference,
+        target.sleepEnvironment,
+        SLEEP_ENV_MATRIX,
+        T2,
+      ),
+    },
+    {
+      publicAxisId: 'SCREEN_USAGE',
+      result: scoreCrossPair(
+        evaluator.screenTolerance,
+        target.screenUsage,
+        SCREEN_USAGE_MATRIX,
+        T2,
+      ),
+    },
+    {
+      publicAxisId: 'CLEAN_LEVEL',
+      result: scoreCrossPair(evaluator.cleanExpectation, target.cleanLevel, CLEAN_MATRIX, T3),
+    },
+    {
+      publicAxisId: 'INDOOR_EATING',
+      result: scoreCrossPair(
+        evaluator.indoorEatingTolerance,
+        target.indoorEating,
+        INDOOR_EATING_MATRIX,
+        T3,
+      ),
+    },
+    {
+      publicAxisId: 'BEDTIME',
+      result: scoreDistancePair(evaluator.bedtime, target.bedtime, BEDTIME_ORDER, 3, T3),
+    },
+    {
+      publicAxisId: 'WAKE_TIME',
+      result: scoreWakeTimePair(evaluator.wakeTime, target.wakeTime),
+    },
+    {
+      publicAxisId: 'TEMPERATURE',
+      result: scoreDistancePair(
+        evaluator.temperatureSensitivity,
+        target.temperatureSensitivity,
+        TEMPERATURE_ORDER,
+        2,
+        T2,
+      ),
+    },
+    {
+      publicAxisId: 'RELATIONSHIP',
+      result: scoreMatchPair(evaluator.relationshipStyle, target.relationshipStyle, T4),
+    },
   ];
+}
 
+function calculateWeightedScore(definitions: readonly CompatibilityPairDefinition[]): number {
   let weightedSum = 0;
   let dynamicMax = 0;
 
-  for (const pair of pairs) {
-    if (!pair) continue;
-    weightedSum += pair.score * pair.weight;
-    dynamicMax += pair.weight;
+  for (const definition of definitions) {
+    if (!definition.result) continue;
+    weightedSum += definition.result.score * definition.result.weight;
+    dynamicMax += definition.result.weight;
   }
 
   if (dynamicMax === 0) return 100;
   return Math.round((weightedSum / dynamicMax) * 100);
+}
+
+function toCompatibilityAxisScore(result: PairResult | null): number | null {
+  return result ? Math.round(result.score * 100) : null;
+}
+
+function toCompatibilityBucket(score: number | null): PublicProfileCompatibilityBucket {
+  if (score === null) return 'UNKNOWN';
+  if (score >= 80) return 'HIGH';
+  if (score >= 50) return 'MEDIUM';
+  return 'LOW';
+}
+
+export function perspectiveMatchScore(evaluator: LifestyleData, target: LifestyleData): number {
+  return calculateWeightedScore(buildCompatibilityPairDefinitions(evaluator, target));
+}
+
+export function buildPublicProfileCompatibility(
+  viewerLifestyle: LifestyleData,
+  targetLifestyle: LifestyleData,
+): PublicProfileCompatibility {
+  const definitions = buildCompatibilityPairDefinitions(viewerLifestyle, targetLifestyle);
+  const hiddenNoticeCodes = new Set<PublicProfileCompatibilityHiddenNoticeCode>();
+
+  for (const definition of definitions) {
+    if (definition.hiddenNoticeCode) {
+      hiddenNoticeCodes.add(definition.hiddenNoticeCode);
+    }
+  }
+
+  return {
+    overallScore: calculateWeightedScore(definitions),
+    axes: definitions
+      .filter(
+        (
+          definition,
+        ): definition is CompatibilityPairDefinition & {
+          publicAxisId: PublicProfileCompatibilityAxisId;
+        } => Boolean(definition.publicAxisId),
+      )
+      .map((definition) => {
+        const score = toCompatibilityAxisScore(definition.result);
+        return {
+          id: definition.publicAxisId,
+          score,
+          bucket: toCompatibilityBucket(score),
+        };
+      }),
+    hiddenAxisNotices: Array.from(hiddenNoticeCodes, (code) => ({ code })),
+  };
 }
 
 export function canComputeMatchScore(

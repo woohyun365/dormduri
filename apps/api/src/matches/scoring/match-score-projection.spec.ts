@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildDirectionalMatchScoreProjection,
+  buildPublicProfileCompatibility,
   shouldExposePublicMatchScore,
 } from './match-score-projection.js';
 
@@ -53,6 +54,28 @@ describe('match-score-projection', () => {
         },
         COMPLETE_LIFESTYLE,
       ),
+    ).toBeNull();
+  });
+
+  it('scoreVisible=true일 때 public compatibility를 생성하고 false면 닫는다', () => {
+    const compatibility = buildPublicProfileCompatibility({
+      viewerLifestyle: COMPLETE_LIFESTYLE,
+      targetLifestyle: COMPLETE_LIFESTYLE,
+      scoreVisible: true,
+    });
+
+    expect(compatibility).toMatchObject({
+      overallScore: buildDirectionalMatchScoreProjection(COMPLETE_LIFESTYLE, COMPLETE_LIFESTYLE),
+      hiddenAxisNotices: [{ code: 'DRINKING_EXCLUDED_BY_POLICY' }],
+    });
+    expect(compatibility?.axes.map((axis) => axis.id)).not.toContain('DRINKING');
+
+    expect(
+      buildPublicProfileCompatibility({
+        viewerLifestyle: COMPLETE_LIFESTYLE,
+        targetLifestyle: COMPLETE_LIFESTYLE,
+        scoreVisible: false,
+      }),
     ).toBeNull();
   });
 
