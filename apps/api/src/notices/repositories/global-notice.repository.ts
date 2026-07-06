@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { ListGlobalNoticesQuery, NoticeSeverity } from '@repo/shared/notices';
-import { Prisma } from '../../generated/prisma/client.js';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../platform/database/prisma.service.js';
 
 export type GlobalNoticeRecord = Readonly<{
@@ -21,6 +21,23 @@ export type GlobalNoticeCursorBoundary = Readonly<{
   noticeId: string;
 }>;
 
+const globalNoticeSelect = {
+  id: true,
+  title: true,
+  summary: true,
+  body: true,
+  severity: true,
+  relatedSeasonId: true,
+  publishedAt: true,
+  expiresAt: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.GlobalNoticeSelect;
+
+type GlobalNoticePersistenceRow = Prisma.GlobalNoticeGetPayload<{
+  select: typeof globalNoticeSelect;
+}>;
+
 @Injectable()
 export class GlobalNoticeRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -30,7 +47,7 @@ export class GlobalNoticeRepository {
     after?: GlobalNoticeCursorBoundary;
   }): Promise<GlobalNoticeRecord[]> {
     const now = await this.prisma.getDatabaseNow();
-    const where = buildPublishedNoticeWhereSql({
+    const where = buildPublishedNoticeWhere({
       now,
       severity: input.query.severity ?? null,
       relatedSeasonId: input.query.relatedSeasonId ?? null,
@@ -38,77 +55,78 @@ export class GlobalNoticeRepository {
     });
     const take = input.query.limit + 1;
 
-    return this.prisma.$queryRaw<GlobalNoticeRecord[]>(Prisma.sql`
-      SELECT
-        "id",
-        "title",
-        "summary",
-        "body",
-        "severity",
-        "relatedSeasonId",
-        "publishedAt",
-        "expiresAt",
-        "createdAt",
-        "updatedAt"
-      FROM "GlobalNotice"
-      WHERE ${where}
-      ORDER BY "publishedAt" DESC, "id" DESC
-      LIMIT ${take}
-    `);
+    const rows = await this.prisma.globalNotice.findMany({
+      where,
+      select: globalNoticeSelect,
+      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+      take,
+    });
+
+    return rows.map(toPublishedNoticeRecord);
   }
 
   async findPublishedById(noticeId: string): Promise<GlobalNoticeRecord | null> {
     const now = await this.prisma.getDatabaseNow();
-    const rows = await this.prisma.$queryRaw<GlobalNoticeRecord[]>(Prisma.sql`
-      SELECT
-        "id",
-        "title",
-        "summary",
-        "body",
-        "severity",
-        "relatedSeasonId",
-        "publishedAt",
-        "expiresAt",
-        "createdAt",
-        "updatedAt"
-      FROM "GlobalNotice"
-      WHERE
-        "id" = ${noticeId}
-        AND "publishedAt" IS NOT NULL
-        AND "publishedAt" <= ${now}
-        AND ("expiresAt" IS NULL OR "expiresAt" > ${now})
-      LIMIT 1
-    `);
+    const row = await this.prisma.globalNotice.findFirst({
+      where: {
+        id: noticeId,
+        AND: [buildPublishedNoticeWhere({ now })],
+      },
+      select: globalNoticeSelect,
+    });
 
-    return rows[0] ?? null;
+    return row ? toPublishedNoticeRecord(row) : null;
   }
 }
 
-export function buildPublishedNoticeWhereSql(input: {
+export function buildPublishedNoticeWhere(input: {
   now: Date;
   severity?: NoticeSeverity | null;
   relatedSeasonId?: string | null;
   after?: GlobalNoticeCursorBoundary;
-}): Prisma.Sql {
-  const conditions: Prisma.Sql[] = [
-    Prisma.sql`"publishedAt" IS NOT NULL`,
-    Prisma.sql`"publishedAt" <= ${input.now}`,
-    Prisma.sql`("expiresAt" IS NULL OR "expiresAt" > ${input.now})`,
+}): Prisma.GlobalNoticeWhereInput {
+  const conditions: Prisma.GlobalNoticeWhereInput[] = [
+    {
+      publishedAt: {
+        not: null,
+        lte: input.now,
+      },
+    },
+    {
+      OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }],
+    },
   ];
 
   if (input.severity) {
-    conditions.push(Prisma.sql`"severity" = ${input.severity}`);
+    conditions.push({ severity: input.severity });
   }
 
   if (input.relatedSeasonId) {
-    conditions.push(Prisma.sql`"relatedSeasonId" = ${input.relatedSeasonId}`);
+    conditions.push({ relatedSeasonId: input.relatedSeasonId });
   }
 
   if (input.after) {
-    conditions.push(
-      Prisma.sql`("publishedAt", "id") < (${input.after.publishedAt}, ${input.after.noticeId})`,
-    );
+    conditions.push({
+      OR: [
+        { publishedAt: { lt: input.after.publishedAt } },
+        {
+          publishedAt: input.after.publishedAt,
+          id: { lt: input.after.noticeId },
+        },
+      ],
+    });
   }
 
-  return Prisma.join(conditions, ' AND ');
+  return { AND: conditions };
+}
+
+function toPublishedNoticeRecord(row: GlobalNoticePersistenceRow): GlobalNoticeRecord {
+  if (!row.publishedAt) {
+    throw new Error('Published global notice row must include publishedAt.');
+  }
+
+  return {
+    ...row,
+    publishedAt: row.publishedAt,
+  };
 }
