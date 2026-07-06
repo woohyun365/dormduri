@@ -50,6 +50,49 @@ describe('RoommateProfileDetailDialog', () => {
     expect(dialog).not.toHaveTextContent('entry-token-secret');
   });
 
+  it('FULL detail action CTA는 token 없이 action target snapshot만 전달한다', async () => {
+    const onRequestMatch = vi.fn();
+    const onReport = vi.fn();
+    const onBlock = vi.fn();
+    renderDialog(
+      {
+        status: 'success',
+        target,
+        profile: createPublicProfileFull({
+          id: 'target-action',
+          nickname: '액션친구',
+          actions: {
+            canBookmark: true,
+            canRequestMatch: true,
+            canStartChat: false,
+            unavailableReasons: [],
+          },
+        }),
+        error: null,
+      },
+      { onRequestMatch, onReport, onBlock },
+    );
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '매칭 요청 보내기' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: '신고하기' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: '차단하기' }));
+
+    expect(onRequestMatch).toHaveBeenCalledWith({
+      targetUserId: 'target-action',
+      nickname: '액션친구',
+      actions: {
+        canBookmark: true,
+        canRequestMatch: true,
+        canStartChat: false,
+        unavailableReasons: [],
+      },
+    });
+    expect(onReport.mock.calls[0]?.[0]).not.toHaveProperty('detailEntryToken');
+    expect(onBlock.mock.calls[0]?.[0]).toMatchObject({ targetUserId: 'target-action' });
+    expect(dialog).not.toHaveTextContent('entry-token-secret');
+  });
+
   it('TOMBSTONE detail은 tombstone message만 표시하고 compatibility를 렌더링하지 않는다', () => {
     renderDialog({
       status: 'success',

@@ -3,6 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SeasonProvider, type SeasonContextValue } from '@/main/contexts/SeasonContext';
+import { createPublicProfileFull } from '@/test/home-profile-detail-fixtures';
 import type { UserProfile } from '@/types/profile';
 import { createRoommateApiError } from '../api/roommateApiErrors';
 import RoommateListTab from '../RoommateListTab';
@@ -315,6 +316,41 @@ describe('RoommateListTab search shell', () => {
       nickname: '테스트-target-detail',
       detailEntryToken: 'detail-token-target-detail',
     });
+  });
+
+  it('detail modal의 매칭 요청 action은 match request dialog를 연다', async () => {
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({ items: [createSummary('target-action')] }),
+    );
+    useRoommateProfileDetailMock.mockReturnValue(
+      createProfileDetailResult({
+        status: 'success',
+        target: {
+          targetUserId: 'target-action',
+          nickname: '테스트-target-action',
+          detailEntryToken: 'detail-token-target-action',
+        },
+        profile: createPublicProfileFull({
+          id: 'target-action',
+          nickname: '테스트-target-action',
+          actions: {
+            canBookmark: true,
+            canRequestMatch: true,
+            canStartChat: false,
+            unavailableReasons: [],
+          },
+        }),
+        isOpen: true,
+      }),
+    );
+
+    renderRoommateListTab();
+
+    await userEvent.click(screen.getByRole('button', { name: '매칭 요청 보내기' }));
+
+    expect(screen.getByRole('dialog', { name: '매칭 요청 보내기' })).toHaveTextContent(
+      '테스트-target-action님에게 매칭 요청을 보낼까요?',
+    );
   });
 
   it('bookmark action은 detail dialog를 열지 않는다', async () => {

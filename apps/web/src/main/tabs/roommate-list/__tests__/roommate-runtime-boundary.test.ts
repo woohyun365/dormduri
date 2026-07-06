@@ -31,6 +31,8 @@ const FORBIDDEN_ROOMMATE_RUNTIME_PATTERNS = [
   'blockedUserIds',
   'displayCount',
   'slice(0',
+  'localStorage',
+  'sessionStorage',
 ] as const;
 
 const FORBIDDEN_MAIN_LIST_BRIDGE_PATTERNS = [
@@ -74,6 +76,16 @@ const PHASE7_SPLIT_FILES = [
   'model/compatibility/compatibilityCopy.ts',
   'model/compatibility/compatibilityPrivacy.policy.ts',
 ] as const;
+
+const PHASE8_SPLIT_FILES = [
+  'hooks/useRoommateActions.ts',
+  'model/actions/roommateActionReasonCopy.ts',
+  'overlays/RoommateBlockDialog.tsx',
+  'overlays/RoommateReportDialog.tsx',
+  'overlays/RoommateMatchRequestDialog.tsx',
+] as const;
+
+const phase8MatchRequestBffRoute = join(process.cwd(), 'src/app/api/matches/requests/route.ts');
 
 const FORBIDDEN_PHASE4_SHELL_INTERNALS = [
   'RoommateSearchSummary',
@@ -200,5 +212,27 @@ describe('RoommateTab runtime boundary', () => {
     expect(detailClientSource).toContain('/api/profiles/');
     expect(detailClientSource).toContain('publicProfileSchema');
     expect(compatibilityMapperSource).toContain('PublicProfileCompatibility');
+  });
+
+  it('Phase 8 keeps social actions behind owner files and adds match request BFF route', () => {
+    const missingFiles = PHASE8_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
+      (file) => !existsSync(file),
+    );
+    const actionClientSource = readFileSync(
+      join(roommateRoot, 'api/roommateActions.client.ts'),
+      'utf8',
+    );
+    const actionsHookSource = readFileSync(
+      join(roommateRoot, 'hooks/useRoommateActions.ts'),
+      'utf8',
+    );
+
+    expect(missingFiles).toEqual([]);
+    expect(existsSync(phase8MatchRequestBffRoute)).toBe(true);
+    expect(actionClientSource).toContain('/api/blocks/');
+    expect(actionClientSource).toContain('/api/reports');
+    expect(actionClientSource).toContain('/api/matches/requests');
+    expect(actionsHookSource).toContain('pendingTargetUserIds');
+    expect(actionsHookSource).not.toContain('detailEntryToken');
   });
 });

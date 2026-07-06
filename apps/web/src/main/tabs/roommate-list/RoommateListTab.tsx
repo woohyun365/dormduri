@@ -5,6 +5,7 @@ import { getDormitoryById } from '@/constants/dormitory';
 import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { RoommateListBannerGroup } from './RoommateListBannerGroup';
+import { useRoommateActions } from './hooks/useRoommateActions';
 import { useRoommateBookmarkList } from './hooks/useRoommateBookmarkList';
 import { useRoommateProfileDetail } from './hooks/useRoommateProfileDetail';
 import { useRoommateSearch, type UseRoommateSearchResult } from './hooks/useRoommateSearch';
@@ -13,8 +14,11 @@ import {
   mapRoommateSearchItemsToCardViewModels,
   type RoommateSummaryCardViewModel,
 } from './model/search/roommateSearchViewModel';
+import { RoommateBlockDialog } from './overlays/RoommateBlockDialog';
 import { RoommateFilterSheet } from './overlays/RoommateFilterSheet';
+import { RoommateMatchRequestDialog } from './overlays/RoommateMatchRequestDialog';
 import { RoommateProfileDetailDialog } from './overlays/RoommateProfileDetailDialog';
+import { RoommateReportDialog } from './overlays/RoommateReportDialog';
 import { RoommateBookmarkResultsSection } from './sections/bookmarks/RoommateBookmarkResultsSection';
 import { RoommateSearchFilterBar } from './sections/filters/RoommateSearchFilterBar';
 import { RoommateSearchHeader } from './sections/header/RoommateSearchHeader';
@@ -24,6 +28,12 @@ import {
   type RoommateSearchStateSectionState,
 } from './sections/empty-states/RoommateSearchStateSection';
 import { RoommateSearchResultsSection } from './sections/results/RoommateSearchResultsSection';
+import type {
+  RoommateActionFeedback,
+  RoommateActionReceipt,
+  UseRoommateActionsResult,
+} from './hooks/useRoommateActions';
+import type { RoommateActionKind } from './model/actions/roommateActionReasonCopy';
 import type { TabId, UserProfile } from '@/types/profile';
 
 type RoommateListMode = 'search' | 'bookmarks';
@@ -58,6 +68,14 @@ export default function RoommateListTab({
   const search = useRoommateSearch({ autoLoad: !searchClosed });
   const bookmarks = useRoommateBookmarkList({ autoLoad: !searchClosed && mode === 'bookmarks' });
   const detail = useRoommateProfileDetail();
+  const actions = useRoommateActions({
+    onRefreshSearch: search.refresh,
+    onRefreshBookmarks: bookmarks.refresh,
+    onRefreshDetail: async () => {
+      detail.retry();
+    },
+    onCloseDetail: detail.close,
+  });
   const assignedDormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
     : null;
@@ -121,6 +139,12 @@ export default function RoommateListTab({
           />
         ) : null}
 
+        <RoommateActionFeedbackBanner
+          receipt={actions.lastReceipt}
+          error={actions.lastError}
+          onDismiss={actions.dismissFeedback}
+        />
+
         {mode === 'bookmarks' && !searchClosed ? (
           <RoommateBookmarkResultsSection
             status={bookmarks.status}
@@ -164,9 +188,82 @@ export default function RoommateListTab({
         onClose={detail.close}
         onRetry={detail.retry}
         onRefreshList={() => void search.refresh()}
+        actionPendingTargetIds={actions.pendingTargetUserIds}
+        onRequestMatch={actions.openMatchRequestDialog}
+        onBlock={actions.openBlockDialog}
+        onReport={actions.openReportDialog}
+        onStartChat={() => onNavigate('chat')}
+      />
+      <RoommateBlockDialog
+        state={actions.activeDialog}
+        submitting={isActionDialogSubmitting(actions)}
+        errorMessage={actionDialogErrorMessage(actions, 'block')}
+        onClose={actions.closeDialog}
+        onSubmit={(input) => void actions.submitBlock(input)}
+      />
+      <RoommateReportDialog
+        state={actions.activeDialog}
+        submitting={isActionDialogSubmitting(actions)}
+        errorMessage={actionDialogErrorMessage(actions, 'report')}
+        onClose={actions.closeDialog}
+        onSubmit={(input) => void actions.submitReport(input)}
+      />
+      <RoommateMatchRequestDialog
+        state={actions.activeDialog}
+        submitting={isActionDialogSubmitting(actions)}
+        errorMessage={actionDialogErrorMessage(actions, 'matchRequest')}
+        onClose={actions.closeDialog}
+        onSubmit={(input) => void actions.submitMatchRequest(input)}
       />
     </div>
   );
+}
+
+function RoommateActionFeedbackBanner({
+  receipt,
+  error,
+  onDismiss,
+}: {
+  readonly receipt: RoommateActionReceipt | null;
+  readonly error: RoommateActionFeedback | null;
+  readonly onDismiss: () => void;
+}) {
+  const feedback = error ?? receipt;
+  if (!feedback) return null;
+  const isError = error !== null;
+  return (
+    <section
+      role={isError ? 'alert' : 'status'}
+      className={`rounded-3xl border bg-white p-4 shadow-sm ${
+        isError ? 'border-red-100' : 'border-emerald-100'
+      }`}
+    >
+      <p className={`text-sm font-bold ${isError ? 'text-red-700' : 'text-emerald-700'}`}>
+        {feedback.title}
+      </p>
+      <p className="mt-2 text-xs leading-5 text-[var(--knu-text-secondary)]">{feedback.message}</p>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="mt-3 rounded-xl border border-[var(--knu-border)] px-3 py-2 text-xs font-semibold text-[var(--knu-text-secondary)]"
+      >
+        알림 닫기
+      </button>
+    </section>
+  );
+}
+
+function isActionDialogSubmitting(actions: UseRoommateActionsResult): boolean {
+  const targetId = actions.activeDialog.target?.targetUserId;
+  return targetId ? actions.isTargetPending(targetId) : false;
+}
+
+function actionDialogErrorMessage(
+  actions: UseRoommateActionsResult,
+  actionKind: RoommateActionKind,
+): string | null {
+  if (!actions.lastError || actions.lastError.actionKind !== actionKind) return null;
+  return actions.lastError.message;
 }
 
 function toDetailTarget(item: RoommateSummaryCardViewModel) {

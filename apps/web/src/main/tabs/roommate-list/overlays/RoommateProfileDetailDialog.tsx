@@ -2,12 +2,15 @@ import { BaseBottomSheet } from '@/components/BaseBottomSheet';
 import { CompatibilityAxisList } from '../components/CompatibilityAxisList';
 import { CompatibilityRadar } from '../components/CompatibilityRadar';
 import { mapCompatibilityToChartViewModel } from '../model/compatibility/compatibilityChart.mapper';
+import {
+  buildPrimaryActionCopy,
+  formatTargetActionUnavailableReason,
+} from '../model/actions/roommateActionReasonCopy';
 import type { RoommateProfileDetailState } from '../hooks/useRoommateProfileDetail';
+import type { RoommateActionTargetSnapshot } from '../hooks/useRoommateActions';
 import type {
-  PublicProfileActionCapabilities,
   PublicProfileFullDetail,
   PublicProfileTombstone,
-  PublicTargetActionUnavailableReason,
 } from '@repo/shared/profile/contract';
 
 interface RoommateProfileDetailDialogProps {
@@ -15,6 +18,11 @@ interface RoommateProfileDetailDialogProps {
   readonly onClose: () => void;
   readonly onRetry: () => void;
   readonly onRefreshList: () => void;
+  readonly actionPendingTargetIds?: readonly string[];
+  readonly onRequestMatch?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onBlock?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onReport?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onStartChat?: (target: RoommateActionTargetSnapshot) => void;
 }
 
 interface DetailRowViewModel {
@@ -31,6 +39,11 @@ export function RoommateProfileDetailDialog({
   onClose,
   onRetry,
   onRefreshList,
+  actionPendingTargetIds = [],
+  onRequestMatch,
+  onBlock,
+  onReport,
+  onStartChat,
 }: RoommateProfileDetailDialogProps) {
   return (
     <BaseBottomSheet
@@ -48,7 +61,14 @@ export function RoommateProfileDetailDialog({
           />
         ) : null}
         {state.status === 'success' && state.profile.detailState === 'FULL' ? (
-          <FullDetailContent profile={state.profile} />
+          <FullDetailContent
+            profile={state.profile}
+            actionPendingTargetIds={actionPendingTargetIds}
+            onRequestMatch={onRequestMatch}
+            onBlock={onBlock}
+            onReport={onReport}
+            onStartChat={onStartChat}
+          />
         ) : null}
         {state.status === 'success' && state.profile.detailState === 'TOMBSTONE' ? (
           <TombstoneDetailContent profile={state.profile} onRefreshList={onRefreshList} />
@@ -108,7 +128,21 @@ function DetailError({
   );
 }
 
-function FullDetailContent({ profile }: { readonly profile: PublicProfileFullDetail }) {
+function FullDetailContent({
+  profile,
+  actionPendingTargetIds,
+  onRequestMatch,
+  onBlock,
+  onReport,
+  onStartChat,
+}: {
+  readonly profile: PublicProfileFullDetail;
+  readonly actionPendingTargetIds: readonly string[];
+  readonly onRequestMatch?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onBlock?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onReport?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onStartChat?: (target: RoommateActionTargetSnapshot) => void;
+}) {
   const compatibility = profile.compatibility
     ? mapCompatibilityToChartViewModel(profile.compatibility)
     : null;
@@ -150,7 +184,14 @@ function FullDetailContent({ profile }: { readonly profile: PublicProfileFullDet
       )}
 
       <DetailRowsSection title="공개 생활패턴" rows={lifestyleRows} />
-      <ActionSummary actions={profile.actions} />
+      <ActionSummary
+        target={{ targetUserId: profile.id, nickname: profile.nickname, actions: profile.actions }}
+        pending={actionPendingTargetIds.includes(profile.id)}
+        onRequestMatch={onRequestMatch}
+        onBlock={onBlock}
+        onReport={onReport}
+        onStartChat={onStartChat}
+      />
     </div>
   );
 }
@@ -177,7 +218,7 @@ function TombstoneDetailContent({
       <div className="mt-4 rounded-2xl bg-white px-3 py-3 text-left">
         <p className="text-xs font-bold text-[var(--knu-text-tertiary)]">다음 행동</p>
         <p className="mt-1 text-sm leading-6 text-[var(--knu-text-secondary)]">
-          {buildActionCtaLabel(profile.actions)}
+          {buildPrimaryActionCopy(profile.actions)}
         </p>
       </div>
       <button
@@ -223,19 +264,82 @@ function DetailRowsSection({
   );
 }
 
-function ActionSummary({ actions }: { readonly actions: PublicProfileActionCapabilities }) {
-  const label = buildActionCtaLabel(actions);
+function ActionSummary({
+  target,
+  pending,
+  onRequestMatch,
+  onBlock,
+  onReport,
+  onStartChat,
+}: {
+  readonly target: RoommateActionTargetSnapshot;
+  readonly pending: boolean;
+  readonly onRequestMatch?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onBlock?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onReport?: (target: RoommateActionTargetSnapshot) => void;
+  readonly onStartChat?: (target: RoommateActionTargetSnapshot) => void;
+}) {
+  const label = buildPrimaryActionCopy(target.actions);
+  const primaryUnavailableReason = target.actions.unavailableReasons[0] ?? null;
+
   return (
     <section className="rounded-3xl border border-[var(--knu-border)] bg-white p-4">
       <p className="text-sm font-bold text-[var(--knu-text-primary)]">다음 행동</p>
       <p className="mt-2 text-sm leading-6 text-[var(--knu-text-secondary)]">{label}</p>
-      <button
-        type="button"
-        disabled
-        className="mt-4 w-full rounded-2xl bg-[var(--knu-background-alt)] px-4 py-3 text-sm font-semibold text-[var(--knu-text-secondary)] disabled:cursor-not-allowed"
-      >
-        Phase 8에서 연결 예정
-      </button>
+      <div className="mt-4 grid gap-2">
+        {target.actions.canRequestMatch && onRequestMatch ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => onRequestMatch(target)}
+            className="rounded-2xl bg-[var(--knu-primary)] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {pending ? '요청 처리 중' : '매칭 요청 보내기'}
+          </button>
+        ) : target.actions.canStartChat && onStartChat ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => onStartChat(target)}
+            className="rounded-2xl bg-[var(--knu-primary)] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            대화 화면에서 이어가기
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            className="rounded-2xl bg-[var(--knu-background-alt)] px-4 py-3 text-sm font-semibold text-[var(--knu-text-secondary)] disabled:cursor-not-allowed"
+          >
+            {primaryUnavailableReason
+              ? formatTargetActionUnavailableReason(primaryUnavailableReason)
+              : '지금 가능한 주요 행동이 없어요'}
+          </button>
+        )}
+
+        <div className="grid grid-cols-2 gap-2">
+          {onReport ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onReport(target)}
+              className="rounded-2xl border border-[var(--knu-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--knu-text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              신고하기
+            </button>
+          ) : null}
+          {onBlock ? (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => onBlock(target)}
+              className="rounded-2xl border border-red-100 bg-white px-4 py-3 text-sm font-semibold text-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              차단하기
+            </button>
+          ) : null}
+        </div>
+      </div>
     </section>
   );
 }
@@ -299,32 +403,4 @@ function lifestyleValueLabel(value: string | null): string {
     DISTANT: '각자 생활',
   };
   return labels[value] ?? value;
-}
-
-function buildActionCtaLabel(actions: PublicProfileActionCapabilities): string {
-  if (actions.canRequestMatch)
-    return '매칭 요청 가능한 상대예요. 실제 요청 전송은 다음 단계에서 연결해요.';
-  if (actions.canStartChat) return '대화 가능한 상대예요. 대화 시작 연결은 다음 단계에서 다뤄요.';
-  const primaryReason = actions.unavailableReasons[0];
-  return primaryReason
-    ? actionUnavailableReasonLabel(primaryReason)
-    : '현재 가능한 추가 행동이 없어요.';
-}
-
-function actionUnavailableReasonLabel(reason: PublicTargetActionUnavailableReason): string {
-  const labels: Record<PublicTargetActionUnavailableReason, string> = {
-    VIEWER_NOT_REGISTERED: '시즌 등록 후 요청할 수 있어요.',
-    VIEWER_PROFILE_INCOMPLETE: '프로필 완성 후 요청할 수 있어요.',
-    VIEWER_NOT_ASSIGNED: '건물 배정 후 요청할 수 있어요.',
-    TARGET_NOT_PUBLIC: '상대가 공개 대상이 아니에요.',
-    DIFFERENT_DORMITORY: '다른 건물이라 새 요청 기능이 닫혔어요.',
-    VIEWER_ALREADY_MATCHED: '이미 매칭되어 새 요청 기능이 닫혔어요.',
-    TARGET_ALREADY_MATCHED: '상대가 이미 매칭되어 새 요청 기능이 닫혔어요.',
-    SEASON_NOT_ACTIONABLE: '시즌 정책상 새 요청 기능이 닫혔어요.',
-    ROOM_SELECTION_CUTOFF: '호실 선택 마감 이후에는 요청할 수 없어요.',
-    THREAD_READ_ONLY: '기존 대화가 읽기 전용 상태예요.',
-    TARGET_DELETED_OR_DEIDENTIFIED: '상대 정보가 더 이상 제공되지 않아요.',
-    SAFETY_OR_VISIBILITY_RESTRICTED: '안전 정책상 요청할 수 없어요.',
-  };
-  return labels[reason];
 }

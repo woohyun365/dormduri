@@ -8,6 +8,21 @@ import {
   type DeleteBookmarkResponse,
 } from '@repo/shared/social-safety/bookmark';
 import {
+  createBlockResponseSchema,
+  type CreateBlockRequest,
+  type CreateBlockResponse,
+} from '@repo/shared/social-safety/block';
+import {
+  createReportResponseSchema,
+  type CreateReportRequest,
+  type CreateReportResponse,
+} from '@repo/shared/social-safety/report';
+import {
+  matchRequestActionResponseSchema,
+  type CreateMatchRequestRequest,
+  type MatchRequestActionResponse,
+} from '@repo/shared/match/contract';
+import {
   createRoommateApiError,
   isRoommateApiError,
   normalizeRoommateApiErrorCode,
@@ -24,7 +39,12 @@ type SafeParseSchema<T> = {
   safeParse(value: unknown): { success: true; data: T } | { success: false };
 };
 
-type BookmarkActionPath = '/api/bookmarks' | `/api/bookmarks/${string}`;
+type RoommateActionPath =
+  | '/api/bookmarks'
+  | `/api/bookmarks/${string}`
+  | `/api/blocks/${string}`
+  | '/api/reports'
+  | '/api/matches/requests';
 
 function buildBookmarkListQuery(query?: BookmarkListQueryParams): string {
   if (!query) return '';
@@ -54,17 +74,25 @@ async function readSafeJson(response: Response): Promise<unknown> {
 }
 
 async function fetchRoommateActionJson<T>(input: {
-  path: BookmarkActionPath;
+  path: RoommateActionPath;
   method: 'GET' | 'POST' | 'DELETE';
   schema: SafeParseSchema<T>;
   query?: string;
+  body?: unknown;
   options?: RoommateSearchRequestOptions;
 }): Promise<T> {
   let response: Response;
+  const hasBody = input.body !== undefined;
   try {
     response = await fetch(`${input.path}${input.query ?? ''}`, {
       method: input.method,
       cache: 'no-store',
+      ...(hasBody
+        ? {
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(input.body),
+          }
+        : {}),
       signal: input.options?.signal,
     });
   } catch (error) {
@@ -125,6 +153,46 @@ export function deleteRoommateBookmark(
     path: `/api/bookmarks/${encodeURIComponent(targetUserId)}`,
     method: 'DELETE',
     schema: deleteBookmarkResponseSchema,
+    options,
+  });
+}
+
+export function createRoommateBlock(
+  targetUserId: string,
+  body: CreateBlockRequest,
+  options?: RoommateSearchRequestOptions,
+): Promise<CreateBlockResponse> {
+  return fetchRoommateActionJson({
+    path: `/api/blocks/${encodeURIComponent(targetUserId)}`,
+    method: 'POST',
+    body,
+    schema: createBlockResponseSchema,
+    options,
+  });
+}
+
+export function createRoommateReport(
+  body: CreateReportRequest,
+  options?: RoommateSearchRequestOptions,
+): Promise<CreateReportResponse> {
+  return fetchRoommateActionJson({
+    path: '/api/reports',
+    method: 'POST',
+    body,
+    schema: createReportResponseSchema,
+    options,
+  });
+}
+
+export function createRoommateMatchRequest(
+  body: CreateMatchRequestRequest,
+  options?: RoommateSearchRequestOptions,
+): Promise<MatchRequestActionResponse> {
+  return fetchRoommateActionJson({
+    path: '/api/matches/requests',
+    method: 'POST',
+    body,
+    schema: matchRequestActionResponseSchema,
     options,
   });
 }

@@ -3,7 +3,7 @@
 `apps/web/src/main/tabs/roommate-list`는 로그인 사용자가 `/main`의 룸메이트 찾기 탭에서 후보 summary list를 탐색하고, 정상 search entry에서 detail/action으로 이어지는 UX를 소유한다.
 RoommateTab은 정책과 API contract를 화면에 반영하는 Web feature owner이며, 최종 권한 판단과 mutation 성공 여부는 BE owner API가 결정한다.
 
-현재 Phase 7 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 `useRoommateBookmarkList` 기반 관심 목록 mode를 분리해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark list/action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Match/chat/block/report mutation 연결은 후속 Phase 범위다.
+현재 Phase 8 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 `useRoommateBookmarkList` 기반 관심 목록 mode를 분리해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark list/action은 제품 경로로 연결됐고, search summary entry의 `detailEntryToken` 기반 profile detail modal과 compatibility visualization을 RoommateTab 내부 경계로 연결했다. Detail modal의 block/report/match request action은 owner BFF/API mutation으로 연결되며, 성공/거부 후 list/detail state는 owner read API 재조회로 수렴한다. ChatTab send UI와 MatchingTab request inbox 관리는 후속 owner 범위다.
 
 이 repo에는 현재 활성 `DESIGN.md`가 없다. `docs/00_archive/01_development/DESIGN.md`와 `docs/03_planning/**`의 과거 설계 문서는 참고 자료이고, RoommateTab feature boundary의 현재 설계 source는 `.omx/plans/web-main-roommate-tab-refactor-plan.md`와 이 README다.
 
@@ -40,7 +40,7 @@ RoommateTab은 아래 흐름을 직접 소유하지 않는다.
 | Bookmark list/action           | `packages/shared/src/social-safety/bookmark.ts`, `apps/web/src/app/api/bookmarks/**`                                                                  |
 | Block list/action              | `packages/shared/src/social-safety/block.ts`, `apps/web/src/app/api/blocks/**`                                                                        |
 | Report action                  | `packages/shared/src/social-safety/report.ts`, `apps/web/src/app/api/reports/route.ts`                                                                |
-| Match request action           | `apps/api/src/matches/matches.controller.ts`, Phase 8에서 추가할 `apps/web/src/app/api/matches/requests/**` BFF                                       |
+| Match request action           | `packages/shared/src/match/contract`, `apps/api/src/matches/matches.controller.ts`, `apps/web/src/app/api/matches/requests/route.ts`                  |
 | Public profile field exposure  | `docs/04_policy/official/profile-model.md`, `packages/shared/src/profile/contract/public.ts`                                                          |
 | Incident/safety copy           | `docs/04_policy/official/incident-enforcement.md`, social-safety shared contracts                                                                     |
 
@@ -169,7 +169,31 @@ Detail modal rules:
 - FULL detail은 `matchScore` badge와 `compatibility` radar/list를 표시하되, `compatibility`가 없으면 score/detail 공개 상태에 맞는 안내만 표시한다.
 - TOMBSTONE detail은 retained payload를 복원하지 않고 tombstone display/message와 disabled action copy만 표시하며 compatibility/radar를 렌더링하지 않는다.
 - `CompatibilityRadar`는 보조 시각화이고, 정보 전달 source는 `CompatibilityAxisList`다.
-- Detail action CTA는 Phase 7에서 mutation을 실행하지 않고 `actions` 기반 copy만 표시한다. 실제 match/chat/block/report 연결은 Phase 8 scope다.
+- Detail action CTA는 Phase 8에서 `useRoommateActions`로 handoff한다. Match request/block/report는 owner API mutation으로 연결하고, chat은 ChatTab send UI를 만들지 않고 대화 탭 이동 handoff까지만 제공한다.
+
+## Phase 8 social actions / stale state UX
+
+Phase 8에서 RoommateTab은 detail modal의 다음 행동 영역을 `useRoommateActions`와 action dialogs로 연결한다. FE는 `actions` capability를 UX hint로 사용하지만, mutation 성공/거부는 항상 BE owner API가 최종 판단한다.
+
+| 파일                                             | 책임                                                                                                                           |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/web/src/app/api/matches/requests/route.ts` | `POST /api/matches/requests`를 protected BFF로 전달하고 success response를 `matchRequestActionResponseSchema`로 검증한다.      |
+| `api/roommateActions.client.ts`                  | bookmark 기존 기능과 block/report/match request action을 shared schema로 parse한다.                                            |
+| `hooks/useRoommateActions.ts`                    | action dialog state, pending target guard, receipt/error feedback, search/bookmark/detail refresh orchestration을 소유한다.    |
+| `model/actions/roommateActionReasonCopy.ts`      | action unavailable reason, match stale/domain error, report reason/optional block status를 raw code 없이 safe copy로 변환한다. |
+| `overlays/RoommateBlockDialog.tsx`               | optional block note form과 pending/error live status를 렌더링한다.                                                             |
+| `overlays/RoommateReportDialog.tsx`              | profile report reason/detail/disclaimer/optional block form과 receipt-safe UX를 렌더링한다.                                    |
+| `overlays/RoommateMatchRequestDialog.tsx`        | optional request note와 server revalidation/stale race 안내를 포함한 match request confirmation UX를 렌더링한다.               |
+| `overlays/RoommateProfileDetailDialog.tsx`       | FULL detail에서 match request/chat/block/report action handoff를 제공하고 TOMBSTONE에서는 disabled action copy만 유지한다.     |
+
+Action rules:
+
+- Match request create는 `targetUserId`와 optional `note`만 전송한다. `detailEntryToken`은 mutation payload나 action target snapshot에 포함하지 않는다.
+- Block success 또는 report optional block success는 search list와 bookmark list를 재조회한다. Block create의 bookmark side-effect를 FE local 제거로 대체하지 않는다.
+- Report는 intake-only receipt만 표시한다. 제재/운영 판단 여부, raw report detail, block note, internal risk tier는 UI에 표시하지 않는다.
+- Match request stale/domain rejection은 crash가 아니라 “목록 이후 상태가 바뀌었을 수 있음” copy와 list refresh로 처리한다.
+- Duplicate submit은 `pendingTargetUserIds`로 target 단위 차단한다.
+- Chat action은 ChatTab send/resume mutation을 만들지 않고, 가능한 경우 대화 탭 이동 handoff로 제한한다.
 
 ## Accessibility acceptance
 
@@ -224,6 +248,7 @@ Phase 4에서 search shell은 contract-derived view model, header/control/state/
 Phase 5에서 manifest filter sheet와 bookmark owner list/action mode를 추가했다.
 Phase 6에서 shared/API/BFF profile detail compatibility contract와 privacy guard를 추가했다.
 Phase 7에서 search summary entry 기반 detail modal과 compatibility visualization UI를 추가했다.
+Phase 8에서 detail modal action CTA를 block/report/match request owner API mutation과 stale-safe feedback으로 연결했다.
 
 Phase 4 layout/state split guard:
 
@@ -289,6 +314,23 @@ pnpm --dir apps/web exec vitest run \
   src/main/tabs/roommate-list/__tests__/RoommateListTab.search-shell.test.tsx
 ```
 
+Phase 8 social actions / stale UX guard:
+
+```bash
+pnpm --dir apps/web exec vitest run \
+  src/main/tabs/roommate-list/__tests__/roommate-runtime-boundary.test.ts \
+  src/app/api/__tests__/matches-bff-routes.test.ts \
+  src/app/api/__tests__/social-safety-bff-routes.test.ts \
+  src/main/tabs/roommate-list/api/__tests__/roommateActions.client.test.ts \
+  src/main/tabs/roommate-list/model/actions/__tests__/roommateActionReasonCopy.test.ts \
+  src/main/tabs/roommate-list/hooks/__tests__/useRoommateActions.test.tsx \
+  src/main/tabs/roommate-list/overlays/__tests__/RoommateBlockDialog.test.tsx \
+  src/main/tabs/roommate-list/overlays/__tests__/RoommateReportDialog.test.tsx \
+  src/main/tabs/roommate-list/overlays/__tests__/RoommateMatchRequestDialog.test.tsx \
+  src/main/tabs/roommate-list/overlays/__tests__/RoommateProfileDetailDialog.test.tsx \
+  src/main/tabs/roommate-list/__tests__/RoommateListTab.search-shell.test.tsx
+```
+
 ## Phase checkpoint rule
 
 각 Phase 완료 후 `.omx/plans/web-main-roommate-tab-refactor-plan.md`의 checkpoint에는 아래를 기록한다.
@@ -317,8 +359,9 @@ pnpm --dir apps/web exec vitest run \
 - Bookmark action은 owner BFF POST/DELETE로 연결됐고 duplicate pending/optimistic rollback을 hook에서 관리한다.
 - Phase 7에서 search card detail action은 `detailEntryToken`이 있는 source만 열고, profile detail BFF 응답을 FULL/TOMBSTONE/error modal 상태로 렌더링한다.
 - Compatibility UI는 shared allowlist payload만 radar/list view model로 변환하며 raw hidden key, condition value, matrix/debug key를 runtime/source/DOM에 노출하지 않는다.
+- Phase 8에서 detail action CTA는 `useRoommateActions`를 통해 match request/block/report owner mutation으로 연결되고, stale/domain rejection은 safe feedback + owner list refresh로 수렴한다.
 
-남은 범위는 Phase 8+로 넘긴다: match/chat/block/report mutation UX 연결, detail modal action CTA 실제 owner API 연결, Storybook/visual regression matrix.
+남은 범위는 Phase 9+로 넘긴다: Storybook/visual/mobile regression matrix, ChatTab send/resume UX, MatchingTab request inbox/accept/reject/cancel 관리.
 
 ## Handoff
 
@@ -329,4 +372,6 @@ pnpm --dir apps/web exec vitest run \
 - Phase 5는 manifest filter sheet와 `/api/bookmarks` owner list/action mode를 제품 경로로 연결했다.
 - Phase 6은 shared/API/BFF profile detail compatibility contract를 추가했다.
 - Phase 7은 RoommateTab detail modal과 repo-native compatibility visualization을 제품 경로로 연결했다.
+- Phase 8은 detail modal action CTA를 block/report/match request owner API와 stale-safe feedback으로 연결했다.
+- Phase 9는 Storybook/visual/mobile scenario matrix를 검증한다.
 - Phase 10은 남은 compatibility bridge와 금지 패턴을 final guard로 닫는다.
