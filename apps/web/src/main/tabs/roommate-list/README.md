@@ -120,6 +120,13 @@ pnpm web:test -- src/main/tabs/roommate-list
 
 BFF route를 추가하는 Phase에서는 route-level Vitest와 BFF helper schema/redaction 검증을 함께 실행한다.
 
+Phase 1에서 추가된 roommate-search BFF/client foundation은 아직 UI에 연결하지 않는다.
+Phase 2~3 전까지 제품 화면은 legacy local state를 계속 사용하지만, 새 코드가 contract drift를 잡는지 아래 targeted test로 검증한다.
+
+```bash
+pnpm --dir apps/web exec vitest run src/app/api/__tests__/roommate-search-bff-routes.test.ts src/main/tabs/roommate-list/api/__tests__/roommateSearch.client.test.ts
+```
+
 ## Phase checkpoint rule
 
 각 Phase 완료 후 `.omx/plans/web-main-roommate-tab-refactor-plan.md`의 checkpoint에는 아래를 기록한다.
