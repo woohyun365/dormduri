@@ -15,6 +15,8 @@ import type { TabId, UserProfile } from '@/types/profile';
 
 const CLOSED_SEARCH_MESSAGE =
   '지금은 룸메이트 찾기 탐색 기간이 아니에요. 이전 매칭 기록은 매칭 현황에서 확인해 주세요.';
+const ENTRY_CLOSED_MESSAGE =
+  '현재 상태에서는 룸메이트 찾기 탐색을 열 수 없어요. 시즌 참여 상태를 확인해 주세요.';
 const LOADING_SEARCH_MESSAGE = '룸메이트 목록을 불러오는 중이에요.';
 const EMPTY_SEARCH_MESSAGE = '조건에 맞는 룸메이트가 아직 없어요.';
 
@@ -23,11 +25,22 @@ const SEARCH_SCOPES: readonly RoommateSearchScope[] = ['CAMPUS_MERGED', 'SAME_BU
 interface RoommateListTabProps {
   user: UserProfile;
   onNavigate: (tab: TabId) => void;
+  searchEntryAllowed?: boolean;
 }
 
-export default function RoommateListTab({ user, onNavigate }: RoommateListTabProps) {
+export default function RoommateListTab({
+  user,
+  onNavigate,
+  searchEntryAllowed = true,
+}: RoommateListTabProps) {
   const season = useSeasonContext();
-  const searchClosed = season.state === 'OFF_SEASON';
+  const closedMessage =
+    season.state === 'OFF_SEASON'
+      ? CLOSED_SEARCH_MESSAGE
+      : searchEntryAllowed
+        ? null
+        : ENTRY_CLOSED_MESSAGE;
+  const searchClosed = closedMessage !== null;
   const search = useRoommateSearch({ autoLoad: !searchClosed });
   const assignedDormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
@@ -132,22 +145,20 @@ export default function RoommateListTab({ user, onNavigate }: RoommateListTabPro
         />
       ) : null}
 
-      <div className="mx-auto max-w-md px-5 pb-8">{renderSearchBody(search, searchClosed)}</div>
+      <div className="mx-auto max-w-md px-5 pb-8">{renderSearchBody(search, closedMessage)}</div>
     </div>
   );
 }
 
-function renderSearchBody(search: UseRoommateSearchResult, searchClosed: boolean) {
-  if (searchClosed) {
+function renderSearchBody(search: UseRoommateSearchResult, closedMessage: string | null) {
+  if (closedMessage) {
     return (
       <section
         role="status"
         className="mt-5 rounded-3xl border border-[var(--knu-border)] bg-white p-6 text-center shadow-sm"
       >
         <Search className="mx-auto h-8 w-8 text-[var(--knu-text-tertiary)]" />
-        <p className="mt-3 text-sm font-semibold text-[var(--knu-text-primary)]">
-          {CLOSED_SEARCH_MESSAGE}
-        </p>
+        <p className="mt-3 text-sm font-semibold text-[var(--knu-text-primary)]">{closedMessage}</p>
       </section>
     );
   }

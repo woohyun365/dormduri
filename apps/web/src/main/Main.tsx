@@ -348,7 +348,11 @@ function MainLegacyDashboardContent({
         <main>
           {renderLegacyDataFallback()}
           {activeTab === 'list' && (
-            <RoommateListTab user={profileState.user} onNavigate={handleNavigate} />
+            <RoommateListTab
+              user={profileState.user}
+              onNavigate={handleNavigate}
+              searchEntryAllowed={dashboard.viewer.capabilities.canEnterRoommateSearch}
+            />
           )}
           {activeTab === 'matching' && legacyData && (
             <MatchingTab

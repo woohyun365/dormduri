@@ -176,9 +176,40 @@ describe('Main direct-action baseline', () => {
       expect.objectContaining({
         user: expect.objectContaining({ id: 'user-1' }),
         onNavigate: expect.any(Function),
+        searchEntryAllowed: true,
       }),
     );
-    expect(Object.keys(props ?? {}).sort()).toEqual(['onNavigate', 'user']);
+    expect(Object.keys(props ?? {}).sort()).toEqual(['onNavigate', 'searchEntryAllowed', 'user']);
+  });
+
+  it('passes closed search entry capability without loading legacy list data', async () => {
+    const user = userEvent.setup();
+    const dashboard = createHomeDashboardTestResponse();
+    vi.mocked(homeDashboardApi.getDashboard).mockResolvedValue({
+      ...dashboard,
+      viewer: {
+        ...dashboard.viewer,
+        capabilities: {
+          ...dashboard.viewer.capabilities,
+          canEnterRoommateSearch: false,
+        },
+      },
+    });
+
+    render(<Main />);
+
+    await screen.findByTestId('main-home');
+    await user.click(screen.getByRole('button', { name: '룸메이트 찾기' }));
+
+    await waitFor(() => expect(roommateListTabMock).toHaveBeenCalled());
+    expect(seasonApi.getCurrentSeason).not.toHaveBeenCalled();
+    expect(profileApi.getProfiles).not.toHaveBeenCalled();
+
+    expect(roommateListTabMock.mock.lastCall?.[0]).toEqual(
+      expect.objectContaining({
+        searchEntryAllowed: false,
+      }),
+    );
   });
 
   it('keeps legacy roommate data lazy-loading for matching tab', async () => {

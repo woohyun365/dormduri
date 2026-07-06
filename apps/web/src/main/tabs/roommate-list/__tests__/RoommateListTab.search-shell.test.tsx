@@ -120,10 +120,13 @@ function createSearchResult(
   };
 }
 
-function renderRoommateListTab(season: SeasonContextValue = openSeason) {
+function renderRoommateListTab(
+  season: SeasonContextValue = openSeason,
+  props: Partial<React.ComponentProps<typeof RoommateListTab>> = {},
+) {
   return render(
     <SeasonProvider value={season}>
-      <RoommateListTab user={viewer} onNavigate={vi.fn()} />
+      <RoommateListTab user={viewer} onNavigate={vi.fn()} {...props} />
     </SeasonProvider>,
   );
 }
@@ -224,6 +227,26 @@ describe('RoommateListTab search shell', () => {
     );
     expect(screen.getByRole('status')).toHaveTextContent(
       '지금은 룸메이트 찾기 탐색 기간이 아니에요',
+    );
+  });
+
+  it('coarse entry capability가 닫히면 auto-load 없이 safe copy를 표시한다', () => {
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({
+        status: 'idle',
+        items: [],
+        response: null,
+        manifest: null,
+      }),
+    );
+
+    renderRoommateListTab(openSeason, { searchEntryAllowed: false });
+
+    expect(useRoommateSearchMock).toHaveBeenCalledWith(
+      expect.objectContaining({ autoLoad: false }),
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '현재 상태에서는 룸메이트 찾기 탐색을 열 수 없어요',
     );
   });
 });

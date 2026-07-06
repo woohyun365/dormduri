@@ -77,10 +77,11 @@ RoommateTab production runtime/import graph는 아래를 source of truth로 사�
 interface RoommateListTabProps {
   user: UserProfile;
   onNavigate: (tab: TabId) => void;
+  searchEntryAllowed?: boolean;
 }
 ```
 
-`user`는 current viewer shell의 현재 prop name이다. 후속 Phase에서 `currentUser`로 rename할 수 있지만, Phase 3의 완료 조건은 old list props bridge 제거와 `useRoommateSearch` source 전환이다.
+`user`는 current viewer shell의 현재 prop name이다. `searchEntryAllowed`는 `canEnterRoommateSearch` coarse capability를 UI shell에 전달해 request 전 no-browse 상태를 닫기 위한 boolean이며, detail/action 가능 여부를 뜻하지 않는다. 후속 Phase에서 `currentUser`로 rename할 수 있지만, Phase 3의 완료 조건은 old list props bridge 제거와 `useRoommateSearch` source 전환이다.
 
 RoommateTab 내부는 최종적으로 `api/`, `model/`, `hooks/`, `sections/`, `overlays/`, `components/`, `__tests__/`, `__stories__/`로 분리한다. BFF/client, query state, manifest mapper, detail/action state는 RoommateTab feature boundary 안에서 소유한다.
 
@@ -166,11 +167,12 @@ pnpm --dir apps/web exec vitest run \
 
 현재 기준 runtime boundary guard는 Green이어야 한다. Phase 3에서 아래 legacy runtime surface를 삭제하거나 화면 source에서 제거했다.
 
-- `Main.tsx`: list tab을 `LEGACY_DATA_TABS`에서 제거하고 `RoommateListTab`에 `user`, `onNavigate`만 전달한다.
+- `Main.tsx`: list tab을 `LEGACY_DATA_TABS`에서 제거하고 `RoommateListTab`에 current viewer shell과 coarse entry capability만 전달한다.
+- `Main.tsx`: `dashboard.viewer.capabilities.canEnterRoommateSearch`를 `searchEntryAllowed`로 전달해 coarse entry capability closed 상태에서도 legacy list data를 로드하지 않는다.
 - `RoommateListTab.tsx`: `useRoommateSearch` summary shell, status/alert/loading/empty/result/load-more UI를 직접 소유한다.
 - `useMainListViewState.ts`: Main list branch의 legacy sort/filter/view local state owner였으므로 삭제했다.
 - `useRoommateListViewModel.ts`, `RoommateListHeader.tsx`, `RoommateListResults.tsx`, legacy view-model unit test는 Phase 3에서 삭제했다.
-- OFF_SEASON에서는 search auto-load를 끄고 타인 browse closed copy를 `role="status"`로 표시한다.
+- OFF_SEASON 또는 `canEnterRoommateSearch=false`에서는 search auto-load를 끄고 타인 browse closed copy를 `role="status"`로 표시한다.
 
 남은 범위는 Phase 4+로 넘긴다: component/layout split, manifest filter sheet, profile detail/tombstone, bookmark/action/match CTA owner API 연결.
 
