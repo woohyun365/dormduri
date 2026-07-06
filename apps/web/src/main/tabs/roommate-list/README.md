@@ -3,7 +3,7 @@
 `apps/web/src/main/tabs/roommate-list`는 로그인 사용자가 `/main`의 룸메이트 찾기 탭에서 후보 summary list를 탐색하고, 정상 search entry에서 detail/action으로 이어지는 UX를 소유한다.
 RoommateTab은 정책과 API contract를 화면에 반영하는 Web feature owner이며, 최종 권한 판단과 mutation 성공 여부는 BE owner API가 결정한다.
 
-현재 Phase 3 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell로 roommate-search BFF/client 결과를 렌더링한다. Layout 분리, manifest filter sheet, detail/action CTA 연결은 후속 Phase 범위다.
+현재 Phase 4 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell을 sections/components로 분리해 roommate-search BFF/client 결과를 렌더링한다. Manifest filter sheet, bookmark list mode, detail/action CTA 연결은 후속 Phase 범위다.
 
 이 repo에는 현재 활성 `DESIGN.md`가 없다. `docs/00_archive/01_development/DESIGN.md`와 `docs/03_planning/**`의 과거 설계 문서는 참고 자료이고, RoommateTab feature boundary의 현재 설계 source는 `.omx/plans/web-main-roommate-tab-refactor-plan.md`와 이 README다.
 
@@ -85,6 +85,21 @@ interface RoommateListTabProps {
 
 RoommateTab 내부는 최종적으로 `api/`, `model/`, `hooks/`, `sections/`, `overlays/`, `components/`, `__tests__/`, `__stories__/`로 분리한다. BFF/client, query state, manifest mapper, detail/action state는 RoommateTab feature boundary 안에서 소유한다.
 
+## Phase 4 layout / state split
+
+Phase 4에서 `RoommateListTab.tsx`는 tab-level shell과 hook composition만 담당한다. UI state와 card capability 판단은 아래 파일로 분리한다.
+
+| 파일                                                   | 책임                                                                                                                   |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `model/search/roommateSearchViewModel.ts`              | search item `exposure`/`actions`/`resultRead`/`bookmark`/`matchScore`/`detailEntryToken`을 card view model로 변환한다. |
+| `sections/header/RoommateSearchHeader.tsx`             | title, status message, availability notice container를 렌더링한다.                                                     |
+| `sections/scope-switcher/RoommateSearchControls.tsx`   | scope/sort controls와 filter disabled policy copy를 렌더링한다.                                                        |
+| `sections/empty-states/RoommateSearchStateSection.tsx` | closed/loading/error/empty state를 role/status/alert 기준으로 렌더링한다.                                              |
+| `sections/results/RoommateSearchResultsSection.tsx`    | result list semantic과 cursor 기반 `더 보기` button을 렌더링한다.                                                      |
+| `components/RoommateSummaryCard.tsx`                   | card view model만 받아 summary facts, score badge, result-read/action/bookmark state copy를 표시한다.                  |
+
+Card는 shared summary를 직접 다시 해석하지 않는다. `detailEntryToken`은 view model에 보존하지만 DOM에는 렌더링하지 않으며, detail modal과 mutation CTA는 Phase 6~8에서 owner API와 함께 연결한다.
+
 ## Accessibility acceptance
 
 Phase 0은 modal/sheet 구현을 바꾸지 않지만, 이후 Phase의 acceptance를 아래로 고정한다.
@@ -101,7 +116,7 @@ Phase 0은 modal/sheet 구현을 바꾸지 않지만, 이후 Phase의 acceptance
 
 ## Test map
 
-Phase 3에서 boundary guard는 Green이어야 한다. Main list branch는 legacy data bootstrap 없이 `RoommateListTab`을 mount하고, RoommateTab runtime source는 Phase 0 금지 패턴을 포함하지 않는다.
+Phase 4에서 boundary guard는 Green이어야 한다. Main list branch는 legacy data bootstrap 없이 `RoommateListTab`을 mount하고, RoommateTab runtime source는 Phase 0 금지 패턴을 포함하지 않는다. 또한 `RoommateListTab.tsx`에는 card/state rendering internals가 남지 않고 Phase 4 split files가 존재해야 한다.
 
 ```bash
 pnpm --dir apps/web exec vitest run src/main/tabs/roommate-list/__tests__/roommate-runtime-boundary.test.ts
@@ -134,6 +149,19 @@ pnpm --dir apps/web exec vitest run \
 Phase 1에서 roommate-search BFF/client foundation을 추가했다.
 Phase 2에서 manifest-driven query/model/hook foundation을 추가했다.
 Phase 3에서 제품 화면은 legacy local list state 대신 `hooks/useRoommateSearch.ts`를 사용한다.
+Phase 4에서 search shell은 contract-derived view model, header/control/state/results/card components로 분리했다.
+
+Phase 4 layout/state split guard:
+
+```bash
+pnpm --dir apps/web exec vitest run \
+  src/main/tabs/roommate-list/__tests__/roommate-runtime-boundary.test.ts \
+  src/main/tabs/roommate-list/model/search/__tests__/roommateSearchViewModel.test.ts \
+  src/main/tabs/roommate-list/components/__tests__/RoommateSummaryCard.test.tsx \
+  src/main/tabs/roommate-list/sections/empty-states/__tests__/RoommateSearchStateSection.test.tsx \
+  src/main/tabs/roommate-list/sections/results/__tests__/RoommateSearchResultsSection.test.tsx \
+  src/main/tabs/roommate-list/__tests__/RoommateListTab.search-shell.test.tsx
+```
 
 Phase 1 BFF/client guard:
 
@@ -163,7 +191,7 @@ pnpm --dir apps/web exec vitest run \
 - 남은 failing guard / blocker.
 - 다음 Phase 기준 baseline.
 
-## Phase 3 green baseline
+## Phase 4 green baseline
 
 현재 기준 runtime boundary guard는 Green이어야 한다. Phase 3에서 아래 legacy runtime surface를 삭제하거나 화면 source에서 제거했다.
 
@@ -173,13 +201,16 @@ pnpm --dir apps/web exec vitest run \
 - `useMainListViewState.ts`: Main list branch의 legacy sort/filter/view local state owner였으므로 삭제했다.
 - `useRoommateListViewModel.ts`, `RoommateListHeader.tsx`, `RoommateListResults.tsx`, legacy view-model unit test는 Phase 3에서 삭제했다.
 - OFF_SEASON 또는 `canEnterRoommateSearch=false`에서는 search auto-load를 끄고 타인 browse closed copy를 `role="status"`로 표시한다.
+- Phase 4에서 `RoommateListTab.tsx`는 `useRoommateSearch` hook composition, closed-state 결정, section composition만 담당한다.
+- Summary card score/action/result-read/bookmark copy는 `roommateSearchViewModel.ts`가 item capability에서 만든 view model만 사용한다.
+- Result list는 cursor `더 보기` button만 사용하며 local `displayCount`/client slicing을 다시 만들지 않는다.
 
-남은 범위는 Phase 4+로 넘긴다: component/layout split, manifest filter sheet, profile detail/tombstone, bookmark/action/match CTA owner API 연결.
+남은 범위는 Phase 5+로 넘긴다: manifest filter sheet, profile detail/tombstone, bookmark/action/match CTA owner API 연결.
 
 ## Handoff
 
 - Phase 1은 이 README와 boundary guard를 기준으로 `/api/roommate-search` 및 manifest BFF/client contract를 추가한다.
 - Phase 2는 legacy `FilterState`/`DEFAULT_FILTERS` 대신 manifest-driven query/state machine을 도입한다.
 - Phase 3은 Main list branch의 legacy bootstrap과 old props bridge를 제거했고, RoommateTab shell을 search hook source로 전환했다.
-- Phase 4는 현재 shell을 contract-safe sections/components로 분리하고 state matrix UI를 정돈한다.
+- Phase 4는 현재 shell을 contract-safe sections/components로 분리하고 state matrix UI를 정돈했다.
 - Phase 10은 남은 compatibility bridge와 금지 패턴을 final guard로 닫는다.

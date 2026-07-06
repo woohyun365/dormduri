@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -35,6 +35,24 @@ const FORBIDDEN_MAIN_LIST_BRIDGE_PATTERNS = [
   'blockedUserIds={socialState.blockedUserIds}',
   'matchRequests={matchingState.matchRequests}',
   'activeMatch={matchingState.activeMatch}',
+] as const;
+
+const PHASE4_SPLIT_FILES = [
+  'model/search/roommateSearchViewModel.ts',
+  'sections/header/RoommateSearchHeader.tsx',
+  'sections/scope-switcher/RoommateSearchControls.tsx',
+  'sections/results/RoommateSearchResultsSection.tsx',
+  'sections/empty-states/RoommateSearchStateSection.tsx',
+  'components/RoommateSummaryCard.tsx',
+] as const;
+
+const FORBIDDEN_PHASE4_SHELL_INTERNALS = [
+  'RoommateSearchSummary',
+  'function renderSearchBody',
+  'function RoommateSummaryCard',
+  'function SummaryFact',
+  'function NoticeList',
+  'function lifestyleLabel',
 ] as const;
 
 function listRuntimeSourceFiles(root: string): string[] {
@@ -86,6 +104,19 @@ describe('RoommateTab runtime boundary', () => {
       source.includes(pattern),
     ).map((pattern) => `${mainRuntimeSource}: ${pattern}`);
 
+    expect(violations).toEqual([]);
+  });
+
+  it('Phase 4 shell keeps state/card rendering behind split components and mapper', () => {
+    const missingFiles = PHASE4_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
+      (file) => !existsSync(file),
+    );
+    const source = readFileSync(join(roommateRoot, 'RoommateListTab.tsx'), 'utf8');
+    const violations = FORBIDDEN_PHASE4_SHELL_INTERNALS.filter((pattern) =>
+      source.includes(pattern),
+    );
+
+    expect(missingFiles).toEqual([]);
     expect(violations).toEqual([]);
   });
 });
