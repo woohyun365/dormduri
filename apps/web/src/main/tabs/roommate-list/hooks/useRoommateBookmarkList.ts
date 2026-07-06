@@ -218,10 +218,7 @@ export function useRoommateBookmarkList(
             const next = {
               ...active,
               items: active.items.filter((item) => item.targetUserId !== targetUserId),
-              emptyState:
-                active.items.length === 1
-                  ? ('NO_BOOKMARKS' as BookmarkEmptyStateCode)
-                  : active.emptyState,
+              emptyState: active.items.length === 1 ? null : active.emptyState,
             };
             snapshotRef.current = next;
             return next;
@@ -231,6 +228,9 @@ export function useRoommateBookmarkList(
         try {
           if (bookmarked) {
             await client.deleteRoommateBookmark(targetUserId);
+            if (previousItems.length === 1) {
+              await runList('replace');
+            }
           } else {
             await client.createRoommateBookmark(targetUserId);
           }
@@ -239,7 +239,6 @@ export function useRoommateBookmarkList(
             setSnapshot((active) => {
               const next = {
                 ...active,
-                status: active.status === 'loading' ? active.status : active.status,
                 items: previousItems,
                 emptyState: previousEmptyState,
                 error,

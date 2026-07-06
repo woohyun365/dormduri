@@ -182,4 +182,30 @@ describe('useRoommateBookmarkList', () => {
     expect(result.current.getOptimisticBookmarked('target-1', true)).toBe(true);
     expect(result.current.error?.code).toBe('ROOMMATE_ACTION_NETWORK_ERROR');
   });
+
+  it('마지막 visible bookmark 삭제 성공 시 owner list를 재조회해 NO_VISIBLE_BOOKMARKS를 보존한다', async () => {
+    const client = createClient({
+      getRoommateBookmarkList: vi
+        .fn()
+        .mockResolvedValueOnce(
+          createBookmarkListResponse({ items: [createBookmarkItem('target-1')] }),
+        )
+        .mockResolvedValueOnce(
+          createBookmarkListResponse({
+            items: [],
+            emptyState: { code: 'NO_VISIBLE_BOOKMARKS' },
+          }),
+        ),
+    });
+    const { result } = renderHook(() => useRoommateBookmarkList({ client, autoLoad: true }));
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.toggleBookmark('target-1', true);
+    });
+
+    await waitFor(() => expect(result.current.emptyState).toBe('NO_VISIBLE_BOOKMARKS'));
+    expect(result.current.items).toEqual([]);
+    expect(client.getRoommateBookmarkList).toHaveBeenCalledTimes(2);
+  });
 });

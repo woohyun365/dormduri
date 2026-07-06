@@ -13,6 +13,7 @@ import {
 import {
   createCampusMergedManifest,
   createManifest,
+  createPostMatchManifest,
 } from '../../search/__tests__/roommateSearchTestFixtures';
 
 const actionableManifest = mapRoommateSearchManifest(createManifest());
@@ -55,6 +56,19 @@ describe('roommateFilterSheetModel', () => {
     expect(viewModel.canOpen).toBe(false);
     expect(viewModel.fields).toEqual([]);
     expect(viewModel.policyCopy).toContain('상세 필터는 열리지 않아요');
+  });
+
+  it('POST_MATCH_COHORT_REVIEW manifest도 filter sheet를 닫고 draft submit payload를 제거한다', () => {
+    const manifest = mapRoommateSearchManifest(createPostMatchManifest());
+    const viewModel = buildRoommateFilterSheetViewModel(manifest, {
+      scope: 'SAME_BUILDING_ONLY',
+      sort: 'MATCH_SCORE',
+      filters: { sleepHabit: 'HAS', minScore: 80 },
+    });
+
+    expect(viewModel.canOpen).toBe(false);
+    expect(viewModel.fields).toEqual([]);
+    expect(compactRoommateFilterDraft({ sleepHabit: 'HAS', minScore: 80 }, manifest)).toEqual({});
   });
 
   it('draft helper는 scalar/operator/multi/mbti/minScore payload를 manifest query shape로 compact한다', () => {
