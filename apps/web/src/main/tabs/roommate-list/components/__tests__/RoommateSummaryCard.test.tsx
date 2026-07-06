@@ -1,10 +1,13 @@
 import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
+import { vi } from 'vitest';
 import { RoommateSummaryCard } from '../RoommateSummaryCard';
 import type { RoommateSummaryCardViewModel } from '../../model/search/roommateSearchViewModel';
 
 const baseCard: RoommateSummaryCardViewModel = {
   id: 'card-1',
+  targetUserId: 'target-1',
   nickname: '테스트 룸메이트',
   intro: '조용한 생활을 선호해요.',
   facts: [
@@ -18,6 +21,13 @@ const baseCard: RoommateSummaryCardViewModel = {
   resultReadLabel: '현재 매칭 결과 읽기',
   actionStateLabel: '매칭 요청 가능',
   bookmarked: true,
+  bookmarkAction: {
+    visible: true,
+    bookmarked: true,
+    disabled: false,
+    label: '관심 목록 해제',
+    accessibilityLabel: '테스트 룸메이트 관심 목록 해제',
+  },
   detailEntryToken: 'detail-token-must-not-render',
 };
 
@@ -45,6 +55,7 @@ describe('RoommateSummaryCard', () => {
           detailViewable: false,
           resultReadLabel: null,
           bookmarked: false,
+          bookmarkAction: null,
           actionStateLabel: '다른 건물이라 요약만 볼 수 있어요',
         }}
       />,
@@ -54,5 +65,14 @@ describe('RoommateSummaryCard', () => {
     expect(screen.queryByText(/적합도/)).not.toBeInTheDocument();
     expect(screen.queryByText('detail-token-must-not-render')).not.toBeInTheDocument();
     expect(screen.queryByText(/음주/)).not.toBeInTheDocument();
+  });
+
+  it('bookmark action은 targetUserId와 현재 bookmarked 상태만 전달한다', async () => {
+    const onBookmarkToggle = vi.fn();
+    render(<RoommateSummaryCard item={baseCard} onBookmarkToggle={onBookmarkToggle} />);
+
+    await userEvent.click(screen.getByRole('button', { name: '테스트 룸메이트 관심 목록 해제' }));
+
+    expect(onBookmarkToggle).toHaveBeenCalledWith('target-1', true);
   });
 });

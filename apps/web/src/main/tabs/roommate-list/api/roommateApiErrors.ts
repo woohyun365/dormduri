@@ -1,13 +1,16 @@
 export type RoommateApiErrorCode =
   | 'ROOMMATE_SEARCH_NETWORK_ERROR'
   | 'ROOMMATE_SEARCH_SCHEMA_INVALID'
+  | 'ROOMMATE_ACTION_NETWORK_ERROR'
+  | 'ROOMMATE_ACTION_SCHEMA_INVALID'
   | 'INVALID_ROOMMATE_SEARCH_QUERY'
   | 'BFF_UPSTREAM_SCHEMA_INVALID'
   | 'BFF_UPSTREAM_UNAVAILABLE'
   | 'BFF_UPSTREAM_NON_JSON_RESPONSE'
   | 'BFF_UPSTREAM_MALFORMED_JSON_RESPONSE'
   | 'BFF_UPSTREAM_URL_INVALID'
-  | 'UNKNOWN_ROOMMATE_SEARCH_ERROR';
+  | 'UNKNOWN_ROOMMATE_SEARCH_ERROR'
+  | 'UNKNOWN_ROOMMATE_ACTION_ERROR';
 
 export interface RoommateApiError {
   readonly code: RoommateApiErrorCode;
@@ -23,6 +26,10 @@ const SAFE_ERROR_MESSAGES: Record<RoommateApiErrorCode, string> = {
     '룸메이트 찾기 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
   ROOMMATE_SEARCH_SCHEMA_INVALID:
     '룸메이트 찾기 응답을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
+  ROOMMATE_ACTION_NETWORK_ERROR:
+    '룸메이트 관심 목록 요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.',
+  ROOMMATE_ACTION_SCHEMA_INVALID:
+    '룸메이트 관심 목록 응답을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.',
   INVALID_ROOMMATE_SEARCH_QUERY: '검색 조건이 최신 룸메이트 찾기 정책과 맞지 않아요.',
   BFF_UPSTREAM_SCHEMA_INVALID: '룸메이트 찾기 응답 형식이 올바르지 않아요.',
   BFF_UPSTREAM_UNAVAILABLE: '룸메이트 찾기 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
@@ -32,16 +39,21 @@ const SAFE_ERROR_MESSAGES: Record<RoommateApiErrorCode, string> = {
   BFF_UPSTREAM_URL_INVALID: '룸메이트 찾기 요청 경로가 올바르지 않아요.',
   UNKNOWN_ROOMMATE_SEARCH_ERROR:
     '룸메이트 찾기 요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.',
+  UNKNOWN_ROOMMATE_ACTION_ERROR:
+    '룸메이트 관심 목록 요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.',
 };
 
 const RETRYABLE_ERROR_CODES = new Set<RoommateApiErrorCode>([
   'ROOMMATE_SEARCH_NETWORK_ERROR',
   'ROOMMATE_SEARCH_SCHEMA_INVALID',
+  'ROOMMATE_ACTION_NETWORK_ERROR',
+  'ROOMMATE_ACTION_SCHEMA_INVALID',
   'BFF_UPSTREAM_SCHEMA_INVALID',
   'BFF_UPSTREAM_UNAVAILABLE',
   'BFF_UPSTREAM_NON_JSON_RESPONSE',
   'BFF_UPSTREAM_MALFORMED_JSON_RESPONSE',
   'UNKNOWN_ROOMMATE_SEARCH_ERROR',
+  'UNKNOWN_ROOMMATE_ACTION_ERROR',
 ]);
 
 const KNOWN_ERROR_CODES = new Set<RoommateApiErrorCode>(
@@ -72,11 +84,14 @@ export function isRoommateApiError(error: unknown): error is RoommateApiRequestE
   );
 }
 
-export function normalizeRoommateApiErrorCode(input: unknown): RoommateApiErrorCode {
+export function normalizeRoommateApiErrorCode(
+  input: unknown,
+  fallback: RoommateApiErrorCode = 'UNKNOWN_ROOMMATE_SEARCH_ERROR',
+): RoommateApiErrorCode {
   if (typeof input === 'string' && KNOWN_ERROR_CODES.has(input as RoommateApiErrorCode)) {
     return input as RoommateApiErrorCode;
   }
-  return 'UNKNOWN_ROOMMATE_SEARCH_ERROR';
+  return fallback;
 }
 
 export function createRoommateApiError(input: {

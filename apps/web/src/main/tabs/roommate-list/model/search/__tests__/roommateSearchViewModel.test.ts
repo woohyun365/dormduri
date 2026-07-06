@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { mapRoommateSearchItemToCardViewModel } from '../roommateSearchViewModel';
+import {
+  mapBookmarkListItemToCardViewModel,
+  mapRoommateSearchItemToCardViewModel,
+} from '../roommateSearchViewModel';
 import { createSummary } from './roommateSearchTestFixtures';
 
 function summary(overrides: Partial<ReturnType<typeof createSummary>> = {}) {
@@ -56,6 +59,8 @@ describe('roommateSearchViewModel', () => {
 
     expect(vm.resultReadLabel).toBe('현재 매칭 결과 읽기');
     expect(vm.bookmarked).toBe(true);
+    expect(vm.targetUserId).toBe('result-read');
+    expect(vm.bookmarkAction?.accessibilityLabel).toBe('테스트-result-read 관심 목록 해제');
     expect(vm.detailEntryToken).toBe('detail-entry-token-safe');
   });
 
@@ -78,5 +83,23 @@ describe('roommateSearchViewModel', () => {
       { label: '관계', value: '적당한 거리' },
     ]);
     expect(vm.facts.map((fact) => fact.label)).not.toContain('음주');
+  });
+
+  it('bookmark owner item은 targetUserId 기준 card VM으로 변환하고 hidden reason을 노출하지 않는다', () => {
+    const vm = mapBookmarkListItemToCardViewModel({
+      id: 'bookmark-1',
+      targetUserId: 'target-user-1',
+      targetParticipantId: 'participant-1',
+      bookmarkedAt: '2026-07-06T00:00:00.000Z',
+      visibility: 'NO_LONGER_VISIBLE',
+      profileSummary: null,
+      matchScore: null,
+    });
+
+    expect(vm.targetUserId).toBe('target-user-1');
+    expect(vm.nickname).toBe('저장한 룸메이트');
+    expect(vm.intro).toBe('저장한 항목이 현재 정책상 보이지 않아요.');
+    expect(vm.detailEntryToken).toBeNull();
+    expect(vm.bookmarkAction?.accessibilityLabel).toBe('저장한 룸메이트 관심 목록 해제');
   });
 });

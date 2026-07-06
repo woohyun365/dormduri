@@ -5,19 +5,21 @@ interface RoommateSearchResultsSectionProps {
   readonly items: readonly RoommateSummaryCardViewModel[];
   readonly canLoadMore: boolean;
   readonly onLoadMore: () => void;
+  readonly onBookmarkToggle?: (targetUserId: string, bookmarked: boolean) => void;
 }
 
 export function RoommateSearchResultsSection({
   items,
   canLoadMore,
   onLoadMore,
+  onBookmarkToggle,
 }: RoommateSearchResultsSectionProps) {
   return (
     <section className="space-y-3" aria-label="룸메이트 검색 결과">
       <ul className="space-y-3">
         {items.map((item) => (
           <li key={item.id}>
-            <RoommateSummaryCard item={item} />
+            <RoommateSummaryCard item={item} onBookmarkToggle={onBookmarkToggle} />
           </li>
         ))}
       </ul>

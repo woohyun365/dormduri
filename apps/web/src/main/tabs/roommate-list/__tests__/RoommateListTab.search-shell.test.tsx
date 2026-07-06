@@ -6,6 +6,10 @@ import { SeasonProvider, type SeasonContextValue } from '@/main/contexts/SeasonC
 import type { UserProfile } from '@/types/profile';
 import { createRoommateApiError } from '../api/roommateApiErrors';
 import RoommateListTab from '../RoommateListTab';
+import {
+  useRoommateBookmarkList,
+  type UseRoommateBookmarkListResult,
+} from '../hooks/useRoommateBookmarkList';
 import { useRoommateSearch, type UseRoommateSearchResult } from '../hooks/useRoommateSearch';
 import { mapRoommateSearchManifest } from '../model/filters/roommateSearchManifestModel';
 import { mapRoommateSearchAvailabilityNotices } from '../model/search/roommateSearchNotices';
@@ -18,8 +22,12 @@ import {
 vi.mock('../hooks/useRoommateSearch', () => ({
   useRoommateSearch: vi.fn(),
 }));
+vi.mock('../hooks/useRoommateBookmarkList', () => ({
+  useRoommateBookmarkList: vi.fn(),
+}));
 
 const useRoommateSearchMock = vi.mocked(useRoommateSearch);
+const useRoommateBookmarkListMock = vi.mocked(useRoommateBookmarkList);
 
 const viewer: UserProfile = {
   id: 'viewer-1',
@@ -120,6 +128,30 @@ function createSearchResult(
   };
 }
 
+function createBookmarkResult(
+  overrides: Partial<UseRoommateBookmarkListResult> = {},
+): UseRoommateBookmarkListResult {
+  return {
+    status: 'success',
+    sort: 'RECENT',
+    items: [],
+    nextCursor: null,
+    emptyState: 'NO_BOOKMARKS',
+    error: null,
+    optimisticBookmarkState: {},
+    pendingTargetUserIds: [],
+    hasNextPage: false,
+    canLoadMore: false,
+    isTargetPending: vi.fn(() => false),
+    getOptimisticBookmarked: vi.fn((_targetUserId, fallback) => fallback),
+    refresh: noopAsync(),
+    loadMore: noopAsync(),
+    changeSort: noopAsync(),
+    toggleBookmark: noopAsync(),
+    ...overrides,
+  };
+}
+
 function renderRoommateListTab(
   season: SeasonContextValue = openSeason,
   props: Partial<React.ComponentProps<typeof RoommateListTab>> = {},
@@ -134,6 +166,8 @@ function renderRoommateListTab(
 describe('RoommateListTab search shell', () => {
   beforeEach(() => {
     useRoommateSearchMock.mockReset();
+    useRoommateBookmarkListMock.mockReset();
+    useRoommateBookmarkListMock.mockReturnValue(createBookmarkResult());
   });
 
   it('loading state를 status role로 표시한다', () => {
@@ -208,6 +242,73 @@ describe('RoommateListTab search shell', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '더 보기' }));
     expect(loadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('search mode에서 manifest filter bar와 bookmark action을 연결한다', async () => {
+    const summary = createSummary('target-1');
+    const removeFilter = vi.fn(async () => {});
+    const resetFilters = vi.fn(async () => {});
+    const toggleBookmark = vi.fn(async () => {});
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({
+        items: [summary],
+        query: {
+          scope: 'SAME_BUILDING_ONLY',
+          sort: 'MATCH_SCORE',
+          filters: { smokingBehavior: 'NO' },
+        },
+        removeFilter,
+        resetFilters,
+      }),
+    );
+    useRoommateBookmarkListMock.mockReturnValue(createBookmarkResult({ toggleBookmark }));
+
+    renderRoommateListTab();
+
+    await userEvent.click(screen.getByRole('button', { name: '흡연 비흡연 필터 제거' }));
+    expect(removeFilter).toHaveBeenCalledWith('smokingBehavior');
+
+    await userEvent.click(screen.getByRole('button', { name: '테스트-target-1 관심 목록 저장' }));
+    expect(toggleBookmark).toHaveBeenCalledWith('target-1', false);
+
+    await userEvent.click(screen.getByRole('button', { name: '전체 해제' }));
+    expect(resetFilters).toHaveBeenCalledTimes(1);
+  });
+
+  it('관심 목록 mode는 search page local filter가 아니라 bookmark hook 결과를 표시한다', async () => {
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({ items: [createSummary('search-only')] }),
+    );
+    useRoommateBookmarkListMock.mockReturnValue(
+      createBookmarkResult({
+        items: [
+          {
+            id: 'bookmark-1',
+            targetUserId: 'bookmark-target',
+            targetParticipantId: 'bookmark-participant',
+            bookmarkedAt: '2026-06-08T00:00:00.000Z',
+            visibility: 'VISIBLE',
+            profileSummary: {
+              nickname: '북마크 사용자',
+              intro: '관심 목록 owner 응답',
+              smokingBehavior: 'NO',
+              sleepHabit: 'NONE',
+              relationshipStyle: 'CASUAL',
+            },
+            matchScore: 91,
+          },
+        ],
+      }),
+    );
+
+    renderRoommateListTab();
+    await userEvent.click(screen.getByRole('button', { name: '관심 목록' }));
+
+    expect(useRoommateBookmarkListMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ autoLoad: true }),
+    );
+    expect(screen.getByText('북마크 사용자')).toBeInTheDocument();
+    expect(screen.queryByText('테스트-search-only')).not.toBeInTheDocument();
   });
 
   it('OFF_SEASON에서는 browse closed copy를 표시하고 auto-load를 끈다', () => {

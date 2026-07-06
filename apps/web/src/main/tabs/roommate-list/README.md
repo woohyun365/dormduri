@@ -3,7 +3,7 @@
 `apps/web/src/main/tabs/roommate-list`는 로그인 사용자가 `/main`의 룸메이트 찾기 탭에서 후보 summary list를 탐색하고, 정상 search entry에서 detail/action으로 이어지는 UX를 소유한다.
 RoommateTab은 정책과 API contract를 화면에 반영하는 Web feature owner이며, 최종 권한 판단과 mutation 성공 여부는 BE owner API가 결정한다.
 
-현재 Phase 4 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell을 sections/components로 분리해 roommate-search BFF/client 결과를 렌더링한다. Manifest filter sheet, bookmark list mode, detail/action CTA 연결은 후속 Phase 범위다.
+현재 Phase 5 상태에서 `/main` list tab은 legacy profile/social/matching props bridge를 받지 않고, `useRoommateSearch` 기반 summary shell과 `useRoommateBookmarkList` 기반 관심 목록 mode를 분리해 BFF/client 결과를 렌더링한다. Manifest filter sheet와 bookmark list/action은 제품 경로로 연결됐고, profile detail/tombstone 및 match/chat/block/report mutation 연결은 후속 Phase 범위다.
 
 이 repo에는 현재 활성 `DESIGN.md`가 없다. `docs/00_archive/01_development/DESIGN.md`와 `docs/03_planning/**`의 과거 설계 문서는 참고 자료이고, RoommateTab feature boundary의 현재 설계 source는 `.omx/plans/web-main-roommate-tab-refactor-plan.md`와 이 README다.
 
@@ -100,6 +100,38 @@ Phase 4에서 `RoommateListTab.tsx`는 tab-level shell과 hook composition만 �
 
 Card는 shared summary를 직접 다시 해석하지 않는다. `detailEntryToken`은 view model에 보존하지만 DOM에는 렌더링하지 않으며, detail modal과 mutation CTA는 Phase 6~8에서 owner API와 함께 연결한다.
 
+## Phase 5 manifest filter / bookmark owner mode
+
+Phase 5에서 상세 필터와 관심 목록은 legacy local state가 아니라 owner contract를 기준으로 동작한다.
+
+| 파일                                                    | 책임                                                                                                                                  |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `model/filters/roommateFilterSheetModel.ts`             | search manifest와 current query에서 filter sheet field/draft/active chip/submit payload를 만든다. disabled field는 submit하지 않는다. |
+| `sections/filters/RoommateSearchFilterBar.tsx`          | 현재 scope에서 filter sheet를 열 수 있는지와 active chip/remove/reset UI를 표시한다.                                                  |
+| `overlays/RoommateFilterSheet.tsx`                      | `BaseBottomSheet` 기반 manifest field editor다. legacy `BottomSheet`/`FilterState`/`DEFAULT_FILTERS`를 사용하지 않는다.               |
+| `api/roommateActions.client.ts`                         | `/api/bookmarks` list 및 `/api/bookmarks/:targetUserId` POST/DELETE를 shared bookmark schema로 parse한다.                             |
+| `hooks/useRoommateBookmarkList.ts`                      | bookmark owner list status/sort/cursor/empty/pending/optimistic rollback state를 소유한다.                                            |
+| `sections/bookmarks/RoommateBookmarkResultsSection.tsx` | bookmark list mode, `RECENT`/`MATCH_SCORE` 정렬, empty/error/loading/result UI를 렌더링한다.                                          |
+| `model/search/roommateSearchViewModel.ts`               | search summary와 bookmark list item을 같은 card VM으로 변환하되 `targetUserId`, bookmark pending/optimistic overlay를 명시한다.       |
+
+Filter support matrix:
+
+- scalar 생활 패턴 field는 manifest option이 enabled일 때만 single-select chip/button으로 노출한다.
+- `college`는 `INCLUDE`/`EXCLUDE` 단일 operator와 multi value를 지원하며 `excludeMyCollege` 같은 FE convenience shortcut을 만들지 않는다.
+- `grade`는 manifest operator가 제공하는 범위만 렌더링한다.
+- `mbtiTraits`는 4개 차원 partial 선택을 허용하고 선택하지 않은 차원은 payload에서 제거한다.
+- `ageBand`는 multi value를 dotted query payload shape로 compact한다.
+- `minScore`는 manifest에서 enabled이고 `MATCH_SCORE` sort가 가능한 경우에만 submit된다.
+- `CAMPUS_MERGED`/`POST_MATCH_COHORT_REVIEW`처럼 manifest `filters.enabled=false`인 scope에서는 sheet CTA가 disabled되고 policy copy만 표시된다.
+
+Bookmark owner rule:
+
+- 관심 목록 mode는 현재 search page items를 local filter하지 않고 `/api/bookmarks` list response만 렌더링한다.
+- Bookmark sort는 shared `RECENT`/`MATCH_SCORE`만 사용하며 pagination은 cursor `pageInfo.nextCursor`만 따른다.
+- Empty copy는 `NO_BOOKMARKS`와 `NO_VISIBLE_BOOKMARKS`를 구분하되 hidden reason, hidden count, target identity는 노출하지 않는다.
+- Search card의 bookmark action은 `/api/bookmarks/:targetUserId` owner mutation으로 연결하고 duplicate pending 동안 disabled된다.
+- Optimistic bookmark overlay는 UI hint이며 실패 시 이전 상태로 rollback된다. 최종 relation truth는 owner API response/refetch다.
+
 ## Accessibility acceptance
 
 Phase 0은 modal/sheet 구현을 바꾸지 않지만, 이후 Phase의 acceptance를 아래로 고정한다.
@@ -150,6 +182,7 @@ Phase 1에서 roommate-search BFF/client foundation을 추가했다.
 Phase 2에서 manifest-driven query/model/hook foundation을 추가했다.
 Phase 3에서 제품 화면은 legacy local list state 대신 `hooks/useRoommateSearch.ts`를 사용한다.
 Phase 4에서 search shell은 contract-derived view model, header/control/state/results/card components로 분리했다.
+Phase 5에서 manifest filter sheet와 bookmark owner list/action mode를 추가했다.
 
 Phase 4 layout/state split guard:
 
@@ -181,6 +214,23 @@ pnpm --dir apps/web exec vitest run \
   src/main/tabs/roommate-list/hooks/__tests__/useRoommateSearch.test.tsx
 ```
 
+Phase 5 manifest filter / bookmark owner guard:
+
+```bash
+pnpm --dir apps/web exec vitest run \
+  src/main/tabs/roommate-list/__tests__/roommate-runtime-boundary.test.ts \
+  src/main/tabs/roommate-list/model/filters/__tests__/roommateFilterSheetModel.test.ts \
+  src/main/tabs/roommate-list/sections/filters/__tests__/RoommateSearchFilterBar.test.tsx \
+  src/main/tabs/roommate-list/overlays/__tests__/RoommateFilterSheet.test.tsx \
+  src/main/tabs/roommate-list/api/__tests__/roommateActions.client.test.ts \
+  src/main/tabs/roommate-list/hooks/__tests__/useRoommateBookmarkList.test.tsx \
+  src/main/tabs/roommate-list/sections/bookmarks/__tests__/RoommateBookmarkResultsSection.test.tsx \
+  src/main/tabs/roommate-list/components/__tests__/RoommateSummaryCard.test.tsx \
+  src/main/tabs/roommate-list/sections/results/__tests__/RoommateSearchResultsSection.test.tsx \
+  src/main/tabs/roommate-list/model/search/__tests__/roommateSearchViewModel.test.ts \
+  src/main/tabs/roommate-list/__tests__/RoommateListTab.search-shell.test.tsx
+```
+
 ## Phase checkpoint rule
 
 각 Phase 완료 후 `.omx/plans/web-main-roommate-tab-refactor-plan.md`의 checkpoint에는 아래를 기록한다.
@@ -204,9 +254,11 @@ pnpm --dir apps/web exec vitest run \
 - OFF_SEASON 또는 `canEnterRoommateSearch=false`에서는 search auto-load를 끄고 타인 browse closed copy를 `role="status"`로 표시한다.
 - Phase 4에서 `RoommateListTab.tsx`는 `useRoommateSearch` hook composition, closed-state 결정, section composition만 담당한다.
 - Summary card score/action/result-read/bookmark copy는 `roommateSearchViewModel.ts`가 item capability에서 만든 view model만 사용하며, `resultRead.resultReadable=false`이면 context만으로 result-read badge를 열지 않는다.
-- Result list는 cursor `더 보기` button만 사용하며 local `displayCount`/client slicing을 다시 만들지 않는다.
+- Result list와 bookmark list는 cursor `더 보기` button만 사용하며 local `displayCount`/client slicing을 다시 만들지 않는다.
+- Phase 5에서 상세 필터는 manifest-driven field만 submit하고, bookmark mode는 `/api/bookmarks` owner list를 사용한다.
+- Bookmark action은 owner BFF POST/DELETE로 연결됐고 duplicate pending/optimistic rollback을 hook에서 관리한다.
 
-남은 범위는 Phase 5+로 넘긴다: manifest filter sheet, profile detail/tombstone, bookmark/action/match CTA owner API 연결.
+남은 범위는 Phase 6+로 넘긴다: profile detail/tombstone, compatibility shared/API/BFF contract, match/chat/block/report mutation UX 연결.
 
 ## Handoff
 
@@ -214,4 +266,5 @@ pnpm --dir apps/web exec vitest run \
 - Phase 2는 legacy `FilterState`/`DEFAULT_FILTERS` 대신 manifest-driven query/state machine을 도입한다.
 - Phase 3은 Main list branch의 legacy bootstrap과 old props bridge를 제거했고, RoommateTab shell을 search hook source로 전환했다.
 - Phase 4는 현재 shell을 contract-safe sections/components로 분리하고 state matrix UI를 정돈했다.
+- Phase 5는 manifest filter sheet와 `/api/bookmarks` owner list/action mode를 제품 경로로 연결했다.
 - Phase 10은 남은 compatibility bridge와 금지 패턴을 final guard로 닫는다.

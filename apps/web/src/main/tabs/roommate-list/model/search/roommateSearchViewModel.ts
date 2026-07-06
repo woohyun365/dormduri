@@ -1,7 +1,5 @@
-import type {
-  RoommateSearchProfileSummary,
-  RoommateSearchSummary,
-} from '@repo/shared/roommate-search/contract';
+import type { BookmarkListItem } from '@repo/shared/social-safety/bookmark';
+import type { RoommateSearchSummary } from '@repo/shared/roommate-search/contract';
 import type {
   PublicProfileActionCapabilities,
   PublicTargetActionUnavailableReason,
@@ -13,8 +11,17 @@ export interface RoommateSummaryCardFactViewModel {
   readonly value: string;
 }
 
+export interface RoommateBookmarkActionViewModel {
+  readonly visible: boolean;
+  readonly bookmarked: boolean;
+  readonly disabled: boolean;
+  readonly label: string;
+  readonly accessibilityLabel: string;
+}
+
 export interface RoommateSummaryCardViewModel {
   readonly id: string;
+  readonly targetUserId: string;
   readonly nickname: string;
   readonly intro: string;
   readonly facts: readonly RoommateSummaryCardFactViewModel[];
@@ -24,24 +31,43 @@ export interface RoommateSummaryCardViewModel {
   readonly resultReadLabel: string | null;
   readonly actionStateLabel: string;
   readonly bookmarked: boolean;
+  readonly bookmarkAction: RoommateBookmarkActionViewModel | null;
   readonly detailEntryToken: string | null;
 }
 
+interface SummaryFactSource {
+  readonly smokingBehavior: string | null;
+  readonly sleepHabit: string | null;
+  readonly relationshipStyle: string | null;
+}
+
+export interface RoommateCardBookmarkStateOptions {
+  readonly getBookmarked?: (targetUserId: string, fallback: boolean) => boolean;
+  readonly isPending?: (targetUserId: string) => boolean;
+}
+
 const EMPTY_INTRO_COPY = '아직 자기소개가 없어요.';
+const HIDDEN_BOOKMARK_INTRO_COPY = '저장한 항목이 현재 정책상 보이지 않아요.';
 
 export function mapRoommateSearchItemsToCardViewModels(
   items: readonly RoommateSearchSummary[],
+  options: RoommateCardBookmarkStateOptions = {},
 ): readonly RoommateSummaryCardViewModel[] {
-  return items.map(mapRoommateSearchItemToCardViewModel);
+  return items.map((item) => mapRoommateSearchItemToCardViewModel(item, options));
 }
 
 export function mapRoommateSearchItemToCardViewModel(
   item: RoommateSearchSummary,
+  options: RoommateCardBookmarkStateOptions = {},
 ): RoommateSummaryCardViewModel {
   const detailViewable = item.exposure.detailViewable && item.exposure.canViewFull;
+  const fallbackBookmarked = item.bookmark?.bookmarked === true;
+  const bookmarked = options.getBookmarked?.(item.id, fallbackBookmarked) ?? fallbackBookmarked;
+  const pending = options.isPending?.(item.id) ?? false;
 
   return {
     id: item.id,
+    targetUserId: item.id,
     nickname: item.profileSummary.nickname,
     intro: normalizeIntro(item.profileSummary.intro),
     facts: buildSummaryFacts(item.profileSummary),
@@ -52,8 +78,58 @@ export function mapRoommateSearchItemToCardViewModel(
       ? buildResultReadLabel(item.resultRead.context)
       : null,
     actionStateLabel: buildActionStateLabel(item.actions),
-    bookmarked: item.bookmark?.bookmarked === true,
+    bookmarked,
+    bookmarkAction: buildBookmarkAction({
+      targetUserId: item.id,
+      nickname: item.profileSummary.nickname,
+      bookmarked,
+      pending,
+      visible: item.actions.canBookmark,
+      disabled: pending,
+    }),
     detailEntryToken: normalizeDetailEntryToken(item.detailEntryToken),
+  };
+}
+
+export function mapBookmarkListItemsToCardViewModels(
+  items: readonly BookmarkListItem[],
+  options: RoommateCardBookmarkStateOptions = {},
+): readonly RoommateSummaryCardViewModel[] {
+  return items.map((item) => mapBookmarkListItemToCardViewModel(item, options));
+}
+
+export function mapBookmarkListItemToCardViewModel(
+  item: BookmarkListItem,
+  options: RoommateCardBookmarkStateOptions = {},
+): RoommateSummaryCardViewModel {
+  const profileSummary = item.visibility === 'VISIBLE' ? item.profileSummary : null;
+  const fallbackBookmarked = true;
+  const bookmarked =
+    options.getBookmarked?.(item.targetUserId, fallbackBookmarked) ?? fallbackBookmarked;
+  const pending = options.isPending?.(item.targetUserId) ?? false;
+  const nickname = profileSummary ? profileSummary.nickname : '저장한 룸메이트';
+
+  return {
+    id: item.id,
+    targetUserId: item.targetUserId,
+    nickname,
+    intro: profileSummary ? normalizeIntro(profileSummary.intro) : HIDDEN_BOOKMARK_INTRO_COPY,
+    facts: profileSummary ? buildSummaryFacts(profileSummary) : [],
+    scoreLabel: buildBookmarkScoreLabel(item),
+    summaryOnly: true,
+    detailViewable: false,
+    resultReadLabel: null,
+    actionStateLabel: profileSummary ? '관심 목록에서 관리 중' : '현재 정책상 요약을 볼 수 없어요',
+    bookmarked,
+    bookmarkAction: buildBookmarkAction({
+      targetUserId: item.targetUserId,
+      nickname,
+      bookmarked,
+      pending,
+      visible: true,
+      disabled: pending,
+    }),
+    detailEntryToken: null,
   };
 }
 
@@ -63,7 +139,7 @@ function normalizeIntro(intro: string): string {
 }
 
 function buildSummaryFacts(
-  summary: RoommateSearchProfileSummary,
+  summary: SummaryFactSource,
 ): readonly RoommateSummaryCardFactViewModel[] {
   return [
     { label: '흡연', value: lifestyleLabel(summary.smokingBehavior) },
@@ -77,6 +153,29 @@ function buildScoreLabel(item: RoommateSearchSummary): string | null {
     return null;
   }
   return `적합도 ${item.matchScore}점`;
+}
+
+function buildBookmarkScoreLabel(item: BookmarkListItem): string | null {
+  return typeof item.matchScore === 'number' ? `적합도 ${item.matchScore}점` : null;
+}
+
+function buildBookmarkAction(input: {
+  targetUserId: string;
+  nickname: string;
+  bookmarked: boolean;
+  pending: boolean;
+  visible: boolean;
+  disabled: boolean;
+}): RoommateBookmarkActionViewModel | null {
+  if (!input.visible) return null;
+  const label = input.pending ? '저장 중' : input.bookmarked ? '관심 목록 해제' : '관심 목록 저장';
+  return {
+    visible: true,
+    bookmarked: input.bookmarked,
+    disabled: input.disabled,
+    label,
+    accessibilityLabel: `${input.nickname} ${label}`,
+  };
 }
 
 function buildResultReadLabel(context: PublicTargetResultReadContext): string | null {

@@ -1,11 +1,19 @@
 'use client';
 
+import { useState } from 'react';
 import { getDormitoryById } from '@/constants/dormitory';
 import { useSeasonContext } from '@/main/contexts/SeasonContext';
 import { isDormitoryAssigned } from '@/utils/dormitory';
 import { RoommateListBannerGroup } from './RoommateListBannerGroup';
+import { useRoommateBookmarkList } from './hooks/useRoommateBookmarkList';
 import { useRoommateSearch, type UseRoommateSearchResult } from './hooks/useRoommateSearch';
-import { mapRoommateSearchItemsToCardViewModels } from './model/search/roommateSearchViewModel';
+import {
+  mapBookmarkListItemsToCardViewModels,
+  mapRoommateSearchItemsToCardViewModels,
+} from './model/search/roommateSearchViewModel';
+import { RoommateFilterSheet } from './overlays/RoommateFilterSheet';
+import { RoommateBookmarkResultsSection } from './sections/bookmarks/RoommateBookmarkResultsSection';
+import { RoommateSearchFilterBar } from './sections/filters/RoommateSearchFilterBar';
 import { RoommateSearchHeader } from './sections/header/RoommateSearchHeader';
 import { RoommateSearchControls } from './sections/scope-switcher/RoommateSearchControls';
 import {
@@ -14,6 +22,8 @@ import {
 } from './sections/empty-states/RoommateSearchStateSection';
 import { RoommateSearchResultsSection } from './sections/results/RoommateSearchResultsSection';
 import type { TabId, UserProfile } from '@/types/profile';
+
+type RoommateListMode = 'search' | 'bookmarks';
 
 const CLOSED_SEARCH_MESSAGE =
   '지금은 룸메이트 찾기 탐색 기간이 아니에요. 이전 매칭 기록은 매칭 현황에서 확인해 주세요.';
@@ -33,6 +43,8 @@ export default function RoommateListTab({
   searchEntryAllowed = true,
 }: RoommateListTabProps) {
   const season = useSeasonContext();
+  const [mode, setMode] = useState<RoommateListMode>('search');
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const closedMessage =
     season.state === 'OFF_SEASON'
       ? CLOSED_SEARCH_MESSAGE
@@ -41,13 +53,21 @@ export default function RoommateListTab({
         : ENTRY_CLOSED_MESSAGE;
   const searchClosed = closedMessage !== null;
   const search = useRoommateSearch({ autoLoad: !searchClosed });
+  const bookmarks = useRoommateBookmarkList({ autoLoad: !searchClosed && mode === 'bookmarks' });
   const assignedDormitory = isDormitoryAssigned(user.dormitoryId)
     ? getDormitoryById(user.dormitoryId)
     : null;
   const headerTitle = assignedDormitory ? `${assignedDormitory.name} 룸메이트` : '룸메이트 찾기';
-  const isLoading = search.status === 'idle' || search.status.startsWith('loading');
+  const isSearchLoading = search.status === 'idle' || search.status.startsWith('loading');
   const state = getSearchStateSectionState(search, closedMessage);
-  const cardItems = mapRoommateSearchItemsToCardViewModels(search.items);
+  const searchCardItems = mapRoommateSearchItemsToCardViewModels(search.items, {
+    getBookmarked: bookmarks.getOptimisticBookmarked,
+    isPending: bookmarks.isTargetPending,
+  });
+  const bookmarkCardItems = mapBookmarkListItemsToCardViewModels(bookmarks.items, {
+    getBookmarked: bookmarks.getOptimisticBookmarked,
+    isPending: bookmarks.isTargetPending,
+  });
 
   return (
     <div>
@@ -55,18 +75,23 @@ export default function RoommateListTab({
         title={headerTitle}
         statusMessage={search.statusMessage}
         notices={search.notices}
-        showRuntimeMessages={!searchClosed}
+        showRuntimeMessages={!searchClosed && mode === 'search'}
       >
         {!searchClosed ? (
-          <RoommateSearchControls
-            scope={search.query.scope}
-            sort={search.query.sort}
-            manifest={search.manifest}
-            scopeAvailability={search.response?.scopeAvailability ?? null}
-            disabled={isLoading}
-            onScopeChange={(scope) => void search.changeScope(scope)}
-            onSortChange={(sort) => void search.changeSort(sort)}
-          />
+          <div className="space-y-4">
+            <RoommateListModeSwitch mode={mode} disabled={isSearchLoading} onModeChange={setMode} />
+            {mode === 'search' ? (
+              <RoommateSearchControls
+                scope={search.query.scope}
+                sort={search.query.sort}
+                manifest={search.manifest}
+                scopeAvailability={search.response?.scopeAvailability ?? null}
+                disabled={isSearchLoading}
+                onScopeChange={(scope) => void search.changeScope(scope)}
+                onSortChange={(sort) => void search.changeSort(sort)}
+              />
+            ) : null}
+          </div>
         ) : null}
       </RoommateSearchHeader>
 
@@ -76,21 +101,98 @@ export default function RoommateListTab({
           isUnassigned={!assignedDormitory}
           showProfileBanner
           onNavigate={onNavigate}
-          filteredProfilesCount={search.items.length}
+          filteredProfilesCount={mode === 'search' ? search.items.length : bookmarks.items.length}
         />
       ) : null}
 
-      <div className="mx-auto max-w-md px-5 pb-8">
-        {state ? (
+      <div className="mx-auto max-w-md space-y-5 px-5 pb-8">
+        {!searchClosed && mode === 'search' ? (
+          <RoommateSearchFilterBar
+            manifest={search.manifest}
+            query={search.query}
+            disabled={isSearchLoading}
+            onOpenFilterSheet={() => setFilterSheetOpen(true)}
+            onRemoveFilter={(key) => void search.removeFilter(key)}
+            onResetFilters={() => void search.resetFilters()}
+          />
+        ) : null}
+
+        {mode === 'bookmarks' && !searchClosed ? (
+          <RoommateBookmarkResultsSection
+            status={bookmarks.status}
+            sort={bookmarks.sort}
+            items={bookmarkCardItems}
+            emptyState={bookmarks.emptyState}
+            error={bookmarks.error}
+            canLoadMore={bookmarks.canLoadMore}
+            onSortChange={(sort) => void bookmarks.changeSort(sort)}
+            onLoadMore={() => void bookmarks.loadMore()}
+            onRetry={() => void bookmarks.refresh()}
+            onBookmarkToggle={(targetUserId, bookmarked) =>
+              void bookmarks.toggleBookmark(targetUserId, bookmarked)
+            }
+          />
+        ) : state ? (
           <RoommateSearchStateSection state={state} />
         ) : (
           <RoommateSearchResultsSection
-            items={cardItems}
+            items={searchCardItems}
             canLoadMore={search.canLoadMore}
             onLoadMore={() => void search.loadMore()}
+            onBookmarkToggle={(targetUserId, bookmarked) =>
+              void bookmarks.toggleBookmark(targetUserId, bookmarked)
+            }
           />
         )}
       </div>
+
+      <RoommateFilterSheet
+        isOpen={filterSheetOpen}
+        manifest={search.manifest}
+        query={search.query}
+        disabled={isSearchLoading}
+        onClose={() => setFilterSheetOpen(false)}
+        onApply={(filters) => void search.applyFilters(filters)}
+      />
+    </div>
+  );
+}
+
+function RoommateListModeSwitch({
+  mode,
+  disabled,
+  onModeChange,
+}: {
+  readonly mode: RoommateListMode;
+  readonly disabled: boolean;
+  readonly onModeChange: (mode: RoommateListMode) => void;
+}) {
+  return (
+    <div
+      className="flex rounded-2xl bg-[var(--knu-background-alt)] p-1"
+      role="group"
+      aria-label="목록 모드"
+    >
+      {(
+        [
+          ['search', '검색 결과'],
+          ['bookmarks', '관심 목록'],
+        ] as const
+      ).map(([nextMode, label]) => (
+        <button
+          key={nextMode}
+          type="button"
+          disabled={disabled || mode === nextMode}
+          onClick={() => onModeChange(nextMode)}
+          className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-70 ${
+            mode === nextMode
+              ? 'bg-white text-[var(--knu-primary)] shadow-sm'
+              : 'text-[var(--knu-text-secondary)] hover:bg-white/60'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

@@ -19,9 +19,11 @@ const FORBIDDEN_ROOMMATE_RUNTIME_PATTERNS = [
   'calcMatchScoreWithGating',
   'DEFAULT_FILTERS',
   'FilterState',
+  '@/main/components/BottomSheet',
   'bookmarkedUserIds',
   'blockedUserIds',
   'displayCount',
+  'slice(0',
 ] as const;
 
 const FORBIDDEN_MAIN_LIST_BRIDGE_PATTERNS = [
@@ -44,6 +46,15 @@ const PHASE4_SPLIT_FILES = [
   'sections/results/RoommateSearchResultsSection.tsx',
   'sections/empty-states/RoommateSearchStateSection.tsx',
   'components/RoommateSummaryCard.tsx',
+] as const;
+
+const PHASE5_SPLIT_FILES = [
+  'model/filters/roommateFilterSheetModel.ts',
+  'sections/filters/RoommateSearchFilterBar.tsx',
+  'overlays/RoommateFilterSheet.tsx',
+  'api/roommateActions.client.ts',
+  'hooks/useRoommateBookmarkList.ts',
+  'sections/bookmarks/RoommateBookmarkResultsSection.tsx',
 ] as const;
 
 const FORBIDDEN_PHASE4_SHELL_INTERNALS = [
@@ -133,5 +144,24 @@ describe('RoommateTab runtime boundary', () => {
     );
 
     expect(violations).toEqual([]);
+  });
+
+  it('Phase 5 keeps filter sheet and bookmark mode behind owner-specific files', () => {
+    const missingFiles = PHASE5_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
+      (file) => !existsSync(file),
+    );
+    const actionClientSource = readFileSync(
+      join(roommateRoot, 'api/roommateActions.client.ts'),
+      'utf8',
+    );
+    const bookmarkHookSource = readFileSync(
+      join(roommateRoot, 'hooks/useRoommateBookmarkList.ts'),
+      'utf8',
+    );
+
+    expect(missingFiles).toEqual([]);
+    expect(actionClientSource).toContain('/api/bookmarks');
+    expect(actionClientSource).toContain('bookmarkListResponseSchema');
+    expect(bookmarkHookSource).toContain('getRoommateBookmarkList');
   });
 });

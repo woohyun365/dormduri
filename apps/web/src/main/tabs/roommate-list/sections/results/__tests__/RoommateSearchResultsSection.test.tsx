@@ -7,6 +7,7 @@ import type { RoommateSummaryCardViewModel } from '../../../model/search/roommat
 const cards: RoommateSummaryCardViewModel[] = [
   {
     id: 'one',
+    targetUserId: 'target-one',
     nickname: '첫 번째',
     intro: '아침형 생활을 선호해요.',
     facts: [{ label: '흡연', value: '비흡연' }],
@@ -16,10 +17,12 @@ const cards: RoommateSummaryCardViewModel[] = [
     resultReadLabel: null,
     actionStateLabel: '매칭 요청 가능',
     bookmarked: false,
+    bookmarkAction: null,
     detailEntryToken: 'token-one',
   },
   {
     id: 'two',
+    targetUserId: 'target-two',
     nickname: '두 번째',
     intro: '조용한 방을 선호해요.',
     facts: [{ label: '관계', value: '적당한 거리' }],
@@ -29,6 +32,7 @@ const cards: RoommateSummaryCardViewModel[] = [
     resultReadLabel: null,
     actionStateLabel: '요약 정보만 표시',
     bookmarked: false,
+    bookmarkAction: null,
     detailEntryToken: null,
   },
 ];
