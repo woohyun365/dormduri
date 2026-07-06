@@ -160,6 +160,7 @@ pnpm --dir apps/web exec vitest run \
   src/main/tabs/roommate-list/components/__tests__/RoommateSummaryCard.test.tsx \
   src/main/tabs/roommate-list/sections/empty-states/__tests__/RoommateSearchStateSection.test.tsx \
   src/main/tabs/roommate-list/sections/results/__tests__/RoommateSearchResultsSection.test.tsx \
+  src/main/tabs/roommate-list/sections/scope-switcher/__tests__/RoommateSearchControls.test.tsx \
   src/main/tabs/roommate-list/__tests__/RoommateListTab.search-shell.test.tsx
 ```
 
@@ -202,7 +203,7 @@ pnpm --dir apps/web exec vitest run \
 - `useRoommateListViewModel.ts`, `RoommateListHeader.tsx`, `RoommateListResults.tsx`, legacy view-model unit test는 Phase 3에서 삭제했다.
 - OFF_SEASON 또는 `canEnterRoommateSearch=false`에서는 search auto-load를 끄고 타인 browse closed copy를 `role="status"`로 표시한다.
 - Phase 4에서 `RoommateListTab.tsx`는 `useRoommateSearch` hook composition, closed-state 결정, section composition만 담당한다.
-- Summary card score/action/result-read/bookmark copy는 `roommateSearchViewModel.ts`가 item capability에서 만든 view model만 사용한다.
+- Summary card score/action/result-read/bookmark copy는 `roommateSearchViewModel.ts`가 item capability에서 만든 view model만 사용하며, `resultRead.resultReadable=false`이면 context만으로 result-read badge를 열지 않는다.
 - Result list는 cursor `더 보기` button만 사용하며 local `displayCount`/client slicing을 다시 만들지 않는다.
 
 남은 범위는 Phase 5+로 넘긴다: manifest filter sheet, profile detail/tombstone, bookmark/action/match CTA owner API 연결.

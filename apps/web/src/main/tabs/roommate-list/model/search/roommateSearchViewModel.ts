@@ -48,7 +48,9 @@ export function mapRoommateSearchItemToCardViewModel(
     scoreLabel: buildScoreLabel(item),
     summaryOnly: !detailViewable,
     detailViewable,
-    resultReadLabel: buildResultReadLabel(item.resultRead.context),
+    resultReadLabel: item.resultRead.resultReadable
+      ? buildResultReadLabel(item.resultRead.context)
+      : null,
     actionStateLabel: buildActionStateLabel(item.actions),
     bookmarked: item.bookmark?.bookmarked === true,
     detailEntryToken: normalizeDetailEntryToken(item.detailEntryToken),

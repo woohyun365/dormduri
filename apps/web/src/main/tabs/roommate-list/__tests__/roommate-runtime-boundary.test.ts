@@ -55,6 +55,12 @@ const FORBIDDEN_PHASE4_SHELL_INTERNALS = [
   'function lifestyleLabel',
 ] as const;
 
+const FORBIDDEN_PHASE4_CARD_SOURCE_PATTERNS = [
+  '@repo/shared/roommate-search/contract',
+  'RoommateSearchSummary',
+  'detailEntryToken',
+] as const;
+
 function listRuntimeSourceFiles(root: string): string[] {
   const stats = statSync(root, { throwIfNoEntry: false });
   if (!stats) return [];
@@ -117,6 +123,15 @@ describe('RoommateTab runtime boundary', () => {
     );
 
     expect(missingFiles).toEqual([]);
+    expect(violations).toEqual([]);
+  });
+
+  it('Phase 4 card renders only the card view model and never raw search contract/token fields', () => {
+    const source = readFileSync(join(roommateRoot, 'components/RoommateSummaryCard.tsx'), 'utf8');
+    const violations = FORBIDDEN_PHASE4_CARD_SOURCE_PATTERNS.filter((pattern) =>
+      source.includes(pattern),
+    );
+
     expect(violations).toEqual([]);
   });
 });

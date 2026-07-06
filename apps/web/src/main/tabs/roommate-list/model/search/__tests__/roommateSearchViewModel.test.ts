@@ -59,6 +59,16 @@ describe('roommateSearchViewModel', () => {
     expect(vm.detailEntryToken).toBe('detail-entry-token-safe');
   });
 
+  it('resultReadable=false이면 context가 있어도 result-read badge를 만들지 않는다', () => {
+    const item = createSummary('result-read-closed');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      resultRead: { resultReadable: false, context: 'CURRENT_MATCHED_PARTNER' },
+    });
+
+    expect(vm.resultReadLabel).toBeNull();
+  });
+
   it('profileSummary allowlist 기반 fact만 만든다', () => {
     const vm = mapRoommateSearchItemToCardViewModel(createSummary('facts'));
 
