@@ -63,6 +63,17 @@ function firstClientFetchUrl(fetchMock: ReturnType<typeof stubClientFetch>): URL
   return new URL(String(input), 'http://localhost');
 }
 
+function stubRawClientFetch(body: string, status = 200) {
+  const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+    return new Response(body, {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
 describe('roommateSearch client', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -115,8 +126,18 @@ describe('roommateSearch client', () => {
     });
   });
 
-  it('malformed/schema invalid response를 safe schema error로 normalize한다', async () => {
+  it('schema invalid response를 safe schema error로 normalize한다', async () => {
     stubClientFetch({ scope: 'SAME_BUILDING_ONLY' });
+
+    await expect(getRoommateSearch()).rejects.toMatchObject({
+      code: 'ROOMMATE_SEARCH_SCHEMA_INVALID',
+      status: 200,
+      retryable: true,
+    });
+  });
+
+  it('malformed JSON response를 safe schema error로 normalize한다', async () => {
+    stubRawClientFetch('not-json');
 
     await expect(getRoommateSearch()).rejects.toMatchObject({
       code: 'ROOMMATE_SEARCH_SCHEMA_INVALID',

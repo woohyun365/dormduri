@@ -157,11 +157,16 @@ describe('roommate-search BFF routes', () => {
     });
   });
 
-  it('manifest route는 scope만 upstream으로 전달한다', async () => {
+  it('manifest route는 auth cookie와 scope만 upstream으로 전달한다', async () => {
     const fetchMock = stubJsonFetch(createRoommateManifestResponse());
     const request = createRequest(
       '/api/roommate-search/manifest?scope=SAME_BUILDING_ONLY&sort=MATCH_SCORE&college.values%5B%5D=ENGINEERING',
-      { headers: { Cookie: `auth-token=${AUTH_TOKEN}` } },
+      {
+        headers: {
+          Cookie: `auth-token=${AUTH_TOKEN}`,
+          Authorization: 'Bearer caller-supplied-token',
+        },
+      },
     );
 
     const response = await getRoommateSearchManifest(request);
@@ -171,6 +176,13 @@ describe('roommate-search BFF routes', () => {
     expect(upstreamUrl.searchParams.get('scope')).toBe('SAME_BUILDING_ONLY');
     expect(upstreamUrl.searchParams.has('sort')).toBe(false);
     expect(upstreamUrl.searchParams.has('college.values[]')).toBe(false);
+    expect(firstFetchInit(fetchMock)).toEqual(
+      expect.objectContaining({
+        method: 'GET',
+        cache: 'no-store',
+        headers: expect.objectContaining({ Authorization: `Bearer ${AUTH_TOKEN}` }),
+      }),
+    );
     await expect(expectJson(response)).resolves.toMatchObject({
       manifest: { scope: 'SAME_BUILDING_ONLY' },
     });
@@ -210,12 +222,14 @@ describe('roommate-search BFF routes', () => {
     });
   });
 
-  it('upstream domain error는 success schema parse 없이 status/body를 유지한다', async () => {
+  it('upstream domain error는 success schema parse 없이 status/body를 유지하고 민감 body field를 redaction한다', async () => {
     stubJsonFetch(
       {
         success: false,
         code: 'INVALID_ROOMMATE_SEARCH_QUERY',
         message: '룸메이트 찾기 검색 조건이 올바르지 않습니다.',
+        accessToken: 'must-not-leak',
+        nested: { cookie: 'must-not-leak', reason: 'stale query' },
       },
       400,
     );
@@ -227,10 +241,14 @@ describe('roommate-search BFF routes', () => {
     );
 
     expect(response.status).toBe(400);
-    await expect(expectJson(response)).resolves.toMatchObject({
+    const json = await expectJson(response);
+    expect(json).toMatchObject({
       success: false,
       code: 'INVALID_ROOMMATE_SEARCH_QUERY',
+      nested: { reason: 'stale query' },
     });
+    expect(json).not.toHaveProperty('accessToken');
+    expect(json.nested).not.toHaveProperty('cookie');
   });
 
   it('upstream non-json body는 sensitive body를 노출하지 않고 safe code로 닫는다', async () => {
