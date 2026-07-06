@@ -16,6 +16,9 @@ type QueryValue = string | number | boolean;
 type SafeParseSchema<T> = {
   safeParse(value: unknown): { success: true; data: T } | { success: false };
 };
+export interface RoommateSearchRequestOptions {
+  readonly signal?: AbortSignal;
+}
 export type RoommateSearchQueryParams =
   | URLSearchParams
   | Record<string, QueryValue | readonly QueryValue[] | null | undefined>;
@@ -80,11 +83,13 @@ async function fetchRoommateJson<T>(input: {
   path: '/api/roommate-search' | '/api/roommate-search/manifest';
   query?: RoommateSearchQueryParams;
   schema: SafeParseSchema<T>;
+  options?: RoommateSearchRequestOptions;
 }): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${input.path}${buildQueryString(input.query)}`, {
       cache: 'no-store',
+      signal: input.options?.signal,
     });
   } catch (error) {
     if (isRoommateApiError(error)) {
@@ -115,20 +120,24 @@ async function fetchRoommateJson<T>(input: {
 
 export function getRoommateSearch(
   query?: RoommateSearchQueryParams,
+  options?: RoommateSearchRequestOptions,
 ): Promise<RoommateSearchResponse> {
   return fetchRoommateJson({
     path: '/api/roommate-search',
     query,
     schema: roommateSearchResponseSchema,
+    options,
   });
 }
 
 export function getRoommateSearchManifest(
   query?: RoommateSearchQueryParams,
+  options?: RoommateSearchRequestOptions,
 ): Promise<RoommateSearchManifestResponse> {
   return fetchRoommateJson({
     path: '/api/roommate-search/manifest',
     query,
     schema: roommateSearchManifestResponseSchema,
+    options,
   });
 }

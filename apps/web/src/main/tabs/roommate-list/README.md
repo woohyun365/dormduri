@@ -121,10 +121,23 @@ pnpm web:test -- src/main/tabs/roommate-list
 BFF route를 추가하는 Phase에서는 route-level Vitest와 BFF helper schema/redaction 검증을 함께 실행한다.
 
 Phase 1에서 추가된 roommate-search BFF/client foundation은 아직 UI에 연결하지 않는다.
-Phase 2~3 전까지 제품 화면은 legacy local state를 계속 사용하지만, 새 코드가 contract drift를 잡는지 아래 targeted test로 검증한다.
+Phase 2는 manifest-driven query/model/hook foundation을 추가하지만, Phase 3 전까지 제품 화면은 legacy local state를 계속 사용한다. 즉 새 `model/search`, `model/filters`, `hooks/useRoommateSearch.ts`는 UI 미연결 contract consumer이고, Main props bridge 제거와 화면 source 전환은 Phase 3 책임이다.
+
+Phase 1 BFF/client guard:
 
 ```bash
 pnpm --dir apps/web exec vitest run src/app/api/__tests__/roommate-search-bff-routes.test.ts src/main/tabs/roommate-list/api/__tests__/roommateSearch.client.test.ts
+```
+
+Phase 2 manifest-driven query/state/hook guard:
+
+```bash
+pnpm --dir apps/web exec vitest run \
+  src/main/tabs/roommate-list/model/search/__tests__/roommateSearchQuery.test.ts \
+  src/main/tabs/roommate-list/model/filters/__tests__/roommateSearchManifestModel.test.ts \
+  src/main/tabs/roommate-list/model/search/__tests__/roommateSearchState.test.ts \
+  src/main/tabs/roommate-list/model/search/__tests__/roommateSearchNotices.test.ts \
+  src/main/tabs/roommate-list/hooks/__tests__/useRoommateSearch.test.tsx
 ```
 
 ## Phase checkpoint rule

@@ -82,19 +82,25 @@ describe('roommateSearch client', () => {
   it('search client는 same-origin BFF를 호출하고 schema parse된 response를 반환한다', async () => {
     const fetchMock = stubClientFetch(createRoommateSearchResponse());
 
-    const result = await getRoommateSearch({
-      scope: 'SAME_BUILDING_ONLY',
-      sort: 'MATCH_SCORE',
-      'college.values[]': ['ENGINEERING', 'HUMANITIES'],
-      'mbtiTraits.energy': 'E',
-    });
+    const abortController = new AbortController();
+    const result = await getRoommateSearch(
+      {
+        scope: 'SAME_BUILDING_ONLY',
+        sort: 'MATCH_SCORE',
+        'college.values[]': ['ENGINEERING', 'HUMANITIES'],
+        'mbtiTraits.energy': 'E',
+      },
+      { signal: abortController.signal },
+    );
     const url = firstClientFetchUrl(fetchMock);
 
     expect(url.pathname).toBe('/api/roommate-search');
     expect(url.origin).toBe('http://localhost');
     expect(url.searchParams.get('scope')).toBe('SAME_BUILDING_ONLY');
     expect(url.searchParams.getAll('college.values[]')).toEqual(['ENGINEERING', 'HUMANITIES']);
-    expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ cache: 'no-store' }));
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ cache: 'no-store', signal: abortController.signal }),
+    );
     expect(result.scope).toBe('SAME_BUILDING_ONLY');
   });
 
