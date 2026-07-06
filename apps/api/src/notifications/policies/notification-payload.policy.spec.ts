@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   assertNotificationPayloadAllowed,
   isNotificationPayloadPrivacySafe,
+  toActiveMatchCreatedNotificationPayload,
   toChatThreadCreatedNotificationPayload,
   toProfileMismatchFeedbackNotificationPayload,
   toReportReceivedNotificationPayload,
+  toMatchRequestAcceptedNotificationPayload,
+  toMatchRequestReceivedNotificationPayload,
+  toMatchRequestRejectedNotificationPayload,
   toSeasonSystemNoticeNotificationPayload,
   toSupportTicketCreatedNotificationPayload,
   toSupportTicketRepliedNotificationPayload,
@@ -71,6 +75,51 @@ describe('notification payload policy', () => {
       noticeCode: 'SEASON_REMINDER',
       occurredAt: '2026-06-02T00:00:00.000Z',
     });
+  });
+
+  it('matching 알림은 request/active match pointer만 포함한다', () => {
+    const occurredAt = new Date('2026-06-02T00:00:00.000Z');
+
+    expect(
+      toMatchRequestReceivedNotificationPayload({
+        matchRequestId: 'match-request-1',
+        seasonId: 'season-2026-02',
+        occurredAt,
+      }),
+    ).toEqual({
+      kind: 'MATCH_REQUEST_RECEIVED',
+      matchRequestId: 'match-request-1',
+      seasonId: 'season-2026-02',
+      occurredAt: '2026-06-02T00:00:00.000Z',
+    });
+
+    expect(
+      toMatchRequestAcceptedNotificationPayload({
+        matchRequestId: 'match-request-1',
+        activeMatchId: 'active-match-1',
+        seasonId: 'season-2026-02',
+        occurredAt,
+      }),
+    ).toMatchObject({
+      kind: 'MATCH_REQUEST_ACCEPTED',
+      activeMatchId: 'active-match-1',
+    });
+
+    expect(
+      toMatchRequestRejectedNotificationPayload({
+        matchRequestId: 'match-request-1',
+        seasonId: 'season-2026-02',
+        occurredAt,
+      }),
+    ).toMatchObject({ kind: 'MATCH_REQUEST_REJECTED' });
+
+    expect(
+      toActiveMatchCreatedNotificationPayload({
+        activeMatchId: 'active-match-1',
+        seasonId: 'season-2026-02',
+        occurredAt,
+      }),
+    ).toMatchObject({ kind: 'ACTIVE_MATCH_CREATED' });
   });
 
   it('support ticket 알림은 ticket pointer/status만 포함한다', () => {

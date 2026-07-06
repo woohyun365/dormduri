@@ -31,11 +31,14 @@ const emptyStats: HomeDashboardStats = {
   todayNewBuilding: 0,
   totalMatchSuccess: 0,
   buildingMatchSuccess: 0,
+  todayMatchSuccessTotal: 0,
+  todayMatchSuccessBuilding: 0,
 };
 
 const emptyMatching: HomeDashboardMatching = {
   pendingSentCount: 0,
   pendingReceivedCount: 0,
+  activeChatThreadCount: 0,
   unreadMessageCount: 0,
   activeMatch: null,
   recentReceivedRequests: [],
@@ -81,6 +84,7 @@ export class HomeDashboardCountsQuery {
       buildingTotal,
       todayNewBuilding,
       totalActiveMatchCount,
+      todayActiveMatchCount,
       buildingActiveMatches,
     ] = await Promise.all([
       this.prisma.seasonParticipant.count({ where: registeredParticipantWhere }),
@@ -105,24 +109,36 @@ export class HomeDashboardCountsQuery {
       this.prisma.activeMatch.count({
         where: { seasonId, status: 'ACTIVE', endedAt: null },
       }),
+      this.prisma.activeMatch.count({
+        where: {
+          seasonId,
+          status: 'ACTIVE',
+          endedAt: null,
+          startedAt: { gte: todayStart, lte: todayEnd },
+        },
+      }),
       participantDormitoryId
         ? this.prisma.activeMatch.findMany({
-            where: { seasonId, status: 'ACTIVE', endedAt: null },
+            where: {
+              seasonId,
+              status: 'ACTIVE',
+              endedAt: null,
+              participantA: { dormitoryId: participantDormitoryId },
+              participantB: { dormitoryId: participantDormitoryId },
+            },
             select: {
-              participantA: { select: { dormitoryId: true } },
-              participantB: { select: { dormitoryId: true } },
+              startedAt: true,
             },
           })
         : Promise.resolve([]),
     ]);
 
-    const buildingMatchSuccess = buildingActiveMatches.reduce((count, activeMatch) => {
-      return (
-        count +
-        (activeMatch.participantA.dormitoryId === participantDormitoryId ? 1 : 0) +
-        (activeMatch.participantB.dormitoryId === participantDormitoryId ? 1 : 0)
-      );
-    }, 0);
+    const buildingMatchSuccess = buildingActiveMatches.length * 2;
+    const todayMatchSuccessBuilding =
+      buildingActiveMatches.filter((activeMatch) => {
+        const startedAtIso = activeMatch.startedAt.toISOString();
+        return startedAtIso >= todayStart && startedAtIso <= todayEnd;
+      }).length * 2;
     const selfIncludedInBuildingTotal = Boolean(participantDormitoryId && input.participant?.id);
 
     return {
@@ -134,6 +150,8 @@ export class HomeDashboardCountsQuery {
       todayNewBuilding,
       totalMatchSuccess: totalActiveMatchCount * 2,
       buildingMatchSuccess,
+      todayMatchSuccessTotal: todayActiveMatchCount * 2,
+      todayMatchSuccessBuilding,
     };
   }
 
@@ -150,26 +168,33 @@ export class HomeDashboardCountsQuery {
       expiresAt: { gt: input.now },
     } as const;
 
-    const [pendingSentCount, pendingReceivedCount, recentReceivedRequests, unreadMessageCount] =
-      await Promise.all([
-        this.prisma.matchRequest.count({
-          where: { ...pendingRequestWhere, requesterParticipantId: participantId },
-        }),
-        this.prisma.matchRequest.count({
-          where: { ...pendingRequestWhere, receiverParticipantId: participantId },
-        }),
-        this.prisma.matchRequest.findMany({
-          where: { ...pendingRequestWhere, receiverParticipantId: participantId },
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: RECENT_RECEIVED_REQUEST_LIMIT,
-          select: matchRequestSummarySelect,
-        }),
-        this.countUnreadMessages(participantId),
-      ]);
+    const [
+      pendingSentCount,
+      pendingReceivedCount,
+      recentReceivedRequests,
+      activeChatThreadCount,
+      unreadMessageCount,
+    ] = await Promise.all([
+      this.prisma.matchRequest.count({
+        where: { ...pendingRequestWhere, requesterParticipantId: participantId },
+      }),
+      this.prisma.matchRequest.count({
+        where: { ...pendingRequestWhere, receiverParticipantId: participantId },
+      }),
+      this.prisma.matchRequest.findMany({
+        where: { ...pendingRequestWhere, receiverParticipantId: participantId },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: RECENT_RECEIVED_REQUEST_LIMIT,
+        select: matchRequestSummarySelect,
+      }),
+      this.countActiveChatThreads(seasonId, participantId),
+      this.countUnreadMessages(participantId),
+    ]);
 
     return {
       pendingSentCount,
       pendingReceivedCount,
+      activeChatThreadCount,
       unreadMessageCount,
       activeMatch: null,
       recentReceivedRequests: recentReceivedRequests.map((request) =>
@@ -208,6 +233,19 @@ export class HomeDashboardCountsQuery {
         dormitoryId: true,
         registeredAt: true,
         dormitorySelectionState: true,
+      },
+    });
+  }
+
+  private async countActiveChatThreads(seasonId: string, participantId: string): Promise<number> {
+    return this.prisma.conversationThreadMember.count({
+      where: {
+        participantId,
+        memberState: 'ACTIVE',
+        thread: {
+          seasonId,
+          status: 'OPEN',
+        },
       },
     });
   }

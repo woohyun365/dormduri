@@ -12,6 +12,15 @@ const nextSeasonSelect = {
   preparationStartDate: true,
   matchingStartDate: true,
   seasonEndDate: true,
+  dormitoryOperations: {
+    where: { isOperated: true },
+    orderBy: [{ roomSelectionDate: 'asc' }, { dormitoryId: 'asc' }],
+    select: {
+      dormitoryId: true,
+      isOperated: true,
+      roomSelectionDate: true,
+    },
+  },
   createdAt: true,
 } satisfies Prisma.SeasonSelect;
 
@@ -57,6 +66,11 @@ export class HomeDashboardNextSeasonQuery {
       matchingStartDate: toDateOnlyString(nextSeason.matchingStartDate),
       seasonEndDate: toDateOnlyString(nextSeason.seasonEndDate),
       visibleToUser: true,
+      operatedDormitories: nextSeason.dormitoryOperations.map((operation) => ({
+        dormitoryId: operation.dormitoryId,
+        isOperated: operation.isOperated,
+        roomSelectionDate: toDateOnlyString(operation.roomSelectionDate),
+      })),
     };
   }
 }

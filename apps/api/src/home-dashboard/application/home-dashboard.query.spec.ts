@@ -40,12 +40,17 @@ function createPrismaMock() {
       findMany: vi.fn(),
     },
     conversationThreadMember: {
+      count: vi.fn(),
       findMany: vi.fn(),
     },
     conversationMessage: {
       count: vi.fn(),
     },
     seasonMatchHistoryEntry: {
+      count: vi.fn(),
+      groupBy: vi.fn(),
+    },
+    seasonDormitoryOperation: {
       count: vi.fn(),
     },
   };
@@ -81,9 +86,12 @@ describe('HomeDashboardQuery', () => {
     prisma.activeMatch.findMany.mockResolvedValue([]);
     prisma.matchRequest.count.mockResolvedValue(0);
     prisma.matchRequest.findMany.mockResolvedValue([]);
+    prisma.conversationThreadMember.count.mockResolvedValue(0);
     prisma.conversationThreadMember.findMany.mockResolvedValue([]);
     prisma.conversationMessage.count.mockResolvedValue(0);
     prisma.seasonMatchHistoryEntry.count.mockResolvedValue(0);
+    prisma.seasonMatchHistoryEntry.groupBy.mockResolvedValue([]);
+    prisma.seasonDormitoryOperation.count.mockResolvedValue(0);
   });
 
   it('DB now 하나를 current-user/season/count composition에 주입한다', async () => {
@@ -158,8 +166,9 @@ describe('HomeDashboardQuery', () => {
     );
     prisma.activeMatch.count.mockResolvedValue(2);
     prisma.activeMatch.findMany.mockResolvedValue([
-      { participantA: { dormitoryId: 'dasan' }, participantB: { dormitoryId: 'saerom' } },
-      { participantA: { dormitoryId: 'dasan' }, participantB: { dormitoryId: 'dasan' } },
+      {
+        startedAt: now,
+      },
     ]);
     prisma.matchRequest.count.mockImplementation(
       ({
@@ -173,6 +182,7 @@ describe('HomeDashboardQuery', () => {
       },
     );
     prisma.matchRequest.findMany.mockResolvedValue([makeMatchRequestRecord()]);
+    prisma.conversationThreadMember.count.mockResolvedValue(2);
     prisma.conversationThreadMember.findMany.mockResolvedValue([
       { threadId: 'thread-1', lastReadAt: new Date('2026-02-10T02:00:00.000Z') },
       { threadId: 'thread-2', lastReadAt: null },
@@ -190,11 +200,25 @@ describe('HomeDashboardQuery', () => {
       todayNewTotal: 2,
       todayNewBuilding: 1,
       totalMatchSuccess: 4,
-      buildingMatchSuccess: 3,
+      buildingMatchSuccess: 2,
+      todayMatchSuccessTotal: 4,
+      todayMatchSuccessBuilding: 2,
     });
+    expect(prisma.activeMatch.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          seasonId: 'season-1',
+          status: 'ACTIVE',
+          endedAt: null,
+          participantA: { dormitoryId: 'dasan' },
+          participantB: { dormitoryId: 'dasan' },
+        },
+      }),
+    );
     expect(response.matching).toMatchObject({
       pendingSentCount: 1,
       pendingReceivedCount: 2,
+      activeChatThreadCount: 2,
       unreadMessageCount: 7,
     });
     expect(response.matching.recentReceivedRequests).toHaveLength(1);

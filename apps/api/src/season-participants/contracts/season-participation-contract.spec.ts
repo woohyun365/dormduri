@@ -154,6 +154,47 @@ describe('season participation shared contract', () => {
     ).toBe(false);
   });
 
+  it('previous season profile contract는 직전 시즌 snapshot과 EMPTY 상태를 구분한다', () => {
+    const previousProfile = seasonParticipationContract.previousSeasonProfileResponseSchema.parse({
+      detailState: 'FULL',
+      participantId: 'participant-prev-1',
+      seasonId: 'season-prev-1',
+      seasonName: '2026년 1학기',
+      dormitoryId: 'dasan',
+      dormitoryName: '다산관',
+      state: 'REGISTRATION_FINALIZED',
+      lifestyle: VALID_LIFESTYLE,
+      intro: '직전 시즌 소개',
+      additional: {
+        grade: '3',
+        mbti: 'INTJ',
+      },
+      completion: COMPLETION_READY,
+      draftWritable: false,
+      registeredAt: '2026-03-29T00:00:00.000Z',
+      profileSnapshotAt: '2026-03-29T00:00:00.000Z',
+    });
+
+    expect(previousProfile).toMatchObject({
+      detailState: 'FULL',
+      seasonName: '2026년 1학기',
+      draftWritable: false,
+    });
+    expect(
+      seasonParticipationContract.previousSeasonProfileResponseSchema.parse({
+        detailState: 'EMPTY',
+        reason: 'NO_PREVIOUS_SEASON_PROFILE',
+        message: '직전 시즌 프로필이 없어요.',
+      }),
+    ).toMatchObject({ detailState: 'EMPTY' });
+    expect(
+      seasonParticipationContract.previousSeasonProfileResponseSchema.safeParse({
+        ...previousProfile,
+        draftWritable: true,
+      }).success,
+    ).toBe(false);
+  });
+
   it('dormitory selection draft contract와 registration finalize contract를 분리해 표현한다', () => {
     expect(
       seasonParticipationContract.selectableDormitoriesResponseSchema.parse({

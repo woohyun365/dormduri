@@ -98,6 +98,12 @@ function expectCurrentMatchingDashboard(dashboard: HomeDashboardResponse) {
   });
   expect(dashboard.seasonHistorySummary.lastSeason?.totalParticipants).toBeGreaterThanOrEqual(3);
   expect(dashboard.seasonHistorySummary.lastSeason?.totalMatchSuccess).toBeGreaterThanOrEqual(2);
+  expect(
+    dashboard.seasonHistorySummary.lastSeason?.aggregate.matchedPairCount,
+  ).toBeGreaterThanOrEqual(1);
+  expect(
+    dashboard.seasonHistorySummary.lastSeason?.aggregate.operatedDormitoryCount,
+  ).toBeGreaterThanOrEqual(1);
 }
 
 function expectPastHistorySummary(
@@ -111,6 +117,12 @@ function expectPastHistorySummary(
   });
   expect(dashboard.seasonHistorySummary.lastSeason?.totalParticipants).toBeGreaterThanOrEqual(3);
   expect(dashboard.seasonHistorySummary.lastSeason?.totalMatchSuccess).toBeGreaterThanOrEqual(2);
+  expect(dashboard.seasonHistorySummary.lastSeason?.viewerActivity.finalResult).toBe(
+    viewerHadMatchSuccess ? 'MATCHED' : 'NO_MATCH',
+  );
+  expect(
+    dashboard.seasonHistorySummary.lastSeason?.aggregate.matchedPairCount,
+  ).toBeGreaterThanOrEqual(1);
 }
 
 function isDesktopProject(testInfo: TestInfo) {
@@ -184,18 +196,24 @@ test.describe('authenticated /main Home dashboard full-stack smoke', () => {
     expectPastHistorySummary(dashboard, { viewerHadMatchSuccess: true });
     expect(dashboard.nextSeasonPreview).toMatchObject({
       name: '2026년 2학기',
-      preparationStartDate: '2026-08-20',
-      matchingStartDate: '2026-09-01',
-      seasonEndDate: '2026-12-20',
+      preparationStartDate: '2026-07-23',
+      matchingStartDate: '2026-08-01',
+      seasonEndDate: '2026-08-31',
       visibleToUser: true,
+      operatedDormitories: expect.arrayContaining([
+        expect.objectContaining({ dormitoryId: 'dasan', roomSelectionDate: '2026-08-06' }),
+        expect.objectContaining({ dormitoryId: 'yeji', roomSelectionDate: '2026-08-06' }),
+      ]),
     });
 
     await page.goto('/main');
     await closeServiceIntroIfVisible(page);
 
-    await expect(page.getByRole('heading', { name: '현재 진행 중인 시즌이 없어요' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: '2026년 2학기 준비가 곧 시작돼요' }),
+    ).toBeVisible();
     await expect(page.getByRole('heading', { name: '지난 시즌 요약' })).toBeVisible();
-    await expect(page.getByText(/2026년 2학기 준비는 2026[.-]08[.-]20부터/)).toBeVisible();
+    await expect(page.getByText(/2026년 2학기 준비는 2026[.-]07[.-]23부터/)).toBeVisible();
   });
 
   test('opens building selection only after explicit season-open CTA', async ({ page }) => {

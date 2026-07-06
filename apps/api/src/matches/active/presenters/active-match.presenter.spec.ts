@@ -89,15 +89,25 @@ function makeActiveMatch(
     createdFromRequestId: 'request-1',
     participantA: {
       userId: 'user-1',
+      user: { deletedAt: null },
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
-      profile: toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+      profile: {
+        ...toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+        nicknameSnapshot: '나',
+        intro: '내 소개',
+      },
     },
     participantB: {
       userId: 'user-2',
+      user: { deletedAt: null },
       dormitoryId: 'dasan',
       dormitorySelectionState: 'ASSIGNED',
-      profile: toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+      profile: {
+        ...toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+        nicknameSnapshot: '감자친구',
+        intro: '상대 소개',
+      },
     },
     unmatchRequests: [],
     ...overrides,
@@ -125,6 +135,12 @@ describe('match read model helpers', () => {
       new Date('2026-02-10T12:00:00.000Z'),
     );
     expect(summaryForA.matchScore).toEqual(expect.any(Number));
+    expect(summaryForA.counterpartNickname).toBe('감자친구');
+    expect(summaryForA.counterpartSummary).toMatchObject({
+      relation: { type: 'MATCHED_PARTNER' },
+      resultRead: { resultReadable: true, context: 'CURRENT_MATCHED_PARTNER' },
+      profileSummary: { nickname: '감자친구', intro: '상대 소개' },
+    });
     expect(summaryForA).toMatchObject({
       unmatchProgress: {
         state: 'WAITING_FOR_COUNTERPART',
@@ -169,9 +185,14 @@ describe('match read model helpers', () => {
         makeActiveMatch({
           participantB: {
             userId: 'user-2',
+            user: { deletedAt: null },
             dormitoryId: 'saerom',
             dormitorySelectionState: 'ASSIGNED',
-            profile: toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+            profile: {
+              ...toCompleteLifestyleColumnData(COMPLETE_LIFESTYLE),
+              nicknameSnapshot: '감자친구',
+              intro: '상대 소개',
+            },
           },
         }),
         seasonContext,

@@ -19,6 +19,10 @@ const FORBIDDEN_RUNTIME_PATTERNS = [
   importPath('@', '/main/dev-only/fixtures'),
   importPath('src/', '__fixtures__'),
   importPath('main/', 'test-support'),
+  importPath('@', '/api/profile'),
+  importPath('@', '/api/home'),
+  importPath('@', '/api/current-user'),
+  importPath('@', '/api/season'),
   importPath('@', '/main/contexts/SeasonContext'),
   importPath('@', '/main/season/seasonFallback'),
   importPath('@', '/main/utils/homeDevOverrides'),
@@ -32,13 +36,42 @@ const FORBIDDEN_HOME_FIRST_RENDER_PATTERNS = [
   importPath('@', '/api/profile'),
   importPath('@', '/api/home'),
   importPath('@', '/api/current-user'),
+  importPath('@', '/api/season'),
   'profileApi',
   'getMyProfile',
   'getMockData',
   'mockDb',
   'useMainBootstrap',
 ] as const;
+const HOME_SECTION_RUNTIME_ROOTS = [
+  join(homeRoot, 'components'),
+  join(homeRoot, 'layout'),
+  join(homeRoot, 'sections'),
+  join(homeRoot, 'overlays'),
+  join(homeRoot, 'profile-modals'),
+] as const;
+const FORBIDDEN_SECTION_DIRECT_IO_PATTERNS = [
+  { label: 'fetch(', pattern: /\bfetch\s*\(/ },
+  { label: 'XMLHttpRequest', pattern: /\bXMLHttpRequest\b/ },
+  { label: 'navigator.sendBeacon', pattern: /\bnavigator\s*\.\s*sendBeacon\s*\(/ },
+] as const;
 const REMOVED_ROOT_COMPATIBILITY_PATHS = [
+  join(homeRoot, 'components', 'BuildingStatsBar.tsx'),
+  join(homeRoot, 'components', 'DynamicTipBanner.tsx'),
+  join(homeRoot, 'components', 'HomeStatsPanel.tsx'),
+  join(homeRoot, 'components', 'HomeStatusTip.tsx'),
+  join(homeRoot, 'components', 'UrgentActionBanner.tsx'),
+  join(homeRoot, 'components', 'HomeOnboardingSheet.tsx'),
+  join(homeRoot, 'components', 'HomePrimaryStateCard.tsx'),
+  join(homeRoot, 'components', 'HomeActivityPanel.tsx'),
+  join(homeRoot, 'components', 'HomeMatchingSummary.tsx'),
+  join(homeRoot, 'components', 'HomeOperationsPanel.tsx'),
+  join(homeRoot, 'components', 'HomeDashboardErrorState.tsx'),
+  join(homeRoot, 'components', 'HomeReadinessChecklist.tsx'),
+  join(homeRoot, 'components', 'HomeMatchingRegisteredGuidePanel.tsx'),
+  join(homeRoot, 'components', 'HomeQuickMenuSection.tsx'),
+  join(homeRoot, 'hooks', 'useHomeOnboardingNotice.ts'),
+  join(homeRoot, 'api', 'home-onboarding-notice.api.ts'),
   join(process.cwd(), 'src', '__fixtures__'),
   join(process.cwd(), 'src', 'api', 'home.ts'),
   join(process.cwd(), 'src', 'api', 'current-user.ts'),
@@ -95,6 +128,19 @@ describe('Home runtime boundary', () => {
           source.includes(pattern),
         ).map((pattern) => `${file}: ${pattern}`);
       });
+
+    expect(violations).toEqual([]);
+  });
+
+  it('Home section components do not perform browser or network I/O directly', () => {
+    const violations = HOME_SECTION_RUNTIME_ROOTS.flatMap((root) =>
+      listRuntimeSourceFiles(root),
+    ).flatMap((file) => {
+      const source = readFileSync(file, 'utf8');
+      return FORBIDDEN_SECTION_DIRECT_IO_PATTERNS.filter(({ pattern }) => pattern.test(source)).map(
+        ({ label }) => `${file}: ${label}`,
+      );
+    });
 
     expect(violations).toEqual([]);
   });

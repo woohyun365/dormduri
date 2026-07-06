@@ -24,19 +24,25 @@ describe('proxy route/session boundary', () => {
     expect(response.headers.get('location')).toBe('http://localhost/main');
   });
 
-  it('비인증 사용자가 /main에 접근하면 /login으로 이동한다', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => createSessionResponse(false)),
-    );
+  it.each(['/main', '/notifications', '/support'])(
+    '비인증 사용자가 %s에 접근하면 /login으로 이동한다',
+    async (pathname) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => createSessionResponse(false)),
+      );
 
-    const response = await proxy(new NextRequest('http://localhost/main'));
+      const response = await proxy(new NextRequest(`http://localhost${pathname}`));
 
-    expect(response.headers.get('location')).toBe('http://localhost/login');
-  });
+      expect(response.headers.get('location')).toBe('http://localhost/login');
+    },
+  );
 
   it('public root route는 proxy matcher 책임이 아니다', () => {
     expect(config.matcher).not.toContain('/');
     expect(config.matcher).toContain('/main/:path*');
+    expect(config.matcher).toContain('/notifications/:path*');
+    expect(config.matcher).toContain('/support/:path*');
+    expect(config.matcher).not.toContain('/notices/:path*');
   });
 });

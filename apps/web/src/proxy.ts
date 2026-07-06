@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const AUTH_ROUTES = ['/login', '/signup', '/password-reset'] as const;
-const PROTECTED_PREFIXES = ['/main'] as const;
+const PROTECTED_PREFIXES = ['/main', '/notifications', '/support'] as const;
 
 async function validateSession(request: NextRequest): Promise<boolean> {
   try {
@@ -44,5 +44,12 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/login', '/signup', '/password-reset', '/main/:path*'],
+  matcher: [
+    '/login',
+    '/signup',
+    '/password-reset',
+    '/main/:path*',
+    '/notifications/:path*',
+    '/support/:path*',
+  ],
 };

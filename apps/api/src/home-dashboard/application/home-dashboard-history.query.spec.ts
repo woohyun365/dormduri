@@ -17,6 +17,11 @@ function createPrismaMock() {
     },
     seasonMatchHistoryEntry: {
       count: vi.fn(),
+      groupBy: vi.fn(),
+      findFirst: vi.fn(),
+    },
+    seasonDormitoryOperation: {
+      count: vi.fn(),
     },
   };
 }
@@ -30,6 +35,9 @@ describe('HomeDashboardHistoryQuery', () => {
     prisma.season.findMany.mockResolvedValue([]);
     prisma.seasonParticipant.count.mockResolvedValue(0);
     prisma.seasonMatchHistoryEntry.count.mockResolvedValue(0);
+    prisma.seasonMatchHistoryEntry.groupBy.mockResolvedValue([]);
+    prisma.seasonMatchHistoryEntry.findFirst.mockResolvedValue(null);
+    prisma.seasonDormitoryOperation.count.mockResolvedValue(0);
   });
 
   it('비운영 campus는 과거 시즌 요약을 노출하지 않는다', async () => {
@@ -45,7 +53,7 @@ describe('HomeDashboardHistoryQuery', () => {
     expect(prisma.season.findMany).not.toHaveBeenCalled();
   });
 
-  it('가장 최근 완료 시즌의 등록/성공 이력과 viewer boolean만 반환한다', async () => {
+  it('가장 최근 완료 시즌의 등록/성공 이력과 viewer activity aggregate를 반환한다', async () => {
     prisma.season.findMany.mockResolvedValue([
       makeSeasonRow({ id: 'future-season', end: '2026-12-20' }),
       makeSeasonRow({ id: 'last-season', name: '2026년 1학기', end: '2026-03-01' }),
@@ -55,15 +63,48 @@ describe('HomeDashboardHistoryQuery', () => {
       Promise.resolve(where.userId === 'user-1' ? 1 : 237),
     );
     prisma.seasonMatchHistoryEntry.count.mockImplementation(
-      ({ where }: { where: { viewerParticipant?: { userId?: string }; entryResult?: string } }) =>
-        Promise.resolve(
-          where.viewerParticipant?.userId === 'user-1'
-            ? 1
-            : where.entryResult === 'MATCHED_SUCCESS'
-              ? 42
-              : 0,
-        ),
+      ({
+        where,
+      }: {
+        where: {
+          viewerParticipant?: { userId?: string };
+          entryType?: string;
+          entryResult?: string;
+          viewerRequested?: boolean;
+        };
+      }) => {
+        if (where.viewerParticipant?.userId === 'user-1') {
+          if (where.entryType === 'REQUEST' && where.viewerRequested === true) {
+            return Promise.resolve(2);
+          }
+          if (where.entryType === 'REQUEST' && where.viewerRequested === false) {
+            return Promise.resolve(3);
+          }
+          if (where.entryType === 'MATCH' && where.entryResult === 'MATCHED_SUCCESS') {
+            return Promise.resolve(1);
+          }
+          if (where.entryType === 'MATCH' && where.entryResult === 'UNMATCHED_AFTER_SUCCESS') {
+            return Promise.resolve(0);
+          }
+          if (where.entryType === 'MATCH') {
+            return Promise.resolve(1);
+          }
+          return Promise.resolve(0);
+        }
+
+        return Promise.resolve(where.entryResult === 'MATCHED_SUCCESS' ? 42 : 0);
+      },
     );
+    prisma.seasonMatchHistoryEntry.groupBy.mockResolvedValue([
+      { pairKey: 'pair-1' },
+      { pairKey: 'pair-2' },
+      { pairKey: 'pair-3' },
+    ]);
+    prisma.seasonDormitoryOperation.count.mockResolvedValue(5);
+    prisma.seasonMatchHistoryEntry.findFirst.mockResolvedValue({
+      counterpartNicknameSnapshot: '상대방',
+      counterpartRedactedAt: null,
+    });
 
     const summary = await query.getSeasonHistorySummary({
       campusCode: 'CHUNCHEON',
@@ -80,6 +121,17 @@ describe('HomeDashboardHistoryQuery', () => {
         totalMatchSuccess: 42,
         viewerHadRegistration: true,
         viewerHadMatchSuccess: true,
+        viewerActivity: {
+          sentRequestCount: 2,
+          receivedRequestCount: 3,
+          conversationCount: 1,
+          finalResult: 'MATCHED',
+          matchedPartnerNickname: '상대방',
+        },
+        aggregate: {
+          matchedPairCount: 3,
+          operatedDormitoryCount: 5,
+        },
       },
     });
     expect(JSON.stringify(prisma.seasonParticipant.count.mock.calls)).toContain(
@@ -93,6 +145,21 @@ describe('HomeDashboardHistoryQuery', () => {
     );
     expect(JSON.stringify(prisma.seasonMatchHistoryEntry.count.mock.calls)).toContain(
       '"viewerRedactedAt":null',
+    );
+    expect(JSON.stringify(prisma.seasonMatchHistoryEntry.count.mock.calls)).toContain(
+      '"entryType":"REQUEST"',
+    );
+    expect(JSON.stringify(prisma.seasonMatchHistoryEntry.count.mock.calls)).toContain(
+      '"viewerRequested":true',
+    );
+    expect(JSON.stringify(prisma.seasonMatchHistoryEntry.groupBy.mock.calls)).toContain(
+      '"pairKey"',
+    );
+    expect(JSON.stringify(prisma.seasonMatchHistoryEntry.findFirst.mock.calls)).toContain(
+      '"counterpartNicknameSnapshot"',
+    );
+    expect(JSON.stringify(prisma.seasonDormitoryOperation.count.mock.calls)).toContain(
+      '"isOperated":true',
     );
   });
 });

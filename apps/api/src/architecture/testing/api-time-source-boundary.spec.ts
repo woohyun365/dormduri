@@ -296,6 +296,13 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
       'notification cursor decodes an ISO timestamp string; it does not create source-of-truth time.',
   }),
   entry({
+    path: 'src/notices/queries/global-notice-list.cursor.ts',
+    owner: 'notices/queries',
+    category: 'parser',
+    rationale:
+      'global notice cursor decodes an ISO timestamp string; it does not create source-of-truth time.',
+  }),
+  entry({
     path: 'src/platform/database/prisma.service.ts',
     owner: 'platform/database',
     category: 'business-db-now',
@@ -430,6 +437,13 @@ const productionDateUsageInventory: readonly TimeSourceInventoryEntry[] = [
     category: 'business-db-now',
     rationale:
       'runtime repository resolves reference time from getCurrentTimestamp.sql and only falls back defensively.',
+  }),
+  entry({
+    path: 'src/season-participants/profile-history/get-previous-season-profile.query.ts',
+    owner: 'season-participants/profile-history',
+    category: 'date-arithmetic',
+    rationale:
+      'previous profile query derives ended-season lookup windows from explicit query now input.',
   }),
   entry({
     path: 'src/social-safety/blocks/queries/block-list.query.ts',

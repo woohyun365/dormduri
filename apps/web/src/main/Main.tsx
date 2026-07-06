@@ -13,7 +13,7 @@ import ProfileTab from './tabs/profile/ProfileTab';
 import MatchingTab from './tabs/matching/MatchingTab';
 import ChatTab from './tabs/chat/ChatTab';
 import { HomeTabSkeleton } from '@/components/Skeleton';
-import { HomeDashboardErrorState } from './tabs/home/components/HomeDashboardErrorState';
+import { HomeDashboardErrorState } from './tabs/home/layout/HomeDashboardErrorState';
 import { AppShellSkeleton } from '@/components/AppShellSkeleton';
 import { MatchingTabSkeleton } from './tabs/matching/MatchingTabSkeleton';
 import { useMainLocalOnboardingState } from '@/main/hooks/useMainLocalOnboardingState';
@@ -25,6 +25,7 @@ import {
   useMainHomeDashboard,
   type UseMainHomeDashboardResult,
 } from './hooks/useMainHomeDashboard';
+import { seasonParticipationApi } from './api/season-participation.api';
 import { useMainLegacyTabData } from './hooks/useMainLegacyTabData';
 import { SeasonProvider } from '@/main/contexts/SeasonContext';
 import { getMainFeatureFlags } from './utils/mainFeatureFlags';
@@ -48,7 +49,7 @@ function MainShellFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
+    <div className="min-h-screen bg-(--knu-background-alt) pb-20">
       {children}
       <BottomTabBar activeTab={activeTab} onTabChange={onTabChange} />
     </div>
@@ -59,16 +60,16 @@ function MainLegacyDataErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <section
       role="alert"
-      className="mx-auto mt-16 w-[calc(100%-2rem)] max-w-md rounded-3xl border border-[var(--knu-border)] bg-white p-6 text-center shadow-sm"
+      className="mx-auto mt-16 w-[calc(100%-2rem)] max-w-md rounded-3xl border border-(--knu-border) bg-white p-6 text-center shadow-sm"
     >
-      <p className="text-sm font-semibold text-[var(--knu-primary)]">탭 정보를 불러오지 못했어요</p>
-      <p className="mt-2 text-sm leading-6 text-[var(--knu-text-secondary)]">
+      <p className="text-sm font-semibold text-(--knu-primary)">탭 정보를 불러오지 못했어요</p>
+      <p className="mt-2 text-sm leading-6 text-(--knu-text-secondary)">
         잠시 후 다시 시도하거나 다른 탭을 이용해주세요.
       </p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-5 rounded-2xl bg-[var(--knu-primary)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[var(--knu-primary-dark)]"
+        className="mt-5 rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white transition hover:bg-(--knu-primary-dark)"
       >
         다시 시도
       </button>
@@ -185,6 +186,7 @@ function MainHomeDashboardContent({
   featureFlags: ReturnType<typeof getMainFeatureFlags>;
 }) {
   const [showBuildingSelect, setShowBuildingSelect] = useState(false);
+  const [isDeregisteringSeasonParticipation, setDeregisteringSeasonParticipation] = useState(false);
   const showToast = useCallback((msg: string) => toast(msg), []);
   const viewerUser = dashboard.viewer.identity.user;
 
@@ -201,8 +203,24 @@ function MainHomeDashboardContent({
     [showToast],
   );
 
+  const handleDeregisterSeasonParticipation = useCallback(async () => {
+    if (isDeregisteringSeasonParticipation) return;
+
+    setDeregisteringSeasonParticipation(true);
+    try {
+      await seasonParticipationApi.deregisterCurrentSeasonParticipation();
+      showToast('시즌 참여를 철회했어요.');
+      await homeDashboard.refetch();
+    } catch (error) {
+      showToast('시즌 참여 철회를 완료하지 못했어요. 잠시 후 다시 시도해주세요.');
+      throw error;
+    } finally {
+      setDeregisteringSeasonParticipation(false);
+    }
+  }, [homeDashboard, isDeregisteringSeasonParticipation, showToast]);
+
   return (
-    <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
+    <div className="min-h-screen bg-(--knu-background-alt) pb-20">
       {campusOperated &&
         (dashboard.season.isOpen || dashboard.season.isMatching) &&
         showBuildingSelect && (
@@ -229,6 +247,7 @@ function MainHomeDashboardContent({
             onNavigate={onNavigate}
             onOpenBuildingSelect={() => setShowBuildingSelect(true)}
             onDashboardRefresh={homeDashboard.refetch}
+            onDeregisterSeasonParticipation={handleDeregisterSeasonParticipation}
           />
         )}
       </main>
@@ -311,7 +330,7 @@ function MainLegacyDashboardContent({
 
   return (
     <SeasonProvider value={seasonContextValue}>
-      <div className="min-h-screen bg-[var(--knu-background-alt)] pb-20">
+      <div className="min-h-screen bg-(--knu-background-alt) pb-20">
         {campusOperated &&
           (seasonContextValue.isOpen || seasonContextValue.isMatching) &&
           profileState.showBuildingSelect && (

@@ -140,6 +140,17 @@ export function makeSeasonHistorySummary(): HomeDashboardSeasonHistorySummary {
       totalMatchSuccess: 36,
       viewerHadRegistration: true,
       viewerHadMatchSuccess: false,
+      viewerActivity: {
+        sentRequestCount: 1,
+        receivedRequestCount: 2,
+        conversationCount: 0,
+        finalResult: 'NO_MATCH',
+        matchedPartnerNickname: null,
+      },
+      aggregate: {
+        matchedPairCount: 18,
+        operatedDormitoryCount: 1,
+      },
     },
   };
 }
@@ -152,5 +163,8 @@ export function makeNextSeasonPreview(): HomeDashboardNextSeasonPreview {
     matchingStartDate: '2026-08-20',
     seasonEndDate: '2026-12-20',
     visibleToUser: true,
+    operatedDormitories: [
+      { dormitoryId: 'dasan', isOperated: true, roomSelectionDate: '2026-08-20' },
+    ],
   };
 }

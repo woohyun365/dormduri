@@ -31,6 +31,7 @@ import observabilityConfig from './config/observability.config.js';
 import secretSourceConfig from './config/secret-source.config.js';
 import { envValidationSchema } from './config/env.validation.js';
 import { ObservabilityModule } from './platform/observability/observability.module.js';
+import { NoticesModule } from './notices/notices.module.js';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { ObservabilityModule } from './platform/observability/observability.modu
     LegalModule,
     SocialSafetyModule,
     SupportModule,
+    NoticesModule,
   ],
   providers: [
     {

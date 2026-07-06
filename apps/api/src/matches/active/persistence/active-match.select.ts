@@ -1,6 +1,12 @@
 import type { Prisma } from '../../../generated/prisma/client.js';
 import { lifestyleColumnSelect } from '../../../season-participants/lifestyle/lifestyle-persistence.mapper.js';
 
+const activeMatchParticipantProfileSelect = {
+  ...lifestyleColumnSelect,
+  nicknameSnapshot: true,
+  intro: true,
+} as const;
+
 export const activeMatchSummarySelect = {
   id: true,
   seasonId: true,
@@ -14,16 +20,26 @@ export const activeMatchSummarySelect = {
   participantA: {
     select: {
       userId: true,
+      user: {
+        select: {
+          deletedAt: true,
+        },
+      },
       profile: {
-        select: lifestyleColumnSelect,
+        select: activeMatchParticipantProfileSelect,
       },
     },
   },
   participantB: {
     select: {
       userId: true,
+      user: {
+        select: {
+          deletedAt: true,
+        },
+      },
       profile: {
-        select: lifestyleColumnSelect,
+        select: activeMatchParticipantProfileSelect,
       },
     },
   },
@@ -52,20 +68,30 @@ export const activeMatchCommandSelect = {
   participantA: {
     select: {
       userId: true,
+      user: {
+        select: {
+          deletedAt: true,
+        },
+      },
       dormitoryId: true,
       dormitorySelectionState: true,
       profile: {
-        select: lifestyleColumnSelect,
+        select: activeMatchParticipantProfileSelect,
       },
     },
   },
   participantB: {
     select: {
       userId: true,
+      user: {
+        select: {
+          deletedAt: true,
+        },
+      },
       dormitoryId: true,
       dormitorySelectionState: true,
       profile: {
-        select: lifestyleColumnSelect,
+        select: activeMatchParticipantProfileSelect,
       },
     },
   },

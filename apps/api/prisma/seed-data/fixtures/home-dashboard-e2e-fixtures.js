@@ -30,10 +30,10 @@ const HOME_E2E_NEXT_SEASON = {
   academicYear: 2026,
   semester: 2,
   name: '2026년 2학기',
-  preparationStartDate: '2026-08-20',
-  matchingStartDate: '2026-09-01',
-  roomSelectionDate: '2026-09-15',
-  seasonEndDate: '2026-12-20',
+  preparationStartDate: '2026-07-23',
+  matchingStartDate: '2026-08-01',
+  roomSelectionDate: '2026-08-06',
+  seasonEndDate: '2026-08-31',
 };
 const HOME_E2E_DORMITORY_MATRIX = [
   { dormitoryId: 'dasan', expectedMinimumParticipants: 10 },

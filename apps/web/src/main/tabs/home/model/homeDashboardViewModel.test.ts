@@ -60,7 +60,7 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel).toMatchObject({
       hasCurrentSeason: true,
       seasonState: 'SEASON_OPEN',
-      daysUntilEnd: 30,
+      daysUntilEnd: 54,
       isSeasonOpen: true,
       isSeasonMatching: false,
     });
@@ -78,6 +78,7 @@ describe('homeDashboardViewModel', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
       nextSeasonPreview: null,
     });
@@ -112,6 +113,7 @@ describe('homeDashboardViewModel', () => {
         ...createHomeDashboardTestResponse().matching,
         pendingSentCount: 1,
         pendingReceivedCount: 1,
+        activeChatThreadCount: 2,
         recentReceivedRequests: [createReceivedRequest()],
       },
     });
@@ -126,7 +128,7 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.matchingSummary.stats).toMatchObject({
       sentRequests: 1,
       receivedRequests: 1,
-      activeChats: 0,
+      activeChats: 2,
       expiringCount: 1,
     });
     expect(viewModel.matchingSummary.receivedRequesters).toEqual(['요청자']);
@@ -176,7 +178,86 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.matchingSummary.gatingReason).toBeNull();
   });
 
-  it('keeps not-operated campus status from masking as a no-building gate', () => {
+  it('시즌 매칭 registration 전 상태를 registration-required gate로 표현한다', () => {
+    const base = createHomeDashboardTestResponse();
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...base.season,
+        state: 'SEASON_MATCHING',
+        isOpen: true,
+        isMatching: true,
+      },
+      viewer: {
+        ...base.viewer,
+        seasonProfile: {
+          ...base.viewer.seasonProfile,
+          intent: 'UNDECIDED',
+          registered: false,
+          profileExists: true,
+          profileState: 'DRAFT',
+          completion: {
+            profileCompletionRequired: false,
+            dormitorySelectionRequired: true,
+            registrationUnavailable: true,
+            registrationUnavailableReasons: ['DORMITORY_SELECTION_REQUIRED'],
+          },
+          draftWritable: true,
+          canSelectDormitory: true,
+          canFinalizeRegistration: false,
+        },
+        selection: {
+          state: 'NOT_SELECTED',
+          dormitoryId: null,
+          source: null,
+        },
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      renderedAt: new Date('2026-04-01T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.matchingSummary.gatingReason).toBe('registration_required');
+    expect(viewModel.tip.seasonStatus).toBe('SEASON_MATCHING_REGISTRATION_REQUIRED');
+  });
+
+  it('시즌 매칭 기간은 선택 기숙사의 호실 선택일 기준으로 계산한다', () => {
+    const base = createHomeDashboardTestResponse();
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...base.season,
+        state: 'SEASON_MATCHING',
+        isOpen: false,
+        isMatching: true,
+      },
+      viewer: {
+        ...base.viewer,
+        selection: {
+          state: 'ASSIGNED',
+          dormitoryId: 'dasan',
+          source: 'SEASON_PARTICIPANT',
+        },
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      renderedAt: new Date('2026-08-03T00:00:00+09:00').getTime(),
+    });
+
+    expect(viewModel.matchingWindow).toEqual({
+      matchingStartDate: '2026.08.01',
+      matchingStartDateShort: '08.01',
+      roomSelectionDate: '2026.08.06',
+      roomSelectionDateShort: '08.06',
+      roomSelectionDormitoryName: '다산관',
+      daysUntilRoomSelection: 4,
+      progressPercent: 33,
+    });
+  });
+
+  it('keeps not-operated campus status from masking as a registration-required gate', () => {
     const dashboard = createHomeDashboardTestResponse({
       viewer: {
         ...createHomeDashboardTestResponse().viewer,
@@ -200,6 +281,22 @@ describe('homeDashboardViewModel', () => {
     expect(viewModel.tip.seasonStatus).toBe('NOT_OPERATED');
   });
 
+  it('current season 운영 기숙사가 없으면 nextSeasonPreview로 보정하지 않는다', () => {
+    const dashboard = createHomeDashboardTestResponse({
+      season: {
+        ...createHomeDashboardTestResponse().season,
+        operatedDormitories: [],
+      },
+    });
+
+    const viewModel = buildHomeDashboardViewModel({
+      dashboard,
+      renderedAt: new Date('2026-07-01T00:00:00.000Z').getTime(),
+    });
+
+    expect(viewModel.operatedDormitories).toEqual([]);
+  });
+
   it('uses visible next-season preview even when there is no current season schedule', () => {
     const dashboard = createHomeDashboardTestResponse({
       season: {
@@ -212,6 +309,7 @@ describe('homeDashboardViewModel', () => {
         isPostMatch: false,
         daysUntilMatchingEnd: null,
         daysUntilSeasonEnd: null,
+        operatedDormitories: [],
       },
     });
 
@@ -222,8 +320,8 @@ describe('homeDashboardViewModel', () => {
 
     expect(viewModel.hasCurrentSeason).toBe(false);
     expect(viewModel.seasonSummary).toMatchObject({
-      daysUntilNext: 50,
-      nextSeasonDate: '2026.08.20',
+      daysUntilNext: 22,
+      nextSeasonDate: '2026.07.23',
       nextSeasonName: '2026년 2학기',
     });
   });
@@ -242,6 +340,8 @@ describe('homeDashboardViewModel', () => {
         assignedParticipants: 190,
         totalMatchSuccess: 42,
         buildingMatchSuccess: 12,
+        todayMatchSuccessTotal: 8,
+        todayMatchSuccessBuilding: 4,
       },
     });
 
@@ -252,6 +352,7 @@ describe('homeDashboardViewModel', () => {
 
     expect(viewModel.statsBar.totalCount).toBe(190);
     expect(viewModel.statsBar.matchSuccessCount).toBe(42);
+    expect(viewModel.statsBar.todayMatchSuccessCount).toBe(0);
   });
 
   it('maps active match summary to Home active match view state', () => {

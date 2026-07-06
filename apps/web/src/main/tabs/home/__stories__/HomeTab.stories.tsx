@@ -1,20 +1,28 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 import { HomeTabSkeleton } from '@/components/Skeleton';
 import HomeTab from '../HomeTab';
-import { HomeDashboardErrorState } from '../components/HomeDashboardErrorState';
+import { HomeDashboardErrorState } from '../layout/HomeDashboardErrorState';
 import { homeStoryScenarios, type HomeStoryScenario } from './home-story-scenarios';
+import { useHomeStoryApiFixtures } from './home-story-api-fixtures';
 
 interface HomeTabStorySurfaceProps {
   scenario: HomeStoryScenario;
 }
 
 function HomeTabStorySurface({ scenario }: HomeTabStorySurfaceProps) {
+  useHomeStoryApiFixtures({
+    operationsMode: scenario.operationsMode,
+    profileMode: scenario.profileMode,
+  });
+
   return (
     <HomeTab
       dashboard={scenario.dashboard}
       onNavigate={() => undefined}
       onOpenBuildingSelect={() => undefined}
       onDashboardRefresh={async () => undefined}
+      onDeregisterSeasonParticipation={async () => undefined}
+      {...(scenario.renderedAt ? { renderedAtOverride: scenario.renderedAt } : {})}
     />
   );
 }
@@ -57,30 +65,123 @@ function createStory(scenario: HomeStoryScenario): Story {
   };
 }
 
-export const OffSeason = createStory(homeStoryScenarios.offSeason);
-export const NoCurrentSeason = createStory(homeStoryScenarios.noCurrentSeason);
-export const NoHistoryNoCurrentSeason = createStory(homeStoryScenarios.noHistoryNoCurrentSeason);
-export const SeasonOpenProfileIncomplete = createStory(
-  homeStoryScenarios.seasonOpenProfileIncomplete,
+export const OffSeasonNextSeason: Story = {
+  name: 'Off season + next Season',
+  args: { scenario: homeStoryScenarios.offSeasonNextSeason },
+  parameters: {
+    docs: {
+      description: {
+        story: homeStoryScenarios.offSeasonNextSeason.description,
+      },
+    },
+  },
+};
+export const OffSeasonNoNextSeason: Story = {
+  name: 'Off Season + no next Season',
+  args: { scenario: homeStoryScenarios.offSeasonNoNextSeason },
+  parameters: {
+    docs: {
+      description: {
+        story: homeStoryScenarios.offSeasonNoNextSeason.description,
+      },
+    },
+  },
+};
+export const OffSeasonNextSeasonNoServiceHistory = createStory(
+  homeStoryScenarios.offSeasonNextSeasonNoServiceHistory,
 );
-export const SeasonOpenRegisteredAssigned = createStory(
-  homeStoryScenarios.seasonOpenRegisteredAssigned,
+export const OffSeasonNextSeasonNoUserHistory = createStory(
+  homeStoryScenarios.offSeasonNextSeasonNoUserHistory,
 );
-export const RegistrationUnavailable = createStory(homeStoryScenarios.registrationUnavailable);
-export const SeasonMatchingNoBuilding = createStory(homeStoryScenarios.matchingNoBuilding);
-export const SeasonMatchingPendingReceived = createStory(
-  homeStoryScenarios.matchingPendingReceived,
+export const OffSeasonNextSeasonUserMatchedHistory = createStory(
+  homeStoryScenarios.offSeasonNextSeasonUserMatchedHistory,
 );
-export const SeasonMatchingPendingSent = createStory(homeStoryScenarios.matchingPendingSent);
-export const ActiveMatchUnreadChat = createStory(homeStoryScenarios.activeMatchUnreadChat);
-export const PostMatchHistory = createStory(homeStoryScenarios.postMatchHistory);
+export const OffSeasonNoNextSeasonNoServiceHistory = createStory(
+  homeStoryScenarios.offSeasonNoNextSeasonNoServiceHistory,
+);
+export const SeasonOpenProfileAndDormitoryRequired = createStory(
+  homeStoryScenarios.seasonOpenProfileAndDormitoryRequired,
+);
+export const SeasonOpenDormitoryRequired = createStory(
+  homeStoryScenarios.seasonOpenDormitoryRequired,
+);
+export const SeasonOpenProfileRequired = createStory(homeStoryScenarios.seasonOpenProfileRequired);
+export const SeasonOpenRegistrationReady = createStory(
+  homeStoryScenarios.seasonOpenRegistrationReady,
+);
+export const SeasonOpenRegisteredPreview = createStory(
+  homeStoryScenarios.seasonOpenRegisteredPreview,
+);
+export const SeasonOpenDeregistered = createStory(homeStoryScenarios.seasonOpenDeregistered);
+export const SeasonOpenNoMatchingSeason = createStory(
+  homeStoryScenarios.seasonOpenNoMatchingSeason,
+);
+export const SeasonOpenNoOperatedDormitoriesProfileIncomplete = createStory(
+  homeStoryScenarios.seasonOpenNoOperatedDormitoriesProfileIncomplete,
+);
+export const SeasonOpenNoOperatedDormitoriesProfileComplete = createStory(
+  homeStoryScenarios.seasonOpenNoOperatedDormitoriesProfileComplete,
+);
+export const SeasonMatchingProfileAndDormitoryRequired = createStory(
+  homeStoryScenarios.seasonMatchingProfileAndDormitoryRequired,
+);
+export const SeasonMatchingProfileRequired = createStory(
+  homeStoryScenarios.seasonMatchingProfileRequired,
+);
+export const SeasonMatchingDormitoryRequired = createStory(
+  homeStoryScenarios.seasonMatchingDormitoryRequired,
+);
+export const SeasonMatchingRegistrationReady = createStory(
+  homeStoryScenarios.seasonMatchingRegistrationReady,
+);
+export const SeasonMatchingRegisteredNoActivity = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredNoActivity,
+);
+export const SeasonMatchingRegisteredProgress40 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredProgress40,
+);
+export const SeasonMatchingRegisteredProgress75 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredProgress75,
+);
+export const SeasonMatchingRegisteredProgress92 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredProgress92,
+);
+export const SeasonMatchingDeregistered = createStory(
+  homeStoryScenarios.seasonMatchingDeregistered,
+);
+export const SeasonMatchingUnmatched = createStory(homeStoryScenarios.seasonMatchingUnmatched);
+export const SeasonMatchingRegisteredS1R0C1 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredS1R0C1,
+);
+export const SeasonMatchingRegisteredS1R1C1 = createStory(
+  homeStoryScenarios.seasonMatchingRegisteredS1R1C1,
+);
+export const SeasonMatchingActiveMatch = createStory(homeStoryScenarios.seasonMatchingActiveMatch);
+export const SeasonMatchingActiveMatchCounterpartCancelRequest = createStory(
+  homeStoryScenarios.seasonMatchingActiveMatchCounterpartCancelRequest,
+);
+export const SeasonMatchingActiveMatchSelfCancelRequest = createStory(
+  homeStoryScenarios.seasonMatchingActiveMatchSelfCancelRequest,
+);
+export const PostMatchNotRegistered = createStory(homeStoryScenarios.postMatchNotRegistered);
+export const PostMatchDeregistered = createStory(homeStoryScenarios.postMatchDeregistered);
+export const PostMatchMatched = createStory(homeStoryScenarios.postMatchMatched);
+export const PostMatchUnmatched = createStory(homeStoryScenarios.postMatchUnmatched);
+export const PostMatchRegisteredNotMatched = createStory(
+  homeStoryScenarios.postMatchRegisteredNotMatched,
+);
+export const PostMatchUserHistory = createStory(homeStoryScenarios.postMatchUserHistory);
+export const PostMatchRegistrationUnavailable = createStory(
+  homeStoryScenarios.postMatchRegistrationUnavailable,
+);
+export const SeasonMatchingRegistrationUnavailable = createStory(
+  homeStoryScenarios.seasonMatchingRegistrationUnavailable,
+);
+export const ProfileCounterpartError = createStory(homeStoryScenarios.profileCounterpartError);
 export const NonOperatedCampus = createStory(homeStoryScenarios.nonOperatedCampus);
-export const OnboardingNoticeOpen = createStory(homeStoryScenarios.onboardingNoticeOpen);
-export const OnboardingNoticeDismissed = createStory(homeStoryScenarios.onboardingNoticeDismissed);
-
 export const LoadingSkeleton: Story = {
   name: '로딩 스켈레톤',
-  args: { scenario: homeStoryScenarios.offSeason },
+  args: { scenario: homeStoryScenarios.offSeasonNextSeason },
   render: () => <HomeTabSkeleton />,
   parameters: {
     docs: {
@@ -93,7 +194,7 @@ export const LoadingSkeleton: Story = {
 
 export const ErrorRecovery: Story = {
   name: '오류 복구',
-  args: { scenario: homeStoryScenarios.offSeason },
+  args: { scenario: homeStoryScenarios.offSeasonNextSeason },
   render: () => (
     <HomeDashboardErrorState
       message="일시적으로 홈 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요."
