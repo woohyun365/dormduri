@@ -16,14 +16,30 @@ describe('roommateSearchViewModel', () => {
   it('scoreVisible=true이고 matchScore가 있으면 score label을 만든다', () => {
     const vm = mapRoommateSearchItemToCardViewModel(summary({ matchScore: 88 }));
 
-    expect(vm.scoreLabel).toBe('적합도 88점');
+    expect(vm.scoreLabel).toBe('매칭점수 88점');
   });
 
-  it('scoreVisible=false이면 raw score를 UI label로 만들지 않는다', () => {
+  it('scoreVisible=false인 detail-viewable 예외는 amber score error label로 만든다', () => {
     const item = createSummary('score-hidden');
     const vm = mapRoommateSearchItemToCardViewModel({
       ...item,
       exposure: { ...item.exposure, scoreVisible: false },
+      matchScore: 91,
+    });
+
+    expect(vm.scoreLabel).toBe('서버 오류');
+  });
+
+  it('summary-only scoreVisible=false는 score label을 만들지 않는다', () => {
+    const item = createSummary('score-hidden-summary-only');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      exposure: {
+        ...item.exposure,
+        detailViewable: false,
+        canViewFull: false,
+        scoreVisible: false,
+      },
       matchScore: 91,
     });
 
@@ -45,7 +61,32 @@ describe('roommateSearchViewModel', () => {
 
     expect(vm.summaryOnly).toBe(true);
     expect(vm.detailViewable).toBe(false);
-    expect(vm.actionStateLabel).toBe('다른 건물이라 요약만 볼 수 있어요');
+    expect(vm.profileVisibilityBadge).toBeNull();
+    expect(vm.actionStateLabel).toBe('다른 건물 유저는 프로필 요약만 확인 가능해요');
+    expect(vm.actionStateBadges).toEqual([
+      { label: '다른 건물 유저는 프로필 요약만 확인 가능해요', tone: 'slate' },
+    ]);
+  });
+
+  it('summary-only campus preview는 카드 맥락 label을 캠퍼스명으로 표시할 수 있다', () => {
+    const item = createSummary('campus-preview');
+    const vm = mapRoommateSearchItemToCardViewModel(
+      {
+        ...item,
+        exposure: { ...item.exposure, detailViewable: false, canViewFull: false },
+      },
+      { summaryContextLabel: '춘천캠퍼스' },
+    );
+
+    expect(vm.metadataLabel).toBe('춘천캠퍼스');
+  });
+
+  it('detail-viewable search card도 카드 맥락 label을 우선 표시한다', () => {
+    const vm = mapRoommateSearchItemToCardViewModel(createSummary('same-dorm'), {
+      summaryContextLabel: '예지원 (여)',
+    });
+
+    expect(vm.metadataLabel).toBe('예지원 (여)');
   });
 
   it('result-read context와 bookmark/detail token을 보존한다', () => {
@@ -74,13 +115,46 @@ describe('roommateSearchViewModel', () => {
     expect(vm.resultReadLabel).toBeNull();
   });
 
-  it('profileSummary allowlist 기반 fact만 만든다', () => {
-    const vm = mapRoommateSearchItemToCardViewModel(createSummary('facts'));
+  it('canStartChat=true이면 카드용 대화 CTA view model을 만든다', () => {
+    const item = createSummary('chat-open');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      actions: {
+        canBookmark: true,
+        canRequestMatch: false,
+        canStartChat: true,
+        unavailableReasons: [],
+      },
+    });
+
+    expect(vm.actionStateLabel).toBe('대화 가능');
+    expect(vm.actionStateBadges).toEqual([
+      { label: '대화 가능', tone: 'green' },
+      { label: '매칭 신청 불가', tone: 'amber' },
+    ]);
+    expect(vm.chatAction).toEqual({
+      visible: true,
+      label: '채팅하기',
+      accessibilityLabel: '테스트-chat-open 채팅하기',
+    });
+  });
+
+  it('profileSummary allowlist 기반 fact만 만들고 전자담배를 별도 pill로 표시한다', () => {
+    const item = createSummary('facts');
+    const vm = mapRoommateSearchItemToCardViewModel({
+      ...item,
+      profileSummary: {
+        ...item.profileSummary,
+        smokingBehavior: 'E_CIG',
+        sleepHabit: 'SNORING',
+        relationshipStyle: 'CLOSE',
+      },
+    });
 
     expect(vm.facts).toEqual([
-      { label: '흡연', value: '비흡연' },
-      { label: '잠버릇', value: '없음' },
-      { label: '관계', value: '적당한 거리' },
+      { label: '흡연 여부', value: '전자담배' },
+      { label: '잠버릇', value: '잠버릇 있음' },
+      { label: '관계', value: '친하게 지내요' },
     ]);
     expect(vm.facts.map((fact) => fact.label)).not.toContain('음주');
   });

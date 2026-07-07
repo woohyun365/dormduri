@@ -21,7 +21,7 @@ const UNAVAILABLE_REASON_LABELS: Record<PublicTargetActionUnavailableReason, str
   DIFFERENT_DORMITORY: '다른 건물이라 새 요청 기능이 닫혔어요.',
   VIEWER_ALREADY_MATCHED: '이미 매칭되어 새 요청 기능이 닫혔어요.',
   TARGET_ALREADY_MATCHED: '상대의 매칭 상태가 바뀌어 새 요청 기능이 닫혔어요.',
-  SEASON_NOT_ACTIONABLE: '시즌 정책상 새 요청 기능이 닫혔어요.',
+  SEASON_NOT_ACTIONABLE: '지금은 새 요청 기능이 닫혀 있어요.',
   ROOM_SELECTION_CUTOFF: '호실 선택 마감 이후에는 요청할 수 없어요.',
   THREAD_READ_ONLY: '기존 대화가 읽기 전용 상태예요.',
   TARGET_DELETED_OR_DEIDENTIFIED: '상대 정보가 더 이상 제공되지 않아요.',

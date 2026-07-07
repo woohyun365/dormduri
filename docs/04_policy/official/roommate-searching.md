@@ -190,7 +190,7 @@ Roommate-search는 UI가 현재 scope에서 어떤 필터/정렬을 열 수 있�
 | `college`               | `college.operator`, `college.values[]`                                                      | `SAME_BUILDING_ONLY` actionable detail discovery | viewer campus active college catalog 안에서 `INCLUDE` 또는 `EXCLUDE` 단일 operator만 허용                                   |
 | `grade`                 | `grade.operator`, `grade.values[]` 또는 구현 단계의 동등 normalized shape                   | `SAME_BUILDING_ONLY` actionable detail discovery | season additional profile 기반 filter                                                                                       |
 | `mbtiTraits`            | `mbtiTraits.energy`, `mbtiTraits.perception`, `mbtiTraits.decision`, `mbtiTraits.lifestyle` | `SAME_BUILDING_ONLY` actionable detail discovery | profile write는 full MBTI를 요구하지만 search는 각 차원 one-of 또는 wildcard(null)를 허용                                   |
-| `ageBand`               | `ageBand.values[]`                                                                          | `SAME_BUILDING_ONLY` actionable detail discovery | account `birthYear` snapshot을 season reference year 기준 bucket으로 계산                                                   |
+| `ageBand`               | `ageBand.values[]`                                                                          | `SAME_BUILDING_ONLY` actionable detail discovery | 한국식 나이 code를 account `birthYear` snapshot의 season reference year 기준 bucket으로 변환해 계산                         |
 | `minScore`              | `minScore=90\|80\|70\|60`                                                                   | `SAME_BUILDING_ONLY` actionable detail discovery | query-time score calculation 이후 적용되는 post-score threshold filter. `minScore`만 요청해도 `MATCH_SCORE` 정렬로 적용된다 |
 
 공통 validation:
@@ -206,14 +206,14 @@ Roommate-search는 UI가 현재 scope에서 어떤 필터/정렬을 열 수 있�
 
 ### Option source
 
-| option             | source                                                                    |
-| ------------------ | ------------------------------------------------------------------------- |
-| lifestyle enum     | shared const/schema                                                       |
-| grade enum         | shared const/schema                                                       |
-| MBTI full options  | shared 16-combo const/schema                                              |
-| MBTI trait options | shared dimension const/schema                                             |
-| ageBand            | season reference year와 birthYear policy에서 계산한 shared bucket         |
-| college            | viewer campus active `CollegeMaster` catalog 또는 동등 reference endpoint |
+| option             | source                                                                            |
+| ------------------ | --------------------------------------------------------------------------------- |
+| lifestyle enum     | shared const/schema                                                               |
+| grade enum         | shared const/schema                                                               |
+| MBTI full options  | shared 16-combo const/schema                                                      |
+| MBTI trait options | shared dimension const/schema                                                     |
+| ageBand            | 한국식 나이 label과 season reference year/birthYear 변환에서 계산한 shared bucket |
+| college            | viewer campus active `CollegeMaster` catalog 또는 동등 reference endpoint         |
 
 ## 정렬 / pagination 정책
 

@@ -1,4 +1,5 @@
 import { BaseBottomSheet } from '@/components/BaseBottomSheet';
+import { LIFESTYLE_FIELD_NAMES, getLifestyleLabel } from '@/constants/lifestyle';
 import { CompatibilityAxisList } from '../components/CompatibilityAxisList';
 import { CompatibilityRadar } from '../components/CompatibilityRadar';
 import { mapCompatibilityToChartViewModel } from '../model/compatibility/compatibilityChart.mapper';
@@ -10,11 +11,14 @@ import type { RoommateProfileDetailState } from '../hooks/useRoommateProfileDeta
 import type { RoommateActionTargetSnapshot } from '../hooks/useRoommateActions';
 import type {
   PublicProfileFullDetail,
+  PublicProfileDetailLifestyle,
   PublicProfileTombstone,
 } from '@repo/shared/profile/contract';
+import type { LifestyleData } from '@/types/lifestyle';
 
 interface RoommateProfileDetailDialogProps {
   readonly state: RoommateProfileDetailState;
+  readonly viewerLifestyle: LifestyleData;
   readonly onClose: () => void;
   readonly onRetry: () => void;
   readonly onRefreshList: () => void;
@@ -30,12 +34,12 @@ interface DetailRowViewModel {
   readonly value: string;
 }
 
-const GENERIC_ERROR_TITLE = '상세 정보를 다시 확인할 수 없어요.';
-const GENERIC_ERROR_MESSAGE =
-  '목록 이후 공개 상태가 바뀌었을 수 있어요. 대상 존재 여부나 숨김 사유는 추가로 표시하지 않아요.';
+const GENERIC_ERROR_TITLE = '서버 오류로 프로필 접근에 실패했어요.';
+const GENERIC_ERROR_MESSAGE = '목록을 새로고침한 뒤 다시 열람해 주세요.';
 
 export function RoommateProfileDetailDialog({
   state,
+  viewerLifestyle,
   onClose,
   onRetry,
   onRefreshList,
@@ -63,6 +67,7 @@ export function RoommateProfileDetailDialog({
         {state.status === 'success' && state.profile.detailState === 'FULL' ? (
           <FullDetailContent
             profile={state.profile}
+            viewerLifestyle={viewerLifestyle}
             actionPendingTargetIds={actionPendingTargetIds}
             onRequestMatch={onRequestMatch}
             onBlock={onBlock}
@@ -80,11 +85,11 @@ export function RoommateProfileDetailDialog({
 
 function DetailLoading({ nickname }: { readonly nickname: string }) {
   return (
-    <section role="status" className="rounded-3xl border border-[var(--knu-border)] bg-white p-5">
-      <p className="text-sm font-bold text-[var(--knu-text-primary)]">
+    <section role="status" className="rounded-3xl border border-(--knu-border) bg-white p-5">
+      <p className="text-sm font-bold text-(--knu-text-primary)">
         {nickname} 상세 정보를 불러오는 중이에요.
       </p>
-      <p className="mt-2 text-xs leading-5 text-[var(--knu-text-secondary)]">
+      <p className="mt-2 text-xs leading-5 text-(--knu-text-secondary)">
         정상 목록 진입 맥락을 확인한 뒤 공개 가능한 정보만 보여줄게요.
       </p>
     </section>
@@ -103,15 +108,13 @@ function DetailError({
   return (
     <section role="alert" className="rounded-3xl border border-red-100 bg-white p-5 text-center">
       <p className="text-base font-bold text-red-700">{GENERIC_ERROR_TITLE}</p>
-      <p className="mt-2 text-sm leading-6 text-[var(--knu-text-secondary)]">
-        {GENERIC_ERROR_MESSAGE}
-      </p>
+      <p className="mt-2 text-sm leading-6 text-(--knu-text-secondary)">{GENERIC_ERROR_MESSAGE}</p>
       <div className="mt-5 grid gap-2">
         {retryable ? (
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-2xl bg-[var(--knu-primary)] px-4 py-3 text-sm font-semibold text-white"
+            className="rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white"
           >
             다시 시도
           </button>
@@ -119,7 +122,7 @@ function DetailError({
         <button
           type="button"
           onClick={onRefreshList}
-          className="rounded-2xl border border-[var(--knu-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--knu-primary)]"
+          className="rounded-2xl border border-(--knu-border) bg-white px-4 py-3 text-sm font-semibold text-(--knu-primary)"
         >
           목록 새로고침
         </button>
@@ -130,6 +133,7 @@ function DetailError({
 
 function FullDetailContent({
   profile,
+  viewerLifestyle,
   actionPendingTargetIds,
   onRequestMatch,
   onBlock,
@@ -137,6 +141,7 @@ function FullDetailContent({
   onStartChat,
 }: {
   readonly profile: PublicProfileFullDetail;
+  readonly viewerLifestyle: LifestyleData;
   readonly actionPendingTargetIds: readonly string[];
   readonly onRequestMatch?: (target: RoommateActionTargetSnapshot) => void;
   readonly onBlock?: (target: RoommateActionTargetSnapshot) => void;
@@ -147,7 +152,8 @@ function FullDetailContent({
     ? mapCompatibilityToChartViewModel(profile.compatibility)
     : null;
   const identityRows = buildIdentityRows(profile);
-  const lifestyleRows = buildLifestyleRows(profile);
+  const targetLifestyleRows = buildTargetLifestyleRows(profile.lifestyle);
+  const viewerPreferenceRows = buildViewerPreferenceRows(viewerLifestyle);
 
   return (
     <div className="space-y-5">
@@ -155,35 +161,57 @@ function FullDetailContent({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-bold text-indigo-700">상대 프로필</p>
-            <h2 className="mt-1 text-xl font-bold text-[var(--knu-text-primary)]">
-              {profile.nickname}
-            </h2>
+            <h2 className="mt-1 text-xl font-bold text-(--knu-text-primary)">{profile.nickname}</h2>
           </div>
           {typeof profile.matchScore === 'number' ? (
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[var(--knu-primary)] shadow-sm">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-(--knu-primary) shadow-sm">
               적합도 {profile.matchScore}점
             </span>
           ) : null}
         </div>
-        <p className="mt-3 text-sm leading-6 text-[var(--knu-text-secondary)]">{profile.intro}</p>
+        <p className="mt-3 text-sm leading-6 text-(--knu-text-secondary)">{profile.intro}</p>
       </section>
 
       <DetailRowsSection title="기본 정보" rows={identityRows} />
 
       {compatibility ? (
-        <div className="space-y-4">
+        <section className="space-y-4 rounded-3xl border border-indigo-100 bg-white p-4">
+          <div>
+            <p className="text-xs font-bold text-indigo-700">비교 결과</p>
+            <h3 className="mt-1 text-base font-bold text-(--knu-text-primary)">
+              상대 생활 패턴 ↔ 나의 원하는 룸메 조건 비교
+            </h3>
+            <p className="mt-2 text-xs leading-5 text-(--knu-text-secondary)">
+              초록은 잘 맞는 축, 파랑은 대화로 조율할 수 있는 축, 슬레이트는 추가 확인이 필요한
+              축이에요.
+            </p>
+          </div>
           <CompatibilityRadar viewModel={compatibility} />
           <CompatibilityAxisList viewModel={compatibility} />
-        </div>
+        </section>
       ) : (
-        <section className="rounded-3xl border border-[var(--knu-border)] bg-white p-4">
-          <p className="text-sm font-semibold text-[var(--knu-text-primary)]">
-            상세 적합도는 현재 제공되지 않아요.
+        <section className="rounded-3xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-bold text-amber-800">
+            서버 오류로 매칭점수를 제공하지 못했어요.
+          </p>
+          <p className="mt-1 text-xs leading-5 text-amber-700">
+            목록을 새로고침해 다시 확인해 주세요.
           </p>
         </section>
       )}
 
-      <DetailRowsSection title="공개 생활패턴" rows={lifestyleRows} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DetailRowsSection
+          title="상대 생활패턴"
+          description="상대가 공개한 생활패턴만 보여줘요."
+          rows={targetLifestyleRows}
+        />
+        <DetailRowsSection
+          title="나의 원하는 룸메 조건"
+          description="내 시즌 프로필의 룸메 조건을 비교 기준으로 보여줘요."
+          rows={viewerPreferenceRows}
+        />
+      </div>
       <ActionSummary
         target={{ targetUserId: profile.id, nickname: profile.nickname, actions: profile.actions }}
         pending={actionPendingTargetIds.includes(profile.id)}
@@ -204,27 +232,19 @@ function TombstoneDetailContent({
   readonly onRefreshList: () => void;
 }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-center">
-      <p className="text-xs font-bold text-slate-500">상세 안내</p>
-      <h2 className="mt-2 text-lg font-bold text-[var(--knu-text-primary)]">
-        {profile.tombstone.displayName}
-      </h2>
-      <p className="mt-3 text-sm leading-6 text-[var(--knu-text-secondary)]">
+    <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5 text-center">
+      <p className="text-xs font-bold text-amber-700">예외 안내</p>
+      <h2 className="mt-2 text-lg font-bold text-amber-950">상대가 시즌 참여를 철회했어요.</h2>
+      <p className="mt-3 text-sm leading-6 text-(--knu-text-secondary)">
         {profile.tombstone.message}
       </p>
-      <p className="mt-2 text-xs leading-5 text-[var(--knu-text-tertiary)]">
-        retained payload를 복원하지 않고 현재 공개 가능한 안내만 표시해요.
+      <p className="mt-2 text-xs leading-5 text-amber-800">
+        목록을 새로고침해 현재 참여 중인 후보만 다시 확인해 주세요.
       </p>
-      <div className="mt-4 rounded-2xl bg-white px-3 py-3 text-left">
-        <p className="text-xs font-bold text-[var(--knu-text-tertiary)]">다음 행동</p>
-        <p className="mt-1 text-sm leading-6 text-[var(--knu-text-secondary)]">
-          {buildPrimaryActionCopy(profile.actions)}
-        </p>
-      </div>
       <button
         type="button"
         onClick={onRefreshList}
-        className="mt-5 rounded-2xl bg-[var(--knu-primary)] px-4 py-3 text-sm font-semibold text-white"
+        className="mt-5 rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white"
       >
         목록 새로고침
       </button>
@@ -234,9 +254,11 @@ function TombstoneDetailContent({
 
 function DetailRowsSection({
   title,
+  description,
   rows,
 }: {
   readonly title: string;
+  readonly description?: string;
   readonly rows: readonly DetailRowViewModel[];
 }) {
   if (rows.length === 0) return null;
@@ -244,19 +266,20 @@ function DetailRowsSection({
 
   return (
     <section aria-labelledby={headingId}>
-      <h3 id={headingId} className="mb-2 text-sm font-bold text-[var(--knu-text-primary)]">
+      <h3 id={headingId} className="mb-2 text-sm font-bold text-(--knu-text-primary)">
         {title}
       </h3>
+      {description ? (
+        <p className="mb-3 text-xs leading-5 text-(--knu-text-secondary)">{description}</p>
+      ) : null}
       <dl className="grid gap-2 sm:grid-cols-2">
         {rows.map((row) => (
           <div
             key={`${row.label}-${row.value}`}
-            className="rounded-2xl bg-[var(--knu-background-alt)] px-3 py-3"
+            className="rounded-2xl bg-(--knu-background-alt) px-3 py-3"
           >
-            <dt className="text-xs font-bold text-[var(--knu-text-tertiary)]">{row.label}</dt>
-            <dd className="mt-1 text-sm font-semibold text-[var(--knu-text-secondary)]">
-              {row.value}
-            </dd>
+            <dt className="text-xs font-bold text-(--knu-text-tertiary)">{row.label}</dt>
+            <dd className="mt-1 text-sm font-semibold text-(--knu-text-secondary)">{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -283,16 +306,16 @@ function ActionSummary({
   const primaryUnavailableReason = target.actions.unavailableReasons[0] ?? null;
 
   return (
-    <section className="rounded-3xl border border-[var(--knu-border)] bg-white p-4">
-      <p className="text-sm font-bold text-[var(--knu-text-primary)]">다음 행동</p>
-      <p className="mt-2 text-sm leading-6 text-[var(--knu-text-secondary)]">{label}</p>
+    <section className="rounded-3xl border border-(--knu-border) bg-white p-4">
+      <p className="text-sm font-bold text-(--knu-text-primary)">다음 행동</p>
+      <p className="mt-2 text-sm leading-6 text-(--knu-text-secondary)">{label}</p>
       <div className="mt-4 grid gap-2">
         {target.actions.canRequestMatch && onRequestMatch ? (
           <button
             type="button"
             disabled={pending}
             onClick={() => onRequestMatch(target)}
-            className="rounded-2xl bg-[var(--knu-primary)] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? '요청 처리 중' : '매칭 요청 보내기'}
           </button>
@@ -301,7 +324,7 @@ function ActionSummary({
             type="button"
             disabled={pending}
             onClick={() => onStartChat(target)}
-            className="rounded-2xl bg-[var(--knu-primary)] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             대화 화면에서 이어가기
           </button>
@@ -309,7 +332,7 @@ function ActionSummary({
           <button
             type="button"
             disabled
-            className="rounded-2xl bg-[var(--knu-background-alt)] px-4 py-3 text-sm font-semibold text-[var(--knu-text-secondary)] disabled:cursor-not-allowed"
+            className="rounded-2xl bg-(--knu-background-alt) px-4 py-3 text-sm font-semibold text-(--knu-text-secondary) disabled:cursor-not-allowed"
           >
             {primaryUnavailableReason
               ? formatTargetActionUnavailableReason(primaryUnavailableReason)
@@ -323,7 +346,7 @@ function ActionSummary({
               type="button"
               disabled={pending}
               onClick={() => onReport(target)}
-              className="rounded-2xl border border-[var(--knu-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--knu-text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-2xl border border-(--knu-border) bg-white px-4 py-3 text-sm font-semibold text-(--knu-text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
             >
               신고하기
             </button>
@@ -360,47 +383,50 @@ function buildIdentityRows(profile: PublicProfileFullDetail): readonly DetailRow
   ];
 }
 
-function buildLifestyleRows(profile: PublicProfileFullDetail): readonly DetailRowViewModel[] {
-  const lifestyle = profile.lifestyle;
-  return [
-    { label: '취침 시간', value: lifestyleValueLabel(lifestyle.bedtime) },
-    { label: '기상 시간', value: lifestyleValueLabel(lifestyle.wakeTime) },
-    { label: '잠버릇', value: lifestyleValueLabel(lifestyle.sleepHabit) },
-    { label: '수면 환경', value: lifestyleValueLabel(lifestyle.sleepEnvironment) },
-    { label: '화면 사용', value: lifestyleValueLabel(lifestyle.screenUsage) },
-    { label: '소음 민감도', value: lifestyleValueLabel(lifestyle.noiseSensitivity) },
-    { label: '흡연', value: lifestyleValueLabel(lifestyle.smokingBehavior) },
-    { label: '실내 취식', value: lifestyleValueLabel(lifestyle.indoorEating) },
-    { label: '통화', value: lifestyleValueLabel(lifestyle.phoneBehavior) },
-    { label: '이어폰', value: lifestyleValueLabel(lifestyle.earphoneUsage) },
-    { label: '청소', value: lifestyleValueLabel(lifestyle.cleanLevel) },
-    { label: '관계 스타일', value: lifestyleValueLabel(lifestyle.relationshipStyle) },
-    { label: '온도 민감도', value: lifestyleValueLabel(lifestyle.temperatureSensitivity) },
-  ];
+const TARGET_LIFESTYLE_FIELDS = [
+  'bedtime',
+  'wakeTime',
+  'sleepHabit',
+  'sleepEnvironment',
+  'screenUsage',
+  'noiseSensitivity',
+  'smokingBehavior',
+  'indoorEating',
+  'phoneBehavior',
+  'earphoneUsage',
+  'cleanLevel',
+  'relationshipStyle',
+  'temperatureSensitivity',
+] as const satisfies readonly (keyof PublicProfileDetailLifestyle)[];
+
+const VIEWER_PREFERENCE_FIELDS = [
+  'smokingTolerance',
+  'phoneTolerance',
+  'earphoneExpectation',
+  'sleepEnvPreference',
+  'screenTolerance',
+  'indoorEatingTolerance',
+  'cleanExpectation',
+] as const satisfies readonly (keyof LifestyleData)[];
+
+function buildTargetLifestyleRows(
+  lifestyle: PublicProfileDetailLifestyle,
+): readonly DetailRowViewModel[] {
+  return TARGET_LIFESTYLE_FIELDS.map((field) => ({
+    label: LIFESTYLE_FIELD_NAMES[field],
+    value: getLifestyleLabel(field, lifestyle[field]),
+  }));
 }
 
-function lifestyleValueLabel(value: string | null): string {
-  if (!value) return '비공개';
-  const labels: Record<string, string> = {
-    '22_24': '22~24시',
-    '24_02': '24~02시',
-    '07_08': '07~08시',
-    NO: '비흡연',
-    E_CIG: '전자담배',
-    YES: '흡연',
-    NONE: '없음',
-    HAS: '있음',
-    QUIET: '조용한 환경',
-    NORMAL: '보통',
-    SNACK: '간식 정도',
-    RARELY: '거의 안 함',
-    SOMETIMES: '가끔',
-    ALWAYS: '항상 사용',
-    WEEKLY_1_2: '주 1~2회',
-    WEEKLY_3_UP: '주 3회 이상',
-    CLOSE: '가까운 관계',
-    CASUAL: '적당한 거리',
-    DISTANT: '각자 생활',
-  };
-  return labels[value] ?? value;
+function buildViewerPreferenceRows(lifestyle: LifestyleData): readonly DetailRowViewModel[] {
+  return [
+    ...VIEWER_PREFERENCE_FIELDS.map((field) => ({
+      label: LIFESTYLE_FIELD_NAMES[field],
+      value: getLifestyleLabel(field, lifestyle[field]),
+    })),
+    {
+      label: '음주',
+      value: '정책상 비교 상세에서는 제외',
+    },
+  ];
 }

@@ -234,10 +234,10 @@
 
 `UserAcademicIdentity`는 계정 레벨의 학업/연령 identity를 소유한다. 이 값은 닉네임처럼 사용자가 자신을 나타내는 기본 정보지만, season profile draft의 선택 필드가 아니다.
 
-| 필드          | 수집 시점              | 정책                                                                                                                                                                                                                                                        |
-| ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `collegeCode` | 회원가입/account setup | viewer campus의 active college catalog 안에서 선택한다. 전과/학적 변경 가능성을 고려해 registration 전 self-service correction allowance를 둔다                                                                                                             |
-| `birthYear`   | 회원가입/account setup | exact birth year로 저장한다. 신규 입력/정정 UI guard는 현재 연도 기준 18~30세(`currentYear - 30` ~ `currentYear - 18`) 범위로 제한한다. `ageBand`는 roommate-search filter에서 season reference year 기준으로 계산하는 derived value이며 DB 입력값이 아니다 |
+| 필드          | 수집 시점              | 정책                                                                                                                                                                                                                                                                                            |
+| ------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `collegeCode` | 회원가입/account setup | viewer campus의 active college catalog 안에서 선택한다. 전과/학적 변경 가능성을 고려해 registration 전 self-service correction allowance를 둔다                                                                                                                                                 |
+| `birthYear`   | 회원가입/account setup | exact birth year로 저장한다. 신규 입력/정정 UI guard는 현재 연도 기준 18~30세(`currentYear - 30` ~ `currentYear - 18`) 범위로 제한한다. `ageBand`는 roommate-search filter에서 한국식 나이 code를 season reference year 기준 birthYear bucket으로 변환하는 derived value이며 DB 입력값이 아니다 |
 
 Readiness / correction 규칙:
 

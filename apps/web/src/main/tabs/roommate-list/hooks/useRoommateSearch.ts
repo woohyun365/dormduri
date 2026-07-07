@@ -156,7 +156,10 @@ export function useRoommateSearch(options: UseRoommateSearchOptions = {}): UseRo
 
       try {
         setSnapshot((current) => {
-          const loading = markRoommateSearchLoading({ ...current, query }, 'loading-manifest');
+          const loading = markRoommateSearchLoading(
+            { ...current, query },
+            mode === 'append' ? 'loading-more' : 'loading-manifest',
+          );
           snapshotRef.current = loading;
           return loading;
         });
@@ -172,7 +175,10 @@ export function useRoommateSearch(options: UseRoommateSearchOptions = {}): UseRo
           manifestResponse,
         );
         const requestQuery = manifestLoaded.query;
-        const loadingSearch = markRoommateSearchLoading(manifestLoaded, 'loading-search');
+        const loadingSearch = markRoommateSearchLoading(
+          manifestLoaded,
+          mode === 'append' ? 'loading-more' : 'loading-search',
+        );
         snapshotRef.current = loadingSearch;
         setSnapshot(loadingSearch);
 

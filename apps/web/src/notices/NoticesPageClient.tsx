@@ -133,7 +133,7 @@ export default function NoticesPageClient({
       </header>
 
       <main className="mx-auto max-w-6xl px-5 py-8 md:py-12">
-        <section className="rounded-3xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-sky-50 p-6 shadow-sm md:p-8">
+        <section className="rounded-3xl border border-blue-100 bg-linear-to-br from-blue-50 via-white to-sky-50 p-6 shadow-sm md:p-8">
           <p className="text-sm font-extrabold text-(--knu-primary)">공지사항</p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-(--knu-text-primary) md:text-4xl">
             운영자가 공개한 안내를 확인해요

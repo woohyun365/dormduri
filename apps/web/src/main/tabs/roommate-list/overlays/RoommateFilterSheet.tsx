@@ -24,6 +24,10 @@ import {
   type RoommateSearchQueryCriteria,
   type RoommateSearchScalarFilterKey,
 } from '../model/search/roommateSearchQuery';
+import {
+  formatRoommateSearchMbtiTraitLabel,
+  formatRoommateSearchOperatorLabel,
+} from '../model/filters/roommateSearchFilterCopy';
 import type {
   RoommateSearchFilterOperator,
   RoommateSearchMinScorePreset,
@@ -84,14 +88,14 @@ function RoommateFilterSheetContent({
     <BaseBottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="룸메이트 상세 필터"
+      title="상대 생활패턴·프로필 필터"
       footer={
         <div className="grid grid-cols-[1fr_2fr] gap-3">
           <button
             type="button"
             disabled={applyDisabled}
             onClick={() => setDraft({})}
-            className="rounded-2xl border border-[var(--knu-border)] py-3 text-sm font-semibold text-[var(--knu-text-secondary)] transition hover:border-[var(--knu-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-2xl border border-(--knu-border) py-3 text-sm font-semibold text-(--knu-text-secondary) transition hover:border-(--knu-primary) disabled:cursor-not-allowed disabled:opacity-50"
           >
             초기화
           </button>
@@ -103,7 +107,7 @@ function RoommateFilterSheetContent({
               onApply(compactRoommateFilterDraft(draft, manifest));
               onClose();
             }}
-            className="rounded-2xl bg-[var(--knu-primary)] py-3 text-sm font-semibold text-white transition hover:bg-[var(--knu-primary-dark)] disabled:cursor-not-allowed disabled:bg-gray-200"
+            className="rounded-2xl bg-(--knu-primary) py-3 text-sm font-semibold text-white transition hover:bg-(--knu-primary-hover) disabled:cursor-not-allowed disabled:bg-gray-200"
           >
             필터 적용
           </button>
@@ -112,7 +116,7 @@ function RoommateFilterSheetContent({
     >
       <div className="space-y-5 px-5 py-5">
         {viewModel.policyCopy ? (
-          <p className="rounded-2xl bg-[var(--knu-background-alt)] px-4 py-3 text-sm leading-6 text-[var(--knu-text-secondary)]">
+          <p className="rounded-2xl bg-(--knu-background-alt) px-4 py-3 text-sm leading-6 text-(--knu-text-secondary)">
             {viewModel.policyCopy}
           </p>
         ) : null}
@@ -135,23 +139,30 @@ function FilterField({
   readonly onChange: (draft: RoommateFilterDraft) => void;
 }) {
   return (
-    <fieldset className="space-y-3 rounded-3xl border border-[var(--knu-border)] bg-white p-4">
-      <legend className="px-1 text-sm font-bold text-[var(--knu-text-primary)]">
-        {field.label}
-      </legend>
-      {field.disabledReason ? (
-        <p className="text-xs text-[var(--knu-text-tertiary)]">{field.disabledReason}</p>
+    <fieldset className="rounded-3xl border border-(--knu-border) bg-white p-4">
+      <legend className="px-1 text-sm font-bold text-(--knu-text-primary)">{field.label}</legend>
+      {field.disabledReason || field.helperText ? (
+        <div className="mt-0 space-y-0">
+          {field.disabledReason ? (
+            <p className="text-xs text-(--knu-text-tertiary)">{field.disabledReason}</p>
+          ) : null}
+          {field.helperText ? (
+            <p className="text-xs leading-5 text-(--knu-text-tertiary)">{field.helperText}</p>
+          ) : null}
+        </div>
       ) : null}
 
-      {field.kind === 'operator-values' ? (
-        <OperatorSelector field={field} draft={draft} onChange={onChange} />
-      ) : null}
+      <div className="mt-3 space-y-3">
+        {field.kind === 'operator-values' ? (
+          <OperatorSelector field={field} draft={draft} onChange={onChange} />
+        ) : null}
 
-      {field.kind === 'mbti-traits' ? (
-        <MbtiTraitSelector field={field} draft={draft} onChange={onChange} />
-      ) : (
-        <OptionButtons field={field} draft={draft} onChange={onChange} />
-      )}
+        {field.kind === 'mbti-traits' ? (
+          <MbtiTraitSelector field={field} draft={draft} onChange={onChange} />
+        ) : (
+          <OptionButtons field={field} draft={draft} onChange={onChange} />
+        )}
+      </div>
     </fieldset>
   );
 }
@@ -178,8 +189,8 @@ function OperatorSelector({
           onClick={() => onChange(setRoommateFilterDraftOperator(draft, key, operator))}
           className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
             field.selectedOperator === operator
-              ? 'bg-[var(--knu-primary)] text-white'
-              : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
+              ? 'bg-(--knu-primary) text-white'
+              : 'bg-(--knu-background-alt) text-(--knu-text-secondary) hover:bg-gray-200'
           }`}
         >
           {operatorLabel(operator)}
@@ -199,6 +210,9 @@ function OptionButtons({
   readonly onChange: (draft: RoommateFilterDraft) => void;
 }) {
   if (field.kind === 'mbti-traits') return null;
+  if (field.key === 'sleepHabit') {
+    return <SleepHabitPreferenceButtons draft={draft} onChange={onChange} />;
+  }
   return (
     <div className="flex flex-wrap gap-2">
       {field.options.map((option) => (
@@ -208,14 +222,54 @@ function OptionButtons({
           onClick={() => onChange(nextDraftForOption(draft, field.key, option.code))}
           className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
             option.selected
-              ? 'bg-[var(--knu-primary)] text-white'
-              : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
+              ? 'bg-(--knu-primary) text-white'
+              : 'bg-(--knu-background-alt) text-(--knu-text-secondary) hover:bg-gray-200'
           }`}
           aria-pressed={option.selected}
         >
           {option.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function SleepHabitPreferenceButtons({
+  draft,
+  onChange,
+}: {
+  readonly draft: RoommateFilterDraft;
+  readonly onChange: (draft: RoommateFilterDraft) => void;
+}) {
+  const noHabitSelected = draft.sleepHabit === 'NONE';
+  const anySelected = draft.sleepHabit !== 'NONE';
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => onChange(setRoommateFilterDraftScalar(draft, 'sleepHabit', 'NONE'))}
+        className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+          noHabitSelected
+            ? 'bg-(--knu-primary) text-white'
+            : 'bg-(--knu-background-alt) text-(--knu-text-secondary) hover:bg-gray-200'
+        }`}
+        aria-pressed={noHabitSelected}
+      >
+        잠버릇 없음
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(setRoommateFilterDraftScalar(draft, 'sleepHabit', null))}
+        className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+          anySelected
+            ? 'bg-(--knu-primary) text-white'
+            : 'bg-(--knu-background-alt) text-(--knu-text-secondary) hover:bg-gray-200'
+        }`}
+        aria-pressed={anySelected}
+      >
+        잠버릇 있어도 상관없음
+      </button>
     </div>
   );
 }
@@ -236,7 +290,7 @@ function MbtiTraitSelector({
         if (options.length === 0) return null;
         return (
           <div key={trait}>
-            <p className="mb-2 text-xs font-semibold text-[var(--knu-text-tertiary)]">
+            <p className="mb-2 text-xs font-semibold text-(--knu-text-tertiary)">
               {mbtiTraitLabel(trait)}
             </p>
             <div className="flex flex-wrap gap-2">
@@ -252,8 +306,8 @@ function MbtiTraitSelector({
                     }
                     className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
                       selected
-                        ? 'bg-[var(--knu-primary)] text-white'
-                        : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
+                        ? 'bg-(--knu-primary) text-white'
+                        : 'bg-(--knu-background-alt) text-(--knu-text-secondary) hover:bg-gray-200'
                     }`}
                   >
                     {option.label}
@@ -303,15 +357,9 @@ function optionsForMbtiTrait(
 }
 
 function operatorLabel(operator: RoommateSearchFilterOperator): string {
-  return operator === 'EXCLUDE' ? '제외' : '포함';
+  return formatRoommateSearchOperatorLabel(operator);
 }
 
 function mbtiTraitLabel(trait: RoommateSearchMbtiTraitKey): string {
-  const labels: Record<RoommateSearchMbtiTraitKey, string> = {
-    energy: '에너지',
-    perception: '인식',
-    decision: '판단',
-    lifestyle: '생활 양식',
-  };
-  return labels[trait];
+  return formatRoommateSearchMbtiTraitLabel(trait);
 }

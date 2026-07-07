@@ -704,7 +704,65 @@ describe('RoommateSearchService integration', () => {
       ageBand: { values: ['25_PLUS'] },
       limit: 20,
     });
-    expect(age25Plus.items.map((item) => item.profileSummary.nickname)).toEqual(['유저C']);
+    expect(new Set(age25Plus.items.map((item) => item.profileSummary.nickname))).toEqual(
+      new Set(['유저B', '유저C']),
+    );
+  });
+
+  it('SAME_BUILDING_ONLY filter는 단과대/학년/나이대 다중 선택과 partial MBTI trait 조합을 적용한다', async () => {
+    await setSeasonState('SEASON_MATCHING');
+    await prisma.collegeMaster.create({
+      data: {
+        code: 'NURSING',
+        campusCode: 'CHUNCHEON',
+        nameKo: '간호대',
+        sortOrder: 2,
+      },
+    });
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-b' },
+      data: {
+        collegeCode: 'ARTS_ENGINEERING',
+        grade: '1',
+        mbti: 'INFP',
+        birthYear: 2004,
+      },
+    });
+    await prisma.seasonParticipantProfile.update({
+      where: { participantId: 'participant-c' },
+      data: {
+        collegeCode: 'NURSING',
+        grade: '4+',
+        mbti: 'INFJ',
+        birthYear: 2001,
+      },
+    });
+
+    const multiValue = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      college: { operator: 'INCLUDE', values: ['ARTS_ENGINEERING', 'NURSING'] },
+      grade: { operator: 'INCLUDE', values: ['1', '2', '3', '4+'] },
+      ageBand: { values: ['20', '21', '22', '23', '24', '25_PLUS'] },
+      limit: 20,
+    });
+
+    expect(new Set(multiValue.items.map((item) => item.profileSummary.nickname))).toEqual(
+      new Set(['유저B', '유저C']),
+    );
+
+    const partialInf = await service.search(authContext('user-a'), {
+      scope: 'SAME_BUILDING_ONLY',
+      mbtiTraits: {
+        energy: 'I',
+        perception: 'N',
+        decision: 'F',
+      },
+      limit: 20,
+    });
+
+    expect(new Set(partialInf.items.map((item) => item.profileSummary.nickname))).toEqual(
+      new Set(['유저B', '유저C']),
+    );
   });
 
   it('SEASON_OPEN SAME_BUILDING_ONLY는 additional filter와 MATCH_SCORE/minScore를 함께 적용한다', async () => {

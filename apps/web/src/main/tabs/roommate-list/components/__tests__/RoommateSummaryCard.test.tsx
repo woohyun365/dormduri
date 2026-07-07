@@ -11,15 +11,21 @@ const baseCard: RoommateSummaryCardViewModel = {
   nickname: '테스트 룸메이트',
   intro: '조용한 생활을 선호해요.',
   facts: [
-    { label: '흡연', value: '비흡연' },
-    { label: '잠버릇', value: '없음' },
-    { label: '관계', value: '적당한 거리' },
+    { label: '흡연 여부', value: '비흡연' },
+    { label: '잠버릇', value: '잠버릇 없음' },
+    { label: '관계', value: '각자 생활해요' },
   ],
-  scoreLabel: '적합도 88점',
+  metadataLabel: '예지원 (여)',
+  scoreLabel: '매칭점수 88점',
   summaryOnly: false,
   detailViewable: true,
   resultReadLabel: '현재 매칭 결과 읽기',
   actionStateLabel: '매칭 요청 가능',
+  actionStateBadges: [
+    { label: '대화 가능', tone: 'green' },
+    { label: '매칭 신청 불가', tone: 'amber' },
+    { label: '매칭 기간에만 매칭이 가능해요', tone: 'slate' },
+  ],
   bookmarked: true,
   bookmarkAction: {
     visible: true,
@@ -28,21 +34,38 @@ const baseCard: RoommateSummaryCardViewModel = {
     label: '관심 목록 해제',
     accessibilityLabel: '테스트 룸메이트 관심 목록 해제',
   },
+  chatAction: null,
   detailEntryToken: 'detail-token-must-not-render',
 };
 
 describe('RoommateSummaryCard', () => {
   it('article semantic과 accessible 상태 copy를 렌더링한다', () => {
-    render(<RoommateSummaryCard item={baseCard} />);
+    const { container } = render(<RoommateSummaryCard item={baseCard} />);
 
     const article = screen.getByRole('article', { name: '테스트 룸메이트' });
     expect(article).toBeInTheDocument();
     expect(within(article).getByText('조용한 생활을 선호해요.')).toBeInTheDocument();
-    expect(within(article).getByText('적합도 88점')).toBeInTheDocument();
-    expect(within(article).getByText('상세 보기 가능')).toBeInTheDocument();
+    expect(within(article).getByText('매칭점수 88점')).toBeInTheDocument();
+    expect(within(article).getAllByText('비흡연').length).toBeGreaterThan(0);
+    expect(within(article).getAllByText('잠버릇 없음').length).toBeGreaterThan(0);
+    expect(within(article).getAllByText('각자 생활해요').length).toBeGreaterThan(0);
+    expect(container.querySelectorAll('svg.text-slate-500')).toHaveLength(3);
+    expect(container.querySelector('svg.text-yellow-500')).not.toBeInTheDocument();
+    expect(container.querySelector('svg.text-orange-500')).not.toBeInTheDocument();
+    expect(within(article).queryByText('🚭')).not.toBeInTheDocument();
+    expect(within(article).getByText('예지원 (여)')).toBeInTheDocument();
+    expect(within(article).getByText('프로필 열람 가능')).toBeInTheDocument();
     expect(within(article).getByText('현재 매칭 결과 읽기')).toBeInTheDocument();
-    expect(within(article).getByText('관심 목록에 있음')).toBeInTheDocument();
-    expect(within(article).getByText('매칭 요청 가능')).toBeInTheDocument();
+    expect(within(article).queryByText('관심 목록에 있음')).not.toBeInTheDocument();
+    expect(within(article).getByText('대화 가능')).toHaveClass('text-emerald-700');
+    expect(within(article).getByText('매칭 신청 불가')).toHaveClass('text-amber-700');
+    expect(within(article).getByText('매칭 기간에만 매칭이 가능해요')).toHaveClass(
+      'text-slate-600',
+    );
+    expect(within(article).queryByText('열람 범위')).not.toBeInTheDocument();
+    expect(within(article).queryByText('가능한 행동')).not.toBeInTheDocument();
+    expect(within(article).queryByText('저장 상태')).not.toBeInTheDocument();
+    expect(within(article).getByText('테')).toHaveClass('bg-rose-100', 'text-rose-600');
   });
 
   it('summary-only card는 score/token/private field를 노출하지 않는다', () => {
@@ -53,18 +76,107 @@ describe('RoommateSummaryCard', () => {
           scoreLabel: null,
           summaryOnly: true,
           detailViewable: false,
+          metadataLabel: '춘천캠퍼스',
           resultReadLabel: null,
+          profileVisibilityBadge: null,
           bookmarked: false,
           bookmarkAction: null,
-          actionStateLabel: '다른 건물이라 요약만 볼 수 있어요',
+          chatAction: null,
+          actionStateLabel: '다른 건물 유저는 프로필 요약만 확인 가능해요',
+          actionStateBadges: [
+            { label: '다른 건물 유저는 프로필 요약만 확인 가능해요', tone: 'slate' },
+          ],
         }}
       />,
     );
 
-    expect(screen.getByText('요약만 보기')).toBeInTheDocument();
-    expect(screen.queryByText(/적합도/)).not.toBeInTheDocument();
+    expect(screen.getByText('춘천캠퍼스')).toBeInTheDocument();
+    expect(screen.queryByText('프로필 열람 불가')).not.toBeInTheDocument();
+    expect(screen.queryByText('대화 불가')).not.toBeInTheDocument();
+    expect(screen.queryByText('매칭 신청 불가')).not.toBeInTheDocument();
+    expect(screen.getByText('다른 건물 유저는 프로필 요약만 확인 가능해요')).toHaveClass(
+      'text-slate-600',
+    );
+    expect(screen.queryByText('미리보기')).not.toBeInTheDocument();
+    expect(screen.queryByText('공개 요약만 표시')).not.toBeInTheDocument();
+    expect(screen.queryByText(/매칭점수/)).not.toBeInTheDocument();
     expect(screen.queryByText('detail-token-must-not-render')).not.toBeInTheDocument();
     expect(screen.queryByText(/음주/)).not.toBeInTheDocument();
+  });
+
+  it('매칭점수 badge는 score threshold color를 따른다', () => {
+    const { rerender } = render(
+      <RoommateSummaryCard item={{ ...baseCard, scoreLabel: '매칭점수 85점' }} />,
+    );
+    expect(screen.getByText('매칭점수 85점')).toHaveClass('text-green-600', 'bg-green-100');
+
+    rerender(<RoommateSummaryCard item={{ ...baseCard, scoreLabel: '매칭점수 70점' }} />);
+    expect(screen.getByText('매칭점수 70점')).toHaveClass('text-blue-600', 'bg-blue-100');
+
+    rerender(<RoommateSummaryCard item={{ ...baseCard, scoreLabel: '매칭점수 50점' }} />);
+    expect(screen.getByText('매칭점수 50점')).toHaveClass('text-sky-600', 'bg-sky-100');
+
+    rerender(<RoommateSummaryCard item={{ ...baseCard, scoreLabel: '매칭점수 49점' }} />);
+    expect(screen.getByText('매칭점수 49점')).toHaveClass('bg-slate-200');
+  });
+
+  it('매칭점수 계산 오류 badge는 amber error tone을 유지한다', () => {
+    render(<RoommateSummaryCard item={{ ...baseCard, scoreLabel: '서버 오류' }} />);
+
+    expect(screen.getByText('서버 오류')).toHaveClass(
+      'border-amber-200',
+      'bg-amber-50',
+      'text-amber-700',
+    );
+  });
+
+  it('프로필 요약 pill은 흡연과 잠버릇 있음 상태를 icon 색상만으로 구분한다', () => {
+    const { container } = render(
+      <RoommateSummaryCard
+        item={{
+          ...baseCard,
+          facts: [
+            { label: '흡연 여부', value: '흡연' },
+            { label: '잠버릇', value: '잠버릇 있음' },
+            { label: '관계', value: '친하게 지내요' },
+          ],
+        }}
+      />,
+    );
+
+    expect(container.querySelector('svg.text-rose-400')).toBeInTheDocument();
+    expect(container.querySelector('svg.text-amber-400')).toBeInTheDocument();
+    const sleepHabitChip = screen
+      .getAllByText('잠버릇 있음')
+      .map((element) => element.closest('span'))
+      .find((element) => element?.classList.contains('bg-slate-50'));
+    expect(sleepHabitChip).toHaveClass('border-slate-200', 'bg-slate-50', 'text-slate-700');
+    expect(container.querySelectorAll('svg.text-slate-500')).toHaveLength(1);
+    expect(container.querySelector('svg.text-yellow-500')).not.toBeInTheDocument();
+    expect(container.querySelector('svg.text-orange-500')).not.toBeInTheDocument();
+  });
+
+  it('chat action이 열려 있으면 카드에서 대화 CTA를 제공한다', async () => {
+    const onStartChat = vi.fn();
+    render(
+      <RoommateSummaryCard
+        item={{
+          ...baseCard,
+          actionStateLabel: '대화 가능',
+          chatAction: {
+            visible: true,
+            label: '채팅하기',
+            accessibilityLabel: '테스트 룸메이트 채팅하기',
+          },
+        }}
+        onStartChat={onStartChat}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '테스트 룸메이트 채팅하기' }));
+    expect(onStartChat).toHaveBeenCalledWith(
+      expect.objectContaining({ targetUserId: 'target-1', nickname: '테스트 룸메이트' }),
+    );
   });
 
   it('bookmark action은 targetUserId와 현재 bookmarked 상태만 전달한다', async () => {
@@ -83,14 +195,14 @@ describe('RoommateSummaryCard', () => {
         item={baseCard}
         detailAction={{
           enabled: true,
-          label: '상세 보기',
-          accessibilityLabel: '테스트 룸메이트 상세 보기',
+          label: '프로필 열람하기',
+          accessibilityLabel: '테스트 룸메이트 프로필 열람하기',
           onOpen: () => onOpenDetail(baseCard),
         }}
       />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: '테스트 룸메이트 상세 보기' }));
+    await userEvent.click(screen.getByRole('button', { name: '테스트 룸메이트 프로필 열람하기' }));
     expect(onOpenDetail).toHaveBeenCalledWith(baseCard);
 
     rerender(
@@ -98,14 +210,14 @@ describe('RoommateSummaryCard', () => {
         item={baseCard}
         detailAction={{
           enabled: false,
-          label: '상세 보기 불가',
-          accessibilityLabel: '테스트 룸메이트 상세 보기를 열 수 없음',
+          label: '프로필 열람 불가',
+          accessibilityLabel: '테스트 룸메이트 프로필을 열람할 수 없음',
           onOpen: () => onOpenDetail(baseCard),
         }}
       />,
     );
     expect(
-      screen.getByRole('button', { name: '테스트 룸메이트 상세 보기를 열 수 없음' }),
+      screen.getByRole('button', { name: '테스트 룸메이트 프로필을 열람할 수 없음' }),
     ).toBeDisabled();
   });
 });

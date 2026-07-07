@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildRoommateSearchQueryParams } from '../roommateSearchQuery';
+import {
+  buildRoommateSearchQueryParams,
+  createDefaultRoommateSearchQueryCriteria,
+} from '../roommateSearchQuery';
 
 function values(params: URLSearchParams, key: string) {
   return params.getAll(key);
@@ -17,7 +20,7 @@ describe('buildRoommateSearchQueryParams', () => {
           college: { operator: 'EXCLUDE', values: ['ENGINEERING', 'HUMANITIES'] },
           grade: { operator: 'INCLUDE', values: ['1', '2'] },
           mbtiTraits: { energy: 'E', perception: 'N', decision: null },
-          ageBand: { values: ['19', '25_PLUS'] },
+          ageBand: { values: ['20', '25_PLUS'] },
           minScore: 80,
         },
       },
@@ -37,7 +40,7 @@ describe('buildRoommateSearchQueryParams', () => {
     expect(params.get('mbtiTraits.energy')).toBe('E');
     expect(params.get('mbtiTraits.perception')).toBe('N');
     expect(params.has('mbtiTraits.decision')).toBe(false);
-    expect(values(params, 'ageBand.values[]')).toEqual(['19', '25_PLUS']);
+    expect(values(params, 'ageBand.values[]')).toEqual(['20', '25_PLUS']);
     expect(params.get('minScore')).toBe('80');
   });
 
@@ -51,5 +54,14 @@ describe('buildRoommateSearchQueryParams', () => {
     expect(params.has('cursor')).toBe(false);
     expect(params.get('scope')).toBe('CAMPUS_MERGED');
     expect(params.get('sort')).toBe('NICKNAME');
+  });
+
+  it('scope별 기본 정렬을 생성한다', () => {
+    expect(createDefaultRoommateSearchQueryCriteria({ scope: 'CAMPUS_MERGED' }).sort).toBe(
+      'NICKNAME',
+    );
+    expect(createDefaultRoommateSearchQueryCriteria({ scope: 'SAME_BUILDING_ONLY' }).sort).toBe(
+      'MATCH_SCORE',
+    );
   });
 });

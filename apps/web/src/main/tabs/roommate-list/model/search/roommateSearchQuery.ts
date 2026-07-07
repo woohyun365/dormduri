@@ -8,6 +8,8 @@ import type {
 
 export const ROOMMATE_SEARCH_DEFAULT_SCOPE = 'CAMPUS_MERGED' satisfies RoommateSearchScope;
 export const ROOMMATE_SEARCH_DEFAULT_SORT = 'NICKNAME' satisfies RoommateSearchSort;
+export const ROOMMATE_SEARCH_SAME_DORMITORY_DEFAULT_SORT =
+  'MATCH_SCORE' satisfies RoommateSearchSort;
 
 export const ROOMMATE_SEARCH_SCALAR_FILTER_KEYS = [
   'smokingBehavior',
@@ -84,11 +86,20 @@ export interface BuildRoommateSearchQueryParamsOptions {
 export function createDefaultRoommateSearchQueryCriteria(
   overrides: Partial<RoommateSearchQueryCriteria> = {},
 ): RoommateSearchQueryCriteria {
+  const scope = overrides.scope ?? ROOMMATE_SEARCH_DEFAULT_SCOPE;
   return {
-    scope: overrides.scope ?? ROOMMATE_SEARCH_DEFAULT_SCOPE,
-    sort: overrides.sort ?? ROOMMATE_SEARCH_DEFAULT_SORT,
+    scope,
+    sort: overrides.sort ?? getDefaultRoommateSearchSortForScope(scope),
     filters: { ...(overrides.filters ?? {}) },
   };
+}
+
+export function getDefaultRoommateSearchSortForScope(
+  scope: RoommateSearchScope,
+): RoommateSearchSort {
+  return scope === 'SAME_BUILDING_ONLY'
+    ? ROOMMATE_SEARCH_SAME_DORMITORY_DEFAULT_SORT
+    : ROOMMATE_SEARCH_DEFAULT_SORT;
 }
 
 export function buildRoommateSearchQueryParams(

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { RoommateSearchFilterBar } from '../RoommateSearchFilterBar';
@@ -31,10 +31,34 @@ describe('RoommateSearchFilterBar', () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: '필터 열기' }));
+    const filterSection = screen.getByRole('region', { name: '룸메이트 조건 필터' });
+    expect(within(filterSection).getByText('조건 필터')).toBeInTheDocument();
+    expect(
+      within(filterSection).queryByText('적용 중인 상세 필터가 없어요.'),
+    ).not.toBeInTheDocument();
+
+    const openButton = within(filterSection).getByRole('button', { name: '필터 열기' });
+    expect(openButton).toHaveClass('rounded-xl', 'px-3', 'py-2', 'text-xs');
+    expect(openButton).not.toHaveClass('rounded-2xl', 'px-4', 'py-3', 'text-sm');
+
+    await userEvent.click(openButton);
     expect(onOpen).toHaveBeenCalledTimes(1);
 
-    await userEvent.click(screen.getByRole('button', { name: '흡연 비흡연 필터 제거' }));
+    const activeChipGroup = within(filterSection).getByLabelText('적용 중인 필터');
+    expect(activeChipGroup).toHaveClass('lg:flex-col', 'lg:items-stretch');
+
+    const activeChip = screen.getByRole('button', { name: '흡연 여부 비흡연 필터 제거' });
+    expect(activeChip).toHaveClass(
+      'inline-flex',
+      'justify-between',
+      'px-2.5',
+      'py-1.5',
+      'text-[11px]',
+      'lg:w-full',
+    );
+    const closeMarker = within(activeChip).getByText('×');
+    expect(closeMarker).toHaveClass('shrink-0');
+    await userEvent.click(activeChip);
     expect(onRemove).toHaveBeenCalledWith('smokingBehavior');
 
     await userEvent.click(screen.getByRole('button', { name: '전체 해제' }));
@@ -54,7 +78,11 @@ describe('RoommateSearchFilterBar', () => {
       />,
     );
 
-    expect(screen.getByText('현재 시즌 정책상 상세 필터는 열리지 않아요.')).toBeInTheDocument();
+    expect(screen.getByText('조건 필터')).toBeInTheDocument();
+    expect(
+      screen.getByText('현재 탐색 범위에서는 조건 필터를 사용할 수 없어요.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('적용 중인 상세 필터가 없어요.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '필터 열기' })).toBeDisabled();
 
     await userEvent.click(screen.getByRole('button', { name: '필터 열기' }));

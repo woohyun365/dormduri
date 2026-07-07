@@ -26,9 +26,22 @@ describe('RoommateFilterSheet', () => {
       />,
     );
 
-    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 필터' });
+    const dialog = screen.getByRole('dialog', { name: '상대 생활패턴·프로필 필터' });
+    expect(within(dialog).getByText('원하는 상대의 흡연 여부')).toBeInTheDocument();
+    expect(within(dialog).getByText('원하는 상대의 잠귀 밝음 정도')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/같은 건물 후보만 볼 수 있어요/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText('잠버릇 없음')).toBeInTheDocument();
+    expect(within(dialog).getByText('잠버릇 있어도 상관없음')).toBeInTheDocument();
+    expect(within(dialog).queryByText('잠꼬대')).not.toBeInTheDocument();
+    const ageBandHelper = within(dialog).getByText(/한국식 나이/);
+    expect(ageBandHelper).toBeInTheDocument();
+    expect(ageBandHelper.parentElement).toHaveClass('mt-0', 'space-y-0');
     await userEvent.click(within(dialog).getByRole('button', { name: '비흡연' }));
-    await userEvent.click(within(dialog).getByRole('button', { name: '제외' }));
+    const excludeCollegeButton = within(dialog).getByRole('button', {
+      name: '선택한 값 빼고 보기',
+    });
+    await userEvent.click(excludeCollegeButton);
+    expect(excludeCollegeButton).toHaveClass('bg-(--knu-primary)', 'text-white');
     await userEvent.click(within(dialog).getByRole('button', { name: '공과대학' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'E' }));
     await userEvent.click(within(dialog).getByRole('button', { name: '80점 이상' }));
@@ -54,8 +67,10 @@ describe('RoommateFilterSheet', () => {
       />,
     );
 
-    expect(screen.getByRole('dialog', { name: '룸메이트 상세 필터' })).toBeInTheDocument();
-    expect(screen.getByText('현재 시즌 정책상 상세 필터는 열리지 않아요.')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: '상대 생활패턴·프로필 필터' })).toBeInTheDocument();
+    expect(
+      screen.getByText('현재 탐색 범위에서는 조건 필터를 사용할 수 없어요.'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '필터 적용' })).toBeDisabled();
   });
 
@@ -78,7 +93,7 @@ describe('RoommateFilterSheet', () => {
       />,
     );
 
-    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 필터' });
+    const dialog = screen.getByRole('dialog', { name: '상대 생활패턴·프로필 필터' });
     await userEvent.click(within(dialog).getByRole('button', { name: '초기화' }));
     await userEvent.click(within(dialog).getByRole('button', { name: '필터 적용' }));
 
@@ -110,12 +125,14 @@ describe('RoommateFilterSheet', () => {
     trigger.focus();
     await userEvent.click(trigger);
     await waitFor(() =>
-      expect(screen.getByRole('dialog', { name: '룸메이트 상세 필터' })).toHaveFocus(),
+      expect(screen.getByRole('dialog', { name: '상대 생활패턴·프로필 필터' })).toHaveFocus(),
     );
 
     await userEvent.keyboard('{Escape}');
 
     await waitFor(() => expect(trigger).toHaveFocus());
-    expect(screen.queryByRole('dialog', { name: '룸메이트 상세 필터' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('dialog', { name: '상대 생활패턴·프로필 필터' }),
+    ).not.toBeInTheDocument();
   });
 });

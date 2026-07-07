@@ -14,6 +14,7 @@ import {
 import {
   cloneRoommateSearchFilterCriteria,
   createDefaultRoommateSearchQueryCriteria,
+  getDefaultRoommateSearchSortForScope,
   withoutRoommateSearchFilterCriteriaKey,
   type RoommateSearchCriteriaFilterKey,
   type RoommateSearchFilterCriteria,
@@ -28,6 +29,7 @@ export type RoommateSearchStatus =
   | 'idle'
   | 'loading-manifest'
   | 'loading-search'
+  | 'loading-more'
   | 'success'
   | 'error';
 
@@ -37,6 +39,7 @@ export interface RoommateSearchRuntimeSnapshot {
   readonly status: RoommateSearchStatus;
   readonly query: RoommateSearchQueryCriteria;
   readonly manifest: RoommateSearchManifestModel | null;
+  readonly scopeAvailability: RoommateSearchResponse['scopeAvailability'] | null;
   readonly response: RoommateSearchResponse | null;
   readonly nextCursor: string | null;
   readonly items: readonly RoommateSearchSummary[];
@@ -55,6 +58,7 @@ export function createInitialRoommateSearchSnapshot(
     status: 'idle',
     query: createDefaultRoommateSearchQueryCriteria(initialQuery),
     manifest: null,
+    scopeAvailability: null,
     response: null,
     nextCursor: null,
     items: [],
@@ -66,7 +70,7 @@ export function createInitialRoommateSearchSnapshot(
 
 export function markRoommateSearchLoading(
   snapshot: RoommateSearchRuntimeSnapshot,
-  status: Extract<RoommateSearchStatus, 'loading-manifest' | 'loading-search'>,
+  status: Extract<RoommateSearchStatus, 'loading-manifest' | 'loading-search' | 'loading-more'>,
 ): RoommateSearchRuntimeSnapshot {
   return {
     ...snapshot,
@@ -84,6 +88,7 @@ export function applyRoommateSearchScopeChange(
     query: {
       ...snapshot.query,
       scope,
+      sort: getDefaultRoommateSearchSortForScope(scope),
     },
     statusMessage: null,
     error: null,
@@ -153,6 +158,7 @@ export function applyRoommateSearchManifestLoaded(
     status: 'idle',
     query: sanitizeResult.query,
     manifest,
+    scopeAvailability: response.scopeAvailability,
     notices: mapRoommateSearchAvailabilityNotices(response.availabilityNotices),
     statusMessage: sanitizeResult.statusMessage ?? snapshot.statusMessage,
     nextCursor: sanitizeResult.cursorShouldReset ? null : snapshot.nextCursor,
@@ -176,6 +182,7 @@ export function applyRoommateSearchSuccess(
     status: 'success',
     query: sanitizeResult.query,
     manifest,
+    scopeAvailability: response.scopeAvailability,
     response,
     nextCursor: response.pageInfo.nextCursor,
     items: canAppend ? [...snapshot.items, ...response.items] : response.items,

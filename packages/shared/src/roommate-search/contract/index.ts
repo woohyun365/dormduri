@@ -111,7 +111,7 @@ export const roommateSearchSleepHabitFilterSchema = z.union([
   z.literal('HAS'),
 ]);
 export const roommateSearchFilterOperatorSchema = z.enum(['INCLUDE', 'EXCLUDE']);
-export const roommateSearchAgeBandSchema = z.enum(['19', '20', '21', '22', '23', '24', '25_PLUS']);
+export const roommateSearchAgeBandSchema = z.enum(['20', '21', '22', '23', '24', '25_PLUS']);
 export const roommateSearchMbtiTraitsSchema = z.strictObject({
   energy: z.enum(['E', 'I']).nullable().optional(),
   perception: z.enum(['N', 'S']).nullable().optional(),

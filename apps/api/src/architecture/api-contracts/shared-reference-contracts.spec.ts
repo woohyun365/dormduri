@@ -283,18 +283,38 @@ describe('profile and matching shared reference contracts', () => {
   });
 
   it('roommate search query contract는 dotted nested filters를 normalized filter object로 받는다', () => {
-    expect(
-      roommateSearchQuerySchema.safeParse({
-        scope: 'SAME_BUILDING_ONLY',
-        sort: 'MATCH_SCORE',
-        'college.operator': 'EXCLUDE',
-        'college.values[]': ['ARTS_ENGINEERING'],
-        'mbtiTraits.energy': 'E',
-        'mbtiTraits.decision': 'T',
-        'ageBand.values[]': ['20', '21'],
-        minScore: '80',
-      }).success,
-    ).toBe(true);
+    const parsed = roommateSearchQuerySchema.safeParse({
+      scope: 'SAME_BUILDING_ONLY',
+      sort: 'MATCH_SCORE',
+      'college.operator': 'EXCLUDE',
+      'college.values[]': ['ARTS_ENGINEERING', 'NURSING'],
+      'grade.operator': 'INCLUDE',
+      'grade.values[]': ['1', '2', '3', '4+'],
+      'mbtiTraits.energy': 'I',
+      'mbtiTraits.perception': 'N',
+      'mbtiTraits.decision': 'F',
+      'ageBand.values[]': ['20', '21', '22', '23', '24', '25_PLUS'],
+      minScore: '80',
+    });
+
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) throw parsed.error;
+    expect(parsed.data.college).toEqual({
+      operator: 'EXCLUDE',
+      values: ['ARTS_ENGINEERING', 'NURSING'],
+    });
+    expect(parsed.data.grade).toEqual({
+      operator: 'INCLUDE',
+      values: ['1', '2', '3', '4+'],
+    });
+    expect(parsed.data.mbtiTraits).toEqual({
+      energy: 'I',
+      perception: 'N',
+      decision: 'F',
+    });
+    expect(parsed.data.ageBand).toEqual({
+      values: ['20', '21', '22', '23', '24', '25_PLUS'],
+    });
 
     expect(
       roommateSearchQuerySchema.safeParse({

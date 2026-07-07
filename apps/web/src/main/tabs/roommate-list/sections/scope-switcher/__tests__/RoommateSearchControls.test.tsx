@@ -27,9 +27,10 @@ describe('RoommateSearchControls', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: '캠퍼스 전체' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '캠퍼스 전체' })).not.toBeDisabled();
     expect(screen.getByRole('button', { name: '같은 건물' })).toBeDisabled();
 
+    await userEvent.click(screen.getByRole('button', { name: '캠퍼스 전체' }));
     await userEvent.click(screen.getByRole('button', { name: '같은 건물' }));
     expect(onScopeChange).not.toHaveBeenCalled();
   });
@@ -48,13 +49,16 @@ describe('RoommateSearchControls', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: '닉네임순' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: '적합도순' }));
+    expect(screen.getByRole('button', { name: '닉네임순' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: '같은 건물' })).toHaveClass('hover:bg-blue-900');
+    await userEvent.click(screen.getByRole('button', { name: '닉네임순' }));
+    await userEvent.click(screen.getByRole('button', { name: '매칭도순' }));
 
     expect(onSortChange).toHaveBeenCalledWith('MATCH_SCORE');
+    expect(onSortChange).toHaveBeenCalledTimes(1);
   });
 
-  it('manifest에서 filter가 닫히면 policy copy를 표시한다', () => {
+  it('manifest에서 filter가 닫혀도 scope/sort controls 안에 필터 진입 copy를 만들지 않는다', () => {
     const manifest = mapRoommateSearchManifest(
       createManifest({
         scope: 'CAMPUS_MERGED',
@@ -76,6 +80,9 @@ describe('RoommateSearchControls', () => {
       />,
     );
 
-    expect(screen.getByText('현재 시즌 정책상 상세 필터는 열리지 않아요.')).toBeInTheDocument();
+    expect(
+      screen.queryByText('현재 탐색 범위에서는 조건 필터를 사용할 수 없어요.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('조건 필터')).not.toBeInTheDocument();
   });
 });

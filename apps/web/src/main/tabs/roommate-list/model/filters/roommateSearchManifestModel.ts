@@ -1,3 +1,7 @@
+import {
+  formatRoommateSearchFilterOptionLabel,
+  getRoommateSearchFilterFieldCopy,
+} from './roommateSearchFilterCopy';
 import type {
   RoommateSearchFilterOperator,
   RoommateSearchManifest,
@@ -20,6 +24,8 @@ import {
 
 const SCORE_SORT = 'MATCH_SCORE' satisfies RoommateSearchSort;
 const STALE_QUERY_STATUS_MESSAGE = '검색 조건이 최신 룸메이트 찾기 정책에 맞게 조정됐어요.';
+const GRADE_ORDER = ['1', '2', '3', '4+'] as const;
+const AGE_BAND_ORDER = ['20', '21', '22', '23', '24', '25_PLUS'] as const;
 
 export interface RoommateSearchFilterOptionModel {
   readonly code: string;
@@ -143,7 +149,7 @@ export function buildRoommateSearchActiveFilterChips(
     chips.push({
       key,
       label: fieldLabel(key),
-      valueLabel: optionLabel(field, value),
+      valueLabel: optionLabel(key, field, value),
     });
   }
 
@@ -151,14 +157,17 @@ export function buildRoommateSearchActiveFilterChips(
   appendOperatorValuesChip(chips, manifest, 'grade', query.filters.grade);
 
   if (query.filters.mbtiTraits) {
-    const values = ROOMMATE_SEARCH_MBTI_TRAIT_KEYS.map((key) => query.filters.mbtiTraits?.[key])
-      .filter((value): value is string => typeof value === 'string' && value.trim() !== '')
-      .map((value) => optionLabel(manifest.fields.mbtiTraits, value));
-    if (values.length > 0) {
+    const values = ROOMMATE_SEARCH_MBTI_TRAIT_KEYS.map((key) => {
+      const value = query.filters.mbtiTraits?.[key];
+      return typeof value === 'string' && value.trim() !== ''
+        ? optionLabel('mbtiTraits', manifest.fields.mbtiTraits, value)
+        : 'x';
+    });
+    if (values.some((value) => value !== 'x')) {
       chips.push({
         key: 'mbtiTraits',
         label: fieldLabel('mbtiTraits'),
-        valueLabel: values.join(' · '),
+        valueLabel: values.join('·'),
       });
     }
   }
@@ -167,8 +176,8 @@ export function buildRoommateSearchActiveFilterChips(
     chips.push({
       key: 'ageBand',
       label: fieldLabel('ageBand'),
-      valueLabel: query.filters.ageBand.values
-        .map((value) => optionLabel(manifest.fields.ageBand, value))
+      valueLabel: sortValuesByKnownOrder(query.filters.ageBand.values, AGE_BAND_ORDER)
+        .map((value) => optionLabel('ageBand', manifest.fields.ageBand, value))
         .join(', '),
     });
   }
@@ -177,7 +186,7 @@ export function buildRoommateSearchActiveFilterChips(
     chips.push({
       key: 'minScore',
       label: fieldLabel('minScore'),
-      valueLabel: optionLabel(manifest.fields.minScore, String(query.filters.minScore)),
+      valueLabel: optionLabel('minScore', manifest.fields.minScore, String(query.filters.minScore)),
     });
   }
 
@@ -355,6 +364,9 @@ function isFieldUsableWithValue(
   value: string,
 ): boolean {
   const field = manifest.fields[key];
+  if (key === 'sleepHabit') {
+    return field?.enabled === true && value === 'NONE' && canUseOptionCode(field, value);
+  }
   return field?.enabled === true && canUseOptionCode(field, value);
 }
 
@@ -377,32 +389,38 @@ function appendOperatorValuesChip(
 ): void {
   if (!criteria?.values.length) return;
   const field = manifest.fields[key];
+  const values =
+    key === 'grade' ? sortValuesByKnownOrder(criteria.values, GRADE_ORDER) : criteria.values;
+  const valueLabel = values.map((value) => optionLabel(key, field, value)).join(', ');
   chips.push({
     key,
     label: fieldLabel(key),
-    valueLabel: criteria.values.map((value) => optionLabel(field, value)).join(', '),
+    valueLabel:
+      key === 'college' && criteria.operator === 'EXCLUDE' ? `${valueLabel} 제외` : valueLabel,
   });
 }
 
-function fieldLabel(key: RoommateSearchCriteriaFilterKey): string {
-  const labels: Record<RoommateSearchCriteriaFilterKey, string> = {
-    smokingBehavior: '흡연',
-    bedtime: '취침',
-    wakeTime: '기상',
-    noiseSensitivity: '소음 민감도',
-    cleanLevel: '청소',
-    sleepHabit: '잠버릇',
-    indoorEating: '실내 취식',
-    relationshipStyle: '관계 스타일',
-    college: '단과대',
-    grade: '학년',
-    mbtiTraits: 'MBTI 성향',
-    ageBand: '나이',
-    minScore: '적합도',
-  };
-  return labels[key];
+function sortValuesByKnownOrder<T extends string>(
+  values: readonly T[],
+  order: readonly string[],
+): T[] {
+  const orderIndex = new Map(order.map((value, index) => [value, index]));
+  return [...values].sort(
+    (left, right) =>
+      (orderIndex.get(left) ?? Number.MAX_SAFE_INTEGER) -
+      (orderIndex.get(right) ?? Number.MAX_SAFE_INTEGER),
+  );
 }
 
-function optionLabel(field: RoommateSearchFilterFieldModel | undefined, code: string): string {
-  return field?.options.find((option) => option.code === code)?.label ?? code;
+function fieldLabel(key: RoommateSearchCriteriaFilterKey): string {
+  return getRoommateSearchFilterFieldCopy(key).chipLabel;
+}
+
+function optionLabel(
+  key: RoommateSearchCriteriaFilterKey,
+  field: RoommateSearchFilterFieldModel | undefined,
+  code: string,
+): string {
+  const manifestLabel = field?.options.find((option) => option.code === code)?.label ?? code;
+  return formatRoommateSearchFilterOptionLabel(key, code, manifestLabel);
 }

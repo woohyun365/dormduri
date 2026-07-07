@@ -43,7 +43,7 @@ describe('roommate-search-candidate.query', () => {
         scope: 'SAME_BUILDING_ONLY',
         college: { operator: 'EXCLUDE', values: ['IT'] },
         mbtiTraits: { energy: 'E', decision: 'T' },
-        ageBand: { values: ['24'] },
+        ageBand: { values: ['20'] },
         limit: 20,
       },
     });
@@ -103,8 +103,42 @@ describe('roommate-search-candidate.query', () => {
     });
     expect(filterCondition).toMatchObject({
       collegeCode: { notIn: ['IT'] },
-      OR: [{ birthYear: 2002 }],
+      OR: [{ birthYear: 2007 }],
     });
     expect(filterCondition.mbti.in).toEqual(expect.arrayContaining(['ENTJ', 'ESTJ']));
+  });
+
+  it('ageBand query는 시즌 기준 연도가 바뀌면 같은 한국식 나이 code를 다음 birthYear로 변환한다', () => {
+    const where = buildRoommateSearchCandidateWhere({
+      viewerContext: {
+        ...viewerContext,
+        seasonReferenceYear: 2027,
+      },
+      scope: 'SAME_BUILDING_ONLY',
+      query: {
+        scope: 'SAME_BUILDING_ONLY',
+        ageBand: { values: ['20', '25_PLUS'] },
+        limit: 20,
+      },
+    });
+
+    const profileWhere = where.profile;
+    if (
+      !profileWhere ||
+      typeof profileWhere !== 'object' ||
+      !('is' in profileWhere) ||
+      !profileWhere.is ||
+      typeof profileWhere.is !== 'object' ||
+      !('AND' in profileWhere.is) ||
+      !Array.isArray(profileWhere.is.AND)
+    ) {
+      throw new Error('expected profile AND candidate where');
+    }
+
+    const filterCondition = profileWhere.is.AND.at(1) as {
+      OR: Array<{ birthYear: number } | { birthYear: { lte: number } }>;
+    };
+
+    expect(filterCondition.OR).toEqual([{ birthYear: 2008 }, { birthYear: { lte: 2003 } }]);
   });
 });

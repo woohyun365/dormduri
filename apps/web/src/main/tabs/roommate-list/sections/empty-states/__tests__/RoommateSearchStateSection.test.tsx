@@ -15,8 +15,9 @@ describe('RoommateSearchStateSection', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent('룸메이트 목록을 불러오는 중이에요');
     expect(
-      screen.getByText('공개 가능한 요약 정보와 시즌 정책을 확인하고 있어요.'),
+      screen.getByText('공개 가능한 요약 정보와 현재 시즌 상태를 확인하고 있어요.'),
     ).toBeInTheDocument();
+    expect(screen.getByTestId('roommate-search-loading-skeleton')).toBeInTheDocument();
   });
 
   it('error state에서 retry를 호출한다', async () => {
@@ -47,5 +48,30 @@ describe('RoommateSearchStateSection', () => {
     expect(
       screen.getByText('필터를 조금 넓히거나 다른 정렬로 다시 확인해 보세요.'),
     ).toBeInTheDocument();
+  });
+
+  it('warning empty state에서 강조 문구와 CTA action을 표시한다', async () => {
+    const onClick = vi.fn();
+
+    render(
+      <RoommateSearchStateSection
+        state={{
+          kind: 'empty',
+          title: '확인이 필요한 상태예요.',
+          message: '현재 상태를 확인한 뒤 다시 시도해 주세요.',
+          tone: 'warning',
+          action: {
+            label: '상태 확인하기',
+            onClick,
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('확인이 필요한 상태예요.')).toBeInTheDocument();
+    expect(screen.getByText('현재 상태를 확인한 뒤 다시 시도해 주세요.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '상태 확인하기' }));
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

@@ -11,13 +11,18 @@ const cards: RoommateSummaryCardViewModel[] = [
     nickname: '첫 번째',
     intro: '아침형 생활을 선호해요.',
     facts: [{ label: '흡연', value: '비흡연' }],
-    scoreLabel: '적합도 91점',
+    scoreLabel: '매칭점수 91점',
     summaryOnly: false,
     detailViewable: true,
     resultReadLabel: null,
     actionStateLabel: '매칭 요청 가능',
     bookmarked: false,
     bookmarkAction: null,
+    chatAction: {
+      visible: true,
+      label: '채팅하기',
+      accessibilityLabel: '첫 번째 채팅하기',
+    },
     detailEntryToken: 'token-one',
   },
   {
@@ -25,7 +30,7 @@ const cards: RoommateSummaryCardViewModel[] = [
     targetUserId: 'target-two',
     nickname: '두 번째',
     intro: '조용한 방을 선호해요.',
-    facts: [{ label: '관계', value: '적당한 거리' }],
+    facts: [{ label: '관계', value: '각자 생활해요' }],
     scoreLabel: null,
     summaryOnly: true,
     detailViewable: false,
@@ -33,6 +38,7 @@ const cards: RoommateSummaryCardViewModel[] = [
     actionStateLabel: '요약 정보만 표시',
     bookmarked: false,
     bookmarkAction: null,
+    chatAction: null,
     detailEntryToken: null,
   },
 ];
@@ -44,6 +50,8 @@ describe('RoommateSearchResultsSection', () => {
     const section = screen.getByRole('region', { name: '룸메이트 검색 결과' });
     const list = within(section).getByRole('list');
     expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    expect(list).toHaveClass('grid', 'gap-3');
+    expect(list).not.toHaveClass('md:grid-cols-2');
     expect(within(section).getByRole('article', { name: '첫 번째' })).toBeInTheDocument();
     expect(within(section).getByRole('article', { name: '두 번째' })).toBeInTheDocument();
   });
@@ -57,10 +65,11 @@ describe('RoommateSearchResultsSection', () => {
     expect(screen.queryByText(/남은 \d/)).not.toBeInTheDocument();
   });
 
-  it('next cursor가 없으면 종료 copy만 표시한다', () => {
+  it('next cursor가 없으면 결과 카운트만 표시한다', () => {
     render(<RoommateSearchResultsSection items={cards} canLoadMore={false} onLoadMore={vi.fn()} />);
 
-    expect(screen.getByText('더 이상 표시할 요약 정보가 없어요.')).toBeInTheDocument();
+    expect(screen.getByText('2명의 룸메이트')).toBeInTheDocument();
+    expect(screen.queryByText('더 이상 표시할 요약 정보가 없어요.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
   });
 
@@ -75,8 +84,34 @@ describe('RoommateSearchResultsSection', () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: '첫 번째 상세 보기' }));
+    await userEvent.click(screen.getByRole('button', { name: '첫 번째 프로필 열람하기' }));
     expect(onOpenDetail).toHaveBeenCalledWith(cards[0]);
-    expect(screen.getByRole('button', { name: '두 번째 상세 보기를 열 수 없음' })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: '두 번째 프로필을 열람할 수 없음' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('chat 가능한 search card는 start chat callback을 호출한다', async () => {
+    const onStartChat = vi.fn();
+    render(
+      <RoommateSearchResultsSection
+        items={cards}
+        canLoadMore={false}
+        onLoadMore={vi.fn()}
+        onStartChat={onStartChat}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: '첫 번째 채팅하기' }));
+    expect(onStartChat).toHaveBeenCalledWith(cards[0]);
+  });
+
+  it('append loading 중에는 기존 card를 유지하고 더 보기 버튼만 loading copy로 잠근다', () => {
+    render(
+      <RoommateSearchResultsSection items={cards} canLoadMore isLoadingMore onLoadMore={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('article', { name: '첫 번째' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '불러오는 중' })).toBeDisabled();
   });
 });

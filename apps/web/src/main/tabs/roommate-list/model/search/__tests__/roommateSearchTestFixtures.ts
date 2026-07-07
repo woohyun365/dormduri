@@ -231,9 +231,9 @@ function createActionableFields(): RoommateSearchManifest['filters']['fields'] {
       enabled: true,
       source: 'AGE_BAND',
       options: [
-        { code: '19', label: '19세' },
-        { code: '20', label: '20세' },
-        { code: '25_PLUS', label: '25세 이상' },
+        { code: '20', label: '20세 (2007년생)' },
+        { code: '21', label: '21세 (2006년생)' },
+        { code: '25_PLUS', label: '25세 이상 (2002년생 이하)' },
       ],
     },
     minScore: {

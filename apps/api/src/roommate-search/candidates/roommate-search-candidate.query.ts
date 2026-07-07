@@ -177,10 +177,10 @@ function buildAgeBandWhere(
 
   return query.ageBand.values.map((value) => {
     if (value === '25_PLUS') {
-      return { birthYear: { lte: seasonReferenceYear - 25 } };
+      return { birthYear: { lte: seasonReferenceYear - 25 + 1 } };
     }
 
-    return { birthYear: seasonReferenceYear - Number(value) };
+    return { birthYear: seasonReferenceYear - Number(value) + 1 };
   });
 }
 

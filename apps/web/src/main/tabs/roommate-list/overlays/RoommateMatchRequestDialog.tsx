@@ -74,19 +74,17 @@ function RoommateMatchRequestForm({
       }}
     >
       <section className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-4">
-        <p className="text-sm font-bold text-[var(--knu-text-primary)]">
+        <p className="text-sm font-bold text-(--knu-text-primary)">
           {target.nickname}님에게 매칭 요청을 보낼까요?
         </p>
-        <p className="mt-2 text-xs leading-5 text-[var(--knu-text-secondary)]">
+        <p className="mt-2 text-xs leading-5 text-(--knu-text-secondary)">
           요청은 대화방 없이도 보낼 수 있고, 상대가 수락하면 바로 매칭이 확정돼요. 서버가 전송
           시점의 시즌·기숙사·프로필 상태를 다시 확인해요.
         </p>
       </section>
 
       <label className="block" htmlFor="roommate-match-request-note">
-        <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-          요청 메시지 (선택)
-        </span>
+        <span className="text-sm font-semibold text-(--knu-text-primary)">요청 메시지 (선택)</span>
         <textarea
           id="roommate-match-request-note"
           value={note}
@@ -94,11 +92,11 @@ function RoommateMatchRequestForm({
           disabled={submitting}
           aria-describedby="roommate-match-request-note-help roommate-match-request-status"
           onChange={(event) => setNote(event.target.value)}
-          className="mt-2 min-h-24 w-full rounded-2xl border border-[var(--knu-border)] px-3 py-3 text-sm outline-none focus:border-[var(--knu-primary)] disabled:opacity-60"
+          className="mt-2 min-h-24 w-full rounded-2xl border border-(--knu-border) px-3 py-3 text-sm outline-none focus:border-(--knu-primary) disabled:opacity-60"
           placeholder="짧게 인사말을 남겨 보세요."
         />
       </label>
-      <p id="roommate-match-request-note-help" className="text-xs text-[var(--knu-text-tertiary)]">
+      <p id="roommate-match-request-note-help" className="text-xs text-(--knu-text-tertiary)">
         {trimmedNote.length}/{MATCH_REQUEST_NOTE_MAX_LENGTH}자
       </p>
 
@@ -114,7 +112,7 @@ function RoommateMatchRequestForm({
         <p
           id="roommate-match-request-status"
           role="status"
-          className="text-xs text-[var(--knu-text-tertiary)]"
+          className="text-xs text-(--knu-text-tertiary)"
         >
           같은 상대에 대한 진행 중 요청이 있거나 마감이 지난 경우 서버에서 안전하게 거절돼요.
         </p>
@@ -124,7 +122,7 @@ function RoommateMatchRequestForm({
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-2xl bg-[var(--knu-primary)] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? '요청 전송 중' : '매칭 요청 보내기'}
         </button>
@@ -132,7 +130,7 @@ function RoommateMatchRequestForm({
           type="button"
           disabled={submitting}
           onClick={onClose}
-          className="rounded-2xl border border-[var(--knu-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--knu-text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-2xl border border-(--knu-border) bg-white px-4 py-3 text-sm font-semibold text-(--knu-text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
         >
           취소
         </button>

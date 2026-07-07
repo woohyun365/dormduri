@@ -28,6 +28,10 @@ describe('roommateSearchState', () => {
     expect(success.nextCursor).toBe('cursor-next');
     expect(success.items).toHaveLength(1);
     expect(applyRoommateSearchScopeChange(success, 'CAMPUS_MERGED').nextCursor).toBeNull();
+    expect(applyRoommateSearchScopeChange(success, 'CAMPUS_MERGED').query.sort).toBe('NICKNAME');
+    expect(applyRoommateSearchScopeChange(success, 'SAME_BUILDING_ONLY').query.sort).toBe(
+      'MATCH_SCORE',
+    );
     expect(applyRoommateSearchSortChange(success, 'NICKNAME').items).toEqual([]);
     expect(applyRoommateSearchFilters(success, { smokingBehavior: 'NO' }).items).toEqual([]);
   });

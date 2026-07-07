@@ -88,23 +88,23 @@ function RoommateReportForm({
         onSubmit({ reason, detail: trimmedDetail || null, optionalBlock });
       }}
     >
-      <section className="rounded-3xl border border-[var(--knu-border)] bg-white p-4">
-        <p className="text-sm font-bold text-[var(--knu-text-primary)]">
+      <section className="rounded-3xl border border-(--knu-border) bg-white p-4">
+        <p className="text-sm font-bold text-(--knu-text-primary)">
           {target.nickname}님의 프로필을 신고해요.
         </p>
-        <p className="mt-2 text-xs leading-5 text-[var(--knu-text-secondary)]">
+        <p className="mt-2 text-xs leading-5 text-(--knu-text-secondary)">
           신고는 접수 전용이며, 조치 여부나 내부 검토 내용은 상대 또는 신고자에게 공개하지 않아요.
         </p>
       </section>
 
       <label className="block" htmlFor="roommate-report-reason">
-        <span className="text-sm font-semibold text-[var(--knu-text-primary)]">신고 사유</span>
+        <span className="text-sm font-semibold text-(--knu-text-primary)">신고 사유</span>
         <select
           id="roommate-report-reason"
           value={reason}
           disabled={submitting}
           onChange={(event) => setReason(event.target.value as ReportReason | '')}
-          className="mt-2 w-full rounded-2xl border border-[var(--knu-border)] bg-white px-3 py-3 text-sm outline-none focus:border-[var(--knu-primary)] disabled:opacity-60"
+          className="mt-2 w-full rounded-2xl border border-(--knu-border) bg-white px-3 py-3 text-sm outline-none focus:border-(--knu-primary) disabled:opacity-60"
         >
           <option value="">사유를 선택해 주세요</option>
           {getReportReasonOptions().map((option) => (
@@ -116,9 +116,7 @@ function RoommateReportForm({
       </label>
 
       <label className="block" htmlFor="roommate-report-detail">
-        <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-          상세 내용 (선택)
-        </span>
+        <span className="text-sm font-semibold text-(--knu-text-primary)">상세 내용 (선택)</span>
         <textarea
           id="roommate-report-detail"
           value={detail}
@@ -126,15 +124,15 @@ function RoommateReportForm({
           disabled={submitting}
           aria-describedby="roommate-report-detail-help roommate-report-status"
           onChange={(event) => setDetail(event.target.value)}
-          className="mt-2 min-h-32 w-full rounded-2xl border border-[var(--knu-border)] px-3 py-3 text-sm outline-none focus:border-[var(--knu-primary)] disabled:opacity-60"
+          className="mt-2 min-h-32 w-full rounded-2xl border border-(--knu-border) px-3 py-3 text-sm outline-none focus:border-(--knu-primary) disabled:opacity-60"
           placeholder="신고 사유를 이해하는 데 필요한 내용만 적어 주세요."
         />
       </label>
-      <p id="roommate-report-detail-help" className="text-xs text-[var(--knu-text-tertiary)]">
+      <p id="roommate-report-detail-help" className="text-xs text-(--knu-text-tertiary)">
         {trimmedDetail.length}/{REPORT_DETAIL_MAX_LENGTH}자
       </p>
 
-      <label className="flex items-start gap-3 rounded-2xl bg-[var(--knu-background-alt)] p-3 text-sm text-[var(--knu-text-secondary)]">
+      <label className="flex items-start gap-3 rounded-2xl bg-(--knu-background-alt) p-3 text-sm text-(--knu-text-secondary)">
         <input
           type="checkbox"
           checked={optionalBlock}
@@ -161,11 +159,7 @@ function RoommateReportForm({
           {currentError}
         </p>
       ) : reason ? (
-        <p
-          id="roommate-report-status"
-          role="status"
-          className="text-xs text-[var(--knu-text-tertiary)]"
-        >
+        <p id="roommate-report-status" role="status" className="text-xs text-(--knu-text-tertiary)">
           선택한 사유: {reportReasonLabel(reason)}
         </p>
       ) : null}
@@ -174,7 +168,7 @@ function RoommateReportForm({
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-2xl bg-[var(--knu-primary)] px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-2xl bg-(--knu-primary) px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? '신고 접수 중' : '신고 접수'}
         </button>
@@ -182,7 +176,7 @@ function RoommateReportForm({
           type="button"
           disabled={submitting}
           onClick={onClose}
-          className="rounded-2xl border border-[var(--knu-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--knu-text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-2xl border border-(--knu-border) bg-white px-4 py-3 text-sm font-semibold text-(--knu-text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
         >
           취소
         </button>

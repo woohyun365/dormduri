@@ -4,21 +4,25 @@ import type { RoommateSummaryCardViewModel } from '../../model/search/roommateSe
 interface RoommateSearchResultsSectionProps {
   readonly items: readonly RoommateSummaryCardViewModel[];
   readonly canLoadMore: boolean;
+  readonly isLoadingMore?: boolean;
   readonly onLoadMore: () => void;
   readonly onOpenDetail?: (item: RoommateSummaryCardViewModel) => void;
+  readonly onStartChat?: (item: RoommateSummaryCardViewModel) => void;
   readonly onBookmarkToggle?: (targetUserId: string, bookmarked: boolean) => void;
 }
 
 export function RoommateSearchResultsSection({
   items,
   canLoadMore,
+  isLoadingMore = false,
   onLoadMore,
   onOpenDetail,
+  onStartChat,
   onBookmarkToggle,
 }: RoommateSearchResultsSectionProps) {
   return (
     <section className="space-y-3" aria-label="룸메이트 검색 결과">
-      <ul className="space-y-3">
+      <ul className="grid gap-3">
         {items.map((item) => (
           <li key={item.id}>
             <RoommateSummaryCard
@@ -26,6 +30,7 @@ export function RoommateSearchResultsSection({
               detailAction={
                 onOpenDetail ? buildDetailAction(item, () => onOpenDetail(item)) : undefined
               }
+              onStartChat={onStartChat}
               onBookmarkToggle={onBookmarkToggle}
             />
           </li>
@@ -36,13 +41,14 @@ export function RoommateSearchResultsSection({
         <button
           type="button"
           onClick={onLoadMore}
-          className="w-full rounded-2xl border-2 border-[var(--knu-border)] bg-white py-3 text-sm font-semibold text-[var(--knu-primary)] transition-all hover:border-[var(--knu-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isLoadingMore}
+          className="w-full rounded-2xl border-2 border-(--knu-border) bg-white py-3 text-sm font-semibold text-(--knu-primary) transition-all hover:border-(--knu-primary) disabled:cursor-not-allowed disabled:opacity-50"
         >
-          더 보기
+          {isLoadingMore ? '불러오는 중' : '더 보기'}
         </button>
       ) : (
-        <p className="py-4 text-center text-sm text-[var(--knu-text-tertiary)]">
-          더 이상 표시할 요약 정보가 없어요.
+        <p className="py-4 text-center text-sm text-(--knu-text-tertiary)">
+          {items.length}명의 룸메이트
         </p>
       )}
     </section>
@@ -51,12 +57,12 @@ export function RoommateSearchResultsSection({
 
 function buildDetailAction(item: RoommateSummaryCardViewModel, onOpen: () => void) {
   const enabled = item.detailViewable && item.detailEntryToken !== null;
+  if (!enabled) return undefined;
+
   return {
     enabled,
-    label: enabled ? '상세 보기' : '상세 보기 불가',
-    accessibilityLabel: enabled
-      ? `${item.nickname} 상세 보기`
-      : `${item.nickname} 상세 보기를 열 수 없음`,
+    label: '프로필 열람하기',
+    accessibilityLabel: `${item.nickname} 프로필 열람하기`,
     onOpen,
   };
 }

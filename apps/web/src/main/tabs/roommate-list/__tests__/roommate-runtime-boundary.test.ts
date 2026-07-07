@@ -63,7 +63,6 @@ const PHASE5_SPLIT_FILES = [
   'overlays/RoommateFilterSheet.tsx',
   'api/roommateActions.client.ts',
   'hooks/useRoommateBookmarkList.ts',
-  'sections/bookmarks/RoommateBookmarkResultsSection.tsx',
 ] as const;
 
 const PHASE7_SPLIT_FILES = [
@@ -176,7 +175,7 @@ describe('RoommateTab runtime boundary', () => {
     expect(violations).toEqual([]);
   });
 
-  it('Phase 5 keeps filter sheet and bookmark mode behind owner-specific files', () => {
+  it('Phase 5 keeps filter sheet and bookmark action behind owner-specific files', () => {
     const missingFiles = PHASE5_SPLIT_FILES.map((file) => join(roommateRoot, file)).filter(
       (file) => !existsSync(file),
     );

@@ -1,3 +1,7 @@
+import {
+  formatRoommateSearchFilterOptionLabel,
+  getRoommateSearchFilterFieldCopy,
+} from './roommateSearchFilterCopy';
 import type {
   RoommateSearchFilterOperator,
   RoommateSearchMinScorePreset,
@@ -47,6 +51,7 @@ export interface RoommateFilterFieldViewModel {
   readonly selectedOperator: RoommateSearchFilterOperator | null;
   readonly options: readonly RoommateFilterOptionViewModel[];
   readonly disabledReason: string | null;
+  readonly helperText: string | null;
 }
 
 export interface RoommateFilterSheetViewModel {
@@ -56,7 +61,7 @@ export interface RoommateFilterSheetViewModel {
   readonly activeChips: readonly RoommateSearchActiveFilterChipModel[];
 }
 
-const FILTER_CLOSED_COPY = '현재 시즌 정책상 상세 필터는 열리지 않아요.';
+const FILTER_CLOSED_COPY = '현재 탐색 범위에서는 조건 필터를 사용할 수 없어요.';
 
 export function createRoommateFilterDraft(
   filters: RoommateSearchFilterCriteria,
@@ -84,7 +89,7 @@ export function buildRoommateFilterSheetViewModel(
     canOpen: true,
     policyCopy: null,
     fields: manifest.enabledFilterKeys.map((key) =>
-      buildFieldViewModel(key, manifest, compactDraft),
+      buildFieldViewModel(key, manifest, draft, compactDraft),
     ),
     activeChips: buildRoommateSearchActiveFilterChips(
       { ...query, filters: compactRoommateFilterDraft(query.filters, manifest) },
@@ -163,7 +168,11 @@ export function toggleRoommateFilterDraftValue(
     } else {
       currentValues.add(value as never);
     }
-    next.ageBand = { values: [...currentValues] as NonNullable<typeof next.ageBand>['values'] };
+    next.ageBand = {
+      values: sortFilterValues('ageBand', [...currentValues]) as NonNullable<
+        typeof next.ageBand
+      >['values'],
+    };
     return compactRoommateSearchFilterCriteria(next);
   }
 
@@ -176,7 +185,7 @@ export function toggleRoommateFilterDraftValue(
   }
   next[key] = {
     operator: current?.operator ?? 'INCLUDE',
-    values: [...values],
+    values: sortFilterValues(key, [...values]),
   };
   return compactRoommateSearchFilterCriteria(next);
 }
@@ -197,22 +206,51 @@ export function setRoommateFilterDraftMbtiTrait(
   return compactRoommateSearchFilterCriteria(next);
 }
 
+const GRADE_ORDER = ['1', '2', '3', '4+'] as const;
+const AGE_BAND_ORDER = ['20', '21', '22', '23', '24', '25_PLUS'] as const;
+
+function sortFilterValues(
+  key: 'college' | 'grade' | 'ageBand',
+  values: readonly string[],
+): string[] {
+  if (key === 'grade') {
+    return sortByOrder(values, GRADE_ORDER);
+  }
+  if (key === 'ageBand') {
+    return sortByOrder(values, AGE_BAND_ORDER);
+  }
+  return [...values];
+}
+
+function sortByOrder(values: readonly string[], order: readonly string[]): string[] {
+  const orderIndex = new Map(order.map((value, index) => [value, index]));
+  return [...values].sort(
+    (left, right) =>
+      (orderIndex.get(left) ?? Number.MAX_SAFE_INTEGER) -
+      (orderIndex.get(right) ?? Number.MAX_SAFE_INTEGER),
+  );
+}
+
 function buildFieldViewModel(
   key: RoommateSearchCriteriaFilterKey,
   manifest: RoommateSearchManifestModel,
-  draft: RoommateFilterDraft,
+  rawDraft: RoommateFilterDraft,
+  compactDraft: RoommateFilterDraft,
 ): RoommateFilterFieldViewModel {
   const field = manifest.fields[key];
   const kind = fieldKind(key);
 
+  const copy = getRoommateSearchFilterFieldCopy(key);
+
   return {
     key,
-    label: filterFieldLabel(key),
+    label: copy.title,
     kind,
     operators: field?.operators ?? [],
-    selectedOperator: selectedOperator(key, field, draft),
-    options: buildOptions(key, field, draft),
+    selectedOperator: selectedOperator(key, field, rawDraft, compactDraft),
+    options: buildOptions(key, field, compactDraft),
     disabledReason: field?.disabledReason ?? null,
+    helperText: copy.helperText ?? null,
   };
 }
 
@@ -223,7 +261,7 @@ function buildOptions(
 ): readonly RoommateFilterOptionViewModel[] {
   return (field?.options ?? []).map((option) => ({
     code: option.code,
-    label: option.label,
+    label: filterOptionLabel(key, option.code, option.label),
     selected: optionSelected(key, option.code, draft),
   }));
 }
@@ -251,10 +289,15 @@ function optionSelected(
 function selectedOperator(
   key: RoommateSearchCriteriaFilterKey,
   field: RoommateSearchFilterFieldModel | undefined,
-  draft: RoommateFilterDraft,
+  rawDraft: RoommateFilterDraft,
+  compactDraft: RoommateFilterDraft,
 ): RoommateSearchFilterOperator | null {
   if (key !== 'college' && key !== 'grade') return null;
-  return draft[key]?.operator ?? field?.operators[0] ?? 'INCLUDE';
+  const rawOperator = rawDraft[key]?.operator;
+  if (rawOperator && (field?.operators.includes(rawOperator) ?? false)) {
+    return rawOperator;
+  }
+  return compactDraft[key]?.operator ?? field?.operators[0] ?? 'INCLUDE';
 }
 
 function fieldKind(key: RoommateSearchCriteriaFilterKey): RoommateFilterFieldKind {
@@ -276,22 +319,15 @@ export function isRoommateSearchGroupFilterKey(
 }
 
 export function filterFieldLabel(key: RoommateSearchCriteriaFilterKey): string {
-  const labels: Record<RoommateSearchCriteriaFilterKey, string> = {
-    smokingBehavior: '흡연',
-    bedtime: '취침',
-    wakeTime: '기상',
-    noiseSensitivity: '소음 민감도',
-    cleanLevel: '청소',
-    sleepHabit: '잠버릇',
-    indoorEating: '실내 취식',
-    relationshipStyle: '관계 스타일',
-    college: '단과대',
-    grade: '학년',
-    mbtiTraits: 'MBTI 성향',
-    ageBand: '나이',
-    minScore: '적합도',
-  };
-  return labels[key];
+  return getRoommateSearchFilterFieldCopy(key).chipLabel;
+}
+
+function filterOptionLabel(
+  key: RoommateSearchCriteriaFilterKey,
+  code: string,
+  fallback: string,
+): string {
+  return formatRoommateSearchFilterOptionLabel(key, code, fallback);
 }
 
 export const ROOMMATE_FILTER_SHEET_FIELD_ORDER = ROOMMATE_SEARCH_FILTER_KEYS;

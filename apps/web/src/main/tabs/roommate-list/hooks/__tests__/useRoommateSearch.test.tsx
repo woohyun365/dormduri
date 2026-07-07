@@ -167,6 +167,57 @@ describe('useRoommateSearch', () => {
     expect(result.current.statusMessage).toContain('최신 정책');
   });
 
+  it('loadMore 중에는 기존 목록을 loading-more 상태로 유지한 뒤 다음 페이지를 append한다', async () => {
+    const nextManifest = createDeferred<ReturnType<typeof createManifestResponse>>();
+    const nextSearch = createDeferred<ReturnType<typeof createSearchResponse>>();
+    const client: RoommateSearchClientPort = {
+      getRoommateSearchManifest: vi
+        .fn()
+        .mockResolvedValueOnce(createManifestResponse(createManifest()))
+        .mockReturnValueOnce(nextManifest.promise),
+      getRoommateSearch: vi
+        .fn()
+        .mockResolvedValueOnce(
+          createSearchResponse({
+            items: [createSummary('first-page')],
+            nextCursor: 'story-cursor-1',
+          }),
+        )
+        .mockReturnValueOnce(nextSearch.promise),
+    };
+
+    const { result } = renderHook(() => useRoommateSearch({ client }));
+    await waitFor(() =>
+      expect(result.current.items.map((item) => item.id)).toEqual(['first-page']),
+    );
+
+    act(() => {
+      void result.current.loadMore();
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('loading-more'));
+    expect(result.current.items.map((item) => item.id)).toEqual(['first-page']);
+    expect(result.current.canLoadMore).toBe(true);
+
+    await act(async () => {
+      nextManifest.resolve(createManifestResponse(createManifest()));
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe('loading-more');
+    expect(result.current.items.map((item) => item.id)).toEqual(['first-page']);
+
+    await act(async () => {
+      nextSearch.resolve(
+        createSearchResponse({ items: [createSummary('second-page')], nextCursor: null }),
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() =>
+      expect(result.current.items.map((item) => item.id)).toEqual(['first-page', 'second-page']),
+    );
+  });
+
   it('INVALID_ROOMMATE_SEARCH_QUERY는 manifest refetch 후 sanitize하고 one-shot retry한다', async () => {
     const client: RoommateSearchClientPort = {
       getRoommateSearchManifest: vi

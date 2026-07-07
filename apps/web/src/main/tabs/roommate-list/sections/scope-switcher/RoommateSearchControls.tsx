@@ -18,6 +18,7 @@ interface RoommateSearchControlsProps {
   readonly manifest: RoommateSearchManifestModel | null;
   readonly scopeAvailability: RoommateSearchScopeAvailability | null;
   readonly disabled: boolean;
+  readonly showSort?: boolean;
   readonly onScopeChange: (scope: RoommateSearchScope) => void;
   readonly onSortChange: (sort: RoommateSearchSort) => void;
 }
@@ -28,6 +29,7 @@ export function RoommateSearchControls({
   manifest,
   scopeAvailability,
   disabled,
+  showSort = true,
   onScopeChange,
   onSortChange,
 }: RoommateSearchControlsProps) {
@@ -36,7 +38,7 @@ export function RoommateSearchControls({
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        <p className="text-xs font-semibold text-[var(--knu-text-tertiary)]">탐색 범위</p>
+        <p className="text-xs font-semibold text-(--knu-text-tertiary)">탐색 범위</p>
         <div className="flex flex-wrap gap-2" role="group" aria-label="탐색 범위">
           {SEARCH_SCOPES.map((nextScope) => {
             const active = scope === nextScope;
@@ -45,12 +47,14 @@ export function RoommateSearchControls({
               <button
                 key={nextScope}
                 type="button"
-                disabled={disabled || active || !available}
-                onClick={() => onScopeChange(nextScope)}
+                disabled={disabled || !available}
+                onClick={() => {
+                  if (!active) onScopeChange(nextScope);
+                }}
                 className={`rounded-xl px-3 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                   active
-                    ? 'bg-[var(--knu-primary)] text-white'
-                    : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
+                    ? 'bg-blue-800 text-white shadow-sm ring-1 ring-blue-800 hover:bg-blue-900 disabled:opacity-100 disabled:hover:bg-blue-800'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 {scopeLabel(nextScope)}
@@ -60,34 +64,32 @@ export function RoommateSearchControls({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-[var(--knu-text-tertiary)]">정렬</p>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="정렬">
-          {sortOptions.map((nextSort) => {
-            const active = sort === nextSort;
-            return (
-              <button
-                key={nextSort}
-                type="button"
-                disabled={disabled || active}
-                onClick={() => onSortChange(nextSort)}
-                className={`rounded-xl px-3 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
-                  active
-                    ? 'bg-[var(--knu-primary)] text-white'
-                    : 'bg-[var(--knu-background-alt)] text-[var(--knu-text-secondary)] hover:bg-gray-200'
-                }`}
-              >
-                {sortLabel(nextSort)}
-              </button>
-            );
-          })}
+      {showSort ? (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-(--knu-text-tertiary)">정렬</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="정렬">
+            {sortOptions.map((nextSort) => {
+              const active = sort === nextSort;
+              return (
+                <button
+                  key={nextSort}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    if (!active) onSortChange(nextSort);
+                  }}
+                  className={`rounded-xl px-3 py-2 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
+                    active
+                      ? 'bg-blue-800 text-white shadow-sm ring-1 ring-blue-800 hover:bg-blue-900 disabled:opacity-100 disabled:hover:bg-blue-800'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {sortLabel(nextSort)}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
-
-      {manifest && !manifest.canOpenFilterSheet ? (
-        <p className="rounded-2xl bg-[var(--knu-background-alt)] px-4 py-3 text-xs leading-5 text-[var(--knu-text-secondary)]">
-          현재 시즌 정책상 상세 필터는 열리지 않아요.
-        </p>
       ) : null}
     </div>
   );
@@ -107,5 +109,5 @@ function scopeLabel(scope: RoommateSearchScope): string {
 }
 
 function sortLabel(sort: RoommateSearchSort): string {
-  return sort === 'MATCH_SCORE' ? '적합도순' : '닉네임순';
+  return sort === 'MATCH_SCORE' ? '매칭도순' : '닉네임순';
 }

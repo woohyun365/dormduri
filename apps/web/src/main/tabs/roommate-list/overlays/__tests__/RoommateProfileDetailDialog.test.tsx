@@ -16,10 +16,36 @@ const target = {
   detailEntryToken: 'entry-token-secret',
 };
 
+const viewerLifestyle = {
+  bedtime: '22_24',
+  wakeTime: '07_08',
+  sleepHabit: 'NONE',
+  sleepEnvironment: 'QUIET',
+  screenUsage: 'NONE',
+  noiseSensitivity: 'NORMAL',
+  smokingBehavior: 'NO',
+  indoorEating: 'SNACK',
+  phoneBehavior: 'SOMETIMES',
+  earphoneUsage: 'ALWAYS',
+  cleanLevel: 'WEEKLY_1_2',
+  drinkingFrequency: 'RARELY',
+  relationshipStyle: 'CASUAL',
+  temperatureSensitivity: 'NORMAL',
+  smokingTolerance: 'NO_ONLY',
+  phoneTolerance: 'BRIEF_OK',
+  earphoneExpectation: 'STUDY',
+  sleepEnvPreference: 'NO_SPEAKER',
+  screenTolerance: 'LOW_OK',
+  indoorEatingTolerance: 'CLEAN_OK',
+  cleanExpectation: 'BASIC',
+  drinkingTolerance: 'LOW_ONLY',
+} as const;
+
 function renderDialog(state: RoommateProfileDetailState, overrides = {}) {
   return render(
     <RoommateProfileDetailDialog
       state={state}
+      viewerLifestyle={viewerLifestyle}
       onClose={vi.fn()}
       onRetry={vi.fn()}
       onRefreshList={vi.fn()}
@@ -44,10 +70,38 @@ describe('RoommateProfileDetailDialog', () => {
     expect(within(dialog).getByRole('heading', { name: '축별 적합도' })).toBeInTheDocument();
     expect(within(dialog).getAllByText('흡연').length).toBeGreaterThan(0);
     expect(within(dialog).getAllByText('청소').length).toBeGreaterThan(0);
-    expect(within(dialog).getByText('공개 생활패턴')).toBeInTheDocument();
+    expect(within(dialog).getByText('상대 생활패턴')).toBeInTheDocument();
+    expect(within(dialog).getByText('나의 원하는 룸메 조건')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText('상대 생활 패턴 ↔ 나의 원하는 룸메 조건 비교'),
+    ).toBeInTheDocument();
     expect(within(dialog).getByText(/민감 항목이나 상대의 룸메 조건 원본값/)).toBeInTheDocument();
     expect(findCompatibilityPrivacyViolations(dialog.textContent ?? '')).toEqual([]);
     expect(dialog).not.toHaveTextContent('entry-token-secret');
+  });
+
+  it('score hidden FULL detail은 점수 없이 amber 예외 안내를 표시한다', () => {
+    renderDialog({
+      status: 'success',
+      target,
+      profile: createPublicProfileFull({
+        exposure: {
+          listSummaryVisible: true,
+          detailViewable: true,
+          canViewFull: true,
+          scoreVisible: false,
+        },
+        matchScore: undefined,
+        compatibility: undefined,
+      }),
+      error: null,
+    });
+
+    const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
+    expect(dialog).not.toHaveTextContent('적합도 92점');
+    expect(dialog).not.toHaveTextContent('적합도 한눈에 보기');
+    expect(dialog).toHaveTextContent('서버 오류로 매칭점수를 제공하지 못했어요.');
+    expect(dialog).toHaveTextContent('목록을 새로고침해 다시 확인해 주세요.');
   });
 
   it('FULL detail action CTA는 token 없이 action target snapshot만 전달한다', async () => {
@@ -93,17 +147,26 @@ describe('RoommateProfileDetailDialog', () => {
     expect(dialog).not.toHaveTextContent('entry-token-secret');
   });
 
-  it('TOMBSTONE detail은 tombstone message만 표시하고 compatibility를 렌더링하지 않는다', () => {
+  it('TOMBSTONE detail은 사용자 친화적인 예외 안내만 표시하고 compatibility를 렌더링하지 않는다', () => {
     renderDialog({
       status: 'success',
       target,
-      profile: createPublicProfileTombstone(),
+      profile: createPublicProfileTombstone({
+        tombstone: {
+          reason: 'TARGET_NO_LONGER_DISCOVERABLE',
+          displayName: '하린',
+          message: '상대가 시즌 참여를 철회해 프로필을 볼 수 없어요.',
+        },
+      }),
       error: null,
     });
 
     const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
-    expect(dialog).toHaveTextContent('현재는 상대 프로필 상세 정보를 볼 수 없어요.');
-    expect(dialog).toHaveTextContent('상대 정보가 더 이상 제공되지 않아요.');
+    expect(dialog).toHaveTextContent('상대가 시즌 참여를 철회했어요.');
+    expect(dialog).toHaveTextContent('상대가 시즌 참여를 철회해 프로필을 볼 수 없어요.');
+    expect(dialog).toHaveTextContent('목록을 새로고침해 현재 참여 중인 후보만 다시 확인해 주세요.');
+    expect(dialog).not.toHaveTextContent('다음 행동');
+    expect(dialog).not.toHaveTextContent('retained payload');
     expect(dialog).not.toHaveTextContent('적합도 한눈에 보기');
     expect(dialog).not.toHaveTextContent('축별 적합도');
   });
@@ -121,8 +184,8 @@ describe('RoommateProfileDetailDialog', () => {
     );
 
     const dialog = screen.getByRole('dialog', { name: '룸메이트 상세 정보' });
-    expect(dialog).toHaveTextContent('상세 정보를 다시 확인할 수 없어요.');
-    expect(dialog).toHaveTextContent('대상 존재 여부나 숨김 사유는 추가로 표시하지 않아요.');
+    expect(dialog).toHaveTextContent('서버 오류로 프로필 접근에 실패했어요.');
+    expect(dialog).toHaveTextContent('목록을 새로고침한 뒤 다시 열람해 주세요.');
     expect(dialog).not.toHaveTextContent('PROFILE_NOT_VISIBLE');
 
     await userEvent.click(within(dialog).getByRole('button', { name: '목록 새로고침' }));
@@ -148,6 +211,7 @@ describe('RoommateProfileDetailDialog', () => {
         <button type="button">상세 열기 트리거</button>
         <RoommateProfileDetailDialog
           state={closedState}
+          viewerLifestyle={viewerLifestyle}
           onClose={onClose}
           onRetry={vi.fn()}
           onRefreshList={vi.fn()}
@@ -163,6 +227,7 @@ describe('RoommateProfileDetailDialog', () => {
         <button type="button">상세 열기 트리거</button>
         <RoommateProfileDetailDialog
           state={successState}
+          viewerLifestyle={viewerLifestyle}
           onClose={onClose}
           onRetry={vi.fn()}
           onRefreshList={vi.fn()}
@@ -180,6 +245,7 @@ describe('RoommateProfileDetailDialog', () => {
         <button type="button">상세 열기 트리거</button>
         <RoommateProfileDetailDialog
           state={closedState}
+          viewerLifestyle={viewerLifestyle}
           onClose={onClose}
           onRetry={vi.fn()}
           onRefreshList={vi.fn()}

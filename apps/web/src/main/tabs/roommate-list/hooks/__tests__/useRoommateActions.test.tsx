@@ -149,7 +149,7 @@ describe('useRoommateActions', () => {
     await waitFor(() => expect(result.current.pendingTargetUserIds).toEqual([]));
   });
 
-  it('block 성공은 detail을 닫고 search/bookmark owner list를 재조회한다', async () => {
+  it('block 성공은 detail을 닫고 search/bookmark owner state를 갱신한다', async () => {
     const client = createClient();
     const options = createOptions(client);
     const { result } = renderHook(() => useRoommateActions(options));

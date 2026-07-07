@@ -33,7 +33,7 @@ const NOTICE_COPY: Record<
   },
   DISCOVERY_ACTIONABLE_ONLY: {
     title: '요청 가능한 후보만 보여줘요',
-    message: '현재 시즌 정책상 상세 확인과 요청이 가능한 후보 중심으로 결과를 조정했어요.',
+    message: '지금 상세 확인과 요청이 가능한 후보 중심으로 결과를 조정했어요.',
     liveRegion: 'polite',
     emptyState: false,
   },
@@ -51,7 +51,7 @@ const NOTICE_COPY: Record<
   },
   DETAIL_UNAVAILABLE_BY_POLICY: {
     title: '일부 상세 정보는 열 수 없어요',
-    message: '정책상 상세 보기 권한이 없는 후보는 요약 정보만 표시돼요.',
+    message: '프로필을 열람할 수 없는 후보는 요약 정보만 표시돼요.',
     liveRegion: 'polite',
     emptyState: false,
   },

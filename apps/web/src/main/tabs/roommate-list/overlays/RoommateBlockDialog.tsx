@@ -70,20 +70,18 @@ function RoommateBlockForm({
         onSubmit({ note: trimmedNote || null });
       }}
     >
-      <section className="rounded-3xl border border-[var(--knu-border)] bg-white p-4">
-        <p className="text-sm font-bold text-[var(--knu-text-primary)]">
+      <section className="rounded-3xl border border-(--knu-border) bg-white p-4">
+        <p className="text-sm font-bold text-(--knu-text-primary)">
           {target.nickname}님을 차단할까요?
         </p>
-        <p className="mt-2 text-xs leading-5 text-[var(--knu-text-secondary)]">
+        <p className="mt-2 text-xs leading-5 text-(--knu-text-secondary)">
           차단하면 서로의 목록과 관심 목록에서 보이지 않을 수 있고, 기존 비매칭 대화는 읽기 전용으로
           바뀔 수 있어요.
         </p>
       </section>
 
       <label className="block" htmlFor="roommate-block-note">
-        <span className="text-sm font-semibold text-[var(--knu-text-primary)]">
-          차단 메모 (선택)
-        </span>
+        <span className="text-sm font-semibold text-(--knu-text-primary)">차단 메모 (선택)</span>
         <textarea
           id="roommate-block-note"
           value={note}
@@ -91,11 +89,11 @@ function RoommateBlockForm({
           disabled={submitting}
           aria-describedby="roommate-block-note-help roommate-block-status"
           onChange={(event) => setNote(event.target.value)}
-          className="mt-2 min-h-28 w-full rounded-2xl border border-[var(--knu-border)] px-3 py-3 text-sm outline-none focus:border-[var(--knu-primary)] disabled:opacity-60"
+          className="mt-2 min-h-28 w-full rounded-2xl border border-(--knu-border) px-3 py-3 text-sm outline-none focus:border-(--knu-primary) disabled:opacity-60"
           placeholder="운영 판단용이 아닌 본인 참고 메모예요."
         />
       </label>
-      <p id="roommate-block-note-help" className="text-xs text-[var(--knu-text-tertiary)]">
+      <p id="roommate-block-note-help" className="text-xs text-(--knu-text-tertiary)">
         {trimmedNote.length}/{BLOCK_NOTE_MAX_LENGTH}자
       </p>
 
@@ -104,11 +102,7 @@ function RoommateBlockForm({
           {currentError}
         </p>
       ) : (
-        <p
-          id="roommate-block-status"
-          role="status"
-          className="text-xs text-[var(--knu-text-tertiary)]"
-        >
+        <p id="roommate-block-status" role="status" className="text-xs text-(--knu-text-tertiary)">
           차단 요청은 서버에서 최신 상태를 다시 확인해 처리돼요.
         </p>
       )}
@@ -125,7 +119,7 @@ function RoommateBlockForm({
           type="button"
           disabled={submitting}
           onClick={onClose}
-          className="rounded-2xl border border-[var(--knu-border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--knu-text-secondary)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="rounded-2xl border border-(--knu-border) bg-white px-4 py-3 text-sm font-semibold text-(--knu-text-secondary) disabled:cursor-not-allowed disabled:opacity-60"
         >
           취소
         </button>

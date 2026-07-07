@@ -15,11 +15,11 @@ export function CompatibilityRadar({ viewModel }: CompatibilityRadarProps) {
       <div className="flex items-center justify-between gap-3">
         <h3
           id="roommate-compatibility-radar-heading"
-          className="text-sm font-bold text-[var(--knu-text-primary)]"
+          className="text-sm font-bold text-(--knu-text-primary)"
         >
           적합도 한눈에 보기
         </h3>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[var(--knu-primary)] shadow-sm">
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-(--knu-primary) shadow-sm">
           {viewModel.overallScoreLabel}
         </span>
       </div>

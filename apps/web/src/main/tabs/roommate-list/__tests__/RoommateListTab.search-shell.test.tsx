@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SeasonProvider, type SeasonContextValue } from '@/main/contexts/SeasonContext';
 import { createPublicProfileFull } from '@/test/home-profile-detail-fixtures';
@@ -19,6 +19,7 @@ import { useRoommateSearch, type UseRoommateSearchResult } from '../hooks/useRoo
 import { mapRoommateSearchManifest } from '../model/filters/roommateSearchManifestModel';
 import { mapRoommateSearchAvailabilityNotices } from '../model/search/roommateSearchNotices';
 import {
+  createCampusMergedManifest,
   createManifest,
   createSearchResponse,
   createSummary,
@@ -37,6 +38,19 @@ vi.mock('../hooks/useRoommateProfileDetail', () => ({
 const useRoommateSearchMock = vi.mocked(useRoommateSearch);
 const useRoommateBookmarkListMock = vi.mocked(useRoommateBookmarkList);
 const useRoommateProfileDetailMock = vi.mocked(useRoommateProfileDetail);
+
+function mockMatchMedia(matches: boolean) {
+  window.matchMedia = vi.fn((query: string) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+}
 
 const viewer: UserProfile = {
   id: 'viewer-1',
@@ -118,6 +132,7 @@ function createSearchResult(
       filters: {},
     },
     manifest: mapRoommateSearchManifest(manifest),
+    scopeAvailability: response.scopeAvailability,
     response,
     nextCursor: null,
     items: response.items,
@@ -190,6 +205,7 @@ function renderRoommateListTab(
 
 describe('RoommateListTab search shell', () => {
   beforeEach(() => {
+    mockMatchMedia(false);
     useRoommateSearchMock.mockReset();
     useRoommateBookmarkListMock.mockReset();
     useRoommateProfileDetailMock.mockReset();
@@ -212,6 +228,30 @@ describe('RoommateListTab search shell', () => {
     expect(screen.getByRole('status')).toHaveTextContent('룸메이트 목록을 불러오는 중이에요');
   });
 
+  it('desktop loading state에서는 우측 검색/필터 패널도 skeleton으로 표시한다', async () => {
+    mockMatchMedia(true);
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({
+        status: 'loading-search',
+        items: [],
+        response: null,
+        manifest: null,
+      }),
+    );
+
+    renderRoommateListTab();
+
+    const complementary = await screen.findByRole('complementary', {
+      name: '룸메이트 찾기 필터와 보조 정보',
+    });
+    expect(
+      within(complementary).getByTestId('roommate-search-desktop-aside-skeleton'),
+    ).toBeInTheDocument();
+    expect(
+      within(complementary).queryByRole('button', { name: '필터 열기' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('error state를 alert role과 safe message로 표시한다', async () => {
     const refresh = vi.fn(async () => {});
     useRoommateSearchMock.mockReturnValue(
@@ -219,7 +259,7 @@ describe('RoommateListTab search shell', () => {
         status: 'error',
         items: [],
         error: createRoommateApiError({
-          code: 'ROOMMATE_SEARCH_NETWORK_ERROR',
+          code: 'BFF_UPSTREAM_UNAVAILABLE',
           status: 503,
         }),
         refresh,
@@ -228,16 +268,28 @@ describe('RoommateListTab search shell', () => {
 
     renderRoommateListTab();
 
-    expect(screen.getByRole('alert')).toHaveTextContent('룸메이트 찾기 정보를 불러오지 못했어요');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      '룸메이트 찾기 서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
+    );
+    expect(screen.queryByRole('region', { name: '검색 결과 설정' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('complementary', { name: '룸메이트 찾기 필터와 보조 정보' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('검색 결과')).not.toBeInTheDocument();
+    expect(
+      screen
+        .queryAllByRole('status')
+        .some((status) => status.textContent?.includes('룸메이트 찾기 서버에 연결하지 못했어요')),
+    ).toBe(false);
 
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it('success state에서 summary, score, notice copy를 표시한다', () => {
+  it('success state에서 summary와 score를 표시하되 availability notice header card는 숨긴다', () => {
     const summary = createSummary('participant-2');
     const notices = mapRoommateSearchAvailabilityNotices([
-      { code: 'DETAIL_UNAVAILABLE_BY_POLICY', severity: 'INFO' },
+      { code: 'DISCOVERY_ACTIONABLE_ONLY', severity: 'INFO' },
     ]);
     useRoommateSearchMock.mockReturnValue(
       createSearchResult({
@@ -250,8 +302,11 @@ describe('RoommateListTab search shell', () => {
 
     expect(screen.getByText('테스트-participant-2')).toBeInTheDocument();
     expect(screen.getByText('조용한 생활을 선호해요.')).toBeInTheDocument();
-    expect(screen.getByText('적합도 88점')).toBeInTheDocument();
-    expect(screen.getByText('일부 상세 정보는 열 수 없어요')).toBeInTheDocument();
+    expect(screen.getByText('매칭점수 88점')).toBeInTheDocument();
+    expect(screen.queryByText('요청 가능한 후보만 보여줘요')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('지금 상세 확인과 요청이 가능한 후보 중심으로 결과를 조정했어요.'),
+    ).not.toBeInTheDocument();
   });
 
   it('nextCursor가 있으면 cursor 기반 더 보기를 호출한다', async () => {
@@ -269,6 +324,68 @@ describe('RoommateListTab search shell', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '더 보기' }));
     expect(loadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('loading-more 상태에서는 기존 검색 카드를 유지하고 append 버튼만 잠근다', () => {
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({
+        status: 'loading-more',
+        items: [createSummary('append-visible')],
+        nextCursor: 'cursor-next',
+        hasNextPage: true,
+        canLoadMore: true,
+      }),
+    );
+
+    renderRoommateListTab();
+
+    expect(screen.getByText('테스트-append-visible')).toBeInTheDocument();
+    expect(screen.queryByText('룸메이트 목록을 불러오는 중이에요')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '불러오는 중' })).toBeDisabled();
+  });
+
+  it('campus merged summary card는 캠퍼스명을 표시하고 summary 전용 버튼을 만들지 않는다', () => {
+    const manifest = createCampusMergedManifest();
+    const summary = {
+      ...createSummary('campus-preview-card'),
+      exposure: {
+        listSummaryVisible: true,
+        detailViewable: false,
+        canViewFull: false,
+        scoreVisible: false,
+      },
+      actions: {
+        canBookmark: false,
+        canRequestMatch: false,
+        canStartChat: false,
+        unavailableReasons: ['DIFFERENT_DORMITORY' as const],
+      },
+      detailEntryToken: undefined,
+    };
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({
+        items: [summary],
+        query: { scope: 'CAMPUS_MERGED', sort: 'NICKNAME', filters: {} },
+        manifest: mapRoommateSearchManifest(manifest),
+        response: createSearchResponse({ manifest, items: [summary] }),
+      }),
+    );
+
+    renderRoommateListTab(openSeason);
+
+    const card = screen.getByRole('article', { name: '테스트-campus-preview-card' });
+    expect(within(card).getByText('춘천캠퍼스')).toBeInTheDocument();
+    expect(within(card).queryByText('프로필 열람 불가')).not.toBeInTheDocument();
+    expect(within(card).queryByText('대화 불가')).not.toBeInTheDocument();
+    expect(within(card).queryByText('매칭 신청 불가')).not.toBeInTheDocument();
+    expect(
+      within(card).getByText('다른 건물 유저는 프로필 요약만 확인 가능해요'),
+    ).toBeInTheDocument();
+    expect(within(card).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(card).queryByText('미리보기')).not.toBeInTheDocument();
+    expect(screen.queryByText('조건 필터')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '필터 열기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: '저장한 후보만 보기' })).not.toBeInTheDocument();
   });
 
   it('search mode에서 manifest filter bar와 bookmark action을 연결한다', async () => {
@@ -292,7 +409,7 @@ describe('RoommateListTab search shell', () => {
 
     renderRoommateListTab();
 
-    await userEvent.click(screen.getByRole('button', { name: '흡연 비흡연 필터 제거' }));
+    await userEvent.click(screen.getByRole('button', { name: '흡연 여부 비흡연 필터 제거' }));
     expect(removeFilter).toHaveBeenCalledWith('smokingBehavior');
 
     await userEvent.click(screen.getByRole('button', { name: '테스트-target-1 관심 목록 저장' }));
@@ -300,6 +417,184 @@ describe('RoommateListTab search shell', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '전체 해제' }));
     expect(resetFilters).toHaveBeenCalledTimes(1);
+  });
+
+  it('desktop layout에서는 조건 필터를 검색 결과 카드 안에 포함한다', async () => {
+    mockMatchMedia(true);
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({ items: [createSummary('target-1')] }),
+    );
+
+    renderRoommateListTab();
+
+    const complementary = await screen.findByRole('complementary', {
+      name: '룸메이트 찾기 필터와 보조 정보',
+    });
+
+    await waitFor(() => {
+      expect(
+        within(complementary).getByRole('region', { name: '검색 결과 설정' }),
+      ).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('banner')).queryByRole('region', { name: '검색 결과 설정' }),
+      ).not.toBeInTheDocument();
+    });
+
+    const asideText = complementary.textContent ?? '';
+    expect(asideText.indexOf('검색 결과')).toBeGreaterThanOrEqual(0);
+    expect(asideText.indexOf('조건 필터')).toBeGreaterThan(asideText.indexOf('검색 결과'));
+    const resultControlsCard = within(complementary).getByRole('region', {
+      name: '검색 결과 설정',
+    });
+    expect(resultControlsCard).toHaveTextContent('조건 필터');
+    expect(
+      within(resultControlsCard).getByRole('switch', { name: '저장한 후보만 보기' }),
+    ).toHaveAttribute('aria-checked', 'false');
+    expect(within(complementary).queryByText('Discovery')).not.toBeInTheDocument();
+    expect(
+      within(complementary).queryByText('조건을 보며 후보를 쉽게 비교해요'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('mobile layout에서는 헤더 문구와 검색 결과 설정 카드를 분리해 경계를 명확히 한다', () => {
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({ items: [createSummary('mobile-boundary')] }),
+    );
+
+    renderRoommateListTab();
+
+    const banner = screen.getByRole('banner');
+    expect(
+      within(banner).getByText(
+        '시즌 후보를 둘러보고, 같은 건물 후보는 생활패턴과 조건까지 비교해 볼 수 있어요.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(banner).queryByRole('region', { name: '검색 결과 설정' }),
+    ).not.toBeInTheDocument();
+
+    const resultControlsCard = screen.getByRole('region', { name: '검색 결과 설정' });
+    expect(resultControlsCard).toHaveClass('rounded-none', 'border-y', 'shadow-none');
+    expect(resultControlsCard).not.toHaveClass('rounded-3xl', 'shadow-sm');
+    expect(within(resultControlsCard).getByText('검색 결과')).toBeInTheDocument();
+  });
+
+  it('desktop campus merged scope에서는 조건 필터 진입점을 렌더링하지 않는다', async () => {
+    mockMatchMedia(true);
+    const manifest = createCampusMergedManifest();
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({
+        items: [createSummary('campus-filter-hidden')],
+        query: { scope: 'CAMPUS_MERGED', sort: 'NICKNAME', filters: {} },
+        manifest: mapRoommateSearchManifest(manifest),
+        response: createSearchResponse({
+          manifest,
+          items: [createSummary('campus-filter-hidden')],
+        }),
+      }),
+    );
+
+    renderRoommateListTab(openSeason);
+
+    const complementary = await screen.findByRole('complementary', {
+      name: '룸메이트 찾기 필터와 보조 정보',
+    });
+
+    expect(
+      within(complementary).getByRole('region', { name: '검색 결과 설정' }),
+    ).toBeInTheDocument();
+    expect(within(complementary).queryByText('조건 필터')).not.toBeInTheDocument();
+    expect(
+      within(complementary).queryByRole('button', { name: '필터 열기' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(complementary).queryByRole('switch', { name: '저장한 후보만 보기' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(complementary).queryByText('현재 탐색 범위에서는 조건 필터를 사용할 수 없어요.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('SEASON_OPEN 등록 완료 viewer에게 campus merged 미리보기 문구를 표시한다', () => {
+    const manifest = createCampusMergedManifest();
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({
+        items: [],
+        query: { scope: 'CAMPUS_MERGED', sort: 'NICKNAME', filters: {} },
+        manifest: mapRoommateSearchManifest(manifest),
+        response: createSearchResponse({ manifest, items: [] }),
+      }),
+    );
+
+    renderRoommateListTab(openSeason);
+
+    expect(useRoommateSearchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialQuery: { scope: 'SAME_BUILDING_ONLY', sort: 'MATCH_SCORE' },
+      }),
+    );
+    expect(screen.getByRole('heading', { name: '룸메이트 찾기 오픈' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '시즌 후보를 둘러보고, 같은 건물 후보는 생활패턴과 조건까지 비교해 볼 수 있어요.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '시즌 등록하러 가기' })).not.toBeInTheDocument();
+  });
+
+  it('SEASON_OPEN 등록 완료 viewer에게 same dormitory 상세 탐색 문구를 표시한다', () => {
+    useRoommateSearchMock.mockReturnValue(createSearchResult({ items: [] }));
+
+    renderRoommateListTab(openSeason);
+
+    expect(screen.getByRole('heading', { name: '룸메이트 찾기 오픈' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '시즌 후보를 둘러보고, 같은 건물 후보는 생활패턴과 조건까지 비교해 볼 수 있어요.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '시즌 등록하러 가기' })).not.toBeInTheDocument();
+  });
+
+  it('SEASON_OPEN 미등록 viewer의 campus merged 미리보기에서는 건물 등록 CTA를 숨긴다', () => {
+    const manifest = createCampusMergedManifest();
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({
+        items: [],
+        query: { scope: 'CAMPUS_MERGED', sort: 'NICKNAME', filters: {} },
+        manifest: mapRoommateSearchManifest(manifest),
+        response: createSearchResponse({ manifest, items: [] }),
+      }),
+    );
+
+    renderRoommateListTab(openSeason, { user: { ...viewer, dormitoryId: null } });
+
+    expect(useRoommateSearchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialQuery: { scope: 'CAMPUS_MERGED', sort: 'NICKNAME' },
+      }),
+    );
+    expect(screen.getByRole('heading', { name: '룸메이트 찾기 오픈' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '시즌 후보를 둘러보고, 같은 건물 후보는 생활패턴과 조건까지 비교해 볼 수 있어요.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '시즌 등록하러 가기' })).not.toBeInTheDocument();
+  });
+
+  it('SEASON_OPEN 미등록 viewer가 same dormitory scope를 볼 때 list empty 영역에 등록 gating만 표시한다', () => {
+    const onNavigate = vi.fn();
+    useRoommateSearchMock.mockReturnValue(createSearchResult({ items: [] }));
+
+    renderRoommateListTab(openSeason, { user: { ...viewer, dormitoryId: null }, onNavigate });
+
+    expect(screen.getByText('시즌 등록 후 같은 건물 후보를 볼 수 있어요.')).toBeInTheDocument();
+    expect(
+      screen.getByText('등록을 마치면 같은 건물 후보 리스트와 생활패턴 비교가 열려요.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '시즌 등록하러 가기' })).not.toBeInTheDocument();
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 
   it('search summary detail action은 detailEntryToken이 있는 target snapshot으로 detail dialog를 연다', async () => {
@@ -310,7 +605,9 @@ describe('RoommateListTab search shell', () => {
 
     renderRoommateListTab();
 
-    await userEvent.click(screen.getByRole('button', { name: '테스트-target-detail 상세 보기' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: '테스트-target-detail 프로필 열람하기' }),
+    );
     expect(openDetail).toHaveBeenCalledWith({
       targetUserId: 'target-detail',
       nickname: '테스트-target-detail',
@@ -379,45 +676,62 @@ describe('RoommateListTab search shell', () => {
     renderRoommateListTab();
 
     expect(
-      screen.getByRole('button', { name: '테스트-target-no-token 상세 보기를 열 수 없음' }),
-    ).toBeDisabled();
+      screen.queryByRole('button', { name: /테스트-target-no-token 상세/u }),
+    ).not.toBeInTheDocument();
     expect(openDetail).not.toHaveBeenCalled();
   });
 
-  it('관심 목록 mode는 search page local filter가 아니라 bookmark hook 결과를 표시한다', async () => {
+  it('저장한 후보 toggle은 별도 저장 리스트 카드 없이 search 결과를 bookmark 상태로 좁힌다', async () => {
+    const savedSummary = {
+      ...createSummary('saved-search'),
+      profileSummary: {
+        ...createSummary('saved-search').profileSummary,
+        nickname: '저장된 검색 후보',
+      },
+      bookmark: { bookmarked: true },
+    };
     useRoommateSearchMock.mockReturnValue(
-      createSearchResult({ items: [createSummary('search-only')] }),
-    );
-    useRoommateBookmarkListMock.mockReturnValue(
-      createBookmarkResult({
-        items: [
-          {
-            id: 'bookmark-1',
-            targetUserId: 'bookmark-target',
-            targetParticipantId: 'bookmark-participant',
-            bookmarkedAt: '2026-06-08T00:00:00.000Z',
-            visibility: 'VISIBLE',
-            profileSummary: {
-              nickname: '북마크 사용자',
-              intro: '관심 목록 owner 응답',
-              smokingBehavior: 'NO',
-              sleepHabit: 'NONE',
-              relationshipStyle: 'CASUAL',
-            },
-            matchScore: 91,
-          },
-        ],
-      }),
+      createSearchResult({ items: [savedSummary, createSummary('search-only')] }),
     );
 
     renderRoommateListTab();
-    await userEvent.click(screen.getByRole('button', { name: '관심 목록' }));
+    const bookmarkOnlySwitch = screen.getByRole('switch', { name: '저장한 후보만 보기' });
+    expect(bookmarkOnlySwitch).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText('저장된 검색 후보')).toBeInTheDocument();
+    expect(screen.getByText('테스트-search-only')).toBeInTheDocument();
+
+    await userEvent.click(bookmarkOnlySwitch);
 
     expect(useRoommateBookmarkListMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({ autoLoad: true }),
+      expect.objectContaining({ autoLoad: false }),
     );
-    expect(screen.getByText('북마크 사용자')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: '저장한 후보만 보기' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('group', { name: '정렬' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '필터 열기' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: '저장한 후보 정렬' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '룸메이트 저장한 후보' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^저장한 후보$/u)).not.toBeInTheDocument();
+    expect(screen.getByText('저장된 검색 후보')).toBeInTheDocument();
     expect(screen.queryByText('테스트-search-only')).not.toBeInTheDocument();
+  });
+
+  it('저장한 후보 toggle 결과가 비어도 별도 저장 리스트 카드 없이 검색 결과 empty copy만 표시한다', async () => {
+    useRoommateSearchMock.mockReturnValue(
+      createSearchResult({ items: [createSummary('unsaved-1'), createSummary('unsaved-2')] }),
+    );
+
+    renderRoommateListTab();
+    await userEvent.click(screen.getByRole('switch', { name: '저장한 후보만 보기' }));
+
+    expect(screen.getByText('아직 저장한 후보가 없어요.')).toBeInTheDocument();
+    expect(
+      screen.getByText('같은 건물 후보 카드의 북마크를 눌러 다시 볼 후보를 저장해 보세요.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '룸메이트 저장한 후보' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: '저장한 후보 정렬' })).not.toBeInTheDocument();
   });
 
   it('OFF_SEASON에서는 browse closed copy를 표시하고 auto-load를 끈다', () => {
@@ -435,8 +749,10 @@ describe('RoommateListTab search shell', () => {
     expect(useRoommateSearchMock).toHaveBeenCalledWith(
       expect.objectContaining({ autoLoad: false }),
     );
+    expect(screen.getByRole('heading', { name: '룸메이트 찾기 준비 중' })).toBeInTheDocument();
+    expect(screen.getByText('다음 시즌이 시작되면 안내할게요.')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
-      '지금은 룸메이트 찾기 탐색 기간이 아니에요',
+      '지난 시즌 룸메이트 찾기 탐색이 종료되었어요.',
     );
   });
 
