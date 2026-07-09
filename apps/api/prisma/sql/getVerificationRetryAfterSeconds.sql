@@ -1,3 +1,5 @@
+-- @param {String} $1:param1
+-- @param {String} $3:param3
 SELECT CEIL(EXTRACT(EPOCH FROM ("createdAt" + ($4 * INTERVAL '1 second') - CURRENT_TIMESTAMP)))::int AS "retryAfterSeconds"
 FROM "VerificationCodeRequestLog"
 WHERE "emailNormalized" = $1
