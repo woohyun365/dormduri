@@ -1,6 +1,11 @@
 import { useEffect, useLayoutEffect } from 'react';
 import type { GlobalNotice, GlobalNoticePreview } from '@repo/shared/notices';
 import type { UserNotification } from '@repo/shared/notifications';
+import type {
+  EnforcementNotice,
+  EnforcementNoticeListResponse,
+} from '@repo/shared/social-safety/enforcement';
+import type { ReportListItem, ReportListResponse } from '@repo/shared/social-safety/report';
 import type { SupportFaqItem, SupportTicketResponse } from '@repo/shared/support';
 import {
   createMatchHistoryResponse,
@@ -21,10 +26,13 @@ export type HomeStoryOperationsMode =
   | 'notifications-active-match-created'
   | 'notifications-support-replied'
   | 'notifications-report-status-updated'
+  | 'notifications-enforcement-notice'
   | 'notifications-season-system-notice'
   | 'notifications-chat-thread-created'
   | 'support-empty'
-  | 'support-error';
+  | 'support-error'
+  | 'support-report-list'
+  | 'support-enforcement-list';
 export type HomeStoryProfileMode = 'default' | 'counterpart-error';
 
 export interface HomeStoryApiFixtureOptions {
@@ -41,6 +49,7 @@ type StoryFetchStore = {
 const HOME_STORY_FETCH_KEY = '__knuHomeTabStoryFetch__';
 const ISO_NOW = '2026-07-03T00:00:00.000Z';
 const useStoryFetchEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+let storySupportMessageSequence = 0;
 
 const defaultFixtureOptions: Required<HomeStoryApiFixtureOptions> = {
   operationsMode: 'loaded',
@@ -179,7 +188,9 @@ function resolveOperationsFixtureResponse(
   if (
     !request.pathname.startsWith('/api/notices') &&
     !request.pathname.startsWith('/api/notifications') &&
-    !request.pathname.startsWith('/api/support')
+    !request.pathname.startsWith('/api/support') &&
+    !request.pathname.startsWith('/api/reports') &&
+    !request.pathname.startsWith('/api/enforcements')
   ) {
     return null;
   }
@@ -261,9 +272,38 @@ function resolveOperationsFixtureResponse(
     }
 
     return createStoryJsonResponse({
-      items: operationsMode === 'support-empty' ? [] : [createSupportTicket()],
+      items: createSupportTicketItems(operationsMode),
       pageInfo: { hasNextPage: false, nextCursor: null },
     });
+  }
+
+  if (request.pathname === '/api/support/tickets' && request.method === 'POST') {
+    if (operationsMode === 'support-error') {
+      return createStoryJsonResponse({ message: 'support unavailable' }, 503);
+    }
+
+    return createStoryJsonResponse({
+      ticket:
+        operationsMode === 'support-enforcement-list'
+          ? createEnforcementAppealTicket()
+          : createReportAppealTicket(),
+    });
+  }
+
+  if (request.pathname === '/api/reports' && request.method === 'GET') {
+    if (operationsMode === 'support-error') {
+      return createStoryJsonResponse({ message: 'support unavailable' }, 503);
+    }
+
+    return createStoryJsonResponse(createReportListResponse(operationsMode));
+  }
+
+  if (request.pathname === '/api/enforcements' && request.method === 'GET') {
+    if (operationsMode === 'support-error') {
+      return createStoryJsonResponse({ message: 'support unavailable' }, 503);
+    }
+
+    return createStoryJsonResponse(createEnforcementListResponse(operationsMode));
   }
 
   if (
@@ -274,11 +314,12 @@ function resolveOperationsFixtureResponse(
       return createStoryJsonResponse({ message: 'support unavailable' }, 503);
     }
 
+    const ticket = resolveSupportTicketFromPath(operationsMode, request.pathname);
     return createStoryJsonResponse({
-      ticket: { ...createSupportTicket(), status: 'WAITING_OPERATOR', lastMessageAt: ISO_NOW },
+      ticket: { ...ticket, status: 'WAITING_OPERATOR', lastMessageAt: ISO_NOW },
       message: {
-        id: 'story-support-message-user-1',
-        ticketId: 'story-support-ticket-1',
+        id: `story-support-message-user-${ticket.id}-${storySupportMessageSequence++}`,
+        ticketId: ticket.id,
         senderType: 'USER',
         createdAt: ISO_NOW,
         body: '추가 확인을 부탁드려요.',
@@ -291,15 +332,19 @@ function resolveOperationsFixtureResponse(
       return createStoryJsonResponse({ message: 'support unavailable' }, 503);
     }
 
+    const ticket = resolveSupportTicketFromPath(operationsMode, request.pathname);
     return createStoryJsonResponse({
-      ticket: createSupportTicket(),
+      ticket,
       messages: [
         {
           id: 'story-support-message-operator-1',
-          ticketId: 'story-support-ticket-1',
+          ticketId: ticket.id,
           senderType: 'OPERATOR',
           createdAt: ISO_NOW,
-          body: '문의 내용을 확인하고 있어요. 필요한 경우 추가 안내를 드릴게요.',
+          body:
+            ticket.category === 'APPEAL'
+              ? '신고 처리 결과에 대한 이의 내용을 확인하고 있어요. 필요한 경우 이 thread로 답변드릴게요.'
+              : '문의 내용을 확인하고 있어요. 필요한 경우 추가 안내를 드릴게요.',
         },
       ],
     });
@@ -415,6 +460,21 @@ function createNotification(operationsMode: HomeStoryOperationsMode): UserNotifi
           occurredAt: ISO_NOW,
         },
       };
+    case 'notifications-enforcement-notice':
+      return {
+        ...base,
+        actorUserId: 'story-operator-1',
+        kind: 'ENFORCEMENT_NOTICE',
+        sourceType: 'ENFORCEMENT_NOTICE',
+        sourceId: 'season-participant:story-participant-enforcement-1',
+        payload: {
+          kind: 'ENFORCEMENT_NOTICE',
+          enforcementNoticeId: 'season-participant:story-participant-enforcement-1',
+          actionType: 'MATCHING_RESTRICTION',
+          reasonCategory: 'HATE_OR_DISCRIMINATION',
+          occurredAt: ISO_NOW,
+        },
+      };
     case 'notifications-season-system-notice':
       return {
         ...base,
@@ -461,7 +521,64 @@ function createNotification(operationsMode: HomeStoryOperationsMode): UserNotifi
   }
 }
 
-function createSupportTicket(): SupportTicketResponse {
+function resolveSupportTicketFromPath(
+  operationsMode: HomeStoryOperationsMode,
+  pathname: string,
+): SupportTicketResponse {
+  const ticketId = decodeURIComponent(pathname.split('/').at(4) ?? '');
+  if (ticketId === 'story-support-report-ticket-1') return createReportAppealTicket();
+  if (ticketId === 'story-support-enforcement-ticket-1') return createEnforcementAppealTicket();
+  return createSupportTicket(operationsMode);
+}
+
+function createSupportTicketItems(
+  operationsMode: HomeStoryOperationsMode,
+): SupportTicketResponse[] {
+  if (operationsMode === 'support-empty') return [];
+  if (operationsMode === 'support-report-list') {
+    return [createReportAppealTicket(), createSupportTicket(operationsMode)];
+  }
+  if (operationsMode === 'support-enforcement-list') {
+    return [createEnforcementAppealTicket(), createSupportTicket(operationsMode)];
+  }
+  return [createSupportTicket(operationsMode)];
+}
+
+function createSupportTicket(
+  operationsMode: HomeStoryOperationsMode = 'loaded',
+): SupportTicketResponse {
+  if (operationsMode === 'support-report-list') {
+    return {
+      id: 'story-support-ticket-2',
+      category: 'REPORT_OR_BLOCK',
+      subject: '차단 상태 문의',
+      status: 'WAITING_OPERATOR',
+      relatedEntityId: null,
+      appealCategory: null,
+      emailReplyConsent: false,
+      lastMessageAt: ISO_NOW,
+      closedAt: null,
+      createdAt: ISO_NOW,
+      updatedAt: ISO_NOW,
+    };
+  }
+
+  if (operationsMode === 'support-enforcement-list') {
+    return {
+      id: 'story-support-ticket-2',
+      category: 'REPORT_OR_BLOCK',
+      subject: '제재 알림 문의',
+      status: 'WAITING_OPERATOR',
+      relatedEntityId: null,
+      appealCategory: null,
+      emailReplyConsent: false,
+      lastMessageAt: ISO_NOW,
+      closedAt: null,
+      createdAt: ISO_NOW,
+      updatedAt: ISO_NOW,
+    };
+  }
+
   return {
     id: 'story-support-ticket-1',
     category: 'MATCHING',
@@ -475,6 +592,101 @@ function createSupportTicket(): SupportTicketResponse {
     createdAt: ISO_NOW,
     updatedAt: ISO_NOW,
   };
+}
+
+function createReportAppealTicket(): SupportTicketResponse {
+  return {
+    id: 'story-support-report-ticket-1',
+    category: 'APPEAL',
+    subject: '신고 처리 이의 신청',
+    status: 'WAITING_USER',
+    relatedEntityId: 'story-report-1',
+    appealCategory: 'REPORT_RESULT',
+    emailReplyConsent: false,
+    lastMessageAt: ISO_NOW,
+    closedAt: null,
+    createdAt: ISO_NOW,
+    updatedAt: ISO_NOW,
+  };
+}
+
+function createEnforcementAppealTicket(): SupportTicketResponse {
+  return {
+    id: 'story-support-enforcement-ticket-1',
+    category: 'APPEAL',
+    subject: '이용 제한 이의 신청',
+    status: 'WAITING_USER',
+    relatedEntityId: 'season-participant:story-participant-enforcement-1',
+    appealCategory: 'TEMPORARY_RESTRICTION',
+    emailReplyConsent: false,
+    lastMessageAt: ISO_NOW,
+    closedAt: null,
+    createdAt: ISO_NOW,
+    updatedAt: ISO_NOW,
+  };
+}
+
+function createReportListResponse(operationsMode: HomeStoryOperationsMode): ReportListResponse {
+  const items: ReportListItem[] =
+    operationsMode === 'support-report-list'
+      ? [
+          {
+            id: 'story-report-1',
+            targetType: 'PROFILE',
+            targetLabel: '지우님',
+            reason: 'FALSE_PROFILE',
+            receivedAt: ISO_NOW,
+            status: 'RECEIVED',
+          },
+          {
+            id: 'story-report-2',
+            targetType: 'CHAT_THREAD',
+            targetLabel: '대화 상대',
+            reason: 'SPAM_OR_AD',
+            receivedAt: '2026-07-02T09:00:00.000Z',
+            status: 'RECEIVED',
+          },
+        ]
+      : [];
+
+  return { items, pageInfo: { hasNextPage: false, nextCursor: null } };
+}
+
+function createEnforcementListResponse(
+  operationsMode: HomeStoryOperationsMode,
+): EnforcementNoticeListResponse {
+  const items: EnforcementNotice[] =
+    operationsMode === 'support-enforcement-list'
+      ? [
+          {
+            id: 'season-participant:story-participant-enforcement-1',
+            actionType: 'MATCHING_RESTRICTION',
+            reasonCategory: 'HATE_OR_DISCRIMINATION',
+            status: 'ACTIVE',
+            seasonLabel: '2026년 2학기',
+            scopeLabel: '2026년 2학기 · 다산관 룸메 탐색/매칭',
+            policyBasisSummary:
+              '신고 또는 운영 검토에서 서비스 이용 기준 위반이 확인된 경우 적용돼요.',
+            effectiveFrom: ISO_NOW,
+            effectiveUntil: '2026-08-31T00:00:00.000Z',
+            createdAt: ISO_NOW,
+          },
+          {
+            id: 'season-participant:story-participant-enforcement-2',
+            actionType: 'WARNING',
+            reasonCategory: 'FALSE_PROFILE',
+            status: 'ENDED',
+            seasonLabel: '2026년 1학기',
+            scopeLabel: '2026년 1학기 룸메 탐색/매칭',
+            policyBasisSummary: '서비스 이용 기준에 따라 필요한 범위에서 적용된 제한이에요.',
+            effectiveFrom: '2026-04-10T00:00:00.000Z',
+            effectiveUntil: '2026-06-30T00:00:00.000Z',
+            createdAt: '2026-04-10T00:00:00.000Z',
+          },
+        ]
+      : [];
+
+  return { items, pageInfo: { hasNextPage: false, nextCursor: null } };
 }
 
 function createSupportFaq(): SupportFaqItem {
