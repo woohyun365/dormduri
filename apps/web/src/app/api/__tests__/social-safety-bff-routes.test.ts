@@ -14,7 +14,7 @@ import {
 } from '../bookmarks/[targetUserId]/route';
 import { GET as listBlocks } from '../blocks/route';
 import { DELETE as deleteBlock, POST as createBlock } from '../blocks/[targetUserId]/route';
-import { POST as createReport } from '../reports/route';
+import { GET as listReports, POST as createReport } from '../reports/route';
 import { GET as listSupportFaq } from '../support/faq/route';
 import { GET as getSupportFaq } from '../support/faq/[articleId]/route';
 import { GET as listSupportTickets, POST as createSupportTicket } from '../support/tickets/route';
@@ -175,7 +175,28 @@ describe('social-safety/support/notification BFF forwarding routes', () => {
     expect(firstFetchInit(deleteFetchMock)).not.toHaveProperty('body');
   });
 
-  it('report BFF는 intake body만 전달하고 operations/decision route를 만들지 않는다', async () => {
+  it('report BFF는 내 신고 내역 query와 intake body만 전달하고 operations/decision route를 만들지 않는다', async () => {
+    const listFetchMock = stubJsonFetch({
+      items: [],
+      pageInfo: { hasNextPage: false, nextCursor: null },
+    });
+    const listRequest = createRequest('/api/reports?limit=10&cursor=c1&ignored=1', {
+      headers: { Cookie: `auth-token=${AUTH_TOKEN}` },
+    });
+
+    await listReports(listRequest);
+
+    expect(firstFetchInput(listFetchMock)).toBe(
+      'http://localhost:4000/api/reports?limit=10&cursor=c1&ignored=1',
+    );
+    expect(firstFetchInit(listFetchMock)).toEqual(
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: `Bearer ${AUTH_TOKEN}` }),
+      }),
+    );
+
+    vi.unstubAllGlobals();
     const fetchMock = stubJsonFetch({ received: true });
     const body = {
       targetType: 'PROFILE',

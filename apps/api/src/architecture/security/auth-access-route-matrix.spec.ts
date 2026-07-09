@@ -475,6 +475,13 @@ const expectedRoutes: ExpectedRoute[] = [
 
   {
     controller: ReportController,
+    handler: 'listOwn',
+    method: RequestMethod.GET,
+    path: 'api/reports',
+    access: 'protected',
+  },
+  {
+    controller: ReportController,
     handler: 'create',
     method: RequestMethod.POST,
     path: 'api/reports',

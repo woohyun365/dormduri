@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { ReportOptionalActionResult } from '@repo/shared/social-safety/report';
 import type { Prisma } from '../../../generated/prisma/client.js';
 import type { ReportCaseEventType } from '../../../generated/prisma/enums.js';
+import type { ReportListCursor } from '../queries/report-list.cursor.js';
 import { PrismaService } from '../../../platform/database/prisma.service.js';
 
 export const reportCaseRecordSelect = {
@@ -42,6 +43,22 @@ export type ReportRepositoryClient = Pick<
 @Injectable()
 export class ReportRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  findForReporter(input: {
+    reporterUserId: string;
+    cursor: ReportListCursor | null;
+    limit: number;
+  }): Promise<ReportCaseRecord[]> {
+    return this.prisma.reportCase.findMany({
+      where: {
+        reporterUserId: input.reporterUserId,
+        ...(input.cursor ? reportListCursorWhere(input.cursor) : {}),
+      },
+      orderBy: [{ receivedAt: 'desc' }, { id: 'desc' }],
+      take: input.limit + 1,
+      select: reportCaseRecordSelect,
+    });
+  }
 
   findOpenCase(input: {
     client?: ReportRepositoryClient;
@@ -154,4 +171,13 @@ export class ReportRepository {
       })
       .then(() => undefined);
   }
+}
+
+function reportListCursorWhere(cursor: ReportListCursor): Prisma.ReportCaseWhereInput {
+  return {
+    OR: [
+      { receivedAt: { lt: cursor.receivedAt } },
+      { receivedAt: cursor.receivedAt, id: { lt: cursor.id } },
+    ],
+  };
 }
